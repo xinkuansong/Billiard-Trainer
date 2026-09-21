@@ -177,7 +177,8 @@ enum ShotPredictor {
         _ input: ShotInput,
         maxEvents: Int = 500,
         maxTime: Float = 15.0,
-        useAimCandidatePruning: Bool = true
+        useAimCandidatePruning: Bool = true,
+        bankCancellation: PredictionCancellation? = nil
     ) -> ShotPrediction {
         // 1) 瞄准几何 + 可行性闸门（不可进直接返回）。
         var result = ShotPrediction()
@@ -186,7 +187,7 @@ enum ShotPredictor {
         // 1b) 翻袋反解（W1）：四层管线求瞄准偏移 + 代表解引擎全保真终验物化。
         if let rails = input.bankRails, !rails.isEmpty {
             return predictBank(input: input, rails: rails, context: ctx, result: result,
-                               maxEvents: maxEvents, maxTime: maxTime)
+                               maxEvents: maxEvents, maxTime: maxTime, cancellation: bankCancellation)
         }
         // 1c) 反射/kick 反解（W2）：同管线（种子 → 解析目标函数 → 歧义回退 → 终验物化）。
         if let rails = input.kickRails, !rails.isEmpty {
@@ -383,7 +384,8 @@ enum ShotPredictor {
     static func buildPrediction(
         finalAim: SCNVector3, context ctx: AimContext, input: ShotInput,
         result: ShotPrediction, maxEvents: Int, maxTime: Float,
-        includePresentation: Bool = true, searchEarlyStop: Bool = false
+        includePresentation: Bool = true, searchEarlyStop: Bool = false,
+        cancellation: PredictionCancellation? = nil
     ) -> ShotPrediction {
         var result = result
         let y = input.surfaceY
@@ -403,8 +405,9 @@ enum ShotPredictor {
             aimDir: finalAim, velocity: input.velocity, input: input,
             geometry: ctx.geometry, pocketCenter: ctx.pocketCenter, ghost: ctx.ghost,
             maxEvents: maxEvents, maxTime: maxTime, highFidelity: true,
-            earlyStop: searchEarlyStop
+            earlyStop: searchEarlyStop, cancellation: cancellation
         )
+        if cancellation?.isCancelled == true { return cancelledPrediction() }
 #if DEBUG
         let postStart = Date()   // B0 分段计时：buildPrediction 后处理（polyline/extraPaths 等）
 #endif
@@ -527,8 +530,10 @@ enum ShotPredictor {
         maxTime: Float = 15.0,
         includePresentation: Bool = true,
         earlyStopBallNames: Set<String>? = nil,
-        simulationModel:EventDrivenEngine.SimulationModel = .appDefault
+        simulationModel:EventDrivenEngine.SimulationModel = .appDefault,
+        cancellation: PredictionCancellation? = nil
     ) -> ShotPrediction {
+        if cancellation?.isCancelled == true { return cancelledPrediction() }
         let y = surfaceY
         let r = BallPhysics.radius
         let len = sqrtf(aimDir.x * aimDir.x + aimDir.z * aimDir.z)
@@ -540,6 +545,7 @@ enum ShotPredictor {
         )
         let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: y)
         let engine = EventDrivenEngine(tableGeometry: geometry)
+        if let cancellation { engine.predictionCancellationRequested = { cancellation.isCancelled } }
         engine.setBall(BallState(
             position: SCNVector3(cueBall.x, y + r, cueBall.z),
             velocity: strike.velocity, angularVelocity: strike.angularVelocity,
@@ -560,6 +566,7 @@ enum ShotPredictor {
             engine.simulatePrediction(model:simulationModel,maxEvents: maxEvents, maxTime: maxTime, highFidelityBounds: true,
                             earlyStopBallNames: earlyStopBallNames)
         }
+        if cancellation?.isCancelled == true { return cancelledPrediction() }
         if includePresentation, earlyStopBallNames == nil {
             termination = engine.completePlanarSpinTail(after: termination, surfaceY: y)
         }
@@ -694,7 +701,8 @@ enum ShotPredictor {
         aimDir: SCNVector3, velocity: Float, input: ShotInput,
         geometry: TableGeometry, pocketCenter: SCNVector3, ghost: SCNVector3,
         maxEvents: Int, maxTime: Float, highFidelity: Bool = false, earlyStop: Bool = false,
-        stopAfterContact: Bool = false, rejectDirectCandidate: Bool = false
+        stopAfterContact: Bool = false, rejectDirectCandidate: Bool = false,
+        cancellation: PredictionCancellation? = nil
     ) -> RunResult {
         let y = input.surfaceY
         let r = BallPhysics.radius
@@ -703,6 +711,7 @@ enum ShotPredictor {
             spinX: input.spinX, spinY: input.spinY, elevation: input.elevation
         )
         let engine = EventDrivenEngine(tableGeometry: geometry)
+        if let cancellation { engine.predictionCancellationRequested = { cancellation.isCancelled } }
         engine.setBall(BallState(
             position: SCNVector3(input.cueBall.x, y + r, input.cueBall.z),
             velocity: strike.velocity, angularVelocity: strike.angularVelocity,
@@ -1000,7 +1009,8 @@ enum ShotPredictor {
     /// **绝不回退几何解**（jaw 截断口径，方案 §2.3）。
     private static func predictBank(
         input: ShotInput, rails: [BankShotCalculator.Rail], context ctx: AimContext,
-        result: ShotPrediction, maxEvents: Int, maxTime: Float
+        result: ShotPrediction, maxEvents: Int, maxTime: Float,
+        cancellation: PredictionCancellation? = nil
     ) -> ShotPrediction {
         let deg = Float.pi / 180
         let half = BankScoring.searchHalfRangeDeg * deg
@@ -1021,6 +1031,7 @@ enum ShotPredictor {
         var scan: [(off: Float, s: Float)] = []
         var evalsAfterPotted = -1
         for o in offsets {
+            guard cancellation?.isCancelled != true else { return result }
             let s: Float
             if let analytic = bankAnalyticScore(offset: o, input: input, context: ctx, rails: rails) {
                 s = analytic
@@ -1044,6 +1055,7 @@ enum ShotPredictor {
         // 预算耗尽后歧义点按无效处理——精修退化为「以粗扫点直接进终验」，判定口径不变。
         var refineEngineBudget = BankScoring.maxScanEngineEvals
         func score(_ offset: Float) -> Float {
+            guard cancellation?.isCancelled != true else { return BankScoring.invalid }
             if let s = bankAnalyticScore(offset: offset, input: input, context: ctx, rails: rails) {
                 return s
             }
@@ -1084,12 +1096,14 @@ enum ShotPredictor {
         // 预测携带，展示层按实测重标（种子库序只作搜索锚，标签/库数不再取种子声明）。
         var firstProbe: (off: Float, pred: ShotPrediction)?
         for off in refined {
+            guard cancellation?.isCancelled != true else { return result }
             let probe = buildPrediction(
                 finalAim: ctx.aimDir.rotatedY(off), context: ctx, input: input,
                 result: result, maxEvents: maxEvents, maxTime: maxTime,
                 includePresentation: false, searchEarlyStop: true
             )
             if probe.simObjectPotted && probe.cueCushionsBeforeContact == 0 {
+                guard cancellation?.isCancelled != true else { return result }
                 var final = buildPrediction(
                     finalAim: ctx.aimDir.rotatedY(off), context: ctx, input: input,
                     result: result, maxEvents: maxEvents, maxTime: maxTime
@@ -1350,18 +1364,22 @@ enum ShotPredictor {
     /// `baseInput.bankRails` 由本函数逐条覆盖，调用方无需预置。
     static func predictBankAll(
         _ baseInput: ShotInput, maxCushions: Int = 3,
-        maxEvents: Int = 500, maxTime: Float = 15.0
+        maxEvents: Int = 500, maxTime: Float = 15.0,
+        cancellation: PredictionCancellation? = nil
     ) -> [(rails: [BankShotCalculator.Rail], prediction: ShotPrediction)] {
+        guard cancellation?.isCancelled != true else { return [] }
         let sequences = BankShotCalculator.candidateRailSequences(maxCushions: maxCushions)
         var predictions = [ShotPrediction?](repeating: nil, count: sequences.count)
         predictions.withUnsafeMutableBufferPointer { buf in
             let base = buf.baseAddress!
             DispatchQueue.concurrentPerform(iterations: sequences.count) { i in
+                guard cancellation?.isCancelled != true else { return }
                 var input = baseInput
                 input.bankRails = sequences[i]
-                (base + i).pointee = predict(input, maxEvents: maxEvents, maxTime: maxTime)
+                (base + i).pointee = predict(input, maxEvents: maxEvents, maxTime: maxTime, bankCancellation: cancellation)
             }
         }
+        guard cancellation?.isCancelled != true else { return [] }
         var out: [(rails: [BankShotCalculator.Rail], prediction: ShotPrediction)] = []
         for (i, rails) in sequences.enumerated() {
             guard let pred = predictions[i], pred.feasible, pred.simObjectPotted else { continue }
@@ -1605,20 +1623,30 @@ extension ShotPredictor {
     /// `includePresentation: false` = scoring-only 搜索模式（B1）：跳过展示后处理 + 引擎
     /// 「母球+目标球命运已定」早停；物理与判定结果不变。代表解上屏前必须用同一
     /// `prediction.aimOffsetUsed` 以默认 `true` 重建完整 prediction。
+    private static func cancelledPrediction() -> ShotPrediction {
+        var result = ShotPrediction()
+        result.termination = .cancelled
+        result.feasible = false
+        result.infeasibleReason = "Prediction cancelled"
+        return result
+    }
+
     static func predictForPositionSolve(
         _ input: ShotInput, aimOffset: Float? = nil,
         maxEvents: Int = 500, maxTime: Float = 15.0,
-        includePresentation: Bool = true
+        includePresentation: Bool = true, cancellation: PredictionCancellation? = nil
     ) -> ShotPrediction {
+        if cancellation?.isCancelled == true { return cancelledPrediction() }
         var result = ShotPrediction()
         guard let ctx = prepareAim(input, into: &result) else { return result }
         let offset = aimOffset ?? positionAimOffset(input: input, context: ctx)
+        if cancellation?.isCancelled == true { return cancelledPrediction() }
         result.aimOffsetUsed = offset
         let finalAim = ctx.aimDir.rotatedY(offset)
         return buildPrediction(finalAim: finalAim, context: ctx, input: input,
                                result: result, maxEvents: maxEvents, maxTime: maxTime,
                                includePresentation: includePresentation,
-                               searchEarlyStop: !includePresentation)
+                               searchEarlyStop: !includePresentation, cancellation: cancellation)
     }
 
     /// 轻量一维瞄准：方向景观平滑单峰（见 `solveAimOffset` 注释），用**黄金分割**求极小，

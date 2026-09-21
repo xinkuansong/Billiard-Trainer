@@ -271,7 +271,8 @@ enum BankKickSolvePipeline {
     static func solveBank(
         cue: SCNVector3, object: SCNVector3, pocketIndex: Int,
         surfaceY: Float, power: Float, obstacles: [ObstacleBall] = [],
-        spinXValues: [Float] = sideSpinSearchValues
+        spinXValues: [Float] = sideSpinSearchValues,
+        cancellation: PredictionCancellation? = nil
     ) -> [BankEngineSolution] {
         let dx = Double(cue.x - object.x), dz = Double(cue.z - object.z)
         let distance = (dx * dx + dz * dz).squareRoot()
@@ -279,12 +280,14 @@ enum BankKickSolvePipeline {
         let frozenSet = BankShotCalculator.frozenRails(for: object)
         var solutions: [BankEngineSolution] = []
         for sx in spinXValues {
+            guard cancellation?.isCancelled != true else { return [] }
             var input = ShotInput(
                 cueBall: cue, targetBall: object, pocketIndex: pocketIndex,
                 velocity: power, spinX: sx, spinY: 0, surfaceY: surfaceY
             )
             input.obstacles = obstacles
-            for (seedRails, pred) in ShotPredictor.predictBankAll(input) {
+            for (seedRails, pred) in ShotPredictor.predictBankAll(input, cancellation: cancellation) {
+                guard cancellation?.isCancelled != true else { return [] }
                 let pathLength = Double(polylineLengthXZ(pred.objectPath))
                 // 库序/库数取**实测主库序**（贴库首弹重建补回；jaw 擦碰不计——
                 // `objectCushionCount` 含 jaw 会失真「画面 1 库、读数 5 库」）。
@@ -315,7 +318,7 @@ enum BankKickSolvePipeline {
                 ))
             }
         }
-        return rank(solutions, limit: bankSolutionLimit)
+        return cancellation?.isCancelled == true ? [] : rank(solutions, limit: bankSolutionLimit)
     }
 
     /// 反射全枚举 → 装配难度/容错 → 好打优先排序 → 去重取前 N。

@@ -14,9 +14,13 @@ import SceneKit
 class EventDrivenEngine {
     /// Why the requested simulation stopped; a time/event limit is not a rest state.
     enum Termination: Equatable {
-        case settled, timeLimit, eventLimit, contactResolved, interestResolved, candidateRejected
+        case settled, timeLimit, eventLimit, contactResolved, interestResolved, candidateRejected, cancelled
         case failed(String)
     }
+
+    /// Per-job cancellation only; incomplete runs must never be published as shots.
+    /// Nil preserves the existing simulation path and numerical work.
+    var predictionCancellationRequested: (() -> Bool)?
 
     enum SimulationModel: Equatable {
         case planarReference
@@ -42,6 +46,7 @@ class EventDrivenEngine {
                             highFidelityBounds:Bool=false,earlyStopBallNames:Set<String>?=nil,
                             stopAfterContactBetween:(String,String)?=nil,maxLocalSteps:Int=100000,
                             rejectCushionBeforeAnyContactFor:String?=nil)->Termination {
+        if predictionCancellationRequested?() == true { return .cancelled }
         switch model {
         case .planarReference:
             return simulate(maxEvents:maxEvents,maxTime:maxTime,highFidelityBounds:highFidelityBounds,
@@ -433,6 +438,7 @@ class EventDrivenEngine {
         defer { phaseClock.flush() }
         recordSnapshot()
         while time<maxTime {
+            if predictionCancellationRequested?() == true { termination = .cancelled; break }
             if rejectsDirectCandidate(cue: rejectCushionBeforeAnyContactFor) {
                 termination = .candidateRejected; break
             }
@@ -918,6 +924,8 @@ class EventDrivenEngine {
         PerformanceProfiler.begin(ProfilerLabel.simulate)
         defer { PerformanceProfiler.end(ProfilerLabel.simulate) }
 
+        if predictionCancellationRequested?() == true { return .cancelled }
+
         // Run a more thorough initial separation before the first event search.
         // A single pass of 6 iterations is not enough for a densely packed rack where
         // ball positions may carry up to ~16 mm of initial overlap. 50 iterations with
@@ -928,6 +936,7 @@ class EventDrivenEngine {
         var zeroTimeEventStreak = 0
         
         while eventCount < maxEvents && currentTime < maxTime {
+            if predictionCancellationRequested?() == true { return .cancelled }
             if rejectsDirectCandidate(cue: rejectCushionBeforeAnyContactFor) { return .candidateRejected }
             // Zero-duration transitions can finish a ball at this same instant.
             // Once every ball is at rest, do not append an artificial maxTime tail.

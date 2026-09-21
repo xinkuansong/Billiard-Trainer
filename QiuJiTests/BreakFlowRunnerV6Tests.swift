@@ -571,3 +571,114 @@ extension BreakFlowRunnerV6Tests {
         print("[W17 break rails] retained=\(rails.balls.map(\.key)) delivery/rerack/cancel checked")
     }
 }
+
+// Test-only GPU timing for the real shared break/playback pipeline.
+import MetalKit
+
+extension BreakFlowRunnerV6Tests {
+    @MainActor
+    func testDailyBreakPlaybackGPU() async throws {
+        let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("build/daily-performance-20260920/expanded")
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: directory.appendingPathComponent("run-diagnostics").path),
+                          "Explicit daily-clearance diagnostic run required")
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
+        for (trial, is3D) in [false, true, false, true].enumerated() {
+            let label = "break-\(is3D ? "3d" : "2d")-trial\(trial)"
+            let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: true)
+            scene.setupVisualizationNodes()
+            let runner = BreakFlowRunner(scene: scene, game: .chineseEightBall, seed: 52)
+            runner.velocity = 8; runner.rackUp()
+            let rack = RackLayout.make(.chineseEightBall, seed: 52, surfaceY: scene.surfaceY)
+            scene.setCameraMode(is3D ? .perspective3D : .topDown2DRotated, animated: false)
+            if is3D {
+                scene.cameraRig?.enterAiming(cueBallPosition: rack.cue, targetDirection: BreakSimulator.aimAtApex(rack: rack, from: rack.cue))
+                for _ in 0..<120 { scene.cameraRig?.update(deltaTime: 1/60) }
+            } else {
+                scene.cameraRig?.fitRotatedTable(viewSize: window.bounds.size)
+                scene.cameraRig?.applyTopDown2DRotated()
+            }
+            let view = MTKView(frame: window.bounds, device: device)
+            view.colorPixelFormat = .bgra8Unorm_srgb; view.depthStencilPixelFormat = .depth32Float_stencil8
+            view.sampleCount = 4; view.preferredFramesPerSecond = 60; view.framebufferOnly = false
+            let probe = DailyBreakGPUProbe(scene: scene, device: device, runner: runner)
+            view.delegate = probe; window.addSubview(view)
+            defer { runner.cancel(); view.isPaused = true; view.delegate = nil; view.removeFromSuperview() }
+            try await Task.sleep(for: .seconds(2))
+            let startFrame = probe.frame
+            let start = CACurrentMediaTime()
+            runner.breakNow()
+            var phases: [[String: Any]] = []
+            var previous: BreakFlowRunner.Phase?
+            while runner.phase != .settled && CACurrentMediaTime()-start < 40 {
+                if previous != runner.phase {
+                    previous = runner.phase
+                    phases.append(["time": CACurrentMediaTime()-start, "phase": String(describing: runner.phase)])
+                }
+                try await Task.sleep(for: .milliseconds(50))
+            }
+            phases.append(["time": CACurrentMediaTime()-start, "phase": String(describing: runner.phase)])
+            try await Task.sleep(for: .seconds(1))
+            view.isPaused = true
+            try await Task.sleep(for: .milliseconds(500))
+            let rows = probe.samples.snapshot().filter { ($0["frame"] ?? -1) >= Double(startFrame) }
+            let report: [String: Any] = ["name": label, "gpuDevice": device.name,
+                "phases": phases, "frames": rows, "width": view.drawableSize.width, "height": view.drawableSize.height,
+                "requestedFPS": 60, "screenMaximumFPS": window.screen.maximumFramesPerSecond,
+                "duration": CACurrentMediaTime()-start, "allocatedStart": 0, "allocatedEnd": 0,
+                "note": "Real BreakFlowRunner seed52 power8, same board/trajectory in 2D and 3D; MTKView replaces SCNView for command-buffer timing. Phase1=computing, phase2=breaking, phase3=settled. Host GPU, not device energy/presented frames."]
+            let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+            try data.write(to: directory.appendingPathComponent(label + ".json"))
+            XCTAssertEqual(runner.phase, .settled)
+            XCTAssertGreaterThan(rows.filter { $0["phase"] == 2 }.count, 60)
+            XCTAssertEqual(rows.filter { ($0["error"] ?? 0) > 0 }.count, 0)
+        }
+    }
+}
+
+private final class DailyBreakGPUSamples: @unchecked Sendable {
+    private let lock = NSLock()
+    private var rows: [Int: [String: Double]] = [:]
+    func set(_ id: Int, _ values: [String: Double]) {
+        lock.lock(); defer { lock.unlock() }
+        for (key, value) in values { rows[id, default: [:]][key] = value }
+    }
+    func snapshot() -> [[String: Double]] {
+        lock.lock(); defer { lock.unlock() }
+        return rows.keys.sorted().compactMap { rows[$0] }
+    }
+}
+@MainActor private final class DailyBreakGPUProbe: NSObject, MTKViewDelegate {
+    let samples = DailyBreakGPUSamples()
+    let renderer: SCNRenderer
+    let queue: MTLCommandQueue
+    let runner: BreakFlowRunner
+    var frame = 0
+    init(scene: AngleTrainingScene, device: MTLDevice, runner: BreakFlowRunner) {
+        self.runner = runner
+        renderer = SCNRenderer(device: device, options: nil)
+        queue = device.makeCommandQueue()!
+        super.init()
+        renderer.scene = scene; renderer.pointOfView = scene.cameraNode
+        renderer.delegate = scene.contactOcclusion
+        renderer.autoenablesDefaultLighting = false
+    }
+    func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+    func draw(in view: MTKView) {
+        let start = CACurrentMediaTime()
+        guard let drawable = view.currentDrawable, let pass = view.currentRenderPassDescriptor,
+              let command = queue.makeCommandBuffer() else { return }
+        let id = frame; frame += 1
+        let phase: Double
+        switch runner.phase { case .racked: phase=0; case .computing: phase=1; case .breaking: phase=2; case .settled: phase=3 }
+        renderer.render(atTime: start, viewport: CGRect(origin: .zero, size: view.drawableSize), commandBuffer: command, passDescriptor: pass)
+        samples.set(id, ["frame": Double(id), "phase": phase, "start": start, "cpuMS": (CACurrentMediaTime()-start)*1000])
+        let samples = samples
+        command.addCompletedHandler { buffer in
+            samples.set(id, ["gpuMS": (buffer.gpuEndTime-buffer.gpuStartTime)*1000,
+                             "error": buffer.status == .error ? 1 : 0])
+        }
+        command.present(drawable); command.commit()
+    }
+}

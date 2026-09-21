@@ -231,6 +231,8 @@ final class AngleTrainingScene: SCNScene {
         tableAppearance = nil
         clothAppearance = nil
         assistSurface = nil
+        idealObjectGeometryLine = nil
+        freeAimPreviewGeometryLine = nil
         tableGridNeedsRebuild = true
         assistSurfaceFailed = false
         modelCueStickNode = model.cueStickNode
@@ -1417,19 +1419,21 @@ final class AngleTrainingScene: SCNScene {
 
     /// One flat assist node from already-clipped triangles (constant colour, no depth write).
     private func makeTableAssistNode(vertices: [SCNVector3], uv: [CGPoint]? = nil,
-                                     color: UIColor, layer: TableAssistLayer) -> SCNNode {
-        guard !vertices.isEmpty else { return SCNNode() }
+                                     color: UIColor, layer: TableAssistLayer, reusing node: SCNNode? = nil) -> SCNNode {
+        let node = node ?? SCNNode()
+        guard !vertices.isEmpty else { node.geometry = nil; return node }
         var sources = [SCNGeometrySource(vertices: vertices)]
         if let uv { sources.append(SCNGeometrySource(textureCoordinates: uv)) }
         let geometry = SCNGeometry(sources: sources, elements: [
             SCNGeometryElement(indices: (0..<vertices.count).map(Int32.init), primitiveType: .triangles)])
-        let material = SCNMaterial()
+        let material = node.geometry?.firstMaterial ?? SCNMaterial()
         material.diffuse.contents = color
         material.lightingModel = .constant
         material.readsFromDepthBuffer = true
         material.writesToDepthBuffer = false
         geometry.materials = [material]
-        let node = SCNNode(geometry: geometry)
+        node.geometry = geometry
+        node.transform = SCNMatrix4Identity
         node.renderingOrder = layer.rawValue
         node.name = "tableProjectedAssist"
         node.castsShadow = false
@@ -1437,18 +1441,23 @@ final class AngleTrainingScene: SCNScene {
     }
 
     private func makeTableSegment(from start: SCNVector3, to end: SCNVector3,
-                                  color: UIColor, radius: Float, layer: TableAssistLayer = .route) -> SCNNode {
+                                  color: UIColor, radius: Float, layer: TableAssistLayer = .route,
+                                  reusing node: SCNNode? = nil) -> SCNNode {
         guard let surface = loadedAssistSurface() else {
-            return makeSegment(from: start, to: end, color: color, radius: radius)
+            let replacement = makeSegment(from: start, to: end, color: color, radius: radius)
+            guard let node else { return replacement }
+            node.geometry = replacement.geometry
+            node.transform = replacement.transform
+            node.castsShadow = false
+            return node
         }
         let vertices = tableRibbonVertices(from: start, to: end, radius: radius, surface: surface)
-        guard !vertices.isEmpty else { return SCNNode() }
         let dx = end.x - start.x, dz = end.z - start.z
         let lengthSquared = dx * dx + dz * dz
         let uv = vertices.map { point in
             CGPoint(x: 0.5, y: CGFloat(((point.x - start.x) * dx + (point.z - start.z) * dz) / lengthSquared))
         }
-        return makeTableAssistNode(vertices: vertices, uv: uv, color: color, layer: layer)
+        return makeTableAssistNode(vertices: vertices, uv: uv, color: color, layer: layer, reusing: node)
     }
 
     @discardableResult
@@ -1496,16 +1505,29 @@ final class AngleTrainingScene: SCNScene {
                        radius: Float = 0.003, dash: Float = TrajectoryStyle.hintDash,
                        gap: Float = TrajectoryStyle.hintGap,
                        placement: AssistLinePlacement = .spatial, layer: TableAssistLayer = .route) -> SCNNode {
-        let parent = SCNNode()
+        makeDashedLine(from: start, to: end, color: color, radius: radius, dash: dash,
+                       gap: gap, placement: placement, layer: layer)
+    }
+
+    private func makeDashedLine(from start: SCNVector3, to end: SCNVector3, color: UIColor,
+                                radius: Float, dash: Float, gap: Float,
+                                placement: AssistLinePlacement, layer: TableAssistLayer,
+                                reusing cached: SCNNode? = nil) -> SCNNode {
+        let parent = cached ?? SCNNode()
+        let reusable = parent.childNodes.first
         let dx = end.x - start.x, dy = placement == .table ? 0 : end.y - start.y, dz = end.z - start.z
         let total = sqrtf(dx * dx + dy * dy + dz * dz)
-        guard total > 0.001 else { return parent }
+        guard total > 0.001 else {
+            parent.childNodes.forEach { $0.removeFromParentNode() }
+            return parent
+        }
         let ux = dx / total, uy = dy / total, uz = dz / total
         let stride = dash + gap
         // Table placement merges every dash into one clipped geometry (DR-296:
         // shorter dashes ×2.4 the segment count; one node per line keeps the
         // scene graph flat). Spatial placement keeps one cylinder per dash.
         let tableSurface = placement == .table ? loadedAssistSurface() : nil
+        if tableSurface == nil { parent.childNodes.forEach { $0.removeFromParentNode() } }
         var merged: [SCNVector3] = []
         var t: Float = 0
         while t < total {
@@ -1523,9 +1545,12 @@ final class AngleTrainingScene: SCNScene {
             t += stride
         }
         if !merged.isEmpty {
-            parent.addChildNode(makeTableAssistNode(vertices: merged, color: color, layer: layer))
+            let child = makeTableAssistNode(vertices: merged, color: color, layer: layer, reusing: reusable)
+            if child.parent !== parent { parent.addChildNode(child) }
+        } else if tableSurface != nil {
+            reusable?.geometry = nil
         }
-        rootNode.addChildNode(parent)
+        if parent.parent !== rootNode { rootNode.addChildNode(parent) }
         return parent
     }
 
@@ -2053,21 +2078,48 @@ final class AngleTrainingScene: SCNScene {
     // MARK: - Show / Hide Visualization
 
     private var idealObjectNode: SCNNode?
+    private var idealObjectGeometryLine: AimCloseupSegment?
+    private var freeAimPreviewNode: SCNNode?
+    private var freeAimPreviewGeometryLine: AimCloseupSegment?
     private(set) var idealObjectLine: AimCloseupSegment?
+
+    /// One retained preview node; unchanged inputs do not allocate geometry/materials.
+    @discardableResult
+    func setFreeAimPreviewLine(_ line: AimCloseupSegment?) -> SCNNode? {
+        guard let line else { freeAimPreviewNode?.removeFromParentNode(); return nil }
+        if freeAimPreviewGeometryLine != line || freeAimPreviewNode == nil {
+            let y = surfaceY + AngleSceneCalculator.ballRadius
+            freeAimPreviewNode = makeTableSegment(
+                from: SCNVector3(Float(line.start.x), y, Float(line.start.y)),
+                to: SCNVector3(Float(line.end.x), y, Float(line.end.y)),
+                color: .white, radius: TrajectoryStyle.aimRadius, reusing: freeAimPreviewNode)
+            freeAimPreviewNode?.name = "freeAimPreview"
+            freeAimPreviewGeometryLine = line
+        }
+        if let node = freeAimPreviewNode, node.parent !== rootNode { rootNode.addChildNode(node) }
+        return freeAimPreviewNode
+    }
 
     /// Update the preview's single shared layer; callers own mode/solver lifetime.
     @discardableResult
     func setIdealObjectLine(_ line: AimCloseupSegment?, detail: TrajectoryDetail = .full) -> SCNNode? {
-        idealObjectNode?.removeFromParentNode()
-        idealObjectNode = nil
         let line = detail == .minimal ? nil : line
         idealObjectLine = line
-        guard let line, hypot(line.end.x - line.start.x, line.end.y - line.start.y) > 1e-6 else { return nil }
+        guard let line, hypot(line.end.x - line.start.x, line.end.y - line.start.y) > 1e-6 else {
+            idealObjectNode?.removeFromParentNode()
+            return nil
+        }
+        if idealObjectGeometryLine == line, let node = idealObjectNode {
+            if node.parent !== rootNode { rootNode.addChildNode(node) }
+            return node
+        }
         let y = surfaceY + AngleSceneCalculator.ballRadius
-        let node = addDashedLine(from: SCNVector3(Float(line.start.x), y, Float(line.start.y)),
+        let node = makeDashedLine(from: SCNVector3(Float(line.start.x), y, Float(line.start.y)),
                                  to: SCNVector3(Float(line.end.x), y, Float(line.end.y)),
                                  color: IdealObjectDirection.color, radius: 0.002,
-                                 dash: TrajectoryStyle.hintDash, gap: TrajectoryStyle.hintGap, placement: .table)
+                                 dash: TrajectoryStyle.hintDash, gap: TrajectoryStyle.hintGap, placement: .table,
+                                 layer: .route, reusing: idealObjectNode)
+        idealObjectGeometryLine = line
         node.name = "idealObjectDirection"
         idealObjectNode = node
         return node
@@ -2077,6 +2129,7 @@ final class AngleTrainingScene: SCNScene {
         diagramLabelGeometry = nil
         strikeContinuationNode?.isHidden = true
         setIdealObjectLine(nil)
+        setFreeAimPreviewLine(nil)
         ghostBallNode?.isHidden = true
         pocketLineNode?.isHidden = true
         strikeLineNode?.isHidden = true

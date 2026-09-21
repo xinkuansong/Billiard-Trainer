@@ -4029,3 +4029,37 @@ DR-309 试打修复：原生SceneKit视图不继承进场/模式切换的隐式�
 ## FL-079 — 把短程滑动减速度当作全程「硬能量界」（2026-09-17）
 六球 v4 阶段 1 规划器用 <1 m 刚出手行程的减速度中位 1.962 m/s²（= µ_s·g，纯滑动相）做 v²/(2a) 全程可达上限，`beyondEnergyRange` 被误标「真硬界」。修正为两相能量模型 + 长程自由运动探针校准。详 `tasks/FAILURE-LOG.md` FL-079。
 - **已应用至**：`.cursor/skills/geometry-spatial-reasoning/SKILL.md` §FL-079（2026-09-17）
+
+
+## DR-310 — 每日清台等画质工作量收尾（2026-09-21）
+- 内部共享场景新增setFreeAimPreviewLine，缓存一条实线；setIdealObjectLine保留原入口与nil移出场景语义，复用原虚线节点/材质。形状变化继续执行原台呢裁剪；setupTable使缓存失效。
+- PositionPlay首碰/特写只依赖几何输入；力度/打点仍触发物理预测。同状态SwiftUI更新不延长渲染交互窗口，实际手势/动作/相机/播放唤醒保留。
+- 原帧率、画质与物理精度不变；关闭台呢PBR六场景不等价，否决。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` §DR-310、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；验证见`DAILY-CLEARANCE-EQUIVALENT-OPTIMIZATION-20260921.md`。
+
+## FL-081 — 清空桌面未使首碰预览数据失效（2026-09-21）
+- 新增几何缓存生命周期测试发现：clearTable隐藏全部球/辅助节点，但freeAimContact仍是上一球，特写gate亦未复位。
+- 修复：refreshOnTableKeys后调用refreshFreeAimOverlay，使缺母球分支同时清contact、输入key、closeupGate。保留测试失败及修复后复验，不能只移除可见节点代替清状态。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` §FL-081；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+## DR-311 — 接触球影 uniform 合并提交（2026-09-21）
+- 四个四球矩阵打包到具名 struct，用不可变 NSData 一次绑定；同帧 presentation 数值和零变化跳过保留，旧绑定仅作诊断参考。
+- 四组变化 setter 4→1，静止 0；iOS17/26 各 3 单测、iOS26 两 UI 流程通过，24 组像素对比一致。60fps/采样/MSAA/物理不变。
+- 真机包已安装，自动对照构建成功；整体 CPU/GPU 和温升收益尚未验证。撤回不等价及无收益候选，详见 DAILY-CLEARANCE-RENDER-FOLLOWUP-20260921.md。
+- 已应用至：swiftui-design-system 技能 DR-311、UI-IMPLEMENTATION-SPEC Changelog、PROGRESS。
+
+DR-311 真机补证：无线、未充电冷却起始的固定场景ABBA通过；CPU提交均值2D −7.28%、3D −9.15%，实际呈现59.99fps；GPU无改善证据，存在时间顺序漂移，不能外推整页温升。详见渲染跟进报告。
+
+
+## DR-312 — 静止显示回调事件化（2026-09-21）
+- 根因：SCNView停止连续绘制后，Coordinator仍按约30Hz轮询整棵场景及标签。显式静止时暂停CADisplayLink，真实SceneKit失效通过线程安全合并通知重新检查活动；手势/内容/视口唤醒保持。旧nil活动调用方保持连续路径。
+- iOS26四项、iOS17五项回归通过；真实每日清台正常3D一杆/2D3D切换两页面通过。模拟器同夹具静止回调旧31次/1.016秒、新0次/1秒；不是整机CPU或温升收益。
+- GPU接触遮蔽没有有限影响边界，拒绝简单背景贴图+局部球重绘；明确分离全局便宜动态项与昂贵积分缓存的后续原型，尚未实现GPU缓存。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` §DR-312、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；证据见DAILY-CLEARANCE-EVENT-DRIVEN-20260921.md。
+
+
+## DR-313 — 平衡采样预览（2026-09-21）
+- 用户允许轻微画质损失换性能。MobileReferenceLighting.SamplingProfile提供原版/阴影4×4/反射32/组合；反射采样分布与能量分母同步调整。默认及Release仍原版，Debug以-balancedRendering显式启用预览。分辨率/MSAA4/60fps/物理不变。
+- 共享实现iOS17/26视觉测试各1项通过，真实3D平衡预览一杆→静止1项通过；完整记录见DAILY-CLEARANCE-BALANCED-SAMPLING-20260921.md。
+- 有线真机Fair起始后进入Serious，基准17→39ms漂移，1测试2失败且组合未完成，不能报告收益。已收紧正常热状态起始和段间冷却，等待用户拔线冷却确认。不是已交付的性能/温升改善。
+- 已应用至：swiftui-design-system技能DR-313、UI-IMPLEMENTATION-SPEC Changelog、PROGRESS。

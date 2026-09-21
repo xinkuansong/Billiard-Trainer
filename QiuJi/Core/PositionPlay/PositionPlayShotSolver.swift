@@ -11,7 +11,9 @@ enum PositionPlayShotSolver {
 
     /// 求解一杆。袋口模式走 `ShotPredictor.predict`（闭环瞄准），自由模式走 `simulateFree`（直瞄）。
     /// 返回 nil = 快照/意图不完整（缺母球、缺目标球、袋口非法）。
-    static func solve(before: BoardSnapshot, shot: PlannedShot, surfaceY: Float) -> ShotPrediction? {
+    static func solve(before: BoardSnapshot, shot: PlannedShot, surfaceY: Float,
+                      cancellation: PredictionCancellation? = nil) -> ShotPrediction? {
+        guard cancellation?.isCancelled != true else { return nil }
         guard let cuePt = before.onTable[PositionPlayBall.cueKey] else { return nil }
         let cue = scenePoint(cuePt, surfaceY: surfaceY)
 
@@ -20,13 +22,14 @@ enum PositionPlayShotSolver {
                 guard key != PositionPlayBall.cueKey else { return nil }
                 return ObstacleBall(name: key, position: scenePoint(pt, surfaceY: surfaceY))
             }
-            return ShotPredictor.simulateFree(
+            let prediction = ShotPredictor.simulateFree(
                 cueBall: cue,
                 aimDir: sceneDirection(fromCanvas: aim),
                 velocity: Float(shot.velocity),
                 spinX: Float(shot.spinX), spinY: Float(shot.spinY),
-                surfaceY: surfaceY, balls: balls
+                surfaceY: surfaceY, balls: balls, cancellation: cancellation
             )
+            return cancellation?.isCancelled == true ? nil : prediction
         }
 
         guard let targetPt = before.onTable[shot.targetKey],
@@ -45,7 +48,8 @@ enum PositionPlayShotSolver {
         // 替代 `predict` 的三级网格 75 次模拟。对拍保证：`AnalyticAimParityTests`（Δoffset 全量 0°、零丢解）
         // + `PositionPlaySolverTests.test_fastPath_matchesPredict_potOutcome`（进袋判定一致）
         // + `BatchSequenceReplayRegressionTests`（171 杆重放 dump 对拍）。
-        return ShotPredictor.predictForPositionSolve(input, includePresentation: true)
+        let prediction = ShotPredictor.predictForPositionSolve(input, includePresentation: true, cancellation: cancellation)
+        return cancellation?.isCancelled == true ? nil : prediction
     }
 
     /// 桌面球键 → 引擎球名（自由模式 `targetKey` 为空串，所有非母球保留原键名）。

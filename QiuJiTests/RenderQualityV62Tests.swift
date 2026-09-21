@@ -7,8 +7,165 @@ import MetalKit
 /// Deterministic visual experiments, not a phone performance benchmark.
 @MainActor
 final class RenderQualityV62Tests: XCTestCase {
-    func testCanopyMovingBallFrames() throws {
+    func testFixedCameraChangedPixelFootprint() throws {
+        let width = 600, height = 1000
+        func pixels(_ image: UIImage) throws -> [UInt8] {
+            let cg = try XCTUnwrap(image.cgImage)
+            var bytes = [UInt8](repeating: 0, count: width * height * 4)
+            let context = try XCTUnwrap(CGContext(data: &bytes, width: width, height: height,
+                bitsPerComponent: 8, bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return bytes
+        }
+        func delta(_ a: [UInt8], _ b: [UInt8]) -> [String: Double] {
+            var count = 0, tiles = Set<Int>()
+            var minX = width, minY = height, maxX = -1, maxY = -1
+            for y in 0..<height { for x in 0..<width {
+                let i = (y * width + x) * 4
+                if a[i] != b[i] || a[i+1] != b[i+1] || a[i+2] != b[i+2] || a[i+3] != b[i+3] {
+                    count += 1; tiles.insert((y / 32) * ((width + 31) / 32) + x / 32)
+                    minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
+                }
+            } }
+            return ["changedPixels": Double(count), "changedFraction": Double(count)/Double(width*height),
+                    "boundingRectangleFraction": count == 0 ? 0 : Double((maxX-minX+1)*(maxY-minY+1))/Double(width*height),
+                    "changedTiles32": Double(tiles.count)]
+        }
+        var report: [[String: Any]] = []
+        for mode in [AngleTrainingScene.CameraMode.topDown2DRotated, .perspective3D] {
+            let s = try scene(mobile: true)
+            s.hideAllBalls()
+            let board = BreakSimulator.breakShot(rack: RackLayout.make(.chineseEightBall, seed: 52), power: 8)
+            XCTAssertTrue(board.settled)
+            for (key, point) in board.board.onTable {
+                s.showBall(key: key, scenePosition: PositionPlayShotSolver.scenePoint(point, surfaceY: s.surfaceY))
+            }
+            s.setCameraMode(mode, animated: false)
+            s.cameraRig?.fitRotatedTable(viewSize: CGSize(width: width, height: height))
+            if mode == .topDown2DRotated { s.cameraRig?.applyTopDown2DRotated() }
+            let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+            renderer.scene = s; renderer.pointOfView = s.cameraNode; renderer.delegate = s.contactOcclusion
+            func frame() throws -> [UInt8] {
+                SCNTransaction.flush()
+                return try pixels(renderer.snapshot(atTime: 0, with: CGSize(width: width, height: height), antialiasingMode: .multisampling4X))
+            }
+            _ = try frame()
+            let before = try frame()
+            let stable = delta(before, try frame())
+            XCTAssertEqual(stable["changedPixels"], 0, "Static reference must be deterministic before interpreting damage")
+            let ball = try XCTUnwrap(s.cueBallNode)
+            ball.position.x += 0.02
+            let moved = try frame()
+            let changes = delta(before, moved)
+            XCTAssertGreaterThan(changes["changedPixels"] ?? 0, 0)
+            report.append(["mode": mode == .perspective3D ? "3d" : "2d", "width": width, "height": height,
+                           "singleBallStepMeters": 0.02, "stable": stable, "movement": changes])
+        }
+        let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+        print("FIXED_CAMERA_PIXEL_FOOTPRINT " + String(decoding: data, as: UTF8.self))
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "fixed-camera-pixel-footprint"; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
+    func testEventDrivenIdleCandidateWakesForSceneAction() async throws {
         let s = try scene(mobile: true)
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
+        view.scene = s; view.pointOfView = s.cameraNode
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
+        window.addSubview(view)
+        let coordinator = AngleSceneView.Coordinator(scene: s, cameraMode: .perspective3D, interactionMode: .cameraControl)
+        coordinator.scnView = view; coordinator.contentIsAnimating = false
+        coordinator.eventDrivenIdle = true
+        coordinator.startRenderLoop(); coordinator.requestInteractiveFrames()
+        defer { AngleSceneView.dismantleUIView(view, coordinator: coordinator); view.removeFromSuperview() }
+        try await Task.sleep(for: .seconds(2))
+        XCTAssertTrue(coordinator.isDisplayLinkPaused)
+        let callbacks = coordinator.displayLinkCallbackCount
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertEqual(coordinator.displayLinkCallbackCount, callbacks, "Idle must stop callbacks, not merely return early")
+        let node = try XCTUnwrap(s.cueBallNode)
+        let start = node.position.x
+        node.runAction(.moveBy(x: 0.1, y: 0, z: 0, duration: 0.6), completionHandler: nil)
+        // Deliberately no coordinator/SwiftUI wake: prove SceneKit invalidation.
+        try await Task.sleep(for: .seconds(1.5))
+        XCTAssertEqual(node.position.x, start + 0.1, accuracy: 0.001)
+        XCTAssertGreaterThan(coordinator.displayLinkCallbackCount, callbacks)
+        XCTAssertTrue(coordinator.isDisplayLinkPaused)
+        view.frame.size = CGSize(width: 400, height: 500)
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertEqual(s.cameraRig?.viewportSize, view.bounds.size, "Layout invalidation must wake a sleeping coordinator")
+        XCTAssertTrue(coordinator.isDisplayLinkPaused)
+        let invisible = SCNNode(); s.rootNode.addChildNode(invisible)
+        invisible.runAction(.moveBy(x: 0.2, y: 0, z: 0, duration: 0.4), completionHandler: nil)
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertEqual(invisible.position.x, 0.2, accuracy: 0.001, "Actions without geometry must also complete")
+        XCTAssertTrue(coordinator.isDisplayLinkPaused)
+        coordinator.updateContentActivity(true, cameraMode: .perspective3D)
+        XCTAssertFalse(coordinator.isDisplayLinkPaused)
+        XCTAssertTrue(view.isPlaying)
+        coordinator.stopRenderLoop()
+        coordinator.eventDrivenIdle = false
+        coordinator.contentIsAnimating = false
+        coordinator.startRenderLoop(); coordinator.requestInteractiveFrames()
+        try await Task.sleep(for: .seconds(1.5))
+        let oldStart = coordinator.displayLinkCallbackCount
+        let oldTime = CACurrentMediaTime()
+        try await Task.sleep(for: .seconds(1))
+        let oldCount = coordinator.displayLinkCallbackCount - oldStart
+        XCTAssertGreaterThan(oldCount, 0, "Reference polling must actually run for the comparison")
+        print("IDLE_CALLBACK_COMPARISON old=\(oldCount) oldSeconds=\(CACurrentMediaTime()-oldTime) new=0 measuredSeconds=1")
+    }
+
+    func testContactPackingUpdatesOnceAndSkipsUnchangedFrames() throws {
+        for batched in [false, true] {
+            let s = try scene(mobile: true)
+            let material = ContactWriteCountingMaterial()
+            material.name = "TaiNi"
+            let plane = SCNPlane(width: 0.1, height: 0.1)
+            plane.materials = [material]
+            let hidden = SCNNode(geometry: plane); hidden.isHidden = true
+            try XCTUnwrap(s.tableNode).addChildNode(hidden)
+            let contact = MobileContactOcclusion(scene: s, batchesUniforms: batched)
+            let groups = (s.allBallNodes.count + 3) / 4
+            XCTAssertEqual(material.writes, batched ? 1 : groups)
+            let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+            renderer.scene = s; renderer.pointOfView = s.cameraNode; renderer.delegate = contact
+            func frame(_ time: Double) {
+                SCNTransaction.flush()
+                _ = renderer.snapshot(atTime: time, with: CGSize(width: 64, height: 64), antialiasingMode: .none)
+            }
+            frame(0); frame(0.01)
+            let settledWrites = material.writes
+            frame(0.02)
+            XCTAssertEqual(material.writes, settledWrites, "Static frames must not republish contact data")
+            let balls = s.allBallNodes.sorted { $0.key < $1.key }.map(\.value)
+            for index in stride(from: 0, to: balls.count, by: 4) { balls[index].position.x += 0.02 }
+            frame(0.03)
+            XCTAssertEqual(material.writes - settledWrites, batched ? 1 : groups,
+                           "Moving one ball in every group must produce one packed update")
+            let afterMove = material.writes
+            frame(0.04)
+            XCTAssertEqual(material.writes, afterMove)
+        }
+    }
+
+    func testCanopyMovingBallFrames() throws {
+        try compareCanopyMovingFrames()
+    }
+
+    func testCachedBlockerMovingFrames() throws {
+        try compareCanopyMovingFrames(cachesBlockerGeometry: true)
+    }
+
+    func testCombinedCachedShaderMovingFrames() throws {
+        try compareCanopyMovingFrames(cachesBlockerGeometry: true, cachesReflectionSamples: true)
+    }
+
+    private func compareCanopyMovingFrames(cachesBlockerGeometry: Bool = false, cachesReflectionSamples: Bool = false) throws {
+        let s = try scene(mobile: true)
+        if cachesBlockerGeometry { try applyCachedBlockerGeometry(to: s) }
+        if cachesReflectionSamples { try applyCachedReflectionSamples(to: s) }
         XCTAssertTrue(s.applyClothColor(.tournamentBlue))
         let y = s.surfaceY + AngleSceneCalculator.ballRadius
         s.applyBallLayout(cueBallPosition: SCNVector3(0, y, 0), targetBallNumber: 8,
@@ -36,8 +193,10 @@ final class RenderQualityV62Tests: XCTestCase {
             // 8 m/s at 120 Hz, parallel to the short rail, no physics changes.
             SCNTransaction.flush()
             let image = renderer.snapshot(atTime: 1 + Double(frame)/120, with: size, antialiasingMode: .multisampling4X)
-            let value = try XCTUnwrap(cloth?.value(forKey: "contactGroup\(ballIndex/4)") as? NSValue)
-            let center = simd_float4x4(value.scnMatrix4Value)[ballIndex % 4]
+            let data = try XCTUnwrap(cloth?.value(forKey: "contactUniforms") as? NSData)
+            var group = matrix_identity_float4x4
+            data.getBytes(&group, range: NSRange(location: (ballIndex / 4) * 64, length: 64))
+            let center = group[ballIndex % 4]
             XCTAssertEqual(center.x, ball.presentation.worldPosition.x, accuracy: 0.0001)
             XCTAssertEqual(center.y, ball.presentation.worldPosition.z, accuracy: 0.0001)
             frames.insert(try XCTUnwrap(image.pngData()))
@@ -4948,7 +5107,7 @@ final class RenderQualityV62Tests: XCTestCase {
             for maximum in [60, 120] {
                 for thermal in [ProcessInfo.ThermalState.nominal, .fair, .serious, .critical] {
                     for lowPower in [false, true] {
-                        let limit = thermal == .critical ? 30 : (thermal == .serious || lowPower ? 60 : maximum)
+                        let limit = thermal == .critical ? 30 : ((thermal == .serious || lowPower) ? 60 : maximum)
                         XCTAssertEqual(AngleSceneView.requestedFPS(maximum: maximum, selected: selected, active: true, thermal: thermal, lowPower: lowPower), min(selected.rawValue, maximum, limit))
                         XCTAssertEqual(AngleSceneView.requestedFPS(maximum: maximum, selected: selected, active: false, thermal: thermal, lowPower: lowPower), 30)
                     }
@@ -8149,6 +8308,8 @@ private final class ReferenceFrameProbe:NSObject,MTKViewDelegate {
     var lastDrawTime: Double?
     var firstDrawTime: Double?
     var mixedActivity = false
+    var movesCamera = true
+    var retainedContact: MobileContactOcclusion?
     init(scene:AngleTrainingScene,device:MTLDevice) {
         self.scene=scene;renderer=SCNRenderer(device:device,options:nil)
         queue=device.makeCommandQueue()!
@@ -8172,12 +8333,17 @@ private final class ReferenceFrameProbe:NSObject,MTKViewDelegate {
         lastDrawTime = start
         guard let drawable=view.currentDrawable,let pass=view.currentRenderPassDescriptor,
               let command=queue.makeCommandBuffer() else { return }
+        let drawableReady=CACurrentMediaTime()
         let id=frame;frame+=1
         // Exercise live camera and contact-uniform updates, without changing physics.
-        if active { scene.cameraRig?.handleObservationPan(deltaX:Float(21 * dt)) }
-        scene.cameraRig?.update(deltaTime:Float(dt))
+        if active && movesCamera { scene.cameraRig?.handleObservationPan(deltaX:Float(21 * dt)) }
+        if movesCamera { scene.cameraRig?.update(deltaTime:Float(dt)) }
+        let encodeStart=CACurrentMediaTime()
         renderer.render(atTime:start,viewport:CGRect(origin:.zero,size:view.drawableSize),commandBuffer:command,passDescriptor:pass)
-        samples.set(id,["active":active ? 1 : 0,"frame":Double(id),"start":start,"cpuMS":(CACurrentMediaTime()-start)*1000])
+        let encodeEnd=CACurrentMediaTime()
+        samples.set(id,["active":active ? 1 : 0,"frame":Double(id),"start":start,
+            "cpuMS":(encodeEnd-start)*1000,"drawableAcquireMS":(drawableReady-start)*1000,
+            "sceneEncodeMS":(encodeEnd-encodeStart)*1000])
         let samples=self.samples
         #if !targetEnvironment(simulator)
         // Presentation callbacks are unavailable in the simulator SDK. This probe
@@ -8196,4 +8362,1015 @@ private final class ReferenceLockedFrameCount: @unchecked Sendable {
     private var total = 0
     var value: Int { lock.withLock { total } }
     func increment() { lock.withLock { total += 1 } }
+}
+
+// Explicit simulator diagnostics, never a physical-device energy benchmark.
+extension RenderQualityV62Tests {
+    private var dailyPerfDirectory: URL {
+        #if targetEnvironment(simulator)
+        return URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("build/daily-performance-20260920/expanded")
+        #else
+        return FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("daily-render-results")
+        #endif
+    }
+    private func dailyPerfGate() throws {
+        #if targetEnvironment(simulator)
+        let gate = dailyPerfDirectory.appendingPathComponent("run-diagnostics")
+        #else
+        let gate = dailyPerfDirectory.deletingLastPathComponent().appendingPathComponent("run-daily-render-diagnostics")
+        #endif
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: gate.path), "Explicit daily-clearance diagnostic run required")
+        try FileManager.default.createDirectory(at: dailyPerfDirectory, withIntermediateDirectories: true)
+    }
+    private func writeDailyPerf(_ value: Any, _ name: String) throws {
+        let data = try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: dailyPerfDirectory.appendingPathComponent(name + ".json"))
+    }
+
+    private func dailyMemory() -> [String: Any] {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+        let status = withUnsafeMutablePointer(to: &info) { pointer in
+            pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        return ["status": status, "residentBytes": info.resident_size, "footprintBytes": info.phys_footprint]
+    }
+
+    func testDailySimulatorGPUAndFrameMatrix() async throws {
+        try dailyPerfGate()
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
+        let rack = RackLayout.make(.chineseEightBall, seed: 52)
+        let result = BreakSimulator.breakShot(rack: rack, power: 8)
+        XCTAssertTrue(result.settled)
+        try writeDailyPerf(result.board.onTable.mapValues { ["x": $0.x, "y": $0.y] }, "fixed-board")
+        let cases: [(String, Bool, Int, Int, Double, Bool, Double)] = [
+            ("2d-30", false, 30, 4, 1, true, 10), ("2d-60", false, 60, 4, 1, true, 10),
+            ("2d-120", false, 120, 4, 1, true, 10), ("3d-30", true, 30, 4, 1, true, 10),
+            ("3d-60", true, 60, 4, 1, true, 10), ("3d-120", true, 120, 4, 1, true, 10),
+            ("3d-aa2", true, 60, 2, 1, true, 10), ("3d-scale75", true, 60, 4, 0.75, true, 10),
+            ("3d-room-off", true, 60, 4, 1, false, 10),
+            ("2d-sustained", false, 60, 4, 1, true, 60), ("3d-sustained", true, 60, 4, 1, true, 60)
+        ]
+        for (name, is3D, fps, aa, scale, room, duration) in cases {
+            guard device.supportsTextureSampleCount(aa) else {
+                try writeDailyPerf(["name": name, "unsupported": "MTLDevice does not support sampleCount \(aa)"], name)
+                continue
+            }
+            let s = try scene(mobile: true)
+            s.hideAllBalls()
+            for (key, point) in result.board.onTable {
+                s.showBall(key: key, scenePosition: PositionPlayShotSolver.scenePoint(point, surfaceY: s.surfaceY))
+            }
+            let mode: AngleTrainingScene.CameraMode = is3D ? .perspective3D : .topDown2DRotated
+            s.setCameraMode(mode, animated: false)
+            XCTAssertEqual(s.currentCameraMode, mode)
+            XCTAssertEqual(s.cameraNode.camera?.usesOrthographicProjection, !is3D)
+            if !room { s.rootNode.childNode(withName: "reference_room", recursively: false)?.isHidden = true }
+            s.cameraRig?.fitRotatedTable(viewSize: window.bounds.size)
+            if !is3D { s.cameraRig?.applyTopDown2DRotated() }
+            let view = MTKView(frame: window.bounds, device: device)
+            view.colorPixelFormat = .bgra8Unorm_srgb
+            view.depthStencilPixelFormat = .depth32Float_stencil8
+            view.sampleCount = aa; view.framebufferOnly = false
+            view.preferredFramesPerSecond = fps
+            view.autoResizeDrawable = false
+            view.drawableSize = CGSize(width: window.bounds.width * window.screen.scale * scale,
+                                       height: window.bounds.height * window.screen.scale * scale)
+            let probe = ReferenceFrameProbe(scene: s, device: device)
+            probe.movesCamera = is3D
+            view.delegate = probe
+            window.addSubview(view)
+            // Warm shader/pipeline caches outside measured samples.
+            try await Task.sleep(for: .seconds(2))
+            let firstFrame = probe.frame
+            let start = CACurrentMediaTime()
+            let startAllocated = device.currentAllocatedSize
+            let memoryStart = dailyMemory()
+            try await Task.sleep(for: .seconds(duration))
+            view.isPaused = true
+            let end = CACurrentMediaTime()
+            try await Task.sleep(for: .milliseconds(500))
+            let rows = probe.samples.snapshot().filter { ($0["frame"] ?? -1) >= Double(firstFrame) }
+            let report: [String: Any] = ["name": name, "gpuDevice": device.name,
+                "requestedFPS": fps, "screenMaximumFPS": window.screen.maximumFramesPerSecond,
+                "width": view.drawableSize.width, "height": view.drawableSize.height,
+                "sampleCount": aa, "room": room, "cameraMoves": is3D,
+                "duration": end-start, "frames": rows, "allocatedStart": startAllocated,
+                "allocatedEnd": device.currentAllocatedSize, "memoryStart": memoryStart, "memoryEnd": dailyMemory(),
+                "note": "Simulator MTKView with production scene and fixed real break board. GPU command-buffer time is host GPU time; draw intervals are not presented frames. Forced continuous rendering, no full SwiftUI page or prediction loop."]
+            try writeDailyPerf(report, name)
+            XCTAssertGreaterThan(rows.count, 10)
+            XCTAssertEqual(rows.filter { ($0["error"] ?? 0) > 0 }.count, 0)
+            if name == "2d-60" || name == "3d-60" {
+                let image = probe.renderer.snapshot(atTime: CACurrentMediaTime(), with: CGSize(width: 588,height: 1000), antialiasingMode: .multisampling4X)
+                try XCTUnwrap(image.pngData()).write(to: dailyPerfDirectory.appendingPathComponent(name + ".png"))
+            }
+            view.delegate = nil; view.removeFromSuperview(); probe.renderer.scene = nil
+            try await Task.sleep(for: .milliseconds(300))
+        }
+    }
+
+    /// Switch between the production implementation and its exact original reference.
+    private func applyMaskedDirectShadows(to scene: AngleTrainingScene, enabled: Bool = true) throws {
+        let original = MobileReferenceLighting.directShadowShader(ballCount: scene.allBallNodes.count, usesMask: false)
+        let masked = MobileReferenceLighting.directShadowShader(ballCount: scene.allBallNodes.count)
+        var changed = 0
+        scene.tableNode?.enumerateChildNodes { node, _ in
+            for material in node.geometry?.materials ?? [] where material.name == "TaiNi" {
+                guard let source = material.shaderModifiers?[.surface] else { continue }
+                let from = enabled ? original : masked
+                let to = enabled ? masked : original
+                guard source.contains(from) || source.contains(to) else { XCTFail("Production shadow program missing"); continue }
+                material.shaderModifiers?[.surface] = source.contains(from) ? source.replacingOccurrences(of: from, with: to) : source
+                changed += 1
+            }
+        }
+        XCTAssertGreaterThan(changed, 0)
+    }
+
+    /// Compute the fixed GGX sample constants once on the same Metal device.
+    /// Candidate only: retain the exact per-pixel basis, visibility and 64 samples.
+    private func applyCachedReflectionSamples(to scene: AngleTrainingScene) throws {
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        let library = try device.makeLibrary(source: """
+        #include <metal_stdlib>
+        using namespace metal;
+        kernel void samples(device float4 *out [[buffer(0)]], constant float &roughness [[buffer(1)]], uint i [[thread_position_in_grid]]) {
+            if(i>=64) return;
+            float alpha=roughness*roughness;float a2=alpha*alpha;
+            float u=(float(i)+0.5)/64.0;
+            float phi=6.2831853*fract(float(i)*0.61803398875);
+            float ct=sqrt((1.0-u)/(1.0+(a2-1.0)*u));
+            float st=sqrt(max(0.0,1.0-ct*ct));
+            out[i]=float4(cos(phi),sin(phi),ct,st);
+        }
+        """, options: nil)
+        let pipeline = try device.makeComputePipelineState(function: XCTUnwrap(library.makeFunction(name: "samples")))
+        let queue = try XCTUnwrap(device.makeCommandQueue())
+        let pattern = try NSRegularExpression(pattern: #"float roughness=([0-9.]+);"#)
+        var cache: [String: NSData] = [:]
+        var changed = 0
+        var unique = Set<ObjectIdentifier>()
+        var materials: [SCNMaterial] = []
+        for ball in scene.allBallNodes.values {
+            ball.enumerateHierarchy { node, _ in
+                for m in node.geometry?.materials ?? [] where unique.insert(ObjectIdentifier(m)).inserted { materials.append(m) }
+            }
+        }
+        for material in materials {
+            guard let source = material.shaderModifiers?[.surface], source.contains("float phi=6.2831853*") else { continue }
+            let match = try XCTUnwrap(pattern.firstMatch(in: source, range: NSRange(source.startIndex..., in: source)))
+            let key = String(source[try XCTUnwrap(Range(match.range(at: 1), in: source))])
+            if cache[key] == nil {
+                var roughness = try XCTUnwrap(Float(key))
+                let buffer = try XCTUnwrap(device.makeBuffer(length: 64*16, options: .storageModeShared))
+                let command = try XCTUnwrap(queue.makeCommandBuffer())
+                let encoder = try XCTUnwrap(command.makeComputeCommandEncoder())
+                encoder.setComputePipelineState(pipeline); encoder.setBuffer(buffer, offset: 0, index: 0)
+                encoder.setBytes(&roughness, length: MemoryLayout<Float>.size, index: 1)
+                encoder.dispatchThreads(MTLSize(width: 64, height: 1, depth: 1), threadsPerThreadgroup: MTLSize(width: 32, height: 1, depth: 1))
+                encoder.endEncoding(); command.commit(); command.waitUntilCompleted()
+                XCTAssertEqual(command.status, .completed)
+                cache[key] = NSData(bytes: buffer.contents(), length: 64*16)
+            }
+            let expression = #"float u=\(float\(i\)\+0.5\)/64.0;\s*float phi=6.2831853\*fract\(float\(i\)\*0.61803398875\);\s*float ct=sqrt\(\(1.0-u\)/\(1.0\+\(a2-1.0\)\*u\)\);\s*float st=sqrt\(max\(0.0,1.0-ct\*ct\)\);"#
+            var next = source.replacingOccurrences(of: expression, with: "float4 sample=reflectionSamples.values[i];float ct=sample.z;float st=sample.w;", options: .regularExpression)
+            XCTAssertNotEqual(next, source)
+            next = next.replacingOccurrences(of: "cos(phi)*st", with: "sample.x*st").replacingOccurrences(of: "sin(phi)*st", with: "sample.y*st")
+            // Older SceneKit has only 14 constant-buffer slots. Pack the existing
+            // nine SH arguments with the sample table rather than adding a slot.
+            let combined = NSMutableData(data: try XCTUnwrap(cache[key]) as Data)
+            var fields = "", aliases = ""
+            for index in 0..<9 {
+                next = next.replacingOccurrences(of: "float3 roomSH\(index);\n", with: "")
+                fields += "float4 sh\(index);\n"
+                aliases += "float3 roomSH\(index)=reflectionSamples.sh\(index).xyz;\n"
+                let value = try XCTUnwrap(material.value(forKey: "roomSH\(index)") as? NSValue).scnVector3Value
+                var vector = SIMD4<Float>(value.x, value.y, value.z, 0)
+                withUnsafeBytes(of: &vector) { combined.append($0.baseAddress!, length: $0.count) }
+            }
+            let declaration = "#pragma declaration\nstruct ReflectionSamples {float4 values[64];\n" + fields + "};\n#pragma arguments\nReflectionSamples reflectionSamples;\n"
+            next = next.replacingOccurrences(of: "#pragma body", with: "#pragma body\n" + aliases)
+            material.shaderModifiers?[.surface] = declaration + next
+            material.setValue(combined.copy() as! NSData, forKey: "reflectionSamples")
+            changed += 1
+        }
+        XCTAssertGreaterThan(changed, 0)
+    }
+
+    func testCombinedCachedShaderEquivalence() throws {
+        try compareDailyShadowImages(cachesBlockerGeometry: true, cachesReflectionSamples: true)
+    }
+
+    func testDailyCachedReflectionEquivalence() throws {
+        try compareDailyShadowImages(cachesReflectionSamples: true)
+    }
+
+    /// Candidate remains test-only until image equivalence and device benefit pass.
+    private func applyCachedBlockerGeometry(to scene: AngleTrainingScene) throws {
+        var changed = 0
+        scene.tableNode?.enumerateChildNodes { node, _ in
+            for m in node.geometry?.materials ?? [] where m.name == "TaiNi" {
+                guard let source = m.shaderModifiers?[.surface] else { continue }
+                let old = "float3 center=float3(shadowBall.x,0.8+shadowBall.z,shadowBall.y);\n    float3 toCenter=center-p;float t=dot(toCenter,l);\n    float perpendicular2=dot(toCenter,toCenter)-t*t;"
+                // Match independent of source indentation, but require the exact operation sequence.
+                let expression = #"float3 center=float3\(shadowBall.x,0.8\+shadowBall.z,shadowBall.y\);\s*float3 toCenter=center-p;float t=dot\(toCenter,l\);\s*float perpendicular2=dot\(toCenter,toCenter\)-t\*t;"#
+                let replacement = "float3 toCenter=shadowGeometry[shadowIndex].xyz;float t=dot(toCenter,l);float perpendicular2=shadowGeometry[shadowIndex].w-t*t;"
+                var program = source.replacingOccurrences(of: expression, with: replacement, options: .regularExpression)
+                XCTAssertNotEqual(program, source, "Masked blocker calculation must be found: \(old)")
+                let precompute = """
+                float4 shadowGeometry[\(scene.allBallNodes.count)];
+                uint geometryRemaining=shadowMask;
+                while(geometryRemaining!=0u) {
+                    uint index=ctz(geometryRemaining);geometryRemaining &= geometryRemaining-1u;
+                    float4 ball=shadowBalls[index];
+                    float3 center=float3(ball.x,0.8+ball.z,ball.y);
+                    float3 toCenter=center-p;
+                    shadowGeometry[index]=float4(toCenter,dot(toCenter,toCenter));
+                }
+                """
+                program = program.replacingOccurrences(of: "for(int panel=0;", with: precompute + "\nfor(int panel=0;")
+                m.shaderModifiers?[.surface] = program; changed += 1
+            }
+        }
+        XCTAssertGreaterThan(changed, 0)
+    }
+
+    func testDailyCachedBlockerGeometryEquivalence() throws {
+        try compareDailyShadowImages(cachesBlockerGeometry: true)
+    }
+
+    func testDailyShadowMaskEquivalence() throws {
+        try compareDailyShadowImages()
+    }
+
+    func testDailyContactPackingEquivalence() throws {
+        try compareDailyShadowImages(comparesContactPacking: true)
+    }
+
+    /// Diagnostic only: quantify whether native cloth PBR is actually redundant.
+    func testDailyClothPBRContribution() throws {
+        try compareDailyShadowImages(disablesNativePBR: true)
+    }
+
+    private func compareDailyShadowImages(disablesNativePBR: Bool = false, comparesContactPacking: Bool = false, cachesBlockerGeometry: Bool = false, cachesReflectionSamples: Bool = false) throws {
+        try dailyPerfGate()
+        let s = try scene(mobile: true)
+        let rack = RackLayout.make(.chineseEightBall, seed: 52)
+        let result = BreakSimulator.breakShot(rack: rack, power: 8)
+        s.hideAllBalls()
+        for (key, point) in result.board.onTable {
+            s.showBall(key: key, scenePosition: PositionPlayShotSolver.scenePoint(point, surfaceY: s.surfaceY))
+        }
+        try applyMaskedDirectShadows(to: s, enabled: cachesBlockerGeometry || cachesReflectionSamples)
+        var materials: [SCNMaterial] = []
+        s.tableNode?.enumerateChildNodes { node, _ in
+            materials += (node.geometry?.materials ?? []).filter { $0.name == "TaiNi" }
+        }
+        if cachesReflectionSamples {
+            var unique = Set(materials.map(ObjectIdentifier.init))
+            for ball in s.allBallNodes.values {
+                ball.enumerateHierarchy { node, _ in
+                    for m in node.geometry?.materials ?? [] where unique.insert(ObjectIdentifier(m)).inserted { materials.append(m) }
+                }
+            }
+        }
+        let originalLighting = materials.map { $0.lightingModel }
+        let original = materials.map { $0.shaderModifiers }
+        var legacyContact: MobileContactOcclusion?
+        var legacyPrograms = original
+        if comparesContactPacking {
+            legacyContact = MobileContactOcclusion(scene: s, batchesUniforms: false)
+            let packed = MobileContactOcclusion.uniformDeclarations(ballCount: s.allBallNodes.count, batched: true)
+            let unpacked = MobileContactOcclusion.uniformDeclarations(ballCount: s.allBallNodes.count, batched: false)
+            legacyPrograms = original.map { program in
+                var result = program
+                result?[.surface] = program?[.surface]?.replacingOccurrences(of: packed, with: unpacked)
+                    .replacingOccurrences(of: "contactUniforms.contactGroup", with: "contactGroup")
+                return result
+            }
+        }
+        let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        renderer.scene = s; renderer.pointOfView = s.cameraNode; renderer.delegate = s.contactOcclusion
+        let ballPositions = s.allBallNodes.mapValues { $0.position }
+        let tablePosition = s.tableNode?.position ?? SCNVector3Zero
+        for (name, mode) in [("2d", AngleTrainingScene.CameraMode.topDown2DRotated), ("3d", .perspective3D),
+                             ("zoom", .topDown2DRotated), ("raised", .perspective3D),
+                             ("below-bed", .perspective3D), ("overlap", .topDown2DRotated)] {
+            for (key, point) in ballPositions { s.allBallNodes[key]?.position = point }
+            s.tableNode?.position = tablePosition
+            s.setCameraMode(mode, animated: false)
+            s.cameraRig?.fitRotatedTable(viewSize: CGSize(width: 588, height: 1000))
+            if mode != .perspective3D { s.cameraRig?.applyTopDown2DRotated() }
+            if name == "zoom" { s.cameraNode.camera?.orthographicScale = 0.4 }
+            if name == "raised" { s.cueBallNode?.position.y += 0.7 }
+            if name == "below-bed" { s.tableNode?.position.y -= 0.15 }
+            if name == "overlap" {
+                for (i, key) in s.allBallNodes.keys.sorted().enumerated() {
+                    s.allBallNodes[key]?.position = SCNVector3(Float(i % 4)*0.045, s.surfaceY + AngleSceneCalculator.ballRadius, Float(i/4)*0.045)
+                }
+            }
+            // Static-image comparison starts only after unchanged geometry has
+            // produced two identical originals. Initial SceneKit resource/LOD
+            // preparation can otherwise change untouched rail-edge pixels.
+            for (m, program) in zip(materials, comparesContactPacking ? legacyPrograms : original) { m.shaderModifiers = program }
+            renderer.delegate = comparesContactPacking ? legacyContact : s.contactOcclusion
+            SCNTransaction.flush()
+            var prior: Data?
+            var stable = false
+            for _ in 0..<8 {
+                let png = try XCTUnwrap(renderer.snapshot(atTime: 1, with: CGSize(width: 1176, height: 2000), antialiasingMode: .multisampling4X).pngData())
+                if png == prior { stable = true; break }
+                prior = png
+            }
+            XCTAssertTrue(stable, "Static original must settle before comparing algorithms")
+            var images: [Data] = []
+            for variant in 0..<3 {
+                let packedVariant = !comparesContactPacking || variant == 1
+                for (m, program) in zip(materials, packedVariant ? original : legacyPrograms) { m.shaderModifiers = program }
+                renderer.delegate = packedVariant ? s.contactOcclusion : legacyContact
+                if variant == 1 && !comparesContactPacking {
+                    if cachesReflectionSamples {
+                        try applyCachedReflectionSamples(to: s)
+                        if cachesBlockerGeometry { try applyCachedBlockerGeometry(to: s) }
+                    }
+                    else if cachesBlockerGeometry { try applyCachedBlockerGeometry(to: s) }
+                    else { try applyMaskedDirectShadows(to: s) }
+                }
+                for (m, lighting) in zip(materials, originalLighting) { m.lightingModel = disablesNativePBR && variant == 1 ? .constant : lighting }
+                SCNTransaction.flush()
+                _ = renderer.snapshot(atTime: 1, with: CGSize(width: 1176, height: 2000), antialiasingMode: .multisampling4X)
+                let image = renderer.snapshot(atTime: 1, with: CGSize(width: 1176, height: 2000), antialiasingMode: .multisampling4X)
+                let png = try XCTUnwrap(image.pngData())
+                images.append(png)
+                try png.write(to: dailyPerfDirectory.appendingPathComponent("\(cachesReflectionSamples ? (cachesBlockerGeometry ? "cached-combined" : "cached-reflection") : (cachesBlockerGeometry ? "cached-geometry" : (comparesContactPacking ? "contact-packing" : (disablesNativePBR ? "pbr" : "mask"))))-\(name)-\(variant).png"))
+            }
+            XCTAssertEqual(images[0], images[2], "Original baseline must be stable")
+            if disablesNativePBR {
+                print("CLOTH_PBR_CONTRIBUTION pose=\(name) identical=\(images[0] == images[1])")
+            } else {
+                XCTAssertEqual(images[0], images[1], "Equivalent loop must preserve every rendered pixel")
+            }
+        }
+    }
+
+    func testDailyPreviewReuseEquivalence() throws {
+        try dailyPerfGate()
+        let s = try scene(mobile: true)
+        let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        renderer.scene = s; renderer.pointOfView = s.cameraNode; renderer.delegate = s.contactOcclusion
+        let lines: [AimCloseupSegment] = [
+            .init(start: CGPoint(x: -0.5, y: -0.1), end: CGPoint(x: 0.35, y: 0.12)),
+            .init(start: CGPoint(x: -0.5, y: -0.1), end: CGPoint(x: 1.4, y: 0.7)),
+            .init(start: CGPoint(x: -1.4, y: -0.62), end: CGPoint(x: 1.4, y: -0.62)),
+            .init(start: CGPoint(x: 5, y: 5), end: CGPoint(x: 6, y: 6))]
+        func snapshot() throws -> Data {
+            SCNTransaction.flush()
+            return try XCTUnwrap(renderer.snapshot(atTime: 1, with: CGSize(width: 588, height: 1000), antialiasingMode: .multisampling4X).pngData())
+        }
+        for (modeIndex, mode) in [AngleTrainingScene.CameraMode.topDown2DRotated, .perspective3D].enumerated() {
+            s.setCameraMode(mode, animated: false)
+            s.cameraRig?.fitRotatedTable(viewSize: CGSize(width: 588, height: 1000))
+            if mode != .perspective3D { s.cameraRig?.applyTopDown2DRotated() }
+            for (index, line) in lines.enumerated() {
+                s.hideAllVisualization()
+                let y = s.surfaceY + AngleSceneCalculator.ballRadius
+                let a = SCNVector3(Float(line.start.x), y, Float(line.start.y))
+                let b = SCNVector3(Float(line.end.x), y, Float(line.end.y))
+                let oldSolid = s.addLine(from: a, to: b, color: .white, radius: TrajectoryStyle.aimRadius, placement: .table)
+                let oldDash = s.addDashedLine(from: a, to: b, color: IdealObjectDirection.color, radius: 0.002,
+                    dash: TrajectoryStyle.hintDash, gap: TrajectoryStyle.hintGap, placement: .table)
+                var before = try snapshot()
+                var stable = false
+                for _ in 0..<8 {
+                    let next = try snapshot()
+                    if next == before { stable = true; break }
+                    before = next
+                }
+                XCTAssertTrue(stable)
+                oldSolid.removeFromParentNode(); oldDash.removeFromParentNode()
+                _ = s.setFreeAimPreviewLine(line)
+                _ = s.setIdealObjectLine(line)
+                _ = try snapshot()
+                let after = try snapshot()
+                XCTAssertEqual(before, after, "Cached preview must preserve clipped geometry and rendering")
+                try before.write(to: dailyPerfDirectory.appendingPathComponent("preview-\(modeIndex)-\(index)-before.png"))
+                try after.write(to: dailyPerfDirectory.appendingPathComponent("preview-\(modeIndex)-\(index)-after.png"))
+            }
+        }
+    }
+
+    func testDailyShadowMaskWarmPair() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, warmPair: true, loopComparison: true)
+    }
+
+    func testDailyContactPackingWarmPair() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, warmPair: true, packingComparison: true)
+    }
+
+    func testDailyRenderAblations() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false)
+    }
+
+    /// Exploratory warm comparison, separate from cold-device acceptance.
+    func testDailyShadowSamplingWarmPair() async throws {
+        try await measureDailyRenderAblations(samplingComparison: true, warmPair: true)
+    }
+
+    /// Diagnostic-only cost isolation. No altered shader is installed by the app.
+    func testDaily3DRenderCostIsolation() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, warmPair: true, costIsolation3D: true)
+    }
+
+    private func applySamplingVariant(to scene: AngleTrainingScene, shadow: Bool, reflection: Bool) throws {
+        var clothCount = 0, ballCount = 0
+        var unique = Set<ObjectIdentifier>()
+        scene.rootNode.enumerateHierarchy { node, _ in
+            for material in node.geometry?.materials ?? [] where unique.insert(ObjectIdentifier(material)).inserted {
+                guard var source = material.shaderModifiers?[.surface] else { continue }
+                if shadow && material.name == "TaiNi" {
+                    XCTAssertTrue(source.contains("int samplesX=shadowPossible?8:2;"))
+                    source = MobileReferenceLighting.samplingShader(source, profile: .reducedShadows)
+                    clothCount += 1
+                }
+                if reflection && source.contains("for(int i=0;i<64;++i)") {
+                    source = MobileReferenceLighting.samplingShader(source, profile: .reducedReflections)
+                    ballCount += 1
+                }
+                material.shaderModifiers?[.surface] = source
+            }
+        }
+        if shadow { XCTAssertGreaterThan(clothCount, 0) }
+        if reflection { XCTAssertGreaterThan(ballCount, 0) }
+    }
+
+    func testBalancedSamplingVisuals() throws {
+        try dailyPerfGate()
+        for (pose, mode) in [("2d", AngleTrainingScene.CameraMode.topDown2DRotated), ("3d", .perspective3D), ("closeup", .perspective3D)] {
+            for variant in ["original", "shadow", "reflection", "balanced"] {
+                let s = try scene(mobile: true)
+                s.setCameraMode(mode, animated: false)
+                if mode == .topDown2DRotated { s.cameraRig?.applyTopDown2DRotated() }
+                try applySamplingVariant(to: s, shadow: variant == "shadow" || variant == "balanced", reflection: variant == "reflection" || variant == "balanced")
+                let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+                renderer.scene = s; renderer.pointOfView = s.cameraNode; renderer.delegate = s.contactOcclusion
+                let ball = try XCTUnwrap(s.cueBallNode)
+                if pose == "closeup" {
+                    s.cameraNode.position = SCNVector3(-0.45, s.surfaceY + 0.28, 0.6)
+                    s.cameraNode.look(at: SCNVector3(-0.40, s.surfaceY + 0.028575, 0))
+                    s.allBallNodes["_3"]?.position = SCNVector3(-0.35, s.surfaceY + 0.028575, 0.04)
+                }
+                let start = ball.position
+                for frame in 0..<12 {
+                    ball.position = SCNVector3(start.x + Float(frame)*0.012, start.y, start.z)
+                    SCNTransaction.flush()
+                    let shot = renderer.snapshot(atTime: Double(frame)/60, with: CGSize(width: 600, height: 1000), antialiasingMode: .multisampling4X)
+                    let data = try XCTUnwrap(shot.pngData())
+                    try data.write(to: dailyPerfDirectory.appendingPathComponent("balanced-\(pose)-\(variant)-\(frame).png"))
+                }
+            }
+        }
+    }
+
+    func testBalancedSampling3DCost() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, warmPair: true, balancedMode: 3)
+    }
+
+    func testBalancedSampling2DCost() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, warmPair: true, balancedMode: 2)
+    }
+
+    func testDailyShaderCandidatesWarmPair() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, warmPair: true, shaderCandidates: true)
+    }
+
+    func testDailyCompleteGPUCostAudit() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, warmPair: true, completeAudit: true)
+    }
+
+    private func measureDailyRenderAblations(samplingComparison: Bool, warmPair: Bool = false, loopComparison: Bool = false, packingComparison: Bool = false, costIsolation3D: Bool = false, completeAudit: Bool = false, shaderCandidates: Bool = false, balancedMode: Int = 0) async throws {
+        try dailyPerfGate()
+        for file in try FileManager.default.contentsOfDirectory(at: dailyPerfDirectory, includingPropertiesForKeys: nil)
+            where file.lastPathComponent.hasPrefix("ab-") {
+            try FileManager.default.removeItem(at: file)
+        }
+        #if !targetEnvironment(simulator)
+        try FileManager.default.removeItem(at: dailyPerfDirectory.deletingLastPathComponent().appendingPathComponent("run-daily-render-diagnostics"))
+        var cooling: [[String: Any]] = []
+        for _ in 0..<((warmPair && !completeAudit && balancedMode == 0) ? 1 : 18) {
+            let state = ProcessInfo.processInfo.thermalState
+            cooling.append(["time": Date().timeIntervalSince1970, "thermal": state.rawValue])
+            if state == .nominal || (warmPair && !completeAudit && balancedMode == 0) { break }
+            try await Task.sleep(for: .seconds(5))
+        }
+        try writeDailyPerf(cooling, "preflight-thermal")
+        try XCTSkipUnless((warmPair && !completeAudit && balancedMode == 0) ? ProcessInfo.processInfo.thermalState.rawValue < 2 : ProcessInfo.processInfo.thermalState == .nominal, "Thermal precondition not met")
+        #endif
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
+        let rack = RackLayout.make(.chineseEightBall, seed: 52)
+        let result = BreakSimulator.breakShot(rack: rack, power: 8)
+        XCTAssertTrue(result.settled)
+        try writeDailyPerf(result.board.onTable.mapValues { ["x": $0.x, "y": $0.y] }, "fixed-board")
+        let cases: [(String, Bool, Int, Int, Double, Bool, Double)] = balancedMode > 0 ? [
+            ("ab-balanced-base-a", balancedMode == 3, 60, 4, 1, true, 2),
+            ("ab-balanced-shadow", balancedMode == 3, 60, 4, 1, true, 2),
+            ("ab-balanced-base-b", balancedMode == 3, 60, 4, 1, true, 2),
+            ("ab-balanced-reflection", balancedMode == 3, 60, 4, 1, true, 2),
+            ("ab-balanced-base-c", balancedMode == 3, 60, 4, 1, true, 2),
+            ("ab-balanced-both", balancedMode == 3, 60, 4, 1, true, 2),
+            ("ab-balanced-base-d", balancedMode == 3, 60, 4, 1, true, 2)
+        ] : shaderCandidates ? [
+            ("ab-shader-old-2d-a", false, 60, 4, 1, true, 2),
+            ("ab-shader-new-2d-a", false, 60, 4, 1, true, 2),
+            ("ab-shader-new-2d-b", false, 60, 4, 1, true, 2),
+            ("ab-shader-old-2d-b", false, 60, 4, 1, true, 2),
+            ("ab-shader-old-3d-a", true, 60, 4, 1, true, 2),
+            ("ab-shader-new-3d-a", true, 60, 4, 1, true, 2),
+            ("ab-shader-new-3d-b", true, 60, 4, 1, true, 2),
+            ("ab-shader-old-3d-b", true, 60, 4, 1, true, 2)
+        ] : completeAudit ? [
+            ("ab-audit-base-a", true, 60, 4, 1, true, 2),
+            ("ab-audit-reflection-off", true, 60, 4, 1, true, 2),
+            ("ab-audit-base-b", true, 60, 4, 1, true, 2),
+            ("ab-audit-cloth-pbr-off", true, 60, 4, 1, true, 2),
+            ("ab-audit-base-c", true, 60, 4, 1, true, 2),
+            ("ab-audit-contact-off", true, 60, 4, 1, true, 2),
+            ("ab-audit-base-d", true, 60, 4, 1, true, 2),
+            ("ab-audit-native-shadow-off", true, 60, 4, 1, true, 2),
+            ("ab-audit-base-e", true, 60, 4, 1, true, 2),
+            ("ab-audit-room-off", true, 60, 4, 1, false, 2),
+            ("ab-audit-base-f", true, 60, 4, 1, true, 2),
+            ("ab-audit-aa1", true, 60, 1, 1, true, 2),
+            ("ab-audit-base-g", true, 60, 4, 1, true, 2),
+            ("ab-audit-scale75", true, 60, 4, 0.75, true, 2),
+            ("ab-audit-base-h", true, 60, 4, 1, true, 2),
+            ("ab-audit-cached-geometry-a", true, 60, 4, 1, true, 2),
+            ("ab-audit-cached-geometry-b", true, 60, 4, 1, true, 2),
+            ("ab-audit-base-i", true, 60, 4, 1, true, 2)
+        ] : costIsolation3D ? [
+            ("ab-3d-base-a", true, 60, 4, 1, true, 2),
+            ("ab-3d-no-direct-shadow", true, 60, 4, 1, true, 2),
+            ("ab-3d-base-b", true, 60, 4, 1, true, 2),
+            ("ab-3d-ball-native", true, 60, 4, 1, true, 2),
+            ("ab-3d-base-c", true, 60, 4, 1, true, 2),
+            ("ab-3d-room-off", true, 60, 4, 1, false, 2),
+            ("ab-3d-base-d", true, 60, 4, 1, true, 2)
+        ] : packingComparison ? [
+            ("ab-contact-legacy-2d-a", false, 60, 4, 1, true, 2),
+            ("ab-contact-packed-2d-a", false, 60, 4, 1, true, 2),
+            ("ab-contact-packed-2d-b", false, 60, 4, 1, true, 2),
+            ("ab-contact-legacy-2d-b", false, 60, 4, 1, true, 2),
+            ("ab-contact-legacy-3d-a", true, 60, 4, 1, true, 2),
+            ("ab-contact-packed-3d-a", true, 60, 4, 1, true, 2),
+            ("ab-contact-packed-3d-b", true, 60, 4, 1, true, 2),
+            ("ab-contact-legacy-3d-b", true, 60, 4, 1, true, 2)
+        ] : loopComparison ? [
+            ("ab-mask-2d", false, 60, 4, 1, true, 2),
+            ("ab-original-2d", false, 60, 4, 1, true, 2),
+            ("ab-mask-3d", true, 60, 4, 1, true, 2),
+            ("ab-original-3d", true, 60, 4, 1, true, 2)
+        ] : samplingComparison ? [
+            ("ab-shadow-8x2", false, 60, 4, 1, true, 2),
+            ("ab-shadow-4x2", false, 60, 4, 1, true, 2),
+            ("ab-shadow-original", false, 60, 4, 1, true, 2)
+        ] : [
+            ("ab-base", false, 60, 4, 1, true, 4),
+            ("ab-no-direct-shadow", false, 60, 4, 1, true, 4),
+            ("ab-cloth-native", false, 60, 4, 1, true, 4),
+            ("ab-ball-native", false, 60, 4, 1, true, 4),
+            ("ab-aa2", false, 60, 2, 1, true, 4),
+            ("ab-scale75", false, 60, 4, 0.75, true, 4),
+            ("ab-room-off", false, 60, 4, 1, false, 4),
+            ("ab-base-repeat", false, 60, 4, 1, true, 4)
+        ]
+        for (name, is3D, fps, aa, scale, room, duration) in cases {
+            guard ProcessInfo.processInfo.thermalState.rawValue < 2 else {
+                try writeDailyPerf(["stoppedBefore": name, "thermal": ProcessInfo.processInfo.thermalState.rawValue], "ab-stopped")
+                XCTFail("Stopped diagnostic at severe thermal state")
+                return
+            }
+            guard device.supportsTextureSampleCount(aa) else {
+                try writeDailyPerf(["name": name, "unsupported": "MTLDevice does not support sampleCount \(aa)"], name)
+                continue
+            }
+            let thermalStart = ProcessInfo.processInfo.thermalState.rawValue
+            let s = try scene(mobile: true)
+            s.hideAllBalls()
+            for (key, point) in result.board.onTable {
+                s.showBall(key: key, scenePosition: PositionPlayShotSolver.scenePoint(point, surfaceY: s.surfaceY))
+            }
+            try applyMaskedDirectShadows(to: s, enabled: balancedMode > 0 || shaderCandidates || completeAudit || costIsolation3D || packingComparison || (loopComparison && name.hasPrefix("ab-mask-")))
+            if balancedMode > 0 {
+                try applySamplingVariant(to: s, shadow: name == "ab-balanced-shadow" || name == "ab-balanced-both", reflection: name == "ab-balanced-reflection" || name == "ab-balanced-both")
+            }
+            var legacyContact: MobileContactOcclusion?
+            if packingComparison && name.hasPrefix("ab-contact-legacy-") {
+                var entries: [(SCNMaterial, [SCNShaderModifierEntryPoint: String]?)] = []
+                s.tableNode?.enumerateChildNodes { node, _ in
+                    for material in node.geometry?.materials ?? [] where material.name == "TaiNi" {
+                        entries.append((material, material.shaderModifiers))
+                    }
+                }
+                legacyContact = MobileContactOcclusion(scene: s, batchesUniforms: false)
+                let packed = MobileContactOcclusion.uniformDeclarations(ballCount: s.allBallNodes.count, batched: true)
+                let legacy = MobileContactOcclusion.uniformDeclarations(ballCount: s.allBallNodes.count, batched: false)
+                for (material, program) in entries {
+                    var restored = program
+                    restored?[.surface] = program?[.surface]?.replacingOccurrences(of: packed, with: legacy)
+                        .replacingOccurrences(of: "contactUniforms.contactGroup", with: "contactGroup")
+                    material.shaderModifiers = restored
+                }
+            }
+            if packingComparison {
+                // Synthetic contact-update workload: one visible ball per group,
+                // X-Z horizontal plane in metres. No physics trajectory is changed.
+                let balls = s.allBallNodes.sorted { $0.key < $1.key }.map(\.value)
+                for base in stride(from: 0, to: balls.count, by: 4) {
+                    if let ball = balls[base..<min(base + 4, balls.count)].first(where: { !$0.isHidden }) {
+                        ball.runAction(.repeatForever(.sequence([
+                            .moveBy(x: 0.04, y: 0, z: 0, duration: 0.5),
+                            .moveBy(x: -0.04, y: 0, z: 0, duration: 0.5)
+                        ])), forKey: "contact-packing-diagnostic", completionHandler: nil)
+                    }
+                }
+            }
+            var changed = 0
+            if shaderCandidates && name.hasPrefix("ab-shader-new-") {
+                try applyCachedBlockerGeometry(to: s)
+                try applyCachedReflectionSamples(to: s)
+            }
+            if name.hasPrefix("ab-audit-cached-geometry") { try applyCachedBlockerGeometry(to: s) }
+            if name == "ab-audit-reflection-off" {
+                for node in s.allBallNodes.values {
+                    node.enumerateHierarchy { part, _ in
+                        for m in part.geometry?.materials ?? [] {
+                            guard let source = m.shaderModifiers?[.surface], source.contains("for(int i=0;i<64;++i)") else { continue }
+                            m.shaderModifiers?[.surface] = source.replacingOccurrences(of: "for(int i=0;i<64;++i)", with: "for(int i=0;i<0;++i)")
+                            changed += 1
+                        }
+                    }
+                }
+                XCTAssertGreaterThan(changed, 0)
+            }
+            if name == "ab-audit-cloth-pbr-off" || name == "ab-audit-contact-off" {
+                s.tableNode?.enumerateChildNodes { node, _ in
+                    for m in node.geometry?.materials ?? [] where m.name == "TaiNi" {
+                        if name == "ab-audit-cloth-pbr-off" { m.lightingModel = .constant; changed += 1 }
+                        else if let source = m.shaderModifiers?[.surface] {
+                            let next = source.replacingOccurrences(of: #"contactVisibility \*= [^;]+;"#, with: "contactVisibility *= 1.0;", options: .regularExpression)
+                            XCTAssertNotEqual(next, source); m.shaderModifiers?[.surface] = next; changed += 1
+                        }
+                    }
+                }
+                XCTAssertGreaterThan(changed, 0)
+            }
+            if name == "ab-audit-native-shadow-off" {
+                s.rootNode.enumerateHierarchy { node, _ in
+                    if node.light?.castsShadow == true { node.light?.castsShadow = false; changed += 1 }
+                }
+                XCTAssertGreaterThan(changed, 0)
+            }
+            if name == "ab-shadow-8x2" || name == "ab-shadow-4x2" {
+                s.tableNode?.enumerateChildNodes { node, _ in
+                    for m in node.geometry?.materials ?? [] where m.name == "TaiNi" {
+                        guard let source = m.shaderModifiers?[.surface] else { continue }
+                        var program = source.replacingOccurrences(of: "int samplesZ=shadowPossible?4:2;", with: "int samplesZ=2;")
+                        if name == "ab-shadow-4x2" {
+                            program = program.replacingOccurrences(of: "int samplesX=shadowPossible?8:2;", with: "int samplesX=shadowPossible?4:2;")
+                        }
+                        XCTAssertNotEqual(source, program)
+                        m.shaderModifiers?[.surface] = program
+                        changed += 1
+                    }
+                }
+                XCTAssertGreaterThan(changed, 0)
+            }
+            if name == "ab-no-direct-shadow" || name == "ab-3d-no-direct-shadow" || name == "ab-cloth-native" {
+                s.tableNode?.enumerateChildNodes { node, _ in
+                    for material in node.geometry?.materials ?? [] where material.name == "TaiNi" {
+                        if name == "ab-cloth-native" { material.shaderModifiers = nil; changed += 1 }
+                        else if let source = material.shaderModifiers?[.surface], source.contains("if(shadowPossible)") {
+                            // Keep lighting sample count; isolate only ball occlusion loop.
+                            material.shaderModifiers?[.surface] = source.replacingOccurrences(of: "if(shadowPossible)", with: "if(false)")
+                            changed += 1
+                        }
+                    }
+                }
+                XCTAssertGreaterThan(changed, 0)
+            }
+            if name == "ab-ball-native" || name == "ab-3d-ball-native" {
+                for node in s.allBallNodes.values {
+                    node.enumerateHierarchy { part, _ in
+                        for material in part.geometry?.materials ?? [] { material.shaderModifiers = nil; changed += 1 }
+                    }
+                }
+                XCTAssertGreaterThan(changed, 0)
+            }
+            let mode: AngleTrainingScene.CameraMode = is3D ? .perspective3D : .topDown2DRotated
+            s.setCameraMode(mode, animated: false)
+            XCTAssertEqual(s.currentCameraMode, mode)
+            XCTAssertEqual(s.cameraNode.camera?.usesOrthographicProjection, !is3D)
+            if !room { s.rootNode.childNode(withName: "reference_room", recursively: false)?.isHidden = true }
+            s.cameraRig?.fitRotatedTable(viewSize: window.bounds.size)
+            if !is3D { s.cameraRig?.applyTopDown2DRotated() }
+            let view = MTKView(frame: window.bounds, device: device)
+            view.colorPixelFormat = .bgra8Unorm_srgb
+            view.depthStencilPixelFormat = .depth32Float_stencil8
+            view.sampleCount = aa; view.framebufferOnly = false
+            view.preferredFramesPerSecond = fps
+            view.autoResizeDrawable = false
+            view.drawableSize = CGSize(width: window.bounds.width * window.screen.scale * scale,
+                                       height: window.bounds.height * window.screen.scale * scale)
+            let probe = ReferenceFrameProbe(scene: s, device: device)
+            probe.movesCamera = is3D && !samplingComparison && !loopComparison && !packingComparison && !costIsolation3D && !completeAudit && !shaderCandidates && balancedMode == 0
+            if let legacyContact {
+                probe.retainedContact = legacyContact
+                probe.renderer.delegate = legacyContact
+            }
+            view.delegate = probe
+            window.addSubview(view)
+            // Warm shader/pipeline caches outside measured samples.
+            try await Task.sleep(for: .seconds(2))
+            let firstFrame = probe.frame
+            let start = CACurrentMediaTime()
+            let startAllocated = device.currentAllocatedSize
+            let memoryStart = dailyMemory()
+            try await Task.sleep(for: .seconds(duration))
+            view.isPaused = true
+            let end = CACurrentMediaTime()
+            try await Task.sleep(for: .milliseconds(500))
+            let rows = probe.samples.snapshot().filter { ($0["frame"] ?? -1) >= Double(firstFrame) }
+            let report: [String: Any] = ["name": name, "gpuDevice": device.name,
+                "requestedFPS": fps, "screenMaximumFPS": window.screen.maximumFramesPerSecond,
+                "width": view.drawableSize.width, "height": view.drawableSize.height,
+                "sampleCount": aa, "room": room, "cameraMoves": probe.movesCamera,
+                "warmPair": warmPair, "thermalStart": thermalStart, "thermal": ProcessInfo.processInfo.thermalState.rawValue, "duration": end-start, "frames": rows, "allocatedStart": startAllocated,
+                "allocatedEnd": device.currentAllocatedSize, "memoryStart": memoryStart, "memoryEnd": dailyMemory(),
+                "note": "MTKView with production scene and fixed real break board. GPU command-buffer time is for the executing device; draw intervals are not presented frames. Forced continuous rendering, no full SwiftUI page or prediction loop."]
+            try writeDailyPerf(report, name)
+            XCTAssertGreaterThan(rows.count, 10)
+            XCTAssertEqual(rows.filter { ($0["error"] ?? 0) > 0 }.count, 0)
+            do {
+                let image = probe.renderer.snapshot(atTime: CACurrentMediaTime(), with: CGSize(width: 588,height: 1000), antialiasingMode: .multisampling4X)
+                try XCTUnwrap(image.pngData()).write(to: dailyPerfDirectory.appendingPathComponent(name + ".png"))
+            }
+            view.delegate = nil; view.removeFromSuperview(); probe.renderer.scene = nil
+            try await Task.sleep(for: .milliseconds(300))
+            #if !targetEnvironment(simulator)
+            if completeAudit || balancedMode > 0 {
+                // All render views have stopped. Cool between items; each new item
+                // must start nominal. Surface temperature remains user-reported.
+                var coolingRows: [[String: Any]] = []
+                for attempt in 0..<24 {
+                    try await Task.sleep(for: .seconds(5))
+                    let state = ProcessInfo.processInfo.thermalState.rawValue
+                    coolingRows.append(["attempt": attempt, "thermal": state, "unix": Date().timeIntervalSince1970])
+                    if attempt >= 2 && state == 0 { break }
+                }
+                try writeDailyPerf(coolingRows, name + "-cooling")
+                guard ProcessInfo.processInfo.thermalState == .nominal else {
+                    try writeDailyPerf(["stoppedAfter": name, "reason": "Cooling did not reach nominal"], "ab-stopped")
+                    XCTFail("Complete audit stopped at cooling limit; preserve partial rows")
+                    return
+                }
+            }
+            #endif
+        }
+    }
+
+    func testDailySceneIdleAndLifecycle() async throws {
+        try dailyPerfGate()
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
+        let oldFPS = UserPreferences.shared.renderFrameRate
+        UserPreferences.shared.renderFrameRate = .fps60
+        defer { UserPreferences.shared.renderFrameRate = oldFPS }
+        var weakScenes: [DailyWeakScene] = []
+        var rows: [[String: Any]] = []
+        for cycle in 0..<10 {
+            try autoreleasepool {
+                let s = try scene(mobile: true)
+                let runner = BreakFlowRunner(scene: s, game: .chineseEightBall, seed: 52)
+                runner.rackUp()
+                weakScenes.append(DailyWeakScene(s))
+                let view = SCNView(frame: window.bounds)
+                view.scene = s; view.pointOfView = s.cameraNode
+                view.antialiasingMode = .multisampling4X
+                view.delegate = s.contactOcclusion
+                let count = ReferenceLockedFrameCount()
+                s.contactOcclusion?.didRenderFrame = { count.increment() }
+                let coordinator = AngleSceneView.Coordinator(scene: s, cameraMode: .perspective3D, interactionMode: .cameraControl)
+                coordinator.scnView = view; coordinator.contentIsAnimating = false
+                window.addSubview(view); coordinator.startRenderLoop(); coordinator.requestInteractiveFrames()
+                // Let caller inspect the presented scene asynchronously, then dismantle the production coordinator.
+                dailyLifecyclePending = (s, view, coordinator, count, runner)
+            }
+            try await Task.sleep(for: .seconds(2))
+            let before = dailyLifecyclePending!.3.value
+            try await Task.sleep(for: .seconds(3))
+            let idleFrames = dailyLifecyclePending!.3.value-before
+            rows.append(["cycle": cycle, "idleFrames3s": idleFrames,
+                         "isPlaying": dailyLifecyclePending!.1.isPlaying,
+                         "allocatedDuring": device.currentAllocatedSize])
+            AngleSceneView.dismantleUIView(dailyLifecyclePending!.1, coordinator: dailyLifecyclePending!.2)
+            dailyLifecyclePending!.1.delegate = nil
+            dailyLifecyclePending!.1.removeFromSuperview()
+            dailyLifecyclePending!.0.contactOcclusion?.didRenderFrame = nil
+            dailyLifecyclePending = nil
+            try await Task.sleep(for: .seconds(1))
+            rows[rows.count-1]["liveScenesAfterExit"] = weakScenes.filter { $0.value != nil }.count
+            rows[rows.count-1]["allocatedAfter"] = device.currentAllocatedSize
+            rows[rows.count-1]["memoryAfter"] = dailyMemory()
+            try writeDailyPerf(rows, "lifecycle")
+            XCTAssertLessThanOrEqual(idleFrames, 5, "Stable shared SCNView must not continuously redraw")
+        }
+    }
+
+    /// Normal shots only: production VM + SceneKit actions + production pacing.
+    /// Isolated scene host; full FreePlay SwiftUI chrome is measured separately.
+    func testDailyNormalShotPhases() async throws {
+        try await measureDailyNormalShotPhases(fps: .fps60)
+    }
+
+    func testDailyNormal3DShotPhases() async throws {
+        try await measureDailyNormalShotPhases(fps: .fps60, mode: .perspective3D, trials: 2)
+    }
+
+    func testDailyNormalShotPhases30FPS() async throws {
+        try await measureDailyNormalShotPhases(fps: .fps30)
+    }
+
+    private func measureDailyNormalShotPhases(fps: RenderFrameRate, mode: AngleTrainingScene.CameraMode = .topDown2DRotated, trials: Int = 4) async throws {
+        try dailyPerfGate()
+        #if !targetEnvironment(simulator)
+        try FileManager.default.removeItem(at: dailyPerfDirectory.deletingLastPathComponent().appendingPathComponent("run-daily-render-diagnostics"))
+        try XCTSkipUnless(ProcessInfo.processInfo.thermalState == .nominal, "Normal-shot audit requires nominal start")
+        #endif
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
+        let oldFPS = UserPreferences.shared.renderFrameRate
+        UserPreferences.shared.renderFrameRate = fps
+        defer { UserPreferences.shared.renderFrameRate = oldFPS }
+        let board = BreakSimulator.breakShot(rack: RackLayout.make(.chineseEightBall, seed: 52), power: 8)
+        XCTAssertTrue(board.settled)
+        let vm = PositionPlayViewModel()
+        vm.setupScene(mobileRendering: true)
+        vm.cameraMode = mode
+        vm.scene.setCameraMode(mode, animated: false)
+        let view = SCNView(frame: window.bounds)
+        view.scene = vm.scene; view.pointOfView = vm.scene.cameraNode
+        view.antialiasingMode = .multisampling4X
+        let frames = ReferenceLockedFrameCount()
+        vm.scene.contactOcclusion?.didRenderFrame = { frames.increment() }
+        let coordinator = AngleSceneView.Coordinator(scene: vm.scene, cameraMode: mode, interactionMode: .cameraControl)
+        coordinator.scnView = view; coordinator.contentIsAnimating = false
+        window.addSubview(view); coordinator.startRenderLoop(); coordinator.requestInteractiveFrames()
+        defer {
+            AngleSceneView.dismantleUIView(view, coordinator: coordinator)
+            view.removeFromSuperview(); vm.scene.contactOcclusion?.didRenderFrame = nil
+        }
+        func cpuSeconds() -> Double {
+            var usage = rusage()
+            XCTAssertEqual(getrusage(RUSAGE_SELF, &usage), 0)
+            return Double(usage.ru_utime.tv_sec + usage.ru_stime.tv_sec)
+                + Double(usage.ru_utime.tv_usec + usage.ru_stime.tv_usec) / 1_000_000
+        }
+        var rows: [[String: Any]] = []
+        func begin(_ phase: String, _ trial: Int) throws -> (Double, Double, Int, Double) {
+            try writeDailyPerf(["phase": phase, "trial": trial, "pid": getpid(), "unix": Date().timeIntervalSince1970], "normal-shot-current")
+            return (CACurrentMediaTime(), cpuSeconds(), frames.value, vm.entryTiming["completedSolves", default: 0])
+        }
+        func end(_ phase: String, _ trial: Int, _ start: (Double, Double, Int, Double)) throws {
+            let wall = CACurrentMediaTime() - start.0
+            rows.append(["phase": phase, "trial": trial, "wallSeconds": wall,
+                         "cpuSeconds": cpuSeconds() - start.1, "frames": frames.value - start.2,
+                         "completedSolves": vm.entryTiming["completedSolves", default: 0] - start.3,
+                         "timing": vm.entryTiming, "memory": dailyMemory(),
+                         "isPlaying": view.isPlaying, "ballCount": vm.onTableKeys.count,
+                         "mode": mode == .perspective3D ? "3D" : "2D", "thermal": ProcessInfo.processInfo.thermalState.rawValue])
+            try writeDailyPerf(rows, mode == .perspective3D ? "normal-3d-shot-phases" : "normal-shot-phases")
+        }
+        for trial in 0..<trials {
+            guard ProcessInfo.processInfo.thermalState.rawValue < 2 else {
+                XCTFail("Stop normal-shot diagnostic at severe thermal state"); return
+            }
+            vm.aimMode = .free
+            vm.loadBoard(board.board)
+            vm.velocity = trial % 2 == 0 ? 1.5 : 3.6
+            let target = try XCTUnwrap(board.board.onTable.keys.sorted().first { $0 != PositionPlayBall.cueKey })
+            vm.handleTableTap(world: try XCTUnwrap(vm.scene.allBallNodes[target]).position)
+            let readyDeadline = CACurrentMediaTime() + 10
+            while vm.isComputing && CACurrentMediaTime() < readyDeadline { try await Task.sleep(for: .milliseconds(20)) }
+            XCTAssertFalse(vm.isComputing)
+            XCTAssertTrue(vm.bankAlternatives.isEmpty)
+            XCTAssertTrue(try XCTUnwrap(vm.solvedShot).shot.isFree)
+            try await Task.sleep(for: .seconds(2))
+            let idle = try begin("idle-before", trial)
+            try await Task.sleep(for: .seconds(3))
+            try end("idle-before", trial, idle)
+            let solve = try begin("normal-predict", trial)
+            vm.recompute()
+            let deadline = CACurrentMediaTime() + 10
+            while vm.isComputing && CACurrentMediaTime() < deadline { try await Task.sleep(for: .milliseconds(5)) }
+            XCTAssertFalse(vm.isComputing)
+            XCTAssertTrue(vm.bankAlternatives.isEmpty)
+            try end("normal-predict", trial, solve)
+            let play = try begin("playback", trial)
+            let prediction = try XCTUnwrap(vm.solvedShot).prediction
+            print("NORMAL_SHOT trial=\(trial) duration=\(prediction.duration) cpuDirectMS=\(vm.entryTiming["directMs", default: -1]) pid=\(getpid())")
+            vm.play()
+            XCTAssertTrue(vm.isPlaying)
+            coordinator.contentIsAnimating = vm.isPlaying
+            coordinator.requestInteractiveFrames()
+            let playDeadline = CACurrentMediaTime() + 45
+            while vm.isPlaying && CACurrentMediaTime() < playDeadline {
+                try await Task.sleep(for: .milliseconds(50))
+                coordinator.contentIsAnimating = vm.isPlaying
+            }
+            XCTAssertFalse(vm.isPlaying)
+            try end("playback", trial, play)
+            try await Task.sleep(for: .seconds(2))
+            let after = try begin("idle-after", trial)
+            try await Task.sleep(for: .seconds(3))
+            try end("idle-after", trial, after)
+        }
+        try writeDailyPerf(["phase": "finished", "pid": getpid()], "normal-shot-current")
+    }
+
+    func testDailyNormalPredictionOnly() async throws {
+        try dailyPerfGate()
+        var rows: [[String: Any]] = []
+        for seed in 52...54 {
+            let result = BreakSimulator.breakShot(rack: RackLayout.make(.chineseEightBall, seed: UInt64(seed)), power: 8)
+            XCTAssertTrue(result.settled)
+            let target = try XCTUnwrap(result.board.onTable.keys.sorted().first { $0 != PositionPlayBall.cueKey })
+            for velocity in [1.5, 3.6] {
+                for pocket in 0..<6 {
+                    let shot = PlannedShot(targetKey: target, pocket: try XCTUnwrap(ShotIntent.pocketId(for: pocket)), velocity: velocity, spinX: 0, spinY: 0)
+                    let start = CACurrentMediaTime()
+                    let prediction = try XCTUnwrap(PositionPlayShotSolver.solve(before: result.board, shot: shot, surfaceY: result.surfaceY))
+                    rows.append(["seed": seed, "pocket": pocket, "velocity": velocity,
+                                 "ms": (CACurrentMediaTime() - start) * 1000,
+                                 "feasible": prediction.feasible, "settled": prediction.hasFinalTableState,
+                                 "duration": prediction.duration, "potted": prediction.simObjectPotted])
+                }
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try writeDailyPerf(rows, "normal-direct-physics")
+    }
+
+    func testDailyFixedPhysicsCosts() async throws {
+        try dailyPerfGate()
+        var rows: [[String: Any]] = []
+        for seed in 52...54 {
+            let start = CACurrentMediaTime()
+            let rack = RackLayout.make(.chineseEightBall, seed: UInt64(seed))
+            let result = BreakSimulator.breakShot(rack: rack, power: 8)
+            rows.append(["kind": "break", "seed": seed, "ms": (CACurrentMediaTime()-start)*1000, "settled": result.settled])
+            XCTAssertTrue(result.settled)
+            guard let cuePoint = result.board.onTable[PositionPlayBall.cueKey],
+                  let targetKey = result.board.onTable.keys.sorted().first(where: { $0 != PositionPlayBall.cueKey }),
+                  let targetPoint = result.board.onTable[targetKey] else { XCTFail("Missing fixed shot input"); return }
+            let cue = PositionPlayShotSolver.scenePoint(cuePoint, surfaceY: result.surfaceY)
+            let target = PositionPlayShotSolver.scenePoint(targetPoint, surfaceY: result.surfaceY)
+            for pocket in 0..<6 {
+                let shot = PlannedShot(targetKey: targetKey, pocket: try XCTUnwrap(ShotIntent.pocketId(for: pocket)), velocity: 1.5, spinX: 0, spinY: 0)
+                let t0 = CACurrentMediaTime()
+                let direct = try XCTUnwrap(PositionPlayShotSolver.solve(before: result.board, shot: shot, surfaceY: result.surfaceY))
+                let directMs = (CACurrentMediaTime()-t0)*1000
+                let bankStart = CACurrentMediaTime()
+                var banks = 0
+                if !direct.feasible {
+                    banks = DirectPotBankFallback.solveBankAlternatives(cue: cue, object: target, pocketIndex: pocket,
+                        surfaceY: result.surfaceY, power: 1.5,
+                        obstacles: DirectPotBankFallback.obstacles(before: result.board, targetKey: targetKey, surfaceY: result.surfaceY)).count
+                }
+                rows.append(["kind": "predict", "seed": seed, "target": targetKey, "pocket": pocket,
+                             "directMs": directMs, "bankMs": (CACurrentMediaTime()-bankStart)*1000,
+                             "bankAttempted": !direct.feasible, "bankCount": banks])
+                try writeDailyPerf(rows, "physics")
+                try await Task.sleep(for: .milliseconds(10))
+            }
+        }
+    }
+}
+
+@MainActor private var dailyLifecyclePending: (AngleTrainingScene, SCNView, AngleSceneView.Coordinator, ReferenceLockedFrameCount, BreakFlowRunner)?
+private final class DailyWeakScene {
+    weak var value: AngleTrainingScene?
+    init(_ value: AngleTrainingScene) { self.value = value }
+}
+
+private final class ContactWriteCountingMaterial: SCNMaterial {
+    var writes = 0
+    override func setValue(_ value: Any?, forKey key: String) {
+        if key == "contactUniforms" || key.hasPrefix("contactGroup") { writes += 1 }
+        super.setValue(value, forKey: key)
+    }
 }

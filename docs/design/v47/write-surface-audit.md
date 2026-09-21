@@ -100,3 +100,12 @@ S1_FreePlayLayoutUITests、S2_ShotPagesLayoutUITests、DrillSceneThreeBeatUITest
 ## 2026-09-20 六球两杆搜索写盘审计
 
 `SixPocketTwoShotTests` 的搜索方法仅在 TWO_SHOT_DIR 显式启用时写 JSON；无变量时 XCTSkip。runner 要求独立输出目录且拒绝已有 build.log，保留源码/hash、每起点覆盖结果、实际见证解和第二杆状态库。默认位于本任务 output/two-shot-six-20260920 下，不写 Bundle、球形资源、用户存储或设计基线；失败与成功证据均保留，由任务方按需清理。输入 JSON 只读，写失败向外抛出。状态交接单测不写盘；采用独立模拟器。
+
+## 2026-09-21 提交检查补齐视频与六袋研究登记
+
+- `AdvancedSnakeVideoCaptureTests`：`SNAKE_CAPTURE_DIR`，写预检/标定/序列/机位/时间线 JSON、PNG 与导出视频。
+- `SixPocketSearchTests`：`SIX_SEARCH_DIR`，写搜索进度、候选、诊断 JSON、PNG 与预览视频。
+- `SixPocketV4ProbeTests`、`SixPocketV4RefineTests`、`SixPocketV4Round2ProbeTests`：`SIX_V4_DIR`，写探针、精修、统计 JSON/TXT；按实验子目录组织。
+- `SixPocketV5VideoTests`：`SIX_V5_VIDEO_DIR`，写生产回放校验、帧 PNG、视频与清单 JSON。
+
+六者均兼容 `TEST_RUNNER_` 环境变量前缀，写盘入口无显式目录即 XCTSkip。调用方必须使用独立 `output/` 或 `build/` 实验目录；代码接收任意显式路径，未强制限制根目录，因此不得指向 Resources、用户数据或设计基线。固定文件名复跑可能覆盖旧证据，运行前选择新目录或保留旧版本；不自动清理实验目录，由任务方按需清理。写入错误向外抛出，输入解与资源只读；使用独立模拟器运行，避免视频导出和其他测试抢占。此次只补真实写盘审计与清单，不代表重跑或重新验收这些研究。

@@ -170,9 +170,12 @@ struct AngleSceneView: UIViewRepresentable {
         if uiView.backgroundColor != backgroundColor {
             uiView.backgroundColor = backgroundColor
         }
-        context.coordinator.contentIsAnimating = contentIsAnimating
-        context.coordinator.requestInteractiveFrames()
-        context.coordinator.cameraMode = cameraMode
+        if context.coordinator.locksCueBallScreenAnchor != locksCueBallScreenAnchor
+            || context.coordinator.autoFitsRotatedTable != autoFitsRotatedTable
+            || context.coordinator.autoFitsLandscapeTable != autoFitsLandscapeTable {
+            context.coordinator.requestInteractiveFrames()
+        }
+        context.coordinator.updateContentActivity(contentIsAnimating, cameraMode: cameraMode)
         context.coordinator.interactionMode = interactionMode
         context.coordinator.locksCueBallScreenAnchor = locksCueBallScreenAnchor
         context.coordinator.autoFitsRotatedTable = autoFitsRotatedTable
@@ -189,6 +192,7 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.onAimNudged = onAimNudged
         context.coordinator.onAimDragActiveChanged = onAimDragActiveChanged
         context.coordinator.onAimDragEnded = onAimDragEnded
+        context.coordinator.frameDelegate.contact = scene.contactOcclusion
         context.coordinator.updatePocketAccessibility()
         if let projector, projector.unproject == nil {
             bindProjector(to: uiView)
@@ -224,9 +228,14 @@ struct AngleSceneView: UIViewRepresentable {
         weak var panGesture: UIPanGestureRecognizer?
         private var displayLink: CADisplayLink?
         private var lastTimestamp: CFTimeInterval = 0
+        private var lastViewportSize: CGSize?
         var contentIsAnimating: Bool?
         private var needsContinuousUpdates = true
-        private var interactiveUntil: CFTimeInterval = 0
+        // Keep legacy callers with unknown activity running; explicit idle sleeps.
+        var eventDrivenIdle = true
+        var isDisplayLinkPaused: Bool { displayLink?.isPaused ?? true }
+        private(set) var displayLinkCallbackCount = 0
+        private(set) var interactiveUntil: CFTimeInterval = 0
         let frameDelegate = FrameDelegate()
         private var fpsHost: UIHostingController<FPSReadout>?
         private let diagramLabels = DiagramLabelOverlay()
@@ -248,12 +257,13 @@ struct AngleSceneView: UIViewRepresentable {
             updateFPSReadout()
         }
 
-        private func updateFPSReadout() {
+        private func updateFPSReadout(force: Bool = false) {
             fpsHost?.view.isHidden = cameraMode != .perspective3D
             let now = CACurrentMediaTime()
-            guard now - fpsSampleTime >= 1 else { return }
+            guard force || now - fpsSampleTime >= 1 else { return }
             let count = frameDelegate.takeFrameCount()
-            let fps = Int((Double(count) / (now - fpsSampleTime)).rounded())
+            let elapsed = now - fpsSampleTime
+            let fps = elapsed > 0 ? Int((Double(count) / elapsed).rounded()) : 0
             fpsSampleTime = now
             guard cameraMode == .perspective3D else { return }
             #if DEBUG
@@ -279,6 +289,24 @@ struct AngleSceneView: UIViewRepresentable {
 
         private var lastSevereThermalTime: CFTimeInterval = -.infinity
 
+        func updateViewport(_ size: CGSize) {
+            // The rig can be installed after makeUIView/first layout.
+            scene.cameraRig?.viewportSize = size
+            guard size != lastViewportSize else { return }
+            lastViewportSize = size
+            // Layout changes must still refit a stationary 2D table.
+            requestInteractiveFrames()
+        }
+
+        func updateContentActivity(_ animating: Bool?, cameraMode mode: AngleTrainingScene.CameraMode) {
+            let changed = contentIsAnimating != animating || cameraMode != mode
+            contentIsAnimating = animating
+            cameraMode = mode
+            // SceneKit invalidates changed nodes itself. Unrelated SwiftUI publications
+            // must not extend the interactive window on a stationary table.
+            if changed { requestInteractiveFrames() }
+        }
+
         func requestInteractiveFrames() {
             interactiveUntil = CACurrentMediaTime() + 0.5
             updateFramePacing()
@@ -299,7 +327,16 @@ struct AngleSceneView: UIViewRepresentable {
                     if node.hasActions || !node.animationKeys.isEmpty { active = true; stop.pointee = true }
                 }
             }
+            let wasActive = needsContinuousUpdates
             needsContinuousUpdates = active
+            if eventDrivenIdle {
+                displayLink.isPaused = !active
+                frameDelegate.watchesIdleInvalidation = !active
+                if wasActive != active {
+                    lastTimestamp = 0
+                    updateFPSReadout(force: true)
+                }
+            }
             if scnView.isPlaying != active { scnView.isPlaying = active }
             if scnView.rendersContinuously { scnView.rendersContinuously = false }
             let maximum = scnView.window?.screen.maximumFramesPerSecond ?? UIScreen.main.maximumFramesPerSecond
@@ -401,22 +438,34 @@ struct AngleSceneView: UIViewRepresentable {
             link.preferredFrameRateRange = CAFrameRateRange(minimum: fps, maximum: fps, preferred: fps)
             link.add(to: .main, forMode: .common)
             displayLink = link
+            frameDelegate.idleInvalidation = { [weak self] in
+                guard let self, self.displayLink != nil else { return }
+                self.frameDelegate.contact = self.scene.contactOcclusion
+                if let view = self.scnView {
+                    self.updateViewport(view.bounds.size)
+                    self.diagramLabels.update(scene: self.scene, in: view)
+                }
+                self.updateFramePacing()
+            }
         }
 
         func stopRenderLoop() {
             displayLink?.invalidate()
             displayLink = nil
+            frameDelegate.watchesIdleInvalidation = false
+            frameDelegate.idleInvalidation = nil
             lastTimestamp = 0
         }
 
         @objc private func renderUpdate(_ link: CADisplayLink) {
+            displayLinkCallbackCount += 1
             defer {
                 if let scnView { diagramLabels.update(scene: scene, in: scnView) }
                 #if DEBUG
                 if dragProbeEnabled { updatePocketAccessibility() }
                 #endif
             }
-            if let scnView { scene.cameraRig?.viewportSize = scnView.bounds.size }
+            if let scnView { updateViewport(scnView.bounds.size) }
             updateFramePacing()
             let dt: Float
             if lastTimestamp == 0 {
@@ -904,6 +953,17 @@ private struct FPSReadout: View {
 final class FrameDelegate: NSObject, SCNSceneRendererDelegate {
     private let lock = NSLock()
     private var frames = 0
+    private var watchesIdle = false
+    private var invalidationPending = false
+    private var idleCallback: (@MainActor () -> Void)?
+    var watchesIdleInvalidation: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return watchesIdle }
+        set { lock.lock(); watchesIdle = newValue; lock.unlock() }
+    }
+    var idleInvalidation: (@MainActor () -> Void)? {
+        get { lock.lock(); defer { lock.unlock() }; return idleCallback }
+        set { lock.lock(); idleCallback = newValue; lock.unlock() }
+    }
     private var target: MobileContactOcclusion?
     var contact: MobileContactOcclusion? {
         get { lock.lock(); defer { lock.unlock() }; return target }
@@ -917,7 +977,21 @@ final class FrameDelegate: NSObject, SCNSceneRendererDelegate {
         contact?.renderer(renderer, didApplyAnimationsAtTime: time)
     }
     func renderer(_ renderer: SCNSceneRenderer, didRenderScene scene: SCNScene, atTime time: TimeInterval) {
-        lock.lock(); frames += 1; lock.unlock()
+        lock.lock()
+        frames += 1
+        let notify = watchesIdle && !invalidationPending && idleCallback != nil
+        if notify { invalidationPending = true }
+        lock.unlock()
+        if notify {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.lock.lock()
+                self.invalidationPending = false
+                let callback = self.idleCallback
+                self.lock.unlock()
+                callback?()
+            }
+        }
         #if DEBUG
         contact?.renderer(renderer, didRenderScene: scene, atTime: time)
         #endif

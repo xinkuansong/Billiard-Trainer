@@ -134,6 +134,32 @@ enum MobileReferenceLighting {
 
     /// Shader argument block shared by every ball material: cloth bounce colour
     /// plus the room reflection probe (equirect texture + SH9 irradiance).
+    enum SamplingProfile {
+        case reference, reducedShadows, reducedReflections, balanced
+    }
+
+    // Preview opt-in only until cool-device performance and motion quality pass.
+    // Release behavior remains the reference profile.
+    private static var previewSamplingProfile: SamplingProfile {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-balancedRendering") { return .balanced }
+        #endif
+        return .reference
+    }
+
+    static func samplingShader(_ source: String, profile: SamplingProfile) -> String {
+        var result = source
+        if profile == .reducedShadows || profile == .balanced {
+            result = result.replacingOccurrences(of: "int samplesX=shadowPossible?8:2;", with: "int samplesX=shadowPossible?4:2;")
+        }
+        if profile == .reducedReflections || profile == .balanced {
+            result = result.replacingOccurrences(of: "for(int i=0;i<64;++i)", with: "for(int i=0;i<32;++i)")
+                .replacingOccurrences(of: "(float(i)+0.5)/64.0", with: "(float(i)+0.5)/32.0")
+                .replacingOccurrences(of: "*nv*64.0", with: "*nv*32.0")
+        }
+        return result
+    }
+
     static let ballShaderArguments: String = {
         var block = "#pragma arguments\nfloat3 selectedClothAlbedo;\ntexture2d<float> roomReflection;\nfloat3 roomFloor;\n"
         for i in 0..<9 { block += "float3 roomSH\(i);\n" }
@@ -151,7 +177,7 @@ enum MobileReferenceLighting {
                 let coloredSurface = ballShaderArguments + surface.replacingOccurrences(
                     of: "float3 clothAlbedo=float3(0.0074764,0.1612358,0.0036536);",
                     with: "float3 clothAlbedo=selectedClothAlbedo;")
-                m.shaderModifiers = [.surface:trialShader(coloredSurface)]
+                m.shaderModifiers = [.surface:trialShader(samplingShader(coloredSurface, profile: previewSamplingProfile))]
                 m.setValue(NSValue(scnVector3: ClothColor.green.linearAlbedo), forKey: "selectedClothAlbedo")
                 probe?.install(on: m)
                 applyHighlightHeadroom(to: m, exposureOffset: exposureOffset)
@@ -195,36 +221,7 @@ enum MobileReferenceLighting {
             applyBall(to:node, exposureOffset: scene.cameraNode.camera?.exposureOffset ?? 0, stickerFinish: numbered,
                       probe: scene.roomReflectionProbe)
         }
-        var shadow="", possible="bool shadowPossible=false;\n"
-        for i in 0..<scene.allBallNodes.count {
-            shadow += """
-            if(contactBall\(i).w>0.0) {
-                float3 center=float3(contactBall\(i).x,0.8+contactBall\(i).z,contactBall\(i).y);
-                float3 toCenter=center-p;float t=dot(toCenter,l);
-                float perpendicular2=dot(toCenter,toCenter)-t*t;
-                if(t>0.0 && t*t<r2) {
-                    // Project the equal-area light-sample disk onto the blocker.
-                    // Deterministic footprint filtering replaces binary sample jumps.
-                    float filterRadius=max(0.000001,lightCellRadius*t/sqrt(r2));
-                    float distanceToRay=sqrt(max(0.0,perpendicular2));
-                    float blocked=1.0-smoothstep(0.028575-filterRadius,0.028575+filterRadius,distanceToRay);
-                    visibility *= 1.0-min(1.0,contactBall\(i).w/0.85)*blocked;
-                }
-            }
-            """
-            // Conservative support includes the sphere top and filtered sample
-            // footprint. Use the lowest emitter height for every panel.
-            possible += """
-            if(contactBall\(i).w>0.0) {
-                float top=contactBall\(i).z+0.028575;
-                float bound=0.028575+top/max(0.01,\(rig.minimumHeight - 0.8)-top)*(length(contactBall\(i).xy)+\(rig.shadowSupportRadius));
-                float2 offset=p.xz-contactBall\(i).xy;
-                shadowPossible=shadowPossible || top>=\(rig.minimumHeight - 0.8) || dot(offset,offset)<=bound*bound;
-            }
-            """
-        }
-        let shader=clothShader.replacingOccurrences(of:"// SHADOW",with:"if(shadowPossible) {\n"+shadow+"\n}")
-            .replacingOccurrences(of:"// NEAR_SHADOW",with:possible)
+        let shader = directShadowShader(ballCount: scene.allBallNodes.count)
         scene.tableNode?.enumerateChildNodes { node,_ in
             for m in node.geometry?.materials ?? [] where m.name == "TaiNi" {
                 var mods=m.shaderModifiers ?? [:]
@@ -269,6 +266,65 @@ enum MobileReferenceLighting {
             }
         }
 
+    }
+
+    /// Cull provably irrelevant blockers once per receiver, retaining the exact
+    /// emitter grid/filter and ascending multiplication order. A single bit mask
+    /// avoids keeping one live branch predicate per ball across every light sample.
+    /// `usesMask: false` provides the original program for equivalence diagnostics.
+    static func directShadowShader(ballCount: Int, usesMask: Bool = true) -> String {
+        var shadow="", possible="bool shadowPossible=false;\n"
+        var firstBallShadow = ""
+        var mask = "uint shadowMask=0u;\n"
+        for i in 0..<ballCount {
+            shadow += """
+            if(contactBall\(i).w>0.0) {
+                float3 center=float3(contactBall\(i).x,0.8+contactBall\(i).z,contactBall\(i).y);
+                float3 toCenter=center-p;float t=dot(toCenter,l);
+                float perpendicular2=dot(toCenter,toCenter)-t*t;
+                if(t>0.0 && t*t<r2) {
+                    // Project the equal-area light-sample disk onto the blocker.
+                    // Deterministic footprint filtering replaces binary sample jumps.
+                    float filterRadius=max(0.000001,lightCellRadius*t/sqrt(r2));
+                    float distanceToRay=sqrt(max(0.0,perpendicular2));
+                    float blocked=1.0-smoothstep(0.028575-filterRadius,0.028575+filterRadius,distanceToRay);
+                    visibility *= 1.0-min(1.0,contactBall\(i).w/0.85)*blocked;
+                }
+            }
+            """
+            if i == 0 { firstBallShadow = shadow }
+            mask += """
+            if(contactBall\(i).w>0.0) {
+                float top=contactBall\(i).z+0.028575;
+                float bound=0.028575+top/max(0.01,\(rig.minimumHeight - 0.8)-top)*(length(contactBall\(i).xy)+\(rig.shadowSupportRadius));
+                float2 offset=p.xz-contactBall\(i).xy;
+                if(p.y<0.8 || top>=\(rig.minimumHeight - 0.8) || dot(offset,offset)<=bound*bound) shadowMask |= (1u<<\(i));
+            }
+            """
+            // Conservative support includes the sphere top and filtered sample
+            // footprint. Use the lowest emitter height for every panel.
+            possible += """
+            if(contactBall\(i).w>0.0) {
+                float top=contactBall\(i).z+0.028575;
+                float bound=0.028575+top/max(0.01,\(rig.minimumHeight - 0.8)-top)*(length(contactBall\(i).xy)+\(rig.shadowSupportRadius));
+                float2 offset=p.xz-contactBall\(i).xy;
+                shadowPossible=shadowPossible || top>=\(rig.minimumHeight - 0.8) || dot(offset,offset)<=bound*bound;
+            }
+            """
+        }
+        let masked = usesMask && (1...32).contains(ballCount)
+        if masked {
+            shadow = "uint remainingShadowBalls=shadowMask;\nwhile(remainingShadowBalls!=0u) {\nuint shadowIndex=ctz(remainingShadowBalls);\nremainingShadowBalls &= remainingShadowBalls-1u;\nfloat4 shadowBall=shadowBalls[shadowIndex];\n"
+                + firstBallShadow.replacingOccurrences(of: "contactBall0", with: "shadowBall") + "\n}"
+        }
+        var shader = clothShader.replacingOccurrences(of: "// SHADOW", with: "if(shadowPossible) {\n" + shadow + "\n}")
+            .replacingOccurrences(of: "// NEAR_SHADOW", with: possible)
+        if masked {
+            let values = (0..<ballCount).map { "contactBall\($0)" }.joined(separator: ",")
+            shader = shader.replacingOccurrences(of: "float3 p=contactWorld;", with: "float4 shadowBalls[\(ballCount)]={\(values)};\nfloat3 p=contactWorld;")
+                .replacingOccurrences(of: "for(int panel=0;", with: mask + "\nfor(int panel=0;")
+        }
+        return samplingShader(shader, profile: previewSamplingProfile)
     }
 
     /// Output mapping shared by reference materials. Keep diffuse-range values

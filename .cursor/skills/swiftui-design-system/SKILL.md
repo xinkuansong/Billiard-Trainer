@@ -1004,3 +1004,22 @@ Changelog：2026-09-13 / DR-273 / 比分胶囊自适应候选。
 Changelog：2026-09-15 / DR-309 / 共用拖球交互，验证记录见 tasks/ui-reviews/UR-20260915-shared-3d-drag.md。
 
 DR-309 追加（用户触摸容错要求）：球心周围48pt为共享抓取容错区；点选/拖过的可移动球保持优先，近邻区域起手继续拖该球，直接命中另一颗球优先切换，点/拖空白处解除优先；单次抓取后直到松手均不切换对象。遮挡/隐藏/只读不因容错放开。
+
+
+### DR-310 — 每日清台等画质预览复用
+AngleTrainingScene.setFreeAimPreviewLine(nil)/setIdealObjectLine(nil)移除可见节点但可保留私有缓存；非nil仅在几何输入改变时重建裁剪mesh，节点/材质复用。setupTable必须使几何key失效，hideAllVisualization同时清两层。普通SwiftUI同状态发布不能无条件延长渲染窗口；实际手势、动作、播放和相机过渡照常唤醒，不改既有活动FPS。
+Changelog：2026-09-21 / DR-310 / 预览节点及刷新工作量契约。
+
+### DR-311 — 接触球影参数提交契约
+MobileContactOcclusion 默认将四球矩阵合并为具名 Metal struct，以不可变 NSData 一次绑定。保持 SIMD 字节排列、同帧 presentation 更新、零变化不提交。不得用在途可变缓冲覆写或降低采样替代。旧分组模式仅为诊断参考；调用次数降幅不等于整页 CPU/GPU 降幅。六姿态跨 iOS17/26 像素等价、动态帧及计数回归见 DAILY-CLEARANCE-RENDER-FOLLOWUP-20260921.md。
+Changelog：2026-09-21 / DR-311 / 等画质合并提交。
+
+
+### DR-312 — 静止显示回调与失效唤醒
+AngleSceneView在显式静止、无动作/过渡/阻尼时暂停CADisplayLink；手势/内容/视口和SceneKit重绘失效唤醒，FrameDelegate跨线程合并通知。不能只暂停而遗漏直接SCNAction、布局变化或销毁清理；nil活动状态旧调用方仍连续更新。静止HUD在状态切换更新，不靠轮询。活动FPS/着色/物理不变；回调归零不等于GPU或温升已改善。
+Changelog：2026-09-21 / DR-312 / 事件驱动休眠与唤醒契约。
+
+
+### DR-313 — 平衡采样候选契约
+MobileReferenceLighting.SamplingProfile保留reference，提供reducedShadows/reducedReflections/balanced。阴影近区8×4→4×4、反射64→32同时改分布和归一化分母；默认/Release原版，Debug以-balancedRendering预览。不得因采样减半声称GPU减半，也不得把Fair→Serious漂移样本用于收益验收；新分项测试严格Nominal预飞和段间冷却，严重热状态停止。
+Changelog：2026-09-21 / DR-313 / 允许画质取舍后的显式候选。

@@ -9,6 +9,8 @@ TEST_DESTINATION ?= platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest
 TEST_CODE_COVERAGE ?= YES
 # Explicit overrides for device diagnostics; ordinary tests retain Debug defaults.
 TEST_BUILD_SETTINGS ?=
+# Build diagnostic test bundles without starting a device workload.
+TEST_ACTION ?= test
 ONLY_TESTING ?=
 PROJECT_ROOT := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))/..
 BUILD_DIR    := $(PROJECT_ROOT)/build
@@ -112,6 +114,14 @@ build:
 	    build
 	@echo "✅ Debug 构建完成"
 
+# Explicit optimized device diagnostic build; does not install or launch tests.
+.PHONY: build-device-profile
+build-device-profile:
+	@mkdir -p $(BUILD_DIR)/DeviceProfile
+	xcodebuild $(PROJECT_FLAG) -scheme $(SCHEME) -configuration Debug \
+	  -derivedDataPath $(BUILD_DIR)/DeviceProfile -destination 'generic/platform=iOS' \
+	  SWIFT_OPTIMIZATION_LEVEL=-O build
+
 # ────────────────────────────────────────────
 # Debug 构建 + 安装 + 启动到模拟器（一条龙）
 # 现象「build succeeded 但模拟器没反应」＝ make build 只编译不安装/启动；用 make run。
@@ -160,7 +170,7 @@ test:
 	    -enableCodeCoverage $(TEST_CODE_COVERAGE) \
 	    $(TEST_BUILD_SETTINGS) \
 	    $(TEST_SELECTOR) \
-	    test >$(TEST_LOG) 2>&1 || status=$$?; \
+	    $(TEST_ACTION) >$(TEST_LOG) 2>&1 || status=$$?; \
 	  if command -v xcpretty >/dev/null 2>&1; then \
 	    xcpretty --report junit --output $(BUILD_DIR)/test-results.xml <$(TEST_LOG) || pretty_status=$$?; \
 	  else \

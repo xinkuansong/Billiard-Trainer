@@ -1163,3 +1163,100 @@ final class CueScratchLifecycleV63Tests: XCTestCase {
         XCTAssertEqual(settledCount, 1)
     }
 }
+
+
+@MainActor
+final class DailyPreviewWorkTests: XCTestCase {
+    func testRetainedLinesReuseNodesMaterialsAndUnchangedGeometry() throws {
+        let scene = AngleTrainingScene()
+        scene.setupScene(mobileRendering: true)
+        let a = AimCloseupSegment(start: CGPoint(x: -0.4, y: 0), end: CGPoint(x: 0.4, y: 0.1))
+        let b = AimCloseupSegment(start: CGPoint(x: -0.4, y: 0), end: CGPoint(x: 0.5, y: 0.2))
+        let solid = try XCTUnwrap(scene.setFreeAimPreviewLine(a))
+        let dashed = try XCTUnwrap(scene.setIdealObjectLine(a))
+        let dash = try XCTUnwrap(dashed.childNodes.first)
+        let solidGeometry = try XCTUnwrap(solid.geometry)
+        let dashGeometry = try XCTUnwrap(dash.geometry)
+        let solidMaterial = try XCTUnwrap(solidGeometry.firstMaterial)
+        let dashMaterial = try XCTUnwrap(dashGeometry.firstMaterial)
+        for _ in 0..<100 {
+            XCTAssertTrue(scene.setFreeAimPreviewLine(a) === solid)
+            XCTAssertTrue(scene.setIdealObjectLine(a) === dashed)
+            XCTAssertTrue(solid.geometry === solidGeometry)
+            XCTAssertTrue(dash.geometry === dashGeometry)
+        }
+        XCTAssertTrue(scene.setFreeAimPreviewLine(b) === solid)
+        XCTAssertTrue(scene.setIdealObjectLine(b) === dashed)
+        XCTAssertTrue(dashed.childNodes.first === dash)
+        XCTAssertTrue(solid.geometry?.firstMaterial === solidMaterial)
+        XCTAssertTrue(dash.geometry?.firstMaterial === dashMaterial)
+        scene.hideAllVisualization()
+        XCTAssertNil(solid.parent)
+        XCTAssertNil(dashed.parent)
+        XCTAssertTrue(scene.setFreeAimPreviewLine(b) === solid)
+        XCTAssertTrue(scene.setIdealObjectLine(b) === dashed)
+        // Completely clipped input must clear old geometry, and re-entry must restore it.
+        let outside = AimCloseupSegment(start: CGPoint(x: 5, y: 5), end: CGPoint(x: 6, y: 6))
+        _ = scene.setFreeAimPreviewLine(outside)
+        _ = scene.setIdealObjectLine(outside)
+        XCTAssertNil(solid.geometry)
+        XCTAssertNil(dash.geometry)
+        _ = scene.setFreeAimPreviewLine(a)
+        _ = scene.setIdealObjectLine(a)
+        XCTAssertNotNil(solid.geometry)
+        XCTAssertNotNil(dash.geometry)
+        XCTAssertEqual(scene.rootNode.childNodes.filter { $0.name == "freeAimPreview" }.count, 1)
+        XCTAssertEqual(scene.rootNode.childNodes.filter { $0.name == "idealObjectDirection" }.count, 1)
+    }
+
+    func testGeometryDependenciesIgnorePowerButInvalidateForAimAndBoard() throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene(mobileRendering: true)
+        vm.aimMode = .free
+        let target = try XCTUnwrap(vm.scene.allBallNodes["_1"])
+        vm.handleTableTap(world: target.position)
+        vm.recompute(interactive: true) // settle the near-band hysteresis input
+        let first = try XCTUnwrap(vm.freeAimContact)
+        var emissions = 0
+        let subscription = vm.$freeAimContact.dropFirst().sink { _ in emissions += 1 }
+        defer { subscription.cancel(); vm.clearTable() }
+        for _ in 0..<20 { vm.recompute(interactive: true) }
+        vm.velocity += 0.1
+        vm.spinX += 0.1
+        vm.spinY += 0.1
+        XCTAssertEqual(emissions, 0, "Power/spin do not change the first-contact geometry")
+        XCTAssertEqual(vm.freeAimContact?.targetKey, first.targetKey)
+        vm.nudgeFreeAim(byDegrees: 0.2)
+        XCTAssertGreaterThan(emissions, 0)
+        let aimEmissions = emissions
+        vm.dragMoved(node: target, worldPosition: SCNVector3(target.position.x + 0.01, target.position.y, target.position.z))
+        XCTAssertGreaterThan(emissions, aimEmissions)
+        vm.clearTable()
+        XCTAssertNil(vm.freeAimContact)
+        XCTAssertNil(vm.scene.rootNode.childNode(withName: "freeAimPreview", recursively: false))
+    }
+
+    func testUnrelatedUpdatesDoNotExtendRenderWindowButActivityDoes() {
+        let scene = AngleTrainingScene()
+        let coordinator = AngleSceneView.Coordinator(scene: scene, cameraMode: .topDown2DRotated, interactionMode: .cameraControl)
+        coordinator.updateContentActivity(false, cameraMode: .topDown2DRotated)
+        let initial = coordinator.interactiveUntil
+        for _ in 0..<100 { coordinator.updateContentActivity(false, cameraMode: .topDown2DRotated) }
+        XCTAssertEqual(coordinator.interactiveUntil, initial)
+        coordinator.updateContentActivity(true, cameraMode: .topDown2DRotated)
+        XCTAssertGreaterThan(coordinator.interactiveUntil, initial)
+        XCTAssertEqual(coordinator.contentIsAnimating, true)
+        let playing = coordinator.interactiveUntil
+        coordinator.updateContentActivity(true, cameraMode: .perspective3D)
+        XCTAssertGreaterThan(coordinator.interactiveUntil, playing)
+        coordinator.updateContentActivity(nil, cameraMode: .perspective3D)
+        XCTAssertNil(coordinator.contentIsAnimating, "Legacy consumers retain continuous activity")
+        coordinator.updateContentActivity(false, cameraMode: .topDown2DRotated)
+        coordinator.updateViewport(CGSize(width: 400, height: 700))
+        let layout = coordinator.interactiveUntil
+        coordinator.updateViewport(CGSize(width: 400, height: 700))
+        XCTAssertEqual(coordinator.interactiveUntil, layout)
+        coordinator.updateViewport(CGSize(width: 700, height: 400))
+        XCTAssertGreaterThan(coordinator.interactiveUntil, layout, "A stationary view must wake to refit after resize")
+    }
+}

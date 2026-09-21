@@ -153,6 +153,83 @@ final class V52DailyClearanceUITests: XCTestCase {
         snap(app, "v63-daily-restored-first-shot")
     }
 
+    /// Explicitly gated performance capture of the real 2D daily-clearance page.
+    func testNormal2DShotPerformancePhases() throws {
+        let gate = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("build/daily-performance-20260920/expanded/run-diagnostics")
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: gate.path), "Explicit diagnostic run required")
+        func phase(_ name: String) throws {
+            let data = try JSONSerialization.data(withJSONObject: ["phase": name, "unix": Date().timeIntervalSince1970])
+            try data.write(to: outDir.appendingPathComponent("normal-shot-phase.json"), options: .atomic)
+        }
+        let app = launch([])
+        let hud = app.descendants(matching: .any)["dailyClearance.hud"]
+        XCTAssertTrue(hud.waitForExistence(timeout: 90))
+        let camera = app.buttons["freeplay.cameraMode"]
+        if camera.value as? String != "2D" { camera.tap() }
+        XCTAssertEqual(camera.value as? String, "2D")
+        app.buttons["瞄准模式：进袋，点击切换"].tap()
+        let strike = app.buttons["击球"]
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 20), .completed)
+        try phase("idle-before")
+        Thread.sleep(forTimeInterval: 6)
+        try phase("aiming")
+        let wheel = app.descendants(matching: .any)["shotStage.aimWheel"].firstMatch
+        XCTAssertTrue(wheel.exists)
+        let start = wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        for delta in [12.0, -12.0] {
+            start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: delta)))
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 20), .completed)
+        try phase("pre-shot")
+        Thread.sleep(forTimeInterval: 3)
+        snap(app, "normal-2d-before-shot")
+        try phase("playback")
+        strike.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "label CONTAINS %@", "1 杆"), evaluatedWith: hud)], timeout: 60), .completed)
+        try phase("idle-after")
+        Thread.sleep(forTimeInterval: 6)
+        snap(app, "normal-2d-after-shot")
+        try phase("finished")
+    }
+
+    /// Real page, not the isolated renderer: prove the activity state settles
+    /// after both entry and a normal shot. This is not a thermal measurement.
+    func testNormal3DShotReturnsToIdle() throws {
+        try checkNormal3DShotReturnsToIdle(arguments: [])
+    }
+
+    func testBalancedSamplingNormal3DShotReturnsToIdle() throws {
+        try checkNormal3DShotReturnsToIdle(arguments: ["-balancedRendering"])
+    }
+
+    private func checkNormal3DShotReturnsToIdle(arguments: [String]) throws {
+        let app = launch(arguments)
+        let hud = app.descendants(matching: .any)["dailyClearance.hud"]
+        XCTAssertTrue(hud.waitForExistence(timeout: 90))
+        let camera = app.buttons["freeplay.cameraMode"]
+        if camera.value as? String != "3D" { camera.tap() }
+        XCTAssertEqual(camera.value as? String, "3D")
+        let fps = app.descendants(matching: .any)["table.scene"].firstMatch
+        func expectIdle() {
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(
+                for: NSPredicate(format: "value CONTAINS %@", "静止"), evaluatedWith: fps
+            )], timeout: 15), .completed, "Real 3D page must settle its render activity")
+        }
+        expectIdle()
+        snap(app, "normal-3d-idle-before")
+        app.buttons["瞄准模式：进袋，点击切换"].tap()
+        let strike = app.buttons["击球"]
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 20), .completed)
+        strike.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "label CONTAINS %@", "1 杆"), evaluatedWith: hud)], timeout: 60), .completed)
+        expectIdle()
+        Thread.sleep(forTimeInterval: 3)
+        XCTAssertTrue((fps.value as? String)?.contains("静止") == true, "Idle state must persist after the shot")
+        XCTAssertEqual(camera.value as? String, "3D")
+        snap(app, "normal-3d-idle-after")
+    }
+
     func testRealManualBreakDeliversAndRestoresIn3D() {
         let app = launch(["-dailyClearance.fixture=manual"], game: "nineBall")
         let camera = app.buttons["freeplay.cameraMode"]

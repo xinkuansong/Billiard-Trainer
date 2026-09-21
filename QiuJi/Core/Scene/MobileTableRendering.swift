@@ -156,8 +156,16 @@ final class MobileContactOcclusion: NSObject, SCNSceneRendererDelegate {
     private let surfaceY: Float
     private let radius = AngleSceneCalculator.ballRadius
     private var previous: [SIMD4<Float>]
+    private let batchesUniforms: Bool
 
-    init(scene: AngleTrainingScene) {
+    static func uniformDeclarations(ballCount: Int, batched: Bool) -> String {
+        let fields = (0..<((ballCount + 3) / 4)).map { "float4x4 contactGroup\($0);\n" }.joined()
+        return batched ? "#pragma declaration\nstruct QiuJiContactUniforms {\n" + fields
+            + "};\n#pragma arguments\nQiuJiContactUniforms contactUniforms;\n" : fields
+    }
+
+    init(scene: AngleTrainingScene, batchesUniforms: Bool = true) {
+        self.batchesUniforms = batchesUniforms
         balls = scene.allBallNodes.sorted { $0.key < $1.key }.map(\.value)
         surfaceY = scene.surfaceY
         previous = Array(repeating: SIMD4<Float>(repeating: .nan), count: balls.count)
@@ -166,13 +174,11 @@ final class MobileContactOcclusion: NSObject, SCNSceneRendererDelegate {
         if railTexture != nil { shader += "texture2d<float> bakedRailAO;\n" }
         // SceneKit binds each custom argument separately. Pack four balls per
         // matrix to stay below older simulator constant-buffer limits.
-        for group in 0..<((balls.count + 3) / 4) {
-            shader += "float4x4 contactGroup\(group);\n"
-        }
+        shader += Self.uniformDeclarations(ballCount: balls.count, batched: batchesUniforms)
         shader += "#pragma body\nfloat3 contactWorld = (scn_frame.inverseViewTransform * float4(_surface.position, 1.0)).xyz;\nfloat contactVisibility = 1.0;\n"
         for i in balls.indices {
             shader += """
-            float4 contactBall\(i) = contactGroup\(i / 4)[\(i % 4)];
+            float4 contactBall\(i) = \(batchesUniforms ? "contactUniforms." : "")contactGroup\(i / 4)[\(i % 4)];
             if (contactBall\(i).w > 0.0) {
                 float2 offset = contactWorld.xz - contactBall\(i).xy;
                 float inverseDistance = rsqrt(dot(offset, offset) + contactBall\(i).z * contactBall\(i).z);
@@ -247,6 +253,16 @@ final class MobileContactOcclusion: NSObject, SCNSceneRendererDelegate {
             guard value != previous[i] else { continue }
             previous[i] = value
             changedGroups |= 1 << (i / 4)
+        }
+        if batchesUniforms {
+            guard changedGroups != 0 else { return }
+            // One immutable struct update keeps all groups in the same frame and
+            // reduces per-material KVC/buffer bindings without changing ball data.
+            var values = previous
+            while values.count % 4 != 0 { values.append(.zero) }
+            let data = values.withUnsafeBytes { Data($0) }
+            for material in materials { material.setValue(data as NSData, forKey: "contactUniforms") }
+            return
         }
         for group in 0..<((balls.count + 3) / 4) where changedGroups & (1 << group) != 0 {
             let base = group * 4

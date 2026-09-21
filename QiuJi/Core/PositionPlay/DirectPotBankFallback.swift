@@ -28,12 +28,13 @@ enum DirectPotBankFallback {
     static func solveBankAlternatives(
         cue: SCNVector3, object: SCNVector3, pocketIndex: Int,
         surfaceY: Float, power: Float, obstacles: [ObstacleBall] = [],
-        spinXValues: [Float] = BankKickSolvePipeline.sideSpinSearchValues
+        spinXValues: [Float] = BankKickSolvePipeline.sideSpinSearchValues,
+        cancellation: PredictionCancellation? = nil
     ) -> [BankEngineSolution] {
         BankKickSolvePipeline.solveBank(
             cue: cue, object: object, pocketIndex: pocketIndex,
             surfaceY: surfaceY, power: power, obstacles: obstacles,
-            spinXValues: spinXValues
+            spinXValues: spinXValues, cancellation: cancellation
         )
     }
 
@@ -109,5 +110,24 @@ enum DirectPotBankFallback {
             return "直击角度过大，且暂无翻袋备选（换袋口或移动球位）"
         }
         return positionHint
+    }
+}
+
+/// One solve owns one token. Main-thread invalidation is visible to concurrent rail workers.
+/// Cancellation discards the entire catalog, never publishes a partial search as a complete result.
+final class PredictionCancellation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
+    }
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        lock.unlock()
     }
 }

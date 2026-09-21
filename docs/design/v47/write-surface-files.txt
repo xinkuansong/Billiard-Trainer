@@ -1,3 +1,4 @@
+QiuJiTests/AdvancedSnakeVideoCaptureTests.swift
 QiuJiTests/AimCloseupEvidenceTests.swift
 QiuJiTests/AimPointTheoryScanTests.swift
 QiuJiTests/AimingCorrectionMathTests.swift
@@ -30,7 +31,12 @@ QiuJiTests/SeparationAngleAtlasTests.swift
 QiuJiTests/SequenceStillCueTests.swift
 QiuJiTests/ShareCardImageRendererRootCauseDiagTests.swift
 QiuJiTests/ShotScenarioRenderTests.swift
+QiuJiTests/SixPocketSearchTests.swift
 QiuJiTests/SixPocketTwoShotTests.swift
+QiuJiTests/SixPocketV4ProbeTests.swift
+QiuJiTests/SixPocketV4RefineTests.swift
+QiuJiTests/SixPocketV4Round2ProbeTests.swift
+QiuJiTests/SixPocketV5VideoTests.swift
 QiuJiTests/SpinExportParityTests.swift
 QiuJiTests/SpinRenderEvidenceTests.swift
 QiuJiTests/StatisticsViewModelTests.swift

@@ -88,10 +88,10 @@ final class PositionPlayViewModel: ObservableObject {
     // MARK: - Published shot params
 
     /// 连续杆头速度 (m/s)。默认 1.5（条 13.2：低速走位是常态）。
-    @Published var velocity: Double = ShotTuning.defaultVelocity { didSet { onParamEdited() } }
+    @Published var velocity: Double = ShotTuning.defaultVelocity { didSet { if oldValue != velocity { onParamEdited() } } }
     /// 打点（接触点偏移/R）：spinX +左/−右、spinY +高/−低。
-    @Published var spinX: Double = 0 { didSet { onParamEdited() } }
-    @Published var spinY: Double = 0 { didSet { onParamEdited() } }
+    @Published var spinX: Double = 0 { didSet { if oldValue != spinX { onParamEdited() } } }
+    @Published var spinY: Double = 0 { didSet { if oldValue != spinY { onParamEdited() } } }
 
     private func onParamEdited() {
         guard !isPlaying, !isPresentingBankAlternative else { return }
@@ -168,6 +168,9 @@ final class PositionPlayViewModel: ObservableObject {
     private var lastShotWasRecorded = false
     private let predictQueue = DispatchQueue(label: "com.qiuji.positionplay-predict", qos: .userInitiated)
     private var predictGeneration = 0
+    private var predictCancellation: PredictionCancellation?
+
+    deinit { predictCancellation?.cancel() }
     /// 求解触发去抖调度（G14）：交互态（拖瞄准线/拖球/刻度轮）挂起求解、停 0.5s 才触发；
     /// 离散态（点选/参数）按原 ~20ms 快速触发。
     private let solveScheduler = SolveDebounceScheduler()
@@ -650,13 +653,26 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 刷新自由瞄准覆盖层：首碰预览（假想球贴目标球滑动）。
     /// 非自由模式 / 播放中 / 缺母球或方向时全部隐藏。轨迹线仍由后台 `simulateFree` 异步补齐。
+    private struct FreeAimGeometryInput: Equatable {
+        let cue: SIMD3<Float>
+        let direction: SIMD3<Float>
+        let keys: [String]
+        let positions: [SIMD3<Float>]
+        let radius: Float
+        let halfLength: Double
+        let halfWidth: Double
+        let previouslyNear: Bool
+    }
+    private var freeAimGeometryInput: FreeAimGeometryInput?
+
     private func refreshFreeAimOverlay(showsIdealDirection: Bool = true) {
-        scene.setIdealObjectLine(nil)
         let r = AngleSceneCalculator.ballRadius
         guard aimMode == .free, !isPlaying, !isBreakMode, !isSequenceMode,
               let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden,
               let dir = freeAimDir else {
-            freeAimContact = nil
+            scene.setIdealObjectLine(nil)
+            freeAimGeometryInput = nil
+            if freeAimContact != nil { freeAimContact = nil }
             closeupGate.reset()
             if aimMode == .free {
                 scene.ghostBallNode?.isHidden = true
@@ -670,7 +686,16 @@ final class PositionPlayViewModel: ObservableObject {
                   let node = scene.allBallNodes[key], !node.isHidden else { return nil }
             return (key, node.position)
         }
-        freeAimContact = AngleSceneCalculator.freeAimFirstContact(cue: cue.position, dir: dir, balls: balls)
+        let extents = tableOuterHalfExtents
+        let input = FreeAimGeometryInput(cue: SIMD3(cue.position.x, cue.position.y, cue.position.z),
+            direction: SIMD3(dir.x, dir.y, dir.z), keys: balls.map(\.key),
+            positions: balls.map { SIMD3($0.pos.x, $0.pos.y, $0.pos.z) }, radius: r,
+            halfLength: extents.length, halfWidth: extents.width, previouslyNear: closeupGate.isNear)
+        if freeAimGeometryInput != input {
+            freeAimContact = AngleSceneCalculator.freeAimFirstContact(cue: cue.position, dir: dir, balls: balls)
+            updateCloseup(cue: cue.position, dir: dir, balls: balls, ballRadius: r)
+            freeAimGeometryInput = input
+        }
 
         if let contact = freeAimContact, let ghost = scene.ghostBallNode,
            let targetNode = scene.allBallNodes[contact.targetKey] {
@@ -683,13 +708,15 @@ final class PositionPlayViewModel: ObservableObject {
                     target: CGPoint(x: CGFloat(targetNode.position.x), y: CGFloat(targetNode.position.z)),
                     ghost: CGPoint(x: CGFloat(ghost.position.x), y: CGFloat(ghost.position.z)))?.line,
                                          detail: UserPreferences.shared.trajectoryDetail)
+            } else {
+                scene.setIdealObjectLine(nil)
             }
         } else {
+            scene.setIdealObjectLine(nil)
             scene.ghostBallNode?.isHidden = true
             scene.hideContactDot()
         }
 
-        updateCloseup(cue: cue.position, dir: dir, balls: balls, ballRadius: r)
     }
 
     /// v23 W3：与假想球/接触点**同源**的近区特写（自由模式），层集按本页实况：
@@ -787,6 +814,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 作废一切在途求解（清空等使旧解失效的路径调用）。
     private func invalidatePendingPredict() {
+        predictCancellation?.cancel()
         predictGeneration += 1
         solveScheduler.cancel()
         predictRerunWanted = false
@@ -820,7 +848,10 @@ final class PositionPlayViewModel: ObservableObject {
             return
         }
 
+        predictCancellation?.cancel()
         predictGeneration += 1
+        // A newer debounce must supersede an older queued rerun as well.
+        predictRerunWanted = false
         if interactive {
             // 拖动中只做纯几何预览：清掉上一次求解的物理轨迹，避免与实时预览方向不一致的残影。
             isComputing = false
@@ -839,6 +870,7 @@ final class PositionPlayViewModel: ObservableObject {
         if aimMode == .free {
             drawFreeAimPreviewLine()
         } else {
+            scene.setFreeAimPreviewLine(nil)
             // 袋口模式无闭式预览：拖动中隐藏残留假想球/接触点，球位实时跟随即为反馈。
             // C1：无线 ⇒ 藏杆。
             scene.ghostBallNode?.isHidden = true
@@ -861,8 +893,9 @@ final class PositionPlayViewModel: ObservableObject {
         } else {
             end = AngleSceneCalculator.rayToInnerRail(from: cue.position, dir: dir)
         }
-        trajectoryNodes.append(scene.addLine(from: cue.position, to: end,
-                                             color: .white, radius: TrajectoryStyle.aimRadius, placement: .table))
+        scene.setFreeAimPreviewLine(.init(
+            start: CGPoint(x: CGFloat(cue.position.x), y: CGFloat(cue.position.z)),
+            end: CGPoint(x: CGFloat(end.x), y: CGFloat(end.z))))
         // C4 / D-v19-3：预览线同现杆，实时跟随 `freeAimDir`。
         lastAimDirection = dir
         scene.updateCueStick(
@@ -883,18 +916,20 @@ final class PositionPlayViewModel: ObservableObject {
         let shot = intent
         let y = surfaceY
         let gen = predictGeneration
+        let cancellation = PredictionCancellation()
+        predictCancellation = cancellation
         predictInFlight = true
         isComputing = true   // 交互 idle 触发路径：求解真正开始时才亮出计算态（拖动预览期为 false）
         let queuedAt = CACurrentMediaTime()
         predictQueue.async { [weak self] in
             let solveStart = CACurrentMediaTime()
-            let direct = PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y)
+            let direct = cancellation.isCancelled ? nil : PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y, cancellation: cancellation)
             let directEnd = CACurrentMediaTime()
             var resolvedShot = shot
             var resolvedPred = direct
             var banks: [BankEngineSolution] = []
             // 袋口模式 + 直击几何失败 → 翻袋备选（仅此时跑；自由瞄准不跑）。
-            if let direct, !shot.isFree, DirectPotBankFallback.shouldAttemptBank(afterDirect: direct),
+            if !cancellation.isCancelled, let direct, !shot.isFree, DirectPotBankFallback.shouldAttemptBank(afterDirect: direct),
                let cuePt = before.onTable[PositionPlayBall.cueKey],
                let targetPt = before.onTable[shot.targetKey],
                let pocketIndex = ShotIntent.pocketIndex(for: shot.pocket) {
@@ -904,7 +939,8 @@ final class PositionPlayViewModel: ObservableObject {
                     before: before, targetKey: shot.targetKey, surfaceY: y)
                 banks = DirectPotBankFallback.solveBankAlternatives(
                     cue: cue, object: object, pocketIndex: pocketIndex,
-                    surfaceY: y, power: Float(shot.velocity), obstacles: obstacles)
+                    surfaceY: y, power: Float(shot.velocity), obstacles: obstacles,
+                    cancellation: cancellation)
                 if let best = banks.first {
                     resolvedPred = best.prediction
                     resolvedShot.spinX = Double(best.spinX)
@@ -923,6 +959,7 @@ final class PositionPlayViewModel: ObservableObject {
                 self.entryTiming["completedSolves", default: 0] += 1
                 #endif
                 self.predictInFlight = false
+                self.predictCancellation = nil
                 // 末班车：在途期间来过新请求 ⇒ 用最新状态补跑（本结果 gen 已过期，下方代际检查自然丢弃）。
                 if self.predictRerunWanted {
                     self.predictRerunWanted = false
@@ -1649,6 +1686,7 @@ final class PositionPlayViewModel: ObservableObject {
         selectedTargetKey = nil
         selectedPocketIndex = -1
         refreshOnTableKeys()
+        refreshFreeAimOverlay()
         clearTrajectory()
         scene.hideCueStick()
         solvedShot = nil
