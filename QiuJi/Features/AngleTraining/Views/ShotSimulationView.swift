@@ -22,6 +22,7 @@ struct ShotSimulationView: View {
     @State private var paletteFrame: CGRect = .zero
 
     @State private var toast: BTToastMessage?
+    @StateObject private var notices = BTRuleNoticeCenter()
 
     private var is3D: Bool { vm.cameraMode == .perspective3D }
 
@@ -71,6 +72,7 @@ struct ShotSimulationView: View {
         }
         .animation(BTMotion.springPanel, value: showSpinPad)
         .btToast($toast)
+        .onReceive(notices.$message) { toast = $0 }
         .coordinateSpace(name: "simulation")
         .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
@@ -93,6 +95,10 @@ struct ShotSimulationView: View {
                 hasAppeared = true
                 vm.maxTargetBalls = 2
                 vm.setupScene()
+                vm.enablePlayerCameraControls()
+                vm.usesAutomaticPocketFallback = true
+                vm.onAimModeNotice = { notices.show($0, tone: .info, priority: .mode) }
+                vm.onAimSelectionNotice = { notices.show($0, tone: .warning, priority: .selection) }
                 vm.loadBoard(Self.defaultBoard)
                 vm.scene.setCameraMode(vm.cameraMode, animated: false)
             }
@@ -143,6 +149,16 @@ struct ShotSimulationView: View {
                 )
                 .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
 
+                if is3D, !showSpinPad, let rig = vm.scene.cameraRig {
+                    ShotPlayerCameraButtons(rig: rig,
+                        isEnabled: !vm.isPlaying && !vm.isComputing && vm.currentPlayerAim != nil) { view in
+                        showSpinPad = false
+                        vm.requestPlayerView(view)
+                    }
+                    .btStageFrame(ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame)
+                    .offset(x: -52)
+                }
+
                 // 18.2 击球/上一杆/回放：右下角，底边齐球桌底线。
                 BTShotActionColumn(
                     strikeTitle: vm.isPlaying ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.freePlay,
@@ -164,10 +180,8 @@ struct ShotSimulationView: View {
                                         : proxy.aimCloseupSafeInsets)
 
             if showSpinPad {
-                BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
-                                 tableWidth: is3D ? proxy.sceneSize.width - Spacing.lg * 2 : proxy.playingRect.width,
-                                 bottomPadding: is3D ? Spacing.sm : proxy.spinPadBottomPadding,
-                                 usesCompactLayout: is3D,
+                BTProjectedSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
+                                 scene: vm.scene, projector: projector,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -305,7 +319,7 @@ struct ShotSimulationView: View {
             Spacer(minLength: 0)
             Button("回到瞄准") { ShotPlayCamera.focus(on: vm) }
                 .font(.btFootnote)
-                .foregroundStyle(Color.btPrimary)
+                .foregroundStyle(HUDStyle.accent)
                 .frame(minHeight: 44)
                 .disabled(!ShotPlayCamera.canFocus(on: vm))
                 .accessibilityIdentifier("shotSimulation.focus")
@@ -376,7 +390,7 @@ struct ShotSimulationView: View {
     }
 
     private func flash(_ message: String, tone: BTToastTone = .success) {
-        BTToast.present(message, tone: tone) { toast = $0 }
+        notices.show(message, tone: tone, priority: tone == .warning ? .selection : .ruling)
     }
 
     // MARK: - Frame reader

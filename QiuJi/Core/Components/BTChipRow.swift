@@ -7,7 +7,7 @@ import SwiftUI
 struct BTChipRow: View {
     let options: [String]
     @Binding var selection: Int
-    var tint: Color = .btPrimary
+    var tint: Color = HUDStyle.accent
     /// false 时不包 ScrollView（紧凑内联场合，如与其他控件同行）。
     var scrollable: Bool = true
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -44,7 +44,8 @@ struct BTChipRow: View {
                         .padding(.vertical, 6)
                         .frame(minHeight: 44)
                     if selection == i {
-                        label.background(Capsule().fill(tint))
+                        label.background(Capsule().fill(tint.opacity(0.28)))
+                            .overlay(Capsule().stroke(tint.opacity(0.6), lineWidth: HUDStyle.hairlineWidth))
                     } else {
                         label.btHudGlass()
                     }

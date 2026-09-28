@@ -164,16 +164,21 @@ struct SnookerTacticsView: View {
                 instrumentColumn
                     .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
 
+                if is3D && !showSpinPad {
+                    ShotSceneCameraButtons(scene: vm.scene, aim: vm.playerCameraAim,
+                        isEnabled: vm.canObserveCurrentAim) { showSpinPad = false }
+                        .btStageFrame(ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame)
+                        .offset(x: -52)
+                }
+
                 // 条 18.2：击球/上一杆/回放，右下角底边齐球桌底线。
                 actionColumn
                     .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).actionFrame : proxy.actionColumnFrame())
             }
 
             if showSpinPad {
-                BTSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
-                                 tableWidth: is3D ? proxy.sceneSize.width - Spacing.lg * 2 : proxy.playingRect.width,
-                                 bottomPadding: is3D ? Spacing.sm : proxy.spinPadBottomPadding,
-                                 usesCompactLayout: is3D,
+                BTProjectedSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
+                                 scene: vm.scene, projector: projector,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)

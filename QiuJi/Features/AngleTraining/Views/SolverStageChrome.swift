@@ -324,6 +324,13 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                 .disabled(vm.isPlaying)
                 .opacity(vm.isPlaying ? 0.42 : 1)
 
+                if is3D && !showSpinPad {
+                    ShotSceneCameraButtons(scene: vm.scene, aim: vm.observationAim,
+                        isEnabled: vm.canObserveCurrentAim) { showSpinPad = false }
+                        .btStageFrame(ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame)
+                        .offset(x: -52)
+                }
+
                 // 右下贴边动作列：求解 = 击打/上一杆/回放；自由 = 击球/上一杆/回放（G6 actionColumnFrame）。
                 actionColumn
                     .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).actionFrame : proxy.actionColumnFrame())
@@ -344,10 +351,8 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
 
             // 打点盘浮层（自由 / 求解有解；求解微调走草稿层，编排台同款 ADR-P11-09）。
             if showSpinPad {
-                BTSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
-                                 tableWidth: is3D ? max(0, proxy.sceneSize.width - Spacing.lg * 2) : proxy.playingRect.width,
-                                 bottomPadding: is3D ? Spacing.sm : proxy.spinPadBottomPadding,
-                                 usesCompactLayout: is3D,
+                BTProjectedSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
+                                 scene: vm.scene, projector: projector,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)

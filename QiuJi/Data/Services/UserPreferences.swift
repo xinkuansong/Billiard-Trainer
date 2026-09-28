@@ -251,7 +251,7 @@ final class UserPreferences: ObservableObject {
         self.roomStyle = RoomStyle(rawValue: defaults.string(forKey: RoomStyle.preferenceKey) ?? "") ?? .tournament
         self.showsTableSights = defaults.object(forKey: "showsTableSights.v1") as? Bool ?? true
         self.clothColor = ClothColor.selected(in: defaults)
-        self.tableStyle = TableStyle(rawValue: defaults.string(forKey: TableStyle.preferenceKey) ?? "") ?? .standard
+        self.tableStyle = TableStyle(rawValue: defaults.string(forKey: TableStyle.preferenceKey) ?? "") ?? .defaultStyle
         self.ballStickerStyle = BallStickerStyle.selected(in: defaults)
         self.cueStyle = CueStyle.selected(in: defaults)
         self.renderFrameRate = RenderFrameRate(rawValue: defaults.integer(forKey: "renderFrameRate")) ?? .fps60
@@ -273,7 +273,7 @@ final class UserPreferences: ObservableObject {
 
         // 默认开启（v23 E3）。
         self.showAimCloseup =
-            (defaults.object(forKey: PracticeStorageKey.showAimCloseup) as? Bool) ?? true
+            (defaults.object(forKey: PracticeStorageKey.showAimCloseup) as? Bool) ?? false
         if defaults.object(forKey: "reminderLocalHour") == nil {
             defaults.set(Calendar.current.component(.hour, from: reminderTime), forKey: "reminderLocalHour")
             defaults.set(Calendar.current.component(.minute, from: reminderTime), forKey: "reminderLocalMinute")

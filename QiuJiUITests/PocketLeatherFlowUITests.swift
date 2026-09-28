@@ -48,8 +48,15 @@ final class PocketLeatherFlowUITests: XCTestCase {
 
     func testDailyAndPlanRoles() throws {
         var app=launch(["-deeplink.dailyClearance","-dailyClearance.resetState","-dailyClearance.fixture=progress","-dailyClearance.fixtureSettled"])
-        XCTAssertTrue(app.descendants(matching:.any)["dailyClearance.hud"].waitForExistence(timeout:20));assertTable(app)
+        // Daily clearance now owns a landscape stage; the former portrait HUD
+        // is intentionally absent. Verify the current page and both scene modes.
+        XCTAssertTrue(app.descendants(matching:.any)["dailyClearance.landscape"].waitForExistence(timeout:20));assertTable(app)
         try snap(app,"daily-selected")
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.exists)
+        if mode.value as? String != "3D" { mode.tap() }
+        XCTAssertEqual(mode.value as? String, "3D")
+        try snap(app,"daily-selected-3d")
         app.terminate()
         app=launch(["-planThree.twoBall"])
         XCTAssertTrue(app.buttons["清空计划"].waitForExistence(timeout:20));assertTable(app)
@@ -67,7 +74,9 @@ final class PocketLeatherFlowUITests: XCTestCase {
         XCTAssertTrue((scene.value as? String ?? "").contains("①②共同目标"),app.debugDescription)
         try snap(app,"plan-same")
         app.buttons["清空计划"].tap()
-        XCTAssertEqual(scene.value as? String,"未选择目标袋")
+        let cleared = scene.value as? String ?? ""
+        XCTAssertTrue(cleared.hasPrefix("未选择目标袋"))
+        XCTAssertFalse(cleared.contains("①")); XCTAssertFalse(cleared.contains("②"))
         try snap(app,"plan-cleared")
     }
 

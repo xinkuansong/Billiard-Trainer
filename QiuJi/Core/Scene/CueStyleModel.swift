@@ -45,13 +45,16 @@ enum CueStyleModel {
         return copy
     }
 
-    static func apply(_ style: CueStyle, to materials: [SCNMaterial]) -> Bool {
+    static func apply(_ style: CueStyle, to materials: [SCNMaterial], originalTip: SCNMaterial? = nil) -> Bool {
         guard style != .original, !materials.isEmpty else { return false }
         guard let albedo = image(style.resourceName),
               let roughness = image(style.resourceName + "_roughness") else {
             logger.error("Missing cue textures: \(style.rawValue, privacy: .public)")
             return false
         }
+        let brass = image("CueBrass_generated")
+        let tip = image("CueTip_generated")
+        guard style.kind != .small || (brass != nil && tip != nil) else { return false }
         for material in materials {
             switch material.name {
             case "White_Wood", "black_2":
@@ -63,13 +66,24 @@ enum CueStyleModel {
                 material.normal.contents = nil
             case "copp":
                 material.diffuse.contents = style.kind == .small
-                    ? UIColor(red: 0.735, green: 0.575, blue: 0.304, alpha: 1)
+                    ? brass
                     : UIColor(red: 0.945, green: 0.926, blue: 0.87, alpha: 1)
-                material.metalness.contents = style.kind == .small ? 0.7 : 0
+                material.metalness.contents = style.kind == .small ? 1 : 0
+                material.lightingModel = .physicallyBased
+                material.normal.contents = nil
+                material.roughness.contents = style.kind == .small
+                    ? image("CueBrass_roughness") : NSNumber(value: 0.28)
+            case "PiTou":
+                // The generated side/crown scan is baked to the existing tip UVs.
+                material.diffuse.contents = style.kind == .small ? tip : originalTip?.diffuse.contents
+                material.normal.contents = style.kind == .small ? nil : originalTip?.normal.contents
+                material.roughness.contents = style.kind == .small ? NSNumber(value: 0.88) : originalTip?.roughness.contents
+                material.metalness.contents = style.kind == .small ? NSNumber(value: 0) : originalTip?.metalness.contents
+                material.multiply.contents = UIColor.white
+                continue
             default: continue
             }
             material.multiply.contents = UIColor.white
-            if material.name == "copp" { material.roughness.contents = 0.28 }
         }
         return true
     }

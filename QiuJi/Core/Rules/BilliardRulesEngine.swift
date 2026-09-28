@@ -33,6 +33,46 @@ struct ShotFacts {
     let railOrPocketAfterContact: Bool
     /// 击球前台面上的目标球（桌面球键，不含母球）。
     let tableKeysBefore: Set<String>
+    /// Same-time cue contacts from the event timeline; legal contact wins a genuine tie.
+    var simultaneousFirstContacts: Set<String> = []
+    var railContactKeys: Set<String> = []
+    var offTableKeys: Set<String> = []
+    var cueStartedBehindHeadString = true
+    var cueCrossedHeadStringBeforeContact = true
+}
+
+
+extension ShotFacts {
+    /// Shared extraction for ordinary strokes and breaks. Only exact-time contacts count as ties.
+    static func extract(events: [ShotEvent], cueName: String, tableKeys: Set<String>,
+                        pocketed: Set<String>, key: (String) -> String) -> ShotFacts {
+        let ordered = events.sorted { $0.time < $1.time }
+        var firstTime: Float?
+        var contacts: [String] = []
+        var rails: Set<String> = []
+        var pots: [String] = []
+        var after = false
+        for event in ordered {
+            switch event.kind {
+            case .ballBall(let a, let b):
+                if a == cueName || b == cueName {
+                    if firstTime == nil { firstTime = event.time }
+                    if abs(event.time - firstTime!) <= 1e-7 { contacts.append(key(a == cueName ? b : a)) }
+                }
+            case .ballCushion(let ball):
+                rails.insert(key(ball))
+                if let firstTime, event.time >= firstTime { after = true }
+            case .pocket(let ball, _):
+                if ball != cueName, !pots.contains(key(ball)) { pots.append(key(ball)) }
+                if let firstTime, event.time >= firstTime { after = true }
+            }
+        }
+        for ball in pocketed.sorted() where ball != PositionPlayBall.cueKey && !pots.contains(ball) { pots.append(ball) }
+        return ShotFacts(firstContactKey: contacts.first, pocketedKeys: pots,
+            cuePocketed: pocketed.contains(PositionPlayBall.cueKey), railOrPocketAfterContact: after,
+            tableKeysBefore: tableKeys.subtracting([PositionPlayBall.cueKey]),
+            simultaneousFirstContacts: Set(contacts), railContactKeys: rails)
+    }
 }
 
 // MARK: - Ruling（一杆的裁决结果）

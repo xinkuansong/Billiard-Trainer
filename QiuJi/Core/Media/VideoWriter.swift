@@ -21,7 +21,7 @@ final class VideoWriter {
     private let fps: Int32
     private var frameIndex: Int64 = 0
 
-    init(url: URL, size: CGSize, fps: Int = 30) throws {
+    init(url: URL, size: CGSize, fps: Int = 30, averageBitRate: Int? = nil) throws {
         self.size = size
         self.fps = Int32(max(1, fps))
 
@@ -31,11 +31,14 @@ final class VideoWriter {
         }
         self.writer = writer
 
-        let settings: [String: Any] = [
+        var settings: [String: Any] = [
             AVVideoCodecKey: AVVideoCodecType.h264,
             AVVideoWidthKey: Int(size.width),
             AVVideoHeightKey: Int(size.height)
         ]
+        if let averageBitRate {
+            settings[AVVideoCompressionPropertiesKey] = [AVVideoAverageBitRateKey: max(1, averageBitRate)]
+        }
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
         input.expectsMediaDataInRealTime = false
         self.input = input

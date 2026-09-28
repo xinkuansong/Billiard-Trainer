@@ -15,7 +15,7 @@ struct BTHoldRepeatButton: View {
     @State private var ticks = 0
     @State private var isPressing = false
 
-    var hitSize: CGFloat = 40
+    var hitSize: CGFloat = 44
     var iconSize: CGFloat = 30
 
     var body: some View {
@@ -39,6 +39,7 @@ struct BTHoldRepeatButton: View {
             .onDisappear { stop() }
             .accessibilityLabel(accessibility)
             .accessibilityAddTraits(.isButton)
+            .accessibilityAction { step() }
     }
 
     private func step() {

@@ -1,8 +1,12 @@
 # v47 W0 测试写盘盘点
 
+2026-09-27 真机采集预检：`Daily3DDeviceProfilingUITests` 仅在显式 `TEST_RUNNER_DAILY3D_DEVICE_PROFILE=1` 且为真机时执行；向标准输出写协调标记，截图交给 `XCTAttachment` 保存到本轮 xcresult，不接受任意输出路径，不主动清理旧证据。沿用正式每日清台数据容器，不使用resetState、fixture、重开或击球；正常入口可能恢复/创建今日草稿并自动开球，离页/失活按产品逻辑保存用时和工具记录。只接受正常开球完成确认，其他业务决策截图后停止；仅瞄准与相机变更，前后上手数/剩余球数/犯规数须相同。日志仅用于协调，不能代替trace时间戳或性能验收。
+
+2026-09-27 每日清台3D：`Daily3DClothPerformanceTests` 仅在诊断目录存在 `run` 哨兵时写PNG与逐通道比较JSON；模拟器为 `build/daily-3d-20260927/cloth-visuals`，手机为测试沙盒 caches 下 `daily-3d-cloth-visuals`。无哨兵跳过，不创建或改写用户存档、Bundle、内容真源或设计基线。写失败抛出。同目录复跑会覆盖本任务图片；复跑前由本任务保留旧证据。相机等价测试不写盘。
+
 2026-09-13 球贴纸：`BallStickerTests` / `BallStickerUITests` 只写 `output/ball-stickers-20260913/app-renders` 与 `ui`，所有写盘错误抛出。UV 相机校验帧为测试 Bundle 中的 `BallStickerUVFrames.json`，不依赖旧 output。SettingsView → BallStickerSettingsView 为正常生产导航，六款选择与本地重启保留由 BallStickerUITests 覆盖；深链取证外观使用已有显式 Light 参数，不将默认强制 Dark 的图冒充 Light。
 
-机器清单见 `write-surface-files.txt`，由 `verify_v47_ui_baseline.py` 对 `QiuJiTests/` 与 `QiuJiUITests/` 中的 `.write(`、`FileManager.default.createDirectory`、`pngRepresentation` 扫描生成并做差集门禁。当前共登记 147 个文件；新增写盘测试未登记时 `verify-gate` 失败。
+机器清单见 `write-surface-files.txt`，由 `verify_v47_ui_baseline.py` 对 `QiuJiTests/` 与 `QiuJiUITests/` 中的 `.write(`、`FileManager.default.createDirectory`、`pngRepresentation` 扫描生成并做差集门禁。当前共登记 163 个文件；新增写盘测试未登记时 `verify-gate` 失败。
 
 2026-09-14 补登记已有 `RoomReflectionProbeTests`：仅显式 `V62_SHOT_DIR` 指定且非 `device` 时写 PNG；默认不写盘，写入失败抛出；任务方须给独立 `output/` 或 `build/` 证据目录，留存由该任务负责，不得指向 Bundle/content/docs 基线。此次仅补清单和审计，未改反射测试。
 
@@ -109,3 +113,27 @@ S1_FreePlayLayoutUITests、S2_ShotPagesLayoutUITests、DrillSceneThreeBeatUITest
 - `SixPocketV5VideoTests`：`SIX_V5_VIDEO_DIR`，写生产回放校验、帧 PNG、视频与清单 JSON。
 
 六者均兼容 `TEST_RUNNER_` 环境变量前缀，写盘入口无显式目录即 XCTSkip。调用方必须使用独立 `output/` 或 `build/` 实验目录；代码接收任意显式路径，未强制限制根目录，因此不得指向 Resources、用户数据或设计基线。固定文件名复跑可能覆盖旧证据，运行前选择新目录或保留旧版本；不自动清理实验目录，由任务方按需清理。写入错误向外抛出，输入解与资源只读；使用独立模拟器运行，避免视频导出和其他测试抢占。此次只补真实写盘审计与清单，不代表重跑或重新验收这些研究。
+
+## 2026-09-24 v64 球桌材质诊断写盘审计
+
+`TableMaterialAuditTests` 仅在 `V64_MATERIAL_AUDIT=1` 或 `TEST_RUNNER_V64_MATERIAL_AUDIT=1` 时执行；默认 XCTSkip，不建目录、不写盘。输出在当前仓库 `output/table-materials-v64/<stage>/<leaf>/`，stage/leaf 支持 XCTest 去除 TEST_RUNNER_ 前缀后的环境变量，leaf 默认 UUID，目录已存在就失败。固定机位的完整 SceneKit 场景不等于页面截图；W0 模式读归档贴图做通道消融，W1–W4 baseline-only 模式捕获主题、角色与移动机位，恢复逐通道差不超过1/255（量化边缘），旧W0消融仍要求相同PNG。导出分支测试只向xcresult附图。资源只读，不写Bundle、USDZ、训练内容或历史设计基线；不能代替真机性能验收。
+
+### V014 感觉瞄准视频专用导出（2026-09-24）
+
+`FeelAimingVideoCaptureTests.swift` 仅在显式设置 `FEEL_AIM_DIR`（兼容 `TEST_RUNNER_` 前缀）时创建指定目录，输出 PNG、几何/投影 JSON 与 MP4；普通测试在创建场景前跳过。不回写 Bundle、Drill 或既有视频，使用独立模拟器和独立构建目录。
+
+### 每日清台完整物理球局（2026-09-24）
+
+DailyClearanceRulesTests.swift中的DailyClearancePhysicalGameTests默认只计算并断言，不写盘。显式DAILY_PHYSICAL_GAME_DIR（兼容TEST_RUNNER_前缀）时输出两个玩法的steps.json；推荐build/daily-clearance-interaction-v2/physical-games独立目录，不写Bundle、用户存档或设计基线。固定文件名可能覆盖同目录旧证据，调用方须选择新子目录，产物按需人工清理；写入失败抛出测试失败。
+
+### 2D/3D 角度训练试适配（2026-09-26）
+
+`S5_TrainingPagesLayoutUITests` 的角度试适配用例默认仅附 XCTest 截图；显式 `ANGLE_SHOTS`（兼容 `TEST_RUNNER_`）时写 `2D/3D-状态.png`。调用方使用独立 `output/angle-training-trial-20260926/<轮次设备>/`，不指向 Bundle、用户数据或历史设计基线。固定名称会覆盖同目录旧证据，复跑须换目录；写盘失败抛出，由任务方按需清理。内存数据容器、确定性题目与专用模拟器隔离训练记录。
+
+### 2026-09-27 球杆淡出回归补充
+
+`CueStyleTests.swift` 中的 `CueFadeRenderingTests` 写 `build/cue-fade-20260927/final-<systemVersion>/` 的前后 PNG 和 comparison.json；固定文件名复跑覆盖，失败证据须先保存，无自动清理，不写 Bundle 或内容资源。本轮失败对照保存在同证据根 first-visual-failure/。新增 2D 页面用例沿用 V52_SHOT_DIR / TEST_RUNNER_V52_SHOT_DIR 输出目录与 xcresult 附件约定。
+
+### V019 球杆打点预览导出（2026-09-28）
+
+`CueSpinPreviewCaptureTests.swift` 仅在显式设置 `CUE_SPIN_DIR` / `TEST_RUNNER_CUE_SPIN_DIR` 时创建调用方指定目录，无变量时 XCTSkip。调用方须使用本任务独立的 output 或 build 子目录；输出 PNG、JSON、版本文本，开启 CUE_SPIN_VIDEO 时另写 MP4。固定名称复跑会覆盖同目录产物，需保留的证据先另存或使用新目录；无自动清理，由任务方按需清理。脚本要求显式设备与输出目录，构建默认隔离在输出目录下。不写 Bundle、训练数据或设计基线，写盘失败抛出。

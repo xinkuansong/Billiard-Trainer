@@ -1,4 +1,5 @@
 import SwiftUI
+import SceneKit
 
 // MARK: - 击打页共享布局引擎（问题集合 v3 · G3–G11）
 //
@@ -49,6 +50,19 @@ enum ShotTableLayout {
         return CGRect(x: x, y: y, width: tableW, height: tableH)
     }
 
+    /// Unzoomed daily landscape playfield in stage-local points. Both HUD modes
+    /// use this rect so switching the camera cannot resize or move the spin pad.
+    static func landscapePlayingRect(in size: CGSize, halfLength: Double, halfWidth: Double) -> CGRect {
+        guard let scale = CameraRig.landscapeOrthographicScale(
+            viewSize: size, halfLength: halfLength, halfWidth: halfWidth
+        ) else { return .zero }
+        let pointsPerMetre = size.height / CGFloat(2 * scale)
+        let width = CGFloat(AngleSceneCalculator.innerLength) * pointsPerMetre
+        let height = CGFloat(AngleSceneCalculator.innerWidth) * pointsPerMetre
+        return CGRect(x: (size.width - width) / 2, y: (size.height - height) / 2,
+                      width: width, height: height)
+    }
+
     /// 击球区内框（库边橡皮内侧）屏幕矩形：与 `tableRect` 同心，按内外半尺寸比例缩放。
     /// 坐标契约：rotated 顶视 screen 横轴↔Z（`halfWidth`）、竖轴↔X（`halfLength`）。
     static func playingRect(outer: CGRect,
@@ -67,6 +81,8 @@ enum ShotTableLayout {
 // MARK: - 共享布局度量（各击打页统一）
 
 enum ShotStageMetrics {
+    /// Daily power travel stays identical on compact phones and tablets.
+    static let dailyPowerBarHeight: CGFloat = 144
     /// 瞄准刻度轮宽（G4/G7 竖长条）——与仪表柱同宽（用户修订：34/42 取平均 38）。
     static let aimWheelWidth: CGFloat = 38
     /// 3D 透视浮动瞄准轮高度（C16 / v7 W6）：无球桌矩形驱动 `barLength` 时的固定高。
@@ -307,5 +323,68 @@ struct ShotPerspectiveLayout {
     func bottomLeadingFrame(size: CGSize) -> CGRect {
         CGRect(x: Spacing.sm, y: sceneSize.height - Spacing.sm - size.height,
                width: size.width, height: size.height)
+    }
+}
+
+/// Window-projected cloth polygon → stage-local panel bottom, in points.
+/// The whole horizontal span stays inside the lower cloth edge, including tilted rails.
+enum SpinPadRailAnchor {
+    /// Project the cushion nose, not the cloth plane, into the overlay's coordinate space.
+    @MainActor
+    static func polygon(scene: AngleTrainingScene, projector: TableProjector,
+                        stageOrigin: CGPoint = .zero, usesWindowCoordinates: Bool = false) -> [CGPoint] {
+        let x = AngleSceneCalculator.innerLength / 2
+        let z = AngleSceneCalculator.innerWidth / 2
+        let corners = [(-x, -z), (x, -z), (x, z), (-x, z)]
+        let project = usesWindowCoordinates ? projector.projectInWindow : projector.projectVisible
+        return corners.compactMap { x, z -> CGPoint? in
+            guard let point = project?(SCNVector3(x, scene.surfaceY + BTTablePhysics.cushionHeight, z)) else { return nil }
+            return CGPoint(x: point.x - stageOrigin.x, y: point.y - stageOrigin.y)
+        }
+    }
+
+    @MainActor
+    static func bottom(scene: AngleTrainingScene, projector: TableProjector,
+                       stageFrame: CGRect, panelWidth: CGFloat, usesWindowCoordinates: Bool = true) -> CGFloat {
+        bottom(polygon: polygon(scene: scene, projector: projector, stageOrigin: stageFrame.origin,
+                                usesWindowCoordinates: usesWindowCoordinates),
+               panelWidth: panelWidth, stageSize: stageFrame.size)
+    }
+
+    /// A centered card must fit the projected table's horizontal span before anchoring it.
+    /// Otherwise a narrow whole-table view would unnecessarily fall back over the near rail.
+    static func panelWidth(polygon: [CGPoint], stageSize: CGSize) -> CGFloat {
+        let fallback = min(336, stageSize.width)
+        guard polygon.count == 4, polygon.allSatisfy({ $0.x.isFinite && $0.y.isFinite }),
+              let left = polygon.map(\.x).min(), let right = polygon.map(\.x).max() else { return fallback }
+        let span = 2 * min(stageSize.width / 2 - left, right - stageSize.width / 2) - 2 * Spacing.sm
+        // Keep four 44pt keys usable when the table is entirely off-center or extremely distant.
+        return span >= 220 ? min(fallback, span) : fallback
+    }
+
+    static func bottom(polygon: [CGPoint], panelWidth: CGFloat, stageSize: CGSize) -> CGFloat {
+        let fallback = max(0, stageSize.height - Spacing.sm)
+        guard polygon.count == 4, stageSize.width > 0, stageSize.height > 0,
+              polygon.allSatisfy({ $0.x.isFinite && $0.y.isFinite }) else { return fallback }
+        let left = (stageSize.width - panelWidth) / 2
+        let right = left + panelWidth
+        let probes = [left, right] + polygon.map(\.x).filter { $0 > left && $0 < right }
+        var bottoms: [CGFloat] = []
+        for x in probes {
+            var intersections: [CGFloat] = []
+            for i in polygon.indices {
+                let a = polygon[i], b = polygon[(i + 1) % polygon.count]
+                guard x >= min(a.x, b.x), x <= max(a.x, b.x) else { continue }
+                if abs(a.x - b.x) < 0.001 {
+                    if abs(x - a.x) < 0.001 { intersections += [a.y, b.y] }
+                } else {
+                    intersections.append(a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x))
+                }
+            }
+            guard let lower = intersections.max() else { return fallback }
+            bottoms.append(lower)
+        }
+        guard let bottom = bottoms.min(), bottom > 180, bottom <= stageSize.height else { return fallback }
+        return bottom
     }
 }

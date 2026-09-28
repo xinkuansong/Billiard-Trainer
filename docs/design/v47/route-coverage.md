@@ -38,3 +38,11 @@
 - `DrillDetailView` 和 `CustomPlanBuilderView`：登记“加入今日安排”路径，不再经由模版激活/替换官方主线。
 - `TrainingDetailView`：登记来源存在可跳转与源已删除只读两态。
 - 自动截图真源为 `build/ui-reviews/v54/`：iPhone / iPad × Light / Dark，共 52 张；动态字体、VoiceOver 和真实长按拖动仍由 H-27 人工验收。
+
+## 2026-09-27 每日3D测量接入审计
+
+本轮 FreePlayView 仅增加显式 `-daily3D.diagnostics` 的阶段标记与生命周期回调，既有导航、sheet目的地、玩法和存档入口保留。签名差异来自sheet后7行窗口中的 `updateDaily3DPlaybackDiagnostics()`，已与冻结源码逐行核对（`build/daily-3d-20260927/route-signature-review.patch`）；只刷新该文件签名。CSV补充普通及诊断开关的idle回归状态；测试校准当前横屏状态标识、窗口坐标和上手杆数语义，不改生产规则。验收见 `tasks/DAILY-CLEARANCE-3D-20260927.md`，模拟器证据不代表真机性能完成。
+
+## 2026-09-24 每日交互与规则路由审计
+
+FreePlay既有玩法/开球sheet保留；每日重开改成同页双操作浮层，规则裁决也是同页状态，不增加生产目的地。签名漂移来自sheet后7行采样包含的开球镜头onChange调整，已对照本轮baseline核实后仅刷新FreePlay签名。RootView新增dailyInteraction.sharedPage是DEBUG启动参数取证入口；batch额外限制targetEnvironment(simulator)，不进入真机。覆盖状态已追加CSV；本轮证据见tasks/每日清台交互规则_交付验收.md。

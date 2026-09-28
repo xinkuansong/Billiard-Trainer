@@ -9,6 +9,34 @@ final class AngleTrainingScene: SCNScene {
     /// Weak bridge to the live viewport; used only while a closeup is visible.
     weak var closeupViewport: SCNView?
 
+    /// Selected before setup; scene-local so daily-clearance trials do not change other pages or exports.
+    var renderingProfile = MobileReferenceLighting.specializedProfile
+    #if DEBUG
+    var usesClothLightingPrototype = false
+    #endif
+    /// Set before setup so material highlight headroom matches the camera.
+    var sceneExposureOffset: CGFloat?
+    var usesDailyPerspective = false
+    /// Scene-local controls keep other training and export consumers unchanged.
+    private(set) var avoidsDailyRedundantCameraWrites = false
+    /// Cloth variants remain diagnostic until matched phone profiling is complete.
+    private(set) var mergesDailyClothSupport = false
+    private(set) var factorsDailyClothBRDF = false
+
+    /// Daily-only defaults; other consumers retain their existing rendering contract.
+    func configureDailyClearanceRendering() {
+        renderingProfile = .reflection
+        sceneExposureOffset = -0.1
+        usesDailyPerspective = true
+        avoidsDailyRedundantCameraWrites = true
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        avoidsDailyRedundantCameraWrites = !arguments.contains("-daily3D.cameraReference")
+        mergesDailyClothSupport = arguments.contains("-daily3D.mergeClothSupport")
+        factorsDailyClothBRDF = arguments.contains("-daily3D.factorClothBRDF")
+        #endif
+    }
+
     // MARK: - Camera Mode
 
     enum CameraMode: Equatable {
@@ -39,7 +67,7 @@ final class AngleTrainingScene: SCNScene {
     }
 
     private var tableAppearance: TableAppearance?
-    private var requestedTableStyle: TableStyle = .standard
+    private var requestedTableStyle: TableStyle = .defaultStyle
     private var requestedTableSights = true
     var showsTableSights: Bool { requestedTableSights }
     var installedTableStyle: TableStyle { tableAppearance?.style ?? .standard }
@@ -201,6 +229,7 @@ final class AngleTrainingScene: SCNScene {
 
         applyTableStyle(requestedTableStyle, showsSights: requestedTableSights)
         applyClothColor(requestedClothColor)
+        cueStick?.prepareOpacityAnimation()
 
         // 台面网格重放（G2 根因修复）：makeUIView 可能先于本方法按偏好建网格，
         // 彼时 surfaceY 还是默认值，网格会埋进桌身。表面高度就位后重建。
@@ -470,7 +499,7 @@ final class AngleTrainingScene: SCNScene {
             if mobileRendering && MobileReferenceLighting.requested {
                 let numbered = key.hasPrefix("_") && (Int(key.dropFirst()).map { (1...15).contains($0) } ?? false)
                 MobileReferenceLighting.applyBall(to: ballNode, exposureOffset: cameraNode?.camera?.exposureOffset ?? 0,
-                                                  stickerFinish: numbered, probe: roomReflectionProbe)
+                                                  stickerFinish: numbered, probe: roomReflectionProbe, profile: renderingProfile)
             }
         }
         let selectedSticker = ballStickerStyle ?? .selected()
@@ -566,6 +595,7 @@ final class AngleTrainingScene: SCNScene {
         )
         cueStick?.show()
         cueStick?.rootNode.opacity = 1
+        cameraRig?.updateCuePose(strike: cueBallPosition, aim: aimDirection, elevation: elevation, cue: cueBallNode?.position)
     }
 
     /// Tip inset for an off-centre strike, inferred from the pivot's offset to the nearest
@@ -593,6 +623,7 @@ final class AngleTrainingScene: SCNScene {
     }
 
     func hideCueStick() {
+        cueStick?.rootNode.removeAction(forKey: "aimTransition")
         cueStick?.rootNode.removeAction(forKey: "strokeAnim")
         cueStick?.hide()
         lastCueTipInset = 0
@@ -642,12 +673,19 @@ final class AngleTrainingScene: SCNScene {
             camera.screenSpaceAmbientOcclusionRadius = 3.0
         }
 
+        if let exposure = sceneExposureOffset, !enhancedRendering {
+            camera.exposureOffset = exposure
+        }
         cameraNode = SCNNode()
         cameraNode.name = "trainingCamera"
         cameraNode.camera = camera
         rootNode.addChildNode(cameraNode)
 
-        cameraRig = CameraRig(cameraNode: cameraNode, tableSurfaceY: surfaceY)
+        var rigConfig = CameraRig.Config.default
+        if usesDailyPerspective { rigConfig = .dailyClearance }
+        cameraRig = CameraRig(cameraNode: cameraNode, tableSurfaceY: surfaceY, config: rigConfig)
+        cameraRig?.usesShotAwareCamera = usesDailyPerspective
+        cameraRig?.avoidsRedundantPerspectiveWrites = avoidsDailyRedundantCameraWrites
         if let (halfLength, halfWidth) = measuredTableOuterHalfExtents() {
             cameraRig?.tableOuterHalfLength = halfLength
             cameraRig?.tableOuterHalfWidth = halfWidth
@@ -890,7 +928,7 @@ final class AngleTrainingScene: SCNScene {
         guard mobileRendering, MobileReferenceLighting.requested else { return }
         roomReflectionProbe = RoomReflectionProbe.probe(for: style, scene: self)
         guard let probe = roomReflectionProbe else { return }
-        for node in allBallNodes.values { probe.install(on: node) }
+        for node in allBallNodes.values { probe.install(on: node, usesPrefilteredReflection: renderingProfile.usesReflection) }
     }
 
     private func setupGround() {
@@ -1021,6 +1059,8 @@ final class AngleTrainingScene: SCNScene {
 
     /// A new board/shot invalidates a saved viewpoint without changing shot state.
     func invalidatePerspectiveView() {
+        // Interactive rail-camera pages preserve the user's view across shots and racks.
+        guard cameraRig?.usesRailCameraControls != true else { return }
         savedPerspectiveState = nil
         hasPerspectiveView = false
     }

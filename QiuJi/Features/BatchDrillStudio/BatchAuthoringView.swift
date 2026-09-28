@@ -541,9 +541,8 @@ struct BatchAuthoringView: View {
             }
 
             if showSpinPad {
-                BTSpinPadOverlay(spinX: $composer.spinX, spinY: $composer.spinY,
-                                 tableWidth: proxy.playingRect.width,
-                                 bottomPadding: proxy.spinPadBottomPadding,
+                BTProjectedSpinPadOverlay(spinX: $composer.spinX, spinY: $composer.spinY,
+                                 scene: composer.scene, projector: projector,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)

@@ -32,6 +32,26 @@ final class RoomReflectionProbe {
 
     static let shaderArgumentNames: [String] = ["roomReflection", "roomFloor"] + (0..<9).map { "roomSH\($0)" }
 
+    private let prefilterLock = NSLock()
+    private var prefilterAttempted = false
+    private var filtered: PrefilteredReflection?
+
+    /// Bounded by the owning probe cache; failures log once and retain reference rendering.
+    func prefiltered() -> PrefilteredReflection? {
+        prefilterLock.lock(); defer { prefilterLock.unlock() }
+        if prefilterAttempted { return filtered }
+        prefilterAttempted = true
+        do {
+            filtered = try PrefilteredReflection(source: texture)
+            if let filtered {
+                print("[PrefilteredReflection] style=\(style?.rawValue ?? "neutral") version=\(PrefilteredReflection.algorithmVersion) ms=\(filtered.generationMilliseconds) bytes=\(filtered.allocatedBytes)")
+            }
+        } catch {
+            print("[PrefilteredReflection] reference fallback style=\(style?.rawValue ?? "neutral"): \(error)")
+        }
+        return filtered
+    }
+
     // MARK: - Direction ↔ equirect mapping (must match `v62Room` in the ball shader)
 
     static func uv(for d: SIMD3<Float>) -> SIMD2<Float> {
@@ -211,7 +231,16 @@ final class RoomReflectionProbe {
 
     // MARK: - Shader binding
 
-    func install(on material: SCNMaterial) {
+    func install(on material: SCNMaterial, usesPrefilteredReflection: Bool? = nil) {
+        if let source = material.shaderModifiers?[.surface],
+           (usesPrefilteredReflection ?? MobileReferenceLighting.specializedProfile.usesReflection) || source.contains("// v2SplitSum") {
+            if let filtered = prefiltered() {
+                material.shaderModifiers?[.surface] = MobileReferenceLighting.filteredBallShader(source)
+                filtered.install(on: material)
+            } else {
+                material.shaderModifiers?[.surface] = MobileReferenceLighting.referenceBallShader(source)
+            }
+        }
         material.setValue(property, forKey: "roomReflection")
         material.setValue(NSValue(scnVector3: SCNVector3(floorRadiance.x, floorRadiance.y, floorRadiance.z)), forKey: "roomFloor")
         for (i, c) in irradianceSH.enumerated() {
@@ -220,11 +249,11 @@ final class RoomReflectionProbe {
     }
 
     /// Bind to every ball-shader material under `node`.
-    func install(on node: SCNNode) {
+    func install(on node: SCNNode, usesPrefilteredReflection: Bool? = nil) {
         func update(_ node: SCNNode) {
             for material in node.geometry?.materials ?? [] {
                 guard material.shaderModifiers?[.surface]?.contains("roomReflection") == true else { continue }
-                install(on: material)
+                install(on: material, usesPrefilteredReflection: usesPrefilteredReflection)
             }
         }
         update(node); node.enumerateChildNodes { node, _ in update(node) }

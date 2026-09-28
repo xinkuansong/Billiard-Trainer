@@ -5,11 +5,21 @@ import Foundation
 protocol DailyClearancePlayingHost: AnyObject {
     func loadDailyClearanceBoard(_ board: BoardSnapshot)
     func currentDailyClearanceBoard() -> BoardSnapshot
+    func captureDailyUndo() -> () -> Void
+    func respotDailyBalls(_ keys: Set<String>)
     func restoreDailyClearanceCueBall()
     func beginDailyClearanceBreak(game: RackGame,
                                   seed: UInt64,
                                   automaticallyStrike: Bool,
                                   onOutcome: @escaping (BreakOutcome) -> Void)
+}
+
+extension DailyClearancePlayingHost {
+    func captureDailyUndo() -> () -> Void {
+        let board = currentDailyClearanceBoard()
+        return { [weak self] in self?.loadDailyClearanceBoard(board) }
+    }
+    func respotDailyBalls(_ keys: Set<String>) {}
 }
 
 extension PositionPlayViewModel: DailyClearancePlayingHost {
@@ -30,8 +40,8 @@ extension PositionPlayViewModel: DailyClearancePlayingHost {
                                   seed: UInt64,
                                   automaticallyStrike: Bool,
                                   onOutcome: @escaping (BreakOutcome) -> Void) {
-        // A daily rerack replaces the previous attempt, including its active runner.
-        if isBreakMode { cancelBreakFlow() }
+        // Cancel callbacks and playback before replacing the controller attempt.
+        cancelDailyAttempt()
         startBreakFlow(
             game: game,
             manualDeliver: !automaticallyStrike,
@@ -86,6 +96,84 @@ final class DailyClearanceController: ObservableObject {
     private var activeSince: Date?
     private var hasStarted = false
     private var currentBreakIsAutomatic = false
+    private var breakGeneration = UUID()
+    private var awaitingShot = false
+    private var undoDraft: DailyClearanceDraft?
+    private var undoHost: (() -> Void)?
+    @Published private(set) var canUndo = false
+    var breakChoices: [DailyBreakChoice] { draft?.ruleState.breakChoices ?? [] }
+    var cuePlacement: DailyCuePlacement { draft?.ruleState.cuePlacement ?? .none }
+    var visitCount: Int { draft?.ruleState.visitCount ?? completion?.visitCount ?? 1 }
+
+    var turnLabel: String {
+        guard let current = draft else { return "" }
+        let old = current.ruleState.ruleVersion < 2 ? "旧规则 · " : ""
+        let targets = legalTargetKeys(tableKeys: Set(current.board?.onTable.keys.map { $0 } ?? []))
+        let turn: String
+        if current.game == .chineseEightBall {
+            turn = current.ruleState.assignedGroup.map { $0.displayName + (targets == ["_8"] ? " · 黑八" : "") } ?? "开放局，进球后定组"
+        } else {
+            let number = targets.compactMap(PositionPlayBall.number(for:)).min()
+            turn = "第\(current.ruleState.visitCount)次上手" + (number.map { " · 先碰\($0)号" } ?? "")
+        }
+        let placement = current.ruleState.cuePlacement
+        return old + turn + (placement == .none ? "" : (placement == .anywhere ? " · 自由球" : " · 线后自由球"))
+    }
+
+    func prepareShot() {
+        guard let current = draft, current.phase == .playing, breakChoices.isEmpty else { return }
+        undoDraft = current
+        undoHost = host?.captureDailyUndo()
+        awaitingShot = true
+        canUndo = false
+    }
+
+    func undoShot() {
+        guard canUndo, let previous = undoDraft, let restore = undoHost, draft?.phase == .playing else { return }
+        draft = previous
+        rulesEngine = DailyClearanceRulesEngine(game: previous.game, state: previous.ruleState)
+        restore()
+        store.saveDraft(previous)
+        undoDraft = nil; undoHost = nil; canUndo = false; awaitingShot = false
+        statusText = "已恢复上一杆，继续击球"
+    }
+
+    private func prepareBehindStringPlacement(engine: DailyClearanceRulesEngine) -> String? {
+        guard engine.state.cuePlacement == .behindHeadString,
+              let board = host?.currentDailyClearanceBoard() else { return nil }
+        let legal = engine.legalTargetKeys(tableKeys: Set(board.onTable.keys))
+        let balls = legal.compactMap { key -> (String, CanvasPoint)? in board.onTable[key].map { (key, $0) } }
+        guard !balls.isEmpty, balls.allSatisfy({ $0.1.x > 0.75 }),
+              let nearest = balls.sorted(by: { $0.1.x == $1.1.x ? $0.0 < $1.0 : $0.1.x < $1.1.x }).first else { return nil }
+        host?.respotDailyBalls([nearest.0])
+        return "线后目标球已重置：\(PositionPlayBall.shortLabel(for: nearest.0))号"
+    }
+
+    func savePlacedBoard() {
+        guard var current = draft, current.phase == .playing else { return }
+        current.board = host?.currentDailyClearanceBoard()
+        current.updatedAt = now()
+        draft = current; store.saveDraft(current)
+    }
+
+    func selectionMessage(for key: String, tableKeys: Set<String>) -> String? {
+        if !breakChoices.isEmpty { return "请先处理开球犯规" }
+        return rulesEngine?.selectionMessage(for: key, tableKeys: tableKeys)
+    }
+
+    func resolveBreakChoice(_ choice: DailyBreakChoice) {
+        guard var engine = rulesEngine, var current = draft, breakChoices.contains(choice) else { return }
+        let rerack = engine.resolveBreakChoice(choice)
+        current.ruleState = engine.state
+        current.updatedAt = now()
+        if rerack { current.phase = .manualRacked; current.board = nil; current.seed &+= 1 }
+        rulesEngine = engine; draft = current
+        store.saveDraft(current)
+        statusText = choice.label
+        if let notice = prepareBehindStringPlacement(engine: engine) { statusText += "；" + notice; savePlacedBoard() }
+        if rerack { beginBreak(automaticallyStrike: false) }
+    }
+
 
     init(store: DailyClearanceStore = DailyClearanceStore(),
          now: @escaping () -> Date = Date.init,
@@ -99,6 +187,14 @@ final class DailyClearanceController: ObservableObject {
 
     var game: DailyClearanceGame? { draft?.game ?? completion?.game }
     var isCompleted: Bool { draft == nil && completion != nil }
+    var playedVisitCount: Int? {
+        if let draft { return draft.ruleState.playedVisitCount }
+        return completion?.playedVisitCount
+    }
+    var visitSummary: String {
+        playedVisitCount.map { "\($0)杆" } ?? "击球\(shotCount)次"
+    }
+
     var shotCount: Int { draft?.shotCount ?? completion?.shotCount ?? 0 }
     var foulCount: Int { draft?.foulCount ?? completion?.foulCount ?? 0 }
     var phase: DailyClearancePhase? { draft?.phase }
@@ -160,10 +256,11 @@ final class DailyClearanceController: ObservableObject {
 
     @discardableResult
     func handleShotSettled(_ facts: ShotFacts) -> DailyClearanceRuling? {
-        guard var current = draft,
+        guard awaitingShot, var current = draft,
               current.phase == .playing,
               var engine = rulesEngine else { return nil }
 
+        awaitingShot = false
         let timestamp = now()
         if let started = activeSince {
             current.activeDurationSeconds += max(0, timestamp.timeIntervalSince(started))
@@ -173,12 +270,14 @@ final class DailyClearanceController: ObservableObject {
         let ruling = engine.judge(facts)
         if ruling.foul { current.foulCount += 1 }
         current.ruleState = engine.state
+        host?.respotDailyBalls(ruling.respotKeys)
         if facts.cuePocketed, ruling.ballInHand, !ruling.failed, !ruling.completed {
             host?.restoreDailyClearanceCueBall()
         }
         current.board = host?.currentDailyClearanceBoard()
         current.updatedAt = timestamp
         rulesEngine = engine
+        canUndo = !ruling.completed && !ruling.failed && undoDraft != nil
 
         if ruling.completed {
             draft = current
@@ -193,10 +292,8 @@ final class DailyClearanceController: ObservableObject {
     }
 
     func requestRerack() -> DailyClearanceRerackDecision {
-        guard let current = draft, current.phase != .autoBreaking else { return .unavailable }
-        if current.shotCount > 0 { return .confirmationRequired }
-        resetAndBeginManualRack(game: current.game)
-        return .started
+        guard draft != nil else { return .unavailable }
+        return .confirmationRequired
     }
 
     func confirmRerack() {
@@ -222,7 +319,11 @@ final class DailyClearanceController: ObservableObject {
         switch restored.phase {
         case .playing:
             if let board = restored.board { host?.loadDailyClearanceBoard(board) }
-            statusText = "已恢复今日清台"
+            statusText = restored.ruleState.ruleVersion < 2 ? "已恢复旧规则球局；重新开球后使用新规则" : "已恢复今日清台"
+            if !restored.ruleState.breakChoices.isEmpty {
+                statusText = restored.ruleState.breakChoices.contains(.rerackByBreaker)
+                    ? "开球未满足碰库要求" : "开球犯规"
+            }
         case .autoBreaking:
             beginBreak(automaticallyStrike: true)
         case .manualRacked:
@@ -234,7 +335,7 @@ final class DailyClearanceController: ObservableObject {
             } else {
                 beginBreak(automaticallyStrike: false)
             }
-            statusText = "本局已结束，可重新开球"
+            statusText = "本局已结束"
         }
     }
 
@@ -250,12 +351,17 @@ final class DailyClearanceController: ObservableObject {
     private func beginBreak(automaticallyStrike: Bool) {
         guard let current = draft else { return }
         currentBreakIsAutomatic = automaticallyStrike
+        let generation = UUID()
+        breakGeneration = generation
+        awaitingShot = false; undoDraft = nil; undoHost = nil; canUndo = false
         host?.beginDailyClearanceBreak(
             game: current.game.rackGame,
             seed: current.seed,
             automaticallyStrike: automaticallyStrike,
             onOutcome: { [weak self] outcome in
-                self?.handleBreakOutcome(outcome)
+                guard let self, self.breakGeneration == generation else { return }
+                self.breakGeneration = UUID()
+                self.handleBreakOutcome(outcome)
             }
         )
     }
@@ -270,6 +376,34 @@ final class DailyClearanceController: ObservableObject {
             draft = current
             store.saveDraft(current)
             statusText = "开球未完全停稳，请重新开球"
+            return
+        }
+
+        if current.ruleState.ruleVersion >= 2, let facts = outcome.facts {
+            var engine = rulesEngine ?? DailyClearanceRulesEngine(game: current.game)
+            let ruling = current.game == .chineseEightBall
+                ? engine.judgeChineseBreak(facts, automatic: currentBreakIsAutomatic)
+                : engine.judgeNineBreak(facts, automatic: currentBreakIsAutomatic)
+            host?.respotDailyBalls(ruling.respotKeys)
+            if ruling.ballInHand { host?.restoreDailyClearanceCueBall() }
+            let placementNotice = prepareBehindStringPlacement(engine: engine)
+            current.board = host?.currentDailyClearanceBoard() ?? outcome.board
+            current.ruleState = engine.state
+            current.foulCount = engine.state.foulCount
+            current.phase = ruling.failed ? .failed : .playing
+            current.updatedAt = now()
+            rulesEngine = engine; draft = current
+            statusText = ruling.message + (placementNotice.map { "；" + $0 } ?? "")
+            if ruling.completed { finishCompletion() } else { store.saveDraft(current) }
+            return
+        }
+
+        if current.ruleState.ruleVersion >= 2 {
+            current.phase = .failed
+            current.board = outcome.board
+            current.updatedAt = now()
+            draft = current; store.saveDraft(current)
+            statusText = "开球事实不完整，请重新开球"
             return
         }
 
@@ -301,10 +435,10 @@ final class DailyClearanceController: ObservableObject {
 
         current.phase = .playing
         current.board = outcome.board
-        current.ruleState = DailyClearanceRuleState()
+        current.ruleState = DailyClearanceRuleState(ruleVersion: current.ruleState.ruleVersion)
         current.updatedAt = now()
         draft = current
-        rulesEngine = DailyClearanceRulesEngine(game: current.game)
+        rulesEngine = DailyClearanceRulesEngine(game: current.game, state: current.ruleState)
         store.saveDraft(current)
         statusText = outcome.cueScratched ? "母球已补回开球区，开始清台" : "开球完成，开始清台"
     }
@@ -327,8 +461,8 @@ final class DailyClearanceController: ObservableObject {
     private func finishCompletion() {
         flushActivity()
         guard let current = draft else { return }
-        if let existing = store.loadTodayCompletion() {
-            completion = existing
+        if store.loadTodayCompletion() != nil {
+            completion = store.makeCompletion(current)
             store.clearDraft()
         } else {
             completion = store.complete(current)
@@ -380,6 +514,7 @@ final class DailyClearanceController: ObservableObject {
                 defaultGame.terminalBallKey: CanvasPoint(x: 0.8, y: 0.25)
             ])
         case "lastBall":
+            if defaultGame == .chineseEightBall { fixtureDraft.ruleState.assignedGroup = .solid }
             // Input only: a legal final-ball layout aimed toward the middle pocket.
             // The normal solver, playback and rules must produce the completion.
             fixtureDraft.phase = .playing
@@ -387,6 +522,47 @@ final class DailyClearanceController: ObservableObject {
                 PositionPlayBall.cueKey: CanvasPoint(x: 0.5, y: 0.23),
                 defaultGame.terminalBallKey: CanvasPoint(x: 0.5, y: 0.08)
             ])
+        case "cameraLift":
+            fixtureDraft.phase = .playing
+            fixtureDraft.ruleState.assignedGroup = .solid
+            // Legal close-to-rail cue position; production clearance must raise the shaft.
+            fixtureDraft.board = BoardSnapshot(onTable: [
+                PositionPlayBall.cueKey: CanvasPoint(x: 0.014, y: 0.07),
+                "_1": CanvasPoint(x: 0.34, y: 0.20),
+                "_2": CanvasPoint(x: 0.68, y: 0.30),
+                "_9": CanvasPoint(x: 0.72, y: 0.12),
+                "_8": CanvasPoint(x: 0.48, y: 0.38)
+            ])
+        case "selection", "selectionStripe", "selectionOpen", "selectionBlack", "selectionNine":
+            fixtureDraft.phase = .playing
+            fixtureDraft.ruleState.assignedGroup = .solid
+            fixtureDraft.board = BoardSnapshot(onTable: [
+                PositionPlayBall.cueKey: CanvasPoint(x: 0.3, y: 0.2),
+                "_1": CanvasPoint(x: 0.5, y: 0.22),
+                "_2": CanvasPoint(x: 0.7, y: 0.3),
+                "_9": CanvasPoint(x: 0.7, y: 0.12),
+                "_8": CanvasPoint(x: 0.4, y: 0.38)
+            ])
+            if fixture == "selectionStripe" { fixtureDraft.ruleState.assignedGroup = .stripe }
+            if fixture == "selectionOpen" { fixtureDraft.ruleState.assignedGroup = nil }
+            if fixture == "selectionBlack" {
+                fixtureDraft.board?.onTable.removeValue(forKey: "_1")
+                fixtureDraft.board?.onTable.removeValue(forKey: "_2")
+            }
+            if fixture == "selectionNine" {
+                fixtureDraft.ruleState.assignedGroup = nil
+                fixtureDraft.board?.onTable.removeValue(forKey: "_8")
+            }
+        case "weakBreak":
+            fixtureDraft.phase = .playing
+            fixtureDraft.ruleState.breakChoices = [.rerackByIncoming, .rerackByBreaker, .acceptBallInHand]
+        case "ballInHand", "behindHeadString":
+            fixtureDraft.phase = .playing
+            fixtureDraft.ruleState.assignedGroup = .solid
+            fixtureDraft.ruleState.cuePlacement = fixture == "ballInHand" ? .anywhere : .behindHeadString
+            fixtureDraft.board = BoardSnapshot(onTable: [
+                PositionPlayBall.cueKey: CanvasPoint(x: 0.82, y: 0.25),
+                "_1": CanvasPoint(x: 0.30, y: 0.22), "_8": CanvasPoint(x: 0.4, y: 0.38)])
         case "progress":
             fixtureDraft.phase = .playing
             fixtureDraft.shotCount = 2

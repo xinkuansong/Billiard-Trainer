@@ -246,13 +246,11 @@ struct CushionEnglishAtlasView: View {
                 .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
 
                 if showSpinPad {
-                    BTSpinPadOverlay(
+                    BTProjectedSpinPadOverlay(
                         spinX: lockedSpinX,
                         spinY: $vm.spinY,
-                        tableWidth: is3D ? proxy.sceneSize.width - Spacing.lg * 2 : proxy.playingRect.width,
-                        bottomPadding: is3D ? Spacing.sm : proxy.spinPadBottomPadding,
+                        scene: vm.scene, projector: projector,
                         locksSideSpin: true,
-                        usesCompactLayout: is3D,
                         onClose: { showSpinPad = false }
                     )
                     .transition(.move(edge: .bottom).combined(with: .opacity))

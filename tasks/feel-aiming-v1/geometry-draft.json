@@ -1,0 +1,2001 @@
+{
+  "date": "2026-09-24",
+  "status": "planning_draft_not_production_validation",
+  "units": "metres/degrees",
+  "angleStepDegrees": 0.1,
+  "usesProductionEffectiveAim": false,
+  "checks": [
+    "fixed center-to-center distance",
+    "cue sphere inside nominal rectangular playfield"
+  ],
+  "notChecked": [
+    "pocket jaws and reachable effective aim",
+    "cue clearance",
+    "camera and visuals",
+    "pocketing physics"
+  ],
+  "constants": {
+    "ballRadius": 0.028575,
+    "innerLength": 2.54,
+    "innerWidth": 1.27
+  },
+  "counts": {
+    "candidate": 90,
+    "fullRectangle": 39,
+    "partialRectangle": 45,
+    "empty": 6,
+    "disjointIntervals": 5
+  },
+  "candidates": [
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        1.0645126265847085,
+        0.42951262658470846
+      ],
+      "ballDistance": 0.3,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.6653345369377348e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        1.0645126265847085,
+        0.42951262658470846
+      ],
+      "ballDistance": 0.3,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        1.0645126265847085,
+        0.42951262658470846
+      ],
+      "ballDistance": 0.6,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 67.1,
+      "samples": 672,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          67.1
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        1.0645126265847085,
+        0.42951262658470846
+      ],
+      "ballDistance": 0.6,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 67.1,
+      "samples": 672,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          67.1
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        1.0645126265847085,
+        0.42951262658470846
+      ],
+      "ballDistance": 1.0,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 57.9,
+      "samples": 580,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          57.9
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        1.0645126265847085,
+        0.42951262658470846
+      ],
+      "ballDistance": 1.0,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 57.9,
+      "samples": 580,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          57.9
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        0.8170252531694168,
+        0.18202525316941687
+      ],
+      "ballDistance": 0.3,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        0.8170252531694168,
+        0.18202525316941687
+      ],
+      "ballDistance": 0.3,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        0.8170252531694168,
+        0.18202525316941687
+      ],
+      "ballDistance": 0.6,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        0.8170252531694168,
+        0.18202525316941687
+      ],
+      "ballDistance": 0.6,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        0.8170252531694168,
+        0.18202525316941687
+      ],
+      "ballDistance": 1.0,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 73.2,
+      "samples": 733,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          73.2
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        0.8170252531694168,
+        0.18202525316941687
+      ],
+      "ballDistance": 1.0,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 7.4,
+      "samples": 75,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          7.4
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.6048932188134525,
+        -0.030106781186547416
+      ],
+      "ballDistance": 0.3,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.6048932188134525,
+        -0.030106781186547416
+      ],
+      "ballDistance": 0.3,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.6048932188134525,
+        -0.030106781186547416
+      ],
+      "ballDistance": 0.6,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.6048932188134525,
+        -0.030106781186547416
+      ],
+      "ballDistance": 0.6,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 557,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          31.7
+        ],
+        [
+          66.2,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.6048932188134525,
+        -0.030106781186547416
+      ],
+      "ballDistance": 1.0,
+      "side": -1,
+      "angleMin": 10.4,
+      "angleMax": 87.8,
+      "samples": 775,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          10.4,
+          87.8
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F01",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.6048932188134525,
+        -0.030106781186547416
+      ],
+      "ballDistance": 1.0,
+      "side": 1,
+      "angleMin": null,
+      "angleMax": null,
+      "samples": 0,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [],
+      "status": "outside_rectangle"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        0.9831075827249321,
+        0.557292949836016
+      ],
+      "ballDistance": 0.3,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 35.8,
+      "samples": 359,
+      "distanceMaxError": 1.6653345369377348e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          35.8
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        0.9831075827249321,
+        0.557292949836016
+      ],
+      "ballDistance": 0.3,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        0.9831075827249321,
+        0.557292949836016
+      ],
+      "ballDistance": 0.6,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 27.1,
+      "samples": 272,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          27.1
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        0.9831075827249321,
+        0.557292949836016
+      ],
+      "ballDistance": 0.6,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        0.9831075827249321,
+        0.557292949836016
+      ],
+      "ballDistance": 1.0,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 24.1,
+      "samples": 242,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          24.1
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        0.9831075827249321,
+        0.557292949836016
+      ],
+      "ballDistance": 1.0,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 88.2,
+      "samples": 883,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          88.2
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        0.6542151654498642,
+        0.437585899672032
+      ],
+      "ballDistance": 0.3,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 64.1,
+      "samples": 642,
+      "distanceMaxError": 1.6653345369377348e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          64.1
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        0.6542151654498642,
+        0.437585899672032
+      ],
+      "ballDistance": 0.3,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        0.6542151654498642,
+        0.437585899672032
+      ],
+      "ballDistance": 0.6,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 39.8,
+      "samples": 399,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          39.8
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        0.6542151654498642,
+        0.437585899672032
+      ],
+      "ballDistance": 0.6,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        0.6542151654498642,
+        0.437585899672032
+      ],
+      "ballDistance": 1.0,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 31.4,
+      "samples": 315,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          31.4
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        0.6542151654498642,
+        0.437585899672032
+      ],
+      "ballDistance": 1.0,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.3723073792140916,
+        0.33497985667433133
+      ],
+      "ballDistance": 0.3,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.3723073792140916,
+        0.33497985667433133
+      ],
+      "ballDistance": 0.3,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.3723073792140916,
+        0.33497985667433133
+      ],
+      "ballDistance": 0.6,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 51.1,
+      "samples": 512,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          51.1
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.3723073792140916,
+        0.33497985667433133
+      ],
+      "ballDistance": 0.6,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.3723073792140916,
+        0.33497985667433133
+      ],
+      "ballDistance": 1.0,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 37.7,
+      "samples": 378,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          37.7
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F02",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.3723073792140916,
+        0.33497985667433133
+      ],
+      "ballDistance": 1.0,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 52.9,
+      "samples": 530,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          52.9
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        1.192292949836016,
+        0.34810758272493214
+      ],
+      "ballDistance": 0.3,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        1.192292949836016,
+        0.34810758272493214
+      ],
+      "ballDistance": 0.3,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 35.8,
+      "samples": 359,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          35.8
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        1.192292949836016,
+        0.34810758272493214
+      ],
+      "ballDistance": 0.6,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        1.192292949836016,
+        0.34810758272493214
+      ],
+      "ballDistance": 0.6,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 27.1,
+      "samples": 272,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          27.1
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        1.192292949836016,
+        0.34810758272493214
+      ],
+      "ballDistance": 1.0,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 88.2,
+      "samples": 883,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          88.2
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 0.35,
+      "target": [
+        1.192292949836016,
+        0.34810758272493214
+      ],
+      "ballDistance": 1.0,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 2.8,
+      "samples": 29,
+      "distanceMaxError": 4.440892098500626e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          2.8
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        1.0725858996720319,
+        0.019215165449864235
+      ],
+      "ballDistance": 0.3,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        1.0725858996720319,
+        0.019215165449864235
+      ],
+      "ballDistance": 0.3,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 64.1,
+      "samples": 642,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          64.1
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        1.0725858996720319,
+        0.019215165449864235
+      ],
+      "ballDistance": 0.6,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        1.0725858996720319,
+        0.019215165449864235
+      ],
+      "ballDistance": 0.6,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 39.8,
+      "samples": 399,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          39.8
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        1.0725858996720319,
+        0.019215165449864235
+      ],
+      "ballDistance": 1.0,
+      "side": -1,
+      "angleMin": 33.1,
+      "angleMax": 90.0,
+      "samples": 570,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          33.1,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 0.7,
+      "target": [
+        1.0725858996720319,
+        0.019215165449864235
+      ],
+      "ballDistance": 1.0,
+      "side": 1,
+      "angleMin": null,
+      "angleMax": null,
+      "samples": 0,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [],
+      "status": "outside_rectangle"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.9699798566743312,
+        -0.26269262078590827
+      ],
+      "ballDistance": 0.3,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.6653345369377348e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.9699798566743312,
+        -0.26269262078590827
+      ],
+      "ballDistance": 0.3,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.9699798566743312,
+        -0.26269262078590827
+      ],
+      "ballDistance": 0.6,
+      "side": -1,
+      "angleMin": 38.5,
+      "angleMax": 90.0,
+      "samples": 516,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          38.5,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.9699798566743312,
+        -0.26269262078590827
+      ],
+      "ballDistance": 0.6,
+      "side": 1,
+      "angleMin": null,
+      "angleMax": null,
+      "samples": 0,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [],
+      "status": "outside_rectangle"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.9699798566743312,
+        -0.26269262078590827
+      ],
+      "ballDistance": 1.0,
+      "side": -1,
+      "angleMin": 52.5,
+      "angleMax": 90.0,
+      "samples": 376,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          52.5,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F03",
+      "pocket": 3,
+      "pocketDistance": 1.0,
+      "target": [
+        0.9699798566743312,
+        -0.26269262078590827
+      ],
+      "ballDistance": 1.0,
+      "side": 1,
+      "angleMin": null,
+      "angleMax": null,
+      "samples": 0,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [],
+      "status": "outside_rectangle"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 0.35,
+      "target": [
+        -2.143131898507868e-17,
+        0.32596474
+      ],
+      "ballDistance": 0.3,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 0.35,
+      "target": [
+        -2.143131898507868e-17,
+        0.32596474
+      ],
+      "ballDistance": 0.3,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 0.35,
+      "target": [
+        -2.143131898507868e-17,
+        0.32596474
+      ],
+      "ballDistance": 0.6,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 0.35,
+      "target": [
+        -2.143131898507868e-17,
+        0.32596474
+      ],
+      "ballDistance": 0.6,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 0.35,
+      "target": [
+        -2.143131898507868e-17,
+        0.32596474
+      ],
+      "ballDistance": 1.0,
+      "side": -1,
+      "angleMin": 22.5,
+      "angleMax": 90.0,
+      "samples": 676,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          22.5,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 0.35,
+      "target": [
+        -2.143131898507868e-17,
+        0.32596474
+      ],
+      "ballDistance": 1.0,
+      "side": 1,
+      "angleMin": 22.5,
+      "angleMax": 90.0,
+      "samples": 676,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          22.5,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 0.7,
+      "target": [
+        -4.286263797015736e-17,
+        -0.024035260000000003
+      ],
+      "ballDistance": 0.3,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 0.7,
+      "target": [
+        -4.286263797015736e-17,
+        -0.024035260000000003
+      ],
+      "ballDistance": 0.3,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 0.7,
+      "target": [
+        -4.286263797015736e-17,
+        -0.024035260000000003
+      ],
+      "ballDistance": 0.6,
+      "side": -1,
+      "angleMin": 15.4,
+      "angleMax": 90.0,
+      "samples": 747,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          15.4,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 0.7,
+      "target": [
+        -4.286263797015736e-17,
+        -0.024035260000000003
+      ],
+      "ballDistance": 0.6,
+      "side": 1,
+      "angleMin": 15.4,
+      "angleMax": 90.0,
+      "samples": 747,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          15.4,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 0.7,
+      "target": [
+        -4.286263797015736e-17,
+        -0.024035260000000003
+      ],
+      "ballDistance": 1.0,
+      "side": -1,
+      "angleMin": 57.2,
+      "angleMax": 90.0,
+      "samples": 329,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          57.2,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 0.7,
+      "target": [
+        -4.286263797015736e-17,
+        -0.024035260000000003
+      ],
+      "ballDistance": 1.0,
+      "side": 1,
+      "angleMin": 57.2,
+      "angleMax": 90.0,
+      "samples": 329,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          57.2,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 1.0,
+      "target": [
+        -6.123233995736766e-17,
+        -0.32403526000000005
+      ],
+      "ballDistance": 0.3,
+      "side": -1,
+      "angleMin": 24.3,
+      "angleMax": 90.0,
+      "samples": 658,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          24.3,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 1.0,
+      "target": [
+        -6.123233995736766e-17,
+        -0.32403526000000005
+      ],
+      "ballDistance": 0.3,
+      "side": 1,
+      "angleMin": 24.3,
+      "angleMax": 90.0,
+      "samples": 658,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          24.3,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 1.0,
+      "target": [
+        -6.123233995736766e-17,
+        -0.32403526000000005
+      ],
+      "ballDistance": 0.6,
+      "side": -1,
+      "angleMin": 67.0,
+      "angleMax": 90.0,
+      "samples": 231,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          67.0,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 1.0,
+      "target": [
+        -6.123233995736766e-17,
+        -0.32403526000000005
+      ],
+      "ballDistance": 0.6,
+      "side": 1,
+      "angleMin": 67.0,
+      "angleMax": 90.0,
+      "samples": 231,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          67.0,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 1.0,
+      "target": [
+        -6.123233995736766e-17,
+        -0.32403526000000005
+      ],
+      "ballDistance": 1.0,
+      "side": -1,
+      "angleMin": 76.8,
+      "angleMax": 90.0,
+      "samples": 133,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          76.8,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F04",
+      "pocket": 5,
+      "pocketDistance": 1.0,
+      "target": [
+        -6.123233995736766e-17,
+        -0.32403526000000005
+      ],
+      "ballDistance": 1.0,
+      "side": 1,
+      "angleMin": 76.8,
+      "angleMax": 90.0,
+      "samples": 133,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          76.8,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 0.35,
+      "target": [
+        -0.24748737341529164,
+        0.42847736658470836
+      ],
+      "ballDistance": 0.3,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.6653345369377348e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 0.35,
+      "target": [
+        -0.24748737341529164,
+        0.42847736658470836
+      ],
+      "ballDistance": 0.3,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 0.35,
+      "target": [
+        -0.24748737341529164,
+        0.42847736658470836
+      ],
+      "ballDistance": 0.6,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 67.2,
+      "samples": 673,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          67.2
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 0.35,
+      "target": [
+        -0.24748737341529164,
+        0.42847736658470836
+      ],
+      "ballDistance": 0.6,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 0.35,
+      "target": [
+        -0.24748737341529164,
+        0.42847736658470836
+      ],
+      "ballDistance": 1.0,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 58.0,
+      "samples": 450,
+      "distanceMaxError": 4.440892098500626e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          40.8
+        ],
+        [
+          54.0,
+          58.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 0.35,
+      "target": [
+        -0.24748737341529164,
+        0.42847736658470836
+      ],
+      "ballDistance": 1.0,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 4.440892098500626e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 0.7,
+      "target": [
+        -0.4949747468305833,
+        0.18098999316941677
+      ],
+      "ballDistance": 0.3,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 0.7,
+      "target": [
+        -0.4949747468305833,
+        0.18098999316941677
+      ],
+      "ballDistance": 0.3,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 0.7,
+      "target": [
+        -0.4949747468305833,
+        0.18098999316941677
+      ],
+      "ballDistance": 0.6,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 0.7,
+      "target": [
+        -0.4949747468305833,
+        0.18098999316941677
+      ],
+      "ballDistance": 0.6,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 0.7,
+      "target": [
+        -0.4949747468305833,
+        0.18098999316941677
+      ],
+      "ballDistance": 1.0,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 3.4,
+      "samples": 35,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          3.4
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 0.7,
+      "target": [
+        -0.4949747468305833,
+        0.18098999316941677
+      ],
+      "ballDistance": 1.0,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 111,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          7.3
+        ],
+        [
+          86.4,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 1.0,
+      "target": [
+        -0.7071067811865476,
+        -0.03114204118654751
+      ],
+      "ballDistance": 0.3,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 1.0,
+      "target": [
+        -0.7071067811865476,
+        -0.03114204118654751
+      ],
+      "ballDistance": 0.3,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 901,
+      "distanceMaxError": 1.1102230246251565e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          90.0
+        ]
+      ],
+      "status": "full_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 1.0,
+      "target": [
+        -0.7071067811865476,
+        -0.03114204118654751
+      ],
+      "ballDistance": 0.6,
+      "side": -1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 325,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          19.7
+        ],
+        [
+          77.4,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 1.0,
+      "target": [
+        -0.7071067811865476,
+        -0.03114204118654751
+      ],
+      "ballDistance": 0.6,
+      "side": 1,
+      "angleMin": 0.0,
+      "angleMax": 90.0,
+      "samples": 549,
+      "distanceMaxError": 2.220446049250313e-16,
+      "sampledContinuousIntervalsDeg": [
+        [
+          0.0,
+          31.3
+        ],
+        [
+          66.6,
+          90.0
+        ]
+      ],
+      "status": "partial_rectangle_only"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 1.0,
+      "target": [
+        -0.7071067811865476,
+        -0.03114204118654751
+      ],
+      "ballDistance": 1.0,
+      "side": -1,
+      "angleMin": null,
+      "angleMax": null,
+      "samples": 0,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [],
+      "status": "outside_rectangle"
+    },
+    {
+      "family": "F05",
+      "pocket": 5,
+      "pocketDistance": 1.0,
+      "target": [
+        -0.7071067811865476,
+        -0.03114204118654751
+      ],
+      "ballDistance": 1.0,
+      "side": 1,
+      "angleMin": null,
+      "angleMax": null,
+      "samples": 0,
+      "distanceMaxError": 3.3306690738754696e-16,
+      "sampledContinuousIntervalsDeg": [],
+      "status": "outside_rectangle"
+    }
+  ]
+}

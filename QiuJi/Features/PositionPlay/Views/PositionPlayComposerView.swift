@@ -262,7 +262,7 @@ struct PositionPlayComposerView: View {
 
             // G18/V6：开球模式贴边仪表（左瞄准轮 + 右力度柱），共享单一真源。
             if let runner = vm.breakRunner {
-                BreakInstrumentsOverlay(runner: runner, proxy: proxy, isPerspective: is3D)
+                BreakInstrumentsOverlay(runner: runner, proxy: proxy, scene: vm.scene, projector: projector, isPerspective: is3D)
             }
 
             if !vm.isBreakMode && proxy.isValid {
@@ -376,6 +376,17 @@ struct PositionPlayComposerView: View {
                     )
                     .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
 
+                    if is3D, !showSpinPad, let rig = vm.scene.cameraRig {
+                        ShotPlayerCameraButtons(rig: rig,
+                            isEnabled: !vm.isPlaying && !vm.isComputing && vm.currentPlayerAim != nil) { view in
+                            showSpinPad = false
+                            vm.enablePlayerCameraControls()
+                            vm.requestPlayerView(view)
+                        }
+                        .btStageFrame(ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame)
+                        .offset(x: -52)
+                    }
+
                     // 条 18.2：击球/上一杆/回放竖排，右下角底边齐球桌底线。
                     BTShotActionColumn(
                         strikeTitle: vm.isPlaying ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.freePlay,
@@ -423,12 +434,20 @@ struct PositionPlayComposerView: View {
             // 打点盘浮层贴球桌底缘：半透明材质透出桌面绿色（ADR-P11-09）。
             if showSpinPad {
                 // 序列模式：只读查看本杆打点（演示的是录制真值，不允许改）。
+                Group {
+                    if vm.isSequenceMode {
                 BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
                                  tableWidth: is3D ? proxy.sceneSize.width - Spacing.lg * 2 : proxy.playingRect.width,
                                  bottomPadding: is3D ? Spacing.sm : proxy.spinPadBottomPadding,
-                                 isReadOnly: vm.isSequenceMode,
+                                 isReadOnly: true,
                                  usesCompactLayout: is3D,
                                  onClose: { showSpinPad = false })
+                    } else {
+                        BTProjectedSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
+                            scene: vm.scene, projector: projector,
+                            onClose: { showSpinPad = false })
+                    }
+                }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .zIndex(20)
@@ -583,7 +602,7 @@ struct PositionPlayComposerView: View {
                         .foregroundStyle(selected ? .black : .white.opacity(0.85))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(selected ? Color.btPrimary : Color.clear, in: Capsule())
+                        .background(selected ? HUDStyle.accent : Color.clear, in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("tryoutMode_\(mode.rawValue)")
@@ -678,7 +697,7 @@ struct PositionPlayComposerView: View {
     /// 开球模式标识胶囊（T-P18-47）：玩法名 + 提示（G9：摆架图形与开球按钮同源）。
     private var breakModePill: some View {
         HStack(spacing: 4) {
-            BreakRackGlyph(color: .btPrimary, size: 13)
+            BreakRackGlyph(color: HUDStyle.accent, size: 13)
             Text("开球 · \(vm.breakRunner.map { BreakFlowRunner.title(for: $0.game) } ?? "")")
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.92))

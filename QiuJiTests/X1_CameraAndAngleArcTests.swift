@@ -1220,7 +1220,11 @@ final class AngleAimingVideoCaptureTests: XCTestCase {
 final class SeparationIntroVideoCaptureTests: XCTestCase {
     private var is2K: Bool { (ProcessInfo.processInfo.environment["SEPARATION_2K"] ?? ProcessInfo.processInfo.environment["TEST_RUNNER_SEPARATION_2K"]) == "1" }
     private var is3D: Bool { (ProcessInfo.processInfo.environment["SEPARATION_VIEW"] ?? ProcessInfo.processInfo.environment["TEST_RUNNER_SEPARATION_VIEW"]) == "3d" }
-    private var size: CGSize { is2K ? CGSize(width:1440,height:2560) : CGSize(width:1080,height:1920) }
+    private var size: CGSize {
+        let env = ProcessInfo.processInfo.environment
+        if (env["SEPARATION_4K"] ?? env["TEST_RUNNER_SEPARATION_4K"]) == "1" { return CGSize(width:2160,height:3840) }
+        return is2K ? CGSize(width:1440,height:2560) : CGSize(width:1080,height:1920)
+    }
     private let distance: Float = 0.60
     private let fps = 60
 
@@ -1300,7 +1304,7 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
         return Capture(scene: scene, renderer: renderer, labelView:labelView, labels:DiagramLabelOverlay(), target: target, aim: aim, ghost: ghost, transform: node.simdTransform)
     }
 
-    private func setAngle(_ degrees: Double, _ c: Capture, centerDistance: Float? = nil) throws -> [String: Any] {
+    private func setAngle(_ degrees: Double, _ c: Capture, centerDistance: Float? = nil, requiresNegativeX: Bool = true) throws -> [String: Any] {
         let distance = centerDistance ?? self.distance
         let a = Float(degrees * .pi / 180)
         let n = simd_normalize(SIMD2<Float>(c.aim.x-c.target.x, c.aim.z-c.target.z))
@@ -1319,7 +1323,7 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
         XCTAssertEqual(AngleSceneCalculator.horizontalDistance(cue, c.target), distance, accuracy: 0.00001)
         XCTAssertLessThan(abs(cue.x)+AngleSceneCalculator.ballRadius, AngleSceneCalculator.innerLength/2)
         XCTAssertLessThan(abs(cue.z)+AngleSceneCalculator.ballRadius, AngleSceneCalculator.innerWidth/2)
-        XCTAssertLessThanOrEqual(direction.x, 0.00001)
+        if requiresNegativeX { XCTAssertLessThanOrEqual(direction.x, 0.00001) }
         XCTAssertEqual(c.scene.cameraNode.simdTransform, c.transform)
         XCTAssertFalse(try XCTUnwrap(c.scene.cueStick).rootNode.isHidden)
         SCNTransaction.flush()
@@ -1332,7 +1336,8 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
         return CGPoint(x:CGFloat(p.x)*3,y:CGFloat(p.y)*3)
     }
 
-    private func base(_ c: Capture, time: Double) -> UIImage {
+    private func base(_ c: Capture, time: Double, drawsAngleText: Bool = true, renderSize: CGSize? = nil) -> UIImage {
+        let size = renderSize ?? self.size
         c.labels.update(scene:c.scene,in:c.labelView)
         let shot = c.renderer.snapshot(atTime:time,with:size,antialiasingMode:.multisampling4X)
         let angleLabels = c.labelView.subviews.compactMap { $0 as? UILabel }.filter { $0.accessibilityIdentifier == "angleDiagram.label.0" }
@@ -1354,7 +1359,7 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
                 cg.setLineWidth(shape.lineWidth);cg.setLineCap(.round);cg.strokePath()
             }
             // Compose the production angle only; never compose the two line-name labels.
-            for label in angleLabels {
+            for label in angleLabels where drawsAngleText {
                 cg.saveGState();cg.translateBy(x:label.frame.minX,y:label.frame.minY)
                 label.layer.render(in:cg);cg.restoreGState()
             }
@@ -1460,7 +1465,7 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
         return 60*(p*p*(3-2*p))
     }
 
-    private func drawTracks(_ c: Capture, nodes: inout [SCNNode], precise: Bool = false) throws -> [Int] {
+    private func drawTracks(_ c: Capture, nodes: inout [SCNNode], precise: Bool = false, colors: [UIColor] = SeparationAngleAtlasGeometry.trackColors, pathObserver: (([SCNVector3]) -> Void)? = nil) throws -> [Int] {
         c.scene.clearResultNodes(nodes: &nodes)
         let cue = try XCTUnwrap(c.scene.cueBallNode).position
         let d = simd_normalize(SIMD2<Float>(c.ghost.x-cue.x,c.ghost.z-cue.z))
@@ -1476,21 +1481,52 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
             if precise, let recorder=pred.recorder, let contact=SeparationAngleAtlasGeometry.firstBallBallEvent(in:pred.events) {
                 let end=SeparationAngleAtlasGeometry.firstCueCushionAfterBallBall(in:pred.events)?.time ?? pred.duration
                 path=[]
+                // Recorder.stateAt is a ceiling-record lookup and may return a post-cushion
+                // frame. Evaluate the actual requested instant and clamp the final sample.
+                let playback=TrajectoryPlayback(recorder:recorder,surfaceY:cue.y)
                 let steps=max(1,Int(ceil((end-contact.time)*240)))
                 for step in 0...steps {
-                    let time=contact.time+(end-contact.time)*Float(step)/Float(steps)
-                    let state=try XCTUnwrap(recorder.stateAt(ballName:ShotInput.cueBallName,time:time))
+                    let time = step == steps ? end : min(end,contact.time+(end-contact.time)*Float(step)/Float(steps))
+                    XCTAssertLessThanOrEqual(time,end)
+                    let state=try XCTUnwrap(playback.stateAt(ballName:ShotInput.cueBallName,time:time))
                     path.append(state.position)
                 }
             }
+            pathObserver?(path)
             counts.append(path.count)
             if path.count >= 2 {
-                c.scene.addDashedPolyline(path,color:SeparationAngleAtlasGeometry.trackColor(at:i),
+                c.scene.addDashedPolyline(path,color:colors[i],
                     radius:TrajectoryStyle.lineMain,placement:.table,into:&nodes)
             }
         }
         SCNTransaction.flush()
         return counts
+    }
+
+    func testFirstCushionSamplingBoundary() throws {
+        let dir=try output(),c=try makeCapture()
+        var rows:[[String:Any]]=[]
+        for angle in [15.0,30,60,89] {
+            _=try setAngle(angle,c)
+            let cue=try XCTUnwrap(c.scene.cueBallNode).position
+            let d=simd_normalize(SIMD2<Float>(c.ghost.x-cue.x,c.ghost.z-cue.z))
+            for (i,spin) in SeparationAngleAtlasGeometry.spinYLevels().enumerated() {
+                let p=ShotPredictor.simulateFree(cueBall:cue,aimDir:SCNVector3(d.x,0,d.y),velocity:3,spinX:0,spinY:spin,surfaceY:c.scene.surfaceY,balls:[ObstacleBall(name:ShotInput.targetBallName,position:c.target)])
+                guard let end=SeparationAngleAtlasGeometry.firstCueCushionAfterBallBall(in:p.events) else {continue}
+                let r=try XCTUnwrap(p.recorder),play=TrajectoryPlayback(recorder:r,surfaceY:cue.y)
+                let before=try XCTUnwrap(play.stateAt(ballName:ShotInput.cueBallName,time:end.time.nextDown))
+                let exact=try XCTUnwrap(play.stateAt(ballName:ShotInput.cueBallName,time:end.time))
+                let contact=try XCTUnwrap(SeparationAngleAtlasGeometry.firstBallBallEvent(in:p.events))
+                let steps=max(1,Int(ceil((end.time-contact.time)*240)))
+                let legacyLastTime=contact.time+(end.time-contact.time)*Float(steps)/Float(steps)
+                let old=try XCTUnwrap(r.stateAt(ballName:ShotInput.cueBallName,time:legacyLastTime))
+                let jump=AngleSceneCalculator.horizontalDistance(before.position,exact.position)
+                XCTAssertLessThan(jump,0.001,"Boundary discontinuity angle=\(angle), spin=\(i)")
+                rows.append(["angle":angle,"spin":i,"cushionTime":end.time,"legacyLastTime":legacyLastTime,"oldLookupTime":old.time,"oldOvershootM":AngleSceneCalculator.horizontalDistance(old.position,exact.position),"endpointJumpM":jump])
+            }
+        }
+        XCTAssertFalse(rows.isEmpty)
+        try JSONSerialization.data(withJSONObject:rows,options:[.prettyPrinted,.sortedKeys]).write(to:dir.appendingPathComponent("boundary-audit.json"))
     }
 
     func testSimulationContinuityProbe() throws {
@@ -1566,7 +1602,8 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
         try await writer.finish()
     }
 
-    private func composeDirectAtlas(_ shot:UIImage, angle:Double, parameters: String = "杆速 3 m/s  ·  球心距 60 cm", parameterBackground: Bool = true) -> UIImage {
+    private func composeDirectAtlas(_ shot:UIImage, angle:Double, parameters: String = "杆速 3 m/s  ·  球心距 60 cm", parameterBackground: Bool = true, trackColors: [UIColor] = SeparationAngleAtlasGeometry.trackColors, legendY: CGFloat? = nil, infoY: CGFloat? = nil, outputSize: CGSize? = nil) -> UIImage {
+        let size = outputSize ?? self.size
         let format=UIGraphicsImageRendererFormat();format.scale=1;format.opaque=true
         return UIGraphicsImageRenderer(size:size,format:format).image { ctx in
             shot.draw(in:CGRect(origin:.zero,size:size))
@@ -1575,7 +1612,7 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
                 let p=NSMutableParagraphStyle();p.alignment = .center
                 (value as NSString).draw(in:rect,withAttributes:[.font:UIFont.systemFont(ofSize:font,weight:.semibold),.foregroundColor:color,.paragraphStyle:p])
             }
-            let y:CGFloat=is3D ? 460 : 390
+            let y:CGFloat=legendY ?? (is3D ? 460 : 390)
             let spins=SeparationAngleAtlasGeometry.spinYLevels()
             label("高",CGRect(x:105,y:y+23,width:55,height:50),34)
             label("低",CGRect(x:930,y:y+23,width:55,height:50),34)
@@ -1599,10 +1636,10 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
                     cg.strokePath()
                     cg.restoreGState()
                 }
-                SeparationAngleAtlasGeometry.trackColor(at:i).setFill()
+                trackColors[i].setFill()
                 UIBezierPath(ovalIn:CGRect(x:x+33,y:y+33-CGFloat(spins[i])*43,width:20,height:20)).fill()
             }
-            let parameterY:CGFloat=is3D ? 355 : 508
+            let parameterY:CGFloat=infoY ?? (is3D ? 355 : 508)
             if parameterBackground {
                 UIColor.black.withAlphaComponent(0.78).setFill()
                 UIBezierPath(roundedRect:CGRect(x:190,y:parameterY,width:700,height:68),cornerRadius:16).fill()
@@ -1615,10 +1652,10 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
     }
 
     // Opt-in trilogy parameter study. CueBallStrike's velocity is cue-tip speed.
-    private func seriesPredictions(_ c: Capture, speed: Float) throws -> [ShotPrediction] {
+    private func seriesPredictions(_ c: Capture, speed: Float, spins: [Float]? = nil) throws -> [ShotPrediction] {
         let cue=try XCTUnwrap(c.scene.cueBallNode).position
         let d=simd_normalize(SIMD2<Float>(c.ghost.x-cue.x,c.ghost.z-cue.z))
-        return SeparationAngleAtlasGeometry.spinYLevels().map { spin in
+        return (spins ?? SeparationAngleAtlasGeometry.spinYLevels()).map { spin in
             ShotPredictor.simulateFree(cueBall:cue,aimDir:SCNVector3(d.x,0,d.y),velocity:speed,
                 spinX:0,spinY:spin,surfaceY:c.scene.surfaceY,
                 balls:[ObstacleBall(name:ShotInput.targetBallName,position:c.target)])
@@ -1789,6 +1826,542 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
         XCTAssertTrue(failures.isEmpty,"Incomplete parameter samples: \(failures)")
     }
 
+    private var oneCushionColors: [UIColor] {
+        let colorHex: [UInt32] = [0xFF625C, 0xFFA43A, 0xFFE867, 0xFF9DDA,
+                                   0x78E7FF, 0x61B3FF, 0xB4ABFF, 0xED78FF]
+        let colors = colorHex.map { value in
+            UIColor(red: CGFloat((value >> 16) & 255) / 255,
+                    green: CGFloat((value >> 8) & 255) / 255,
+                    blue: CGFloat(value & 255) / 255, alpha: 1)
+        }
+        return colors
+    }
+
+    private func oneCushionTracks(_ c: Capture, nodes: inout [SCNNode], draw: Bool,
+                                  includePaths: Bool = false, spins: [Float]? = nil, palette: [UIColor]? = nil, stopAtRecollision: Bool = false, suppliedPredictions: [ShotPrediction]? = nil) throws -> [[String: Any]] {
+        let levels = spins ?? SeparationAngleAtlasGeometry.spinYLevels()
+        let colors = palette ?? oneCushionColors
+        c.scene.clearResultNodes(nodes: &nodes)
+        let predictions = try suppliedPredictions ?? seriesPredictions(c, speed: 3, spins: levels)
+        var rows: [[String: Any]] = []
+        for (index, prediction) in predictions.enumerated() {
+            let recorder = try XCTUnwrap(prediction.recorder)
+            let contact = try XCTUnwrap(SeparationAngleAtlasGeometry.firstBallBallEvent(in: prediction.events))
+            let cushions = prediction.events.filter { event in
+                guard event.time > contact.time else { return false }
+                if case .ballCushion(let name) = event.kind { return name == ShotInput.cueBallName }
+                return false
+            }
+            // Portrait left = -Z. Only the straight left long cushion permits a rebound.
+            // The cushion event carries no rail ID; identify its actual recorded centre position.
+            var firstRail = "none"
+            var firstPosition: [Float] = []
+            if let first = cushions.first {
+                let p = try XCTUnwrap(recorder.stateAt(ballName: ShotInput.cueBallName, time: first.time)).position
+                firstPosition = [p.x, p.y, p.z]
+                let leftZ = -AngleSceneCalculator.innerWidth / 2 + AngleSceneCalculator.ballRadius
+                if abs(p.z - leftZ) < 0.002 {
+                    firstRail = "left-long"
+                } else if p.x > 1.20 {
+                    firstRail = "upper-short-or-jaw"
+                } else {
+                    firstRail = "other-cushion"
+                }
+            }
+            let cutoff = firstRail == "left-long" ? cushions.dropFirst().first : cushions.first
+            var end = cutoff?.time ?? prediction.duration
+            var ending = cutoff == nil ? "stopped" : (firstRail == "left-long" ? "second-cushion" : "first-non-left-cushion")
+            for event in prediction.events where event.time >= contact.time && event.time < end {
+                if case .pocket(let name, _) = event.kind, name == ShotInput.cueBallName {
+                    end = event.time
+                    ending = "pocket"
+                }
+            }
+            let recollision = prediction.events.first { event in
+                guard event.time > contact.time + 0.00001 else { return false }
+                if case .ballBall(let a, let b) = event.kind {
+                    return a == ShotInput.cueBallName || b == ShotInput.cueBallName
+                }
+                return false
+            }
+            if stopAtRecollision, let event = recollision, event.time < end {
+                end = event.time
+                ending = "second-ball-contact"
+            }
+            if cutoff == nil && ending == "stopped" { XCTAssertTrue(prediction.hasFinalTableState) }
+            let steps = max(1, Int(ceil((end - contact.time) * 240)))
+            let path = try (0...steps).map { step in
+                try XCTUnwrap(recorder.stateAt(ballName: ShotInput.cueBallName,
+                    time: contact.time + (end - contact.time) * Float(step) / Float(steps))).position
+            }
+            if draw {
+                c.scene.addDashedPolyline(path, color: colors[index],
+                    radius: TrajectoryStyle.lineMain, placement: .table, into: &nodes)
+            }
+            var row: [String: Any] = ["spinIndex": index, "spinY": levels[index],
+                "targetPocket": seriesPocket(prediction) ?? "none", "ending": ending,
+                "firstCushionTime": cushions.first?.time ?? -1, "firstRail": firstRail,
+                "firstCushionPosition": firstPosition, "endTime": end,
+                "pointCount": path.count]
+            if stopAtRecollision { row["secondBallContactTime"] = recollision?.time ?? -1 }
+            if includePaths { row["path"] = path.map { [$0.x, $0.y, $0.z] } }
+            rows.append(row)
+        }
+        XCTAssertEqual(rows.count, levels.count)
+        return rows
+    }
+
+    func testDiagnoseContinuousSpinAim() throws {
+        let dir = try output()
+        let c = try makeCapture(targetXZ: SIMD2<Float>(-0.64, -0.20), pocketIndex: 0)
+        _ = try setAngle(15, c, centerDistance: 0.60, requiresNegativeX: false)
+        let cue = try XCTUnwrap(c.scene.cueBallNode).position
+        var rows: [[String: Any]] = []
+        for spin: Float in [-0.5, -0.07, -0.06, -0.05, -0.04, 0, 0.5] {
+            let free = try XCTUnwrap(seriesPredictions(c, speed: 3, spins: [spin]).first)
+            let solved = ShotPredictor.predict(ShotInput(cueBall: cue, targetBall: c.target,
+                pocketIndex: 0, velocity: 3, spinX: 0, spinY: spin, surfaceY: c.scene.surfaceY))
+            let appSolved = ShotPredictor.predictForPositionSolve(ShotInput(cueBall: cue, targetBall: c.target,
+                pocketIndex: 0, velocity: 3, spinX: 0, spinY: spin, surfaceY: c.scene.surfaceY))
+            XCTAssertTrue(appSolved.simObjectPotted, "App solver missed spin \(spin)")
+            for (mode, pred) in [("geometric", free), ("solved", solved), ("app-solver", appSolved)] {
+                var events: [[String: Any]] = []
+                for event in pred.events {
+                    var row: [String: Any] = ["time": event.time, "kind": String(describing: event.kind)]
+                    for name in [ShotInput.cueBallName, ShotInput.targetBallName] {
+                        if let state = pred.recorder?.stateAt(ballName: name, time: event.time) {
+                            row[name] = [state.position.x, state.position.y, state.position.z]
+                        }
+                    }
+                    events.append(row)
+                }
+                rows.append(["mode": mode, "spinY": spin, "events": events,
+                    "aim": [pred.aimDirection.x, pred.aimDirection.y, pred.aimDirection.z],
+                    "targetPocket": seriesPocket(pred) ?? "none", "simObjectPotted": pred.simObjectPotted])
+            }
+        }
+        try JSONSerialization.data(withJSONObject: rows, options: [.prettyPrinted, .sortedKeys])
+            .write(to: dir.appendingPathComponent("aim-diagnostics.json"))
+    }
+
+    func testExportContinuousSpinPreview() async throws {
+        let dir = try output()
+        let c = try makeCapture(targetXZ: SIMD2<Float>(-0.64, -0.20), pocketIndex: 0)
+        let fixed = try setAngle(15, c, centerDistance: 0.60, requiresNegativeX: false)
+        let cue = try XCTUnwrap(c.scene.cueBallNode).position
+        let d = simd_normalize(SIMD3<Float>(c.ghost.x-cue.x, 0, c.ghost.z-cue.z))
+        var direction = SCNVector3(d)
+        var solvedContact = c.ghost
+        var lineSurfaceY = c.scene.surfaceY + 0.001
+        let solved = (0...900).map { step in
+            ShotPredictor.predictForPositionSolve(ShotInput(cueBall: cue, targetBall: c.target,
+                pocketIndex: 0, velocity: 3, spinX: 0, spinY: -0.5+Float(step)/900, surfaceY: c.scene.surfaceY))
+        }
+        XCTAssertTrue(solved.allSatisfy { $0.simObjectPotted }, "Every spin must pot selected pocket")
+        print("SOLVER_SWEEP pots=\(solved.filter { $0.simObjectPotted }.count)/901")
+        let insetScene = AngleTrainingScene(); insetScene.setupScene()
+        insetScene.hideAllBalls()
+        insetScene.showBall(key: PositionPlayBall.cueKey, scenePosition: cue)
+        XCTAssertTrue(insetScene.applyTableStyle(.charcoal, showsSights: true))
+        insetScene.applyClothColor(.green)
+        XCTAssertTrue(try XCTUnwrap(insetScene.cueStick).applyStyle(.inkDragon))
+        let camera = SCNNode(); camera.camera = SCNCamera()
+        camera.camera!.usesOrthographicProjection = true
+        camera.camera!.orthographicScale = 0.08
+        camera.camera!.zNear = 0.001; camera.camera!.zFar = 100
+        camera.camera!.wantsExposureAdaptation = false
+        let right = SIMD3<Float>(-d.z, 0, d.x)
+        let focus = SIMD3<Float>(cue) - d * 0.025
+        camera.simdPosition = focus - right * 0.30
+        camera.look(at: SCNVector3(focus), up: SCNVector3(0,1,0), localFront: SCNVector3(0,0,-1))
+        let insetForward = camera.simdOrientation.act(SIMD3<Float>(0,0,-1))
+        let insetScreenRight = camera.simdOrientation.act(SIMD3<Float>(1,0,0))
+        XCTAssertEqual(insetForward.y, 0, accuracy: 0.00001)
+        XCTAssertEqual(simd_dot(insetForward, d), 0, accuracy: 0.00001)
+        XCTAssertGreaterThan(simd_dot(insetScreenRight, -d), 0.999)
+        insetScene.rootNode.addChildNode(camera)
+        let insetRenderer = SCNRenderer(device:nil,options:nil)
+        insetRenderer.scene = insetScene; insetRenderer.pointOfView = camera
+        insetRenderer.delegate = insetScene.contactOcclusion
+        var elevation: Float = 0.05
+        for spin in [-0.5, 0.0, 0.5] {
+            let strike = CueStroke.strikePosition(cue: cue, aim: direction, spinX: 0, spinY: spin)
+            guard case .angle(let needed) = CueStick.requiredElevation(cueBallPosition: strike, aimDirection: direction,
+                obstacleCenters: [c.target]) else { XCTFail("Cue clearance blocked"); return }
+            elevation = max(elevation, needed)
+        }
+        var nodes:[SCNNode]=[]
+        var records:[[String:Any]]=[]
+        let env=ProcessInfo.processInfo.environment
+        let keys=(env["TEST_RUNNER_SEPARATION_KEYFRAMES"] ?? env["SEPARATION_KEYFRAMES"]) == "1"
+        let frames = keys ? [0,285,456,510,735,960] : Array(0..<1020)
+        let writer = keys ? nil : try VideoWriter(url:dir.appendingPathComponent("spin-15deg-preview.mp4"),size:size,fps:60)
+        var lastStep = -1
+        var tracks:[[String:Any]]=[]
+        for frame in frames {
+            try autoreleasepool {
+                let step=min(900,max(0,frame-60)), spin = -0.5+Double(step)/900
+                let current=UIColor.white
+                if step != lastStep {
+                    let pred = solved[step]
+                    direction = pred.aimDirection
+                    let firstContact = try XCTUnwrap(SeparationAngleAtlasGeometry.firstBallBallEvent(in: pred.events))
+                    solvedContact = try XCTUnwrap(pred.recorder?.stateAt(ballName: ShotInput.cueBallName, time: firstContact.time)).position
+                    let ballContacts = pred.events.filter { if case .ballBall = $0.kind { return true }; return false }
+                    XCTAssertEqual(ballContacts.count, 1, "Unexpected recollision at spin \(spin)")
+                    tracks=try oneCushionTracks(c,nodes:&nodes,draw:true,spins:[Float(spin)],palette:[current],suppliedPredictions:[pred])
+                    c.scene.strikeLineNode?.isHidden = true
+                    c.scene.pocketLineNode?.isHidden = true
+                    c.scene.addDashedPolyline([c.aim, c.target], color: .black,
+                        radius: TrajectoryStyle.lineMain, placement: .table, into: &nodes)
+                    let rail = AngleSceneCalculator.rayToInnerRail(from: cue, dir: direction, inset: 0)
+                    let aimNode = c.scene.setFreeAimPreviewLine(AimCloseupSegment(
+                        start: CGPoint(x: CGFloat(cue.x), y: CGFloat(cue.z)),
+                        end: CGPoint(x: CGFloat(solvedContact.x), y: CGFloat(solvedContact.z))))
+                    c.scene.rootNode.childNode(withName: "strikeContinuation", recursively: true)?.isHidden = true
+                    c.scene.addDashedPolyline([solvedContact, rail], color: .white,
+                        radius: TrajectoryStyle.lineMain, placement: .table, into: &nodes)
+                    aimNode?.geometry?.materials = c.scene.strikeLineNode?.geometry?.materials ?? []
+                    if let node = aimNode, let src = node.geometry?.sources(for: .vertex).first {
+                        lineSurfaceY = src.data.withUnsafeBytes { bytes in
+                            let o = src.dataOffset
+                            let v = SCNVector3(bytes.loadUnaligned(fromByteOffset:o,as:Float.self),
+                                bytes.loadUnaligned(fromByteOffset:o+4,as:Float.self),
+                                bytes.loadUnaligned(fromByteOffset:o+8,as:Float.self))
+                            return node.convertPosition(v,to:nil).y
+                        }
+                    }
+                    c.scene.ghostBallNode?.position = solvedContact
+                    let sd = SIMD3<Float>(direction), sr = SIMD3<Float>(-sd.z, 0, sd.x)
+                    let sf = SIMD3<Float>(cue) - sd * 0.025
+                    camera.simdPosition = sf - sr * 0.30
+                    camera.look(at: SCNVector3(sf), up: SCNVector3(0,1,0), localFront: SCNVector3(0,0,-1))
+                    lastStep=step
+                }
+                let strike=CueStroke.strikePosition(cue:cue,aim:direction,spinX:0,spinY:spin)
+                c.scene.updateCueStick(cueBallPosition:strike,aimDirection:direction,pullBack:0.006,elevationOverride:elevation)
+                insetScene.updateCueStick(cueBallPosition:strike,aimDirection:direction,pullBack:0.006,elevationOverride:elevation)
+                // Translate the real tip mesh along its axis until first sphere contact.
+                // Do not use the nominal cue-axis point as the curved tip's contact point.
+                let stick = try XCTUnwrap(insetScene.cueStick)
+                let forward = stick.rootNode.simdOrientation.act(SIMD3<Float>(0,0,-1))
+                let center = SIMD3<Float>(cue)
+                let radius = AngleSceneCalculator.ballRadius
+                var advance = Float.infinity
+                var closest = SIMD3<Float>.zero
+                var candidates = 0
+                stick.rootNode.enumerateChildNodes { node, _ in
+                    guard let src = node.geometry?.sources(for:.vertex).first,
+                          src.usesFloatComponents, src.bytesPerComponent == 4 else { return }
+                    src.data.withUnsafeBytes { bytes in
+                        for i in 0..<src.vectorCount {
+                            let o=src.dataOffset+i*src.dataStride
+                            let local=SCNVector3(bytes.loadUnaligned(fromByteOffset:o,as:Float.self),
+                                bytes.loadUnaligned(fromByteOffset:o+4,as:Float.self),
+                                bytes.loadUnaligned(fromByteOffset:o+8,as:Float.self))
+                            let point=SIMD3<Float>(node.convertPosition(local,to:nil))
+                            let q=point-center, longitudinal=simd_dot(q,forward)
+                            let perpendicular=q-forward*longitudinal
+                            let radial=simd_length_squared(perpendicular)
+                            if radial < radius*radius {
+                                let travel = -longitudinal-sqrt(radius*radius-radial)
+                                if travel < advance { advance=travel; closest=point }
+                                candidates += 1
+                            }
+                        }
+                    }
+                }
+                XCTAssertGreaterThan(candidates,0);XCTAssertTrue(advance.isFinite)
+                stick.rootNode.simdPosition += forward*advance
+                let contact=closest+forward*advance
+                let contactResidual=simd_length(contact-center)-radius
+                XCTAssertEqual(contactResidual,0,accuracy:0.00001)
+                XCTAssertEqual(c.scene.cueStick!.rootNode.eulerAngles.x,-elevation,accuracy:0.00001)
+                XCTAssertEqual(insetScene.cueStick!.rootNode.eulerAngles.x,-elevation,accuracy:0.00001)
+                SCNTransaction.flush()
+                let time=Double(frame)/60
+                let main=base(c,time:time,drawsAngleText:false)
+                let inset=insetRenderer.snapshot(atTime:time,with:CGSize(width:420,height:420),antialiasingMode:.multisampling4X)
+                let format=UIGraphicsImageRendererFormat();format.scale=1;format.opaque=true
+                let image=UIGraphicsImageRenderer(size:size,format:format).image { ctx in
+                    UIColor.black.setFill();ctx.fill(CGRect(origin:.zero,size:size))
+                    let cg=ctx.cgContext;cg.scaleBy(x:size.width/1080,y:size.width/1080)
+                    main.draw(in:CGRect(x:0,y:0,width:1080,height:1920))
+                    func text(_ value:String,_ x:CGFloat,_ y:CGFloat,_ font:CGFloat,_ color:UIColor = .white) {
+                        (value as NSString).draw(at:CGPoint(x:x,y:y),withAttributes:[.font:UIFont.systemFont(ofSize:font,weight:.semibold),.foregroundColor:color])
+                    }
+                    cg.setFillColor(UIColor.black.withAlphaComponent(0.88).cgColor)
+                    cg.addPath(UIBezierPath(roundedRect:CGRect(x:190,y:355,width:700,height:70),cornerRadius:18).cgPath);cg.fillPath()
+                    text("杆速 3 m/s · 球心距 60 cm",269,371,34)
+                    let disk=CGRect(x:230,y:450,width:180,height:180)
+                    cg.setFillColor(UIColor.white.cgColor);cg.fillEllipse(in:disk)
+                    cg.setStrokeColor(UIColor(red:0.82,green:0.1,blue:0.14,alpha:1).cgColor);cg.setLineWidth(1.2)
+                    cg.move(to:CGPoint(x:320,y:450));cg.addLine(to:CGPoint(x:320,y:630))
+                    cg.move(to:CGPoint(x:230,y:540));cg.addLine(to:CGPoint(x:410,y:540));cg.strokePath()
+                    cg.setFillColor(UIColor.systemRed.cgColor)
+                    cg.fillEllipse(in:CGRect(x:309,y:540-CGFloat(spin)*90-11,width:22,height:22))
+                    let box=CGRect(x:655,y:435,width:210,height:210)
+                    cg.saveGState();UIBezierPath(roundedRect:box,cornerRadius:14).addClip();inset.draw(in:box);cg.restoreGState()
+                    cg.setStrokeColor(UIColor(white:0.6,alpha:1).cgColor);cg.setLineWidth(1)
+                    cg.addPath(UIBezierPath(roundedRect:box,cornerRadius:14).cgPath);cg.strokePath()
+                    @MainActor func screen(_ world:SCNVector3) -> CGPoint {
+                        return projected(world,c)
+                    }
+                    @MainActor func onTable(_ p: SCNVector3) -> CGPoint { screen(SCNVector3(p.x,lineSurfaceY,p.z)) }
+                    let cp=onTable(cue), gp=onTable(solvedContact), tp=onTable(c.target), pp=onTable(c.aim)
+                    func leader(_ title:String,_ anchor:CGPoint,_ label:CGPoint,_ ink:UIColor) {
+                        cg.setStrokeColor(ink.cgColor);cg.setLineWidth(1.2);cg.setLineCap(.butt)
+                        cg.move(to:anchor);cg.addLine(to:CGPoint(x:label.x-5,y:label.y+10));cg.strokePath()
+                        text(title,label.x,label.y,22,ink)
+                    }
+                    text("15°",screen(c.target).x-150,screen(c.target).y+25,32)
+                    let am=CGPoint(x:(cp.x+gp.x)/2,y:(cp.y+gp.y)/2)
+                    leader("瞄准线",am,CGPoint(x:am.x+35,y:am.y+38),.white)
+                    let pm=CGPoint(x:tp.x+(pp.x-tp.x)*0.6,y:tp.y+(pp.y-tp.y)*0.6)
+                    leader("进球线",pm,CGPoint(x:pm.x+58,y:pm.y+14),.black)
+                }
+                if keys || [0,285,456,510,735,960].contains(frame) {
+                    try XCTUnwrap(image.pngData()).write(to:dir.appendingPathComponent("frames/frame-\(frame).png"))
+                }
+                try writer?.append(XCTUnwrap(image.cgImage))
+                var row=fixed;row["frame"]=frame;row["spinY"]=spin;row["cueElevation"]=elevation
+                row["contactResidualM"]=contactResidual;row["contactPosition"]=[contact.x,contact.y,contact.z];row["insetCueAdvanceM"]=advance
+                row["tracks"]=tracks;row["cueTipSpeedMps"]=3;row["version"]="spin-continuous-r8-label-endpoints"
+                row["solvedAimDirection"]=[direction.x,direction.y,direction.z]
+                row["aimCorrectionDegrees"]=Double(acos(min(1,max(-1,simd_dot(d,SIMD3<Float>(direction))))))*180 / .pi
+                row["selectedPocketPotted"]=solved[step].simObjectPotted
+                records.append(row)
+            }
+            if frame % 60 == 0 { print("SPIN_EXPORT \(frame)/1020") }
+            await Task.yield()
+        }
+        if keys {
+            var diagnostics:[[String:Any]]=[]
+            for n in -15...5 {
+                let spin=Float(n)/100
+                let pred=try XCTUnwrap(seriesPredictions(c,speed:3,spins:[spin]).first)
+                var events:[[String:Any]]=[]
+                for e in pred.events {
+                    let state=pred.recorder?.stateAt(ballName:ShotInput.cueBallName,time:e.time)
+                    events.append(["time":e.time,"kind":String(describing:e.kind),
+                        "cuePosition":state.map{[$0.position.x,$0.position.y,$0.position.z]} ?? []])
+                }
+                diagnostics.append(["spinY":spin,"events":events,"targetPocket":seriesPocket(pred) ?? "none"])
+            }
+            try JSONSerialization.data(withJSONObject:diagnostics,options:[.prettyPrinted,.sortedKeys])
+                .write(to:dir.appendingPathComponent("kink-diagnostics.json"))
+        }
+        try await writer?.finish()
+        try JSONSerialization.data(withJSONObject:records,options:[.sortedKeys]).write(to:dir.appendingPathComponent("geometry.json"))
+    }
+
+    func testOneCushionLeftTargetPreview() throws {
+        let dir = try output()
+        let c = try makeCapture(targetXZ: SIMD2<Float>(-0.64, -0.20), pocketIndex: 0)
+        var geometry = try setAngle(30, c, centerDistance: 0.60, requiresNegativeX: false)
+        var nodes: [SCNNode] = []
+        let rows = try oneCushionTracks(c, nodes: &nodes, draw: true, includePaths: true)
+        geometry["tracks"] = rows
+        geometry["cueTipSpeedMps"] = 3
+        geometry["version"] = "one-cushion-left-target-r3-no-markers"
+        try JSONSerialization.data(withJSONObject: geometry, options: [.prettyPrinted, .sortedKeys])
+            .write(to: dir.appendingPathComponent("geometry.json"))
+        XCTAssertTrue(rows.allSatisfy { ($0["targetPocket"] as? String) == "pocket_0" })
+        SCNTransaction.flush()
+        _ = base(c, time: 0)
+        _ = base(c, time: 0)
+        let image = composeDirectAtlas(base(c, time: 0), angle: 30, trackColors: oneCushionColors)
+        try XCTUnwrap(image.pngData()).write(to: dir.appendingPathComponent("preview.png"))
+    }
+
+    func testOneCushionMissDiagnostics() throws {
+        let dir = try output()
+        let c = try makeCapture(targetXZ: SIMD2<Float>(-0.64, -0.20), pocketIndex: 0)
+        var rows: [[String: Any]] = []
+        for angle in [9.5, 10.0, 15.0, 23.5, 24.0] {
+            _ = try setAngle(angle, c, centerDistance: 0.60, requiresNegativeX: false)
+            for (index, prediction) in try seriesPredictions(c, speed: 3).enumerated() where index == 4 {
+                let recorder = try XCTUnwrap(prediction.recorder)
+                let frames = recorder.framesByBallName[ShotInput.targetBallName] ?? []
+                rows.append(["degrees": angle, "spinIndex": index,
+                    "targetPocket": seriesPocket(prediction) ?? "none",
+                    "termination": String(describing: prediction.termination),
+                    "events": prediction.events.map { String(describing: $0) },
+                    "targetFrames": frames.map { ["t": $0.time, "p": [$0.position.x, $0.position.y, $0.position.z], "v": [$0.velocity.x, $0.velocity.y, $0.velocity.z]] },
+                    "aim": [c.aim.x, c.aim.y, c.aim.z]])
+            }
+        }
+        try JSONSerialization.data(withJSONObject: rows, options: [.sortedKeys])
+            .write(to: dir.appendingPathComponent("miss-diagnostics.json"))
+    }
+
+    private func oneCushionImage(_ c: Capture, angle: Double, time: Double,
+                                 tracks: [[String: Any]], legendY: CGFloat? = nil, infoY: CGFloat? = nil, potLabelAbove: Bool = false) throws -> UIImage {
+        let image = composeDirectAtlas(base(c, time: time, drawsAngleText: false), angle: angle,
+            trackColors: oneCushionColors, legendY: legendY ?? (is3D ? nil : 170), infoY: infoY ?? (is3D ? nil : 60))
+        let cueWorld = try XCTUnwrap(c.scene.cueBallNode).position
+        let cue = projected(cueWorld, c), ghost = projected(c.ghost, c)
+        let target = projected(c.target, c), pocket = projected(c.aim, c)
+        func unit(_ p: CGPoint) -> CGPoint {
+            let length = max(0.001, hypot(p.x, p.y))
+            return CGPoint(x: p.x / length, y: p.y / length)
+        }
+        let pot = unit(CGPoint(x: pocket.x - target.x, y: pocket.y - target.y))
+        let incoming = unit(CGPoint(x: ghost.x - cue.x, y: ghost.y - cue.y))
+        let bisector = unit(CGPoint(x: pot.x + incoming.x, y: pot.y + incoming.y))
+        let anglePoint: CGPoint
+        if angle < 25 {
+            anglePoint = CGPoint(x: target.x + pot.x * 105 - pot.y * 65,
+                                 y: target.y + pot.y * 105 + pot.x * 65)
+        } else {
+            anglePoint = CGPoint(x: ghost.x + bisector.x * 200,
+                                 y: ghost.y + bisector.y * 200)
+        }
+        let aimAnchor = CGPoint(x: (cue.x + ghost.x) / 2, y: (cue.y + ghost.y) / 2)
+        let aimPoint = CGPoint(x: aimAnchor.x + incoming.y * 78,
+                               y: aimAnchor.y - incoming.x * 78)
+        let potAnchor = CGPoint(x: target.x + (pocket.x - target.x) * 0.55,
+                                y: target.y + (pocket.y - target.y) * 0.55)
+        let potPoint = potLabelAbove
+            ? CGPoint(x: potAnchor.x, y: potAnchor.y - 80)
+            : CGPoint(x: potAnchor.x + 105, y: potAnchor.y + 30)
+        let labels: [(String, CGPoint, CGFloat, UIColor, CGPoint?)] = [
+            (String(format: "%.0f°", angle), anglePoint, 32, .white, nil),
+            ("瞄准线", aimPoint, 28, .white, aimAnchor),
+            ("进球线", potPoint, 28, .black, potAnchor)
+        ]
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
+        return UIGraphicsImageRenderer(size: size, format: format).image { context in
+            image.draw(in: CGRect(origin: .zero, size: size))
+            context.cgContext.scaleBy(x: size.width / 1080, y: size.width / 1080)
+            for (text, center, fontSize, color, anchor) in labels {
+                let attributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: fontSize, weight: .semibold),
+                    .foregroundColor: color]
+                let extent = (text as NSString).size(withAttributes: attributes)
+                let rect = CGRect(x: center.x - extent.width / 2, y: center.y - extent.height / 2,
+                                  width: extent.width, height: extent.height)
+                XCTAssertGreaterThanOrEqual(rect.minX, 8)
+                XCTAssertLessThanOrEqual(rect.maxX, 1072)
+                XCTAssertFalse(rect.insetBy(dx: -16, dy: -16).contains(cue))
+                XCTAssertFalse(rect.insetBy(dx: -16, dy: -16).contains(target))
+                if let anchor {
+                    let end = CGPoint(x: min(max(anchor.x, rect.minX - 6), rect.maxX + 6),
+                                      y: min(max(anchor.y, rect.minY - 6), rect.maxY + 6))
+                    context.cgContext.setStrokeColor(color.cgColor)
+                    context.cgContext.setLineWidth(1.5)
+                    context.cgContext.move(to: anchor)
+                    context.cgContext.addLine(to: end)
+                    context.cgContext.strokePath()
+                }
+                (text as NSString).draw(in: rect, withAttributes: attributes)
+            }
+        }
+    }
+
+    func testExportOneCushionVideo() async throws {
+        let dir = try output()
+        let c = try makeCapture(targetXZ: SIMD2<Float>(-0.64, -0.20), pocketIndex: 0)
+        var nodes: [SCNNode] = []
+        let env = ProcessInfo.processInfo.environment
+        if (env["SEPARATION_KEYFRAMES"] ?? env["TEST_RUNNER_SEPARATION_KEYFRAMES"]) == "1" {
+            var rows: [[String: Any]] = []
+            for angle in [0.0, 16, 24, 25, 30, 60] {
+                var row = try setAngle(angle, c, centerDistance: 0.60, requiresNegativeX: false)
+                let tracks = try oneCushionTracks(c, nodes: &nodes, draw: true, includePaths: true)
+                SCNTransaction.flush()
+                _ = base(c, time: 0, drawsAngleText: false)
+                let image = try oneCushionImage(c, angle: angle, time: 0, tracks: tracks)
+                try XCTUnwrap(image.pngData()).write(to: dir.appendingPathComponent("frames/key-\(Int(angle)).png"))
+                row["tracks"] = tracks; rows.append(row)
+            }
+            try JSONSerialization.data(withJSONObject: rows, options: [.sortedKeys])
+                .write(to: dir.appendingPathComponent("keyframes.json"))
+            return
+        }
+        var preflight: [[String: Any]] = []
+        var misses: [[String: Any]] = []
+        for step in 0...1080 {
+            try autoreleasepool {
+                let angle = Double(step) / 18
+                var row = try setAngle(angle, c, centerDistance: 0.60, requiresNegativeX: false)
+                let tracks = try oneCushionTracks(c, nodes: &nodes, draw: false)
+                row["step"] = step
+                row["tracks"] = tracks
+                preflight.append(row)
+                for track in tracks where (track["targetPocket"] as? String) != "pocket_0" {
+                    misses.append(["step": step, "degrees": angle, "track": track])
+                }
+            }
+            if step % 120 == 0 { print("ONE_CUSHION_PREFLIGHT \(step)/1080") }
+            await Task.yield()
+        }
+        try JSONSerialization.data(withJSONObject: preflight, options: [.sortedKeys])
+            .write(to: dir.appendingPathComponent("preflight.json"))
+        try JSONSerialization.data(withJSONObject: misses, options: [.prettyPrinted, .sortedKeys])
+            .write(to: dir.appendingPathComponent("target-misses.json"))
+        // A fixed geometric aim does not guarantee pocketing for every spin.
+        // Preserve real jaw rebounds in the geometry ledger; no outcome caption requested.
+        let writer = try VideoWriter(url: dir.appendingPathComponent("one-cushion-\(is3D ? "3d" : "2d")-2k60-silent.mp4"), size: size, fps: fps)
+        var records: [[String: Any]] = []
+        var lastStep = -1
+        var tracks: [[String: Any]] = []
+        for frame in 0..<1170 {
+            try autoreleasepool {
+                let step = min(1080, max(0, frame - 45))
+                let angle = Double(step) / 18
+                var row = try setAngle(angle, c, centerDistance: 0.60, requiresNegativeX: false)
+                if step != lastStep {
+                    tracks = try oneCushionTracks(c, nodes: &nodes, draw: true)
+                    lastStep = step
+                }
+                SCNTransaction.flush()
+                if frame == 0 { _ = base(c, time: 0); _ = base(c, time: 0) }
+                let image = try oneCushionImage(c, angle: angle, time: Double(frame) / 60, tracks: tracks)
+                try writer.append(XCTUnwrap(image.cgImage))
+                if [0, 225, 333, 477, 495, 585, 765, 945, 1125].contains(frame) {
+                    try XCTUnwrap(image.pngData()).write(to: dir.appendingPathComponent("frames/frame-\(frame).png"))
+                }
+                row["frame"] = frame
+                row["tracks"] = tracks
+                row["cueTipSpeedMps"] = 3
+                row["version"] = "one-cushion-video-r7-leader-labels"
+                records.append(row)
+            }
+            if frame % 60 == 0 { print("ONE_CUSHION_EXPORT \(frame)/1170") }
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
+        try await writer.finish()
+        try JSONSerialization.data(withJSONObject: records, options: [.sortedKeys])
+            .write(to: dir.appendingPathComponent("geometry.json"))
+    }
+
+    func testDistanceRangeDiagnostics() throws {
+        let dir=try output()
+        let c=try makeCapture(targetXZ:SIMD2<Float>(-0.78,0.46),pocketIndex:2)
+        var rows:[[String:Any]]=[]
+        for step in [182,183,184,204,205,206] {
+            let d:Float=1.8+(0.5-1.8)*Float(step)/720
+            _=try setAngle(15,c,centerDistance:d)
+            for (index,p) in try seriesPredictions(c,speed:3).enumerated() {
+                let frames=try XCTUnwrap(p.recorder).framesByBallName[ShotInput.targetBallName] ?? []
+                let moving=frames.filter{abs($0.velocity.x)+abs($0.velocity.z)>0.001}
+                let samples=frames.map { f -> [String:Any] in
+                    ["t":f.time,"p":[f.position.x,f.position.y,f.position.z],"v":[f.velocity.x,f.velocity.y,f.velocity.z]]
+                }
+                let cueSamples=(p.recorder?.framesByBallName["cueBall"] ?? []).map { f -> [String:Any] in
+                    ["t":f.time,"p":[f.position.x,f.position.y,f.position.z],"v":[f.velocity.x,f.velocity.y,f.velocity.z]]
+                }
+                rows.append(["step":step,"distance":d,"spinIndex":index,"pocket":seriesPocket(p) ?? "none",
+                    "termination":String(describing:p.termination),"duration":p.duration,
+                    "events":p.events.map{String(describing:$0)},"targetFrames":samples,"cueFrames":cueSamples,
+                    "firstVelocity":moving.first.map{[$0.velocity.x,$0.velocity.y,$0.velocity.z]} ?? [],
+                    "aim":[c.aim.x,c.aim.y,c.aim.z]])
+            }
+        }
+        try JSONSerialization.data(withJSONObject:rows,options:[.prettyPrinted,.sortedKeys]).write(to:dir.appendingPathComponent("diagnostics.json"))
+    }
+
     func testExportSeriesEpisode() async throws {
         let dir=try output();let env=ProcessInfo.processInfo.environment
         print("SERIES_CROSSHAIR value=\(env["SEPARATION_SPIN_CROSSHAIR"] ?? env["TEST_RUNNER_SEPARATION_SPIN_CROSSHAIR"] ?? "unset")")
@@ -1799,7 +2372,30 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
         let start=try XCTUnwrap(search["videoStartMps"] as? NSNumber).floatValue
         let end=try XCTUnwrap(search["videoEndMps"] as? NSNumber).floatValue
         let distanceEpisode=kind=="distance"
+        let distanceStart = try XCTUnwrap(Float(env["SEPARATION_DISTANCE_START"] ?? env["TEST_RUNNER_SEPARATION_DISTANCE_START"] ?? "0.8"))
+        let distanceEnd = try XCTUnwrap(Float(env["SEPARATION_DISTANCE_END"] ?? env["TEST_RUNNER_SEPARATION_DISTANCE_END"] ?? "1.6"))
+        XCTAssertTrue(distanceStart.isFinite && distanceEnd.isFinite && distanceStart > 0 && distanceEnd > 0)
         let c=try makeCapture(targetXZ:distanceEpisode ? SIMD2<Float>(-0.78,0.46) : SIMD2<Float>(0,0.10),pocketIndex:distanceEpisode ? 2 : 5)
+        if distanceEpisode && (env["SEPARATION_DISTANCE_PREFLIGHT"] ?? env["TEST_RUNNER_SEPARATION_DISTANCE_PREFLIGHT"]) == "1" {
+            var preflight:[[String:Any]]=[];var previewNodes:[SCNNode]=[]
+            for step in 0...720 {
+                let d=distanceStart+(distanceEnd-distanceStart)*Float(step)/720
+                var record=try setAngle(15,c,centerDistance:d)
+                let predictions=try seriesPredictions(c,speed:3)
+                let pockets=predictions.map{seriesPocket($0) ?? "none"}
+                record["targetPockets"]=pockets
+                record["pathPointCounts"]=try seriesPaths(predictions,c,nodes:&previewNodes)
+                XCTAssertTrue(pockets.allSatisfy{$0=="pocket_2"},"Distance \(d): \(pockets)")
+                preflight.append(record)
+                if [0,360,720].contains(step) {
+                    _=base(c,time:0)
+                    try XCTUnwrap(seriesImage(c,speed:3,distance:d,distanceEpisode:true,time:0).pngData())
+                        .write(to:dir.appendingPathComponent("frames/preflight-\(step).png"))
+                }
+            }
+            try JSONSerialization.data(withJSONObject:preflight,options:[.prettyPrinted,.sortedKeys]).write(to:dir.appendingPathComponent("preflight.json"))
+            return
+        }
         let writer=try VideoWriter(url:dir.appendingPathComponent("\(kind)-2k-silent.mp4"),size:size,fps:fps)
         var rows:[[String:Any]]=[];var nodes:[SCNNode]=[];var previous:Float = -1
         var counts:[Int]=[];var pockets:[String]=[]
@@ -1807,7 +2403,7 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
             try autoreleasepool {
                 let progress=Float(min(720,max(0,frame-30)))/720
                 let speed:Float=distanceEpisode ? 3 : start+(end-start)*progress
-                let distance:Float=distanceEpisode ? 0.8+0.8*progress : 0.6
+                let distance:Float=distanceEpisode ? distanceStart+(distanceEnd-distanceStart)*progress : 0.6
                 var record=try setAngle(15,c,centerDistance:distance)
                 let value=distanceEpisode ? distance : speed
                 if previous != value {
@@ -1866,6 +2462,369 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
         XCTAssertTrue(failures.isEmpty,"Incomplete angles: \(failures)")
     }
 
+    /// Still-only camera selection. Cue-relative close cameras; distant trajectory ends may leave the frame.
+    func testAimFollowingCameraOptions() async throws {
+        let dir = try output()
+        XCTAssertTrue(is3D)
+        let c = try makeCapture()
+        let camera = try XCTUnwrap(c.scene.cameraNode)
+        let rawSize = CGSize(width: 1440, height: 2240)
+        let finalSize = CGSize(width: 1440, height: 2560)
+        let cropX: Float = 0
+        let header: CGFloat = 320
+        c.labelView.frame = CGRect(x: 0, y: 0, width: 360, height: 560)
+        c.labelView.layoutIfNeeded()
+        struct Slice {
+            let angle: Double
+            let cue: SCNVector3
+            let direction: SIMD2<Float>
+            let points: [SCNVector3]
+            let counts: [Int]
+        }
+        var slices: [Slice] = []
+        var nodes: [SCNNode] = []
+        for degree in 0...60 {
+            _ = try setAngle(Double(degree), c)
+            let cue = try XCTUnwrap(c.scene.cueBallNode).position
+            var points = [cue, c.target, c.ghost, c.aim]
+            let counts = try drawTracks(c, nodes: &nodes, precise: true, colors: oneCushionColors) { points.append(contentsOf: $0) }
+            slices.append(Slice(angle: Double(degree), cue: cue,
+                direction: simd_normalize(SIMD2(c.ghost.x-cue.x, c.ghost.z-cue.z)), points: points, counts: counts))
+            if degree % 15 == 0 { print("CAMERA_OPTIONS_PHYSICS \(degree)/60") }
+            await Task.yield()
+        }
+        let candidates: [(String, String, Float, Float, Float)] = [
+            ("D", "随瞄准横移", 1.10, 0.70, 62)
+        ]
+        func sideOffset(_ slice: Slice) -> Float {
+            let t = Float(slice.angle / 60)
+            return 0.30 * t * t * (3 - 2 * t)
+        }
+        func pose(_ slice: Slice, height: Float, back: Float) -> (SIMD3<Float>, SIMD3<Float>, SIMD3<Float>, SIMD3<Float>) {
+            let side = SIMD3(-slice.direction.y, Float(0), slice.direction.x) * sideOffset(slice)
+            let eye = side + SIMD3(slice.cue.x-slice.direction.x*back, slice.cue.y+height, slice.cue.z-slice.direction.y*back)
+            let focus = side + SIMD3(slice.cue.x + slice.direction.x * 0.30, slice.cue.y, slice.cue.z + slice.direction.y * 0.30)
+            let forward = simd_normalize(focus-eye)
+            let right = simd_normalize(simd_cross(forward, SIMD3<Float>(0,1,0)))
+            let up = simd_cross(right, forward)
+            return (eye, forward, right, up)
+        }
+        func pixel(_ point: SCNVector3, pose: (SIMD3<Float>, SIMD3<Float>, SIMD3<Float>, SIMD3<Float>), fov: Float) -> SIMD3<Float> {
+            let delta = SIMD3(point.x,point.y,point.z)-pose.0
+            let depth = simd_dot(delta,pose.1)
+            let focal = Float(rawSize.height)/(2*tan(fov * .pi/360))
+            return SIMD3(Float(rawSize.width)/2 + simd_dot(delta,pose.2)/depth*focal-cropX,
+                         Float(rawSize.height)/2 - simd_dot(delta,pose.3)/depth*focal, depth)
+        }
+        var variants: [[String: Any]] = []
+        for (id, title, height, back, fov) in candidates {
+            print("CAMERA_OPTION \(id) height=\(height) back=\(back) fov=\(fov)")
+            var sampleRows: [[String: Any]] = []
+            for slice in slices {
+                let p = pose(slice,height:height,back:back)
+                XCTAssertEqual(p.0.y-slice.cue.y,height,accuracy:0.00001)
+                let horizontal = simd_normalize(SIMD2(p.1.x,p.1.z))
+                XCTAssertEqual(simd_dot(horizontal,slice.direction),1,accuracy:0.00001)
+                var lo = SIMD2<Float>(repeating: .greatestFiniteMagnitude)
+                var hi = SIMD2<Float>(repeating: -.greatestFiniteMagnitude)
+                for point in slice.points {
+                    let q = pixel(point,pose:p,fov:fov)
+                    lo=simd_min(lo,SIMD2(q.x,q.y));hi=simd_max(hi,SIMD2(q.x,q.y))
+                }
+                // The revised brief requires the cue/contact cluster, not first-cushion endpoints.
+                for point in slice.points.prefix(3) {
+                    let q = pixel(point,pose:p,fov:fov)
+                    XCTAssertGreaterThan(q.z,0)
+                    XCTAssertGreaterThan(q.x,48); XCTAssertLessThan(q.x,1392)
+                    XCTAssertGreaterThan(q.y,48); XCTAssertLessThan(q.y,2192)
+                }
+                var row: [String:Any] = ["angle":slice.angle,"cue":[slice.cue.x,slice.cue.y,slice.cue.z],
+                    "camera":[p.0.x,p.0.y,p.0.z],"sideOffsetM":sideOffset(slice),"cuePixelX":pixel(slice.cue,pose:p,fov:fov).x,"coverageBounds":[lo.x,lo.y,hi.x,hi.y],"pathPointCounts":slice.counts]
+                if (0.0...60.0).contains(slice.angle) {
+                    camera.simdTransform=c.transform
+                    _=try setAngle(slice.angle,c)
+                    _=try drawTracks(c,nodes:&nodes,precise:true,colors:oneCushionColors)
+                    camera.camera!.fieldOfView=CGFloat(fov)
+                    camera.position=SCNVector3(p.0.x,p.0.y,p.0.z)
+                    camera.look(at:SCNVector3(p.0.x+p.1.x,p.0.y+p.1.y,p.0.z+p.1.z),up:SCNVector3(0,1,0),localFront:SCNVector3(0,0,-1))
+                    SCNTransaction.flush()
+                    _=base(c,time:0,drawsAngleText:false,renderSize:rawSize)
+                    let raw=base(c,time:0,drawsAngleText:false,renderSize:rawSize)
+                    // Cross-check the fit calculation against the actual renderer viewport.
+                    for point in [slice.cue,c.target,c.ghost,c.aim] {
+                        let actual=c.renderer.projectPoint(point)
+                        let expected=pixel(point,pose:p,fov:fov)
+                        XCTAssertEqual(actual.x-cropX,expected.x,accuracy:0.2)
+                        XCTAssertEqual(Float(rawSize.height)-actual.y,expected.y,accuracy:0.2)
+                    }
+                    let focal=Float(rawSize.height)/(2*tan(fov * .pi/360))
+                    row["cueDiameterPixels"]=2*AngleSceneCalculator.ballRadius*focal/pixel(slice.cue,pose:p,fov:fov).z
+                    let format=UIGraphicsImageRendererFormat();format.scale=1;format.opaque=true
+                    let layout=UIGraphicsImageRenderer(size:finalSize,format:format).image { context in
+                        UIColor(white:0.045,alpha:1).setFill();context.fill(CGRect(origin:.zero,size:finalSize))
+                        context.cgContext.saveGState()
+                        context.cgContext.clip(to:CGRect(x:0,y:header,width:1440,height:2240))
+                        raw.draw(at:CGPoint(x:-CGFloat(cropX),y:header))
+                        context.cgContext.restoreGState()
+                    }
+                    let image=composeDirectAtlas(layout,angle:slice.angle,
+                        parameters:String(format:"切角 %.0f°  ·  杆速 3 m/s  ·  球距 60 cm",slice.angle),
+                        parameterBackground:false,trackColors:oneCushionColors,legendY:112,infoY:20,outputSize:finalSize)
+                    let file="frames/\(id)-\(Int(slice.angle)).png"
+                    try XCTUnwrap(image.pngData()).write(to:dir.appendingPathComponent(file))
+                    row["file"]=file
+                }
+                sampleRows.append(row)
+            }
+            camera.simdTransform=c.transform
+            variants.append(["id":id,"title":title,"heightAboveCueM":height,"backFromCueM":back,"verticalFOV":fov,"samples":sampleRows])
+        }
+        let manifest: [String:Any] = ["revision":"camera-slide-r11","stillsOnly":true,"size":[1440,2560],
+            "rawRenderSize":[1440,2240],"cropLeft":0,"mainViewport":[0,320,1440,2240],
+            "focus":"0.30m ahead of cue at ball-center height; distant track endpoints may be cropped","cameraSideM":"0 to 0.30, smoothstep(angle/60), camera and focus translate together","angleScanStep":1,"variants":variants]
+        try JSONSerialization.data(withJSONObject:manifest,options:[.prettyPrinted,.sortedKeys]).write(to:dir.appendingPathComponent("manifest.json"))
+    }
+
+    /// Opt-in V003 camera study: orbit with the physical aiming direction.
+    func testExportAimFollowingAtlasPreview() async throws {
+        let dir = try output()
+        XCTAssertTrue(is3D)
+        let env = ProcessInfo.processInfo.environment
+        let stillsOnly = (env["SEPARATION_FOLLOW_STILLS"] ?? env["TEST_RUNNER_SEPARATION_FOLLOW_STILLS"]) == "1"
+        let c = try makeCapture()
+        let camera = try XCTUnwrap(c.scene.cameraNode)
+        let optics = try XCTUnwrap(camera.camera)
+        var focus = SCNVector3(0, c.scene.surfaceY, 0)
+        let eyeHeight: Float = 1.10
+        let cameraBack: Float = 1.65
+        optics.fieldOfView = 44
+        let rawSize = CGSize(width: 1440, height: 1916)
+        let outputSize = CGSize(width: 1440, height: 2280)
+        c.labelView.frame = CGRect(x: 0, y: 0, width: 360, height: 479)
+        c.labelView.layoutIfNeeded()
+        let count = 540
+        let samples = [0, 150, 270, 390, 539]
+        let writer = stillsOnly ? nil : try VideoWriter(url: dir.appendingPathComponent("aim-follow-3d-2k60-silent.mp4"), size: outputSize, fps: fps)
+        var nodes: [SCNNode] = []
+        var records: [[String: Any]] = []
+        var previousAngle: Double = -1
+        var counts: [Int] = []
+        for frame in 0..<count {
+            if stillsOnly && !samples.contains(frame) { continue }
+            try autoreleasepool {
+                let time = Double(frame) / Double(fps)
+                let progress = min(1, max(0, (time - 0.5) / 8))
+                // Continuous absolute-time orbit, with zero end velocity/acceleration.
+                let eased = progress * progress * progress * (10 - 15 * progress + 6 * progress * progress)
+                let angle = 60 * eased
+                camera.simdTransform = c.transform
+                var record = try setAngle(angle, c)
+                let cue = try XCTUnwrap(c.scene.cueBallNode).position
+                let aim = simd_normalize(SIMD2<Float>(c.ghost.x - cue.x, c.ghost.z - cue.z))
+                // simulator-video/references/aiming-cameras.md: fixed offset from cue, zero side.
+                focus = SCNVector3(cue.x, c.scene.surfaceY, cue.z)
+                camera.position = SCNVector3(cue.x - aim.x * cameraBack, c.scene.surfaceY + eyeHeight,
+                                            cue.z - aim.y * cameraBack)
+                camera.look(at: focus, up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))
+                let forward = camera.simdOrientation.act(SIMD3<Float>(0, 0, -1))
+                let horizontalForward = simd_normalize(SIMD2<Float>(forward.x, forward.z))
+                XCTAssertEqual(simd_dot(horizontalForward, aim), 1, accuracy: 0.00001)
+                XCTAssertEqual(camera.position.y - focus.y, eyeHeight, accuracy: 0.00001)
+                if angle != previousAngle {
+                    counts = try drawTracks(c, nodes: &nodes, precise: true, colors: oneCushionColors)
+                    previousAngle = angle
+                }
+                SCNTransaction.flush()
+                if frame == 0 { _ = base(c, time: 0, renderSize: rawSize) }
+                let raw = base(c, time: time, drawsAngleText: false, renderSize: rawSize)
+                let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
+                let layout = UIGraphicsImageRenderer(size: outputSize, format: format).image { context in
+                    UIColor(white: 0.045, alpha: 1).setFill()
+                    context.fill(CGRect(origin: .zero, size: outputSize))
+                    context.cgContext.saveGState()
+                    context.cgContext.clip(to: CGRect(x: 0, y: 644, width: 1440, height: 1636))
+                    raw.draw(at: CGPoint(x: 0, y: 644 - 280))
+                    context.cgContext.restoreGState()
+                }
+                let image = composeDirectAtlas(layout, angle: angle,
+                    parameters: String(format: "切角 %.1f°  ·  杆速 3 m/s  ·  球距 60 cm", angle),
+                    parameterBackground: false, trackColors: oneCushionColors, legendY: 250, infoY: 140, outputSize: outputSize)
+                try writer?.append(XCTUnwrap(image.cgImage))
+                if samples.contains(frame) {
+                    try XCTUnwrap(image.pngData()).write(to: dir.appendingPathComponent("frames/follow-\(frame).png"))
+                }
+                record["frame"] = frame; record["time"] = time
+                record["camera"] = [camera.position.x, camera.position.y, camera.position.z]
+                record["aimDirectionXZ"] = [aim.x, aim.y]
+                record["focus"] = [focus.x, focus.y, focus.z]
+                record["cameraBackFromCueM"] = cameraBack
+                record["projectedOutput"] = ["cue": cue, "target": c.target, "ghost": c.ghost, "pocket": c.aim].mapValues { world in
+                    let pixel = c.renderer.projectPoint(world)
+                    return [Double(pixel.x), Double(rawSize.height) - Double(pixel.y) - 280 + 644]
+                }
+                record["pathPointCounts"] = counts
+                record["revision"] = "follow-aim-r6"
+                records.append(record)
+            }
+            if frame % 60 == 0 { print("FOLLOW_ATLAS \(frame)/\(count)") }
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
+        try await writer?.finish()
+        let manifest: [String: Any] = ["revision": "follow-aim-r6", "stillsOnly": stillsOnly,
+            "size": [outputSize.width, outputSize.height], "rawRenderSize": [1440, 1916], "cropTop": 280, "mainViewport": [0, 644, 1440, 1636], "fps": fps, "duration": 9,
+            "angleRange": [0, 60], "eyeHeightAboveClothM": eyeHeight, "cameraBackFromCueM": cameraBack, "focus": "cue projected onto cloth", "sideM": 0,
+            "fieldOfView": 44, "appearance": ["charcoal", "green", "inkDragon"],
+            "trajectoryEnd": "first cue cushion or simulation end", "frames": records]
+        try JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys])
+            .write(to: dir.appendingPathComponent("manifest.json"))
+    }
+
+    /// User reference layout: retain the original aspect/camera and only relocate the two HUD rows.
+    func testReferenceHUDStill() async throws {
+        let dir = try output(), c = try makeCapture()
+        _ = try setAngle(30,c)
+        var nodes: [SCNNode] = []
+        _ = try drawTracks(c,nodes:&nodes,precise:true,colors:oneCushionColors)
+        _ = base(c,time:0)
+        let image = try oneCushionImage(c,angle:30,time:0,tracks:[],legendY:450,infoY:345,potLabelAbove:true)
+        try XCTUnwrap(image.pngData()).write(to:dir.appendingPathComponent("reference-hud-30.png"))
+    }
+
+    private func cameraFacingAtlasImage(_ c: Capture, angle: Double, rawSize: CGSize) throws -> UIImage {
+        let cue = try XCTUnwrap(c.scene.cueBallNode).position
+        let y = c.scene.surfaceY + 0.002
+        var annotationNodes: [SCNNode] = []
+        defer { annotationNodes.forEach { $0.removeFromParentNode() } }
+        // This video ends the pot guide exactly at the ghost center; the shared
+        // training scene deliberately draws a longer reverse extension.
+        let originalPot = try XCTUnwrap(c.scene.pocketLineNode)
+        originalPot.isHidden = true
+        let pot = c.scene.addLine(from:c.aim,to:c.ghost,color:.black,
+                                  radius:TrajectoryStyle.lineMain,placement:.table,layer:.aiming)
+        let potMaterial = try XCTUnwrap(originalPot.geometry?.firstMaterial?.copy() as? SCNMaterial)
+        let potLength = AngleSceneCalculator.horizontalDistance(c.aim,c.ghost)
+        potMaterial.diffuse.contentsTransform = SCNMatrix4MakeScale(1,max(1,potLength/AngleTrainingScene.dashStripePeriod),1)
+        pot.geometry?.materials = [potMaterial]
+        annotationNodes.append(pot)
+        var labels: [(String,SCNVector3,UIColor,CGFloat)] = []
+        func label(_ text: String, x: Float, z: Float, color: UIColor, width: CGFloat) {
+            // Retain the accepted 1080-design font sizes; project the world anchor each frame.
+            labels.append((text,SCNVector3(x,y,z),color,text.hasSuffix("°") ? 32 : 28))
+        }
+        func leader(_ x: Float,_ z: Float,_ endX: Float,_ color: UIColor) {
+            annotationNodes.append(c.scene.addLine(from:SCNVector3(x,y,z),to:SCNVector3(endX,y,z),color:color,radius:0.001,placement:.table,layer:.aiming))
+        }
+        let ax=(cue.x+c.ghost.x)/2, az=(cue.z+c.ghost.z)/2
+        // Keep the accepted anchor until it approaches the cue ball; then slide sideways
+        // around a 20cm world-space exclusion circle without changing text size/style.
+        let aimX=ax+0.30
+        var aimZ=az
+        let dx=aimX-cue.x,dz=aimZ-cue.z
+        let clearance: Float=0.20
+        if dx*dx+dz*dz < clearance*clearance {
+            aimZ=cue.z+sqrt(max(0,clearance*clearance-dx*dx))
+        }
+        label("瞄准线",x:aimX,z:aimZ,color:.white,width:0.32)
+        let direction=simd_normalize(SIMD2<Float>(aimX-ax,aimZ-az))
+        annotationNodes.append(c.scene.addLine(from:SCNVector3(ax,y,az),to:SCNVector3(aimX-direction.x*0.08,y,aimZ-direction.y*0.08),color:.white,radius:0.001,placement:.table,layer:.aiming))
+        let px=c.target.x+(c.aim.x-c.target.x)*0.55,pz=c.target.z+(c.aim.z-c.target.z)*0.55
+        label("进球线",x:px+0.30,z:pz,color:.black,width:0.32)
+        leader(px,pz,px+0.22,.black)
+        label(String(format:"%.0f°",angle),x:c.ghost.x-0.20,z:c.ghost.z+0.24,color:.white,width:0.22)
+        c.scene.angleArcNode?.isHidden=true
+        let u=simd_normalize(SIMD2<Float>(c.ghost.x-cue.x,c.ghost.z-cue.z))
+        let n=simd_normalize(SIMD2<Float>(c.aim.x-c.target.x,c.aim.z-c.target.z))
+        let start=atan2(u.y,u.x),delta=atan2(u.x*n.y-u.y*n.x,simd_dot(u,n))
+        for k in 0..<30 {
+            let a=start+delta*Float(k)/30,b=start+delta*Float(k+1)/30
+            annotationNodes.append(c.scene.addLine(from:SCNVector3(c.ghost.x+0.14*cos(a),y,c.ghost.z+0.14*sin(a)),to:SCNVector3(c.ghost.x+0.14*cos(b),y,c.ghost.z+0.14*sin(b)),color:.white,radius:0.001,placement:.table,layer:.aiming))
+        }
+        SCNTransaction.flush()
+        _=c.renderer.snapshot(atTime:0,with:rawSize,antialiasingMode:.multisampling4X)
+        let raw=c.renderer.snapshot(atTime:0,with:rawSize,antialiasingMode:.multisampling4X)
+        let image=composeDirectAtlas(raw,angle:angle,trackColors:oneCushionColors,legendY:450,infoY:345,outputSize:rawSize)
+        let format=UIGraphicsImageRendererFormat();format.scale=1;format.opaque=true
+        let result=UIGraphicsImageRenderer(size:rawSize,format:format).image { _ in
+            image.draw(at:.zero)
+            for (text,anchor,color,fontSize) in labels {
+                let q=c.renderer.projectPoint(anchor)
+                let attributes: [NSAttributedString.Key:Any] = [.font:UIFont.systemFont(ofSize:fontSize*rawSize.width/1080,weight:.semibold),.foregroundColor:color]
+                let extent=(text as NSString).size(withAttributes:attributes)
+                let rect=CGRect(x:CGFloat(q.x)-extent.width/2,y:rawSize.height-CGFloat(q.y)-extent.height/2,width:extent.width,height:extent.height)
+                XCTAssertTrue(CGRect(origin:.zero,size:rawSize).contains(rect))
+                (text as NSString).draw(in:rect,withAttributes:attributes)
+            }
+        }
+        return result
+    }
+
+    func testCameraFacingLabelStill() async throws {
+        let dir=try output(),c=try makeCapture()
+        _=try setAngle(30,c)
+        var nodes:[SCNNode]=[]
+        _=try drawTracks(c,nodes:&nodes,precise:true,colors:oneCushionColors)
+        let image=try cameraFacingAtlasImage(c,angle:30,rawSize:CGSize(width:2160,height:3840))
+        try XCTUnwrap(image.pngData()).write(to:dir.appendingPathComponent("camera-facing-labels-30.png"))
+    }
+
+    func testExportAcceptedAtlas2K() async throws {
+        let dir=try output(),c=try makeCapture()
+        let renderSize=CGSize(width:1440,height:2560)
+        let writer=try VideoWriter(url:dir.appendingPathComponent("separation-atlas-2k60-silent.mp4"),size:renderSize,fps:60,averageBitRate:28_000_000)
+        var tracks:[SCNNode]=[],rows:[[String:Any]]=[]
+        var previous:Double = -1,counts:[Int]=[]
+        for frame in 0..<780 {
+            try autoreleasepool {
+                let angle=min(89,max(0,(Double(frame-30)*712/720).rounded()/8))
+                var row=try setAngle(angle,c)
+                if angle != previous {counts=try drawTracks(c,nodes:&tracks,precise:true,colors:oneCushionColors);previous=angle}
+                let image=try cameraFacingAtlasImage(c,angle:angle,rawSize:renderSize)
+                try writer.append(XCTUnwrap(image.cgImage))
+                if [0,150,270,510,670,750].contains(frame) {try XCTUnwrap(image.pngData()).write(to:dir.appendingPathComponent("frames/final-\(frame).png"))}
+                row["frame"]=frame;row["pathPointCounts"]=counts;rows.append(row)
+            }
+            if frame % 60 == 0 { print("ACCEPTED_2K \(frame)/780") }
+            await Task.yield()
+        }
+        try await writer.finish()
+        try JSONSerialization.data(withJSONObject:rows,options:[.prettyPrinted,.sortedKeys]).write(to:dir.appendingPathComponent("geometry.json"))
+    }
+
+    /// Original V003 camera/timeline with current production appearance and annotation palette.
+    func testRemasterOriginalAtlas() async throws {
+        let dir = try output()
+        let c = try makeCapture()
+        var nodes: [SCNNode] = []
+        let env = ProcessInfo.processInfo.environment
+        let stills = (env["SEPARATION_KEYFRAMES"] ?? env["TEST_RUNNER_SEPARATION_KEYFRAMES"]) == "1"
+        let selectedFrames = [0,150,270,510,670,750]
+        let writer: VideoWriter? = stills ? nil : try VideoWriter(url:dir.appendingPathComponent("atlas-original-4k60-silent.mp4"),size:size,fps:60,averageBitRate:55_000_000)
+        var records: [[String: Any]] = []
+        var previous: Double = -1
+        var counts: [Int] = []
+        for frame in 0..<780 {
+            if stills && !selectedFrames.contains(frame) { continue }
+            try autoreleasepool {
+                let angle = min(89,max(0,(Double(frame-30)*712/720).rounded()/8))
+                var record = try setAngle(angle,c)
+                if previous != angle { counts = try drawTracks(c,nodes:&nodes,precise:true,colors:oneCushionColors); previous=angle }
+                if frame == 0 { _ = base(c,time:0) }
+                let image = try oneCushionImage(c,angle:angle,time:Double(frame)/60,tracks:[],legendY:240,infoY:140,potLabelAbove:true)
+                if let writer { try writer.append(XCTUnwrap(image.cgImage)) }
+                if selectedFrames.contains(frame) { try XCTUnwrap(image.pngData()).write(to:dir.appendingPathComponent("frames/final-\(frame).png")) }
+                record["frame"]=frame;record["pathPointCounts"]=counts
+                let camera = try XCTUnwrap(c.scene.cameraNode)
+                record["camera"]=[camera.position.x,camera.position.y,camera.position.z]
+                record["fov"]=camera.camera!.fieldOfView
+                records.append(record)
+            }
+            if frame % 60 == 0 { print("ORIGINAL_REMASTER \(frame)/780") }
+            await Task.yield()
+        }
+        if let writer { try await writer.finish() }
+        try JSONSerialization.data(withJSONObject:records,options:[.prettyPrinted,.sortedKeys]).write(to:dir.appendingPathComponent("geometry.json"))
+    }
+
     func testExportDirectAtlas() async throws {
         let dir=try output();let c=try makeCapture();var nodes:[SCNNode]=[]
         let writer=try VideoWriter(url:dir.appendingPathComponent("atlas-0-89-2k-silent.mp4"),size:size,fps:fps)
@@ -1915,4 +2874,2117 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
         try JSONSerialization.data(withJSONObject:records,options:[.prettyPrinted,.sortedKeys]).write(to:dir.appendingPathComponent("simulation-source-geometry.json"))
     }
 
+}
+
+/// Opt-in native 2D still for the middle-pocket parallel-contact aiming lesson.
+@MainActor
+final class ParallelContactAimingCaptureTests: XCTestCase {
+    func testMiddlePocket2DPreview() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let path = env["PARALLEL_CAPTURE_DIR"] ?? env["TEST_RUNNER_PARALLEL_CAPTURE_DIR"] else {
+            throw XCTSkip("Set TEST_RUNNER_PARALLEL_CAPTURE_DIR to export the preview")
+        }
+        let output = URL(fileURLWithPath: path, isDirectory: true)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        let vm = AngleDynamicViewModel()
+        vm.setupScene()
+        let scene = vm.scene
+        scene.applyTableStyle(.standard, showsSights: true)
+        scene.applyClothColor(.green)
+        let radius = AngleSceneCalculator.ballRadius
+        let y = scene.surfaceY + radius
+        let target = SCNVector3(0, y, 0.23)
+        try XCTUnwrap(vm.targetNode).position = target
+        vm.selectPocket(at: 5)
+        let aim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: target, pocketIndex: 5, surfaceY: scene.surfaceY)
+        let n = simd_normalize(SIMD2<Float>(aim.x-target.x, aim.z-target.z))
+        let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target, pocket: aim, ballRadius: radius)
+        let angle = Float(35 * Double.pi / 180)
+        let side = SIMD2<Float>(-n.y, n.x)
+        let direction = n*cos(angle) + side*sin(angle)
+        let cue = SCNVector3(ghost.x-0.34*direction.x, y, ghost.z-0.34*direction.y)
+        try XCTUnwrap(scene.cueBallNode).position = cue
+        vm.updateCalculations()
+        scene.setCameraMode(.topDown2D, animated: false)
+        scene.updateVisualization(cueBall: cue, targetBall: target, pocket: aim,
+                                  showAngleAnnotations: false, showOverlapMarkers: true,
+                                  showLineLabels: false, extendStrikeLineToRail: false)
+        scene.updateCueStick(cueBallPosition: cue, aimDirection: SCNVector3(ghost.x-cue.x, 0, ghost.z-cue.z))
+        let a = AngleSceneCalculator.contactPointPosition(targetBall: target, pocket: aim)
+        let b = SCNVector3(cue.x+radius*n.x, y, cue.z+radius*n.y)
+        let ab = SIMD2<Float>(a.x-b.x, a.z-b.z)
+        let cg = SIMD2<Float>(ghost.x-cue.x, ghost.z-cue.z)
+        XCTAssertEqual(ab.x, cg.x, accuracy: 0.000001)
+        XCTAssertEqual(ab.y, cg.y, accuracy: 0.000001)
+        XCTAssertEqual(AngleSceneCalculator.horizontalDistance(ghost, target), 2*radius, accuracy: 0.000001)
+        XCTAssertEqual(vm.cutAngleDegrees, 35, accuracy: 0.01)
+        let cameraNode = try XCTUnwrap(scene.cameraNode)
+        let camera = try XCTUnwrap(cameraNode.camera)
+        camera.usesOrthographicProjection = true
+        camera.projectionDirection = .vertical
+        camera.orthographicScale = 0.57
+        camera.zNear = 0.01
+        camera.zFar = 100
+        camera.wantsExposureAdaptation = false
+        let center = SCNVector3(0, scene.surfaceY, 0.20)
+        cameraNode.position = SCNVector3(center.x, center.y+3, center.z)
+        cameraNode.look(at: center, up: SCNVector3(0,0,1), localFront: SCNVector3(0,0,-1))
+        let renderer = SCNRenderer(device: nil, options: nil)
+        renderer.scene = scene
+        renderer.pointOfView = cameraNode
+        renderer.delegate = scene.contactOcclusion
+        renderer.autoenablesDefaultLighting = false
+        SCNTransaction.flush()
+        let size = CGSize(width: 1440, height: 2560)
+        _ = renderer.snapshot(atTime: 0, with: size, antialiasingMode: .multisampling4X)
+        let shot = renderer.snapshot(atTime: 0, with: size, antialiasingMode: .multisampling4X)
+        func project(_ p: SCNVector3) -> CGPoint {
+            let q = renderer.projectPoint(p)
+            return CGPoint(x: CGFloat(q.x), y: size.height-CGFloat(q.y))
+        }
+        let cp = project(cue), ap = project(a), bp = project(b), gp = project(ghost), tp = project(target)
+        let screenAB = CGPoint(x: ap.x-bp.x, y: ap.y-bp.y)
+        let screenCG = CGPoint(x: gp.x-cp.x, y: gp.y-cp.y)
+        XCTAssertEqual(screenAB.x, screenCG.x, accuracy: 0.1)
+        XCTAssertEqual(screenAB.y, screenCG.y, accuracy: 0.1)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let result = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            UIColor.black.setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            shot.draw(in: CGRect(origin: .zero, size: size))
+            let g = ctx.cgContext
+            func line(_ p: CGPoint, _ q: CGPoint, _ color: UIColor, dashed: Bool = false) {
+                g.saveGState()
+                g.setStrokeColor(color.cgColor)
+                g.setLineWidth(4)
+                g.setLineDash(phase: 0, lengths: dashed ? [15,12] : [])
+                g.move(to: p); g.addLine(to: q); g.strokePath()
+                g.restoreGState()
+            }
+            func label(_ text: String, _ point: CGPoint, color: UIColor = .white, fontSize: CGFloat = 32) {
+                let shadow = NSShadow(); shadow.shadowColor = UIColor.black; shadow.shadowBlurRadius = 5
+                (text as NSString).draw(at: point, withAttributes: [.font: UIFont.systemFont(ofSize: fontSize, weight: .semibold), .foregroundColor: color, .shadow: shadow])
+            }
+            let yellow = UIColor.systemYellow, cyan = UIColor.cyan
+            line(project(SCNVector3(cue.x-0.09*n.x,y,cue.z-0.09*n.y)),
+                 project(SCNVector3(cue.x+0.44*n.x,y,cue.z+0.44*n.y)), yellow, dashed: true)
+            line(bp, ap, cyan)
+            // The constructed line coincides with the original production aiming line.
+            // Keep the production white line; avoid drawing a duplicate over it.
+            for p in [ap,bp] {
+                UIColor.systemRed.setFill()
+                let dot = UIBezierPath(ovalIn: CGRect(x:p.x-9,y:p.y-9,width:18,height:18)); dot.fill()
+                UIColor.white.setStroke(); dot.lineWidth=2; dot.stroke()
+            }
+            label("平行线切球瞄准法", CGPoint(x:65,y:70), fontSize:32)
+            label("中袋 · 切角 35°", CGPoint(x:65,y:120), fontSize:26)
+            label("进球线", CGPoint(x:tp.x+36,y:tp.y-190))
+            label("目标球接触点", CGPoint(x:ap.x+80,y:ap.y-20))
+            line(ap,CGPoint(x:ap.x+66,y:ap.y),.white)
+            label("瞄准点", CGPoint(x:gp.x+100,y:gp.y-10))
+            line(gp,CGPoint(x:gp.x+86,y:gp.y+10),.white)
+            label("假想球", CGPoint(x:gp.x+100,y:gp.y+70))
+            label("母球接触点", CGPoint(x:bp.x+80,y:bp.y-15))
+            line(bp,CGPoint(x:bp.x+65,y:bp.y),.white)
+            label("平行虚线", CGPoint(x:cp.x-185,y:cp.y-570),color:yellow)
+            let mid = CGPoint(x:(ap.x+bp.x)/2,y:(ap.y+bp.y)/2)
+            label("接触点连线", CGPoint(x:mid.x+75,y:mid.y-20),color:cyan)
+            line(mid,CGPoint(x:mid.x+60,y:mid.y),cyan)
+            let aimMid=CGPoint(x:cp.x*0.7+gp.x*0.3,y:cp.y*0.7+gp.y*0.3)
+            label("瞄准线", CGPoint(x:aimMid.x+90,y:aimMid.y-20))
+            line(aimMid,CGPoint(x:aimMid.x+75,y:aimMid.y),.white)
+            label("接触点连线 ∥ 瞄准线", CGPoint(x:460,y:2360),fontSize:32)
+        }
+        try XCTUnwrap(result.pngData()).write(to: output.appendingPathComponent("parallel-middle-2d.png"))
+        let points:[String:SCNVector3] = ["cue":cue,"target":target,"ghost":ghost,"aim":aim,"targetContact":a,"cueContact":b]
+        let records = points.mapValues { ["world":[$0.x,$0.y,$0.z],"pixel":[Float(project($0).x),Float(project($0).y)]] }
+        try JSONSerialization.data(withJSONObject: records, options:[.prettyPrinted,.sortedKeys]).write(to:output.appendingPathComponent("geometry.json"))
+        print("PARALLEL_CAPTURE \(output.path)/parallel-middle-2d.png")
+    }
+}
+
+/// V013 reuses V009 r9 labels/metrics, with left framing and a fixed overhead overview.
+extension AngleAimingVideoCaptureTests {
+    private func parallelSegment(_ a: SCNVector3, _ b: SCNVector3, color: UIColor, root: SCNNode) {
+        let d=SIMD3<Float>(b.x-a.x,b.y-a.y,b.z-a.z),length=simd_length(d)
+        guard length>0.000001 else{return}
+        let geo=SCNCylinder(radius:0.0008,height:CGFloat(length));geo.radialSegmentCount=8
+        let mat=SCNMaterial();mat.lightingModel = .constant;mat.diffuse.contents=color
+        geo.materials=[mat]
+        let node=SCNNode(geometry:geo);node.castsShadow=false
+        node.position=SCNVector3((a.x+b.x)/2,(a.y+b.y)/2,(a.z+b.z)/2)
+        node.simdOrientation=simd_quatf(from:SIMD3<Float>(0,1,0),to:d/length);root.addChildNode(node)
+    }
+    private func parallelExtraLabel(_ text:String,anchor:SCNVector3,offset:SIMD2<Float>,color:UIColor,
+                                    capture:Capture,root:SCNNode) throws {
+        let geo=SCNText(string:text,extrusionDepth:2.5);geo.font=UIFont.systemFont(ofSize:24,weight:.semibold)
+        geo.flatness=0.12;geo.chamferRadius=0.18
+        let mat=SCNMaterial();mat.lightingModel = .constant;mat.diffuse.contents=color
+        let edge=SCNMaterial();edge.diffuse.contents=UIColor(white:0.15,alpha:1)
+        geo.materials=[mat,edge,edge,mat,edge]
+        let node=SCNNode(geometry:geo);node.castsShadow=false
+        let (lo,hi)=geo.boundingBox
+        node.pivot=SCNMatrix4MakeTranslation((lo.x+hi.x)/2,(lo.y+hi.y)/2,0)
+        let p=capture.renderer.projectPoint(anchor)
+        node.position=capture.renderer.unprojectPoint(SCNVector3(p.x+offset.x,p.y+offset.y,p.z))
+        let camera=capture.vm.scene.cameraNode!
+        let local=camera.convertPosition(anchor,from:nil)
+        let worldPixel=2 * (-local.z)*tan(Float(camera.camera!.fieldOfView)*Float.pi/360)/Float(size.height)
+        let scale=worldPixel*23/max(1,hi.y-lo.y)
+        node.scale=SCNVector3(scale,scale,scale)
+        node.simdOrientation=camera.simdOrientation*simd_quatf(angle:-0.16,axis:SIMD3<Float>(0,1,0))
+        root.addChildNode(node)
+        let end=capture.renderer.unprojectPoint(SCNVector3(p.x+offset.x-(offset.x>0 ? 68 : -68),p.y+offset.y,p.z))
+        parallelSegment(anchor,end,color:color,root:root)
+        let center=capture.renderer.projectPoint(node.position)
+        XCTAssertGreaterThan(center.x,85);XCTAssertLessThan(center.x,Float(size.width)-85)
+        XCTAssertGreaterThan(center.y,45);XCTAssertLessThan(center.y,Float(size.height)-45)
+    }
+    private func parallelCutPlane(_ capture:Capture) throws -> SCNNode {
+        let root=SCNNode(),r=AngleSceneCalculator.ballRadius
+        let cue=try XCTUnwrap(capture.vm.scene.cueBallNode).position
+        let a=AngleSceneCalculator.contactPointPosition(targetBall:capture.target,pocket:capture.aim)
+        let n=simd_normalize(SIMD3<Float>(capture.aim.x-capture.target.x,0,capture.aim.z-capture.target.z))
+        let b=SIMD3<Float>(cue.x,cue.y,cue.z)+r*n
+        let av=SIMD3<Float>(a.x,a.y,a.z),d=simd_normalize(av-b),up=SIMD3<Float>(0,1,0)
+        let normal=simd_normalize(simd_cross(d,up))
+        let plane=SCNPlane(width:CGFloat(simd_length(av-b)+0.12),height:0.095)
+        let material=SCNMaterial();material.lightingModel = .constant
+        material.diffuse.contents=UIColor.cyan.withAlphaComponent(0.24);material.isDoubleSided=true
+        material.writesToDepthBuffer=false;plane.materials=[material]
+        let node=SCNNode(geometry:plane);node.castsShadow=false
+        node.simdPosition=(av+b)/2;node.simdPosition.y=capture.vm.scene.surfaceY+0.0475
+        node.simdOrientation=simd_quatf(simd_float3x3(columns:(d,up,normal)));root.addChildNode(node)
+        for center in [SIMD3<Float>(cue.x,cue.y,cue.z),SIMD3<Float>(capture.target.x,capture.target.y,capture.target.z)] {
+            let distance=simd_dot(center-av,normal)
+            XCTAssertLessThan(abs(distance),r+0.000001)
+            let foot=center-distance*normal,rho=sqrt(max(0,r*r-distance*distance))
+            for index in 0..<64 {
+                let t=Float(index)*2*Float.pi/64,q=Float(index+1)*2*Float.pi/64
+                let p0=foot+rho*(cos(t)*d+sin(t)*up),p1=foot+rho*(cos(q)*d+sin(q)*up)
+                parallelSegment(SCNVector3(p0.x,p0.y,p0.z),SCNVector3(p1.x,p1.y,p1.z),color:.cyan,root:root)
+                root.childNodes.last?.geometry?.materials.forEach{$0.readsFromDepthBuffer=false;$0.writesToDepthBuffer=false}
+                root.childNodes.last?.renderingOrder=210
+            }
+        }
+        return root
+    }
+    private func parallelDiagramInset(_ capture:Capture,renderer:SCNRenderer,camera:SCNNode,base:UIImage,time:Double) throws -> (UIImage,[String:Any]) {
+        let env=ProcessInfo.processInfo.environment
+        let minimal=(env["PARALLEL_MINIMAL_PREVIEW"] ?? env["TEST_RUNNER_PARALLEL_MINIMAL_PREVIEW"]) == "1"
+        let wide=size.width>1080
+        let s=capture.vm.scene,box=wide ? CGRect(x:760,y:40,width:640,height:640):CGRect(x:520,y:40,width:520,height:560)
+        let raster=CGSize(width:box.width*2,height:box.height*2)
+        let cueNode=try XCTUnwrap(s.cueBallNode),targetNode=try XCTUnwrap(capture.vm.targetNode)
+        let originalCue=cueNode.position,originalTarget=targetNode.position
+        let r=AngleSceneCalculator.ballRadius,y=originalCue.y
+        let target=SCNVector3(capture.aim.x,y,capture.aim.z+0.20)
+        let ghost=AngleSceneCalculator.ghostBallPosition(targetBall:target,pocket:capture.aim,ballRadius:r)
+        let angle=Float(capture.vm.cutAngleDegrees * Double.pi/180)
+        let length = -2*r*cos(angle)+sqrt(0.20*0.20-pow(2*r*sin(angle),2))
+        let cue=SCNVector3(ghost.x-length*sin(angle),y,ghost.z+length*cos(angle))
+        cueNode.position=cue;targetNode.position=target
+        defer{cueNode.position=originalCue;targetNode.position=originalTarget;SCNTransaction.flush()}
+        XCTAssertEqual(AngleSceneCalculator.horizontalDistance(cue,target),0.20,accuracy:0.000001)
+        camera.position=SCNVector3(-0.055,s.surfaceY+3,capture.aim.z+0.21)
+        camera.look(at:SCNVector3(-0.055,s.surfaceY,capture.aim.z+0.21),up:SCNVector3(0,0,-1),localFront:SCNVector3(0,0,-1))
+        camera.camera!.usesOrthographicProjection=true;camera.camera!.projectionDirection = .vertical
+        camera.camera!.orthographicScale=0.30;camera.camera!.zNear=0.01;camera.camera!.zFar=100
+        let nodes=[s.cueStick?.rootNode,s.ghostBallNode,s.perpLineNode,s.strikeLineNode,s.angleArcNode,s.contactDotNode,
+                   s.rootNode.childNode(withName:"videoSpatialLabels",recursively:false),
+                   s.rootNode.childNode(withName:"parallelExtras",recursively:false),
+                   s.rootNode.childNode(withName:"parallelShortPotLine",recursively:false)].compactMap{$0}
+        let hidden=nodes.map{$0.isHidden};nodes.forEach{$0.isHidden=true}
+        defer{for (node,value) in zip(nodes,hidden){node.isHidden=value};SCNTransaction.flush()}
+        SCNTransaction.flush()
+        let shot=renderer.snapshot(atTime:time,with:raster,antialiasingMode:.multisampling4X)
+        func project(_ p:SCNVector3)->CGPoint{let v=renderer.projectPoint(p);return CGPoint(x:CGFloat(v.x),y:raster.height-CGFloat(v.y))}
+        let n=simd_normalize(SIMD2<Float>(capture.aim.x-target.x,capture.aim.z-target.z))
+        let a=AngleSceneCalculator.contactPointPosition(targetBall:target,pocket:capture.aim)
+        let b=SCNVector3(cue.x+AngleSceneCalculator.ballRadius*n.x,cue.y,cue.z+AngleSceneCalculator.ballRadius*n.y)
+        let ap=project(a),bp=project(b),cp=project(cue),gp=project(ghost),tp=project(target),pp=project(capture.aim)
+        let format=UIGraphicsImageRendererFormat();format.scale=1;format.opaque=true
+        let detail=UIGraphicsImageRenderer(size:raster,format:format).image{ctx in
+            UIColor.black.setFill();ctx.fill(CGRect(origin:.zero,size:raster));shot.draw(at:.zero)
+            let g=ctx.cgContext
+            func line(_ p:CGPoint,_ q:CGPoint,_ color:UIColor,dashed:Bool=false){g.setStrokeColor(color.cgColor);g.setLineWidth(4);g.setLineDash(phase:0,lengths:dashed ? [12,9]:[]);g.move(to:p);g.addLine(to:q);g.strokePath()}
+            line(tp,pp,.black,dashed:true)
+            let guideTop=project(SCNVector3(cue.x,y,minimal ? -AngleSceneCalculator.innerWidth/2:cue.z-0.16)),guideBottom=project(SCNVector3(cue.x,y,cue.z+0.04))
+            line(guideTop,guideBottom,.red,dashed:true)
+            line(cp,gp,.white)
+            line(bp,ap,.cyan)
+            var leaders:[(CGPoint,CGPoint)]=[]
+            func leader(_ points:[CGPoint],_ color:UIColor){
+                for (p,q) in zip(points,points.dropFirst()){line(p,q,color);leaders.append((p,q))}
+            }
+            func text(_ string:String,_ pos:CGPoint,_ color:UIColor,_ fontSize:CGFloat=34){
+                let attrs:[NSAttributedString.Key:Any]=[.font:UIFont.systemFont(ofSize:fontSize,weight:.semibold),.foregroundColor:color]
+                let width=(string as NSString).size(withAttributes:attrs).width
+                (string as NSString).draw(at:pos,withAttributes:attrs)
+                XCTAssertGreaterThan(pos.x,10);XCTAssertLessThan(pos.x+width,raster.width-10)
+            }
+            for point in [ap,bp]{UIColor.red.setFill();UIBezierPath(ovalIn:CGRect(x:point.x-6,y:point.y-6,width:12,height:12)).fill()}
+            text("目标球接触点",CGPoint(x:ap.x+80,y:ap.y-50),.red)
+            leader([ap,CGPoint(x:ap.x+65,y:ap.y-30)],.red)
+            text("母球接触点",CGPoint(x:bp.x-280,y:bp.y+30),.red)
+            leader([bp,CGPoint(x:bp.x-95,y:bp.y+50)],.red)
+            let mid=CGPoint(x:(ap.x+bp.x)/2,y:(ap.y+bp.y)/2)
+            if minimal {
+                let pos=CGPoint(x:guideTop.x+15,y:ap.y-100)
+                text("接触点连线",pos,.cyan,30)
+                leader([mid,CGPoint(x:pos.x+75,y:pos.y+40)],.cyan)
+            } else {
+            let labelY=guideTop.y-75
+            text("接触点连线",CGPoint(x:guideTop.x-270,y:labelY),.cyan)
+            leader([mid,CGPoint(x:guideTop.x+25,y:labelY+20),CGPoint(x:guideTop.x-85,y:labelY+20)],.cyan)
+            }
+            func crosses(_ a:CGPoint,_ b:CGPoint,_ c:CGPoint,_ d:CGPoint)->Bool{
+                func cross(_ p:CGPoint,_ q:CGPoint,_ r:CGPoint)->CGFloat{(q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x)}
+                return cross(a,b,c)*cross(a,b,d) < -0.1 && cross(c,d,a)*cross(c,d,b) < -0.1
+            }
+            let teaching=[(tp,pp),(cp,gp),(bp,ap),(guideTop,guideBottom)]
+            for (p,q) in leaders{for (u,v) in teaching{XCTAssertFalse(crosses(p,q,u,v),"Inset leader crosses teaching line")}}
+            for i in leaders.indices{for j in leaders.indices where j>i{XCTAssertFalse(crosses(leaders[i].0,leaders[i].1,leaders[j].0,leaders[j].1))}}
+        }
+        for point in [cp,tp,pp]{XCTAssertGreaterThan(point.x,35);XCTAssertLessThan(point.x,raster.width-35);XCTAssertGreaterThan(point.y,35);XCTAssertLessThan(point.y,raster.height-35)}
+        let result=UIGraphicsImageRenderer(size:size,format:format).image{ctx in
+            base.draw(at:.zero);ctx.cgContext.saveGState();UIBezierPath(roundedRect:box,cornerRadius:18).addClip();detail.draw(in:box)
+            ctx.cgContext.restoreGState();UIColor.white.setStroke();let border=UIBezierPath(roundedRect:box,cornerRadius:18);border.lineWidth=2;border.stroke()
+        }
+        return(result,["view":"2d-compact-diagram","cueTargetDistanceM":0.20,"targetPocketDistanceM":0.20,"angleDegrees":capture.vm.cutAngleDegrees,"parallelGuide":true,"leadersCrossing":false,"screenRect":[box.minX,box.minY,box.width,box.height],"lineWidthPixels":2,"cue":[cp.x/2,cp.y/2],"target":[tp.x/2,tp.y/2],"pocket":[pp.x/2,pp.y/2]])
+    }
+    private func parallelCleanInset(_ capture:Capture,renderer:SCNRenderer,camera:SCNNode,base:UIImage,time:Double) throws -> (UIImage,[String:Any]) {
+        let env=ProcessInfo.processInfo.environment
+        if (env["PARALLEL_COMPACT_INSET"] ?? env["TEST_RUNNER_PARALLEL_COMPACT_INSET"]) == "1" {
+            return try parallelDiagramInset(capture,renderer:renderer,camera:camera,base:base,time:time)
+        }
+        let wide=size.width>1080
+        let s=capture.vm.scene,box=wide ? CGRect(x:760,y:40,width:640,height:640):CGRect(x:520,y:40,width:520,height:560)
+        let raster=CGSize(width:box.width*2,height:box.height*2)
+        camera.position=SCNVector3(-0.13,s.surfaceY+3,-0.25)
+        camera.look(at:SCNVector3(-0.13,s.surfaceY,-0.25),up:SCNVector3(0,0,-1),localFront:SCNVector3(0,0,-1))
+        camera.camera!.usesOrthographicProjection=true;camera.camera!.projectionDirection = .vertical
+        camera.camera!.orthographicScale=0.58;camera.camera!.zNear=0.01;camera.camera!.zFar=100
+        let nodes=[s.ghostBallNode,s.perpLineNode,s.strikeLineNode,s.angleArcNode,s.contactDotNode,
+                   s.rootNode.childNode(withName:"videoSpatialLabels",recursively:false),
+                   s.rootNode.childNode(withName:"parallelExtras",recursively:false),
+                   s.rootNode.childNode(withName:"parallelShortPotLine",recursively:false)].compactMap{$0}
+        let hidden=nodes.map{$0.isHidden};nodes.forEach{$0.isHidden=true}
+        defer{for (node,value) in zip(nodes,hidden){node.isHidden=value};SCNTransaction.flush()}
+        SCNTransaction.flush()
+        let shot=renderer.snapshot(atTime:time,with:raster,antialiasingMode:.multisampling4X)
+        func project(_ p:SCNVector3)->CGPoint{let v=renderer.projectPoint(p);return CGPoint(x:CGFloat(v.x),y:raster.height-CGFloat(v.y))}
+        let cue=try XCTUnwrap(s.cueBallNode).position
+        let n=simd_normalize(SIMD2<Float>(capture.aim.x-capture.target.x,capture.aim.z-capture.target.z))
+        let a=AngleSceneCalculator.contactPointPosition(targetBall:capture.target,pocket:capture.aim)
+        let b=SCNVector3(cue.x+AngleSceneCalculator.ballRadius*n.x,cue.y,cue.z+AngleSceneCalculator.ballRadius*n.y)
+        let ap=project(a),bp=project(b),cp=project(cue),gp=project(capture.ghost),tp=project(capture.target),pp=project(capture.aim)
+        let format=UIGraphicsImageRendererFormat();format.scale=1;format.opaque=true
+        let detail=UIGraphicsImageRenderer(size:raster,format:format).image{ctx in
+            UIColor.black.setFill();ctx.fill(CGRect(origin:.zero,size:raster));shot.draw(at:.zero)
+            let g=ctx.cgContext
+            func line(_ p:CGPoint,_ q:CGPoint,_ color:UIColor,dashed:Bool=false){g.setStrokeColor(color.cgColor);g.setLineWidth(4);g.setLineDash(phase:0,lengths:dashed ? [12,9]:[]);g.move(to:p);g.addLine(to:q);g.strokePath()}
+            line(tp,pp,.black,dashed:true)
+            let delta=CGPoint(x:gp.x-cp.x,y:gp.y-cp.y)
+            line(cp,CGPoint(x:gp.x+delta.x*0.55,y:gp.y+delta.y*0.55),.white)
+            line(bp,ap,.cyan)
+            func label(_ text:String,_ anchor:CGPoint,_ offset:CGPoint,_ color:UIColor){
+                let pos=CGPoint(x:anchor.x+offset.x,y:anchor.y+offset.y)
+                let attrs:[NSAttributedString.Key:Any]=[.font:UIFont.systemFont(ofSize:34,weight:.semibold),.foregroundColor:color]
+                let width=(text as NSString).size(withAttributes:attrs).width
+                line(anchor,CGPoint(x:offset.x<0 ? pos.x+width+8:pos.x-8,y:pos.y+20),color)
+                (text as NSString).draw(at:pos,withAttributes:attrs)
+                XCTAssertGreaterThan(pos.x,10);XCTAssertLessThan(pos.x+width,raster.width-10)
+            }
+            for point in [ap,bp]{UIColor.red.setFill();UIBezierPath(ovalIn:CGRect(x:point.x-6,y:point.y-6,width:12,height:12)).fill()}
+            label("目标球接触点",ap,CGPoint(x:55,y:-25),.red)
+            label("母球接触点",bp,CGPoint(x:-240,y:60),.red)
+            label("接触点连线",CGPoint(x:(ap.x+bp.x)/2,y:(ap.y+bp.y)/2),CGPoint(x:80,y:60),.cyan)
+        }
+        for point in [cp,tp,pp]{XCTAssertGreaterThan(point.x,35);XCTAssertLessThan(point.x,raster.width-35);XCTAssertGreaterThan(point.y,35);XCTAssertLessThan(point.y,raster.height-35)}
+        let result=UIGraphicsImageRenderer(size:size,format:format).image{ctx in
+            base.draw(at:.zero);ctx.cgContext.saveGState();UIBezierPath(roundedRect:box,cornerRadius:18).addClip();detail.draw(in:box)
+            ctx.cgContext.restoreGState();UIColor.white.setStroke();let border=UIBezierPath(roundedRect:box,cornerRadius:18);border.lineWidth=2;border.stroke()
+        }
+        return(result,["view":"2d-clean","screenRect":[box.minX,box.minY,box.width,box.height],"lineWidthPixels":2,"cue":[cp.x/2,cp.y/2],"target":[tp.x/2,tp.y/2],"pocket":[pp.x/2,pp.y/2]])
+    }
+    private func parallelOverviewInset(_ capture:Capture,renderer:SCNRenderer,camera:SCNNode,
+                                       base:UIImage,time:Double,degrees:Double) throws -> (UIImage,[String:Any]) {
+        let scene=capture.vm.scene
+        let env=ProcessInfo.processInfo.environment
+        let cutting=(env["PARALLEL_CUT_PLANE"] ?? env["TEST_RUNNER_PARALLEL_CUT_PLANE"]) == "1"
+        let box=CGRect(x:640,y:70,width:400,height:480),raster=CGSize(width:800,height:960)
+        camera.position=SCNVector3(-0.27,scene.surfaceY+3,-0.15)
+        camera.look(at:SCNVector3(-0.27,scene.surfaceY,-0.15),up:SCNVector3(0,0,-1),localFront:SCNVector3(0,0,-1))
+        if cutting {
+            camera.position=SCNVector3(0.73,scene.surfaceY+3,1.45)
+            camera.look(at:SCNVector3(-0.27,scene.surfaceY,-0.15),up:SCNVector3(0,1,0),localFront:SCNVector3(0,0,-1))
+        }
+        camera.camera!.usesOrthographicProjection=true;camera.camera!.projectionDirection = .vertical
+        camera.camera!.orthographicScale=cutting ? 0.75:0.67;camera.camera!.zNear=0.01;camera.camera!.zFar=100
+        camera.camera!.wantsExposureAdaptation=false
+        let labels=try XCTUnwrap(scene.rootNode.childNode(withName:"videoSpatialLabels",recursively:false))
+        for world in [capture.target,capture.ghost,capture.aim,try XCTUnwrap(scene.cueBallNode).position] {
+            let p=capture.renderer.projectPoint(world)
+            XCTAssertFalse(box.intersects(CGRect(x:CGFloat(p.x)-35,y:size.height-CGFloat(p.y)-35,width:70,height:70)))
+        }
+        let arcHidden=scene.angleArcNode?.isHidden ?? true
+        labels.isHidden=true;scene.angleArcNode?.isHidden=true
+        let contactLine=scene.rootNode.childNode(withName:"parallelContactConnector",recursively:true)
+        let cutRoot=cutting ? try parallelCutPlane(capture):nil
+        if let cutRoot {scene.rootNode.addChildNode(cutRoot);contactLine?.isHidden=true}
+        defer{cutRoot?.removeFromParentNode();contactLine?.isHidden=false; labels.isHidden=false;scene.angleArcNode?.isHidden=arcHidden;SCNTransaction.flush()}
+        SCNTransaction.flush()
+        let detail=renderer.snapshot(atTime:time,with:raster,antialiasingMode:.multisampling4X)
+        var points:[String:[Float]]=[:]
+        let cuePosition = try XCTUnwrap(scene.cueBallNode).position
+        let overviewPoints: [(String, SCNVector3)] = [("cue",cuePosition),("target",capture.target),("pocket",capture.aim)]
+        for (id,world) in overviewPoints {
+            let p=renderer.projectPoint(world)
+            XCTAssertGreaterThan(p.x,30);XCTAssertLessThan(p.x,Float(raster.width)-30)
+            XCTAssertGreaterThan(p.y,30);XCTAssertLessThan(p.y,Float(raster.height)-30)
+            points[id]=[p.x/2,(Float(raster.height)-p.y)/2]
+        }
+        let format=UIGraphicsImageRendererFormat();format.scale=1;format.opaque=true
+        let result=UIGraphicsImageRenderer(size:size,format:format).image{context in
+            base.draw(at:.zero);context.cgContext.saveGState()
+            UIBezierPath(roundedRect:box,cornerRadius:18).addClip();detail.draw(in:box)
+            context.cgContext.restoreGState();UIColor.white.withAlphaComponent(0.85).setStroke()
+            let border=UIBezierPath(roundedRect:box,cornerRadius:18);border.lineWidth=2;border.stroke()
+        }
+        return(result,["screenRect":[box.minX,box.minY,box.width,box.height],"orthographicScale":cutting ? 0.75:0.67,
+                       "view":cutting ? "oblique-cut-plane":"2d-overhead","points":points,"rasterSize":[800,960]])
+    }
+    private func parallelFlatFrame(_ capture:Capture,time:Double) throws -> UIImage {
+        let renderer=capture.renderer,s=capture.vm.scene
+        let cue=try XCTUnwrap(s.cueBallNode).position
+        let n=simd_normalize(SIMD2<Float>(capture.aim.x-capture.target.x,capture.aim.z-capture.target.z))
+        let b=SCNVector3(cue.x+AngleSceneCalculator.ballRadius*n.x,cue.y,cue.z+AngleSceneCalculator.ballRadius*n.y)
+        let a=AngleSceneCalculator.contactPointPosition(targetBall:capture.target,pocket:capture.aim)
+        let shot=renderer.snapshot(atTime:time,with:size,antialiasingMode:.multisampling4X)
+        func project(_ world:SCNVector3)->CGPoint{let p=renderer.projectPoint(world);return CGPoint(x:CGFloat(p.x),y:size.height-CGFloat(p.y))}
+        for world in [cue,capture.target,capture.aim] {
+            let p=project(world);XCTAssertGreaterThan(p.x,45);XCTAssertLessThan(p.x,size.width-45)
+            XCTAssertGreaterThan(p.y,100);XCTAssertLessThan(p.y,size.height-100)
+        }
+        let format=UIGraphicsImageRendererFormat();format.scale=1;format.opaque=true
+        return UIGraphicsImageRenderer(size:size,format:format).image{context in
+            UIColor.black.setFill();context.fill(CGRect(origin:.zero,size:size));shot.draw(at:.zero)
+            let red=UIColor(red:0.95,green:0.08,blue:0.12,alpha:1),g=context.cgContext
+            let canvasWidth=size.width
+            func label(_ text:String,_ anchor:CGPoint,_ offset:CGPoint,_ color:UIColor) {
+                let pos=CGPoint(x:anchor.x+offset.x,y:anchor.y+offset.y)
+                let font=UIFont.systemFont(ofSize:24,weight:.semibold)
+                let attributes:[NSAttributedString.Key:Any]=[.font:font,.foregroundColor:color]
+                let width=(text as NSString).size(withAttributes:attributes).width
+                let end=CGPoint(x:offset.x<0 ? pos.x+width+8:pos.x-8,y:pos.y+14)
+                g.setStrokeColor(color.cgColor);g.setLineWidth(1.5);g.move(to:anchor);g.addLine(to:end);g.strokePath()
+                (text as NSString).draw(at:pos,withAttributes:attributes)
+                XCTAssertGreaterThan(pos.x,20);XCTAssertLessThan(pos.x+width,canvasWidth-20)
+            }
+            UIColor.black.withAlphaComponent(0.72).setFill()
+            UIBezierPath(roundedRect:CGRect(x:45,y:45,width:290,height:94),cornerRadius:14).fill()
+            let title=String(format:"切角 %.1f°",capture.vm.cutAngleDegrees)
+            (title as NSString).draw(at:CGPoint(x:65,y:59),withAttributes:[.font:UIFont.systemFont(ofSize:30,weight:.semibold),.foregroundColor:UIColor.white])
+            ("两球球心距 60 cm" as NSString).draw(at:CGPoint(x:65,y:103),withAttributes:[.font:UIFont.systemFont(ofSize:21),.foregroundColor:UIColor.white])
+            label("接触点",project(a),CGPoint(x:65,y:-30),red)
+            label("瞄准点",project(capture.ghost),CGPoint(x:65,y:35),UIColor.systemYellow)
+            label("母球接触点",project(b),CGPoint(x:-185,y:-50),red)
+            let midpoint=SCNVector3((a.x+b.x)/2,a.y,(a.z+b.z)/2)
+            label("接触点连线",project(midpoint),CGPoint(x:65,y:55),UIColor.cyan)
+            let guide=SCNVector3(cue.x+n.x*0.27,cue.y,cue.z+n.y*0.27)
+            label("平行虚线",project(guide),CGPoint(x:-160,y:-30),red)
+        }
+    }
+    func testParallelFollowVideo() async throws {
+        let out=try outputDirectory(),env=ProcessInfo.processInfo.environment
+        let stills=(env["PARALLEL_STILLS"] ?? env["TEST_RUNNER_PARALLEL_STILLS"]) == "1"
+        let flat=(env["TEST_RUNNER_PARALLEL_FULL_2D"] ?? env["PARALLEL_FULL_2D"]) == "1"
+        let close=(env["PARALLEL_CLOSE_PREVIEW"] ?? env["TEST_RUNNER_PARALLEL_CLOSE_PREVIEW"]) == "1"
+        let grid=(env["PARALLEL_CAMERA_GRID"] ?? env["TEST_RUNNER_PARALLEL_CAMERA_GRID"]) == "1"
+        let wide=(env["PARALLEL_WIDE_PREVIEW"] ?? env["TEST_RUNNER_PARALLEL_WIDE_PREVIEW"]) == "1"
+        let minimal=(env["PARALLEL_MINIMAL_PREVIEW"] ?? env["TEST_RUNNER_PARALLEL_MINIMAL_PREVIEW"]) == "1"
+        let ballDistance:Float=close ? 0.40:0.60
+        let elevated=(env["PARALLEL_ELEVATED_PREVIEW"] ?? env["TEST_RUNNER_PARALLEL_ELEVATED_PREVIEW"]) == "1"
+        let defaultCameraBack:Float=wide ? 0.35:elevated ? 0.65:(close ? 0.325:0.65)
+        let defaultEyeHeight:Float=wide ? 0.75:elevated ? 0.55:(close ? 0.225:0.45)
+        let originalSize=size
+        size=CGSize(width:wide ? 1440:1080,height:1440);spatialVideoLabels=true
+        defer{size=originalSize;spatialVideoLabels=false}
+        let legacy=try makeCapture(flat ? "2d":"3d"),vm=legacy.vm,s=vm.scene
+        XCTAssertTrue(s.applyTableStyle(.charcoal,showsSights:true));s.applyClothColor(.green)
+        XCTAssertTrue(try XCTUnwrap(s.cueStick).applyStyle(.inkDragon));XCTAssertEqual(s.cueStick?.style,.inkDragon)
+        let r=AngleSceneCalculator.ballRadius,y=s.surfaceY+r
+        let target=SCNVector3(0,y,-0.23)
+        try XCTUnwrap(vm.targetNode).position=target;vm.selectPocket(at:4)
+        let aim=AngleSceneCalculator.effectivePocketAimPoint(targetBall:target,pocketIndex:4,surfaceY:s.surfaceY)
+        let ghost=AngleSceneCalculator.ghostBallPosition(targetBall:target,pocket:aim,ballRadius:r)
+        let capture=Capture(vm:vm,renderer:legacy.renderer,labelView:legacy.labelView,labels:legacy.labels,
+                            target:target,aim:aim,ghost:ghost,cameraTransform:legacy.cameraTransform)
+        let yellow=UIColor(red:1,green:0.82,blue:0.06,alpha:1)
+        let annotationRed=UIColor(red:0.95,green:0.08,blue:0.12,alpha:1)
+        for dash in try XCTUnwrap(s.ghostBallNode).childNodes where dash.geometry is SCNCylinder && dash.name != "ghostAimDot" {
+            let geo=try XCTUnwrap(dash.geometry?.copy() as? SCNGeometry),mat=SCNMaterial()
+            mat.lightingModel = .constant;mat.diffuse.contents=yellow;geo.materials=[mat];dash.geometry=geo
+        }
+        let root=SCNNode(),extraLabels=SCNNode();root.name="parallelExtras";s.rootNode.addChildNode(root);s.rootNode.addChildNode(extraLabels)
+        let detailCamera=SCNNode();detailCamera.camera=SCNCamera();s.rootNode.addChildNode(detailCamera)
+        let detailRenderer=SCNRenderer(device:nil,options:nil);detailRenderer.scene=s;detailRenderer.pointOfView=detailCamera
+        detailRenderer.autoenablesDefaultLighting=false;detailRenderer.delegate=s.contactOcclusion
+        let shortPotLine=s.addDashedLine(from:target,to:aim,color:.black,radius:TrajectoryStyle.lineMain,
+                                            dash:0.018,gap:0.012,placement:.table,layer:.aiming)
+        shortPotLine.name="parallelShortPotLine"
+        let writer=stills ? nil : try VideoWriter(url:out.appendingPathComponent(flat ? "parallel-middle-2d-18s.mp4":"parallel-middle-3d-18s.mp4"),size:size,fps:60)
+        let n=simd_normalize(SIMD2<Float>(aim.x-target.x,aim.z-target.z)),side=SIMD2<Float>(-n.y,n.x)
+        var rows:[[String:Any]]=[]
+        for index in 0..<1080 {
+            if grid && !(510...518).contains(index) {continue}
+            if close && !grid && index != 510 {continue}
+            if stills && !grid && ![0,200,360,510,660,820,960,1079].contains(index){continue}
+            try autoreleasepool {
+                let gridIndex=grid ? index-510:0
+                let cameraBack:Float=grid ? [Float(0.35),0.45,0.55][gridIndex%3]:defaultCameraBack
+                let eyeHeight:Float=grid ? [Float(0.55),0.65,0.75][gridIndex/3]:defaultEyeHeight
+                let t=grid ? 8.5:Double(index)/60,degrees=89*(1-max(0,min(1,(t-1)/15)))
+                let a=Float(degrees*Double.pi/180),d=n*cos(a)+side*sin(a),diameter=2*r
+                let length = -diameter*cos(a)+sqrt(ballDistance*ballDistance-pow(diameter*sin(a),2))
+                let cue=SCNVector3(ghost.x-length*d.x,y,ghost.z-length*d.y)
+                try XCTUnwrap(s.cueBallNode).position=cue;vm.updateCalculations()
+                s.updateVisualization(cueBall:cue,targetBall:target,pocket:aim,showAngleAnnotations:true,
+                                      showOverlapMarkers:true,showLineLabels:false,extendStrikeLineToRail:true)
+                s.setFreeAimPreviewLine(nil);s.setIdealObjectLine(nil)
+                s.pocketLineNode?.isHidden=true
+                s.updateCueStick(cueBallPosition:cue,aimDirection:SCNVector3(d.x,0,d.y))
+                let camera=s.cameraNode!
+                camera.position=SCNVector3(cue.x-cameraBack*d.x,s.surfaceY+eyeHeight,cue.z-cameraBack*d.y)
+                camera.camera!.fieldOfView=80
+                let toPocket=simd_normalize(SIMD2<Float>(aim.x-camera.position.x,aim.z-camera.position.z))
+                let baseView=simd_normalize(d+toPocket)
+                let screenRight=SIMD2<Float>(-baseView.y,baseView.x)
+                let framingYaw=Float(15*Double.pi/180)
+                let view=baseView*cos(framingYaw)+screenRight*sin(framingYaw)
+                camera.look(at:SCNVector3(camera.position.x+(grid || wide ? cameraBack+0.52:(close && !elevated ? 0.585:1.17))*view.x,ghost.y,camera.position.z+(grid || wide ? cameraBack+0.52:(close && !elevated ? 0.585:1.17))*view.y),
+                            up:SCNVector3(0,1,0),localFront:SCNVector3(0,0,-1))
+                if flat {
+                    camera.position=SCNVector3(-0.27,s.surfaceY+3,-0.15)
+                    camera.look(at:SCNVector3(-0.27,s.surfaceY,-0.15),up:SCNVector3(0,0,-1),localFront:SCNVector3(0,0,-1))
+                    camera.camera!.usesOrthographicProjection=true;camera.camera!.orthographicScale=0.80
+                } else {
+                XCTAssertEqual(camera.position.y-s.surfaceY,eyeHeight,accuracy:0.000001)
+                XCTAssertEqual(AngleSceneCalculator.horizontalDistance(camera.position,cue),cameraBack,accuracy:0.000001)
+                }
+                let contact=AngleSceneCalculator.contactPointPosition(targetBall:target,pocket:aim)
+                let b=SCNVector3(cue.x+r*n.x,y,cue.z+r*n.y)
+                let v=SIMD2<Float>(contact.x-b.x,contact.z-b.z),w=SIMD2<Float>(ghost.x-cue.x,ghost.z-cue.z)
+                XCTAssertEqual(v.x,w.x,accuracy:0.000001);XCTAssertEqual(v.y,w.y,accuracy:0.000001)
+                XCTAssertEqual(AngleSceneCalculator.horizontalDistance(cue,target),ballDistance,accuracy:0.000001)
+                XCTAssertEqual(vm.cutAngleDegrees,degrees,accuracy:0.002)
+                XCTAssertLessThan(abs(cue.x)+r,AngleSceneCalculator.innerLength/2)
+                XCTAssertLessThan(abs(cue.z)+r,AngleSceneCalculator.innerWidth/2)
+                root.childNodes.forEach{$0.removeFromParentNode()};extraLabels.childNodes.forEach{$0.removeFromParentNode()}
+                parallelSegment(b,contact,color:.cyan,root:root)
+                root.childNodes.last?.name="parallelContactConnector"
+                let guideLength=minimal ? (cue.z+AngleSceneCalculator.innerWidth/2):0.347
+                let dashCount=minimal ? Int(ceil((guideLength+0.06)/0.016)):26
+                for i in 0..<dashCount {
+                    let lo:Float = -0.06+Float(i)*0.016,hi=min(lo+0.009,guideLength)
+                    parallelSegment(SCNVector3(cue.x+n.x*lo,y,cue.z+n.y*lo),SCNVector3(cue.x+n.x*hi,y,cue.z+n.y*hi),color:annotationRed,root:root)
+                }
+                let ball=SCNSphere(radius:0.003);ball.segmentCount=16
+                let mat=SCNMaterial();mat.lightingModel = .constant;mat.diffuse.contents=annotationRed
+                mat.readsFromDepthBuffer=false;mat.writesToDepthBuffer=false;ball.materials=[mat]
+                let point=SCNNode(geometry:ball);point.position=b;point.castsShadow=false;point.renderingOrder=100;root.addChildNode(point)
+                for node in [try XCTUnwrap(s.contactDotNode)] + (s.angleArcNode?.childNodes.filter{$0.geometry != nil && !($0.geometry is SCNText)} ?? []) {
+                    let geo=try XCTUnwrap(node.geometry?.copy() as? SCNGeometry)
+                    geo.materials=geo.materials.map{original in let m=original.copy() as! SCNMaterial;m.diffuse.contents = node === s.contactDotNode ? annotationRed : yellow;return m};node.geometry=geo
+                }
+                SCNTransaction.flush()
+                if index==0 || close {_=capture.renderer.snapshot(atTime:t,with:size,antialiasingMode:.multisampling4X)}
+                var spatial:[[String:Any]]=[]
+                var inset:(UIImage,[String:Any])
+                if flat {
+                    s.angleArcNode?.isHidden=true
+                    inset=(try parallelFlatFrame(capture,time:t),["view":"2d-fullscreen"])
+                } else {
+                if minimal {
+                    s.angleArcNode?.isHidden=true;s.ghostBallNode?.isHidden=true;s.perpLineNode?.isHidden=true
+                    try parallelExtraLabel("目标球接触点",anchor:contact,offset:SIMD2(-160,25),color:annotationRed,capture:capture,root:extraLabels)
+                } else {
+                spatial=try updateSpatialVideoLabels(capture,darkAnnotations:true,yellowAnnotations:true)
+                let nativeLabels=try XCTUnwrap(s.rootNode.childNode(withName:"videoSpatialLabels",recursively:false))
+                for id in ["contact","contactLeader"] {
+                    let node=try XCTUnwrap(nativeLabels.childNode(withName:id,recursively:false))
+                    let geo=try XCTUnwrap(node.geometry?.copy() as? SCNGeometry)
+                    geo.materials=geo.materials.map{source in let material=source.copy() as! SCNMaterial;material.diffuse.contents=annotationRed;return material}
+                    node.geometry=geo
+                }
+                }
+                try parallelExtraLabel("母球接触点",anchor:b,offset:minimal ? SIMD2(-200,75):SIMD2(-135,elevated ? 160:110),color:annotationRed,capture:capture,root:extraLabels)
+                let midpoint=SCNVector3((b.x+contact.x)/2,y,(b.z+contact.z)/2)
+                try parallelExtraLabel("接触点连线",anchor:midpoint,offset:minimal ? SIMD2(-160,50):SIMD2(150,20),color:.cyan,capture:capture,root:extraLabels)
+                let guide=SCNVector3(cue.x+n.x*0.07,y,cue.z+n.y*0.07)
+                let cuePixel=capture.renderer.projectPoint(cue),guidePixel=capture.renderer.projectPoint(guide)
+                let guideOffset=SIMD2<Float>(cuePixel.x-guidePixel.x+145,cuePixel.y-guidePixel.y+(elevated ? 60:100))
+                if !minimal {try parallelExtraLabel("平行虚线",anchor:guide,offset:guideOffset,color:annotationRed,capture:capture,root:extraLabels)}
+                var extraRects:[CGRect]=[]
+                for node in extraLabels.childNodes {
+                    guard let text=node.geometry as? SCNText else{continue}
+                    let (lo,hi)=text.boundingBox,p=capture.renderer.projectPoint(node.position)
+                    let width=CGFloat(23*(hi.x-lo.x)/max(hi.y-lo.y,1))
+                    let rect=CGRect(x:CGFloat(p.x)-width/2,y:CGFloat(p.y)-14,width:width,height:28)
+                    for other in extraRects{XCTAssertFalse(rect.insetBy(dx:-5,dy:-5).intersects(other),"New labels overlap at \(degrees)")}
+                    extraRects.append(rect)
+                }
+                SCNTransaction.flush()
+                let base:UIImage
+                if minimal {
+                    _=capture.renderer.snapshot(atTime:t,with:size,antialiasingMode:.multisampling4X)
+                    base=capture.renderer.snapshot(atTime:t,with:size,antialiasingMode:.multisampling4X)
+                } else {
+                    _=try image(capture,time:t)
+                    base=try image(capture,time:t)
+                }
+                extraLabels.isHidden=true;SCNTransaction.flush()
+                if close {
+                    inset=try parallelCleanInset(capture,renderer:detailRenderer,camera:detailCamera,base:base,time:t)
+                } else {
+                    inset=try parallelOverviewInset(capture,renderer:detailRenderer,camera:detailCamera,base:base,time:t,degrees:degrees)
+                }
+                extraLabels.isHidden=false;SCNTransaction.flush()
+                }
+                let cueX=capture.renderer.projectPoint(cue).x/Float(size.width)
+                let ghostX=capture.renderer.projectPoint(ghost).x/Float(size.width)
+                if !flat { XCTAssertLessThan(cueX,0.48);XCTAssertLessThan(ghostX,0.48) }
+                for p in [cue,target,aim] {
+                    let pixel=capture.renderer.projectPoint(p)
+                    XCTAssertGreaterThan(pixel.x,54);XCTAssertLessThan(pixel.x,1026)
+                    XCTAssertGreaterThan(pixel.y,72);XCTAssertLessThan(pixel.y,1368)
+                }
+                rows.append(["cameraBackM":cameraBack,"eyeHeightM":eyeHeight,"frame":index,"time":t,"degrees":vm.cutAngleDegrees,"distanceM":AngleSceneCalculator.horizontalDistance(cue,target),
+                             "cue":[cue.x,cue.y,cue.z],"target":[target.x,target.y,target.z],"ghost":[ghost.x,ghost.y,ghost.z],
+                             "targetContact":[contact.x,contact.y,contact.z],"cueContact":[b.x,b.y,b.z],"parallelResidualM":simd_length(v-w),
+                             "mainCueX":cueX,"mainGhostX":ghostX,"pocketIndex":4,
+                             "camera":[camera.position.x,camera.position.y,camera.position.z],"spatialLabels":spatial,"inset":inset.1])
+                if minimal {
+                    let cropped=try XCTUnwrap(inset.0.cgImage?.cropping(to:CGRect(x:240,y:0,width:1200,height:1440)))
+                    inset.0=UIImage(cgImage:cropped)
+                }
+                if stills {try XCTUnwrap(inset.0.pngData()).write(to:out.appendingPathComponent("frames/frame-\(index).png"))}
+                else {try writer?.append(XCTUnwrap(inset.0.cgImage))}
+            }
+            if index%60==0{print("PARALLEL_FOLLOW \(index)/1080")}
+            try await Task.sleep(nanoseconds:1_000_000)
+        }
+        try await writer?.finish()
+        try JSONSerialization.data(withJSONObject:rows,options:[.prettyPrinted,.sortedKeys]).write(to:out.appendingPathComponent(stills ? "stills.json":"frames.json"))
+    }
+}
+
+extension AngleAimingVideoCaptureTests {
+    func testParallelTwoPhasePortrait() async throws {
+        let out=try outputDirectory(),env=ProcessInfo.processInfo.environment
+        let stills=(env["PARALLEL_STILLS"] ?? env["TEST_RUNNER_PARALLEL_STILLS"]) == "1"
+        let vm=AngleDynamicViewModel();vm.setupScene();let s=vm.scene
+        XCTAssertTrue(s.applyTableStyle(.charcoal,showsSights:true));s.applyClothColor(.green)
+        s.setCameraMode(.topDown2D,animated:false)
+        let r=AngleSceneCalculator.ballRadius,y=s.surfaceY+r
+        let pocket=AngleSceneCalculator.effectivePocketAimPoint(targetBall:SCNVector3(0,y,-0.23),pocketIndex:4,surfaceY:s.surfaceY)
+        let camera=try XCTUnwrap(s.cameraNode)
+        camera.position=SCNVector3(-0.10,s.surfaceY+3,pocket.z+0.40)
+        camera.look(at:SCNVector3(-0.10,s.surfaceY,pocket.z+0.40),up:SCNVector3(0,0,-1),localFront:SCNVector3(0,0,-1))
+        camera.camera!.usesOrthographicProjection=true;camera.camera!.projectionDirection = .vertical
+        camera.camera!.orthographicScale=0.92;camera.camera!.zNear=0.01;camera.camera!.zFar=100
+        let renderer=SCNRenderer(device:nil,options:nil);renderer.scene=s;renderer.pointOfView=camera
+        renderer.autoenablesDefaultLighting=false;renderer.delegate=s.contactOcclusion
+        s.cueStick?.rootNode.isHidden=true
+        let canvas=CGSize(width:1080,height:1920)
+        let writer=stills ? nil:try VideoWriter(url:out.appendingPathComponent("parallel-2d-two-phase-18s.mp4"),size:canvas,fps:60)
+        struct State {
+            let cue:SCNVector3,target:SCNVector3,ghost:SCNVector3,a:SCNVector3,b:SCNVector3,guide:SCNVector3,tail:SCNVector3
+            let cut:Double,rotation:Double,orientation:Float
+        }
+        func state(_ index:Int)->State {
+            let time=Double(index)/60,cut=15+30*min(1,time/9),rotation=30*max(0,min(1,(time-9)/(9-1.0/60)))
+            let angle=Float(cut*Double.pi/180),orientation=Float(rotation*Double.pi/180)
+            func rotate(_ x:Float,_ z:Float)->SCNVector3{SCNVector3(pocket.x+x*cos(orientation)-z*sin(orientation),y,pocket.z+x*sin(orientation)+z*cos(orientation))}
+            let length = -2*r*cos(angle)+sqrt(0.40*0.40-pow(2*r*sin(angle),2))
+            let target=rotate(0,0.4),ghost=rotate(0,0.4+2*r),cue=rotate(-length*sin(angle),0.4+2*r+length*cos(angle))
+            let n=simd_normalize(SIMD2<Float>(pocket.x-target.x,pocket.z-target.z))
+            let a=SCNVector3(target.x-r*n.x,y,target.z-r*n.y),b=SCNVector3(cue.x+r*n.x,y,cue.z+r*n.y)
+            let toRail=(-AngleSceneCalculator.innerWidth/2-cue.z)/n.y
+            let guide=SCNVector3(cue.x+n.x*toRail,y,-AngleSceneCalculator.innerWidth/2)
+            let tail=SCNVector3(cue.x-n.x*0.04,y,cue.z-n.y*0.04)
+            return State(cue:cue,target:target,ghost:ghost,a:a,b:b,guide:guide,tail:tail,cut:cut,rotation:rotation,orientation:orientation)
+        }
+        _=renderer.snapshot(atTime:0,with:canvas,antialiasingMode:.multisampling4X)
+        var projectionTarget=state(0).target
+        func project(_ v:SCNVector3)->CGPoint{CGPoint(x:540+CGFloat(v.x-projectionTarget.x)*1920/1.84,y:960+CGFloat(v.z-projectionTarget.z)*1920/1.84)}
+        func rail(_ st:State)->SCNVector3 {
+            AngleSceneCalculator.rayToInnerRail(from:st.cue,dir:SCNVector3(st.ghost.x-st.cue.x,0,st.ghost.z-st.cue.z),inset:0)
+        }
+        func cross(_ p:CGPoint,_ q:CGPoint,_ r:CGPoint)->CGFloat{(q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x)}
+        func intersects(_ a:CGPoint,_ b:CGPoint,_ c:CGPoint,_ d:CGPoint)->Bool {
+            let rx=b.x-a.x,ry=b.y-a.y,sx=d.x-c.x,sy=d.y-c.y
+            let den=rx*sy-ry*sx
+            if abs(den)<0.001{return false}
+            let t=((c.x-a.x)*sy-(c.y-a.y)*sx)/den
+            let u=((c.x-a.x)*ry-(c.y-a.y)*rx)/den
+            let marginA=1/max(1,hypot(rx,ry)),marginB=1/max(1,hypot(sx,sy))
+            return t>marginA && t<1-marginA && u>marginB && u<1-marginB
+        }
+        let font=UIFont.systemFont(ofSize:28,weight:.semibold)
+        let names=["目标球接触点","母球接触点","接触点连线"]
+        let colors:[UIColor]=[.red,.red,.cyan]
+        let textSizes=names.map{($0 as NSString).size(withAttributes:[.font:font])}
+        let states=(0..<1080).map(state)
+        struct Layout {let rect:CGRect;let path:[CGPoint]}
+        func plan(_ st:State,_ id:Int,_ offset:CGPoint,_ bend:Int)->Layout? {
+            projectionTarget=st.target
+            let ap=project(st.a),bp=project(st.b),cp=project(st.cue),tp=project(st.target)
+            let anchor=id==0 ? ap:id==1 ? bp:CGPoint(x:(ap.x+bp.x)/2,y:(ap.y+bp.y)/2)
+            let angle=CGFloat(st.orientation)
+            let pos=CGPoint(x:anchor.x+offset.x*cos(angle)-offset.y*sin(angle),y:anchor.y+offset.x*sin(angle)+offset.y*cos(angle))
+            if id==2 && cross(bp,ap,pos)>=0{return nil}
+            let ts=textSizes[id],rect=CGRect(x:pos.x-ts.width/2,y:pos.y-ts.height/2,width:ts.width,height:ts.height)
+            guard CGRect(x:28,y:50,width:1024,height:1820).contains(rect) else{return nil}
+            let ballPixels=CGFloat(r)*1920/1.84
+            for p in [cp,tp,project(pocket)] {if rect.insetBy(dx:-12,dy:-12).intersects(CGRect(x:p.x-ballPixels,y:p.y-ballPixels,width:2*ballPixels,height:2*ballPixels)){return nil}}
+            let end=CGPoint(x:min(max(anchor.x,rect.minX-8),rect.maxX+8),y:min(max(anchor.y,rect.minY-8),rect.maxY+8))
+            var path=[anchor,end]
+            if bend==1 {path=[anchor,CGPoint(x:anchor.x,y:end.y),end]}
+            if bend==2 {path=[anchor,CGPoint(x:end.x,y:anchor.y),end]}
+            if bend==3 {
+                let g=project(st.guide),p=project(pocket)
+                path=[anchor,CGPoint(x:g.x+35,y:min(g.y,p.y)-45),CGPoint(x:end.x,y:min(g.y,p.y)-45),end]
+            }
+            if bend==4 {path=[anchor,ap,CGPoint(x:end.x,y:ap.y),end]}
+            if bend==5 {path=[]}
+            let lines=[(tp,project(pocket)),(cp,project(rail(st))),(bp,ap),(project(st.guide),project(st.tail))]
+            let corners=[CGPoint(x:rect.minX-5,y:rect.minY-5),CGPoint(x:rect.maxX+5,y:rect.minY-5),CGPoint(x:rect.maxX+5,y:rect.maxY+5),CGPoint(x:rect.minX-5,y:rect.maxY+5)]
+            for (u,v) in lines {
+                if rect.contains(u) || rect.contains(v){return nil}
+                for j in 0..<4 {if intersects(u,v,corners[j],corners[(j+1)%4]){return nil}}
+                for (p,q) in zip(path,path.dropFirst()){if intersects(p,q,u,v){return nil}}
+            }
+            // Avoid crossing the other ball, and leave a contact anchor outward.
+            for (p,q) in zip(path,path.dropFirst()) {
+                for step in 1..<20 {
+                    let t=CGFloat(step)/20,point=CGPoint(x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t)
+                    for ball in [cp,tp] {if hypot(point.x-ball.x,point.y-ball.y)<ballPixels-2{return nil}}
+                }
+            }
+            return Layout(rect:rect,path:path)
+        }
+        // One relative layout for the whole movie: no per-frame label jumps.
+        var selected:[(CGPoint,Int)]=[]
+        let samples=stride(from:0,to:1080,by:4).map{states[$0]}+[states[1079]]
+        for id in 0..<3 {
+            var candidates:[(CGPoint,Int,Double)]=[]
+            for x in stride(from:-360,through:360,by:40) {for z in stride(from:-300,through:300,by:40) {
+                if abs(x)+abs(z)<100 {continue}
+                for bend in (id==1 ? [0,1,2]:[0,1,2,5]) {
+                    let preference=(id==0 && x<0 || id==1 && x>0) ? 70.0:0.0
+                    candidates.append((CGPoint(x:x,y:z),bend,hypot(Double(x),Double(z))+Double(bend)*100+preference))
+                }
+            }}
+            candidates.sort{$0.2<$1.2}
+            var best:(CGPoint,Int)?
+            for c in candidates {
+                var valid=true
+                for st in samples {
+                    guard let layout=plan(st,id,c.0,c.1) else{valid=false;break}
+                    for previous in 0..<selected.count {
+                        guard let other=plan(st,previous,selected[previous].0,selected[previous].1) else{valid=false;break}
+                        if layout.rect.insetBy(dx:-10,dy:-10).intersects(other.rect){valid=false;break}
+                        for (p,q) in zip(layout.path,layout.path.dropFirst()){for (u,v) in zip(other.path,other.path.dropFirst()){if intersects(p,q,u,v){valid=false}}}
+                    }
+                    if !valid{break}
+                }
+                if valid{best=(c.0,c.1);break}
+            }
+            selected.append(try XCTUnwrap(best,"No continuous label layout for \(names[id])"))
+        }
+        var records:[[String:Any]]=[]
+        for index in 0..<1080 {
+            if stills && ![0,270,539,540,810,1079].contains(index){continue}
+            try autoreleasepool {
+                let st=states[index],time=Double(index)/60
+                projectionTarget=st.target
+                camera.position=SCNVector3(st.target.x,s.surfaceY+3,st.target.z)
+                camera.look(at:SCNVector3(st.target.x,s.surfaceY,st.target.z),up:SCNVector3(0,0,-1),localFront:SCNVector3(0,0,-1))
+                let aimEnd=rail(st)
+                let hit=AngleSceneCalculator.aimRayTargetEntry(from:st.cue,toward:aimEnd,target:st.target)
+                try XCTUnwrap(s.cueBallNode).position=st.cue;try XCTUnwrap(vm.targetNode).position=st.target
+                for node in [s.ghostBallNode,s.strikeLineNode,s.pocketLineNode,s.contactDotNode,s.perpLineNode,s.angleArcNode,s.cueStick?.rootNode].compactMap({$0}){node.isHidden=true}
+                let a=SIMD2<Float>(st.a.x-st.b.x,st.a.z-st.b.z),b=SIMD2<Float>(st.ghost.x-st.cue.x,st.ghost.z-st.cue.z)
+                XCTAssertLessThan(simd_length(a-b),0.000001)
+                XCTAssertEqual(AngleSceneCalculator.horizontalDistance(st.cue,st.target),0.4,accuracy:0.000001)
+                XCTAssertEqual(AngleSceneCalculator.horizontalDistance(st.target,pocket),0.4,accuracy:0.000001)
+                let n=simd_normalize(SIMD2<Float>(pocket.x-st.target.x,pocket.z-st.target.z))
+                let measured=Double(acos(max(-1,min(1,simd_dot(simd_normalize(b),n)))))*180/Double.pi
+                XCTAssertEqual(measured,st.cut,accuracy:0.002)
+                s.hideAllVisualization()
+                SCNTransaction.flush();let shot=renderer.snapshot(atTime:time,with:canvas,antialiasingMode:.multisampling4X)
+                let layouts=try (0..<3).map{try XCTUnwrap(plan(st,$0,selected[$0].0,selected[$0].1))}
+                let format=UIGraphicsImageRendererFormat();format.scale=1;format.opaque=true
+                let result=UIGraphicsImageRenderer(size:canvas,format:format).image{ctx in
+                    UIColor.black.setFill();ctx.fill(CGRect(origin:.zero,size:canvas));shot.draw(at:.zero)
+                    let g=ctx.cgContext
+                    func line(_ p:CGPoint,_ q:CGPoint,_ color:UIColor,dashed:Bool=false){g.setStrokeColor(color.cgColor);g.setLineWidth(3);g.setLineDash(phase:0,lengths:dashed ? [12,10]:[]);g.move(to:p);g.addLine(to:q);g.strokePath()}
+                    line(project(st.target),project(pocket),.black,dashed:true)
+                    line(project(st.guide),project(st.tail),.red,dashed:true)
+                    line(project(st.cue),project(hit ?? aimEnd),.white)
+                    if let hit {line(project(hit),project(aimEnd),.white,dashed:true)}
+                    line(project(st.b),project(st.a),.cyan)
+                    for p in [project(st.a),project(st.b)]{UIColor.red.setFill();UIBezierPath(ovalIn:CGRect(x:p.x-6,y:p.y-6,width:12,height:12)).fill()}
+                    for id in 0..<3 {
+                        let l=layouts[id]
+                        for (p,q) in zip(l.path,l.path.dropFirst()){line(p,q,colors[id])}
+                        (names[id] as NSString).draw(at:l.rect.origin,withAttributes:[.font:font,.foregroundColor:colors[id]])
+                    }
+                }
+                let actualTarget=renderer.projectPoint(st.target)
+                XCTAssertEqual(actualTarget.x,540,accuracy:0.05);XCTAssertEqual(actualTarget.y,960,accuracy:0.05)
+                for p in [st.cue,st.target,pocket] {let q=project(p);XCTAssertGreaterThan(q.x,55);XCTAssertLessThan(q.x,1025);XCTAssertGreaterThan(q.y,90);XCTAssertLessThan(q.y,1830)}
+                records.append(["frame":index,"time":time,"cutDegrees":measured,"clockwiseDegrees":st.rotation,
+                                "cue":[st.cue.x,st.cue.y,st.cue.z],"target":[st.target.x,st.target.y,st.target.z],"pocket":[pocket.x,pocket.y,pocket.z],
+                                "ghost":[st.ghost.x,st.ghost.y,st.ghost.z],"cueContact":[st.b.x,st.b.y,st.b.z],"targetContact":[st.a.x,st.a.y,st.a.z],
+                                "targetPixel":[actualTarget.x,actualTarget.y],"aimRail":[aimEnd.x,aimEnd.y,aimEnd.z],"aimBlocked":hit != nil,
+                                "parallelResidualM":simd_length(a-b),"labelRects":layouts.map{[$0.rect.minX,$0.rect.minY,$0.rect.width,$0.rect.height]}])
+                if stills{try XCTUnwrap(result.pngData()).write(to:out.appendingPathComponent("frames/frame-\(index).png"))}
+                else{try writer?.append(XCTUnwrap(result.cgImage))}
+            }
+            if index%120==0{print("TWO_PHASE \(index)/1080")}
+            try await Task.sleep(nanoseconds:1_000_000)
+        }
+        try await writer?.finish()
+        try JSONSerialization.data(withJSONObject:records,options:[.prettyPrinted,.sortedKeys]).write(to:out.appendingPathComponent(stills ? "stills.json":"frames.json"))
+        print("LABEL_LAYOUT \(selected)")
+    }
+}
+
+extension AngleAimingVideoCaptureTests {
+    func testParallelTwoPhaseFirstPerson() async throws {
+        let out=try outputDirectory(),env=ProcessInfo.processInfo.environment
+        let stills=(env["PARALLEL_STILLS"] ?? env["TEST_RUNNER_PARALLEL_STILLS"]) == "1"
+        let vm=AngleDynamicViewModel();vm.setupScene();let s=vm.scene
+        XCTAssertTrue(s.applyTableStyle(.charcoal,showsSights:true));s.applyClothColor(.green)
+        s.setCameraMode(.topDown2D,animated:false)
+        XCTAssertTrue(try XCTUnwrap(s.cueStick).applyStyle(.inkDragon))
+        let r=AngleSceneCalculator.ballRadius,y=s.surfaceY+r
+        let pocket=AngleSceneCalculator.effectivePocketAimPoint(targetBall:SCNVector3(0,y,-0.23),pocketIndex:4,surfaceY:s.surfaceY)
+        let camera=try XCTUnwrap(s.cameraNode)
+        camera.position=SCNVector3(-0.10,s.surfaceY+3,pocket.z+0.40)
+        camera.look(at:SCNVector3(-0.10,s.surfaceY,pocket.z+0.40),up:SCNVector3(0,0,-1),localFront:SCNVector3(0,0,-1))
+        camera.camera!.usesOrthographicProjection=false;camera.camera!.fieldOfView=80;camera.camera!.projectionDirection = .vertical
+        camera.camera!.orthographicScale=0.92;camera.camera!.zNear=0.01;camera.camera!.zFar=100
+        let renderer=SCNRenderer(device:nil,options:nil);renderer.scene=s;renderer.pointOfView=camera
+        renderer.autoenablesDefaultLighting=false;renderer.delegate=s.contactOcclusion
+        s.cueStick?.rootNode.isHidden=true
+        let canvas=CGSize(width:1080,height:1920)
+        let writer=stills ? nil:try VideoWriter(url:out.appendingPathComponent("parallel-3d-two-phase-18s.mp4"),size:canvas,fps:60)
+        struct State {
+            let cue:SCNVector3,target:SCNVector3,ghost:SCNVector3,a:SCNVector3,b:SCNVector3,guide:SCNVector3,tail:SCNVector3
+            let cut:Double,rotation:Double,orientation:Float
+        }
+        func state(_ index:Int)->State {
+            let time=Double(index)/60,cut=15+30*min(1,time/9),rotation=30*max(0,min(1,(time-9)/(9-1.0/60)))
+            let angle=Float(cut*Double.pi/180),orientation=Float(rotation*Double.pi/180)
+            func rotate(_ x:Float,_ z:Float)->SCNVector3{SCNVector3(pocket.x+x*cos(orientation)-z*sin(orientation),y,pocket.z+x*sin(orientation)+z*cos(orientation))}
+            let length = -2*r*cos(angle)+sqrt(0.40*0.40-pow(2*r*sin(angle),2))
+            let target=rotate(0,0.4),ghost=rotate(0,0.4+2*r),cue=rotate(-length*sin(angle),0.4+2*r+length*cos(angle))
+            let n=simd_normalize(SIMD2<Float>(pocket.x-target.x,pocket.z-target.z))
+            let a=SCNVector3(target.x-r*n.x,y,target.z-r*n.y),b=SCNVector3(cue.x+r*n.x,y,cue.z+r*n.y)
+            let toRail=(-AngleSceneCalculator.innerWidth/2-cue.z)/n.y
+            let guide=SCNVector3(cue.x+n.x*toRail,y,-AngleSceneCalculator.innerWidth/2)
+            let tail=SCNVector3(cue.x-n.x*0.04,y,cue.z-n.y*0.04)
+            return State(cue:cue,target:target,ghost:ghost,a:a,b:b,guide:guide,tail:tail,cut:cut,rotation:rotation,orientation:orientation)
+        }
+        _=renderer.snapshot(atTime:0,with:canvas,antialiasingMode:.multisampling4X)
+        var projectionTarget=state(0).target
+        func setCamera(_ st:State) {
+            let d=simd_normalize(SIMD2<Float>(st.ghost.x-st.cue.x,st.ghost.z-st.cue.z))
+            camera.position=SCNVector3(st.cue.x-0.35*d.x,s.surfaceY+0.75,st.cue.z-0.35*d.y)
+            camera.look(at:st.target,up:SCNVector3(0,1,0),localFront:SCNVector3(0,0,-1))
+            SCNTransaction.flush()
+        }
+        func project(_ v:SCNVector3)->CGPoint{let p=renderer.projectPoint(v);return CGPoint(x:CGFloat(p.x),y:canvas.height-CGFloat(p.y))}
+        func rail(_ st:State)->SCNVector3 {
+            AngleSceneCalculator.rayToInnerRail(from:st.cue,dir:SCNVector3(st.ghost.x-st.cue.x,0,st.ghost.z-st.cue.z),inset:0)
+        }
+        func cross(_ p:CGPoint,_ q:CGPoint,_ r:CGPoint)->CGFloat{(q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x)}
+        func intersects(_ a:CGPoint,_ b:CGPoint,_ c:CGPoint,_ d:CGPoint)->Bool {
+            let rx=b.x-a.x,ry=b.y-a.y,sx=d.x-c.x,sy=d.y-c.y
+            let den=rx*sy-ry*sx
+            if abs(den)<0.001{return false}
+            let t=((c.x-a.x)*sy-(c.y-a.y)*sx)/den
+            let u=((c.x-a.x)*ry-(c.y-a.y)*rx)/den
+            let marginA=1/max(1,hypot(rx,ry)),marginB=1/max(1,hypot(sx,sy))
+            return t>marginA && t<1-marginA && u>marginB && u<1-marginB
+        }
+        let font=UIFont.systemFont(ofSize:28,weight:.semibold)
+        let names=["目标球接触点","母球接触点","接触点连线"]
+        let colors:[UIColor]=[.red,.red,.cyan]
+        let textSizes=names.map{($0 as NSString).size(withAttributes:[.font:font])}
+        let states=(0..<1080).map(state)
+        struct Layout {let rect:CGRect;let path:[CGPoint]}
+        func plan(_ st:State,_ id:Int,_ offset:CGPoint,_ bend:Int)->Layout? {
+            projectionTarget=st.target;setCamera(st)
+            let ap=project(st.a),bp=project(st.b),cp=project(st.cue),tp=project(st.target)
+            let anchor=id==0 ? ap:id==1 ? bp:CGPoint(x:(ap.x+bp.x)/2,y:(ap.y+bp.y)/2)
+            let angle=CGFloat(st.orientation)
+            let pos=CGPoint(x:anchor.x+offset.x*cos(angle)-offset.y*sin(angle),y:anchor.y+offset.x*sin(angle)+offset.y*cos(angle))
+            if id==2 && cross(bp,ap,pos)>=0{return nil}
+            let ts=textSizes[id],rect=CGRect(x:pos.x-ts.width/2,y:pos.y-ts.height/2,width:ts.width,height:ts.height)
+            guard CGRect(x:28,y:50,width:1024,height:1820).contains(rect) else{return nil}
+            let ballPixels:CGFloat=40
+            for p in [cp,tp,project(pocket)] {if rect.insetBy(dx:-12,dy:-12).intersects(CGRect(x:p.x-ballPixels,y:p.y-ballPixels,width:2*ballPixels,height:2*ballPixels)){return nil}}
+            let end=CGPoint(x:min(max(anchor.x,rect.minX-8),rect.maxX+8),y:min(max(anchor.y,rect.minY-8),rect.maxY+8))
+            var path=[anchor,end]
+            if bend==1 {path=[anchor,CGPoint(x:anchor.x,y:end.y),end]}
+            if bend==2 {path=[anchor,CGPoint(x:end.x,y:anchor.y),end]}
+            if bend==3 {
+                let g=project(st.guide),p=project(pocket)
+                path=[anchor,CGPoint(x:g.x+35,y:min(g.y,p.y)-45),CGPoint(x:end.x,y:min(g.y,p.y)-45),end]
+            }
+            if bend==4 {path=[anchor,ap,CGPoint(x:end.x,y:ap.y),end]}
+            if bend==5 {path=[]}
+            let lines=[(tp,project(pocket)),(cp,project(rail(st))),(bp,ap),(project(st.guide),project(st.tail))]
+            let corners=[CGPoint(x:rect.minX-5,y:rect.minY-5),CGPoint(x:rect.maxX+5,y:rect.minY-5),CGPoint(x:rect.maxX+5,y:rect.maxY+5),CGPoint(x:rect.minX-5,y:rect.maxY+5)]
+            for (u,v) in lines {
+                if rect.contains(u) || rect.contains(v){return nil}
+                for j in 0..<4 {if intersects(u,v,corners[j],corners[(j+1)%4]){return nil}}
+                for (p,q) in zip(path,path.dropFirst()){if intersects(p,q,u,v){return nil}}
+            }
+            // Avoid crossing the other ball, and leave a contact anchor outward.
+            for (p,q) in zip(path,path.dropFirst()) {
+                for step in 1..<20 {
+                    let t=CGFloat(step)/20,point=CGPoint(x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t)
+                    for ball in [cp,tp] {if hypot(point.x-ball.x,point.y-ball.y)<ballPixels-2{return nil}}
+                }
+            }
+            return Layout(rect:rect,path:path)
+        }
+        // One relative layout for the whole movie: no per-frame label jumps.
+        var selected:[(CGPoint,Int)]=[]
+        let samples=stride(from:0,to:1080,by:4).map{states[$0]}+[states[1079]]
+        for id in 0..<3 {
+            var candidates:[(CGPoint,Int,Double)]=[]
+            for x in stride(from:-360,through:360,by:40) {for z in stride(from:-300,through:300,by:40) {
+                if abs(x)+abs(z)<100 {continue}
+                for bend in (id==1 ? [0,1,2]:[0,1,2,5]) {
+                    let preference=(id==0 && x<0 || id==1 && x>0) ? 70.0:0.0
+                    candidates.append((CGPoint(x:x,y:z),bend,hypot(Double(x),Double(z))+Double(bend)*100+preference))
+                }
+            }}
+            candidates.sort{$0.2<$1.2}
+            var best:(CGPoint,Int)?
+            for c in candidates {
+                var valid=true
+                for st in samples {
+                    guard let layout=plan(st,id,c.0,c.1) else{valid=false;break}
+                    for previous in 0..<selected.count {
+                        guard let other=plan(st,previous,selected[previous].0,selected[previous].1) else{valid=false;break}
+                        if layout.rect.insetBy(dx:-10,dy:-10).intersects(other.rect){valid=false;break}
+                        for (p,q) in zip(layout.path,layout.path.dropFirst()){for (u,v) in zip(other.path,other.path.dropFirst()){if intersects(p,q,u,v){valid=false}}}
+                    }
+                    if !valid{break}
+                }
+                if valid{best=(c.0,c.1);break}
+            }
+            selected.append(try XCTUnwrap(best,"No continuous label layout for \(names[id])"))
+        }
+        var records:[[String:Any]]=[]
+        for index in 0..<1080 {
+            if stills && ![0,270,539,540,810,1079].contains(index){continue}
+            try autoreleasepool {
+                let st=states[index],time=Double(index)/60
+                projectionTarget=st.target
+                setCamera(st)
+                let aimEnd=rail(st)
+                let hit=AngleSceneCalculator.aimRayTargetEntry(from:st.cue,toward:aimEnd,target:st.target)
+                try XCTUnwrap(s.cueBallNode).position=st.cue;try XCTUnwrap(vm.targetNode).position=st.target
+                for node in [s.ghostBallNode,s.strikeLineNode,s.pocketLineNode,s.contactDotNode,s.perpLineNode,s.angleArcNode,s.cueStick?.rootNode].compactMap({$0}){node.isHidden=true}
+                let a=SIMD2<Float>(st.a.x-st.b.x,st.a.z-st.b.z),b=SIMD2<Float>(st.ghost.x-st.cue.x,st.ghost.z-st.cue.z)
+                XCTAssertLessThan(simd_length(a-b),0.000001)
+                XCTAssertEqual(AngleSceneCalculator.horizontalDistance(st.cue,st.target),0.4,accuracy:0.000001)
+                XCTAssertEqual(AngleSceneCalculator.horizontalDistance(st.target,pocket),0.4,accuracy:0.000001)
+                let n=simd_normalize(SIMD2<Float>(pocket.x-st.target.x,pocket.z-st.target.z))
+                let measured=Double(acos(max(-1,min(1,simd_dot(simd_normalize(b),n)))))*180/Double.pi
+                XCTAssertEqual(measured,st.cut,accuracy:0.002)
+                s.hideAllVisualization()
+                s.updateCueStick(cueBallPosition:st.cue,aimDirection:SCNVector3(st.ghost.x-st.cue.x,0,st.ghost.z-st.cue.z))
+                s.cueStick?.rootNode.isHidden=false
+                SCNTransaction.flush();let shot=renderer.snapshot(atTime:time,with:canvas,antialiasingMode:.multisampling4X)
+                let layouts=try (0..<3).map{try XCTUnwrap(plan(st,$0,selected[$0].0,selected[$0].1))}
+                let format=UIGraphicsImageRendererFormat();format.scale=1;format.opaque=true
+                let result=UIGraphicsImageRenderer(size:canvas,format:format).image{ctx in
+                    UIColor.black.setFill();ctx.fill(CGRect(origin:.zero,size:canvas));shot.draw(at:.zero)
+                    let g=ctx.cgContext
+                    func line(_ p:CGPoint,_ q:CGPoint,_ color:UIColor,dashed:Bool=false){g.setStrokeColor(color.cgColor);g.setLineWidth(3);g.setLineDash(phase:0,lengths:dashed ? [12,10]:[]);g.move(to:p);g.addLine(to:q);g.strokePath()}
+                    line(project(st.target),project(pocket),.black,dashed:true)
+                    line(project(st.guide),project(st.tail),.red,dashed:true)
+                    line(project(st.cue),project(hit ?? aimEnd),.white)
+                    if let hit {line(project(hit),project(aimEnd),.white,dashed:true)}
+                    line(project(st.b),project(st.a),.cyan)
+                    for p in [project(st.a),project(st.b)]{UIColor.red.setFill();UIBezierPath(ovalIn:CGRect(x:p.x-6,y:p.y-6,width:12,height:12)).fill()}
+                    for id in 0..<3 {
+                        let l=layouts[id]
+                        for (p,q) in zip(l.path,l.path.dropFirst()){line(p,q,colors[id])}
+                        (names[id] as NSString).draw(at:l.rect.origin,withAttributes:[.font:font,.foregroundColor:colors[id]])
+                    }
+                }
+                XCTAssertEqual(camera.position.y-s.surfaceY,0.75,accuracy:0.000001)
+                XCTAssertEqual(AngleSceneCalculator.horizontalDistance(camera.position,st.cue),0.35,accuracy:0.000001)
+                let actualTarget=renderer.projectPoint(st.target)
+                XCTAssertEqual(actualTarget.x,540,accuracy:0.05);XCTAssertEqual(actualTarget.y,960,accuracy:0.05)
+                for p in [st.cue,st.target,pocket] {let q=project(p);XCTAssertGreaterThan(q.x,55);XCTAssertLessThan(q.x,1025);XCTAssertGreaterThan(q.y,90);XCTAssertLessThan(q.y,1830)}
+                records.append(["frame":index,"time":time,"cutDegrees":measured,"clockwiseDegrees":st.rotation,
+                                "cue":[st.cue.x,st.cue.y,st.cue.z],"target":[st.target.x,st.target.y,st.target.z],"pocket":[pocket.x,pocket.y,pocket.z],
+                                "ghost":[st.ghost.x,st.ghost.y,st.ghost.z],"cueContact":[st.b.x,st.b.y,st.b.z],"targetContact":[st.a.x,st.a.y,st.a.z],
+                                "camera":[camera.position.x,camera.position.y,camera.position.z],"targetPixel":[actualTarget.x,actualTarget.y],"aimRail":[aimEnd.x,aimEnd.y,aimEnd.z],"aimBlocked":hit != nil,
+                                "parallelResidualM":simd_length(a-b),"labelRects":layouts.map{[$0.rect.minX,$0.rect.minY,$0.rect.width,$0.rect.height]}])
+                if stills{try XCTUnwrap(result.pngData()).write(to:out.appendingPathComponent("frames/frame-\(index).png"))}
+                else{try writer?.append(XCTUnwrap(result.cgImage))}
+            }
+            if index%120==0{print("TWO_PHASE \(index)/1080")}
+            try await Task.sleep(nanoseconds:1_000_000)
+        }
+        try await writer?.finish()
+        try JSONSerialization.data(withJSONObject:records,options:[.prettyPrinted,.sortedKeys]).write(to:out.appendingPathComponent(stills ? "stills.json":"frames.json"))
+        print("LABEL_LAYOUT \(selected)")
+    }
+}
+
+extension AngleAimingVideoCaptureTests {
+    func testParallelSinglePhaseRoom() async throws {
+        let out=try outputDirectory(),env=ProcessInfo.processInfo.environment
+        let final2K=(env["TEST_RUNNER_PARALLEL_FINAL_2K"] ?? env["PARALLEL_FINAL_2K"]) == "1" || FileManager.default.fileExists(atPath:out.appendingPathComponent(".final-2k").path)
+        let renderScale:CGFloat=final2K ? 4.0/3.0:1
+        let frameCount=final2K ? 900:1080
+        let closeups=(env["TEST_RUNNER_PARALLEL_CLOSEUPS"] ?? env["PARALLEL_CLOSEUPS"]) == "1"
+        let options=(env["TEST_RUNNER_PARALLEL_LABEL_OPTIONS"] ?? env["PARALLEL_LABEL_OPTIONS"]) == "1"
+        let stills=(env["PARALLEL_STILLS"] ?? env["TEST_RUNNER_PARALLEL_STILLS"]) == "1"
+        let vm=AngleDynamicViewModel();vm.setupScene();let s=vm.scene
+        XCTAssertTrue(s.applyTableStyle(.charcoal,showsSights:true));s.applyClothColor(.green)
+        s.setCameraMode(.perspective3D,animated:false)
+        s.installReferenceRoom(style:.tournament)
+        XCTAssertFalse(try XCTUnwrap(s.rootNode.childNode(withName:"reference_room",recursively:false)).isHidden)
+        XCTAssertTrue(try XCTUnwrap(s.cueStick).applyStyle(.inkDragon))
+        let r=AngleSceneCalculator.ballRadius,y=s.surfaceY+r
+        let bearing=try XCTUnwrap(Float(env["TEST_RUNNER_PARALLEL_BEARING"] ?? env["PARALLEL_BEARING"] ?? ""))
+        let ballDistance=Float(env["TEST_RUNNER_PARALLEL_DISTANCE"] ?? env["PARALLEL_DISTANCE"] ?? "0.50")!
+        let pocket=AngleSceneCalculator.effectivePocketAimPoint(targetBall:SCNVector3(0,y,-0.23),pocketIndex:4,surfaceY:s.surfaceY)
+        let camera=try XCTUnwrap(s.cameraNode)
+        camera.position=SCNVector3(-0.10,s.surfaceY+3,pocket.z+0.40)
+        camera.look(at:SCNVector3(-0.10,s.surfaceY,pocket.z+0.40),up:SCNVector3(0,0,-1),localFront:SCNVector3(0,0,-1))
+        camera.camera!.usesOrthographicProjection=false;camera.camera!.fieldOfView=80;camera.camera!.projectionDirection = .vertical
+        camera.camera!.orthographicScale=0.92;camera.camera!.zNear=0.01;camera.camera!.zFar=100
+        let renderer=SCNRenderer(device:nil,options:nil);renderer.scene=s;renderer.pointOfView=camera
+        renderer.autoenablesDefaultLighting=false;renderer.delegate=s.contactOcclusion
+        s.cueStick?.rootNode.isHidden=true
+        let canvas=CGSize(width:closeups ? 1200:1080,height:1920)
+        let renderCanvas=CGSize(width:(closeups ? 1320:1080)*renderScale,height:1920*renderScale)
+        let cropX:CGFloat=closeups ? 120:0
+        let outputCanvas=CGSize(width:canvas.width*renderScale,height:canvas.height*renderScale)
+        let writer=stills ? nil:try VideoWriter(url:out.appendingPathComponent(final2K ? "parallel-3d-room-0-90-15s-2k.mp4":"parallel-3d-room-0-90-18s.mp4"),size:outputCanvas,fps:60,averageBitRate:final2K ? 48_000_000:closeups ? 36_000_000:nil)
+        struct State {
+            let cue:SCNVector3,target:SCNVector3,ghost:SCNVector3,a:SCNVector3,b:SCNVector3,guide:SCNVector3,tail:SCNVector3
+            let cut:Double,rotation:Double,orientation:Float
+        }
+        func state(_ index:Int)->State {
+            let cut=90*Double(index)/Double(frameCount-1),rotation=0.0
+            let angle=Float(cut*Double.pi/180),orientation=bearing*Float.pi/180
+            func rotate(_ x:Float,_ z:Float)->SCNVector3{SCNVector3(pocket.x+x*cos(orientation)-z*sin(orientation),y,pocket.z+x*sin(orientation)+z*cos(orientation))}
+            let length = -2*r*cos(angle)+sqrt(ballDistance*ballDistance-pow(2*r*sin(angle),2))
+            let target=rotate(0,0.4),ghost=rotate(0,0.4+2*r),cue=rotate(-length*sin(angle),0.4+2*r+length*cos(angle))
+            let n=simd_normalize(SIMD2<Float>(pocket.x-target.x,pocket.z-target.z))
+            let a=SCNVector3(target.x-r*n.x,y,target.z-r*n.y),b=SCNVector3(cue.x+r*n.x,y,cue.z+r*n.y)
+            let toRail=(-AngleSceneCalculator.innerWidth/2-cue.z)/n.y
+            let guide=SCNVector3(cue.x+n.x*toRail,y,-AngleSceneCalculator.innerWidth/2)
+            let tail=SCNVector3(cue.x-n.x*0.04,y,cue.z-n.y*0.04)
+            return State(cue:cue,target:target,ghost:ghost,a:a,b:b,guide:guide,tail:tail,cut:cut,rotation:rotation,orientation:orientation)
+        }
+        _=renderer.snapshot(atTime:0,with:renderCanvas,antialiasingMode:.multisampling4X)
+        var projectionTarget=state(0).target
+        func setCamera(_ st:State) {
+            let d=simd_normalize(SIMD2<Float>(st.ghost.x-st.cue.x,st.ghost.z-st.cue.z))
+            camera.position=SCNVector3(st.cue.x-0.35*d.x,s.surfaceY+0.75,st.cue.z-0.35*d.y)
+            camera.look(at:st.target,up:SCNVector3(0,1,0),localFront:SCNVector3(0,0,-1))
+            SCNTransaction.flush()
+        }
+        func project(_ v:SCNVector3)->CGPoint{let p=renderer.projectPoint(v);return CGPoint(x:CGFloat(p.x)/renderScale-cropX,y:canvas.height-CGFloat(p.y)/renderScale)}
+        func rail(_ st:State)->SCNVector3 {
+            AngleSceneCalculator.rayToInnerRail(from:st.cue,dir:SCNVector3(st.ghost.x-st.cue.x,0,st.ghost.z-st.cue.z),inset:0)
+        }
+        func cross(_ p:CGPoint,_ q:CGPoint,_ r:CGPoint)->CGFloat{(q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x)}
+        func intersects(_ a:CGPoint,_ b:CGPoint,_ c:CGPoint,_ d:CGPoint)->Bool {
+            let rx=b.x-a.x,ry=b.y-a.y,sx=d.x-c.x,sy=d.y-c.y
+            let den=rx*sy-ry*sx
+            if abs(den)<0.001{return false}
+            let t=((c.x-a.x)*sy-(c.y-a.y)*sx)/den
+            let u=((c.x-a.x)*ry-(c.y-a.y)*rx)/den
+            let marginA=1/max(1,hypot(rx,ry)),marginB=1/max(1,hypot(sx,sy))
+            return t>marginA && t<1-marginA && u>marginB && u<1-marginB
+        }
+        let font=UIFont.systemFont(ofSize:28,weight:.semibold)
+        let names=["目标球接触点","母球接触点","接触点连线"]
+        let colors:[UIColor]=[.red,.red,.cyan]
+        let textSizes=names.map{($0 as NSString).size(withAttributes:[.font:font])}
+        let states=(0..<frameCount).map(state)
+        struct Layout {let rect:CGRect;let path:[CGPoint]}
+        func plan(_ st:State,_ id:Int,_ offset:CGPoint,_ bend:Int)->Layout? {
+            projectionTarget=st.target;setCamera(st)
+            let ap=project(st.a),bp=project(st.b),cp=project(st.cue),tp=project(st.target)
+            let anchor=id==0 ? ap:id==1 ? bp:CGPoint(x:(ap.x+bp.x)/2,y:(ap.y+bp.y)/2)
+            let angle=CGFloat(st.orientation)
+            let pos=CGPoint(x:anchor.x+offset.x*cos(angle)-offset.y*sin(angle),y:anchor.y+offset.x*sin(angle)+offset.y*cos(angle))
+            if id==2 && cross(bp,ap,pos)>=0{return nil}
+            let ts=textSizes[id],rect=CGRect(x:pos.x-ts.width/2,y:pos.y-ts.height/2,width:ts.width,height:ts.height)
+            guard CGRect(x:28,y:50,width:1024,height:1820).contains(rect) else{return nil}
+            func screenRadius(_ center:SCNVector3)->CGFloat {
+                let right=camera.simdWorldTransform.columns.0
+                let q=project(SCNVector3(center.x+r*right.x,center.y+r*right.y,center.z+r*right.z)),p=project(center)
+                return hypot(q.x-p.x,q.y-p.y)
+            }
+            let ballPixels=screenRadius(st.cue)
+            for p in [cp,tp,project(pocket)] {if rect.insetBy(dx:-12,dy:-12).intersects(CGRect(x:p.x-ballPixels,y:p.y-ballPixels,width:2*ballPixels,height:2*ballPixels)){return nil}}
+            let end=CGPoint(x:min(max(anchor.x,rect.minX-8),rect.maxX+8),y:min(max(anchor.y,rect.minY-8),rect.maxY+8))
+            var path=[anchor,end]
+            if bend==1 {path=[anchor,CGPoint(x:anchor.x,y:end.y),end]}
+            if bend==2 {path=[anchor,CGPoint(x:end.x,y:anchor.y),end]}
+            if bend==3 {
+                let g=project(st.guide),p=project(pocket)
+                path=[anchor,CGPoint(x:g.x+35,y:min(g.y,p.y)-45),CGPoint(x:end.x,y:min(g.y,p.y)-45),end]
+            }
+            if bend==4 {path=[anchor,ap,CGPoint(x:end.x,y:ap.y),end]}
+            if bend==5 {path=[]}
+            func floorProject(_ p:SCNVector3)->CGPoint{project(SCNVector3(p.x,s.surfaceY+0.002,p.z))}
+            let lines=[(floorProject(st.target),floorProject(pocket)),(floorProject(st.cue),floorProject(rail(st))),(floorProject(st.b),floorProject(st.a)),(floorProject(st.guide),floorProject(st.tail))]
+            let corners=[CGPoint(x:rect.minX-5,y:rect.minY-5),CGPoint(x:rect.maxX+5,y:rect.minY-5),CGPoint(x:rect.maxX+5,y:rect.maxY+5),CGPoint(x:rect.minX-5,y:rect.maxY+5)]
+            for (u,v) in lines {
+                if rect.contains(u) || rect.contains(v){return nil}
+                for j in 0..<4 {if intersects(u,v,corners[j],corners[(j+1)%4]){return nil}}
+                for (p,q) in zip(path,path.dropFirst()){if intersects(p,q,u,v){return nil}}
+            }
+            // Avoid crossing the other ball, and leave a contact anchor outward.
+            for (p,q) in zip(path,path.dropFirst()) {
+                for step in 1..<20 {
+                    let t=CGFloat(step)/20,point=CGPoint(x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t)
+                    for (ball,radius) in [(cp,screenRadius(st.cue)),(tp,screenRadius(st.target))] {if hypot(point.x-ball.x,point.y-ball.y)<radius-2{return nil}}
+                }
+            }
+            return Layout(rect:rect,path:path)
+        }
+        // One relative layout for the whole movie: no per-frame label jumps.
+        var selected:[(CGPoint,Int)]=[]
+        let samples=stride(from:0,to:frameCount,by:4).map{states[$0]}+[states[frameCount-1]]
+        for id in 0..<3 {
+            var candidates:[(CGPoint,Int,Double)]=[]
+            for x in stride(from:-360,through:360,by:40) {for z in stride(from:-300,through:300,by:40) {
+                if abs(x)+abs(z)<100 {continue}
+                for bend in [0,1,2,5] {
+                    let preference=(id==0 && x<0 || id==1 && x>0) ? 70.0:0.0
+                    candidates.append((CGPoint(x:x,y:z),bend,hypot(Double(x),Double(z))+Double(bend)*100+preference))
+                }
+            }}
+            candidates.sort{$0.2<$1.2}
+            var best:(CGPoint,Int)?
+            for c in candidates {
+                var valid=true
+                for st in samples {
+                    guard let layout=plan(st,id,c.0,c.1) else{valid=false;break}
+                    for previous in 0..<selected.count {
+                        guard let other=plan(st,previous,selected[previous].0,selected[previous].1) else{valid=false;break}
+                        if layout.rect.insetBy(dx:-10,dy:-10).intersects(other.rect){valid=false;break}
+                        for (p,q) in zip(layout.path,layout.path.dropFirst()){for (u,v) in zip(other.path,other.path.dropFirst()){if intersects(p,q,u,v){valid=false}}}
+                    }
+                    if !valid{break}
+                }
+                if valid{best=(c.0,c.1);break}
+            }
+            selected.append(try XCTUnwrap(best,"No continuous label layout for \(names[id])"))
+        }
+        let detailCamera=SCNNode();detailCamera.camera=SCNCamera();detailCamera.camera!.usesOrthographicProjection=true;detailCamera.camera!.projectionDirection = .vertical;detailCamera.camera!.orthographicScale=0.04;detailCamera.camera!.wantsDepthOfField=false;detailCamera.camera!.zNear=0.01;detailCamera.camera!.zFar=10
+        s.rootNode.addChildNode(detailCamera)
+        let detailRenderer=SCNRenderer(device:nil,options:nil);detailRenderer.scene=s;detailRenderer.pointOfView=detailCamera;detailRenderer.autoenablesDefaultLighting=false;detailRenderer.delegate=s.contactOcclusion
+        var teachingNodes:[SCNNode]=[]
+        var records:[[String:Any]]=[]
+        for index in 0..<frameCount {
+            if stills && ![0,frameCount/4,frameCount/2-1,frameCount/2,frameCount*3/4,frameCount-1].contains(index){continue}
+            try autoreleasepool {
+                let st=states[index],time=Double(index)/60
+                projectionTarget=st.target
+                setCamera(st)
+                let aimEnd=rail(st)
+                let hit=AngleSceneCalculator.aimRayTargetEntry(from:st.cue,toward:aimEnd,target:st.target)
+                try XCTUnwrap(s.cueBallNode).position=st.cue;try XCTUnwrap(vm.targetNode).position=st.target
+                vm.selectPocket(at:4)
+                XCTAssertEqual(s.pocketSelectionDescription,"5号袋：目标")
+                for node in [s.ghostBallNode,s.strikeLineNode,s.pocketLineNode,s.contactDotNode,s.perpLineNode,s.angleArcNode,s.cueStick?.rootNode].compactMap({$0}){node.isHidden=true}
+                let a=SIMD2<Float>(st.a.x-st.b.x,st.a.z-st.b.z),b=SIMD2<Float>(st.ghost.x-st.cue.x,st.ghost.z-st.cue.z)
+                XCTAssertLessThan(simd_length(a-b),0.000001)
+                XCTAssertEqual(AngleSceneCalculator.horizontalDistance(st.cue,st.target),ballDistance,accuracy:0.000001)
+                XCTAssertEqual(AngleSceneCalculator.horizontalDistance(st.target,pocket),0.4,accuracy:0.000001)
+                let n=simd_normalize(SIMD2<Float>(pocket.x-st.target.x,pocket.z-st.target.z))
+                let measured=atan2(abs(Double(b.x)*Double(n.y)-Double(b.y)*Double(n.x)),Double(b.x)*Double(n.x)+Double(b.y)*Double(n.y))*180/Double.pi
+                XCTAssertEqual(measured,st.cut,accuracy:0.002)
+                XCTAssertLessThanOrEqual(abs(st.cue.z)+r,AngleSceneCalculator.innerWidth/2+0.000001)
+                XCTAssertLessThanOrEqual(abs(st.cue.x)+r,AngleSceneCalculator.innerLength/2+0.000001)
+                s.hideAllVisualization()
+                s.updateCueStick(cueBallPosition:st.cue,aimDirection:SCNVector3(st.ghost.x-st.cue.x,0,st.ghost.z-st.cue.z))
+                s.cueStick?.rootNode.isHidden=false
+                teachingNodes.forEach{$0.removeFromParentNode()};teachingNodes=[]
+                func floorLine(_ from:SCNVector3,_ to:SCNVector3,_ color:UIColor,_ dashed:Bool=false) {
+                    let node=dashed ? s.addDashedLine(from:from,to:to,color:color,radius:0.0012,dash:0.018,gap:0.012,placement:.table,layer:.aiming):s.addLine(from:from,to:to,color:color,radius:0.0012,placement:.table,layer:.aiming)
+                    teachingNodes.append(node)
+                }
+                floorLine(st.target,pocket,.black,true)
+                floorLine(st.guide,st.tail,options ? UIColor(red:1,green:0.52,blue:0.06,alpha:1):.red,true)
+                floorLine(st.cue,hit ?? aimEnd,.white)
+                if let hit {floorLine(hit,aimEnd,.white,true)}
+                let direction=simd_normalize(SIMD2<Float>(st.a.x-st.b.x,st.a.z-st.b.z))
+                let connectorEnd=options ? SCNVector3(st.a.x+0.025*direction.x,st.a.y,st.a.z+0.025*direction.y):st.a
+                floorLine(st.b,connectorEnd,.cyan)
+                SCNTransaction.flush();let wideShot=renderer.snapshot(atTime:time,with:renderCanvas,antialiasingMode:.multisampling4X)
+                let shot=UIImage(cgImage:try XCTUnwrap(wideShot.cgImage?.cropping(to:CGRect(origin:CGPoint(x:cropX*renderScale,y:0),size:outputCanvas))),scale:renderScale,orientation:.up)
+                let layouts=try (0..<3).map{try XCTUnwrap(plan(st,$0,selected[$0].0,selected[$0].1))}
+                let format=UIGraphicsImageRendererFormat();format.scale=renderScale;format.opaque=true
+                var result=UIGraphicsImageRenderer(size:canvas,format:format).image{ctx in
+                    UIColor.black.setFill();ctx.fill(CGRect(origin:.zero,size:canvas));shot.draw(at:.zero)
+                    let g=ctx.cgContext
+                    func line(_ p:CGPoint,_ q:CGPoint,_ color:UIColor,dashed:Bool=false){g.setStrokeColor(color.cgColor);g.setLineWidth(3);g.setLineDash(phase:0,lengths:dashed ? [12,10]:[]);g.move(to:p);g.addLine(to:q);g.strokePath()}
+                    for p in [project(st.a),project(st.b)]{UIColor.red.setFill();UIBezierPath(ovalIn:CGRect(x:p.x-6,y:p.y-6,width:12,height:12)).fill()}
+                    for id in 0..<3 {
+                        let l=layouts[id]
+                        for (p,q) in zip(l.path,l.path.dropFirst()){line(p,q,colors[id])}
+                        (names[id] as NSString).draw(at:l.rect.origin,withAttributes:[.font:font,.foregroundColor:colors[id]])
+                    }
+                }
+                XCTAssertEqual(camera.position.y-s.surfaceY,0.75,accuracy:0.000001)
+                XCTAssertEqual(AngleSceneCalculator.horizontalDistance(camera.position,st.cue),0.35,accuracy:0.000001)
+                let actualTarget=renderer.projectPoint(st.target)
+                XCTAssertEqual(actualTarget.x/Float(renderScale)-Float(cropX),540,accuracy:0.05);XCTAssertEqual(actualTarget.y/Float(renderScale),960,accuracy:0.05)
+                for p in [st.cue,st.target,pocket] {let q=project(p);XCTAssertGreaterThan(q.x,55);XCTAssertLessThan(q.x,1025);XCTAssertGreaterThan(q.y,90);XCTAssertLessThan(q.y,1830)}
+                records.append(["frame":index,"time":time,"cutDegrees":measured,"clockwiseDegrees":st.rotation,
+                                "cue":[st.cue.x,st.cue.y,st.cue.z],"target":[st.target.x,st.target.y,st.target.z],"pocket":[pocket.x,pocket.y,pocket.z],
+                                "ghost":[st.ghost.x,st.ghost.y,st.ghost.z],"cueContact":[st.b.x,st.b.y,st.b.z],"targetContact":[st.a.x,st.a.y,st.a.z],
+                                "pocketSelection":s.pocketSelectionDescription,"camera":[camera.position.x,camera.position.y,camera.position.z],"targetPixel":[actualTarget.x/Float(renderScale)-Float(cropX),actualTarget.y/Float(renderScale)],"aimRail":[aimEnd.x,aimEnd.y,aimEnd.z],"aimBlocked":hit != nil,
+                                "parallelResidualM":simd_length(a-b),"labelRects":layouts.map{[$0.rect.minX,$0.rect.minY,$0.rect.width,$0.rect.height]}])
+                if options {
+                    @MainActor func floorPoint(_ p:SCNVector3)->CGPoint{project(SCNVector3(p.x,s.surfaceY+0.002,p.z))}
+                    func mix(_ p:SCNVector3,_ q:SCNVector3,_ t:Float)->SCNVector3{SCNVector3(p.x+(q.x-p.x)*t,p.y+(q.y-p.y)*t,p.z+(q.z-p.z)*t)}
+                    let guideDirection=simd_normalize(SIMD2<Float>(st.guide.x-st.cue.x,st.guide.z-st.cue.z))
+                    let guideAnchor=SCNVector3(st.cue.x+5*r*guideDirection.x,s.surfaceY+0.002,st.cue.z+5*r*guideDirection.y)
+                    let anchors=[floorPoint(mix(st.target,pocket,0.5)),project(st.a),floorPoint(mix(st.b,st.a,0.58)),project(st.b),floorPoint(mix(st.cue,st.ghost,0.62)),floorPoint(guideAnchor)]
+                    let cuePixel=project(st.cue),targetPixel=project(st.target)
+                    let middleY=(cuePixel.y+targetPixel.y)/2
+                    var boxes:[CGRect]=[]
+                    var detailShots:[UIImage]=[]
+                    var signedOffsets:[Float]=[]
+                    var detailPointOffsets:[Float]=[]
+                    if closeups {
+                        let d=simd_normalize(SIMD2<Float>(st.a.x-st.b.x,st.a.z-st.b.z)),right=SIMD2<Float>(-d.y,d.x)
+                        teachingNodes.forEach{$0.isHidden=true};s.cueStick?.rootNode.isHidden=true
+                        for (center,contact) in [(st.target,st.a),(st.cue,st.b)] {
+                            detailCamera.position=SCNVector3(center.x,s.surfaceY+3,center.z)
+                            detailCamera.look(at:center,up:SCNVector3(d.x,0,d.y),localFront:SCNVector3(0,0,-1))
+                            SCNTransaction.flush()
+                            detailShots.append(detailRenderer.snapshot(atTime:time,with:CGSize(width:960*renderScale,height:960*renderScale),antialiasingMode:.multisampling4X))
+                            detailPointOffsets.append(simd_dot(SIMD2<Float>(contact.x-center.x,contact.z-center.z),d))
+                            signedOffsets.append(simd_dot(SIMD2<Float>(center.x-st.b.x,center.z-st.b.z),right))
+                        }
+                        teachingNodes.forEach{$0.isHidden=false};s.cueStick?.rootNode.isHidden=false
+                        XCTAssertEqual(signedOffsets[0],-signedOffsets[1],accuracy:0.000001)
+                        XCTAssertLessThanOrEqual(signedOffsets[0],0.000001);XCTAssertGreaterThanOrEqual(signedOffsets[1],-0.000001)
+                        XCTAssertEqual(r-abs(signedOffsets[0]),r-abs(signedOffsets[1]),accuracy:0.000001)
+                        // Translate each crop so the same world line has one screen-space x.
+                        let commonLineX:CGFloat=980
+                        boxes=signedOffsets.enumerated().map{j,offset in
+                            CGRect(x:commonLineX+CGFloat(offset)*3000-120,y:middleY+(j==0 ? -250:10),width:240,height:240)
+                        }
+                        let lineXs=boxes.enumerated().map{$0.element.midX-CGFloat(signedOffsets[$0.offset])*3000}
+                        XCTAssertEqual(lineXs[0],lineXs[1],accuracy:0.001)
+                        records[records.count-1]["insetLineScreenX"]=lineXs
+                        records[records.count-1]["insetRects"]=boxes.map{[$0.minX,$0.minY,$0.width,$0.height]}
+                        records[records.count-1]["insetSignedOffsetsM"]=signedOffsets
+                        records[records.count-1]["insetCapThicknessM"]=signedOffsets.map{r-abs($0)}
+                        records[records.count-1]["insetScalePixelsPerM"]=3000
+                        records[records.count-1]["insetNativeRenderSize"]=[960*renderScale,960*renderScale]
+                        records[records.count-1]["insetContactPixels"]=boxes.enumerated().map{j,box in [commonLineX,box.midY-CGFloat(detailPointOffsets[j])*3000]}
+                        records[records.count-1]["guideAnnotationDistanceM"]=5*r
+                        let teachingSegments=[(floorPoint(st.target),floorPoint(pocket)),(floorPoint(st.cue),floorPoint(aimEnd)),(floorPoint(st.b),floorPoint(connectorEnd)),(floorPoint(st.guide),floorPoint(st.tail))]
+                        records[records.count-1]["teachingScreenSegments"]=teachingSegments.map{[[$0.0.x,$0.0.y],[$0.1.x,$0.1.y]]}
+
+                    }
+                    for variant in (stills && !closeups ? [1,2,3]:[1]) {
+                        var option=parallelLabelOptions(shot:shot,anchors:anchors,cuePoint:project(st.b),targetPoint:project(st.a),pocketPoint:project(pocket),teaching:[(floorPoint(st.target),floorPoint(pocket)),(floorPoint(st.cue),floorPoint(aimEnd)),(floorPoint(st.b),floorPoint(connectorEnd)),(floorPoint(st.guide),floorPoint(st.tail))],variant:variant,reserved:boxes,smallPoints:closeups)
+                        if closeups {
+                            let composed=option
+                            option=UIGraphicsImageRenderer(size:canvas,format:format).image{ctx in
+                                composed.draw(at:.zero)
+                                for j in 0..<2 {
+                                    let box=boxes[j],g=ctx.cgContext
+                                    g.saveGState();UIBezierPath(roundedRect:box,cornerRadius:18).addClip();ctx.cgContext.interpolationQuality = .high;detailShots[j].draw(in:box)
+                                    let lineX=box.midX-CGFloat(signedOffsets[j])*3000
+                                    g.setStrokeColor(UIColor.cyan.cgColor);g.setLineWidth(3);g.move(to:CGPoint(x:lineX,y:box.minY+8));g.addLine(to:CGPoint(x:lineX,y:box.maxY-8));g.strokePath()
+                                    let dot=CGPoint(x:lineX,y:box.midY-CGFloat(detailPointOffsets[j])*3000)
+                                    (j==0 ? UIColor.red:UIColor(red:1,green:0.52,blue:0.06,alpha:1)).setFill()
+                                    UIBezierPath(ovalIn:CGRect(x:dot.x-4.5,y:dot.y-4.5,width:9,height:9)).fill()
+                                    g.restoreGState()
+                                    UIColor(white:1,alpha:0.65).setStroke();let border=UIBezierPath(roundedRect:box,cornerRadius:18);border.lineWidth=1.5;border.stroke()
+                                }
+                            }
+                        }
+                        if stills {try XCTUnwrap(option.pngData()).write(to:out.appendingPathComponent("frames/option-\(variant)-frame-\(index).png"))}
+                        if variant==1 {result=option}
+                    }
+                }
+                if stills{try XCTUnwrap(result.pngData()).write(to:out.appendingPathComponent("frames/frame-\(index).png"))}
+                else{try writer?.append(XCTUnwrap(result.cgImage))}
+            }
+            if index%120==0{print("TWO_PHASE \(index)/\(frameCount)")}
+            try await Task.sleep(nanoseconds:1_000_000)
+        }
+        try await writer?.finish()
+        try JSONSerialization.data(withJSONObject:records,options:[.prettyPrinted,.sortedKeys]).write(to:out.appendingPathComponent(stills ? "stills.json":"frames.json"))
+        print("LABEL_LAYOUT \(selected)")
+    }
+}
+
+extension AngleAimingVideoCaptureTests {
+    private func parallelLabelOptions(shot:UIImage,anchors:[CGPoint],cuePoint:CGPoint,targetPoint:CGPoint,pocketPoint:CGPoint,teaching:[(CGPoint,CGPoint)],variant:Int,reserved:[CGRect]=[],smallPoints:Bool=false)->UIImage {
+        let canvas=shot.size,orange=UIColor(red:1,green:0.52,blue:0.06,alpha:1)
+        let titles=["进球线","目标球接触点","接触点连线","母球接触点","瞄准线","过母球中心\n平行于进球线"]
+        let details=["","","","","",""]
+        let colors:[UIColor]=[.white,.red,.cyan,orange,.white,orange]
+        let font=UIFont.systemFont(ofSize:variant==1 ? 40:42,weight:.semibold)
+        let small=UIFont.systemFont(ofSize:30,weight:.medium)
+        let fixedA:[CGPoint]=[CGPoint(x:80,y:760),CGPoint(x:140,y:1020),CGPoint(x:90,y:1190),CGPoint(x:160,y:1550),CGPoint(x:740,y:1090),CGPoint(x:55,y:1740)]
+        let fixedC:[CGPoint]=[CGPoint(x:55,y:830),CGPoint(x:55,y:1020),CGPoint(x:55,y:1220),CGPoint(x:55,y:1510),CGPoint(x:730,y:1190),CGPoint(x:55,y:1740)]
+        var positions=fixedA
+        if variant>=1 {
+            positions=[CGPoint(x:max(35,anchors[0].x-310),y:anchors[0].y-100),CGPoint(x:targetPoint.x-360,y:targetPoint.y+60),CGPoint(x:anchors[2].x-380,y:anchors[2].y+25),CGPoint(x:cuePoint.x-330,y:cuePoint.y+100),CGPoint(x:anchors[4].x+95,y:anchors[4].y-60),CGPoint(x:55,y:1740)]
+        }
+        // Share the object-relative layout across styles for a fair comparison.
+        let format=UIGraphicsImageRendererFormat();format.scale=shot.scale;format.opaque=true
+        return UIGraphicsImageRenderer(size:canvas,format:format).image{ctx in
+            shot.draw(at:.zero)
+            let g=ctx.cgContext
+            for (point,color) in [(targetPoint,UIColor.red),(cuePoint,orange)] {
+                let radius:CGFloat=smallPoints ? 4.5:7
+                color.setFill();UIBezierPath(ovalIn:CGRect(x:point.x-radius,y:point.y-radius,width:radius*2,height:radius*2)).fill()
+            }
+            var occupied:[CGRect]=reserved.map{$0.insetBy(dx:-12,dy:-12)},leaders:[(CGPoint,CGPoint)]=[]
+            func crossing(_ a:CGPoint,_ b:CGPoint,_ c:CGPoint,_ d:CGPoint)->Bool {
+                let rx=b.x-a.x,ry=b.y-a.y,sx=d.x-c.x,sy=d.y-c.y,den=rx*sy-ry*sx
+                if abs(den)<0.001{return false}
+                let t=((c.x-a.x)*sy-(c.y-a.y)*sx)/den,u=((c.x-a.x)*ry-(c.y-a.y)*rx)/den
+                return t>0.015 && t<0.985 && u>0.015 && u<0.985
+            }
+            func cuts(_ a:CGPoint,_ b:CGPoint,_ r:CGRect)->Bool {
+                let c=[CGPoint(x:r.minX,y:r.minY),CGPoint(x:r.maxX,y:r.minY),CGPoint(x:r.maxX,y:r.maxY),CGPoint(x:r.minX,y:r.maxY)]
+                return r.contains(a) || r.contains(b) || (0..<4).contains{crossing(a,b,c[$0],c[($0+1)%4])}
+            }
+            for id in (smallPoints ? [5,0,2,4]:[5,1,0,2,3,4]) {
+                let paragraph=NSMutableParagraphStyle();paragraph.lineSpacing=7
+                let attr:[NSAttributedString.Key:Any]=[.font:font,.foregroundColor:colors[id],.paragraphStyle:paragraph]
+                let width:CGFloat=id==5 ? 300:max((titles[id] as NSString).size(withAttributes:[.font:font]).width,(details[id] as NSString).size(withAttributes:[.font:small]).width)+4
+                let height:CGFloat=id==5 ? 115:details[id].isEmpty ? 65:105
+                let anchor=anchors[id]
+                var best:(CGRect,[CGPoint],CGFloat)?
+                for dx in stride(from:id==5 ? 0:-350,through:id==5 ? 0:350,by:25) {for dy in stride(from:id==5 ? 0:-350,through:id==5 ? 0:350,by:25) {
+                    let r=CGRect(x:positions[id].x+CGFloat(dx),y:positions[id].y+CGFloat(dy),width:width,height:height)
+                    if !CGRect(x:28,y:70,width:1024,height:1790).contains(r){continue}
+                    let guardRect=r.insetBy(dx:-16,dy:-12)
+                    if occupied.contains(where:{$0.intersects(guardRect)}){continue}
+                    if [cuePoint,targetPoint,pocketPoint].contains(where:{guardRect.intersects(CGRect(x:$0.x-45,y:$0.y-45,width:90,height:90))}){continue}
+                    if teaching.contains(where:{cuts($0.0,$0.1,guardRect)}){continue}
+                    if leaders.contains(where:{cuts($0.0,$0.1,guardRect)}){continue}
+                    let end=CGPoint(x:anchor.x<r.minX ? r.minX-10:anchor.x>r.maxX ? r.maxX+10:min(max(anchor.x,r.minX),r.maxX),y:anchor.y<r.minY ? r.minY-10:anchor.y>r.maxY ? r.maxY+10:anchor.y)
+                    var routes=[[anchor,end],[anchor,CGPoint(x:end.x,y:anchor.y),end],[anchor,CGPoint(x:anchor.x,y:end.y),end]]
+                    if id==5 {
+                        let textBounds=(titles[id] as NSString).boundingRect(with:CGSize(width:width,height:height),options:[.usesLineFragmentOrigin,.usesFontLeading],attributes:attr,context:nil)
+                        let textCenterEnd=CGPoint(x:r.minX+ceil(textBounds.width)+10,y:r.minY+textBounds.height/2)
+                        routes=[[anchor,textCenterEnd]]
+                    }
+                    for path in routes {
+                        var penalty:CGFloat=0
+                        for (a,b) in zip(path,path.dropFirst()) {
+                            for line in teaching+leaders {if crossing(a,b,line.0,line.1){penalty+=100000}}
+                            for box in occupied {if cuts(a,b,box){penalty+=100000}}
+                        }
+                        let length=zip(path,path.dropFirst()).reduce(CGFloat(0)){$0+hypot($1.0.x-$1.1.x,$1.0.y-$1.1.y)}
+                        let proximity:CGFloat=id==1 ? max(0,abs(r.minY-anchor.y)-100)*1000:0
+                        let score=penalty+proximity+hypot(CGFloat(dx),CGFloat(dy))+length*0.3+CGFloat(path.count)*5
+                        if best == nil || score<best!.2 {best=(r,path,score)}
+                    }
+                }}
+                guard let chosen=best else{XCTFail("No option layout for \(id), variant \(variant)");continue}
+                let rect=chosen.0,path=chosen.1
+                occupied.append(rect.insetBy(dx:-12,dy:-10));leaders.append(contentsOf:zip(path,path.dropFirst()).map{($0.0,$0.1)})
+                if variant != 1 {
+                    UIColor(white:0.025,alpha:variant==3 ? 0.76:0.58).setFill()
+                    UIBezierPath(roundedRect:rect.insetBy(dx:-12,dy:-10),cornerRadius:12).fill()
+                }
+                (titles[id] as NSString).draw(in:rect,withAttributes:attr)
+                if !details[id].isEmpty {(details[id] as NSString).draw(at:CGPoint(x:rect.minX,y:rect.minY+55),withAttributes:[.font:small,.foregroundColor:UIColor.white])}
+                g.setStrokeColor(colors[id].cgColor);g.setLineWidth(2);g.setLineDash(phase:0,lengths:[])
+                g.move(to:path[0]);for p in path.dropFirst(){g.addLine(to:p)};g.strokePath()
+                colors[id].setFill();UIBezierPath(ovalIn:CGRect(x:anchor.x-4,y:anchor.y-4,width:8,height:8)).fill()
+            }
+        }
+    }
+}
+
+@MainActor
+final class RailPlayerCameraTests: XCTestCase {
+    func testAllQuadrantsPlaceEyesOutsideRailAndKeepHeightIndependentOfCuePosition() throws {
+        for cue in [SCNVector3(0, 0.828575, 0), SCNVector3(1.2, 0.828575, 0.6),
+                    SCNVector3(-1.2, 0.828575, -0.6)] {
+            for index in 0..<16 {
+                let angle = Float(index) * .pi / 8
+                let aim = SCNVector3(cos(angle), 0, sin(angle))
+                for view in [CameraRig.PlayerView.firstPerson, .thirdPerson] {
+                    let pose = try XCTUnwrap(CameraRig.playerPose(view: view, cue: cue, aim: aim,
+                        surfaceY: 0.8, halfLength: 1.4055, halfWidth: 0.7995))
+                    let eyeX = pose.pivot.x + cos(pose.yaw) * pose.radius
+                    let eyeZ = pose.pivot.z + sin(pose.yaw) * pose.radius
+                    XCTAssertTrue(abs(eyeX) > 1.4055 || abs(eyeZ) > 0.7995)
+                    XCTAssertLessThan((eyeX - cue.x) * aim.x + (eyeZ - cue.z) * aim.z, 0)
+                    XCTAssertEqual(pose.height, view == .firstPerson ? 0.16 : 0.84, accuracy: 0.0001)
+                    XCTAssertLessThan(pose.pitch, 0)
+                }
+            }
+        }
+        XCTAssertNil(CameraRig.playerPose(view: .firstPerson, cue: SCNVector3Zero,
+            aim: SCNVector3Zero, surfaceY: 0.8, halfLength: 1.4, halfWidth: 0.8))
+    }
+
+    func testFirstPersonTransitionRetainsExactPoseAndManualTakeoverDoesNotResumeIt() throws {
+        let node = SCNNode()
+        node.camera = SCNCamera()
+        let rig = CameraRig(cameraNode: node, tableSurfaceY: 0.8, config: .dailyClearance)
+        rig.usesRailCameraControls = true
+        let cue = SCNVector3(0.3, 0.828575, 0.2), aim = SCNVector3(1, 0, 0)
+        XCTAssertTrue(rig.enterPlayerView(.firstPerson, cue: cue, aim: aim))
+        for _ in 0..<80 { rig.update(deltaTime: 1 / 60) }
+        XCTAssertEqual(node.position.y, 0.96, accuracy: 0.001)
+        let before = node.simdTransform
+        for _ in 0..<80 { rig.update(deltaTime: 1 / 60) }
+        XCTAssertEqual(node.simdTransform, before)
+        XCTAssertTrue(rig.isPlayerViewFor(cue: cue, aim: aim))
+        let saved = rig.capturePerspectiveState()
+        rig.enterPlayerView(.thirdPerson, cue: cue, aim: aim)
+        rig.update(deltaTime: 0.2)
+        let live = node.position
+        rig.handleHorizontalSwipe(delta: 0)
+        rig.update(deltaTime: 1 / 60)
+        XCTAssertLessThan((node.position - live).length(), 0.001)
+        XCTAssertNil(rig.playerView)
+        XCTAssertFalse(rig.isTransitioning)
+        rig.restorePerspectiveState(saved)
+        XCTAssertEqual(rig.playerView, .firstPerson)
+        XCTAssertEqual(node.position.y, 0.96, accuracy: 0.001)
+    }
+
+    func testRailOpticalZoomInspectsFarBallsWithoutCrossingCushion() {
+        let node = SCNNode(); node.camera = SCNCamera()
+        let rig = CameraRig(cameraNode: node, tableSurfaceY: 0.8)
+        rig.usesRailCameraControls = true
+        rig.enterPlayerView(.firstPerson, cue: SCNVector3(0, 0.828575, 0), aim: SCNVector3(1, 0, 0))
+        rig.update(deltaTime: 2)
+        let eye = node.position
+        rig.handlePinch(scale: 100)
+        rig.snapToTarget()
+        XCTAssertEqual(node.camera?.fieldOfView, 18)
+        XCTAssertLessThan((node.position - eye).length(), 0.001)
+        rig.handlePinch(scale: 0.01)
+        rig.snapToTarget()
+        XCTAssertEqual(node.camera?.fieldOfView, 42)
+    }
+}
+
+// V015: opt-in native still; keep V013's camera and label treatment.
+extension AngleAimingVideoCaptureTests {
+    private func makePipeScene() throws -> AngleDynamicViewModel {
+        let vm = AngleDynamicViewModel(); vm.setupScene()
+        let scene = vm.scene
+        XCTAssertTrue(scene.applyTableStyle(.charcoal, showsSights: true))
+        scene.applyClothColor(.green)
+        scene.setCameraMode(.perspective3D, animated: false)
+        scene.installReferenceRoom(style: .tournament)
+        XCTAssertTrue(try XCTUnwrap(scene.cueStick).applyStyle(.inkDragon))
+        return vm
+    }
+
+    func testPipeAimingPreview() throws {
+        let out = try outputDirectory(), vm = try makePipeScene()
+        let (image,record) = try pipeFrame(vm:vm,degrees:44.5)
+        try XCTUnwrap(image.pngData()).write(to:out.appendingPathComponent("pipe-44.5.png"))
+        try JSONSerialization.data(withJSONObject:record,options:[.prettyPrinted,.sortedKeys]).write(to:out.appendingPathComponent("geometry.json"))
+    }
+
+    func testPipeAimingDarkRedPreviews() throws {
+        let out = try outputDirectory()
+        let variants: [(String, UIColor)] = [
+            ("A-muted-red", UIColor(red: 0.72, green: 0.10, blue: 0.12, alpha: 1)),
+            ("B-deep-red", UIColor(red: 0.55, green: 0.08, blue: 0.10, alpha: 1))
+        ]
+        for (name, color) in variants {
+            let vm = try makePipeScene()
+            let (image, data) = try pipeFrame(vm: vm, degrees: 44.5, ghostColor: color, blackPot: true)
+            try XCTUnwrap(image.pngData()).write(to: out.appendingPathComponent("\(name).png"))
+            var record = data; record["variant"] = name; record["potColor"] = "black"; record["labelColor"] = "white"
+            try JSONSerialization.data(withJSONObject: record, options: [.prettyPrinted, .sortedKeys]).write(to: out.appendingPathComponent("\(name).json"))
+        }
+    }
+
+    func testPipeAimingVideo() async throws {
+        let out = try outputDirectory(), vm = try makePipeScene()
+        let keyframes = FileManager.default.fileExists(atPath:out.appendingPathComponent(".keyframes").path)
+        let selected = [0,225,449,450,675,899]
+        let writer = keyframes ? nil : try VideoWriter(url:out.appendingPathComponent("pipe-aiming-0-89-2k60-15s.mp4"),size:CGSize(width:1600,height:2560),fps:60,averageBitRate:48_000_000)
+        var records: [[String:Any]] = []
+        for index in 0..<900 {
+            if keyframes && !selected.contains(index) {continue}
+            try autoreleasepool {
+                let degrees = 89*Double(index)/899
+                let (image,data) = try pipeFrame(vm:vm,degrees:degrees,ghostColor:UIColor(red:0.72,green:0.10,blue:0.12,alpha:1),blackPot:true)
+                var record = data; record["frame"] = index;record["time"] = Double(index)/60;record["stillOnly"] = keyframes;record["ghostRingColor"] = "A-muted-red";record["potColor"] = "black";record["labelColor"] = "white"
+                records.append(record)
+                if selected.contains(index) {try XCTUnwrap(image.pngData()).write(to:out.appendingPathComponent("frames/frame-\(index).png"))}
+                try writer?.append(XCTUnwrap(image.cgImage))
+            }
+            if index%60 == 0 {print("PIPE_FRAME \(index)/900")}
+            try await Task.sleep(nanoseconds:1_000_000)
+        }
+        try await writer?.finish()
+        try JSONSerialization.data(withJSONObject:records,options:[.prettyPrinted,.sortedKeys]).write(to:out.appendingPathComponent(keyframes ? "keyframes.json":"frames.json"))
+    }
+
+    private func pipeFrame(vm:AngleDynamicViewModel,degrees:Double,ghostColor:UIColor = .red,blackPot:Bool = false) throws -> (UIImage,[String:Any]) {
+        let scene = vm.scene
+        scene.rootNode.childNodes.filter { $0.name == "tableProjectedAssist" || $0.name == "pipeDetailCamera" || $0.name == "pipeDashedCenter" }.forEach { $0.removeFromParentNode() }
+        let r = AngleSceneCalculator.ballRadius, y = scene.surfaceY + r
+        let pocket = AngleSceneCalculator.effectivePocketAimPoint(targetBall: SCNVector3(0,y,-0.23), pocketIndex: 4, surfaceY: scene.surfaceY)
+        let angle = Float(degrees * Double.pi / 180)
+        let length = -2*r*cos(angle) + sqrt(0.5*0.5-pow(2*r*sin(angle),2))
+        let target = SCNVector3(pocket.x,y,pocket.z+0.4)
+        let ghost = SCNVector3(target.x,y,target.z+2*r)
+        let cue = SCNVector3(ghost.x-length*sin(angle),y,ghost.z+length*cos(angle))
+        let contact = SCNVector3(target.x,y,target.z+r)
+        let direction = simd_normalize(SIMD3<Float>(ghost.x-cue.x,0,ghost.z-cue.z))
+        vm.selectPocket(at: 4)
+        scene.clearPocketHighlights()
+        XCTAssertEqual(scene.pocketSelectionDescription,"未选择目标袋")
+        try XCTUnwrap(scene.cueBallNode).position = cue
+        try XCTUnwrap(vm.targetNode).position = target
+        scene.hideAllVisualization()
+        scene.updateCueStick(cueBallPosition: cue, aimDirection: SCNVector3(direction))
+        scene.cueStick?.rootNode.isHidden = false
+        let camera = try XCTUnwrap(scene.cameraNode)
+        camera.camera!.usesOrthographicProjection = false
+        camera.camera!.fieldOfView = 80
+        camera.camera!.projectionDirection = .vertical
+        camera.camera!.zNear = 0.01; camera.camera!.zFar = 100
+        camera.position = SCNVector3(cue.x-0.35*direction.x,scene.surfaceY+0.75,cue.z-0.35*direction.z)
+        camera.look(at: target, up: SCNVector3(0,1,0), localFront: SCNVector3(0,0,-1))
+        let renderer = SCNRenderer(device: nil, options: nil)
+        renderer.scene = scene; renderer.pointOfView = camera
+        renderer.autoenablesDefaultLighting = false; renderer.delegate = scene.contactOcclusion
+        let gold = blackPot ? UIColor.black : UIColor(red: 1, green: 0.68, blue: 0.12, alpha: 1)
+        // Miter the two ball-width strips at their shared centerline junction G.
+        // Each boundary terminates at its corresponding boundary intersection.
+        let potDirection = simd_normalize(SIMD3<Float>(pocket.x-ghost.x,0,pocket.z-ghost.z))
+        let aimSide = SIMD3<Float>(-direction.z,0,direction.x)
+        let potSide = SIMD3<Float>(-potDirection.z,0,potDirection.x)
+        let jointNormal = simd_normalize(direction+potDirection)
+        let miter = (aimSide+potSide)*r/(1+simd_dot(aimSide,potSide))
+        let junction = SIMD3<Float>(ghost.x,ghost.y,ghost.z)
+        let aimEnd = ghost, potStart = ghost
+        var clothY: Float = scene.surfaceY
+        func pipe(_ a: SCNVector3, _ b: SCNVector3, color: UIColor, incoming: Bool) throws {
+            let u = simd_normalize(SIMD3<Float>(b.x-a.x,0,b.z-a.z))
+            let side = SIMD3<Float>(-u.z,0,u.x)
+            let extensionLength: Float = 0.15
+            let extendedA = incoming ? a : SCNVector3(a.x-u.x*extensionLength,a.y,a.z-u.z*extensionLength)
+            let extendedB = incoming ? SCNVector3(b.x+u.x*extensionLength,b.y,b.z+u.z*extensionLength) : b
+            let fill = scene.addLine(from:extendedA,to:extendedB,color:color.withAlphaComponent(0.20),radius:r,placement:.table,layer:incoming ? .reference:.fill)
+            let oldGeometry = try XCTUnwrap(fill.geometry)
+            let source = try XCTUnwrap(oldGeometry.sources(for:.vertex).first)
+            XCTAssertEqual(source.bytesPerComponent,4)
+            let vertices: [SIMD3<Float>] = source.data.withUnsafeBytes { raw in
+                (0..<source.vectorCount).map { index in
+                    let offset = source.dataOffset+index*source.dataStride
+                    return SIMD3<Float>(raw.loadUnaligned(fromByteOffset:offset,as:Float.self),raw.loadUnaligned(fromByteOffset:offset+4,as:Float.self),raw.loadUnaligned(fromByteOffset:offset+8,as:Float.self))
+                }
+            }
+            let sign: Float = incoming ? -1:1
+            func distance(_ v: SIMD3<Float>) -> Float {sign*simd_dot(v-junction,jointNormal)}
+            var clipped: [SCNVector3] = []
+            for index in stride(from:0,to:vertices.count,by:3) {
+                let triangle = Array(vertices[index..<index+3])
+                var polygon: [SIMD3<Float>] = []
+                for edge in 0..<3 {
+                    let p = triangle[edge], q = triangle[(edge+1)%3]
+                    let dp = distance(p), dq = distance(q)
+                    if dp >= 0 {polygon.append(p)}
+                    if (dp >= 0) != (dq >= 0) {polygon.append(p+(q-p)*(dp/(dp-dq)))}
+                }
+                if polygon.count >= 3 {
+                    for j in 1..<polygon.count-1 {clipped += [SCNVector3(polygon[0]),SCNVector3(polygon[j]),SCNVector3(polygon[j+1])]}
+                }
+            }
+            XCTAssertFalse(clipped.isEmpty)
+            for v in clipped {XCTAssertGreaterThanOrEqual(distance(SIMD3<Float>(v.x,v.y,v.z)),-0.000001)}
+            let geometry = SCNGeometry(sources:[SCNGeometrySource(vertices:clipped)],elements:[SCNGeometryElement(indices:(0..<clipped.count).map(Int32.init),primitiveType:.triangles)])
+            geometry.materials = oldGeometry.materials;fill.geometry = geometry
+            let bounds = fill.boundingBox
+            XCTAssertEqual(bounds.min.y,bounds.max.y,accuracy:0.00001)
+            clothY = bounds.min.y
+            for edgeSign: Float in [-1,1] {
+                let joint = junction+miter*edgeSign
+                let endpoint = incoming ? SIMD3<Float>(a.x,a.y,a.z)+side*r*edgeSign : SIMD3<Float>(b.x,b.y,b.z)+side*r*edgeSign
+                _ = scene.addLine(from:SCNVector3(endpoint),to:SCNVector3(joint),color:color,radius:0.0005,placement:.table,layer:.aiming)
+                XCTAssertEqual(abs(simd_dot(joint-junction,aimSide)),r,accuracy:0.000001)
+                XCTAssertEqual(abs(simd_dot(joint-junction,potSide)),r,accuracy:0.000001)
+            }
+        }
+        try pipe(potStart,pocket,color:gold,incoming:false)
+        try pipe(cue,aimEnd,color:.white,incoming:true)
+        func floor(_ p: SCNVector3) -> SCNVector3 {SCNVector3(p.x,clothY,p.z)}
+        scene.addDashedLine(from: potStart, to: pocket, color: .black, radius: 0.0008, dash: 0.018, gap: 0.012, placement: .table, layer: .aiming).name = "pipeDashedCenter"
+        _ = scene.addLine(from: cue, to: aimEnd, color: .white, radius: 0.0006, placement: .table, layer: .aiming)
+        let ghostRing = try XCTUnwrap(scene.ghostBallNode)
+        ghostRing.position = SCNVector3(ghost.x,clothY+r,ghost.z)
+        ghostRing.isHidden = false
+        for segment in ghostRing.childNodes where segment.name != "ghostAimDot" {
+            segment.geometry?.materials.forEach { $0.diffuse.contents = ghostColor }
+        }
+        ghostRing.childNode(withName:"ghostAimDot",recursively:true)?.isHidden = true
+        XCTAssertFalse(ghostRing.isHidden)
+        XCTAssertTrue(try XCTUnwrap(ghostRing.childNode(withName:"ghostAimDot",recursively:true)).isHidden)
+        XCTAssertEqual(ghostRing.childNodes.filter { !$0.isHidden }.count,16)
+        let canvas = CGSize(width:1200,height:1920), scale: CGFloat = 4/3
+        let renderSize = CGSize(width:1760,height:2560)
+        SCNTransaction.flush()
+        _ = renderer.snapshot(atTime:0,with:renderSize,antialiasingMode:.multisampling4X)
+        let wide = renderer.snapshot(atTime:0,with:renderSize,antialiasingMode:.multisampling4X)
+        let shot = UIImage(cgImage:try XCTUnwrap(wide.cgImage?.cropping(to:CGRect(x:160,y:0,width:1600,height:2560))),scale:scale,orientation:.up)
+        func project(_ p: SCNVector3) -> CGPoint {
+            let v = renderer.projectPoint(p)
+            return CGPoint(x:CGFloat(v.x)/scale-120,y:1920-CGFloat(v.y)/scale)
+        }
+        let detailCamera = SCNNode(); detailCamera.name = "pipeDetailCamera"; detailCamera.camera = SCNCamera()
+        detailCamera.camera!.usesOrthographicProjection = true
+        detailCamera.camera!.orthographicScale = 0.080
+        detailCamera.camera!.projectionDirection = .vertical
+        detailCamera.camera!.zNear = 0.01; detailCamera.camera!.zFar = 10
+        detailCamera.position = SCNVector3(contact.x,scene.surfaceY+3,contact.z)
+        detailCamera.look(at:contact,up:SCNVector3(direction),localFront:SCNVector3(0,0,-1))
+        scene.rootNode.addChildNode(detailCamera)
+        let detailRenderer = SCNRenderer(device:nil,options:nil)
+        detailRenderer.scene = scene; detailRenderer.pointOfView = detailCamera
+        detailRenderer.autoenablesDefaultLighting = false; detailRenderer.delegate = scene.contactOcclusion
+        SCNTransaction.flush()
+        let detail = detailRenderer.snapshot(atTime:0,with:CGSize(width:1440,height:1440),antialiasingMode:.multisampling4X)
+        let detailPoint = detailRenderer.projectPoint(contact)
+        XCTAssertEqual(detailPoint.x,720,accuracy:0.2); XCTAssertEqual(detailPoint.y,720,accuracy:0.2)
+        let inset = CGRect(x:859,y:644,width:306,height:306)
+        let cueInset = CGRect(x:859,y:970,width:306,height:306)
+        let upperAxisX = CGFloat(detailRenderer.projectPoint(ghost).x)/1440*inset.width+inset.minX
+        // Keep the same transverse camera offset from the aiming axis, so all
+        // three pipe lines align across the two equally scaled crops.
+        let transverseOffset = simd_dot(SIMD3<Float>(contact.x-ghost.x,0,contact.z-ghost.z),aimSide)
+        let cueFocus = SCNVector3(cue.x+aimSide.x*transverseOffset,y,cue.z+aimSide.z*transverseOffset)
+        detailCamera.position = SCNVector3(cueFocus.x,scene.surfaceY+3,cueFocus.z)
+        detailCamera.look(at:cueFocus,up:SCNVector3(direction),localFront:SCNVector3(0,0,-1))
+        SCNTransaction.flush()
+        let cueDetail = detailRenderer.snapshot(atTime:0,with:CGSize(width:1440,height:1440),antialiasingMode:.multisampling4X)
+        let lowerAxisX = CGFloat(detailRenderer.projectPoint(cue).x)/1440*cueInset.width+cueInset.minX
+        XCTAssertEqual(upperAxisX,lowerAxisX,accuracy:0.02)
+        XCTAssertEqual(inset.size,cueInset.size)
+        XCTAssertEqual((inset.minY+cueInset.maxY)/2,canvas.height/2,accuracy:0.001)
+        let format = UIGraphicsImageRendererFormat(); format.scale = scale; format.opaque = true
+        let image = UIGraphicsImageRenderer(size:canvas,format:format).image { ctx in
+            UIColor.black.setFill();ctx.fill(CGRect(origin:.zero,size:canvas));shot.draw(at:.zero)
+            let g = ctx.cgContext
+            func label(_ text: String, position: CGPoint, anchor: CGPoint, color: UIColor) {
+                let font = UIFont.systemFont(ofSize:40,weight:.semibold)
+                let paragraph = NSMutableParagraphStyle(); paragraph.lineSpacing = 7
+                let attributes: [NSAttributedString.Key:Any] = [.font:font,.foregroundColor:color,.paragraphStyle:paragraph]
+                let bounds = (text as NSString).boundingRect(with:CGSize(width:450,height:180),options:[.usesLineFragmentOrigin,.usesFontLeading],attributes:attributes,context:nil)
+                let rect = CGRect(origin:position,size:CGSize(width:ceil(bounds.width)+2,height:ceil(bounds.height)))
+                (text as NSString).draw(in:rect,withAttributes:attributes)
+                let end = CGPoint(x:anchor.x>rect.midX ? rect.maxX+10:rect.minX-10,y:rect.midY)
+                g.setStrokeColor(color.cgColor);g.setLineWidth(2);g.move(to:end);g.addLine(to:anchor);g.strokePath()
+                color.setFill();UIBezierPath(ovalIn:CGRect(x:anchor.x-3,y:anchor.y-3,width:6,height:6)).fill()
+            }
+            func midpoint(_ a: SCNVector3,_ b: SCNVector3,_ t: Float) -> SCNVector3 {SCNVector3(a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,a.z+(b.z-a.z)*t)}
+            label("进球管道",position:CGPoint(x:70,y:795),anchor:project(floor(midpoint(target,pocket,0.5))),color:blackPot ? .white : gold)
+            label("瞄准管道",position:CGPoint(x:100,y:1240),anchor:project(floor(midpoint(cue,ghost,0.50))),color:.white)
+            let side = SIMD3<Float>(-direction.z,0,direction.x)
+            let anchor = midpoint(cue,ghost,0.23)
+            label("管道宽度\n等于球直径",position:CGPoint(x:55,y:1720),anchor:project(floor(SCNVector3(anchor.x-r*side.x,anchor.y,anchor.z-r*side.z))),color:.white)
+            for (box,shot) in [(inset,detail),(cueInset,cueDetail)] {
+                g.saveGState();UIBezierPath(roundedRect:box,cornerRadius:18).addClip()
+                g.interpolationQuality = .high; shot.draw(in:box)
+                g.restoreGState()
+                UIColor(white:1,alpha:0.65).setStroke();let border=UIBezierPath(roundedRect:box,cornerRadius:18);border.lineWidth=1.5;border.stroke()
+            }
+        }
+        XCTAssertEqual(image.cgImage?.width,1600);XCTAssertEqual(image.cgImage?.height,2560)
+        XCTAssertEqual(AngleSceneCalculator.horizontalDistance(cue,target),0.5,accuracy:0.000001)
+        XCTAssertEqual(AngleSceneCalculator.horizontalDistance(ghost,target),2*r,accuracy:0.000001)
+        XCTAssertEqual(AngleSceneCalculator.horizontalDistance(contact,target),r,accuracy:0.000001)
+        XCTAssertEqual(AngleSceneCalculator.horizontalDistance(contact,ghost),r,accuracy:0.000001)
+        let measured = atan2(abs(direction.x),-direction.z)*180/Float.pi
+        XCTAssertEqual(measured,Float(degrees),accuracy:0.001)
+        let record: [String:Any] = ["cutDegrees":measured,"plannedRange":[0,89],"size":[1600,2560],"ballRadiusM":r,"cue":[cue.x,cue.y,cue.z],"target":[target.x,target.y,target.z],"ghost":[ghost.x,ghost.y,ghost.z],"contact":[contact.x,contact.y,contact.z],"insetRect":[inset.minX,inset.minY,inset.width,inset.height],"cameraHeightM":0.75,"cameraBackM":0.35,"stillOnly":true,"pipePlacement":"cloth","pipeClothY":clothY,"aimEnd":[aimEnd.x,aimEnd.y,aimEnd.z],"potStart":[potStart.x,potStart.y,potStart.z],"pipeWidthM":2*r,"insetOrthographicScale":0.080,"ghostRingVisible":true,"contactDotVisible":false,"cueInsetRect":[cueInset.minX,cueInset.minY,cueInset.width,cueInset.height],"insetAxisX":[upperAxisX,lowerAxisX],"insetGroupMidY":(inset.minY+cueInset.maxY)/2]
+        return (image,record)
+    }
+}
+
+@MainActor
+final class DailyShotCameraTests: XCTestCase {
+    let viewport = CGSize(width: 874, height: 402)
+
+    func testEyeStaysAboveActualShaftAcrossElevationsAndHeadings() throws {
+        for degrees in [3.0, 15, 23, 32, 60] {
+            let elevation = Float(degrees * .pi / 180)
+            for i in 0..<16 {
+                let yaw = Float(i) * .pi / 8
+                let aim = SCNVector3(cos(yaw), 0, sin(yaw))
+                let cue = SCNVector3(0.2, 0.828575, -0.1)
+                let strike = CueStroke.strikePosition(cue: cue, aim: aim, spinX: 0.3, spinY: -0.4)
+                let pose = try XCTUnwrap(CameraRig.dailyPlayerPose(view: .firstPerson,
+                    cue: cue, strike: strike, aim: aim, elevation: elevation,
+                    surfaceY: 0.8, viewport: viewport))
+                let eye = SCNVector3(pose.pivot.x + cos(pose.yaw) * pose.radius,
+                    0.8 + pose.height, pose.pivot.z + sin(pose.yaw) * pose.radius)
+                let stick = CueStick()
+                stick.update(cueBallPosition: strike, aimDirection: aim, elevation: elevation)
+                let shaft = stick.rootNode.convertPosition(SCNVector3(0, 0, 0.9), to: nil)
+                XCTAssertEqual(eye.x, shaft.x, accuracy: 0.0001)
+                XCTAssertEqual(eye.z, shaft.z, accuracy: 0.0001)
+                XCTAssertEqual(eye.y - shaft.y, 0.13, accuracy: 0.0001)
+                XCTAssertLessThan(pose.pitch, 0)
+            }
+        }
+    }
+
+    func testHorizontalLensIsBoundedOnPhoneAndTablet() {
+        for size in [viewport, CGSize(width: 1194, height: 834), CGSize(width: 402, height: 640)] {
+            let fov = CameraRig.dailyFOV(viewport: size)
+            let horizontal = 2 * atan(tan(fov * .pi / 360) * Float(size.width / size.height)) * 180 / .pi
+            XCTAssertLessThanOrEqual(horizontal, 56.001)
+            XCTAssertLessThanOrEqual(fov, 40)
+            XCTAssertLessThan(CameraRig.dailyFOV(viewport: size, close: true), fov)
+        }
+    }
+
+    func testTargetFocusPinchKeepsEyeAndZoomKeepsPivotThenReturnsToTable() throws {
+        let camera = SCNNode(); camera.camera = SCNCamera()
+        let rig = CameraRig(cameraNode: camera, tableSurfaceY: 0.8, config: .dailyClearance)
+        rig.usesShotAwareCamera = true; rig.usesRailCameraControls = true; rig.viewportSize = viewport
+        let cue = SCNVector3(-0.5, 0.828575, 0), target = SCNVector3(0.3, 0.828575, 0.1)
+        XCTAssertTrue(rig.enterPlayerView(.thirdPerson, cue: cue, aim: target - cue, focus: target))
+        rig.update(deltaTime: 2)
+        XCTAssertLessThan((rig.currentPivot - target).length(), 0.001)
+        let eye = camera.position
+        rig.beginObservationPinch(at: cue)
+        rig.snapToTarget()
+        XCTAssertLessThan((camera.position - eye).length(), 0.001)
+        rig.handlePinch(scale: 2); rig.snapToTarget()
+        XCTAssertLessThan((rig.currentPivot - cue).length(), 0.001)
+        XCTAssertLessThan((camera.position - eye).length(), 0.001)
+        let yaw = rig.targetYaw
+        rig.handleHorizontalSwipe(delta: 100)
+        XCTAssertLessThan(abs(rig.targetYaw - yaw), 0.25)
+        rig.handlePinch(scale: 0.1); rig.snapToTarget()
+        rig.handlePinch(scale: 0.9); rig.snapToTarget()
+        XCTAssertEqual(rig.currentPivot.x, 0, accuracy: 0.001)
+        XCTAssertEqual(rig.currentPivot.z, 0, accuracy: 0.001)
+    }
+
+    func testCuePoseUpdatesFirstPersonButNeverStealsManualObservation() throws {
+        let camera = SCNNode(); camera.camera = SCNCamera()
+        let rig = CameraRig(cameraNode: camera, tableSurfaceY: 0.8, config: .dailyClearance)
+        rig.usesShotAwareCamera = true; rig.viewportSize = viewport
+        let cue = SCNVector3(0, 0.828575, 0), aim = SCNVector3(1, 0, 0)
+        rig.updateCuePose(strike: cue, aim: aim, elevation: 0.05)
+        rig.enterPlayerView(.firstPerson, cue: cue, aim: aim); rig.update(deltaTime: 2)
+        let low = camera.position.y
+        rig.updateCuePose(strike: cue, aim: aim, elevation: 0.4); rig.update(deltaTime: 2)
+        XCTAssertGreaterThan(camera.position.y, low + 0.2)
+        let state = rig.capturePerspectiveState()
+        rig.handleHorizontalSwipe(delta: 40); rig.snapToTarget()
+        let manual = camera.simdTransform
+        rig.updateCuePose(strike: cue, aim: aim, elevation: 0.1); rig.update(deltaTime: 2)
+        XCTAssertEqual(camera.simdTransform, manual)
+        rig.restorePerspectiveState(state)
+        XCTAssertEqual(rig.playerView, .firstPerson)
+    }
+}
+
+extension DailyShotCameraTests {
+    func testRaisedCueGazeKeepsBothBallsInViewWithoutLoweringEye() throws {
+        let cue = SCNVector3(-1.234, 0.828575, -0.457), target = SCNVector3(-0.406, 0.828575, -0.127)
+        let aim = (target - cue).normalized()
+        let pose = try XCTUnwrap(CameraRig.dailyPlayerPose(view: .firstPerson, cue: cue,
+            strike: cue, aim: aim, elevation: 0.40, surfaceY: 0.8, viewport: viewport, context: [cue, target]))
+        let camera = SCNNode()
+        camera.position = SCNVector3(pose.pivot.x + cos(pose.yaw) * pose.radius,
+            0.8 + pose.height, pose.pivot.z + sin(pose.yaw) * pose.radius)
+        camera.eulerAngles = SCNVector3(pose.pitch, atan2(cos(pose.yaw), sin(pose.yaw)), 0)
+        for point in [cue, target] {
+            let p = camera.convertPosition(point, from: nil)
+            XCTAssertLessThan(p.z, 0)
+            let vertical = p.y / -p.z / tan(pose.fov * .pi / 360)
+            XCTAssertLessThan(abs(vertical), 0.8, "Both balls stay inside the usable vertical field")
+        }
+        XCTAssertGreaterThan(camera.position.y, 1.25)
+    }
+}
+
+extension DailyShotCameraTests {
+    func testReplacingUnstartedPoseUsesVisibleOrigin() {
+        let camera = SCNNode(); camera.camera = SCNCamera()
+        let rig = CameraRig(cameraNode: camera, tableSurfaceY: 0.8, config: .dailyClearance)
+        rig.usesShotAwareCamera = true; rig.viewportSize = viewport
+        let cue = SCNVector3(0, 0.828575, 0), aim = SCNVector3(1, 0, 0)
+        rig.enterPlayerView(.firstPerson, cue: cue, aim: aim); rig.update(deltaTime: 2)
+        let eye = camera.position
+        rig.enterPlayerView(.firstPerson, cue: cue, aim: SCNVector3(0.98, 0, 0.2))
+        rig.enterPlayerView(.thirdPerson, cue: cue, aim: aim)
+        rig.update(deltaTime: 0)
+        XCTAssertLessThan((camera.position - eye).length(), 0.001)
+    }
+}
+
+/// Opt-in still using production table, balls and pocket/contact geometry.
+@MainActor
+final class ClockAimingPreviewCaptureTests: XCTestCase {
+    func testNativeClockPreview() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let path = env["TEST_RUNNER_CLOCK_PREVIEW_DIR"] ?? env["CLOCK_PREVIEW_DIR"] else {
+            throw XCTSkip("Set TEST_RUNNER_CLOCK_PREVIEW_DIR")
+        }
+        let out = URL(fileURLWithPath: path)
+        try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        let vm = AngleDynamicViewModel(); vm.setupScene()
+        let scene = vm.scene
+        XCTAssertTrue(scene.applyTableStyle(.charcoal, showsSights: true))
+        scene.applyClothColor(.green)
+        let r = AngleSceneCalculator.ballRadius, y = scene.surfaceY + r
+        let target = SCNVector3(0.70, y, -0.05), cue = SCNVector3(0.24, y, 0.10)
+        try XCTUnwrap(vm.targetNode).position = target
+        try XCTUnwrap(scene.cueBallNode).position = cue
+        vm.selectPocket(at: 1); vm.updateCalculations()
+        let aim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: target, pocketIndex: 1, surfaceY: scene.surfaceY)
+        let n = simd_normalize(SIMD2<Float>(aim.x-target.x, aim.z-target.z))
+        let a = AngleSceneCalculator.contactPointPosition(targetBall: target, pocket: aim)
+        let b = SCNVector3(cue.x+r*n.x, y, cue.z+r*n.y)
+        XCTAssertEqual(a.x-target.x, -(b.x-cue.x), accuracy: 0.000001)
+        XCTAssertEqual(a.z-target.z, -(b.z-cue.z), accuracy: 0.000001)
+        scene.setCameraMode(.topDown2D, animated: false)
+        scene.hideCueStick()
+        for node in [scene.ghostBallNode, scene.pocketLineNode, scene.strikeLineNode, scene.contactDotNode, scene.angleArcNode, scene.perpLineNode] { node?.isHidden = true }
+        let cameraNode = try XCTUnwrap(scene.cameraNode), camera = try XCTUnwrap(scene.cameraNode.camera)
+        camera.usesOrthographicProjection = true; camera.projectionDirection = .vertical
+        camera.zNear = 0.01; camera.zFar = 100; camera.wantsExposureAdaptation = false
+        let renderer = SCNRenderer(device: nil, options: nil)
+        renderer.scene = scene; renderer.pointOfView = cameraNode
+        renderer.delegate = scene.contactOcclusion; renderer.autoenablesDefaultLighting = false
+        func positionCamera(_ center: SCNVector3, _ scale: Double) {
+            camera.orthographicScale = scale
+            cameraNode.position = SCNVector3(center.x, center.y+3, center.z)
+            cameraNode.look(at: center, up: SCNVector3(1,0,0), localFront: SCNVector3(0,0,-1))
+            SCNTransaction.flush()
+        }
+        func project(_ p: SCNVector3, _ height: CGFloat) -> CGPoint {
+            let q = renderer.projectPoint(p)
+            return CGPoint(x: CGFloat(q.x), y: height-CGFloat(q.y))
+        }
+        func clock(_ point: SCNVector3, _ center: SCNVector3) -> String {
+            var hours = Double(atan2(point.z-center.z, point.x-center.x)) * 6 / .pi
+            if hours < 0 { hours += 12 }
+            let total = Int((hours*60).rounded()) % 720
+            return String(format: "%d:%02d", total/60 == 0 ? 12 : total/60, total%60)
+        }
+        let targetTime = clock(a,target), cueTime = clock(b,cue)
+        let mainSize = CGSize(width: 1100, height: 1500)
+        positionCamera(SCNVector3(0.53,scene.surfaceY,0),1.05)
+        _ = renderer.snapshot(atTime: 0, with: mainSize, antialiasingMode: .multisampling4X)
+        let main = renderer.snapshot(atTime: 0, with: mainSize, antialiasingMode: .multisampling4X)
+        let ap = project(a,1500), bp = project(b,1500), tp = project(target,1500), cp = project(cue,1500), pp = project(aim,1500)
+        let left = project(SCNVector3(target.x,y,-0.59),1500), right = project(SCNVector3(target.x,y,0.59),1500)
+        let closeSize = CGSize(width: 440,height: 440)
+        var details: [(UIImage,CGPoint)] = []
+        for (center,point) in [(target,a),(cue,b)] {
+            positionCamera(center,0.043)
+            let image = renderer.snapshot(atTime: 0, with: closeSize, antialiasingMode: .multisampling4X)
+            details.append((image,project(point,440)))
+        }
+        let size = CGSize(width:1700,height:1500), format = UIGraphicsImageRendererFormat()
+        format.scale=1; format.opaque=true
+        let result = UIGraphicsImageRenderer(size:size,format:format).image { context in
+            let g = context.cgContext
+            UIColor(red:0.055,green:0.075,blue:0.07,alpha:1).setFill(); context.fill(CGRect(origin:.zero,size:size))
+            main.draw(at:.zero)
+            func line(_ p:CGPoint,_ q:CGPoint,_ color:UIColor,_ dashed:Bool=false) {
+                g.saveGState(); g.setStrokeColor(color.cgColor);g.setLineWidth(3)
+                g.setLineDash(phase:0,lengths:dashed ? [12,10]:[])
+                g.move(to:p);g.addLine(to:q);g.strokePath();g.restoreGState()
+            }
+            func dot(_ p:CGPoint) {
+                UIColor.systemRed.setFill();let shape=UIBezierPath(ovalIn:CGRect(x:p.x-7,y:p.y-7,width:14,height:14));shape.fill()
+                UIColor.white.setStroke();shape.lineWidth=1.5;shape.stroke()
+            }
+            func text(_ value:String,_ x:CGFloat,_ y:CGFloat,_ font:CGFloat=30,_ color:UIColor = .white) {
+                let shadow=NSShadow();shadow.shadowColor=UIColor.black;shadow.shadowBlurRadius=4
+                (value as NSString).draw(at:CGPoint(x:x,y:y),withAttributes:[.font:UIFont.systemFont(ofSize:font,weight:.semibold),.foregroundColor:color,.shadow:shadow])
+            }
+            line(left,right,UIColor.white.withAlphaComponent(0.65),true)
+            line(tp,pp,.systemYellow)
+            line(tp,ap,.systemYellow)
+            dot(ap);dot(bp)
+            text("平行于短边库边",right.x-270,tp.y-48,27)
+            text("目标球接触点 · 约 \(targetTime)",tp.x+52,tp.y+60,27)
+            text("母球固定 · 接触点约 \(cueTime)",cp.x-160,cp.y+65,27)
+            text("钟表瞄准法",1150,55,48)
+            text("真实球桌 · 俯视预览",1150,125,27,.lightGray)
+            for i in 0..<2 {
+                let origin=CGPoint(x:1180,y:i == 0 ? 280:900)
+                details[i].0.draw(at:origin)
+                dot(CGPoint(x:origin.x+details[i].1.x,y:origin.y+details[i].1.y))
+            }
+            text("目标球：约 \(targetTime)",1190,225,32)
+            text("相差 6 小时",1190,760,42,.systemYellow)
+            text("母球：约 \(cueTime)",1190,845,32)
+            text("球面不画钟表，只认接触点",1140,1400,27)
+            text("移动目标球，重新读取接触点方向",95,1400,30)
+        }
+        try XCTUnwrap(result.pngData()).write(to:out.appendingPathComponent("clock-aiming-native.png"))
+        let record:[String:Any] = ["targetTime":targetTime,"cueTime":cueTime,"cue":[cue.x,cue.y,cue.z],"target":[target.x,target.y,target.z],"aim":[aim.x,aim.y,aim.z],"renderer":"AngleTrainingScene / SCNRenderer","screenUp":"+X","screenRight":"+Z"]
+        try JSONSerialization.data(withJSONObject:record,options:[.prettyPrinted,.sortedKeys]).write(to:out.appendingPathComponent("geometry.json"))
+    }
+}
+
+extension ClockAimingPreviewCaptureTests {
+    func testClockPerspectiveKeyframes() async throws {
+        let env=ProcessInfo.processInfo.environment
+        guard let path=env["TEST_RUNNER_CLOCK_KEYFRAMES_DIR"] ?? env["CLOCK_KEYFRAMES_DIR"] else { throw XCTSkip("Opt-in keyframes") }
+        let out=URL(fileURLWithPath:path);try FileManager.default.createDirectory(at:out,withIntermediateDirectories:true)
+        let smilePath=env["TEST_RUNNER_CLOCK_SMILE_PATH"] ?? env["CLOCK_SMILE_PATH"]
+        let smileImage=try smilePath.map { try XCTUnwrap(UIImage(contentsOfFile:$0)) }
+        let showCutAngle=env["TEST_RUNNER_CLOCK_CUT_ANGLE"] == "1" || env["CLOCK_CUT_ANGLE"] == "1"
+        let vm=AngleDynamicViewModel();vm.setupScene();let s=vm.scene
+        XCTAssertTrue(s.applyTableStyle(.charcoal,showsSights:true));s.applyClothColor(.green)
+        s.setCameraMode(.perspective3D,animated:false);s.installReferenceRoom(style:.tournament)
+        XCTAssertTrue(try XCTUnwrap(s.cueStick).applyStyle(.inkDragon))
+        let r=AngleSceneCalculator.ballRadius,y=s.surfaceY+r,cue=SCNVector3(0,s.surfaceY+AngleSceneCalculator.ballRadius,0.48)
+        let camera=try XCTUnwrap(s.cameraNode),cam=try XCTUnwrap(camera.camera)
+        cam.projectionDirection = .vertical;cam.zNear=0.01;cam.zFar=100;cam.wantsExposureAdaptation=false
+        let renderer=SCNRenderer(device:nil,options:nil);renderer.scene=s;renderer.pointOfView=camera
+        renderer.delegate=s.contactOcclusion;renderer.autoenablesDefaultLighting=false
+        let canvas=CGSize(width:1500,height:2100),renderCanvas=CGSize(width:2000,height:2800),small=CGSize(width:640,height:640)
+        let renderScale:CGFloat=4.0/3.0
+        let format=UIGraphicsImageRendererFormat();format.scale=renderScale;format.opaque=true
+        let fixedCuePose=s.cueBallHomeOrientation
+        var records:[[String:Any]]=[]
+        func project(_ p:SCNVector3,_ h:CGFloat)->CGPoint{let q=renderer.projectPoint(p);return CGPoint(x:CGFloat(q.x)/renderScale,y:h-CGFloat(q.y)/renderScale)}
+        // Solve the endpoint against the production cut-angle calculation; keep cue and pocket fixed.
+        try XCTUnwrap(s.cueBallNode).position=cue
+        var lower:Float=0,upper:Float=0.46
+        for _ in 0..<32 {
+            let candidate=(lower+upper)/2
+            try XCTUnwrap(vm.targetNode).position=SCNVector3(candidate,y,-0.18)
+            vm.selectPocket(at:4);vm.updateCalculations()
+            if vm.cutAngleDegrees<60 {lower=candidate} else {upper=candidate}
+        }
+        let endpoint=(lower+upper)/2
+        let video=env["TEST_RUNNER_CLOCK_VIDEO"] == "1" || env["CLOCK_VIDEO"] == "1"
+        let fps=60, frameCount=1080
+        let writer=video ? try VideoWriter(url:out.appendingPathComponent("clock-aiming-2k60-18s.mp4"),size:renderCanvas,fps:fps,averageBitRate:40_000_000):nil
+        let positions: [Float] = video ? (0..<frameCount).map { frame in
+            let u=max(0,min(1,(Double(frame)/Double(fps)-1)/16))
+            let eased=u*u*(3-2*u)
+            return endpoint*Float(2*eased-1)
+        } : [-endpoint,-endpoint/2,0,endpoint/2,endpoint]
+        for (index,x) in positions.enumerated() {
+          try autoreleasepool {
+            let target=SCNVector3(x,y,-0.18)
+            try XCTUnwrap(vm.targetNode).position=target;try XCTUnwrap(s.cueBallNode).position=cue
+            vm.selectPocket(at:4);vm.updateCalculations()
+            s.setCueBallHomeOrientation(fixedCuePose)
+            if index == 0 || index == positions.count-1 {XCTAssertEqual(vm.cutAngleDegrees,60,accuracy:0.01)}
+            let pocket=AngleSceneCalculator.effectivePocketAimPoint(targetBall:target,pocketIndex:4,surfaceY:s.surfaceY)
+            let n=simd_normalize(SIMD2<Float>(pocket.x-target.x,pocket.z-target.z))
+            let ghost=AngleSceneCalculator.ghostBallPosition(targetBall:target,pocket:pocket,ballRadius:r)
+            let a=AngleSceneCalculator.contactPointPosition(targetBall:target,pocket:pocket),b=SCNVector3(cue.x+r*n.x,y,cue.z+r*n.y)
+            XCTAssertEqual(a.x-target.x,-(b.x-cue.x),accuracy:0.000001);XCTAssertEqual(a.z-target.z,-(b.z-cue.z),accuracy:0.000001)
+            s.updateCueStick(cueBallPosition:cue,aimDirection:SCNVector3(ghost.x-cue.x,0,ghost.z-cue.z))
+            for node in [s.ghostBallNode,s.pocketLineNode,s.strikeLineNode,s.contactDotNode,s.angleArcNode,s.perpLineNode] {node?.isHidden=true}
+            s.rootNode.childNode(withName:"strikeContinuation",recursively:true)?.isHidden=true
+            let extras=SCNNode();s.rootNode.addChildNode(extras)
+            let pot=s.addDashedLine(from:target,to:pocket,color:.black,radius:0.0013,dash:0.018,gap:0.012,placement:.table,layer:.aiming);extras.addChildNode(pot)
+            let rail=AngleSceneCalculator.rayToInnerRail(from:cue,dir:SCNVector3(ghost.x-cue.x,0,ghost.z-cue.z),inset:0)
+            let entry=AngleSceneCalculator.aimRayTargetEntry(from:cue,toward:rail,target:target)
+            let aimLine=s.addLine(from:cue,to:entry ?? rail,color:.white,radius:0.0012,placement:.table,layer:.aiming);extras.addChildNode(aimLine)
+            if let entry {
+                let continuation=s.addDashedLine(from:entry,to:rail,color:.white,radius:0.0012,dash:0.018,gap:0.012,placement:.table,layer:.aiming)
+                extras.addChildNode(continuation)
+            }
+            // The potting line and aim line intersect at the ghost-ball center.
+            let aimDirection=simd_normalize(SIMD2<Float>(ghost.x-cue.x,ghost.z-cue.z))
+            let potHeading=atan2(n.y,n.x)
+            let aimHeading=atan2(aimDirection.y,aimDirection.x)
+            let arcSweep=atan2(sin(aimHeading-potHeading),cos(aimHeading-potHeading))
+            if showCutAngle {
+                XCTAssertEqual(Double(abs(arcSweep)*180 / .pi),vm.cutAngleDegrees,accuracy:0.01)
+                extras.addChildNode(s.addDashedLine(from:ghost,to:target,color:.black,radius:0.0013,dash:0.009,gap:0.006,placement:.table,layer:.aiming))
+                if abs(arcSweep)>0.001 {
+                    for segment in 0..<48 {
+                        let h0=potHeading+arcSweep*Float(segment)/48
+                        let h1=potHeading+arcSweep*Float(segment+1)/48
+                        let p0=SCNVector3(ghost.x+0.14*cos(h0),s.surfaceY,ghost.z+0.14*sin(h0))
+                        let p1=SCNVector3(ghost.x+0.14*cos(h1),s.surfaceY,ghost.z+0.14*sin(h1))
+                        extras.addChildNode(s.addLine(from:p0,to:p1,color:.systemYellow,radius:0.0016,placement:.table,layer:.aiming))
+                    }
+                }
+            }
+            for (axisIndex,center) in [target,cue].enumerated() {
+                let axisEnd=SCNVector3(center.x,s.surfaceY,center.z+(axisIndex==0 ? -0.12:0.12))
+                extras.addChildNode(s.addLine(from:SCNVector3(center.x,s.surfaceY,center.z),to:axisEnd,color:.white,radius:0.0012,placement:.table,layer:.aiming))
+                extras.addChildNode(s.addLine(from:SCNVector3(center.x-0.055,s.surfaceY,center.z),to:SCNVector3(center.x+0.055,s.surfaceY,center.z),color:.white,radius:0.0012,placement:.table,layer:.aiming))
+            }
+            XCTAssertTrue(abs(abs(rail.x)-AngleSceneCalculator.innerLength/2)<0.0001 || abs(abs(rail.z)-AngleSceneCalculator.innerWidth/2)<0.0001)
+            cam.usesOrthographicProjection=false;cam.fieldOfView=76
+            camera.position=SCNVector3(0,s.surfaceY+1.02,0.98)
+            camera.look(at:SCNVector3(0,s.surfaceY,-0.05),up:SCNVector3(0,1,0),localFront:SCNVector3(0,0,-1))
+            SCNTransaction.flush()
+            _=renderer.snapshot(atTime:0,with:renderCanvas,antialiasingMode:.multisampling4X)
+            let base=renderer.snapshot(atTime:0,with:renderCanvas,antialiasingMode:.multisampling4X)
+            let railLeft=project(SCNVector3(-0.5,s.surfaceY,-0.635),canvas.height)
+            let railRight=project(SCNVector3(0.5,s.surfaceY,-0.635),canvas.height)
+            XCTAssertEqual(railLeft.y,railRight.y,accuracy:0.01)
+            let ap=project(a,canvas.height),bp=project(b,canvas.height),cp=project(cue,canvas.height),tp=project(target,canvas.height)
+            XCTAssertTrue(CGRect(origin:.zero,size:canvas).insetBy(dx:25,dy:25).contains(cp));XCTAssertTrue(CGRect(origin:.zero,size:canvas).insetBy(dx:25,dy:25).contains(tp))
+            let potAnchor=project(SCNVector3((target.x+pocket.x)/2,s.surfaceY+0.002,(target.z+pocket.z)/2),canvas.height)
+            let aimAnchor=project(SCNVector3(cue.x*0.55+ghost.x*0.45,s.surfaceY+0.002,cue.z*0.55+ghost.z*0.45),canvas.height)
+            let axisSegments=[target,cue].map { center in
+                (project(SCNVector3(center.x-0.055,s.surfaceY+0.002,center.z),canvas.height),project(SCNVector3(center.x+0.055,s.surfaceY+0.002,center.z),canvas.height))
+            }
+            let twelveLabel=project(SCNVector3(target.x,s.surfaceY+0.002,target.z-0.12),canvas.height)
+            let sixLabel=project(SCNVector3(cue.x,s.surfaceY+0.002,cue.z+0.12),canvas.height)
+            let angleMid=potHeading+arcSweep/2
+            let cutLabel=project(SCNVector3(ghost.x+0.20*cos(angleMid),s.surfaceY+0.002,ghost.z+0.20*sin(angleMid)),canvas.height)
+            extras.isHidden=true;s.hideCueStick()
+            var details:[UIImage]=[],contactPixels:[CGPoint]=[],angles:[Double]=[],minutes:[Int]=[]
+            for (center,contact) in [(target,a),(cue,b)] {
+                cam.usesOrthographicProjection=true;cam.orthographicScale=0.064
+                camera.position=SCNVector3(center.x,center.y+3,center.z)
+                camera.look(at:center,up:SCNVector3(0,0,-1),localFront:SCNVector3(0,0,-1));SCNTransaction.flush()
+                details.append(renderer.snapshot(atTime:0,with:small,antialiasingMode:.multisampling4X));contactPixels.append(project(contact,480))
+                let theta=Double(atan2(contact.x-center.x,-(contact.z-center.z)));angles.append(theta)
+                let positive=theta<0 ? theta+2 * .pi:theta
+                minutes.append((Int((positive/(2 * .pi)*720/5).rounded())*5)%720)
+            }
+            XCTAssertEqual((minutes[1]-minutes[0]+720)%720,360)
+            let axisAngles=angles.map { acos(min(1,abs(cos($0)))) * 180 / Double.pi }
+            XCTAssertEqual(axisAngles[0],axisAngles[1],accuracy:0.001)
+            XCTAssertTrue(axisAngles.allSatisfy { $0 >= 0 && $0 <= 90 })
+            let image=UIGraphicsImageRenderer(size:canvas,format:format).image { context in
+                base.draw(in:CGRect(origin:.zero,size:canvas));let g=context.cgContext
+                func line(_ p:CGPoint,_ q:CGPoint,_ color:UIColor,_ width:CGFloat=2) {g.setStrokeColor(color.cgColor);g.setLineWidth(width);g.move(to:p);g.addLine(to:q);g.strokePath()}
+                func text(_ value:String,_ p:CGPoint,_ size:CGFloat=30,_ color:UIColor = .white,centered:Bool=false) {
+                    let shadow=NSShadow();shadow.shadowColor=UIColor.black;shadow.shadowBlurRadius=1
+                    let attr:[NSAttributedString.Key:Any]=[.font:UIFont.systemFont(ofSize:size,weight:.semibold),.foregroundColor:color,.shadow:shadow]
+                    let width=(value as NSString).size(withAttributes:attr).width
+                    (value as NSString).draw(at:CGPoint(x:centered ? p.x-width/2:p.x,y:p.y),withAttributes:attr)
+                }
+                func dot(_ p:CGPoint,_ color:UIColor) {color.setFill();let shape=UIBezierPath(ovalIn:CGRect(x:p.x-6,y:p.y-6,width:12,height:12));shape.fill();UIColor.white.setStroke();shape.lineWidth=1.5;shape.stroke()}
+                line(ap,bp,.cyan,2.5)
+                if showCutAngle {
+                    text(String(format:"%.0f°",vm.cutAngleDegrees),CGPoint(x:cutLabel.x,y:cutLabel.y-70),34,.systemYellow,centered:true)
+                }
+                text("12点",CGPoint(x:twelveLabel.x,y:twelveLabel.y-38),27,.white,centered:true)
+                text("6点",CGPoint(x:sixLabel.x,y:sixLabel.y+10),27,.white,centered:true)
+                dot(ap,.systemRed);dot(bp,.systemOrange)
+                func leader(_ title:String,_ anchor:CGPoint,_ label:CGPoint,_ color:UIColor) {
+                    text(title,label,34,color)
+                    let labelWidth=(title as NSString).size(withAttributes:[.font:UIFont.systemFont(ofSize:34,weight:.semibold)]).width
+                    let end=CGPoint(x:label.x < anchor.x ? label.x+labelWidth+14:label.x-14,y:label.y+22)
+                    line(anchor,end,color,2)
+                    color.setFill();g.fillEllipse(in:CGRect(x:anchor.x-3.5,y:anchor.y-3.5,width:7,height:7))
+                }
+                for (left,right) in axisSegments {
+                    text("9点",CGPoint(x:left.x-42,y:left.y-16),27,.white,centered:true)
+                    text("3点",CGPoint(x:right.x+32,y:right.y-16),27,.white,centered:true)
+                }
+                leader("进球线",potAnchor,CGPoint(x:potAnchor.x+(target.x>0 ? -240:80),y:potAnchor.y-60),.black)
+                let contactMid=CGPoint(x:ap.x*0.5+bp.x*0.5,y:ap.y*0.5+bp.y*0.5)
+                let fraction=(aimAnchor.y-ap.y)/(bp.y-ap.y)
+                let contactAtAimX=ap.x+(bp.x-ap.x)*fraction
+                let contactOnRight=contactAtAimX>aimAnchor.x+1
+                let contactLabel=CGPoint(x:contactOnRight ? min(contactMid.x+80,795):contactMid.x-300,y:contactMid.y-45)
+                let aimLabel=CGPoint(x:contactOnRight ? aimAnchor.x-230:aimAnchor.x+90,y:aimAnchor.y+25)
+                leader("接触点连线",contactMid,contactLabel,.cyan)
+                leader("瞄准线",aimAnchor,aimLabel,.white)
+                UIColor.black.withAlphaComponent(0.90).setFill()
+                UIBezierPath(roundedRect:CGRect(x:35,y:365,width:520,height:128),cornerRadius:18).fill()
+                text("瞄准流程：",CGPoint(x:45,y:1400),showCutAngle ? 28:34,.white)
+                smileImage?.draw(in:CGRect(x:showCutAngle ? 185:220,y:showCutAngle ? 1391:1395,width:50,height:50))
+                let aimingSteps=["1. 定目标球接触点；","2. 定目标球接触点时间；","3. 定母球时间；","4. 定母球接触点；","5. 定瞄准线方向"]
+                for (stepIndex,step) in aimingSteps.enumerated() {
+                    text(step,CGPoint(x:45,y:(showCutAngle ? 1450:1460)+CGFloat(stepIndex)*(showCutAngle ? 48:56)),showCutAngle ? 24:30,.white)
+                }
+                text("注：母球与目标球的接触点，",CGPoint(x:55,y:383),34,.white)
+                text("对应的钟表时间相差6小时。",CGPoint(x:55,y:435),34,.white)
+                let offset = -tan(angles[0])*350
+                let centers=[CGPoint(x:1190-offset/2,y:650),CGPoint(x:1190+offset/2,y:1000)]
+                let linkColor=UIColor.cyan
+                line(centers[0],centers[1],linkColor.withAlphaComponent(0.8),2)
+                for i in 0..<2 {
+                    let center=centers[i],box=CGRect(x:center.x-170,y:center.y-170,width:340,height:340)
+                    let color:UIColor=i==0 ? .systemRed:.systemOrange
+                    let panel=CGRect(x:box.minX,y:box.minY-(i==0 ? 54:0),width:box.width,height:box.height+54)
+                    g.saveGState();UIBezierPath(roundedRect:panel,cornerRadius:20).addClip()
+                    UIColor.black.setFill();context.fill(panel)
+                    details[i].draw(in:box);g.restoreGState()
+                    UIColor.white.withAlphaComponent(0.85).setStroke();let border=UIBezierPath(roundedRect:panel,cornerRadius:20);border.lineWidth=2;border.stroke()
+                    for tick in 0..<60 {
+                        let t=Double(tick)*2 * .pi/60,outer:CGFloat=108,inner:CGFloat=tick%5==0 ? 94:101
+                        line(CGPoint(x:center.x+sin(t)*inner,y:center.y-cos(t)*inner),CGPoint(x:center.x+sin(t)*outer,y:center.y-cos(t)*outer),UIColor.white.withAlphaComponent(tick%5==0 ? 1:0.75),tick%5==0 ? 3:1.5)
+                    }
+                    for hour in 1...12 {
+                        let t=Double(hour)*Double.pi/6
+                        text(String(hour),CGPoint(x:center.x+sin(t)*129,y:center.y-cos(t)*129-14),26,.white,centered:true)
+                    }
+                    let theta=angles[i]
+                    line(CGPoint(x:center.x-sin(theta)*158,y:center.y+cos(theta)*158),CGPoint(x:center.x+sin(theta)*158,y:center.y-cos(theta)*158),linkColor,2)
+                    dot(CGPoint(x:box.minX+contactPixels[i].x*340/480,y:box.minY+contactPixels[i].y*340/480),color)
+                    let m=minutes[i],hour=m/60
+                    text(String(format:"%@ · 约%d点%02d分",i==0 ? "目标球":"母球",hour,m%60),CGPoint(x:box.minX+16,y:i==0 ? panel.minY+12:box.maxY+12),25,.white)
+                }
+
+            }
+            if let writer {
+                try writer.append(XCTUnwrap(image.cgImage))
+                if index % 60 == 0 { print("CLOCK_VIDEO_FRAME \(index)/\(frameCount)") }
+            } else {
+                try XCTUnwrap(image.pngData()).write(to:out.appendingPathComponent(String(format:"keyframe-%02d.png",index+1)))
+            }
+            records.append(["frame":index+1,"cue":[cue.x,cue.y,cue.z],"target":[target.x,target.y,target.z],"cutAngle":vm.cutAngleDegrees,"clockMinutes":minutes,"axisAnglesDegrees":axisAngles,"aimRail":[rail.x,rail.y,rail.z],"aimOccluded":entry != nil,"cuePixel":[cp.x,cp.y],"targetPixel":[tp.x,tp.y]])
+            extras.removeFromParentNode()
+          }
+          if video { try await Task.sleep(nanoseconds:1_000_000) }
+        }
+        try await writer?.finish()
+        try JSONSerialization.data(withJSONObject:records,options:[.prettyPrinted,.sortedKeys]).write(to:out.appendingPathComponent("geometry.json"))
+    }
 }

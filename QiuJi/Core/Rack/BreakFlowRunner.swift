@@ -12,6 +12,7 @@ struct BreakOutcome {
     let cueScratched: Bool
     let terminalBallPocketed: Bool
     let settled: Bool
+    var facts: ShotFacts? = nil
 }
 
 /// 内置开球流程（T-P18-47，设计稿 §3.3-⑨/§5-6）：球形生成器页下线后，其「摆架 →
@@ -392,7 +393,8 @@ final class BreakFlowRunner: ObservableObject {
             pocketedKeys: result.pocketed,
             cueScratched: result.cueScratched,
             terminalBallPocketed: result.pocketed.contains(terminalKey),
-            settled: result.settled
+            settled: result.settled,
+            facts: result.facts
         )
         if autoDeliverOnSettle {
             statusText = settledHint(result)
@@ -435,7 +437,10 @@ final class BreakFlowRunner: ObservableObject {
             pocketedKeys: pocketedKeys,
             cueScratched: cueScratched,
             terminalBallPocketed: pocketedKeys.contains(terminalKey),
-            settled: settled
+            settled: settled,
+            facts: ShotFacts(firstContactKey: "_1", pocketedKeys: pocketedKeys.filter { $0 != PositionPlayBall.cueKey },
+                cuePocketed: cueScratched, railOrPocketAfterContact: true,
+                tableKeysBefore: Set(rack.balls.map(\.key)), railContactKeys: ["_1", "_2", "_3", "_9"])
         )
         if autoDeliverOnSettle {
             statusText = "已停稳"
@@ -566,6 +571,8 @@ struct BreakControlBar: View {
 struct BreakInstrumentsOverlay: View {
     @ObservedObject var runner: BreakFlowRunner
     let proxy: ShotStageProxy
+    let scene: AngleTrainingScene
+    let projector: TableProjector
     var isPerspective = false
     @State private var showSpinPad = false
 
@@ -599,12 +606,17 @@ struct BreakInstrumentsOverlay: View {
                 .position(x: inf.midX, y: inf.midY)
             }
 
+            if isPerspective && !showSpinPad {
+                ShotSceneCameraButtons(scene: scene, aim: runner.aimDir,
+                    isEnabled: runner.phase == .racked) { showSpinPad = false }
+                    .btStageFrame(ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame)
+                    .offset(x: -52)
+            }
+
             // K7：开球打点盘（抄 FreePlay 非开球态范例；绑定 runner.spin*）。
             if showSpinPad {
-                BTSpinPadOverlay(spinX: $runner.spinX, spinY: $runner.spinY,
-                                 tableWidth: isPerspective ? proxy.sceneSize.width - Spacing.lg * 2 : proxy.playingRect.width,
-                                 bottomPadding: isPerspective ? Spacing.sm : proxy.spinPadBottomPadding,
-                                 usesCompactLayout: isPerspective,
+                BTProjectedSpinPadOverlay(spinX: $runner.spinX, spinY: $runner.spinY,
+                                 scene: scene, projector: projector,
                                  onClose: { showSpinPad = false })
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .transition(.move(edge: .bottom).combined(with: .opacity))

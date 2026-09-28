@@ -29,6 +29,10 @@ struct DailyClearanceCompletion: Codable {
     var foulCount: Int
     var activeDurationSeconds: TimeInterval
     var completedAt: Date
+    var visitCount: Int? = nil
+    var playedVisitCount: Int? = nil
+    var completionKind: DailyClearanceCompletionKind? = nil
+    var ruleVersion: Int? = nil
 }
 
 enum DailyClearanceStoreKey {
@@ -124,15 +128,23 @@ final class DailyClearanceStore {
         defaults.removeObject(forKey: DailyClearanceStoreKey.latestCompletion)
     }
 
-    func complete(_ draft: DailyClearanceDraft) -> DailyClearanceCompletion {
-        let completion = DailyClearanceCompletion(
+    func makeCompletion(_ draft: DailyClearanceDraft) -> DailyClearanceCompletion {
+        DailyClearanceCompletion(
             challengeDay: draft.challengeDay,
             game: draft.game,
             shotCount: draft.shotCount,
             foulCount: draft.foulCount,
             activeDurationSeconds: draft.activeDurationSeconds,
-            completedAt: now()
+            completedAt: now(),
+            visitCount: draft.ruleState.visitCount,
+            playedVisitCount: draft.ruleState.playedVisitCount,
+            completionKind: draft.ruleState.completionKind,
+            ruleVersion: draft.ruleState.ruleVersion
         )
+    }
+
+    func complete(_ draft: DailyClearanceDraft) -> DailyClearanceCompletion {
+        let completion = makeCompletion(draft)
         saveCompletion(completion)
         clearDraft()
         return completion

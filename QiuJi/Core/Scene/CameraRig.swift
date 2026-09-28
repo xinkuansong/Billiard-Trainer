@@ -1,9 +1,10 @@
 import SceneKit
+import Combine
 
 /// Camera rig for angle training scenes.
 /// Supports orbit mode (3D) with observation/aiming views,
 /// and orthographic pan/zoom (2D top-down).
-final class CameraRig {
+final class CameraRig: ObservableObject {
 
     // MARK: - Config
 
@@ -29,6 +30,19 @@ final class CameraRig {
             standPitchRad: AimingCameraConfig.standPitchRad,
             dampingFactor: AimingCameraConfig.dampingFactor
         )
+
+        /// Narrower lens with a compensating dolly, preserving pivot-plane framing.
+        static var dailyClearance: Config {
+            let base = Self.default
+            let aim: CGFloat = 28, stand: CGFloat = 32
+            let nearScale = Float(tan(base.aimFov * .pi / 360) / tan(aim * .pi / 360))
+            let farScale = Float(tan(base.standFov * .pi / 360) / tan(stand * .pi / 360))
+            return Config(aimFov: aim, standFov: stand,
+                          minRadius: base.minRadius * nearScale, maxRadius: base.maxRadius * farScale,
+                          minHeight: base.minHeight * nearScale, maxHeight: base.maxHeight * farScale,
+                          aimPitchRad: base.aimPitchRad, standPitchRad: base.standPitchRad,
+                          dampingFactor: base.dampingFactor)
+        }
     }
 
     // MARK: - Smooth Pose (for animated transitions)
@@ -45,6 +59,155 @@ final class CameraRig {
     enum ViewMode {
         case observation
         case aiming
+    }
+
+    enum PlayerView: String { case firstPerson, thirdPerson }
+    @Published private(set) var playerView: PlayerView?
+    private var playerReference: (cue: SCNVector3, aim: SCNVector3)?
+    /// Opt-in for interactive shot pages; export and teaching cameras keep their configuration.
+    var usesRailCameraControls = false
+    /// Daily clearance owns its lens and shot-relative eye model. Other hosts keep their presets.
+    var usesShotAwareCamera = false
+    var observationCandidates: [SCNVector3] = []
+    private var cuePose: (strike: SCNVector3, aim: SCNVector3, elevation: Float)?
+    private var railZoomMaximumFOV: Float?
+    var onPlayerTransitionEnded: (() -> Void)?
+    var onManualCameraControl: (() -> Void)?
+    private var retainsExactTransitionPose = false
+    /// Daily 3D opts in. Keep the existing per-frame path for other hosts and exports.
+    var avoidsRedundantPerspectiveWrites = false {
+        didSet { if !avoidsRedundantPerspectiveWrites { appliedPerspectiveTransform = nil } }
+    }
+
+    private struct PerspectiveTransformInput: Equatable {
+        let pivot: SIMD3<Float>
+        let yaw: Float
+        let zoom: Float
+        let orbit: OrbitState?
+    }
+
+    private struct AppliedPerspectiveTransform {
+        let input: PerspectiveTransformInput
+        let transform: SCNMatrix4
+        let camera: SCNCamera?
+        let fieldOfView: CGFloat?
+        let usesOrthographicProjection: Bool?
+    }
+
+    private var appliedPerspectiveTransform: AppliedPerspectiveTransform?
+
+    /// Limit horizontal coverage on wide viewports; portrait retains a comfortable vertical lens.
+    static func dailyFOV(viewport: CGSize, close: Bool = false) -> Float {
+        let aspect = max(0.1, Float(viewport.width / max(1, viewport.height)))
+        let horizontal: Float = close ? 26 : 56
+        return min(close ? 18 : 40, 2 * atan(tan(horizontal * .pi / 360) / aspect) * 180 / .pi)
+    }
+
+    /// XZ metres, Y up. Eye is above the actual shaft; backswing does not move the head.
+    static func dailyPlayerPose(view: PlayerView, cue: SCNVector3, strike: SCNVector3,
+                                aim: SCNVector3, elevation: Float, surfaceY: Float,
+                                viewport: CGSize, focus: SCNVector3? = nil,
+                                context: [SCNVector3] = []) -> SmoothPose? {
+        let length = hypot(aim.x, aim.z)
+        guard length > 0.0001, elevation.isFinite else { return nil }
+        let dx = aim.x / length, dz = aim.z / length
+        let alongShaft: Float = 0.90
+        let eyeGap: Float = 0.13
+        let horizontal = view == .firstPerson ? alongShaft * cos(elevation) : 1.65
+        let eyeY = view == .firstPerson
+            ? strike.y + alongShaft * sin(elevation) + eyeGap
+            : max(surfaceY + 0.90, strike.y + horizontal * tan(elevation) + 0.35)
+        let pivot = focus ?? cue
+        let eye = SCNVector3(strike.x - dx * horizontal, eyeY, strike.z - dz * horizontal)
+        let offset = eye - pivot
+        let radius = hypot(offset.x, offset.z)
+        let distance = offset.length()
+        let fov = dailyFOV(viewport: viewport)
+        var pitch = -atan2(offset.y, radius)
+        let yaw = atan2(offset.z, offset.x)
+        if view == .firstPerson, let target = context.last,
+           (target.x - cue.x) * dx + (target.z - cue.z) * dz > BallPhysics.radius * 2 {
+            let targetPitch = atan2(target.y - eye.y, hypot(target.x - eye.x, target.z - eye.z))
+            // A raised cue needs a little upward gaze, not a lower eye or a wider lens.
+            // Keep the cue within the central 65% of the vertical field even on steep shots.
+            pitch += max(0, min((targetPitch - pitch) * 0.5, fov * .pi / 360 * 0.65))
+        }
+        var fittedDistance = distance
+        if view == .thirdPerson {
+            // Keep both balls clear of the edge HUD when the target becomes the centre.
+            let right = SCNVector3(-sin(yaw), 0, cos(yaw))
+            let up = SCNVector3(-cos(yaw) * sin(-pitch), cos(-pitch), -sin(yaw) * sin(-pitch))
+            let back = offset.normalized()
+            let tanV = tan(fov * .pi / 360) * 0.65
+            let tanH = tanV * Float(viewport.width / max(1, viewport.height))
+            for point in [cue, pivot] + context {
+                let v = point - pivot
+                let depth = v.x * back.x + v.y * back.y + v.z * back.z
+                let x = abs(v.x * right.x + v.y * right.y + v.z * right.z) + 0.08
+                let y = abs(v.x * up.x + v.y * up.y + v.z * up.z) + 0.08
+                fittedDistance = max(fittedDistance, depth + x / max(0.01, tanH), depth + y / tanV)
+            }
+        }
+        let scale = fittedDistance / max(0.001, distance)
+        return SmoothPose(yaw: yaw, pitch: pitch, radius: radius * scale, pivot: pivot,
+                          fov: fov, height: pivot.y - surfaceY + offset.y * scale)
+    }
+
+    func updateCuePose(strike: SCNVector3, aim: SCNVector3, elevation: Float, cue: SCNVector3? = nil) {
+        let old = cuePose
+        cuePose = (strike, aim, elevation)
+        guard usesShotAwareCamera, playerView == .firstPerson, let reference = playerReference,
+              old.map({ ($0.strike - strike).length() > 0.0001 || ($0.aim - aim).length() > 0.0001
+                  || abs($0.elevation - elevation) > 0.0001 }) == true else { return }
+        enterPlayerView(.firstPerson, cue: cue ?? reference.cue, aim: aim, duration: 0.18)
+    }
+
+    /// XZ metres, Y up. Intersect the backwards shot ray with the OUTER rail rectangle.
+    static func playerPose(view: PlayerView, cue: SCNVector3, aim: SCNVector3,
+                           surfaceY: Float, halfLength: Float, halfWidth: Float) -> SmoothPose? {
+        let length = hypot(aim.x, aim.z)
+        guard length > 0.0001, length.isFinite, cue.x.isFinite, cue.z.isFinite,
+              halfLength > 0, halfWidth > 0 else { return nil }
+        let dx = aim.x / length, dz = aim.z / length
+        let tx = abs(dx) > 0.0001 ? ((dx > 0 ? -halfLength : halfLength) - cue.x) / -dx : Float.infinity
+        let tz = abs(dz) > 0.0001 ? ((dz > 0 ? -halfWidth : halfWidth) - cue.z) / -dz : Float.infinity
+        let railDistance = max(0, min(tx, tz))
+        let height: Float = view == .firstPerson ? 0.16 : 0.84
+        let setback: Float = view == .firstPerson ? 0.25 : 0.38
+        let lookAhead: Float = 0.35
+        let radius = railDistance + setback + lookAhead
+        let pivot = SCNVector3(cue.x + dx * lookAhead, surfaceY + BallPhysics.radius, cue.z + dz * lookAhead)
+        return SmoothPose(yaw: atan2(-dz, -dx),
+                          pitch: -atan2(height - BallPhysics.radius, radius),
+                          radius: radius, pivot: pivot,
+                          fov: view == .firstPerson ? 42 : 48, height: height)
+    }
+
+    @discardableResult
+    func enterPlayerView(_ view: PlayerView, cue: SCNVector3, aim: SCNVector3,
+                         duration: Float = 0.95, focus: SCNVector3? = nil) -> Bool {
+        let pose: SmoothPose?
+        if usesShotAwareCamera {
+            pose = Self.dailyPlayerPose(view: view, cue: cue, strike: cuePose?.strike ?? cue,
+                aim: aim, elevation: cuePose?.elevation ?? 0.05, surfaceY: tableSurfaceY,
+                viewport: viewportSize, focus: focus, context: observationCandidates)
+        } else {
+            pose = Self.playerPose(view: view, cue: cue, aim: aim, surfaceY: tableSurfaceY,
+                halfLength: Float(tableOuterHalfLength), halfWidth: Float(tableOuterHalfWidth))
+        }
+        guard let pose else { return false }
+        smoothToPose(pose, duration: duration)
+        retainsExactTransitionPose = true
+        railZoomMaximumFOV = pose.fov
+        playerView = view
+        playerReference = (cue, aim.normalized())
+        currentViewMode = view == .firstPerson ? .aiming : .observation
+        return true
+    }
+
+    func isPlayerViewFor(cue: SCNVector3, aim: SCNVector3) -> Bool {
+        guard playerView != nil, let reference = playerReference else { return false }
+        return (reference.cue - cue).length() < 0.002 && (reference.aim - aim.normalized()).length() < 0.002
     }
 
     // MARK: - Observation Constants
@@ -85,7 +248,7 @@ final class CameraRig {
     var zoom: Float { currentZoom }
 
     /// Independent user orbit. Preset transitions keep their existing pose ladder.
-    struct OrbitState {
+    struct OrbitState: Equatable {
         var distance: Float
         var elevation: Float
         var pitchOffset: Float
@@ -93,7 +256,7 @@ final class CameraRig {
     }
     private var currentOrbit: OrbitState?
     private var targetOrbit: OrbitState?
-    private var keepsWholeTableFramed = false
+    @Published private(set) var keepsWholeTableFramed = false
     var viewportSize: CGSize = .zero {
         didSet {
             guard viewportSize != oldValue, keepsWholeTableFramed else { return }
@@ -155,6 +318,10 @@ final class CameraRig {
         fileprivate let fieldOfView: CGFloat
         fileprivate let currentOrbit, targetOrbit: OrbitState?
         fileprivate let keepsWholeTableFramed: Bool
+        fileprivate let playerView: PlayerView?
+        fileprivate let playerReference: (cue: SCNVector3, aim: SCNVector3)?
+        fileprivate let retainsExactTransitionPose: Bool
+        fileprivate let railZoomMaximumFOV: Float?
     }
 
     func capturePerspectiveState() -> PerspectiveState {
@@ -167,11 +334,17 @@ final class CameraRig {
                          transform: cameraNode.transform,
                          fieldOfView: cameraNode.camera?.fieldOfView ?? config.standFov,
                          currentOrbit: currentOrbit, targetOrbit: targetOrbit,
-                         keepsWholeTableFramed: keepsWholeTableFramed)
+                         keepsWholeTableFramed: keepsWholeTableFramed, playerView: playerView,
+                         playerReference: playerReference, retainsExactTransitionPose: retainsExactTransitionPose,
+                         railZoomMaximumFOV: railZoomMaximumFOV)
     }
 
     func restorePerspectiveState(_ state: PerspectiveState) {
         keepsWholeTableFramed = state.keepsWholeTableFramed
+        playerView = state.playerView
+        playerReference = state.playerReference
+        retainsExactTransitionPose = state.retainsExactTransitionPose
+        railZoomMaximumFOV = state.railZoomMaximumFOV
         currentOrbit = state.currentOrbit
         targetOrbit = state.targetOrbit
         currentPivot = state.currentPivot
@@ -356,22 +529,34 @@ final class CameraRig {
         // `currentYaw` toward target, giving a soft inertial follow that
         // dramatically reduces jitter compared to writing both at once.
         let sensitivity: Float = 0.0025
-        targetYaw += delta * sensitivity
+        targetYaw += delta * sensitivity * observationSensitivity
     }
 
     func handleVerticalSwipe(delta: Float) {
         beginManualOrbit()
         guard var orbit = targetOrbit else { return }
         // Full overhead is available; the lower bound retains the preset clearance.
-        let minimumElevation = atan2(config.minHeight, config.maxRadius)
+        let minimumElevation = usesRailCameraControls ? Float(0.035) : atan2(config.minHeight, config.maxRadius)
         let maximumElevation = .pi / 2 + min(0, orbit.pitchOffset)
-        orbit.elevation = max(minimumElevation, min(maximumElevation, orbit.elevation + delta * 0.0035))
+        orbit.elevation = max(minimumElevation, min(maximumElevation, orbit.elevation + delta * 0.0035 * observationSensitivity))
         targetOrbit = orbit
     }
 
     func handlePinch(scale: Float) {
         beginManualOrbit()
         guard var orbit = targetOrbit else { return }
+        if usesRailCameraControls {
+            // Optical zoom inspects distant balls without dollying through the cushion.
+            if railZoomMaximumFOV == nil { railZoomMaximumFOV = orbit.fov }
+            if usesShotAwareCamera, scale < 0.99, orbit.fov >= railZoomMaximumFOV! - 0.01 {
+                observeWholeTable(yaw: targetYaw)
+                return
+            }
+            let minimum = usesShotAwareCamera ? Self.dailyFOV(viewport: viewportSize, close: true) : 18
+            orbit.fov = max(minimum, min(railZoomMaximumFOV!, orbit.fov / max(0.01, scale)))
+            targetOrbit = orbit
+            return
+        }
         let maximumDistance = max(fittedOrbitDistance,
                                   max(hypot(config.maxRadius, config.maxHeight),
                                       2 * hypot(Float(tableOuterHalfLength), Float(tableOuterHalfWidth))))
@@ -380,8 +565,31 @@ final class CameraRig {
         targetOrbit = orbit
     }
 
+    private var observationSensitivity: Float {
+        guard usesShotAwareCamera, let orbit = targetOrbit else { return 1 }
+        return min(1, tan(orbit.fov * .pi / 360) / tan(Self.dailyFOV(viewport: viewportSize) * .pi / 360))
+    }
+
+    /// Resolve once at pinch start. Smoothly reorient around the chosen ball without a dolly.
+    func beginObservationPinch(at point: SCNVector3?) {
+        guard usesShotAwareCamera else { return }
+        beginManualOrbit()
+        guard let point, var orbit = targetOrbit else { return }
+        let offset = cameraNode.position - point
+        guard offset.length() > 0.05 else { return }
+        targetPivot = point
+        targetYaw = atan2(offset.z, offset.x)
+        orbit.distance = offset.length()
+        orbit.elevation = atan2(offset.y, hypot(offset.x, offset.z))
+        orbit.pitchOffset = 0
+        targetOrbit = orbit
+    }
+
     /// A gesture takes ownership from automatic framing at the currently visible pose.
     private func beginManualOrbit() {
+        onManualCameraControl?()
+        playerView = nil
+        playerReference = nil
         keepsWholeTableFramed = false
         if currentOrbit == nil {
             let pose = captureCurrentPose()
@@ -426,7 +634,8 @@ final class CameraRig {
         guard var orbit = targetOrbit else { return false }
         orbit.elevation = abs(config.standPitchRad)
         orbit.pitchOffset = 0
-        orbit.fov = Float(config.standFov)
+        orbit.fov = usesShotAwareCamera ? Self.dailyFOV(viewport: viewportSize) : Float(config.standFov)
+        railZoomMaximumFOV = orbit.fov
         let pivot = SCNVector3(0, tableSurfaceY + BallPhysics.radius, 0)
         let back = SCNVector3(cos(targetYaw) * cos(orbit.elevation), sin(orbit.elevation),
                              sin(targetYaw) * cos(orbit.elevation))
@@ -472,16 +681,16 @@ final class CameraRig {
 
         let targetPose = SmoothPose(
             yaw: targetYaw,
-            pitch: ObservationConfig.pitchRad,
-            radius: ObservationConfig.radius,
+            pitch: config.standPitchRad,
+            radius: config.maxRadius,
             pivot: targetPivot,
-            fov: ObservationConfig.fov,
-            height: ObservationConfig.height
+            fov: Float(config.standFov),
+            height: config.maxHeight
         )
         smoothToPose(targetPose, duration: 0.6)
     }
 
-    func enterAiming(cueBallPosition: SCNVector3, targetDirection: SCNVector3) {
+    func enterAiming(cueBallPosition: SCNVector3, targetDirection: SCNVector3, entryZoom: Float = 0.5) {
         currentViewMode = .aiming
         targetPivot = SCNVector3(cueBallPosition.x, tableSurfaceY, cueBallPosition.z)
 
@@ -491,10 +700,10 @@ final class CameraRig {
             targetYaw = atan2(-flatAim.z / len, -flatAim.x / len)
         }
 
-        // Both 3D training pages enter at the midpoint of the existing pose ladder.
-        // Reset deterministically for every question; gestures retain the full [0, 1] range.
+        // Default callers enter at the midpoint; explicit cue inspection can enter lower.
+        // Reset deterministically for this intent; gestures retain the full [0, 1] range.
         // Keep currentZoom intact until smoothToPose captures the visible starting pose.
-        let entryZoom: Float = 0.5
+        let entryZoom = min(1, max(0, entryZoom))
         let prevZoom = currentZoom
         let targetPose = SmoothPose(
             yaw: targetYaw,
@@ -538,12 +747,16 @@ final class CameraRig {
     // MARK: - Smooth Pose Transition
 
     func smoothToPose(_ pose: SmoothPose, duration: Float) {
+        retainsExactTransitionPose = false
+        playerView = nil
+        playerReference = nil
         keepsWholeTableFramed = false
         let currentPose = captureCurrentPose()
         currentOrbit = nil
         targetOrbit = nil
         smoothOrigin = currentPose
         smoothTarget = pose
+        if usesShotAwareCamera { currentInterpolatedPose = currentPose }
         smoothProgress = 0
         smoothDuration = max(0.1, duration)
     }
@@ -557,6 +770,8 @@ final class CameraRig {
         smoothTarget = nil
         smoothProgress = 1.0
         currentInterpolatedPose = nil
+        retainsExactTransitionPose = false
+        onPlayerTransitionEnded?()
     }
 
     /// Translate the orbit pivot by an XZ delta. With `immediate: true` both
@@ -626,7 +841,7 @@ final class CameraRig {
                 pivot: currentPivot, fov: fov, height: height
             )
 
-            let cameraY = tableSurfaceY + max(0.3, height)
+            let cameraY = tableSurfaceY + max(retainsExactTransitionPose ? 0.08 : 0.3, height)
             let forwardXZ = SCNVector3(-cosf(currentYaw), 0, -sinf(currentYaw))
             let position = SCNVector3(
                 currentPivot.x - forwardXZ.x * radius,
@@ -647,6 +862,16 @@ final class CameraRig {
                 let newZoom = (radius - config.minRadius) / max(0.001, config.maxRadius - config.minRadius)
                 targetZoom = max(0, min(1, newZoom))
                 currentZoom = targetZoom
+                if retainsExactTransitionPose {
+                    let relativeHeight = height - (currentPivot.y - tableSurfaceY)
+                    let elevation = atan2(relativeHeight, radius)
+                    let orbit = OrbitState(distance: hypot(radius, relativeHeight), elevation: elevation,
+                                           pitchOffset: pitch + elevation, fov: fov)
+                    currentOrbit = orbit
+                    targetOrbit = orbit
+                    retainsExactTransitionPose = false
+                    onPlayerTransitionEnded?()
+                }
                 smoothOrigin = nil
                 smoothTarget = nil
                 currentInterpolatedPose = nil
@@ -745,6 +970,36 @@ final class CameraRig {
     // MARK: - Private
 
     private func applyCameraTransform() {
+        // Preserve the exact damping updates above. Only skip a transform whose
+        // complete inputs and last-written SceneKit output are still identical.
+        // Checking the output also handles external camera edits and a 2D round trip.
+        let input: PerspectiveTransformInput?
+        if avoidsRedundantPerspectiveWrites {
+            let next = PerspectiveTransformInput(
+                pivot: SIMD3(currentPivot.x, currentPivot.y, currentPivot.z),
+                yaw: currentYaw, zoom: currentZoom, orbit: currentOrbit
+            )
+            if let applied = appliedPerspectiveTransform,
+               applied.input == next,
+               applied.camera === cameraNode.camera,
+               applied.fieldOfView == cameraNode.camera?.fieldOfView,
+               applied.usesOrthographicProjection == cameraNode.camera?.usesOrthographicProjection,
+               SCNMatrix4EqualToMatrix4(applied.transform, cameraNode.transform) {
+                return
+            }
+            input = next
+        } else {
+            input = nil
+        }
+        defer {
+            if let input {
+                appliedPerspectiveTransform = AppliedPerspectiveTransform(
+                    input: input, transform: cameraNode.transform, camera: cameraNode.camera,
+                    fieldOfView: cameraNode.camera?.fieldOfView,
+                    usesOrthographicProjection: cameraNode.camera?.usesOrthographicProjection
+                )
+            }
+        }
         if let orbit = currentOrbit {
             let radius = orbit.distance * cos(orbit.elevation)
             cameraNode.position = SCNVector3(currentPivot.x + cos(currentYaw) * radius,

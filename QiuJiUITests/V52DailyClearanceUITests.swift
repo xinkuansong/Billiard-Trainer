@@ -23,7 +23,7 @@ final class V52DailyClearanceUITests: XCTestCase {
     }
 
     private func snap(_ app: XCUIApplication, _ name: String) {
-        let shot = app.screenshot()
+        let shot = XCUIScreen.main.screenshot()
         let url = outDir.appendingPathComponent("\(name).png")
         do {
             try shot.pngRepresentation.write(to: url)
@@ -105,7 +105,15 @@ final class V52DailyClearanceUITests: XCTestCase {
     }
 
     func testPerspectiveRoundTripsPreserveDailyProgress() {
-        let app = launch(["-dailyClearance.fixture=progress"])
+        checkPerspectiveRoundTrips(arguments: [])
+    }
+
+    func testSpecializedPerspectiveRoundTripsAndBackground() {
+        checkPerspectiveRoundTrips(arguments: ["-specializedRendering", "RS", "-renderProfileProbe"])
+    }
+
+    private func checkPerspectiveRoundTrips(arguments: [String]) {
+        let app = launch(["-dailyClearance.fixture=progress"] + arguments)
         let hud = app.descendants(matching: .any)["dailyClearance.hud"]
         XCTAssertTrue(hud.waitForExistence(timeout: 12))
         let camera = app.buttons["freeplay.cameraMode"]
@@ -122,6 +130,15 @@ final class V52DailyClearanceUITests: XCTestCase {
             XCTAssertEqual(camera.value as? String, "2D")
             XCTAssertTrue(hud.label.contains("2 杆"))
             XCTAssertTrue(hud.label.contains("1 次犯规"))
+        }
+        if arguments.contains("-renderProfileProbe") {
+            XCUIDevice.shared.press(.home)
+            app.activate()
+            XCTAssertTrue(hud.waitForExistence(timeout: 12))
+            XCTAssertTrue(hud.label.contains("2 杆"))
+            let scene = app.descendants(matching: .any)["table.scene"].firstMatch
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "value CONTAINS %@", "静止"), evaluatedWith: scene)], timeout: 15), .completed)
+            XCTAssertNotNil((scene.value as? String ?? "").range(of: "reflection=[1-9][0-9]* shadow=[1-9][0-9]*", options: .regularExpression))
         }
         snap(app, "v63-daily-returned-progress")
     }
@@ -195,21 +212,127 @@ final class V52DailyClearanceUITests: XCTestCase {
 
     /// Real page, not the isolated renderer: prove the activity state settles
     /// after both entry and a normal shot. This is not a thermal measurement.
+    func testNormal2DShotReturnsToIdle() throws {
+        // The normal 2D accessibility value omits the FPS readout.
+        // This diagnostic flag exposes scheduling state without changing rendering.
+        try checkNormal3DShotReturnsToIdle(arguments: ["-renderProfileProbe"], mode: "2D")
+    }
+
     func testNormal3DShotReturnsToIdle() throws {
         try checkNormal3DShotReturnsToIdle(arguments: [])
+    }
+
+    func testDaily3DDiagnosticsPreserveShotAndIdle() throws {
+        try checkNormal3DShotReturnsToIdle(arguments: ["-daily3D.diagnostics"])
+    }
+
+    func testDaily3DDiagnosticsPreserveAimWheelResume() {
+        checkAimWheelResume(arguments: ["-daily3D.diagnostics"])
+    }
+
+    func testDailyAimWheelResumesAndReturnsToIdle() {
+        checkAimWheelResume(arguments: [])
+    }
+
+    func testClothPrototypeAimWheelResumesAndReturnsToIdle() {
+        checkAimWheelResume(arguments: ["-dailyClearance.rendering", "RS", "-dailyClearance.clothPrototype"])
+    }
+
+    func testDailyBrightnessAimWheel() {
+        checkAimWheelResume(arguments: ["-dailyClearance.rendering", "RS", "-dailyClearance.clothPrototype",
+                                       "-dailyClearance.exposure", "-0.1"])
+    }
+
+    func testDailyReferenceShadowAndLensAimWheel() {
+        checkAimWheelResume(arguments: ["-dailyClearance.rendering", "R", "-dailyClearance.clothPrototype",
+                                       "-dailyClearance.exposure", "-0.1", "-dailyClearance.perspectivePrototype"])
+    }
+
+    private func checkAimWheelResume(arguments: [String]) {
+        let evidencePrefix = arguments.contains("-daily3D.diagnostics") ? "daily3D-diagnostics-" : ""
+        let app = launch(["-dailyClearance.fixtureSettled", "-renderProfileProbe"] + arguments)
+        let pageState = app.descendants(matching: .any)["dailyClearance.landscape"]
+        XCTAssertTrue(pageState.waitForExistence(timeout: 20))
+        let aimMode = app.buttons["瞄准模式：进袋，点击切换"]
+        if aimMode.exists { aimMode.tap() }
+        let wheel = app.descendants(matching: .any)["shotStage.aimWheel"].firstMatch
+        XCTAssertTrue(wheel.waitForExistence(timeout: 5))
+        let scene = app.descendants(matching: .any)["table.scene"].firstMatch
+        let camera = app.buttons["freeplay.cameraMode"]
+        for mode in ["2D", "3D"] {
+            if camera.value as? String != mode { camera.tap() }
+            XCTAssertEqual(camera.value as? String, mode)
+            let asleep = expectation(for: NSPredicate(format: "value CONTAINS %@", "调度=静止"), evaluatedWith: scene)
+            XCTAssertEqual(XCTWaiter.wait(for: [asleep], timeout: 10), .completed)
+            snap(app, "\(evidencePrefix)resume-\(mode)-before")
+            let start = wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 24)),
+                withVelocity: .slow, thenHoldForDuration: 0.1)
+            let settled = expectation(for: NSPredicate(format: "value CONTAINS %@", "调度=静止"), evaluatedWith: scene)
+            XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 10), .completed)
+            XCTAssertTrue(pageState.exists)
+            XCTAssertTrue((pageState.value as? String ?? "").contains(mode))
+            snap(app, "\(evidencePrefix)resume-\(mode)-after")
+        }
     }
 
     func testBalancedSamplingNormal3DShotReturnsToIdle() throws {
         try checkNormal3DShotReturnsToIdle(arguments: ["-balancedRendering"])
     }
 
-    private func checkNormal3DShotReturnsToIdle(arguments: [String]) throws {
+    func testSpecializedCompletedReplay() {
+        let app = launch(["-dailyClearance.fixture=completed", "-dailyClearance.fixtureSettled", "-specializedRendering", "RS", "-renderProfileProbe"])
+        let replay = app.buttons["dailyClearance.replay"]
+        XCTAssertTrue(replay.waitForExistence(timeout: 12))
+        snap(app, "specialized-completed")
+        replay.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["dailyClearance.hud"].waitForExistence(timeout: 12))
+        XCTAssertFalse(replay.exists)
+        let scene = app.descendants(matching: .any)["table.scene"].firstMatch
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "value CONTAINS %@", "静止"), evaluatedWith: scene)], timeout: 15), .completed)
+        XCTAssertNotNil((scene.value as? String ?? "").range(of: "reflection=[1-9][0-9]* shadow=[1-9][0-9]*", options: .regularExpression))
+        snap(app, "specialized-replay")
+    }
+
+    func testSpecializedNormal3DShotReturnsToIdle() throws {
+        try checkNormal3DShotReturnsToIdle(arguments: ["-specializedRendering", "RS", "-renderProfileProbe"])
+    }
+
+    func testSpecializedNormal2DShotReturnsToIdle() throws {
+        try checkNormal3DShotReturnsToIdle(arguments: ["-specializedRendering", "RS", "-renderProfileProbe"], mode: "2D")
+    }
+
+    func testDailyShadowNormal2DShotReturnsToIdle() throws {
+        try checkNormal3DShotReturnsToIdle(arguments: ["-dailyClearance.rendering", "S", "-renderProfileProbe"], mode: "2D")
+    }
+
+    func testDailyShadowNormal3DShotReturnsToIdle() throws {
+        try checkNormal3DShotReturnsToIdle(arguments: ["-dailyClearance.rendering", "S", "-renderProfileProbe"])
+    }
+
+    func testDailyReflectionNormal3DShotReturnsToIdle() throws {
+        try checkNormal3DShotReturnsToIdle(arguments: ["-dailyClearance.rendering", "R", "-renderProfileProbe"])
+    }
+
+    private func checkNormal3DShotReturnsToIdle(arguments: [String], mode: String = "3D") throws {
+        XCUIDevice.shared.orientation = .landscapeRight
         let app = launch(arguments)
-        let hud = app.descendants(matching: .any)["dailyClearance.hud"]
-        XCTAssertTrue(hud.waitForExistence(timeout: 90))
+        let hud = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+        XCTAssertTrue(hud.waitForExistence(timeout: 15))
+        let acceptBreak = app.buttons["dailyClearance.confirmBreak"]
+        XCTAssertTrue(acceptBreak.waitForExistence(timeout: 90))
+        acceptBreak.tap()
+        XCTAssertTrue(acceptBreak.waitForNonExistence(timeout: 5))
+        XCTAssertTrue((hud.value as? String ?? "").components(separatedBy: "，").contains("0杆"))
         let camera = app.buttons["freeplay.cameraMode"]
-        if camera.value as? String != "3D" { camera.tap() }
-        XCTAssertEqual(camera.value as? String, "3D")
+        if camera.value as? String != mode { camera.tap() }
+        XCTAssertEqual(camera.value as? String, mode)
+        let wheel = app.descendants(matching: .any)["shotStage.aimWheel"].firstMatch
+        XCTAssertTrue(wheel.waitForExistence(timeout: 10))
+        let start = wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 24)),
+                    withVelocity: .slow, thenHoldForDuration: 0.1)
+        XCTAssertTrue((hud.value as? String ?? "").contains("自由模式"))
         let fps = app.descendants(matching: .any)["table.scene"].firstMatch
         func expectIdle() {
             XCTAssertEqual(XCTWaiter.wait(for: [expectation(
@@ -217,17 +340,29 @@ final class V52DailyClearanceUITests: XCTestCase {
             )], timeout: 15), .completed, "Real 3D page must settle its render activity")
         }
         expectIdle()
-        snap(app, "normal-3d-idle-before")
-        app.buttons["瞄准模式：进袋，点击切换"].tap()
-        let strike = app.buttons["击球"]
+        if arguments.contains("-renderProfileProbe") {
+            let value=fps.value as? String ?? ""
+            let profile = arguments.firstIndex(of: "-dailyClearance.rendering").map { arguments[$0 + 1] } ?? "R"
+            let reflection = profile == "S" ? "0" : "[1-9][0-9]*"
+            let shadow = profile == "R" ? "0" : "[1-9][0-9]*"
+            XCTAssertNotNil(value.range(of: "reflection=\(reflection) shadow=\(shadow)", options: .regularExpression), "Actual material profiles: \(value)")
+        }
+        let prefix = arguments.contains("-daily3D.diagnostics") ? "daily3D-diagnostics-" :
+            (arguments.firstIndex(of: "-dailyClearance.rendering").map { "daily-\(arguments[$0 + 1])-" } ?? "normal-")
+        snap(app, "\(prefix)\(mode.lowercased())-idle-before")
+        let undo = app.buttons["dailyClearance.undo"]
+        XCTAssertFalse(undo.isEnabled, "The automatic opening break does not create a player-shot undo")
+        let strike = app.buttons["dailyClearance.strike"]
         XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 20), .completed)
         strike.tap()
-        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "label CONTAINS %@", "1 杆"), evaluatedWith: hud)], timeout: 60), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: undo)], timeout: 60), .completed,
+                       "A completed player shot must produce an undo snapshot")
+        XCTAssertTrue((hud.value as? String ?? "").components(separatedBy: "，").contains("1杆"))
         expectIdle()
         Thread.sleep(forTimeInterval: 3)
         XCTAssertTrue((fps.value as? String)?.contains("静止") == true, "Idle state must persist after the shot")
-        XCTAssertEqual(camera.value as? String, "3D")
-        snap(app, "normal-3d-idle-after")
+        XCTAssertEqual(camera.value as? String, mode)
+        snap(app, "\(prefix)\(mode.lowercased())-idle-after")
     }
 
     func testRealManualBreakDeliversAndRestoresIn3D() {
@@ -352,5 +487,853 @@ final class V52DailyClearanceUITests: XCTestCase {
         XCTAssertTrue(hud.waitForExistence(timeout: 12))
         XCTAssertTrue(hud.label.contains("2 杆"))
         snap(app, "v63-daily-scratch-resumed")
+    }
+}
+
+extension V52DailyClearanceUITests {
+    func testInteractionHUDPaletteAndTwoActionChoice() {
+        for (game, numbers) in [("chineseEightBall", Array(1...15)), ("nineBall", Array(1...9)),
+                                ("sixBall", [1,2,3,4,5,9]), ("fiveBall", [1,2,3,4,9]), ("fourBall", [1,2,3,9])] {
+            let app = launch(["-dailyClearance.fixture=progress"], game: game)
+            let toggle = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(toggle.waitForExistence(timeout: 15))
+            let cue = app.buttons["paletteBall_cueBall"]
+            XCTAssertTrue(cue.exists)
+            for number in 1...15 {
+                XCTAssertEqual(app.buttons["paletteBall__\(number)"].exists, numbers.contains(number), game)
+            }
+            XCTAssertEqual(cue.frame.midY, toggle.frame.midY, accuracy: 2)
+            XCTAssertTrue(app.staticTexts["方向"].exists)
+            XCTAssertFalse(app.staticTexts["松手击球"].exists)
+            snap(app, "interaction-\(game)-2d")
+            toggle.tap()
+            XCTAssertEqual(toggle.value as? String, "3D")
+            XCTAssertEqual(cue.frame.midY, toggle.frame.midY, accuracy: 2)
+            snap(app, "interaction-\(game)-3d")
+            app.buttons["break.entry"].tap()
+            let again = app.buttons["dailyClearance.rerackAfterBreak"]
+            let resume = app.buttons["dailyClearance.confirmBreak"]
+            XCTAssertTrue(again.waitForExistence(timeout: 4))
+            XCTAssertTrue(resume.exists)
+            XCTAssertEqual(resume.label, "继续击球")
+            XCTAssertFalse(app.buttons["取消"].exists)
+            snap(app, "interaction-\(game)-choice")
+            resume.tap()
+            XCTAssertFalse(again.exists)
+            app.terminate()
+        }
+    }
+
+    func testLandscapeEntryPaletteAndPortraitReturn() {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication.launchClean(extraArgs: [
+            "-dailyClearance.seedHomeState=progress", "-dailyClearance.fixture=progress"
+        ])
+        let entry = app.buttons["trainingHome.dailyClearance"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 20))
+        snap(app, "landscape-home-before")
+        entry.tap()
+        let stage = app.descendants(matching: .any)["freeplay.stage"].firstMatch
+        XCTAssertTrue(stage.waitForExistence(timeout: 12))
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate { _, _ in
+            stage.frame.width > stage.frame.height * 1.5
+        }, evaluatedWith: stage)], timeout: 8), .completed)
+        XCTAssertFalse(app.descendants(matching: .any)["dailyClearance.hud"].exists)
+        for id in ["break.entry", "dailyClearance.undo", "dailyClearance.playback", "dailyClearance.strike"] {
+            XCTAssertTrue(app.buttons[id].exists, "Common action must stay visible: \(id)")
+        }
+        let balls = PositionPlayPaletteIDs.all.map { app.buttons[$0] }
+        XCTAssertTrue(balls.allSatisfy(\.exists))
+        let ys = balls.map { $0.frame.midY }
+        XCTAssertLessThan((ys.max() ?? 0) - (ys.min() ?? 0), 2)
+        snap(app, "landscape-table")
+        app.buttons["freeplay.moreMenu"].tap()
+        let trajectorySetting = app.buttons.matching(NSPredicate(format: "identifier == %@ OR label BEGINSWITH %@", "dailyClearance.trajectoryMenu", "轨迹显示")).firstMatch
+        XCTAssertTrue(trajectorySetting.waitForExistence(timeout: 3), app.debugDescription)
+        snap(app, "landscape-menu")
+        stage.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.85)).tap()
+        app.buttons["freeplay.cameraMode"].tap()
+        let hud = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+        XCTAssertTrue(hud.waitForExistence(timeout: 8))
+        XCTAssertTrue((hud.value as? String ?? "").contains("2 杆"))
+        XCTAssertEqual(app.buttons["freeplay.cameraMode"].value as? String, "3D")
+        XCTAssertGreaterThan(stage.frame.width, stage.frame.height * 1.5)
+        snap(app, "landscape-3d")
+        app.buttons["freeplay.cameraMode"].tap()
+        XCTAssertTrue(app.buttons["dailyClearance.back"].waitForExistence(timeout: 8))
+        app.buttons["dailyClearance.back"].tap()
+        XCTAssertTrue(entry.waitForExistence(timeout: 8))
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate { _, _ in
+            app.frame.height > app.frame.width
+        }, evaluatedWith: app)], timeout: 8), .completed)
+        snap(app, "landscape-home-return")
+    }
+
+    func testLandscapeRealAutomaticBreakBecomesShootable() {
+        let app = launch([])
+        let choice = app.buttons["dailyClearance.confirmBreak"]
+        XCTAssertTrue(choice.waitForExistence(timeout: 90))
+        XCTAssertTrue(app.buttons["dailyClearance.rerackAfterBreak"].exists)
+        snap(app, "landscape-break-choice")
+        choice.tap()
+        let power = app.descendants(matching: .any)["shotStage.powerBar"].firstMatch
+        XCTAssertTrue(power.waitForExistence(timeout: 20))
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: power)], timeout: 60), .completed)
+        let stage = app.descendants(matching: .any)["freeplay.stage"].firstMatch
+        XCTAssertGreaterThan(stage.frame.width, stage.frame.height * 1.5)
+        snap(app, "landscape-real-break")
+        app.buttons["freeplay.cameraMode"].tap()
+        let hud = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+        XCTAssertTrue(hud.waitForExistence(timeout: 8))
+        XCTAssertTrue((hud.value as? String ?? "").contains("0 杆"), "Opening break delivers the board before counting player shots")
+    }
+
+    func testLandscapeBreakChoiceRerackAndFinish() {
+        let app = launch(["-dailyClearance.fixture=progress"])
+        XCTAssertTrue(app.buttons["break.entry"].waitForExistence(timeout: 15))
+        app.buttons["break.entry"].tap()
+        let confirm = app.buttons["dailyClearance.rerackAfterBreak"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        confirm.tap()
+        let strike = app.buttons["dailyClearance.strike"]
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 10), .completed)
+        strike.tap()
+        let choice = app.buttons["dailyClearance.confirmBreak"]
+        XCTAssertTrue(choice.waitForExistence(timeout: 90))
+        XCTAssertEqual(choice.label, "完成")
+        snap(app, "landscape-manual-break-choice")
+        app.buttons["dailyClearance.rerackAfterBreak"].tap()
+        XCTAssertTrue(choice.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 10), .completed)
+        strike.tap()
+        XCTAssertTrue(choice.waitForExistence(timeout: 90))
+        choice.tap()
+        XCTAssertTrue(choice.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 40), .completed)
+        app.buttons["freeplay.cameraMode"].tap()
+        let hud = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+        XCTAssertTrue(hud.waitForExistence(timeout: 8))
+        XCTAssertTrue((hud.value as? String ?? "").contains("1杆"))
+    }
+
+    func testRuleAwareSelectionInBothDimensions() {
+        let app = launch(["-dailyClearance.fixture=selection", "-v63.cameraDiagnostics"])
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 15))
+        let status = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+        let diagnostics = app.descendants(matching: .any)["v63.cameraDiagnostics"].firstMatch
+        for dimension in ["2d", "3d"] {
+            if dimension == "3d" { mode.tap() }
+            XCTAssertTrue(diagnostics.waitForExistence(timeout: 5))
+            func tap(_ key: String) {
+                let values = (diagnostics.value as? String ?? "").components(separatedBy: "window_\(key)=")
+                XCTAssertEqual(values.count, 2)
+                guard values.count == 2 else { return }
+                let coords = values[1].components(separatedBy: " ")[0].split(separator: ",").compactMap { Double($0) }
+                XCTAssertEqual(coords.count, 3)
+                guard coords.count == 3 else { return }
+                app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: coords[0], dy: coords[1])).tap()
+            }
+            tap("_2")
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate { _, _ in
+                (status.value as? String ?? "").contains("目标_2")
+            }, evaluatedWith: status)], timeout: 5), .completed)
+            let before = status.value as? String
+            tap("_9")
+            XCTAssertTrue(app.staticTexts["请先击打全色球"].waitForExistence(timeout: 3))
+            XCTAssertEqual(status.value as? String, before)
+            snap(app, "selection-rejected-\(dimension)")
+            tap("_1")
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate { _, _ in
+                (status.value as? String ?? "").contains("目标_1")
+            }, evaluatedWith: status)], timeout: 5), .completed)
+            snap(app, "selection-valid-\(dimension)")
+        }
+    }
+
+    func testSpinPadCrossInBothModes() {
+        XCUIDevice.shared.orientation = .landscapeRight
+        let app = launch(["-dailyClearance.fixture=progress"])
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let windowControls = springboard.buttons["window-controls:com.xinkuan.qiuji"]
+        if windowControls.exists {
+            windowControls.tap()
+            let zoom = springboard.buttons["Zoom-button"]
+            if zoom.waitForExistence(timeout: 2) { zoom.tap() }
+        }
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 15))
+        var referenceFrames: [CGRect] = []
+        for dimension in ["2d", "3d"] {
+            if dimension == "3d" { mode.tap() }
+            let power = app.descendants(matching: .any)["shotStage.powerBar"].firstMatch
+            XCTAssertTrue(power.waitForExistence(timeout: 5))
+            XCTAssertEqual(power.frame.height, 144, accuracy: 1)
+            let entry = app.buttons["shotStage.spinEntry"]
+            XCTAssertTrue(entry.waitForExistence(timeout: 5))
+            entry.tap()
+            let card = app.descendants(matching: .any)["spinPad.card"].firstMatch
+            XCTAssertTrue(card.waitForExistence(timeout: 5))
+            let up = app.buttons["高杆增加 1%"], down = app.buttons["低杆增加 1%"]
+            let left = app.buttons["左塞增加 1%"], right = app.buttons["右塞增加 1%"]
+            XCTAssertLessThan(up.frame.midY, left.frame.midY)
+            XCTAssertGreaterThan(down.frame.midY, left.frame.midY)
+            XCTAssertEqual(up.frame.midX, down.frame.midX, accuracy: 1)
+            XCTAssertLessThan(left.frame.midX, up.frame.midX)
+            XCTAssertGreaterThan(right.frame.midX, up.frame.midX)
+            let frames = [card.frame, up.frame, down.frame, left.frame, right.frame]
+            if dimension == "2d" {
+                referenceFrames = frames
+            } else {
+                for (actual, expected) in zip(frames, referenceFrames) {
+                    XCTAssertEqual(actual.minX, expected.minX, accuracy: 1)
+                    XCTAssertEqual(actual.minY, expected.minY, accuracy: 1)
+                    XCTAssertEqual(actual.width, expected.width, accuracy: 1)
+                    XCTAssertEqual(actual.height, expected.height, accuracy: 1)
+                }
+            }
+            XCTAssertEqual(card.frame.width, 264, accuracy: 1)
+            XCTAssertEqual(card.frame.height, 264, accuracy: 1)
+            snap(app, "spin-pad-layout-\(dimension)")
+            // AX rect subtraction can yield 43.99999999999997 for a 44pt frame.
+            for key in [up, down, left, right] {
+                XCTAssertEqual(key.frame.height, 44, accuracy: 0.001)
+                XCTAssertEqual(key.frame.width, 44, accuracy: 0.001)
+            }
+            XCTAssertGreaterThanOrEqual(card.frame.minY, 0)
+            XCTAssertLessThanOrEqual(card.frame.maxY, app.frame.maxY)
+            up.tap()
+            snap(app, "spin-pad-nudge-\(dimension)")
+            XCTAssertTrue(app.staticTexts["高1%"].waitForExistence(timeout: 3), app.debugDescription)
+            app.buttons["回中"].tap()
+            XCTAssertTrue(app.staticTexts["中心球"].exists)
+            snap(app, "spin-pad-\(dimension)")
+            entry.tap()
+            XCTAssertTrue(card.waitForNonExistence(timeout: 3))
+        }
+    }
+
+    func testFixedPlayerViewsAndFirstPersonShotTransition() {
+        let app = launch(["-dailyClearance.fixture=selection", "-v63.cameraDiagnostics"])
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 15))
+        mode.tap()
+        let first = app.buttons["shotCamera.firstPerson"], third = app.buttons["shotCamera.thirdPerson"]
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        let strike = app.buttons["dailyClearance.strike"]
+        func ready() {
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"),
+                evaluatedWith: strike)], timeout: 12), .completed)
+        }
+        ready()
+        first.tap()
+        ready()
+        XCTAssertEqual(first.value as? String, "已选中")
+        snap(app, "camera-first-person")
+        third.tap()
+        ready()
+        XCTAssertEqual(third.value as? String, "已选中")
+        snap(app, "camera-third-person")
+        first.tap()
+        ready()
+        strike.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "value == %@", "已选中"),
+            evaluatedWith: third)], timeout: 10), .completed)
+        snap(app, "camera-first-shot-standing")
+        ready()
+        XCTAssertEqual(third.value as? String, "已选中")
+        mode.tap()
+        mode.tap()
+        XCTAssertEqual(third.value as? String, "已选中")
+        snap(app, "camera-round-trip")
+    }
+
+    func testLandscape3DManualBreakChoice() {
+        XCUIDevice.shared.orientation = .landscapeRight
+        let app = launch(["-dailyClearance.fixture=progress"])
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 15))
+        mode.tap()
+        app.buttons["break.entry"].tap()
+        let confirm = app.buttons["dailyClearance.rerackAfterBreak"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        confirm.tap()
+        let strike = app.buttons["dailyClearance.strike"]
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 10), .completed)
+        let power = app.descendants(matching: .any)["shotStage.powerBar"].firstMatch
+        power.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+            .press(forDuration: 0.1, thenDragTo: power.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)))
+        XCTAssertTrue(strike.isEnabled, "Releasing break power must leave the rack ready to strike")
+        XCTAssertFalse(app.buttons["dailyClearance.confirmBreak"].exists)
+        strike.tap()
+        let choice = app.buttons["dailyClearance.confirmBreak"]
+        XCTAssertTrue(choice.waitForExistence(timeout: 90))
+        XCTAssertTrue(app.buttons["dailyClearance.rerackAfterBreak"].exists)
+        XCTAssertTrue(choice.isHittable)
+        snap(app, "landscape-3d-break-choice")
+        choice.tap()
+        XCTAssertTrue(choice.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(mode.value as? String, "3D")
+        let stage = app.descendants(matching: .any)["freeplay.stage"].firstMatch
+        XCTAssertGreaterThan(stage.frame.width, stage.frame.height * 1.5)
+        let status = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+        XCTAssertTrue((status.value as? String ?? "").components(separatedBy: "，").contains("1杆"),
+                      "A manual opening break counts as a played visit")
+    }
+
+    func testLandscape3DCameraAndShot() {
+        XCUIDevice.shared.orientation = .landscapeRight
+        let app = launch(["-dailyClearance.fixture=progress", "-v63.cameraDiagnostics"])
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 15))
+        mode.tap()
+        XCTAssertEqual(mode.value as? String, "3D")
+        let stage = app.descendants(matching: .any)["freeplay.stage"].firstMatch
+        XCTAssertGreaterThan(stage.frame.width, stage.frame.height * 1.5)
+        let diagnostics = app.descendants(matching: .any)["v63.cameraDiagnostics"].firstMatch
+        XCTAssertTrue(diagnostics.waitForExistence(timeout: 8))
+        func field(_ name: String) -> String {
+            let text = diagnostics.value as? String ?? ""
+            let prefix = "\(name)="
+            return text.split(separator: " ").first { $0.hasPrefix(prefix) }
+                .map { String($0.dropFirst(prefix.count)) } ?? ""
+        }
+        let yaw = field("yaw")
+        XCTAssertTrue(Double(yaw)?.isFinite == true, "A numeric camera yaw is required")
+        stage.coordinate(withNormalizedOffset: CGVector(dx: 0.35, dy: 0.16))
+            .press(forDuration: 0.1, thenDragTo: stage.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.16)))
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate { _, _ in field("yaw") != yaw }, evaluatedWith: diagnostics)], timeout: 6), .completed)
+        let fov = field("fov")
+        XCTAssertTrue(Double(fov)?.isFinite == true, "A numeric field of view is required")
+        stage.pinch(withScale: 1.3, velocity: 1)
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate { _, _ in field("fov") != fov }, evaluatedWith: diagnostics)], timeout: 6), .completed)
+        snap(app, "landscape-3d-camera")
+        let manualYaw = field("yaw")
+        // Read projected world balls, then tap the real scene (no test-only action).
+        func tapBall(_ key: String) {
+            let coordinates = field("window_\(key)").split(separator: ",").compactMap { Double($0) }
+            XCTAssertEqual(coordinates.count, 3, diagnostics.value as? String ?? "")
+            guard coordinates.count == 3 else { return }
+            XCTAssertTrue(coordinates[2] > 0 && coordinates[2] < 1)
+            app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: coordinates[0] - app.frame.minX, dy: coordinates[1] - app.frame.minY)).tap()
+        }
+        // The progress fixture's legal object ball is _1; the black is not yet a legal target.
+        let targetPoint = field("window__1").split(separator: ",").compactMap { Double($0) }
+        XCTAssertEqual(targetPoint.count, 3, diagnostics.value as? String ?? "")
+        guard targetPoint.count == 3 else { return }
+        XCTAssertTrue(stage.frame.insetBy(dx: 20, dy: 20).contains(CGPoint(x: targetPoint[0], y: targetPoint[1])),
+                      "The target and stage must share window coordinates")
+        tapBall("_1")
+        let status = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+        XCTAssertTrue((status.value as? String ?? "").components(separatedBy: "，").contains("目标_1"))
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate { _, _ in field("yaw") != manualYaw }, evaluatedWith: diagnostics)], timeout: 6), .completed)
+        // Wait for the existing transition and a diagnostic refresh.
+        Thread.sleep(forTimeInterval: 1.2)
+        snap(app, "landscape-3d-target-view")
+        tapBall("cueBall")
+        Thread.sleep(forTimeInterval: 1.2)
+        snap(app, "landscape-3d-cue-view")
+        let power = app.descendants(matching: .any)["shotStage.powerBar"].firstMatch
+        power.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+            .press(forDuration: 0.1, thenDragTo: power.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)))
+        let strike = app.buttons["dailyClearance.strike"]
+        XCTAssertTrue((status.value as? String ?? "").components(separatedBy: "，").contains("0杆"))
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 30), .completed)
+        strike.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate { _, _ in
+            (status.value as? String ?? "").components(separatedBy: "，").contains("1杆")
+        }, evaluatedWith: status)], timeout: 40), .completed)
+        XCTAssertEqual(mode.value as? String, "3D")
+        snap(app, "landscape-3d-shot")
+        mode.tap()
+        XCTAssertEqual(mode.value as? String, "2D")
+        XCTAssertTrue((status.value as? String ?? "").components(separatedBy: "，").contains("1杆"))
+    }
+
+    func testFixedPowerAdjustsWithoutFiring() {
+        XCUIDevice.shared.orientation = .landscapeRight
+        let app = launch(["-dailyClearance.fixture=progress"])
+        let power = app.descendants(matching: .any)["shotStage.powerBar"].firstMatch
+        let status = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+        let strike = app.buttons["dailyClearance.strike"]
+        XCTAssertTrue(power.waitForExistence(timeout: 15))
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"),
+            evaluatedWith: strike)], timeout: 15), .completed)
+        let initialStatus = status.value as? String
+        let initialPower = power.value as? String
+        XCTAssertEqual(power.frame.height, 144, accuracy: 1)
+        power.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+            .press(forDuration: 0.1, thenDragTo: power.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)))
+        XCTAssertNotEqual(power.value as? String, initialPower)
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"),
+            evaluatedWith: strike)], timeout: 15), .completed)
+        XCTAssertEqual(status.value as? String, initialStatus, "Adjusting power must not advance the game")
+        XCTAssertTrue(power.isEnabled)
+        snap(app, "fixed-power-adjusted")
+    }
+
+    func testLandscapePowerCancelAndRelease() {
+        let app = launch(["-dailyClearance.fixture=progress"])
+        let power = app.descendants(matching: .any)["shotStage.powerBar"].firstMatch
+        XCTAssertTrue(power.waitForExistence(timeout: 15))
+        let from = power.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+        let cancel = power.coordinate(withNormalizedOffset: CGVector(dx: -1.2, dy: 0.45))
+        from.press(forDuration: 0.1, thenDragTo: cancel)
+        app.buttons["freeplay.cameraMode"].tap()
+        let hud = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+        XCTAssertTrue(hud.waitForExistence(timeout: 8))
+        XCTAssertTrue((hud.value as? String ?? "").contains("2 杆"), "Dragging outside cancels the shot")
+        app.buttons["freeplay.cameraMode"].tap()
+        XCTAssertTrue(power.waitForExistence(timeout: 8))
+        let end = power.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+        from.press(forDuration: 0.1, thenDragTo: end)
+        XCTAssertTrue((hud.value as? String ?? "").contains("2 杆"), "Release adjusts power without firing")
+        let strike = app.buttons["dailyClearance.strike"]
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 15), .completed)
+        XCTAssertTrue((hud.value as? String ?? "").contains("2 杆"), "Finishing the solve cannot fire")
+        strike.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == false"), evaluatedWith: power)], timeout: 10), .completed)
+        snap(app, "landscape-shot-playing")
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: power)], timeout: 35), .completed)
+        app.buttons["freeplay.cameraMode"].tap()
+        XCTAssertTrue(hud.waitForExistence(timeout: 8))
+        XCTAssertTrue((hud.value as? String ?? "").contains("3 杆"), "The strike button fires exactly one actual shot")
+        snap(app, "landscape-shot-finished")
+    }
+}
+
+extension V52DailyClearanceUITests {
+    func testRuleCompletionInBothGamesAndDimensions() {
+        for (game, threeD) in [("chineseEightBall", false), ("nineBall", true)] {
+            let app = launch(["-dailyClearance.fixture=lastBall"], game: game)
+            let mode = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 15))
+            if threeD { mode.tap() }
+            let strike = app.buttons["dailyClearance.strike"]
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 30), .completed)
+            snap(app, "rules-\(game)-ready")
+            strike.tap()
+            let again = app.buttons["dailyClearance.replay"]
+            XCTAssertTrue(again.waitForExistence(timeout: 60))
+            XCTAssertTrue(again.isHittable)
+            XCTAssertEqual(again.frame.midY, app.frame.midY, accuracy: 65, "带操作的清台结果与确认选项统一在屏幕正中")
+            XCTAssertGreaterThan(again.frame.width, 44)
+            XCTAssertFalse(app.buttons["dailyClearance.undo"].isEnabled)
+            snap(app, "rules-\(game)-complete")
+            app.terminate()
+        }
+    }
+
+    func testUndoAndRerackDuringStrokeAreTransactional() {
+        let app = launch(["-dailyClearance.fixture=selection"])
+        let strike = app.buttons["dailyClearance.strike"]
+        XCTAssertTrue(strike.waitForExistence(timeout: 15))
+        let hud = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+        func ready() {
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 40), .completed)
+        }
+        ready()
+        strike.tap()
+        let undo = app.buttons["dailyClearance.undo"]
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: undo)], timeout: 60), .completed)
+        XCTAssertTrue((hud.value as? String ?? "").contains("1 杆"))
+        undo.tap()
+        XCTAssertTrue((hud.value as? String ?? "").contains("0 杆"))
+        ready()
+        strike.tap()
+        app.buttons["break.entry"].tap()
+        let rerack = app.buttons["dailyClearance.rerackAfterBreak"]
+        XCTAssertTrue(rerack.waitForExistence(timeout: 5))
+        rerack.tap()
+        ready()
+        // Wait beyond the old physical playback; it must not increment the new attempt.
+        let stable = expectation(for: NSPredicate { _, _ in (hud.value as? String ?? "").contains("1 杆") }, evaluatedWith: hud)
+        stable.isInverted = true
+        wait(for: [stable], timeout: 8)
+        XCTAssertTrue((hud.value as? String ?? "").contains("0 杆"))
+        snap(app, "rules-rerack-during-stroke")
+    }
+
+}
+
+extension V52DailyClearanceUITests {
+    func testCameraPresetsZoomManualOwnershipAndSpinPad() {
+        let app = launch(["-dailyClearance.fixture=selection", "-v63.cameraDiagnostics"])
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 15)); mode.tap()
+        let strike = app.buttons["dailyClearance.strike"]
+        func ready() {
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 30), .completed)
+        }
+        for id in ["shotCamera.firstPerson", "shotCamera.thirdPerson"] {
+            app.buttons[id].tap(); ready()
+            app.buttons["shotStage.spinEntry"].tap()
+            let card = app.otherElements["spinPad.card"].firstMatch
+            XCTAssertTrue(card.waitForExistence(timeout: 4))
+            XCTAssertGreaterThanOrEqual(card.frame.minY, app.frame.minY)
+            XCTAssertLessThanOrEqual(card.frame.maxY, app.frame.maxY)
+            snap(app, "preset-pad-\(id)")
+            app.buttons["shotStage.spinEntry"].tap()
+            XCTAssertTrue(card.waitForNonExistence(timeout: 4))
+        }
+        let stage = app.descendants(matching: .any)["freeplay.stage"].firstMatch
+        stage.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.1))
+            .press(forDuration: 0.1, thenDragTo: stage.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.1)))
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "value == %@", "未选中"),
+            evaluatedWith: app.buttons["shotCamera.thirdPerson"])], timeout: 5), .completed)
+        let diagnostics = app.descendants(matching: .any)["v63.cameraDiagnostics"].firstMatch
+        func field(_ name: String) -> Double {
+            let value = diagnostics.value as? String ?? ""
+            return Double(value.components(separatedBy: "\(name)=").last?.components(separatedBy: " ").first ?? "") ?? -1
+        }
+        stage.pinch(withScale: 3, velocity: 1)
+        snap(app, "camera-zoom-near")
+        stage.pinch(withScale: 0.2, velocity: -1)
+        snap(app, "camera-zoom-far-limit")
+        ready()
+        // Diagnostics refresh independently of gestures. Capture the completed observation,
+        // after both pinch gestures, before testing whether the shot changes it.
+        Thread.sleep(forTimeInterval: 1.2)
+        let yaw = field("yaw")
+        strike.tap(); ready()
+        Thread.sleep(forTimeInterval: 1.2)
+        XCTAssertEqual(field("yaw"), yaw, accuracy: 0.02, "Manual observation is retained after the shot")
+        XCTAssertEqual(app.buttons["shotCamera.thirdPerson"].value as? String, "未选中")
+    }
+}
+
+private enum PositionPlayPaletteIDs {
+    static let all = ["paletteBall_cueBall"] + (1...15).map { "paletteBall__\($0)" }
+
+}
+
+extension V52DailyClearanceUITests {
+    func testRuleSelectionPromptMatrix() {
+        let cases: [(String, String, String, String)] = [
+            ("selectionStripe", "chineseEightBall", "_1", "请先击打花色球"),
+            ("selection", "chineseEightBall", "_8", "先打完全色球，再打黑八"),
+            ("selectionOpen", "chineseEightBall", "_8", "尚未定组，请选全色或花色球"),
+            ("selectionBlack", "chineseEightBall", "_9", "本组已清空，请击打黑八"),
+            ("selectionNine", "nineBall", "_9", "先碰1号球，可组合进9"),
+            ("selectionNine", "sixBall", "_2", "请先碰1号球"),
+            ("selectionNine", "fiveBall", "_2", "请先碰1号球"),
+            ("selectionNine", "fourBall", "_9", "先碰1号球，可组合进9")
+        ]
+        for (fixture, game, key, message) in cases {
+            let app = launch(["-dailyClearance.fixture=\(fixture)"], game: game)
+            let mode = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 15))
+            let state = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+            for dimension in ["2d", "3d"] {
+                if dimension == "3d" { mode.tap() }
+                let before = state.value as? String
+                app.buttons["paletteBall_\(key)"].tap()
+                XCTAssertTrue(app.staticTexts[message].waitForExistence(timeout: 4))
+                XCTAssertFalse(app.staticTexts["dailyClearance.turn"].exists, "球库承担当前球组状态，无常驻文字")
+                XCTAssertEqual(state.value as? String, before, "非法选球不能改变目标或袋口")
+                snap(app, "prompt-\(fixture)-\(game)-\(dimension)")
+            }
+            app.terminate()
+        }
+    }
+
+    func testSharedInteractiveInstruments() {
+        XCUIDevice.shared.orientation = .portrait
+        let pages: [(String, String)] = [
+            ("-deeplink.freePlay", "freeplay"),
+            ("-dailyInteraction.sharedPage=shot", "shotSimulation"),
+            ("-dailyInteraction.sharedPage=bank", "bankshot"),
+            ("-dailyInteraction.sharedPage=diamond", "reflection"),
+            ("-dailyInteraction.sharedPage=cushion", "cushionEnglishAtlas"),
+            ("-dailyInteraction.sharedPage=separation", "separationAngleAtlas"),
+            ("-deeplink.planThree", "planthree"),
+            ("-deeplink.silu", "silu"),
+            ("-deeplink.snooker", "snooker"),
+            ("-dailyInteraction.sharedPage=composer", "composer")
+        ]
+        let pageFilter = ProcessInfo.processInfo.environment["SHARED_PAGE"]
+            ?? ProcessInfo.processInfo.environment["TEST_RUNNER_SHARED_PAGE"]
+        for (argument, prefix) in pages where pageFilter == nil || prefix == pageFilter {
+            let app = XCUIApplication.launchClean(extraArgs: [argument])
+            let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            let windowControls = springboard.buttons["window-controls:com.xinkuan.qiuji"]
+            if windowControls.exists {
+                windowControls.tap()
+                let zoom = springboard.buttons["Zoom-button"]
+                if zoom.waitForExistence(timeout: 2) { zoom.tap() }
+            }
+            let mode = app.buttons["\(prefix).cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 20), prefix)
+            let power = app.descendants(matching: .any)["shotStage.powerBar"].firstMatch
+            XCTAssertTrue(power.waitForExistence(timeout: 10), prefix)
+            for dimension in ["2d", "3d"] {
+                if dimension == "3d" { mode.tap() }
+                XCTAssertTrue(power.isHittable, prefix)
+                XCTAssertTrue(app.staticTexts["力度"].firstMatch.exists, prefix)
+                snap(app, "shared-\(prefix)-\(dimension)")
+                let spin = app.buttons["shotStage.spinEntry"].firstMatch
+                if spin.exists && spin.isEnabled {
+                    spin.tap()
+                    let up = app.buttons["高杆增加 1%"]
+                    XCTAssertTrue(up.waitForExistence(timeout: 3), prefix)
+                    XCTAssertGreaterThanOrEqual(up.frame.height, 43.5, prefix)
+                    up.tap()
+                    snap(app, "shared-\(prefix)-pad-\(dimension)")
+                    app.buttons["关闭打点"].firstMatch.tap()
+                    XCTAssertTrue(up.waitForNonExistence(timeout: 3), prefix)
+                }
+            }
+            app.terminate()
+        }
+    }
+}
+
+extension V52DailyClearanceUITests {
+    func testQuizAndBatchSharedControlsPreserveEditingSemantics() {
+        XCUIDevice.shared.orientation = .portrait
+        for page in ["aimpoint2d", "aimpoint3d"] {
+            let app = XCUIApplication.launchClean(extraArgs: ["-dailyInteraction.sharedPage=\(page)"])
+            let wheel = app.descendants(matching: .any)["shotStage.aimWheel"].firstMatch
+            XCTAssertTrue(wheel.waitForExistence(timeout: 20))
+            XCTAssertTrue(app.buttons["提交"].exists)
+            wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+                .press(forDuration: 0.1, thenDragTo: wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)))
+            XCTAssertTrue(app.buttons["提交"].exists, "调方向不能替用户提交答案")
+            snap(app, "shared-\(page)-direction")
+            app.terminate()
+        }
+        let app = XCUIApplication.launchClean(extraArgs: ["-dailyInteraction.sharedPage=batch"])
+        let entry = app.buttons["shotStage.spinEntry"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 20))
+        entry.tap()
+        let up = app.buttons["高杆增加 1%"]
+        XCTAssertTrue(up.waitForExistence(timeout: 5))
+        up.tap()
+        snap(app, "shared-batch-pad")
+        XCTAssertTrue(app.buttons["回中"].exists)
+        app.buttons["关闭打点"].firstMatch.tap()
+        XCTAssertTrue(up.waitForNonExistence(timeout: 3))
+        snap(app, "shared-batch-editor")
+    }
+}
+
+extension V52DailyClearanceUITests {
+    func testRestoredBreakRulingRequiresChoiceAndGrantsBallInHand() {
+        let app = launch(["-dailyClearance.fixture=weakBreak"])
+        let accept = app.buttons["dailyClearance.ruleChoice.acceptBallInHand"]
+        XCTAssertTrue(accept.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["开球未满足碰库要求"].exists)
+        XCTAssertTrue(app.buttons["dailyClearance.ruleChoice.rerackByIncoming"].exists)
+        XCTAssertTrue(app.buttons["dailyClearance.ruleChoice.rerackByBreaker"].exists)
+        XCTAssertFalse(app.buttons["dailyClearance.strike"].isEnabled)
+        snap(app, "rules-weak-break-restored")
+        accept.tap()
+        XCTAssertTrue(accept.waitForNonExistence(timeout: 4))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "自由球")).firstMatch.waitForExistence(timeout: 4))
+        app.launchArguments.removeAll { $0 == "-dailyClearance.resetState" || $0 == "-dailyClearance.fixture=weakBreak" }
+        app.terminate(); app.launch()
+        XCTAssertTrue(app.buttons["freeplay.cameraMode"].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.buttons["dailyClearance.ruleChoice.acceptBallInHand"].exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "自由球")).firstMatch.exists)
+        snap(app, "rules-ball-in-hand-restored")
+    }
+}
+
+extension V52DailyClearanceUITests {
+    func testFeedbackSurfacesKeepStateAndDoNotStack() {
+        XCUIDevice.shared.orientation = .landscapeRight
+        let app = launch(["-dailyClearance.fixture=selection", "-v54.forceLight"])
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 15))
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let controls = springboard.buttons["window-controls:com.xinkuan.qiuji"]
+        if controls.exists {
+            controls.tap()
+            let zoom = springboard.buttons["Zoom-button"]
+            if zoom.waitForExistence(timeout: 2) { zoom.tap() }
+        }
+        for dimension in ["2d", "3d"] {
+            if dimension == "3d" { mode.tap() }
+            let stage = app.descendants(matching: .any)["freeplay.stage"].firstMatch
+            let viewport = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+            let stageBefore = stage.frame
+            XCTAssertGreaterThanOrEqual(stageBefore.height, viewport.frame.height - 44.5, "提示不得额外占据球桌高度")
+            snap(app, "feedback-table-maximized-\(dimension)")
+            app.buttons["paletteBall__9"].tap()
+            let notice = app.staticTexts["请先击打全色球"]
+            XCTAssertTrue(notice.waitForExistence(timeout: 4))
+            let turn = app.staticTexts["dailyClearance.turn"]
+            XCTAssertFalse(turn.exists, "当前球组由球库表达，不常驻文字")
+            XCTAssertEqual(stage.frame, stageBefore, "提示出现不得改变球桌布局")
+            snap(app, "feedback-selection-\(dimension)")
+            XCTAssertEqual(notice.frame.midX, stage.frame.midX, accuracy: 24)
+            XCTAssertGreaterThanOrEqual(notice.frame.minY, app.buttons["paletteBall__9"].frame.maxY)
+            XCTAssertEqual(app.buttons["paletteBall__1"].value as? String, "本轮可击打")
+            XCTAssertNotEqual(app.buttons["paletteBall__9"].value as? String, "本轮可击打")
+            app.buttons["break.entry"].tap()
+            let resume = app.buttons["dailyClearance.confirmBreak"]
+            XCTAssertTrue(resume.waitForExistence(timeout: 3))
+            XCTAssertFalse(notice.exists, "决策面板不能叠加轻提示")
+            XCTAssertFalse(turn.exists)
+            XCTAssertTrue(resume.isHittable)
+            XCTAssertGreaterThanOrEqual(resume.frame.height, 44)
+            XCTAssertEqual(resume.frame.midY, app.frame.midY, accuracy: 24, "需要选择的操作保持屏幕正中")
+            XCTAssertLessThan(resume.frame.width, 160)
+            snap(app, "feedback-decision-\(dimension)")
+            resume.tap()
+            XCTAssertTrue(resume.waitForNonExistence(timeout: 3))
+            XCTAssertFalse(turn.exists, "当前球组由球库表达，不常驻文字")
+            XCTAssertEqual(stage.frame, stageBefore, "弹窗关闭不得改变球桌布局")
+            XCTAssertFalse(notice.exists, "关闭面板不能重放过期提示")
+        }
+    }
+}
+
+
+extension V52DailyClearanceUITests {
+    func testPhysicalFoulFeedbackRetainsReasonAndNextAction() {
+        XCUIDevice.shared.orientation = .landscapeRight
+        for dimension in ["2d", "3d"] {
+            let app = launch(["-dailyClearance.fixture=scratch"], game: "nineBall")
+            let mode = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 15))
+            if dimension == "3d" { mode.tap() }
+            let strike = app.buttons["击球"]
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"),
+                                                          evaluatedWith: strike)], timeout: 30), .completed)
+            strike.tap()
+            let notice = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "犯规：", "自由球")).firstMatch
+            XCTAssertTrue(notice.waitForExistence(timeout: 60))
+            XCTAssertTrue(notice.label.contains("白球") || notice.label.contains("母球"), notice.label)
+            XCTAssertFalse(app.staticTexts["dailyClearance.turn"].exists, "球组状态保留在球库")
+            snap(app, "feedback-physical-foul-\(dimension)")
+            XCTAssertTrue(notice.waitForNonExistence(timeout: 6))
+            XCTAssertFalse(app.staticTexts["dailyClearance.turn"].exists, "球组状态保留在球库")
+            snap(app, "feedback-foul-status-\(dimension)")
+            app.terminate()
+        }
+    }
+}
+
+
+extension V52DailyClearanceUITests {
+    func testAimModeFeedbackAndFailureCopy() {
+        XCUIDevice.shared.orientation = .landscapeRight
+        let app = launch(["-dailyClearance.fixture=selection", "-v54.forceDark"])
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 15))
+        for dimension in ["2d", "3d"] {
+            if dimension == "3d" { mode.tap() }
+            let wheel = app.descendants(matching: .any)["shotStage.aimWheel"].firstMatch
+            let start = wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 12)))
+            XCTAssertTrue(app.staticTexts["已调整方向，暂用自由模式"].waitForExistence(timeout: 4))
+            snap(app, "feedback-temporary-free-\(dimension)")
+            app.buttons["paletteBall__1"].tap()
+            XCTAssertTrue(app.staticTexts["进袋模式"].waitForExistence(timeout: 4))
+            snap(app, "feedback-pocket-restored-\(dimension)")
+        }
+        app.terminate()
+        let failed = launch(["-dailyClearance.fixture=failed", "-v54.forceDark"])
+        XCTAssertTrue(failed.buttons["dailyClearance.rerack"].waitForExistence(timeout: 15))
+        XCTAssertFalse(failed.staticTexts["dailyClearance.turn"].exists)
+        XCTAssertTrue(failed.staticTexts["本局已结束"].exists)
+        snap(failed, "feedback-failed")
+    }
+}
+
+extension V52DailyClearanceUITests {
+    func testDailyCameraVisualMatrix() {
+        XCUIDevice.shared.orientation = .landscapeRight
+        for fixture in ["selection", "cameraLift"] {
+            let app = launch(["-dailyClearance.fixture=\(fixture)", "-v63.cameraDiagnostics"])
+            let mode = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 15))
+            let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            let controls = springboard.buttons["window-controls:com.xinkuan.qiuji"]
+            if controls.exists {
+                controls.tap()
+                let zoom = springboard.buttons["Zoom-button"]
+                if zoom.waitForExistence(timeout: 2) { zoom.tap() }
+            }
+            mode.tap()
+            let strike = app.buttons["dailyClearance.strike"]
+            func ready() {
+                XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"),
+                    evaluatedWith: strike)], timeout: 25), .completed)
+                Thread.sleep(forTimeInterval: 1.2)
+            }
+            func capture(_ name: String) {
+                snap(app, name)
+                let state = app.descendants(matching: .any)["v63.cameraDiagnostics"].firstMatch.value as? String ?? ""
+                do { try state.write(to: outDir.appendingPathComponent(name + ".txt"), atomically: true, encoding: .utf8) }
+                catch { XCTFail("Cannot write camera diagnostics: \(error)") }
+            }
+            ready(); capture("\(fixture)-01-overview")
+            app.buttons["shotCamera.firstPerson"].tap(); ready()
+            capture("\(fixture)-02-first")
+            app.buttons["shotCamera.thirdPerson"].tap(); ready()
+            capture("\(fixture)-03-third")
+            let diagnostics = app.descendants(matching: .any)["v63.cameraDiagnostics"].firstMatch
+            func tapBall(_ key: String) {
+                let value = diagnostics.value as? String ?? ""
+                let values = value.components(separatedBy: "window_\(key)=")
+                XCTAssertEqual(values.count, 2)
+                guard values.count == 2 else { return }
+                let coords = values[1].components(separatedBy: " ")[0].split(separator: ",").compactMap { Double($0) }
+                XCTAssertEqual(coords.count, 3)
+                guard coords.count == 3 else { return }
+                app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: coords[0], dy: coords[1])).tap()
+            }
+            tapBall("_1"); ready()
+            capture("\(fixture)-04-target")
+            let stage = app.descendants(matching: .any)["freeplay.stage"].firstMatch
+            stage.pinch(withScale: 2, velocity: 1); ready()
+            capture("\(fixture)-05-zoom")
+            stage.coordinate(withNormalizedOffset: CGVector(dx: 0.35, dy: 0.15))
+                .press(forDuration: 0.1, thenDragTo: stage.coordinate(withNormalizedOffset: CGVector(dx: 0.50, dy: 0.15)))
+            ready(); capture("\(fixture)-06-orbit")
+            XCTAssertEqual(app.buttons["shotCamera.thirdPerson"].value as? String, "未选中")
+            stage.pinch(withScale: 0.2, velocity: -1); ready()
+            capture("\(fixture)-07-pinch-table")
+            let overview = app.buttons["dailyClearance.observeTable"]
+            XCTAssertTrue(overview.waitForExistence(timeout: 4)); overview.tap()
+            ready(); capture("\(fixture)-07-return-table")
+            tapBall("cueBall"); ready()
+            XCTAssertEqual(app.buttons["shotCamera.firstPerson"].value as? String, "已选中")
+            capture("\(fixture)-08-tap-cue")
+            mode.tap(); mode.tap(); ready()
+            capture("\(fixture)-09-roundtrip")
+            app.terminate()
+        }
+    }
+}
+
+
+extension V52DailyClearanceUITests {
+    func testGroupedPaletteStatesRemainCenteredInBothModes() {
+        XCUIDevice.shared.orientation = .landscapeRight
+        for (fixture, active) in [("selection", "_1"), ("selectionStripe", "_9"),
+                                  ("selectionBlack", "_8"), ("selectionOpen", "")] {
+            let app = launch(["-dailyClearance.fixture=\(fixture)"])
+            let mode = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 15))
+            for dimension in ["2d", "3d"] {
+                if dimension == "3d" { mode.tap() }
+                for key in ["_1", "_9", "_8"] {
+                    let value = app.buttons["paletteBall_\(key)"].value as? String
+                    if key == active { XCTAssertEqual(value, "本轮可击打") }
+                    else { XCTAssertNotEqual(value, "本轮可击打") }
+                }
+                XCTAssertEqual(app.buttons["paletteBall__3"].value as? String, "已进袋")
+                XCTAssertFalse(app.staticTexts["dailyClearance.turn"].exists)
+                let tray = app.descendants(matching: .any)["dailyClearance.singleRowPalette"].firstMatch
+                let stage = app.descendants(matching: .any)["freeplay.stage"].firstMatch
+                XCTAssertEqual(tray.frame.midX, stage.frame.midX, accuracy: 2)
+                snap(app, "palette-\(fixture)-\(dimension)")
+            }
+            app.terminate()
+        }
     }
 }

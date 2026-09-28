@@ -246,6 +246,8 @@ final class PlanThreeViewModel: ObservableObject {
 
     var lastAimDirection: SCNVector3?
 
+    var playerCameraAim: SCNVector3? { lastAimDirection }
+
     var canObserveCurrentAim: Bool {
         cameraMode == .perspective3D && canStrike && lastAimDirection != nil
             && scene.cueBallNode?.isHidden == false
@@ -1101,6 +1103,7 @@ extension PlanThreeViewModel {
         )
         scene.runCueStroke(
             strikePosition: strikePos, aim: aim, velocity: Float(sol.shot.velocity),
+            switchesPlayerCameraOnContact: true,
             clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
         ) { [weak self] in
             self?.launchBalls(sol: sol, recorder: recorder)

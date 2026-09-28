@@ -33,6 +33,7 @@ struct BreakResult {
     /// Only a completed simulation may be delivered as an editable table.
     var settled: Bool { termination == .settled }
     let surfaceY: Float
+    var facts: ShotFacts? = nil
 }
 
 enum BreakSimulator {
@@ -91,6 +92,18 @@ enum BreakSimulator {
             onTable[b.name] = CanvasPoint(x: Double(n.x), y: Double(n.y))
         }
 
+        let events = zip(engine.resolvedEvents, engine.resolvedEventTimes).compactMap { event, time -> ShotEvent? in
+            switch event {
+            case .ballBall(let a, let b): return ShotEvent(time: time, kind: .ballBall(ballA: a, ballB: b))
+            case .ballCushion(let ball, _, _): return ShotEvent(time: time, kind: .ballCushion(ball: ball))
+            case .pocket(let ball, let id): return ShotEvent(time: time, kind: .pocket(ball: ball, pocketId: id))
+            case .transition: return nil
+            }
+        }
+        var facts = ShotFacts.extract(events: events, cueName: PositionPlayBall.cueKey,
+            tableKeys: Set(rack.balls.map(\.key)), pocketed: Set(pocketed), key: { $0 })
+        facts.cueStartedBehindHeadString = cuePos.x >= AngleSceneCalculator.innerLength / 4
+
         return BreakResult(
             board: BoardSnapshot(onTable: onTable),
             recorder: engine.getTrajectoryRecorder(),
@@ -98,7 +111,7 @@ enum BreakSimulator {
             cueScratched: cueScratched,
             eightOnBreak: rack.game == .chineseEightBall && eightOnBreak,
             termination: termination,
-            surfaceY: rack.surfaceY)
+            surfaceY: rack.surfaceY, facts: facts)
     }
 
     /// 锁顶球瞄准方向（XZ 平面单位向量）：母球指向球堆**顶角球**（最靠近母球一侧、x 最大者）

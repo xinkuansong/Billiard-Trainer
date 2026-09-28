@@ -68,6 +68,22 @@ struct RootView: View {
     private static var uiTestDeepLink: AnyView? {
         let args = ProcessInfo.processInfo.arguments
         #if DEBUG
+        if let sharedPage = args.first(where: { $0.hasPrefix("-dailyInteraction.sharedPage=") })?.split(separator: "=").last {
+            switch sharedPage {
+            case "shot": return AnyView(NavigationStack { ShotSimulationView() })
+            case "bank": return AnyView(NavigationStack { BankShotView() })
+            case "diamond": return AnyView(NavigationStack { DiamondSystemView() })
+            case "cushion": return AnyView(NavigationStack { CushionEnglishAtlasView() })
+            case "separation": return AnyView(NavigationStack { SeparationAngleAtlasView() })
+            case "composer": return AnyView(NavigationStack { PositionPlayComposerView() })
+            #if targetEnvironment(simulator)
+            case "batch": return AnyView(NavigationStack { BatchAuthoringView(context: BatchAuthoringContext()) })
+            #endif
+            case "aimpoint2d": return AnyView(NavigationStack { AimPointSceneTrainingView(initialCameraMode: .topDown2DRotated) })
+            case "aimpoint3d": return AnyView(NavigationStack { AimPointSceneTrainingView(initialCameraMode: .perspective3D) })
+            default: break
+            }
+        }
         if args.contains("-intro.preview") {
             return AnyView(OnboardingView())
         }

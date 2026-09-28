@@ -4,6 +4,7 @@ import UserNotifications
 
 @main
 struct QiuJiApp: App {
+    @UIApplicationDelegateAdaptor(QiuJiOrientationDelegate.self) private var orientationDelegate
     @StateObject private var authState: AuthState
     @StateObject private var ownerContext = CurrentOwnerContext.shared
     @StateObject private var dataCoordinator = AccountDataCoordinator()
@@ -173,4 +174,72 @@ struct QiuJiApp: App {
         .modelContainer(modelContainer)
     }
 
+}
+
+/// All existing pages stay portrait; a visible daily 2D page owns a scene-local override.
+@MainActor
+final class QiuJiOrientationDelegate: NSObject, UIApplicationDelegate {
+    static var masks: [ObjectIdentifier: UIInterfaceOrientationMask] = [:]
+
+    func application(_ application: UIApplication,
+                     supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        guard let scene = window?.windowScene else { return .portrait }
+        return Self.masks[ObjectIdentifier(scene)] ?? .portrait
+    }
+}
+
+struct DailyTableOrientation: UIViewControllerRepresentable {
+    var landscape: Bool
+
+    func makeUIViewController(context: Context) -> Controller {
+        let controller = Controller()
+        controller.landscape = landscape
+        return controller
+    }
+
+    func updateUIViewController(_ controller: Controller, context: Context) {
+        controller.landscape = landscape
+        controller.applyOrientation()
+    }
+
+    static func dismantleUIViewController(_ controller: Controller, coordinator: ()) {
+        controller.restorePortrait()
+    }
+
+    final class Controller: UIViewController {
+        var landscape = false
+        private weak var ownedScene: UIWindowScene?
+        private var appliedLandscape: Bool?
+
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            applyOrientation()
+        }
+
+        func applyOrientation() {
+            guard let scene = view.window?.windowScene,
+                  appliedLandscape != landscape || ownedScene !== scene else { return }
+            ownedScene = scene
+            appliedLandscape = landscape
+            request(landscape ? .landscapeRight : .portrait, in: scene)
+        }
+
+        func restorePortrait() {
+            guard let scene = ownedScene else { return }
+            request(.portrait, in: scene)
+            QiuJiOrientationDelegate.masks.removeValue(forKey: ObjectIdentifier(scene))
+            ownedScene = nil
+            appliedLandscape = nil
+        }
+
+        private func request(_ mask: UIInterfaceOrientationMask, in scene: UIWindowScene) {
+            QiuJiOrientationDelegate.masks[ObjectIdentifier(scene)] = mask
+            let root = scene.windows.first(where: \.isKeyWindow)?.rootViewController
+            root?.setNeedsUpdateOfSupportedInterfaceOrientations()
+            root?.presentedViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { error in
+                NSLog("[DailyTableOrientation] %@", error.localizedDescription)
+            }
+        }
+    }
 }

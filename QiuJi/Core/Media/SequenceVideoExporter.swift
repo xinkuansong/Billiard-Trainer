@@ -102,7 +102,7 @@ enum SequenceVideoExporter {
         /// Match the current app's room, wide table light, materials and contact shadows.
         /// Opt-in so existing offline asset recipes keep their established appearance.
         var useAppAppearance: Bool = false
-        var tableStyle: TableStyle = .standard
+        var tableStyle: TableStyle = .defaultStyle
         var clothColor: ClothColor = .green
         var cueStyle: CueStyle? = nil
         /// Opt-in continuous orbit/approach path. Zero retains the fixed-camera recipes.

@@ -154,14 +154,20 @@ extension AngleTrainingScene {
         strikePosition: SCNVector3,
         aim: SCNVector3,
         velocity: Float,
+        switchesPlayerCameraOnContact: Bool = false,
         clearanceProbe: ((TimeInterval) -> [String: SCNVector3])? = nil,
         onContact: @escaping () -> Void
     ) {
-        guard let stick = cueStick else {
+        let contact: () -> Void = { [weak self] in
+            if switchesPlayerCameraOnContact { self?.transitionPlayerCameraForShot(aim: aim) }
             onContact()
+        }
+        guard let stick = cueStick else {
+            contact()
             return
         }
         let stickNode = stick.rootNode
+        stickNode.removeAction(forKey: "aimTransition")
         let obstacles = cueObstacleCenters(excludingStrikeNear: strikePosition)
         // 击球点与瞄准方向全程固定 ⇒ 仰角恒定；逐帧直接驱动 `CueStick`，绕开 `updateCueStick`
         // （后者会取消 "strokeAnim" 以处理收杆/复位竞态，若经它驱动会自我取消）。
@@ -171,7 +177,7 @@ extension AngleTrainingScene {
         guard case .angle(let elevation) = elevResult else {
             // Blocked: do not draw a penetrating stick; still fire the shot.
             stick.hide()
-            onContact()
+            contact()
             return
         }
         let endPull = CueStroke.clampedFollowThroughPull(
@@ -184,13 +190,13 @@ extension AngleTrainingScene {
         }
         drive(0)
         stick.show()
-        stickNode.opacity = 1
+        stick.setFadeOpacity(1)
 
         let contactDur = CueStroke.totalDuration(velocity: velocity)
         let toContact = SCNAction.customAction(duration: contactDur) { _, elapsed in
             drive(CueStroke.pullBack(at: TimeInterval(elapsed), velocity: velocity))
         }
-        let launch = SCNAction.run { _ in Task { @MainActor in onContact() } }
+        let launch = SCNAction.run { _ in Task { @MainActor in contact() } }
 
         // Predict first post-contact collision across ALL balls (D2 — not cue-only).
         let collisionT: TimeInterval? = clearanceProbe.flatMap { probe in
@@ -212,6 +218,16 @@ extension AngleTrainingScene {
             stick: stick
         )
         stickNode.runAction(.sequence([toContact, launch] + postContact), forKey: "strokeAnim")
+    }
+
+    /// Called only after a host has accepted the current shot's contact callback.
+    @discardableResult
+    func transitionPlayerCameraForShot(aim: SCNVector3) -> Bool {
+        guard currentCameraMode == .perspective3D,
+              let rig = cameraRig, rig.usesRailCameraControls, rig.playerView == .firstPerson,
+              let cue = cueBallNode, rig.isPlayerViewFor(cue: cue.position, aim: aim) else { return false }
+        return rig.enterPlayerView(.thirdPerson, cue: cue.position, aim: aim,
+            duration: UIAccessibility.isReduceMotionEnabled ? 0.1 : 0.95)
     }
 
     /// Build follow-through / hold / retract-or-fade action list after contact.
@@ -255,12 +271,12 @@ extension AngleTrainingScene {
 
         // Capture pull at retract start for lerp.
         let pullAtRetract = CueClearance.pullBackAfterContact(tau: retractStart, endPull: endPull)
-        let retract = SCNAction.customAction(duration: fade) { node, elapsed in
+        let retract = SCNAction.customAction(duration: fade) { [weak stick] _, elapsed in
             let u = Float(min(1, max(0, elapsed / CGFloat(fade))))
             // Withdraw along back (more positive pullBack) while fading.
             let pull = pullAtRetract + u * (retractExtra - min(0, pullAtRetract))
             drive(pull)
-            node.opacity = CGFloat(1 - u)
+            stick?.setFadeOpacity(CGFloat(1 - u))
         }
         let hide = SCNAction.run { [weak stick] _ in
             Task { @MainActor in stick?.hide() }

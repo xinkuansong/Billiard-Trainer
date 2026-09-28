@@ -146,6 +146,9 @@ final class CueStick {
     private let usesModelCueStick: Bool
     private(set) var style: CueStyle = .original
     private var styleMaterials: [SCNMaterial] = []
+    private var fadeMaterials: [SCNMaterial] = []
+    private(set) var fadeOpacity: CGFloat = 1
+    private var usesMaterialFade = false
     private var finishGeometry: [(node: SCNNode, original: SCNGeometry, styled: SCNGeometry)] = []
     private var modelNode: SCNNode?
     private var shaftNode: SCNNode?
@@ -245,13 +248,15 @@ final class CueStick {
         }
         if styleMaterials.isEmpty {
             styleMaterials = finishGeometry.flatMap { $0.styled.materials }
-                .filter { ["White_Wood", "black_2", "copp"].contains($0.name ?? "") }
+                .filter { ["White_Wood", "black_2", "copp", "PiTou"].contains($0.name ?? "") }
         }
         // Original geometry and its materials are never mutated. Restoring the
         // original also retains SceneKit's embedded USDZ texture bindings.
-        guard selected == .original || CueStyleModel.apply(selected, to: styleMaterials) else { return false }
+        let originalTip = finishGeometry.flatMap { $0.original.materials }.first { $0.name == "PiTou" }
+        guard selected == .original || CueStyleModel.apply(selected, to: styleMaterials, originalTip: originalTip) else { return false }
         for item in finishGeometry { item.node.geometry = selected == .original ? item.original : item.styled }
         style = selected
+        if usesMaterialFade { prepareOpacityAnimation() }
         return true
     }
 
@@ -318,20 +323,59 @@ final class CueStick {
 
     // MARK: - Visibility
 
+    /// Install after the scene's lighting modifiers. Node opacity crossing 1 → <1
+    /// creates a new SceneKit shader variant on the first shot. Keep that state
+    /// fixed and animate a uniform instead; the transparent pipeline is drawn
+    /// during aiming. No hidden render, delay, or almost-opaque magic value.
+    func prepareOpacityAnimation() {
+        usesMaterialFade = true
+        var seen = Set<ObjectIdentifier>()
+        fadeMaterials.removeAll(keepingCapacity: true)
+        rootNode.enumerateHierarchy { node, _ in
+            for material in node.geometry?.materials ?? [] where seen.insert(ObjectIdentifier(material)).inserted {
+                var modifiers = material.shaderModifiers ?? [:]
+                let source = modifiers[.fragment] ?? "#pragma body\n"
+                if !source.contains("// cueOpacityAnimation") {
+                    modifiers[.fragment] = "#pragma arguments\nfloat cueFadeOpacity;\n#pragma transparent\n"
+                        + source + "\n// cueOpacityAnimation\n_output.color *= cueFadeOpacity;\n"
+                    material.shaderModifiers = modifiers
+                }
+                material.setValue(Float(fadeOpacity), forKey: "cueFadeOpacity")
+                fadeMaterials.append(material)
+            }
+        }
+    }
+
+    /// SceneKit's output is premultiplied: fade RGB and alpha together.
+    func setFadeOpacity(_ opacity: CGFloat) {
+        let value = max(0, min(1, opacity))
+        fadeOpacity = value
+        if usesMaterialFade {
+            rootNode.opacity = 1
+            for material in fadeMaterials { material.setValue(Float(value), forKey: "cueFadeOpacity") }
+        } else {
+            rootNode.opacity = value
+        }
+    }
+
     func show() {
         rootNode.isHidden = false
-        rootNode.opacity = 1.0
+        setFadeOpacity(1)
     }
 
     func hide() {
         rootNode.isHidden = true
-        rootNode.opacity = 1.0
+        setFadeOpacity(1)
     }
 
     /// Short opacity fade then hide (normal retract / clearance retract).
     func fadeOut(duration: TimeInterval = CueClearance.retractFade, completion: (() -> Void)? = nil) {
         rootNode.removeAction(forKey: "cueFade")
-        let fade = SCNAction.fadeOpacity(to: 0, duration: duration)
+        let start = fadeOpacity
+        let fade = SCNAction.customAction(duration: duration) { [weak self] _, elapsed in
+            let progress = duration > 0 ? min(1, Double(elapsed) / duration) : 1
+            self?.setFadeOpacity(start * CGFloat(1 - progress))
+        }
         let hide = SCNAction.run { [weak self] _ in
             self?.hide()
             completion?()

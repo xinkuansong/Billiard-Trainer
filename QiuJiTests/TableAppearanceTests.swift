@@ -29,22 +29,27 @@ final class TableAppearanceTests: XCTestCase {
         XCTAssertFalse(UserPreferences(defaults: defaults).showsTableSights)
         preferences.showsTableSights = true
         XCTAssertTrue(UserPreferences(defaults: defaults).showsTableSights)
-        XCTAssertEqual(UserPreferences(defaults: defaults).tableStyle, .standard)
+        XCTAssertEqual(UserPreferences(defaults: defaults).tableStyle, .charcoal)
         for style in TableStyle.allCases {
             let prefs = UserPreferences(defaults: defaults)
             prefs.tableStyle = style
             XCTAssertEqual(UserPreferences(defaults: defaults).tableStyle, style)
         }
         defaults.set("future-style", forKey: TableStyle.preferenceKey)
-        XCTAssertEqual(UserPreferences(defaults: defaults).tableStyle, .standard)
+        XCTAssertEqual(UserPreferences(defaults: defaults).tableStyle, .charcoal)
     }
 
     func testSwitchingRestoresStandardAndIsolatesScenes() throws {
         for pipeline in 0..<3 {
             let scene = AngleTrainingScene()
             scene.setupScene(enhancedRendering: pipeline == 1, mobileRendering: pipeline == 2)
+            XCTAssertEqual(scene.installedTableStyle, .charcoal)
+            XCTAssertTrue(scene.applyTableStyle(.standard))
             let untouched = AngleTrainingScene(); untouched.setupScene()
             let table = try XCTUnwrap(scene.tableNode)
+            let legShell = try XCTUnwrap(table.childNode(withName: "Plane_007", recursively: true))
+            XCTAssertEqual(legShell.renderingOrder, pipeline == 2 ? -1 : 0,
+                           "Only mobile materials stabilize the duplicate leg shell; legacy export is preserved")
             var before: [(SCNGeometry, [SCNMaterial])] = []
             table.enumerateChildNodes { node, _ in
                 if let geometry = node.geometry { before.append((geometry, geometry.materials)) }
@@ -54,7 +59,7 @@ final class TableAppearanceTests: XCTestCase {
             for style in [TableStyle.walnut, .blossom, .ivory, .charcoal, .walnut] {
                 XCTAssertTrue(scene.applyTableStyle(style))
                 XCTAssertEqual(scene.installedTableStyle, style)
-                XCTAssertEqual(untouched.installedTableStyle, .standard)
+                XCTAssertEqual(untouched.installedTableStyle, .charcoal)
                 XCTAssertEqual(scene.allBallNodes.mapValues { $0.simdPosition }, ballPositions)
                 XCTAssertTrue(SCNMatrix4EqualToMatrix4(scene.cameraNode.transform, camera))
                 var changed = 0
@@ -84,6 +89,7 @@ final class TableAppearanceTests: XCTestCase {
     func testRenderAllStylesAndStandardRestoration() throws {
         let scene = AngleTrainingScene()
         scene.setupScene(mobileRendering: true)
+        XCTAssertTrue(scene.applyTableStyle(.standard))
         scene.setCameraMode(.perspective3D, animated: false)
         scene.rootNode.childNode(withName: "reference_room", recursively: false)?.isHidden = true
         let y = scene.surfaceY + AngleSceneCalculator.ballRadius
@@ -125,6 +131,7 @@ final class TableAppearanceTests: XCTestCase {
 
     func testBasketNetAndCoordinatedSupportsStayIndependentOfSights() throws {
         let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: true)
+        XCTAssertTrue(scene.applyTableStyle(.standard))
         scene.rootNode.childNode(withName: "reference_room", recursively: false)?.isHidden = true
         scene.setCameraMode(.perspective3D, animated: false)
         let camera = SCNNode()
@@ -222,6 +229,7 @@ final class TableAppearanceTests: XCTestCase {
 
     func testPocketThemeRestoresAndKeepsSelectionRoles() throws {
         let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: true)
+        XCTAssertTrue(scene.applyTableStyle(.standard))
         let markers = scene.addPocketMarkers().compactMap { $0 as? PocketLeatherMarker }
         XCTAssertEqual(markers.count, 6)
         let standard = markers.map { $0.childNode(withName: "leather_original", recursively: false)!.geometry!.materials[0] }

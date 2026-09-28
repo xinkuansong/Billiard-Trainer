@@ -19,19 +19,23 @@ final class PocketLeatherIntegrationTests: XCTestCase {
             for pocket in pockets {
                 let target = try XCTUnwrap(pocket.childNodes.first { $0.name == "leather_target" })
                 let source = target.geometry?.firstMaterial?.shaderModifiers?[.surface] ?? ""
-                XCTAssertEqual(source.contains("clamp(_surface.diffuse.rgb"), mobile)
+                XCTAssertEqual(source.contains("// v64LeatherMicroSurface"), mobile)
+                XCTAssertEqual(target.geometry?.firstMaterial?.value(forKey: "leatherMicroNormal") is SCNMaterialProperty, mobile)
+                XCTAssertNotNil(target.geometry?.firstMaterial?.value(forKey: "pocketLeatherTint"))
             }
             scene.setPocketRoles(first: 0, second: 0)
             let both = try XCTUnwrap(pockets[0].childNodes.first { $0.name == "leather_bothRoles" })
             XCTAssertFalse(both.isHidden)
             for material in try XCTUnwrap(both.geometry).materials {
-                XCTAssertEqual((material.shaderModifiers?[.surface] ?? "").contains("clamp(_surface.diffuse.rgb"), mobile)
+                XCTAssertEqual((material.shaderModifiers?[.surface] ?? "").contains("// v64LeatherMicroSurface"), mobile)
+                XCTAssertEqual(material.value(forKey: "leatherMicroNormal") is SCNMaterialProperty, mobile)
             }
             scene.clearPocketHighlights()
             XCTAssertTrue(pockets.allSatisfy { $0.style == .original })
             for pocket in pockets {
                 let original = try XCTUnwrap(pocket.childNodes.first { !$0.isHidden })
-                XCTAssertFalse((original.geometry?.firstMaterial?.shaderModifiers?[.surface] ?? "").contains("clamp(_surface.diffuse.rgb"))
+                XCTAssertEqual(original.name, "leather_original")
+                XCTAssertTrue(original === pocket.childNode(withName: "leather_original", recursively: false))
             }
         }
     }

@@ -3,16 +3,23 @@ import SwiftUI
 /// HUD 视觉风格「仪表玻璃」唯一真源（T-P18-45，设计稿 §1.7）。
 ///
 /// 七分区是骨架、读数胶囊是零件，本文件定皮肤：
-/// - 材质配方 `hudGlass`：黑 60% 暗玻璃 + 背景模糊 + 0.5pt 白 12% 发丝描边，**无阴影**（黑场上光效一律禁止）。
+/// - 材质配方 `hudGlass`：黑 24% 透明底 + 0.5pt 白 22% 细描边，**无阴影**（黑场上光效一律禁止）。
 /// - 文字三级：label（11pt semibold 白 55%）/ value（15pt bold rounded mono）/ title（14pt semibold 品牌绿）。
-/// - 状态语法：未选 = 玻璃底 + 白 75% 字；选中 = 品牌绿实底 + 白字；禁用 = 文字 30%。
+/// - 状态语法：未选 = 透明底 + 白字；选中 = 淡绿半透明底；主操作 = 淡绿实底 + 深字；禁用 = 文字 30%。
 /// - 刻度语法：三级刻度白 40/25/15%，当前位置金；瞄准轮与力度柱同族。
 enum HUDStyle {
+    /// Same pale green as the overview's dark surface; scene chrome always uses a dark surface.
+    static let accent = Color(uiColor: UIColor(named: "btOverviewDays")!
+        .resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark)))
+    static let selectedBackground = accent.opacity(0.28)
+    static let controlBackground = Color.black.opacity(0.24)
+    static let onAccent = Color(white: 0.08)
+
     // MARK: 材质配方
-    /// 暗玻璃底色（叠在系统模糊材质之上）。
-    static let glassTint = Color.black.opacity(0.6)
+    /// 透明控件底色，不叠加模糊材质。
+    static let glassTint = Color.black.opacity(0.24)
     /// 发丝描边（黑场上代替阴影做分层）。
-    static let hairline = Color.white.opacity(0.12)
+    static let hairline = Color.white.opacity(0.22)
     static let hairlineWidth: CGFloat = 0.5
 
     // MARK: 场景底栏 / 面板（ADR-P11-09 / SPEC §8.1）
@@ -35,7 +42,7 @@ enum HUDStyle {
     static let valueFontCompact = Font.system(size: 13, weight: .bold, design: .rounded)
     static let labelFontCompact = Font.system(size: 10, weight: .semibold, design: .rounded)
     static let titleFont = Font.system(size: 14, weight: .semibold, design: .rounded)
-    static let titleColor = Color.btPrimary
+    static let titleColor = accent
 
     // MARK: value 语义色（金=可调/方案量值，白=测量结果，红=失误）
     static let valueMeasured = Color.white
@@ -80,7 +87,7 @@ private struct HUDGlassModifier<S: InsettableShape>: ViewModifier {
             .background {
                 shape
                     .fill(HUDStyle.glassTint)
-                    .background(shape.fill(.ultraThinMaterial))
+
                     .environment(\.colorScheme, .dark)
             }
             .overlay(shape.strokeBorder(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
@@ -88,7 +95,7 @@ private struct HUDGlassModifier<S: InsettableShape>: ViewModifier {
 }
 
 extension View {
-    /// 仪表玻璃底（唯一材质配方）：黑 60% 暗玻璃 + 模糊 + 发丝描边，无阴影。
+    /// 仪表玻璃底（唯一材质配方）：黑 24% 透明底 + 细描边，无阴影。
     /// 形状语法只允许三种：胶囊（默认）、正圆、圆角矩形。
     func btHudGlass() -> some View {
         modifier(HUDGlassModifier(shape: Capsule()))

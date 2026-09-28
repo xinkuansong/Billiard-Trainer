@@ -10,6 +10,9 @@ final class TableProjector {
     var unproject: ((CGPoint) -> SCNVector3?)?
     /// 世界坐标 → 屏幕点（SCNView 本地）。
     var project: ((SCNVector3) -> CGPoint?)?
+    /// Valid visible-depth world projection in window coordinates for floating HUD anchors.
+    var projectInWindow: ((SCNVector3) -> CGPoint?)?
+    var projectVisible: ((SCNVector3) -> CGPoint?)?
 }
 
 /// UIViewRepresentable wrapper for SceneKit angle training.
@@ -70,6 +73,8 @@ struct AngleSceneView: UIViewRepresentable {
     var projector: TableProjector?
     /// nil preserves existing consumers; explicit activity enables bounded idle work.
     var contentIsAnimating: Bool? = nil
+    /// Supplied only by the explicitly instrumented daily-clearance page.
+    var daily3DDiagnostics: Daily3DRenderDiagnostics? = nil
 
     static func requestedFPS(maximum: Int, selected: RenderFrameRate = .fps60, active: Bool, thermal: ProcessInfo.ThermalState, lowPower: Bool) -> Int {
         let ceiling = thermal == .critical ? 30 : ((thermal == .serious || lowPower) ? 60 : maximum)
@@ -124,6 +129,7 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.onPocketTapped = onPocketTapped
         context.coordinator.updatePocketAccessibility()
         context.coordinator.contentIsAnimating = contentIsAnimating
+        context.coordinator.setDaily3DDiagnostics(daily3DDiagnostics)
         context.coordinator.startRenderLoop()
         context.coordinator.requestInteractiveFrames()
         bindProjector(to: scnView)
@@ -148,6 +154,18 @@ struct AngleSceneView: UIViewRepresentable {
             let t = (y - nearPoint.y) / dir.y
             guard t > 0 else { return nil }
             return SCNVector3(nearPoint.x + dir.x * t, y, nearPoint.z + dir.z * t)
+        }
+        projector.projectVisible = { [weak scnView] world in
+            guard let scnView else { return nil }
+            let p = scnView.projectPoint(world)
+            guard p.x.isFinite, p.y.isFinite, p.z > 0, p.z < 1 else { return nil }
+            return CGPoint(x: CGFloat(p.x), y: CGFloat(p.y))
+        }
+        projector.projectInWindow = { [weak scnView] world in
+            guard let scnView else { return nil }
+            let p = scnView.projectPoint(world)
+            guard p.x.isFinite, p.y.isFinite, p.z > 0, p.z < 1 else { return nil }
+            return scnView.convert(CGPoint(x: CGFloat(p.x), y: CGFloat(p.y)), to: nil)
         }
         projector.project = { [weak scnView] world in
             guard let scnView else { return nil }
@@ -175,6 +193,7 @@ struct AngleSceneView: UIViewRepresentable {
             || context.coordinator.autoFitsLandscapeTable != autoFitsLandscapeTable {
             context.coordinator.requestInteractiveFrames()
         }
+        context.coordinator.setDaily3DDiagnostics(daily3DDiagnostics)
         context.coordinator.updateContentActivity(contentIsAnimating, cameraMode: cameraMode)
         context.coordinator.interactionMode = interactionMode
         context.coordinator.locksCueBallScreenAnchor = locksCueBallScreenAnchor
@@ -207,6 +226,9 @@ struct AngleSceneView: UIViewRepresentable {
         coordinator.endBallDrag()
         coordinator.endAimDrag()
         coordinator.stopRenderLoop()
+        // 2D/3D layouts replace this child view while FreePlayView stays visible.
+        // The page owns visibility; teardown only detaches this renderer's target.
+        coordinator.setDaily3DDiagnostics(nil)
         uiView.isPlaying = false
         uiView.pointOfView = nil
         uiView.scene = nil
@@ -236,11 +258,18 @@ struct AngleSceneView: UIViewRepresentable {
         var isDisplayLinkPaused: Bool { displayLink?.isPaused ?? true }
         private(set) var displayLinkCallbackCount = 0
         private(set) var interactiveUntil: CFTimeInterval = 0
-        let frameDelegate = FrameDelegate()
+        let frameDelegate: FrameDelegate = Daily3DRenderDiagnostics.isEnabled ? Daily3DFrameDelegate() : FrameDelegate()
+        private(set) var daily3DDiagnostics: Daily3DRenderDiagnostics?
         private var fpsHost: UIHostingController<FPSReadout>?
         private let diagramLabels = DiagramLabelOverlay()
         private var fpsText = "— FPS"
         private var fpsSampleTime = CACurrentMediaTime()
+
+        func setDaily3DDiagnostics(_ diagnostics: Daily3DRenderDiagnostics?) {
+            guard daily3DDiagnostics !== diagnostics else { return }
+            daily3DDiagnostics = diagnostics
+            (frameDelegate as? Daily3DFrameDelegate)?.setDiagnostics(diagnostics)
+        }
 
         func installFPSReadout(in view: SCNView) {
             let host = UIHostingController(rootView: FPSReadout(text: "— FPS"))
@@ -258,14 +287,24 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         private func updateFPSReadout(force: Bool = false) {
-            fpsHost?.view.isHidden = cameraMode != .perspective3D
+            #if DEBUG
+            let showsCameraDiagnostics = ProcessInfo.processInfo.arguments.contains("-v63.cameraDiagnostics")
+            #else
+            let showsCameraDiagnostics = false
+            #endif
+            fpsHost?.view.isHidden = cameraMode != .perspective3D && !showsCameraDiagnostics
             let now = CACurrentMediaTime()
             guard force || now - fpsSampleTime >= 1 else { return }
             let count = frameDelegate.takeFrameCount()
             let elapsed = now - fpsSampleTime
             let fps = elapsed > 0 ? Int((Double(count) / elapsed).rounded()) : 0
             fpsSampleTime = now
-            guard cameraMode == .perspective3D else { return }
+            guard cameraMode == .perspective3D || showsCameraDiagnostics else {
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("-renderProfileProbe") { updatePocketAccessibility() }
+                #endif
+                return
+            }
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-v63.cameraDiagnostics"),
                let scnView, let rig = scene.cameraRig, let host = fpsHost {
@@ -275,9 +314,14 @@ struct AngleSceneView: UIViewRepresentable {
                         scnView.projectPoint(SCNVector3(x, scene.surfaceY, z))
                     }
                 }
+                let balls = scene.allBallNodes.sorted { $0.key < $1.key }.filter { !$0.value.isHidden }.map { key, node in
+                    let p = scnView.projectPoint(node.position)
+                    let window = scnView.convert(CGPoint(x: CGFloat(p.x), y: CGFloat(p.y)), to: nil)
+                    return "ball_\(key)=\(p.x),\(p.y),\(p.z) window_\(key)=\(window.x),\(window.y),\(p.z)"
+                }.joined(separator: " ")
                 host.view.isAccessibilityElement = true
                 host.view.accessibilityIdentifier = "v63.cameraDiagnostics"
-                host.view.accessibilityValue = "viewport=\(scnView.bounds.size) rigViewport=\(rig.viewportSize) center=\(center) corners=\(corners) pivot=\(rig.targetPivot) yaw=\(rig.targetYaw) distance=\(rig.orbitDistance)"
+                host.view.accessibilityValue = "viewport=\(scnView.bounds.size) rigViewport=\(rig.viewportSize) center=\(center) corners=\(corners) pivot=\(rig.targetPivot) yaw=\(rig.targetYaw) distance=\(rig.orbitDistance) fov=\(rig.captureCurrentPose().fov) eye=\(scene.cameraNode?.position ?? SCNVector3Zero) cueLift=\(-(scene.cueStick?.rootNode.eulerAngles.x ?? 0)) \(balls)"
             }
             #endif
             let next = !needsContinuousUpdates ? "FPS · 静止" : "\(fps) FPS"
@@ -329,6 +373,12 @@ struct AngleSceneView: UIViewRepresentable {
             }
             let wasActive = needsContinuousUpdates
             needsContinuousUpdates = active
+            if let daily3DDiagnostics {
+                daily3DDiagnostics.rendererState(active: active,
+                    cameraMoving: scene.isCameraModeTransitioning
+                        || (scene.cameraRig?.isTransitioning ?? false)
+                        || (cameraMode == .perspective3D && (scene.cameraRig?.hasPendingDamping ?? false)))
+            }
             if eventDrivenIdle {
                 displayLink.isPaused = !active
                 frameDelegate.watchesIdleInvalidation = !active
@@ -351,6 +401,11 @@ struct AngleSceneView: UIViewRepresentable {
             if displayLink.preferredFrameRateRange.preferred != Float(fps) {
                 displayLink.preferredFrameRateRange = CAFrameRateRange(minimum: Float(fps), maximum: Float(fps), preferred: Float(fps))
             }
+            daily3DDiagnostics?.setRenderConfiguration(.init(
+                selectedFPS: UserPreferences.shared.renderFrameRate.rawValue,
+                scheduledFPS: fps,
+                antialiasingSamples: Daily3DRenderDiagnostics.sampleCount(for: scnView.antialiasingMode),
+                contentScale: Double(scnView.contentScaleFactor)))
         }
         var gesturesEnabled = true
 
@@ -459,6 +514,7 @@ struct AngleSceneView: UIViewRepresentable {
 
         @objc private func renderUpdate(_ link: CADisplayLink) {
             displayLinkCallbackCount += 1
+            daily3DDiagnostics?.displayLinkCallback()
             defer {
                 if let scnView { diagramLabels.update(scene: scene, in: scnView) }
                 #if DEBUG
@@ -622,6 +678,11 @@ struct AngleSceneView: UIViewRepresentable {
             #if DEBUG
             if dragProbeEnabled { dragProbePanCount += 1 }
             #endif
+            if gesture.state == .began, gesturesEnabled, interactionMode != .none {
+                daily3DDiagnostics?.input(.tablePan)
+            } else if [.ended, .cancelled, .failed].contains(gesture.state) {
+                daily3DDiagnostics?.setInteraction(.tablePan, stage: .orbit, active: false)
+            }
             requestInteractiveFrames()
             if [.ended, .cancelled, .failed].contains(gesture.state), isAimFollowing {
                 endAimDrag()
@@ -642,6 +703,7 @@ struct AngleSceneView: UIViewRepresentable {
                 let translation = gesture.translation(in: scnView)
                 let location = CGPoint(x: current.x - translation.x, y: current.y - translation.y)
                 if let ball = hitTestBall(at: location) {
+                    daily3DDiagnostics?.setInteraction(.tablePan, stage: .aim, active: true)
                     #if DEBUG
                     if dragProbeEnabled { dragProbeGrabCount += 1 }
                     #endif
@@ -661,11 +723,15 @@ struct AngleSceneView: UIViewRepresentable {
                 // 瞄准调整（G13）：起手未命中球即进入。**第一落点只选中瞄准线、不改变方向**，
                 // 故此处不回调；轴心 = 母球屏幕投影，记下起手点，后续 .changed 逐帧求相对角位移。
                 if onAimNudged != nil {
+                    daily3DDiagnostics?.setInteraction(.tablePan, stage: .aim, active: true)
                     isAimFollowing = true
                     onAimDragActiveChanged?(true)
                     aimPivotScreen = cueBallScreenPoint()
                     lastAimTouch = location
                     return
+                }
+                if cameraMode == .perspective3D, interactionMode == .cameraControl {
+                    daily3DDiagnostics?.setInteraction(.tablePan, stage: .orbit, active: true)
                 }
 
             case .changed:
@@ -742,6 +808,13 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+            if gesture.state == .began, gesturesEnabled, interactionMode == .cameraControl,
+               cameraMode == .perspective3D, draggedNode == nil {
+                daily3DDiagnostics?.input(.tablePinch, intent: .orbit)
+                daily3DDiagnostics?.setInteraction(.tablePinch, stage: .orbit, active: true)
+            } else if [.ended, .cancelled, .failed].contains(gesture.state) {
+                daily3DDiagnostics?.setInteraction(.tablePinch, stage: .orbit, active: false)
+            }
             requestInteractiveFrames()
             guard gesturesEnabled, interactionMode != .none,
                   draggedNode == nil, let scnView, let rig = scene.cameraRig else { return }
@@ -749,6 +822,17 @@ struct AngleSceneView: UIViewRepresentable {
             switch cameraMode {
             case .perspective3D:
                 guard interactionMode == .cameraControl else { return }
+                if gesture.state == .began, rig.usesShotAwareCamera {
+                    let centre = gesture.location(in: scnView)
+                    let radius = min(scnView.bounds.width, scnView.bounds.height) * 0.22
+                    let candidate = rig.observationCandidates.compactMap { point -> (SCNVector3, CGFloat)? in
+                        let p = scnView.projectPoint(point)
+                        guard p.z > 0, p.z < 1 else { return nil }
+                        let distance = hypot(CGFloat(p.x) - centre.x, CGFloat(p.y) - centre.y)
+                        return distance <= radius ? (point, distance) : nil
+                    }.min { $0.1 < $1.1 }?.0
+                    rig.beginObservationPinch(at: candidate)
+                }
                 rig.handlePinch(scale: Float(gesture.scale))
             case .topDown2D, .topDown2DRotated:
                 // 2D zoom is available on every table page; zoom about the pinch centre.
@@ -769,6 +853,9 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
+            if gesturesEnabled, interactionMode != .none {
+                daily3DDiagnostics?.input(.tableTap, intent: .aim)
+            }
             requestInteractiveFrames()
             guard let scnView else { return }
             handleTap(at: gesture.location(in: scnView))
@@ -880,6 +967,17 @@ struct AngleSceneView: UIViewRepresentable {
                 + "，颗星参考点：" + (scene.showsTableSights ? "显示" : "隐藏")
                 + (cameraMode == .perspective3D ? "，渲染帧率 " + fpsText : "")
             #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-renderProfileProbe") {
+                var seen=Set<ObjectIdentifier>(),reflection=0,shadow=0
+                scene.rootNode.enumerateHierarchy { node, _ in
+                    for material in node.geometry?.materials ?? [] where seen.insert(ObjectIdentifier(material)).inserted {
+                        let shader=material.shaderModifiers?[.surface] ?? ""
+                        if shader.contains("// v2SplitSum") { reflection += 1 }
+                        if shader.contains("// v2AnalyticShadow") { shadow += 1 }
+                    }
+                }
+                scnView.accessibilityValue = (scnView.accessibilityValue ?? "") + " reflection=\(reflection) shadow=\(shadow) 调度=\(needsContinuousUpdates ? "活动" : "静止")"
+            }
             if dragProbeEnabled { scnView.accessibilityValue = dragProbeValue(in: scnView) }
             #endif
             scnView.accessibilityCustomActions = onPocketTapped == nil || interactionMode == .none ? [] : (0..<6).map { index in
@@ -950,7 +1048,7 @@ private struct FPSReadout: View {
 
 /// SceneKit invokes delegates off the main thread; the counter and forwarding
 /// target are protected together. UI updates remain on the coordinator's main loop.
-final class FrameDelegate: NSObject, SCNSceneRendererDelegate {
+class FrameDelegate: NSObject, SCNSceneRendererDelegate {
     private let lock = NSLock()
     private var frames = 0
     private var watchesIdle = false

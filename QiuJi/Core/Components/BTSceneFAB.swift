@@ -25,7 +25,7 @@ struct BTSceneFAB: View {
                 Text(title)
                     .font(.system(size: 10, weight: .semibold, design: .rounded))
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(variant == .primary ? HUDStyle.onAccent : .white)
             .frame(width: 56, height: 56)
             .background(background, in: Circle())
             // 仪表玻璃规范（T-P18-45）：黑场上无阴影，发丝描边做分层。
@@ -38,7 +38,7 @@ struct BTSceneFAB: View {
         switch variant {
         case .primary:
             AnyShapeStyle(LinearGradient(
-                colors: [.btPrimary, HUDStyle.fabPrimaryEnd],
+                colors: [HUDStyle.accent, HUDStyle.accent],
                 startPoint: .top, endPoint: .bottom
             ))
         case .neutral:

@@ -79,6 +79,8 @@ final class ClothAppearanceTests: XCTestCase {
     private func renderPalette() throws {
         let scene = AngleTrainingScene()
         scene.setupScene(mobileRendering: true)
+        SCNTransaction.begin()
+        SCNTransaction.disableActions = true
         scene.setCameraMode(.perspective3D, animated: false)
         scene.rootNode.childNode(withName: "reference_room", recursively: false)?.isHidden = true
         let y = scene.surfaceY + AngleSceneCalculator.ballRadius
@@ -89,9 +91,12 @@ final class ClothAppearanceTests: XCTestCase {
         scene.cameraNode.camera?.usesOrthographicProjection = true
         scene.cameraNode.camera?.orthographicScale = 1.35
         scene.background.contents = UIColor(white: 0.14, alpha: 1)
+        SCNTransaction.commit()
+        SCNTransaction.flush()
         let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
         renderer.scene = scene; renderer.pointOfView = scene.cameraNode
         renderer.delegate = scene.contactOcclusion
+        XCTAssertTrue(renderer.prepare(scene, shouldAbortBlock: nil))
         func snapshot() -> UIImage {
             SCNTransaction.flush()
             _ = renderer.snapshot(atTime: 0, with: CGSize(width: 1000, height: 640), antialiasingMode: .multisampling4X)
@@ -121,7 +126,14 @@ final class ClothAppearanceTests: XCTestCase {
         }
         XCTAssertEqual(images.count, ClothColor.allCases.count)
         XCTAssertTrue(scene.applyClothColor(.green))
-        XCTAssertEqual(snapshot().pngData(), original)
+        let restored = snapshot().pngData()
+        if restored != original {
+            for (name, data) in [("green-original", original), ("green-restored", restored)] {
+                let proof = XCTAttachment(data: try XCTUnwrap(data), uniformTypeIdentifier: "public.png")
+                proof.name = name; proof.lifetime = .keepAlways; add(proof)
+            }
+        }
+        XCTAssertEqual(restored, original)
     }
 
     private func assertNoShaderErrorColor(_ image: UIImage) throws {

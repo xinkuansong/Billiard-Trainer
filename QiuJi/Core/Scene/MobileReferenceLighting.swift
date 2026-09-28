@@ -1,4 +1,7 @@
 import SceneKit
+#if DEBUG
+import MetalKit
+#endif
 
 /// S267 reference lighting, production since the v62 closeout (ADR-P5-01).
 /// Original assets and physics are unchanged. Shared wide-emitter geometry extends the
@@ -160,6 +163,90 @@ enum MobileReferenceLighting {
         return result
     }
 
+    enum SpecializedProfile: String, CaseIterable {
+        case reference = "A", reflection = "R", shadow = "S", combined = "RS"
+        var usesReflection: Bool { self == .reflection || self == .combined }
+        var usesShadow: Bool { self == .shadow || self == .combined }
+    }
+
+    /// Shared baseline. Daily clearance opts into R on its own scene before setup.
+    static var specializedProfile: SpecializedProfile {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if let index = args.firstIndex(of: "-specializedRendering"), args.indices.contains(index + 1),
+           let profile = SpecializedProfile(rawValue: args[index + 1]) { return profile }
+        #endif
+        return .reference
+    }
+
+    static func filteredBallShader(_ source: String) -> String {
+        guard !source.contains("// v2SplitSum"),
+              let begin = source.range(of: "// Probe mip level"),
+              let end = source.range(of: "float F=0.04", range: begin.upperBound..<source.endIndex) else { return source }
+        var result = source
+        result.replaceSubrange(begin.lowerBound..<end.lowerBound, with: """
+        // v2SplitSum
+        constexpr sampler responseSampler(coord::normalized, address::clamp_to_edge, filter::linear);
+        float2 brdf=reflectionResponse.sample(responseSampler,float2(nv,roughness)).rg;
+        float3 reflected=reflect(-v,n);
+        float3 spec=v2FilteredReflection(filteredRoom,reflected,p,center,clothRadiance,roughness,roomFloor,clothWeight)*(0.04*brdf.x+brdf.y);
+
+        """)
+        result = result.replacingOccurrences(of: "texture2d<float> roomReflection;",
+            with: "texture2d<float> roomReflection;\ntexture2d<float> filteredRoom;\ntexture2d<float> reflectionResponse;")
+        return result.replacingOccurrences(of: "#pragma body", with: filteredReflectionFunctions + "\n#pragma body")
+    }
+
+    /// Restore the original integral when a replacement probe cannot be prepared.
+    static func referenceBallShader(_ source: String) -> String {
+        guard let begin=source.range(of:"// v2SplitSum"),
+              let end=source.range(of:"float F=0.04",range:begin.upperBound..<source.endIndex),
+              let originalStart=ballShader.range(of:"// Probe mip level"),
+              let originalEnd=ballShader.range(of:"float F=0.04",range:originalStart.upperBound..<ballShader.endIndex) else { return source }
+        var result=source
+        result.replaceSubrange(begin.lowerBound..<end.lowerBound,with:String(ballShader[originalStart.lowerBound..<originalEnd.lowerBound]))
+        return result.replacingOccurrences(of:filteredReflectionFunctions+"\n",with:"")
+            .replacingOccurrences(of:"\ntexture2d<float> filteredRoom;\ntexture2d<float> reflectionResponse;",with:"")
+    }
+
+    // Separable GGX slope CDF approximates the rectangular reflected emitter.
+    // This is a split-sum area-light approximation, not exact LTC or ray tracing.
+    private static let filteredReflectionFunctions = rig.shader("""
+    float v2SlopeCDF(float x,float scale) { return 0.5+0.5*x*rsqrt(x*x+scale*scale); }
+    float3 v2FilteredReflection(texture2d<float> room,float3 reflected,float3 p,float3 center,float3 clothRadiance,float roughness,float3 floorRadiance,float clothWeight) {
+        float3 result=v62Room(room,reflected,roughness*float(room.get_num_mip_levels()-1));
+        float alpha=roughness*roughness;
+        if(reflected.y < -0.00001) {
+            float t=(0.8-p.y)/reflected.y;
+            if(t>0.0) {
+                float3 q=p+reflected*t;
+                float width=max(0.0001,2.0*alpha*t/max(0.05,abs(reflected.y)));
+                float mask=(v2SlopeCDF(1.27-q.x,width)-v2SlopeCDF(-1.27-q.x,width))
+                          *(v2SlopeCDF(0.635-q.z,width)-v2SlopeCDF(-0.635-q.z,width));
+                float r2=dot(q.xz-center.xz,q.xz-center.xz);
+                result=mix(result,clothRadiance*clamp(r2/(r2+0.028575*0.028575),0.0,1.0),mask);
+            }
+            result=mix(floorRadiance,result,clothWeight);
+        }
+        for(int panel=0;panel<{{PANEL_COUNT}};++panel) {
+            float3 pn=v62EmitterNormal(panel),u=v62EmitterU(panel),w=v62EmitterV(panel);
+            float denominator=dot(pn,reflected);
+            if(denominator>=-0.00001) continue;
+            float distance=dot(pn,v62EmitterCenter(panel)-p)/denominator;
+            if(distance<=0.0) continue;
+            float3 hit=p+distance*reflected-v62EmitterCenter(panel);
+            float x=dot(hit,normalize(u)),z=dot(hit,normalize(w));
+            float spread=2.0*alpha*distance/max(0.05,abs(denominator));
+            float width=max(clamp(fwidth(x),0.008,0.05),spread);
+            float depth=max(clamp(fwidth(z),0.008,0.05),spread);
+            float mask=(v2SlopeCDF(length(u)-x,width)-v2SlopeCDF(-length(u)-x,width))
+                      *(v2SlopeCDF(length(w)-z,depth)-v2SlopeCDF(-length(w)-z,depth));
+            result+=float3(1.0,0.985,0.96)*({{RADIANCE}}/3.14159265)*mask*v62EmitterGain(panel);
+        }
+        return result;
+    }
+    """)
+
     static let ballShaderArguments: String = {
         var block = "#pragma arguments\nfloat3 selectedClothAlbedo;\ntexture2d<float> roomReflection;\nfloat3 roomFloor;\n"
         for i in 0..<9 { block += "float3 roomSH\(i);\n" }
@@ -167,7 +254,7 @@ enum MobileReferenceLighting {
     }()
 
     static func applyBall(to node: SCNNode, exposureOffset: CGFloat, stickerFinish: Bool = false,
-                          probe: RoomReflectionProbe? = nil) {
+                          probe: RoomReflectionProbe? = nil, profile: SpecializedProfile? = nil) {
         let probe = probe ?? RoomReflectionProbe.neutral
         func apply(_ node:SCNNode) {
             for m in node.geometry?.materials ?? [] {
@@ -179,7 +266,7 @@ enum MobileReferenceLighting {
                     with: "float3 clothAlbedo=selectedClothAlbedo;")
                 m.shaderModifiers = [.surface:trialShader(samplingShader(coloredSurface, profile: previewSamplingProfile))]
                 m.setValue(NSValue(scnVector3: ClothColor.green.linearAlbedo), forKey: "selectedClothAlbedo")
-                probe?.install(on: m)
+                probe?.install(on: m, usesPrefilteredReflection: (profile ?? specializedProfile).usesReflection)
                 applyHighlightHeadroom(to: m, exposureOffset: exposureOffset)
             }
         }
@@ -219,9 +306,11 @@ enum MobileReferenceLighting {
         for (key,node) in scene.allBallNodes {
             let numbered = key.hasPrefix("_") && (Int(key.dropFirst()).map { (1...15).contains($0) } ?? false)
             applyBall(to:node, exposureOffset: scene.cameraNode.camera?.exposureOffset ?? 0, stickerFinish: numbered,
-                      probe: scene.roomReflectionProbe)
+                      probe: scene.roomReflectionProbe, profile: scene.renderingProfile)
         }
-        let shader = directShadowShader(ballCount: scene.allBallNodes.count)
+        let shader = directShadowShader(ballCount: scene.allBallNodes.count, profile: scene.renderingProfile,
+                                        mergesSupport: scene.mergesDailyClothSupport,
+                                        factorsBRDF: scene.factorsDailyClothBRDF)
         scene.tableNode?.enumerateChildNodes { node,_ in
             for m in node.geometry?.materials ?? [] where m.name == "TaiNi" {
                 var mods=m.shaderModifiers ?? [:]
@@ -235,9 +324,19 @@ enum MobileReferenceLighting {
                         with: "contactVisibility *= 1.0 - (contactBall\(i).w / \(MobileContactOcclusion.encodedOpacityScale)) *")
                 }
                 contactSource = contactSource.replacingOccurrences(of: "#pragma body",
-                    with: "#pragma declaration\n" + analyticPanelDiffuse + "\n#pragma body")
+                    with: "#pragma declaration\n" + analyticPanelDiffuse + (scene.renderingProfile.usesShadow ? "\n" + analyticShadowFunctions : "") + "\n#pragma body")
                 mods[.surface]=trialShader(contactSource+"\n"+shader)
                 m.lightingModel = .physicallyBased;m.shaderModifiers=mods
+                #if DEBUG
+                if scene.usesClothLightingPrototype {
+                    do {
+                        try applyClothLightingPrototype(to: m)
+                        print("[DailyClothPrototype] active: explicit linear roughness, constant emission")
+                    } catch {
+                        print("[DailyClothPrototype] reference fallback: \(error)")
+                    }
+                }
+                #endif
             }
         }
         scene.tableNode?.enumerateChildNodes { node, _ in
@@ -252,10 +351,11 @@ enum MobileReferenceLighting {
                 material.shaderModifiers = [.surface: trialShader(matteWoodShader)]
             }
             for material in node.geometry?.materials ?? [] where ["Wood", "BlackWood"].contains(material.name ?? "") {
-                // Matte wood consumes the same emitter irradiance directly. Do
-                // not subtract a native PBR contribution after output mapping.
+                // Source-aligned roughness modulates a weak matte coating. The
+                // diffuse illumination and theme albedo remain independently owned.
                 material.lightingModel = .constant
-                material.shaderModifiers = [.surface: trialShader(matteWoodShader)]
+                TableSurfaceTextures.bindWood(to: material)
+                material.shaderModifiers = [.surface: trialShader(woodCoatShader)]
             }
         }
         applySurfaceFinishes(to: scene)
@@ -272,10 +372,14 @@ enum MobileReferenceLighting {
     /// emitter grid/filter and ascending multiplication order. A single bit mask
     /// avoids keeping one live branch predicate per ball across every light sample.
     /// `usesMask: false` provides the original program for equivalence diagnostics.
-    static func directShadowShader(ballCount: Int, usesMask: Bool = true) -> String {
+    static func directShadowShader(ballCount: Int, usesMask: Bool = true, specialized: Bool = true,
+                                   profile: SpecializedProfile? = nil,
+                                   mergesSupport: Bool = false, factorsBRDF: Bool = false) -> String {
+        if specialized && (profile ?? specializedProfile).usesShadow { return analyticDirectShadowShader(ballCount: ballCount) }
         var shadow="", possible="bool shadowPossible=false;\n"
         var firstBallShadow = ""
         var mask = "uint shadowMask=0u;\n"
+        var mergedSupport = "// daily3DMergedSupport\nbool shadowPossible=false;\nuint shadowMask=0u;\n"
         for i in 0..<ballCount {
             shadow += """
             if(contactBall\(i).w>0.0) {
@@ -311,20 +415,159 @@ enum MobileReferenceLighting {
                 shadowPossible=shadowPossible || top>=\(rig.minimumHeight - 0.8) || dot(offset,offset)<=bound*bound;
             }
             """
+            // The reference intentionally gives receivers below the cloth a
+            // wider blocker mask without changing the quadrature selection.
+            // Preserve both predicates while evaluating their shared bound once.
+            mergedSupport += """
+            if(contactBall\(i).w>0.0) {
+                float top=contactBall\(i).z+0.028575;
+                float bound=0.028575+top/max(0.01,\(rig.minimumHeight - 0.8)-top)*(length(contactBall\(i).xy)+\(rig.shadowSupportRadius));
+                float2 offset=p.xz-contactBall\(i).xy;
+                bool inSupport=top>=\(rig.minimumHeight - 0.8) || dot(offset,offset)<=bound*bound;
+                shadowPossible=shadowPossible || inSupport;
+                if(p.y<0.8 || inSupport) shadowMask |= (1u<<\(i));
+            }
+            """
         }
         let masked = usesMask && (1...32).contains(ballCount)
         if masked {
             shadow = "uint remainingShadowBalls=shadowMask;\nwhile(remainingShadowBalls!=0u) {\nuint shadowIndex=ctz(remainingShadowBalls);\nremainingShadowBalls &= remainingShadowBalls-1u;\nfloat4 shadowBall=shadowBalls[shadowIndex];\n"
                 + firstBallShadow.replacingOccurrences(of: "contactBall0", with: "shadowBall") + "\n}"
         }
-        var shader = clothShader.replacingOccurrences(of: "// SHADOW", with: "if(shadowPossible) {\n" + shadow + "\n}")
-            .replacingOccurrences(of: "// NEAR_SHADOW", with: possible)
+        var cloth = clothShader
+        if factorsBRDF {
+            // Smith G/(4*nv*nl) = 1/((nv+sqrt(...))*(nl+sqrt(...))).
+            // nv/nl retain the reference positive clamps. Light samples,
+            // roughness, visibility and their accumulation order are unchanged.
+            cloth = cloth.replacingOccurrences(of: "float a2=alpha*alpha;", with: """
+            float a2=alpha*alpha;
+            // daily3DFactoredBRDF
+            float inverseViewSmith=1.0/(nv+sqrt(a2+(1.0-a2)*nv*nv));
+            """)
+            .replacingOccurrences(of: "float G=2.0*nv/(nv+sqrt(a2+(1.0-a2)*nv*nv))*2.0*nl/(nl+sqrt(a2+(1.0-a2)*nl*nl));", with:
+                "float smithVisibility=inverseViewSmith/(nl+sqrt(a2+(1.0-a2)*nl*nl));")
+            .replacingOccurrences(of: "S+=weighted*visibility*D*G*F/(4.0*nv*nl);", with:
+                "S+=weighted*visibility*D*F*smithVisibility;")
+        }
+        var shader = cloth.replacingOccurrences(of: "// SHADOW", with: "if(shadowPossible) {\n" + shadow + "\n}")
+            .replacingOccurrences(of: "// NEAR_SHADOW", with: masked && mergesSupport ? mergedSupport : possible)
         if masked {
             let values = (0..<ballCount).map { "contactBall\($0)" }.joined(separator: ",")
             shader = shader.replacingOccurrences(of: "float3 p=contactWorld;", with: "float4 shadowBalls[\(ballCount)]={\(values)};\nfloat3 p=contactWorld;")
-                .replacingOccurrences(of: "for(int panel=0;", with: mask + "\nfor(int panel=0;")
+                .replacingOccurrences(of: "for(int panel=0;", with: (mergesSupport ? "" : mask + "\n") + "for(int panel=0;")
         }
         return samplingShader(shader, profile: previewSamplingProfile)
+    }
+
+    /// S1: sphere-cone/rectangle intersection integrated analytically along Z,
+    /// then eight fixed Gauss-Legendre strips along X. No light-sample/ball loop.
+    /// The fixed rig is horizontal and aligned with world X/Z (metres).
+    static let analyticShadowFunctions = """
+    float v2ShadowPrimitive(float z,float x,float height,float3 n) {
+        float a=x*x+height*height;
+        float j0=z/(2.0*a*(a+z*z))+atan(z*rsqrt(a))/(2.0*a*sqrt(a));
+        float jz=-0.5/(a+z*z);
+        return height*((n.x*x+n.y*height)*j0+n.z*jz);
+    }
+    float v2SphereBlocked(float3 p,float3 n,float4 ball,int panel,float fullIntegral) {
+        if(ball.w<=0.0 || fullIntegral<=0.000001) return 0.0;
+        float3 d=float3(ball.x,0.8+ball.z,ball.y)-p;
+        float radius=0.028575, radius2=radius*radius;
+        float height=v62EmitterCenter(panel).y-p.y;
+        // Receivers above the sphere cannot be shadowed by an overhead emitter.
+        if(d.y<=0.0 || d.y>=height || height<=0.0) return 0.0;
+        float top=d.y+radius;
+        if(height>top) {
+            float bound=radius+top/(height-top)*(length(ball.xy)+\(rig.emitterRadius));
+            if(dot(d.xz,d.xz)>bound*bound) return 0.0;
+        }
+        float k=dot(d,d)-radius2;
+        if(k<=0.00000001) return min(1.0,ball.w/0.85);
+        float x0=v62EmitterCenter(panel).x-length(v62EmitterU(panel))-p.x;
+        float x1=v62EmitterCenter(panel).x+length(v62EmitterU(panel))-p.x;
+        float z0=v62EmitterCenter(panel).z-length(v62EmitterV(panel))-p.z;
+        float z1=v62EmitterCenter(panel).z+length(v62EmitterV(panel))-p.z;
+        float den=d.y*d.y-radius2;
+        if(den>0.00000001) {
+            float extent=radius*sqrt(max(0.0,d.x*d.x+den));
+            x0=max(x0,height*(d.y*d.x-extent)/den);
+            x1=min(x1,height*(d.y*d.x+extent)/den);
+        }
+        if(x1<=x0) return 0.0;
+        // Nodes/weights of the order-eight Legendre rule, not fitted opacity.
+        const float nodes[8]={-0.9602898565,-0.7966664774,-0.5255324099,-0.1834346425,0.1834346425,0.5255324099,0.7966664774,0.9602898565};
+        const float weights[8]={0.1012285363,0.2223810345,0.3137066459,0.3626837834,0.3626837834,0.3137066459,0.2223810345,0.1012285363};
+        float blocked=0.0;
+        for(int strip=0;strip<8;++strip) {
+            float x=(x0+x1)*0.5+nodes[strip]*(x1-x0)*0.5;
+            float a=d.z*d.z-k,b=2.0*d.z*(d.x*x+d.y*height);
+            float c=pow(d.x*x+d.y*height,2.0)-k*(x*x+height*height);
+            float lo=z0,hi=z1;
+            if(abs(a)<0.00000001) {
+                if(abs(b)<0.00000001) { if(c<0.0) continue; }
+                else if(b>0.0) lo=max(lo,-c/b); else hi=min(hi,-c/b);
+            } else if(a<0.0) {
+                float disc=b*b-4.0*a*c;
+                if(disc<=0.0) continue;
+                float root=sqrt(disc);
+                lo=max(lo,(-b+root)/(2.0*a));hi=min(hi,(-b-root)/(2.0*a));
+            } else {
+                // Non-bed receivers can intersect the upper sphere hemisphere.
+                // Retain contact AO there; no bed-plane projection onto cushions.
+                continue;
+            }
+            if(hi<=lo) continue;
+            // Clip to positive N.L before integrating the perturbed cloth normal.
+            if(abs(n.z)>0.000001) {
+                float horizon=-(n.x*x+n.y*height)/n.z;
+                if(n.z>0.0) lo=max(lo,horizon); else hi=min(hi,horizon);
+            } else if(n.x*x+n.y*height<=0.0) continue;
+            if(hi<=lo) continue;
+            blocked+=weights[strip]*max(0.0,v2ShadowPrimitive(hi,x,height,n)-v2ShadowPrimitive(lo,x,height,n));
+        }
+        return clamp(blocked*(x1-x0)*0.5/fullIntegral,0.0,1.0)*min(1.0,ball.w/0.85);
+    }
+    """
+
+    static func analyticDirectShadowShader(ballCount: Int) -> String {
+        let reference = directShadowShader(ballCount: ballCount, specialized: false)
+        guard let begin=reference.range(of:"float3 E=float3(0.0);"),
+              let end=reference.range(of:"_surface.emission.rgb") else { return reference }
+        // Reuse the output calibration, normals, contact uniforms and same-frame data.
+        var output=reference
+        let blockers=(0..<ballCount).map {
+            "visibility *= 1.0-v2SphereBlocked(p,n,contactBall\($0),panel,fullIntegral);"
+        }.joined(separator:"\n")
+        let replacement=rig.shader("""
+        // v2AnalyticShadow
+        float3 E=float3(0.0),S=float3(0.0);
+        float3 v=normalize(scn_frame.inverseViewTransform[3].xyz-p);
+        float nv=max(0.001,dot(n,v));
+        float alpha=max(0.01,_surface.roughness*_surface.roughness),a2=alpha*alpha;
+        for(int panel=0;panel<{{PANEL_COUNT}};++panel) {
+            float fullIntegral=v62RectIrradiance(p,n,panel),visibility=1.0;
+            \(blockers)
+            E+=float3(1.0,0.985,0.96)*({{RADIANCE}}/3.14159265)*fullIntegral*v62EmitterGain(panel)*visibility;
+            // Broad cloth BRDF retains the existing unshadowed 2x2 quadrature.
+            // Visibility is separated: no per-light-sample blocker traversal.
+            for(int ix=0;ix<2;++ix) for(int iz=0;iz<2;++iz) {
+                float3 lp=v62EmitterCenter(panel)+v62EmitterU(panel)*(float(ix)-0.5)+v62EmitterV(panel)*(float(iz)-0.5);
+                float3 delta=lp-p;float r2=dot(delta,delta);float3 l=delta/sqrt(r2);
+                float nl=max(0.001,dot(n,l));float3 h=normalize(l+v);float nh=max(0.0,dot(n,h)),vh=max(0.0,dot(v,h));
+                float denom=nh*nh*(a2-1.0)+1.0,D=a2/(3.14159265*denom*denom);
+                float G=2.0*nv/(nv+sqrt(a2+(1.0-a2)*nv*nv))*2.0*nl/(nl+sqrt(a2+(1.0-a2)*nl*nl));
+                float F=0.012+0.988*pow(1.0-vh,5.0);
+                float3 weighted=float3(1.0,0.985,0.96)*({{RADIANCE}}/3.14159265)*max(0.0,dot(n,l))*max(0.0,dot(v62EmitterNormal(panel),-l))/r2*(v62EmitterArea(panel)*v62EmitterGain(panel)/4.0);
+                S+=weighted*visibility*D*G*F/(4.0*nv*nl);
+            }
+        }
+        """)
+        output.replaceSubrange(begin.lowerBound..<end.lowerBound,with:replacement+"\n")
+        // The reference prefix's array is no longer needed by the strip integrator.
+        if let start=output.range(of:"float4 shadowBalls["),let stop=output.range(of:"float3 p=contactWorld;") {
+            output.removeSubrange(start.lowerBound..<stop.lowerBound)
+        }
+        return output
     }
 
     /// Output mapping shared by reference materials. Keep diffuse-range values
@@ -401,6 +644,10 @@ enum MobileReferenceLighting {
             for m in node.geometry?.materials ?? [] {
                 if m.normal.contents is UIColor { m.normal.contents = nil }
                 switch m.name ?? "" {
+                case "copp" where scene.cueStick?.style != .original:
+                    // Selected finishes own ferrule roughness; do not replace
+                    // their texture when installing the room's surface finishes.
+                    break
                 case "copp", "MG_Gold":
                     m.roughness.contents = Float(0.45)
                 default:
@@ -414,8 +661,8 @@ enum MobileReferenceLighting {
         scene.tableNode?.enumerateChildNodes { node, _ in
             for m in node.geometry?.materials ?? [] where m.name == "Leather" {
                 m.lightingModel = .constant
-                m.normal.intensity = 0.5
-                m.shaderModifiers = [.surface: satinShader]
+                TableSurfaceTextures.bindLeather(to: m)
+                m.shaderModifiers = [.surface: leatherShader]
                 applyHighlightHeadroom(to: m, exposureOffset: scene.cameraNode.camera?.exposureOffset ?? 0)
             }
         }
@@ -467,6 +714,31 @@ enum MobileReferenceLighting {
     }
     _surface.diffuse.rgb=_surface.diffuse.rgb*(v62PanelDiffuse(p,n)/3.14159265+0.26)*0.96+spec;
     """)
+
+    private static let leatherShader = """
+    #pragma arguments
+    texture2d<float> leatherMicroNormal;
+    texture2d<float> leatherMicroRoughness;
+    #pragma declaration
+    """ + "\n" + satinShader.replacingOccurrences(of: "#pragma body", with: "#pragma body\n" + TableSurfaceTextures.leatherSampling)
+
+    // Two by two quadrature points per panel, shared GGX model with satin;
+    // 35% coating contribution avoids a polished white layer on dark wood.
+    private static let woodCoatShader = """
+    #pragma arguments
+    texture2d<float> woodCoatRoughness;
+    #pragma declaration
+    """ + "\n" + satinShader
+        .replacingOccurrences(of: "// v62SatinFinish", with: "// v64WoodCoat")
+        .replacingOccurrences(of: "ix<4", with: "ix<2")
+        .replacingOccurrences(of: "0.5)/4.0", with: "0.5)/2.0")
+        .replacingOccurrences(of: "Gain(panel)/8.0", with: "Gain(panel)/4.0")
+        .replacingOccurrences(of: "*0.96+spec;", with: "*0.986+0.35*spec;")
+        .replacingOccurrences(of: "#pragma body", with: """
+        #pragma body
+        constexpr sampler woodSampler(coord::normalized, address::repeat, filter::linear, mip_filter::linear);
+        _surface.roughness=woodCoatRoughness.sample(woodSampler,_surface.diffuseTexcoord).r;
+        """)
 
     static let matteWoodShader = analyticPanelDiffuse + "\n" + """
     #pragma body
@@ -626,10 +898,67 @@ enum MobileReferenceLighting {
      }
     }
     E=v62PanelDiffuse(p,n)*(E/max(unoccludedE,float3(0.000001)));
-    _surface.emission.rgb = (_surface.diffuse.rgb * _surface.multiply.rgb) * (E/3.14159265+0.26*_surface.ambientOcclusion)+0.35*S+0.35*float3(max(0.0,((((((((((-0.028803310033256934*nv+0.18720610088795223)*nv+-0.5502767636063797)*nv+0.9752880522825459)*nv+-1.17736218879761)*nv+1.0399023440946362)*nv+-0.6934645105632581)*nv+0.32180425209794744)*nv+-0.053736086147546894)*nv+-0.0426628106982577)*nv+0.023864333781715107)));
+    // v64ClothNap: weak albedo-coloured grazing response; shadow/AO stay multiplicative.
+    _surface.emission.rgb = (_surface.diffuse.rgb * _surface.multiply.rgb) * (1.0+0.10*pow(1.0-clamp(abs(dot(normalize((scn_frame.inverseViewTransform*float4(_surface.geometryNormal,0.0)).xyz),v)),0.0,1.0),3.0)) * (E/3.14159265+0.26*_surface.ambientOcclusion)+0.35*S+0.35*float3(max(0.0,((((((((((-0.028803310033256934*nv+0.18720610088795223)*nv+-0.5502767636063797)*nv+0.9752880522825459)*nv+-1.17736218879761)*nv+1.0399023440946362)*nv+-0.6934645105632581)*nv+0.32180425209794744)*nv+-0.053736086147546894)*nv+-0.0426628106982577)*nv+0.023864333781715107)));
     _surface.diffuse.rgb=float3(0.0);
     _surface.metalness=1.0;
-    
+
     _surface.multiply.rgb=float3(1.0);
     """)
 }
+
+
+#if DEBUG
+extension MobileReferenceLighting {
+    /// Visual-validation prototype only. Scene-local opt-in; unsupported assets retain PBR.
+    static func applyClothLightingPrototype(to material: SCNMaterial) throws {
+        func invalid(_ message: String) -> NSError {
+            NSError(domain: "DailyClothPrototype", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
+        }
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let url = material.roughness.contents as? URL, url.isFileURL,
+              let source = material.shaderModifiers?[.surface],
+              source.contains("#pragma arguments"), source.contains("#pragma body"),
+              material.roughness.mappingChannel == material.diffuse.mappingChannel else {
+            throw invalid("Unsupported roughness binding or shader")
+        }
+        let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let bytes: Data
+        if !query.isEmpty {
+            guard let offsetText = query.first(where: { $0.name == "offset" })?.value,
+                  let countText = query.first(where: { $0.name == "size" })?.value,
+                  let offset = UInt64(offsetText), let count = Int(countText), count > 0, count <= 32 * 1024 * 1024 else {
+                throw invalid("Unsupported embedded image range")
+            }
+            let file = try FileHandle(forReadingFrom: URL(fileURLWithPath: url.path))
+            defer { try? file.close() }
+            let length = try file.seekToEnd()
+            guard offset <= length, UInt64(count) <= length - offset else { throw invalid("Invalid embedded image range") }
+            try file.seek(toOffset: offset)
+            guard let data = try file.read(upToCount: count), data.count == count else { throw invalid("Incomplete embedded image") }
+            bytes = data
+        } else { bytes = try Data(contentsOf: url) }
+        guard let image = UIImage(data: bytes)?.cgImage else { throw invalid("Roughness image decode failed") }
+        let texture = try MTKTextureLoader(device: device).newTexture(cgImage: image,
+            options: [.SRGB: false, .generateMipmaps: true])
+        let property = SCNMaterialProperty(contents: texture)
+        property.mipFilter = .linear; property.minificationFilter = .linear; property.magnificationFilter = .linear
+        property.maxAnisotropy = material.roughness.maxAnisotropy
+        var modifiers = material.shaderModifiers ?? [:]
+        modifiers[.surface] = source
+            .replacingOccurrences(of: "#pragma arguments", with: "#pragma arguments\ntexture2d<float> clothRoughness;\nfloat4x4 clothRoughnessTransform;\nfloat clothRoughnessIntensity;")
+            .replacingOccurrences(of: "#pragma body", with: """
+            #pragma body
+            constexpr sampler clothSampler(coord::normalized, address::repeat, filter::linear, mip_filter::linear);
+            float2 clothUV = (clothRoughnessTransform * float4(_surface.diffuseTexcoord,0.0,1.0)).xy;
+            _surface.roughness = clothRoughness.sample(clothSampler,clothUV).r * clothRoughnessIntensity;
+            """)
+        modifiers[.fragment] = "#pragma body\n_output.color.rgb = _surface.emission.rgb;"
+        material.setValue(property, forKey: "clothRoughness")
+        material.setValue(NSValue(scnMatrix4: material.roughness.contentsTransform), forKey: "clothRoughnessTransform")
+        material.setValue(material.roughness.intensity, forKey: "clothRoughnessIntensity")
+        material.shaderModifiers = modifiers
+        material.lightingModel = .constant
+    }
+}
+#endif

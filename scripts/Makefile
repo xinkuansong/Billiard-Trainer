@@ -11,6 +11,7 @@ TEST_CODE_COVERAGE ?= YES
 TEST_BUILD_SETTINGS ?=
 # Build diagnostic test bundles without starting a device workload.
 TEST_ACTION ?= test
+TEST_CONFIGURATION ?= Debug
 ONLY_TESTING ?=
 PROJECT_ROOT := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))/..
 BUILD_DIR    := $(PROJECT_ROOT)/build
@@ -164,10 +165,10 @@ test:
 	  xcodebuild \
 	    $(PROJECT_FLAG) \
 	    -scheme $(SCHEME) \
-	    -configuration Debug \
+	    -configuration $(TEST_CONFIGURATION) \
 	    -derivedDataPath $(DERIVED_DATA) \
 	    -destination '$(TEST_DESTINATION)' \
-	    -enableCodeCoverage $(TEST_CODE_COVERAGE) \
+	    $(if $(filter test test-without-building build-for-testing,$(TEST_ACTION)),-enableCodeCoverage $(TEST_CODE_COVERAGE),) \
 	    $(TEST_BUILD_SETTINGS) \
 	    $(TEST_SELECTOR) \
 	    $(TEST_ACTION) >$(TEST_LOG) 2>&1 || status=$$?; \

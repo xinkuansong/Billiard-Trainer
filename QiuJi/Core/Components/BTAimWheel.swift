@@ -20,8 +20,15 @@ struct BTAimWheel: View {
     var degreesPerPoint: Float = AimWheelGain.defaultDegreesPerPoint
     /// Whole-degree light haptic. Disable for mm-calibrated gain (avoids implying 1° steps).
     var degreeHapticEnabled: Bool = true
+    /// Optional travel detents, independent of the calibrated angle gain.
+    var travelHapticEnabled: Bool = true
     /// Drag lifecycle for closeup HUD gating (近区 ∧ 正在改瞄准).
     var onDragActiveChanged: ((Bool) -> Void)? = nil
+
+    var visibleWidth: CGFloat? = nil
+    var usesCompactAppearance = true
+    /// Hosts with a combined instrument shell may provide their own footer.
+    var showsDirectionLabel = true
 
     private var pointsPerDegree: CGFloat {
         let dpp = max(degreesPerPoint, 1e-4)
@@ -32,6 +39,8 @@ struct BTAimWheel: View {
     @State private var accumulated: Double = 0
     @State private var lastHeight: CGFloat = 0
     @State private var lastTick: Int = 0
+    @State private var lastTravelTick = 0
+    @State private var lastHapticTime: TimeInterval = 0
     @State private var dragStarted = false
     @GestureState private var gestureActive = false
     /// 手势开始时锁定的增益（v23 E2 红线：单次拖动内不换档，避免速度突变）。
@@ -40,12 +49,13 @@ struct BTAimWheel: View {
 
     var body: some View {
         GeometryReader { geo in
-            let h = geo.size.height
+            let h = max(1, geo.size.height - (showsDirectionLabel ? 24 : 0))
             let mid = h / 2
             let ppd = pointsPerDegree
-            ZStack {
+            VStack(spacing: 4) {
+              ZStack {
                 RoundedRectangle(cornerRadius: HUDStyle.rulerCornerRadius, style: .continuous)
-                    .fill(HUDStyle.glassTint)
+                    .fill(usesCompactAppearance ? HUDStyle.controlBackground : HUDStyle.glassTint)
                     .overlay(RoundedRectangle(cornerRadius: HUDStyle.rulerCornerRadius, style: .continuous)
                         .stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
 
@@ -76,6 +86,16 @@ struct BTAimWheel: View {
                     .fill(HUDStyle.tickIndicator)
                     .frame(height: 1.5)
             }
+              .frame(height: h)
+              if showsDirectionLabel {
+                  Text("方向").font(.btMicro).foregroundStyle(HUDStyle.labelColor)
+                      .frame(height: 20)
+              }
+            }
+            .background(usesCompactAppearance ? HUDStyle.controlBackground : .clear,
+                        in: RoundedRectangle(cornerRadius: HUDStyle.rulerCornerRadius))
+            .frame(width: visibleWidth ?? geo.size.width)
+            .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -91,7 +111,15 @@ struct BTAimWheel: View {
                         let delta = Float(-dy) * (lockedGain ?? degreesPerPoint)
                         onNudge(delta)
                         accumulated += Double(delta)
-                        if degreeHapticEnabled {
+                        if travelHapticEnabled {
+                            let tick = Int(v.translation.height / 8)
+                            let now = ProcessInfo.processInfo.systemUptime
+                            if tick != lastTravelTick, now - lastHapticTime >= 0.04 {
+                                haptic.impactOccurred(intensity: 0.4)
+                                lastTravelTick = tick
+                                lastHapticTime = now
+                            }
+                        } else if degreeHapticEnabled {
                             let t = Int(accumulated.rounded())
                             if t != lastTick {
                                 haptic.impactOccurred(intensity: 0.5)
@@ -129,6 +157,7 @@ struct BTAimWheel: View {
     private func finishDrag() {
         guard dragStarted else { return }
         lastHeight = 0
+        lastTravelTick = 0
         dragStarted = false
         lockedGain = nil
         onDragActiveChanged?(false)

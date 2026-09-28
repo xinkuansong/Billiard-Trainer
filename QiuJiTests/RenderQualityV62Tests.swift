@@ -7,6 +7,254 @@ import MetalKit
 /// Deterministic visual experiments, not a phone performance benchmark.
 @MainActor
 final class RenderQualityV62Tests: XCTestCase {
+    func testDailyShadowAndPerspectiveComparison() throws {
+        try dailyPerfGate()
+        let size = CGSize(width: 1400, height: 800)
+        let board = BreakSimulator.breakShot(rack: RackLayout.make(.chineseEightBall, seed: 52), power: 8)
+        XCTAssertTrue(board.settled)
+        for (name, profile, lens) in [("current", MobileReferenceLighting.SpecializedProfile.combined, false),
+                                      ("reference-shadow", .reflection, false), ("narrower", .reflection, true)] {
+            let s = AngleTrainingScene()
+            s.renderingProfile = profile; s.usesClothLightingPrototype = true
+            s.sceneExposureOffset = -0.1; s.usesDailyPerspective = lens
+            s.setupScene(mobileRendering: true)
+            s.hideAllBalls()
+            for (key, point) in board.board.onTable {
+                s.showBall(key: key, scenePosition: PositionPlayShotSolver.scenePoint(point, surfaceY: s.surfaceY))
+            }
+            let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+            renderer.scene = s; renderer.pointOfView = s.cameraNode; renderer.delegate = s.contactOcclusion
+            renderer.autoenablesDefaultLighting = false
+            let rig = try XCTUnwrap(s.cameraRig)
+            rig.viewportSize = size
+            s.setCameraMode(.perspective3D, animated: false)
+            for pose in ["overview", "aim"] {
+                if pose == "overview" { XCTAssertTrue(rig.observeWholeTable(yaw: .pi / 2)) }
+                else {
+                    rig.enterAiming(cueBallPosition: SCNVector3(0, s.surfaceY + AngleSceneCalculator.ballRadius, 0.4),
+                                    targetDirection: SCNVector3(0, 0, -1), entryZoom: 0.25)
+                }
+                for _ in 0..<180 { rig.update(deltaTime: 1/60) }
+                for _ in 0..<5 { _ = renderer.snapshot(atTime: 1, with: size, antialiasingMode: .multisampling4X) }
+                let shot = renderer.snapshot(atTime: 1, with: size, antialiasingMode: .multisampling4X)
+                try XCTUnwrap(shot.pngData()).write(to: dailyPerfDirectory.appendingPathComponent("visual-repair-\(pose)-\(name).png"))
+            }
+        }
+    }
+
+    func testDailyExposureVisualComparison() throws {
+        try dailyPerfGate()
+        let size = CGSize(width: 1200, height: 600)
+        let board = BreakSimulator.breakShot(rack: RackLayout.make(.chineseEightBall, seed: 52), power: 8)
+        XCTAssertTrue(board.settled)
+        for (name, exposure) in [("reference", CGFloat(-0.45)), ("brighter", CGFloat(-0.1))] {
+            let s = AngleTrainingScene()
+            s.renderingProfile = .combined
+            s.usesClothLightingPrototype = true
+            s.sceneExposureOffset = exposure
+            s.setupScene(mobileRendering: true)
+            try requireClothPrototype(s)
+            s.hideAllBalls()
+            for (key, point) in board.board.onTable {
+                s.showBall(key: key, scenePosition: PositionPlayShotSolver.scenePoint(point, surfaceY: s.surfaceY))
+            }
+            let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+            renderer.scene = s; renderer.pointOfView = s.cameraNode
+            renderer.delegate = s.contactOcclusion
+            renderer.autoenablesDefaultLighting = false
+            s.cameraRig?.viewportSize = size
+            for (pose, mode) in [("2d", AngleTrainingScene.CameraMode.topDown2D), ("3d", .perspective3D)] {
+                s.setCameraMode(mode, animated: false)
+                s.cameraRig?.fitLandscapeTable(viewSize: size)
+                if mode == .perspective3D {
+                    XCTAssertTrue(s.cameraRig?.observeWholeTable(yaw: .pi / 2) == true)
+                    for _ in 0..<180 { s.cameraRig?.update(deltaTime: 1/60) }
+                } else { s.cameraRig?.applyTopDown2D() }
+                for _ in 0..<5 { _ = renderer.snapshot(atTime: 1, with: size, antialiasingMode: .multisampling4X) }
+                let shot = renderer.snapshot(atTime: 1, with: size, antialiasingMode: .multisampling4X)
+                try XCTUnwrap(shot.pngData()).write(to: dailyPerfDirectory.appendingPathComponent("exposure-\(pose)-\(name).png"))
+            }
+        }
+    }
+
+    func testDailyRenderingProfilesAreSceneLocal() throws {
+        let reference = AngleTrainingScene()
+        reference.renderingProfile = .reference
+        reference.setupScene(mobileRendering: true)
+        func verify(_ scene: AngleTrainingScene, _ profile: MobileReferenceLighting.SpecializedProfile) {
+            var ballCount = 0, clothCount = 0
+            scene.rootNode.enumerateHierarchy { node, _ in
+                for material in node.geometry?.materials ?? [] {
+                    guard let source = material.shaderModifiers?[.surface] else { continue }
+                    if source.contains("roomReflection") {
+                        ballCount += 1
+                        XCTAssertEqual(source.contains("// v2SplitSum"), profile.usesReflection)
+                        XCTAssertEqual(source.contains("for(int i=0;i<64;++i)"), !profile.usesReflection)
+                    }
+                    if material.name == "TaiNi" {
+                        clothCount += 1
+                        XCTAssertEqual(source.contains("// v2AnalyticShadow"), profile.usesShadow)
+                        XCTAssertEqual(source.contains("int samplesX=shadowPossible?"), !profile.usesShadow)
+                    }
+                }
+            }
+            XCTAssertGreaterThan(ballCount, 0); XCTAssertGreaterThan(clothCount, 0)
+        }
+        let daily = AngleTrainingScene()
+        daily.configureDailyClearanceRendering()
+        daily.setupScene(mobileRendering: true)
+        verify(daily, .reflection)
+        XCTAssertEqual(daily.cameraNode.camera?.exposureOffset ?? 0, -0.1, accuracy: 0.0001)
+        XCTAssertFalse(daily.usesClothLightingPrototype)
+        XCTAssertNil(reference.sceneExposureOffset)
+        XCTAssertFalse(reference.usesDailyPerspective)
+        verify(reference, .reference)
+        for profile in [MobileReferenceLighting.SpecializedProfile.shadow, .reflection, .combined] {
+            let candidate = AngleTrainingScene()
+            candidate.renderingProfile = profile
+            candidate.setupScene(mobileRendering: true)
+            verify(candidate, profile); verify(reference, .reference)
+            candidate.enhanceBallMaterials()
+            for room in RoomStyle.allCases {
+                candidate.installReferenceRoom(style: room)
+                verify(candidate, profile); verify(reference, .reference)
+            }
+        }
+    }
+
+    /// Measures resume latency separately from steady rendering; does not claim device power savings.
+    func testDailyIdleResumeLatency() async throws {
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows).first(where: \.isKeyWindow))
+        var rows: [[String: Any]] = []
+        for mode in [AngleTrainingScene.CameraMode.topDown2DRotated, .perspective3D] {
+            let s = try scene(mobile: true)
+            s.setCameraMode(mode, animated: false)
+            let view = SCNView(frame: window.bounds)
+            view.scene = s; view.pointOfView = s.cameraNode
+            view.antialiasingMode = .multisampling4X
+            let coordinator = AngleSceneView.Coordinator(scene: s, cameraMode: mode, interactionMode: .cameraControl)
+            coordinator.scnView = view; coordinator.contentIsAnimating = false
+            coordinator.installFPSReadout(in: view)
+            view.delegate = coordinator.frameDelegate
+            coordinator.frameDelegate.contact = s.contactOcclusion
+            let clock = ResumeFrameClock()
+            s.contactOcclusion?.didRenderFrame = { clock.record() }
+            window.addSubview(view)
+            coordinator.startRenderLoop(); coordinator.requestInteractiveFrames()
+            defer {
+                s.contactOcclusion?.didRenderFrame = nil
+                AngleSceneView.dismantleUIView(view, coordinator: coordinator)
+                view.removeFromSuperview()
+            }
+            let ball = try XCTUnwrap(s.cueBallNode)
+            for trial in 0..<3 {
+                try await Task.sleep(for: .seconds(2))
+                XCTAssertTrue(coordinator.isDisplayLinkPaused)
+                clock.reset()
+                let start = CACurrentMediaTime()
+                coordinator.requestInteractiveFrames()
+                let wakeEnd = CACurrentMediaTime()
+                ball.position.x += 0.001
+                for _ in 0..<30 {
+                    coordinator.requestInteractiveFrames()
+                    ball.position.x += 0.001
+                    try await Task.sleep(for: .milliseconds(16))
+                }
+                let stamps = clock.snapshot()
+                XCTAssertGreaterThan(stamps.count, 2)
+                let intervals = zip(stamps.dropFirst(), stamps).map { ($0 - $1) * 1000 }
+                rows.append(["mode": mode == .perspective3D ? "3d" : "2d", "trial": trial,
+                    "wakeSynchronousMS": (wakeEnd - start) * 1000,
+                    "firstRenderCallbackMS": ((stamps.first ?? start) - start) * 1000,
+                    "intervalsMS": intervals, "device": UIDevice.current.model])
+            }
+        }
+        let data = try JSONSerialization.data(withJSONObject: rows, options: [.prettyPrinted, .sortedKeys])
+        print("DAILY_IDLE_RESUME " + String(decoding: data, as: UTF8.self))
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "daily-idle-resume"; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
+    func testDailyAimResumeLatency() async throws {
+        try await measureDailyAimResumeLatency(profile: .reference)
+    }
+
+    func testDailyCombinedAimResumeLatency() async throws {
+        try await measureDailyAimResumeLatency(profile: .combined)
+    }
+
+    private func measureDailyAimResumeLatency(profile: MobileReferenceLighting.SpecializedProfile, clothPrototype: Bool = false) async throws {
+        #if !targetEnvironment(simulator)
+        try XCTSkipUnless(ProcessInfo.processInfo.thermalState == .nominal, "Aim-resume audit requires nominal start")
+        #endif
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows).first(where: \.isKeyWindow))
+        let board = BreakSimulator.breakShot(rack: RackLayout.make(.chineseEightBall, seed: 52), power: 8)
+        XCTAssertTrue(board.settled)
+        var rows: [[String: Any]] = []
+        for mode in [AngleTrainingScene.CameraMode.topDown2DRotated, .perspective3D] {
+            let vm = PositionPlayViewModel()
+            vm.scene.renderingProfile = profile
+            vm.scene.usesClothLightingPrototype = clothPrototype
+            vm.setupScene(mobileRendering: true)
+            if clothPrototype { try requireClothPrototype(vm.scene) }
+            vm.cameraMode = mode; vm.scene.setCameraMode(mode, animated: false)
+            vm.aimMode = .free; vm.loadBoard(board.board)
+            let target = try XCTUnwrap(board.board.onTable.keys.sorted().first { $0 != PositionPlayBall.cueKey })
+            vm.handleTableTap(world: try XCTUnwrap(vm.scene.allBallNodes[target]).position)
+            let ready = CACurrentMediaTime() + 10
+            while vm.isComputing && CACurrentMediaTime() < ready { try await Task.sleep(for: .milliseconds(20)) }
+            XCTAssertFalse(vm.isComputing)
+            let view = SCNView(frame: window.bounds)
+            view.scene = vm.scene; view.pointOfView = vm.scene.cameraNode; view.antialiasingMode = .multisampling4X
+            let coordinator = AngleSceneView.Coordinator(scene: vm.scene, cameraMode: mode, interactionMode: .cameraControl)
+            coordinator.scnView = view; coordinator.contentIsAnimating = false
+            coordinator.draggableBallNodes = vm.draggableCueOnly
+            coordinator.installFPSReadout(in: view)
+            coordinator.frameDelegate.contact = vm.scene.contactOcclusion; view.delegate = coordinator.frameDelegate
+            let clock = ResumeFrameClock()
+            vm.scene.contactOcclusion?.didRenderFrame = { clock.record() }
+            window.addSubview(view); coordinator.startRenderLoop(); coordinator.requestInteractiveFrames()
+            defer {
+                vm.scene.contactOcclusion?.didRenderFrame = nil
+                AngleSceneView.dismantleUIView(view, coordinator: coordinator); view.removeFromSuperview()
+            }
+            for explicitWake in [false, true, false, true] {
+                try await Task.sleep(for: .seconds(3))
+                guard ProcessInfo.processInfo.thermalState.rawValue < 2 else {
+                    XCTFail("Stop aim-resume diagnostic at severe thermal state"); return
+                }
+                XCTAssertTrue(coordinator.isDisplayLinkPaused)
+                let hitStart = CACurrentMediaTime()
+                _ = coordinator.hitTestBall(at: CGPoint(x: view.bounds.midX, y: view.bounds.midY))
+                let hitMS = (CACurrentMediaTime() - hitStart) * 1000
+                clock.reset()
+                let start = CACurrentMediaTime()
+                if explicitWake { coordinator.updateContentActivity(true, cameraMode: mode) }
+                vm.setAimWheelDragging(true)
+                vm.nudgeFreeAim(byDegrees: 0.04)
+                let inputMS = (CACurrentMediaTime() - start) * 1000
+                for _ in 0..<30 {
+                    try await Task.sleep(for: .milliseconds(16))
+                    vm.nudgeFreeAim(byDegrees: 0.04)
+                }
+                let stamps = clock.snapshot()
+                vm.setAimWheelDragging(false)
+                coordinator.updateContentActivity(false, cameraMode: mode)
+                XCTAssertGreaterThan(stamps.count, 2)
+                rows.append(["mode": mode == .perspective3D ? "3d" : "2d", "profile": profile.rawValue, "clothPrototype": clothPrototype, "explicitWake": explicitWake,
+                    "hitTestMS": hitMS, "firstInputMS": inputMS, "thermal": ProcessInfo.processInfo.thermalState.rawValue,
+                    "firstRenderCallbackMS": ((stamps.first ?? start) - start) * 1000,
+                    "intervalsMS": zip(stamps.dropFirst(), stamps).map { ($0 - $1) * 1000 }])
+            }
+        }
+        let data = try JSONSerialization.data(withJSONObject: rows, options: [.prettyPrinted, .sortedKeys])
+        print("DAILY_AIM_RESUME " + String(decoding: data, as: UTF8.self))
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "daily-aim-resume"; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
     func testFixedCameraChangedPixelFootprint() throws {
         let width = 600, height = 1000
         func pixels(_ image: UIImage) throws -> [UInt8] {
@@ -162,10 +410,12 @@ final class RenderQualityV62Tests: XCTestCase {
         try compareCanopyMovingFrames(cachesBlockerGeometry: true, cachesReflectionSamples: true)
     }
 
-    private func compareCanopyMovingFrames(cachesBlockerGeometry: Bool = false, cachesReflectionSamples: Bool = false) throws {
-        let s = try scene(mobile: true)
+    private func compareCanopyMovingFrames(cachesBlockerGeometry: Bool = false, cachesReflectionSamples: Bool = false, specialized: Bool = false, clothPrototype: Bool = false) throws {
+        let s = try scene(mobile: true, profile: clothPrototype ? .combined : nil, clothPrototype: clothPrototype)
         if cachesBlockerGeometry { try applyCachedBlockerGeometry(to: s) }
         if cachesReflectionSamples { try applyCachedReflectionSamples(to: s) }
+        if specialized && !clothPrototype { try applySpecializedReflection(to: s); try applySpecializedShadow(to: s) }
+        if clothPrototype { try requireClothPrototype(s) }
         XCTAssertTrue(s.applyClothColor(.tournamentBlue))
         let y = s.surfaceY + AngleSceneCalculator.ballRadius
         s.applyBallLayout(cueBallPosition: SCNVector3(0, y, 0), targetBallNumber: 8,
@@ -316,8 +566,10 @@ final class RenderQualityV62Tests: XCTestCase {
         #endif
     }
 
-    private func scene(mobile: Bool = false) throws -> AngleTrainingScene {
+    private func scene(mobile: Bool = false, profile: MobileReferenceLighting.SpecializedProfile? = nil, clothPrototype: Bool = false) throws -> AngleTrainingScene {
         let scene = AngleTrainingScene()
+        if let profile { scene.renderingProfile = profile }
+        scene.usesClothLightingPrototype = clothPrototype
         scene.setupScene(mobileRendering: mobile)
         let y = scene.surfaceY + AngleSceneCalculator.ballRadius
         scene.applyBallLayout(cueBallPosition: SCNVector3(-0.45,y,0), targetBallNumber: 3,
@@ -8284,6 +8536,14 @@ private final class RenderContactFrameUpdater: NSObject, SCNSceneRendererDelegat
     }
 }
 
+private final class ResumeFrameClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stamps: [Double] = []
+    func record() { lock.lock(); defer { lock.unlock() }; stamps.append(CACurrentMediaTime()) }
+    func reset() { lock.lock(); defer { lock.unlock() }; stamps.removeAll(keepingCapacity: true) }
+    func snapshot() -> [Double] { lock.lock(); defer { lock.unlock() }; return stamps }
+}
+
 private final class ReferenceFrameSamples: @unchecked Sendable {
     private let lock=NSLock()
     private var rows:[Int:[String:Double]]=[:]
@@ -8310,6 +8570,9 @@ private final class ReferenceFrameProbe:NSObject,MTKViewDelegate {
     var mixedActivity = false
     var movesCamera = true
     var retainedContact: MobileContactOcclusion?
+    var beforeRender: ((MTLCommandBuffer) -> Void)?
+    var captureNextFrameURL: URL?
+    var capturedFrame = false
     init(scene:AngleTrainingScene,device:MTLDevice) {
         self.scene=scene;renderer=SCNRenderer(device:device,options:nil)
         queue=device.makeCommandQueue()!
@@ -8333,6 +8596,7 @@ private final class ReferenceFrameProbe:NSObject,MTKViewDelegate {
         lastDrawTime = start
         guard let drawable=view.currentDrawable,let pass=view.currentRenderPassDescriptor,
               let command=queue.makeCommandBuffer() else { return }
+        beforeRender?(command)
         let drawableReady=CACurrentMediaTime()
         let id=frame;frame+=1
         // Exercise live camera and contact-uniform updates, without changing physics.
@@ -8352,6 +8616,34 @@ private final class ReferenceFrameProbe:NSObject,MTKViewDelegate {
         #endif
         command.addCompletedHandler { done in
             samples.set(id,["gpuMS":(done.gpuEndTime-done.gpuStartTime)*1000,"gpuEnd":done.gpuEndTime,"error":done.status == .error ? 1:0])
+        }
+        // Explicit evidence frame only, requested after the measurement window.
+        // Read the actual drawable rather than rendering a second snapshot path.
+        if let url = captureNextFrameURL {
+            captureNextFrameURL = nil
+            let width = drawable.texture.width, height = drawable.texture.height
+            let stride = ((width * 4 + 255) / 256) * 256
+            if let buffer = view.device?.makeBuffer(length: stride * height, options: .storageModeShared),
+               let blit = command.makeBlitCommandEncoder() {
+                blit.copy(from: drawable.texture, sourceSlice: 0, sourceLevel: 0,
+                          sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
+                          sourceSize: MTLSize(width: width, height: height, depth: 1),
+                          to: buffer, destinationOffset: 0, destinationBytesPerRow: stride,
+                          destinationBytesPerImage: stride * height)
+                blit.endEncoding()
+                command.present(drawable); command.commit(); command.waitUntilCompleted()
+                let data = Data(bytes: buffer.contents(), count: stride * height)
+                if let provider = CGDataProvider(data: data as CFData),
+                   let image = CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32,
+                     bytesPerRow: stride, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                     bitmapInfo: CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.premultipliedFirst.rawValue),
+                     provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent),
+                   let png = UIImage(cgImage: image).pngData() {
+                    do { try png.write(to: url); capturedFrame = command.status == .completed }
+                    catch { capturedFrame = false }
+                }
+                return
+            }
         }
         command.present(drawable);command.commit()
     }
@@ -8853,23 +9145,29 @@ extension RenderQualityV62Tests {
         try await measureDailyRenderAblations(samplingComparison: false, warmPair: true, completeAudit: true)
     }
 
-    private func measureDailyRenderAblations(samplingComparison: Bool, warmPair: Bool = false, loopComparison: Bool = false, packingComparison: Bool = false, costIsolation3D: Bool = false, completeAudit: Bool = false, shaderCandidates: Bool = false, balancedMode: Int = 0) async throws {
+    private func measureDailyRenderAblations(samplingComparison: Bool, warmPair: Bool = false, loopComparison: Bool = false, packingComparison: Bool = false, costIsolation3D: Bool = false, completeAudit: Bool = false, shaderCandidates: Bool = false, balancedMode: Int = 0, specializedMode: Int = 0, reflectionBreakdown: Bool = false, localShadowPrototype: Bool = false, costAttribution: Bool = false, coverageOnly: Bool = false, rankingMode: Int = 0, specializedProfiles: [String]? = nil, combinedClothAudit: Bool = false, clothCandidateComparison: Bool = false) async throws {
         try dailyPerfGate()
+        #if targetEnvironment(simulator)
+        let executionEnvironment = "simulator"
+        #else
+        let executionEnvironment = "physical-device"
+        #endif
+        let outputPrefix = clothCandidateComparison ? "ab-rs-candidate-" : combinedClothAudit ? "ab-rs-cloth-" : ""
         for file in try FileManager.default.contentsOfDirectory(at: dailyPerfDirectory, includingPropertiesForKeys: nil)
-            where file.lastPathComponent.hasPrefix("ab-") {
+            where file.lastPathComponent.hasPrefix(combinedClothAudit ? outputPrefix : specializedMode > 0 ? "ab-specialized-\(specializedMode)d-" : "ab-") {
             try FileManager.default.removeItem(at: file)
         }
         #if !targetEnvironment(simulator)
         try FileManager.default.removeItem(at: dailyPerfDirectory.deletingLastPathComponent().appendingPathComponent("run-daily-render-diagnostics"))
         var cooling: [[String: Any]] = []
-        for _ in 0..<((warmPair && !completeAudit && balancedMode == 0) ? 1 : 18) {
+        for _ in 0..<((warmPair && !completeAudit && balancedMode == 0 && specializedMode == 0) ? 1 : 18) {
             let state = ProcessInfo.processInfo.thermalState
             cooling.append(["time": Date().timeIntervalSince1970, "thermal": state.rawValue])
-            if state == .nominal || (warmPair && !completeAudit && balancedMode == 0) { break }
+            if state == .nominal || (warmPair && !completeAudit && balancedMode == 0 && specializedMode == 0) { break }
             try await Task.sleep(for: .seconds(5))
         }
         try writeDailyPerf(cooling, "preflight-thermal")
-        try XCTSkipUnless((warmPair && !completeAudit && balancedMode == 0) ? ProcessInfo.processInfo.thermalState.rawValue < 2 : ProcessInfo.processInfo.thermalState == .nominal, "Thermal precondition not met")
+        try XCTSkipUnless((warmPair && !completeAudit && balancedMode == 0 && specializedMode == 0) ? ProcessInfo.processInfo.thermalState.rawValue < 2 : ProcessInfo.processInfo.thermalState == .nominal, "Thermal precondition not met")
         #endif
         let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
         let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
@@ -8877,7 +9175,13 @@ extension RenderQualityV62Tests {
         let result = BreakSimulator.breakShot(rack: rack, power: 8)
         XCTAssertTrue(result.settled)
         try writeDailyPerf(result.board.onTable.mapValues { ["x": $0.x, "y": $0.y] }, "fixed-board")
-        let cases: [(String, Bool, Int, Int, Double, Bool, Double)] = balancedMode > 0 ? [
+        let specializedOrder = coverageOnly ? ["A"] : costAttribution ? ["A","R","A","G","A","C","A","L","A","L","A","C","A","G","A","R","A"] : localShadowPrototype ? ["A","S","A","L","A","L","A","S","A"] : reflectionBreakdown ? ["A","E","A","EL","A","R","A","R","A","EL","A","E","A"] : ["A","R","A","S","A","RS","A","RS","A","S","A","R","A"]
+        let rankingOrder = clothCandidateComparison ? ["base-0", "candidate-1", "base-1", "candidate-2", "base-2"] : combinedClothAudit ? ["base-0", "cloth-pbr-off", "base-1", "cloth-shader-off", "base-2"] : ["base-0", "direct-shadow-off", "base-1", "reflection-off", "base-2", "ball-native", "base-3", "cloth-shader-off", "base-4", "contact-off", "base-5", "native-shadow-off", "base-6", "room-off", "base-7", "aa1", "base-8", "scale75", "base-9"]
+        let cases: [(String, Bool, Int, Int, Double, Bool, Double)] = rankingMode > 0 ? rankingOrder.map {
+            ("ab-audit-" + $0, rankingMode == 3, 60, $0 == "aa1" ? 1 : 4, $0 == "scale75" ? 0.75 : 1, $0 != "room-off", 2)
+        } : specializedMode > 0 ? (specializedProfiles ?? specializedOrder).enumerated().map {
+            ("ab-specialized-\(specializedMode)d-\($0.offset)-\($0.element)", specializedMode == 3, 60, 4, 1, true, localShadowPrototype ? 4 : 2)
+        } : balancedMode > 0 ? [
             ("ab-balanced-base-a", balancedMode == 3, 60, 4, 1, true, 2),
             ("ab-balanced-shadow", balancedMode == 3, 60, 4, 1, true, 2),
             ("ab-balanced-base-b", balancedMode == 3, 60, 4, 1, true, 2),
@@ -8950,6 +9254,7 @@ extension RenderQualityV62Tests {
             ("ab-base-repeat", false, 60, 4, 1, true, 4)
         ]
         for (name, is3D, fps, aa, scale, room, duration) in cases {
+            let outputName = combinedClothAudit ? name.replacingOccurrences(of: "ab-audit-", with: outputPrefix) : name
             guard ProcessInfo.processInfo.thermalState.rawValue < 2 else {
                 try writeDailyPerf(["stoppedBefore": name, "thermal": ProcessInfo.processInfo.thermalState.rawValue], "ab-stopped")
                 XCTFail("Stopped diagnostic at severe thermal state")
@@ -8960,12 +9265,62 @@ extension RenderQualityV62Tests {
                 continue
             }
             let thermalStart = ProcessInfo.processInfo.thermalState.rawValue
-            let s = try scene(mobile: true)
+            let candidateEnabled = clothCandidateComparison && name.contains("candidate-")
+            let s = try scene(mobile: true, profile: combinedClothAudit ? .combined : nil, clothPrototype: candidateEnabled)
+            if candidateEnabled { try requireClothPrototype(s) }
             s.hideAllBalls()
             for (key, point) in result.board.onTable {
                 s.showBall(key: key, scenePosition: PositionPlayShotSolver.scenePoint(point, surfaceY: s.surfaceY))
             }
-            try applyMaskedDirectShadows(to: s, enabled: balancedMode > 0 || shaderCandidates || completeAudit || costIsolation3D || packingComparison || (loopComparison && name.hasPrefix("ab-mask-")))
+            if localShadowPrototype {
+                s.hideAllBalls()
+                s.showBall(key: PositionPlayBall.cueKey, scenePosition: SCNVector3(0, s.surfaceY + AngleSceneCalculator.ballRadius, 0))
+                XCTAssertEqual(s.visibleBalls().count, 1)
+                XCTAssertNotNil(s.visibleBalls()[PositionPlayBall.cueKey])
+            }
+            var localField: DiagnosticLocalShadowField?
+            if !combinedClothAudit { try applyMaskedDirectShadows(to: s, enabled: specializedMode > 0 || balancedMode > 0 || shaderCandidates || completeAudit || costIsolation3D || packingComparison || (loopComparison && name.hasPrefix("ab-mask-"))) }
+            if specializedMode > 0 {
+                let label = String(name.split(separator:"-").last!)
+                let profile=try XCTUnwrap(MobileReferenceLighting.SpecializedProfile(rawValue: ["E", "EL"].contains(label) ? "R" : (["L", "C"].contains(label) ? "S" : (label == "G" ? "A" : label))))
+                if profile.usesReflection {try applySpecializedReflection(to:s)}
+                if profile.usesShadow {try applySpecializedShadow(to:s)}
+                if ["L", "C", "G"].contains(label) {
+                    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+                    let field = try DiagnosticLocalShadowField(device: device, root: root.appendingPathComponent("build/daily-specialized-20260921/correction/local-lut"))
+                    localField = field
+                    try field.prepare(device: device)
+                    var seen = Set<ObjectIdentifier>()
+                    s.tableNode?.enumerateHierarchy { node, _ in
+                        for material in node.geometry?.materials ?? [] where label != "G" && material.name == "TaiNi" && seen.insert(ObjectIdentifier(material)).inserted {
+                            guard var source = material.shaderModifiers?[.surface], let arguments = source.range(of: "#pragma arguments") else { XCTFail("Missing cloth arguments"); continue }
+                            source.insert(contentsOf: "\ntexture2d<float> localVisibility;", at: arguments.upperBound)
+                            source = source.replacingOccurrences(of: "visibility=1.0;", with: "visibility=1.0;\nconstexpr sampler localSampler(coord::normalized,address::clamp_to_edge,filter::linear);\nvisibility=localVisibility.sample(localSampler,float2(p.x/2.54+0.5,0.5-p.z/1.27))[panel];")
+                            source = source.replacingOccurrences(of: #"visibility \*= 1.0-v2SphereBlocked\([^;]+;"#, with: "", options: .regularExpression)
+                            XCTAssertFalse(source.contains("visibility *= 1.0-v2SphereBlocked"))
+                            material.shaderModifiers?[.surface] = source
+                            material.setValue(SCNMaterialProperty(contents: field.texture), forKey: "localVisibility")
+                        }
+                    }
+                }
+                if label == "E" || label == "EL" {
+                    for ball in s.allBallNodes.values { ball.enumerateHierarchy { node, _ in
+                        for material in node.geometry?.materials ?? [] {
+                            guard var shader = material.shaderModifiers?[.surface], shader.contains("// v2SplitSum") else { continue }
+                            if label == "E" {
+                                let call = "v2FilteredReflection(filteredRoom,reflected,p,center,clothRadiance,roughness,roomFloor,clothWeight)"
+                                XCTAssertTrue(shader.contains(call))
+                                shader = shader.replacingOccurrences(of: call, with: "v62Room(filteredRoom,reflected,roughness*float(filteredRoom.get_num_mip_levels()-1))")
+                            } else if let begin = shader.range(of: "float3 v2FilteredReflection("),
+                                      let loop = shader.range(of: "for(int panel=0;", range: begin.upperBound..<shader.endIndex),
+                                      let end = shader.range(of: "return result;", range: loop.upperBound..<shader.endIndex) {
+                                shader.removeSubrange(loop.lowerBound..<end.lowerBound)
+                            } else { XCTFail("Filtered local reflection function missing") }
+                            material.shaderModifiers?[.surface] = shader
+                        }
+                    } }
+                }
+            }
             if balancedMode > 0 {
                 try applySamplingVariant(to: s, shadow: name == "ab-balanced-shadow" || name == "ab-balanced-both", reflection: name == "ab-balanced-reflection" || name == "ab-balanced-both")
             }
@@ -9000,7 +9355,25 @@ extension RenderQualityV62Tests {
                     }
                 }
             }
-            var changed = 0
+            if combinedClothAudit {
+                var balls = [String](), cloth = [String]()
+                var seen = Set<ObjectIdentifier>()
+                s.rootNode.enumerateHierarchy { node, _ in
+                    for m in node.geometry?.materials ?? [] where seen.insert(ObjectIdentifier(m)).inserted {
+                        guard let source = m.shaderModifiers?[.surface] else { continue }
+                        if source.contains("roomReflection") { balls.append(source) }
+                        if m.name == "TaiNi" { cloth.append(source) }
+                    }
+                }
+                guard s.renderingProfile == .combined, !balls.isEmpty, !cloth.isEmpty,
+                      balls.allSatisfy({ $0.contains("// v2SplitSum") && !$0.contains("for(int i=0;i<64;++i)") }),
+                      cloth.allSatisfy({ $0.contains("// v2AnalyticShadow") }) else {
+                    throw NSError(domain: "DailyCombinedClothAudit", code: 1,
+                                  userInfo: [NSLocalizedDescriptionKey: "Production RS shaders were not installed"])
+                }
+                try writeDailyPerf(["profile": "RS", "ballPrograms": balls, "clothPrograms": cloth], outputName + "-programs-before")
+            }
+            var changed = candidateEnabled ? try requireClothPrototype(s) : 0
             if shaderCandidates && name.hasPrefix("ab-shader-new-") {
                 try applyCachedBlockerGeometry(to: s)
                 try applyCachedReflectionSamples(to: s)
@@ -9014,6 +9387,14 @@ extension RenderQualityV62Tests {
                             m.shaderModifiers?[.surface] = source.replacingOccurrences(of: "for(int i=0;i<64;++i)", with: "for(int i=0;i<0;++i)")
                             changed += 1
                         }
+                    }
+                }
+                XCTAssertGreaterThan(changed, 0)
+            }
+            if name == "ab-audit-cloth-shader-off" {
+                s.tableNode?.enumerateHierarchy { node, _ in
+                    for m in node.geometry?.materials ?? [] where m.name == "TaiNi" {
+                        m.shaderModifiers = nil; m.lightingModel = .constant; changed += 1
                     }
                 }
                 XCTAssertGreaterThan(changed, 0)
@@ -9051,7 +9432,7 @@ extension RenderQualityV62Tests {
                 }
                 XCTAssertGreaterThan(changed, 0)
             }
-            if name == "ab-no-direct-shadow" || name == "ab-3d-no-direct-shadow" || name == "ab-cloth-native" {
+            if name == "ab-audit-direct-shadow-off" || name == "ab-no-direct-shadow" || name == "ab-3d-no-direct-shadow" || name == "ab-cloth-native" {
                 s.tableNode?.enumerateChildNodes { node, _ in
                     for material in node.geometry?.materials ?? [] where material.name == "TaiNi" {
                         if name == "ab-cloth-native" { material.shaderModifiers = nil; changed += 1 }
@@ -9064,13 +9445,32 @@ extension RenderQualityV62Tests {
                 }
                 XCTAssertGreaterThan(changed, 0)
             }
-            if name == "ab-ball-native" || name == "ab-3d-ball-native" {
+            if name == "ab-audit-ball-native" || name == "ab-ball-native" || name == "ab-3d-ball-native" {
                 for node in s.allBallNodes.values {
                     node.enumerateHierarchy { part, _ in
                         for material in part.geometry?.materials ?? [] { material.shaderModifiers = nil; changed += 1 }
                     }
                 }
                 XCTAssertGreaterThan(changed, 0)
+            }
+            if combinedClothAudit {
+                var clothPrograms = [String](), clothModels = [String]()
+                var seen = Set<ObjectIdentifier>()
+                s.tableNode?.enumerateHierarchy { node, _ in
+                    for m in node.geometry?.materials ?? [] where m.name == "TaiNi" && seen.insert(ObjectIdentifier(m)).inserted {
+                        let program = m.shaderModifiers?[.surface] ?? ""
+                        clothPrograms.append(program); clothModels.append(m.lightingModel.rawValue)
+                        if name == "ab-audit-cloth-shader-off" {
+                            XCTAssertTrue(program.isEmpty); XCTAssertEqual(m.lightingModel, .constant)
+                        } else {
+                            XCTAssertTrue(program.contains("// v2AnalyticShadow"))
+                            XCTAssertEqual(m.lightingModel, (name == "ab-audit-cloth-pbr-off" || candidateEnabled) ? .constant : .physicallyBased)
+                        }
+                    }
+                }
+                XCTAssertFalse(clothModels.isEmpty)
+                XCTAssertEqual(changed, name.hasPrefix("ab-audit-base-") ? 0 : clothModels.count)
+                try writeDailyPerf(["clothPrograms": clothPrograms, "clothModels": clothModels], outputName + "-programs-after")
             }
             let mode: AngleTrainingScene.CameraMode = is3D ? .perspective3D : .topDown2DRotated
             s.setCameraMode(mode, animated: false)
@@ -9088,13 +9488,27 @@ extension RenderQualityV62Tests {
             view.drawableSize = CGSize(width: window.bounds.width * window.screen.scale * scale,
                                        height: window.bounds.height * window.screen.scale * scale)
             let probe = ReferenceFrameProbe(scene: s, device: device)
-            probe.movesCamera = is3D && !samplingComparison && !loopComparison && !packingComparison && !costIsolation3D && !completeAudit && !shaderCandidates && balancedMode == 0
+            if let localField, !name.hasSuffix("-C") { probe.beforeRender = { localField.encode(into: $0) } }
+            probe.movesCamera = is3D && !samplingComparison && !loopComparison && !packingComparison && !costIsolation3D && !completeAudit && !shaderCandidates && balancedMode == 0 && specializedMode == 0
             if let legacyContact {
                 probe.retainedContact = legacyContact
                 probe.renderer.delegate = legacyContact
             }
             view.delegate = probe
             window.addSubview(view)
+            // Require actual foreground draws before warming the measured window.
+            // A newly launched device host may not have an active drawable yet.
+            if rankingMode > 0 || specializedMode > 0 {
+                let readyDeadline = CACurrentMediaTime() + 15
+                while (UIApplication.shared.applicationState != .active || probe.frame < 15) && CACurrentMediaTime() < readyDeadline {
+                    try await Task.sleep(for: .milliseconds(100))
+                }
+                guard UIApplication.shared.applicationState == .active, probe.frame >= 15 else {
+                    view.isPaused = true; view.delegate = nil; view.removeFromSuperview(); probe.renderer.scene = nil
+                    try writeDailyPerf(["stoppedBefore": name, "reason": "Foreground drawable unavailable", "frames": probe.frame, "applicationState": UIApplication.shared.applicationState.rawValue], "ab-stopped")
+                    throw NSError(domain: "DailyCostRanking", code: 1, userInfo: [NSLocalizedDescriptionKey: "No active drawing baseline; stop instead of continuing invalid comparisons"])
+                }
+            }
             // Warm shader/pipeline caches outside measured samples.
             try await Task.sleep(for: .seconds(2))
             let firstFrame = probe.frame
@@ -9112,18 +9526,87 @@ extension RenderQualityV62Tests {
                 "sampleCount": aa, "room": room, "cameraMoves": probe.movesCamera,
                 "warmPair": warmPair, "thermalStart": thermalStart, "thermal": ProcessInfo.processInfo.thermalState.rawValue, "duration": end-start, "frames": rows, "allocatedStart": startAllocated,
                 "allocatedEnd": device.currentAllocatedSize, "memoryStart": memoryStart, "memoryEnd": dailyMemory(),
+                "executionEnvironment": executionEnvironment, "rankingMode": rankingMode, "combinedClothAudit": combinedClothAudit, "clothCandidateComparison": clothCandidateComparison, "clothPrototype": candidateEnabled, "sceneProfile": s.renderingProfile.rawValue, "reflectionBreakdown": reflectionBreakdown, "localShadowPrototype": localShadowPrototype, "costAttribution": costAttribution,
                 "note": "MTKView with production scene and fixed real break board. GPU command-buffer time is for the executing device; draw intervals are not presented frames. Forced continuous rendering, no full SwiftUI page or prediction loop."]
-            try writeDailyPerf(report, name)
+            try writeDailyPerf(report, outputName)
             XCTAssertGreaterThan(rows.count, 10)
             XCTAssertEqual(rows.filter { ($0["error"] ?? 0) > 0 }.count, 0)
+            if (rankingMode > 0 || specializedMode > 0) && (rows.count <= 10 || rows.contains(where: { ($0["error"] ?? 0) > 0 })) {
+                view.delegate = nil; view.removeFromSuperview(); probe.renderer.scene = nil
+                throw NSError(domain: "DailyCostRanking", code: 2, userInfo: [NSLocalizedDescriptionKey: "Invalid GPU sample window; abort batch"])
+            }
+            if specializedMode > 0 {
+                var ballPrograms = [String](), clothPrograms = [String]()
+                var seen = Set<ObjectIdentifier>()
+                s.rootNode.enumerateHierarchy { node, _ in
+                    for material in node.geometry?.materials ?? [] where seen.insert(ObjectIdentifier(material)).inserted {
+                        guard let source = material.shaderModifiers?[.surface] else { continue }
+                        if source.contains("roomReflection") { ballPrograms.append(source) }
+                        if material.name == "TaiNi" { clothPrograms.append(source) }
+                    }
+                }
+                let profile = String(name.split(separator: "-").last!)
+                XCTAssertFalse(ballPrograms.isEmpty)
+                XCTAssertFalse(clothPrograms.isEmpty)
+                XCTAssertTrue(ballPrograms.allSatisfy { $0.contains("for(int i=0;i<64;++i)") == (["A", "S", "L", "C", "G"].contains(profile)) })
+                XCTAssertTrue(clothPrograms.allSatisfy { $0.contains("// v2AnalyticShadow") == (["S", "RS", "L", "C"].contains(profile)) })
+                try writeDailyPerf(["profile": profile, "ballPrograms": ballPrograms, "clothPrograms": clothPrograms], name + "-programs")
+                probe.captureNextFrameURL = dailyPerfDirectory.appendingPathComponent(outputName + "-drawable.png")
+                view.isPaused = false
+                try await Task.sleep(for: .milliseconds(200))
+                view.isPaused = true
+                XCTAssertTrue(probe.capturedFrame, "Actual measured-path drawable must be readable")
+                if costAttribution && name.hasSuffix("-0-A") {
+                    var originals: [(SCNGeometry, [SCNMaterial])] = []
+                    var visited = Set<ObjectIdentifier>()
+                    let ballGeometries = Set(s.allBallNodes.values.flatMap { ball -> [ObjectIdentifier] in
+                        var ids = [ObjectIdentifier]()
+                        ball.enumerateHierarchy { node, _ in if let geometry = node.geometry { ids.append(ObjectIdentifier(geometry)) } }
+                        return ids
+                    })
+                    var inventory: [[String: Any]] = []
+                    s.rootNode.enumerateHierarchy { node, _ in
+                        guard let geometry = node.geometry, visited.insert(ObjectIdentifier(geometry)).inserted else { return }
+                        originals.append((geometry, geometry.materials))
+                        inventory.append(["node": node.name ?? "", "materials": geometry.materials.map { $0.name ?? "" }, "vertices": geometry.sources(for: .vertex).first?.vectorCount ?? 0, "elements": geometry.elements.count, "primitives": geometry.elements.reduce(0) { $0 + $1.primitiveCount }, "hidden": node.isHidden])
+                        geometry.materials = geometry.materials.map { old in
+                            let m = SCNMaterial()
+                            m.lightingModel = .constant
+                            let color: UIColor = ballGeometries.contains(ObjectIdentifier(geometry)) ? .red : old.name == "TaiNi" ? .green : .black
+                            m.diffuse.contents = color
+                            m.isDoubleSided = old.isDoubleSided
+                            return m
+                        }
+                    }
+                    let oldBackground = s.background.contents
+                    s.background.contents = UIColor.black
+                    probe.capturedFrame = false
+                    probe.captureNextFrameURL = dailyPerfDirectory.appendingPathComponent(outputName + "-coverage.png")
+                    view.isPaused = false
+                    try await Task.sleep(for: .milliseconds(250))
+                    view.isPaused = true
+                    XCTAssertTrue(probe.capturedFrame)
+                    for (geometry, materials) in originals { geometry.materials = materials }
+                    s.background.contents = oldBackground
+                    try writeDailyPerf(inventory, name + "-inventory")
+                }
+            }
+            if rankingMode > 0 {
+                probe.captureNextFrameURL = dailyPerfDirectory.appendingPathComponent(outputName + "-drawable.png")
+                view.isPaused = false
+                try await Task.sleep(for: .milliseconds(200))
+                view.isPaused = true
+                XCTAssertTrue(probe.capturedFrame, "Ranking requires actual drawable evidence")
+                try writeDailyPerf(["visibleBallKeys": s.visibleBalls().keys.sorted(), "changedMaterialsOrLights": changed, "profile": combinedClothAudit ? "RS" : "A reference"], outputName + "-fixture")
+            }
             do {
                 let image = probe.renderer.snapshot(atTime: CACurrentMediaTime(), with: CGSize(width: 588,height: 1000), antialiasingMode: .multisampling4X)
-                try XCTUnwrap(image.pngData()).write(to: dailyPerfDirectory.appendingPathComponent(name + ".png"))
+                try XCTUnwrap(image.pngData()).write(to: dailyPerfDirectory.appendingPathComponent(outputName + ".png"))
             }
             view.delegate = nil; view.removeFromSuperview(); probe.renderer.scene = nil
             try await Task.sleep(for: .milliseconds(300))
             #if !targetEnvironment(simulator)
-            if completeAudit || balancedMode > 0 {
+            if completeAudit || balancedMode > 0 || specializedMode > 0 {
                 // All render views have stopped. Cool between items; each new item
                 // must start nominal. Surface temperature remains user-reported.
                 var coolingRows: [[String: Any]] = []
@@ -9145,6 +9628,14 @@ extension RenderQualityV62Tests {
     }
 
     func testDailySceneIdleAndLifecycle() async throws {
+        try await checkDailySceneIdleAndLifecycle(specialized: false)
+    }
+
+    func testSpecializedSceneIdleAndLifecycle() async throws {
+        try await checkDailySceneIdleAndLifecycle(specialized: true)
+    }
+
+    private func checkDailySceneIdleAndLifecycle(specialized: Bool) async throws {
         try dailyPerfGate()
         let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
         let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
@@ -9158,6 +9649,7 @@ extension RenderQualityV62Tests {
                 let s = try scene(mobile: true)
                 let runner = BreakFlowRunner(scene: s, game: .chineseEightBall, seed: 52)
                 runner.rackUp()
+                if specialized { try applySpecializedReflection(to: s); try applySpecializedShadow(to: s) }
                 weakScenes.append(DailyWeakScene(s))
                 let view = SCNView(frame: window.bounds)
                 view.scene = s; view.pointOfView = s.cameraNode
@@ -9187,7 +9679,8 @@ extension RenderQualityV62Tests {
             rows[rows.count-1]["liveScenesAfterExit"] = weakScenes.filter { $0.value != nil }.count
             rows[rows.count-1]["allocatedAfter"] = device.currentAllocatedSize
             rows[rows.count-1]["memoryAfter"] = dailyMemory()
-            try writeDailyPerf(rows, "lifecycle")
+            try writeDailyPerf(rows, specialized ? "specialized-lifecycle" : "lifecycle")
+            XCTAssertEqual(weakScenes.filter { $0.value != nil }.count, 0, "Exited scenes must release")
             XCTAssertLessThanOrEqual(idleFrames, 5, "Stable shared SCNView must not continuously redraw")
         }
     }
@@ -9206,7 +9699,7 @@ extension RenderQualityV62Tests {
         try await measureDailyNormalShotPhases(fps: .fps30)
     }
 
-    private func measureDailyNormalShotPhases(fps: RenderFrameRate, mode: AngleTrainingScene.CameraMode = .topDown2DRotated, trials: Int = 4) async throws {
+    private func measureDailyNormalShotPhases(fps: RenderFrameRate, mode: AngleTrainingScene.CameraMode = .topDown2DRotated, trials: Int = 4, specialized: Bool = false, includesAim: Bool = false, clothPrototype: Bool = false) async throws {
         try dailyPerfGate()
         #if !targetEnvironment(simulator)
         try FileManager.default.removeItem(at: dailyPerfDirectory.deletingLastPathComponent().appendingPathComponent("run-daily-render-diagnostics"))
@@ -9219,7 +9712,11 @@ extension RenderQualityV62Tests {
         let board = BreakSimulator.breakShot(rack: RackLayout.make(.chineseEightBall, seed: 52), power: 8)
         XCTAssertTrue(board.settled)
         let vm = PositionPlayViewModel()
+        vm.scene.usesClothLightingPrototype = clothPrototype
+        if clothPrototype { vm.scene.renderingProfile = .combined }
         vm.setupScene(mobileRendering: true)
+        if clothPrototype { try requireClothPrototype(vm.scene) }
+        if specialized && !clothPrototype {try applySpecializedReflection(to: vm.scene);try applySpecializedShadow(to: vm.scene)}
         vm.cameraMode = mode
         vm.scene.setCameraMode(mode, animated: false)
         let view = SCNView(frame: window.bounds)
@@ -9273,6 +9770,23 @@ extension RenderQualityV62Tests {
             let idle = try begin("idle-before", trial)
             try await Task.sleep(for: .seconds(3))
             try end("idle-before", trial, idle)
+            if includesAim {
+                let aim = try begin("continuous-aim", trial)
+                vm.setAimWheelDragging(true)
+                for update in 0..<180 {
+                    vm.nudgeFreeAim(byDegrees: update < 90 ? 0.04 : -0.04)
+                    coordinator.requestInteractiveFrames()
+                    try await Task.sleep(for: .milliseconds(16))
+                }
+                vm.setAimWheelDragging(false)
+                try end("continuous-aim", trial, aim)
+                let settle = try begin("aim-settle", trial)
+                try await Task.sleep(for: .milliseconds(600))
+                let settleDeadline = CACurrentMediaTime() + 10
+                while vm.isComputing && CACurrentMediaTime() < settleDeadline { try await Task.sleep(for: .milliseconds(5)) }
+                XCTAssertFalse(vm.isComputing)
+                try end("aim-settle", trial, settle)
+            }
             let solve = try begin("normal-predict", trial)
             vm.recompute()
             let deadline = CACurrentMediaTime() + 10
@@ -9372,5 +9886,475 @@ private final class ContactWriteCountingMaterial: SCNMaterial {
     override func setValue(_ value: Any?, forKey key: String) {
         if key == "contactUniforms" || key.hasPrefix("contactGroup") { writes += 1 }
         super.setValue(value, forKey: key)
+    }
+}
+
+extension RenderQualityV62Tests {
+    private func applySpecializedReflection(to scene: AngleTrainingScene) throws {
+        let probe = try XCTUnwrap(scene.roomReflectionProbe)
+        _ = try XCTUnwrap(probe.prefiltered())
+        var count = 0
+        for node in scene.allBallNodes.values {
+            node.enumerateHierarchy { child, _ in
+                for material in child.geometry?.materials ?? [] {
+                    guard let source = material.shaderModifiers?[.surface], source.contains("roomReflection") else { continue }
+                    let candidate = MobileReferenceLighting.filteredBallShader(source)
+                    XCTAssertTrue(candidate.contains("// v2SplitSum"))
+                    XCTAssertFalse(candidate.contains("for(int i=0;i<64;++i)"))
+                    XCTAssertEqual(MobileReferenceLighting.referenceBallShader(candidate), source)
+                    material.shaderModifiers?[.surface] = candidate
+                    probe.install(on: material)
+                    count += 1
+                }
+            }
+        }
+        XCTAssertGreaterThan(count, 0)
+    }
+
+    private func applySpecializedShadow(to scene: AngleTrainingScene) throws {
+        let old = MobileReferenceLighting.directShadowShader(ballCount: scene.allBallNodes.count, specialized: false)
+        let candidate = MobileReferenceLighting.analyticDirectShadowShader(ballCount: scene.allBallNodes.count)
+        XCTAssertFalse(candidate.contains("int samplesX=shadowPossible?"))
+        XCTAssertTrue(candidate.contains("// v2AnalyticShadow"))
+        var unique=Set<ObjectIdentifier>(),count=0
+        scene.tableNode?.enumerateHierarchy { node, _ in
+            for material in node.geometry?.materials ?? [] where material.name == "TaiNi" && unique.insert(ObjectIdentifier(material)).inserted {
+                guard let source=material.shaderModifiers?[.surface] else { continue }
+                XCTAssertTrue(source.contains(old))
+                material.shaderModifiers?[.surface]=source.replacingOccurrences(of:old,with:candidate)
+                    .replacingOccurrences(of:"#pragma body",with:MobileReferenceLighting.analyticShadowFunctions+"\n#pragma body")
+                count += 1
+            }
+        }
+        XCTAssertGreaterThan(count,0)
+    }
+
+    func testSpecializedMovingShadowSameFrame() throws {
+        try compareCanopyMovingFrames(specialized: true)
+    }
+
+    func testSpecializedShadowVisuals() throws {
+        try dailyPerfGate()
+        let root=dailyPerfDirectory.appendingPathComponent("specialized-shadow")
+        try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true)
+        for fixture in ["sparse","cluster","rail","air"] {
+            for pose in ["2d","closeup"] {
+                for variant in ["A","S","RS"] {
+                    let s=try scene(mobile:true)
+                    let radius=AngleSceneCalculator.ballRadius
+                    for (index,key) in (["cue"]+(1...15).map{"_\($0)"}).enumerated() {
+                        guard let node=(key == "cue" ? s.cueBallNode : s.allBallNodes[key]) else { continue }
+                        node.isHidden=false;node.opacity=1
+                        let step:Float=fixture == "cluster" ? radius*2.05 : 0.12
+                        node.position=SCNVector3(-0.45+Float(index%4)*step,s.surfaceY+radius, -0.18+Float(index/4)*step)
+                        if fixture == "sparse" && index>2 {node.isHidden=true}
+                        if fixture == "rail" {node.position.z = -0.605+Float(index/4)*0.12}
+                        if fixture == "air" && index<3 {node.position.y += Float(index+1)*0.08}
+                    }
+                    if pose == "2d" {s.setCameraMode(.topDown2DRotated,animated:false);s.cameraRig?.applyTopDown2DRotated()}
+                    else {s.setCameraMode(.perspective3D,animated:false);s.cameraNode.position=SCNVector3(-0.65,s.surfaceY+0.4,0.8);s.cameraNode.look(at:SCNVector3(-0.25,s.surfaceY+radius,-0.15))}
+                    if variant != "A" {try applySpecializedShadow(to:s)}
+                    if variant == "RS" {try applySpecializedReflection(to:s)}
+                    let renderer=SCNRenderer(device:try XCTUnwrap(MTLCreateSystemDefaultDevice()),options:nil)
+                    renderer.scene=s;renderer.pointOfView=s.cameraNode;renderer.delegate=s.contactOcclusion
+                    for frame in 0..<6 {
+                        s.cueBallNode?.position.x -= 0.006
+                        SCNTransaction.flush()
+                        let image=renderer.snapshot(atTime:Double(frame)/60,with:CGSize(width:600,height:1000),antialiasingMode:.multisampling4X)
+                        try XCTUnwrap(image.pngData()).write(to:root.appendingPathComponent("\(fixture)-\(pose)-\(variant)-\(frame).png"))
+                    }
+                }
+            }
+        }
+    }
+
+    func testSpecializedAppearanceAndPocketBoundaries() throws {
+        try dailyPerfGate()
+        let root=dailyPerfDirectory.appendingPathComponent("specialized-boundaries")
+        try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true)
+        for variant in ["A","RS"] {
+            let s=try scene(mobile:true)
+            if variant == "RS" {try applySpecializedReflection(to:s);try applySpecializedShadow(to:s)}
+            let renderer=SCNRenderer(device:try XCTUnwrap(MTLCreateSystemDefaultDevice()),options:nil)
+            renderer.scene=s;renderer.pointOfView=s.cameraNode;renderer.delegate=s.contactOcclusion
+            for index in 0..<max(BallStickerStyle.allCases.count,ClothColor.allCases.count) {
+                _=s.applyClothColor(ClothColor.allCases[index % ClothColor.allCases.count])
+                _=s.applyTableStyle(TableStyle.allCases[index % TableStyle.allCases.count])
+                s.applyBallStickerStyle(BallStickerStyle.allCases[index % BallStickerStyle.allCases.count])
+                s.installReferenceRoom(style:RoomStyle.allCases[index % RoomStyle.allCases.count])
+                if variant == "RS" {
+                    for node in s.allBallNodes.values { node.enumerateHierarchy { part,_ in
+                        for material in part.geometry?.materials ?? [] where material.shaderModifiers?[.surface]?.contains("roomReflection") == true {
+                            XCTAssertTrue(material.shaderModifiers?[.surface]?.contains("// v2SplitSum") == true)
+                            XCTAssertTrue((material.value(forKey:"filteredRoom") as? SCNMaterialProperty) === s.roomReflectionProbe?.prefiltered()?.environmentProperty)
+                        }
+                    } }
+                }
+                s.cameraNode.position=SCNVector3(-0.45,s.surfaceY+0.3,0.65)
+                s.cameraNode.look(at:SCNVector3(-0.2,s.surfaceY+0.028575,0))
+                SCNTransaction.flush()
+                let shot=renderer.snapshot(atTime:0,with:CGSize(width:600,height:1000),antialiasingMode:.multisampling4X)
+                try XCTUnwrap(shot.pngData()).write(to:root.appendingPathComponent("styles-\(variant)-\(index).png"))
+            }
+            let pockets=AngleSceneCalculator.pocketPositions(surfaceY:s.surfaceY)
+            s.hideAllBalls()
+            for (index,pocket) in pockets.enumerated() {
+                let ball=try XCTUnwrap(s.cueBallNode)
+                ball.isHidden=false;ball.opacity=1
+                ball.position=SCNVector3(pocket.x,s.surfaceY-0.10,pocket.z)
+                s.cameraNode.position=SCNVector3(pocket.x+(pocket.x<0 ? -0.18:0.18),s.surfaceY-0.06,pocket.z+(pocket.z<0 ? -0.42:0.42))
+                s.cameraNode.look(at:ball.position)
+                SCNTransaction.flush()
+                let shot=renderer.snapshot(atTime:0,with:CGSize(width:600,height:600),antialiasingMode:.multisampling4X)
+                try XCTUnwrap(shot.pngData()).write(to:root.appendingPathComponent("below-pocket-\(variant)-\(index).png"))
+            }
+        }
+    }
+
+    func testOfflineExportKeepsReferenceAppearance() throws {
+        try dailyPerfGate()
+        XCTAssertEqual(MobileReferenceLighting.specializedProfile.rawValue, "A")
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let directory = root.appendingPathComponent("content/position_play/sequences")
+        let source = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil).first { $0.lastPathComponent.hasPrefix("drill_c001__") && $0.pathExtension == "json" })
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        let sequence = try decoder.decode(PositionPlaySequence.self, from: Data(contentsOf: source))
+        for mobile in [false, true] {
+            var options = SequenceVideoExporter.Options.teaching()
+            options.size = CGSize(width: 360, height: 640)
+            options.useAppAppearance = mobile
+            let frames = SequenceVideoExporter.renderStills(sequence: sequence, options: options)
+            let shot = try XCTUnwrap(frames.first { $0.name == "s01_still" })
+            XCTAssertEqual(shot.image.width, Int(options.outputSize.width))
+            XCTAssertEqual(shot.image.height, Int(options.outputSize.height))
+            try XCTUnwrap(UIImage(cgImage: shot.image).pngData()).write(to: dailyPerfDirectory.appendingPathComponent("offline-reference-\(mobile).png"))
+        }
+    }
+
+    func testSpecializedNormal2DPhases() async throws {
+        try await measureDailyNormalShotPhases(fps:.fps60,trials:2,specialized:true)
+    }
+    func testSpecializedNormal3DPhases() async throws {
+        try await measureDailyNormalShotPhases(fps:.fps60,mode:.perspective3D,trials:2,specialized:true)
+    }
+
+    func testSpecialized2DDeviceCost() async throws {
+        try await measureDailyRenderAblations(samplingComparison:false,specializedMode:2)
+    }
+    func testSpecialized3DDeviceCost() async throws {
+        try await measureDailyRenderAblations(samplingComparison:false,specializedMode:3)
+    }
+
+    // Two bracketed pairs for the current bottleneck, without unrelated variants.
+    func testDailyShadow2DDeviceCost() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, specializedMode: 2,
+                                              specializedProfiles: ["A", "S", "A", "S", "A"])
+    }
+    func testDailyShadow3DDeviceCost() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, specializedMode: 3,
+                                              specializedProfiles: ["A", "S", "A", "S", "A"])
+    }
+
+    func testSpecializedReflectionVisuals() throws {
+        try dailyPerfGate()
+        let root = dailyPerfDirectory.appendingPathComponent("specialized-reflection")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        for style in RoomStyle.allCases {
+            for pose in ["2d", "3d", "closeup", "grazing", "drop"] {
+                for variant in ["A", "R"] {
+                    let s = try scene(mobile: true)
+                    s.installReferenceRoom(style: style)
+                    let ball = try XCTUnwrap(s.cueBallNode)
+                    let y = s.surfaceY + AngleSceneCalculator.ballRadius
+                    // Legal disjoint cue/solid/stripe positions, deterministic orientation.
+                    ball.position = SCNVector3(-0.45, y, 0)
+                    s.allBallNodes["_3"]?.position = SCNVector3(-0.30, y, 0.04)
+                    if let stripe = s.allBallNodes["_13"] {
+                        stripe.isHidden = false; stripe.opacity = 1
+                        stripe.position = SCNVector3(-0.15, y, -0.05)
+                    }
+                    if pose == "2d" {
+                        s.setCameraMode(.topDown2DRotated, animated: false)
+                        s.cameraRig?.applyTopDown2DRotated()
+                    } else {
+                        s.setCameraMode(.perspective3D, animated: false)
+                        if pose != "3d" {
+                            s.cameraNode.position = SCNVector3(-0.5, s.surfaceY + (pose == "grazing" ? 0.08 : 0.28), 0.6)
+                            s.cameraNode.look(at: SCNVector3(-0.3, y, 0))
+                        }
+                    }
+                    if variant == "R" { try applySpecializedReflection(to: s) }
+                    let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+                    renderer.scene = s; renderer.pointOfView = s.cameraNode; renderer.delegate = s.contactOcclusion
+                    for frame in 0..<6 {
+                        ball.position = SCNVector3(-0.45 + Float(frame)*0.006, y - (pose == "drop" ? Float(frame)*0.025 : 0), 0)
+                        ball.simdOrientation = simd_quatf(angle: Float(frame)*0.21, axis: SIMD3(0,0,1))
+                        SCNTransaction.flush()
+                        let shot = renderer.snapshot(atTime: Double(frame)/60, with: CGSize(width: 600,height: 1000), antialiasingMode: .multisampling4X)
+                        try XCTUnwrap(shot.pngData()).write(to: root.appendingPathComponent("\(style.rawValue)-\(pose)-\(variant)-\(frame).png"))
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Diagnostic ablations only: E/EL deliberately omit reflection cues and are not shipping quality.
+extension RenderQualityV62Tests {
+    func testReflectionBreakdown2D() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, specializedMode: 2, reflectionBreakdown: true)
+    }
+    func testReflectionBreakdown3D() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, specializedMode: 3, reflectionBreakdown: true)
+    }
+}
+
+@MainActor
+private final class DiagnosticLocalShadowField {
+    let texture: MTLTexture
+    private let patches: [MTLTexture]
+    private let pipeline: MTLRenderPipelineState
+    private let extent: Float
+    init(device: MTLDevice, root: URL) throws {
+        let meta = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("lut.json"))) as! [String: Any]
+        let first = (meta["cases"] as! [[String: Any]])[0]
+        extent = Float(first["extent"] as! Double)
+        let pd = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r16Float, width: 128, height: 128, mipmapped: false)
+        pd.usage = .shaderRead; pd.storageMode = .shared
+        var inputs = [MTLTexture]()
+        for index in [0, 1] {
+            let texture = try XCTUnwrap(device.makeTexture(descriptor: pd))
+            let data = try Data(contentsOf: root.appendingPathComponent("patch-\(index).r16f"))
+            data.withUnsafeBytes { texture.replace(region: MTLRegionMake2D(0, 0, 128, 128), mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 256) }
+            inputs.append(texture)
+        }
+        patches = inputs
+        let td = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rg16Float, width: 512, height: 256, mipmapped: false)
+        td.usage = [.renderTarget, .shaderRead]; td.storageMode = .private
+        texture = try XCTUnwrap(device.makeTexture(descriptor: td))
+        let source = """
+        #include <metal_stdlib>
+        using namespace metal;
+        struct Out {float4 position [[position]];float2 uv;};
+        vertex Out localVertex(uint id [[vertex_id]],constant float& extent [[buffer(0)]]) {
+            float2 p[6]={float2(-1,-1),float2(1,-1),float2(-1,1),float2(-1,1),float2(1,-1),float2(1,1)};
+            return {float4(p[id]*extent/float2(1.27,0.635),0,1),p[id]*0.5+0.5};
+        }
+        fragment half2 localFragment(Out in [[stage_in]],texture2d<float> p0 [[texture(0)]],texture2d<float> p1 [[texture(1)]]) {
+            constexpr sampler s(coord::normalized,address::clamp_to_edge,filter::linear);
+            return half2(1.0-p0.sample(s,in.uv).r,1.0-p1.sample(s,in.uv).r);
+        }
+        """
+        let library = try device.makeLibrary(source: source, options: nil)
+        let descriptor = MTLRenderPipelineDescriptor()
+        descriptor.vertexFunction = library.makeFunction(name: "localVertex")
+        descriptor.fragmentFunction = library.makeFunction(name: "localFragment")
+        descriptor.colorAttachments[0].pixelFormat = .rg16Float
+        pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+    }
+    func prepare(device: MTLDevice) throws {
+        let queue = try XCTUnwrap(device.makeCommandQueue())
+        let command = try XCTUnwrap(queue.makeCommandBuffer())
+        encode(into: command)
+        command.commit(); command.waitUntilCompleted()
+        XCTAssertEqual(command.status, .completed)
+    }
+    func encode(into command: MTLCommandBuffer) {
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = texture
+        pass.colorAttachments[0].loadAction = .clear; pass.colorAttachments[0].storeAction = .store
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(1, 1, 1, 1)
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return }
+        encoder.setRenderPipelineState(pipeline)
+        var value = extent
+        encoder.setVertexBytes(&value, length: 4, index: 0)
+        encoder.setFragmentTexture(patches[0], index: 0); encoder.setFragmentTexture(patches[1], index: 1)
+        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
+        encoder.endEncoding()
+    }
+}
+extension RenderQualityV62Tests {
+    func testLocalShadowPrototype2D() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, specializedMode: 2, localShadowPrototype: true)
+    }
+    func testLocalShadowPrototype3D() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, specializedMode: 3, localShadowPrototype: true)
+    }
+}
+
+// Attribution-only diagnostics: G adds an unused producer; C consumes a field baked
+// before timing; L produces and consumes every frame. C is valid only for this static fixture.
+extension RenderQualityV62Tests {
+    func testRenderCostAttribution2D() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, specializedMode: 2, localShadowPrototype: true, costAttribution: true)
+    }
+    func testRenderCostAttribution3D() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, specializedMode: 3, localShadowPrototype: true, costAttribution: true)
+    }
+}
+
+extension RenderQualityV62Tests {
+    func testProductionBoardCoverage2D() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, specializedMode: 2, costAttribution: true, coverageOnly: true)
+    }
+    func testProductionBoardCoverage3D() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, specializedMode: 3, costAttribution: true, coverageOnly: true)
+    }
+}
+
+extension RenderQualityV62Tests {
+    func testCurrentGPUCostRanking3D() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, completeAudit: true, rankingMode: 3)
+    }
+    func testCurrentGPUCostRanking2D() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, completeAudit: true, rankingMode: 2)
+    }
+}
+
+extension RenderQualityV62Tests {
+    func testCurrentCPUWorkloadRanking2D() async throws {
+        try await measureDailyNormalShotPhases(fps: .fps60, mode: .topDown2DRotated, trials: 2, includesAim: true)
+    }
+    func testCurrentCPUWorkloadRanking3D() async throws {
+        try await measureDailyNormalShotPhases(fps: .fps60, mode: .perspective3D, trials: 2, includesAim: true)
+    }
+}
+
+
+extension RenderQualityV62Tests {
+    /// Removals attribute residual cost; neither removal is a shippable visual change.
+    func testCombinedClothResidualCost3D() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, completeAudit: true,
+                                            rankingMode: 3, combinedClothAudit: true)
+    }
+}
+
+extension RenderQualityV62Tests {
+    /// Separate native light output from material-input interpretation before replacing PBR.
+    func testCombinedClothLightingOutputIsolation() throws {
+        try dailyPerfGate()
+        let s = try scene(mobile: true, profile: .combined)
+        let result = BreakSimulator.breakShot(rack: RackLayout.make(.chineseEightBall, seed: 52), power: 8)
+        XCTAssertTrue(result.settled)
+        s.hideAllBalls()
+        for (key, p) in result.board.onTable {
+            s.showBall(key: key, scenePosition: PositionPlayShotSolver.scenePoint(p, surfaceY: s.surfaceY))
+        }
+        var cloth = [SCNMaterial](), seen = Set<ObjectIdentifier>()
+        s.tableNode?.enumerateHierarchy { node, _ in
+            for m in node.geometry?.materials ?? [] where m.name == "TaiNi" && seen.insert(ObjectIdentifier(m)).inserted { cloth.append(m) }
+        }
+        XCTAssertFalse(cloth.isEmpty)
+        try writeDailyPerf(cloth.map { ["roughnessType": String(describing: type(of: $0.roughness.contents as Any)), "roughness": String(describing: $0.roughness.contents), "intensity": $0.roughness.intensity, "mappingChannel": $0.roughness.mappingChannel, "mipFilter": $0.roughness.mipFilter.rawValue, "minFilter": $0.roughness.minificationFilter.rawValue, "anisotropy": $0.roughness.maxAnisotropy] as [String: Any] }, "rs-light-input-bindings")
+        let programs = cloth.map { $0.shaderModifiers }
+        let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        renderer.scene = s; renderer.pointOfView = s.cameraNode; renderer.delegate = s.contactOcclusion
+        let size = CGSize(width: 588, height: 1000)
+        func rgba(_ image: UIImage) throws -> [UInt8] {
+            let cg = try XCTUnwrap(image.cgImage)
+            var bytes = [UInt8](repeating: 0, count: cg.width * cg.height * 4)
+            try bytes.withUnsafeMutableBytes { raw in
+                let ctx = try XCTUnwrap(CGContext(data: raw.baseAddress, width: cg.width, height: cg.height,
+                    bitsPerComponent: 8, bytesPerRow: cg.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                ctx.draw(cg, in: CGRect(x: 0, y: 0, width: cg.width, height: cg.height))
+            }
+            return bytes
+        }
+        var rows = [[String: Any]]()
+        for (pose, mode) in [("2d", AngleTrainingScene.CameraMode.topDown2DRotated), ("3d", .perspective3D)] {
+            s.setCameraMode(mode, animated: false)
+            s.cameraRig?.fitRotatedTable(viewSize: size)
+            if mode != .perspective3D { s.cameraRig?.applyTopDown2DRotated() }
+            let variants = ["reference", "pbr-emission", "lambert-emission", "constant-emission", "constant", "constant-inputs-emission", "constant-bound-emission", "pbr-roughness", "constant-roughness", "pbr-ao", "constant-ao", "pbr-normal", "constant-normal", "reference-repeat"]
+            func configure(_ variant: String) {
+                for (m, original) in zip(cloth, programs) {
+                    m.shaderModifiers = original
+                    m.lightingModel = variant.hasPrefix("constant") ? .constant : variant.hasPrefix("lambert") ? .lambert : .physicallyBased
+                    if variant == "constant-bound-emission" {
+                        do { try MobileReferenceLighting.applyClothLightingPrototype(to: m) }
+                        catch { XCTFail("Installable prototype failed: \(error)") }
+                    }
+                    if variant == "constant-inputs-emission" {
+                        m.shaderModifiers?[.surface] = original?[.surface]?.replacingOccurrences(of: "#pragma body", with: "#pragma body\n_surface.roughness=1.0; _surface.ambientOcclusion=1.0;")
+                    }
+                    if variant.hasSuffix("-roughness") {
+                        m.shaderModifiers?[.fragment] = "#pragma body\n_output.color.rgb = float3(_surface.roughness);"
+                    }
+                    if variant.hasSuffix("-ao") {
+                        m.shaderModifiers?[.fragment] = "#pragma body\n_output.color.rgb = float3(_surface.ambientOcclusion);"
+                    }
+                    if variant.hasSuffix("-emission") {
+                        m.shaderModifiers?[.fragment] = "#pragma body\n_output.color.rgb = _surface.emission.rgb;"
+                    }
+                    if variant.hasSuffix("-normal") {
+                        m.shaderModifiers?[.fragment] = "#pragma body\n_output.color.rgb = _surface.normal * 0.5 + 0.5;"
+                    }
+                }
+                SCNTransaction.flush()
+            }
+            // Prepare every pipeline/resource permutation before the bracketing images.
+            for variant in variants {
+                configure(variant)
+                for _ in 0..<3 { _ = renderer.snapshot(atTime: 1, with: size, antialiasingMode: .multisampling4X) }
+            }
+            var baseline = [UInt8]()
+            for variant in variants {
+                configure(variant)
+                var prior: Data?, shot: UIImage?, stable = false
+                for _ in 0..<10 {
+                    let next = renderer.snapshot(atTime: 1, with: size, antialiasingMode: .multisampling4X)
+                    let data = try XCTUnwrap(next.pngData()); shot = next
+                    if data == prior { stable = true; break }; prior = data
+                }
+                XCTAssertTrue(stable, "Output-isolation image must settle: \(pose)/\(variant)")
+                let image = try XCTUnwrap(shot), pixels = try rgba(image)
+                if variant == "reference" { baseline = pixels }
+                if variant == "reference-repeat" { XCTAssertTrue(pixels == baseline, "Reference pixels changed after candidate cycle") }
+                var maxDelta = 0, total = 0, changed = 0
+                for i in pixels.indices where i % 4 != 3 {
+                    let d = abs(Int(pixels[i]) - Int(baseline[i])); total += d; maxDelta = max(maxDelta, d)
+                    if d > 1 { changed += 1 }
+                }
+                rows.append(["pose": pose, "variant": variant, "maxChannelDelta": maxDelta,
+                             "meanChannelDelta": Double(total) / Double(pixels.count / 4 * 3), "channelsOver1": changed])
+                try XCTUnwrap(image.pngData()).write(to: dailyPerfDirectory.appendingPathComponent("rs-light-output-\(pose)-\(variant).png"))
+            }
+        }
+        try writeDailyPerf(rows, "rs-light-output-summary")
+    }
+}
+
+
+extension RenderQualityV62Tests {
+    @discardableResult
+    private func requireClothPrototype(_ scene: AngleTrainingScene) throws -> Int {
+        var seen = Set<ObjectIdentifier>(), count = 0, valid = true
+        scene.tableNode?.enumerateHierarchy { node, _ in
+            for m in node.geometry?.materials ?? [] where m.name == "TaiNi" && seen.insert(ObjectIdentifier(m)).inserted {
+                count += 1
+                valid = valid && m.lightingModel == .constant
+                    && (m.shaderModifiers?[.surface]?.contains("texture2d<float> clothRoughness;") == true)
+                    && (m.shaderModifiers?[.fragment]?.contains("_surface.emission.rgb") == true)
+            }
+        }
+        guard scene.usesClothLightingPrototype, count > 0, valid else {
+            throw NSError(domain: "ClothPrototypeValidation", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Cloth candidate absent or fell back to reference"])
+        }
+        return count
+    }
+    func testClothPrototypeMovingShadow() throws {
+        try compareCanopyMovingFrames(clothPrototype: true)
+    }
+    func testClothPrototypeAimResume() async throws {
+        try await measureDailyAimResumeLatency(profile: .combined, clothPrototype: true)
+    }
+    func testClothPrototypeNormal3DShots() async throws {
+        try await measureDailyNormalShotPhases(fps: .fps60, mode: .perspective3D, trials: 2, clothPrototype: true)
+    }
+    func testClothPrototypeGPU3D() async throws {
+        try await measureDailyRenderAblations(samplingComparison: false, completeAudit: true,
+            rankingMode: 3, combinedClothAudit: true, clothCandidateComparison: true)
     }
 }

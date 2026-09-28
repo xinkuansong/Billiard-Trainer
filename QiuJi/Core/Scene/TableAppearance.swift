@@ -1,14 +1,16 @@
 import SceneKit
 
 enum TableStyle: String, CaseIterable, Identifiable {
-    case standard, walnut, charcoal, ivory, blossom
+    case charcoal, standard, walnut, ivory, blossom
+    /// Product default; raw values remain stable for saved selections and assets.
+    static let defaultStyle: TableStyle = .charcoal
     static let preferenceKey = "tableStyle.v1"
     var id: String { rawValue }
     var displayName: String {
         switch self {
-        case .standard: "标准"
+        case .standard: "经典原木"
         case .walnut: "深胡桃木"
-        case .charcoal: "炭黑木纹"
+        case .charcoal: "标准"
         case .ivory: "象牙白蜡木"
         case .blossom: "樱花粉木纹"
         }
@@ -94,6 +96,22 @@ final class TableAppearance {
 
     init(table: SCNNode, surfaceY: Float = BTTablePhysics.surfaceY) {
         self.surfaceY = surfaceY
+        // The shipped asset has coincident leg faces in Plane_001/Plane_007.
+        // Material replacement can change their opaque sort order, revealing
+        // a different UV sample. Keep depth testing and all geometry intact;
+        // render the separate leg shell first so theme restoration is stable.
+        // Legacy/export pipelines retain their original drawing order.
+        var usesMobileMicroSurface = false
+        table.enumerateChildNodes { node, _ in
+            if node.geometry?.materials.contains(where: {
+                $0.shaderModifiers?[.surface]?.contains("// v64LeatherMicroSurface") == true
+            }) == true { usesMobileMicroSurface = true }
+        }
+        if usesMobileMicroSurface,
+           let shell = table.childNode(withName: "Plane_007", recursively: true),
+           shell.geometry?.materials.allSatisfy({ $0.name == "MG_Gold" }) == true {
+            shell.renderingOrder = -1
+        }
         // The source Gold material belongs to the basket rings and their mount.
         // Give the Black ball supports the same baseline finish as the rings.
         var gold: SCNMaterial?
@@ -163,6 +181,11 @@ final class TableAppearance {
                 material.roughness.contents = 0.7
                 material.specular.contents = 0.15
                 material.normal.contents = nil
+                // The generated theme albedos all derive from the Wood source.
+                // Rebind its matching grain roughness, including the BlackWood rail.
+                if material.shaderModifiers?[.surface]?.contains("// v64WoodCoat") == true {
+                    TableSurfaceTextures.bindWood(to: material)
+                }
                 // Retain the current illumination shader and original UV transform.
                 materials[index] = material
             }

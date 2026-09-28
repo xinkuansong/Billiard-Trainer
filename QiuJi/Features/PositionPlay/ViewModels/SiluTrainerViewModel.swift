@@ -117,6 +117,8 @@ final class SiluTrainerViewModel: ObservableObject {
 
     private var lastAimDirection: SCNVector3?
 
+    var playerCameraAim: SCNVector3? { lastAimDirection }
+
     var canObserveCurrentAim: Bool {
         cameraMode == .perspective3D && canStrike && lastAimDirection != nil
             && scene.cueBallNode?.isHidden == false
@@ -835,6 +837,7 @@ final class SiluTrainerViewModel: ObservableObject {
         )
         scene.runCueStroke(
             strikePosition: strikePos, aim: aim, velocity: Float(sol.shot.velocity),
+            switchesPlayerCameraOnContact: true,
             clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
         ) { [weak self] in
             self?.launchBalls(sol: sol, recorder: recorder)

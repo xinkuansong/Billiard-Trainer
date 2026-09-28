@@ -68,6 +68,8 @@ for face in o.data.polygons:
  crosses=max(x[0] for x in values)-min(x[0] for x in values)>.5
  for idx,(u,v) in zip(face.loop_indices,values):uv.data[idx].uv=(u+1 if crosses and u<.5 else u,v)
 uv.name='st'
+from cue_ferrule_finish import finish_ferrule
+finish_ferrule(o)
 assert [tuple(v.co) for v in o.data.vertices]==positions
 assert [tuple(p.vertices) for p in o.data.polygons]==[tuple(p.vertices) for p in original.polygons]
 # Neutral export for the shared UV-only mesh; styling is supplied as baked PNG.

@@ -158,7 +158,7 @@ struct BTTextActionButton: View {
 
     private var foreground: Color {
         switch role {
-        case .primary: return .white
+        case .primary: return HUDStyle.onAccent
         case .plain: return .white.opacity(0.85)
         case .destructive: return .btDestructive
         }
@@ -166,7 +166,7 @@ struct BTTextActionButton: View {
 
     private var background: Color {
         switch role {
-        case .primary: return .btPrimary
+        case .primary: return HUDStyle.accent
         case .plain: return .white.opacity(0.12)
         case .destructive: return .btDestructive.opacity(0.16)
         }
@@ -253,7 +253,7 @@ struct BTSlotL1Button: View {
                 Text(title)
                     .font(.system(size: 9, weight: .semibold, design: .rounded))
             }
-            .foregroundStyle(isEnabled ? Color.btPrimary : .white.opacity(0.35))
+            .foregroundStyle(isEnabled ? HUDStyle.accent : .white.opacity(0.35))
             .frame(width: size.width, height: size.height)
             .btHudGlass(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
@@ -315,7 +315,7 @@ struct BTSolverNavStatus: View {
         VStack(spacing: 1) {
             Text(title)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.btPrimary)
+                .foregroundStyle(HUDStyle.accent)
                 .lineLimit(1)
             if isBusy || statusText != nil {
                 HStack(spacing: 4) {
@@ -512,10 +512,10 @@ struct BTBreakSideButton: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 2) {
-                BreakRackGlyph(color: isEnabled ? Color.btPrimary : .white.opacity(0.35), size: 16)
+                BreakRackGlyph(color: isEnabled ? HUDStyle.accent : .white.opacity(0.35), size: 16)
                 Text("开球")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(isEnabled ? Color.btPrimary : .white.opacity(0.35))
+                    .foregroundStyle(isEnabled ? HUDStyle.accent : .white.opacity(0.35))
             }
             .frame(width: size.width, height: size.height)
             .btHudGlass(in: RoundedRectangle(cornerRadius: 10, style: .continuous))

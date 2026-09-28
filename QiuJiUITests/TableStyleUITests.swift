@@ -10,7 +10,7 @@ final class TableStyleUITests: XCTestCase {
         entry.tap()
         let preview = app.images["tableStyle.preview"]
         XCTAssertTrue(preview.waitForExistence(timeout: 10))
-        for (key, title) in [("walnut","深胡桃木"), ("charcoal","炭黑木纹"), ("ivory","象牙白蜡木"), ("blossom","樱花粉木纹"), ("standard","标准")] {
+        for (key, title) in [("walnut","深胡桃木"), ("charcoal","标准"), ("ivory","象牙白蜡木"), ("blossom","樱花粉木纹"), ("standard","经典原木")] {
             let row = app.buttons["settings.tableStyle." + key]
             for _ in 0..<3 where !row.isHittable || row.frame.maxY > app.windows.firstMatch.frame.maxY - 40 { app.swipeUp() }
             XCTAssertTrue(row.isHittable); row.tap()
@@ -115,17 +115,17 @@ final class TableStyleUITests: XCTestCase {
         attach("appearance-settings")
         tap("settings.tableStyle")
         tap("settings.tableStyle.charcoal")
-        preview("tableStyle.preview", contains: ["球桌：炭黑木纹"], capture: "table-charcoal")
+        preview("tableStyle.preview", contains: ["球桌：标准"], capture: "table-charcoal")
         back()
         tap("settings.clothColor")
-        preview("clothColor.preview", contains: ["球桌：炭黑木纹"], capture: "cloth-inherits-charcoal")
+        preview("clothColor.preview", contains: ["球桌：标准"], capture: "cloth-inherits-charcoal")
         tap("settings.clothColor.tournamentBlue")
-        preview("clothColor.preview", contains: ["球桌：炭黑木纹", "台呢：赛事蓝"], capture: "cloth-blue-charcoal")
+        preview("clothColor.preview", contains: ["球桌：标准", "台呢：赛事蓝"], capture: "cloth-blue-charcoal")
         back()
         tap("settings.roomStyle")
         for (key, title) in [("walnut", "温润木质"), ("eastern", "当代东方"), ("tournament", "极简赛事")] {
             tap("settings.roomStyle." + key)
-            preview("roomStyle.preview", contains: ["球房：" + title, "球桌：炭黑木纹", "台呢：赛事蓝"], capture: "room-combination-" + key)
+            preview("roomStyle.preview", contains: ["球房：" + title, "球桌：标准", "台呢：赛事蓝"], capture: "room-combination-" + key)
         }
         back()
         let toggle = app.switches["settings.tableSights"]
@@ -133,9 +133,42 @@ final class TableStyleUITests: XCTestCase {
         if toggle.value as? String == "1" { toggle.tap() }
         app.terminate(); app.launch()
         tap("settings.tableStyle")
-        preview("tableStyle.preview", contains: ["球房：极简赛事", "球桌：炭黑木纹", "台呢：赛事蓝", "颗星参考点隐藏"], capture: "combination-restored-after-launch")
+        preview("tableStyle.preview", contains: ["球房：极简赛事", "球桌：标准", "台呢：赛事蓝", "颗星参考点隐藏"], capture: "combination-restored-after-launch")
         tap("settings.tableStyle.standard")
-        preview("tableStyle.preview", contains: ["球桌：标准", "台呢：赛事蓝"], capture: "table-standard-keeps-blue")
+        preview("tableStyle.preview", contains: ["球桌：经典原木", "台呢：赛事蓝"], capture: "table-standard-keeps-blue")
+    }
+
+    func testMaterialAimAndObservationViews() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication.launchClean(extraArgs: ["-deeplink.freePlay", "-forcePremium",
+            "-tableStyle.v1", "charcoal", "-clothColor.v1", "green"])
+        let table = app.descendants(matching: .any)["table.scene"].firstMatch
+        XCTAssertTrue(table.waitForExistence(timeout: 20))
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.exists)
+        if mode.value as? String != "3D" { mode.tap() }
+        func selectionState() -> String {
+            // FPS is transient render telemetry, not table/target state.
+            (table.value as? String ?? "").components(separatedBy: "，渲染帧率")[0]
+        }
+        let state = selectionState()
+        for destination in ["table", "pocket", "cue"] {
+            app.buttons["freeplay.observation"].tap()
+            let action = app.buttons["freeplay.observe." + destination]
+            XCTAssertTrue(action.waitForExistence(timeout: 5)); action.tap()
+            XCTAssertEqual(selectionState(), state)
+            attach("material-observe-" + destination)
+        }
+        let focus = app.buttons["freeplay.focus"]
+        XCTAssertTrue(focus.isEnabled); focus.tap()
+        XCTAssertEqual(selectionState(), state)
+        attach("material-aim")
+        mode.tap(); XCTAssertEqual(mode.value as? String, "2D")
+        attach("material-topdown")
+        mode.tap(); XCTAssertEqual(mode.value as? String, "3D")
+        XCTAssertEqual(selectionState(), state)
+        attach("material-return-3d")
     }
 
     private func attach(_ name: String) {

@@ -821,6 +821,43 @@ final class PerspectiveStateV63Tests: XCTestCase {
         XCTAssertFalse(vm.scene.isCameraModeTransitioning)
     }
 
+    func testBallInspectionPreservesShotAndManualCamera() async throws {
+        let vm = try await readyFreeBoard()
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        let cue = try XCTUnwrap(vm.scene.cueBallNode)
+        let key = try XCTUnwrap(vm.selectedTargetKey)
+        let target = try XCTUnwrap(vm.scene.allBallNodes[key])
+        let aim = try XCTUnwrap(vm.freeAimDir)
+        let pocket = vm.selectedPocketIndex
+        ShotPlayCamera.inspectBall(key, on: vm)
+        rig.snapToTarget()
+        let direction = rig.aimDirectionForCurrentYaw()
+        let dx = target.position.x - cue.position.x
+        let dz = target.position.z - cue.position.z
+        let length = hypotf(dx, dz)
+        XCTAssertEqual(direction.x, dx / length, accuracy: 0.0001)
+        XCTAssertEqual(direction.z, dz / length, accuracy: 0.0001)
+        XCTAssertEqual(vm.freeAimDir?.x, aim.x)
+        XCTAssertEqual(vm.freeAimDir?.z, aim.z)
+        XCTAssertEqual(vm.selectedTargetKey, key)
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        rig.handleHorizontalSwipe(delta: 100)
+        rig.snapToTarget()
+        let manualYaw = rig.targetYaw
+        vm.nudgeFreeAim(byDegrees: 1)
+        for _ in 0..<120 { rig.update(deltaTime: 1 / 60) }
+        XCTAssertEqual(rig.targetYaw, manualYaw)
+        ShotPlayCamera.inspectBall(PositionPlayBall.cueKey, on: vm)
+        rig.snapToTarget()
+        let currentAim = try XCTUnwrap(vm.freeAimDir)
+        XCTAssertEqual(rig.aimDirectionForCurrentYaw().x, currentAim.x, accuracy: 0.0001)
+        XCTAssertEqual(rig.aimDirectionForCurrentYaw().z, currentAim.z, accuracy: 0.0001)
+        let yaw = rig.targetYaw
+        ShotPlayCamera.inspectBall("missing", on: vm)
+        XCTAssertEqual(rig.targetYaw, yaw)
+    }
+
     func testObservationTargetsDoNotChangeShotSelection() async throws {
         let vm = try await readyFreeBoard()
         ShotPlayCamera.setMode(.perspective3D, on: vm)
@@ -1258,5 +1295,239 @@ final class DailyPreviewWorkTests: XCTestCase {
         XCTAssertEqual(coordinator.interactiveUntil, layout)
         coordinator.updateViewport(CGSize(width: 700, height: 400))
         XCTAssertGreaterThan(coordinator.interactiveUntil, layout, "A stationary view must wake to refit after resize")
+    }
+}
+
+@MainActor
+final class DailyPowerReleaseTests: XCTestCase {
+    private func makeVM() -> PositionPlayViewModel {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.clearTable()
+        vm.placeFromPalette(PositionPlayBall.cueKey,
+                            atWorld: SCNVector3(0, vm.scene.surfaceY + BallPhysics.radius, 0))
+        vm.aimMode = .free
+        vm.handleTableTap(world: SCNVector3(0.5, vm.scene.surfaceY, 0))
+        vm.velocity = 0.7
+        return vm
+    }
+
+    private func waitUntil(_ predicate: () -> Bool, timeout: TimeInterval = 15) async throws {
+        let end = Date().addingTimeInterval(timeout)
+        while !predicate(), Date() < end { try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertTrue(predicate())
+    }
+
+    func testPowerPreviewDebounceReplacesEarlierInputWithoutChangingAimDelay() {
+        let scheduler = SolveDebounceScheduler()
+        var jobs: [(TimeInterval, DispatchWorkItem)] = []
+        scheduler.scheduleAfter = { jobs.append(($0, $1)) }
+        var fired = 0
+        for _ in 0..<5 {
+            scheduler.schedule(interactive: true,
+                               delayOverride: PositionPlayViewModel.powerPreviewIdleInterval) { fired += 1 }
+        }
+        XCTAssertEqual(fired, 0)
+        XCTAssertEqual(jobs.last?.0, 0.18)
+        XCTAssertTrue(jobs.dropLast().allSatisfy { $0.1.isCancelled })
+        jobs.last?.1.perform()
+        XCTAssertEqual(fired, 1)
+        scheduler.schedule(interactive: true) {}
+        XCTAssertEqual(jobs.last?.0, 0.5)
+    }
+
+    func testReleaseFinishesLatestPreviewWithoutStriking() async throws {
+        let vm = makeVM()
+        try await waitUntil { vm.solvedShot != nil && !vm.isComputing }
+        vm.beginPowerDrag()
+        vm.velocity = 0.9
+        vm.velocity = 0.8
+        vm.endPowerDrag(commit: true)
+        XCTAssertFalse(vm.powerReleasePending)
+        XCTAssertFalse(vm.isPlaying)
+        try await waitUntil { vm.solvedShot?.shot.velocity == 0.8 && !vm.isComputing }
+        XCTAssertFalse(vm.isPlaying, "Late solve completion must not fire a released power control")
+        vm.endPowerDrag(commit: true)
+        XCTAssertFalse(vm.isPlaying, "Duplicate release must not shoot")
+        vm.play()
+        XCTAssertTrue(vm.isPlaying, "The explicit strike action still starts the stroke")
+    }
+
+    func testCancelledDragMayPreviewButNeverStrikes() async throws {
+        let vm = makeVM()
+        try await waitUntil { vm.solvedShot != nil && !vm.isComputing }
+        vm.beginPowerDrag()
+        vm.velocity = 0.9
+        vm.endPowerDrag(commit: false)
+        try await waitUntil { vm.solvedShot?.shot.velocity == 0.9 && !vm.isComputing }
+        XCTAssertFalse(vm.isPlaying)
+        XCTAssertFalse(vm.powerReleasePending)
+    }
+
+    func testNewIntentAndLeavingCancelPendingRelease() async throws {
+        let vm = makeVM()
+        try await waitUntil { vm.solvedShot != nil && !vm.isComputing }
+        vm.beginPowerDrag()
+        vm.velocity = 0.9
+        vm.endPowerDrag(commit: true)
+        vm.spinY = 0.2
+        XCTAssertFalse(vm.powerReleasePending)
+        try await waitUntil { vm.solvedShot?.shot.spinY == 0.2 && !vm.isComputing }
+        XCTAssertFalse(vm.isPlaying)
+        vm.beginPowerDrag()
+        vm.velocity = 1.0
+        vm.endPowerDrag(commit: true)
+        vm.cancelPowerRelease()
+        try await waitUntil { vm.solvedShot?.shot.velocity == 1.0 && !vm.isComputing }
+        XCTAssertFalse(vm.isPlaying)
+        XCTAssertFalse(vm.powerReleasePending)
+    }
+}
+
+@MainActor
+final class DailyAimSelectionTests: XCTestCase {
+    private func makeVM() -> PositionPlayViewModel {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.clearTable()
+        vm.usesAutomaticPocketFallback = true
+        vm.placeFromPalette(PositionPlayBall.cueKey,
+            atWorld: SCNVector3(-0.5, vm.scene.surfaceY + BallPhysics.radius, 0))
+        vm.placeFromPalette("_1", atWorld: SCNVector3(0, vm.scene.surfaceY + BallPhysics.radius, 0))
+        vm.placeFromPalette("_9", atWorld: SCNVector3(0.7, vm.scene.surfaceY + BallPhysics.radius, 0.3))
+        return vm
+    }
+
+    func testIllegalSelectionPreservesAllAimInputsAndEmptyLegalSetRejectsEverything() {
+        let vm = makeVM()
+        vm.legalAimTargets = { _ in ["_1"] }
+        XCTAssertTrue(vm.selectTarget(key: "_1"))
+        let target = vm.selectedTargetKey, pocket = vm.selectedPocketIndex, mode = vm.aimMode
+        vm.spinX = 0.1
+        vm.velocity = 2
+        XCTAssertFalse(vm.selectTarget(key: "_9"))
+        XCTAssertEqual(vm.selectedTargetKey, target)
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        XCTAssertEqual(vm.aimMode, mode)
+        XCTAssertEqual(vm.spinX, 0.1)
+        XCTAssertEqual(vm.velocity, 2)
+        vm.legalAimTargets = { _ in [] }
+        XCTAssertFalse(vm.selectTarget(key: "_1"))
+        vm.refreshLegalAimSelection()
+        XCTAssertNil(vm.selectedTargetKey)
+    }
+
+    func testDirectionAdjustmentIsTemporaryButExplicitFreeModePersistsAcrossSelection() {
+        let vm = makeVM()
+        vm.selectTarget(key: "_1")
+        XCTAssertEqual(vm.aimMode, .pocket)
+        vm.nudgeFreeAim(byDegrees: 1)
+        XCTAssertEqual(vm.aimMode, .free)
+        XCTAssertEqual(vm.preferredAimMode, .pocket)
+        XCTAssertNotNil(vm.temporaryFreeReason)
+        vm.selectTarget(key: "_1")
+        XCTAssertEqual(vm.aimMode, .pocket)
+        XCTAssertNil(vm.temporaryFreeReason)
+        vm.toggleAimMode()
+        XCTAssertEqual(vm.preferredAimMode, .free)
+        vm.selectTarget(key: "_9")
+        XCTAssertEqual(vm.aimMode, .free)
+        XCTAssertEqual(vm.selectedTargetKey, "_9")
+    }
+
+    func testUnavailableExplicitPocketDoesNotReplaceValidPocket() {
+        let vm = makeVM()
+        vm.selectTarget(key: "_1")
+        let original = vm.selectedPocketIndex
+        let invalid = (0..<6).first { !vm.isStraightPocketAvailable($0) }
+        XCTAssertNotNil(invalid)
+        var notice: String?
+        vm.onAimSelectionNotice = { notice = $0 }
+        if let invalid { vm.selectPocket(at: invalid) }
+        XCTAssertEqual(vm.selectedPocketIndex, original)
+        XCTAssertNotNil(notice)
+    }
+
+    func testBlockedPocketTemporarilyFallsBackAndNextLegalTargetRestoresPocket() {
+        let vm = makeVM()
+        // A close ring around the target blocks every straight object-ball path.
+        for index in 0..<6 {
+            let angle = Float(index) * .pi / 3
+            vm.placeFromPalette("_\(index + 2)", atWorld: SCNVector3(
+                cos(angle) * 0.07, vm.scene.surfaceY + BallPhysics.radius, sin(angle) * 0.07))
+        }
+        vm.selectTarget(key: "_1")
+        XCTAssertEqual(vm.aimMode, .free)
+        XCTAssertEqual(vm.preferredAimMode, .pocket)
+        XCTAssertNotNil(vm.temporaryFreeReason)
+        vm.selectTarget(key: "_9")
+        XCTAssertEqual(vm.aimMode, .pocket)
+        XCTAssertNil(vm.temporaryFreeReason)
+    }
+}
+
+@MainActor
+final class RuleNoticeTests: XCTestCase {
+    func testModeCannotReplaceFoulAndOldExpiryCannotClearNewNotice() async throws {
+        let center = BTRuleNoticeCenter()
+        center.show("首次", tone: .info, priority: .mode, duration: 0.05)
+        center.show("白球进袋，换手，自由球", tone: .warning, priority: .ruling, duration: 0.25)
+        center.show("进袋模式", tone: .info, priority: .mode)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(center.message?.text, "白球进袋，换手，自由球")
+        try await Task.sleep(for: .milliseconds(250))
+        XCTAssertNil(center.message)
+    }
+}
+
+@MainActor
+final class DailyPlacementAndNoticeTests: XCTestCase {
+    func testRepeatedSelectionExtendsNoticeWithoutChangingItsPayload() async throws {
+        let center = BTRuleNoticeCenter()
+        center.show("当前打全色球", tone: .warning, priority: .selection, duration: 0.08)
+        let message = center.message
+        try await Task.sleep(for: .milliseconds(40))
+        center.show("当前打全色球", tone: .warning, priority: .selection, duration: 0.2)
+        XCTAssertEqual(center.message, message)
+        try await Task.sleep(for: .milliseconds(80))
+        XCTAssertEqual(center.message?.text, "当前打全色球")
+        try await Task.sleep(for: .milliseconds(180))
+        XCTAssertNil(center.message)
+    }
+
+    func testBallInHandRejectsNoPermissionOverlapOutsideAndHeadString() throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.loadBoard(BoardSnapshot(onTable: [PositionPlayBall.cueKey: CanvasPoint(x: 0.8, y: 0.5),
+                                            "_1": CanvasPoint(x: 0.5, y: 0.5)]))
+        let cue = try XCTUnwrap(vm.scene.cueBallNode)
+        let before = cue.position
+        let target = try XCTUnwrap(vm.scene.allBallNodes["_1"])
+        XCTAssertFalse(vm.moveDailyCue(node: cue, world: SCNVector3(0.9, before.y, 0.2), placement: .none))
+        XCTAssertFalse(vm.moveDailyCue(node: cue, world: target.position, placement: .anywhere))
+        XCTAssertFalse(vm.moveDailyCue(node: cue, world: SCNVector3(2, before.y, 0), placement: .anywhere))
+        XCTAssertFalse(vm.moveDailyCue(node: cue, world: SCNVector3(0.2, before.y, 0.2), placement: .behindHeadString))
+        XCTAssertEqual(cue.position.x, before.x)
+        XCTAssertEqual(cue.position.z, before.z)
+        XCTAssertTrue(vm.moveDailyCue(node: cue, world: SCNVector3(0.9, before.y, 0.2), placement: .behindHeadString))
+        XCTAssertTrue(vm.moveDailyCue(node: cue, world: SCNVector3(-0.3, before.y, 0.2), placement: .anywhere))
+        vm.cancelDailyAttempt()
+    }
+
+    func testRespotAvoidsOccupiedFootSpotAndRestoresPocketedNine() throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.loadBoard(BoardSnapshot(onTable: [PositionPlayBall.cueKey: CanvasPoint(x: 0.8, y: 0.25),
+                                            "_1": CanvasPoint(x: 0.25, y: 0.25)]))
+        let occupied = try XCTUnwrap(vm.scene.allBallNodes["_1"])
+        vm.respotDailyBalls(["_9"])
+        let nine = try XCTUnwrap(vm.scene.allBallNodes["_9"])
+        XCTAssertFalse(nine.isHidden)
+        XCTAssertTrue(vm.onTableKeys.contains("_9"))
+        XCTAssertLessThan(nine.position.x, occupied.position.x)
+        XCTAssertEqual(occupied.position.x - nine.position.x, 2 * BallPhysics.radius, accuracy: 0.0001)
+        XCTAssertGreaterThanOrEqual((nine.position - occupied.position).length(), 2 * BallPhysics.radius - 0.0001)
+        XCTAssertEqual(nine.position.z, 0, accuracy: 0.0001)
+        vm.cancelDailyAttempt()
     }
 }

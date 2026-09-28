@@ -49,7 +49,10 @@ final class DailyClearanceControllerTests: XCTestCase {
                 pocketedKeys: pocketed,
                 cueScratched: pocketed.contains("cueBall"),
                 terminalBallPocketed: pocketed.contains("_8") || pocketed.contains("_9"),
-                settled: settled
+                settled: settled,
+                facts: ShotFacts(firstContactKey: "_1", pocketedKeys: pocketed.filter { $0 != "cueBall" },
+                    cuePocketed: pocketed.contains("cueBall"), railOrPocketAfterContact: true,
+                    tableKeysBefore: ["_1", "_2", "_3", "_9"], railContactKeys: ["_1", "_2", "_3", "_9"])
             ))
         }
     }
@@ -106,7 +109,10 @@ final class DailyClearanceControllerTests: XCTestCase {
         XCTAssertEqual(controller.foulCount, 0)
     }
 
-    func test_terminalOnSystemBreakRetriesThreeTimesThenStopsAtManualRack() {
+    func test_legacyTerminalOnSystemBreakRetriesThreeTimesThenStopsAtManualRack() {
+        var legacy = store.makeDraft(game: .nineBall, seed: 100)
+        legacy.ruleState.ruleVersion = 1
+        store.saveDraft(legacy)
         let controller = makeController()
         controller.start(host: host, defaultGame: .nineBall)
 
@@ -209,6 +215,7 @@ final class DailyClearanceControllerTests: XCTestCase {
         let terminal = ShotFacts(firstContactKey: "_9", pocketedKeys: ["_9"],
                                  cuePocketed: false, railOrPocketAfterContact: true,
                                  tableKeysBefore: ["_9"])
+        controller.prepareShot()
         XCTAssertTrue(try XCTUnwrap(controller.handleShotSettled(terminal)).completed)
         let first = try XCTUnwrap(store.loadTodayCompletion())
         XCTAssertEqual(first.shotCount, 1)
@@ -227,7 +234,7 @@ final class DailyClearanceControllerTests: XCTestCase {
         XCTAssertNil(store.loadTodayDraft())
     }
 
-    func test_scratchRestoresCueBeforeSavingButTerminalFoulDoesNot() throws {
+    func test_scratchRestoresCueAndFoulNineContinues() throws {
         for terminal in [false, true] {
             let controller = makeController()
             controller.start(host: host, defaultGame: .nineBall)
@@ -236,12 +243,13 @@ final class DailyClearanceControllerTests: XCTestCase {
             let count = host.cueRestores
             let facts = ShotFacts(firstContactKey: "_9", pocketedKeys: terminal ? ["_9"] : [],
                                   cuePocketed: true, railOrPocketAfterContact: true, tableKeysBefore: ["_9"])
+            controller.prepareShot()
             let ruling = try XCTUnwrap(controller.handleShotSettled(facts))
             XCTAssertTrue(ruling.foul)
-            XCTAssertEqual(ruling.failed, terminal)
-            XCTAssertEqual(host.cueRestores, count + (terminal ? 0 : 1))
+            XCTAssertFalse(ruling.failed)
+            XCTAssertEqual(host.cueRestores, count + 1)
             let saved = try XCTUnwrap(store.loadTodayDraft())
-            XCTAssertEqual(saved.board?.onTable["cueBall"] != nil, !terminal)
+            XCTAssertEqual(saved.board?.onTable["cueBall"] != nil, true)
             XCTAssertEqual(saved.foulCount, 1)
             store.clearDraft()
         }
@@ -251,6 +259,7 @@ final class DailyClearanceControllerTests: XCTestCase {
         let controller = makeController()
         controller.start(host: host, defaultGame: .nineBall)
         host.deliverLast()
+        controller.prepareShot()
         _ = controller.handleShotSettled(ShotFacts(
             firstContactKey: "_1",
             pocketedKeys: [],
@@ -289,9 +298,11 @@ final class DailyClearanceControllerTests: XCTestCase {
         let facts = ShotFacts(firstContactKey: "_1", pocketedKeys: [], cuePocketed: false,
                               railOrPocketAfterContact: true, tableKeysBefore: ["_1", "_9"])
         clock = clock.addingTimeInterval(12)
+        controller.prepareShot()
         controller.handleShotSettled(facts)
         XCTAssertEqual(try XCTUnwrap(store.loadTodayDraft()).activeDurationSeconds, 12, accuracy: 0.001)
         clock = clock.addingTimeInterval(8)
+        controller.prepareShot()
         controller.handleShotSettled(facts)
         XCTAssertEqual(try XCTUnwrap(store.loadTodayDraft()).activeDurationSeconds, 20, accuracy: 0.001)
         // Recreate from disk without calling stop/flush on the previous controller.
@@ -351,4 +362,51 @@ final class DailyClearanceControllerTests: XCTestCase {
         XCTAssertEqual(controller.game, .chineseEightBall)
         XCTAssertTrue(host.requests.isEmpty, "恢复草稿不应按新默认玩法重新开局")
     }
+    func testUndoRestoresRulesCountsAndIgnoresDuplicateSettlement() throws {
+        var draft = store.makeDraft(game: .chineseEightBall, seed: 1)
+        draft.phase = .playing; draft.board = host.board
+        draft.ruleState.assignedGroup = .solid
+        store.saveDraft(draft)
+        let controller = makeController()
+        controller.start(host: host, defaultGame: .chineseEightBall)
+        controller.prepareShot()
+        let shot = ShotFacts(firstContactKey: "_9", pocketedKeys: [], cuePocketed: false,
+            railOrPocketAfterContact: true, tableKeysBefore: ["_1", "_9", "_8"])
+        XCTAssertTrue(try XCTUnwrap(controller.handleShotSettled(shot)).foul)
+        XCTAssertEqual(controller.assignedGroup, .stripe)
+        XCTAssertEqual(controller.foulCount, 1)
+        XCTAssertNil(controller.handleShotSettled(shot))
+        XCTAssertEqual(controller.shotCount, 1)
+        XCTAssertEqual(controller.playedVisitCount, 1)
+        XCTAssertTrue(controller.canUndo)
+        controller.undoShot()
+        XCTAssertEqual(controller.assignedGroup, .solid)
+        XCTAssertEqual(controller.foulCount, 0)
+        XCTAssertEqual(controller.shotCount, 0)
+        XCTAssertEqual(controller.playedVisitCount, 0)
+        XCTAssertFalse(controller.canUndo)
+        XCTAssertEqual(store.loadTodayDraft()?.ruleState.currentPlayer, .a)
+    }
+
+    func testReusedSeedDoesNotAdmitOldBreakCallbackAndNineBreakCompletesOnce() {
+        let controller = makeController(seed: 10)
+        controller.start(host: host, defaultGame: .nineBall)
+        let old = host.requests[0]
+        controller.confirmRerack()
+        old.callback(BreakOutcome(board: host.board, game: .nineBall, seed: 10,
+            pocketedKeys: [], cueScratched: false, terminalBallPocketed: false, settled: true))
+        XCTAssertEqual(controller.phase, .manualRacked)
+        let current = host.requests.last!
+        let facts = ShotFacts(firstContactKey: "_1", pocketedKeys: ["_9"], cuePocketed: false,
+            railOrPocketAfterContact: true, tableKeysBefore: ["_1", "_9"])
+        let outcome = BreakOutcome(board: host.board, game: .nineBall, seed: 10,
+            pocketedKeys: ["_9"], cueScratched: false, terminalBallPocketed: true, settled: true, facts: facts)
+        current.callback(outcome)
+        XCTAssertTrue(controller.isCompleted)
+        XCTAssertEqual(controller.completion?.completionKind, .breakNine)
+        current.callback(outcome)
+        XCTAssertEqual(controller.shotCount, 0)
+        XCTAssertEqual(host.requests.count, 2)
+    }
+
 }

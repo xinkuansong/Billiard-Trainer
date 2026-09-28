@@ -11,6 +11,20 @@ enum PocketLeatherAppearance {
         material.setValue(NSValue(scnVector3: SCNVector3(Float(components[0]), Float(components[1]), Float(components[2]))), forKey: "pocketLeatherTint")
         var modifiers = material.shaderModifiers ?? [:]
         let previous = modifiers[.surface] ?? ""
+        if previous.contains("// v64LeatherMicroSurface") {
+            // Retain the theme palette and only a trace of the source pigment.
+            // Most visible grain now comes from the same baked micro-surface as
+            // the normal/roughness, rather than enlarged low-frequency blotches.
+            let operation = """
+            float leatherLuma=dot(_surface.diffuse.rgb,float3(0.2126,0.7152,0.0722));
+            float leatherVariation=clamp(pow(max(leatherLuma,0.0001)/0.03437944,0.05),0.97,1.03);
+            float3 leatherTint=float3(\(components[0]),\(components[1]),\(components[2]));
+            _surface.diffuse.rgb=(leatherTint*0.65+float3(0.02515516,0.00877277,0.00568603))*leatherVariation;
+            """
+            modifiers[.surface] = previous.replacingOccurrences(of: "#pragma body", with: "#pragma body\n" + operation)
+            material.shaderModifiers = modifiers
+            return material
+        }
         // Append the body to an existing surface modifier without nesting pragmas.
         modifiers[.surface] = previous.isEmpty ? """
         #pragma arguments

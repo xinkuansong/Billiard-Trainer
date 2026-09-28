@@ -32,7 +32,7 @@ struct BTSpinPad: View {
             let placeX = spinX / pull, placeY = spinY / pull
             let dot = CGPoint(x: cx - CGFloat(placeX) * ballR,
                               y: cy - CGFloat(placeY) * ballR)
-            let tipD = max(ballR * 2 * CGFloat(tipRatio), 8)
+            let tipD = max(ballR * 2 * CGFloat(tipRatio), 8) * (isReadOnly ? 1 : 0.5)
             let miscueR = ballR * CGFloat(placementLimit)
             ZStack {
                 Circle()
@@ -184,13 +184,16 @@ enum SpinPadMath {
 /// 白盘直径随宽放大但封顶，不挤占四向键与底栏读数。
 enum SpinPadLayout {
     /// 四向键命中框（与 `BTHoldRepeatButton` 默认一致，不缩键让路）。
-    static let keyHit: CGFloat = 40
+    static let keyHit: CGFloat = 44
     /// 键与白盘间距（防误触）。
     static let crossGap: CGFloat = 10
     /// 卡片水平内边距（= `Spacing.sm`）。
     static let horizontalPadding: CGFloat = Spacing.sm
     /// 白盘直径上限（pt）：明显大于旧 104，又留出键区呼吸。
     static let maxPadDiameter: CGFloat = 168
+    /// Daily HUD uses the same compact dimensions on phones and tablets.
+    static let fixedPadDiameter: CGFloat = 160
+    static let fixedCardExtent = fixedPadDiameter + 2 * keyHit + 2 * horizontalPadding
     /// 极窄球桌时的白盘下限，避免缩成不可用。
     static let minPadDiameter: CGFloat = 104
     /// `tableWidth` 无效时的卡片宽兜底（旧紧凑卡量级）。
@@ -230,39 +233,95 @@ struct BTSpinPadCard: View {
     var isReadOnly = false
     /// 只选高低杆：隐藏左右微调键，白盘拖动锁竖轴。
     var locksSideSpin = false
-    /// In perspective views, keep the table visible above a shallow control row.
+    /// Compact landscape cards keep the same cross layout within the available height.
     var usesCompactLayout = false
+    var availableHeight: CGFloat? = nil
+    /// Daily landscape: fixed size, bottom-aligned to the 2D inner rail in both modes.
+    var usesFixedLayout = false
     var onClose: () -> Void
 
     private var padDiameter: CGFloat {
-        SpinPadLayout.padDiameter(tableWidth: SpinPadLayout.resolvedTableWidth(tableWidth))
+        if usesFixedLayout { return SpinPadLayout.fixedPadDiameter }
+        let width = SpinPadLayout.resolvedTableWidth(tableWidth)
+        let diameter = SpinPadLayout.padDiameter(tableWidth: usesCompactLayout ? min(width, 336) : width)
+        let reserve = 2 * SpinPadLayout.keyHit + 2 * SpinPadLayout.crossGap
+            + 2 * SpinPadLayout.horizontalPadding + 32
+        return min(diameter, max(0, (availableHeight ?? .greatestFiniteMagnitude) - reserve))
     }
 
     var body: some View {
         let width = SpinPadLayout.resolvedTableWidth(tableWidth)
-        VStack(spacing: Spacing.xs) {
-            if usesCompactLayout {
-                HStack(spacing: Spacing.md) {
-                    BTSpinPad(spinX: $spinX, spinY: $spinY, isReadOnly: isReadOnly,
-                              locksSideSpin: locksSideSpin)
-                        .frame(width: 3 * SpinPadLayout.keyHit, height: 3 * SpinPadLayout.keyHit)
-                    if !isReadOnly {
-                        VStack(spacing: Spacing.xs) {
-                            BTHoldRepeatButton(icon: "chevron.up", accessibility: "高杆增加 1%") { nudge(.up) }
-                            HStack(spacing: Spacing.xs) {
-                                if !locksSideSpin {
-                                    BTHoldRepeatButton(icon: "chevron.left", accessibility: "左塞增加 1%") { nudge(.left) }
-                                }
-                                Color.clear.frame(width: SpinPadLayout.keyHit, height: SpinPadLayout.keyHit)
-                                if !locksSideSpin {
-                                    BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") { nudge(.right) }
-                                }
-                            }
-                            BTHoldRepeatButton(icon: "chevron.down", accessibility: "低杆增加 1%") { nudge(.down) }
-                        }
-                    }
+        Group {
+            if usesFixedLayout, !isReadOnly {
+                fixedContent
+            } else {
+                standardContent
+            }
+        }
+        .padding(SpinPadLayout.horizontalPadding)
+        .frame(width: usesFixedLayout
+               ? SpinPadLayout.fixedCardExtent
+               : (usesCompactLayout ? (isReadOnly ? nil : min(width, 2 * SpinPadLayout.maxPadDiameter)) : width),
+               height: usesFixedLayout ? SpinPadLayout.fixedCardExtent : nil)
+        .background {
+            RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
+                .fill(Color.black.opacity(0.22))
+                .background(RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
+                    .fill(.ultraThinMaterial.opacity(0.5)))
+                .environment(\.colorScheme, .dark)
+        }
+        .overlay(RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
+            .strokeBorder(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("spinPad.card")
+        .environment(\.colorScheme, .dark)
+    }
+
+    private var fixedContent: some View {
+        VStack(spacing: 0) {
+            BTHoldRepeatButton(icon: "chevron.up", accessibility: "高杆增加 1%") { nudge(.up) }
+            HStack(spacing: 0) {
+                BTHoldRepeatButton(icon: "chevron.left", accessibility: "左塞增加 1%") { nudge(.left) }
+                    .opacity(locksSideSpin ? 0 : 1)
+                    .allowsHitTesting(!locksSideSpin)
+                    .accessibilityHidden(locksSideSpin)
+                BTSpinPad(spinX: $spinX, spinY: $spinY, locksSideSpin: locksSideSpin)
+                    .frame(width: padDiameter, height: padDiameter)
+                    .accessibilityIdentifier("spinPad.disc")
+                BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") { nudge(.right) }
+                    .opacity(locksSideSpin ? 0 : 1)
+                    .allowsHitTesting(!locksSideSpin)
+                    .accessibilityHidden(locksSideSpin)
+            }
+            HStack(spacing: 0) {
+                Text(SpinDisplay.readout(spinX: spinX, spinY: spinY))
+                    .font(.btCaption.bold())
+                    .foregroundStyle(HUDStyle.valueAdjustable)
+                    .monospacedDigit()
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                BTHoldRepeatButton(icon: "chevron.down", accessibility: "低杆增加 1%") { nudge(.down) }
+                Button {
+                    spinX = 0
+                    spinY = 0
+                } label: {
+                    Text("回中")
+                        .font(.btCaption.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.vertical, Spacing.xs)
+                        .background(.white.opacity(0.14), in: Capsule())
+                        .frame(maxWidth: .infinity, minHeight: SpinPadLayout.keyHit)
+                        .contentShape(Rectangle())
                 }
-            } else if isReadOnly {
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var standardContent: some View {
+        VStack(spacing: Spacing.xs) {
+            if isReadOnly {
                 BTSpinPad(spinX: $spinX, spinY: $spinY, isReadOnly: true)
                     .frame(width: padDiameter, height: padDiameter)
             } else {
@@ -314,24 +373,6 @@ struct BTSpinPadCard: View {
                 }
             }
         }
-        .padding(SpinPadLayout.horizontalPadding)
-        // Read-only compact cards contain one pad, without the editable key column.
-        .frame(width: usesCompactLayout
-               ? (isReadOnly ? nil : min(width, 2 * SpinPadLayout.maxPadDiameter))
-               : width)
-        // 近透明底：只留 22% 黑 + 细模糊，透出台面绿；发丝描边保分层。
-        .background {
-            RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
-                .fill(Color.black.opacity(0.22))
-                .background(RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
-                    .fill(.ultraThinMaterial.opacity(0.5)))
-                .environment(\.colorScheme, .dark)
-        }
-        .overlay(RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
-            .strokeBorder(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("spinPad.card")
-        .environment(\.colorScheme, .dark)
     }
 
     /// 沿某方向微调一步并写回绑定；返回是否真的移动（false = 撞到打滑极限）。
@@ -359,6 +400,9 @@ struct BTSpinPadOverlay: View {
     /// 只选高低杆：隐藏左右微调键，白盘拖动锁竖轴。
     var locksSideSpin = false
     var usesCompactLayout = false
+    var availableHeight: CGFloat? = nil
+    /// Daily landscape: fixed size, bottom-aligned to the 2D inner rail in both modes.
+    var usesFixedLayout = false
     var onClose: () -> Void
 
     var body: some View {
@@ -379,10 +423,36 @@ struct BTSpinPadOverlay: View {
                           tableWidth: tableWidth, isReadOnly: isReadOnly,
                           locksSideSpin: locksSideSpin,
                           usesCompactLayout: usesCompactLayout,
+                          availableHeight: availableHeight,
+                          usesFixedLayout: usesFixedLayout,
                           onClose: onClose)
                 .padding(.bottom, bottomPadding)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// Interactive scenes share the same card size and projected cushion anchor in 2D and 3D.
+/// Read-only sequence playback keeps its existing presentation geometry.
+struct BTProjectedSpinPadOverlay: View {
+    @Binding var spinX: Double
+    @Binding var spinY: Double
+    let scene: AngleTrainingScene
+    let projector: TableProjector
+    var isReadOnly = false
+    var locksSideSpin = false
+    var onClose: () -> Void
+
+    var body: some View {
+        GeometryReader { geo in
+            let polygon = SpinPadRailAnchor.polygon(scene: scene, projector: projector)
+            let width = SpinPadRailAnchor.panelWidth(polygon: polygon, stageSize: geo.size)
+            let bottom = SpinPadRailAnchor.bottom(polygon: polygon, panelWidth: width, stageSize: geo.size)
+            BTSpinPadOverlay(spinX: $spinX, spinY: $spinY,
+                tableWidth: width, bottomPadding: geo.size.height - bottom,
+                isReadOnly: isReadOnly, locksSideSpin: locksSideSpin,
+                usesCompactLayout: true, availableHeight: bottom, onClose: onClose)
+        }
     }
 }
 

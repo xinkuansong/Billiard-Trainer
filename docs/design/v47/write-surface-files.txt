@@ -13,12 +13,16 @@ QiuJiTests/BankKickDifficultyTests.swift
 QiuJiTests/BankKickSpinSearchEvidenceTests.swift
 QiuJiTests/BatchSequenceReplayRegressionTests.swift
 QiuJiTests/BreakFlowRunnerV6Tests.swift
+QiuJiTests/CueSpinPreviewCaptureTests.swift
 QiuJiTests/CueStyleTests.swift
 QiuJiTests/CushionEnglishAtlasTests.swift
+QiuJiTests/Daily3DClothPerformanceTests.swift
+QiuJiTests/DailyClearanceRulesTests.swift
 QiuJiTests/DrillListViewModelTests.swift
 QiuJiTests/DrillShotReconstructionTests.swift
 QiuJiTests/DrillThumbnailBakeRunnerTests.swift
 QiuJiTests/DrillTutorialKindResolverTests.swift
+QiuJiTests/FeelAimingVideoCaptureTests.swift
 QiuJiTests/PocketBehaviorDiagTests.swift
 QiuJiTests/PocketLeatherIntegrationTests.swift
 QiuJiTests/PocketRefactorDiagTests.swift
@@ -42,6 +46,7 @@ QiuJiTests/SpinRenderEvidenceTests.swift
 QiuJiTests/StatisticsViewModelTests.swift
 QiuJiTests/SwiftDataMigrationTests.swift
 QiuJiTests/TableLegGeometryDiagTests.swift
+QiuJiTests/TableMaterialAuditTests.swift
 QiuJiTests/TrajectoryRendererTests.swift
 QiuJiTests/V21W1EvidenceTests.swift
 QiuJiTests/V21W2BakeTests.swift
@@ -63,6 +68,7 @@ QiuJiUITests/AimingCorrectionZ3UITests.swift
 QiuJiUITests/B1_ManualFormationUITests.swift
 QiuJiUITests/BallStickerUITests.swift
 QiuJiUITests/CueStyleUITests.swift
+QiuJiUITests/Daily3DDeviceProfilingUITests.swift
 QiuJiUITests/DeviceMatrixUITests.swift
 QiuJiUITests/DrillSceneThreeBeatUITests.swift
 QiuJiUITests/Helpers/TheoryFigureEvidence.swift
@@ -72,6 +78,7 @@ QiuJiUITests/PocketLeatherUITests.swift
 QiuJiUITests/RenderQualityV62UITests.swift
 QiuJiUITests/S1_FreePlayLayoutUITests.swift
 QiuJiUITests/S2_ShotPagesLayoutUITests.swift
+QiuJiUITests/S5_TrainingPagesLayoutUITests.swift
 QiuJiUITests/ScreenshotTourUITests.swift
 QiuJiUITests/SpinAndEnglishZ4UITests.swift
 QiuJiUITests/TrainingAtmosphereUITests.swift

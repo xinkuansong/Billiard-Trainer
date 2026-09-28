@@ -312,11 +312,11 @@ final class DiamondSystemViewModel: ObservableObject {
         lastSolveUndo = makeSolveUndo()
         canUndoSolve = false
         canReplaySolve = false
-        runSolveDemo(sol)
+        runSolveDemo(sol, switchesPlayerCamera: true)
     }
 
     /// 运行一次求解模式演示（出杆 → 回放 → 自动复位），不捕获上下文（供击打与「回放」复用）。
-    private func runSolveDemo(_ sol: KickEngineSolution) {
+    private func runSolveDemo(_ sol: KickEngineSolution, switchesPlayerCamera: Bool = false) {
         guard let cueNode = scene.cueBallNode,
               sol.prediction.hasFinalTableState, sol.prediction.recorder != nil, sol.prediction.duration > 0.05 else { return }
         solveTask?.cancel()
@@ -335,7 +335,8 @@ final class DiamondSystemViewModel: ObservableObject {
         scene.runCueStroke(
             strikePosition: strikePos,
             aim: aim,
-            velocity: Float(reflectionPower)
+            velocity: Float(reflectionPower),
+            switchesPlayerCameraOnContact: switchesPlayerCamera
         ) { [weak self] in
             self?.launchPlayback(sol)
         }
@@ -753,7 +754,7 @@ final class DiamondSystemViewModel: ObservableObject {
             guard self.acceptFreePrediction(pred,before:before) else { return }
             let strikePos = CueStroke.strikePosition(cue: cuePos, aim: dir, spinX: Double(sx), spinY: Double(sy))
             self.scene.runCueStroke(strikePosition: strikePos, aim: dir,
-                                    velocity: velocity) { [weak self] in
+                                    velocity: velocity, switchesPlayerCameraOnContact: true) { [weak self] in
                 self?.launchFreePlayback(pred, before: before)
             }
         }

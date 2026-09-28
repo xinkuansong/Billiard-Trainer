@@ -22,6 +22,137 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         add(att)
     }
 
+    // Scoped trial: real routes, deterministic layout, input/cancel/result/next.
+    func testAngleTrial2D() throws { try checkAngleTrial(mode: "2D") }
+    func testAngleTrial3D() throws { try checkAngleTrial(mode: "3D") }
+
+    func testAngleTrial3DRequiresPro() throws { try checkAngleTrial(mode: "3D", nearLimit: true) }
+
+    func testAngleTrialFreeLimit2D() throws { try checkAngleTrial(mode: "2D", nearLimit: true) }
+
+    private func checkAngleTrial(mode: String, nearLimit: Bool = false) throws {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: [nearLimit ? "-w7.forceDailyLimitNear" : "-forcePremium", "-v50.inMemoryStore", "-v62.fixture"])
+        let prefix = nearLimit ? "free-\(mode)" : mode
+        func capture(_ state: String) throws {
+            sleep(1)
+            snap("trial-\(prefix)-\(state)")
+            let env = ProcessInfo.processInfo.environment
+            if let path = env["TEST_RUNNER_ANGLE_SHOTS"] ?? env["ANGLE_SHOTS"] {
+                let folder = URL(fileURLWithPath: path, isDirectory: true)
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                try XCUIScreen.main.screenshot().pngRepresentation.write(to: folder.appendingPathComponent("\(prefix)-\(state).png"))
+            }
+        }
+        XCTAssertTrue(openCard(homeTab: "练", title: "\(mode) 角度训练"))
+        if nearLimit, mode == "3D" {
+            XCTAssertTrue(app.staticTexts["解锁球迹 Pro"].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.buttons["答题"].exists)
+            try capture("pro-gate")
+            return
+        }
+        XCTAssertTrue(startAimingTrainingFromSheet())
+        let answer = app.buttons["答题"].firstMatch
+        XCTAssertTrue(answer.waitForExistence(timeout: 8))
+        try capture("observe")
+        let window = app.windows.firstMatch
+        XCTAssertGreaterThan(window.frame.width, window.frame.height, "两个入口都应自动横屏")
+        let stage = app.otherElements["angleTraining.stage"].firstMatch
+        XCTAssertTrue(stage.exists)
+        let stageFrame = stage.frame
+        XCTAssertTrue(app.staticTexts[mode == "2D" ? "右下角袋" : "高亮角袋"].exists)
+        XCTAssertTrue(app.staticTexts["1/20"].exists)
+        let palette = app.otherElements["angleTraining.palette"]
+        XCTAssertTrue(palette.exists)
+        let info = app.otherElements["angleTraining.questionInfo"]
+        XCTAssertTrue(info.exists)
+        XCTAssertGreaterThan(info.frame.minX, stageFrame.maxX)
+        XCTAssertLessThan(palette.frame.maxY, info.frame.minY)
+        let actionFrame = answer.frame
+        XCTAssertGreaterThanOrEqual(actionFrame.width, 52)
+        XCTAssertGreaterThanOrEqual(actionFrame.height, 52)
+        XCTAssertTrue(app.windows.firstMatch.frame.contains(actionFrame))
+        if mode == "3D" {
+            let firstPerson = app.buttons["shotCamera.firstPerson"]
+            let observation = app.buttons["shotCamera.thirdPerson"]
+            XCTAssertTrue(firstPerson.exists)
+            firstPerson.tap()
+            XCTAssertEqual(firstPerson.value as? String, "已选中")
+            try capture("first-person")
+            observation.tap()
+            XCTAssertEqual(observation.value as? String, "已选中")
+            try capture("player-observation")
+        }
+        let assist = app.buttons["辅助"].firstMatch
+        XCTAssertTrue(assist.exists)
+        assist.tap()
+        XCTAssertTrue(app.buttons["隐藏"].waitForExistence(timeout: 3))
+        try capture("assist")
+        answer.tap()
+        XCTAssertTrue(app.buttons["提交"].waitForExistence(timeout: 4))
+        try capture("input")
+        XCTAssertEqual(stage.frame, stageFrame, "输入不得缩桌")
+        for key in ["1", "0", "取消", "提交"] {
+            XCTAssertGreaterThanOrEqual(app.buttons[key].firstMatch.frame.height, 44)
+        }
+        if mode == "3D" {
+            XCTAssertFalse(app.buttons["angleTraining.observation"].isEnabled)
+            XCTAssertFalse(app.buttons["shotCamera.firstPerson"].isEnabled)
+        }
+        app.buttons["取消"].firstMatch.tap()
+        XCTAssertTrue(answer.waitForExistence(timeout: 4))
+        XCTAssertEqual(answer.frame, actionFrame)
+        answer.tap()
+        XCTAssertTrue(app.buttons["提交"].waitForExistence(timeout: 4))
+        app.buttons["4"].firstMatch.tap()
+        app.buttons["5"].firstMatch.tap()
+        app.buttons["提交"].tap()
+        let next = app.buttons["下一题"].firstMatch
+        if nearLimit {
+            XCTAssertTrue(app.staticTexts["今日免费次数已用完"].waitForExistence(timeout: 5))
+            XCTAssertFalse(next.exists)
+            XCTAssertTrue(app.staticTexts["答案"].exists)
+            try capture("limit-result")
+            verifyAngleTrialExit()
+            return
+        }
+        XCTAssertTrue(next.waitForExistence(timeout: 5))
+        try capture("result")
+        XCTAssertEqual(stage.frame, stageFrame, "反馈不得缩桌")
+        XCTAssertEqual(next.frame, actionFrame, "下一题与答题共用位置及命中尺寸")
+        XCTAssertTrue(app.staticTexts["答案"].exists)
+        next.tap()
+        XCTAssertTrue(answer.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["辅助"].exists)
+        try capture("next")
+        XCTAssertTrue(app.staticTexts["2/20"].exists)
+        XCTAssertEqual(answer.frame, actionFrame)
+        if mode == "3D" {
+            XCTAssertEqual(app.buttons["shotCamera.thirdPerson"].value as? String, "已选中", "下一题沿用观察视角")
+            let menu = app.buttons["angleTraining.observation"]
+            XCTAssertTrue(menu.isEnabled)
+            menu.tap()
+            XCTAssertTrue(app.buttons["angleTraining.observe.table"].waitForExistence(timeout: 3))
+            app.buttons["angleTraining.observe.table"].tap()
+            try capture("whole-table")
+            menu.tap()
+            app.buttons["angleTraining.observe.aim"].tap()
+            try capture("return-to-aim")
+            XCTAssertEqual(app.buttons["shotCamera.firstPerson"].value as? String, "已选中")
+        }
+        verifyAngleTrialExit()
+    }
+
+    private func verifyAngleTrialExit() {
+        app.buttons["angleTraining.back"].tap()
+        let window = app.windows.firstMatch
+        let portrait = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            window.frame.height > window.frame.width
+        }, object: window)
+        XCTAssertEqual(XCTWaiter.wait(for: [portrait], timeout: 6), .completed,
+                       "离开角度训练应恢复竖屏")
+    }
+
     private func checkObservationMenu(prefix: String) {
         let menu = app.buttons["\(prefix).observation"]
         XCTAssertTrue(menu.waitForExistence(timeout: 5))
@@ -173,7 +304,12 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
     }
 
     private func openCard(homeTab: String, title: String) -> Bool {
-        app.switchTab(.angle)
+        let nativePracticeTab = app.tabBars.buttons[XCUIApplication.Tab.angle.rawValue]
+        if nativePracticeTab.waitForExistence(timeout: 2) {
+            nativePracticeTab.tap()
+        } else {
+            app.switchTab(.angle)
+        }
         sleep(1)
         guard switchAngleHomeTab(homeTab) else { return false }
         let card = app.buttons[title]

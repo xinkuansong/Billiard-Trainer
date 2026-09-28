@@ -10,12 +10,14 @@ struct NumericKeypadHUD: View {
     /// P5.1（问题集合 v3）：紧凑档——键高/读数再压一档，保证角度预测页
     /// 「换题 / 显示参考」按钮在键盘弹出时仍完整可见。
     var compact: Bool = false
+    /// Opt-in for dark table quizzes; other keypad consumers keep their presentation.
+    var usesSceneStyle: Bool = false
     let onSubmit: () -> Void
     let onCancel: () -> Void
 
     private let maxLength = 3 // angles 0-90 (or 0-100 just in case)
 
-    private var keyHeight: CGFloat { compact ? 36 : 48 }
+    private var keyHeight: CGFloat { usesSceneStyle ? 44 : (compact ? 36 : 48) }
     private var displayFontSize: CGFloat { compact ? 24 : 38 }
 
     var body: some View {
@@ -26,32 +28,33 @@ struct NumericKeypadHUD: View {
                     Text(title)
                         .font(.btFootnote.weight(.semibold))
                         .foregroundStyle(.btText)
-                    if let subtitle {
+                    if let subtitle, !usesSceneStyle {
                         Text(subtitle)
                             .font(.btCaption)
                             .foregroundStyle(.btTextSecondary)
                     }
                 }
                 Spacer()
-                Button("取消", action: onCancel)
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
+                if usesSceneStyle {
+                    angleReadout
+                    Spacer()
+                }
+                Button(action: onCancel) {
+                    Text("取消")
+                        .font(.btCaption)
+                        .foregroundStyle(.btTextSecondary)
+                        .frame(minWidth: usesSceneStyle ? 44 : nil, minHeight: usesSceneStyle ? 44 : nil)
+                        .contentShape(Rectangle())
+                }
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.top, Spacing.sm)
 
-            // Big number display
-            HStack(alignment: .lastTextBaseline, spacing: Spacing.xs) {
-                Text(input.isEmpty ? "0" : input)
-                    .font(.system(size: displayFontSize, weight: .bold, design: .rounded))
-                    .foregroundStyle(input.isEmpty ? .btTextTertiary : .btText)
-                    .contentTransition(.numericText())
-                Text("°")
-                    .font(.system(size: displayFontSize * 0.68, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.btTextSecondary)
+            if !usesSceneStyle {
+                angleReadout
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, compact ? 2 : Spacing.xs)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, compact ? 2 : Spacing.xs)
 
             // 3×4 keypad grid
             VStack(spacing: Spacing.xs) {
@@ -66,15 +69,28 @@ struct NumericKeypadHUD: View {
                         onSubmit()
                     }
                     .disabled(input.isEmpty)
+                    .opacity(usesSceneStyle && input.isEmpty ? 0.4 : 1)
                 }
             }
             .padding(.horizontal, Spacing.md)
             .padding(.bottom, Spacing.sm)
         }
-        .background(.regularMaterial)
+        .background(usesSceneStyle ? AnyShapeStyle(HUDStyle.panelBackground) : AnyShapeStyle(.regularMaterial))
         .clipShape(UnevenRoundedRectangle(topLeadingRadius: BTRadius.lg,
                                           topTrailingRadius: BTRadius.lg))
-        .shadow(color: .black.opacity(0.25), radius: 12, y: -4)
+        .shadow(color: .black.opacity(0.25), radius: usesSceneStyle ? 0 : 12, y: -4)
+    }
+
+    private var angleReadout: some View {
+        HStack(alignment: .lastTextBaseline, spacing: Spacing.xs) {
+            Text(input.isEmpty ? "0" : input)
+                .font(.system(size: displayFontSize, weight: .bold, design: .rounded))
+                .foregroundStyle(input.isEmpty ? .btTextTertiary : .btText)
+                .contentTransition(.numericText())
+            Text("°")
+                .font(.system(size: displayFontSize * 0.68, weight: .semibold, design: .rounded))
+                .foregroundStyle(.btTextSecondary)
+        }
     }
 
     // MARK: - Helpers
@@ -112,12 +128,18 @@ struct NumericKeypadHUD: View {
                                           design: .rounded))
                     }
                 }
-                .foregroundStyle(role == .submit ? .white : .btText)
+                .foregroundStyle(role == .submit ? (usesSceneStyle ? HUDStyle.onAccent : .white) : .btText)
             }
             .frame(maxWidth: .infinity)
             .frame(height: keyHeight)
             .background(background(for: role))
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+            .overlay {
+                if usesSceneStyle {
+                    RoundedRectangle(cornerRadius: BTRadius.sm)
+                        .stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth)
+                }
+            }
         }
         .buttonStyle(KeypadKeyStyle())
     }
@@ -126,7 +148,7 @@ struct NumericKeypadHUD: View {
         switch role {
         case .digit: return AnyShapeStyle(Color.btBGTertiary)
         case .erase: return AnyShapeStyle(Color.btBGSecondary)
-        case .submit: return AnyShapeStyle(Color.btPrimary)
+        case .submit: return AnyShapeStyle(usesSceneStyle ? HUDStyle.accent : Color.btPrimary)
         }
     }
 

@@ -98,3 +98,9 @@ Config/Secrets.xcconfig
 ### ⛔ FL-025 — 显式 INFOPLIST_FILE 下 `INFOPLIST_KEY_*` 全部失效（权限文案未进包 → 真机 TCC 秒杀）
 **场景**：给 Info.plist 加键（隐私权限文案、显示名等），而主 target 使用显式 `INFOPLIST_FILE`（本项目 `GENERATE_INFOPLIST_FILE = NO`）
 **强制检查点**：`INFOPLIST_KEY_*` 构建设置仅在 `GENERATE_INFOPLIST_FILE = YES` 时生效；本项目一律把键直写 `QiuJi/Resources/Info.plist`（xcodegen 走 `project.yml` 的 `info.properties`）。判断键是否生效**只认构建产物**：`/usr/libexec/PlistBuddy -c "Print :<Key>" <built .app>/Info.plist`，禁止以「pbxproj/project.yml 里有这行」为据。隐私权限键缺失的症状是真机首次弹框时 TCC 直接杀进程（秒闪退、无 alert）。
+
+### ⛔ FL-089 — 导出测试通过不等于新版已经运行
+**场景**：模拟器导出通过XCTest，但实际帧或账本仍包含上一版配置。
+**强制检查点**：按本轮配置检查最终编码帧及版本字段；不匹配立即隔离产物，不得修改验收期望以放行。先核对源码/编译/安装链路；必要时只重装本任务专用模拟器宿主，不清理其他任务设备。重导后重新验实际视频。
+
+Changelog：2026-09-24 / FL-089 / 增补导出版本一致性检查。

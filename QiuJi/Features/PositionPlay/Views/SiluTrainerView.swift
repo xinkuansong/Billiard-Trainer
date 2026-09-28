@@ -129,7 +129,7 @@ struct SiluTrainerView: View {
     /// 开球模式标识胶囊（T-P18-47；G9：摆架图形与开球按钮同源）。
     private var breakModePill: some View {
         HStack(spacing: 4) {
-            BreakRackGlyph(color: .btPrimary, size: 13)
+            BreakRackGlyph(color: HUDStyle.accent, size: 13)
             Text("开球 · \(vm.breakRunner.map { BreakFlowRunner.title(for: $0.game) } ?? "")")
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.92))
@@ -189,7 +189,7 @@ struct SiluTrainerView: View {
 
             // G18/V6：开球模式贴边仪表（左瞄准轮 + 右力度柱），共享单一真源。
             if let runner = vm.breakRunner {
-                BreakInstrumentsOverlay(runner: runner, proxy: proxy, isPerspective: is3D)
+                BreakInstrumentsOverlay(runner: runner, proxy: proxy, scene: vm.scene, projector: projector, isPerspective: is3D)
             }
 
             if !vm.isBreakMode && proxy.isValid {
@@ -206,16 +206,21 @@ struct SiluTrainerView: View {
                 instrumentColumn
                     .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
 
+                if is3D && !showSpinPad {
+                    ShotSceneCameraButtons(scene: vm.scene, aim: vm.playerCameraAim,
+                        isEnabled: vm.canObserveCurrentAim) { showSpinPad = false }
+                        .btStageFrame(ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame)
+                        .offset(x: -52)
+                }
+
                 // 条 18.2：击球/上一杆/回放，右下角底边齐球桌底线。
                 actionColumn
                     .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).actionFrame : proxy.actionColumnFrame())
             }
 
             if showSpinPad {
-                BTSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
-                                 tableWidth: is3D ? proxy.sceneSize.width - Spacing.lg * 2 : proxy.playingRect.width,
-                                 bottomPadding: is3D ? Spacing.sm : proxy.spinPadBottomPadding,
-                                 usesCompactLayout: is3D,
+                BTProjectedSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
+                                 scene: vm.scene, projector: projector,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)

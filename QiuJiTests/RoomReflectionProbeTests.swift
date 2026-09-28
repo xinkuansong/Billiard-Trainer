@@ -223,3 +223,139 @@ final class RoomReflectionProbeTests: XCTestCase {
         }
     }
 }
+
+extension RoomReflectionProbeTests {
+    private func readHalfTexture(_ texture: MTLTexture, mip: Int = 0) -> [Float] {
+        let w = max(1, texture.width >> mip), h = max(1, texture.height >> mip)
+        let channels = texture.pixelFormat == .rg16Float ? 2 : 4
+        // Explicit sourceLevel readback: Simulator getBytes currently returns the
+        // base-level rectangle for nonzero mips on this runtime.
+        let rowBytes = ((w * channels * 2 + 255) / 256) * 256
+        let buffer = texture.device.makeBuffer(length: rowBytes * h, options: .storageModeShared)!
+        let command = texture.device.makeCommandQueue()!.makeCommandBuffer()!
+        let blit = command.makeBlitCommandEncoder()!
+        blit.copy(from: texture, sourceSlice: 0, sourceLevel: mip, sourceOrigin: MTLOrigin(x: 0,y: 0,z: 0),
+                  sourceSize: MTLSize(width: w,height: h,depth: 1), to: buffer, destinationOffset: 0,
+                  destinationBytesPerRow: rowBytes, destinationBytesPerImage: rowBytes*h)
+        blit.endEncoding(); command.commit(); command.waitUntilCompleted()
+        XCTAssertEqual(command.status, .completed)
+        let values = buffer.contents().bindMemory(to: UInt16.self, capacity: rowBytes*h/2)
+        return (0..<h).flatMap { y in (0..<(w*channels)).map { x in Float(Float16(bitPattern:values[y*rowBytes/2+x])) } }
+
+    }
+
+    func testPrefilterPreservesLinearHDREnergyAndReusesResources() throws {
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        let colour = SIMD3<Float>(4, 0.5, 0.125)
+        let probe = try XCTUnwrap(RoomReflectionProbe(linear: Array(repeating: colour, count: 64*32),
+            width: 64, height: 32, sh: Array(repeating: .zero, count: 9), floorRadiance: .zero, style: nil, device: device))
+        let filtered = try XCTUnwrap(probe.prefiltered())
+        XCTAssertTrue(filtered === probe.prefiltered(), "Repeated bindings must not regenerate resources")
+        for mip in 0..<filtered.environment.mipmapLevelCount {
+            let pixels = readHalfTexture(filtered.environment, mip: mip)
+            for i in stride(from: 0, to: pixels.count, by: 4) {
+                for c in 0..<3 { XCTAssertEqual(pixels[i+c], colour[c], accuracy: 0.005, "mip \(mip)") }
+            }
+        }
+        let response = readHalfTexture(filtered.response)
+        XCTAssertTrue(response.allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1.02 })
+        // At smooth normal incidence the split sum must reproduce dielectric F0.
+        let lastX = (127*2)
+        XCTAssertEqual(0.04*response[lastX]+response[lastX+1], 0.04, accuracy: 0.002)
+        let other = try PrefilteredReflection(source: probe.texture)
+        XCTAssertTrue(filtered.response === other.response, "LUT is device shared, not per material/probe")
+        XCTAssertGreaterThan(filtered.texelBytes, 0)
+        // Simulator can report allocatedSize=0; keep hardware accounting separate.
+        XCTAssertGreaterThanOrEqual(filtered.allocatedBytes, 0)
+    }
+
+    func testPrefilterRoomStyleCacheAndRelease() throws {
+        RoomReflectionProbe.resetCache()
+        let s = try scene(style: .tournament)
+        var resources: [RoomStyle: PrefilteredReflection] = [:]
+        for _ in 0..<3 {
+            for style in RoomStyle.allCases {
+                s.installReferenceRoom(style: style)
+                let resource = try XCTUnwrap(s.roomReflectionProbe?.prefiltered())
+                if let previous = resources[style] { XCTAssertTrue(previous === resource) }
+                resources[style] = resource
+            }
+        }
+        XCTAssertEqual(resources.count, RoomStyle.allCases.count)
+        weak var released: PrefilteredReflection?
+        autoreleasepool {
+            let texture = s.roomReflectionProbe!.texture
+            do { let temporary = try PrefilteredReflection(source: texture); released = temporary }
+            catch { XCTFail("\(error)") }
+        }
+        XCTAssertNil(released, "Uncached resources must release; shared LUT alone can remain")
+    }
+
+    func testPrefilterDirectionSeamAndRoughness() throws {
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        let w=128, h=64
+        var map=[SIMD3<Float>](repeating: .zero,count:w*h)
+        for y in 0..<h { for x in 0..<w {
+            let d=RoomReflectionProbe.direction(u:(Float(x)+0.5)/Float(w),v:(Float(y)+0.5)/Float(h))
+            // Bright +Z lobe crosses the horizontal texture seam.
+            map[y*w+x]=SIMD3(repeating:pow(max(0,d.z),16)*4)
+        } }
+        let probe=try XCTUnwrap(RoomReflectionProbe(linear:map,width:w,height:h,
+            sh:Array(repeating:.zero,count:9),floorRadiance:.zero,style:nil,device:device))
+        let filtered=try XCTUnwrap(probe.prefiltered())
+        let sharp=readHalfTexture(filtered.environment)
+        XCTAssertGreaterThan(sharp[(h/2*w)*4],3.8)
+        XCTAssertLessThan(sharp[(h/2*w+w/2)*4],0.01)
+        for mip in 0..<filtered.environment.mipmapLevelCount {
+            let pixels=readHalfTexture(filtered.environment,mip:mip), mw=max(1,w>>mip), mh=max(1,h>>mip)
+            XCTAssertTrue(pixels.allSatisfy(\.isFinite))
+            #if targetEnvironment(simulator)
+            let dump = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("build/daily-specialized-20260921/mip-\(mip).json")
+            try JSONSerialization.data(withJSONObject: ["width":mw,"height":mh,"pixels":pixels]).write(to:dump)
+            #endif
+            for y in 0..<mh {
+                XCTAssertEqual(pixels[(y*mw)*4],pixels[(y*mw+mw-1)*4],accuracy:0.12,"seam mip \(mip)")
+            }
+        }
+        let broad=readHalfTexture(filtered.environment,mip:4)
+        XCTAssertLessThan(broad.enumerated().filter{$0.offset%4==0}.map(\.element).max()!,3.0)
+    }
+}
+
+extension RoomReflectionProbeTests {
+    func testAnalyticSphereShadowMetalMatchesDoublePrecisionOracle() throws {
+        #if targetEnvironment(simulator)
+        let file=URL(fileURLWithPath:#filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/AnalyticSphereShadow.json")
+        struct Case:Decodable {let point:[Float];let center:[Float];let panel:Int;let expected:Float;let oracle:Float}
+        let cases=try JSONDecoder().decode([Case].self,from:Data(contentsOf:file))
+        let device=try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        let shader="""
+        #include <metal_stdlib>
+        using namespace metal;
+        \(MobileReferenceLighting.analyticPanelDiffuse)
+        \(MobileReferenceLighting.analyticShadowFunctions)
+        kernel void verifyShadow(const device float4 *inputs [[buffer(0)]],device float *output [[buffer(1)]],uint i [[thread_position_in_grid]]) {
+            float3 p=inputs[i*2].xyz;int panel=int(inputs[i*2].w);
+            output[i]=v2SphereBlocked(p,float3(0,1,0),inputs[i*2+1],panel,v62RectIrradiance(p,float3(0,1,0),panel));
+        }
+        """
+        let library=try device.makeLibrary(source:shader,options:nil)
+        let pipeline=try device.makeComputePipelineState(function:XCTUnwrap(library.makeFunction(name:"verifyShadow")))
+        let values=cases.flatMap { c in [SIMD4<Float>(c.point[0],c.point[1],c.point[2],Float(c.panel)),SIMD4<Float>(c.center[0],c.center[2],c.center[1]-0.8,0.85)] }
+        let input=try XCTUnwrap(device.makeBuffer(bytes:values,length:values.count*16,options:.storageModeShared))
+        let output=try XCTUnwrap(device.makeBuffer(length:cases.count*4,options:.storageModeShared))
+        let command=try XCTUnwrap(device.makeCommandQueue()?.makeCommandBuffer()),encoder=try XCTUnwrap(command.makeComputeCommandEncoder())
+        encoder.setComputePipelineState(pipeline);encoder.setBuffer(input,offset:0,index:0);encoder.setBuffer(output,offset:0,index:1)
+        encoder.dispatchThreads(MTLSize(width:cases.count,height:1,depth:1),threadsPerThreadgroup:MTLSize(width:1,height:1,depth:1))
+        encoder.endEncoding();command.commit();command.waitUntilCompleted()
+        XCTAssertEqual(command.status,.completed)
+        let actual=output.contents().bindMemory(to:Float.self,capacity:cases.count)
+        for (i,c) in cases.enumerated() {
+            XCTAssertTrue(actual[i].isFinite && actual[i]>=0 && actual[i]<=1)
+            XCTAssertEqual(actual[i],c.expected,accuracy:0.001,"Case \(i) point \(c.point), center \(c.center), reference \(c.oracle)")
+        }
+        #else
+        throw XCTSkip("Offline oracle fixture is a host-side numeric validation")
+        #endif
+    }
+}
