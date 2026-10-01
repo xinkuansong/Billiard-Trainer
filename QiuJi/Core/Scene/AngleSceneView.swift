@@ -1203,6 +1203,7 @@ class FrameDelegate: NSObject, SCNSceneRendererDelegate {
 final class DiagramLabelOverlay {
     #if DEBUG
     var renderCPUProbe: RenderCodeCPUProbe?
+    var usesReferenceLayoutBounds = false
     #endif
     private var labels: [UILabel] = []
     private let angleMark = CAShapeLayer()
@@ -1302,6 +1303,16 @@ final class DiagramLabelOverlay {
         let tangentB = projected(SCNVector3(g.ghost.x + uz*radius*4, g.ghost.y, g.ghost.z - ux*radius*4)) ?? ghost
         let lines = [(cue, rail), (pocket, back), (tangentA, tangentB)]
         let texts = ["\(Int(g.angle.rounded()))°", "瞄准线", "进球线"]
+        // All candidate checks share this viewport within one synchronous layout.
+        #if DEBUG
+        let layoutBounds = usesReferenceLayoutBounds ? nil : view.bounds.insetBy(dx: 6, dy: 6)
+        func containsLayoutRect(_ rect: CGRect) -> Bool {
+            (layoutBounds ?? view.bounds.insetBy(dx: 6, dy: 6)).contains(rect)
+        }
+        #else
+        let layoutBounds = view.bounds.insetBy(dx: 6, dy: 6)
+        func containsLayoutRect(_ rect: CGRect) -> Bool { layoutBounds.contains(rect) }
+        #endif
         var layouts: [[(Int, CGRect)]] = []
         for index in 0..<3 {
             let label = labels[index]
@@ -1384,7 +1395,7 @@ final class DiagramLabelOverlay {
                 let padded = rect.insetBy(dx: -3, dy: -3)
                 let corners = [CGPoint(x: padded.minX, y: padded.minY), CGPoint(x: padded.maxX, y: padded.minY),
                                CGPoint(x: padded.maxX, y: padded.maxY), CGPoint(x: padded.minX, y: padded.maxY)]
-                guard view.bounds.insetBy(dx: 6, dy: 6).contains(padded),
+                guard containsLayoutRect(padded),
                       corners.allSatisfy({ polygon.contains($0) }),
                       !occupied.contains(where: { $0.intersects(padded) }),
                       !lines.contains(where: { Self.segment($0.0, $0.1, intersects: rect.insetBy(dx: -1, dy: -1)) }),
@@ -1400,7 +1411,7 @@ final class DiagramLabelOverlay {
                     let rect = CGRect(x: center.x-size.width/2, y: center.y-size.height/2,
                                       width: size.width, height: size.height)
                     let padded = rect.insetBy(dx: -3, dy: -3)
-                    guard view.bounds.insetBy(dx: 6, dy: 6).contains(padded),
+                    guard containsLayoutRect(padded),
                           !tightBallObstacles.contains(where: { $0.intersects(rect) }),
                           !Self.segment(pocket, back, intersects: rect.insetBy(dx: -4, dy: -4)),
                           !Self.segment(cue, rail, intersects: rect.insetBy(dx: -1, dy: -1)) else { continue }

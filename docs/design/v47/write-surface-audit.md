@@ -168,3 +168,7 @@ DR-336 r2（2026-09-28）：AdaptiveShotControlsUITests截图目录改为`build/
 ## 2026-09-30 音效本地试听取证
 
 `ShotAudioPreviewUITests` 仅在仓库本地试听 manifest 存在时运行，向忽略目录 `output/shot-audio-preview-20260930/` 写两张 PNG；写失败抛出，复跑覆盖同任务截图，清理由本任务负责，不回写真源。测试使用模拟器的每日清台 fixture/resetState，会改其测试数据；不对用户真机执行这一 UI 测试。声音触发以同次运行系统日志另证，截图不代表主观听感。
+
+2026-10-02 `testRenderCodeLabelViewportExperiment` 使用既有标签夹具，显式模拟器 `build/render-code-optimization-20261001/s1-label-viewport/run-label` 门，写 `label-viewport-experiment.json` 及xcresult图像附件。仅复用同次同步布局的viewport边界；默认跳过，不写资源/用户数据。
+
+`testLabelViewportReuseMatchesReferencePixelsAcrossModesAndResize` 仅将三尺寸实际SceneKit底图与对应UILabel/CALayer合成图附xcresult；不写独立PNG或资源。24布局状态比较旧/新标签与RGBA字节，不代表真实整页或GPU帧率验收。

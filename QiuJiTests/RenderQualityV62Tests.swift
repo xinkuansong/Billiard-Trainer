@@ -8,6 +8,157 @@ import MetalKit
 @MainActor
 final class RenderQualityV62Tests: XCTestCase {
     #if DEBUG
+    func testRenderCodeLabelViewportExperiment() throws {
+        #if !targetEnvironment(simulator)
+        throw XCTSkip("Local simulator experiment")
+        #endif
+        let outputRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("build/render-code-optimization-20261001/s1-label-viewport")
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: outputRoot.appendingPathComponent("run-label").path),
+                          "Explicit label-viewport experiment required")
+        let scene = AngleTrainingScene()
+        scene.usesAdaptiveDiagramLabels = true
+        scene.setupScene(); scene.setupVisualizationNodes(); scene.hideAllBalls()
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 402, height: 650))
+        view.scene = scene; view.pointOfView = scene.cameraNode
+        let rig = try XCTUnwrap(scene.cameraRig)
+        rig.viewportSize = view.bounds.size
+        scene.setCameraMode(.topDown2DRotated, animated: false)
+        rig.snapToTarget()
+        rig.fitRotatedTable(viewSize: view.bounds.size); rig.applyTopDown2DRotated()
+        SCNTransaction.flush()
+        XCTAssertTrue(scene.cameraNode.camera?.usesOrthographicProjection == true)
+        // snapToTarget applies a perspective pose, so the 2D projection must follow it.
+        _ = view.snapshot()
+        let y = scene.surfaceY + AngleSceneCalculator.ballRadius
+        let target = SCNVector3(0.25, y, 0), pocket = SCNVector3(1.27, y, 0)
+        let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target, pocket: pocket,
+                                                          ballRadius: AngleSceneCalculator.ballRadius)
+        scene.showBall(key: "_8", scenePosition: target); scene.setCurrentTargetNumber(8)
+        func setAngle(_ degrees: Float) {
+            let angle = degrees * .pi / 180
+            let cue = SCNVector3(ghost.x - 0.65 * cosf(angle), y, ghost.z - 0.65 * sinf(angle))
+            scene.showBall(key: PositionPlayBall.cueKey, scenePosition: cue)
+            scene.updateVisualization(cueBall: cue, targetBall: target, pocket: pocket)
+            SCNTransaction.flush()
+        }
+        let overlay = DiagramLabelOverlay(), probe = RenderCodeCPUProbe()
+        overlay.renderCPUProbe = probe
+        setAngle(20); overlay.update(scene: scene, in: view)
+        XCTAssertEqual(view.subviews.compactMap { $0 as? UILabel }.filter { !$0.isHidden }.count, 3)
+        var runs: [[String: Any]] = []
+        for run in 1...3 {
+            for reference in [true, false, false, true] {
+                overlay.usesReferenceLayoutBounds = reference
+                let changing = true
+                setAngle(20); overlay.update(scene: scene, in: view)
+                for _ in 0..<100 { overlay.update(scene: scene, in: view) }
+                probe.reset()
+                for index in 0..<1_200 {
+                    if changing { setAngle(20 + Float(index + 1) / 1_200) }
+                    overlay.update(scene: scene, in: view)
+                }
+                let snapshot = probe.snapshot()
+                XCTAssertEqual(snapshot.dropped, 0)
+                XCTAssertEqual(snapshot.samples["labels"]?.count, 1_200)
+                XCTAssertEqual(view.subviews.compactMap { $0 as? UILabel }.filter { !$0.isHidden }.count, 3)
+                runs.append(["run": run, "reference": reference, "changingGeometry": changing,
+                             "samplesMS": snapshot.samples, "dropped": snapshot.dropped])
+            }
+        }
+        let attachment = XCTAttachment(image: view.snapshot())
+        attachment.name = "render-code-label-viewport-fixture"; attachment.lifetime = .keepAlways
+        add(attachment)
+        let output: [String: Any] = ["runs": runs, "os": ProcessInfo.processInfo.operatingSystemVersionString,
+            "scope": "Enabled 2D angle overlay only; direct calls; excludes visualization preparation and rendering"]
+        try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
+            .write(to: outputRoot.appendingPathComponent("label-viewport-experiment.json"))
+    }
+    func testLabelViewportReuseMatchesReferencePixelsAcrossModesAndResize() throws {
+        let scene = AngleTrainingScene(); scene.usesAdaptiveDiagramLabels = true
+        scene.setupScene(); scene.setupVisualizationNodes(); scene.hideAllBalls()
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
+        view.scene = scene; view.pointOfView = scene.cameraNode
+        let rig = try XCTUnwrap(scene.cameraRig)
+        let reference = DiagramLabelOverlay(), candidate = DiagramLabelOverlay()
+        reference.usesReferenceLayoutBounds = true
+        let y = scene.surfaceY + AngleSceneCalculator.ballRadius
+        let target = SCNVector3(0.25, y, 0), pocket = SCNVector3(1.27, y, 0)
+        let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target, pocket: pocket,
+                                                          ballRadius: AngleSceneCalculator.ballRadius)
+        scene.showBall(key: "_8", scenePosition: target); scene.setCurrentTargetNumber(8)
+        func pixels(_ image: UIImage) throws -> [UInt8] {
+            let cg = try XCTUnwrap(image.cgImage)
+            var bytes = [UInt8](repeating: 0, count: cg.width * cg.height * 4)
+            try bytes.withUnsafeMutableBytes { raw in
+                let context = try XCTUnwrap(CGContext(data: raw.baseAddress, width: cg.width, height: cg.height,
+                    bitsPerComponent: 8, bytesPerRow: cg.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                context.draw(cg, in: CGRect(x: 0, y: 0, width: cg.width, height: cg.height))
+            }
+            return bytes
+        }
+        var cases = 0
+        for size in [CGSize(width: 375, height: 667), CGSize(width: 402, height: 874),
+                     CGSize(width: 1024, height: 1366)] {
+            view.frame.size = size; view.layoutIfNeeded(); rig.viewportSize = size
+            for mode: AngleTrainingScene.CameraMode in [.topDown2DRotated, .perspective3D] {
+                scene.setCameraMode(mode, animated: false)
+                if mode == .perspective3D { XCTAssertTrue(rig.observeWholeTable()); rig.snapToTarget() }
+                else { rig.fitRotatedTable(viewSize: size); rig.applyTopDown2DRotated() }
+                SCNTransaction.flush(); _ = view.snapshot()
+                for degrees: Float in [5, 20, 60, 80] {
+                    let angle = degrees * .pi / 180
+                    let cue = SCNVector3(ghost.x - 0.65*cosf(angle), y, ghost.z - 0.65*sinf(angle))
+                    scene.showBall(key: PositionPlayBall.cueKey, scenePosition: cue)
+                    scene.updateVisualization(cueBall: cue, targetBall: target, pocket: pocket)
+                    SCNTransaction.flush()
+                    reference.update(scene: scene, in: view); candidate.update(scene: scene, in: view)
+                    let labels = view.subviews.compactMap { $0 as? UILabel }
+                        .filter { $0.accessibilityIdentifier?.hasPrefix("angleDiagram.label.") == true }
+                    XCTAssertEqual(labels.count, 6)
+                    for index in 0..<3 {
+                        XCTAssertEqual(labels[index].frame, labels[index+3].frame)
+                        XCTAssertEqual(labels[index].text, labels[index+3].text)
+                        XCTAssertEqual(labels[index].isHidden, labels[index+3].isHidden)
+                    }
+                    if mode == .topDown2DRotated && degrees == 20 {
+                        XCTAssertEqual(labels.prefix(3).filter { !$0.isHidden }.count, 3)
+                    }
+                    let arcs = (view.layer.sublayers ?? []).filter { $0.name == "angleDiagram.arc" }
+                    XCTAssertEqual(arcs.count, 2)
+                    // Use the same SceneKit image and draw each actual UIKit/CALayer
+                    // overlay separately: snapshot alone omits these labels.
+                    let background = view.snapshot()
+                    func composed(_ offset: Int) -> UIImage {
+                        let format = UIGraphicsImageRendererFormat(); format.scale = 1
+                        return UIGraphicsImageRenderer(size: size, format: format).image { context in
+                            background.draw(in: CGRect(origin: .zero, size: size))
+                            let arc = arcs[offset / 3]
+                            if !arc.isHidden { arc.render(in: context.cgContext) }
+                            for label in labels[offset..<offset+3] where !label.isHidden {
+                                context.cgContext.saveGState()
+                                context.cgContext.translateBy(x: label.frame.minX, y: label.frame.minY)
+                                label.layer.render(in: context.cgContext)
+                                context.cgContext.restoreGState()
+                            }
+                        }
+                    }
+                    let a = composed(0), b = composed(3), repeatA = composed(0)
+                    XCTAssertEqual(try pixels(a), try pixels(repeatA), "Reference overlay must be stable")
+                    XCTAssertEqual(try pixels(a), try pixels(b), "Same input must preserve every RGBA byte")
+                    if mode == .topDown2DRotated && degrees == 20 {
+                        let attachment = XCTAttachment(image: b)
+                        attachment.name = "label-viewport-\(Int(size.width))-composed"
+                        attachment.lifetime = .keepAlways; add(attachment)
+                    }
+                    cases += 1
+                }
+            }
+        }
+        XCTAssertEqual(cases, 24)
+    }
+
     func testRenderCodeImmutablePayloadExperiment() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("build/render-code-optimization-20261001/simulator-20261002")
