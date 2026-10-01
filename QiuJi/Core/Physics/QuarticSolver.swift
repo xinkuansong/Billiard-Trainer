@@ -162,6 +162,56 @@ struct QuarticSolver {
         return removeDuplicates(roots.sorted(), tolerance: 1e-8)
     }
     
+    /// Isolate real roots on a finite physical time window. Derivative roots split
+    /// the normalized interval into monotone pieces, including repeated roots.
+    /// This entry point is used by arc CCD; ball-pair Ferrari behavior is unchanged.
+    static func boundedRealRoots(coefficients: [Double], maxTime: Double) -> [Double] {
+        guard maxTime.isFinite, maxTime > 0, coefficients.allSatisfy({ $0.isFinite }) else { return [] }
+        var power = 1.0
+        let scaled = coefficients.reversed().map { c -> Double in
+            defer { power *= maxTime }
+            return c * power
+        }.reversed()
+        func isolate(_ input: [Double]) -> [Double] {
+            var c = input
+            while c.count > 1 && c[0] == 0 { c.removeFirst() }
+            guard c.count > 1, let scale = c.map({ abs($0) }).max(), scale > 0 else { return [] }
+            c = c.map { $0 / scale }
+            let degree = c.count - 1
+            if degree == 1 {
+                let root = -c[1] / c[0]
+                return root >= 0 && root <= 1 ? [root] : []
+            }
+            func value(_ x: Double) -> Double { c.reduce(0) { $0 * x + $1 } }
+            func tolerance(_ x: Double) -> Double {
+                32 * Double.ulpOfOne * c.reduce(0) { $0 * abs(x) + abs($1) }
+            }
+            let derivative = (0..<degree).map { c[$0] * Double(degree - $0) }
+            let knots = [0.0] + isolate(derivative).filter { $0 > 0 && $0 < 1 } + [1.0]
+            var roots = knots.filter { abs(value($0)) <= tolerance($0) }
+            for i in 0..<(knots.count - 1) {
+                var lo = knots[i], hi = knots[i + 1], fLo = value(lo)
+                let fHi = value(hi)
+                guard fLo != 0, fHi != 0, (fLo < 0) != (fHi < 0) else { continue }
+                // Retain the bracket even if a Newton seed would cross a turning point.
+                for _ in 0..<80 {
+                    let mid = lo + (hi - lo) / 2
+                    if mid == lo || mid == hi { break }
+                    let f = value(mid)
+                    if f == 0 { lo = mid; hi = mid; break }
+                    if (f < 0) == (fLo < 0) { lo = mid; fLo = f } else { hi = mid }
+                }
+                roots.append(lo + (hi - lo) / 2)
+            }
+            return roots.sorted().reduce(into: []) { result, root in
+                if result.last.map({ abs(root - $0) <= 8 * Double.ulpOfOne * max(abs(root), abs($0)) }) != true {
+                    result.append(root)
+                }
+            }
+        }
+        return isolate(Array(scaled)).map { $0 * maxTime }
+    }
+
     // MARK: - Helper Methods (internal use + exposed for degenerate-case callers)
 
     /// Solve quadratic equation: ax^2 + bx + c = 0

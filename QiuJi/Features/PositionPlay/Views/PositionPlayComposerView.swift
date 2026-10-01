@@ -117,7 +117,7 @@ struct PositionPlayComposerView: View {
                     title: navTitleText,
                     isBusy: vm.isComputing,
                     statusText: vm.breakRunner?.statusText(isPerspective: is3D)
-                        ?? (vm.isComputing ? "求解中…" : vm.statusText)
+                        ?? (vm.isSequenceMode || vm.isPlaying ? vm.statusText : vm.aimSelectionLabel)
                 )
             }
             ToolbarItem(placement: .topBarTrailing) { cameraToggle }
@@ -150,6 +150,7 @@ struct PositionPlayComposerView: View {
             Button("清空并重来", role: .destructive) { vm.resetAll() }
         }
         .onAppear {
+            vm.usesAutomaticPocketFallback = true
             if !hasAppeared {
                 hasAppeared = true
                 vm.setupScene()
@@ -166,13 +167,13 @@ struct PositionPlayComposerView: View {
                         vm.configureSequence(steps)
                         vm.enterSequenceMode()
                     } else {
-                        vm.aimMode = initialMode ?? .free
+                        vm.setPreferredAimMode(initialMode ?? .free)
                     }
                     withAnimation(BTMotion.easeChrome.delay(0.1)) { stageRevealed = true }
                     withAnimation(.easeInOut(duration: 0.35).delay(0.6)) { showBrief = true }
                 } else {
                     if let initialBoard { vm.loadBoard(initialBoard) }
-                    if let initialMode { vm.aimMode = initialMode }
+                    if let initialMode { vm.setPreferredAimMode(initialMode) }
                 }
             }
         }
@@ -638,11 +639,11 @@ struct PositionPlayComposerView: View {
         case .pocket:
             vm.exitSequenceMode()
             if let tryoutBoard { vm.loadBoard(tryoutBoard) }
-            vm.aimMode = .pocket
+            vm.setPreferredAimMode(.pocket)
         case .free:
             vm.exitSequenceMode()
             if let tryoutBoard { vm.loadBoard(tryoutBoard) }
-            vm.aimMode = .free
+            vm.setPreferredAimMode(.free)
         }
     }
 

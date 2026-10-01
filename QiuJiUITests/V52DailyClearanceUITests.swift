@@ -1623,3 +1623,366 @@ extension V52DailyClearanceUITests {
         }
     }
 }
+
+extension V52DailyClearanceUITests {
+    func testRerackReturns3DToGlobalCamera() throws {
+        XCUIDevice.shared.orientation = .landscapeRight
+        for preset in ["shotCamera.thirdPerson", "shotCamera.firstPerson"] {
+            let app = launch(["-dailyClearance.fixture=selection", "-v63.cameraDiagnostics"])
+            let mode = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 20))
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate { _, _ in
+                mode.value as? String == "2D" && app.buttons["paletteBall__1"].isEnabled
+            }, evaluatedWith: nil)], timeout: 10), .completed)
+            mode.tap()
+            settleDailyCamera(app)
+            let player = app.buttons[preset]
+            player.tap()
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "value == %@", "已选中"),
+                evaluatedWith: player)], timeout: 5), .completed)
+            settleDailyCamera(app)
+            try captureDailyCamera(app, name: "rerack-\(preset)-before")
+
+            app.buttons["break.entry"].tap()
+            app.buttons["dailyClearance.confirmBreak"].tap()
+            XCTAssertEqual(player.value as? String, "已选中", "取消重开应保留当前视角")
+            app.buttons["break.entry"].tap()
+            app.buttons["dailyClearance.rerackAfterBreak"].tap()
+            settleDailyCamera(app)
+            try captureDailyCamera(app, name: "rerack-\(preset)-after")
+            XCTAssertEqual(mode.value as? String, "3D")
+            XCTAssertEqual(app.buttons["dailyClearance.observeTable"].value as? String, "已选中")
+            XCTAssertEqual(cameraDiagnosticNumber("elevation", app: app) * 180 / .pi, 35, accuracy: 0.05)
+            XCTAssertFalse(app.buttons["dailyClearance.confirmBreak"].exists)
+
+            // A second rack while already waiting to break uses the same reset path.
+            app.buttons["shotCamera.firstPerson"].tap()
+            settleDailyCamera(app)
+            app.buttons["break.entry"].tap()
+            app.buttons["dailyClearance.rerackAfterBreak"].tap()
+            settleDailyCamera(app)
+            XCTAssertEqual(app.buttons["dailyClearance.observeTable"].value as? String, "已选中")
+            mode.tap()
+            app.buttons["break.entry"].tap()
+            app.buttons["dailyClearance.rerackAfterBreak"].tap()
+            XCTAssertEqual(mode.value as? String, "2D", "2D 重开不应强切到 3D")
+            app.terminate()
+        }
+    }
+
+    private func cameraDiagnosticNumber(_ name: String, app: XCUIApplication) -> Double {
+        let text = app.descendants(matching: .any)["v63.cameraDiagnostics"].firstMatch.value as? String ?? ""
+        return Double(text.components(separatedBy: "\(name)=").last?.components(separatedBy: " ").first ?? "") ?? -1
+    }
+
+    private func settleDailyCamera(_ app: XCUIApplication) {
+        let strike = app.buttons["dailyClearance.strike"]
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"),
+            evaluatedWith: strike)], timeout: 30), .completed)
+        Thread.sleep(forTimeInterval: 1.5)
+    }
+
+    private func captureDailyCamera(_ app: XCUIApplication, name: String) throws {
+        snap(app, name)
+        let text = app.descendants(matching: .any)["v63.cameraDiagnostics"].firstMatch.value as? String ?? ""
+        try text.write(to: outDir.appendingPathComponent(name + ".txt"), atomically: true, encoding: .utf8)
+    }
+
+    func testCaptureDailyOverviewAngleComparison() throws {
+        XCUIDevice.shared.orientation = .landscapeRight
+        var referenceYaw: Double?
+        for degrees in [45, 40, 35, 30] {
+            let app = launch(["-dailyClearance.fixture=selection", "-v63.cameraDiagnostics",
+                              "-dailyClearance.overviewAngle=\(degrees)"])
+            let mode = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 20))
+            mode.tap()
+            settleDailyCamera(app)
+            let overview = app.buttons["dailyClearance.observeTable"]
+            XCTAssertTrue(overview.isEnabled)
+            overview.tap()
+            settleDailyCamera(app)
+            let text = app.descendants(matching: .any)["v63.cameraDiagnostics"].firstMatch.value as? String ?? ""
+            XCTAssertEqual(cameraDiagnosticNumber("elevation", app: app) * 180 / .pi,
+                           Double(degrees), accuracy: 0.05)
+            let yaw = cameraDiagnosticNumber("yaw", app: app)
+            if let referenceYaw {
+                XCTAssertEqual(atan2(sin(yaw-referenceYaw),cos(yaw-referenceYaw)), 0, accuracy: 0.001)
+            } else { referenceYaw = yaw }
+            let viewportRegex = try NSRegularExpression(pattern: #"viewport=\(([0-9.]+),\s*([0-9.]+)\)"#)
+            let match = try XCTUnwrap(viewportRegex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)))
+            let width = try XCTUnwrap(Double(text[Range(match.range(at: 1), in: text)!]))
+            let height = try XCTUnwrap(Double(text[Range(match.range(at: 2), in: text)!]))
+            XCTAssertGreaterThan(width, height, "Comparison uses the same landscape viewport")
+            let corners = text.components(separatedBy: "corners=").last?.components(separatedBy: " pivot=").first ?? ""
+            let cornerRegex = try NSRegularExpression(pattern: #"x: ([^,]+), y: ([^,]+), z: ([^)]+)"#)
+            let points = cornerRegex.matches(in: corners, range: NSRange(corners.startIndex..., in: corners))
+            XCTAssertEqual(points.count, 4)
+            for point in points {
+                let x = try XCTUnwrap(Double(corners[Range(point.range(at: 1), in: corners)!]))
+                let y = try XCTUnwrap(Double(corners[Range(point.range(at: 2), in: corners)!]))
+                let z = try XCTUnwrap(Double(corners[Range(point.range(at: 3), in: corners)!]))
+                XCTAssertTrue((0...width).contains(x) && (0...height).contains(y) && (0...1).contains(z),
+                              "Each angle refits the complete table: \(corners)")
+            }
+            XCTAssertEqual(app.buttons["paletteBall__1"].value as? String, "本轮可击打")
+            try captureDailyCamera(app, name: "overview-angle-\(degrees)")
+            app.terminate()
+        }
+    }
+
+    func testDailyObservationRequestResetsZoomAndElevation() throws {
+        XCUIDevice.shared.orientation = .landscapeRight
+        let app = launch(["-dailyClearance.fixture=selection", "-v63.cameraDiagnostics"])
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 20)); mode.tap()
+        settleDailyCamera(app)
+        let observation = app.buttons["shotCamera.thirdPerson"]
+        observation.tap(); settleDailyCamera(app)
+        let standardDistance = cameraDiagnosticNumber("distance", app: app)
+        let standardFOV = cameraDiagnosticNumber("fov", app: app)
+        let standardElevation = cameraDiagnosticNumber("elevation", app: app)
+        let standardPitch = cameraDiagnosticNumber("pitch", app: app)
+        XCTAssertGreaterThan(standardDistance, 0)
+        try captureDailyCamera(app, name: "observation-reset-standard")
+        let stage = app.descendants(matching: .any)["freeplay.stage"].firstMatch
+        stage.pinch(withScale: 2, velocity: 1); settleDailyCamera(app)
+        stage.coordinate(withNormalizedOffset: CGVector(dx: 0.40, dy: 0.18))
+            .press(forDuration: 0.1, thenDragTo: stage.coordinate(withNormalizedOffset: CGVector(dx: 0.40, dy: 0.38)))
+        settleDailyCamera(app)
+        XCTAssertLessThan(cameraDiagnosticNumber("fov", app: app), standardFOV - 0.5)
+        XCTAssertGreaterThan(abs(cameraDiagnosticNumber("pitch", app: app)-standardPitch), 0.01)
+        try captureDailyCamera(app, name: "observation-reset-manual")
+        observation.tap(); settleDailyCamera(app)
+        XCTAssertEqual(cameraDiagnosticNumber("distance", app: app), standardDistance, accuracy: 0.005)
+        XCTAssertEqual(cameraDiagnosticNumber("fov", app: app), standardFOV, accuracy: 0.02)
+        XCTAssertEqual(cameraDiagnosticNumber("elevation", app: app), standardElevation, accuracy: 0.002)
+        try captureDailyCamera(app, name: "observation-reset-again")
+    }
+
+    func testDailyObservationRequestResetsAfterCompletedShot() throws {
+        XCUIDevice.shared.orientation = .landscapeRight
+        let app = launch(["-dailyClearance.fixture=selection", "-v63.cameraDiagnostics"])
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 20)); mode.tap()
+        settleDailyCamera(app)
+        let observation = app.buttons["shotCamera.thirdPerson"]
+        observation.tap(); settleDailyCamera(app)
+        let normalFOV = cameraDiagnosticNumber("fov", app: app)
+        let stage = app.descendants(matching: .any)["freeplay.stage"].firstMatch
+        stage.pinch(withScale: 2, velocity: 1); settleDailyCamera(app)
+        stage.coordinate(withNormalizedOffset: CGVector(dx: 0.40, dy: 0.18))
+            .press(forDuration: 0.1, thenDragTo: stage.coordinate(withNormalizedOffset: CGVector(dx: 0.40, dy: 0.38)))
+        settleDailyCamera(app)
+        let manualPitch = cameraDiagnosticNumber("pitch", app: app)
+        XCTAssertLessThan(cameraDiagnosticNumber("fov", app: app), normalFOV - 0.5)
+        try captureDailyCamera(app, name: "observation-post-shot-manual-before-strike")
+        app.buttons["dailyClearance.strike"].tap()
+        let undo = app.buttons["dailyClearance.undo"]
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"),
+            evaluatedWith: undo)], timeout: 60), .completed)
+        let hud = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+        XCTAssertNotNil((hud.value as? String ?? "").range(of: #"1\s*杆"#, options: .regularExpression))
+        XCTAssertTrue(observation.isEnabled, "The selection fixture must leave another legal shot after settlement")
+        settleDailyCamera(app)
+        try captureDailyCamera(app, name: "observation-post-shot-settled")
+        observation.tap(); settleDailyCamera(app)
+        let distance = cameraDiagnosticNumber("distance", app: app)
+        let fov = cameraDiagnosticNumber("fov", app: app)
+        let elevation = cameraDiagnosticNumber("elevation", app: app)
+        XCTAssertGreaterThanOrEqual(fov, 35.6, "A new ball layout gets its own standard wide lens")
+        XCTAssertGreaterThan(abs(cameraDiagnosticNumber("pitch", app: app)-manualPitch), 0.01,
+                             "A fresh observation request resets the pre-shot manual gaze angle")
+        try captureDailyCamera(app, name: "observation-post-shot-reset")
+        observation.tap(); settleDailyCamera(app)
+        XCTAssertEqual(cameraDiagnosticNumber("distance", app: app), distance, accuracy: 0.005)
+        XCTAssertEqual(cameraDiagnosticNumber("fov", app: app), fov, accuracy: 0.02)
+        XCTAssertEqual(cameraDiagnosticNumber("elevation", app: app), elevation, accuracy: 0.002)
+        try captureDailyCamera(app, name: "observation-post-shot-reset-again")
+    }
+
+    func testDailyOverviewAndObservationZoomRespectSeparateFarLimits() throws {
+        XCUIDevice.shared.orientation = .landscapeRight
+        let app = launch(["-dailyClearance.fixture=selection", "-v63.cameraDiagnostics"])
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout:15)); mode.tap()
+        let stage = app.descendants(matching:.any)["freeplay.stage"].firstMatch
+        let diagnostics = app.descendants(matching:.any)["v63.cameraDiagnostics"].firstMatch
+        func settled() {
+            let strike = app.buttons["dailyClearance.strike"]
+            XCTAssertEqual(XCTWaiter.wait(for:[expectation(for:NSPredicate(format:"enabled == true"), evaluatedWith:strike)],timeout:30),.completed)
+            Thread.sleep(forTimeInterval:1.2)
+        }
+        func value() -> String { diagnostics.value as? String ?? "" }
+        func field(_ name:String) -> Double {
+            Double(value().components(separatedBy:"\(name)=").last?.components(separatedBy:" ").first ?? "") ?? -1
+        }
+        func pivot() -> String {
+            value().components(separatedBy:"pivot=").last?.components(separatedBy:" yaw=").first ?? ""
+        }
+        func tableScale() throws -> Double {
+            let corners = value().components(separatedBy:"corners=").last?.components(separatedBy:" pivot=").first ?? ""
+            let regex = try NSRegularExpression(pattern:#"x: ([^,]+), y: ([^,]+), z:"#)
+            let points = regex.matches(in:corners,range:NSRange(corners.startIndex...,in:corners)).map { match -> (Double,Double) in
+                let x = Range(match.range(at:1),in:corners)!, y = Range(match.range(at:2),in:corners)!
+                return (Double(corners[x])!,Double(corners[y])!)
+            }
+            XCTAssertEqual(points.count,4)
+            let viewportRegex = try NSRegularExpression(pattern:#"viewport=\(([0-9.]+),\s*([0-9.]+)\)"#)
+            let text = value()
+            let match = try XCTUnwrap(viewportRegex.firstMatch(in:text,range:NSRange(text.startIndex...,in:text)))
+            let width = Double(text[Range(match.range(at:1),in:text)!])!
+            let height = Double(text[Range(match.range(at:2),in:text)!])!
+            guard points.count == 4 else { return -1 }
+            return max((points.map { $0.0 }.max()! - points.map { $0.0 }.min()!)/width,
+                       (points.map { $0.1 }.max()! - points.map { $0.1 }.min()!)/height)
+        }
+        func capture(_ name:String) throws {
+            snap(app,name)
+            try value().write(to:outDir.appendingPathComponent(name+".txt"),atomically:true,encoding:.utf8)
+        }
+        settled()
+        app.buttons["dailyClearance.observeTable"].tap(); settled()
+        let defaultScale = try tableScale()
+        try capture("zoom-global-default")
+        stage.pinch(withScale:0.1,velocity:-1); settled()
+        stage.pinch(withScale:0.1,velocity:-1); settled()
+        let minimumScale = try tableScale()
+        // Verify the global bound using the actual visible table span.
+        XCTAssertLessThan(minimumScale,defaultScale)
+        XCTAssertGreaterThan(minimumScale/defaultScale,0.8)
+        try capture("zoom-global-far")
+        app.buttons["shotCamera.thirdPerson"].tap(); settled()
+        let subject = pivot(), yaw = field("yaw"), distance = field("distance")
+        try capture("zoom-observer-initial")
+        stage.pinch(withScale:0.95,velocity:-1); settled()
+        XCTAssertLessThanOrEqual(field("distance")/distance,1.15,"A small shrink cannot refit to a tiny whole table")
+        XCTAssertEqual(pivot(),subject)
+        XCTAssertEqual(atan2(sin(field("yaw")-yaw),cos(field("yaw")-yaw)),0,accuracy:0.005)
+        try capture("zoom-observer-small-shrink")
+        stage.pinch(withScale:0.1,velocity:-1); settled()
+        stage.pinch(withScale:0.1,velocity:-1); settled()
+        XCTAssertEqual(pivot(),subject)
+        XCTAssertEqual(atan2(sin(field("yaw")-yaw),cos(field("yaw")-yaw)),0,accuracy:0.005)
+        XCTAssertEqual(field("distance")/distance,1.15,accuracy:0.01,
+                       "Observation shrinks only 15% beyond its own standard distance")
+        try capture("zoom-observer-far")
+        let farDistance = field("distance")
+        stage.pinch(withScale:0.2,velocity:-1); settled()
+        XCTAssertEqual(field("distance"),farDistance,accuracy:0.002)
+        mode.tap(); mode.tap(); settled()
+        XCTAssertEqual(field("distance"),farDistance,accuracy:0.002)
+        XCTAssertEqual(pivot(),subject)
+        try capture("zoom-observer-far-restored")
+    }
+}
+
+
+extension V52DailyClearanceUITests {
+    /// Screenshots use production Daily camera poses; the DEBUG argument only places balls.
+    func testCaptureDailyObservationFormationMatrix() throws {
+        XCUIDevice.shared.orientation = .landscapeRight
+        for scenario in 0..<4 {
+            let app = launch(["-dailyClearance.fixture=progress", "-v63.cameraDiagnostics",
+                              "-dailyClearance.cameraScenario=\(scenario)"])
+            XCTAssertTrue(app.buttons["shotCamera.thirdPerson"].waitForExistence(timeout:30))
+            settleDailyCamera(app)
+            let observation = app.buttons["shotCamera.thirdPerson"]
+            observation.tap(); settleDailyCamera(app)
+            try captureDailyCamera(app,name:"formation-\(scenario)-standard")
+            let stage = app.descendants(matching:.any)["freeplay.stage"].firstMatch
+            stage.pinch(withScale:0.1,velocity:-1); settleDailyCamera(app)
+            try captureDailyCamera(app,name:"formation-\(scenario)-far")
+            observation.tap(); settleDailyCamera(app)
+            stage.pinch(withScale:2,velocity:1); settleDailyCamera(app)
+            try captureDailyCamera(app,name:"formation-\(scenario)-near")
+            observation.tap(); settleDailyCamera(app)
+            stage.coordinate(withNormalizedOffset:CGVector(dx:0.40,dy:0.40))
+                .press(forDuration:0.1,thenDragTo:stage.coordinate(withNormalizedOffset:CGVector(dx:0.40,dy:0.10)))
+            settleDailyCamera(app)
+            try captureDailyCamera(app,name:"formation-\(scenario)-vertical-one")
+            observation.tap(); settleDailyCamera(app)
+            stage.coordinate(withNormalizedOffset:CGVector(dx:0.40,dy:0.10))
+                .press(forDuration:0.1,thenDragTo:stage.coordinate(withNormalizedOffset:CGVector(dx:0.40,dy:0.40)))
+            settleDailyCamera(app)
+            try captureDailyCamera(app,name:"formation-\(scenario)-vertical-two")
+            observation.tap(); settleDailyCamera(app)
+            try captureDailyCamera(app,name:"formation-\(scenario)-reset")
+            app.buttons["dailyClearance.observeTable"].tap(); settleDailyCamera(app)
+            XCTAssertEqual(cameraDiagnosticNumber("elevation",app:app)*180 / .pi,35,accuracy:0.05,
+                           "Production default overview is the user-selected 35 degrees")
+            try captureDailyCamera(app,name:"formation-\(scenario)-global-35")
+            app.terminate()
+        }
+    }
+}
+
+
+extension V52DailyClearanceUITests {
+    private func assertDailyShotSubjectsVisible(_ app: XCUIApplication) throws {
+        let text = app.descendants(matching: .any)["v63.cameraDiagnostics"].firstMatch.value as? String ?? ""
+        func numbers(_ pattern: String) throws -> [Double] {
+            let regex = try NSRegularExpression(pattern: pattern)
+            let match = try XCTUnwrap(regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)))
+            return try (1..<match.numberOfRanges).map {
+                try XCTUnwrap(Double(text[Range(match.range(at: $0), in: text)!]))
+            }
+        }
+        let viewport = try numbers(#"viewport=\(([0-9.]+),\s*([0-9.]+)\)"#)
+        let pocket = try numbers(#"pocketScreen=SCNVector3\(x: ([^,]+), y: ([^,]+), z: ([^)]+)\)"#)
+        let cue = try numbers(#"ball_cueBall=([^,]+),([^,]+),([^ ]+)"#)
+        let target = try numbers(#"ball__1=([^,]+),([^,]+),([^ ]+)"#)
+        for point in [cue, target, pocket] {
+            XCTAssertTrue((viewport[0]*0.175...viewport[0]*0.825).contains(point[0])
+                          && (viewport[1]*0.175...viewport[1]*0.825).contains(point[1])
+                          && (0...1).contains(point[2]), "Shot subject must clear HUD: \(text)")
+        }
+        XCTAssertGreaterThan(cameraDiagnosticNumber("fov", app: app), 35,
+                             "Observation retains its wider normal lens")
+    }
+
+    func testCaptureDailyObservationTwelveStandardAndFarFormations() throws {
+        XCUIDevice.shared.orientation = .landscapeRight
+        for scenario in 0..<12 {
+            let app = launch(["-dailyClearance.fixture=progress", "-v63.cameraDiagnostics",
+                              "-dailyClearance.cameraScenario=\(scenario)"])
+            XCTAssertTrue(app.buttons["shotCamera.thirdPerson"].waitForExistence(timeout:30))
+            settleDailyCamera(app)
+            app.buttons["shotCamera.thirdPerson"].tap(); settleDailyCamera(app)
+            try assertDailyShotSubjectsVisible(app)
+            try captureDailyCamera(app,name:"formation-\(scenario)-standard")
+            let stage = app.descendants(matching:.any)["freeplay.stage"].firstMatch
+            stage.pinch(withScale:0.1,velocity:-1); settleDailyCamera(app)
+            try assertDailyShotSubjectsVisible(app)
+            try captureDailyCamera(app,name:"formation-\(scenario)-far")
+            app.terminate()
+        }
+    }
+}
+
+extension V52DailyClearanceUITests {
+    /// Geometric counterexamples supplement ordinary screenshots; use the actual shot solver.
+    func testCaptureDailyObservationCounterexamples() throws {
+        XCUIDevice.shared.orientation = .landscapeRight
+        for scenario in [12,13] {
+            let app = launch(["-dailyClearance.fixture=progress", "-v63.cameraDiagnostics",
+                              "-dailyClearance.cameraScenario=\(scenario)"])
+            XCTAssertTrue(app.buttons["shotCamera.thirdPerson"].waitForExistence(timeout:30))
+            settleDailyCamera(app)
+            let observation = app.buttons["shotCamera.thirdPerson"]
+            observation.tap(); settleDailyCamera(app)
+            try assertDailyShotSubjectsVisible(app)
+            try captureDailyCamera(app,name:"formation-\(scenario)-standard")
+            let stage = app.descendants(matching:.any)["freeplay.stage"].firstMatch
+            stage.pinch(withScale:0.1,velocity:-1); settleDailyCamera(app)
+            try assertDailyShotSubjectsVisible(app)
+            try captureDailyCamera(app,name:"formation-\(scenario)-far")
+            observation.tap(); settleDailyCamera(app)
+            stage.coordinate(withNormalizedOffset:CGVector(dx:0.40,dy:0.10))
+                .press(forDuration:0.1,thenDragTo:stage.coordinate(withNormalizedOffset:CGVector(dx:0.40,dy:0.40)))
+            settleDailyCamera(app)
+            try captureDailyCamera(app,name:"formation-\(scenario)-vertical-two")
+            app.terminate()
+        }
+    }
+}

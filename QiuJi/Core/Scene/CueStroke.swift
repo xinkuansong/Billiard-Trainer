@@ -238,13 +238,15 @@ extension AngleTrainingScene {
         stickNode.runAction(.sequence([toContact, launch] + postContact), forKey: "strokeAnim")
     }
 
-    /// Called only after a host has accepted the current shot's contact callback.
+    /// The host chooses the accepted shot's contact, capture, or settlement boundary.
+    /// A delayed transition uses the shot's original cue position, not its moving ball.
     @discardableResult
-    func transitionPlayerCameraForShot(aim: SCNVector3) -> Bool {
+    func transitionPlayerCameraForShot(aim: SCNVector3, from cuePosition: SCNVector3? = nil) -> Bool {
         guard currentCameraMode == .perspective3D,
               let rig = cameraRig, rig.usesRailCameraControls, rig.playerView == .firstPerson,
-              let cue = cueBallNode, rig.isPlayerViewFor(cue: cue.position, aim: aim) else { return false }
-        return rig.enterPlayerView(.thirdPerson, cue: cue.position, aim: aim,
+              let cue = cuePosition ?? cueBallNode?.position,
+              rig.isPlayerViewFor(cue: cue, aim: aim) else { return false }
+        return rig.enterPlayerView(.thirdPerson, cue: cue, aim: aim,
             duration: UIAccessibility.isReduceMotionEnabled ? 0.1 : 0.95)
     }
 

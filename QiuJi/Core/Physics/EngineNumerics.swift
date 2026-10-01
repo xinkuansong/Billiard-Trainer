@@ -13,8 +13,7 @@
 //  - 回退碰撞检测（quartic 漏检兜底）：`shouldRunFallbackBallBallCheck` / `fallbackBallBallCollisionTime`
 //  - 求根：`smallestPositiveRoot`
 //
-//  行为与原 `EventDrivenEngine` 私有方法**逐字一致**——本次仅做位置迁移 + 命名空间化，
-//  不改任何数值或逻辑。
+//  数值辅助为引擎与解析消费者共享；接触分离同时遵守有限库边几何。
 //
 
 import SceneKit
@@ -83,6 +82,66 @@ enum EngineNumerics {
             }
         }
         return max(cap, floorDt)
+    }
+
+    struct PlanarIntrusion {
+        let normal: SCNVector3
+        let depth: Float
+    }
+
+    /// Finite solid boundaries in the shared planar model (SceneKit meters, X–Z).
+    /// A pocket's actual support/capture region supersedes the bed-plane constraint.
+    /// Infinite rectangle extensions must never close a pocket mouth.
+    static func planarIntrusions(position p: SCNVector3, geometry: TableGeometry) -> [PlanarIntrusion] {
+        guard !geometry.pockets.contains(where: { $0.containsCapture(p) }) else { return [] }
+        var result: [PlanarIntrusion] = []
+        let r = BallPhysics.radius
+        for (index, line) in geometry.linearCushions.prefix(14).enumerated() {
+            let d = line.end - line.start
+            let length2 = d.x * d.x + d.z * d.z
+            guard length2 > 0 else { continue }
+            let t = ((p.x - line.start.x) * d.x + (p.z - line.start.z) * d.z) / length2
+            guard t >= 0 && t <= 1 else { continue }
+            // Corner long-jaw legacy normals face the cushion's back. Use the
+            // real pocket-channel side for finite solid validation, not its
+            // infinite extension into the playing bed.
+            let inward = index >= 6 && index % 2 == 0 ? -line.normal : line.normal
+            let depth = r - (p - line.start).dot(inward)
+            if depth > 0 { result.append(.init(normal: inward, depth: depth)) }
+        }
+        for arc in geometry.circularCushions {
+            let dx = p.x - arc.center.x, dz = p.z - arc.center.z
+            let distance = hypotf(dx, dz)
+            guard distance > 0, arc.isAngleInRange(atan2f(dz, dx)) else { continue }
+            let depth = arc.radius + r - distance
+            if depth > 0 { result.append(.init(normal: SCNVector3(dx / distance, 0, dz / distance), depth: depth)) }
+        }
+        return result
+    }
+
+    /// Geometric contact separation is a joint feasibility problem: projection
+    /// onto a finite rail transfers the remaining ball-pair displacement to the
+    /// free ball on later iterations. This changes positions, never impulses.
+    static func constrainPairSeparation(_ a: inout BallState, _ b: inout BallState,
+                                       geometry: TableGeometry, iterations: Int = 24) {
+        let target = 2 * BallPhysics.radius + 3e-5
+        for _ in 0..<iterations {
+            let delta = b.position - a.position, distance = hypotf(delta.x, delta.z)
+            if distance < 2 * BallPhysics.radius {
+                let n = distance > 1e-6 ? SCNVector3(delta.x / distance, 0, delta.z / distance) : SCNVector3(1, 0, 0)
+                let move = n * ((target - distance) / 2)
+                a.position = a.position - move; b.position = b.position + move
+            }
+            for hit in planarIntrusions(position: a.position, geometry: geometry) {
+                a.position = a.position + hit.normal * (hit.depth + 1e-6)
+            }
+            for hit in planarIntrusions(position: b.position, geometry: geometry) {
+                b.position = b.position + hit.normal * (hit.depth + 1e-6)
+            }
+            if (b.position - a.position).length() >= 2 * BallPhysics.radius,
+               planarIntrusions(position: a.position, geometry: geometry).isEmpty,
+               planarIntrusions(position: b.position, geometry: geometry).isEmpty { break }
+        }
     }
 
     // MARK: - 运动学
@@ -262,7 +321,7 @@ enum EngineNumerics {
             let dz = state.position.z - arc.center.z
             let distToCenter = sqrtf(dx * dx + dz * dz)
             // Ball surface should be at arc.radius + BallPhysics.radius from arc center.
-            let correction = BallPhysics.radius + arc.radius - distToCenter - spacer
+            let correction = BallPhysics.radius + arc.radius - distToCenter + spacer
             if correction > -spacer {
                 let outward = normal  // arc normal already points away from arc center toward ball
                 state.position = state.position + outward * correction
@@ -297,7 +356,12 @@ enum EngineNumerics {
                 resolvedNormal = normal
             }
         } else {
-            resolvedNormal = normal
+            if cushionIndex >= 0, cushionIndex < linearCount,
+               geometry.linearCushions[cushionIndex].soundSurface == .jaw {
+                let wall = geometry.linearCushions[cushionIndex]
+                resolvedNormal = (state.position - wall.start).dot(wall.normal) >= 0
+                    ? wall.normal : -wall.normal
+            } else { resolvedNormal = normal }
             if cushionIndex >= 0, cushionIndex < linearCount,
                let e = geometry.linearCushions[cushionIndex].restitution {
                 restitution = e

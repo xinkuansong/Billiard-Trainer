@@ -4552,6 +4552,284 @@ extension AngleAimingVideoCaptureTests {
 final class DailyShotCameraTests: XCTestCase {
     let viewport = CGSize(width: 874, height: 402)
 
+    private var coverageAuditDirectory: URL {
+        URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/daily-camera-coverage-audit-20261001")
+    }
+
+    private struct CoverageMeasurement: Codable {
+        let outsideViewportCenters: Int
+        let outsideSafeCenters: Int
+        let outsideSafeSurfaceSamples: Int
+        let cueDiameterPoints: Float
+        let targetDiameterPoints: Float
+        let pitchDegrees: Double
+        let fov: Double
+        let eye: [Float]
+        let screenCenters: [[Float]]
+    }
+
+    private struct CoverageRow: Codable {
+        var sequence = ""
+        var fixture = -1
+        var measurements: [String: CoverageMeasurement] = [:]
+        var scalars: [String: Double] = [:]
+        var vectors: [String: [Float]] = [:]
+    }
+
+    private func writeCoverageAudit<T: Encodable>(_ value: T, name: String) throws {
+        try FileManager.default.createDirectory(at: coverageAuditDirectory, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(value).write(to: coverageAuditDirectory.appendingPathComponent(name + ".json"))
+    }
+
+    /// Diagnostic evidence, not a passing visual acceptance gate.
+    /// Records combinations that the independent-layout projection matrix omitted.
+    func testCaptureCameraCoverageStateCombinations() throws {
+        var rows: [CoverageRow] = []
+        func measurement(_ view: SCNView, _ camera: SCNNode,
+                         _ fixture: PocketObservationFixture) throws -> CoverageMeasurement {
+            SCNTransaction.flush(); view.layoutIfNeeded()
+            let pocket = AngleSceneCalculator.pocketMarkerPositions(surfaceY: 0.8)[fixture.pocket]
+            let projections = [fixture.cue, fixture.target, pocket].map { view.projectPoint($0) }
+            let outside = projections.filter {
+                $0.z <= 0 || $0.z >= 1 || $0.x < 0 || $0.y < 0
+                    || $0.x > Float(view.bounds.width) || $0.y > Float(view.bounds.height)
+            }.count
+            let safe = view.bounds.insetBy(dx: view.bounds.width*0.175, dy: view.bounds.height*0.175)
+            func isSafe(_ p: SCNVector3) -> Bool {
+                p.z > 0 && p.z < 1 && safe.contains(CGPoint(x: CGFloat(p.x), y: CGFloat(p.y)))
+            }
+            let outsideSafe = projections.filter { !isSafe($0) }.count
+            var surfacePoints: [SCNVector3] = []
+            for center in [fixture.cue, fixture.target] {
+                for latitude in 0...8 {
+                    let phi = Float(latitude)*Float.pi/8
+                    for longitude in 0..<16 {
+                        let theta = Float(longitude)*Float.pi/8
+                        surfacePoints.append(center+SCNVector3(sin(phi)*cos(theta),cos(phi),sin(phi)*sin(theta))*BallPhysics.radius)
+                    }
+                }
+            }
+            let hole = AngleSceneCalculator.pocketPositions(surfaceY: 0.8)[fixture.pocket]
+            let jaws = AngleSceneCalculator.pocketJaws(surfaceY: 0.837)[fixture.pocket]
+            surfacePoints += [jaws.0, jaws.1]
+            for step in 0..<64 {
+                let angle = Float(step)*Float.pi/32
+                let offset = SCNVector3(cos(angle),0,sin(angle))
+                surfacePoints.append(pocket+offset*AngleSceneCalculator.pocketMarkerRadius(index: fixture.pocket))
+                surfacePoints.append(hole+offset*AngleSceneCalculator.pocketDropRadius(index: fixture.pocket))
+            }
+            let unsafeSamples = surfacePoints.map { view.projectPoint($0) }.filter { !isSafe($0) }.count
+            let right = camera.convertVector(SCNVector3(1,0,0), to: nil).normalized()*BallPhysics.radius
+            func diameter(_ center: SCNVector3) -> Float {
+                let a = view.projectPoint(center-right), b = view.projectPoint(center+right)
+                return hypot(a.x-b.x,a.y-b.y)
+            }
+            return CoverageMeasurement(outsideViewportCenters: outside,
+                outsideSafeCenters: outsideSafe, outsideSafeSurfaceSamples: unsafeSamples,
+                cueDiameterPoints: diameter(fixture.cue), targetDiameterPoints: diameter(fixture.target),
+                pitchDegrees: Double(camera.eulerAngles.x) * 180 / Double.pi,
+                fov: Double(try XCTUnwrap(camera.camera).fieldOfView),
+                eye: [camera.position.x, camera.position.y, camera.position.z],
+                screenCenters: projections.map { [$0.x, $0.y, $0.z] })
+        }
+        for size in [viewport, CGSize(width: 667, height: 375), CGSize(width: 1366, height: 1024)] {
+            for (index, fixture) in pocketObservationFixtures.enumerated() {
+                for delta: Float in [-10000, -120, 120, 10000] {
+                    let (view, rig, camera) = dailyRig(size: size)
+                    try enterPocketObservation(fixture, rig: rig)
+                    let baseline = try measurement(view, camera, fixture)
+                    XCTAssertEqual(baseline.outsideViewportCenters, 0)
+                    rig.handlePinch(scale: 2); rig.snapToTarget()
+                    rig.handleVerticalSwipe(delta: delta)
+                    for _ in 0..<120 { rig.update(deltaTime: 1/60) }
+                    rig.handlePinch(scale: 0.5); rig.snapToTarget()
+                    let wide = try measurement(view, camera, fixture)
+                    let pitchBefore = camera.eulerAngles.x
+                    // The actual recognizer calls this for a horizontal-only event too.
+                    rig.handleVerticalSwipe(delta: 0)
+                    for _ in 0..<120 { rig.update(deltaTime: 1/60) }
+                    let afterZero = try measurement(view, camera, fixture)
+                    var row = CoverageRow()
+                    row.sequence = "detail-look-wide-zeroVertical"; row.fixture = index
+                    row.vectors["viewport"] = [Float(size.width), Float(size.height)]
+                    row.scalars["verticalDelta"] = Double(delta)
+                    row.measurements["standard"] = baseline; row.measurements["wide"] = wide
+                    row.measurements["afterZeroVertical"] = afterZero
+                    row.scalars["zeroVerticalPitchChangeDegrees"] = abs(Double(camera.eulerAngles.x-pitchBefore)) * 180 / Double.pi
+                    rows.append(row)
+                }
+            }
+        }
+        let pairs = [(viewport, CGSize(width: 1366, height: 1024)),
+                     (CGSize(width: 1366, height: 1024), CGSize(width: 667, height: 375)),
+                     (CGSize(width: 1194, height: 834), viewport)]
+        let thinCue = SCNVector3(1.229, 0.828575, 0.4)
+        let thinTargets = [SCNVector3(1.185053, 0.828575, 0.353953),
+                           SCNVector3(1.180853, 0.828575, 0.356053)]
+        let resizeFixtures = pocketObservationFixtures + thinTargets.map { target in
+            let hole = AngleSceneCalculator.pocketPositions(surfaceY: 0.8)[0]
+            let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target, pocket: hole, ballRadius: BallPhysics.radius)
+            return PocketObservationFixture(cue: thinCue, target: target, pocket: 0,
+                                            aim: (ghost-thinCue).normalized(), elevation: 0.05)
+        }
+        for (from, to) in pairs {
+            for (index, fixture) in resizeFixtures.enumerated() {
+                for via2D in [false, true] {
+                    let (view, rig, camera) = dailyRig(size: from)
+                    try enterPocketObservation(fixture, rig: rig)
+                    let saved = rig.capturePerspectiveState()
+                    if via2D { rig.applyTopDown2D() }
+                    view.frame = CGRect(origin: .zero, size: to)
+                    rig.viewportSize = to
+                    if via2D { rig.restorePerspectiveState(saved) }
+                    rig.snapToTarget()
+                    let result = try measurement(view, camera, fixture)
+                    var row = CoverageRow()
+                    row.sequence = via2D ? "observe-2D-resize-restore" : "observe-resize"; row.fixture = index
+                    row.vectors["fromViewport"] = [Float(from.width), Float(from.height)]
+                    row.vectors["toViewport"] = [Float(to.width), Float(to.height)]
+                    row.measurements["result"] = result
+                    rows.append(row)
+                }
+            }
+        }
+        // A small legal layout perturbation must be measured in the real rig,
+        // independently of the numerical candidate-search port.
+        var previousEye: SCNVector3?
+        for z: Float in [0.353853, 0.353953] {
+            let cue = SCNVector3(1.229, 0.828575, 0.4)
+            let target = SCNVector3(1.185053, 0.828575, z)
+            let hole = AngleSceneCalculator.pocketPositions(surfaceY: 0.8)[0]
+            let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target, pocket: hole, ballRadius: BallPhysics.radius)
+            let fixture = PocketObservationFixture(cue: cue, target: target, pocket: 0,
+                                                  aim: (ghost-cue).normalized(), elevation: 0.05)
+            let (view, rig, camera) = dailyRig(size: CGSize(width: 1194, height: 834))
+            try enterPocketObservation(fixture, rig: rig)
+            let result = try measurement(view, camera, fixture)
+            let movement = previousEye.map { (camera.position-$0).length() } ?? Float(0)
+            var row = CoverageRow()
+            row.sequence = "candidate-boundary-perturbation"
+            row.scalars["targetZ"] = Double(z)
+            row.vectors["aim"] = [fixture.aim.x, fixture.aim.z]
+            row.scalars["eyeEndpointChangeMeters"] = Double(movement)
+            row.measurements["result"] = result
+            rows.append(row)
+            previousEye = camera.position
+        }
+        XCTAssertEqual(rows.count, 230, "Every diagnostic combination must actually execute")
+        try writeCoverageAudit(rows, name: "state-combinations")
+        print("[CameraCoverageAudit] state diagnostic rows=\(rows.count); results are measurements, not visual acceptance")
+    }
+
+    /// Search non-overlapping third balls outside both ideal straight shot
+    /// corridors, then independently ray-test the target silhouette.
+    func testCaptureCameraCoverageThirdBallOcclusion() throws {
+        let r = BallPhysics.radius
+        func dot(_ a: SCNVector3, _ b: SCNVector3) -> Float { a.x*b.x+a.y*b.y+a.z*b.z }
+        func distanceToSegment(_ point: SCNVector3, _ a: SCNVector3, _ b: SCNVector3) -> Float {
+            let segment = b-a
+            let t = max(0, min(1, dot(point-a, segment)/max(0.000001, dot(segment, segment))))
+            return (point-(a+segment*t)).length()
+        }
+        func firstSphereHit(eye: SCNVector3, direction: SCNVector3, center: SCNVector3) -> Float? {
+            let v = eye-center, b = dot(v, direction), c = dot(v, v)-r*r
+            let discriminant = b*b-c
+            guard discriminant >= 0 else { return nil }
+            let t = -b-sqrt(discriminant)
+            return t > 0 ? t : nil
+        }
+        var evidence: [CoverageRow] = []
+        var worst: (fixture: PocketObservationFixture, blocker: SCNVector3, camera: SCNNode, fraction: Float)?
+        var candidateCount = 0
+        for (index, fixture) in pocketObservationFixtures.enumerated() {
+            let (view, rig, camera) = dailyRig()
+            try enterPocketObservation(fixture, rig: rig)
+            let eye = camera.position, target = fixture.target
+            let forward = (target-eye).normalized()
+            let right = SCNVector3(-forward.z, 0, forward.x).normalized()
+            let up = SCNVector3(right.y*forward.z-right.z*forward.y,
+                               right.z*forward.x-right.x*forward.z,
+                               right.x*forward.y-right.y*forward.x).normalized()
+            var rays: [(SCNVector3, Float)] = []
+            for u in -12...12 {
+                for v in -12...12 where u*u+v*v <= 144 {
+                    let direction = (target-eye+right*(Float(u)*r/12)+up*(Float(v)*r/12)).normalized()
+                    if let hit = firstSphereHit(eye: eye, direction: direction, center: target) { rays.append((direction, hit)) }
+                }
+            }
+            XCTAssertGreaterThan(rays.count, 300)
+            let hole = AngleSceneCalculator.pocketPositions(surfaceY: 0.8)[fixture.pocket]
+            let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target, pocket: hole, ballRadius: r)
+            var bestFraction: Float = 0
+            var bestBlocker = target
+            var bestClearances: [Float] = []
+            for distance: Float in [2*r+0.0001, 0.075, 0.10, 0.15, 0.25, 0.40] {
+                for step in 0..<180 {
+                    let angle = Float(step)*Float.pi/90
+                    let blocker = target+SCNVector3(cos(angle)*distance, 0, sin(angle)*distance)
+                    guard abs(blocker.x)+r <= 1.27, abs(blocker.z)+r <= 0.635,
+                          (blocker-fixture.cue).length() >= 2*r else { continue }
+                    let cueClear = distanceToSegment(blocker, fixture.cue, ghost)
+                    let potClear = distanceToSegment(blocker, target, SCNVector3(hole.x,target.y,hole.z))
+                    guard cueClear > 2*r+0.001, potClear > 2*r+0.001 else { continue }
+                    candidateCount += 1
+                    let blocked = rays.filter {
+                        guard let first = firstSphereHit(eye: eye, direction: $0.0, center: blocker) else { return false }
+                        return first < $0.1
+                    }.count
+                    let fraction = Float(blocked)/Float(rays.count)
+                    if fraction > bestFraction {
+                        bestFraction = fraction; bestBlocker = blocker
+                        bestClearances = [cueClear, potClear]
+                    }
+                }
+            }
+            SCNTransaction.flush(); view.layoutIfNeeded()
+            let targetScreen = view.projectPoint(target)
+            XCTAssertGreaterThan(targetScreen.z, 0); XCTAssertLessThan(targetScreen.z, 1)
+            XCTAssertTrue(view.bounds.contains(CGPoint(x: CGFloat(targetScreen.x), y: CGFloat(targetScreen.y))))
+            var row = CoverageRow()
+            row.sequence = "third-ball-occlusion"; row.fixture = index
+            row.scalars["candidateTargetOccludedFraction"] = Double(bestFraction)
+            row.scalars["pocket"] = Double(fixture.pocket)
+            row.scalars["silhouetteRaySamples"] = Double(rays.count)
+            row.vectors["blocker"] = [bestBlocker.x,bestBlocker.y,bestBlocker.z]
+            row.vectors["eye"] = [eye.x,eye.y,eye.z]
+            row.vectors["cue"] = [fixture.cue.x,fixture.cue.y,fixture.cue.z]
+            row.vectors["target"] = [target.x,target.y,target.z]
+            row.vectors["targetScreen"] = [targetScreen.x,targetScreen.y,targetScreen.z]
+            row.vectors["idealStraightCorridorClearances"] = bestClearances
+            evidence.append(row)
+            if bestFraction > (worst?.fraction ?? 0) { worst = (fixture,bestBlocker,camera,bestFraction) }
+        }
+        var summary = CoverageRow()
+        summary.sequence = "summary"; summary.scalars["candidates"] = Double(candidateCount)
+        try writeCoverageAudit([summary]+evidence, name: "third-ball-occlusion")
+        if let worst {
+            let scene = AngleTrainingScene()
+            scene.configureDailyClearanceRendering(); scene.setupScene()
+            scene.setCameraMode(.perspective3D, animated: false)
+            scene.applyBallLayout(cueBallPosition: worst.fixture.cue, targetBallNumber: 1,
+                                  targetPosition: worst.fixture.target)
+            scene.showBall(key: "_3", scenePosition: worst.blocker)
+            scene.hideCueStick()
+            scene.cameraNode.transform = worst.camera.transform
+            scene.cameraNode.camera?.usesOrthographicProjection = false
+            scene.cameraNode.camera?.fieldOfView = worst.camera.camera!.fieldOfView
+            scene.cameraNode.camera?.zNear = 0.001
+            let renderer = SCNRenderer(device: nil, options: nil)
+            renderer.scene = scene; renderer.pointOfView = scene.cameraNode
+            SCNTransaction.flush()
+            let picture = renderer.snapshot(atTime: 0, with: viewport, antialiasingMode: .multisampling4X)
+            try XCTUnwrap(picture.pngData()).write(to: coverageAuditDirectory.appendingPathComponent("third-ball-occlusion.png"))
+            let attachment = XCTAttachment(image: picture); attachment.name = "camera-audit-third-ball-model-render"
+            attachment.lifetime = .keepAlways; add(attachment)
+        }
+        print("[CameraCoverageAudit] third-ball candidates=\(candidateCount), worst sampled occlusion=\(worst?.fraction ?? 0); ideal corridor clearance is not physical solver validation")
+    }
+
     func testEyeStaysAboveActualShaftAcrossElevationsAndHeadings() throws {
         for degrees in [3.0, 15, 23, 32, 60] {
             let elevation = Float(degrees * .pi / 180)
@@ -4586,7 +4864,7 @@ final class DailyShotCameraTests: XCTestCase {
         }
     }
 
-    func testTargetFocusPinchKeepsEyeAndZoomKeepsPivotThenReturnsToTable() throws {
+    func testTargetFocusPinchKeepsEyeAndZoomKeepsPivotAtFarLimit() throws {
         let camera = SCNNode(); camera.camera = SCNCamera()
         let rig = CameraRig(cameraNode: camera, tableSurfaceY: 0.8, config: .dailyClearance)
         rig.usesShotAwareCamera = true; rig.usesRailCameraControls = true; rig.viewportSize = viewport
@@ -4606,8 +4884,9 @@ final class DailyShotCameraTests: XCTestCase {
         XCTAssertLessThan(abs(rig.targetYaw - yaw), 0.25)
         rig.handlePinch(scale: 0.1); rig.snapToTarget()
         rig.handlePinch(scale: 0.9); rig.snapToTarget()
-        XCTAssertEqual(rig.currentPivot.x, 0, accuracy: 0.001)
-        XCTAssertEqual(rig.currentPivot.z, 0, accuracy: 0.001)
+        XCTAssertLessThan((rig.currentPivot - cue).length(), 0.001)
+        XCTAssertEqual(rig.currentYaw, rig.targetYaw, accuracy: 0.001)
+        XCTAssertFalse(rig.keepsWholeTableFramed)
     }
 
     func testCuePoseUpdatesFirstPersonButNeverStealsManualObservation() throws {
@@ -4986,5 +5265,848 @@ extension ClockAimingPreviewCaptureTests {
         }
         try await writer?.finish()
         try JSONSerialization.data(withJSONObject:records,options:[.prettyPrinted,.sortedKeys]).write(to:out.appendingPathComponent("geometry.json"))
+    }
+}
+
+extension DailyShotCameraTests {
+    private func dailyRig(size: CGSize? = nil) -> (SCNView, CameraRig, SCNNode) {
+        let view = SCNView(frame: CGRect(origin: .zero, size: size ?? viewport))
+        let scene = SCNScene(), node = SCNNode(); node.camera = SCNCamera()
+        scene.rootNode.addChildNode(node); view.scene = scene; view.pointOfView = node
+        let rig = CameraRig(cameraNode: node, tableSurfaceY: 0.8, config: .dailyClearance)
+        rig.usesShotAwareCamera = true; rig.usesRailCameraControls = true
+        rig.viewportSize = view.bounds.size
+        return (view, rig, node)
+    }
+
+    /// Independent SceneKit projection checks the production projection calculation's axes/lens.
+    private func projectedTableScale(_ view: SCNView, _ rig: CameraRig) -> Float {
+        SCNTransaction.flush(); view.layoutIfNeeded()
+        let x = Float(rig.tableOuterHalfLength), z = Float(rig.tableOuterHalfWidth)
+        let points = [(-x,-z),(x,-z),(x,z),(-x,z)].map {
+            view.projectPoint(SCNVector3($0.0, 0.8, $0.1))
+        }
+        let width = (points.map(\.x).max()! - points.map(\.x).min()!) / Float(view.bounds.width)
+        let height = (points.map(\.y).max()! - points.map(\.y).min()!) / Float(view.bounds.height)
+        return max(width,height)
+    }
+
+    func testDailyOverviewChoosesBothLongRailsAndShortestTurn() {
+        for degree in stride(from: -359, through: 359, by: 7) {
+            let yaw = Float(degree) * .pi / 180
+            let result = CameraRig.dailyOverviewYaw(currentYaw: yaw, aimDirection: SCNVector3(1,0,0))
+            let delta = atan2(sin(result-yaw), cos(result-yaw))
+            XCTAssertLessThanOrEqual(abs(delta), .pi/2 + 0.00001)
+            XCTAssertEqual(abs(result), .pi/2, accuracy: 0.00001)
+            if abs(sin(yaw)) > 0.00001 { XCTAssertEqual(result > 0, sin(yaw) > 0) }
+        }
+        XCTAssertEqual(CameraRig.dailyOverviewYaw(currentYaw: 0, aimDirection: SCNVector3(0,0,1)), -.pi/2)
+        XCTAssertEqual(CameraRig.dailyOverviewYaw(currentYaw: .pi, aimDirection: SCNVector3(0,0,-1)), .pi/2)
+    }
+
+    func testDailyOverviewHasConstantSpeedAcrossFrameRatesAndDirections() {
+        for fps in [30,60,120] {
+            for degree in [-120, -60, 60, 120] {
+                let (_, rig, _) = dailyRig()
+                rig.observeWholeTable(yaw: Float(degree) * .pi/180); rig.snapToTarget()
+                let start = rig.currentYaw
+                rig.observeDailyWholeTable(aimDirection: SCNVector3(1,0,0))
+                let direction: Float = rig.targetYaw > start ? 1 : -1
+                for frame in 1...(fps/4) {
+                    rig.update(deltaTime: 1/Float(fps))
+                    XCTAssertEqual(rig.currentYaw, start + direction * .pi/3 * Float(frame)/Float(fps), accuracy: 0.00001)
+                }
+                for _ in 0..<fps { rig.update(deltaTime: 1/Float(fps)) }
+                XCTAssertEqual(rig.currentYaw, rig.targetYaw, accuracy: 0.00001)
+            }
+        }
+    }
+
+    func testDailyOverviewRoundTripAndManualInterruptContinueFromVisibleYaw() {
+        let (_, rig, _) = dailyRig()
+        rig.observeWholeTable(yaw: .pi/6); rig.snapToTarget()
+        rig.observeDailyWholeTable(aimDirection: nil); rig.update(deltaTime: 0.2)
+        let state = rig.capturePerspectiveState(), yaw = rig.currentYaw
+        rig.applyTopDown2D(); rig.restorePerspectiveState(state); rig.update(deltaTime: 0.1)
+        XCTAssertEqual(rig.currentYaw-yaw, .pi/30, accuracy: 0.00001)
+        let visible = rig.currentYaw
+        rig.handleHorizontalSwipe(delta: -20)
+        XCTAssertEqual(rig.targetYaw, visible - 0.05, accuracy: 0.00001)
+        rig.snapToTarget()
+        rig.update(deltaTime: 0.2)
+        XCTAssertEqual(rig.currentYaw, visible - 0.05, accuracy: 0.00001)
+    }
+
+    func testDailyObservationZoomIsContinuousWithStricterCapThanOverviewMinimumScale() throws {
+        for size in [viewport, CGSize(width:1194,height:834), CGSize(width:402,height:640)] {
+            let (view, rig, camera) = dailyRig(size:size)
+            rig.observeWholeTable(yaw: .pi/2); rig.snapToTarget()
+            let defaultDistance = rig.orbitDistance
+            rig.handlePinch(scale:0.01); rig.snapToTarget()
+            if size.width > size.height {
+                XCTAssertEqual(rig.orbitDistance/defaultDistance, 1.08, accuracy:0.0001,
+                               "The wide overview retains its 8% retreat limit")
+            } else {
+                // At yaw π/2 the eye moves towards the room's +Z wall. A narrow
+                // portrait view already fills the available 3.65m floor radius.
+                let wallDistance = Float(3.65) / cos(rig.orbitElevation)
+                XCTAssertEqual(rig.orbitDistance,min(defaultDistance*1.08,wallDistance),accuracy:0.0002,
+                               "Room clearance takes precedence over the 8% retreat allowance")
+                XCTAssertEqual(camera.position.z,3.65,accuracy:0.0002)
+                XCTAssertEqual(rig.currentPivot.x,0,accuracy:0.0001)
+                XCTAssertEqual(rig.currentPivot.z,0,accuracy:0.0001)
+            }
+            let minimumScale = projectedTableScale(view, rig)
+            let limitEye = camera.position
+            rig.handlePinch(scale:0.1); rig.snapToTarget()
+            XCTAssertLessThan((camera.position-limitEye).length(),0.0001)
+            for degree in [-120,-45,45,120] {
+                let heading = Float(degree)*Float.pi/180
+                let cue = SCNVector3(-0.5,0.828575,0.1), aim = SCNVector3(cos(heading),0,sin(heading))
+                XCTAssertTrue(rig.enterPlayerView(.thirdPerson,cue:cue,aim:aim,focus:cue))
+                rig.update(deltaTime:2)
+                let pivot = rig.currentPivot, yaw = rig.currentYaw, elevation = rig.orbitElevation
+                let startDistance = rig.orbitDistance
+                rig.handlePinch(scale:0.98); rig.snapToTarget()
+                XCTAssertLessThanOrEqual(rig.orbitDistance/startDistance,1/0.98+0.0001,"Small pinch cannot cause a full-table refit")
+                rig.handlePinch(scale:0.01); rig.snapToTarget()
+                XCTAssertLessThan((rig.currentPivot-pivot).length(),0.00001)
+                XCTAssertEqual(rig.currentYaw,yaw,accuracy:0.00001)
+                XCTAssertEqual(rig.orbitElevation,elevation,accuracy:0.00001)
+                XCTAssertLessThanOrEqual(rig.orbitDistance, startDistance * 1.15 + 0.0002,
+                                         "Observation may retreat at most 15% from its standard pose")
+                XCTAssertGreaterThanOrEqual(projectedTableScale(view,rig),minimumScale - 0.0002,
+                                             "Observation's stricter cap must still respect the global minimum table scale")
+                XCTAssertFalse(rig.keepsWholeTableFramed)
+            }
+        }
+    }
+}
+
+extension DailyShotCameraTests {
+    func testDailyDollyZoomReversesAndSurvivesPerspectiveRoundTrip() throws {
+        let (_, rig, camera) = dailyRig()
+        let cue = SCNVector3(-0.5,0.828575,0.1)
+        rig.enterPlayerView(.thirdPerson,cue:cue,aim:SCNVector3(1,0,0)); rig.update(deltaTime:2)
+        let baseDistance = rig.orbitDistance, baseEye = camera.position
+        let baseFOV = try XCTUnwrap(camera.camera).fieldOfView
+        rig.handlePinch(scale:0.5); rig.snapToTarget()
+        XCTAssertGreaterThan(rig.orbitDistance,baseDistance)
+        let state = rig.capturePerspectiveState()
+        rig.applyTopDown2D(); rig.restorePerspectiveState(state)
+        rig.handlePinch(scale:2); rig.snapToTarget()
+        XCTAssertEqual(rig.orbitDistance,baseDistance,accuracy:0.0001)
+        // The outgoing gesture reached the far clamp, so its unused fraction is discarded.
+        // Continue inwards to verify that optical zoom resumes after dolly is undone.
+        for _ in 0..<5 { rig.handlePinch(scale:2); rig.snapToTarget() }
+        XCTAssertEqual(rig.orbitDistance,baseDistance,accuracy:0.0001)
+        XCTAssertLessThan((camera.position-baseEye).length(),0.0001)
+        XCTAssertLessThan(try XCTUnwrap(camera.camera).fieldOfView,baseFOV)
+    }
+
+    func testLowObservationCanZoomOutByVisibleSpanAndOverviewTurnKeepsCornersVisible() throws {
+        let (view, rig, camera) = dailyRig()
+        rig.observeWholeTable(yaw:.pi/2); rig.snapToTarget()
+        rig.handlePinch(scale:1.3); rig.snapToTarget()
+        rig.handleVerticalSwipe(delta:-1000); rig.snapToTarget()
+        let lowDistance = rig.orbitDistance
+        let fov = try XCTUnwrap(camera.camera).fieldOfView
+        let span = projectedTableScale(view,rig)
+        rig.handlePinch(scale:0.95); rig.snapToTarget()
+        XCTAssertGreaterThan(try XCTUnwrap(camera.camera).fieldOfView,fov,
+                             "The low eye at a wall can shrink continuously through its optical zoom range")
+        XCTAssertEqual(projectedTableScale(view,rig)/span,0.95,accuracy:0.0002,
+                       "Actual SceneKit projection must shrink by the requested pinch fraction")
+        XCTAssertEqual(rig.orbitDistance,lowDistance,accuracy:0.0002)
+        XCTAssertLessThanOrEqual(abs(camera.position.z),3.6501)
+        for degree in [0,30,45,150,180,-30,-150] {
+            rig.observeWholeTable(yaw:Float(degree)*Float.pi/180); rig.snapToTarget()
+            rig.observeDailyWholeTable(aimDirection:SCNVector3(0,0,1))
+            for _ in 0..<180 {
+                rig.update(deltaTime:1/120)
+                SCNTransaction.flush()
+                for x in [-Float(rig.tableOuterHalfLength),Float(rig.tableOuterHalfLength)] {
+                    for z in [-Float(rig.tableOuterHalfWidth),Float(rig.tableOuterHalfWidth)] {
+                        let p = view.projectPoint(SCNVector3(x,0.8,z))
+                        XCTAssertGreaterThanOrEqual(p.x,0); XCTAssertLessThanOrEqual(p.x,Float(view.bounds.width))
+                        XCTAssertGreaterThanOrEqual(p.y,0); XCTAssertLessThanOrEqual(p.y,Float(view.bounds.height))
+                    }
+                }
+            }
+        }
+    }
+}
+
+extension DailyShotCameraTests {
+    func testDailyFirstPersonZoomAndChangedPinchSubjectStayReversible() throws {
+        for cue in [SCNVector3(-1,0.828575,0.45), SCNVector3(0.7,0.828575,-0.35)] {
+            for i in 0..<8 {
+                let (_, rig, camera) = dailyRig()
+                let yaw = Float(i)*Float.pi/4, aim = SCNVector3(cos(yaw),0,sin(yaw))
+                rig.enterPlayerView(.firstPerson,cue:cue,aim:aim); rig.update(deltaTime:2)
+                rig.handlePinch(scale:0.01); rig.snapToTarget()
+                XCTAssertTrue(rig.orbitDistance.isFinite)
+                XCTAssertLessThan(rig.orbitDistance,10)
+                let farEye = camera.position
+                let subject = SCNVector3(cue.x*0.5,0.828575,cue.z*0.5)
+                rig.beginObservationPinch(at:subject); rig.snapToTarget()
+                XCTAssertLessThan((camera.position-farEye).length(),0.0002,"Changing pinch subject keeps the visible eye")
+                let farDistance = rig.orbitDistance
+                let state = rig.capturePerspectiveState()
+                rig.applyTopDown2D(); rig.restorePerspectiveState(state)
+                for _ in 0..<8 { rig.handlePinch(scale:2); rig.snapToTarget() }
+                XCTAssertLessThanOrEqual(rig.orbitDistance,farDistance)
+                XCTAssertLessThan(((camera.position-subject).normalized()-(farEye-subject).normalized()).length(),0.0002)
+                XCTAssertLessThan((rig.currentPivot-subject).length(),0.0001)
+                XCTAssertEqual(try XCTUnwrap(camera.camera).fieldOfView,
+                               Double(CameraRig.dailyFOV(viewport:viewport,close:true)),accuracy:0.0001)
+            }
+        }
+    }
+}
+
+extension DailyShotCameraTests {
+    func testRepeatedOverviewDuringPlayerDepartureDoesNotSnapDistance() {
+        let (_, rig, _) = dailyRig()
+        rig.enterPlayerView(.firstPerson,cue:SCNVector3(-0.5,0.828575,0.1),aim:SCNVector3(1,0,0))
+        rig.update(deltaTime:2)
+        rig.observeDailyWholeTable(aimDirection:nil); rig.update(deltaTime:0.1)
+        let visibleDistance = rig.orbitDistance
+        rig.observeDailyWholeTable(aimDirection:nil)
+        XCTAssertEqual(rig.orbitDistance,visibleDistance,accuracy:0.00001)
+        rig.update(deltaTime:1/120)
+        XCTAssertLessThan(rig.orbitDistance-visibleDistance,0.25,"Repeated global intent must not mistake an unfinished departure for a fully framed table")
+    }
+}
+
+extension DailyShotCameraTests {
+    func testDailyOverviewUses35DegreesAndSharedHostsKeep45Degrees() throws {
+        XCTAssertEqual(CameraRig.Config.dailyClearance.standPitchRad,-35 * .pi / 180,accuracy:0.00001)
+        XCTAssertEqual(CameraRig.Config.default.standPitchRad,-45 * .pi / 180,accuracy:0.00001)
+        XCTAssertEqual(AimingCameraConfig.standPitchRad,-45 * .pi / 180,accuracy:0.00001)
+        for size in [viewport,CGSize(width:1194,height:834),CGSize(width:402,height:640)] {
+            for (config,degrees) in [(CameraRig.Config.dailyClearance,Float(35)),(.default,Float(45))] {
+                let camera = SCNNode(); camera.camera = SCNCamera()
+                let rig = CameraRig(cameraNode:camera,tableSurfaceY:0.8,config:config)
+                // Shared shot-aware hosts must keep their 45° global pitch too.
+                rig.usesShotAwareCamera = true; rig.usesRailCameraControls = true
+                rig.viewportSize = size
+                for yaw: Float in [-.pi/2,.pi/2] {
+                    XCTAssertTrue(rig.observeWholeTable(yaw:yaw))
+                    rig.snapToTarget()
+                    XCTAssertEqual(rig.orbitElevation,degrees * .pi / 180,accuracy:0.00001)
+                    XCTAssertEqual(camera.eulerAngles.x,-degrees * .pi / 180,accuracy:0.00001)
+                    XCTAssertEqual(rig.currentYaw,yaw,accuracy:0.00001)
+                    XCTAssertEqual(rig.currentPivot.x,0,accuracy:0.00001)
+                    XCTAssertEqual(rig.currentPivot.z,0,accuracy:0.00001)
+                }
+            }
+        }
+    }
+
+    func testSharedShotAwareHostKeepsExistingZoomBoundary() {
+        XCTAssertFalse(CameraRig.Config.default.usesDailyZoomBoundary)
+        XCTAssertTrue(CameraRig.Config.dailyClearance.usesDailyZoomBoundary)
+        let camera = SCNNode(); camera.camera = SCNCamera()
+        let rig = CameraRig(cameraNode:camera,tableSurfaceY:0.8)
+        rig.viewportSize=viewport; rig.usesRailCameraControls=true; rig.usesShotAwareCamera=true
+        rig.enterPlayerView(.thirdPerson,cue:SCNVector3(0.5,0.828575,0.1),aim:SCNVector3(1,0,0))
+        rig.update(deltaTime:2)
+        rig.handlePinch(scale:0.9); rig.snapToTarget()
+        XCTAssertTrue(rig.keepsWholeTableFramed,"Only the daily config changes the legacy shrink-boundary intent")
+        XCTAssertEqual(rig.currentPivot.x,0,accuracy:0.00001)
+        XCTAssertEqual(rig.currentPivot.z,0,accuracy:0.00001)
+    }
+}
+
+extension DailyShotCameraTests {
+    /// SceneKit metres: X/Z table plane, Y up. These expectations come from
+    /// the standard shot-relative stance, independently of context fitting.
+    func testDailyObservationStandardEyeDoesNotRetreatToFitLongBallContext() throws {
+        for cue in [SCNVector3(-1.2,0.828575,-0.56), SCNVector3(1.2,0.828575,0.56)] {
+            for i in 0..<8 {
+                let (_, rig, camera) = dailyRig()
+                let heading = Float(i) * .pi / 4
+                let aim = SCNVector3(cos(heading),0,sin(heading))
+                let target = SCNVector3(-cue.x, cue.y, -cue.z)
+                let strike = cue + SCNVector3(0,0.003,0)
+                let elevation: Float = 0.40
+                rig.updateCuePose(strike:strike,aim:aim,elevation:elevation)
+                for context in [[SCNVector3](), [cue,target]] {
+                    rig.observationCandidates = context
+                    XCTAssertTrue(rig.enterPlayerView(.thirdPerson,cue:cue,aim:aim,focus:target))
+                    rig.update(deltaTime:2)
+                    let expected = SCNVector3(strike.x-aim.x*1.65,
+                        max(0.8+0.90,strike.y+1.65*tan(elevation)+0.35),strike.z-aim.z*1.65)
+                    XCTAssertLessThan((camera.position-expected).length(),0.0002,
+                                      "Long-ball context must not dolly the standard observation eye away")
+                    XCTAssertLessThan((rig.currentPivot-target).length(),0.0001)
+                }
+            }
+        }
+    }
+
+    func testExplicitDailyObservationReentryResetsZoomAndVerticalOrbit() throws {
+        let cue = SCNVector3(-0.55,0.828575,0.12), aim = SCNVector3(1,0,0)
+        let target = SCNVector3(0.65,cue.y,0.12)
+        for zoom: Float in [0.01,100] {
+            for vertical: Float in [-160,160] {
+                let (_, rig, camera) = dailyRig()
+                rig.observationCandidates = [cue,target]
+                XCTAssertTrue(rig.enterPlayerView(.thirdPerson,cue:cue,aim:aim,focus:target))
+                rig.update(deltaTime:2)
+                let eye = camera.position, rotation = camera.eulerAngles
+                let distance = rig.orbitDistance
+                let fov = try XCTUnwrap(camera.camera).fieldOfView
+                rig.handlePinch(scale:zoom); rig.handleVerticalSwipe(delta:vertical)
+                for _ in 0..<120 { rig.update(deltaTime:1/60) }
+                XCTAssertGreaterThan((camera.position-eye).length(),0.01,
+                                     "The fixture must actually change observation before reentry")
+                XCTAssertTrue(rig.enterPlayerView(.thirdPerson,cue:cue,aim:aim,focus:target))
+                rig.update(deltaTime:2)
+                XCTAssertLessThan((camera.position-eye).length(),0.0002,
+                                  "An explicit observation request resets the current observation directly")
+                XCTAssertLessThan((camera.eulerAngles-rotation).length(),0.0002)
+                XCTAssertEqual(try XCTUnwrap(camera.camera).fieldOfView,fov,accuracy:0.0001)
+                rig.handlePinch(scale:zoom); rig.handleVerticalSwipe(delta:vertical)
+                for _ in 0..<120 { rig.update(deltaTime:1/60) }
+                for departure in [CameraRig.PlayerView.firstPerson,.thirdPerson] {
+                    if departure == .firstPerson {
+                        XCTAssertTrue(rig.enterPlayerView(.firstPerson,cue:cue,aim:aim))
+                        rig.update(deltaTime:2)
+                    } else {
+                        XCTAssertTrue(rig.observeDailyWholeTable(aimDirection:aim))
+                        rig.update(deltaTime:2)
+                    }
+                    XCTAssertTrue(rig.enterPlayerView(.thirdPerson,cue:cue,aim:aim,focus:target))
+                    rig.update(deltaTime:2)
+                    XCTAssertLessThan((camera.position-eye).length(),0.0002)
+                    XCTAssertLessThan((camera.eulerAngles-rotation).length(),0.0002)
+                    XCTAssertEqual(rig.orbitDistance,distance,accuracy:0.0002)
+                    XCTAssertEqual(try XCTUnwrap(camera.camera).fieldOfView,fov,accuracy:0.0001)
+                    rig.handlePinch(scale:zoom); rig.handleVerticalSwipe(delta:vertical)
+                    for _ in 0..<120 { rig.update(deltaTime:1/60) }
+                }
+            }
+        }
+    }
+
+    func testDailyObservationMaximumRetreatTracksEachNewStandardPose() throws {
+        let (_, rig, camera) = dailyRig()
+        for (cue,aim,elevation) in [
+            (SCNVector3(-0.4,0.828575,0.1),SCNVector3(1,0,0),Float(0.05)),
+            (SCNVector3(0.4,0.828575,-0.1),SCNVector3(0,0,1),Float(0.40))
+        ] {
+            rig.updateCuePose(strike:cue,aim:aim,elevation:elevation)
+            XCTAssertTrue(rig.enterPlayerView(.thirdPerson,cue:cue,aim:aim))
+            rig.update(deltaTime:2)
+            let distance = rig.orbitDistance, pivot = rig.currentPivot
+            let direction = (camera.position-pivot).normalized()
+            rig.handlePinch(scale:0.01)
+            for _ in 0..<120 {
+                rig.update(deltaTime:1/60)
+                XCTAssertLessThanOrEqual((camera.position-pivot).length(),distance*1.15+0.0002)
+            }
+            XCTAssertEqual(rig.orbitDistance,distance*1.15,accuracy:0.0002)
+            let farEye = camera.position
+            rig.handlePinch(scale:0.01); rig.snapToTarget()
+            XCTAssertLessThan((camera.position-farEye).length(),0.0002)
+            XCTAssertLessThan(((camera.position-pivot).normalized()-direction).length(),0.0002)
+            rig.handlePinch(scale:1.02); rig.snapToTarget()
+            XCTAssertLessThan((camera.position-pivot).length(),distance*1.15-0.001,
+                              "A reverse pinch must leave the far boundary immediately")
+        }
+    }
+
+    func testDailyCameraStaysInsideRoomDuringCornerShotsAndExtremeGesturesEveryFrame() throws {
+        // All room styles share a 10m x 8m shell. The 0.35m inset keeps the
+        // perspective eye away from opaque walls instead of allowing it outside.
+        for cueX: Float in [-1.20,1.20] {
+            for cueZ: Float in [-0.56,0.56] {
+                for i in 0..<8 {
+                    let (_, rig, camera) = dailyRig()
+                    let cue = SCNVector3(cueX,0.828575,cueZ)
+                    let target = SCNVector3(-cueX,cue.y,-cueZ)
+                    let heading = Float(i)*Float.pi/4, aim = SCNVector3(cos(heading),0,sin(heading))
+                    rig.observationCandidates = [cue,target]
+                    func advance(_ frames: Int = 120) {
+                        for _ in 0..<frames {
+                            rig.update(deltaTime:1/60)
+                            XCTAssertTrue(camera.position.x.isFinite && camera.position.y.isFinite && camera.position.z.isFinite)
+                            XCTAssertLessThanOrEqual(abs(camera.position.x),4.6501,"cue=\(cue) heading=\(i)")
+                            XCTAssertLessThanOrEqual(abs(camera.position.z),3.6501,"cue=\(cue) heading=\(i)")
+                        }
+                    }
+                    for mode in [CameraRig.PlayerView.thirdPerson,.firstPerson] {
+                        XCTAssertTrue(rig.enterPlayerView(mode,cue:cue,aim:aim,focus:mode == .thirdPerson ? target:nil))
+                        advance()
+                        for vertical: Float in [-10000,10000] {
+                            rig.handlePinch(scale:0.01); rig.handleVerticalSwipe(delta:vertical)
+                            advance()
+                            for _ in 0..<8 {
+                                rig.handleHorizontalSwipe(delta:Float.pi/4/0.0025)
+                                advance(30)
+                            }
+                            rig.handlePinch(scale:100); advance()
+                        }
+                    }
+                    XCTAssertTrue(rig.observeDailyWholeTable(aimDirection:aim)); advance()
+                    rig.handleVerticalSwipe(delta:-10000); rig.handlePinch(scale:0.01); advance()
+                    for _ in 0..<8 { rig.handleHorizontalSwipe(delta:Float.pi/4/0.0025); advance(30) }
+                }
+            }
+        }
+    }
+}
+
+extension DailyShotCameraTests {
+    private struct PocketObservationFixture {
+        let cue: SCNVector3
+        let target: SCNVector3
+        let pocket: Int
+        let aim: SCNVector3
+        let elevation: Float
+    }
+
+    /// Frozen UI review inputs. Heading and elevation are actual solver outputs
+    /// from twelve-before/formation-N-standard.txt, not camera fit expectations.
+    private var pocketObservationFixtures: [PocketObservationFixture] {
+        let rows: [(Float,Float,Float,Float,Int,Float,Float)] = [
+            (-1.05,-0.34,0.80,0.36,3,3.4984474,0.06898956),
+            (0.25,0.04,0.58,0.22,3,3.6326256,0.05),
+            (-0.65,0.48,0.05,0.05,4,2.6547203,0.050740503),
+            (-1.229,-0.40,-0.40,-0.03,3,3.5647497,0.33228528),
+            (-0.35,-0.592,0.45,0.20,3,3.9383836,0.2533375),
+            (1.05,0.34,-0.80,-0.36,0,0.35685492,0.06898956),
+            (0.25,-0.30,1.20,0.32,3,3.6811137,0.05),
+            (0.35,0.592,-0.45,-0.20,0,0.7967913,0.2533375),
+            (-0.80,-0.12,-0.12,0.30,5,3.6448588,0.05),
+            (0.80,0.12,0.12,-0.30,4,0.5032666,0.05),
+            (-0.95,-0.55,0.70,-0.52,1,3.1667185,0.052206136),
+            (0.75,-0.40,-0.55,0.25,2,5.820463,0.05)
+        ]
+        return rows.map { x,z,tx,tz,pocket,yaw,elevation in
+            PocketObservationFixture(cue:SCNVector3(x,0.8+BallPhysics.radius,z),
+                target:SCNVector3(tx,0.8+BallPhysics.radius,tz),pocket:pocket,
+                aim:SCNVector3(-cos(yaw),0,-sin(yaw)),elevation:elevation)
+        }
+    }
+
+    private func enterPocketObservation(_ fixture: PocketObservationFixture, rig: CameraRig) throws {
+        let pocket = AngleSceneCalculator.pocketMarkerPositions(surfaceY:0.8)[fixture.pocket]
+        rig.observationCandidates = [fixture.cue,fixture.target]
+        rig.observationPocket = (fixture.pocket,pocket)
+        rig.updateCuePose(strike:fixture.cue,aim:fixture.aim,elevation:fixture.elevation)
+        XCTAssertTrue(rig.enterPlayerView(.thirdPerson,cue:fixture.cue,aim:fixture.aim,focus:fixture.cue))
+        rig.update(deltaTime:2)
+    }
+
+    /// SceneKit projects physical surface samples independently of the camera
+    /// solver's angular basis or padding calculation.
+    private func assertPocketObservationSurfacesInsideSafeRegion(
+        _ fixture: PocketObservationFixture, view: SCNView, label: String, sphereResolution: Int = 12,
+        safeFraction: CGFloat = 0.65
+    ) {
+        SCNTransaction.flush(); view.layoutIfNeeded()
+        let inset = (1-safeFraction)/2
+        let safe = view.bounds.insetBy(dx:view.bounds.width*inset,dy:view.bounds.height*inset)
+        func check(_ point: SCNVector3, subject: String) {
+            let p = view.projectPoint(point)
+            XCTAssertTrue(p.x.isFinite && p.y.isFinite && p.z.isFinite,"\(label) \(subject)")
+            XCTAssertGreaterThan(p.z,0,"\(label) \(subject)")
+            XCTAssertLessThan(p.z,1,"\(label) \(subject)")
+            XCTAssertGreaterThanOrEqual(CGFloat(p.x),safe.minX-0.05,"\(label) \(subject)")
+            XCTAssertLessThanOrEqual(CGFloat(p.x),safe.maxX+0.05,"\(label) \(subject)")
+            XCTAssertGreaterThanOrEqual(CGFloat(p.y),safe.minY-0.05,"\(label) \(subject)")
+            XCTAssertLessThanOrEqual(CGFloat(p.y),safe.maxY+0.05,"\(label) \(subject)")
+        }
+        for (subject,center) in [("cue",fixture.cue),("target",fixture.target)] {
+            check(center,subject:subject)
+            for latitude in 0...sphereResolution {
+                let phi = Float(latitude)*Float.pi/Float(sphereResolution)
+                for longitude in 0..<(sphereResolution*2) {
+                    let theta = Float(longitude)*Float.pi/Float(sphereResolution)
+                    let offset = SCNVector3(sin(phi)*cos(theta),cos(phi),sin(phi)*sin(theta))*BallPhysics.radius
+                    check(center+offset,subject:subject)
+                }
+            }
+        }
+        let pocket = AngleSceneCalculator.pocketMarkerPositions(surfaceY:0.8)[fixture.pocket]
+        let radius = AngleSceneCalculator.pocketMarkerRadius(index:fixture.pocket)
+        check(pocket,subject:"pocket")
+        for i in 0..<32 {
+            let angle = Float(i)*Float.pi/16
+            check(pocket+SCNVector3(cos(angle)*radius,0,sin(angle)*radius),subject:"pocket rim")
+        }
+        // CAD drop-hole and cushion jaws are independent of the offset marker.
+        let hole = AngleSceneCalculator.pocketPositions(surfaceY:0.8)[fixture.pocket]
+        let holeRadius = AngleSceneCalculator.pocketDropRadius(index:fixture.pocket)
+        for step in 0..<64 {
+            let angle = Float(step)*Float.pi/32
+            check(hole+SCNVector3(cos(angle)*holeRadius,0,sin(angle)*holeRadius),subject:"CAD hole rim")
+        }
+        let jaws = AngleSceneCalculator.pocketJaws(surfaceY:0.837)[fixture.pocket]
+        for jaw in [jaws.0,jaws.1] {
+            check(jaw,subject:"CAD jaw")
+            for offset in [SCNVector3(0.003,0,0),SCNVector3(-0.003,0,0),
+                           SCNVector3(0,0.003,0),SCNVector3(0,-0.003,0),
+                           SCNVector3(0,0,0.003),SCNVector3(0,0,-0.003)] {
+                check(jaw+offset,subject:"CAD jaw margin")
+            }
+        }
+    }
+
+    func testDailyPocketObservationFramesBothBallsAndPocketSurfacesAcrossTwelveFormations() throws {
+        XCTAssertEqual(pocketObservationFixtures.count,12)
+        for size in [viewport,CGSize(width:1194,height:834)] {
+            for (index,fixture) in pocketObservationFixtures.enumerated() {
+                let (view,rig,camera) = dailyRig(size:size)
+                try enterPocketObservation(fixture,rig:rig)
+                assertPocketObservationSurfacesInsideSafeRegion(fixture,view:view,label:"size=\(size) fixture=\(index)")
+                let fov = try XCTUnwrap(camera.camera).fieldOfView
+                XCTAssertGreaterThan(fov,Double(CameraRig.dailyFOV(viewport:size)),"Observation uses a wider lens than global")
+                let aspect = Float(size.width/size.height)
+                let baselineFOV = min(Float(45),2*atan(tan(35 * Float.pi/180)/aspect)*180/Float.pi)
+                XCTAssertGreaterThanOrEqual(fov,Double(baselineFOV)-0.0001)
+                let setback = hypot(camera.position.x-fixture.cue.x,camera.position.z-fixture.cue.z)
+                XCTAssertLessThanOrEqual(setback,1.6502,"Fit expands the lens instead of retreating the standard eye")
+                XCTAssertGreaterThanOrEqual(camera.position.y,1.6999)
+            }
+        }
+    }
+
+    func testNearRailPocketObservationClearsLowerVisibleBallEdgeByIndependentSightline() throws {
+        for index in [3,4,7] {
+            let fixture = pocketObservationFixtures[index]
+            let (_,rig,camera) = dailyRig()
+            try enterPocketObservation(fixture,rig:rig)
+            let eye = camera.position
+            XCTAssertLessThan(hypot(eye.x-fixture.cue.x,eye.z-fixture.cue.z),1.64,
+                              "Near-rail baseline fixture \(index) must move the eye closer")
+            // Allow the bottom 10% of one radius at the cloth contact point;
+            // check the remaining visible lower outline against actual rail Y.
+            let edge = fixture.cue-SCNVector3(0,BallPhysics.radius*0.9,0)
+            var crossings: [SCNVector3] = []
+            for (origin,destination,extent) in [(eye.x,edge.x,Float(1.27)),(eye.z,edge.z,Float(0.635))] {
+                for boundary in [-extent,extent] where abs(destination-origin)>0.000001 {
+                    let t = (boundary-origin)/(destination-origin)
+                    guard t>0, t<1 else { continue }
+                    let point = eye+(edge-eye)*t
+                    if abs(point.x)<=1.27001 && abs(point.z)<=0.63501 { crossings.append(point) }
+                }
+            }
+            XCTAssertFalse(crossings.isEmpty,"The fixture must actually look across a cushion")
+            for crossing in crossings {
+                XCTAssertGreaterThanOrEqual(crossing.y,0.837-0.00002,
+                                            "fixture=\(index): the visible lower outline clears the rail nose")
+            }
+        }
+    }
+
+    func testPocketObservationVerticalLookKeepsEyeThrough2DRestoreAndExplicitReset() throws {
+        for (index,fixture) in pocketObservationFixtures.enumerated() {
+            let (_,rig,camera) = dailyRig()
+            try enterPocketObservation(fixture,rig:rig)
+            let eye = camera.position, standardPitch = camera.eulerAngles.x
+            for delta: Float in [30,-30] {
+                try enterPocketObservation(fixture,rig:rig)
+                let state = rig.capturePerspectiveState()
+                rig.applyTopDown2D(); rig.restorePerspectiveState(state)
+                rig.handleVerticalSwipe(delta:delta)
+                for _ in 0..<120 {
+                    rig.update(deltaTime:1/60)
+                    XCTAssertLessThan((camera.position-eye).length(),0.0002,"fixture=\(index): vertical look keeps eye after 2D")
+                }
+                XCTAssertGreaterThan(abs(camera.eulerAngles.x-standardPitch),0.0001,"Vertical input must actually change gaze")
+                try enterPocketObservation(fixture,rig:rig)
+                XCTAssertEqual(camera.eulerAngles.x,standardPitch,accuracy:0.0001)
+                XCTAssertLessThan((camera.position-eye).length(),0.0002)
+            }
+        }
+    }
+
+    func testPocketObservationZoomAndLookAreDiscardedOnExplicitReentry() throws {
+        for fixture in pocketObservationFixtures {
+            for zoom: Float in [0.01,100] {
+                let (_,rig,camera) = dailyRig()
+                try enterPocketObservation(fixture,rig:rig)
+                let standardEye = camera.position, standardRotation = camera.eulerAngles
+                let standardFOV = try XCTUnwrap(camera.camera).fieldOfView
+                let standardDistance = rig.orbitDistance
+                let pivot = rig.currentPivot
+                rig.beginObservationPinch(at:fixture.target)
+                rig.snapToTarget()
+                XCTAssertLessThan((rig.currentPivot-pivot).length(),0.0001,"Pinch must not replace the three-subject gaze center")
+                XCTAssertLessThan((camera.position-standardEye).length(),0.0002)
+                rig.handlePinch(scale:zoom); rig.snapToTarget()
+                let zoomEye = camera.position
+                rig.handleVerticalSwipe(delta:60)
+                for _ in 0..<120 {
+                    rig.update(deltaTime:1/60)
+                    XCTAssertLessThan((camera.position-zoomEye).length(),0.0002)
+                }
+                let changed = rig.capturePerspectiveState()
+                rig.applyTopDown2D(); rig.restorePerspectiveState(changed)
+                XCTAssertLessThan((camera.position-zoomEye).length(),0.0002)
+                try enterPocketObservation(fixture,rig:rig)
+                XCTAssertLessThan((camera.position-standardEye).length(),0.0002)
+                XCTAssertLessThan((camera.eulerAngles-standardRotation).length(),0.0002)
+                XCTAssertEqual(try XCTUnwrap(camera.camera).fieldOfView,standardFOV,accuracy:0.0001)
+                XCTAssertEqual(rig.orbitDistance,standardDistance,accuracy:0.0002)
+            }
+        }
+    }
+
+    func testSharedHostAndDailyWithoutPocketRetainVerticalOrbit() throws {
+        let fixture = pocketObservationFixtures[1]
+        for (config,hasPocket) in [(CameraRig.Config.default,true),(.dailyClearance,false)] {
+            let camera = SCNNode(); camera.camera = SCNCamera()
+            let rig = CameraRig(cameraNode:camera,tableSurfaceY:0.8,config:config)
+            rig.viewportSize = viewport; rig.usesShotAwareCamera = true; rig.usesRailCameraControls = true
+            rig.observationCandidates = [fixture.cue,fixture.target]
+            if hasPocket { rig.observationPocket=(fixture.pocket,AngleSceneCalculator.pocketMarkerPositions(surfaceY:0.8)[fixture.pocket]) }
+            rig.updateCuePose(strike:fixture.cue,aim:fixture.aim,elevation:fixture.elevation)
+            XCTAssertTrue(rig.enterPlayerView(.thirdPerson,cue:fixture.cue,aim:fixture.aim))
+            rig.update(deltaTime:2)
+            let eye = camera.position
+            rig.handleVerticalSwipe(delta:40)
+            for _ in 0..<120 { rig.update(deltaTime:1/60) }
+            XCTAssertGreaterThan((camera.position-eye).length(),0.01,"Only Daily with a pocket uses fixed-eye vertical look")
+        }
+    }
+
+    func testGeneratedSixPocketLayoutsKeepNaturalLensPhysicalSurfacesAndSightlines() throws {
+        let physicalPockets = AngleSceneCalculator.pocketPositions(surfaceY:0.8)
+        let r = BallPhysics.radius
+        var counts = [Int](repeating:0,count:6)
+        var nearRailCount = 0, shortCount = 0, thinCount = 0
+        var maximumVerticalFOV: Double = 0, maximumHorizontalFOV: Double = 0
+        func isLegalCenter(_ point: SCNVector3) -> Bool {
+            abs(point.x)+r <= 1.27 && abs(point.z)+r <= 0.635
+        }
+        let sizes = [viewport,CGSize(width:667,height:375),CGSize(width:1366,height:1024)]
+        for size in sizes {
+            let (view,rig,camera) = dailyRig(size:size)
+            let beforeCount = counts.reduce(0,+)
+            for pocket in 0..<6 {
+                for x: Float in [-1.18,-0.65,0,0.65,1.18] {
+                    for z: Float in [-0.56,-0.30,0,0.30,0.56] {
+                        let target = SCNVector3(x,0.8+r,z)
+                        let pot = (physicalPockets[pocket]-SCNVector3(x,0.8,z)).normalized()
+                        let ghost = target-pot*(2*r)
+                        guard isLegalCenter(target), isLegalCenter(ghost) else { continue }
+                        for gap: Float in [0.12,0.60,1.40] {
+                            for degrees: Float in [-75,-45,-15,0,15,45,75] {
+                                let angle = degrees*Float.pi/180
+                                let aim = SCNVector3(pot.x*cos(angle)-pot.z*sin(angle),0,
+                                                    pot.x*sin(angle)+pot.z*cos(angle))
+                                let cue = ghost-aim*gap
+                                guard isLegalCenter(cue), (target-cue).length()>2*r,
+                                      (target.x-cue.x)*aim.x+(target.z-cue.z)*aim.z>0 else { continue }
+                                XCTAssertEqual((target-ghost).length(),2*r,accuracy:0.00001)
+                                XCTAssertEqual((ghost-cue).length(),gap,accuracy:0.00001)
+                                let fixture = PocketObservationFixture(cue:cue,target:target,pocket:pocket,
+                                                                      aim:aim,elevation:0.05)
+                                try enterPocketObservation(fixture,rig:rig)
+                                let label = "viewport=\(size) pocket=\(pocket) target=(\(x),\(z)) gap=\(gap) cut=\(degrees)"
+                                assertPocketObservationSurfacesInsideSafeRegion(fixture,view:view,label:label,sphereResolution:4)
+                                let eye = camera.position
+                                let fov = try XCTUnwrap(camera.camera).fieldOfView
+                                XCTAssertTrue(eye.x.isFinite && eye.y.isFinite && eye.z.isFinite && fov.isFinite,label)
+                                XCTAssertGreaterThan(fov,0,label)
+                                XCTAssertLessThanOrEqual(fov,55.0001,"Bounded natural vertical lens: \(label)")
+                                let horizontalFOV = 2*atan(tan(fov*Double.pi/360)*Double(size.width/size.height))*180/Double.pi
+                                XCTAssertLessThanOrEqual(horizontalFOV,85.0001,"Bounded natural horizontal lens: \(label)")
+                                maximumHorizontalFOV = max(maximumHorizontalFOV,horizontalFOV)
+                                maximumVerticalFOV = max(maximumVerticalFOV,fov)
+                                let setback = hypot(eye.x-cue.x,eye.z-cue.z)
+                                XCTAssertLessThanOrEqual(setback,1.7002,label)
+                                XCTAssertGreaterThan(setback,0,label)
+                                XCTAssertLessThanOrEqual(abs(eye.x),4.6501,label)
+                                XCTAssertLessThanOrEqual(abs(eye.z),3.6501,label)
+                                // Independent straight shaft geometry: the head stays
+                                // above the shot's shaft at the eye's backwards station.
+                                let station = (cue.x-eye.x)*aim.x+(cue.z-eye.z)*aim.z
+                                XCTAssertLessThanOrEqual(station,1.6502,"Local side fallback cannot increase backwards retreat: \(label)")
+                                let shaftY = cue.y+station*tan(fixture.elevation)
+                                XCTAssertGreaterThanOrEqual(eye.y-shaftY,0.3499,label)
+                                let edge = cue-SCNVector3(0,r*0.9,0)
+                                for (start,end,extent) in [(eye.x,edge.x,Float(1.27)),(eye.z,edge.z,Float(0.635))] {
+                                    for boundary in [-extent,extent] where abs(end-start)>0.000001 {
+                                        let t = (boundary-start)/(end-start)
+                                        guard t>0, t<1 else { continue }
+                                        let crossing = eye+(edge-eye)*t
+                                        if abs(crossing.x)<=1.27001 && abs(crossing.z)<=0.63501 {
+                                            XCTAssertGreaterThanOrEqual(crossing.y,0.837-0.00002,label)
+                                        }
+                                    }
+                                }
+                                counts[pocket] += 1
+                                if min(1.27-abs(cue.x),0.635-abs(cue.z))<0.075 { nearRailCount += 1 }
+                                if gap == 0.12 { shortCount += 1 }
+                                if abs(degrees) == 75 { thinCount += 1 }
+                            }
+                        }
+                    }
+                }
+            }
+            XCTAssertEqual(counts.reduce(0,+)-beforeCount,1024,"Each aspect ratio must run the entire layout set")
+        }
+        XCTAssertEqual(counts,[567,567,567,567,402,402],"Every six-pocket family must actually run")
+        XCTAssertEqual(counts.reduce(0,+),3072)
+        XCTAssertGreaterThan(nearRailCount,0); XCTAssertEqual(shortCount,1824); XCTAssertGreaterThan(thinCount,0)
+        print("[DailyPocketObservationGenerated] cases=\(counts.reduce(0,+)) perPocket=\(counts) nearRail=\(nearRailCount) short=\(shortCount) thin=\(thinCount) maximumVerticalFOV=\(maximumVerticalFOV) maximumHorizontalFOV=\(maximumHorizontalFOV)")
+    }
+
+    func testShortStraightPairsImproveActualEyeAngularSeparationWithoutUnnecessaryRetreatChanges() throws {
+        let r = BallPhysics.radius
+        let holes = AngleSceneCalculator.pocketPositions(surfaceY:0.8)
+        func separation(eye: SCNVector3, cue: SCNVector3, target: SCNVector3) -> Double {
+            let a = cue-eye, b = target-eye
+            let al = sqrt(Double(a.x)*Double(a.x)+Double(a.y)*Double(a.y)+Double(a.z)*Double(a.z))
+            let bl = sqrt(Double(b.x)*Double(b.x)+Double(b.y)*Double(b.y)+Double(b.z)*Double(b.z))
+            let cosine = (Double(a.x)*Double(b.x)+Double(a.y)*Double(b.y)+Double(a.z)*Double(b.z))/(al*bl)
+            return acos(max(-1,min(1,cosine)))/(asin(Double(r)/al)+asin(Double(r)/bl))
+        }
+        for size in [viewport,CGSize(width:667,height:375),CGSize(width:1366,height:1024)] {
+            for (target,pocket) in [(SCNVector3(0.62,0.8+r,-0.30),4),
+                                    (SCNVector3(-0.62,0.8+r,0.30),5)] {
+                let aim = (holes[pocket]-SCNVector3(target.x,0.8,target.z)).normalized()
+                for gap: Float in [0.002,0.12] {
+                    let cue = target-aim*(2*r+gap)
+                    XCTAssertGreaterThan((target-cue).length(),2*r,"Counterexample must not overlap balls")
+                    let fixture = PocketObservationFixture(cue:cue,target:target,pocket:pocket,aim:aim,elevation:0.05)
+                    let (view,rig,camera) = dailyRig(size:size)
+                    try enterPocketObservation(fixture,rig:rig)
+                    let ratio = separation(eye:camera.position,cue:cue,target:target)
+                    let setback = hypot(camera.position.x-cue.x,camera.position.z-cue.z)
+                    if gap == 0.002 {
+                        let previousEye = cue-aim*1.65+SCNVector3(0,1.7-cue.y,0)
+                        XCTAssertLessThan(separation(eye:previousEye,cue:cue,target:target),0.50,
+                                          "This fixture must expose the old severe outline overlap")
+                        XCTAssertGreaterThanOrEqual(ratio,0.65-0.00005,
+                                                    "Actual eye rays must improve the two physical ball outlines")
+                        XCTAssertLessThan(setback,1.1,"Short pair requires a closer standing position")
+                    } else {
+                        XCTAssertGreaterThan(ratio,1.3)
+                        XCTAssertEqual(setback,1.65,accuracy:0.0002,
+                                       "A separated pair keeps the ordinary standard eye")
+                    }
+                    assertPocketObservationSurfacesInsideSafeRegion(fixture,view:view,
+                        label:"short-pair size=\(size) pocket=\(pocket) gap=\(gap)")
+                }
+            }
+        }
+    }
+
+    func testActualCADPocketMouthAndBallSurfacesStayClearThroughFixedEyeVerticalLimitsAnd2DRestore() throws {
+        for size in [viewport,CGSize(width:667,height:375),CGSize(width:1366,height:1024)] {
+            for (index,fixture) in pocketObservationFixtures.enumerated() {
+                let (view,rig,camera) = dailyRig(size:size)
+                try enterPocketObservation(fixture,rig:rig)
+                assertPocketObservationSurfacesInsideSafeRegion(fixture,view:view,
+                    label:"CAD standard size=\(size) fixture=\(index)")
+                let standardEye = camera.position, standardPitch = camera.eulerAngles.x
+                for delta: Float in [-10000,10000] {
+                    try enterPocketObservation(fixture,rig:rig)
+                    let standardState = rig.capturePerspectiveState()
+                    rig.applyTopDown2D(); rig.restorePerspectiveState(standardState)
+                    rig.handleVerticalSwipe(delta:delta)
+                    for _ in 0..<120 {
+                        rig.update(deltaTime:1/60)
+                        XCTAssertLessThan((camera.position-standardEye).length(),0.0002,
+                                          "Viewing the CAD mouth cannot lower or move the head")
+                    }
+                    XCTAssertGreaterThan(abs(camera.eulerAngles.x-standardPitch),0.0001,
+                                         "The extreme swipe must actually change gaze")
+                    assertPocketObservationSurfacesInsideSafeRegion(fixture,view:view,
+                        label:"CAD vertical size=\(size) fixture=\(index) delta=\(delta)",safeFraction:0.82)
+                    let adjustedState = rig.capturePerspectiveState()
+                    rig.applyTopDown2D(); rig.restorePerspectiveState(adjustedState)
+                    assertPocketObservationSurfacesInsideSafeRegion(fixture,view:view,
+                        label:"CAD restored size=\(size) fixture=\(index) delta=\(delta)",safeFraction:0.82)
+                    XCTAssertLessThan((camera.position-standardEye).length(),0.0002)
+                }
+            }
+        }
+    }
+
+    func testOpticallyZoomedPocketObservationAllowsFixedEyeDetailLookAfter2DRestoreAndResetsOnEntry() throws {
+        let fixture = pocketObservationFixtures[1]
+        for size in [viewport,CGSize(width:667,height:375),CGSize(width:1366,height:1024)] {
+            let (_,rig,camera) = dailyRig(size:size)
+            try enterPocketObservation(fixture,rig:rig)
+            let standardEye = camera.position, standardRotation = camera.eulerAngles
+            let standardFOV = try XCTUnwrap(camera.camera).fieldOfView
+            let standardDistance = rig.orbitDistance
+            for delta: Float in [-120,120] {
+                try enterPocketObservation(fixture,rig:rig)
+                rig.handlePinch(scale:2); rig.snapToTarget()
+                let detailEye = camera.position, detailPitch = camera.eulerAngles.x
+                let detailFOV = try XCTUnwrap(camera.camera).fieldOfView
+                XCTAssertLessThan(detailFOV,standardFOV*0.75,"The fixture must actually enter optical detail zoom")
+                XCTAssertLessThan((detailEye-standardEye).length(),0.0002,"Optical zoom keeps the standard eye")
+                let zoomedState = rig.capturePerspectiveState()
+                rig.applyTopDown2D(); rig.restorePerspectiveState(zoomedState)
+                XCTAssertEqual(try XCTUnwrap(camera.camera).fieldOfView,detailFOV,accuracy:0.0001)
+                rig.handleVerticalSwipe(delta:delta)
+                for _ in 0..<120 {
+                    rig.update(deltaTime:1/60)
+                    XCTAssertLessThan((camera.position-detailEye).length(),0.0002,
+                                      "Detail inspection changes gaze while keeping the head fixed")
+                }
+                XCTAssertGreaterThan(abs(camera.eulerAngles.x-detailPitch),0.03,
+                                     "Zoomed inspection must not be trapped by the three-subject wide framing limits")
+                let adjustedPitch = camera.eulerAngles.x
+                let inspectedState = rig.capturePerspectiveState()
+                rig.applyTopDown2D(); rig.restorePerspectiveState(inspectedState)
+                XCTAssertEqual(camera.eulerAngles.x,adjustedPitch,accuracy:0.0001)
+                XCTAssertEqual(try XCTUnwrap(camera.camera).fieldOfView,detailFOV,accuracy:0.0001)
+                rig.handleVerticalSwipe(delta:-delta)
+                for _ in 0..<120 {
+                    rig.update(deltaTime:1/60)
+                    XCTAssertLessThan((camera.position-detailEye).length(),0.0002)
+                }
+                XCTAssertGreaterThan(abs(camera.eulerAngles.x-adjustedPitch),0.03,
+                                     "2D restore must retain detail inspection gesture semantics")
+                try enterPocketObservation(fixture,rig:rig)
+                XCTAssertLessThan((camera.position-standardEye).length(),0.0002)
+                XCTAssertLessThan((camera.eulerAngles-standardRotation).length(),0.0002)
+                XCTAssertEqual(try XCTUnwrap(camera.camera).fieldOfView,standardFOV,accuracy:0.0001)
+                XCTAssertEqual(rig.orbitDistance,standardDistance,accuracy:0.0002)
+            }
+        }
+    }
+
+    func testPocketObservationFreezesEntrySubjectsThroughMetadataChangesAnd2DRestore() throws {
+        for index in [0,1,4] {
+            let fixture = pocketObservationFixtures[index], next = pocketObservationFixtures[7]
+            let (_,reference,referenceCamera) = dailyRig()
+            let (_,candidate,candidateCamera) = dailyRig()
+            try enterPocketObservation(fixture,rig:reference)
+            try enterPocketObservation(fixture,rig:candidate)
+            candidate.observationCandidates = [next.cue,next.target]
+            candidate.observationPocket = (next.pocket,AngleSceneCalculator.pocketMarkerPositions(surfaceY:0.8)[next.pocket])
+            for delta: Float in [80,-80] {
+                reference.handleVerticalSwipe(delta:delta); candidate.handleVerticalSwipe(delta:delta)
+                for _ in 0..<120 {
+                    reference.update(deltaTime:1/60); candidate.update(deltaTime:1/60)
+                    XCTAssertLessThan((candidateCamera.position-referenceCamera.position).length(),0.0002)
+                    XCTAssertLessThan((candidateCamera.eulerAngles-referenceCamera.eulerAngles).length(),0.0002,
+                                      "Pending metadata must not change the active observation gaze limits")
+                    XCTAssertEqual(try XCTUnwrap(candidateCamera.camera).fieldOfView,
+                                   try XCTUnwrap(referenceCamera.camera).fieldOfView,accuracy:0.0001)
+                }
+                let candidateState = candidate.capturePerspectiveState()
+                let referenceState = reference.capturePerspectiveState()
+                candidate.applyTopDown2D(); reference.applyTopDown2D()
+                candidate.restorePerspectiveState(candidateState); reference.restorePerspectiveState(referenceState)
+            }
+            try enterPocketObservation(next,rig:reference)
+            try enterPocketObservation(next,rig:candidate)
+            XCTAssertLessThan((candidateCamera.position-referenceCamera.position).length(),0.0002,
+                              "An explicit new entry must replace the frozen context")
+            XCTAssertLessThan((candidateCamera.eulerAngles-referenceCamera.eulerAngles).length(),0.0002)
+        }
     }
 }

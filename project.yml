@@ -35,6 +35,10 @@ settings:
     DEVELOPMENT_TEAM: KWH2GRNSKG
     INFOPLIST_FILE: QiuJi/Resources/Info.plist
     CODE_SIGN_STYLE: Automatic
+  configs:
+    Debug:
+      # 日常 Xcode Run 使用优化版；排查逐行调试问题时可临时覆盖为 -Onone。
+      SWIFT_OPTIMIZATION_LEVEL: "-O"
 
 targets:
   QiuJi:

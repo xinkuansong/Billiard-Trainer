@@ -67,7 +67,9 @@ extension ShotSoundKind {
     var speedGainPoints: [(Float, Float)] {
         switch self {
         case .cueStrike: return [(0,0),(0.15,0.008),(0.5,0.035),(1.5,0.16),(3,0.38),(6,0.7),(10,1)]
-        case .ballHit: return [(0,0),(0.03,0),(0.15,0.025),(0.5,0.12),(1.5,0.36),(3,0.6),(6,0.85),(10,1)]
+        // B04's sharp attack needs much lower gain for an isolated gentle touch.
+        // Listening calibration: retain the accepted strong-impact range from 6 m/s.
+        case .ballHit: return [(0,0),(0.03,0),(0.15,0.001),(0.5,0.008),(1,0.025),(1.5,0.08),(3,0.28),(6,0.85),(10,1)]
         case .cushion: return [(0,0),(0.04,0),(0.2,0.01),(0.6,0.07),(1.5,0.24),(3,0.4),(6,0.55)]
         case .jaw: return [(0,0),(0.03,0),(0.2,0.015),(0.6,0.1),(1.5,0.33),(3,0.52),(6,0.65)]
         case .pocket: return [(0,0),(0.05,0),(0.2,0.002),(0.6,0.02),(1.5,0.12),(3,0.4),(6,0.7)]

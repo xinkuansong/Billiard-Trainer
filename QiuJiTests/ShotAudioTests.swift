@@ -118,7 +118,14 @@ extension ShotAudioTests {
     }
 
     func testSpeedCurvesKeepBreakHeadroomAndQuietTouches() {
-        XCTAssertLessThan(ShotSoundBank.gain(for: .ballHit, speed: 0.1), 0.03)
+        XCTAssertLessThan(ShotSoundBank.gain(for: .ballHit, speed: 0.2), 0.001,
+                          "An isolated very slow ball contact must be nearly silent")
+        XCTAssertLessThan(ShotSoundBank.gain(for: .ballHit, speed: 0.5), 0.005)
+        XCTAssertLessThan(ShotSoundBank.gain(for: .ballHit, speed: 1), 0.015)
+        XCTAssertLessThan(ShotSoundBank.gain(for: .ballHit, speed: 1.5), 0.05)
+        XCTAssertEqual(ShotSoundBank.gain(for: .ballHit, speed: 6), 0.425, accuracy: 1e-6,
+                       "The accepted strong-impact gain must remain unchanged")
+        XCTAssertEqual(ShotSoundBank.gain(for: .ballHit, speed: 10), 0.5, accuracy: 1e-6)
         for kind: ShotSoundKind in [.cushion, .jaw] {
             XCTAssertLessThan(ShotSoundBank.gain(for: kind, speed: 0.6), 0.02, "Slow rubber contacts must stay quiet")
         }

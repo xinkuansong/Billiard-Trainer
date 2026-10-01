@@ -1,6 +1,6 @@
 # 瞄准条与力度条刻度声（2026-10-01，DR-336 r4）
 
-当前为r5：按用户授权采用A瞄准/B力度金属音色，最终29单元+2原生UI通过；真机试听未验，未安装手机、提交或发布。下方r4记录保留为历史，最新结果见末尾r5节。
+当前为r6第一版：用户提供direction.mp3瞄准/power.mp3力度，已处理、安装并启动到iPhone；15音频单元通过，UI回归在拖动前等待击球按钮超时，真机听感待用户反馈。第二版已准备未切换。r4/r5为历史，最新结果见末尾r6节。
 
 ## 需求与根因
 
@@ -40,7 +40,7 @@
 
 试听用加速/减速点击展示金属共鸣与滚动感，最密60ms（约16.7Hz）；目前App仍100ms（10Hz）上限。若用户认可滚动方向，下一轮须将音频节奏与现有100ms触感限频分开调校并按有效位移驱动，停手不继续滚动；不能直接循环整段试听或把音调随滑速改变。两段合成声音均未进行人耳质量验收、未作为真实金属录音。
 
-## r5 — 用户授权金属音色替换（2026-10-01，当前版本）
+## r5 — 用户授权金属音色替换（2026-10-01，历史版本）
 
 用户“替换下吧”已授权前述搭配：瞄准用A精密金属滚轮，力度用B厚重棘轮。已将原试听的首个单次齿声提取至Audio/ui_aim_metal.wav（1411帧，约32ms）与ui_power_metal.wav（1764帧，40ms）。去除试听0.68增益后重施增益，与原首个齿声误差≤1个16位PCM量化单位。正式资源SHA-256与App Bundle中的文件一致；不受Debug物理音效导入覆盖。
 
@@ -57,3 +57,24 @@
 - 已打开此次最终2D/3D启用截图，左右尺、数值及击球按钮完整；四状态截图复制至此轮ui目录。未改视觉或确认真机画质。
 
 替换及本地回归已完成，真机听感/硬件静音开关/触感同步仍待验。尚未安装手机、提交或发布；前一轮试听音频、原失败日志和xcresult保留。
+
+## r6 — 用户原声逐版试用（2026-10-01，当前第一版）
+
+用户提供direction.mp3/power.mp3和direction-v2.mp3/power-v2.mp3，要求一个版本一个版本试。第一组现已替换App包内两种操作声，并安装/启动到已连接iPhone；第二组仅预处理，未激活。
+
+处理交付在`output/control-sounds-user-20261001/`：sources保存四个原始MP3；previous-metal-r5保存原App两WAV；v1/v2分别保存单齿资源和3秒滑动试听。manifest.json登记源/输出哈希、切点、增益；process.py可复现处理，activate-version.py校验哈希后切换两文件，active-version.txt当前为1。
+
+第一版保留direction的0.369–0.413秒和power的0.202–0.246秒，均约44ms完整单齿；去DC、0.5ms淡入/3ms淡出、峰值0.25，44.1kHz/16bit/stereo。没有变调、EQ或压缩，保持现有60ms声/100ms震动及位移触发机制，本轮不改Swift生产代码或测试。第二版约56ms/51ms也已处理，但用户反馈前不替换。
+
+验证目录`build/control-user-v1-20261001/`：
+
+- test.log/test.xcresult：15项ShotAudioTests全部通过；资源解码、峰值、首尾淡出和区分两音色通过。随后UI用例在第一次拖动前等待dailyClearance.strike.enabled超时，未执行拖动，不能计为声音开关/2D/3D回归通过。
+- ui-optimized.log/ui-optimized.xcresult：以-O重跑同UI，仍在同一拖动前断言超时。保留失败，根因未证实；未通过放宽断言或修改不相关业务来掩盖。r5通过记录属于历史，不代替本轮UI证据。
+- device-build.log：Makefile build-device-profile成功，Debug/-O；使用独立DeviceProfile构建目录，编译当前共享工作树，未回退其他会话修改。
+- bundle-hashes.json：本轮模拟器和真机App Bundle两资源与v1清单SHA-256一致。
+- install.json/launch.json：iPhone原位安装成功、App激活成功，进程2624；启动参数仅-soundEffectsEnabled YES，为本次启动临时启用音效；未使用清空训练/重置/夹具/强制会员参数。尚未由用户实听验收，硬件静音仍遵循既有ambient设置。
+- gate.log：内容/发布图/双端/术语门禁通过；整体verify-gate被测试写盘面登记漂移阻塞：extra=QiuJiTests/PocketMarkerHighlightTests.swift，该文件属于并行修改，未在本轮改动或替其登记。
+
+本轮verify-doc-size及git diff --check通过。
+
+下一步：用户试第一版后反馈，再使用已处理的第二组切换、构建与安装；这轮保持第一版。未提交或发布。

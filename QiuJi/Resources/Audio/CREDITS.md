@@ -60,9 +60,17 @@ afconvert -f caff -d LEI16@44100 clip.wav sfx_ball_hit_2.caf
 
 四个处理后样本由 Debug 参数从 Documents/ShotAudioPreview 导入，不在此发行资源目录。来源及 SHA-256 见 `output/shot-audio-preview-20260930/manifest.json`；三类来自已登记的视频裁切换色，碰库为已认可极柔设计。未登记为自录或 CC0，原发行资产清单保持待补。
 
-## 2026-10-01 操作控件金属声（DR-336 r5）
+## 2026-10-01 操作控件金属声（DR-336 r5，历史版本）
 
 本节仅用于瞄准条/力度条操作反馈，不作为台球碰撞录音。用户已授权替换前一轮试听：瞄准采用A精密金属滚轮，力度采用B厚重棘轮。两者均由本项目本地数学合成生成，未使用第三方录音或收费服务；从对应4.4秒试听的首个齿声提取，并去除试听0.68增益，重施增益后与原试听误差不超过1个16位PCM量化单位。App按实际位移触发单次齿声，不循环整段试听、不变调。
 
 - `ui_aim_metal.wav`：44.1kHz/16bit/mono，1411帧；源试听`build/control-audio-20261001/metal-precision-preview.wav`；资源SHA-256：`6047bad6e88872f91c7bbfb256f1c339572fb2b4c7eac12d8ee626ab0f9671f6`。
 - `ui_power_metal.wav`：44.1kHz/16bit/mono，1764帧；源试听`build/control-audio-20261001/metal-ratchet-preview.wav`；资源SHA-256：`899f4bfe595efe371ce2a928fca85603bfed70197b89d661ba19d156db25497a`。
+
+## 2026-10-01 用户提供两组操作音效（DR-336 r6，当前试用第一版）
+
+用户提供direction.mp3/power.mp3及direction-v2.mp3/power-v2.mp3，要求逐版试用。目前仅第一组进入App；第二组已处理保留，尚未切换。来源为用户提供文件，不推断作者或CC0许可。原文件、处理脚本、切点、增益及SHA-256记录在`output/control-sounds-user-20261001/manifest.json`；前一轮合成资源保留于该目录previous-metal-r5。
+
+- 瞄准：direction.mp3的0.369–0.413秒，1941帧，约44ms，增益-7.03dB。当前资源SHA-256：`8c364f562e8571363801f985c4987fc92d8bb9dfd7bd6414627bea4eda2f0ee9`。
+- 力度：power.mp3的0.202–0.246秒，1940帧，约44ms，增益-3.41dB。当前资源SHA-256：`2528c4754ed9333acffdaf461663dd56f8d09412fdc5ffef4c7b707b9dfa0b99`。
+- 均为44.1kHz/16bit/stereo，去DC，0.5ms淡入、3ms淡出，峰值0.25；不变调、不加EQ或压缩。每个有效刻度使用一次完整齿声，沿用60ms声音/100ms震动节奏。

@@ -31,7 +31,10 @@ enum DirectPotBankFallback {
         spinXValues: [Float] = BankKickSolvePipeline.sideSpinSearchValues,
         cancellation: PredictionCancellation? = nil
     ) -> [BankEngineSolution] {
-        BankKickSolvePipeline.solveBank(
+        #if DEBUG
+        cancellation?.recordWork("bankSearch")
+        #endif
+        return BankKickSolvePipeline.solveBank(
             cue: cue, object: object, pocketIndex: pocketIndex,
             surfaceY: surfaceY, power: power, obstacles: obstacles,
             spinXValues: spinXValues, cancellation: cancellation
@@ -118,6 +121,17 @@ enum DirectPotBankFallback {
 final class PredictionCancellation: @unchecked Sendable {
     private let lock = NSLock()
     private var cancelled = false
+    #if DEBUG
+    private var work: [String: Int] = [:]
+    func recordWork(_ kind: String) {
+        lock.lock(); defer { lock.unlock() }
+        work[kind, default: 0] += 1
+    }
+    var workCounts: [String: Int] {
+        lock.lock(); defer { lock.unlock() }
+        return work
+    }
+    #endif
 
     var isCancelled: Bool {
         lock.lock()

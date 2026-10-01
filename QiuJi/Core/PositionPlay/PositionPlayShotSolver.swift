@@ -15,6 +15,9 @@ enum PositionPlayShotSolver {
     static func solveDailyDirectRecommendation(before: BoardSnapshot, preferred: PlannedShot,
         orderedTargetKeys: [String], surfaceY: Float, cancellation: PredictionCancellation? = nil
     ) -> (shot: PlannedShot, prediction: ShotPrediction)? {
+        #if DEBUG
+        cancellation?.recordWork("physicalRecommendation")
+        #endif
         guard let first = solve(before: before, shot: preferred, surfaceY: surfaceY,
                                 cancellation: cancellation) else { return nil }
         if first.hasCombinationRoute && !preferred.isFree {
@@ -61,6 +64,9 @@ enum PositionPlayShotSolver {
     /// 返回 nil = 快照/意图不完整（缺母球、缺目标球、袋口非法）。
     static func solve(before: BoardSnapshot, shot: PlannedShot, surfaceY: Float,
                       cancellation: PredictionCancellation? = nil) -> ShotPrediction? {
+        #if DEBUG
+        cancellation?.recordWork("shotPrediction")
+        #endif
         guard cancellation?.isCancelled != true else { return nil }
         guard let cuePt = before.onTable[PositionPlayBall.cueKey] else { return nil }
         let cue = scenePoint(cuePt, surfaceY: surfaceY)

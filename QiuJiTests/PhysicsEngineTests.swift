@@ -1353,3 +1353,112 @@ extension PhysicsEngineTests {
             velocity: 1, spinX: 0, spinY: 0, elevation: 0))
     }
 }
+
+
+extension PhysicsEngineTests {
+    func testArcCCDOrdinaryLowSpeedLostRootRegression() throws {
+        let arc = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY).circularCushions[5]
+        let t = try XCTUnwrap(CollisionDetector.ballCircularCushionTime(
+            p: SCNVector3(1.26293742657, 0.82857501507, -0.60620647669),
+            v: SCNVector3(0.05920557678, 0, 0.00408543739),
+            a: SCNVector3(-0.09786728024, 0, -0.00675325980), arc: arc,
+            R: BallPhysics.radius, maxTime: 0.60))
+        // Independent bisection of the original squared-distance equation.
+        XCTAssertEqual(t, 0.015087483726568124, accuracy: 0.000002)
+    }
+
+    func testArcCCDTouchingAndSubMicrosecondAcrossAllArcs() throws {
+        let g = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        for arc in g.circularCushions {
+            var span = arc.endAngle - arc.startAngle
+            if span < 0 { span += 2 * .pi }
+            let angle = arc.startAngle + span / 2
+            let n = SCNVector3(cosf(angle), 0, sinf(angle))
+            let touching = arc.center + n * (arc.radius + BallPhysics.radius)
+            XCTAssertEqual(CollisionDetector.ballCircularCushionTime(p:touching,v:n * -5,a:SCNVector3Zero,
+                arc:arc,R:BallPhysics.radius,maxTime:0),0)
+            for gap: Float in [0, 0.000002, 0.000020] {
+                let p = touching + n * gap
+                let hit = try XCTUnwrap(CollisionDetector.ballCircularCushionTime(
+                    p: p, v: n * -5, a: SCNVector3Zero, arc: arc,
+                    R: BallPhysics.radius, maxTime: 0.001))
+                XCTAssertEqual(hit, gap / 5, accuracy: 0.0000001)
+                XCTAssertNil(CollisionDetector.ballCircularCushionTime(
+                    p: p, v: n * 5, a: SCNVector3Zero, arc: arc,
+                    R: BallPhysics.radius, maxTime: 0.001))
+            }
+            XCTAssertNil(CollisionDetector.ballCircularCushionTime(
+                p: touching, v: SCNVector3(-n.z, 0, n.x), a: SCNVector3Zero,
+                arc: arc, R: BallPhysics.radius, maxTime: 0.001))
+        }
+    }
+}
+
+extension PhysicsEngineTests {
+    func testBoundedArcPolynomialTurningPointsAndRepeatedRoot() {
+        let roots = QuarticSolver.boundedRealRoots(coefficients: [1, -1.6, 0.84, -0.176, 0.0128], maxTime: 1)
+        XCTAssertTrue(roots.contains { abs($0 - 0.2) < 1e-7 })
+        XCTAssertTrue(roots.contains { abs($0 - 0.4) < 1e-7 })
+        XCTAssertTrue(roots.contains { abs($0 - 0.8) < 1e-7 })
+        XCTAssertTrue(QuarticSolver.boundedRealRoots(coefficients: [1, 0, 1], maxTime: 1).isEmpty)
+        for horizon in [0.03, 0.1, 1, 15] {
+            let r = QuarticSolver.boundedRealRoots(coefficients: [0.002405902765125307, -0.005821878794675788,
+                0.014989639295091062, -0.01387488695127137, 0.0002059448770124206], maxTime: horizon)
+            XCTAssertEqual(r.first ?? -1, 0.015087483726568124, accuracy: 1e-9)
+        }
+    }
+
+    func testRestingSeparationKeepsFrozenRailAndRecordedFinalState() throws {
+        let r = BallPhysics.radius, y = BTTablePhysics.surfaceY + r
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        for side: Float in [-1, 1] {
+            let rail = side * (TablePhysics.innerWidth / 2 - r)
+            let e = EventDrivenEngine(tableGeometry: geometry)
+            e.setBall(BallState(position: SCNVector3(1.1, y, rail), velocity: SCNVector3Zero,
+                angularVelocity: SCNVector3Zero, state: .stationary, name: "outer"))
+            e.setBall(BallState(position: SCNVector3(1.1, y, rail - side * (2*r - 0.001)),
+                velocity: SCNVector3Zero, angularVelocity: SCNVector3Zero, state: .stationary, name: "inner"))
+            XCTAssertEqual(e.simulate(highFidelityBounds: true), .settled)
+            XCTAssertEqual(e.resolveRestingOverlaps(), .settled)
+            let a = try XCTUnwrap(e.getBall("outer")), b = try XCTUnwrap(e.getBall("inner"))
+            XCTAssertLessThanOrEqual(side * a.position.z, abs(rail) + 0.000001)
+            XCTAssertGreaterThanOrEqual((b.position - a.position).length(), 2*r - 0.000001)
+            let recorded = try XCTUnwrap(e.getTrajectoryRecorder().framesByBallName["outer"]?.last)
+            XCTAssertEqual(recorded.position.x, a.position.x)
+            XCTAssertEqual(recorded.position.y, a.position.y)
+            XCTAssertEqual(recorded.position.z, a.position.z)
+            XCTAssertTrue(e.resolvedEvents.isEmpty)
+        }
+    }
+
+    func testDeepInitialCushionIntersectionCannotPublishSettled() {
+        let r = BallPhysics.radius, e = EventDrivenEngine(tableGeometry:
+            .chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY))
+        e.setBall(BallState(position: SCNVector3(1.1, BTTablePhysics.surfaceY+r, TablePhysics.innerWidth/2-r+0.002),
+            velocity: SCNVector3Zero, angularVelocity: SCNVector3Zero, state: .stationary, name: "invalid"))
+        if case .failed = e.simulate() {} else { XCTFail("Deep penetration must not be delivered as a normal rest state") }
+    }
+}
+
+extension PhysicsEngineTests {
+    func testJawCCDAndImpulseShareRealContactSideWithoutRecess() throws {
+        let g = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        for i in 6..<14 {
+            let wall = g.linearCushions[i]
+            let n = i % 2 == 0 ? -wall.normal : wall.normal
+            var p = wall.start + (wall.end-wall.start)*0.25 + n*BallPhysics.radius
+            p.y = BTTablePhysics.surfaceY+BallPhysics.radius
+            var state = BallState(position:p, velocity:n * -0.2,
+                angularVelocity:SCNVector3(0,1,0).cross(n * -0.2)*(1/BallPhysics.radius),
+                state:.rolling, name:"jaw")
+            XCTAssertTrue(EngineNumerics.resolveCushionImpact(state:&state, cushionIndex:i,
+                normal:wall.normal, geometry:g))
+            XCTAssertGreaterThan(state.velocity.dot(n),0)
+            XCTAssertLessThan((state.position-p).length(),0.000003)
+            let twin = g.linearCushions.dropFirst(14).contains {
+                $0.soundSurface == .jaw && ($0.start-wall.start).length()<0.000001 && ($0.end-wall.end).length()<0.000001
+            }
+            XCTAssertTrue(twin,"Jaw channel must use the same physical plane, not a recessed proxy")
+        }
+    }
+}

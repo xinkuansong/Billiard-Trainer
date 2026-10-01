@@ -1289,9 +1289,8 @@ extension AngleSceneCalculator {
     static let dailyComfortableCutDegrees: Double = 75
 
     /// A small set of opening points, without jaw simulation, clearance scores,
-    /// cue elevation, or physical prediction. Rail contacts are left to the
-    /// predictor: a straight segment to one sampled point can reject a pot
-    /// whose physical aim runs along the rail or enters through a different point.
+    /// cue elevation, or physical prediction. Check finite primary cushions;
+    /// curved-jaw entry remains an estimate for the selected-shot predictor.
     static func dailyPocketCandidate(cue: SCNVector3, target: SCNVector3,
                                      targetKey: String, pocketIndex: Int,
                                      obstacles: [SCNVector3], surfaceY: Float) -> DailyPocketCandidate? {
@@ -1305,6 +1304,9 @@ extension AngleSceneCalculator {
         for t in [Float(0.5), inset, 1 - inset] {
             aims.append(SCNVector3(a.x + (b.x - a.x) * t, surfaceY, a.z + (b.z - a.z) * t))
         }
+        // The rounded nose can admit a near-rail line outside the inset chord.
+        // Include its two tips; do not turn missing chord samples into a veto.
+        aims.append(contentsOf: [a, b])
         // Frozen balls run parallel to their rail. Using the nominal jaw endpoint
         // tilts that line and can place the ghost beyond the ball-centre boundary.
         // Curved-jaw entry remains an estimate, not a simulated pot guarantee.
@@ -1324,6 +1326,10 @@ extension AngleSceneCalculator {
             guard abs(ghost.x) <= innerLength / 2 - ballRadius + epsilon,
                   abs(ghost.z) <= innerWidth / 2 - ballRadius + epsilon,
                   horizontalDistance(cue, ghost) > epsilon,
+                  !mainCushionSegments.contains(where: {
+                      segmentDistance(Vector2(cue.x, cue.z), Vector2(ghost.x, ghost.z), $0.a, $0.b) < ballRadius - epsilon
+                      || segmentDistance(Vector2(target.x, target.z), Vector2(aim.x, aim.z), $0.a, $0.b) < ballRadius - epsilon
+                  }),
                   !isPathBlocked(from: cue, to: ghost, obstacles: obstacles, clearance: 2 * ballRadius - epsilon),
                   !isPathBlocked(from: target, to: aim, obstacles: obstacles, clearance: 2 * ballRadius - epsilon)
                 else { continue }
@@ -1333,6 +1339,26 @@ extension AngleSceneCalculator {
                 targetPocketDistance: Double(horizontalDistance(target, nominal)))
         }
         return nil
+    }
+
+    enum DirectPocketAssessment { case available, unavailable, uncertain }
+
+    /// A missing finite-sample candidate is not by itself a physical impossibility.
+    /// Only a backwards cut or one ball covering the whole opening is a hard veto.
+    static func directPocketAssessment(cue: SCNVector3, target: SCNVector3,
+        targetKey: String, pocketIndex: Int, obstacles: [SCNVector3], surfaceY: Float) -> DirectPocketAssessment {
+        if dailyPocketCandidate(cue: cue, target: target, targetKey: targetKey,
+            pocketIndex: pocketIndex, obstacles: obstacles, surfaceY: surfaceY) != nil { return .available }
+        let (a, b) = pocketJaws(surfaceY: surfaceY)[pocketIndex]
+        let nominal = pocketPositions(surfaceY: surfaceY)[pocketIndex]
+        let aims = [a, b, nominal]
+        if aims.allSatisfy({ cutAngle(cueBall: cue, targetBall: target, pocket: $0) >= 90 }) {
+            return .unavailable
+        }
+        if obstacles.contains(where: { obstacle in
+            aims.allSatisfy { isPathBlocked(from: target, to: $0, obstacles: [obstacle], clearance: 2 * ballRadius) }
+        }) { return .unavailable }
+        return .uncertain
     }
 
     /// Shared ordering for pocket selection and all-hard fallback. High score wins.

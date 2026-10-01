@@ -2,7 +2,7 @@ import XCTest
 
 final class PocketLeatherFlowUITests: XCTestCase {
     private var evidence: URL {
-        URL(fileURLWithPath: ProcessInfo.processInfo.environment["POCKET_UI_EVIDENCE"] ?? URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("output/pocket-leather/W4/standard").path)
+        URL(fileURLWithPath: ProcessInfo.processInfo.environment["POCKET_UI_EVIDENCE"] ?? ProcessInfo.processInfo.environment["TEST_RUNNER_POCKET_UI_EVIDENCE"] ?? URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("output/pocket-leather/W4/standard").path)
     }
     private let args=["-v50.inMemoryStore","-v53.authenticatedProfileFixture","-forcePremium"]
     override func setUpWithError() throws { continueAfterFailure=false }
@@ -78,6 +78,95 @@ final class PocketLeatherFlowUITests: XCTestCase {
         XCTAssertTrue(cleared.hasPrefix("未选择目标袋"))
         XCTAssertFalse(cleared.contains("①")); XCTAssertFalse(cleared.contains("②"))
         try snap(app,"plan-cleared")
+    }
+
+    func testTemporaryYellowRetainsTargetAcross2DAnd3D() throws {
+        let app = launch(["-deeplink.tryout=drill_c042"])
+        assertTable(app)
+        let pocketMode = app.buttons["tryoutMode_进袋"]
+        XCTAssertTrue(pocketMode.waitForExistence(timeout: 10)); pocketMode.tap()
+        let mode = app.buttons["tryout.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 10))
+        if mode.value as? String != "2D" { mode.tap() }
+        Thread.sleep(forTimeInterval: 3)
+        func target() -> String? { (table(app).value as? String)?.components(separatedBy: "，").first }
+        let selected = try XCTUnwrap(target())
+        XCTAssertTrue(selected.contains("号袋：目标"), selected)
+        try snap(app, "yellow-pulse-restored-2d")
+        if mode.value as? String != "3D" { mode.tap() }
+        Thread.sleep(forTimeInterval: 3)
+        XCTAssertEqual(target(), selected)
+        try snap(app, "yellow-pulse-restored-3d")
+        mode.tap()
+        Thread.sleep(forTimeInterval: 2)
+        XCTAssertEqual(target(), selected)
+        try snap(app, "yellow-pulse-returned-2d")
+        app.terminate()
+    }
+
+    /// The probe only exposes the actual SceneKit projection and material state.
+    /// Every choice below goes through a real coordinate tap and the page handler.
+    func testNativePocketClickFallbackRecoveryAndPerspective() throws {
+        for daily in [false, true] {
+            let extra = daily
+                ? ["-deeplink.dailyClearance", "-dailyClearance.resetState", "-dailyClearance.fixture=cueAccessRoom", "-dailyClearance.fixtureSettled"]
+                : []
+            let app = launch(extra + ["-pocketSelection.probe"])
+            if !daily { open("自由击球", in: app) }
+            assertTable(app)
+            let camera = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(camera.waitForExistence(timeout: 10))
+            if camera.value as? String != "2D" { camera.tap() }
+            func probe() throws -> [String: Any] {
+                let value = try XCTUnwrap(table(app).value as? String)
+                return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(value.utf8)) as? [String: Any])
+            }
+            func pockets() throws -> [[String: Any]] { try XCTUnwrap(probe()["pockets"] as? [[String: Any]]) }
+            func selected() throws -> Int? { try pockets().first { ($0["style"] as? Int) == 1 }?["index"] as? Int }
+            func tap(_ index: Int) throws {
+                let pocket = try XCTUnwrap(pockets().first { ($0["index"] as? Int) == index })
+                let point = try XCTUnwrap(pocket["screen"] as? [NSNumber])
+                let viewport = try XCTUnwrap(probe()["viewport"] as? [NSNumber])
+                let scene = table(app)
+                XCTAssertGreaterThanOrEqual(point[2].doubleValue, 0)
+                XCTAssertLessThanOrEqual(point[2].doubleValue, 1)
+                // SceneKit local points must be normalised before XCUI maps them
+                // into a scaled iPad window's accessibility rectangle.
+                scene.coordinate(withNormalizedOffset: CGVector(
+                    dx: point[0].doubleValue / viewport[0].doubleValue,
+                    dy: point[1].doubleValue / viewport[1].doubleValue)).tap()
+            }
+            let valid = try XCTUnwrap(selected())
+            try snap(app, daily ? "ux-daily-initial" : "ux-freeplay-initial")
+            var unavailable: Int?
+            for index in 0..<6 where index != valid {
+                try tap(index)
+                if try selected() == nil { unavailable = index; break }
+            }
+            XCTAssertNotNil(unavailable, "The initial layout has backwards pockets")
+            if daily {
+                let hud = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+                XCTAssertTrue((hud.value as? String ?? "").contains("自由模式"), app.debugDescription)
+                XCTAssertTrue(app.staticTexts["dailyClearance.aimSelection"].label.contains("自由"))
+            } else {
+                XCTAssertTrue(app.staticTexts["navStatus.subtitle"].label.contains("自由"), app.debugDescription)
+            }
+            try snap(app, daily ? "ux-daily-unavailable-free" : "ux-freeplay-unavailable-free")
+            try tap(valid)
+            XCTAssertEqual(try selected(), valid)
+            try tap(valid) // Same pocket is a new acknowledgement, retaining intent.
+            Thread.sleep(forTimeInterval: 2)
+            XCTAssertEqual(try selected(), valid)
+            XCTAssertTrue(try pockets().allSatisfy { ($0["yellow"] as? Double) == 0 && ($0["pending"] as? Bool) == false })
+            try snap(app, daily ? "ux-daily-restored-2d" : "ux-freeplay-restored-2d")
+            camera.tap()
+            XCTAssertEqual(camera.value as? String, "3D")
+            Thread.sleep(forTimeInterval: 2)
+            XCTAssertEqual(try selected(), valid)
+            XCTAssertTrue(try pockets().allSatisfy { ($0["pending"] as? Bool) == false })
+            try snap(app, daily ? "ux-daily-retained-3d" : "ux-freeplay-retained-3d")
+            app.terminate()
+        }
     }
 
     func testExternalFormationDestinations() throws {

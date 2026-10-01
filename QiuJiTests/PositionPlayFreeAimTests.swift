@@ -1299,6 +1299,131 @@ final class DailyPreviewWorkTests: XCTestCase {
 }
 
 @MainActor
+final class DailyPocketCameraTimingTests: XCTestCase {
+    private func ready(_ vm: PositionPlayViewModel, until predicate: () -> Bool) async throws {
+        let deadline = Date().addingTimeInterval(15)
+        while !predicate(), Date() < deadline {
+            vm.scene.cameraRig?.update(deltaTime: 0.02)
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertTrue(predicate(), "Timed out: \(vm.statusText)")
+    }
+
+    private func fixture() async throws -> (PositionPlayViewModel, SCNView, UIWindow) {
+        let vm = PositionPlayViewModel()
+        vm.scene.configureDailyClearanceRendering()
+        vm.setupScene(); vm.enablePlayerCameraControls(); vm.clearTable()
+        vm.placeFromPalette(PositionPlayBall.cueKey,
+            atWorld: SCNVector3(0, vm.scene.surfaceY + BallPhysics.radius, 0.35))
+        vm.placeFromPalette("_1",
+            atWorld: SCNVector3(0, vm.scene.surfaceY + BallPhysics.radius, -0.1))
+        XCTAssertTrue(vm.selectTarget(key: "_1"))
+        vm.selectPocket(at: 4); vm.velocity = 1.4
+        try await ready(vm) { !vm.isComputing && vm.solvedShot != nil }
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 874, height: 402))
+        view.scene = vm.scene; view.pointOfView = vm.scene.cameraNode
+        vm.scene.cameraRig?.viewportSize = view.bounds.size
+        let window = UIWindow(windowScene: try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene))
+        let controller = UIViewController(); controller.view = view
+        window.rootViewController = controller; window.makeKeyAndVisible(); view.isPlaying = true
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        try await Task.sleep(for: .milliseconds(600))
+        vm.requestPlayerView(.firstPerson)
+        try await ready(vm) { !vm.cameraTransitionBusy }
+        return (vm, view, window)
+    }
+
+    func testTargetCaptureKeepsFirstPersonAfterContactThenStandsAndUndoRestoresIt() async throws {
+        let (vm, view, window) = try await fixture()
+        defer { vm.cancelDailyAttempt(); view.isPlaying = false; window.isHidden = true }
+        let prediction = try XCTUnwrap(vm.solvedShot).prediction
+        let capture = try XCTUnwrap(prediction.events.first {
+            if case .pocket(let ball, _) = $0.kind { return ball == ShotInput.targetBallName }; return false
+        })
+        XCTAssertGreaterThan(capture.time, 0.3, "Fixture must leave an observable interval before the pot")
+        var settlements = 0
+        vm.onShotSettled = { _ in settlements += 1 }
+        vm.play()
+        try await ready(vm) { vm.statusText == "击球中…" }
+        XCTAssertEqual(vm.scene.cameraRig?.playerView, .firstPerson, "Contact must not stand the player up")
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(vm.scene.cameraRig?.playerView, .firstPerson)
+        let output = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/daily-pocket-camera-20261001/timing")
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        try XCTUnwrap(view.snapshot().pngData()).write(to: output.appendingPathComponent("before-target-capture.png"))
+        let target = try XCTUnwrap(vm.scene.allBallNodes["_1"])
+        let deadline = Date().addingTimeInterval(10)
+        var samples = 0
+        while !target.isHidden, Date() < deadline {
+            XCTAssertEqual(vm.scene.cameraRig?.playerView, .firstPerson,
+                           "The player must keep watching until the target leaves the table at capture")
+            samples += 1
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertTrue(target.isHidden, "Actual target capture must occur")
+        XCTAssertGreaterThan(samples, 3, "Sample the visible target throughout its approach")
+        try await ready(vm) { vm.scene.cameraRig?.playerView == .thirdPerson }
+        XCTAssertTrue(vm.isPlaying, "Stand at target capture, while the remaining playback continues")
+        try await ready(vm) { !vm.isPlaying && !vm.isComputing }
+        try await ready(vm) { !vm.cameraTransitionBusy }
+        try XCTUnwrap(view.snapshot().pngData()).write(to: output.appendingPathComponent("after-target-capture.png"))
+        XCTAssertEqual(settlements, 1)
+        XCTAssertFalse(vm.onTableKeys.contains("_1"))
+        vm.replayCurrent()
+        XCTAssertEqual(vm.scene.cameraRig?.playerView, .firstPerson, "Undo restores the shot's original view")
+    }
+
+    func testMissWaitsUntilSettlementBeforeStanding() async throws {
+        let (vm, view, window) = try await fixture()
+        defer { vm.cancelDailyAttempt(); view.isPlaying = false; window.isHidden = true }
+        vm.aimMode = .free
+        vm.handleTableTap(world: SCNVector3(0.5, vm.scene.surfaceY, 0.35)); vm.velocity = 0.5
+        try await ready(vm) { !vm.isComputing && vm.solvedShot?.shot.isFree == true }
+        XCTAssertTrue(try XCTUnwrap(vm.solvedShot).prediction.pocketedBalls.isEmpty)
+        vm.requestPlayerView(.firstPerson)
+        try await ready(vm) { !vm.cameraTransitionBusy }
+        vm.play()
+        try await ready(vm) { vm.statusText == "击球中…" }
+        XCTAssertEqual(vm.scene.cameraRig?.playerView, .firstPerson)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertTrue(vm.isPlaying)
+        XCTAssertEqual(vm.scene.cameraRig?.playerView, .firstPerson)
+        try await ready(vm) { !vm.isPlaying }
+        XCTAssertEqual(vm.scene.cameraRig?.playerView, .thirdPerson)
+    }
+
+    func testCancelledShotCannotStandUpReplacementAttempt() async throws {
+        let (vm, view, window) = try await fixture()
+        defer { vm.cancelDailyAttempt(); view.isPlaying = false; window.isHidden = true }
+        let before = vm.currentSnapshot(), prediction = try XCTUnwrap(vm.solvedShot).prediction
+        vm.play()
+        try await ready(vm) { vm.statusText == "击球中…" }
+        vm.cancelDailyAttempt(); vm.loadBoard(before)
+        try await ready(vm) { !vm.isComputing }
+        vm.requestPlayerView(.firstPerson)
+        try await ready(vm) { !vm.cameraTransitionBusy }
+        try await Task.sleep(for: .seconds(Double(prediction.duration) + 0.3))
+        XCTAssertFalse(vm.isPlaying)
+        XCTAssertEqual(vm.scene.cameraRig?.playerView, .firstPerson)
+    }
+
+    func testGlobalAndThirdPersonShotsKeepSelectedView() async throws {
+        let (vm, view, window) = try await fixture()
+        defer { vm.cancelDailyAttempt(); view.isPlaying = false; window.isHidden = true }
+        for global in [true, false] {
+            if global { vm.scene.cameraRig?.observeWholeTable() }
+            else { vm.requestPlayerView(.thirdPerson) }
+            try await ready(vm) { !vm.cameraTransitionBusy }
+            vm.play()
+            try await ready(vm) { !vm.isPlaying && !vm.isComputing }
+            XCTAssertEqual(vm.scene.cameraRig?.playerView, global ? nil : .thirdPerson)
+            vm.replayCurrent()
+            try await ready(vm) { !vm.isComputing }
+        }
+    }
+}
+
+@MainActor
 final class DailyPowerReleaseTests: XCTestCase {
     private func makePocketVM() async throws -> PositionPlayViewModel {
         let vm = PositionPlayViewModel()
@@ -1533,16 +1658,17 @@ final class DailyAimSelectionTests: XCTestCase {
         XCTAssertEqual(vm.selectedTargetKey, "_9")
     }
 
-    func testUnavailableExplicitPocketDoesNotReplaceValidPocket() {
+    func testUnavailableExplicitPocketAcceptsIntentAndSwitchesFree() {
         let vm = makeVM()
         vm.selectTarget(key: "_1")
-        let original = vm.selectedPocketIndex
         let invalid = (0..<6).first { !vm.isStraightPocketAvailable($0) }
         XCTAssertNotNil(invalid)
         var notice: String?
-        vm.onAimSelectionNotice = { notice = $0 }
+        vm.onAimModeNotice = { notice = $0 }
         if let invalid { vm.selectPocket(at: invalid) }
-        XCTAssertEqual(vm.selectedPocketIndex, original)
+        XCTAssertEqual(vm.selectedPocketIndex, invalid)
+        XCTAssertEqual(vm.aimMode, .free)
+        XCTAssertEqual(vm.preferredAimMode, .pocket)
         XCTAssertNotNil(notice)
     }
 
@@ -1728,13 +1854,16 @@ final class DailyCombinationRecommendationTests: XCTestCase {
             }
             XCTAssertFalse(vm.isComputing)
         }
+        let initialTarget = vm.selectedTargetKey
         try await ready()
-        XCTAssertEqual(vm.selectedTargetKey, "_10")
-        XCTAssertEqual(vm.solvedShot?.shot.targetKey, "_10")
+        XCTAssertEqual(vm.selectedTargetKey, initialTarget)
+        if vm.aimMode == .pocket { XCTAssertEqual(vm.solvedShot?.shot.targetKey, initialTarget) }
+        XCTAssertEqual(vm.entryTiming["physicalRecommendationCalls"], 0)
+        XCTAssertEqual(vm.entryTiming["bankSearchCalls"], 0)
         let pocket = vm.selectedPocketIndex
         vm.velocity = 2.2
         try await ready()
-        XCTAssertEqual(vm.selectedTargetKey, "_10")
+        XCTAssertEqual(vm.selectedTargetKey, initialTarget)
         XCTAssertEqual(vm.selectedPocketIndex, pocket)
         vm.velocity = 3.37
         XCTAssertTrue(vm.selectTarget(key: "_15"))
@@ -1742,9 +1871,9 @@ final class DailyCombinationRecommendationTests: XCTestCase {
         try await ready()
         XCTAssertEqual(vm.selectedTargetKey, "_15")
         XCTAssertEqual(vm.selectedPocketIndex, 0)
-        XCTAssertEqual(vm.solvedShot?.shot.targetKey, "_15")
-        XCTAssertTrue(try XCTUnwrap(vm.solvedShot).prediction.hasCombinationRoute)
-        XCTAssertTrue(vm.statusText.contains("传球路线"))
+        if vm.aimMode == .pocket { XCTAssertEqual(vm.solvedShot?.shot.targetKey, "_15") }
+        XCTAssertEqual(vm.entryTiming["physicalRecommendationCalls"], 0)
+        XCTAssertEqual(vm.entryTiming["bankSearchCalls"], 0)
         vm.refreshLegalAimSelection()
         XCTAssertEqual(vm.selectedTargetKey, "_15")
     }
@@ -1833,13 +1962,10 @@ final class DailyShotRankingTests: XCTestCase {
     }
 
     @MainActor
-    func test_dailyManualRejectedGeometryStillReachesUnchangedSolver() async throws {
-        let vm = PositionPlayViewModel()
-        vm.setupScene()
+    func test_dailyBlockedPocketSwitchesFreeWithoutChangingTargetOrPower() async throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
         defer { vm.cancelDailyAttempt() }
-        vm.usesDailyShotRanking = true
-        vm.usesAutomaticPocketFallback = true
-        vm.clearTable()
+        vm.usesDailyShotRanking = true; vm.usesAutomaticPocketFallback = true
         let nominal = AngleSceneCalculator.pocketPositions(surfaceY: y)[1]
         let positions = [PositionPlayBall.cueKey: p(-0.4, 0), "_1": p(0, 0),
                          "_9": p(nominal.x / 2, nominal.z / 2)]
@@ -1848,34 +1974,17 @@ final class DailyShotRankingTests: XCTestCase {
             return CanvasPoint(x: Double(n.x), y: Double(n.y))
         }))
         XCTAssertTrue(vm.selectTarget(key: "_1"))
-        let pocket = 1
-        XCTAssertFalse(vm.isStraightPocketAvailable(pocket), "Fixture must be rejected by recommendation geometry")
-        var notices: [String] = []
-        vm.onAimSelectionNotice = { notices.append($0) }
         vm.velocity = 2.2
-        vm.selectPocket(at: pocket)
-        XCTAssertTrue(notices.isEmpty)
-        XCTAssertEqual(vm.selectedPocketIndex, pocket)
-        XCTAssertEqual(vm.aimMode, .pocket)
-        let deadline = Date().addingTimeInterval(10)
-        while Date() < deadline && (vm.isComputing || vm.solvedShot?.shot.pocket != ShotIntent.pocketId(for: pocket)) {
-            try await Task.sleep(for: .milliseconds(50))
-        }
-        let solved = try XCTUnwrap(vm.solvedShot)
-        XCTAssertEqual(solved.shot.targetKey, "_1")
-        XCTAssertEqual(solved.shot.pocket, ShotIntent.pocketId(for: pocket))
-        XCTAssertEqual(solved.shot.velocity, 2.2)
-        XCTAssertTrue(vm.bankAlternatives.isEmpty, "Compare direct predictions without the existing bank fallback")
-        let independent = try XCTUnwrap(PositionPlayShotSolver.solve(before: solved.before,
-            shot: solved.shot, surfaceY: vm.scene.surfaceY))
-        XCTAssertEqual(solved.prediction.feasible, independent.feasible)
-        XCTAssertEqual(solved.prediction.infeasibleReason, independent.infeasibleReason)
-        XCTAssertEqual(solved.prediction.objectPocketed, independent.objectPocketed)
-        vm.velocity = 1.8
-        vm.refreshLegalAimSelection()
-        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        vm.selectPocket(at: 1)
+        XCTAssertEqual(vm.selectedPocketIndex, 1)
+        XCTAssertEqual(vm.aimMode, .free)
+        XCTAssertNotNil(vm.freeAimDir)
+        try await Task.sleep(for: .milliseconds(750))
         XCTAssertEqual(vm.selectedTargetKey, "_1")
-        XCTAssertEqual(vm.aimMode, .pocket)
+        XCTAssertEqual(vm.selectedPocketIndex, 1)
+        XCTAssertEqual(vm.velocity, 2.2)
+        XCTAssertEqual(vm.aimMode, .free)
+        XCTAssertTrue(vm.bankAlternatives.isEmpty)
     }
 
     func test_geometryAllowsThinBallButRejectsBothBlockedPaths() throws {
@@ -1974,8 +2083,9 @@ extension DailyShotRankingTests {
         XCTAssertEqual(vm.selectedPocketIndex, pocket)
         XCTAssertEqual(vm.selectedTargetKey, "_2")
         XCTAssertTrue(vm.selectTarget(key: "_1"))
-        XCTAssertEqual(vm.aimMode, .pocket, "No recommendation must not replace the requested aiming mode")
-        XCTAssertNil(vm.temporaryFreeReason)
+        XCTAssertEqual(vm.aimMode, .free, "No direct candidate must provide usable free aim")
+        XCTAssertNotNil(vm.temporaryFreeReason)
+        XCTAssertEqual(vm.selectedPocketIndex, -1)
         vm.refreshLegalAimSelection()
         XCTAssertEqual(vm.selectedTargetKey, "_1", "Explicit target must remain selected even if blocked")
         vm.legalAimTargets = { $0.intersection(["_2"]) }
@@ -2202,5 +2312,239 @@ extension DailyShotRankingTests {
         try data.write(to:out.appendingPathComponent("results.json"))
         print("POCKET_REVIEW exported \(rows.count) layouts; scan=\(mismatches.count) largestDelta=\(mismatches.map{$0.0}.max() ?? 0)")
         XCTAssertEqual(rows.count,8)
+    }
+}
+
+@MainActor
+final class PocketSelectionUXTests: XCTestCase {
+    private func makeVM(daily: Bool = false) -> PositionPlayViewModel {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        vm.usesAutomaticPocketFallback = true; vm.usesDailyShotRanking = daily
+        let y = vm.scene.surfaceY + AngleSceneCalculator.ballRadius
+        let points = [PositionPlayBall.cueKey: SCNVector3(-0.5, y, 0), "_1": SCNVector3(0, y, 0)]
+        vm.loadBoard(.init(onTable: points.mapValues {
+            let p = AngleSceneCalculator.sceneToNormalized(position: $0)
+            return CanvasPoint(x: Double(p.x), y: Double(p.y))
+        }))
+        XCTAssertTrue(vm.selectTarget(key: "_1"))
+        return vm
+    }
+    private func ready(_ vm: PositionPlayViewModel) async throws {
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline && (vm.isComputing || vm.solvedShot == nil) {
+            try await Task.sleep(for: .milliseconds(40))
+        }
+        XCTAssertFalse(vm.isComputing)
+        XCTAssertNotNil(vm.solvedShot)
+    }
+
+    func testUnavailableClickPreservesDirectionAndRestoresOnlyOnNewValidClick() async throws {
+        for daily in [false, true] {
+            let vm = makeVM(daily: daily)
+            defer { vm.cancelDailyAttempt() }
+            try await ready(vm)
+            let original = try XCTUnwrap(vm.currentPlayerAim)
+            let valid = vm.selectedPocketIndex
+            vm.selectPocket(at: 0) // The target would have to travel back towards the cue.
+            XCTAssertEqual(vm.aimMode, .free)
+            XCTAssertEqual(vm.preferredAimMode, .pocket)
+            XCTAssertEqual(vm.selectedPocketIndex, 0)
+            let direction = try XCTUnwrap(vm.freeAimDir)
+            XCTAssertEqual(direction.x, original.x, accuracy: 1e-5)
+            XCTAssertEqual(direction.z, original.z, accuracy: 1e-5)
+            try await ready(vm)
+            XCTAssertEqual(vm.aimMode, .free)
+            XCTAssertEqual(vm.selectedTargetKey, "_1")
+            XCTAssertEqual(vm.selectedPocketIndex, 0)
+            XCTAssertEqual(vm.entryTiming["bankSearchCalls"], 0)
+            XCTAssertEqual(vm.entryTiming["physicalRecommendationCalls"], 0)
+            XCTAssertEqual(vm.entryTiming["shotPredictionCalls"], 1)
+            vm.selectPocket(at: valid)
+            XCTAssertEqual(vm.aimMode, .pocket)
+            XCTAssertNil(vm.temporaryFreeReason)
+            try await ready(vm)
+            XCTAssertEqual(vm.selectedPocketIndex, valid)
+        }
+    }
+
+    func testAtomicRequestRepeatClickAndModeSwitchCancellation() async throws {
+        let vm = makeVM(); defer { vm.cancelDailyAttempt() }
+        try await ready(vm)
+        let valid = vm.selectedPocketIndex
+        vm.selectedPocketIndex = -1
+        let requests = vm.entryTiming["solveRequests", default: 0]
+        vm.selectPocket(at: valid)
+        XCTAssertEqual(vm.entryTiming["solveRequests"], requests + 1)
+        let marker = try XCTUnwrap(vm.scene.addPocketMarkers()[valid] as? PocketLeatherMarker)
+        let pulse = try XCTUnwrap(marker.childNode(withName: "leather_selectionPulse", recursively: true))
+        let firstAction = try XCTUnwrap(pulse.action(forKey: "pocketSelectionPulse"))
+        vm.selectPocket(at: valid)
+        XCTAssertEqual(vm.entryTiming["solveRequests"], requests + 1, "Repeated intent only acknowledges the click")
+        XCTAssertFalse(firstAction === pulse.action(forKey: "pocketSelectionPulse"))
+        vm.selectPocket(at: 0)
+        XCTAssertFalse(pulse.hasActions, "Only the latest pocket may acknowledge")
+        let newPulse = try XCTUnwrap(vm.scene.addPocketMarkers()[0].childNode(withName: "leather_selectionPulse", recursively: true))
+        XCTAssertTrue(newPulse.hasActions)
+        vm.cameraMode = .perspective3D
+        XCTAssertFalse(newPulse.hasActions)
+        XCTAssertEqual(vm.selectedPocketIndex, 0)
+        vm.selectPocket(at: valid)
+        vm.beginPowerDrag()
+        XCTAssertFalse(pulse.hasActions)
+    }
+
+    func testParameterUpdatesUseCachedGeometryAndNeverRewriteIntent() async throws {
+        let vm = makeVM(daily: true); defer { vm.cancelDailyAttempt() }
+        try await ready(vm)
+        let target = vm.selectedTargetKey, pocket = vm.selectedPocketIndex
+        let geometry = vm.entryTiming["geometryEvaluations"]
+        vm.velocity = 2.2
+        vm.spinX = 0.1
+        try await ready(vm)
+        XCTAssertEqual(vm.entryTiming["geometryEvaluations"], geometry)
+        XCTAssertEqual(vm.selectedTargetKey, target); XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        XCTAssertEqual(vm.velocity, 2.2); XCTAssertEqual(vm.spinX, 0.1)
+        XCTAssertEqual(vm.entryTiming["physicalRecommendationCalls"], 0)
+        XCTAssertEqual(vm.entryTiming["bankSearchCalls"], 0)
+    }
+
+    func testUndoKeepsTemporaryAndExplicitFreePreferencesDistinct() throws {
+        let vm = makeVM(); defer { vm.cancelDailyAttempt() }
+        vm.selectPocket(at: 0)
+        let undo = vm.captureDailyUndo()
+        vm.selectPocket(at: 1)
+        vm.toggleAimMode()
+        undo()
+        XCTAssertEqual(vm.preferredAimMode, .pocket)
+        XCTAssertEqual(vm.aimMode, .free)
+        XCTAssertEqual(vm.selectedTargetKey, "_1"); XCTAssertEqual(vm.selectedPocketIndex, 0)
+        XCTAssertNotNil(vm.temporaryFreeReason)
+        vm.selectPocket(at: 1)
+        XCTAssertEqual(vm.aimMode, .pocket)
+        vm.toggleAimMode()
+        let manualUndo = vm.captureDailyUndo()
+        vm.toggleAimMode()
+        manualUndo()
+        XCTAssertEqual(vm.preferredAimMode, .free)
+        vm.selectPocket(at: 1)
+        XCTAssertEqual(vm.aimMode, .free)
+    }
+
+    func testExplicitFreeControlWhileAlreadyTemporaryFreeRemainsFreeAfterPocketTap() throws {
+        let vm = makeVM(); defer { vm.cancelDailyAttempt() }
+        vm.selectPocket(at: 0)
+        XCTAssertNotNil(vm.temporaryFreeReason)
+        vm.setPreferredAimMode(.free)
+        XCTAssertNil(vm.temporaryFreeReason)
+        XCTAssertEqual(vm.preferredAimMode, .free)
+        vm.selectPocket(at: 1)
+        XCTAssertEqual(vm.aimMode, .free)
+        XCTAssertEqual(vm.preferredAimMode, .free)
+        let cue = try XCTUnwrap(vm.scene.cueBallNode)
+        let pocket = AngleSceneCalculator.pocketPositions(surfaceY: vm.scene.surfaceY)[1]
+        let expected = SCNVector3(pocket.x - cue.position.x, 0, pocket.z - cue.position.z)
+        let length = hypotf(expected.x, expected.z)
+        XCTAssertEqual(vm.freeAimDir?.x ?? 0, expected.x / length, accuracy: 1e-5)
+        XCTAssertEqual(vm.freeAimDir?.z ?? 0, expected.z / length, accuracy: 1e-5)
+    }
+
+    func testReplacementBoardRecommendsAgainEvenWhenOldTargetStillExists() throws {
+        let vm = makeVM(daily: true); defer { vm.cancelDailyAttempt() }
+        vm.legalAimTargets = { $0.intersection(["_1", "_9"]) }
+        let y = vm.scene.surfaceY + AngleSceneCalculator.ballRadius
+        var points = [PositionPlayBall.cueKey: SCNVector3(-0.5, y, 0), "_1": SCNVector3(0, y, 0),
+                      "_9": SCNVector3(0.7, y, 0.3)]
+        for index in 0..<6 {
+            let a = Float(index) * .pi / 3
+            points["_\(index + 2)"] = SCNVector3(cos(a) * 0.07, y, sin(a) * 0.07)
+        }
+        let requests = vm.entryTiming["solveRequests", default: 0]
+        vm.loadBoard(.init(onTable: points.mapValues {
+            let p = AngleSceneCalculator.sceneToNormalized(position: $0)
+            return CanvasPoint(x: Double(p.x), y: Double(p.y))
+        }))
+        XCTAssertEqual(vm.selectedTargetKey, "_9")
+        XCTAssertEqual(vm.aimMode, .pocket)
+        XCTAssertTrue(vm.isStraightPocketAvailable(vm.selectedPocketIndex))
+        XCTAssertEqual(vm.entryTiming["solveRequests"], requests + 1)
+    }
+
+    func testPersistedSelectionContextRestoresTemporaryFreeAndLegacyStillDecodes() async throws {
+        let vm = makeVM(); defer { vm.cancelDailyAttempt() }
+        vm.selectPocket(at: 0)
+        try await ready(vm)
+        let solved = try XCTUnwrap(vm.solvedShot)
+        let encoded = try JSONEncoder().encode(solved.shot)
+        let decoded = try JSONDecoder().decode(PlannedShot.self, from: encoded)
+        XCTAssertTrue(decoded.isFree)
+        XCTAssertEqual(decoded.selectionContext?.prefersPocketAssist, true)
+        XCTAssertEqual(decoded.selectionContext?.requestedTargetKey, "_1")
+        XCTAssertEqual(decoded.selectionContext?.requestedPocketIndex, 0)
+        XCTAssertNotNil(decoded.selectionContext?.temporaryFreeReason)
+        let legacy = #"{"targetKey":"_1","pocket":"topRight","velocity":1.5,"spinX":0,"spinY":0}"#
+        XCTAssertNil(try JSONDecoder().decode(PlannedShot.self, from: Data(legacy.utf8)).selectionContext)
+        let restored = PositionPlayViewModel(); restored.setupScene()
+        defer { restored.cancelDailyAttempt() }
+        restored.usesAutomaticPocketFallback = true
+        restored.configureSequence([.init(before: solved.before, shot: decoded, after: solved.before)])
+        restored.enterSequenceMode()
+        restored.exitSequenceMode()
+        XCTAssertEqual(restored.preferredAimMode, .pocket)
+        XCTAssertEqual(restored.aimMode, .free)
+        XCTAssertEqual(restored.selectedTargetKey, "_1")
+        XCTAssertEqual(restored.selectedPocketIndex, 0)
+        XCTAssertNotNil(restored.temporaryFreeReason)
+    }
+
+    func testAutomaticDefaultAcknowledgesOnceAndParameterRedrawDoesNotReplay() throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        let marker = try XCTUnwrap(vm.scene.addPocketMarkers()[vm.selectedPocketIndex] as? PocketLeatherMarker)
+        let pulse = try XCTUnwrap(marker.childNode(withName: "leather_selectionPulse", recursively: true))
+        let initial = try XCTUnwrap(pulse.action(forKey: "pocketSelectionPulse"))
+        vm.velocity = 2.2
+        XCTAssertTrue(initial === pulse.action(forKey: "pocketSelectionPulse"))
+        XCTAssertEqual(pulse.opacity, 0, "Default acknowledgement also waits before yellow")
+    }
+
+    func testRapidTargetThenUnavailablePocketKeepsVisiblePreviewInsteadOfOldPrediction() async throws {
+        let vm = makeVM(); defer { vm.cancelDailyAttempt() }
+        let y = vm.scene.surfaceY + AngleSceneCalculator.ballRadius
+        vm.placeFromPalette("_9", atWorld: SCNVector3(0.7, y, 0.3))
+        try await ready(vm)
+        XCTAssertTrue(vm.selectTarget(key: "_9"))
+        let cue = try XCTUnwrap(vm.scene.cueBallNode)
+        let target = try XCTUnwrap(vm.scene.allBallNodes["_9"])
+        let candidate = try XCTUnwrap(AngleSceneCalculator.dailyPocketCandidate(cue: cue.position,
+            target: target.position, targetKey: "_9", pocketIndex: vm.selectedPocketIndex,
+            obstacles: [try XCTUnwrap(vm.scene.allBallNodes["_1"]).position], surfaceY: vm.scene.surfaceY))
+        let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target.position,
+            pocket: candidate.aim, ballRadius: AngleSceneCalculator.ballRadius)
+        let length = hypotf(ghost.x - cue.position.x, ghost.z - cue.position.z)
+        vm.selectPocket(at: 0)
+        XCTAssertEqual(vm.aimMode, .free)
+        XCTAssertEqual(vm.selectedTargetKey, "_9")
+        XCTAssertEqual(vm.freeAimDir?.x ?? 0, (ghost.x - cue.position.x) / length, accuracy: 1e-5)
+        XCTAssertEqual(vm.freeAimDir?.z ?? 0, (ghost.z - cue.position.z) / length, accuracy: 1e-5)
+        try await ready(vm)
+        XCTAssertEqual(vm.selectedTargetKey, "_9")
+        XCTAssertEqual(vm.selectedPocketIndex, 0)
+        XCTAssertEqual(vm.aimMode, .free)
+    }
+
+    func testMissingTargetRejectsPocketAndAllBlockedHasNoFakeRecommendation() throws {
+        let vm = makeVM(daily: true); defer { vm.cancelDailyAttempt() }
+        for index in 0..<6 {
+            let angle = Float(index) * .pi / 3
+            vm.placeFromPalette("_\(index + 2)", atWorld: SCNVector3(
+                cos(angle) * 0.07, vm.scene.surfaceY + AngleSceneCalculator.ballRadius, sin(angle) * 0.07))
+        }
+        vm.selectTarget(key: "_1")
+        XCTAssertEqual(vm.aimMode, .free)
+        XCTAssertEqual(vm.selectedPocketIndex, -1)
+        vm.clearTable()
+        vm.selectPocket(at: 1)
+        XCTAssertEqual(vm.selectedPocketIndex, -1)
+        XCTAssertTrue(vm.scene.addPocketMarkers().allSatisfy { !$0.childNode(withName: "leather_selectionPulse", recursively: true)!.hasActions })
     }
 }

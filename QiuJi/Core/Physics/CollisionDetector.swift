@@ -250,7 +250,7 @@ struct CollisionDetector {
     /// 1. Approach direction — ball must be moving toward the surface (radial distance decreasing)
     /// 2. Angular range — contact point must lie on the finite arc
     ///
-    /// Keep filtering minimal and deterministic to match pooltool quartic behavior.
+    /// Isolate roots on the finite time window, then verify contact and approach.
     static func ballCircularCushionTime(
         p: SCNVector3,
         v: SCNVector3,
@@ -265,6 +265,7 @@ struct CollisionDetector {
         // not geometry-side suppression.
         _ = pockets
         let D = Double(arc.radius + R)
+        let coordinateError = Double(p.x.ulp + p.z.ulp + arc.center.x.ulp + arc.center.z.ulp)
         
         let dpx = Double(p.x - arc.center.x)
         let dpz = Double(p.z - arc.center.z)
@@ -274,12 +275,13 @@ struct CollisionDetector {
         let haz = Double(a.z) * 0.5
 
         // Triangle inequality bounds displacement even when acceleration reverses
-        // direction. Include the existing root-window allowance; never truncate it.
+        // direction. Include input representation error so a t=0 touching state
+        // cannot be rejected by a Double-only reach bound.
         if useReachBound, maxTime.isFinite, maxTime >= 0 {
-            let horizon = maxTime + 1e-6
+            let horizon = maxTime
             let distance = hypot(dpx, dpz)
             let reach = hypot(dvx, dvz) * horizon + hypot(hax, haz) * horizon * horizon
-            let roundoff = 64 * Double.ulpOfOne * max(1, distance, abs(D), reach)
+            let roundoff = coordinateError + 64 * Double.ulpOfOne * max(1, distance, abs(D), reach)
             if distance > D + reach + roundoff { return nil }
         }
         
@@ -289,19 +291,25 @@ struct CollisionDetector {
         let c1 = 2.0 * (dpx * dvx + dpz * dvz)
         let c0 = dpx * dpx + dpz * dpz - D * D
         
-        let roots = QuarticSolver.solveQuartic(a: c4, b: c3, c: c2, d: c1, e: c0)
-        
-        // 时间下限只挡浮点噪声（与 ballLinearCushionTime 的 1e-6 一致）。
-        // 曾为 1e-4：高保真近墙自适应子步会把球演进到离弧面仅数十微秒处，
-        // 真实碰撞根（~2e-5 s）被误拒 → 球穿弧越界（t1p1c40 等 4 例）。
-        // 「刚反弹完重复检出」由逼近方向检查（distSqDot < 0）+ makeBallCushionKiss 防护，
-        // 无需放大时间护栏。
-        let epsilon = 1e-6
+        guard maxTime.isFinite, maxTime >= 0 else { return nil }
+        // The input contract is Float32 world-space meters. An incoming touching
+        // state may round to either side of the surface; a time epsilon cannot
+        // distinguish it from a real positive sub-microsecond contact.
+        let touchingError = max(coordinateError, 8 * Double.ulpOfOne * D)
+        let distance = hypot(dpx, dpz)
+        let approachError = 4 * Double(Float.ulpOfOne) * D * hypot(dvx, dvz)
+        var initialAngle = Float(atan2(dpz, dpx))
+        if initialAngle < 0 { initialAngle += 2 * Float.pi }
+        if abs(distance - D) <= touchingError,
+           dpx * dvx + dpz * dvz < -approachError,
+           arc.isAngleInRange(initialAngle) { return 0 }
+
+        let roots = QuarticSolver.boundedRealRoots(
+            coefficients: [c4, c3, c2, c1, c0], maxTime: maxTime)
         var best: Double? = nil
-        
         for t in roots {
-            guard t > epsilon && t <= Double(maxTime) + epsilon && t.isFinite && !t.isNaN else { continue }
-            
+            guard t > 0 && t <= maxTime && t.isFinite else { continue }
+
             // Ball-to-center relative position at time t
             let bx = dpx + dvx * t + hax * t * t
             let bz = dpz + dvz * t + haz * t * t
@@ -312,7 +320,9 @@ struct CollisionDetector {
             let bxDot = dvx + 2.0 * hax * t
             let bzDot = dvz + 2.0 * haz * t
             let distSqDot = bx * bxDot + bz * bzDot
-            guard distSqDot < 0 else { continue }
+            let speed = hypot(bxDot, bzDot)
+            guard distSqDot < -4 * Double(Float.ulpOfOne) * D * speed else { continue }
+            guard abs(hypot(bx, bz) - D) <= max(touchingError, 64 * Double.ulpOfOne * D) else { continue }
             
             // 2) Angular range check
             var angle = Float(atan2(bz, bx))

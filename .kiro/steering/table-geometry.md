@@ -226,3 +226,8 @@ canvasY=0.5 (+Z 长库；landscape 屏幕下 / portrait 屏幕右)
 
 ### DR-253 — 软袋吸收截面（2026-09-13）
 PocketCaptureBoundary保持整球低于硬质面与袋口的centerPlaneY；该平面上的软袋接触由半径R的球截面与袋多边形相交判定，不再只判断球心位于轮廓内。与其他活动球相交时不能收集。形状版本soft-bag-v2，真实半径及袋轮廓未扩大，袋口接触材料与返回台面不变。
+
+
+## 2026-10-01 库鼻接触校准版本
+
+用户授权后按标准平面规格校准正式TaiQiuZhuo.usdz的六段库体。当前资源SHA256：`0e011ae72889d56a97255d8d69f2a7c0615ad779340ab64b938c2947817b48d1`。台面2540×1270mm、R=28.575mm、台面Y=0.8m及中袋当前实测中心保持。床面顶点/捕获口沿不变，原图688mm不直接覆盖现有实测中心。模型与球的三维接触包络786个有效点最大误差0.084420mm；正式资产更新须通过`testCalibratedCushionWholeSphereContactEnvelope`及捕获口沿回归。袋角线面CCD/冲量使用实际接触侧，不再依赖1mm后退代理。详ADR-P10-17与`tasks/RAIL-PENETRATION-FIX-20261001.md`；真机视觉/性能待验。

@@ -85,18 +85,30 @@ struct PlannedShot: Codable {
     var spinY: Double
     /// 自由模式瞄准方向（归一化系单位向量；nil = 袋口模式）。旧数据缺省解码为 nil，向后兼容。
     var freeAim: CanvasPoint?
+    /// Optional editor intent metadata. It never changes physical shot input;
+    /// old sequences without this field retain their existing decoding contract.
+    struct SelectionContext: Codable {
+        var prefersPocketAssist: Bool
+        var isManual: Bool
+        var requestedTargetKey: String?
+        var requestedPocketIndex: Int?
+        var temporaryFreeReason: String?
+    }
+    var selectionContext: SelectionContext?
 
     /// 是否自由球（无目标球/袋口语义）。
     var isFree: Bool { freeAim != nil }
 
     init(targetKey: String, pocket: String, velocity: Double,
-         spinX: Double = 0, spinY: Double = 0, freeAim: CanvasPoint? = nil) {
+         spinX: Double = 0, spinY: Double = 0, freeAim: CanvasPoint? = nil,
+         selectionContext: SelectionContext? = nil) {
         self.targetKey = targetKey
         self.pocket = pocket
         self.velocity = velocity
         self.spinX = spinX
         self.spinY = spinY
         self.freeAim = freeAim
+        self.selectionContext = selectionContext
     }
 }
 

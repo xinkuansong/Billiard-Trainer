@@ -226,6 +226,7 @@ struct AngleSceneView: UIViewRepresentable {
     }
 
     static func dismantleUIView(_ uiView: SCNView, coordinator: Coordinator) {
+        coordinator.scene.cancelPocketSelectionFeedback()
         coordinator.endBallDrag()
         coordinator.endAimDrag()
         coordinator.stopRenderLoop()
@@ -343,7 +344,8 @@ struct AngleSceneView: UIViewRepresentable {
                 }.joined(separator: " ")
                 host.view.isAccessibilityElement = true
                 host.view.accessibilityIdentifier = "v63.cameraDiagnostics"
-                host.view.accessibilityValue = "viewport=\(scnView.bounds.size) rigViewport=\(rig.viewportSize) center=\(center) corners=\(corners) pivot=\(rig.targetPivot) yaw=\(rig.targetYaw) distance=\(rig.orbitDistance) fov=\(rig.captureCurrentPose().fov) eye=\(scene.cameraNode?.position ?? SCNVector3Zero) cueLift=\(-(scene.cueStick?.rootNode.eulerAngles.x ?? 0)) \(balls)"
+                let pocket = rig.observationPocket.map { "pocketIndex=\($0.index) pocketWorld=\($0.position) pocketScreen=\(scnView.projectPoint($0.position))" } ?? "pocketIndex=-1"
+                host.view.accessibilityValue = "viewport=\(scnView.bounds.size) rigViewport=\(rig.viewportSize) center=\(center) corners=\(corners) pivot=\(rig.targetPivot) yaw=\(rig.targetYaw) distance=\(rig.orbitDistance) elevation=\(rig.orbitElevation) pitch=\(rig.captureCurrentPose().pitch) fov=\(rig.captureCurrentPose().fov) eye=\(scene.cameraNode?.position ?? SCNVector3Zero) cueLift=\(-(scene.cueStick?.rootNode.eulerAngles.x ?? 0)) \(balls) \(pocket)"
             }
             #endif
             let next = !needsContinuousUpdates ? "FPS · 静止" : "\(fps) FPS"
@@ -540,7 +542,7 @@ struct AngleSceneView: UIViewRepresentable {
             defer {
                 if let scnView { diagramLabels.update(scene: scene, in: scnView) }
                 #if DEBUG
-                if dragProbeEnabled { updatePocketAccessibility() }
+                if dragProbeEnabled || pocketProbeEnabled { updatePocketAccessibility() }
                 #endif
             }
             if let scnView { updateViewport(scnView.bounds.size) }
@@ -718,6 +720,7 @@ struct AngleSceneView: UIViewRepresentable {
 
             switch gesture.state {
             case .began:
+                scene.cancelPocketSelectionFeedback()
                 panDominantAxis = nil
                 panCumX = 0
                 panCumY = 0
@@ -870,7 +873,20 @@ struct AngleSceneView: UIViewRepresentable {
         @objc func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
             requestInteractiveFrames()
             guard gesturesEnabled, interactionMode != .none, cameraMode != .perspective3D,
-                  let rig = scene.cameraRig else { return }
+                  let rig = scene.cameraRig, let scnView else { return }
+            let location = gesture.location(in: scnView)
+            guard hitTestBall(at: location) == nil else { return }
+            guard !scene.allBallNodes.values.contains(where: {
+                guard !$0.isHidden else { return false }
+                let p = scnView.projectPoint(scene.visualCenter(of: $0))
+                return p.z >= 0 && p.z <= 1 && hypot(location.x - CGFloat(p.x), location.y - CGFloat(p.y)) < 40
+            }) else { return }
+            let pockets = AngleSceneCalculator.pocketMarkerPositions(surfaceY: scene.surfaceY)
+            guard !pockets.contains(where: {
+                let p = scnView.projectPoint($0)
+                return hypot(location.x - CGFloat(p.x), location.y - CGFloat(p.y)) < 44
+            }) else { return }
+            scene.cancelPocketSelectionFeedback()
             rig.resetTopDownZoom()
         }
 
@@ -887,30 +903,42 @@ struct AngleSceneView: UIViewRepresentable {
             guard gesturesEnabled, interactionMode != .none, let scnView else { return }
             selectedDragBall = hitTestBall(at: location)
 
-            // Position-Play: tap a ball to select it as the target (takes priority over pockets,
-            // since balls sit on the interior while pockets sit at the rails).
+            // Resolve the actual visible mesh before enlarging either hit area.
+            // A visible leather rim wins over a nearby ball's 40pt tolerance.
+            let hitResults = scnView.hitTest(location, options: [
+                .searchMode: SCNHitTestSearchMode.closest.rawValue
+            ])
+            if let front = hitResults.first {
+                var node: SCNNode? = front.node
+                while let current = node {
+                    if scene.ballKey(for: current) != nil {
+                        if selectableBallNodes.contains(current) { onBallTapped?(current) }
+                        return // A cue/forbidden ball also occludes the pocket behind it.
+                    }
+                    node = current.parent
+                }
+                if let index = PocketLeatherMarker.index(of: front.node), let onPocketTapped {
+                    onPocketTapped(index); return
+                }
+            }
             if let onBallTapped, !selectableBallNodes.isEmpty {
                 let tapRadius: CGFloat = 40
                 var best: SCNNode?
                 var bestDist: CGFloat = .greatestFiniteMagnitude
                 for ball in selectableBallNodes {
-                    let projected = scnView.projectPoint(ball.position)
+                    let center = scene.visualCenter(of: ball)
+                    let projected = scnView.projectPoint(center)
+                    guard projected.z >= 0, projected.z <= 1 else { continue }
                     let screenPos = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+                    guard scnView.bounds.contains(screenPos) else { continue }
+                    if cameraMode == .perspective3D, let camera = scnView.pointOfView,
+                       let front = scnView.hitTest(screenPos, options: [.searchMode: SCNHitTestSearchMode.closest.rawValue]).first,
+                       camera.convertPosition(front.worldCoordinates, from: nil).z >
+                        camera.convertPosition(center, from: nil).z + AngleSceneCalculator.ballRadius { continue }
                     let dist = hypot(location.x - screenPos.x, location.y - screenPos.y)
                     if dist < tapRadius, dist < bestDist { bestDist = dist; best = ball }
                 }
                 if let best { onBallTapped(best); return }
-            }
-
-            // Hit any visible leather variant via its pocket parent; keep ball priority.
-            let hitResults = scnView.hitTest(location, options: [
-                .searchMode: SCNHitTestSearchMode.closest.rawValue
-            ])
-            for hit in hitResults {
-                if onPocketTapped != nil, let index = PocketLeatherMarker.index(of: hit.node) {
-                    onPocketTapped?(index)
-                    return
-                }
             }
 
             // Fallback: project pocket marker positions to screen and pick the nearest within radius.
@@ -957,6 +985,7 @@ struct AngleSceneView: UIViewRepresentable {
         private var dragProbeGrabCount = 0
         private var dragProbeMoveCount = 0
         private let dragProbeEnabled = ProcessInfo.processInfo.arguments.contains("-3dDrag.probe")
+        private let pocketProbeEnabled = ProcessInfo.processInfo.arguments.contains("-pocketSelection.probe")
         private func dragProbeValue(in view: SCNView) -> String {
             let balls: [[String: Any]] = scene.allBallNodes.sorted { $0.key < $1.key }.compactMap { key, node in
                 guard !node.isHidden else { return nil }
@@ -1000,6 +1029,22 @@ struct AngleSceneView: UIViewRepresentable {
                 }
                 scnView.accessibilityValue = (scnView.accessibilityValue ?? "") + " reflection=\(reflection) shadow=\(shadow) 调度=\(needsContinuousUpdates ? "活动" : "静止")"
             }
+            if pocketProbeEnabled {
+                let pockets: [[String: Any]] = scene.addPocketMarkers().compactMap { node in
+                    guard let marker = node as? PocketLeatherMarker else { return nil }
+                    let points = AngleSceneCalculator.pocketMarkerPositions(surfaceY: scene.surfaceY)
+                    let p = scnView.projectPoint(points[marker.pocketIndex])
+                    let pulse = marker.childNode(withName: "leather_selectionPulse", recursively: true)
+                    return ["index": marker.pocketIndex, "screen": [p.x, p.y, p.z],
+                        "style": marker.style.rawValue, "yellow": pulse?.opacity ?? 0,
+                        "pending": pulse?.hasActions ?? false]
+                }
+                let data: [String: Any] = ["selection": scene.pocketSelectionDescription, "pockets": pockets,
+                    "viewport": [scnView.bounds.width, scnView.bounds.height]]
+                if let encoded = try? JSONSerialization.data(withJSONObject: data) {
+                    scnView.accessibilityValue = String(decoding: encoded, as: UTF8.self)
+                }
+            }
             if dragProbeEnabled { scnView.accessibilityValue = dragProbeValue(in: scnView) }
             #endif
             scnView.accessibilityCustomActions = onPocketTapped == nil || interactionMode == .none ? [] : (0..<6).map { index in
@@ -1019,6 +1064,12 @@ struct AngleSceneView: UIViewRepresentable {
 // MARK: - Pan arbitration against ancestor scroll views
 
 extension AngleSceneView.Coordinator: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        // Called at touch-down, before pan recognition or tap release. A new hand
+        // interaction invalidates the previous delayed acknowledgement immediately.
+        scene.cancelPocketSelectionFeedback()
+        return true
+    }
     /// Whether the single-finger pan has any work to do for the current mode. When it does not
     /// (`interactionMode == .none`, e.g. the 2D 球台示意 inside the training pager), the pan must
     /// fail immediately so ancestor scroll views (paging `TabView`, vertical `ScrollView`) get the

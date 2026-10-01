@@ -43,6 +43,13 @@ struct FreePlayView: View {
     private var showsCameraPreview: Bool {
         isDailyClearance && ProcessInfo.processInfo.arguments.contains("-dailyClearance.cameraPreview")
     }
+    private var cameraReviewScenario: Int? {
+        guard isDailyClearance, let argument = ProcessInfo.processInfo.arguments.first(where: {
+            $0.hasPrefix("-dailyClearance.cameraScenario=")
+        }), let index = Int(argument.components(separatedBy: "=").last ?? ""),
+              (0..<Self.cameraPreviewScenarioNames.count).contains(index) else { return nil }
+        return index
+    }
     #endif
 
     @State private var projector = TableProjector()
@@ -83,14 +90,17 @@ struct FreePlayView: View {
             if showsCameraPreview { dailyCameraPreviewControls }
         }
         .task {
-            guard showsCameraPreview else { return }
+            guard showsCameraPreview || cameraReviewScenario != nil else { return }
             for _ in 0..<100 {
                 if vm.scene.cameraRig != nil, dailyController.phase == .playing { break }
                 try? await Task.sleep(for: .milliseconds(100))
                 if Task.isCancelled { return }
             }
             guard !Task.isCancelled, dailyController.phase == .playing else { return }
-            loadDailyCameraPreviewScenario(0)
+            if let scenario = cameraReviewScenario {
+                cameraPreviewProfile = .current
+                loadDailyCameraPreviewScenario(scenario)
+            } else { loadDailyCameraPreviewScenario(0) }
         }
         #endif
         .onChange(of: isDaily2D) { _, active in
@@ -228,9 +238,12 @@ struct FreePlayView: View {
                 startGame(game)
             }
         }
-        .onChange(of: vm.breakRunner?.seed) { _, seed in
-            // Removing the runner after delivery is not a request to refocus.
-            if is3D, seed != nil, !isDailyClearance { ShotPlayCamera.focus(on: vm) }
+        .onChange(of: vm.breakRunner?.seed) { previous, seed in
+            // A new rack resets the 3D framing; delivery removes the runner without moving the camera.
+            if is3D, seed != nil {
+                if isDailyClearance || previous != nil { observeWholeTableForPage() }
+                else { ShotPlayCamera.focus(on: vm) }
+            }
         }
         .onChange(of: vm.breakRunner?.phase) { previous, phase in
             updateDaily3DPlaybackDiagnostics()
@@ -268,6 +281,16 @@ struct FreePlayView: View {
                 #endif
                 vm.setupScene()
                 vm.enablePlayerCameraControls()
+                #if DEBUG
+                if isDailyClearance,
+                   let argument = ProcessInfo.processInfo.arguments.first(where: {
+                       $0.hasPrefix("-dailyClearance.overviewAngle=")
+                   }),
+                   let degrees = Float(argument.split(separator: "=").last ?? ""),
+                   [Float(45), 40, 35, 30].contains(degrees) {
+                    vm.scene.cameraRig?.dailyOverviewPreviewDegrees = degrees
+                }
+                #endif
                 if isDailyClearance {
                     vm.cameraMode = .topDown2D
                     vm.usesAutomaticPocketFallback = true
@@ -722,7 +745,7 @@ struct FreePlayView: View {
             BTHudMetricSeparator()
             Text(dailyController.assignedGroup?.displayName ?? (dailyController.game == .chineseEightBall ? "开放局" : "第\(dailyController.visitCount)次上手"))
             BTHudMetricSeparator()
-            Text(aimModeLabel)
+            Text(vm.aimSelectionLabel)
             BTHudMetricSeparator()
             Text("余 \(dailyController.remainingBallCount)")
             BTHudMetricSeparator()
@@ -1057,6 +1080,7 @@ struct FreePlayView: View {
         if is3D, vm.breakRunner?.phase == .racked, vm.breakRunner?.simulationFailure == nil {
             return "刻度轮调方向 · 拖动母球摆位"
         }
+        if !vm.isPlaying, vm.breakRunner == nil, rulingText.isEmpty { return vm.aimSelectionLabel }
         return vm.breakRunner?.statusText(isPerspective: is3D)
             ?? (vm.isComputing ? "求解中…"
                 : (!vm.isPlaying && !rulingText.isEmpty ? rulingText : vm.statusText))
@@ -1135,11 +1159,11 @@ private extension FreePlayView {
         .padding(.bottom, Spacing.xs)
     }
 
-    static let cameraPreviewScenarioNames = ["长台远球", "短距离球", "大角度球", "母球近库"]
+    static let cameraPreviewScenarioNames = ["长台远球", "短距离球", "大角度球", "母球近库", "母球近长库", "反向长台", "目标贴短库", "反侧近长库", "中袋右切", "中袋左切", "同库薄球", "反角袋", "紧邻直球", "大切角近角库"]
     var cameraPreviewScenarioTitle: String { Self.cameraPreviewScenarioNames[cameraPreviewScenario] }
 
     func loadDailyCameraPreviewScenario(_ index: Int) {
-        guard showsCameraPreview, !vm.isPlaying, let rig = vm.scene.cameraRig else { return }
+        guard showsCameraPreview || cameraReviewScenario != nil, !vm.isPlaying, let rig = vm.scene.cameraRig else { return }
         cameraPreviewScenario = index
         showSpinPad = false
         rig.dailyPreviewProfile = cameraPreviewProfile
@@ -1150,7 +1174,17 @@ private extension FreePlayView {
             (SCNVector3(-1.05, 0, -0.34), SCNVector3(0.80, 0, 0.36), 3),
             (SCNVector3(0.25, 0, 0.04), SCNVector3(0.58, 0, 0.22), 3),
             (SCNVector3(-0.65, 0, 0.48), SCNVector3(0.05, 0, 0.05), 4),
-            (SCNVector3(-1.229, 0, -0.40), SCNVector3(-0.40, 0, -0.03), 3)
+            (SCNVector3(-1.229, 0, -0.40), SCNVector3(-0.40, 0, -0.03), 3),
+            (SCNVector3(-0.35, 0, -0.592), SCNVector3(0.45, 0, 0.20), 3),
+            (SCNVector3(1.05, 0, 0.34), SCNVector3(-0.80, 0, -0.36), 0),
+            (SCNVector3(0.25, 0, -0.30), SCNVector3(1.20, 0, 0.32), 3),
+            (SCNVector3(0.35, 0, 0.592), SCNVector3(-0.45, 0, -0.20), 0),
+            (SCNVector3(-0.80, 0, -0.12), SCNVector3(-0.12, 0, 0.30), 5),
+            (SCNVector3(0.80, 0, 0.12), SCNVector3(0.12, 0, -0.30), 4),
+            (SCNVector3(-0.95, 0, -0.55), SCNVector3(0.70, 0, -0.52), 1),
+            (SCNVector3(0.75, 0, -0.40), SCNVector3(-0.55, 0, 0.25), 2),
+            (SCNVector3(0, 0, -0.40), SCNVector3(0, 0, -0.45725), 4),
+            (SCNVector3(-1.20, 0, -0.57), SCNVector3(1.20, 0, -0.38), 3)
         ]
         let config = configurations[index]
         func normalized(_ point: SCNVector3) -> CanvasPoint {
@@ -1504,7 +1538,7 @@ private extension FreePlayView {
 
     func observeWholeTableForPage() {
         if isDailyClearance {
-            vm.scene.cameraRig?.observeWholeTable(yaw: .pi / 2)
+            vm.scene.cameraRig?.observeDailyWholeTable(aimDirection: vm.currentPlayerAim)
             vm.scene.discardSavedPerspectiveView()
         } else {
             ShotPlayCamera.observeWholeTable(on: vm)
@@ -1515,8 +1549,7 @@ private extension FreePlayView {
         let initialOverview = !is3D && !vm.scene.hasPerspectiveView
         ShotPlayCamera.setMode(is3D ? .topDown2D : .perspective3D, on: vm)
         if initialOverview {
-            // Same long-rail overview convention used by the landscape drill scene.
-            vm.scene.cameraRig?.observeWholeTable(yaw: .pi / 2)
+            vm.scene.cameraRig?.observeDailyWholeTable(aimDirection: vm.currentPlayerAim)
             vm.scene.discardSavedPerspectiveView()
         }
     }
@@ -1542,8 +1575,14 @@ private extension FreePlayView {
                 }
                 .accessibilityLabel("返回")
                 .accessibilityIdentifier("dailyClearance.back")
-                Text("每日清台").font(compact ? .btFootnote.weight(.semibold) : .btSubheadlineSemibold)
-                    .lineLimit(1).minimumScaleFactor(0.7)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("每日清台").font(compact ? .btFootnote.weight(.semibold) : .btSubheadlineSemibold)
+                    Text(vm.isBreakMode ? "手动开球" : vm.aimSelectionLabel)
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color.btTextSecondary)
+                        .accessibilityIdentifier("dailyClearance.aimSelection")
+                }
+                .lineLimit(1).minimumScaleFactor(0.7)
             }
             .padding(.trailing, Spacing.xs)
             .background {

@@ -1,5 +1,9 @@
 # v47 W0 测试写盘盘点
 
+### 2026-10-01 袋口延后确认取证
+
+登记 `PocketMarkerHighlightTests.swift`：实际SCNRenderer时序测试默认向当前源码所在仓库 `output/pocket-selection-20261001/rendered` 写16张PNG，文件名按普通/移动、2D/3D、时序阶段分开；复跑覆盖同任务图片，本轮iOS26结果先保存为rendered-26，最终iOS17结果保存在rendered。写盘失败抛出，不主动清理，不写Bundle、用户存档、内容或设计截图基线。清理由任务方负责。已登记 `PocketLeatherFlowUITests.swift` 仅显式 `POCKET_UI_EVIDENCE` / `TEST_RUNNER_POCKET_UI_EVIDENCE` 时写本轮PNG及AX文本，否则仅XCTest附件；不同设备/轮次使用独立目录，固定名称会覆盖同目录证据。原生测试使用专用模拟器resetState/夹具，不对用户真机执行。
+
 2026-10-01 金属音色替换：同一已登记的 `ShotAudioTests.swift` 现验证 Bundle 中两种单次金属齿声，试听解码证据改写至 `build/control-metal-20261001/ui_aim_metal.caf` 和 `ui_power_metal.caf`；旧试听及截图保留，不写产品资产。正式WAV由授权试听提取，位于现有Audio资源目录，来源/哈希登记CREDITS.md及build中的assets.json。
 
 2026-10-01 两尺刻度声：登记 `ShotAudioTests.swift`，音频样本结构测试写 `build/control-audio-20261001/control-tick.caf`，只作本地试听证据。`AdaptiveShotControlsUITests.swift` 已登记，新增方法写同目录 `ui/` 中启用/静音的2D/3D截图；不写产品资源或历史截图基线、不主动清理旧证据，同名复跑会覆盖当前轮文件，失败抛出。

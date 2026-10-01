@@ -5,6 +5,9 @@ import UIKit
 /// the USD-authored root conversion must be retained exactly once.
 /// Only the selected style is loaded. No room light affects the table or balls.
 enum BakedTrainingRoom {
+    /// Owning asset generator: scripts/blender/build_training_rooms.py `walls`.
+    /// XZ metres, centred room: inner faces ±5 / ±4; camera clearance 0.35 m.
+    static let cameraSafeHalfExtents = SIMD2<Float>(4.65, 3.65)
     private static let cacheLock = NSLock()
     private static var cached: (style: RoomStyle, node: SCNNode)?
 

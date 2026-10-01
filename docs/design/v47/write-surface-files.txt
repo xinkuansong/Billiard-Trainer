@@ -26,6 +26,7 @@ QiuJiTests/DrillTutorialKindResolverTests.swift
 QiuJiTests/FeelAimingVideoCaptureTests.swift
 QiuJiTests/PocketBehaviorDiagTests.swift
 QiuJiTests/PocketLeatherIntegrationTests.swift
+QiuJiTests/PocketMarkerHighlightTests.swift
 QiuJiTests/PocketRefactorDiagTests.swift
 QiuJiTests/PositionPlayFreeAimTests.swift
 QiuJiTests/PositionPlaySequenceExportRunnerTests.swift

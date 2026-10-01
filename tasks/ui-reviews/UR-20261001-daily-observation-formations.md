@@ -1,0 +1,43 @@
+# 每日观察：14球形原生截图册
+
+2026-10-01，iPhone17Pro / iOS26.3 / 874×402pt横屏。DEBUG只放置球形，使用正常求解与生产相机；不启用历史A/B/C预览镜头。全局35°正式配置。
+
+12个常规球形用于同盘面前后比较，另2个紧邻/薄球边界补充；一般算法依据详见[第一性原理分析](../DAILY-CAMERA-FORMATIONS-20261001.md)。三横屏3072生成场景是独立SceneKit投影测试，不能当作3072实页截图。
+
+| 球形 | 修改前标准 | 最终标准 | 最终缩小 |
+|---|---|---|---|
+| 0 · 长台远球 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/twelve-before/formation-0-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-0-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-0-far.png) |
+| 1 · 短距离球 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/twelve-before/formation-1-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-1-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-1-far.png) |
+| 2 · 大角度中袋 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/twelve-before/formation-2-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-2-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-2-far.png) |
+| 3 · 母球近短库 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/twelve-before/formation-3-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-3-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-3-far.png) |
+| 4 · 母球近长库 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/twelve-before/formation-4-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-4-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-4-far.png) |
+| 5 · 反向长台 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/twelve-before/formation-5-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-5-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-5-far.png) |
+| 6 · 目标贴短库 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/twelve-before/formation-6-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-6-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-6-far.png) |
+| 7 · 反侧近长库 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/twelve-before/formation-7-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-7-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-7-far.png) |
+| 8 · 中袋右切 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/twelve-before/formation-8-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-8-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-8-far.png) |
+| 9 · 中袋左切 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/twelve-before/formation-9-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-9-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-9-far.png) |
+| 10 · 同库薄球 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/twelve-before/formation-10-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-10-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-10-far.png) |
+| 11 · 反角袋 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/twelve-before/formation-11-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-11-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-11-far.png) |
+| 12 · 紧邻两球（实际求解杆向） | — | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-12-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-12-far.png) |
+| 13 · 大切角近角库 | — | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-13-standard.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-13-far.png) |
+
+## 上下与放大操作
+
+| 球形 | 放大局部 | 上下端点一 | 上下端点二 | 重新进入 | 全局35° |
+|---|---|---|---|---|---|
+| 长台远球 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-0-near.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-0-vertical-one.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-0-vertical-two.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-0-reset.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-0-global-35.png) |
+| 短距离球 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-1-near.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-1-vertical-one.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-1-vertical-two.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-1-reset.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-1-global-35.png) |
+| 大角度中袋 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-2-near.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-2-vertical-one.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-2-vertical-two.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-2-reset.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-2-global-35.png) |
+| 母球近短库 | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-3-near.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-3-vertical-one.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-3-vertical-two.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-3-reset.png) | [原图](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/formation-3-global-35.png) |
+
+## 视觉判读
+
+- 长台与角袋：旧标准袋口在顶栏/屏外；最终标准把本杆两球与目标袋纳入共同画面，允许无关桌边裁切。
+- 近短库：旧标准白球下半轮廓受遮；新标准向前取景、眼高保留，主要轮廓清晰。上下不再沿轨道降低眼位穿杆。
+- 中袋/反向/薄球：朝向与俯角按本杆主体计算，不固定一侧；无关球可能处于HUD或屏外，这不属于全局取景保证。
+- 紧邻两球：本页渲染采用实际求解的杆向；不能把此图当作独立几何扫描中的“0.1mm直球”眼位对照。严格直球的两球角分离改进由独立SceneKit测试验证，二者证据分列。
+- 手动放大允许检查局部、裁掉远袋；显式重进恢复完整标准构图。上下标准宽视野端点仍保留关键主体，眼位不下降。
+
+这些原图用于检查模型外观与遮挡，并不证明任意其他球/袋皮革/展开面板始终无遮挡。原图审阅与最终测试结果见分析报告交付节。
+
+放大后上下操作修复复验：[手动局部](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/observation-reset-manual.png) / [重新进入标准](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/observation-reset-again.png) / [击球后新一杆标准](/Users/song/projects/13.billiard_trainer/build/daily-camera-formations-20261001/final/observation-post-shot-reset.png)。局部图裁掉远袋符合主动检查的操作语义；重新进入恢复两球与袋口共同构图。最终55核心与3操作UI回归0失败；3球形捕获另已通过。

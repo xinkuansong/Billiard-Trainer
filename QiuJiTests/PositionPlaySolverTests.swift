@@ -408,3 +408,22 @@ final class PositionPlaySolverTests: XCTestCase {
         XCTAssertLessThan(bElapsed, 120, "情形B 求解不应卡死")
     }
 }
+
+extension PositionPlaySolverTests {
+    func testPreviouslyValidTwoRailOffsetRemainsValidAfterRailRepair() throws {
+        let y = BTTablePhysics.surfaceY
+        let cue = PositionPlaySolver.scenePoint(CanvasPoint(x:0.5,y:0.35),surfaceY:y)
+        let target = PositionPlaySolver.scenePoint(CanvasPoint(x:0.5,y:0.15),surfaceY:y)
+        let input = ShotInput(cueBall:cue,targetBall:target,pocketIndex:try XCTUnwrap(ShotIntent.pocketIndex(for:"topCenter")),
+            velocity:5.4,spinX:0.3,spinY:-0.4,surfaceY:y,obstacles:[])
+        let p = ShotPredictor.predictForPositionSolve(input,aimOffset:-0.02018603)
+        XCTAssertTrue(p.hasFinalTableState)
+        XCTAssertTrue(p.objectPocketed)
+        XCTAssertFalse(p.cuePocketed)
+        XCTAssertEqual(p.cueCushionCount,2)
+        let final = try XCTUnwrap(p.finalPositions[ShotInput.cueBallName])
+        let region = SolveRegion.circle(center:CanvasPoint(x:0.5,y:0.25),radius:0.4)
+        XCTAssertTrue(region.contains(scene:final,surfaceY:y))
+        print("[LEGACY-TWO-RAIL] fixed offset valid; returned search representatives remain a separate issue")
+    }
+}

@@ -834,3 +834,54 @@ extension TableGeometryProbeTests {
         XCTAssertEqual(fast.pottedSelected,full.objectPocketed)
     }
 }
+
+extension TableGeometryProbeTests {
+    /// Full sphere / production-loaded triangles, including finite arc endpoints.
+    /// An asset update must keep this contact envelope aligned with the physics
+    /// specification rather than recalibrating physics to a visual import error.
+    func testCalibratedCushionWholeSphereContactEnvelope() throws {
+        let asset = try PocketGeometryAsset.load()
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: asset.surfaceY)
+        let roles = try PocketSurfaceRoles.classify(asset.tablePatches, surfaceY: asset.surfaceY)
+        let triangles = asset.tablePatches.indices.filter { roles[$0] != .clothBed }
+            .map { asset.tablePatches[$0].triangle }
+        let index = PocketContactIndex(triangles: triangles)
+        let r = Double(BallPhysics.radius), y = Double(asset.surfaceY) + r
+        var count = 0, maximum = 0.0
+        func check(_ p: SIMD3<Double>, label: String) {
+            let position = SCNVector3(Float(p.x), Float(p.y), Float(p.z))
+            guard !geometry.pockets.contains(where: { $0.containsCapture(position) }) else { return }
+            // Discard nominal witnesses inside another finite solid: they are
+            // not reachable contacts in the shared planar model.
+            guard !EngineNumerics.planarIntrusions(position: position, geometry: geometry)
+                .contains(where: { $0.depth > 0.000001 }) else { return }
+            let pad = SIMD3<Double>(repeating: r + 0.01)
+            var distance = Double.infinity
+            for i in index.query(low: p - pad, high: p + pad) {
+                let d = p - triangles[i].closestPoint(to: p)
+                distance = min(distance, sqrt(d.x*d.x + d.y*d.y + d.z*d.z))
+            }
+            let error = distance - r
+            XCTAssertLessThanOrEqual(abs(error), 0.0001, "\(label): \(error * 1000)mm")
+            maximum = max(maximum, abs(error)); count += 1
+        }
+        for (i, arc) in geometry.circularCushions.enumerated() {
+            let start = Double(arc.startAngle)
+            let end = Double(arc.endAngle) + (arc.endAngle < arc.startAngle ? 2 * Double.pi : 0)
+            for k in 0...64 {
+                let angle = start + (end - start) * Double(k) / 64
+                let n = SIMD3<Double>(cos(angle), 0, sin(angle))
+                let center = SIMD3<Double>(Double(arc.center.x), y, Double(arc.center.z))
+                check(center + n * (Double(arc.radius) + r), label: "arc \(i), \(k)/64")
+            }
+        }
+        for (i, wall) in geometry.linearCushions.prefix(6).enumerated() {
+            let a = SIMD3<Double>(Double(wall.start.x), y, Double(wall.start.z))
+            let b = SIMD3<Double>(Double(wall.end.x), y, Double(wall.end.z))
+            let n = SIMD3<Double>(Double(wall.normal.x), 0, Double(wall.normal.z))
+            for k in 0...20 { check(a + (b-a) * (Double(k)/20) + n*r, label: "main \(i), \(k)/20") }
+        }
+        XCTAssertGreaterThan(count, 700)
+        print("[CALIBRATED-ENVELOPE] supported witnesses=\(count), maximum absolute error=\(maximum*1000)mm")
+    }
+}

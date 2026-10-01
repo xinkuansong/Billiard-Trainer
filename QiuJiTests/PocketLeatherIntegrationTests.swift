@@ -11,7 +11,7 @@ final class PocketLeatherIntegrationTests: XCTestCase {
         return result
     }
 
-    func testTextureTintIsMobileOnlyAndClears() throws {
+    func testSelectionKeepsCurrentLeatherAndClears() throws {
         for mobile in [false, true] {
             let scene = AngleTrainingScene()
             scene.setupScene(mobileRendering: mobile)
@@ -21,7 +21,9 @@ final class PocketLeatherIntegrationTests: XCTestCase {
                 let source = target.geometry?.firstMaterial?.shaderModifiers?[.surface] ?? ""
                 XCTAssertEqual(source.contains("// v64LeatherMicroSurface"), mobile)
                 XCTAssertEqual(target.geometry?.firstMaterial?.value(forKey: "leatherMicroNormal") is SCNMaterialProperty, mobile)
-                XCTAssertNotNil(target.geometry?.firstMaterial?.value(forKey: "pocketLeatherTint"))
+                let original = try XCTUnwrap(pocket.childNode(withName: "leather_original", recursively: false))
+                XCTAssertTrue(target.geometry?.firstMaterial === original.geometry?.firstMaterial)
+                XCTAssertNotNil(pocket.childNode(withName: "leather_selectionPulse", recursively: false))
             }
             scene.setPocketRoles(first: 0, second: 0)
             let both = try XCTUnwrap(pockets[0].childNodes.first { $0.name == "leather_bothRoles" })

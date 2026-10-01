@@ -233,13 +233,12 @@ final class TableAppearanceTests: XCTestCase {
         let markers = scene.addPocketMarkers().compactMap { $0 as? PocketLeatherMarker }
         XCTAssertEqual(markers.count, 6)
         let standard = markers.map { $0.childNode(withName: "leather_original", recursively: false)!.geometry!.materials[0] }
-        let targets = markers.map { $0.childNode(withName: "leather_target", recursively: false)!.geometry!.materials[0] }
         for style in TableStyle.allCases where style != .standard {
             scene.setPocketRoles(first: 0, second: 0)
             XCTAssertTrue(scene.applyTableStyle(style))
             XCTAssertEqual(markers[0].style, .bothRoles)
             for (index, marker) in markers.enumerated() {
-                XCTAssertTrue(marker.childNode(withName: "leather_target", recursively: false)!.geometry!.materials[0] === targets[index])
+                XCTAssertTrue(marker.childNode(withName: "leather_target", recursively: false)!.geometry!.materials[0] === marker.childNode(withName: "leather_original", recursively: false)!.geometry!.materials[0])
                 XCTAssertFalse(marker.childNode(withName: "leather_original", recursively: false)!.geometry!.materials[0] === standard[index])
             }
             scene.setPocketRoles(first: nil, second: nil)

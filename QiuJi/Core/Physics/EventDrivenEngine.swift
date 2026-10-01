@@ -142,6 +142,7 @@ class EventDrivenEngine {
 
     // Current simulation time
     private(set) var currentTime: Float = 0
+    private var planarGeometryFailure: String?
     private var localOwnership=LocalPocketOwnership()
     private var pendingLocalResult:(revision:UInt64,pocketID:String,result:LocalPocketSimulation.Result)?
     private struct SpatialCushionEventKey:Hashable { let ball:String;let time:Double;let cushion:Int }
@@ -932,6 +933,12 @@ class EventDrivenEngine {
 
         if predictionCancellationRequested?() == true { return .cancelled }
 
+        for ball in getAllBalls() where !ball.isPocketed {
+            let budget = 8 * max(ball.position.x.ulp, ball.position.z.ulp)
+            if EngineNumerics.planarIntrusions(position: ball.position, geometry: tableGeometry).contains(where: { $0.depth > budget }) {
+                return .failed("Initial ball intersects finite cushion: \(ball.name)")
+            }
+        }
         // Run a more thorough initial separation before the first event search.
         // A single pass of 6 iterations is not enough for a densely packed rack where
         // ball positions may carry up to ~16 mm of initial overlap. 50 iterations with
@@ -943,10 +950,11 @@ class EventDrivenEngine {
         
         while eventCount < maxEvents && currentTime < maxTime {
             if predictionCancellationRequested?() == true { return .cancelled }
+            if let reason = planarGeometryFailure { return .failed(reason) }
             if rejectsDirectCandidate(cue: rejectCushionBeforeAnyContactFor) { return .candidateRejected }
             // Zero-duration transitions can finish a ball at this same instant.
             // Once every ball is at rest, do not append an artificial maxTime tail.
-            if balls.values.allSatisfy({ $0.isPocketed || $0.state == .stationary }) { return .settled }
+            if balls.values.allSatisfy({ $0.isPocketed || $0.state == .stationary }) { return validatedPlanarRest() }
             // Find next event
             PerformanceProfiler.begin(ProfilerLabel.findNextEvent)
             let nextEvent = findNextEvent(maxTimeRemaining: maxTime - currentTime)
@@ -972,16 +980,10 @@ class EventDrivenEngine {
                 eventCount += 1
                 if isContactStopEvent(nextEvent, pair: stopAfterContactBetween) { return .contactResolved }
                 
-                // 保护：避免连续零时刻事件导致主线程长时间卡死
+                // A persistent unresolved contact must not be skipped by a time
+                // nudge: doing so can step through a solid cushion or ball stack.
                 if zeroTimeEventStreak > 80 {
-                    let nudge = min(0.0005, maxTime - currentTime)
-                    if nudge > 0 {
-                        evolveAllBalls(dt: nudge)
-                        separateOverlappingBalls()
-                        currentTime += nudge
-                        recordSnapshot()
-                    }
-                    zeroTimeEventStreak = 0
+                    return .failed("Repeated unresolved zero-time contacts")
                 }
                 continue
             }
@@ -1045,14 +1047,15 @@ class EventDrivenEngine {
                     b.isPocketed || b.state == .stationary
                 }
                 if allAtRest {
-                    return .settled
+                    return validatedPlanarRest()
                 }
                 if let interest = earlyStopBallNames, canEarlyStop(interest: interest) {
                     return .interestResolved
                 }
             }
         }
-        if balls.values.allSatisfy({$0.isPocketed || $0.state == .stationary}) { return .settled }
+        if let reason = planarGeometryFailure { return .failed(reason) }
+        if balls.values.allSatisfy({$0.isPocketed || $0.state == .stationary}) { return validatedPlanarRest() }
         // The early-stop criterion is a state predicate, not an event: a spin-only tail
         // (planar `.spinning`) can outlast `maxTime` with no further events, so the
         // periodic in-loop check never fires. Evaluate it once more before reporting
@@ -1373,8 +1376,10 @@ class EventDrivenEngine {
                         + a * (0.5 * collisionTime * collisionTime)
                     
                     if EngineNumerics.isWithinLinearCushionSegment(point: collisionPos, segment: cushion) {
+                        let contactNormal = cushion.soundSurface == .jaw &&
+                            (collisionPos - cushion.start).dot(cushion.normal) < 0 ? -cushion.normal : cushion.normal
                         let event = PhysicsEvent(
-                            type: .ballCushion(ball: name, cushionIndex: index, normal: cushion.normal),
+                            type: .ballCushion(ball: name, cushionIndex: index, normal: contactNormal),
                             time: collisionTime,
                             priority: 3
                         )
@@ -1398,6 +1403,17 @@ class EventDrivenEngine {
                   a.x != 0 || a.y != 0 || a.z != 0 else { continue }
 
             
+            // This quadratic trajectory ends at its own analytical state transition.
+            // Cache absence beyond this window must not outlive that transition.
+            let arcHorizon: Float
+            switch ball.state {
+            case .sliding:
+                arcHorizon = min(detectionMaxTime, AnalyticalMotion.slideToRollTime(
+                    velocity: ball.velocity, angularVelocity: ball.angularVelocity))
+            case .rolling:
+                arcHorizon = min(detectionMaxTime, AnalyticalMotion.rollToSpinTime(velocity: ball.velocity))
+            default: arcHorizon = detectionMaxTime
+            }
             for (arcIdx, arc) in tableGeometry.circularCushions.enumerated() {
                 let cushionIndex = linearCount + arcIdx
                 
@@ -1414,7 +1430,7 @@ class EventDrivenEngine {
                     a: a,
                     arc: arc,
                     R: BallPhysics.radius,
-                    maxTime: Double(detectionMaxTime),
+                    maxTime: Double(arcHorizon),
                     pockets: tableGeometry.pockets
                 ) {
                     let t = collisionTime
@@ -1539,14 +1555,9 @@ class EventDrivenEngine {
                     
                     a.position = a.position - move
                     b.position = b.position + move
-                    // Do NOT call enforceTableBounds here: it can pull a ball back into
-                    // overlap range, causing the loop to never converge.
-                    
-                    balls[aName] = a
-                    balls[bName] = b
-                    // Invalidate cache for this pair so the next findNextEvent re-solves
-                    // their quartic rather than using a stale no-collision or positive entry.
-                    eventCache.invalidateBallPair(ballA: aName, ballB: bName)
+                    EngineNumerics.constrainPairSeparation(&a, &b, geometry: tableGeometry)
+                    balls[aName] = a; balls[bName] = b
+                    eventCache.invalidate(affectedBalls: [aName, bName])
                     adjusted = true
                 }
             }
@@ -1556,125 +1567,71 @@ class EventDrivenEngine {
     }
 
     /// 最终静止摆位重叠清理（#4）：球形生成器把开球结果作为「可编辑摆位」输出前调用，
-    /// 消除偶发的「停稳后两球轻微穿插」。纯几何分离——只沿球心连线把穿插球对推到
-    /// 2R+spacer，不改速度、不触发落袋、不做边界钳制（避免把球误推进袋或来回震荡）。
-    /// 多迭代确保收敛（停稳态位移均为亚毫米，对画面无感）。
-    func resolveRestingOverlaps(maxIterations: Int = 16) {
+    /// 联合满足球间距与有限库边约束，不改速度或增加碰撞事件。
+    /// 验证后记入同一时钟的最终帧，使可编辑摆位与回放消费同一状态。
+    /// 无法收敛时明确返回失败，由调用方拒绝发布停稳摆位。
+    @discardableResult
+    func resolveRestingOverlaps(maxIterations: Int = 16) -> Termination {
+        for ball in getAllBalls() where !ball.isPocketed {
+            let budget = 8 * max(ball.position.x.ulp, ball.position.z.ulp)
+            if EngineNumerics.planarIntrusions(position: ball.position, geometry: tableGeometry)
+                .contains(where: { $0.depth > budget }) {
+                return .failed("Resting input intersects finite cushion: \(ball.name)")
+            }
+        }
         separateOverlappingBalls(maxIterations: maxIterations)
+        let termination = validatedPlanarRest()
+        recordSnapshot()
+        return termination
     }
 
     /// 兜底边界约束：防止极端数值误差导致球“跑出台外”
     private func enforceTableBounds(for state: inout BallState, stateTime: Float) {
         guard !state.isPocketed else { return }
         
-        let safeMinX = tableBounds.minX + BallPhysics.radius
-        let safeMaxX = tableBounds.maxX - BallPhysics.radius
-        let safeMinZ = tableBounds.minZ + BallPhysics.radius
-        let safeMaxZ = tableBounds.maxZ - BallPhysics.radius
-
-        // 触发余量（FL 根因修复·吃库竞态，2026-06-12）：库线吃库时球心接触位置 **恰好等于**
-        // safe 边界（contact = 库线 ∓ R），CCD 把球精确演进到接触点时浮点噪声可落在边界外
-        // ~1e-6 m。该状态是「正要解析的合法吃库」而非「跑出台外」；零容差硬钳会抢在事件前
-        // 把法向速度减半反向，随后 Han 解析器按（已退离的）速度方向翻转接触系、把球再次
-        // 反射回库内——形成「以 ~2 折出射角贴库滑出」的非物理轨迹（S4 数值确证：入29° 实测
-        // 出射 131°，手动复算应为 27°）。真正的接缝漏出会逐子步继续向外推进（近库子步位移
-        // 上限 ~10mm/步），远超此余量，安全网兜底能力不受影响。
-        let boundsEpsilon: Float = 5e-4   // 0.5mm ≫ Float32 接触噪声(~1e-6 m)，≪ 漏出位移(mm 级)
-
-        let outX = state.position.x < safeMinX - boundsEpsilon || state.position.x > safeMaxX + boundsEpsilon
-        let outZ = state.position.z < safeMinZ - boundsEpsilon || state.position.z > safeMaxZ + boundsEpsilon
-        guard outX || outZ else { return }
-        
-        // 球已越出可玩框、且落在某袋口附近（`pocket.radius + 3R` 内，覆盖袋嘴→袋兜全通道）。
-        for pocket in tableGeometry.pockets {
-            let dx = state.position.x - pocket.center.x
-            let dz = state.position.z - pocket.center.z
-            let dist = sqrtf(dx * dx + dz * dz)
-            guard dist < pocket.radius + BallPhysics.radius * 3 else { continue }
-
-            // ① 球心已进入共享捕获区域（数值漏检兜底，正常路径由 CCD .pocket 事件收袋）→ 落袋。
-            if pocket.containsCapture(state.position) {
-                trajectoryRecorder.recordPocketEntry(ball: state, pocketID: pocket.id, time: stateTime,
-                                                     source: .boundsFallback, geometry: tableGeometry)
-                state.state = .pocketed
-                state.velocity = SCNVector3Zero
-                state.angularVelocity = SCNVector3Zero
-                // 记一次真实落袋事件，使下游 `pottedSelected`（扫 resolvedEvents 的 .pocket）与画面一致。
-                resolvedEvents.append(.pocket(ball: state.name, pocketId: pocket.id))
-                resolvedEventTimes.append(stateTime)
-                return
-            }
-            // ② 在袋口通道内（捕获区域外）：无论速度/朝向均放行（ADR-P10-09）——
-            //    rattle 弹出、慢速滑向入口、以及仍有台呢支撑的合法挂袋都交给真实几何
-            //    （jaw 弧/面 + 喉壁 + 实测入口）处理。旧「低速即收袋」特判会把挂袋球吸走，已删除。
+        if let pocket = tableGeometry.pockets.first(where: { $0.containsCapture(state.position) }) {
+            trajectoryRecorder.recordPocketEntry(ball: state, pocketID: pocket.id, time: stateTime,
+                source: .boundsFallback, geometry: tableGeometry)
+            state.state = .pocketed
+            state.velocity = SCNVector3Zero; state.angularVelocity = SCNVector3Zero
+            resolvedEvents.append(.pocket(ball: state.name, pocketId: pocket.id))
+            resolvedEventTimes.append(stateTime)
             return
         }
-
-        // ④ jaw 弧合法接触带豁免（FL 根因修复，2026-06-12）：
-        //    圆弧库（角袋 jaw 弧 / 中袋 fillet）的球心接触圆（r_arc + R）**伸出矩形可玩框**
-        //    最多数厘米（越靠袋心越多；如左下角弧在 352° 接触点比 safeMinX 深 ~1.3mm）。
-        //    球落在任一弧的角度扇区内、且距弧心 ≤ 接触距 + mouthSlack 时，说明它正与该弧
-        //    交互（CCD 已能正确检出并解析），真实边界是弧本身——矩形硬钳在此不适用。
-        //    不豁免则硬钳抢在已调度的弧碰撞事件之前触发（法向减半反弹、无事件、不作废缓存），
-        //    产生「贴库平行滑出 + 末端小钩」的幽灵反弹。
-        //    mouthSlack 覆盖逼近条带：略大于近库子步位移上限 nearWallSafeStep（~10mm）。
-        //    径向速度门控（防研磨）：只豁免**径向显著运动**（正撞向弧面→弧事件即将解析；
-        //    或刚反弹离开→毫秒级回到框内）的球。沿弧切向蹭行（|vr|≈0，如贴长库滚过中袋
-        //    fillet 区）不豁免——该状态下弧 CCD 会以微小 dt 反复出事件（zero-time 风暴），
-        //    解算器数千次短模拟被拖垮；维持原软钳把它压回框内即可。
-        let mouthSlack: Float = 0.012
-        let radialGate: Float = 0.02   // m/s
-        for arc in tableGeometry.circularCushions {
-            let dxA = state.position.x - arc.center.x
-            let dzA = state.position.z - arc.center.z
-            let dA = sqrtf(dxA * dxA + dzA * dzA)
-            guard dA > 1e-6, dA <= arc.radius + BallPhysics.radius + mouthSlack else { continue }
-            guard arc.isAngleInRange(atan2f(dzA, dxA)) else { continue }
-            let vr = (state.velocity.x * dxA + state.velocity.z * dzA) / dA
-            if abs(vr) > radialGate { return }
+        // At meter-scale Float coordinates, 8 ULPs cover the contact evaluation
+        // and projection roundoff (< 0.002 mm here). Never hide a missed collision
+        // by moving a deeply penetrating ball back into the playable rectangle.
+        let budget = 8 * max(state.position.x.ulp, state.position.z.ulp, BallPhysics.radius.ulp)
+        let hits = EngineNumerics.planarIntrusions(position: state.position, geometry: tableGeometry)
+        guard !hits.isEmpty else { return }
+        if let worst = hits.max(by: { $0.depth < $1.depth }), worst.depth > budget {
+            planarGeometryFailure = "Finite cushion penetration: \(state.name), \(worst.depth * 1000) mm at \(stateTime) s"
+            return
         }
-        // 矩形库线在袋嘴处已经结束，不能把其无限延长线当作实体墙。
-        // 仅当球心投影落在真实主库的有限段内，才使用该轴的越界安全网；
-        // jaw / 喉壁由各自 CCD 处理。否则通往台呢入口的合法线路会被无事件反弹。
-        let clampX = outX && tableGeometry.linearCushions.contains { wall in
-            abs(wall.normal.x)>0.999 && abs(wall.start.x-wall.end.x)<1e-6
-                && (abs(wall.start.x-tableBounds.minX)<1e-5 || abs(wall.start.x-tableBounds.maxX)<1e-5)
-                && state.position.z>=min(wall.start.z,wall.end.z)
-                && state.position.z<=max(wall.start.z,wall.end.z)
-        }
-        let clampZ = outZ && tableGeometry.linearCushions.contains { wall in
-            abs(wall.normal.z)>0.999 && abs(wall.start.z-wall.end.z)<1e-6
-                && (abs(wall.start.z-tableBounds.minZ)<1e-5 || abs(wall.start.z-tableBounds.maxZ)<1e-5)
-                && state.position.x>=min(wall.start.x,wall.end.x)
-                && state.position.x<=max(wall.start.x,wall.end.x)
-        }
-        guard clampX || clampZ else { return }
-        let restitution: Float = 0.5
-        if clampX {
-            if state.position.x < safeMinX {
-                state.position.x = safeMinX
-                state.velocity.x = abs(state.velocity.x) * restitution
-            } else if state.position.x > safeMaxX {
-                state.position.x = safeMaxX
-                state.velocity.x = -abs(state.velocity.x) * restitution
-            }
-        }
-        if clampZ {
-            if state.position.z < safeMinZ {
-                state.position.z = safeMinZ
-                state.velocity.z = abs(state.velocity.z) * restitution
-            } else if state.position.z > safeMaxZ {
-                state.position.z = safeMaxZ
-                state.velocity.z = -abs(state.velocity.z) * restitution
-            }
-        }
-
-        state.state = EngineNumerics.determineMotionState(state)
-        // 硬钳是事件流之外的状态突变：作废该球缓存，避免按钳前轨迹预测的陈旧事件
-        // （吃库/球球）在钳后接力触发，造成二次非物理反射。
+        for hit in hits { state.position = state.position + hit.normal * (hit.depth + budget) }
         eventCache.invalidate(affectedBalls: [state.name])
     }
-    
+
+    /// Validate the exact state which will be published and recorded as settled.
+    private func validatedPlanarRest() -> Termination {
+        if let reason = planarGeometryFailure { return .failed(reason) }
+        for ball in getAllBalls() where !ball.isPocketed {
+            if let hit = EngineNumerics.planarIntrusions(position: ball.position, geometry: tableGeometry)
+                .first(where: { $0.depth > 8 * max(ball.position.x.ulp, ball.position.z.ulp) }) {
+                return .failed("Invalid settled cushion contact: \(ball.name), \(hit.depth * 1000) mm")
+            }
+        }
+        let active = getAllBalls().filter { !$0.isPocketed }
+        for i in active.indices {
+            for j in active.indices where j > i {
+                if (active[j].position - active[i].position).length() < 2 * BallPhysics.radius - 1e-6 {
+                    return .failed("Invalid settled ball overlap: \(active[i].name), \(active[j].name)")
+                }
+            }
+        }
+        return .settled
+    }
+
     /// Resolve a physics event
     private func resolveEvent(_ event: PhysicsEvent) {
         if case .ballBall = event.type, firstBallBallCollisionTime == nil {
@@ -1725,6 +1682,7 @@ class EventDrivenEngine {
         // the collision impulse. Without this, floating-point drift from event evolution
         // leaves the balls slightly interpenetrating, causing cascading zero-time events.
         EngineNumerics.makeBallBallKiss(stateA: &stateA, stateB: &stateB)
+        EngineNumerics.constrainPairSeparation(&stateA, &stateB, geometry: tableGeometry)
         
         let approach = ContactSoundEvent.approach(stateA.velocity - stateB.velocity,
                                                   normal: stateA.position - stateB.position)

@@ -5,6 +5,61 @@ import XCTest
 
 @MainActor
 final class PocketMarkerHighlightTests: XCTestCase {
+    func testSelectionWaitsOneSecondThenRendersSixTenthsIn2DAnd3D() throws {
+        let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("output/pocket-selection-20261001/rendered")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        for mobile in [false, true] {
+            for mode: AngleTrainingScene.CameraMode in [.topDown2DRotated, .perspective3D] {
+                let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: mobile)
+                scene.setCameraMode(mode, animated: false)
+                if mode == .perspective3D {
+                    // The default player's view crops the two near pockets.
+                    // Keep all six in frame so this is a visible-pixel assertion.
+                    scene.cameraNode.position = SCNVector3(0, 6, 3)
+                    scene.cameraNode.look(at: SCNVector3(0, scene.surfaceY, 0))
+                }
+                let marker = try XCTUnwrap(scene.addPocketMarkers().first as? PocketLeatherMarker)
+                let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+                renderer.scene = scene; renderer.pointOfView = scene.cameraNode
+                func frame(_ time: TimeInterval) -> UIImage {
+                    renderer.snapshot(atTime: time, with: CGSize(width: 1200, height: 800), antialiasingMode: .multisampling4X)
+                }
+                let before = frame(0)
+                scene.highlightPocket(marker, highlighted: true)
+                _ = frame(1)
+                let waiting = frame(1.99)
+                let peak = frame(2.12)
+                let stillYellow = frame(2.59)
+                let restored = frame(2.61)
+                let prefix = "\(mobile ? "mobile" : "plain")-\(mode == .perspective3D ? "3d" : "2d")"
+                for (name, image) in [("before", before), ("waiting", waiting), ("peak", peak), ("restored", restored)] {
+                    try XCTUnwrap(image.pngData()).write(to: directory.appendingPathComponent("\(prefix)-\(name).png"))
+                }
+                func difference(_ a: UIImage, _ b: UIImage) throws -> Double {
+                    let ad = try XCTUnwrap(a.cgImage?.dataProvider?.data) as Data
+                    let bd = try XCTUnwrap(b.cgImage?.dataProvider?.data) as Data
+                    XCTAssertEqual(ad.count, bd.count)
+                    return Double(zip(ad, bd).reduce(0) { $0 + abs(Int($1.0) - Int($1.1)) }) / Double(ad.count)
+                }
+                XCTAssertLessThan(try difference(before, waiting), 0.001, "Must wait a full second: " + prefix)
+                XCTAssertGreaterThan(try difference(before, peak), 0.001, prefix)
+                XCTAssertGreaterThan(try difference(before, stillYellow), 0.001, prefix)
+                XCTAssertLessThan(try difference(before, restored), 0.001, prefix)
+                let pulse = try XCTUnwrap(marker.childNode(withName: "leather_selectionPulse", recursively: true))
+                XCTAssertEqual(pulse.opacity, 0, accuracy: 0.001)
+                XCTAssertFalse(pulse.hasActions)
+                XCTAssertEqual(marker.style, .target, "The feedback ending must not clear the target")
+                scene.highlightPocket(marker, highlighted: false)
+                scene.highlightPocket(marker, highlighted: true)
+                XCTAssertNotNil(pulse.action(forKey: "pocketSelectionPulse"))
+                scene.clearPocketHighlights()
+                XCTAssertFalse(pulse.hasActions)
+                XCTAssertEqual(pulse.opacity, 0)
+            }
+        }
+    }
+
     func testLoadedTableRendersOneFrameWithoutNullMeshElement() throws {
         let scene = AngleTrainingScene()
         scene.setupScene(enhancedRendering: false)

@@ -1853,9 +1853,18 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         setPocketHighlight(node, style: highlighted ? .selected : .viable)
     }
 
-    func setPocketHighlight(_ node: SCNNode, style: PocketHighlight) {
+    func setPocketHighlight(_ node: SCNNode, style: PocketHighlight, confirmsSelection: Bool = true) {
         guard let marker = node as? PocketLeatherMarker else { return }
-        marker.show(style == .selected ? .target : .original)
+        marker.show(style == .selected ? .target : .original, confirmsSelection: confirmsSelection)
+    }
+
+    func cancelPocketSelectionFeedback() {
+        for marker in leatherMarkers { marker.cancelSelectionFeedback() }
+    }
+
+    func confirmPocketSelection(at index: Int) {
+        cancelPocketSelectionFeedback()
+        leatherMarkers.first { $0.pocketIndex == index }?.confirmSelection()
     }
 
     /// Explicit dual-role state; equal indices show both roles on the same leather.
@@ -1883,6 +1892,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     }
 
     func clearPocketHighlights() {
+        cancelPocketSelectionFeedback()
         for marker in leatherMarkers { marker.show(.original) }
     }
 

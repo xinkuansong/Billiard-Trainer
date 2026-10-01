@@ -129,10 +129,9 @@ extension TableGeometry {
     ///   3. 后壁（垂直袋道轴、切孔远沿的弦）：袋兜衬里。
     /// 正常球在触及 2/3 前已被「球心入孔圈」判据收袋，它们只兜数值漏检与 rattle 路径。
     ///
-    /// 竞态规避（FL-022）：①② 与 builder 的 jaw 直线段**不共面**——沿 jaw 外法向
-    /// （背离袋道）偏移 `twinWallOffset`，错开两组事件的接触平面；球从袋道内侧撞 jaw 面时
-    /// 视觉穿透 1mm（不可感知），换来事件序列的确定性。
-    private static let twinWallOffset: Float = 0.001
+    /// 双面线性CCD与冲量解析使用同一真实接触侧，不再把袋道侧库面
+    /// 后退1mm来避开事件竞态。保留壁索引，已反弹球由逼近方向过滤。
+    private static let twinWallOffset: Float = 0
 
     private static func cornerThroatWalls(y: Float) -> [LinearCushionSegment] {
         let rHole = TablePhysics.cornerPocketRadius        // 0.042
