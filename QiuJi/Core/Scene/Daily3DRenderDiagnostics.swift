@@ -3,6 +3,37 @@ import Metal
 import SceneKit
 import os
 
+#if DEBUG
+/// Opt-in local CPU timings. Recording happens after each measured section;
+/// samples are bounded and never logged per frame or written by production code.
+final class RenderCodeCPUProbe: @unchecked Sendable {
+    enum Section: String { case frame, pacing, fps, camera, labels, contact }
+    private let lock = NSLock()
+    private var samples: [String: [Double]] = [:]
+    private var dropped = 0
+
+    func record(_ section: Section, since start: Double) {
+        let elapsed = (CACurrentMediaTime() - start) * 1_000
+        lock.lock(); defer { lock.unlock() }
+        guard samples[section.rawValue, default: []].count < 10_000 else {
+            dropped += 1; return
+        }
+        samples[section.rawValue, default: []].append(elapsed)
+    }
+
+    func snapshot() -> (samples: [String: [Double]], dropped: Int) {
+        lock.lock(); defer { lock.unlock() }
+        return (samples, dropped)
+    }
+
+    func reset() {
+        lock.lock(); defer { lock.unlock() }
+        samples.removeAll(keepingCapacity: true)
+        dropped = 0
+    }
+}
+#endif
+
 /// Explicit, process-local instrumentation. No preferences, gameplay state or frame policy changes.
 final class Daily3DRenderDiagnostics: @unchecked Sendable {
     static let isEnabled = ProcessInfo.processInfo.arguments.contains("-daily3D.diagnostics")

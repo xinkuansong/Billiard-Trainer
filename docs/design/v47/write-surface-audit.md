@@ -89,6 +89,8 @@ TrainingNotesView 由首页更多进入，按日期 navigationDestination 打开
 
 RenderQualityV62Tests 与 RenderQualityV62UITests 仅输出渲染 PNG/诊断 JSON 和 xcresult 附件。模拟器默认 output/render-quality-v62，可通过 runner 的 V62_SHOT_DIR 隔离每次运行；手机默认测试沙盒临时目录，截图附 xcresult。标准、iOS17及后续复跑使用独立叶子，不删除失败证据；写失败令测试失败。显式 -v62.fixture 固定题目/球号/球姿，仅 DEBUG 或专用 RENDER_QUALITY_VALIDATION 构建生效；UI 测试使用既有内存账号夹具。不写 Bundle、训练数据、USDZ、已有截图基线。新 HDR 是独立原创参数化资产，非截图烘焙。
 
+2026-10-01 渲染代码 CPU 基准：同文件 `testRenderCodeCPUBaseline` / `testRenderCodeLabelCPUBaseline` 仅在显式 run 哨兵存在时写固定位置回放 JSON、CPU 分段样本、启用标签的局部计量 JSON 和 xcresult 截图附件；模拟器目录为 `build/render-code-optimization-20261001/s0`，手机为测试沙盒 caches/`render-code-optimization`。回放文件存在时复用，不重新模拟；统计可覆盖同任务输出，复跑前由任务方归档。写失败抛出；不写内容、Bundle 或用户存档。计量窗口不运行物理，所测为渲染回调 CPU 段，不替代整页/GPU/温升验收。
+
 ## v63 W03 辅助线几何与性能证据
 
 - `QiuJiTests/TrajectoryRendererTests.swift` 中 `TableAssistSurfaceV63Tests.testLoadedClothFootprintAndRenderEvidence` 写入当前仓库 `output/3d-v63/W03/footprint-r1/{measurement.json,before.png,projected.png}`，为固定几何夹具复跑覆盖目录。构建结果、其他附件和失败日志存入每轮独立的xcresult；不默认删除证据。

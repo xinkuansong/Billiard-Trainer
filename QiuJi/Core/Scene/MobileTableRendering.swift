@@ -150,6 +150,10 @@ enum MobileTableRendering {
 /// One small static rail texture, no extra geometry or render passes.
 /// Phone frame cost remains to be measured.
 final class MobileContactOcclusion: NSObject, SCNSceneRendererDelegate {
+    #if DEBUG
+    /// Set before rendering starts; this probe records on the renderer thread.
+    var renderCPUProbe: RenderCodeCPUProbe?
+    #endif
     static let encodedOpacityScale: Float = 0.85
     private let balls: [SCNNode]
     private let materials: [SCNMaterial]
@@ -240,6 +244,10 @@ final class MobileContactOcclusion: NSObject, SCNSceneRendererDelegate {
     }
 
     private func update(usePresentation: Bool) {
+        #if DEBUG
+        let start = renderCPUProbe == nil ? 0 : CACurrentMediaTime()
+        defer { renderCPUProbe?.record(.contact, since: start) }
+        #endif
         // Renderer callbacks already run in the frame's transaction. A nested
         // explicit transaction delays these uniforms by one frame (FL-076).
         var changedGroups: UInt = 0

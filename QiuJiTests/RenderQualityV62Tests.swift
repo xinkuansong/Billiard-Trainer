@@ -7,6 +7,197 @@ import MetalKit
 /// Deterministic visual experiments, not a phone performance benchmark.
 @MainActor
 final class RenderQualityV62Tests: XCTestCase {
+    #if DEBUG
+    /// Fixed replay input; no physics solve or per-frame disk logging in the timed window.
+    func testRenderCodeCPUBaseline() async throws {
+        #if targetEnvironment(simulator)
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("build/render-code-optimization-20261001/s0")
+        #else
+        let root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("render-code-optimization")
+        #endif
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: root.appendingPathComponent("run").path),
+                          "Explicit render-code CPU diagnostic required")
+        let fixtureURL = root.appendingPathComponent("break-replay.json")
+        let fixture: [String: [[Float]]]
+        if FileManager.default.fileExists(atPath: fixtureURL.path) {
+            fixture = try JSONDecoder().decode([String: [[Float]]].self, from: Data(contentsOf: fixtureURL))
+        } else {
+            let result = BreakSimulator.breakShot(rack: RackLayout.make(.chineseEightBall, seed: 52), power: 8)
+            XCTAssertTrue(result.settled)
+            // TrajectoryPlayback.surfaceY is the ball-centre plane (DR-294),
+            // unlike BreakResult.surfaceY, which denotes the cloth surface.
+            let playback = TrajectoryPlayback(recorder: result.recorder,
+                                              surfaceY: result.surfaceY + AngleSceneCalculator.ballRadius)
+            var samples: [String: [[Float]]] = [:]
+            for key in result.recorder.framesByBallName.keys.sorted() {
+                var points: [[Float]] = []
+                for index in 0...1_200 {
+                    let state = try XCTUnwrap(playback.stateAt(ballName: key, time: Float(index) / 60))
+                    points.append([state.position.x, state.position.y, state.position.z,
+                                   state.motionState == .pocketed ? 0 : 1])
+                }
+                samples[key] = points
+            }
+            fixture = samples
+            try JSONEncoder().encode(fixture).write(to: fixtureURL)
+        }
+        XCTAssertEqual(fixture.count, 16)
+        XCTAssertTrue(fixture.values.allSatisfy { $0.count == 1_201 && $0.allSatisfy { $0.count == 4 } })
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows).first(where: \.isKeyWindow))
+        let oldFPS = UserPreferences.shared.renderFrameRate
+        UserPreferences.shared.renderFrameRate = .fps60
+        defer { UserPreferences.shared.renderFrameRate = oldFPS }
+        var results: [[String: Any]] = []
+        for (name, mode) in [("2d", AngleTrainingScene.CameraMode.topDown2DRotated),
+                             ("3d", .perspective3D)] {
+            let scene = AngleTrainingScene()
+            scene.configureDailyClearanceRendering()
+            scene.setupScene(mobileRendering: true)
+            scene.hideAllBalls()
+            for key in fixture.keys.sorted() {
+                let first = try XCTUnwrap(fixture[key]?.first)
+                XCTAssertEqual(first[1], scene.surfaceY + AngleSceneCalculator.ballRadius, accuracy: 0.000001,
+                               "Fixture must use the real ball-centre plane; buried balls invalidate rendering cost")
+                scene.showBall(key: key, scenePosition: SCNVector3(first[0], first[1], first[2]))
+                let node = try XCTUnwrap(scene.allBallNodes[key])
+                node.simdOrientation = BallSpinIntegrator.identityOrientation
+                let points = try XCTUnwrap(fixture[key])
+                node.runAction(.repeatForever(.customAction(duration: 20) { node, elapsed in
+                    let frame = min(1_199, max(0, Int(elapsed * 60)))
+                    let fraction = min(1, max(0, Float(elapsed * 60) - Float(frame)))
+                    let a = points[frame], b = points[frame + 1]
+                    node.position = SCNVector3(a[0] + (b[0] - a[0]) * fraction,
+                                              a[1] + (b[1] - a[1]) * fraction,
+                                              a[2] + (b[2] - a[2]) * fraction)
+                    node.opacity = CGFloat(a[3])
+                }), forKey: "render-code-fixed-replay", completionHandler: nil)
+            }
+            XCTAssertEqual(scene.allBallNodes.values.filter { !$0.isHidden && $0.parent != nil }.count, 16)
+            let probe = RenderCodeCPUProbe()
+            scene.contactOcclusion?.renderCPUProbe = probe
+            let view = SCNView(frame: window.bounds)
+            view.scene = scene; view.pointOfView = scene.cameraNode
+            view.antialiasingMode = .multisampling4X
+            scene.cameraRig?.viewportSize = view.bounds.size
+            scene.setCameraMode(mode, animated: false)
+            if mode == .perspective3D {
+                XCTAssertTrue(scene.cameraRig?.observeWholeTable(yaw: .pi / 2) == true)
+                for _ in 0..<180 { scene.cameraRig?.update(deltaTime: 1 / 60) }
+            }
+            let coordinator = AngleSceneView.Coordinator(scene: scene, cameraMode: mode, interactionMode: .cameraControl)
+            coordinator.renderCPUProbe = probe
+            coordinator.scnView = view; coordinator.contentIsAnimating = true
+            coordinator.autoFitsRotatedTable = mode == .topDown2DRotated
+            window.addSubview(view); coordinator.startRenderLoop()
+            defer {
+                AngleSceneView.dismantleUIView(view, coordinator: coordinator)
+                view.delegate = nil; view.removeFromSuperview()
+                scene.allBallNodes.values.forEach { $0.removeAllActions() }
+            }
+            try await Task.sleep(for: .seconds(2))
+            // The renderer's probe reference stays immutable while active.
+            // Reset only the probe's lock-protected samples after warming.
+            probe.reset()
+            let start = CACurrentMediaTime()
+            try await Task.sleep(for: .seconds(20))
+            coordinator.stopRenderLoop()
+            view.isPlaying = false
+            let samples = probe.snapshot()
+            XCTAssertEqual(samples.dropped, 0)
+            XCTAssertGreaterThan(samples.samples["frame"]?.count ?? 0, 100)
+            XCTAssertGreaterThan(samples.samples["contact"]?.count ?? 0, 100)
+            results.append(["mode": name, "wallSeconds": CACurrentMediaTime() - start,
+                            "viewport": [view.bounds.width, view.bounds.height], "msaa": 4,
+                            "requestedFPS": 60, "samplesMS": samples.samples, "dropped": samples.dropped])
+            let attachment = XCTAttachment(image: view.snapshot())
+            attachment.name = "render-code-\(name)-fixture"; attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        let overhead = RenderCodeCPUProbe()
+        let overheadStart = CACurrentMediaTime()
+        for _ in 0..<2_000 { overhead.record(.frame, since: CACurrentMediaTime()) }
+        let recordAverageMS = (CACurrentMediaTime() - overheadStart) * 1_000 / 2_000
+        let output: [String: Any] = ["phases": results, "clockReadMS": overhead.snapshot().samples,
+                                     "probeRecordAverageMS": recordAverageMS,
+                                     "pid": getpid(), "os": ProcessInfo.processInfo.operatingSystemVersionString,
+                                     "scope": "CPU callback sections; fixed positional replay; not full App/GPU/thermal",
+                                     "physicsInMeasuredWindow": false]
+        try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
+            .write(to: root.appendingPathComponent("cpu-baseline.json"))
+    }
+    /// Exercises the enabled angle-page overlay separately from the daily-page guard.
+    /// Direct CPU calls are a microbenchmark, not frame pacing or a device result.
+    func testRenderCodeLabelCPUBaseline() throws {
+        #if targetEnvironment(simulator)
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("build/render-code-optimization-20261001/s0")
+        #else
+        let root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("render-code-optimization")
+        #endif
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: root.appendingPathComponent("run").path),
+                          "Explicit render-code CPU diagnostic required")
+        let scene = AngleTrainingScene()
+        scene.usesAdaptiveDiagramLabels = true
+        scene.setupScene(); scene.setupVisualizationNodes(); scene.hideAllBalls()
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 402, height: 650))
+        view.scene = scene; view.pointOfView = scene.cameraNode
+        let rig = try XCTUnwrap(scene.cameraRig)
+        rig.viewportSize = view.bounds.size
+        scene.setCameraMode(.topDown2DRotated, animated: false)
+        rig.snapToTarget()
+        rig.fitRotatedTable(viewSize: view.bounds.size); rig.applyTopDown2DRotated()
+        SCNTransaction.flush()
+        XCTAssertTrue(scene.cameraNode.camera?.usesOrthographicProjection == true)
+        // snapToTarget applies a perspective pose, so the 2D projection must follow it.
+        _ = view.snapshot()
+        let y = scene.surfaceY + AngleSceneCalculator.ballRadius
+        let target = SCNVector3(0.25, y, 0), pocket = SCNVector3(1.27, y, 0)
+        let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target, pocket: pocket,
+                                                          ballRadius: AngleSceneCalculator.ballRadius)
+        scene.showBall(key: "_8", scenePosition: target); scene.setCurrentTargetNumber(8)
+        func setAngle(_ degrees: Float) {
+            let angle = degrees * .pi / 180
+            let cue = SCNVector3(ghost.x - 0.65 * cosf(angle), y, ghost.z - 0.65 * sinf(angle))
+            scene.showBall(key: PositionPlayBall.cueKey, scenePosition: cue)
+            scene.updateVisualization(cueBall: cue, targetBall: target, pocket: pocket)
+            SCNTransaction.flush()
+        }
+        let overlay = DiagramLabelOverlay(), probe = RenderCodeCPUProbe()
+        overlay.renderCPUProbe = probe
+        setAngle(20); overlay.update(scene: scene, in: view)
+        XCTAssertEqual(view.subviews.compactMap { $0 as? UILabel }.filter { !$0.isHidden }.count, 3)
+        var runs: [[String: Any]] = []
+        for run in 1...3 {
+            for changing in [false, true] {
+                setAngle(20); overlay.update(scene: scene, in: view)
+                for _ in 0..<100 { overlay.update(scene: scene, in: view) }
+                probe.reset()
+                for index in 0..<1_200 {
+                    if changing { setAngle(20 + Float(index + 1) / 1_200) }
+                    overlay.update(scene: scene, in: view)
+                }
+                let snapshot = probe.snapshot()
+                XCTAssertEqual(snapshot.dropped, 0)
+                XCTAssertEqual(snapshot.samples["labels"]?.count, 1_200)
+                XCTAssertEqual(view.subviews.compactMap { $0 as? UILabel }.filter { !$0.isHidden }.count, 3)
+                runs.append(["run": run, "changingGeometry": changing,
+                             "samplesMS": snapshot.samples, "dropped": snapshot.dropped])
+            }
+        }
+        let attachment = XCTAttachment(image: view.snapshot())
+        attachment.name = "render-code-enabled-label-fixture"; attachment.lifetime = .keepAlways
+        add(attachment)
+        let output: [String: Any] = ["runs": runs, "os": ProcessInfo.processInfo.operatingSystemVersionString,
+            "scope": "Enabled 2D angle overlay only; direct calls; excludes visualization preparation and rendering"]
+        try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
+            .write(to: root.appendingPathComponent("label-cpu-baseline.json"))
+    }
+    #endif
+
     func testDailyShadowAndPerspectiveComparison() throws {
         try dailyPerfGate()
         let size = CGSize(width: 1400, height: 800)

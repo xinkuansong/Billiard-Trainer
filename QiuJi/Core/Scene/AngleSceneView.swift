@@ -266,6 +266,12 @@ struct AngleSceneView: UIViewRepresentable {
         private(set) var daily3DDiagnostics: Daily3DRenderDiagnostics?
         private var fpsHost: UIHostingController<FPSReadout>?
         private let diagramLabels = DiagramLabelOverlay()
+        #if DEBUG
+        /// Assigned only by explicit diagnostic tests, before attaching the view.
+        var renderCPUProbe: RenderCodeCPUProbe? {
+            didSet { diagramLabels.renderCPUProbe = renderCPUProbe }
+        }
+        #endif
         private var fpsText = "— FPS"
         private var fpsConstraints: [NSLayoutConstraint] = []
         private var fpsTrailingInset: CGFloat?
@@ -537,6 +543,10 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc private func renderUpdate(_ link: CADisplayLink) {
+            #if DEBUG
+            let frameStart = renderCPUProbe == nil ? 0 : CACurrentMediaTime()
+            defer { renderCPUProbe?.record(.frame, since: frameStart) }
+            #endif
             displayLinkCallbackCount += 1
             daily3DDiagnostics?.displayLinkCallback()
             defer {
@@ -546,7 +556,13 @@ struct AngleSceneView: UIViewRepresentable {
                 #endif
             }
             if let scnView { updateViewport(scnView.bounds.size) }
+            #if DEBUG
+            let pacingStart = renderCPUProbe == nil ? 0 : CACurrentMediaTime()
+            #endif
             updateFramePacing()
+            #if DEBUG
+            renderCPUProbe?.record(.pacing, since: pacingStart)
+            #endif
             let dt: Float
             if lastTimestamp == 0 {
                 dt = Float(max(0, link.targetTimestamp - link.timestamp))
@@ -563,7 +579,13 @@ struct AngleSceneView: UIViewRepresentable {
             }
             frameDelegate.contact = scene.contactOcclusion
             if let scnView, scnView.delegate !== frameDelegate { scnView.delegate = frameDelegate }
+            #if DEBUG
+            let fpsStart = renderCPUProbe == nil ? 0 : CACurrentMediaTime()
+            #endif
             updateFPSReadout()
+            #if DEBUG
+            renderCPUProbe?.record(.fps, since: fpsStart)
+            #endif
 
             // A stable table needs no repeated camera writes. Scene graph changes
             // still invalidate SCNView; gestures and SwiftUI updates wake it above.
@@ -574,6 +596,10 @@ struct AngleSceneView: UIViewRepresentable {
 
             guard !scene.isCameraModeTransitioning, draggedNode == nil else { return }
 
+            #if DEBUG
+            let cameraStart = renderCPUProbe == nil ? 0 : CACurrentMediaTime()
+            defer { renderCPUProbe?.record(.camera, since: cameraStart) }
+            #endif
             switch cameraMode {
             case .topDown2D:
                 if autoFitsLandscapeTable, let scnView {
@@ -1175,6 +1201,9 @@ class FrameDelegate: NSObject, SCNSceneRendererDelegate {
 /// Only the interactive angle diagram opts in. This overlay never intercepts table gestures.
 @MainActor
 final class DiagramLabelOverlay {
+    #if DEBUG
+    var renderCPUProbe: RenderCodeCPUProbe?
+    #endif
     private var labels: [UILabel] = []
     private let angleMark = CAShapeLayer()
     private var choices: [Int: Int] = [:]
@@ -1182,6 +1211,10 @@ final class DiagramLabelOverlay {
     private var previousAngleOffset: CGPoint?
 
     func update(scene: AngleTrainingScene, in view: SCNView) {
+        #if DEBUG
+        let start = renderCPUProbe == nil ? 0 : CACurrentMediaTime()
+        defer { renderCPUProbe?.record(.labels, since: start) }
+        #endif
         guard scene.usesAdaptiveDiagramLabels, let g = scene.diagramLabelGeometry,
               view.bounds.width > 0, view.bounds.height > 0 else {
             labels.forEach { $0.isHidden = true }
