@@ -366,8 +366,12 @@ extension BreakFlowRunnerV6Tests {
 
     @MainActor
     func testImmediateMovingRestartWithLiveRendererKeepsBreakAddress() async throws {
-        try await verifyRestartWhileMoving(previousWasBreak: false, liveRendering: true)
-        try await verifyRestartWhileMoving(previousWasBreak: true, liveRendering: true)
+        // Cancellation races with renderer callbacks; exercise both preceding
+        // stroke types repeatedly rather than accepting one lucky schedule.
+        for _ in 0..<3 {
+            try await verifyRestartWhileMoving(previousWasBreak: false, liveRendering: true)
+            try await verifyRestartWhileMoving(previousWasBreak: true, liveRendering: true)
+        }
     }
 
     @MainActor
@@ -429,6 +433,9 @@ extension BreakFlowRunnerV6Tests {
         let expectedCue = cue.simdPosition
         let expectedPivot = stick.simdPosition
         let expectedAngles = stick.simdEulerAngles
+        if liveRendering {
+            print("RESTART_ADDRESS priorBreak=\(previousWasBreak) cue=\(expectedCue) pivot=\(expectedPivot) angles=\(expectedAngles) aim=\(String(describing: runner.aimDir))")
+        }
         // Allow queued callbacks and presentation updates from the old shot to drain.
         for _ in 0..<(liveRendering ? 0 : 30) {
             frame()

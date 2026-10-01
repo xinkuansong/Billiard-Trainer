@@ -77,7 +77,7 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = true
-        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-appearanceMode", "system"])
     }
 
     private func snap(_ name: String) {

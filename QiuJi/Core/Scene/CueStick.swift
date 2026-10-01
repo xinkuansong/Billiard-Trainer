@@ -18,6 +18,30 @@ enum CueElevation: Equatable {
 /// Supports USDZ model (preferred) or procedural fallback.
 final class CueStick {
 
+    // A removed SCNAction can already be executing on the renderer thread.
+    // Serialize its last writes with a new address pose and reject old work.
+    private let animationLock = NSRecursiveLock()
+    private var animationGeneration: UInt64 = 0
+
+    func beginStrokeAnimation() -> UInt64 {
+        animationLock.lock(); defer { animationLock.unlock() }
+        animationGeneration &+= 1
+        return animationGeneration
+    }
+
+    func isCurrentStrokeAnimation(_ generation: UInt64) -> Bool {
+        animationLock.lock(); defer { animationLock.unlock() }
+        return generation == animationGeneration
+    }
+
+    @discardableResult
+    func withStrokeAnimation(_ generation: UInt64, _ body: () -> Void) -> Bool {
+        animationLock.lock(); defer { animationLock.unlock() }
+        guard generation == animationGeneration else { return false }
+        body()
+        return true
+    }
+
     // MARK: - Constants
 
     private enum Constants {
@@ -482,6 +506,23 @@ final class CueStick {
     ///   off-centre strike point (`CueStroke.tipInset`); 0 = centre ball. Render-only.
     func update(cueBallPosition: SCNVector3, aimDirection: SCNVector3, pullBack: Float = 0,
                 elevation: Float = 0, tipInset: Float = 0) {
+        animationLock.lock(); defer { animationLock.unlock() }
+        animationGeneration &+= 1
+        applyPose(cueBallPosition: cueBallPosition, aimDirection: aimDirection,
+                  pullBack: pullBack, elevation: elevation, tipInset: tipInset)
+    }
+
+    func updateStrokeAnimation(_ generation: UInt64, cueBallPosition: SCNVector3,
+                               aimDirection: SCNVector3, pullBack: Float,
+                               elevation: Float, tipInset: Float) {
+        withStrokeAnimation(generation) {
+            applyPose(cueBallPosition: cueBallPosition, aimDirection: aimDirection,
+                      pullBack: pullBack, elevation: elevation, tipInset: tipInset)
+        }
+    }
+
+    private func applyPose(cueBallPosition: SCNVector3, aimDirection: SCNVector3,
+                           pullBack: Float, elevation: Float, tipInset: Float) {
         let pull = pullBack - max(0, min(tipInset, Constants.tipOffset - 0.0005))
         if usesModelCueStick {
             updateModelCueStick(cueBallPosition: cueBallPosition, aimDirection: aimDirection, pullBack: pull, elevation: elevation)
@@ -565,6 +606,7 @@ final class CueStick {
 
     /// SceneKit's output is premultiplied: fade RGB and alpha together.
     func setFadeOpacity(_ opacity: CGFloat) {
+        animationLock.lock(); defer { animationLock.unlock() }
         let value = max(0, min(1, opacity))
         fadeOpacity = value
         if usesMaterialFade {
@@ -576,26 +618,41 @@ final class CueStick {
     }
 
     func show() {
+        animationLock.lock(); defer { animationLock.unlock() }
         rootNode.isHidden = false
         setFadeOpacity(1)
     }
 
     func hide() {
+        animationLock.lock(); defer { animationLock.unlock() }
+        animationGeneration &+= 1
+        applyHidden()
+    }
+
+    func hideStrokeAnimation(_ generation: UInt64) {
+        withStrokeAnimation(generation) { applyHidden() }
+    }
+
+    private func applyHidden() {
         rootNode.isHidden = true
         setFadeOpacity(1)
     }
 
     /// Short opacity fade then hide (normal retract / clearance retract).
     func fadeOut(duration: TimeInterval = CueClearance.retractFade, completion: (() -> Void)? = nil) {
+        animationLock.lock(); defer { animationLock.unlock() }
+        let generation = animationGeneration
         rootNode.removeAction(forKey: "cueFade")
         let start = fadeOpacity
         let fade = SCNAction.customAction(duration: duration) { [weak self] _, elapsed in
             let progress = duration > 0 ? min(1, Double(elapsed) / duration) : 1
-            self?.setFadeOpacity(start * CGFloat(1 - progress))
+            self?.withStrokeAnimation(generation) {
+                self?.setFadeOpacity(start * CGFloat(1 - progress))
+            }
         }
         let hide = SCNAction.run { [weak self] _ in
-            self?.hide()
-            completion?()
+            let applied = self?.withStrokeAnimation(generation) { self?.applyHidden() } ?? false
+            if applied { completion?() }
         }
         rootNode.runAction(.sequence([fade, hide]), forKey: "cueFade")
     }

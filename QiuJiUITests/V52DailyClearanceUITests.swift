@@ -93,7 +93,8 @@ final class V52DailyClearanceUITests: XCTestCase {
         let environment = ProcessInfo.processInfo.environment
         let path = environment["V52_SHOT_DIR"]
             ?? environment["TEST_RUNNER_V52_SHOT_DIR"]
-            ?? "/Users/song/projects/13.billiard_trainer/build/v52-screenshots/after"
+            ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+                .appendingPathComponent("build/v52-screenshots/after").path
         return URL(fileURLWithPath: path, isDirectory: true)
     }
 
@@ -106,6 +107,8 @@ final class V52DailyClearanceUITests: XCTestCase {
         XCUIApplication.launchClean(extraArgs: [
             "-deeplink.dailyClearance",
             "-dailyClearance.resetState",
+            "-appearanceMode", "system",
+            "-v51.followSystemAppearance",
             "-dailyClearance.preferredGame.v1", game
         ] + extra)
     }
@@ -221,18 +224,29 @@ final class V52DailyClearanceUITests: XCTestCase {
         let stage = app.descendants(matching: .any)["freeplay.stage"]
         XCTAssertTrue(stage.waitForExistence(timeout: 12))
         let playingFrame = stage.frame
+        let state = app.descendants(matching: .any)["dailyClearance.landscape"]
+        XCTAssertTrue(state.waitForExistence(timeout: 4))
+        let playingState = state.value as? String
+        XCTAssertNotNil(playingState)
 
         let rerack = app.descendants(matching: .any)["break.entry"]
         XCTAssertTrue(rerack.waitForExistence(timeout: 5))
         rerack.tap()
-        XCTAssertTrue(app.buttons["放弃并重新开球"].waitForExistence(timeout: 4))
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.85)).tap()
-        XCTAssertTrue(app.descendants(matching: .any)["dailyClearance.hud"].waitForExistence(timeout: 4))
+        let confirm = app.buttons["dailyClearance.rerackAfterBreak"]
+        let cancel = app.buttons["dailyClearance.confirmBreak"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 4))
+        XCTAssertEqual(cancel.label, "继续击球")
+        cancel.tap()
+        XCTAssertTrue(state.waitForExistence(timeout: 4))
+        XCTAssertEqual(state.value as? String, playingState, "Cancelling rerack must retain progress and selection")
 
         rerack.tap()
-        XCTAssertTrue(app.buttons["放弃并重新开球"].waitForExistence(timeout: 4))
-        app.buttons["放弃并重新开球"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["dailyClearance.breakStatus"].waitForExistence(timeout: 6))
+        XCTAssertTrue(confirm.waitForExistence(timeout: 4))
+        confirm.tap()
+        let strike = app.buttons["dailyClearance.strike"]
+        XCTAssertTrue(strike.waitForExistence(timeout: 6))
+        XCTAssertTrue(strike.isEnabled, "Confirmed rerack must wait for the player's manual break")
+        XCTAssertFalse(confirm.exists)
         XCTAssertEqual(stage.frame.width, playingFrame.width, accuracy: 0.5)
         XCTAssertEqual(stage.frame.height, playingFrame.height, accuracy: 0.5)
         snap(app, "v52-daily-manual-rack")

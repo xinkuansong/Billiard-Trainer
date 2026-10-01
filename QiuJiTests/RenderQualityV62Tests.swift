@@ -801,6 +801,162 @@ final class RenderQualityV62Tests: XCTestCase {
         }
     }
 
+    func testContactPayloadPreservesWorldSpaceVisibilityAndImmutableSnapshots() throws {
+        let s = try scene(mobile: true)
+        var references: [SCNMaterial] = []
+        s.tableNode?.enumerateChildNodes { node, _ in
+            references += (node.geometry?.materials ?? []).filter { $0.name == "TaiNi" }
+        }
+        print("CONTACT_MATERIAL_AUDIT references=\(references.count) unique=\(Set(references.map(ObjectIdentifier.init)).count)")
+        XCTAssertFalse(references.isEmpty)
+        let material = ContactWriteCountingMaterial()
+        material.name = "TaiNi"
+        let plane = SCNPlane(width: 0.1, height: 0.1)
+        plane.materials = [material]
+        let hidden = SCNNode(geometry: plane); hidden.isHidden = true
+        try XCTUnwrap(s.tableNode).addChildNode(hidden)
+        let balls = s.allBallNodes.sorted { $0.key < $1.key }.map(\.value)
+        XCTAssertEqual(balls.count, 16, "Production rack has sixteen stable uniform slots")
+        let radius = AngleSceneCalculator.ballRadius
+        for (index, ball) in balls.enumerated() {
+            ball.removeAllActions(); ball.isHidden = false; ball.opacity = 1
+            ball.position = SCNVector3(Float(index) * 0.05, s.surfaceY + radius, 0.12)
+        }
+        let contact = MobileContactOcclusion(scene: s)
+        let initial = try XCTUnwrap(material.value(forKey: "contactUniforms") as? NSData)
+        let initialBytes = Data(referencing: initial)
+        func columns(_ data: NSData) -> [SIMD4<Float>] {
+            Data(referencing: data).withUnsafeBytes { bytes in
+                stride(from: 0, to: bytes.count, by: 16).map {
+                    bytes.loadUnaligned(fromByteOffset: $0, as: SIMD4<Float>.self)
+                }
+            }
+        }
+        func expect(_ value: SIMD4<Float>, x: Float, z: Float, height: Float, weight: Float) {
+            XCTAssertEqual(value.x, x, accuracy: 0.000001)
+            XCTAssertEqual(value.y, z, accuracy: 0.000001)
+            XCTAssertEqual(value.z, height, accuracy: 0.000001)
+            XCTAssertEqual(value.w, weight, accuracy: 0.000001)
+        }
+        XCTAssertEqual(initial.length, 16 * 16)
+        for (index, value) in columns(initial).enumerated() {
+            expect(value, x: Float(index) * 0.05, z: 0.12, height: radius, weight: 0.85)
+        }
+        let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        renderer.scene = s; renderer.pointOfView = s.cameraNode; renderer.delegate = contact
+        func frame(_ time: Double) {
+            SCNTransaction.flush()
+            _ = renderer.snapshot(atTime: time, with: CGSize(width: 64, height: 64), antialiasingMode: .none)
+        }
+        frame(0); frame(0.01)
+        let settled = material.writes
+        let holder = SCNNode(); holder.position = SCNVector3(0.3, 0, -0.2)
+        s.rootNode.addChildNode(holder)
+        holder.addChildNode(balls[0])
+        balls[0].position = SCNVector3(0.1, s.surfaceY + radius * 2, 0.25)
+        balls[0].opacity = 0.5
+        balls[1].isHidden = true
+        balls[2].removeFromParentNode()
+        balls[3].position.y = s.surfaceY - radius
+        balls[4].position.y = s.surfaceY + radius / 2
+        frame(0.02); frame(0.03)
+        let changed = try XCTUnwrap(material.value(forKey: "contactUniforms") as? NSData)
+        let values = columns(changed)
+        expect(values[0], x: 0.4, z: 0.05, height: radius * 2, weight: 0.425)
+        expect(values[1], x: 0.05, z: 0.12, height: radius, weight: 0)
+        expect(values[2], x: 0.10, z: 0.12, height: radius, weight: 0)
+        expect(values[3], x: 0.15, z: 0.12, height: radius, weight: 0)
+        expect(values[4], x: 0.20, z: 0.12, height: radius, weight: 0.425)
+        XCTAssertEqual(material.writes - settled, 1, "One snapshot must include all changed groups")
+        XCTAssertEqual(Data(referencing: initial), initialBytes, "Previously submitted bytes must remain immutable")
+        let afterChange = material.writes
+        frame(0.04)
+        XCTAssertEqual(material.writes, afterChange)
+        balls[1].isHidden = false; balls[1].opacity = 0.25
+        s.rootNode.addChildNode(balls[2])
+        frame(0.05); frame(0.06)
+        let restored = columns(try XCTUnwrap(material.value(forKey: "contactUniforms") as? NSData))
+        expect(restored[1], x: 0.05, z: 0.12, height: radius, weight: 0.2125)
+        expect(restored[2], x: 0.10, z: 0.12, height: radius, weight: 0.85)
+        XCTAssertEqual(material.writes - afterChange, 1)
+        XCTAssertEqual(Data(referencing: initial), initialBytes)
+    }
+
+    func testCueAnimationGenerationMatchesAddressPoseAndFadePixels() throws {
+        let s = try scene(mobile: true)
+        let stick = try XCTUnwrap(s.cueStick)
+        let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        renderer.scene = s; renderer.pointOfView = s.cameraNode; renderer.delegate = s.contactOcclusion
+        func pixels() throws -> Data {
+            SCNTransaction.flush()
+            let image = renderer.snapshot(atTime: 0, with: CGSize(width: 320, height: 480), antialiasingMode: .multisampling4X)
+            return try XCTUnwrap(image.pngData())
+        }
+        for (index, opacity) in [CGFloat(1), 0.5, 0.15].enumerated() {
+            let position = SCNVector3(-0.45, s.surfaceY + AngleSceneCalculator.ballRadius, Float(index) * 0.01)
+            let aim = SCNVector3(0.8, 0, 0.12)
+            let pull = Float(index) * 0.02
+            stick.update(cueBallPosition: position, aimDirection: aim, pullBack: pull, elevation: 0.08, tipInset: 0.003)
+            stick.show(); stick.setFadeOpacity(opacity)
+            _ = try pixels(); _ = try pixels()
+            let reference = try pixels()
+            XCTAssertEqual(reference, try pixels(), "Reference must settle before interpreting image differences")
+            let transform = stick.rootNode.simdTransform
+            let generation = stick.beginStrokeAnimation()
+            stick.updateStrokeAnimation(generation, cueBallPosition: position, aimDirection: aim,
+                                        pullBack: pull, elevation: 0.08, tipInset: 0.003)
+            stick.withStrokeAnimation(generation) { stick.setFadeOpacity(opacity) }
+            XCTAssertEqual(stick.rootNode.simdTransform, transform)
+            XCTAssertEqual(reference, try pixels(), "Guarding an active stroke must preserve its rendered pixels")
+            stick.update(cueBallPosition: position, aimDirection: aim, pullBack: pull, elevation: 0.08, tipInset: 0.003)
+            stick.setFadeOpacity(opacity)
+            XCTAssertEqual(reference, try pixels(), "A→B→A must remain stable")
+        }
+    }
+
+    func testCancelledCueAnimationCannotReposeOrHideNewAddress() throws {
+        let s = try scene(mobile: true)
+        let stick = try XCTUnwrap(s.cueStick)
+        let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        renderer.scene = s; renderer.pointOfView = s.cameraNode; renderer.delegate = s.contactOcclusion
+        func frame(_ time: Double) {
+            SCNTransaction.flush()
+            _ = renderer.snapshot(atTime: time, with: CGSize(width: 64, height: 64), antialiasingMode: .none)
+        }
+        stick.show()
+        frame(0)
+        let old = stick.beginStrokeAnimation()
+        stick.fadeOut(duration: 0.2)
+        frame(1); frame(1.05)
+        let newPosition = SCNVector3(0.63, s.surfaceY + AngleSceneCalculator.ballRadius, 0)
+        stick.update(cueBallPosition: newPosition, aimDirection: SCNVector3(-1, 0, 0))
+        stick.show()
+        let transform = stick.rootNode.simdTransform
+        stick.updateStrokeAnimation(old, cueBallPosition: SCNVector3Zero, aimDirection: SCNVector3(0, 0, 1),
+                                    pullBack: 0.1, elevation: 0, tipInset: 0)
+        XCTAssertFalse(stick.withStrokeAnimation(old) { stick.hide() })
+        // Deliberately leave the old fade action installed to execute its late
+        // renderer callbacks. A removed action may already be in that state.
+        for time in [1.1, 1.2, 1.3, 1.4] { frame(time) }
+        XCTAssertEqual(stick.rootNode.simdTransform, transform)
+        XCTAssertFalse(stick.rootNode.isHidden)
+        stick.rootNode.enumerateHierarchy { node, _ in
+            for material in node.geometry?.materials ?? [] {
+                if let opacity = material.value(forKey: "cueFadeOpacity") as? NSNumber {
+                    XCTAssertEqual(opacity.floatValue, 1, accuracy: 0.000001)
+                }
+            }
+        }
+        let current = stick.beginStrokeAnimation()
+        stick.fadeOut(duration: 0.05)
+        for time in [1.5, 1.6, 1.7] { frame(time) }
+        XCTAssertTrue(stick.rootNode.isHidden, "The current address must still be able to finish its own fade")
+        XCTAssertTrue(stick.isCurrentStrokeAnimation(current),
+                      "Finishing a fade must not cancel that stroke's queued MainActor contact callback")
+        stick.hide()
+        XCTAssertFalse(stick.isCurrentStrokeAnimation(current), "Explicit cancellation must invalidate queued contact")
+    }
+
     func testCanopyMovingBallFrames() throws {
         try compareCanopyMovingFrames()
     }

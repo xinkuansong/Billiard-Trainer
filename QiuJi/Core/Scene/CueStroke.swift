@@ -202,8 +202,9 @@ extension AngleTrainingScene {
             cueBallPosition: renderStrike, aimDirection: aim, obstacleCenters: obstacles,
             elevation: elevation, tipInset: tipInset, surfaceY: surfaceY, profile: stick.clearanceProfile
         )
+        let animationGeneration = stick.beginStrokeAnimation()
         let drive: (Float) -> Void = { [weak stick] pull in
-            stick?.update(cueBallPosition: renderStrike, aimDirection: aim,
+            stick?.updateStrokeAnimation(animationGeneration, cueBallPosition: renderStrike, aimDirection: aim,
                           pullBack: pull, elevation: elevation, tipInset: tipInset)
         }
         drive(0)
@@ -214,7 +215,10 @@ extension AngleTrainingScene {
         let toContact = SCNAction.customAction(duration: contactDur) { _, elapsed in
             drive(CueStroke.pullBack(at: TimeInterval(elapsed), velocity: velocity))
         }
-        let launch = SCNAction.run { _ in Task { @MainActor in contact() } }
+        let launch = SCNAction.run { [weak stick] _ in Task { @MainActor in
+            guard stick?.isCurrentStrokeAnimation(animationGeneration) == true else { return }
+            contact()
+        } }
 
         // Predict first post-contact collision across ALL balls (D2 — not cue-only).
         let collisionT: TimeInterval? = clearanceProbe.flatMap { probe in
@@ -233,7 +237,8 @@ extension AngleTrainingScene {
             endPull: endPull,
             holdDuration: CueStroke.followThroughHold,
             drive: drive,
-            stick: stick
+            stick: stick,
+            animationGeneration: animationGeneration
         )
         stickNode.runAction(.sequence([toContact, launch] + postContact), forKey: "strokeAnim")
     }
@@ -256,7 +261,8 @@ extension AngleTrainingScene {
         endPull: Float,
         holdDuration: TimeInterval,
         drive: @escaping (Float) -> Void,
-        stick: CueStick
+        stick: CueStick,
+        animationGeneration: UInt64
     ) -> [SCNAction] {
         let followDur = CueStroke.followThroughDuration
         let lead = CueClearance.retractLead
@@ -270,7 +276,9 @@ extension AngleTrainingScene {
             }
             let hold = SCNAction.wait(duration: holdDuration)
             let fadeOut = SCNAction.run { [weak stick] _ in
-                Task { @MainActor in stick?.fadeOut(duration: fade) }
+                Task { @MainActor in
+                    stick?.withStrokeAnimation(animationGeneration) { stick?.fadeOut(duration: fade) }
+                }
             }
             return [followThrough, hold, fadeOut]
         }
@@ -296,10 +304,12 @@ extension AngleTrainingScene {
             // Withdraw along back (more positive pullBack) while fading.
             let pull = pullAtRetract + u * (retractExtra - min(0, pullAtRetract))
             drive(pull)
-            stick?.setFadeOpacity(CGFloat(1 - u))
+            stick?.withStrokeAnimation(animationGeneration) { stick?.setFadeOpacity(CGFloat(1 - u)) }
         }
         let hide = SCNAction.run { [weak stick] _ in
-            Task { @MainActor in stick?.hide() }
+            Task { @MainActor in
+                stick?.hideStrokeAnimation(animationGeneration)
+            }
         }
         actions.append(contentsOf: [retract, hide])
         return actions
