@@ -58,3 +58,21 @@ struct BallState {
         return state == .stationary
     }
 }
+
+/// Value-only contact facts. No playback, gain or audio-engine dependency in physics.
+struct ContactSoundEvent {
+    enum Surface: String { case ball, cushion, jaw, liner, rail, railStop, pocketBall }
+    let time: Float
+    let ball: String
+    let other: String
+    let surface: Surface
+    let approachSpeed: Float
+
+    /// Normal points from the surface toward the approaching ball (SceneKit metres).
+    static func approach(_ velocity: SCNVector3, normal: SCNVector3) -> Float {
+        let length = normal.length()
+        guard length.isFinite, length > 1e-6 else { return 0 }
+        let value = -velocity.dot(normal) / length
+        return value.isFinite ? max(0, value) : 0
+    }
+}

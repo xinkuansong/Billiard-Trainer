@@ -130,8 +130,13 @@ struct QiuJiApp: App {
                     guard UserPreferences.shared.soundEffectsEnabled else { return }
                     ShotSoundBank.shared.prepare()
                 }
+                .onReceive(UserPreferences.shared.$soundEffectsEnabled) { enabled in
+                    if !enabled { ShotAudioScheduler.shared.cancel() }
+                }
                 .onChange(of: scenePhase) { _, newPhase in
+                    if newPhase != .active { ShotAudioScheduler.shared.cancel() }
                     if newPhase == .active {
+                        if UserPreferences.shared.soundEffectsEnabled { ShotSoundBank.shared.prepare() }
                         Task {
                             await TrainingReminderScheduler.shared.reconcile()
                             await dataCoordinator.syncActiveAccount(mode: .incremental,

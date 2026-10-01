@@ -262,7 +262,7 @@ enum CuePhysics {
     static let tipDiameter: Float = 0.011
     /// 皮头接触面半径 (米) = tipDiameter / 2（≈5.5mm）。打点盘按「皮头/母球真实比例」画接触斑。
     static let tipContactRadius: Float = tipDiameter / 2
-    /// 皮头球冠曲率半径 (米) — nickel 修型 ≈10.5mm。预留给「皮头中心对位 → 球面接触点」精确换算。
+    /// 皮头球冠曲率半径 (米) — nickel 修型 ≈10.5mm。用于打点盘换算、真实球冠网格与杆球接触几何。
     static let tipCurvatureRadius: Float = 0.0105
     /// 打滑极限（miscue limit）：皮头能可靠咬住母球的**最大接触点偏移**，占母球半径 R 的比例。
     /// 经典值 ≈0.5（满塞 ≈ 半个半径）；由皮头/巧粉摩擦决定，超出即打滑（miscue）。

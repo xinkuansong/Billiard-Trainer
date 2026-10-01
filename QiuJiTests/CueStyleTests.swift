@@ -88,7 +88,23 @@ final class CueStyleTests: XCTestCase {
                 XCTAssertEqual(String(describing: tip.diffuse.contents), String(describing: sourceTip.diffuse.contents))
                 XCTAssertEqual(String(describing: tip.normal.contents), String(describing: sourceTip.normal.contents))
             }
-            XCTAssertEqual(try worldVertices(nodes), baseline, "Vertex positions changed for \(style)")
+            let current=try worldVertices(nodes)
+            // Original and UV-only USDZ sources differ below one micrometre.
+            // Comparing independently rounded strings creates boundary failures
+            // after a legitimate pole translation. Compare the quantized points
+            // within one unit in each axis, in both directions; keep count exact.
+            func covered(_ point:String,by cloud:Set<String>) -> Bool {
+                if cloud.contains(point) { return true }
+                let p=point.split(separator:",").compactMap { Int($0) }
+                guard p.count == 3 else { return false }
+                for x in -1...1 { for y in -1...1 { for z in -1...1 {
+                    if cloud.contains("\(p[0]+x),\(p[1]+y),\(p[2]+z)") { return true }
+                } } }
+                return false
+            }
+            XCTAssertEqual(current.count,baseline.count)
+            XCTAssertTrue(current.allSatisfy { covered($0,by:baseline) } && baseline.allSatisfy { covered($0,by:current) },
+                "Vertex displacement exceeds 1 micrometre per axis for \(style)")
             for (node, transform) in zip(nodes, transforms) { XCTAssertTrue(SCNMatrix4EqualToMatrix4(node.worldTransform, transform)) }
             XCTAssertTrue(SCNMatrix4EqualToMatrix4(cue.rootNode.transform, rootTransform))
             XCTAssertFalse(cue.rootNode.isHidden)

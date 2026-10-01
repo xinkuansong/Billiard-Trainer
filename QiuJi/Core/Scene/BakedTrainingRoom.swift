@@ -59,19 +59,32 @@ enum BakedTrainingRoom {
             material.diffuse.maxAnisotropy = 4
             if part == "floor" {
                 material.multiply.contents = MobileReferenceLighting.roomTexture("TrainingCarpet")
-                // The loop-pile swatch covers 30 cm; yarn must stay millimetre-scale.
-                material.multiply.contentsTransform = SCNMatrix4MakeScale(10 / 0.30, 8 / 0.30, 1)
+                // Separate physical yarn scale from the full-floor motif atlas.
+                let yarnTile: Float = 0.20
+                material.multiply.contentsTransform = SCNMatrix4MakeScale(10 / yarnTile, 8 / yarnTile, 1)
                 material.multiply.wrapS = .mirror; material.multiply.wrapT = .mirror
                 material.multiply.minificationFilter = .linear
                 material.multiply.mipFilter = .linear
                 material.multiply.maxAnisotropy = 16
+                guard let patternURL = Bundle.main.url(forResource: "Carpet_" + style.rawValue, withExtension: "png"),
+                      let patternImage = UIImage(contentsOfFile: patternURL.path) else {
+                    preconditionFailure("Missing carpet atlas: \(style.rawValue)")
+                }
+                let pattern = SCNMaterialProperty(contents: MobileReferenceLighting.roomRGBA(patternImage))
+                pattern.minificationFilter = .linear
+                pattern.magnificationFilter = .linear
+                pattern.mipFilter = .linear
+                pattern.maxAnisotropy = 16
+                material.setValue(pattern, forKey: "roomCarpetAtlas")
                 // Yarn contributes local occlusion only; the bake owns room illumination and shadow.
                 material.shaderModifiers = [.surface: """
+                #pragma arguments
+                texture2d<float> roomCarpetAtlas;
                 #pragma body
                 // Recenter the dark swatch around neutral modulation, retaining yarn
                 // valleys instead of clipping most samples into a narrow gray band.
                 _surface.multiply.rgb = clamp(float3(1.0)+2.4*(sqrt(max(_surface.multiply.rgb,float3(0.0)))-float3(0.32)),float3(0.50),float3(1.50));
-                """]
+                """ + carpetPattern(style: style)]
             }
             container.enumerateChildNodes { node, _ in
                 node.castsShadow = false
@@ -83,6 +96,33 @@ enum BakedTrainingRoom {
         }
         room.addChildNode(makePosters(style: style))
         return room
+    }
+
+    /// Replace the bake's uniform carpet albedo while retaining its illumination.
+    /// Each room has its own full-floor atlas; the original fine yarn stays independent.
+    private static func carpetPattern(style: RoomStyle) -> String {
+        let bakedAlbedo = style == .tournament
+            ? "float3(0.075, 0.077, 0.078)" : "float3(0.11, 0.103, 0.088)"
+        // The approved motifs were oversized in room views: halve their physical repeat.
+        let repeatScale: String
+        switch style {
+        case .tournament: repeatScale = "float2(2.0)"
+        case .walnut: repeatScale = "float2(4.0)"
+        case .eastern: repeatScale = "float2(1.0)"
+        }
+        let mipBias = style == .tournament ? "0.0" : "1.0"
+        let yarnStrength = "1.0"
+        return """
+
+        // roomCarpetPattern: keep the yarn-only prefix available for visual comparisons.
+        constexpr sampler carpetSampler(coord::normalized, address::mirrored_repeat,
+                                         filter::linear, mip_filter::linear, max_anisotropy(16));
+        float3 carpetAlbedo = roomCarpetAtlas.sample(carpetSampler,
+            _surface.diffuseTexcoord * \(repeatScale), bias(\(mipBias))).rgb;
+        // Keep the accepted yarn relief independent of each room's macro motif.
+        _surface.multiply.rgb = mix(float3(1.0), _surface.multiply.rgb, \(yarnStrength));
+        _surface.diffuse.rgb *= carpetAlbedo / \(bakedAlbedo);
+        """
     }
 
     /// Wall placement follows build_training_rooms.py in App Y-up metres.

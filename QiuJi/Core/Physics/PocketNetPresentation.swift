@@ -313,7 +313,8 @@ enum PocketNetPresentation {
     ///    the ball below it. The bundled return is a centre support rod with two guard
     ///    rods at the ball's equator (±30 mm, ~1 mm clearance), so the rolling radius is R.
     static func descent(from start:State,pocket:NetPocket,slot:V,ballRadius:Double,gravity:Double,
-                        retention:Double,friction:Double=Double(TablePhysics.cushionFriction))->[State] {
+                        retention:Double,friction:Double=Double(TablePhysics.cushionFriction),
+                        onContact: ((Double, ContactSoundEvent.Surface, Double) -> Void)? = nil)->[State] {
         var s=start,samples=[start]
         let dt=sampleStep
         let end=start.time+maxDescentDuration
@@ -337,6 +338,7 @@ enum PocketNetPresentation {
                 along+=vAlong*cosIncline*dt
                 lateral*=centringKeep
                 if along>=slotDistance {
+                    onContact?(t, .railStop, max(0, vAlong))
                     // Dead stop against the end stop / the ball below: exactly on the slot.
                     s=State(time:t,position:slot,velocity:.zero,omega:.zero)
                     samples.append(s)
@@ -352,6 +354,7 @@ enum PocketNetPresentation {
             var p=s.position+v*dt
             // Landing on the rail (only reachable below the bag's bottom ring).
             if p.y<=pocket.railHeight(under:p) {
+                onContact?(t, .rail, max(0, -dot(v,normal)))
                 onRail=true
                 along=pocket.railDistance(of:p)
                 lateral=dot(p-pocket.center,pocket.axisZ)
@@ -394,6 +397,7 @@ enum PocketNetPresentation {
                     // wall redirects the fall (the only thing that ever shapes `v.y`).
                     v-=n*vn
                     if !inContact && vn>impactSpeed {
+                        onContact?(t, .liner, vn)
                         // Arrival impact on the soft liner (DR-292): keep `retention` of the
                         // tangential velocity and spin, exactly like the spatial `linerSink`.
                         v*=retention;omega*=retention
@@ -535,6 +539,9 @@ enum PocketNetPresentation {
                     // Rail residents from earlier shots (placeholders) have no tail here; the
                     // scene inventory animates their exit (`TrajectoryPlayback.action`).
                     let evicted=queue.removeFirst()
+                    if evicted.ball != preOccupiedName {
+                        recorder.pocketContactSounds[evicted.ball]?.removeAll { Double($0.time) >= start.time }
+                    }
                     if evicted.ball != preOccupiedName,let old=recorder.collectionTailsByBallName[evicted.ball],let samples=old.samples {
                         try recorder.recordPlanarCollectionTail(ballName:evicted.ball,
                             tail:PocketCollectionTail(samples:samples,gravity:gravity,fadeStart:start.time))
@@ -551,8 +558,15 @@ enum PocketNetPresentation {
                     }
                 }
                 let slotIndex=min(queue.count,slots.count-1)
-                let samples=descent(from:start,pocket:pocket,slot:slots[slotIndex],ballRadius:ballRadius,gravity:gravity,retention:retention)
+                var contacts: [ContactSoundEvent] = []
+                let samples=descent(from:start,pocket:pocket,slot:slots[slotIndex],ballRadius:ballRadius,gravity:gravity,retention:retention) { time, surface, speed in
+                    // Occupied slot ends at another ball; empty rail ends at the stop.
+                    let material: ContactSoundEvent.Surface = surface == .railStop && slotIndex > 0 ? .pocketBall : surface
+                    contacts.append(.init(time: Float(time), ball: b.name, other: entry.pocketID,
+                                          surface: material, approachSpeed: Float(speed)))
+                }
                 try recorder.recordPlanarCollectionTail(ballName:b.name,tail:PocketCollectionTail(samples:samples,gravity:gravity))
+                recorder.pocketContactSounds[b.name] = contacts
                 queue.append((b.name,slotIndex,start.time))
                 queues[entry.pocketID]=queue
             } catch {

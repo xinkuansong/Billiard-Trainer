@@ -153,7 +153,9 @@ final class PhysicsInvariantTests: XCTestCase {
                 pocketIndex: pocketIndex, velocity: velocity, spinX: 0, spinY: 0, surfaceY: surfaceY))
             guard pred.feasible else { continue }
             feasibleCount += 1
-            for p in pred.cuePath + pred.objectPath {
+            // Captured balls descend to an external return rail. Those 3D tails
+            // are validated by PocketNetPresentationTests, not table-plane bounds.
+            for p in pred.cuePath + pred.objectPath where p.y >= surfaceY + R - 0.001 {
                 let inBounds = boundsContains(p, halfL: halfL, halfW: halfW, pockets: pockets, margin: 0.02)
                 if !inBounds {
                     worstOut = max(worstOut, outDistance(p, halfL: halfL, halfW: halfW, pockets: pockets))
@@ -420,46 +422,23 @@ final class PhysicsInvariantTests: XCTestCase {
                 enteredCount += 1
                 XCTAssertTrue(finallyPocketed, "trial \(t): 球心已入孔圈却未判落袋（孔内无支撑，必须坠落）")
             }
-            // 反向：判 pocketed ⇒ 最后活帧的弹道必须真实抵达该孔圈（禁止远距吸入）。
-            // 不能只比对落袋事件时刻的位置：enforceTableBounds 兜底收袋的事件时间戳是
-            // 演进步开始时刻，帧也是事件稀疏的。故从最后活帧起以该帧运动状态的恒定加速度
-            // 弹道采样，验证轨迹最近点确实进入孔圈（+5mm 容差）。
+            // Reverse: capture must have a pre-snap entry inside the calibrated
+            // region. The true cloth boundary is independently asset-tested.
             if finallyPocketed {
                 enteredCount += everInHole ? 0 : 1
-                if let pocketedFrame = frames.first(where: { $0.state == .pocketed }),
-                   let lastLive = frames.last(where: { $0.state != .pocketed && $0.time <= pocketedFrame.time + 1e-5 }),
-                   let pk = pockets.min(by: {
-                       horizontalDist(SCNVector3($0.center.x, 0, $0.center.z),
-                                      SCNVector3(pocketedFrame.position.x, 0, pocketedFrame.position.z))
-                       < horizontalDist(SCNVector3($1.center.x, 0, $1.center.z),
-                                        SCNVector3(pocketedFrame.position.x, 0, pocketedFrame.position.z))
-                   }) {
-                    let st = BallState(
-                        position: lastLive.position, velocity: lastLive.velocity,
-                        angularVelocity: SCNVector3(lastLive.angularVelocity.x,
-                                                    lastLive.angularVelocity.y,
-                                                    lastLive.angularVelocity.z),
-                        state: lastLive.state, name: "cue")
-                    let a = EngineNumerics.acceleration(for: st)
-                    var minD = Float.greatestFiniteMagnitude
-                    var tSample: Float = 0
-                    while tSample <= 0.6 {
-                        let px = lastLive.position.x + lastLive.velocity.x * tSample + 0.5 * a.x * tSample * tSample
-                        let pz = lastLive.position.z + lastLive.velocity.z * tSample + 0.5 * a.z * tSample * tSample
-                        let dx = px - pk.center.x, dz = pz - pk.center.z
-                        minD = min(minD, sqrtf(dx * dx + dz * dz))
-                        tSample += 0.002
-                    }
-                    XCTAssertLessThanOrEqual(minD, pk.radius + 0.005,
-                        "trial \(t): 最后活帧弹道最近点距孔心 \(minD)m > 孔半径 \(pk.radius)m + 5mm（疑似吸球）")
+                guard let entry = engine.getTrajectoryRecorder().pocketEntries.first,
+                      let pocket = pockets.first(where: { $0.id == entry.pocketID }) else {
+                    XCTFail("trial \(t): missing pre-capture evidence"); continue
                 }
+                XCTAssertTrue(pocket.containsCapture(entry.ball.position, tolerance: 0.000001),
+                              "trial \(t): capture outside measured lip and deep collector")
             }
         }
         print("[INV-pocket] \(trials) 次随机击球，入圈/落袋样本 \(enteredCount) 例，判据双向一致")
     }
 
-    /// 挂袋合法：以刚好停在袋口嘴前（球心距孔心 > 孔半径）的低速滚向孔圈的球，
-    /// 若耗尽动能仍未入圈，必须留在台面上（不被吸入、不被钳出袋口区）。
+    /// A ball that exhausts its energy before the actual cloth lip must stay
+    /// supported. Being outside the old CAD circle alone did not prove support.
     func test_invariant_hangingBallStaysAtMouth() {
         let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
         for (pi, pk) in geo.pockets.enumerated() {
@@ -467,7 +446,12 @@ final class PhysicsInvariantTests: XCTestCase {
             let toCenter = SCNVector3(-pk.center.x, 0, -pk.center.z)
             let len = sqrtf(toCenter.x * toCenter.x + toCenter.z * toCenter.z)
             let dirIn = SCNVector3(-toCenter.x / len, 0, -toCenter.z / len)   // 台心 → 孔心
-            let startDist = pk.radius + 0.06
+            let approach = SCNVector3(pk.center.x-dirIn.x*0.2,surfaceY+R,pk.center.z-dirIn.z*0.2)
+            guard let entry = pk.entryTime(position:approach,velocity:dirIn,acceleration:SCNVector3Zero,maxTime:0.2) else {
+                XCTFail("袋\(pi): missing opening on approach"); continue
+            }
+            let lipDist = 0.2-entry
+            let startDist = lipDist + 0.06
             let start = SCNVector3(pk.center.x - dirIn.x * startDist, surfaceY + R,
                                    pk.center.z - dirIn.z * startDist)
             // 纯滚动减速 a = μ_r·g（与 EngineNumerics.acceleration 同源），取 v 使滑行 ~4cm。
@@ -480,10 +464,10 @@ final class PhysicsInvariantTests: XCTestCase {
                 state: .rolling, name: "cue"))
             engine.simulate(maxEvents: 200, maxTime: 10)
             guard let final = engine.getBall("cue") else { return XCTFail("袋\(pi) 球丢失") }
-            XCTAssertFalse(final.isPocketed, "袋\(pi): 未入孔圈的挂袋球被吸入（判据回归）")
+            XCTAssertFalse(final.isPocketed, "袋\(pi): 仍有台呢支撑的挂袋球被吸入（判据回归）")
             let dx = final.position.x - pk.center.x, dz = final.position.z - pk.center.z
             let d = sqrtf(dx * dx + dz * dz)
-            XCTAssertGreaterThan(d, pk.radius - 1e-3, "袋\(pi): 挂袋球被拖入孔圈 d=\(d)")
+            XCTAssertGreaterThan(d, lipDist - 1e-3, "袋\(pi): 挂袋球被拖入孔圈 d=\(d)")
             XCTAssertLessThan(d, startDist + 0.02, "袋\(pi): 挂袋球被弹离袋口区 d=\(d)（疑似隐形墙/钳制）")
         }
     }

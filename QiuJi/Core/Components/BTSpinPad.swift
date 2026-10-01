@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 打点盘（可复用）：按真实物理比例画母球正面 + 打滑极限圈 + 皮头接触斑，拖动选择真实击球点。
 ///
-/// 绑定的 `spinX/spinY` 存的是**真实接触点偏移/R**（= pooltool a,b，喂物理）：
+/// 绑定的 `spinX/spinY` 存的是**杆坐标系中的真实接触点偏移/R**（= pooltool a,b，喂物理）：
 /// - `spinX` 正 = 左塞（屏幕左）/ 负 = 右塞；`spinY` 正 = 高杆（屏幕上）/ 负 = 低杆。
 /// - 皮头中心摆放 → 接触点经曲率拉心系数 `CuePhysics.tipContactPullFactor` 换算。
 /// - 接触点偏移钳在 `CuePhysics.miscueLimitFraction`(0.5R)，超出即打滑（拖不出去）。
@@ -15,6 +15,7 @@ struct BTSpinPad: View {
     var isReadOnly = false
     /// 只选高低杆（加塞图谱）：拖动锁在竖轴，`spinX` 恒为 0。
     var locksSideSpin = false
+    var strikeAccess: CueStrikeAccess? = nil
 
     private let miscue = Double(CuePhysics.miscueLimitFraction)
     private let tipRatio = Double(CuePhysics.tipDiameter / BallPhysics.diameter)
@@ -51,6 +52,26 @@ struct BTSpinPad: View {
                     .stroke(.black.opacity(0.32), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
                     .frame(width: miscueR * 2, height: miscueR * 2)
                     .position(x: cx, y: cy)
+                if !isReadOnly, let access = strikeAccess {
+                    Path { path in
+                        let columns = 48
+                        let step = miscue * 2 / Double(columns)
+                        for column in 0..<columns {
+                            let x = -miscue + (Double(column)+0.5)*step
+                            let edge = sqrt(max(0,miscue*miscue-x*x))
+                            let minimum = access.constrained(spinX:x,spinY:-edge,allowSideAdjustment:false)?.y ?? edge
+                            let left = cx-CGFloat((x+step/2)/pull)*ballR
+                            let top = cy-CGFloat(minimum/pull)*ballR
+                            path.addRect(CGRect(x:left,y:top,width:CGFloat(step/pull)*ballR+0.5,
+                                                height:CGFloat((minimum+edge)/pull)*ballR))
+                        }
+                    }
+                    .fill(Color.black.opacity(0.48))
+                    .clipShape(Circle().size(width: miscueR * 2, height: miscueR * 2)
+                        .offset(x: cx-miscueR, y: cy-miscueR))
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
                 Circle()
                     .fill(Color.red)
                     .overlay(Circle().stroke(.white, lineWidth: 1.5))
@@ -59,19 +80,24 @@ struct BTSpinPad: View {
                     .shadow(color: .black.opacity(0.35), radius: 2)
             }
             .contentShape(Rectangle())
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("打点盘")
+            .accessibilityValue(SpinDisplay.readout(spinX: spinX, spinY: spinY))
+            .accessibilityHint(isReadOnly ? "只读打点" : "灰色区域不可选，可拖动或使用方向按钮调整")
             .gesture(
                 isReadOnly ? nil : DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         let nx = Double((cx - value.location.x) / ballR)
                         let ny = Double((cy - value.location.y) / ballR)
-                        if locksSideSpin {
-                            spinX = 0
-                            spinY = max(-placementLimit, min(placementLimit, ny)) * pull
+                        let mag = hypot(nx,ny)
+                        let scale = mag > placementLimit ? placementLimit/mag : 1
+                        let requestedX = locksSideSpin ? 0 : nx*scale*pull
+                        let requestedY = locksSideSpin ? max(-placementLimit,min(placementLimit,ny))*pull : ny*scale*pull
+                        if let access = strikeAccess {
+                            guard let point = access.constrained(spinX:requestedX,spinY:requestedY,allowSideAdjustment:!locksSideSpin) else { return }
+                            spinX=point.x; spinY=point.y
                         } else {
-                            let mag = (nx * nx + ny * ny).squareRoot()
-                            let s = mag > placementLimit ? placementLimit / mag : 1
-                            spinX = nx * s * pull
-                            spinY = ny * s * pull
+                            spinX=requestedX; spinY=requestedY
                         }
                     }
             )
@@ -233,6 +259,7 @@ struct BTSpinPadCard: View {
     var isReadOnly = false
     /// 只选高低杆：隐藏左右微调键，白盘拖动锁竖轴。
     var locksSideSpin = false
+    var strikeAccess: CueStrikeAccess? = nil
     /// Compact landscape cards keep the same cross layout within the available height.
     var usesCompactLayout = false
     var availableHeight: CGFloat? = nil
@@ -285,7 +312,7 @@ struct BTSpinPadCard: View {
                     .opacity(locksSideSpin ? 0 : 1)
                     .allowsHitTesting(!locksSideSpin)
                     .accessibilityHidden(locksSideSpin)
-                BTSpinPad(spinX: $spinX, spinY: $spinY, locksSideSpin: locksSideSpin)
+                BTSpinPad(spinX: $spinX, spinY: $spinY, locksSideSpin: locksSideSpin, strikeAccess: strikeAccess)
                     .frame(width: padDiameter, height: padDiameter)
                     .accessibilityIdentifier("spinPad.disc")
                 BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") { nudge(.right) }
@@ -294,7 +321,7 @@ struct BTSpinPadCard: View {
                     .accessibilityHidden(locksSideSpin)
             }
             HStack(spacing: 0) {
-                Text(SpinDisplay.readout(spinX: spinX, spinY: spinY))
+                Text((!isReadOnly && !(strikeAccess?.isAvailable(spinX:spinX,spinY:spinY) ?? true)) ? "当前打点受限" : SpinDisplay.readout(spinX: spinX, spinY: spinY))
                     .font(.btCaption.bold())
                     .foregroundStyle(HUDStyle.valueAdjustable)
                     .monospacedDigit()
@@ -302,8 +329,7 @@ struct BTSpinPadCard: View {
                     .frame(maxWidth: .infinity)
                 BTHoldRepeatButton(icon: "chevron.down", accessibility: "低杆增加 1%") { nudge(.down) }
                 Button {
-                    spinX = 0
-                    spinY = 0
+                    resetSpin()
                 } label: {
                     Text("回中")
                         .font(.btCaption.weight(.semibold))
@@ -336,7 +362,7 @@ struct BTSpinPadCard: View {
                                 nudge(.left)
                             }
                         }
-                        BTSpinPad(spinX: $spinX, spinY: $spinY, locksSideSpin: locksSideSpin)
+                        BTSpinPad(spinX: $spinX, spinY: $spinY, locksSideSpin: locksSideSpin, strikeAccess: strikeAccess)
                             .frame(width: padDiameter, height: padDiameter)
                         if !locksSideSpin {
                             BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") {
@@ -353,14 +379,13 @@ struct BTSpinPadCard: View {
 
             HStack(spacing: Spacing.md) {
                 // 打点 = 可调量值 → 金（金管数值，T-P18-45）。
-                Text(SpinDisplay.readout(spinX: spinX, spinY: spinY))
+                Text((!isReadOnly && !(strikeAccess?.isAvailable(spinX:spinX,spinY:spinY) ?? true)) ? "当前打点受限" : SpinDisplay.readout(spinX: spinX, spinY: spinY))
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(HUDStyle.valueAdjustable)
                     .monospacedDigit()
                 if !isReadOnly {
                     Button {
-                        spinX = 0
-                        spinY = 0
+                        resetSpin()
                     } label: {
                         Text("回中")
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
@@ -376,12 +401,24 @@ struct BTSpinPadCard: View {
     }
 
     /// 沿某方向微调一步并写回绑定；返回是否真的移动（false = 撞到打滑极限）。
+    private func resetSpin() {
+        if let access = strikeAccess {
+            guard let point = access.automaticPoint(spinX:0,spinY:0,allowSideAdjustment:!locksSideSpin) else { return }
+            spinX = point.x; spinY = point.y
+        } else { spinX=0; spinY=0 }
+    }
+
     private func nudge(_ dir: SpinNudgeDirection) -> Bool {
         if locksSideSpin, dir == .left || dir == .right { return false }
         let r = SpinPadMath.nudge(spinX: locksSideSpin ? 0 : spinX, spinY: spinY, dir)
-        spinX = locksSideSpin ? 0 : r.x
-        spinY = r.y
-        return r.moved
+        let point: (x: Double, y: Double)
+        if let access = strikeAccess {
+            guard let corrected = access.constrained(spinX:r.x,spinY:r.y,allowSideAdjustment:!locksSideSpin) else { return false }
+            point = corrected
+        } else { point = (r.x,r.y) }
+        let moved = abs(point.x-spinX)+abs(point.y-spinY) > 1e-7
+        spinX = point.x; spinY = point.y
+        return moved
     }
 }
 
@@ -399,6 +436,7 @@ struct BTSpinPadOverlay: View {
     var isReadOnly = false
     /// 只选高低杆：隐藏左右微调键，白盘拖动锁竖轴。
     var locksSideSpin = false
+    var strikeAccess: CueStrikeAccess? = nil
     var usesCompactLayout = false
     var availableHeight: CGFloat? = nil
     /// Daily landscape: fixed size, bottom-aligned to the 2D inner rail in both modes.
@@ -421,7 +459,7 @@ struct BTSpinPadOverlay: View {
 
             BTSpinPadCard(spinX: $spinX, spinY: $spinY,
                           tableWidth: tableWidth, isReadOnly: isReadOnly,
-                          locksSideSpin: locksSideSpin,
+                          locksSideSpin: locksSideSpin, strikeAccess: strikeAccess,
                           usesCompactLayout: usesCompactLayout,
                           availableHeight: availableHeight,
                           usesFixedLayout: usesFixedLayout,
@@ -437,7 +475,7 @@ struct BTSpinPadOverlay: View {
 struct BTProjectedSpinPadOverlay: View {
     @Binding var spinX: Double
     @Binding var spinY: Double
-    let scene: AngleTrainingScene
+    @ObservedObject var scene: AngleTrainingScene
     let projector: TableProjector
     var isReadOnly = false
     var locksSideSpin = false
@@ -451,6 +489,7 @@ struct BTProjectedSpinPadOverlay: View {
             BTSpinPadOverlay(spinX: $spinX, spinY: $spinY,
                 tableWidth: width, bottomPadding: geo.size.height - bottom,
                 isReadOnly: isReadOnly, locksSideSpin: locksSideSpin,
+                strikeAccess: isReadOnly ? nil : scene.cueAccessSnapshot,
                 usesCompactLayout: true, availableHeight: bottom, onClose: onClose)
         }
     }
@@ -529,5 +568,20 @@ enum PocketDisplay {
     /// schema Pocket ID → 中文短名。
     static func name(id: String) -> String {
         ShotIntent.pocketIndex(for: id).map(name(index:)) ?? "—"
+    }
+}
+
+/// Fixed daily layout subscribes to geometry changes, even while the pad is open.
+struct BTSceneSpinPadOverlay: View {
+    @Binding var spinX: Double
+    @Binding var spinY: Double
+    @ObservedObject var scene: AngleTrainingScene
+    let tableWidth: CGFloat
+    let bottomPadding: CGFloat
+    var onClose: () -> Void
+    var body: some View {
+        BTSpinPadOverlay(spinX:$spinX,spinY:$spinY,tableWidth:tableWidth,
+            bottomPadding:bottomPadding,strikeAccess:scene.cueAccessSnapshot,
+            usesCompactLayout:true,usesFixedLayout:true,onClose:onClose)
     }
 }

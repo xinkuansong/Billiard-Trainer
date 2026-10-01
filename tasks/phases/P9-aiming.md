@@ -766,3 +766,14 @@
 - **影响**：新增跨页共享 View 容器 + VM 协议（跨模块边界变更，命中 ADR 触发清单）；`project.pbxproj` 登记新文件；后续新求解页可直接装配。
 - **验证**：worktree 内 `make build` SUCCEEDED；`QiuJiTests` 563 通过/0 失败/2 跳过（`w5-qiujitests.xcresult`）；`ScreenshotTourUITests` 翻袋/反射真实模式 2/2 通过；两页求解/自由/网格/菜单/下一解截图与改前基线对照一致（`build/w5-screenshots/`）。合并主树后 build 通过。
 - **替代方案**：继续双份维护并靠规范约束一致性——已被证明失效（漂移即本轮问题来源），未采纳；用 ViewBuilder 局部抽块（不抽整壳）——消不掉结构级复制，未采纳。
+
+
+### ADR-P9-05 — 交互三视角分离状态，统一输出绝对相机姿态
+- 场景：观察对象、轨道pivot、眼位和杆姿混用，用户否决目标强制居中及眼位覆盖，并批准三模式隔离方案。
+- 选项：继续扩展CameraRig布尔/轨道分支；或三模式独立值状态与纯策略，统一pose渲染。
+- 决策：采用后者。W1建立InteractiveCameraController和CameraPoseRenderer，CameraRig保留单向兼容适配；W2/W3实现模式策略，W4迁移宿主后再停止其旧交互写入。导出/只读保留明确legacy所有权。
+- 原因：观察的对象身份不再决定人的位置；模式切换和快照有唯一所有者，过渡只修改显示pose，不污染模式记忆。保持现有Core/Scene模块边界，无新增依赖、Schema或网络。
+- 日期：2026-09-29。
+- 验证：W1定向23测0失败，未启用页面，不代表整体相机返工完成；真源tasks/问题集合_三视角隔离与相机重构_v1.md v1.2。
+
+ADR-P9-05实施补充（DR-342，2026-09-29）：三个纯策略已接入；观察subject身份与eye分离，唯一绝对pose渲染、实际pocket事件与代次取消、2D/撤销/回放完整session均落地。消费者逐一迁移或明确legacy隔离，见[最终报告](../CAMERA-ISOLATION-FINAL-20260929.md)。参数默认值不代表用户手感确认。

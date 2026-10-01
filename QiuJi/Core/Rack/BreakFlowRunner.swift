@@ -66,6 +66,7 @@ final class BreakFlowRunner: ObservableObject {
 
     /// Camera observation and shot aiming use separate controls in perspective mode.
     func statusText(isPerspective: Bool) -> String {
+        if statusText == CueStrikeAccess.unavailableMessage { return statusText }
         if isPerspective && phase == .racked && simulationFailure == nil {
             return "瞄准轮调方向 · 2D摆开球点 · 点「开球」散局"
         }
@@ -181,7 +182,7 @@ final class BreakFlowRunner: ObservableObject {
     /// 台面空白处拖屏（`onAimNudged`，绕母球公转增益）与左缘刻度轮（`BTAimWheel`）共用本入口，
     /// 均为对**当前**方向的增量旋转（第一落点只选中不转向由手势层保证，见 `AngleSceneView`）。
     func nudgeAim(byDegrees delta: Float) {
-        guard phase == .racked, abs(delta) > 1e-4 else { return }
+        guard phase == .racked, delta.isFinite, delta != 0 else { return }
         let cuePos = scene.allBallNodes[PositionPlayBall.cueKey]?.position ?? rack.cue
         let base = resolvedAim(cuePos: cuePos)
         aimDir = AngleSceneCalculator.rotatedAim(base, byDegrees: delta)
@@ -234,6 +235,9 @@ final class BreakFlowRunner: ObservableObject {
         }
         // 坐标契约（SceneKit 水平面 X–Z，Y 朝上）→ AimLineGeometry 平面点：x→x、z→y。
         let dir = resolvedAim(cuePos: cue.position)
+        if let point = scene.correctedCueSpin(aim: dir, spinX: spinX, spinY: spinY) {
+            spinX = point.x; spinY = point.y
+        }
         let y = cue.position.y
         let railEnd = AngleSceneCalculator.rayToInnerRail(from: cue.position, dir: dir)
         let forward: SCNVector3
@@ -280,6 +284,13 @@ final class BreakFlowRunner: ObservableObject {
         // G18：无隐藏随机塞；用户可控打点（K7）+ 瞄准 + 力度；球堆间距仍由 seed jitter。
         let aim = resolvedAim(cuePos: cuePos)
         let power = Float(velocity)
+        if let point = scene.correctedCueSpin(aim: aim, spinX: spinX, spinY: spinY) {
+            spinX = point.x; spinY = point.y
+        }
+        guard scene.permitsCueStrike(aim:aim,spinX:spinX,spinY:spinY) else {
+            statusText = CueStrikeAccess.unavailableMessage
+            return
+        }
         let sx = Float(spinX), sy = Float(spinY)
         lastBreakSpin = (sx, sy)
         breakGeneration += 1
@@ -287,8 +298,8 @@ final class BreakFlowRunner: ObservableObject {
         phase = .computing
         statusText = "开球计算中…"
         scene.clearResultNodes(nodes: &aimNodes)
-        // 清瞄准线后藏杆；`runCueStroke` 起手会再 show，避免瞄准线消失后杆悬空。
-        scene.hideCueStick()
+        // Keep the addressed cue visible while computing, then hand it directly
+        // to runCueStroke. Prediction latency must not create a hide/show gap.
 
         #if DEBUG
         let diagnosticInput = "seed=\(seed) game=\(game) surfaceY=\(surfaceY) cue=\(cuePos.x),\(cuePos.y),\(cuePos.z) aim=\(aim.x),\(aim.y),\(aim.z) power=\(power) spin=\(sx),\(sy)"
@@ -352,6 +363,7 @@ final class BreakFlowRunner: ObservableObject {
                 node.runAction(action)
             }
         }
+        ShotAudioScheduler.shared.play(recorder: result.recorder, cueSpeed: Float(velocity))
         // G15：开球收尾等到引擎自然静止（不做 0.07 感知截断），球停止前无最后一跳/瞬移。
         let settle = playback.duration
         let tail: TimeInterval = result.pocketed.isEmpty ? 0.15
@@ -466,6 +478,7 @@ final class BreakFlowRunner: ObservableObject {
     }
 
     private func cancelPlayback() {
+        ShotAudioScheduler.shared.cancel()
         breakGeneration += 1
         breakFinishTask?.cancel()
         breakFinishTask = nil

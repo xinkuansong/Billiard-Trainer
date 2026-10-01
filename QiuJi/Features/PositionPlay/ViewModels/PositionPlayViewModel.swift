@@ -81,6 +81,9 @@ final class PositionPlayViewModel: ObservableObject {
     /// Hosts opt in to rule-aware selection; nil keeps unrestricted editor behavior.
     var legalAimTargets: ((Set<String>) -> Set<String>)?
     var usesAutomaticPocketFallback = false
+    var usesDailyShotRanking = false
+    private var dailyManualSelection = false
+    private var dailyDirectReviewPending = false
     var onAimModeNotice: ((String) -> Void)?
     var onAimSelectionNotice: ((String) -> Void)?
     @Published private(set) var preferredAimMode: AimMode = .pocket
@@ -88,6 +91,8 @@ final class PositionPlayViewModel: ObservableObject {
 
     func refreshLegalAimSelection() {
         guard !isPlaying, !isBreakMode, !isSequenceMode else { return }
+        if usesDailyShotRanking, dailyManualSelection, let key = selectedTargetKey,
+           (legalAimTargets?(Set(onTableKeys)) ?? Set(onTableKeys)).contains(key) { return }
         autoSelectTarget()
         recompute()
     }
@@ -146,8 +151,10 @@ final class PositionPlayViewModel: ObservableObject {
     @Published var spinX: Double = 0 { didSet { if oldValue != spinX { onParamEdited() } } }
     @Published var spinY: Double = 0 { didSet { if oldValue != spinY { onParamEdited() } } }
 
+    private var correctingCueSpin = false
+
     private func onParamEdited() {
-        guard !isPlaying, !isPresentingBankAlternative else { return }
+        guard !correctingCueSpin, !isPlaying, !isPresentingBankAlternative else { return }
         recompute(interactive: isPowerDragging,
                   debounceInterval: isPowerDragging ? Self.powerPreviewIdleInterval : nil)
     }
@@ -318,6 +325,7 @@ final class PositionPlayViewModel: ObservableObject {
         let board = currentSnapshot(), poses = scene.captureBallPoses(), rails = scene.railInventory.snapshot()
         let view = scene.capturePerspectiveView()
         let power = velocity, x = spinX, y = spinY, mode = aimMode, preference = preferredAimMode
+        let manualSelection = dailyManualSelection
         let reason = temporaryFreeReason, target = selectedTargetKey, pocket = selectedPocketIndex, direction = freeAimDir
         return { [weak self] in
             guard let self else { return }
@@ -327,6 +335,7 @@ final class PositionPlayViewModel: ObservableObject {
             self.preferredAimMode = preference; self.temporaryFreeReason = reason
             self.aimMode = mode; self.selectedTargetKey = target; self.selectedPocketIndex = pocket
             self.freeAimDir = direction
+            self.dailyManualSelection = manualSelection
             self.scene.restoreBallPoses(poses); self.scene.railInventory.restore(rails)
             if let view { self.scene.restorePerspectiveView(view) }
             self.recompute()
@@ -382,6 +391,7 @@ final class PositionPlayViewModel: ObservableObject {
     /// 空快照不改动默认球形（保持开箱可用）。
     func loadBoard(_ snapshot: BoardSnapshot) {
         guard !isPlaying, !snapshot.onTable.isEmpty else { return }
+        if usesDailyShotRanking { dailyManualSelection = false }
         scene.railInventory.clear()
         recordedRailsBefore.removeAll()
         lastShotBeforeRails = PocketRailSnapshot()
@@ -691,6 +701,7 @@ final class PositionPlayViewModel: ObservableObject {
         if scene.cameraRig?.usesRailCameraControls == true, cameraMode == .perspective3D {
             pendingCameraTarget = key
         }
+        if usesDailyShotRanking { dailyManualSelection = true; dailyDirectReviewPending = false }
         if usesAutomaticPocketFallback {
             selectedTargetKey = key
             if preferredAimMode == .pocket { selectBestPocket() }
@@ -708,7 +719,9 @@ final class PositionPlayViewModel: ObservableObject {
     func selectPocket(at index: Int) {
         guard !isPlaying, (0..<6).contains(index) else { return }
         if usesAutomaticPocketFallback, preferredAimMode == .pocket {
-            guard isStraightPocketAvailable(index) else {
+            // Daily geometry ranks recommendations; it must not veto an explicit
+            // pocket before the unchanged physical solver can inspect the shot.
+            if !usesDailyShotRanking, !isStraightPocketAvailable(index) {
                 onAimSelectionNotice?("该袋口暂不可直进，请换袋口或使用自由模式")
                 return
             }
@@ -723,6 +736,7 @@ final class PositionPlayViewModel: ObservableObject {
             return
         }
         selectedPocketIndex = index
+        if usesDailyShotRanking { dailyManualSelection = true; dailyDirectReviewPending = false }
         updatePocketHighlights()
         recompute()
     }
@@ -801,7 +815,8 @@ final class PositionPlayViewModel: ObservableObject {
     /// 台面空白处拖动（`onAimNudged`）与左缘刻度齿轮（`BTAimWheel`）共用本入口——均为对**当前**
     /// 瞄准方向的增量旋转（第一落点只选中不转向由手势层保证）；G14：微调期间不求解、停 0.5s 才求解。
     func nudgeFreeAim(byDegrees delta: Float) {
-        guard !isPlaying, abs(delta) > 1e-4 else { return }
+        guard !isPlaying, delta.isFinite, delta != 0 else { return }
+        if usesDailyShotRanking { dailyManualSelection = true }
         if usesAutomaticPocketFallback && aimMode == .pocket {
             enterTemporaryFree("已调整方向，暂用自由模式", preservesSolvedDirection: true)
         }
@@ -910,16 +925,62 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 自动选目标（#6）：距母球最近的在桌目标球。
     private func autoSelectTarget() {
+        dailyDirectReviewPending = usesDailyShotRanking && preferredAimMode == .pocket
         guard let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else {
             selectedTargetKey = nil
             return
         }
         let tableTargets = Set(onTableKeys.filter { !PositionPlayBall.isCue($0) })
-        let candidates = legalAimTargets?(tableTargets) ?? tableTargets
+        let candidates = (legalAimTargets?(tableTargets) ?? tableTargets).intersection(tableTargets)
+        if usesDailyShotRanking {
+            dailyManualSelection = false
+            let ordered = candidates.sorted().sorted {
+                distanceToCue($0, cue: cue.position) < distanceToCue($1, cue: cue.position)
+            }
+            if let best = AngleSceneCalculator.recommendDailyTarget(orderedKeys: ordered,
+                    candidates: { dailyCandidates(keys: [$0]) }) {
+                selectedTargetKey = best.targetKey
+                applyDailyPocket(best.pocketIndex, available: true)
+                return
+            }
+        }
         selectedTargetKey = candidates.sorted().min { a, b in
             distanceToCue(a, cue: cue.position) < distanceToCue(b, cue: cue.position)
         }
         if selectedTargetKey != nil { selectBestPocket() }
+    }
+
+    // Geometric ordering does not read prediction outcomes. A fresh automatic
+    // recommendation separately reviews observed combination contacts.
+    private func dailyCandidates(keys: Set<String>) -> [AngleSceneCalculator.DailyPocketCandidate] {
+        guard let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else { return [] }
+        let balls = onTableKeys.compactMap { key -> (String, SCNVector3)? in
+            guard !PositionPlayBall.isCue(key), let node = scene.allBallNodes[key], !node.isHidden else { return nil }
+            return (key, node.position)
+        }
+        return balls.filter { keys.contains($0.0) }.flatMap { key, target in
+            (0..<6).compactMap { index in
+                AngleSceneCalculator.dailyPocketCandidate(cue: cue.position, target: target,
+                    targetKey: key, pocketIndex: index,
+                    obstacles: balls.filter { $0.0 != key }.map { $0.1 }, surfaceY: surfaceY)
+            }
+        }
+    }
+
+    private func applyDailyPocket(_ index: Int, available: Bool) {
+        selectedPocketIndex = index
+        if usesAutomaticPocketFallback && preferredAimMode == .pocket {
+            if available {
+                let restoring = aimMode == .free
+                temporaryFreeReason = nil
+                aimMode = .pocket
+                if restoring { onAimModeNotice?("进袋模式") }
+            } else if let key = selectedTargetKey, let target = scene.allBallNodes[key] {
+                setFreeAim(toward: target.position)
+                enterTemporaryFree("无可直进袋口，暂用自由模式")
+            }
+        }
+        updatePocketHighlights()
     }
 
     private func distanceToCue(_ key: String, cue: SCNVector3) -> Float {
@@ -938,6 +999,10 @@ final class PositionPlayViewModel: ObservableObject {
                   let node = scene.allBallNodes[key], !node.isHidden else { return nil }
             return node.position
         }
+        if usesDailyShotRanking {
+            return AngleSceneCalculator.dailyPocketCandidate(cue: cue.position, target: target.position,
+                targetKey: targetKey, pocketIndex: index, obstacles: obstacles, surfaceY: surfaceY) != nil
+        }
         let aim = AngleSceneCalculator.effectivePocketAimPoint(
             targetBall: target.position, pocketIndex: index, surfaceY: surfaceY)
         guard AngleSceneCalculator.isFeasible(cueBall: cue.position, targetBall: target.position, pocket: aim)
@@ -952,6 +1017,19 @@ final class PositionPlayViewModel: ObservableObject {
     private func selectBestPocket() {
         guard let targetKey = selectedTargetKey,
               let target = scene.allBallNodes[targetKey], !target.isHidden else { return }
+        if usesDailyShotRanking {
+            let candidates = dailyCandidates(keys: [targetKey])
+            let best = AngleSceneCalculator.easiestDailyPocket(candidates)
+            // No geometric recommendation is not a physical verdict. Retain the
+            // current pocket (or choose the nearest centre on initial setup).
+            let fallback = (0..<6).contains(selectedPocketIndex) ? selectedPocketIndex :
+                AngleSceneCalculator.pocketPositions(surfaceY: surfaceY).enumerated().min {
+                    AngleSceneCalculator.horizontalDistance(target.position, $0.element) <
+                    AngleSceneCalculator.horizontalDistance(target.position, $1.element)
+                }?.offset ?? 0
+            applyDailyPocket(best?.pocketIndex ?? fallback, available: true)
+            return
+        }
         let pockets = AngleSceneCalculator.pocketPositions(surfaceY: surfaceY)
         var bestFeasible: (index: Int, dist: Float)?
         var bestAny: (index: Int, dist: Float)?
@@ -1051,10 +1129,28 @@ final class PositionPlayViewModel: ObservableObject {
         } else {
             scene.setFreeAimPreviewLine(nil)
             // 袋口模式无闭式预览：拖动中隐藏残留假想球/接触点，球位实时跟随即为反馈。
-            // C1：无线 ⇒ 藏杆。
             scene.ghostBallNode?.isHidden = true
             scene.hideContactDot()
-            scene.hideCueStick()
+            if isPowerDragging, let solved = solvedShot,
+               !solved.shot.isFree,
+               solved.shot.targetKey == selectedTargetKey,
+               solved.shot.pocket == ShotIntent.pocketId(for: selectedPocketIndex),
+               matchesCurrentBoard(solved.before) {
+                // Power invalidates the trajectory, not the current address.
+                // Reapply through the normal aiming path so strike access and
+                // spin correction still govern whether the cue can be shown.
+                updateCueStickAiming(solved.prediction)
+            } else {
+                scene.hideCueStick()
+            }
+        }
+    }
+
+    private func matchesCurrentBoard(_ snapshot: BoardSnapshot) -> Bool {
+        let current = currentSnapshot().onTable
+        return current.count == snapshot.onTable.count && snapshot.onTable.allSatisfy { key, point in
+            guard let actual = current[key] else { return false }
+            return actual.x == point.x && actual.y == point.y
         }
     }
 
@@ -1077,6 +1173,7 @@ final class PositionPlayViewModel: ObservableObject {
             end: CGPoint(x: CGFloat(end.x), y: CGFloat(end.z))))
         // C4 / D-v19-3：预览线同现杆，实时跟随 `freeAimDir`。
         lastAimDirection = dir
+        if correctCueSpinIfNeeded(aim: dir) { return }
         scene.updateCueStick(
             cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX, spinY: spinY),
             aimDirection: dir
@@ -1093,6 +1190,14 @@ final class PositionPlayViewModel: ObservableObject {
         guard let intent = currentShotIntent() else { return }
         let before = currentSnapshot()
         let shot = intent
+        let reviewDirect = usesDailyShotRanking && dailyDirectReviewPending && !dailyManualSelection && !shot.isFree
+        let tableTargets = Set(before.onTable.keys.filter { !PositionPlayBall.isCue($0) })
+        let legalTargets = (legalAimTargets?(tableTargets) ?? tableTargets).intersection(tableTargets)
+        let cuePoint = before.onTable[PositionPlayBall.cueKey]
+        let orderedTargets = reviewDirect ? legalTargets.sorted().sorted {
+            guard let cuePoint, let a = before.onTable[$0], let b = before.onTable[$1] else { return false }
+            return hypot(a.x - cuePoint.x, a.y - cuePoint.y) < hypot(b.x - cuePoint.x, b.y - cuePoint.y)
+        } : []
         let y = surfaceY
         let gen = predictGeneration
         let cancellation = PredictionCancellation()
@@ -1102,20 +1207,23 @@ final class PositionPlayViewModel: ObservableObject {
         let queuedAt = CACurrentMediaTime()
         predictQueue.async { [weak self] in
             let solveStart = CACurrentMediaTime()
-            let direct = cancellation.isCancelled ? nil : PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y, cancellation: cancellation)
+            let reviewed = reviewDirect ? PositionPlayShotSolver.solveDailyDirectRecommendation(
+                before: before, preferred: shot, orderedTargetKeys: orderedTargets, surfaceY: y,
+                cancellation: cancellation) : nil
+            let direct = reviewDirect ? reviewed?.prediction : (cancellation.isCancelled ? nil : PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y, cancellation: cancellation))
             let directEnd = CACurrentMediaTime()
-            var resolvedShot = shot
+            var resolvedShot = reviewed?.shot ?? shot
             var resolvedPred = direct
             var banks: [BankEngineSolution] = []
             // 袋口模式 + 直击几何失败 → 翻袋备选（仅此时跑；自由瞄准不跑）。
-            if !cancellation.isCancelled, let direct, !shot.isFree, DirectPotBankFallback.shouldAttemptBank(afterDirect: direct),
+            if !cancellation.isCancelled, let direct, !resolvedShot.isFree, DirectPotBankFallback.shouldAttemptBank(afterDirect: direct),
                let cuePt = before.onTable[PositionPlayBall.cueKey],
-               let targetPt = before.onTable[shot.targetKey],
-               let pocketIndex = ShotIntent.pocketIndex(for: shot.pocket) {
+               let targetPt = before.onTable[resolvedShot.targetKey],
+               let pocketIndex = ShotIntent.pocketIndex(for: resolvedShot.pocket) {
                 let cue = PositionPlayShotSolver.scenePoint(cuePt, surfaceY: y)
                 let object = PositionPlayShotSolver.scenePoint(targetPt, surfaceY: y)
                 let obstacles = DirectPotBankFallback.obstacles(
-                    before: before, targetKey: shot.targetKey, surfaceY: y)
+                    before: before, targetKey: resolvedShot.targetKey, surfaceY: y)
                 banks = DirectPotBankFallback.solveBankAlternatives(
                     cue: cue, object: object, pocketIndex: pocketIndex,
                     surfaceY: y, power: Float(shot.velocity), obstacles: obstacles,
@@ -1145,6 +1253,13 @@ final class PositionPlayViewModel: ObservableObject {
                     self.launchSolveIfIdle()
                 }
                 guard self.predictGeneration == gen, !self.isPlaying else { return }
+                self.dailyDirectReviewPending = false
+                if reviewDirect, resolvedPred != nil {
+                    self.selectedTargetKey = resolvedShot.targetKey
+                    if let index = ShotIntent.pocketIndex(for: resolvedShot.pocket) {
+                        self.selectedPocketIndex = index
+                    }
+                }
                 self.isComputing = false
                 guard let resolvedPred else {
                     self.cancelPowerRelease()
@@ -1221,6 +1336,8 @@ final class PositionPlayViewModel: ObservableObject {
         }
     }
 
+    // Prediction delivery updates feedback/trajectory only; it must not select a target,
+    // choose a pocket, or switch aiming mode because of a miss or scratch.
     func applySolvedShot(_ solved:SolvedShot,bankCatalog:[BankEngineSolution]=[],bankIndex:Int=0) {
         solvedShot=solved
         apply(solved.prediction,bankCatalog:bankCatalog,bankIndex:bankIndex)
@@ -1310,6 +1427,7 @@ final class PositionPlayViewModel: ObservableObject {
             return DirectPotBankFallback.statusSummary(
                 bankCatalog[bankIndex], index: bankIndex, total: bankCatalog.count)
         }
+        if usesDailyShotRanking, p.hasCombinationRoute { return "传球路线 · 轨迹已就绪" }
         if p.objectPocketed { return "进袋 · 母球走位已就绪" }
         if let hint = obstacleBlockHint() { return hint }
         return "未进袋（试试加大力度或换角度更小的袋口）"
@@ -1375,6 +1493,18 @@ final class PositionPlayViewModel: ObservableObject {
         scene.clearResultNodes(nodes: &selectionNodes)
     }
 
+    @discardableResult
+    private func correctCueSpinIfNeeded(aim: SCNVector3) -> Bool {
+        guard !isPlaying, !isSequenceMode,
+              let point = scene.correctedCueSpin(aim: aim, spinX: spinX, spinY: spinY) else { return false }
+        correctingCueSpin = true
+        spinX = point.x; spinY = point.y
+        correctingCueSpin = false
+        // Invalidate the old prediction and submit exactly one corrected intent.
+        recompute()
+        return true
+    }
+
     // MARK: - Cue stick aiming aid
 
     private func updateCueStickAiming(_ p: ShotPrediction) {
@@ -1386,6 +1516,7 @@ final class PositionPlayViewModel: ObservableObject {
             return
         }
         lastAimDirection = aim
+        if correctCueSpinIfNeeded(aim: aim) { return }
         let node = scene.cueStick?.rootNode
         let from = node?.presentation.transform
         let wasVisible = node?.isHidden == false
@@ -1426,6 +1557,11 @@ final class PositionPlayViewModel: ObservableObject {
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
               let aim = lastAimDirection ?? aimDirection(path: solved.prediction.cuePath, from: cueNode.position)
         else { return }
+        guard scene.permitsCueStrike(aim:aim,spinX:spinX,spinY:spinY) else {
+            statusText = CueStrikeAccess.unavailableMessage
+            return
+        }
+
 
         onShotWillStart?()
         let generation = UUID()

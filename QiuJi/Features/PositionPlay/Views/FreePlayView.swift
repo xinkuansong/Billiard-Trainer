@@ -35,6 +35,16 @@ struct FreePlayView: View {
     @State private var showDailyGameChangeConfirm = false
     @State private var pendingDailyGame: DailyClearanceGame?
 
+    #if DEBUG
+    @State private var cameraPreviewProfile: CameraRig.DailyPreviewProfile = .classic
+    @State private var cameraPreviewScenario = 0
+    @State private var cameraPreviewSteady = false
+    @State private var cameraPreviewExpanded = true
+    private var showsCameraPreview: Bool {
+        isDailyClearance && ProcessInfo.processInfo.arguments.contains("-dailyClearance.cameraPreview")
+    }
+    #endif
+
     @State private var projector = TableProjector()
 
     @State private var daily3DFeedbackTop: CGFloat?
@@ -68,6 +78,21 @@ struct FreePlayView: View {
 
     var body: some View {
         pageBody
+        #if DEBUG
+        .overlay(alignment: .bottom) {
+            if showsCameraPreview { dailyCameraPreviewControls }
+        }
+        .task {
+            guard showsCameraPreview else { return }
+            for _ in 0..<100 {
+                if vm.scene.cameraRig != nil, dailyController.phase == .playing { break }
+                try? await Task.sleep(for: .milliseconds(100))
+                if Task.isCancelled { return }
+            }
+            guard !Task.isCancelled, dailyController.phase == .playing else { return }
+            loadDailyCameraPreviewScenario(0)
+        }
+        #endif
         .onChange(of: isDaily2D) { _, active in
             if active, vm.breakRunner?.showsConfirm == true { showDailyBreakChoice = true }
         }
@@ -102,7 +127,10 @@ struct FreePlayView: View {
     private var pageBody: some View {
         GeometryReader { geo in
             if isDailyClearance {
-                dailyLandscapeBody(size: geo.size)
+                // Extend the real header hit area, while the table keeps its original safe-area width.
+                dailyLandscapeBody(size: geo.size, trailingSafeArea: geo.safeAreaInsets.trailing)
+                    .frame(width: geo.size.width + geo.safeAreaInsets.trailing, alignment: .leading)
+                    .ignoresSafeArea(.container, edges: .trailing)
             } else {
             let extents = vm.tableOuterHalfExtents
             let bottomHeight = isDailyResult && dynamicTypeSize.isAccessibilitySize
@@ -149,7 +177,7 @@ struct FreePlayView: View {
                 cameraToggle
             }
             ToolbarItem(placement: .topBarTrailing) {
-                moreMenu.accessibilityIdentifier("freeplay.moreMenu")
+                moreMenu
             }
         }
         .confirmationDialog("清空桌面上所有球？",
@@ -180,7 +208,13 @@ struct FreePlayView: View {
             .presentationDetents([.height(360)])
             .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $showDailyGamePicker) {
+        .sheet(isPresented: $showDailyGamePicker, onDismiss: {
+            // A sheet and confirmation dialog cannot share the presenter during dismissal on iOS 17.
+            if let game = pendingDailyGame {
+                pendingDailyGame = nil
+                selectDailyGame(game)
+            }
+        }) {
             dailyGamePicker
                 .presentationDetents([.height(420)])
                 .presentationDragIndicator(.visible)
@@ -237,6 +271,7 @@ struct FreePlayView: View {
                 if isDailyClearance {
                     vm.cameraMode = .topDown2D
                     vm.usesAutomaticPocketFallback = true
+                    vm.usesDailyShotRanking = true
                     vm.legalAimTargets = { keys in dailyController.legalTargetKeys(tableKeys: keys) }
                     vm.onAimModeNotice = { text in ruleNotices.show(text, tone: .info, priority: .mode) }
                     vm.onAimSelectionNotice = { text in ruleNotices.show(text, tone: .warning, priority: .selection) }
@@ -307,7 +342,7 @@ struct FreePlayView: View {
 
     private func stage(_ proxy: ShotStageProxy) -> some View {
         ZStack(alignment: .topLeading) {
-            sceneContainer
+            sceneContainer()
 
             // G18/V6：开球模式贴边仪表（左瞄准轮 + 右力度柱，默认 6 m/s），共享单一真源。
             if let runner = vm.breakRunner {
@@ -481,7 +516,7 @@ struct FreePlayView: View {
 
     // MARK: - Scene container
 
-    private var sceneContainer: some View {
+    private func sceneContainer(fpsTrailingInset: CGFloat? = nil) -> some View {
         AngleSceneView(
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
@@ -490,7 +525,9 @@ struct FreePlayView: View {
             autoFitsLandscapeTable: isDaily2D,
             onPocketTapped: vm.isBreakMode || vm.isPlaying || isDailyResult ? nil : { vm.selectPocket(at: $0) },
             // P10.1 禁止摆球：非开球模式仅母球可拖（自由球/走位微调）；开球模式拖开球区母球。
-            draggableBallNodes: vm.isPlaying || isDailyResult ? [] : (vm.breakRunner?.draggableCue ?? vm.draggableCueOnly),
+            draggableBallNodes: vm.isPlaying || isDailyResult
+                || (isDailyClearance && !vm.isBreakMode && dailyController.cuePlacement == .none)
+                ? [] : (vm.breakRunner?.draggableCue ?? vm.draggableCueOnly),
             onDragBegan: { node in
                 if let runner = vm.breakRunner { runner.dragBegan(node: node) }
                 else if isDailyClearance && dailyController.cuePlacement == .none {
@@ -535,7 +572,8 @@ struct FreePlayView: View {
             projector: projector,
             contentIsAnimating: vm.isPlaying || (vm.breakRunner?.isBusy ?? false)
                 || (isDailyClearance && dailyAimWheelIsDragging),
-            daily3DDiagnostics: daily3DDiagnostics
+            daily3DDiagnostics: daily3DDiagnostics,
+            fpsReadoutTrailingInset: fpsTrailingInset
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
@@ -955,7 +993,7 @@ struct FreePlayView: View {
 
     private var moreMenu: some View {
         // 页特有：对局中「结束对局」与「清空桌面」同 Section（G25 自由击打模板）。
-        BTSolverMoreMenu(scene: vm.scene, showsAimCloseupToggle: true, pageExtras: {
+        BTSolverMoreMenu(scene: vm.scene, accessibilityId: "freeplay.moreMenu", showsAimCloseupToggle: true, pageExtras: {
             if isDailyClearance { dailySettings }
             Section {
                 if isDailyClearance {
@@ -988,8 +1026,8 @@ struct FreePlayView: View {
         NavigationStack {
             List(DailyClearanceGame.allCases) { game in
                 Button {
+                    pendingDailyGame = game
                     showDailyGamePicker = false
-                    selectDailyGame(game)
                 } label: {
                     HStack {
                         Text(game.displayName)
@@ -1048,6 +1086,89 @@ struct FreePlayView: View {
         ruleNotices.show(message, tone: tone, priority: tone == .warning ? .selection : .ruling)
     }
 }
+
+#if DEBUG
+private extension FreePlayView {
+    var dailyCameraPreviewControls: some View {
+        VStack(spacing: Spacing.xs) {
+            if cameraPreviewExpanded {
+                HStack(spacing: Spacing.sm) {
+                    ForEach(CameraRig.DailyPreviewProfile.allCases, id: \.rawValue) { profile in
+                        Button(profile.title) {
+                            cameraPreviewProfile = profile
+                            vm.scene.cameraRig?.dailyPreviewProfile = profile
+                            vm.requestPlayerView(.thirdPerson, focusTarget: true)
+                        }
+                        .foregroundStyle(cameraPreviewProfile == profile ? HUDStyle.accent : HUDStyle.valueMeasured)
+                        .accessibilityIdentifier("cameraPreview.profile.\(profile.rawValue)")
+                        .accessibilityValue(cameraPreviewProfile == profile ? "已选中" : "未选中")
+                    }
+                    Menu(cameraPreviewScenarioTitle) {
+                        ForEach(0..<4) { index in
+                            Button(Self.cameraPreviewScenarioNames[index]) { loadDailyCameraPreviewScenario(index) }
+                        }
+                    }
+                    .accessibilityIdentifier("cameraPreview.scenario")
+                    Button(cameraPreviewSteady ? "定高低敏 ✓" : "原有手势") {
+                        cameraPreviewSteady.toggle()
+                        vm.scene.cameraRig?.dailyPreviewSteadyInput = cameraPreviewSteady
+                    }
+                    .foregroundStyle(cameraPreviewSteady ? HUDStyle.accent : HUDStyle.valueMeasured)
+                    .accessibilityIdentifier("cameraPreview.gesture")
+                    Button("回到沿杆") { vm.requestPlayerView(.thirdPerson, focusTarget: true) }
+                        .accessibilityIdentifier("cameraPreview.reset")
+                }
+                .disabled(vm.isPlaying || vm.isComputing || vm.cameraTransitionBusy)
+                Text("仅观察效果对照 · B：眼高84cm / 库外38cm · C：眼高80cm / 库外50cm · 均48°")
+                    .font(.btCaption)
+                    .foregroundStyle(HUDStyle.labelColor)
+                    .allowsHitTesting(false)
+            }
+            Button(cameraPreviewExpanded ? "收起对照" : "展开对照") { cameraPreviewExpanded.toggle() }
+                .accessibilityIdentifier("cameraPreview.collapse")
+        }
+        .font(.btCaption)
+        .buttonStyle(.borderless)
+        .controlSize(.regular)
+        .padding(Spacing.sm)
+        .background(HUDStyle.panelBackground, in: RoundedRectangle(cornerRadius: BTRadius.md))
+        .padding(.bottom, Spacing.xs)
+    }
+
+    static let cameraPreviewScenarioNames = ["长台远球", "短距离球", "大角度球", "母球近库"]
+    var cameraPreviewScenarioTitle: String { Self.cameraPreviewScenarioNames[cameraPreviewScenario] }
+
+    func loadDailyCameraPreviewScenario(_ index: Int) {
+        guard showsCameraPreview, !vm.isPlaying, let rig = vm.scene.cameraRig else { return }
+        cameraPreviewScenario = index
+        showSpinPad = false
+        rig.dailyPreviewProfile = cameraPreviewProfile
+        rig.dailyPreviewSteadyInput = cameraPreviewSteady
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        // Fixture inputs are world X/Z metres. The normal daily solver determines the actual cue direction.
+        let configurations: [(SCNVector3, SCNVector3, Int)] = [
+            (SCNVector3(-1.05, 0, -0.34), SCNVector3(0.80, 0, 0.36), 3),
+            (SCNVector3(0.25, 0, 0.04), SCNVector3(0.58, 0, 0.22), 3),
+            (SCNVector3(-0.65, 0, 0.48), SCNVector3(0.05, 0, 0.05), 4),
+            (SCNVector3(-1.229, 0, -0.40), SCNVector3(-0.40, 0, -0.03), 3)
+        ]
+        let config = configurations[index]
+        func normalized(_ point: SCNVector3) -> CanvasPoint {
+            let p = AngleSceneCalculator.sceneToNormalized(position: point)
+            return CanvasPoint(x: Double(p.x), y: Double(p.y))
+        }
+        vm.loadBoard(BoardSnapshot(onTable: [
+            PositionPlayBall.cueKey: normalized(config.0), "_1": normalized(config.1),
+            "_2": normalized(SCNVector3(-0.95, 0, 0.36)),
+            "_8": normalized(SCNVector3(0.91, 0, -0.16))
+        ]))
+        vm.velocity = 2.5
+        vm.selectTarget(key: "_1")
+        vm.selectPocket(at: config.2)
+        dailyController.savePlacedBoard()
+    }
+}
+#endif
 
 #Preview("Dark") {
     NavigationStack { FreePlayView() }
@@ -1114,20 +1235,29 @@ struct ShotObservationMenu: View {
 // MARK: - Daily 2D landscape stage
 
 private extension FreePlayView {
-    func dailyLandscapeBody(size: CGSize) -> some View {
-        let sceneSize = CGSize(width: max(size.width - 112, 1), height: max(size.height - 44, 1))
-        let wheelHeight = max(80, sceneSize.height - 164)
-        return ZStack {
-            if is3D { sceneContainer.ignoresSafeArea() }
-            VStack(spacing: 0) {
-                dailyLandscapeHeader(size: size)
-                    .frame(height: 44)
+    var dailyControlColumnWidth: CGFloat { 60 }
+
+    func dailyLandscapeBody(size: CGSize, trailingSafeArea: CGFloat) -> some View {
+        let headerShift = min(24, max(0, trailingSafeArea))
+        // Reserve the outer camera lane symmetrically when the safe area cannot hold it.
+        let sideInset = max(0, 48 - trailingSafeArea)
+        let sceneWidth = size.width - 2 * dailyControlColumnWidth - 4 * Spacing.xs - 2 * sideInset
+        let sceneSize = CGSize(width: max(sceneWidth, 1), height: max(size.height - 44, 1))
+        let rulerHeight = ShotStageMetrics.dailyPowerBarHeight
+        return ZStack(alignment: .leading) {
+            if is3D {
+                sceneContainer(fpsTrailingInset: dailyControlColumnWidth + Spacing.xs + sideInset)
+                    .ignoresSafeArea()
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                dailyLandscapeHeader(size: size, trailingShift: headerShift)
+                    .frame(width: size.width + headerShift, height: 44)
                     .zIndex(1)
                 HStack(spacing: Spacing.xs) {
-                    dailyLeftControls(wheelHeight: wheelHeight)
+                    dailyLeftControls(rulerHeight: rulerHeight, horizontalActions: sceneSize.height < rulerHeight + 214)
                     GeometryReader { stage in
                         ZStack {
-                            if !is3D { sceneContainer }
+                            if !is3D { sceneContainer() }
                             if !vm.isBreakMode && !isDailyResult {
                                 BTAimCloseupOverlay(snapshot: vm.closeupSnapshot,
                                     sceneSize: stage.size, scene: vm.scene,
@@ -1135,10 +1265,9 @@ private extension FreePlayView {
                             }
                             if showSpinPad {
                                 let playingRect = dailySpinPadRect(in: stage.size)
-                                BTSpinPadOverlay(spinX: dailySpinX, spinY: dailySpinY,
+                                BTSceneSpinPadOverlay(spinX: dailySpinX, spinY: dailySpinY, scene: vm.scene,
                                     tableWidth: playingRect.width,
                                     bottomPadding: stage.size.height - playingRect.maxY,
-                                    usesCompactLayout: true, usesFixedLayout: true,
                                     onClose: { showSpinPad = false })
                                     .frame(maxHeight: .infinity, alignment: .bottom)
                             }
@@ -1154,10 +1283,12 @@ private extension FreePlayView {
                         .background(Color.clear.accessibilityElement()
                             .accessibilityIdentifier("freeplay.stage"))
                     }
-                    dailyRightControls()
+                    dailyRightControls(rulerHeight: rulerHeight)
                 }
-                .padding(.horizontal, Spacing.xs)
+                .padding(.horizontal, Spacing.xs + sideInset)
+                .frame(width: size.width)
             }
+            .frame(width: size.width + headerShift, alignment: .leading)
         }
         .background(Color.black.ignoresSafeArea())
         .environment(\.colorScheme, .dark)
@@ -1198,9 +1329,22 @@ private extension FreePlayView {
         .accessibilityElement(children: .contain)
     }
 
-    func dailyLeftControls(wheelHeight: CGFloat) -> some View {
-        VStack(spacing: Spacing.xs) {
-            VStack(spacing: 4) {
+    func dailyLeftControls(rulerHeight: CGFloat, horizontalActions: Bool) -> some View {
+        VStack(spacing: 6) {
+            Button(action: requestDailyRerack) {
+                VStack(spacing: 2) {
+                    BreakRackGlyph(color: .btText, size: 26)
+                        .frame(width: 44, height: 44)
+                        .background(HUDStyle.controlBackground, in: Circle())
+                        .overlay(Circle().stroke(HUDStyle.hairline, lineWidth: 1))
+                    Text("开球").font(.btMicro).foregroundStyle(.btTextSecondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("break.entry")
+            .disabled(dailyController.isCompleted)
+            VStack(spacing: 6) {
                 BTAimWheel(onNudge: { delta in
                     vm.cancelPowerRelease()
                     if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: delta) }
@@ -1213,7 +1357,7 @@ private extension FreePlayView {
                         dailyAimWheelIsDragging = active
                         vm.setAimWheelDragging(active)
                     }, visibleWidth: 28, usesCompactAppearance: true, showsDirectionLabel: false)
-                    .frame(width: 44, height: max(40, wheelHeight - 28))
+                    .frame(width: 44, height: rulerHeight)
                 Text("方向").font(.btMicro).foregroundStyle(.btTextSecondary)
             }
             .padding(.vertical, 6)
@@ -1224,9 +1368,11 @@ private extension FreePlayView {
                     .frame(width: 40)
             }
             .disabled(dailyControlsDisabled)
-            Spacer(minLength: 0)
-            dailyCompactAction("开球", symbol: "triangle", id: "break.entry") { requestDailyRerack() }
-                .disabled(dailyController.isCompleted)
+            if !horizontalActions { Spacer(minLength: 0) }
+            let actionLayout = horizontalActions
+                ? AnyLayout(HStackLayout(spacing: Spacing.xs))
+                : AnyLayout(VStackLayout(spacing: Spacing.xs))
+            actionLayout {
             dailyCompactAction("重打", symbol: "arrow.uturn.backward", id: "dailyClearance.undo") {
                 daily3DDiagnostics?.input(.undo, intent: .aim)
                 vm.cancelPowerRelease()
@@ -1239,12 +1385,16 @@ private extension FreePlayView {
                 vm.replayLastShot()
             }
             .disabled(vm.isPlaying || !vm.canPlayback)
+            }
+            .frame(width: horizontalActions ? 92 : 44)
+            .frame(width: dailyControlColumnWidth, alignment: horizontalActions ? .trailing : .center)
+            .frame(maxHeight: horizontalActions ? .infinity : nil, alignment: .center)
         }
-        .frame(width: 48)
+        .frame(width: dailyControlColumnWidth)
         .padding(.vertical, Spacing.sm)
     }
 
-    func dailyRightControls() -> some View {
+    func dailyRightControls(rulerHeight: CGFloat) -> some View {
         VStack(spacing: Spacing.xs) {
             BTShotInstrumentColumn(spinX: dailySpinX.wrappedValue, spinY: dailySpinY.wrappedValue,
                 onSpinTap: {
@@ -1264,17 +1414,19 @@ private extension FreePlayView {
                     vm.endPowerDrag(commit: false)
                 },
                 usesCompactAppearance: true,
-                fixedPowerBarHeight: ShotStageMetrics.dailyPowerBarHeight)
+                fixedPowerBarHeight: rulerHeight)
                 .frame(width: 52)
-            Spacer(minLength: 0)
             Button {
                 daily3DDiagnostics?.input(.strike)
                 vm.cancelPowerRelease()
                 if let runner = vm.breakRunner { runner.breakNow() }
                 else { vm.play() }
+                if (vm.breakRunner?.statusText ?? vm.statusText) == CueStrikeAccess.unavailableMessage {
+                    ruleNotices.show(CueStrikeAccess.unavailableMessage, tone: .warning, priority: .selection)
+                }
             } label: {
                 Text(dailyController.isAutomaticallyBreaking ? "开球中" : (vm.isComputing ? "计算中" : "击球")).font(.btSubheadlineSemibold)
-                    .frame(width: 52, height: 52)
+                    .frame(width: dailyControlColumnWidth, height: dailyControlColumnWidth)
                     .background(HUDStyle.accent, in: Circle())
                     .overlay(Circle().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
             }
@@ -1284,10 +1436,11 @@ private extension FreePlayView {
             .accessibilityLabel("击球")
             .accessibilityHint("按下击球；力度条仅调整力度")
             .accessibilityIdentifier("dailyClearance.strike")
+            .frame(maxHeight: .infinity, alignment: .center)
         }
-        .frame(width: 52)
+        .frame(width: dailyControlColumnWidth)
         .padding(.vertical, Spacing.sm)
-        .overlay(alignment: .leading) {
+        .overlay(alignment: .topLeading) {
             if is3D, !showSpinPad, let rig = vm.scene.cameraRig {
                 ShotPlayerCameraButtons(rig: rig,
                     isEnabled: !vm.isPlaying && !vm.isComputing && vm.currentPlayerAim != nil,
@@ -1299,7 +1452,10 @@ private extension FreePlayView {
                     showSpinPad = false
                     vm.requestPlayerView(view)
                 }
-                    .offset(x: -52)
+                    // Header: 44pt icon + 2pt gap + 12pt label; then 6pt gap + 6pt inset.
+                    // Three 44pt camera buttons plus two 8pt gaps are centered on the ruler.
+                    .offset(x: dailyControlColumnWidth + Spacing.xs,
+                            y: Spacing.sm + 58 + 12 + (rulerHeight - 148) / 2)
             }
         }
     }
@@ -1365,12 +1521,17 @@ private extension FreePlayView {
         }
     }
 
-    func dailyLandscapeHeader(size: CGSize) -> some View {
+    func dailyLandscapeHeader(size: CGSize, trailingShift: CGFloat) -> some View {
         let compact = size.width < 740
-        let wing: CGFloat = compact ? 112 : 148
-        let paletteWidth = max(1, size.width - 2 * wing)
+        // Size the faces first; mirrored cue space only affects the surrounding layout.
+        let diameter = dailyPaletteDiameter(width: size.width)
+        let separators: CGFloat = dailyPaletteGame == .chineseEightBall ? 10 : 0
+        let paletteWidth = CGFloat(dailyPaletteKeys.count + 1) * (diameter + 2) + 8 * Spacing.xs + separators
+        let wing = (size.width - paletteWidth) / 2
+        let titleShift: CGFloat = compact ? 2 : 12
         return HStack(spacing: 0) {
-            HStack(spacing: 0) {
+            // Tighten the visible title while retaining the return button's full hit area.
+            HStack(spacing: -12) {
                 Button {
                     vm.cancelPowerRelease()
                     dismiss()
@@ -1382,12 +1543,17 @@ private extension FreePlayView {
                 .accessibilityLabel("返回")
                 .accessibilityIdentifier("dailyClearance.back")
                 Text("每日清台").font(compact ? .btFootnote.weight(.semibold) : .btSubheadlineSemibold)
-                    .lineLimit(1).minimumScaleFactor(0.85)
-                Spacer(minLength: 0)
+                    .lineLimit(1).minimumScaleFactor(0.7)
             }
-            .frame(width: wing)
-            .background(is3D ? HUDStyle.controlBackground : Color.clear, in: Capsule())
-            dailyLandscapePalette(width: paletteWidth)
+            .padding(.trailing, Spacing.xs)
+            .background {
+                Capsule().fill(is3D ? HUDStyle.controlBackground : Color.clear)
+                    .frame(height: 34)
+            }
+            .frame(width: wing + titleShift, alignment: .leading)
+            .offset(x: -titleShift, y: 3)
+            .frame(width: wing, alignment: .leading)
+            dailyLandscapePalette(width: size.width)
                 .frame(width: paletteWidth, height: 44)
 
             HStack(spacing: 0) {
@@ -1418,9 +1584,8 @@ private extension FreePlayView {
                 moreMenu.font(.system(size: 22, weight: .medium)).frame(width: 44, height: 44)
                     .background(HUDStyle.controlBackground, in: Circle())
                     .overlay(Circle().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-                    .accessibilityIdentifier("freeplay.moreMenu")
             }
-            .frame(width: wing)
+            .frame(width: wing + trailingShift, alignment: .trailing)
         }
         .foregroundStyle(.btText)
         .buttonStyle(.plain)
@@ -1447,11 +1612,15 @@ private extension FreePlayView {
     }
 
     func dailyPaletteDiameter(width: CGFloat) -> CGFloat {
-        // One row of 16 balls, with 4pt between faces and 4pt end insets.
-        min(24, max(10, (width - 24) / CGFloat(dailyPaletteKeys.count) - 2))
+        // Larger faces on standard screens; SE keeps enough room for the title and controls.
+        width < 740 ? 25 : 30
     }
 
-    var dailyPaletteKeys: [String] { (dailyController.game ?? preferences.dailyClearanceGame).paletteKeys }
+    var dailyPaletteGame: DailyClearanceGame {
+        dailyController.game ?? preferences.dailyClearanceGame
+    }
+
+    var dailyPaletteKeys: [String] { dailyPaletteGame.paletteKeys }
 
     func dailyPaletteActive(_ key: String) -> Bool {
         guard !vm.isBreakMode, !isDailyResult,
@@ -1460,51 +1629,72 @@ private extension FreePlayView {
     }
 
     func dailyPaletteSectionStart(_ key: String) -> Bool {
-        dailyController.game == .chineseEightBall && ["_1", "_8", "_9"].contains(key)
+        dailyPaletteGame == .chineseEightBall && ["_8", "_9"].contains(key)
     }
 
     func dailyLandscapePalette(width: CGFloat) -> some View {
         let diameter = dailyPaletteDiameter(width: width)
-        return HStack(spacing: 0) {
-            ForEach(dailyPaletteKeys, id: \.self) { key in
-                let onTable = vm.onTableKeys.contains(key)
-                if dailyPaletteSectionStart(key) {
-                    Rectangle().fill(HUDStyle.hairline).frame(width: 1, height: 18)
-                        .padding(.horizontal, 2).accessibilityHidden(true)
+        let cueWidth = diameter + 2 + 2 * Spacing.xs
+        return HStack(spacing: Spacing.xs) {
+            dailyPaletteBall(PositionPlayBall.cueKey, diameter: diameter)
+                .padding(.horizontal, Spacing.xs)
+                .background { dailyPaletteBackground }
+            HStack(spacing: 0) {
+                ForEach(dailyPaletteKeys.filter { !PositionPlayBall.isCue($0) }, id: \.self) { key in
+                    HStack(spacing: 0) {
+                        if dailyPaletteSectionStart(key) {
+                            Rectangle().fill(HUDStyle.hairline).frame(width: 1, height: 18)
+                                .padding(.horizontal, 2).accessibilityHidden(true)
+                        }
+                        dailyPaletteBall(key, diameter: diameter)
+                    }
                 }
-                Button {
-                    if onTable {
-                        vm.pulseTableBall(key)
-                        if let node = vm.scene.allBallNodes[key] { handleTargetTap(node) }
-                    } else { flash("这颗球已进袋", tone: .warning) }
-                } label: {
-                    PoolBallFace(key: key, diameter: diameter)
-                        .opacity(onTable ? 1 : 0.25)
-                        .overlay(Circle().stroke(Color.white.opacity(0.9), lineWidth: 1)
-                            .padding(-1).opacity(onTable && vm.selectedTargetKey == key ? 1 : 0))
-                        .frame(width: diameter + 2, height: 32)
-                        .background(onTable && dailyPaletteActive(key) ? HUDStyle.selectedBackground : Color.clear,
-                                    in: RoundedRectangle(cornerRadius: 4))
-                        .frame(height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .disabled(vm.isPlaying || vm.isBreakMode || showDailyBreakChoice || showDailyRerackConfirm || !dailyController.breakChoices.isEmpty)
-                .accessibilityLabel(PositionPlayBall.isCue(key) ? "母球" : "\(PositionPlayBall.shortLabel(for: key))号球")
-                .accessibilityValue(onTable ? (dailyPaletteActive(key) ? "本轮可击打" : "在桌上") : "已进袋")
-                .accessibilityIdentifier("paletteBall_\(key)")
             }
-        }
-        .padding(.horizontal, Spacing.xs)
-        .background {
-            Capsule().fill(HUDStyle.controlBackground)
-                .overlay(Capsule().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-                .frame(height: 34)
-                .allowsHitTesting(false)
+            .padding(.horizontal, Spacing.xs)
+            .background { dailyPaletteBackground }
+            // A matching empty wing keeps the target row centered for every game.
+            Color.clear.frame(width: cueWidth, height: 44)
+                .allowsHitTesting(false).accessibilityHidden(true)
         }
         .frame(maxWidth: .infinity)
         .background(Color.clear.accessibilityElement()
             .accessibilityIdentifier("dailyClearance.singleRowPalette"))
+    }
+
+    var dailyPaletteBackground: some View {
+        Capsule().fill(HUDStyle.controlBackground)
+            .overlay(Capsule().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
+            .frame(height: 34)
+            .allowsHitTesting(false)
+    }
+
+    func dailyPaletteBall(_ key: String, diameter: CGFloat) -> some View {
+        let onTable = vm.onTableKeys.contains(key)
+        return Button {
+            if onTable {
+                vm.pulseTableBall(key)
+                if let node = vm.scene.allBallNodes[key] { handleTargetTap(node) }
+            } else { flash("这颗球已进袋", tone: .warning) }
+        } label: {
+            PoolBallFace(key: key, diameter: diameter)
+                .opacity(onTable ? 1 : 0.25)
+                .overlay(Circle().stroke(Color.white.opacity(0.9), lineWidth: 1)
+                    .padding(-1).opacity(onTable && vm.selectedTargetKey == key ? 1 : 0))
+                .frame(width: diameter + 2, height: 32)
+                .background {
+                    let targets = dailyPaletteKeys.filter { !PositionPlayBall.isCue($0) }
+                    let isEnd = key == targets.first || key == targets.last
+                    RoundedRectangle(cornerRadius: isEnd ? 16 : 4)
+                    .fill(onTable && dailyPaletteActive(key) ? HUDStyle.selectedBackground : Color.clear)
+                }
+                .frame(height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(vm.isPlaying || vm.isBreakMode || showDailyBreakChoice || showDailyRerackConfirm || !dailyController.breakChoices.isEmpty)
+        .accessibilityLabel(PositionPlayBall.isCue(key) ? "母球" : "\(PositionPlayBall.shortLabel(for: key))号球")
+        .accessibilityValue(onTable ? (dailyPaletteActive(key) ? "本轮可击打" : "在桌上") : "已进袋")
+        .accessibilityIdentifier("paletteBall_\(key)")
     }
 
     func dailySpinPadRect(in size: CGSize) -> CGRect {

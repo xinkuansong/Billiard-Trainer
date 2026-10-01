@@ -460,6 +460,10 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
             scene.hideAllVisualization()
             return
         }
+        if let point = scene.correctedCueSpin(aim: intent.aim, spinX: 0, spinY: spinY, locksSideSpin: true) {
+            spinY = point.y
+            scheduleRecompute(interactive: true)
+        }
         cutAngleDegrees = AngleSceneCalculator.cutAngle(
             cueBall: intent.cue, targetBall: intent.target, pocket: intent.potAim)
         // Aim / ghost / pot line via shared viz; 8-color post-cushion tracks drawn separately.

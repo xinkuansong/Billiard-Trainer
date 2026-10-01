@@ -1240,14 +1240,15 @@ enum SequenceVideoExporter {
             let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX, spinY: step.shot.spinY)
             let obstacles = scene.cueObstacleCenters(excludingStrikeNear: strikePos)
             switch CueStick.requiredElevation(
-                cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles
+                cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles, surfaceY: scene.surfaceY
             ) {
             case .blocked:
                 scene.hideCueStick()
                 return nil
             case .angle(let elev):
                 let endPull = CueStroke.clampedFollowThroughPull(
-                    cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles
+                    cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles,
+                    elevation: elev, tipInset: scene.cueTipInset(forStrike: strikePos) ?? 0, surfaceY: scene.surfaceY
                 )
                 scene.updateCueStick(
                     cueBallPosition: strikePos, aimDirection: aim, pullBack: 0,
@@ -1273,13 +1274,14 @@ enum SequenceVideoExporter {
             let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX, spinY: step.shot.spinY)
             let obstacles = scene.cueObstacleCenters(excludingStrikeNear: strikePos)
             guard case .angle(let elev) = CueStick.requiredElevation(
-                cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles
+                cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles, surfaceY: scene.surfaceY
             ) else {
                 scene.hideCueStick()
                 return nil
             }
             let endPull = CueStroke.clampedFollowThroughPull(
-                cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles
+                cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles,
+                    elevation: elev, tipInset: scene.cueTipInset(forStrike: strikePos) ?? 0, surfaceY: scene.surfaceY
             )
             let v = max(0.3, Float(step.shot.velocity))
             let total = CueStroke.totalDuration(velocity: v)

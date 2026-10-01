@@ -40,7 +40,7 @@ final class DiamondSystemViewModel: ObservableObject {
     @Published private(set) var mode: BankKickPageMode = .solve
     /// 打点（接触点偏移/R）：spinX +左/−右、spinY +高/−低。
     /// 自由模式：sheet 写入后刷新瞄准；求解模式：由 `adjustCurrentSolution` / `presentDisplayedSolution` 写入。
-    @Published var spinX: Double = 0 { didSet { if mode == .free { refreshFreeAim() } } }
+    @Published var spinX: Double = 0 { didSet { if mode == .free, !correctingCueSpin { refreshFreeAim() } } }
     @Published var spinY: Double = 0
     /// 自由模式首碰预览（纯几何，`AngleSceneCalculator.freeAimFirstContact`）；
     /// nil = 空杆（当前方向碰不到球）。
@@ -308,6 +308,11 @@ final class DiamondSystemViewModel: ObservableObject {
     /// 两球碰后真实去向、障碍球被扰动），结束自动复原击打前球形。画面=物理=回放单一口径。
     func strike() {
         guard canStrike, mode == .solve, let sol = currentSolution else { return }
+        guard scene.permitsCueStrike(aim:sol.prediction.aimDirection,spinX:Double(sol.spinX),spinY:0) else {
+            simulationNotice = CueStrikeAccess.unavailableMessage
+            return
+        }
+
         // G17（条 17.5）：击打（演示）前捕获完整上下文，供「上一杆」全量恢复。
         lastSolveUndo = makeSolveUndo()
         canUndoSolve = false
@@ -568,7 +573,7 @@ final class DiamondSystemViewModel: ObservableObject {
     /// 左缘刻度齿轮（`BTAimWheel`）共用本入口——均为对**当前**瞄准方向的增量旋转（第一落点只选中
     /// 不转向由手势层保证）。自由模式为纯几何预览（`freeAimFirstContact`），本就不求解，不受 G14 影响。
     func nudgeFreeAim(byDegrees delta: Float) {
-        guard mode == .free, !isPlaying, abs(delta) > 1e-4 else { return }
+        guard mode == .free, !isPlaying, delta.isFinite, delta != 0 else { return }
         let base = freeAimDir ?? defaultFreeAim()
         freeAimDir = AngleSceneCalculator.rotatedAim(base, byDegrees: delta)
         closeupGate.noteAimChanged()
@@ -636,6 +641,8 @@ final class DiamondSystemViewModel: ObservableObject {
 
     /// 刷新自由瞄准覆盖：瞄准线（至假想球 / 空杆至库边）+ 标准假想球（ghostBallNode）+ 接触点 + 球杆摆位；
     /// 首碰胶囊数据走 `freeAimFirstContact`（纯几何，方案 §1.3）。
+    private var correctingCueSpin = false
+
     func refreshFreeAim() {
         // The selected solve reference is not the current free-aim prediction.
         // Do not mix its grey rebound path with the live single-segment guide.
@@ -651,6 +658,11 @@ final class DiamondSystemViewModel: ObservableObject {
             scene.contactDotNode?.isHidden = true
             if mode == .free { scene.hideCueStick() }
             return
+        }
+        if let point = scene.correctedCueSpin(aim: dir, spinX: spinX, spinY: spinY) {
+            correctingCueSpin = true
+            spinX = point.x; spinY = point.y
+            correctingCueSpin = false
         }
         let freeBalls = freeContactBalls()
         let contact = AngleSceneCalculator.freeAimFirstContact(
@@ -729,6 +741,11 @@ final class DiamondSystemViewModel: ObservableObject {
     /// 自由击球（试手）：`simulateFree` 真物理，球停在哪是哪；进袋球离场（恢复球形/上一杆可回）。
     func freeStrike() {
         guard canFreeStrike, let cueNode = scene.cueBallNode, let dir = freeAimDir else { return }
+        guard scene.permitsCueStrike(aim:dir,spinX:spinX,spinY:spinY) else {
+            simulationNotice = CueStrikeAccess.unavailableMessage
+            return
+        }
+
         simulationNotice=nil
         isPlaying = true
         let before = captureBoard()

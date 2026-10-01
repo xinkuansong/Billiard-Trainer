@@ -2,6 +2,183 @@ import XCTest
 import SceneKit
 @testable import QiuJi
 
+/// Test-only rack experiments. Production RackLayout and collision rules are unchanged.
+final class RackRandomStrategyExperimentTests: XCTestCase {
+    private enum Strategy: String, CaseIterable {
+        case independent, mirrored, rowShared, rackShared, none
+    }
+
+    private func nominalPositions(_ rack: Rack) -> [SCNVector3] {
+        let spacing = 2 * BallPhysics.radius + RackLayout.gap
+        let rowStep = spacing * sqrtf(3) / 2
+        return (0..<5).flatMap { row in
+            (0...row).map { col in
+                SCNVector3(-TablePhysics.innerLength / 4 - Float(row) * rowStep,
+                           rack.surfaceY + BallPhysics.radius,
+                           (Float(row) / 2 - Float(col)) * spacing)
+            }
+        }
+    }
+
+    // Use the same production samples and number assignments for paired comparisons.
+    // A mirrored pair shares dx and has opposite dz; center-line balls have dz = 0.
+    private func variant(_ original: Rack, strategy: Strategy) -> Rack {
+        let nominal = nominalPositions(original)
+        let offsets = zip(original.balls, nominal).map { $0.position - $1 }
+        var positions = nominal
+        var start = 0
+        for row in 0..<5 {
+            for col in 0...row {
+                let slot = start + col
+                let delta: SCNVector3
+                switch strategy {
+                case .independent: delta = offsets[slot]
+                case .none: delta = SCNVector3Zero
+                case .rackShared: delta = offsets[0]
+                case .rowShared: delta = offsets[start]
+                case .mirrored:
+                    let sample = offsets[start + min(col, row - col)]
+                    delta = SCNVector3(sample.x, 0,
+                        col == row - col ? 0 : (col < row - col ? sample.z : -sample.z))
+                }
+                positions[slot] = nominal[slot] + delta
+            }
+            start += row + 1
+        }
+        let balls = original.balls.enumerated().map { slot, b in
+            RackBall(key: b.key, number: b.number, position: positions[slot])
+        }
+        return Rack(game: original.game, cue: original.cue, balls: balls, surfaceY: original.surfaceY)
+    }
+
+    private func distanceXZ(_ a: SCNVector3, _ b: SCNVector3) -> Float {
+        hypotf(a.x - b.x, a.z - b.z)
+    }
+
+    private func emit(_ object: [String: Any]) throws {
+        let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        print("[RACK-STRATEGY] " + String(decoding: data, as: UTF8.self))
+    }
+
+    func test_strategyGeometry_isDeterministicBoundedAndNonOverlapping() throws {
+        var smallestGap = Float.greatestFiniteMagnitude
+        for seed in UInt64(0)...200 {
+            let original = RackLayout.make(.chineseEightBall, seed: seed)
+            let nominal = nominalPositions(original)
+            for strategy in Strategy.allCases {
+                let rack = variant(original, strategy: strategy)
+                let repeatRack = variant(RackLayout.make(.chineseEightBall, seed: seed), strategy: strategy)
+                for (i, b) in rack.balls.enumerated() {
+                    XCTAssertEqual(b.key, original.balls[i].key)
+                    XCTAssertEqual(b.position.x, repeatRack.balls[i].position.x)
+                    XCTAssertEqual(b.position.z, repeatRack.balls[i].position.z)
+                    XCTAssertEqual(b.position.y, nominal[i].y)
+                    XCTAssertLessThanOrEqual(distanceXZ(b.position, nominal[i]), RackLayout.jitterRadius + 0.0000001)
+                    XCTAssertLessThan(abs(b.position.x) + BallPhysics.radius, TablePhysics.innerLength / 2)
+                    XCTAssertLessThan(abs(b.position.z) + BallPhysics.radius, TablePhysics.innerWidth / 2)
+                    for other in rack.balls.dropFirst(i + 1) {
+                        let gap = distanceXZ(b.position, other.position) - 2 * BallPhysics.radius
+                        smallestGap = min(smallestGap, gap)
+                        XCTAssertGreaterThan(gap, 0, "\(strategy) seed=\(seed)")
+                    }
+                }
+                if strategy == .mirrored || strategy == .none {
+                    var start = 0
+                    for row in 0..<5 {
+                        for col in 0...row {
+                            let a = rack.balls[start + col].position
+                            let b = rack.balls[start + row - col].position
+                            XCTAssertEqual(a.x, b.x)
+                            XCTAssertEqual(a.z, -b.z)
+                        }
+                        start += row + 1
+                    }
+                }
+            }
+        }
+        try emit(["kind": "geometry", "racks": 201 * Strategy.allCases.count,
+                  "minGapMM": smallestGap * 1000])
+    }
+
+    func test_strategyBreakMatrix_characterizesScatterSpinAndOrderSensitivity() throws {
+        let seeds: [UInt64] = Array(1...32) + [9030856504574103297]
+        for seed in seeds {
+            let original = RackLayout.make(.chineseEightBall, seed: seed)
+            for strategy in Strategy.allCases {
+                let rack = variant(original, strategy: strategy)
+                if seed == seeds.last {
+                    try emit(["kind": "layout", "strategy": strategy.rawValue,
+                              "positions": rack.balls.map { [$0.position.x, $0.position.z] },
+                              "nominal": nominalPositions(rack).map { [$0.x, $0.z] }])
+                }
+                for reverse in [false, true] {
+                    let input = Rack(game: rack.game, cue: rack.cue,
+                        balls: reverse ? Array(rack.balls.reversed()) : rack.balls, surfaceY: rack.surfaceY)
+                    // Keep the strike direction fixed so strategies do not silently change the aim.
+                    let aim = SCNVector3(-1, 0, 0)
+                    let early = BreakSimulator.breakShot(rack: input, aimDirection: aim, power: 8, maxTime: 0.12)
+                    XCTAssertEqual(early.termination, .timeLimit)
+                    XCTAssertNil(early.recorder.contactSounds.first { $0.surface != .ball })
+                    let playback = TrajectoryPlayback(recorder: early.recorder,
+                                                      surfaceY: rack.surfaceY + BallPhysics.radius)
+                    let velocities = try rack.balls.map { b -> [Float] in
+                        let s = try XCTUnwrap(playback.stateAt(ballName: b.key, time: 0.12))
+                        return [s.velocity.x, s.velocity.z]
+                    }
+                    let result = BreakSimulator.breakShot(rack: input, aimDirection: aim, power: 8)
+                    XCTAssertTrue(result.settled, "\(strategy) seed=\(seed) reverse=\(reverse)")
+                    let pocketed = Set(result.pocketed)
+                    var moved = 0, longestSlot = -1
+                    var longestSpin: Float = 0, peakWY: Float = 0, translationEnd: Float = 0
+                    var remaining: [SCNVector3] = []
+                    for (slot, ball) in rack.balls.enumerated() {
+                        let frames = try XCTUnwrap(result.recorder.framesByBallName[ball.key])
+                        let last = try XCTUnwrap(frames.last)
+                        peakWY = max(peakWY, frames.map { abs($0.angularVelocity.y) }.max() ?? 0)
+                        if pocketed.contains(ball.key) { moved += 1; continue }
+                        remaining.append(last.position)
+                        if distanceXZ(last.position, ball.position) > 0.3 { moved += 1 }
+                        XCTAssertEqual(last.state, .stationary)
+                        XCTAssertEqual(last.angularVelocity.y, 0)
+                        if let i = frames.lastIndex(where: { $0.state != .stationary && $0.state != .spinning }),
+                           i + 1 < frames.count {
+                            let begin = frames[i + 1]
+                            translationEnd = max(translationEnd, begin.time)
+                            if begin.state == .spinning {
+                                let stop = try XCTUnwrap(frames.dropFirst(i + 1).first { $0.state == .stationary })
+                                let duration = max(0, stop.time - begin.time)
+                                if duration > longestSpin { longestSpin = duration; longestSlot = slot }
+                            }
+                        }
+                    }
+                    // Largest connected group at rest, using a declared 10 mm surface-gap threshold.
+                    var unseen = Set(remaining.indices), largestCluster = 0
+                    while let first = unseen.first {
+                        unseen.remove(first)
+                        var queue = [first], count = 0
+                        while count < queue.count {
+                            let index = queue[count]; count += 1
+                            let neighbors = unseen.filter {
+                                distanceXZ(remaining[index], remaining[$0]) <= 2 * BallPhysics.radius + 0.01
+                            }
+                            for neighbor in neighbors { unseen.remove(neighbor); queue.append(neighbor) }
+                        }
+                        largestCluster = max(largestCluster, queue.count)
+                    }
+                    try emit(["kind": "break", "strategy": strategy.rawValue, "seed": String(seed),
+                              "reverse": reverse, "moved30CM": moved,
+                              "objectPockets": pocketed.filter { $0 != PositionPlayBall.cueKey }.count,
+                              "scratch": result.cueScratched, "eight": result.eightOnBreak,
+                              "largestCluster10MM": largestCluster, "duration": result.recorder.duration,
+                              "longestFinalSpin": longestSpin, "longestSpinSlot": longestSlot,
+                              "postObjectTranslation": max(0, result.recorder.duration - translationEnd),
+                              "peakWY": peakWY, "earlyVelocities": velocities])
+                }
+            }
+        }
+    }
+}
+
 /// 中八 15 球开球的物理可行性验证（P17「球形生成器」前置去风险）。
 ///
 /// 目标：在写任何 UI / 生成器之前，先用真实输出回答一个最大未知——

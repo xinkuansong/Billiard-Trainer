@@ -147,7 +147,9 @@ struct CollisionDetector {
             lineNormal: nd,
             lineOffset: lineOffset,
             R: R,
-            maxTime: maxTime
+            maxTime: maxTime,
+            positionUncertainty: Double(p.x.ulp)*abs(nd.x) + Double(p.y.ulp)*abs(nd.y)
+                + Double(p.z.ulp)*abs(nd.z) + Double(Float(lineOffset).ulp) + Double(Float(R).ulp)
         )
     }
     
@@ -168,7 +170,8 @@ struct CollisionDetector {
         lineNormal: SIMD3<Double>,
         lineOffset: Double,
         R: Double,
-        maxTime: Double
+        maxTime: Double,
+        positionUncertainty: Double = 0
     ) -> Float? {
         // Ball position at time t: p(t) = p + v*t + 0.5*a*t^2
         // Signed distance from ball center to cushion line: d(t) = n·p(t) - lineOffset
@@ -180,6 +183,14 @@ struct CollisionDetector {
         let nDotA = dot(lineNormal, a)
         
         let constant = nDotP - lineOffset
+        // Resolve an already touching, approaching ball at this same instant.
+        // The Float wrapper supplies only coordinate representation uncertainty,
+        // not a physical clearance. Separating and tangent contacts are excluded.
+        let roundoff = positionUncertainty + 8 * Double.ulpOfOne * (abs(nDotP) + abs(lineOffset) + R)
+        if abs(abs(constant) - R) <= roundoff,
+           (constant >= 0 ? nDotV < 0 : nDotV > 0), maxTime >= 0 {
+            return 0
+        }
         
         // Solve two quadratic equations separately to avoid spurious roots from squaring:
         // Case 1: d(t) = +R  =>  0.5*(n·a)*t^2 + (n·v)*t + (constant - R) = 0
@@ -195,7 +206,7 @@ struct CollisionDetector {
             let roots = solveQuadratic(a: qA, b: qB, c: qC)
             
             for t in roots {
-                guard t > 1e-6 && t <= maxTime && t.isFinite else { continue }
+                guard t >= 0 && t <= maxTime && t.isFinite else { continue }
                 
                 // Verify ball is approaching the cushion at time t (velocity component toward cushion)
                 // Velocity at time t along normal: v_n(t) = n·v + (n·a)*t

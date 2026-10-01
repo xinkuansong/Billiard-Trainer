@@ -29,23 +29,31 @@ enum CueStroke {
     /// Forward obstacles may clamp this via `clampedFollowThroughPull` (D3).
     static var followThroughPull: Float { -3 * AngleSceneCalculator.ballRadius }
 
-    /// Clamp follow-through so the tip does not enter the nearest ball ahead along aim.
-    /// Returns `−min(3R, availableSurfaceGap)`, floored at 0 (no follow-through when gap is 0).
+    /// Clamp the entire finite cue's forward sweep against stationary obstacle balls.
+    /// `cueBallPosition` is the render pivot; elevation/inset must match the renderer.
+    /// Returns a pull in [-3R, 0]. This is visual clearance, not a push-shot ruling.
     static func clampedFollowThroughPull(
         cueBallPosition: SCNVector3,
         aimDirection: SCNVector3,
-        obstacleCenters: [SCNVector3]
+        obstacleCenters: [SCNVector3],
+        elevation: Float = 0,
+        tipInset: Float = 0,
+        surfaceY: Float = BTTablePhysics.surfaceY,
+        profile: [CueSection] = CueSection.fallback
     ) -> Float {
         let gap = CueClearance.forwardSurfaceGap(
             cueBallPosition: cueBallPosition,
             aimDirection: aimDirection,
-            obstacleCenters: obstacleCenters
+            obstacleCenters: obstacleCenters, elevation: elevation, tipInset: tipInset, profile: profile
         )
-        if gap == .greatestFiniteMagnitude {
-            return followThroughPull
-        }
-        let maxMag = -followThroughPull  // 3R
-        return -min(maxMag, gap)
+        let ballLimit = gap == .greatestFiniteMagnitude ? followThroughPull : -min(-followThroughPull, gap)
+        guard elevation > 1e-5 else { return ballLimit }
+        // At positive elevation the tip is the lowest part of the cue. Stop its
+        // finite cross-section above the cloth instead of following through it.
+        let tipBottomRadius = CueClearance.tipRadius + 0.001
+        let clothLimit = (surfaceY + tipBottomRadius + CueClearance.ballClearance - cueBallPosition.y)
+            / sinf(elevation) - CueClearance.tipOffset + tipInset
+        return min(0, max(ballLimit, clothLimit))
     }
 
     /// 触球后送杆量（`pullBack`）：0 → `endPull`，ease-out（触球瞬间最快、随后减速到停）。
@@ -171,8 +179,17 @@ extension AngleTrainingScene {
         let obstacles = cueObstacleCenters(excludingStrikeNear: strikePosition)
         // 击球点与瞄准方向全程固定 ⇒ 仰角恒定；逐帧直接驱动 `CueStick`，绕开 `updateCueStick`
         // （后者会取消 "strokeAnim" 以处理收杆/复位竞态，若经它驱动会自我取消）。
-        let elevResult = CueStick.requiredElevation(
-            cueBallPosition: strikePosition, aimDirection: aim, obstacleCenters: obstacles
+        let access = cueStrikeAccess(aim: aim)
+        let flat = CueClearance.normalizeFlat(aim)
+        let r = AngleSceneCalculator.ballRadius
+        let resolvedPose = access.flatMap { context in
+            context.resolvedPose(
+                spinX: Double(((strikePosition.x-context.cue.x)*flat.z-(strikePosition.z-context.cue.z)*flat.x)/r),
+                spinY: Double((strikePosition.y-context.cue.y)/r))
+        }
+        let renderStrike = resolvedPose?.pivot ?? strikePosition
+        let elevResult = resolvedPose.map { CueElevation.angle($0.elevation) } ?? CueStick.requiredElevation(
+            cueBallPosition: renderStrike, aimDirection: aim, obstacleCenters: obstacles, surfaceY: surfaceY
         )
         guard case .angle(let elevation) = elevResult else {
             // Blocked: do not draw a penetrating stick; still fire the shot.
@@ -180,12 +197,13 @@ extension AngleTrainingScene {
             contact()
             return
         }
+        let tipInset = resolvedPose?.inset ?? cueTipInset(forStrike: strikePosition) ?? 0
         let endPull = CueStroke.clampedFollowThroughPull(
-            cueBallPosition: strikePosition, aimDirection: aim, obstacleCenters: obstacles
+            cueBallPosition: renderStrike, aimDirection: aim, obstacleCenters: obstacles,
+            elevation: elevation, tipInset: tipInset, surfaceY: surfaceY, profile: stick.clearanceProfile
         )
-        let tipInset = cueTipInset(forStrike: strikePosition) ?? 0
         let drive: (Float) -> Void = { [weak stick] pull in
-            stick?.update(cueBallPosition: strikePosition, aimDirection: aim,
+            stick?.update(cueBallPosition: renderStrike, aimDirection: aim,
                           pullBack: pull, elevation: elevation, tipInset: tipInset)
         }
         drive(0)
@@ -201,7 +219,7 @@ extension AngleTrainingScene {
         // Predict first post-contact collision across ALL balls (D2 — not cue-only).
         let collisionT: TimeInterval? = clearanceProbe.flatMap { probe in
             CueClearance.firstCollisionTime(
-                strikePosition: strikePosition,
+                strikePosition: renderStrike,
                 aimDirection: aim,
                 elevation: elevation,
                 endPull: endPull,

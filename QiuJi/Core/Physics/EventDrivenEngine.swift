@@ -28,8 +28,8 @@ class EventDrivenEngine {
 
         /// Shared immutable policy for prediction, search, break shots and rule
         /// decisions. v63 W17-A (user decision, 2026-09-14): pocket outcome is
-        /// decided by the planar rule "ball centre inside the drop circle", the
-        /// criterion all existing solvers were built and calibrated against.
+        /// decided by the shared planar capture region (measured cloth lip plus
+        /// the legacy deep collector), used by both search and playback entry.
         /// Spatial pocket physics is presentation-only (W17-B/D) and must never
         /// feed back into a verdict. Explicit `spatialPockets` remains available
         /// for that presentation pass and for its own regression tests.
@@ -387,6 +387,8 @@ class EventDrivenEngine {
                                       stopAfterContactBetween:(String,String)? = nil,
                                       maxResolvedEvents:Int? = nil,
                                       rejectCushionBeforeAnyContactFor:String? = nil) throws -> Termination {
+        // Experimental spatial contacts do not yet carry the planar audio facts contract.
+        trajectoryRecorder.hasContactSoundFacts = false
         typealias V=SIMD3<Double>
         typealias State=LocalPocketSimulation.State
         func v(_ x:SCNVector3)->V { V(Double(x.x),Double(x.y),Double(x.z)) }
@@ -845,7 +847,11 @@ class EventDrivenEngine {
     private let eventCache = EventCache()
     
     // Trajectory recorder
-    private let trajectoryRecorder = TrajectoryRecorder()
+    private let trajectoryRecorder: TrajectoryRecorder = {
+        let recorder = TrajectoryRecorder()
+        recorder.hasContactSoundFacts = true
+        return recorder
+    }()
     
     // Table geometry for collision detection
     private let tableGeometry: TableGeometry
@@ -1426,10 +1432,8 @@ class EventDrivenEngine {
             }
         }
         
-        // Find ball-pocket events (CCD quartic solve, XZ-plane only)
-        // 注意：必须使用 XZ 2D 分量，不含 Y（球心 Y 恒高于台面，3D 距离永远够不到孔圈半径）。
-        // 判据（ADR-P10-09）：球心水平投影抵达孔圈（dist = pocket.radius，即真实落袋孔半径）
-        // ⇒ 台面失去支撑 ⇒ 落袋。无速度/方向特判——能否抵达孔圈完全由 jaw/圆角/喉壁物理决定。
+        // Shared XZ capture CCD: exposed cloth lip + legacy deep collector.
+        // The planar model captures at the actual support boundary; descent is presentation-only.
         for name in names {
             guard let ball = balls[name] else { continue }
             guard !ball.isPocketed else { continue }
@@ -1443,39 +1447,10 @@ class EventDrivenEngine {
             
             // Check each pocket
             for pocket in tableGeometry.pockets {
-                let r = pocket.radius
-
-                // XZ-only: 袋口检测在水平面进行，忽略 Y 轴高度差
-                let dpX = ball.position.x - pocket.center.x
-                let dpZ = ball.position.z - pocket.center.z
-                let dvX = ball.velocity.x
-                let dvZ = ball.velocity.z
-                let daX = a.x
-                let daZ = a.z
-
-                let halfDaX = daX * 0.5
-                let halfDaZ = daZ * 0.5
-
-                let halfDaDotHalfDa = Double(halfDaX * halfDaX + halfDaZ * halfDaZ)
-                let dvDotHalfDa    = Double(dvX * halfDaX + dvZ * halfDaZ)
-                let dvDotDv        = Double(dvX * dvX + dvZ * dvZ)
-                let dpDotHalfDa    = Double(dpX * halfDaX + dpZ * halfDaZ)
-                let dpDotDv        = Double(dpX * dvX + dpZ * dvZ)
-                let dpDotDp        = Double(dpX * dpX + dpZ * dpZ)
-
-                let a4 = halfDaDotHalfDa
-                let a3 = 2.0 * dvDotHalfDa
-                let a2 = dvDotDv + 2.0 * dpDotHalfDa
-                let a1 = 2.0 * dpDotDv
-                let a0 = dpDotDp - Double(r * r)
-
-                let roots = QuarticSolver.solveQuartic(a: a4, b: a3, c: a2, d: a1, e: a0)
-                if let time = EngineNumerics.smallestPositiveRoot(roots, maxTime: detectionMaxTime) {
+                if let time = pocket.entryTime(position: ball.position, velocity: ball.velocity,
+                                               acceleration: a, maxTime: detectionMaxTime) {
                     candidates.append(PhysicsEvent(
-                        type: .pocket(ball: name, pocketId: pocket.id),
-                        time: time,
-                        priority: 2
-                    ))
+                        type: .pocket(ball: name, pocketId: pocket.id), time: time, priority: 2))
                 }
             }
         }
@@ -1617,8 +1592,8 @@ class EventDrivenEngine {
             let dist = sqrtf(dx * dx + dz * dz)
             guard dist < pocket.radius + BallPhysics.radius * 3 else { continue }
 
-            // ① 球心已入孔圈（数值漏检兜底，正常路径由 CCD .pocket 事件收袋）→ 落袋。
-            if dist <= pocket.radius {
+            // ① 球心已进入共享捕获区域（数值漏检兜底，正常路径由 CCD .pocket 事件收袋）→ 落袋。
+            if pocket.containsCapture(state.position) {
                 trajectoryRecorder.recordPocketEntry(ball: state, pocketID: pocket.id, time: stateTime,
                                                      source: .boundsFallback, geometry: tableGeometry)
                 state.state = .pocketed
@@ -1629,9 +1604,9 @@ class EventDrivenEngine {
                 resolvedEventTimes.append(stateTime)
                 return
             }
-            // ② 在袋口通道内（孔圈外）：无论速度/朝向均放行（ADR-P10-09）——
-            //    rattle 弹出、慢速滑向孔圈、以及**球心停在孔圈外的合法挂袋**都交给真实几何
-            //    （jaw 弧/面 + 喉壁 + 孔圈判据）处理。旧「低速即收袋」特判会把挂袋球吸走，已删除。
+            // ② 在袋口通道内（捕获区域外）：无论速度/朝向均放行（ADR-P10-09）——
+            //    rattle 弹出、慢速滑向入口、以及仍有台呢支撑的合法挂袋都交给真实几何
+            //    （jaw 弧/面 + 喉壁 + 实测入口）处理。旧「低速即收袋」特判会把挂袋球吸走，已删除。
             return
         }
 
@@ -1658,27 +1633,42 @@ class EventDrivenEngine {
             let vr = (state.velocity.x * dxA + state.velocity.z * dzA) / dA
             if abs(vr) > radialGate { return }
         }
-        // 不在任何袋嘴通道/弧接触带内（或正从接缝漏出）→ 硬钳回库线 + 反弹（数值安全网）。
-        
-        // Not near any pocket — hard clamp (numerical safety net)
+        // 矩形库线在袋嘴处已经结束，不能把其无限延长线当作实体墙。
+        // 仅当球心投影落在真实主库的有限段内，才使用该轴的越界安全网；
+        // jaw / 喉壁由各自 CCD 处理。否则通往台呢入口的合法线路会被无事件反弹。
+        let clampX = outX && tableGeometry.linearCushions.contains { wall in
+            abs(wall.normal.x)>0.999 && abs(wall.start.x-wall.end.x)<1e-6
+                && (abs(wall.start.x-tableBounds.minX)<1e-5 || abs(wall.start.x-tableBounds.maxX)<1e-5)
+                && state.position.z>=min(wall.start.z,wall.end.z)
+                && state.position.z<=max(wall.start.z,wall.end.z)
+        }
+        let clampZ = outZ && tableGeometry.linearCushions.contains { wall in
+            abs(wall.normal.z)>0.999 && abs(wall.start.z-wall.end.z)<1e-6
+                && (abs(wall.start.z-tableBounds.minZ)<1e-5 || abs(wall.start.z-tableBounds.maxZ)<1e-5)
+                && state.position.x>=min(wall.start.x,wall.end.x)
+                && state.position.x<=max(wall.start.x,wall.end.x)
+        }
+        guard clampX || clampZ else { return }
         let restitution: Float = 0.5
-        
-        if state.position.x < safeMinX {
-            state.position.x = safeMinX
-            state.velocity.x = abs(state.velocity.x) * restitution
-        } else if state.position.x > safeMaxX {
-            state.position.x = safeMaxX
-            state.velocity.x = -abs(state.velocity.x) * restitution
+        if clampX {
+            if state.position.x < safeMinX {
+                state.position.x = safeMinX
+                state.velocity.x = abs(state.velocity.x) * restitution
+            } else if state.position.x > safeMaxX {
+                state.position.x = safeMaxX
+                state.velocity.x = -abs(state.velocity.x) * restitution
+            }
         }
-        
-        if state.position.z < safeMinZ {
-            state.position.z = safeMinZ
-            state.velocity.z = abs(state.velocity.z) * restitution
-        } else if state.position.z > safeMaxZ {
-            state.position.z = safeMaxZ
-            state.velocity.z = -abs(state.velocity.z) * restitution
+        if clampZ {
+            if state.position.z < safeMinZ {
+                state.position.z = safeMinZ
+                state.velocity.z = abs(state.velocity.z) * restitution
+            } else if state.position.z > safeMaxZ {
+                state.position.z = safeMaxZ
+                state.velocity.z = -abs(state.velocity.z) * restitution
+            }
         }
-        
+
         state.state = EngineNumerics.determineMotionState(state)
         // 硬钳是事件流之外的状态突变：作废该球缓存，避免按钳前轨迹预测的陈旧事件
         // （吃库/球球）在钳后接力触发，造成二次非物理反射。
@@ -1736,6 +1726,8 @@ class EventDrivenEngine {
         // leaves the balls slightly interpenetrating, causing cascading zero-time events.
         EngineNumerics.makeBallBallKiss(stateA: &stateA, stateB: &stateB)
         
+        let approach = ContactSoundEvent.approach(stateA.velocity - stateB.velocity,
+                                                  normal: stateA.position - stateB.position)
         let result = CollisionResolver.resolveBallBallPure(
             posA: stateA.position,
             posB: stateB.position,
@@ -1745,6 +1737,10 @@ class EventDrivenEngine {
             angVelB: stateB.angularVelocity
         )
         
+        if (result.velA - stateA.velocity).length() > 0 || (result.velB - stateB.velocity).length() > 0 {
+            trajectoryRecorder.recordContactSound(.init(time: currentTime, ball: ballA, other: ballB,
+                                                         surface: .ball, approachSpeed: approach))
+        }
         stateA.velocity = result.velA
         stateA.angularVelocity = result.angVelA
         stateB.velocity = result.velB
@@ -1765,9 +1761,14 @@ class EventDrivenEngine {
     private func resolveBallCushionCollision(ball: String, cushionIndex: Int, normal: SCNVector3) -> Bool {
         guard var state = balls[ball] else { return false }
         guard !state.isPocketed else { return false }
+        let approach = ContactSoundEvent.approach(state.velocity, normal: normal)
         let applied = EngineNumerics.resolveCushionImpact(
             state: &state, cushionIndex: cushionIndex, normal: normal, geometry: tableGeometry)
         guard applied else { return false }
+        let surface: ContactSoundEvent.Surface = tableGeometry.linearCushions.indices.contains(cushionIndex)
+            ? tableGeometry.linearCushions[cushionIndex].soundSurface : .jaw
+        trajectoryRecorder.recordContactSound(.init(time: currentTime, ball: ball, other: "cushion_\(cushionIndex)",
+                                                     surface: surface, approachSpeed: approach))
         balls[ball] = state
         return true
     }
@@ -1805,15 +1806,9 @@ class EventDrivenEngine {
     private func resolvePocket(ball: String, pocketId: String) -> Bool {
         guard var state = balls[ball], !state.isPocketed else { return false }
         
-        // 落袋判据（ADR-P10-09，XZ 2D）：球心水平投影进入孔圈（dist ≤ 孔半径）⇒ 台面无法再
-        // 提供支撑 ⇒ 必然坠落。CCD 已把球精确演进到孔圈交点，这里只校验事件未过时
-        // （排定后状态被改写的陈旧事件按超距拒绝），无任何速度/方向特判。
+        // CCD 已到达共享捕获边界；只用 1µm 吸收 Float 演进误差，拒绝陈旧事件。
         if let pocket = tableGeometry.pockets.first(where: { $0.id == pocketId }) {
-            let dx = state.position.x - pocket.center.x
-            let dz = state.position.z - pocket.center.z
-            let dist = sqrtf(dx * dx + dz * dz)
-            // 2mm 容差 ≫ 浮点接触噪声，≪ 任何真实位移——只挡陈旧事件，不挡合法入圈。
-            if dist > pocket.radius + 0.002 {
+            if !pocket.containsCapture(state.position, tolerance: 0.000001) {
                 return false
             }
             trajectoryRecorder.recordPocketEntry(ball: state, pocketID: pocketId, time: currentTime,

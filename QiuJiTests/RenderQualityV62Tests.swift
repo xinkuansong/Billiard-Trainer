@@ -4781,6 +4781,49 @@ final class RenderQualityV62Tests: XCTestCase {
         }
     }
 
+    func testRoomCarpetStyleComparison() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["V62_SHOT_DIR"] != nil)
+        for style in RoomStyle.allCases {
+            let s = try scene(mobile: true)
+            s.installReferenceRoom(style: style)
+            let room = try XCTUnwrap(s.rootNode.childNode(withName: "reference_room", recursively: false))
+            let floor = try XCTUnwrap(room.childNode(withName: "room_floor", recursively: false))
+            var floorMaterials: [SCNMaterial] = []
+            floor.enumerateChildNodes { node, _ in
+                floorMaterials.append(contentsOf: node.geometry?.materials ?? [])
+            }
+            XCTAssertFalse(floorMaterials.isEmpty)
+            let shaders = try floorMaterials.map { try XCTUnwrap($0.shaderModifiers?[.surface]) }
+            let yarnTransforms = floorMaterials.map { $0.multiply.contentsTransform }
+            for shader in shaders { XCTAssertTrue(shader.contains("// roomCarpetPattern:")) }
+            s.cameraRig?.handleObservationPan(deltaX: 600)
+            s.cameraRig?.handleObservationPinch(scale: 0.5)
+            for _ in 0..<120 { s.cameraRig?.update(deltaTime: 1/60) }
+            for pose in ["wide", "floor"] {
+                if pose == "floor" {
+                    let inspection = SCNNode()
+                    inspection.position = SCNVector3(2.8, 1.8, 2.0)
+                    inspection.look(at: SCNVector3(4.1, 0, 0.4))
+                    s.cameraNode.simdWorldTransform = inspection.simdWorldTransform
+                    s.cameraNode.camera?.fieldOfView = 65
+                }
+                for original in [true, false] {
+                    for (index, material) in floorMaterials.enumerated() {
+                        let shader = shaders[index]
+                        material.multiply.contentsTransform = original
+                            ? SCNMatrix4MakeScale(10 / 0.30, 8 / 0.30, 1) : yarnTransforms[index]
+                        material.shaderModifiers = [.surface: original
+                            ? shader.components(separatedBy: "// roomCarpetPattern:")[0] : shader]
+                    }
+                    SCNTransaction.flush()
+                    try capture(s, name: "carpet-\(style.rawValue)-\(pose)-\(original ? "before" : "after")")
+                }
+            }
+            s.setCameraMode(.topDown2D, animated: false)
+            XCTAssertTrue(room.isHidden)
+        }
+    }
+
     func testRoomStyleSelection() throws {
         let suite = "RoomStyleTests." + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

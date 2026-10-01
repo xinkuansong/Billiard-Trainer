@@ -68,3 +68,42 @@ Prior complete assets: `output/render-quality-v62/S464-rack-baseline/`.
 
 ### S488 loop-pile detail
 TrainingCarpet.jpg now uses the user-selected charcoal loop-pile concept (built-in image_gen; source and prompt in output/render-quality-v62/S487-loop-carpet). 1024² JPEG, 30cm mirrored repeat; baked floor lighting remains unchanged. Runtime local yarn modulation is recentered around the swatch gray. S488 three-style render and S489 selection/culling checks passed; phone motion/thermal validation pending.
+
+### 2026-09-28 per-room carpet atlases (r4)
+The r2 unified-chevron interpretation was rejected. Each room retains its selected
+concept: tournament broad charcoal chevrons, walnut warm taupe basket weave,
+eastern warm stone-gray ground with a squared key border. Accepted references
+are preserved in `output/carpet-styles-20260928/accepted-reference/`.
+
+`Carpet_{style}.png` are independent 1402 × 1122 base-color atlases generated
+with image_gen from the selected references. Prompts/provenance are under
+`output/carpet-styles-20260928/r3/source/` and `r4/source/`. After the user rejected r3 as oversized/coarse, tournament uses a mirrored
+2 × 2 repeat and walnut 4 × 4 over the 10 × 8 m floor (half their r3 motif size).
+Eastern covers the floor once with a revised finer border and single corner keys. The shader divides sampled linear albedo by the original uniform
+bake albedo (from `build_training_rooms.py`) to retain baked light and shadows.
+The original 30 cm yarn detail remains separate at 15% modulation; atlas sampling
+uses +2 mip bias for the repeating weaves and +1 for the smoother eastern atlas,
+retaining border clarity while suppressing oversized generated fiber grain. No USDZ, lightmap or light changes.
+
+Only the selected room atlas is loaded: one additional texture sample, about
+8 MiB RGBA with mipmaps. This is an estimate, not a measured device cost.
+Comparison shader stripping retains original yarn/lighting for same-run baseline.
+Actual render evidence and device validation status: `tasks/ui-reviews/UR-20260928-carpet-styles.md`.
+
+
+r4 was rejected as lacking textile character. r5 is currently a tournament-only
+material trial: clean macro atlas (new image_gen source under `r5/source/`),
+no added mip bias, and the original yarn at 20 cm repeat/full modulation.
+Walnut/eastern retain r4 until this material direction is visually accepted.
+The 10 cm/+4 bias experiment was discarded as too soft; no device quality
+claim should cite that intermediate image. `texture-trial.html` compares r4/r5
+on-device static outputs. All three styles remain visually unaccepted.
+
+
+r6: user accepted the r5 tournament material. Its atlas, shader parameters and
+viewed device images are frozen in `accepted-reference/r5-tournament/`.
+All rooms now use the accepted 20 cm yarn repeat at full modulation. Walnut
+uses a cleaned basket-weave macro atlas with +1 mip bias; eastern retains its
+fine key-border atlas with +1 mip bias. Tournament still uses its exact r5
+atlas and zero added mip bias. Patterns/palettes remain distinct. This extends
+the material treatment, not the user's visual acceptance of the other rooms.

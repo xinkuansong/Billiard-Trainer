@@ -1,10 +1,11 @@
 import SceneKit
+import Combine
 import simd
 import os
 
 /// SceneKit scene for angle training: loads the USDZ table model,
 /// manages camera (2D/3D), lighting, USDZ ball nodes, and cue stick.
-final class AngleTrainingScene: SCNScene {
+final class AngleTrainingScene: SCNScene, ObservableObject {
 
     /// Weak bridge to the live viewport; used only while a closeup is visible.
     weak var closeupViewport: SCNView?
@@ -117,6 +118,30 @@ final class AngleTrainingScene: SCNScene {
     private(set) lazy var railInventory = PocketRailInventory(root: rootNode)
 
     // MARK: - Cue Stick
+
+    private(set) var lastCueAim: SCNVector3?
+    @Published private(set) var cueAccessSnapshot: CueStrikeAccess?
+
+    func cueStrikeAccess(aim: SCNVector3? = nil) -> CueStrikeAccess? {
+        guard let direction = aim ?? lastCueAim,
+              let cue = [allBallNodes[PositionPlayBall.cueKey], cueBallNode].compactMap({ $0 }).first(where: { !$0.isHidden }) else { return nil }
+        return CueStrikeAccess(cue: cue.position, aim: direction,
+            obstacles: cueObstacleCenters(), surfaceY: surfaceY,
+            profile: cueStick?.clearanceProfile ?? CueSection.fallback)
+    }
+
+    /// Only returns a replacement when needed; callers commit both coordinates
+    /// to their shot state and re-predict before allowing a strike.
+    func correctedCueSpin(aim: SCNVector3, spinX: Double, spinY: Double,
+                          locksSideSpin: Bool = false) -> (x: Double, y: Double)? {
+        guard let access = cueStrikeAccess(aim: aim),
+              !access.isAvailable(spinX: spinX, spinY: spinY) else { return nil }
+        return access.automaticPoint(spinX: spinX, spinY: spinY, allowSideAdjustment: !locksSideSpin)
+    }
+
+    func permitsCueStrike(aim: SCNVector3, spinX: Double, spinY: Double) -> Bool {
+        cueStrikeAccess(aim: aim)?.isAvailable(spinX: spinX, spinY: spinY) ?? false
+    }
 
     private(set) var modelCueStickNode: SCNNode?
     private(set) var cueStick: CueStick?
@@ -569,6 +594,24 @@ final class AngleTrainingScene: SCNScene {
         cueStick?.rootNode.removeAction(forKey: "strokeAnim")
         cueStick?.rootNode.removeAction(forKey: "cueFade")
 
+        lastCueAim = aimDirection
+        let accessSnapshot = cueStrikeAccess(aim: aimDirection)
+        if cueAccessSnapshot?.geometryKey != accessSnapshot?.geometryKey { cueAccessSnapshot = accessSnapshot }
+        if elevationOverride == nil, let access = cueStrikeAccess(aim: aimDirection) {
+            let flat = CueClearance.normalizeFlat(aimDirection)
+            let dx = cueBallPosition.x-access.cue.x, dz = cueBallPosition.z-access.cue.z
+            let spinX = Double((dx*flat.z-dz*flat.x)/AngleSceneCalculator.ballRadius)
+            let spinY = Double((cueBallPosition.y-access.cue.y)/AngleSceneCalculator.ballRadius)
+            guard let pose = access.resolvedPose(spinX: spinX, spinY: spinY) else {
+                hideCueStick(preservingStrikeAccess: true)
+                return
+            }
+            cueStick?.update(cueBallPosition: pose.pivot, aimDirection: aimDirection,
+                pullBack: pullBack, elevation: pose.elevation, tipInset: pose.inset)
+            cueStick?.show()
+            cameraRig?.updateCuePose(strike: pose.pivot, aim: aimDirection, elevation: pose.elevation, cue: access.cue)
+            return
+        }
         let elevation: Float
         if let frozen = elevationOverride {
             elevation = frozen
@@ -577,7 +620,7 @@ final class AngleTrainingScene: SCNScene {
             switch CueStick.requiredElevation(
                 cueBallPosition: cueBallPosition,
                 aimDirection: aimDirection,
-                obstacleCenters: obstacles
+                obstacleCenters: obstacles, surfaceY: surfaceY
             ) {
             case .blocked:
                 hideCueStick()
@@ -622,7 +665,11 @@ final class AngleTrainingScene: SCNScene {
         return lastCueTipInset
     }
 
-    func hideCueStick() {
+    func hideCueStick(preservingStrikeAccess: Bool = false) {
+        if !preservingStrikeAccess {
+            lastCueAim = nil
+            if cueAccessSnapshot != nil { cueAccessSnapshot = nil }
+        }
         cueStick?.rootNode.removeAction(forKey: "aimTransition")
         cueStick?.rootNode.removeAction(forKey: "strokeAnim")
         cueStick?.hide()

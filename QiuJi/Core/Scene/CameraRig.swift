@@ -68,6 +68,41 @@ final class CameraRig: ObservableObject {
     var usesRailCameraControls = false
     /// Daily clearance owns its lens and shot-relative eye model. Other hosts keep their presets.
     var usesShotAwareCamera = false
+
+    #if DEBUG
+    // Explicitly enabled by the daily-clearance preview host only. Nil preserves production.
+    enum DailyPreviewProfile: Int, CaseIterable {
+        case current, classic, standing
+        var title: String {
+            switch self {
+            case .current: return "A · 每日现状"
+            case .classic: return "B · 旧版站位"
+            case .standing: return "C · 蛇彩站位"
+            }
+        }
+    }
+    var dailyPreviewProfile: DailyPreviewProfile?
+    var dailyPreviewSteadyInput = false
+    private var dailyPreviewIsObserver = false
+
+    static func dailyPreviewPose(profile: DailyPreviewProfile, cue: SCNVector3,
+                                 aim: SCNVector3, surfaceY: Float,
+                                 halfLength: Float, halfWidth: Float) -> SmoothPose? {
+        guard profile != .current,
+              var pose = playerPose(view: .thirdPerson, cue: cue, aim: aim,
+                  surfaceY: surfaceY, halfLength: halfLength, halfWidth: halfWidth) else { return nil }
+        if profile == .standing {
+            let direction = SCNVector3(aim.x, 0, aim.z).normalized()
+            // Same backwards-ray intersection as classic. Move 12 cm back and gaze 25 cm farther.
+            pose.radius += 0.12 + 0.25
+            pose.pivot = SCNVector3(cue.x + direction.x * 0.60, surfaceY,
+                                    cue.z + direction.z * 0.60)
+            pose.height = 0.80
+            pose.pitch = -atan2(pose.height, pose.radius)
+        }
+        return pose
+    }
+    #endif
     var observationCandidates: [SCNVector3] = []
     private var cuePose: (strike: SCNVector3, aim: SCNVector3, elevation: Float)?
     private var railZoomMaximumFOV: Float?
@@ -186,7 +221,7 @@ final class CameraRig: ObservableObject {
     @discardableResult
     func enterPlayerView(_ view: PlayerView, cue: SCNVector3, aim: SCNVector3,
                          duration: Float = 0.95, focus: SCNVector3? = nil) -> Bool {
-        let pose: SmoothPose?
+        var pose: SmoothPose?
         if usesShotAwareCamera {
             pose = Self.dailyPlayerPose(view: view, cue: cue, strike: cuePose?.strike ?? cue,
                 aim: aim, elevation: cuePose?.elevation ?? 0.05, surfaceY: tableSurfaceY,
@@ -195,6 +230,15 @@ final class CameraRig: ObservableObject {
             pose = Self.playerPose(view: view, cue: cue, aim: aim, surfaceY: tableSurfaceY,
                 halfLength: Float(tableOuterHalfLength), halfWidth: Float(tableOuterHalfWidth))
         }
+        #if DEBUG
+        if usesShotAwareCamera, view == .thirdPerson,
+           let profile = dailyPreviewProfile, profile != .current {
+            pose = Self.dailyPreviewPose(profile: profile, cue: cue, aim: aim,
+                surfaceY: tableSurfaceY, halfLength: Float(tableOuterHalfLength),
+                halfWidth: Float(tableOuterHalfWidth))
+        }
+        dailyPreviewIsObserver = usesShotAwareCamera && dailyPreviewProfile != nil && view == .thirdPerson
+        #endif
         guard let pose else { return false }
         smoothToPose(pose, duration: duration)
         retainsExactTransitionPose = true
@@ -528,13 +572,26 @@ final class CameraRig: ObservableObject {
         // in `update(deltaTime:)` (dampingFactor 0.12) then eases
         // `currentYaw` toward target, giving a soft inertial follow that
         // dramatically reduces jitter compared to writing both at once.
-        let sensitivity: Float = 0.0025
+        var sensitivity: Float = 0.0025
+        #if DEBUG
+        if dailyPreviewIsObserver, dailyPreviewSteadyInput { sensitivity *= 0.55 }
+        #endif
         targetYaw += delta * sensitivity * observationSensitivity
     }
 
     func handleVerticalSwipe(delta: Float) {
         beginManualOrbit()
         guard var orbit = targetOrbit else { return }
+        #if DEBUG
+        if dailyPreviewIsObserver, dailyPreviewSteadyInput {
+            // Look up/down from the existing eye, without moving it along a vertical orbit.
+            let pitch = max(-Float.pi / 3, min(-Float.pi / 45,
+                -orbit.elevation + orbit.pitchOffset - delta * 0.0016 * observationSensitivity))
+            orbit.pitchOffset = pitch + orbit.elevation
+            targetOrbit = orbit
+            return
+        }
+        #endif
         // Full overhead is available; the lower bound retains the preset clearance.
         let minimumElevation = usesRailCameraControls ? Float(0.035) : atan2(config.minHeight, config.maxRadius)
         let maximumElevation = .pi / 2 + min(0, orbit.pitchOffset)
@@ -545,6 +602,14 @@ final class CameraRig: ObservableObject {
     func handlePinch(scale: Float) {
         beginManualOrbit()
         guard var orbit = targetOrbit else { return }
+        #if DEBUG
+        if dailyPreviewIsObserver, dailyPreviewSteadyInput {
+            // Preview a bounded lens adjustment, with no re-centering or implicit mode switch.
+            orbit.fov = max(24, min(60, orbit.fov / max(0.01, scale)))
+            targetOrbit = orbit
+            return
+        }
+        #endif
         if usesRailCameraControls {
             // Optical zoom inspects distant balls without dollying through the cushion.
             if railZoomMaximumFOV == nil { railZoomMaximumFOV = orbit.fov }
@@ -572,6 +637,9 @@ final class CameraRig: ObservableObject {
 
     /// Resolve once at pinch start. Smoothly reorient around the chosen ball without a dolly.
     func beginObservationPinch(at point: SCNVector3?) {
+        #if DEBUG
+        if dailyPreviewIsObserver, dailyPreviewSteadyInput { return }
+        #endif
         guard usesShotAwareCamera else { return }
         beginManualOrbit()
         guard let point, var orbit = targetOrbit else { return }
@@ -622,12 +690,19 @@ final class CameraRig: ObservableObject {
     /// The old 0 looked from the head end and showed the table upside down relative to 2D.
     static let overviewYaw: Float = .pi
 
+    /// User-selected C preset (2026-09-28): 18% dolly back from the fitted overview.
+    /// Separate from the 2D fit margin and from player/aiming camera poses.
+    static let overviewDistanceScale: Float = 1.18
+
     /// Fits the playable table envelope, including ball height, to the actual viewport.
     /// Returns false before layout; no guessed screen aspect is substituted.
     /// - Parameter yaw: overview heading; defaults to `overviewYaw` so every "全桌" lands on
     ///   the 2D-consistent orientation. Pass `targetYaw` to re-fit without turning.
     @discardableResult
     func observeWholeTable(yaw: Float? = CameraRig.overviewYaw) -> Bool {
+        #if DEBUG
+        dailyPreviewIsObserver = false
+        #endif
         guard viewportSize.width > 1, viewportSize.height > 1 else { return false }
         beginManualOrbit()
         if let yaw, yaw.isFinite { targetYaw = yaw }
@@ -656,7 +731,7 @@ final class CameraRig: ObservableObject {
                 }
             }
         }
-        orbit.distance = distance * Float(Self.rotatedFitMargin)
+        orbit.distance = distance * Float(Self.rotatedFitMargin) * Self.overviewDistanceScale
         fittedOrbitDistance = orbit.distance
         keepsWholeTableFramed = true
         targetPivot = pivot

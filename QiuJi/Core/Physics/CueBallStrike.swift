@@ -22,6 +22,15 @@ import SceneKit
 
 struct CueBallStrike {
 
+    /// Shared contact frame for physics and cue placement. a/b are measured
+    /// perpendicular to the cue axis; the returned back/up components are in
+    /// the horizontal aim / world-up plane, normalized by ball radius.
+    static func contactCoordinates(spinX: Float, spinY: Float, elevation: Float) -> (side: Float, back: Float, up: Float) {
+        let c=sqrtf(max(0,1-spinX*spinX-spinY*spinY))
+        return (spinX,cosf(elevation)*c-sinf(elevation)*spinY,
+            sinf(elevation)*c+cosf(elevation)*spinY)
+    }
+
     // MARK: - pooltool cue_strike（z-up 坐标系，所有角度用弧度）
 
     /// 忠实移植 pooltool `cue_strike`。返回 pooltool 坐标系下的 (v, w)。
@@ -43,10 +52,10 @@ struct CueBallStrike {
         let sinT = sinf(theta)
 
         // 接触点从杆坐标系变换到球坐标系（pooltool instantaneous_point.solve）
-        let cue_c = sqrtf(max(0, 1.0 - a * a - b * b))
-        let ball_a = a
-        let ball_c = cosT * cue_c - sinT * b
-        let ball_b = sinT * cue_c + cosT * b
+        let point=contactCoordinates(spinX:a,spinY:b,elevation:theta)
+        let ball_a = point.side
+        let ball_c = point.back
+        let ball_b = point.up
 
         // Q = R · [ball_a, ball_c, ball_b]（米）；cue_strike 内记为 (A, C, B)
         let A = R * ball_a

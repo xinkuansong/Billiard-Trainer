@@ -355,8 +355,106 @@ final class FreePlayPerspectiveBreakTests: XCTestCase {
 
 extension BreakFlowRunnerV6Tests {
     @MainActor
+    func testRestartWhileCueMovesKeepsNewBreakAddress() async throws {
+        try await verifyRestartWhileMoving(previousWasBreak: false)
+    }
+
+    @MainActor
+    func testRestartDuringBreakKeepsNewBreakAddress() async throws {
+        try await verifyRestartWhileMoving(previousWasBreak: true)
+    }
+
+    @MainActor
+    func testImmediateMovingRestartWithLiveRendererKeepsBreakAddress() async throws {
+        try await verifyRestartWhileMoving(previousWasBreak: false, liveRendering: true)
+        try await verifyRestartWhileMoving(previousWasBreak: true, liveRendering: true)
+    }
+
+    @MainActor
+    private func verifyRestartWhileMoving(previousWasBreak: Bool, liveRendering: Bool = false) async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        vm.clearTable()
+        vm.placeFromPalette(PositionPlayBall.cueKey,
+            atWorld: SCNVector3(0, vm.scene.surfaceY + BallPhysics.radius, 0))
+        vm.aimMode = .free
+        vm.handleTableTap(world: SCNVector3(0, vm.scene.surfaceY, 0.5))
+        vm.velocity = 3
+        let readyDeadline = Date().addingTimeInterval(15)
+        while (vm.solvedShot == nil || vm.isComputing), Date() < readyDeadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertNotNil(vm.solvedShot)
+        if previousWasBreak {
+            vm.beginDailyClearanceBreak(game: .chineseEightBall, seed: 7, onOutcome: { _ in })
+            vm.breakRunner?.nudgeAim(byDegrees: 12)
+            vm.breakRunner?.breakNow()
+        } else {
+            vm.play()
+            XCTAssertTrue(vm.isPlaying)
+        }
+        let renderer = SCNRenderer(device: MTLCreateSystemDefaultDevice(), options: nil)
+        renderer.scene = vm.scene
+        renderer.pointOfView = vm.scene.cameraNode
+        let liveView = SCNView(frame: CGRect(x: 0, y: 0, width: 640, height: 360))
+        if liveRendering {
+            let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+                .flatMap(\.windows).first(where: \.isKeyWindow))
+            liveView.scene = vm.scene
+            liveView.pointOfView = vm.scene.cameraNode
+            liveView.isPlaying = true
+            liveView.rendersContinuously = true
+            window.addSubview(liveView)
+        }
+        defer { liveView.isPlaying = false; liveView.removeFromSuperview(); liveView.scene = nil }
+        let cue = try XCTUnwrap(vm.scene.cueBallNode)
+        let initial = cue.simdPosition
+        func frame() {
+            guard !liveRendering else { return }
+            _ = renderer.snapshot(atTime: CACurrentMediaTime(), with: CGSize(width: 64, height: 64),
+                antialiasingMode: .none)
+        }
+        let movingDeadline = Date().addingTimeInterval(8)
+        while simd_distance(cue.simdPosition, initial) < 0.05, Date() < movingDeadline {
+            frame()
+            try await Task.sleep(for: .milliseconds(16))
+        }
+        XCTAssertGreaterThan(simd_distance(cue.simdPosition, initial), 0.05)
+        XCTAssertTrue(vm.isPlaying || vm.breakRunner?.phase == .breaking,
+            "Restart must interrupt a still-moving shot")
+        vm.beginDailyClearanceBreak(game: .nineBall, seed: 42, onOutcome: { _ in })
+        let runner = try XCTUnwrap(vm.breakRunner)
+        let stick = try XCTUnwrap(vm.scene.cueStick).rootNode
+        let expectedCue = cue.simdPosition
+        let expectedPivot = stick.simdPosition
+        let expectedAngles = stick.simdEulerAngles
+        // Allow queued callbacks and presentation updates from the old shot to drain.
+        for _ in 0..<(liveRendering ? 0 : 30) {
+            frame()
+            try await Task.sleep(for: .milliseconds(16))
+            XCTAssertEqual(cue.simdPosition, expectedCue)
+            XCTAssertEqual(stick.simdPosition, expectedPivot)
+            XCTAssertEqual(stick.simdEulerAngles, expectedAngles)
+        }
+        runner.breakNow()
+        let breakDeadline = Date().addingTimeInterval(20)
+        while runner.phase == .computing, Date() < breakDeadline {
+            frame()
+            try await Task.sleep(for: .milliseconds(16))
+            XCTAssertEqual(cue.simdPosition, expectedCue)
+            XCTAssertEqual(stick.simdPosition, expectedPivot)
+            XCTAssertEqual(stick.simdEulerAngles, expectedAngles)
+        }
+        XCTAssertEqual(runner.phase, .breaking)
+        XCTAssertEqual(stick.simdPosition, expectedPivot)
+        XCTAssertEqual(stick.simdEulerAngles, expectedAngles)
+    }
+
+    @MainActor
     func testIncompleteBreakKeepsRackAndCannotBeConfirmed() {
         let scene = AngleTrainingScene()
+        scene.setupScene()
         let runner = BreakFlowRunner(scene: scene, game: .nineBall, seed: 7)
         runner.rackUp()
         let before = scene.allBallNodes.mapValues { $0.position }
@@ -372,6 +470,7 @@ extension BreakFlowRunnerV6Tests {
         XCTAssertEqual(partial.termination, .timeLimit)
         XCTAssertFalse(partial.settled)
         XCTAssertFalse(runner.acceptCompletedSimulation(partial))
+        XCTAssertEqual(scene.cueStick?.rootNode.isHidden, false, "Failed computation restores the address")
         XCTAssertEqual(runner.simulationFailure, .timeLimit)
         XCTAssertEqual(runner.phase, .racked)
         XCTAssertFalse(runner.showsConfirm)
@@ -512,6 +611,46 @@ extension BreakFlowRunnerV6Tests {
 }
 
 extension BreakFlowRunnerV6Tests {
+    @MainActor
+    func testBreakKeepsCueVisibleFromComputingIntoStroke() async throws {
+        let scene = AngleTrainingScene()
+        scene.setupScene()
+        let runner = BreakFlowRunner(scene: scene, game: .nineBall, seed: 42)
+        defer { runner.cancel() }
+        runner.rackUp()
+        scene.setCameraMode(.perspective3D, animated: false)
+        let renderer = SCNRenderer(device: MTLCreateSystemDefaultDevice(), options: nil)
+        renderer.scene = scene
+        renderer.pointOfView = scene.cameraNode
+        func capture(_ name: String) {
+            SCNTransaction.flush()
+            let image = renderer.snapshot(atTime: CACurrentMediaTime(),
+                with: CGSize(width: 1000, height: 700), antialiasingMode: .multisampling4X)
+            let attachment = XCTAttachment(image: image)
+            attachment.name = name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        let cue = try XCTUnwrap(scene.cueStick).rootNode
+        XCTAssertFalse(cue.isHidden)
+        capture("break-before")
+        let before = cue.simdTransform
+        runner.breakNow()
+        XCTAssertEqual(runner.phase, .computing)
+        XCTAssertFalse(cue.isHidden, "Computing must preserve the visible address")
+        XCTAssertEqual(cue.simdTransform, before)
+        capture("break-computing")
+        let deadline = Date().addingTimeInterval(30)
+        while runner.phase == .computing, Date() < deadline {
+            XCTAssertFalse(cue.isHidden)
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(runner.phase, .breaking)
+        XCTAssertFalse(cue.isHidden)
+        XCTAssertNotNil(cue.action(forKey: "strokeAnim"), "The same cue must enter the stroke")
+        capture("break-stroke-start")
+    }
+
     @MainActor
     func testRealBreakKeepsRailsThroughDeliveryAndCancelledRerack() async throws {
         let vm = PositionPlayViewModel()

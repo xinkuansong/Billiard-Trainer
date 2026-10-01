@@ -24,7 +24,8 @@ struct PocketEntrySnapshot {
     let pocketID: String
     let source: Source
     let geometry: TableGeometry
-    let modelVersion: String = "planar-capture-v1"
+    var modelVersion: String { geometry.pockets.contains(where: { !$0.captureLip.isEmpty })
+        ? "planar-cloth-lip-v2" : "planar-capture-v1" }
 }
 
 /// A contact-free spatial interval. Contacts split intervals; no display-frame integration.
@@ -134,6 +135,18 @@ struct PocketCollectionTail {
 }
 
 final class TrajectoryRecorder {
+    private(set) var contactSounds: [ContactSoundEvent] = []
+    // Replaced per ball when the visual pocket tail is re-laid against live occupancy.
+    var pocketContactSounds: [String: [ContactSoundEvent]] = [:]
+    var hasContactSoundFacts = false
+    var cueStrikeSpeed: Float?
+
+    func recordContactSound(_ event: ContactSoundEvent) {
+        guard event.time.isFinite, event.time >= 0,
+              event.approachSpeed.isFinite, event.approachSpeed > 0 else { return }
+        contactSounds.append(event)
+    }
+
     /// Confirmed rule capture is distinct from the continuing visible motion.
     /// The caller must establish capture from physical geometry before recording.
     struct ConfirmedCapture {

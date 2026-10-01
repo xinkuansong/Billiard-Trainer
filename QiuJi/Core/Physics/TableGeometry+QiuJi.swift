@@ -8,7 +8,7 @@
 //  保留孔半径与全部碰撞墙体，不使用扩大捕获圆或前伸墙体：
 //
 //  - 角袋保持 CAD Φ84；中袋保持 Φ86，近侧孔沿对齐 USDZ 实测，袋角/喉壁不移动。
-//    落袋判据「球心水平投影入孔圈 ⇒ 失去支撑 ⇒ 落袋」（见 `EventDrivenEngine.resolvePocket`）。
+//    2026-09-29：捕获区域为实际台呢暴露口沿 + 旧深部孔圈；球心跨入口后开始下落。
 //  - **jaw 与孔无缝**：角袋 jaw 直线段是孔的 45° 切线、外端点恰在孔沿（<1μm）；中袋喉壁
 //    x=±0.043 与校准后的中袋孔相切；侧壁与圆角连接点保持原位。
 //  - **安全喉壁 = 切线延长**：旧 v2 侧壁沿袋轴前伸 45mm，实体越过 jaw 平面 13.8mm
@@ -33,7 +33,7 @@ extension TableGeometry {
         let cushions = TableGeometry.chineseEightBallCushions(y: y)
         var linear = cushions.linear
 
-        // 6 个落袋孔（球心入圈即落袋；中袋近沿按当前模型校准）。
+        // 6 个深部收集圆，下方叠加实测台呢入口；半径不再单独代表最早捕获边界。
         let cx = TablePhysics.cornerPocketCenterOffsetX   // 1.312
         let cz = TablePhysics.cornerPocketCenterOffsetZ   // 0.677
         let mz = TablePhysics.sidePocketCenterOffsetZ     // near rim aligned to the displayed mesh
@@ -41,7 +41,7 @@ extension TableGeometry {
         let rM = TablePhysics.sidePocketRadius            // 0.043
         // 顺序与 `AngleSceneCalculator.pocketPositions` 一致：左上/右上/左下/右下/上中/下中。
         // （SceneKit +Z = 顶视图上方；「上」= -Z 侧，与 pocketPositions 注释一致。）
-        let pockets: [Pocket] = [
+        var pockets: [Pocket] = [
             Pocket(id: "pocket_0", center: SCNVector3(-cx, y, -cz), radius: rC, isCorner: true),
             Pocket(id: "pocket_1", center: SCNVector3( cx, y, -cz), radius: rC, isCorner: true),
             Pocket(id: "pocket_2", center: SCNVector3(-cx, y,  cz), radius: rC, isCorner: true),
@@ -49,6 +49,15 @@ extension TableGeometry {
             Pocket(id: "pocket_4", center: SCNVector3(  0, y, -mz), radius: rM, isCorner: false),
             Pocket(id: "pocket_5", center: SCNVector3(  0, y,  mz), radius: rM, isCorner: false)
         ]
+
+        for i in pockets.indices {
+            let sx: Double = pockets[i].center.x < 0 ? -1 : 1
+            let sz: Double = pockets[i].center.z < 0 ? -1 : 1
+            let base = i < 4 ? Self.measuredCornerLip : Self.measuredMiddleLip
+            var lip = base.map { SIMD2($0.x * sx, $0.y * sz) }
+            if sx * sz < 0 { lip.reverse() }
+            pockets[i].captureLip = lip
+        }
 
         // 安全喉壁（切线延长式，纯数值兜底）。
         linear.append(contentsOf: cornerThroatWalls(y: y))
@@ -60,6 +69,50 @@ extension TableGeometry {
             pockets: pockets
         )
     }
+
+
+    /// Bundled TaiNi exposed lip vertices, measured 2026-09-29. Internal seams
+    /// excluded by union coverage. The closing chord lies inside the opening.
+    /// Asset regression tests must verify this calibration when the table changes.
+    private static let measuredCornerLip: [SIMD2<Double>] = [
+        SIMD2(1.2505238056, 0.6648885608),
+        SIMD2(1.2512993813, 0.6567158103),
+        SIMD2(1.2536286116, 0.6488569379),
+        SIMD2(1.2574344873, 0.6416142583),
+        SIMD2(1.2652039528, 0.6321011186),
+        SIMD2(1.2745693922, 0.6244518161),
+        SIMD2(1.2818071842, 0.6206463575),
+        SIMD2(1.2896609306, 0.6183149815),
+        SIMD2(1.2978134155, 0.6175364256),
+        SIMD2(1.3059661388, 0.6183341742),
+        SIMD2(1.3138129711, 0.6206859946),
+        SIMD2(1.3210593462, 0.6245275140),
+        SIMD2(1.3253614902, 0.6280711293),
+        SIMD2(1.2612780333, 0.6934692860),
+        SIMD2(1.2575404644, 0.6881254315),
+        SIMD2(1.2536879778, 0.6808815002),
+        SIMD2(1.2513278723, 0.6730376482)
+    ]
+
+
+    /// Bundled TaiNi exposed lip vertices, measured 2026-09-29. Internal seams
+    /// excluded by union coverage. The closing chord lies inside the opening.
+    /// Asset regression tests must verify this calibration when the table changes.
+    private static let measuredMiddleLip: [SIMD2<Double>] = [
+        SIMD2(-0.0449813455, 0.6593745947),
+        SIMD2(-0.0410947837, 0.6519642472),
+        SIMD2(-0.0330508649, 0.6421130896),
+        SIMD2(-0.0237892047, 0.6345483065),
+        SIMD2(-0.0163746458, 0.6306460500),
+        SIMD2(-0.0083441976, 0.6282565594),
+        SIMD2(0.0000000000, 0.6274516582),
+        SIMD2(0.0083441976, 0.6282565594),
+        SIMD2(0.0163746458, 0.6306460500),
+        SIMD2(0.0237892047, 0.6345483065),
+        SIMD2(0.0330508649, 0.6421130896),
+        SIMD2(0.0410947837, 0.6519642472),
+        SIMD2(0.0449813455, 0.6593745947)
+    ]
 
     // MARK: - 安全喉壁（切线延长式）
 
@@ -108,19 +161,19 @@ extension TableGeometry {
             let shortEnd = shortTip + jawDir * rHole
 
             // ① jaw 面袋道侧孪生壁（橡皮，全局恢复系数）。
-            walls.append(LinearCushionSegment(
+            walls.append(LinearCushionSegment(soundSurface: .jaw,
                 start: longInner, end: longTip, normal: longInward))
-            walls.append(LinearCushionSegment(
+            walls.append(LinearCushionSegment(soundSurface: .jaw,
                 start: shortInner, end: shortTip, normal: shortInward))
             // ② 衬里延长壁。
-            walls.append(LinearCushionSegment(
+            walls.append(LinearCushionSegment(soundSurface: .liner,
                 start: longTip, end: longEnd, normal: longInward,
                 restitution: TablePhysics.pocketThroatRestitution))
-            walls.append(LinearCushionSegment(
+            walls.append(LinearCushionSegment(soundSurface: .liner,
                 start: shortTip, end: shortEnd, normal: shortInward,
                 restitution: TablePhysics.pocketThroatRestitution))
             // ③ 后壁：连接两延长壁末端，法线 = -jawDir（推回袋道）。
-            walls.append(LinearCushionSegment(
+            walls.append(LinearCushionSegment(soundSurface: .liner,
                 start: longEnd, end: shortEnd,
                 normal: SCNVector3(-jawDir.x, 0, -jawDir.z),
                 restitution: TablePhysics.pocketThroatRestitution))
@@ -137,17 +190,17 @@ extension TableGeometry {
         var walls: [LinearCushionSegment] = []
         walls.reserveCapacity(6)
         for sign in [Float(-1), Float(1)] {
-            walls.append(LinearCushionSegment(
+            walls.append(LinearCushionSegment(soundSurface: .liner,
                 start: SCNVector3(-xW, y, sign * zNear),
                 end: SCNVector3(-xW, y, sign * zFar),
                 normal: SCNVector3(1, 0, 0),
                 restitution: TablePhysics.pocketThroatRestitution))
-            walls.append(LinearCushionSegment(
+            walls.append(LinearCushionSegment(soundSurface: .liner,
                 start: SCNVector3(xW, y, sign * zNear),
                 end: SCNVector3(xW, y, sign * zFar),
                 normal: SCNVector3(-1, 0, 0),
                 restitution: TablePhysics.pocketThroatRestitution))
-            walls.append(LinearCushionSegment(
+            walls.append(LinearCushionSegment(soundSurface: .liner,
                 start: SCNVector3(-xW, y, sign * zFar),
                 end: SCNVector3(xW, y, sign * zFar),
                 normal: SCNVector3(0, 0, -sign),

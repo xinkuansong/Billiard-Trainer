@@ -1,7 +1,7 @@
 import Foundation
 
 enum DailyClearancePhase: String, Codable, Equatable {
-    case autoBreaking
+    case autoBreaking // Legacy persisted state; restored as a manual rack.
     case manualRacked
     case playing
     case failed
@@ -77,7 +77,7 @@ final class DailyClearanceStore {
             game: game,
             seed: seed,
             automaticRetryCount: 0,
-            phase: .autoBreaking,
+            phase: .manualRacked,
             board: nil,
             ruleState: DailyClearanceRuleState(),
             shotCount: 0,

@@ -653,16 +653,26 @@ final class PhysicsEngineTests: XCTestCase {
             velocity: 3.3, spinX: 0, spinY: 0, surfaceY: sY))
         XCTAssertTrue(pred.objectPocketed)
         XCTAssertGreaterThan(pred.objectPath.count, 1, "目标球轨迹应为真实折线")
-        let pocket = AngleSceneCalculator.pocketPositions(surfaceY: sY)[5]
-        guard let last = pred.objectPath.last else { return XCTFail("无目标球轨迹") }
-        let d = sqrtf((last.x - pocket.x) * (last.x - pocket.x) + (last.z - pocket.z) * (last.z - pocket.z))
-        // 2026-09-14（内衬耗能模型）：球心在洞口轮廓内即算抵达袋口。旧窗口 `dropRadius - R + 6mm`
-        // 是平面捕获圈语义；空间模型里 4.7m/s 的球飞越洞心仅下沉 1mm，贴到后壁内衬（z≈0.735-R）
-        // 才停下落洞，末端距袋心约 30mm，与实物大力进袋在后壁消失一致。断言目的不变：
-        // 橙线要真的走到袋口，而不是旧版停在半路的理想直线。
-        let window = AngleSceneCalculator.pocketDropRadius(index: 5)
-        print("[W07 path endpoint] last=\(last) captures=\(String(describing: pred.recorder?.confirmedCaptures)) tails=\(String(describing: pred.recorder?.collectionTailsByBallName))")
-        XCTAssertLessThanOrEqual(d, window, "进袋时目标球显示轨迹应抵达袋口（实测末端距袋心 \(d * 1000)mm）")
+        assertDisplayPathReachesCapture(pred, pocketIndex:5, surfaceY:sY)
+
+    }
+
+    /// 回球架已属于落袋之后；验证显示折线经过真实捕获入口，而非要求回球架终点仍在袋心。
+    private func assertDisplayPathReachesCapture(_ prediction:ShotPrediction,pocketIndex:Int,surfaceY:Float,
+                                                 file:StaticString=#filePath,line:UInt=#line) {
+        guard let entry=prediction.recorder?.pocketEntries.first(where:{$0.ball.name==ShotInput.targetBallName}) else {
+            return XCTFail("Missing actual capture entry",file:file,line:line)
+        }
+        let pocket=TableGeometry.chineseEightBallQiuJi(surfaceY:surfaceY).pockets[pocketIndex]
+        XCTAssertEqual(entry.pocketID,pocket.id,file:file,line:line)
+        XCTAssertTrue(pocket.containsCapture(entry.ball.position,tolerance:0.000001),file:file,line:line)
+        var distance=Float.greatestFiniteMagnitude
+        for (a,b) in zip(prediction.objectPath,prediction.objectPath.dropFirst()) {
+            let d=b-a,denom=d.dot(d)
+            let t=denom>0 ? min(1,max(0,(entry.ball.position-a).dot(d)/denom)):0
+            distance=min(distance,(a+d*t-entry.ball.position).length())
+        }
+        XCTAssertLessThan(distance,0.001,"Displayed path must pass through the capture entry",file:file,line:line)
     }
 
     /// 角袋中等切角（≈15°）在**所有**常用力度下都应进袋——守护 P10 漏斗模型 v3 修复的
@@ -690,13 +700,7 @@ final class PhysicsEngineTests: XCTestCase {
                 velocity: v, spinX: 0, spinY: 0, surfaceY: sY))
             XCTAssertTrue(pred.feasible, "角袋 cut15 v\(v) 应可行")
             XCTAssertTrue(pred.objectPocketed, "角袋 cut15 v\(v) 目标球应真实进袋（非单调闪烁回归）")
-            // 画面=物理：进袋时显示轨迹末端应抵达袋口。
-            if pred.objectPocketed, let last = pred.objectPath.last {
-                let pc = AngleSceneCalculator.pocketPositions(surfaceY: sY)[pocketIndex]
-                let d = sqrtf((last.x - pc.x) * (last.x - pc.x) + (last.z - pc.z) * (last.z - pc.z))
-                XCTAssertLessThanOrEqual(d, AngleSceneCalculator.pocketDropRadius(index: pocketIndex),
-                                         "进袋时目标球显示轨迹末端应在落袋孔内 v\(v)")
-            }
+            if pred.objectPocketed { assertDisplayPathReachesCapture(pred,pocketIndex:pocketIndex,surfaceY:sY) }
         }
     }
 

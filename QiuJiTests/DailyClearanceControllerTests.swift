@@ -7,7 +7,6 @@ final class DailyClearanceControllerTests: XCTestCase {
         struct Request {
             let game: RackGame
             let seed: UInt64
-            let automaticallyStrike: Bool
             let callback: (BreakOutcome) -> Void
         }
 
@@ -30,12 +29,10 @@ final class DailyClearanceControllerTests: XCTestCase {
         func currentDailyClearanceBoard() -> BoardSnapshot { board }
         func beginDailyClearanceBreak(game: RackGame,
                                       seed: UInt64,
-                                      automaticallyStrike: Bool,
                                       onOutcome: @escaping (BreakOutcome) -> Void) {
             requests.append(Request(
                 game: game,
                 seed: seed,
-                automaticallyStrike: automaticallyStrike,
                 callback: onOutcome
             ))
         }
@@ -98,34 +95,52 @@ final class DailyClearanceControllerTests: XCTestCase {
         )
     }
 
-    func test_firstEntryStartsAutomaticBreakWithoutCountingShot() {
+    func test_firstEntryWaitsForManualBreakWithoutCountingShot() {
         let controller = makeController()
         controller.start(host: host, defaultGame: .nineBall)
 
         XCTAssertEqual(host.requests.count, 1)
-        XCTAssertTrue(host.requests[0].automaticallyStrike)
+        XCTAssertEqual(controller.phase, .manualRacked)
         XCTAssertEqual(host.requests[0].seed, 100)
         XCTAssertEqual(controller.shotCount, 0)
         XCTAssertEqual(controller.foulCount, 0)
     }
 
-    func test_legacyTerminalOnSystemBreakRetriesThreeTimesThenStopsAtManualRack() {
+    func test_realHostKeepsRackEditableUntilPlayerStrikes() throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        let controller = makeController()
+        controller.start(host: vm, defaultGame: .nineBall)
+        let runner = try XCTUnwrap(vm.breakRunner)
+        XCTAssertEqual(runner.phase, .racked)
+        XCTAssertFalse(runner.autoDeliverOnSettle)
+        XCTAssertEqual(runner.velocity, 8)
+        XCTAssertEqual(runner.draggableCue.count, 1, "开球前母球必须可拖动")
+        XCTAssertNil(runner.lastBreakSpin, "进入页面不得发起击球")
+        runner.velocity = 7.5
+        runner.spinX = 0.1
+        runner.spinY = 0.2
+        runner.nudgeAim(byDegrees: 0.1)
+        XCTAssertEqual(runner.phase, .racked)
+        XCTAssertEqual(runner.velocity, 7.5)
+        XCTAssertEqual(runner.spinX, 0.1, accuracy: 0.001)
+        XCTAssertEqual(runner.spinY, 0.2, accuracy: 0.001)
+        XCTAssertNil(runner.lastBreakSpin, "调整参数不得自动击球")
+    }
+
+    func test_legacyTerminalBreakNeverRetriesAutomatically() {
         var legacy = store.makeDraft(game: .nineBall, seed: 100)
         legacy.ruleState.ruleVersion = 1
+        legacy.phase = .autoBreaking
         store.saveDraft(legacy)
         let controller = makeController()
         controller.start(host: host, defaultGame: .nineBall)
-
+        XCTAssertEqual(controller.phase, .manualRacked)
         host.deliverLast(pocketed: ["_9"])
-        host.deliverLast(pocketed: ["_9"])
-        host.deliverLast(pocketed: ["_9"])
-        host.deliverLast(pocketed: ["_9"])
-
-        XCTAssertEqual(host.requests.filter { $0.automaticallyStrike }.count, 4,
-                       "初次 + 最多 3 次自动重开")
-        XCTAssertEqual(host.requests.count, 5, "第 4 次终局球落袋后只摆手动球架")
-        XCTAssertFalse(host.requests.last!.automaticallyStrike)
-        XCTAssertEqual(controller.draft?.automaticRetryCount, 3)
+        XCTAssertEqual(host.requests.count, 2, "终局球落袋后只摆手动球架")
+        XCTAssertEqual(host.requests.last?.seed, 101)
+        XCTAssertEqual(controller.draft?.automaticRetryCount, 0)
         XCTAssertEqual(controller.phase, .failed)
         XCTAssertEqual(controller.shotCount, 0)
     }
@@ -187,7 +202,6 @@ final class DailyClearanceControllerTests: XCTestCase {
         controller.start(host: host, defaultGame: .chineseEightBall)
 
         XCTAssertEqual(host.requests.count, 1)
-        XCTAssertFalse(host.requests[0].automaticallyStrike)
         XCTAssertEqual(controller.phase, .manualRacked)
     }
 
@@ -203,7 +217,7 @@ final class DailyClearanceControllerTests: XCTestCase {
         controller.replay()
         XCTAssertFalse(controller.isCompleted)
         XCTAssertEqual(host.requests.count, 1)
-        XCTAssertTrue(host.requests[0].automaticallyStrike)
+        XCTAssertEqual(controller.phase, .manualRacked)
         XCTAssertEqual(store.loadTodayCompletion()?.completedAt, completed.completedAt)
     }
 
@@ -272,7 +286,7 @@ final class DailyClearanceControllerTests: XCTestCase {
         controller.confirmRerack()
         XCTAssertEqual(controller.shotCount, 0)
         XCTAssertEqual(controller.foulCount, 0)
-        XCTAssertFalse(host.requests.last!.automaticallyStrike)
+        XCTAssertEqual(controller.phase, .manualRacked)
     }
 
     func test_timerFlushIsIdempotentAndDoesNotCountBackgroundTime() {
@@ -317,7 +331,7 @@ final class DailyClearanceControllerTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(store.loadTodayDraft()).activeDurationSeconds, 23, accuracy: 0.001)
     }
 
-    func test_allFiveGamesStartAutomaticBreakAndBecomeShootable() {
+    func test_allFiveGamesWaitForManualBreakAndBecomeShootable() {
         for game in DailyClearanceGame.allCases {
             store.clearDraft()
             store.clearCompletion()
@@ -325,18 +339,18 @@ final class DailyClearanceControllerTests: XCTestCase {
 
             let controller = makeController(seed: UInt64(game.rawValue.count + 1))
             controller.start(host: host, defaultGame: game)
-            XCTAssertEqual(host.requests.count, 1, "\(game.displayName) 应自动开球")
-            XCTAssertTrue(host.requests[0].automaticallyStrike, "\(game.displayName) 首次开球须自动击打")
+            XCTAssertEqual(host.requests.count, 1, "\(game.displayName) 应摆好球架")
+            XCTAssertEqual(controller.phase, .manualRacked, "\(game.displayName) 首次开球须等待用户击打")
             XCTAssertEqual(host.requests[0].game, game.rackGame)
 
             host.deliverLast()
             XCTAssertEqual(controller.phase, .playing, "\(game.displayName) 开球交付后应可击球")
-            XCTAssertEqual(controller.shotCount, 0, "系统开球不计用户杆数")
+            XCTAssertEqual(controller.shotCount, 0, "开球不计普通击球次数")
             XCTAssertFalse(controller.legalTargetKeys(tableKeys: Set(host.board.onTableKeys)).isEmpty)
         }
     }
 
-    func test_resumeAutomaticBreakRestartsSameSeed() {
+    func test_resumeLegacyAutomaticBreakBecomesManualWithSameSeed() {
         var draft = store.makeDraft(game: .nineBall, seed: 909)
         draft.phase = .autoBreaking
         store.saveDraft(draft)
@@ -345,8 +359,9 @@ final class DailyClearanceControllerTests: XCTestCase {
         controller.start(host: host, defaultGame: .chineseEightBall)
 
         XCTAssertEqual(host.requests.count, 1)
+        XCTAssertEqual(store.loadTodayDraft()?.phase, .manualRacked)
         XCTAssertEqual(host.requests[0].seed, 909)
-        XCTAssertTrue(host.requests[0].automaticallyStrike)
+        XCTAssertEqual(controller.phase, .manualRacked)
         XCTAssertEqual(controller.shotCount, 0)
     }
 

@@ -75,6 +75,8 @@ struct AngleSceneView: UIViewRepresentable {
     var contentIsAnimating: Bool? = nil
     /// Supplied only by the explicitly instrumented daily-clearance page.
     var daily3DDiagnostics: Daily3DRenderDiagnostics? = nil
+    /// Daily header reserves a trailing slot; nil retains the shared centered readout.
+    var fpsReadoutTrailingInset: CGFloat? = nil
 
     static func requestedFPS(maximum: Int, selected: RenderFrameRate = .fps60, active: Bool, thermal: ProcessInfo.ThermalState, lowPower: Bool) -> Int {
         let ceiling = thermal == .critical ? 30 : ((thermal == .serious || lowPower) ? 60 : maximum)
@@ -125,7 +127,7 @@ struct AngleSceneView: UIViewRepresentable {
         scnView.addGestureRecognizer(doubleTap)
 
         context.coordinator.scnView = scnView
-        context.coordinator.installFPSReadout(in: scnView)
+        context.coordinator.installFPSReadout(in: scnView, trailingInset: fpsReadoutTrailingInset)
         context.coordinator.onPocketTapped = onPocketTapped
         context.coordinator.updatePocketAccessibility()
         context.coordinator.contentIsAnimating = contentIsAnimating
@@ -175,6 +177,7 @@ struct AngleSceneView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: SCNView, context: Context) {
+        context.coordinator.positionFPSReadout(trailingInset: fpsReadoutTrailingInset)
         scene.applyTableStyle(roomPreferences.tableStyle, showsSights: roomPreferences.showsTableSights)
         scene.applyClothColor(roomPreferences.clothColor)
         scene.applyBallStickerStyle(roomPreferences.ballStickerStyle)
@@ -263,6 +266,8 @@ struct AngleSceneView: UIViewRepresentable {
         private var fpsHost: UIHostingController<FPSReadout>?
         private let diagramLabels = DiagramLabelOverlay()
         private var fpsText = "— FPS"
+        private var fpsConstraints: [NSLayoutConstraint] = []
+        private var fpsTrailingInset: CGFloat?
         private var fpsSampleTime = CACurrentMediaTime()
 
         func setDaily3DDiagnostics(_ diagnostics: Daily3DRenderDiagnostics?) {
@@ -271,19 +276,36 @@ struct AngleSceneView: UIViewRepresentable {
             (frameDelegate as? Daily3DFrameDelegate)?.setDiagnostics(diagnostics)
         }
 
-        func installFPSReadout(in view: SCNView) {
-            let host = UIHostingController(rootView: FPSReadout(text: "— FPS"))
+        func installFPSReadout(in view: SCNView, trailingInset: CGFloat? = nil) {
+            let host = UIHostingController(rootView: FPSReadout(text: "— FPS", compact: trailingInset != nil))
             host.sizingOptions = .intrinsicContentSize
             host.view.backgroundColor = .clear
             host.view.isUserInteractionEnabled = false
             host.view.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(host.view)
-            NSLayoutConstraint.activate([
-                host.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Spacing.xs),
-                host.view.centerXAnchor.constraint(equalTo: view.centerXAnchor)
-            ])
             fpsHost = host
+            positionFPSReadout(trailingInset: trailingInset)
             updateFPSReadout()
+        }
+
+        func positionFPSReadout(trailingInset: CGFloat?) {
+            guard let view = scnView, let host = fpsHost,
+                  fpsConstraints.isEmpty || fpsTrailingInset != trailingInset else { return }
+            NSLayoutConstraint.deactivate(fpsConstraints)
+            fpsTrailingInset = trailingInset
+            if let trailingInset {
+                fpsConstraints = [
+                    host.view.centerYAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 62),
+                    host.view.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -trailingInset)
+                ]
+            } else {
+                fpsConstraints = [
+                    host.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Spacing.xs),
+                    host.view.centerXAnchor.constraint(equalTo: view.centerXAnchor)
+                ]
+            }
+            host.rootView = FPSReadout(text: fpsText, compact: trailingInset != nil)
+            NSLayoutConstraint.activate(fpsConstraints)
         }
 
         private func updateFPSReadout(force: Bool = false) {
@@ -327,7 +349,7 @@ struct AngleSceneView: UIViewRepresentable {
             let next = !needsContinuousUpdates ? "FPS · 静止" : "\(fps) FPS"
             guard fpsText != next else { return }
             fpsText = next
-            fpsHost?.rootView = FPSReadout(text: next)
+            fpsHost?.rootView = FPSReadout(text: next, compact: fpsTrailingInset != nil)
             updatePocketAccessibility()
         }
 
@@ -1035,11 +1057,13 @@ extension AngleSceneView.Coordinator: UIGestureRecognizerDelegate {
 /// Counts completed SceneKit render callbacks, not the requested display-link rate.
 private struct FPSReadout: View {
     let text: String
+    var compact = false
     var body: some View {
-        Text(text).font(.btCaption2).monospacedDigit().fixedSize()
+        Text(compact && text == "FPS · 静止" ? "静止" : text)
+            .font(compact ? .system(size: 10) : .btCaption2).monospacedDigit().fixedSize()
             .foregroundStyle(Color.btTextSecondary)
-            .padding(.horizontal, Spacing.sm).padding(.vertical, Spacing.xs)
-            .background(Color.btBGSecondary.opacity(0.85), in: Capsule())
+            .padding(.horizontal, compact ? 0 : Spacing.sm).padding(.vertical, Spacing.xs)
+            .background(compact ? Color.clear : Color.btBGSecondary.opacity(0.85), in: Capsule())
             .environment(\.colorScheme, .dark)
             .accessibilityLabel("渲染帧率，" + text)
             .accessibilityIdentifier("table.renderFPS")

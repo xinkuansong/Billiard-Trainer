@@ -73,13 +73,13 @@ struct Rack {
 
 enum RackLayout {
 
-    /// Nominal surface gap in meters. Restored after the tighter-rack trial.
-    static let gap: Float = 0.0002
+    /// Nominal surface gap in meters for the 0.15 mm rack-spacing trial.
+    static let gap: Float = 0.00015
 
     /// Seeded uniform-disk offsets on the world X–Z plane; Y is unchanged.
-    /// Radius 0.09 mm keeps nearest-neighbor gaps within 0.02–0.38 mm:
+    /// Radius 0.06 mm keeps nearest-neighbor gaps within 0.03–0.27 mm:
     /// distance >= 2R + gap - 2*jitterRadius, so balls cannot overlap.
-    static let jitterRadius: Float = gap * 0.45
+    static let jitterRadius: Float = 0.00006
 
     /// 生成一副摆球架。`seed` 决定球号随机排布（中八底角一花一色、9 球钻石锚点、
     /// 少球玩法 1 号在 apex / 9 号定位等**规则约束**不随机）**与每颗球的微扰偏移**

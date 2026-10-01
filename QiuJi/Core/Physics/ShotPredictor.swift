@@ -81,6 +81,8 @@ struct ShotEvent {
     }
     let time: Float
     let kind: Kind
+    /// SceneKit 世界系的真实接触法线，仅供呈现消费；不改变物理解算。
+    var contactNormal: SCNVector3? = nil
 }
 
 struct ShotPrediction {
@@ -142,6 +144,30 @@ struct ShotPrediction {
     /// 按时间排序的关键事件（球-球碰撞 / 吃库 / 落袋）。默认空——仅 `predict` / `simulateFree`
     /// 填充。旧调用与序列化零影响（ADR-P13-01，走位反解器消费）。
     var events: [ShotEvent] = []
+
+    /// Observed combination route, independent of pot outcome, scratch or power.
+    /// Ignore cue contacts after its first hit: they do not make the object's
+    /// route a combination. Stop at the object's pocket event.
+    var hasCombinationRoute: Bool {
+        var sawFirstPair = false
+        for event in events {
+            switch event.kind {
+            case let .pocket(ball, _) where ball == ShotInput.targetBallName:
+                return false
+            case let .ballBall(a, b):
+                let pair = Set([a, b])
+                if !sawFirstPair {
+                    sawFirstPair = true
+                    if pair != Set([ShotInput.cueBallName, ShotInput.targetBallName]) { return true }
+                } else if pair.contains(ShotInput.targetBallName) {
+                    return true
+                }
+            default:
+                break
+            }
+        }
+        return false
+    }
     /// 本次预测实际使用的瞄准偏移（弧度，相对几何基线 `aimDirection` 前的 ctx.aimDir）。
     /// 仅走位反解快速路径填充（B1：代表解用同一 offset 重建完整 prediction，保证同物理）。
     var aimOffsetUsed: Float?
@@ -545,6 +571,7 @@ enum ShotPredictor {
         )
         let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: y)
         let engine = EventDrivenEngine(tableGeometry: geometry)
+        engine.getTrajectoryRecorder().cueStrikeSpeed = velocity
         if let cancellation { engine.predictionCancellationRequested = { cancellation.isCancelled } }
         engine.setBall(BallState(
             position: SCNVector3(cueBall.x, y + r, cueBall.z),
@@ -617,8 +644,8 @@ enum ShotPredictor {
             switch ev {
             case let .ballBall(a, b):
                 events.append(ShotEvent(time: et, kind: .ballBall(ballA: a, ballB: b)))
-            case let .ballCushion(ball, _, _):
-                events.append(ShotEvent(time: et, kind: .ballCushion(ball: ball)))
+            case let .ballCushion(ball, _, normal):
+                events.append(ShotEvent(time: et, kind: .ballCushion(ball: ball), contactNormal: normal))
             case let .pocket(ball, pid):
                 events.append(ShotEvent(time: et, kind: .pocket(ball: ball, pocketId: pid)))
             case .transition:
@@ -711,6 +738,7 @@ enum ShotPredictor {
             spinX: input.spinX, spinY: input.spinY, elevation: input.elevation
         )
         let engine = EventDrivenEngine(tableGeometry: geometry)
+        engine.getTrajectoryRecorder().cueStrikeSpeed = velocity
         if let cancellation { engine.predictionCancellationRequested = { cancellation.isCancelled } }
         engine.setBall(BallState(
             position: SCNVector3(input.cueBall.x, y + r, input.cueBall.z),
@@ -796,8 +824,8 @@ enum ShotPredictor {
             switch ev {
             case let .ballBall(a, b):
                 events.append(ShotEvent(time: et, kind: .ballBall(ballA: a, ballB: b)))
-            case let .ballCushion(ball, _, _):
-                events.append(ShotEvent(time: et, kind: .ballCushion(ball: ball)))
+            case let .ballCushion(ball, _, normal):
+                events.append(ShotEvent(time: et, kind: .ballCushion(ball: ball), contactNormal: normal))
             case let .pocket(ball, pid):
                 events.append(ShotEvent(time: et, kind: .pocket(ball: ball, pocketId: pid)))
             case .transition:
@@ -1642,15 +1670,37 @@ extension ShotPredictor {
         let offset = aimOffset ?? positionAimOffset(input: input, context: ctx)
         if cancellation?.isCancelled == true { return cancelledPrediction() }
         result.aimOffsetUsed = offset
-        let finalAim = ctx.aimDir.rotatedY(offset)
-        return buildPrediction(finalAim: finalAim, context: ctx, input: input,
-                               result: result, maxEvents: maxEvents, maxTime: maxTime,
-                               includePresentation: includePresentation,
-                               searchEarlyStop: !includePresentation, cancellation: cancellation)
+        func evaluate(_ candidate: Float) -> ShotPrediction {
+            var seed = result
+            seed.aimOffsetUsed = candidate
+            return buildPrediction(finalAim: ctx.aimDir.rotatedY(candidate), context: ctx, input: input,
+                                   result: seed, maxEvents: maxEvents, maxTime: maxTime,
+                                   includePresentation: includePresentation,
+                                   searchEarlyStop: !includePresentation, cancellation: cancellation)
+        }
+        let first = evaluate(offset)
+        // 显式 offset 是已冻结的候选（终验/播放重建），禁止偷偷换方向。
+        guard aimOffset == nil, first.feasible, first.hasResolvedSearchState,
+              !first.objectPocketed else { return first }
+        // 方向误差最小不等于能进袋。保持力度/塞不变，在原 0.05° 搜索尺度内
+        // 按距离递增复核附近方向；只接受真实进指定袋且没有绕库/主库翻袋的候选。
+        for step in 1...10 {
+            for sign: Float in [-1, 1] {
+                if cancellation?.isCancelled == true { return cancelledPrediction() }
+                let candidate = offset + sign * Float(step) * 0.005 * .pi / 180
+                let prediction = evaluate(candidate)
+                if prediction.termination == .cancelled { return prediction }
+                if prediction.hasResolvedSearchState, prediction.objectPocketed,
+                   prediction.cueCushionsBeforeContact == 0, prediction.objectRailContacts.isEmpty {
+                    return prediction
+                }
+            }
+        }
+        return cancellation?.isCancelled == true ? cancelledPrediction() : first
     }
 
     /// 轻量一维瞄准：方向景观平滑单峰（见 `solveAimOffset` 注释），用**黄金分割**求极小，
-    /// ~15 次短模拟 vs 原三级网格 75 次。精度 0.05° 足够——进袋由 `buildPrediction` 全模拟硬校验。
+    /// 终止精度 0.001°；近零夹角用 atan2 保留方向分辨率，进袋由完整模拟硬校验。
     /// 评分与 `solveAimOffset` 同口径：目标球碰后离开方向对齐进球管道、碰前吃库判无效。
     /// **与 spinY 无关**（squirt 只来自横塞 spinX）⇒ 可对一组候选只解一次、跨 spinY 复用。
     ///
@@ -1682,7 +1732,7 @@ extension ShotPredictor {
         return goldenSectionMin(score,
                                 lower: center - half,
                                 upper: center + half,
-                                tol: 0.05 * deg)
+                                tol: 0.001 * deg)
     }
 
     /// 整程模拟口径的黄金分割瞄准（B2 前的线上路径，作回退与对拍基准保留；
@@ -1696,7 +1746,7 @@ extension ShotPredictor {
         return goldenSectionMin({ positionAimScore(input: input, context: ctx, offset: $0) },
                                 lower: center - half,
                                 upper: center + half,
-                                tol: 0.05 * deg)
+                                tol: 0.001 * deg)
     }
 
     /// 走位反解瞄准评分（整程模拟口径，`positionAimOffset` 的目标函数）。
@@ -1721,7 +1771,9 @@ extension ShotPredictor {
         }
         guard run.cueCushionsBeforeContact == 0 else { return AimScoring.invalidCandidate }
         let dot = max(-1, min(1, od.x * aimDirX + od.z * aimDirZ))
-        return acosf(dot) + abs(offset) * AimScoring.offsetRegularization
+        // atan2 在近零夹角仍保留精度；Float acos(dot) 会把约 0.02° 内压成同一评分。
+        let cross = od.x * aimDirZ - od.z * aimDirX
+        return atan2f(abs(cross),dot) + abs(offset) * AimScoring.offsetRegularization
     }
 
     /// 解析瞄准（B2）：评分口径与 `positionAimOffset` 逐项一致（碰后方向对齐 `d_pipe`、
@@ -1738,7 +1790,7 @@ extension ShotPredictor {
         return goldenSectionMin({ positionAimScoreAnalytic(input: input, context: ctx, offset: $0) },
                                 lower: center - half,
                                 upper: center + half,
-                                tol: 0.05 * deg)
+                                tol: 0.001 * deg)
     }
 
     /// 解析瞄准评分（`positionAimOffsetAnalytic` 的目标函数，与 `positionAimScore` 同口径）。
@@ -1764,7 +1816,9 @@ extension ShotPredictor {
             return AimScoring.invalidCandidate + out.cueGhostMinDist
         }
         let dot = max(-1, min(1, od.x * aimDirX + od.z * aimDirZ))
-        return acosf(dot) + abs(offset) * AimScoring.offsetRegularization
+        // atan2 在近零夹角仍保留精度；Float acos(dot) 会把约 0.02° 内压成同一评分。
+        let cross = od.x * aimDirZ - od.z * aimDirX
+        return atan2f(abs(cross),dot) + abs(offset) * AimScoring.offsetRegularization
     }
 
     /// 黄金分割一维极小化（要求 `f` 在 [lower, upper] 上拟单峰）。

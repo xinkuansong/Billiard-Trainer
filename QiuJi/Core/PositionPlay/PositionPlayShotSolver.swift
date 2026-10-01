@@ -9,6 +9,54 @@ import SceneKit
 /// 在两系间为均匀缩放且符号保持）。
 enum PositionPlayShotSolver {
 
+    /// Daily automatic recommendation only. Keep the normal geometric ordering,
+    /// and inspect another target only after the observed route is a combination.
+    /// Insufficient travel, misses and scratches are not rejection criteria.
+    static func solveDailyDirectRecommendation(before: BoardSnapshot, preferred: PlannedShot,
+        orderedTargetKeys: [String], surfaceY: Float, cancellation: PredictionCancellation? = nil
+    ) -> (shot: PlannedShot, prediction: ShotPrediction)? {
+        guard let first = solve(before: before, shot: preferred, surfaceY: surfaceY,
+                                cancellation: cancellation) else { return nil }
+        if first.hasCombinationRoute && !preferred.isFree {
+            guard let cuePoint = before.onTable[PositionPlayBall.cueKey] else { return (preferred, first) }
+            let cue = scenePoint(cuePoint, surfaceY: surfaceY)
+            var hard: [AngleSceneCalculator.DailyPocketCandidate] = []
+            func inspect(_ candidate: AngleSceneCalculator.DailyPocketCandidate)
+                -> (shot: PlannedShot, prediction: ShotPrediction)? {
+                var shot = preferred
+                shot.targetKey = candidate.targetKey
+                guard let pocket = ShotIntent.pocketId(for: candidate.pocketIndex) else { return nil }
+                shot.pocket = pocket
+                guard let prediction = solve(before: before, shot: shot, surfaceY: surfaceY,
+                    cancellation: cancellation) else { return nil }
+                return prediction.hasCombinationRoute ? nil : (shot, prediction)
+            }
+            for key in orderedTargetKeys where key != preferred.targetKey {
+                guard cancellation?.isCancelled != true else { return nil }
+                guard let point = before.onTable[key] else { continue }
+                let target = scenePoint(point, surfaceY: surfaceY)
+                let obstacles = before.onTable.filter {
+                    $0.key != key && $0.key != PositionPlayBall.cueKey
+                }.values.map { scenePoint($0, surfaceY: surfaceY) }
+                let candidates = (0..<6).compactMap {
+                    AngleSceneCalculator.dailyPocketCandidate(cue: cue, target: target,
+                        targetKey: key, pocketIndex: $0, obstacles: obstacles, surfaceY: surfaceY)
+                }
+                guard let best = AngleSceneCalculator.easiestDailyPocket(candidates) else { continue }
+                if best.cutDegrees <= AngleSceneCalculator.dailyComfortableCutDegrees {
+                    if let direct = inspect(best) { return direct }
+                } else { hard.append(best) }
+            }
+            for candidate in hard.sorted(by: AngleSceneCalculator.prefersDailyCandidate) {
+                guard cancellation?.isCancelled != true else { return nil }
+                if let direct = inspect(candidate) { return direct }
+            }
+            guard cancellation?.isCancelled != true else { return nil }
+            return (preferred, first)
+        }
+        return (preferred, first)
+    }
+
     /// 求解一杆。袋口模式走 `ShotPredictor.predict`（闭环瞄准），自由模式走 `simulateFree`（直瞄）。
     /// 返回 nil = 快照/意图不完整（缺母球、缺目标球、袋口非法）。
     static func solve(before: BoardSnapshot, shot: PlannedShot, surfaceY: Float,

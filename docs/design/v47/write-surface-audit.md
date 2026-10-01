@@ -1,12 +1,20 @@
 # v47 W0 测试写盘盘点
 
+2026-10-01 金属音色替换：同一已登记的 `ShotAudioTests.swift` 现验证 Bundle 中两种单次金属齿声，试听解码证据改写至 `build/control-metal-20261001/ui_aim_metal.caf` 和 `ui_power_metal.caf`；旧试听及截图保留，不写产品资产。正式WAV由授权试听提取，位于现有Audio资源目录，来源/哈希登记CREDITS.md及build中的assets.json。
+
+2026-10-01 两尺刻度声：登记 `ShotAudioTests.swift`，音频样本结构测试写 `build/control-audio-20261001/control-tick.caf`，只作本地试听证据。`AdaptiveShotControlsUITests.swift` 已登记，新增方法写同目录 `ui/` 中启用/静音的2D/3D截图；不写产品资源或历史截图基线、不主动清理旧证据，同名复跑会覆盖当前轮文件，失败抛出。
+
+2026-10-01 直接路线优先：沿用已登记的 `PositionPlayFreeAimTests.swift`，只有显式 `DIRECT_REVIEW_OUTPUT`／`TEST_RUNNER_DIRECT_REVIEW_OUTPUT` 时才写 `routes.json`；本轮为 `build/daily-direct-recommendation-20261001`，输出截图近似球形的原候选和新推荐实际轨迹。默认回归不写此文件；不删除旧证据、不修改存档或资源，写入失败抛出。同任务复跑会覆盖JSON，任务方负责留存历史。
+
+2026-10-01 选袋诊断：补登记 `PositionPlayFreeAimTests.swift`。此前用户要求球形对照的 `test_exportPocketSelectionReview` 写入 `output/pocket-selection-review-20261001` 的JSON，仅为诊断证据；同目录复跑会覆盖JSON，不写产品资源、存档或设计基线，不主动删除旧图。本轮近库回归默认仅做断言；显式 `TEST_RUNNER_RAIL_REVIEW_OUTPUT`（兼容去前缀的 `RAIL_REVIEW_OUTPUT`）才写四角真实轨迹 `physical-paths.json`，本轮目录 `build/daily-rail-rejection-20261001`。写入失败抛出；调用方负责指定独立证据目录并保留旧日志。图由独立绘图脚本生成，不替换截图基线。
+
 2026-09-27 真机采集预检：`Daily3DDeviceProfilingUITests` 仅在显式 `TEST_RUNNER_DAILY3D_DEVICE_PROFILE=1` 且为真机时执行；向标准输出写协调标记，截图交给 `XCTAttachment` 保存到本轮 xcresult，不接受任意输出路径，不主动清理旧证据。沿用正式每日清台数据容器，不使用resetState、fixture、重开或击球；正常入口可能恢复/创建今日草稿并自动开球，离页/失活按产品逻辑保存用时和工具记录。只接受正常开球完成确认，其他业务决策截图后停止；仅瞄准与相机变更，前后上手数/剩余球数/犯规数须相同。日志仅用于协调，不能代替trace时间戳或性能验收。
 
 2026-09-27 每日清台3D：`Daily3DClothPerformanceTests` 仅在诊断目录存在 `run` 哨兵时写PNG与逐通道比较JSON；模拟器为 `build/daily-3d-20260927/cloth-visuals`，手机为测试沙盒 caches 下 `daily-3d-cloth-visuals`。无哨兵跳过，不创建或改写用户存档、Bundle、内容真源或设计基线。写失败抛出。同目录复跑会覆盖本任务图片；复跑前由本任务保留旧证据。相机等价测试不写盘。
 
 2026-09-13 球贴纸：`BallStickerTests` / `BallStickerUITests` 只写 `output/ball-stickers-20260913/app-renders` 与 `ui`，所有写盘错误抛出。UV 相机校验帧为测试 Bundle 中的 `BallStickerUVFrames.json`，不依赖旧 output。SettingsView → BallStickerSettingsView 为正常生产导航，六款选择与本地重启保留由 BallStickerUITests 覆盖；深链取证外观使用已有显式 Light 参数，不将默认强制 Dark 的图冒充 Light。
 
-机器清单见 `write-surface-files.txt`，由 `verify_v47_ui_baseline.py` 对 `QiuJiTests/` 与 `QiuJiUITests/` 中的 `.write(`、`FileManager.default.createDirectory`、`pngRepresentation` 扫描生成并做差集门禁。当前共登记 163 个文件；新增写盘测试未登记时 `verify-gate` 失败。
+机器清单见 `write-surface-files.txt`，由 `verify_v47_ui_baseline.py` 对 `QiuJiTests/` 与 `QiuJiUITests/` 中的 `.write(`、`FileManager.default.createDirectory`、`pngRepresentation` 扫描生成并做差集门禁。当前共登记 167 个文件；新增写盘测试未登记时 `verify-gate` 失败。
 
 2026-09-14 补登记已有 `RoomReflectionProbeTests`：仅显式 `V62_SHOT_DIR` 指定且非 `device` 时写 PNG；默认不写盘，写入失败抛出；任务方须给独立 `output/` 或 `build/` 证据目录，留存由该任务负责，不得指向 Bundle/content/docs 基线。此次仅补清单和审计，未改反射测试。
 
@@ -137,3 +145,20 @@ DailyClearanceRulesTests.swift中的DailyClearancePhysicalGameTests默认只计�
 ### V019 球杆打点预览导出（2026-09-28）
 
 `CueSpinPreviewCaptureTests.swift` 仅在显式设置 `CUE_SPIN_DIR` / `TEST_RUNNER_CUE_SPIN_DIR` 时创建调用方指定目录，无变量时 XCTSkip。调用方须使用本任务独立的 output 或 build 子目录；输出 PNG、JSON、版本文本，开启 CUE_SPIN_VIDEO 时另写 MP4。固定名称复跑会覆盖同目录产物，需保留的证据先另存或使用新目录；无自动清理，由任务方按需清理。脚本要求显式设备与输出目录，构建默认隔离在输出目录下。不写 Bundle、训练数据或设计基线，写盘失败抛出。
+
+2026-09-28 DR-336：`AdaptiveShotControlsUITests` 使用每日清台模拟器夹具，写 `build/adaptive-controls-20260928/after` PNG 和 xcresult 截图附件；按维度/滑速/屏宽分文件。不会写 Bundle、内容真源或设计基线；同名复跑覆盖本任务图片，旧证据由任务方先保存，不主动清理目录。写盘错误抛出。launchClean/resetState会重置测试模拟器的每日状态，不用于用户真机验收。
+
+
+2026-09-28 全局相机预览：Daily3DCameraPerformanceTests.swift内GlobalCameraPreviewTests仅在显式GLOBAL_CAMERA_DIR/TEST_RUNNER_GLOBAL_CAMERA_DIR存在时写本次PNG和parameters.json，写入错误抛出，普通测试跳过出图。选定C档回归本身不写盘。V52相机图标UI用例沿用既有V52_SHOT_DIR目录与隔离selection夹具，截图由既有snap写入；不操作真实用户存档。
+
+DR-336 r2（2026-09-28）：AdaptiveShotControlsUITests截图目录改为`build/adaptive-controls-r2-20260928/after`，按维度/速度/屏宽分文件；原轮证据保留。新增瞄准慢滑/快滑精度状态与力度不被瞄准修改断言，仍仅重置测试模拟器夹具。
+
+2026-09-29 三视角隔离：`HumanCameraIsolationTests.testCaptureHumanBaselineMatrix` 写入 `build/camera-isolation-20260929/w3/frames` 的12张PNG及参数JSON，仅使用内存场景；写入失败抛出，不清理目录，不接触Bundle、存档或设计基线。同名重跑覆盖本任务产物，最终以通过运行的日志与清单为准；历史失败日志独立保留。
+
+2026-09-29 同文件离线隔离测试额外写 `build/camera-isolation-20260929/export-isolation` 的9张PNG（前/无操作重复/交互后），只读固定drill_c001第一杆；DEBUG诊断读取实际导出矩阵/FOV/隔离开关，不写相机；不修改旧视频或内容资产。
+
+2026-09-29 相机回退：HumanCameraIsolationTests 随隔离方案撤出测试 target，源文件和产物留档于 build/camera-rollback-20260929/；从当前写盘清单移除该入口。GlobalCameraPreviewTests 保留 C 档基线，V52 原生交互回归使用已有 V52_SHOT_DIR 契约。
+
+## 2026-09-30 音效本地试听取证
+
+`ShotAudioPreviewUITests` 仅在仓库本地试听 manifest 存在时运行，向忽略目录 `output/shot-audio-preview-20260930/` 写两张 PNG；写失败抛出，复跑覆盖同任务截图，清理由本任务负责，不回写真源。测试使用模拟器的每日清台 fixture/resetState，会改其测试数据；不对用户真机执行这一 UI 测试。声音触发以同次运行系统日志另证，截图不代表主观听感。

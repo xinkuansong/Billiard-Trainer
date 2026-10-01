@@ -143,7 +143,7 @@ enum AnalyticAim {
             // 袋口落孔（引擎 findNextEvent 同款 XZ 四次方程）
             var tPocket: Float?
             for pocket in geometry.pockets {
-                guard cue.position.distanceXZ(to: pocket.center) < reach + pocket.radius else { continue }
+                guard cue.position.distanceXZ(to: pocket.center) < reach + pocket.captureReachRadius else { continue }
                 if let t = ballPocketTime(
                     position: cue.position, velocity: cue.velocity, accel: accel,
                     pocket: pocket, horizon: checkHorizon
@@ -324,25 +324,14 @@ enum AnalyticAim {
         )?.time
     }
 
-    /// 球心水平投影抵达袋口孔圈的时刻（引擎 findNextEvent 的袋口 CCD 同款四次方程，XZ-only）。
+    /// 球心水平投影抵达共享捕获区域的时刻（实测入口与旧深部圆，XZ-only）。
     /// internal：B3 单球 rollout 复用。
     static func ballPocketTime(
         position: SCNVector3, velocity: SCNVector3, accel: SCNVector3,
         pocket: Pocket, horizon: Float
     ) -> Float? {
-        let dpX = position.x - pocket.center.x
-        let dpZ = position.z - pocket.center.z
-        let dvX = velocity.x, dvZ = velocity.z
-        let halfDaX = accel.x * 0.5, halfDaZ = accel.z * 0.5
-
-        let a4 = Double(halfDaX * halfDaX + halfDaZ * halfDaZ)
-        let a3 = 2.0 * Double(dvX * halfDaX + dvZ * halfDaZ)
-        let a2 = Double(dvX * dvX + dvZ * dvZ) + 2.0 * Double(dpX * halfDaX + dpZ * halfDaZ)
-        let a1 = 2.0 * Double(dpX * dvX + dpZ * dvZ)
-        let a0 = Double(dpX * dpX + dpZ * dpZ) - Double(pocket.radius * pocket.radius)
-
-        let roots = QuarticSolver.solveQuartic(a: a4, b: a3, c: a2, d: a1, e: a0)
-        return EngineNumerics.smallestPositiveRoot(roots, maxTime: horizon)
+        pocket.entryTime(position: position, velocity: velocity,
+                         acceleration: accel, maxTime: horizon)
     }
 
     // MARK: - Ghost min distance（未命中时的搜索梯度）

@@ -204,7 +204,7 @@ enum DrillStaticPreview {
         )
         let obstacles = scene.cueObstacleCenters(excludingStrikeNear: strikePos)
         switch CueStick.requiredElevation(
-            cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles
+            cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles, surfaceY: scene.surfaceY
         ) {
         case .blocked:
             scene.hideCueStick()

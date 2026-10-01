@@ -44,9 +44,95 @@ struct Pocket {
     let center: SCNVector3
     let radius: Float
     let isCorner: Bool
+    /// Convex CCW polygon of the measured, exposed cloth lip (world XZ metres).
+    /// It extends the legacy deep collector toward the actual opening; it does
+    /// not move the CAD jaws, the aiming centre, or the rendered leather.
+    var captureLip: [SIMD2<Double>] = []
+
+    var captureReachRadius: Float {
+        var squared = Double(radius * radius)
+        for p in captureLip {
+            let dx = p.x - Double(center.x), dz = p.y - Double(center.z)
+            squared = max(squared, dx*dx + dz*dz)
+        }
+        return Float(sqrt(squared))
+    }
+
+    func containsLip(_ position: SCNVector3, tolerance: Double = 0) -> Bool {
+        guard captureLip.count >= 3 else { return false }
+        let p = SIMD2(Double(position.x), Double(position.z))
+        return captureLip.indices.allSatisfy { i in
+            let a = captureLip[i], e = captureLip[(i + 1) % captureLip.count] - a
+            let length = sqrt(e.x * e.x + e.y * e.y)
+            return e.x * (p.y - a.y) - e.y * (p.x - a.x) >= -tolerance * length
+        }
+    }
+
+    func containsCapture(_ position: SCNVector3, tolerance: Double = 0) -> Bool {
+        let dx = Double(position.x - center.x), dz = Double(position.z - center.z)
+        return dx * dx + dz * dz <= pow(Double(radius) + tolerance, 2)
+            || containsLip(position, tolerance: tolerance)
+    }
+
+    /// Shared capture CCD for both the event engine and analytic search.
+    func entryTime(position: SCNVector3, velocity: SCNVector3,
+                   acceleration: SCNVector3, maxTime: Float) -> Float? {
+        let dx = position.x-center.x, dz = position.z-center.z
+        let vx = velocity.x, vz = velocity.z
+        let ax = acceleration.x*0.5, az = acceleration.z*0.5
+        let roots = QuarticSolver.solveQuartic(
+            a: Double(ax*ax+az*az), b: 2*Double(vx*ax+vz*az),
+            c: Double(vx*vx+vz*vz)+2*Double(dx*ax+dz*az),
+            d: 2*Double(dx*vx+dz*vz), e: Double(dx*dx+dz*dz)-Double(radius*radius))
+        let circle = EngineNumerics.smallestPositiveRoot(roots, maxTime: maxTime)
+        let lip = lipEntryTime(position: position, velocity: velocity,
+                               acceleration: acceleration, maxTime: maxTime)
+        return [circle, lip].compactMap { $0 }.min()
+    }
+
+    /// Earliest inward crossing of a finite lip edge under the same quadratic
+    /// motion used by the planar CCD. Tangency and exiting roots are not capture.
+    func lipEntryTime(position: SCNVector3, velocity: SCNVector3,
+                      acceleration: SCNVector3, maxTime: Float) -> Float? {
+        guard captureLip.count >= 3 else { return nil }
+        let p = SIMD2(Double(position.x), Double(position.z))
+        let v = SIMD2(Double(velocity.x), Double(velocity.z))
+        let a = SIMD2(Double(acceleration.x), Double(acceleration.z))
+        // Cheap conservative reach bound; no mesh query in the shot search loop.
+        let h = Double(maxTime)
+        let reach = sqrt(v.x*v.x + v.y*v.y)*h + 0.5*sqrt(a.x*a.x + a.y*a.y)*h*h
+        var minX = Double.infinity, maxX = -Double.infinity
+        var minZ = Double.infinity, maxZ = -Double.infinity
+        for vertex in captureLip {
+            minX = min(minX, vertex.x); maxX = max(maxX, vertex.x)
+            minZ = min(minZ, vertex.y); maxZ = max(maxZ, vertex.y)
+        }
+        guard p.x + reach >= minX, p.x - reach <= maxX,
+              p.y + reach >= minZ, p.y - reach <= maxZ else { return nil }
+        var earliest: Double?
+        for i in captureLip.indices {
+            let start = captureLip[i], edge = captureLip[(i+1)%captureLip.count] - start
+            let length = sqrt(edge.x*edge.x + edge.y*edge.y)
+            let n = SIMD2(-edge.y/length, edge.x/length)
+            func dot(_ x: SIMD2<Double>, _ y: SIMD2<Double>) -> Double { x.x*y.x + x.y*y.y }
+            let c = dot(n, p-start), b = dot(n, v), q = 0.5*dot(n, a)
+            for t in QuarticSolver.solveQuadraticPublic(a: q, b: b, c: c) {
+                guard t >= 0, t <= h, t.isFinite, b+2*q*t > 0 else { continue }
+                let hit = p + v*t + a*(0.5*t*t)
+                let u = dot(hit-start, edge)/(length*length)
+                guard u >= 0, u <= 1 else { continue }
+                // Recheck all halfplanes; an infinite supporting line is not the lip.
+                guard containsLip(SCNVector3(Float(hit.x), position.y, Float(hit.y)),
+                                  tolerance: Double(Float.ulpOfOne)*2) else { continue }
+                if earliest == nil || t < earliest! { earliest = t }
+            }
+        }
+        return earliest.map(Float.init)
+    }
 }
 
 struct LinearCushionSegment {
+    var soundSurface: ContactSoundEvent.Surface = .cushion
     let start: SCNVector3
     let end: SCNVector3
     let normal: SCNVector3
@@ -334,11 +420,11 @@ struct TableGeometry {
 
         // --- Jaw line segments (8 total: 2 per corner) ---
         for corner in corners {
-            linearCushions.append(LinearCushionSegment(
+            linearCushions.append(LinearCushionSegment(soundSurface: .jaw,
                 start: SCNVector3(corner.longJaw.startX, y, corner.longJaw.startZ),
                 end: SCNVector3(corner.longJaw.endX, y, corner.longJaw.endZ),
                 normal: SCNVector3(corner.longJaw.normalX, 0, corner.longJaw.normalZ)))
-            linearCushions.append(LinearCushionSegment(
+            linearCushions.append(LinearCushionSegment(soundSurface: .jaw,
                 start: SCNVector3(corner.shortJaw.startX, y, corner.shortJaw.startZ),
                 end: SCNVector3(corner.shortJaw.endX, y, corner.shortJaw.endZ),
                 normal: SCNVector3(corner.shortJaw.normalX, 0, corner.shortJaw.normalZ)))
@@ -386,12 +472,12 @@ struct TableGeometry {
         let throatZNear = railHalfWidth + sideFilletRadius                     // 0.665
         let throatZFar = TablePhysics.sidePocketThroatJoinZ                  // 0.688
         for sign in [Float(-1), Float(1)] {
-            linearCushions.append(LinearCushionSegment(
+            linearCushions.append(LinearCushionSegment(soundSurface: .liner,
                 start: SCNVector3(-sideThroatHalf, y, sign * throatZNear),
                 end: SCNVector3(-sideThroatHalf, y, sign * throatZFar),
                 normal: SCNVector3(1, 0, 0),
                 restitution: TablePhysics.pocketThroatRestitution))
-            linearCushions.append(LinearCushionSegment(
+            linearCushions.append(LinearCushionSegment(soundSurface: .liner,
                 start: SCNVector3(sideThroatHalf, y, sign * throatZNear),
                 end: SCNVector3(sideThroatHalf, y, sign * throatZFar),
                 normal: SCNVector3(-1, 0, 0),

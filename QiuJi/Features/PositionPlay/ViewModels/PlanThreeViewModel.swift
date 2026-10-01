@@ -1066,6 +1066,10 @@ extension PlanThreeViewModel {
             scene.hideCueStick(); lastAimDirection = nil; return
         }
         lastAimDirection = aim
+        if let point = scene.correctedCueSpin(aim: aim, spinX: spinX, spinY: spinY) {
+            adjustCurrentSolution(spinX: point.x, spinY: point.y)
+            return
+        }
         scene.updateCueStick(cueBallPosition: strikePosition(cue: cue.position), aimDirection: aim)
     }
 
@@ -1089,6 +1093,11 @@ extension PlanThreeViewModel {
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
               let aim = lastAimDirection ?? aimDirection(path: sol.prediction.cuePath, from: cueNode.position)
         else { return }
+        guard scene.permitsCueStrike(aim:aim,spinX:spinX,spinY:spinY) else {
+            statusText = CueStrikeAccess.unavailableMessage
+            return
+        }
+
         // 记录上一杆上下文（条 21.3 + G17）：击打前完整求解快照 + ①②③ 角色指派，供上一杆完整恢复/回放。
         lastShotContext = makeUndoContext(shot: sol.shot, prediction: sol.prediction)
         canUndoShot = false

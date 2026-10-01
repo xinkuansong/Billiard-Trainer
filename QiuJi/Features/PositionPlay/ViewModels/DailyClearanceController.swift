@@ -10,7 +10,6 @@ protocol DailyClearancePlayingHost: AnyObject {
     func restoreDailyClearanceCueBall()
     func beginDailyClearanceBreak(game: RackGame,
                                   seed: UInt64,
-                                  automaticallyStrike: Bool,
                                   onOutcome: @escaping (BreakOutcome) -> Void)
 }
 
@@ -38,17 +37,16 @@ extension PositionPlayViewModel: DailyClearancePlayingHost {
 
     func beginDailyClearanceBreak(game: RackGame,
                                   seed: UInt64,
-                                  automaticallyStrike: Bool,
                                   onOutcome: @escaping (BreakOutcome) -> Void) {
         // Cancel callbacks and playback before replacing the controller attempt.
         cancelDailyAttempt()
         startBreakFlow(
             game: game,
-            manualDeliver: !automaticallyStrike,
+            manualDeliver: true,
             seed: seed,
             onOutcome: onOutcome
         )
-        // Daily clearance starts each automatic or manual break at 8 m/s.
+        // Start at 8 m/s; the player can adjust every input before striking.
         breakRunner?.velocity = 8.0
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-dailyClearance.fixtureSettled") {
@@ -67,9 +65,6 @@ extension PositionPlayViewModel: DailyClearancePlayingHost {
             return
         }
         #endif
-        if automaticallyStrike {
-            breakRunner?.breakNow()
-        }
     }
 }
 
@@ -82,7 +77,6 @@ enum DailyClearanceRerackDecision: Equatable {
 /// 每日清台编排层：只协调规则、草稿、计时与开球宿主，不持有 SwiftUI View。
 @MainActor
 final class DailyClearanceController: ObservableObject {
-    static let maximumAutomaticRetries = 3
 
     @Published private(set) var draft: DailyClearanceDraft?
     @Published private(set) var completion: DailyClearanceCompletion?
@@ -95,7 +89,6 @@ final class DailyClearanceController: ObservableObject {
     private var rulesEngine: DailyClearanceRulesEngine?
     private var activeSince: Date?
     private var hasStarted = false
-    private var currentBreakIsAutomatic = false
     private var breakGeneration = UUID()
     private var awaitingShot = false
     private var undoDraft: DailyClearanceDraft?
@@ -171,7 +164,7 @@ final class DailyClearanceController: ObservableObject {
         store.saveDraft(current)
         statusText = choice.label
         if let notice = prepareBehindStringPlacement(engine: engine) { statusText += "；" + notice; savePlacedBoard() }
-        if rerack { beginBreak(automaticallyStrike: false) }
+        if rerack { beginBreak() }
     }
 
 
@@ -229,7 +222,7 @@ final class DailyClearanceController: ObservableObject {
         } else if completion != nil {
             statusText = "今日已清台"
         } else {
-            beginNewAutomaticAttempt(game: defaultGame, seed: seedGenerator())
+            resetAndBeginManualRack(game: defaultGame)
         }
         resumeActivity()
     }
@@ -307,7 +300,7 @@ final class DailyClearanceController: ObservableObject {
 
     func replay() {
         let replayGame = game ?? .chineseEightBall
-        beginNewAutomaticAttempt(game: replayGame, seed: seedGenerator())
+        resetAndBeginManualRack(game: replayGame)
         resumeActivity()
     }
 
@@ -325,39 +318,35 @@ final class DailyClearanceController: ObservableObject {
                     ? "开球未满足碰库要求" : "开球犯规"
             }
         case .autoBreaking:
-            beginBreak(automaticallyStrike: true)
+            // Migrate interrupted system breaks without discarding the rack or history.
+            var manual = restored
+            manual.phase = .manualRacked
+            manual.updatedAt = now()
+            draft = manual
+            store.saveDraft(manual)
+            beginBreak()
+            statusText = "已恢复待开球球架"
         case .manualRacked:
-            beginBreak(automaticallyStrike: false)
+            beginBreak()
             statusText = "已恢复待开球球架"
         case .failed:
             if let board = restored.board {
                 host?.loadDailyClearanceBoard(board)
             } else {
-                beginBreak(automaticallyStrike: false)
+                beginBreak()
             }
             statusText = "本局已结束"
         }
     }
 
-    private func beginNewAutomaticAttempt(game: DailyClearanceGame, seed: UInt64) {
-        let current = store.makeDraft(game: game, seed: seed)
-        draft = current
-        rulesEngine = DailyClearanceRulesEngine(game: game)
-        store.saveDraft(current)
-        statusText = "正在自动开球…"
-        beginBreak(automaticallyStrike: true)
-    }
-
-    private func beginBreak(automaticallyStrike: Bool) {
+    private func beginBreak() {
         guard let current = draft else { return }
-        currentBreakIsAutomatic = automaticallyStrike
         let generation = UUID()
         breakGeneration = generation
         awaitingShot = false; undoDraft = nil; undoHost = nil; canUndo = false
         host?.beginDailyClearanceBreak(
             game: current.game.rackGame,
             seed: current.seed,
-            automaticallyStrike: automaticallyStrike,
             onOutcome: { [weak self] outcome in
                 guard let self, self.breakGeneration == generation else { return }
                 self.breakGeneration = UUID()
@@ -382,8 +371,8 @@ final class DailyClearanceController: ObservableObject {
         if current.ruleState.ruleVersion >= 2, let facts = outcome.facts {
             var engine = rulesEngine ?? DailyClearanceRulesEngine(game: current.game)
             let ruling = current.game == .chineseEightBall
-                ? engine.judgeChineseBreak(facts, automatic: currentBreakIsAutomatic)
-                : engine.judgeNineBreak(facts, automatic: currentBreakIsAutomatic)
+                ? engine.judgeChineseBreak(facts, automatic: false)
+                : engine.judgeNineBreak(facts, automatic: false)
             host?.respotDailyBalls(ruling.respotKeys)
             if ruling.ballInHand { host?.restoreDailyClearanceCueBall() }
             let placementNotice = prepareBehindStringPlacement(engine: engine)
@@ -408,20 +397,6 @@ final class DailyClearanceController: ObservableObject {
         }
 
         if outcome.terminalBallPocketed {
-            if currentBreakIsAutomatic,
-               current.automaticRetryCount < Self.maximumAutomaticRetries {
-                current.automaticRetryCount += 1
-                current.seed &+= 1
-                current.board = nil
-                current.phase = .autoBreaking
-                current.updatedAt = now()
-                draft = current
-                store.saveDraft(current)
-                statusText = "终局球开球落袋，正在重开…"
-                beginBreak(automaticallyStrike: true)
-                return
-            }
-
             current.seed &+= 1
             current.phase = .failed
             current.board = nil
@@ -429,7 +404,7 @@ final class DailyClearanceController: ObservableObject {
             draft = current
             store.saveDraft(current)
             statusText = "终局球开球落袋，请手动重新开球"
-            beginBreak(automaticallyStrike: false)
+            beginBreak()
             return
         }
 
@@ -454,7 +429,7 @@ final class DailyClearanceController: ObservableObject {
         rulesEngine = DailyClearanceRulesEngine(game: game)
         store.saveDraft(current)
         statusText = "已重新摆架，请调整后开球"
-        beginBreak(automaticallyStrike: false)
+        beginBreak()
         resumeActivity(at: timestamp)
     }
 
@@ -563,6 +538,18 @@ final class DailyClearanceController: ObservableObject {
             fixtureDraft.board = BoardSnapshot(onTable: [
                 PositionPlayBall.cueKey: CanvasPoint(x: 0.82, y: 0.25),
                 "_1": CanvasPoint(x: 0.30, y: 0.22), "_8": CanvasPoint(x: 0.4, y: 0.38)])
+        case "cueAccess", "cueAccessRoom", "cueAccessHigh", "cueAccessRear":
+            fixtureDraft.phase = .playing
+            fixtureDraft.ruleState.assignedGroup = .solid
+            fixtureDraft.board = BoardSnapshot(onTable: [
+                PositionPlayBall.cueKey: CanvasPoint(x: (fixture == "cueAccessRoom" ? 0.1 : fixture == "cueAccessHigh" ? Double(AngleSceneCalculator.ballRadius) : 0.045) / 2.54, y: 0.25),
+                "_1": CanvasPoint(x: 0.60, y: 0.25), "_8": CanvasPoint(x: 0.75, y: 0.35)])
+            if fixture == "cueAccessRear" {
+                fixtureDraft.board=BoardSnapshot(onTable:[
+                    PositionPlayBall.cueKey:CanvasPoint(x:0.4,y:0.25),
+                    "_2":CanvasPoint(x:0.4-Double(2*AngleSceneCalculator.ballRadius)/2.54,y:0.25),
+                    "_1":CanvasPoint(x:0.6,y:0.25),"_8":CanvasPoint(x:0.75,y:0.35)])
+            }
         case "progress":
             fixtureDraft.phase = .playing
             fixtureDraft.shotCount = 2

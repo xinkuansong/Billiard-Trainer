@@ -1,5 +1,7 @@
 # 球迹 App 音效实录方案（Field Recording Plan）
 
+> 2026-09-30：本地原型按用户最新裁定采用每类一个已确认底样、连续音量；本文件20份实录/分档音色/-3dBFS统一化要求不用于这次试听。见 `tasks/SHOT-AUDIO-PREVIEW-20260930.md`。原实录流程留作后续参考。
+
 > 目标：在真实球桌上录制 App 击球回放所需的全部音效，替代网络素材，做到「听起来就是真球房」。
 > 代码侧已就绪（`QiuJi/Core/Audio/ShotSoundBank.swift` + `ShotAudioScheduler.swift`），
 > 录完按命名约定放入本目录（`QiuJi/Resources/Audio/`）重新构建即可生效。

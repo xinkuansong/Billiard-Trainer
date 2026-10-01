@@ -446,9 +446,9 @@ final class TableGeometryProbeTests: XCTestCase {
         print("===END-PROBE-ESOLVER===\n")
     }
 
-    // MARK: - D. 贴库球管道余量豁免（railFrozenSlack 回归，金标准样例「贴库线不扎库」）
+    // MARK: - D. 贴库球真实半径管道（球心线不扎库）
 
-    /// 目标球贴库/准贴库时，`effectivePocketAimPoint` 的余量应放宽为「球心距库 − 0.5mm」：
+    /// 目标球贴库/准贴库时，`effectivePocketAimPoint` 允许相切，但管道半径不得小于球半径：
     /// 进球线必须存在且**不穿过所贴的库边**（沿库滚进袋是零余量合法物理）；
     /// 远离库的球仍用标准 3mm 余量，行为不变（正对袋心干净可过 ⇒ 进球点 = 袋心）。
     func test_probe_D_railFrozenAimClearance() {
@@ -610,5 +610,227 @@ final class TableGeometryProbeTests: XCTestCase {
             let yLo = lo + Float(i) * binW
             print(String(format: "  y=[%.3f,%.3f)  rel=%+.3f  n=%d", yLo, yLo + binW, yLo - surfaceY, c))
         }
+    }
+}
+
+extension TableGeometryProbeTests {
+    private func bedContains(_ point: SIMD2<Double>, surface: TableAssistSurface) -> Bool {
+        surface.triangles.contains { t in
+            let c = (0..<3).map { i -> Double in
+                let d = t[(i+1)%3]-t[i], v = point-t[i]
+                return d.x*v.y-d.y*v.x
+            }
+            return c.allSatisfy { $0 >= -1e-12 } || c.allSatisfy { $0 <= 1e-12 }
+        }
+    }
+
+    @MainActor
+    func testMeasuredCaptureLipMatchesExposedCloth() throws {
+        let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: true)
+        let surface = try TableAssistSurface.load(from: scene)
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: scene.surfaceY)
+        for pocket in geometry.pockets {
+            XCTAssertGreaterThan(pocket.captureLip.count, 10)
+            for i in pocket.captureLip.indices {
+                let a = pocket.captureLip[i], b = pocket.captureLip[(i+1)%pocket.captureLip.count]
+                let d = b-a, length = sqrt(d.x*d.x+d.y*d.y), mid = (a+b)/2
+                let n = SIMD2(-d.y/length,d.x/length)
+                // The single back chord closes the collector inside the opening.
+                if length > 0.04 { continue }
+                XCTAssertFalse(bedContains(mid+n*0.00002, surface: surface), "\(pocket.id) edge \(i) inside must be open")
+                XCTAssertTrue(bedContains(mid-n*0.00002, surface: surface), "\(pocket.id) edge \(i) outside must be cloth")
+            }
+        }
+    }
+
+    @MainActor
+    func testSlowRollAcrossClothLipPotsButSupportedStopDoesNot() throws {
+        let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: true)
+        let surface = try TableAssistSurface.load(from: scene)
+        let sy = scene.surfaceY, r = BallPhysics.radius
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: sy)
+        for (index, pocket) in geometry.pockets.enumerated() {
+            for angle:Float in [-5,0,5] {
+            let inward = SCNVector3(index < 4 ? (pocket.center.x > 0 ? -1:1):0, 0,
+                                   pocket.center.z > 0 ? -1:1).normalized().rotatedY(angle * .pi / 180)
+            func radial(_ d: Float) -> SCNVector3 {
+                SCNVector3(pocket.center.x+inward.x*d, sy+r, pocket.center.z+inward.z*d)
+            }
+            var lo: Float = 0, hi: Float = 0.2
+            for _ in 0..<28 {
+                let m=(lo+hi)/2, p=radial(m)
+                if bedContains(SIMD2(Double(p.x),Double(p.z)),surface:surface) { hi=m } else { lo=m }
+            }
+            let edge=(lo+hi)/2
+            for overshoot: Float in [-0.002,0.002,0.012,0.05] {
+                for dense in [false,true] {
+                    let speed=sqrtf(2*SpinPhysics.rollingFriction*9.81*(0.05+overshoot))
+                    let v=inward * -speed
+                    let engine=EventDrivenEngine(tableGeometry:geometry)
+                    engine.setBall(BallState(position:radial(edge+0.05),velocity:v,
+                        angularVelocity:SCNVector3(0,1,0).cross(v)*(1/r),state:.rolling,name:"object"))
+                    XCTAssertEqual(engine.simulatePrediction(model:.appDefault,maxEvents:500,maxTime:15,highFidelityBounds:dense),.settled)
+                    let ball=try XCTUnwrap(engine.getBall("object"))
+                    XCTAssertEqual(ball.isPocketed,overshoot>0,"\(pocket.id) overshoot \(overshoot), dense \(dense)")
+                    if overshoot>0 {
+                        let entry=try XCTUnwrap(engine.getTrajectoryRecorder().pocketEntries.first)
+                        XCTAssertEqual(entry.pocketID,pocket.id)
+                        XCTAssertEqual(engine.getTrajectoryRecorder().pocketEntries.count,1)
+                        let entryD=hypotf(entry.ball.position.x-pocket.center.x,entry.ball.position.z-pocket.center.z)
+                        XCTAssertEqual(entryD,edge,accuracy:0.00001)
+                        let playback=TrajectoryPlayback(recorder:engine.getTrajectoryRecorder(),surfaceY:sy+r)
+                        let falling=try XCTUnwrap(playback.stateAt(ballName:"object",time:entry.time+0.08))
+                        XCTAssertLessThan(falling.position.y,sy+r-0.001,"Captured ball must visibly descend")
+                    }
+                }
+            }
+            }
+        }
+    }
+}
+
+extension TableGeometryProbeTests {
+    func testTouchingRailContactResolvesAtZeroWithoutReflectingSeparatingBall() throws {
+        let r=Double(BallPhysics.radius)
+        let n=SCNVector3(0,0,-1), offset=Double(-Float(0.635))
+        let p=SCNVector3(0.5,0.828575,Float(0.635)-BallPhysics.radius)
+        let incoming=CollisionDetector.ballLinearCushionTime(p:p,v:SCNVector3(1,0,0.024540592),a:SCNVector3Zero,
+            lineNormal:n,lineOffset:offset,R:r,maxTime:1)
+        XCTAssertEqual(try XCTUnwrap(incoming),0)
+        XCTAssertNil(CollisionDetector.ballLinearCushionTime(p:p,v:SCNVector3(1,0,-0.024540592),a:SCNVector3Zero,
+            lineNormal:n,lineOffset:offset,R:r,maxTime:1))
+        XCTAssertNil(CollisionDetector.ballLinearCushionTime(p:p,v:SCNVector3(1,0,0),a:SCNVector3Zero,
+            lineNormal:n,lineOffset:offset,R:r,maxTime:1))
+        let delayed=CollisionDetector.ballLinearCushionTime(p:SCNVector3(p.x,p.y,p.z-0.00001),v:SCNVector3(1,0,0.024540592),a:SCNVector3Zero,
+            lineNormal:n,lineOffset:offset,R:r,maxTime:1)
+        XCTAssertGreaterThan(try XCTUnwrap(delayed),0.0003)
+        // Double inputs keep real sub-microsecond roots instead of rounding them to zero.
+        let exact=CollisionDetector.ballLinearCushionTime(p:SIMD3(0,0,r+1e-9),v:SIMD3(0,0,-0.02),a:.zero,
+            lineNormal:SIMD3(0,0,1),lineOffset:0,R:r,maxTime:1)
+        XCTAssertEqual(Double(try XCTUnwrap(exact)),5e-8,accuracy:1e-12)
+    }
+
+    func testFrozenBallRecordsRealRailImpactAndSettles() throws {
+        let sy:Float=0.8,r=BallPhysics.radius
+        let geo=TableGeometry.chineseEightBallQiuJi(surfaceY:sy)
+        for sign:Float in [-1,1] {
+            let engine=EventDrivenEngine(tableGeometry:geo)
+            let v=SCNVector3(0.3,0,sign*0.024540592)
+            engine.setBall(BallState(position:SCNVector3(0.5,sy+r,sign*(0.635-r)),velocity:v,
+                angularVelocity:SCNVector3(0,1,0).cross(v)*(1/r),state:.rolling,name:"object"))
+            XCTAssertEqual(engine.simulatePrediction(model:.appDefault,maxEvents:500,maxTime:15,highFidelityBounds:true),.settled)
+            let hits=zip(engine.resolvedEvents,engine.resolvedEventTimes).filter {
+                if case .ballCushion(let ball,let index,_)=$0.0 { return ball=="object" && index<6 }
+                return false
+            }
+            XCTAssertEqual(hits.count,1)
+            XCTAssertEqual(try XCTUnwrap(hits.first).1,0)
+            let final=try XCTUnwrap(engine.getBall("object"))
+            XCTAssertLessThan(abs(final.position.z),0.635-r)
+        }
+    }
+}
+
+
+extension TableGeometryProbeTests {
+    func testFrozenAimKeepsFullRadiusBeforeCapture() throws {
+        let sy: Float = 0.8, r = BallPhysics.radius
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: sy)
+        for index in 0..<4 {
+            let sx: Float = index % 2 == 0 ? -1 : 1
+            let sz: Float = index < 2 ? -1 : 1
+            for shortRail in [false, true] {
+                let origin = shortRail ? SCNVector3(sx*(1.27-r),sy+r,sz*0.2)
+                    : SCNVector3(sx*0.5,sy+r,sz*(0.635-r))
+                let aim = AngleSceneCalculator.effectivePocketAimPoint(targetBall:origin,pocketIndex:index,surfaceY:sy)
+                let dir = (aim-origin).normalized()
+                let t = (aim-origin).length()
+                for i in 0...200 {
+                    let p = origin + dir*(t*Float(i)/200)
+                    // Main cushion finite extent: outside its end, the jaw handles clearance.
+                    if !shortRail && abs(p.x) <= 1.1671 {
+                        XCTAssertGreaterThanOrEqual(0.635-abs(p.z),r-0.000001)
+                    } else if shortRail && abs(p.z) <= 0.5321 {
+                        XCTAssertGreaterThanOrEqual(1.27-abs(p.x),r-0.000001)
+                    }
+                }
+                let v=dir*0.8, engine=EventDrivenEngine(tableGeometry:geometry)
+                engine.setBall(BallState(position:origin,velocity:v,
+                    angularVelocity:SCNVector3(0,1,0).cross(v)*(1/r),state:.rolling,name:"object"))
+                XCTAssertEqual(engine.simulatePrediction(model:.appDefault,maxEvents:500,maxTime:15,highFidelityBounds:true),.settled)
+                XCTAssertTrue(try XCTUnwrap(engine.getBall("object")).isPocketed,"pocket \(index), short \(shortRail), aim \(aim)")
+                XCTAssertFalse(engine.resolvedEvents.contains {
+                    if case .ballCushion(let name,let index,_)=$0 { return name=="object" && index<6 };return false
+                },"Straight frozen aim must not hit the main cushion")
+            }
+        }
+    }
+
+    func testPreviouslyMissedFrozenSolverShot() throws {
+        let sy:Float=0.8,r=BallPhysics.radius
+        let input=ShotInput(cueBall:SCNVector3(0.45,sy+r,0.306425),
+            targetBall:SCNVector3(0.95,sy+r,0.635-r),pocketIndex:3,
+            velocity:0.8,spinX:0,spinY:0,surfaceY:sy)
+        let prediction=ShotPredictor.predictForPositionSolve(input)
+        print("FROZEN-SOLVE potted=\(prediction.objectPocketed) offset=\(prediction.aimOffsetUsed) before=\(prediction.cueCushionsBeforeContact)")
+        XCTAssertTrue(prediction.objectPocketed)
+        XCTAssertEqual(prediction.cueCushionsBeforeContact,0)
+    }
+}
+
+extension TableGeometryProbeTests {
+    func testNarrowRailAimWindowsAndFrozenOffsetReplay() throws {
+        let sy:Float=0.8,r=BallPhysics.radius
+        let cases:[(Float,Float,Float)]=[(0.17145,0.005,2.4),(0.5,0.0015,0.8),
+            (0.95,0,0.8),(0.95,0.0015,2.4),(0.95,0.0015,3.3),
+            (0.95,0.005,2.4),(0.95,0.005,3.3)]
+        for (x,gap,speed) in cases {
+            let target=SCNVector3(x,sy+r,0.635-r-gap)
+            let input=ShotInput(cueBall:target+SCNVector3(-0.5,0,-0.3),targetBall:target,
+                pocketIndex:3,velocity:speed,spinX:0,spinY:0,surfaceY:sy)
+            let solved=ShotPredictor.predictForPositionSolve(input)
+            XCTAssertTrue(solved.objectPocketed,"x \(x) gap \(gap) speed \(speed)")
+            XCTAssertTrue(solved.hasFinalTableState)
+            XCTAssertEqual(solved.cueCushionsBeforeContact,0)
+            var seed=ShotPrediction()
+            let context=try XCTUnwrap(ShotPredictor.prepareAim(input,into:&seed))
+            let initialOffset=ShotPredictor.positionAimOffset(input:input,context:context)
+            if solved.aimOffsetUsed != initialOffset {
+                XCTAssertTrue(solved.objectRailContacts.isEmpty,"A new fallback must not introduce a bank")
+            }
+            // 原方向已经真实进袋时不替换它。既有贴库局面可能在真实碰球之后擦库，
+            // 这与纯目标球沿理想线发射的几何净空断言是两个不同的测试。
+            print("RAIL-REPLAY x=\(x) gap=\(gap) v=\(speed) rails=\(solved.objectRailContacts) adjusted=\(solved.aimOffsetUsed != initialOffset)")
+            let offset=try XCTUnwrap(solved.aimOffsetUsed)
+            let replay=ShotPredictor.predictForPositionSolve(input,aimOffset:offset)
+            XCTAssertTrue(replay.objectPocketed)
+            XCTAssertEqual(replay.aimOffsetUsed,offset)
+            XCTAssertEqual(replay.duration,solved.duration)
+            let scoring=ShotPredictor.predictForPositionSolve(input,aimOffset:offset,includePresentation:false)
+            XCTAssertTrue(scoring.objectPocketed)
+        }
+    }
+}
+
+extension TableGeometryProbeTests {
+    func testPocketMouthDoesNotReflectAtExtendedMainRail() throws {
+        let sy:Float=0.8,r=BallPhysics.radius
+        let input=ShotInput(cueBall:SCNVector3(0.17239821,sy+r,0.41960132),
+            targetBall:SCNVector3(0.8271203,sy+r,0.50750744),pocketIndex:3,
+            velocity:1.8187602,spinX:-0.20291474,spinY:-0.2133288,surfaceY:sy,
+            obstacles:[ObstacleBall(name:"_2",position:SCNVector3(0.4836477,sy+r,-0.08534384)),
+                       ObstacleBall(name:"_3",position:SCNVector3(-0.53976476,sy+r,0.26544726)),
+                       ObstacleBall(name:"_4",position:SCNVector3(-0.48108935,sy+r,0.38356507)),
+                       ObstacleBall(name:"_5",position:SCNVector3(0.20803809,sy+r,0.09528941))])
+        let offset:Float=0.012629199
+        let full=ShotPredictor.predictForPositionSolve(input,aimOffset:offset)
+        XCTAssertTrue(full.objectPocketed)
+        XCTAssertEqual(full.objectCushionCount,0,"Mouth beyond finite main rail must stay open")
+        var seed=ShotPrediction()
+        let context=try XCTUnwrap(ShotPredictor.prepareAim(input,into:&seed))
+        let fast=AnalyticShotRollout.evaluate(aimDir:context.aimDir.rotatedY(offset),velocity:input.velocity,
+            input:input,geometry:context.geometry,ghost:context.ghost)
+        XCTAssertFalse(fast.needsFullSim)
+        XCTAssertEqual(fast.pottedSelected,full.objectPocketed)
     }
 }

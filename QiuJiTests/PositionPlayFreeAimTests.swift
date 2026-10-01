@@ -1300,6 +1300,104 @@ final class DailyPreviewWorkTests: XCTestCase {
 
 @MainActor
 final class DailyPowerReleaseTests: XCTestCase {
+    private func makePocketVM() async throws -> PositionPlayViewModel {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.clearTable()
+        vm.usesAutomaticPocketFallback = true
+        vm.placeFromPalette(PositionPlayBall.cueKey,
+            atWorld: SCNVector3(-0.5, vm.scene.surfaceY + BallPhysics.radius, 0))
+        vm.placeFromPalette("_1", atWorld: SCNVector3(0, vm.scene.surfaceY + BallPhysics.radius, 0))
+        XCTAssertTrue(vm.selectTarget(key: "_1"))
+        try await waitUntil { vm.solvedShot != nil && !vm.isComputing }
+        XCTAssertEqual(vm.aimMode, .pocket)
+        XCTAssertTrue(vm.isFeasible)
+        XCTAssertFalse(try XCTUnwrap(vm.scene.cueStick).rootNode.isHidden)
+        return vm
+    }
+
+    func testPocketPowerDragKeepsCueAcrossIdleSolveReleaseAndReselection() async throws {
+        let vm = try await makePocketVM()
+        defer { vm.clearTable() }
+        let cue = try XCTUnwrap(vm.scene.cueStick).rootNode
+        let target = vm.selectedTargetKey, pocket = vm.selectedPocketIndex
+        vm.beginPowerDrag()
+        for value in [1.6, 1.7, 1.8] {
+            vm.velocity = value
+            XCTAssertFalse(cue.isHidden, "Power input must not hide the addressed cue")
+            XCTAssertEqual(vm.aimMode, .pocket)
+        }
+        // A pause while still holding the control delivers the latest preview.
+        try await waitUntil { vm.solvedShot?.shot.velocity == 1.8 && !vm.isComputing }
+        XCTAssertFalse(cue.isHidden)
+        vm.velocity = 1.9
+        XCTAssertFalse(cue.isHidden)
+        vm.endPowerDrag(commit: false)
+        XCTAssertFalse(cue.isHidden)
+        try await waitUntil { vm.solvedShot?.shot.velocity == 1.9 && !vm.isComputing }
+        XCTAssertEqual(vm.selectedTargetKey, target)
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        XCTAssertFalse(vm.isPlaying)
+
+        vm.nudgeFreeAim(byDegrees: 1)
+        XCTAssertEqual(vm.aimMode, .free)
+        vm.beginPowerDrag()
+        vm.velocity = 2.0
+        XCTAssertFalse(cue.isHidden)
+        vm.endPowerDrag(commit: false)
+        try await waitUntil { vm.solvedShot?.shot.velocity == 2 && !vm.isComputing }
+        XCTAssertTrue(vm.selectTarget(key: "_1"))
+        try await waitUntil { vm.solvedShot?.shot.isFree == false && !vm.isComputing }
+        XCTAssertEqual(vm.aimMode, .pocket)
+        vm.beginPowerDrag()
+        vm.velocity = 2.1
+        XCTAssertFalse(cue.isHidden, "Reselecting a target must not restore the disappearing-cue bug")
+        vm.endPowerDrag(commit: false)
+    }
+
+    func testPocketPowerPreviewRejectsChangedBoardAndMissingCue() async throws {
+        let vm = try await makePocketVM()
+        defer { vm.clearTable() }
+        let stick = try XCTUnwrap(vm.scene.cueStick).rootNode
+        let target = try XCTUnwrap(vm.scene.allBallNodes["_1"])
+        target.position.x += 0.1
+        vm.beginPowerDrag()
+        vm.velocity = 1.8
+        XCTAssertTrue(stick.isHidden, "An old solved direction must not be reused for a changed board")
+        vm.endPowerDrag(commit: false)
+        vm.removeFromTable(PositionPlayBall.cueKey)
+        vm.beginPowerDrag()
+        vm.velocity = 1.9
+        XCTAssertTrue(stick.isHidden)
+        XCTAssertFalse(vm.isPlaying)
+    }
+
+    func testPocketPowerCueRenderedBeforeDuringAndAfterDrag() async throws {
+        let vm = try await makePocketVM()
+        defer { vm.clearTable() }
+        vm.scene.setCameraMode(.perspective3D, animated: false)
+        let renderer = SCNRenderer(device: nil, options: nil)
+        renderer.scene = vm.scene
+        renderer.pointOfView = vm.scene.cameraNode
+        func capture(_ name: String) throws {
+            XCTAssertFalse(try XCTUnwrap(vm.scene.cueStick).rootNode.isHidden)
+            SCNTransaction.flush()
+            let image = renderer.snapshot(atTime: CACurrentMediaTime(),
+                with: CGSize(width: 1000, height: 700), antialiasingMode: .multisampling4X)
+            let attachment = XCTAttachment(image: image)
+            attachment.name = name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        try capture("power-before")
+        vm.beginPowerDrag()
+        vm.velocity = 1.8
+        try capture("power-during")
+        vm.endPowerDrag(commit: false)
+        try await waitUntil { vm.solvedShot?.shot.velocity == 1.8 && !vm.isComputing }
+        try capture("power-after")
+    }
+
     private func makeVM() -> PositionPlayViewModel {
         let vm = PositionPlayViewModel()
         vm.setupScene()
@@ -1529,5 +1627,580 @@ final class DailyPlacementAndNoticeTests: XCTestCase {
         XCTAssertGreaterThanOrEqual((nine.position - occupied.position).length(), 2 * BallPhysics.radius - 0.0001)
         XCTAssertEqual(nine.position.z, 0, accuracy: 0.0001)
         vm.cancelDailyAttempt()
+    }
+}
+
+final class DailyCombinationRecommendationTests: XCTestCase {
+    private let y = BTTablePhysics.surfaceY
+
+    private func screenshotBoard() -> BoardSnapshot {
+        // Screenshot reconstruction: landscape right=+X, down=+Z, metres.
+        // Both diagonal corner centres determine the projection, not the cloth rim.
+        let pixels: [String: (Double, Double)] = ["cueBall": (1368,404), "_15": (1264,405),
+            "_8": (399,361), "_9": (478,369), "_11": (402,463), "_4": (439,410),
+            "_2": (475,425), "_13": (584,591), "_10": (815,822)]
+        return BoardSnapshot(onTable: pixels.mapValues { x, z in
+            let p = SCNVector3(Float((x-909.5)*2.624/1121), y,
+                              Float((z-623.5)*1.354/585))
+            let n = AngleSceneCalculator.sceneToNormalized(position: p)
+            return CanvasPoint(x: Double(n.x), y: Double(n.y))
+        })
+    }
+
+    func test_combinationUsesContactsNotPocketOrderOrOutcome() {
+        let c = ShotInput.cueBallName, t = ShotInput.targetBallName
+        func route(_ pairs: [(String,String)]) -> ShotPrediction {
+            var p = ShotPrediction()
+            p.events = pairs.enumerated().map { i, pair in
+                ShotEvent(time: Float(i), kind: .ballBall(ballA: pair.0, ballB: pair.1))
+            }
+            return p
+        }
+        XCTAssertTrue(route([(c,t),(t,"_8")]).hasCombinationRoute)
+        XCTAssertTrue(route([(c,"_8"),("_8",t)]).hasCombinationRoute)
+        XCTAssertFalse(route([(c,t),(c,"_8")]).hasCombinationRoute,
+                       "Incidental cue contact after the direct hit is not an object combination")
+        var direct = route([(c,t)])
+        direct.cuePocketed = true
+        direct.objectPocketed = false
+        direct.pocketedBalls = ["_8",c]
+        XCTAssertFalse(direct.hasCombinationRoute, "Scratch, miss and another pot alone do not select a new target")
+        direct.events.append(ShotEvent(time: 1, kind: .pocket(ball: t, pocketId: "pocket_0")))
+        direct.events.append(ShotEvent(time: 2, kind: .ballBall(ballA: t, ballB: "_8")))
+        XCTAssertFalse(direct.hasCombinationRoute, "Only contacts before the target's pot belong to its route")
+    }
+
+    func test_screenshotCombinationIsSkippedForTenWithoutChangingPower() throws {
+        let board = screenshotBoard()
+        let shot = PlannedShot(targetKey: "_15", pocket: try XCTUnwrap(ShotIntent.pocketId(for: 0)),
+                               velocity: 3.37, spinX: 0, spinY: 0)
+        let original = try XCTUnwrap(PositionPlayShotSolver.solve(before: board, shot: shot, surfaceY: y))
+        XCTAssertTrue(original.hasCombinationRoute)
+        let selected = try XCTUnwrap(PositionPlayShotSolver.solveDailyDirectRecommendation(before: board,
+            preferred: shot, orderedTargetKeys: ["_15","_10","_13","_9","_11"], surfaceY: y))
+        XCTAssertEqual(selected.shot.targetKey, "_10")
+        XCTAssertFalse(selected.prediction.hasCombinationRoute)
+        XCTAssertEqual(selected.shot.velocity, shot.velocity)
+        XCTAssertEqual(selected.shot.spinX, shot.spinX)
+        XCTAssertEqual(selected.shot.spinY, shot.spinY)
+        print("DIRECT_REVIEW original=15 combination=\(original.hasCombinationRoute) selected=\(selected.shot.targetKey) pot=\(selected.prediction.objectPocketed)")
+        let env = ProcessInfo.processInfo.environment
+        if let out = env["DIRECT_REVIEW_OUTPUT"] ?? env["TEST_RUNNER_DIRECT_REVIEW_OUTPUT"] {
+            let plots: [[String:Any]] = [(shot,original),(selected.shot,selected.prediction)].map { s,p in
+                ["target": s.targetKey, "pocket": s.pocket, "combination": p.hasCombinationRoute,
+                 "objectPotted": p.objectPocketed, "cuePath": p.cuePath.map { [$0.x,$0.z] },
+                 "objectPath": p.objectPath.map { [$0.x,$0.z] },
+                 "extras": p.extraBallPaths.mapValues { $0.map { [$0.x,$0.z] } }]
+            }
+            try JSONSerialization.data(withJSONObject: plots, options: [.prettyPrinted,.sortedKeys])
+                .write(to: URL(fileURLWithPath: out).appendingPathComponent("routes.json"))
+        }
+    }
+
+    func test_allCombinationFallsBackAndCancellationReturnsNoResult() throws {
+        let board = screenshotBoard()
+        let shot = PlannedShot(targetKey: "_15", pocket: try XCTUnwrap(ShotIntent.pocketId(for: 0)),
+                               velocity: 3.37, spinX: 0, spinY: 0)
+        let result = try XCTUnwrap(PositionPlayShotSolver.solveDailyDirectRecommendation(before: board,
+            preferred: shot, orderedTargetKeys: ["_15"], surfaceY: y))
+        XCTAssertEqual(result.shot.targetKey, "_15")
+        XCTAssertTrue(result.prediction.hasCombinationRoute)
+        let cancellation = PredictionCancellation()
+        cancellation.cancel()
+        XCTAssertNil(PositionPlayShotSolver.solveDailyDirectRecommendation(before: board,
+            preferred: shot, orderedTargetKeys: ["_15","_10"], surfaceY: y, cancellation: cancellation))
+    }
+
+    @MainActor
+    func test_asyncAutomaticReviewAndManualOwnership() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        vm.usesDailyShotRanking = true
+        vm.usesAutomaticPocketFallback = true
+        vm.legalAimTargets = { $0.intersection(["_9","_10","_11","_13","_15"]) }
+        vm.velocity = 3.37
+        vm.loadBoard(screenshotBoard())
+        func ready() async throws {
+            let deadline = Date().addingTimeInterval(15)
+            while Date() < deadline && (vm.isComputing || vm.solvedShot == nil) {
+                try await Task.sleep(for: .milliseconds(50))
+            }
+            XCTAssertFalse(vm.isComputing)
+        }
+        try await ready()
+        XCTAssertEqual(vm.selectedTargetKey, "_10")
+        XCTAssertEqual(vm.solvedShot?.shot.targetKey, "_10")
+        let pocket = vm.selectedPocketIndex
+        vm.velocity = 2.2
+        try await ready()
+        XCTAssertEqual(vm.selectedTargetKey, "_10")
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        vm.velocity = 3.37
+        XCTAssertTrue(vm.selectTarget(key: "_15"))
+        vm.selectPocket(at: 0)
+        try await ready()
+        XCTAssertEqual(vm.selectedTargetKey, "_15")
+        XCTAssertEqual(vm.selectedPocketIndex, 0)
+        XCTAssertEqual(vm.solvedShot?.shot.targetKey, "_15")
+        XCTAssertTrue(try XCTUnwrap(vm.solvedShot).prediction.hasCombinationRoute)
+        XCTAssertTrue(vm.statusText.contains("传球路线"))
+        vm.refreshLegalAimSelection()
+        XCTAssertEqual(vm.selectedTargetKey, "_15")
+    }
+}
+
+final class DailyShotRankingTests: XCTestCase {
+    private let y = BTTablePhysics.surfaceY
+    private func p(_ x: Float, _ z: Float) -> SCNVector3 { SCNVector3(x, y + AngleSceneCalculator.ballRadius, z) }
+    private func c(_ key: String, _ angle: Double, _ pocket: Int = 0) -> AngleSceneCalculator.DailyPocketCandidate {
+        .init(targetKey: key, pocketIndex: pocket, aim: p(0, 0), cutDegrees: angle)
+    }
+
+    func test_seventyFiveDegreesAcceptedAndStopsBeforeFurtherTargets() {
+        var visited: [String] = []
+        let result = AngleSceneCalculator.recommendDailyTarget(orderedKeys: ["near", "far"]) {
+            visited.append($0)
+            return [self.c($0, $0 == "near" ? 75 : 0)]
+        }
+        XCTAssertEqual(result?.targetKey, "near")
+        XCTAssertEqual(visited, ["near"])
+    }
+
+    func test_skipsBlockedAndHardTargetsInDistanceOrder() {
+        var visited: [String] = []
+        let result = AngleSceneCalculator.recommendDailyTarget(orderedKeys: ["blocked", "hard", "acceptable", "further"]) {
+            visited.append($0)
+            switch $0 {
+            case "blocked": return []
+            case "hard": return [self.c($0, 75.001)]
+            default: return [self.c($0, 40)]
+            }
+        }
+        XCTAssertEqual(result?.targetKey, "acceptable")
+        XCTAssertEqual(visited, ["blocked", "hard", "acceptable"])
+    }
+
+    func test_allHardUsesSmallestCutAndAllBlockedReturnsNil() {
+        let result = AngleSceneCalculator.recommendDailyTarget(orderedKeys: ["near", "far"]) {
+            [self.c($0, $0 == "near" ? 85 : 80)]
+        }
+        XCTAssertEqual(result?.targetKey, "far")
+        XCTAssertNil(AngleSceneCalculator.recommendDailyTarget(orderedKeys: ["near"]) { _ in [] })
+    }
+
+    func test_manualPocketRankingKeepsHardCandidatesAvailable() {
+        let result = AngleSceneCalculator.easiestDailyPocket([c("_1", 80, 0), c("_1", 70, 1)])
+        XCTAssertEqual(result?.pocketIndex, 1)
+        XCTAssertEqual(result?.cutDegrees, 70)
+    }
+
+    func test_jointScoreBalancesAngleAndPocketDistance() {
+        var straightLong = c("_1", 10, 0)
+        straightLong.cueTargetDistance = Double(AngleSceneCalculator.innerLength) * 0.2
+        straightLong.targetPocketDistance = Double(AngleSceneCalculator.innerLength) * 0.8
+        var cutShort = c("_1", 40, 1)
+        cutShort.cueTargetDistance = straightLong.cueTargetDistance
+        cutShort.targetPocketDistance = Double(AngleSceneCalculator.innerLength) * 0.2
+        XCTAssertEqual(straightLong.score, (1 - 10.0 / 90) * 0.8 * 0.2, accuracy: 1e-12)
+        XCTAssertEqual(AngleSceneCalculator.easiestDailyPocket([straightLong, cutShort])?.pocketIndex, 1)
+        cutShort.cueTargetDistance = Double(AngleSceneCalculator.innerLength) * 2
+        XCTAssertEqual(cutShort.score, 0)
+        XCTAssertTrue(cutShort.score.isFinite)
+    }
+
+    func test_comfortablePocketWinsBeforeScoreAndHardFallbackUsesScore() {
+        var comfortable = c("_1", 75, 0)
+        comfortable.targetPocketDistance = Double(AngleSceneCalculator.innerLength) * 0.95
+        let hard = c("_1", 76, 1)
+        XCTAssertGreaterThan(hard.score, comfortable.score)
+        XCTAssertEqual(AngleSceneCalculator.easiestDailyPocket([hard, comfortable])?.pocketIndex, 0)
+        let result = AngleSceneCalculator.recommendDailyTarget(orderedKeys: ["near", "far"]) {
+            var candidate = self.c($0, $0 == "near" ? 76 : 80)
+            candidate.targetPocketDistance = Double(AngleSceneCalculator.innerLength) * ($0 == "near" ? 0.9 : 0.1)
+            return [candidate]
+        }
+        XCTAssertEqual(result?.targetKey, "far")
+    }
+
+    func test_candidateDistancesUseBallCentresAndPocketCentreInMetres() throws {
+        let cue = p(-0.4, 0), target = p(0, 0)
+        let candidate = try XCTUnwrap(AngleSceneCalculator.dailyPocketCandidate(cue: cue,
+            target: target, targetKey: "_1", pocketIndex: 1, obstacles: [], surfaceY: y))
+        let pocket = AngleSceneCalculator.pocketPositions(surfaceY: y)[1]
+        XCTAssertEqual(candidate.cueTargetDistance, 0.4, accuracy: 1e-6)
+        XCTAssertEqual(candidate.targetPocketDistance, hypot(Double(pocket.x), Double(pocket.z)), accuracy: 1e-6)
+    }
+
+    @MainActor
+    func test_dailyManualRejectedGeometryStillReachesUnchangedSolver() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        vm.usesDailyShotRanking = true
+        vm.usesAutomaticPocketFallback = true
+        vm.clearTable()
+        let nominal = AngleSceneCalculator.pocketPositions(surfaceY: y)[1]
+        let positions = [PositionPlayBall.cueKey: p(-0.4, 0), "_1": p(0, 0),
+                         "_9": p(nominal.x / 2, nominal.z / 2)]
+        vm.loadBoard(BoardSnapshot(onTable: positions.mapValues {
+            let n = AngleSceneCalculator.sceneToNormalized(position: $0)
+            return CanvasPoint(x: Double(n.x), y: Double(n.y))
+        }))
+        XCTAssertTrue(vm.selectTarget(key: "_1"))
+        let pocket = 1
+        XCTAssertFalse(vm.isStraightPocketAvailable(pocket), "Fixture must be rejected by recommendation geometry")
+        var notices: [String] = []
+        vm.onAimSelectionNotice = { notices.append($0) }
+        vm.velocity = 2.2
+        vm.selectPocket(at: pocket)
+        XCTAssertTrue(notices.isEmpty)
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        XCTAssertEqual(vm.aimMode, .pocket)
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline && (vm.isComputing || vm.solvedShot?.shot.pocket != ShotIntent.pocketId(for: pocket)) {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        let solved = try XCTUnwrap(vm.solvedShot)
+        XCTAssertEqual(solved.shot.targetKey, "_1")
+        XCTAssertEqual(solved.shot.pocket, ShotIntent.pocketId(for: pocket))
+        XCTAssertEqual(solved.shot.velocity, 2.2)
+        XCTAssertTrue(vm.bankAlternatives.isEmpty, "Compare direct predictions without the existing bank fallback")
+        let independent = try XCTUnwrap(PositionPlayShotSolver.solve(before: solved.before,
+            shot: solved.shot, surfaceY: vm.scene.surfaceY))
+        XCTAssertEqual(solved.prediction.feasible, independent.feasible)
+        XCTAssertEqual(solved.prediction.infeasibleReason, independent.infeasibleReason)
+        XCTAssertEqual(solved.prediction.objectPocketed, independent.objectPocketed)
+        vm.velocity = 1.8
+        vm.refreshLegalAimSelection()
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        XCTAssertEqual(vm.selectedTargetKey, "_1")
+        XCTAssertEqual(vm.aimMode, .pocket)
+    }
+
+    func test_geometryAllowsThinBallButRejectsBothBlockedPaths() throws {
+        let cue = p(-0.4, 0.05), target = p(0, 0.25)
+        func candidate(_ obstacles: [SCNVector3]) -> AngleSceneCalculator.DailyPocketCandidate? {
+            AngleSceneCalculator.dailyPocketCandidate(cue: cue, target: target, targetKey: "_1",
+                pocketIndex: 5, obstacles: obstacles, surfaceY: y)
+        }
+        let thin = try XCTUnwrap(candidate([]))
+        XCTAssertGreaterThan(thin.cutDegrees, 60)
+        let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target, pocket: thin.aim,
+            ballRadius: AngleSceneCalculator.ballRadius)
+        XCTAssertNil(candidate([p((cue.x + ghost.x) / 2, (cue.z + ghost.z) / 2)]))
+        XCTAssertNil(candidate([p(0, 0.45)]))
+    }
+
+    func test_sixPocketIndicesAndStraightGeometryAreSymmetric() throws {
+        for (i, pocket) in AngleSceneCalculator.pocketPositions(surfaceY: y).enumerated() {
+            let target = p(pocket.x * 0.5, pocket.z * 0.5)
+            let cue = p(pocket.x * 0.2, pocket.z * 0.2)
+            let candidate = try XCTUnwrap(AngleSceneCalculator.dailyPocketCandidate(cue: cue,
+                target: target, targetKey: "_1", pocketIndex: i, obstacles: [], surfaceY: y))
+            XCTAssertEqual(candidate.pocketIndex, i)
+            XCTAssertEqual(candidate.cutDegrees, 0, accuracy: 0.01)
+        }
+    }
+
+    func test_fullBoardGeometryTiming() {
+        let balls = (0..<15).map { i in p(-0.9 + Float(i % 5) * 0.4, -0.4 + Float(i / 5) * 0.35) }
+        let start = CACurrentMediaTime()
+        var count = 0
+        for (i, ball) in balls.enumerated() {
+            for pocket in 0..<6 {
+                if AngleSceneCalculator.dailyPocketCandidate(cue: p(-1.1, 0.5), target: ball,
+                    targetKey: "_\(i + 1)", pocketIndex: pocket,
+                    obstacles: balls.enumerated().filter { $0.offset != i }.map { $0.element }, surfaceY: y) != nil { count += 1 }
+            }
+        }
+        print("DAILY_GEOMETRY 90 candidates ms=\((CACurrentMediaTime() - start) * 1000) viable=\(count)")
+        XCTAssertGreaterThan(count, 0)
+    }
+
+    @MainActor
+    func test_manualThinPocketSurvivesParametersAndAsyncPrediction() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        vm.usesDailyShotRanking = true
+        vm.usesAutomaticPocketFallback = true
+        vm.clearTable()
+        let positions = [PositionPlayBall.cueKey: p(-0.4, 0.05), "_1": p(0, 0.25)]
+        vm.loadBoard(BoardSnapshot(onTable: positions.mapValues {
+            let n = AngleSceneCalculator.sceneToNormalized(position: $0)
+            return CanvasPoint(x: Double(n.x), y: Double(n.y))
+        }))
+        XCTAssertTrue(vm.selectTarget(key: "_1"))
+        XCTAssertTrue(vm.isStraightPocketAvailable(5))
+        vm.selectPocket(at: 5)
+        vm.velocity = 1.8
+        vm.spinY = 0.2
+        vm.refreshLegalAimSelection()
+        try await Task.sleep(for: .seconds(2))
+        XCTAssertEqual(vm.selectedTargetKey, "_1")
+        XCTAssertEqual(vm.selectedPocketIndex, 5)
+        XCTAssertEqual(vm.aimMode, .pocket)
+    }
+}
+
+extension DailyShotRankingTests {
+    @MainActor
+    func test_dailySkipsBlockedNearestBallAndRespectsManualIntent() throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        vm.usesDailyShotRanking = true
+        vm.usesAutomaticPocketFallback = true
+        vm.legalAimTargets = { $0.intersection(["_1", "_2"]) }
+        vm.clearTable()
+        var positions: [String: SCNVector3] = [PositionPlayBall.cueKey: p(-0.5, 0), "_1": p(0, 0), "_2": p(0.3, -0.3)]
+        for i in 0..<6 {
+            let a = Float(i) * .pi / 3
+            positions["_\(i + 3)"] = p(0.07 * cosf(a), 0.07 * sinf(a))
+        }
+        let board = BoardSnapshot(onTable: positions.mapValues {
+            let n = AngleSceneCalculator.sceneToNormalized(position: $0)
+            return CanvasPoint(x: Double(n.x), y: Double(n.y))
+        })
+        vm.loadBoard(board)
+        vm.refreshLegalAimSelection()
+        XCTAssertEqual(vm.selectedTargetKey, "_2", "Blocked nearest target must not force free aim")
+        XCTAssertEqual(vm.aimMode, .pocket)
+        let pocket = vm.selectedPocketIndex
+        vm.selectPocket(at: pocket)
+        vm.velocity = 2
+        vm.refreshLegalAimSelection()
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        XCTAssertEqual(vm.selectedTargetKey, "_2")
+        XCTAssertTrue(vm.selectTarget(key: "_1"))
+        XCTAssertEqual(vm.aimMode, .pocket, "No recommendation must not replace the requested aiming mode")
+        XCTAssertNil(vm.temporaryFreeReason)
+        vm.refreshLegalAimSelection()
+        XCTAssertEqual(vm.selectedTargetKey, "_1", "Explicit target must remain selected even if blocked")
+        vm.legalAimTargets = { $0.intersection(["_2"]) }
+        vm.refreshLegalAimSelection()
+        XCTAssertEqual(vm.selectedTargetKey, "_2", "Rule legality overrides stale manual intent")
+        vm.nudgeFreeAim(byDegrees: 3)
+        let direction = try XCTUnwrap(vm.freeAimDir)
+        vm.refreshLegalAimSelection()
+        XCTAssertEqual(vm.aimMode, .free)
+        XCTAssertEqual(vm.freeAimDir?.x, direction.x)
+        XCTAssertEqual(vm.freeAimDir?.z, direction.z)
+    }
+}
+
+
+extension DailyShotRankingTests {
+    func test_railTangentIsNotRejectedForZeroClearance() {
+        let z = AngleSceneCalculator.innerWidth / 2 - AngleSceneCalculator.ballRadius
+        let corners: [(Int, Float, Float)] = [(0, -1, -1), (1, 1, -1), (2, -1, 1), (3, 1, 1)]
+        for (index, sx, sz) in corners {
+            XCTAssertNotNil(AngleSceneCalculator.dailyPocketCandidate(cue: p(0.3 * sx, z * sz),
+                target: p(0.8 * sx, z * sz), targetKey: "_1", pocketIndex: index, obstacles: [], surfaceY: y))
+            let x = AngleSceneCalculator.innerLength / 2 - AngleSceneCalculator.ballRadius
+            XCTAssertNotNil(AngleSceneCalculator.dailyPocketCandidate(cue: p(x * sx, 0),
+                target: p(x * sx, 0.3 * sz), targetKey: "_1", pocketIndex: index, obstacles: [], surfaceY: y))
+        }
+    }
+}
+
+extension DailyShotRankingTests {
+    /// Consumer-contract fixtures deliberately vary outcome flags on one solved
+    /// board. They test selection isolation, not physical truth of those outcomes.
+    @MainActor
+    func test_predictionOutcomesCannotFilterAutomaticOrManualSelection() throws {
+        for manual in [false, true] {
+            let vm = PositionPlayViewModel()
+            vm.setupScene()
+            defer { vm.cancelDailyAttempt() }
+            vm.usesDailyShotRanking = true
+            vm.usesAutomaticPocketFallback = true
+            vm.refreshLegalAimSelection()
+            let target = try XCTUnwrap(vm.selectedTargetKey)
+            let pocket = vm.selectedPocketIndex
+            if manual {
+                XCTAssertTrue(vm.selectTarget(key: target))
+                vm.selectPocket(at: pocket)
+            }
+            let availability = (0..<6).map { vm.isStraightPocketAvailable($0) }
+            let before = vm.currentSnapshot()
+            let shot = PlannedShot(targetKey: target, pocket: try XCTUnwrap(ShotIntent.pocketId(for: pocket)),
+                                   velocity: vm.velocity, spinX: vm.spinX, spinY: vm.spinY)
+            let base = try XCTUnwrap(PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y))
+            XCTAssertTrue(base.feasible)
+            XCTAssertTrue(base.hasFinalTableState)
+            for scratch in [false, true] {
+                for pot in [false, true] {
+                    var outcome = base
+                    outcome.cuePocketed = scratch
+                    outcome.objectPocketed = pot
+                    outcome.simObjectPotted = pot
+                    vm.applySolvedShot(.init(before: before, shot: shot, prediction: outcome))
+                    XCTAssertEqual(vm.cuePocketed, scratch, "Prediction must still report scratch risk")
+                    XCTAssertEqual(vm.objectPocketed, pot, "Prediction must still report this shot's outcome")
+                    XCTAssertEqual(vm.selectedTargetKey, target)
+                    XCTAssertEqual(vm.selectedPocketIndex, pocket)
+                    XCTAssertEqual(vm.aimMode, .pocket)
+                    XCTAssertEqual((0..<6).map { vm.isStraightPocketAvailable($0) }, availability)
+                    vm.refreshLegalAimSelection()
+                    XCTAssertEqual(vm.selectedTargetKey, target)
+                    XCTAssertEqual(vm.selectedPocketIndex, pocket)
+                }
+            }
+            var failed = base
+            failed.feasible = false
+            failed.infeasibleReason = "Injected prediction failure"
+            vm.applySolvedShot(.init(before: before, shot: shot, prediction: failed))
+            XCTAssertFalse(vm.isFeasible)
+            XCTAssertEqual(vm.selectedTargetKey, target)
+            XCTAssertEqual(vm.selectedPocketIndex, pocket)
+            XCTAssertEqual(vm.aimMode, .pocket)
+            XCTAssertEqual((0..<6).map { vm.isStraightPocketAvailable($0) }, availability)
+            vm.refreshLegalAimSelection()
+            XCTAssertEqual(vm.selectedTargetKey, target)
+            XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        }
+    }
+}
+
+extension DailyShotRankingTests {
+    func test_nearRailPhysicalPotsAreNotRejectedByRecommendation() throws {
+        var checked = 0
+        var plots: [[String: Any]] = []
+        for (sx, sz, pocket) in [(Float(-1), Float(1), 0), (1, 1, 1), (-1, -1, 2), (1, -1, 3)] {
+            for z in [-0.594, -0.58, -0.56, -0.54] as [Float] {
+                for x in [0.4, 0.516, 0.7, 0.9] as [Float] {
+                    let cue = p(0.067 * sx, -0.313 * sz), target = p(x * sx, z * sz)
+                    let candidate = AngleSceneCalculator.dailyPocketCandidate(cue: cue, target: target,
+                        targetKey: "_13", pocketIndex: pocket, obstacles: [], surfaceY: y)
+                    let prediction = ShotPredictor.predictForPositionSolve(ShotInput(cueBall: cue,
+                        targetBall: target, pocketIndex: pocket, velocity: 3.73, spinX: 0, spinY: 0,
+                        surfaceY: y, obstacles: []))
+                    XCTAssertTrue(prediction.objectPocketed, "Physical near-rail pot P\(pocket), \(x), \(z)")
+                    XCTAssertNotNil(candidate, "Recommendation must admit physical pot P\(pocket), \(x), \(z)")
+                    checked += 1
+                    if x == 0.516 && z == -0.594 {
+                        let candidates = (0..<6).compactMap {
+                            AngleSceneCalculator.dailyPocketCandidate(cue: cue, target: target,
+                                targetKey: "_13", pocketIndex: $0, obstacles: [], surfaceY: y)
+                        }
+                        XCTAssertEqual(AngleSceneCalculator.easiestDailyPocket(candidates)?.pocketIndex, pocket)
+                        plots.append(["pocket": pocket, "cue": [cue.x, cue.z], "target": [target.x, target.z],
+                            "objectPath": prediction.objectPath.map { [$0.x, $0.z] },
+                            "cuePath": prediction.cuePath.map { [$0.x, $0.z] }, "potted": prediction.objectPocketed,
+                            "aim": [prediction.pocketAimPoint.x, prediction.pocketAimPoint.z]])
+                    }
+                }
+            }
+        }
+        XCTAssertEqual(checked, 64)
+        print("RAIL_REGRESSION physicalPots=\(checked) geometryAccepted=\(checked)")
+        let env = ProcessInfo.processInfo.environment
+        if let folder = env["RAIL_REVIEW_OUTPUT"] ?? env["TEST_RUNNER_RAIL_REVIEW_OUTPUT"] {
+            try JSONSerialization.data(withJSONObject: plots, options: [.prettyPrinted, .sortedKeys])
+                .write(to: URL(fileURLWithPath: folder).appendingPathComponent("physical-paths.json"))
+        }
+    }
+
+    @MainActor
+    func test_manualNearRailPocketReachesPredictionWithoutChangingIntent() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        vm.usesDailyShotRanking = true
+        vm.usesAutomaticPocketFallback = true
+        vm.clearTable()
+        let positions = [PositionPlayBall.cueKey: p(0.067, -0.313), "_13": p(0.516, -0.594)]
+        vm.loadBoard(BoardSnapshot(onTable: positions.mapValues {
+            let n = AngleSceneCalculator.sceneToNormalized(position: $0)
+            return CanvasPoint(x: Double(n.x), y: Double(n.y))
+        }))
+        XCTAssertTrue(vm.selectTarget(key: "_13"))
+        var notices: [String] = []
+        vm.onAimSelectionNotice = { notices.append($0) }
+        vm.velocity = 3.73
+        vm.spinX = 0
+        vm.spinY = 0
+        // Start without a pocket so accepting the tap is observable independently
+        // of the automatic recommendation already having selected P1.
+        vm.selectedPocketIndex = -1
+        vm.selectPocket(at: 1)
+        XCTAssertTrue(notices.isEmpty)
+        XCTAssertEqual(vm.selectedPocketIndex, 1)
+        XCTAssertEqual(vm.aimMode, .pocket)
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline && (vm.isComputing || vm.solvedShot?.shot.pocket != ShotIntent.pocketId(for: 1)) {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        let solved = try XCTUnwrap(vm.solvedShot)
+        XCTAssertEqual(solved.shot.pocket, ShotIntent.pocketId(for: 1))
+        XCTAssertTrue(solved.prediction.objectPocketed)
+        XCTAssertEqual(vm.selectedTargetKey, "_13")
+        XCTAssertEqual(vm.selectedPocketIndex, 1)
+        XCTAssertEqual(vm.velocity, 3.73)
+    }
+
+    func test_exportPocketSelectionReview() throws {
+        let out = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/output/pocket-selection-review-20261001")
+        try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        func xy(_ v: SCNVector3) -> [Float] { [v.x, v.z] }
+        var layouts: [(String, SCNVector3, SCNVector3, [SCNVector3])] = [
+            ("01 中袋直球", p(0,-0.35), p(0,0.22), []),
+            ("02 普通斜球", p(-0.6,-0.2), p(0.3,0.12), []),
+            ("03 两球近距离", p(-0.1,-0.1), p(0,0), []),
+            ("04 目标靠近中袋", p(-0.45,0.1), p(0.06,0.48), []),
+            ("05 长库贴库球", p(0.15,0.606425), p(0.8,0.606425), []),
+            ("06 障碍遮住小角度袋", p(0,-0.35), p(0,0.22), [p(0,0.46)])
+        ]
+        // Deterministic scan: find largest disagreement between recommendation
+        // cut and the effective aim point later used by prediction. No physics.
+        var mismatches: [(Double, SCNVector3, SCNVector3)] = []
+        for tx in [-0.9, -0.3, 0.3, 0.9] as [Float] {
+            for tz in [-0.55, -0.25, 0.25, 0.55] as [Float] {
+                for cx in [-0.8, 0, 0.8] as [Float] {
+                    for cz in [-0.4, 0.4] as [Float] {
+                        let cue = p(cx,cz), target = p(tx,tz)
+                        guard AngleSceneCalculator.horizontalDistance(cue,target) > 0.07 else { continue }
+                        let candidates = (0..<6).compactMap {
+                            AngleSceneCalculator.dailyPocketCandidate(cue:cue,target:target,targetKey:"_1",
+                                pocketIndex:$0,obstacles:[],surfaceY:y)
+                        }
+                        guard let best = AngleSceneCalculator.easiestDailyPocket(candidates) else { continue }
+                        let effective = AngleSceneCalculator.effectivePocketAimPoint(targetBall:target,
+                            pocketIndex:best.pocketIndex,surfaceY:y)
+                        let angle = AngleSceneCalculator.cutAngle(cueBall:cue,targetBall:target,pocket:effective)
+                        mismatches.append((abs(angle-best.cutDegrees),cue,target))
+                    }
+                }
+            }
+        }
+        for (index, item) in mismatches.sorted(by: {$0.0 > $1.0}).prefix(2).enumerated() {
+            layouts.append(("0\(7+index) 推荐与预测选点差异",item.1,item.2,[]))
+        }
+        var rows: [[String:Any]] = []
+        for (title,cue,target,obstacles) in layouts {
+            let candidates = (0..<6).compactMap {
+                AngleSceneCalculator.dailyPocketCandidate(cue:cue,target:target,targetKey:"_1",
+                    pocketIndex:$0,obstacles:obstacles,surfaceY:y)
+            }
+            let best = AngleSceneCalculator.easiestDailyPocket(candidates)
+            let pockets: [[String:Any]] = (0..<6).map { i in
+                let nominal = AngleSceneCalculator.pocketPositions(surfaceY:y)[i]
+                let effective = AngleSceneCalculator.effectivePocketAimPoint(targetBall:target,pocketIndex:i,surfaceY:y)
+                let candidate = candidates.first {$0.pocketIndex == i}
+                return ["index":i,"nominal":xy(nominal),"effective":xy(effective),
+                        "nominalAngle":AngleSceneCalculator.cutAngle(cueBall:cue,targetBall:target,pocket:nominal),
+                        "effectiveAngle":AngleSceneCalculator.cutAngle(cueBall:cue,targetBall:target,pocket:effective),
+                        "viable":candidate != nil,"angle":candidate?.cutDegrees ?? -1,
+                        "aim":xy(candidate?.aim ?? nominal)]
+            }
+            rows.append(["title":title,"cue":xy(cue),"target":xy(target),
+                         "obstacles":obstacles.map(xy),"selected":best?.pocketIndex ?? -1,"pockets":pockets])
+        }
+        let data = try JSONSerialization.data(withJSONObject:rows,options:[.prettyPrinted,.sortedKeys])
+        try data.write(to:out.appendingPathComponent("results.json"))
+        print("POCKET_REVIEW exported \(rows.count) layouts; scan=\(mismatches.count) largestDelta=\(mismatches.map{$0.0}.max() ?? 0)")
+        XCTAssertEqual(rows.count,8)
     }
 }

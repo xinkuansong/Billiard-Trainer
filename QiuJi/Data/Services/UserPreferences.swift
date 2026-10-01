@@ -208,7 +208,20 @@ final class UserPreferences: ObservableObject {
         didSet { defaults.set(showAimCloseup, forKey: PracticeStorageKey.showAimCloseup) }
     }
 
+    #if DEBUG
+    /// Explicit local audition opt-in survives a normal icon launch; settings can still mute it.
+    static func configureLocalAudioPreview(defaults: UserDefaults, arguments: [String]) {
+        if arguments.contains("-shotAudioPreview") {
+            defaults.set(true, forKey: "shotAudioPreviewEnabled")
+            defaults.set(true, forKey: "soundEffectsEnabled")
+        }
+    }
+    #endif
+
     init(defaults: UserDefaults = .standard) {
+        #if DEBUG
+        Self.configureLocalAudioPreview(defaults: defaults, arguments: ProcessInfo.processInfo.arguments)
+        #endif
         self.defaults = defaults
         self.reminderWeekdays = Set(defaults.array(forKey: "reminderWeekdays") as? [Int] ?? Array(1...7))
         let sportRaw = defaults.string(forKey: "preferredSport") ?? PreferredSport.chinese8.rawValue
@@ -259,7 +272,7 @@ final class UserPreferences: ObservableObject {
         self.backgroundMusicEnabled = (defaults.object(forKey: "backgroundMusicEnabled") as? Bool) ?? false
 
         // Default to off while preserving an explicitly saved preference.
-        self.soundEffectsEnabled = (defaults.object(forKey: "soundEffectsEnabled") as? Bool) ?? false
+        self.soundEffectsEnabled = defaults.bool(forKey: "soundEffectsEnabled")
 
         // 默认关闭（可选辅助线）。
         self.showSeparationAngle = (defaults.object(forKey: "showSeparationAngle") as? Bool) ?? false

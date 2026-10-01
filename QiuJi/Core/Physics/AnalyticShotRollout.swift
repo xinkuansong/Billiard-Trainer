@@ -150,7 +150,7 @@ enum AnalyticShotRollout {
             )
             var pocketEvt: (time: Float, id: String)?
             for pocket in geometry.pockets {
-                guard ball.position.distanceXZ(to: pocket.center) < reach + pocket.radius else { continue }
+                guard ball.position.distanceXZ(to: pocket.center) < reach + pocket.captureReachRadius else { continue }
                 if let tp = AnalyticAim.ballPocketTime(
                     position: ball.position, velocity: ball.velocity, accel: accel,
                     pocket: pocket, horizon: horizon
@@ -295,7 +295,9 @@ enum AnalyticShotRollout {
         // 目标球 rollout：撞障碍/截断 ⇒ 级联/歧义，回退引擎。
         let objRoll = rollout(from: objAfter, startTime: contactTime, geometry: geometry,
                               staticBalls: staticBalls, maxTime: maxTime)
-        if objRoll.firstBallHit != nil || !objRoll.completed {
+        // 擦袋角后的进袋窗口会放大首碰 Float 演进差异；独立单球 rollout
+        // 不能替代完整引擎裁决反弹进袋（包括擦 jaw）。直线目标球仍保留快速路径。
+        if objRoll.firstBallHit != nil || !objRoll.completed || objRoll.cushionCount > 0 {
             out.needsFullSim = true
             return out
         }

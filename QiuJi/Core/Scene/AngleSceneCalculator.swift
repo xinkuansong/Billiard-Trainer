@@ -154,13 +154,8 @@ enum AngleSceneCalculator {
     /// （也回避浮点精度问题）。
     private static let aimMargin: Float = 0.003
 
-    /// 贴库豁免的浮点保护量（0.5mm）。目标球球心距最近库 `d < ballRadius + aimMargin`
-    /// （贴库或距库仅 1–2mm）时，管道余量整体放宽为 `d − railFrozenSlack`：
-    /// 沿库滚进袋是**零余量的合法物理**，3mm 余量会把这类球的全部线路误判为不可行；
-    /// 放宽后管道最多与球当前位置一样贴库，仍禁止比球现在更扎进库（slack 仅防浮点噪声）。
-    /// 必须整体放宽而非只豁免主库段：近端 jaw 圆角弧与库面相切，沿库线路到弧的
-    /// 距离同样 ≈ d，只豁免主库仍会被 jaw 判定拒绝。
-    private static let railFrozenSlack: Float = 0.0005
+    /// 仅吸收 XZ Float 坐标运算误差（约 0.5µm），不作为允许扎库的物理余量。
+    private static let pipeRoundoff: Float = 4 * Float.ulpOfOne
 
     /// Effective aim point — dynamically adjusts based on target ball position.
     ///
@@ -202,14 +197,11 @@ enum AngleSceneCalculator {
         geometry: PipeGeometry
     ) -> SCNVector3 {
         let origin = Vector2(targetBall.x, targetBall.z)
-        // 贴库豁免：球心距最近主库 d < 标准余量时，余量放宽为 d − slack（见 railFrozenSlack 注释）。
-        // 下限钳到 ballRadius − slack：即便快照数据让球微嵌库（d < R），也不允许管道穿库。
+        // 贴库球允许相切，但球心管道半径不得小于真实球半径。
         let standardClearance = ballRadius + aimMargin
         let railDist = mainCushionSegments.map { pointSegmentDistance(origin, $0) }.min()
             ?? Float.greatestFiniteMagnitude
-        let clearance = railDist < standardClearance
-            ? max(railDist - railFrozenSlack, ballRadius - railFrozenSlack)
-            : standardClearance
+        let clearance = max(ballRadius, min(railDist, standardClearance))
         let pocket = Vector2(nominalPocket.x, nominalPocket.z)
         let naturalVector = pocket - origin
         guard naturalVector.length > 0.0001 else { return nominalPocket }
@@ -243,6 +235,18 @@ enum AngleSceneCalculator {
             }
             if let bestAim {
                 return SCNVector3(bestAim.x, nominalPocket.y, bestAim.z)
+            }
+        }
+        // 贴库的合法方向锥可能窄于离散搜索步长。显式检查沿最近有限库段的
+        // 平行线；不能用缩小球半径的方法让斜扎库的采样点通过。
+        if railDist < standardClearance {
+            let nearest = mainCushionSegments.min {
+                pointSegmentDistance(origin, $0) < pointSegmentDistance(origin, $1)
+            }!
+            let parallel = abs(nearest.b.x-nearest.a.x) > abs(nearest.b.z-nearest.a.z)
+                ? Vector2(pocket.x,origin.z) : Vector2(origin.x,pocket.z)
+            if aimPointIsPipeSafe(origin:origin,aim:parallel,geometry:geometry,clearance:clearance) {
+                return SCNVector3(parallel.x,nominalPocket.y,parallel.z)
             }
         }
         // 3) 任何方向都无法干净穿过 → 只能靠远端 jaw 反弹（Case 2，擦一下不可避免）。
@@ -300,7 +304,8 @@ enum AngleSceneCalculator {
         let length = vector.length
         guard length > 0.0001 else { return false }
         let dir = vector / length
-        let pipeEnd = origin + dir * (length + clearance)
+        guard let pipeEnd = capturePipeEnd(origin: origin, dir: dir, length: length,
+                                           geometry: geometry, clearance: clearance) else { return false }
 
         let ordinary = ordinaryClearance(
             origin: origin, end: pipeEnd, dir: dir,
@@ -326,7 +331,7 @@ enum AngleSceneCalculator {
 
             // 近端 jaw 必须按真实复合轮廓（弧 + 线）整段清空（含袋口圆弧），余量 clearance。
             // 擦到近端 jaw（含其圆弧）→ 会先撞近端弹回台面，违反「碰远端 jaw 前走直线」→ 不可行。
-            if centerlineCompositeJawDistance(origin: origin, pipeEnd: pipeEnd, jaw: comps[nearIdx]) < clearance {
+            if centerlineCompositeJawDistance(origin: origin, pipeEnd: pipeEnd, jaw: comps[nearIdx]) + pipeRoundoff < clearance {
                 return false
             }
             // 远端 jaw 允许擦（合法 Case 2 反弹进袋）；管子在碰远端前不吃主库 / 它袋 jaw 已由
@@ -360,7 +365,8 @@ enum AngleSceneCalculator {
         let length = vector.length
         guard length > 0.0001 else { return nil }
         let dir = vector / length
-        let pipeEnd = origin + dir * (length + clearance)
+        guard let pipeEnd = capturePipeEnd(origin: origin, dir: dir, length: length,
+                                           geometry: geometry, clearance: clearance) else { return nil }
 
         let ordinary = ordinaryClearance(
             origin: origin, end: pipeEnd, dir: dir,
@@ -374,7 +380,7 @@ enum AngleSceneCalculator {
             let d0 = centerlineCompositeJawDistance(origin: origin, pipeEnd: pipeEnd, jaw: comps[0])
             let d1 = centerlineCompositeJawDistance(origin: origin, pipeEnd: pipeEnd, jaw: comps[1])
             // 干净穿过 = 两片 jaw 都被清空（都不擦）。任一被擦到即非干净。
-            guard d0 >= clearance, d1 >= clearance else { return nil }
+            guard d0 + pipeRoundoff >= clearance, d1 + pipeRoundoff >= clearance else { return nil }
             return min(d0, d1, ordinary.minDistance)
         }
         // 退化兜底（无复合轮廓的未来几何）：ordinary.safe 即为干净穿过。
@@ -443,6 +449,7 @@ enum AngleSceneCalculator {
     }
 
     private struct PipeGeometry {
+        let capture: Pocket
         let mouth: PocketMouth
         let ordinaryObstacles: [Segment2D]
     }
@@ -457,6 +464,20 @@ enum AngleSceneCalculator {
         Segment2D(a: Vector2( 1.270, -0.5321), b: Vector2( 1.270,  0.5321)),
     ]
 
+    private static let aimingPockets = TableGeometry.chineseEightBallQiuJi(surfaceY: 0).pockets
+
+    /// 袋口开始捕获后球已离开平面滚动阶段；管道检查只延伸到同源 CCD 的入口。
+    private static func capturePipeEnd(origin: Vector2, dir: Vector2, length: Float,
+                                       geometry: PipeGeometry, clearance: Float) -> Vector2? {
+        guard let distance = geometry.capture.entryTime(
+            position: SCNVector3(origin.x, 0, origin.z), velocity: SCNVector3(dir.x, 0, dir.z),
+            acceleration: SCNVector3Zero, maxTime: length + clearance) else {
+            // Case 2 先触远端 jaw，再转向捕获区域；直线 CCD 尚无入口时检查完整管道。
+            return origin + dir * (length + clearance)
+        }
+        return origin + dir * distance
+    }
+
     private static func buildPipeGeometry(pocketIndex: Int, pocketCenter: Vector2) -> PipeGeometry {
         let mouths = pocketMouths()
         let mouth = mouths[pocketIndex]
@@ -469,6 +490,7 @@ enum AngleSceneCalculator {
         }
 
         return PipeGeometry(
+            capture: aimingPockets[pocketIndex],
             mouth: PocketMouth(
                 center: pocketCenter,
                 mouthA: mouth.mouthA,
@@ -625,7 +647,7 @@ enum AngleSceneCalculator {
         var minDistance = Float.greatestFiniteMagnitude
         for obstacle in obstacles {
             let startClosest = closestPointOnSegment(point: origin, segment: obstacle)
-            let away = (origin - startClosest).dot(dir) >= -1e-5
+            let away = (origin - startClosest).dot(dir) >= 0
             let startDistance = (origin - startClosest).length
             if startDistance < clearance, away {
                 minDistance = min(minDistance, startDistance)
@@ -634,7 +656,7 @@ enum AngleSceneCalculator {
 
             let dist = segmentDistance(origin, end, obstacle.a, obstacle.b)
             minDistance = min(minDistance, dist)
-            if dist < clearance { return (false, minDistance) }
+            if dist + pipeRoundoff < clearance { return (false, minDistance) }
         }
         return (true, minDistance)
     }
@@ -1242,5 +1264,100 @@ enum AngleSceneCalculator {
         // Wide tail for near-grazing cuts (legacy HUD behaviour).
         if cutAngle > 80 { return thinBall.name }
         return "—"
+    }
+}
+
+
+// Daily recommendation: X/Z metres, fixed pocket indices shared with hit testing.
+// Geometry only. Physics runs after the host has committed target and pocket.
+extension AngleSceneCalculator {
+    struct DailyPocketCandidate {
+        let targetKey: String
+        let pocketIndex: Int
+        let aim: SCNVector3
+        let cutDegrees: Double
+        var cueTargetDistance: Double = 0
+        var targetPocketDistance: Double = 0
+
+        var score: Double {
+            let length = Double(AngleSceneCalculator.innerLength)
+            func factor(_ distance: Double) -> Double { 1 - min(1, max(0, distance / length)) }
+            return max(0, 1 - cutDegrees / 90) * factor(cueTargetDistance) * factor(targetPocketDistance)
+        }
+    }
+
+    static let dailyComfortableCutDegrees: Double = 75
+
+    /// A small set of opening points, without jaw simulation, clearance scores,
+    /// cue elevation, or physical prediction. Rail contacts are left to the
+    /// predictor: a straight segment to one sampled point can reject a pot
+    /// whose physical aim runs along the rail or enters through a different point.
+    static func dailyPocketCandidate(cue: SCNVector3, target: SCNVector3,
+                                     targetKey: String, pocketIndex: Int,
+                                     obstacles: [SCNVector3], surfaceY: Float) -> DailyPocketCandidate? {
+        guard (0..<6).contains(pocketIndex) else { return nil }
+        let nominal = pocketPositions(surfaceY: surfaceY)[pocketIndex]
+        let (a, b) = pocketJaws(surfaceY: surfaceY)[pocketIndex]
+        let width = horizontalDistance(a, b)
+        guard width > 2 * ballRadius else { return nil }
+        let inset = ballRadius / width
+        var aims = [nominal]
+        for t in [Float(0.5), inset, 1 - inset] {
+            aims.append(SCNVector3(a.x + (b.x - a.x) * t, surfaceY, a.z + (b.z - a.z) * t))
+        }
+        // Frozen balls run parallel to their rail. Using the nominal jaw endpoint
+        // tilts that line and can place the ghost beyond the ball-centre boundary.
+        // Curved-jaw entry remains an estimate, not a simulated pot guarantee.
+        if pocketIndex < 4 {
+            if abs(target.z) >= innerWidth / 2 - ballRadius, target.z * nominal.z > 0 {
+                aims.append(SCNVector3(nominal.x, surfaceY, target.z))
+            }
+            if abs(target.x) >= innerLength / 2 - ballRadius, target.x * nominal.x > 0 {
+                aims.append(SCNVector3(target.x, surfaceY, nominal.z))
+            }
+        }
+        let epsilon: Float = 0.000001 // metre-scale Float roundoff, not gameplay padding
+        for aim in aims {
+            let angle = cutAngle(cueBall: cue, targetBall: target, pocket: aim)
+            guard angle < maxCutAngle else { continue }
+            let ghost = ghostBallPosition(targetBall: target, pocket: aim, ballRadius: ballRadius)
+            guard abs(ghost.x) <= innerLength / 2 - ballRadius + epsilon,
+                  abs(ghost.z) <= innerWidth / 2 - ballRadius + epsilon,
+                  horizontalDistance(cue, ghost) > epsilon,
+                  !isPathBlocked(from: cue, to: ghost, obstacles: obstacles, clearance: 2 * ballRadius - epsilon),
+                  !isPathBlocked(from: target, to: aim, obstacles: obstacles, clearance: 2 * ballRadius - epsilon)
+                else { continue }
+            return DailyPocketCandidate(targetKey: targetKey, pocketIndex: pocketIndex,
+                aim: aim, cutDegrees: angle,
+                cueTargetDistance: Double(horizontalDistance(cue, target)),
+                targetPocketDistance: Double(horizontalDistance(target, nominal)))
+        }
+        return nil
+    }
+
+    /// Shared ordering for pocket selection and all-hard fallback. High score wins.
+    static func prefersDailyCandidate(_ lhs: DailyPocketCandidate, _ rhs: DailyPocketCandidate) -> Bool {
+        if lhs.score != rhs.score { return lhs.score > rhs.score }
+        if lhs.cutDegrees != rhs.cutDegrees { return lhs.cutDegrees < rhs.cutDegrees }
+        if lhs.pocketIndex != rhs.pocketIndex { return lhs.pocketIndex < rhs.pocketIndex }
+        return lhs.targetKey < rhs.targetKey
+    }
+
+    static func easiestDailyPocket(_ candidates: [DailyPocketCandidate]) -> DailyPocketCandidate? {
+        let comfortable = candidates.filter { $0.cutDegrees <= dailyComfortableCutDegrees }
+        return (comfortable.isEmpty ? candidates : comfortable).min(by: prefersDailyCandidate)
+    }
+
+    /// Targets already ordered by cue distance. Evaluate lazily, stopping at the
+    /// first target with a pocket <=75 degrees; use the joint score within that set.
+    static func recommendDailyTarget(orderedKeys: [String],
+        candidates: (String) -> [DailyPocketCandidate]) -> DailyPocketCandidate? {
+        var fallback: DailyPocketCandidate?
+        for key in orderedKeys {
+            guard let best = easiestDailyPocket(candidates(key)) else { continue }
+            if best.cutDegrees <= dailyComfortableCutDegrees { return best }
+            if fallback == nil || prefersDailyCandidate(best, fallback!) { fallback = best }
+        }
+        return fallback
     }
 }

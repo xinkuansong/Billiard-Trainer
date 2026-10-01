@@ -63,6 +63,7 @@ enum BreakSimulator {
 
         let engine = EventDrivenEngine(
             tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: rack.surfaceY))
+        engine.getTrajectoryRecorder().cueStrikeSpeed = power
         engine.setBall(BallState(position: cuePos, velocity: strike.velocity,
                                  angularVelocity: strike.angularVelocity,
                                  state: .sliding, name: PositionPlayBall.cueKey))

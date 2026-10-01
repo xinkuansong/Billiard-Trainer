@@ -171,30 +171,40 @@ enum CueClearance {
 
     // MARK: - Forward gap (follow-through clamp)
 
-    /// Surface gap from cue-ball centre to the nearest obstacle along +aim (metres).
-    /// `max(0, dist_centers − 2R)`. Ignores balls behind or beside the aim ray
-    /// (lateral > R + tipRadius).
+    /// Continuous forward travel until a finite cue section first touches an
+    /// inflated obstacle sphere. Input is the rendering pivot, not a ball centre.
     static func forwardSurfaceGap(
         cueBallPosition: SCNVector3,
         aimDirection: SCNVector3,
-        obstacleCenters: [SCNVector3]
+        obstacleCenters: [SCNVector3],
+        elevation: Float = 0,
+        tipInset: Float = 0,
+        profile: [CueSection] = CueSection.fallback
     ) -> Float {
         let aim = normalizeFlat(aimDirection)
-        let r = AngleSceneCalculator.ballRadius
+        let back = SCNVector3(-aim.x*cosf(elevation),sinf(elevation),-aim.z*cosf(elevation))
+        let offset = tipOffset-max(0,min(tipInset,tipOffset-0.0005))
+        let tip = SCNVector3(cueBallPosition.x+back.x*offset,
+            cueBallPosition.y+back.y*offset,cueBallPosition.z+back.z*offset)
         var best = Float.greatestFiniteMagnitude
-        for p in obstacleCenters {
-            let dx = p.x - cueBallPosition.x
-            let dz = p.z - cueBallPosition.z
-            let s = dx * aim.x + dz * aim.z
-            guard s > 1e-4 else { continue }
-            let latX = dx - s * aim.x
-            let latZ = dz - s * aim.z
-            let lateral = sqrtf(latX * latX + latZ * latZ)
-            guard lateral < r + tipRadius else { continue }
-            best = min(best, s - 2 * r)
+        for ball in obstacleCenters {
+            let d=SCNVector3(ball.x-tip.x,ball.y-tip.y,ball.z-tip.z)
+            let along=d.x*back.x+d.y*back.y+d.z*back.z
+            let radialSquared=max(0,d.x*d.x+d.y*d.y+d.z*d.z-along*along)
+            for section in profile {
+                let radius=AngleSceneCalculator.ballRadius+section.radius+ballClearance
+                guard radialSquared < radius*radius else { continue }
+                let reach=sqrtf(radius*radius-radialSquared)
+                // Sphere inflated by this section's radius intersects the axis
+                // on [along-reach, along+reach]. The section translates toward
+                // decreasing axial coordinates during follow-through.
+                if along-reach > section.end { continue } // behind the finite section; moving away
+                best=min(best,max(0,section.start-(along+reach)))
+            }
         }
-        if best == .greatestFiniteMagnitude { return .greatestFiniteMagnitude }
-        return max(0, best)
+        // Leave 10 micrometres inside the safe side so Float reconstruction in
+        // the pose solver cannot classify an exact tangent as penetration.
+        return best == .greatestFiniteMagnitude ? best : max(0,best-0.00001)
     }
 
     // MARK: - Math helpers
