@@ -8,6 +8,51 @@ import MetalKit
 @MainActor
 final class RenderQualityV62Tests: XCTestCase {
     #if DEBUG
+    func testRenderCodeImmutablePayloadExperiment() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("build/render-code-optimization-20261001/simulator-20261002")
+        #if !targetEnvironment(simulator)
+        throw XCTSkip("Local simulator experiment")
+        #endif
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: root.appendingPathComponent("run-payload").path),
+                          "Explicit immutable-payload experiment required")
+        func bridged(_ values: [SIMD4<Float>]) -> NSData {
+            values.withUnsafeBytes { Data($0) } as NSData
+        }
+        func direct(_ values: [SIMD4<Float>]) -> NSData {
+            values.withUnsafeBytes { NSData(bytes: $0.baseAddress, length: $0.count) }
+        }
+        var values = (0..<16).map { SIMD4(Float($0) / 10, Float($0) / 20, 0.028575, 0.85) }
+        let a = bridged(values), b = direct(values)
+        XCTAssertEqual(a, b)
+        let old = Data(referencing: b)
+        values[0].x += 0.02
+        XCTAssertEqual(Data(referencing: b), old, "Submitted bytes must survive mutation of source storage")
+        XCTAssertNotEqual(direct(values), b)
+        let material = SCNMaterial()
+        material.shaderModifiers = [.surface: "#pragma arguments\nfloat4x4 contactGroup0;\n#pragma body\n_surface.diffuse.rgb *= 1.0;"]
+        var rows: [[String: Any]] = []
+        for run in 1...3 {
+            for isDirect in [false, true, true, false] {
+                let make: ([SIMD4<Float>]) -> NSData = isDirect ? direct : bridged
+                for _ in 0..<1_000 { material.setValue(make(values), forKey: "contactUniforms") }
+                let start = CACurrentMediaTime()
+                for index in 0..<20_000 {
+                    values[0].x = Float(index) / 20_000
+                    material.setValue(make(values), forKey: "contactUniforms")
+                }
+                let elapsed = CACurrentMediaTime() - start
+                let submitted = try XCTUnwrap(material.value(forKey: "contactUniforms") as? NSData)
+                XCTAssertEqual(submitted, bridged(values))
+                rows.append(["run": run, "direct": isDirect, "calls": 20_000,
+                             "meanMS": elapsed * 1_000 / 20_000])
+            }
+        }
+        try JSONSerialization.data(withJSONObject: ["rows": rows,
+            "scope": "Immutable payload creation plus actual SCNMaterial KVC; direct-call microbenchmark, not full frames"],
+            options: [.sortedKeys]).write(to: root.appendingPathComponent("payload-experiment.json"))
+    }
+
     /// Fixed replay input; no physics solve or per-frame disk logging in the timed window.
     func testRenderCodeCPUBaseline() async throws {
         #if targetEnvironment(simulator)
@@ -19,7 +64,17 @@ final class RenderQualityV62Tests: XCTestCase {
         #endif
         try XCTSkipUnless(FileManager.default.fileExists(atPath: root.appendingPathComponent("run").path),
                           "Explicit render-code CPU diagnostic required")
-        let fixtureURL = root.appendingPathComponent("break-replay.json")
+        #if targetEnvironment(simulator)
+        let outputRoot = root
+        #else
+        // devicectl transfers may create a root-owned input directory. The App
+        // creates a separate output directory itself rather than weakening permissions.
+        let outputRoot = root.deletingLastPathComponent().appendingPathComponent("render-code-optimization-results")
+        #endif
+        try FileManager.default.createDirectory(at: outputRoot, withIntermediateDirectories: true)
+        let inputFixture = root.appendingPathComponent("break-replay.json")
+        let fixtureURL = FileManager.default.fileExists(atPath: inputFixture.path)
+            ? inputFixture : outputRoot.appendingPathComponent("break-replay.json")
         let fixture: [String: [[Float]]]
         if FileManager.default.fileExists(atPath: fixtureURL.path) {
             fixture = try JSONDecoder().decode([String: [[Float]]].self, from: Data(contentsOf: fixtureURL))
@@ -126,7 +181,7 @@ final class RenderQualityV62Tests: XCTestCase {
                                      "scope": "CPU callback sections; fixed positional replay; not full App/GPU/thermal",
                                      "physicsInMeasuredWindow": false]
         try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
-            .write(to: root.appendingPathComponent("cpu-baseline.json"))
+            .write(to: outputRoot.appendingPathComponent("cpu-baseline.json"))
     }
     /// Exercises the enabled angle-page overlay separately from the daily-page guard.
     /// Direct CPU calls are a microbenchmark, not frame pacing or a device result.
@@ -140,6 +195,12 @@ final class RenderQualityV62Tests: XCTestCase {
         #endif
         try XCTSkipUnless(FileManager.default.fileExists(atPath: root.appendingPathComponent("run").path),
                           "Explicit render-code CPU diagnostic required")
+        #if targetEnvironment(simulator)
+        let outputRoot = root
+        #else
+        let outputRoot = root.deletingLastPathComponent().appendingPathComponent("render-code-optimization-results")
+        #endif
+        try FileManager.default.createDirectory(at: outputRoot, withIntermediateDirectories: true)
         let scene = AngleTrainingScene()
         scene.usesAdaptiveDiagramLabels = true
         scene.setupScene(); scene.setupVisualizationNodes(); scene.hideAllBalls()
@@ -194,7 +255,7 @@ final class RenderQualityV62Tests: XCTestCase {
         let output: [String: Any] = ["runs": runs, "os": ProcessInfo.processInfo.operatingSystemVersionString,
             "scope": "Enabled 2D angle overlay only; direct calls; excludes visualization preparation and rendering"]
         try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
-            .write(to: root.appendingPathComponent("label-cpu-baseline.json"))
+            .write(to: outputRoot.appendingPathComponent("label-cpu-baseline.json"))
     }
     #endif
 
