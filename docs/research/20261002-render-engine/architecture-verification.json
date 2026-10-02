@@ -1,0 +1,26 @@
+{
+  "verified_at": "2026-10-02T09:10:38.770541+08:00",
+  "scope": "second-round static architecture/document audit only; no production edits, build, renderer, device or energy benchmark",
+  "architecture_sources": {
+    "count": 9,
+    "changed": []
+  },
+  "protected_sources": {
+    "count": 39,
+    "changed": []
+  },
+  "frozen_copies": {
+    "count": 44,
+    "integrity_errors": []
+  },
+  "json_evidence_parsed": 10,
+  "local_links": {
+    "count": 38,
+    "missing": []
+  },
+  "research_whitespace": [],
+  "hub_whitespace": [],
+  "doc_size_gate": "passed; PROGRESS current entries 10, hub recent entries 10",
+  "diff_whitespace": "passed for research and edited repository state files; hub checked as direct text because it has no Git repository",
+  "cross_review_status": "four specialist reports complete, individual cross responses read; final v1 scope controlled by ARCHITECTURE-PROPOSAL.md"
+}

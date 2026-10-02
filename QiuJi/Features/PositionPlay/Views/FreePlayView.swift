@@ -292,6 +292,7 @@ struct FreePlayView: View {
                 }
                 #endif
                 if isDailyClearance {
+                    vm.hides3DShotAssists = preferences.daily3DTrajectoryHidden
                     vm.cameraMode = .topDown2D
                     vm.usesAutomaticPocketFallback = true
                     vm.usesDailyShotRanking = true
@@ -969,9 +970,17 @@ struct FreePlayView: View {
     private func trajectoryMenuLabel(_ detail: TrajectoryDetail) -> String {
         switch detail {
         case .full: return "全部"
-        case .core: return "双球"
+        case .core: return "双线"
         case .minimal: return "瞄准线"
         }
+    }
+
+    private var dailyTrajectorySelection: Int {
+        is3D && preferences.daily3DTrajectoryHidden ? 3 : preferences.trajectoryDetail.rawValue
+    }
+
+    private var dailyTrajectoryLabel: String {
+        dailyTrajectorySelection == 3 ? "关闭" : trajectoryMenuLabel(preferences.trajectoryDetail)
     }
 
     @ViewBuilder private var dailySettings: some View {
@@ -994,20 +1003,26 @@ struct FreePlayView: View {
 
             Menu {
                 Picker("轨迹显示", selection: Binding(
-                    get: { preferences.trajectoryDetail },
-                    set: { detail in
-                        guard detail != preferences.trajectoryDetail else { return }
-                        preferences.trajectoryDetail = detail
-                        vm.recompute()
+                    get: { dailyTrajectorySelection },
+                    set: { selection in
+                        if selection == 3, is3D {
+                            preferences.daily3DTrajectoryHidden = true
+                        } else if let detail = TrajectoryDetail(rawValue: selection) {
+                            if is3D { preferences.daily3DTrajectoryHidden = false }
+                            preferences.trajectoryDetail = detail
+                        }
+                        vm.hides3DShotAssists = preferences.daily3DTrajectoryHidden
+                        vm.refreshShotAssistVisibility()
                     }
                 )) {
-                    ForEach(TrajectoryDetail.allCases, id: \.self) { detail in
-                        Text(trajectoryMenuLabel(detail)).tag(detail)
+                    if is3D { Text("关闭").tag(3) }
+                    ForEach([TrajectoryDetail.minimal, .core, .full], id: \.self) { detail in
+                        Text(trajectoryMenuLabel(detail)).tag(detail.rawValue)
                     }
                 }
             } label: {
-                Label("轨迹显示 · \(trajectoryMenuLabel(preferences.trajectoryDetail))",
-                      systemImage: preferences.trajectoryDetail.systemImage)
+                Label("轨迹显示 · \(dailyTrajectoryLabel)",
+                      systemImage: dailyTrajectorySelection == 3 ? "eye.slash" : preferences.trajectoryDetail.systemImage)
             }
             .accessibilityIdentifier("dailyClearance.trajectoryMenu")
         }
@@ -1292,7 +1307,7 @@ private extension FreePlayView {
                     GeometryReader { stage in
                         ZStack {
                             if !is3D { sceneContainer() }
-                            if !vm.isBreakMode && !isDailyResult {
+                            if !vm.isBreakMode && !isDailyResult && vm.showsShotAssists {
                                 BTAimCloseupOverlay(snapshot: vm.closeupSnapshot,
                                     sceneSize: stage.size, scene: vm.scene,
                                     safeInsets: .init(top: 0, leading: 0, bottom: 28, trailing: 0))

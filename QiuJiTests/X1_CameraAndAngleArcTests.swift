@@ -5343,16 +5343,11 @@ extension DailyShotCameraTests {
             rig.observeWholeTable(yaw: .pi/2); rig.snapToTarget()
             let defaultDistance = rig.orbitDistance
             rig.handlePinch(scale:0.01); rig.snapToTarget()
-            if size.width > size.height {
-                XCTAssertEqual(rig.orbitDistance/defaultDistance, 1.08, accuracy:0.0001,
-                               "The wide overview retains its 8% retreat limit")
-            } else {
-                // At yaw π/2 the eye moves towards the room's +Z wall. A narrow
-                // portrait view already fills the available 3.65m floor radius.
-                let wallDistance = Float(3.65) / cos(rig.orbitElevation)
-                XCTAssertEqual(rig.orbitDistance,min(defaultDistance*1.08,wallDistance),accuracy:0.0002,
-                               "Room clearance takes precedence over the 8% retreat allowance")
-                XCTAssertEqual(camera.position.z,3.65,accuracy:0.0002)
+            let wallDistance = BakedTrainingRoom.cameraSafeHalfExtents.y / cos(rig.orbitElevation)
+            XCTAssertEqual(rig.orbitDistance,min(defaultDistance*1.08,wallDistance),accuracy:0.0002,
+                           "Room clearance takes precedence over the 8% retreat allowance")
+            if defaultDistance * 1.08 >= wallDistance {
+                XCTAssertEqual(camera.position.z,BakedTrainingRoom.cameraSafeHalfExtents.y,accuracy:0.0002)
                 XCTAssertEqual(rig.currentPivot.x,0,accuracy:0.0001)
                 XCTAssertEqual(rig.currentPivot.z,0,accuracy:0.0001)
             }
@@ -5418,7 +5413,7 @@ extension DailyShotCameraTests {
         XCTAssertEqual(projectedTableScale(view,rig)/span,0.95,accuracy:0.0002,
                        "Actual SceneKit projection must shrink by the requested pinch fraction")
         XCTAssertEqual(rig.orbitDistance,lowDistance,accuracy:0.0002)
-        XCTAssertLessThanOrEqual(abs(camera.position.z),3.6501)
+        XCTAssertLessThanOrEqual(abs(camera.position.z),BakedTrainingRoom.cameraSafeHalfExtents.y+0.0001)
         for degree in [0,30,45,150,180,-30,-150] {
             rig.observeWholeTable(yaw:Float(degree)*Float.pi/180); rig.snapToTarget()
             rig.observeDailyWholeTable(aimDirection:SCNVector3(0,0,1))
@@ -5619,7 +5614,7 @@ extension DailyShotCameraTests {
     }
 
     func testDailyCameraStaysInsideRoomDuringCornerShotsAndExtremeGesturesEveryFrame() throws {
-        // All room styles share a 10m x 8m shell. The 0.35m inset keeps the
+        // All room styles share an 8m x 6m shell. The 0.35m inset keeps the
         // perspective eye away from opaque walls instead of allowing it outside.
         for cueX: Float in [-1.20,1.20] {
             for cueZ: Float in [-0.56,0.56] {
@@ -5633,8 +5628,8 @@ extension DailyShotCameraTests {
                         for _ in 0..<frames {
                             rig.update(deltaTime:1/60)
                             XCTAssertTrue(camera.position.x.isFinite && camera.position.y.isFinite && camera.position.z.isFinite)
-                            XCTAssertLessThanOrEqual(abs(camera.position.x),4.6501,"cue=\(cue) heading=\(i)")
-                            XCTAssertLessThanOrEqual(abs(camera.position.z),3.6501,"cue=\(cue) heading=\(i)")
+                            XCTAssertLessThanOrEqual(abs(camera.position.x),BakedTrainingRoom.cameraSafeHalfExtents.x+0.0001,"cue=\(cue) heading=\(i)")
+                            XCTAssertLessThanOrEqual(abs(camera.position.z),BakedTrainingRoom.cameraSafeHalfExtents.y+0.0001,"cue=\(cue) heading=\(i)")
                         }
                     }
                     for mode in [CameraRig.PlayerView.thirdPerson,.firstPerson] {
@@ -5922,8 +5917,8 @@ extension DailyShotCameraTests {
                                 let setback = hypot(eye.x-cue.x,eye.z-cue.z)
                                 XCTAssertLessThanOrEqual(setback,1.7002,label)
                                 XCTAssertGreaterThan(setback,0,label)
-                                XCTAssertLessThanOrEqual(abs(eye.x),4.6501,label)
-                                XCTAssertLessThanOrEqual(abs(eye.z),3.6501,label)
+                                XCTAssertLessThanOrEqual(abs(eye.x),BakedTrainingRoom.cameraSafeHalfExtents.x+0.0001,label)
+                                XCTAssertLessThanOrEqual(abs(eye.z),BakedTrainingRoom.cameraSafeHalfExtents.y+0.0001,label)
                                 // Independent straight shaft geometry: the head stays
                                 // above the shot's shaft at the eye's backwards station.
                                 let station = (cue.x-eye.x)*aim.x+(cue.z-eye.z)*aim.z

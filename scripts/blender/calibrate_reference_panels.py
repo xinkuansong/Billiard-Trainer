@@ -10,15 +10,21 @@ from mathutils import Vector
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--output', required=True)
+parser.add_argument('--rig-json', help='Rig values evaluated from the current Swift source, with its SHA-256')
 args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:])
 out = pathlib.Path(args.output).resolve(); out.mkdir(parents=True, exist_ok=True)
 source = pathlib.Path(__file__).resolve().parents[2] / 'QiuJi/Core/Scene/MobileReferenceLighting.swift'
 text = source.read_text()
-rig = {}
-for key in ('panelHeight', 'panelWidth', 'panelDepth', 'panelOffset', 'radiance'):
-    matches = re.findall(r'let\s+' + key + r'\s*=\s*([0-9.]+)', text)
-    if len(matches) != 1: raise ValueError('Ambiguous rig field: ' + key)
-    rig[key] = float(matches[0])
+if args.rig_json:
+    evaluated = json.loads(pathlib.Path(args.rig_json).read_text())
+    assert evaluated['source_sha256'] == hashlib.sha256(source.read_bytes()).hexdigest()
+    rig = evaluated['rig']
+else:
+    rig = {}
+    for key in ('panelHeight', 'panelWidth', 'panelDepth', 'panelOffset', 'radiance'):
+        matches = re.findall(r'let\s+' + key + r'\s*=\s*([0-9.]+)', text)
+        if len(matches) != 1: raise ValueError('Computed or ambiguous rig field; export current Swift values with --rig-json: ' + key)
+        rig[key] = float(matches[0])
 
 def reference(p, n):
     # Independent midpoint area quadrature of cos(receiver)*cos(emitter)/r^2.

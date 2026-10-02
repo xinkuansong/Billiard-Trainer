@@ -2548,3 +2548,130 @@ final class PocketSelectionUXTests: XCTestCase {
         XCTAssertTrue(vm.scene.addPocketMarkers().allSatisfy { !$0.childNode(withName: "leather_selectionPulse", recursively: true)!.hasActions })
     }
 }
+
+@MainActor
+final class Daily3DTrajectoryVisibilityTests: XCTestCase {
+    private func waitForPrediction(_ vm: PositionPlayViewModel) async throws {
+        let deadline = Date().addingTimeInterval(15)
+        while vm.solvedShot == nil, Date() < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertNotNil(vm.solvedShot, "Exercise the completed prediction, not an empty scene")
+    }
+
+    private func assertNoAssists(_ vm: PositionPlayViewModel, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(vm.scene.ghostBallNode?.isHidden == true, file: file, line: line)
+        XCTAssertTrue(vm.scene.contactDotNode?.isHidden == true, file: file, line: line)
+        XCTAssertNil(vm.scene.idealObjectLine, file: file, line: line)
+        XCTAssertNil(vm.closeupSnapshot, file: file, line: line)
+        XCTAssertFalse(vm.scene.rootNode.childNodes.contains { ["tableProjectedAssist", "freeAimPreview", "aimPointMarker"].contains($0.name ?? "") }, file: file, line: line)
+    }
+
+    func testPreferencePersistsWithoutChangingSharedDetail() throws {
+        let name = "daily.3d.trajectory." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let preferences = UserPreferences(defaults: defaults)
+        XCTAssertFalse(preferences.daily3DTrajectoryHidden)
+        preferences.trajectoryDetail = .core
+        preferences.daily3DTrajectoryHidden = true
+        let restored = UserPreferences(defaults: defaults)
+        XCTAssertTrue(restored.daily3DTrajectoryHidden)
+        XCTAssertEqual(restored.trajectoryDetail, .core)
+    }
+
+    func testSolvedPotVisibilityDoesNotChangeShotAndRestoresIn2D() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        try await waitForPrediction(vm)
+        let solved = try XCTUnwrap(vm.solvedShot)
+        let target = vm.selectedTargetKey, pocket = vm.selectedPocketIndex
+        let power = vm.velocity, spinX = vm.spinX, spinY = vm.spinY
+        vm.cameraMode = .perspective3D
+        let cueHidden = vm.scene.cueStick?.rootNode.isHidden
+        vm.hides3DShotAssists = true
+        assertNoAssists(vm)
+        XCTAssertEqual(vm.scene.cueStick?.rootNode.isHidden, cueHidden)
+        XCTAssertEqual(vm.selectedTargetKey, target)
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        XCTAssertEqual(vm.velocity, power)
+        XCTAssertEqual(vm.spinX, spinX)
+        XCTAssertEqual(vm.spinY, spinY)
+        XCTAssertEqual(vm.solvedShot?.prediction.aimDirection.x, solved.prediction.aimDirection.x)
+        XCTAssertEqual(vm.solvedShot?.prediction.aimDirection.z, solved.prediction.aimDirection.z)
+        vm.cameraMode = .topDown2D
+        XCTAssertTrue(vm.showsShotAssists)
+        XCTAssertFalse(try XCTUnwrap(vm.scene.ghostBallNode).isHidden)
+        vm.cameraMode = .perspective3D
+        assertNoAssists(vm)
+        vm.hides3DShotAssists = false
+        XCTAssertFalse(try XCTUnwrap(vm.scene.ghostBallNode).isHidden)
+    }
+
+    func testFreeAimPreviewAndLatePredictionStayHiddenButCueStillWorks() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.aimMode = .free
+        vm.cameraMode = .perspective3D
+        vm.hides3DShotAssists = true
+        let target = try XCTUnwrap(vm.scene.allBallNodes["_1"])
+        vm.handleTableTap(world: target.position)
+        vm.setAimWheelDragging(true)
+        vm.nudgeFreeAim(byDegrees: 0.1)
+        assertNoAssists(vm)
+        XCTAssertFalse(try XCTUnwrap(vm.scene.cueStick).rootNode.isHidden)
+        vm.setAimWheelDragging(false)
+        // Wait for the new intent rather than accepting setupScene's old result.
+        let deadline = Date().addingTimeInterval(15)
+        while (vm.solvedShot?.shot.isFree != true || vm.isComputing), Date() < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertEqual(vm.solvedShot?.shot.isFree, true)
+        assertNoAssists(vm)
+        vm.cameraMode = .topDown2D
+        vm.nudgeFreeAim(byDegrees: 0.1)
+        XCTAssertNotNil(vm.scene.idealObjectLine)
+        XCTAssertFalse(try XCTUnwrap(vm.scene.ghostBallNode).isHidden)
+    }
+
+    func testReenablingWhileNewAimIsPendingDoesNotDrawPreviousPrediction() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        try await waitForPrediction(vm)
+        vm.cameraMode = .perspective3D
+        vm.hides3DShotAssists = true
+        vm.aimMode = .free
+        let target = try XCTUnwrap(vm.scene.allBallNodes["_1"])
+        vm.handleTableTap(world: target.position)
+        vm.nudgeFreeAim(byDegrees: 0.2)
+        let direction = try XCTUnwrap(vm.freeAimDir)
+        vm.hides3DShotAssists = false
+        XCTAssertFalse(vm.scene.rootNode.childNodes.contains { $0.name == "tableProjectedAssist" },
+                       "Only the current geometric preview is valid while the new shot is pending")
+        XCTAssertNotNil(vm.scene.idealObjectLine)
+        XCTAssertEqual(vm.freeAimDir?.x, direction.x)
+        XCTAssertEqual(vm.freeAimDir?.z, direction.z)
+    }
+
+    func testOpeningRackGuidesFollowDimensionWithoutChangingBreakIntent() throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.hides3DShotAssists = true
+        vm.cameraMode = .perspective3D
+        vm.startBreakFlow(game: .nineBall, seed: 42)
+        let runner = try XCTUnwrap(vm.breakRunner)
+        runner.nudgeAim(byDegrees: 0.2)
+        let aim = try XCTUnwrap(runner.aimDir)
+        XCTAssertFalse(runner.showsAimAssist)
+        assertNoAssists(vm)
+        XCTAssertFalse(try XCTUnwrap(vm.scene.cueStick).rootNode.isHidden)
+        vm.cameraMode = .topDown2D
+        XCTAssertTrue(runner.showsAimAssist)
+        XCTAssertTrue(vm.scene.rootNode.childNodes.contains { $0.name == "tableProjectedAssist" })
+        XCTAssertEqual(runner.aimDir?.x, aim.x)
+        XCTAssertEqual(runner.aimDir?.z, aim.z)
+        XCTAssertEqual(runner.seed, 42)
+        XCTAssertEqual(runner.phase, .racked)
+        vm.cancelBreakFlow()
+    }
+}

@@ -4652,6 +4652,44 @@ final class RenderQualityV62Tests: XCTestCase {
         XCTAssertEqual(try floorMaterial(third).transparency, 1)
     }
 
+    func testRoomAssetsMatchEightBySixMetreContract() throws {
+        for style in RoomStyle.allCases {
+            let room = BakedTrainingRoom.make(style: style)
+            var floorPoints: [SIMD3<Float>] = [], perimeterPoints: [SIMD3<Float>] = []
+            for part in ["floor", "perimeter"] {
+                let container = try XCTUnwrap(room.childNode(withName: "room_" + part, recursively: false))
+                container.enumerateChildNodes { node, _ in
+                    guard let source = node.geometry?.sources(for: .vertex).first else { return }
+                    XCTAssertEqual(source.bytesPerComponent, 4)
+                    source.data.withUnsafeBytes { bytes in
+                        for index in 0..<source.vectorCount {
+                            let offset = source.dataOffset + index * source.dataStride
+                            let point = SIMD3<Float>(bytes.loadUnaligned(fromByteOffset: offset, as: Float.self),
+                                bytes.loadUnaligned(fromByteOffset: offset + 4, as: Float.self),
+                                bytes.loadUnaligned(fromByteOffset: offset + 8, as: Float.self))
+                            let world = node.simdConvertPosition(point, to: room)
+                            if part == "floor" { floorPoints.append(world) }
+                            else { perimeterPoints.append(world) }
+                        }
+                    }
+                }
+            }
+            XCTAssertFalse(floorPoints.isEmpty); XCTAssertFalse(perimeterPoints.isEmpty)
+            func span(_ points: [SIMD3<Float>], _ axis: Int) -> Float {
+                (points.map { $0[axis] }.max() ?? 0) - (points.map { $0[axis] }.min() ?? 0)
+            }
+            XCTAssertEqual(span(floorPoints, 0), 8, accuracy: 0.0001, style.rawValue)
+            XCTAssertEqual(span(floorPoints, 2), 6, accuracy: 0.0001, style.rawValue)
+            XCTAssertEqual(span(perimeterPoints, 1), 3.6, accuracy: 0.0001, style.rawValue)
+            XCTAssertEqual(BakedTrainingRoom.cameraSafeHalfExtents.x + 0.35, span(floorPoints, 0)/2, accuracy: 0.0001)
+            XCTAssertEqual(BakedTrainingRoom.cameraSafeHalfExtents.y + 0.35, span(floorPoints, 2)/2, accuracy: 0.0001)
+            for point in perimeterPoints {
+                XCTAssertLessThanOrEqual(abs(point.x), 4.201)
+                XCTAssertLessThanOrEqual(abs(point.z), 3.201)
+            }
+        }
+    }
+
     func testRoomLightingCalibrationComparison() throws {
         let path = ProcessInfo.processInfo.environment["V62_ROOM_CANDIDATE_DIR"]
         try XCTSkipUnless(path != nil, "Explicit offline room lighting candidate required")
@@ -4725,7 +4763,9 @@ final class RenderQualityV62Tests: XCTestCase {
                 }
                 let p = poster.simdWorldPosition
                 let normal = simd_normalize(poster.simdConvertVector(SIMD3<Float>(0, 0, 1), to: nil))
-                XCTAssertGreaterThan(simd_dot(normal, -p), 3, "Print must face into the room")
+                let wallAxis = abs(normal.x) > 0.5 ? SIMD3<Float>(-p.x,0,0) : SIMD3<Float>(0,0,-p.z)
+                XCTAssertGreaterThan(simd_dot(normal, simd_normalize(wallAxis)), 0.99,
+                                     "Print normal must face inward, independent of room dimensions")
                 wallNormals.insert("\(Int(normal.x.rounded())),\(Int(normal.z.rounded()))")
                 let face = try XCTUnwrap(poster.childNode(withName: "poster_print", recursively: false))
                 let material = try XCTUnwrap(face.geometry?.firstMaterial)

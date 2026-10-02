@@ -1,0 +1,58 @@
+{
+  "captured_at": "2026-10-02T10:12:11.690776+08:00",
+  "scope": "current code consulted for design plan; preserves existing dirty work",
+  "files": [
+    {
+      "path": "QiuJi/Core/Scene/CameraRig.swift",
+      "sha256": "01fc242abbe03131621e220567c740567172a338830dd2a2728e99ed493f0d2d"
+    },
+    {
+      "path": "QiuJi/Core/Scene/AngleSceneView.swift",
+      "sha256": "20b9ca2f4491d770a1820dbe1d345fef210b7d99ae5280b2972d918714be8257"
+    },
+    {
+      "path": "QiuJi/Core/Scene/AngleTrainingScene.swift",
+      "sha256": "e94b1ee894f843b17d550f815e49da1094f3132800f38da1d08038137f09da8c"
+    },
+    {
+      "path": "QiuJi/Core/Scene/CueStroke.swift",
+      "sha256": "42e2694957d35916034e30c614a73bf557c6ceb4673f97808ce7ca43a2dd6325"
+    },
+    {
+      "path": "QiuJi/Core/Scene/BakedTrainingRoom.swift",
+      "sha256": "e775d40fd66d8d42e8f68b58c8fd49d0014333759fd80d7e7a2baa45ad9409fe"
+    },
+    {
+      "path": "QiuJi/Core/Scene/MobileReferenceLighting.swift",
+      "sha256": "3df2a2e4d0b9403bc0482b6b956747ea7a144497de80f8a40d195b0f6450eea8"
+    },
+    {
+      "path": "QiuJi/Core/Scene/MobileTableRendering.swift",
+      "sha256": "1f443d5f2ad7be96cea3bf08da7a2b5fe0cd9780a0760c90b77180b639834c07"
+    },
+    {
+      "path": "QiuJi/Core/Scene/AngleSceneCalculator.swift",
+      "sha256": "b856f55cf57c7e5504553fa28a8cefff455ffa961b24ad1113c274366f408b06"
+    },
+    {
+      "path": "QiuJi/Core/Scene/RoomReflectionProbe.swift",
+      "sha256": "b35c13726ba2b123d2d0da13350c39ac40c5b1abd304944fbff3a061188d8372"
+    },
+    {
+      "path": "QiuJi/Core/Scene/PrefilteredReflection.swift",
+      "sha256": "2faf27d303507e3aee0d72be366ee5a28fcbd2271cf379d88051195258a7b9f5"
+    },
+    {
+      "path": "QiuJi/Core/Physics/TrajectoryPlayback.swift",
+      "sha256": "8faf1a7723115af3c605428b9aba92d2069116052c61a12b158aa3d0566a7b4b"
+    },
+    {
+      "path": "QiuJi/Core/Media/SequenceVideoExporter.swift",
+      "sha256": "15a71754af6260e640f8539859d04aa83d667166641f5111317acd663df02647"
+    },
+    {
+      "path": "QiuJi/Features/PositionPlay/ViewModels/PositionPlayViewModel.swift",
+      "sha256": "f41cc342183c5cb53cea95451ca20eb0982f463af9a709614694fb12f2d24b41"
+    }
+  ]
+}

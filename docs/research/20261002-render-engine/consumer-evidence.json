@@ -1,0 +1,117 @@
+{
+  "scope": "Static lexical call extraction; later working-tree snapshot; not runtime render measurement",
+  "entries": [
+    {
+      "path": "QiuJi/Core/Scene/DrillSceneView.swift",
+      "line": 701,
+      "explicit_activity": false,
+      "sha256": "b41052fc6f19b62dfe441f347c4b98f8e42fb0cc845a0fbdd3fcaa8d42b3b134",
+      "call": "AngleSceneView(\n                    scene: controller.scene,\n                    cameraMode: Binding(get: { controller.cameraMode }, set: { controller.setCameraMode($0) }),\n                    interactionMode: controller.cameraMode == .perspective3D ? .cameraControl : .none,\n                    autoFitsLandscapeTable: true,\n                    backgroundColor: controller.cameraMode == .perspective3D ? .black : Self.feltBackground,\n                    onTableTapped: { _ in revealPlaybackControls() }\n                )"
+    },
+    {
+      "path": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift",
+      "line": 678,
+      "explicit_activity": false,
+      "sha256": "ecb72b1a45b0fb0b605daf3b4eda4885b3f037f47e0093353573410f2be2e70d",
+      "call": "AngleSceneView(\n            scene: vm.scene,\n            cameraMode: .constant(cameraMode),\n            interactionMode: sceneInteractionMode,\n            locksCueBallScreenAnchor: is3D,\n            // 2D 走统一自适应取景，使 ShotStageProxy 的球桌矩形与实际渲染对齐（Q7.2）。\n            autoFitsRotatedTable: !is3D,\n            onPocketTapped: nil, // 袋口由题目固定，不向辅助功能暴露换袋动作。\n            onTableTapped: tapAimHandler,\n            onAimNudged: dragAimHandler,\n            onAimDragActiveChanged: { vm.setAimTableDragging($0) }\n        )"
+    },
+    {
+      "path": "QiuJi/Features/AngleTraining/Views/AngleDynamicView.swift",
+      "line": 121,
+      "explicit_activity": false,
+      "sha256": "dfe99871cd5c707db5510cf581792a381d7ea3a3c4bb48bfad4d40f450a8776b",
+      "call": "AngleSceneView(\n            scene: vm.scene,\n            cameraMode: $vm.cameraMode,\n            interactionMode: is3D ? .cameraControl : .tapsOnly,\n            autoFitsRotatedTable: !is3D,\n            onPocketTapped: { index in\n                if !is3D { vm.selectPocket(at: index) }\n            },\n            draggableBallNodes: vm.draggableBalls,\n            onDragBegan: { node in\n                hasDraggedOnce = true\n                vm.dragBegan(node: node)\n            },\n            onDragMoved: { node, pos in vm.dragMoved(node: node, worldPosition: pos) },\n            onDragEnded: { node in vm.dragEnded(node: node) },\n            selectableBallNodes: is3D ? [] : vm.selectableBalls,\n            onBallTapped: { node in\n                if let key = vm.scene.ballKey(for: node) {\n                    vm.selectTarget(key: key)\n                }\n            }\n        )"
+    },
+    {
+      "path": "QiuJi/Features/AngleTraining/Views/CushionEnglishAtlasView.swift",
+      "line": 181,
+      "explicit_activity": false,
+      "sha256": "77522c58887e6eff425f09270f352ae17773c252ebde660ae8b91187cd1175c5",
+      "call": "AngleSceneView(\n                scene: vm.scene,\n                cameraMode: $vm.cameraMode,\n                interactionMode: is3D ? .cameraControl : .tapsOnly,\n                autoFitsRotatedTable: !is3D,\n                onPocketTapped: is3D ? nil : { vm.selectPocket(at: $0) },\n                draggableBallNodes: vm.draggableBalls,\n                onDragBegan: { vm.dragBegan(node: $0) },\n                onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },\n                onDragEnded: { vm.dragEnded(node: $0) },\n                onDragEndedAt: { node, localPoint in\n                    handleTableDragEnd(node: node, localPoint: localPoint)\n                },\n                selectableBallNodes: is3D ? [] : vm.selectableBalls,\n                onBallTapped: { node in\n                    if let key = vm.scene.ballKey(for: node) {\n                        vm.selectTarget(key: key)\n                    }\n                },\n                projector: projector\n            )"
+    },
+    {
+      "path": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift",
+      "line": 216,
+      "explicit_activity": false,
+      "sha256": "eb2c99f2db51f5c03565885394337a789d031081d83dede92a17c61ae61725cb",
+      "call": "AngleSceneView(\n                scene: vm.scene,\n                cameraMode: .constant(cameraMode),\n                interactionMode: interactionMode,\n                // Anchor-lock only matters in 3D — in 2D the camera is already\n                // fixed top-down. The lock guard inside AngleSceneView already\n                // bypasses it for non-perspective modes, so this is just an\n                // extra defence.\n                locksCueBallScreenAnchor: is3D,\n                // Landscape uses the same whole-table fitting as Daily Clearance.\n                // World ball positions and the question's pocket index stay fixed.\n                autoFitsLandscapeTable: !is3D,\n                onPocketTapped: nil // Target pocket is fixed by the question; no selection action.\n            )"
+    },
+    {
+      "path": "QiuJi/Features/AngleTraining/Views/SeparationAngleAtlasView.swift",
+      "line": 158,
+      "explicit_activity": false,
+      "sha256": "4f4d8aa748852da2cfe4fb36fa5c0b49b7ab6e8bffd8fa7d8b5e3cee5e8e2ede",
+      "call": "AngleSceneView(\n                scene: vm.scene,\n                cameraMode: $vm.cameraMode,\n                interactionMode: is3D ? .cameraControl : .tapsOnly,\n                autoFitsRotatedTable: !is3D,\n                onPocketTapped: is3D ? nil : { vm.selectPocket(at: $0) },\n                draggableBallNodes: vm.draggableBalls,\n                onDragBegan: { vm.dragBegan(node: $0) },\n                onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },\n                onDragEnded: { vm.dragEnded(node: $0) },\n                onDragEndedAt: { node, localPoint in\n                    handleTableDragEnd(node: node, localPoint: localPoint)\n                },\n                selectableBallNodes: is3D ? [] : vm.selectableBalls,\n                onBallTapped: { node in\n                    if let key = vm.scene.ballKey(for: node) {\n                        vm.selectTarget(key: key)\n                    }\n                },\n                projector: projector\n            )"
+    },
+    {
+      "path": "QiuJi/Features/AngleTraining/Views/ShotSimulationView.swift",
+      "line": 196,
+      "explicit_activity": true,
+      "sha256": "0b101c3891b61184946db5b59f678f6d3c302c679f212aba864bcadcf3230e90",
+      "call": "AngleSceneView(\n            scene: vm.scene,\n            cameraMode: $vm.cameraMode,\n            interactionMode: vm.isPlaying ? (is3D ? .cameraControl : .none) : (is3D ? .cameraControl : .tapsOnly),\n            autoFitsRotatedTable: !is3D,\n            onPocketTapped: { vm.selectPocket(at: $0) },\n            draggableBallNodes: vm.isPlaying ? [] : vm.draggableBalls,\n            onDragBegan: { vm.dragBegan(node: $0) },\n            onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },\n            onDragEnded: { vm.dragEnded(node: $0) },\n            onDragEndedAt: { node, localPoint in\n                handleTableDragEnd(node: node, localPoint: localPoint)\n            },\n            selectableBallNodes: vm.selectableBalls,\n            onBallTapped: { vm.selectTarget(node: $0) },\n            onTableTapped: is3D ? nil : { vm.handleTableTap(world: $0) },\n            onAimNudged: is3D ? nil : { vm.nudgeFreeAim(byDegrees: $0) },\n            onAimDragActiveChanged: { vm.setAimTableDragging($0) },\n            projector: projector,\n            contentIsAnimating: vm.isPlaying\n        )"
+    },
+    {
+      "path": "QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift",
+      "line": 469,
+      "explicit_activity": false,
+      "sha256": "abf2be2ab86b8db434de5c84ef77748b8bb3497863621a271bb7b0b111bbf945",
+      "call": "AngleSceneView(\n            scene: vm.scene,\n            cameraMode: $vm.cameraMode,\n            interactionMode: is3D ? .cameraControl : .tapsOnly,\n            autoFitsRotatedTable: !is3D,\n            onPocketTapped: is3D ? nil : onPocketTapped,\n            draggableBallNodes: vm.draggableNodes,\n            onDragBegan: { node in vm.dragBegan(node: node) },\n            onDragMoved: { node, world in vm.handleDrag(node: node, to: world) },\n            onDragEnded: { node in vm.dragEnded(node: node) },\n            onDragEndedAt: { node, localPoint in\n                handleTableDragEnd(node: node, localPoint: localPoint)\n            },\n            onAimNudged: is3D ? nil : { vm.nudgeFreeAim(byDegrees: $0) },   // 自由模式瞄准相对调整（G13）。\n            onAimDragActiveChanged: { vm.setAimTableDragging($0) },\n            projector: projector\n        )"
+    },
+    {
+      "path": "QiuJi/Features/BallExtraction/Views/BallExtractionView.swift",
+      "line": 389,
+      "explicit_activity": false,
+      "sha256": "e8acbf915dab79c59380855184b6027733fc5f0c9d8c86f22c96e9657880659e",
+      "call": "AngleSceneView(\n            scene: vm.scene,\n            cameraMode: $cameraMode,\n            interactionMode: .tapsOnly,\n            autoFitsRotatedTable: true,\n            draggableBallNodes: vm.draggableBalls,\n            onDragBegan: { vm.dragBegan(node: $0) },\n            onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },\n            onDragEnded: { vm.dragEnded(node: $0) },\n            onDragEndedAt: { node, localPoint in handleTableDragEnd(node: node, localPoint: localPoint) },\n            selectableBallNodes: vm.draggableBalls,\n            onBallTapped: { vm.selectBall(node: $0) },\n            onTableTapped: { _ in vm.deselect() },\n            projector: projector\n        )"
+    },
+    {
+      "path": "QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift",
+      "line": 649,
+      "explicit_activity": false,
+      "sha256": "19057144f1c53333877f259f1d6da395022939e9c2bf969c7cc56a91f8df17c8",
+      "call": "AngleSceneView(\n            scene: composer.scene,\n            cameraMode: $composer.cameraMode,\n            interactionMode: .tapsOnly,\n            autoFitsRotatedTable: true,\n            onPocketTapped: { composer.selectPocket(at: $0) },\n            draggableBallNodes: solver.activeTool == .arrange ? composer.draggableBalls : [],\n            onDragBegan: { node in\n                composer.dragBegan(node: node)\n                if solver.activeTool == .arrange,\n                   let key = composer.scene.ballKey(for: node) {\n                    arrangeFocusKey = key\n                }\n            },\n            onDragMoved: { composer.dragMoved(node: $0, worldPosition: $1) },\n            onDragEnded: { node in\n                composer.dragEnded(node: node)\n                redistributeGuideBalls()   // 拖球落在辅助线上 → 自动均分（条 20.6）\n            },\n            onDragEndedAt: { node, localPoint in handleTableDragEnd(node: node, localPoint: localPoint) },\n            // 摆球态可选中母球（精调焦点）；其余态保持「仅目标球」点选。\n            selectableBallNodes: solver.activeTool == .arrange\n                ? composer.draggableBalls : composer.selectableBalls,\n            onBallTapped: { handleBallTapped($0) },\n            onTableTapped: { composer.handleTableTap(world: $0) },\n            onAimNudged: { composer.nudgeFreeAim(byDegrees: $0) },\n            projector: projector\n        )"
+    },
+    {
+      "path": "QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift",
+      "line": 612,
+      "explicit_activity": false,
+      "sha256": "4ea042d74e937d71d8e8fe1710c4c55eac386c322091c7af1a8f9762b899fe5a",
+      "call": "AngleSceneView(\n            scene: vm.scene,\n            cameraMode: $cameraMode,\n            interactionMode: .tapsOnly,\n            autoFitsRotatedTable: true,\n            draggableBallNodes: vm.draggableBalls,\n            onDragBegan: { vm.dragBegan(node: $0) },\n            onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },\n            onDragEnded: { vm.dragEnded(node: $0) },\n            onDragEndedAt: { node, localPoint in handleTableDragEnd(node: node, localPoint: localPoint) },\n            selectableBallNodes: vm.draggableBalls,\n            onBallTapped: { vm.selectBall(node: $0) },\n            onTableTapped: { _ in vm.deselect() },\n            projector: projector\n        )"
+    },
+    {
+      "path": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift",
+      "line": 543,
+      "explicit_activity": true,
+      "sha256": "ed5508dde26b61c262fc1f80ca60c01a37da62c2a57e078d1770bad60cea5a70",
+      "call": "AngleSceneView(\n            scene: vm.scene,\n            cameraMode: $vm.cameraMode,\n            interactionMode: is3D ? .cameraControl : .tapsOnly,\n            autoFitsRotatedTable: !is3D && !isDaily2D,\n            autoFitsLandscapeTable: isDaily2D,\n            onPocketTapped: vm.isBreakMode || vm.isPlaying || isDailyResult ? nil : { vm.selectPocket(at: $0) },\n            // P10.1 禁止摆球：非开球模式仅母球可拖（自由球/走位微调）；开球模式拖开球区母球。\n            draggableBallNodes: vm.isPlaying || isDailyResult\n                || (isDailyClearance && !vm.isBreakMode && dailyController.cuePlacement == .none)\n                ? [] : (vm.breakRunner?.draggableCue ?? vm.draggableCueOnly),\n            onDragBegan: { node in\n                if let runner = vm.breakRunner { runner.dragBegan(node: node) }\n                else if isDailyClearance && dailyController.cuePlacement == .none {\n                    flash(\"当前不是自由球，母球不能移动\", tone: .warning)\n                } else { vm.dragBegan(node: node) }\n            },\n            onDragMoved: { node, world in\n                if let runner = vm.breakRunner {\n                    runner.dragMoved(node: node, worldPosition: world)\n                } else {\n                    if isDailyClearance && dailyController.cuePlacement == .none { return }\n                    var constrained = world\n                    if isDailyClearance, dailyController.cuePlacement == .behindHeadString {\n                        if constrained.x <= AngleSceneCalculator.innerLength / 4 {\n                            flash(\"开球犯规后，请在线后摆放母球\", tone: .warning)\n                        }\n                        constrained.x = max(constrained.x, AngleSceneCalculator.innerLength / 4 + 0.001)\n                    }\n                    if isDailyClearance {\n                        if !vm.moveDailyCue(node: node, world: constrained, placement: dailyController.cuePlacement) {\n                            flash(\"此处不能放球，请移到台内空位\", tone: .warning)\n                        }\n                    } else { vm.dragMoved(node: node, worldPosition: constrained) }\n                }\n            },\n            onDragEnded: { node in\n                if let runner = vm.breakRunner { runner.dragEnded(node: node) }\n                else if !isDailyClearance || dailyController.cuePlacement != .none {\n                    vm.dragEnded(node: node)\n                    if isDailyClearance { dailyController.savePlacedBoard() }\n                }\n            },\n            selectableBallNodes: vm.isBreakMode || vm.isPlaying || isDailyResult ? [] :\n                (isDailyClearance && is3D ? vm.selectableBalls + vm.draggableCueOnly : vm.selectableBalls),\n            onBallTapped: { node in handleTargetTap(node) },\n            onTableTapped: is3D || isDailyResult ? nil : { if !vm.isBreakMode { vm.handleTableTap(world: $0) } },\n            onAimNudged: is3D || isDailyResult ? nil : {\n                if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) }\n                else { vm.nudgeFreeAim(byDegrees: $0) }\n            },\n            onAimDragActiveChanged: { vm.setAimTableDragging($0) },\n            projector: projector,\n            contentIsAnimating: vm.isPlaying || (vm.breakRunner?.isBusy ?? false)\n                || (isDailyClearance && dailyAimWheelIsDragging),\n            daily3DDiagnostics: daily3DDiagnostics,\n            fpsReadoutTrailingInset: fpsTrailingInset\n        )"
+    },
+    {
+      "path": "QiuJi/Features/PositionPlay/Views/PlanThreeView.swift",
+      "line": 250,
+      "explicit_activity": false,
+      "sha256": "2ca7311516808255b24dbf7f308dff423aa8be04cd21be339a0745053514b317",
+      "call": "AngleSceneView(\n            scene: vm.scene,\n            cameraMode: $vm.cameraMode,\n            interactionMode: is3D ? .cameraControl : .tapsOnly,\n            autoFitsRotatedTable: !is3D,\n            onPocketTapped: is3D || vm.isBreakMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },\n            // 开球模式：仅母球可拖（限开球区），其余台面交互挂起。\n            draggableBallNodes: vm.isPlaying ? [] : (vm.breakRunner?.draggableCue\n                ?? (is3D || vm.activeTool == .none ? vm.draggableBalls : [])),\n            onDragBegan: { node in\n                if let runner = vm.breakRunner { runner.dragBegan(node: node) }\n                else { vm.dragBegan(node: node) }\n            },\n            onDragMoved: { node, world in\n                if let runner = vm.breakRunner { runner.dragMoved(node: node, worldPosition: world) }\n                else { vm.dragMoved(node: node, worldPosition: world) }\n            },\n            onDragEnded: { node in\n                if let runner = vm.breakRunner { runner.dragEnded(node: node) }\n                else { vm.dragEnded(node: node) }\n            },\n            onDragEndedAt: { node, localPoint in\n                guard !vm.isBreakMode else { return }\n                handleTableDragEnd(node: node, localPoint: localPoint)\n            },\n            selectableBallNodes: (is3D || vm.isBreakMode || vm.activeTool != .none) ? [] : vm.selectableBalls,\n            onBallTapped: { vm.selectBall(node: $0) },\n            // G18/V6：开球模式拖屏调瞄准（G13 相对语义）；非开球模式本页无自由拖瞄，忽略。\n            onAimNudged: is3D ? nil : { if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) } },\n            projector: projector\n        )"
+    },
+    {
+      "path": "QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift",
+      "line": 462,
+      "explicit_activity": false,
+      "sha256": "a010a30fdca3fb918e8007d798a76d5d5dfa19c889bd166711a80b6182659c06",
+      "call": "AngleSceneView(\n            scene: vm.scene,\n            cameraMode: $vm.cameraMode,\n            interactionMode: is3D ? .cameraControl : .tapsOnly,\n            autoFitsRotatedTable: !is3D,\n            onPocketTapped: vm.isBreakMode || vm.isSequenceMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },\n            // 开球模式：仅母球可拖（限开球区）；序列模式：台面只读（逐杆演示），其余台面交互挂起。\n            draggableBallNodes: (vm.isPlaying || vm.isSequenceMode) ? [] : (vm.breakRunner?.draggableCue ?? vm.draggableBalls),\n            onDragBegan: { node in\n                dismissBriefOnInteraction()\n                if let runner = vm.breakRunner { runner.dragBegan(node: node) }\n                else { vm.dragBegan(node: node) }\n            },\n            onDragMoved: { node, world in\n                if let runner = vm.breakRunner {\n                    runner.dragMoved(node: node, worldPosition: world)\n                } else {\n                    vm.dragMoved(node: node, worldPosition: world)\n                }\n            },\n            onDragEnded: { node in\n                if let runner = vm.breakRunner { runner.dragEnded(node: node) }\n                else { vm.dragEnded(node: node) }\n            },\n            onDragEndedAt: { node, localPoint in\n                guard !vm.isBreakMode else { return }\n                handleTableDragEnd(node: node, localPoint: localPoint)\n            },\n            selectableBallNodes: (vm.isBreakMode || vm.isSequenceMode) ? [] : vm.selectableBalls,\n            onBallTapped: { if !vm.isSequenceMode { vm.selectTarget(node: $0) } },\n            onTableTapped: is3D ? nil : {\n                dismissBriefOnInteraction()\n                if !vm.isBreakMode && !vm.isSequenceMode { vm.handleTableTap(world: $0) }\n            },\n            onAimNudged: is3D ? nil : {\n                dismissBriefOnInteraction()\n                if vm.isSequenceMode { return }\n                if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) }\n                else { vm.nudgeFreeAim(byDegrees: $0) }\n            },\n            onAimDragActiveChanged: { vm.setAimTableDragging($0) },\n            projector: projector\n        )"
+    },
+    {
+      "path": "QiuJi/Features/PositionPlay/Views/SiluTrainerView.swift",
+      "line": 235,
+      "explicit_activity": false,
+      "sha256": "29098dc987f937a2ddd3f62f7a7e9c4bba4bbd34d16e80ccec58ee0ae71d7f0c",
+      "call": "AngleSceneView(\n            scene: vm.scene,\n            cameraMode: $vm.cameraMode,\n            interactionMode: is3D ? .cameraControl : .tapsOnly,\n            autoFitsRotatedTable: !is3D,\n            onPocketTapped: is3D || vm.isBreakMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },\n            // 开球模式：仅母球可拖（限开球区），其余台面交互挂起。\n            draggableBallNodes: vm.isPlaying ? [] : (vm.breakRunner?.draggableCue\n                ?? (is3D || vm.activeTool == .none ? vm.draggableBalls : [])),\n            onDragBegan: { node in\n                if let runner = vm.breakRunner { runner.dragBegan(node: node) }\n                else { vm.dragBegan(node: node) }\n            },\n            onDragMoved: { node, world in\n                if let runner = vm.breakRunner { runner.dragMoved(node: node, worldPosition: world) }\n                else { vm.dragMoved(node: node, worldPosition: world) }\n            },\n            onDragEnded: { node in\n                if let runner = vm.breakRunner { runner.dragEnded(node: node) }\n                else { vm.dragEnded(node: node) }\n            },\n            onDragEndedAt: { node, localPoint in\n                guard !vm.isBreakMode else { return }\n                handleTableDragEnd(node: node, localPoint: localPoint)\n            },\n            selectableBallNodes: (is3D || vm.isBreakMode || vm.activeTool != .none) ? [] : vm.selectableBalls,\n            onBallTapped: { vm.selectTarget(node: $0) },\n            // G18/V6：开球模式拖屏调瞄准（G13 相对语义）；非开球模式本页无自由拖瞄，忽略。\n            onAimNudged: is3D ? nil : { if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) } },\n            projector: projector\n        )"
+    },
+    {
+      "path": "QiuJi/Features/SnookerTactics/Views/SnookerTacticsView.swift",
+      "line": 194,
+      "explicit_activity": false,
+      "sha256": "f4de7d19347f4009fb188d7ccc402de6d66210dbf8b344318cefc8d20d1cfacf",
+      "call": "AngleSceneView(\n            scene: vm.scene,\n            cameraMode: $vm.cameraMode,\n            interactionMode: is3D ? .cameraControl : .tapsOnly,\n            autoFitsRotatedTable: !is3D,\n            draggableBallNodes: !vm.isPlaying && (is3D || vm.activeTool == .none) ? vm.draggableBalls : [],\n            onDragBegan: { vm.dragBegan(node: $0) },\n            onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },\n            onDragEnded: { vm.dragEnded(node: $0) },\n            onDragEndedAt: { node, localPoint in handleTableDragEnd(node: node, localPoint: localPoint) },\n            selectableBallNodes: selectable,\n            onBallTapped: { vm.selectBall(node: $0) },\n            projector: projector\n        )"
+    }
+  ]
+}

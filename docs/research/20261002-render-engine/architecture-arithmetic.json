@@ -1,0 +1,192 @@
+{
+  "generated_at": "2026-10-02T08:49:45.740283+08:00",
+  "scope": "static arithmetic and formula counterexamples; no renderer, device, GPU or energy benchmark",
+  "texture_capacity_models": [
+    {
+      "grid": [
+        256,
+        128
+      ],
+      "texels": 32768,
+      "channels": 2,
+      "bytes_per_channel": 2,
+      "kind": "two_panel_scalar_visibility_approximate",
+      "one_state_MiB": 0.125,
+      "two_states_MiB": 0.25
+    },
+    {
+      "grid": [
+        256,
+        128
+      ],
+      "texels": 32768,
+      "channels": 64,
+      "bytes_per_channel": 2,
+      "kind": "joint_visibility_dense_samples_fp16",
+      "one_state_MiB": 4.0,
+      "two_states_MiB": 8.0
+    },
+    {
+      "grid": [
+        256,
+        128
+      ],
+      "texels": 32768,
+      "channels": 64,
+      "bytes_per_channel": 4,
+      "kind": "joint_visibility_dense_samples_fp32",
+      "one_state_MiB": 8.0,
+      "two_states_MiB": 16.0
+    },
+    {
+      "grid": [
+        512,
+        256
+      ],
+      "texels": 131072,
+      "channels": 2,
+      "bytes_per_channel": 2,
+      "kind": "two_panel_scalar_visibility_approximate",
+      "one_state_MiB": 0.5,
+      "two_states_MiB": 1.0
+    },
+    {
+      "grid": [
+        512,
+        256
+      ],
+      "texels": 131072,
+      "channels": 64,
+      "bytes_per_channel": 2,
+      "kind": "joint_visibility_dense_samples_fp16",
+      "one_state_MiB": 16.0,
+      "two_states_MiB": 32.0
+    },
+    {
+      "grid": [
+        512,
+        256
+      ],
+      "texels": 131072,
+      "channels": 64,
+      "bytes_per_channel": 4,
+      "kind": "joint_visibility_dense_samples_fp32",
+      "one_state_MiB": 32.0,
+      "two_states_MiB": 64.0
+    },
+    {
+      "grid": [
+        1024,
+        512
+      ],
+      "texels": 524288,
+      "channels": 2,
+      "bytes_per_channel": 2,
+      "kind": "two_panel_scalar_visibility_approximate",
+      "one_state_MiB": 2.0,
+      "two_states_MiB": 4.0
+    },
+    {
+      "grid": [
+        1024,
+        512
+      ],
+      "texels": 524288,
+      "channels": 64,
+      "bytes_per_channel": 2,
+      "kind": "joint_visibility_dense_samples_fp16",
+      "one_state_MiB": 64.0,
+      "two_states_MiB": 128.0
+    },
+    {
+      "grid": [
+        1024,
+        512
+      ],
+      "texels": 524288,
+      "channels": 64,
+      "bytes_per_channel": 4,
+      "kind": "joint_visibility_dense_samples_fp32",
+      "one_state_MiB": 128.0,
+      "two_states_MiB": 256.0
+    }
+  ],
+  "visibility_BRDF_correlation_counterexample": {
+    "visibility": [
+      1.0,
+      0.0
+    ],
+    "diffuse_weights": [
+      1.0,
+      1.0
+    ],
+    "BRDF_weights": [
+      9.0,
+      1.0
+    ],
+    "reference_weighted_specular": 9.0,
+    "factored_visibility_specular": 5.0,
+    "equal": false
+  },
+  "overlap_counterexample": {
+    "transmittance_1": [
+      0.0,
+      1.0
+    ],
+    "transmittance_2": [
+      0.0,
+      1.0
+    ],
+    "mean_joint_transmittance": 0.5,
+    "product_of_mean_transmittances": 0.25,
+    "equal": false
+  },
+  "suggested_field_interpolation": "finite-grid sampling is not exact at arbitrary receiver positions; near-boundary fallback/quality criterion required",
+  "packed_R32_single_field_example": {
+    "base_world_grid": [
+      256,
+      128
+    ],
+    "channels": 64,
+    "layer_pack": [
+      8,
+      8
+    ],
+    "collar_texels_per_side": 2,
+    "texture_size": [
+      2080,
+      1056
+    ],
+    "bytes": 8785920,
+    "MiB": 8.37890625,
+    "world_step_example_mm": 9.921875,
+    "notes": "capacity only; assumes one tracked/direct-bound GPU-only field in a traditional single queue; no claim this grid preserves contact detail"
+  },
+  "current_center_shadow_filter_example": {
+    "inputs": {
+      "receiver": [
+        0,
+        0.8,
+        0
+      ],
+      "encoded_normal_ball_center": [
+        0,
+        0.828575,
+        0
+      ],
+      "panel_width_m": 5.08,
+      "panel_depth_m": 1.27,
+      "panel_height_m": 3,
+      "samples_per_panel": [
+        8,
+        4
+      ]
+    },
+    "independent_root_calculation": true,
+    "filter_radius_mm_min": 1.4458809786780233,
+    "filter_radius_mm_max": 3.2068992240377994,
+    "grid_spacing_mm": 9.921875,
+    "grid_cell_diagonal_mm": 14.031650189170552,
+    "note": "static substitution only; a specific position, not the full-domain minimum or a renderer/device experiment"
+  }
+}

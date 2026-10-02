@@ -1,0 +1,162 @@
+{
+  "captured_at": "2026-10-02T08:14:02.389653+08:00",
+  "scope": "production physics/rack/position-play hashes for no-change verification; not rendering baseline copy",
+  "files": [
+    {
+      "path": "QiuJi/Core/Physics/AnalyticAimModel.swift",
+      "sha256": "41946c8c0a8a9d650f4aedf5ce0b16241584373819db4f2fdb00cf7086ae644b"
+    },
+    {
+      "path": "QiuJi/Core/Physics/AnalyticShotRollout.swift",
+      "sha256": "47b9d223eb1af5965bf3297653829d5017e4e984762bdedca5bfbe313de72dbe"
+    },
+    {
+      "path": "QiuJi/Core/Physics/AnalyticalMotion.swift",
+      "sha256": "b37a23057863982585511641e6d096e40df6c34600e751f05480534dfa48bb48"
+    },
+    {
+      "path": "QiuJi/Core/Physics/BTPhysicsConstants.swift",
+      "sha256": "40fefcd8846f77e3fbedbc7a26e91e0c09ce2008a32251146c7d7145889c383a"
+    },
+    {
+      "path": "QiuJi/Core/Physics/BallMotionState.swift",
+      "sha256": "70c0c53caa1108a31e6fbce551a6ea69af64a5ed2e481235d429849b16902ce8"
+    },
+    {
+      "path": "QiuJi/Core/Physics/CollisionDetector.swift",
+      "sha256": "3cc684c24121c775dc93bbb12b3402f96c9535b1658e777bcc3abc82fc5876aa"
+    },
+    {
+      "path": "QiuJi/Core/Physics/CollisionResolver.swift",
+      "sha256": "28043c0374ae8972288b7f2e094568d4328bb1ba645c076453cf678599409b09"
+    },
+    {
+      "path": "QiuJi/Core/Physics/CueBallStrike.swift",
+      "sha256": "820e2cf9e56def64ab1a560106a59e85bfa3434fa5f74efe6a927f9290aecf6e"
+    },
+    {
+      "path": "QiuJi/Core/Physics/DrillBoardBuilder.swift",
+      "sha256": "6fda2b03389414812317b9845637f486d8ce84fca0b1bec1119aaade5d1c5a59"
+    },
+    {
+      "path": "QiuJi/Core/Physics/DrillShotResolver.swift",
+      "sha256": "35b59cb7abb646255dc3918ff4a4fb17509684b3396014ec0fbdec65635a0137"
+    },
+    {
+      "path": "QiuJi/Core/Physics/EngineNumerics.swift",
+      "sha256": "2f077e047f5763b34b675c3687b2372b72b25c3c6069158d65036990cd28d7a7"
+    },
+    {
+      "path": "QiuJi/Core/Physics/EventCache.swift",
+      "sha256": "f8cc6c02b3c5688541723f5749149eb4e925eb9f68da69176e0cedc03dab474b"
+    },
+    {
+      "path": "QiuJi/Core/Physics/EventDrivenEngine.swift",
+      "sha256": "9041affe17909c0a7faf25eca79bef89809fa0e98de206ec76d175a489260907"
+    },
+    {
+      "path": "QiuJi/Core/Physics/Han2005CushionModel.swift",
+      "sha256": "e58cc07f8897964880f2c2bf8a6966e54ddd5ba393070a71781177f2d7a9e747"
+    },
+    {
+      "path": "QiuJi/Core/Physics/PerformanceProfiler.swift",
+      "sha256": "f17ebaa33319d7b732196246ca331fbf965dcd39d927320b5e0e8e3de5cb3586"
+    },
+    {
+      "path": "QiuJi/Core/Physics/PhysicsEvent.swift",
+      "sha256": "08da3b11e2e011f8bd8c605eb41260cf7af1daf1a71c48d5c84b23df81a2a0a2"
+    },
+    {
+      "path": "QiuJi/Core/Physics/PocketNetPresentation.swift",
+      "sha256": "732d89cdf1df0f006c538b871af71d07b0625dc85f7c29700f099cbf1f59c7ed"
+    },
+    {
+      "path": "QiuJi/Core/Physics/QuarticSolver.swift",
+      "sha256": "a957699de3bda954b2f2a695dbcd73e85e5e208f5d0cea15a8b15f2428c426b5"
+    },
+    {
+      "path": "QiuJi/Core/Physics/SCNVector3+Physics.swift",
+      "sha256": "880be52c79198f92083abe3cb0afd7a08b8b0c1e37c705eb5335db0a5ab0134a"
+    },
+    {
+      "path": "QiuJi/Core/Physics/ShotBaker.swift",
+      "sha256": "6a5749f07ee07b54eff67613df8c811f6daf6a66388a4fe7a6f010128942e2f6"
+    },
+    {
+      "path": "QiuJi/Core/Physics/ShotIntent.swift",
+      "sha256": "f3e64429b142a5e9e553789022d48fb8b53d673d4cefd81526194844e2040693"
+    },
+    {
+      "path": "QiuJi/Core/Physics/ShotPredictor.swift",
+      "sha256": "19aef45f6c1acc67ec86ec18ffab78a7ea70753f708284ac7a746cd5f9730c1d"
+    },
+    {
+      "path": "QiuJi/Core/Physics/SimulationWorker.swift",
+      "sha256": "b4307d2a536f83758946d547a8d262d9ae8c9e22393eea5c472283aa3a2bcd13"
+    },
+    {
+      "path": "QiuJi/Core/Physics/TableGeometry+QiuJi.swift",
+      "sha256": "c853037ccf1691d607daca5d68a9cb27d0131f81b713e0b2a07c8a146b8b77f9"
+    },
+    {
+      "path": "QiuJi/Core/Physics/TableGeometry.swift",
+      "sha256": "f49e02c5312f71291828c8005a7832967d917cf400ef8081cb2dabde60ffd337"
+    },
+    {
+      "path": "QiuJi/Core/Physics/TrajectoryPlayback.swift",
+      "sha256": "8faf1a7723115af3c605428b9aba92d2069116052c61a12b158aa3d0566a7b4b"
+    },
+    {
+      "path": "QiuJi/Core/Physics/TrajectoryRecorder.swift",
+      "sha256": "4900ee2372524f938d7718787f6e895271b60496668fc01d3a30155a2b894060"
+    },
+    {
+      "path": "QiuJi/Core/Rack/BreakFlowRunner.swift",
+      "sha256": "ab90469b3bee8930588b63b1e7c885c5931cd33155879669096d64cae53c7b3a"
+    },
+    {
+      "path": "QiuJi/Core/Rack/BreakSimulator.swift",
+      "sha256": "0731646204ee555932861f7c3f55af0717ead2e6970bbfbce4a1077ac20cd022"
+    },
+    {
+      "path": "QiuJi/Core/Rack/RackLayout.swift",
+      "sha256": "9f5c9840f44f8c1a3d122e3cbcce8ae33865b8c79ea2bbaa4613e698ac67db7f"
+    },
+    {
+      "path": "QiuJi/Core/PositionPlay/BallNudgeMath.swift",
+      "sha256": "0cec13ed87a0f5b7b5921bddca7911d02c9518924589370fdb85ca7c8956c134"
+    },
+    {
+      "path": "QiuJi/Core/PositionPlay/DifficultyModel.swift",
+      "sha256": "5e0329f4fa8a1c7e80995361d5817ec6a90df91e7b690ad38a5e49b02a762887"
+    },
+    {
+      "path": "QiuJi/Core/PositionPlay/DirectPotBankFallback.swift",
+      "sha256": "91d12ecb8ca9ea592a6db10691ad0c88ee8ec00326517b6dd4c67b89b233216d"
+    },
+    {
+      "path": "QiuJi/Core/PositionPlay/DrillTryoutBoardStore.swift",
+      "sha256": "26d7fcb63e78f1fd3aadc47b76fc93e659013ef3a139ea85e70aface7159e62d"
+    },
+    {
+      "path": "QiuJi/Core/PositionPlay/PositionPlayModels.swift",
+      "sha256": "51c19f48f214ec7320b1ba2e357613810f6bd3121164cf63e932001093292272"
+    },
+    {
+      "path": "QiuJi/Core/PositionPlay/PositionPlayShotSolver.swift",
+      "sha256": "b37d231ffe886db9a49e4e8cf79d60ad3f2fd79860ffffe3a2eeefa5c3b828ad"
+    },
+    {
+      "path": "QiuJi/Core/PositionPlay/PositionPlaySolver.swift",
+      "sha256": "72fe235716ebccad7ac129da7c80e61e43164f057b0654ca2f05490ed73bbd90"
+    },
+    {
+      "path": "QiuJi/Core/PositionPlay/PositionPlaySolverModels.swift",
+      "sha256": "706a2304a9a8fc5f9fe79339fe3a2f15e56b27f0ee1f12dca32be22316151e46"
+    },
+    {
+      "path": "QiuJi/Core/PositionPlay/ShotSpinLabel.swift",
+      "sha256": "c9351002d62a451089546823e0d7e1a79b7b9f76cb8984785b29f421bc78ed8c"
+    }
+  ]
+}

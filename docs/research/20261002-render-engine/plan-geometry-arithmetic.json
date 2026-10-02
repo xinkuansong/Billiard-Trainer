@@ -1,0 +1,36 @@
+{
+  "scope": "illustrative static arithmetic; not production safety, HUD, comfort or performance validation",
+  "coordinates": "SceneKit XZ horizontal, Y up, metres; theta zero +X, pi/2 +Z",
+  "illustrative_ellipse_axes_m": {
+    "near": [
+      2.0,
+      1.4
+    ],
+    "far": [
+      3.2,
+      2.3
+    ]
+  },
+  "samples_are_not_a_path_certificate": true,
+  "minimum_sampled_far_near_gap_m": 0.8999999999999999,
+  "max_inverse_error": 4.718447854656915e-16,
+  "max_periodic_radius_error_m": 2.220446049250313e-15,
+  "analytic_monotonic_condition": "dr/ds = r*log(rFar/rNear)>0 if 0<rNear<rFar",
+  "fixed_eye_target_height_difference_example_m": 0.8,
+  "pitch_example_degrees": [
+    {
+      "horizontal_radius_m": 1.5,
+      "pitch_magnitude_deg": 28.07248693585296
+    },
+    {
+      "horizontal_radius_m": 3.0,
+      "pitch_magnitude_deg": 14.931417178137554
+    }
+  ],
+  "R32_capacity_example": {
+    "logical_bytes": 8388608,
+    "packed_with_two_texel_collar_bytes": 8785920,
+    "new_GPU_total_peak_cap_bytes": 16777216,
+    "capacity_is_not_quality_or_allocatedSize": true
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "source_sha256": "0e011ae72889d56a97255d8d69f2a7c0615ad779340ab64b938c2947817b48d1",
+  "mesh_face_arrays": 19,
+  "polygons": 384724,
+  "fan_equivalent_triangles": 499298,
+  "scope": "Independent stdout face-array aggregate; not measured GPU triangulation"
+}

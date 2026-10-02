@@ -1,0 +1,157 @@
+{
+  "scope": "document/links/original-image provenance checks; no new camera images or implementation acceptance",
+  "document_count": 6,
+  "links_checked": 71,
+  "missing_links": [],
+  "whitespace_issues": [],
+  "C_S_R_P_items": 30,
+  "V_items": 8,
+  "unique_criterion_count": 38,
+  "historical_original_images_referenced": [
+    {
+      "path": "build/control-metal-20261001/ui/enabled-2d.png",
+      "sha256": "467dfd48a1249a63677c2cb70b79f597383795ab234fc9480dff4e632b7fbeb1",
+      "PNG_IHDR_pixels": [
+        1206,
+        2622
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    },
+    {
+      "path": "build/daily-camera-20261001-r2/after/overview-angle-35.png",
+      "sha256": "e2478351f3c215f435bdd85f2a9e6dea707fdf5be2c02039443567cb15546acf",
+      "PNG_IHDR_pixels": [
+        1206,
+        2622
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    },
+    {
+      "path": "build/daily-camera-coverage-audit-20261001/third-ball-occlusion.png",
+      "sha256": "90052603abafabe7e2b54a5ac7b314f2d8b85e53e5332c2ba0bf16121ccbcfb5",
+      "PNG_IHDR_pixels": [
+        874,
+        402
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    },
+    {
+      "path": "build/daily-camera-formations-20261001/final/formation-0-far.png",
+      "sha256": "e72a11fcab50d8f30f8f5baadb05278eaf50a52a7e654bd520f2a2a2b41d9f39",
+      "PNG_IHDR_pixels": [
+        1206,
+        2622
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    },
+    {
+      "path": "build/daily-camera-formations-20261001/final/formation-0-near.png",
+      "sha256": "f4409f72c181dcfc4de99faaa53bcb17ffe4090b0e535a348dd6be8c719ddec8",
+      "PNG_IHDR_pixels": [
+        1206,
+        2622
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    },
+    {
+      "path": "build/daily-camera-formations-20261001/final/formation-0-standard.png",
+      "sha256": "77cb3f86b7458c8fffe7edcf9d9da0e625557acba74fdad909891a354ee49e54",
+      "PNG_IHDR_pixels": [
+        1206,
+        2622
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    },
+    {
+      "path": "build/daily-camera-formations-20261001/final/formation-1-far.png",
+      "sha256": "54931204bfe57e8bfc674c627a4e53c21b79878de883f2c97060fb57386e81d3",
+      "PNG_IHDR_pixels": [
+        1206,
+        2622
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    },
+    {
+      "path": "build/daily-camera-formations-20261001/final/formation-1-standard.png",
+      "sha256": "c447493a82e0f8e8230b5640caf5a5fa8509d70a9745206d9015d3e169b7856a",
+      "PNG_IHDR_pixels": [
+        1206,
+        2622
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    },
+    {
+      "path": "build/daily-camera-formations-20261001/final/formation-13-standard.png",
+      "sha256": "be1fa700ccb9b1903bd94326984dfeec6f8d43b64158320b5687102be5c9ae1b",
+      "PNG_IHDR_pixels": [
+        1206,
+        2622
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    },
+    {
+      "path": "build/daily-camera-formations-20261001/final/formation-3-standard.png",
+      "sha256": "947e7d5237febc2482f8ca6a3228f5c21d09586c918d29d6e40d73f475bffd17",
+      "PNG_IHDR_pixels": [
+        1206,
+        2622
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    },
+    {
+      "path": "build/daily-pocket-camera-20261001/focused/camera-first-person.png",
+      "sha256": "6bc01e82a1d3a2a5f0750485b9c5d492e4bf5006762fce3fb26d4ce7cc440f6b",
+      "PNG_IHDR_pixels": [
+        1206,
+        2622
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    },
+    {
+      "path": "build/daily-pocket-camera-20261001/focused/camera-third-person.png",
+      "sha256": "3111fa03517a6aa26c9d14afb6284eab0f939aec91b0a8bba09c6c57f2debc2e",
+      "PNG_IHDR_pixels": [
+        1206,
+        2622
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    },
+    {
+      "path": "output/room-size-study-20261002/integration/ui-attachments/3C013065-3DE0-4A7B-B7F9-D78D3C63B651.png",
+      "sha256": "528465c29474c8ba3ebda7768b13e530c911827db832b808f2fc0d648c9c00eb",
+      "PNG_IHDR_pixels": [
+        1206,
+        2622
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    },
+    {
+      "path": "output/room-size-study-20261002/integration/ui-attachments/59DB3609-CAAA-4407-BAF8-0A5DE2C984B9.png",
+      "sha256": "74b2f4fda253d63d8a5b60f89a2ecf7c142db08a24cf5a65305fc17330aac9f5",
+      "PNG_IHDR_pixels": [
+        1206,
+        2622
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    },
+    {
+      "path": "output/room-size-study-20261002/integration/ui-attachments/63023E04-3F87-4663-B852-9F1F10223512.png",
+      "sha256": "ef23f702664a56e8db8fffbbb07833a30e1fc87c4d847b4cd831cc5c2e00c172",
+      "PNG_IHDR_pixels": [
+        1206,
+        2622
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    },
+    {
+      "path": "output/room-size-study-20261002/integration/ui-attachments/FEF3DAAE-F0A5-4046-A70A-2975A46C5D04.png",
+      "sha256": "3e865924f9761dd3bf310f0f2d74f7c3d257a4b5ab68e1d40d304f7941e3bbce",
+      "PNG_IHDR_pixels": [
+        1206,
+        2622
+      ],
+      "note": "raw dimensions; view_image may orient/resize, not a readability measurement"
+    }
+  ],
+  "new_camera_visual_status": "UNVERIFIED"
+}

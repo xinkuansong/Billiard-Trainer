@@ -1,0 +1,16 @@
+{
+  "verified_at": "2026-10-02T09:21:27.459384+08:00",
+  "scope": "camera/render joint contract static document/source check; no build, rendering or device benchmark",
+  "drafts_checked": [
+    "CAMERA-RENDER-CONTRACT.md",
+    "ARCHITECTURE-PROPOSAL.md",
+    "ARCHITECTURE-BRIEF.md"
+  ],
+  "local_links_checked": 13,
+  "missing_links": [],
+  "trailing_whitespace": [],
+  "architecture_source_count": 9,
+  "architecture_source_changed": [],
+  "hub_trailing_whitespace": [],
+  "status": "joint analysis draft; concrete new camera language and scope not yet confirmed"
+}

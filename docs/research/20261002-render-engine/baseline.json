@@ -1,0 +1,184 @@
+{
+  "captured_at": "2026-10-02T08:10:51.577770+08:00",
+  "head": "b69aa749b12a4e322da1bbca1a78536349531c47",
+  "status": " M QiuJi/Core/Scene/BakedTrainingRoom.swift\n M QiuJi/Core/Scene/CameraRig.swift\n M QiuJi/Resources/TrainingRoom/eastern_floor.png\n M QiuJi/Resources/TrainingRoom/eastern_perimeter.png\n M QiuJi/Resources/TrainingRoom/tournament_floor.png\n M QiuJi/Resources/TrainingRoom/tournament_perimeter.png\n M QiuJi/Resources/TrainingRoom/walnut_floor.png\n M QiuJi/Resources/TrainingRoom/walnut_perimeter.png\n M QiuJiTests/RenderQualityV62Tests.swift\n M QiuJiTests/X1_CameraAndAngleArcTests.swift\n M scripts/blender/build_training_rooms.py\n M scripts/blender/calibrate_reference_panels.py\n M tasks/PROGRESS.md\n?? docs/research/20261002-render-engine/\n?? tasks/ROOM-SIZE-STUDY-20261002.md\n?? tmp/cover-art-refs/\n?? tmp/cover-art-rejects/\n?? tmp/cover-art-style-lock-bright-cool.png\n?? tmp/cover-semantic-validation/\n?? tmp/designer-screenshots-chrome.log\n?? tmp/designer-screenshots-remainder.log\n?? tmp/designer-screenshots-run.log\n?? tmp/designer-screenshots-tail.log\n?? tmp/onboarding-font/\n?? tmp/plan-cover-validation/\n?? tmp/v47-design-review/\n?? tmp/v47-image-to-swiftui-experiment/\n",
+  "source_files": [
+    {
+      "path": "QiuJi/Core/Scene/TableSurfaceTextures.swift",
+      "sha256": "7b52edc1a68003d9e93d52a50c45ed1322a74bd18dcfdc059ce1efc46bab3fe7"
+    },
+    {
+      "path": "QiuJi/Core/Scene/MaterialFactory.swift",
+      "sha256": "042915d1e396973a4875eb158a81038bd0c06852fc819ef67525f683febdd1e2"
+    },
+    {
+      "path": "QiuJi/Core/Scene/PocketLeatherAppearance.swift",
+      "sha256": "d051ce28bd22972a26d1bcebf62c5ff7531c255cdfcc61b72365948a19731da1"
+    },
+    {
+      "path": "QiuJi/Core/Scene/SceneStroke.swift",
+      "sha256": "670d568e4ea0cbd38d23a2ad80112765767bb3368c8eba78dadd18788612c288"
+    },
+    {
+      "path": "QiuJi/Core/Scene/AngleTrainingScene.swift",
+      "sha256": "e94b1ee894f843b17d550f815e49da1094f3132800f38da1d08038137f09da8c"
+    },
+    {
+      "path": "QiuJi/Core/Scene/AngleSceneView.swift",
+      "sha256": "20b9ca2f4491d770a1820dbe1d345fef210b7d99ae5280b2972d918714be8257"
+    },
+    {
+      "path": "QiuJi/Core/Scene/BTScenePalette.swift",
+      "sha256": "2e4d6c74e2b25319932f42af6acbf6d93c8a02c7f56c1c39940fc9bbf294d515"
+    },
+    {
+      "path": "QiuJi/Core/Scene/BallStickerAppearance.swift",
+      "sha256": "2fdea8fe397b58b7abcf67f4055056e847488031bf2e617ad1c5b7a0a5e1929e"
+    },
+    {
+      "path": "QiuJi/Core/Scene/BTSceneConstants.swift",
+      "sha256": "da5403a0aa0b23599ba987537342787732ec2e43f1b04ff01441b232edddaac1"
+    },
+    {
+      "path": "QiuJi/Core/Scene/DrillStaticPreview.swift",
+      "sha256": "41dae095e18941d727780a1fc708e5309a6b36707e529cf40593daecfb99aee1"
+    },
+    {
+      "path": "QiuJi/Core/Scene/TableFigureRenderer.swift",
+      "sha256": "236503c4a13669a9b01201ea3a0297a0c7f47c485fdcf40f2b80510f1c98f892"
+    },
+    {
+      "path": "QiuJi/Core/Scene/DrillThumbnailRenderer.swift",
+      "sha256": "b7ed06c9b6830f960e88231880f244481db696a2a200a1fcc56c338ef2e7d453"
+    },
+    {
+      "path": "QiuJi/Core/Scene/PocketRailInventory.swift",
+      "sha256": "a3bc6d30c6c7d0c4f4a06731e7140cdd57bdc5fc4d1a05f194920abea0bb4000"
+    },
+    {
+      "path": "QiuJi/Core/Scene/CueStroke.swift",
+      "sha256": "42e2694957d35916034e30c614a73bf557c6ceb4673f97808ce7ca43a2dd6325"
+    },
+    {
+      "path": "QiuJi/Core/Scene/MobileReferenceLighting.swift",
+      "sha256": "3df2a2e4d0b9403bc0482b6b956747ea7a144497de80f8a40d195b0f6450eea8"
+    },
+    {
+      "path": "QiuJi/Core/Scene/TableAppearance.swift",
+      "sha256": "b160adc55b7836fb353e5a17b8ea25cfe77cc365cea0337316be208b9a746805"
+    },
+    {
+      "path": "QiuJi/Core/Scene/Daily3DRenderDiagnostics.swift",
+      "sha256": "76d2a9afbe11288000750a5812793dc699cbb0362c4544c73dcccaaca48c0798"
+    },
+    {
+      "path": "QiuJi/Core/Scene/DrillSceneView.swift",
+      "sha256": "b41052fc6f19b62dfe441f347c4b98f8e42fb0cc845a0fbdd3fcaa8d42b3b134"
+    },
+    {
+      "path": "QiuJi/Core/Scene/MobileClothAlignment.swift",
+      "sha256": "694016d0c71f2336f59b85aa21a1fdce279859fb6ff6224cd28ddac2fd8f261c"
+    },
+    {
+      "path": "QiuJi/Core/Scene/PrefilteredReflection.swift",
+      "sha256": "2faf27d303507e3aee0d72be366ee5a28fcbd2271cf379d88051195258a7b9f5"
+    },
+    {
+      "path": "QiuJi/Core/Scene/CueStick.swift",
+      "sha256": "97998c33eea32e9dec9f7ac7dd3bea8a7dc6d1121bc9c12ad43c35f46ed60609"
+    },
+    {
+      "path": "QiuJi/Core/Scene/TableBallPulse.swift",
+      "sha256": "97eafc9805f67f72c0a84965036571b602cf06f891759c1410df0acadfd68161"
+    },
+    {
+      "path": "QiuJi/Core/Scene/PocketLeatherMarker.swift",
+      "sha256": "a8854d1f269a84cdb1d62845ae4155030ed8ca37babcdf321f93abb100efe055"
+    },
+    {
+      "path": "QiuJi/Core/Scene/AngleSceneCalculator.swift",
+      "sha256": "b856f55cf57c7e5504553fa28a8cefff455ffa961b24ad1113c274366f408b06"
+    },
+    {
+      "path": "QiuJi/Core/Scene/CameraRig.swift",
+      "sha256": "01fc242abbe03131621e220567c740567172a338830dd2a2728e99ed493f0d2d"
+    },
+    {
+      "path": "QiuJi/Core/Scene/AimingCameraConfig.swift",
+      "sha256": "81bbef36a2205166324aafc7f8a2270d7234cba1ea44f243f42e978dee7fe84b"
+    },
+    {
+      "path": "QiuJi/Core/Scene/ClothAppearance.swift",
+      "sha256": "864c7bb78d8c337bb16a3324d50aa3f1a1dded49a80e9221e9305fd624186d59"
+    },
+    {
+      "path": "QiuJi/Core/Scene/EnhancedEnvironment.swift",
+      "sha256": "07bdde2bad93b5eb596a91fa988a7920e8de2927a7409ed425f6ff18a899ce19"
+    },
+    {
+      "path": "QiuJi/Core/Scene/CueStyleModel.swift",
+      "sha256": "da84ff9712e6123c8fec17c99bab4dea15645fab84c82b397ef17a9ae62d2251"
+    },
+    {
+      "path": "QiuJi/Core/Scene/BallFaceRenderer.swift",
+      "sha256": "1da7aa0810e01d13c1f59cbf4761c99a0267f900e9da7b44ff3fdad2eae129c2"
+    },
+    {
+      "path": "QiuJi/Core/Scene/TableModelLoader.swift",
+      "sha256": "07f3647e4713fa1cc4355b52655495457c91d17575f1cce07dc321efd3862faa"
+    },
+    {
+      "path": "QiuJi/Core/Scene/RenderQualityFixture.swift",
+      "sha256": "0e04601162750b38f3934fa06c36517490c450c7f492ce4d68de04962d8f8faa"
+    },
+    {
+      "path": "QiuJi/Core/Scene/BakedTrainingRoom.swift",
+      "sha256": "e775d40fd66d8d42e8f68b58c8fd49d0014333759fd80d7e7a2baa45ad9409fe"
+    },
+    {
+      "path": "QiuJi/Core/Scene/MobileTableRendering.swift",
+      "sha256": "1f443d5f2ad7be96cea3bf08da7a2b5fe0cd9780a0760c90b77180b639834c07"
+    },
+    {
+      "path": "QiuJi/Core/Scene/CueClearance.swift",
+      "sha256": "00cf6e765fddb47d68bf8509048e4dc0d04a622be721f5bd61e2b467b7c7097d"
+    },
+    {
+      "path": "QiuJi/Core/Scene/RoomReflectionProbe.swift",
+      "sha256": "b35c13726ba2b123d2d0da13350c39ac40c5b1abd304944fbff3a061188d8372"
+    },
+    {
+      "path": "QiuJi/Core/Scene/PocketLeatherMesh.swift",
+      "sha256": "f46986807198d12fd20c86c9d9224e3326d39611a289b8ef1f09ae7403496fa8"
+    },
+    {
+      "path": "QiuJi/Core/Scene/TrajectoryRenderer.swift",
+      "sha256": "9354059b8bb7252c12f0aaba67191756a9d2545f1bc226050588aced77cbd28b"
+    },
+    {
+      "path": "QiuJi/Core/Media/GIFEncoder.swift",
+      "sha256": "784eac459c742061cae1cf17b16494354ac7bcc14ffe437c6c6d16813b34ae77"
+    },
+    {
+      "path": "QiuJi/Core/Media/SequenceVideoExporter.swift",
+      "sha256": "15a71754af6260e640f8539859d04aa83d667166641f5111317acd663df02647"
+    },
+    {
+      "path": "QiuJi/Core/Media/VideoWriter.swift",
+      "sha256": "a8b582bd4e2a68d9b38e2f1251d836f7052935bdfb982c97b671b47706a3add3"
+    },
+    {
+      "path": "project.yml",
+      "sha256": "dfedbb7b98d8d934872cb3d65eddd1a79f42387a22cc2cdbef44f4c9da6beb5a"
+    },
+    {
+      "path": "docs/06-技术架构.md",
+      "sha256": "9516da452451e8cf8a3ff36d28447f879e71a9aa723139b67dbb6cd60db58e78"
+    },
+    {
+      "path": "tasks/RENDER-CODE-OPTIMIZATION-PLAN-20261001.md",
+      "sha256": "fadc9d0cee446378321340a36aa9bea5a7245afc9e86469ab11169fcb7122394"
+    }
+  ],
+  "note": "Read-only research snapshot; HEAD plus dirty state, no performance measurement."
+}

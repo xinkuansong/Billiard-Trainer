@@ -1986,3 +1986,68 @@ extension V52DailyClearanceUITests {
         }
     }
 }
+
+extension V52DailyClearanceUITests {
+    func test3DTrajectoryOffKeeps2DGuidesAndRemembersChoice() {
+        XCUIDevice.shared.orientation = .landscapeRight
+        let app = launch(["-dailyClearance.fixture=selection"])
+        let stage = app.descendants(matching: .any)["freeplay.stage"].firstMatch
+        XCTAssertTrue(stage.waitForExistence(timeout: 20))
+        let strike = app.buttons["dailyClearance.strike"]
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"),
+                                                      evaluatedWith: strike)], timeout: 30), .completed)
+        func openTrajectories() {
+            app.buttons["freeplay.moreMenu"].tap()
+            let menu = app.buttons.matching(NSPredicate(format: "identifier == %@ OR label BEGINSWITH %@",
+                "dailyClearance.trajectoryMenu", "轨迹显示")).firstMatch
+            XCTAssertTrue(menu.waitForExistence(timeout: 5), app.debugDescription)
+            menu.tap()
+        }
+        func dismissMenu() {
+            stage.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.85)).tap()
+        }
+        func assertOrder(_ labels: [String]) {
+            let options = labels.map { app.buttons[$0].firstMatch }
+            XCTAssertTrue(options.allSatisfy(\.exists))
+            for (first, next) in zip(options, options.dropFirst()) {
+                XCTAssertLessThan(first.frame.midY, next.frame.midY)
+            }
+        }
+        openTrajectories()
+        XCTAssertFalse(app.buttons["关闭"].exists, "2D needs its direction guide")
+        assertOrder(["瞄准线", "双线", "全部"])
+        dismissMenu()
+        app.buttons["freeplay.cameraMode"].tap()
+        openTrajectories()
+        app.buttons["全部"].firstMatch.tap()
+        snap(app, "trajectory-3d-before-full")
+        openTrajectories()
+        XCTAssertTrue(app.buttons["关闭"].waitForExistence(timeout: 4))
+        assertOrder(["关闭", "瞄准线", "双线", "全部"])
+        snap(app, "trajectory-3d-four-options")
+        app.buttons["关闭"].tap()
+        XCTAssertTrue(strike.isEnabled)
+        snap(app, "trajectory-3d-off")
+        app.buttons["freeplay.cameraMode"].tap()
+        openTrajectories()
+        XCTAssertFalse(app.buttons["关闭"].exists)
+        dismissMenu()
+        snap(app, "trajectory-2d-retains-guides")
+        app.buttons["freeplay.cameraMode"].tap()
+        app.buttons["freeplay.moreMenu"].tap()
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label == %@", "轨迹显示 · 关闭")).firstMatch.waitForExistence(timeout: 5))
+        dismissMenu()
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(stage.waitForExistence(timeout: 20))
+        app.buttons["freeplay.cameraMode"].tap()
+        app.buttons["freeplay.moreMenu"].tap()
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label == %@", "轨迹显示 · 关闭")).firstMatch.waitForExistence(timeout: 5))
+        dismissMenu()
+        snap(app, "trajectory-3d-off-after-relaunch")
+        openTrajectories()
+        app.buttons["双线"].firstMatch.tap()
+        XCTAssertTrue(strike.isEnabled)
+        snap(app, "trajectory-3d-restored-core")
+    }
+}

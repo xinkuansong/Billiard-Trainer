@@ -1,0 +1,268 @@
+# 资源子目录（Drills / Plans / Videos / DrillThumbnails）作为 **folder reference**
+# （蓝色文件夹）打包，使 `Bundle.main.url(forResource:withExtension:subdirectory:)`
+# 能解析子目录。实现方式：在 `sources:` 下用 `type: folder` + `buildPhase: resources`，
+# 由 xcodegen 原生生成 folder reference —— 因此 `xcodegen generate` 可直接运行，
+# 无需事后补丁脚本。（历史上 `resources: type: folder` 不被 xcodegen 认，曾依赖
+# patch-pbxproj-folder-refs.py 注入；现已改为原生方式。）
+name: QiuJi
+options:
+  bundleIdPrefix: com.xinkuan
+  # 产品界面与内容均以简体中文为基准。声明英文会让系统生成的导航返回文案
+  # 在中文 App 中显示为 “Back”，且所有依赖主 bundle 本地化的系统控件都会跟错。
+  developmentLanguage: zh-Hans
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  defaultConfig: Debug
+
+configs:
+  Debug: debug
+  Release: release
+
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    ENABLE_PREVIEWS: YES
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: KWH2GRNSKG
+    INFOPLIST_FILE: QiuJi/Resources/Info.plist
+    CODE_SIGN_STYLE: Automatic
+  configs:
+    Debug:
+      # 日常 Xcode Run 使用优化版；排查逐行调试问题时可临时覆盖为 -Onone。
+      SWIFT_OPTIMIZATION_LEVEL: "-O"
+
+targets:
+  QiuJi:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: QiuJi
+        excludes:
+          - "**/.DS_Store"
+          - "Resources/Drills/**"
+          - "Resources/BallStickers/**"
+          - "Resources/CueStyles/**"
+          - "Resources/Plans/**"
+          # v25 W1：引擎渲染视频已下线，目录保留磁盘但不进包（红线：不 rm）。
+          - "Resources/Videos/**"
+          - "Resources/DrillThumbnails/**"
+          - "Resources/DrillTutorials/**"
+          - "Resources/TutorialFigures/**"
+          - "Resources/DrillBoards/**"
+          - "Resources/Audio/**"
+          # v30 W0：16.billiard_theory contracts 快照（folder ref 打包，见下）。
+          - "Resources/Theory/**"
+          # v25 W1 / D-v25-7：Previews 排除出包（BTDrillPreviewPlayer 未接线，
+          # 保留代码与磁盘资源，随时可恢复 folder reference）。
+          - "Resources/Previews/**"
+      # Folder references（蓝色文件夹）：保留子目录结构供 Bundle.main 解析。
+      - path: QiuJi/Resources/Drills
+        type: folder
+        buildPhase: resources
+      - path: QiuJi/Resources/BallStickers
+        type: folder
+        buildPhase: resources
+      - path: QiuJi/Resources/CueStyles
+        type: folder
+        buildPhase: resources
+      # 击球音效（drop-in：放入 caf/wav 后重新构建即生效，缺文件时 App 静音）。
+      - path: QiuJi/Resources/Audio
+        type: folder
+        buildPhase: resources
+      - path: QiuJi/Resources/Plans
+        type: folder
+        buildPhase: resources
+      # ⚠️ v25 W1：示范视频（Resources/Videos）不打包。引擎渲染视频已下线
+      # （D-v25-1）；`videos` JSON 字段预留真人示范位。磁盘资源保留不 rm。
+      # sources.excludes 已登记 Resources/Videos/**。
+      # 恢复真人示范时：取消下面三行注释并重跑 `make xcodegen`。
+      # - path: QiuJi/Resources/Videos
+      #   type: folder
+      #   buildPhase: resources
+      - path: QiuJi/Resources/DrillThumbnails
+        type: folder
+        buildPhase: resources
+      # ⛔ 精讲配图母版（Resources/DrillTutorials，1343 张 PNG / 4.9 GB，含 633 张孤儿帧）
+      # **不得**在此声明 folder reference。folder reference 是整目录打包、无法挑文件，
+      # 一旦挂上，D-v25-10「孤儿帧不进包」即失效，包体从 285 MB 回涨到 5.2 GB
+      # （FL-031 实录：本行曾被误恢复，Apple 4 GB 未压缩上限直接被突破）。
+      # 打包的是下面的 Resources/TutorialFigures（仅被精讲引用者，HEIC，112 MB），
+      # 产物由 `make tutorial-figures` 生成。改这段前先读 v25 D-v25-14。
+      - path: QiuJi/Resources/TutorialFigures
+        type: folder
+        buildPhase: resources
+      # ⚠️ v25 W1 / D-v25-7：逐帧预览（Resources/Previews，约 520 MB）排除出包。
+      # BTDrillPreviewPlayer 未接线（生产零调用），保留代码随时可恢复。
+      # sources.excludes 已登记 Resources/Previews/**。
+      # 恢复时取消下面三行注释；必须用 folder reference，否则同名 frame_NN.png
+      # 平铺到包根会触发 duplicate output file 构建失败。
+      # - path: QiuJi/Resources/Previews
+      #   type: folder
+      #   buildPhase: resources
+      # 试打球形序列（make tryout-sync 从 content/position_play/sequences/ 同步，
+      # 与视频示范同源；方案 20260709-动作库试打模式 D4）。
+      - path: QiuJi/Resources/DrillBoards
+        type: folder
+        buildPhase: resources
+      # 理论契约快照（v30 W0，vendored from 16.billiard_theory）。folder ref 保留
+      # Theory/contracts/ 子目录，供 Bundle.main.url(..., subdirectory:) 解析。
+      - path: QiuJi/Resources/Theory
+        type: folder
+        buildPhase: resources
+    resources:
+      - path: QiuJi/Resources/Assets.xcassets
+      - path: QiuJi/Resources/TaiQiuZhuo.usdz
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.xinkuan.qiuji
+        # Sign in with Apple 的 entitlement 入口。⛔ 必须写在这里（project.yml 是
+        # pbxproj 的生成真源）：2026-04-10 曾直接改 pbxproj 加上，2026-04-17 一次
+        # xcodegen 重新生成即把它冲掉，此后 ASAuthorization 无 entitlement 直接失败。
+        CODE_SIGN_ENTITLEMENTS: QiuJi/QiuJi.entitlements
+        PRODUCT_NAME: 球迹
+        # 产物名为「球迹」，但 Swift 模块名固定为 QiuJi，
+        # 否则 @testable import QiuJi 无法解析（CJK 产物名会被 sanitize）。
+        PRODUCT_MODULE_NAME: QiuJi
+        INFOPLIST_FILE: QiuJi/Resources/Info.plist
+        # ⚠️ 勿在此用 INFOPLIST_KEY_*：主 target 显式 INFOPLIST_FILE（GENERATE_INFOPLIST_FILE=NO），
+        # INFOPLIST_KEY_* 会被 Xcode 全部忽略（W1 返工根因：权限文案未进包 → 真机 TCC 强杀闪退）。
+        # 权限文案等 Info.plist 键一律写在下方 info.properties（xcodegen 会重写 Info.plist）。
+    info:
+      path: QiuJi/Resources/Info.plist
+      properties:
+        CFBundleName: 球迹
+        CFBundleDisplayName: 球迹
+        CADisableMinimumFrameDurationOnPhone: true
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        # 隐私权限文案（唯一生效真源；见上方 INFOPLIST_KEY_* 警告）
+        NSPhotoLibraryAddUsageDescription: 将训练分享卡保存到相册
+        NSPhotoLibraryUsageDescription: 选择头像、训练视频或图片
+        NSCameraUsageDescription: 拍摄训练视频
+        NSSupportsLiveActivities: true
+        UIBackgroundModes:
+          - audio
+        NSAppTransportSecurity:
+          NSExceptionDomains:
+            106.54.3.210:
+              NSExceptionAllowsInsecureHTTPLoads: true
+              NSIncludesSubdomains: true
+        LSApplicationQueriesSchemes:
+          - weixin
+          - weixinULAPI
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLSchemes:
+              - "wx$(WECHAT_APP_ID)"
+        API_BASE_URL: "$(API_BASE_URL)"
+        LEGAL_TERMS_URL: "$(LEGAL_TERMS_URL)"
+        LEGAL_PRIVACY_URL: "$(LEGAL_PRIVACY_URL)"
+        WECHAT_APP_ID: "$(WECHAT_APP_ID)"
+        WECHAT_UNIVERSAL_LINK: "$(WECHAT_UNIVERSAL_LINK)"
+        UILaunchScreen:
+          UIColorName: ""
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    dependencies:
+      - target: QiuJiLiveActivityExtension
+
+  QiuJiLiveActivityExtension:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: QiuJiLiveActivity
+        excludes:
+          - "**/.DS_Store"
+    resources:
+      - path: QiuJiLiveActivity/Assets.xcassets
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.xinkuan.qiuji.liveactivity
+        PRODUCT_NAME: QiuJiLiveActivityExtension
+        INFOPLIST_FILE: QiuJiLiveActivity/Info.plist
+        GENERATE_INFOPLIST_FILE: YES
+        SKIP_INSTALL: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../Frameworks"
+
+  QiuJiTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: QiuJiTests
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.xinkuan.qiuji.tests
+        # 主 App 的 PRODUCT_NAME 是「球迹」(非 target 名 QiuJi)，
+        # xcodegen 默认按 target 名生成 TEST_HOST=QiuJi.app/QiuJi 会找不到宿主，
+        # 故显式指向真实产物。改 PRODUCT_NAME 时同步更新此处。
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/球迹.app/球迹"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+    dependencies:
+      - target: QiuJi
+
+  QiuJiUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: QiuJiUITests
+        excludes:
+          - "**/.DS_Store"
+      # Reuse the canonical local StoreKit catalog in the UI test runner.
+      - path: QiuJi/Resources/Products.storekit
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.xinkuan.qiuji.uitests
+    dependencies:
+      - target: QiuJi
+
+schemes:
+  # UI 截图巡游专用：仅 App + UI 测试，避免单测目标拖慢截图回归。
+  QiuJiUITour:
+    build:
+      targets:
+        QiuJi: all
+        QiuJiUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - QiuJiUITests
+  QiuJi:
+    build:
+      targets:
+        QiuJi: all
+        QiuJiTests: [test]
+        QiuJiUITests: [test]
+    run:
+      config: Debug
+      storeKitConfiguration: QiuJi/Resources/Products.storekit
+    test:
+      config: Debug
+      targets:
+        - QiuJiTests
+        - QiuJiUITests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+
+packages: {}

@@ -1,0 +1,460 @@
+{
+  "date": "2026-10-02",
+  "scope": "independent offline evidence audit; no device load, build, production edit or benchmark",
+  "sources_sha256": {
+    "build/daily-bottleneck-ranking-20260921/gpu3d-attempt2-analysis.json": "52cadcf4d4f9725eb88a555405dee156081eec579ae10a1af302240cc573e08d",
+    "build/daily-bottleneck-ranking-20260921/gpu2d-analysis.json": "00f9b9500edde8ffc95c5d8f6fcc29a802fbc9bdc1799c2e53010f1b698ccfa8",
+    "build/daily-3d-20260927/device-paired-gpu/gpu-comparison.json": "b228f449b6e7215463365292ce4333867ec011baaca0fb9cb5fff1577705844b",
+    "build/daily-3d-20260927/device-manual-preflight/manual-114828-export/gpu-attribution-audit.json": "a51cb9848d59c4d6d0a63a974645ead6905a35a73a29030055be14e8183f5d69",
+    "scripts/research/analyze_daily_3d_frames.py": "5c4c4e5bddf6296b0e6030beea5a0069115cb2f79141462072e7bd82bd8c45cf",
+    "问题集合_v62.md": "2dcc173bb0665443414de8502b8ae2dd9665e06d5ae6d09fa776014c7bb4b81f",
+    "tasks/DAILY-CLEARANCE-3D-20260927.md": "e729e9f5ce5aaad55fdf8bea40dae80c39c2449827f0e7192dc20a8127030bdf",
+    "docs/research/20261002-render-engine/consumer-evidence.json": "836ce3be3fb5784c9abb7414caec7184b4f89b77a3bd9f88e6e8440614d450c1",
+    "docs/research/20261002-render-engine/host-asset-check.json": "3eecb12e5ca7f1fb7073086092bba534569981c6f85a218395d11630c6f90a27",
+    "docs/research/20261002-render-engine/primary-sources/measuring-your-app-s-power-use-with-power-profiler.md": "065b1d05127811a319966351580dfb44b9b6629a8b67a8efec74f82810b647f1"
+  },
+  "historical_ablation": {
+    "gpu3d-attempt2-analysis.json": {
+      "scope": "single paired fixed-scene hardware command-buffer spans; not full app CPU or watts; nested removals must not be added",
+      "base_segment": {
+        "name": "base-0",
+        "gpuMS": 15.468249999685213,
+        "cpuEncodeMS": 1.2120416504330933,
+        "drawableAcquireMS": 0.9839166887104511,
+        "frames": 121,
+        "device": "Apple A18 Pro GPU",
+        "mode": 3,
+        "width": 1206,
+        "height": 2622,
+        "sampleCount": 4,
+        "ballKeys": [
+          "_1",
+          "_10",
+          "_11",
+          "_12",
+          "_13",
+          "_14",
+          "_15",
+          "_2",
+          "_3",
+          "_4",
+          "_5",
+          "_6",
+          "_7",
+          "_8",
+          "cueBall"
+        ],
+        "errors": []
+      },
+      "pairs": [
+        {
+          "component": "台呢直接球影遮挡计算",
+          "profile": "direct-shadow-off",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 15.443750002305023,
+          "candidateMS": 11.734041661839,
+          "savedMS": 3.7097083404660225,
+          "savedPercent": 24.020774357991666,
+          "baselineDrift": 0.0031728041928330755
+        },
+        {
+          "component": "球面64次反射积分",
+          "profile": "reflection-off",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 15.425697922182735,
+          "candidateMS": 13.33749998593703,
+          "savedMS": 2.088197936245706,
+          "savedPercent": 13.537137488235127,
+          "baselineDrift": 0.0008359968269090675
+        },
+        {
+          "component": "整套球面自定义着色",
+          "profile": "ball-native",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 15.430729181389324,
+          "candidateMS": 13.012416660785675,
+          "savedMS": 2.4183125206036493,
+          "savedPercent": 15.672056013531266,
+          "baselineDrift": 0.0001836151791220043
+        },
+        {
+          "component": "台呢材质整体（自定义着色与原生光照）",
+          "profile": "cloth-shader-off",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 15.413885434099939,
+          "candidateMS": 8.707979170139879,
+          "savedMS": 6.70590626396006,
+          "savedPercent": 43.50561896045153,
+          "baselineDrift": 0.002001713234995834
+        },
+        {
+          "component": "接触环境遮蔽",
+          "profile": "contact-off",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 15.42516668268945,
+          "candidateMS": 14.988666662247851,
+          "savedMS": 0.4365000204415992,
+          "savedPercent": 2.829791271762733,
+          "baselineDrift": 0.0034629561387571227
+        },
+        {
+          "component": "原生阴影通道",
+          "profile": "native-shadow-off",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 15.450750011950731,
+          "candidateMS": 14.343750008265488,
+          "savedMS": 1.1070000036852434,
+          "savedPercent": 7.164700760992244,
+          "baselineDrift": 0.00014562510757534463
+        },
+        {
+          "component": "房间可见几何",
+          "profile": "room-off",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 15.468999998120125,
+          "candidateMS": 15.335833333665505,
+          "savedMS": 0.13316666445462033,
+          "savedPercent": 0.860861493766911,
+          "baselineDrift": 0.002505009339718624
+        },
+        {
+          "component": "MSAA4→1像素管线诊断",
+          "profile": "aa1",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 15.463499999896158,
+          "candidateMS": 14.248187508201227,
+          "savedMS": 1.215312491694931,
+          "savedPercent": 7.859232978970428,
+          "baselineDrift": 0.003217252621959329
+        },
+        {
+          "component": "线性分辨率100%→75%诊断",
+          "profile": "scale75",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 15.451802086317912,
+          "candidateMS": 10.192874993663281,
+          "savedMS": 5.2589270926546305,
+          "savedPercent": 34.0343932913252,
+          "baselineDrift": 0.0017055718559958906
+        }
+      ]
+    },
+    "gpu2d-analysis.json": {
+      "scope": "single paired fixed-scene hardware command-buffer spans; not full app CPU or watts; nested removals must not be added",
+      "base_segment": {
+        "name": "base-0",
+        "gpuMS": 14.551291678799316,
+        "cpuEncodeMS": 1.0157500219065696,
+        "drawableAcquireMS": 0.9399166447110474,
+        "frames": 121,
+        "device": "Apple A18 Pro GPU",
+        "mode": 2,
+        "width": 1206,
+        "height": 2622,
+        "sampleCount": 4,
+        "ballKeys": [
+          "_1",
+          "_10",
+          "_11",
+          "_12",
+          "_13",
+          "_14",
+          "_15",
+          "_2",
+          "_3",
+          "_4",
+          "_5",
+          "_6",
+          "_7",
+          "_8",
+          "cueBall"
+        ],
+        "errors": []
+      },
+      "pairs": [
+        {
+          "component": "台呢直接球影遮挡计算",
+          "profile": "direct-shadow-off",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 14.5190208349959,
+          "candidateMS": 12.317166663706303,
+          "savedMS": 2.2018541712895967,
+          "savedPercent": 15.165307607950812,
+          "baselineDrift": 0.004445319580454484
+        },
+        {
+          "component": "球面64次反射积分",
+          "profile": "reflection-off",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 14.488437496765982,
+          "candidateMS": 12.930520824738778,
+          "savedMS": 1.5579166720272042,
+          "savedPercent": 10.752827365787047,
+          "baselineDrift": 0.0002329451431704243
+        },
+        {
+          "component": "整套球面自定义着色",
+          "profile": "ball-native",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 14.473249990260229,
+          "candidateMS": 12.690479154116474,
+          "savedMS": 1.7827708361437544,
+          "savedPercent": 12.317695316141638,
+          "baselineDrift": 0.0023318898092149075
+        },
+        {
+          "component": "台呢材质整体（自定义着色与原生光照）",
+          "profile": "cloth-shader-off",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 14.455979151534848,
+          "candidateMS": 8.67029165965505,
+          "savedMS": 5.7856874918797985,
+          "savedPercent": 40.022799087016594,
+          "baselineDrift": 5.4763035001303285e-05
+        },
+        {
+          "component": "接触环境遮蔽",
+          "profile": "contact-off",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 14.477645832812414,
+          "candidateMS": 14.067208336200565,
+          "savedMS": 0.4104374966118485,
+          "savedPercent": 2.8349740099431435,
+          "baselineDrift": 0.003047803237966987
+        },
+        {
+          "component": "原生阴影通道",
+          "profile": "native-shadow-off",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 14.497593751002569,
+          "candidateMS": 13.600166668766178,
+          "savedMS": 0.8974270822363906,
+          "savedPercent": 6.190179540479466,
+          "baselineDrift": 0.00029171595919371844
+        },
+        {
+          "component": "房间可见几何",
+          "profile": "room-off",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 14.51071874180343,
+          "candidateMS": 14.511729154037312,
+          "savedMS": -0.0010104122338816524,
+          "savedPercent": -0.006963212862577168,
+          "baselineDrift": 0.0021004583998303784
+        },
+        {
+          "component": "MSAA4→1像素管线诊断",
+          "profile": "aa1",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 14.5149791642325,
+          "candidateMS": 12.904250004794449,
+          "savedMS": 1.6107291594380513,
+          "savedPercent": 11.097013238621626,
+          "baselineDrift": 0.0015128038395512526
+        },
+        {
+          "component": "线性分辨率100%→75%诊断",
+          "profile": "scale75",
+          "valid": true,
+          "errors": [],
+          "baselineMS": 14.497916672553401,
+          "candidateMS": 9.71629164996557,
+          "savedMS": 4.781625022587832,
+          "savedPercent": 32.981462996267055,
+          "baselineDrift": 0.0008392010674590764
+        }
+      ]
+    }
+  },
+  "paired_0927": {
+    "scope": "incomplete manually matched GPU-only experiment; descriptive results only",
+    "fixed_window_rule": "longest complete aim interval [start+2s,start+22s); requires >=22s; specified before A1 results",
+    "issues": [
+      "A2 was not launched because the user reported obvious device heat after B; no A-B-A completion or acceptance",
+      "A predeclared complete 22s aim interval is missing; no fixed-window comparison"
+    ],
+    "fixed_window_comparison_available": false,
+    "windows": {
+      "A1": {
+        "name": "longest_aim_seconds_2_to_22",
+        "start_ns": 33494632166,
+        "end_ns": 53494632166,
+        "duration_s": 20.0,
+        "cb_count": 1177,
+        "cb_gpu_union": {
+          "n": 1177,
+          "mean_ms": 14.07597512064571,
+          "p50_ms": 15.099291,
+          "p95_ms": 21.1549586,
+          "min_ms": 6.819459,
+          "max_ms": 28.324293
+        },
+        "cb_gpu_envelope": {
+          "n": 1177,
+          "mean_ms": 16.481847180968565,
+          "p50_ms": 15.633125,
+          "p95_ms": 25.473824600000004,
+          "min_ms": 6.992417,
+          "max_ms": 36.026584
+        },
+        "marked_encoder_union": {
+          "n": 1177,
+          "mean_ms": 11.586407334749364,
+          "p50_ms": 12.667125,
+          "p95_ms": 17.157449800000002,
+          "min_ms": 5.585334,
+          "max_ms": 22.069834
+        },
+        "gpu_active_interval_union_ns": 14872728376,
+        "gpu_active_interval_coverage_fraction": 0.7436364188,
+        "channel_clipped_union_ns": {
+          "Vertex": 5510286631,
+          "Compute": 5574961,
+          "Fragment": 11321402022
+        },
+        "pass_clipped_union_ns": {
+          "Render Command 0": 2461318907,
+          "Compute Command 1": 5574961,
+          "QiuJi.DailyClearance3D.Scene": 12804856929,
+          "Render Command 3": 725541354
+        },
+        "thermal": [
+          {
+            "start_ns": 0,
+            "end_ns": 54141998333,
+            "state": "Nominal",
+            "track": "Current",
+            "induced": "0",
+            "clipped_start_ns": 33494632166,
+            "clipped_end_ns": 53494632166
+          }
+        ],
+        "thermal_current_window_coverage_fraction": 1.0,
+        "applicable_configurations": [
+          {
+            "time_ns": 22458015750,
+            "fields": {
+              "cameraReference": "true",
+              "mergeClothSupport": "false",
+              "factorClothBRDF": "false",
+              "selectedFPS": "60",
+              "scheduledFPS": "60",
+              "antialiasingSamples": "4",
+              "contentScale": "3.0"
+            },
+            "message": "page=1 sequence=0 source=lifecycle wasIdle=0 configuration=cameraReference=true mergeClothSupport=false factorClothBRDF=false selectedFPS=60 scheduledFPS=60 antialiasingSamples=4 contentScale=3.0"
+          }
+        ],
+        "runtime_configuration_valid": true
+      },
+      "B": null
+    },
+    "causal_acceptance": false,
+    "overall_accepted": false,
+    "limits": [
+      "No displayed-frame mapping, FPS, display latency or frame gate is inferred.",
+      "Active interval unions are timeline coverage, not ALU utilization, occupancy or energy.",
+      "Different stage channels can overlap; sums and CB envelopes are not busy time.",
+      "Fixed full-table view, slow aim and no shots are manual instructions, not verified camera/board-state metadata.",
+      "This package has three simultaneous changes; results cannot attribute a difference to one change.",
+      "The 20s window is short; nominal thermal state does not prove matching temperature or clock.",
+      "Per-CB cost assigned by CPU root start; clipped timeline coverage includes spill-in and excludes spill-out."
+    ]
+  },
+  "presentation_falsification": {
+    "scope": "single_baseline_preflight_gpu_intervals_with_presentation_falsification",
+    "pid": 36701,
+    "clock": "trace-relative-ns",
+    "marker": "QiuJi.DailyClearance3D.Scene",
+    "configuration": "page=10 sequence=0 source=lifecycle wasIdle=0 configuration=cameraReference=false mergeClothSupport=false factorClothBRDF=false selectedFPS=60 scheduledFPS=60 antialiasingSamples=4 contentScale=3.0",
+    "counts": {
+      "label_rows": 713,
+      "label_object_types": {
+        "11": 712,
+        "5": 1
+      },
+      "marked_encoders": 712,
+      "marked_command_buffers": 712,
+      "old_label_inside_encoder_join_matches": 0,
+      "label_to_encoder_start_gap_ns": [
+        83000,
+        4078083
+      ],
+      "label_minus_cb_root_start_ns": [
+        0,
+        0
+      ],
+      "all_gpu_rows": 19959,
+      "pid_gpu_rows": 6429,
+      "selected_cb_gpu_rows": 5271,
+      "selected_gpu_encoder_count": 2848,
+      "selected_gpu_channels": {
+        "Vertex": 2170,
+        "Compute": 712,
+        "Fragment": 2389
+      },
+      "selected_gpu_depths": {
+        "0": 5133,
+        "1": 138
+      },
+      "per_cb_app_encoder_count": {
+        "4": 712
+      },
+      "marked_cbs_without_gpu": 0,
+      "duplicate_gpu_intervals": 0
+    },
+    "limitations": [
+      "This is one baseline preflight, not an A/B performance or thermal result; no break or sustained-play stage exists.",
+      "Aim and orbit have different camera views and interaction sequences. Their different timings are descriptive, not a causal optimization comparison.",
+      "GPU rows describe recorded Active intervals. Union duration is timeline coverage, not shader-core utilization, occupancy, power, or exclusive silicon execution time.",
+      "A command-buffer envelope includes gaps. Summing Vertex/Fragment/Compute rows double-counts parallel activity; report unions instead.",
+      "Current encoder labels identify one SceneKit pass. Its containing CB has four encoders; auxiliary work in other CBs and SwiftUI are excluded, so this is not guaranteed to be the entire scene frame.",
+      "CB distributions assign a whole CB by CPU root start. Phase coverage instead clips all selected GPU intervals to stage boundaries, including spill-in from prior stages.",
+      "No material, draw, shader, bandwidth, or occupancy counter is present in this GPU table. Fragment time alone cannot attribute cost to cloth or prove a particular optimization helps.",
+      "All 698 old presentation associations are provisional and withdrawn: 30 violate GPU readiness. The remaining 668 are not thereby confirmed. Never repair this by arbitrary nearest-time matching.",
+      "Generation-time may help reject impossible surface generations but is not yet a verified identity link. Readiness is necessary, not sufficient, for presentation attribution.",
+      "All selected CB/encoder IDs have one observed lifetime in this trace. General reuse requires explicit lifetime identity; no cross-trace ID reuse is permitted."
+    ],
+    "counter_status": "not available in inspected GPU schema; counter tables have not been exported or validated by this script",
+    "presentation_falsification": {
+      "candidate_count": 698,
+      "violation_count": 30,
+      "also_before_marked_encoder_end_count": 30,
+      "max_present_before_gpu_end_ms": 54.622,
+      "verified_presented_frames": null,
+      "all_candidate_associations_withdrawn": true
+    }
+  },
+  "consumer_lexical_count": {
+    "total": 16,
+    "explicit_activity": 2,
+    "omitted_activity": 14,
+    "runtime_frames_measured": false
+  },
+  "asset_host_check": {
+    "sha256": "0e011ae72889d56a97255d8d69f2a7c0615ad779340ab64b938c2947817b48d1",
+    "file_bytes": 104244229,
+    "png_count": 41,
+    "png_pixels": 105381896,
+    "largest_count_2048": 24,
+    "scope": "PNG dimensions and file sizes from current USDZ; no GPU resident/format measurement",
+    "rgba8_base_mib": 402.0000305175781
+  }
+}

@@ -4,6 +4,9 @@ import argparse
 parser=argparse.ArgumentParser()
 parser.add_argument('--style',choices=['tournament','walnut','eastern'],required=True)
 parser.add_argument('--output',required=True)
+parser.add_argument('--room-length',type=float,default=8,help='Inner X extent in metres')
+parser.add_argument('--room-width',type=float,default=6,help='Inner Z extent in metres')
+parser.add_argument('--use-metal',action='store_true',help='Use available Metal devices for this process only')
 parser.add_argument('--table-shadow-obj',help='App world mesh exported as Blender Z-up metres; bake-only occluder')
 parser.add_argument('--panel-calibration',help='Measured reference-panel JSON; replaces legacy ceiling lights, keeps architectural wall wash')
 parser.add_argument('--world-strength',type=float,default=.22,help='Offline room ambient strength; independently recorded, not a runtime ball-light gain')
@@ -11,8 +14,14 @@ parser.add_argument('--wall-wash-watts',type=float,default=32,help='Offline arch
 args=parser.parse_args(sys.argv[sys.argv.index('--')+1:])
 OUT=os.path.abspath(args.output);os.makedirs(OUT,exist_ok=True)
 STYLE=args.style
+assert args.room_length>=7 and args.room_width>=5.5, 'Furniture layout requires at least 7 x 5.5 metres'
 bpy.ops.wm.read_factory_settings(use_empty=True)
 s=bpy.context.scene;s.render.engine='CYCLES';s.cycles.samples=192;s.cycles.use_denoising=True
+if args.use_metal:
+ prefs=bpy.context.preferences.addons['cycles'].preferences;prefs.compute_device_type='METAL';prefs.get_devices()
+ devices=[d for d in prefs.devices if d.type=='METAL'];assert devices, 'No Metal render device'
+ for d in prefs.devices:d.use=d.type=='METAL'
+ s.cycles.device='GPU';print('ROOM_METAL_DEVICES',[d.name for d in devices],flush=True)
 s.world=bpy.data.worlds.new('RoomWorld');s.world.use_nodes=True;s.world.node_tree.nodes['Background'].inputs[0].default_value=(.38,.42,.48,1);s.world.node_tree.nodes['Background'].inputs[1].default_value=.22
 s.world.node_tree.nodes['Background'].inputs[1].default_value=args.world_strength
 s.view_settings.view_transform='Standard';s.view_settings.look='None';s.view_settings.exposure=0
@@ -48,7 +57,7 @@ def box(name,pos,size,m,bevel=.005,group=True):
  if group:parts.append(o)
  return o
 # wall local coordinates x horizontal, y up, z inward
-walls=[(0,-4,0,10),(0,4,math.pi,10),(-5,0,math.pi/2,8),(5,0,-math.pi/2,8)]
+walls=[(0,-args.room_width/2,0,args.room_length),(0,args.room_width/2,math.pi,args.room_length),(-args.room_length/2,0,math.pi/2,args.room_width),(args.room_length/2,0,-math.pi/2,args.room_width)]
 for wi,(wx,wz,yaw,width) in enumerate(walls):
  def wb(name,p,dim,m,bevel=.005):
   x,y,z=p;c=math.cos(yaw);ss=math.sin(yaw);o=box(name,(wx+c*x+ss*z,y,wz-ss*x+c*z),dim,m,bevel);o.rotation_euler.z=-yaw;return o
@@ -64,14 +73,14 @@ for wi,(wx,wz,yaw,width) in enumerate(walls):
   # them on the two furnished walls.
   if wi<2:wb('cap_rail',(0,.78,.055),(width,.045,.08),wood)
   else:
-   rack_rx=-1.8 if wi==2 else 1.8
+   rack_rx=(-1 if wi==2 else 1)*min(1.8,width/2-1.15)
    edges=[-width/2,rack_rx-.385-.026,rack_rx-.385+.026,rack_rx+.385-.026,rack_rx+.385+.026,width/2]
    for lo,hi in zip(edges[::2],edges[1::2]):wb('cap_rail',((lo+hi)/2,.78,.055),(hi-lo,.045,.08),wood)
   if STYLE=='eastern':
    for x in [-width/2+.08,width/2-.08]:wb('elm_post',(x,1.8,.07),(.10,3.6,.12),wood,.008)
    wb('elm_header',(0,3.35,.07),(width,.13,.12),wood,.008)
  if wi<2: continue
- bx=1.8 if wi==2 else -1.8;rx=-bx
+ bx=(1 if wi==2 else -1)*min(1.8,width/2-1.15);rx=-bx
  # Proper bench: separate curved cushion, seam bead, frame, legs.
  wb('bench_frame',(bx,.34,.41),(2.16,.09,.61),wood,.016)
  for dx in [-.88,.88]:
@@ -123,7 +132,7 @@ for wi,(wx,wz,yaw,width) in enumerate(walls):
    wb('graphic',(bx+dx,1.7,.109),(.24,.012,.002),black,.001)
    wb('graphic',(bx+dx,1.7,.109),(.012,.26,.002),black,.001)
  # Wall lights have physical housing and offline area emitters.
- for x in [-3,0,3]:
+ for x in [-(width/2-1),0,width/2-1]:
   wb('wall_light',(x,2.55,.10),(.085,.28,.13),black,.01)
   world=(wx+math.cos(yaw)*x+math.sin(yaw)*.32,2.70,wz-math.sin(yaw)*x+math.cos(yaw)*.32)
   data=bpy.data.lights.new('wall_wash','AREA');data.energy=args.wall_wash_watts;data.shape='DISK';data.size=.32;data.color=(1,.89,.73)
@@ -131,7 +140,7 @@ for wi,(wx,wz,yaw,width) in enumerate(walls):
 # Carpet full low-frequency illumination bake. Fine yarn is independently tiled in App.
 floormat=mat('carpet_base',(.075,.077,.078) if STYLE=='tournament' else (.11,.103,.088),.95)
 bpy.ops.mesh.primitive_plane_add(size=2,location=(0,0,0))
-floor=bpy.context.object;floor.name='baked_floor';floor.scale=(5,4,1);bpy.ops.object.transform_apply(location=False,rotation=False,scale=True);floor.data.materials.append(floormat)
+floor=bpy.context.object;floor.name='baked_floor';floor.scale=(args.room_length/2,args.room_width/2,1);bpy.ops.object.transform_apply(location=False,rotation=False,scale=True);floor.data.materials.append(floormat)
 if args.panel_calibration:
  import hashlib,pathlib
  calibration=json.loads(pathlib.Path(args.panel_calibration).read_text())

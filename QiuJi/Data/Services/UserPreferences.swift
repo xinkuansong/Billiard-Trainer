@@ -198,6 +198,11 @@ final class UserPreferences: ObservableObject {
         didSet { defaults.set(trajectoryDetail.rawValue, forKey: "trajectoryDetail") }
     }
 
+    /// Daily clearance can hide assists in 3D without removing the direction guide in 2D.
+    @Published var daily3DTrajectoryHidden: Bool {
+        didSet { defaults.set(daily3DTrajectoryHidden, forKey: "dailyClearance.3DTrajectoryHidden") }
+    }
+
     // 4×8 台面网格叠加（问题集合条 16，全球桌页面统一）。默认关闭。
     @Published var showTableGrid: Bool {
         didSet { defaults.set(showTableGrid, forKey: "showTableGrid") }
@@ -280,6 +285,7 @@ final class UserPreferences: ObservableObject {
         // 默认最全档（条 12.5）。
         let detailRaw = defaults.object(forKey: "trajectoryDetail") as? Int
         self.trajectoryDetail = detailRaw.flatMap { TrajectoryDetail(rawValue: $0) } ?? .full
+        self.daily3DTrajectoryHidden = defaults.bool(forKey: "dailyClearance.3DTrajectoryHidden")
 
         // 默认关闭（条 16）。
         self.showTableGrid = (defaults.object(forKey: "showTableGrid") as? Bool) ?? false

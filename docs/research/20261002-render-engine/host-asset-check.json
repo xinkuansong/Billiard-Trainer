@@ -1,0 +1,256 @@
+{
+  "sha256": "0e011ae72889d56a97255d8d69f2a7c0615ad779340ab64b938c2947817b48d1",
+  "file_bytes": 104244229,
+  "png_count": 41,
+  "png_pixels": 105381896,
+  "largest_count_2048": 24,
+  "textures": [
+    {
+      "name": "textures/1.png",
+      "width": 649,
+      "height": 325,
+      "bytes": 15164
+    },
+    {
+      "name": "textures/13.png",
+      "width": 649,
+      "height": 325,
+      "bytes": 16226
+    },
+    {
+      "name": "textures/2.png",
+      "width": 649,
+      "height": 325,
+      "bytes": 14401
+    },
+    {
+      "name": "textures/4.png",
+      "width": 649,
+      "height": 325,
+      "bytes": 14700
+    },
+    {
+      "name": "textures/14.png",
+      "width": 649,
+      "height": 325,
+      "bytes": 15500
+    },
+    {
+      "name": "textures/5.png",
+      "width": 649,
+      "height": 325,
+      "bytes": 14749
+    },
+    {
+      "name": "textures/11.png",
+      "width": 649,
+      "height": 325,
+      "bytes": 15556
+    },
+    {
+      "name": "textures/PiTou_normal.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 59506
+    },
+    {
+      "name": "textures/PiTou_roughness.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 4966142
+    },
+    {
+      "name": "textures/PiTou_metallic.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 55162
+    },
+    {
+      "name": "textures/PiTou_basecolor.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 9126801
+    },
+    {
+      "name": "textures/White_Wood_normal.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 59506
+    },
+    {
+      "name": "textures/White_Wood_roughness.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 2186920
+    },
+    {
+      "name": "textures/White_Wood_metallic.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 55162
+    },
+    {
+      "name": "textures/White_Wood_basecolor.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 6335550
+    },
+    {
+      "name": "textures/3.png",
+      "width": 649,
+      "height": 325,
+      "bytes": 14924
+    },
+    {
+      "name": "textures/6.png",
+      "width": 649,
+      "height": 325,
+      "bytes": 15289
+    },
+    {
+      "name": "textures/7.png",
+      "width": 649,
+      "height": 325,
+      "bytes": 14134
+    },
+    {
+      "name": "textures/15.png",
+      "width": 649,
+      "height": 325,
+      "bytes": 15235
+    },
+    {
+      "name": "textures/BaiQiu.png",
+      "width": 1025,
+      "height": 1025,
+      "bytes": 31942
+    },
+    {
+      "name": "textures/10.png",
+      "width": 649,
+      "height": 325,
+      "bytes": 15163
+    },
+    {
+      "name": "textures/Wood_normal.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 1153034
+    },
+    {
+      "name": "textures/Wood_roughness.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 2902416
+    },
+    {
+      "name": "textures/Wood_metallic.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 55162
+    },
+    {
+      "name": "textures/Wood_basecolor.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 5193527
+    },
+    {
+      "name": "textures/WeiBian.png",
+      "width": 710,
+      "height": 710,
+      "bytes": 13045
+    },
+    {
+      "name": "textures/BlackWood_normal.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 59506
+    },
+    {
+      "name": "textures/BlackWood_roughness.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 3142802
+    },
+    {
+      "name": "textures/BlackWood_metallic.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 55162
+    },
+    {
+      "name": "textures/BlackWood_basecolor.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 5640918
+    },
+    {
+      "name": "textures/Leather_normal.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 5020615
+    },
+    {
+      "name": "textures/Leather_roughness.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 4599821
+    },
+    {
+      "name": "textures/Leather_metallic.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 55162
+    },
+    {
+      "name": "textures/Leather_basecolor.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 6014276
+    },
+    {
+      "name": "textures/TaiNi_normal.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 10304228
+    },
+    {
+      "name": "textures/TaiNi_roughness.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 4796602
+    },
+    {
+      "name": "textures/TaiNi_metallic.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 55162
+    },
+    {
+      "name": "textures/TaiNi_basecolor.png",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 78231
+    },
+    {
+      "name": "textures/12.png",
+      "width": 649,
+      "height": 325,
+      "bytes": 16099
+    },
+    {
+      "name": "textures/8.png",
+      "width": 649,
+      "height": 325,
+      "bytes": 12376
+    },
+    {
+      "name": "textures/9.png",
+      "width": 649,
+      "height": 325,
+      "bytes": 16195
+    }
+  ],
+  "scope": "PNG dimensions and file sizes from current USDZ; no GPU resident/format measurement"
+}

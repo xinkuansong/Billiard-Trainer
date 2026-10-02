@@ -111,6 +111,10 @@ final class BreakFlowRunner: ObservableObject {
     /// 最近一次 `breakNow` 传入模拟器的打点（单测用，证明非恒 0）。
     private(set) var lastBreakSpin: (x: Float, y: Float)?
     private var aimNodes: [SCNNode] = []
+    /// Presentation only: the cue and shot direction remain available when guides are hidden.
+    var showsAimAssist = true {
+        didSet { if oldValue != showsAimAssist, phase == .racked { drawAimLine() } }
+    }
     private let breakQueue = DispatchQueue(label: "com.qiuji.break-flow", qos: .userInitiated)
     private var breakGeneration = 0
     private var breakFinishTask: Task<Void, Never>?
@@ -239,6 +243,11 @@ final class BreakFlowRunner: ObservableObject {
             spinX = point.x; spinY = point.y
         }
         let y = cue.position.y
+        scene.updateCueStick(
+            cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX, spinY: spinY),
+            aimDirection: dir
+        )
+        guard showsAimAssist else { return }
         let railEnd = AngleSceneCalculator.rayToInnerRail(from: cue.position, dir: dir)
         let forward: SCNVector3
         if let apex = apexBallPosition {
@@ -267,11 +276,6 @@ final class BreakFlowRunner: ObservableObject {
         aimNodes.append(scene.addLine(from: tail, to: cue.position,
                                       color: TrajectoryStyle.contactColor.withAlphaComponent(0.85),
                                       radius: TrajectoryStyle.lineMain))
-        // C3：开球瞄准线与球杆同现（aim + spinX 与 `breakNow`→`runCueStroke` 一致）。
-        scene.updateCueStick(
-            cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX, spinY: spinY),
-            aimDirection: dir
-        )
     }
 
     // MARK: - Break

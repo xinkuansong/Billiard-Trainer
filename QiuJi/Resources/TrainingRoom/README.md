@@ -1,5 +1,17 @@
 # Training room assets
 
+Current room trial (2026-10-02): all three styles use an **8 × 6 m** inner floor
+and **3.6 m** wall height. Wall anchors, furniture, posters and camera clearance
+follow the new shell; furniture/table sizes are retained. Six geometry exports
+and six lightmaps were rebuilt from the current measured Swift lighting rig
+(83.618076 W per Blender panel), with world strength 2.2 and 12 W wall washes.
+Runtime yarn and repeating carpet motifs retain their physical scale; the eastern
+border follows the new floor. Rebuild defaults are now 8 × 6; override with
+`--room-length` / `--room-width`. Metal baking is optional via `--use-metal`.
+Evidence, current Blender files and original backups:
+`output/room-size-study-20261002/integration/`; task record:
+`tasks/ROOM-SIZE-STUDY-20261002.md`. The dated sections below describe prior revisions.
+
 S428/S430, 2026-09-12. Original project-owned Blender geometry and procedural materials;
 no third-party models/textures used in the new room atlases. Existing TrainingCarpet
 is retained as the low-contrast yarn detail texture from the prior room work.

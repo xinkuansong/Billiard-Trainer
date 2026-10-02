@@ -1,0 +1,2760 @@
+{
+  "read_started": "2026-10-02T08:17:03.243579+08:00",
+  "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.1.1.101)]",
+  "usdcat_version": "Apple USD Tools (0.25.2)",
+  "method": "zipfile + PNG IHDR + /usr/bin/usdcat read-only stdout + regex on explicit Mesh/GeomSubset arrays",
+  "limitations": "No runtime CPU/GPU residency, upload, bandwidth, actual renderer tessellation or energy measurement. RGBA8 estimates assume every listed PNG is independently resident; actual formats/use differ.",
+  "files": [
+    {
+      "path": "QiuJi/Resources/TaiQiuZhuo.usdz",
+      "bytes": 104244229,
+      "sha256_before": "0e011ae72889d56a97255d8d69f2a7c0615ad779340ab64b938c2947817b48d1",
+      "members": [
+        {
+          "name": "final.usdc",
+          "bytes": 31994656,
+          "zip_compression_type": 0
+        },
+        {
+          "name": "textures/1.png",
+          "bytes": 15164,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 649,
+            "height": 325,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/13.png",
+          "bytes": 16226,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 649,
+            "height": 325,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/2.png",
+          "bytes": 14401,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 649,
+            "height": 325,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/4.png",
+          "bytes": 14700,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 649,
+            "height": 325,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/14.png",
+          "bytes": 15500,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 649,
+            "height": 325,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/5.png",
+          "bytes": 14749,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 649,
+            "height": 325,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/11.png",
+          "bytes": 15556,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 649,
+            "height": 325,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/PiTou_normal.png",
+          "bytes": 59506,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/PiTou_roughness.png",
+          "bytes": 4966142,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/PiTou_metallic.png",
+          "bytes": 55162,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/PiTou_basecolor.png",
+          "bytes": 9126801,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/White_Wood_normal.png",
+          "bytes": 59506,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/White_Wood_roughness.png",
+          "bytes": 2186920,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/White_Wood_metallic.png",
+          "bytes": 55162,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/White_Wood_basecolor.png",
+          "bytes": 6335550,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/3.png",
+          "bytes": 14924,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 649,
+            "height": 325,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/6.png",
+          "bytes": 15289,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 649,
+            "height": 325,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/7.png",
+          "bytes": 14134,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 649,
+            "height": 325,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/15.png",
+          "bytes": 15235,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 649,
+            "height": 325,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/BaiQiu.png",
+          "bytes": 31942,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 1025,
+            "height": 1025,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/10.png",
+          "bytes": 15163,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 649,
+            "height": 325,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/Wood_normal.png",
+          "bytes": 1153034,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/Wood_roughness.png",
+          "bytes": 2902416,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/Wood_metallic.png",
+          "bytes": 55162,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/Wood_basecolor.png",
+          "bytes": 5193527,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/WeiBian.png",
+          "bytes": 13045,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 710,
+            "height": 710,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/BlackWood_normal.png",
+          "bytes": 59506,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/BlackWood_roughness.png",
+          "bytes": 3142802,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/BlackWood_metallic.png",
+          "bytes": 55162,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/BlackWood_basecolor.png",
+          "bytes": 5640918,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/Leather_normal.png",
+          "bytes": 5020615,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/Leather_roughness.png",
+          "bytes": 4599821,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/Leather_metallic.png",
+          "bytes": 55162,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/Leather_basecolor.png",
+          "bytes": 6014276,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/TaiNi_normal.png",
+          "bytes": 10304228,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/TaiNi_roughness.png",
+          "bytes": 4796602,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/TaiNi_metallic.png",
+          "bytes": 55162,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 2
+          }
+        },
+        {
+          "name": "textures/TaiNi_basecolor.png",
+          "bytes": 78231,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 2048,
+            "height": 2048,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/12.png",
+          "bytes": 16099,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 649,
+            "height": 325,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/8.png",
+          "bytes": 12376,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 649,
+            "height": 325,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        },
+        {
+          "name": "textures/9.png",
+          "bytes": 16195,
+          "zip_compression_type": 0,
+          "png": {
+            "width": 649,
+            "height": 325,
+            "bits": 8,
+            "png_color_type": 6
+          }
+        }
+      ],
+      "sha256_after": "0e011ae72889d56a97255d8d69f2a7c0615ad779340ab64b938c2947817b48d1",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/Carpet_eastern.png",
+      "bytes": 2667194,
+      "sha256_before": "c64b5b4b046db44c047151965d0067745fd290dc2e992211d5e864495052a92f",
+      "png": {
+        "width": 1402,
+        "height": 1122,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "c64b5b4b046db44c047151965d0067745fd290dc2e992211d5e864495052a92f",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/Carpet_tournament.png",
+      "bytes": 2188081,
+      "sha256_before": "c563290fce68ead080ada7c0623ef30037d1ea1b6d5bf165988d6e67b6fee61b",
+      "png": {
+        "width": 1402,
+        "height": 1122,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "c563290fce68ead080ada7c0623ef30037d1ea1b6d5bf165988d6e67b6fee61b",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/Carpet_walnut.png",
+      "bytes": 2948038,
+      "sha256_before": "f2a2272a94ed6644e5e9793c20b6b7aa591dd6022b2877750e027ec94796b1aa",
+      "png": {
+        "width": 1402,
+        "height": 1122,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "f2a2272a94ed6644e5e9793c20b6b7aa591dd6022b2877750e027ec94796b1aa",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/README.md",
+      "bytes": 8194,
+      "sha256_before": "dd0a577fb462e09293344fc90fe39c17e63783fc20cd3d9b7ed88d49f4462310",
+      "sha256_after": "dd0a577fb462e09293344fc90fe39c17e63783fc20cd3d9b7ed88d49f4462310",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/RoomStyle_eastern.jpg",
+      "bytes": 14391,
+      "sha256_before": "cd556eee888886387403a17ca3303cd5b63d9ef5f16adb0ed77c3d507cd23368",
+      "sha256_after": "cd556eee888886387403a17ca3303cd5b63d9ef5f16adb0ed77c3d507cd23368",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/RoomStyle_tournament.jpg",
+      "bytes": 12522,
+      "sha256_before": "ea6429c22af0725f959fd04992185f1daba4c5bf45b1524fc19c0117f31ad5e1",
+      "sha256_after": "ea6429c22af0725f959fd04992185f1daba4c5bf45b1524fc19c0117f31ad5e1",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/RoomStyle_walnut.jpg",
+      "bytes": 13439,
+      "sha256_before": "4ed2328407a8131ce4e26416ee7bcd8dbc4e7dc632b4a011b7f22e20ee27a3dc",
+      "sha256_after": "4ed2328407a8131ce4e26416ee7bcd8dbc4e7dc632b4a011b7f22e20ee27a3dc",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/Room_eastern_floor.usdz",
+      "bytes": 1895,
+      "sha256_before": "ffb255fad8962d702c9fa27ed6081a7e122b92691414b5de6f8a5c9dad132b09",
+      "members": [
+        {
+          "name": "Room_eastern_floor.usdc",
+          "bytes": 1729,
+          "zip_compression_type": 0
+        }
+      ],
+      "sha256_after": "ffb255fad8962d702c9fa27ed6081a7e122b92691414b5de6f8a5c9dad132b09",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/Room_eastern_perimeter.usdz",
+      "bytes": 1993173,
+      "sha256_before": "1417375e1ecd75775981ef9de3b68e9d4ef8151af2df1ce98da4b7760613a483",
+      "members": [
+        {
+          "name": "Room_eastern_perimeter.usdc",
+          "bytes": 1993007,
+          "zip_compression_type": 0
+        }
+      ],
+      "sha256_after": "1417375e1ecd75775981ef9de3b68e9d4ef8151af2df1ce98da4b7760613a483",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/Room_tournament_floor.usdz",
+      "bytes": 1895,
+      "sha256_before": "80870bf42fb38e3c4bd5732b98713777ebc808d5e72d0fee4711b0b3c78bca57",
+      "members": [
+        {
+          "name": "Room_tournament_floor.usdc",
+          "bytes": 1729,
+          "zip_compression_type": 0
+        }
+      ],
+      "sha256_after": "80870bf42fb38e3c4bd5732b98713777ebc808d5e72d0fee4711b0b3c78bca57",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/Room_tournament_perimeter.usdz",
+      "bytes": 1718663,
+      "sha256_before": "771e2a4a7579c67ccb516b75b91a23c68616f8373833d78160bfcd02b98d5d0d",
+      "members": [
+        {
+          "name": "Room_tournament_perimeter.usdc",
+          "bytes": 1718497,
+          "zip_compression_type": 0
+        }
+      ],
+      "sha256_after": "771e2a4a7579c67ccb516b75b91a23c68616f8373833d78160bfcd02b98d5d0d",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/Room_walnut_floor.usdz",
+      "bytes": 1895,
+      "sha256_before": "d7b5a62f9ba671fdb768bab1ed0b35252297562a4b667ab03d4372096666bc04",
+      "members": [
+        {
+          "name": "Room_walnut_floor.usdc",
+          "bytes": 1729,
+          "zip_compression_type": 0
+        }
+      ],
+      "sha256_after": "d7b5a62f9ba671fdb768bab1ed0b35252297562a4b667ab03d4372096666bc04",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/Room_walnut_perimeter.usdz",
+      "bytes": 1469580,
+      "sha256_before": "d92a9f2dafb174b87185384398ddb526e9efdf1f220d7dc9892677f58afa6aae",
+      "members": [
+        {
+          "name": "Room_walnut_perimeter.usdc",
+          "bytes": 1469414,
+          "zip_compression_type": 0
+        }
+      ],
+      "sha256_after": "d92a9f2dafb174b87185384398ddb526e9efdf1f220d7dc9892677f58afa6aae",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/TrainingCarpet.jpg",
+      "bytes": 643147,
+      "sha256_before": "eea5501e1a5280895b54513bc46da62ab5b55497ab95644d2db92dadee81e90b",
+      "sha256_after": "eea5501e1a5280895b54513bc46da62ab5b55497ab95644d2db92dadee81e90b",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/TrainingPlaster.jpg",
+      "bytes": 67022,
+      "sha256_before": "f6dfca4fd1b7f45a8018f2a7dc02e89914abfcc1dec75f5a37316ecab3759cf9",
+      "sha256_after": "f6dfca4fd1b7f45a8018f2a7dc02e89914abfcc1dec75f5a37316ecab3759cf9",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/TrainingWalnut.jpg",
+      "bytes": 276264,
+      "sha256_before": "b98f39a367c0f3fa2ef5b6bd03a2d8d212bc55a7fe224c87ac36337de3cf7730",
+      "sha256_after": "b98f39a367c0f3fa2ef5b6bd03a2d8d212bc55a7fe224c87ac36337de3cf7730",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/eastern_floor.png",
+      "bytes": 853134,
+      "sha256_before": "e025ac03fc3509adb55409b7f208e2edc25be8f66cc7ba4b3a9dd4f3556e61f8",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "e025ac03fc3509adb55409b7f208e2edc25be8f66cc7ba4b3a9dd4f3556e61f8",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/eastern_perimeter.png",
+      "bytes": 2652355,
+      "sha256_before": "11e96790dbb38eecd0740ae6e54cd2175aa6eb007210e21b5cbf255a1eb0bef2",
+      "png": {
+        "width": 2048,
+        "height": 2048,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "11e96790dbb38eecd0740ae6e54cd2175aa6eb007210e21b5cbf255a1eb0bef2",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/tournament_floor.png",
+      "bytes": 847303,
+      "sha256_before": "cab735b208d5aa1441bd2b82436e3ff974ab2ebb4420c2d59c34344a1862bcd9",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "cab735b208d5aa1441bd2b82436e3ff974ab2ebb4420c2d59c34344a1862bcd9",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/tournament_perimeter.png",
+      "bytes": 2477676,
+      "sha256_before": "edede5521787034b75ac9abe6043561a65de3ee9ddd6167bb8bed31e28799511",
+      "png": {
+        "width": 2048,
+        "height": 2048,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "edede5521787034b75ac9abe6043561a65de3ee9ddd6167bb8bed31e28799511",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/walnut_floor.png",
+      "bytes": 848512,
+      "sha256_before": "504f18ca599368a74c13d62e6e6db9295749504669ce3459cb5b4a24df23c573",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "504f18ca599368a74c13d62e6e6db9295749504669ce3459cb5b4a24df23c573",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/walnut_perimeter.png",
+      "bytes": 2884939,
+      "sha256_before": "ae3890e7978d48c946b82807fa5ed83fd1aa25bfe97e9c2247a3209c36086726",
+      "png": {
+        "width": 2048,
+        "height": 2048,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "ae3890e7978d48c946b82807fa5ed83fd1aa25bfe97e9c2247a3209c36086726",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableMaterials/LeatherMicro_normal.png",
+      "bytes": 1759176,
+      "sha256_before": "b833089f9fd79c437ca0b76c676aa13d1be68a3a84ded5b0b7ff43bc91e0bcf7",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "b833089f9fd79c437ca0b76c676aa13d1be68a3a84ded5b0b7ff43bc91e0bcf7",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableMaterials/LeatherMicro_roughness.png",
+      "bytes": 712157,
+      "sha256_before": "10481f84e74beee5bb161c09b2b1ef0560972e88cdd9803474757c6054364fcb",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "10481f84e74beee5bb161c09b2b1ef0560972e88cdd9803474757c6054364fcb",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableMaterials/WoodCoat_Wood.png",
+      "bytes": 905383,
+      "sha256_before": "d670fb4b20e369280c9f7eeb0f229d0af7440eeae0d5d3a3d8566137ed078a38",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "d670fb4b20e369280c9f7eeb0f229d0af7440eeae0d5d3a3d8566137ed078a38",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableStyles/TableStylePreview_blossom.png",
+      "bytes": 251158,
+      "sha256_before": "e7c1a1f3320f5653e72f28b72afcb2217ccf51ca9a3914bd2d664ffbb92046cb",
+      "png": {
+        "width": 1000,
+        "height": 640,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "e7c1a1f3320f5653e72f28b72afcb2217ccf51ca9a3914bd2d664ffbb92046cb",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableStyles/TableStylePreview_blossom_noSights.png",
+      "bytes": 249550,
+      "sha256_before": "c32592f47eec66c35b3f0752dde4d1b87df51e57dca6318fc8d21fa413c75e72",
+      "png": {
+        "width": 1000,
+        "height": 640,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "c32592f47eec66c35b3f0752dde4d1b87df51e57dca6318fc8d21fa413c75e72",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableStyles/TableStylePreview_charcoal.png",
+      "bytes": 228142,
+      "sha256_before": "b453700e640dade57e3d3556af2045b2e05b1791fdeda2170b3dfd2467b06ff7",
+      "png": {
+        "width": 1000,
+        "height": 640,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "b453700e640dade57e3d3556af2045b2e05b1791fdeda2170b3dfd2467b06ff7",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableStyles/TableStylePreview_charcoal_noSights.png",
+      "bytes": 225798,
+      "sha256_before": "03fb2449267cacc9fff4bb87b26efe94a17eb3465d22cb4b34cee230b5173ce6",
+      "png": {
+        "width": 1000,
+        "height": 640,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "03fb2449267cacc9fff4bb87b26efe94a17eb3465d22cb4b34cee230b5173ce6",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableStyles/TableStylePreview_ivory.png",
+      "bytes": 247102,
+      "sha256_before": "e8f84b00c27a076d101d5c637963f7578ce5c345434d11c8a427a79359c9831c",
+      "png": {
+        "width": 1000,
+        "height": 640,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "e8f84b00c27a076d101d5c637963f7578ce5c345434d11c8a427a79359c9831c",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableStyles/TableStylePreview_ivory_noSights.png",
+      "bytes": 245289,
+      "sha256_before": "d85bf2b4423440a6f1614a56f5ff72f03d056bd00e14057e3fe637ccda9ee827",
+      "png": {
+        "width": 1000,
+        "height": 640,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "d85bf2b4423440a6f1614a56f5ff72f03d056bd00e14057e3fe637ccda9ee827",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableStyles/TableStylePreview_standard.png",
+      "bytes": 230781,
+      "sha256_before": "6101ae79fddeaf1add446402e3857e2a45918dcc2105d5ca0b866e7115192759",
+      "png": {
+        "width": 1000,
+        "height": 640,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "6101ae79fddeaf1add446402e3857e2a45918dcc2105d5ca0b866e7115192759",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableStyles/TableStylePreview_standard_noSights.png",
+      "bytes": 227840,
+      "sha256_before": "36f1a23e5cd7d7d06d03aa53eda26f260ea0278d3296818c7cd7b6522c8e4ed2",
+      "png": {
+        "width": 1000,
+        "height": 640,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "36f1a23e5cd7d7d06d03aa53eda26f260ea0278d3296818c7cd7b6522c8e4ed2",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableStyles/TableStylePreview_walnut.png",
+      "bytes": 236683,
+      "sha256_before": "a594be34ac19830ca0fde3b9615ab4d9ec51451da0e558558c611a7f81dbbc52",
+      "png": {
+        "width": 1000,
+        "height": 640,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "a594be34ac19830ca0fde3b9615ab4d9ec51451da0e558558c611a7f81dbbc52",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableStyles/TableStylePreview_walnut_noSights.png",
+      "bytes": 233911,
+      "sha256_before": "c46270f249f71b1159b2e5625c00c4a8580079b64316707d2e2919815809066b",
+      "png": {
+        "width": 1000,
+        "height": 640,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "c46270f249f71b1159b2e5625c00c4a8580079b64316707d2e2919815809066b",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableStyles/TableWood_blossom.png",
+      "bytes": 1433456,
+      "sha256_before": "177787d9a89717f21730ae3d96e4e182c4fec9efeaf4911b97dcf2bbc310b399",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "177787d9a89717f21730ae3d96e4e182c4fec9efeaf4911b97dcf2bbc310b399",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableStyles/TableWood_charcoal.png",
+      "bytes": 1237395,
+      "sha256_before": "75014e296727d0b8248f8cd45f905c3e2f6958ce366a0b94b8c6fa1d9fbe62fe",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "75014e296727d0b8248f8cd45f905c3e2f6958ce366a0b94b8c6fa1d9fbe62fe",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableStyles/TableWood_ivory.png",
+      "bytes": 1404895,
+      "sha256_before": "61939a847d450b6ed666a19be8ff39652b36a1265dc0f4f239151c65a8714a24",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "61939a847d450b6ed666a19be8ff39652b36a1265dc0f4f239151c65a8714a24",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/TableStyles/TableWood_walnut.png",
+      "bytes": 1402494,
+      "sha256_before": "feb179bc9c0644907d2dd97c52511ec071dabe056ac2d9ab10773f73f64247a7",
+      "png": {
+        "width": 1024,
+        "height": 1024,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "feb179bc9c0644907d2dd97c52511ec071dabe056ac2d9ab10773f73f64247a7",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallStickerUVFrames.json",
+      "bytes": 3229,
+      "sha256_before": "f27177e947265d5b435a2af4e9ec0ba089f3d295e39dafd0dbdde4b2dd49fd1a",
+      "sha256_after": "f27177e947265d5b435a2af4e9ec0ba089f3d295e39dafd0dbdde4b2dd49fd1a",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_1.png",
+      "bytes": 13289,
+      "sha256_before": "32895dc0a9ff0409dcfb23db6dbe4f2f468f5b79774f2c55a68422f11b107ea7",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "32895dc0a9ff0409dcfb23db6dbe4f2f468f5b79774f2c55a68422f11b107ea7",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_10.png",
+      "bytes": 16355,
+      "sha256_before": "efc9535a63425921a55bbeec946bf845e3141c5d73c2f9bbbd94f84ba12efbcb",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "efc9535a63425921a55bbeec946bf845e3141c5d73c2f9bbbd94f84ba12efbcb",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_11.png",
+      "bytes": 14731,
+      "sha256_before": "e4c372f2198da312247d1f4707b0401f17b9e207173a11485707ad9e1823d598",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "e4c372f2198da312247d1f4707b0401f17b9e207173a11485707ad9e1823d598",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_12.png",
+      "bytes": 16583,
+      "sha256_before": "dfa193fbaf8e8ae8c5ff71a68c4673ce68e1bca9ce0293b776a1ad31b57bfafd",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "dfa193fbaf8e8ae8c5ff71a68c4673ce68e1bca9ce0293b776a1ad31b57bfafd",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_13.png",
+      "bytes": 16967,
+      "sha256_before": "cbb40184f4553f51a1be4334009aec65922022969955ea41f8f8c7ed981ebb25",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "cbb40184f4553f51a1be4334009aec65922022969955ea41f8f8c7ed981ebb25",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_14.png",
+      "bytes": 15554,
+      "sha256_before": "21aec576eadeb55799e7b3302a9bdaa3e85948bca3c0691774252585a878ee0a",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "21aec576eadeb55799e7b3302a9bdaa3e85948bca3c0691774252585a878ee0a",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_15.png",
+      "bytes": 16208,
+      "sha256_before": "85f5580802a0b5d89e981089ea27ead6a3ec77fe722f17384eaf7b5f8e4fb61d",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "85f5580802a0b5d89e981089ea27ead6a3ec77fe722f17384eaf7b5f8e4fb61d",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_2.png",
+      "bytes": 14961,
+      "sha256_before": "aca523fcac1483e549f81ccb6b9b6f2273925ef6c4b5c8ed2cde18c57801bc6a",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "aca523fcac1483e549f81ccb6b9b6f2273925ef6c4b5c8ed2cde18c57801bc6a",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_3.png",
+      "bytes": 15358,
+      "sha256_before": "6f87bfcb71c4c8b869f9af1870278dde317c45b8487f66752ac4de8573edebc9",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "6f87bfcb71c4c8b869f9af1870278dde317c45b8487f66752ac4de8573edebc9",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_4.png",
+      "bytes": 14206,
+      "sha256_before": "a8fc050bf0272f3ae7cfffdb9ddd353069e6179dd8e87a1a528f089601822a20",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "a8fc050bf0272f3ae7cfffdb9ddd353069e6179dd8e87a1a528f089601822a20",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_5.png",
+      "bytes": 14507,
+      "sha256_before": "e2d91fd18917ea612605a634564fcfa82d19ae539e005a8c1e5580e9b04d0496",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "e2d91fd18917ea612605a634564fcfa82d19ae539e005a8c1e5580e9b04d0496",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_6.png",
+      "bytes": 15311,
+      "sha256_before": "d1b80d88566dff4ad2c7879e9c606febe849143049851dd8fe32054dad091727",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "d1b80d88566dff4ad2c7879e9c606febe849143049851dd8fe32054dad091727",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_7.png",
+      "bytes": 14341,
+      "sha256_before": "5ae9d57e8886065d8b16c79becdf43ae3cc4a58d46cc572a9cca0ae5e70778c8",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "5ae9d57e8886065d8b16c79becdf43ae3cc4a58d46cc572a9cca0ae5e70778c8",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_8.png",
+      "bytes": 15239,
+      "sha256_before": "e360c65300973b5b9b33c851d435fa24c8fb33515d0c646567952d4825504587",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "e360c65300973b5b9b33c851d435fa24c8fb33515d0c646567952d4825504587",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_9.png",
+      "bytes": 15331,
+      "sha256_before": "02b3cecfc6d04baac780e37b636a1ef0fc69f2c98319fa9cad18da8daf1775ef",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "02b3cecfc6d04baac780e37b636a1ef0fc69f2c98319fa9cad18da8daf1775ef",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_american_preview.png",
+      "bytes": 315552,
+      "sha256_before": "c847c0f7d184f7f75bb6f6f4f53cc7020e7c1541fe70febfd0e1fb908c674a88",
+      "png": {
+        "width": 840,
+        "height": 290,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "c847c0f7d184f7f75bb6f6f4f53cc7020e7c1541fe70febfd0e1fb908c674a88",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_1.png",
+      "bytes": 13213,
+      "sha256_before": "5b8dba85d29d110ddb19cc2292da788f5eb5e150534467319ace88eac3d7b2f7",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "5b8dba85d29d110ddb19cc2292da788f5eb5e150534467319ace88eac3d7b2f7",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_10.png",
+      "bytes": 14879,
+      "sha256_before": "c7f8d8ce7f5e5fbed00d64510ff8641a2d500758faee660c96ffa92e702ef9bd",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "c7f8d8ce7f5e5fbed00d64510ff8641a2d500758faee660c96ffa92e702ef9bd",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_11.png",
+      "bytes": 14442,
+      "sha256_before": "29f014237110b1568d1c56e0b445c843e4314f182c96037e765e7216041c5b92",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "29f014237110b1568d1c56e0b445c843e4314f182c96037e765e7216041c5b92",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_12.png",
+      "bytes": 15229,
+      "sha256_before": "34f306e113f26bdc34f25a1e273fe79bf056fd47673164568c2abb6fd18a66cd",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "34f306e113f26bdc34f25a1e273fe79bf056fd47673164568c2abb6fd18a66cd",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_13.png",
+      "bytes": 15327,
+      "sha256_before": "b9287abfef251cee3187f135e6ec971ad9951fd76e0330650b2f5257eb393da5",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "b9287abfef251cee3187f135e6ec971ad9951fd76e0330650b2f5257eb393da5",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_14.png",
+      "bytes": 14640,
+      "sha256_before": "3f0b9a0a170e20f0acbe82480eb25dc68899201b0acf686e8c180ccea381eb67",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "3f0b9a0a170e20f0acbe82480eb25dc68899201b0acf686e8c180ccea381eb67",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_15.png",
+      "bytes": 14980,
+      "sha256_before": "aa8f3ab435ec5a4989b15e6d6294d0452ac6e5cb6faf2cc553c5393798ecfe4b",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "aa8f3ab435ec5a4989b15e6d6294d0452ac6e5cb6faf2cc553c5393798ecfe4b",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_2.png",
+      "bytes": 13998,
+      "sha256_before": "5ef2378a910333c22a158ebbedf79ec63ee4c3e77db70ea9e1bfc7205ba68a6f",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "5ef2378a910333c22a158ebbedf79ec63ee4c3e77db70ea9e1bfc7205ba68a6f",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_3.png",
+      "bytes": 13907,
+      "sha256_before": "214c4852c039d758429f2f7613df69a1956d5116aab659ce45ba9e3f916cac03",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "214c4852c039d758429f2f7613df69a1956d5116aab659ce45ba9e3f916cac03",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_4.png",
+      "bytes": 13769,
+      "sha256_before": "8d13d49b02d25564a9481cefb9d23a970f0d8932f5c3ddebd067b10ad2dce9b7",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "8d13d49b02d25564a9481cefb9d23a970f0d8932f5c3ddebd067b10ad2dce9b7",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_5.png",
+      "bytes": 13651,
+      "sha256_before": "c84d6b49ec6bedc7c9e8a2d3a03bf1f50386383d0c1ce632ace82c2395619baa",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "c84d6b49ec6bedc7c9e8a2d3a03bf1f50386383d0c1ce632ace82c2395619baa",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_6.png",
+      "bytes": 14197,
+      "sha256_before": "0a7bbf3e5a23da4a1c5ebae1dc3a4b6b4c3e5208263ff0a589568d2c0984375d",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "0a7bbf3e5a23da4a1c5ebae1dc3a4b6b4c3e5208263ff0a589568d2c0984375d",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_7.png",
+      "bytes": 13536,
+      "sha256_before": "330eb804723d29258cceb48b93c66e64aad166be0eb8545459e08e849b7d3a7e",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "330eb804723d29258cceb48b93c66e64aad166be0eb8545459e08e849b7d3a7e",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_8.png",
+      "bytes": 14548,
+      "sha256_before": "51e5cc0c6f2499ea87da85b539803d891268723b92f318bbaa96f9f9a2e56480",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "51e5cc0c6f2499ea87da85b539803d891268723b92f318bbaa96f9f9a2e56480",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_9.png",
+      "bytes": 14134,
+      "sha256_before": "873838361e39ee1c6756e074a46a2470743fb36701cdb9ccfee3ae61a7497b69",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "873838361e39ee1c6756e074a46a2470743fb36701cdb9ccfee3ae61a7497b69",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_badge_preview.png",
+      "bytes": 316909,
+      "sha256_before": "955818f61cd9dac8c2f5327649bd62abb890bdf6f53e45dc166543f8c486cf34",
+      "png": {
+        "width": 840,
+        "height": 290,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "955818f61cd9dac8c2f5327649bd62abb890bdf6f53e45dc166543f8c486cf34",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_1.png",
+      "bytes": 12707,
+      "sha256_before": "0cad236e5fac1f1b5407fc2aca1515feebf97ba8b582ef9d7141aba0cb1dc493",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "0cad236e5fac1f1b5407fc2aca1515feebf97ba8b582ef9d7141aba0cb1dc493",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_10.png",
+      "bytes": 14821,
+      "sha256_before": "ec67082a0124acc631a99a3d28a49b449153b1aee9fd3db6c5b317c929ee360b",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "ec67082a0124acc631a99a3d28a49b449153b1aee9fd3db6c5b317c929ee360b",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_11.png",
+      "bytes": 14283,
+      "sha256_before": "9a0b8fd356aebcf9a0d7ce553b49ec30e81d873b342c93e557e176f757b18bc6",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "9a0b8fd356aebcf9a0d7ce553b49ec30e81d873b342c93e557e176f757b18bc6",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_12.png",
+      "bytes": 14544,
+      "sha256_before": "7e39f6cb40aca361934e696ee2280484e216080238c599dda99ace1487b2c138",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "7e39f6cb40aca361934e696ee2280484e216080238c599dda99ace1487b2c138",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_13.png",
+      "bytes": 14873,
+      "sha256_before": "db49a0294c0d913e3a4879b35584ab35a25e78a609d5429e5aab378450d19f6b",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "db49a0294c0d913e3a4879b35584ab35a25e78a609d5429e5aab378450d19f6b",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_14.png",
+      "bytes": 14898,
+      "sha256_before": "5363cdc0406a397644edfb8988824c532600f2fc3b87f6501a237d1acedd08f4",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "5363cdc0406a397644edfb8988824c532600f2fc3b87f6501a237d1acedd08f4",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_15.png",
+      "bytes": 14833,
+      "sha256_before": "28a31152f2dc2cf70a1c3cd6943dbcae0e6f7154f8c00b23bda55696b10f16d6",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "28a31152f2dc2cf70a1c3cd6943dbcae0e6f7154f8c00b23bda55696b10f16d6",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_2.png",
+      "bytes": 13463,
+      "sha256_before": "8a015ce94e7c2c908657c9bde85f791c04ca55fc29366ee812ed460a413b0eb3",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "8a015ce94e7c2c908657c9bde85f791c04ca55fc29366ee812ed460a413b0eb3",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_3.png",
+      "bytes": 13386,
+      "sha256_before": "d233120d456db2ebfd816b0f350b9b78d4f88a004434a0acd633d4239929fb1a",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "d233120d456db2ebfd816b0f350b9b78d4f88a004434a0acd633d4239929fb1a",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_4.png",
+      "bytes": 13562,
+      "sha256_before": "5891bfe2ca5d2755218ab09b6104d60e230a89865f0f3c97fc5e4e34c1239c44",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "5891bfe2ca5d2755218ab09b6104d60e230a89865f0f3c97fc5e4e34c1239c44",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_5.png",
+      "bytes": 13430,
+      "sha256_before": "c4e59105101c35fa65cadaa1308e2dad9b60ec9e22a08f9a0909885a1277fd62",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "c4e59105101c35fa65cadaa1308e2dad9b60ec9e22a08f9a0909885a1277fd62",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_6.png",
+      "bytes": 13978,
+      "sha256_before": "06b8f2d0c9ec417c6de63c9eb78169ddb1899c678fda2dfaa6d14d7e4aab2ba9",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "06b8f2d0c9ec417c6de63c9eb78169ddb1899c678fda2dfaa6d14d7e4aab2ba9",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_7.png",
+      "bytes": 12984,
+      "sha256_before": "3e3c8c9e05063d69ee1b2a601416058f0fed1d062d9d9ce60d1ba9d48e426535",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "3e3c8c9e05063d69ee1b2a601416058f0fed1d062d9d9ce60d1ba9d48e426535",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_8.png",
+      "bytes": 13944,
+      "sha256_before": "d55434f8075906f52df989a13a7d6b1096e7057673e721d6dd34b0162c15664c",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "d55434f8075906f52df989a13a7d6b1096e7057673e721d6dd34b0162c15664c",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_9.png",
+      "bytes": 13812,
+      "sha256_before": "462b3c6560ed1c1f9f552f7da8a8edcdaa586e973effd7b0ba15fdf30a01a908",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "462b3c6560ed1c1f9f552f7da8a8edcdaa586e973effd7b0ba15fdf30a01a908",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_broadcast_preview.png",
+      "bytes": 313661,
+      "sha256_before": "ee3383bb6a3e2663d6fab258d618854ab76d54c6071256453e9926246a648506",
+      "png": {
+        "width": 840,
+        "height": 290,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "ee3383bb6a3e2663d6fab258d618854ab76d54c6071256453e9926246a648506",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_1.png",
+      "bytes": 11662,
+      "sha256_before": "2f0e95c1bb71eb43e572f0177b1e559b4997bd8e07e6c9eb5a6267ce855bc755",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "2f0e95c1bb71eb43e572f0177b1e559b4997bd8e07e6c9eb5a6267ce855bc755",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_10.png",
+      "bytes": 14783,
+      "sha256_before": "bf94cbfeb0f3663dd79cc267cb673ebd5918617c95e55bc2b6a9b98fc2c28edd",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "bf94cbfeb0f3663dd79cc267cb673ebd5918617c95e55bc2b6a9b98fc2c28edd",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_11.png",
+      "bytes": 13205,
+      "sha256_before": "4e171a695f4564e3f72d3e40553302c9fbd76b46580e65dd87f2784a25156eb7",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "4e171a695f4564e3f72d3e40553302c9fbd76b46580e65dd87f2784a25156eb7",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_12.png",
+      "bytes": 14218,
+      "sha256_before": "3f22842e45a804466582d20052787199edf7e2786afa9caefbe0ee7f68e8a653",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "3f22842e45a804466582d20052787199edf7e2786afa9caefbe0ee7f68e8a653",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_13.png",
+      "bytes": 14980,
+      "sha256_before": "8dbcc49f1998f2d3e7a49585b5a0e74fc35702091d286192aa07ced599e5b7a4",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "8dbcc49f1998f2d3e7a49585b5a0e74fc35702091d286192aa07ced599e5b7a4",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_14.png",
+      "bytes": 13987,
+      "sha256_before": "5abcc2d556180e0f6781d446cc499ed666cb50a896c6538b2011cf40111086a6",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "5abcc2d556180e0f6781d446cc499ed666cb50a896c6538b2011cf40111086a6",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_15.png",
+      "bytes": 14798,
+      "sha256_before": "8f176ae252a011c83eabba2e4f3d1bf733353b5b4ff995418ad50f9d1279bbab",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "8f176ae252a011c83eabba2e4f3d1bf733353b5b4ff995418ad50f9d1279bbab",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_2.png",
+      "bytes": 13358,
+      "sha256_before": "f7daa4561b830aed8449c6c2009b2d3099791e4fa4dd0d38fa5444d524397fd5",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "f7daa4561b830aed8449c6c2009b2d3099791e4fa4dd0d38fa5444d524397fd5",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_3.png",
+      "bytes": 13664,
+      "sha256_before": "b847e700c4aa4ad2342f722b9f1a2fd53fb6e8310047d036a1e2da8ddbac3216",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "b847e700c4aa4ad2342f722b9f1a2fd53fb6e8310047d036a1e2da8ddbac3216",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_4.png",
+      "bytes": 12675,
+      "sha256_before": "19ea92e4aaa31a72c13df38e2e529fb921d87de51cfab06d57f071779447c977",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "19ea92e4aaa31a72c13df38e2e529fb921d87de51cfab06d57f071779447c977",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_5.png",
+      "bytes": 13515,
+      "sha256_before": "a1b850a6121c3f5fbfa5da6f3afa98e77d85a15cf6e6c76e41cd189b90b88967",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "a1b850a6121c3f5fbfa5da6f3afa98e77d85a15cf6e6c76e41cd189b90b88967",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_6.png",
+      "bytes": 14181,
+      "sha256_before": "facd06ff3383702a043664269360e17f5dffe4f3c6c9719f6c482b6686567bef",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "facd06ff3383702a043664269360e17f5dffe4f3c6c9719f6c482b6686567bef",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_7.png",
+      "bytes": 12449,
+      "sha256_before": "1bf8b6769900112380830e4ef6a5fc2303656237b893751b1fca3d461c30f99b",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "1bf8b6769900112380830e4ef6a5fc2303656237b893751b1fca3d461c30f99b",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_8.png",
+      "bytes": 14240,
+      "sha256_before": "c63c624c76e4e859c3b58943bbdd9a5dc9cb9fc2f2ac5c41154dc19e08c8498a",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "c63c624c76e4e859c3b58943bbdd9a5dc9cb9fc2f2ac5c41154dc19e08c8498a",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_9.png",
+      "bytes": 14087,
+      "sha256_before": "61b7438737dc0d292f3bb0843e73e0d20db69a0546815eeb6df7e5e53e35331d",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "61b7438737dc0d292f3bb0843e73e0d20db69a0546815eeb6df7e5e53e35331d",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_minimal_preview.png",
+      "bytes": 313259,
+      "sha256_before": "80d306a80b47b970cf1cb6518b44f25dc677b759d24973baeebed9a546dc880e",
+      "png": {
+        "width": 840,
+        "height": 290,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "80d306a80b47b970cf1cb6518b44f25dc677b759d24973baeebed9a546dc880e",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_1.png",
+      "bytes": 13490,
+      "sha256_before": "84931071983220ab5b60f8412f07977c191346918fa7f39ae9c4677a907e8d5e",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "84931071983220ab5b60f8412f07977c191346918fa7f39ae9c4677a907e8d5e",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_10.png",
+      "bytes": 16397,
+      "sha256_before": "86b8f0e42aa905fcae0aae7c2bc79d9f0831f11e80ef79a5d6220f4f6802d3ff",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "86b8f0e42aa905fcae0aae7c2bc79d9f0831f11e80ef79a5d6220f4f6802d3ff",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_11.png",
+      "bytes": 15003,
+      "sha256_before": "d0df0d92b7d4153e77b1f6381fbc8f7b1ac13378372db2a29eb513447a38b7d6",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "d0df0d92b7d4153e77b1f6381fbc8f7b1ac13378372db2a29eb513447a38b7d6",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_12.png",
+      "bytes": 16289,
+      "sha256_before": "cd604d3e59ca8a93947495d81e85b28b2014e4b94476be6d2c4b8ef047168195",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "cd604d3e59ca8a93947495d81e85b28b2014e4b94476be6d2c4b8ef047168195",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_13.png",
+      "bytes": 16536,
+      "sha256_before": "b04516d076be2a4d1b1c0ff0aafcfcf70b216a0758cc780807392384f0bde038",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "b04516d076be2a4d1b1c0ff0aafcfcf70b216a0758cc780807392384f0bde038",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_14.png",
+      "bytes": 15924,
+      "sha256_before": "eed8e54d8a1ad876160ecf4adf39d6ad07eab87ea431e93cf564b2ac7c9ab307",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "eed8e54d8a1ad876160ecf4adf39d6ad07eab87ea431e93cf564b2ac7c9ab307",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_15.png",
+      "bytes": 16289,
+      "sha256_before": "547227cea2f1c345a752d64db29d9b138b45bde30ecebd66cbd9a8ae9370c037",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "547227cea2f1c345a752d64db29d9b138b45bde30ecebd66cbd9a8ae9370c037",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_2.png",
+      "bytes": 14899,
+      "sha256_before": "8cc5561b853b35598cf17e52551760f72659cdd7872c72190a91cec2abaa04f5",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "8cc5561b853b35598cf17e52551760f72659cdd7872c72190a91cec2abaa04f5",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_3.png",
+      "bytes": 15449,
+      "sha256_before": "cfd48e3aac689e8cb05476ec5a44cb5b885d1981cddd3dbcacb76fb0683a4b8b",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "cfd48e3aac689e8cb05476ec5a44cb5b885d1981cddd3dbcacb76fb0683a4b8b",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_4.png",
+      "bytes": 14201,
+      "sha256_before": "f2c3f69b3ce2fbea28944f74c8c6dc9f226c859a1de052099689cfdafcfe9ac8",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "f2c3f69b3ce2fbea28944f74c8c6dc9f226c859a1de052099689cfdafcfe9ac8",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_5.png",
+      "bytes": 15114,
+      "sha256_before": "0e8978b0f060df4d19d3b7225fc692a0ad05be49a4706509052c43d04d382cf2",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "0e8978b0f060df4d19d3b7225fc692a0ad05be49a4706509052c43d04d382cf2",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_6.png",
+      "bytes": 16241,
+      "sha256_before": "a0deb1e8f3d58c8947ffabe4ad9d3a829db73458ed6870f4c078a60964154ae8",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "a0deb1e8f3d58c8947ffabe4ad9d3a829db73458ed6870f4c078a60964154ae8",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_7.png",
+      "bytes": 14163,
+      "sha256_before": "10887ad19a2a04517c037f7d12bfe937d529f5eb82b54f2aaeba2fd3326acc9f",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "10887ad19a2a04517c037f7d12bfe937d529f5eb82b54f2aaeba2fd3326acc9f",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_8.png",
+      "bytes": 15757,
+      "sha256_before": "f62f6112f805f1e2c2df7a1711ea8a41a341db83d06f4df7c72d0e63e3d7cdd7",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "f62f6112f805f1e2c2df7a1711ea8a41a341db83d06f4df7c72d0e63e3d7cdd7",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_9.png",
+      "bytes": 16068,
+      "sha256_before": "b1cf3859918d840b73922d0ce388a4c7fb51ee59ca1705dfb97e16537ab004b1",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "b1cf3859918d840b73922d0ce388a4c7fb51ee59ca1705dfb97e16537ab004b1",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_modern_preview.png",
+      "bytes": 319037,
+      "sha256_before": "d93848bcad35befac8acd241e734dd92bdd62dceea07eeac1475c283f7436fcf",
+      "png": {
+        "width": 840,
+        "height": 290,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "d93848bcad35befac8acd241e734dd92bdd62dceea07eeac1475c283f7436fcf",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_1.png",
+      "bytes": 16798,
+      "sha256_before": "3625917fc9313d940aef0d51fb54e4b76f48dff4ec17c7bed5faa17fa8c8d5b3",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "3625917fc9313d940aef0d51fb54e4b76f48dff4ec17c7bed5faa17fa8c8d5b3",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_10.png",
+      "bytes": 19466,
+      "sha256_before": "a484c80287f8b613773fd0e4a2011bdfdae0e32b3bc306653c1864f895617e03",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "a484c80287f8b613773fd0e4a2011bdfdae0e32b3bc306653c1864f895617e03",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_11.png",
+      "bytes": 18042,
+      "sha256_before": "36dc0dbea5f0f9197986d16b3421e8671348852b2baa37f2333df97c5926a635",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "36dc0dbea5f0f9197986d16b3421e8671348852b2baa37f2333df97c5926a635",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_12.png",
+      "bytes": 19708,
+      "sha256_before": "375311c216230a4aeaeeebac9ad5258e6747ac666bc2d4597df433137798ecaf",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "375311c216230a4aeaeeebac9ad5258e6747ac666bc2d4597df433137798ecaf",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_13.png",
+      "bytes": 19086,
+      "sha256_before": "d79196f85619616cac1ca7c0e2e1858775d030c27bd1541682ee7baf357296bb",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "d79196f85619616cac1ca7c0e2e1858775d030c27bd1541682ee7baf357296bb",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_14.png",
+      "bytes": 18666,
+      "sha256_before": "69bf33330fef7517925baa7f393d3d5167692c0d646dddcc5f5076bf87518997",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "69bf33330fef7517925baa7f393d3d5167692c0d646dddcc5f5076bf87518997",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_15.png",
+      "bytes": 18750,
+      "sha256_before": "bc4c2e806afe601c5d085787ace6cf65503d45e22b2d55f3c778c1f3739d822a",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "bc4c2e806afe601c5d085787ace6cf65503d45e22b2d55f3c778c1f3739d822a",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_2.png",
+      "bytes": 18446,
+      "sha256_before": "80a502a1c29b60fc6d7fce4ed350364924cc9bffc772b6910c6a0d80edf18103",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "80a502a1c29b60fc6d7fce4ed350364924cc9bffc772b6910c6a0d80edf18103",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_3.png",
+      "bytes": 18011,
+      "sha256_before": "5b996673c68b0f11ae0689a144aaa61575a2a28a650d03c23e55df8ff5fe9905",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "5b996673c68b0f11ae0689a144aaa61575a2a28a650d03c23e55df8ff5fe9905",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_4.png",
+      "bytes": 17175,
+      "sha256_before": "07be29c71fa027b8666c3ee9f29a8ce50052d0f6edd4080b79b31d4811868b1e",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "07be29c71fa027b8666c3ee9f29a8ce50052d0f6edd4080b79b31d4811868b1e",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_5.png",
+      "bytes": 18192,
+      "sha256_before": "8a1f341fcc4093b39750f36fd72906838e2c5860237fd9ac8bc8e7fa00258fb0",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "8a1f341fcc4093b39750f36fd72906838e2c5860237fd9ac8bc8e7fa00258fb0",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_6.png",
+      "bytes": 18380,
+      "sha256_before": "78800572d9a11c67f75395fc5c99fb729abb0a8da1b4812394209848ecb542f6",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "78800572d9a11c67f75395fc5c99fb729abb0a8da1b4812394209848ecb542f6",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_7.png",
+      "bytes": 17463,
+      "sha256_before": "8f3d038bdf1094a9aea9e799fc0817a0862f075a937332c72ae9a6a380473c04",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "8f3d038bdf1094a9aea9e799fc0817a0862f075a937332c72ae9a6a380473c04",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_8.png",
+      "bytes": 18126,
+      "sha256_before": "7a76aed024916f3387b23886eb3dd2dee3f8875b0f53b3506008e8a88c947585",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "7a76aed024916f3387b23886eb3dd2dee3f8875b0f53b3506008e8a88c947585",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_9.png",
+      "bytes": 18466,
+      "sha256_before": "d10a3799f4d349adb03ceee579739103571acd421d91339fefef7eb2179d0609",
+      "png": {
+        "width": 1024,
+        "height": 512,
+        "bits": 8,
+        "png_color_type": 2
+      },
+      "sha256_after": "d10a3799f4d349adb03ceee579739103571acd421d91339fefef7eb2179d0609",
+      "stable_during_read": true
+    },
+    {
+      "path": "QiuJi/Resources/BallStickers/BallSticker_vintage_preview.png",
+      "bytes": 325744,
+      "sha256_before": "09ad554bb8b250f70045cb632454b2a9a1a6db4a96253b9fb5d0ff6fe578bece",
+      "png": {
+        "width": 840,
+        "height": 290,
+        "bits": 8,
+        "png_color_type": 6
+      },
+      "sha256_after": "09ad554bb8b250f70045cb632454b2a9a1a6db4a96253b9fb5d0ff6fe578bece",
+      "stable_during_read": true
+    }
+  ],
+  "folders": {
+    "TrainingRoom": {
+      "manifest_sha256": "a745ee5f40e5c298f106317fa417eed9850a6ea4069ac56cda0ebb6755c258e2",
+      "manifest_rule": "sorted direct files; filename + NUL + sha256 + newline"
+    },
+    "TableMaterials": {
+      "manifest_sha256": "d465bdf85bde296ebf2f8f6af1d261cc9b14de49f1ac1ce24d68cfef2bf84e91",
+      "manifest_rule": "sorted direct files; filename + NUL + sha256 + newline"
+    },
+    "TableStyles": {
+      "manifest_sha256": "ff27303376e597f41f6889af5b0f975b49414eb68b5a0d2d2b8135baa51ff47e",
+      "manifest_rule": "sorted direct files; filename + NUL + sha256 + newline"
+    },
+    "BallStickers": {
+      "manifest_sha256": "555160069774a67d4bda54a5e38da3a22ad4aed453743abd4d3ea52dbc6c2dd6",
+      "manifest_rule": "sorted direct files; filename + NUL + sha256 + newline"
+    }
+  },
+  "usd_geometry": [
+    {
+      "path": "QiuJi/Resources/TaiQiuZhuo.usdz",
+      "usda_stdout_bytes": 107574786,
+      "meshes": [
+        {
+          "name": "_______024",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "_______019",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "_______021",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "Plane_001",
+          "points": 422048,
+          "polygons": 240435,
+          "corners": 829034,
+          "fan_equivalent_triangles": 348164,
+          "max_polygon_corners": 32,
+          "polygon_histogram": {
+            "4": 106130,
+            "7": 4,
+            "5": 22,
+            "6": 6,
+            "12": 13,
+            "20": 12,
+            "14": 4,
+            "10": 16,
+            "32": 36,
+            "3": 134192
+          },
+          "material_subsets": [
+            {
+              "name": "TaiNi",
+              "binding": "/root/_materials/TaiNi",
+              "polygons": 9710,
+              "fan_equivalent_triangles": 19682
+            },
+            {
+              "name": "Gold",
+              "binding": "/root/_materials/Gold",
+              "polygons": 5116,
+              "fan_equivalent_triangles": 10392
+            },
+            {
+              "name": "White",
+              "binding": "/root/_materials/White",
+              "polygons": 66723,
+              "fan_equivalent_triangles": 132706
+            },
+            {
+              "name": "Leather",
+              "binding": "/root/_materials/Leather",
+              "polygons": 12304,
+              "fan_equivalent_triangles": 24584
+            },
+            {
+              "name": "BlackWood",
+              "binding": "/root/_materials/BlackWood",
+              "polygons": 9368,
+              "fan_equivalent_triangles": 18744
+            },
+            {
+              "name": "WeiBian",
+              "binding": "/root/_materials/WeiBian",
+              "polygons": 2620,
+              "fan_equivalent_triangles": 5240
+            },
+            {
+              "name": "Wood",
+              "binding": "/root/_materials/Wood",
+              "polygons": 5816,
+              "fan_equivalent_triangles": 5816
+            },
+            {
+              "name": "MG_Gold",
+              "binding": "/root/_materials/MG_Gold",
+              "polygons": 126280,
+              "fan_equivalent_triangles": 126280
+            },
+            {
+              "name": "Black",
+              "binding": "/root/_materials/Black",
+              "polygons": 2498,
+              "fan_equivalent_triangles": 4720
+            }
+          ]
+        },
+        {
+          "name": "_______026",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "_______003",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "_______007",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "_______023",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "_______025",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "_______004",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "Plane_025",
+          "points": 6824,
+          "polygons": 6785,
+          "corners": 27200,
+          "fan_equivalent_triangles": 13630,
+          "max_polygon_corners": 64,
+          "polygon_histogram": {
+            "4": 6784,
+            "64": 1
+          },
+          "material_subsets": [
+            {
+              "name": "White_Wood",
+              "binding": "/root/_materials/White_Wood",
+              "polygons": 1088,
+              "fan_equivalent_triangles": 2176
+            },
+            {
+              "name": "black_2",
+              "binding": "/root/_materials/black_2",
+              "polygons": 3840,
+              "fan_equivalent_triangles": 7680
+            },
+            {
+              "name": "PiTou",
+              "binding": "/root/_materials/PiTou",
+              "polygons": 1792,
+              "fan_equivalent_triangles": 3584
+            },
+            {
+              "name": "copp",
+              "binding": "/root/_materials/copp",
+              "polygons": 65,
+              "fan_equivalent_triangles": 190
+            }
+          ]
+        },
+        {
+          "name": "_______018",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "_______027",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "_______022",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "_______028",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "_______002",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "_______020",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "_______029",
+          "points": 362,
+          "polygons": 720,
+          "corners": 2160,
+          "fan_equivalent_triangles": 720,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 720
+          },
+          "material_subsets": []
+        },
+        {
+          "name": "Plane_007",
+          "points": 64180,
+          "polygons": 125984,
+          "corners": 377952,
+          "fan_equivalent_triangles": 125984,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 125984
+          },
+          "material_subsets": []
+        }
+      ],
+      "up_axis": [
+        "upAxis = \"Z\""
+      ],
+      "meters_per_unit": [
+        "metersPerUnit = 1"
+      ],
+      "materials": [
+        "Lime__q6038_9_001",
+        "Lime__q6038_11_001",
+        "Lime__q6038_10_001",
+        "TaiNi",
+        "Gold",
+        "White",
+        "Leather",
+        "BlackWood",
+        "WeiBian",
+        "Wood",
+        "MG_Gold",
+        "Black",
+        "Lime__q6038_1_001",
+        "Lime__q6040_002",
+        "Lime__q6038_15_001",
+        "Lime__q6038_8_001",
+        "Lime__q6038_7_001",
+        "Lime__q6038_4_001",
+        "White_Wood",
+        "black_2",
+        "PiTou",
+        "copp",
+        "Lime__q6038_12_001",
+        "Lime__q6038_2_001",
+        "Lime__q6038_14_001",
+        "Lime__q6038_3_001",
+        "Lime__q6038_5_001",
+        "Lime__q6038_13_001",
+        "Lime__q6038_6_001"
+      ],
+      "points": 498844,
+      "polygons": 384724,
+      "corners": 1268746,
+      "fan_equivalent_triangles": 499298
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/Room_eastern_floor.usdz",
+      "usda_stdout_bytes": 1188,
+      "meshes": [
+        {
+          "name": "Plane",
+          "points": 4,
+          "polygons": 2,
+          "corners": 6,
+          "fan_equivalent_triangles": 2,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 2
+          },
+          "material_subsets": []
+        }
+      ],
+      "up_axis": [
+        "upAxis = \"Y\""
+      ],
+      "meters_per_unit": [
+        "metersPerUnit = 1"
+      ],
+      "materials": [],
+      "points": 4,
+      "polygons": 2,
+      "corners": 6,
+      "fan_equivalent_triangles": 2
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/Room_eastern_perimeter.usdz",
+      "usda_stdout_bytes": 6789866,
+      "meshes": [
+        {
+          "name": "Cube",
+          "points": 15408,
+          "polygons": 29936,
+          "corners": 89808,
+          "fan_equivalent_triangles": 29936,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 29936
+          },
+          "material_subsets": []
+        }
+      ],
+      "up_axis": [
+        "upAxis = \"Y\""
+      ],
+      "meters_per_unit": [
+        "metersPerUnit = 1"
+      ],
+      "materials": [],
+      "points": 15408,
+      "polygons": 29936,
+      "corners": 89808,
+      "fan_equivalent_triangles": 29936
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/Room_tournament_floor.usdz",
+      "usda_stdout_bytes": 1188,
+      "meshes": [
+        {
+          "name": "Plane",
+          "points": 4,
+          "polygons": 2,
+          "corners": 6,
+          "fan_equivalent_triangles": 2,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 2
+          },
+          "material_subsets": []
+        }
+      ],
+      "up_axis": [
+        "upAxis = \"Y\""
+      ],
+      "meters_per_unit": [
+        "metersPerUnit = 1"
+      ],
+      "materials": [],
+      "points": 4,
+      "polygons": 2,
+      "corners": 6,
+      "fan_equivalent_triangles": 2
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/Room_tournament_perimeter.usdz",
+      "usda_stdout_bytes": 5821614,
+      "meshes": [
+        {
+          "name": "Cube",
+          "points": 13296,
+          "polygons": 25800,
+          "corners": 77400,
+          "fan_equivalent_triangles": 25800,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 25800
+          },
+          "material_subsets": []
+        }
+      ],
+      "up_axis": [
+        "upAxis = \"Y\""
+      ],
+      "meters_per_unit": [
+        "metersPerUnit = 1"
+      ],
+      "materials": [],
+      "points": 13296,
+      "polygons": 25800,
+      "corners": 77400,
+      "fan_equivalent_triangles": 25800
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/Room_walnut_floor.usdz",
+      "usda_stdout_bytes": 1188,
+      "meshes": [
+        {
+          "name": "Plane",
+          "points": 4,
+          "polygons": 2,
+          "corners": 6,
+          "fan_equivalent_triangles": 2,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 2
+          },
+          "material_subsets": []
+        }
+      ],
+      "up_axis": [
+        "upAxis = \"Y\""
+      ],
+      "meters_per_unit": [
+        "metersPerUnit = 1"
+      ],
+      "materials": [],
+      "points": 4,
+      "polygons": 2,
+      "corners": 6,
+      "fan_equivalent_triangles": 2
+    },
+    {
+      "path": "QiuJi/Resources/TrainingRoom/Room_walnut_perimeter.usdz",
+      "usda_stdout_bytes": 4936489,
+      "meshes": [
+        {
+          "name": "Cube",
+          "points": 11376,
+          "polygons": 22040,
+          "corners": 66120,
+          "fan_equivalent_triangles": 22040,
+          "max_polygon_corners": 3,
+          "polygon_histogram": {
+            "3": 22040
+          },
+          "material_subsets": []
+        }
+      ],
+      "up_axis": [
+        "upAxis = \"Y\""
+      ],
+      "meters_per_unit": [
+        "metersPerUnit = 1"
+      ],
+      "materials": [],
+      "points": 11376,
+      "polygons": 22040,
+      "corners": 66120,
+      "fan_equivalent_triangles": 22040
+    }
+  ],
+  "read_finished": "2026-10-02T08:17:06.248145+08:00"
+}

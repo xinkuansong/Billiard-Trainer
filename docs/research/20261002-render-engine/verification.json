@@ -1,0 +1,16 @@
+{
+  "verified_at": "2026-10-02T08:36:05.555022+08:00",
+  "protected_source_count": 39,
+  "protected_source_changed": [],
+  "frozen_source_count": 44,
+  "frozen_source_integrity_errors": [],
+  "local_links_checked": 28,
+  "missing_local_links": [],
+  "json_evidence_parsed": 8,
+  "assets_measure_syntax": "passed",
+  "research_markdown_trailing_whitespace": [],
+  "doc_size_gate": "passed; PROGRESS 10 current entries, hub 10 recent entries",
+  "diff_whitespace": "passed for research and edited repository status documents",
+  "scope": "documentation/static verification only; no build, device or engine experiment",
+  "hub_whitespace": "direct text check passed for card and archive; hub has no Git repository, so git diff --check is unavailable there"
+}

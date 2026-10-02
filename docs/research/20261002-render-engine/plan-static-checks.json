@@ -1,0 +1,10 @@
+{
+  "source_files_checked": 13,
+  "source_drift": [],
+  "local_links_checked": 26,
+  "missing_links": [],
+  "SVG_XML_valid": true,
+  "numeric_inverse_error": 4.718447854656915e-16,
+  "numeric_periodic_radius_error_m": 2.220446049250313e-15,
+  "scope": "static plan arithmetic and documents; not production safety or device verification"
+}

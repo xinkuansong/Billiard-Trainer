@@ -1,0 +1,2679 @@
+import SceneKit
+import Combine
+import simd
+import os
+
+/// SceneKit scene for angle training: loads the USDZ table model,
+/// manages camera (2D/3D), lighting, USDZ ball nodes, and cue stick.
+final class AngleTrainingScene: SCNScene, ObservableObject {
+
+    /// Weak bridge to the live viewport; used only while a closeup is visible.
+    weak var closeupViewport: SCNView?
+
+    /// Selected before setup; scene-local so daily-clearance trials do not change other pages or exports.
+    var renderingProfile = MobileReferenceLighting.specializedProfile
+    #if DEBUG
+    var usesClothLightingPrototype = false
+    #endif
+    /// Set before setup so material highlight headroom matches the camera.
+    var sceneExposureOffset: CGFloat?
+    var usesDailyPerspective = false
+    /// Scene-local controls keep other training and export consumers unchanged.
+    private(set) var avoidsDailyRedundantCameraWrites = false
+    /// Cloth variants remain diagnostic until matched phone profiling is complete.
+    private(set) var mergesDailyClothSupport = false
+    private(set) var factorsDailyClothBRDF = false
+
+    /// Daily-only defaults; other consumers retain their existing rendering contract.
+    func configureDailyClearanceRendering() {
+        renderingProfile = .reflection
+        sceneExposureOffset = -0.1
+        usesDailyPerspective = true
+        avoidsDailyRedundantCameraWrites = true
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        avoidsDailyRedundantCameraWrites = !arguments.contains("-daily3D.cameraReference")
+        mergesDailyClothSupport = arguments.contains("-daily3D.mergeClothSupport")
+        factorsDailyClothBRDF = arguments.contains("-daily3D.factorClothBRDF")
+        #endif
+    }
+
+    // MARK: - Camera Mode
+
+    enum CameraMode: Equatable {
+        case topDown2D
+        case topDown2DRotated
+        case perspective3D
+    }
+
+    // MARK: - Properties
+
+    private var leatherMarkers: [PocketLeatherMarker] = []
+    private(set) var pocketLeatherFailure: String?
+    private(set) var tableNode: SCNNode?
+    private var clothAppearance: ClothAppearance?
+    private var requestedClothColor: ClothColor = .green
+    var installedClothColor: ClothColor { clothAppearance?.color ?? .green }
+
+    @discardableResult
+    func applyClothColor(_ color: ClothColor) -> Bool {
+        requestedClothColor = color
+        guard let tableNode else { return false }
+        if clothAppearance == nil { clothAppearance = ClothAppearance(table: tableNode) }
+        guard clothAppearance?.apply(color) == true else { return false }
+        if mobileRendering && MobileReferenceLighting.requested {
+            for node in allBallNodes.values { MobileReferenceLighting.applyClothBounce(color, to: node) }
+        }
+        return true
+    }
+
+    private var tableAppearance: TableAppearance?
+    private var requestedTableStyle: TableStyle = .defaultStyle
+    private var requestedTableSights = true
+    var showsTableSights: Bool { requestedTableSights }
+    var installedTableStyle: TableStyle { tableAppearance?.style ?? .standard }
+
+    @discardableResult
+    func applyTableStyle(_ style: TableStyle, showsSights: Bool = true) -> Bool {
+        requestedTableStyle = style
+        requestedTableSights = showsSights
+        guard let tableNode else { return false }
+        if tableAppearance == nil { tableAppearance = TableAppearance(table: tableNode, surfaceY: surfaceY) }
+        guard tableAppearance?.apply(style, showsSights: showsSights) == true else { return false }
+        for marker in leatherMarkers { marker.applyTableStyle(style) }
+        return true
+    }
+    private(set) var cameraNode: SCNNode!
+    private(set) var cameraRig: CameraRig?
+    private(set) var surfaceY: Float = 0.5
+    private(set) var currentCameraMode: CameraMode = .topDown2D
+    private(set) var isCameraModeTransitioning = false
+    /// Invalidates delayed transaction callbacks when a newer mode takes ownership.
+    private var cameraTransitionID = UUID()
+    private var savedPerspectiveState: CameraRig.PerspectiveState?
+    private(set) var hasPerspectiveView = false
+
+    /// Studio-look pipeline flag. Default `false` so existing pages
+    /// (`AngleDynamicView` / `Scene2DAimingView`) keep their cheap
+    /// 3-light scene. `Scene3DAimingView` opts in via `setupScene(enhancedRendering: true)`.
+    private(set) var enhancedRendering: Bool = false
+    private(set) var mobileRendering: Bool = false
+    private(set) var contactOcclusion: MobileContactOcclusion?
+
+    /// Keep references to nodes we add for the enhanced pipeline so we can detach them
+    /// if the flag is toggled off mid-session.
+    private var groundVisualNode: SCNNode?
+    private var tableContactShadowNode: SCNNode?
+    private var tableCenterGlowNode: SCNNode?
+    private var enhancedLightNodes: [SCNNode] = []
+
+    // MARK: - USDZ Ball Nodes
+
+    private(set) var cueBallNode: SCNNode?
+    private(set) var targetBallNodes: [SCNNode] = []
+    private(set) var allBallNodes: [String: SCNNode] = [:]
+    private(set) var ballStickerStyle: BallStickerStyle?
+    private(set) var initialBallPositions: [String: SCNVector3] = [:]
+    /// W17-D (DR-299): potted balls resting on the pocket rails, persisted across shots.
+    private(set) lazy var railInventory = PocketRailInventory(root: rootNode)
+
+    // MARK: - Cue Stick
+
+    private(set) var lastCueAim: SCNVector3?
+    @Published private(set) var cueAccessSnapshot: CueStrikeAccess?
+
+    func cueStrikeAccess(aim: SCNVector3? = nil) -> CueStrikeAccess? {
+        guard let direction = aim ?? lastCueAim,
+              let cue = [allBallNodes[PositionPlayBall.cueKey], cueBallNode].compactMap({ $0 }).first(where: { !$0.isHidden }) else { return nil }
+        return CueStrikeAccess(cue: cue.position, aim: direction,
+            obstacles: cueObstacleCenters(), surfaceY: surfaceY,
+            profile: cueStick?.clearanceProfile ?? CueSection.fallback)
+    }
+
+    /// Only returns a replacement when needed; callers commit both coordinates
+    /// to their shot state and re-predict before allowing a strike.
+    func correctedCueSpin(aim: SCNVector3, spinX: Double, spinY: Double,
+                          locksSideSpin: Bool = false) -> (x: Double, y: Double)? {
+        guard let access = cueStrikeAccess(aim: aim),
+              !access.isAvailable(spinX: spinX, spinY: spinY) else { return nil }
+        return access.automaticPoint(spinX: spinX, spinY: spinY, allowSideAdjustment: !locksSideSpin)
+    }
+
+    func permitsCueStrike(aim: SCNVector3, spinX: Double, spinY: Double) -> Bool {
+        cueStrikeAccess(aim: aim)?.isAvailable(spinX: spinX, spinY: spinY) ?? false
+    }
+
+    private(set) var modelCueStickNode: SCNNode?
+    private(set) var cueStick: CueStick?
+    private var lastCueTipInset: Float = 0
+    /// Place the quiz assist cue along the displayed shot, independently of the camera.
+    /// The same world-space direction is used in both top-down and perspective modes.
+    func showAuxiliaryCue() {
+        guard let cue = cueBallNode, let ghost = ghostBallNode, !ghost.isHidden else { return }
+        let direction = unitXZ(from: cue.position, to: ghost.position)
+        updateCueStick(cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: direction, spinX: 0),
+                       aimDirection: direction)
+    }
+
+    // MARK: - Fallback Procedural Balls (when USDZ balls not available)
+
+    private var fallbackCueBall: SCNNode?
+    private var fallbackTargetBall: SCNNode?
+
+    // MARK: - Visualization Nodes (pre-created, toggled via isHidden)
+
+    /// 当前目标球号（`applyBallLayout` 记录）：进球线/标签随球色的取色依据（T-P18-41）。
+    private(set) var currentTargetNumber: Int?
+
+    /// 母球本局「击打前」朝向：新摆球时随机写入；重打/复位回到此姿态（不重新抽）。
+    private(set) var cueBallHomeOrientation: simd_quatf = BallSpinIntegrator.identityOrientation
+
+    /// 目标球换号时更新取色依据（条 2：角度与打点目标球可选）。
+    func setCurrentTargetNumber(_ number: Int?) {
+        currentTargetNumber = number
+    }
+    private(set) var ghostBallNode: SCNNode?
+    private(set) var pocketLineNode: SCNNode?
+    private(set) var strikeLineNode: SCNNode?
+    private var strikeContinuationNode: SCNNode?
+    /// Opt-in for the interactive angle diagram; quiz/export consumers retain their contract.
+    var usesAdaptiveDiagramLabels = false
+    private(set) var diagramLabelGeometry: (cue: SCNVector3, target: SCNVector3,
+        ghost: SCNVector3, pocket: SCNVector3, rail: SCNVector3, angle: Double)?
+    private(set) var contactDotNode: SCNNode?
+    private(set) var angleArcNode: SCNNode?
+    private weak var angleValueLabel: SCNNode?
+    private var angleValueFlatYaw: Float = 0
+    private var inlineLineLabels: [(node: SCNNode, flatYaw: Float)] = []
+    private(set) var perpLineNode: SCNNode?
+    /// 4x8 台面网格叠加（条 16）：`setTableGridVisible` 懒建。
+    private var tableGridNode: SCNNode?
+    private var tableGridNeedsRebuild = true
+
+    // MARK: - Setup
+
+    /// Build the angle-training scene.
+    /// - Parameter enhancedRendering: when `true`, opts into the studio-look
+    ///   pipeline (programmatic IBL + ground shadow catcher + 4-light + HDR
+    ///   camera + cloth/rail/pocket material enhancers + table center glow).
+    ///   Default `false` keeps the cheap 3-light look for the 2D pages.
+    #if DEBUG
+    private(set) var setupTiming: [String: Double] = [:]
+    #endif
+
+    /// - Parameter mobileRendering: production table rendering (v62 closeout,
+    ///   ADR-P5-01): mobile base lighting + S267 reference lighting + surface
+    ///   finishes + baked training room (visible in `perspective3D` only).
+    ///   Defaults to `MobileTableRendering.isEnabled` so every interactive page
+    ///   shares one look; offline renderers pass `false` to keep bundled output stable.
+    func setupScene(enhancedRendering: Bool = false, mobileRendering: Bool = MobileTableRendering.isEnabled) {
+        #if DEBUG
+        var stageStart = CACurrentMediaTime()
+        func mark(_ key: String) {
+            let now = CACurrentMediaTime()
+            setupTiming[key] = (now-stageStart)*1000
+            stageStart = now
+        }
+        #endif
+        self.enhancedRendering = enhancedRendering
+        self.mobileRendering = mobileRendering && !enhancedRendering && MobileTableRendering.environmentURL != nil
+        contactOcclusion = nil
+
+        if enhancedRendering {
+            EnhancedEnvironment.apply(to: self)
+            setupGround()
+        }
+
+        setupTable()
+        #if DEBUG
+        mark("tableMs")
+        #endif
+        setupCamera()
+        setupLighting()
+        #if DEBUG
+        mark("cameraLightsMs")
+        #endif
+        if self.mobileRendering {
+            MobileTableRendering.applyLighting(to: self)
+            MobileClothAlignment.apply(to: self)
+            MobilePocketOcclusion.apply(to: self)
+            contactOcclusion = MobileContactOcclusion(scene: self)
+            #if DEBUG
+            mark("mobileBaseMs")
+            #endif
+            if MobileReferenceLighting.requested { MobileReferenceLighting.apply(to: self) }
+            #if DEBUG
+            mark("referenceMs")
+            #endif
+            // Room is a scene-assembly step, independent of material finishes.
+            installReferenceRoom()
+            #if DEBUG
+            mark("roomMs")
+            #endif
+        }
+
+        applyTableStyle(requestedTableStyle, showsSights: requestedTableSights)
+        applyClothColor(requestedClothColor)
+        cueStick?.prepareOpacityAnimation()
+
+        // 台面网格重放（G2 根因修复）：makeUIView 可能先于本方法按偏好建网格，
+        // 彼时 surfaceY 还是默认值，网格会埋进桌身。表面高度就位后重建。
+        if let grid = tableGridNode, !grid.isHidden {
+            setTableGridVisible(true)
+        }
+    }
+
+    // MARK: - Table
+
+    private func setupTable() {
+        guard let model = TableModelLoader.loadTable() else {
+            pocketLeatherFailure = "Table model could not be loaded; see TableModelLoader log"
+            return
+        }
+
+        surfaceY = model.surfaceY
+        let tableHeight = BTTablePhysics.surfaceY
+        let yOffset = tableHeight - model.surfaceY
+        model.visualNode.position.y += yOffset
+        surfaceY = tableHeight
+
+        tableNode?.removeFromParentNode()
+        leatherMarkers.removeAll()
+        pocketLeatherFailure = nil
+        rootNode.addChildNode(model.visualNode)
+        tableNode = model.visualNode
+        tableAppearance = nil
+        clothAppearance = nil
+        assistSurface = nil
+        idealObjectGeometryLine = nil
+        freeAimPreviewGeometryLine = nil
+        tableGridNeedsRebuild = true
+        assistSurfaceFailed = false
+        modelCueStickNode = model.cueStickNode
+
+        setupModelBalls(from: model.ballNodes, uniformScale: model.appliedScale.x)
+        enhanceBallMaterials()
+
+        // Cloth enhancement (multiply tint + roughness) on BOTH pipelines so the
+        // plain 2D / dynamic pages don't over-saturate the USDZ felt into neon
+        // green (UR-20260529 U-01 / FL-011). The plain pipeline lacks IBL/HDR
+        // tone-mapping, so it needs a stronger darken/desaturate tint than studio.
+        MaterialFactory.enhanceClothMaterials(
+            in: model.visualNode,
+            // Mobile retains the original plain-page cloth palette (S199).
+            multiplyTint: mobileRendering ? MaterialFactory.clothMultiplyPlain
+                : (enhancedRendering ? MaterialFactory.clothMultiplyStudio : MaterialFactory.clothMultiplyPlain),
+            preservesClothResponse: mobileRendering
+        )
+
+        if enhancedRendering {
+            MaterialFactory.enhanceRailMaterials(in: model.visualNode)
+            MaterialFactory.enhancePocketMaterials(in: model.visualNode)
+            addTableCenterGlow()
+        }
+
+        setupCueStick()
+    }
+
+    // MARK: - USDZ Ball Management
+
+    private func setupModelBalls(from extractedBalls: [String: SCNNode], uniformScale: Float) {
+        ballStickerStyle = nil
+        railInventory.clear()
+        allBallNodes.removeAll()
+        targetBallNodes.removeAll()
+        initialBallPositions.removeAll()
+
+        let correctY = surfaceY + AngleSceneCalculator.ballRadius
+
+        for (key, ballNode) in extractedBalls {
+            ballNode.position = SCNVector3(ballNode.position.x, correctY, ballNode.position.z)
+            ballNode.isHidden = true
+            rootNode.addChildNode(ballNode)
+
+            allBallNodes[key] = ballNode
+            initialBallPositions[key] = ballNode.position
+
+            if key == "cueBall" {
+                cueBallNode = ballNode
+            } else {
+                targetBallNodes.append(ballNode)
+            }
+        }
+    }
+
+    /// Show only specified balls, hide all others. Position them at given locations.
+    /// Falls back to procedural balls if USDZ balls weren't extracted.
+    func applyBallLayout(cueBallPosition: SCNVector3, targetBallNumber: Int, targetPosition: SCNVector3) {
+        currentTargetNumber = targetBallNumber
+        let correctY = surfaceY + AngleSceneCalculator.ballRadius
+        let cuePos = SCNVector3(cueBallPosition.x, correctY, cueBallPosition.z)
+        let targetPos = SCNVector3(targetPosition.x, correctY, targetPosition.z)
+
+        for (_, node) in allBallNodes {
+            node.isHidden = true
+        }
+
+        if let cue = allBallNodes["cueBall"] {
+            // 防御性重挂：若回放等流程曾把球移出父节点，仅设 isHidden=false 不够，必须重新挂回
+            // 场景，否则 reset/重新摆球后球仍不可见（球"消失"bug）。
+            if cue.parent == nil { rootNode.addChildNode(cue) }
+            cue.opacity = 1
+            reseatCueBallHome(on: cue)
+            cue.position = cuePos
+            cue.isHidden = false
+            cueBallNode = cue
+        } else {
+            fallbackCueBall?.removeFromParentNode()
+            let node = addBall(at: cuePos, color: .white)
+            node.name = "cueBall"
+            fallbackCueBall = node
+            reseatCueBallHome(on: node)
+            cueBallNode = node
+        }
+
+        let targetKey = "_\(targetBallNumber)"
+        if let target = allBallNodes[targetKey] {
+            if target.parent == nil { rootNode.addChildNode(target) }
+            target.opacity = 1
+            BallSpinIntegrator.resetPose(target)
+            target.position = targetPos
+            target.isHidden = false
+            targetBallNodes = [target]
+        } else {
+            fallbackTargetBall?.removeFromParentNode()
+            let ballColor = targetBallNumber == 8
+                ? UIColor.black
+                : UIColor(red: 0.96, green: 0.65, blue: 0.14, alpha: 1)
+            let node = addBall(at: targetPos, color: ballColor)
+            node.name = targetKey
+            fallbackTargetBall = node
+            targetBallNodes = [node]
+        }
+    }
+
+    /// Position a specific ball by key without changing visibility of others.
+    func moveBall(_ key: String, to position: SCNVector3) {
+        let correctY = surfaceY + AngleSceneCalculator.ballRadius
+        allBallNodes[key]?.position = SCNVector3(position.x, correctY, position.z)
+    }
+
+    /// Show all balls at their initial positions.
+    func showAllBalls() {
+        let correctY = surfaceY + AngleSceneCalculator.ballRadius
+        for (_, node) in allBallNodes {
+            node.position.y = correctY
+            node.isHidden = false
+        }
+    }
+
+    // MARK: - Multi-ball free placement (Position-Play Composer, ADR-P11-01)
+
+    /// 显示并定位任意一颗 USDZ 球（防御性重挂 + 贴台面 Y + 姿态策略）。
+    /// `key`: `cueBall` / `_1`..`_15`。
+    /// - Parameter cuePose: 仅母球生效——`.reseat` 新摆球随机；`.home` 重打保持；
+    ///   `.unchanged` 保留当前朝向。目标球始终单位姿态。
+    func showBall(key: String, scenePosition: SCNVector3,
+                  cuePose: CueBallPosePolicy = .home) {
+        guard let node = allBallNodes[key] else { return }
+        let correctY = surfaceY + AngleSceneCalculator.ballRadius
+        if node.parent == nil { rootNode.addChildNode(node) }
+        node.removeAllActions()
+        node.opacity = 1
+        applyPosePolicy(cuePose, to: node, key: key)
+        node.position = SCNVector3(scenePosition.x, correctY, scenePosition.z)
+        node.isHidden = false
+        if key == PositionPlayBall.cueKey { cueBallNode = node }
+    }
+
+    // MARK: - Ball pose snapshot（姿态是桌面状态的一部分）
+
+    /// 抓取当前在桌球的姿态（键 → 四元数）。
+    ///
+    /// 球体姿态由回放逐帧积分写入节点，球静止后它就是**事实**，与位置同级。任何「恢复某个局面」
+    /// 的路径都必须把这份快照连同位置一起恢复；⛔ 禁止用 home / 单位姿态代替——那会让已停稳的
+    /// 贴纸在收尾时肉眼「原地转一下」。
+    func captureBallPoses() -> BallPoseSnapshot {
+        var poses: BallPoseSnapshot = [:]
+        for (key, node) in allBallNodes where !node.isHidden {
+            poses[key] = node.simdOrientation
+        }
+        return poses
+    }
+
+    /// 把姿态快照写回节点；快照里没有的球不动。
+    func restoreBallPoses(_ poses: BallPoseSnapshot) {
+        for (key, orientation) in poses {
+            guard let node = allBallNodes[key] else { continue }
+            BallSpinIntegrator.applyPose(node, orientation)
+        }
+    }
+
+    /// 回到**静帧契约**姿态（Drill 静帧页 / 缩略图：母球 home、其它球单位姿态）。
+    ///
+    /// 只用于「画面本身就是一张确定性静帧」的场合。⛔ 击球 / 回放收尾禁止调用：
+    /// 那里球停在哪、朝向如何都是事实，要保留就什么都别做，要恢复局面就用
+    /// `captureBallPoses` / `restoreBallPoses`。
+    func restoreNodePose(_ node: SCNNode) {
+        if node === cueBallNode || node.name == PositionPlayBall.cueKey {
+            BallSpinIntegrator.applyPose(node, cueBallHomeOrientation)
+        } else {
+            BallSpinIntegrator.resetPose(node)
+        }
+    }
+
+    /// 强制写入母球 home（缩略图烘焙等需确定性朝向时用）；`apply == true` 时同步到节点。
+    func setCueBallHomeOrientation(_ orientation: simd_quatf, apply: Bool = true) {
+        cueBallHomeOrientation = simd_normalize(orientation)
+        if apply, let cue = cueBallNode ?? allBallNodes[PositionPlayBall.cueKey] {
+            BallSpinIntegrator.applyPose(cue, cueBallHomeOrientation)
+        }
+    }
+
+    private func reseatCueBallHome(on node: SCNNode) {
+        cueBallHomeOrientation = BallSpinIntegrator.randomOrientation()
+        BallSpinIntegrator.applyPose(node, cueBallHomeOrientation)
+    }
+
+    private func applyPosePolicy(_ policy: CueBallPosePolicy, to node: SCNNode, key: String) {
+        // `.unchanged` 对**所有球**生效：回放 / 击球收尾的球停在哪、朝向如何都是事实。
+        // 旧实现只对母球放行、目标球无条件 resetPose，正是「球停稳后贴纸原地转一下」的根因。
+        if case .unchanged = policy { return }
+        guard PositionPlayBall.isCue(key) else {
+            BallSpinIntegrator.resetPose(node)
+            return
+        }
+        switch policy {
+        case .reseat:
+            reseatCueBallHome(on: node)
+        case .home:
+            BallSpinIntegrator.applyPose(node, cueBallHomeOrientation)
+        case .unchanged:
+            break
+        }
+    }
+
+    /// 隐藏一颗球（进袋离场 / 撤下回库）。
+    func hideBall(key: String) {
+        allBallNodes[key]?.isHidden = true
+    }
+
+    /// 隐藏全部球（重摆前清场）。
+    func hideAllBalls() {
+        railInventory.cancelPlayback()
+        for (_, node) in allBallNodes { node.isHidden = true }
+    }
+
+    /// 当前在桌（可见）的球：键 → 节点。
+    func visibleBalls() -> [String: SCNNode] {
+        allBallNodes.filter { !$0.value.isHidden }
+    }
+
+    /// 节点 → 球键（反查，供点选目标球）。
+    func ballKey(for node: SCNNode) -> String? {
+        allBallNodes.first(where: { $0.value === node })?.key
+    }
+
+    func enhanceBallMaterials() {
+        // Keep every ball's USDZ-baked diffuse texture intact: the cue
+        // ball carries red position-marker dots ("stickers") that are
+        // intentional spin / aim references, and overriding the diffuse
+        // erases them.
+        for (key, ballNode) in allBallNodes {
+            MaterialFactory.applyBallMaterial(to: ballNode, usesClearcoat: !mobileRendering)
+            if mobileRendering && MobileReferenceLighting.requested {
+                let numbered = key.hasPrefix("_") && (Int(key.dropFirst()).map { (1...15).contains($0) } ?? false)
+                MobileReferenceLighting.applyBall(to: ballNode, exposureOffset: cameraNode?.camera?.exposureOffset ?? 0,
+                                                  stickerFinish: numbered, probe: roomReflectionProbe, profile: renderingProfile)
+            }
+        }
+        let selectedSticker = ballStickerStyle ?? .selected()
+        if !allBallNodes.isEmpty, BallStickerAppearance.apply(selectedSticker, to: allBallNodes) {
+            ballStickerStyle = selectedSticker
+        }
+    }
+
+    /// Applies the number pack and repaired UVs, preserving live shot/camera state.
+    func applyBallStickerStyle(_ style: BallStickerStyle) {
+        guard ballStickerStyle != style, !allBallNodes.isEmpty else { return }
+        if BallStickerAppearance.apply(style, to: allBallNodes) { ballStickerStyle = style }
+    }
+
+    // MARK: - Ball Helpers
+
+    func visualCenter(of node: SCNNode) -> SCNVector3 {
+        if let meshNode = firstGeometryNode(in: node) {
+            let (meshMin, meshMax) = meshNode.boundingBox
+            let center = SCNVector3(
+                (meshMin.x + meshMax.x) * 0.5,
+                (meshMin.y + meshMax.y) * 0.5,
+                (meshMin.z + meshMax.z) * 0.5
+            )
+            return meshNode.convertPosition(center, to: nil)
+        }
+        return node.position
+    }
+
+    private func firstGeometryNode(in node: SCNNode) -> SCNNode? {
+        if let geo = node.geometry, !geo.sources.isEmpty {
+            return node
+        }
+        for child in node.childNodes {
+            if let found = firstGeometryNode(in: child) {
+                return found
+            }
+        }
+        return nil
+    }
+
+    // MARK: - Cue Stick
+
+    func setupCueStick() {
+        cueStick?.rootNode.removeFromParentNode()
+
+        if let modelCueNode = modelCueStickNode {
+            cueStick = CueStick(modelCueStickNode: modelCueNode)
+        } else {
+            cueStick = CueStick()
+        }
+        rootNode.addChildNode(cueStick!.rootNode)
+        cueStick?.hide()
+    }
+
+    /// Update / show the cue stick.
+    /// - Parameter elevationOverride: when non-nil, freeze elevation for the whole stroke
+    ///   (exporter path: follow-through loop must not re-solve as balls move). `nil` = auto.
+    func updateCueStick(
+        cueBallPosition: SCNVector3,
+        aimDirection: SCNVector3,
+        pullBack: Float = 0,
+        elevationOverride: Float? = nil
+    ) {
+        // 显式重新摆杆（如击球后复位重新瞄准）会取消尚未结束的出杆/跟杆/收杆序列，
+        // 避免延迟收杆把刚摆好的瞄准杆又隐藏（收杆/复位竞态）。
+        cueStick?.rootNode.removeAction(forKey: "strokeAnim")
+        cueStick?.rootNode.removeAction(forKey: "cueFade")
+
+        lastCueAim = aimDirection
+        let accessSnapshot = cueStrikeAccess(aim: aimDirection)
+        if cueAccessSnapshot?.geometryKey != accessSnapshot?.geometryKey { cueAccessSnapshot = accessSnapshot }
+        if elevationOverride == nil, let access = cueStrikeAccess(aim: aimDirection) {
+            let flat = CueClearance.normalizeFlat(aimDirection)
+            let dx = cueBallPosition.x-access.cue.x, dz = cueBallPosition.z-access.cue.z
+            let spinX = Double((dx*flat.z-dz*flat.x)/AngleSceneCalculator.ballRadius)
+            let spinY = Double((cueBallPosition.y-access.cue.y)/AngleSceneCalculator.ballRadius)
+            guard let pose = access.resolvedPose(spinX: spinX, spinY: spinY) else {
+                hideCueStick(preservingStrikeAccess: true)
+                return
+            }
+            cueStick?.update(cueBallPosition: pose.pivot, aimDirection: aimDirection,
+                pullBack: pullBack, elevation: pose.elevation, tipInset: pose.inset)
+            cueStick?.show()
+            cameraRig?.updateCuePose(strike: pose.pivot, aim: aimDirection, elevation: pose.elevation, cue: access.cue)
+            return
+        }
+        let elevation: Float
+        if let frozen = elevationOverride {
+            elevation = frozen
+        } else {
+            let obstacles = cueObstacleCenters(excludingStrikeNear: cueBallPosition)
+            switch CueStick.requiredElevation(
+                cueBallPosition: cueBallPosition,
+                aimDirection: aimDirection,
+                obstacleCenters: obstacles, surfaceY: surfaceY
+            ) {
+            case .blocked:
+                hideCueStick()
+                return
+            case .angle(let a):
+                elevation = a
+            }
+        }
+        cueStick?.update(
+            cueBallPosition: cueBallPosition,
+            aimDirection: aimDirection,
+            pullBack: pullBack,
+            elevation: elevation,
+            tipInset: resolvedCueTipInset(forStrike: cueBallPosition)
+        )
+        cueStick?.show()
+        cueStick?.rootNode.opacity = 1
+        cameraRig?.updateCuePose(strike: cueBallPosition, aim: aimDirection, elevation: elevation, cue: cueBallNode?.position)
+    }
+
+    /// Tip inset for an off-centre strike, inferred from the pivot's offset to the nearest
+    /// cue-ball centre (no caller has to pass spin explicitly). nil when no ball is within R
+    /// (ball already rolling away during follow-through, or hidden).
+    func cueTipInset(forStrike strike: SCNVector3) -> Float? {
+        let r = AngleSceneCalculator.ballRadius
+        let candidates = [cueBallNode, allBallNodes[PositionPlayBall.cueKey]].compactMap { $0 }
+        var best: Float = .greatestFiniteMagnitude
+        for node in candidates where !node.isHidden {
+            let c = node.position
+            let d = sqrtf((strike.x - c.x) * (strike.x - c.x) + (strike.y - c.y) * (strike.y - c.y)
+                          + (strike.z - c.z) * (strike.z - c.z))
+            best = min(best, d)
+        }
+        guard best < r else { return nil }
+        return r - sqrtf(max(0, r * r - best * best))
+    }
+
+    /// Keeps the inset measured at address once the ball has left the pivot (exporter
+    /// follow-through re-calls `updateCueStick` per frame while balls move).
+    private func resolvedCueTipInset(forStrike strike: SCNVector3) -> Float {
+        if let inset = cueTipInset(forStrike: strike) { lastCueTipInset = inset }
+        return lastCueTipInset
+    }
+
+    func hideCueStick(preservingStrikeAccess: Bool = false) {
+        if !preservingStrikeAccess {
+            lastCueAim = nil
+            if cueAccessSnapshot != nil { cueAccessSnapshot = nil }
+        }
+        cueStick?.rootNode.removeAction(forKey: "aimTransition")
+        cueStick?.rootNode.removeAction(forKey: "strokeAnim")
+        cueStick?.hide()
+        lastCueTipInset = 0
+    }
+
+    // MARK: - Camera
+
+    private func setupCamera() {
+        let camera = SCNCamera()
+        camera.zNear = 0.01
+        camera.zFar = 50
+
+        if enhancedRendering {
+            // Studio look: HDR + tone mapping + SSAO + bloom. The brighter
+            // exposure / lighting tried earlier flattened the balls' PBR
+            // shading and made them look plasticky / fake — restored the
+            // original studio exposure so the clearcoat fresnel highlights
+            // properly read on the balls.
+            camera.fieldOfView = AimingCameraConfig.aimFov
+            camera.wantsHDR = true
+            camera.wantsExposureAdaptation = false
+            camera.exposureOffset = -0.25
+            camera.minimumExposure = -2.0
+            camera.maximumExposure = 3.0
+            camera.whitePoint = 1.0
+
+            camera.screenSpaceAmbientOcclusionIntensity = 0.4
+            camera.screenSpaceAmbientOcclusionRadius = 0.04
+            camera.screenSpaceAmbientOcclusionNormalThreshold = 0.3
+            camera.screenSpaceAmbientOcclusionDepthThreshold = 0.01
+            camera.screenSpaceAmbientOcclusionBias = 0.01
+
+            camera.bloomIntensity = 0.25
+            camera.bloomThreshold = 0.85
+            camera.bloomBlurRadius = 4.0
+        } else {
+            // Plain pipeline (2D / dynamic pages). Exposure pulled down a bit
+            // so the USDZ felt is not over-exposed into neon green
+            // (UR-20260529 U-01 / FL-011).
+            camera.fieldOfView = 50
+            camera.wantsHDR = true
+            camera.wantsExposureAdaptation = false
+            camera.exposureOffset = -0.45
+            camera.minimumExposure = -2
+            camera.maximumExposure = 2
+            camera.screenSpaceAmbientOcclusionIntensity = 0.35
+            camera.screenSpaceAmbientOcclusionRadius = 3.0
+        }
+
+        if let exposure = sceneExposureOffset, !enhancedRendering {
+            camera.exposureOffset = exposure
+        }
+        cameraNode = SCNNode()
+        cameraNode.name = "trainingCamera"
+        cameraNode.camera = camera
+        rootNode.addChildNode(cameraNode)
+
+        var rigConfig = CameraRig.Config.default
+        if usesDailyPerspective { rigConfig = .dailyClearance }
+        cameraRig = CameraRig(cameraNode: cameraNode, tableSurfaceY: surfaceY, config: rigConfig)
+        cameraRig?.usesShotAwareCamera = usesDailyPerspective
+        cameraRig?.avoidsRedundantPerspectiveWrites = avoidsDailyRedundantCameraWrites
+        if let (halfLength, halfWidth) = measuredTableOuterHalfExtents() {
+            cameraRig?.tableOuterHalfLength = halfLength
+            cameraRig?.tableOuterHalfWidth = halfWidth
+        }
+        cameraRig?.applyTopDown2D()
+    }
+
+    /// 实测球桌外框半长/半宽（世界 X/Z），供 rotated 顶视自适应取景（ADR-P11-08）。
+    /// 遍历球桌节点层级取世界空间包围盒；失败时返回 nil，rig 用兜底常量。
+    private func measuredTableOuterHalfExtents() -> (halfLength: Double, halfWidth: Double)? {
+        guard let table = tableNode else { return nil }
+        var minX = Float.greatestFiniteMagnitude, maxX = -Float.greatestFiniteMagnitude
+        var minZ = Float.greatestFiniteMagnitude, maxZ = -Float.greatestFiniteMagnitude
+        table.enumerateHierarchy { node, _ in
+            guard node.geometry != nil else { return }
+            let (bMin, bMax) = node.boundingBox
+            for corner in [SCNVector3(bMin.x, bMin.y, bMin.z), SCNVector3(bMax.x, bMin.y, bMin.z),
+                           SCNVector3(bMin.x, bMin.y, bMax.z), SCNVector3(bMax.x, bMin.y, bMax.z),
+                           SCNVector3(bMin.x, bMax.y, bMin.z), SCNVector3(bMax.x, bMax.y, bMin.z),
+                           SCNVector3(bMin.x, bMax.y, bMax.z), SCNVector3(bMax.x, bMax.y, bMax.z)] {
+                let w = node.convertPosition(corner, to: nil)
+                minX = min(minX, w.x); maxX = max(maxX, w.x)
+                minZ = min(minZ, w.z); maxZ = max(maxZ, w.z)
+            }
+        }
+        guard maxX > minX, maxZ > minZ else { return nil }
+        return (Double(max(abs(minX), abs(maxX))), Double(max(abs(minZ), abs(maxZ))))
+    }
+
+    /// 实测球桌最低点世界 Y（= 桌腿底）。模型按外框长宽缩放（非按高度），故桌腿底真实 Y
+    /// 无法由「台面高 − 常量桌高」推得，必须遍历几何取世界包围盒最小 Y。供 3D 取景把整桌
+    /// （含腿）装入画面（否则近端桌腿掉出画面底被裁）。无表节点/无几何时返回 nil。
+    func measuredTableBottomY() -> Float? {
+        guard let table = tableNode else { return nil }
+        var minY = Float.greatestFiniteMagnitude
+        table.enumerateHierarchy { node, _ in
+            guard node.geometry != nil else { return }
+            let (bMin, bMax) = node.boundingBox
+            for corner in [SCNVector3(bMin.x, bMin.y, bMin.z), SCNVector3(bMax.x, bMin.y, bMin.z),
+                           SCNVector3(bMin.x, bMin.y, bMax.z), SCNVector3(bMax.x, bMin.y, bMax.z),
+                           SCNVector3(bMin.x, bMax.y, bMin.z), SCNVector3(bMax.x, bMax.y, bMin.z),
+                           SCNVector3(bMin.x, bMax.y, bMax.z), SCNVector3(bMax.x, bMax.y, bMax.z)] {
+                let w = node.convertPosition(corner, to: nil)
+                minY = min(minY, w.y)
+            }
+        }
+        return minY < Float.greatestFiniteMagnitude ? minY : nil
+    }
+
+    // MARK: - Lighting
+
+    private func setupLighting() {
+        if enhancedRendering {
+            setupStudioLighting()
+        } else {
+            setupPlainLighting()
+        }
+    }
+
+    /// Cheap plain lighting used by the 2D / dynamic pages.
+    /// Intensities lowered (was ambient 1000 / dir 1400 / fill 500) so the
+    /// USDZ-baked felt is not blown out into neon green; combined with the
+    /// plain-camera exposure pull-down and `enhanceClothMaterials`, the cloth
+    /// reads as a natural deep green closer to the 3D studio look
+    /// (UR-20260529 U-01 / FL-011).
+    private func setupPlainLighting() {
+        let ambient = SCNNode()
+        ambient.light = SCNLight()
+        ambient.light?.type = .ambient
+        ambient.light?.intensity = 450
+        ambient.light?.color = UIColor.white
+        rootNode.addChildNode(ambient)
+
+        let directional = SCNNode()
+        directional.light = SCNLight()
+        directional.light?.type = .directional
+        directional.light?.intensity = 820
+        directional.light?.color = UIColor.white
+        directional.light?.castsShadow = true
+        directional.light?.shadowRadius = 4
+        directional.light?.shadowSampleCount = 4
+        directional.eulerAngles = SCNVector3(-Float.pi / 3, Float.pi / 4, 0)
+        rootNode.addChildNode(directional)
+
+        let fillLight = SCNNode()
+        fillLight.light = SCNLight()
+        fillLight.light?.type = .directional
+        fillLight.light?.intensity = 200
+        fillLight.light?.color = UIColor.white
+        fillLight.eulerAngles = SCNVector3(-Float.pi / 4, -Float.pi / 3, 0)
+        rootNode.addChildNode(fillLight)
+    }
+
+    /// Studio key + fill + rim trio (mirrors `BilliardScene.setupLights` in
+    /// the reference codebase). Intentionally moodier than the plain
+    /// pipeline — the IBL fills in the ambient, and the directional
+    /// shaping is what makes the balls read as 3D objects with proper PBR
+    /// shading. Brighter ambient / directional values flatten the
+    /// clearcoat fresnel and make the balls look plasticky.
+    private func setupStudioLighting() {
+        // ── Key Light: 5800K, casts a real shadow straight onto the USDZ
+        // cloth (forward shadow map, not deferred screen-space — the deferred
+        // pass was being washed out by HDR tone-mapping + IBL fill, leaving
+        // the balls looking like they floated). A near-overhead pitch keeps
+        // the contact shadow tucked under each ball so it reads as grounded.
+        // `automaticallyAdjustsShadowProjection` stays on: it fits the shadow
+        // frustum to the casters (balls + table), and the 40 m ground plane is
+        // a non-caster (`castsShadow = false`) so it can't bloat the frustum.
+        let key = SCNLight()
+        key.type = .directional
+        key.intensity = 820
+        key.temperature = 5800
+        key.castsShadow = true
+        key.shadowMode = .forward
+        key.shadowRadius = 3
+        key.shadowSampleCount = 16
+        key.shadowColor = UIColor(white: 0.0, alpha: 0.55)
+        key.shadowMapSize = CGSize(width: 2048, height: 2048)
+        key.shadowBias = 0.008
+
+        let keyNode = SCNNode()
+        keyNode.light = key
+        keyNode.position = SCNVector3(0, 4, 0)
+        keyNode.eulerAngles = SCNVector3(
+            -74.0 * Float.pi / 180.0,
+             18.0 * Float.pi / 180.0,
+             0
+        )
+        rootNode.addChildNode(keyNode)
+        enhancedLightNodes.append(keyNode)
+
+        // ── Fill Light: 6800K, no shadow, lifts rails / pockets without
+        // killing contrast on the balls.
+        let fill = SCNLight()
+        fill.type = .directional
+        fill.intensity = 50
+        fill.temperature = 6800
+        fill.castsShadow = false
+
+        let fillNode = SCNNode()
+        fillNode.light = fill
+        fillNode.eulerAngles = SCNVector3(
+            -30.0 * Float.pi / 180.0,
+            -40.0 * Float.pi / 180.0,
+             0
+        )
+        rootNode.addChildNode(fillNode)
+        enhancedLightNodes.append(fillNode)
+
+        // ── Rim Light: warm sliver from upper-back-right for ball
+        // silhouette separation.
+        let rim = SCNLight()
+        rim.type = .directional
+        rim.intensity = 120
+        rim.color = UIColor(red: 1.0, green: 0.96, blue: 0.90, alpha: 1.0)
+        rim.castsShadow = false
+
+        let rimNode = SCNNode()
+        rimNode.light = rim
+        rimNode.eulerAngles = SCNVector3(
+            -40.0 * Float.pi / 180.0,
+            135.0 * Float.pi / 180.0,
+             0
+        )
+        rootNode.addChildNode(rimNode)
+        enhancedLightNodes.append(rimNode)
+
+        setupLegFillLighting()
+    }
+
+    /// Raking fill lights for the lower table body (skirt + legs).
+    ///
+    /// 黑底 + 近垂直的 key light 下，竖直的桌身/桌腿立面几乎收不到光，在导出
+    /// 视频与 3D 页里读作「没有腿」（FL-023 修复几何后腿仍欠曝）。补三盏近水平
+    /// 的低位 directional fill 专照台面以下的立面：水平入射对水平台呢影响极小，
+    /// 不破坏 key/fill/rim 的球体塑形与布面投影。
+    private func setupLegFillLighting() {
+        func addRakingFill(from position: SCNVector3, intensity: CGFloat) {
+            let node = SCNNode()
+            let light = SCNLight()
+            light.type = .directional
+            light.intensity = intensity
+            light.temperature = 6200
+            light.castsShadow = false
+            node.light = light
+            node.position = position
+            // 瞄向桌身下半部中心（低于台面），光沿近水平方向掠过立面。
+            node.look(at: SCNVector3(0, surfaceY * 0.45, 0),
+                      up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))
+            rootNode.addChildNode(node)
+            enhancedLightNodes.append(node)
+        }
+
+        // 前方（+X，导出相机端）主 fill：照亮相机看得见的立面 + 近端腿。
+        addRakingFill(from: SCNVector3(3.0, surfaceY * 0.55, 0.0), intensity: 550)
+        // 两侧（±Z）辅 fill：补齐侧面裙板与侧腿，避免只有一面亮。
+        addRakingFill(from: SCNVector3(1.2, surfaceY * 0.55, 2.4), intensity: 300)
+        addRakingFill(from: SCNVector3(1.2, surfaceY * 0.55, -2.4), intensity: 300)
+    }
+
+    // MARK: - Ground (enhanced only)
+
+    /// Single unlit visual floor plane at `Y = BTSceneLayout.groundLevelY`.
+    ///
+    /// 背景统一纯黑后（见 `EnhancedEnvironment`），这块地板比纯黑略亮、呈中性深灰，
+    /// 让球桌"踩"在一块可辨认的地板上，而不是浮在黑底里；再叠一层烘焙接地阴影
+    /// (`setupContactShadow`) 强化"落地感"。布面的真实投影仍由 key light 落在台呢上。
+    /// Reuse the existing floor/shadow geometry for the mobile material preview.
+    func installReferenceGround(material: SCNMaterial) {
+        if groundVisualNode == nil { setupGround() }
+        groundVisualNode?.geometry?.materials = [material]
+        groundVisualNode?.isHidden = currentCameraMode != .perspective3D
+        tableContactShadowNode?.isHidden = currentCameraMode != .perspective3D
+    }
+
+    private(set) var installedReferenceRoomStyle: RoomStyle?
+
+    func installReferenceRoom(style: RoomStyle = .selected) {
+        if let existing = rootNode.childNode(withName: "reference_room", recursively: false) {
+            guard installedReferenceRoomStyle != style else { return }
+            existing.removeFromParentNode()
+        }
+        if groundVisualNode == nil { setupGround() }
+        // The imported floor includes visibility baked from the actual table.
+        // Do not double-darken it with the old black-background ellipse.
+        groundVisualNode?.geometry = nil
+        tableContactShadowNode?.geometry = nil
+        let room = BakedTrainingRoom.make(style: style)
+        room.isHidden = currentCameraMode != .perspective3D
+        rootNode.addChildNode(room)
+        installedReferenceRoomStyle = style
+        installRoomReflectionProbe(for: style)
+    }
+
+    /// Room-baked environment consumed only by the reference ball shader
+    /// (`RoomReflectionProbe`). Cached per style; the first scene bakes it.
+    private(set) var roomReflectionProbe: RoomReflectionProbe?
+
+    private func installRoomReflectionProbe(for style: RoomStyle) {
+        guard mobileRendering, MobileReferenceLighting.requested else { return }
+        roomReflectionProbe = RoomReflectionProbe.probe(for: style, scene: self)
+        guard let probe = roomReflectionProbe else { return }
+        for node in allBallNodes.values { probe.install(on: node, usesPrefilteredReflection: renderingProfile.usesReflection) }
+    }
+
+    private func setupGround() {
+        let planeSize: CGFloat = 40
+
+        let visualPlane = SCNPlane(width: planeSize, height: planeSize)
+        let visualMat = SCNMaterial()
+        visualMat.lightingModel = .constant
+        // 渲染统一（问题集合条 11.1）：台面以下地面改**纯黑**，与场景背景融为一体；
+        // 桌腿可见性仍由 `setupLegFillLighting` 补光承担（FL-023 的另一半）。
+        visualMat.diffuse.contents = UIColor.black
+        visualMat.writesToDepthBuffer = true
+        visualMat.readsFromDepthBuffer = true
+        visualMat.isDoubleSided = false
+        visualPlane.materials = [visualMat]
+
+        let visualNode = SCNNode(geometry: visualPlane)
+        visualNode.name = "ground_visual"
+        visualNode.eulerAngles.x = -.pi / 2
+        visualNode.position = SCNVector3(0, BTSceneLayout.groundLevelY, 0)
+        visualNode.castsShadow = false
+        visualNode.renderingOrder = -10
+        rootNode.addChildNode(visualNode)
+        groundVisualNode = visualNode
+
+        setupContactShadow()
+    }
+
+    /// 桌底接地阴影（grounding shadow）：在地板上铺一块软椭圆暗斑，正对球桌外框下方。
+    /// 烘焙纹理、不依赖实时光照，黑/暗背景下让球桌读作"落在地板上"而非悬空。
+    private func setupContactShadow() {
+        let cushion = CGFloat(BTTablePhysics.cushionThickness)
+        let outerLength = CGFloat(AngleSceneCalculator.innerLength) + 2 * cushion + 0.18
+        let outerWidth = CGFloat(AngleSceneCalculator.innerWidth) + 2 * cushion + 0.18
+        // 比外框略大，软边自然外扩。
+        let plane = SCNPlane(width: outerLength * 1.18, height: outerWidth * 1.34)
+
+        let mat = SCNMaterial()
+        mat.diffuse.contents = Self.contactShadowTexture(size: 256)
+        mat.lightingModel = .constant
+        mat.isDoubleSided = false
+        mat.writesToDepthBuffer = false
+        mat.readsFromDepthBuffer = true
+        mat.transparencyMode = .aOne   // 透明度取自纹理 alpha（与 addTableCenterGlow 同约定）
+        plane.materials = [mat]
+
+        let node = SCNNode(geometry: plane)
+        node.name = "ground_contact_shadow"
+        node.eulerAngles.x = -.pi / 2
+        // 略高于地板，避免与地板共面 z-fighting。
+        node.position = SCNVector3(0, BTSceneLayout.groundLevelY + 0.001, 0)
+        node.castsShadow = false
+        node.renderingOrder = -9   // 画在地板之上
+        rootNode.addChildNode(node)
+        tableContactShadowNode = node
+    }
+
+    /// 径向软阴影纹理：黑色，中心 alpha≈0.55 → 边缘全透明（RGBA，配 `.aOne` 透明度）。
+    private static func contactShadowTexture(size: Int) -> UIImage {
+        let s = CGFloat(size)
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: s, height: s))
+        return renderer.image { ctx in
+            let center = CGPoint(x: s / 2, y: s / 2)
+            if let grad = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: [
+                    UIColor(white: 0, alpha: 0.55).cgColor,
+                    UIColor(white: 0, alpha: 0.34).cgColor,
+                    UIColor(white: 0, alpha: 0.0).cgColor
+                ] as CFArray,
+                locations: [0.0, 0.55, 1.0]
+            ) {
+                ctx.cgContext.drawRadialGradient(
+                    grad,
+                    startCenter: center, startRadius: 0,
+                    endCenter: center, endRadius: s * 0.5,
+                    options: []
+                )
+            }
+        }
+    }
+
+    /// Subtle radial bright on the cloth centre (~+4% center, 0% edges).
+    private func addTableCenterGlow() {
+        let w = CGFloat(AngleSceneCalculator.innerLength)
+        let h = CGFloat(AngleSceneCalculator.innerWidth)
+        let plane = SCNPlane(width: w, height: h)
+
+        let glowSize: CGFloat = 256
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: glowSize, height: glowSize))
+        let tex = renderer.image { ctx in
+            let center = CGPoint(x: glowSize / 2, y: glowSize / 2)
+            if let grad = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: [
+                    UIColor(white: 1.0, alpha: 0.04).cgColor,
+                    UIColor(white: 1.0, alpha: 0.0).cgColor
+                ] as CFArray,
+                locations: [0.0, 1.0]
+            ) {
+                ctx.cgContext.drawRadialGradient(
+                    grad,
+                    startCenter: center, startRadius: 0,
+                    endCenter: center, endRadius: glowSize * 0.5,
+                    options: []
+                )
+            }
+        }
+
+        let mat = SCNMaterial()
+        mat.diffuse.contents = tex
+        mat.lightingModel = .constant
+        mat.isDoubleSided = false
+        mat.writesToDepthBuffer = false
+        mat.transparencyMode = .aOne
+        mat.blendMode = .add
+        plane.materials = [mat]
+
+        let node = SCNNode(geometry: plane)
+        node.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
+        node.position = SCNVector3(0, surfaceY + 0.002, 0)
+        node.renderingOrder = -2
+        rootNode.addChildNode(node)
+        tableCenterGlowNode = node
+    }
+
+    // MARK: - Camera Mode Switching
+
+    /// A new board/shot invalidates a saved viewpoint without changing shot state.
+    func invalidatePerspectiveView() {
+        // Interactive rail-camera pages preserve the user's view across shots and racks.
+        guard cameraRig?.usesRailCameraControls != true else { return }
+        savedPerspectiveState = nil
+        hasPerspectiveView = false
+    }
+
+    /// Explicit refocusing supersedes a saved observation pose in the same context.
+    func discardSavedPerspectiveView() {
+        savedPerspectiveState = nil
+        hasPerspectiveView = currentCameraMode == .perspective3D
+    }
+
+    /// View associated with the current board, including a 3D view saved while in 2D.
+    func capturePerspectiveView() -> CameraRig.PerspectiveState? {
+        guard hasPerspectiveView else { return nil }
+        return currentCameraMode == .perspective3D
+            ? cameraRig?.capturePerspectiveState() : savedPerspectiveState
+    }
+
+    /// Restore a board's view now in 3D, or on its next 2D-to-3D switch.
+    func restorePerspectiveView(_ state: CameraRig.PerspectiveState) {
+        savedPerspectiveState = state
+        hasPerspectiveView = true
+        if currentCameraMode == .perspective3D {
+            cameraTransitionID = UUID()
+            isCameraModeTransitioning = false
+            cameraRig?.restorePerspectiveState(state)
+        }
+    }
+
+    func setCameraMode(_ mode: CameraMode, animated: Bool = true) {
+        if mobileRendering {
+            rootNode.childNode(withName: "reference_room", recursively: false)?.isHidden = mode != .perspective3D
+            groundVisualNode?.isHidden = mode != .perspective3D
+            tableContactShadowNode?.isHidden = mode != .perspective3D
+        }
+
+        guard let rig = cameraRig else { return }
+        let previousMode = currentCameraMode
+        guard mode != previousMode else { return }
+
+        if previousMode == .perspective3D, mode != .perspective3D, hasPerspectiveView {
+            savedPerspectiveState = rig.capturePerspectiveState()
+        }
+        cameraTransitionID = UUID()
+        currentCameraMode = mode
+        updateAngleValueFacing()
+        if mode == .perspective3D { hasPerspectiveView = true }
+        if mode == .perspective3D, let saved = savedPerspectiveState {
+            isCameraModeTransitioning = animated
+            if animated {
+                let transitionID = cameraTransitionID
+                SCNTransaction.begin()
+                SCNTransaction.animationDuration = 0.5
+                SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                SCNTransaction.completionBlock = { [weak self] in
+                    guard let self, self.cameraTransitionID == transitionID else { return }
+                    self.isCameraModeTransitioning = false
+                }
+                rig.restorePerspectiveState(saved)
+                SCNTransaction.commit()
+            } else {
+                rig.restorePerspectiveState(saved)
+            }
+            return
+        }
+
+        guard animated else {
+            isCameraModeTransitioning = false
+            switch mode {
+            case .topDown2D:
+                rig.applyTopDown2D()
+            case .topDown2DRotated:
+                rig.applyTopDown2DRotated()
+            case .perspective3D:
+                cameraNode.camera?.usesOrthographicProjection = false
+                rig.snapToTarget()
+            }
+            return
+        }
+
+        switch (previousMode, mode) {
+        case (.perspective3D, .topDown2D), (.perspective3D, .topDown2DRotated):
+            transitionToTopDown(mode)
+        case (.topDown2D, .perspective3D), (.topDown2DRotated, .perspective3D):
+            transitionToPerspective()
+        default:
+            SCNTransaction.begin()
+            SCNTransaction.animationDuration = 0.4
+            SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            switch mode {
+            case .topDown2D:
+                rig.applyTopDown2D()
+            case .topDown2DRotated:
+                rig.applyTopDown2DRotated()
+            case .perspective3D:
+                cameraNode.camera?.usesOrthographicProjection = false
+                rig.snapToTarget()
+            }
+            SCNTransaction.commit()
+        }
+    }
+
+    /// 3D → 2D: animate to the *final* 2D orientation (using the mode's
+    /// own up vector) inside a single `SCNTransaction`. SceneKit slerps the
+    /// orientation property as a quaternion, so the rotation follows a
+    /// shortest-arc path. Then a tiny stage 2 swaps perspective →
+    /// orthographic, which is invisible because the camera is already
+    /// looking straight down. The previous implementation animated
+    /// `eulerAngles` (component-wise lerp, *not* slerp) and applied the
+    /// 2D up vector via a separate `look()` in stage 2 — which produced
+    /// the visible "first rotates, then snaps to 2D" feel the user
+    /// reported.
+    private func transitionToTopDown(_ mode: CameraMode) {
+        guard let camera = cameraNode.camera, let rig = cameraRig else { return }
+        isCameraModeTransitioning = true
+        let transitionID = cameraTransitionID
+        rig.disableSmoothPoseControl()
+        camera.usesOrthographicProjection = false
+
+        let panX = Float(rig.topDownPanOffset.x)
+        let panZ = Float(rig.topDownPanOffset.y)
+        // Mode-specific screen-up direction: rotated view = world +X (long
+        // axis vertical on screen); non-rotated = world -Z.
+        let upVector: SCNVector3 = (mode == .topDown2DRotated)
+            ? SCNVector3(1, 0, 0)
+            : SCNVector3(0, 0, -1)
+        let topDownPosition = SCNVector3(panX, surfaceY + 5.0, panZ)
+        let topDownLookAt = SCNVector3(panX, surfaceY, panZ)
+
+        // Stage 1 — animate orientation + position to the final 2D pose
+        // (still in perspective). At pitch ≈ -90° the perspective and
+        // orthographic projections are visually indistinguishable, so the
+        // stage-2 swap requires no further rotation.
+        SCNTransaction.begin()
+        SCNTransaction.animationDuration = 0.5
+        SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        camera.fieldOfView = 22
+        cameraNode.position = topDownPosition
+        cameraNode.look(at: topDownLookAt, up: upVector, localFront: SCNVector3(0, 0, -1))
+        SCNTransaction.completionBlock = { [weak self] in
+            guard let self, self.cameraTransitionID == transitionID,
+                  let camera = self.cameraNode.camera, let rig = self.cameraRig else { return }
+            // Stage 2 — projection swap + minor ortho-scale settle. No
+            // rotation here: the orientation is already correct from stage 1.
+            camera.usesOrthographicProjection = true
+            camera.orthographicScale = rig.topDownOrthographicScale * 1.05
+
+            SCNTransaction.begin()
+            SCNTransaction.animationDuration = 0.18
+            SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            camera.orthographicScale = rig.topDownOrthographicScale
+            // Re-apply the mode-specific top-down to nail the exact final
+            // position / orientation (eliminates any float-drift from the
+            // animated transform).
+            switch mode {
+            case .topDown2D:
+                rig.applyTopDown2D()
+            case .topDown2DRotated:
+                rig.applyTopDown2DRotated()
+            case .perspective3D:
+                break
+            }
+            SCNTransaction.completionBlock = { [weak self] in
+                guard let self, self.cameraTransitionID == transitionID else { return }
+                self.isCameraModeTransitioning = false
+            }
+            SCNTransaction.commit()
+        }
+        SCNTransaction.commit()
+    }
+
+    /// 2D → 3D: animate directly to the aim pose in a single swoop.
+    ///
+    /// The previous two-stage approach (lift to overhead, then `enterAiming`
+    /// via `smoothToPose`) caused a visible wobble: at the moment stage 1
+    /// completed, the rig's internal pose state was *stale* (still
+    /// reflecting whatever zoom / yaw the user had before toggling to 2D),
+    /// so `captureCurrentPose()` returned that stale pose as the
+    /// `smoothToPose` origin. The next frame, the rig overwrote the
+    /// camera node with its stale-derived pose, snapping the camera away
+    /// from where the SCNTransaction had just placed it — the user saw
+    /// what felt like "switching between observation and aim" instead of
+    /// a single transition.
+    ///
+    /// Fix:
+    /// 1. Swap perspective **immediately** with a FOV chosen so the
+    ///    perspective projection at the current camera height matches the
+    ///    current ortho scale (visually invisible swap).
+    /// 2. Single SCNTransaction animates camera position / orientation /
+    ///    FOV directly to the aim pose. SceneKit slerps orientation as a
+    ///    quaternion, so the path is a shortest-arc rotation from the
+    ///    current 2D-rotated up-vector to the 3D default up = +Y.
+    /// 3. Completion: call `rig.snapToAimPose(...)` so the rig's internal
+    ///    state matches the camera's actual final pose. No subsequent
+    ///    `smoothToPose` and therefore no further motion or snap.
+    private func transitionToPerspective() {
+        guard let camera = cameraNode.camera, let rig = cameraRig else { return }
+        isCameraModeTransitioning = true
+        let transitionID = cameraTransitionID
+        let pivot = cueBallNode.map { visualCenter(of: $0) } ?? SCNVector3(0, surfaceY, 0)
+        let aimDirection = currentAimDirection()
+
+        // Compute the aim-pose camera pose (mirrors CameraRig.applyCameraTransform
+        // at zoom = 0). This is exactly where the rig will hold the camera
+        // after the SCNTransaction completes.
+        let aimYaw = atan2f(-aimDirection.z, -aimDirection.x)
+        let aimRadius = AimingCameraConfig.aimRadius
+        let aimHeight = AimingCameraConfig.aimHeight
+        let backXZ = SCNVector3(-cosf(aimYaw), 0, -sinf(aimYaw))
+        let aimCameraPos = SCNVector3(
+            pivot.x - backXZ.x * aimRadius,
+            surfaceY + aimHeight,
+            pivot.z - backXZ.z * aimRadius
+        )
+
+        // Step A: instant perspective swap with FOV matched to current ortho
+        // scale. The ortho view shows half-height = `orthographicScale` at
+        // any camera height. A matching perspective view at camera height H
+        // needs `tan(fov/2) = orthoScale / H`. With H ≈ 5 m and ortho ≈ 1.5
+        // m this gives FOV ≈ 34°, indistinguishable from the prior ortho
+        // top-down at the moment of swap.
+        let H = max(0.5, cameraNode.position.y - surfaceY)
+        let matchedHalfTan = Float(rig.topDownOrthographicScale) / H
+        let matchedFov = CGFloat(2 * atan(matchedHalfTan) * 180 / .pi)
+        camera.usesOrthographicProjection = false
+        camera.fieldOfView = matchedFov
+
+        // Step B: animated swoop from the now-perspective overhead view
+        // down into aim pose. Uses `look(at:up:)` so SceneKit slerps the
+        // orientation between the 2D-rotated up = +X frame and the 3D
+        // up = +Y frame on the shortest arc.
+        SCNTransaction.begin()
+        SCNTransaction.animationDuration = 0.5
+        SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        cameraNode.position = aimCameraPos
+        cameraNode.look(
+            at: pivot,
+            up: SCNVector3(0, 1, 0),
+            localFront: SCNVector3(0, 0, -1)
+        )
+        camera.fieldOfView = AimingCameraConfig.aimFov
+        SCNTransaction.completionBlock = { [weak self] in
+            guard let self, self.cameraTransitionID == transitionID,
+                  let rig = self.cameraRig else { return }
+            // Sync rig internal state to aim pose. After this, the rig's
+            // per-frame `update(_:)` writes the same pose the SCNTransaction
+            // just landed on — no discontinuity, no further motion.
+            rig.snapToAimPose(pivot: pivot, aimDirection: aimDirection)
+            self.isCameraModeTransitioning = false
+        }
+        SCNTransaction.commit()
+    }
+
+    private func currentAimDirection() -> SCNVector3 {
+        guard let cueBall = cueBallNode else {
+            return cameraRig?.aimDirectionForCurrentYaw() ?? SCNVector3(-1, 0, 0)
+        }
+        let cue = visualCenter(of: cueBall)
+        if let target = targetBallNodes.first {
+            let targetPos = visualCenter(of: target)
+            let dx = targetPos.x - cue.x
+            let dz = targetPos.z - cue.z
+            let len = sqrtf(dx * dx + dz * dz)
+            if len > 0.0001 {
+                return SCNVector3(dx / len, 0, dz / len)
+            }
+        }
+        return cameraRig?.aimDirectionForCurrentYaw() ?? SCNVector3(-1, 0, 0)
+    }
+
+    /// Keep a world-space cue ball near a stable screen position by translating
+    /// the camera pivot in XZ, matching the legacy anchored-orbit behavior.
+    func lockCueBallScreenAnchor(
+        in view: SCNView,
+        cueBallWorld: SCNVector3,
+        anchorNormalized: CGPoint
+    ) {
+        guard currentCameraMode == .perspective3D,
+              !isCameraModeTransitioning,
+              let cameraRig else { return }
+
+        let projected = view.projectPoint(cueBallWorld)
+        guard projected.z.isFinite else { return }
+
+        let width = view.bounds.width
+        let height = view.bounds.height
+        guard width > 1, height > 1 else { return }
+
+        let currentScenePoint = SCNVector3(
+            projected.x,
+            projected.y,
+            projected.z
+        )
+        let targetScenePoint = SCNVector3(
+            Float(width * anchorNormalized.x),
+            Float(height * (1 - anchorNormalized.y)),
+            projected.z
+        )
+
+        let currentWorld = view.unprojectPoint(currentScenePoint)
+        let targetWorld = view.unprojectPoint(targetScenePoint)
+        let delta = SCNVector3(
+            currentWorld.x - targetWorld.x,
+            0,
+            currentWorld.z - targetWorld.z
+        )
+        let screenError = hypot(
+            CGFloat(targetScenePoint.x - currentScenePoint.x),
+            CGFloat(targetScenePoint.y - currentScenePoint.y)
+        )
+        guard screenError > 0.5, abs(delta.x) < 0.5, abs(delta.z) < 0.5 else { return }
+        cameraRig.translatePivot(deltaXZ: delta, immediate: true)
+    }
+
+    // MARK: - Procedural Ball Management (for visualization nodes)
+
+    @discardableResult
+    func addBall(at position: SCNVector3, color: UIColor, radius: Float = AngleSceneCalculator.ballRadius) -> SCNNode {
+        let sphere = SCNSphere(radius: CGFloat(radius))
+        sphere.segmentCount = 24
+        let material = SCNMaterial()
+        material.diffuse.contents = color
+        material.lightingModel = .physicallyBased
+        material.roughness.contents = 0.3
+        material.metalness.contents = 0.0
+        sphere.materials = [material]
+
+        let node = SCNNode(geometry: sphere)
+        node.position = position
+        rootNode.addChildNode(node)
+        return node
+    }
+
+    func removeBall(_ node: SCNNode) {
+        node.removeFromParentNode()
+    }
+
+    // MARK: - Aiming Lines
+
+    enum AssistLinePlacement { case spatial, table }
+    /// Stable display priorities, independent of insertion order and physical height.
+    enum TableAssistLayer: Int { case fill = 5, reference = 10, route = 20, aiming = 30 }
+    private var assistSurface: TableAssistSurface?
+    private var assistSurfaceFailed = false
+
+    private func loadedAssistSurface() -> TableAssistSurface? {
+        if assistSurface == nil && !assistSurfaceFailed {
+            do { assistSurface = try TableAssistSurface.load(from: self) }
+            catch {
+                assistSurfaceFailed = true
+                Logger(subsystem: "com.qiuji", category: "AssistSurface")
+                    .error("Cannot clip table assists: \(String(describing: error), privacy: .public)")
+            }
+        }
+        return assistSurface
+    }
+
+    private func displayedClothY(_ surface: TableAssistSurface) -> Float {
+        // Mirror the existing MobileClothAlignment lift contract; no physical Y is changed.
+        let lift = surfaceY - surface.sourceY
+        if mobileRendering && lift > 0.0001 && lift < AngleSceneCalculator.ballRadius / 2 { return surfaceY }
+        // Unlifted pipelines (thumbnails, exporter, figures) still draw the bed's tent
+        // corners up to `topY`; assists must clear them or they are depth-culled there.
+        return surface.topY
+    }
+
+    /// Display-only triangle regions. Fill sits below the line layer and keeps
+    /// depth reads, so balls/rails occlude it; translucent fill never masks later geometry.
+    func makeTableFill(triangles: [[SCNVector3]], color: UIColor) -> SCNNode? {
+        guard let surface = loadedAssistSurface() else { return nil }
+        let vertices = triangles.flatMap { triangle in
+            surface.clippedConvexPolygon(triangle.map { TableAssistSurface.Point(Double($0.x), Double($0.z)) },
+                                         at: displayedClothY(surface) + 0.0005)
+        }
+        guard !vertices.isEmpty else { return nil }
+        let geometry = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices)], elements: [
+            SCNGeometryElement(indices: (0..<vertices.count).map(Int32.init), primitiveType: .triangles)])
+        let material = SCNMaterial()
+        material.diffuse.contents = color
+        material.lightingModel = .constant
+        material.readsFromDepthBuffer = true
+        material.writesToDepthBuffer = false
+        geometry.materials = [material]
+        let node = SCNNode(geometry: geometry)
+        node.renderingOrder = TableAssistLayer.fill.rawValue
+        node.name = "tableProjectedFill"
+        node.castsShadow = false
+        return node
+    }
+
+    /// Cloth-clipped ribbon triangles for one straight segment (world coordinates).
+    /// Empty when the segment lies entirely off the cloth footprint.
+    private func tableRibbonVertices(from start: SCNVector3, to end: SCNVector3,
+                                     radius: Float, surface: TableAssistSurface) -> [SCNVector3] {
+        surface.ribbon(from: start, to: end, width: radius * 2, at: displayedClothY(surface) + 0.001)
+    }
+
+    /// One flat assist node from already-clipped triangles (constant colour, no depth write).
+    private func makeTableAssistNode(vertices: [SCNVector3], uv: [CGPoint]? = nil,
+                                     color: UIColor, layer: TableAssistLayer, reusing node: SCNNode? = nil) -> SCNNode {
+        let node = node ?? SCNNode()
+        guard !vertices.isEmpty else { node.geometry = nil; return node }
+        var sources = [SCNGeometrySource(vertices: vertices)]
+        if let uv { sources.append(SCNGeometrySource(textureCoordinates: uv)) }
+        let geometry = SCNGeometry(sources: sources, elements: [
+            SCNGeometryElement(indices: (0..<vertices.count).map(Int32.init), primitiveType: .triangles)])
+        let material = node.geometry?.firstMaterial ?? SCNMaterial()
+        material.diffuse.contents = color
+        material.lightingModel = .constant
+        material.readsFromDepthBuffer = true
+        material.writesToDepthBuffer = false
+        geometry.materials = [material]
+        node.geometry = geometry
+        node.transform = SCNMatrix4Identity
+        node.renderingOrder = layer.rawValue
+        node.name = "tableProjectedAssist"
+        node.castsShadow = false
+        return node
+    }
+
+    private func makeTableSegment(from start: SCNVector3, to end: SCNVector3,
+                                  color: UIColor, radius: Float, layer: TableAssistLayer = .route,
+                                  reusing node: SCNNode? = nil) -> SCNNode {
+        guard let surface = loadedAssistSurface() else {
+            let replacement = makeSegment(from: start, to: end, color: color, radius: radius)
+            guard let node else { return replacement }
+            node.geometry = replacement.geometry
+            node.transform = replacement.transform
+            node.castsShadow = false
+            return node
+        }
+        let vertices = tableRibbonVertices(from: start, to: end, radius: radius, surface: surface)
+        let dx = end.x - start.x, dz = end.z - start.z
+        let lengthSquared = dx * dx + dz * dz
+        let uv = vertices.map { point in
+            CGPoint(x: 0.5, y: CGFloat(((point.x - start.x) * dx + (point.z - start.z) * dz) / lengthSquared))
+        }
+        return makeTableAssistNode(vertices: vertices, uv: uv, color: color, layer: layer, reusing: node)
+    }
+
+    @discardableResult
+    func addLine(from start: SCNVector3, to end: SCNVector3, color: UIColor, radius: Float = 0.003,
+                 placement: AssistLinePlacement = .spatial, layer: TableAssistLayer = .route) -> SCNNode {
+        if placement == .table {
+            let node = makeTableSegment(from: start, to: end, color: color, radius: radius, layer: layer)
+            rootNode.addChildNode(node)
+            return node
+        }
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let dz = end.z - start.z
+        let length = sqrtf(dx * dx + dy * dy + dz * dz)
+        guard length > 0.001 else { return SCNNode() }
+
+        let cylinder = SCNCylinder(radius: CGFloat(radius), height: CGFloat(length))
+        let material = SCNMaterial()
+        material.diffuse.contents = color
+        material.lightingModel = .constant
+        cylinder.materials = [material]
+
+        let node = SCNNode(geometry: cylinder)
+        node.castsShadow = false
+        node.position = SCNVector3(
+            (start.x + end.x) / 2,
+            (start.y + end.y) / 2,
+            (start.z + end.z) / 2
+        )
+        node.look(at: SCNVector3(end.x, end.y, end.z),
+                  up: rootNode.worldUp,
+                  localFront: SCNVector3(0, 1, 0))
+
+        rootNode.addChildNode(node)
+        return node
+    }
+
+    func removeLine(_ node: SCNNode) {
+        node.removeFromParentNode()
+    }
+
+    /// 画一条虚线（由等距短实线段拼成），用于真实模式下的「理想路线」对照。
+    /// 返回的父节点持有所有段，便于统一清理。
+    func addDashedLine(from start: SCNVector3, to end: SCNVector3, color: UIColor,
+                       radius: Float = 0.003, dash: Float = TrajectoryStyle.hintDash,
+                       gap: Float = TrajectoryStyle.hintGap,
+                       placement: AssistLinePlacement = .spatial, layer: TableAssistLayer = .route) -> SCNNode {
+        makeDashedLine(from: start, to: end, color: color, radius: radius, dash: dash,
+                       gap: gap, placement: placement, layer: layer)
+    }
+
+    private func makeDashedLine(from start: SCNVector3, to end: SCNVector3, color: UIColor,
+                                radius: Float, dash: Float, gap: Float,
+                                placement: AssistLinePlacement, layer: TableAssistLayer,
+                                reusing cached: SCNNode? = nil) -> SCNNode {
+        let parent = cached ?? SCNNode()
+        let reusable = parent.childNodes.first
+        let dx = end.x - start.x, dy = placement == .table ? 0 : end.y - start.y, dz = end.z - start.z
+        let total = sqrtf(dx * dx + dy * dy + dz * dz)
+        guard total > 0.001 else {
+            parent.childNodes.forEach { $0.removeFromParentNode() }
+            return parent
+        }
+        let ux = dx / total, uy = dy / total, uz = dz / total
+        let stride = dash + gap
+        // Table placement merges every dash into one clipped geometry (DR-296:
+        // shorter dashes ×2.4 the segment count; one node per line keeps the
+        // scene graph flat). Spatial placement keeps one cylinder per dash.
+        let tableSurface = placement == .table ? loadedAssistSurface() : nil
+        if tableSurface == nil { parent.childNodes.forEach { $0.removeFromParentNode() } }
+        var merged: [SCNVector3] = []
+        var t: Float = 0
+        while t < total {
+            let segLen = min(dash, total - t)
+            guard segLen > 0.001 else { break }
+            let a = SCNVector3(start.x + ux * t, start.y + uy * t, start.z + uz * t)
+            let b = SCNVector3(start.x + ux * (t + segLen),
+                               start.y + uy * (t + segLen),
+                               start.z + uz * (t + segLen))
+            if let tableSurface {
+                merged += tableRibbonVertices(from: a, to: b, radius: radius, surface: tableSurface)
+            } else {
+                parent.addChildNode(makeSegment(from: a, to: b, color: color, radius: radius))
+            }
+            t += stride
+        }
+        if !merged.isEmpty {
+            let child = makeTableAssistNode(vertices: merged, color: color, layer: layer, reusing: reusable)
+            if child.parent !== parent { parent.addChildNode(child) }
+        } else if tableSurface != nil {
+            reusable?.geometry = nil
+        }
+        if parent.parent !== rootNode { rootNode.addChildNode(parent) }
+        return parent
+    }
+
+    /// 不挂载到 root 的单段圆柱，供 `addDashedLine` 组装。
+    private func makeSegment(from start: SCNVector3, to end: SCNVector3,
+                             color: UIColor, radius: Float) -> SCNNode {
+        let dx = end.x - start.x, dy = end.y - start.y, dz = end.z - start.z
+        let length = sqrtf(dx * dx + dy * dy + dz * dz)
+        let cylinder = SCNCylinder(radius: CGFloat(radius), height: CGFloat(max(length, 0.0005)))
+        let material = SCNMaterial()
+        material.diffuse.contents = color
+        material.lightingModel = .constant
+        cylinder.materials = [material]
+        let node = SCNNode(geometry: cylinder)
+        node.castsShadow = false
+        node.position = SCNVector3((start.x + end.x) / 2, (start.y + end.y) / 2, (start.z + end.z) / 2)
+        node.look(at: SCNVector3(end.x, end.y, end.z), up: rootNode.worldUp,
+                  localFront: SCNVector3(0, 1, 0))
+        return node
+    }
+
+    // MARK: - Trajectory polylines（线语言 v2，问题集合条 12）
+
+    /// 沿折线按**弧长**铺虚线：真实轨迹采样点很密，逐段 `addDashedLine` 会退化成实线；
+    /// 这里按整数周期索引遍历 on 段再与折线段求交（FL-024 教训：浮点相位累积推进会因
+    /// Float 精度下 step 下溢为 0 导致主线程死循环；整数索引循环有界，必然终止）。
+    func addDashedPolyline(_ pts: [SCNVector3], color: UIColor,
+                           radius: Float = TrajectoryStyle.lineMain,
+                           dash: Float = TrajectoryStyle.mainDash,
+                           gap: Float = TrajectoryStyle.mainGap,
+                           placement: AssistLinePlacement = .spatial,
+                           into nodes: inout [SCNNode]) {
+        guard pts.count >= 2, dash > 1e-4, gap > 1e-4 else { return }
+        let period = dash + gap
+        var arc: Float = 0
+        func lerp(_ a: SCNVector3, _ b: SCNVector3, _ t: Float) -> SCNVector3 {
+            SCNVector3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)
+        }
+        // Table placement: all dashes of the polyline become one clipped geometry (DR-296).
+        let tableSurface = placement == .table ? loadedAssistSurface() : nil
+        var merged: [SCNVector3] = []
+        for i in 0..<(pts.count - 1) {
+            let a = pts[i], b = pts[i + 1]
+            let horizontal = AngleSceneCalculator.horizontalDistance(a, b)
+            let len = placement == .table ? horizontal : hypot(horizontal, b.y - a.y)
+            guard len > 1e-6 else { continue }
+            let firstK = Int((arc / period).rounded(.down))
+            let lastK = Int(((arc + len) / period).rounded(.down))
+            for k in firstK...lastK {
+                let onStart = Float(k) * period
+                let s = max(onStart, arc)
+                let e = min(onStart + dash, arc + len)
+                guard e - s > 1e-4 else { continue }
+                let from = lerp(a, b, (s - arc) / len), to = lerp(a, b, (e - arc) / len)
+                if let tableSurface {
+                    merged += tableRibbonVertices(from: from, to: to, radius: radius, surface: tableSurface)
+                } else {
+                    nodes.append(addLine(from: from, to: to, color: color, radius: radius, placement: placement))
+                }
+            }
+            arc += len
+        }
+        if !merged.isEmpty {
+            let node = makeTableAssistNode(vertices: merged, color: color, layer: .route)
+            rootNode.addChildNode(node)
+            nodes.append(node)
+        }
+    }
+
+    /// 母球轨迹（线语言 v2）：碰前段 = 白**实线**瞄准线；碰后段 = 白**虚线**轨迹。
+    /// `contact` = 首次球-球碰撞时母球位置；nil（空杆）时以首个吃库拐点为界——
+    /// 瞄准线延伸到库边（条 12.5），吃库反弹后为虚线轨迹。
+    /// `detail == .minimal` 时只画实线瞄准段（三档标注最简档）。
+    func addCueTrajectory(_ pts: [SCNVector3], contact: SCNVector3?,
+                          detail: TrajectoryDetail = .full,
+                          into nodes: inout [SCNNode]) {
+        guard pts.count >= 2 else { return }
+        let split = cueSplitIndex(pts, contact: contact)
+        // 实线瞄准段。
+        for i in 0..<split {
+            nodes.append(addLine(from: pts[i], to: pts[i + 1],
+                                 color: TrajectoryStyle.aimColor,
+                                 radius: TrajectoryStyle.aimRadius, placement: .table))
+        }
+        // 虚线轨迹段。
+        if detail != .minimal, split < pts.count - 1 {
+            addDashedPolyline(Array(pts[split...]), color: TrajectoryStyle.aimColor,
+                              radius: TrajectoryStyle.aimRadius, placement: .table, into: &nodes)
+        }
+    }
+
+    /// 被带动球轨迹（含目标球）：本球色**虚线**（黑 8 亮灰变体，条 12.2/12.4）。
+    func addObjectTrajectory(_ pts: [SCNVector3], ballKey: String,
+                             into nodes: inout [SCNNode]) {
+        addDashedPolyline(pts, color: TrajectoryStyle.potColor(for: ballKey),
+                          radius: TrajectoryStyle.potRadius, placement: .table, into: &nodes)
+    }
+
+    /// 母球折线的实/虚分界索引：优先取距 `contact` 最近的采样点；
+    /// 空杆时取首个显著方向变化点（吃库反弹），全程直线则整条为瞄准线。
+    private func cueSplitIndex(_ pts: [SCNVector3], contact: SCNVector3?) -> Int {
+        if let c = contact {
+            var best = pts.count - 1
+            var bestD = Float.greatestFiniteMagnitude
+            for (i, p) in pts.enumerated() {
+                let dx = p.x - c.x, dz = p.z - c.z
+                let d = dx * dx + dz * dz
+                if d < bestD { bestD = d; best = i }
+            }
+            return best
+        }
+        guard pts.count >= 3 else { return pts.count - 1 }
+        let cosThreshold: Float = 0.9986   // ≈ 3°
+        for i in 1..<(pts.count - 1) {
+            let ax = pts[i].x - pts[i - 1].x, az = pts[i].z - pts[i - 1].z
+            let bx = pts[i + 1].x - pts[i].x, bz = pts[i + 1].z - pts[i].z
+            let la = sqrtf(ax * ax + az * az), lb = sqrtf(bx * bx + bz * bz)
+            guard la > 1e-5, lb > 1e-5 else { continue }
+            let dot = (ax * bx + az * bz) / (la * lb)
+            if dot < cosThreshold { return i }
+        }
+        return pts.count - 1
+    }
+
+    // MARK: - Shared selection ring & teaching overlays
+
+    /// 选中环颜色（亮绿，统一全 App 点选球反馈）。
+    static let selectionRingColor = UIColor(red: 0.36, green: 0.92, blue: 0.55, alpha: 0.95)
+    /// 90° 分离角辅助线颜色 = 线语言统一品牌绿短虚线（DR-021，弃白免与母球轨迹混淆）。
+    static let separationLineColor = TrajectoryStyle.separationColor
+
+    /// 在 `center` 处画一个圆环（由短线段拼成），返回持有所有段的父节点，便于统一清理。
+    @discardableResult
+    func addRing(center: SCNVector3, radius: Float, color: UIColor,
+                 lineRadius: Float = 0.0022, segments: Int = 40) -> SCNNode {
+        let parent = SCNNode()
+        let y = center.y
+        var prev: SCNVector3?
+        for i in 0...segments {
+            let a = Float(i) / Float(segments) * 2 * .pi
+            let p = SCNVector3(center.x + radius * cosf(a), y, center.z + radius * sinf(a))
+            if let pr = prev {
+                parent.addChildNode(makeSegment(from: pr, to: p, color: color, radius: lineRadius))
+            }
+            prev = p
+        }
+        rootNode.addChildNode(parent)
+        return parent
+    }
+
+    /// 选中球的常驻选中环（半径略大于球，浮于台面之上）。
+    @discardableResult
+    func addSelectionRing(at center: SCNVector3,
+                          color: UIColor = AngleTrainingScene.selectionRingColor) -> SCNNode {
+        addRing(center: SCNVector3(center.x, surfaceY + 0.002, center.z),
+                radius: AngleSceneCalculator.ballRadius * 1.75, color: color)
+    }
+
+    // 注：自由瞄准手柄圆环节点已删除（T-P18-43，设计稿 §1.5「砍」）——粗调改为
+    // `AngleSceneView.onAimDragged` 手指跟随（空白处起手拖动即指哪打哪），瞄准线上不再放控件。
+
+    /// 90° 分离角辅助线：过首次碰撞点（≈幽灵球中心），沿切线方向（垂直于撞击线）双向延伸。
+    /// 由调用方按用户设置（`UserPreferences.showSeparationAngle`）决定是否调用。
+    /// 返回是否成功绘制（无球-球碰撞时 `tangentDir` 为 nil，不画）。
+    @discardableResult
+    func addSeparationAngleLine(for p: ShotPrediction, into nodes: inout [SCNNode]) -> Bool {
+        guard let tangent = p.tangentDir else { return false }
+        let len = sqrtf(tangent.x * tangent.x + tangent.z * tangent.z)
+        guard len > 0.0001 else { return false }
+        let ux = tangent.x / len, uz = tangent.z / len
+        let center = p.firstContact ?? p.ghost
+        let half: Float = 0.30
+        let y = surfaceY + AngleSceneCalculator.ballRadius
+        let a = SCNVector3(center.x - ux * half, y, center.z - uz * half)
+        let b = SCNVector3(center.x + ux * half, y, center.z + uz * half)
+        nodes.append(addDashedLine(from: a, to: b, color: AngleTrainingScene.separationLineColor,
+                                   radius: TrajectoryStyle.lineHint,
+                                   dash: TrajectoryStyle.hintDash,
+                                   gap: TrajectoryStyle.hintGap, placement: .table))
+        return true
+    }
+
+    // MARK: - Pocket Markers (leather cut-out overlays)
+
+    /// Idempotent handles for the six original leather regions. No overlay covers a hole.
+    func addPocketMarkers() -> [SCNNode] {
+        if !leatherMarkers.isEmpty { return leatherMarkers }
+        guard let tableNode else { return [] }
+        do {
+            let extraction = try PocketLeatherMesh.cachedExtraction(from: tableNode,
+                centers: AngleSceneCalculator.pocketPositions(surfaceY: surfaceY))
+            let prepared = try extraction.parts.sorted { $0.index < $1.index }.map {
+                ($0.parent, try PocketLeatherMarker(index: $0.index, geometry: $0.geometry, preservesTexture: mobileRendering,
+                    standardMaterial: tableAppearance?.standardMaterial(named: "Leather")))
+            }
+            // Commit only after all six regions and every material variant were prepared.
+            for replacement in extraction.replacements { replacement.node.geometry = replacement.geometry }
+            for (parent, marker) in prepared { parent.addChildNode(marker) }
+            leatherMarkers = prepared.map { $0.1 }
+            for marker in leatherMarkers { marker.applyTableStyle(requestedTableStyle) }
+            pocketLeatherFailure = nil
+            return leatherMarkers
+        } catch {
+            pocketLeatherFailure = String(describing: error)
+            Logger(subsystem: "com.qiuji", category: "PocketLeather").error("Cannot prepare leather; keeping original model: \(String(describing: error), privacy: .public)")
+            return []
+        }
+    }
+
+    enum PocketHighlight { case selected, viable, infeasible }
+
+    func highlightPocket(_ node: SCNNode, highlighted: Bool) {
+        setPocketHighlight(node, style: highlighted ? .selected : .viable)
+    }
+
+    func setPocketHighlight(_ node: SCNNode, style: PocketHighlight, confirmsSelection: Bool = true) {
+        guard let marker = node as? PocketLeatherMarker else { return }
+        marker.show(style == .selected ? .target : .original, confirmsSelection: confirmsSelection)
+    }
+
+    func cancelPocketSelectionFeedback() {
+        for marker in leatherMarkers { marker.cancelSelectionFeedback() }
+    }
+
+    func confirmPocketSelection(at index: Int) {
+        cancelPocketSelectionFeedback()
+        leatherMarkers.first { $0.pocketIndex == index }?.confirmSelection()
+    }
+
+    /// Explicit dual-role state; equal indices show both roles on the same leather.
+    func setPocketRoles(first: Int?, second: Int?) {
+        for marker in leatherMarkers {
+            let isFirst = first == marker.pocketIndex
+            let isSecond = second == marker.pocketIndex
+            marker.show(isFirst && isSecond ? .bothRoles : isFirst ? .firstRole : isSecond ? .secondRole : .original)
+        }
+    }
+
+    var pocketSelectionDescription: String {
+        let selected = leatherMarkers.filter { $0.style != .original }.map { marker in
+            let role: String
+            switch marker.style {
+            case .original: role = ""
+            case .target: role = "目标"
+            case .firstRole: role = "①目标"
+            case .secondRole: role = "②目标"
+            case .bothRoles: role = "①②共同目标"
+            }
+            return "\(marker.pocketIndex + 1)号袋：\(role)"
+        }
+        return selected.isEmpty ? "未选择目标袋" : selected.joined(separator: "，")
+    }
+
+    func clearPocketHighlights() {
+        cancelPocketSelectionFeedback()
+        for marker in leatherMarkers { marker.show(.original) }
+    }
+
+    // MARK: - Cleanup
+
+    func clearResultNodes(nodes: inout [SCNNode]) {
+        for node in nodes { node.removeFromParentNode() }
+        nodes.removeAll()
+    }
+
+    // MARK: - Flat Labels / Diamond Guides (颗星公式解球)
+
+    /// Add a flat text label lying on the cloth, oriented to read horizontally in
+    /// the rotated 2D top-down view (screen-up = world +X, so screen-horizontal
+    /// text runs along world +Z).
+    @discardableResult
+    func addFlatLabel(text: String, at position: SCNVector3, color: UIColor,
+                      fontSize: CGFloat = 15) -> SCNNode {
+        let node = makeAlignedFlatTextNode(
+            text: text, color: color,
+            fontSize: fontSize, scale: 0.0030, weight: .semibold,
+            alignDir: SCNVector3(0, 0, 1), flipForScreenUp: false
+        )
+        node.position = position
+        rootNode.addChildNode(node)
+        return node
+    }
+
+    /// Lay down the rail diamond number labels + small tick markers in one pass.
+    /// Returns every created node so the caller can clear them later.
+    func addDiamondGuides(labels: [DiamondSystemCalculator.DiamondLabel],
+                          ticks: [SCNVector3],
+                          labelColor: UIColor,
+                          tickColor: UIColor) -> [SCNNode] {
+        var nodes: [SCNNode] = []
+        nodes.reserveCapacity(labels.count + ticks.count)
+
+        for tick in ticks {
+            let sphere = SCNSphere(radius: 0.006)
+            sphere.segmentCount = 12
+            let mat = SCNMaterial()
+            mat.diffuse.contents = tickColor
+            mat.lightingModel = .constant
+            sphere.materials = [mat]
+            let node = SCNNode(geometry: sphere)
+            node.position = SCNVector3(tick.x, tick.y, tick.z)
+            rootNode.addChildNode(node)
+            nodes.append(node)
+        }
+
+        for label in labels {
+            nodes.append(addFlatLabel(text: label.text, at: label.position, color: labelColor))
+        }
+
+        return nodes
+    }
+
+    // MARK: - Visualization Setup (pre-create all nodes once)
+
+    /// 虚线条纹纹理（白段 + 透明 gap，比例 = `mainDash:mainGap`）：供需逐帧改长度的
+    /// 常驻线节点（进球线预览）以纹理方式呈现虚线，避免每帧重建段节点。
+    static let dashStripeTexture: UIImage = {
+        let h = 64
+        let dashFrac = CGFloat(TrajectoryStyle.mainDash / (TrajectoryStyle.mainDash + TrajectoryStyle.mainGap))
+        let size = CGSize(width: 4, height: CGFloat(h))
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { ctx in
+            UIColor.clear.setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            UIColor.white.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 4, height: size.height * dashFrac))
+        }
+    }()
+
+    /// 虚线纹理一周期对应的世界长度（米）。
+    static let dashStripePeriod: Float = TrajectoryStyle.mainDash + TrajectoryStyle.mainGap
+
+    // MARK: - 4x8 台面网格（条 16）
+
+    /// 显隐 4x8 台面网格：短边 4 等分（3 条纵长线）+ 长边 8 等分（7 条横线），
+    /// 白色低透明细线贴台呢，教学定位参考。首次开启时懒建，此后仅切换 isHidden。
+    func setTableGridVisible(_ visible: Bool) {
+        let y = surfaceY
+        if let grid = tableGridNode, !tableGridNeedsRebuild {
+            grid.isHidden = !visible
+            return
+        }
+        tableGridNode?.removeFromParentNode()
+        tableGridNode = nil
+        guard visible else { return }
+        let grid = SCNNode()
+        grid.name = "tableGrid"
+        let halfL = AngleSceneCalculator.innerLength / 2
+        let halfW = AngleSceneCalculator.innerWidth / 2
+        func addLine(from a: SCNVector3, to b: SCNVector3) {
+            grid.addChildNode(makeTableSegment(from: a, to: b,
+                                               color: UIColor.white.withAlphaComponent(0.55), radius: 0.0011, layer: .reference))
+        }
+        // 长边 8 等分 → 7 条横线（垂直长轴）。
+        for i in 1..<8 {
+            let x = -halfL + AngleSceneCalculator.innerLength * Float(i) / 8
+            addLine(from: SCNVector3(x, y, -halfW), to: SCNVector3(x, y, halfW))
+        }
+        // 短边 4 等分 → 3 条纵线（沿长轴）。
+        for i in 1..<4 {
+            let z = -halfW + AngleSceneCalculator.innerWidth * Float(i) / 4
+            addLine(from: SCNVector3(-halfL, y, z), to: SCNVector3(halfL, y, z))
+        }
+
+        rootNode.addChildNode(grid)
+        tableGridNode = grid
+        tableGridNeedsRebuild = false
+    }
+
+    private var usesTrainingAssistStyle = false
+
+    private var visualizationPotColor: UIColor {
+        usesTrainingAssistStyle
+            ? TrajectoryStyle.TrainingAssist.potColor(forNumber: currentTargetNumber)
+            : TrajectoryStyle.potColor(forNumber: currentTargetNumber)
+    }
+
+    func setupVisualizationNodes(usesTrainingAssistStyle: Bool = false) {
+        self.usesTrainingAssistStyle = usesTrainingAssistStyle
+        let r = AngleSceneCalculator.ballRadius
+
+        // DR-306: every consumer (including the 2D/3D angle quizzes, which used a
+        // translucent full-size sphere under DR-121) now shares the standard dashed
+        // cloth ring. The node still sits at the physical ball center (cloth + R),
+        // preserving the position / visibility contract from DR-118.
+        let ghost = SCNNode()
+        do {
+            let ringMat = SCNMaterial()
+            ringMat.diffuse.contents = TrajectoryStyle.contactColor
+            ringMat.lightingModel = .constant
+            let dashCount = 16
+            let ringDashLen = 2 * Float.pi * r / Float(dashCount) * 0.55
+            // The ring is the ghost's cloth footprint: the node sits at ball-centre
+            // height (DR-118 contract), so the dashes drop by R to lie on the cloth.
+            // A centre-height ring reads as floating in perspective.
+            let ringY = -r + TrajectoryStyle.lineHint + 0.0005
+            for i in 0..<dashCount {
+                let theta = Float(i) / Float(dashCount) * 2 * .pi
+                let segGeo = SCNCylinder(radius: CGFloat(TrajectoryStyle.lineHint),
+                                         height: CGFloat(ringDashLen))
+                segGeo.materials = [ringMat]
+                let seg = SCNNode(geometry: segGeo)
+                seg.castsShadow = false
+                seg.position = SCNVector3(r * cosf(theta), ringY, r * sinf(theta))
+                // 圆柱轴默认 +Y，转到圆周切线方向平躺。
+                seg.simdOrientation = simd_quatf(from: simd_float3(0, 1, 0),
+                                                 to: simd_float3(-sinf(theta), 0, cosf(theta)))
+                ghost.addChildNode(seg)
+            }
+        }
+        // The center marker follows the ghost's position and visibility.
+        // Training opts into a smaller cyan marker; default consumers keep red.
+        let aimDot = Self.makeAimPointMarkerNode(
+            color: usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.aimPoint : TrajectoryStyle.aimPointColor,
+            radius: usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.aimPointRadius : Self.aimPointMarkerRadius,
+            isOverlay: usesTrainingAssistStyle)
+        // 球心红点标记的是假想球在台面上的落点：与虚线环一样落到台呢上（DR-296 补），
+        // 球心高度的红点在 3D 透视下悬空。X/Z 仍是球心，只是 Y 下沉一个球半径。
+        let aimDotRadius = usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.aimPointRadius : Self.aimPointMarkerRadius
+        aimDot.position = SCNVector3(0, -r + Float(aimDotRadius) + 0.0005, 0)
+        aimDot.name = "ghostAimDot"
+        ghost.addChildNode(aimDot)
+
+        ghost.isHidden = true
+        ghost.name = "ghostBall"
+        rootNode.addChildNode(ghost)
+        ghostBallNode = ghost
+
+        // 进球线：颜色运行时随目标球本色；线语言 v2（条 12.2）改为**虚线**——
+        // 条纹纹理（白段 + 透明 gap）沿投影线的弧长重复；更新时裁剪到真实台呢。
+        // 初始化几何只保存材质，首次显示前由 updateLineNode 替换。
+        let plCyl = SCNCylinder(radius: CGFloat(TrajectoryStyle.lineMain), height: 1)
+        let plMat = SCNMaterial()
+        plMat.diffuse.contents = Self.dashStripeTexture
+        plMat.diffuse.wrapT = .repeat
+        plMat.multiply.contents = TrajectoryStyle.potColor(forNumber: nil)
+        plMat.lightingModel = .constant
+        plCyl.materials = [plMat]
+        let pl = SCNNode(geometry: plCyl)
+        pl.castsShadow = false
+        pl.isHidden = true
+        pl.name = "pocketLine"
+        rootNode.addChildNode(pl)
+        pocketLineNode = pl
+
+        let slCyl = SCNCylinder(radius: CGFloat(TrajectoryStyle.lineMain), height: 1)
+        let slMat = SCNMaterial()
+        slMat.diffuse.contents = usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.aimLine : UIColor.white
+        slMat.lightingModel = .constant
+        slCyl.materials = [slMat]
+        let sl = SCNNode(geometry: slCyl)
+        sl.castsShadow = false
+        sl.isHidden = true
+        sl.name = "strikeLine"
+        rootNode.addChildNode(sl)
+        strikeLineNode = sl
+        strikeContinuationNode?.removeFromParentNode()
+        let continuation = pl.clone()
+        continuation.geometry = pl.geometry?.copy() as? SCNGeometry
+        continuation.geometry?.materials = pl.geometry?.materials.map { $0.copy() as! SCNMaterial } ?? []
+        continuation.geometry?.firstMaterial?.multiply.contents = UIColor.white
+        continuation.name = "strikeContinuation"
+        rootNode.addChildNode(continuation)
+        strikeContinuationNode = continuation
+
+        // Training contact marker: small amber dot; default consumers keep green.
+        let dotSphere = SCNSphere(radius: usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.contactPointRadius : TrajectoryStyle.contactPointRadius)
+        dotSphere.segmentCount = 16
+        let dotMat = SCNMaterial()
+        dotMat.diffuse.contents = usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.contactPoint : TrajectoryStyle.contactColor
+        dotMat.lightingModel = .constant
+        dotMat.readsFromDepthBuffer = !usesTrainingAssistStyle
+        dotMat.writesToDepthBuffer = !usesTrainingAssistStyle
+        dotSphere.materials = [dotMat]
+        let dot = SCNNode(geometry: dotSphere)
+        dot.castsShadow = false
+        dot.isHidden = true
+        dot.name = "contactDot"
+        dot.renderingOrder = usesTrainingAssistStyle ? 100 : 0
+        rootNode.addChildNode(dot)
+        contactDotNode = dot
+
+        let arc = SCNNode()
+        arc.isHidden = true
+        arc.name = "angleArc"
+        rootNode.addChildNode(arc)
+        angleArcNode = arc
+
+        // 90° helper preserves the ghost's XZ anchor; visible dashes are clipped
+        // onto cloth when the physical direction is updated.
+        let pp = SCNNode()
+        pp.isHidden = true
+        pp.name = "perpLine"
+        rootNode.addChildNode(pp)
+        perpLineNode = pp
+    }
+
+    // MARK: - Aim Point Markers（C15/D8：瞄准点标记单一真源）
+
+    /// 瞄准点标记半径（D8 拍板 0.0065 → DR-296 缩为 4 mm，单一真源在 `TrajectoryStyle`）。
+    static let aimPointMarkerRadius: CGFloat = TrajectoryStyle.aimPointRadius
+
+    /// 构建瞄准点标记节点（未挂载）：0.0065 半径小球 + constant 光照。
+    /// ghost aimDot 与独立标记共用本工厂，几何/材质单点定义。
+    static func makeAimPointMarkerNode(color: UIColor, radius: CGFloat = aimPointMarkerRadius,
+                                       isOverlay: Bool = false) -> SCNNode {
+        let geo = SCNSphere(radius: radius)
+        geo.segmentCount = 12
+        let mat = SCNMaterial()
+        mat.diffuse.contents = color
+        mat.lightingModel = .constant
+        mat.readsFromDepthBuffer = !isOverlay
+        mat.writesToDepthBuffer = !isOverlay
+        geo.materials = [mat]
+        let node = SCNNode(geometry: geo)
+        node.castsShadow = false
+        node.renderingOrder = isOverlay ? 100 : 0
+        return node
+    }
+
+    /// 在给定世界位置放一枚独立瞄准点标记（挂到 root，调用方持有并负责清理）。
+    /// 供瞄准点测验等不走 `updateVisualization` 常驻 ghost 的页面复用（消灭私有实现）。
+    @discardableResult
+    func addAimPointMarker(at position: SCNVector3,
+                           color: UIColor = TrajectoryStyle.aimPointColor,
+                           radius: CGFloat = aimPointMarkerRadius,
+                           isOverlay: Bool = false) -> SCNNode {
+        let node = Self.makeAimPointMarkerNode(color: color, radius: radius, isOverlay: isOverlay)
+        node.name = "aimPointMarker"
+        node.position = position
+        rootNode.addChildNode(node)
+        return node
+    }
+
+    // MARK: - Show / Hide Visualization
+
+    private var idealObjectNode: SCNNode?
+    private var idealObjectGeometryLine: AimCloseupSegment?
+    private var freeAimPreviewNode: SCNNode?
+    private var freeAimPreviewGeometryLine: AimCloseupSegment?
+    private(set) var idealObjectLine: AimCloseupSegment?
+
+    /// One retained preview node; unchanged inputs do not allocate geometry/materials.
+    @discardableResult
+    func setFreeAimPreviewLine(_ line: AimCloseupSegment?) -> SCNNode? {
+        guard let line else { freeAimPreviewNode?.removeFromParentNode(); return nil }
+        if freeAimPreviewGeometryLine != line || freeAimPreviewNode == nil {
+            let y = surfaceY + AngleSceneCalculator.ballRadius
+            freeAimPreviewNode = makeTableSegment(
+                from: SCNVector3(Float(line.start.x), y, Float(line.start.y)),
+                to: SCNVector3(Float(line.end.x), y, Float(line.end.y)),
+                color: .white, radius: TrajectoryStyle.aimRadius, reusing: freeAimPreviewNode)
+            freeAimPreviewNode?.name = "freeAimPreview"
+            freeAimPreviewGeometryLine = line
+        }
+        if let node = freeAimPreviewNode, node.parent !== rootNode { rootNode.addChildNode(node) }
+        return freeAimPreviewNode
+    }
+
+    /// Update the preview's single shared layer; callers own mode/solver lifetime.
+    @discardableResult
+    func setIdealObjectLine(_ line: AimCloseupSegment?, detail: TrajectoryDetail = .full) -> SCNNode? {
+        let line = detail == .minimal ? nil : line
+        idealObjectLine = line
+        guard let line, hypot(line.end.x - line.start.x, line.end.y - line.start.y) > 1e-6 else {
+            idealObjectNode?.removeFromParentNode()
+            return nil
+        }
+        if idealObjectGeometryLine == line, let node = idealObjectNode {
+            if node.parent !== rootNode { rootNode.addChildNode(node) }
+            return node
+        }
+        let y = surfaceY + AngleSceneCalculator.ballRadius
+        let node = makeDashedLine(from: SCNVector3(Float(line.start.x), y, Float(line.start.y)),
+                                 to: SCNVector3(Float(line.end.x), y, Float(line.end.y)),
+                                 color: IdealObjectDirection.color, radius: 0.002,
+                                 dash: TrajectoryStyle.hintDash, gap: TrajectoryStyle.hintGap, placement: .table,
+                                 layer: .route, reusing: idealObjectNode)
+        idealObjectGeometryLine = line
+        node.name = "idealObjectDirection"
+        idealObjectNode = node
+        return node
+    }
+
+    func hideAllVisualization() {
+        diagramLabelGeometry = nil
+        strikeContinuationNode?.isHidden = true
+        setIdealObjectLine(nil)
+        setFreeAimPreviewLine(nil)
+        ghostBallNode?.isHidden = true
+        pocketLineNode?.isHidden = true
+        strikeLineNode?.isHidden = true
+        contactDotNode?.isHidden = true
+        angleArcNode?.isHidden = true
+        perpLineNode?.isHidden = true
+    }
+
+    /// Update the on-table aiming visualization (ghost ball, strike / pocket
+    /// lines, optional angle arc + numeric label, optional line text labels).
+    /// - Parameter showAngleAnnotations: when `false`, suppresses the numeric
+    ///   angle arc (e.g. "20°"). Used by quiz assist mode where the value is
+    ///   the answer being tested (T-P18-48).
+    /// - Parameter showOverlapMarkers: contact dot + 90° separation short dash
+    ///   （§1.2/§1.3 重叠标注 L1）。Independent of the numeric arc so assist
+    ///   mode can keep the markers without revealing the answer.
+    /// - Parameter showLineLabels: when `false`, suppresses the "瞄准线" /
+    ///   "进球线" inline text labels lying flat on the cloth. The angle
+    ///   numeric value (e.g. "20°") is still rendered when
+    ///   `showAngleAnnotations` is true. Used by the 3D 瞄准 page where
+    ///   the perspective view makes the flat-on-table text unreadable.
+    /// - Parameter extendStrikeLineToRail: continue the cue-to-ghost ray to
+    ///   the cloth edge in angle-training assist mode (both camera modes).
+    func updateVisualization(
+        cueBall: SCNVector3,
+        targetBall: SCNVector3,
+        pocket: SCNVector3,
+        showAngleAnnotations: Bool = true,
+        showOverlapMarkers: Bool = true,
+        showLineLabels: Bool = true,
+        extendStrikeLineToRail: Bool = false
+    ) {
+        let r = AngleSceneCalculator.ballRadius
+
+        let ghostPos = AngleSceneCalculator.ghostBallPosition(
+            targetBall: targetBall, pocket: pocket, ballRadius: r
+        )
+        ghostBallNode?.position = ghostPos
+        ghostBallNode?.isHidden = false
+
+        // Pocket line: from aim point (`pocket`) through target ball, extending
+        // beyond the ghost ball so the red line and white strike line visibly form
+        // the cut-angle wedge. Keep at least 6R of reverse extension for thin cuts.
+        let pocketDir = unitXZ(from: targetBall, to: pocket)
+        let reverseLen = max(AngleSceneCalculator.ballRadius * 6, 0.22)
+        let pocketLineEnd = SCNVector3(
+            targetBall.x - pocketDir.x * reverseLen,
+            targetBall.y,
+            targetBall.z - pocketDir.z * reverseLen
+        )
+        updateLineNode(pocketLineNode, from: pocket, to: pocketLineEnd)
+        // Training green-ball guides use white for contrast; other consumers retain ball colors.
+        pocketLineNode?.geometry?.firstMaterial?.multiply.contents = visualizationPotColor
+        pocketLineNode?.isHidden = false
+
+        strikeContinuationNode?.isHidden = true
+        let strikeEnd = (extendStrikeLineToRail || usesAdaptiveDiagramLabels)
+            ? AngleSceneCalculator.rayToInnerRail(
+                from: cueBall, dir: unitXZ(from: cueBall, to: ghostPos), inset: 0)
+            : ghostPos
+        var solidEnd = strikeEnd
+        if usesAdaptiveDiagramLabels,
+           let hit = AngleSceneCalculator.aimRayTargetEntry(
+                from: cueBall, toward: strikeEnd, target: targetBall) {
+            solidEnd = hit
+            updateLineNode(strikeContinuationNode, from: hit, to: strikeEnd)
+            strikeContinuationNode?.isHidden = false
+        }
+        updateLineNode(strikeLineNode, from: cueBall, to: solidEnd)
+        strikeLineNode?.isHidden = false
+        diagramLabelGeometry = usesAdaptiveDiagramLabels && showAngleAnnotations
+            ? (cueBall, targetBall, ghostPos, pocket, strikeEnd,
+               AngleSceneCalculator.cutAngle(cueBall: cueBall, targetBall: targetBall, pocket: pocket)) : nil
+
+        if showOverlapMarkers {
+            let contact = AngleSceneCalculator.contactPointPosition(targetBall: targetBall, pocket: pocket)
+            contactDotNode?.position = SCNVector3(contact.x, contact.y + 0.001, contact.z)
+            contactDotNode?.isHidden = false
+
+            updatePerpLine(ghost: ghostPos, targetBall: targetBall, pocket: pocket)
+            perpLineNode?.isHidden = false
+        } else {
+            contactDotNode?.isHidden = true
+            perpLineNode?.isHidden = true
+        }
+
+        if showAngleAnnotations {
+            updateAngleArc(cueBall: cueBall, targetBall: targetBall, pocket: pocket, ghost: ghostPos,
+                           showLineLabels: showLineLabels)
+            angleArcNode?.isHidden = false
+        } else {
+            angleArcNode?.isHidden = true
+        }
+    }
+
+    // MARK: - Overlap Annotation L0 helpers (T-P18-42)
+
+    /// 重叠标注 L0：把共享接触点绿点摆到「假想球→目标球」连线上的切点。
+    /// 自由瞄准 / 解叠加等不走 `updateVisualization` 的路径共用本方法补齐 L0。
+    func updateContactDot(ghostCenter: SCNVector3, targetCenter: SCNVector3) {
+        guard let dot = contactDotNode else { return }
+        let r = AngleSceneCalculator.ballRadius
+        let dx = targetCenter.x - ghostCenter.x
+        let dz = targetCenter.z - ghostCenter.z
+        let len = sqrtf(dx * dx + dz * dz)
+        guard len > 1e-5 else {
+            dot.isHidden = true
+            return
+        }
+        dot.position = SCNVector3(ghostCenter.x + dx / len * r,
+                                  ghostCenter.y + 0.001,
+                                  ghostCenter.z + dz / len * r)
+        dot.isHidden = false
+    }
+
+    func hideContactDot() {
+        contactDotNode?.isHidden = true
+    }
+
+    private func unitXZ(from a: SCNVector3, to b: SCNVector3) -> SCNVector3 {
+        let dx = b.x - a.x
+        let dz = b.z - a.z
+        let len = sqrtf(dx * dx + dz * dz)
+        guard len > 0.0001 else { return SCNVector3(1, 0, 0) }
+        return SCNVector3(dx / len, 0, dz / len)
+    }
+
+    // MARK: - Line Node Helpers
+
+    private func updateLineNode(_ node: SCNNode?, from start: SCNVector3, to end: SCNVector3) {
+        guard let node else { return }
+        let material = node.geometry?.firstMaterial
+        let replacement = makeTableSegment(from: start, to: end, color: .white,
+                                           radius: TrajectoryStyle.lineMain, layer: .aiming)
+        // Keep the material even when clipping removes the entire ribbon, so
+        // subsequent valid positions retain the stripe texture and ball color.
+        let geometry = replacement.geometry ?? SCNGeometry()
+        if let material {
+            material.readsFromDepthBuffer = true
+            material.writesToDepthBuffer = false
+            geometry.materials = [material]
+            if node.name == "pocketLine" || node.name == "strikeContinuation" {
+                let length = hypotf(end.x - start.x, end.z - start.z)
+                material.diffuse.contentsTransform = SCNMatrix4MakeScale(1, max(1, length / Self.dashStripePeriod), 1)
+            }
+        }
+        node.geometry = geometry
+        node.transform = replacement.transform
+        node.renderingOrder = TableAssistLayer.aiming.rawValue
+    }
+
+    /// 90° 释义线过**假想球球心**（母球碰撞瞬间的位置）——定杆母球沿此切线离开；
+    /// 方向垂直于撞击线（假想球→目标球，与进球线同向）。DR-021 修正：原锚在目标球心。
+    private func updatePerpLine(ghost: SCNVector3, targetBall: SCNVector3, pocket: SCNVector3) {
+        guard let node = perpLineNode else { return }
+        let dx = pocket.x - targetBall.x
+        let dz = pocket.z - targetBall.z
+        let dist = sqrtf(dx * dx + dz * dz)
+        guard dist > 0.001 else { return }
+        let perpX = -dz / dist
+        let perpZ = dx / dist
+        node.childNodes.forEach { $0.removeFromParentNode() }
+        node.transform = SCNMatrix4Identity
+        let half = AngleSceneCalculator.ballRadius * 4
+        let dash = TrajectoryStyle.hintDash
+        let gap = TrajectoryStyle.hintGap
+        var cursor = -half
+        while cursor < half {
+            let next = min(cursor + dash, half)
+            let start = SCNVector3(ghost.x + cursor * perpX, ghost.y, ghost.z + cursor * perpZ)
+            let end = SCNVector3(ghost.x + next * perpX, ghost.y, ghost.z + next * perpZ)
+            node.addChildNode(makeTableSegment(from: start, to: end,
+                                              color: TrajectoryStyle.separationColor,
+                                              radius: TrajectoryStyle.lineHint, layer: .reference))
+            cursor = next + gap
+        }
+    }
+
+    /// Draw the cut-angle arc at GHOST in the wedge formed by the two FORWARD rays
+    /// (= the "backward extensions" of the visible line segments) that emerge from
+    /// ghost into the open space:
+    ///   • ghost → strikeForward (continuation of cue→ghost past ghost)
+    ///   • ghost → target → pocket (the pocket-line direction at ghost)
+    /// The angle between these two rays IS the cut angle α (acute side).
+    private func updateAngleArc(cueBall: SCNVector3, targetBall: SCNVector3,
+                                pocket: SCNVector3, ghost: SCNVector3,
+                                showLineLabels: Bool = true) {
+        angleArcNode?.childNodes.forEach { $0.removeFromParentNode() }
+        inlineLineLabels.removeAll()
+
+        let r = AngleSceneCalculator.ballRadius
+
+        // Strike-line forward direction at ghost (= cue→ghost direction continuing past ghost).
+        let dirStrikeForward = unitXZ(from: cueBall, to: ghost)
+        // Pocket-line direction at ghost = target→pocket direction (= ghost→target → past target).
+        let dirPocketForward = unitXZ(from: targetBall, to: pocket)
+
+        let aStart = atan2(dirStrikeForward.z, dirStrikeForward.x)
+        let aEnd   = atan2(dirPocketForward.z, dirPocketForward.x)
+        var delta = aEnd - aStart
+        if delta > .pi { delta -= 2 * .pi }
+        if delta < -.pi { delta += 2 * .pi }
+        // atan2 wrap already gives the acute-side sweep (|delta| ≤ π).
+
+        // 角度弧 = 品牌绿 + 白读数（T-P18-41 线语言，弃蓝）。
+        let arcColor = TrajectoryStyle.contactColor
+        let arcRadius: Float = r * (usesAdaptiveDiagramLabels ? 4.5 : 2.6)
+        let arcY = usesAdaptiveDiagramLabels ? surfaceY + 0.002 : ghost.y + 0.0015
+        let segments = 24
+        // K3：弧画在前向楔形（瞄准前向 ↔ 进球前向）。旧实现用 aStart+π 落在背向楔形。
+        // 坐标契约：SceneKit XZ 水平、Y 上；水平角 atan2(z,x)；见 build/x1-evidence/k3-*.
+        for i in 0..<segments {
+            let t0 = Float(i) / Float(segments)
+            let t1 = Float(i + 1) / Float(segments)
+            let a0 = aStart + delta * t0
+            let a1 = aStart + delta * t1
+            let p0 = SCNVector3(ghost.x + arcRadius * cosf(a0),
+                                arcY,
+                                ghost.z + arcRadius * sinf(a0))
+            let p1 = SCNVector3(ghost.x + arcRadius * cosf(a1),
+                                arcY,
+                                ghost.z + arcRadius * sinf(a1))
+            let seg = makeTableSegment(from: p0, to: p1, color: arcColor, radius: 0.0028)
+            if usesAdaptiveDiagramLabels {
+                seg.name = "diagramTableArc"
+                seg.geometry?.materials.forEach {
+                    $0.readsFromDepthBuffer = true
+                    $0.writesToDepthBuffer = false
+                }
+            }
+            seg.isHidden = usesAdaptiveDiagramLabels && currentCameraMode != .perspective3D
+            angleArcNode?.addChildNode(seg)
+        }
+
+        // Angle text on the FORWARD wedge bisector (or side of that wedge when tight).
+        let cutAngle = AngleSceneCalculator.cutAngle(cueBall: cueBall, targetBall: targetBall, pocket: pocket)
+
+        let baseMidA = aStart + delta * 0.5
+        let angleText = "\(Int(cutAngle.rounded()))°"
+        let strikeLabelT: Float = 0.36
+        let pocketLabelT: Float = 0.55
+        let lineLabelOffset = r * 2.6
+        // For small angles or very short cue-target spacing, the wedge has too
+        // little visual room for the text. Move the label to the side of the
+        // forward bisector while keeping alignment along the bisector/aim ray.
+        let angleFontSize: CGFloat = 24
+        let angleTextScale: Float = 0.0025
+        let estimatedTextWorldWidth = Float(angleText.count) * Float(angleFontSize) * angleTextScale * 0.55
+        let cueTargetDistance = AngleSceneCalculator.horizontalDistance(cueBall, targetBall)
+        let shouldUseSideLabel = cutAngle < 30 || cueTargetDistance < estimatedTextWorldWidth * 6
+        let labelAngle = shouldUseSideLabel ? baseMidA - .pi / 2 : baseMidA
+        let labelDist = arcRadius + r * (shouldUseSideLabel ? 3.8 : 2.8)
+        let labelPos = SCNVector3(
+            ghost.x + labelDist * cosf(labelAngle),
+            ghost.y + 0.003,
+            ghost.z + labelDist * sinf(labelAngle)
+        )
+        // Align baseline along the forward bisector (aim/pocket wedge mid), not fixed world +Z.
+        let alignDir = SCNVector3(cosf(baseMidA), 0, sinf(baseMidA))
+        let label = makeAlignedFlatTextNode(text: angleText, color: .white,
+                                            fontSize: angleFontSize, scale: angleTextScale, weight: .bold,
+                                            alignDir: alignDir)
+        label.position = labelPos
+        label.name = "angleValueLabel"
+        angleValueFlatYaw = label.eulerAngles.y
+        angleValueLabel = label
+        updateAngleValueFacing()
+        angleArcNode?.addChildNode(label)
+        angleArcNode?.position = SCNVector3(0, 0, 0)
+
+        // Line labels along the strike line and pocket line, in matching colors.
+        // Keep labels away from the ghost/angle label cluster. Callers may
+        // suppress them; visible labels face the observer in perspective.
+        if showLineLabels {
+            addInlineLineLabel(text: "瞄准线", color: .white,
+                               lineStart: cueBall, lineEnd: ghost,
+                               tParam: strikeLabelT, sideOffset: lineLabelOffset)
+            // The label follows the same contrast policy as its line.
+            addInlineLineLabel(text: "进球线",
+                               color: visualizationPotColor,
+                               lineStart: targetBall, lineEnd: pocket,
+                               tParam: pocketLabelT, sideOffset: lineLabelOffset)
+        }
+    }
+
+    /// Add a flat text node lying on the table plane parallel to a line.
+    /// Implementation uses a parent-child node split to keep rotations clean:
+    ///   • parent: yaw around world Y so its local +X aligns with the line
+    ///   • child:  -π/2 around local X so the SCNText geometry lies on table
+    /// `tParam` ∈ [0,1] picks the position along the line; `sideOffset` shifts
+    /// the label perpendicular to the line so the line stays unobscured.
+    private func addInlineLineLabel(text: String, color: UIColor,
+                                    lineStart: SCNVector3, lineEnd: SCNVector3,
+                                    tParam: Float, sideOffset: Float) {
+        let dir = unitXZ(from: lineStart, to: lineEnd)
+
+        // Yaw such that parent's local +X axis maps to the line direction (dx,0,dz).
+        // SceneKit Y rotation: local +X → (cos yaw, 0, -sin yaw), so:
+        //   cos yaw = dx, -sin yaw = dz  →  yaw = atan2(-dz, dx)
+        var yaw = atan2(-dir.z, dir.x)
+        // Camera in topDown2DRotated has up = world +X (screen-up = +X), right = +Z.
+        // After lay-flat + parent yaw, text ascent ends up at (-sin yaw, 0, -cos yaw),
+        // its screen-up component = dz. 常规线：dz < 0 时翻 180° 保证字面朝上。
+        // T-P18-35：接近屏幕垂直的线（|dz| 很小）字面朝向不再是主要信息，
+        // 此时改为保证**读向**从屏幕上→下（中文竖排习惯），即基线的屏幕上分量
+        // (dx) 为负；否则「瞄准线」出现下→上读向，观感像倒置。
+        let nearVertical = abs(dir.z) < 0.15
+        let shouldFlip = nearVertical ? dir.x > 0 : dir.z < 0
+        if shouldFlip { yaw += .pi }
+
+        // 字号介于初版（20）与上次过小（16）之间，配合更大的 sideOffset 留白后视觉刚好。
+        let textChild = makeFlatTextChild(text: text, color: color,
+                                          fontSize: 18, scale: 0.0033, weight: .semibold)
+        let parent = SCNNode()
+        parent.addChildNode(textChild)
+        parent.name = "inlineLineLabel"
+        parent.eulerAngles = SCNVector3(0, yaw, 0)
+        parent.position = inlineLineLabelPosition(
+            lineStart: lineStart, lineEnd: lineEnd, tParam: tParam, sideOffset: sideOffset
+        )
+
+        angleArcNode?.addChildNode(parent)
+        inlineLineLabels.append((parent, yaw))
+        updateAngleValueFacing()
+    }
+
+    /// The value remains anchored to its geometric wedge, but its glyphs face
+    /// the camera in 3D. Returning to 2D restores the existing directional layout.
+    private func updateAngleValueFacing() {
+        var labels = inlineLineLabels
+        if let label = angleValueLabel { labels.append((label, angleValueFlatYaw)) }
+        for (label, flatYaw) in labels {
+            label.isHidden = usesAdaptiveDiagramLabels
+            guard let text = label.childNodes.first else { continue }
+            if currentCameraMode == .perspective3D {
+                label.eulerAngles = SCNVector3Zero
+                text.eulerAngles = SCNVector3Zero
+                let facing = SCNBillboardConstraint()
+                facing.freeAxes = .all
+                label.constraints = [facing]
+            } else {
+                label.constraints = nil
+                label.eulerAngles = SCNVector3(0, flatYaw, 0)
+                text.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
+            }
+        }
+    }
+
+    private func inlineLineLabelPosition(
+        lineStart: SCNVector3, lineEnd: SCNVector3,
+        tParam: Float, sideOffset: Float
+    ) -> SCNVector3 {
+        let dir = unitXZ(from: lineStart, to: lineEnd)
+        let perp = SCNVector3(-dir.z, 0, dir.x)
+        return SCNVector3(
+            lineStart.x + (lineEnd.x - lineStart.x) * tParam + perp.x * sideOffset,
+            lineStart.y + 0.003,
+            lineStart.z + (lineEnd.z - lineStart.z) * tParam + perp.z * sideOffset
+        )
+    }
+
+    /// Standalone flat text node (no yaw) — placed at origin, lay-flat applied via
+    /// a child wrapper so callers can set `.position` directly without conflicts.
+    private func makeFlatTextNode(text: String, color: UIColor,
+                                  fontSize: CGFloat, scale: Float,
+                                  weight: UIFont.Weight) -> SCNNode {
+        let parent = SCNNode()
+        parent.addChildNode(makeFlatTextChild(text: text, color: color,
+                                              fontSize: fontSize, scale: scale, weight: weight))
+        return parent
+    }
+
+    /// 与某一方向对齐的平面文字节点：文字基线（左→右）沿 `alignDir` 在 XZ 平面内排列。
+    /// `flipForScreenUp` 控制是否在 `dz < 0` 时额外翻转 180°（让文字在 topDown2DRotated 下永远正向朝上）。
+    /// 沿线段标注（瞄准线 / 进球线）需要这个翻转保证可读性；
+    /// 而需要严格按方向排列（如角度文字朝向中心）的场景则关闭它。
+    private func makeAlignedFlatTextNode(text: String, color: UIColor,
+                                         fontSize: CGFloat, scale: Float,
+                                         weight: UIFont.Weight,
+                                         alignDir: SCNVector3,
+                                         flipForScreenUp: Bool = true) -> SCNNode {
+        let lenXZ = sqrtf(alignDir.x * alignDir.x + alignDir.z * alignDir.z)
+        guard lenXZ > 0.0001 else {
+            return makeFlatTextNode(text: text, color: color,
+                                    fontSize: fontSize, scale: scale, weight: weight)
+        }
+        let dx = alignDir.x / lenXZ
+        let dz = alignDir.z / lenXZ
+        var yaw = atan2(-dz, dx)
+        if flipForScreenUp, dz < 0 { yaw += .pi }
+
+        let textChild = makeFlatTextChild(text: text, color: color,
+                                          fontSize: fontSize, scale: scale, weight: weight)
+        let parent = SCNNode()
+        parent.addChildNode(textChild)
+        parent.eulerAngles = SCNVector3(0, yaw, 0)
+        return parent
+    }
+
+    /// Build a centred SCNText child rotated to lie on the table (XZ plane).
+    /// The child's local +X axis = text baseline (left-to-right reading direction).
+    private func makeFlatTextChild(text: String, color: UIColor,
+                                   fontSize: CGFloat, scale: Float,
+                                   weight: UIFont.Weight) -> SCNNode {
+        let textGeo = SCNText(string: text, extrusionDepth: 0)
+        textGeo.font = UIFont.systemFont(ofSize: fontSize, weight: weight)
+        textGeo.flatness = 0.2
+        let mat = SCNMaterial()
+        mat.diffuse.contents = color
+        mat.lightingModel = .constant
+        mat.isDoubleSided = true
+        textGeo.materials = [mat]
+
+        let textNode = SCNNode(geometry: textGeo)
+        textNode.castsShadow = false
+        // Centre the text on its bounding box so position represents the centre.
+        let (tMin, tMax) = textNode.boundingBox
+        let cx = (tMin.x + tMax.x) * 0.5
+        let cy = (tMin.y + tMax.y) * 0.5
+        textNode.pivot = SCNMatrix4MakeTranslation(cx, cy, 0)
+        textNode.scale = SCNVector3(scale, scale, scale)
+        // Lay flat: rotate -π/2 around X (only pitch is set).
+        //   local +X (baseline)   → world +X  (preserved by X rotation)
+        //   local +Y (ascent)     → world -Z
+        //   local +Z (front face) → world +Y  (text faces up, visible from above)
+        // Parent yaw rotation around Y then aligns baseline with the line direction.
+        textNode.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
+        return textNode
+    }
+
+    private func makeSmallCylinder(from start: SCNVector3, to end: SCNVector3, radius: Float, color: UIColor) -> SCNNode {
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let dz = end.z - start.z
+        let length = sqrtf(dx * dx + dy * dy + dz * dz)
+        guard length > 0.0001 else { return SCNNode() }
+
+        let cyl = SCNCylinder(radius: CGFloat(radius), height: CGFloat(length))
+        let mat = SCNMaterial()
+        mat.diffuse.contents = color
+        mat.lightingModel = .constant
+        cyl.materials = [mat]
+
+        let node = SCNNode(geometry: cyl)
+        node.castsShadow = false
+        node.position = SCNVector3((start.x + end.x) / 2, (start.y + end.y) / 2, (start.z + end.z) / 2)
+        node.look(at: end, up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 1, 0))
+        return node
+    }
+}

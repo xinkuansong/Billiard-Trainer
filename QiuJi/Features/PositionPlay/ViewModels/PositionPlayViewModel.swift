@@ -223,7 +223,47 @@ final class PositionPlayViewModel: ObservableObject {
     // MARK: - Published state
 
     @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated {
-        didSet { if oldValue != cameraMode { scene.cancelPocketSelectionFeedback() } }
+        didSet {
+            if oldValue != cameraMode {
+                scene.cancelPocketSelectionFeedback()
+                if hides3DShotAssists { refreshShotAssistVisibility() }
+            }
+        }
+    }
+    /// Opt-in for daily clearance only; 2D always retains its existing guides.
+    @Published var hides3DShotAssists = false {
+        didSet { if oldValue != hides3DShotAssists { refreshShotAssistVisibility() } }
+    }
+    var showsShotAssists: Bool { !hides3DShotAssists || cameraMode != .perspective3D }
+
+    /// Redraw presentation from the current result without changing or re-solving the shot.
+    func refreshShotAssistVisibility() {
+        breakRunner?.showsAimAssist = showsShotAssists
+        guard !isPlaying, !isSequenceMode else { return }
+        clearTrajectory()
+        guard !isBreakMode else { return }
+        freeAimGeometryInput = nil
+        if showsShotAssists {
+            let solved = currentSolvedShotForDisplay
+            if let solved { drawTrajectory(solved.prediction) }
+            if aimMode == .free {
+                refreshFreeAimOverlay(showsIdealDirection: solved == nil)
+                if solved == nil { drawFreeAimPreviewLine() }
+            }
+        } else {
+            closeupSnapshot = nil
+        }
+    }
+
+    private var currentSolvedShotForDisplay: SolvedShot? {
+        guard let solved = solvedShot, let intent = currentShotIntent(),
+              matchesCurrentBoard(solved.before),
+              solved.shot.targetKey == intent.targetKey, solved.shot.pocket == intent.pocket,
+              solved.shot.velocity == intent.velocity,
+              solved.shot.spinX == intent.spinX, solved.shot.spinY == intent.spinY,
+              solved.shot.freeAim?.x == intent.freeAim?.x,
+              solved.shot.freeAim?.y == intent.freeAim?.y else { return nil }
+        return solved
     }
     @Published private(set) var isPlaying = false
     @Published private(set) var isComputing = false
@@ -892,7 +932,10 @@ final class PositionPlayViewModel: ObservableObject {
     /// v23 W3：特写显隐门（近区 ∧ 正在改瞄准）。
     private lazy var closeupGate: AimCloseupGate = {
         let gate = AimCloseupGate()
-        gate.onSnapshotChange = { [weak self] snap in self?.closeupSnapshot = snap }
+        gate.onSnapshotChange = { [weak self] snap in
+            guard let self else { return }
+            self.closeupSnapshot = self.showsShotAssists ? snap : nil
+        }
         return gate
     }()
 
@@ -992,6 +1035,13 @@ final class PositionPlayViewModel: ObservableObject {
             freeAimGeometryInput = input
         }
 
+        guard showsShotAssists else {
+            scene.setIdealObjectLine(nil)
+            scene.ghostBallNode?.isHidden = true
+            scene.hideContactDot()
+            closeupSnapshot = nil
+            return
+        }
         if let contact = freeAimContact, let ghost = scene.ghostBallNode,
            let targetNode = scene.allBallNodes[contact.targetKey] {
             ghost.position = SCNVector3(contact.ghost.x, surfaceY + r, contact.ghost.z)
@@ -1263,7 +1313,7 @@ final class PositionPlayViewModel: ObservableObject {
                     let aim = SCNVector3(dx / length, 0, dz / length)
                     lastAimDirection = aim
                     scene.ghostBallNode?.position = ghost
-                    scene.ghostBallNode?.isHidden = false
+                    scene.ghostBallNode?.isHidden = !showsShotAssists
                     scene.updateCueStick(cueBallPosition: CueStroke.strikePosition(cue: cue.position,
                         aim: aim, spinX: spinX, spinY: spinY), aimDirection: aim)
                     return
@@ -1308,9 +1358,9 @@ final class PositionPlayViewModel: ObservableObject {
         } else {
             end = AngleSceneCalculator.rayToInnerRail(from: cue.position, dir: dir)
         }
-        scene.setFreeAimPreviewLine(.init(
+        scene.setFreeAimPreviewLine(showsShotAssists ? .init(
             start: CGPoint(x: CGFloat(cue.position.x), y: CGFloat(cue.position.z)),
-            end: CGPoint(x: CGFloat(end.x), y: CGFloat(end.z))))
+            end: CGPoint(x: CGFloat(end.x), y: CGFloat(end.z))) : nil)
         // C4 / D-v19-3：预览线同现杆，实时跟随 `freeAimDir`。
         lastAimDirection = dir
         if correctCueSpinIfNeeded(aim: dir) { return }
@@ -1560,6 +1610,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     private func drawTrajectory(_ p: ShotPrediction) {
         clearTrajectory()
+        guard showsShotAssists else { return }
         let shot = solvedShot?.shot
         // 全量口径（C3 / D2）：objectPath + rim extend + ghost←`.ghost`。
         // 自由球不显示假想球（与改前一致）。
@@ -2675,6 +2726,7 @@ final class PositionPlayViewModel: ObservableObject {
         scene.hideCueStick()
         boardBeforeBreak = currentSnapshot()
         let runner = BreakFlowRunner(scene: scene, game: game, seed: seed)
+        runner.showsAimAssist = showsShotAssists
         runner.autoDeliverOnSettle = !manualDeliver
         // 嵌套 ObservableObject 的变化上抛，驱动宿主视图刷新。
         breakChangeForwarder = runner.objectWillChange
