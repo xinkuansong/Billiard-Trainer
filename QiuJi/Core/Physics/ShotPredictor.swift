@@ -83,6 +83,8 @@ struct ShotEvent {
     let kind: Kind
     /// SceneKit 世界系的真实接触法线，仅供呈现消费；不改变物理解算。
     var contactNormal: SCNVector3? = nil
+    /// Raw production cushion segment ID, for distinguishing main rails from pocket jaws.
+    var cushionIndex: Int? = nil
 }
 
 struct ShotPrediction {
@@ -644,8 +646,8 @@ enum ShotPredictor {
             switch ev {
             case let .ballBall(a, b):
                 events.append(ShotEvent(time: et, kind: .ballBall(ballA: a, ballB: b)))
-            case let .ballCushion(ball, _, normal):
-                events.append(ShotEvent(time: et, kind: .ballCushion(ball: ball), contactNormal: normal))
+            case let .ballCushion(ball, index, normal):
+                events.append(ShotEvent(time: et, kind: .ballCushion(ball: ball), contactNormal: normal, cushionIndex: index))
             case let .pocket(ball, pid):
                 events.append(ShotEvent(time: et, kind: .pocket(ball: ball, pocketId: pid)))
             case .transition:
@@ -824,8 +826,8 @@ enum ShotPredictor {
             switch ev {
             case let .ballBall(a, b):
                 events.append(ShotEvent(time: et, kind: .ballBall(ballA: a, ballB: b)))
-            case let .ballCushion(ball, _, normal):
-                events.append(ShotEvent(time: et, kind: .ballCushion(ball: ball), contactNormal: normal))
+            case let .ballCushion(ball, index, normal):
+                events.append(ShotEvent(time: et, kind: .ballCushion(ball: ball), contactNormal: normal, cushionIndex: index))
             case let .pocket(ball, pid):
                 events.append(ShotEvent(time: et, kind: .pocket(ball: ball, pocketId: pid)))
             case .transition:

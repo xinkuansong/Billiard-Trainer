@@ -42,7 +42,7 @@ extension PositionPlayViewModel: DailyClearancePlayingHost {
         cancelDailyAttempt()
         startBreakFlow(
             game: game,
-            manualDeliver: true,
+            manualDeliver: false,
             seed: seed,
             onOutcome: onOutcome
         )
@@ -508,6 +508,22 @@ final class DailyClearanceController: ObservableObject {
                 "_9": CanvasPoint(x: 0.72, y: 0.12),
                 "_8": CanvasPoint(x: 0.48, y: 0.38)
             ])
+        case "closeup0", "closeup1", "closeup2", "closeup3", "closeup4", "closeup5":
+            // Test input preferences, equivalent to enabling the existing menu toggles.
+            UserPreferences.shared.showAimCloseup = true
+            UserPreferences.shared.trajectoryDetail = .full
+            fixtureDraft.phase = .playing
+            fixtureDraft.ruleState.assignedGroup = .solid
+            let index = Int(fixture.suffix(1)) ?? 0
+            let targets = [CanvasPoint(x:0.87,y:0.12),CanvasPoint(x:0.13,y:0.12),
+                           CanvasPoint(x:0.87,y:0.38),CanvasPoint(x:0.13,y:0.38),
+                           CanvasPoint(x:0.5,y:0.12),CanvasPoint(x:0.5,y:0.38)]
+            let target = targets[index]
+            fixtureDraft.board = BoardSnapshot(onTable:[
+                PositionPlayBall.cueKey:CanvasPoint(x:target.x+(index.isMultiple(of:2) ? -0.035 : 0.035),
+                                                   y:target.y < 0.25 ? target.y+0.05 : target.y-0.05),
+                "_1":target,"_2":CanvasPoint(x:0.3,y:0.3),"_8":CanvasPoint(x:0.65,y:0.25),
+                "_9":CanvasPoint(x:0.7,y:0.15),"_10":CanvasPoint(x:0.2,y:0.38)])
         case "selection", "selectionStripe", "selectionOpen", "selectionBlack", "selectionNine":
             fixtureDraft.phase = .playing
             fixtureDraft.ruleState.assignedGroup = .solid

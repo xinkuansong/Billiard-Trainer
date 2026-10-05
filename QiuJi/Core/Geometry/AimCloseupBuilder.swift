@@ -185,3 +185,28 @@ enum IdealObjectDirection {
                                    end: CGPoint(x: CGFloat(end.x), y: CGFloat(end.z))), termination: termination)
     }
 }
+
+/// Uses the displayed prediction polyline, including the post-contact cue leg.
+enum DailyCloseupTrajectory {
+    static func protectedCuePath(_ prediction: ShotPrediction, detail: TrajectoryDetail) -> [SCNVector3] {
+        let points = prediction.cuePath
+        guard points.count > 1 else { return points }
+        var last = points.count - 1
+        func closestIndex(to point: SCNVector3) -> Int {
+            points.indices.min { (points[$0]-point).length() < (points[$1]-point).length() } ?? last
+        }
+        if let event = prediction.events.first(where: {
+            if case .ballCushion(let ball) = $0.kind { return ball == ShotInput.cueBallName }
+            return false
+        }), let frames = prediction.recorder?.framesByBallName[ShotInput.cueBallName],
+           let impact = frames.min(by: { abs($0.time-event.time) < abs($1.time-event.time) }) {
+            // Include the next display sample conservatively: simplified render paths
+            // need not contain the exact collision timestamp.
+            last = min(last, closestIndex(to: impact.position) + 1)
+        }
+        if detail == .minimal, let contact = prediction.firstContact {
+            last = min(last, closestIndex(to: contact))
+        }
+        return Array(points.prefix(last + 1))
+    }
+}

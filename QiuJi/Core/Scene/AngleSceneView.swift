@@ -77,6 +77,17 @@ struct AngleSceneView: UIViewRepresentable {
     var daily3DDiagnostics: Daily3DRenderDiagnostics? = nil
     /// Daily header reserves a trailing slot; nil retains the shared centered readout.
     var fpsReadoutTrailingInset: CGFloat? = nil
+    /// Daily two-view fixed HUD's measured free stage, in window points. Legacy hosts leave nil.
+    /// Transient center overlays need separate visibility review; four edge insets do not certify them.
+    var twoViewReadableFrameInWindow: CGRect? = nil
+    var onCameraObservationBegan: (() -> Void)? = nil
+    var onCameraObservationEnded: (() -> Void)? = nil
+    var twoViewAutomaticEntryCount: Int = 0
+    var twoViewSolverDiagnostics: String = ""
+    var onThirdPersonAimNudged: ((Float) -> Void)? = nil
+
+    var onTemporaryTopDownDismiss: (() -> Void)? = nil
+    var topDownContentRevision: Int = 0
 
     static func requestedFPS(maximum: Int, selected: RenderFrameRate = .fps60, active: Bool, thermal: ProcessInfo.ThermalState, lowPower: Bool) -> Int {
         let ceiling = thermal == .critical ? 30 : ((thermal == .serious || lowPower) ? 60 : maximum)
@@ -84,7 +95,10 @@ struct AngleSceneView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> SCNView {
-        let scnView = SCNView()
+        let scnView = LayoutAwareSceneView()
+        scnView.onLayout = { [weak coordinator = context.coordinator] in
+            coordinator?.synchronizeDailyViewportAfterLayout()
+        }
         scnView.scene = scene
         scene.applyTableStyle(roomPreferences.tableStyle, showsSights: roomPreferences.showsTableSights)
         scene.applyClothColor(roomPreferences.clothColor)
@@ -127,6 +141,14 @@ struct AngleSceneView: UIViewRepresentable {
         scnView.addGestureRecognizer(doubleTap)
 
         context.coordinator.scnView = scnView
+        context.coordinator.twoViewReadableFrameInWindow = twoViewReadableFrameInWindow
+        context.coordinator.onCameraObservationBegan = onCameraObservationBegan
+        context.coordinator.onCameraObservationEnded = onCameraObservationEnded
+        context.coordinator.twoViewAutomaticEntryCount = twoViewAutomaticEntryCount
+        context.coordinator.twoViewSolverDiagnostics = twoViewSolverDiagnostics
+        context.coordinator.onThirdPersonAimNudged = onThirdPersonAimNudged
+        context.coordinator.onTemporaryTopDownDismiss = onTemporaryTopDownDismiss
+        context.coordinator.topDownContentRevision = topDownContentRevision
         context.coordinator.installFPSReadout(in: scnView, trailingInset: fpsReadoutTrailingInset)
         context.coordinator.onPocketTapped = onPocketTapped
         context.coordinator.updatePocketAccessibility()
@@ -177,6 +199,10 @@ struct AngleSceneView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: SCNView, context: Context) {
+        #if DEBUG
+        let cameraDiagnosticsChanged = context.coordinator.twoViewAutomaticEntryCount != twoViewAutomaticEntryCount
+            || context.coordinator.twoViewSolverDiagnostics != twoViewSolverDiagnostics
+        #endif
         context.coordinator.positionFPSReadout(trailingInset: fpsReadoutTrailingInset)
         scene.applyTableStyle(roomPreferences.tableStyle, showsSights: roomPreferences.showsTableSights)
         scene.applyClothColor(roomPreferences.clothColor)
@@ -199,6 +225,12 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.setDaily3DDiagnostics(daily3DDiagnostics)
         context.coordinator.updateContentActivity(contentIsAnimating, cameraMode: cameraMode)
         context.coordinator.interactionMode = interactionMode
+        context.coordinator.updateTwoViewReadableFrame(twoViewReadableFrameInWindow)
+        let temporary2D = scene.cameraRig?.temporaryTopDownActive == true
+        if context.coordinator.temporaryTopDownWasActive != temporary2D {
+            context.coordinator.temporaryTopDownWasActive = temporary2D
+            context.coordinator.requestInteractiveFrames()
+        }
         context.coordinator.locksCueBallScreenAnchor = locksCueBallScreenAnchor
         context.coordinator.autoFitsRotatedTable = autoFitsRotatedTable
         context.coordinator.autoFitsLandscapeTable = autoFitsLandscapeTable
@@ -214,8 +246,21 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.onAimNudged = onAimNudged
         context.coordinator.onAimDragActiveChanged = onAimDragActiveChanged
         context.coordinator.onAimDragEnded = onAimDragEnded
+        context.coordinator.onCameraObservationBegan = onCameraObservationBegan
+        context.coordinator.onCameraObservationEnded = onCameraObservationEnded
+        context.coordinator.twoViewAutomaticEntryCount = twoViewAutomaticEntryCount
+        context.coordinator.twoViewSolverDiagnostics = twoViewSolverDiagnostics
+        context.coordinator.onThirdPersonAimNudged = onThirdPersonAimNudged
+        context.coordinator.onTemporaryTopDownDismiss = onTemporaryTopDownDismiss
+        context.coordinator.topDownContentRevision = topDownContentRevision
         context.coordinator.frameDelegate.contact = scene.contactOcclusion
         context.coordinator.updatePocketAccessibility()
+        context.coordinator.updateTemporaryTopDownOverlay()
+        #if DEBUG
+        if cameraDiagnosticsChanged, ProcessInfo.processInfo.arguments.contains("-v63.cameraDiagnostics") {
+            context.coordinator.refreshCameraDiagnostics()
+        }
+        #endif
         if let projector, projector.unproject == nil {
             bindProjector(to: uiView)
         }
@@ -226,6 +271,8 @@ struct AngleSceneView: UIViewRepresentable {
     }
 
     static func dismantleUIView(_ uiView: SCNView, coordinator: Coordinator) {
+        coordinator.removeTemporaryTopDownOverlay()
+        coordinator.finishCameraObservation()
         coordinator.scene.cancelPocketSelectionFeedback()
         coordinator.endBallDrag()
         coordinator.endAimDrag()
@@ -255,6 +302,341 @@ struct AngleSceneView: UIViewRepresentable {
         private var displayLink: CADisplayLink?
         private var lastTimestamp: CFTimeInterval = 0
         private var lastViewportSize: CGSize?
+        var twoViewReadableFrameInWindow: CGRect?
+        var onCameraObservationBegan: (() -> Void)?
+        var onCameraObservationEnded: (() -> Void)?
+        var twoViewAutomaticEntryCount = 0
+        var twoViewSolverDiagnostics = ""
+        var onThirdPersonAimNudged: ((Float) -> Void)?
+        private var cameraObservationActive = false
+        var temporaryTopDownWasActive = false
+        var onTemporaryTopDownDismiss: (() -> Void)?
+        var topDownContentRevision = 0
+        private var mergedOverlay: SCNView?
+        private var mergedOverlayActivation = -1
+        private var mergedNodeCopies: [SCNNode: SCNNode] = [:]
+        private var mergedOverlayBuildCount = 0
+        #if DEBUG
+        private var ordinary2DAimSamples = 0
+        private var ordinary2DProjectionViolations = 0
+        #endif
+        var mergedTouchOrigin: CGPoint?
+        private var mergedDragNode: SCNNode?
+        private var mergedDragOffset = SIMD3<Float>.zero
+        private var temporaryTopDownImageView: UIImageView?
+        private var temporaryTopDownImageBounds: CGRect?
+        private var temporaryTopDownImageReadableRect: CGRect?
+        private var temporaryTopDownImageScale: CGFloat?
+        private var temporaryTopDownImageActivation = -1
+        private var temporaryTopDownCaptureCount = 0
+        private var temporaryTopDownCaptureMatrix: simd_float4x4?
+        private var temporaryTopDownCaptureFOV: CGFloat = 0
+        private var temporaryTopDownProjectedTable: CGRect = .zero
+        private var temporaryTopDownHeldMatrixDelta: Float = 0
+        private var temporaryTopDownHeldFOVDelta: CGFloat = 0
+        private var temporaryTopDownHeldRoomVisible = false
+        private var temporaryTopDownHoldCaptureCount = 0
+        private var temporaryTopDownCaptureStartCount = 0
+        private weak var temporaryTopDownRenderer: SCNRenderer?
+        private var temporaryTopDownLastImageSize: CGSize = .zero
+        private var temporaryTopDownHeldSeen = false
+        private var temporaryTopDownCaptureWasOrthographic = false
+        private var temporaryTopDownHeldOrthoChanged = false
+        private var temporaryTopDownLastViewport: CGSize = .zero
+        private var temporaryTopDownLastFrameInWindow: CGRect = .zero
+
+        func removeTemporaryTopDownOverlay() {
+            mergedOverlay?.scene = nil
+            mergedOverlay?.removeFromSuperview()
+            mergedOverlay = nil
+            mergedNodeCopies.removeAll()
+            mergedDragNode = nil
+            temporaryTopDownImageView?.image = nil
+            temporaryTopDownImageView?.removeFromSuperview()
+            temporaryTopDownImageView = nil
+            temporaryTopDownImageBounds = nil
+            temporaryTopDownImageReadableRect = nil
+            temporaryTopDownImageScale = nil
+        }
+
+        private func updateMergedOverlay(view: SCNView, rig: CameraRig, frame: CameraRig.TemporaryTopDownFrame) {
+            let overlay = mergedOverlay ?? SCNView(frame: view.bounds, options: nil)
+            let rebuild = mergedOverlay == nil || mergedOverlayActivation != rig.temporaryTopDownActivationCount
+            if rebuild {
+                mergedNodeCopies.removeAll()
+                overlay.scene = scene.makeTemporaryTopDownRenderScene { source, copy in
+                    self.mergedNodeCopies[source] = copy
+                }
+                mergedOverlayBuildCount += 1
+                let node = SCNNode()
+                node.camera = (scene.cameraNode?.camera?.copy() as? SCNCamera) ?? SCNCamera()
+                node.camera?.usesOrthographicProjection = true
+                node.camera?.projectionDirection = .vertical
+                node.camera?.zNear = 0.01; node.camera?.zFar = 100
+                overlay.scene?.rootNode.addChildNode(node)
+                overlay.pointOfView = node
+                mergedOverlayActivation = rig.temporaryTopDownActivationCount
+            }
+            let cameraChanged = rebuild || overlay.frame != view.bounds
+            overlay.frame = view.bounds
+            overlay.backgroundColor = .clear
+            overlay.isOpaque = false
+            overlay.isUserInteractionEnabled = false
+            overlay.isPlaying = false
+            overlay.rendersContinuously = false
+            overlay.antialiasingMode = view.antialiasingMode
+            overlay.autoenablesDefaultLighting = view.autoenablesDefaultLighting
+            if cameraChanged {
+            overlay.pointOfView?.camera?.orthographicScale = frame.orthographicScale
+            overlay.pointOfView?.simdPosition = frame.eye
+            overlay.pointOfView?.look(at: SCNVector3(frame.target.x,frame.target.y,frame.target.z),
+                up: SCNVector3(frame.up.x,frame.up.y,frame.up.z), localFront: SCNVector3(0,0,-1))
+            }
+            if let renderScene = overlay.scene {
+                scene.synchronizeTemporaryTopDownScene(renderScene, copies: &mergedNodeCopies)
+            }
+            if overlay.superview == nil { view.insertSubview(overlay, at: 0) }
+            mergedOverlay = overlay
+        }
+
+        private func overlayWorld(_ point: CGPoint) -> SIMD3<Float>? {
+            guard let view = scnView, let frame = scene.cameraRig?.temporaryTopDownOverlayFrame else { return nil }
+            return frame.world(at: point, viewport: view.bounds.size)
+        }
+
+        private func overlayPoint(_ node: SCNNode) -> CGPoint? {
+            guard let view = scnView, let frame = scene.cameraRig?.temporaryTopDownOverlayFrame else { return nil }
+            return frame.screen(point: node.simdWorldPosition, viewport: view.bounds.size)
+        }
+
+        private func overlayBall(at point: CGPoint, candidates: [SCNNode]) -> SCNNode? {
+            candidates.filter { !$0.isHidden }.compactMap { node -> (SCNNode, CGFloat)? in
+                guard let p = overlayPoint(node) else { return nil }
+                let distance = hypot(p.x-point.x,p.y-point.y)
+                return distance <= 22 ? (node,distance) : nil
+            }.min { $0.1 < $1.1 }?.0
+        }
+
+        private func handleOverlayTap(_ point: CGPoint) {
+            guard scene.cameraRig?.usesMergedCamera == true, let view = scnView,
+                let rig = scene.cameraRig, let frame = rig.temporaryTopDownOverlayFrame else { return }
+            if let ball = overlayBall(at: point, candidates: selectableBallNodes) {
+                onBallTapped?(ball); requestInteractiveFrames(); return
+            }
+            let pockets = AngleSceneCalculator.pocketMarkerPositions(surfaceY: scene.surfaceY)
+            let closest = pockets.enumerated().map { index, p -> (Int, CGFloat) in
+                let screen = frame.screen(point: SIMD3(p.x,p.y,p.z), viewport: view.bounds.size)
+                return (index,hypot(screen.x-point.x,screen.y-point.y))
+            }.min { $0.1 < $1.1 }
+            if let closest, closest.1 <= 24 {
+                onPocketTapped?(closest.0); requestInteractiveFrames(); return
+            }
+            guard let world = overlayWorld(point) else { return }
+            if abs(world.x) > Float(rig.tableOuterHalfLength) || abs(world.z) > Float(rig.tableOuterHalfWidth) {
+                onTemporaryTopDownDismiss?()
+            }
+        }
+
+        private func handleOverlayPan(_ gesture: UIPanGestureRecognizer) {
+            guard scene.cameraRig?.usesMergedCamera == true, let view = scnView else { return }
+            let point = gesture.location(in: view)
+            switch gesture.state {
+            case .began:
+                let delta = gesture.translation(in: view)
+                let start = mergedTouchOrigin ?? CGPoint(x: point.x-delta.x,y: point.y-delta.y)
+                guard let node = overlayBall(at: start, candidates: draggableBallNodes),
+                    let world = overlayWorld(start) else { return }
+                mergedDragNode = node
+                mergedDragOffset = node.simdWorldPosition - world
+                onDragBegan?(node)
+            case .changed:
+                guard let node = mergedDragNode, let world = overlayWorld(point) else { return }
+                let destination = world + mergedDragOffset
+                onDragMoved?(node,SCNVector3(destination.x,destination.y,destination.z))
+            case .ended, .cancelled, .failed:
+                if let node = mergedDragNode {
+                    if gesture.state == .ended, let world = overlayWorld(point) {
+                        let destination = world + mergedDragOffset
+                        onDragMoved?(node,SCNVector3(destination.x,destination.y,destination.z))
+                    }
+                    onDragEnded?(node)
+                }
+                mergedTouchOrigin = nil
+                mergedDragNode = nil
+            default: break
+            }
+            requestInteractiveFrames()
+            updateTemporaryTopDownOverlay()
+        }
+
+        /// No renderer is retained: one immutable table image per hold/layout.
+        func updateTemporaryTopDownOverlay() {
+            guard let view = scnView, let rig = scene.cameraRig,
+                  rig.usesTwoViewCameraControls, rig.temporaryTopDownActive else {
+                removeTemporaryTopDownOverlay()
+                return
+            }
+            guard view.window != nil, view.bounds.width > 1, view.bounds.height > 1,
+                  let frame = rig.temporaryTopDownOverlayFrame else { return }
+            if rig.usesMergedCamera {
+                updateMergedOverlay(view: view, rig: rig, frame: frame)
+                return
+            }
+            if let captured = temporaryTopDownCaptureMatrix,
+               temporaryTopDownImageActivation == rig.temporaryTopDownActivationCount,
+               let camera = scene.cameraNode {
+                temporaryTopDownHeldSeen = true
+                temporaryTopDownHeldOrthoChanged = temporaryTopDownHeldOrthoChanged
+                    || (camera.camera?.usesOrthographicProjection == true) != temporaryTopDownCaptureWasOrthographic
+                let current = camera.presentation.simdWorldTransform
+                for column in 0..<4 {
+                    for row in 0..<4 {
+                        temporaryTopDownHeldMatrixDelta = max(temporaryTopDownHeldMatrixDelta,
+                            abs(current[column][row] - captured[column][row]))
+                    }
+                }
+                temporaryTopDownHeldFOVDelta = max(temporaryTopDownHeldFOVDelta,
+                    abs((camera.camera?.fieldOfView ?? 0) - temporaryTopDownCaptureFOV))
+                let room = scene.rootNode.childNode(withName: "reference_room", recursively: false)
+                temporaryTopDownHeldRoomVisible = temporaryTopDownHeldRoomVisible && room?.isHidden == false
+            }
+            let scale = view.contentScaleFactor
+            guard temporaryTopDownImageView == nil
+                || temporaryTopDownImageBounds != view.bounds
+                || temporaryTopDownImageReadableRect != frame.readableRect
+                || temporaryTopDownImageScale != scale
+                || temporaryTopDownImageActivation != rig.temporaryTopDownActivationCount else { return }
+
+            if temporaryTopDownImageActivation != rig.temporaryTopDownActivationCount {
+                temporaryTopDownCaptureMatrix = scene.cameraNode?.presentation.simdWorldTransform
+                temporaryTopDownCaptureFOV = scene.cameraNode?.camera?.fieldOfView ?? 0
+                temporaryTopDownHeldMatrixDelta = 0
+                temporaryTopDownHeldFOVDelta = 0
+                temporaryTopDownHeldRoomVisible = scene.rootNode.childNode(withName: "reference_room", recursively: false)?.isHidden == false
+                temporaryTopDownCaptureStartCount = temporaryTopDownCaptureCount
+                temporaryTopDownHeldSeen = false
+                temporaryTopDownCaptureWasOrthographic = scene.cameraNode?.camera?.usesOrthographicProjection == true
+                temporaryTopDownHeldOrthoChanged = false
+            }
+            let renderScene = scene.makeTemporaryTopDownRenderScene()
+            let cameraNode = SCNNode()
+            cameraNode.name = "temporaryTopDownSnapshotCamera"
+            let camera = (scene.cameraNode?.camera?.copy() as? SCNCamera) ?? SCNCamera()
+            camera.usesOrthographicProjection = true
+            camera.projectionDirection = .vertical
+            camera.orthographicScale = frame.orthographicScale
+            camera.automaticallyAdjustsZRange = false
+            camera.zNear = 0.01
+            camera.zFar = 100
+            cameraNode.camera = camera
+            cameraNode.simdPosition = frame.eye
+            cameraNode.look(at: SCNVector3(frame.target.x, frame.target.y, frame.target.z),
+                up: SCNVector3(frame.up.x, frame.up.y, frame.up.z), localFront: SCNVector3(0, 0, -1))
+            renderScene.rootNode.addChildNode(cameraNode)
+
+            let renderer = SCNRenderer(device: view.device, options: nil)
+            temporaryTopDownRenderer = renderer
+            renderer.scene = renderScene
+            renderer.pointOfView = cameraNode
+            renderer.autoenablesDefaultLighting = view.autoenablesDefaultLighting
+            renderer.isJitteringEnabled = view.isJitteringEnabled
+            renderer.isPlaying = false
+            let image = renderer.snapshot(atTime: view.sceneTime,
+                with: CGSize(width: view.bounds.width * scale, height: view.bounds.height * scale),
+                antialiasingMode: view.antialiasingMode)
+            temporaryTopDownLastImageSize = CGSize(width: CGFloat(image.cgImage?.width ?? 0),
+                height: CGFloat(image.cgImage?.height ?? 0))
+            temporaryTopDownLastViewport = view.bounds.size
+            temporaryTopDownLastFrameInWindow = view.convert(view.bounds, to: nil)
+            // The standalone renderer projects into a bottom-left pixel viewport.
+            // UIKit uses a top-left origin; flip Y, restore the view bounds origin,
+            // then convert local points to the window used by HUD diagnostics.
+            let corners = [-Float(rig.tableOuterHalfLength), Float(rig.tableOuterHalfLength)].flatMap { x in
+                [-Float(rig.tableOuterHalfWidth), Float(rig.tableOuterHalfWidth)].map { z in
+                    let point = renderer.projectPoint(SCNVector3(x, scene.surfaceY, z))
+                    return view.convert(CGPoint(x: view.bounds.minX + CGFloat(point.x) / scale,
+                        y: view.bounds.maxY - CGFloat(point.y) / scale), to: nil)
+                }
+            }
+            if let minX = corners.map(\.x).min(), let maxX = corners.map(\.x).max(),
+               let minY = corners.map(\.y).min(), let maxY = corners.map(\.y).max() {
+                temporaryTopDownProjectedTable = CGRect(x: minX, y: minY,
+                    width: maxX - minX, height: maxY - minY)
+            }
+            let imageView = temporaryTopDownImageView ?? UIImageView()
+            imageView.frame = view.bounds
+            imageView.backgroundColor = .clear
+            imageView.isOpaque = false
+            imageView.contentMode = .scaleToFill
+            imageView.isUserInteractionEnabled = false
+            imageView.isAccessibilityElement = true
+            imageView.accessibilityIdentifier = "shotCamera.temporaryTopDownOverlay"
+            imageView.accessibilityLabel = "临时俯视球桌叠层"
+            imageView.image = image
+            if imageView.superview == nil { view.insertSubview(imageView, at: 0) }
+            temporaryTopDownImageView = imageView
+            temporaryTopDownImageBounds = view.bounds
+            temporaryTopDownImageReadableRect = frame.readableRect
+            temporaryTopDownImageScale = scale
+            temporaryTopDownImageActivation = rig.temporaryTopDownActivationCount
+            temporaryTopDownCaptureCount += 1
+            temporaryTopDownHoldCaptureCount = temporaryTopDownCaptureCount - temporaryTopDownCaptureStartCount
+            imageView.accessibilityValue = "静态正投影；生成\(temporaryTopDownCaptureCount)次"
+            #if DEBUG
+            // Explicit diagnostics only; exports the original snapshot including alpha.
+            // "documents" resolves inside the app container; an explicit app-writable
+            // absolute directory remains available to the diagnostic host.
+            if ProcessInfo.processInfo.arguments.contains("-v63.cameraDiagnostics"),
+               let directory = ProcessInfo.processInfo.environment["TWO_VIEW_OVERLAY_DIAG_DIR"],
+               !directory.isEmpty, let data = image.pngData() {
+                do {
+                    let url: URL
+                    if directory == "documents" {
+                        guard let documents = FileManager.default.urls(for: .documentDirectory,
+                            in: .userDomainMask).first else {
+                            throw NSError(domain: "TwoViewOverlayDiagnostics", code: 1,
+                                userInfo: [NSLocalizedDescriptionKey: "Application Documents directory is unavailable"])
+                        }
+                        url = documents.appendingPathComponent("TwoViewOverlays", isDirectory: true)
+                    } else {
+                        url = URL(fileURLWithPath: directory, isDirectory: true)
+                    }
+                    try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                    try data.write(to: url.appendingPathComponent(
+                        "overlay-\(rig.temporaryTopDownActivationCount)-\(temporaryTopDownCaptureCount).png"), options: .atomic)
+                } catch {
+                    NSLog("Temporary top-down diagnostic export failed: %@", error.localizedDescription)
+                }
+            }
+            updateFPSReadout(force: true)
+            #endif
+        }
+        #if DEBUG
+        private var twoViewPanDX: Float = 0
+        private var twoViewPanDY: Float = 0
+        private var twoViewHeldSamples = 0
+        private var twoViewHeldPeak = -Float.infinity
+        private var twoViewHeldPose: TwoViewCamera.Pose?
+        private var twoViewHeldProgress: Float = 0
+        private var twoViewHeldYaw: Float = 0
+        private var twoViewGestureAxis = "none"
+        #endif
+
+        func finishCameraObservation() {
+            surfaceAxisLock = SurfacePanAxisLock()
+            guard cameraObservationActive else { return }
+            cameraObservationActive = false
+            if let onCameraObservationEnded { onCameraObservationEnded() }
+            else { scene.cameraRig?.endTemporaryObservation() }
+            requestInteractiveFrames()
+        }
+
+        func updateTwoViewReadableFrame(_ frame: CGRect?) {
+            guard twoViewReadableFrameInWindow != frame else { return }
+            twoViewReadableFrameInWindow = frame
+            if let scnView { updateViewport(scnView.bounds.size) }
+            requestInteractiveFrames()
+        }
         var contentIsAnimating: Bool?
         private var needsContinuousUpdates = true
         // Keep legacy callers with unknown activity running; explicit idle sleeps.
@@ -276,6 +658,13 @@ struct AngleSceneView: UIViewRepresentable {
             daily3DDiagnostics = diagnostics
             (frameDelegate as? Daily3DFrameDelegate)?.setDiagnostics(diagnostics)
         }
+
+        #if DEBUG
+        /// Publication freshness only: do not extend activity or resume the renderer.
+        func refreshCameraDiagnostics() {
+            updateFPSReadout(force: true)
+        }
+        #endif
 
         func installFPSReadout(in view: SCNView, trailingInset: CGFloat? = nil) {
             let host = UIHostingController(rootView: FPSReadout(text: "— FPS", compact: trailingInset != nil))
@@ -346,6 +735,88 @@ struct AngleSceneView: UIViewRepresentable {
                 host.view.accessibilityIdentifier = "v63.cameraDiagnostics"
                 let pocket = rig.observationPocket.map { "pocketIndex=\($0.index) pocketWorld=\($0.position) pocketScreen=\(scnView.projectPoint($0.position))" } ?? "pocketIndex=-1"
                 host.view.accessibilityValue = "viewport=\(scnView.bounds.size) rigViewport=\(rig.viewportSize) center=\(center) corners=\(corners) pivot=\(rig.targetPivot) yaw=\(rig.targetYaw) distance=\(rig.orbitDistance) elevation=\(rig.orbitElevation) pitch=\(rig.captureCurrentPose().pitch) fov=\(rig.captureCurrentPose().fov) eye=\(scene.cameraNode?.position ?? SCNVector3Zero) cueLift=\(-(scene.cueStick?.rootNode.eulerAngles.x ?? 0)) \(balls) \(pocket)"
+                if let stick = scene.cueStick, let cue = scene.cueBallNode, let aim = scene.lastCueAim {
+                    let shown = stick.rootNode.presentation
+                    let back = shown.simdWorldTransform.columns.2
+                    let denominator = hypot(back.x, back.z) * hypot(aim.x, aim.z)
+                    let alignment = denominator > 0 ? -(back.x * aim.x + back.z * aim.z) / denominator : -1
+                    let distance = simd_distance(shown.simdWorldPosition, cue.presentation.simdWorldPosition)
+                    host.view.accessibilityValue = (host.view.accessibilityValue ?? "")
+                        + " cueAddressAlignment=\(alignment) cueAddressDistance=\(distance) cueAddressHidden=\(stick.rootNode.isHidden) cueAddressOpacity=\(stick.fadeOpacity)"
+                }
+                if rig.usesTwoViewCameraControls, let camera = scene.cameraNode {
+                    host.view.accessibilityValue = (host.view.accessibilityValue ?? "") + " " + twoViewSolverDiagnostics
+                    let shown = camera.presentation
+                    let eye = shown.worldPosition
+                    let readable = twoViewReadableFrameInWindow ?? .zero
+                    host.view.accessibilityValue = (host.view.accessibilityValue ?? "")
+                        + " twoViewMode=\(rig.twoViewMode.rawValue) twoViewOwner=\(rig.twoViewOwnerIsManual ? "manual" : "automatic") twoViewMoving=\(rig.isTransitioning || rig.hasPendingDamping) twoViewEyeX=\(eye.x) twoViewEyeY=\(eye.y) twoViewEyeZ=\(eye.z) twoViewYaw=\(shown.eulerAngles.y) twoViewFOV=\(shown.camera?.fieldOfView ?? 0) twoViewReadableX=\(readable.minX) twoViewReadableY=\(readable.minY) twoViewReadableW=\(readable.width) twoViewReadableH=\(readable.height) twoViewPanDX=\(twoViewPanDX) twoViewPanDY=\(twoViewPanDY) twoViewAutomaticEntryCount=\(twoViewAutomaticEntryCount)"
+                    let matrix = shown.simdWorldTransform
+                    let forward = -SIMD3<Float>(matrix.columns.2.x, matrix.columns.2.y, matrix.columns.2.z)
+                    let heading = atan2(-forward.z, -forward.x)
+                    let pitchDown = -asin(max(-1, min(1, forward.y)))
+                    let centerWindow = scnView.convert(CGPoint(x: CGFloat(center.x), y: CGFloat(center.y)), to: nil)
+                    let centerFraction = readable.width > 1 ? (centerWindow.x - readable.minX) / readable.width : 0.5
+                    let tableWindows = corners.map { scnView.convert(CGPoint(x: CGFloat($0.x), y: CGFloat($0.y)), to: nil) }
+                    host.view.accessibilityValue = (host.view.accessibilityValue ?? "")
+                        + " twoViewHeading=\(heading) twoViewPitchDown=\(pitchDown) twoViewCenterXFraction=\(centerFraction) twoViewRadius=\(hypot(eye.x, eye.z))"
+                        + " twoViewTableMinX=\(tableWindows.map(\.x).min() ?? 0) twoViewTableMaxX=\(tableWindows.map(\.x).max() ?? 0) twoViewTableMinY=\(tableWindows.map(\.y).min() ?? 0) twoViewTableMaxY=\(tableWindows.map(\.y).max() ?? 0) twoViewTableMinDepth=\(corners.map(\.z).min() ?? 0) twoViewTableMaxDepth=\(corners.map(\.z).max() ?? 0)"
+                    if let simple = rig.twoViewSnapshot?.simpleShot {
+                        host.view.accessibilityValue = (host.view.accessibilityValue ?? "")
+                            + " simpleCueScale=\(scene.cueBallNode?.scale.x ?? 0) simpleCamera=true simpleDistance=\(simple.actualDistance) surfaceCamera=\(simple.surface != nil) surfaceTravel=\(simple.surface?.travel ?? -1) surfaceBearing=\(simple.surface?.bearing ?? 0) simpleHeight=\(simple.pose.eye.y-simple.surfaceY)"
+                    }
+                    if let snapshot = rig.twoViewSnapshot {
+                        host.view.accessibilityValue = (host.view.accessibilityValue ?? "")
+                            + " twoViewProgress=\(snapshot.progress) twoViewRailYaw=\(snapshot.yaw)"
+                        if let baseline = snapshot.defaultPose ?? snapshot.firstPersonBase {
+                            let forward = baseline.forward
+                            host.view.accessibilityValue = (host.view.accessibilityValue ?? "")
+                                + " twoViewDefaultEyeX=\(baseline.eye.x) twoViewDefaultEyeY=\(baseline.eye.y) twoViewDefaultEyeZ=\(baseline.eye.z) twoViewDefaultHeading=\(atan2(-forward.z, -forward.x)) twoViewDefaultPitchDown=\(-asin(max(-1, min(1, forward.y)))) twoViewDefaultProgress=0.5 twoViewDefaultFOV=\(baseline.fov)"
+                        }
+                    }
+                    let aim = rig.twoViewCurrentAim ?? SCNVector3Zero
+                    host.view.accessibilityValue = (host.view.accessibilityValue ?? "")
+                        + " mergedGlobal=\(rig.mergedGlobalActive) mergedOverlay=\(mergedOverlay != nil) topDownRevision=\(topDownContentRevision) overlayBuilds=\(mergedOverlayBuildCount) ordinary2DAimSamples=\(ordinary2DAimSamples) ordinary2DProjectionViolations=\(ordinary2DProjectionViolations) twoViewGestureAxis=\(twoViewGestureAxis) twoViewHeldSamples=\(twoViewHeldSamples) twoViewTemporary2D=\(rig.temporaryTopDownActive) twoViewOrtho=\(camera.camera?.usesOrthographicProjection == true) twoView2DActivationCount=\(rig.temporaryTopDownActivationCount) twoView2DHeldSamples=\(rig.temporaryTopDownHeldSamples) twoView2DUpX=\(rig.temporaryTopDownLastUp.x) twoView2DUpZ=\(rig.temporaryTopDownLastUp.z) twoViewAimX=\(aim.x) twoViewAimZ=\(aim.z)"
+                    host.view.accessibilityValue = (host.view.accessibilityValue ?? "")
+                        + " twoView2DReferenceYaw=\(rig.temporaryTopDownReferenceYaw) twoView2DReferenceSource=\(rig.temporaryTopDownReferenceSource.replacingOccurrences(of: " ", with: "_")) twoView2DScreenRightX=\(-rig.temporaryTopDownLastUp.z) twoView2DScreenRightZ=\(rig.temporaryTopDownLastUp.x)"
+                    if rig.usesMergedCamera, let frame = rig.temporaryTopDownOverlayFrame {
+                        let view = scnView
+                        for (key, node) in scene.allBallNodes where !node.isHidden {
+                            let local = frame.screen(point: node.simdWorldPosition, viewport: view.bounds.size)
+                            let p = view.convert(local, to: nil)
+                            host.view.accessibilityValue = (host.view.accessibilityValue ?? "")
+                                + " overlay_\(key)X=\(p.x) overlay_\(key)Y=\(p.y)"
+                        }
+                        for (index,pocket) in AngleSceneCalculator.pocketMarkerPositions(surfaceY: scene.surfaceY).enumerated() {
+                            let p = view.convert(frame.screen(point: SIMD3(pocket.x,pocket.y,pocket.z), viewport: view.bounds.size), to: nil)
+                            host.view.accessibilityValue = (host.view.accessibilityValue ?? "") + " overlay_pocket\(index)X=\(p.x) overlay_pocket\(index)Y=\(p.y)"
+                        }
+                    }
+                    if let captured = temporaryTopDownCaptureMatrix {
+                        var matrixDelta: Float = 0
+                        for column in 0..<4 {
+                            for row in 0..<4 {
+                                matrixDelta = max(matrixDelta, abs(matrix[column][row] - captured[column][row]))
+                            }
+                        }
+                        let room = scene.rootNode.childNode(withName: "reference_room", recursively: false)
+                        let table = temporaryTopDownProjectedTable
+                        host.view.accessibilityValue = (host.view.accessibilityValue ?? "")
+                            + " twoViewOverlayActive=\(temporaryTopDownImageView != nil) twoViewOverlayCaptureCount=\(temporaryTopDownCaptureCount) twoViewOverlayResidentRenderer=\(temporaryTopDownRenderer != nil) twoViewOverlayMainMatrixDelta=\(matrixDelta) twoViewOverlayMainFOVDelta=\(abs((camera.camera?.fieldOfView ?? 0) - temporaryTopDownCaptureFOV)) twoViewOverlayRoomVisible=\(room != nil && room?.isHidden == false) twoViewOverlayTableMinX=\(table.minX) twoViewOverlayTableMaxX=\(table.maxX) twoViewOverlayTableMinY=\(table.minY) twoViewOverlayTableMaxY=\(table.maxY) twoViewOverlayImageWidth=\(temporaryTopDownLastImageSize.width) twoViewOverlayImageHeight=\(temporaryTopDownLastImageSize.height)"
+                        host.view.accessibilityValue = (host.view.accessibilityValue ?? "")
+                            + " twoViewOverlayHoldCaptureCount=\(temporaryTopDownHoldCaptureCount) twoViewOverlayHeldMainMatrixDelta=\(temporaryTopDownHeldMatrixDelta) twoViewOverlayHeldMainFOVDelta=\(temporaryTopDownHeldFOVDelta) twoViewOverlayHeldRoomVisible=\(temporaryTopDownHeldRoomVisible)"
+                        host.view.accessibilityValue = (host.view.accessibilityValue ?? "")
+                            + " twoViewOverlayHeldSeen=\(temporaryTopDownHeldSeen) twoViewOverlayHeldOrthoChanged=\(temporaryTopDownHeldOrthoChanged)"
+                        let overlayFrame = temporaryTopDownLastFrameInWindow
+                        host.view.accessibilityValue = (host.view.accessibilityValue ?? "")
+                            + " twoViewOverlayViewportWidth=\(temporaryTopDownLastViewport.width) twoViewOverlayViewportHeight=\(temporaryTopDownLastViewport.height) twoViewOverlayFrameX=\(overlayFrame.minX) twoViewOverlayFrameY=\(overlayFrame.minY) twoViewOverlayFrameWidth=\(overlayFrame.width) twoViewOverlayFrameHeight=\(overlayFrame.height)"
+                    }
+                    if let held = twoViewHeldPose {
+                        let forward = held.forward
+                        host.view.accessibilityValue = (host.view.accessibilityValue ?? "")
+                            + " twoViewHeldEyeX=\(held.eye.x) twoViewHeldEyeY=\(held.eye.y) twoViewHeldEyeZ=\(held.eye.z) twoViewHeldHeading=\(atan2(-forward.z, -forward.x)) twoViewHeldPitchDown=\(-asin(max(-1, min(1, forward.y)))) twoViewHeldProgress=\(twoViewHeldProgress) twoViewHeldRailYaw=\(twoViewHeldYaw) twoViewHeldFOV=\(held.fov)"
+                    }
+                }
             }
             #endif
             let next = !needsContinuousUpdates ? "FPS · 静止" : "\(fps) FPS"
@@ -357,9 +828,40 @@ struct AngleSceneView: UIViewRepresentable {
 
         private var lastSevereThermalTime: CFTimeInterval = -.infinity
 
+        /// A projection switch resizes the retained renderer. Apply the camera's new
+        /// viewport before SceneKit's first frame at that size, not one display-link later.
+        func synchronizeDailyViewportAfterLayout() {
+            guard twoViewReadableFrameInWindow != nil, let view = scnView,
+                  view.bounds.width > 0, view.bounds.height > 0 else { return }
+            updateViewport(view.bounds.size)
+            guard cameraMode == scene.currentCameraMode, !scene.isCameraModeTransitioning,
+                  draggedNode == nil else { return }
+            switch cameraMode {
+            case .topDown2D:
+                if autoFitsLandscapeTable { scene.cameraRig?.fitLandscapeTable(viewSize: view.bounds.size) }
+                scene.cameraRig?.applyTopDown2D()
+            case .topDown2DRotated:
+                if autoFitsRotatedTable { scene.cameraRig?.fitRotatedTable(viewSize: view.bounds.size) }
+                scene.cameraRig?.applyTopDown2DRotated()
+            case .perspective3D:
+                scene.cameraRig?.update(deltaTime: 0)
+            }
+        }
+
         func updateViewport(_ size: CGSize) {
             // The rig can be installed after makeUIView/first layout.
             scene.cameraRig?.viewportSize = size
+            if let rig = scene.cameraRig, rig.usesTwoViewCameraControls,
+               let scnView, scnView.window != nil, let frame = twoViewReadableFrameInWindow {
+                let readable = scnView.convert(frame, from: nil).intersection(scnView.bounds)
+                if !readable.isNull, !readable.isEmpty {
+                    rig.setTwoViewReadableInsets(UIEdgeInsets(
+                        top: readable.minY - scnView.bounds.minY,
+                        left: readable.minX - scnView.bounds.minX,
+                        bottom: scnView.bounds.maxY - readable.maxY,
+                        right: scnView.bounds.maxX - readable.maxX))
+                }
+            }
             guard size != lastViewportSize else { return }
             lastViewportSize = size
             // Layout changes must still refit a stationary 2D table.
@@ -384,16 +886,23 @@ struct AngleSceneView: UIViewRepresentable {
             guard let scnView, let displayLink else { return }
             let gestureActive = scnView.gestureRecognizers?.contains { $0.state == .began || $0.state == .changed } ?? false
             var active = (contentIsAnimating ?? true) || gestureActive || scene.isCameraModeTransitioning
+                || (scene.cameraRig?.temporaryTopDownActive == true && scene.cameraRig?.usesMergedCamera != true)
                 || (scene.cameraRig?.isTransitioning ?? false)
                 || (cameraMode == .perspective3D && (scene.cameraRig?.hasPendingDamping ?? false))
                 || CACurrentMediaTime() < interactiveUntil
             // Preserve SceneKit cue strokes, fades and selection pulses even when
             // the view model has no physics playback in progress.
             if !active {
+                // Render-thread action completion may release SceneKit's action storage.
+                // Read the graph and animation state under SceneKit's global transaction lock.
+                SCNTransaction.lock()
                 active = scene.rootNode.hasActions || !scene.rootNode.animationKeys.isEmpty
-                scene.rootNode.enumerateChildNodes { node, stop in
-                    if node.hasActions || !node.animationKeys.isEmpty { active = true; stop.pointee = true }
+                if !active {
+                    scene.rootNode.enumerateChildNodes { node, stop in
+                        if node.hasActions || !node.animationKeys.isEmpty { active = true; stop.pointee = true }
+                    }
                 }
+                SCNTransaction.unlock()
             }
             let wasActive = needsContinuousUpdates
             needsContinuousUpdates = active
@@ -459,6 +968,9 @@ struct AngleSceneView: UIViewRepresentable {
         /// other axis's deltas are dropped for the rest of the gesture.
         /// Eliminates "vertical drag also rotates yaw" cross-axis bleed.
         private enum PanAxis { case horizontal, vertical }
+        private var surfaceTouchOrigin: CGPoint?
+        private var surfacePanLastLocation: CGPoint?
+        private var surfaceAxisLock = SurfacePanAxisLock()
         private var panDominantAxis: PanAxis?
         private var panCumX: CGFloat = 0
         private var panCumY: CGFloat = 0
@@ -546,6 +1058,7 @@ struct AngleSceneView: UIViewRepresentable {
                 #endif
             }
             if let scnView { updateViewport(scnView.bounds.size) }
+            updateTemporaryTopDownOverlay()
             updateFramePacing()
             let dt: Float
             if lastTimestamp == 0 {
@@ -573,6 +1086,10 @@ struct AngleSceneView: UIViewRepresentable {
             }
 
             guard !scene.isCameraModeTransitioning, draggedNode == nil else { return }
+            // SwiftUI can deliver the new binding after the scene has already switched.
+            // A stale 2D frame must not reacquire projection ownership over a 3D entry.
+            if scene.cameraRig?.usesTwoViewCameraControls == true,
+               cameraMode != scene.currentCameraMode { return }
 
             switch cameraMode {
             case .topDown2D:
@@ -587,6 +1104,26 @@ struct AngleSceneView: UIViewRepresentable {
                 scene.cameraRig?.applyTopDown2DRotated()
             case .perspective3D:
                 scene.cameraRig?.update(deltaTime: dt)
+                #if DEBUG
+                if cameraObservationActive, let rig = scene.cameraRig,
+                   let snapshot = rig.twoViewSnapshot, let camera = scene.cameraNode {
+                    twoViewHeldSamples += 1
+                    let pose = TwoViewCamera.Pose(eye: camera.simdWorldPosition,
+                        orientation: camera.simdWorldOrientation,
+                        fov: Float(camera.camera?.fieldOfView ?? 55))
+                    let baseline = snapshot.defaultPose ?? snapshot.firstPersonBase ?? snapshot.pose
+                    let movement = simd_length(pose.eye - baseline.eye)
+                        + abs(simd_dot(pose.forward, baseline.forward) - 1)
+                    // Surface default follows the current bearing, so peak distance cannot identify
+                    // the release pose. Record the latest rendered held sample for this controller.
+                    if snapshot.simpleShot?.surface != nil || movement > twoViewHeldPeak {
+                        twoViewHeldPeak = movement
+                        twoViewHeldPose = pose
+                        twoViewHeldProgress = snapshot.progress
+                        twoViewHeldYaw = snapshot.yaw
+                    }
+                }
+                #endif
                 // Smooth transitions and manual observation own the pivot.
                 // A competing per-frame translatePivot would fight their pose
                 // or drag a chosen ball/pocket focus back toward the cue ball.
@@ -699,6 +1236,16 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
+            if scene.cameraRig?.temporaryTopDownActive == true { handleOverlayPan(gesture); return }
+            let surfacePan = scene.cameraRig?.usesSurfaceCamera == true
+            if [.ended, .cancelled, .failed].contains(gesture.state), !surfacePan { finishCameraObservation() }
+            defer {
+                if surfacePan, [.ended, .cancelled, .failed].contains(gesture.state) {
+                    finishCameraObservation()
+                    surfacePanLastLocation = nil
+                    surfaceTouchOrigin = nil
+                }
+            }
             #if DEBUG
             if dragProbeEnabled { dragProbePanCount += 1 }
             #endif
@@ -726,7 +1273,7 @@ struct AngleSceneView: UIViewRepresentable {
                 panCumY = 0
                 let current = gesture.location(in: scnView)
                 let translation = gesture.translation(in: scnView)
-                let location = CGPoint(x: current.x - translation.x, y: current.y - translation.y)
+                let location = surfacePan ? (surfaceTouchOrigin ?? current) : CGPoint(x: current.x - translation.x, y: current.y - translation.y)
                 if let ball = hitTestBall(at: location) {
                     daily3DDiagnostics?.setInteraction(.tablePan, stage: .aim, active: true)
                     #if DEBUG
@@ -764,7 +1311,17 @@ struct AngleSceneView: UIViewRepresentable {
                     let cur = gesture.location(in: scnView)
                     if let pivot = aimPivotScreen {
                         let deg = AngleSceneCalculator.aimNudgeDegrees(cueScreen: pivot, from: lastAimTouch, to: cur)
-                        if deg != 0 { onAimNudged?(deg) }
+                        if deg != 0 {
+                            onAimNudged?(deg)
+                            #if DEBUG
+                            if cameraMode != .perspective3D {
+                                ordinary2DAimSamples += 1
+                                if scene.cameraNode.camera?.usesOrthographicProjection != true {
+                                    ordinary2DProjectionViolations += 1
+                                }
+                            }
+                            #endif
+                        }
                     }
                     lastAimTouch = cur
                     return
@@ -784,6 +1341,7 @@ struct AngleSceneView: UIViewRepresentable {
                 panDominantAxis = nil
                 panCumX = 0
                 panCumY = 0
+                if scene.cameraRig?.usesTwoViewPoseControl == true, !surfacePan { return }
 
 
             default:
@@ -795,6 +1353,54 @@ struct AngleSceneView: UIViewRepresentable {
 
             switch cameraMode {
             case .perspective3D:
+                if rig.usesTwoViewPoseControl {
+                    if rig.usesSurfaceCamera {
+                        applySurfacePan(gesture, rig: rig)
+                        return
+                    }
+                    guard gesture.state == .changed else {
+                        gesture.setTranslation(.zero, in: gesture.view)
+                        return
+                    }
+                    panCumX += translation.x
+                    panCumY += translation.y
+                    if panDominantAxis == nil,
+                       max(abs(panCumX), abs(panCumY)) >= (rig.usesSimpleCueCamera ? 8 : panAxisLockThreshold),
+                       max(abs(panCumX), abs(panCumY)) >= min(abs(panCumX), abs(panCumY)) * (rig.usesSimpleCueCamera ? 1.3 : 1.25) {
+                        panDominantAxis = abs(panCumX) > abs(panCumY) ? .horizontal : .vertical
+                    }
+                    guard let axis = panDominantAxis else {
+                        gesture.setTranslation(.zero, in: gesture.view)
+                        return
+                    }
+                    if !cameraObservationActive {
+                        cameraObservationActive = true
+                        if let onCameraObservationBegan { onCameraObservationBegan() }
+                        else { rig.prepareTemporaryObservation(cue: scene.cueBallNode?.position ?? SCNVector3Zero,
+                            aim: rig.observationCandidates.last.map { $0 - (scene.cueBallNode?.position ?? SCNVector3Zero) } ?? SCNVector3(1, 0, 0)) }
+                        #if DEBUG
+                        twoViewHeldSamples = 0
+                        twoViewHeldPeak = -.infinity
+                        twoViewHeldPose = nil
+                        twoViewGestureAxis = axis == .horizontal ? "horizontal" : "vertical"
+                        #endif
+                    }
+                    let dx = axis == .horizontal ? Float(translation.x) : 0
+                    let dy = axis == .vertical ? Float(translation.y) : 0
+                    #if DEBUG
+                    twoViewPanDX += dx
+                    twoViewPanDY += dy
+                    #endif
+                    if dx != 0 {
+                        if rig.usesSimpleCueCamera, !rig.usesSurfaceCamera, rig.twoViewMode == .thirdPerson,
+                           let onThirdPersonAimNudged {
+                            onThirdPersonAimNudged(dx * 64 / Float(max(1, scnView.bounds.width)))
+                        } else { rig.handleHorizontalSwipe(delta: dx) }
+                    }
+                    if dy != 0 { rig.handleVerticalSwipe(delta: dy) }
+                    gesture.setTranslation(.zero, in: gesture.view)
+                    return
+                }
                 // Track cumulative motion to decide a dominant axis once
                 // the user has made a clear directional intent (>12px).
                 // After the lock, deltas on the perpendicular axis are
@@ -819,6 +1425,35 @@ struct AngleSceneView: UIViewRepresentable {
             gesture.setTranslation(.zero, in: gesture.view)
         }
 
+        /// Lock to the first recognized pan direction, with no extra threshold.
+        /// Keep the chosen axis until release; discard perpendicular finger drift.
+        /// Deliver touch-down→began and the final ended sample exactly once.
+        private func applySurfacePan(_ gesture: UIPanGestureRecognizer, rig: CameraRig) {
+            guard let scnView, [.began, .changed, .ended].contains(gesture.state) else { return }
+            let location = gesture.location(in: scnView)
+            let previous = surfacePanLastLocation ?? surfaceTouchOrigin ?? location
+            surfacePanLastLocation = location
+            let delta = surfaceAxisLock.filter(SIMD2(Float(location.x - previous.x), Float(location.y - previous.y)))
+            let dx = delta.x, dy = delta.y
+            guard dx != 0 || dy != 0 else { return }
+            if !cameraObservationActive {
+                cameraObservationActive = true
+                onCameraObservationBegan?()
+                #if DEBUG
+                twoViewHeldSamples = 0
+                twoViewHeldPeak = -.infinity
+                twoViewHeldPose = nil
+                twoViewGestureAxis = surfaceAxisLock.axis == .horizontal ? "horizontal" : "vertical"
+                #endif
+            }
+            #if DEBUG
+            twoViewPanDX += dx
+            twoViewPanDY += dy
+            #endif
+            rig.handleSurfacePan(delta: SIMD2(dx, dy))
+            gesture.setTranslation(.zero, in: gesture.view)
+        }
+
         /// Two-finger pan: 2D camera pan on every table page (DR-296), including pages whose
         /// single finger is reserved for ball drag / aim nudge (`tapsOnly`). No-op at 1× (clamped).
         @objc func handleTwoFingerPan(_ gesture: UIPanGestureRecognizer) {
@@ -833,6 +1468,8 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+            if [.ended, .cancelled, .failed].contains(gesture.state) { finishCameraObservation() }
+            guard scene.cameraRig?.temporaryTopDownActive != true else { return }
             if gesture.state == .began, gesturesEnabled, interactionMode == .cameraControl,
                cameraMode == .perspective3D, draggedNode == nil {
                 daily3DDiagnostics?.input(.tablePinch, intent: .orbit)
@@ -847,7 +1484,21 @@ struct AngleSceneView: UIViewRepresentable {
             switch cameraMode {
             case .perspective3D:
                 guard interactionMode == .cameraControl else { return }
-                if gesture.state == .began, rig.usesShotAwareCamera {
+                if rig.usesTwoViewPoseControl {
+                    guard gesture.state == .changed, gesture.scale != 1,
+                          rig.twoViewMode == .thirdPerson else { return }
+                    if !cameraObservationActive {
+                        cameraObservationActive = true
+                        onCameraObservationBegan?()
+                        #if DEBUG
+                        twoViewHeldSamples = 0
+                        twoViewHeldPeak = -.infinity
+                        twoViewHeldPose = nil
+                        twoViewGestureAxis = "pinch"
+                        #endif
+                    }
+                }
+                if gesture.state == .began, rig.usesShotAwareCamera, !rig.usesTwoViewPoseControl {
                     let centre = gesture.location(in: scnView)
                     let radius = min(scnView.bounds.width, scnView.bounds.height) * 0.22
                     let candidate = rig.observationCandidates.compactMap { point -> (SCNVector3, CGFloat)? in
@@ -858,7 +1509,9 @@ struct AngleSceneView: UIViewRepresentable {
                     }.min { $0.1 < $1.1 }?.0
                     rig.beginObservationPinch(at: candidate)
                 }
-                rig.handlePinch(scale: Float(gesture.scale))
+                if !rig.usesTwoViewPoseControl || gesture.scale != 1 {
+                    rig.handlePinch(scale: Float(gesture.scale))
+                }
             case .topDown2D, .topDown2DRotated:
                 // 2D zoom is available on every table page; zoom about the pinch centre.
                 let centre = gesture.location(in: scnView)
@@ -891,6 +1544,10 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
+            if scene.cameraRig?.temporaryTopDownActive == true {
+                if let view = scnView { handleOverlayTap(gesture.location(in: view)) }
+                return
+            }
             if gesturesEnabled, interactionMode != .none {
                 daily3DDiagnostics?.input(.tableTap, intent: .aim)
             }
@@ -981,6 +1638,7 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         #if DEBUG
+        private let dragProbeRendererID = UUID().uuidString
         private var dragProbePanCount = 0
         private var dragProbeGrabCount = 0
         private var dragProbeMoveCount = 0
@@ -995,7 +1653,7 @@ struct AngleSceneView: UIViewRepresentable {
                         "draggable": draggableBallNodes.contains(node)]
             }
             let transform = view.pointOfView?.worldTransform ?? SCNMatrix4Identity
-            let data: [String: Any] = ["panCount": dragProbePanCount, "grabCount": dragProbeGrabCount, "moveCount": dragProbeMoveCount, "balls": balls, "camera": [transform.m11, transform.m12, transform.m13,
+            let data: [String: Any] = ["rendererID": dragProbeRendererID, "panCount": dragProbePanCount, "grabCount": dragProbeGrabCount, "moveCount": dragProbeMoveCount, "balls": balls, "camera": [transform.m11, transform.m12, transform.m13,
                 transform.m21, transform.m22, transform.m23, transform.m31, transform.m32, transform.m33,
                 transform.m41, transform.m42, transform.m43]]
             do {
@@ -1061,6 +1719,31 @@ struct AngleSceneView: UIViewRepresentable {
     }
 }
 
+/// Layout callback is only consumed for the daily page's measured readable viewport.
+private final class LayoutAwareSceneView: SCNView {
+    var onLayout: (() -> Void)?
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onLayout?()
+    }
+}
+
+/// The recognizer supplies touch-down→began displacement first. It already applies
+/// its recognition threshold, so a second threshold would discard short gestures.
+struct SurfacePanAxisLock {
+    enum Axis { case horizontal, vertical }
+    private(set) var axis: Axis?
+
+    mutating func filter(_ delta: SIMD2<Float>) -> SIMD2<Float> {
+        guard delta.x.isFinite, delta.y.isFinite, delta != .zero else { return .zero }
+        if axis == nil {
+            // Exact diagonal ties pick horizontal instead of waiting indefinitely.
+            axis = abs(delta.x) >= abs(delta.y) ? .horizontal : .vertical
+        }
+        return axis == .horizontal ? SIMD2(delta.x, 0) : SIMD2(0, delta.y)
+    }
+}
+
 // MARK: - Pan arbitration against ancestor scroll views
 
 extension AngleSceneView.Coordinator: UIGestureRecognizerDelegate {
@@ -1068,6 +1751,15 @@ extension AngleSceneView.Coordinator: UIGestureRecognizerDelegate {
         // Called at touch-down, before pan recognition or tap release. A new hand
         // interaction invalidates the previous delayed acknowledgement immediately.
         scene.cancelPocketSelectionFeedback()
+        if gestureRecognizer === panGesture, scene.cameraRig?.usesSurfaceCamera == true, let scnView {
+            surfaceTouchOrigin = touch.location(in: scnView)
+            surfacePanLastLocation = nil
+            surfaceAxisLock = SurfacePanAxisLock()
+        }
+        if gestureRecognizer === panGesture, scene.cameraRig?.usesMergedCamera == true,
+           scene.cameraRig?.temporaryTopDownActive == true, let scnView {
+            mergedTouchOrigin = touch.location(in: scnView)
+        }
         return true
     }
     /// Whether the single-finger pan has any work to do for the current mode. When it does not

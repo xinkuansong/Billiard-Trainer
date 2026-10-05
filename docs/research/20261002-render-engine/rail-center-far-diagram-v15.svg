@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="570" viewBox="0 0 1060 570">
+<rect width="1060" height="570" fill="#f8fafc"/>
+<style>text{font-family:Arial,sans-serif;fill:#1e293b}</style>
+<text x="30" y="34" font-size="22">Orbit position and gaze direction are separate</text>
+<text x="30" y="58" font-size="14">Illustrative plan view; arbitrary 8-degree offset eases toward zero. Not a production rail.</text>
+<rect x="245.85" y="247.925" width="368.3" height="184.15" fill="#e0f2fe" stroke="#0284c7" stroke-width="3"/>
+<circle cx="430" cy="340" r="5" fill="#0f172a"/>
+<text x="435" y="333" font-size="15">Table center C</text>
+<line x1="821.5" y1="340.0" x2="430" y2="340" stroke="#94a3b8" stroke-dasharray="6 5"/>
+<line x1="821.5" y1="340.0" x2="245.85000000000005" y2="420.9023314964316" stroke="#d97706" stroke-width="2.5"/>
+<circle cx="821.5" cy="340.0" r="6" fill="#d97706"/>
+<circle cx="433.8100510876752" cy="394.4862690258656" r="5" fill="#d97706"/>
+<circle cx="245.85000000000005" cy="420.9023314964316" r="5" fill="white" stroke="#d97706" stroke-width="2"/>
+<text x="831.5" y="331.0" font-size="14">orbit 0.0, offset 8.0 deg</text>
+<line x1="791.6988369781689" y1="190.17943622906736" x2="430" y2="340" stroke="#94a3b8" stroke-dasharray="6 5"/>
+<line x1="791.6988369781689" y1="190.17943622906736" x2="306.53139424929566" y2="432.075" stroke="#2563eb" stroke-width="2.5"/>
+<circle cx="791.6988369781689" cy="190.17943622906736" r="6" fill="#2563eb"/>
+<circle cx="441.3320344109759" cy="364.8658800615575" r="5" fill="#2563eb"/>
+<circle cx="306.53139424929566" cy="432.075" r="5" fill="white" stroke="#2563eb" stroke-width="2"/>
+<text x="801.6988369781689" y="181.17943622906736" font-size="14">orbit 22.5, offset 4.0 deg</text>
+<line x1="706.8323048345334" y1="63.167695165466625" x2="430" y2="340" stroke="#94a3b8" stroke-dasharray="6 5"/>
+<line x1="706.8323048345334" y1="63.167695165466625" x2="337.92499999999995" y2="432.075" stroke="#059669" stroke-width="2.5"/>
+<circle cx="706.8323048345334" cy="63.167695165466625" r="6" fill="#059669"/>
+<circle cx="430.0" cy="340.0" r="5" fill="#059669"/>
+<circle cx="337.92499999999995" cy="432.075" r="5" fill="white" stroke="#059669" stroke-width="2"/>
+<text x="716.8323048345334" y="54.167695165466625" font-size="14">orbit 45.0, offset 0.0 deg</text>
+<text x="30" y="488" font-size="15">Gray dashed: hard look-at-center reference. Color: adaptive horizontal center line.</text>
+<text x="30" y="512" font-size="15">Filled dot on bed: optical-axis intersection. Hollow dot: horizontal ray exit from inner table.</text>
+<text x="30" y="542" font-size="14">No HUD, actual outer rails, occlusion or perceptual acceptance has been validated.</text>
+</svg>

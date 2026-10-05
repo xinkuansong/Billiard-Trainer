@@ -10,6 +10,83 @@ import Metal
 /// - K8：瞄准线接 `AimLineGeometry`（接触红点 / 未接触到库边）截图落盘
 final class BreakFlowRunnerV6Tests: XCTestCase {
 
+    /// Retain the actual action closures to deterministically deliver obsolete work
+    /// after cancellation, without depending on the renderer/main-thread race window.
+    @MainActor
+    func testCancelledStrokeCannotOverwriteNewRackAddress() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        let scene = vm.scene
+        scene.setCameraMode(.perspective3D, animated: false)
+        scene.hideAllBalls()
+        let oldCue = SCNVector3(0.2, scene.surfaceY + AngleSceneCalculator.ballRadius, 0.25)
+        scene.showBall(key: PositionPlayBall.cueKey, scenePosition: oldCue)
+        var oldContacts = 0
+        scene.runCueStroke(strikePosition: oldCue, aim: SCNVector3(0, 0, -1), velocity: 8) {
+            oldContacts += 1
+        }
+        let stick = try XCTUnwrap(scene.cueStick)
+        let obsoleteAction = try XCTUnwrap(stick.rootNode.action(forKey: "strokeAnim"))
+        vm.beginDailyClearanceBreak(game: .nineBall, seed: 42, onOutcome: { _ in })
+        defer { vm.cancelDailyAttempt() }
+        let expectedPosition = stick.rootNode.simdPosition
+        let expectedRotation = stick.rootNode.simdOrientation
+        XCTAssertFalse(stick.rootNode.isHidden)
+        XCTAssertNil(stick.rootNode.action(forKey: "strokeAnim"))
+
+        let renderer = SCNRenderer(device: MTLCreateSystemDefaultDevice(), options: nil)
+        renderer.scene = scene
+        renderer.pointOfView = scene.cameraNode
+        let lateDelivery = SCNNode()
+        scene.rootNode.addChildNode(lateDelivery)
+        lateDelivery.runAction(obsoleteAction, forKey: "lateDelivery", completionHandler: nil)
+        var maxPositionError: Float = 0
+        var maxRotationError: Float = 0
+        var wasHidden = false
+        for frame in 0...210 {
+            let image = renderer.snapshot(atTime: 100 + Double(frame) / 60,
+                with: CGSize(width: 640, height: 400), antialiasingMode: .none)
+            await Task.yield()
+            maxPositionError = max(maxPositionError, simd_distance(stick.rootNode.simdPosition, expectedPosition))
+            maxRotationError = max(maxRotationError, 1 - abs(simd_dot(stick.rootNode.simdOrientation.vector, expectedRotation.vector)))
+            wasHidden = wasHidden || stick.rootNode.isHidden
+            if frame == 20 || frame == 210 {
+                let attachment = XCTAttachment(image: image)
+                attachment.name = "cancelled-stroke-new-rack-\(frame)"
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            }
+        }
+        print("[Rerack stale stroke] positionError=\(maxPositionError) rotationError=\(maxRotationError) oldContacts=\(oldContacts) hidden=\(wasHidden)")
+        XCTAssertLessThan(maxPositionError, 0.00001, "Cancelled frames must not restore the old strike origin")
+        XCTAssertLessThan(maxRotationError, 0.00001, "Cancelled frames must not restore the old direction")
+        XCTAssertEqual(oldContacts, 0, "Cancelled contact callbacks must not launch the old shot")
+        XCTAssertFalse(wasHidden, "Cancelled fade callbacks must not hide the newly addressed cue")
+    }
+
+    @MainActor
+    func testCancelledFadeCannotHideNewRack() throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        let stick = try XCTUnwrap(vm.scene.cueStick)
+        stick.show()
+        stick.fadeOut(duration: 0.2)
+        let obsoleteFade = try XCTUnwrap(stick.rootNode.action(forKey: "cueFade"))
+        vm.beginDailyClearanceBreak(game: .nineBall, seed: 42, onOutcome: { _ in })
+        let lateDelivery = SCNNode()
+        vm.scene.rootNode.addChildNode(lateDelivery)
+        lateDelivery.runAction(obsoleteFade, forKey: "lateFade")
+        let renderer = SCNRenderer(device: MTLCreateSystemDefaultDevice(), options: nil)
+        renderer.scene = vm.scene
+        renderer.pointOfView = vm.scene.cameraNode
+        for time in [0.0, 0.1, 0.3, 0.5] {
+            _ = renderer.snapshot(atTime: time, with: CGSize(width: 64, height: 64), antialiasingMode: .none)
+            XCTAssertFalse(stick.rootNode.isHidden)
+            XCTAssertEqual(stick.fadeOpacity, 1)
+        }
+    }
+
     private func positions(_ game: RackGame, seed: UInt64) -> [SCNVector3] {
         RackLayout.make(game, seed: seed).balls.map { $0.position }
     }
@@ -430,12 +507,13 @@ extension BreakFlowRunnerV6Tests {
         let expectedPivot = stick.simdPosition
         let expectedAngles = stick.simdEulerAngles
         // Allow queued callbacks and presentation updates from the old shot to drain.
-        for _ in 0..<(liveRendering ? 0 : 30) {
+        for _ in 0..<(liveRendering ? 150 : 30) {
             frame()
             try await Task.sleep(for: .milliseconds(16))
             XCTAssertEqual(cue.simdPosition, expectedCue)
             XCTAssertEqual(stick.simdPosition, expectedPivot)
             XCTAssertEqual(stick.simdEulerAngles, expectedAngles)
+            XCTAssertFalse(stick.isHidden)
         }
         runner.breakNow()
         let breakDeadline = Date().addingTimeInterval(20)

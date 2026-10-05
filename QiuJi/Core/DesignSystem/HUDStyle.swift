@@ -114,3 +114,35 @@ struct BTHudMetricSeparator: View {
             .frame(width: 1, height: HUDStyle.metricSeparatorHeight)
     }
 }
+
+
+private struct DailyHUDControlsKey: EnvironmentKey { static let defaultValue = false }
+private struct DailyHUDPressedKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    var dailyHUDControls: Bool {
+        get { self[DailyHUDControlsKey.self] }
+        set { self[DailyHUDControlsKey.self] = newValue }
+    }
+    var dailyHUDPressed: Bool {
+        get { self[DailyHUDPressedKey.self] }
+        set { self[DailyHUDPressedKey.self] = newValue }
+    }
+}
+
+/// Daily-only press feedback, preserving each control's existing shape and state.
+struct BTHUDPressStyle: ButtonStyle {
+    @Environment(\.dailyHUDControls) private var daily
+    @Environment(\.isEnabled) private var enabled
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.environment(\.dailyHUDPressed, daily && enabled && configuration.isPressed)
+    }
+}
+
+/// Put this behind the content, so feedback never recolors ball faces or labels.
+struct BTHUDControlBackground<S: Shape>: View {
+    let shape: S
+    var selected = false
+    var normal: Color = HUDStyle.controlBackground
+    @Environment(\.dailyHUDPressed) private var pressed
+    var body: some View { shape.fill(pressed || selected ? HUDStyle.selectedBackground : normal) }
+}

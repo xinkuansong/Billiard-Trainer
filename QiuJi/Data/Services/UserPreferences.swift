@@ -203,6 +203,11 @@ final class UserPreferences: ObservableObject {
         didSet { defaults.set(daily3DTrajectoryHidden, forKey: "dailyClearance.3DTrajectoryHidden") }
     }
 
+    /// White fill of the expanded daily spin disc: 0 = opaque, 1 = transparent.
+    @Published var dailySpinDiscTransparency: Double {
+        didSet { defaults.set(dailySpinDiscTransparency, forKey: "dailyClearance.spinDiscTransparency") }
+    }
+
     // 4×8 台面网格叠加（问题集合条 16，全球桌页面统一）。默认关闭。
     @Published var showTableGrid: Bool {
         didSet { defaults.set(showTableGrid, forKey: "showTableGrid") }
@@ -286,6 +291,8 @@ final class UserPreferences: ObservableObject {
         let detailRaw = defaults.object(forKey: "trajectoryDetail") as? Int
         self.trajectoryDetail = detailRaw.flatMap { TrajectoryDetail(rawValue: $0) } ?? .full
         self.daily3DTrajectoryHidden = defaults.bool(forKey: "dailyClearance.3DTrajectoryHidden")
+        let spinTransparency = defaults.object(forKey: "dailyClearance.spinDiscTransparency") as? Double ?? 0.5
+        self.dailySpinDiscTransparency = spinTransparency.isFinite ? min(1, max(0, spinTransparency)) : 0.5
 
         // 默认关闭（条 16）。
         self.showTableGrid = (defaults.object(forKey: "showTableGrid") as? Bool) ?? false

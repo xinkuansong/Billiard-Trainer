@@ -4624,3 +4624,311 @@ DR-345撤回（同日）：用户认为旗帜不适合同时用于2D/3D，要求
 - 验证：最终源码25项相关测试（含5专项）及标准屏iOS26.3/小屏iOS17各1原生UI均0失败；最终菜单、关闭、2D及恢复双线原图已审。编译、gate与文档体积门禁通过。真机无辅助瞄准体验未验，未提交发布；见 `tasks/DAILY-3D-TRAJECTORY-OFF-20261002.md`。
 
 用户追加（2026-10-02）：每日3D菜单按关闭/瞄准线/双线/全部，2D按瞄准线/双线/全部排序；仅每日清台将「双球」改称「双线」，共用三档rawValue和其它页面文案保持。
+
+## DR-348 / FL-097–098 — 两视角相机开发切片
+- 任务：W1/W2每日DEBUG候选；日期：2026-10-02。
+- 原始规范：双mode、TP固定算法轨道与FP固定眼位转头，依据用户观看任务和原生图像验收。
+- 调整后：独立TwoViewCamera actual state；按实际HUD/本杆包络选择TP入口，FP只在explicit entry检查真实table网格视线及母球接触ROI；同上下文分别记忆实际pose。
+- 原因：功能检查通过后原图发现真实库遮挡和主体过小；独立状态复审另给两条中间pose/旧context P1反例。
+- 解决/证据：见`tasks/TWO-VIEW-CAMERA-IMPLEMENTATION-20261002.md`、`tasks/ui-reviews/UR-20261002-two-view-camera.md`。不合并局部检查成W1/W2或38项全通过，不宣称渲染/能耗收益。
+- 已应用至：UI-IMPLEMENTATION-SPEC、docs/05、swiftui-design-system；ADR-P18-04记录开发边界。
+
+
+### DR-348 v0.2续修（2026-10-02）
+TP显式入口按轮廓分离和较小球近似投影尺度选向；near由冻结两球AABB/视锥外分支求得，H/FOV保持。轨道创建layout与当前readability分离，生产无解保持实际pose，重新接管不跳回旧轨道；三种摆球位移入口撤销旧entry记忆。稳态update不重复求近端。算法/状态独立只读复审及原生实图归属见实施§7与UR报告；未宣称全域安全、全部观看任务通过或渲染能耗收益。
+
+
+### DR-348 v1.4 / FL-099 — 用户打回TP轨道方向（2026-10-02）
+用户要求桌参照固定算法轨道，随进退/绕桌自适应俯角；前进渐靠近、降眼、放平，产生第一人称感觉。撤销本杆球/袋anchor、两球near和entryYaw作为TP设计；撤销固定H硬前提。方案§3和C02按新意图改写，实际旧源码尚未替换，历史58核心＋5UI及29图不能作为新方向验收。仅数值草稿/理论交叉审查，无构建/设备运行。已应用至：swiftui-design-system §FL-099、UI-IMPLEMENTATION-SPEC、docs/05、docs/00、ADR-P18-05、PROGRESS及Hub。
+
+DR-348 v1.5理论补充：用户提出视野中心/远端连续适配，明确短库绕行时中心线渐收向过台心方向。方案/验收补轨道θ与gaze ψ分离、可读中央带、远侧区域同pose连续；任意8°草稿仅方法示例，无生产参数/运行验收。已应用至：swiftui-design-system、UI-IMPLEMENTATION-SPEC、docs/00、docs/05、PROGRESS与Hub。远端术语当前按画面远侧理解，源码未改。
+
+
+### 2026-10-02 / DR-348 v1.5 实施回填（覆盖此前“未实施”状态）
+
+用户授权后，TP已替换为桌/房间/实际HUD生成的联合r/h/pitch/gaze轨道：首次及全桌复位s=1；上滑靠近/降眼/放平，下滑后退/升眼/俯看；横滑绕桌，眼位方位与视线朝向分离。55°固定镜头，96周期C1缓存节点；创建时求构图、运行时插值，选球袋不搬TP机位，FP旧杆记忆按真实意图变化失效。layout变化下一有效输入从实际pose重接，零/无效输入不抢控制。
+
+新版62核心通过；6原生UI分别通过（综合包5通过/1测试朝向诊断混用失败，单项修测试重跑通过，生产源码一致），46原生整屏图主控全部实看。TP短/长/斜far与六球形默认六袋完整、near低位成立；near部分球/线受库体/HUD遮挡，FP3/4/13母球下缘遮挡仍开放。仅每日DEBUG候选，完整38项/W1/W2与真机/连续mesh安全未放行；渲染R/P未实施，无GPU或能耗结论。候选未提交或再次push。事实真源：`tasks/TWO-VIEW-CAMERA-IMPLEMENTATION-20261002.md` §8、`tasks/ui-reviews/UR-20261002-table-rail-camera.md`；原图：`output/table-rail-camera-20261002/index.html`。旧v0.2证据属于被打回版本。
+
+
+### DR-348 v2.1 — 旧站位、推荐TP与透明俯视层（2026-10-03）
+
+- 用户源：查旧TP距离；推荐球后自动进其TP；临时俯视标准铺满、按当前TP决定开球线短库朝向；抠桌叠原3D，不黑底、不改原3D效果。
+- 实现：旧沿杆setback/eye/lens适配重新接轨道；target/pocket/context一次选球相机事件；clone-only独立正交snapshot＋透明UIImageView，主相机/room不动、持有不重复draw。
+- 根因/验证与边界：详见实施§10，正在定向构建与原生截图验收；v2最终定向记录补入§9.3，旧LP呈现被覆盖，FP实体遮挡不冒充已修。
+- 已应用至：方案§0、验收§0、UI-IMPLEMENTATION-SPEC最新DR-348 v2.1、swiftui-design-system最新DR-348 v2.1、docs/05、docs/00、CAMERA-RENDER-CONTRACT、P18 ADR-P18-07、PROGRESS与Hub。
+
+2026-10-03 / DR-348 v2.1定向收尾：旧站位/lens、有效推荐TP、透明真实桌俯视已实现；核心80唯一项分包通过，标准8方法分包、SE2项通过；最后busy唤醒修后手选/力度和真实杆末推荐同包2/0。标准16＋SE17有效LP相关PNG独立实看，8透明原PNG alpha验证，原FP边界仍开放。FL-101/102/103定向修复。最终device Debug/-O及严格签名通过，覆盖安装CoreDevice1011/unavailable失败，无新启动PID；手机连接恢复后重装。实施§10及UR-20261003-shot-camera-overlay为证据入口，R/P及热/能耗未验。
+
+
+### 2026-10-03 / DR-348 v3.1 横屏构图与第三人称松手保持
+
+覆盖 v2/v2.1 的 TP 临时回位契约：第三人称分轴拖动松手保持实际姿态，清空残余目标；再次拖动保留另一观察参数，同缓存轨道不重复量化反解。TP 按钮明确回本杆默认，新目标仍自动进入对应 TP；FP 转头松手回正、三个图标及透明横桌长按叠层保持。页面释放回调只对 FP 请求归正，避免覆盖底层保持（FL-104）。
+
+横屏默认/近/远分别以可读 HUD 域中母球约 70%/78%/61% 高度作为软偏好，由球体包络和真实袋嘴可见区间约束；距离/眼高/俯角联合推进，同杆 FOV 保持，远端台面占比偏好 50% 并保原缩水护栏。横滑小角度稳定母球，大角度构图向桌心收拢；右拖前方参照向右的符号经独立正反方向投影验证。比例不是所有球形强制位置，也不构成实体遮挡或用户舒适性证明。
+
+代码已接入每日 DEBUG 候选，实际验证/截图/手机状态以 `tasks/ui-reviews/UR-20261003-landscape-camera-v31.md` 为准；未提交、未转正式默认。渲染 R/P 与能耗不在本轮完成范围。
+
+本轮最终补真实球体切圆轮廓/库体视线约束、抬眼后重拟合及缓存边界余量（FL-105）。最终核心 44/0、标准原生 10/0、小屏 2/0，97 张原生截图和长按抽帧完成定向审查；实际证据及小屏材质差异、行程受限等边界见上述审查报告。
+
+### 2026-10-04 / DR-348 v4 — 两变量相机试用与 FL-106
+
+新增 SimpleShot 解析轨道：只保留真实瞄准角与距离，固定水平镜头；手势横向调用 VM 真实瞄准，竖向直接更新距离和俯角。新入口绕过 v3.1 ShotRailProfile 的占比/远端/遮挡拟合。取消迟到推荐镜头请求，避免手动转向后被拉回。独立 DEBUG 开关 simpleCamera 保留旧 twoViewCamera 便于比较。并修复原有母球提示动画覆盖导入比例（FL-106）。验证与手机交付状态见 UR-20261003-landscape-camera-v31.md 最新 v4 补充，旧版成绩不代替本版证据。
+
+
+### DR-322 r2 — 每日清台开球停稳直接继续（2026-10-04）
+
+用户取消开球后自动弹出的“重新开球 / 完成”。每日开球仍由玩家主动击球，停稳后通过既有 autoDeliverOnSettle 直接交付散局、计分与规则裁决；2D/3D 不再出现通用开球完成选择或切视图补弹。主动点击开球按钮仍显示“重新开球 / 继续击球”，开球犯规的规则处置选择独立保留。普通自由击球及编排页手动完成契约不变。
+
+- **回写目标 / 已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md`、`tasks/UI-IMPLEMENTATION-SPEC.md` § DR-322 r2 与 Changelog（2026-10-04）。
+- **验证**：见 `tasks/ui-reviews/UR-20261004-break-no-prompt.md`；本次18核心+3交互通过，4张原图已审；额外旧规则UI文案断言失败单列，未宣称全量通过。
+
+
+### DR-326 r2 — 每日清台击球按钮按下反馈（2026-10-04）
+
+按用户要求，每日清台 2D/3D 共用击球按钮常态使用 `HUDStyle.controlBackground` 与 `btText`，和相邻 HUD 控件同色；仅 `ButtonStyle.Configuration.isPressed` 为 true 时使用 `HUDStyle.accent` / `onAccent`，松开或取消恢复。保留圆形尺寸、描边、禁用透明度与原击球动作。
+
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-326 r2、`tasks/UI-IMPLEMENTATION-SPEC.md` § DR-326 r2 与 Changelog。
+- **验证**：见 `tasks/ui-reviews/UR-20261004-daily-strike-style.md`。
+
+
+### 2026-10-04 / DR-348 v5 — 实验合并与临时俯视功能边界
+
+仅 `-dailyClearance.mergedCamera`：三图标为生产全局观察、第三人称、点击俯视。全局手势不修改瞄准；第三人称保持v4默认与真实瞄准，上滑近端为原FP完整机位、下滑远端试2.0m，独立FP入口映射到TP。临时俯视限定选目标球、选袋口、规则允许的母球拖放，桌内操作不退出；不含完整2D的力度/打点/击球/回放/任意缩放。副视图独立正交坐标，业务仍由现有VM/规则处理；镜头只由当前主模式驱动。纯查看关闭保持原机位，修改后有效解进入TP，无效解保留选择并反馈。接口：CameraRig.usesMergedCamera/mergedGlobalActive/usesTwoViewPoseControl；AngleSceneView.onTemporaryTopDownDismiss/topDownContentRevision；旧simpleCamera与正式默认继续独立。
+
+- **回写目标 / 已应用至**：`tasks/LANDSCAPE-SHOT-CAMERA-PLAN-20261003.md` v5、`tasks/UI-IMPLEMENTATION-SPEC.md`、`.cursor/skills/swiftui-design-system/SKILL.md`、`docs/05-信息架构与交互设计.md`、`docs/00-讨论记录.md`。
+- **验收**：本轮正在验证，以 `tasks/ui-reviews/UR-20261004-merged-camera.md` 最终记录为准；不复用v4/更早截图结论，不宣称手机舒适度或能耗已获验收。
+
+
+2026-10-04 / FL-108：合并相机俯视首次精确拖动UI断言发现45pt→35pt位移损失；修复真实touch-down抓取偏移与ended最终坐标提交，不放宽断言。已回写swiftui-design-system与UI-IMPLEMENTATION-SPEC；复验见UR-20261004-merged-camera.md。
+
+
+DR-348 v5 / FL-108定向收尾（2026-10-04）：核心11/0与4个原生方法分包通过、25张截图已审；精确拖动45pt位移及三种摆球权限保持原断言通过。真机Debug/-O构建签名成功，有线覆盖安装并启动mergedCamera（PID18456实查）。手机手感待用户反馈；未提交转正，无能耗结论。证据见UR-20261004-merged-camera.md。
+
+### DR-348 S1 — 独立曲面相机手感实验（2026-10-04）
+- 用户授权：认可离线曲面的初步方向，要求先做版本试手感，并明确单独实验版本。
+- 实现：S1函数移植至CameraSurface；复用TwoViewCamera的单一姿态/快照/代次，外沿不交给旧全局控制器。近区固定距离参数化，横滑全程观察，瞄准由方向尺控制；新的显式沿杆入口更新曲面参考，普通杆姿刷新不带镜头。
+- 隔离：生成独立CameraSurfaceLab工程、Info.plist与bundle `com.xinkuan.qiuji.camerasurface`；应用名“球迹·曲面实验”。生产配置不内置开关，手机原App不覆盖；本地存储由独立容器隔离。
+- 验证：最终独立Python参考姿态对拍、几何/所有权5项及原生UI2项通过（含真实击球至下一杆），最终8张截图留证，击球前后与既有6视角定向审查完成。设备Debug/-O包构建和签名校验通过；手机断开，尚未安装。首轮UI误用旧“离默认最远帧”作为松手前样本，因当前曲面默认随bearing变化而不适用；改成记录该控制器最后一个真实持触帧，保留原断言，r2通过。失败日志完整保留。
+- 构建：独立工程路径配置初次失败留证，改正源文件/配置绝对路径与生成根后编译成功。原共享模拟器launch bridge挂起，采样留证并中断本任务测试，在独立Camera Surface S1模拟器验证。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md § DR-348 S1；tasks/UI-IMPLEMENTATION-SPEC.md § DR-348 S1（2026-10-04）。最终结果见tasks/ui-reviews/UR-20261004-camera-surface-s1.md。
+
+DR-348 S1 / 23:01交付补记（2026-10-04）：用户要求现在安装，iPhone16Pro连接恢复。独立bundle安装成功并启动PID19676，进程复查存在；设备App清单同时含原球迹与球迹·曲面实验。证据install.json/launch.json/device-apps-after.json/device-processes-after.json；手感待用户试用。
+
+### DR-348 S2 / FL-109 — 独立曲面响应返工（2026-10-05）
+用户认可整体方向但反馈横向反转、涩手与位置相关变速，并授权做下一试用版。根因与修复见FAILURE-LOG FL-109；仅修改实验曲面输入映射及手势分支，S1几何公式/默认位置不变。核心与原生验证中，手机暂不可连接，尚未安装S2。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md § DR-348 S2 / FL-109；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+### FL-110 — 封面镜像请求扩大为重新设计（2026-10-05）
+- 用户要求已有封面配合视频镜像；首轮重排标题装饰与场景，用户重新发送原封面并确认只镜像。
+- 根因：把系列样式参考当成重新设计授权，未锁定原图的保留区域。
+- 修订：以用户原图为唯一编辑底稿，顶部标题/装饰保持原样，下方场景与小窗左右镜像、字形正向；cover-r1为历史，r2为当前待审。
+- 验证：941×1672，标题/布局/文字方向目视检查，源副本SHA-256一致；生成式编辑不宣称像素相等，待用户验收。
+- 已应用至：.cursor/rules/00-orchestrator.mdc § FL-110；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+S2复验补充 / FL-112：最终核心8/0和原生2/0，真实击球用例进页前一次SIGSEGV；保留SceneKit.hasActions崩溃栈，不作为简单超时。原源码单独重跑通过仍不足以关闭风险；增加SceneKit事务全局锁保护复合动作扫描，补既有真实动作唤醒/停止测试并复跑相关最终源码。已应用至swiftui-design-system FL-112与UI-IMPLEMENTATION-SPEC Changelog。设备包需按此最终源码重建。
+
+S2最终交付记录（2026-10-05）：s2-guard-validation.log TEST SUCCEEDED，8相机核心+1实际SceneKit动作唤醒/停止+3原生UI=12/0；最终10张PNG留证，默认/近/远/斜拖/短反向/下一杆/俯视7张已审。独立设备最终build与codesign严格检查通过，冻结包build/camera-surface-experiment/S2/球迹.app，s2-identity.json记录哈希。手机持续unavailable，未安装S2；等待连接后安装并试手感，保留S1应用数据。早期增益下限失败与启动hasActions崩溃均留证，FL-112同步保护复验范围明确，不声称全SceneKit并发问题根治。
+
+S2安装补记（2026-10-05 04:10）：用户明确要求安装，iPhone16Pro已连接。安装前核对冻结S2二进制SHA256一致；更新独立bundle成功并启动PID20873，进程复查存在，原球迹/实验版并存实查，未卸载或重置数据。证据s2-install.json、s2-launch.json、s2-apps-after.json、s2-processes-after.json；用户手感待反馈。
+
+
+### DR-348 S2 — 生产默认接入（2026-10-05）
+用户试用后明确要求替换生产代码。VM在DEBUG外按每日宿主启用四个配套控制开关，移除CameraRig.surfaceExperimentEnabled及Info.plist依赖；DEBUG显式历史参数保留回归入口。S2几何/方向/增益/积分不改。新增普通宿主默认与非每日隔离测试，原生surface用例不再传相机参数，复用俯视编辑/规则摆球验收。普通Debug包15项定向回归全部通过（10核心/场景+5原生UI），Release generic iOS无签名构建与双配置普通bundle身份检查通过；17图留证/4图已审，gate/doc-size/diff通过。手机普通App本轮未覆盖，未提交发布；全域遮挡与持续性能待验。见UR-20261005-camera-surface-production.md。另修正文档重复编号：SceneKit动作扫描崩溃为FL-112，封面镜像FL-110不变。
+
+
+### DR-348 S3 / FL-114 — 固定帧率下的运动连续性（2026-10-05）
+用户确认没有掉帧，授权处理运动顿挫。TwoViewCamera拆分目标/显示曲面，以33ms真实输入缓存和时戳重采样；AngleSceneView合并横纵，CameraRig不再在手势回调提交曲面节点。按钮沿CameraSurface参数插值，打断用当前显示曲面；快照序列化显示状态，换杆/恢复取消旧样本。保留S2几何与响应算法。验证进行中，见UR-20261005-camera-surface-s3.md。
+
+S3验收补记：13核心中的外沿新增世界位移CV阈值首次失败，改用连续输入参考轨迹隔离时间波动并追加<5% RMS限制；原始失败保留。5原生UI＋1动作周期通过，最终边界修订后2原生UI复验通过，Release最终构建通过。最终核心复跑被共享BreakRackPhysicsTests:788编译错误阻塞，本次命令临时排除此无关文件再验；不修改其源码/断言。门禁首轮共享登记漂移，最终复跑通过。详S3报告。
+
+S3最终：core-isolated实际13/0，近区/默认/外沿×60/120Hz六组相对连续输入逐帧位移RMS误差0.0164%～0.8775%；外沿参考CV0.421证明此前世界等速口径错误。19不同定向用例覆盖（13核心/1场景/5UI），最新边界后两UI复验通过；最终Release/gate/doc-size/diff通过。测试隔离方式与所有失败日志保留S3报告。未安装手机、未提交发布，33ms跟随延迟的手感待用户试用。
+
+
+DR-348 S3半灵敏度（2026-10-05）：用户要求横纵都降一半后试用；CameraSurface屏幕响应0.65→0.325、上限×4→×2，捏合共用纵向映射，33ms时间缓存/几何不变。构建普通设备包，手机已连接；本轮证据`build/camera-surface-half-20261005/`，验证安装进行中。
+
+S3半灵敏度交付：15项定向测试通过（13核心+2原生UI），192屏幕响应样本0.30478～0.32514；设备Debug-O构建/签名/普通bundle检查通过。2026-10-05 05:39已更新普通球迹并启动PID21570，进程复查存在；数据未重置、实验App保留。手机手感待反馈，未发布。回执与哈希见build/camera-surface-half-20261005/。
+
+
+### DR-348 S4 — 等高环线试用（2026-10-05）
+用户授权试做左右等高/上下改高度。CameraSurface改为方位独立的高度层，默认0.65m/1.65m保留，外圈1.80m，近端按最近库距统一预留。高度/距离使用单调Hermite共享中点切线，帧间插值跟随高度层；半灵敏度/33ms保留。14核心+5原生UI共19项通过；Debug-O设备构建、签名与verify-gate通过。05:57:55已更新并启动iPhone16Pro普通球迹com.xinkuan.qiuji（PID21734），未卸载/清数据。18张UI截图导出，抽检近端/外圈/中间等高圈3张未见异常；仍待真机手感反馈。旧S1独立参考因曲面契约变化替换为S4独立Python双精度参考，旧源码/测试与新oracle留在build/camera-surface-s4-20261005/。详S4报告。
+
+
+### DR-348 S5 — 曲面手势分轴（2026-10-05）
+用户要求横纵隔离。每日3D曲面单指拖动在系统识别时，以touch-down到began的主要位移锁定横/纵轴；本次按住期间忽略另一轴，松手/取消/新触摸后重选。正好等分的斜向取横轴，不设额外距离或方向比例门槛；保留首段与ended末段在选中轴上的位移。横向等高、纵向保持bearing，半灵敏度0.325与33ms重采样不变，俯视摆球和捏合不套用此锁轴。新增状态过滤器序列验证、原生偏轴拖动/换轴回归；16核心+5UI最终21项通过（FL-115断言修订后复跑），gate、Debug-O设备构建和严格签名验证通过；安装时手机断连（CoreDevice1011，复查unavailable），未更新手机，待重新连接。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-348 S5、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog、`docs/05-信息架构与交互设计.md`（2026-10-05）。
+
+
+### FL-116 — 视频用台面高度替代落袋视觉完成（2026-10-05）
+- 根因：V023导出器在两球球顶低于台面时截断播放时间；斜视仍可透过袋口看到球，延长静帧不能修复。
+- 修复：仅修改专用导出器，播放完生产collection tail及存在的原生淡出；六例统一规则。初始静止按用户调整为1秒，末段停0.3秒，段间1秒交叉淡化。
+- 验证：r12原生静帧1测0失败，六例双袋口停止前/完成后对比已审；原生导出1测0失败，3430帧时序/7媒体检查及31概览、12袋口编码帧复核通过。
+- 已应用至：`.cursor/rules/60-devops-release.mdc` § FL-116；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。未修改App物理或袋网动画。
+
+
+### FL-115 — 分轴左滑回归误用有符号角差（2026-10-05）
+- S5首轮16核心+4UI通过，新增分轴UI最后左滑断言失败：实测angleDifference=-0.0355877rad，却写成>+0.005；同用例横向等高、竖向bearing及短反向已通过。
+- angleDifference=atan2(sin(lhs-rhs),cos(lhs-rhs))保留正负，左滑应负。断言改为<-0.005，保留方向性；未改生产逻辑、未删除检查或放宽阈值。
+- 原始失败证据：build/camera-surface-s5-20261005/tests.log/xcresult；修订复跑见axis-retest.log/xcresult。
+- **已应用至**：.cursor/skills/geometry-spatial-reasoning/SKILL.md § FL-115；UI实施规范Changelog。
+
+
+### DR-348 S6 / FL-116 — 转镜、反馈与2D展示所有权（2026-10-05）
+- 曲面自动/按钮转镜统一0.95秒、五次smootherstep；保留减少动态效果0.1秒、触控即时接管。不得在simple入口再次强制缩到0.3秒。
+- 成功手动选目标统一触发原1.7倍球缩放反馈（0.18秒放大、0.24秒还原），不得只在球列按钮触发或双重触发。手动选袋口立即变色0.6秒，自动推荐仍延迟1秒。
+- 临时俯视在本次打开期间保持SCNScene/相机/静态桌节点，逐帧镜像源presentation及局部增删；不得因选择/预测revision重建整个场景，也不得只复制球而漏掉袋口反馈。源节点键保留至同步删除，避免地址复用。
+- 普通2D瞄准只更新参考数据，禁止TwoView写透视相机；显式回3D才恢复写权限。回归必须检查触摸期间回调后的投影，不能只看松手终点。
+- 缺陷边界：临时2D有点球偶发闪烁；普通2D是拖动黑底3D，用户已明确普通2D没有点球偶发闪烁。
+- 验收证据与交付状态：tasks/ui-reviews/UR-20261005-camera-surface-s6.md。
+
+DR-348 S6交付补记：最终47核心/渲染/选择/模式恢复0失败，5个唯一原生UI分批通过（共52）；旧focus兼容性回归保留断言复验通过。Debug-O构建/严格签名通过，07:35:51覆盖安装并启动iPhone16Pro普通球迹，PID22121实查存在。未卸载/清数据/发布，手感待用户试用；总gate因共享BreakRackPhysicsTests写盘登记漂移失败，未修改该文件。详UR-20261005-camera-surface-s6.md。
+
+
+### DR-348 S7 / FL-117 — 按路程定速、缩放贴台（2026-10-05，覆盖S6固定时长）
+- 用户纠正自动转镜应固定速度；生产曲面按实际路径的位移/角距积分计时，试用巡航1.8m/s、转速上限90°/s，FOV上限40°/s，0.16秒起停缓冲。短程降低峰值、长程延长总时长，不再统一0.95秒。减少动态效果和非曲面旧路径保留原约定；手势速度不变。
+- 球放大s倍时视觉中心沿世界Y抬升R(s-1)，底部保持原支撑面；保存/恢复scale和pivot，不改变物理position。自转球须把世界up转回局部，不能沿局部Y抬升。
+- SceneKit presentation.transform已含pivot；镜像该变换时副本pivot必须为单位阵，避免主场景正确、副本抬两次。断言/顶点计算也不得重复乘inverse(pivot)。
+- 根因/红色用例/数值与原生验证、交付状态见tasks/ui-reviews/UR-20261005-camera-surface-s7.md。
+
+DR-348 S7交付：39核心/渲染/选择＋4原生UI共43唯一用例分批通过（final与zero-motion），零路程重复按钮不阻塞击球；gate/Debug-O/严格签名通过，07:56:54已更新并启动iPhone16Pro普通球迹PID22240，进程存在。未清数据/卸载/发布，手机手感待试，详UR-20261005-camera-surface-s7.md。
+
+
+### DR-348 S8 / FL-118 — 点球取景不应依赖换球和可进袋（2026-10-05）
+旧队列只在target变化且pocket可行求解完成后进入第三人称，漏掉重复点击和自由模式/无袋口回退；开球默认按钮回中圈而非最远端。S8以当前合法选择的几何瞄准请求曲面取景，并在临时俯视退出时消费；开球入口统一travel=1沿开球方向。
+首轮新测试将Snapshot的当前可见travel当作目的地，在尚未推进渲染时断言0.5，导致6项断言失败；另将含context变化的revision当作自动取景次数导致1项失败。按真实API契约改为先推进显示循环、用自动取景计数及普通2D实际投影/变换验证，未放宽终点阈值。修订35核心通过；原生真实击球入口按钮等待仍诊断中。
+已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` §DR-348 S8 / FL-118；UI实施规范Changelog。最终证据见S8报告。
+
+
+FL-118时序补充：checked/shot-diagnostic/shot-state的真实击球UI在初始按钮等待失败，最终原生诊断明确twoViewComputing=false、twoViewFeasible=true、twoViewCameraBusy=true、twoViewMoving=true、twoViewOrtho=true，眼位(0,5.8,0)。根因是SwiftUI Coordinator的cameraMode尚未同步时，旧2D显示回调在scene已转3D后重新applyTopDown2D，S6展示所有权锁随后让3D转镜无法推进。旧版等待异步求解后再转镜偶然掩盖此时序。修订TwoView渲染提交前必须与scene.currentCameraMode一致，过期帧不写相机；普通2D守卫保留。新超时诊断在XCTest断言前捕获，避免continueAfterFailure=false时defer未记录现场。复验见S8报告。
+
+
+FL-118副场景补充：final原生临时俯视点袋口时一次SIGABRT，保留xcresult诊断及overlay-crash-stack.txt。malloc报告pointer being freed was not allocated，触发栈__BuildRenderableSourceChannelsAndSemanticInfos → C3DMeshBuildRenderableData → SCNRenderer，属于网格内部缓存构建。旧镜像直接引用source.geometry，主/副SCNView渲染队列共享同一C3DMesh。S8改为每个镜像节点保存源geometry身份，变化时用源顶点/索引数据创建独立SCNGeometrySource/Element/Geometry；维持材质引用以同步选袋反馈。静态节点仍驻留，不在每帧重建网格。原快照测试“共享geometry身份”断言被新缓存隔离契约替代，同时逐项验证顶点/索引data和材质未变；原球底、视觉反馈与源节点不变断言保留。待原生复验，不能把未再崩溃当作全场景保证。
+
+
+FL-118视觉返工：mesh-retest的6核心＋2UI及stress六轮交互虽然通过，导出的原生“临时俯视选袋”截图却出现整桌三角形撕裂；该版被否决，未安装。原因是从USDZ geometry的data/bytesPerComponent等公开字段重建SCNGeometrySource不能保持其原生打包格式；数据字节相等不代表渲染解释等价。修订保留原生SCNGeometrySource/Element对象，仅创建独立SCNGeometry（C3DMesh缓存），仍保持材质同步。新增同一渲染器串行、相同镜头/光照下“独立geometry与原导入geometry”像素MAE<0.005对照，并保留原图；不能以UI状态/字节等价替代渲染验收。此前mesh构建曾因局部非throws函数内XCTUnwrap编译失败，改为显式XCTFail+guard，没有吞错误。
+
+
+FL-118最终几何实现：仅由sources/elements构造新的SCNGeometry仍漏掉导入台呢，新增像素回归真实失败MAE=0.0867955，未放宽0.005阈值。最终采用SceneKit原生SCNGeometry.copy()保留完整Model I/O内部元数据，镜像保持独立geometry对象，并显式共享既有materials供反馈同步；7项源/副场景、真实球底及图像对照通过，像素MAE=0。原始SCNNode仍为基类，不clone源子类。后续原生压力与交付见S8报告。此最终实现覆盖前两种手工重建geometry的失败尝试。
+
+
+DR-348 S8 / FL-118交付回填：最终43核心＋6原生UI，49项唯一用例分批通过；独立geometry原生复制相对原导入模型像素MAE=0，连续6轮临时俯视选球/六袋编辑通过，最终原图已审。delivery-gate、Debug-O设备构建、严格codesign通过。iPhone16Pro最终仍unavailable，未安装S8，手机最后交付S7；待连接安装及用户手感验收。见UR-20261005-camera-surface-s8.md。
+
+
+### DR-348 S9 / FL-119 — 首次3D直接初始化曲面机位（2026-10-05）
+- 首次3D初始化与已有3D转镜分开：scene.setCameraMode新增可选initializePerspective回调，在展示所有权转交后且兜底前调用；VM requestPlayerView支持animated:false并返回接受状态；ShotPlayCamera.setMode返回是否已初始化，FreePlay避免重复请求。
+- 开球初始travel=1、普通沿杆初始travel=0.5；已有保存机位、手动观察及开球重入保持原语义。旧避让规则已追溯，但本轮未接回曲面，见S9报告。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` § FL-119、UI-IMPLEMENTATION-SPEC.md末尾Changelog。证据：build/camera-surface-s9-20261005，最终状态见ui-reviews/UR-20261005-camera-surface-s9.md。
+
+S9交付回填：27核心＋2原生UI通过，首帧/实页原图已审，gate/doc-size/Debug-O/签名通过。2026-10-05 14:32安装普通球迹并启动iPhone16Pro（install.json/launch.json）；真机手感待用户复验，球杆避让仅完成追溯，未接回曲面。
+
+
+### DR-335 r2 — 每日清台标题去掉说明小字（2026-10-05）
+按用户要求，每日清台2D/3D共用顶栏只保留返回箭头和“每日清台”单行标题，取消标题下“手动开球”或瞄准模式/球号/袋口说明。原返回点击区域、顶栏高度、球库及模式/规则逻辑保持；此条覆盖DR-345 r3中每日标题区域持续显示状态的旧约定，其他页面副标题保持。
+- 已应用至：swiftui-design-system、UI-IMPLEMENTATION-SPEC；验证见 tasks/ui-reviews/UR-20261005-daily-title.md。
+
+
+### DR-332 r2 — 每日提示统一定位及2D球房地毯（2026-10-05）
+用户要求3D提示与2D同位，并试用俯视地毯替换纯黑背景。根因：旧3D在消息变化时缓存透视库边投影，不同机位得到不同高度。改为双模式共同引用原2D内框布局；2D透明场景背后以静态Canvas绘制已有球房地毯，按当前风格选择纹理。球桌/HUD尺寸、提示生命周期与规则不改。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` §DR-332 r2、`tasks/UI-IMPLEMENTATION-SPEC.md` §DR-332 r2及Changelog、`docs/design/feedback/提示与弹窗规范.md`。
+- 验证与交付：见 `tasks/ui-reviews/UR-20261005-daily-carpet-feedback.md`；不以构建或模拟器代替用户视觉与真机验收。
+
+
+### DR-335 r3 — 每日清台两条标尺略加宽（2026-10-05）
+用户要求力度条和方向瞄准条稍微宽一点。仅每日2D/3D将可见内尺28→32pt、外框40→44pt；144pt行程、60pt侧栏、原触摸宽度及灵敏度/力度映射不变。BTShotInstrumentColumn新增compactPowerBarWidth（默认28），每日传32；外框保留每侧6pt余量，其他调用默认外观保持。
+- 已应用至：swiftui-design-system与UI-IMPLEMENTATION-SPEC；验证见tasks/ui-reviews/UR-20261005-daily-ruler-width.md。
+
+
+### DR-335 r4 — 每日开球/打点入口略放大与大白盘透明度对照（2026-10-05）
+用户要求两个入口稍大：仅每日2D/3D圆形按钮44→48pt，开球图形26→30pt，小打点图34→38pt。两侧头部同步增高4pt，相机按钮列中心随头部真实直径调整；侧栏宽度与两尺144pt行程不变。BTShotInstrumentColumn新增compactSpinButtonDiameter默认44，每日传48。
+用户明确透明度针对展开后的大打点盘，非右侧小白盘。BTSpinPad及Card/Overlay/SceneOverlay新增discOpacity默认1，仅作用于白色渐变填充，红点、线条、可选范围、方向键和面板背景保持。每日DEBUG以-dailyClearance.spinDiscOpacity=数值生成0/25/50/75/100%透明度对照；普通启动与Release仍不透明，待用户选定后再设默认。
+- 已应用至：swiftui-design-system、UI-IMPLEMENTATION-SPEC；原生对照及验证记录见tasks/ui-reviews/UR-20261005-daily-spin-opacity.md。
+
+
+### DR-335 r5 — 每日打点盘透明度设置（2026-10-05）
+用户选定默认50%透明，并要求在右上设置以滑条调节。每日更多菜单新增“打点盘透明度 · N%”，打开紧凑浮窗，0–100%连续调节，百分比取整显示；数值越大越透明。自动展开真实大盘供即时预览，关闭浮窗后保留大盘。仅白色渐变填充使用1−透明度，右侧小圆盘/红点/线条保持。
+UserPreferences.dailySpinDiscTransparency以dailyClearance.spinDiscTransparency本地保存，缺省0.5；2D/3D与重启共用。共享BTSpinPad默认opacity仍为1，其他宿主不变。覆盖r4“每日默认尚待选择”的临时状态；DEBUG五档截图参数仅作视觉取证。
+Changelog：2026-10-05 / DR-335 r5；验证见tasks/ui-reviews/UR-20261005-daily-spin-setting.md。
+
+FL-120补充：菜单动作打开透明度面板使用每日页内HUD浮层，避免Menu收起与系统popover争用；必须真实点击并验证滑条可触达，不以状态变量赋值代替呈现验收。
+
+
+### DR-348 S10 — 全局按钮就近四边居中（2026-10-05）
+当前可见heading决定最近的0/±90/180°外圈机位，转向与退远同一次曲面过渡。全局按钮独立于开球/重摆沿杆入口；到位重复点击静止、手动观察不吸附。球杆/俯角/袋口新构图仍暂停。已应用至：swiftui-design-system § S10、UI-IMPLEMENTATION-SPEC Changelog、docs/05与docs/00；验证/交付见ui-reviews/UR-20261005-camera-surface-s10.md。
+
+DR-335 r5视觉收尾：设置卡280pt宽，使用HUDStyle.panelBackground实色深底及hairline；显式topTrailing锚点，不使用工具按钮的24%透明底，以免白色打点入口透出干扰百分比。
+
+DR-348 S10交付回填：30核心＋3唯一原生UI分批通过，四向/实页截图已审；gate/doc-size/Debug-O/签名通过，15:18普通球迹已安装iPhone16Pro并启动。手感待用户试用，未提交发布。证据见S10报告。
+
+
+### DR-335 r6 — 透明度设置面板紧凑化（2026-10-05）
+用户反馈设置卡过于空旷。卡宽280→252pt，水平padding12→8pt、垂直12→4pt，行距8→0；两端说明紧贴滑条下方，不再各自留大间隔；滑条仍占满卡内宽。标题字号保持，关闭按钮保留44pt触控高度。透明度默认/保存/实时预览和右上锚点不变。验收见tasks/ui-reviews/UR-20261005-daily-spin-setting-compact.md。
+
+
+### DR-335 r7 — 透明度设置使用中性色（2026-10-05）
+按用户要求，仅透明度面板关闭叉号与滑条填充改用白色70%不透明度；去掉绿色，紧凑布局/默认50%/保存逻辑不变。验证见tasks/ui-reviews/UR-20261005-daily-spin-neutral.md。
+
+
+### 每日清台 HUD 与瞄准特写保护（2026-10-05）
+
+- 每日可见 HUD 按钮以 `HUDStyle.selectedBackground` 作为按下背景，释放恢复原状态；选中态仍保留。`BTHUDPressStyle` 通过 `dailyHUDControls` 显式启用，只传递按下状态，`BTHUDControlBackground` 绘制背景，不给球面/图标叠色。共享组件其他宿主默认不变。
+- 每日 `BTShotInstrumentColumn.powerLabel` 传“杆速”，数值仍是杆头速度；共享默认“力度”。顶部模式/更多与返回入口同一水平中心线。`BTSolverMoreMenu.displaySectionLast` 每日启用；“显示”置底，移除菜单重新开球，保留左侧开球及规则决策入口。
+- 每日特写对母球、目标球、假想球、六袋实际节点、当前瞄准/理想方向/目标球实际轨迹、母球首库前显示路径设硬约束。母球路径包含碰球后的首库前段；其他球作软避让。允许左右两侧寻位，原位仍合法则保持；128→112→96pt后仍无位则不显示，禁止退回有遮挡的软解。
+- 主画面保护区由当前相机投影转为中央舞台局部坐标；低机位跨近裁面的轨迹先裁剪。预测显示清理时同步清空避让路径。
+- 特写内部使用台面等比例几何，仅跟随相机方位，球心间距与球半径同尺度，保证假想球与目标球相切；特写外部定位仍使用实际透视投影。不可用透视压缩后的圆心配等半径圆代替几何特写。
+- 验证与截图见 `tasks/ui-reviews/UR-20261005-daily-hud-avoidance.md`；不改变碰撞物理与落袋判定。
+
+
+### DR-335 r8 — 打点盘拖动借鉴拖球防遮挡（2026-10-05）
+用户要求参考球的移动逻辑，重点避免手指遮住打点。共享BTSpinPad按盘面局部pt（x右/y下）记录起手红点与手指位置；沿用AngleSceneView拖球52pt一次性启动区，区内红点不动，越过时锁定偏移，之后等量跟随，反向不重新进入启动区。轻点在松手后按落点选位；离开起点的最大距离达到10pt即不作为轻点（返回起点也不误判）；取消/收起清空手势状态。
+坐标到spin继续使用原符号、皮头拉心系数与0.5R边界，CueStrikeAccess不可达钳制、锁侧塞、方向键与只读行为保持；不修改实际拖球实现。验证见tasks/ui-reviews/UR-20261005-spin-finger-clearance.md。
+
+
+### DR-335 r9 — 透明度设置共用按钮底色（2026-10-05）
+按用户反馈覆盖r5实色深底：设置卡改用btHudGlass，和其他HUD按钮共用黑24%透明底、白22%细描边。设置打开时暂隐其下方打点入口/杆速仪表列，保留占位，关闭即恢复，避免小白盘透出覆盖百分比。保留r6紧凑尺寸、r7白灰叉号与滑条、默认50%及保存行为。验收见tasks/ui-reviews/UR-20261005-daily-spin-glass.md。
+
+补充约束（用户同轮追加）：整根可见球杆按真实模型包围体的投影凸包+8pt间隔硬避让，跨近裁面先裁剪边。特写完整圆盘限于台呢内框：2D跟随实际缩放/平移后的球桌投影，3D固定使用默认2D球桌内框；禁止只把圆心留在范围内。所有硬约束同时求解，无可用位置时依次缩小/隐藏。
+
+DR-335 r7–r9交付：12单元+1双模式拖动UI、4杆可达UI及最终1设置UI通过；中性控件、透明背景与拖动后2D/3D原图已审。FL-120/r9透出小白盘已修复。证据见相应审查报告；未安装手机，真实手指舒适度待体验。
+
+验收回填（每日清台 HUD / 特写 2026-10-05）：31核心＋标准/SE各2项原生UI通过，24张六袋×双模式特写与按钮/菜单图已审；gate/doc-size/本任务diff检查通过。见 `tasks/ui-reviews/UR-20261005-daily-hud-avoidance.md`；未装真机/提交/发布。
+
+
+### DR-335 r10 — 返回无底框、设置白色前景（2026-10-05）
+用户要求2D/3D每日清台返回区均无常驻背景框，保留返回命中区及按压反馈；透明度设置标题、百分比、端点说明、叉号和滑条填充统一纯白，不使用secondary或降低前景透明度。每日更多入口纯白，菜单强调色为白色；半透明面板底色、默认50%和保存不变。证据见tasks/ui-reviews/UR-20261005-daily-hud-white.md。
+
+DR-335 r10验收：构建与1项原生设置全流程通过，两模式白色前景/无标题背景原图已审。录屏证实2D→3D存在约70ms场景黑帧，原因是不同层级SCNView重建首帧空档；按请求仅诊断未改切换，详情见UR-20261005-daily-hud-white.md。
+
+
+### FL-122 — 2D/3D投影切换保留渲染视图（2026-10-05）
+每日清台仅一个稳定结构位置的AngleSceneView；用屏幕pt目标矩形切换中央2D/full-safe-area 3D，不在两个if分支重复创建SCNView。以窗口全局pt测量stage和全屏viewport，再减viewport原点转局部；控件最低高度可能撑大stage，不得由外层proposal推算。保持既有stage与可读区。投影切换必须用实例身份回归和原生连续帧审查，静态相机测试不能证明无黑帧。详见tasks/ui-reviews/UR-20261005-daily-renderer-stable.md。
+
+
+### DR-323 r2 — 每日清台横屏准备入口（2026-10-05）
+首页路由与 DEBUG 直达入口统一使用 `DailyClearanceEntryView`。入口持有方向控制器，`viewIsAppearing` 发起横屏；导航出现、系统旋转完成、窗口与承载视图均为横屏后，主线程异步一次性交付 `onReady`，再创建 `FreePlayView` / VM / SceneKit 场景。禁止先加载每日球台再在 `viewDidAppear` 请求旋转，也不使用固定延时猜测完成。等待期深色提示且可返回，方向请求失败有返回说明；离页撤销未交付回调并恢复竖屏，scene owner 防止旧控制器覆盖新入口。2D/3D共用同一入口生命周期，普通自由击球保持竖屏；不带回调的角度训练沿用原时机。
+Changelog：DR-323 r2 / 横屏入口生命周期与可选 `onReady`、`onFailure` API；验证见 `tasks/ui-reviews/UR-20261005-daily-entry.md`。
+
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-323 r2；`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog / DR-323 r2（2026-10-05）。
+
+FL-122收尾：稳定SCNView + 每日layout回调同步viewport/相机，修前身份断言失败、最终两尺寸3次往返和点球验证通过（小屏1UI、标准2UI）；最终录屏切换段黑场0，原约70ms消失。前两轮frame推算失败留痕，已改实测坐标；未装机/提交发布。见UR-20261005-daily-renderer-stable.md。
+
+
+### DR-323 r3 — 每日清台场景预加载（2026-10-05）
+`DailyClearancePreloader` 在启动/回前台、退出每日页后准备一份未使用场景；独占后台节点树组装球桌、房间、材质、袋口标记并调用静止 `SCNRenderer.prepare`。入口同时等待横屏完成与场景交付，随后注入 `FreePlayView`，跳过重复 `setupScene` 及示例球形求解；对局/计时只由页面出现时启动。缓存按外观快照失效、消费后移交所有权；后台/内存警告取消并清掉未使用场景，迟到任务不得重新填充。使用中的页面不缓存回池、不跨次共享可变场景。首次冷启动即点入仍可显示准备页；不宣称零等待或手机性能已验。
+Changelog：DR-323 r3 / 预加载与页面激活分离，覆盖 r2「横屏完成后才创建场景」的资源时序，保留其横屏显示门控。验证见 `tasks/ui-reviews/UR-20261005-daily-entry.md`。
+
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` 与 `tasks/UI-IMPLEMENTATION-SPEC.md` § DR-323 r3 / Changelog（2026-10-05）。
+
+
+### DR-335 r11 — 每日球桌、球库和动作间距（2026-10-05）
+用户要求球桌稍上移、球库向下贴近桌框、重打/回放/击球靠近标尺。每日中央俯视舞台上移Spacing.sm（8pt），保持尺寸和实际窗口坐标测量，2D渲染与交互覆层一起移动；3D保持全屏渲染。球库按未缩放2D外框上沿定位，34pt胶囊底边留2pt，双模式位置相同，不跟随3D旋转。下方动作保留44/60pt命中尺寸，以剩余空间比例收紧上方留白。其他页面不改。验收状态见tasks/ui-reviews/UR-20261005-daily-layout-spacing.md。
+Changelog：DR-335 r11，覆盖原DR-335动作在剩余区域居中的位置约定。
+
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-335 r11；`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-10-05）。
+
+小屏补充：球库左端母球与开球列横向相交时，下移量受开球按钮顶部约束，不强行贴桌框；两侧控件容器按顶部对齐，避免最小高度不同造成3.5pt尺子错位。
+
+
+### DR-335 r12 — 开球图标相切几何（2026-10-05）
+`BreakRackGlyph` 以外接圆绘制等边三角形，60°尖角描边计入外轮廓；内侧三颗等大实心圆按同一几何推导，圆心距2r、每颗与相邻两内边相切。每日48pt圆按钮使用47pt图标，三个外顶点贴住1pt外圈描边内缘，点击区域保持48pt。其它使用该共享图标的入口沿用各自尺寸。覆盖r4每日30pt图标尺寸。构建及标准模拟器2D原图通过；3D共用代码，未单独截图，未装真机。证据：tasks/ui-reviews/UR-20261005-daily-rack-icon.md。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-335 r12、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-10-05）。

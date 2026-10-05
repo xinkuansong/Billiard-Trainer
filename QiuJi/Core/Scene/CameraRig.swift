@@ -69,6 +69,475 @@ final class CameraRig: ObservableObject {
     var usesRailCameraControls = false
     /// Daily clearance owns its lens and shot-relative eye model. Other hosts keep their presets.
     var usesShotAwareCamera = false
+    /// Daily clearance's continuous surface stack. Other hosts and exports keep their rig.
+    var usesTwoViewCameraControls = false
+    var usesSimpleCueCamera = false
+    var usesMergedCamera = false
+    var usesSurfaceCamera = false
+    private(set) var presentsTopDown = false
+
+    /// Explicit presentation ownership; cue updates never leave a 2D view.
+    func resumePerspectivePresentation() { presentsTopDown = false }
+    @Published private(set) var mergedGlobalActive = false
+    var usesTwoViewPoseControl: Bool { usesTwoViewCameraControls && !mergedGlobalActive }
+
+    @discardableResult
+    func enterMergedGlobal(aim: SCNVector3?, cue: SCNVector3? = nil) -> Bool {
+        guard usesMergedCamera, !temporaryTopDownActive else { return false }
+        if usesSurfaceCamera {
+            // Read the actually displayed heading before any fallback shot is seeded.
+            // The input target or business aim can be elsewhere during a drag/transition.
+            let back = cameraNode.simdOrientation.act(SIMD3<Float>(0,0,1))
+            let bearing = CameraSurface.nearestOverviewBearing(yaw: atan2(back.z,back.x))
+            if let cue, let aim { twoViewShotReference = (cue, aim) }
+            guard let reference = twoViewShotReference else { return false }
+            if twoViewCamera?.simpleShot?.surface == nil {
+                guard enterPlayerView(.thirdPerson, cue: reference.cue, aim: aim ?? reference.aim, duration: 0) else { return false }
+            }
+            return activeTwoViewCamera().retreatSurface(cue: SIMD3(reference.cue.x,reference.cue.y,reference.cue.z),
+                duration: UIAccessibility.isReduceMotionEnabled ? 0.1 : nil, bearing: bearing)
+        }
+        // Seed the production orbit from the actual shot camera before handing it ownership.
+        beginManualOrbit()
+        mergedGlobalActive = true
+        return observeDailyWholeTable(aimDirection: aim)
+    }
+
+    private var twoViewCamera: TwoViewCamera?
+    private var twoViewReadableInsets: UIEdgeInsets = .zero
+    private var twoViewViewingContext = UUID()
+    private var twoViewShotReference: (cue: SCNVector3, aim: SCNVector3)?
+    var twoViewCurrentAim: SCNVector3? { twoViewShotReference?.aim }
+    private struct ShotRailKey: Equatable {
+        let context: UUID
+        let values: [Float]
+        let viewport: CGSize
+        let insets: UIEdgeInsets
+    }
+    private var shotRailCache: (key: ShotRailKey, rail: TwoViewCamera.ShotRailProfile)?
+    /// An explicit automatic entry remains an intent until it reaches the latest measured layout.
+    /// Manual observations and ordinary returns never acquire this token.
+    private struct PendingTwoViewEntry {
+        let cue: SCNVector3
+        let aim: SCNVector3
+        let context: UUID
+        let duration: Float
+    }
+    private var pendingTwoViewEntry: PendingTwoViewEntry?
+
+    private func finishPendingTwoViewEntry(notify: Bool) {
+        guard pendingTwoViewEntry != nil else { return }
+        pendingTwoViewEntry = nil
+        if notify { onPlayerTransitionEnded?() }
+    }
+    private(set) var temporaryTopDownActive = false
+    private var frozenMergedFrame: TemporaryTopDownFrame?
+    private var temporaryTopDownReferencePose: TwoViewCamera.Pose?
+    private var temporaryTopDownLandscapeUp = SIMD3<Float>(0, 0, -1)
+    private var temporaryTopDownPortraitUp = SIMD3<Float>(1, 0, 0)
+    private(set) var temporaryTopDownActivationCount = 0
+    private(set) var temporaryTopDownHeldSamples = 0
+    private(set) var temporaryTopDownLastUp = SIMD3<Float>(1, 0, 0)
+    private(set) var temporaryTopDownReferenceYaw: Float = 0
+    private(set) var temporaryTopDownReferenceSource = "TP actual"
+    /// World-space segment visibility through the actual table subtree; used only at FP entry.
+    var twoViewTableSightlinesClear: ((SIMD3<Float>, [SIMD3<Float>]) -> Bool)?
+    var twoViewMode: PlayerView { twoViewCamera?.mode ?? .thirdPerson }
+    var twoViewOwnerIsManual: Bool { twoViewCamera?.owner == .manual }
+    var twoViewRequestRevision: UInt64 { twoViewCamera?.requestRevision ?? 0 }
+    var twoViewSnapshot: TwoViewCamera.Snapshot? { twoViewCamera?.snapshot() }
+    var twoViewLayoutContainsSubjects: Bool? { twoViewCamera?.layoutContainsSubjects }
+
+    func setTwoViewViewingContext(_ context: UUID) {
+        guard context != twoViewViewingContext else { return }
+        let hadPendingEntry = pendingTwoViewEntry != nil
+        let wasTransitioning = twoViewCamera?.isTransitioning == true
+        pendingTwoViewEntry = nil
+        twoViewViewingContext = context
+        twoViewCamera?.setViewingContext(context)
+        if hadPendingEntry || (wasTransitioning && twoViewCamera?.isTransitioning == false) {
+            onPlayerTransitionEnded?()
+        }
+    }
+
+    func setTwoViewReadableInsets(_ insets: UIEdgeInsets) {
+        guard insets != twoViewReadableInsets else { return }
+        twoViewReadableInsets = insets
+        refreshTwoViewProfileForLayout()
+    }
+
+    private func refreshTwoViewProfileForLayout() {
+        guard usesTwoViewPoseControl, let camera = twoViewCamera else { return }
+        let wasTransitioning = camera.isTransitioning
+        camera.revalidateLayout(viewport: viewportSize, insets: twoViewReadableInsets)
+        if usesSimpleCueCamera {
+            if usesMergedCamera, !usesSurfaceCamera, let shot = twoViewShotReference { followSimpleAim(cue: shot.cue, strike: cuePose?.strike ?? shot.cue, aim: shot.aim) }
+            return
+        }
+        if let entry = pendingTwoViewEntry {
+            guard entry.context == twoViewViewingContext, camera.mode == .thirdPerson,
+                  camera.owner == .automatic, !camera.temporaryObserving,
+                  let profile = makeShotRail(cue: entry.cue, aim: entry.aim),
+                  camera.enterShotThirdPerson(profile, duration: entry.duration) else {
+                // No legal destination: cancellation is complete, not a successful camera arrival.
+                finishPendingTwoViewEntry(notify: true)
+                return
+            }
+        } else if wasTransitioning && !camera.isTransitioning {
+            // Layout intentionally holds manual observation / ordinary returns; release the host's busy state.
+            onPlayerTransitionEnded?()
+        }
+    }
+
+    private func activeTwoViewCamera() -> TwoViewCamera {
+        if let twoViewCamera { return twoViewCamera }
+        let pose = TwoViewCamera.Pose(eye: cameraNode.simdPosition,
+                                      orientation: cameraNode.simdOrientation,
+                                      fov: Float(cameraNode.camera?.fieldOfView ?? config.standFov))
+        let camera = TwoViewCamera(pose: pose)
+        camera.setViewingContext(twoViewViewingContext)
+        camera.revalidateLayout(viewport: viewportSize, insets: twoViewReadableInsets)
+        twoViewCamera = camera
+        return camera
+    }
+
+    private func applyTwoViewPose() {
+        guard !presentsTopDown else { return }
+        if temporaryTopDownActive { applyTemporaryTopDown(); return }
+        guard let pose = twoViewCamera?.pose else { return }
+        SCNTransaction.begin()
+        SCNTransaction.disableActions = true
+        if cameraNode.simdTransform != pose.transform { cameraNode.simdTransform = pose.transform }
+        if cameraNode.camera?.fieldOfView != CGFloat(pose.fov) { cameraNode.camera?.fieldOfView = CGFloat(pose.fov) }
+        cameraNode.camera?.usesOrthographicProjection = false
+        SCNTransaction.commit()
+    }
+
+    /// Table rail orientation is recovered from the eye, independently of the gaze heading.
+    private var twoViewOrbitBearing: Float {
+        if let snapshot = twoViewCamera?.snapshot(), let profile = snapshot.profile,
+           snapshot.mode == .thirdPerson {
+            let offset = snapshot.pose.eye - profile.anchor
+            return atan2(offset.z, offset.x)
+        }
+        let eye = cameraNode.simdPosition
+        return hypot(eye.x, eye.z) > 0.001 ? atan2(eye.z, eye.x) : CameraRig.overviewYaw
+    }
+
+    /// Rebuild stale layout samples only on an effective TP input, retaining the visible eye.
+    private func prepareTwoViewRailForInput() -> Bool {
+        let camera = activeTwoViewCamera()
+        guard !temporaryTopDownActive else { return false }
+        guard camera.mode == .thirdPerson else { return true }
+        if usesSimpleCueCamera, camera.simpleShot != nil { return true }
+        if let existing = camera.shotProfile {
+            if existing.context == twoViewViewingContext,
+               existing.railViewport == viewportSize, existing.railInsets == twoViewReadableInsets { return true }
+            guard let reference = twoViewShotReference,
+                  let replacement = makeShotRail(cue: reference.cue, aim: reference.aim) else { return false }
+            return camera.rebaseShotThirdPersonPreservingPose(replacement)
+        }
+        guard let existing = camera.profile else { return false }
+        let center = SIMD3<Float>(0, tableSurfaceY, 0)
+        let halfExtents = SIMD2<Float>(Float(tableOuterHalfLength), Float(tableOuterHalfWidth))
+        if existing.anchor == center, existing.tableHalfExtents == halfExtents,
+           existing.railViewport == viewportSize, existing.railInsets == twoViewReadableInsets,
+           existing.layoutMatchesRail { return true }
+        guard let generated = TwoViewCamera.RailProfile.candidate(anchor: center,
+            halfExtents: halfExtents, viewport: viewportSize, insets: twoViewReadableInsets) else { return false }
+        return camera.replaceThirdPersonProfilePreservingPose(generated)
+    }
+
+    private func makeShotRail(cue: SCNVector3, aim: SCNVector3) -> TwoViewCamera.ShotRailProfile? {
+        let strike = cuePose?.strike ?? cue
+        let subjects = observationCandidates + (observationPocket.map { [$0.position] } ?? []) + observationPocketMouth()
+        let key = ShotRailKey(context: twoViewViewingContext,
+            values: [cue.x, cue.y, cue.z, strike.x, strike.y, strike.z, aim.x, aim.z,
+                     cuePose?.elevation ?? 0.05, tableSurfaceY,
+                     Float(tableOuterHalfLength), Float(tableOuterHalfWidth)]
+                + subjects.flatMap { [$0.x, $0.y, $0.z] },
+            viewport: viewportSize, insets: twoViewReadableInsets)
+        if let cached = shotRailCache, cached.key == key { return cached.rail }
+        guard let baseline = makeShotBaseline(cue: cue, aim: aim) else { return nil }
+        guard let rail = TwoViewCamera.ShotRailProfile.candidate(defaultPose: baseline,
+            cue: SIMD3(cue.x, cue.y, cue.z),
+            target: observationCandidates.last.flatMap { point in
+                (point - cue).length() > 0.001 ? SIMD3(point.x, point.y, point.z) : nil
+            },
+            pocket: observationPocket.map { SIMD3($0.position.x, $0.position.y, $0.position.z) },
+            pocketMouth: observationPocketMouth().map { SIMD3($0.x, $0.y, $0.z) },
+            anchor: SIMD3(0, tableSurfaceY, 0),
+            halfExtents: SIMD2(Float(tableOuterHalfLength), Float(tableOuterHalfWidth)),
+            viewport: viewportSize, insets: twoViewReadableInsets, context: twoViewViewingContext,
+            clear: twoViewTableSightlinesClear) else { return nil }
+        shotRailCache = (key, rail)
+        return rail
+    }
+
+    /// Reuse the daily stance and lens, while keeping the horizontal gaze on the cue axis.
+    private func makeShotBaseline(cue: SCNVector3, aim: SCNVector3) -> TwoViewCamera.Pose? {
+        guard let initial = Self.dailyPlayerPose(view: .thirdPerson, cue: cue,
+            strike: cuePose?.strike ?? cue, aim: aim, elevation: cuePose?.elevation ?? 0.05,
+            surfaceY: tableSurfaceY, viewport: viewportSize, context: observationCandidates,
+            fitsObservationContext: false, pocket: observationPocket?.position,
+            pocketRadius: observationPocket.map { AngleSceneCalculator.pocketMarkerRadius(index: $0.index) } ?? 0.043,
+            pocketMouth: observationPocketMouth(), centersCueAxis: true) else { return nil }
+        let safe = roomSafeDailyPose(initial)
+        var eye = SIMD3(safe.pivot.x + cos(safe.yaw) * safe.radius,
+                        tableSurfaceY + safe.height, safe.pivot.z + sin(safe.yaw) * safe.radius)
+        if let clear = twoViewTableSightlinesClear {
+            let balls = [SIMD3(cue.x,cue.y,cue.z)] + observationCandidates.filter {
+                ($0-cue).length()>0.001
+            }.map { SIMD3($0.x,$0.y,$0.z) }
+            func visible(_ height: Float) -> Bool {
+                let candidate=SIMD3(eye.x,height,eye.z)
+                return clear(candidate,TwoViewCamera.ballSilhouettes(eye:candidate,centers:balls))
+            }
+            if !visible(eye.y) {
+                var low=eye.y, high=max(eye.y,min(3.25,tableSurfaceY+1.8))
+                guard visible(high) else { return nil }
+                for _ in 0..<12 {
+                    let middle=(low+high)/2
+                    if visible(middle) { high=middle } else { low=middle }
+                }
+                eye.y=min(3.25,high+0.01)
+            }
+        }
+        var result=TwoViewCamera.Pose.looking(eye: eye, yaw: safe.yaw, pitch: safe.pitch, fov: safe.fov)
+        if eye.y > tableSurfaceY + safe.height + 0.0001 {
+            // A visibility-driven eye correction changes the shot's angular extent.
+            // Refit this baseline once; retaining the old lens can leave no orbit margin.
+            let centers = [cue] + observationCandidates
+            let r=BallPhysics.radius
+            var points: [SIMD3<Float>] = []
+            for center in centers {
+                for x in [-r,r] { for y in [-r,r] { for z in [-r,r] {
+                    points.append(SIMD3(center.x+x,center.y+y,center.z+z))
+                } } }
+            }
+            points += observationPocketMouth().map { SIMD3($0.x,$0.y,$0.z) }
+            let angles=points.map { point -> Float in
+                let d=point-eye
+                return atan2(d.y,-d.x*cos(safe.yaw)-d.z*sin(safe.yaw))
+            }
+            result = .looking(eye:eye,yaw:safe.yaw,
+                pitch:((angles.min() ?? safe.pitch)+(angles.max() ?? safe.pitch))/2,fov:safe.fov)
+            let halfX=Float(1-2*max(twoViewReadableInsets.left,twoViewReadableInsets.right)/viewportSize.width)
+            let halfY=Float(1-2*max(twoViewReadableInsets.top,twoViewReadableInsets.bottom)/viewportSize.height)
+            guard halfX>0,halfY>0 else { return nil }
+            let aspect=Float(viewportSize.width/viewportSize.height)
+            var tangent: Float=0
+            for point in points {
+                let local=result.orientation.inverse.act(point-eye), depth = -local.z
+                guard depth>0.01 else { return nil }
+                tangent=max(tangent,abs(local.x)/(depth*aspect*halfX),abs(local.y)/(depth*halfY))
+            }
+            result.fov=max(safe.fov,2*atan(tangent*1.08)*180 / .pi)
+            guard result.fov<=70 else { return nil }
+        }
+        return result
+    }
+
+    @discardableResult
+    func prepareTemporaryObservation(cue: SCNVector3, aim: SCNVector3) -> Bool {
+        guard usesTwoViewCameraControls, !temporaryTopDownActive else { return false }
+        twoViewShotReference = (cue, aim)
+        let camera = activeTwoViewCamera()
+        if camera.mode == .thirdPerson, !usesSimpleCueCamera {
+            guard let profile = makeShotRail(cue: cue, aim: aim),
+                  camera.rebaseShotThirdPersonPreservingPose(profile) else { return false }
+        }
+        guard camera.beginTemporaryObservation() else { return false }
+        finishPendingTwoViewEntry(notify: true)
+        return true
+    }
+
+    func endTemporaryObservation() {
+        guard usesTwoViewCameraControls, !temporaryTopDownActive else { return }
+        twoViewCamera?.endTemporaryObservation(duration: UIAccessibility.isReduceMotionEnabled ? 0.1 : 0.8)
+    }
+
+    /// Immutable independent overlay camera; never the main perspective camera.
+    struct TemporaryTopDownFrame {
+        let eye: SIMD3<Float>
+        let target: SIMD3<Float>
+        let up: SIMD3<Float>
+        let orthographicScale: Double
+        let viewport: CGSize
+        let readableRect: CGRect
+        var center: SIMD3<Float> { target }
+        var scale: Double { orthographicScale }
+        // Orthographic screen mapping: UIKit origin top-left, SceneKit XZ metres/Y-up.
+        func world(at point: CGPoint, viewport: CGSize) -> SIMD3<Float> {
+            let metresPerPoint = Float(2 * orthographicScale / max(1, viewport.height))
+            let right = SIMD3<Float>(-up.z, 0, up.x)
+            return target + right * Float(point.x - viewport.width/2) * metresPerPoint
+                + up * Float(viewport.height/2 - point.y) * metresPerPoint
+        }
+        func screen(point: SIMD3<Float>, viewport: CGSize) -> CGPoint {
+            let pointsPerMetre = Float(viewport.height / (2 * orthographicScale))
+            let delta = point - target
+            let right = SIMD3<Float>(-up.z, 0, up.x)
+            return CGPoint(x: viewport.width/2 + CGFloat(simd_dot(delta,right) * pointsPerMetre),
+                y: viewport.height/2 - CGFloat(simd_dot(delta,up) * pointsPerMetre))
+        }
+
+    }
+
+    /// Largest canonical table fit inside the measured HUD, with a four-point rim.
+    /// X is the table long axis. Landscape has screen-right +/-X; portrait has screen-up +/-X.
+    static func temporaryTopDownFrame(referencePose: TwoViewCamera.Pose, viewport: CGSize,
+                                      insets: UIEdgeInsets, halfLength: Float, halfWidth: Float,
+                                      surfaceY: Float = 0.8, previousUp: SIMD3<Float>? = nil) -> TemporaryTopDownFrame? {
+        let width = Float(viewport.width), height = Float(viewport.height)
+        let readableWidth = width - Float(insets.left + insets.right)
+        let readableHeight = height - Float(insets.top + insets.bottom)
+        guard width.isFinite, height.isFinite, width > 24, height > 24,
+              readableWidth.isFinite, readableHeight.isFinite,
+              insets.left.isFinite, insets.right.isFinite, insets.top.isFinite, insets.bottom.isFinite,
+              insets.left >= 0, insets.right >= 0, insets.top >= 0, insets.bottom >= 0,
+              readableWidth > 24, readableHeight > 24,
+              halfLength.isFinite, halfWidth.isFinite, halfLength > 0, halfWidth > 0,
+              surfaceY.isFinite, referencePose.eye.x.isFinite, referencePose.eye.y.isFinite,
+              referencePose.eye.z.isFinite, referencePose.orientation.vector.x.isFinite,
+              referencePose.orientation.vector.y.isFinite, referencePose.orientation.vector.z.isFinite,
+              referencePose.orientation.vector.w.isFinite else { return nil }
+        let landscape = width >= height
+        let canonicalUp = landscape ? SIMD3<Float>(0, 0, -1) : SIMD3<Float>(1, 0, 0)
+        let referenceAxis = referencePose.orientation.act(landscape ? SIMD3<Float>(1, 0, 0) : SIMD3<Float>(0, 1, 0))
+        // Use the actual projected +X direction if both ends are in front of the lens.
+        // At an end-on view the direction is ambiguous: retain the last canonical sign.
+        func projectedLongEnd(_ x: Float) -> SIMD2<Float>? {
+            let local = referencePose.orientation.inverse.act(SIMD3(x, surfaceY, 0) - referencePose.eye)
+            guard -local.z > 0.01 else { return nil }
+            return SIMD2(local.x / -local.z, local.y / -local.z)
+        }
+        var component = referenceAxis.x
+        if let plus = projectedLongEnd(halfLength), let minus = projectedLongEnd(-halfLength) {
+            let delta = plus - minus
+            let length = simd_length(delta)
+            if length > 0.00001 { component = (landscape ? delta.x : delta.y) / length }
+        }
+        let rememberedSign: Float = previousUp.map { simd_dot($0, canonicalUp) < 0 ? -1 : 1 } ?? 1
+        let sign: Float = abs(component) <= 0.08 ? rememberedSign : (component < 0 ? -1 : 1)
+        let up = canonicalUp * sign
+        let right = SIMD3<Float>(-up.z, 0, up.x)
+        let halfVertical = landscape ? halfWidth : halfLength
+        let halfHorizontal = landscape ? halfLength : halfWidth
+        let rim: Float = 4 // Display breathing room; not a geometry or physics margin.
+        let scale = max(halfVertical * height / (readableHeight - 2 * rim),
+                        halfHorizontal * height / (readableWidth - 2 * rim))
+        let offsetX = Float(insets.left - insets.right) * 0.5
+        let offsetY = Float(insets.top - insets.bottom) * 0.5
+        var center = (-right * offsetX + up * offsetY) * (2 * scale / height)
+        center.y = surfaceY
+        return TemporaryTopDownFrame(eye: center + SIMD3(0, 5, 0), target: center, up: up,
+            orthographicScale: Double(scale), viewport: viewport,
+            readableRect: CGRect(x: insets.left, y: insets.top,
+                width: CGFloat(readableWidth), height: CGFloat(readableHeight)))
+    }
+
+    /// Refit on layout changes using the activation's actual pose, so repeated sampling cannot flip the table.
+    var temporaryTopDownOverlayFrame: TemporaryTopDownFrame? {
+        guard temporaryTopDownActive, let reference = temporaryTopDownReferencePose else { return nil }
+        if usesMergedCamera, let frozenMergedFrame, frozenMergedFrame.viewport == viewportSize { return frozenMergedFrame }
+        return Self.temporaryTopDownFrame(referencePose: reference, viewport: viewportSize,
+            insets: twoViewReadableInsets, halfLength: Float(tableOuterHalfLength),
+            halfWidth: Float(tableOuterHalfWidth), surfaceY: tableSurfaceY,
+            previousUp: viewportSize.width >= viewportSize.height ? temporaryTopDownLandscapeUp : temporaryTopDownPortraitUp)
+    }
+
+    @discardableResult
+    func beginTemporaryTopDown(aim: SCNVector3) -> Bool {
+        // Keep the caller's signature; orientation belongs to the actual camera, not the cue direction.
+        guard usesTwoViewCameraControls, !temporaryTopDownActive else { return false }
+        let actual = TwoViewCamera.Pose(eye: cameraNode.simdPosition, orientation: cameraNode.simdOrientation,
+            fov: Float(cameraNode.camera?.fieldOfView ?? config.standFov))
+        let reference: TwoViewCamera.Pose
+        let source: String
+        if twoViewCamera?.mode == .firstPerson {
+            if usesSimpleCueCamera, var shot = twoViewCamera?.simpleShot {
+                shot.distance = 1.65
+                reference = shot.pose
+                source = "simple TP default"
+            } else if let profile = twoViewCamera?.shotProfile, profile.context == twoViewViewingContext {
+                reference = profile.defaultPose
+                source = "shot TP default"
+            } else if let shot = twoViewShotReference, let baseline = makeShotBaseline(cue: shot.cue, aim: shot.aim) {
+                reference = baseline
+                source = "shot TP default"
+            } else if let aim = twoViewShotReference?.aim, hypot(aim.x, aim.z) > 0.0001 {
+                reference = .looking(eye: actual.eye, yaw: atan2(-aim.z, -aim.x),
+                    pitch: -atan2(0.90 - BallPhysics.radius, 1.65), fov: actual.fov)
+                source = "shot TP axis"
+            } else { return false }
+        } else {
+            reference = actual
+            source = "TP actual"
+        }
+        guard Self.temporaryTopDownFrame(referencePose: reference, viewport: viewportSize,
+            insets: twoViewReadableInsets, halfLength: Float(tableOuterHalfLength),
+            halfWidth: Float(tableOuterHalfWidth), surfaceY: tableSurfaceY,
+            previousUp: viewportSize.width >= viewportSize.height ? temporaryTopDownLandscapeUp : temporaryTopDownPortraitUp) != nil else { return false }
+        temporaryTopDownReferencePose = reference
+        temporaryTopDownReferenceYaw = atan2(-reference.forward.z, -reference.forward.x)
+        temporaryTopDownReferenceSource = source
+        temporaryTopDownActive = true
+        if usesMergedCamera {
+            frozenMergedFrame = temporaryTopDownOverlayFrame
+            if !mergedGlobalActive, let camera = twoViewCamera { camera.restore(camera.snapshot()) }
+            else { targetYaw = currentYaw; targetPivot = currentPivot; targetOrbit = currentOrbit; overviewYawSpeed = nil }
+            onPlayerTransitionEnded?()
+        }
+        temporaryTopDownActivationCount += 1
+        temporaryTopDownHeldSamples = 0
+        applyTemporaryTopDown()
+        return true
+    }
+
+    private func applyTemporaryTopDown() {
+        guard let frame = temporaryTopDownOverlayFrame else { return }
+        temporaryTopDownLastUp = frame.up
+        if viewportSize.width >= viewportSize.height { temporaryTopDownLandscapeUp = frame.up }
+        else { temporaryTopDownPortraitUp = frame.up }
+        temporaryTopDownHeldSamples += 1
+        // Overlay owns its independent camera. Main transform, lens and projection remain untouched.
+    }
+
+    func endTemporaryTopDown() {
+        guard temporaryTopDownActive else { return }
+        temporaryTopDownActive = false
+        frozenMergedFrame = nil
+        temporaryTopDownReferencePose = nil
+    }
+
+    @discardableResult
+    private func enterTwoViewThirdPerson(wholeTable: Bool, yaw: Float, duration: Float) -> Bool {
+        let center = SIMD3<Float>(0, tableSurfaceY, 0)
+        let halfExtents = SIMD2<Float>(Float(tableOuterHalfLength), Float(tableOuterHalfWidth))
+        let profile: TwoViewCamera.RailProfile
+        if let existing = twoViewCamera?.profile,
+           existing.anchor == center, existing.tableHalfExtents == halfExtents,
+           existing.railViewport == viewportSize, existing.railInsets == twoViewReadableInsets,
+           existing.viewport == viewportSize, existing.readableInsets == twoViewReadableInsets {
+            profile = existing
+        } else {
+            guard let generated = TwoViewCamera.RailProfile.candidate(anchor: center,
+                halfExtents: halfExtents, viewport: viewportSize, insets: twoViewReadableInsets) else { return false }
+            profile = generated
+        }
+        let entryProgress: Float = wholeTable ? 1 : profile.entryProgress(yaw: yaw)
+        guard profile.legalPose(yaw: yaw, progress: entryProgress) != nil else { return false }
+        disableSmoothPoseControl()
+        currentOrbit = nil
+        targetOrbit = nil
+        activeTwoViewCamera().enterThirdPerson(profile, yaw: yaw, duration: duration,
+            progress: entryProgress)
+        playerView = .thirdPerson
+        keepsWholeTableFramed = entryProgress >= 0.999
+        currentViewMode = .observation
+        return true
+    }
 
     #if DEBUG
     // Explicitly enabled by the daily-clearance preview host only. Nil preserves production.
@@ -147,14 +616,15 @@ final class CameraRig: ObservableObject {
                                 viewport: CGSize, focus: SCNVector3? = nil,
                                 context: [SCNVector3] = [], fitsObservationContext: Bool = true,
                                 pocket: SCNVector3? = nil, pocketRadius: Float = 0.043,
-                                pocketMouth: [SCNVector3] = []) -> SmoothPose? {
+                                pocketMouth: [SCNVector3] = [], centersCueAxis: Bool = false) -> SmoothPose? {
         let length = hypot(aim.x, aim.z)
         guard length > 0.0001, length.isFinite, elevation.isFinite,
               cue.x.isFinite, cue.y.isFinite, cue.z.isFinite else { return nil }
-        if view == .thirdPerson, !fitsObservationContext, let pocket {
+        if view == .thirdPerson, !fitsObservationContext, pocket != nil || centersCueAxis {
             return dailyObservationPose(cue: cue, strike: strike, aim: aim, elevation: elevation,
                 surfaceY: surfaceY, viewport: viewport, target: context.last ?? focus ?? cue,
-                pocket: pocket, pocketRadius: pocketRadius, pocketMouth: pocketMouth)
+                pocket: pocket, pocketRadius: pocketRadius, pocketMouth: pocketMouth,
+                centersCueAxis: centersCueAxis)
         }
         let dx = aim.x / length, dz = aim.z / length
         let alongShaft: Float = 0.90
@@ -203,8 +673,9 @@ final class CameraRig: ObservableObject {
     /// Keep the eye above the shaft; near a cushion shorten setback to clear the ball's lower edge.
     private static func dailyObservationPose(cue: SCNVector3, strike: SCNVector3, aim: SCNVector3,
                                              elevation: Float, surfaceY: Float, viewport: CGSize,
-                                             target: SCNVector3, pocket: SCNVector3,
-                                             pocketRadius: Float, pocketMouth: [SCNVector3]) -> SmoothPose? {
+                                             target: SCNVector3, pocket: SCNVector3?,
+                                             pocketRadius: Float, pocketMouth: [SCNVector3],
+                                             centersCueAxis: Bool = false) -> SmoothPose? {
         let length = hypot(aim.x, aim.z), aspect = max(0.1, Float(viewport.width / max(1, viewport.height)))
         let dx = aim.x / length, dz = aim.z / length
         let halfX = AngleSceneCalculator.innerLength / 2, halfZ = AngleSceneCalculator.innerWidth / 2
@@ -251,8 +722,9 @@ final class CameraRig: ObservableObject {
         }
         let eye = eyeAt(setback)
         func frame(from eye: SCNVector3) -> SmoothPose? {
-            let subjects = [(cue, BallPhysics.radius), (target, BallPhysics.radius), (pocket, pocketRadius)]
-                + pocketMouth.map { ($0, Float(0.003)) }
+            var subjects: [(SCNVector3, Float)] = [(cue, BallPhysics.radius), (target, BallPhysics.radius)]
+            if let pocket { subjects.append((pocket, pocketRadius)) }
+            subjects.append(contentsOf: pocketMouth.map { ($0, Float(0.003)) })
             let referenceYaw = atan2(-dz, -dx)
             func unwrap(_ angle: Float) -> Float {
                 referenceYaw + atan2(sin(angle - referenceYaw), cos(angle - referenceYaw))
@@ -263,7 +735,8 @@ final class CameraRig: ObservableObject {
                 let margin = asin(min(0.99, radius / max(radius, distance)))
                 return (angle - margin, angle + margin)
             }
-            let yaw = (bearings.map { $0.0 }.min()! + bearings.map { $0.1 }.max()!) / 2
+            let yaw = centersCueAxis ? referenceYaw
+                : (bearings.map { $0.0 }.min()! + bearings.map { $0.1 }.max()!) / 2
             let forward = SCNVector3(-cos(yaw), 0, -sin(yaw))
             func dot(_ a: SCNVector3, _ b: SCNVector3) -> Float { a.x*b.x + a.y*b.y + a.z*b.z }
             let vertical = subjects.map { point, radius -> (Float, Float) in
@@ -315,7 +788,8 @@ final class CameraRig: ObservableObject {
         }
         var best: SmoothPose?, bestMovement = Float.infinity
         let sideDirection = SCNVector3(-dz, 0, dx)
-        for sideStep in -4...4 {
+        // Along-cue entry cannot use a lateral eye shift without moving the cue off its horizontal axis.
+        for sideStep in (centersCueAxis ? 0...0 : -4...4) {
             for riseStep in 0...3 {
                 let side = Float(sideStep)*0.1, rise = Float(riseStep)*0.1
                 let movement = side*side + rise*rise
@@ -333,9 +807,28 @@ final class CameraRig: ObservableObject {
         return best
     }
 
+    func followSimpleAim(cue: SCNVector3, strike: SCNVector3, aim: SCNVector3) {
+        guard usesSimpleCueCamera, !mergedGlobalActive, !temporaryTopDownActive else { return }
+        twoViewShotReference = (cue, aim)
+        twoViewCamera?.updateSimpleShot(cue: SIMD3(cue.x,cue.y,cue.z),
+            strike: SIMD3(strike.x,strike.y,strike.z), aim: SIMD3(aim.x,aim.y,aim.z),
+            nearPose: usesMergedCamera && !usesSurfaceCamera ? mergedNearPose(cue: cue, aim: aim) : nil)
+        applyTwoViewPose()
+    }
+
     func updateCuePose(strike: SCNVector3, aim: SCNVector3, elevation: Float, cue: SCNVector3? = nil) {
         let old = cuePose
         cuePose = (strike, aim, elevation)
+        if usesTwoViewPoseControl, let cue {
+            twoViewShotReference = (cue, aim)
+            if usesSimpleCueCamera, !mergedGlobalActive, !temporaryTopDownActive {
+                twoViewCamera?.updateSimpleShot(cue: SIMD3(cue.x,cue.y,cue.z),
+                    strike: SIMD3(strike.x,strike.y,strike.z), aim: SIMD3(aim.x,aim.y,aim.z),
+            nearPose: usesMergedCamera && !usesSurfaceCamera ? mergedNearPose(cue: cue, aim: aim) : nil)
+                applyTwoViewPose()
+            }
+        }
+        guard !usesTwoViewPoseControl else { return }
         guard usesShotAwareCamera, playerView == .firstPerson, let reference = playerReference,
               old.map({ ($0.strike - strike).length() > 0.0001 || ($0.aim - aim).length() > 0.0001
                   || abs($0.elevation - elevation) > 0.0001 }) == true else { return }
@@ -375,9 +868,90 @@ final class CameraRig: ObservableObject {
         }
     }
 
+    private func mergedNearPose(cue: SCNVector3, aim: SCNVector3) -> TwoViewCamera.Pose? {
+        guard let entry = Self.dailyPlayerPose(view: .firstPerson, cue: cue,
+            strike: cuePose?.strike ?? cue, aim: aim, elevation: cuePose?.elevation ?? 0.05,
+            surfaceY: tableSurfaceY, viewport: viewportSize, context: observationCandidates),
+            let clear = twoViewTableSightlinesClear else { return nil }
+        let safe = roomSafeDailyPose(entry)
+        let eye = SIMD3(safe.pivot.x + cos(safe.yaw) * safe.radius,
+            tableSurfaceY + safe.height, safe.pivot.z + sin(safe.yaw) * safe.radius)
+        let reference = TwoViewCamera.Pose.looking(eye: eye, yaw: safe.yaw, pitch: safe.pitch, fov: safe.fov)
+        let strike = cuePose?.strike ?? cue
+        return TwoViewCamera.firstPersonEntry(reference: reference,
+            cue: SIMD3(cue.x,cue.y,cue.z), strike: SIMD3(strike.x,strike.y,strike.z),
+            target: observationCandidates.last.map { SIMD3($0.x,$0.y,$0.z) },
+            viewport: viewportSize, insets: twoViewReadableInsets,
+            maximumEyeY: tableSurfaceY + 1.8, clear: clear)
+    }
+
     @discardableResult
     func enterPlayerView(_ view: PlayerView, cue: SCNVector3, aim: SCNVector3,
-                         duration: Float = 0.95, focus: SCNVector3? = nil) -> Bool {
+                         duration: Float = 0.95, focus: SCNVector3? = nil, surfaceTravel: Float = 0.5) -> Bool {
+        let view: PlayerView = usesMergedCamera ? .thirdPerson : view
+        if usesTwoViewCameraControls {
+            guard !temporaryTopDownActive else { return false }
+            resumePerspectivePresentation()
+            if mergedGlobalActive { twoViewCamera = nil; mergedGlobalActive = false }
+            twoViewShotReference = (cue, aim)
+            if view == .thirdPerson, usesSimpleCueCamera {
+                guard hypot(aim.x,aim.z) > 0.0001 else { return false }
+                let strike = cuePose?.strike ?? cue
+                disableSmoothPoseControl(); currentOrbit = nil; targetOrbit = nil
+                let surface: CameraSurface? = usesSurfaceCamera ? CameraSurface(
+                    cue: SIMD2(cue.x,cue.z), surfaceY: tableSurfaceY, viewport: viewportSize,
+                    bearing: CameraSurface.bearing(cue: SIMD2(cue.x,cue.z), backwards: SIMD2(-aim.x,-aim.z)),
+                    travel: surfaceTravel) : nil
+                activeTwoViewCamera().enterSimpleShot(.init(cue: SIMD3(cue.x,cue.y,cue.z),
+                    strike: SIMD3(strike.x,strike.y,strike.z), aim: SIMD3(aim.x,aim.y,aim.z),
+                    surfaceY: tableSurfaceY, viewport: viewportSize,
+                    nearPose: usesMergedCamera && !usesSurfaceCamera ? mergedNearPose(cue: cue, aim: aim) : nil,
+                    usesMergedRange: usesMergedCamera, surface: surface),
+                    duration: usesSurfaceCamera
+                        ? (duration <= 0 || UIAccessibility.isReduceMotionEnabled ? duration : nil)
+                        : min(duration,0.3))
+                playerView = .thirdPerson; playerReference = (cue,aim.normalized())
+                keepsWholeTableFramed = false; currentViewMode = .observation
+                return true
+            }
+            if view == .thirdPerson {
+                guard let profile = makeShotRail(cue: cue, aim: aim) else { return false }
+                disableSmoothPoseControl()
+                currentOrbit = nil
+                targetOrbit = nil
+                guard activeTwoViewCamera().enterShotThirdPerson(profile, duration: duration) else { return false }
+                pendingTwoViewEntry = PendingTwoViewEntry(cue: cue, aim: aim,
+                    context: twoViewViewingContext, duration: duration)
+                playerView = .thirdPerson
+                playerReference = (cue, aim.normalized())
+                keepsWholeTableFramed = false
+                currentViewMode = .observation
+                return true
+            }
+            guard let entry = Self.dailyPlayerPose(view: .firstPerson, cue: cue,
+                strike: cuePose?.strike ?? cue, aim: aim, elevation: cuePose?.elevation ?? 0.05,
+                surfaceY: tableSurfaceY, viewport: viewportSize, context: observationCandidates) else { return false }
+            let safe = roomSafeDailyPose(entry)
+            let eye = SIMD3(safe.pivot.x + cos(safe.yaw) * safe.radius,
+                            tableSurfaceY + safe.height, safe.pivot.z + sin(safe.yaw) * safe.radius)
+            let reference = TwoViewCamera.Pose.looking(eye: eye, yaw: safe.yaw, pitch: safe.pitch, fov: safe.fov)
+            guard let clear = twoViewTableSightlinesClear,
+                  let base = TwoViewCamera.firstPersonEntry(reference: reference,
+                    cue: SIMD3(cue.x, cue.y, cue.z),
+                    strike: SIMD3((cuePose?.strike ?? cue).x, (cuePose?.strike ?? cue).y, (cuePose?.strike ?? cue).z),
+                    target: observationCandidates.last.map { SIMD3($0.x, $0.y, $0.z) },
+                    viewport: viewportSize, insets: twoViewReadableInsets,
+                    maximumEyeY: tableSurfaceY + 1.8, clear: clear) else { return false }
+            disableSmoothPoseControl()
+            currentOrbit = nil
+            targetOrbit = nil
+            activeTwoViewCamera().enterFirstPerson(base, duration: duration)
+            playerView = .firstPerson
+            playerReference = (cue, aim.normalized())
+            keepsWholeTableFramed = false
+            currentViewMode = .aiming
+            return true
+        }
         var proposed: SmoothPose?
         if usesShotAwareCamera {
             proposed = Self.dailyPlayerPose(view: view, cue: cue, strike: cuePose?.strike ?? cue,
@@ -478,6 +1052,10 @@ final class CameraRig: ObservableObject {
     @Published private(set) var keepsWholeTableFramed = false
     var viewportSize: CGSize = .zero {
         didSet {
+            if usesTwoViewPoseControl {
+                if viewportSize != oldValue { refreshTwoViewProfileForLayout() }
+                return
+            }
             guard viewportSize != oldValue, keepsWholeTableFramed else { return }
             let speed = overviewYawSpeed
             let framesDuringTurn = framesTableDuringOverviewTurn
@@ -505,14 +1083,15 @@ final class CameraRig: ObservableObject {
     /// visible pose as its starting origin instead of snapping back to a
     /// stale `currentZoom`-derived pose.
     private var currentInterpolatedPose: SmoothPose?
-    var isTransitioning: Bool { smoothProgress < 1.0 }
+    var isTransitioning: Bool { usesTwoViewPoseControl ? (twoViewCamera?.isTransitioning ?? false) : smoothProgress < 1.0 }
     /// Automatic HUD anchoring must not translate a user-controlled observation pivot.
-    var allowsCueScreenAnchor: Bool { currentOrbit == nil && !isTransitioning }
+    var allowsCueScreenAnchor: Bool { !usesTwoViewPoseControl && currentOrbit == nil && !isTransitioning }
 
     /// Numerical settling floors in scene metres, yaw radians and normalized
     /// zoom; the damping law itself is unchanged. Allow Float rounding at large
     /// accumulated yaw so idle can still converge.
     var hasPendingDamping: Bool {
+        if usesTwoViewPoseControl { return twoViewCamera?.hasPendingMotion ?? false }
         let precision: Float = 0.00001
         let yawPrecision = max(precision, max(abs(currentYaw), abs(targetYaw)) * Float.ulpOfOne * 32)
         let orbitPending: Bool
@@ -551,6 +1130,8 @@ final class CameraRig: ObservableObject {
         fileprivate let dailyObservationMaximumDistance: Float?
         fileprivate let dailyObservationControls: Bool
         fileprivate let dailyObservationSubjects: [SCNVector3]
+        fileprivate let mergedGlobal: Bool
+        fileprivate let twoView: TwoViewCamera.Snapshot?
     }
 
     func capturePerspectiveState() -> PerspectiveState {
@@ -571,10 +1152,25 @@ final class CameraRig: ObservableObject {
                          dailyZoomBaseDistance: dailyZoomBaseDistance,
                          dailyObservationMaximumDistance: dailyObservationMaximumDistance,
                          dailyObservationControls: dailyObservationControls,
-                         dailyObservationSubjects: dailyObservationSubjects)
+                         dailyObservationSubjects: dailyObservationSubjects,
+                         mergedGlobal: mergedGlobalActive,
+                         twoView: usesTwoViewPoseControl ? twoViewCamera?.snapshot() : nil)
     }
 
     func restorePerspectiveState(_ state: PerspectiveState) {
+        resumePerspectivePresentation()
+        mergedGlobalActive = usesMergedCamera && state.mergedGlobal
+        if usesTwoViewCameraControls, let snapshot = state.twoView {
+            pendingTwoViewEntry = nil
+            activeTwoViewCamera().restore(snapshot)
+            refreshTwoViewProfileForLayout()
+            playerView = snapshot.mode
+            keepsWholeTableFramed = snapshot.progress >= 0.999 && snapshot.mode == .thirdPerson
+            playerReference = state.playerReference
+            applyTwoViewPose()
+            onPlayerTransitionEnded?()
+            return
+        }
         keepsWholeTableFramed = state.keepsWholeTableFramed
         playerView = state.playerView
         playerReference = state.playerReference
@@ -770,7 +1366,26 @@ final class CameraRig: ObservableObject {
 
     // MARK: - Input handlers (3D mode)
 
+    func handleSurfacePan(delta: SIMD2<Float>) {
+        guard usesSurfaceCamera, usesTwoViewPoseControl, prepareTwoViewRailForInput(),
+              activeTwoViewCamera().surfacePan(delta: delta) else { return }
+        finishPendingTwoViewEntry(notify: true)
+        keepsWholeTableFramed = false
+        onManualCameraControl?()
+    }
+
     func handleHorizontalSwipe(delta: Float) {
+        if usesSurfaceCamera { handleSurfacePan(delta: SIMD2(delta, 0)); return }
+        if usesTwoViewPoseControl {
+            if delta.isFinite, delta != 0, !prepareTwoViewRailForInput() { return }
+            if activeTwoViewCamera().horizontal(delta: delta) {
+                if usesSurfaceCamera { applyTwoViewPose() }
+                finishPendingTwoViewEntry(notify: true)
+                keepsWholeTableFramed = false
+                onManualCameraControl?()
+            }
+            return
+        }
         beginManualOrbit()
         // Sensitivity 0.0025 — half of the previous value. Crucially we
         // only update `targetYaw`, not `currentYaw`: the per-frame damping
@@ -785,6 +1400,17 @@ final class CameraRig: ObservableObject {
     }
 
     func handleVerticalSwipe(delta: Float) {
+        if usesSurfaceCamera { handleSurfacePan(delta: SIMD2(0, delta)); return }
+        if usesTwoViewPoseControl {
+            if delta.isFinite, delta != 0, !prepareTwoViewRailForInput() { return }
+            if activeTwoViewCamera().vertical(delta: delta) {
+                if usesSimpleCueCamera { applyTwoViewPose() }
+                finishPendingTwoViewEntry(notify: true)
+                keepsWholeTableFramed = false
+                onManualCameraControl?()
+            }
+            return
+        }
         beginManualOrbit()
         guard var orbit = targetOrbit else { return }
         #if DEBUG
@@ -832,6 +1458,15 @@ final class CameraRig: ObservableObject {
     }
 
     func handlePinch(scale: Float) {
+        if usesTwoViewPoseControl {
+            if scale.isFinite, scale > 0, scale != 1, !prepareTwoViewRailForInput() { return }
+            if activeTwoViewCamera().pinch(scale: scale) {
+                finishPendingTwoViewEntry(notify: true)
+                keepsWholeTableFramed = false
+                onManualCameraControl?()
+            }
+            return
+        }
         beginManualOrbit()
         guard var orbit = targetOrbit else { return }
         #if DEBUG
@@ -873,6 +1508,7 @@ final class CameraRig: ObservableObject {
 
     /// Resolve once at pinch start. Smoothly reorient around the chosen ball without a dolly.
     func beginObservationPinch(at point: SCNVector3?) {
+        guard !usesTwoViewPoseControl else { return }
         #if DEBUG
         if dailyPreviewIsObserver, dailyPreviewSteadyInput { return }
         #endif
@@ -960,6 +1596,9 @@ final class CameraRig: ObservableObject {
 
     @discardableResult
     func observeDailyWholeTable(aimDirection: SCNVector3?) -> Bool {
+        if usesTwoViewPoseControl {
+            return enterTwoViewThirdPerson(wholeTable: true, yaw: twoViewOrbitBearing, duration: 0.5)
+        }
         let center = SCNVector3(0, tableSurfaceY + BallPhysics.radius, 0)
         let wasFramed = keepsWholeTableFramed && (currentPivot - center).length() < 0.001
             && (currentOrbit?.distance ?? 0) >= wholeTableOrbit(yaw: currentYaw).distance - 0.001
@@ -976,6 +1615,9 @@ final class CameraRig: ObservableObject {
     ///   the 2D-consistent orientation. Pass `targetYaw` to re-fit without turning.
     @discardableResult
     func observeWholeTable(yaw: Float? = CameraRig.overviewYaw) -> Bool {
+        if usesTwoViewPoseControl {
+            return enterTwoViewThirdPerson(wholeTable: true, yaw: yaw ?? twoViewOrbitBearing, duration: 0.5)
+        }
         #if DEBUG
         dailyPreviewIsObserver = false
         #endif
@@ -1244,6 +1886,7 @@ final class CameraRig: ObservableObject {
     /// Used by `AngleTrainingScene` before driving the camera through a
     /// 2D⇄3D mode-switch transaction.
     func disableSmoothPoseControl() {
+        pendingTwoViewEntry = nil
         smoothOrigin = nil
         smoothTarget = nil
         smoothProgress = 1.0
@@ -1274,6 +1917,15 @@ final class CameraRig: ObservableObject {
     }
 
     func captureCurrentPose() -> SmoothPose {
+        if usesTwoViewPoseControl, let pose = twoViewCamera?.pose {
+            let forward = pose.forward
+            let distance = forward.y < -0.0001
+                ? max(0.05, (pose.eye.y - tableSurfaceY - BallPhysics.radius) / -forward.y) : 1
+            let pivot = pose.eye + forward * distance
+            return SmoothPose(yaw: atan2(-forward.z, -forward.x),
+                pitch: asin(max(-1, min(1, forward.y))), radius: hypot(pose.eye.x - pivot.x, pose.eye.z - pivot.z),
+                pivot: SCNVector3(pivot.x, pivot.y, pivot.z), fov: pose.fov, height: pose.eye.y - tableSurfaceY)
+        }
         if let orbit = currentOrbit {
             return SmoothPose(yaw: currentYaw, pitch: -orbit.elevation + orbit.pitchOffset,
                               radius: orbit.distance * cos(orbit.elevation), pivot: currentPivot,
@@ -1298,6 +1950,23 @@ final class CameraRig: ObservableObject {
     // MARK: - Update
 
     func update(deltaTime: Float) {
+        // Legacy hosts prepare an explicit focus while still in 2D, before switching
+        // presentation. Only the two-view controller competes with 2D cue updates.
+        guard !(presentsTopDown && usesTwoViewCameraControls) else { return }
+        if temporaryTopDownActive { applyTemporaryTopDown(); return }
+        if usesTwoViewPoseControl, let camera = twoViewCamera {
+            let wasTransitioning = camera.isTransitioning
+            camera.update(deltaTime: deltaTime)
+            applyTwoViewPose()
+            if wasTransitioning, !camera.isTransitioning {
+                finishPendingTwoViewEntry(notify: false)
+                onPlayerTransitionEnded?()
+            } else if pendingTwoViewEntry != nil, !camera.isTransitioning {
+                // Covers cancellation by another explicit facade path before the next display update.
+                finishPendingTwoViewEntry(notify: true)
+            }
+            return
+        }
         if smoothProgress < 1.0, let origin = smoothOrigin, let target = smoothTarget {
             smoothProgress += deltaTime / smoothDuration
             smoothProgress = min(1.0, smoothProgress)
@@ -1390,6 +2059,7 @@ final class CameraRig: ObservableObject {
     }
 
     func applyTopDown2D() {
+        presentsTopDown = true
         cameraNode.camera?.usesOrthographicProjection = true
         cameraNode.camera?.orthographicScale = topDownOrthographicScale
 
@@ -1402,6 +2072,7 @@ final class CameraRig: ObservableObject {
     /// Top-down 2D view with the table's long axis (X) appearing vertically on screen,
     /// so the table fits the phone's portrait orientation (long edge along long edge).
     func applyTopDown2DRotated() {
+        presentsTopDown = true
         cameraNode.camera?.usesOrthographicProjection = true
         cameraNode.camera?.orthographicScale = topDownOrthographicScale
 

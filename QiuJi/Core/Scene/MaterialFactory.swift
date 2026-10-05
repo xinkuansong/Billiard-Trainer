@@ -13,6 +13,7 @@ final class MaterialFactory {
 
     // MARK: - Texture cache (pure functions of size, safe to cache indefinitely)
 
+    private static let textureCacheLock = NSLock()
     private static var feltNormalMapCache: [Int: UIImage] = [:]
     private static var woodNormalMapCache: [Int: UIImage] = [:]
 
@@ -260,6 +261,8 @@ final class MaterialFactory {
     // MARK: - Procedural normal maps (cached)
 
     static func cachedFeltNormalMap(size: Int) -> UIImage {
+        textureCacheLock.lock()
+        defer { textureCacheLock.unlock() }
         if let cached = feltNormalMapCache[size] { return cached }
         let image = generateFeltNormalMap(size: size)
         feltNormalMapCache[size] = image
@@ -267,6 +270,8 @@ final class MaterialFactory {
     }
 
     static func cachedWoodGrainNormalMap(size: Int) -> UIImage {
+        textureCacheLock.lock()
+        defer { textureCacheLock.unlock() }
         if let cached = woodNormalMapCache[size] { return cached }
         let image = generateWoodGrainNormalMap(size: size)
         woodNormalMapCache[size] = image

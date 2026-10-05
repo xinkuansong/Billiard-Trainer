@@ -1,4 +1,5 @@
 import SceneKit
+import ObjectiveC
 import Combine
 import simd
 import os
@@ -9,6 +10,10 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
 
     /// Weak bridge to the live viewport; used only while a closeup is visible.
     weak var closeupViewport: SCNView?
+    var closeupCuePath: [SCNVector3] = []
+    var closeupObjectPaths: [String: [SCNVector3]] = [:]
+    var closeupPocketNodes: [SCNNode] { leatherMarkers }
+
 
     /// Selected before setup; scene-local so daily-clearance trials do not change other pages or exports.
     var renderingProfile = MobileReferenceLighting.specializedProfile
@@ -35,6 +40,15 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         avoidsDailyRedundantCameraWrites = !arguments.contains("-daily3D.cameraReference")
         mergesDailyClothSupport = arguments.contains("-daily3D.mergeClothSupport")
         factorsDailyClothBRDF = arguments.contains("-daily3D.factorClothBRDF")
+        usesClothLightingPrototype = arguments.contains("-dailyClearance.clothPrototype")
+        if let index = arguments.firstIndex(of: "-dailyClearance.exposure"), arguments.indices.contains(index + 1),
+           let value = Double(arguments[index + 1]), value.isFinite, (-0.45 ... -0.05).contains(value) {
+            sceneExposureOffset = CGFloat(value)
+        }
+        if let index = arguments.firstIndex(of: "-dailyClearance.rendering"), arguments.indices.contains(index + 1),
+           let profile = MobileReferenceLighting.SpecializedProfile(rawValue: arguments[index + 1]) {
+            renderingProfile = profile
+        }
         #endif
     }
 
@@ -206,7 +220,8 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     ///   finishes + baked training room (visible in `perspective3D` only).
     ///   Defaults to `MobileTableRendering.isEnabled` so every interactive page
     ///   shares one look; offline renderers pass `false` to keep bundled output stable.
-    func setupScene(enhancedRendering: Bool = false, mobileRendering: Bool = MobileTableRendering.isEnabled) {
+    func setupScene(enhancedRendering: Bool = false, mobileRendering: Bool = MobileTableRendering.isEnabled,
+                    roomStyle: RoomStyle = .selected) {
         #if DEBUG
         var stageStart = CACurrentMediaTime()
         func mark(_ key: String) {
@@ -246,7 +261,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             mark("referenceMs")
             #endif
             // Room is a scene-assembly step, independent of material finishes.
-            installReferenceRoom()
+            installReferenceRoom(style: roomStyle)
             #if DEBUG
             mark("roomMs")
             #endif
@@ -418,6 +433,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         guard let node = allBallNodes[key] else { return }
         let correctY = surfaceY + AngleSceneCalculator.ballRadius
         if node.parent == nil { rootNode.addChildNode(node) }
+        TableBallPulse.restore(node)
         node.removeAllActions()
         node.opacity = 1
         applyPosePolicy(cuePose, to: node, key: key)
@@ -591,8 +607,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     ) {
         // 显式重新摆杆（如击球后复位重新瞄准）会取消尚未结束的出杆/跟杆/收杆序列，
         // 避免延迟收杆把刚摆好的瞄准杆又隐藏（收杆/复位竞态）。
-        cueStick?.rootNode.removeAction(forKey: "strokeAnim")
-        cueStick?.rootNode.removeAction(forKey: "cueFade")
+        cueStick?.cancelAnimations()
 
         lastCueAim = aimDirection
         let accessSnapshot = cueStrikeAccess(aim: aimDirection)
@@ -670,8 +685,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             lastCueAim = nil
             if cueAccessSnapshot != nil { cueAccessSnapshot = nil }
         }
-        cueStick?.rootNode.removeAction(forKey: "aimTransition")
-        cueStick?.rootNode.removeAction(forKey: "strokeAnim")
+        cueStick?.cancelAnimations()
         cueStick?.hide()
         lastCueTipInset = 0
     }
@@ -733,6 +747,17 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         cameraRig = CameraRig(cameraNode: cameraNode, tableSurfaceY: surfaceY, config: rigConfig)
         cameraRig?.usesShotAwareCamera = usesDailyPerspective
         cameraRig?.avoidsRedundantPerspectiveWrites = avoidsDailyRedundantCameraWrites
+        cameraRig?.twoViewTableSightlinesClear = { [weak self] eye, points in
+            guard let table = self?.tableNode else { return false }
+            let origin = table.convertPosition(SCNVector3(eye.x, eye.y, eye.z), from: nil)
+            return points.allSatisfy { point in
+                let end = table.convertPosition(SCNVector3(point.x, point.y, point.z), from: nil)
+                let hits = table.hitTestWithSegment(from: origin, to: end,
+                    options: [SCNHitTestOption.backFaceCulling.rawValue: false,
+                              SCNHitTestOption.ignoreHiddenNodes.rawValue: true])
+                return !hits.contains { $0.node.opacity > 0.001 && !$0.node.isHidden }
+            }
+        }
         if let (halfLength, halfWidth) = measuredTableOuterHalfExtents() {
             cameraRig?.tableOuterHalfLength = halfLength
             cameraRig?.tableOuterHalfWidth = halfWidth
@@ -1136,7 +1161,110 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         }
     }
 
-    func setCameraMode(_ mode: CameraMode, animated: Bool = true) {
+    /// One-shot render tree. Mesh caches are independent, materials stay shared; all node
+    /// transforms, actions and cameras belong to the clone, never the live scene.
+    func makeTemporaryTopDownRenderScene(onClone: ((SCNNode, SCNNode) -> Void)? = nil) -> SCNScene {
+        let result = SCNScene()
+        result.background.contents = UIColor.clear
+        result.lightingEnvironment.contents = lightingEnvironment.contents
+        result.lightingEnvironment.intensity = lightingEnvironment.intensity
+        result.lightingEnvironment.contentsTransform = lightingEnvironment.contentsTransform
+        var copies: [SCNNode: SCNNode] = [:]
+        synchronizeTemporaryTopDownScene(result, copies: &copies, onClone: onClone)
+        return result
+    }
+
+    private static var topDownSourceGeometryKey: UInt8 = 0
+
+    /// Each renderer owns its mesh caches. Sharing immutable bytes/materials is fine,
+    /// but sharing SCNGeometry lets two renderers lazily build the same C3DMesh at once.
+    private func topDownGeometry(_ source: SCNGeometry) -> SCNGeometry {
+        // Native copying preserves USDZ/Model I/O mesh metadata not represented by
+        // the public sources/elements API (including the imported cloth mesh).
+        let copy = source.copy() as! SCNGeometry
+        copy.materials = source.materials
+        return copy
+    }
+
+    /// Keep the overlay scene, camera and unchanged nodes resident. Reconcile only
+    /// inserted/removed source nodes and mirror the currently displayed animation state.
+    /// No actions are copied: the source scene owns the one feedback clock.
+    func synchronizeTemporaryTopDownScene(_ result: SCNScene,
+        copies: inout [SCNNode: SCNNode], onClone: ((SCNNode, SCNNode) -> Void)? = nil) {
+        SCNTransaction.lock()
+        defer { SCNTransaction.unlock() }
+        SCNTransaction.begin()
+        SCNTransaction.disableActions = true
+        defer { SCNTransaction.commit() }
+        // Retain source keys until reconciliation so allocator address reuse cannot
+        // accidentally match a newly inserted prediction node to a removed node.
+        var seen = Set<SCNNode>()
+        func mirror(_ source: SCNNode, parent: SCNNode, world: Bool, lightOnly: Bool = false) {
+            let id = source
+            seen.insert(id)
+            let copy: SCNNode
+            if let existing = copies[id] { copy = existing }
+            else {
+                // Never invoke subclass clone/copy initializers (PocketLeatherMarker).
+                copy = SCNNode()
+                copy.name = source.name
+                copy.light = source.light?.copy() as? SCNLight
+                copy.castsShadow = source.castsShadow
+                copy.renderingOrder = source.renderingOrder
+                copy.categoryBitMask = source.categoryBitMask
+                copy.movabilityHint = source.movabilityHint
+                copy.constraints = source.constraints?.compactMap {
+                    ($0 as? SCNBillboardConstraint)?.copy() as? SCNConstraint
+                }
+                copies[id] = copy
+                onClone?(source, copy)
+            }
+            if copy.parent !== parent { parent.addChildNode(copy) }
+            let shown = source.presentation
+            let transform = world ? shown.simdWorldTransform : shown.simdTransform
+            if copy.simdTransform != transform { copy.simdTransform = transform }
+            // SceneKit's presentation transform already includes the visual pivot.
+            // Copying that pivot as well would lift/scale an animated ball twice.
+            if copy.simdPivot != matrix_identity_float4x4 { copy.simdPivot = matrix_identity_float4x4 }
+            if copy.opacity != shown.opacity { copy.opacity = shown.opacity }
+            let hidden = source.isHidden || (lightOnly && { () -> Bool in
+                var ancestor = source.parent
+                while let node = ancestor { if node.isHidden { return true }; ancestor = node.parent }
+                return false
+            }())
+            if copy.isHidden != hidden { copy.isHidden = hidden }
+            if !lightOnly {
+                let priorGeometry = objc_getAssociatedObject(copy, &Self.topDownSourceGeometryKey) as? SCNGeometry
+                if priorGeometry !== source.geometry {
+                    copy.geometry = source.geometry.map { topDownGeometry($0) }
+                    objc_setAssociatedObject(copy, &Self.topDownSourceGeometryKey, source.geometry,
+                        .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                }
+                for child in source.childNodes { mirror(child, parent: copy, world: false) }
+            }
+        }
+        for node in rootNode.childNodes {
+            let excluded = node === cameraNode || node === groundVisualNode
+                || node === tableContactShadowNode || node === tableCenterGlowNode
+                || node === cueStick?.rootNode || node.name == "reference_room"
+            if excluded {
+                node.enumerateHierarchy { child, _ in
+                    if child.light != nil { mirror(child, parent: result.rootNode, world: true, lightOnly: true) }
+                }
+            } else { mirror(node, parent: result.rootNode, world: true) }
+        }
+        for id in Array(copies.keys) where !seen.contains(id) {
+            copies.removeValue(forKey: id)?.removeFromParentNode()
+        }
+    }
+
+    /// The host may resolve the first 3D pose after presentation ownership changes,
+    /// before any fallback overview is applied. Return false to use the normal fallback.
+    func setCameraMode(_ mode: CameraMode, animated: Bool = true,
+                       initializePerspective: (() -> Bool)? = nil) {
+        if cameraRig?.temporaryTopDownActive == true {
+            cameraRig?.endTemporaryTopDown()
+        }
         if mobileRendering {
             rootNode.childNode(withName: "reference_room", recursively: false)?.isHidden = mode != .perspective3D
             groundVisualNode?.isHidden = mode != .perspective3D
@@ -1152,8 +1280,28 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         }
         cameraTransitionID = UUID()
         currentCameraMode = mode
+        if mode == .perspective3D { rig.resumePerspectivePresentation() }
         updateAngleValueFacing()
         if mode == .perspective3D { hasPerspectiveView = true }
+        if rig.usesTwoViewCameraControls {
+            // Projection-space changes do not launch a second transaction writer.
+            // The rig alone owns 3D pose connectors and suspends their actual visible pose.
+            isCameraModeTransitioning = false
+            switch mode {
+            case .perspective3D:
+                if let saved = savedPerspectiveState { rig.restorePerspectiveState(saved) }
+                else if initializePerspective?() == true {
+                    rig.update(deltaTime: 1)
+                }
+                else {
+                    _ = rig.observeWholeTable()
+                    rig.update(deltaTime: 1)
+                }
+            case .topDown2D: rig.applyTopDown2D()
+            case .topDown2DRotated: rig.applyTopDown2DRotated()
+            }
+            return
+        }
         if mode == .perspective3D, let saved = savedPerspectiveState {
             isCameraModeTransitioning = animated
             if animated {
@@ -1732,6 +1880,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     /// 被带动球轨迹（含目标球）：本球色**虚线**（黑 8 亮灰变体，条 12.2/12.4）。
     func addObjectTrajectory(_ pts: [SCNVector3], ballKey: String,
                              into nodes: inout [SCNNode]) {
+        closeupObjectPaths[ballKey] = pts
         addDashedPolyline(pts, color: TrajectoryStyle.potColor(for: ballKey),
                           radius: TrajectoryStyle.potRadius, placement: .table, into: &nodes)
     }
@@ -1862,9 +2011,9 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         for marker in leatherMarkers { marker.cancelSelectionFeedback() }
     }
 
-    func confirmPocketSelection(at index: Int) {
+    func confirmPocketSelection(at index: Int, immediately: Bool = false) {
         cancelPocketSelectionFeedback()
-        leatherMarkers.first { $0.pocketIndex == index }?.confirmSelection()
+        leatherMarkers.first { $0.pocketIndex == index }?.confirmSelection(delay: immediately ? 0 : PocketLeatherMarker.selectionPulseDelay)
     }
 
     /// Explicit dual-role state; equal indices show both roles on the same leather.
@@ -2223,6 +2372,8 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     }
 
     func hideAllVisualization() {
+        closeupCuePath = []
+        closeupObjectPaths = [:]
         diagramLabelGeometry = nil
         strikeContinuationNode?.isHidden = true
         setIdealObjectLine(nil)

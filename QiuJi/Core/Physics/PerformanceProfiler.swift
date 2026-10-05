@@ -61,7 +61,7 @@ final class PerformanceProfiler {
 
     /// 开始计时
     static func begin(_ label: String) {
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
         shared.lock.lock()
         shared.pendingStarts[label] = CACurrentMediaTime()
         shared.lock.unlock()
@@ -71,7 +71,7 @@ final class PerformanceProfiler {
     /// 结束计时并记录
     @discardableResult
     static func end(_ label: String) -> Double {
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
         let endTime = CACurrentMediaTime()
         shared.lock.lock()
         defer { shared.lock.unlock() }
@@ -90,7 +90,7 @@ final class PerformanceProfiler {
     /// 对一个返回值的闭包进行计时
     @discardableResult
     static func measure<T>(_ label: String, block: () -> T) -> T {
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
         begin(label)
         let result = block()
         end(label)
@@ -102,7 +102,7 @@ final class PerformanceProfiler {
 
     /// 对一个无返回值的闭包进行计时
     static func measure(_ label: String, block: () -> Void) {
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
         begin(label)
         block()
         end(label)
@@ -115,7 +115,7 @@ final class PerformanceProfiler {
     /// 与 `begin`/`end` 的区别：`begin`/`end` 共享同一 label 的挂起时刻，**并发调用会互相覆盖**；
     /// 并发热点（`DispatchQueue.concurrentPerform` 内）应在调用方本地计时后用本方法累计。
     static func recordSample(_ label: String, ms: Double) {
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
         shared.lock.lock()
         defer { shared.lock.unlock() }
         if shared.stats[label] == nil {
@@ -128,7 +128,7 @@ final class PerformanceProfiler {
     /// 对闭包本地计时并以 `recordSample` 累计（并发安全），返回闭包结果。
     @discardableResult
     static func measureSample<T>(_ label: String, block: () -> T) -> T {
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
         let t0 = CACurrentMediaTime()
         let result = block()
         recordSample(label, ms: (CACurrentMediaTime() - t0) * 1000.0)
@@ -144,7 +144,7 @@ final class PerformanceProfiler {
 
     /// 打印所有已收集区段的统计报告（通过 Logger 输出，可在 Console.app 查看）
     static func printReport(tag: String = "PerformanceProfiler") {
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
         shared.lock.lock()
         let snapshot = shared.stats
         shared.lock.unlock()
@@ -172,7 +172,7 @@ final class PerformanceProfiler {
 
     /// 获取某区段最近一次耗时（ms），供实时 HUD 展示
     static func lastMs(for label: String) -> Double {
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
         shared.lock.lock()
         defer { shared.lock.unlock() }
         return shared.stats[label]?.lastMs ?? 0
@@ -183,7 +183,7 @@ final class PerformanceProfiler {
 
     /// 获取某区段调用次数
     static func callCount(for label: String) -> Int {
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
         shared.lock.lock()
         defer { shared.lock.unlock() }
         return shared.stats[label]?.callCount ?? 0
@@ -194,7 +194,7 @@ final class PerformanceProfiler {
 
     /// 返回统计报告纯文本（测试输出用；DEBUG 之外返回空串）。
     static func reportText() -> String {
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
         shared.lock.lock()
         let snapshot = shared.stats
         shared.lock.unlock()
@@ -217,7 +217,7 @@ final class PerformanceProfiler {
 
     /// 重置所有统计数据
     static func reset() {
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
         shared.lock.lock()
         shared.stats.removeAll()
         shared.pendingStarts.removeAll()
@@ -261,31 +261,31 @@ struct MixedLoopPhaseClock {
             }
         }
     }
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
     private var totalsMs = [Double](repeating: 0, count: Phase.allCases.count)
     private var counts = [Int](repeating: 0, count: Counter.allCases.count)
     private let start = CACurrentMediaTime()
 #endif
     @inline(__always) static func now() -> Double {
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
         return CACurrentMediaTime()
 #else
         return 0
 #endif
     }
     @inline(__always) mutating func add(_ phase: Phase, since t0: Double) {
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
         totalsMs[phase.rawValue] += (CACurrentMediaTime() - t0) * 1000
 #endif
     }
     @inline(__always) mutating func tick(_ counter: Counter) {
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
         counts[counter.rawValue] += 1
 #endif
     }
     /// One sample per phase; counters are recorded with `ms` = count (label says `count`).
     func flush() {
-#if DEBUG
+#if DEBUG && !CUE_SCRATCH_QUIET
         let total = (CACurrentMediaTime() - start) * 1000
         PerformanceProfiler.recordSample("Mixed.total", ms: total)
         for phase in Phase.allCases where totalsMs[phase.rawValue] > 0 {

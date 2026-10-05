@@ -1,4 +1,5 @@
 import SwiftUI
+import SceneKit
 
 /// Aim closeup loupe: **same user geometry as the scene**, tighter framing
 /// (问题集合 v23 / D-v23-2′ / D-v23-8).
@@ -159,6 +160,11 @@ struct BTAimCloseupOverlay: View {
     /// Column occupied by the aim wheel / thumb (loupe is pushed to the far side).
     var blockedSide: AimCloseupPlacement.Side? = .leading
 
+    var protectsDailySight = false
+    var frameInWindow: CGRect? = nil
+    var placementBounds: CGRect? = nil
+    @State private var protectedPlacement: AimCloseupPlacement.ProtectedPlacement?
+
     @ObservedObject private var prefs = UserPreferences.shared
     /// Placement hysteresis (scene pts); cleared when the loupe hides.
     @State private var center: CGPoint?
@@ -177,12 +183,22 @@ struct BTAimCloseupOverlay: View {
         guard let view = scene.closeupViewport else { return nil }
         var current = snapshot
         current.idealLine = scene.idealObjectLine
-        return current.projected(in: view, surfaceY: scene.surfaceY)
+        return current.projected(in: view, surfaceY: scene.surfaceY, destinationRect: protectsDailySight
+            ? DailyCloseupProjection.destinationRect(in: view, frameInWindow: frameInWindow) : nil,
+            preservesPlanarTangency: protectsDailySight)
     }
 
     private var content: some View {
         ZStack(alignment: .topLeading) {
             if prefs.showAimCloseup, let snap = displaySnapshot, sceneSize.height > 1 {
+                if protectsDailySight {
+                    if let placement = dailyPlacement(snap) {
+                        BTAimCloseupHUD(snapshot: snap, diameter: placement.diameter)
+                            .position(placement.center)
+                            .onAppear { protectedPlacement = placement }
+                            .onChange(of: placement) { _, value in protectedPlacement = value }
+                    }
+                } else {
                 let c = AimCloseupPlacement.center(
                     focusNorm: snap.focusNorm ?? CGPoint(x: 0.5, y: 0.5),
                     sceneSize: sceneSize,
@@ -196,6 +212,7 @@ struct BTAimCloseupOverlay: View {
                     .onAppear { center = c }
                     .onChange(of: c) { _, new in center = new }
                     .transition(.opacity)
+                }
             }
         }
         .frame(width: sceneSize.width, height: sceneSize.height, alignment: .topLeading)
@@ -203,9 +220,20 @@ struct BTAimCloseupOverlay: View {
         .animation(BTMotion.easeInOutFast, value: isVisible)
         // Camera motion must not lag behind the main scene through implicit animation.
         .onChange(of: isVisible) { _, visible in
-            if !visible { center = nil }
+            if !visible { center = nil; protectedPlacement = nil }
         }
     }
+    private func dailyPlacement(_ projected: AimCloseupSnapshot) -> AimCloseupPlacement.ProtectedPlacement? {
+        guard let snapshot, let scene, let view = scene.closeupViewport else { return nil }
+        let rect = DailyCloseupProjection.destinationRect(in: view, frameInWindow: frameInWindow)
+        let obstacles = DailyCloseupProjection.obstacles(snapshot: snapshot, scene: scene, view: view, destination: rect)
+        let norm = projected.focusNorm ?? CGPoint(x: 0.5,y: 0.5)
+        let tableBounds = scene.currentCameraMode == .topDown2D
+            ? DailyCloseupProjection.topDownPlayingRect(scene:scene,view:view,destination:rect) : placementBounds
+        return AimCloseupPlacement.protectedPlacement(focus:CGPoint(x:norm.x*sceneSize.width,y:norm.y*sceneSize.height),
+            size:sceneSize,obstacles:obstacles,previous:protectedPlacement,diameter:diameter,placementBounds:tableBounds)
+    }
+
 }
 
 /// Layered closeup frame (planar meters: `CGPoint(x:X, y:Z)`).

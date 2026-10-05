@@ -7,6 +7,16 @@ import Combine
 
 @MainActor
 final class V53ProfilePreferencesTests: XCTestCase {
+    func testDailySpinTransparencyDefaultsAndPersistsIncludingEndpoints() {
+        let defaults = isolatedDefaults()
+        let preferences = UserPreferences(defaults: defaults)
+        XCTAssertEqual(preferences.dailySpinDiscTransparency, 0.5)
+        for value in [0.0, 1.0, 0.73] {
+            preferences.dailySpinDiscTransparency = value
+            XCTAssertEqual(UserPreferences(defaults: defaults).dailySpinDiscTransparency, value)
+        }
+    }
+
     func testLoggedInDisplayNameCommitsOnlyServerResponse() async {
         let defaults = isolatedDefaults()
         let owner = CurrentOwnerContext(defaults: defaults)

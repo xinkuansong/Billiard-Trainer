@@ -26,7 +26,21 @@ final class PositionPlayViewModel: ObservableObject {
 
     // MARK: - Scene
 
-    let scene = AngleTrainingScene()
+    let scene: AngleTrainingScene
+    private let preparationRenderer: SCNRenderer?
+    private(set) var hasPreparedDailyScene = false
+
+    init() {
+        scene = AngleTrainingScene()
+        preparationRenderer = nil
+    }
+
+    init(preparedDailyScene: DailyClearancePreloader.Prepared) {
+        scene = preparedDailyScene.scene
+        pocketMarkers = preparedDailyScene.markers
+        preparationRenderer = preparedDailyScene.renderer
+        hasPreparedDailyScene = true
+    }
     private var pocketMarkers: [SCNNode] = []
     private var trajectoryNodes: [SCNNode] = []
     /// 选中目标球的常驻选中环（独立于轨迹，feasible/computing 都显示）。
@@ -53,13 +67,107 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     @Published private(set) var cameraTransitionBusy = false
+    @Published private(set) var temporaryTopDownActive = false
+    @Published private(set) var topDownContentRevision = 0
+    private var topDownEntrySelection: (target: String?, pocket: Int, cue: SCNVector3)?
+    private var mergedEditNeedsCamera = false
+    private var surfaceSelectionNeedsCamera = false
     private var pendingCameraTarget: String?
+    private var pendingTwoViewSelection: (target: String, pocket: Int, context: UUID)?
+    #if DEBUG
+    private(set) var twoViewAutomaticThirdPersonEntryCount = 0
+    #endif
+    private var shotCameraRequestRevision: UInt64?
+
+    private func cancelPendingSelectionCamera() {
+        mergedEditNeedsCamera = false
+        surfaceSelectionNeedsCamera = false
+        pendingCameraTarget = nil
+        pendingTwoViewSelection = nil
+    }
+
+    /// Selection is the event; ordinary prediction updates never create camera requests.
+    private func queueSelectionCamera() {
+        if scene.cameraRig?.usesSurfaceCamera == true {
+            requestSurfaceSelectionCamera()
+            return
+        }
+        guard cameraMode == .perspective3D, !isPlaying, !isBreakMode, !isSequenceMode,
+              scene.cameraRig?.usesTwoViewCameraControls == true,
+              aimMode == .pocket, let target = selectedTargetKey, selectedPocketIndex >= 0 else {
+            return
+        }
+        pendingCameraTarget = target
+        pendingTwoViewSelection = (target, selectedPocketIndex, strokeGeneration)
+    }
+
+    /// Framing follows the selected geometric aim, independent of pot feasibility/solver timing.
+    private func requestSurfaceSelectionCamera() {
+        guard cameraMode == .perspective3D, !isPlaying, !isBreakMode, !isSequenceMode,
+              let cue = scene.cueBallNode, !cue.isHidden else { return }
+        surfaceSelectionNeedsCamera = true
+        guard !temporaryTopDownActive else { return }
+        let aim: SCNVector3?
+        if aimMode == .free { aim = freeAimDir }
+        else if let key = selectedTargetKey, let target = scene.allBallNodes[key], !target.isHidden,
+                let candidate = dailyCandidates(keys: [key]).first(where: { $0.pocketIndex == selectedPocketIndex }) {
+            let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target.position,
+                pocket: candidate.aim, ballRadius: AngleSceneCalculator.ballRadius)
+            let delta = SCNVector3(ghost.x - cue.position.x, 0, ghost.z - cue.position.z)
+            aim = delta.length() > 0.000001 ? delta.normalized() : nil
+        } else { aim = nil }
+        guard let aim else { return }
+        let revision = scene.cameraRig?.twoViewRequestRevision
+        requestPlayerView(.thirdPerson, aimOverride: aim)
+        #if DEBUG
+        if scene.cameraRig?.twoViewRequestRevision != revision { twoViewAutomaticThirdPersonEntryCount += 1 }
+        #endif
+    }
+
+    private func enterPendingSelectionCamera() {
+        guard let request = pendingTwoViewSelection else { return }
+        guard request.target == selectedTargetKey, request.pocket == selectedPocketIndex,
+              request.context == strokeGeneration else {
+            cancelPendingSelectionCamera()
+            return
+        }
+        guard !isComputing, !isPlaying, !temporaryTopDownActive,
+              cameraMode == .perspective3D, solvedShot?.shot.targetKey == request.target,
+              solvedShot?.shot.pocket == ShotIntent.pocketId(for: request.pocket),
+              isFeasible, let rig = scene.cameraRig else { return }
+        let revision = rig.twoViewRequestRevision
+        requestPlayerView(.thirdPerson)
+        #if DEBUG
+        if rig.twoViewRequestRevision != revision { twoViewAutomaticThirdPersonEntryCount += 1 }
+        #endif
+    }
 
     func enablePlayerCameraControls() {
         scene.cameraRig?.usesRailCameraControls = true
+        // Daily clearance uses the accepted S2 surface in both Debug and Release.
+        // Other interactive hosts retain their existing camera behavior.
+        let daily = scene.usesDailyPerspective
+        scene.cameraRig?.usesSurfaceCamera = daily
+        scene.cameraRig?.usesMergedCamera = daily
+        scene.cameraRig?.usesSimpleCueCamera = daily
+        scene.cameraRig?.usesTwoViewCameraControls = daily
+        #if DEBUG
+        // Explicit historical test scenarios only; a normal launch needs no camera flag.
+        let args = ProcessInfo.processInfo.arguments
+        if daily, !args.contains("-dailyClearance.surfaceCamera"),
+           args.contains("-dailyClearance.twoViewCamera")
+            || args.contains("-dailyClearance.simpleCamera")
+            || args.contains("-dailyClearance.mergedCamera") {
+            scene.cameraRig?.usesSurfaceCamera = false
+            scene.cameraRig?.usesMergedCamera = args.contains("-dailyClearance.mergedCamera")
+            scene.cameraRig?.usesSimpleCueCamera = args.contains("-dailyClearance.simpleCamera")
+                || scene.cameraRig?.usesMergedCamera == true
+        }
+        #endif
+        scene.cameraRig?.setTwoViewViewingContext(strokeGeneration)
         scene.cameraRig?.onPlayerTransitionEnded = { [weak self] in self?.cameraTransitionBusy = false }
         scene.cameraRig?.onManualCameraControl = { [weak self] in
-            self?.pendingCameraTarget = nil
+            self?.cancelPendingSelectionCamera()
             self?.cameraTransitionBusy = false
         }
     }
@@ -68,15 +176,92 @@ final class PositionPlayViewModel: ObservableObject {
         breakRunner?.aimDir ?? (aimMode == .free ? freeAimDir : solvedShot?.prediction.aimDirection)
     }
 
-    func requestPlayerView(_ view: CameraRig.PlayerView, focusTarget: Bool = false) {
-        guard cameraMode == .perspective3D, !isPlaying,
+    func nudgeThirdPersonAim(byDegrees delta: Float) {
+        guard !isPlaying, !temporaryTopDownActive,
+              let rig = scene.cameraRig, rig.usesSimpleCueCamera, !rig.mergedGlobalActive, rig.twoViewMode == .thirdPerson else { return }
+        cancelPendingSelectionCamera()
+        if let runner = breakRunner { runner.nudgeAim(byDegrees: delta) }
+        else { nudgeFreeAim(byDegrees: delta) }
+        guard let cue = scene.cueBallNode, let aim = currentPlayerAim else { return }
+        // A temporarily blocked shaft must not prevent the user turning away from the obstruction.
+        rig.followSimpleAim(cue: cue.position,
+            strike: CueStroke.strikePosition(cue: cue.position, aim: aim, spinX: spinX, spinY: spinY), aim: aim)
+    }
+
+    func beginCameraObservation() {
+        guard cameraMode == .perspective3D, !isPlaying, !temporaryTopDownActive,
+              let rig = scene.cameraRig, rig.usesTwoViewPoseControl,
               let cue = scene.cueBallNode, !cue.isHidden, let aim = currentPlayerAim else { return }
+        refreshObservationCameraContext()
+        rig.prepareTemporaryObservation(cue: cue.position, aim: aim)
+    }
+
+    func endCameraObservation() {
+        guard cameraMode == .perspective3D, !isPlaying, !temporaryTopDownActive,
+              let rig = scene.cameraRig, rig.usesTwoViewPoseControl else { return }
+        let view = rig.twoViewMode
+        rig.endTemporaryObservation()
+        // Third-person observation persists. Only first-person head turns return to
+        // the latest shot direction; recompute it instead of restoring a stale aim.
+        if view == .firstPerson { requestPlayerView(view) }
+    }
+
+    func beginTemporaryTopDown() {
+        guard cameraMode == .perspective3D, !isPlaying, !temporaryTopDownActive,
+              let aim = currentPlayerAim, let rig = scene.cameraRig,
+              rig.beginTemporaryTopDown(aim: aim) else { return }
+        if rig.usesMergedCamera {
+            cancelPendingSelectionCamera()
+            topDownEntrySelection = (selectedTargetKey, selectedPocketIndex, scene.cueBallNode?.position ?? SCNVector3Zero)
+        }
+        temporaryTopDownActive = true
+    }
+
+    func endTemporaryTopDown() {
+        guard temporaryTopDownActive else { return }
+        scene.cameraRig?.endTemporaryTopDown()
+        temporaryTopDownActive = false
+        if scene.cameraRig?.usesMergedCamera == true, let entry = topDownEntrySelection {
+            topDownEntrySelection = nil
+            let cue = scene.cueBallNode?.position ?? SCNVector3Zero
+            let changed = surfaceSelectionNeedsCamera || entry.target != selectedTargetKey || entry.pocket != selectedPocketIndex
+                || (cue - entry.cue).length() > 0.00001
+            cancelPendingSelectionCamera()
+            if changed {
+                if isBreakMode { requestPlayerView(.thirdPerson) }
+                else if scene.cameraRig?.usesSurfaceCamera == true { requestSurfaceSelectionCamera() }
+                else { mergedEditNeedsCamera = true; recompute() }
+            }
+            return
+        }
+        if cameraMode == .perspective3D, !isPlaying { enterPendingSelectionCamera() }
+    }
+
+    func requestSurfaceOverview() {
+        guard cameraMode == .perspective3D, !isPlaying, !temporaryTopDownActive,
+              let rig = scene.cameraRig, rig.usesSurfaceCamera else { return }
+        cancelPendingSelectionCamera()
         scene.discardSavedPerspectiveView()
         refreshObservationCameraContext()
-        let duration: Float = UIAccessibility.isReduceMotionEnabled ? 0.1 : 0.95
+        cameraTransitionBusy = rig.enterMergedGlobal(aim: currentPlayerAim, cue: scene.cueBallNode?.position)
+            && rig.isTransitioning
+    }
+
+    @discardableResult
+    func requestPlayerView(_ view: CameraRig.PlayerView, focusTarget: Bool = false,
+                           aimOverride: SCNVector3? = nil, animated: Bool = true) -> Bool {
+        guard cameraMode == .perspective3D, !isPlaying, !temporaryTopDownActive,
+              let cue = scene.cueBallNode, !cue.isHidden, let aim = aimOverride ?? currentPlayerAim else { return false }
+        cancelPendingSelectionCamera()
+        scene.discardSavedPerspectiveView()
+        refreshObservationCameraContext()
+        // Surface entries use their speed clock; this duration remains for legacy cameras.
+        let duration: Float = animated ? (UIAccessibility.isReduceMotionEnabled ? 0.1 : 0.95) : 0
         let target = focusTarget ? selectedTargetKey.flatMap { scene.allBallNodes[$0]?.position } : nil
-        cameraTransitionBusy = scene.cameraRig?.enterPlayerView(view, cue: cue.position, aim: aim,
-            duration: duration, focus: target) == true
+        let accepted = scene.cameraRig?.enterPlayerView(view, cue: cue.position, aim: aim,
+            duration: duration, focus: target, surfaceTravel: isBreakMode ? 1 : 0.5) == true
+        cameraTransitionBusy = accepted && scene.cameraRig?.isTransitioning == true
+        return accepted
     }
 
     /// Publish one current shot context before either a button or cue contact requests a camera.
@@ -95,6 +280,16 @@ final class PositionPlayViewModel: ObservableObject {
     var legalAimTargets: ((Set<String>) -> Set<String>)?
     var usesAutomaticPocketFallback = false
     var usesDailyShotRanking = false
+    /// Daily-clearance trial: continuous full-physics previews for power/aim input.
+    var usesContinuousTrajectoryPreview = false
+    private var isAimWheelDragging = false
+    private var livePreviewActive = false
+    private var livePreviewEpoch = 0
+    private var livePreviewWork: DispatchWorkItem?
+    private var livePreviewLastStart: CFTimeInterval = 0
+    private(set) var livePreviewShot: SolvedShot?
+    /// A presentation budget, not a physics precision or simulation-time limit.
+    private static let livePreviewInterval: TimeInterval = 1.0 / 15.0
     private var dailyManualSelection = false
     private var selectionChangeDepth = 0
     private var pendingAutomaticPocketFeedback = false
@@ -148,6 +343,8 @@ final class PositionPlayViewModel: ObservableObject {
     /// Explicit mode controls change preference even when already temporarily free.
     func setPreferredAimMode(_ mode: AimMode) {
         guard !isPlaying else { return }
+        let previousSelection = selectionSnapshot
+        defer { invalidateTwoViewContextForSelection(from: previousSelection) }
         scene.cancelPocketSelectionFeedback()
         selectionChangeDepth += 1
         defer { selectionChangeDepth -= 1; recompute() }
@@ -193,7 +390,8 @@ final class PositionPlayViewModel: ObservableObject {
     private func onParamEdited() {
         guard !correctingCueSpin, !isPlaying, !isPresentingBankAlternative else { return }
         recompute(interactive: isPowerDragging,
-                  debounceInterval: isPowerDragging ? Self.powerPreviewIdleInterval : nil)
+                  debounceInterval: isPowerDragging ? Self.powerPreviewIdleInterval : nil,
+                  continuousPreview: usesContinuousTrajectoryPreview && isPowerDragging)
     }
 
     static let powerPreviewIdleInterval: TimeInterval = 0.18
@@ -217,7 +415,7 @@ final class PositionPlayViewModel: ObservableObject {
         guard isPowerDragging else { return }
         cancelPowerRelease()
         guard !isPlaying, !isBreakMode, !isSequenceMode else { return }
-        recompute()
+        recompute(continuousPreview: usesContinuousTrajectoryPreview)
     }
 
     // MARK: - Published state
@@ -225,6 +423,7 @@ final class PositionPlayViewModel: ObservableObject {
     @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated {
         didSet {
             if oldValue != cameraMode {
+                if cameraMode != .perspective3D { cancelPendingSelectionCamera() }
                 scene.cancelPocketSelectionFeedback()
                 if hides3DShotAssists { refreshShotAssistVisibility() }
             }
@@ -306,7 +505,9 @@ final class PositionPlayViewModel: ObservableObject {
     /// 每杆停稳后的物理事实回调（条 15.10：自由击球页把它喂给规则引擎裁决）。
     var onShotSettled: ((ShotFacts) -> Void)?
     var onShotWillStart: (() -> Void)?
-    private var strokeGeneration = UUID()
+    private var strokeGeneration = UUID() {
+        didSet { scene.cameraRig?.setTwoViewViewingContext(strokeGeneration) }
+    }
 
     /// 桌面目标球数量上限（条 17.4：分离角与走位强制最多 2 颗，让玩家专注感受
     /// 角度/力度/打点对母球轨迹的影响）。nil = 不限。
@@ -360,7 +561,7 @@ final class PositionPlayViewModel: ObservableObject {
     private var predictGeneration = 0
     private var predictCancellation: PredictionCancellation?
 
-    deinit { predictCancellation?.cancel() }
+    deinit { predictCancellation?.cancel(); livePreviewWork?.cancel() }
     /// 求解触发去抖调度（G14）：交互态（拖瞄准线/拖球/刻度轮）挂起求解、停 0.5s 才触发；
     /// 离散态（点选/参数）按原 ~20ms 快速触发。
     private let solveScheduler = SolveDebounceScheduler()
@@ -461,6 +662,7 @@ final class PositionPlayViewModel: ObservableObject {
               !overlapsExisting(world, excluding: PositionPlayBall.cueKey) else { return false }
         let safe = AngleSceneCalculator.clampAwayFromPockets(world, surfaceY: surfaceY)
         guard abs(safe.x - world.x) < 0.001, abs(safe.z - world.z) < 0.001 else { return false }
+        invalidateTwoViewContextForMovement(from: node.position, to: safe)
         node.position = safe
         recompute(interactive: true)
         return true
@@ -485,7 +687,7 @@ final class PositionPlayViewModel: ObservableObject {
         strokeGeneration = UUID()
         invalidatePendingPredict()
         if isBreakMode { cancelBreakFlow() }
-        scene.allBallNodes.values.forEach { $0.removeAllActions() }
+        scene.allBallNodes.values.forEach { TableBallPulse.restore($0); $0.removeAllActions() }
         scene.cueStick?.rootNode.removeAllActions()
         scene.hideCueStick()
         ShotAudioScheduler.shared.cancel()
@@ -700,6 +902,9 @@ final class PositionPlayViewModel: ObservableObject {
             point: CGPoint(x: normalized.x, y: normalized.y), surfaceY: surfaceY
         )
         scene.showBall(key: key, scenePosition: scenePos, cuePose: cuePose)
+        if key == PositionPlayBall.cueKey, !isPlaying {
+            scene.cameraRig?.setTwoViewViewingContext(UUID())
+        }
     }
 
     /// 在台面网格上找一个不与现有球重叠的归一化空位。
@@ -726,18 +931,37 @@ final class PositionPlayViewModel: ObservableObject {
         return false
     }
 
+    /// A real board edit invalidates FP shot memory without moving the table-relative TP eye.
+    /// TP profile and memory are independent of the ball layout; the core retains them.
+    private func invalidateTwoViewContextForMovement(from old: SCNVector3, to new: SCNVector3) {
+        guard old.x != new.x || old.y != new.y || old.z != new.z,
+              scene.cameraRig?.usesTwoViewCameraControls == true,
+              let snapshot = scene.cameraRig?.twoViewSnapshot,
+              snapshot.entryContext == snapshot.context else { return }
+        strokeGeneration = UUID()
+    }
+
+    /// Selection changes invalidate a shot-specific FP memory, while retaining the table rail.
+    private func invalidateTwoViewContextForSelection(from old: AimSelectionSnapshot) {
+        let directionChanged = old.direction?.x != freeAimDir?.x || old.direction?.z != freeAimDir?.z
+        guard !isPlaying, scene.cameraRig?.usesTwoViewCameraControls == true,
+              old.target != selectedTargetKey || old.pocket != selectedPocketIndex
+                || old.mode != aimMode || directionChanged else { return }
+        strokeGeneration = UUID()
+    }
+
     // MARK: - Drag
 
     func dragBegan(node: SCNNode) {
         scene.cancelPocketSelectionFeedback()
         guard !isPlaying, !isSequenceMode else { return }
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.15, duration: 0.1), forKey: "dragPulse")
+        TableBallPulse.beginDrag(node)
     }
 
     func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
         guard !isPlaying, !isSequenceMode else { return }
         let clamped = clampMultiBall(worldPosition, movingNode: node)
+        invalidateTwoViewContextForMovement(from: node.position, to: clamped)
         node.position = clamped
         refreshSelectionRing()   // 即时跟随（选中环无防抖，避免滞后）
         recompute(interactive: true)   // G14：拖球期间不求解，仅几何预览
@@ -745,8 +969,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     func dragEnded(node: SCNNode) {
         guard !isPlaying, !isSequenceMode else { return }
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.0 / 1.15, duration: 0.15))
+        TableBallPulse.endDrag(node)
         if usesAutomaticPocketFallback, preferredAimMode == .pocket, aimMode == .pocket,
            (0..<6).contains(selectedPocketIndex), directPocketAssessment(selectedPocketIndex) == .unavailable {
             selectionChangeDepth += 1
@@ -770,6 +993,7 @@ final class PositionPlayViewModel: ObservableObject {
         let moved = abs(clamped.x - node.position.x) > 1e-7
             || abs(clamped.z - node.position.z) > 1e-7
         guard moved else { return false }
+        invalidateTwoViewContextForMovement(from: node.position, to: clamped)
         node.position = clamped
         refreshSelectionRing()
         recompute(interactive: true)
@@ -817,11 +1041,19 @@ final class PositionPlayViewModel: ObservableObject {
 
     @discardableResult
     func selectTarget(key: String) -> Bool {
+        defer { if temporaryTopDownActive { topDownContentRevision &+= 1 } }
         guard !isPlaying, !PositionPlayBall.isCue(key), onTableKeys.contains(key),
               !(usesAutomaticPocketFallback && (isBreakMode || isSequenceMode)) else { return false }
         let candidates = Set(onTableKeys.filter { !PositionPlayBall.isCue($0) })
         if let legalAimTargets, !legalAimTargets(candidates).contains(key) { return false }
-        if scene.cameraRig?.usesRailCameraControls == true, cameraMode == .perspective3D {
+        let previousSelection = selectionSnapshot
+        defer {
+            invalidateTwoViewContextForSelection(from: previousSelection)
+            // A repeated tap is still an explicit request to reframe the current target.
+            queueSelectionCamera()
+        }
+        if scene.cameraRig?.usesRailCameraControls == true, cameraMode == .perspective3D,
+           scene.cameraRig?.usesTwoViewCameraControls != true {
             pendingCameraTarget = key
         }
         dailyManualSelection = true
@@ -830,7 +1062,7 @@ final class PositionPlayViewModel: ObservableObject {
         defer {
             selectionChangeDepth -= 1
             recompute()
-            if aimMode == .pocket { scene.confirmPocketSelection(at: selectedPocketIndex) }
+            if aimMode == .pocket { scene.confirmPocketSelection(at: selectedPocketIndex, immediately: true) }
         }
         if usesAutomaticPocketFallback {
             selectedTargetKey = key
@@ -843,12 +1075,16 @@ final class PositionPlayViewModel: ObservableObject {
             selectBestPocket()
         }
         recompute()
+        pulseTableBall(key)
         return true
     }
 
     func selectPocket(at index: Int) {
+        defer { if temporaryTopDownActive { topDownContentRevision &+= 1 } }
         guard !isPlaying, !isBreakMode, !isSequenceMode, (0..<6).contains(index),
               let cue = scene.cueBallNode, !cue.isHidden else { return }
+        let previousSelection = selectionSnapshot
+        defer { invalidateTwoViewContextForSelection(from: previousSelection) }
         scene.cancelPocketSelectionFeedback()
         if preferredAimMode == .free || (!usesAutomaticPocketFallback && aimMode == .free) {
             // Explicit free preference keeps its existing cue-to-pocket meaning.
@@ -887,7 +1123,7 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     private func confirmPocketClick(at index: Int) {
-        scene.confirmPocketSelection(at: index)
+        scene.confirmPocketSelection(at: index, immediately: true)
         // UIKit honours system haptic settings; automatic recommendations stay silent.
         pocketSelectionHaptic.prepare()
         pocketSelectionHaptic.selectionChanged()
@@ -896,6 +1132,8 @@ final class PositionPlayViewModel: ObservableObject {
     /// 自由模式：点击桌面任意点设定瞄准方向（母球 → 点击点）。袋口模式忽略。
     func handleTableTap(world: SCNVector3) {
         guard aimMode == .free, !isPlaying else { return }
+        let previousSelection = selectionSnapshot
+        defer { invalidateTwoViewContextForSelection(from: previousSelection) }
         setFreeAim(toward: world)
     }
 
@@ -943,6 +1181,8 @@ final class PositionPlayViewModel: ObservableObject {
     func setAimWheelDragging(_ active: Bool) {
         if active { scene.cancelPocketSelectionFeedback() }
         closeupGate.setDragging(active)
+        isAimWheelDragging = active
+        if !active, livePreviewActive { recompute(continuousPreview: true) }
     }
 
     func setAimTableDragging(_ active: Bool) {
@@ -973,9 +1213,12 @@ final class PositionPlayViewModel: ObservableObject {
     /// 瞄准方向的增量旋转（第一落点只选中不转向由手势层保证）；G14：微调期间不求解、停 0.5s 才求解。
     func nudgeFreeAim(byDegrees delta: Float) {
         guard !isPlaying, delta.isFinite, delta != 0 else { return }
+        if scene.cameraRig?.usesSimpleCueCamera == true { cancelPendingSelectionCamera() }
+        let previousSelection = selectionSnapshot
+        defer { invalidateTwoViewContextForSelection(from: previousSelection) }
         scene.cancelPocketSelectionFeedback()
         selectionChangeDepth += 1
-        defer { selectionChangeDepth -= 1; recompute(interactive: true) }
+        defer { selectionChangeDepth -= 1; recompute(interactive: true, continuousPreview: usesContinuousTrajectoryPreview) }
         if usesDailyShotRanking { dailyManualSelection = true }
         if usesAutomaticPocketFallback && aimMode == .pocket {
             enterTemporaryFree("已调整方向，暂用自由模式", preservesSolvedDirection: true)
@@ -1092,10 +1335,15 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 自动选目标（#6）：距母球最近的在桌目标球。
     private func autoSelectTarget() {
+        let previousSelection = selectionSnapshot
         selectionChangeDepth += 1
         defer {
             selectionChangeDepth -= 1
             pendingAutomaticPocketFeedback = aimMode == .pocket && selectedTargetKey != nil && selectedPocketIndex >= 0
+            if previousSelection.target != selectedTargetKey || previousSelection.pocket != selectedPocketIndex {
+                invalidateTwoViewContextForSelection(from: previousSelection)
+                queueSelectionCamera()
+            }
         }
         scene.cancelPocketSelectionFeedback()
         guard let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else {
@@ -1230,9 +1478,10 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 作废一切在途求解（清空等使旧解失效的路径调用）。
     private func invalidatePendingPredict() {
+        endLiveTrajectoryPreview()
         scene.cancelPocketSelectionFeedback()
         pendingAutomaticPocketFeedback = false
-        pendingCameraTarget = nil
+        cancelPendingSelectionCamera()
         cancelPowerRelease()
         predictCancellation?.cancel()
         predictGeneration += 1
@@ -1245,13 +1494,14 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 预测调度 =「去抖 + 单飞 + 末班车」（瞄准预测性能优化 P3 + 求解去抖 G14）：
     /// 去抖窗口内只保留最新意图；在途任务跑完后若期间有过新请求，只用**最新** UI 状态补跑一次
-    /// （丢弃中间态）。一致性红线：`predictGeneration` 代际检查保留——任何最终上屏的解必对应最新一次
-    /// intent，绝不展示旧解。
+    /// （丢弃中间态）。每日普通杆力度/方向走下方连续预览分支，其余保持去抖。一致性红线：`predictGeneration` 代际检查保留——任何最终上屏的解必对应最新一次
+    /// intent。每日连续预览允许同盘面的稍早参数仅作变淡展示；可击球结果仍须完全匹配。
     ///
     /// - Parameter interactive: G14 语义。`true` = 连续交互（拖瞄准线/拖球/刻度轮微调）——拖动过程中
     ///   **不求解**，只保留纯几何预览（假想球/首碰点/瞄准线），停 0.5s（无新输入）后才触发求解；
     ///   `false` = 离散变更（点选目标/袋口、参数微调），按 ~20ms 快速触发（原手感）。
-    func recompute(interactive: Bool = false, debounceInterval: TimeInterval? = nil) {
+    func recompute(interactive: Bool = false, debounceInterval: TimeInterval? = nil,
+                   continuousPreview: Bool = false) {
         guard selectionChangeDepth == 0 else { return }
         #if DEBUG
         entryTiming["solveRequests", default: 0] += 1
@@ -1277,6 +1527,11 @@ final class PositionPlayViewModel: ObservableObject {
             return
         }
 
+        if continuousPreview, usesContinuousTrajectoryPreview, !isBreakMode {
+            requestLiveTrajectoryPreview()
+            return
+        }
+        endLiveTrajectoryPreview()
         predictCancellation?.cancel()
         predictGeneration += 1
         // A newer debounce must supersede an older queued rerun as well.
@@ -1292,6 +1547,57 @@ final class PositionPlayViewModel: ObservableObject {
         solveScheduler.schedule(interactive: interactive, delayOverride: debounceInterval) { [weak self] in
             self?.launchSolveIfIdle()
         }
+    }
+
+    /// Keep one complete preview on screen while coalescing input into one pending intent.
+    /// Unlike discrete selection/board edits, new power/aim samples do not cancel in-flight work.
+    private func requestLiveTrajectoryPreview() {
+        if !livePreviewActive {
+            livePreviewActive = true
+            livePreviewEpoch += 1
+            predictCancellation?.cancel()
+            livePreviewShot = currentSolvedShotForDisplay
+        }
+        solveScheduler.cancel()
+        predictGeneration += 1
+        isComputing = true
+        // Never let a preview (possibly one sample behind) become a playable shot.
+        isFeasible = false
+        if aimMode == .free { drawFreeAimPreviewLine() }
+        for node in trajectoryNodes { node.opacity = 0.55 }
+        scheduleLiveTrajectoryPreview()
+    }
+
+    private func scheduleLiveTrajectoryPreview() {
+        guard livePreviewActive, !isPlaying else { return }
+        if predictInFlight {
+            predictRerunWanted = true
+            return
+        }
+        guard livePreviewWork == nil else { return }
+        let epoch = livePreviewEpoch
+        let delay = max(0, Self.livePreviewInterval - (CACurrentMediaTime() - livePreviewLastStart))
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.livePreviewActive, self.livePreviewEpoch == epoch else { return }
+            self.livePreviewWork = nil
+            self.launchSolveIfIdle()
+        }
+        livePreviewWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    private func endLiveTrajectoryPreview() {
+        livePreviewEpoch += 1
+        livePreviewActive = false
+        livePreviewWork?.cancel()
+        livePreviewWork = nil
+        livePreviewShot = nil
+    }
+
+    /// Leaving/backgrounding must also invalidate a queued preview and late callbacks.
+    func cancelInteractiveTrajectoryPreview() {
+        isAimWheelDragging = false
+        invalidatePendingPredict()
     }
 
     /// G14 拖动中的纯几何预览：保留 `refreshFreeAimOverlay` 刚刷新的假想球/接触点，
@@ -1382,6 +1688,8 @@ final class PositionPlayViewModel: ObservableObject {
         let shot = intent
         let y = surfaceY
         let gen = predictGeneration
+        let previewEpoch = livePreviewActive ? livePreviewEpoch : nil
+        if previewEpoch != nil { livePreviewLastStart = CACurrentMediaTime() }
         let cancellation = PredictionCancellation()
         predictCancellation = cancellation
         predictInFlight = true
@@ -1413,7 +1721,30 @@ final class PositionPlayViewModel: ObservableObject {
                 // 末班车：在途期间来过新请求 ⇒ 用最新状态补跑（本结果 gen 已过期，下方代际检查自然丢弃）。
                 if self.predictRerunWanted {
                     self.predictRerunWanted = false
-                    self.launchSolveIfIdle()
+                    if self.livePreviewActive { self.scheduleLiveTrajectoryPreview() }
+                    else { self.launchSolveIfIdle() }
+                }
+                if let previewEpoch, self.livePreviewActive,
+                   self.livePreviewEpoch == previewEpoch, !cancellation.isCancelled,
+                   !self.isPlaying, self.matchesCurrentBoard(before),
+                   let resolvedPred, resolvedPred.feasible, resolvedPred.hasFinalTableState {
+                    let preview = SolvedShot(before: before, shot: shot, prediction: resolvedPred)
+                    self.livePreviewShot = preview
+                    #if DEBUG
+                    self.entryTiming["livePreviewDeliveries", default: 0] += 1
+                    if self.isPowerDragging || self.isAimWheelDragging {
+                        self.entryTiming["livePreviewDuringDrag", default: 0] += 1
+                    }
+                    #endif
+                    if self.predictGeneration != gen {
+                        // Presentation only: never move the cue/camera or publish stale rule facts.
+                        self.drawTrajectory(resolvedPred, previewShot: shot)
+                        for node in self.trajectoryNodes { node.opacity = 0.55 }
+                        self.freeAimGeometryInput = nil
+                        self.refreshFreeAimOverlay()
+                        if self.aimMode == .free { self.drawFreeAimPreviewLine() }
+                        if self.temporaryTopDownActive { self.topDownContentRevision &+= 1 }
+                    }
                 }
                 guard self.predictGeneration == gen, !self.isPlaying else { return }
                 self.isComputing = false
@@ -1501,6 +1832,7 @@ final class PositionPlayViewModel: ObservableObject {
         bankCatalog: [BankEngineSolution] = [],
         bankIndex: Int = 0
     ) {
+        defer { if temporaryTopDownActive { topDownContentRevision &+= 1 } }
         if pred.feasible && !pred.hasFinalTableState {
             isFeasible = false
             solvedShot = nil
@@ -1519,6 +1851,10 @@ final class PositionPlayViewModel: ObservableObject {
         refreshSelectionRing()
 
         guard pred.feasible else {
+            if mergedEditNeedsCamera {
+                mergedEditNeedsCamera = false
+                onAimSelectionNotice?("当前线路不可用，请重新选择目标球或袋口")
+            }
             objectPocketed = false
             cuePocketed = false
             if bankCatalog.isEmpty, DirectPotBankFallback.shouldAttemptBank(afterDirect: pred) {
@@ -1549,7 +1885,13 @@ final class PositionPlayViewModel: ObservableObject {
         #endif
         refreshObservationCameraContext()
         updateCueStickAiming(pred)
-        if pendingCameraTarget == selectedTargetKey, pendingCameraTarget != nil {
+        if mergedEditNeedsCamera, !temporaryTopDownActive {
+            mergedEditNeedsCamera = false
+            requestPlayerView(.thirdPerson)
+        }
+        if scene.cameraRig?.usesTwoViewCameraControls == true {
+            enterPendingSelectionCamera()
+        } else if pendingCameraTarget == selectedTargetKey, pendingCameraTarget != nil {
             pendingCameraTarget = nil
             requestPlayerView(.thirdPerson, focusTarget: scene.cameraRig?.usesShotAwareCamera == true)
         }
@@ -1608,10 +1950,10 @@ final class PositionPlayViewModel: ObservableObject {
 
     // MARK: - Trajectory drawing
 
-    private func drawTrajectory(_ p: ShotPrediction) {
+    private func drawTrajectory(_ p: ShotPrediction, previewShot: PlannedShot? = nil) {
         clearTrajectory()
         guard showsShotAssists else { return }
-        let shot = solvedShot?.shot
+        let shot = previewShot ?? solvedShot?.shot
         // 全量口径（C3 / D2）：objectPath + rim extend + ghost←`.ghost`。
         // 自由球不显示假想球（与改前一致）。
         TrajectoryRenderer.draw(
@@ -1627,6 +1969,7 @@ final class PositionPlayViewModel: ObservableObject {
             scene: scene,
             into: &trajectoryNodes
         )
+        scene.closeupCuePath = DailyCloseupTrajectory.protectedCuePath(p, detail: UserPreferences.shared.trajectoryDetail)
     }
 
     private func clearTrajectory() {
@@ -1705,8 +2048,9 @@ final class PositionPlayViewModel: ObservableObject {
 
     func play() {
         scene.cancelPocketSelectionFeedback()
-        guard !isPlaying, !isSequenceMode, !isComputing, !cameraTransitionBusy,
-              let solved = solvedShot, solved.prediction.feasible, solved.prediction.hasFinalTableState,
+        guard !isPlaying, !isSequenceMode, !isComputing, !cameraTransitionBusy, !temporaryTopDownActive,
+              !isPowerDragging, !isAimWheelDragging,
+              let solved = currentSolvedShotForDisplay, solved.prediction.feasible, solved.prediction.hasFinalTableState,
               let recorder = solved.prediction.recorder, solved.prediction.duration > 0.05,
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
               let aim = lastAimDirection ?? aimDirection(path: solved.prediction.cuePath, from: cueNode.position)
@@ -1750,6 +2094,8 @@ final class PositionPlayViewModel: ObservableObject {
     /// 触球瞬间：收杆、清线，按真实轨迹回放全部球体。
     private func launchBalls(solved: SolvedShot, recorder: TrajectoryRecorder) {
         let generation = strokeGeneration
+        shotCameraRequestRevision = scene.cameraRig?.twoViewRequestRevision
+        let cameraRevision = shotCameraRequestRevision
         if !scene.usesDailyPerspective {
             cameraTransitionBusy = scene.transitionPlayerCameraForShot(aim: solved.prediction.aimDirection)
         }
@@ -1799,6 +2145,8 @@ final class PositionPlayViewModel: ObservableObject {
                         .run { [weak self] _ in
                             Task { @MainActor in
                                 guard let self, self.isPlaying, self.strokeGeneration == generation else { return }
+                                if let rig = self.scene.cameraRig, rig.usesTwoViewCameraControls,
+                                   rig.twoViewRequestRevision != cameraRevision { return }
                                 self.cameraTransitionBusy = self.scene.transitionPlayerCameraForShot(
                                     aim: solved.prediction.aimDirection, from: origin)
                             }
@@ -1832,7 +2180,10 @@ final class PositionPlayViewModel: ObservableObject {
         }
         // A miss still stands up at settlement. The cue's live position may have moved
         // (or scratched), so match the first-person reference against this shot's origin.
-        if scene.usesDailyPerspective, let origin = solved.before.onTable[PositionPlayBall.cueKey] {
+        if scene.usesDailyPerspective,
+           scene.cameraRig?.usesTwoViewCameraControls != true
+             || scene.cameraRig?.twoViewRequestRevision == shotCameraRequestRevision,
+           let origin = solved.before.onTable[PositionPlayBall.cueKey] {
             let cue = AngleSceneCalculator.normalizedToScene(
                 point: CGPoint(x: origin.x, y: origin.y), surfaceY: surfaceY)
             cameraTransitionBusy = scene.transitionPlayerCameraForShot(
@@ -1844,6 +2195,7 @@ final class PositionPlayViewModel: ObservableObject {
         for key in onTableKeys {
             guard let node = scene.allBallNodes[key] else { continue }
             if node.parent == nil { scene.rootNode.addChildNode(node) }
+            TableBallPulse.restore(node)
             node.removeAllActions()
             if potted.contains(key) {
                 node.isHidden = true
@@ -2014,6 +2366,8 @@ final class PositionPlayViewModel: ObservableObject {
         guard !isPlaying, !isBreakMode,
               let ctx = lastPlaybackContext,
               let recorder = ctx.prediction.recorder, ctx.prediction.duration > 0.05 else { return }
+        let generation = UUID()
+        strokeGeneration = generation
         let after = currentSnapshot()
         replayReturnRails = scene.railInventory.snapshot()
         // 回放不改变桌面真相：当前局面的姿态也要原样带回（球停稳后贴纸不得再动）。
@@ -2046,14 +2400,15 @@ final class PositionPlayViewModel: ObservableObject {
         scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim)
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 100_000_000)
-            guard let self, self.isPlaying else { return }
+            guard let self, self.isPlaying, self.strokeGeneration == generation else { return }
             self.scene.runCueStroke(
                 strikePosition: strikePos, aim: aim, velocity: Float(ctx.shot.velocity),
                 clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
             ) { [weak self] in
-                self?.runPlaybackAnimation(
+                guard let self, self.isPlaying, self.strokeGeneration == generation else { return }
+                self.runPlaybackAnimation(
                     ctx: (ctx.before, ctx.shot, ctx.prediction), recorder: recorder,
-                    after: after, afterPoses: afterPoses
+                    after: after, afterPoses: afterPoses, generation: generation
                 )
             }
         }
@@ -2061,8 +2416,10 @@ final class PositionPlayViewModel: ObservableObject {
 
     private func runPlaybackAnimation(
         ctx: (before: BoardSnapshot, shot: PlannedShot, prediction: ShotPrediction),
-        recorder: TrajectoryRecorder, after: BoardSnapshot, afterPoses: BallPoseSnapshot
+        recorder: TrajectoryRecorder, after: BoardSnapshot, afterPoses: BallPoseSnapshot,
+        generation: UUID
     ) {
+        guard isPlaying, strokeGeneration == generation else { return }
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel, railInventory: scene.railInventory)
         let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
@@ -2088,7 +2445,7 @@ final class PositionPlayViewModel: ObservableObject {
         if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
             cueNode.runAction(.group([cueAction, .wait(duration: completionDuration)])) { [weak self] in
                 Task { @MainActor in
-                    guard let self, self.isPlaying else { return }
+                    guard let self, self.isPlaying, self.strokeGeneration == generation else { return }
                     self.finishPlayback(after: after, afterPoses: afterPoses)
                 }
             }
@@ -2104,6 +2461,7 @@ final class PositionPlayViewModel: ObservableObject {
         for key in PositionPlayBall.allKeys {
             guard let node = scene.allBallNodes[key] else { continue }
             if node.parent == nil { scene.rootNode.addChildNode(node) }
+            TableBallPulse.restore(node)
             node.removeAllActions()
             node.opacity = 1
         }
@@ -2365,7 +2723,7 @@ final class PositionPlayViewModel: ObservableObject {
     private func hardStopSequence() {
         scene.railInventory.cancelPlayback()
         ShotAudioScheduler.shared.cancel()
-        for key in onTableKeys { scene.allBallNodes[key]?.removeAllActions() }
+        for key in onTableKeys { if let node = scene.allBallNodes[key] { TableBallPulse.restore(node); node.removeAllActions() } }
         isPlaying = false
         resetSequenceProgress()
     }
@@ -2577,6 +2935,7 @@ final class PositionPlayViewModel: ObservableObject {
             for key in onTableKeys {
                 guard let node = scene.allBallNodes[key] else { continue }
                 if node.parent == nil { scene.rootNode.addChildNode(node) }
+                TableBallPulse.restore(node)
                 node.removeAllActions()
                 node.opacity = 1
                 if potted.contains(key) {
@@ -2748,6 +3107,7 @@ final class PositionPlayViewModel: ObservableObject {
         }
         breakRunner = runner
         runner.rackUp()
+        if scene.cameraRig?.usesSurfaceCamera == true { requestPlayerView(.thirdPerson) }
     }
 
     /// 取消开球模式并恢复进场前桌面。
@@ -2845,21 +3205,29 @@ enum ShotPlayCamera {
         vm.scene.cameraRig?.enterAiming(cueBallPosition: cue.position, targetDirection: direction)
     }
 
-    static func setMode(_ mode: AngleTrainingScene.CameraMode, on vm: PositionPlayViewModel) {
+    @discardableResult
+    static func setMode(_ mode: AngleTrainingScene.CameraMode, on vm: PositionPlayViewModel) -> Bool {
         vm.setAimTableDragging(false)
         vm.setAimWheelDragging(false)
         let needsInitialFocus = mode == .perspective3D && !vm.scene.hasPerspectiveView
+        let initializesSurface = needsInitialFocus && vm.scene.cameraRig?.usesSurfaceCamera == true
         let needsBreakOverview = needsInitialFocus && vm.breakRunner.map { $0.phase != .racked } == true
-        if needsInitialFocus && !needsBreakOverview {
+        if needsInitialFocus && !needsBreakOverview && !initializesSurface {
             focus(on: vm)
             vm.scene.cameraRig?.update(deltaTime: 1)
         }
         vm.cameraMode = mode
-        vm.scene.setCameraMode(mode, animated: false)
-        if needsBreakOverview {
+        var initialized = false
+        vm.scene.setCameraMode(mode, animated: false, initializePerspective: {
+            guard initializesSurface else { return false }
+            initialized = vm.requestPlayerView(.thirdPerson, animated: false)
+            return initialized
+        })
+        if needsBreakOverview && !initialized {
             observeWholeTable(on: vm)
             vm.scene.cameraRig?.update(deltaTime: 1)
         }
+        return initialized
     }
 
     static func observeBall(_ key: String, on vm: PositionPlayViewModel) {

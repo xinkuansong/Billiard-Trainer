@@ -323,3 +323,43 @@
 - **影响**：`ShotPredictor.swift`（bank 分支 ~250 行，直击管线零改动）；`BankShotCalculator` 增 `bankSeedPath` / `candidateRailSequences` 内部 API；UI 零改动（W3 接线）。
 - **备选与否决**：几何避障过滤（v1 方案，否决：障碍球作真实碰撞体进反解更正确）；每候选全程引擎搜索（否决：28 库序 × 45 点 × ~15ms 超秒级预算，解析层单点 µs 级）；在 Core 新建 `BankRail` 枚举（否决：双真源）。
 - **验证（真实输出）**：`PhysicsEngineTests` 新增 5 条翻袋用例全绿（典型盘面有解 + 直击不变量 + nil 兼容 + 障碍无穿球假解 + 低力度诚实未进）；`AnalyticRolloutParityTests.test_bankObjective_parityWithEngine` 对拍 30 盘面 × 210 点：假阳性 0、漏解 0；benchmark `[PERF-W1]` 单袋全枚举（28 库序）典型盘面 0.222s（目标 ≤0.5s ✅）、最坏侧（近库 + 4 障碍）0.684s（目标 ≤1s ✅）；回归面 `PhysicsEngineTests`+`PhysicsInvariantTests`+`ScoringOnlyConsistencyTests`+`PositionPlaySolverTests`+`SnookerSolverTests`+`AnalyticAimParityTests`+`DifficultySolverTests` 全绿；B0 既有 benchmark 同轮对比在噪声内（情形 A 0.15s / B 0.13s / 斯诺克 7.16s / 批量 0.47s）。全量 `QiuJiTests` 改前基线 491/491（2 skip）绿，改后全量回归另附。
+
+### ADR-P18-04 — 每日两视角独立观看状态候选（2026-10-02）
+
+- 状态：采纳为DEBUG开发切片；完整W1/W2与生产替换未放行。
+- 背景：旧CameraRig把mode、manual输入、自动shot事件与实际节点混合，选球/恢复/布局可能另行写姿态；仅调参数无法可靠执行新相机语言。
+- 决策：Core/Scene新增TwoViewCamera，分开mode/owner/actual pose/controls/connector/context memory；CameraRig消费单一actual pose，新每日路径隔离旧orbit/屏幕锚定。宿主提供实际HUD区域及table网格segment检查，explicit entry完成构图，manual后冻结。
+- 替代：继续在旧分支修参数，缺独立观看状态边界；全面换引擎，超出此切片且无画质/能耗证据。保持旧路径默认，提供可审查候选。
+- 影响：每日DEBUG入口及相机请求generation/revision保护；物理/solver与材质公式保持原逻辑。没有引入SPM/ECS或宣布引擎迁移。
+- 验证/限制：实际编译、定向核心/原生UI与截图记录见`tasks/TWO-VIEW-CAMERA-IMPLEMENTATION-20261002.md`。连续实体/connector安全、全HUD/生命周期和真机手感仍需完成。
+
+- v0.2补充：TP以两球轮廓分离/尺度选明确入口，近端按冻结主体与视锥边界求解；真实摆球失效旧记忆，无解hold后从实际pose接管。58核心＋5UI和29整屏图为局部证据，FP完整轮廓/长跨度缩放及连续路径安全仍开放，未放行W2。
+
+
+### ADR-P18-05 — TP轨道方向纠正（2026-10-02）
+- 场景：用户否定两球取景，明确桌参照连续轨道与渐近第一人称感觉。
+- 决策：保独立actual/owner架构；TP profile联合派生r/h/pitch，桌/布局为key，FP杆上下文分离；退役本杆anchor/near/entryYaw控制域。固定H建议撤销，连续性与安全仍须满足。
+- 状态：理论建议/返工，尚未实现；FL-099开放，W1/W2未放行。具体裁切与参数待新画面裁定。
+
+
+### 2026-10-02 / DR-348 v1.5 实施回填（覆盖此前“未实施”状态）
+
+用户授权后，TP已替换为桌/房间/实际HUD生成的联合r/h/pitch/gaze轨道：首次及全桌复位s=1；上滑靠近/降眼/放平，下滑后退/升眼/俯看；横滑绕桌，眼位方位与视线朝向分离。55°固定镜头，96周期C1缓存节点；创建时求构图、运行时插值，选球袋不搬TP机位，FP旧杆记忆按真实意图变化失效。layout变化下一有效输入从实际pose重接，零/无效输入不抢控制。
+
+新版62核心通过；6原生UI分别通过（综合包5通过/1测试朝向诊断混用失败，单项修测试重跑通过，生产源码一致），46原生整屏图主控全部实看。TP短/长/斜far与六球形默认六袋完整、near低位成立；near部分球/线受库体/HUD遮挡，FP3/4/13母球下缘遮挡仍开放。仅每日DEBUG候选，完整38项/W1/W2与真机/连续mesh安全未放行；渲染R/P未实施，无GPU或能耗结论。候选未提交或再次push。事实真源：`tasks/TWO-VIEW-CAMERA-IMPLEMENTATION-20261002.md` §8、`tasks/ui-reviews/UR-20261002-table-rail-camera.md`；原图：`output/table-rail-camera-20261002/index.html`。旧v0.2证据属于被打回版本。
+
+### ADR-P18-06 — 本杆默认与临时观察（2026-10-03，DR-348 v2）
+
+- 决策源：用户手机试用后简化交互，覆盖ADR-P18-04/05的TP永久记忆、首次全桌及全局复位；仍仅每日DEBUG候选。
+- 相机职责：ShotRailProfile从真实本杆与HUD生成默认沿杆取景及联合r/H/pitch临时轨道；profile按context/主体/杆姿/layout缓存，持续帧只插值/投影守卫。Controller负责actual接管、持触保持与回位；VM释放时发布最新本杆默认，Host主轴锁定并清取消生命周期。
+- 临时俯视：独立presentation flag，不成为第三个持久视角；正交相机按杆向screen-up/HUD拟合全外框，按住高亮、松手恢复，房间可见性快照还原，选球/物理/出杆意图不变。
+- 状态：已实施，构建及原生截图/真机安装验收中；当前证据见实施§9。FP实体下缘遮挡与渲染R/P仍另列，旧测试不能放行新版。
+
+
+### ADR-P18-07 — 独立临时俯视叠层与推荐转镜（2026-10-03，DR-348 v2.1）
+
+- 用户修订：保留当前3D为底层，在上面独立呈现抠出的球桌俯视图；标准最大fit，根据当前TP决定开球线短库朝向，取消主相机正交/隐藏房间路径。
+- 方案：源场景克隆节点/冻结presentation姿态，保留原模型材质与照明；独立正交相机一次SCNRenderer snapshot，桌外alpha透明，UIImageView显示。只在持有开始/layout变化重渲染，松手移除，不常驻第二renderer、不写源材质/节点/主相机。真实长按发现自定义袋口SCNNode.clone会触发不支持的初始化（FL-102），现递归创建普通SCNNode冻结树，geometry/material共享只读，仅复制节点、相机和灯。
+- 相机基准：复用旧1.65m起点及近库/两球遮叠缩距、眼高和lens适配；保新沿杆yaw。俯视两种标准相反方向按当前TP实际投影选最近，FP用本杆TP基准，近歧义保同画幅上次方向。
+- 推荐事件：选球/袋完成后创建target/pocket/context请求，最新合法求解与杆姿完成后一次进入TP；普通力度重算不创建事件。显式相机/手势、离开3D、取消作废；临时层持有期间延迟消费。
+- 状态：候选实现与定向验收通过（核心80唯一项分包/标准8原生方法分包/SE2项、8真实LP截图及alpha），详见实施§10与UR-20261003-shot-camera-overlay。FL-101/102/103修复，最终签名包成功，有线覆盖安装及候选启动成功（PID10990），此前无线失败历史保留；FP实体遮挡、用户手感/全矩阵与R/P仍另列，未转正。

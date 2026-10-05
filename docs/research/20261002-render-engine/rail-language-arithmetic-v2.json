@@ -1,0 +1,132 @@
+{
+  "kind": "analytical draft only; not device or mesh visibility validation",
+  "geometry": "XZ table plane, Y up, metres; bed-relative heights",
+  "planeSizeMetres": [
+    2.54,
+    1.27
+  ],
+  "viewportIllustration": [
+    874,
+    402
+  ],
+  "verticalFovIllustrationDegrees": 50.0,
+  "assumptions": "symmetric empty viewport, inner plane corner proxy only; no HUD/outer frame/mesh/ball; r,h samples illustrative not production rail",
+  "rows": [
+    {
+      "stage": "overview",
+      "thetaDegrees": 0,
+      "rMetres": 3.2,
+      "heightAboveBed": 1.15,
+      "centerLookPitchDegrees": 19.77,
+      "angleEnvelopePitchDegrees": 22.61,
+      "verticalRaySpanDegrees": 16.36,
+      "screenWidthFraction": 0.282,
+      "screenHeightFraction": 0.308,
+      "minPointDepthMetres": 2.224
+    },
+    {
+      "stage": "overview",
+      "thetaDegrees": 45,
+      "rMetres": 3.2,
+      "heightAboveBed": 1.15,
+      "centerLookPitchDegrees": 19.77,
+      "angleEnvelopePitchDegrees": 23.01,
+      "verticalRaySpanDegrees": 17.63,
+      "screenWidthFraction": 0.397,
+      "screenHeightFraction": 0.333,
+      "minPointDepthMetres": 2.155
+    },
+    {
+      "stage": "overview",
+      "thetaDegrees": 90,
+      "rMetres": 3.2,
+      "heightAboveBed": 1.15,
+      "centerLookPitchDegrees": 19.77,
+      "angleEnvelopePitchDegrees": 20.42,
+      "verticalRaySpanDegrees": 7.46,
+      "screenWidthFraction": 0.447,
+      "screenHeightFraction": 0.14,
+      "minPointDepthMetres": 2.805
+    },
+    {
+      "stage": "middle",
+      "thetaDegrees": 0,
+      "rMetres": 2.6,
+      "heightAboveBed": 0.65,
+      "centerLookPitchDegrees": 14.04,
+      "angleEnvelopePitchDegrees": 17.79,
+      "verticalRaySpanDegrees": 16.51,
+      "screenWidthFraction": 0.428,
+      "screenHeightFraction": 0.311,
+      "minPointDepthMetres": 1.465
+    },
+    {
+      "stage": "middle",
+      "thetaDegrees": 45,
+      "rMetres": 2.6,
+      "heightAboveBed": 0.65,
+      "centerLookPitchDegrees": 14.04,
+      "angleEnvelopePitchDegrees": 18.39,
+      "verticalRaySpanDegrees": 18.07,
+      "screenWidthFraction": 0.51,
+      "screenHeightFraction": 0.341,
+      "minPointDepthMetres": 1.394
+    },
+    {
+      "stage": "middle",
+      "thetaDegrees": 90,
+      "rMetres": 2.6,
+      "heightAboveBed": 0.65,
+      "centerLookPitchDegrees": 14.04,
+      "angleEnvelopePitchDegrees": 14.83,
+      "verticalRaySpanDegrees": 6.94,
+      "screenWidthFraction": 0.606,
+      "screenHeightFraction": 0.13,
+      "minPointDepthMetres": 2.066
+    },
+    {
+      "stage": "near",
+      "thetaDegrees": 0,
+      "rMetres": 2.05,
+      "heightAboveBed": 0.26,
+      "centerLookPitchDegrees": 7.23,
+      "angleEnvelopePitchDegrees": 11.46,
+      "verticalRaySpanDegrees": 13.96,
+      "screenWidthFraction": 0.767,
+      "screenHeightFraction": 0.262,
+      "minPointDepthMetres": 0.816
+    },
+    {
+      "stage": "near",
+      "thetaDegrees": 45,
+      "rMetres": 2.05,
+      "heightAboveBed": 0.26,
+      "centerLookPitchDegrees": 7.23,
+      "angleEnvelopePitchDegrees": 12.34,
+      "verticalRaySpanDegrees": 15.92,
+      "screenWidthFraction": 0.676,
+      "screenHeightFraction": 0.3,
+      "minPointDepthMetres": 0.742
+    },
+    {
+      "stage": "near",
+      "thetaDegrees": 90,
+      "rMetres": 2.05,
+      "heightAboveBed": 0.26,
+      "centerLookPitchDegrees": 7.23,
+      "angleEnvelopePitchDegrees": 7.97,
+      "verticalRaySpanDegrees": 4.88,
+      "screenWidthFraction": 0.872,
+      "screenHeightFraction": 0.091,
+      "minPointDepthMetres": 1.437
+    }
+  ],
+  "fixedHeightCounterexample": {
+    "heightAboveBedMetres": 0.9,
+    "farRadiusMetres": 3.2,
+    "nearRadiusMetres": 2.05,
+    "farCenterLookPitchDegrees": 15.71,
+    "nearCenterLookPitchDegrees": 23.7,
+    "conclusion": "with fixed height and center look, moving closer steepens downward pitch; opposite of near first-person feel"
+  }
+}

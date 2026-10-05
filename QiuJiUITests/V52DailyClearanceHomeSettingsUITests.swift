@@ -15,6 +15,62 @@ final class V52DailyClearanceHomeSettingsUITests: XCTestCase {
         try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
     }
 
+    func testPortraitHomeEntryAndRepeatedReturn() {
+        XCUIDevice.shared.orientation = .portrait
+        let app = launch([
+            "-v50.inMemoryStore", "-dailyClearance.resetHomeState",
+            "-dailyClearance.fixtureSettled", "-forcePremium",
+        ])
+        app.switchTab(.training)
+        let entry = app.buttons["trainingHome.dailyClearance"]
+        let hud = app.descendants(matching: .any)["dailyClearance.landscape"]
+        for visit in 1...2 {
+            XCTAssertTrue(entry.waitForExistence(timeout: 12))
+            if visit == 1 {
+                XCTAssertTrue(entry.label.contains("未开始"), "Preloading must not create a daily game")
+            }
+            let portrait = NSPredicate { _, _ in
+                app.windows.firstMatch.frame.height > app.windows.firstMatch.frame.width
+            }
+            expectation(for: portrait, evaluatedWith: app)
+            waitForExpectations(timeout: 8)
+            snap(app, "entry-\(visit)-home")
+            entry.tap()
+            XCTAssertTrue(hud.waitForExistence(timeout: 15))
+            XCTAssertGreaterThan(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height)
+            XCTAssertTrue(app.buttons["dailyClearance.back"].isHittable)
+            snap(app, "entry-\(visit)-landscape")
+            let mode = app.buttons["freeplay.cameraMode"]
+            mode.tap()
+            XCTAssertEqual(mode.value as? String, "3D")
+            XCTAssertGreaterThan(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height)
+            snap(app, "entry-\(visit)-3d")
+            app.buttons["dailyClearance.back"].tap()
+        }
+        XCTAssertTrue(entry.waitForExistence(timeout: 8))
+        XCTAssertTrue(entry.label.contains("进行中"))
+        let portrait = NSPredicate { _, _ in
+            app.windows.firstMatch.frame.height > app.windows.firstMatch.frame.width
+        }
+        expectation(for: portrait, evaluatedWith: app)
+        waitForExpectations(timeout: 8)
+        snap(app, "entry-returned-home")
+    }
+
+    func testPortraitDeepLinkOpensLandscapeTable() {
+        XCUIDevice.shared.orientation = .portrait
+        let app = launch([
+            "-deeplink.dailyClearance", "-dailyClearance.fixtureSettled",
+            "-dailyClearance.resetHomeState", "-forcePremium",
+        ])
+        XCTAssertTrue(app.buttons["dailyClearance.back"].waitForExistence(timeout: 15))
+        XCTAssertGreaterThan(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height)
+        let mode = app.buttons["freeplay.cameraMode"]
+        let hittable = expectation(for: NSPredicate(format: "hittable == true"), evaluatedWith: mode)
+        XCTAssertEqual(XCTWaiter.wait(for: [hittable], timeout: 8), .completed, app.debugDescription)
+        snap(app, "entry-deeplink-landscape")
+    }
+
     func testEmptyHomeKeepsEntryAndTrainingStackReturnsToHome() {
         let app = launch([
             "-v50.inMemoryStore",
@@ -196,7 +252,9 @@ final class V52DailyClearanceHomeSettingsUITests: XCTestCase {
     }
 
     private func snap(_ app: XCUIApplication, _ name: String) {
-        let shot = app.screenshot()
+        // The app can be landscape while the simulated physical device stays portrait.
+        // Screen capture preserves the full display; app capture may crop that mismatch.
+        let shot = XCUIScreen.main.screenshot()
         let url = outDir.appendingPathComponent("\(name).png")
         do {
             try shot.pngRepresentation.write(to: url)

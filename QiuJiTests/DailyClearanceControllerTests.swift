@@ -114,7 +114,7 @@ final class DailyClearanceControllerTests: XCTestCase {
         controller.start(host: vm, defaultGame: .nineBall)
         let runner = try XCTUnwrap(vm.breakRunner)
         XCTAssertEqual(runner.phase, .racked)
-        XCTAssertFalse(runner.autoDeliverOnSettle)
+        XCTAssertTrue(runner.autoDeliverOnSettle, "停稳后直接交付，无需点击完成")
         XCTAssertEqual(runner.velocity, 8)
         XCTAssertEqual(runner.draggableCue.count, 1, "开球前母球必须可拖动")
         XCTAssertNil(runner.lastBreakSpin, "进入页面不得发起击球")
@@ -127,6 +127,11 @@ final class DailyClearanceControllerTests: XCTestCase {
         XCTAssertEqual(runner.spinX, 0.1, accuracy: 0.001)
         XCTAssertEqual(runner.spinY, 0.2, accuracy: 0.001)
         XCTAssertNil(runner.lastBreakSpin, "调整参数不得自动击球")
+        runner.applySettledBoardForTesting(vm.currentDailyClearanceBoard())
+        XCTAssertNil(vm.breakRunner, "停稳交付后须退出开球模式")
+        XCTAssertEqual(controller.phase, .playing)
+        XCTAssertEqual(controller.playedVisitCount, 1, "开球计入规则杆数")
+        XCTAssertEqual(controller.shotCount, 0, "开球不增加散局后的击球次数")
     }
 
     func test_legacyTerminalBreakNeverRetriesAutomatically() {

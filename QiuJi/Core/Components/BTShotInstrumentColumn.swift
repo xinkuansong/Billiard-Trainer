@@ -1,5 +1,6 @@
 import SwiftUI
 import SceneKit
+import UIKit
 
 /// 贴桌右缘的竖直「打点 + 力度」仪表柱（T-P18-44，设计稿 §1.5/§1.7 Z3a）。
 ///
@@ -39,6 +40,11 @@ struct BTShotInstrumentColumn: View {
     var usesCompactAppearance = true
     /// Opt-in fixed travel length; the rest of the instrument keeps its intrinsic size.
     var fixedPowerBarHeight: CGFloat? = nil
+    /// Visible compact ruler width; the shell keeps six points of padding on each side.
+    var powerLabel: String = "力度"
+    var compactPowerBarWidth: CGFloat = 28
+    /// Compact spin entry diameter; other hosts retain the original 44-point button.
+    var compactSpinButtonDiameter: CGFloat = 44
 
     private var compact: Bool { usesCompactAppearance && !isReadOnly }
 
@@ -64,15 +70,17 @@ struct BTShotInstrumentColumn: View {
             if let onSpinTap {
                 Button(action: onSpinTap) {
                     VStack(spacing: 2) {
-                        BTSpinMiniIcon(spinX: spinX, spinY: spinY, diameter: compact ? 34 : 30)
-                            .frame(minWidth: 44, minHeight: 44)
-                            .background(compact ? HUDStyle.controlBackground : .clear, in: Circle())
+                        BTSpinMiniIcon(spinX: spinX, spinY: spinY,
+                                       diameter: compact ? compactSpinButtonDiameter - 10 : 30)
+                            .frame(minWidth: compact ? compactSpinButtonDiameter : 44,
+                                   minHeight: compact ? compactSpinButtonDiameter : 44)
+                            .background { BTHUDControlBackground(shape: Circle(), normal: compact ? HUDStyle.controlBackground : .clear) }
                             .overlay(Circle().stroke(compact ? HUDStyle.hairline : .clear, lineWidth: 1))
                         if compact { Text("击球点").font(.btMicro).foregroundStyle(.btTextSecondary) }
                     }
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(BTHUDPressStyle())
                 .accessibilityLabel("打点")
                 .accessibilityIdentifier("shotStage.spinEntry")
                 .disabled(isDisabled || !spinTapEnabled)
@@ -91,19 +99,19 @@ struct BTShotInstrumentColumn: View {
                         .fill(HUDStyle.controlBackground)
                         .overlay(RoundedRectangle(cornerRadius: BTRadius.xl)
                             .stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-                        .frame(width: 40)
+                        .frame(width: compactPowerBarWidth + 12)
                 }
             }
         }
         .opacity(isDisabled ? 0.5 : 1)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("打点与力度")
+        .accessibilityLabel("打点与\(powerLabel)")
         .accessibilityIdentifier("shotStage.instrument")
     }
 
     private var powerReadout: some View {
         VStack(spacing: 0) {
-            Text(compact ? "力度" : PowerDisplay.name(velocity))
+            Text(compact ? powerLabel : PowerDisplay.name(velocity))
                 .font(compact ? .btMicro : HUDStyle.labelFontCompact)
                 .foregroundStyle(HUDStyle.labelColor)
             Text(String(format: isReadOnly ? "%.1f" : "%.2f", velocity))
@@ -119,7 +127,7 @@ struct BTShotInstrumentColumn: View {
     private var powerBar: some View {
         GeometryReader { geo in
             let h = geo.size.height
-            let w = compact ? min(28, geo.size.width) : geo.size.width
+            let w = compact ? min(compactPowerBarWidth, geo.size.width) : geo.size.width
             let levelY = h * (1 - fraction)
             ZStack {
                 RoundedRectangle(cornerRadius: HUDStyle.rulerCornerRadius, style: .continuous)
@@ -194,7 +202,7 @@ struct BTShotInstrumentColumn: View {
         }
         .onDisappear { finishPowerDrag(commit: false) }
         .accessibilityElement()
-        .accessibilityLabel("力度")
+        .accessibilityLabel(powerLabel)
         .accessibilityValue(String(format: isReadOnly ? "%.1f" : "%.2f", velocity))
         .accessibilityIdentifier("shotStage.powerBar")
         .disabled(isDisabled || isReadOnly)
@@ -293,11 +301,53 @@ struct ShotPlayerCameraButtons: View {
     @ObservedObject var rig: CameraRig
     var isEnabled: Bool
     var onWholeTable: (() -> Void)? = nil
+    /// Explicit host opt-in; other shot/quiz pages retain their existing camera controls.
+    var usesTwoViewControls = false
+    var temporaryTopDownActive = false
+    var onTemporaryTopDownBegan: (() -> Void)? = nil
+    var onTemporaryTopDownEnded: (() -> Void)? = nil
     var onSelect: (CameraRig.PlayerView) -> Void
 
     var body: some View {
         VStack(spacing: Spacing.sm) {
-            if let onWholeTable {
+            if rig.usesMergedCamera {
+                cameraButton(label: "全局观察", id: "dailyClearance.observeTable",
+                    selected: rig.mergedGlobalActive && !temporaryTopDownActive,
+                    action: { onWholeTable?() }) {
+                    Image(systemName: "eye").font(.btHeadline)
+                }.disabled(temporaryTopDownActive)
+                cameraButton(label: rig.usesSurfaceCamera ? "沿杆观察" : "第三人称", id: "shotCamera.thirdPerson",
+                    selected: !rig.usesSurfaceCamera && !rig.mergedGlobalActive && !temporaryTopDownActive,
+                    action: { onSelect(.thirdPerson) }) {
+                    Image(systemName: "figure.stand").font(.btTitle2)
+                }.disabled(temporaryTopDownActive)
+                cameraButton(label: "临时俯视", id: "shotCamera.temporaryTopDown",
+                    selected: temporaryTopDownActive,
+                    action: { if temporaryTopDownActive { onTemporaryTopDownEnded?() }
+                        else { onTemporaryTopDownBegan?() } }) {
+                    TemporaryTopDownFigure().frame(width: 28, height: 28)
+                }.onDisappear { onTemporaryTopDownEnded?() }
+            } else if usesTwoViewControls {
+                twoViewButton(.thirdPerson, label: "第三人称") {
+                    Image(systemName: "figure.stand").font(.btTitle2)
+                }
+                twoViewButton(.firstPerson, label: "第一人称") {
+                    CueAimingFigure().frame(width: 28, height: 28)
+                }
+                TemporaryTopDownFigure()
+                    .frame(width: 28, height: 28)
+                    .foregroundStyle(HUDStyle.valueMeasured)
+                    .frame(width: 44, height: 44)
+                    .background(temporaryTopDownActive ? HUDStyle.selectedBackground : HUDStyle.controlBackground, in: Circle())
+                    .overlay(Circle().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
+                    .overlay {
+                        BTTemporaryTopDownPressControl(isEnabled: isEnabled,
+                            isActive: temporaryTopDownActive,
+                            onBegin: { onTemporaryTopDownBegan?() },
+                            onEnd: { onTemporaryTopDownEnded?() })
+                    }
+                    .onDisappear { onTemporaryTopDownEnded?() }
+            } else if let onWholeTable {
                 cameraButton(label: "全局观察", id: "dailyClearance.observeTable",
                              selected: rig.keepsWholeTableFramed, action: onWholeTable) {
                     Image(systemName: "eye").font(.btHeadline)
@@ -315,6 +365,14 @@ struct ShotPlayerCameraButtons: View {
         }
     }
 
+    private func twoViewButton<Icon: View>(_ view: CameraRig.PlayerView, label: String,
+                                          @ViewBuilder icon: () -> Icon) -> some View {
+        cameraButton(label: label, id: "shotCamera.\(view.rawValue)",
+                     selected: rig.twoViewMode == view && !temporaryTopDownActive,
+                     action: { onSelect(view) }, icon: icon)
+            .disabled(temporaryTopDownActive)
+    }
+
     private func button(_ view: CameraRig.PlayerView, symbol: String, label: String) -> some View {
         cameraButton(label: label, id: "shotCamera.\(view.rawValue)",
                      selected: rig.playerView == view, action: { onSelect(view) }) {
@@ -329,15 +387,166 @@ struct ShotPlayerCameraButtons: View {
         Button(action: action) {
             icon()
                 .frame(width: 44, height: 44)
-                .background(selected ? HUDStyle.selectedBackground : HUDStyle.controlBackground, in: Circle())
+                .background { BTHUDControlBackground(shape: Circle(), selected: selected) }
                 .overlay(Circle().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
+                .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTHUDPressStyle())
         .foregroundStyle(.white)
         .disabled(!isEnabled)
         .accessibilityLabel(label)
         .accessibilityValue(selected ? "已选中" : "未选中")
         .accessibilityIdentifier(id)
+    }
+}
+
+/// The approved 28pt glyph: six pocket openings, cue ball and an upward aiming line.
+private struct TemporaryTopDownFigure: View {
+    var body: some View {
+        Canvas { context, size in
+            let transform = CGAffineTransform(scaleX: size.width / 28, y: size.height / 28)
+            var lines = Path()
+            let segments: [[CGPoint]] = [
+                [.init(x: 9, y: 2.5), .init(x: 19, y: 2.5)],
+                [.init(x: 7, y: 5), .init(x: 7, y: 11.5)],
+                [.init(x: 7, y: 16.5), .init(x: 7, y: 23)],
+                [.init(x: 9, y: 25.5), .init(x: 19, y: 25.5)],
+                [.init(x: 21, y: 23), .init(x: 21, y: 16.5)],
+                [.init(x: 21, y: 11.5), .init(x: 21, y: 5)],
+                [.init(x: 8, y: 4), .init(x: 6.5, y: 2.5)],
+                [.init(x: 20, y: 4), .init(x: 21.5, y: 2.5)],
+                [.init(x: 7, y: 14), .init(x: 5.5, y: 14)],
+                [.init(x: 21, y: 14), .init(x: 22.5, y: 14)],
+                [.init(x: 8, y: 24), .init(x: 6.5, y: 25.5)],
+                [.init(x: 20, y: 24), .init(x: 21.5, y: 25.5)],
+                [.init(x: 14, y: 18), .init(x: 14, y: 8)],
+                [.init(x: 11.5, y: 10.5), .init(x: 14, y: 8), .init(x: 16.5, y: 10.5)]
+            ]
+            for segment in segments {
+                lines.move(to: segment[0])
+                for point in segment.dropFirst() { lines.addLine(to: point) }
+            }
+            context.stroke(lines.applying(transform), with: .color(HUDStyle.valueMeasured),
+                style: StrokeStyle(lineWidth: size.width / 28 * 1.65, lineCap: .round, lineJoin: .round))
+            let ball = Path(ellipseIn: CGRect(x: 12.2, y: 19.2, width: 3.6, height: 3.6))
+            context.fill(ball.applying(transform), with: .color(HUDStyle.valueMeasured))
+        }
+    }
+}
+
+#Preview("Temporary top-down Light") {
+    TemporaryTopDownFigure().frame(width: 28, height: 28)
+        .padding(Spacing.sm).background(HUDStyle.panelBackground)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Temporary top-down Dark") {
+    TemporaryTopDownFigure().frame(width: 28, height: 28)
+        .padding(Spacing.sm).background(HUDStyle.panelBackground)
+        .preferredColorScheme(.dark)
+}
+
+/// Owns the entire touch; a short tap has no action and leaving the hit rect never rearms it.
+private struct BTTemporaryTopDownPressControl: UIViewRepresentable {
+    let isEnabled: Bool
+    let isActive: Bool
+    let onBegin: () -> Void
+    let onEnd: () -> Void
+
+    func makeUIView(context: Context) -> HoldControl { HoldControl() }
+
+    func updateUIView(_ view: HoldControl, context: Context) {
+        view.onBegin = onBegin
+        view.onEnd = onEnd
+        view.isEnabled = isEnabled
+        view.accessibilityValue = isActive ? "正在临时俯视" : "本杆视角"
+        view.accessibilityTraits = isEnabled ? .button : [.button, .notEnabled]
+    }
+
+    static func dismantleUIView(_ view: HoldControl, coordinator: ()) { view.finishHold() }
+
+    final class HoldControl: UIControl {
+        var onBegin: (() -> Void)?
+        var onEnd: (() -> Void)?
+        private var pending: DispatchWorkItem?
+        private var holding = false
+        private var trackingInside = false
+        private var pressRevision: UInt64 = 0
+
+        override var isEnabled: Bool { didSet { if !isEnabled { finishHold() } } }
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            isAccessibilityElement = true
+            accessibilityLabel = "临时俯视球桌"
+            accessibilityHint = "按住查看，松手返回本杆视角；辅助功能激活暂时查看两秒"
+            accessibilityIdentifier = "shotCamera.temporaryTopDown"
+            accessibilityCustomActions = [UIAccessibilityCustomAction(name: "结束临时俯视", target: self, selector: #selector(endAccessibleHold))]
+            NotificationCenter.default.addObserver(self, selector: #selector(cancelForInactiveScene),
+                name: UIApplication.willResignActiveNotification, object: nil)
+        }
+
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+        override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+            guard isEnabled, bounds.contains(touch.location(in: self)) else { return false }
+            finishHold()
+            trackingInside = true
+            let revision = pressRevision
+            let work = DispatchWorkItem { [weak self] in
+                guard let self, self.pressRevision == revision,
+                      self.isEnabled, self.trackingInside else { return }
+                self.pending = nil
+                self.holding = true
+                self.onBegin?()
+            }
+            pending = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
+            return true
+        }
+
+        override func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+            guard trackingInside, bounds.contains(touch.location(in: self)) else {
+                finishHold()
+                return false
+            }
+            return true
+        }
+
+        override func endTracking(_ touch: UITouch?, with event: UIEvent?) { finishHold() }
+        override func cancelTracking(with event: UIEvent?) { finishHold() }
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if window == nil { finishHold() }
+        }
+
+        func finishHold() {
+            pressRevision &+= 1
+            pending?.cancel()
+            pending = nil
+            trackingInside = false
+            guard holding else { return }
+            holding = false
+            onEnd?()
+        }
+
+        override func accessibilityActivate() -> Bool {
+            guard isEnabled else { return false }
+            finishHold()
+            holding = true
+            onBegin?()
+            let revision = pressRevision
+            let work = DispatchWorkItem { [weak self] in
+                guard let self, self.pressRevision == revision else { return }
+                self.finishHold()
+            }
+            pending = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: work)
+            return true
+        }
+
+        @objc private func endAccessibleHold() -> Bool { finishHold(); return true }
+        @objc private func cancelForInactiveScene() { finishHold() }
     }
 }
 

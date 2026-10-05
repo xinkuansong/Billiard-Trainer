@@ -114,13 +114,10 @@ struct QiuJiApp: App {
                     await subscriptionManager.checkEntitlements()
                 }
                 .task {
-                    // 预热球桌 USDZ 模型缓存：解析 94 MB 模型需数秒，若留到首次进
-                    // 2D/3D 球桌页会同步阻塞主线程（进页卡顿根因）。启动即在后台
-                    // 线程解析入缓存，之后各页 setupScene 只做毫秒级 clone。
-                    await Task.detached(priority: .userInitiated) {
-                        TableModelLoader.preloadModel()
-                        TableModelLoader.preloadPocketRegions()
-                    }.value
+                    DailyClearancePreloader.shared.setForeground(scenePhase != .background)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
+                    DailyClearancePreloader.shared.discard()
                 }
                 .task {
                     // 预热击球音频引擎：AVAudioEngine 首次冷启动会同步阻塞主线程，
@@ -134,6 +131,8 @@ struct QiuJiApp: App {
                     if !enabled { ShotAudioScheduler.shared.cancel() }
                 }
                 .onChange(of: scenePhase) { _, newPhase in
+                    if newPhase == .active { DailyClearancePreloader.shared.setForeground(true) }
+                    else if newPhase == .background { DailyClearancePreloader.shared.setForeground(false) }
                     if newPhase != .active { ShotAudioScheduler.shared.cancel() }
                     if newPhase == .active {
                         if UserPreferences.shared.soundEffectsEnabled { ShotSoundBank.shared.prepare() }
@@ -181,10 +180,11 @@ struct QiuJiApp: App {
 
 }
 
-/// All existing pages stay portrait; a visible daily 2D page owns a scene-local override.
+/// Ordinary pages stay portrait; landscape tools own a scene-local override.
 @MainActor
 final class QiuJiOrientationDelegate: NSObject, UIApplicationDelegate {
     static var masks: [ObjectIdentifier: UIInterfaceOrientationMask] = [:]
+    static var owners: [ObjectIdentifier: UUID] = [:]
 
     func application(_ application: UIApplication,
                      supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
@@ -195,15 +195,21 @@ final class QiuJiOrientationDelegate: NSObject, UIApplicationDelegate {
 
 struct DailyTableOrientation: UIViewControllerRepresentable {
     var landscape: Bool
+    var onReady: (() -> Void)? = nil
+    var onFailure: (() -> Void)? = nil
 
     func makeUIViewController(context: Context) -> Controller {
         let controller = Controller()
         controller.landscape = landscape
+        controller.onReady = onReady
+        controller.onFailure = onFailure
         return controller
     }
 
     func updateUIViewController(_ controller: Controller, context: Context) {
         controller.landscape = landscape
+        controller.onReady = onReady
+        controller.onFailure = onFailure
         controller.applyOrientation()
     }
 
@@ -213,12 +219,63 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
 
     final class Controller: UIViewController {
         var landscape = false
+        var onReady: (() -> Void)?
+        var onFailure: (() -> Void)?
+        private let owner = UUID()
         private weak var ownedScene: UIWindowScene?
         private var appliedLandscape: Bool?
+        private var hasAppeared = false
+        private var isRotating = false
+        private var deliveredReady = false
+
+        override func viewIsAppearing(_ animated: Bool) {
+            super.viewIsAppearing(animated)
+            // The lightweight entry can request rotation before navigation finishes.
+            // Existing consumers without a readiness gate retain their lifecycle.
+            if onReady != nil { applyOrientation() }
+        }
 
         override func viewDidAppear(_ animated: Bool) {
             super.viewDidAppear(animated)
+            hasAppeared = true
             applyOrientation()
+            notifyWhenReady()
+        }
+
+        override func viewDidLayoutSubviews() {
+            super.viewDidLayoutSubviews()
+            notifyWhenReady()
+        }
+
+        override func viewWillTransition(to size: CGSize,
+                                         with coordinator: UIViewControllerTransitionCoordinator) {
+            isRotating = true
+            super.viewWillTransition(to: size, with: coordinator)
+            coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+                self?.isRotating = false
+                self?.notifyWhenReady()
+            }
+        }
+
+        override func viewWillDisappear(_ animated: Bool) {
+            hasAppeared = false
+            super.viewWillDisappear(animated)
+        }
+
+        private func notifyWhenReady() {
+            guard onReady != nil, !deliveredReady else { return }
+            // Leave the UIKit layout transaction before publishing SwiftUI state.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.hasAppeared, !self.isRotating, !self.deliveredReady,
+                      let scene = self.ownedScene, let window = self.view.window,
+                      QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] == self.owner,
+                      scene.interfaceOrientation.isLandscape == self.landscape,
+                      (window.bounds.width > window.bounds.height) == self.landscape,
+                      (self.view.bounds.width > self.view.bounds.height) == self.landscape,
+                      let onReady = self.onReady else { return }
+                self.deliveredReady = true
+                onReady()
+            }
         }
 
         func applyOrientation() {
@@ -226,13 +283,18 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
                   appliedLandscape != landscape || ownedScene !== scene else { return }
             ownedScene = scene
             appliedLandscape = landscape
+            QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] = owner
             request(landscape ? .landscapeRight : .portrait, in: scene)
         }
 
         func restorePortrait() {
             guard let scene = ownedScene else { return }
-            request(.portrait, in: scene)
-            QiuJiOrientationDelegate.masks.removeValue(forKey: ObjectIdentifier(scene))
+            hasAppeared = false
+            if QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] == owner {
+                request(.portrait, in: scene)
+                QiuJiOrientationDelegate.masks.removeValue(forKey: ObjectIdentifier(scene))
+                QiuJiOrientationDelegate.owners.removeValue(forKey: ObjectIdentifier(scene))
+            }
             ownedScene = nil
             appliedLandscape = nil
         }
@@ -242,8 +304,11 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
             let root = scene.windows.first(where: \.isKeyWindow)?.rootViewController
             root?.setNeedsUpdateOfSupportedInterfaceOrientations()
             root?.presentedViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
-            scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { error in
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { [weak self] error in
                 NSLog("[DailyTableOrientation] %@", error.localizedDescription)
+                guard let self,
+                      QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] == self.owner else { return }
+                self.onFailure?()
             }
         }
     }

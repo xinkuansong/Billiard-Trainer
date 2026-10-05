@@ -274,19 +274,30 @@ struct BreakRackGlyph: View {
 
     var body: some View {
         Canvas { ctx, canvas in
-            let w = canvas.width, h = canvas.height
-            let inset = w * 0.06
-            let apex = CGPoint(x: w / 2, y: inset)
-            let bl = CGPoint(x: inset, y: h - inset)
-            let br = CGPoint(x: w - inset, y: h - inset)
+            let diameter = min(canvas.width, canvas.height)
+            let center = CGPoint(x: canvas.width / 2, y: canvas.height / 2)
+            let lineWidth = max(1, diameter * 0.05)
+            let rootThree = sqrt(CGFloat(3))
+            // A 60-degree miter extends one full stroke width beyond its vertex.
+            // The visible triangle's three corners lie on the enclosing circle.
+            let outerRadius = diameter / 2
+            let pathRadius = outerRadius - lineWidth
+            let apex = CGPoint(x: center.x, y: center.y - pathRadius)
+            let bl = CGPoint(x: center.x - pathRadius * rootThree / 2,
+                             y: center.y + pathRadius / 2)
+            let br = CGPoint(x: center.x + pathRadius * rootThree / 2,
+                             y: center.y + pathRadius / 2)
             var tri = Path()
             tri.move(to: apex); tri.addLine(to: bl); tri.addLine(to: br); tri.closeSubpath()
-            ctx.stroke(tri, with: .color(color), lineWidth: max(1, w * 0.08))
-            // 三颗球：顶部 1 颗、底部 2 颗（球堆前三排的顶部三角）。
-            let r = w * 0.135
-            let topBall = CGPoint(x: w / 2, y: h * 0.40)
-            let leftBall = CGPoint(x: w * 0.35, y: h * 0.68)
-            let rightBall = CGPoint(x: w * 0.65, y: h * 0.68)
+            ctx.stroke(tri, with: .color(color),
+                       style: StrokeStyle(lineWidth: lineWidth, lineJoin: .miter))
+            // Three mutually tangent circles, each tangent to two inner rack edges.
+            // Inner inradius = r + r / sqrt(3); center-to-center distance = 2r.
+            let innerInradius = outerRadius / 2 - lineWidth
+            let r = innerInradius * rootThree / (rootThree + 1)
+            let topBall = CGPoint(x: center.x, y: center.y - 2 * r / rootThree)
+            let leftBall = CGPoint(x: center.x - r, y: center.y + r / rootThree)
+            let rightBall = CGPoint(x: center.x + r, y: center.y + r / rootThree)
             for c in [topBall, leftBall, rightBall] {
                 let rect = CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)
                 ctx.fill(Path(ellipseIn: rect), with: .color(color))
@@ -362,6 +373,7 @@ typealias SolverFramePreference = BTShotPageFramePreference
 /// - **反解训练**：`solveRange` + `onClearTable` + `onReset`（Silu / PlanThree / Snooker）
 /// - **自由击打**：`pageExtras` ± `onClearTable`/`onReset`（Composer / FreePlay / ShotSim）
 struct BTSolverMoreMenu<SolveRange: View, PageExtras: View>: View {
+    @Environment(\.dailyHUDControls) private var dailyHUD
     let scene: AngleTrainingScene
     var onPrinciple: (() -> Void)? = nil
     var onClearTable: (() -> Void)? = nil
@@ -371,6 +383,7 @@ struct BTSolverMoreMenu<SolveRange: View, PageExtras: View>: View {
     var accessibilityId: String? = nil
     /// 页内有近球瞄准特写时并入「显示」Section（v23 E3；目前仅瞄准点场景训练）。
     var showsAimCloseupToggle: Bool = false
+    var displaySectionLast: Bool = false
     @ViewBuilder var solveRange: () -> SolveRange
     @ViewBuilder var pageExtras: () -> PageExtras
 
@@ -384,13 +397,9 @@ struct BTSolverMoreMenu<SolveRange: View, PageExtras: View>: View {
             if hasSolveRange {
                 Section("求解范围") { solveRange() }
             }
-            Section("显示") {
-                BTTableGridMenuToggle(scene: scene)
-                if showsAimCloseupToggle {
-                    BTAimCloseupMenuToggle()
-                }
-            }
+            if !displaySectionLast { displaySection }
             pageExtras()
+            if displaySectionLast { displaySection }
             if onClearTable != nil || onReset != nil {
                 Section {
                     if let onClearTable {
@@ -408,9 +417,18 @@ struct BTSolverMoreMenu<SolveRange: View, PageExtras: View>: View {
         } label: {
             Image(systemName: BTIcon.menuCircle)
                 .foregroundStyle(.white.opacity(labelOpacity))
+                .frame(minWidth: dailyHUD ? 44 : nil, minHeight: dailyHUD ? 44 : nil)
+                .background { BTHUDControlBackground(shape: Circle(), normal: dailyHUD ? HUDStyle.controlBackground : .clear) }
         }
         .accessibilityLabel("更多")
         .modifier(OptionalAccessibilityIdentifier(accessibilityId))
+    }
+
+    private var displaySection: some View {
+        Section("显示") {
+            BTTableGridMenuToggle(scene: scene)
+            if showsAimCloseupToggle { BTAimCloseupMenuToggle() }
+        }
     }
 
     /// `EmptyView` 不渲染「求解范围」Section（反解三页传 Toggle；其余默认空）。
@@ -472,6 +490,7 @@ extension BTSolverMoreMenu where SolveRange == EmptyView {
          labelOpacity: Double = 0.9,
          accessibilityId: String? = nil,
          showsAimCloseupToggle: Bool = false,
+         displaySectionLast: Bool = false,
          @ViewBuilder pageExtras: @escaping () -> PageExtras) {
         self.init(
             scene: scene,
@@ -482,6 +501,7 @@ extension BTSolverMoreMenu where SolveRange == EmptyView {
             labelOpacity: labelOpacity,
             accessibilityId: accessibilityId,
             showsAimCloseupToggle: showsAimCloseupToggle,
+            displaySectionLast: displaySectionLast,
             solveRange: { EmptyView() },
             pageExtras: pageExtras
         )

@@ -261,10 +261,13 @@ final class RoomReflectionProbe {
 
     // MARK: - Neutral fallback (pre-room transient)
 
+    private static let neutralLock = NSLock()
     private static var neutralProbe: RoomReflectionProbe?
 
     /// The legacy v62 grey world, used until a room probe is available.
     static var neutral: RoomReflectionProbe? {
+        neutralLock.lock()
+        defer { neutralLock.unlock() }
         if let neutralProbe { return neutralProbe }
         guard let device = MTLCreateSystemDefaultDevice() else { return nil }
         var map = [SIMD3<Float>](repeating: .zero, count: width * height)

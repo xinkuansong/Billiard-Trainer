@@ -147,7 +147,7 @@ final class PocketLeatherFlowUITests: XCTestCase {
             if daily {
                 let hud = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
                 XCTAssertTrue((hud.value as? String ?? "").contains("自由模式"), app.debugDescription)
-                XCTAssertTrue(app.staticTexts["dailyClearance.aimSelection"].label.contains("自由"))
+                XCTAssertFalse(app.staticTexts["dailyClearance.aimSelection"].exists)
             } else {
                 XCTAssertTrue(app.staticTexts["navStatus.subtitle"].label.contains("自由"), app.debugDescription)
             }

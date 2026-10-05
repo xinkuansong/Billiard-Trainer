@@ -2496,6 +2496,20 @@ final class PocketSelectionUXTests: XCTestCase {
         XCTAssertNotNil(restored.temporaryFreeReason)
     }
 
+    func testS6ManualSelectionAcknowledgesBallAndPocketImmediately() throws {
+        let vm = makeVM(); defer { vm.cancelDailyAttempt() }
+        XCTAssertTrue(vm.selectTarget(key: "_1"))
+        let ball = try XCTUnwrap(vm.scene.allBallNodes["_1"])
+        XCTAssertNotNil(ball.action(forKey: TableBallPulse.actionKey))
+        let index = vm.selectedPocketIndex
+        vm.selectPocket(at:index)
+        let marker = try XCTUnwrap(vm.scene.addPocketMarkers()[index] as? PocketLeatherMarker)
+        let pulse = try XCTUnwrap(marker.childNode(withName:"leather_selectionPulse",recursively:true))
+        XCTAssertEqual(pulse.opacity,1)
+        XCTAssertFalse(pulse.isHidden)
+        XCTAssertNotNil(pulse.action(forKey:"pocketSelectionPulse"))
+    }
+
     func testAutomaticDefaultAcknowledgesOnceAndParameterRedrawDoesNotReplay() throws {
         let vm = PositionPlayViewModel(); vm.setupScene()
         defer { vm.cancelDailyAttempt() }
@@ -2673,5 +2687,104 @@ final class Daily3DTrajectoryVisibilityTests: XCTestCase {
         XCTAssertEqual(runner.seed, 42)
         XCTAssertEqual(runner.phase, .racked)
         vm.cancelBreakFlow()
+    }
+}
+
+@MainActor
+final class ContinuousTrajectoryPreviewTests: XCTestCase {
+    private func ready(file: StaticString = #filePath, line: UInt = #line, _ predicate: () -> Bool) async throws {
+        let deadline = Date().addingTimeInterval(15)
+        while !predicate(), Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertTrue(predicate(), "Timed out waiting for preview state", file: file, line: line)
+    }
+
+    private func makeVM() async throws -> PositionPlayViewModel {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.clearTable()
+        vm.usesContinuousTrajectoryPreview = true
+        vm.placeFromPalette(PositionPlayBall.cueKey, atWorld: SCNVector3(-0.5, vm.scene.surfaceY + BallPhysics.radius, 0))
+        vm.placeFromPalette("_1", atWorld: SCNVector3(0, vm.scene.surfaceY + BallPhysics.radius, 0))
+        vm.aimMode = .free
+        vm.handleTableTap(world: SCNVector3(0.5, vm.scene.surfaceY, 0))
+        vm.velocity = 1.5
+        try await ready { vm.solvedShot != nil && !vm.isComputing }
+        return vm
+    }
+
+    func testContinuousPowerDeliversBeforeReleaseAndFinalShotMatches() async throws {
+        let vm = try await makeVM()
+        defer { vm.clearTable() }
+        let before = vm.currentSnapshot()
+        vm.beginPowerDrag()
+        let start = CACurrentMediaTime()
+        for i in 0..<70 {
+            vm.velocity = 1.5 + Double(i) / 100
+            vm.play()
+            XCTAssertFalse(vm.isPlaying, "A changing preview must never authorize a shot")
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertGreaterThan(vm.entryTiming["livePreviewDuringDrag", default: 0], 1,
+                             "Continuous input must not starve every solve until release")
+        let preview = try XCTUnwrap(vm.livePreviewShot)
+        XCTAssertTrue(preview.prediction.hasFinalTableState)
+        XCTAssertFalse(preview.prediction.extraBallPaths.isEmpty, "The struck object ball also needs its full trajectory")
+        XCTAssertEqual(vm.currentSnapshot().onTable.mapValues { [$0.x, $0.y] }, before.onTable.mapValues { [$0.x, $0.y] })
+        vm.endPowerDrag(commit: true)
+        try await ready { !vm.isComputing && vm.solvedShot?.shot.velocity == vm.velocity }
+        XCTAssertFalse(vm.isPlaying)
+        let final = try XCTUnwrap(vm.solvedShot)
+        let independent = try XCTUnwrap(PositionPlayShotSolver.solve(before: before, shot: final.shot, surfaceY: vm.scene.surfaceY))
+        XCTAssertEqual(final.prediction.cuePath.map { [$0.x, $0.y, $0.z] }, independent.cuePath.map { [$0.x, $0.y, $0.z] })
+        print("LIVE_POWER deliveries=\(vm.entryTiming["livePreviewDuringDrag", default: 0]) wall=\(CACurrentMediaTime()-start) finalMs=\(vm.entryTiming["directMs", default: 0])")
+    }
+
+    func testContinuousDirectionDeliversAndClearRejectsLateResults() async throws {
+        let vm = try await makeVM()
+        defer { vm.clearTable() }
+        vm.setAimWheelDragging(true)
+        for _ in 0..<70 {
+            vm.nudgeFreeAim(byDegrees: 0.01)
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertGreaterThan(vm.entryTiming["livePreviewDuringDrag", default: 0], 1)
+        vm.setAimWheelDragging(false)
+        try await ready { !vm.isComputing }
+        let shot = try XCTUnwrap(vm.solvedShot?.shot)
+        let dir = try XCTUnwrap(vm.freeAimDir)
+        let expected = PositionPlayShotSolver.canvasDirection(fromScene: dir)
+        XCTAssertEqual(shot.freeAim?.x, expected.x)
+        XCTAssertEqual(shot.freeAim?.y, expected.y)
+        vm.nudgeFreeAim(byDegrees: 1)
+        vm.clearTable()
+        try await Task.sleep(for: .milliseconds(250))
+        XCTAssertNil(vm.livePreviewShot)
+        XCTAssertNil(vm.solvedShot)
+        XCTAssertFalse(vm.isComputing)
+        XCTAssertFalse(vm.isPlaying)
+    }
+
+    func testSelectionAndLeavingInvalidatePreview() async throws {
+        let vm = try await makeVM()
+        defer { vm.clearTable() }
+        vm.beginPowerDrag()
+        vm.velocity = 2.0
+        try await ready { vm.livePreviewShot != nil }
+        vm.velocity = 2.1
+        vm.cancelPowerRelease()
+        vm.usesAutomaticPocketFallback = true
+        XCTAssertTrue(vm.selectTarget(key: "_1"))
+        XCTAssertNil(vm.livePreviewShot)
+        try await ready { !vm.isComputing && vm.solvedShot?.shot.targetKey == "_1" }
+        vm.beginPowerDrag()
+        vm.velocity = 2.2
+        vm.cancelInteractiveTrajectoryPreview()
+        let count = vm.entryTiming["livePreviewDeliveries", default: 0]
+        try await Task.sleep(for: .milliseconds(250))
+        XCTAssertNil(vm.livePreviewShot)
+        XCTAssertEqual(vm.entryTiming["livePreviewDeliveries", default: 0], count)
+        XCTAssertFalse(vm.isComputing)
+        vm.play()
+        XCTAssertFalse(vm.isPlaying, "A cancelled preview cannot play a stale solved shot")
     }
 }

@@ -104,7 +104,7 @@ struct RootView: View {
             return AnyView(NavigationStack { FreePlayView() })
         }
         if args.contains("-deeplink.dailyClearance") {
-            return AnyView(NavigationStack { FreePlayView(entryMode: .dailyClearance) })
+            return AnyView(NavigationStack { DailyClearanceEntryView() })
         }
         if args.contains("-deeplink.settings") {
             return AnyView(NavigationStack { SettingsView() })

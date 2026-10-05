@@ -909,3 +909,266 @@ FL-093 / DR-338 r5实施：已统一杆坐标接触变换、球冠相切杆姿�
 - **修复**：有界候选保留开口端点及沿库相切点（最多8点），几何判定明确区分候选可用、硬阻挡与不确定。手动不确定保持球袋并只预测当前杆；不跑螺旋或翻袋搜索。
 - **证据**：首轮build/pocket-selection-20261001/core.log保留失败；core-r2、core-final、core-final-r2及se17-core的DailyShotRankingTests包含原64个物理进袋断言，全部通过，输出RAIL_REGRESSION physicalPots=64 geometryAccepted=64。原物理断言保留，未修改袋口资产或物理引擎。
 - **防复发**：增加库边几何过滤时必须同时跑近库物理金标准与相切样例；袋嘴候选未命中只能构成估计不足，不自行宣称不能进。
+
+## FL-097 — 实际中间机位恢复后兑现旧目标（2026-10-02）
+
+- 严重程度：P1；范围：每日两视角未转正候选。
+- 现象：FP记忆保存connector中间pose后，横滑可能回旧entry眼位；新观看上下文可能继续完成上一上下文的connector。
+- 根因：控制base与实际pose不一致，context变更只清记忆而未撤销pending motion。
+- 修复：context增revision、清connector/memory destination并冻结实际pose；恢复/接管FP有eye差异时从实际pose重基准。
+- 证据：独立状态复审反例与final-repair新增2项回归，23核心+5UI通过；旧两条P1修复已再次只读确认。完整C09/C10/S02不据此放行。
+- 已应用至：swiftui-design-system §DR-348；实施记录、ADR-P18-04。
+
+## FL-098 — 功能通过但近库FP遮挡与TP入口主体过小（2026-10-02）
+
+- 严重程度：P1；范围：每日两视角未转正候选。状态：入口策略部分返修，r3最终图像已复验，TP远侧主体尺度及FP完整ROI仍开放。
+- 现象：final-host formation3/13 FP中真实库体截断母球下缘；三个TP样例默认退到room远端，主体过小，不支持本杆精读。
+- 根因：FP复用杆后0.90m/+0.13m旧入口，没有真实网格视线约束；TP把远端包络入框等同任务适合。
+- 修复：FP明确入口使用实际table子树segment检查有限接触/下缘ROI，求可清视线的眼高，再冻结eye/lens；TP按实际任务包络可读区求更近的入口，稳定H/FOV不变。没有隐藏库体或修改杆/物理。
+- 证据与边界：实际原图、失败编译尝试、复验与逐图结论见UR-20261002-two-view-camera及实施记录。有限ROI、采样fit、单设备图仍不证明全场/全域；真实遮挡不能靠pitch/FOV解决。
+- 已应用至：swiftui-design-system §DR-348；原生整屏图须与功能证据分列。
+
+FL-098 r3复验：52核心＋5原生UI通过，17张新候选整屏图已全部实审。fixture3/13母球接触区明显改善，fixture3最低轮廓仍紧邻库沿；TP台面变大但远端母球偏小，近推关注对象未闭合。**不关闭视觉返工，不转正**。原图/逐任务判定见UR-20261002-two-view-camera。
+
+
+FL-098 v0.2返修：本杆入口比较较小球尺度，并优先两球投影轮廓分离；近端按两球AABB/HUD求径向约束。首轮只冻结insets导致viewport改变轨道的核心用例失败，已改冻结railViewport。新增摆球测试首版误用CanvasPoint.y=0.6超合法[0,0.5]，出现钳制/撞边断言失败；已改合法夹具，不放宽断言。独立状态复审发现moveDailyCue/dragMoved/nudgeBall绕过place失效逻辑，已补真实位移上下文失效；转场无解hold后下次输入可能瞬跳，已补suspended实际pose与revision。最终执行/图像见实施记录§7；FP完整ROI、长台精读/明显推近余量、连续安全/页面layout反馈仍不据局部修复关闭。
+
+
+## FL-099 — 把桌参照连续轨道实现成本杆两球取景（2026-10-02）
+
+- 状态：🔄 桌参照v1.5方向已实现并形成新版子证据，待用户舒适度/完整验收；不关闭或生产放行。
+- 根因：误将“当前视角下球桌构图舒服”换成两球/袋包络fit和入口选向，并把固定眼高当硬要求。功能检查成功只证明错误模型的局部行为。
+- 用户澄清：固定算法轨道＋自适应俯角；前进渐向第一人称感觉，需要靠近/降低/放平的联合变化。TP仍绕桌观察，不能自动转为沿杆FP。
+- 处理：用户授权后按v1.5替换TP profile：桌/房间/实际HUD联合求r/h/pitch/gaze，55°固定镜头；远端总览、近端降眼/放平，首次全桌。TP记忆与FP杆上下文分离，layout改变下一有效输入从actual重接。新版62核心通过、6原生UI分别通过、46整屏原图实审，来源/尝试见实施§8；没有沿用旧58＋5UI/29图作为新版证据。
+- 强制检查：TP依据桌/房间/布局生成，选球袋不改轨道；禁止继续调两球near/entryYaw包装成修复。联合检查距离/高度/俯角、进度语义和全过程构图，旧测试/截图不得记作新方案通过。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` §FL-099；UI-IMPLEMENTATION-SPEC、方案/验收、PROGRESS与Hub。
+
+v1.5复验保留失败：首轮误把重复选球重新推荐袋当no-op；原生θ校准遗漏UIKit识别前行程；初版far低平导致空地多；最终UI复位测试把实际heading与EulerY混比。分别修测试前提/手势helper、联合far构图及实际heading读取，不放宽有效断言；最终生产源码一致。TP低位近景允许局部裁切/库体遮挡，FP3/4/13完整下缘仍不足，FL-098开放；真机与连续mesh/connector安全缺证，完整38项与R/P未放行。
+
+## FL-100 — 临时轨道进度改变但部分球形无实际退远（2026-10-03）
+
+- 场景：DR-348 v2首轮真实UI触摸包6条5过1失败，vertical退远actual XZ位移4e-8m；scenario0/4明确LIMITED，而3/13高度增幅约0.87m。原证据 `build/temporary-shot-camera-20261003/ui.xcresult`、`ui.log:1397` 及原生录屏保留。
+- 根因：far生成只尝试一个35°偏好俯角且固定gaze；近域r/H采样也粗。细草稿证实selection固定gaze/dr≥.10m下台呢最高23.87%，低于26.27%真实基准护栏；仅加网格点仍无解，必须联合取景中心/俯角而非放松主体尺度。
+- 处理：engines正在实施有界r/H/pitch/gaze联合求解、近域采样与局部细化，加抬高成本；默认沿杆眼位与镜头不改，θ锁定不绕桌，80%球及台呢门槛保留。修后重跑实际失败、四球形和两尺寸；未通过前不把进度变化/回位成功记为退远通过。
+- 强制检查：真实眼位必须移动，远端证据包括球/台面尺度和实际持触图；无解信息不能替代常规用户观察任务。
+
+## FL-101 — 初始化自动第三人称被晚到布局取消且击球持续禁用（2026-10-03）
+
+- 严重程度：P1；范围：DR-348 v2.1每日DEBUG候选；状态：修复中，未安装。
+- 现象：首轮原生8项中4项在初始strikeEnabled等待失败，尚未进入推荐/透明俯视验收；4项显式按钮/手势通过。AX证明CompletedSolves=1、computing=false、autoEntry=1、moving=false，实际eye/FOV仍旧机位，与shotProfile.default不同。
+- 根因：实际HUD/viewport晚于自动TP请求到达，TwoViewCamera.revalidateLayout同步清connector、冻结实际pose；CameraRig只在update前后比较转场完成，漏掉update外取消，VM cameraTransitionBusy粘住。接受请求计数不能证明已到达本杆默认机位。
+- 修复：默认TP入口在未完成/未被用户接管时按最新有效布局重建并续接；真正取消须通知VM退出busy；既有手动观察的布局hold策略保留。正在实施并补时序回归。
+- 证据：build/shot-camera-overlay-20261003/ui.log/.xcresult、initial-app.log、原始录屏/失败附件。失败记录保留，不延长等待掩盖取消，也不只清busy后把旧pose当默认。
+- 强制检查：首次场景加载及2D→3D时检查实际pose到达沿杆默认、转场结束和strikeEnabled，再检查真实推荐、长按叠层。布局取消和正常完成必须分别覆盖。
+
+FL-100 v2定向收尾：最终旧v2四球形真实退远及两尺寸相关UI已有通过记录（实施§9.3），progress不再代替actual位移；最新v2.1恢复lens/站位后需重新查看远端实际图，不复用旧尺度验收。本条强制检查继续适用。
+
+## FL-102 — 场景通用clone触发自定义袋口节点初始化崩溃（2026-10-03）
+
+- 严重程度：P1；范围：DR-348 v2.1透明俯视；状态：修复中，未安装。
+- 现象：首个真实长按进入临时俯视即SIGTRAP，尚无透明图产生；原生ui-r2包8项6过2失败（另一项是力度重算测试待分析）。叠层不可据源码隔离或核心相机绿色放行。
+- 根因：SCNNode.clone递归调用copyWithZone，触发Swift自定义PocketLeatherMarker.init不受支持入口，崩溃栈指向AngleTrainingScene.makeTemporaryTopDownRenderScene；不是GPU负载或背景alpha问题。
+- 修复：递归创建普通SCNNode，复制冻结presentation与渲染属性，共享几何/材质只读，不调用自定义源节点构造器；新增实际桌模型复制回归，之后真实长按/透明PNG/原生画面复验。
+- 证据：build/shot-camera-overlay-20261003/overlay-crash.ips、ui-r2.log/.xcresult；原始录屏保留为native-rail-recommendation.mp4。
+- 强制检查：SCNNode派生类必须实走真实资产子树复制，不能只测试相机数学或空节点；本轮透明层须有未改PNG alpha和持触原生合成图。
+
+FL-101定向收尾：修后core-r4实际79/0，原生ui-r2首次加载/四球形/分轴与真实杆末推荐六项通过；focused手选＋力度项也通过，验证actual默认与strikeEnabled，不以entry计数代替。未安装手机。
+
+FL-102补证：clone-core-r2的42处世界矩阵误差0.99999994来自未呈现fixture新加marker的presentation identity；先真实渲染并前置校验静态model/presentation后，r3复制1项通过，最大矩阵元素误差0，源不变断言完整保留。首LP已不崩溃、原PNG桌外alpha0、原合成6袋/HUD/底层房间经独立实看；原native断言发现SCNRenderer底左到UIKit顶左的诊断Y映射缺失，修诊断后继续全LP复验，取景不变。
+
+## FL-103 — 临时俯视释放后静止状态不唤醒新镜头转场（2026-10-03）
+
+- P1，DR-348 v2.1 DEBUG候选；原生LP r2首TP hold/release全部通过，随后FP按钮已选中但主相机仍TP，15s等待失败，原录屏及失败帧保存。
+- 根因：FreePlay的contentIsAnimating不含cameraTransitionBusy。FP入口仅创建connector，尚无实际SceneKit节点写入；画面idle时无事件唤醒displayLink，不能依赖其他场景变更偶然起帧。
+- 修复：仅usesDailyTwoViewControls候选把VM cameraTransitionBusy纳入activity；成功请求显式唤醒，原完成回调false恢复idle。保原相机和叠层取景，不延长超时/削弱assertion。
+- 强制检查：完整TP长按、释放、静止、FP转场、FP长按、释放、相反朝向重复，检查actual机位、busy和原生持触图。
+- 证据：build/shot-camera-overlay-20261003/ui-overlay-r2.log/.xcresult与output/shot-camera-overlay-20261003/native-overlay-r2.mp4、overlay-r2-fp-timeout.png；修后r3正在执行。
+
+FL-100/101/102/103定向收尾：标准完整LP-r3 1/0、SE最终2/0，4球形实际远端及8次两模式/朝向真实LP图经复审；main矩阵/FOV delta0、原3D/room保持、释放后FP新转场、alpha及1次snapshot均原断言通过。候选P1在该范围闭合，全连续域/FP原边界与手机体验不含在内。最终手机unavailable实际安装失败，不以签名构建替代安装。
+
+## FL-104 — 第三人称保持契约被页面释放回调覆盖（2026-10-03）
+
+- P1，DR-348 v3.1 开发候选；首轮原生 10 项中 5 项失败。核心控制器已保持 actual，但 VM 释放后无条件 requestPlayerView 再次归正。
+- 修复：VM 仅 FP 释放重算正向，TP 释放只结束本次输入。补真实 VM 调用链测试及连续上下/左右、长按恢复原生回归；不放宽姿态断言。
+- 强制检查：改变相机交互契约须追到手势→VM→Rig→最终节点整条链；核心数学通过不能代替实际页面行为。
+- 证据：`build/landscape-camera-v31-20261003/ui-r1.xcresult`、`core-r3.xcresult`；最终核心 44/0、标准原生 ui-r4 10/0，VM 释放保持修复已复验。详 `tasks/ui-reviews/UR-20261003-landscape-camera-v31.md`。
+
+## FL-105 — 第三人称近端只验入框，未验实体库遮挡（2026-10-03）
+
+- P1，DR-348 v3.1；标准原生 r2 的 10 项通过后，放大近短库 approach 图仍见母球下缘被库体盖住，不能据测试绿判视觉通过。
+- 根因：ShotRailProfile 近端只约束两球包络/袋嘴投影，没有使用真实球桌节点的视线检测。
+- 修复：按眼位计算球体可见切圆，采样轮廓并用已有真实 table hitTest 检查；默认位必要时抬眼并重拟合镜头，近端生成时拒绝遮挡候选。缓存预留边界余量并有界退让视线，避免横转因插值微越界提前停止。预建执行，不增加每帧 mesh 搜索。最终 core-r7 44/0、ui-r4 10/0，同球形默认/近端大图已确认母球下缘露出；小屏复验另记审查报告。
+- 证据：`output/landscape-camera-v31-20261003/screens-r2/landscape-v31-formation-3-approach-held.jpg`、`build/landscape-camera-v31-20261003/ui-r2.xcresult`。r2 与首 SE 两项属于修复前版本；最终标准截图位于同目录 screens-r4，有限截图/采样不等于全连续网格无穿遮。
+
+## FL-106 — 球库提示动画覆盖母球模型基础比例（2026-10-04）
+
+- P1；真实每日页面点击母球按钮后，节点 scale 从 0.0010945576 变为 1，放大约 913 倍。相机进入巨大球体而外表面被背面剔除，接触阴影仍按正常球半径绘制。
+- 根因：TableBallPulse 使用 scale(to: 1.7) / scale(to: 1) 假设所有导入球节点的基础比例为 1；实际编号球约 0.9968，母球约 0.00109。
+- 修复：保存节点原始三轴比例，提示/拖球按相对倍率运行；重入和布局/播放取消时恢复原始比例。不得把 USDZ 根节点比例重置为 1。
+- 修前证据：build/simple-camera-20261004/pulse-native-before.log，原生点击后的比例断言实际失败 1 次；离屏 SCNView.snapshot 未推进动画，曾触发测试前置断言失败，不能作为运行证据。修后验证另记 v4 审查结果。
+
+FL-106定向修后：真实母球库点击原生回归通过，原始比例保持且截图实体可见；导入各球中断恢复核心通过。证据 ui-final/core-final-r2。独立的贴库低位几何遮挡仍开放，不与比例缺陷混为已解决。
+
+## FL-107 — 复用旧视频机位落到新球房墙外（2026-10-04）
+
+- P2；V023 M208 首轮原生关键帧只有灰墙和标题，物理及导出测试通过不能证明场景可见。
+- 根因：直接沿用旧视频5.10m/30°机位，眼位X=-4.417m，超出当前房间X±4m墙界。
+- 修复：本片导出机位改4.20m/30°、竖向FOV48°，眼位X=-3.637m；重新生成起始/碰库/临袋关键帧，真实球桌与两球可见后才开始视频编码。未改生产相机。
+- 强制检查：复用导出参数须核对当前房间真实边界及眼位，先检实际关键帧，不能用XCTest绿色代替内容可见性。
+- 证据：`output/cue-scratch-m208-20261004/r1/manifest.json`、`frame-0000.png`、`frame-0191.png`、`frame-0454.png`；已同步60-devops-release规则。
+
+
+## FL-108 — 俯视精确拖球丢失手势识别段位移（2026-10-04）
+
+- P2，DR-348 v5实验候选；真实UI拖母球45pt仅移动35pt，原断言失败，未放宽容差。
+- 原因：用UIPan进入began时的位置/translation还原抓取点，未保存touch-down原点；ended只结束拖动，未提交最后触点，造成手指与球位偏移。
+- 修复：在手势delegate的shouldReceive保存该次pan的真实触点，保留球心抓取偏移；正常ended提交最终坐标再收尾，cancel保留最后合法位置。仍经原摆球合法性，不直接改球位绕过规则。
+- 强制检查：要求精准拖放时，原生测试必须比较手指与对象实际位移，覆盖非中心抓取、正常结束及禁摆状态，不能仅断言“移动过”。坐标必须独立对照渲染器实际投影。
+- 证据：build/merged-camera-20261004/ui.log修前失败；refine.log修后复验，最终计数见UR-20261004-merged-camera.md。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md § FL-108、tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## FL-109 — 曲面光滑不代表拖动响应均匀（2026-10-05）
+
+- P2，DR-348 S1手机试用反馈：左右方向与用户预期相反；短拖不动、不同位置速度差异大。
+- 根因：额外8pt/1.3分轴阈值丢失识别前输入且整次锁轴；travel两段线性距离映射在默认处出现约1.13～4.10倍局部速度差（已查样例）；平滑姿态公式没有约束屏幕速度。
+- S2修复：横向符号反转；仅曲面实验改双轴直接输入，保存touch-down至ended位移；用固定台面地标投影运动量调节有界响应增益，在实际距离空间做中点积分，保持S1可达几何与默认位置。
+- 强制检查：曲面验收除机位/松手保持外，必须核对操作符号、默认带两侧局部响应、同路径不同事件分包、45度斜拖与短反向。测试绿不能代替用户手感。
+- 状态：S2最终12项定向测试通过，10-05 04:10已更新安装，用户手感待验；原始S1安装与测试记录保留；不因S2关闭FL-094的全域遮挡等旧问题。
+- 已应用至：swiftui-design-system SKILL § DR-348 S2 / FL-109、UI-IMPLEMENTATION-SPEC Changelog。
+
+
+## FL-110 — 封面镜像请求扩大为重新设计（2026-10-05）
+- 用户要求已有封面配合视频镜像；首轮重排标题装饰与场景，用户重新发送原封面并确认只镜像。
+- 根因：把系列样式参考当成重新设计授权，未锁定原图的保留区域。
+- 修订：以用户原图为唯一编辑底稿，顶部标题/装饰保持原样，下方场景与小窗左右镜像、字形正向；cover-r1为历史，r2为当前待审。
+- 验证：941×1672，标题/布局/文字方向目视检查，源副本SHA-256一致；生成式编辑不宣称像素相等，待用户验收。
+- 已应用至：.cursor/rules/00-orchestrator.mdc § FL-110；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## FL-112 — 空闲帧判定扫描SceneKit动作时崩溃（2026-10-05）
+
+- P1；S2最终原生复验进页时一次SIGSEGV，栈为objc_msgSend → SCNNode.hasActions → Coordinator.updateFramePacing子节点枚举（line873），非手势输入或相机公式。录屏显示进程已退出至桌面；不能只标为启动等待超时。
+- 证据：build/camera-surface-experiment/s2-launch-crash.ips、s2-final-validation.log、s2-screenshots/launch-timeout.png及原录屏。未改源码的单独shot-retry通过，故复现并非确定性。
+- 修复假设：主线程遍历动作状态期间，与SceneKit渲染线程释放/改变动作存储交错。以SCNTransaction全局锁保护图遍历与动作/动画复合读取；root已活跃时不再多余遍历。SDK SCNTransaction.h定义lock/unlock为global lock。不改变idle判据、不强制常驻渲染。
+- 验证：补原有真实SceneKit动作唤醒/完成/重入空闲测试，并最终复跑相机核心与原生流程；s2-guard-validation.log最终12/0，未再复现。单次/有限复验不宣称所有SceneKit并发问题根治。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md § FL-112；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## FL-111 — 视频切角核验混用袋心与推荐瞄点（2026-10-05）
+
+- P2；V023七例预览首轮静帧测试4处角度断言失败：导出器用袋心算角，图册字段来自dailyPocketCandidate所选有限瞄点，两者不是同一量。原碰撞/袋号/时刻复验保持一致，未改变球形或物理求解。
+- 修复：推荐角沿原dailyPocketCandidate路径独立核验；视频切角改为实际入射方向与首次碰撞法线夹角，与渲染的接触假想球一致，manifest同时保存两种角。Python独立向量复算误差<0.0001°，最终静帧1项通过；未放宽旧断言或把图册数值强写进真实角度。
+- 证据：output/cue-scratch-selection-20261005/r1/stills-initial-angle-check.log、manifest-initial-angle-check.json、stills.log；已在geometry-spatial-reasoning经验中补充口径。
+
+## FL-112 — 沿杆第三人称被误做成固定桌端视角（2026-10-05）
+
+- P2；V023用户说明“第三人称是指摄像头在球杆方向”。r1只采用固定桌端斜视，未随各球形实际杆向变化。
+- 修复：r2眼位在母球后上方，眼位—母球与水平光轴均沿实际补偿瞄准轴，侧偏为0；不以母球—目标球球心连线替代。原生关键帧1项通过，Python独立共线/方向及物理不变核验通过。
+- 范围：按用户后续要求只生成关键帧，未导r2视频；r1保留为历史，不再标作当前有效机位。证据：output/cue-scratch-selection-20261005/r2-cue-axis/。
+- 已应用至：geometry-spatial-reasoning技能下方相机语义护栏。
+
+
+## FL-113 — 中袋瞄准管道被台呢内部拼接缝截断（2026-10-05）
+
+- 用户指出三条白线必须吃到库。上一版60°/75°端点停在X=0.634917m，未到真实短库；仅与旧版逐帧一致及编码无错不足以证明教学线达标。
+- 根因：clothEnd取相连三角网格的首次出口，实测台面拼接边X=0.634917/0.636217m，约1.30mm内部缝隙被误判为台呢外缘。首轮1mm射线缝合未通过端点断言，失败日志保留。
+- 修订：视频隔离导出器仅跨越物理击球矩形内部、沿射线≤2mm的小缝；真正袋口空洞保留，虚线末端补短实线。球位/机位/台呢模型不变，生产代码未改。
+- 强制检查：三条白线分别记录端点；全角度序列检查平行、球径间距和实际边界到达，编码后复查大角度。与历史错误版字段相等不能替代新要求验收。
+- 证据：output/feel-middle-standard-20261005-r2/mesh-seam-evidence.json、keyframes-failed-seam-tolerance.log、keyframes-build.log；最终全帧结果见该目录REPORT.md。应用于geometry-spatial-reasoning技能。
+
+FL-112 / r3构图复验（2026-10-05）：用户进一步要求常规高1.10m/后退1.65m且仅调俯角。删除M066后，首轮1440×1916视口固定44°镜头下M007的8cm包络得分1.000906>1，原生断言实际失败1次（stills-initial-framing.log保留）。重排参数栏与独立1440×1800主视口，眼位/镜头不变、包络阈值不放宽；可行俯角中取最近常规看向母球角者，最终6例32.5–33.7°，原生1项通过、6图已审。视口比例影响水平视野，须连同FOV和机位一起记录。
+
+
+## FL-114 — 曲面输入终点正确但连续运动呈阶梯（2026-10-05）
+
+- 用户反馈切换连贯性差，并明确没有掉帧。此前空间采样、终点与状态测试不足以证明时间域平滑。
+- 代码机制：手势事件直接写pose与节点，斜拖横/纵各提交一次；显示帧无输入重采样。4pt积分子步只影响数值结果，并不生成显示中间帧。按钮走眼位直线/旋转/FOV插值，没有沿曲面参数过渡。
+- S3修订：目标输入与显示曲面分离，33ms短缓存按真实时间插值，不预测/不惯性外推；两轴合成一个样本，只有显示循环提交镜头；松手最多缓存时长内完成真实末触点并保持；新杆/俯视恢复取消旧样本；按钮沿曲面参数过渡，触控在当前可见点接管。
+- 强制检查：60/120Hz固定显示节奏＋不均匀输入间隔的逐帧位移分布、末触点完整消费与无拖尾、手动打断按钮、新杆取消、快照恢复；不得再以几何/终点正确替代时间连续性。
+- 验证：最终13核心（排除共享无关编译错误）通过，6组60/120Hz相对连续输入逐帧误差<1%；1场景+5原生UI通过，末次边界后2UI复验通过。Release/gate通过；手机手感待验，见UR-20261005-camera-surface-s3.md。此条不认定GPU掉帧或全场景性能问题。
+
+V023相机FL-112 / r6续验（2026-10-05）：红框“剪短”首轮被解释为裁底部，用户澄清要调相机；裁切实验标废弃，保留完整9:16，改俯角/镜头。固定26°下M053轨迹包络触参数框10处，失败日志/图保留；通用有界俯角26–34°求最近不重叠解，最终26.7°，未放宽8cm包络/20px框余量。最终1测0失败。相机语义护栏已补充区分红框取景目标与裁切方式。
+
+
+## FL-115 — 分轴左滑回归误用有符号角差（2026-10-05）
+- S5首轮16核心+4UI通过，新增分轴UI最后左滑断言失败：实测angleDifference=-0.0355877rad，却写成>+0.005；同用例横向等高、竖向bearing及短反向已通过。
+- angleDifference=atan2(sin(lhs-rhs),cos(lhs-rhs))保留正负，左滑应负。断言改为<-0.005，保留方向性；未改生产逻辑、未删除检查或放宽阈值。
+- ✅ 修订后同UI完整复跑1项通过，方向隔离与左滑反向均通过；原始失败证据：build/camera-surface-s5-20261005/tests.log/xcresult，修订复跑见axis-retest.log/xcresult。
+- **已应用至**：.cursor/skills/geometry-spatial-reasoning/SKILL.md § FL-115；UI实施规范Changelog。
+
+
+## FL-116 — 相机模式写入争用与临时俯视反馈缺失（2026-10-05）
+- 用户反馈四项：转镜生硬；3D/临时俯视手选球袋无反馈；临时俯视点球偶发整桌闪；普通2D拖动黑底3D。普通2D点球闪已被用户明确排除。
+- 根因：simple入口将0.95秒压到0.3秒；桌面选球未接已有pulse；手动袋口延迟1秒且临时副场景未同步其动态状态；选择/预测revision重建副场景；updateCuePose经applyTwoViewPose无视普通2D投影所有权。
+- 修订：共享0.95秒与五次缓动；VM成功选球统一pulse，手动袋口即时反馈；驻留副场景同步presentation及局部节点增删；CameraRig显式2D展示所有权。
+- 护栏：先保留两项红色回归（投影、0.3秒截断），再检查源/副场景真实像素与恢复、节点身份稳定、原生拖动回调中正交投影、原有分轴与选袋语义。临时闪烁的重建机制被移除，静态截图不当作逐帧无闪证明。
+- 已应用至：swiftui-design-system §DR-348 S6、UI-IMPLEMENTATION-SPEC、实施记录与S6审查报告；最终结果按报告回填。
+
+FL-116兼容性回归：扩大到PerspectiveStateV63Tests后，testExplicitFocusReplacesSavedObservation原断言失败（2条）。全局update阻断影响旧宿主在2D预备显式focus；修订仅对TwoView控制器阻断2D时3D更新，旧宿主保留原流程。失败日志final-tests.log/xcresult保留，原断言不变，复验结果见S6报告。
+
+FL-116最终验证：final-retest 47项0失败，含旧focus原断言；5个唯一原生UI分批通过。Debug-O/签名/手机安装启动通过，详S6报告；临时闪烁需用户真机继续观察，不以静态图认定全部时序问题已消失。
+
+
+## FL-117 — 球心缩放穿台与presentation pivot重复（2026-10-05）
+用户报告选球放大仍维持原球心高度。真实USDZ渲染回归复现1.7倍后球底低约19.93mm；TableBallPulse过去仅改scale。修订按世界Y通过视觉pivot上移R(s-1)，物理中心不变，并保留原基值供还原/打断。检查过程中发现presentation.transform已含pivot，旧俯视镜像及首版顶点oracle额外复制/应用pivot会重复抬升；按原生model/presentation日志修正，0.3mm球底断言不放宽。final38项通过，原生/安装状态见S7报告。首轮Rig速度测试初始化未提交相机姿态，已补正常display更新而非放宽速度界；额外用例类名错误0执行已纠正到真实类名，最终确实执行1条。已应用至swiftui-design-system与UI实施规范S7。
+
+FL-117收尾：源/副场景球底与物理中心、原基值恢复通过；最终39核心＋4UI共43项唯一用例分批通过，gate/设备构建签名/安装启动通过，真机观感待用户试用。
+
+
+## FL-118 — 点球取景不应依赖换球和可进袋（2026-10-05）
+旧队列只在target变化且pocket可行求解完成后进入第三人称，漏掉重复点击和自由模式/无袋口回退；开球默认按钮回中圈而非最远端。S8以当前合法选择的几何瞄准请求曲面取景，并在临时俯视退出时消费；开球入口统一travel=1沿开球方向。
+首轮新测试将Snapshot的当前可见travel当作目的地，在尚未推进渲染时断言0.5，导致6项断言失败；另将含context变化的revision当作自动取景次数导致1项失败。按真实API契约改为先推进显示循环、用自动取景计数及普通2D实际投影/变换验证，未放宽终点阈值。修订35核心通过；原生真实击球入口按钮等待仍诊断中。
+已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` §DR-348 S8 / FL-118；UI实施规范Changelog。最终证据见S8报告。
+
+
+FL-118时序补充：checked/shot-diagnostic/shot-state的真实击球UI在初始按钮等待失败，最终原生诊断明确twoViewComputing=false、twoViewFeasible=true、twoViewCameraBusy=true、twoViewMoving=true、twoViewOrtho=true，眼位(0,5.8,0)。根因是SwiftUI Coordinator的cameraMode尚未同步时，旧2D显示回调在scene已转3D后重新applyTopDown2D，S6展示所有权锁随后让3D转镜无法推进。旧版等待异步求解后再转镜偶然掩盖此时序。修订TwoView渲染提交前必须与scene.currentCameraMode一致，过期帧不写相机；普通2D守卫保留。新超时诊断在XCTest断言前捕获，避免continueAfterFailure=false时defer未记录现场。复验见S8报告。
+
+
+FL-118副场景补充：final原生临时俯视点袋口时一次SIGABRT，保留xcresult诊断及overlay-crash-stack.txt。malloc报告pointer being freed was not allocated，触发栈__BuildRenderableSourceChannelsAndSemanticInfos → C3DMeshBuildRenderableData → SCNRenderer，属于网格内部缓存构建。旧镜像直接引用source.geometry，主/副SCNView渲染队列共享同一C3DMesh。S8改为每个镜像节点保存源geometry身份，变化时用源顶点/索引数据创建独立SCNGeometrySource/Element/Geometry；维持材质引用以同步选袋反馈。静态节点仍驻留，不在每帧重建网格。原快照测试“共享geometry身份”断言被新缓存隔离契约替代，同时逐项验证顶点/索引data和材质未变；原球底、视觉反馈与源节点不变断言保留。待原生复验，不能把未再崩溃当作全场景保证。
+
+
+FL-118视觉返工：mesh-retest的6核心＋2UI及stress六轮交互虽然通过，导出的原生“临时俯视选袋”截图却出现整桌三角形撕裂；该版被否决，未安装。原因是从USDZ geometry的data/bytesPerComponent等公开字段重建SCNGeometrySource不能保持其原生打包格式；数据字节相等不代表渲染解释等价。修订保留原生SCNGeometrySource/Element对象，仅创建独立SCNGeometry（C3DMesh缓存），仍保持材质同步。新增同一渲染器串行、相同镜头/光照下“独立geometry与原导入geometry”像素MAE<0.005对照，并保留原图；不能以UI状态/字节等价替代渲染验收。此前mesh构建曾因局部非throws函数内XCTUnwrap编译失败，改为显式XCTFail+guard，没有吞错误。
+
+
+FL-118最终几何实现：仅由sources/elements构造新的SCNGeometry仍漏掉导入台呢，新增像素回归真实失败MAE=0.0867955，未放宽0.005阈值。最终采用SceneKit原生SCNGeometry.copy()保留完整Model I/O内部元数据，镜像保持独立geometry对象，并显式共享既有materials供反馈同步；7项源/副场景、真实球底及图像对照通过，像素MAE=0。原始SCNNode仍为基类，不clone源子类。后续原生压力与交付见S8报告。此最终实现覆盖前两种手工重建geometry的失败尝试。
+
+
+DR-348 S8 / FL-118交付回填：最终43核心＋6原生UI，49项唯一用例分批通过；独立geometry原生复制相对原导入模型像素MAE=0，连续6轮临时俯视选球/六袋编辑通过，最终原图已审。delivery-gate、Debug-O设备构建、严格codesign通过。iPhone16Pro最终仍unavailable，未安装S8，手机最后交付S7；待连接安装及用户手感验收。见UR-20261005-camera-surface-s8.md。
+
+
+## FL-119 — 首次3D经过相反方向的旧全桌机位（2026-10-05）
+- 用户反馈：开球进入最远第三人称前先大幅转镜。
+- 根因：场景首次3D兜底先应用yaw=π旧全桌机位，页面再请求沿杆曲面；旧测试只验最终落点，未验第一帧。
+- 修订：展示所有权切换后、全桌兜底前由宿主初始化当前曲面；首次duration=0，成功后页面不发第二次请求；已有3D转镜保留速度策略。
+- 修前构造性失败：实际VM链路6.207933m位置差、约180°方向差，普通/旋转2D均复现。验证与安装见ui-reviews/UR-20261005-camera-surface-s9.md。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` § FL-119，2026-10-05。
+
+
+## FL-120 — 更多菜单到透明度浮窗未呈现（2026-10-05）
+新增透明度项首轮原生点击后大盘已展开，但附在Menu上的系统popover未进入辅助功能树，滑条存在断言失败（build/daily-spin-setting-20261005/standard.xcresult）。推断为菜单收起与popover呈现生命周期冲突；不通过增加延时或放宽断言掩盖。改为每日页面稳定根节点内的HUD浮层，透明拦截层关闭设置，滑条即时绑定持久化偏好。原生入口/端点/跨模式/重启原断言保留，复验见UR-20261005-daily-spin-setting.md。
+- 已应用至：swiftui-design-system §DR-335 r5；UI实施规范与实施记录同条。
+
+FL-120视觉补充：首版页内浮层功能流程通过，但TupleView布局将设置卡居中覆盖大盘；图审否决。改用显式ZStack(topTrailing)固定右上锚点，原生测试增加滑条处于屏幕右上区域的边界断言。滑条去除0.01离散步进以避免iOS26渲染密集刻度，保留连续调节及百分比读数。最终复验另记。
+
+FL-120收尾：standard-final与compact-delivery分别在标准/小屏通过同一原生全流程，真实滑动、右上边界、模式共享、重启恢复均通过；最终四张设置原图实看，280pt实色深底读数清晰。1项默认与持久化单测通过，未安装手机。
+
+FL-120 / DR-335 r6测试时序补充：紧凑面板standard原生测试在拖动后即时75±5%断言失败，但失败录像末帧显示77%。按SwiftUI辅助功能发布异步处理，增加最多3秒的条件等待，原70–80%阈值及重启保存断言不变；不使用固定sleep。证据与复验见UR-20261005-daily-spin-setting-compact.md。
+
+FL-120/r6收尾：small-final、standard-final原生流程各1项通过；原百分比阈值保持、跨模式与重启恢复通过。标准/小屏2D/3D四张紧凑版原图已实看，详r6审查记录。
+
+
+FL-120/r9：按用户要求改为按钮同款24%透明底后，原生流程通过，但截图发现底下小白盘透出叠在50%读数后。图审返工：设置打开时暂隐下方仪表列（保留布局占位），关闭恢复；不以重新加黑面板代替修复。最终复验见UR-20261005-daily-spin-glass.md。
+
+
+## FL-121 — 每日清台特写漏保护与透视相交（2026-10-05）
+- 用户截图显示特写遮住进球线，追加六袋、首库前母球线、完整球杆与2D台内边界要求；原keepout不含全部实际渲染几何，3D全屏投影未换算到中间stage，且旧soft fallback允许遮挡。
+- 修订：每日页单独使用实际场景投影的硬障碍求解；整圆限台内，先缩小再隐藏；球杆近裁面裁剪+投影凸包。特写内部用桌面等比例映射保持2R相切，外部仍按真实相机摆放。
+- 验证纠偏：早期UI通过却未实际打开特写（命令行字符串未成为Bool），图片作废；用DEBUG fixture设置真实偏好后重跑。按钮拖出不等于取消的错误测试假设已修，按释放击球、重建球形验证下一项。
+- 已应用至：swiftui-design-system、geometry-spatial-reasoning技能末尾API/约束回填；最终测试和原图见ui-reviews/UR-20261005-daily-hud-avoidance.md。
+
+
+## FL-122 — 每日2D→3D渲染视图重建黑帧（2026-10-05）
+根因：同一scene分别挂在两个条件分支的SCNView，模式切换销毁/新建渲染器，3D首帧就绪前露黑底；原生录屏约70ms。修前实例身份UI在首个2D→3D断言失败（before.log），证明生命周期改变。修复改为单一结构身份、模式只改屏幕frame；后续验证见UR-20261005-daily-renderer-stable.md。
+回写目标：swiftui-design-system技能；SCNView切换需验实例存续及连续帧，不能只验最终相机/静态截图。
+
+FL-122验证补充：首轮修复推算stage高331pt而实际338pt，第二轮全屏被控件最小高度撑到382pt，均由严格frame断言打回；改为页面实际高度约束背景、中央stage实测全局坐标。final2两尺寸原生通过且无黑帧，但图审发现首次3D旧viewport构图一帧，追加布局时同步相机后复验。
+
+FL-122收尾：稳定SCNView + 每日layout回调同步viewport/相机，修前身份断言失败、最终两尺寸3次往返和点球验证通过（小屏1UI、标准2UI）；最终录屏切换段黑场0，原约70ms消失。前两轮frame推算失败留痕，已改实测坐标；未装机/提交发布。见UR-20261005-daily-renderer-stable.md。

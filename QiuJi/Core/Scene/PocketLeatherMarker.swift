@@ -81,12 +81,22 @@ final class PocketLeatherMarker: SCNNode {
     /// It can acknowledge an unavailable pocket while the actual mode is free.
     func confirmSelection(delay: TimeInterval = selectionPulseDelay) {
         cancelSelectionFeedback()
-        selectionPulse.runAction(.sequence([
-            .wait(duration: delay),
-            .run { node in node.isHidden = false; node.opacity = 1 },
-            .wait(duration: Self.selectionPulseDuration),
-            .run { node in node.opacity = 0; node.isHidden = true }
-        ]), forKey: Self.pulseActionKey)
+        if delay <= 0 {
+            // A direct click is acknowledged now, before the next render/solve.
+            selectionPulse.isHidden = false
+            selectionPulse.opacity = 1
+            selectionPulse.runAction(.sequence([
+                .wait(duration: Self.selectionPulseDuration),
+                .run { node in node.opacity = 0; node.isHidden = true }
+            ]), forKey: Self.pulseActionKey)
+        } else {
+            selectionPulse.runAction(.sequence([
+                .wait(duration: delay),
+                .run { node in node.isHidden = false; node.opacity = 1 },
+                .wait(duration: Self.selectionPulseDuration),
+                .run { node in node.opacity = 0; node.isHidden = true }
+            ]), forKey: Self.pulseActionKey)
+        }
     }
 
     func cancelSelectionFeedback() {

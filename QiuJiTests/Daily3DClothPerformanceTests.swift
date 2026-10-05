@@ -6,6 +6,171 @@ import Metal
 /// Rendered equivalence checks; simulator timings are not phone performance evidence.
 @MainActor
 final class Daily3DClothPerformanceTests: XCTestCase {
+    /// Exercises the real SCNNode subclass that crashed generic clone() on a hold.
+    func testTemporaryTopDownSnapshotCopiesRealPocketMarkersWithoutSourceWrites() throws {
+        let scene = AngleTrainingScene()
+        scene.setupScene(mobileRendering: false)
+        scene.installReferenceRoom()
+        let markers = scene.addPocketMarkers()
+        XCTAssertEqual(markers.count, 6)
+        XCTAssertTrue(markers.allSatisfy { $0 is PocketLeatherMarker })
+        let table = try XCTUnwrap(scene.tableNode)
+        scene.showBall(key: PositionPlayBall.cueKey,
+            scenePosition: SCNVector3(0, scene.surfaceY + AngleSceneCalculator.ballRadius, 0))
+        let cue = try XCTUnwrap(scene.cueBallNode)
+        let camera = try XCTUnwrap(scene.cameraNode)
+        let originalFOV = camera.camera?.fieldOfView
+        let originalProjection = camera.camera?.usesOrthographicProjection
+
+        // Newly attached marker presentation nodes still have identity world matrices
+        // until SceneKit evaluates this tree. Exercise the actual rendered fixture before
+        // freezing it, just as a long press captures an already displayed live scene.
+        let sourceRenderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        sourceRenderer.scene = scene
+        sourceRenderer.pointOfView = camera
+        sourceRenderer.autoenablesDefaultLighting = false
+        SCNTransaction.flush()
+        _ = sourceRenderer.snapshot(atTime: 0, with: CGSize(width: 64, height: 64), antialiasingMode: .none)
+        for marker in markers {
+            let presented = marker.presentation.simdWorldTransform
+            let model = marker.simdWorldTransform
+            var error: Float = 0
+            for column in 0..<4 {
+                for row in 0..<4 {
+                    XCTAssertTrue(presented[column][row].isFinite && model[column][row].isFinite)
+                    error = max(error, abs(presented[column][row] - model[column][row]))
+                }
+            }
+            XCTAssertLessThanOrEqual(error, 1e-5,
+                "Rendered static marker fixture must be synchronized: node=\(marker.name ?? "<unnamed>") maxElementDifference=\(error); presented=\(presented); model=\(model)")
+        }
+
+        var sourceNodes: [SCNNode] = []
+        scene.rootNode.enumerateHierarchy { node, _ in sourceNodes.append(node) }
+        let sourceState = sourceNodes.map { node in
+            (node.parent, node.transform, node.pivot, node.isHidden, node.opacity,
+             node.geometry, node.geometry?.materials ?? [])
+        }
+        let sourceMaterials = sourceNodes.flatMap { $0.geometry?.materials ?? [] }
+        let materialState = sourceMaterials.map { ($0.shaderModifiers, $0.diffuse.contents as? NSObject) }
+
+        let snapshot = scene.makeTemporaryTopDownRenderScene()
+        XCTAssertTrue(snapshot !== scene)
+        XCTAssertNil(snapshot.rootNode.childNode(withName: "reference_room", recursively: true))
+        XCTAssertNil(snapshot.rootNode.childNode(withName: "trainingCamera", recursively: true))
+        XCTAssertNil(snapshot.rootNode.childNode(withName: "cueStick", recursively: true))
+        XCTAssertNil(snapshot.rootNode.childNode(withName: "ground_visual", recursively: true))
+        XCTAssertNil(snapshot.rootNode.childNode(withName: "ground_contact_shadow", recursively: true))
+        for marker in markers {
+            let copy = try XCTUnwrap(snapshot.rootNode.childNode(withName: try XCTUnwrap(marker.name), recursively: true))
+            XCTAssertFalse(copy is PocketLeatherMarker, "Snapshot must use base nodes, not invoke marker initialization")
+            XCTAssertTrue(copy !== marker)
+            XCTAssertEqual(copy.childNodes.count, marker.childNodes.count)
+        }
+        var largestWorldElementDifference: Float = 0
+        var largestWorldDifferenceNode = "none"
+        func checkTree(_ source: SCNNode, _ copy: SCNNode) {
+            XCTAssertTrue(copy !== source)
+            XCTAssertTrue(type(of: copy) == SCNNode.self)
+            if let sourceGeometry = source.geometry {
+                guard let copiedGeometry = copy.geometry else { XCTFail("Missing mirrored geometry"); return }
+                XCTAssertFalse(copiedGeometry === sourceGeometry, "Independent renderers must own independent mesh caches")
+                XCTAssertEqual(copiedGeometry.sources.map(\.data),sourceGeometry.sources.map(\.data))
+                XCTAssertEqual(copiedGeometry.elements.map(\.data),sourceGeometry.elements.map(\.data))
+                XCTAssertEqual(copiedGeometry.materials,sourceGeometry.materials,"Selection feedback remains live")
+            } else { XCTAssertNil(copy.geometry) }
+            let actualWorld = copy.simdWorldTransform
+            let expectedWorld = source.presentation.simdWorldTransform
+            var maximumDifference: Float = 0
+            var finiteElements = true
+            for column in 0..<4 {
+                for row in 0..<4 {
+                    let actual = actualWorld[column][row]
+                    let expected = expectedWorld[column][row]
+                    finiteElements = finiteElements && actual.isFinite && expected.isFinite
+                    maximumDifference = max(maximumDifference, abs(actual - expected))
+                }
+            }
+            let nodeName = source.name ?? "<unnamed>"
+            if maximumDifference > largestWorldElementDifference {
+                largestWorldElementDifference = maximumDifference
+                largestWorldDifferenceNode = nodeName
+            }
+            XCTAssertTrue(finiteElements, "Nonfinite world matrix at node=\(nodeName); actual=\(actualWorld); expected=\(expectedWorld)")
+            // Parent multiplication can recompose frozen transforms with Float rounding.
+            // This bound applies to each matrix element (translation entries are meters).
+            XCTAssertLessThanOrEqual(maximumDifference, 1e-5,
+                "node=\(nodeName) maxWorldElementDifference=\(maximumDifference); actual=\(actualWorld); expected=\(expectedWorld)")
+            XCTAssertTrue(SCNMatrix4EqualToMatrix4(copy.pivot, source.presentation.pivot))
+            XCTAssertEqual(copy.isHidden, source.isHidden)
+            XCTAssertEqual(copy.renderingOrder, source.renderingOrder)
+            XCTAssertEqual(copy.categoryBitMask, source.categoryBitMask)
+            XCTAssertFalse(copy.hasActions)
+            XCTAssertTrue(copy.animationKeys.isEmpty)
+            XCTAssertNil(copy.physicsBody)
+            XCTAssertEqual(copy.childNodes.count, source.childNodes.count)
+            for (child, childCopy) in zip(source.childNodes, copy.childNodes) { checkTree(child, childCopy) }
+        }
+        checkTree(table, try XCTUnwrap(snapshot.rootNode.childNode(withName: try XCTUnwrap(table.name), recursively: false)))
+        checkTree(cue, try XCTUnwrap(snapshot.rootNode.childNode(withName: try XCTUnwrap(cue.name), recursively: false)))
+        print("TemporaryTopDownClone maxWorldElementDifference=\(largestWorldElementDifference) node=\(largestWorldDifferenceNode)")
+        let sourceLightIDs = Set(sourceNodes.compactMap { $0.light }.map(ObjectIdentifier.init))
+        var snapshotLights: [SCNLight] = []
+        snapshot.rootNode.enumerateHierarchy { node, _ in
+            if let light = node.light { snapshotLights.append(light) }
+        }
+        XCTAssertEqual(snapshotLights.count, sourceNodes.compactMap { $0.light }.count)
+        XCTAssertTrue(snapshotLights.allSatisfy { !sourceLightIDs.contains(ObjectIdentifier($0)) })
+        for (node, saved) in zip(sourceNodes, sourceState) {
+            XCTAssertTrue(node.parent === saved.0)
+            XCTAssertTrue(SCNMatrix4EqualToMatrix4(node.transform, saved.1))
+            XCTAssertTrue(SCNMatrix4EqualToMatrix4(node.pivot, saved.2))
+            XCTAssertEqual(node.isHidden, saved.3)
+            XCTAssertEqual(node.opacity, saved.4)
+            XCTAssertTrue(node.geometry === saved.5)
+            XCTAssertEqual(node.geometry?.materials.map(ObjectIdentifier.init) ?? [], saved.6.map(ObjectIdentifier.init))
+        }
+        for (material, saved) in zip(sourceMaterials, materialState) {
+            XCTAssertEqual(material.shaderModifiers, saved.0)
+            XCTAssertEqual(material.diffuse.contents as? NSObject, saved.1)
+        }
+        XCTAssertEqual(camera.camera?.fieldOfView, originalFOV)
+        XCTAssertEqual(camera.camera?.usesOrthographicProjection, originalProjection)
+    }
+
+    func testS8IndependentOverlayMeshMatchesNativeImportedGeometryPixels() throws {
+        let source = AngleTrainingScene()
+        source.configureDailyClearanceRendering(); source.setupScene()
+        var pairs: [(SCNNode,SCNNode)] = []
+        let overlay = source.makeTemporaryTopDownRenderScene { pairs.append(($0,$1)) }
+        let camera = SCNNode(); camera.camera = SCNCamera()
+        camera.camera!.usesOrthographicProjection = true
+        camera.camera!.orthographicScale = 1.5
+        camera.position = SCNVector3(0,5.8,0)
+        camera.look(at:SCNVector3(0,0.8,0),up:SCNVector3(0,0,-1),localFront:SCNVector3(0,0,-1))
+        overlay.rootNode.addChildNode(camera)
+        let renderer = SCNRenderer(device:try XCTUnwrap(MTLCreateSystemDefaultDevice()),options:nil)
+        renderer.scene = overlay; renderer.pointOfView = camera; renderer.autoenablesDefaultLighting = false
+        let size = CGSize(width:640,height:320)
+        _ = renderer.snapshot(atTime:0,with:size,antialiasingMode:.multisampling4X)
+        let isolated = renderer.snapshot(atTime:0,with:size,antialiasingMode:.multisampling4X)
+        // Sequential, single-renderer baseline uses the actual imported geometry. It
+        // deliberately avoids the two-renderer sharing that caused the runtime abort.
+        for (original,copy) in pairs { copy.geometry = original.geometry }
+        SCNTransaction.flush()
+        _ = renderer.snapshot(atTime:0,with:size,antialiasingMode:.multisampling4X)
+        let native = renderer.snapshot(atTime:0,with:size,antialiasingMode:.multisampling4X)
+        let a = try pixels(isolated), b = try pixels(native)
+        XCTAssertEqual(a.count,b.count)
+        let error = zip(a,b).reduce(0.0) { $0 + abs(Double($1.0)-Double($1.1)) } / Double(a.count) / 255
+        print("S8 imported overlay normalized pixel MAE=\(error)")
+        for (name,image) in [("s8-independent-mesh",isolated),("s8-native-mesh-reference",native)] {
+            let attachment = XCTAttachment(image:image); attachment.name = name; attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        XCTAssertLessThan(error,0.005,"Mesh isolation must preserve native vertex formats and rendering")
+    }
+
     private var output: URL {
         #if targetEnvironment(simulator)
         return URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()

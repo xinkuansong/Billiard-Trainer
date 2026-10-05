@@ -473,3 +473,15 @@ clean:
 	@echo "→ 清理 build/ ..."
 	rm -rf $(BUILD_DIR)
 	@echo "✅ 清理完成"
+
+# Independent S1 camera trial; different bundle ID and generated plist/project.
+CAMERA_EXPERIMENT_DIR := $(BUILD_DIR)/camera-surface-experiment
+.PHONY: camera-surface-project camera-surface-device
+camera-surface-project:
+	ruby $(PROJECT_ROOT)/scripts/prepare-camera-surface-experiment.rb
+
+camera-surface-device: camera-surface-project
+	xcodebuild -project $(CAMERA_EXPERIMENT_DIR)/CameraSurfaceLab.xcodeproj \
+	  -scheme QiuJi -configuration Debug -destination 'generic/platform=iOS' \
+	  -derivedDataPath $(CAMERA_EXPERIMENT_DIR)/DerivedData -allowProvisioningUpdates \
+	  SWIFT_OPTIMIZATION_LEVEL=-O build

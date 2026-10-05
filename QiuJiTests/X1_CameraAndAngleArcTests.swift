@@ -1249,7 +1249,7 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
         let transform: simd_float4x4
     }
 
-    private func makeCapture(targetXZ: SIMD2<Float> = SIMD2<Float>(0, 0.10), pocketIndex: Int = 5) throws -> Capture {
+    private func makeCapture(targetXZ: SIMD2<Float> = SIMD2<Float>(0, 0.10), pocketIndex: Int = 5, fitsCurrentRoom: Bool = false) throws -> Capture {
         let scene = AngleTrainingScene()
         scene.setupScene()
         scene.setupVisualizationNodes()
@@ -1289,7 +1289,17 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
             let elevationDegrees = try XCTUnwrap(Float(elevationText))
             XCTAssertTrue(elevationDegrees.isFinite && elevationDegrees > 0 && elevationDegrees < 90)
             let elevation = elevationDegrees * .pi / 180
-            let distance: Float = 5.10
+            let referenceDistance: Float = 5.10
+            let distance = fitsCurrentRoom ? min(referenceDistance, BakedTrainingRoom.cameraSafeHalfExtents.x / cos(elevation)) : referenceDistance
+            if fitsCurrentRoom {
+                // Preserve the near rail's projected width, so moving inside the
+                // current room does not crop the table's front corners.
+                let nearOffset = Float(try XCTUnwrap(scene.cameraRig).tableOuterHalfLength) * cos(elevation)
+                let referenceDepth = referenceDistance - nearOffset
+                let currentDepth = distance - nearOffset
+                XCTAssertGreaterThan(currentDepth, 0)
+                camera.fieldOfView = CGFloat(2 * atan(referenceDepth / currentDepth * tan(Float(20) * .pi / 180)) * 180 / .pi)
+            }
             let focus=SCNVector3(0,scene.surfaceY,0)
             node.position=SCNVector3(-distance*cos(elevation),focus.y+distance*sin(elevation),0)
             node.look(at:focus,up:SCNVector3(0,1,0),localFront:SCNVector3(0,0,-1))
@@ -1946,7 +1956,7 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
 
     func testExportContinuousSpinPreview() async throws {
         let dir = try output()
-        let c = try makeCapture(targetXZ: SIMD2<Float>(-0.64, -0.20), pocketIndex: 0)
+        let c = try makeCapture(targetXZ: SIMD2<Float>(-0.64, -0.20), pocketIndex: 0, fitsCurrentRoom: true)
         let fixed = try setAngle(15, c, centerDistance: 0.60, requiresNegativeX: false)
         let cue = try XCTUnwrap(c.scene.cueBallNode).position
         let d = simd_normalize(SIMD3<Float>(c.ghost.x-cue.x, 0, c.ghost.z-cue.z))
@@ -1995,7 +2005,7 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
         let env=ProcessInfo.processInfo.environment
         let keys=(env["TEST_RUNNER_SEPARATION_KEYFRAMES"] ?? env["SEPARATION_KEYFRAMES"]) == "1"
         let frames = keys ? [0,285,456,510,735,960] : Array(0..<1020)
-        let writer = keys ? nil : try VideoWriter(url:dir.appendingPathComponent("spin-15deg-preview.mp4"),size:size,fps:60)
+        let writer = keys ? nil : try VideoWriter(url:dir.appendingPathComponent("spin-15deg-preview.mp4"),size:size,fps:60,averageBitRate:is2K ? 32_000_000 : nil)
         var lastStep = -1
         var tracks:[[String:Any]]=[]
         for frame in frames {
@@ -2081,7 +2091,8 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
                 SCNTransaction.flush()
                 let time=Double(frame)/60
                 let main=base(c,time:time,drawsAngleText:false)
-                let inset=insetRenderer.snapshot(atTime:time,with:CGSize(width:420,height:420),antialiasingMode:.multisampling4X)
+                let insetPixels = 420 * size.width / 1080
+                let inset=insetRenderer.snapshot(atTime:time,with:CGSize(width:insetPixels,height:insetPixels),antialiasingMode:.multisampling4X)
                 let format=UIGraphicsImageRendererFormat();format.scale=1;format.opaque=true
                 let image=UIGraphicsImageRenderer(size:size,format:format).image { ctx in
                     UIColor.black.setFill();ctx.fill(CGRect(origin:.zero,size:size))
@@ -2119,6 +2130,13 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
                     leader("瞄准线",am,CGPoint(x:am.x+35,y:am.y+38),.white)
                     let pm=CGPoint(x:tp.x+(pp.x-tp.x)*0.6,y:tp.y+(pp.y-tp.y)*0.6)
                     leader("进球线",pm,CGPoint(x:pm.x+58,y:pm.y+14),.black)
+                    let noteStyle = NSMutableParagraphStyle(); noteStyle.alignment = .center
+                    let noteShadow = NSShadow(); noteShadow.shadowColor = UIColor.black.withAlphaComponent(0.6)
+                    noteShadow.shadowBlurRadius = 2; noteShadow.shadowOffset = CGSize(width:0,height:1)
+                    ("注：仅保留母球吃一库轨迹" as NSString).draw(
+                        in:CGRect(x:120,y:1710,width:840,height:40),
+                        withAttributes:[.font:UIFont.systemFont(ofSize:28,weight:.medium),
+                            .foregroundColor:UIColor.white,.paragraphStyle:noteStyle,.shadow:noteShadow])
                 }
                 if keys || [0,285,456,510,735,960].contains(frame) {
                     try XCTUnwrap(image.pngData()).write(to:dir.appendingPathComponent("frames/frame-\(frame).png"))
@@ -2126,7 +2144,12 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
                 try writer?.append(XCTUnwrap(image.cgImage))
                 var row=fixed;row["frame"]=frame;row["spinY"]=spin;row["cueElevation"]=elevation
                 row["contactResidualM"]=contactResidual;row["contactPosition"]=[contact.x,contact.y,contact.z];row["insetCueAdvanceM"]=advance
-                row["tracks"]=tracks;row["cueTipSpeedMps"]=3;row["version"]="spin-continuous-r8-label-endpoints"
+                row["tracks"]=tracks;row["cueTipSpeedMps"]=3;row["version"]="spin-continuous-r10-native-2k-note"
+                row["renderWidth"]=size.width;row["renderHeight"]=size.height
+                let eye = c.scene.cameraNode.position
+                row["cameraPosition"]=[eye.x,eye.y,eye.z]
+                row["cameraVerticalFov"]=c.scene.cameraNode.camera!.fieldOfView
+                row["tableOuterHalfLength"]=c.scene.cameraRig!.tableOuterHalfLength
                 row["solvedAimDirection"]=[direction.x,direction.y,direction.z]
                 row["aimCorrectionDegrees"]=Double(acos(min(1,max(-1,simd_dot(d,SIMD3<Float>(direction))))))*180 / .pi
                 row["selectedPocketPotted"]=solved[step].simObjectPotted
@@ -4545,6 +4568,111 @@ extension AngleAimingVideoCaptureTests {
         XCTAssertEqual(measured,Float(degrees),accuracy:0.001)
         let record: [String:Any] = ["cutDegrees":measured,"plannedRange":[0,89],"size":[1600,2560],"ballRadiusM":r,"cue":[cue.x,cue.y,cue.z],"target":[target.x,target.y,target.z],"ghost":[ghost.x,ghost.y,ghost.z],"contact":[contact.x,contact.y,contact.z],"insetRect":[inset.minX,inset.minY,inset.width,inset.height],"cameraHeightM":0.75,"cameraBackM":0.35,"stillOnly":true,"pipePlacement":"cloth","pipeClothY":clothY,"aimEnd":[aimEnd.x,aimEnd.y,aimEnd.z],"potStart":[potStart.x,potStart.y,potStart.z],"pipeWidthM":2*r,"insetOrthographicScale":0.080,"ghostRingVisible":true,"contactDotVisible":false,"cueInsetRect":[cueInset.minX,cueInset.minY,cueInset.width,cueInset.height],"insetAxisX":[upperAxisX,lowerAxisX],"insetGroupMidY":(inset.minY+cueInset.maxY)/2]
         return (image,record)
+    }
+}
+
+@MainActor
+final class RecommendedShotCameraTests: XCTestCase {
+    private func configuredModel() throws -> PositionPlayViewModel {
+        let vm = PositionPlayViewModel()
+        vm.scene.configureDailyClearanceRendering()
+        vm.usesAutomaticPocketFallback = true
+        vm.usesDailyShotRanking = true
+        vm.setupScene()
+        vm.legalAimTargets = { _ in ["_2"] }
+        vm.loadBoard(BoardSnapshot(onTable: [
+            PositionPlayBall.cueKey: CanvasPoint(x: 0.6, y: 0.35),
+            "_1": CanvasPoint(x: 0.3, y: 0.15),
+            "_2": CanvasPoint(x: 0.7, y: 0.15)
+        ]))
+        vm.cameraMode = .perspective3D
+        vm.enablePlayerCameraControls()
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.usesTwoViewCameraControls = true
+        rig.viewportSize = CGSize(width: 874, height: 402)
+        rig.setTwoViewReadableInsets(UIEdgeInsets(top: 44, left: 116, bottom: 24, right: 116))
+        return vm
+    }
+
+    private func awaitSolution(_ vm: PositionPlayViewModel) async throws {
+        let deadline = Date().addingTimeInterval(10)
+        while (vm.isComputing || vm.currentPlayerAim == nil), Date() < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertFalse(vm.isComputing, vm.statusText)
+        XCTAssertNotNil(vm.currentPlayerAim, vm.statusText)
+        XCTAssertTrue(vm.isFeasible, vm.statusText)
+    }
+
+    private func settle(_ rig: CameraRig) {
+        for _ in 0..<180 { rig.update(deltaTime: 1 / 60) }
+    }
+
+    func testNewRecommendationEntersLatestShotThirdPersonOnlyAfterSolve() async throws {
+        let vm = try configuredModel()
+        defer { vm.cancelDailyAttempt() }
+        vm.legalAimTargets = { _ in ["_1"] }
+        vm.refreshLegalAimSelection()
+        try await awaitSolution(vm)
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        settle(rig)
+        let count = vm.twoViewAutomaticThirdPersonEntryCount
+        XCTAssertGreaterThan(count, 0)
+        vm.requestPlayerView(.firstPerson)
+        settle(rig)
+        XCTAssertEqual(rig.twoViewMode, .firstPerson)
+        vm.legalAimTargets = { _ in ["_2"] }
+        vm.refreshLegalAimSelection()
+        XCTAssertEqual(rig.twoViewMode, .firstPerson, "Do not enter using the previous prediction")
+        try await awaitSolution(vm)
+        settle(rig)
+        XCTAssertEqual(vm.selectedTargetKey, "_2")
+        XCTAssertEqual(rig.twoViewMode, .thirdPerson)
+        XCTAssertEqual(vm.twoViewAutomaticThirdPersonEntryCount, count + 1)
+        let aim = try XCTUnwrap(vm.currentPlayerAim)
+        let forward = try XCTUnwrap(rig.twoViewSnapshot).pose.forward
+        let horizontal = SIMD2(forward.x, forward.z)
+        XCTAssertGreaterThan(simd_dot(simd_normalize(horizontal), simd_normalize(SIMD2(aim.x, aim.z))), 0.9999)
+    }
+
+    func testPowerRecomputeDoesNotRepeatedlyTakeOverFirstPerson() async throws {
+        let vm = try configuredModel()
+        defer { vm.cancelDailyAttempt() }
+        vm.legalAimTargets = { _ in ["_1"] }
+        vm.refreshLegalAimSelection()
+        try await awaitSolution(vm)
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        settle(rig)
+        vm.requestPlayerView(.firstPerson)
+        settle(rig)
+        let count = vm.twoViewAutomaticThirdPersonEntryCount
+        vm.velocity += 0.2
+        try await awaitSolution(vm)
+        settle(rig)
+        XCTAssertEqual(rig.twoViewMode, .firstPerson)
+        XCTAssertEqual(vm.twoViewAutomaticThirdPersonEntryCount, count)
+        vm.refreshLegalAimSelection()
+        try await awaitSolution(vm)
+        XCTAssertEqual(vm.twoViewAutomaticThirdPersonEntryCount, count)
+    }
+
+    func testExplicitViewSelectionSupersedesPendingRecommendation() async throws {
+        let vm = try configuredModel()
+        defer { vm.cancelDailyAttempt() }
+        vm.legalAimTargets = { _ in ["_1"] }
+        vm.refreshLegalAimSelection()
+        try await awaitSolution(vm)
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        settle(rig)
+        let count = vm.twoViewAutomaticThirdPersonEntryCount
+        vm.legalAimTargets = { _ in ["_2"] }
+        vm.refreshLegalAimSelection()
+        vm.requestPlayerView(.firstPerson)
+        try await awaitSolution(vm)
+        settle(rig)
+        XCTAssertEqual(vm.selectedTargetKey, "_2")
+        XCTAssertEqual(rig.twoViewMode, .firstPerson)
+        XCTAssertEqual(vm.twoViewAutomaticThirdPersonEntryCount, count)
     }
 }
 

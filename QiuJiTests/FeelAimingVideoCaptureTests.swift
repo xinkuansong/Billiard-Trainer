@@ -19,13 +19,14 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
     private let radius = AngleSceneCalculator.ballRadius
     private var centerDistance: Float { shortRail ? 0.65 : (halfRail ? 0.90 : (middlePocket ? 0.60 : 0.75)) }
     private var middlePocket: Bool { env("FEEL_LAYOUT") == "middle" }
+    private var middleClockwise: Bool { middlePocket && env("FEEL_MIDDLE_CLOCKWISE") == "1" }
     private var shortRail: Bool { env("FEEL_LAYOUT") == "short-half" || env("FEEL_LAYOUT") == "short-frozen" }
     private var frozenRail: Bool { env("FEEL_LAYOUT") == "frozen-rail" || env("FEEL_LAYOUT") == "short-frozen" }
     private var halfRail: Bool { env("FEEL_LAYOUT") == "half-rail" || frozenRail || shortRail }
     private var railCenterDistance: Float { frozenRail ? radius : (shortRail ? 3*radius : 2*radius) }
     private var targetNumber: Int { halfRail || middlePocket ? 1 : 8 }
     private var pocketIndex: Int { halfRail ? 0 : (middlePocket ? 4 : 3) }
-    private var frameCount: Int { halfRail ? 1020 : (middlePocket ? 1920 : 1440) }
+    private var frameCount: Int { halfRail || middleClockwise ? 1020 : (middlePocket ? 1920 : 1440) }
 
     private func env(_ key: String) -> String? {
         let values = ProcessInfo.processInfo.environment
@@ -140,6 +141,51 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
         scene.setCueBallHomeOrientation(simd_quatf(angle: 0, axis: SIMD3<Float>(0, 1, 0)))
         let aim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: target, pocketIndex: pocketIndex, surfaceY: scene.surfaceY)
         let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target, pocket: aim, ballRadius: radius)
+        if env("FEEL_TARGET_CONTACT") == "1" {
+            // A spherical surface patch at the actual target/ghost tangency, not a floor projection.
+            let normal = simd_normalize(SIMD3<Float>(ghost.x-target.x, ghost.y-target.y, ghost.z-target.z))
+            let up = SIMD3<Float>(0,1,0)
+            let across = simd_cross(normal,up)
+            let capAngle = asin(Float(0.005)/radius)
+            let shell = radius + Float(0.00008)
+            var vertices: [SCNVector3] = [SCNVector3(normal*shell)]
+            var indices: [Int32] = []
+            let segments = 48
+            for ring in 1...8 {
+                let a = capAngle*Float(ring)/8
+                for k in 0..<segments {
+                    let azimuth = Float(k)*2 * .pi/Float(segments)
+                    let radial = up*cos(azimuth)+across*sin(azimuth)
+                    vertices.append(SCNVector3((normal*cos(a)+radial*sin(a))*shell))
+                }
+            }
+            for k in 0..<segments {
+                indices += [0,Int32(1+k),Int32(1+(k+1)%segments)]
+            }
+            for ring in 0..<7 {
+                for k in 0..<segments {
+                    let a = Int32(1+ring*segments+k)
+                    let b = Int32(1+ring*segments+(k+1)%segments)
+                    let c = a+Int32(segments), d = b+Int32(segments)
+                    indices += [a,c,b,b,c,d]
+                }
+            }
+            let geometry = SCNGeometry(sources:[SCNGeometrySource(vertices:vertices)],
+                                       elements:[SCNGeometryElement(indices:indices,primitiveType:.triangles)])
+            let material = SCNMaterial()
+            material.lightingModel = .constant
+            material.diffuse.contents = UIColor(red:0.98,green:0.025,blue:0.035,alpha:1)
+            material.isDoubleSided = true
+            material.readsFromDepthBuffer = true
+            material.writesToDepthBuffer = true
+            geometry.materials = [material]
+            let marker = SCNNode(geometry:geometry)
+            marker.name = "feelTargetContact"
+            marker.position = target
+            marker.castsShadow = false
+            scene.rootNode.addChildNode(marker)
+            XCTAssertEqual(simd_length(normal*radius),radius,accuracy:0.000001)
+        }
         let surface = try TableAssistSurface.load(from: scene)
         let lift = scene.surfaceY-surface.sourceY
         let clothY = scene.mobileRendering && lift > 0.0001 && lift < radius/2 ? scene.surfaceY : surface.topY
@@ -211,11 +257,12 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
     }
 
     /// First exit from the connected measured bed footprint, not the ideal rail rectangle.
-    private func clothEnd(from start: SCNVector3, toward direction: SCNVector3, capture c: Capture) -> SCNVector3 {
-        guard halfRail else { return AngleSceneCalculator.rayToInnerRail(from:start, dir:direction, inset:0) }
+    private func clothEnd(from start: SCNVector3, toward direction: SCNVector3, capture c: Capture, reference: SCNVector3? = nil) -> SCNVector3 {
+        guard halfRail || env("FEEL_PIPE_PREVIEW") == "1" else { return AngleSceneCalculator.rayToInnerRail(from:start, dir:direction, inset:0) }
         // Seek the forward exit from the aiming reference on the bed. The cue can
         // sit on a model tile seam; that unrelated seam must not truncate the extension.
-        let origin = SIMD2<Double>(Double(c.ghost.x), Double(c.ghost.z))
+        let base = reference ?? c.ghost
+        let origin = SIMD2<Double>(Double(base.x), Double(base.z))
         let u = simd_normalize(SIMD2<Double>(Double(direction.x), Double(direction.z)))
         func cross(_ a: SIMD2<Double>, _ b: SIMD2<Double>) -> Double { a.x*b.y-a.y*b.x }
         var intervals: [(Double,Double)] = []
@@ -276,12 +323,40 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
         }
         c.guides.append(c.scene.addDashedLine(from: c.target, to: c.aim, color: .black,
                                              radius: lineWidth/2, dash: 0.018, gap: 0.012, placement: .table, layer: .aiming))
+        if env("FEEL_PIPE_PREVIEW") == "1" {
+            let side = SIMD2<Float>(-direction.y, direction.x)
+            for sign: Float in [-1, 1] {
+                let start = SCNVector3(cue.x+sign*radius*side.x, cue.y, cue.z+sign*radius*side.y)
+                let ref = SCNVector3(c.ghost.x+sign*radius*side.x,c.ghost.y,c.ghost.z+sign*radius*side.y)
+                let finish = clothEnd(from:start, toward:u, capture:c,reference:ref)
+                XCTAssertEqual((finish.x-start.x)*direction.y-(finish.z-start.z)*direction.x,0,accuracy:0.000001)
+                c.guides.append(c.scene.addDashedLine(from:start,to:finish,color:.white,radius:0.001,dash:0.018,gap:0.012,placement:.table,layer:.aiming))
+            }
+            let pot = simd_normalize(SIMD2<Float>(c.aim.x-c.target.x,c.aim.z-c.target.z))
+            let reverse = SCNVector3(-pot.x,0,-pot.y)
+            let reverseEnd = clothEnd(from:c.ghost,toward:reverse,capture:c)
+            c.guides.append(c.scene.addDashedLine(from:c.target,to:reverseEnd,color:.black,radius:0.001,dash:0.018,gap:0.012,placement:.table,layer:.aiming))
+            func point(_ a: Float,_ r: Float) -> SCNVector3 {
+                SCNVector3(c.ghost.x+r*cos(a),c.ghost.y,c.ghost.z+r*sin(a))
+            }
+            for k in 0..<96 {
+                c.guides.append(c.scene.addLine(from:point(Float(k)*2 * .pi/96,radius),to:point(Float(k+1)*2 * .pi/96,radius),color:.white,radius:0.0008,placement:.table,layer:.aiming))
+            }
+            let a = atan2(-direction.y,-direction.x)
+            let b = atan2(-pot.y,-pot.x)
+            let delta = atan2(sin(b-a),cos(b-a))
+            XCTAssertEqual(abs(Double(delta))*180/Double.pi,abs(angle),accuracy:0.01)
+            for k in 0..<40 {
+                c.guides.append(c.scene.addLine(from:point(a+delta*Float(k)/40,0.14),to:point(a+delta*Float(k+1)/40,0.14),color:.yellow,radius:0.0012,placement:.table,layer:.aiming))
+            }
+        }
         c.scene.updateCueStick(cueBallPosition: cue, aimDirection: u)
         let measured = AngleSceneCalculator.cutAngle(cueBall: cue, targetBall: c.target, pocket: c.aim)
         XCTAssertEqual(measured, abs(angle), accuracy: 0.01)
         XCTAssertEqual(AngleSceneCalculator.horizontalDistance(cue, c.target), d, accuracy: 0.00001)
-        XCTAssertLessThan(abs(cue.x)+radius, AngleSceneCalculator.innerLength/2)
-        XCTAssertLessThan(abs(cue.z)+radius, AngleSceneCalculator.innerWidth/2)
+        // Exact cushion tangency is legal; allow only Float rounding tolerance (0.5 micrometers).
+        XCTAssertLessThanOrEqual(abs(cue.x)+radius, AngleSceneCalculator.innerLength/2 + 0.0000005)
+        XCTAssertLessThanOrEqual(abs(cue.z)+radius, AngleSceneCalculator.innerWidth/2 + 0.0000005)
         XCTAssertFalse(try XCTUnwrap(c.scene.cueStick).rootNode.isHidden)
         XCTAssertTrue(c.scene.ghostBallNode?.isHidden == true)
         XCTAssertTrue(c.scene.pocketLineNode?.isHidden == true)
@@ -293,6 +368,8 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
         SCNTransaction.flush()
         return ["layout": shortRail ? (frozenRail ? "short-frozen" : "short-half") : frozenRail ? "frozen-rail" : (halfRail ? "half-rail" : (middlePocket ? "middle" : "corner")), "pocketIndex": pocketIndex,
                 "targetNumber": targetNumber, "railPointMarked": halfRail,
+                "targetContactMarked": env("FEEL_TARGET_CONTACT") == "1",
+                "targetContact": [(c.target.x+c.ghost.x)/2,c.target.y,(c.target.z+c.ghost.z)/2],
                 "angle": angle, "measuredAngle": measured, "distance": Double(AngleSceneCalculator.horizontalDistance(cue, c.target)),
                 "cue": xyz(cue), "target": xyz(c.target), "ghost": xyz(c.ghost), "aim": xyz(c.aim),
                 "lineEnd": xyz(end), "lineEntry": hit.map(xyz) as Any? ?? NSNull(),
@@ -310,6 +387,9 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
         var focus = eye ? SCNVector3((cue.x+c.ghost.x)/2, c.target.y, (cue.z+c.ghost.z)/2)
             : SCNVector3(cue.x, c.clothY, cue.z)
         if !eye {
+            let forwardFocus = number("FEEL_MAIN_FOCUS_FORWARD", 0)
+            focus.x += forwardFocus*u.x
+            focus.z += forwardFocus*u.y
             focus.x += rig.pocketWeight*(c.aim.x-c.ghost.x)
             focus.z += rig.pocketWeight*(c.aim.z-c.ghost.z)
         }
@@ -544,6 +624,17 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
             shot.draw(in:CGRect(x:0,y:mainRect.minY-mainCropTop,width:mainRenderSize.width,height:mainRenderSize.height))
             ctx.cgContext.restoreGState()
             drawLabels(mainLabels,offset:mainRect.origin,context:ctx.cgContext)
+            if env("FEEL_PIPE_PREVIEW") == "1", let cue = c.scene.cueBallNode?.position {
+                let a = atan2(cue.z-c.ghost.z,cue.x-c.ghost.x)
+                let b = atan2(c.target.z-c.aim.z,c.target.x-c.aim.x)
+                let delta = atan2(sin(b-a),cos(b-a))
+                let mid = a+delta/2
+                let pos = SCNVector3(c.ghost.x+0.19*cos(mid),c.scene.surfaceY+0.002,c.ghost.z+0.19*sin(mid))
+                let q = c.main.projectPoint(pos)
+                let text = String(format:"%.1f°",abs(Double(delta))*180/Double.pi)
+                (text as NSString).draw(at:CGPoint(x:CGFloat(q.x)+12,y:mainRect.minY+mainRenderSize.height-CGFloat(q.y)-mainCropTop),withAttributes:[.font:UIFont.systemFont(ofSize:30,weight:.semibold),.foregroundColor:UIColor.yellow])
+            }
+
             detail.draw(in:pipRect)
             gold.setFill();ctx.fill(CGRect(x:0,y:640,width:1440,height:4))
             // A narrow header above the overhead content never covers its guides.
@@ -634,7 +725,7 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
         let directory = try output()
         var c = try makeCapture()
         var records: [[String: Any]] = []
-        let angles: [Double] = halfRail ? [0,15,29.9,30,30.1,45,60,75] : (middlePocket ? [-75,-60,-45,-30.1,-30,-29.9,-15,0,15,29.9,30,30.1,45,60,75] : [0,15,29.9,30,30.1,45,60,75])
+        let angles: [Double] = middleClockwise ? [0,-15,-29.9,-30,-30.1,-45,-60,-75] : halfRail ? [0,15,29.9,30,30.1,45,60,75] : (middlePocket ? [-75,-60,-45,-30.1,-30,-29.9,-15,0,15,29.9,30,30.1,45,60,75] : [0,15,29.9,30,30.1,45,60,75])
         for angle in angles {
             try autoreleasepool {
                 var record = try setState(angle, &c)
@@ -651,6 +742,7 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
     }
 
     private func angle(at time: Double) -> Double {
+        if middleClockwise { return -max(0, min(75, (time-1)*5.0)) }
         if halfRail { return max(0, min(75, (time-1)*5.0)) }
         if middlePocket { return max(-75, min(75, -75 + (time-1)*5.0)) }
         let hold = 2.0

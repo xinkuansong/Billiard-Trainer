@@ -60,6 +60,149 @@ final class PocketMarkerHighlightTests: XCTestCase {
         }
     }
 
+    func testS6ImmediateFeedbackRendersInSourceAndResidentOverlay() throws {
+        let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("build/camera-surface-s6-20261005/feedback")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: true)
+        scene.setCameraMode(.perspective3D, animated: false)
+        scene.cameraNode.position = SCNVector3(0, 6, 3)
+        scene.cameraNode.look(at: SCNVector3(0, scene.surfaceY, 0))
+        let ball = scene.addBall(at: SCNVector3(0, scene.surfaceY + 0.029, 0), color: .yellow)
+        let marker = try XCTUnwrap(scene.addPocketMarkers().first as? PocketLeatherMarker)
+        scene.setPocketHighlight(marker, style: .selected)
+        let pulse = try XCTUnwrap(marker.childNode(withName: "leather_selectionPulse", recursively: true))
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        let source = SCNRenderer(device: device, options: nil)
+        source.scene = scene; source.pointOfView = scene.cameraNode
+        var copies: [SCNNode: SCNNode] = [:]
+        let overlay = scene.makeTemporaryTopDownRenderScene { copies[$0] = $1 }
+        let camera = SCNNode(); camera.camera = SCNCamera()
+        camera.camera!.usesOrthographicProjection = true; camera.camera!.orthographicScale = 1.7
+        camera.position = SCNVector3(0, 8, 0)
+        camera.look(at: SCNVector3(0, scene.surfaceY, 0), up: SCNVector3(0,0,-1), localFront: SCNVector3(0,0,-1))
+        overlay.rootNode.addChildNode(camera)
+        let renderer = SCNRenderer(device: device, options: nil)
+        renderer.scene = overlay; renderer.pointOfView = camera
+        let ballCopy = try XCTUnwrap(copies[ball])
+        let pulseCopy = try XCTUnwrap(copies[pulse])
+        let resident = copies
+        func frame(_ time: Double) -> [UIImage] {
+            let a = source.snapshot(atTime: time, with: CGSize(width:1200,height:800), antialiasingMode:.multisampling4X)
+            scene.synchronizeTemporaryTopDownScene(overlay, copies:&copies)
+            let b = renderer.snapshot(atTime: time, with: CGSize(width:1200,height:800), antialiasingMode:.multisampling4X)
+            return [a,b]
+        }
+        let before = frame(0)
+        let base = ball.scale.x
+        TableBallPulse.pulse(ball)
+        marker.confirmSelection(delay: 0)
+        XCTAssertEqual(pulse.opacity, 1, "Manual pocket feedback begins immediately")
+        _ = frame(1)
+        let peak = frame(1.18)
+        XCTAssertGreaterThan(ball.presentation.scale.x, base * 1.5)
+        XCTAssertEqual(ballCopy.scale.x, ball.presentation.scale.x, accuracy:0.001)
+        XCTAssertEqual(pulseCopy.opacity, 1)
+        XCTAssertFalse(pulseCopy.isHidden)
+        let restored = frame(1.7)
+        XCTAssertEqual(ballCopy.scale.x, base, accuracy:0.001)
+        XCTAssertEqual(pulseCopy.opacity, 0)
+        for (id, node) in resident { XCTAssertTrue(copies[id] === node, "Feedback must preserve resident table nodes") }
+        for i in 0..<2 {
+            let prefix = i == 0 ? "3d" : "overlay"
+            for (name, images) in [("before",before),("peak",peak),("restored",restored)] {
+                try XCTUnwrap(images[i].pngData()).write(to:directory.appendingPathComponent("\(prefix)-\(name).png"))
+            }
+            func difference(_ a: UIImage, _ b: UIImage) throws -> Double {
+                let ad = try XCTUnwrap(a.cgImage?.dataProvider?.data) as Data
+                let bd = try XCTUnwrap(b.cgImage?.dataProvider?.data) as Data
+                return Double(zip(ad,bd).reduce(0) { $0 + abs(Int($1.0)-Int($1.1)) }) / Double(ad.count)
+            }
+            XCTAssertGreaterThan(try difference(before[i],peak[i]),0.01,prefix)
+            XCTAssertLessThan(try difference(before[i],restored[i]),0.001,prefix)
+        }
+        // Prediction overlays can be replaced without replacing the table or camera.
+        let transient = SCNNode(geometry:SCNSphere(radius:0.01)); scene.rootNode.addChildNode(transient)
+        scene.synchronizeTemporaryTopDownScene(overlay,copies:&copies)
+        let transientCopy = try XCTUnwrap(copies[transient])
+        transient.removeFromParentNode()
+        scene.synchronizeTemporaryTopDownScene(overlay,copies:&copies)
+        XCTAssertNil(transientCopy.parent)
+        XCTAssertTrue(camera.parent === overlay.rootNode)
+        XCTAssertTrue(copies[ball] === ballCopy)
+    }
+
+    func testS7BallPulseKeepsBottomOnClothWithoutMovingPhysicalCenter() throws {
+        let scene = AngleTrainingScene(); scene.setupScene(mobileRendering:true)
+        scene.hideAllBalls()
+        let ball = try XCTUnwrap(scene.allBallNodes["_1"])
+        ball.isHidden = false
+        ball.position = SCNVector3(0,scene.surfaceY+BallPhysics.radius,0)
+        let physical = ball.simdPosition, baseScale = ball.simdScale, basePivot = ball.simdPivot
+        let renderer = SCNRenderer(device:try XCTUnwrap(MTLCreateSystemDefaultDevice()),options:nil)
+        renderer.scene = scene; renderer.pointOfView = scene.cameraNode
+        scene.setCameraMode(.perspective3D,animated:false)
+        scene.cameraNode.position = SCNVector3(0,1.03,0.6)
+        scene.cameraNode.look(at:SCNVector3(0,scene.surfaceY+0.035,0))
+        let directory = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("build/camera-surface-s7-20261005/pulse")
+        try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
+        func frame(_ t:Double,_ name:String? = nil) throws {
+            let image = renderer.snapshot(atTime:t,with:CGSize(width:1000,height:600),antialiasingMode:.multisampling4X)
+            if let name { try XCTUnwrap(image.pngData()).write(to:directory.appendingPathComponent(name+".png")) }
+        }
+        // Native presentation transforms already include pivot (verified against model/presentation
+        // translation). Applying inverse(pivot) again would count the visual lift twice.
+        func minimumY(_ root:SCNNode, presentation:Bool = true) -> Float {
+            var low = Float.infinity
+            func visit(_ node:SCNNode,_ parent:simd_float4x4) {
+                let model = parent * (presentation ? node.presentation.simdTransform : node.simdTransform)
+                for source in node.geometry?.sources(for:.vertex) ?? [] {
+                    for i in 0..<source.vectorCount {
+                        let v:SIMD3<Float> = source.data.withUnsafeBytes { bytes in
+                            let offset = source.dataOffset+i*source.dataStride
+                            return SIMD3((0..<3).map { bytes.loadUnaligned(fromByteOffset:offset+$0*source.bytesPerComponent,as:Float.self) })
+                        }
+                        low = min(low,(model*SIMD4(v,1)).y)
+                    }
+                }
+                for child in node.childNodes { visit(child,model) }
+            }
+            visit(root,matrix_identity_float4x4)
+            return low
+        }
+        var copies: [SCNNode:SCNNode] = [:]
+        let overlay = scene.makeTemporaryTopDownRenderScene { copies[$0] = $1 }
+        let visualBall = try XCTUnwrap(copies[ball])
+        for (i,rotation) in [SIMD3<Float>(0,0,0),SIMD3(0.4,0.7,1.1)].enumerated() {
+            ball.simdEulerAngles = rotation
+            let start = Double(i)*3
+            try frame(start,"before-\(i)")
+            let bottom = minimumY(ball)
+            TableBallPulse.pulse(ball)
+            try frame(start+0.1)
+            try frame(start+0.28,"peak-\(i)")
+            print("S7 ball model=\(ball.simdTransform.columns.3) shown=\(ball.presentation.simdTransform.columns.3) pivot=\(ball.simdPivot.columns.3) shownPivot=\(ball.presentation.simdPivot.columns.3) scale=\(ball.simdScale)")
+            XCTAssertGreaterThan(ball.scale.x/baseScale.x,1.5)
+            XCTAssertEqual(minimumY(ball),bottom,accuracy:0.0003,"Scaled visual ball stays on its original support plane")
+            scene.synchronizeTemporaryTopDownScene(overlay,copies:&copies)
+            XCTAssertEqual(minimumY(visualBall,presentation:false),bottom,accuracy:0.0003,
+                           "Temporary overlay must apply exactly one visual lift")
+            XCTAssertEqual(ball.simdPosition,physical,"Feedback cannot change the solver's ball centre")
+            try frame(start+0.7,"restored-\(i)")
+            XCTAssertEqual(ball.simdScale,baseScale)
+            XCTAssertEqual(ball.simdPivot,basePivot)
+            TableBallPulse.beginDrag(ball)
+            try frame(start+0.8)
+            try frame(start+0.9)
+            XCTAssertEqual(minimumY(ball),bottom,accuracy:0.0003)
+            TableBallPulse.restore(ball)
+            XCTAssertEqual(ball.simdScale,baseScale)
+            XCTAssertEqual(ball.simdPivot,basePivot)
+            XCTAssertEqual(ball.simdPosition,physical)
+        }
+    }
+
     func testLoadedTableRendersOneFrameWithoutNullMeshElement() throws {
         let scene = AngleTrainingScene()
         scene.setupScene(enhancedRendering: false)

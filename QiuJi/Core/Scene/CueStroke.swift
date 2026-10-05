@@ -175,7 +175,8 @@ extension AngleTrainingScene {
             return
         }
         let stickNode = stick.rootNode
-        stickNode.removeAction(forKey: "aimTransition")
+        let generation = stick.cancelAnimations()
+        let lifetime = stick.animationLifetime
         let obstacles = cueObstacleCenters(excludingStrikeNear: strikePosition)
         // 击球点与瞄准方向全程固定 ⇒ 仰角恒定；逐帧直接驱动 `CueStick`，绕开 `updateCueStick`
         // （后者会取消 "strokeAnim" 以处理收杆/复位竞态，若经它驱动会自我取消）。
@@ -203,8 +204,10 @@ extension AngleTrainingScene {
             elevation: elevation, tipInset: tipInset, surfaceY: surfaceY, profile: stick.clearanceProfile
         )
         let drive: (Float) -> Void = { [weak stick] pull in
-            stick?.update(cueBallPosition: renderStrike, aimDirection: aim,
-                          pullBack: pull, elevation: elevation, tipInset: tipInset)
+            lifetime.perform(ifCurrent: generation) {
+                stick?.update(cueBallPosition: renderStrike, aimDirection: aim,
+                              pullBack: pull, elevation: elevation, tipInset: tipInset)
+            }
         }
         drive(0)
         stick.show()
@@ -214,7 +217,11 @@ extension AngleTrainingScene {
         let toContact = SCNAction.customAction(duration: contactDur) { _, elapsed in
             drive(CueStroke.pullBack(at: TimeInterval(elapsed), velocity: velocity))
         }
-        let launch = SCNAction.run { _ in Task { @MainActor in contact() } }
+        let launch = SCNAction.run { _ in
+            Task { @MainActor in
+                lifetime.perform(ifCurrent: generation) { contact() }
+            }
+        }
 
         // Predict first post-contact collision across ALL balls (D2 — not cue-only).
         let collisionT: TimeInterval? = clearanceProbe.flatMap { probe in
@@ -233,7 +240,8 @@ extension AngleTrainingScene {
             endPull: endPull,
             holdDuration: CueStroke.followThroughHold,
             drive: drive,
-            stick: stick
+            stick: stick,
+            generation: generation
         )
         stickNode.runAction(.sequence([toContact, launch] + postContact), forKey: "strokeAnim")
     }
@@ -244,6 +252,7 @@ extension AngleTrainingScene {
     func transitionPlayerCameraForShot(aim: SCNVector3, from cuePosition: SCNVector3? = nil) -> Bool {
         guard currentCameraMode == .perspective3D,
               let rig = cameraRig, rig.usesRailCameraControls, rig.playerView == .firstPerson,
+              !rig.usesTwoViewCameraControls || !rig.twoViewOwnerIsManual,
               let cue = cuePosition ?? cueBallNode?.position,
               rig.isPlayerViewFor(cue: cue, aim: aim) else { return false }
         return rig.enterPlayerView(.thirdPerson, cue: cue, aim: aim,
@@ -256,8 +265,10 @@ extension AngleTrainingScene {
         endPull: Float,
         holdDuration: TimeInterval,
         drive: @escaping (Float) -> Void,
-        stick: CueStick
+        stick: CueStick,
+        generation: UInt64
     ) -> [SCNAction] {
+        let lifetime = stick.animationLifetime
         let followDur = CueStroke.followThroughDuration
         let lead = CueClearance.retractLead
         let fade = CueClearance.retractFade
@@ -270,7 +281,9 @@ extension AngleTrainingScene {
             }
             let hold = SCNAction.wait(duration: holdDuration)
             let fadeOut = SCNAction.run { [weak stick] _ in
-                Task { @MainActor in stick?.fadeOut(duration: fade) }
+                Task { @MainActor in
+                    lifetime.perform(ifCurrent: generation) { stick?.fadeOut(duration: fade) }
+                }
             }
             return [followThrough, hold, fadeOut]
         }
@@ -292,14 +305,18 @@ extension AngleTrainingScene {
         // Capture pull at retract start for lerp.
         let pullAtRetract = CueClearance.pullBackAfterContact(tau: retractStart, endPull: endPull)
         let retract = SCNAction.customAction(duration: fade) { [weak stick] _, elapsed in
-            let u = Float(min(1, max(0, elapsed / CGFloat(fade))))
-            // Withdraw along back (more positive pullBack) while fading.
-            let pull = pullAtRetract + u * (retractExtra - min(0, pullAtRetract))
-            drive(pull)
-            stick?.setFadeOpacity(CGFloat(1 - u))
+            lifetime.perform(ifCurrent: generation) {
+                let u = Float(min(1, max(0, elapsed / CGFloat(fade))))
+                // Withdraw along back (more positive pullBack) while fading.
+                let pull = pullAtRetract + u * (retractExtra - min(0, pullAtRetract))
+                drive(pull)
+                stick?.setFadeOpacity(CGFloat(1 - u))
+            }
         }
         let hide = SCNAction.run { [weak stick] _ in
-            Task { @MainActor in stick?.hide() }
+            Task { @MainActor in
+                lifetime.perform(ifCurrent: generation) { stick?.hide() }
+            }
         }
         actions.append(contentsOf: [retract, hide])
         return actions

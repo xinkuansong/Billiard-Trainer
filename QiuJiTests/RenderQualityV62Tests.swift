@@ -7,6 +7,82 @@ import MetalKit
 /// Deterministic visual experiments, not a phone performance benchmark.
 @MainActor
 final class RenderQualityV62Tests: XCTestCase {
+    func testDailyPreloadTransfersIdleSceneAndReplenishes() async throws {
+        DailyClearancePreloader.shared.setForeground(false)
+        let preloader = DailyClearancePreloader()
+        defer { preloader.setForeground(false) }
+        let store = DailyClearanceStore()
+        let draftBefore = store.loadTodayDraft()
+        let owner = UUID()
+        preloader.warmUp()
+        let deadline = CACurrentMediaTime() + 30
+        while !preloader.isReady && CACurrentMediaTime() < deadline {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertTrue(preloader.isReady, "Startup must prepare a scene before entry")
+        let firstResult = await preloader.acquire(for: owner)
+        let first = try XCTUnwrap(firstResult)
+        XCTAssertTrue(first.hasPreparedDailyScene)
+        XCTAssertTrue(first.onTableKeys.isEmpty)
+        XCTAssertFalse(first.isComputing, "Preload must not solve an example board")
+        XCTAssertFalse(first.isPlaying)
+        XCTAssertNil(first.breakRunner)
+        XCTAssertNil(first.scene.closeupViewport, "Preload must not install a hidden SCNView")
+        XCTAssertNotNil(first.scene.tableNode)
+        XCTAssertEqual(first.scene.addPocketMarkers().count, 6)
+        XCTAssertNotNil(first.scene.rootNode.childNode(withName: "reference_room", recursively: false))
+        XCTAssertTrue(first.scene.allBallNodes.values.allSatisfy(\.isHidden))
+        XCTAssertEqual(store.loadTodayDraft()?.updatedAt, draftBefore?.updatedAt)
+        XCTAssertFalse(preloader.isReady, "The page exclusively consumes the prepared graph")
+        preloader.release(owner)
+        let secondResult = await preloader.acquire(for: UUID())
+        let second = try XCTUnwrap(secondResult)
+        XCTAssertFalse(first.scene === second.scene, "Visits must never share a mutable game scene")
+        XCTAssertTrue(second.onTableKeys.isEmpty)
+    }
+
+    func testDailyPreloadReleaseAndCancellation() async throws {
+        DailyClearancePreloader.shared.setForeground(false)
+        let preloader = DailyClearancePreloader()
+        defer { preloader.setForeground(false) }
+        let owner = UUID()
+        let entry = Task { await preloader.acquire(for: owner) }
+        await Task.yield()
+        entry.cancel()
+        preloader.setForeground(false)
+        preloader.release(owner)
+        let cancelled = await entry.value
+        XCTAssertNil(cancelled)
+        XCTAssertFalse(preloader.isReady, "Late worker completion cannot refill a released cache")
+        preloader.setForeground(true)
+        let resumed = await preloader.acquire(for: UUID())
+        XCTAssertNotNil(resumed, "Foreground entry must recover after cancellation")
+        preloader.discard()
+        XCTAssertFalse(preloader.isReady)
+        XCTAssertNotNil(resumed?.scene.tableNode, "Memory release must not destroy the active page")
+    }
+
+    func testDailyPreloadHonorsChangedAppearance() async throws {
+        DailyClearancePreloader.shared.setForeground(false)
+        let preloader = DailyClearancePreloader()
+        let old = UserPreferences.shared.roomStyle
+        defer {
+            UserPreferences.shared.roomStyle = old
+            preloader.setForeground(false)
+        }
+        preloader.warmUp()
+        let deadline = CACurrentMediaTime() + 30
+        while !preloader.isReady && CACurrentMediaTime() < deadline {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertTrue(preloader.isReady)
+        let newStyle: RoomStyle = old == .tournament ? .walnut : .tournament
+        UserPreferences.shared.roomStyle = newStyle
+        let result = await preloader.acquire(for: UUID())
+        let model = try XCTUnwrap(result)
+        XCTAssertEqual(model.scene.installedReferenceRoomStyle, newStyle)
+    }
+
     func testDailyShadowAndPerspectiveComparison() throws {
         try dailyPerfGate()
         let size = CGSize(width: 1400, height: 800)

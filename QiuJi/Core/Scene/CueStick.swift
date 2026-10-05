@@ -476,6 +476,19 @@ final class CueStick {
         return true
     }
 
+    /// Shared by renderer callbacks and main-thread address/cancellation. Checking
+    /// a token without serializing its write would still allow a late old frame.
+    let animationLifetime = CueAnimationLifetime()
+
+    @discardableResult
+    func cancelAnimations() -> UInt64 {
+        let generation = animationLifetime.invalidate()
+        rootNode.removeAction(forKey: "aimTransition")
+        rootNode.removeAction(forKey: "strokeAnim")
+        rootNode.removeAction(forKey: "cueFade")
+        return generation
+    }
+
     // MARK: - Update
 
     /// - Parameter tipInset: forward shift of the tip so it rests on the sphere at an
@@ -588,16 +601,47 @@ final class CueStick {
     /// Short opacity fade then hide (normal retract / clearance retract).
     func fadeOut(duration: TimeInterval = CueClearance.retractFade, completion: (() -> Void)? = nil) {
         rootNode.removeAction(forKey: "cueFade")
+        let lifetime = animationLifetime
+        let generation = lifetime.current
         let start = fadeOpacity
         let fade = SCNAction.customAction(duration: duration) { [weak self] _, elapsed in
-            let progress = duration > 0 ? min(1, Double(elapsed) / duration) : 1
-            self?.setFadeOpacity(start * CGFloat(1 - progress))
+            lifetime.perform(ifCurrent: generation) {
+                let progress = duration > 0 ? min(1, Double(elapsed) / duration) : 1
+                self?.setFadeOpacity(start * CGFloat(1 - progress))
+            }
         }
         let hide = SCNAction.run { [weak self] _ in
-            self?.hide()
-            completion?()
+            lifetime.perform(ifCurrent: generation) {
+                self?.hide()
+                completion?()
+            }
         }
         rootNode.runAction(.sequence([fade, hide]), forKey: "cueFade")
+    }
+}
+
+/// A cue's cancelled animation must not mutate its next address, even if a
+/// SceneKit callback is already executing or a MainActor task is already queued.
+final class CueAnimationLifetime {
+    private let lock = NSRecursiveLock()
+    private var generation: UInt64 = 0
+
+    var current: UInt64 {
+        lock.lock(); defer { lock.unlock() }
+        return generation
+    }
+
+    @discardableResult
+    func invalidate() -> UInt64 {
+        lock.lock(); defer { lock.unlock() }
+        generation &+= 1
+        return generation
+    }
+
+    func perform(ifCurrent expected: UInt64, _ body: () -> Void) {
+        lock.lock(); defer { lock.unlock() }
+        guard generation == expected else { return }
+        body()
     }
 }
 

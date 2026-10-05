@@ -75,3 +75,60 @@ extension SpinPadLayoutTests {
         }
     }
 }
+
+extension SpinPadLayoutTests {
+    func testSpinDragPickupAndClearanceDoNotMoveExistingPoint() {
+        let dot = CGPoint(x: 70, y: 90)
+        var drag = SpinPadDragSession(start: CGPoint(x: 80, y: 80), initialPoint: dot)
+        for point in [CGPoint(x: 80, y: 80), CGPoint(x: 100, y: 80), CGPoint(x: 132, y: 80), CGPoint(x: 134, y: 80)] {
+            XCTAssertEqual(drag.sample(point), dot)
+        }
+        XCTAssertTrue(drag.isFollowing)
+        XCTAssertFalse(drag.isTap)
+        XCTAssertEqual(drag.sample(CGPoint(x: 144, y: 85)), CGPoint(x: 80, y: 95))
+    }
+
+    func testSpinDragReversePreservesFingerGapInsteadOfRearmingDeadZone() {
+        let start = CGPoint(x: 80, y: 80)
+        var drag = SpinPadDragSession(start: start, initialPoint: start)
+        _ = drag.sample(CGPoint(x: 134, y: 80))
+        for finger in [CGPoint(x: 154, y: 80), CGPoint(x: 140, y: 85), CGPoint(x: 130, y: 80), start] {
+            let dot = drag.sample(finger)
+            XCTAssertEqual(finger.x - dot.x, 54, accuracy: 0.001)
+            XCTAssertEqual(finger.y - dot.y, 0, accuracy: 0.001)
+        }
+    }
+
+    func testSpinDragTapSlopAndFreshPickup() {
+        var drag = SpinPadDragSession(start: .zero, initialPoint: CGPoint(x: 12, y: 30))
+        _ = drag.sample(CGPoint(x: 3, y: 4))
+        XCTAssertTrue(drag.isTap)
+        _ = drag.sample(CGPoint(x: 30, y: 0))
+        _ = drag.sample(.zero)
+        XCTAssertFalse(drag.isTap, "Returning a drag to its start must not turn it into a tap")
+        XCTAssertFalse(drag.isFollowing)
+        var fresh = SpinPadDragSession(start: CGPoint(x: 40, y: 70), initialPoint: CGPoint(x: 12, y: 30))
+        XCTAssertEqual(fresh.sample(CGPoint(x: 42, y: 72)), CGPoint(x: 12, y: 30))
+        XCTAssertFalse(fresh.isFollowing)
+    }
+
+    func testSpinDragConversionPreservesAxesAndLimits() {
+        let center = CGPoint(x: 80, y: 80)
+        let left = SpinPadMath.contact(at: CGPoint(x: 60, y: 80), center: center, radius: 78, locksSideSpin: false)
+        let high = SpinPadMath.contact(at: CGPoint(x: 80, y: 60), center: center, radius: 78, locksSideSpin: false)
+        XCTAssertGreaterThan(left.x, 0)
+        XCTAssertEqual(left.y, 0)
+        XCTAssertGreaterThan(high.y, 0)
+        XCTAssertEqual(high.x, 0)
+        for x in stride(from: -200, through: 300, by: 25) {
+            for y in stride(from: -200, through: 300, by: 25) {
+                let point = CGPoint(x: x, y: y)
+                let free = SpinPadMath.contact(at: point, center: center, radius: 78, locksSideSpin: false)
+                XCTAssertLessThanOrEqual(hypot(free.x, free.y), SpinPadMath.miscueLimit + 1e-9)
+                let locked = SpinPadMath.contact(at: point, center: center, radius: 78, locksSideSpin: true)
+                XCTAssertEqual(locked.x, 0)
+                XCTAssertLessThanOrEqual(abs(locked.y), SpinPadMath.miscueLimit + 1e-9)
+            }
+        }
+    }
+}

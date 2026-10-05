@@ -483,3 +483,102 @@ enum AimCloseupPlacement {
         return hypot(p.x - qx, p.y - qy)
     }
 }
+
+/// Stage-local points (origin top-left, +x right, +y down). No world axes here.
+struct AimCloseupObstacles {
+    struct Disc { var center: CGPoint; var radius: CGFloat }
+    struct Segment { var start: CGPoint; var end: CGPoint; var margin: CGFloat = 8 }
+    struct Polygon { var vertices: [CGPoint]; var margin: CGFloat = 8 }
+    var discs: [Disc] = []
+    var segments: [Segment] = []
+    var rectangles: [CGRect] = []
+    var polygons: [Polygon] = []
+    var otherBalls: [Disc] = []
+
+    func clearance(at point: CGPoint) -> CGFloat {
+        var result = CGFloat.greatestFiniteMagnitude
+        for disc in discs { result = min(result, hypot(point.x-disc.center.x, point.y-disc.center.y)-disc.radius) }
+        for line in segments {
+            let dx = line.end.x-line.start.x, dy = line.end.y-line.start.y
+            let length2 = dx*dx+dy*dy
+            let t = length2 > 1e-9 ? min(1, max(0, ((point.x-line.start.x)*dx+(point.y-line.start.y)*dy)/length2)) : 0
+            result = min(result, hypot(point.x-line.start.x-t*dx, point.y-line.start.y-t*dy)-line.margin)
+        }
+        for rect in rectangles {
+            let dx = max(rect.minX-point.x, 0, point.x-rect.maxX)
+            let dy = max(rect.minY-point.y, 0, point.y-rect.maxY)
+            result = min(result, hypot(dx,dy))
+        }
+        for polygon in polygons where polygon.vertices.count >= 3 {
+            var positive = false, negative = false
+            var distance = CGFloat.greatestFiniteMagnitude
+            let vertices = polygon.vertices
+            for i in vertices.indices {
+                let a = vertices[i], b = vertices[(i+1) % vertices.count]
+                let dx = b.x-a.x, dy = b.y-a.y
+                let cross = dx*(point.y-a.y)-dy*(point.x-a.x)
+                positive = positive || cross > 0; negative = negative || cross < 0
+                let length2 = dx*dx+dy*dy
+                let t = length2 > 1e-9 ? min(1,max(0,((point.x-a.x)*dx+(point.y-a.y)*dy)/length2)) : 0
+                distance = min(distance,hypot(point.x-a.x-t*dx,point.y-a.y-t*dy))
+            }
+            result = min(result, (positive && negative ? distance : 0) - polygon.margin)
+        }
+        return result
+    }
+}
+
+extension AimCloseupPlacement {
+    struct ProtectedPlacement: Equatable { var center: CGPoint; var diameter: CGFloat }
+
+    /// Unlike legacy placement, failure never returns a colliding position.
+    static func protectedPlacement(focus: CGPoint, size: CGSize, obstacles: AimCloseupObstacles,
+                                   previous: ProtectedPlacement? = nil,
+                                   diameter: CGFloat = 128, placementBounds: CGRect? = nil) -> ProtectedPlacement? {
+        let stage = CGRect(origin: .zero, size: size)
+        let bounds = (placementBounds ?? stage).intersection(stage).insetBy(dx: 4, dy: 4)
+        guard !bounds.isNull, bounds.width > 0, bounds.height > 0 else { return nil }
+        func valid(_ p: ProtectedPlacement) -> Bool {
+            let r = p.diameter/2
+            return bounds.width > 2*r && bounds.height > 2*r
+                && bounds.insetBy(dx: r, dy: r).contains(p.center)
+                && obstacles.clearance(at: p.center) >= r + 2
+        }
+        if let previous, valid(previous) { return previous }
+        for d in [diameter, diameter * 0.875, diameter * 0.75] {
+            let allowed = bounds.insetBy(dx: d/2, dy: d/2)
+            guard allowed.width > 0, allowed.height > 0 else { continue }
+            var candidates: [CGPoint] = []
+            // Both sides remain eligible; actual obstacle geometry excludes controls.
+            for gap in [d * 0.92, d * 1.25, d * 1.75, d * 2.5] {
+                for index in 0..<32 {
+                    let angle = CGFloat(index) * .pi / 16
+                    candidates.append(CGPoint(x: min(allowed.maxX,max(allowed.minX,focus.x+cos(angle)*gap)),
+                                              y: min(allowed.maxY,max(allowed.minY,focus.y+sin(angle)*gap))))
+                }
+            }
+            // Search the entire available region before reducing magnification.
+            let columns = max(1, Int(ceil(allowed.width/24)))
+            let rows = max(1, Int(ceil(allowed.height/24)))
+            for row in 0...rows {
+                for col in 0...columns {
+                    candidates.append(CGPoint(x: allowed.minX+allowed.width*CGFloat(col)/CGFloat(columns),
+                                              y: allowed.minY+allowed.height*CGFloat(row)/CGFloat(rows)))
+                }
+            }
+            var best: ProtectedPlacement?
+            var score = CGFloat.greatestFiniteMagnitude
+            for point in candidates {
+                let candidate = ProtectedPlacement(center: point, diameter: d)
+                guard valid(candidate) else { continue }
+                let ballPenalty = obstacles.otherBalls.reduce(CGFloat(0)) { total, ball in
+                    total + max(0,d/2+ball.radius-hypot(point.x-ball.center.x,point.y-ball.center.y))*8
+                }
+                let cost = hypot(point.x-focus.x,point.y-focus.y) + ballPenalty
+                if cost < score { best = candidate; score = cost }
+            }
+            if let best { return best }
+        }
+        return nil
+    }
+}

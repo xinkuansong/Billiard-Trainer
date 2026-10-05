@@ -407,3 +407,187 @@ final class AimCloseupProjectionTests: XCTestCase {
         }
     }
 }
+
+final class DailyCloseupProtectionTests: XCTestCase {
+    func testWholeLoupeStaysInside2DTableAndAvoidsDiagonalCue() throws {
+        let stage = CGSize(width:700,height:350), table = CGRect(x:30,y:30,width:640,height:290)
+        var obstacles = AimCloseupObstacles()
+        obstacles.polygons = [.init(vertices:[CGPoint(x:50,y:300),CGPoint(x:56,y:308),
+            CGPoint(x:556,y:78),CGPoint(x:550,y:70)])]
+        XCTAssertLessThan(obstacles.clearance(at:CGPoint(x:303,y:189)),0)
+        for focus in [CGPoint(x:40,y:40),CGPoint(x:650,y:40),CGPoint(x:40,y:310),CGPoint(x:650,y:310)] {
+            let result = try XCTUnwrap(AimCloseupPlacement.protectedPlacement(focus:focus,size:stage,
+                obstacles:obstacles,placementBounds:table))
+            let r = result.diameter/2
+            XCTAssertGreaterThanOrEqual(result.center.x-r,table.minX+4)
+            XCTAssertLessThanOrEqual(result.center.x+r,table.maxX-4)
+            XCTAssertGreaterThanOrEqual(result.center.y-r,table.minY+4)
+            XCTAssertLessThanOrEqual(result.center.y+r,table.maxY-4)
+            XCTAssertGreaterThanOrEqual(obstacles.clearance(at:result.center),r+2)
+        }
+    }
+
+    @MainActor
+    func testGhostRemainsTangentAcrossCameraYawPitchAndCutAngles() throws {
+        let scene = SCNScene(), camera = SCNNode()
+        camera.camera = SCNCamera(); camera.camera!.zNear = 0.01; camera.camera!.zFar = 100
+        scene.rootNode.addChildNode(camera)
+        let view = SCNView(frame:CGRect(x:0,y:0,width:860,height:402))
+        view.scene = scene; view.pointOfView = camera
+        let r: CGFloat = 0.028575
+        var checked = 0
+        for yaw in stride(from:0.0,to:360.0,by:45) {
+            for pitch in [10.0,30,60,89] {
+                let y = yaw * .pi/180, p = pitch * .pi/180
+                camera.position = SCNVector3(Float(sin(y)*cos(p)),Float(sin(p)),Float(cos(y)*cos(p)))
+                camera.look(at:SCNVector3Zero); SCNTransaction.flush()
+                for cut in stride(from:0.0,to:360.0,by:30) {
+                    let angle = cut * .pi/180
+                    let ghost = CGPoint(x:2*r*cos(angle),y:2*r*sin(angle))
+                    let contact = CGPoint(x:ghost.x/2,y:ghost.y/2)
+                    let snap = AimCloseupSnapshot(band:.contact,focus:.zero,ballRadius:r,halfWorld:3.2*r,
+                        ghost:ghost,contactMarker:contact)
+                    let projected = try XCTUnwrap(snap.projected(in:view,surfaceY:0,preservesPlanarTangency:true))
+                    let g = try XCTUnwrap(projected.ghost), c = try XCTUnwrap(projected.contactMarker)
+                    XCTAssertEqual(hypot(g.x,g.y),2*r,accuracy:1e-7)
+                    XCTAssertEqual(hypot(c.x,c.y),r,accuracy:1e-7)
+                    XCTAssertEqual(hypot(c.x-g.x,c.y-g.y),r,accuracy:1e-7)
+                    XCTAssertEqual(projected.ghostRadiusScale,1)
+                    checked += 1
+                }
+            }
+        }
+        XCTAssertEqual(checked,384)
+    }
+    @MainActor
+    func testTrajectoryCrossingBehindCameraRetainsVisibleSegment() throws {
+        let camera = SCNNode(); camera.camera = SCNCamera()
+        camera.camera!.zNear = 0.1; camera.camera!.zFar = 100
+        let (a, b) = try XCTUnwrap(DailyCloseupProjection.clippedSegment(
+            SCNVector3(0,0,1), SCNVector3(0.3,0,-2), camera: camera))
+        XCTAssertEqual(a.z, -0.1001, accuracy: 0.0001)
+        XCTAssertEqual(b.z, -2, accuracy: 0.0001)
+        XCTAssertEqual(a.x, 0.11001, accuracy: 0.0001)
+        XCTAssertNil(DailyCloseupProjection.clippedSegment(SCNVector3(0,0,1), SCNVector3(1,0,2), camera: camera))
+    }
+    func testRightEdgeLineMovesLoupeIntoAvailableLeftRegion() throws {
+        let size = CGSize(width:620,height:350), focus = CGPoint(x:558,y:210)
+        var obstacles = AimCloseupObstacles()
+        obstacles.discs = [.init(center:focus,radius:12),.init(center:CGPoint(x:576,y:231),radius:12)]
+        obstacles.segments = [.init(start:focus,end:CGPoint(x:558,y:35))]
+        let result = try XCTUnwrap(AimCloseupPlacement.protectedPlacement(focus:focus,size:size,obstacles:obstacles))
+        XCTAssertLessThan(result.center.x,focus.x)
+        XCTAssertGreaterThanOrEqual(obstacles.clearance(at:result.center),result.diameter/2+2)
+    }
+
+    func testSixPocketsAcrossScreenSizesAndShotDirections() throws {
+        var checked = 0
+        for size in [CGSize(width:520,height:260),CGSize(width:700,height:350),CGSize(width:1000,height:680)] {
+            let pockets = [CGPoint(x:18,y:18),CGPoint(x:size.width/2,y:18),CGPoint(x:size.width-18,y:18),
+                           CGPoint(x:18,y:size.height-18),CGPoint(x:size.width/2,y:size.height-18),CGPoint(x:size.width-18,y:size.height-18)]
+            for pocket in pockets {
+                for x in [0.15,0.5,0.85] { for y in [0.25,0.5,0.75] {
+                    let focus = CGPoint(x:size.width*x,y:size.height*y)
+                    var obstacles = AimCloseupObstacles()
+                    obstacles.discs = pockets.map { .init(center:$0,radius:22) } + [.init(center:focus,radius:14)]
+                    // Post-contact cue path goes in another direction and must also stay clear.
+                    obstacles.segments = [.init(start:focus,end:pocket),
+                        .init(start:CGPoint(x:focus.x-35,y:focus.y+25),end:focus),
+                        .init(start:focus,end:CGPoint(x:size.width*0.6,y:size.height-24))]
+                    let result = try XCTUnwrap(AimCloseupPlacement.protectedPlacement(focus:focus,size:size,obstacles:obstacles))
+                    XCTAssertGreaterThanOrEqual(obstacles.clearance(at:result.center),result.diameter/2+2)
+                    checked += 1
+                } }
+            }
+        }
+        XCTAssertEqual(checked,162)
+    }
+
+    func testNoSpaceHidesInsteadOfCoveringCriticalGeometry() {
+        var obstacles = AimCloseupObstacles()
+        obstacles.rectangles = [CGRect(x:0,y:0,width:620,height:350)]
+        XCTAssertNil(AimCloseupPlacement.protectedPlacement(focus:CGPoint(x:300,y:180),size:CGSize(width:620,height:350),obstacles:obstacles))
+    }
+
+    func testNarrowAvailableAreaShrinksLoupe() throws {
+        let result = try XCTUnwrap(AimCloseupPlacement.protectedPlacement(
+            focus:CGPoint(x:55,y:100),size:CGSize(width:110,height:220),obstacles:AimCloseupObstacles()))
+        XCTAssertEqual(result.diameter,96)
+    }
+
+    func testStablePositionIsRetainedUntilNewObstacleIntersects() throws {
+        let size = CGSize(width:620,height:350), focus = CGPoint(x:320,y:180)
+        var obstacles = AimCloseupObstacles()
+        obstacles.discs = [.init(center:focus,radius:16)]
+        let first = try XCTUnwrap(AimCloseupPlacement.protectedPlacement(focus:focus,size:size,obstacles:obstacles))
+        XCTAssertEqual(first,AimCloseupPlacement.protectedPlacement(focus:CGPoint(x:321,y:180),size:size,obstacles:obstacles,previous:first))
+        obstacles.discs.append(.init(center:first.center,radius:24))
+        let next = try XCTUnwrap(AimCloseupPlacement.protectedPlacement(focus:focus,size:size,obstacles:obstacles,previous:first))
+        XCTAssertNotEqual(first,next)
+        XCTAssertGreaterThanOrEqual(obstacles.clearance(at:next.center),next.diameter/2+2)
+    }
+
+    func testCueProtectionIncludesPostContactUntilFirstCushion() {
+        var prediction = ShotPrediction()
+        prediction.cuePath = [SCNVector3(0,0.8,0),SCNVector3(0.2,0.8,0),SCNVector3(0.3,0.8,0.3),
+                              SCNVector3(0.4,0.8,0.6),SCNVector3(0.41,0.8,0.59),SCNVector3(0.6,0.8,0.3)]
+        prediction.firstContact = prediction.cuePath[1]
+        prediction.events = [.init(time:0.3,kind:.ballBall(ballA:ShotInput.cueBallName,ballB:"_1")),
+                             .init(time:1,kind:.ballCushion(ball:ShotInput.cueBallName))]
+        let recorder = TrajectoryRecorder()
+        recorder.recordFrame(ballName:ShotInput.cueBallName,frame:BallFrame(time:1,position:prediction.cuePath[3],
+            velocity:SCNVector3Zero,angularVelocity:SCNVector4(0,0,0,0),state:.rolling))
+        prediction.recorder = recorder
+        let full = DailyCloseupTrajectory.protectedCuePath(prediction,detail:.full)
+        XCTAssertEqual(full.count,5)
+        XCTAssertEqual(full[3].z,0.6)
+        XCTAssertEqual(DailyCloseupTrajectory.protectedCuePath(prediction,detail:.minimal).count,2)
+        prediction.events = []
+        XCTAssertEqual(DailyCloseupTrajectory.protectedCuePath(prediction,detail:.core).count,6)
+    }
+
+    @MainActor
+    func testProjectionConvertsFullViewportToInsetOverlay() throws {
+        let scene = AngleTrainingScene(); scene.setupScene(enhancedRendering:false)
+        _ = scene.addPocketMarkers()
+        let view = SCNView(frame:CGRect(x:0,y:0,width:860,height:402))
+        view.scene = scene; view.pointOfView = scene.cameraNode
+        scene.setCameraMode(.topDown2D,animated:false)
+        scene.cameraRig?.fitLandscapeTable(viewSize:view.bounds.size)
+        SCNTransaction.flush()
+        let destination = CGRect(x:78,y:44,width:704,height:358)
+        let snap = AimCloseupSnapshot(band:.contact,focus:CGPoint(x:0.3,y:0.1),ballRadius:0.028575,halfWorld:0.09144)
+        let result = try XCTUnwrap(snap.projected(in:view,surfaceY:scene.surfaceY,destinationRect:destination))
+        let actual = view.projectPoint(SCNVector3(0.3,scene.surfaceY+0.028575,0.1))
+        let norm = try XCTUnwrap(result.focusNorm)
+        XCTAssertEqual(norm.x*destination.width+destination.minX,CGFloat(actual.x),accuracy:0.001)
+        XCTAssertEqual(norm.y*destination.height+destination.minY,CGFloat(actual.y),accuracy:0.001)
+        let obstacles = DailyCloseupProjection.obstacles(snapshot:snap,scene:scene,view:view,destination:destination)
+        XCTAssertEqual(scene.closeupPocketNodes.count,6)
+        XCTAssertEqual(obstacles.rectangles.count,6)
+        scene.cueStick?.update(cueBallPosition:SCNVector3(0,scene.surfaceY+0.028575,0),
+                              aimDirection:SCNVector3(0.7,0,0.7),elevation:0.05)
+        scene.cueStick?.show(); SCNTransaction.flush()
+        let withCue = DailyCloseupProjection.obstacles(snapshot:snap,scene:scene,view:view,destination:destination)
+        XCTAssertEqual(withCue.polygons.count,1)
+        let cue = try XCTUnwrap(scene.cueStick?.rootNode)
+        let (lo,hi) = cue.boundingBox
+        let middle = view.projectPoint(cue.presentation.convertPosition(SCNVector3((lo.x+hi.x)/2,(lo.y+hi.y)/2,(lo.z+hi.z)/2),to:nil))
+        XCTAssertLessThan(withCue.clearance(at:CGPoint(x:CGFloat(middle.x)-destination.minX,y:CGFloat(middle.y)-destination.minY)),0)
+        var nodes: [SCNNode] = []
+        scene.addObjectTrajectory([SCNVector3(0,scene.surfaceY,0),SCNVector3(0.5,scene.surfaceY,0.2)],ballKey:"_1",into:&nodes)
+        var focused = snap; focused.targetBallNumber = 1
+        let withObject = DailyCloseupProjection.obstacles(snapshot:focused,scene:scene,view:view,destination:destination)
+        XCTAssertEqual(withObject.segments.count,obstacles.segments.count+1)
+        scene.closeupCuePath = [SCNVector3Zero]
+        scene.hideAllVisualization()
+        XCTAssertTrue(scene.closeupObjectPaths.isEmpty)
+        XCTAssertTrue(scene.closeupCuePath.isEmpty)
+        let table = DailyCloseupProjection.topDownPlayingRect(scene:scene,view:view,destination:destination)
+        scene.cameraNode.camera!.orthographicScale *= 1.5
+        SCNTransaction.flush()
+        let zoomed = DailyCloseupProjection.topDownPlayingRect(scene:scene,view:view,destination:destination)
+        XCTAssertEqual(zoomed.width,table.width/1.5,accuracy:0.001)
+        XCTAssertEqual(zoomed.height,table.height/1.5,accuracy:0.001)
+    }
+}

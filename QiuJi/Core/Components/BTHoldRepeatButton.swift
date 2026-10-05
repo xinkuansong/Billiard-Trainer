@@ -11,6 +11,7 @@ struct BTHoldRepeatButton: View {
     /// 执行一步；返回是否真的发生了变化（false = 撞墙 / 无效）。
     let onStep: () -> Bool
 
+    @Environment(\.dailyHUDControls) private var dailyHUD
     @State private var repeatTimer: Timer?
     @State private var ticks = 0
     @State private var isPressing = false
@@ -23,7 +24,7 @@ struct BTHoldRepeatButton: View {
             .font(.system(size: 15, weight: .bold))
             .foregroundStyle(.white.opacity(isPressing ? 1 : 0.82))
             .frame(width: iconSize, height: iconSize)
-            .background(.white.opacity(isPressing ? 0.24 : 0.12), in: Circle())
+            .background(dailyHUD && isPressing ? HUDStyle.selectedBackground : .white.opacity(isPressing ? 0.24 : 0.12), in: Circle())
             .frame(width: hitSize, height: hitSize)
             .contentShape(Circle())
             .gesture(

@@ -166,8 +166,7 @@ final class BreakFlowRunner: ObservableObject {
 
     func dragBegan(node: SCNNode) {
         guard phase == .racked else { return }
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.15, duration: 0.1), forKey: "dragPulse")
+        TableBallPulse.beginDrag(node)
     }
 
     func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
@@ -196,8 +195,7 @@ final class BreakFlowRunner: ObservableObject {
 
     func dragEnded(node: SCNNode) {
         guard phase == .racked else { return }
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.0 / 1.15, duration: 0.15))
+        TableBallPulse.endDrag(node)
         drawAimLine()
     }
 
@@ -349,9 +347,10 @@ final class BreakFlowRunner: ObservableObject {
         statusText = "运杆…"
         let aim = resolvedAim(cuePos: cueNode.position)
         let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: spinX, spinY: spinY)
+        let generation = breakGeneration
         scene.runCueStroke(strikePosition: strikePos, aim: aim,
                            velocity: Float(velocity)) { [weak self] in
-            guard let self, self.phase == .breaking else { return }
+            guard let self, self.breakGeneration == generation, self.phase == .breaking else { return }
             self.runBreakMotion(result)
         }
     }
@@ -385,7 +384,7 @@ final class BreakFlowRunner: ObservableObject {
     private func finishBreak(_ result: BreakResult) {
         guard phase == .breaking else { return }
         scene.railInventory.finishPlayback()
-        for key in allKeys { scene.allBallNodes[key]?.removeAllActions() }
+        for key in allKeys { if let node = scene.allBallNodes[key] { TableBallPulse.restore(node); node.removeAllActions() } }
         for key in result.pocketed { scene.hideBall(key: key) }
 
         var board = result.board
@@ -484,10 +483,11 @@ final class BreakFlowRunner: ObservableObject {
     private func cancelPlayback() {
         ShotAudioScheduler.shared.cancel()
         breakGeneration += 1
+        scene.hideCueStick()
         breakFinishTask?.cancel()
         breakFinishTask = nil
         scene.railInventory.cancelPlayback()
-        for key in allKeys { scene.allBallNodes[key]?.removeAllActions() }
+        for key in allKeys { if let node = scene.allBallNodes[key] { TableBallPulse.restore(node); node.removeAllActions() } }
     }
 
     private func settledHint(_ result: BreakResult) -> String {

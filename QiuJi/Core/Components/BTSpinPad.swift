@@ -16,6 +16,11 @@ struct BTSpinPad: View {
     /// 只选高低杆（加塞图谱）：拖动锁在竖轴，`spinX` 恒为 0。
     var locksSideSpin = false
     var strikeAccess: CueStrikeAccess? = nil
+    /// Only the white disc changes opacity; markings and interaction remain intact.
+    var discOpacity: Double = 1
+
+    @State private var dragSession: SpinPadDragSession?
+    @GestureState private var dragIsActive = false
 
     private let miscue = Double(CuePhysics.miscueLimitFraction)
     private let tipRatio = Double(CuePhysics.tipDiameter / BallPhysics.diameter)
@@ -40,6 +45,7 @@ struct BTSpinPad: View {
                     .fill(RadialGradient(colors: [.white, Color(white: 0.86)],
                                          center: .init(x: 0.38, y: 0.34),
                                          startRadius: 2, endRadius: ballR * 2))
+                    .opacity(discOpacity)
                     .overlay(Circle().stroke(.white.opacity(0.5), lineWidth: 1))
                     .frame(width: ballR * 2, height: ballR * 2)
                     .position(x: cx, y: cy)
@@ -83,25 +89,80 @@ struct BTSpinPad: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("打点盘")
             .accessibilityValue(SpinDisplay.readout(spinX: spinX, spinY: spinY))
-            .accessibilityHint(isReadOnly ? "只读打点" : "灰色区域不可选，可拖动或使用方向按钮调整")
+            .accessibilityHint(isReadOnly ? "只读打点" : "轻点选位，拖动时先移开手指再调整；灰色区域不可选")
             .gesture(
                 isReadOnly ? nil : DragGesture(minimumDistance: 0)
+                    .updating($dragIsActive) { _, active, _ in active = true }
                     .onChanged { value in
-                        let nx = Double((cx - value.location.x) / ballR)
-                        let ny = Double((cy - value.location.y) / ballR)
-                        let mag = hypot(nx,ny)
-                        let scale = mag > placementLimit ? placementLimit/mag : 1
-                        let requestedX = locksSideSpin ? 0 : nx*scale*pull
-                        let requestedY = locksSideSpin ? max(-placementLimit,min(placementLimit,ny))*pull : ny*scale*pull
-                        if let access = strikeAccess {
-                            guard let point = access.constrained(spinX:requestedX,spinY:requestedY,allowSideAdjustment:!locksSideSpin) else { return }
-                            spinX=point.x; spinY=point.y
-                        } else {
-                            spinX=requestedX; spinY=requestedY
+                        var session = dragSession ?? SpinPadDragSession(
+                            start: value.startLocation, initialPoint: dot)
+                        let point = session.sample(value.location)
+                        dragSession = session
+                        if session.isFollowing {
+                            apply(point, center: CGPoint(x: cx, y: cy), radius: ballR)
                         }
                     }
+                    .onEnded { value in
+                        if var session = dragSession {
+                            let point = session.sample(value.location)
+                            if session.isFollowing {
+                                apply(point, center: CGPoint(x: cx, y: cy), radius: ballR)
+                            } else if session.isTap {
+                                apply(value.location, center: CGPoint(x: cx, y: cy), radius: ballR)
+                            }
+                        }
+                        dragSession = nil
+                    }
             )
+            .onChange(of: dragIsActive) { _, active in
+                if !active { dragSession = nil }
+            }
+            .onDisappear { dragSession = nil }
         }
+    }
+
+    private func apply(_ point: CGPoint, center: CGPoint, radius: CGFloat) {
+        let requested = SpinPadMath.contact(at: point, center: center,
+                                            radius: radius, locksSideSpin: locksSideSpin)
+        if let access = strikeAccess {
+            guard let allowed = access.constrained(spinX: requested.x, spinY: requested.y,
+                                                   allowSideAdjustment: !locksSideSpin) else { return }
+            spinX = allowed.x
+            spinY = allowed.y
+        } else {
+            spinX = requested.x
+            spinY = requested.y
+        }
+    }
+}
+
+/// Screen-local points (+x right, +y down), matching the table ball's one-time 52pt gate.
+/// Capture the existing red point at pickup; once clear of the finger, preserve that offset
+/// even while reversing. Construct a fresh session for every gesture, including after cancel.
+struct SpinPadDragSession {
+    static let fingerClearance: CGFloat = 52
+    static let tapSlop: CGFloat = 10
+    let start: CGPoint
+    let initialPoint: CGPoint
+    private var followOrigin: CGPoint?
+    private var maxTravel: CGFloat = 0
+    var isFollowing: Bool { followOrigin != nil }
+    var isTap: Bool { maxTravel < Self.tapSlop }
+
+    init(start: CGPoint, initialPoint: CGPoint) {
+        self.start = start
+        self.initialPoint = initialPoint
+    }
+
+    mutating func sample(_ location: CGPoint) -> CGPoint {
+        maxTravel = max(maxTravel, hypot(location.x - start.x, location.y - start.y))
+        if followOrigin == nil {
+            guard maxTravel > Self.fingerClearance else { return initialPoint }
+            followOrigin = location
+        }
+        let origin = followOrigin!
+        return CGPoint(x: initialPoint.x + location.x - origin.x,
+                       y: initialPoint.y + location.y - origin.y)
     }
 }
 
@@ -175,6 +236,20 @@ enum SpinPadMath {
     /// 单次微调步进 = 打滑极限的 1%（与读数「±1%」一一对应）。
     static let step = miscueLimit / 100
 
+    /// Screen point → physical contact fraction. Preserve the existing circle/axis limits.
+    static func contact(at point: CGPoint, center: CGPoint, radius: CGFloat,
+                        locksSideSpin: Bool) -> (x: Double, y: Double) {
+        guard radius > 0 else { return (0, 0) }
+        let pull = Double(CuePhysics.tipContactPullFactor)
+        let placementLimit = miscueLimit / pull
+        let nx = Double((center.x - point.x) / radius)
+        let ny = Double((center.y - point.y) / radius)
+        let mag = hypot(nx, ny)
+        let scale = mag > placementLimit ? placementLimit / mag : 1
+        return (locksSideSpin ? 0 : nx * scale * pull,
+                locksSideSpin ? max(-placementLimit, min(placementLimit, ny)) * pull : ny * scale * pull)
+    }
+
     /// 沿某方向微调一步；合矢量幅值 √(x²+y²) 钳在打滑极限内（撞墙停住）：
     /// - 未越界：正常 ±step。
     /// - 越界：把被按的轴贴到打滑极限圆上（另一轴不变），方向与按键一致。
@@ -246,7 +321,7 @@ enum SpinPadLayout {
 /// HUD 同观感）+ 打点盘 + 四向微调键 + 读数 + 回中。浮在球桌底缘使用，**不要**放进
 /// 系统 sheet——sheet 底下是纯黑+压暗层，材质会显得过深（用户点名要「有些透明」的观感）。
 ///
-/// 交互：拖打点盘做**粗选**（点哪跳哪）；四向键做 ±1% **微调**（合矢量钳在打滑极限，撞墙停住），
+/// 交互：轻点松手选位；拖动先让手指移开再带动红点。四向键做 ±1% **微调**（合矢量钳在打滑极限，撞墙停住），
 /// 长按连发。背景宽 = `tableWidth`（击球区内框屏宽，左右贴库边内侧）；白盘见 `SpinPadLayout`。
 /// 关闭：无右上 ✕（CL-疑4）；点盘外任意处关闭由 `BTSpinPadOverlay` 捕获层承担。
 struct BTSpinPadCard: View {
@@ -265,6 +340,7 @@ struct BTSpinPadCard: View {
     var availableHeight: CGFloat? = nil
     /// Daily landscape: fixed size, bottom-aligned to the 2D inner rail in both modes.
     var usesFixedLayout = false
+    var discOpacity: Double = 1
     var onClose: () -> Void
 
     private var padDiameter: CGFloat {
@@ -312,7 +388,8 @@ struct BTSpinPadCard: View {
                     .opacity(locksSideSpin ? 0 : 1)
                     .allowsHitTesting(!locksSideSpin)
                     .accessibilityHidden(locksSideSpin)
-                BTSpinPad(spinX: $spinX, spinY: $spinY, locksSideSpin: locksSideSpin, strikeAccess: strikeAccess)
+                BTSpinPad(spinX: $spinX, spinY: $spinY, locksSideSpin: locksSideSpin,
+                          strikeAccess: strikeAccess, discOpacity: discOpacity)
                     .frame(width: padDiameter, height: padDiameter)
                     .accessibilityIdentifier("spinPad.disc")
                 BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") { nudge(.right) }
@@ -336,11 +413,11 @@ struct BTSpinPadCard: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, Spacing.md)
                         .padding(.vertical, Spacing.xs)
-                        .background(.white.opacity(0.14), in: Capsule())
+                        .background { BTHUDControlBackground(shape: Capsule(), normal: .white.opacity(0.14)) }
                         .frame(maxWidth: .infinity, minHeight: SpinPadLayout.keyHit)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(BTHUDPressStyle())
             }
         }
     }
@@ -348,7 +425,7 @@ struct BTSpinPadCard: View {
     private var standardContent: some View {
         VStack(spacing: Spacing.xs) {
             if isReadOnly {
-                BTSpinPad(spinX: $spinX, spinY: $spinY, isReadOnly: true)
+                BTSpinPad(spinX: $spinX, spinY: $spinY, isReadOnly: true, discOpacity: discOpacity)
                     .frame(width: padDiameter, height: padDiameter)
             } else {
                 VStack(spacing: SpinPadLayout.crossGap) {
@@ -362,7 +439,8 @@ struct BTSpinPadCard: View {
                                 nudge(.left)
                             }
                         }
-                        BTSpinPad(spinX: $spinX, spinY: $spinY, locksSideSpin: locksSideSpin, strikeAccess: strikeAccess)
+                        BTSpinPad(spinX: $spinX, spinY: $spinY, locksSideSpin: locksSideSpin,
+                                  strikeAccess: strikeAccess, discOpacity: discOpacity)
                             .frame(width: padDiameter, height: padDiameter)
                         if !locksSideSpin {
                             BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") {
@@ -392,9 +470,9 @@ struct BTSpinPadCard: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, Spacing.md)
                             .padding(.vertical, 4)
-                            .background(.white.opacity(0.14), in: Capsule())
+                            .background { BTHUDControlBackground(shape: Capsule(), normal: .white.opacity(0.14)) }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(BTHUDPressStyle())
                 }
             }
         }
@@ -441,6 +519,7 @@ struct BTSpinPadOverlay: View {
     var availableHeight: CGFloat? = nil
     /// Daily landscape: fixed size, bottom-aligned to the 2D inner rail in both modes.
     var usesFixedLayout = false
+    var discOpacity: Double = 1
     var onClose: () -> Void
 
     var body: some View {
@@ -463,6 +542,7 @@ struct BTSpinPadOverlay: View {
                           usesCompactLayout: usesCompactLayout,
                           availableHeight: availableHeight,
                           usesFixedLayout: usesFixedLayout,
+                          discOpacity: discOpacity,
                           onClose: onClose)
                 .padding(.bottom, bottomPadding)
         }
@@ -578,10 +658,11 @@ struct BTSceneSpinPadOverlay: View {
     @ObservedObject var scene: AngleTrainingScene
     let tableWidth: CGFloat
     let bottomPadding: CGFloat
+    var discOpacity: Double = 1
     var onClose: () -> Void
     var body: some View {
         BTSpinPadOverlay(spinX:$spinX,spinY:$spinY,tableWidth:tableWidth,
             bottomPadding:bottomPadding,strikeAccess:scene.cueAccessSnapshot,
-            usesCompactLayout:true,usesFixedLayout:true,onClose:onClose)
+            usesCompactLayout:true,usesFixedLayout:true,discOpacity:discOpacity,onClose:onClose)
     }
 }

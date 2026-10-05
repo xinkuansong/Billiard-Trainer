@@ -1,0 +1,385 @@
+{
+  "scope": "Illustrative segment only, not a production policy or UI test",
+  "coordinates": "XZ horizontal, Y up, metres; bed-relative",
+  "assumptions": "inner plane 2.54x1.27, empty874x402 viewport,50deg vertical FOV,r=2.7,h=.65; offset8deg->0 is arbitrary example, not prescribed direction or amplitude",
+  "rows": [
+    {
+      "t": 0.0,
+      "eyeXZ": [
+        2.7,
+        0.0
+      ],
+      "orbitDegrees": 0.0,
+      "headingOffsetDegrees": 8.0,
+      "horizontalExitXZ": [
+        -1.2699999999999996,
+        -0.5579471137684939
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.026276214397760178,
+        -0.3757673725921767
+      ],
+      "tableCenterScreenXFraction": 0.43264853689534233
+    },
+    {
+      "t": 0.05,
+      "eyeXZ": [
+        2.697918397849952,
+        0.10600150254948526
+      ],
+      "orbitDegrees": 2.25,
+      "headingOffsetDegrees": 7.942,
+      "horizontalExitXZ": [
+        -1.2699999999999996,
+        -0.6073677555255561
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.040523522861895866,
+        -0.3717562586509087
+      ],
+      "tableCenterScreenXFraction": 0.4331426455039879
+    },
+    {
+      "t": 0.1,
+      "eyeXZ": [
+        2.6916768010794456,
+        0.21183955846518135
+      ],
+      "orbitDegrees": 4.5,
+      "headingOffsetDegrees": 7.776000000000001,
+      "horizontalExitXZ": [
+        -1.2001115618552776,
+        -0.635
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.053413049853810346,
+        -0.3622374215373625
+      ],
+      "tableCenterScreenXFraction": 0.4345561141330812
+    },
+    {
+      "t": 0.15,
+      "eyeXZ": [
+        2.6812848337783013,
+        0.3173509731361617
+      ],
+      "orbitDegrees": 6.75,
+      "headingOffsetDegrees": 7.514000000000001,
+      "horizontalExitXZ": [
+        -1.064769254362755,
+        -0.635
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.0645238514993518,
+        -0.3479023332235349
+      ],
+      "tableCenterScreenXFraction": 0.4367849319927516
+    },
+    {
+      "t": 0.2,
+      "eyeXZ": [
+        2.666758519606872,
+        0.42237305560862337
+      ],
+      "orbitDegrees": 9.0,
+      "headingOffsetDegrees": 7.168,
+      "horizontalExitXZ": [
+        -0.9803451075381306,
+        -0.635
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.07354526400726291,
+        -0.32945472452621494
+      ],
+      "tableCenterScreenXFraction": 0.43972456904446655
+    },
+    {
+      "t": 0.25,
+      "eyeXZ": [
+        2.6481202570887223,
+        0.5267438694435463
+      ],
+      "orbitDegrees": 11.25,
+      "headingOffsetDegrees": 6.75,
+      "horizontalExitXZ": [
+        -0.9273597243119576,
+        -0.6350000000000001
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.08026766309180777,
+        -0.3076020153688117
+      ],
+      "tableCenterScreenXFraction": 0.44327048033496674
+    },
+    {
+      "t": 0.3,
+      "eyeXZ": [
+        2.625398785073727,
+        0.6303024824109446
+      ],
+      "orbitDegrees": 13.5,
+      "headingOffsetDegrees": 6.272,
+      "horizontalExitXZ": [
+        -0.894510312445802,
+        -0.6350000000000001
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.0845740581057921,
+        -0.28304833016236275
+      ],
+      "tableCenterScreenXFraction": 0.44731851339035983
+    },
+    {
+      "t": 0.35,
+      "eyeXZ": [
+        2.598629138424848,
+        0.7328892146357006
+      ],
+      "orbitDegrees": 15.75,
+      "headingOffsetDegrees": 5.746,
+      "horizontalExitXZ": [
+        -0.8746710111533971,
+        -0.6350000000000001
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.08643262714165534,
+        -0.2564887155287825
+      ],
+      "tableCenterScreenXFraction": 0.4517651978716536
+    },
+    {
+      "t": 0.4,
+      "eyeXZ": [
+        2.5678525939969146,
+        0.834345884812358
+      ],
+      "orbitDegrees": 18.0,
+      "headingOffsetDegrees": 5.184,
+      "horizontalExitXZ": [
+        -0.8630339055028267,
+        -0.6350000000000001
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.0858902495721443,
+        -0.22860421790060526
+      ],
+      "tableCenterScreenXFraction": 0.45650791184158634
+    },
+    {
+      "t": 0.45,
+      "eyeXZ": [
+        2.5331166069907076,
+        0.9345160541092311
+      ],
+      "orbitDegrees": 20.25,
+      "headingOffsetDegrees": 4.598,
+      "horizontalExitXZ": [
+        -0.8561674485767736,
+        -0.6349999999999999
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.08306705320180052,
+        -0.20005751511348724
+      ],
+      "tableCenterScreenXFraction": 0.46144493119247043
+    },
+    {
+      "t": 0.5,
+      "eyeXZ": [
+        2.4944747377804743,
+        1.0332452673857424
+      ],
+      "orbitDegrees": 22.5,
+      "headingOffsetDegrees": 4.0,
+      "horizontalExitXZ": [
+        -0.8515076258669265,
+        -0.635
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.07815196145500636,
+        -0.1714888280107414
+      ],
+      "tableCenterScreenXFraction": 0.46647537802707806
+    },
+    {
+      "t": 0.55,
+      "eyeXZ": [
+        2.4519865693277194,
+        1.130381291351056
+      ],
+      "orbitDegrees": 24.750000000000004,
+      "headingOffsetDegrees": 3.4019999999999992,
+      "horizontalExitXZ": [
+        -0.8470690736864808,
+        -0.635
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.07139919924821969,
+        -0.14351186485081757
+      ],
+      "tableCenterScreenXFraction": 0.4714990902239077
+    },
+    {
+      "t": 0.6,
+      "eyeXZ": [
+        2.4057176153085935,
+        1.2257743492967765
+      ],
+      "orbitDegrees": 27.0,
+      "headingOffsetDegrees": 2.816000000000001,
+      "horizontalExitXZ": [
+        -0.8412746872005532,
+        -0.635
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.06312569210109853,
+        -0.11670957288740036
+      ],
+      "tableCenterScreenXFraction": 0.47641643829147545
+    },
+    {
+      "t": 0.65,
+      "eyeXZ": [
+        2.3557392190965527,
+        1.3192773520417784
+      ],
+      "orbitDegrees": 29.25,
+      "headingOffsetDegrees": 2.2540000000000004,
+      "horizontalExitXZ": [
+        -0.8328518812423433,
+        -0.635
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.05370926960971634,
+        -0.09162948813783967
+      ],
+      "tableCenterScreenXFraction": 0.48112811716849546
+    },
+    {
+      "t": 0.7,
+      "eyeXZ": [
+        2.3021284437560494,
+        1.410746124733062
+      ],
+      "orbitDegrees": 31.5,
+      "headingOffsetDegrees": 1.7280000000000009,
+      "horizontalExitXZ": [
+        -0.8207674009137063,
+        -0.635
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.043587559818952126,
+        -0.06877848661500097
+      ],
+      "tableCenterScreenXFraction": 0.48553494005372955
+    },
+    {
+      "t": 0.75,
+      "eyeXZ": [
+        2.2449679532168725,
+        1.5000396291529259
+      ],
+      "orbitDegrees": 33.75,
+      "headingOffsetDegrees": 1.25,
+      "horizontalExitXZ": [
+        -0.8041846374733024,
+        -0.6350000000000002
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.0332574336365945,
+        -0.04861674899489854
+      ],
+      "tableCenterScreenXFraction": 0.4895376587633297
+    },
+    {
+      "t": 0.8,
+      "eyeXZ": [
+        2.1843458848123585,
+        1.5870201811896776
+      ],
+      "orbitDegrees": 36.0,
+      "headingOffsetDegrees": 0.831999999999999,
+      "horizontalExitXZ": [
+        -0.7824338781013984,
+        -0.635
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.023274826699770657,
+        -0.03155075694931586
+      ],
+      "tableCenterScreenXFraction": 0.4930368305338049
+    },
+    {
+      "t": 0.85,
+      "eyeXZ": [
+        2.1203557133780113,
+        1.6715536631365517
+      ],
+      "orbitDegrees": 38.25,
+      "headingOffsetDegrees": 0.48599999999999893,
+      "horizontalExitXZ": [
+        -0.7549895818505372,
+        -0.6350000000000002
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.014254728609204292,
+        -0.017925144648814673
+      ],
+      "tableCenterScreenXFraction": 0.49593274455368924
+    },
+    {
+      "t": 0.9,
+      "eyeXZ": [
+        2.0530961071200835,
+        1.753509730491496
+      ],
+      "orbitDegrees": 40.5,
+      "headingOffsetDegrees": 0.2240000000000002,
+      "horizontalExitXZ": [
+        -0.7214509592030143,
+        -0.6349999999999998
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.0068710848642767886,
+        -0.008013235096584248
+      ],
+      "tableCenterScreenXFraction": 0.4981254127049817
+    },
+    {
+      "t": 0.95,
+      "eyeXZ": [
+        1.982670775476351,
+        1.832762012938943
+      ],
+      "orbitDegrees": 42.75,
+      "headingOffsetDegrees": 0.058000000000001606,
+      "horizontalExitXZ": [
+        -0.6815235017905465,
+        -0.6349999999999998
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.0018563039659500458,
+        -0.0020061003263196486
+      ],
+      "tableCenterScreenXFraction": 0.4995146179072554
+    },
+    {
+      "t": 1.0,
+      "eyeXZ": [
+        1.9091883092036785,
+        1.9091883092036783
+      ],
+      "orbitDegrees": 45.0,
+      "headingOffsetDegrees": 0.0,
+      "horizontalExitXZ": [
+        -0.6350000000000002,
+        -0.635
+      ],
+      "opticalAxisBedIntersectionXZ": [
+        0.0,
+        0.0
+      ],
+      "tableCenterScreenXFraction": 0.5
+    }
+  ]
+}
