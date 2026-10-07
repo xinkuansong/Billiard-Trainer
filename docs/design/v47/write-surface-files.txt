@@ -74,6 +74,9 @@ QiuJiUITests/B1_ManualFormationUITests.swift
 QiuJiUITests/BallStickerUITests.swift
 QiuJiUITests/CueStyleUITests.swift
 QiuJiUITests/Daily3DDeviceProfilingUITests.swift
+QiuJiUITests/DailyAdaptivePanelUITests.swift
+QiuJiUITests/DailyAdaptivityAuditUITests.swift
+QiuJiUITests/DailyLayoutLifecycleUITests.swift
 QiuJiUITests/DeviceMatrixUITests.swift
 QiuJiUITests/DrillSceneThreeBeatUITests.swift
 QiuJiUITests/Helpers/TheoryFigureEvidence.swift

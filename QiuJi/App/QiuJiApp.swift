@@ -114,12 +114,6 @@ struct QiuJiApp: App {
                     await subscriptionManager.checkEntitlements()
                 }
                 .task {
-                    DailyClearancePreloader.shared.setForeground(scenePhase != .background)
-                }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
-                    DailyClearancePreloader.shared.discard()
-                }
-                .task {
                     // 预热击球音频引擎：AVAudioEngine 首次冷启动会同步阻塞主线程，
                     // 若发生在首杆触球瞬间会让跟杆动画先于球体推进（视觉上球杆穿过母球）。
                     // 启动后延迟一拍预热，把这次冷启动挪出「首次击球」的动画临界区。
@@ -131,8 +125,6 @@ struct QiuJiApp: App {
                     if !enabled { ShotAudioScheduler.shared.cancel() }
                 }
                 .onChange(of: scenePhase) { _, newPhase in
-                    if newPhase == .active { DailyClearancePreloader.shared.setForeground(true) }
-                    else if newPhase == .background { DailyClearancePreloader.shared.setForeground(false) }
                     if newPhase != .active { ShotAudioScheduler.shared.cancel() }
                     if newPhase == .active {
                         if UserPreferences.shared.soundEffectsEnabled { ShotSoundBank.shared.prepare() }
@@ -195,21 +187,18 @@ final class QiuJiOrientationDelegate: NSObject, UIApplicationDelegate {
 
 struct DailyTableOrientation: UIViewControllerRepresentable {
     var landscape: Bool
-    var onReady: (() -> Void)? = nil
-    var onFailure: (() -> Void)? = nil
+    var allowsTabletRotation = false
 
     func makeUIViewController(context: Context) -> Controller {
         let controller = Controller()
         controller.landscape = landscape
-        controller.onReady = onReady
-        controller.onFailure = onFailure
+        controller.allowsTabletRotation = allowsTabletRotation
         return controller
     }
 
     func updateUIViewController(_ controller: Controller, context: Context) {
         controller.landscape = landscape
-        controller.onReady = onReady
-        controller.onFailure = onFailure
+        controller.allowsTabletRotation = allowsTabletRotation
         controller.applyOrientation()
     }
 
@@ -219,63 +208,27 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
 
     final class Controller: UIViewController {
         var landscape = false
-        var onReady: (() -> Void)?
-        var onFailure: (() -> Void)?
+        var allowsTabletRotation = false
         private let owner = UUID()
         private weak var ownedScene: UIWindowScene?
         private var appliedLandscape: Bool?
-        private var hasAppeared = false
-        private var isRotating = false
-        private var deliveredReady = false
-
-        override func viewIsAppearing(_ animated: Bool) {
-            super.viewIsAppearing(animated)
-            // The lightweight entry can request rotation before navigation finishes.
-            // Existing consumers without a readiness gate retain their lifecycle.
-            if onReady != nil { applyOrientation() }
-        }
 
         override func viewDidAppear(_ animated: Bool) {
             super.viewDidAppear(animated)
-            hasAppeared = true
             applyOrientation()
-            notifyWhenReady()
         }
 
         override func viewDidLayoutSubviews() {
             super.viewDidLayoutSubviews()
-            notifyWhenReady()
-        }
-
-        override func viewWillTransition(to size: CGSize,
-                                         with coordinator: UIViewControllerTransitionCoordinator) {
-            isRotating = true
-            super.viewWillTransition(to: size, with: coordinator)
-            coordinator.animate(alongsideTransition: nil) { [weak self] _ in
-                self?.isRotating = false
-                self?.notifyWhenReady()
-            }
-        }
-
-        override func viewWillDisappear(_ animated: Bool) {
-            hasAppeared = false
-            super.viewWillDisappear(animated)
-        }
-
-        private func notifyWhenReady() {
-            guard onReady != nil, !deliveredReady else { return }
-            // Leave the UIKit layout transaction before publishing SwiftUI state.
-            DispatchQueue.main.async { [weak self] in
-                guard let self, self.hasAppeared, !self.isRotating, !self.deliveredReady,
-                      let scene = self.ownedScene, let window = self.view.window,
-                      QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] == self.owner,
-                      scene.interfaceOrientation.isLandscape == self.landscape,
-                      (window.bounds.width > window.bounds.height) == self.landscape,
-                      (self.view.bounds.width > self.view.bounds.height) == self.landscape,
-                      let onReady = self.onReady else { return }
-                self.deliveredReady = true
-                onReady()
-            }
+            guard DailyLayoutProbe.enabled else { return }
+            var fields = DailyLayoutProbe.windowFields(view)
+            fields["owner"] = owner.uuidString
+            fields["requestedLandscape"] = landscape
+            DailyLayoutProbe.record("orientation.layout", fields)
+            view.isAccessibilityElement = true
+            view.accessibilityIdentifier = "dailyLayout.entryProbe"
+            view.accessibilityLabel = "每日方向诊断"
+            view.accessibilityValue = DailyLayoutProbe.snapshotJSON()
         }
 
         func applyOrientation() {
@@ -284,12 +237,12 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
             ownedScene = scene
             appliedLandscape = landscape
             QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] = owner
-            request(landscape ? .landscapeRight : .portrait, in: scene)
+            let tablet = allowsTabletRotation && view.traitCollection.userInterfaceIdiom == .pad
+            request(tablet ? .all : (landscape ? .landscapeRight : .portrait), in: scene)
         }
 
         func restorePortrait() {
             guard let scene = ownedScene else { return }
-            hasAppeared = false
             if QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] == owner {
                 request(.portrait, in: scene)
                 QiuJiOrientationDelegate.masks.removeValue(forKey: ObjectIdentifier(scene))
@@ -300,16 +253,109 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
         }
 
         private func request(_ mask: UIInterfaceOrientationMask, in scene: UIWindowScene) {
+            if DailyLayoutProbe.enabled {
+                var fields = DailyLayoutProbe.windowFields(view)
+                fields["owner"] = owner.uuidString
+                fields["mask"] = mask.rawValue
+                DailyLayoutProbe.record("orientation.request", fields)
+            }
             QiuJiOrientationDelegate.masks[ObjectIdentifier(scene)] = mask
             let root = scene.windows.first(where: \.isKeyWindow)?.rootViewController
             root?.setNeedsUpdateOfSupportedInterfaceOrientations()
             root?.presentedViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
             scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { [weak self] error in
+                DailyLayoutProbe.record("orientation.failure", ["owner": self?.owner.uuidString ?? "nil", "error": String(describing: error)])
                 NSLog("[DailyTableOrientation] %@", error.localizedDescription)
-                guard let self,
-                      QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] == self.owner else { return }
-                self.onFailure?()
             }
         }
+    }
+}
+
+/// Opt-in, nonvisual entry/layout evidence. No readiness or camera decisions live here.
+enum DailyLayoutProbe {
+    static let enabled: Bool = {
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains("-dailyLayout.probe")
+        #else
+        return false
+        #endif
+    }()
+    private static let lock = NSLock()
+    private static var latest: [String: Any] = [:]
+    private static var signatures: [String: String] = [:]
+    static var fileURL: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("daily-layout-probe.jsonl")
+    }
+    static func snapshot() -> [String: Any] {
+        guard enabled else { return [:] }
+        lock.lock(); defer { lock.unlock() }
+        return latest
+    }
+    static func snapshotJSON() -> String {
+        guard enabled else { return "" }
+        do {
+            return String(decoding: try JSONSerialization.data(withJSONObject: snapshot(), options: .sortedKeys), as: UTF8.self)
+        } catch {
+            NSLog("[DailyLayoutProbe] snapshot encoding failed: %@", String(describing: error))
+            return "encodingFailed"
+        }
+    }
+    static func record(_ event: String, _ makeFields: @autoclosure () -> [String: Any] = [:]) {
+        guard enabled else { return }
+        let fields = makeFields()
+        lock.lock(); defer { lock.unlock() }
+        do {
+            let signature = String(decoding: try JSONSerialization.data(withJSONObject: fields, options: .sortedKeys), as: UTF8.self)
+            guard signatures[event] != signature else { return }
+            signatures[event] = signature
+            var row = fields
+            row["event"] = event
+            row["time"] = CACurrentMediaTime()
+            row["pid"] = ProcessInfo.processInfo.processIdentifier
+            latest[event] = row
+            var bytes = try JSONSerialization.data(withJSONObject: row, options: .sortedKeys)
+            bytes.append(10)
+            if !FileManager.default.fileExists(atPath: fileURL.path) {
+                try Data().write(to: fileURL)
+            }
+            let handle = try FileHandle(forWritingTo: fileURL)
+            defer {
+                do { try handle.close() }
+                catch { NSLog("[DailyLayoutProbe] close failed: %@", String(describing: error)) }
+            }
+            try handle.seekToEnd()
+            try handle.write(contentsOf: bytes)
+            print("[DailyLayoutProbe] " + String(decoding: bytes, as: UTF8.self))
+        } catch {
+            NSLog("[DailyLayoutProbe] evidence write failed: %@", String(describing: error))
+        }
+    }
+    static func rect(_ value: CGRect) -> [String: CGFloat] {
+        ["x": value.origin.x, "y": value.origin.y, "width": value.width, "height": value.height]
+    }
+    static func size(_ value: CGSize) -> [String: CGFloat] {
+        ["width": value.width, "height": value.height]
+    }
+    static func insets(_ value: UIEdgeInsets) -> [String: CGFloat] {
+        ["top": value.top, "left": value.left, "bottom": value.bottom, "right": value.right]
+    }
+    static func windowFields(_ view: UIView) -> [String: Any] {
+        guard enabled else { return [:] }
+        let window = view.window
+        let scene = window?.windowScene
+        let traits = window?.traitCollection ?? view.traitCollection
+        return ["viewID": String(describing: ObjectIdentifier(view)),
+                "viewBounds": rect(view.bounds),
+                "windowID": window.map { String(describing: ObjectIdentifier($0)) } ?? "nil",
+                "sceneID": scene.map { String(describing: ObjectIdentifier($0)) } ?? "nil",
+                "windowBounds": window.map { rect($0.bounds) } ?? [:],
+                "safeArea": insets(view.safeAreaInsets),
+                "orientation": scene?.interfaceOrientation.rawValue ?? 0,
+                "horizontalSizeClass": traits.horizontalSizeClass.rawValue,
+                "verticalSizeClass": traits.verticalSizeClass.rawValue,
+                "idiom": traits.userInterfaceIdiom.rawValue,
+                "displayScale": traits.displayScale,
+                "contentSizeCategory": traits.preferredContentSizeCategory.rawValue]
     }
 }

@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-06",
+  "references": [
+    {
+      "file": "daily-2d.png",
+      "source": "/var/folders/9v/h43x7nkj0hbbpslqxg68hjkm0000gn/T/codex-clipboard-dae0adad-d5ab-4e6d-b35c-2f1341d11d35.png",
+      "sha256": "06aaf0eca0643ba579cfcdcc71bc9194c412e8c82fecb449bfeb95930f36753e",
+      "bytes": 3099687,
+      "meaning": "User supplied visual direction only; not P01 before or cross-device validation"
+    },
+    {
+      "file": "daily-3d.png",
+      "source": "/var/folders/9v/h43x7nkj0hbbpslqxg68hjkm0000gn/T/codex-clipboard-8bc2204b-cd46-490d-a2ce-8731e286cfd3.png",
+      "sha256": "ba855c54544f68a5158364f430c6b6ba6b27f860c298c359af0522c15732d516",
+      "bytes": 3295554,
+      "meaning": "User supplied visual direction only; not P01 before or cross-device validation"
+    }
+  ]
+}

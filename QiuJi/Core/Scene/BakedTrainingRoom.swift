@@ -9,6 +9,7 @@ enum BakedTrainingRoom {
     /// XZ metres; asset dimensions are checked against these values in tests.
     static let roomLength: Float = 8
     static let roomWidth: Float = 6
+    static let ceilingHeight: Float = 3.6
     static let cameraSafeHalfExtents = SIMD2<Float>(roomLength / 2 - 0.35, roomWidth / 2 - 0.35)
     private static let cacheLock = NSLock()
     private static var cached: (style: RoomStyle, node: SCNNode)?
@@ -99,8 +100,136 @@ enum BakedTrainingRoom {
                 node.geometry?.materials = [material]
             }
         }
+        room.addChildNode(makeCeiling(style: style))
         room.addChildNode(makePosters(style: style))
         return room
+    }
+
+    /// Interior-only closure: the back face is culled for cameras above the room.
+    /// A single textured surface avoids overhead boxes occluding training views.
+    /// The existing room cache owns the texture; the reflection probe sees it too.
+    private static func makeCeiling(style: RoomStyle) -> SCNNode {
+        // Extend 1 cm into each wall to close the wall-top bevel without a light leak.
+        let plane = SCNPlane(width: CGFloat(roomLength + 0.02), height: CGFloat(roomWidth + 0.02))
+        let material = SCNMaterial()
+        material.name = "room_ceiling_" + style.rawValue
+        material.lightingModel = .constant
+        material.diffuse.contents = ceilingTexture(style: style)
+        material.diffuse.minificationFilter = .linear
+        material.diffuse.magnificationFilter = .linear
+        material.diffuse.mipFilter = .linear
+        material.diffuse.maxAnisotropy = 8
+        material.isDoubleSided = false
+        material.cullMode = .back
+        plane.materials = [material]
+        let node = SCNNode(geometry: plane)
+        node.name = "room_ceiling"
+        node.position.y = ceilingHeight
+        // SCNPlane +Z normal becomes world -Y; X spans length, local Y spans Z.
+        node.eulerAngles.x = .pi / 2
+        node.castsShadow = false
+        return node
+    }
+
+    /// Authored diffuse finish, matching the room's constant baked-material path.
+    /// Dimensions below are metres. No emissive strips or additional lights.
+    private static func ceilingTexture(style: RoomStyle) -> UIImage {
+        let pixelsPerMetre: CGFloat = 192
+        let length = CGFloat(roomLength), width = CGFloat(roomWidth)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1; format.opaque = true
+        let size = CGSize(width: length * pixelsPerMetre, height: width * pixelsPerMetre)
+        return UIGraphicsImageRenderer(size: size, format: format).image { renderer in
+            let c = renderer.cgContext
+            c.scaleBy(x: pixelsPerMetre, y: pixelsPerMetre)
+            let bounds = CGRect(x: 0, y: 0, width: length, height: width)
+            func color(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat) -> UIColor {
+                UIColor(red: r, green: g, blue: b, alpha: 1)
+            }
+            func fill(_ rect: CGRect, _ color: UIColor) {
+                c.setFillColor(color.cgColor); c.fill(rect)
+            }
+            func frame(_ inset: CGFloat, _ thickness: CGFloat, _ color: UIColor) {
+                c.setStrokeColor(color.cgColor); c.setLineWidth(thickness)
+                c.stroke(bounds.insetBy(dx: inset + thickness/2, dy: inset + thickness/2))
+            }
+            let base: UIColor, edge: UIColor, timber: UIColor
+            switch style {
+            case .tournament:
+                base = color(0.34, 0.36, 0.38); edge = color(0.19, 0.21, 0.23)
+                timber = edge
+            case .walnut:
+                base = color(0.53, 0.49, 0.42); edge = color(0.31, 0.28, 0.23)
+                timber = color(0.29, 0.205, 0.135)
+            case .eastern:
+                base = color(0.46, 0.45, 0.41); edge = color(0.27, 0.26, 0.23)
+                timber = color(0.20, 0.16, 0.12)
+            }
+            fill(bounds, base)
+            // Soft room-scale falloff keeps the ceiling readable without a flat fill.
+            let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: [base.cgColor, edge.cgColor] as CFArray, locations: [0, 1])!
+            let center = CGPoint(x: length/2, y: width/2)
+            c.drawRadialGradient(gradient, startCenter: center, startRadius: 0.5,
+                endCenter: center, endRadius: hypot(length, width)/2, options: .drawsAfterEndLocation)
+
+            switch style {
+            case .tournament:
+                // Large acoustic panels follow the one-metre wall-panel rhythm.
+                c.setLineWidth(0.008)
+                c.setStrokeColor(UIColor(white: 0.08, alpha: 0.45).cgColor)
+                for x in 1..<Int(length) {
+                    c.move(to: CGPoint(x: CGFloat(x), y: 0.12))
+                    c.addLine(to: CGPoint(x: CGFloat(x), y: width - 0.12))
+                }
+                for z in 1..<Int(width) {
+                    c.move(to: CGPoint(x: 0.12, y: CGFloat(z)))
+                    c.addLine(to: CGPoint(x: length - 0.12, y: CGFloat(z)))
+                }
+                c.strokePath()
+                frame(0, 0.12, edge)
+            case .walnut:
+                // Warm plaster, a walnut perimeter and three slender longitudinal battens.
+                frame(0, 0.28, timber)
+                for index in 1...3 {
+                    let z = CGFloat(index) * width / 4
+                    fill(CGRect(x: 0.28, y: z - 0.035, width: length - 0.56, height: 0.07), timber)
+                    fill(CGRect(x: 0.28, y: z + 0.035, width: length - 0.56, height: 0.018),
+                         UIColor(white: 0, alpha: 0.14))
+                }
+                frame(0.28, 0.018, color(0.39, 0.30, 0.21))
+            case .eastern:
+                // Quiet central field framed by dark timber and a sparse perimeter lattice.
+                frame(0, 0.12, timber)
+                frame(0.46, 0.075, timber)
+                frame(0.64, 0.025, timber)
+                for index in 1..<Int(length / 0.25) {
+                    let x = CGFloat(index) * 0.25
+                    for z in [CGFloat(0.12), width - 0.46] {
+                        fill(CGRect(x: x, y: z, width: 0.025, height: 0.34), timber)
+                    }
+                }
+                for index in 2..<Int(width / 0.25) - 1 {
+                    let z = CGFloat(index) * 0.25
+                    for x in [CGFloat(0.12), length - 0.46] {
+                        fill(CGRect(x: x, y: z, width: 0.34, height: 0.025), timber)
+                    }
+                }
+            }
+            // Deterministic fine mineral/wood grain; mip filtering removes it at distance.
+            var random: UInt32 = 0xCEA11
+            for _ in 0..<28_000 {
+                random = 1664525 &* random &+ 1013904223
+                let x = CGFloat(random & 65535) / 65535 * length
+                random = 1664525 &* random &+ 1013904223
+                let z = CGFloat(random & 65535) / 65535 * width
+                let onWood = style != .tournament && (x < 0.28 || x > length - 0.28 || z < 0.28 || z > width - 0.28)
+                fill(CGRect(x: x, y: z, width: onWood ? 0.05 : 0.004, height: 0.004),
+                     UIColor(white: random & 1 == 0 ? 0 : 1, alpha: onWood ? 0.035 : 0.018))
+            }
+            // The narrow wall junction is architectural occlusion, not a second light source.
+            frame(0, 0.025, UIColor(white: 0.04, alpha: 0.65))
+        }
     }
 
     /// Replace the bake's uniform carpet albedo while retaining its illumination.

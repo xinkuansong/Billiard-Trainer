@@ -2712,6 +2712,70 @@ final class ContinuousTrajectoryPreviewTests: XCTestCase {
         return vm
     }
 
+    func testSpinSamplePreservesTrajectoryAndCommitsBothAxesOnce() async throws {
+        let vm = try await makeVM()
+        defer { vm.clearTable() }
+        let routes = vm.scene.rootNode.childNodes.filter { $0.name == "tableProjectedAssist" }
+        XCTAssertFalse(routes.isEmpty)
+        let requests = vm.entryTiming["solveRequests", default: 0]
+        vm.updateSpin(x: 0.12, y: 0.18)
+        XCTAssertEqual(vm.entryTiming["solveRequests", default: 0], requests + 1)
+        XCTAssertEqual(vm.spinX, 0.12)
+        XCTAssertEqual(vm.spinY, 0.18)
+        XCTAssertTrue(routes.allSatisfy { $0.parent != nil }, "Input must not remove the displayed physical routes")
+        vm.play()
+        XCTAssertFalse(vm.isPlaying, "The retained preview must not authorize the old spin")
+        try await ready { !vm.isComputing }
+        XCTAssertNotNil(vm.livePreviewShot, "The first completed preview is cached after delivery")
+        XCTAssertEqual(vm.solvedShot?.shot.spinX, 0.12)
+        XCTAssertEqual(vm.solvedShot?.shot.spinY, 0.18)
+    }
+
+    func testContinuousSpinDeliversAndFinalResetMatchesPhysics() async throws {
+        let vm = try await makeVM()
+        defer { vm.clearTable() }
+        let before = vm.currentSnapshot()
+        for i in 1...70 {
+            vm.updateSpin(x: Double(i) / 500, y: Double(i) / 400)
+            XCTAssertTrue(vm.scene.rootNode.childNodes.contains { $0.name == "tableProjectedAssist" })
+            vm.play()
+            XCTAssertFalse(vm.isPlaying)
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertGreaterThan(vm.entryTiming["livePreviewDeliveries", default: 0], 1)
+        try await ready { !vm.isComputing }
+        XCTAssertEqual(vm.solvedShot?.shot.spinX, vm.spinX)
+        XCTAssertEqual(vm.solvedShot?.shot.spinY, vm.spinY)
+        vm.updateSpin(x: 0, y: 0)
+        XCTAssertNotNil(vm.livePreviewShot)
+        try await ready { !vm.isComputing }
+        let final = try XCTUnwrap(vm.solvedShot)
+        XCTAssertEqual(final.shot.spinX, 0)
+        XCTAssertEqual(final.shot.spinY, 0)
+        let independent = try XCTUnwrap(PositionPlayShotSolver.solve(before: before, shot: final.shot, surfaceY: vm.scene.surfaceY))
+        XCTAssertEqual(final.prediction.cuePath.map { [$0.x, $0.y, $0.z] }, independent.cuePath.map { [$0.x, $0.y, $0.z] })
+        XCTAssertFalse(vm.isPlaying)
+    }
+
+    func testSpinPreviewInvalidatesOnLeavingAndOtherHostsStayDiscrete() async throws {
+        let vm = try await makeVM()
+        defer { vm.clearTable() }
+        vm.updateSpin(x: 0.1, y: 0.2)
+        vm.cancelInteractiveTrajectoryPreview()
+        let deliveries = vm.entryTiming["livePreviewDeliveries", default: 0]
+        try await Task.sleep(for: .milliseconds(250))
+        XCTAssertNil(vm.livePreviewShot)
+        XCTAssertEqual(vm.entryTiming["livePreviewDeliveries", default: 0], deliveries)
+        vm.play()
+        XCTAssertFalse(vm.isPlaying)
+        vm.usesContinuousTrajectoryPreview = false
+        vm.updateSpin(x: 0.2, y: 0.1)
+        XCTAssertNil(vm.livePreviewShot)
+        try await ready { !vm.isComputing }
+        XCTAssertEqual(vm.solvedShot?.shot.spinX, 0.2)
+        XCTAssertEqual(vm.solvedShot?.shot.spinY, 0.1)
+    }
+
     func testContinuousPowerDeliversBeforeReleaseAndFinalShotMatches() async throws {
         let vm = try await makeVM()
         defer { vm.clearTable() }

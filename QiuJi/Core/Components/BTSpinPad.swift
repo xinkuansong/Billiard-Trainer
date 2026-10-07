@@ -18,6 +18,8 @@ struct BTSpinPad: View {
     var strikeAccess: CueStrikeAccess? = nil
     /// Only the white disc changes opacity; markings and interaction remain intact.
     var discOpacity: Double = 1
+    /// A host can submit both axes as one intent; nil preserves the binding behavior.
+    var onSpinChange: ((Double, Double) -> Void)? = nil
 
     @State private var dragSession: SpinPadDragSession?
     @GestureState private var dragIsActive = false
@@ -121,17 +123,20 @@ struct BTSpinPad: View {
         }
     }
 
+    private func commitSpin(_ x: Double, _ y: Double) {
+        if let onSpinChange { onSpinChange(x, y) }
+        else { spinX = x; spinY = y }
+    }
+
     private func apply(_ point: CGPoint, center: CGPoint, radius: CGFloat) {
         let requested = SpinPadMath.contact(at: point, center: center,
                                             radius: radius, locksSideSpin: locksSideSpin)
         if let access = strikeAccess {
             guard let allowed = access.constrained(spinX: requested.x, spinY: requested.y,
                                                    allowSideAdjustment: !locksSideSpin) else { return }
-            spinX = allowed.x
-            spinY = allowed.y
+            commitSpin(allowed.x, allowed.y)
         } else {
-            spinX = requested.x
-            spinY = requested.y
+            commitSpin(requested.x, requested.y)
         }
     }
 }
@@ -338,13 +343,20 @@ struct BTSpinPadCard: View {
     /// Compact landscape cards keep the same cross layout within the available height.
     var usesCompactLayout = false
     var availableHeight: CGFloat? = nil
-    /// Daily landscape: fixed size, bottom-aligned to the 2D inner rail in both modes.
+    /// Daily landscape: bounded design size, bottom-aligned to the 2D inner rail.
     var usesFixedLayout = false
+    /// nil retains the shared component's original 264pt card / 160pt disc.
+    var fixedCardExtent: CGFloat? = nil
     var discOpacity: Double = 1
+    /// A host can submit both axes as one intent; nil preserves the binding behavior.
+    var onSpinChange: ((Double, Double) -> Void)? = nil
     var onClose: () -> Void
 
     private var padDiameter: CGFloat {
-        if usesFixedLayout { return SpinPadLayout.fixedPadDiameter }
+        if usesFixedLayout {
+            return (fixedCardExtent ?? SpinPadLayout.fixedCardExtent)
+                - 2 * SpinPadLayout.keyHit - 2 * SpinPadLayout.horizontalPadding
+        }
         let width = SpinPadLayout.resolvedTableWidth(tableWidth)
         let diameter = SpinPadLayout.padDiameter(tableWidth: usesCompactLayout ? min(width, 336) : width)
         let reserve = 2 * SpinPadLayout.keyHit + 2 * SpinPadLayout.crossGap
@@ -363,9 +375,9 @@ struct BTSpinPadCard: View {
         }
         .padding(SpinPadLayout.horizontalPadding)
         .frame(width: usesFixedLayout
-               ? SpinPadLayout.fixedCardExtent
+               ? (fixedCardExtent ?? SpinPadLayout.fixedCardExtent)
                : (usesCompactLayout ? (isReadOnly ? nil : min(width, 2 * SpinPadLayout.maxPadDiameter)) : width),
-               height: usesFixedLayout ? SpinPadLayout.fixedCardExtent : nil)
+               height: usesFixedLayout ? (fixedCardExtent ?? SpinPadLayout.fixedCardExtent) : nil)
         .background {
             RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
                 .fill(Color.black.opacity(0.22))
@@ -389,7 +401,7 @@ struct BTSpinPadCard: View {
                     .allowsHitTesting(!locksSideSpin)
                     .accessibilityHidden(locksSideSpin)
                 BTSpinPad(spinX: $spinX, spinY: $spinY, locksSideSpin: locksSideSpin,
-                          strikeAccess: strikeAccess, discOpacity: discOpacity)
+                          strikeAccess: strikeAccess, discOpacity: discOpacity, onSpinChange: onSpinChange)
                     .frame(width: padDiameter, height: padDiameter)
                     .accessibilityIdentifier("spinPad.disc")
                 BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") { nudge(.right) }
@@ -440,7 +452,7 @@ struct BTSpinPadCard: View {
                             }
                         }
                         BTSpinPad(spinX: $spinX, spinY: $spinY, locksSideSpin: locksSideSpin,
-                                  strikeAccess: strikeAccess, discOpacity: discOpacity)
+                                  strikeAccess: strikeAccess, discOpacity: discOpacity, onSpinChange: onSpinChange)
                             .frame(width: padDiameter, height: padDiameter)
                         if !locksSideSpin {
                             BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") {
@@ -478,14 +490,19 @@ struct BTSpinPadCard: View {
         }
     }
 
-    /// 沿某方向微调一步并写回绑定；返回是否真的移动（false = 撞到打滑极限）。
+    private func commitSpin(_ x: Double, _ y: Double) {
+        if let onSpinChange { onSpinChange(x, y) }
+        else { spinX = x; spinY = y }
+    }
+
     private func resetSpin() {
         if let access = strikeAccess {
             guard let point = access.automaticPoint(spinX:0,spinY:0,allowSideAdjustment:!locksSideSpin) else { return }
-            spinX = point.x; spinY = point.y
-        } else { spinX=0; spinY=0 }
+            commitSpin(point.x, point.y)
+        } else { commitSpin(0, 0) }
     }
 
+    /// Returns whether the constrained point actually moved.
     private func nudge(_ dir: SpinNudgeDirection) -> Bool {
         if locksSideSpin, dir == .left || dir == .right { return false }
         let r = SpinPadMath.nudge(spinX: locksSideSpin ? 0 : spinX, spinY: spinY, dir)
@@ -495,7 +512,7 @@ struct BTSpinPadCard: View {
             point = corrected
         } else { point = (r.x,r.y) }
         let moved = abs(point.x-spinX)+abs(point.y-spinY) > 1e-7
-        spinX = point.x; spinY = point.y
+        commitSpin(point.x, point.y)
         return moved
     }
 }
@@ -519,7 +536,12 @@ struct BTSpinPadOverlay: View {
     var availableHeight: CGFloat? = nil
     /// Daily landscape: fixed size, bottom-aligned to the 2D inner rail in both modes.
     var usesFixedLayout = false
+    var fixedCardExtent: CGFloat? = nil
     var discOpacity: Double = 1
+    /// Moves only the card; the stage-wide dismissal layer retains its coverage.
+    var cardHorizontalOffset: CGFloat = 0
+    /// A host can submit both axes as one intent; nil preserves the binding behavior.
+    var onSpinChange: ((Double, Double) -> Void)? = nil
     var onClose: () -> Void
 
     var body: some View {
@@ -542,8 +564,11 @@ struct BTSpinPadOverlay: View {
                           usesCompactLayout: usesCompactLayout,
                           availableHeight: availableHeight,
                           usesFixedLayout: usesFixedLayout,
+                          fixedCardExtent: fixedCardExtent,
                           discOpacity: discOpacity,
+                          onSpinChange: onSpinChange,
                           onClose: onClose)
+                .offset(x: cardHorizontalOffset)
                 .padding(.bottom, bottomPadding)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -658,11 +683,17 @@ struct BTSceneSpinPadOverlay: View {
     @ObservedObject var scene: AngleTrainingScene
     let tableWidth: CGFloat
     let bottomPadding: CGFloat
+    var fixedCardExtent: CGFloat? = nil
     var discOpacity: Double = 1
+    var cardHorizontalOffset: CGFloat = 0
+    /// A host can submit both axes as one intent; nil preserves the binding behavior.
+    var onSpinChange: ((Double, Double) -> Void)? = nil
     var onClose: () -> Void
     var body: some View {
         BTSpinPadOverlay(spinX:$spinX,spinY:$spinY,tableWidth:tableWidth,
             bottomPadding:bottomPadding,strikeAccess:scene.cueAccessSnapshot,
-            usesCompactLayout:true,usesFixedLayout:true,discOpacity:discOpacity,onClose:onClose)
+            usesCompactLayout:true,usesFixedLayout:true,fixedCardExtent:fixedCardExtent,discOpacity:discOpacity,
+            cardHorizontalOffset:cardHorizontalOffset,
+            onSpinChange:onSpinChange,onClose:onClose)
     }
 }

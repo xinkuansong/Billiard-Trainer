@@ -4932,3 +4932,185 @@ Changelog：DR-335 r11，覆盖原DR-335动作在剩余区域居中的位置约�
 ### DR-335 r12 — 开球图标相切几何（2026-10-05）
 `BreakRackGlyph` 以外接圆绘制等边三角形，60°尖角描边计入外轮廓；内侧三颗等大实心圆按同一几何推导，圆心距2r、每颗与相邻两内边相切。每日48pt圆按钮使用47pt图标，三个外顶点贴住1pt外圈描边内缘，点击区域保持48pt。其它使用该共享图标的入口沿用各自尺寸。覆盖r4每日30pt图标尺寸。构建及标准模拟器2D原图通过；3D共用代码，未单独截图，未装真机。证据：tasks/ui-reviews/UR-20261005-daily-rack-icon.md。
 - 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-335 r12、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-10-05）。
+
+
+### DR-335 r13 — 每日打点连续轨迹（2026-10-05）
+每日普通击球的打点拖动、轻点、四向微调及回中接入既有连续预览调度：保留上一条完整轨迹，后台单任务合并最新意图、最高15Hz，过期结果仅作变淡展示；击球仍要求最终参数一致。BTSpinPad/Card/Overlay/SceneOverlay新增可选onSpinChange(x,y)，默认nil维持旧绑定行为；每日通过updateSpin成对提交，避免两轴各触发一次求解。打点可达性自动修正保留已激活的连续预览。开球维持原runner；离页/后台沿用既有失效机制，不新增常驻计时器或改变物理精度。
+验证及交付状态见tasks/ui-reviews/UR-20261005-spin-live-trajectory.md。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-335 r13、`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-10-05）。
+
+
+### DR-323 r4 — 每日清台入口回退、移除预加载（2026-10-06）
+用户报告横屏后仍停留“暂时无法切换横屏”，明确要求恢复先加载页面再旋转，并取消预加载。首页与DEBUG直达直接创建FreePlayView(.dailyClearance)，页面onAppear配置并setupScene，方向控制恢复viewDidAppear请求；删除DailyClearanceEntryView、ready/failure门控、DailyClearancePreloader、App前后台/内存预加载接线和VM预加载注入。保留scene owner退出恢复保护与默认关闭的布局诊断；保留当前HUD/相机/连续轨迹/稳定SCNView。进入前不主动构建球台；首次按需解析后的普通资源缓存仍保留。接受短暂竖屏内容和首次按需加载等待，不增加固定延时。覆盖DR-323 r2/r3。
+Changelog：2026-10-06 / DR-323 r4 / 用户授权入口回退。验证见tasks/ui-reviews/UR-20261006-daily-entry-rollback.md。
+
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-323 r4；`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-10-06）。
+
+DR-323 r4初始化边界：setupScene(loadsDefaultLayout:)默认true，只有每日传false，按需建空场景后由每日控制器摆架/恢复；不重新引入普通自由击球示例球或其初始求解。
+
+## FL-123 — 球桌适配提案未完整对齐参考页能力（2026-10-06）
+- 任务：P01-A方案评审，用户打回r01。
+- 现象：底部球库偏离每日顶部参考，进袋等入口仍常驻，未逐项纳入每日适用设置。
+- 根因：方案只按空间与旧页能力安排，未建立参考页完整设置／状态映射。
+- 解决：r02顶部球库、设置收纳及逐项能力对照；记录偏好范围、接线缺口、菜单显示置底实际组合与验证。仅方案修订，App未实施。
+- 回写目标及已应用至：`.agents/skills/table-page-adaptation/SKILL.md` v1.1及任务卡模板；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；2026-10-06。
+- 证据：`tasks/table-page-adaptation/P01-SETTINGS-MAPPING.md`、`output/table-page-adaptation/P01/r02/`。方案遗漏已修订，原生实现及用户对r02完整体验的认可未完成。
+
+FL-123 / r03视觉返工（2026-10-06）：用户指出r02球桌比例、左右对称和仅3D视角入口不符。根因是用抽象通用线框替代逐模式原图对照。已撤回r02布局图，重开原始2D/3D附件并在r03原样展示，锁定真实桌形、双尺等宽同有效区上下沿、打点位置和3D右外侧相机入口。设置对照保留；App未实施、不得称视觉通过。已回写table-page-adaptation v1.2与P01契约、UI实施规范；证据output/table-page-adaptation/P01/r03/。
+
+## FL-125 — 顶栏临界宽度测试通过但中文标题省略（2026-10-06）
+
+- W2r2/r3 Max受控header在T=749.066148pt显示“每日…”，T−1/T+1完整；AX label仍是完整“每日清台”，实际文字frame仅43.3pt。首次原图/日志保留，W2未按测试绿关闭。
+- 根因证据：容量使用UIFont/NSString估宽59.533074pt，而SwiftUI实际自然宽59.666667pt；估值又被用作minimumScaleFactor的精确下界，恰阈值无法排入完整文字。改为同源SwiftUI Text自然量测，并恢复原regular文字fit行为；上层容量仍只预算原2pt压缩。
+- W2r4构建/原边界selector通过，exactT=749.333333pt原图完整、AX57.7pt。候选尚未完成最终跨尺寸回归；W2r5补实际文字宽度断言和T±显示像素。
+- 强制检查点：完整AX label不能证明文字未省略；容量边界须量测同一字体环境的Text，并核对实际排版宽/原图，禁止仅按估宽精确限制缩放后以语义标签断言放行。
+- 已应用至：`.cursor/rules/57-ui-reviewer.mdc` §FL-125；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-10-06）。证据见`output/daily-adaptive-execution-20261006/analysis/W2-visual-review.md`与`evidence/boundary/`。
+
+
+## DR-349 — 每日容量顶栏与原生命中（2026-10-06）
+
+W2r5内容容量常规/紧凑/局部滚动保留双Pro构图；同字体SwiftUI Text自然宽量测、regular保留原fit且仅预算2pt压缩。iOS<26每日尾延伸0、26保留24pt，不改共享Menu默认。首尾滚动选择与恢复通过；iOS17更多44×44、模式67×41，实际相邻边缘操作通过，AX描边0.5×41pt交集明确保留，不称零交集。
+
+## FL-125 解决回填 — W2r5最终资格（2026-10-06）
+
+冻结源9e01a5e9c1f03b75b5d571e398ee3637808d85ce227d4cbf6879d07625c0cdfa，11单元/16测试、114原图独审；双Pro58对geometry/existence零变化，MAE255 0–0.0119321394553仅描述。exactT749.333333及±显示像素/±pt标题完整、实际文字宽断言通过。首次r2/r3省略失败及r4候选、旧资格历史副本保留。只解决FL125；W3/W4、FL124/X与真机/真实窗口未关闭。证据：output/daily-adaptive-execution-20261006/evidence/W2-qualification.json及analysis/W2r5-visual-review.md。已应用至swiftui-design-system顶部DR349、UI实施规范Changelog；主控完成技能回写。
+
+## DR-350 — 每日两侧自然容量与低高度回收（2026-10-06）
+
+每日两侧容量采用真实stage点高与instrument自然布局高，分别计算144尺+104非尺+44/92动作、instrument+4+60；外padding仅在0…8pt内按display pixel回收。双尺144、击球60与共享默认不变；相机偏移消费同一padding。AX包络不作为自然高。Pro原档保持，SE实际258/4.5、mini257.666667/4.666667；过低容量必须留到受限态验证，不以已压缩测量冒称适配。
+- 验证：W3 18单元/26测试退出0，254原图独审；双Pro26对AX geometry/existence零变化；端点/细调/击球/回放/重打/相机有实际操作。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` §DR-350 与 `tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-10-06）。证据 `output/daily-adaptive-execution-20261006/analysis/W3-closeout.md`；W4/FL124/X不关闭。
+
+## FL-126 — 自适应面板的限高撑大 Pro 玻璃背景（2026-10-06，复验中）
+
+W4r2首个Pro16 core原图显示透明度内容仍靠顶，但glass从原96pt撑到剩余页面高度；功能tour退出0不能放行。根因：外层ViewThatFits与maxHeight参与父提案，maxHeight被当扩张容器而非只限制自然高。主控在完整矩阵前否决，停止scheduler；当时已启动SE文字test独立结束，所有r2证据保留。修订为相同宽度、不限高naturalContent实测，只在自然高超过available时给ScrollView明确viewport，普通分支不挂maxHeight。尚待W4r3真实基准与大字号复验，不能标已解决。
+- 强制检查点：卡片最大高度不是自然高度；普通候选必须先核对实际外框/材质边界，不能因文字/按钮本身通过而忽略背景铺满。隐藏自然测量不参与hit/AX，不改变字体约束；限高滚动与正常分支各验。
+- 证据：output/daily-adaptive-execution-20261006/evidence/W4r2-first-pro16-core/screenshots/core-2D-transparency.png；analysis/W4-visual-review.md。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §FL-126；tasks/UI-IMPLEMENTATION-SPEC.md Changelog，2026-10-06。
+
+## FL-127 — 透明度卡片空白命中落到盘外关闭（2026-10-06，复验中）
+
+W4r3 SE AX3四向键/回中通过后，卡片左内侧2pt点按+12pt拖动导致panel消失，底层aim/spin/velocity/count无变。同一W4r3 App纯UI专项在Pro16 AX3把动作拆分，实际panel(576,48,252,173.3333)，tap(578,134.6667)即关闭，尚未拖动；图与AX/状态保存。故不是仅拖动尾段或布局高度问题。卡片独立clear background空tap未建立整个可见卡的命中边界，当前候选改为卡片本体contentShape(Rectangle)+空tap，保留子Button/Slider原动作并必须实际复验，不以隐藏AX或SDK零issues替代。
+- 强制检查点：弹层空白/边缘要逐步真实tap/drag并核对呈现和业务状态；background材质、isModal或AXframe不能证明事件拦截。子动作/slider两端、盘外关闭均需回归。
+- 证据：output/daily-adaptive-execution-20261006/evidence/W4r3-first-se26-ax3-spin；W4r3-padding-pro16-ax3（纯UI诊断）。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §FL127；tasks/UI-IMPLEMENTATION-SPEC.md Changelog，2026-10-06。
+
+## FL-128 — 小屏增高设置卡遮挡相邻打点与相机控件（2026-10-06，复验中）
+
+W4r4 SE最大普通字号原生text/slider测试通过，但独立原图审查发现100%卡片增高覆盖大盘右键，3D端点/slider与全局观察眼睛重叠。单个卡片文字完整不等于多个浮层共同布局合格。当前候选按264pt预览卡与252pt设置卡的真实横向容量做局部并列，保留相机48pt通道；Pro标准原位置无横交时保留。只移动卡片不移动覆盖整个stage的关闭层，世界坐标/桌面比例不变。尚待构建、同源基准、各字号及真实命中复验。
+- 强制检查点：弹层增高要审相邻交互层/文字的组合，不以单项contains/hittable或测试绿豁免视觉遮挡；断点来自现有组件容量，不能按机型或全UI比例缩放。
+- 证据：output/daily-adaptive-execution-20261006/analysis/W4r4-visual-SE-text.md；W4-paired-panel-design-review.md；W4-paired-panel-numeric-draft.json。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §FL-128；tasks/UI-IMPLEMENTATION-SPEC.md Changelog，2026-10-06。
+
+### FL-128 r2（2026-10-06）
+R5 SE最大AX33图测试绿但settings盖strike，独审否决。R6候选实测strike frame限高，未宣布完成。已应用至：swiftui-design-system §FL128r2、UI-IMPLEMENTATION-SPEC Changelog及FAILURE-LOG；原失败图与测试均保留。
+
+
+## FL-129 — 打点卡可操作但越过小屏球桌内框（2026-10-06，返工中）
+
+用户在W4r6图审过程中指出小屏打点盘过大、应位于球桌内侧，iPad应固定设计大小。旧验收只覆盖窗口内可见/命中和相邻设置卡避让，没有把整张打点卡对内框的包含关系作为产品判据；SE的264pt卡越过内框上边，并列时又贴stage而非内框。旧测试绿不能作为该视觉意图通过。R7候选以原未缩放2D内框的宽/高限定整卡≤264，白盘承担尺寸变化，44pt键和8ptpadding不变；并列的左极限取inner.minX，2D3D同锚。Pro实际容量够时保留264/160，iPad同上限；极小窗口最低操作容量留W6。
+- 强制检查点：球桌相关浮层须检查完整外框对明确目标区域的包含，不只检查圆心/底锚/窗口可见；用户基准尺寸不能被误解为所有容器的固定最小尺寸。
+- 证据：analysis/W4r7-inner-fit-numeric-draft.json、W4r7-source-review.md（位于output/daily-adaptive-execution-20261006），R6原图保留；候选未称通过。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §FL-129；tasks/UI-IMPLEMENTATION-SPEC.md Changelog；方案v2.2（2026-10-06）。
+
+
+## FL-130 — 容量与基准保护代替了设计语义验收（2026-10-06，返工待实施）
+
+用户指出每日清台适配没有理解16 Pro尺寸的设计目的：桌面最大化、球库单行易点、按钮用好剩余空间、平板双尺合理定长及近方形重排。旧W2/W3主要证明放得下和基准不变，固定列/按钮/球径没有对应的空间收益评审。不能据此宣布整体适配完成。
+- 本轮处理：v3替代未来排期；R0复审完成，W2/W3总体验收重新打开；保留文字量测、低高度动作重排、面板命中/避让等局部成果，不回滚全部工作。App修订未实施。
+- 强制检查：每个尺寸标注硬约束/参考偏好/上限/弹性用途；审stage与实际桌框、宽高瓶颈、控件触点及剩余空间；近方形结构比较前移。历史测试绿和窄触点例外不能代替新语义验证。
+- 证据：tasks/ui-reviews/UR-20261006-daily-adaptive-semantic-review.md；output/daily-adaptive-semantic-review-20261006/；方案v3。
+- 已应用至：swiftui-design-system技能FL-130、UI-IMPLEMENTATION-SPEC Changelog、PROGRESS。状态：复审/方案修订完成，R1–R5待实施。
+
+FL-123 / lab-r02真机返工（2026-10-06，F04）：lab-r01仅自身对称，没有同窗口Daily对拍；漏掉球库外沿锚定与镜像留白，误保留旧页面仅自由模式显示方向尺。现修正实验快照布局并接入已有临时自由状态机。初次同窗口测试已确认table.scene、双尺、打点、球库一致，但击球按钮AX范围61而Daily60pt；改用相同圆形contentShape与样式继续复验。已应用至 `.agents/skills/table-page-adaptation/SKILL.md` v1.3，页面卡和设置契约同步；未影响每日在途工作。最终验证见 lab-r02/REPORT.md。
+
+
+## DR-351 — 每日清台R1按真实桌面比较空间结构（2026-10-06，候选待评审）
+
+- **来源**：用户授权执行每日清台适配v3 R1；五项设计意图及DC01/02/07/08/24。
+- **当前实现**：页内 `DailyLayoutMetrics.Space` 接收真实页面、safe area、加载外框半尺寸及仪表自然高度，比较左右/桌下方案实际正交桌宽；不按机型/比例断点缩放整页。参考Pro关系保护，宽裕侧栏按钮有界增长、双尺144pt；桌下候选击球72pt，低容量提供独立返回。
+- **状态边界**：桌下动作位置是新取舍，尚未获得用户认可，不替换规范DC07或其他页面默认。原生图、操作与未验范围见 [R1报告](ui-reviews/UR-20261006-daily-r1-space.md)；当前状态只维护在 [CURRENT](daily-adaptive/CURRENT.md)。
+- **已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md` § DR-351候选接线/Changelog（2026-10-06）；`docs/00-讨论记录.md` 候选记录。没有公共组件API或物理规则变更。
+
+## FL-131 — R1阈值保护与验证坐标契约（2026-10-06）
+
+candidate1原生图发现1pt回收跨过Pro动作纵排阈值；已补真实资产外框和阈值保护，candidate2对照恢复，candidate3核心双模式再次零frame变化。窗口逻辑pt与系统变换后的live frame必须分别验证。低容量AX标识覆盖修正、真实导航返回测试修正及全部失败证据见 [FAILURE-LOG](FAILURE-LOG.md) FL-131和R1报告。
+- **已应用至**：`.cursor/rules/20-swiftui-developer.mdc` § FL-131；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-10-06）。
+
+
+## FL-132 / C19 — Figma竖向球桌只缩放外框（2026-10-07）
+- 原因：C18粗调控件转换排除球桌，旋转子图片仍为MIN固定尺寸，外框609×1108而画面544×989。
+- 修复/证据：用户版9桌独立图块，普通拖角609×1108→556×1012并精确恢复，错误0、非球桌几何改动0；见每日CURRENT C19及inventory.json。
+- 已应用至：`.agents/skills/table-page-adaptation/SKILL.md` FL-132/C19（2026-10-07）；UI-IMPLEMENTATION-SPEC Changelog。仅Figma操作修复，无App源码或代码验收变化。
+
+## DR-352 — 2D功能展开的桌心与右上锚点（2026-10-07，Figma设计）
+
+用户部分粗调后明确：右上弹层贴设置下方并右对齐；手机打点整卡充满长库内沿上下范围并桌心居中，Pad约310桌心居中；全部沿用已确认2D基础。已在精调文件创建C31 50屏，保留C26和用户原稿；不是App实现。右上间距细化为2pt；三手机整卡242/284/322、Pad310；新增状态待用户视觉确认。
+- **验证**：50屏边界/锚点/居中/面板重叠/基础几何检查通过，旧稿与保护页哈希未变；50图导出，9张代表图目检，本地.fig已保存。原生交互与3D未验。
+- **已应用至**：`docs/design/daily-clearance/每日清台设计规范.md` v1.2 § DC10/11/13；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（设计约束，非已上线API）。证据及下一步见每日CURRENT C31。
+
+
+## DR-353 — 弹框磨砂与打点透明底分开（2026-10-07，Figma设计）
+
+用户指出C31弹框偏黑、不透，要求接近提供的原生磨砂参考；随后明确打点盘面积大、用于击球，应保留原透明底。C33只对45个菜单/设置/确认面板应用灰色半透明+背景模糊；20张打点卡原样恢复C31，白盘透明度独立。全部位置/尺寸/文字与基础HUD保持，当前页仅新版，历史C31备份不覆盖。
+- 验证：50屏非材质内容检查、20打点盘完整树与备份比对、45磨砂面板检查；见c33/verification.json。代表图目检与备份记录见每日CURRENT；无App测试或代码实现。
+- **已应用至**：`docs/design/daily-clearance/每日清台设计规范.md` v1.3 DC12；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog/组件设计约束（2026-10-07）。
+
+
+## FL-132 / C35 — 跨文件图片引用存在不代表资源已复制（2026-10-07）
+
+- 用户发现C34多屏没有文字。源稿图册正常，但目标用户文件44个图片hash中26个在1.2秒检查窗口内无法读取，影响32屏58对象；图层、尺寸、可见性均存在。上轮未全量验证目标文件图片字节与实际渲染，错误地以源稿导出和几何检查代替交付完整性。
+- 原位修复：从精调源稿导出75控件及5底图完整PNG字节，通过本地插件createImage直接嵌入用户文件115对象；不依赖跨文件剪贴板异步图片加载。保留当前ID、位置/大小/旋转、透明度、锁定、比例及图层关系，几何差异0；用户其他页不变。
+- 复验：全部图片字节可读，错误0；从用户文件实际导出40屏，75控件PNG非空；40屏提示区域目检完整，iPad横屏缺字原位实看恢复。与C34源稿40图对比最大平均通道差0.221/255（栅格化/采样差异），不声称逐像素相同。证据：output/daily-figma-workspace-20261006/c35/。
+- 已应用至：.agents/skills/table-page-adaptation/SKILL.md FL-132/C35；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。之后跨文件交付须在目标文件验证图片字节、透明非空和全部状态实际渲染；资源缺失先补字节，不重排用户布局。
+
+
+## DR-354 — 开球碰库不足改为信息提示＋左右双选项（2026-10-07，Figma设计）
+
+用户指定第一行使用带i文本提示，下方左右为“重新开球”“继续击球”。仅此状态覆盖原三选项，五尺寸统一；其他规则处置不推广。普通透明白字信息样式，两按钮同等样式、等宽高。当前仅用户06页设计稿与90源组件完成，App规则/动作映射未实现。
+- 已应用至：每日清台设计规范DC20 C36设计覆盖条目、UI-IMPLEMENTATION-SPEC Changelog（2026-10-07）。证据：c36/verification.json、final-audit.json、五屏实际导出。
+
+
+## DR-355 — 提示与操作各自锚定（2026-10-07，Figma设计）
+
+用户确认整行ⓘ提示统一上方、按钮独立桌心；三类带操作状态跨五尺寸/双模式/双文件同步。按钮尺寸、样式不变。C36文字下紧跟按钮关系被替代；App动作映射未改。
+- 已应用至：每日清台设计规范DC20 C38条目；UI-IMPLEMENTATION-SPEC Changelog；c38源/用户核验及30实际图。
+
+## FL-132 / C38 — 引擎防御性文案误当正常可达设计样例
+
+C34取“母球未在线后开球”并形成10张2D/3D示例，未先核对BreakFlowRunner摆位限制。现核实dragMoved钳制与BreakSimulator >=线后判据一致，示例从两份当前页归档；黑八重置其他分支未删除。当前页每模式35屏；归档内容完整、其他画板签名无变化。
+- 已应用至：table-page-adaptation技能FL-132/C38；UI-IMPLEMENTATION-SPEC Changelog。制作状态示例前核对UI触发约束与规则输入，防御性分支不得直接冒充常态可达产品流程。
+
+
+## FL-132 / C42 — 以隐藏底层控件伪造浮层避让（2026-10-07）
+
+- 任务：每日清台Figma功能展开。现象：瞄准子菜单只覆盖击球点/杆速上部，却让整件控件消失。
+- 根因：C31生成器对面板与击球点/杆速/击球矩形相交做visible=false；后续画板克隆继承此状态，纯几何/越界验收未检查基础可见性。
+- 解决：按用户要求恢复与已确认基础相同的可见性，保持面板在上层，自然覆盖/模糊，不能因相交隐藏整件控件；以实际导出验证。适用于菜单、子菜单及同源设置浮层；事件拦截与视觉显示分开处理。
+- 回写：设计规范DC11/DC13、FUNCTION-STATES、C42核验；后续3D同步时继承。App未改，旧生成脚本仅历史，不得重跑覆盖现稿。
+
+## DR-356 — 紧凑确认框及3D垂直锚点（2026-10-07，Figma设计）
+
+C43用户认可两类确认框252×108pt，双按钮110×44/间距8、标题15/按钮字14。C44同步3D后用户指出偏下，C45明确确认3D以画面垂直中心定位：y=(H−108)/2；横向保留，2D保持已确认桌心。仅主动重开/切换玩法放弃确认适用，不覆盖C38独立提示与按钮。App未实施。
+- 已应用至：每日清台设计规范C43条款的C45覆盖关系、UI-IMPLEMENTATION-SPEC Changelog（2026-10-07）。验证：c45/verification.json，10实际导出全审、中心数值及保护项错误0。
+
+## DR-357 — 窄窗球库单行不足时改两行（2026-10-07，Figma设计）
+
+用户反馈“这种放不下的，球库可以改成两行”。C48 r3两张420窄窗改上1–8／下9–15，母球独立，每排对桌心；具体分组待看图。保留27pt槽，整体62pt高，下沿贴桌，向上利用33pt空白；移除滚动提示。15球各一次，桌体及非球库子树无变化，旧稿归档96页；16样本4规则板实际导出、191内容框核验错误0。App未改，真实窗口及触点未验。
+- 已应用至：每日清台设计规范DC04/DC06、基础布局BL01/BL02及§5.2、UI-IMPLEMENTATION-SPEC Changelog。证据：output/daily-capacity-c48-20261007/verification.json、final-checks.json、images/。
+
+DR-357 / C48 r4反馈修订：用户要求两行更美观。上排1–7、下排9–15等宽同列，母球/黑8置于两侧同尺寸胶囊，垂直居中；保持27pt槽、62pt高度和桌体锚点。r3不等长排法保留96归档，不再作为当前方案。新排法待用户看图。
+
+## DR-358 — 窄窗打点盘先比较台内紧凑方案（2026-10-07，设计候选）
+
+C48以310固定卡不足推导独立模态，但232.69pt内台面仍可容纳按C31结构重排的232.5整卡。C49在保留44pt键、64×44回中与原字号前提下使用124.5白盘；600保留310卡。加入420收起/50%/100%、旧模态和600对照5屏，几何与源页保护错误0；App未改、真实拖动/安全区/3D未验。新尺寸待看图，不自动覆盖DC10。
+- 已应用至：每日设计规范DC10候选说明；UI-IMPLEMENTATION-SPEC Changelog；C49 DESIGN。设计不得把目标310无条件视为最小310，亦不能因几何能容纳就宣布触控舒适。
+
+
+## DR-360 / FL-133 — 每日清台 v4.1 原生适配与窗口闭环（2026-10-07）
+
+- 输入：C47安全区、C48 r4同色7+7球库、C49台内紧凑盘；用户连续授权B1–B8，顶部黑区交由另一任务。
+- API/行为：DailyLayoutMetrics以实际窗口容量输出球桌/台内框/侧列/球库；每日打点整卡按内框收缩、Pad上限310、四向键44pt，共享默认保持。DailyHUDPresentation统一每日菜单/设置/确认；底层HUD继续绘制，输入单独拦截。规则双主按钮通过重开子选项保留三种原引擎后果。
+- 窗口：iPad独立四方向声明及all mask启用真正内容resize；导航和浮层共享corner-aware侧向避让。r14用状态栏的实际屏幕遮挡补窗口缺失的top inset，GeometryReader只扣未消费差额；不硬编码机型高度、不重建球局/SceneKit。
+- 返工：最大字号标题可点却裁字；兼容缩放误当内容重排；浮窗面板未跟随导航右移；单向缩窗漏验最大化回程。失败及修复证据保留于[B8](daily-adaptive/B8.md)。r10–r12安全区尝试未解决；r13诊断确认宿主及UIWindow读数差异，r14实际同App最大化已通过。
+- 已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md` §DR-360/B8；`.cursor/rules/20-swiftui-developer.mdc` §FL-133；`.cursor/rules/57-ui-reviewer.mdc` §FL-133。当前最终验证/真机、读屏、云同步边界以B8为准；未提交发布。

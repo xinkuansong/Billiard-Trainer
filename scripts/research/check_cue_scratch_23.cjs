@@ -1,0 +1,32 @@
+const fs=require('fs'),path=require('path'),assert=require('assert'),vm=require('vm');
+const dir=path.resolve(__dirname,'../../output/cue-scratch-research-20261004/manual-23-20261006');
+const rows=JSON.parse(fs.readFileSync(path.join(dir,'cards.json')));
+const app=fs.readFileSync(path.join(dir,'app.js'),'utf8');
+const {filterCases,selectionPayload}=require(path.join(dir,'app.js'));
+const base={scope:'main',rail:'',distance:'',angle:'',target:'',scratch:'',query:''};
+assert.equal(rows.length,200);
+assert.equal(filterCases(rows,base,new Set()).length,200);
+for(const rail of [2,3])assert.equal(filterCases(rows,{...base,rail:String(rail)},new Set()).length,100);
+assert.equal(filterCases(rows,{...base,rail:'0'},new Set()).length,0);
+assert(rows.every(x=>x.distance>=60 && x.speed<=4.5 && [2,3].includes(x.rails)));
+assert.equal(new Set(rows.map(x=>x.id)).size,200);
+assert.equal(selectionPayload(rows,new Set(['K2-001','K3-100','FAKE'])).selected.length,2);
+class Element{constructor(tag='div'){this.tag=tag;this.children=[];this.value='';this.dataset={};this.classList={toggle:()=>{}};this.listeners={};this.textContent='';}append(...x){this.children.push(...x)}replaceChildren(...x){this.children=x}setAttribute(k,v){this[k]=v}addEventListener(e,f){this.listeners[e]=f}click(){if(this.onclick)this.onclick()}focus(){}select(){}scrollIntoView(){}showModal(){this.open=true}close(){this.open=false}}
+function boot(saved,failStorage=false){const ids={};for(const id of ['results','case-data','scope','rail','distance','angle','target','scratch','query','chosen-count','chosen-ids','storage-note','grid','result-count','empty','large-image','large-label','image-dialog','close-image','reset','download','copy','copy-status'])ids[id]=new Element();ids['case-data'].textContent=JSON.stringify(rows);ids.scope.value='main';const buttons=['prev','next','prev','next'].map(d=>{const e=new Element('button');e.dataset.page=d;return e});const downloads=[];const store={value:saved};const listeners={};const context={document:{getElementById:id=>ids[id],createElement:t=>new Element(t),querySelectorAll:()=>buttons},window:{addEventListener:(n,f)=>listeners[n]=f},location:{hash:''},localStorage:{getItem:()=>{if(failStorage)throw Error('blocked');return store.value},setItem:(k,v)=>{if(failStorage)throw Error('blocked');store.value=v}},navigator:{clipboard:{writeText:async()=>{}}},Blob,URL:{createObjectURL:b=>{downloads.push(b);return 'blob:test'},revokeObjectURL:()=>{}},setTimeout:f=>f()};vm.runInNewContext(app,context);return{ids,buttons,store,downloads,context,listeners};}
+const ui=boot('[]');assert.equal(ui.ids.grid.children.length,30);assert(ui.buttons[0].disabled);
+ui.buttons[1].click();assert.equal(ui.ids.grid.children[0].id,'K2-031');
+ui.ids.rail.value='3';ui.ids.rail.listeners.input();assert.equal(ui.ids.grid.children[0].id,'K3-001');assert(ui.ids['result-count'].textContent.includes('100'));
+ui.ids.query.value='K3-100';ui.ids.query.listeners.input();assert.equal(ui.ids.grid.children.length,1);
+const cb=ui.ids.grid.children[0].children[0].children[0];cb.checked=true;cb.onchange();assert.equal(ui.ids['chosen-ids'].value,'K3-100');
+ui.ids.download.click();assert.equal(ui.downloads.length,1);
+const restored=boot(ui.store.value);assert.equal(restored.ids['chosen-ids'].value,'K3-100');
+ui.context.location.hash='#K2-001';ui.listeners.hashchange();assert.equal(ui.ids.grid.children[0].id,'K2-001');
+ui.ids.reset.click();assert.equal(ui.ids.grid.children.length,30);
+const unavailable=boot('[]',true);assert(unavailable.ids['storage-note'].textContent.includes('不能保存'));
+for(const x of rows)assert(fs.existsSync(path.join(dir,x.id+'.svg')));
+const html=fs.readFileSync(path.join(dir,'index.html'),'utf8');
+const domIds=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);assert.equal(new Set(domIds).size,domIds.length);
+assert(!html.includes('主合集500'));assert(!html.includes('value="history"'));assert(html.includes('两库 100例 · 三库 100例'));
+const embedded=JSON.parse(html.match(/<script id="case-data" type="application\/json">(.*?)<\/script>/s)[1]);assert.deepEqual(embedded,rows);
+const report={passed:true,count:200,byRail:{2:100,3:100},checks:['limits and unique IDs','2/3 filters','pagination','selection and storage roundtrip','export handler','hash navigation','reset','blocked storage fallback','200 SVG files','embedded data matches JSON','unique DOM IDs'],browserVisualReview:'not performed: browser tool blocks file protocol'};
+fs.writeFileSync(path.join(dir,'ui-logic-check.json'),JSON.stringify(report,null,2));console.log(report);

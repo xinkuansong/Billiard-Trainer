@@ -140,7 +140,7 @@ struct MainTabView: View {
         case .reminder: TrainingReminderView()
         case .help: TrainingHelpView(ownerKey: ownerKey)
         case .dailyClearance:
-            DailyClearanceEntryView()
+            FreePlayView(entryMode: .dailyClearance)
         case .planList:
             PlanListView(ownerKey: ownerKey)
         case .planDetail(let planId):

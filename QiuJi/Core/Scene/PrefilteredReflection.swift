@@ -41,7 +41,9 @@ final class PrefilteredReflection {
               let encoder = command.makeComputeCommandEncoder() else { throw Failure.resource("response LUT") }
         lut.label = "GGX response v\(algorithmVersion)"
         encoder.setComputePipelineState(responsePSO); encoder.setTexture(lut, index: 0)
-        encoder.dispatchThreads(MTLSize(width: 128, height: 128, depth: 1), threadsPerThreadgroup: MTLSize(width: 8, height: 8, depth: 1))
+        // Uniform groups also work on Simulator devices without nonuniform dispatch.
+        // Both kernels guard their output bounds, including the smallest mip levels.
+        encoder.dispatchThreadgroups(MTLSize(width: 16, height: 16, depth: 1), threadsPerThreadgroup: MTLSize(width: 8, height: 8, depth: 1))
         encoder.endEncoding(); command.commit(); command.waitUntilCompleted()
         guard command.status == .completed else { throw command.error ?? Failure.resource("response execution") }
         let p = Programs(filter: filterPSO, response: responsePSO, queue: queue, lut: lut)
@@ -69,8 +71,9 @@ final class PrefilteredReflection {
             encoder.setComputePipelineState(programs.filter)
             encoder.setTexture(source, index: 0); encoder.setTexture(output, index: 1)
             encoder.setBytes(&parameters, length: MemoryLayout<SIMD2<UInt32>>.size, index: 0)
-            encoder.dispatchThreads(MTLSize(width: max(1, output.width >> level), height: max(1, output.height >> level), depth: 1),
-                                    threadsPerThreadgroup: MTLSize(width: 8, height: 8, depth: 1))
+            let width = max(1, output.width >> level), height = max(1, output.height >> level)
+            encoder.dispatchThreadgroups(MTLSize(width: (width + 7) / 8, height: (height + 7) / 8, depth: 1),
+                                         threadsPerThreadgroup: MTLSize(width: 8, height: 8, depth: 1))
             encoder.endEncoding()
         }
         command.commit(); command.waitUntilCompleted()

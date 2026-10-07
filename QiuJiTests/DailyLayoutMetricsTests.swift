@@ -1,0 +1,394 @@
+import XCTest
+import CoreGraphics
+@testable import QiuJi
+
+/// Capacity tests protect visible content and interaction slots. They do not
+/// substitute for Menu hit testing, glyph rendering, or system window resizing.
+final class DailyLayoutMetricsTests: XCTestCase {
+    func testCameraLaneUsesSafeCapacityAndRulerAxis() {
+        for width in stride(from:320.0,through:1366.0,by:31) {
+            for height in [350.0,390,780,1180] {
+                let f = DailyLayoutMetrics.Foundation(size:CGSize(width:width,height:height),
+                    leadingSafeArea:0,trailingSafeArea:0,
+                    halfLength:CameraRig.defaultTableOuterHalfLength,
+                    halfWidth:CameraRig.defaultTableOuterHalfWidth,
+                    instrumentHeight:DailyLayoutMetrics.Controls.initialInstrumentHeight)
+                guard f.fits else { continue }
+                let lane = DailyLayoutMetrics.CameraLane(column:f.right,pageWidth:width,
+                    trailingSafeArea:0,rulerHeight:f.rulerLength,topDiameter:f.topDiameter,stackHeight:140)
+                let frame = CGRect(x:f.right.minX+lane.offset.x,y:f.right.minY+lane.offset.y,width:44,height:140)
+                XCTAssertGreaterThanOrEqual(frame.minX,0)
+                XCTAssertLessThanOrEqual(frame.maxX,width)
+                XCTAssertGreaterThanOrEqual(frame.minY,44)
+                XCTAssertLessThanOrEqual(frame.maxY,height)
+                XCTAssertFalse(frame.intersects(CGRect(x:f.right.midX-22,y:frame.minY,width:44,height:140)))
+                XCTAssertEqual(frame.midY,f.right.minY+f.topDiameter+24+f.rulerLength/2,accuracy:0.001)
+            }
+        }
+    }
+
+    func testPaletteWrapPreservesAllSlotsWithoutReducingBallFaces() {
+        for count in [4, 5, 6, 9, 15] {
+            for width in stride(from: CGFloat(280), through: 1300, by: 1) {
+                let p = DailyLayoutMetrics.Palette(width: width, targetCount: count,
+                    chineseEightBall: count == 15, titleWidth: 92, actionWidth: 138,
+                    prefersSeparateRow: true)
+                XCTAssertGreaterThanOrEqual(p.diameter, 25)
+                if p.fits { XCTAssertLessThanOrEqual(p.totalWidth, width + 1e-8) }
+                XCTAssertFalse(p.sharesNavigation)
+            }
+        }
+        let narrow = DailyLayoutMetrics.Palette(width: 412, targetCount: 15,
+            chineseEightBall: true, titleWidth: 92, actionWidth: 138, prefersSeparateRow: true)
+        XCTAssertTrue(narrow.twoRows)
+        XCTAssertEqual(narrow.targetWidth, 7 * 27 + 8)
+        XCTAssertEqual(narrow.height, 62)
+        let wide = DailyLayoutMetrics.Palette(width: 592, targetCount: 15,
+            chineseEightBall: true, titleWidth: 92, actionWidth: 138, prefersSeparateRow: true)
+        XCTAssertFalse(wide.twoRows)
+    }
+
+    func testDailyCardUsesAvailableInnerSpaceAndLeavesSharedDefaultUnchanged() {
+        for width in stride(from: CGFloat(210), through: 650, by: 3) {
+            let rect = CGRect(x: 10, y: 20, width: width, height: 700)
+            let pad = DailyLayoutMetrics.SpinPad(playingRect: rect, displayScale: 2, maximumExtent: 310)
+            XCTAssertTrue(pad.fits)
+            XCTAssertLessThanOrEqual(pad.extent, min(width, 310))
+            XCTAssertGreaterThanOrEqual(pad.extent - 2 * SpinPadLayout.keyHit - 16, 104)
+            let original = DailyLayoutMetrics.SpinPad(playingRect: rect, displayScale: 2)
+            XCTAssertLessThanOrEqual(original.extent, 264)
+        }
+    }
+
+    func testFoundationKeepsRealRatioSymmetricLanesAndBoundedControls() {
+        for width in stride(from: CGFloat(360), through: 1400, by: 23) {
+            for height in stride(from: CGFloat(300), through: 1400, by: 29) {
+                let f = DailyLayoutMetrics.Foundation(size: .init(width: width, height: height),
+                    leadingSafeArea: 0, trailingSafeArea: 0, halfLength: 1.405481, halfWidth: 0.7775,
+                    instrumentHeight: 258)
+                XCTAssertEqual(f.table.width / f.table.height,
+                    f.rotated ? 0.7775 / 1.405481 : 1.405481 / 0.7775, accuracy: 1e-9)
+                XCTAssertEqual(f.table.minX - f.left.midX, f.right.midX - f.table.maxX, accuracy: 1e-9)
+                XCTAssertEqual(f.left.minY, f.right.minY)
+                XCTAssertEqual(f.stage.midX, f.table.midX)
+                XCTAssertEqual(f.stage.midY, f.table.midY)
+                XCTAssertEqual(f.table.width * CGFloat(CameraRig.rotatedFitMargin), f.stage.width, accuracy: 1e-9)
+                XCTAssertTrue([120, 144].contains(f.rulerLength))
+                if f.fits {
+                    XCTAssertGreaterThanOrEqual(f.left.minX, 4 - 1e-8)
+                    XCTAssertLessThanOrEqual(f.right.maxX, width - 4 + 1e-8)
+                    XCTAssertLessThanOrEqual(f.left.maxY, height + 1e-8)
+                    XCTAssertGreaterThanOrEqual(f.table.minY, 44)
+                    XCTAssertLessThanOrEqual(f.table.maxY, height + 1e-8)
+                }
+            }
+        }
+    }
+
+    func testFoundationReferenceCapacitiesAndSafeArea() {
+        for (w,h,safe) in [(667.0,375.0,0.0),(874,382,62),(956,420,62),(1210,809,0),(834,1153,0),(1024,719,0),(760,735,0)] {
+            let f = DailyLayoutMetrics.Foundation(size: .init(width:w,height:h),
+                leadingSafeArea:safe,trailingSafeArea:safe,halfLength:1.405481,halfWidth:0.7775,instrumentHeight:258)
+            XCTAssertTrue(f.fits, "\(w)x\(h)")
+            XCTAssertGreaterThanOrEqual(f.left.minX, safe - 1e-8)
+            XCTAssertLessThanOrEqual(f.right.maxX,w-safe+1e-8)
+            if h > w { XCTAssertEqual(f.left.midY, f.table.midY, accuracy: 0.5) }
+            if h == 375 { XCTAssertEqual(f.rulerLength,120); XCTAssertFalse(f.horizontalActions) }
+            if w == 874 { XCTAssertEqual(f.rulerLength,144); XCTAssertEqual(f.topDiameter,48) }
+            if w == 956 { XCTAssertEqual(f.rulerLength,144); XCTAssertEqual(f.topDiameter,56) }
+        }
+    }
+
+    func testSpaceProtectsReferenceAndUsesDockOnlyForLargerProportionalTable() {
+        func space(_ width: CGFloat, _ height: CGFloat, safe: CGFloat = 0) -> DailyLayoutMetrics.Space {
+            DailyLayoutMetrics.Space(size: CGSize(width: width, height: height), trailingSafeArea: safe,
+                halfLength: 1.4055, halfWidth: 0.7995, instrumentHeight: 258, displayScale: 3)
+        }
+        let pro = space(750, 402, safe: 62)
+        XCTAssertFalse(pro.docked)
+        XCTAssertEqual(pro.stage, CGRect(x: 68, y: 36, width: 614, height: 358))
+        XCTAssertEqual(pro.topDiameter, 48)
+        XCTAssertEqual(pro.auxiliarySize, 44)
+        // Loaded USDZ has a narrower outer Z extent than the bootstrap fallback.
+        let loadedPro = DailyLayoutMetrics.Space(size: CGSize(width: 750, height: 402), trailingSafeArea: 62,
+            halfLength: 1.4055, halfWidth: 0.7775, instrumentHeight: 257.6667, displayScale: 3)
+        XCTAssertEqual(loadedPro.left.minY, 44)
+        XCTAssertFalse(loadedPro.controls.horizontalActions)
+        XCTAssertTrue(space(320, 800).isLimited, "Tall height cannot compensate for an unusably narrow playfield")
+        XCTAssertTrue(space(600, 300).isLimited, "A short container cannot clip the instruments")
+        for (width, height, safe) in [(CGFloat(750), CGFloat(402), CGFloat(62)), (667, 375, 0),
+                                      (832, 440, 62), (1210, 834, 0), (760, 760, 0)] {
+            XCTAssertFalse(space(width, height, safe: safe).isLimited)
+        }
+        let square = space(760, 760)
+        XCTAssertTrue(square.docked)
+        XCTAssertEqual(square.strikeSize, 72)
+        XCTAssertEqual(square.columnWidth, 60)
+        XCTAssertGreaterThan(square.dockTableWidth, square.sideTableWidth)
+        XCTAssertGreaterThanOrEqual(square.left.minY, square.stage.maxY + 16)
+        XCTAssertGreaterThanOrEqual(square.right.minX, square.left.maxX + 8)
+        XCTAssertLessThanOrEqual(square.right.maxX + 48, 760)
+        let maxPhone = space(832, 440, safe: 62)
+        XCTAssertFalse(maxPhone.docked)
+        XCTAssertEqual(maxPhone.stage.width, 696, "Button growth cannot steal stage width")
+        XCTAssertGreaterThan(maxPhone.topDiameter, pro.topDiameter)
+        XCTAssertLessThan(maxPhone.topDiameter, maxPhone.strikeSize)
+        XCTAssertEqual(DailyLayoutMetrics.rulerHeight, 144)
+        for width in stride(from: CGFloat(480), through: 1400, by: 20) {
+            for height in stride(from: CGFloat(375), through: 1100, by: 25) {
+                let candidate = space(width, height)
+                if candidate.docked {
+                    XCTAssertGreaterThan(candidate.dockTableWidth, candidate.sideTableWidth)
+                    XCTAssertLessThanOrEqual(candidate.stage.maxY + 16, candidate.left.minY + 0.001)
+                    XCTAssertLessThanOrEqual(candidate.right.maxY, height + 0.001)
+                }
+                XCTAssertLessThanOrEqual(candidate.topDiameter, 56)
+                XCTAssertLessThanOrEqual(candidate.auxiliarySize, 48)
+            }
+        }
+    }
+
+    func testDailySpinCardFitsInnerRailsAndStopsGrowingAtReferenceSize() {
+        for scale in [CGFloat(2), 3] {
+            for height in stride(from: CGFloat(148), through: 900, by: 0.5) {
+                let inner = CGRect(x: 23, y: 61, width: height * 2, height: height)
+                let card = DailyLayoutMetrics.SpinPad(playingRect: inner, displayScale: scale)
+                XCTAssertTrue(card.fits)
+                XCTAssertLessThanOrEqual(card.extent, inner.height)
+                XCTAssertLessThanOrEqual(card.extent, 264)
+                XCTAssertGreaterThanOrEqual(card.extent - 104, 44)
+                if height >= 264 { XCTAssertEqual(card.extent, 264) }
+
+            }
+            for delta in [-1 / scale, CGFloat(0), 1 / scale] {
+                let inner = CGRect(x: 0, y: 0, width: 600, height: 264 + delta)
+                let fit = DailyLayoutMetrics.SpinPad(playingRect: inner, displayScale: scale)
+                XCTAssertEqual(fit.extent, min(264, 264 + delta), accuracy: 1e-10)
+            }
+        }
+        XCTAssertFalse(DailyLayoutMetrics.SpinPad(playingRect: .zero, displayScale: 3).fits)
+        XCTAssertFalse(DailyLayoutMetrics.SpinPad(playingRect: CGRect(x: 0, y: 0, width: 200, height: 147), displayScale: 3).fits)
+    }
+
+    func testControlCapacityPreservesProAndFitsSEWithoutShorteningRulers() {
+        let pro = DailyLayoutMetrics.Controls(stageHeight: 358, instrumentHeight: 257.9167, displayScale: 3)
+        XCTAssertEqual(pro.verticalPadding, 8)
+        XCTAssertFalse(pro.horizontalActions)
+        XCTAssertEqual(pro.minimumRequiredHeight, 340)
+        let se = DailyLayoutMetrics.Controls(stageHeight: 331, instrumentHeight: 258.25, displayScale: 2)
+        XCTAssertTrue(se.horizontalActions)
+        XCTAssertEqual(se.minimumRequiredHeight, 322.25)
+        XCTAssertEqual(se.verticalPadding, 4)
+        XCTAssertTrue(se.fitsWithoutPadding)
+        XCTAssertLessThanOrEqual(se.minimumRequiredHeight + 2 * se.verticalPadding, 331)
+        let bootstrap = DailyLayoutMetrics.Controls(stageHeight: 331, instrumentHeight: 259, displayScale: 2)
+        XCTAssertEqual(bootstrap.verticalPadding, se.verticalPadding)
+        XCTAssertEqual(DailyLayoutMetrics.rulerHeight, 144)
+        let max = DailyLayoutMetrics.Controls(stageHeight: 396, instrumentHeight: 257.9167, displayScale: 3)
+        XCTAssertEqual(max.verticalPadding, 8)
+        XCTAssertFalse(max.horizontalActions)
+    }
+
+    func testControlPaddingNeverSpendsMoreHeightThanAvailableAcrossDisplayPixels() {
+        for scale in [CGFloat(1), 2, 3] {
+            // Right column: independent 258.25 + 4 gap + 60 strike = 322.25.
+            for extra in [CGFloat(-1), 0, 1 / scale, 8.75, 16, 100] {
+                let available = 322.25 + extra
+                let result = DailyLayoutMetrics.Controls(stageHeight: available,
+                    instrumentHeight: 258.25, displayScale: scale)
+                XCTAssertGreaterThanOrEqual(result.verticalPadding, 0)
+                XCTAssertLessThanOrEqual(result.verticalPadding, 8)
+                XCTAssertEqual(result.verticalPadding * scale, floor(result.verticalPadding * scale))
+                XCTAssertEqual(result.fitsWithoutPadding, extra >= 0)
+                if result.fitsWithoutPadding {
+                    XCTAssertLessThanOrEqual(result.minimumRequiredHeight + 2 * result.verticalPadding, available)
+                }
+            }
+        }
+        let below = DailyLayoutMetrics.Controls(stageHeight: 357.999, instrumentHeight: 258.25, displayScale: 3)
+        let at = DailyLayoutMetrics.Controls(stageHeight: 358, instrumentHeight: 258.25, displayScale: 3)
+        XCTAssertTrue(below.horizontalActions)
+        XCTAssertFalse(at.horizontalActions)
+        XCTAssertEqual(at.minimumRequiredHeight, 340, "Both columns, including stacked left actions, must fit")
+    }
+
+    func testInvalidControlProposalsRemainFiniteAndReportInsufficientCapacity() {
+        for height in [CGFloat(-1), 0, .nan, .infinity] {
+            for instrument in [CGFloat(-1), 0, .nan, .infinity] {
+                for scale in [CGFloat(0), -1, .nan, .infinity] {
+                    let result = DailyLayoutMetrics.Controls(stageHeight: height, instrumentHeight: instrument, displayScale: scale)
+                    XCTAssertTrue(result.minimumRequiredHeight.isFinite)
+                    XCTAssertEqual(result.verticalPadding, 0)
+                    XCTAssertFalse(result.fitsWithoutPadding)
+                }
+            }
+        }
+    }
+
+    func testSettingsAnchorAndCapacityKeepSpinCardCentred() {
+        for width in stride(from: CGFloat(320), through: 1366, by: 7) {
+            for safe in [CGFloat(0), 44, 62] {
+                for y in [CGFloat(70), 450] {
+                    let card = CGRect(x: width / 2 - 121, y: y, width: 242, height: 242)
+                    let panel = DailyLayoutMetrics.Panels(pageWidth: width, trailingSafeArea: safe, spinFrame: card)
+                    XCTAssertEqual(panel.settingsLeading + panel.settingsWidth, width - max(4, safe), accuracy: 0.001)
+                    XCTAssertGreaterThanOrEqual(panel.settingsLeading, max(4, safe))
+                    XCTAssertGreaterThanOrEqual(panel.settingsWidth, 44)
+                    XCTAssertLessThanOrEqual(panel.settingsWidth, 252)
+                    if y == 450 { XCTAssertEqual(panel.settingsWidth, min(252, width - 2 * max(4, safe))) }
+                }
+            }
+        }
+        let se = DailyLayoutMetrics.Panels(pageWidth: 667, trailingSafeArea: 0,
+            spinFrame: CGRect(x: 212.5, y: 80, width: 242, height: 242))
+        XCTAssertEqual(se.settingsWidth, 202)
+        XCTAssertEqual(se.settingsLeading, 461)
+        XCTAssertEqual(DailyLayoutMetrics.Panels.top, 44 + 2)
+    }
+
+    func testSettingsViewportRespectsMeasuredStrikeWithoutMovingNaturalContent() {
+        let plan = DailyLayoutMetrics.Panels(pageWidth: 667, trailingSafeArea: 0,
+            spinFrame: CGRect(x: 212.5, y: 80, width: 242, height: 242))
+        for y in stride(from: CGFloat(160), through: 500, by: 0.5) {
+            let strike = CGRect(x: 610, y: y, width: 44, height: 44)
+            let available = plan.settingsHeight(pageHeight: 375, strikeFrame: strike)
+            XCTAssertLessThanOrEqual(46 + available + 8, min(y, 375))
+            XCTAssertGreaterThanOrEqual(available, 0)
+        }
+        XCTAssertEqual(plan.settingsHeight(pageHeight: 375, strikeFrame: .null), 321)
+        XCTAssertEqual(plan.settingsHeight(pageHeight: 375, strikeFrame: CGRect(x: 0, y: 100, width: 44, height: 44)), 321)
+    }
+
+    private typealias Header = DailyLayoutMetrics.Header
+    private let regularTitle: CGFloat = 60
+    private let compactTitle: CGFloat = 52
+
+    private func plan(_ width: CGFloat, balls: Int = 15, leading: CGFloat = 62,
+                      trailing: CGFloat = 24) -> Header {
+        Header(width: width, targetCount: balls, separators: balls == 15 ? 10 : 0,
+               regularTitleWidth: regularTitle, compactTitleWidth: compactTitle,
+               leadingAllowance: leading, trailingExtension: trailing)
+    }
+
+    private func threshold(_ style: Header.Style, balls: Int = 15,
+                           leading: CGFloat, trailing: CGFloat) -> CGFloat {
+        Header.minimumWidth(targetCount: balls, separators: balls == 15 ? 10 : 0,
+                            style: style, titleWidth: style == .regular ? regularTitle : compactTitle,
+                            leadingAllowance: leading, trailingExtension: trailing)
+    }
+
+    func testQualifiedProAndUninsetSmallPhonePreserveDesignIntent() {
+        let pro = plan(750)
+        XCTAssertEqual(pro.presentation, .fullRow)
+        XCTAssertEqual(pro.style, .regular)
+        XCTAssertEqual(pro.paletteWidth, 586, accuracy: 0.001)
+        XCTAssertEqual(pro.titleShift, 12)
+        let small = plan(667, leading: 0, trailing: 0)
+        XCTAssertEqual(small.presentation, .fullRow)
+        XCTAssertEqual(small.style, .compact)
+        XCTAssertEqual(small.titleShift, 0, "An uninset back button must not shift outside the window")
+    }
+
+    func testBothStyleCapacityBoundariesRespectTMinusOneTAndTPlusOne() {
+        for leading in [CGFloat(0), 62] {
+            for trailing in [CGFloat(0), 24] {
+                let regularT = threshold(.regular, leading: leading, trailing: trailing)
+                XCTAssertEqual(plan(regularT - 1, leading: leading, trailing: trailing).style, .compact)
+                for width in [regularT, regularT + 1] {
+                    let result = plan(width, leading: leading, trailing: trailing)
+                    XCTAssertEqual(result.style, .regular)
+                    XCTAssertEqual(result.presentation, .fullRow)
+                }
+                let compactT = threshold(.compact, leading: leading, trailing: trailing)
+                XCTAssertNotEqual(plan(compactT - 1, leading: leading, trailing: trailing).presentation, .fullRow)
+                for width in [compactT, compactT + 1] {
+                    XCTAssertEqual(plan(width, leading: leading, trailing: trailing).presentation, .fullRow)
+                }
+            }
+        }
+    }
+
+    func testFullRowsKeepVisibleTitleAndActualBallHitsClearOfActions() {
+        for balls in [4, 5, 6, 9, 15] {
+            for leading in [CGFloat(0), 62] {
+                for trailing in [CGFloat(0), 24] {
+                    for width in [CGFloat(400), 600, 667, 739, 740, 750, 900] {
+                        let result = plan(width, balls: balls, leading: leading, trailing: trailing)
+                        guard result.presentation == .fullRow else { continue }
+                        let paletteStart = (width - result.paletteWidth) / 2
+                        let hitWidth = result.style.diameter + 2
+                        let cueHitStart = paletteStart + 4
+                        let titleWidth = result.style == .regular ? regularTitle : compactTitle
+                        let allowedExistingFit: CGFloat = result.style == .regular ? 2 : 0
+                        let titleVisibleEnd = -result.titleShift + 44 - 12 + titleWidth - allowedExistingFit
+                        XCTAssertGreaterThanOrEqual(cueHitStart - titleVisibleEnd, 2 - 0.001)
+                        XCTAssertGreaterThanOrEqual(-result.titleShift, -leading)
+                        let lastBallHitEnd = paletteStart + result.paletteWidth - hitWidth - 16
+                        // The 1pt outline is part of the measured mode envelope.
+                        let actionsStart = width + trailing - (2 * result.style.modeSegmentWidth + 6 + 44 + 1)
+                        XCTAssertGreaterThanOrEqual(actionsStart - lastBallHitEnd, 2 - 0.001)
+                        XCTAssertGreaterThanOrEqual(cueHitStart, 0)
+                        XCTAssertLessThanOrEqual(lastBallHitEnd, width + trailing)
+                    }
+                }
+            }
+        }
+    }
+
+    func testFewerBallsAndMoreSafeSpaceNeverDemandMoreWidth() {
+        for style in [Header.Style.regular, .compact] {
+            var previous: CGFloat = 0
+            for balls in [4, 5, 6, 9, 15] {
+                let current = threshold(style, balls: balls, leading: 0, trailing: 0)
+                XCTAssertGreaterThan(current, previous, "Adding roster slots must consume capacity")
+                previous = current
+                XCTAssertLessThanOrEqual(threshold(style, balls: balls, leading: 62, trailing: 24), current)
+            }
+        }
+        XCTAssertEqual(plan(600, balls: 4).style, .regular,
+                       "Short rosters can retain normal faces without a device-width classification")
+        XCTAssertNotEqual(plan(600, balls: 15).presentation, .fullRow)
+    }
+
+    func testOverflowReservesFixedActionsAndACompleteTargetSlot() {
+        var scrollingCases = 0
+        for trailing in [CGFloat(0), 24] {
+            for width in stride(from: CGFloat(0), through: CGFloat(650), by: CGFloat(1)) {
+                let result = plan(width, leading: 0, trailing: trailing)
+                guard result.presentation == .scrolling else { continue }
+                scrollingCases += 1
+                XCTAssertGreaterThanOrEqual(result.leadingWidth, 44, "Return remains a full interaction slot")
+                XCTAssertGreaterThanOrEqual(result.targetViewportWidth, 52,
+                                           "One 44pt target plus both shell insets must be revealable")
+                let cueStart = result.leadingWidth + 4
+                let targetStart = cueStart + 52 + 4
+                let targetEnd = targetStart + result.targetViewportWidth
+                let modeStart = targetEnd + 4
+                let actionsEnd = modeStart + 66 + 44
+                XCTAssertLessThanOrEqual(actionsEnd, width + trailing + 0.001)
+                XCTAssertGreaterThanOrEqual(modeStart - targetEnd, 4,
+                                           "A 1pt outline must not consume the whole inter-group gap")
+                XCTAssertEqual(Header.overflowSlotWidth, 44,
+                               "Overflow must reserve separate standard interaction slots")
+            }
+        }
+        XCTAssertGreaterThan(scrollingCases, 0, "This test must exercise the actual overflow presentation")
+    }
+
+    func testWidthRoundTripHasNoHistoryAndTinyWidthsStayFinite() {
+        let original = plan(750)
+        for width in [CGFloat(667), 300, 44, 0, -1, CGFloat.leastNormalMagnitude, CGFloat.nan, CGFloat.infinity] {
+            let result = plan(width, leading: 0, trailing: 0)
+            XCTAssertTrue(result.paletteWidth.isFinite)
+            XCTAssertTrue(result.leadingWidth.isFinite)
+            XCTAssertTrue(result.targetViewportWidth.isFinite)
+            XCTAssertGreaterThanOrEqual(result.targetViewportWidth, 0)
+            if width < 44 { XCTAssertEqual(result.presentation, .limited) }
+            let restored = plan(750)
+            XCTAssertEqual(restored.style, original.style)
+            XCTAssertEqual(restored.presentation, original.presentation)
+            XCTAssertEqual(restored.paletteWidth, original.paletteWidth)
+            XCTAssertEqual(restored.titleShift, original.titleShift)
+        }
+    }
+}

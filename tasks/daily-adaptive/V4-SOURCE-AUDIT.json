@@ -1,0 +1,160 @@
+{
+  "date": "2026-10-07",
+  "purpose": "v4方案只读源码与C46文件核对；不是构建、运行或视觉验收",
+  "head": "b29febfb794e1c475df190736da4fda229478517",
+  "sourceStatus": [
+    " M QiuJi/App/QiuJiApp.swift",
+    " M QiuJi/Core/Components/BTSpinPad.swift",
+    " M QiuJi/Core/Scene/AngleSceneView.swift",
+    " M QiuJi/Features/PositionPlay/ViewModels/DailyClearanceController.swift",
+    " M QiuJi/Features/PositionPlay/Views/FreePlayView.swift",
+    "?? QiuJi/Features/PositionPlay/Views/DailyLayoutMetrics.swift",
+    "?? QiuJi/Features/PositionPlay/Views/DailySpinTransparencyPanel.swift",
+    "?? QiuJiTests/DailyLayoutMetricsTests.swift",
+    "?? QiuJiUITests/DailyAdaptivePanelUITests.swift",
+    "?? QiuJiUITests/DailyAdaptivityAuditUITests.swift",
+    "?? QiuJiUITests/DailyLayoutLifecycleUITests.swift"
+  ],
+  "sources": [
+    {
+      "path": "QiuJi/Features/PositionPlay/Views/DailyLayoutMetrics.swift",
+      "sha256": "8a42fc8e62cf1c45cddf7a9e0ebaefc2a1d21ddeda0bd7ea61ac4ca844817662",
+      "lines": 295
+    },
+    {
+      "path": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift",
+      "sha256": "b2d6d183b7d2ec8518d98cd2f16825136e4bd4971c5fd7a98ad11d4ab799f4eb",
+      "lines": 2315
+    },
+    {
+      "path": "QiuJi/Features/PositionPlay/Views/DailySpinTransparencyPanel.swift",
+      "sha256": "dca35d4af65ee9af1122edad87bb838d9cb24a6b19ab8630c51f4955d62f3cf4",
+      "lines": 145
+    },
+    {
+      "path": "QiuJi/Core/Components/BTSpinPad.swift",
+      "sha256": "1275d33046002af4501fa17f9f466e7ab104832f89857fe1064b401b691dce64",
+      "lines": 699
+    },
+    {
+      "path": "QiuJi/Core/Components/BTShotPageChrome.swift",
+      "sha256": "1de6d84ccc10888dc8d89e372ae0ebdf7e45924ff79d336d5500c3ece0088ac9",
+      "lines": 599
+    },
+    {
+      "path": "QiuJi/Core/Components/BTToast.swift",
+      "sha256": "fe1c82b6c7cf667e2c7c844e7b32dd7917c339e8ac6092810a3f0aaaea34729f",
+      "lines": 216
+    },
+    {
+      "path": "QiuJi/App/QiuJiApp.swift",
+      "sha256": "6d4d3f5e29b13b500dfe3306b1a0f6138035e884e8fdc422c93f2f46c5b86380",
+      "lines": 356
+    },
+    {
+      "path": "QiuJi/Core/Scene/AngleSceneView.swift",
+      "sha256": "abb641197feab161883849e46737ffed8929ba68a9bbd482586abb37ed200343",
+      "lines": 2172
+    },
+    {
+      "path": "QiuJi/Core/Rules/DailyClearanceRulesEngine.swift",
+      "sha256": "2992f76c400f62ec95c481d46319c1a1758203b762e37c9b838937d4d7a03b6a",
+      "lines": 569
+    },
+    {
+      "path": "QiuJi/Features/PositionPlay/ViewModels/DailyClearanceController.swift",
+      "sha256": "53890cdea05415ffe3d7831189449d5d65c800c099b28587d6b1c3c42be5b633",
+      "lines": 597
+    },
+    {
+      "path": "QiuJiTests/DailyLayoutMetricsTests.swift",
+      "sha256": "4a709a25261defb08460bea230a6026b996474b92cceeb6d0c1610e0a39b3f8c",
+      "lines": 335
+    },
+    {
+      "path": "QiuJiUITests/DailyAdaptivePanelUITests.swift",
+      "sha256": "232803733747951efe339cd20ea65951451c942a1ea51121ab0d57d3f8a440c1",
+      "lines": 707
+    },
+    {
+      "path": "QiuJiUITests/DailyLayoutLifecycleUITests.swift",
+      "sha256": "121d7191f290d97dd5f3027db8e852ed6dcc43a839e0f54c505d48357d5464f6",
+      "lines": 693
+    },
+    {
+      "path": "QiuJiUITests/DailyAdaptivityAuditUITests.swift",
+      "sha256": "fd3bb616c3ac7091643267dbaaed79a5e0b9af4c42de6b48178a5e7b27f97e4d",
+      "lines": 394
+    },
+    {
+      "path": "project.yml",
+      "sha256": "dfedbb7b98d8d934872cb3d65eddd1a79f42387a22cc2cdbef44f4c9da6beb5a",
+      "lines": 268
+    }
+  ],
+  "design": {
+    "manifest": "output/每日清台-精修总包/C46/manifest.json",
+    "manifestSha256": "02377bc80eea106bc9e2d0d1e50dfbbd5620ab6e8419827b71ebb6ed17e212ce",
+    "screens": 155,
+    "groups": [
+      {
+        "key": "01-2D-base",
+        "title": "2D 基础布局",
+        "version": "C26",
+        "status": "已确认",
+        "node": "3:484",
+        "count": 5
+      },
+      {
+        "key": "02-3D-base",
+        "title": "3D 基础布局",
+        "version": "C28",
+        "status": "已确认",
+        "node": "3:3407",
+        "count": 5
+      },
+      {
+        "key": "03-2D-functions",
+        "title": "2D 功能展开",
+        "version": "C43",
+        "status": "两类确认框已确认；其他分组审阅",
+        "node": "2011:41730",
+        "count": 65
+      },
+      {
+        "key": "04-3D-functions",
+        "title": "3D 功能展开",
+        "version": "C45",
+        "status": "两类确认框；居中结果待看图",
+        "node": "2023:55376",
+        "count": 10
+      },
+      {
+        "key": "06-2D-notices",
+        "title": "2D 文字提示",
+        "version": "C38",
+        "status": "已确认",
+        "node": "2018:1027",
+        "count": 35
+      },
+      {
+        "key": "07-3D-notices",
+        "title": "3D 文字提示",
+        "version": "C38",
+        "status": "已确认",
+        "node": "2020:12171",
+        "count": 35
+      }
+    ],
+    "assetHashErrors": [],
+    "figmaBackupBytes": 70794754,
+    "figmaBackupSha256": "b1759ad17a62d1a39cfa7c74ac24b68c0cf9a238f788579d518c57cdbb86a146",
+    "importRoundTrip": "未验证；两次导入器下载失败"
+  },
+  "validation": {
+    "appBuild": "not_run",
+    "appTests": "not_run",
+    "figmaMutation": false,
+    "appMutation": false
+  }
+}

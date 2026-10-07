@@ -1335,15 +1335,15 @@ final class CameraRig: ObservableObject {
         return max(fitVertical, fitHorizontal)
     }
 
-    func fitLandscapeTable(viewSize: CGSize) {
+    func fitLandscapeTable(viewSize: CGSize, rotated: Bool = false) {
         guard let scale = Self.landscapeOrthographicScale(
             viewSize: viewSize,
-            halfLength: tableOuterHalfLength,
-            halfWidth: tableOuterHalfWidth
+            halfLength: rotated ? tableOuterHalfWidth : tableOuterHalfLength,
+            halfWidth: rotated ? tableOuterHalfLength : tableOuterHalfWidth
         ) else { return }
         topDownFitScale = scale
         topDownOrthographicScale = scale / topDownZoom
-        clampTopDownPan(viewSize: viewSize, rotated: false)
+        clampTopDownPan(viewSize: viewSize, rotated: rotated)
     }
 
     // MARK: - Init

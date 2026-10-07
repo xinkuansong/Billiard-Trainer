@@ -1172,3 +1172,132 @@ FL-120/r9：按用户要求改为按钮同款24%透明底后，原生流程通�
 FL-122验证补充：首轮修复推算stage高331pt而实际338pt，第二轮全屏被控件最小高度撑到382pt，均由严格frame断言打回；改为页面实际高度约束背景、中央stage实测全局坐标。final2两尺寸原生通过且无黑帧，但图审发现首次3D旧viewport构图一帧，追加布局时同步相机后复验。
 
 FL-122收尾：稳定SCNView + 每日layout回调同步viewport/相机，修前身份断言失败、最终两尺寸3次往返和点球验证通过（小屏1UI、标准2UI）；最终录屏切换段黑场0，原约70ms消失。前两轮frame推算失败留痕，已改实测坐标；未装机/提交发布。见UR-20261005-daily-renderer-stable.md。
+
+## FL-123 — 球桌适配提案未完整对齐参考页能力（2026-10-06）
+- 任务：P01-A方案评审，用户打回r01。
+- 现象：底部球库偏离每日顶部参考，进袋等入口仍常驻，未逐项纳入每日适用设置。
+- 根因：方案只按空间与旧页能力安排，未建立参考页完整设置／状态映射。
+- 解决：r02顶部球库、设置收纳及逐项能力对照；记录偏好范围、接线缺口、菜单显示置底实际组合与验证。仅方案修订，App未实施。
+- 回写目标及已应用至：`.agents/skills/table-page-adaptation/SKILL.md` v1.1及任务卡模板；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；2026-10-06。
+- 证据：`tasks/table-page-adaptation/P01-SETTINGS-MAPPING.md`、`output/table-page-adaptation/P01/r02/`。方案遗漏已修订，原生实现及用户对r02完整体验的认可未完成。
+
+FL-123 / r03视觉返工（2026-10-06）：用户指出r02球桌比例、左右对称和仅3D视角入口不符。根因是用抽象通用线框替代逐模式原图对照。已撤回r02布局图，重开原始2D/3D附件并在r03原样展示，锁定真实桌形、双尺等宽同有效区上下沿、打点位置和3D右外侧相机入口。设置对照保留；App未实施、不得称视觉通过。已回写table-page-adaptation v1.2与P01契约、UI实施规范；证据output/table-page-adaptation/P01/r03/。
+
+## FL-124 — 自适应W1回归偶发临时俯视SIGBUS（2026-10-06，X未关闭）
+
+- 首次W1 Pro16核心tour在打开临时俯视时退出，原ips为B6334AF8-FC8D-414B-BCE8-165EC2AFFDC1；SceneKit主renderer的C3DAnimationManagerApplyActions→CFGetTypeID地址0xa。主线程同期配置第二SCNView。不是此前Metal线程组SIGABRT，也无OOM证据。
+- 只提取每日常量/等价公式的W1增量无scene/action改动；原selector重跑、W0r3对照和原S8六循环选球选袋stress均通过，但不能证明偶发故障修复或明确归因。首次SpringBoard截图排除golden，原日志/失败结果不覆盖。
+- W1完整62静态状态补齐，同名frame/existence零变化；布局准入与稳定性分开记录。X保持未关闭，后续核心回归保留临时俯视路径，若再现须结合动作/overlay时序和内存诊断定位；不得删断言/扩timeout/禁Metal校验/禁功能求绿。
+- 原证据与分析：`output/daily-adaptive-execution-20261006/evidence/W1-validation-pro16-core/`、`analysis/W1-scenekit-crash-review.md`、`analysis/W1-action-lifetime-review.md`、`evidence/W1-X-queue.json`。
+
+
+FL-123 / lab-r01实验续记（2026-10-06）：用户授权隔离原生首版后，真实模型按每日横屏骨架落地。test-03发现自定义返回箭头未设置矩形命中区，AX只有10×18pt字形，中心点击无效；已对齐每日44pt热区，test-04／05正常路由返回通过。早期逃逸闭包编译及旧SCNView isHittable定位失败均保留。首设备两尺几何断言、设置与拖球／击球链路通过；用户体验与全尺寸尚待，不能自动结案。证据：output/table-page-adaptation/P01/lab-r01/REPORT.md。
+
+## FL-125 — 顶栏临界宽度测试通过但中文标题省略（2026-10-06）
+
+- W2r2/r3 Max受控header在T=749.066148pt显示“每日…”，T−1/T+1完整；AX label仍是完整“每日清台”，实际文字frame仅43.3pt。首次原图/日志保留，W2未按测试绿关闭。
+- 根因证据：容量使用UIFont/NSString估宽59.533074pt，而SwiftUI实际自然宽59.666667pt；估值又被用作minimumScaleFactor的精确下界，恰阈值无法排入完整文字。改为同源SwiftUI Text自然量测，并恢复原regular文字fit行为；上层容量仍只预算原2pt压缩。
+- W2r4构建/原边界selector通过，exactT=749.333333pt原图完整、AX57.7pt。候选尚未完成最终跨尺寸回归；W2r5补实际文字宽度断言和T±显示像素。
+- 强制检查点：完整AX label不能证明文字未省略；容量边界须量测同一字体环境的Text，并核对实际排版宽/原图，禁止仅按估宽精确限制缩放后以语义标签断言放行。
+- 已应用至：`.cursor/rules/57-ui-reviewer.mdc` §FL-125；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-10-06）。证据见`output/daily-adaptive-execution-20261006/analysis/W2-visual-review.md`与`evidence/boundary/`。
+
+
+FL-125解决回填（2026-10-06，W2r5）：W2r5最终11单元/16测试退出0，114张原图逐张独审；冻结源`9e01a5e9c1f03b75b5d571e398ee3637808d85ce227d4cbf6879d07625c0cdfa`，双Pro58对geometry/existence零变化。MAE255范围0–0.0119321394553、均值0.0047279809951，仅描述差异。 同字体SwiftUI Text自然宽59.666667pt量测，regular保留原fit、上层仅预算原2pt压缩；exactT=749.333333及±1pixel/±1pt标题完整，恢复通过。iOS<26每日header尾延伸0、26保留24pt，共享Menu默认不变。iOS17 More44×44、mode67×41，实际边缘动作通过，AX描边仍0.5×41pt交集，不称几何零交集。27/32pt例外仅球库。 首次r2/r3省略与r4候选原证据保留；最终资格`output/daily-adaptive-execution-20261006/evidence/W2-qualification.json`及114图报告。只解决FL-125，FL-124/X不关闭。已应用至swiftui-design-system顶部DR349（主控完成）；见analysis/W2-closeout.md。
+
+## FL-126 — 自适应面板的限高撑大 Pro 玻璃背景（2026-10-06，复验中）
+
+W4r2首个Pro16 core原图显示透明度内容仍靠顶，但glass从原96pt撑到剩余页面高度；功能tour退出0不能放行。根因：外层ViewThatFits与maxHeight参与父提案，maxHeight被当扩张容器而非只限制自然高。主控在完整矩阵前否决，停止scheduler；当时已启动SE文字test独立结束，所有r2证据保留。修订为相同宽度、不限高naturalContent实测，只在自然高超过available时给ScrollView明确viewport，普通分支不挂maxHeight。尚待W4r3真实基准与大字号复验，不能标已解决。
+- 强制检查点：卡片最大高度不是自然高度；普通候选必须先核对实际外框/材质边界，不能因文字/按钮本身通过而忽略背景铺满。隐藏自然测量不参与hit/AX，不改变字体约束；限高滚动与正常分支各验。
+- 证据：output/daily-adaptive-execution-20261006/evidence/W4r2-first-pro16-core/screenshots/core-2D-transparency.png；analysis/W4-visual-review.md。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §FL-126；tasks/UI-IMPLEMENTATION-SPEC.md Changelog，2026-10-06。
+
+## FL-127 — 透明度卡片空白命中落到盘外关闭（2026-10-06，复验中）
+
+W4r3 SE AX3四向键/回中通过后，卡片左内侧2pt点按+12pt拖动导致panel消失，底层aim/spin/velocity/count无变。同一W4r3 App纯UI专项在Pro16 AX3把动作拆分，实际panel(576,48,252,173.3333)，tap(578,134.6667)即关闭，尚未拖动；图与AX/状态保存。故不是仅拖动尾段或布局高度问题。卡片独立clear background空tap未建立整个可见卡的命中边界，当前候选改为卡片本体contentShape(Rectangle)+空tap，保留子Button/Slider原动作并必须实际复验，不以隐藏AX或SDK零issues替代。
+- 强制检查点：弹层空白/边缘要逐步真实tap/drag并核对呈现和业务状态；background材质、isModal或AXframe不能证明事件拦截。子动作/slider两端、盘外关闭均需回归。
+- 证据：output/daily-adaptive-execution-20261006/evidence/W4r3-first-se26-ax3-spin；W4r3-padding-pro16-ax3（纯UI诊断）。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §FL127；tasks/UI-IMPLEMENTATION-SPEC.md Changelog，2026-10-06。
+
+## FL-128 — 小屏增高设置卡遮挡相邻打点与相机控件（2026-10-06，复验中）
+
+W4r4 SE最大普通字号原生text/slider测试通过，但独立原图审查发现100%卡片增高覆盖大盘右键，3D端点/slider与全局观察眼睛重叠。单个卡片文字完整不等于多个浮层共同布局合格。当前候选按264pt预览卡与252pt设置卡的真实横向容量做局部并列，保留相机48pt通道；Pro标准原位置无横交时保留。只移动卡片不移动覆盖整个stage的关闭层，世界坐标/桌面比例不变。尚待构建、同源基准、各字号及真实命中复验。
+- 强制检查点：弹层增高要审相邻交互层/文字的组合，不以单项contains/hittable或测试绿豁免视觉遮挡；断点来自现有组件容量，不能按机型或全UI比例缩放。
+- 证据：output/daily-adaptive-execution-20261006/analysis/W4r4-visual-SE-text.md；W4-paired-panel-design-review.md；W4-paired-panel-numeric-draft.json。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §FL-128；tasks/UI-IMPLEMENTATION-SPEC.md Changelog，2026-10-06。
+
+FL-128 r2（2026-10-06）：W4r5 SE最大AX测试exit0/33图，但2D3D设置卡(388,48,223,319)与击球(555,308.5,60,60)相交，原图独审否决；不得推进broad。当前R6候选读取击球在freeplay命名坐标系的实际frame，仅在水平相交时把设置最大高限制到其上沿减8pt间隔；自然高保持，超容量阅读区滚动、关闭键固定。新增对应不相交断言；待真实同源复验。证据：analysis/W4r5-maxAX-visual.md及W4r6-panel-height-draft.json。
+
+
+## FL-129 — 打点卡可操作但越过小屏球桌内框（2026-10-06，返工中）
+
+用户在W4r6图审过程中指出小屏打点盘过大、应位于球桌内侧，iPad应固定设计大小。旧验收只覆盖窗口内可见/命中和相邻设置卡避让，没有把整张打点卡对内框的包含关系作为产品判据；SE的264pt卡越过内框上边，并列时又贴stage而非内框。旧测试绿不能作为该视觉意图通过。R7候选以原未缩放2D内框的宽/高限定整卡≤264，白盘承担尺寸变化，44pt键和8ptpadding不变；并列的左极限取inner.minX，2D3D同锚。Pro实际容量够时保留264/160，iPad同上限；极小窗口最低操作容量留W6。
+- 强制检查点：球桌相关浮层须检查完整外框对明确目标区域的包含，不只检查圆心/底锚/窗口可见；用户基准尺寸不能被误解为所有容器的固定最小尺寸。
+- 证据：analysis/W4r7-inner-fit-numeric-draft.json、W4r7-source-review.md（位于output/daily-adaptive-execution-20261006），R6原图保留；候选未称通过。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §FL-129；tasks/UI-IMPLEMENTATION-SPEC.md Changelog；方案v2.2（2026-10-06）。
+
+
+## FL-130 — 容量与基准保护代替了设计语义验收（2026-10-06，返工待实施）
+
+用户指出每日清台适配没有理解16 Pro尺寸的设计目的：桌面最大化、球库单行易点、按钮用好剩余空间、平板双尺合理定长及近方形重排。旧W2/W3主要证明放得下和基准不变，固定列/按钮/球径没有对应的空间收益评审。不能据此宣布整体适配完成。
+- 本轮处理：v3替代未来排期；R0复审完成，W2/W3总体验收重新打开；保留文字量测、低高度动作重排、面板命中/避让等局部成果，不回滚全部工作。App修订未实施。
+- 强制检查：每个尺寸标注硬约束/参考偏好/上限/弹性用途；审stage与实际桌框、宽高瓶颈、控件触点及剩余空间；近方形结构比较前移。历史测试绿和窄触点例外不能代替新语义验证。
+- 证据：tasks/ui-reviews/UR-20261006-daily-adaptive-semantic-review.md；output/daily-adaptive-semantic-review-20261006/；方案v3。
+- 已应用至：swiftui-design-system技能FL-130、UI-IMPLEMENTATION-SPEC Changelog、PROGRESS。状态：复审/方案修订完成，R1–R5待实施。
+
+FL-123 / lab-r02真机返工（2026-10-06，F04）：lab-r01仅自身对称，没有同窗口Daily对拍；漏掉球库外沿锚定与镜像留白，误保留旧页面仅自由模式显示方向尺。现修正实验快照布局并接入已有临时自由状态机。初次同窗口测试已确认table.scene、双尺、打点、球库一致，但击球按钮AX范围61而Daily60pt；改用相同圆形contentShape与样式继续复验。已应用至 `.agents/skills/table-page-adaptation/SKILL.md` v1.3，页面卡和设置契约同步；未影响每日在途工作。最终验证见 lab-r02/REPORT.md。
+
+## FL-131 — R1回收余量越过参考手机辅助动作阈值（2026-10-06，参考回归已修验）
+
+- **任务/严重程度**：每日清台v3 R1；P2，参考Pro构图回归。
+- **现象/证据**：candidate1构建与14项度量测试通过，但真实USDZ量测后回收1pt，将358pt控制区减至356pt，触发重打/回放横排。原始帧与布局JSON保留于 `output/daily-adaptive-execution-20261006/evidence/R1-candidate1-pro16-baseline/`。
+- **根因**：只保护控件自然最小高度，遗漏纵排阈值的2pt余量；纯测试只覆盖默认外框，未覆盖实际加载外框的较窄Z尺寸。
+- **处理**：Space回收预算同时保护当前动作排列边界；补真实外框参考输入测试。candidate2的16 Pro原生stage及七个关键控件frame与before一致，17 Pro同批基准通过；candidate3保留此分支并继续核心动作复验。不覆盖candidate1失败证据；R1整体候选是否采用另行记录。
+- **另一个证据问题**：candidate1方形UI用例将144逻辑pt直接与iPad缩放窗口live屏幕frame比较，实际124.14导致失败；snapshot中两尺均144且同Y。candidate2分别断言逻辑144与live等长/端点，并同时保存两套frame；此修订不是把原失败记为通过。
+- **规则回写**：`20-swiftui-developer.mdc` FL-131：回收剩余空间须保护离散布局阈值；模拟器窗口缩放须区分逻辑与屏幕坐标。
+
+FL-131 / R1证据边界补充：candidate2极小窗口的父VStack AX标识覆盖了返回按钮标识；candidate3改为标题持状态标识、返回独立ID。首次candidate3返回用例又因测试从deeplink根视图启动而没有可pop导航栈，失败保留；h3使用真实训练首页→每日清台→返回路径，600×300与320×760两例均退出0并保存返回首页图。仅证明受控容器返回，不证明系统resize恢复。证据见 `UR-20261006-daily-r1-space.md`、`candidate3-harness3-tour.json`。
+
+
+## FL-132 — Figma缩放工具验收未覆盖用户普通拖角（2026-10-06，已修复操作结构）
+
+- **现象**：用户普通Resize后，SE方向条外框16×153、内部尺区仍44×174，发生错位。此前只测K缩放不能证明无需快捷键的操作体验。
+- **处理**：保留用户布局与90张原始结构备份；用户版1215个控件用独立3倍透明图块、FIT填充、锁定比例。另建精调版恢复1215结构控件/3125文字节点。SVG中间方案丢失杆速圆角，目检后弃用。
+- **验证**：桌面普通Move拖角：方向条38.69×153→49×194、杆速44×190→35×152，内容同步，随后恢复。转换/恢复错误0；粗调控件未锁比例0。这里只关闭Figma编辑操作问题，不代表布局被认可或App适配完成。
+- **规则回写**：`.agents/skills/table-page-adaptation/SKILL.md` FL-132：按用户实际操作验收，区分粗调图块与完整精调结构；用户确认精调后才进入代码。
+
+FL-132 / C19补充（2026-10-07）：C18遗漏竖向球桌Frame，外框609×1108、内图544×989固定不变。已将用户版9张竖屏球桌改为独立图块；普通拖角实测556×1012后还原609×1108及用户位置，非球桌改动0。规则补充：可拖拽交付盘点包含球桌/场景容器，不只HUD；检查旋转子图与外框是否同步。
+
+FL-132 / C30补充（2026-10-07）：功能状态再次仅交付静态图册，遗漏用户可调整副本。已在用户文件03页新增20张独立FIT图块画板，普通V拖角及移动验收通过并还原；交付入口明确区分“只读图册”和“可调整Figma”，精调源保留矢量/文字。
+
+
+## FL-132 / C35 — 跨文件图片引用存在不代表资源已复制（2026-10-07）
+
+- 用户发现C34多屏没有文字。源稿图册正常，但目标用户文件44个图片hash中26个在1.2秒检查窗口内无法读取，影响32屏58对象；图层、尺寸、可见性均存在。上轮未全量验证目标文件图片字节与实际渲染，错误地以源稿导出和几何检查代替交付完整性。
+- 原位修复：从精调源稿导出75控件及5底图完整PNG字节，通过本地插件createImage直接嵌入用户文件115对象；不依赖跨文件剪贴板异步图片加载。保留当前ID、位置/大小/旋转、透明度、锁定、比例及图层关系，几何差异0；用户其他页不变。
+- 复验：全部图片字节可读，错误0；从用户文件实际导出40屏，75控件PNG非空；40屏提示区域目检完整，iPad横屏缺字原位实看恢复。与C34源稿40图对比最大平均通道差0.221/255（栅格化/采样差异），不声称逐像素相同。证据：output/daily-figma-workspace-20261006/c35/。
+- 已应用至：.agents/skills/table-page-adaptation/SKILL.md FL-132/C35；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。之后跨文件交付须在目标文件验证图片字节、透明非空和全部状态实际渲染；资源缺失先补字节，不重排用户布局。
+
+## FL-133 — 每日适配恢复候选的安全区与球库命中漏检（2026-10-07，已修复并定向复验）
+
+B1/B2暂停稿恢复时，测试方向类型 `XCUIDeviceOrientation` 不存在，改用UIKit的 `UIDeviceOrientation`；球库父级identifier传播覆盖15个子球的identifier，改为独立透明AX探针。保留失败构建和before-pro xcresult。
+
+r1/r2虽然窗口内断言通过，实图与源代码复核发现底部整体忽略安全区、竖屏操作组偏低；r3小屏单独球库采用过大球径，母球胶囊压住开球入口。修复2D尊重底部安全区、完整操作组围绕桌心且受安全内容边界限制、低矮横屏独立球库预留两侧操作通道；新增球库与开球/打点入口交叉命中断言。此类问题不能用“全在window内”替代safe bounds与跨组相交检查。
+
+另两次测试失败属于测试假设：selection球形中的黑8在桌且尚非法，不是已进袋；短距离打点拖动尚未越过既有52pt移开手指门槛，不能据此断言拖动无响应。按实际规则及手势契约修正测试，不改业务策略来求绿。各轮证据完整保留于 `output/daily-adaptive-v4/B12-resume/`。最终状态见[B1/B2](daily-adaptive/B1.md)。
+
+FL-133追加：iPadOS26窗口模式横屏虽top inset为0且AX在window内，系统窗口控制按钮仍覆盖自定义返回。关闭每日页在Pad上的隐藏状态栏策略，保留系统顶部区域后复验。窄窗测试同时统一使用snapshot逻辑坐标，避免拿缩放后的live window与逻辑球槽frame混比；补整卡落在inner rails及越过52pt门槛的实际拖动检查。
+
+FL-133补充：图册原Pad横竖是浮动窗口，漏做全屏主入口。旋转通过和logical窗口等于屏幕不能证明全屏；应核验live窗口原点/范围与设备像素并实看桌面外边。已在同一r6构建最大化App后补全屏三态（pad-fullscreen-r1，1 UI通过），图册默认全屏、浮窗单独标注；生产代码未改。
+
+FL-133 B3–B7追加：原透明度0端点的XCTest归一化手势停于5%，改为实际滑块越过轨道端点并读回0/100；旧仪表断言用共享6pt间隔推算，与每日4pt不符，改检查实框包含、120/144尺程及击球4pt/60pt关系。最大字号切玩法确认真实超出小屏，增加锚点两侧容量和标题滚动、固定按钮；最大字号菜单测试整屏滑动跳过目标，改有方向的小步拖动并仍要求整行可见及可点击，保留首轮失败。新修复复测状态以B7/B8为准。
+
+FL-133 B8补充：r2/r3确认框边界测试虽通过，实际大字标题仍只露半行；根因是隐藏测量层继承21pt标题槽高度，增加外层fixedSize(vertical:true)后重新测自然高度，常态不变。菜单滚动改按目标差量、慢速并停留后释放，避免惯性使目标反复越过可见边缘；继续保留完整可见/可点要求。
+
+FL-133 / B8续验：最大字号确认标题隐藏副本测量未回传，自动可点仍遮字；改ScrollView内容自然测量并纳入字形框。iPad resize r1系统frame变、内容frame未变，降级为兼容模式证据；补iPad方向后r2因浮窗下错误起点未触发改窗，保留失败；r3真实834×1210→375×675、内部375×655且同场景/意图保持。继续修复系统窗口控件遮挡返回，使用官方corner-aware guide，复验后收口。
+
+FL-133 / B8最终复验：r5真实窗口已验证返回避让；r6浮窗透明度检查发现更多按钮受圆角额外右边距左移6.5pt，面板未同步。r7统一菜单/透明度与导航右边距，保留严格0.5pt对齐断言。Pad竖屏3D快速端点拖动曾停99%，改窗口内慢拖并停留，仍要求精确100%。iOS17两轮在XCTest AX查询时触发XCTAutomationSupport日志高流量隔离回调空指针，保存ips；移除截图采集器对每个装饰节点的重复isHittable查询，实际交互位置仍保留命中断言。以上结果以B8最终复验记录为准，未删除失败证据。
+
+FL-133 / B8返回全屏：同App浮窗最大化后SwiftUI沿用旧top=0/bottom=20，原仅验证全屏启动/单向缩窗未覆盖回程。r10补实时window与geo的safe-area差额、响应UIKit安全区变化；原图与补验保留。r10首个Pad作业安装hash仍旧，主动中断并重跑，不把构建启动时间等同于产物安装身份。
+
+
+FL-133 / B8回程关闭（r14）：r10–r12桥接window inset、异步重读及重建测量视图均未解决；r13实测UIKit窗口/宿主仍top10而状态栏高32。r14将实测状态栏屏幕带转入UIWindow求交集，只补GeometryReader未消费的顶部量；浮窗交集为空不加空白，最大化标题y32避开状态栏。同PID 22580的scene/coordinator/WindowScene保持，安装包hash一致；r14真实缩窗、双模式透明度/端点/重开、横竖回归通过，原图实看。测量桥不再强制layout或随尺寸重建。详见B8与pad-system/maximize-r14-verification.json。

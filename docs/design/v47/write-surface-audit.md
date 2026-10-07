@@ -1,5 +1,12 @@
 # v47 W0 测试写盘盘点
 
+2026-10-06 每日面板补充：`DailyAdaptivePanelUITests.swift`只消费调用方显式注入的本批 `DAILY_ADAPTIVITY_DIR`/`TEST_RUNNER_DAILY_ADAPTIVITY_DIR`，缺省失败。方法独立目录，入口截图加入launch序号/fixture避免同方法多次启动覆盖；原PNG、完整AX、状态/目标测量JSON、manifest及xcresult附件为测试证据。调用器新叶子exist_ok=false，失败不覆盖；字号由专用模拟器实际设定并读回，结束恢复large。测试只对该专用设备resetState/fixture与本地偏好做操作，不写内容资源/设计golden/用户真机；不自动删除证据。历史失效采集按原目录保留，不能将旧入口同名覆盖计为多个独立画面。
+
+
+### 2026-10-06 每日清台适配取证
+
+登记 `DailyAdaptivityAuditUITests.swift`、`DailyLayoutLifecycleUITests.swift`：必须显式注入 `DAILY_ADAPTIVITY_DIR`（或 `TEST_RUNNER_DAILY_ADAPTIVITY_DIR`），缺失时测试失败，不再回落到旧报告目录。写本轮 PNG、AX、JSON 和 xcresult 附件；生命周期类按方法分子目录。调用脚本按批次/设备/状态创建新叶子，拒绝复用叶子并保留失败。仅专用模拟器使用 resetState/fixture；不写 Bundle、训练内容或设计基线，不自动删除证据。相同目录重复执行仍可能覆盖同名图，因此由调用方负责隔离及后续清理。
+
 ### 2026-10-01 袋口延后确认取证
 
 登记 `PocketMarkerHighlightTests.swift`：实际SCNRenderer时序测试默认向当前源码所在仓库 `output/pocket-selection-20261001/rendered` 写16张PNG，文件名按普通/移动、2D/3D、时序阶段分开；复跑覆盖同任务图片，本轮iOS26结果先保存为rendered-26，最终iOS17结果保存在rendered。写盘失败抛出，不主动清理，不写Bundle、用户存档、内容或设计截图基线。清理由任务方负责。已登记 `PocketLeatherFlowUITests.swift` 仅显式 `POCKET_UI_EVIDENCE` / `TEST_RUNNER_POCKET_UI_EVIDENCE` 时写本轮PNG及AX文本，否则仅XCTest附件；不同设备/轮次使用独立目录，固定名称会覆盖同目录证据。原生测试使用专用模拟器resetState/夹具，不对用户真机执行。
@@ -166,3 +173,9 @@ DR-336 r2（2026-09-28）：AdaptiveShotControlsUITests截图目录改为`build/
 ## 2026-09-30 音效本地试听取证
 
 `ShotAudioPreviewUITests` 仅在仓库本地试听 manifest 存在时运行，向忽略目录 `output/shot-audio-preview-20260930/` 写两张 PNG；写失败抛出，复跑覆盖同任务截图，清理由本任务负责，不回写真源。测试使用模拟器的每日清台 fixture/resetState，会改其测试数据；不对用户真机执行这一 UI 测试。声音触发以同次运行系统日志另证，截图不代表主观听感。
+
+### 每日清台 v4 连续适配（2026-10-07）
+
+FreePlayView 生产入口维持训练首页每日清台/自由击球；每日页将原系统菜单、玩法 sheet 和 confirmationDialog 收敛为单一 DailyHUDPresentation，新增分层开球处置，未新设深链或额外导航入口。普通自由击球保留原系统 Menu。源码路由表面变化逐项核对，本轮只更新 FreePlayView 签名；UI 测试写盘为显式 fresh 输出目录，测试未默认运行整个写盘套件。
+
+2026-10-07 B8：FreePlayView每日标题新增系统窗口控件安全区读回，仅调整标题带leading/trailing，导航目的地与非每日入口不变；核对后更新对应surface签名。

@@ -1,6 +1,49 @@
 import XCTest
 
 extension V52DailyClearanceUITests {
+    func testRoomCeilingsAcrossStylesAndCameraModes() throws {
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .landscapeRight }
+        for style in ["tournament", "walnut", "eastern"] {
+            let app = launch(["-dailyClearance.fixture=selection", "-dailyClearance.fixtureSettled",
+                              "-roomStyle.v1", style])
+            let mode = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 20))
+            settleDailyCamera(app)
+            if mode.value as? String != "3D" { mode.tap() }
+            XCTAssertEqual(mode.value as? String, "3D")
+            // The production merged camera exposes along-cue observation, global
+            // observation and temporary top-down; it has no first-person button.
+            for (pose, identifier) in [("along-cue", "shotCamera.thirdPerson"),
+                                       ("overview", "dailyClearance.observeTable")] {
+                let button = app.buttons[identifier]
+                XCTAssertTrue(button.waitForExistence(timeout: 10))
+                button.tap()
+                settleDailyCamera(app)
+                XCTAssertTrue(app.buttons["paletteBall__1"].exists)
+                snap(app, "ceiling-ui-\(style)-\(pose)")
+            }
+            let temporary = app.buttons["shotCamera.temporaryTopDown"]
+            XCTAssertTrue(temporary.exists)
+            temporary.tap()
+            // Temporary observation intentionally disables striking until it ends.
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "value == %@", "已选中"),
+                evaluatedWith: temporary)], timeout: 5), .completed)
+            Thread.sleep(forTimeInterval: 1.5)
+            snap(app, "ceiling-ui-\(style)-temporary-topdown")
+            temporary.tap()
+            settleDailyCamera(app)
+            XCTAssertEqual(temporary.value as? String, "未选中")
+            mode.tap()
+            XCTAssertEqual(mode.value as? String, "2D")
+            settleDailyCamera(app)
+            snap(app, "ceiling-ui-\(style)-2d")
+            app.terminate()
+        }
+    }
+}
+
+extension V52DailyClearanceUITests {
     func testDailyModeSwitchKeepsRendererAndTableHitCoordinates() throws {
         XCUIDevice.shared.orientation = .landscapeRight
         let app = launch(["-dailyClearance.fixture=selection", "-dailyClearance.fixtureSettled", "-3dDrag.probe"])
@@ -77,7 +120,10 @@ extension V52DailyClearanceUITests {
             away.press(forDuration: 0.1, thenDragTo: away.withOffset(CGVector(dx: 20, dy: 0)), withVelocity: .slow, thenHoldForDuration: 0.1)
             XCTAssertEqual(disc.value as? String, "中心球", "Pickup and motion inside the clearance gate must not jump")
             let center = disc.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            center.press(forDuration: 0.1, thenDragTo: center.withOffset(CGVector(dx: 85, dy: 0)), withVelocity: .slow, thenHoldForDuration: 0.1)
+            // Preserve the 52pt pickup clearance, then move part of this disc's
+            // actual radius. A fixed 85pt stroke can saturate a compact disc.
+            let partialStroke = 52 + (disc.frame.width / 2 - 2) * 0.4
+            center.press(forDuration: 0.1, thenDragTo: center.withOffset(CGVector(dx: partialStroke, dy: 0)), withVelocity: .slow, thenHoldForDuration: 0.1)
             let moved = disc.value as? String ?? ""
             XCTAssertTrue(moved.contains("右"), moved)
             XCTAssertFalse(moved.contains("100%"), "Clearance travel must not become full spin")
@@ -2416,5 +2462,55 @@ extension V52DailyClearanceUITests {
         strike.tap()
         XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == false"), evaluatedWith: strike)], timeout: 5), .completed)
         snap(app, "live-trajectory-struck")
+    }
+}
+
+
+extension V52DailyClearanceUITests {
+    func testContinuousSpinTrajectoryInBothModes() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = launch(["-dailyClearance.fixture=selection", "-dailyClearance.fixtureSettled",
+                          "-trajectoryDetail", "0", "-v63.cameraDiagnostics", "-dailyClearance.3DTrajectoryHidden", "NO"])
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 15))
+        let hud = app.descendants(matching: .any)["v63.cameraDiagnostics"].firstMatch
+        let strike = app.buttons["dailyClearance.strike"]
+        func deliveries() -> Int {
+            (hud.value as? String ?? "").split(separator: " ")
+                .first { $0.hasPrefix("livePreviewDeliveries=") }
+                .flatMap { Int($0.split(separator: "=").last ?? "") } ?? 0
+        }
+        func ready() {
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 15), .completed)
+        }
+        ready()
+        for dimension in ["2D", "3D"] {
+            if mode.value as? String != dimension { mode.tap(); ready() }
+            app.buttons["shotStage.spinEntry"].tap()
+            let disc = app.descendants(matching: .any)["spinPad.disc"].firstMatch
+            XCTAssertTrue(disc.waitForExistence(timeout: 5))
+            app.buttons["回中"].tap()
+            ready()
+            snap(app, "continuous-spin-\(dimension)-before")
+            let oldCount = deliveries()
+            let center = disc.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            center.press(forDuration: 0.1, thenDragTo: center.withOffset(CGVector(dx: 90, dy: -15)),
+                         withVelocity: XCUIGestureVelocity(rawValue: 18), thenHoldForDuration: 0)
+            XCTAssertGreaterThan(deliveries(), oldCount + 1, "Full previews must arrive during spin input: \(dimension)")
+            XCTAssertNotEqual(disc.value as? String, "中心球")
+            ready()
+            snap(app, "continuous-spin-\(dimension)-drag")
+            let moved = disc.value as? String
+            app.buttons["高杆增加 1%"].tap()
+            ready()
+            XCTAssertNotEqual(disc.value as? String, moved)
+            app.buttons["回中"].tap()
+            ready()
+            XCTAssertEqual(disc.value as? String, "中心球")
+            snap(app, "continuous-spin-\(dimension)-reset")
+            app.buttons["shotStage.spinEntry"].tap()
+        }
+        XCTAssertTrue(strike.isEnabled)
+        XCTAssertTrue((hud.value as? String ?? "").contains("dailyShotCount=0"), "Adjusting spin must never shoot")
     }
 }

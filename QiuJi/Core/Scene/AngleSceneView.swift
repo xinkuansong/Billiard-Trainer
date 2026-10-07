@@ -99,6 +99,7 @@ struct AngleSceneView: UIViewRepresentable {
         scnView.onLayout = { [weak coordinator = context.coordinator] in
             coordinator?.synchronizeDailyViewportAfterLayout()
         }
+        DailyLayoutProbe.record("viewport.make", ["renderer": String(describing: ObjectIdentifier(scnView)), "scene": String(describing: ObjectIdentifier(scene))])
         scnView.scene = scene
         scene.applyTableStyle(roomPreferences.tableStyle, showsSights: roomPreferences.showsTableSights)
         scene.applyClothColor(roomPreferences.clothColor)
@@ -271,6 +272,7 @@ struct AngleSceneView: UIViewRepresentable {
     }
 
     static func dismantleUIView(_ uiView: SCNView, coordinator: Coordinator) {
+        DailyLayoutProbe.record("viewport.dismantle", ["renderer": String(describing: ObjectIdentifier(uiView))])
         coordinator.removeTemporaryTopDownOverlay()
         coordinator.finishCameraObservation()
         coordinator.scene.cancelPocketSelectionFeedback()
@@ -841,14 +843,31 @@ struct AngleSceneView: UIViewRepresentable {
                 if autoFitsLandscapeTable { scene.cameraRig?.fitLandscapeTable(viewSize: view.bounds.size) }
                 scene.cameraRig?.applyTopDown2D()
             case .topDown2DRotated:
-                if autoFitsRotatedTable { scene.cameraRig?.fitRotatedTable(viewSize: view.bounds.size) }
+                if autoFitsLandscapeTable { scene.cameraRig?.fitLandscapeTable(viewSize: view.bounds.size, rotated: true) }
+                else if autoFitsRotatedTable { scene.cameraRig?.fitRotatedTable(viewSize: view.bounds.size) }
                 scene.cameraRig?.applyTopDown2DRotated()
             case .perspective3D:
                 scene.cameraRig?.update(deltaTime: 0)
             }
         }
 
+        private var dailyProbeDeliveredFirstViewport = false
+
         func updateViewport(_ size: CGSize) {
+            if DailyLayoutProbe.enabled, let view = scnView {
+                var fields = DailyLayoutProbe.windowFields(view)
+                fields["scene"] = String(describing: ObjectIdentifier(scene))
+                fields["coordinator"] = String(describing: ObjectIdentifier(self))
+                fields["viewport"] = DailyLayoutProbe.size(size)
+                fields["readableFrame"] = twoViewReadableFrameInWindow.map { DailyLayoutProbe.rect($0) } ?? [:]
+                fields["mode"] = String(describing: cameraMode)
+                fields["sceneMode"] = String(describing: scene.currentCameraMode)
+                fields["transitioning"] = scene.isCameraModeTransitioning
+                fields["dragging"] = draggedNode != nil
+                fields["rigPresent"] = scene.cameraRig != nil
+                fields["effectiveViewport"] = size.width > 0 && size.height > 0 && view.window != nil && scene.cameraRig != nil
+                DailyLayoutProbe.record("viewport.update", fields)
+            }
             // The rig can be installed after makeUIView/first layout.
             scene.cameraRig?.viewportSize = size
             if let rig = scene.cameraRig, rig.usesTwoViewCameraControls,
@@ -861,6 +880,16 @@ struct AngleSceneView: UIViewRepresentable {
                         bottom: scnView.bounds.maxY - readable.maxY,
                         right: scnView.bounds.maxX - readable.maxX))
                 }
+            }
+            if DailyLayoutProbe.enabled, !dailyProbeDeliveredFirstViewport,
+               size.width > 0, size.height > 0, let view = scnView,
+               view.window != nil, let rig = scene.cameraRig {
+                dailyProbeDeliveredFirstViewport = true
+                var fields = DailyLayoutProbe.windowFields(view)
+                fields["scene"] = String(describing: ObjectIdentifier(scene))
+                fields["coordinator"] = String(describing: ObjectIdentifier(self))
+                fields["rigViewport"] = DailyLayoutProbe.size(rig.viewportSize)
+                DailyLayoutProbe.record("viewport.firstValid", fields)
             }
             guard size != lastViewportSize else { return }
             lastViewportSize = size
@@ -1098,7 +1127,9 @@ struct AngleSceneView: UIViewRepresentable {
                 }
                 scene.cameraRig?.applyTopDown2D()
             case .topDown2DRotated:
-                if autoFitsRotatedTable, let scnView {
+                if autoFitsLandscapeTable, let scnView {
+                    scene.cameraRig?.fitLandscapeTable(viewSize: scnView.bounds.size, rotated: true)
+                } else if autoFitsRotatedTable, let scnView {
                     scene.cameraRig?.fitRotatedTable(viewSize: scnView.bounds.size)
                 }
                 scene.cameraRig?.applyTopDown2DRotated()
@@ -1653,9 +1684,10 @@ struct AngleSceneView: UIViewRepresentable {
                         "draggable": draggableBallNodes.contains(node)]
             }
             let transform = view.pointOfView?.worldTransform ?? SCNMatrix4Identity
-            let data: [String: Any] = ["rendererID": dragProbeRendererID, "panCount": dragProbePanCount, "grabCount": dragProbeGrabCount, "moveCount": dragProbeMoveCount, "balls": balls, "camera": [transform.m11, transform.m12, transform.m13,
+            var data: [String: Any] = ["rendererID": dragProbeRendererID, "panCount": dragProbePanCount, "grabCount": dragProbeGrabCount, "moveCount": dragProbeMoveCount, "balls": balls, "camera": [transform.m11, transform.m12, transform.m13,
                 transform.m21, transform.m22, transform.m23, transform.m31, transform.m32, transform.m33,
                 transform.m41, transform.m42, transform.m43]]
+            if DailyLayoutProbe.enabled { data["dailyLayout"] = DailyLayoutProbe.snapshot() }
             do {
                 return String(decoding: try JSONSerialization.data(withJSONObject: data), as: UTF8.self)
             } catch {

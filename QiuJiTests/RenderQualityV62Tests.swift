@@ -7,82 +7,6 @@ import MetalKit
 /// Deterministic visual experiments, not a phone performance benchmark.
 @MainActor
 final class RenderQualityV62Tests: XCTestCase {
-    func testDailyPreloadTransfersIdleSceneAndReplenishes() async throws {
-        DailyClearancePreloader.shared.setForeground(false)
-        let preloader = DailyClearancePreloader()
-        defer { preloader.setForeground(false) }
-        let store = DailyClearanceStore()
-        let draftBefore = store.loadTodayDraft()
-        let owner = UUID()
-        preloader.warmUp()
-        let deadline = CACurrentMediaTime() + 30
-        while !preloader.isReady && CACurrentMediaTime() < deadline {
-            try await Task.sleep(nanoseconds: 20_000_000)
-        }
-        XCTAssertTrue(preloader.isReady, "Startup must prepare a scene before entry")
-        let firstResult = await preloader.acquire(for: owner)
-        let first = try XCTUnwrap(firstResult)
-        XCTAssertTrue(first.hasPreparedDailyScene)
-        XCTAssertTrue(first.onTableKeys.isEmpty)
-        XCTAssertFalse(first.isComputing, "Preload must not solve an example board")
-        XCTAssertFalse(first.isPlaying)
-        XCTAssertNil(first.breakRunner)
-        XCTAssertNil(first.scene.closeupViewport, "Preload must not install a hidden SCNView")
-        XCTAssertNotNil(first.scene.tableNode)
-        XCTAssertEqual(first.scene.addPocketMarkers().count, 6)
-        XCTAssertNotNil(first.scene.rootNode.childNode(withName: "reference_room", recursively: false))
-        XCTAssertTrue(first.scene.allBallNodes.values.allSatisfy(\.isHidden))
-        XCTAssertEqual(store.loadTodayDraft()?.updatedAt, draftBefore?.updatedAt)
-        XCTAssertFalse(preloader.isReady, "The page exclusively consumes the prepared graph")
-        preloader.release(owner)
-        let secondResult = await preloader.acquire(for: UUID())
-        let second = try XCTUnwrap(secondResult)
-        XCTAssertFalse(first.scene === second.scene, "Visits must never share a mutable game scene")
-        XCTAssertTrue(second.onTableKeys.isEmpty)
-    }
-
-    func testDailyPreloadReleaseAndCancellation() async throws {
-        DailyClearancePreloader.shared.setForeground(false)
-        let preloader = DailyClearancePreloader()
-        defer { preloader.setForeground(false) }
-        let owner = UUID()
-        let entry = Task { await preloader.acquire(for: owner) }
-        await Task.yield()
-        entry.cancel()
-        preloader.setForeground(false)
-        preloader.release(owner)
-        let cancelled = await entry.value
-        XCTAssertNil(cancelled)
-        XCTAssertFalse(preloader.isReady, "Late worker completion cannot refill a released cache")
-        preloader.setForeground(true)
-        let resumed = await preloader.acquire(for: UUID())
-        XCTAssertNotNil(resumed, "Foreground entry must recover after cancellation")
-        preloader.discard()
-        XCTAssertFalse(preloader.isReady)
-        XCTAssertNotNil(resumed?.scene.tableNode, "Memory release must not destroy the active page")
-    }
-
-    func testDailyPreloadHonorsChangedAppearance() async throws {
-        DailyClearancePreloader.shared.setForeground(false)
-        let preloader = DailyClearancePreloader()
-        let old = UserPreferences.shared.roomStyle
-        defer {
-            UserPreferences.shared.roomStyle = old
-            preloader.setForeground(false)
-        }
-        preloader.warmUp()
-        let deadline = CACurrentMediaTime() + 30
-        while !preloader.isReady && CACurrentMediaTime() < deadline {
-            try await Task.sleep(nanoseconds: 20_000_000)
-        }
-        XCTAssertTrue(preloader.isReady)
-        let newStyle: RoomStyle = old == .tournament ? .walnut : .tournament
-        UserPreferences.shared.roomStyle = newStyle
-        let result = await preloader.acquire(for: UUID())
-        let model = try XCTUnwrap(result)
-        XCTAssertEqual(model.scene.installedReferenceRoomStyle, newStyle)
-    }
-
     func testDailyShadowAndPerspectiveComparison() throws {
         try dailyPerfGate()
         let size = CGSize(width: 1400, height: 800)
@@ -4706,6 +4630,87 @@ final class RenderQualityV62Tests: XCTestCase {
         print("ENTRY_TIMING",rows)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try JSONSerialization.data(withJSONObject: rows, options: .prettyPrinted).write(to: directory.appendingPathComponent("entry-timing.json"))
+    }
+
+    func testRoomCeilingVisibilityAndStyleIsolation() throws {
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        var textures: [Data] = []
+        for style in RoomStyle.allCases {
+            let room = BakedTrainingRoom.make(style: style)
+            let ceiling = try XCTUnwrap(room.childNode(withName: "room_ceiling", recursively: false))
+            let material = try XCTUnwrap(ceiling.geometry?.firstMaterial)
+            let normal = ceiling.simdConvertVector(SIMD3<Float>(0, 0, 1), to: room)
+            XCTAssertEqual(normal.y, -1, accuracy: 0.00001)
+            XCTAssertEqual(ceiling.position.y, 3.6, accuracy: 0.0001)
+            XCTAssertFalse(material.isDoubleSided)
+            XCTAssertFalse(ceiling.castsShadow)
+            let texture = try XCTUnwrap(material.diffuse.contents as? UIImage)
+            textures.append(try XCTUnwrap(texture.pngData()))
+            let clone = BakedTrainingRoom.make(style: style)
+            let cloneMaterial = try XCTUnwrap(clone.childNode(withName: "room_ceiling", recursively: false)?.geometry?.firstMaterial)
+            XCTAssertFalse(material === cloneMaterial)
+
+            let isolated = SCNScene()
+            isolated.background.contents = UIColor.black
+            isolated.rootNode.addChildNode(ceiling.clone())
+            let camera = SCNNode(); camera.camera = SCNCamera()
+            camera.camera?.fieldOfView = 60
+            isolated.rootNode.addChildNode(camera)
+            let renderer = SCNRenderer(device: device, options: nil)
+            renderer.scene = isolated; renderer.pointOfView = camera
+            for above in [false, true] {
+                camera.position = SCNVector3(0, above ? 5.6 : 1.6, 0)
+                camera.look(at: SCNVector3(0, 3.6, 0), up: SCNVector3(0, 0, 1), localFront: SCNVector3(0, 0, -1))
+                SCNTransaction.flush()
+                let image = renderer.snapshot(atTime: 0, with: CGSize(width: 128, height: 128), antialiasingMode: .none)
+                let rgba = try XCTUnwrap(MobileReferenceLighting.roomRGBA(image).cgImage?.dataProvider?.data)
+                let bytes = CFDataGetBytePtr(rgba)!
+                var visible = 0
+                for index in 0..<(128 * 128) {
+                    if max(bytes[index * 4], bytes[index * 4 + 1], bytes[index * 4 + 2]) > 8 { visible += 1 }
+                }
+                if above { XCTAssertEqual(visible, 0, "Top-down camera must see through the roof: \(style)") }
+                else { XCTAssertEqual(visible, 128 * 128, "Interior must be fully closed: \(style)") }
+            }
+        }
+        XCTAssertEqual(Set(textures).count, RoomStyle.allCases.count)
+    }
+
+    func testRoomCeilingVisualComparison() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["V62_SHOT_DIR"] != nil, "Explicit ceiling visual review")
+        for style in RoomStyle.allCases {
+            let s = try scene(mobile: true)
+            s.installReferenceRoom(style: style)
+            let room = try XCTUnwrap(s.rootNode.childNode(withName: "reference_room", recursively: false))
+            let ceiling = try XCTUnwrap(room.childNode(withName: "room_ceiling", recursively: false))
+            let texture = try XCTUnwrap(ceiling.geometry?.firstMaterial?.diffuse.contents as? UIImage)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try XCTUnwrap(texture.pngData()).write(to: directory.appendingPathComponent("ceiling-\(style.rawValue)-texture.png"))
+            // Fixed room-interior cameras cover a tall tablet, a wide view and the wall junction.
+            let poses: [(String, SCNVector3, SCNVector3, CGFloat, CGSize)] = [
+                ("portrait", SCNVector3(-3.1, 1.55, 0), SCNVector3(1, 1.1, 0), 76, CGSize(width: 900, height: 1350)),
+                ("landscape", SCNVector3(-3.1, 1.55, 1.8), SCNVector3(0, 1.3, 0), 90, CGSize(width: 1400, height: 850)),
+                ("ceiling", SCNVector3(-2.8, 1.55, 1.8), SCNVector3(1, 3.4, -0.6), 80, CGSize(width: 1200, height: 850))
+            ]
+            for (name, eye, target, fov, size) in poses {
+                let inspection = SCNNode()
+                inspection.position = eye
+                inspection.look(at: target)
+                s.cameraNode.simdWorldTransform = inspection.simdWorldTransform
+                s.cameraNode.camera?.fieldOfView = fov
+                s.cameraNode.camera?.projectionDirection = .vertical
+                for before in [true, false] {
+                    ceiling.isHidden = before
+                    SCNTransaction.flush()
+                    try capture(s, name: "ceiling-\(style.rawValue)-\(name)-\(before ? "before" : "after")", size: size)
+                }
+            }
+            s.setCameraMode(.topDown2D, animated: false)
+            XCTAssertTrue(room.isHidden)
+            s.setCameraMode(.perspective3D, animated: false)
+            XCTAssertFalse(room.isHidden)
+            XCTAssertFalse(ceiling.isHidden)
+        }
     }
 
     func testRoomCacheIsolation() throws {

@@ -27,7 +27,7 @@ final class V52DailyClearanceHomeSettingsUITests: XCTestCase {
         for visit in 1...2 {
             XCTAssertTrue(entry.waitForExistence(timeout: 12))
             if visit == 1 {
-                XCTAssertTrue(entry.label.contains("未开始"), "Preloading must not create a daily game")
+                XCTAssertTrue(entry.label.contains("未开始"), "Opening the home page must not create a daily game")
             }
             let portrait = NSPredicate { _, _ in
                 app.windows.firstMatch.frame.height > app.windows.firstMatch.frame.width

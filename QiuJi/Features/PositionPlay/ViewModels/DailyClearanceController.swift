@@ -524,6 +524,17 @@ final class DailyClearanceController: ObservableObject {
                                                    y:target.y < 0.25 ? target.y+0.05 : target.y-0.05),
                 "_1":target,"_2":CanvasPoint(x:0.3,y:0.3),"_8":CanvasPoint(x:0.65,y:0.25),
                 "_9":CanvasPoint(x:0.7,y:0.15),"_10":CanvasPoint(x:0.2,y:0.38)])
+        case "layoutPaletteEdges":
+            // Separate valid fixture for real first/last target selection in a
+            // scrolling header. Existing baseline fixtures remain unchanged.
+            fixtureDraft.phase = .playing
+            fixtureDraft.ruleState.assignedGroup = nil
+            fixtureDraft.board = BoardSnapshot(onTable: [
+                PositionPlayBall.cueKey: CanvasPoint(x: 0.3, y: 0.2),
+                "_1": CanvasPoint(x: 0.5, y: 0.22),
+                "_15": CanvasPoint(x: 0.7, y: 0.12),
+                "_8": CanvasPoint(x: 0.4, y: 0.38)
+            ])
         case "selection", "selectionStripe", "selectionOpen", "selectionBlack", "selectionNine":
             fixtureDraft.phase = .playing
             fixtureDraft.ruleState.assignedGroup = .solid

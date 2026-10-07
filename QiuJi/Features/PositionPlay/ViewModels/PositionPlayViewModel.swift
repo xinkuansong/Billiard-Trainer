@@ -26,21 +26,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     // MARK: - Scene
 
-    let scene: AngleTrainingScene
-    private let preparationRenderer: SCNRenderer?
-    private(set) var hasPreparedDailyScene = false
-
-    init() {
-        scene = AngleTrainingScene()
-        preparationRenderer = nil
-    }
-
-    init(preparedDailyScene: DailyClearancePreloader.Prepared) {
-        scene = preparedDailyScene.scene
-        pocketMarkers = preparedDailyScene.markers
-        preparationRenderer = preparedDailyScene.renderer
-        hasPreparedDailyScene = true
-    }
+    let scene = AngleTrainingScene()
     private var pocketMarkers: [SCNNode] = []
     private var trajectoryNodes: [SCNNode] = []
     /// 选中目标球的常驻选中环（独立于轨迹，feasible/computing 都显示）。
@@ -386,12 +372,23 @@ final class PositionPlayViewModel: ObservableObject {
     @Published var spinY: Double = 0 { didSet { if oldValue != spinY { onParamEdited() } } }
 
     private var correctingCueSpin = false
+    private var batchingSpinUpdate = false
 
-    private func onParamEdited() {
-        guard !correctingCueSpin, !isPlaying, !isPresentingBankAlternative else { return }
+    private func onParamEdited(continuousPreview: Bool = false) {
+        guard !batchingSpinUpdate, !correctingCueSpin, !isPlaying, !isPresentingBankAlternative else { return }
         recompute(interactive: isPowerDragging,
                   debounceInterval: isPowerDragging ? Self.powerPreviewIdleInterval : nil,
-                  continuousPreview: usesContinuousTrajectoryPreview && isPowerDragging)
+                  continuousPreview: usesContinuousTrajectoryPreview && (isPowerDragging || continuousPreview))
+    }
+
+    /// Commit a pad sample (drag, nudge, or reset) once, with both axes present.
+    func updateSpin(x: Double, y: Double) {
+        guard x.isFinite, y.isFinite, spinX != x || spinY != y else { return }
+        batchingSpinUpdate = true
+        spinX = x
+        spinY = y
+        batchingSpinUpdate = false
+        onParamEdited(continuousPreview: true)
     }
 
     static let powerPreviewIdleInterval: TimeInterval = 0.18
@@ -588,7 +585,8 @@ final class PositionPlayViewModel: ObservableObject {
     var sequenceShotEventsObserver: ((UUID, [ShotEvent]) -> Void)?
     #endif
 
-    func setupScene(mobileRendering: Bool = MobileTableRendering.isEnabled) {
+    func setupScene(mobileRendering: Bool = MobileTableRendering.isEnabled,
+                    loadsDefaultLayout: Bool = true) {
         let entryStart = CACurrentMediaTime()
         scene.setupScene(mobileRendering: mobileRendering)
         #if DEBUG
@@ -608,7 +606,7 @@ final class PositionPlayViewModel: ObservableObject {
         // 顶视取景由 AngleSceneView 的 autoFitsRotatedTable 按视口自适应
         //（球桌完整可见 + 双轴居中，ADR-P11-08），此处只复位平移。
         scene.cameraRig?.topDownPanOffset = .zero
-        applyDefaultLayout()
+        if loadsDefaultLayout { applyDefaultLayout() }
         #if DEBUG
         entryTiming["sceneSetupMs"] = (CACurrentMediaTime() - entryStart) * 1000
         #endif
@@ -1996,8 +1994,8 @@ final class PositionPlayViewModel: ObservableObject {
         correctingCueSpin = true
         spinX = point.x; spinY = point.y
         correctingCueSpin = false
-        // Invalidate the old prediction and submit exactly one corrected intent.
-        recompute()
+        // Keep an active continuous preview while submitting the corrected intent.
+        recompute(continuousPreview: livePreviewActive)
         return true
     }
 

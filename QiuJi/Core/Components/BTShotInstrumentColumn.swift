@@ -45,6 +45,7 @@ struct BTShotInstrumentColumn: View {
     var compactPowerBarWidth: CGFloat = 28
     /// Compact spin entry diameter; other hosts retain the original 44-point button.
     var compactSpinButtonDiameter: CGFloat = 44
+    var compactGroupSpacing: CGFloat = 6
 
     private var compact: Bool { usesCompactAppearance && !isReadOnly }
 
@@ -66,7 +67,7 @@ struct BTShotInstrumentColumn: View {
     var body: some View {
         // 顺序（G5）：打点迷你图 + 两行读数在**顶部固定区**，力度条本体在**底部**填充——
         // 使力度条本体底部与左侧刻度轮底部齐平、且两者等长（顶部固定区不计入条长）。
-        VStack(spacing: 6) {
+        VStack(spacing: compact ? compactGroupSpacing : 6) {
             if let onSpinTap {
                 Button(action: onSpinTap) {
                     VStack(spacing: 2) {
@@ -298,6 +299,7 @@ struct BTShotInstrumentColumn: View {
 
 /// Shared explicit player poses; icons keep accessible names and active state.
 struct ShotPlayerCameraButtons: View {
+    var controlSpacing: CGFloat = Spacing.sm
     @ObservedObject var rig: CameraRig
     var isEnabled: Bool
     var onWholeTable: (() -> Void)? = nil
@@ -309,7 +311,7 @@ struct ShotPlayerCameraButtons: View {
     var onSelect: (CameraRig.PlayerView) -> Void
 
     var body: some View {
-        VStack(spacing: Spacing.sm) {
+        VStack(spacing: controlSpacing) {
             if rig.usesMergedCamera {
                 cameraButton(label: "全局观察", id: "dailyClearance.observeTable",
                     selected: rig.mergedGlobalActive && !temporaryTopDownActive,

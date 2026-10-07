@@ -1,0 +1,4 @@
+interface:
+  display_name: "球桌页面适配"
+  short_description: "制定球迹球桌页面适配方案，逐页实施并组织用户评审与反馈迭代"
+  default_prompt: "使用 $table-page-adaptation 读取当前适配方案和评审记录，推进下一项已授权工作。"

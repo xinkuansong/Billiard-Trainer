@@ -497,3 +497,25 @@ extension DailyClearanceRulesTests {
         XCTAssertEqual(engine.state.playedVisitCount, 2)
     }
 }
+
+
+extension DailyClearanceRulesTests {
+    func testWeakBreakOptionsKeepDistinctPlayerWarningAndPlacementEffects() {
+        for choice in [DailyBreakChoice.rerackByIncoming, .rerackByBreaker, .acceptBallInHand] {
+            var engine = DailyClearanceRulesEngine(game: .chineseEightBall)
+            _ = engine.judgeChineseBreak(facts(first: "_1", rail: false, table: fullEightBallTable), automatic: false)
+            let player = engine.state.currentPlayer
+            let result = engine.resolveBreakChoice(choice)
+            XCTAssertTrue(engine.state.breakChoices.isEmpty)
+            XCTAssertEqual(result, choice != .acceptBallInHand)
+            if choice == .rerackByBreaker {
+                XCTAssertEqual(engine.state.currentPlayer, player)
+                XCTAssertEqual(engine.state.warnedBreaker, player)
+                XCTAssertNil(engine.state.lastPlayedVisit)
+            } else {
+                XCTAssertNotEqual(engine.state.currentPlayer, player)
+            }
+            if choice == .acceptBallInHand { XCTAssertEqual(engine.state.cuePlacement, .anywhere) }
+        }
+    }
+}
