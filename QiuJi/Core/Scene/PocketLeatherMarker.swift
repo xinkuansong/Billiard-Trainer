@@ -9,6 +9,8 @@ final class PocketLeatherMarker: SCNNode {
     private var originalMaterials: [SCNMaterial] = []
     private var tableStyle: TableStyle = .standard
     private var variants: [Style: SCNNode] = [:]
+    /// Current table appearance without transient selection or teaching-role tints.
+    var unhighlightedGeometry: SCNGeometry? { variants[.original]?.geometry }
     static let selectionPulseDuration: TimeInterval = 0.6
     static let selectionPulseDelay: TimeInterval = 1
     private let selectionPulse = SCNNode()

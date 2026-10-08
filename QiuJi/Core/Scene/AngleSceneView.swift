@@ -77,6 +77,8 @@ struct AngleSceneView: UIViewRepresentable {
     var daily3DDiagnostics: Daily3DRenderDiagnostics? = nil
     /// Daily header reserves a trailing slot; nil retains the shared centered readout.
     var fpsReadoutTrailingInset: CGFloat? = nil
+    /// An optional page-owned readout relocates telemetry without changing render scheduling.
+    var fpsReadoutState: TableFPSReadoutState? = nil
     /// Daily two-view fixed HUD's measured free stage, in window points. Legacy hosts leave nil.
     /// Transient center overlays need separate visibility review; four edge insets do not certify them.
     var twoViewReadableFrameInWindow: CGRect? = nil
@@ -150,6 +152,7 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.onThirdPersonAimNudged = onThirdPersonAimNudged
         context.coordinator.onTemporaryTopDownDismiss = onTemporaryTopDownDismiss
         context.coordinator.topDownContentRevision = topDownContentRevision
+        context.coordinator.fpsReadoutState = fpsReadoutState
         context.coordinator.installFPSReadout(in: scnView, trailingInset: fpsReadoutTrailingInset)
         context.coordinator.onPocketTapped = onPocketTapped
         context.coordinator.updatePocketAccessibility()
@@ -204,6 +207,7 @@ struct AngleSceneView: UIViewRepresentable {
         let cameraDiagnosticsChanged = context.coordinator.twoViewAutomaticEntryCount != twoViewAutomaticEntryCount
             || context.coordinator.twoViewSolverDiagnostics != twoViewSolverDiagnostics
         #endif
+        context.coordinator.fpsReadoutState = fpsReadoutState
         context.coordinator.positionFPSReadout(trailingInset: fpsReadoutTrailingInset)
         scene.applyTableStyle(roomPreferences.tableStyle, showsSights: roomPreferences.showsTableSights)
         scene.applyClothColor(roomPreferences.clothColor)
@@ -648,6 +652,7 @@ struct AngleSceneView: UIViewRepresentable {
         private(set) var interactiveUntil: CFTimeInterval = 0
         let frameDelegate: FrameDelegate = Daily3DRenderDiagnostics.isEnabled ? Daily3DFrameDelegate() : FrameDelegate()
         private(set) var daily3DDiagnostics: Daily3DRenderDiagnostics?
+        weak var fpsReadoutState: TableFPSReadoutState?
         private var fpsHost: UIHostingController<FPSReadout>?
         private let diagramLabels = DiagramLabelOverlay()
         private var fpsText = "— FPS"
@@ -669,7 +674,7 @@ struct AngleSceneView: UIViewRepresentable {
         #endif
 
         func installFPSReadout(in view: SCNView, trailingInset: CGFloat? = nil) {
-            let host = UIHostingController(rootView: FPSReadout(text: "— FPS", compact: trailingInset != nil))
+            let host = UIHostingController(rootView: FPSReadout(text: "— FPS", compact: trailingInset != nil, suppressed: fpsReadoutState != nil))
             host.sizingOptions = .intrinsicContentSize
             host.view.backgroundColor = .clear
             host.view.isUserInteractionEnabled = false
@@ -696,7 +701,7 @@ struct AngleSceneView: UIViewRepresentable {
                     host.view.centerXAnchor.constraint(equalTo: view.centerXAnchor)
                 ]
             }
-            host.rootView = FPSReadout(text: fpsText, compact: trailingInset != nil)
+            host.rootView = FPSReadout(text: fpsText, compact: trailingInset != nil, suppressed: fpsReadoutState != nil)
             NSLayoutConstraint.activate(fpsConstraints)
         }
 
@@ -706,14 +711,14 @@ struct AngleSceneView: UIViewRepresentable {
             #else
             let showsCameraDiagnostics = false
             #endif
-            fpsHost?.view.isHidden = cameraMode != .perspective3D && !showsCameraDiagnostics
+            fpsHost?.view.isHidden = (fpsReadoutState != nil || cameraMode != .perspective3D) && !showsCameraDiagnostics
             let now = CACurrentMediaTime()
             guard force || now - fpsSampleTime >= 1 else { return }
             let count = frameDelegate.takeFrameCount()
             let elapsed = now - fpsSampleTime
             let fps = elapsed > 0 ? Int((Double(count) / elapsed).rounded()) : 0
             fpsSampleTime = now
-            guard cameraMode == .perspective3D || showsCameraDiagnostics else {
+            guard cameraMode == .perspective3D || showsCameraDiagnostics || fpsReadoutState != nil else {
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("-renderProfileProbe") { updatePocketAccessibility() }
                 #endif
@@ -824,7 +829,11 @@ struct AngleSceneView: UIViewRepresentable {
             let next = !needsContinuousUpdates ? "FPS · 静止" : "\(fps) FPS"
             guard fpsText != next else { return }
             fpsText = next
-            fpsHost?.rootView = FPSReadout(text: next, compact: fpsTrailingInset != nil)
+            // Publish outside UIViewRepresentable's update pass; only the small HUD subscribes.
+            if let state = fpsReadoutState {
+                DispatchQueue.main.async { [weak state] in state?.publish(next) }
+            }
+            fpsHost?.rootView = FPSReadout(text: next, compact: fpsTrailingInset != nil, suppressed: fpsReadoutState != nil)
             updatePocketAccessibility()
         }
 
@@ -1687,6 +1696,7 @@ struct AngleSceneView: UIViewRepresentable {
             var data: [String: Any] = ["rendererID": dragProbeRendererID, "panCount": dragProbePanCount, "grabCount": dragProbeGrabCount, "moveCount": dragProbeMoveCount, "balls": balls, "camera": [transform.m11, transform.m12, transform.m13,
                 transform.m21, transform.m22, transform.m23, transform.m31, transform.m32, transform.m33,
                 transform.m41, transform.m42, transform.m43]]
+            data["diagram"] = diagramLabels.diagnostic(in: view, scene: scene)
             if DailyLayoutProbe.enabled { data["dailyLayout"] = DailyLayoutProbe.snapshot() }
             do {
                 return String(decoding: try JSONSerialization.data(withJSONObject: data), as: UTF8.self)
@@ -1830,10 +1840,21 @@ extension AngleSceneView.Coordinator: UIGestureRecognizerDelegate {
 }
 
 /// Counts completed SceneKit render callbacks, not the requested display-link rate.
+@MainActor
+final class TableFPSReadoutState: ObservableObject {
+    @Published private(set) var text = "— FPS"
+    func publish(_ value: String) { if text != value { text = value } }
+}
+
 private struct FPSReadout: View {
     let text: String
     var compact = false
+    var suppressed = false
     var body: some View {
+        if suppressed {
+            // Keep only the diagnostic hosting anchor; do not retain a second AX readout.
+            Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
+        } else {
         Text(compact && text == "FPS · 静止" ? "静止" : text)
             .font(compact ? .system(size: 10) : .btCaption2).monospacedDigit().fixedSize()
             .foregroundStyle(Color.btTextSecondary)
@@ -1842,6 +1863,7 @@ private struct FPSReadout: View {
             .environment(\.colorScheme, .dark)
             .accessibilityLabel("渲染帧率，" + text)
             .accessibilityIdentifier("table.renderFPS")
+        }
     }
 }
 
@@ -1923,13 +1945,21 @@ final class DiagramLabelOverlay {
         let visible = scene.allBallNodes.values.filter { !$0.isHidden }
         let key: [Float] = [matrix.m11, matrix.m12, matrix.m13, matrix.m21, matrix.m22, matrix.m23,
             matrix.m31, matrix.m32, matrix.m33, matrix.m41, matrix.m42, matrix.m43,
-            Float(view.bounds.width), Float(view.bounds.height),
+            Float(view.bounds.width), Float(view.bounds.height), scene.diagramShowsLineLabels ? 1 : 0,
             Float(scene.cameraNode?.camera?.orthographicScale ?? 0),
             g.cue.x, g.cue.z, g.target.x, g.target.z, g.pocket.x, g.pocket.z,
             Float(scene.currentTargetNumber ?? 0), Float(scene.cameraNode?.camera?.fieldOfView ?? 0)]
             + visible.sorted { ($0.name ?? "") < ($1.name ?? "") }.flatMap { [$0.position.x, $0.position.z] }
-        guard key != geometryKey else { return }
-        geometryKey = key
+        // SceneKit can commit its viewport/projection after the camera model has settled.
+        // Cache the actual projected anchors too: an unchanged model matrix does not prove
+        // that projectPoint is still mapping the cloth to the same screen coordinates.
+        let projectedKey = [g.cue, g.target, g.ghost, g.pocket, g.rail].flatMap { point -> [Float] in
+            let projected = view.projectPoint(point)
+            return [projected.x, projected.y, projected.z]
+        }
+        let completeKey = key + projectedKey
+        guard completeKey != geometryKey else { return }
+        geometryKey = completeKey
         angleMark.isHidden = true
         if labels.isEmpty {
             angleMark.name = "angleDiagram.arc"
@@ -1994,7 +2024,9 @@ final class DiagramLabelOverlay {
         let lines = [(cue, rail), (pocket, back), (tangentA, tangentB)]
         let texts = ["\(Int(g.angle.rounded()))°", "瞄准线", "进球线"]
         var layouts: [[(Int, CGRect)]] = []
-        for index in 0..<3 {
+        let labelCount = scene.diagramShowsLineLabels ? 3 : 1
+        labels.dropFirst(labelCount).forEach { $0.isHidden = true }
+        for index in 0..<labelCount {
             let label = labels[index]
             label.text = texts[index]
             label.backgroundColor = .clear
@@ -2156,6 +2188,32 @@ final class DiagramLabelOverlay {
             angleMark.isHidden = false
         }
     }
+
+    #if DEBUG
+    /// Actual rendered path versus current SceneKit projection, for native regression checks.
+    func diagnostic(in view: SCNView, scene: AngleTrainingScene) -> [String: Any] {
+        guard let g = scene.diagramLabelGeometry else { return [:] }
+        let cue = view.projectPoint(g.cue), ghost = view.projectPoint(g.ghost)
+        let angle = atan2(CGFloat(ghost.y - cue.y), CGFloat(ghost.x - cue.x))
+        let expected = CGPoint(x: CGFloat(ghost.x) + cos(angle) * 22,
+                               y: CGFloat(ghost.y) + sin(angle) * 22)
+        var firstPoint: CGPoint?
+        angleMark.path?.applyWithBlock { element in
+            if firstPoint == nil, element.pointee.type == .moveToPoint {
+                firstPoint = element.pointee.points[0]
+            }
+        }
+        var result: [String: Any] = ["ghost": [ghost.x, ghost.y],
+            "expectedArcStart": [expected.x, expected.y], "arcHidden": angleMark.isHidden]
+        if let firstPoint { result["arcStart"] = [firstPoint.x, firstPoint.y] }
+        if let label = labels.first {
+            result["labelCenter"] = [label.center.x, label.center.y]
+            result["labelFontSize"] = label.font.pointSize
+            result["labelHidden"] = label.isHidden
+        }
+        return result
+    }
+    #endif
 
     /// Slab clipping gives an exact segment/rectangle test, including edge contact.
     static func segment(_ a: CGPoint, _ b: CGPoint, intersects rect: CGRect) -> Bool {

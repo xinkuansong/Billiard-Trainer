@@ -7,6 +7,149 @@ import Metal
 /// optional evidence renders (`TEST_RUNNER_V62_SHOT_DIR`).
 @MainActor
 final class RoomReflectionProbeTests: XCTestCase {
+    /// Measures first-consumer dependence without claiming a visual defect from cache identity alone.
+    func testP01ProbeFirstConsumerOrderAudit() throws {
+        defer { RoomReflectionProbe.resetCache() }
+        var rows: [[String: Any]] = []
+        for style in RoomStyle.allCases {
+            var maps: [String: [Float]] = [:]
+            for daily in [false, true] {
+                RoomReflectionProbe.resetCache()
+                let source = AngleTrainingScene()
+                if daily { source.configureDailyClearanceRendering() }
+                source.setupScene(mobileRendering: true)
+                source.installReferenceRoom(style: style)
+                let first = try XCTUnwrap(source.roomReflectionProbe)
+                let key = daily ? "daily" : "default"
+                maps[key] = readHalfTexture(first.texture)
+                let repeated = try XCTUnwrap(RoomReflectionProbe.bake(scene:source,style:style))
+                let repeatDiff = zip(readHalfTexture(repeated.texture),try XCTUnwrap(maps[key])).map { abs($0-$1) }
+                rows.append(["room":style.rawValue,"case":"same-source repeat "+key,"meanAbsolute":repeatDiff.reduce(0,+)/Float(repeatDiff.count),"maxAbsolute":repeatDiff.max() ?? 0])
+                let follower = AngleTrainingScene()
+                if !daily { follower.configureDailyClearanceRendering() }
+                follower.setupScene(mobileRendering: true)
+                follower.installReferenceRoom(style: style)
+                XCTAssertEqual(first === follower.roomReflectionProbe,
+                    RoomReflectionProbe.Inputs(style: style, scene: source) == RoomReflectionProbe.Inputs(style: style, scene: follower))
+                // Re-bake the follower to distinguish deterministic bake noise from cache reuse.
+                let fresh = try XCTUnwrap(RoomReflectionProbe.bake(scene: follower, style: style))
+                let actual = readHalfTexture(fresh.texture)
+                let cached = try XCTUnwrap(maps[key])
+                XCTAssertEqual(actual.count, cached.count)
+                XCTAssertTrue(actual.allSatisfy(\.isFinite))
+                let diffs = zip(actual, cached).map { abs($0 - $1) }
+                rows.append(["room":style.rawValue,"first":key,"meanAbsolute":diffs.reduce(0,+)/Float(diffs.count),"maxAbsolute":diffs.max() ?? 0])
+                if daily {
+                    follower.applyTableStyle(.ivory)
+                    follower.applyClothColor(.burgundy)
+                    let changed = try XCTUnwrap(RoomReflectionProbe.bake(scene:follower,style:style))
+                    let delta = zip(readHalfTexture(changed.texture),actual).map { abs($0-$1) }
+                    rows.append(["room":style.rawValue,"case":"ivory-burgundy versus follower fresh","meanAbsolute":delta.reduce(0,+)/Float(delta.count),"maxAbsolute":delta.max() ?? 0])
+                }
+            }
+        }
+        let data = try JSONSerialization.data(withJSONObject: rows, options:[.prettyPrinted,.sortedKeys])
+        print("P01_PROBE_ORDER " + String(decoding:data,as:UTF8.self))
+        let a = XCTAttachment(data:data,uniformTypeIdentifier:"public.json");a.name="p01-probe-order";a.lifetime = .keepAlways;add(a)
+    }
+
+    func testP01AppearanceChangeRefreshesProbeAndRestoresCachedInput() throws {
+        RoomReflectionProbe.resetCache()
+        defer { RoomReflectionProbe.resetCache() }
+        let first = AngleTrainingScene()
+        first.configureReferenceTableRendering()
+        first.applyTableStyle(.ivory, showsSights: false)
+        first.applyClothColor(.burgundy)
+        first.setupScene(mobileRendering: true, roomStyle: .walnut)
+        let original = try XCTUnwrap(first.roomReflectionProbe)
+        let peer = AngleTrainingScene()
+        peer.configureDailyClearanceRendering()
+        peer.applyTableStyle(.ivory, showsSights: false)
+        peer.applyClothColor(.burgundy)
+        peer.setupScene(mobileRendering: true, roomStyle: .walnut)
+        XCTAssertTrue(original === peer.roomReflectionProbe, "Same static appearance shares resources across camera policies")
+        let rootIDs = first.rootNode.childNodes.map(ObjectIdentifier.init)
+        XCTAssertTrue(first.applyClothColor(.green))
+        let green = try XCTUnwrap(first.roomReflectionProbe)
+        XCTAssertFalse(green === original, "Changing cloth must refresh the installed probe immediately")
+        XCTAssertTrue(peer.roomReflectionProbe === original, "Other scene keeps its own appearance")
+        XCTAssertTrue(first.applyClothColor(.burgundy))
+        XCTAssertTrue(first.roomReflectionProbe === original, "Returning to a retained input should reuse its texture")
+        XCTAssertTrue(first.applyTableStyle(.charcoal, showsSights: false))
+        let charcoal = try XCTUnwrap(first.roomReflectionProbe)
+        XCTAssertFalse(charcoal === original)
+        XCTAssertTrue(first.applyTableStyle(.charcoal, showsSights: true))
+        XCTAssertFalse(first.roomReflectionProbe === charcoal, "Sight visibility is part of the static table")
+        XCTAssertEqual(rootIDs, first.rootNode.childNodes.map(ObjectIdentifier.init), "Bake never inserts nodes in the host")
+    }
+
+    func testP01ProbeBakeIgnoresBallLayoutAndPreservesLiveScene() throws {
+        RoomReflectionProbe.resetCache()
+        defer { RoomReflectionProbe.resetCache() }
+        let subject = try scene(style: .walnut)
+        subject.applyTableStyle(.ivory)
+        subject.applyClothColor(.burgundy)
+        let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        renderer.scene = subject
+        renderer.pointOfView = subject.cameraNode
+        subject.contactOcclusion?.renderer(renderer, didApplyAnimationsAtTime: 0)
+        let nodes = subject.rootNode.childNodes
+        let visibility = nodes.map(\.isHidden)
+        let pose = subject.cameraNode.transform
+        let first = try XCTUnwrap(RoomReflectionProbe.bake(scene: subject, style: .walnut))
+        XCTAssertEqual(visibility, nodes.map(\.isHidden))
+        XCTAssertTrue(SCNMatrix4EqualToMatrix4(pose, subject.cameraNode.transform))
+        let y = subject.surfaceY + AngleSceneCalculator.ballRadius
+        subject.applyBallLayout(cueBallPosition: SCNVector3(0.9, y, -0.4), targetBallNumber: 13,
+                                targetPosition: SCNVector3(-0.8, y, 0.3))
+        subject.setPocketRoles(first: 0, second: 3)
+        subject.confirmPocketSelection(at: 1, immediately: true)
+        let pocketState = subject.pocketSelectionDescription
+        var descendants: [SCNNode] = []
+        subject.rootNode.enumerateChildNodes { node, _ in descendants.append(node) }
+        let hiddenBefore = descendants.map(\.isHidden)
+        let opacityBefore = descendants.map(\.opacity)
+        subject.contactOcclusion?.renderer(renderer, didApplyAnimationsAtTime: 1)
+        let second = try XCTUnwrap(RoomReflectionProbe.bake(scene: subject, style: .walnut))
+        XCTAssertEqual(subject.pocketSelectionDescription, pocketState)
+        XCTAssertEqual(hiddenBefore, descendants.map(\.isHidden))
+        XCTAssertEqual(opacityBefore, descendants.map(\.opacity))
+        let a = readHalfTexture(first.texture), b = readHalfTexture(second.texture)
+        let delta = zip(a,b).map { abs($0-$1) }
+        XCTAssertEqual(a.count,b.count)
+        XCTAssertTrue(b.allSatisfy(\.isFinite))
+        XCTAssertLessThan(delta.max() ?? 0, 0.001, "Balls, analytic shadows and pocket highlights cannot contaminate a shared static bake")
+        subject.clearPocketHighlights()
+        try capture(subject, name: "p01-probe-ivory-burgundy-current")
+        subject.applyTableStyle(.charcoal)
+        subject.applyClothColor(.green)
+        try capture(subject, name: "p01-probe-charcoal-green-current")
+    }
+
+    func testP01ProbeCacheEvictionDoesNotRetainScenesOrBreakActiveProbes() throws {
+        RoomReflectionProbe.resetCache()
+        defer { RoomReflectionProbe.resetCache() }
+        weak var releasedScene: AngleTrainingScene?
+        var held: RoomReflectionProbe?
+        autoreleasepool {
+            let subject = AngleTrainingScene()
+            releasedScene = subject
+            subject.setupScene(mobileRendering: true, roomStyle: .eastern)
+            held = subject.roomReflectionProbe
+        }
+        XCTAssertNil(releasedScene, "The cache owns textures, never scene hosts")
+        let original = try XCTUnwrap(held)
+        let subject = AngleTrainingScene()
+        subject.setupScene(mobileRendering: true, roomStyle: .eastern)
+        XCTAssertTrue(original === subject.roomReflectionProbe)
+        for style in [TableStyle.ivory, .walnut, .blossom] {
+            XCTAssertTrue(subject.applyTableStyle(style))
+        }
+        XCTAssertTrue(subject.applyTableStyle(.charcoal))
+        XCTAssertFalse(original === subject.roomReflectionProbe, "The fourth appearance evicts the least recent cached entry")
+        XCTAssertEqual(original.texture.width, RoomReflectionProbe.width, "Eviction leaves active consumers valid")
+    }
+
     private var shotDirectory: URL? {
         guard let path = ProcessInfo.processInfo.environment["V62_SHOT_DIR"], path != "device" else { return nil }
         return URL(fileURLWithPath: path)

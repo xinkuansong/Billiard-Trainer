@@ -642,40 +642,252 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
         XCTAssertEqual(power.value as? String, changedPower, "2D return must preserve the edited power")
     }
 
-    func testSeparationAtlas3DRoundTrip() {
-        runAtlas3DRoundTrip(title: "分离角图谱", prefix: "separationAngleAtlas")
+    private func assertTeachingDiagramAlignment(file: StaticString = #filePath, line: UInt = #line) throws {
+        let table = app.descendants(matching: .any).matching(identifier: "table.scene").firstMatch
+        let json = try XCTUnwrap(table.value as? String)
+        let data = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        let diagram = try XCTUnwrap(data["diagram"] as? [String: Any])
+        let actual = try XCTUnwrap(diagram["arcStart"] as? [Double])
+        let expected = try XCTUnwrap(diagram["expectedArcStart"] as? [Double])
+        XCTAssertEqual(actual[0], expected[0], accuracy: 1, "Arc must use the current cloth projection", file: file, line: line)
+        XCTAssertEqual(actual[1], expected[1], accuracy: 1, "Arc must use the current cloth projection", file: file, line: line)
+        let ghost = try XCTUnwrap(diagram["ghost"] as? [Double])
+        let label = try XCTUnwrap(diagram["labelCenter"] as? [Double])
+        XCTAssertLessThanOrEqual(hypot(label[0] - ghost[0], label[1] - ghost[1]), 60.1, file: file, line: line)
+        XCTAssertEqual(diagram["labelFontSize"] as? Double, 11, file: file, line: line)
+        XCTAssertEqual(diagram["labelHidden"] as? Bool, false, file: file, line: line)
     }
 
-    func testAngleDynamicObservationRoundTrip() {
+    func testSeparationAtlas3DRoundTrip() throws {
         continueAfterFailure = false
-        XCTAssertTrue(openCard(homeTab: "学", title: "角度与瞄准"))
-        snap("v63-angle-dynamic-baseline")
+        app.terminate()
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-dailyInteraction.sharedPage=separation", "-v54.forceLight", "-3dDrag.probe"])
+        let prefix = "separationAngleAtlas"
+        let more = app.buttons[prefix + ".more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 20))
+        let metrics = app.descendants(matching: .any).matching(identifier: prefix + ".metrics").firstMatch
+        let legend = app.descendants(matching: .any).matching(identifier: prefix + ".spinLegend").firstMatch
+        XCTAssertTrue(legend.exists)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "paletteBall_")).count, 15)
+        XCTAssertFalse(app.buttons["paletteBall_cueBall"].exists)
+        func toggle(_ index: Int, selected: Bool) {
+            let item = app.buttons[prefix + ".spinLegend.\(index)"]
+            XCTAssertTrue(item.isHittable)
+            XCTAssertTrue(legend.frame.insetBy(dx: -1, dy: -1).contains(item.frame), "Entire row must be visible")
+            XCTAssertGreaterThanOrEqual(item.frame.width, 44 - 0.001)
+            XCTAssertGreaterThanOrEqual(item.frame.height, 24, "Compact eight-row layout must retain distinct usable rows")
+            item.tap()
+            XCTAssertEqual(item.value as? String, selected ? "已选" : "未选")
+        }
+        XCTAssertFalse(app.scrollViews[prefix + ".spinLegend"].exists)
+        for i in 0..<8 {
+            let item = app.buttons[prefix + ".spinLegend.\(i)"]
+            XCTAssertTrue(item.isHittable)
+            XCTAssertTrue(legend.frame.insetBy(dx: -1, dy: -1).contains(item.frame))
+            if i > 0 { XCTAssertGreaterThanOrEqual(item.frame.minY, app.buttons[prefix + ".spinLegend.\(i - 1)"].frame.maxY) }
+        }
+        let trackCount = app.staticTexts[prefix + ".trackCount"]
+        XCTAssertEqual(trackCount.label, "8/8")
+        XCTAssertGreaterThanOrEqual(trackCount.frame.minY, app.buttons[prefix + ".spinLegend.7"].frame.maxY)
+        XCTAssertLessThanOrEqual(metrics.frame.maxY, app.buttons[prefix + ".spinLegend.0"].frame.minY)
+        XCTAssertFalse(metrics.label.contains("/8"))
+        try assertTeachingDiagramAlignment()
+        snap("p08a-2d")
+        for i in 0..<7 { toggle(i, selected: false) }
+        toggle(7, selected: true)
+        XCTAssertEqual(trackCount.label, "1/8")
+        snap("p08a-last-track")
+        for i in 0..<7 { toggle(i, selected: true) }
+        let initial = metrics.label
+        let power = app.descendants(matching: .any).matching(identifier: "solver.power").firstMatch
+        let speed = power.value as? String
+        power.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+            .press(forDuration: 0.2, thenDragTo: power.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)),
+                   withVelocity: XCUIGestureVelocity(rawValue: 150), thenHoldForDuration: 0.2)
+        XCTAssertNotEqual(power.value as? String, speed)
+        let changedSpeed = power.value as? String
+        func menu() { more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
+        func selected(_ id: String) {
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "已选中"), object: app.buttons[id])], timeout: 6), .completed)
+        }
+        menu(); snap("p08a-settings-light")
+        app.buttons[prefix + ".cameraMode"].tap(); app.buttons[prefix + ".dismissMenu"].tap()
+        selected("shotCamera.thirdPerson")
+        XCTAssertFalse(app.buttons["paletteBall__1"].isEnabled)
+        snap("p08a-3d")
+        let ids = ["dailyClearance.observeTable", "shotCamera.thirdPerson", "shotCamera.firstPerson", "shotCamera.temporaryTopDown"]
+        for id in ids { XCTAssertTrue(app.buttons[id].isHittable) }
+        // Camera stack uses the complete ruler shell's centre, exactly as daily.
+        let shell = power.frame
+        let first = app.buttons[ids[0]].frame, last = app.buttons[ids[3]].frame
+        XCTAssertEqual((first.minY + last.maxY) / 2, shell.midY, accuracy: 1)
+        XCTAssertLessThan(first.midX, shell.minX)
+        app.buttons["shotCamera.firstPerson"].tap(); selected("shotCamera.firstPerson"); snap("p08a-first-person")
+        app.buttons["shotCamera.temporaryTopDown"].tap(); selected("shotCamera.temporaryTopDown"); snap("p08a-temporary-topdown")
+        for id in ids.prefix(3) { XCTAssertFalse(app.buttons[id].isEnabled) }
+        app.buttons["shotCamera.temporaryTopDown"].tap(); selected("shotCamera.firstPerson")
+        app.buttons["dailyClearance.observeTable"].tap(); selected("dailyClearance.observeTable"); snap("p08a-overview")
+        XCTAssertEqual(power.value as? String, changedSpeed)
+        XCTAssertEqual(metrics.label, initial)
+        let table = app.descendants(matching: .any).matching(identifier: "table.scene").firstMatch
+        table.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.2))
+            .press(forDuration: 0.1, thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.3)))
+        table.pinch(withScale: 1.2, velocity: 1)
+        menu(); app.buttons[prefix + ".cameraMode"].tap(); app.buttons[prefix + ".dismissMenu"].tap()
+        let probe = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(try XCTUnwrap(table.value as? String).utf8)) as? [String: Any])
+        let balls = try XCTUnwrap(probe["balls"] as? [[String: Any]])
+        let ball = try XCTUnwrap(balls.first { $0["key"] as? String == "_8" })
+        let screen = try XCTUnwrap(ball["screen"] as? [Double])
+        let origin = table.coordinate(withNormalizedOffset: .zero)
+        origin.withOffset(CGVector(dx: screen[0], dy: screen[1]))
+            .press(forDuration: 0.2, thenDragTo: origin.withOffset(CGVector(dx: screen[0] + 110, dy: screen[1] + 40)),
+                   withVelocity: XCUIGestureVelocity(rawValue: 150), thenHoldForDuration: 0.2)
+        XCTAssertNotEqual(metrics.label, initial)
+        try assertTeachingDiagramAlignment()
+        snap("p08a-dragged")
+        for key in ["_1", "_2"] { app.buttons["paletteBall_" + key].tap(); XCTAssertEqual(app.buttons["paletteBall_" + key].value as? String, "在桌上") }
+        for key in ["_1", "_2", "_8"] { app.buttons["paletteBall_" + key].tap() }
+        XCTAssertTrue(metrics.label.contains("—")); app.buttons["paletteBall__8"].tap(); XCTAssertFalse(metrics.label.contains("—"))
+        menu(); app.buttons["menu.tableGrid"].tap()
+        let beforeRotation = metrics.label
+        XCUIDevice.shared.orientation = .portrait; sleep(2)
+        XCTAssertEqual(metrics.label, beforeRotation); snap("p08a-portrait-2d")
+        menu(); app.buttons[prefix + ".cameraMode"].tap(); app.buttons[prefix + ".dismissMenu"].tap()
+        XCTAssertTrue(app.buttons["shotCamera.firstPerson"].isHittable); snap("p08a-portrait-3d")
+        XCUIDevice.shared.orientation = .landscapeLeft
+    }
+
+    func testAngleDynamicObservationRoundTrip() throws {
+        continueAfterFailure = false
+        app.terminate()
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-dailyInteraction.sharedPage=angleDynamic", "-v54.forceLight", "-3dDrag.probe"])
+        XCTAssertTrue(app.buttons["angleDynamic.more"].waitForExistence(timeout: 20))
         let metrics = app.descendants(matching: .any).matching(identifier: "angleDynamic.metrics").firstMatch
         XCTAssertTrue(metrics.exists)
-        let initial = metrics.label
-        let camera = app.buttons["angleDynamic.cameraMode"]
-        camera.tap()
-        XCTAssertEqual(camera.value as? String, "3D")
-        XCTAssertFalse(app.buttons["paletteBall__1"].exists)
-        XCTAssertEqual(metrics.label, initial)
-        for focus in ["cue", "target", "pocket", "table"] {
-            app.buttons["angleDynamic.observation"].tap()
-            app.buttons["angleDynamic.observe." + focus].tap()
-            XCTAssertEqual(metrics.label, initial)
+        XCTAssertFalse(app.buttons["paletteBall_cueBall"].exists)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "paletteBall_")).count, 15)
+        for key in ["_1", "_2", "_3"] {
+            let ball = app.buttons["paletteBall_" + key]
+            ball.tap(); XCTAssertEqual(ball.value as? String, "在桌上")
         }
-        snap("v63-angle-dynamic-3d")
-        let table = app.descendants(matching: .any).matching(identifier: "table.scene").firstMatch
-        XCTAssertTrue(table.exists)
-        table.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.2))
-            .press(forDuration: 0.1, thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.2)))
-        snap("v63-angle-dynamic-orbit")
-        table.pinch(withScale: 1.2, velocity: 1)
-        snap("v63-angle-dynamic-zoom")
-        camera.tap()
-        XCTAssertEqual(camera.value as? String, "2D")
+        for key in ["_1", "_2", "_3"] { app.buttons["paletteBall_" + key].tap() }
+        let initial = metrics.label
+        try assertTeachingDiagramAlignment()
+        snap("ad01-2d")
+        app.buttons["angleDynamic.more"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(app.buttons["menu.tableGrid"].exists)
+        snap("ad01-settings-light")
+        let camera = app.buttons["angleDynamic.cameraMode"]
+        camera.tap(); XCTAssertEqual(camera.value as? String, "3D")
+        app.buttons["angleDynamic.dismissMenu"].tap()
+        XCTAssertFalse(app.buttons["paletteBall__1"].isEnabled)
         XCTAssertEqual(metrics.label, initial)
-        XCTAssertTrue(app.buttons["paletteBall__1"].exists)
-        snap("v63-angle-dynamic-returned")
+        XCTAssertFalse(app.buttons["angleDynamic.observation"].exists)
+        let cameraIDs = ["dailyClearance.observeTable", "shotCamera.thirdPerson", "shotCamera.firstPerson", "shotCamera.temporaryTopDown"]
+        func selected(_ id: String) {
+            let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "已选中"), object: app.buttons[id])
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 6), .completed)
+        }
+        for id in cameraIDs { XCTAssertTrue(app.buttons[id].isHittable) }
+        selected("shotCamera.thirdPerson")
+        snap("ad01-3d")
+        app.buttons["shotCamera.firstPerson"].tap()
+        selected("shotCamera.firstPerson")
+        XCTAssertEqual(metrics.label, initial)
+        snap("ad01-first-person")
+        app.buttons["shotCamera.temporaryTopDown"].tap()
+        selected("shotCamera.temporaryTopDown")
+        for id in cameraIDs.prefix(3) { XCTAssertFalse(app.buttons[id].isEnabled) }
+        XCTAssertEqual(metrics.label, initial)
+        snap("ad01-temporary-topdown")
+        app.buttons["shotCamera.temporaryTopDown"].tap()
+        selected("shotCamera.firstPerson")
+        app.buttons["dailyClearance.observeTable"].tap()
+        selected("dailyClearance.observeTable")
+        snap("ad01-overview")
+        app.buttons["shotCamera.thirdPerson"].tap()
+        selected("shotCamera.thirdPerson")
+        XCTAssertEqual(metrics.label, initial)
+        let table = app.descendants(matching: .any).matching(identifier: "table.scene").firstMatch
+        table.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.2))
+            .press(forDuration: 0.1, thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.3)))
+        table.pinch(withScale: 1.2, velocity: 1)
+        app.buttons["angleDynamic.more"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap(); camera.tap()
+        XCTAssertEqual(camera.value as? String, "2D")
+        app.buttons["angleDynamic.dismissMenu"].tap()
+        XCTAssertEqual(metrics.label, initial)
+        XCTAssertTrue(app.buttons["paletteBall__1"].isEnabled)
+        let beforeDrag = metrics.label
+        let probe = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(try XCTUnwrap(table.value as? String).utf8)) as? [String: Any])
+        let balls = try XCTUnwrap(probe["balls"] as? [[String: Any]])
+        let ball = try XCTUnwrap(balls.first { $0["key"] as? String == "_8" })
+        let screen = try XCTUnwrap(ball["screen"] as? [Double])
+        print("AD01 drag frame=\(table.frame), screen=\(screen), probe=\(probe)")
+        // Move beyond the shared 52pt finger-offset dead zone, then continue placing the ball.
+        let origin = table.coordinate(withNormalizedOffset: .zero)
+        origin.withOffset(CGVector(dx: screen[0], dy: screen[1]))
+            .press(forDuration: 0.2, thenDragTo: origin.withOffset(CGVector(dx: screen[0] + 110, dy: screen[1] + 40)),
+                   withVelocity: XCUIGestureVelocity(rawValue: 150), thenHoldForDuration: 0.2)
+        print("AD01 after drag=\(table.value ?? "nil")")
+        XCTAssertNotEqual(metrics.label, beforeDrag, "拖球须真实更新教学读数")
+        snap("ad01-dragged")
+        app.buttons["paletteBall__8"].tap()
+        XCTAssertEqual(app.buttons["paletteBall__8"].value as? String, "未在桌上")
+        for readout in ["切角、—", "d/R、—", "横移、—", "偏移、—"] {
+            XCTAssertTrue(metrics.label.contains(readout), metrics.label)
+        }
+        XCTAssertEqual(metrics.label.filter { $0 == "—" }.count, 5, metrics.label)
+        app.buttons["paletteBall__8"].tap()
+        XCTAssertFalse(metrics.label.contains("—"))
+    }
+
+    func testAngleDynamicTemplateRotationAndGrid() {
+        continueAfterFailure = false
+        app.terminate()
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-dailyInteraction.sharedPage=angleDynamic", "-v54.forceDark"])
+        XCTAssertTrue(app.buttons["angleDynamic.more"].waitForExistence(timeout: 20))
+        let metrics = app.descendants(matching: .any).matching(identifier: "angleDynamic.metrics").firstMatch
+        let initial = metrics.label
+        app.buttons["angleDynamic.more"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let grid = app.buttons["menu.tableGrid"]
+        let initialGrid = grid.value as? String
+        grid.tap()
+        app.buttons["angleDynamic.more"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertNotEqual(grid.value as? String, initialGrid)
+        snap("ad01-settings-dark")
+        app.buttons["angleDynamic.cameraMode"].tap()
+        app.buttons["angleDynamic.dismissMenu"].tap()
+        XCTAssertEqual(metrics.label, initial)
+        snap("ad01-landscape-3d")
+        XCUIDevice.shared.orientation = .portrait
+        sleep(2)
+        XCTAssertEqual(metrics.label, initial)
+        snap("ad01-portrait-3d")
+        app.buttons["angleDynamic.more"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        app.buttons["angleDynamic.cameraMode"].tap()
+        grid.tap()
+        XCTAssertEqual(metrics.label, initial)
+        XCTAssertTrue(app.buttons["paletteBall__15"].isHittable)
+        snap("ad01-portrait-2d")
+        XCUIDevice.shared.orientation = .landscapeLeft
+    }
+
+    func testSeparationAtlasDarkSettings() {
+        continueAfterFailure = false
+        app.terminate(); XCUIDevice.shared.orientation = .landscapeLeft
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-dailyInteraction.sharedPage=separation", "-v54.forceDark"])
+        let more = app.buttons["separationAngleAtlas.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 20))
+        more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(app.buttons["menu.tableGrid"].isHittable)
+        snap("p08a-settings-dark")
+        app.buttons["separationAngleAtlas.cameraMode"].tap()
+        app.buttons["separationAngleAtlas.dismissMenu"].tap()
+        XCTAssertTrue(app.buttons["shotCamera.thirdPerson"].isHittable)
+        snap("p08a-dark-3d")
     }
 
     func testCushionAtlas3DRoundTrip() {
@@ -684,12 +896,26 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
 
     func testAtlasGridControlsAcrossModes() {
         continueAfterFailure = false
-        for (title, prefix) in [("角度与瞄准", "angleDynamic"),
-                                ("分离角图谱", "separationAngleAtlas"),
+        for (title, prefix) in [("分离角图谱", "separationAngleAtlas"),
                                 ("加塞吃库图谱", "cushionEnglishAtlas")] {
             app.terminate()
             app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
             XCTAssertTrue(openCard(homeTab: "学", title: title))
+            if prefix == "separationAngleAtlas" {
+                let more = app.buttons[prefix + ".more"]
+                func openMenu() { more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
+                openMenu()
+                let grid = app.buttons["menu.tableGrid"]
+                let initial = grid.value as? String
+                grid.tap(); openMenu()
+                XCTAssertNotEqual(grid.value as? String, initial)
+                app.buttons[prefix + ".cameraMode"].tap()
+                app.buttons[prefix + ".dismissMenu"].tap()
+                snap("v63-" + prefix + "-grid-3d")
+                openMenu(); grid.tap(); openMenu()
+                XCTAssertEqual(grid.value as? String, initial)
+                continue
+            }
             let camera = app.buttons[prefix + ".cameraMode"]
             XCTAssertEqual(camera.value as? String, "2D")
             app.buttons["更多"].tap()
@@ -709,4 +935,81 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
         }
     }
 
+}
+
+
+extension S2_ShotPagesLayoutUITests {
+    func testP01C56CurrentBefore() throws {
+        continueAfterFailure = false
+        let evidence = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/output/table-page-adaptation/P01/c56-r01/before")
+        try FileManager.default.createDirectory(at: evidence, withIntermediateDirectories: true)
+        func rect(_ r: CGRect) -> [String: Double] {
+            ["x": Double(r.minX), "y": Double(r.minY), "width": Double(r.width), "height": Double(r.height)]
+        }
+        func capture(_ name: String) throws {
+            // Deliberately sample the settled state, not the panel/mode transition.
+            RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+            let shot = XCUIScreen.main.screenshot()
+            try shot.pngRepresentation.write(to: evidence.appendingPathComponent(name + ".png"))
+            let attachment = XCTAttachment(screenshot: shot)
+            attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+            try app.debugDescription.write(to: evidence.appendingPathComponent(name + "-ax.txt"), atomically: true, encoding: .utf8)
+            let tree = try app.snapshot()
+            func collect(_ node: XCUIElementSnapshot) -> [[String: Any]] {
+                var result: [[String: Any]] = []
+                if !node.identifier.isEmpty || node.elementType == .button || node.elementType == .navigationBar {
+                    result.append(["id": node.identifier, "label": node.label,
+                                   "value": String(describing: node.value ?? ""),
+                                   "frame": rect(node.frame), "enabled": node.isEnabled,
+                                   "type": node.elementType.rawValue])
+                }
+                for child in node.children { result += collect(child) }
+                return result
+            }
+            let elements = collect(tree)
+            let data: [String: Any] = ["name":name, "window":rect(app.windows.firstMatch.frame),
+                                      "deviceOrientation":XCUIDevice.shared.orientation.rawValue, "elements":elements]
+            try JSONSerialization.data(withJSONObject: data, options: [.prettyPrinted,.sortedKeys])
+                .write(to: evidence.appendingPathComponent(name + "-metrics.json"))
+        }
+        XCUIDevice.shared.orientation = .portrait
+        XCTAssertTrue(openCard(homeTab: "打", title: "分离角与走位"))
+        let mode = app.buttons["shotSimulation.cameraMode"]
+        XCTAssertEqual(mode.value as? String, "2D")
+        try capture("01-2d-pocket")
+        app.buttons["更多"].tap()
+        XCTAssertTrue(app.buttons["恢复默认"].waitForExistence(timeout: 5))
+        try capture("02-more")
+        app.buttons["恢复默认"].tap()
+        app.buttons["shotStage.spinEntry"].tap()
+        XCTAssertTrue(app.buttons["回中"].waitForExistence(timeout: 5))
+        try capture("03-2d-spin")
+        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).tap()
+        XCTAssertFalse(app.buttons["回中"].exists)
+        mode.tap()
+        XCTAssertEqual(mode.value as? String, "3D")
+        try capture("04-3d-pocket")
+        app.buttons["shotStage.spinEntry"].tap()
+        XCTAssertTrue(app.buttons["回中"].waitForExistence(timeout: 5))
+        try capture("05-3d-spin")
+        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.75)).tap()
+        XCTAssertFalse(app.buttons["回中"].exists)
+        mode.tap()
+        XCTAssertEqual(mode.value as? String, "2D")
+        app.buttons["瞄准模式：进袋，点击切换"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["shotStage.aimWheel"].firstMatch.exists)
+        try capture("06-2d-free")
+        mode.tap()
+        XCTAssertEqual(mode.value as? String, "3D")
+        try capture("07-3d-free")
+        XCUIDevice.shared.orientation = .landscapeRight
+        try capture("08-rotation-request")
+        XCUIDevice.shared.orientation = .portrait
+        mode.tap()
+        XCTAssertEqual(mode.value as? String, "2D")
+        try capture("09-2d-returned")
+        goBack()
+        XCTAssertTrue(app.buttons["angleHomeTab_打"].waitForExistence(timeout: 5))
+        try capture("10-normal-exit")
+    }
 }

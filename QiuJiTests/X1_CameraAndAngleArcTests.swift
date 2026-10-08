@@ -212,6 +212,58 @@ final class X1_CameraAndAngleArcTests: XCTestCase {
 
 @MainActor
 final class AngleDiagramAnnotationTests: XCTestCase {
+    func testAtlasAngleUsesSharedOverlayWithoutLineNames() throws {
+        let vm = SeparationAngleAtlasViewModel(); vm.setupScene()
+        let scene = vm.scene
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 874, height: 402))
+        view.scene = scene; view.pointOfView = scene.cameraNode
+        let rig = try XCTUnwrap(scene.cameraRig)
+        rig.viewportSize = view.bounds.size
+        scene.setCameraMode(.topDown2D, animated: false)
+        rig.snapToTarget(); SCNTransaction.flush()
+        let overlay = DiagramLabelOverlay()
+        let g = try XCTUnwrap(scene.diagramLabelGeometry)
+        XCTAssertEqual(scene.pocketLineNode?.isHidden, false)
+        XCTAssertEqual(scene.angleArcNode?.isHidden, false)
+        for showNames in [false, true, false] {
+            scene.updateVisualization(cueBall: g.cue, targetBall: g.target, pocket: g.pocket,
+                                      showLineLabels: showNames)
+            overlay.update(scene: scene, in: view)
+            let labels = view.subviews.compactMap { $0 as? UILabel }
+            XCTAssertFalse(try XCTUnwrap(labels.first { $0.accessibilityIdentifier == "angleDiagram.label.0" }).isHidden)
+            XCTAssertEqual(labels.filter { !$0.isHidden }.count, showNames ? 3 : 1)
+            XCTAssertEqual(labels.first?.text, "\(Int(vm.cutAngleDegrees.rounded()))°")
+        }
+    }
+
+    func testDiagramCacheTracksRendererProjectionEvenWhenSceneCameraIsUnchanged() throws {
+        let vm = SeparationAngleAtlasViewModel(); vm.setupScene()
+        let scene = vm.scene
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 874, height: 402))
+        view.scene = scene; view.pointOfView = scene.cameraNode
+        let rig = try XCTUnwrap(scene.cameraRig)
+        rig.viewportSize = view.bounds.size
+        scene.setCameraMode(.topDown2D, animated: false)
+        rig.snapToTarget(); SCNTransaction.flush()
+        let overlay = DiagramLabelOverlay()
+        overlay.update(scene: scene, in: view)
+        let camera = try XCTUnwrap(scene.cameraNode).clone()
+        camera.camera = try XCTUnwrap(scene.cameraNode?.camera?.copy() as? SCNCamera)
+        scene.rootNode.addChildNode(camera)
+        view.pointOfView = camera
+        // The renderer's actual projection can change without changing the scene's cached camera inputs.
+        for shift: Float in [0.12, -0.08, 0] {
+            camera.position.x = try XCTUnwrap(scene.cameraNode).position.x + shift
+            SCNTransaction.flush()
+            overlay.update(scene: scene, in: view)
+            let d = overlay.diagnostic(in: view, scene: scene)
+            let actual = try XCTUnwrap(d["arcStart"] as? [CGFloat])
+            let expected = try XCTUnwrap(d["expectedArcStart"] as? [CGFloat])
+            XCTAssertEqual(actual[0], expected[0], accuracy: 0.01)
+            XCTAssertEqual(actual[1], expected[1], accuracy: 0.01)
+        }
+    }
+
     func testAimRaySplitsAtVisibleRadiusAcrossDirections() throws {
         let r = AngleSceneCalculator.ballRadius
         for degrees in stride(from: 0, to: 360, by: 15) {

@@ -3,7 +3,7 @@ import SwiftUI
 /// UIKit's corner-aware safe area tracks iPadOS window controls during resizing.
 /// Measure only the header band; an inset for the entire page would shrink the table.
 struct DailyWindowControlInsets: UIViewRepresentable {
-    var onChange: (UIEdgeInsets, UIEdgeInsets) -> Void
+    var onChange: (UIEdgeInsets, UIEdgeInsets, Bool) -> Void
 
     func makeUIView(context: Context) -> MeasuringView { MeasuringView() }
     func updateUIView(_ view: MeasuringView, context: Context) {
@@ -12,9 +12,10 @@ struct DailyWindowControlInsets: UIViewRepresentable {
     }
 
     final class MeasuringView: UIView {
-        var onChange: ((UIEdgeInsets, UIEdgeInsets) -> Void)?
+        var onChange: ((UIEdgeInsets, UIEdgeInsets, Bool) -> Void)?
         private var last = UIEdgeInsets.zero
         private var lastWindowSafeArea = UIEdgeInsets.zero
+        private var lastStatusVisible: Bool?
         override func didMoveToWindow() { super.didMoveToWindow(); setNeedsLayout() }
         override func safeAreaInsetsDidChange() {
             super.safeAreaInsetsDidChange()
@@ -61,13 +62,15 @@ struct DailyWindowControlInsets: UIViewRepresentable {
                     "screenWindow": DailyLayoutProbe.rect(window.convert(window.bounds, to: scene.screen.coordinateSpace)),
                     "statusHidden": manager?.isStatusBarHidden ?? true])
             }
-            guard inset != last || windowSafeArea != lastWindowSafeArea else { return }
+            let statusVisible = window?.windowScene?.statusBarManager?.isStatusBarHidden == false
+            guard inset != last || windowSafeArea != lastWindowSafeArea || statusVisible != lastStatusVisible else { return }
+            lastStatusVisible = statusVisible
             last = inset
             lastWindowSafeArea = windowSafeArea
             DailyLayoutProbe.record("window.safeArea", [
                 "top": windowSafeArea.top, "bottom": windowSafeArea.bottom,
                 "left": inset.left, "right": inset.right])
-            DispatchQueue.main.async { [weak self] in self?.onChange?(inset, windowSafeArea) }
+            DispatchQueue.main.async { [weak self] in self?.onChange?(inset, windowSafeArea, statusVisible) }
         }
     }
 }
@@ -86,6 +89,7 @@ struct DailyHUDMenuItem: Identifiable {
     let id: String
     let title: String
     var detail: String? = nil
+    var segments: [String] = []
     var selected = false
     var disclosure = false
     var disabled = false
@@ -166,7 +170,21 @@ struct DailyHUDMenuPanel: View {
                         HStack(spacing: 8) {
                             Text(item.title).fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 0)
-                            if let detail = item.detail { Text(detail).foregroundStyle(.white.opacity(0.7)) }
+                            if !item.segments.isEmpty {
+                                HStack(spacing: 0) {
+                                    ForEach(item.segments, id: \.self) { segment in
+                                        Text(segment).font(.btFootnote.weight(.semibold))
+                                            .foregroundStyle(segment == item.detail ? Color.white : .btTextSecondary)
+                                            .frame(width: 44, height: 34)
+                                            .background(segment == item.detail ? HUDStyle.selectedBackground : .clear, in: Capsule())
+                                    }
+                                }
+                                .padding(3)
+                                .background { BTHUDControlBackground(shape: Capsule()) }
+                                .overlay(Capsule().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
+                            } else if let detail = item.detail {
+                                Text(detail).foregroundStyle(.white.opacity(0.7))
+                            }
                             if item.selected { Image(systemName: "checkmark").foregroundStyle(HUDStyle.accent) }
                             if item.disclosure { Image(systemName: "chevron.right").foregroundStyle(.white.opacity(0.6)) }
                         }
@@ -283,4 +301,113 @@ private struct DailyConfirmationTitleHeightKey: PreferenceKey {
 private struct DailyConfirmationActionsHeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 44
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+
+/// C55: informational chrome is independent of table/palette sizing and shot state.
+struct DailyDeviceStatus: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var level: Float = -1
+    @State private var batteryState: UIDevice.BatteryState = .unknown
+    @State private var wasMonitoring = false
+    @State private var clockEpoch = UUID()
+
+    static func fraction(level: Float, state: UIDevice.BatteryState) -> CGFloat? {
+        guard state != .unknown, level.isFinite, (0...1).contains(level) else { return nil }
+        return CGFloat(level)
+    }
+
+    static func fits(_ rect: CGRect, in bounds: CGRect, obstacles: [CGRect], clearance: CGFloat = 4) -> Bool {
+        bounds.contains(rect) && !obstacles.contains { $0.insetBy(dx: -clearance, dy: -clearance).intersects(rect) }
+    }
+
+    static func clockText(_ date: Date, timeZone: TimeZone = .autoupdatingCurrent) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
+    }
+
+    private var fraction: CGFloat? { Self.fraction(level: level, state: batteryState) }
+    private var charging: Bool { batteryState == .charging || batteryState == .full }
+    private var batteryLabel: String {
+        guard let fraction else { return "电量暂不可用" }
+        return "电量\(Int((fraction * 100).rounded()))%" + (charging ? "，已连接电源" : "")
+    }
+    private func refresh() {
+        level = UIDevice.current.batteryLevel
+        batteryState = UIDevice.current.batteryState
+    }
+
+    var body: some View {
+        TimelineView(.everyMinute) { context in
+            let time = Self.clockText(context.date)
+            VStack(spacing: 3) {
+                Text(time).font(.system(size: 11, weight: .medium).monospacedDigit())
+                    .fixedSize(horizontal: true, vertical: true)
+                    .foregroundStyle(.white.opacity(0.84)).frame(width: 32, height: 14)
+                ZStack {
+                    Canvas { context, _ in
+                        let shell = Path(roundedRect: CGRect(x: 0.5, y: 0.5, width: 20, height: 9), cornerRadius: 2)
+                        context.stroke(shell, with: .color(.white.opacity(0.52)), lineWidth: 1)
+                        context.fill(Path(roundedRect: CGRect(x: 21.5, y: 3, width: 1.5, height: 4), cornerRadius: 0.6), with: .color(.white.opacity(0.52)))
+                        if let fraction {
+                            let color: Color = fraction <= 0.2 && !charging ? .red : .white.opacity(0.70)
+                            context.fill(Path(roundedRect: CGRect(x: 2, y: 2, width: 17 * fraction, height: 6), cornerRadius: 1), with: .color(color))
+                        } else {
+                            context.fill(Path(CGRect(x: 7, y: 4.5, width: 7, height: 1)), with: .color(.white.opacity(0.70)))
+                        }
+                    }
+                    if charging {
+                        Image(systemName: "bolt.fill").font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.white).shadow(color: .black, radius: 1)
+                    }
+                }.frame(width: 23, height: 10)
+            }
+            .frame(width: 32, height: 27)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("时间\(time)，\(batteryLabel)")
+            .accessibilityIdentifier("dailyClearance.deviceStatus")
+        }
+        .id(clockEpoch)
+        .allowsHitTesting(false)
+        .onAppear {
+            wasMonitoring = UIDevice.current.isBatteryMonitoringEnabled
+            UIDevice.current.isBatteryMonitoringEnabled = true
+            refresh()
+        }
+        .onDisappear { UIDevice.current.isBatteryMonitoringEnabled = wasMonitoring }
+        .onReceive(NotificationCenter.default.publisher(for: UIDevice.batteryLevelDidChangeNotification)) { _ in refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: UIDevice.batteryStateDidChangeNotification)) { _ in refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in clockEpoch = UUID() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { refresh(); clockEpoch = UUID() }
+        }
+    }
+}
+
+
+/// C56 A: time, battery, then the renderer's measured FPS (or idle state).
+struct DailyStatusCluster: View {
+    @ObservedObject var fps: TableFPSReadoutState
+    let showsDeviceStatus: Bool
+
+    var body: some View {
+        VStack(spacing: 3) {
+            if showsDeviceStatus { DailyDeviceStatus() }
+            Text(fps.text == "FPS · 静止" ? "静止" : fps.text)
+                .font(.system(size: 9, weight: .medium).monospacedDigit())
+                .foregroundStyle(.white.opacity(0.60))
+                .lineLimit(1).minimumScaleFactor(0.85)
+                .frame(width: 32, height: 11)
+                .accessibilityLabel("渲染帧率，" + fps.text)
+                .accessibilityValue(fps.text)
+                .accessibilityIdentifier("dailyClearance.renderFPS")
+        }
+        .frame(width: 32, height: 41)
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("dailyClearance.statusCluster")
+    }
 }

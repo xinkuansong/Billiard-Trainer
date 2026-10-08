@@ -18,6 +18,9 @@ final class Daily3DClothPerformanceTests: XCTestCase {
         scene.showBall(key: PositionPlayBall.cueKey,
             scenePosition: SCNVector3(0, scene.surfaceY + AngleSceneCalculator.ballRadius, 0))
         let cue = try XCTUnwrap(scene.cueBallNode)
+        let cueStick = try XCTUnwrap(scene.cueStick)
+        scene.updateCueStick(cueBallPosition: cue.position, aimDirection: SCNVector3(1, 0, 0))
+        XCTAssertFalse(cueStick.rootNode.isHidden)
         let camera = try XCTUnwrap(scene.cameraNode)
         let originalFOV = camera.camera?.fieldOfView
         let originalProjection = camera.camera?.usesOrthographicProjection
@@ -58,7 +61,7 @@ final class Daily3DClothPerformanceTests: XCTestCase {
         XCTAssertTrue(snapshot !== scene)
         XCTAssertNil(snapshot.rootNode.childNode(withName: "reference_room", recursively: true))
         XCTAssertNil(snapshot.rootNode.childNode(withName: "trainingCamera", recursively: true))
-        XCTAssertNil(snapshot.rootNode.childNode(withName: "cueStick", recursively: true))
+        let cueStickCopy = try XCTUnwrap(snapshot.rootNode.childNode(withName: "cueStick", recursively: true))
         XCTAssertNil(snapshot.rootNode.childNode(withName: "ground_visual", recursively: true))
         XCTAssertNil(snapshot.rootNode.childNode(withName: "ground_contact_shadow", recursively: true))
         for marker in markers {
@@ -113,6 +116,7 @@ final class Daily3DClothPerformanceTests: XCTestCase {
         }
         checkTree(table, try XCTUnwrap(snapshot.rootNode.childNode(withName: try XCTUnwrap(table.name), recursively: false)))
         checkTree(cue, try XCTUnwrap(snapshot.rootNode.childNode(withName: try XCTUnwrap(cue.name), recursively: false)))
+        checkTree(cueStick.rootNode, cueStickCopy)
         print("TemporaryTopDownClone maxWorldElementDifference=\(largestWorldElementDifference) node=\(largestWorldDifferenceNode)")
         let sourceLightIDs = Set(sourceNodes.compactMap { $0.light }.map(ObjectIdentifier.init))
         var snapshotLights: [SCNLight] = []

@@ -146,3 +146,15 @@ struct BTHUDControlBackground<S: Shape>: View {
     @Environment(\.dailyHUDPressed) private var pressed
     var body: some View { shape.fill(pressed || selected ? HUDStyle.selectedBackground : normal) }
 }
+
+/// Action availability belongs to the foreground, never to the translucent shell.
+private struct BTHUDActionContent: ViewModifier {
+    @Environment(\.isEnabled) private var isEnabled
+    func body(content: Content) -> some View {
+        content.foregroundStyle(HUDStyle.valueMeasured)
+            .opacity(isEnabled ? 1 : HUDStyle.chipTextDisabledOpacity)
+    }
+}
+extension View {
+    func btHUDActionContent() -> some View { modifier(BTHUDActionContent()) }
+}

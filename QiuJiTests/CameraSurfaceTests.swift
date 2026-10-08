@@ -7,6 +7,47 @@ final class CameraSurfaceTests: XCTestCase {
     private let viewport = CGSize(width:874,height:402)
 
     @MainActor
+    func testC54SurfaceFirstPersonPeekAndOverviewRoundTrip() throws {
+        let scene = AngleTrainingScene()
+        scene.configureDailyClearanceRendering(); scene.setupScene()
+        let rig = try XCTUnwrap(scene.cameraRig)
+        rig.usesTwoViewCameraControls = true; rig.usesSimpleCueCamera = true
+        rig.usesMergedCamera = true; rig.usesSurfaceCamera = true; rig.viewportSize = viewport
+        let cue = SCNVector3(0, scene.surfaceY + BallPhysics.radius, 0)
+        let aim = SCNVector3(-1, 0, 0)
+        func settle() { for _ in 0..<1200 { rig.update(deltaTime: 1 / 120) } }
+        XCTAssertTrue(rig.enterPlayerView(.thirdPerson, cue: cue, aim: aim, duration: 0))
+        rig.updateCuePose(strike: cue, aim: aim, elevation: 0.05, cue: cue)
+        settle()
+        XCTAssertTrue(rig.enterPlayerView(.firstPerson, cue: cue, aim: aim, duration: 0.2))
+        settle()
+        XCTAssertEqual(rig.playerView, .firstPerson)
+        XCTAssertEqual(rig.twoViewMode, .firstPerson)
+        XCTAssertNil(rig.twoViewSnapshot?.simpleShot, "Surface gestures must release ownership to first-person")
+        let originalEye = scene.cameraNode.simdPosition
+        rig.updateCuePose(strike: cue, aim: SCNVector3(0, 0, -1), elevation: 0.05, cue: cue)
+        settle()
+        XCTAssertEqual(rig.twoViewMode, .firstPerson)
+        XCTAssertGreaterThan(simd_distance(scene.cameraNode.simdPosition, originalEye), 0.05,
+                             "First-person camera follows a changed shot direction")
+        let firstPerson = scene.cameraNode.simdTransform
+        XCTAssertTrue(rig.beginTemporaryTopDown(aim: aim))
+        settle()
+        XCTAssertTrue(rig.temporaryTopDownActive)
+        rig.endTemporaryTopDown()
+        settle()
+        XCTAssertEqual(rig.twoViewMode, .firstPerson)
+        XCTAssertEqual(scene.cameraNode.simdTransform, firstPerson)
+        XCTAssertTrue(rig.enterMergedGlobal(aim: aim, cue: cue))
+        settle()
+        XCTAssertTrue(rig.overviewControlSelected)
+        XCTAssertEqual(rig.twoViewMode, .thirdPerson)
+        XCTAssertTrue(rig.enterPlayerView(.thirdPerson, cue: cue, aim: aim, duration: 0))
+        settle()
+        XCTAssertFalse(rig.overviewControlSelected)
+    }
+
+    @MainActor
     func testS10OverviewInterruptsFromVisibleHeadingNotPendingDestination() throws {
         let node = SCNNode(); node.camera = SCNCamera()
         let rig = CameraRig(cameraNode:node,tableSurfaceY:0.8,config:.dailyClearance)
@@ -433,6 +474,26 @@ final class CameraSurfaceTests: XCTestCase {
     }
 
     @MainActor
+    func testP01RenderingAndCameraPoliciesAreIndependent() throws {
+        for referenceRendering in [false, true] {
+            for shotCamera in [false, true] {
+                let host = PositionPlayViewModel()
+                let initialProfile = host.scene.renderingProfile
+                if referenceRendering { host.scene.configureReferenceTableRendering() }
+                if shotCamera { host.scene.configureShotAwareCamera() }
+                host.setupScene()
+                host.enablePlayerCameraControls()
+                let rig = try XCTUnwrap(host.scene.cameraRig)
+                XCTAssertEqual(host.scene.renderingProfile, referenceRendering ? .reflection : initialProfile)
+                XCTAssertEqual(host.scene.sceneExposureOffset, referenceRendering ? -0.1 : nil)
+                XCTAssertEqual(rig.usesTwoViewCameraControls, shotCamera)
+                XCTAssertEqual(rig.usesSurfaceCamera, shotCamera)
+                XCTAssertTrue(rig.usesRailCameraControls, "Player controls retain their base rail policy in both camera modes")
+            }
+        }
+    }
+
+    @MainActor
     func testDailyProductionDefaultAndOtherHostIsolation() throws {
         XCTAssertFalse(ProcessInfo.processInfo.arguments.contains("-dailyClearance.surfaceCamera"))
         XCTAssertNil(Bundle.main.object(forInfoDictionaryKey: "CameraSurfaceExperiment"))
@@ -460,6 +521,88 @@ final class CameraSurfaceTests: XCTestCase {
         XCTAssertFalse(otherRig.usesTwoViewCameraControls)
     }
 
+
+    @MainActor
+    func testAngleTeachingUsesDailySurfaceAndPreservesTeachingState() throws {
+        let vm = AngleDynamicViewModel()
+        vm.setupScene()
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = viewport
+        vm.setCameraMode(.perspective3D)
+        XCTAssertTrue(rig.usesSurfaceCamera && rig.usesMergedCamera && rig.usesTwoViewCameraControls)
+        let cue = try XCTUnwrap(vm.scene.cueBallNode).position
+        let aim = try XCTUnwrap(vm.currentPlayerAim)
+        let initialAngle = vm.cutAngleDegrees
+        let pocket = vm.selectedPocketIndex
+        let target = vm.selectedTargetKey
+        let daily = PositionPlayViewModel()
+        daily.scene.configureDailyClearanceRendering(); daily.setupScene(); daily.enablePlayerCameraControls()
+        let reference = try XCTUnwrap(daily.scene.cameraRig)
+        reference.viewportSize = viewport
+        XCTAssertTrue(reference.enterPlayerView(.thirdPerson, cue: cue, aim: aim, duration: 0, surfaceTravel: 0.5))
+        XCTAssertEqual(rig.twoViewSnapshot?.pose.transform, reference.twoViewSnapshot?.pose.transform)
+        let pose = try XCTUnwrap(rig.twoViewSnapshot).pose.transform
+        vm.updateCalculations()
+        XCTAssertEqual(rig.twoViewSnapshot?.pose.transform, pose, "Ordinary teaching refresh must not reframe")
+        XCTAssertTrue(vm.requestPlayerView(.firstPerson, animated: false))
+        vm.beginTemporaryTopDown()
+        XCTAssertTrue(vm.temporaryTopDownActive)
+        let first = try XCTUnwrap(rig.twoViewSnapshot).pose.transform
+        vm.endTemporaryTopDown()
+        XCTAssertEqual(rig.twoViewSnapshot?.pose.transform, first)
+        vm.requestSurfaceOverview()
+        for _ in 0..<1200 where rig.isTransitioning { rig.update(deltaTime: 1/120) }
+        XCTAssertTrue(rig.overviewControlSelected)
+        XCTAssertEqual(rig.twoViewSnapshot?.simpleShot?.surface?.travel, 1)
+        XCTAssertEqual(vm.cutAngleDegrees, initialAngle)
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        XCTAssertEqual(vm.selectedTargetKey, target)
+        vm.beginTemporaryTopDown()
+        XCTAssertTrue(vm.temporaryTopDownActive)
+        vm.selectPocket(at: pocket)
+        vm.endTemporaryTopDown()
+        for _ in 0..<1200 where rig.isTransitioning { rig.update(deltaTime: 1/120) }
+        XCTAssertEqual(rig.twoViewSnapshot?.simpleShot?.surface?.travel, 0.5)
+        XCTAssertFalse(vm.cameraTransitionBusy)
+    }
+
+    @MainActor
+    func testSeparationAtlasReusesTeachingCameraWithoutChangingTracksOrSpeed() throws {
+        let vm = SeparationAngleAtlasViewModel()
+        vm.setupScene()
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = viewport
+        vm.setCameraMode(.perspective3D)
+        let daily = PositionPlayViewModel()
+        daily.scene.configureDailyClearanceRendering(); daily.setupScene(); daily.enablePlayerCameraControls()
+        let reference = try XCTUnwrap(daily.scene.cameraRig)
+        reference.viewportSize = viewport
+        XCTAssertTrue(reference.enterPlayerView(.thirdPerson, cue: try XCTUnwrap(vm.scene.cueBallNode).position,
+            aim: try XCTUnwrap(vm.currentPlayerAim), duration: 0, surfaceTravel: 0.5))
+        XCTAssertEqual(rig.twoViewSnapshot?.pose.transform, reference.twoViewSnapshot?.pose.transform)
+        let pose = try XCTUnwrap(rig.twoViewSnapshot).pose.transform
+        vm.velocity = 3.25; vm.onVelocityChanged(); vm.toggleTrack(2)
+        XCTAssertEqual(rig.twoViewSnapshot?.pose.transform, pose)
+        XCTAssertTrue(vm.requestPlayerView(.firstPerson, animated: false))
+        let firstPerson = try XCTUnwrap(rig.twoViewSnapshot).pose.transform
+        vm.beginTemporaryTopDown(); XCTAssertTrue(vm.temporaryTopDownActive)
+        let revision = vm.topDownContentRevision
+        vm.toggleTrack(3)
+        XCTAssertGreaterThan(vm.topDownContentRevision, revision)
+        vm.endTemporaryTopDown()
+        XCTAssertEqual(rig.twoViewSnapshot?.pose.transform, firstPerson)
+        XCTAssertEqual(vm.velocity, 3.25)
+        XCTAssertEqual(vm.enabledTracks, Set([0,1,4,5,6,7]))
+        vm.beginTemporaryTopDown(); vm.selectPocket(at: vm.selectedPocketIndex); vm.endTemporaryTopDown()
+        for _ in 0..<1200 where rig.isTransitioning { rig.update(deltaTime: 1/120) }
+        XCTAssertEqual(rig.twoViewSnapshot?.simpleShot?.surface?.travel, 0.5)
+        vm.removeFromTable("_8")
+        XCTAssertNil(vm.currentPlayerAim)
+        XCTAssertTrue(vm.scene.cueStick?.rootNode.isHidden ?? true)
+        vm.setCameraMode(.topDown2D)
+        vm.placeFromPalette("_8")
+        XCTAssertNotNil(vm.currentPlayerAim)
+    }
 
     private func surfaceCamera(_ surface: CameraSurface) -> TwoViewCamera {
         let camera = TwoViewCamera(pose: surface.pose)

@@ -155,5 +155,8 @@ struct DailyPanelSurface: ViewModifier {
             else { shape.fill(.regularMaterial) }
         }
         .overlay(shape.strokeBorder(Color.white.opacity(0.22), lineWidth: 0.5))
+        // Include the material in the scene's dark HUD environment. Setting
+        // this on the caller's content alone leaves this background in Light.
+        .environment(\.colorScheme, .dark)
     }
 }

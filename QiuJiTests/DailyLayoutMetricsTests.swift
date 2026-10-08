@@ -5,24 +5,111 @@ import CoreGraphics
 /// Capacity tests protect visible content and interaction slots. They do not
 /// substitute for Menu hit testing, glyph rendering, or system window resizing.
 final class DailyLayoutMetricsTests: XCTestCase {
-    func testCameraLaneUsesSafeCapacityAndRulerAxis() {
-        for width in stride(from:320.0,through:1366.0,by:31) {
-            for height in [350.0,390,780,1180] {
-                let f = DailyLayoutMetrics.Foundation(size:CGSize(width:width,height:height),
-                    leadingSafeArea:0,trailingSafeArea:0,
-                    halfLength:CameraRig.defaultTableOuterHalfLength,
-                    halfWidth:CameraRig.defaultTableOuterHalfWidth,
-                    instrumentHeight:DailyLayoutMetrics.Controls.initialInstrumentHeight)
-                guard f.fits else { continue }
-                let lane = DailyLayoutMetrics.CameraLane(column:f.right,pageWidth:width,
-                    trailingSafeArea:0,rulerHeight:f.rulerLength,topDiameter:f.topDiameter,stackHeight:140)
-                let frame = CGRect(x:f.right.minX+lane.offset.x,y:f.right.minY+lane.offset.y,width:44,height:140)
-                XCTAssertGreaterThanOrEqual(frame.minX,0)
-                XCTAssertLessThanOrEqual(frame.maxX,width)
-                XCTAssertGreaterThanOrEqual(frame.minY,44)
-                XCTAssertLessThanOrEqual(frame.maxY,height)
-                XCTAssertFalse(frame.intersects(CGRect(x:f.right.midX-22,y:frame.minY,width:44,height:140)))
-                XCTAssertEqual(frame.midY,f.right.minY+f.topDiameter+24+f.rulerLength/2,accuracy:0.001)
+    func testThreeRowStatusFitsCompactPaletteCornerWithoutShrinking() {
+        let status = CGRect(x: 582, y: 1.5, width: 32, height: 41)
+        let palette = CGRect(x: 84.5, y: 45, width: 498, height: 34)
+        XCTAssertTrue(DailyDeviceStatus.fits(status, in: CGRect(x: 0, y: 0, width: 667, height: 375),
+                                            obstacles: [palette], clearance: 2))
+        XCTAssertFalse(DailyDeviceStatus.fits(status, in: CGRect(x: 0, y: 0, width: 667, height: 375),
+                                             obstacles: [palette.offsetBy(dx: 0, dy: -2)], clearance: 2))
+    }
+
+    func testDeviceClockRollsOverInLocalTime() {
+        let utc = TimeZone(secondsFromGMT: 0)!
+        XCTAssertEqual(DailyDeviceStatus.clockText(Date(timeIntervalSince1970: 86399), timeZone: utc), "23:59")
+        XCTAssertEqual(DailyDeviceStatus.clockText(Date(timeIntervalSince1970: 86400), timeZone: utc), "00:00")
+        XCTAssertEqual(DailyDeviceStatus.clockText(Date(timeIntervalSince1970: 86400), timeZone: TimeZone(secondsFromGMT: 28800)!), "08:00")
+    }
+
+    func testDeviceBatteryUnknownDoesNotBecomeFullOrEmpty() {
+        XCTAssertNil(DailyDeviceStatus.fraction(level: -1, state: .unknown))
+        XCTAssertNil(DailyDeviceStatus.fraction(level: 0.8, state: .unknown))
+        for value: Float in [-1, 1.1, .nan, .infinity] {
+            XCTAssertNil(DailyDeviceStatus.fraction(level: value, state: .unplugged))
+        }
+        XCTAssertEqual(DailyDeviceStatus.fraction(level: 0, state: .unplugged), 0)
+        XCTAssertEqual(DailyDeviceStatus.fraction(level: 1, state: .full), 1)
+        XCTAssertEqual(DailyDeviceStatus.fraction(level: 0.5, state: .charging), 0.5)
+    }
+
+    func testDeviceStatusDoesNotOverlapOrResizeOtherContent() {
+        let bounds = CGRect(x: 0, y: 0, width: 667, height: 375)
+        let status = CGRect(x: 582, y: 7, width: 32, height: 30)
+        XCTAssertTrue(DailyDeviceStatus.fits(status, in: bounds,
+            obstacles: [CGRect(x: 100, y: 45, width: 500, height: 30)]))
+        XCTAssertFalse(DailyDeviceStatus.fits(status, in: bounds,
+            obstacles: [CGRect(x: 100, y: 0, width: 500, height: 44)]))
+        XCTAssertFalse(DailyDeviceStatus.fits(status, in: CGRect(x: 0, y: 0, width: 600, height: 375), obstacles: []))
+    }
+
+    func testC51PaletteCapacityWithoutTableFeedback() {
+        for count in [4, 5, 6, 9, 15] {
+            for width in stride(from: CGFloat(320), through: 1400, by: 10) {
+                for height: CGFloat in [350, 800, 1180] {
+                    let size = CGSize(width: width, height: height)
+                    let reserved = DailyLayoutMetrics.FoundationReservation(width: width - 8,
+                        targetCount: count, chineseEightBall: count == 15,
+                        titleWidth: 92, actionWidth: 138,
+                        prefersSeparateRow: height > width || height >= 600,
+                        separateWidth: width > height && height < 600 ? width - 144 : nil)
+                    let f = DailyLayoutMetrics.Foundation(size: size, leadingSafeArea: 0, trailingSafeArea: 0,
+                        halfLength: CameraRig.defaultTableOuterHalfLength,
+                        halfWidth: CameraRig.defaultTableOuterHalfWidth,
+                        instrumentHeight: 259, palette: reserved)
+                    let obstacles = [CGRect(x: 4, y: 0, width: 44, height: 44),
+                        CGRect(x: 36, y: 13, width: 60, height: 18),
+                        CGRect(x: width - 48, y: 0, width: 44, height: 44), f.left, f.right]
+                    let p = DailyLayoutMetrics.Palette(size: size, sideInset: 4, table: f.table,
+                        targetCount: count, chineseEightBall: count == 15, obstacles: obstacles)
+                    XCTAssertLessThanOrEqual(p.diameter, 36)
+                    XCTAssertGreaterThanOrEqual(p.diameter, 25)
+                    if width >= height { XCTAssertFalse(p.twoRows, "Landscape never wraps") }
+                    if p.fits {
+                        let grid = CGRect(x: f.table.midX - p.targetWidth / 2, y: f.table.minY - p.height,
+                                          width: p.targetWidth, height: p.height)
+                        XCTAssertGreaterThanOrEqual(grid.minX, 4)
+                        XCTAssertLessThanOrEqual(grid.maxX + (p.wingWidth > 0 ? 4 + p.wingWidth : 0), width - 4)
+                        XCTAssertGreaterThanOrEqual(grid.minY, 0)
+                        XCTAssertEqual(grid.maxY, f.table.minY, accuracy: 0.001)
+                        for obstacle in obstacles { XCTAssertFalse(grid.intersects(obstacle)) }
+                    }
+                }
+            }
+        }
+    }
+
+    func testC51CompactHeaderUsesGlyphBoundsAndReportsImpossibleLandscape() {
+        let table = CGRect(x: 68, y: 79, width: 531, height: 296)
+        let obstacles = [CGRect(x: 4, y: 0, width: 44, height: 44),
+            CGRect(x: 36, y: 13, width: 60, height: 18),
+            CGRect(x: 619, y: 0, width: 44, height: 44),
+            CGRect(x: 4, y: 61, width: 60, height: 314),
+            CGRect(x: 603, y: 61, width: 60, height: 314)]
+        let p = DailyLayoutMetrics.Palette(size: CGSize(width: 667, height: 375), sideInset: 4,
+            table: table, targetCount: 15, chineseEightBall: true, obstacles: obstacles)
+        XCTAssertEqual(p.diameter, 30)
+        XCTAssertFalse(p.twoRows)
+        XCTAssertTrue(p.fits)
+        let constrained = DailyLayoutMetrics.Palette(size: CGSize(width: 400, height: 350), sideInset: 4,
+            table: CGRect(x: 100, y: 44, width: 200, height: 112), targetCount: 15,
+            chineseEightBall: true, obstacles: [])
+        XCTAssertFalse(constrained.fits)
+        XCTAssertFalse(constrained.twoRows)
+    }
+
+    func testCameraLaneCentersAllFourControlsOnMeasuredOuterShell() {
+        // Readout/type size changes the shell height independently of ruler travel.
+        for rulerHeight: CGFloat in [120, 144, 200] {
+            for shellHeight: CGFloat in [166, 190, 246, 280] {
+                let column = CGRect(x: 600, y: 44, width: 60, height: 360)
+                let shell = CGRect(x: 8, y: 70, width: 44, height: shellHeight)
+                let lane = DailyLayoutMetrics.CameraLane(column: column,
+                    rulerHeight: rulerHeight, powerShell: shell, stackHeight: 188)
+                let controls = CGRect(origin: CGPoint(x: lane.offset.width, y: lane.offset.height), size: CGSize(width: 44, height: 188))
+                XCTAssertEqual(controls.midY, shell.midY, accuracy: 0.001)
+                XCTAssertEqual(controls.maxX, column.width / 2 - 22 - (rulerHeight < 144 ? 4 : 8), accuracy: 0.001)
+                XCTAssertLessThan(controls.maxX, shell.minX)
+                XCTAssertFalse(lane.isOuter)
             }
         }
     }
@@ -30,7 +117,7 @@ final class DailyLayoutMetricsTests: XCTestCase {
     func testPaletteWrapPreservesAllSlotsWithoutReducingBallFaces() {
         for count in [4, 5, 6, 9, 15] {
             for width in stride(from: CGFloat(280), through: 1300, by: 1) {
-                let p = DailyLayoutMetrics.Palette(width: width, targetCount: count,
+                let p = DailyLayoutMetrics.FoundationReservation(width: width, targetCount: count,
                     chineseEightBall: count == 15, titleWidth: 92, actionWidth: 138,
                     prefersSeparateRow: true)
                 XCTAssertGreaterThanOrEqual(p.diameter, 25)
@@ -38,12 +125,12 @@ final class DailyLayoutMetricsTests: XCTestCase {
                 XCTAssertFalse(p.sharesNavigation)
             }
         }
-        let narrow = DailyLayoutMetrics.Palette(width: 412, targetCount: 15,
+        let narrow = DailyLayoutMetrics.FoundationReservation(width: 412, targetCount: 15,
             chineseEightBall: true, titleWidth: 92, actionWidth: 138, prefersSeparateRow: true)
         XCTAssertTrue(narrow.twoRows)
         XCTAssertEqual(narrow.targetWidth, 7 * 27 + 8)
         XCTAssertEqual(narrow.height, 62)
-        let wide = DailyLayoutMetrics.Palette(width: 592, targetCount: 15,
+        let wide = DailyLayoutMetrics.FoundationReservation(width: 592, targetCount: 15,
             chineseEightBall: true, titleWidth: 92, actionWidth: 138, prefersSeparateRow: true)
         XCTAssertFalse(wide.twoRows)
     }

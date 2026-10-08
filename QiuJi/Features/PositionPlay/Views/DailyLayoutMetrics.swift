@@ -179,7 +179,7 @@ enum DailyLayoutMetrics {
 
         init(size: CGSize, leadingSafeArea: CGFloat, trailingSafeArea: CGFloat,
              halfLength: Double, halfWidth: Double, instrumentHeight: CGFloat,
-             palette: Palette? = nil) {
+             palette: FoundationReservation? = nil) {
             let width = size.width.isFinite ? max(0, size.width) : 0
             let height = size.height.isFinite ? max(0, size.height) : 0
             rotated = height > width
@@ -229,9 +229,9 @@ enum DailyLayoutMetrics {
         }
     }
 
-    /// Table-anchored palette capacity. Side wings balance the cue and (for
-    /// Chinese eight-ball) the independent terminal ball in the two-row layout.
-    struct Palette {
+    /// Frozen C47 vertical reservation: C51 grows the palette inside spare space,
+    /// without feeding its new visual size back into table or instrument geometry.
+    struct FoundationReservation {
         let diameter: CGFloat
         let targetWidth: CGFloat
         let wingWidth: CGFloat
@@ -267,21 +267,60 @@ enum DailyLayoutMetrics {
         }
     }
 
-    /// Camera controls share the reference 2D ruler axis. Prefer the outer
-    /// lane only when it fits the safe content; otherwise use the inner lane.
+    /// C51, page-local points. Resolve against the fixed table baseline and real
+    /// navigation/side obstacles; visual growth never resizes the scene.
+    struct Palette {
+        static let maximumDiameter: CGFloat = 36
+        let diameter: CGFloat
+        let twoRows: Bool
+        let targetWidth: CGFloat
+        let wingWidth: CGFloat
+        let fits: Bool
+        var rowHeight: CGFloat { diameter + 4 }
+        var height: CGFloat { twoRows ? 2 * rowHeight + 4 : rowHeight }
+
+        init(size: CGSize, sideInset: CGFloat, table: CGRect, targetCount: Int,
+             chineseEightBall: Bool, obstacles: [CGRect]) {
+            let count = max(0, targetCount)
+            let separators: CGFloat = chineseEightBall ? 10 : 0
+            func targetWidth(_ d: CGFloat, rows: Bool) -> CGFloat {
+                rows ? CGFloat((max(0, count - (chineseEightBall ? 1 : 0)) + 1) / 2) * (d + 2) + 8
+                    : CGFloat(count) * (d + 2) + separators + 8
+            }
+            func fits(_ d: CGFloat, rows: Bool) -> Bool {
+                let w = targetWidth(d, rows: rows)
+                let h = rows ? 2 * (d + 4) + 4 : d + 4
+                // Include actual vertical hit area; neighbouring slots stay disjoint.
+                let hitHeight = rows ? h : max(44, h)
+                let rect = CGRect(x: table.midX - w / 2,
+                    y: table.minY - h / 2 - hitHeight / 2, width: w, height: hitHeight)
+                let wing = CGRect(x: rect.maxX + 4, y: table.minY - h / 2 - (d + 4) / 2,
+                    width: d + 10, height: d + 4)
+                let bounds = rows && chineseEightBall ? rect.union(wing) : rect
+                return bounds.minX >= sideInset && bounds.maxX <= size.width - sideInset
+                    && bounds.minY >= 0 && !obstacles.contains { $0.insetBy(dx: -2, dy: 0).intersects(bounds) }
+            }
+            let tiers: [CGFloat] = [Self.maximumDiameter, 34, 30, 25]
+            let single = tiers.first { fits($0, rows: false) }
+            // Orientation is a product constraint, not a device-name breakpoint.
+            let double = single == nil && size.height > size.width
+                ? tiers.first { fits($0, rows: true) } : nil
+            twoRows = double != nil
+            diameter = single ?? double ?? 25
+            self.targetWidth = targetWidth(diameter, rows: twoRows)
+            wingWidth = twoRows && chineseEightBall ? diameter + 10 : 0
+            self.fits = single != nil || double != nil
+        }
+    }
+
+    /// Four camera actions stay left of the power column and use its measured full shell centre.
     struct CameraLane {
-        let offset: CGPoint
-        let isOuter: Bool
-        init(column: CGRect, pageWidth: CGFloat, trailingSafeArea: CGFloat,
-             rulerHeight: CGFloat, topDiameter: CGFloat, stackHeight: CGFloat) {
+        let offset: CGSize
+        let isOuter = false
+        init(column: CGRect, rulerHeight: CGFloat, powerShell: CGRect, stackHeight: CGFloat) {
             let gap: CGFloat = rulerHeight < 144 ? 4 : 8
-            let rulerWidth: CGFloat = 44
-            let buttonWidth: CGFloat = 44
-            let outer = column.width / 2 + rulerWidth / 2 + gap
-            isOuter = column.minX + outer + buttonWidth <= pageWidth - max(4, trailingSafeArea)
-            let x = isOuter ? outer : column.width / 2 - rulerWidth / 2 - gap - buttonWidth
-            // Spin face + 2pt gap + 12pt label, then 4pt group gap and 6pt inset.
-            offset = CGPoint(x: x, y: topDiameter + 14 + 10 + (rulerHeight - stackHeight) / 2)
+            offset = CGSize(width: column.width / 2 - 22 - gap - 44,
+                             height: powerShell.midY - stackHeight / 2)
         }
     }
 

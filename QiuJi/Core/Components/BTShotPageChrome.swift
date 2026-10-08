@@ -271,6 +271,7 @@ struct BTSlotL1Button: View {
 struct BreakRackGlyph: View {
     var color: Color
     var size: CGFloat = 15
+    var hollowBalls = false
 
     var body: some View {
         Canvas { ctx, canvas in
@@ -300,7 +301,11 @@ struct BreakRackGlyph: View {
             let rightBall = CGPoint(x: center.x + r, y: center.y + r / rootThree)
             for c in [topBall, leftBall, rightBall] {
                 let rect = CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)
-                ctx.fill(Path(ellipseIn: rect), with: .color(color))
+                if hollowBalls {
+                    let stroke = diameter * 1.8 / 47
+                    ctx.stroke(Path(ellipseIn: rect.insetBy(dx: stroke / 2, dy: stroke / 2)),
+                               with: .color(color), lineWidth: stroke)
+                } else { ctx.fill(Path(ellipseIn: rect), with: .color(color)) }
             }
         }
         .frame(width: size, height: size)

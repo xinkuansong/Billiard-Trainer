@@ -14,7 +14,7 @@ final class DailyAdaptivePanelUITests: XCTestCase {
         "paletteBall_cueBall", "paletteBall__1", "paletteBall__15", "dailyLayout.headerProbe",
         "dailyLayout.controlsProbe", "dailyLayout.spinGeometry", "shotStage.aimWheel", "shotStage.powerBar", "shotStage.instrument",
         "dailyClearance.strike", "dailyClearance.undo", "dailyClearance.playback",
-        "shotCamera.thirdPerson", "shotCamera.temporaryTopDown", "dailyClearance.observeTable", "spinPad.card", "spinPad.disc",
+        "shotStage.powerShell", "shotCamera.firstPerson", "shotCamera.thirdPerson", "shotCamera.temporaryTopDown", "dailyClearance.observeTable", "spinPad.card", "spinPad.disc",
         "dailyClearance.spinTransparencyTitle", "dailyClearance.spinTransparencyPercent",
         "dailyClearance.spinTransparencyOpaqueLabel", "dailyClearance.spinTransparencyTransparentLabel",
         "dailyClearance.spinTransparencyPanel", "dailyClearance.spinTransparencyScroll",
@@ -28,6 +28,260 @@ final class DailyAdaptivePanelUITests: XCTestCase {
             "Inject DAILY_ADAPTIVITY_DIR; lifecycle evidence has no legacy output fallback"))
             .appendingPathComponent(name.replacingOccurrences(of: "/", with: "_"), isDirectory: true)
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+    }
+
+    /// Refresh the core template from current production UI, not historical Figma screenshots.
+    func testC56CoreTemplateCurrentStates() throws {
+        let app = try launch(); defer { app.terminate() }
+        let window = app.windows.firstMatch.frame
+        func dismiss() {
+            app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: window.midX, dy: window.midY)).tap()
+        }
+        func openMore() {
+            app.buttons["freeplay.moreMenu"].tap()
+            XCTAssertTrue(element(app, "dailyClearance.menuPanel").waitForExistence(timeout: 3))
+        }
+        for dimension in ["2D", "3D"] {
+            if dimension == "3D" {
+                openMore(); app.buttons["freeplay.cameraMode"].tap()
+                waitValue(app.buttons["freeplay.cameraMode"], "3D"); dismiss()
+            }
+            try capture(app, "template-" + dimension + "-base")
+            openMore()
+            try capture(app, "template-" + dimension + "-more-top")
+            let menuScroll = app.scrollViews["dailyClearance.menuScroll"]
+            menuScroll.swipeUp()
+            try capture(app, "template-" + dimension + "-more-bottom")
+            XCTAssertTrue(customItem(app, "dailyClearance.changeGame").isHittable)
+            customItem(app, "dailyClearance.aimModeMenu").tap()
+            try capture(app, "template-" + dimension + "-aim")
+            contain(app, app.buttons["dailyClearance.menuBack"])
+            contain(app, app.buttons["dailyClearance.menuClose"])
+            XCTAssertTrue(app.buttons["dailyClearance.menuBack"].isHittable)
+            XCTAssertTrue(app.buttons["dailyClearance.menuClose"].isHittable)
+            app.buttons["dailyClearance.menuClose"].tap()
+            openMore(); menuScroll.swipeUp()
+            customItem(app, "dailyClearance.trajectoryMenu").tap()
+            try capture(app, "template-" + dimension + "-trajectory")
+            XCTAssertEqual(app.buttons["dailyClearance.trajectory.3"].exists, dimension == "3D")
+            app.buttons["dailyClearance.menuClose"].tap()
+            openMore(); customItem(app, "dailyClearance.spinTransparencyMenu").tap()
+            let slider = app.sliders["dailyClearance.spinTransparencySlider"]
+            XCTAssertTrue(slider.waitForExistence(timeout: 3))
+            for (value, name) in [(Float(0), "0"), (Float(0.5), "50"), (Float(1), "100")] {
+                slider.adjust(toNormalizedSliderPosition: CGFloat(value))
+                try capture(app, "template-" + dimension + "-transparency-" + name)
+            }
+            slider.adjust(toNormalizedSliderPosition: 0.5)
+            app.buttons["dailyClearance.spinTransparencyDone"].tap()
+            XCTAssertTrue(element(app, "spinPad.card").exists)
+            try capture(app, "template-" + dimension + "-spin")
+            app.buttons["shotStage.spinEntry"].tap()
+            if dimension == "3D" {
+                for (id, name) in [("dailyClearance.observeTable", "overview"),
+                    ("shotCamera.thirdPerson", "third"), ("shotCamera.firstPerson", "first"),
+                    ("shotCamera.temporaryTopDown", "peek")] {
+                    let button = app.buttons[id]; button.tap(); waitValue(button, "已选中")
+                    try capture(app, "template-3D-" + name)
+                }
+                app.buttons["shotCamera.temporaryTopDown"].tap()
+            }
+        }
+    }
+
+    func testC56UnifiedStatusAndLiveFPS() throws {
+        let app = try launch()
+        let window = app.windows.firstMatch.frame
+        let status = element(app, "dailyClearance.deviceStatus")
+        let cluster = element(app, "dailyClearance.statusCluster")
+        let fps = element(app, "dailyClearance.renderFPS")
+        XCTAssertTrue(fps.waitForExistence(timeout: 5))
+        waitValue(fps, "FPS · 静止")
+        if min(window.width, window.height) < 600 {
+            XCTAssertTrue(status.waitForExistence(timeout: 5), "Phone fullscreen should show actual clock and battery")
+            contain(app, status)
+            let more = app.buttons["freeplay.moreMenu"].frame
+            XCTAssertLessThan(status.frame.midY, more.midY)
+            XCTAssertEqual(cluster.frame.midY, more.midY, accuracy: 0.75)
+            XCTAssertEqual(more.minX - (status.frame.midX + 16), 5, accuracy: 0.75)
+            for index in 1...15 {
+                XCTAssertFalse(status.frame.intersects(app.buttons["paletteBall__\(index)"].frame))
+            }
+            XCTAssertTrue(status.label.contains("时间")); XCTAssertTrue(status.label.contains("电量"))
+        } else {
+            XCTAssertFalse(status.exists, "iPad retains its visible system status bar")
+        }
+        try capture(app, "c56-status-2d", extraIDs: ["dailyClearance.deviceStatus", "dailyClearance.renderFPS", "dailyClearance.statusCluster"])
+        let stage = element(app, "freeplay.stage").frame
+        app.buttons["freeplay.moreMenu"].tap()
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 3)); mode.tap(); waitValue(mode, "3D")
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: window.midX, dy: window.midY)).tap()
+        try capture(app, "c56-third-person", extraIDs: ["dailyClearance.deviceStatus", "dailyClearance.renderFPS", "dailyClearance.statusCluster"])
+        let first = app.buttons["shotCamera.firstPerson"]
+        contain(app, first, hit: true); first.tap(); waitValue(first, "已选中")
+        try capture(app, "c56-first-person", extraIDs: ["dailyClearance.deviceStatus", "dailyClearance.renderFPS", "dailyClearance.statusCluster"])
+        XCTAssertEqual(stage, element(app, "freeplay.stage").frame)
+        let peek = app.buttons["shotCamera.temporaryTopDown"]
+        peek.tap(); waitValue(peek, "已选中")
+        if min(window.width, window.height) < 600 { XCTAssertTrue(status.exists) }
+        try capture(app, "c56-peek", extraIDs: ["dailyClearance.deviceStatus", "dailyClearance.renderFPS", "dailyClearance.statusCluster"])
+        peek.tap(); waitValue(first, "已选中")
+        XCTAssertFalse(element(app, "table.renderFPS").exists, "Legacy FPS label must not duplicate the header")
+        app.buttons["dailyClearance.strike"].tap()
+        let measured = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value MATCHES %@", "[1-9][0-9]* FPS"), object: fps)
+        XCTAssertEqual(XCTWaiter.wait(for: [measured], timeout: 10), .completed)
+        try capture(app, "c56-moving-fps", extraIDs: ["dailyClearance.renderFPS"])
+        let idle = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "FPS · 静止"), object: fps)
+        XCTAssertEqual(XCTWaiter.wait(for: [idle], timeout: 30), .completed)
+        try capture(app, "c56-idle-fps", extraIDs: ["dailyClearance.renderFPS"])
+    }
+
+    func testC54ActionStatesAndFourCameraRoundTrip() throws {
+        let app = try launch()
+        let original = try state(app)
+        let stage = element(app, "freeplay.stage").frame
+        app.buttons["freeplay.moreMenu"].tap()
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 3))
+        mode.tap(); waitValue(mode, "3D")
+        let window = app.windows.firstMatch.frame
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: window.midX, dy: window.midY)).tap()
+        let ids = ["dailyClearance.observeTable", "shotCamera.thirdPerson", "shotCamera.firstPerson", "shotCamera.temporaryTopDown"]
+        let buttons = ids.map { app.buttons[$0] }
+        for button in buttons { contain(app, button, hit: true); XCTAssertTrue(button.isEnabled) }
+        let shell = element(app, "shotStage.powerShell").frame
+        try capture(app, "c54-alignment-measured")
+        XCTAssertEqual((buttons[0].frame.minY + buttons[3].frame.maxY) / 2, shell.midY, accuracy: 0.75)
+        for button in buttons { XCTAssertEqual(button.frame.midX, buttons[0].frame.midX, accuracy: 0.5) }
+        try capture(app, "c54-third-person")
+        buttons[2].tap()
+        let diagnostics = element(app, "v63.cameraDiagnostics")
+        let firstPerson = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", "twoViewMode=firstPerson"), object: diagnostics)
+        XCTAssertEqual(XCTWaiter.wait(for: [firstPerson], timeout: 5), .completed)
+        waitValue(buttons[2], "已选中")
+        try capture(app, "c54-first-person")
+        buttons[3].tap()
+        waitValue(buttons[3], "已选中")
+        for button in buttons.prefix(3) { XCTAssertFalse(button.isEnabled) }
+        XCTAssertFalse(app.buttons["dailyClearance.undo"].isEnabled)
+        XCTAssertFalse(app.buttons["dailyClearance.playback"].isEnabled)
+        try capture(app, "c54-peek-disabled")
+        buttons[3].tap()
+        waitValue(buttons[2], "已选中")
+        buttons[0].tap(); waitValue(buttons[0], "已选中")
+        try capture(app, "c54-overview")
+        buttons[1].tap(); waitValue(buttons[1], "已选中")
+        unchanged(original, try state(app))
+        XCTAssertEqual(element(app, "freeplay.stage").frame, stage)
+        try capture(app, "c54-restored")
+        let replay = app.buttons["dailyClearance.playback"]
+        let undo = app.buttons["dailyClearance.undo"]
+        XCTAssertFalse(undo.isEnabled); XCTAssertFalse(replay.isEnabled)
+        app.buttons["dailyClearance.strike"].tap()
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: replay)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 25), .completed)
+        XCTAssertTrue(undo.isEnabled)
+        try capture(app, "c54-history-enabled")
+        replay.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: replay)], timeout: 25), .completed)
+        undo.tap()
+        XCTAssertFalse(undo.isEnabled)
+        try capture(app, "c54-history-undone")
+    }
+
+    func testC51PaletteAndMenuRoundTrip() throws {
+        let app = try launch()
+        let stableIDs = ["freeplay.stage", "dailyClearance.back", "freeplay.moreMenu",
+            "shotStage.aimWheel", "shotStage.powerBar", "dailyClearance.strike"]
+        let before = stableIDs.map { element(app, $0).frame }
+        func rendererID() throws -> String {
+            let raw = try XCTUnwrap(element(app, "table.scene").value as? String)
+            let data = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+            return try XCTUnwrap(data["rendererID"] as? String)
+        }
+        let renderer = try rendererID()
+        let initialState = try state(app)
+        XCTAssertFalse(app.buttons["paletteBall_cueBall"].exists)
+        XCTAssertFalse(app.buttons["freeplay.cameraMode"].exists)
+        let balls = (1...15).map { app.buttons["paletteBall__\($0)"] }
+        for ball in balls { contain(app, ball) }
+        if app.windows.firstMatch.frame.width > app.windows.firstMatch.frame.height {
+            XCTAssertTrue(element(app, "dailyClearance.singleRowPalette").exists)
+            for ball in balls { XCTAssertEqual(ball.frame.midY, balls[0].frame.midY, accuracy: 0.5) }
+        }
+        for (index, ball) in balls.enumerated() {
+            for other in balls.dropFirst(index + 1) {
+                XCTAssertFalse(ball.frame.insetBy(dx: 0.5, dy: 0.5).intersects(other.frame))
+            }
+        }
+        try capture(app, "c51-2D", extraIDs: (1...15).map { "paletteBall__\($0)" })
+        for dimension in ["3D", "2D"] {
+            app.buttons["freeplay.moreMenu"].tap()
+            let mode = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 3))
+            let scroll = app.scrollViews["dailyClearance.menuScroll"]
+            for _ in 0..<3 where !mode.isHittable { scroll.swipeUp() }
+            XCTAssertTrue(mode.isHittable)
+            XCTAssertGreaterThanOrEqual(mode.frame.height, 44)
+            mode.tap()
+            waitValue(mode, dimension)
+            try capture(app, "c51-menu-" + dimension)
+            // Existing modal backdrop provides the explicit outside-dismiss path.
+            let window = app.windows.firstMatch.frame
+            let panel = element(app, "dailyClearance.menuPanel").frame
+            let dismissPoint = CGPoint(x: window.midX, y: window.midY)
+            XCTAssertFalse(panel.contains(dismissPoint))
+            app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: dismissPoint.x, dy: dismissPoint.y)).tap()
+            XCTAssertFalse(mode.exists)
+            XCTAssertEqual(try rendererID(), renderer)
+            unchanged(initialState, try state(app))
+            try capture(app, "c51-" + dimension + "-returned")
+            for (index, id) in stableIDs.enumerated() where id != "freeplay.stage" {
+                XCTAssertEqual(element(app, id).frame, before[index], id)
+            }
+        }
+        XCTAssertEqual(element(app, "freeplay.stage").frame, before[0])
+        app.buttons["paletteBall__3"].tap()
+        try capture(app, "c51-pocketed-feedback")
+        XCTAssertTrue(app.buttons["paletteBall__1"].isEnabled)
+        app.buttons["paletteBall__1"].tap()
+        try capture(app, "c51-selected")
+    }
+
+    func testC51FiveRulesets() throws {
+        for (game, count) in [("chineseEightBall", 15), ("nineBall", 9), ("sixBall", 6), ("fiveBall", 5), ("fourBall", 4)] {
+            let app = try launch(fixture: "manual", game: game)
+            let balls = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "paletteBall_")).allElementsBoundByIndex
+            XCTAssertEqual(balls.count, count)
+            XCTAssertFalse(app.buttons["paletteBall_cueBall"].exists)
+            for ball in balls {
+                contain(app, ball)
+                XCTAssertLessThanOrEqual(ball.frame.width, 38.5)
+                XCTAssertEqual(ball.frame.midY, balls[0].frame.midY, accuracy: 0.5)
+                XCTAssertFalse(ball.isEnabled, "Racked balls remain unselectable")
+            }
+            try capture(app, "c51-rack-" + game)
+            app.terminate()
+        }
+    }
+
+    func testC51NarrowPortraitPalette() throws {
+        let app = try launch(extra: ["-dailyLayout.viewport=420x800"])
+        XCTAssertTrue(element(app, "dailyClearance.twoRowPalette").exists)
+        XCTAssertFalse(app.buttons["paletteBall_cueBall"].exists)
+        let top = app.buttons["paletteBall__1"].frame
+        let bottom = app.buttons["paletteBall__9"].frame
+        XCTAssertEqual(top.minX, bottom.minX, accuracy: 0.5)
+        XCTAssertLessThan(top.maxY, bottom.minY)
+        for number in 1...15 { contain(app, app.buttons["paletteBall__\(number)"]) }
+        XCTAssertEqual(top.width, 38, accuracy: 0.5)
+        try capture(app, "c51-narrow-2D", extraIDs: (1...15).map { "paletteBall__\($0)" })
+        app.buttons["paletteBall__1"].tap()
+        app.buttons["paletteBall__9"].tap()
+        try capture(app, "c51-narrow-targets")
     }
 
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
@@ -85,7 +339,7 @@ final class DailyAdaptivePanelUITests: XCTestCase {
     }
 
     // Test process must receive a new evidence leaf and real content-size readback.
-    private func launch(fixture: String = "selection") throws -> XCUIApplication {
+    private func launch(fixture: String = "selection", game: String = "chineseEightBall", extra: [String] = []) throws -> XCUIApplication {
         launchCount += 1
         nativeMenuClip = nil
         let requestedOrientation = ProcessInfo.processInfo.environment["DAILY_LAYOUT_ORIENTATION"] ?? ProcessInfo.processInfo.environment["TEST_RUNNER_DAILY_LAYOUT_ORIENTATION"]
@@ -95,8 +349,8 @@ final class DailyAdaptivePanelUITests: XCTestCase {
             "-hasCompletedOnboarding", "YES", "-resetDebugPremium", "-forcePremium",
             "-dailyLayout.probe", "-3dDrag.probe", "-v63.cameraDiagnostics",
             "-dailyClearance.resetState", "-dailyClearance.resetHomeState",
-            "-dailyClearance.preferredGame.v1", "chineseEightBall", "-deeplink.dailyClearance",
-            "-dailyClearance.fixture=\(fixture)"]
+            "-dailyClearance.preferredGame.v1", game, "-deeplink.dailyClearance",
+            "-dailyClearance.fixture=\(fixture)"] + extra
         // Fixtures already install board/phase; fixtureSettled would auto-deliver every later rerack.
         app.launch()
         let reached = element(app, "freeplay.stage").waitForExistence(timeout: 15)
@@ -916,4 +1170,380 @@ final class DailyAdaptivePanelUITests: XCTestCase {
         contain(app, element(app, "spinPad.card"))
     }
 
+}
+
+extension DailyAdaptivePanelUITests {
+    private func launchP01(requiresLandscape: Bool = true, extraArgs: [String] = []) throws -> XCUIApplication {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-dailyLayout.probe", "-3dDrag.probe", "-v63.cameraDiagnostics"] + extraArgs)
+        app.switchTab(.angle)
+        let tab = app.buttons["angleHomeTab_打"]
+        XCTAssertTrue(tab.waitForExistence(timeout: 5)); tab.tap()
+        let card = app.buttons["分离角与走位"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
+        XCTAssertTrue(element(app, "shotSimulation.landscape").waitForExistence(timeout: 15))
+        if requiresLandscape {
+            let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                app.windows.firstMatch.frame.width > app.windows.firstMatch.frame.height
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 8), .completed)
+        }
+        _ = try state(app)
+        return app
+    }
+
+    private func p01Scene(_ app: XCUIApplication) throws -> [String: Any] {
+        let raw = try XCTUnwrap(element(app, "table.scene").value as? String)
+        return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+    }
+
+    private func p01Balls(_ app: XCUIApplication) throws -> [String: [Double]] {
+        let list = try XCTUnwrap(try p01Scene(app)["balls"] as? [[String: Any]])
+        return try Dictionary(uniqueKeysWithValues: list.map {
+            (try XCTUnwrap($0["key"] as? String), try XCTUnwrap($0["world"] as? [Double]))
+        })
+    }
+
+    private func p01More(_ app: XCUIApplication) {
+        app.buttons["freeplay.moreMenu"].tap()
+        XCTAssertTrue(element(app, "dailyClearance.menuPanel").waitForExistence(timeout: 3))
+    }
+
+    private func p01MenuItem(_ app: XCUIApplication, _ id: String) -> XCUIElement {
+        let item = app.buttons[id]
+        let scroll = app.scrollViews["dailyClearance.menuScroll"]
+        for _ in 0..<3 {
+            if item.exists && item.isHittable { return item }
+            scroll.swipeUp()
+        }
+        XCTAssertTrue(item.isHittable, id)
+        return item
+    }
+
+    private func assertP01BallsEqual(_ actual: [String: [Double]], _ expected: [String: [Double]], file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual(Set(actual.keys), Set(expected.keys), file: file, line: line)
+        for (key, coordinates) in expected {
+            guard let observed = actual[key] else { continue }
+            XCTAssertEqual(observed.count, coordinates.count, file: file, line: line)
+            for (a, b) in zip(observed, coordinates) {
+                XCTAssertEqual(a, b, accuracy: 0.000001, "World metres; 0.001 mm tolerance for Float snapshot round trips", file: file, line: line)
+            }
+        }
+    }
+
+    private func p01SetTransparencyEndpoint(_ slider: XCUIElement, to target: CGFloat) {
+        precondition(target == 0 || target == 1)
+        let expected = "\(Int(target * 100))%"
+        for _ in 0..<3 {
+            if slider.value as? String == expected { break }
+            slider.adjust(toNormalizedSliderPosition: target)
+            if slider.value as? String == expected { break }
+            let current = CGFloat(slider.normalizedSliderPosition)
+            let start = slider.coordinate(withNormalizedOffset: CGVector(dx: 0.1 + current * 0.8, dy: 0.5))
+            let end = slider.coordinate(withNormalizedOffset: CGVector(dx: target == 0 ? -0.3 : 1.3, dy: 0.5))
+            start.press(forDuration: 0.2, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.3)
+        }
+        waitValue(slider, expected)
+    }
+
+    func testP01C56TemplateMenusAndCameras() throws {
+        let app = try launchP01(); defer { app.terminate() }
+        let root = element(app, "shotSimulation.landscape")
+        let originalBalls = try p01Balls(app)
+        XCTAssertEqual(Set(originalBalls.keys), Set(["cueBall", "_8"]))
+        let originalState = try state(app)
+        let renderer = try XCTUnwrap(try p01Scene(app)["rendererID"] as? String)
+        XCTAssertFalse(app.buttons["break.entry"].exists)
+        XCTAssertFalse(app.buttons["paletteBall_cueBall"].exists)
+        for key in (1...15).map({ "_\($0)" }) {
+            XCTAssertTrue(app.buttons["paletteBall_" + key].exists)
+            XCTAssertTrue(app.buttons["paletteBall_" + key].isHittable)
+        }
+        let stage = element(app, "freeplay.stage").frame
+        let aim = element(app, "shotStage.aimWheel").frame
+        let power = element(app, "shotStage.powerBar").frame
+        XCTAssertEqual(aim.minY, power.minY, accuracy: 1)
+        XCTAssertEqual(aim.maxY, power.maxY, accuracy: 1)
+        try capture(app, "p01-2D-base", extraIDs: ["shotSimulation.landscape", "shotSimulation.readout"])
+        for dimension in ["2D", "3D"] {
+            if dimension == "3D" {
+                p01More(app); app.buttons["freeplay.cameraMode"].tap()
+                waitValue(app.buttons["freeplay.cameraMode"], "3D")
+                app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+                _ = try state(app)
+            }
+            try capture(app, "p01-" + dimension + "-base-ready", extraIDs: ["shotSimulation.landscape", "shotSimulation.readout"])
+            assertP01BallsEqual(try p01Balls(app), originalBalls)
+            XCTAssertEqual(try p01Scene(app)["rendererID"] as? String, renderer)
+            XCTAssertEqual(element(app, "freeplay.stage").frame, stage)
+            p01More(app)
+            try capture(app, "p01-" + dimension + "-more-top")
+            app.scrollViews["dailyClearance.menuScroll"].swipeUp()
+            XCTAssertTrue(p01MenuItem(app, "shotSimulation.reset").isHittable)
+            XCTAssertFalse(app.buttons["dailyClearance.changeGame"].exists)
+            try capture(app, "p01-" + dimension + "-more-bottom")
+            p01MenuItem(app, "dailyClearance.aimModeMenu").tap()
+            try capture(app, "p01-" + dimension + "-aim")
+            app.buttons["dailyClearance.aim.free"].tap()
+            XCTAssertTrue((root.value as? String)?.contains("自由模式") == true)
+            p01More(app); p01MenuItem(app, "dailyClearance.aimModeMenu").tap()
+            app.buttons["dailyClearance.aim.pocket"].tap()
+            p01More(app); p01MenuItem(app, "dailyClearance.trajectoryMenu").tap()
+            XCTAssertEqual(app.buttons["dailyClearance.trajectory.3"].exists, dimension == "3D")
+            try capture(app, "p01-" + dimension + "-trajectory")
+            app.buttons["dailyClearance.menuClose"].tap()
+            p01More(app); p01MenuItem(app, "dailyClearance.spinTransparencyMenu").tap()
+            let slider = app.sliders["dailyClearance.spinTransparencySlider"]
+            XCTAssertTrue(slider.waitForExistence(timeout: 3))
+            if dimension == "2D" {
+                // launchClean preserves AppStorage; capture the actual persisted initial value.
+                let initial = try XCTUnwrap(slider.value as? String)
+                XCTAssertEqual(element(app, "dailyClearance.spinTransparencyPercent").label, initial)
+                try capture(app, "p01-2D-transparency-initial-" + initial)
+            }
+            for value in [CGFloat(0), 1] {
+                p01SetTransparencyEndpoint(slider, to: value)
+                try capture(app, "p01-" + dimension + "-transparency-\(Int(value * 100))")
+            }
+            slider.adjust(toNormalizedSliderPosition: 0.5)
+            let observed = slider.normalizedSliderPosition
+            XCTAssertTrue((0.25...0.75).contains(observed), "A real drag must leave the endpoint; XCUI target is approximate")
+            try capture(app, "p01-" + dimension + "-transparency-drag-" + (slider.value as? String ?? "unknown"))
+            app.buttons["dailyClearance.spinTransparencyDone"].tap()
+            XCTAssertTrue(element(app, "spinPad.card").exists)
+            try capture(app, "p01-" + dimension + "-spin")
+            app.buttons["shotStage.spinEntry"].tap()
+            unchanged(originalState, try state(app))
+        }
+        let ids = ["dailyClearance.observeTable", "shotCamera.thirdPerson", "shotCamera.firstPerson", "shotCamera.temporaryTopDown"]
+        let shell = element(app, "shotStage.powerShell").frame
+        XCTAssertEqual((app.buttons[ids[0]].frame.minY + app.buttons[ids[3]].frame.maxY)/2, shell.midY, accuracy: 1)
+        for id in ids {
+            app.buttons[id].tap(); waitValue(app.buttons[id], "已选中")
+            try capture(app, "p01-3D-" + id)
+        }
+        app.buttons[ids[3]].tap(); waitValue(app.buttons[ids[2]], "已选中")
+        assertP01BallsEqual(try p01Balls(app), originalBalls)
+        XCTAssertEqual(try p01Scene(app)["rendererID"] as? String, renderer)
+        // Palette in 3D is a status/reference surface, while existing table drag remains supported.
+        app.buttons["paletteBall__1"].tap()
+        assertP01BallsEqual(try p01Balls(app), originalBalls)
+        p01More(app); app.buttons["freeplay.cameraMode"].tap()
+        waitValue(app.buttons["freeplay.cameraMode"], "2D"); app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+        assertP01BallsEqual(try p01Balls(app), originalBalls)
+        try capture(app, "p01-2D-restored")
+        app.buttons["dailyClearance.back"].tap()
+        XCTAssertTrue(app.buttons["angleHomeTab_打"].waitForExistence(timeout: 5))
+        try capture(app, "p01-normal-exit")
+    }
+
+
+    func testP01C56TemporaryAndPreferredAimAfterShots() throws {
+        let app = try launchP01(); defer { app.terminate() }
+        let root = element(app, "shotSimulation.landscape")
+        func waitMode(_ mode: String) {
+            let expectation = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                (root.value as? String)?.contains(mode + "模式") == true
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 8), .completed)
+        }
+        func shootAndSettle() {
+            let strike = app.buttons["dailyClearance.strike"]
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: strike)], timeout: 20), .completed)
+            strike.tap()
+            let undo = app.buttons["dailyClearance.undo"]
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: undo)], timeout: 40), .completed)
+        }
+        p01More(app); p01MenuItem(app, "dailyClearance.aimModeMenu").tap()
+        app.buttons["dailyClearance.aim.pocket"].tap(); waitMode("进袋")
+        let wheel = element(app, "shotStage.aimWheel")
+        wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7)).press(forDuration: 0.1,
+            thenDragTo: wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)))
+        waitMode("自由")
+        try capture(app, "p01-temporary-free")
+        shootAndSettle(); waitMode("进袋")
+        try capture(app, "p01-next-shot-pocket")
+        p01More(app); p01MenuItem(app, "dailyClearance.aimModeMenu").tap()
+        app.buttons["dailyClearance.aim.free"].tap(); waitMode("自由")
+        shootAndSettle(); waitMode("自由")
+        try capture(app, "p01-preferred-free-persists")
+    }
+
+    func testP01C56TabletRotationPreservesScene() throws {
+        let app = try launchP01(requiresLandscape: false); defer { app.terminate() }
+        let original = try p01Balls(app)
+        let renderer = try XCTUnwrap(try p01Scene(app)["rendererID"] as? String)
+        for dimension in ["2D", "3D"] {
+            if dimension == "3D" {
+                p01More(app); app.buttons["freeplay.cameraMode"].tap()
+                waitValue(app.buttons["freeplay.cameraMode"], "3D")
+                app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+            }
+            for (orientation, name) in [(UIDeviceOrientation.portrait, "portrait"), (.landscapeLeft, "landscape"), (.portrait, "portrait-restored")] {
+                XCUIDevice.shared.orientation = orientation
+                let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    let frame = app.windows.firstMatch.frame
+                    return orientation == .landscapeLeft ? frame.width > frame.height : frame.height > frame.width
+                }, object: nil)
+                XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 8), .completed)
+                _ = try state(app)
+                assertP01BallsEqual(try p01Balls(app), original)
+                XCTAssertEqual(try p01Scene(app)["rendererID"] as? String, renderer)
+                for id in ["dailyClearance.back", "freeplay.moreMenu", "shotStage.aimWheel", "shotStage.powerBar", "dailyClearance.strike"] {
+                    contain(app, element(app, id))
+                    XCTAssertTrue(element(app, id).isHittable, id)
+                }
+                XCTAssertFalse(app.buttons["paletteBall_cueBall"].exists)
+                for key in (1...15).map({ "_\($0)" }) {
+                    XCTAssertTrue(app.buttons["paletteBall_" + key].exists)
+                    XCTAssertTrue(app.buttons["paletteBall_" + key].isHittable)
+                }
+                try capture(app, "p01-tablet-" + dimension + "-" + name, extraIDs: ["shotSimulation.landscape", "shotSimulation.readout"])
+            }
+        }
+    }
+
+    func testP01FifteenSlotsMatchesDailyTableLayout() throws {
+        let ids = ["freeplay.stage", "shotStage.aimWheel", "shotStage.powerBar",
+                   "dailyClearance.strike", "dailyClearance.undo", "dailyClearance.playback", "freeplay.moreMenu",
+                   "paletteBall__1", "paletteBall__15", "dailyClearance.statusCluster"]
+        let daily = try launch()
+        let expected = Dictionary(uniqueKeysWithValues: ids.map { ($0, element(daily, $0).frame) })
+        let window = daily.windows.firstMatch.frame
+        try capture(daily, "daily-15-slots-reference")
+        daily.terminate()
+        let app = try launchP01(); defer { app.terminate() }
+        XCTAssertEqual(app.windows.firstMatch.frame, window)
+        XCTAssertFalse(app.buttons["paletteBall_cueBall"].exists)
+        for n in 1...15 { XCTAssertTrue(app.buttons["paletteBall__\(n)"].isHittable) }
+        for id in ids { XCTAssertEqual(element(app, id).frame, expected[id], id) }
+        try capture(app, "p01-15-slots-template-layout", extraIDs: ["shotSimulation.readout"])
+        // A cue has no palette slot: dragging towards the palette must keep it on the table.
+        let table = element(app, "table.scene")
+        let balls = try XCTUnwrap(try p01Scene(app)["balls"] as? [[String: Any]])
+        let cue = try XCTUnwrap(balls.first { $0["key"] as? String == "cueBall" })
+        let point = try XCTUnwrap(cue["screen"] as? [Double])
+        table.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point[0], dy: point[1]))
+            .press(forDuration: 0.1, thenDragTo: app.buttons["paletteBall__8"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+        XCTAssertTrue(try p01Balls(app).keys.contains("cueBall"))
+    }
+
+    private func assertTemplateStatusVisible(_ app: XCUIApplication) {
+        for id in ["dailyClearance.statusCluster", "dailyClearance.deviceStatus", "dailyClearance.renderFPS"] {
+            let status = element(app, id)
+            XCTAssertTrue(status.waitForExistence(timeout: 3), id)
+            contain(app, status)
+        }
+    }
+
+    /// Run with real simulator Light and Dark appearance; both consumers must
+    /// render the shared material and retain the status cluster in both modes.
+    func testP01AndDailySharedPanelsAppearance() throws {
+        for page in ["daily", "p01"] {
+            let args = ["-v51.followSystemAppearance"]
+            let app = try page == "daily" ? launch(extra: args) : launchP01(extraArgs: args)
+            for dimension in ["2D", "3D"] {
+                if dimension == "3D" {
+                    p01More(app); app.buttons["freeplay.cameraMode"].tap()
+                    waitValue(app.buttons["freeplay.cameraMode"], "3D")
+                    app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+                }
+                assertTemplateStatusVisible(app)
+                try capture(app, page + "-" + dimension + "-status", extraIDs: ["dailyClearance.statusCluster", "dailyClearance.deviceStatus", "dailyClearance.renderFPS"])
+                p01More(app)
+                assertTemplateStatusVisible(app)
+                try capture(app, page + "-" + dimension + "-more")
+                p01MenuItem(app, "dailyClearance.aimModeMenu").tap()
+                try capture(app, page + "-" + dimension + "-aim")
+                app.buttons["dailyClearance.menuClose"].tap()
+                p01More(app); p01MenuItem(app, "dailyClearance.spinTransparencyMenu").tap()
+                XCTAssertTrue(app.sliders["dailyClearance.spinTransparencySlider"].waitForExistence(timeout: 3))
+                try capture(app, page + "-" + dimension + "-transparency")
+                app.buttons["dailyClearance.spinTransparencyDone"].tap()
+                // Transparency closes independently of the aiming disc.
+                app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+            }
+            app.terminate()
+        }
+    }
+
+    func testP01FifteenSlotsAndAutomaticScratchReturn() throws {
+        let app = try launchP01(extraArgs: ["-v63.freePlayScratch"]); defer { app.terminate() }
+        let before = try p01Balls(app)
+        XCTAssertEqual(Set(before.keys), Set(["cueBall", "_1", "_8"]))
+        XCTAssertFalse(app.buttons["paletteBall_cueBall"].exists)
+        for n in 1...15 { XCTAssertTrue(app.buttons["paletteBall__\(n)"].isHittable) }
+        let strike = app.buttons["dailyClearance.strike"]
+        let replay = app.buttons["dailyClearance.playback"]
+        func waitEnabled(_ button: XCUIElement) {
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "enabled == true"), object: button)], timeout: 30), .completed)
+        }
+        for dimension in ["2D", "3D"] {
+            if dimension == "3D" {
+                p01More(app); app.buttons["freeplay.cameraMode"].tap()
+                waitValue(app.buttons["freeplay.cameraMode"], "3D")
+                app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+            }
+            waitEnabled(strike)
+            assertTemplateStatusVisible(app)
+            XCTAssertTrue(app.staticTexts["母球进袋"].exists, "Fixture predicts a real scratch")
+            try capture(app, "p01-15-slots-scratch-before-" + dimension)
+            strike.tap(); waitEnabled(replay)
+            let after = try p01Balls(app)
+            let cue = try XCTUnwrap(after["cueBall"])
+            XCTAssertNotEqual(cue, before["cueBall"], "Cue automatically returned after scratching")
+            XCTAssertLessThan(abs(cue[0]), 1.27 - 0.028575)
+            XCTAssertLessThan(abs(cue[2]), 0.635 - 0.028575)
+            for key in ["_1", "_8"] {
+                XCTAssertEqual(after[key], before[key], "Returning the cue must not move target balls")
+                let target = try XCTUnwrap(after[key])
+                XCTAssertGreaterThan(hypot(cue[0] - target[0], cue[2] - target[2]), 2 * 0.028575)
+            }
+            assertTemplateStatusVisible(app)
+            try capture(app, "p01-auto-cue-return-" + dimension)
+            replay.tap(); waitEnabled(replay)
+            assertP01BallsEqual(try p01Balls(app), after)
+            app.buttons["dailyClearance.undo"].tap()
+            assertP01BallsEqual(try p01Balls(app), before)
+        }
+    }
+
+    func testP01C56PlacementAndShotLifecycle() throws {
+        let app = try launchP01(); defer { app.terminate() }
+        let original = try p01Balls(app)
+        app.buttons["paletteBall__1"].tap()
+        XCTAssertEqual(try p01Balls(app).count, 3)
+        app.buttons["paletteBall__2"].tap()
+        XCTAssertEqual(try p01Balls(app).count, 3)
+        XCTAssertFalse(try p01Balls(app).keys.contains("_2"))
+        try capture(app, "p01-target-limit")
+        p01More(app); p01MenuItem(app, "shotSimulation.reset").tap()
+        assertP01BallsEqual(try p01Balls(app), original)
+        let table = element(app, "table.scene")
+        let target = table.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.35))
+        app.buttons["paletteBall__1"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.1, thenDragTo: target)
+        XCTAssertTrue(try p01Balls(app).keys.contains("_1"))
+        try capture(app, "p01-palette-drag-in")
+        let balls = try XCTUnwrap(try p01Scene(app)["balls"] as? [[String: Any]])
+        let placed = try XCTUnwrap(balls.first { $0["key"] as? String == "_1" })
+        let point = try XCTUnwrap(placed["screen"] as? [Double])
+        let source = table.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point[0], dy: point[1]))
+        source.press(forDuration: 0.1, thenDragTo: app.buttons["paletteBall__1"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+        XCTAssertFalse(try p01Balls(app).keys.contains("_1"))
+        try capture(app, "p01-table-drag-back")
+        p01More(app); p01MenuItem(app, "shotSimulation.reset").tap()
+        let strike = app.buttons["dailyClearance.strike"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: strike)], timeout: 15), .completed)
+        strike.tap()
+        let replay = app.buttons["dailyClearance.playback"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: replay)], timeout: 30), .completed)
+        let afterShot = try p01Balls(app)
+        replay.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: replay)], timeout: 30), .completed)
+        assertP01BallsEqual(try p01Balls(app), afterShot)
+        app.buttons["dailyClearance.undo"].tap()
+        assertP01BallsEqual(try p01Balls(app), original)
+        try capture(app, "p01-shot-replay-retry")
+    }
 }

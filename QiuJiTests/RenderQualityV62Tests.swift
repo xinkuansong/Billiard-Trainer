@@ -7,6 +7,99 @@ import MetalKit
 /// Deterministic visual experiments, not a phone performance benchmark.
 @MainActor
 final class RenderQualityV62Tests: XCTestCase {
+    /// Scene-only assets for a Figma proposal, not an implemented P01 page.
+    func testP01C56ProposalSceneAssets() throws {
+        let dir = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("output/table-page-adaptation/P01/c56-r01/scene-assets")
+        try FileManager.default.createDirectory(at:dir,withIntermediateDirectories:true)
+        let s=AngleTrainingScene();s.configureDailyClearanceRendering();s.setupScene(mobileRendering:true)
+        s.hideAllBalls()
+        let y=s.surfaceY+BallPhysics.radius, cue=SCNVector3(-0.35,y,0.22), target=SCNVector3(0.55,y,-0.18)
+        s.showBall(key:PositionPlayBall.cueKey,scenePosition:cue);s.showBall(key:"_8",scenePosition:target)
+        let rig=try XCTUnwrap(s.cameraRig)
+        let renderer=SCNRenderer(device:try XCTUnwrap(MTLCreateSystemDefaultDevice()),options:nil)
+        renderer.scene=s;renderer.pointOfView=s.cameraNode;renderer.delegate=s.contactOcclusion
+        renderer.autoenablesDefaultLighting=false
+        for mode in ["2d","3d"] {
+            let size=mode=="2d" ? CGSize(width:1221,height:676) : CGSize(width:1748,height:804)
+            rig.viewportSize=size
+            if mode=="2d" {
+                s.setCameraMode(.topDown2D,animated:false);rig.fitLandscapeTable(viewSize:size);rig.applyTopDown2D()
+                s.background.contents=UIColor.clear
+            } else {
+                s.setCameraMode(.perspective3D,animated:false)
+                rig.usesTwoViewCameraControls=true;rig.usesSimpleCueCamera=true;rig.usesMergedCamera=true;rig.usesSurfaceCamera=true
+                XCTAssertTrue(rig.enterPlayerView(.thirdPerson,cue:cue,aim:SCNVector3(target.x-cue.x,0,target.z-cue.z),duration:0))
+                for _ in 0..<240 { rig.update(deltaTime:1/120) }
+            }
+            for _ in 0..<3 { _=renderer.snapshot(atTime:0,with:size,antialiasingMode:.multisampling4X) }
+            let shot=renderer.snapshot(atTime:0,with:size,antialiasingMode:.multisampling4X)
+            try XCTUnwrap(shot.pngData()).write(to:dir.appendingPathComponent(mode+".png"))
+            XCTAssertEqual(s.visibleBalls().count,2)
+        }
+    }
+
+    func testP01TemporaryOverlayReleasesAndKeepsMainScene() async throws {
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
+        let s = AngleTrainingScene();s.configureDailyClearanceRendering();s.setupScene(mobileRendering:true)
+        let rig = try XCTUnwrap(s.cameraRig)
+        rig.usesTwoViewCameraControls=true;rig.usesSimpleCueCamera=true;rig.usesMergedCamera=true;rig.usesSurfaceCamera=true
+        rig.viewportSize=CGSize(width:874,height:402)
+        let cue=SCNVector3(0,s.surfaceY+BallPhysics.radius,0),aim=SCNVector3(-1,0,0)
+        XCTAssertTrue(rig.enterPlayerView(.thirdPerson,cue:cue,aim:aim,duration:0))
+        let view=SCNView(frame:CGRect(x:0,y:0,width:874,height:402));view.scene=s;view.pointOfView=s.cameraNode
+        let coordinator=AngleSceneView.Coordinator(scene:s,cameraMode:.perspective3D,interactionMode:.cameraControl)
+        coordinator.scnView=view;window.addSubview(view)
+        defer { AngleSceneView.dismantleUIView(view,coordinator:coordinator);view.removeFromSuperview() }
+        let sourceCue = try XCTUnwrap(s.cueBallNode)
+        for _ in 0..<6 {
+            weak var releasedView:SCNView?
+            weak var releasedScene:SCNScene?
+            try autoreleasepool {
+                let pose=s.cameraNode.simdTransform
+                XCTAssertTrue(rig.beginTemporaryTopDown(aim:aim))
+                coordinator.updateTemporaryTopDownOverlay()
+                let overlay=try XCTUnwrap(view.subviews.compactMap { $0 as? SCNView }.first)
+                releasedView=overlay;releasedScene=overlay.scene
+                XCTAssertFalse(overlay.scene === s)
+                XCTAssertTrue(view.scene === s)
+                let copiedCue=try XCTUnwrap(overlay.scene?.rootNode.childNode(withName:sourceCue.name ?? "",recursively:true))
+                sourceCue.position.x += 0.01
+                SCNTransaction.flush()
+                let presentedX = sourceCue.presentation.position.x
+                coordinator.updateTemporaryTopDownOverlay()
+                XCTAssertEqual(copiedCue.position.x,presentedX,accuracy:0.0001)
+                XCTAssertEqual(s.cameraNode.simdTransform,pose)
+                rig.endTemporaryTopDown();coordinator.updateTemporaryTopDownOverlay()
+                XCTAssertTrue(view.subviews.compactMap { $0 as? SCNView }.isEmpty)
+            }
+            try await Task.sleep(for:.milliseconds(150))
+            XCTAssertNil(releasedView);XCTAssertNil(releasedScene)
+        }
+    }
+
+    func testP01HostTeardownAndReentryOwnSeparateScenes() async throws {
+        let window=try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
+        for daily in [false,true,false,true] {
+            weak var releasedScene:AngleTrainingScene?
+            weak var releasedCoordinator:AngleSceneView.Coordinator?
+            autoreleasepool {
+                let s=AngleTrainingScene();if daily { s.configureDailyClearanceRendering() };s.setupScene(mobileRendering:true)
+                releasedScene=s
+                let view=SCNView(frame:window.bounds);view.scene=s;view.pointOfView=s.cameraNode
+                let coordinator=AngleSceneView.Coordinator(scene:s,cameraMode:.perspective3D,interactionMode:.cameraControl)
+                releasedCoordinator=coordinator;coordinator.scnView=view;view.delegate=coordinator.frameDelegate
+                coordinator.frameDelegate.contact=s.contactOcclusion
+                window.addSubview(view);coordinator.startRenderLoop()
+                XCTAssertTrue(coordinator.scene === view.scene)
+                AngleSceneView.dismantleUIView(view,coordinator:coordinator)
+                XCTAssertNil(view.scene);XCTAssertNil(view.pointOfView);XCTAssertFalse(view.isPlaying)
+                view.removeFromSuperview()
+            }
+            try await Task.sleep(for:.milliseconds(200))
+            XCTAssertNil(releasedCoordinator);XCTAssertNil(releasedScene)
+        }
+    }
+
     func testDailyShadowAndPerspectiveComparison() throws {
         try dailyPerfGate()
         let size = CGSize(width: 1400, height: 800)
@@ -5516,6 +5609,32 @@ final class RenderQualityV62Tests: XCTestCase {
                 AngleSceneView.requestedFPS(maximum: window.screen.maximumFramesPerSecond, selected: selected,
                     active: true, thermal: ProcessInfo.processInfo.thermalState, lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled))
         }
+    }
+
+    func testExternalFPSReadoutTracksRendererWithoutWakingIdle() async throws {
+        let s = try scene(mobile: true)
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
+        let view = SCNView(frame: window.bounds)
+        view.scene = s; view.pointOfView = s.cameraNode; window.addSubview(view)
+        let coordinator = AngleSceneView.Coordinator(scene: s, cameraMode: .perspective3D, interactionMode: .cameraControl)
+        let readout = TableFPSReadoutState()
+        coordinator.scnView = view; coordinator.contentIsAnimating = false
+        coordinator.fpsReadoutState = readout
+        coordinator.installFPSReadout(in: view); coordinator.startRenderLoop(); coordinator.requestInteractiveFrames()
+        defer { coordinator.stopRenderLoop(); view.isPlaying = false; view.removeFromSuperview() }
+        try await Task.sleep(for: .seconds(2.5))
+        XCTAssertEqual(readout.text, "FPS · 静止")
+        XCTAssertTrue(coordinator.isDisplayLinkPaused)
+        let count = coordinator.displayLinkCallbackCount
+        try await Task.sleep(for: .seconds(1.2))
+        XCTAssertEqual(coordinator.displayLinkCallbackCount, count)
+        coordinator.contentIsAnimating = true; coordinator.requestInteractiveFrames()
+        try await Task.sleep(for: .seconds(1.3))
+        XCTAssertTrue(readout.text.hasSuffix(" FPS")); XCTAssertNotEqual(readout.text, "— FPS")
+        XCTAssertGreaterThan(Int(readout.text.split(separator: " ").first ?? "0") ?? 0, 0)
+        coordinator.contentIsAnimating = false
+        try await Task.sleep(for: .seconds(2))
+        XCTAssertEqual(readout.text, "FPS · 静止")
     }
 
     func testReferenceFramePacingPolicy() {

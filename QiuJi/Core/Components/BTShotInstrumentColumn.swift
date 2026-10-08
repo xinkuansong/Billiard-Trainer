@@ -46,6 +46,8 @@ struct BTShotInstrumentColumn: View {
     /// Compact spin entry diameter; other hosts retain the original 44-point button.
     var compactSpinButtonDiameter: CGFloat = 44
     var compactGroupSpacing: CGFloat = 6
+    /// Optional host-local measurement includes the ruler, readout and outer padding.
+    var reportsPowerShellBounds = false
 
     private var compact: Bool { usesCompactAppearance && !isReadOnly }
 
@@ -103,6 +105,11 @@ struct BTShotInstrumentColumn: View {
                         .frame(width: compactPowerBarWidth + 12)
                 }
             }
+            .anchorPreference(key: BTPowerShellBoundsKey.self, value: .bounds) {
+                reportsPowerShellBounds ? $0 : nil
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("shotStage.powerShell")
         }
         .opacity(isDisabled ? 0.5 : 1)
         .accessibilityElement(children: .contain)
@@ -314,15 +321,22 @@ struct ShotPlayerCameraButtons: View {
         VStack(spacing: controlSpacing) {
             if rig.usesMergedCamera {
                 cameraButton(label: "全局观察", id: "dailyClearance.observeTable",
-                    selected: rig.mergedGlobalActive && !temporaryTopDownActive,
+                    selected: rig.overviewControlSelected && !temporaryTopDownActive,
                     action: { onWholeTable?() }) {
                     Image(systemName: "eye").font(.btHeadline)
                 }.disabled(temporaryTopDownActive)
                 cameraButton(label: rig.usesSurfaceCamera ? "沿杆观察" : "第三人称", id: "shotCamera.thirdPerson",
-                    selected: !rig.usesSurfaceCamera && !rig.mergedGlobalActive && !temporaryTopDownActive,
+                    selected: !rig.overviewControlSelected && rig.playerView == .thirdPerson && !temporaryTopDownActive,
                     action: { onSelect(.thirdPerson) }) {
-                    Image(systemName: "figure.stand").font(.btTitle2)
+                    BTPlayerViewGlyph(pose: .standing).frame(width: 28, height: 28)
                 }.disabled(temporaryTopDownActive)
+                if rig.usesSurfaceCamera {
+                    cameraButton(label: "第一人称瞄准", id: "shotCamera.firstPerson",
+                        selected: rig.playerView == .firstPerson && !temporaryTopDownActive,
+                        action: { onSelect(.firstPerson) }) {
+                        BTPlayerViewGlyph(pose: .aiming).frame(width: 28, height: 28)
+                    }.disabled(temporaryTopDownActive)
+                }
                 cameraButton(label: "临时俯视", id: "shotCamera.temporaryTopDown",
                     selected: temporaryTopDownActive,
                     action: { if temporaryTopDownActive { onTemporaryTopDownEnded?() }
@@ -331,10 +345,10 @@ struct ShotPlayerCameraButtons: View {
                 }.onDisappear { onTemporaryTopDownEnded?() }
             } else if usesTwoViewControls {
                 twoViewButton(.thirdPerson, label: "第三人称") {
-                    Image(systemName: "figure.stand").font(.btTitle2)
+                    BTPlayerViewGlyph(pose: .standing).frame(width: 28, height: 28)
                 }
                 twoViewButton(.firstPerson, label: "第一人称") {
-                    CueAimingFigure().frame(width: 28, height: 28)
+                    BTPlayerViewGlyph(pose: .aiming).frame(width: 28, height: 28)
                 }
                 TemporaryTopDownFigure()
                     .frame(width: 28, height: 28)
@@ -358,7 +372,7 @@ struct ShotPlayerCameraButtons: View {
                 cameraButton(label: "第一人称瞄准", id: "shotCamera.firstPerson",
                              selected: rig.playerView == .firstPerson,
                              action: { onSelect(.firstPerson) }) {
-                    CueAimingFigure().frame(width: 28, height: 28)
+                    BTPlayerViewGlyph(pose: .aiming).frame(width: 28, height: 28)
                 }
             } else {
                 button(.firstPerson, symbol: "eye", label: "第一人称瞄准")
@@ -378,8 +392,8 @@ struct ShotPlayerCameraButtons: View {
     private func button(_ view: CameraRig.PlayerView, symbol: String, label: String) -> some View {
         cameraButton(label: label, id: "shotCamera.\(view.rawValue)",
                      selected: rig.playerView == view, action: { onSelect(view) }) {
-            Image(systemName: symbol)
-                .font(view == .thirdPerson ? .system(size: 24, weight: .semibold) : .btHeadline)
+            if view == .thirdPerson { BTPlayerViewGlyph(pose: .standing).frame(width: 28, height: 28) }
+            else { Image(systemName: symbol).font(.btHeadline) }
         }
     }
 
@@ -388,6 +402,7 @@ struct ShotPlayerCameraButtons: View {
                                          @ViewBuilder icon: () -> Icon) -> some View {
         Button(action: action) {
             icon()
+                .btHUDActionContent()
                 .frame(width: 44, height: 44)
                 .background { BTHUDControlBackground(shape: Circle(), selected: selected) }
                 .overlay(Circle().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
@@ -402,37 +417,18 @@ struct ShotPlayerCameraButtons: View {
     }
 }
 
-/// The approved 28pt glyph: six pocket openings, cue ball and an upward aiming line.
+/// Top-down table outline with three hollow balls; no directional arrow.
 private struct TemporaryTopDownFigure: View {
     var body: some View {
         Canvas { context, size in
-            let transform = CGAffineTransform(scaleX: size.width / 28, y: size.height / 28)
-            var lines = Path()
-            let segments: [[CGPoint]] = [
-                [.init(x: 9, y: 2.5), .init(x: 19, y: 2.5)],
-                [.init(x: 7, y: 5), .init(x: 7, y: 11.5)],
-                [.init(x: 7, y: 16.5), .init(x: 7, y: 23)],
-                [.init(x: 9, y: 25.5), .init(x: 19, y: 25.5)],
-                [.init(x: 21, y: 23), .init(x: 21, y: 16.5)],
-                [.init(x: 21, y: 11.5), .init(x: 21, y: 5)],
-                [.init(x: 8, y: 4), .init(x: 6.5, y: 2.5)],
-                [.init(x: 20, y: 4), .init(x: 21.5, y: 2.5)],
-                [.init(x: 7, y: 14), .init(x: 5.5, y: 14)],
-                [.init(x: 21, y: 14), .init(x: 22.5, y: 14)],
-                [.init(x: 8, y: 24), .init(x: 6.5, y: 25.5)],
-                [.init(x: 20, y: 24), .init(x: 21.5, y: 25.5)],
-                [.init(x: 14, y: 18), .init(x: 14, y: 8)],
-                [.init(x: 11.5, y: 10.5), .init(x: 14, y: 8), .init(x: 16.5, y: 10.5)]
-            ]
-            for segment in segments {
-                lines.move(to: segment[0])
-                for point in segment.dropFirst() { lines.addLine(to: point) }
+            let t = CGAffineTransform(scaleX: size.width / 28, y: size.height / 28)
+            var path = Path(roundedRect: CGRect(x: 5, y: 2, width: 18, height: 24), cornerRadius: 3)
+            for c in [CGPoint(x: 10, y: 8), CGPoint(x: 18, y: 13), CGPoint(x: 12, y: 21)] {
+                path.addEllipse(in: CGRect(x: c.x - 2, y: c.y - 2, width: 4, height: 4))
             }
-            context.stroke(lines.applying(transform), with: .color(HUDStyle.valueMeasured),
-                style: StrokeStyle(lineWidth: size.width / 28 * 1.65, lineCap: .round, lineJoin: .round))
-            let ball = Path(ellipseIn: CGRect(x: 12.2, y: 19.2, width: 3.6, height: 3.6))
-            context.fill(ball.applying(transform), with: .color(HUDStyle.valueMeasured))
-        }
+            context.stroke(path.applying(t), with: .color(HUDStyle.valueMeasured),
+                           style: StrokeStyle(lineWidth: size.width / 28 * 1.8, lineCap: .round, lineJoin: .round))
+        }.accessibilityHidden(true)
     }
 }
 
@@ -552,54 +548,6 @@ private struct BTTemporaryTopDownPressControl: UIViewRepresentable {
     }
 }
 
-/// Left-facing cueing silhouette: low head, extended bridge and raised rear elbow.
-private struct CueAimingFigure: View {
-    var body: some View {
-        Canvas { context, size in
-            let transform = CGAffineTransform(scaleX: size.width / 100, y: size.height / 100)
-            var silhouette = Path()
-            silhouette.move(to: CGPoint(x: 40, y: 32))
-            silhouette.addCurve(to: CGPoint(x: 64, y: 35), control1: CGPoint(x: 48, y: 28), control2: CGPoint(x: 59, y: 31))
-            silhouette.addQuadCurve(to: CGPoint(x: 72, y: 49), control: CGPoint(x: 73, y: 38))
-            silhouette.addLine(to: CGPoint(x: 77, y: 69))
-            silhouette.addLine(to: CGPoint(x: 87, y: 87))
-            silhouette.addQuadCurve(to: CGPoint(x: 94, y: 91), control: CGPoint(x: 94, y: 87))
-            silhouette.addLine(to: CGPoint(x: 81, y: 91))
-            silhouette.addQuadCurve(to: CGPoint(x: 75, y: 86), control: CGPoint(x: 77, y: 91))
-            silhouette.addLine(to: CGPoint(x: 61, y: 62))
-            silhouette.addLine(to: CGPoint(x: 55, y: 74))
-            silhouette.addLine(to: CGPoint(x: 50, y: 87))
-            silhouette.addQuadCurve(to: CGPoint(x: 54, y: 91), control: CGPoint(x: 55, y: 88))
-            silhouette.addLine(to: CGPoint(x: 41, y: 91))
-            silhouette.addLine(to: CGPoint(x: 44, y: 78))
-            silhouette.addQuadCurve(to: CGPoint(x: 53, y: 53), control: CGPoint(x: 47, y: 62))
-            silhouette.addLine(to: CGPoint(x: 40, y: 43))
-            silhouette.addQuadCurve(to: CGPoint(x: 28, y: 48), control: CGPoint(x: 34, y: 48))
-            silhouette.addLine(to: CGPoint(x: 10, y: 50))
-            silhouette.addQuadCurve(to: CGPoint(x: 7, y: 47), control: CGPoint(x: 5, y: 50))
-            silhouette.addLine(to: CGPoint(x: 27, y: 42))
-            silhouette.addLine(to: CGPoint(x: 37, y: 35))
-            silhouette.closeSubpath()
-            context.fill(silhouette.applying(transform), with: .color(.white))
-            let head = Path(ellipseIn: CGRect(x: 25, y: 25, width: 15, height: 15))
-            context.fill(head.applying(transform), with: .color(.white))
-            var rearArm = Path()
-            rearArm.move(to: CGPoint(x: 45, y: 35))
-            rearArm.addLine(to: CGPoint(x: 68, y: 21))
-            rearArm.addQuadCurve(to: CGPoint(x: 76, y: 24), control: CGPoint(x: 74, y: 18))
-            rearArm.addLine(to: CGPoint(x: 79, y: 43))
-            rearArm.addQuadCurve(to: CGPoint(x: 73, y: 49), control: CGPoint(x: 81, y: 48))
-            context.stroke(rearArm.applying(transform), with: .color(.white),
-                           style: StrokeStyle(lineWidth: size.width * 0.065, lineCap: .round, lineJoin: .round))
-            var cue = Path()
-            cue.move(to: CGPoint(x: 3, y: 51)); cue.addLine(to: CGPoint(x: 96, y: 51))
-            context.stroke(cue.applying(transform), with: .color(.white),
-                           style: StrokeStyle(lineWidth: size.width * 0.035, lineCap: .round))
-        }
-        .accessibilityHidden(true)
-    }
-}
-
 /// Explicit camera controls for a solved shot. Hosts decide when a solution is available.
 /// This never selects a target or changes the solver/quiz state.
 struct ShotSceneCameraButtons: View {
@@ -653,5 +601,99 @@ private struct BTPowerPrecisionLens: View {
                                     .init(color: .white, location: 0.2),
                                     .init(color: .white, location: 0.8),
                                     .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
+    }
+}
+
+struct BTPowerShellBoundsKey: PreferenceKey {
+    static var defaultValue: Anchor<CGRect>? { nil }
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        if let next = nextValue() { value = next }
+    }
+}
+
+/// C54: user-selected cue-holding figures. The same 100-unit paths supply the Figma SVGs.
+private struct BTPlayerViewGlyph: View {
+    enum Pose { case standing, aiming }
+    let pose: Pose
+    var body: some View {
+        Canvas { context, size in
+            var path = Path()
+            switch pose {
+                case .standing:
+                path.addEllipse(in: CGRect(x: 31, y: 6, width: 16, height: 16))
+                path.move(to: CGPoint(x: 28, y: 37))
+                path.addLine(to: CGPoint(x: 26, y: 61))
+                path.addQuadCurve(to: CGPoint(x: 21, y: 65), control: CGPoint(x: 25, y: 67))
+                path.addQuadCurve(to: CGPoint(x: 20, y: 58), control: CGPoint(x: 19, y: 64))
+                path.addLine(to: CGPoint(x: 24, y: 35))
+                path.addQuadCurve(to: CGPoint(x: 32, y: 29), control: CGPoint(x: 25, y: 29))
+                path.addLine(to: CGPoint(x: 46, y: 29))
+                path.addQuadCurve(to: CGPoint(x: 54, y: 36), control: CGPoint(x: 53, y: 29))
+                path.addLine(to: CGPoint(x: 56, y: 45))
+                path.addLine(to: CGPoint(x: 66, y: 49))
+                path.addQuadCurve(to: CGPoint(x: 69, y: 55), control: CGPoint(x: 71, y: 51))
+                path.addQuadCurve(to: CGPoint(x: 64, y: 56), control: CGPoint(x: 68, y: 58))
+                path.addLine(to: CGPoint(x: 52, y: 52))
+                path.addLine(to: CGPoint(x: 49, y: 41))
+                path.addLine(to: CGPoint(x: 50, y: 86))
+                path.addLine(to: CGPoint(x: 56, y: 90))
+                path.addQuadCurve(to: CGPoint(x: 54, y: 94), control: CGPoint(x: 59, y: 93))
+                path.addLine(to: CGPoint(x: 45, y: 94))
+                path.addLine(to: CGPoint(x: 39, y: 63))
+                path.addLine(to: CGPoint(x: 34, y: 94))
+                path.addLine(to: CGPoint(x: 24, y: 94))
+                path.addQuadCurve(to: CGPoint(x: 24, y: 90), control: CGPoint(x: 20, y: 93))
+                path.addLine(to: CGPoint(x: 29, y: 86))
+                path.addLine(to: CGPoint(x: 30, y: 40))
+                path.move(to: CGPoint(x: 68, y: 26))
+                path.addLine(to: CGPoint(x: 68, y: 49))
+                path.move(to: CGPoint(x: 68, y: 57))
+                path.addLine(to: CGPoint(x: 68, y: 94))
+                case .aiming:
+                path.addEllipse(in: CGRect(x: 41.5, y: 24.5, width: 13.0, height: 13.0))
+                path.move(to: CGPoint(x: 6, y: 43))
+                path.addLine(to: CGPoint(x: 94, y: 43))
+                path.move(to: CGPoint(x: 25, y: 43))
+                path.addQuadCurve(to: CGPoint(x: 29, y: 47), control: CGPoint(x: 25, y: 45))
+                path.addQuadCurve(to: CGPoint(x: 44, y: 47), control: CGPoint(x: 39, y: 49))
+                path.addLine(to: CGPoint(x: 52, y: 43))
+                path.move(to: CGPoint(x: 43, y: 39))
+                path.addLine(to: CGPoint(x: 77, y: 25))
+                path.addQuadCurve(to: CGPoint(x: 84, y: 29), control: CGPoint(x: 82, y: 23))
+                path.addLine(to: CGPoint(x: 90, y: 42))
+                path.addQuadCurve(to: CGPoint(x: 88, y: 47), control: CGPoint(x: 92, y: 46))
+                path.addQuadCurve(to: CGPoint(x: 83, y: 43), control: CGPoint(x: 83, y: 49))
+                path.addLine(to: CGPoint(x: 77, y: 33))
+                path.addLine(to: CGPoint(x: 68, y: 39))
+                path.addLine(to: CGPoint(x: 76, y: 46))
+                path.move(to: CGPoint(x: 56, y: 43))
+                path.addLine(to: CGPoint(x: 65, y: 49))
+                path.addQuadCurve(to: CGPoint(x: 65, y: 53), control: CGPoint(x: 67, y: 50))
+                path.addLine(to: CGPoint(x: 59, y: 61))
+                path.addQuadCurve(to: CGPoint(x: 57, y: 68), control: CGPoint(x: 57, y: 64))
+                path.addLine(to: CGPoint(x: 56, y: 76))
+                path.addLine(to: CGPoint(x: 50, y: 79))
+                path.addQuadCurve(to: CGPoint(x: 51, y: 82), control: CGPoint(x: 47, y: 82))
+                path.addLine(to: CGPoint(x: 61, y: 82))
+                path.addLine(to: CGPoint(x: 62, y: 72))
+                path.addQuadCurve(to: CGPoint(x: 66, y: 64), control: CGPoint(x: 62, y: 67))
+                path.addLine(to: CGPoint(x: 72, y: 59))
+                path.addQuadCurve(to: CGPoint(x: 77, y: 52), control: CGPoint(x: 76, y: 56))
+                path.move(to: CGPoint(x: 84, y: 47))
+                path.addLine(to: CGPoint(x: 88, y: 64))
+                path.addLine(to: CGPoint(x: 94, y: 79))
+                path.addQuadCurve(to: CGPoint(x: 92, y: 82), control: CGPoint(x: 96, y: 82))
+                path.addLine(to: CGPoint(x: 85, y: 82))
+                path.addQuadCurve(to: CGPoint(x: 85, y: 79), control: CGPoint(x: 82, y: 82))
+                path.addLine(to: CGPoint(x: 89, y: 77))
+                path.addLine(to: CGPoint(x: 78, y: 59))
+            }
+            let t = CGAffineTransform(scaleX: size.width / 100, y: size.height / 100)
+            context.stroke(path.applying(t), with: .color(HUDStyle.valueMeasured),
+                           style: StrokeStyle(lineWidth: size.width * 0.055, lineCap: .round, lineJoin: .round))
+        }
+        // Optical centering: the cue is asymmetric, while the person's body is the anchor.
+        .offset(x: pose == .standing ? 2 : -2)
+        .accessibilityHidden(true)
     }
 }

@@ -3,7 +3,7 @@ import SceneKit
 import SwiftUI
 
 @MainActor
-final class AngleDynamicViewModel: ObservableObject {
+final class AngleDynamicViewModel: TeachingTableHost {
 
     // MARK: - Scene
 
@@ -35,6 +35,25 @@ final class AngleDynamicViewModel: ObservableObject {
 
     @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated
 
+    @Published var cameraTransitionBusy = false
+    @Published var temporaryTopDownActive = false
+    @Published var topDownContentRevision = 0
+    var topDownSelectionChanged = false
+
+    /// The teaching diagram and camera share the same cue-to-ghost direction.
+    var currentPlayerAim: SCNVector3? {
+        guard let cue = scene.cueBallNode, !cue.isHidden, let target = targetNode,
+              !target.isHidden, selectedPocketIndex >= 0 else { return nil }
+        let pockets = AngleSceneCalculator.pocketPositions(surfaceY: scene.surfaceY)
+        guard pockets.indices.contains(selectedPocketIndex) else { return nil }
+        let aim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: target.position,
+            pocketIndex: selectedPocketIndex, surfaceY: scene.surfaceY)
+        let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target.position,
+            pocket: aim, ballRadius: AngleSceneCalculator.ballRadius)
+        let direction = SCNVector3(ghost.x - cue.position.x, 0, ghost.z - cue.position.z)
+        return direction.length() > 0.000001 ? direction.normalized() : nil
+    }
+
     // MARK: - Draggable / Selectable Nodes
 
     var draggableBalls: [SCNNode] {
@@ -57,7 +76,10 @@ final class AngleDynamicViewModel: ObservableObject {
 
     func setupScene() {
         scene.usesAdaptiveDiagramLabels = true
+        scene.configureReferenceTableRendering()
+        scene.configureShotAwareCamera()
         scene.setupScene()
+        configureTeachingCamera()
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
 
@@ -134,6 +156,7 @@ final class AngleDynamicViewModel: ObservableObject {
         }
         updatePocketHighlights()
         updateCalculations()
+        selectionCameraChanged()
     }
 
     /// 点选目标球（条 2：目标球可换号，进球线取色随之切换）。
@@ -143,6 +166,7 @@ final class AngleDynamicViewModel: ObservableObject {
         scene.setCurrentTargetNumber(PositionPlayBall.number(for: key))
         selectBestPocket()
         updateCalculations()
+        selectionCameraChanged()
     }
 
     private func overlapsExisting(_ pos: SCNVector3) -> Bool {
@@ -230,6 +254,7 @@ final class AngleDynamicViewModel: ObservableObject {
         // 显式调用 randomize/reset 才会切换目标袋口。
         updatePocketHighlights()
         updateCalculations()
+        selectionCameraChanged()
     }
 
     // MARK: - Pocket Selection
@@ -238,6 +263,7 @@ final class AngleDynamicViewModel: ObservableObject {
         selectedPocketIndex = index
         updatePocketHighlights()
         updateCalculations()
+        selectionCameraChanged()
     }
 
     /// 根据当前球位选「最优袋口」——只在初始化 / 随机摆球 / 重置 时调用，
@@ -329,6 +355,7 @@ final class AngleDynamicViewModel: ObservableObject {
     // MARK: - Calculations
 
     func updateCalculations() {
+        if temporaryTopDownActive { topDownContentRevision &+= 1 }
         guard let cue = scene.cueBallNode, let target = targetNode,
               selectedPocketIndex >= 0 else {
             isFeasible = false

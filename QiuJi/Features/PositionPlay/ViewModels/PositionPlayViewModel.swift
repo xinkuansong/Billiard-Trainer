@@ -129,27 +129,7 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     func enablePlayerCameraControls() {
-        scene.cameraRig?.usesRailCameraControls = true
-        // Daily clearance uses the accepted S2 surface in both Debug and Release.
-        // Other interactive hosts retain their existing camera behavior.
-        let daily = scene.usesDailyPerspective
-        scene.cameraRig?.usesSurfaceCamera = daily
-        scene.cameraRig?.usesMergedCamera = daily
-        scene.cameraRig?.usesSimpleCueCamera = daily
-        scene.cameraRig?.usesTwoViewCameraControls = daily
-        #if DEBUG
-        // Explicit historical test scenarios only; a normal launch needs no camera flag.
-        let args = ProcessInfo.processInfo.arguments
-        if daily, !args.contains("-dailyClearance.surfaceCamera"),
-           args.contains("-dailyClearance.twoViewCamera")
-            || args.contains("-dailyClearance.simpleCamera")
-            || args.contains("-dailyClearance.mergedCamera") {
-            scene.cameraRig?.usesSurfaceCamera = false
-            scene.cameraRig?.usesMergedCamera = args.contains("-dailyClearance.mergedCamera")
-            scene.cameraRig?.usesSimpleCueCamera = args.contains("-dailyClearance.simpleCamera")
-                || scene.cameraRig?.usesMergedCamera == true
-        }
-        #endif
+        scene.cameraRig?.configurePlayerCameraControls(daily: scene.usesDailyPerspective)
         scene.cameraRig?.setTwoViewViewingContext(strokeGeneration)
         scene.cameraRig?.onPlayerTransitionEnded = { [weak self] in self?.cameraTransitionBusy = false }
         scene.cameraRig?.onManualCameraControl = { [weak self] in

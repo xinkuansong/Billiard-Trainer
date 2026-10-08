@@ -70,6 +70,7 @@ struct RootView: View {
         #if DEBUG
         if let sharedPage = args.first(where: { $0.hasPrefix("-dailyInteraction.sharedPage=") })?.split(separator: "=").last {
             switch sharedPage {
+            case "angleDynamic": return AnyView(NavigationStack { AngleDynamicView() })
             case "shot": return AnyView(NavigationStack { ShotSimulationView() })
             case "bank": return AnyView(NavigationStack { BankShotView() })
             case "diamond": return AnyView(NavigationStack { DiamondSystemView() })

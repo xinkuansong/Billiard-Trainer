@@ -5114,3 +5114,101 @@ C48以310固定卡不足推导独立模态，但232.69pt内台面仍可容纳按
 - 窗口：iPad独立四方向声明及all mask启用真正内容resize；导航和浮层共享corner-aware侧向避让。r14用状态栏的实际屏幕遮挡补窗口缺失的top inset，GeometryReader只扣未消费差额；不硬编码机型高度、不重建球局/SceneKit。
 - 返工：最大字号标题可点却裁字；兼容缩放误当内容重排；浮窗面板未跟随导航右移；单向缩窗漏验最大化回程。失败及修复证据保留于[B8](daily-adaptive/B8.md)。r10–r12安全区尝试未解决；r13诊断确认宿主及UIWindow读数差异，r14实际同App最大化已通过。
 - 已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md` §DR-360/B8；`.cursor/rules/20-swiftui-developer.mdc` §FL-133；`.cursor/rules/57-ui-reviewer.mdc` §FL-133。当前最终验证/真机、读屏、云同步边界以B8为准；未提交发布。
+
+
+## DR-361 — 每日球库原位放大与模式入口收纳（2026-10-08，原生已接入）
+
+- 用户决定：C50缩桌稿被否决；2D/3D移入更多「显示→视图」行；球库隐藏母球；固定球桌和全部其他控件；36pt球径上限。正常横屏始终单行，特别窄窗/临时竖屏不足才允许两行。
+- C51：11组原设计/候选共22图＋2张菜单示例；SE30pt，其余校准帧36pt；每屏15目标球，非修改对象结构校验11/11通过，源稿未变，周围控件相交0。
+- 用户后续授权原生实现；FoundationReservation保留桌体布局、Palette独立按容量原位放大，菜单视图切换复用原相机链。新增标题真实高度量测，解除SE空白区误占位；新页云端仍未确认。原生证据及状态见 `tasks/daily-adaptive/C51.md`。
+- 最终原生：SE30/标准34/iPad36pt；20布局单测、6次UI用例、45截图通过，1983份源码指纹稳定；构建/gate/doc-size/diff通过。球桌改前后边界一致，未提交、未装真机；[UI审查](ui-reviews/UR-20261008-daily-palette-c51.md)。
+- 回写目标/已应用至：`docs/design/daily-clearance/每日清台设计规范.md` DC03/04/06；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog及C51设计契约（2026-10-08）。不将本次画板枚举尺寸作为产品设备分支。
+
+## DR-362 — 每日菜单显示组前置（2026-10-08）
+
+- 用户截图反馈要求：打点盘透明度合并进显示，放在视图下面；显示整体移到击球设置上面。
+- 实施：仅重排`FreePlayView.dailyMenuItems`，显示含视图/透明度/网格/特写，击球设置含瞄准/轨迹/临时玩法；原动作与滚动尺寸不变。
+- 已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog/DR-362及每日设计规范DC菜单条款。最终原生验证见`tasks/daily-adaptive/C51.md`菜单r5补充。
+
+## DR-363 — 每日动作状态与四视角统一（2026-10-08）
+
+- 来源：用户要求可点击亮色、不可点击灰色，认可站立持杆/俯身持杆图标并授权Figma与代码一起。
+- 决策：前景白100%/白30%，背景保留玻璃/选中绿；四枚44pt视角按钮固定在力度条左侧，整体对齐包含读数的实测外框中心。每日恢复真正第一人称及临时俯视往返，不仅补图标。
+- 实施/证据：[C54](daily-adaptive/C54.md)。已应用于本规范、UI-IMPLEMENTATION-SPEC DR-363及每日规范；Figma离线云同步待确认，真机手感待体验。
+
+## DR-364 / C55（2026-10-08）
+
+DailyHUDPanel新增独立时间/电量显示；FreePlayView按系统状态栏与现有球库容量放置。人物图形±2pt光学平移，按钮外框不动；Figma新页2073:189855保留对照。验证/边界统一见 `tasks/daily-adaptive/C55.md`。
+
+## DR-365 / C56 A（2026-10-08）
+
+用户选定时间→电量→FPS顺序；新增独立状态簇、AngleSceneView可选外部读数，保持原渲染采样和空闲休眠。仅每日移动FPS，其他消费者默认路径不变。Figma保留三版、标记A已选；原生验证见 `tasks/daily-adaptive/C56.md`。
+
+DR-365 最终验证补记：build-r2成功，26项单测及手机/SE/iPad横竖4次UI通过；修复旧FPS透明后仍残留AX文本，最终r2通过。四尺寸主要布局边界变化0，gate/doc-size/diff通过，原生效果见C56任务卡；Figma离线待同步、真机待体验。
+
+
+2026-10-08 / DR-366 / ADR-P5-02：P01 C56原生首版在隔离快照实现后经8文件指纹保护回写；5个生产文件涉及FreePlayView、ShotSimulationView、AngleTrainingScene、RoomReflectionProbe和PocketLeatherMarker。44单测、8次UI最终通过，原始失败/修正记录保留；布局待体验，未真机安装/提交发布。活动入口tasks/table-page-adaptation/P01-SHOT-SIMULATION.md。
+
+
+## FL-134 — P01复用遗漏16槽容量与视觉对照（2026-10-08，待修复）
+- 任务/严重程度：P01 C56 / P1布局返工；本轮只分析。
+- 现象：SE舞台AX框每日(65,77.5,537,297)、P01(91,108.5,485,268)。同667×375pt，安全区四边0；AX框不是可见桌框像素边界。
+- 根因：FoundationReservation仍额外预留两侧旧球翼，16槽最小25pt需要528pt，大于523pt通道，预留两排；Palette实际绘单排。布局单测只有4/5/6/9/15球；7项模板边界对照仅标准手机，遗漏SE。
+- 其他差异：原生系统图标与Figma历史图层不同；教学读数缺底板，9°厚薄未命名时连字段名也消失；状态未统一，Figma未计算/8.00与原生就绪/1.50不能作视觉等价比较。
+- 处理：撤回首轮视觉通过，保留功能证据；按用户最新范围直接复用每日，仅加左上信息/玩法约束。App/Figma未改，修复未执行。
+- 证据：output/table-page-adaptation/P01/c56-native-r01/design-difference-audit.html、design-difference-audit.json；源码8文件hash与integration.json一致。
+- 已应用至：.cursor/rules/57-ui-reviewer.mdc FL-134（2026-10-08）；UI-IMPLEMENTATION-SPEC补记。
+
+
+### DR-366补充 / 2026-10-08 / P01 15槽
+
+2026-10-08 / C56-r02：按用户最新要求，顶部仅1–15号球，母球不占槽；真实落袋后一杆停稳时直接调用现有placeFromPalette空位算法回台，桌面母球保留拖动且不能拖回球库。标题沿用每日四字容量预留，避免球库放大挤掉状态区。只改FreePlayView一个生产文件，未改物理/布局求解器/相机/每日裁决。
+
+构建build-r4成功；1项每日落袋规则单测及6次UI执行通过（3个独立UI方法，含最终标准/SE布局复验）。实际2D/3D落袋、两目标占位下回台不重叠、目标不移动、回放和重打、目标上限/拖入拖回通过；最终10项AX布局框与每日同窗口一致，SE stage恢复(65,77.5,537,297)。已打开最终标准/SE原图及2D/3D回台原图目视。gate/doc-size/diff通过。未重跑iPad/最低Runtime/真机，本轮不关闭其余教学读数/Figma差异。
+
+
+### FL-134 / C56-r03 · 共享环境与交付图版本（2026-10-08）
+
+C56-r03：修复共享DailyPanelSurface的深色环境作用范围，覆盖内容与regularMaterial背景；只改1个生产文件。此前每日测试深链默认深色、P01正常入口跟随系统，漏检浅色环境；同机浅色before已在两个消费者复现浅底白字。r02回台图混用标题容量修正前版本，已标历史并重新采集最终构建的2D/3D回台图。
+
+最终build-for-testing成功；4次UI执行通过（标准手机浅色：共享面板巡游＋真实回台/回放/重打；SE浅色、深色各1次共享面板巡游）。巡游覆盖每日/P01两消费者及2D/3D的更多、瞄准子菜单、透明度设置，并断言时间、电量、FPS三元素存在且在窗内。实际原图已目视，面板恢复深色磨砂，3D回台状态完整。gate通过；真机/iPad/最低Runtime本轮未重跑。
+
+已应用至：.cursor/rules/57-ui-reviewer.mdc § FL-134/C56-r03：同系统外观与入口环境对照；材质覆盖环境；最终图册受影响状态必须来自最终构建。证据：output/table-page-adaptation/P01/c56-native-r03/。
+
+
+## FL-135 — 临时采集标签被过早汇报为已验证画面（2026-10-08）
+
+- 来源：全App通用界面B02 r4；过程返工，不是App功能缺陷。
+- 现象：PAD-L001–L005临时manifest写为横屏五Tab，原PNG实际停在Pro订阅sheet。主控未看该组像素便汇报齐全；astra逐图审查后发现，已立即向用户纠正，保留失败原图并重采。
+- 根因：把执行意图/state标签与已经独立目视的结果混用；旋转后操作坐标与实际页面不一致。
+- 处理：成功重采须由原图确认实际目标及遮挡，修订前metadata完整快照保留。修复/关闭证据见 `output/app-interface-redesign/B02/r4/root-visual-notes.md`、最终独立review及B02-CLOSEOUT卡；终审前不记该组通过。
+- 已应用至：`.cursor/rules/57-ui-reviewer.mdc` § FL-135（v0.4，2026-10-08）；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+- FL-135关闭（2026-10-08，r4终审后）：失败L001–005原PNG保留并按实际Pro sheet标注；成功L006–010五Tab全部逐图审查，最终元数据/覆盖一致。资源PID与MCP17字段文案也已保留前稿更正，原222个PNG/AX/geometry/raw未变。独立终审710项指纹及主控证据复算通过，B02基线完成；详见 `output/app-interface-redesign/B02/r4/review/review.md` 与 `root-review.md`。
+
+### DR-368 · AD01 标题与完整相机复用（2026-10-08）
+- 用户明确修订：标题连接字居两行右侧中点，相机与四入口完全沿用每日。
+- 根因：r02保留了旧页四目标观察策略，仅共享渲染／布局，范围判断与本次完整复用要求不一致。
+- 修改：共同 CameraRig 配置由两 VM 调用；直接复用生产相机、AngleSceneView 手势和 ShotPlayerCameraButtons，页面只适配几何瞄准与选择生命周期。
+- 回写目标及已应用至：tasks/UI-IMPLEMENTATION-SPEC.md § DR-368（2026-10-08）；docs/00-讨论记录.md § DR-368；tasks/table-page-adaptation/AD01-ANGLE-DYNAMIC.md。
+- 验证：本轮真实构建、同输入相机姿态与原生四入口测试；证据 output/table-page-adaptation/AD01/r03/，最终状态以页面卡为准。
+
+
+### DR-369 · 分离角图谱公共模板接入（2026-10-08）
+- 变更：从AD01实际代码提取BTTeachingTablePage/TeachingTableHost，两页直接消费；图谱保留物理与八档，只接入每日布局/渲染/相机。
+- 回写目标及已应用至：tasks/UI-IMPLEMENTATION-SPEC.md § DR-369；docs/00-讨论记录.md § DR-369；tasks/table-page-adaptation/P08a-SEPARATION-ATLAS.md。
+- 验证：最终构建、14单测/6次原生UI与门禁通过；用户追加八档紧凑无滚动已实施，最终证据output/table-page-adaptation/P08a/r01/compact，待体验。
+
+### DR-370 · P08a r02 反馈修订（2026-10-08）
+- 标题真正共用AD01的五字排版；上方仅切角，八档下方放数量；台面复用AD01线/角弧，禁用文字线名。
+- 根因：r01标题仍独立三字/两字排版，图谱显式关闭角标；自适应屏幕标注还未消费showLineLabels参数。本次打通该参数，并检查关闭→打开→关闭时无旧标签残留。
+- 回写目标及已应用至：tasks/UI-IMPLEMENTATION-SPEC.md § DR-370；tasks/table-page-adaptation/P08a-SEPARATION-ATLAS.md。
+- 构建/20单测通过；原生UI被磁盘满中断，结果包不完整，不能认作通过；等待腾出空间后续测。保留r02/build-raw.log、checks/unit.log、checks/phone.log及原始失败目录。
+
+### FL-136 · P08a标注投影错位返工（2026-10-08）
+- 首次进入图谱的角弧/文字实际偏移；原UI只验交互，不能证明视觉符合AD01。
+- 修正：共享标注缓存加入真实投影锚点，原生UI对已绘制弧端点/文字位置与当前投影做数值检查；新增渲染相机变化回归，保持既有字体与几何算法。
+- 已应用至：.cursor/rules/57-ui-reviewer.mdc § FL-136；tasks/FAILURE-LOG.md；tasks/UI-IMPLEMENTATION-SPEC.md § DR-370追加。最终验收见P08a卡及r02/final。
+
+
+2026-10-08 / FL-136修复验证：r02最终构建、21单测/4次原生UI通过，手机/SE/iPad初始角弧错位已复验；用户要求先提交push当前代码。未把UI通过扩为真机或用户视觉认可。

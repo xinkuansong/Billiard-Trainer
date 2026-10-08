@@ -4,6 +4,7 @@ import SceneKit
 enum FreePlayEntryMode {
     case standard
     case dailyClearance
+    case shotSimulation
 }
 
 /// 自由击球（条 15 / ADR-P18-01 拆页）：球库 + 开球 + 对局的独立页面。
@@ -20,6 +21,8 @@ struct FreePlayView: View {
     @StateObject private var vm = PositionPlayViewModel()
     @StateObject private var dailyController = DailyClearanceController()
     @ObservedObject private var preferences = UserPreferences.shared
+    @AppStorage("shotSimulation.spinDiscTransparency") private var simulationSpinTransparency = 0.5
+    @AppStorage("shotSimulation.3DTrajectoryHidden") private var simulation3DHidden = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -58,13 +61,22 @@ struct FreePlayView: View {
     #endif
 
     @State private var projector = TableProjector()
+    @State private var draggingKey: String?
+    @State private var dragLocation: CGPoint = .zero
+    @State private var dragOverTable = false
+    @State private var sceneFrame: CGRect = .zero
+    @State private var paletteFrame: CGRect = .zero
 
     @State private var dailyCameraReadableFrame: CGRect?
     @State private var dailyPortrait = false
-    @State private var dailyCameraControlStackHeight: CGFloat = 148
+    @State private var dailyCameraControlStackHeight: CGFloat = 188
     @State private var dailyHeaderTitleWidths: [Int: CGFloat] = [:]
+    @State private var dailyHeaderTitleHeight: CGFloat = 44
     @State private var dailyWindowControlInsets = UIEdgeInsets.zero
     @State private var dailyWindowSafeAreaInsets = UIEdgeInsets.zero
+    @State private var dailySystemStatusVisible = true
+    // State owns the model; only DailyStatusCluster observes its once-per-second publications.
+    @State private var dailyFPSReadout = TableFPSReadoutState()
     @State private var dailyInstrumentHeight = DailyLayoutMetrics.Controls.initialInstrumentHeight
     @State private var dailyStrikeFrame: CGRect?
     @StateObject private var ruleNotices = BTRuleNoticeCenter()
@@ -88,14 +100,94 @@ struct FreePlayView: View {
     }
 
     private var isDailyClearance: Bool { entryMode == .dailyClearance }
+    private var isShotSimulation: Bool { entryMode == .shotSimulation }
+    private var usesCoreTemplate: Bool { isDailyClearance || isShotSimulation }
     private var isDailyResult: Bool {
         isDailyClearance && (dailyController.isCompleted || dailyController.phase == .failed)
     }
     private var is3D: Bool { vm.cameraMode == .perspective3D }
-    private var isDaily2D: Bool { isDailyClearance && !is3D }
-    private var pageTitle: String { isDailyClearance ? "每日清台" : "自由击球" }
+    private var isDaily2D: Bool { usesCoreTemplate && !is3D }
+    private var pageTitle: String { isShotSimulation ? "分离角与走位" : (isDailyClearance ? "每日清台" : "自由击球") }
+    private var page3DHidden: Bool {
+        get { isShotSimulation ? simulation3DHidden : preferences.daily3DTrajectoryHidden }
+        nonmutating set {
+            if isShotSimulation { simulation3DHidden = newValue }
+            else { preferences.daily3DTrajectoryHidden = newValue }
+        }
+    }
+    private var pageSpinTransparency: Binding<Double> {
+        Binding(get: { isShotSimulation ? simulationSpinTransparency : preferences.dailySpinDiscTransparency },
+                set: { value in
+            if isShotSimulation { simulationSpinTransparency = value }
+            else { preferences.dailySpinDiscTransparency = value }
+        })
+    }
+
+    private var templateStateDescription: String {
+        let selection = "\(is3D ? "3D" : "2D")，\(aimModeLabel)模式，目标\(vm.selectedTargetKey ?? "无")，袋口\(vm.selectedPocketIndex)"
+        if isShotSimulation {
+            return selection + "，目标球\(vm.onTableKeys.filter { !PositionPlayBall.isCue($0) }.count)/2，在桌\(vm.onTableKeys.joined(separator: ","))"
+        }
+        return selection + "，\(dailyController.visitSummary)，剩余 \(dailyController.remainingBallCount) 球，\(dailyController.foulCount) 次犯规"
+    }
+
+    private var simulationReadout: some View {
+        let angle = vm.aimMode == .free ? vm.freeAimContact?.cutAngleDeg : vm.cutAngleDeg
+        return VStack(spacing: 2) {
+            Text("球形 \(vm.onTableKeys.filter { !PositionPlayBall.isCue($0) }.count)/2")
+            Text(angle.map { "切角 \(Int($0.rounded()))°" } ?? "切角 —")
+            Text(angle.map { AngleSceneCalculator.thicknessName(cutAngle: $0) } ?? "厚薄 —")
+        }
+        .font(.btCaption2).monospacedDigit().foregroundStyle(HUDStyle.valueMeasured)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("shotSimulation.readout")
+        .allowsHitTesting(false)
+    }
+
+    private func templateFrameReader(_ id: String) -> some View {
+        GeometryReader { geometry in
+            Color.clear.preference(key: BTShotPageFramePreference.self,
+                value: [id: geometry.frame(in: .named("freeplay"))])
+        }
+    }
+
+    private func cancelPaletteDrag() {
+        draggingKey = nil
+        dragOverTable = false
+    }
+
+    private func placeSimulationBall(_ key: String, world: SCNVector3?) {
+        guard isShotSimulation, !is3D, !dailyControlsDisabled else { return }
+        if let world { vm.placeFromPalette(key, atWorld: world) }
+        else { vm.placeFromPalette(key) }
+        if !vm.onTableKeys.contains(key) { flash(vm.statusText, tone: .warning) }
+    }
+
+    private func simulationPaletteDrag(_ key: String) -> some Gesture {
+        DragGesture(minimumDistance: BTBallPaletteMetrics.dragMinimumDistance, coordinateSpace: .named("freeplay"))
+            .onChanged { value in
+                guard isShotSimulation, !is3D, !dailyControlsDisabled else { return }
+                draggingKey = key
+                dragLocation = value.location
+                dragOverTable = sceneFrame.contains(value.location)
+            }
+            .onEnded { value in
+                defer { cancelPaletteDrag() }
+                guard draggingKey == key, sceneFrame.contains(value.location) else { return }
+                let local = CGPoint(x: value.location.x - sceneFrame.minX, y: value.location.y - sceneFrame.minY)
+                guard let world = projector.unproject?(local) else { return }
+                placeSimulationBall(key, world: world)
+            }
+    }
 
     var body: some View {
+        Group {
+            if isShotSimulation { coreBody }
+            else { coreBody.toolUsageSession(isDailyClearance ? .dailyClearance : .freePlay) }
+        }
+    }
+
+    private var coreBody: some View {
         pageBody
         #if DEBUG
         .overlay(alignment: .bottom) {
@@ -126,6 +218,7 @@ struct FreePlayView: View {
         }
         .onChange(of: vm.cameraMode) { _, mode in
             daily3DDiagnostics?.setPage(perspective: mode == .perspective3D)
+            cancelPaletteDrag()
         }
         .onChange(of: vm.isPlaying) { _, _ in
             updateDaily3DPlaybackDiagnostics()
@@ -163,7 +256,7 @@ struct FreePlayView: View {
 
     private var pageBody: some View {
         GeometryReader { geo in
-            if isDailyClearance {
+            if usesCoreTemplate {
                 // iPadOS may retain the floating host's SwiftUI insets after maximizing.
                 // Account only for the part of the live window safe area not already consumed.
                 let extraTop = UIDevice.current.userInterfaceIdiom == .pad && !dailyHasAuditSize
@@ -203,16 +296,16 @@ struct FreePlayView: View {
             }
         }
         .background {
-            if isDailyClearance { DailyTableOrientation(landscape: true, allowsTabletRotation: true) }
+            if usesCoreTemplate { DailyTableOrientation(landscape: true, allowsTabletRotation: true) }
         }
 
         .animation(BTMotion.springPanel, value: showSpinPad)
         .trainingBackgroundMusic()
         .btDarkToolChrome(pageTitle)
-        .toolbar(isDailyClearance ? .hidden : .visible, for: .navigationBar)
+        .toolbar(usesCoreTemplate ? .hidden : .visible, for: .navigationBar)
         // Keep the tablet's system chrome reservation, including window controls
         // in landscape. Hiding it puts the custom back button under that chrome.
-        .statusBarHidden(isDailyClearance && UIDevice.current.userInterfaceIdiom != .pad)
+        .statusBarHidden(usesCoreTemplate && UIDevice.current.userInterfaceIdiom != .pad)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 BTSolverNavStatus(
@@ -277,7 +370,12 @@ struct FreePlayView: View {
             if !hasAppeared {
                 hasAppeared = true
                 if isDailyClearance { vm.scene.configureDailyClearanceRendering() }
-                vm.setupScene(loadsDefaultLayout: !isDailyClearance)
+                if isShotSimulation {
+                    vm.maxTargetBalls = 2
+                    vm.scene.configureReferenceTableRendering()
+                    vm.scene.configureShotAwareCamera()
+                }
+                vm.setupScene(loadsDefaultLayout: !usesCoreTemplate)
                 vm.enablePlayerCameraControls()
                 #if DEBUG
                 if isDailyClearance,
@@ -289,13 +387,15 @@ struct FreePlayView: View {
                     vm.scene.cameraRig?.dailyOverviewPreviewDegrees = degrees
                 }
                 #endif
-                if isDailyClearance {
-                    vm.hides3DShotAssists = preferences.daily3DTrajectoryHidden
+                if usesCoreTemplate {
+                    vm.hides3DShotAssists = page3DHidden
                     vm.cameraMode = .topDown2D
                     vm.usesAutomaticPocketFallback = true
-                    vm.usesDailyShotRanking = true
+                    vm.usesDailyShotRanking = isDailyClearance
                     vm.usesContinuousTrajectoryPreview = true
-                    vm.legalAimTargets = { keys in dailyController.legalTargetKeys(tableKeys: keys) }
+                    if isDailyClearance {
+                        vm.legalAimTargets = { keys in dailyController.legalTargetKeys(tableKeys: keys) }
+                    }
                     vm.onAimModeNotice = { text in ruleNotices.show(text, tone: .info, priority: .mode) }
                     vm.onAimSelectionNotice = { text in ruleNotices.show(text, tone: .warning, priority: .selection) }
                 } else {
@@ -304,18 +404,24 @@ struct FreePlayView: View {
                     vm.onAimModeNotice = { ruleNotices.show($0, tone: .info, priority: .mode) }
                     vm.onAimSelectionNotice = { ruleNotices.show($0, tone: .warning, priority: .selection) }
                 }
+                if isShotSimulation { vm.loadBoard(ShotSimulationView.defaultBoard) }
                 vm.scene.setCameraMode(vm.cameraMode, animated: false)
                 vm.onShotSettled = { facts in handleShotSettled(facts) }
                 if isDailyClearance { vm.onShotWillStart = { dailyController.prepareShot() } }
                 #if DEBUG
                 if !isDailyClearance, ProcessInfo.processInfo.arguments.contains("-v63.freePlayScratch") {
                     vm.clearTable()
-                    vm.toggleAimMode()
+                    if isShotSimulation { vm.setPreferredAimMode(.free) }
+                    else { vm.toggleAimMode() }
                     vm.placeFromPalette(PositionPlayBall.cueKey,
                         atWorld: SCNVector3(0, vm.scene.surfaceY + BallPhysics.radius, -0.45))
                     vm.velocity = 1.5
                     vm.handleTableTap(world: AngleSceneCalculator.pocketPositions(surfaceY: vm.scene.surfaceY)[4])
-                    startGame(.chineseEightBall)
+                    if isShotSimulation {
+                        // Occupy the first free slots to exercise scratch return without overlap.
+                        vm.placeFromPalette("_1")
+                        vm.placeFromPalette("_8")
+                    } else { startGame(.chineseEightBall) }
                 }
                 #endif
                 if isDailyClearance {
@@ -341,16 +447,17 @@ struct FreePlayView: View {
             vm.endTemporaryTopDown()
             vm.cancelPowerRelease()
             dailyAimWheelIsDragging = false
+            cancelPaletteDrag()
+            if usesCoreTemplate { vm.cancelInteractiveTrajectoryPreview() }
             if isDailyClearance {
-                vm.cancelInteractiveTrajectoryPreview()
                 dailyController.stop()
             }
         }
         .onChange(of: scenePhase) { _, phase in
             daily3DDiagnostics?.setPage(foreground: phase == .active)
-            guard isDailyClearance else { return }
+            guard usesCoreTemplate else { return }
             if phase == .active {
-                dailyController.resumeActivity()
+                if isDailyClearance { dailyController.resumeActivity() }
                 if !vm.isPlaying && !vm.isBreakMode { vm.recompute() }
             }
             else {
@@ -358,11 +465,14 @@ struct FreePlayView: View {
                 vm.cancelPowerRelease()
                 dailyAimWheelIsDragging = false
                 vm.cancelInteractiveTrajectoryPreview()
-                dailyController.flushActivity()
+                cancelPaletteDrag()
+                if isDailyClearance { dailyController.flushActivity() }
             }
         }
-        // 工具活跃度（契约 §5.3）：只记停留时长，⛔ 不记引擎进袋结果。
-        .toolUsageSession(isDailyClearance ? .dailyClearance : .freePlay)
+        .onPreferenceChange(BTShotPageFramePreference.self) { frames in
+            if let frame = frames["scene"] { sceneFrame = frame }
+            if let frame = frames["palette"] { paletteFrame = frame }
+        }
     }
 
     private func updateDaily3DPlaybackDiagnostics() {
@@ -516,6 +626,10 @@ struct FreePlayView: View {
     }
 
     private func handleShotSettled(_ facts: ShotFacts) {
+        if isShotSimulation {
+            if facts.cuePocketed { vm.placeFromPalette(PositionPlayBall.cueKey) }
+            return
+        }
         if isDailyClearance {
             guard let ruling = dailyController.handleShotSettled(facts) else { return }
             if ruling.completed || ruling.failed { ruleNotices.clear() }
@@ -560,7 +674,7 @@ struct FreePlayView: View {
             // P10.1 禁止摆球：非开球模式仅母球可拖（自由球/走位微调）；开球模式拖开球区母球。
             draggableBallNodes: vm.isPlaying || isDailyResult || (isTemporaryTopDown && !usesMergedCamera)
                 || (isDailyClearance && !vm.isBreakMode && dailyController.cuePlacement == .none)
-                ? [] : (vm.breakRunner?.draggableCue ?? vm.draggableCueOnly),
+                ? [] : (vm.breakRunner?.draggableCue ?? (isShotSimulation ? vm.draggableBalls : vm.draggableCueOnly)),
             onDragBegan: { node in
                 if let runner = vm.breakRunner { runner.dragBegan(node: node) }
                 else if isDailyClearance && dailyController.cuePlacement == .none {
@@ -593,6 +707,13 @@ struct FreePlayView: View {
                     if isDailyClearance { dailyController.savePlacedBoard() }
                 }
             },
+            onDragEndedAt: { node, point in
+                guard isShotSimulation, !is3D,
+                      BTBallPaletteDragBack.hitPalette(localPoint: point, sceneFrame: sceneFrame, paletteFrame: paletteFrame),
+                      let key = vm.scene.ballKey(for: node), !PositionPlayBall.isCue(key) else { return }
+                vm.removeFromTable(key)
+                flash("已移回球库")
+            },
             selectableBallNodes: vm.isBreakMode || vm.isPlaying || isDailyResult || (isTemporaryTopDown && !usesMergedCamera) ? [] :
                 (isDailyClearance && is3D ? vm.selectableBalls + vm.draggableCueOnly : vm.selectableBalls),
             onBallTapped: { node in handleTargetTap(node) },
@@ -604,11 +725,12 @@ struct FreePlayView: View {
             onAimDragActiveChanged: { vm.setAimTableDragging($0) },
             projector: projector,
             contentIsAnimating: vm.isPlaying || (vm.breakRunner?.isBusy ?? false)
-                || (isDailyClearance && dailyAimWheelIsDragging)
+                || (usesCoreTemplate && dailyAimWheelIsDragging)
                 || (usesDailyTwoViewControls && vm.cameraTransitionBusy),
             daily3DDiagnostics: daily3DDiagnostics,
             fpsReadoutTrailingInset: fpsTrailingInset,
-            twoViewReadableFrameInWindow: isDailyClearance ? dailyCameraReadableFrame : nil,
+            fpsReadoutState: usesCoreTemplate ? dailyFPSReadout : nil,
+            twoViewReadableFrameInWindow: usesCoreTemplate ? dailyCameraReadableFrame : nil,
             onCameraObservationBegan: usesDailyTwoViewControls ? { vm.beginCameraObservation() } : nil,
             onCameraObservationEnded: usesDailyTwoViewControls ? { vm.endCameraObservation() } : nil,
             twoViewAutomaticEntryCount: dailyTwoViewAutomaticEntryCount,
@@ -618,6 +740,7 @@ struct FreePlayView: View {
             topDownContentRevision: vm.topDownContentRevision
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(templateFrameReader("scene"))
         .clipped()
         .allowsHitTesting((!isTemporaryTopDown || usesMergedCamera) && (!isDailyClearance || (!dailyDecisionActive && dailyController.breakChoices.isEmpty)))
     }
@@ -994,7 +1117,7 @@ struct FreePlayView: View {
     }
 
     private var dailyTrajectorySelection: Int {
-        is3D && preferences.daily3DTrajectoryHidden ? 3 : preferences.trajectoryDetail.rawValue
+        is3D && page3DHidden ? 3 : preferences.trajectoryDetail.rawValue
     }
 
     private var dailyTrajectoryLabel: String {
@@ -1002,7 +1125,7 @@ struct FreePlayView: View {
     }
 
     @ViewBuilder private var moreMenu: some View {
-        if isDailyClearance {
+        if usesCoreTemplate {
             Button { presentDaily(.more) } label: {
                 Image(systemName: BTIcon.menuCircle)
                     .frame(width: 44, height: 44).contentShape(Rectangle())
@@ -1052,7 +1175,8 @@ struct FreePlayView: View {
             return [("进袋", PositionPlayViewModel.AimMode.pocket), ("自由", .free)].map { title, mode in
                 DailyHUDMenuItem(id: "dailyClearance.aim.\(mode == .free ? "free" : "pocket")", title: title,
                     selected: vm.aimMode == mode, disabled: disabled, action: {
-                        if mode != vm.aimMode { vm.toggleAimMode() }
+                        if isShotSimulation { vm.setPreferredAimMode(mode) }
+                        else if mode != vm.aimMode { vm.toggleAimMode() }
                         closeDailyPresentation()
                     })
             }
@@ -1062,12 +1186,12 @@ struct FreePlayView: View {
                 DailyHUDMenuItem(id: "dailyClearance.trajectory.\(value)",
                     title: value == 3 ? "关闭" : trajectoryMenuLabel(TrajectoryDetail(rawValue: value)!),
                     selected: dailyTrajectorySelection == value, disabled: disabled, action: {
-                        if value == 3 { preferences.daily3DTrajectoryHidden = true }
+                        if value == 3 { page3DHidden = true }
                         else if let detail = TrajectoryDetail(rawValue: value) {
-                            if is3D { preferences.daily3DTrajectoryHidden = false }
+                            if is3D { page3DHidden = false }
                             preferences.trajectoryDetail = detail
                         }
-                        vm.hides3DShotAssists = preferences.daily3DTrajectoryHidden
+                        vm.hides3DShotAssists = page3DHidden
                         vm.refreshShotAssistVisibility()
                         closeDailyPresentation()
                     })
@@ -1079,15 +1203,15 @@ struct FreePlayView: View {
             } + [DailyHUDMenuItem(id: "dailyClearance.gameCancel", title: "取消", action: closeDailyPresentation)]
         default:
             return [
-                .init(id: "dailyClearance.spinTransparencyMenu", title: "打点盘透明度",
-                      detail: "\(Int((preferences.dailySpinDiscTransparency * 100).rounded()))%", action: { presentDaily(.transparency) }),
-                .init(id: "dailyClearance.shotSettings", title: "击球设置"),
-                .init(id: "dailyClearance.aimModeMenu", title: "瞄准模式 · \(aimModeLabel)", disclosure: true,
-                      disabled: disabled, action: { dailyPresentation = .aim }),
-                .init(id: "dailyClearance.trajectoryMenu", title: "轨迹显示 · \(dailyTrajectoryLabel)", disclosure: true,
-                      disabled: disabled, action: { dailyPresentation = .trajectory }),
-                .init(id: "dailyClearance.changeGame", title: "临时换玩法", disclosure: true, action: { dailyPresentation = .games }),
                 .init(id: "dailyClearance.displaySettings", title: "显示"),
+                .init(id: "freeplay.cameraMode", title: "视图", detail: is3D ? "3D" : "2D",
+                      segments: ["2D", "3D"], disabled: isTemporaryTopDown, action: {
+                    vm.cancelPowerRelease()
+                    showSpinPad = false
+                    toggleDailyCamera()
+                }),
+                .init(id: "dailyClearance.spinTransparencyMenu", title: "打点盘透明度",
+                      detail: "\(Int((pageSpinTransparency.wrappedValue * 100).rounded()))%", action: { presentDaily(.transparency) }),
                 .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: preferences.showTableGrid, action: {
                     preferences.showTableGrid.toggle(); vm.scene.setTableGridVisible(preferences.showTableGrid)
                     closeDailyPresentation()
@@ -1095,7 +1219,17 @@ struct FreePlayView: View {
                 .init(id: "menu.aimCloseup", title: "瞄准特写", selected: preferences.showAimCloseup, action: {
                     preferences.showAimCloseup.toggle()
                     closeDailyPresentation()
-                })
+                }),
+                .init(id: "dailyClearance.shotSettings", title: "击球设置"),
+                .init(id: "dailyClearance.aimModeMenu", title: "瞄准模式 · \(aimModeLabel)", disclosure: true,
+                      disabled: disabled, action: { dailyPresentation = .aim }),
+                .init(id: "dailyClearance.trajectoryMenu", title: "轨迹显示 · \(dailyTrajectoryLabel)", disclosure: true,
+                      disabled: disabled, action: { dailyPresentation = .trajectory }),
+                isShotSimulation
+                    ? .init(id: "shotSimulation.reset", title: "恢复默认球形", disabled: disabled, action: {
+                        closeDailyPresentation(); ruleNotices.clear(); vm.loadBoard(ShotSimulationView.defaultBoard)
+                    })
+                    : .init(id: "dailyClearance.changeGame", title: "临时换玩法", disclosure: true, action: { dailyPresentation = .games })
             ]
         }
     }
@@ -1295,45 +1429,6 @@ struct ShotObservationMenu: View {
 // MARK: - Daily 2D landscape stage
 
 /// Static top-down carpet; the atlas repeats use the same metre scale as BakedTrainingRoom.
-private struct DailyCarpetBackground: View {
-    let style: RoomStyle
-    let pointsPerMetre: CGFloat
-
-    var body: some View {
-        Canvas { context, size in
-            guard let texture = UIImage(named: "Carpet_\(style.rawValue).png") else {
-                assertionFailure("Missing daily carpet atlas: \(style.rawValue)")
-                return
-            }
-            let metres: CGSize
-            switch style {
-            case .tournament: metres = CGSize(width: 5, height: 4)
-            case .walnut: metres = CGSize(width: 2.5, height: 2)
-            case .eastern: metres = CGSize(width: CGFloat(BakedTrainingRoom.roomLength),
-                                           height: CGFloat(BakedTrainingRoom.roomWidth))
-            }
-            let tile = CGSize(width: max(1, metres.width * pointsPerMetre),
-                              height: max(1, metres.height * pointsPerMetre))
-            let columns = Int(ceil(size.width / tile.width / 2))
-            let rows = Int(ceil(size.height / tile.height / 2))
-            let image = Image(uiImage: texture)
-            for row in -rows...rows {
-                for column in -columns...columns {
-                    var cell = context
-                    cell.translateBy(x: size.width / 2 + CGFloat(column) * tile.width,
-                                     y: size.height / 2 + CGFloat(row) * tile.height)
-                    cell.scaleBy(x: column.isMultiple(of: 2) ? 1 : -1,
-                                 y: row.isMultiple(of: 2) ? 1 : -1)
-                    cell.draw(image, in: CGRect(x: -tile.width / 2, y: -tile.height / 2,
-                                               width: tile.width, height: tile.height))
-                }
-            }
-        }
-        .overlay(HUDStyle.controlBackground)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-}
 
 private extension FreePlayView {
     var dailyControlColumnWidth: CGFloat { DailyLayoutMetrics.controlColumnWidth }
@@ -1348,7 +1443,13 @@ private extension FreePlayView {
             return min(1, max(0, value))
         }
         #endif
-        return 1 - preferences.dailySpinDiscTransparency
+        return 1 - pageSpinTransparency.wrappedValue
+    }
+
+    func dailyCarpetUnderlay(sceneSize: CGSize) -> some View {
+        DailyCarpetBackground(style: preferences.roomStyle,
+            pointsPerMetre: dailySpinPadRect(in: sceneSize).width / CGFloat(dailyPortrait ? AngleSceneCalculator.innerWidth : AngleSceneCalculator.innerLength))
+            .ignoresSafeArea()
     }
 
     func dailyLandscapeBody(size: CGSize, leadingSafeArea: CGFloat, trailingSafeArea: CGFloat) -> some View {
@@ -1357,7 +1458,7 @@ private extension FreePlayView {
             halfLength: vm.scene.cameraRig?.tableOuterHalfLength ?? CameraRig.defaultTableOuterHalfLength,
             halfWidth: vm.scene.cameraRig?.tableOuterHalfWidth ?? CameraRig.defaultTableOuterHalfWidth,
             instrumentHeight: dailyInstrumentHeight,
-            palette: dailyFoundationPalette(size: size, safe: dailyHasAuditSize ? 0 : max(leadingSafeArea, trailingSafeArea)))
+            palette: dailyFoundationReservation(size: size, safe: dailyHasAuditSize ? 0 : max(leadingSafeArea, trailingSafeArea)))
         let container = DailyLayoutMetrics.Container(size: size, trailingSafeArea: trailingSafeArea)
         // iOS 17's native Menu includes the window safe area in its intrinsic
         // button width when this row extends past the safe boundary. Keep the
@@ -1372,6 +1473,9 @@ private extension FreePlayView {
             halfLength: vm.scene.cameraRig?.tableOuterHalfLength ?? CameraRig.defaultTableOuterHalfLength,
             halfWidth: vm.scene.cameraRig?.tableOuterHalfWidth ?? CameraRig.defaultTableOuterHalfWidth,
             instrumentHeight: dailyInstrumentHeight, displayScale: displayScale, allowsDock: dailyAuditAllowsDock, foundation: foundation)
+        let isLimited = space.isLimited || (foundation.map {
+            !dailyPalettePlan(size: size, safe: max(leadingSafeArea, trailingSafeArea), foundation: $0).fits
+        } ?? false)
         let sceneSize = space.stage.size
         let rulerHeight = foundation?.rulerLength ?? DailyLayoutMetrics.rulerHeight
         let spinBounds = dailySpinPadRect(in: sceneSize)
@@ -1384,7 +1488,7 @@ private extension FreePlayView {
         let panels = DailyLayoutMetrics.Panels(pageWidth: size.width,
             trailingSafeArea: panelTrailingInset, spinFrame: spinFrame)
         let controls = space.controls
-        return ZStack(alignment: .topLeading) {
+        let hudContent = ZStack(alignment: .topLeading) {
                 if let foundation {
                     dailyFoundationHeader(size: size, safe: max(leadingSafeArea, trailingSafeArea), foundation: foundation)
                         .zIndex(1)
@@ -1396,9 +1500,9 @@ private extension FreePlayView {
                 dailyLeftControls(rulerHeight: rulerHeight, space: space)
                     .frame(width: space.left.width, height: space.left.height, alignment: .top)
                     .position(x: space.left.midX, y: space.left.midY)
-                    .opacity(space.isLimited ? 0 : 1)
-                    .allowsHitTesting(!space.isLimited)
-                    .accessibilityHidden(space.isLimited)
+                    .opacity(isLimited ? 0 : 1)
+                    .allowsHitTesting(!isLimited)
+                    .accessibilityHidden(isLimited)
                 GeometryReader { stage in
                         ZStack {
                             if !vm.isBreakMode && !isDailyResult && vm.showsShotAssists && !showSpinPad && ruleNotices.message == nil {
@@ -1446,17 +1550,18 @@ private extension FreePlayView {
                     }
                     .frame(width: sceneSize.width, height: sceneSize.height)
                     .position(x: space.stage.midX, y: space.stage.midY)
-                    .allowsHitTesting(!space.isLimited)
+                    .allowsHitTesting(!isLimited)
                 dailyRightControls(rulerHeight: rulerHeight, space: space, pageWidth: size.width, trailingSafeArea: trailingSafeArea)
                     .frame(width: space.right.width, height: space.right.height, alignment: .top)
                     .position(x: space.right.midX, y: space.right.midY)
-                    .opacity(space.isLimited ? 0 : 1)
-                    .allowsHitTesting(!space.isLimited)
-                    .accessibilityHidden(space.isLimited)
+                    .opacity(isLimited ? 0 : 1)
+                    .allowsHitTesting(!isLimited)
+                    .accessibilityHidden(isLimited)
         }
         .frame(width: size.width + headerShift, alignment: .leading)
         // Measure the background from the page's actual height, not the controls' minimum.
         .frame(height: size.height)
+        let sceneContent = hudContent
         .background {
             // Keep one renderer alive across projection changes. Replacing SCNView here
             // exposes its black background while the new Metal surface prepares its first frame.
@@ -1470,20 +1575,19 @@ private extension FreePlayView {
                     .position(x: renderFrame.midX - fullFrame.minX,
                               y: renderFrame.midY - fullFrame.minY)
                     .opacity(is3D || dailyCameraReadableFrame != nil ? 1 : 0)
-                    .allowsHitTesting(!space.isLimited)
+                    .allowsHitTesting(!isLimited)
             }
             .ignoresSafeArea()
         }
         .background {
-            if !is3D {
-                DailyCarpetBackground(style: preferences.roomStyle,
-                    pointsPerMetre: dailySpinPadRect(in: sceneSize).width / CGFloat(dailyPortrait ? AngleSceneCalculator.innerWidth : AngleSceneCalculator.innerLength))
-                    .ignoresSafeArea()
-            }
+            // Keep the underlay alive while SceneKit resizes its surface between modes.
+            // Removing it first exposes the hosting view for one frame on device.
+            dailyCarpetUnderlay(sceneSize: sceneSize)
         }
         .environment(\.colorScheme, .dark)
+        return sceneContent
         .overlay {
-            if space.isLimited {
+            if isLimited {
                 VStack(spacing: Spacing.sm) {
                     Text("扩大窗口后继续击球").font(.btSubheadlineSemibold)
                         .accessibilityIdentifier("dailyLayout.limited")
@@ -1517,7 +1621,7 @@ private extension FreePlayView {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("关闭透明度设置")
-                    DailySpinTransparencyPanel(transparency: $preferences.dailySpinDiscTransparency,
+                    DailySpinTransparencyPanel(transparency: pageSpinTransparency,
                         availableSize: CGSize(width: min(panels.settingsWidth, max(0, size.width - 2 * Spacing.sm)),
                             height: panels.settingsHeight(pageHeight: size.height, strikeFrame: dailyStrikeFrame)),
                         onClose: { showSpinTransparency = false })
@@ -1565,6 +1669,12 @@ private extension FreePlayView {
             }
         }
         .coordinateSpace(name: "freeplay")
+        .overlay {
+            if let key = draggingKey {
+                BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
+            }
+        }
+        .onChange(of: size) { _, _ in cancelPaletteDrag() }
         .onChange(of: size.height > size.width, initial: true) { _, portrait in
             dailyPortrait = portrait
             if !is3D { ShotPlayCamera.setMode(portrait ? .topDown2DRotated : .topDown2D, on: vm) }
@@ -1586,7 +1696,7 @@ private extension FreePlayView {
             if ProcessInfo.processInfo.arguments.contains("-dailyLayout.probe") {
                 Color.clear.accessibilityElement()
                     .accessibilityIdentifier("dailyLayout.spaceProbe")
-                    .accessibilityValue("pageWidth=\(size.width) pageHeight=\(size.height) docked=\(space.docked) limited=\(space.isLimited) sideTableWidth=\(space.sideTableWidth) dockTableWidth=\(space.dockTableWidth) halfLength=\(vm.scene.cameraRig?.tableOuterHalfLength ?? CameraRig.defaultTableOuterHalfLength) halfWidth=\(vm.scene.cameraRig?.tableOuterHalfWidth ?? CameraRig.defaultTableOuterHalfWidth)")
+                    .accessibilityValue("pageWidth=\(size.width) pageHeight=\(size.height) docked=\(space.docked) limited=\(isLimited) sideTableWidth=\(space.sideTableWidth) dockTableWidth=\(space.dockTableWidth) halfLength=\(vm.scene.cameraRig?.tableOuterHalfLength ?? CameraRig.defaultTableOuterHalfLength) halfWidth=\(vm.scene.cameraRig?.tableOuterHalfWidth ?? CameraRig.defaultTableOuterHalfWidth)")
                 Color.clear.accessibilityElement()
                     .accessibilityIdentifier("dailyLayout.controlsProbe")
                     .accessibilityValue(dailyControlsProbe(stageHeight: sceneSize.height, controls: controls, foundation: foundation)
@@ -1595,9 +1705,9 @@ private extension FreePlayView {
         }
         #endif
         .background(Color.clear.accessibilityElement()
-            .accessibilityIdentifier("dailyClearance.landscape")
-            .accessibilityLabel("每日清台状态")
-            .accessibilityValue("\(is3D ? "3D" : "2D")，\(dailyController.visitSummary)，剩余 \(dailyController.remainingBallCount) 球，\(dailyController.foulCount) 次犯规，\(aimModeLabel)模式，目标\(vm.selectedTargetKey ?? "无")，袋口\(vm.selectedPocketIndex)"))
+            .accessibilityIdentifier(isShotSimulation ? "shotSimulation.landscape" : "dailyClearance.landscape")
+            .accessibilityLabel(pageTitle + "状态")
+            .accessibilityValue(templateStateDescription))
     }
 
     /// Both modes use the unzoomed 2D playfield in stage-local points, independent of camera motion.
@@ -1617,6 +1727,8 @@ private extension FreePlayView {
             } else if !showSpinPad, let message = ruleNotices.message {
                 BTNoticeContent(message: message, compact: true, textOnly: true)
                     .accessibilityIdentifier("dailyClearance.notice")
+            } else if isShotSimulation, vm.cuePocketed, !showSpinPad {
+                dailyInformation("母球进袋")
             }
         }
         .frame(maxWidth: 460)
@@ -1644,20 +1756,25 @@ private extension FreePlayView {
             : AnyLayout(VStackLayout(spacing: space.foundation == nil ? 6 : 4))
         return group {
             VStack(spacing: space.foundation == nil ? 6 : 4) {
+                if isShotSimulation {
+                    simulationReadout.frame(width: dailyControlColumnWidth, height: dailyTopButtonDiameter + 14)
+                } else {
                 Button(action: requestDailyRerack) {
                     VStack(spacing: 2) {
                         // Meet the inner edge of the surrounding 1pt circle stroke.
-                        BreakRackGlyph(color: .btText, size: dailyTopButtonDiameter - 1)
+                        BreakRackGlyph(color: HUDStyle.valueMeasured, size: dailyTopButtonDiameter - 1, hollowBalls: true)
+                            .btHUDActionContent()
                             .frame(width: dailyTopButtonDiameter, height: dailyTopButtonDiameter)
                             .background { BTHUDControlBackground(shape: Circle()) }
                             .overlay(Circle().stroke(HUDStyle.hairline, lineWidth: 1))
-                        Text("开球").font(.btMicro).foregroundStyle(.btTextSecondary)
+                        Text("开球").font(.btMicro).btHUDActionContent()
                     }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(BTHUDPressStyle())
                 .accessibilityIdentifier("break.entry")
                 .disabled(dailyController.isCompleted || isTemporaryTopDown)
+                }
                 VStack(spacing: 6) {
                     BTAimWheel(onNudge: { delta in
                         vm.cancelPowerRelease()
@@ -1692,9 +1809,9 @@ private extension FreePlayView {
                     dailyCompactAction("重打", symbol: "arrow.uturn.backward", id: "dailyClearance.undo", size: auxiliary) {
                         daily3DDiagnostics?.input(.undo, intent: .aim)
                         vm.cancelPowerRelease()
-                        dailyController.undoShot()
+                        if isShotSimulation { vm.replayCurrent() } else { dailyController.undoShot() }
                     }
-                    .disabled(vm.isPlaying || !dailyController.canUndo || isDailyResult || isTemporaryTopDown)
+                    .disabled(vm.isPlaying || !(isShotSimulation ? vm.canReplay : dailyController.canUndo) || isDailyResult || isTemporaryTopDown)
                     dailyCompactAction("回放", symbol: "play.rectangle", id: "dailyClearance.playback", size: auxiliary) {
                         daily3DDiagnostics?.input(.replay)
                         vm.cancelPowerRelease()
@@ -1754,7 +1871,8 @@ private extension FreePlayView {
                 powerLabel: "杆速",
                 compactPowerBarWidth: dailyRulerWidth,
                 compactSpinButtonDiameter: dailyTopButtonDiameter,
-                compactGroupSpacing: space.foundation == nil ? 6 : 4)
+                compactGroupSpacing: space.foundation == nil ? 6 : 4,
+                reportsPowerShellBounds: true)
                 .frame(width: max(52, dailyTopButtonDiameter))
                 .frame(width: dailyControlColumnWidth)
                 .environment(\.layoutDirection, .leftToRight)
@@ -1794,8 +1912,9 @@ private extension FreePlayView {
         .environment(\.layoutDirection, space.docked ? .rightToLeft : .leftToRight)
         .frame(width: space.right.width)
         .padding(.vertical, verticalPadding)
-        .overlay(alignment: .topLeading) {
-            if is3D, let rig = vm.scene.cameraRig, !showSpinPad || rig.usesTwoViewCameraControls {
+        .overlayPreferenceValue(BTPowerShellBoundsKey.self) { bounds in
+            GeometryReader { overlay in
+            if let bounds, is3D, let rig = vm.scene.cameraRig, !showSpinPad || rig.usesTwoViewCameraControls {
                 ShotPlayerCameraButtons(controlSpacing: 4, rig: rig,
                     isEnabled: vm.temporaryTopDownActive || (!vm.isPlaying && !vm.isComputing && vm.currentPlayerAim != nil),
                     onWholeTable: {
@@ -1820,16 +1939,10 @@ private extension FreePlayView {
                             dailyCameraControlStackHeight = height
                         }
                     }
-                    // Header: icon + 2pt gap + 12pt label; then 6pt gap + 6pt inset.
-                    // Measure the fixed icon stack without changing it during a temporary peek.
-                    .offset(x: DailyLayoutMetrics.CameraLane(column: space.right,
-                        pageWidth: pageWidth, trailingSafeArea: trailingSafeArea,
-                        rulerHeight: rulerHeight, topDiameter: dailyTopButtonDiameter,
-                        stackHeight: dailyCameraControlStackHeight).offset.x,
-                            y: verticalPadding + DailyLayoutMetrics.CameraLane(column: space.right,
-                        pageWidth: pageWidth, trailingSafeArea: trailingSafeArea,
-                        rulerHeight: rulerHeight, topDiameter: dailyTopButtonDiameter,
-                        stackHeight: dailyCameraControlStackHeight).offset.y)
+                    .offset(DailyLayoutMetrics.CameraLane(column: space.right,
+                        rulerHeight: rulerHeight, powerShell: overlay[bounds],
+                        stackHeight: dailyCameraControlStackHeight).offset)
+            }
             }
         }
     }
@@ -1899,7 +2012,7 @@ private extension FreePlayView {
         } else if usesMergedCamera {
             vm.scene.cameraRig?.enterMergedGlobal(aim: vm.currentPlayerAim)
             vm.scene.discardSavedPerspectiveView()
-        } else if isDailyClearance, usesDailyTwoViewControls {
+        } else if usesCoreTemplate, usesDailyTwoViewControls {
             vm.requestPlayerView(.thirdPerson)
         } else if isDailyClearance {
             vm.scene.cameraRig?.observeDailyWholeTable(aimDirection: vm.currentPlayerAim)
@@ -1917,7 +2030,7 @@ private extension FreePlayView {
         if is3D, vm.isBreakMode, vm.scene.cameraRig?.usesSurfaceCamera == true {
             vm.requestPlayerView(.thirdPerson)
         } else if initialOverview {
-            if isDailyClearance, usesDailyTwoViewControls {
+            if usesCoreTemplate, usesDailyTwoViewControls {
                 if vm.scene.cameraRig?.usesSurfaceCamera == true, vm.isBreakMode { vm.requestSurfaceOverview() }
                 else { vm.requestPlayerView(.thirdPerson) }
             } else {
@@ -1951,9 +2064,9 @@ private extension FreePlayView {
 
     /// Navigation and the table-anchored palette have independent vertical
     /// positions. Target slots remain centred even for a short ruleset.
-    func dailyFoundationPalette(size: CGSize, safe: CGFloat) -> DailyLayoutMetrics.Palette {
+    func dailyFoundationReservation(size: CGSize, safe: CGFloat) -> DailyLayoutMetrics.FoundationReservation {
         .init(width: size.width - 2 * max(4, safe),
-              targetCount: dailyPaletteKeys.filter { !PositionPlayBall.isCue($0) }.count,
+              targetCount: templatePaletteKeys.count,
               chineseEightBall: dailyPaletteGame == .chineseEightBall,
               titleWidth: 32 + dailyHeaderTitleWidth(size: 15), actionWidth: 138,
               prefersSeparateRow: size.height > size.width || size.height >= 600,
@@ -1963,98 +2076,56 @@ private extension FreePlayView {
                 ? size.width - 2 * (max(4, safe) + 60 + 8) : nil)
     }
 
+    func dailyPalettePlan(size: CGSize, safe: CGFloat, foundation: DailyLayoutMetrics.Foundation) -> DailyLayoutMetrics.Palette {
+        let side = max(4, safe)
+        return DailyLayoutMetrics.Palette(size: size, sideInset: side, table: foundation.table,
+            targetCount: templatePaletteKeys.count, chineseEightBall: dailyPaletteGame == .chineseEightBall,
+            obstacles: [
+                CGRect(x: side + dailyWindowControlInsets.left, y: 0, width: 44, height: 44),
+                CGRect(x: side + dailyWindowControlInsets.left + 32, y: (44 - dailyHeaderTitleHeight) / 2,
+                       width: dailyHeaderTitleWidth(size: 15), height: dailyHeaderTitleHeight),
+                CGRect(x: size.width - side - dailyWindowControlInsets.right - 44, y: 0, width: 44, height: 44),
+                foundation.left, foundation.right
+            ])
+    }
+
     func dailyFoundationHeader(size: CGSize, safe: CGFloat, foundation: DailyLayoutMetrics.Foundation) -> some View {
-        let targets = dailyPaletteKeys.filter { !PositionPlayBall.isCue($0) }
-        let plan = dailyFoundationPalette(size: size, safe: safe)
-        let y = foundation.table.minY - plan.height / 2
-        let grid = plan.twoRows && dailyPaletteGame == .chineseEightBall
-            ? targets.filter { $0 != "_8" } : targets
-        let split = (grid.count + 1) / 2
-        return ZStack(alignment: .topLeading) {
-            HStack(spacing: 4) {
-                dailyHeaderTitle(compact: false)
-                Spacer(minLength: 4)
-                dailyHeaderActions(compact: false).disabled(isTemporaryTopDown)
-            }
-            .padding(.leading, max(4, safe) + dailyWindowControlInsets.left)
-            .padding(.trailing, max(4, safe) + dailyWindowControlInsets.right)
-            .frame(width: size.width, height: 44)
-            .background(DailyWindowControlInsets { controls, window in
-                dailyWindowControlInsets = controls
-                dailyWindowSafeAreaInsets = window
-            }
-            .allowsHitTesting(false))
-            Group {
-                if plan.twoRows {
-                    VStack(spacing: 4) {
-                        dailyFoundationTargetRow(Array(grid.prefix(split)), plan: plan)
-                        dailyFoundationTargetRow(Array(grid.dropFirst(split)), plan: plan)
-                    }
-                    .background(Color.clear.accessibilityElement().accessibilityIdentifier("dailyClearance.twoRowPalette"))
-                } else {
-                    dailyFoundationTargetRow(targets, plan: plan)
-                        .background(Color.clear.accessibilityElement().accessibilityIdentifier("dailyClearance.singleRowPalette"))
-                }
-            }
-            .frame(width: plan.targetWidth, height: plan.height)
-            .position(x: foundation.table.midX, y: y)
-            dailyFoundationWing(PositionPlayBall.cueKey, plan: plan)
-                .position(x: foundation.table.midX - plan.targetWidth / 2 - 4 - plan.wingWidth / 2, y: y)
-            if plan.twoRows && dailyPaletteGame == .chineseEightBall {
-                dailyFoundationWing("_8", plan: plan)
-                    .position(x: foundation.table.midX + plan.targetWidth / 2 + 4 + plan.wingWidth / 2, y: y)
-            }
-        }
-        .foregroundStyle(.btText)
-        .buttonStyle(BTHUDPressStyle())
-        .frame(width: size.width, height: max(44, foundation.table.minY + 5), alignment: .topLeading)
+        let plan = dailyPalettePlan(size: size, safe: safe, foundation: foundation)
+        return DailyTemplateHeader(size: size, safe: safe, foundation: foundation, plan: plan,
+            targets: templatePaletteKeys, chineseEightBall: dailyPaletteGame == .chineseEightBall,
+            titleWidth: dailyHeaderTitleWidth(size: 15), titleHeight: dailyHeaderTitleHeight,
+            windowControlInsets: dailyWindowControlInsets, fps: dailyFPSReadout,
+            showsDeviceStatus: !dailySystemStatusVisible,
+            title: { dailyHeaderTitle(compact: false) },
+            actions: { dailyHeaderActions(compact: false).disabled(isTemporaryTopDown) },
+            ball: { key, diameter, height in dailyPaletteBall(key, diameter: diameter, slotHeight: height) },
+            paletteMarker: { templateFrameReader("palette") })
+        .background(DailyWindowControlInsets { controls, window, statusVisible in
+            dailyWindowControlInsets = controls
+            dailyWindowSafeAreaInsets = window
+            dailySystemStatusVisible = statusVisible
+        }.allowsHitTesting(false))
         .background {
             HStack {
                 dailyHeaderTitleText(compact: false).fixedSize()
                     .background(GeometryReader { text in
                         Color.clear.preference(key: DailyHeaderTitleWidthsKey.self, value: [15: text.size.width])
+                            .preference(key: DailyHeaderTitleHeightKey.self, value: text.size.height)
                     })
             }.hidden().allowsHitTesting(false).accessibilityHidden(true)
+        }
+        .onPreferenceChange(DailyHeaderTitleHeightKey.self) { height in
+            if height.isFinite, height > 0 { dailyHeaderTitleHeight = height }
         }
         .onPreferenceChange(DailyHeaderTitleWidthsKey.self) { value in
             if let width = value[15], width.isFinite, width > 0 { dailyHeaderTitleWidths[15] = width }
         }
     }
 
-    func dailyFoundationWing(_ key: String, plan: DailyLayoutMetrics.Palette) -> some View {
-        dailyPaletteBall(key, diameter: plan.diameter, slotHeight: plan.twoRows ? plan.rowHeight : 44)
-            .frame(width: plan.wingWidth, height: plan.rowHeight)
-            .background { dailyFoundationPaletteBackground(height: plan.rowHeight) }
-    }
-
-    func dailyFoundationTargetRow(_ targets: [String], plan: DailyLayoutMetrics.Palette) -> some View {
-        HStack(spacing: 0) {
-            ForEach(targets, id: \.self) { key in
-                HStack(spacing: 0) {
-                    if !plan.twoRows && dailyPaletteSectionStart(key) {
-                        Rectangle().fill(HUDStyle.hairline).frame(width: 1, height: 18)
-                            .padding(.horizontal, 2).accessibilityHidden(true)
-                    }
-                    dailyPaletteBall(key, diameter: plan.diameter,
-                                     slotHeight: plan.twoRows ? plan.rowHeight : 44).id(key)
-                }
-            }
-        }
-        .padding(.horizontal, 4)
-        .frame(height: plan.rowHeight)
-        .background { dailyFoundationPaletteBackground(height: plan.rowHeight) }
-    }
-
-    func dailyFoundationPaletteBackground(height: CGFloat) -> some View {
-        Capsule().fill(HUDStyle.controlBackground)
-            .overlay(Capsule().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-            .frame(height: height).allowsHitTesting(false)
-    }
-
     @ViewBuilder func dailyLandscapeHeader(size: CGSize, leadingAllowance: CGFloat, trailingShift: CGFloat) -> some View {
         let headerSize = dailyHeaderAuditSize(size, leadingAllowance: leadingAllowance, trailingShift: trailingShift)
         let plan = DailyLayoutMetrics.Header(width: headerSize.width,
-            targetCount: dailyPaletteKeys.filter { !PositionPlayBall.isCue($0) }.count,
+            targetCount: templatePaletteKeys.count,
             separators: dailyPaletteGame == .chineseEightBall ? 10 : 0,
             regularTitleWidth: dailyHeaderTitleWidth(size: 15), compactTitleWidth: dailyHeaderTitleWidth(size: 13),
             leadingAllowance: leadingAllowance, trailingExtension: trailingShift)
@@ -2109,7 +2180,7 @@ private extension FreePlayView {
     /// It leaves the scene/stage proposal unchanged and is absent in release.
     func dailyRegularHeaderThreshold(leadingAllowance: CGFloat, trailingShift: CGFloat) -> CGFloat {
         DailyLayoutMetrics.Header.minimumWidth(
-            targetCount: dailyPaletteKeys.filter { !PositionPlayBall.isCue($0) }.count,
+            targetCount: templatePaletteKeys.count,
             separators: dailyPaletteGame == .chineseEightBall ? 10 : 0, style: .regular,
             titleWidth: dailyHeaderTitleWidth(size: 15), leadingAllowance: leadingAllowance,
             trailingExtension: trailingShift)
@@ -2137,12 +2208,29 @@ private extension FreePlayView {
     /// Before the first measurement, four CJK ems retain the qualified baseline
     /// budget. Subsequent capacity decisions use Text's actual ideal width.
     func dailyHeaderTitleWidth(size: CGFloat) -> CGFloat {
-        dailyHeaderTitleWidths[Int(size)] ?? 4 * size
+        let width = dailyHeaderTitleWidths[Int(size)] ?? 4 * size
+        // Keep the template's four-character title budget for shorter wrapped lines,
+        // so the palette does not grow into the shared time/battery/FPS region.
+        return dailyHeaderTitleIsMultiline ? max(4 * size, width) : width
+    }
+
+    private var dailyHeaderTitleLabel: String {
+        isShotSimulation ? "分离角\n与走位" : pageTitle
+    }
+
+    private var dailyHeaderTitleIsMultiline: Bool {
+        dailyHeaderTitleLabel.contains("\n")
     }
 
     func dailyHeaderTitleText(compact: Bool) -> some View {
-        Text("每日清台")
-            .font(compact ? .btFootnote.weight(.semibold) : .btSubheadlineSemibold)
+        // An intentional line break does not trigger minimumScaleFactor.
+        // Two-line titles use a smaller token while retaining the width budget.
+        let font: Font = dailyHeaderTitleIsMultiline
+            ? (compact ? .btCaption : .btFootnote)
+            : (compact ? .btFootnote : .btSubheadline)
+        return Text(dailyHeaderTitleLabel)
+            .accessibilityLabel(pageTitle)
+            .font(font.weight(.semibold))
     }
 
     func dailyFullHeader(size: CGSize, trailingShift: CGFloat, plan: DailyLayoutMetrics.Header) -> some View {
@@ -2185,7 +2273,7 @@ private extension FreePlayView {
             .accessibilityIdentifier("dailyClearance.back")
             if showsTitle {
                 dailyHeaderTitleText(compact: compact)
-                    .lineLimit(1)
+                    .lineLimit(dailyHeaderTitleIsMultiline ? 2 : 1)
                     // Capacity limits fitting to the baseline's existing 2pt.
                     // Keep the original Text rasterization/fitting behavior.
                     .minimumScaleFactor(preservesBaselineTextFit ? 0.7 : 1)
@@ -2195,36 +2283,9 @@ private extension FreePlayView {
     }
 
     func dailyHeaderActions(compact: Bool) -> some View {
-        HStack(spacing: 0) {
-            Group {
-                Button {
-                    vm.cancelPowerRelease()
-                    showSpinPad = false
-                    toggleDailyCamera()
-                } label: {
-                    HStack(spacing: 0) {
-                        Text("2D").foregroundStyle(is3D ? Color.btTextSecondary : .white)
-                            .frame(width: compact ? 30 : 44, height: 34)
-                            .background(is3D ? Color.clear : HUDStyle.selectedBackground, in: Capsule())
-                        Text("3D").foregroundStyle(is3D ? Color.white : .btTextSecondary)
-                            .frame(width: compact ? 30 : 44, height: 34)
-                            .background(is3D ? HUDStyle.selectedBackground : .clear, in: Capsule())
-                    }
-                    .font(.btFootnote.weight(.semibold))
-                    .padding(3)
-                    .background { BTHUDControlBackground(shape: Capsule()) }
-                    .overlay(Capsule().stroke(HUDStyle.hairline, lineWidth: 1))
-                    .frame(height: 44)
-                    .contentShape(Rectangle())
-                }
-                .accessibilityLabel(is3D ? "切换到2D俯视" : "切换到3D视角")
-                .accessibilityValue(is3D ? "3D" : "2D")
-                .accessibilityIdentifier("freeplay.cameraMode")
-                .buttonStyle(BTHUDPressStyle())
-            }
-            moreMenu.buttonStyle(BTHUDPressStyle()).font(.system(size: 22, weight: .medium)).frame(width: 44, height: 44)
-                .overlay(Circle().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-        }
+        moreMenu.buttonStyle(BTHUDPressStyle()).font(.system(size: 22, weight: .medium))
+            .frame(width: 44, height: 44)
+            .overlay(Circle().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
     }
 
     func dailyScrollingHeader(plan: DailyLayoutMetrics.Header) -> some View {
@@ -2271,6 +2332,7 @@ private extension FreePlayView {
                 else { Image(systemName: symbol).font(.system(size: 18, weight: .medium)) }
                 Text(title).font(.btMicro)
             }
+            .btHUDActionContent()
             .frame(width: size, height: size)
             .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: BTRadius.md)) }
             .overlay(RoundedRectangle(cornerRadius: BTRadius.md)
@@ -2278,18 +2340,19 @@ private extension FreePlayView {
             .contentShape(Rectangle())
         }
         .buttonStyle(BTHUDPressStyle())
-        .foregroundStyle(.btTextSecondary)
         .accessibilityLabel(title)
         .accessibilityIdentifier(id)
     }
 
     var dailyPaletteGame: DailyClearanceGame {
-        dailyController.game ?? preferences.dailyClearanceGame
+        isShotSimulation ? .chineseEightBall : (dailyController.game ?? preferences.dailyClearanceGame)
     }
 
-    var dailyPaletteKeys: [String] { dailyPaletteGame.paletteKeys }
+    var dailyPaletteKeys: [String] { isShotSimulation ? PositionPlayBall.allKeys : dailyPaletteGame.paletteKeys }
+    var templatePaletteKeys: [String] { dailyPaletteKeys.filter { !PositionPlayBall.isCue($0) } }
 
     func dailyPaletteActive(_ key: String) -> Bool {
+        if isShotSimulation { return !PositionPlayBall.isCue(key) && vm.onTableKeys.contains(key) }
         guard !vm.isBreakMode, !isDailyResult,
               dailyController.game != .chineseEightBall || dailyController.assignedGroup != nil else { return false }
         return dailyController.legalTargetKeys(tableKeys: Set(vm.onTableKeys)).contains(key)
@@ -2337,18 +2400,22 @@ private extension FreePlayView {
     func dailyPaletteBall(_ key: String, diameter: CGFloat, slotWidth: CGFloat? = nil, slotHeight: CGFloat = 44) -> some View {
         let onTable = vm.onTableKeys.contains(key)
         return Button {
-            if onTable {
+            if isShotSimulation {
+                if onTable { vm.pulseTableBall(key) }
+                else if is3D { flash("切到2D摆球", tone: .info) }
+                else { placeSimulationBall(key, world: nil) }
+            } else if onTable {
                 if PositionPlayBall.isCue(key) { vm.pulseTableBall(key) }
                 if let node = vm.scene.allBallNodes[key] { handleTargetTap(node) }
             } else { flash("这颗球已进袋", tone: .warning) }
         } label: {
             PoolBallFace(key: key, diameter: diameter)
-                .opacity(onTable ? 1 : 0.25)
+                .opacity(isShotSimulation ? (onTable ? 0.3 : 1) : (onTable ? 1 : 0.25))
                 .overlay(Circle().stroke(Color.white.opacity(0.9), lineWidth: 1)
                     .padding(-1).opacity(onTable && vm.selectedTargetKey == key ? 1 : 0))
-                .frame(width: slotWidth ?? diameter + 2, height: min(32, slotHeight))
+                .frame(width: slotWidth ?? diameter + 2, height: min(max(32, diameter), slotHeight))
                 .background {
-                    let targets = dailyPaletteKeys.filter { !PositionPlayBall.isCue($0) }
+                    let targets = templatePaletteKeys
                     let isEnd = key == targets.first || key == targets.last
                     BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: isEnd ? 16 : 4),
                         selected: onTable && dailyPaletteActive(key), normal: .clear)
@@ -2359,8 +2426,10 @@ private extension FreePlayView {
         .buttonStyle(BTHUDPressStyle())
         .disabled(vm.isPlaying || vm.isBreakMode || dailyDecisionActive || !dailyController.breakChoices.isEmpty || isTemporaryTopDown)
         .accessibilityLabel(PositionPlayBall.isCue(key) ? "母球" : "\(PositionPlayBall.shortLabel(for: key))号球")
-        .accessibilityValue(vm.isBreakMode ? "开球准备，不可选" : (onTable ? (dailyPaletteActive(key) ? "本轮可击打" : "在桌上") : "已进袋"))
+        .accessibilityValue(vm.isBreakMode ? "开球准备，不可选" : (onTable ? (dailyPaletteActive(key) ? "本轮可击打" : "在桌上") : (isShotSimulation ? "未在桌上" : "已进袋")))
         .accessibilityIdentifier("paletteBall_\(key)")
+        .accessibilityHint(isShotSimulation ? (is3D ? "切到2D摆球" : "点按或拖到台面摆球，拖回球库移除") : "")
+        .simultaneousGesture(simulationPaletteDrag(key), including: isShotSimulation && !is3D && !onTable ? .all : .subviews)
     }
 
     func dailySpinPadRect(in size: CGSize) -> CGRect {
@@ -2382,7 +2451,7 @@ private extension FreePlayView {
     private var usesMergedCamera: Bool { vm.scene.cameraRig?.usesMergedCamera == true }
 
     private var usesDailyTwoViewControls: Bool {
-        isDailyClearance && vm.scene.cameraRig?.usesTwoViewCameraControls == true
+        usesCoreTemplate && vm.scene.cameraRig?.usesTwoViewCameraControls == true
     }
 
     private var isTemporaryTopDown: Bool {
@@ -2501,4 +2570,9 @@ private struct DailyStrikeFrameKey: PreferenceKey {
         if let next = nextValue(), !next.isNull, !next.isInfinite,
            next.width > 0, next.height > 0 { value = next }
     }
+}
+
+private struct DailyHeaderTitleHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }

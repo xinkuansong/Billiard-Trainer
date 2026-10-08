@@ -29,12 +29,23 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     private(set) var mergesDailyClothSupport = false
     private(set) var factorsDailyClothBRDF = false
 
-    /// Daily-only defaults; other consumers retain their existing rendering contract.
-    func configureDailyClearanceRendering() {
+    /// Opt in to the current reference materials without selecting a camera policy.
+    /// Configure before setup; this does not attach any page's rules controller.
+    func configureReferenceTableRendering() {
         renderingProfile = .reflection
         sceneExposureOffset = -0.1
+    }
+
+    /// Opt in to the shot-aware camera independently of the material profile.
+    func configureShotAwareCamera() {
         usesDailyPerspective = true
         avoidsDailyRedundantCameraWrites = true
+    }
+
+    /// Compatibility entry point: daily keeps both existing policies and diagnostics.
+    func configureDailyClearanceRendering() {
+        configureReferenceTableRendering()
+        configureShotAwareCamera()
         #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
         avoidsDailyRedundantCameraWrites = !arguments.contains("-daily3D.cameraReference")
@@ -78,6 +89,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         if mobileRendering && MobileReferenceLighting.requested {
             for node in allBallNodes.values { MobileReferenceLighting.applyClothBounce(color, to: node) }
         }
+        refreshRoomReflectionProbe()
         return true
     }
 
@@ -95,6 +107,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         if tableAppearance == nil { tableAppearance = TableAppearance(table: tableNode, surfaceY: surfaceY) }
         guard tableAppearance?.apply(style, showsSights: showsSights) == true else { return false }
         for marker in leatherMarkers { marker.applyTableStyle(style) }
+        refreshRoomReflectionProbe()
         return true
     }
     private(set) var cameraNode: SCNNode!
@@ -113,6 +126,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     private(set) var enhancedRendering: Bool = false
     private(set) var mobileRendering: Bool = false
     private(set) var contactOcclusion: MobileContactOcclusion?
+    private var isSettingUpScene = false
 
     /// Keep references to nodes we add for the enhanced pipeline so we can detach them
     /// if the flag is toggled off mid-session.
@@ -192,6 +206,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     private var strikeContinuationNode: SCNNode?
     /// Opt-in for the interactive angle diagram; quiz/export consumers retain their contract.
     var usesAdaptiveDiagramLabels = false
+    private(set) var diagramShowsLineLabels = true
     private(set) var diagramLabelGeometry: (cue: SCNVector3, target: SCNVector3,
         ghost: SCNVector3, pocket: SCNVector3, rail: SCNVector3, angle: Double)?
     private(set) var contactDotNode: SCNNode?
@@ -222,6 +237,13 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     ///   shares one look; offline renderers pass `false` to keep bundled output stable.
     func setupScene(enhancedRendering: Bool = false, mobileRendering: Bool = MobileTableRendering.isEnabled,
                     roomStyle: RoomStyle = .selected) {
+        isSettingUpScene = true
+        roomReflectionProbe = nil
+        installedProbeInputs = nil
+        defer {
+            isSettingUpScene = false
+            refreshRoomReflectionProbe()
+        }
         #if DEBUG
         var stageStart = CACurrentMediaTime()
         func mark(_ key: String) {
@@ -977,7 +999,10 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
 
     func installReferenceRoom(style: RoomStyle = .selected) {
         if let existing = rootNode.childNode(withName: "reference_room", recursively: false) {
-            guard installedReferenceRoomStyle != style else { return }
+            guard installedReferenceRoomStyle != style else {
+                refreshRoomReflectionProbe()
+                return
+            }
             existing.removeFromParentNode()
         }
         if groundVisualNode == nil { setupGround() }
@@ -989,17 +1014,23 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         room.isHidden = currentCameraMode != .perspective3D
         rootNode.addChildNode(room)
         installedReferenceRoomStyle = style
-        installRoomReflectionProbe(for: style)
+        refreshRoomReflectionProbe()
     }
 
     /// Room-baked environment consumed only by the reference ball shader
-    /// (`RoomReflectionProbe`). Cached per style; the first scene bakes it.
+    /// (`RoomReflectionProbe`). The cache includes the installed static appearance.
     private(set) var roomReflectionProbe: RoomReflectionProbe?
+    private var installedProbeInputs: RoomReflectionProbe.Inputs?
 
-    private func installRoomReflectionProbe(for style: RoomStyle) {
-        guard mobileRendering, MobileReferenceLighting.requested else { return }
+    private func refreshRoomReflectionProbe() {
+        guard !isSettingUpScene, mobileRendering, MobileReferenceLighting.requested,
+              let style = installedReferenceRoomStyle else { return }
+        let inputs = RoomReflectionProbe.Inputs(style: style, scene: self)
+        guard inputs != installedProbeInputs else { return }
         roomReflectionProbe = RoomReflectionProbe.probe(for: style, scene: self)
         guard let probe = roomReflectionProbe else { return }
+        // A neutral fallback is not a successful room bake; allow a later retry.
+        installedProbeInputs = probe.style == style ? inputs : nil
         for node in allBallNodes.values { probe.install(on: node, usesPrefilteredReflection: renderingProfile.usesReflection) }
     }
 
@@ -1246,7 +1277,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         for node in rootNode.childNodes {
             let excluded = node === cameraNode || node === groundVisualNode
                 || node === tableContactShadowNode || node === tableCenterGlowNode
-                || node === cueStick?.rootNode || node.name == "reference_room"
+                || node.name == "reference_room"
             if excluded {
                 node.enumerateHierarchy { child, _ in
                     if child.light != nil { mirror(child, parent: result.rootNode, world: true, lightOnly: true) }
@@ -2448,6 +2479,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         }
         updateLineNode(strikeLineNode, from: cueBall, to: solidEnd)
         strikeLineNode?.isHidden = false
+        diagramShowsLineLabels = showLineLabels
         diagramLabelGeometry = usesAdaptiveDiagramLabels && showAngleAnnotations
             ? (cueBall, targetBall, ghostPos, pocket, strikeEnd,
                AngleSceneCalculator.cutAngle(cueBall: cueBall, targetBall: targetBall, pocket: pocket)) : nil

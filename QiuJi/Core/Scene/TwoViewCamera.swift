@@ -1345,6 +1345,12 @@ final class TwoViewCamera {
 
     func enterFirstPerson(_ base: Pose, duration: Float) {
         saveActiveMemory()
+        // A surface pan/connector must not keep owning motion after a first-person request.
+        simpleShot = nil
+        displayedSurface = nil
+        surfaceTransitionOrigin = nil
+        surfaceMotion = nil
+        surfaceSamples.removeAll(keepingCapacity: true)
         temporaryObserving = false; observationReturn = nil
         requestRevision &+= 1
         entryContext = context

@@ -1,6 +1,6 @@
 # 页面清单与推广顺序
 
-2026-10-06 源码盘点。以下是入口／组件事实与建议排期，不是全部页面的视觉验收。基于 `MainTabView.destination`、`RootView` 测试入口，以及 `AngleSceneView`、`BTTableFigure`、`BTShotInstrumentColumn` 的调用方；后续每页采集实际入口、权限、模式与状态。不能只凭类名认定界面相同。
+2026-10-06首次盘点；2026-10-08补充间接消费者与复用审计。以下是入口／组件事实与建议排期，不是全部页面的视觉验收。基于 `MainTabView.destination`、`RootView` 测试入口，以及 `AngleSceneView`、`BTTableFigure`、`BTShotInstrumentColumn` 的调用方；后续每页采集实际入口、权限、模式与状态。不能只凭类名认定界面相同。当前渲染/相机差异见[完整标准与分析](../../docs/design/daily-clearance/每日清台完整标准与跨页面复用分析.md)。
 
 源码前缀均相对仓库根目录，便于执行者用 `rg` 定位符号。
 
@@ -8,7 +8,7 @@
 
 | ID／顺序 | 页面／路由 | 类型与源码锚点 | 保留差异／首轮重点 |
 |---|---|---|---|
-| D00 外部依赖 | 每日清台 | `PositionPlay/Views/FreePlayView.swift` 的 `entryMode: .dailyClearance` | 独立 v2 工作包；当前 W0／X，继续前重查，不由本任务接管 |
+| D00 外部依赖 | 每日清台 | `PositionPlay/Views/FreePlayView.swift` 的 `entryMode: .dailyClearance` | 独立工作包，现行状态从CURRENT读取；旧W0/X不是当前实施状态 |
 | P01 首个试点 | 分离角与走位／`.shotSimulation` | `AngleTraining/Views/ShotSimulationView.swift` | 最多两目标球、无开球；进袋／自由、摆球、轨迹、打点／杆速、击球和回放 |
 | P02 第二消费者 | 自由击球／`.freePlay` | `PositionPlay/Views/FreePlayView.swift` 普通分支 | 开球、球库、对局；与每日同文件，实施前协调并保护两个分支 |
 | P03 | 自由走位／`.positionPlayComposer`，另有详情试打入口 | `PositionPlay/Views/PositionPlayComposerView.swift` | 选球选袋、约束、下一解；独立入口和带内容试打入口都需覆盖 |
@@ -27,10 +27,12 @@
 | 分组 | 源码候选 | 排期规则 |
 |---|---|---|
 | 教学阅读 | `ContactPointTableView`、`AimingPrincipleView`、`AimingMethodsView`、`AimingCorrectionView`、`SpinAndEnglishView`、`BallFeelView`、`TheoryT01/T02/T03View` | 按图文阅读宽度、标注和滚动关系适配，不套全屏双尺 |
-| 专题交互／测验 | `AngleDynamicView`、`GeometricAngleQuizView`、`AimPointTrainingView` | 先实际盘点交互与图解占比，再归入阅读或答题模板 |
+| 交互教学（当前 AD01） | `AngleDynamicView` | 2026-10-08 用户指定下一批；拖球/选袋/多球遮挡，继承核心顶部/场景/设置，保留五项教学读数。见 [AD01](AD01-ANGLE-DYNAMIC.md) |
+| 测验 | `GeometricAngleQuizView`、`AimPointTrainingView` | 先实际盘点交互与图解占比，再归入答题模板 |
 | 拍照摆球／提取 | `BallExtraction/Views/BallExtractionView.swift`、`BatchDrillStudio/BatchBallExtractionView.swift` | 保留原图／球桌映射、校正和确认步骤；不自动扩成图像识别改造 |
 | 批量编排内部工具 | `BatchDrillStudio/BatchAuthoringView.swift` | MainTabView 中批量工作室入口有模拟器条件；按真实可用入口验证，不列为普通用户全设备交付 |
-| 内容详情／训练中的球桌 | `DrillLibrary/Views/DrillDetailView.swift`、`DrillTutorialView.swift`、训练页及共用内容组件 | 本轮尚未完成间接渲染链清点，G5 前补查；静态配图与原生交互分别登记，不声称已穷尽 |
+| 内容详情／训练中的球桌 | `DrillDetailView`、`DrillRecordView` → `DrillSceneView`；`BTPracticeCover` → `BTTableFigure` | 10-08补齐上述源码链；教程静态资产/嵌套入口仍需逐页巡游，静态配图与原生交互分别登记，不声称已穷尽 |
+| 独立预览与离线输出 | `AppearanceCombinationPreview`、`DrillThumbnailRenderer`、`TableFigureRenderer`、`BallFaceRenderer`、`SequenceVideoExporter` | 分别记录mobile/plain/studio配置、固定镜头及缓存；共享资产不等于每日完整渲染配置 |
 
 ## 3. 共用层影响清单
 

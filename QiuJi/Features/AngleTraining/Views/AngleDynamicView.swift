@@ -4,143 +4,16 @@ import SceneKit
 struct AngleDynamicView: View {
     @StateObject private var vm = AngleDynamicViewModel()
     private var is3D: Bool { vm.cameraMode == .perspective3D }
-    @State private var hasAppeared = false
 
     /// 首拖提示（T-P18-51）：首次进页不知道球能拖，提示常驻到第一次拖动为止（跨启动记忆）。
     @AppStorage(PracticeStorageKey.angleDynamicHasDraggedOnce) private var hasDraggedOnce = false
 
-    /// G10：顶栏 / 底栏定高锁桌（C11 → `ShotStageMetrics`）。
-    private static let topRowHeight = ShotStageMetrics.topRowHeight
-    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
-
-    /// 球桌外框实测半尺寸（装桌前用 USDZ 兜底常量），供 ShotStageProxy 对齐球桌矩形。
-    private var tableExtents: (length: Double, width: Double) {
-        if let rig = vm.scene.cameraRig {
-            return (rig.tableOuterHalfLength, rig.tableOuterHalfWidth)
-        }
-        return (ShotTableLayout.defaultHalfLength, ShotTableLayout.defaultHalfWidth)
-    }
-
     var body: some View {
-        GeometryReader { geo in
-            let extents = tableExtents
-            let bottomHeight = is3D ? Self.topRowHeight : Self.bottomBarHeight
-            let sceneH = max(geo.size.height - Self.topRowHeight - bottomHeight, 1)
-            let proxy = ShotStageProxy(
-                sceneSize: CGSize(width: geo.size.width, height: sceneH),
-                halfLength: extents.length, halfWidth: extents.width
-            )
-            ZStack {
-                Color.black.ignoresSafeArea()
-                VStack(spacing: 0) {
-                    topChipRow
-                        .frame(height: Self.topRowHeight)
-                    ZStack {
-                        sceneFullscreen
-                        overlayLayer
-                    }
-                    .frame(height: sceneH)
-                    bottomBar(proxy)
-                        .frame(height: bottomHeight)
-                }
-            }
-        }
-        .trainingBackgroundMusic()
-        .btDarkToolChrome("角度与瞄准")
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                BTSolverNavStatus(title: "角度与瞄准")
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: Spacing.sm) {
-                    cameraToggle
-                    BTSolverMoreMenu(scene: vm.scene, labelOpacity: 0.7)
-                }
-            }
-        }
-        .onAppear {
-            if !hasAppeared {
-                hasAppeared = true
-                vm.setupScene()
-            }
-        }
-    }
-
-    private var cameraToggle: some View {
-        Button(is3D ? "3D" : "2D") {
-            let needsOverview = !vm.scene.hasPerspectiveView
-            vm.cameraMode = is3D ? .topDown2DRotated : .perspective3D
-            vm.scene.setCameraMode(vm.cameraMode, animated: false)
-            if is3D && needsOverview { _ = vm.scene.cameraRig?.observeWholeTable() }
-        }
-        .font(.btSubheadlineSemibold)
-        .frame(minWidth: 44, minHeight: 44)
-        .accessibilityLabel(is3D ? "切换到2D俯视" : "切换到3D视角")
-        .accessibilityValue(is3D ? "3D" : "2D")
-        .accessibilityIdentifier("angleDynamic.cameraMode")
-    }
-
-    @ViewBuilder
-    private func bottomBar(_ proxy: ShotStageProxy) -> some View {
-        if is3D {
-            HStack {
-                BTSceneObservationMenu(
-                    scene: vm.scene, targetNode: vm.targetNode,
-                    pocketIndex: vm.selectedPocketIndex >= 0 ? vm.selectedPocketIndex : nil,
-                    identifierPrefix: "angleDynamic",
-                    canReturnToAim: false, onReturnToAim: {})
-                Spacer(minLength: 0)
-                Text("拖球摆位 · 空白处转视角").foregroundStyle(Color.btTextSecondary)
-            }
-            .font(.btFootnote)
-            .padding(.horizontal, Spacing.sm)
-            .frame(maxHeight: .infinity)
-            .background(HUDStyle.panelBackground)
-        } else {
-            paletteBar(proxy)
-        }
-    }
-
-    // MARK: - Top chip row（固定高度，G10）
-
-    private var topChipRow: some View {
-        // 横向滚动兜底：极窄设备（如 iPhone SE）也能完整看到所有指标
-        ScrollView(.horizontal, showsIndicators: false) {
-            primaryMetricChip
-                .padding(.horizontal, Spacing.lg)
-        }
-        .scrollBounceBehavior(.basedOnSize)
-        .frame(maxHeight: .infinity, alignment: .center)
-        .background(Color.black)
-        .environment(\.colorScheme, .dark)
-    }
-
-    // MARK: - Scene (fullscreen)
-
-    private var sceneFullscreen: some View {
-        AngleSceneView(
-            scene: vm.scene,
-            cameraMode: $vm.cameraMode,
-            interactionMode: is3D ? .cameraControl : .tapsOnly,
-            autoFitsRotatedTable: !is3D,
-            onPocketTapped: { index in
-                if !is3D { vm.selectPocket(at: index) }
-            },
-            draggableBallNodes: vm.draggableBalls,
-            onDragBegan: { node in
-                hasDraggedOnce = true
-                vm.dragBegan(node: node)
-            },
-            onDragMoved: { node, pos in vm.dragMoved(node: node, worldPosition: pos) },
-            onDragEnded: { node in vm.dragEnded(node: node) },
-            selectableBallNodes: is3D ? [] : vm.selectableBalls,
-            onBallTapped: { node in
-                if let key = vm.scene.ballKey(for: node) {
-                    vm.selectTarget(key: key)
-                }
-            }
-        )
-        .clipped()
+        BTTeachingTablePage(vm: vm, titleLabel: "角度与瞄准", identifier: "angleDynamic",
+            title: {
+                BTTeachingFiveCharacterTitle(words: "角度\n瞄准", middleCharacter: "与", identifier: "angleDynamic")
+            }, leftContent: { _ in primaryMetricChip }, status: { overlayLayer },
+            onFirstDrag: { hasDraggedOnce = true })
     }
 
     // MARK: - Floating overlays (status banner only — all metrics live in the top chip)
@@ -164,128 +37,27 @@ struct AngleDynamicView: View {
     // MARK: - Primary metric chip (常驻：角度 / 厚度图示 / d/R / 横移 / 偏移 一排展示)
 
     private var primaryMetricChip: some View {
-        let hasSelection = vm.selectedPocketIndex >= 0
-        return HStack(spacing: Spacing.sm) {
-            metricItem(icon: "angle",
-                       value: hasSelection ? "\(Int(vm.cutAngleDegrees.rounded()))°" : "—°")
-            divider
-            thicknessItem(cutAngle: vm.cutAngleDegrees, enabled: hasSelection)
-            divider
-            metricItem(label: "d/R",
-                       value: hasSelection ? String(format: "%.2f", vm.dOverR) : "—")
-            divider
-            metricItem(label: "横移",
-                       value: hasSelection ? String(format: "%.1fmm", vm.displacementMM) : "—")
-            divider
-            metricItem(label: "偏移",
-                       value: hasSelection ? String(format: "%.0f%%", vm.offsetPercent) : "—")
+        let enabled = vm.selectedTargetKey != nil && vm.selectedPocketIndex >= 0
+        return VStack(spacing: 14) {
+            teachingReadout("切角", value: enabled ? "\(Int(vm.cutAngleDegrees.rounded()))°" : "—")
+            VStack(spacing: 3) {
+                ThicknessOverlapIcon(cutAngle: enabled ? vm.cutAngleDegrees : 0).frame(width: 26, height: 14)
+                Text(enabled ? vm.thicknessName : "—").font(.btCaption)
+            }
+            teachingReadout("d/R", value: enabled ? String(format: "%.2f", vm.dOverR) : "—")
+            teachingReadout("横移", value: enabled ? String(format: "%.1fmm", vm.displacementMM) : "—")
+            teachingReadout("偏移", value: enabled ? String(format: "%.0f%%", vm.offsetPercent) : "—")
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.sm)
-        .btHudGlass()
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("angleDynamic.metrics")
     }
 
-    /// 读数项：BTReadout 仪表窗（T-P18-45），icon 变体保留给切角。
-    @ViewBuilder
-    private func metricItem(icon: String? = nil, label: String? = nil, value: String) -> some View {
-        HStack(spacing: 3) {
-            if let icon {
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(HUDStyle.labelColor)
-            }
-            BTReadout(label: label, value: value)
-        }
-        .fixedSize(horizontal: true, vertical: false)
-    }
-
-    /// 厚度指标：用两个互相错位的球图形表示重叠度，并附上厚度名称（极薄/半球…）。
-    @ViewBuilder
-    private func thicknessItem(cutAngle: Double, enabled: Bool) -> some View {
-        HStack(spacing: 4) {
-            ThicknessOverlapIcon(cutAngle: enabled ? cutAngle : 0)
-                .frame(width: 26, height: 14)
-                .opacity(enabled ? 1 : 0.4)
-            Text(enabled ? AngleSceneCalculator.thicknessName(cutAngle: cutAngle) : "—")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.85))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-        }
-        .fixedSize(horizontal: true, vertical: false)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("厚度 \(enabled ? AngleSceneCalculator.thicknessName(cutAngle: cutAngle) : "未选择")")
-    }
-
-    private var divider: some View {
-        BTHudMetricSeparator()
-    }
-
-    // MARK: - 球库（条 2：加减球 / 换目标球；G8：排球总宽 = 球桌宽、两侧留白）
-
-    private static let paletteColumns = 8
-
-    private func paletteBar(_ proxy: ShotStageProxy) -> some View {
-        let all = PositionPlayBall.allKeys
-        let row1 = Array(all.prefix(Self.paletteColumns))
-        let row2 = Array(all.dropFirst(Self.paletteColumns))
-        // Share the capped palette width even before the table proxy is ready.
-        let libraryWidth = proxy.libraryWidth
-        let columnWidth = max(libraryWidth / CGFloat(Self.paletteColumns), 1)
-        let ballDiameter = proxy.paletteBallDiameter
-        return VStack(spacing: BTBallPaletteMetrics.rowSpacing) {
-            paletteRow(row1, columnWidth: columnWidth, ballDiameter: ballDiameter)
-            paletteRow(row2, columnWidth: columnWidth, ballDiameter: ballDiameter)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(HUDStyle.panelBackground)
-        .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
-        .environment(\.colorScheme, .dark)
-    }
-
-    private func paletteRow(_ keys: [String], columnWidth: CGFloat, ballDiameter: CGFloat) -> some View {
-        HStack(spacing: 0) {
-            ForEach(0..<Self.paletteColumns, id: \.self) { i in
-                Group {
-                    if i < keys.count {
-                        ballToken(keys[i], diameter: ballDiameter)
-                    } else {
-                        Color.clear
-                    }
-                }
-                .frame(width: columnWidth, height: BTBallPaletteMetrics.minimumHitSize)
-            }
-        }
-    }
-
-    /// 球库槽位：在库点击上桌；在桌点击（非母球）撤下回库；当前目标球高亮圈。
-    private func ballToken(_ key: String, diameter: CGFloat) -> some View {
-        let onTable = vm.onTableKeys.contains(key)
-        let isTarget = vm.selectedTargetKey == key
-        return Button {
-            if onTable {
-                vm.removeFromTable(key)
-            } else {
-                vm.placeFromPalette(key)
-            }
-        } label: {
-            PoolBallFace(key: key, diameter: diameter)
-                .overlay(
-                    Circle().stroke(isTarget ? Color.btPrimary : .white.opacity(0.18),
-                                    lineWidth: isTarget ? 2 : 0.5)
-                )
-                .frame(width: BTBallPaletteMetrics.minimumHitSize,
-                       height: BTBallPaletteMetrics.minimumHitSize)
-                .contentShape(Rectangle())
-                .opacity(onTable ? 0.3 : 1)
-        }
-        // F-AK-04：球库按下反馈；不改 placeFromPalette / removeFromTable。
-        .buttonStyle(BTPressableStyle.row)
-        .accessibilityLabel("球库 \(key)")
-        .accessibilityIdentifier("paletteBall_\(key)")
+    private func teachingReadout(_ label: String, value: String) -> some View {
+        VStack(spacing: 2) {
+            Text(label).font(.btCaption2).foregroundStyle(.white.opacity(0.6))
+            Text(value).font(.btFootnote.weight(.medium).monospacedDigit()).lineLimit(1).minimumScaleFactor(0.8)
+        }.accessibilityElement(children: .combine)
     }
 
     // MARK: - Status banner (bottom)
@@ -321,21 +93,14 @@ struct AngleDynamicView: View {
             Text(text)
                 .font(.btSubheadlineMedium)
         }
-        .foregroundStyle(tint)
+        .foregroundStyle(.white)
+        .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.sm)
         .btHudGlass()
     }
 }
 
-// 注：厚度重叠图示 `ThicknessOverlapIcon` 已下沉至 `Core/Components/BTAimWheel.swift`（P18 B2 T-P18-05），
-// 本文件直接引用共享版。
 
-#Preview("Light") {
-    NavigationStack { AngleDynamicView() }
-}
-
-#Preview("Dark") {
-    NavigationStack { AngleDynamicView() }
-        .preferredColorScheme(.dark)
-}
+#Preview("Light") { NavigationStack { AngleDynamicView() } }
+#Preview("Dark") { NavigationStack { AngleDynamicView() }.preferredColorScheme(.dark) }

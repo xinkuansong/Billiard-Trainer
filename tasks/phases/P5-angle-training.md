@@ -155,3 +155,24 @@
 - **影响**：所有交互式球桌页共享一套光照/材质/球房；2D 视图台呢观感统一到参考光照口径（S267 调色）。功耗方面仅自由击球/击球模拟两页带 `contentIsAnimating` 节流，其余页面沿用连续渲染（未变）。
 - **验证**：`make build` BUILD SUCCEEDED；定向单测 `TableAppearanceTests`/`ClothAppearanceTests`/`BallStickerTests`/`TrajectoryRendererTests`/`PocketLeatherIntegrationTests`（跳过 2 项，见下）0 失败。`RenderQualityV62Tests` 结果见 PROGRESS 条目。
 - **已知问题（非本 ADR 引入，但被暴露）**：模拟器 iOS 26.3 对主线程连续阻塞约 ≥30s 的测试宿主发 SIGKILL（`legacy 场景 + 45s 忙等` 亦复现，无崩溃报告）。`PocketLeatherIntegrationTests.testArchivedPocketAndFreeSequenceStepsRestoreSelection` 在主线程同步跑 v63 空间物理约 33s（legacy 亦如此），移动管线多出的 ~0.6s 场景装配使其越线；`testNeutralThumbnailAfterSelectedScene` 首帧 `SCNRenderer` 热身约 8s，偶发拉长越线；`testPlanRealSolvePlayAndUndoRestoreLeather` 在 legacy 下同样因求解 >15s 失败。三项应由 v63 线程处理（求解下主线程 / 渲染预热），不在本 ADR 范围。
+
+
+### ADR-P5-02 — C56教学页复用与静态反射输入（2026-10-08）
+
+- 状态：工作区已实现、定向验证通过；用户体验与性能另验。
+- 背景：每日渲染档与相机策略共用一个入口，反射缓存只按房间风格复用；P01复制整套HUD容易丢失当前设置/容量版本。
+- 决策：增加显式render/camera配置方法，旧每日组合入口兼容；P01以FreePlayEntryMode业务适配使用相同模板，自己的球数/摆球/历史状态由PositionPlayViewModel管理，不启动每日对局。保持现有模块边界，不建立新的通用页面框架。
+- 反射资源：缓存键记录已安装的静态外观与渲染输入；外观安装完成后刷新。烘焙复制静态房间/球桌/灯光，剔除球影和袋口选择状态，不修改或持有live scene；LRU容量3，活材质持有的旧probe不受淘汰影响。自定义SCNNode不clone，沿用FL-102约束。
+- 取舍：未采用逐页重画菜单，也未用全局清缓存规避漏键。第一次新外观仍同步烘焙；本轮不宣称帧率/温升改善。
+- 验证：20项渲染/相机/释放单测、24项布局单测及8次实际UI检查；报告output/table-page-adaptation/P01/c56-native-r01/REPORT.md。离线mobileRendering:false路径不新增opt-in。
+
+
+### ADR-P5-03：交互教学复用共享顶部，保留自身 ViewModel
+- 场景：AngleDynamicView 需要同源核心布局，但不具备 FreePlayViewModel 的击球生命周期。
+- 决策：将现行 FreePlayView 的顶部组合和地毯背景原样提取为 DailyTemplateHeader / DailyCarpetBackground，FreePlayView 与 AngleDynamicView 共同消费；设置复用现有 DailyHUDMenuPanel，容量复用 DailyLayoutMetrics。
+- 边界：页面提供球槽动作、标题、设置能力及教学读数；AngleDynamicViewModel 仅显式选择参考渲染 profile，计算/选袋/遮挡算法保持不变，不装入每日 Controller，也不复制场景/相机引擎。
+- 日期：2026-10-08；候选验证和未验范围见 tasks/table-page-adaptation/AD01-ANGLE-DYNAMIC.md。
+
+### ADR-P5-04 · AD01 继承每日生产相机（2026-10-08）
+
+按用户明确要求替代 ADR-P5-03 中保留旧观察策略的决定。共同 CameraRig 配置、CameraSurface/TwoViewCamera 与四入口组件同源；AngleDynamicViewModel 提供教学几何瞄准方向和选择事件，不借用比赛 ViewModel。相机实现与本页计算互相独立，按同输入姿态、临时俯视恢复及原生操作验证。见 AD01 r03。

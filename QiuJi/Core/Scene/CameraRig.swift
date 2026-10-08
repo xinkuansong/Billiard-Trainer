@@ -70,6 +70,30 @@ final class CameraRig: ObservableObject {
     /// Daily clearance owns its lens and shot-relative eye model. Other hosts keep their presets.
     var usesShotAwareCamera = false
     /// Daily clearance's continuous surface stack. Other hosts and exports keep their rig.
+    /// Shared production camera policy. Teaching hosts supply their own aim and selection.
+    func configurePlayerCameraControls(daily: Bool) {
+        usesRailCameraControls = true
+        // Daily clearance uses the accepted S2 surface in both Debug and Release.
+        // Other interactive hosts retain their existing camera behavior.
+        usesSurfaceCamera = daily
+        usesMergedCamera = daily
+        usesSimpleCueCamera = daily
+        usesTwoViewCameraControls = daily
+        #if DEBUG
+        // Explicit historical test scenarios only; a normal launch needs no camera flag.
+        let args = ProcessInfo.processInfo.arguments
+        if daily, !args.contains("-dailyClearance.surfaceCamera"),
+           args.contains("-dailyClearance.twoViewCamera")
+            || args.contains("-dailyClearance.simpleCamera")
+            || args.contains("-dailyClearance.mergedCamera") {
+            usesSurfaceCamera = false
+            usesMergedCamera = args.contains("-dailyClearance.mergedCamera")
+            usesSimpleCueCamera = args.contains("-dailyClearance.simpleCamera")
+                || usesMergedCamera == true
+        }
+        #endif
+    }
+
     var usesTwoViewCameraControls = false
     var usesSimpleCueCamera = false
     var usesMergedCamera = false
@@ -79,6 +103,8 @@ final class CameraRig: ObservableObject {
     /// Explicit presentation ownership; cue updates never leave a 2D view.
     func resumePerspectivePresentation() { presentsTopDown = false }
     @Published private(set) var mergedGlobalActive = false
+    @Published private(set) var surfaceOverviewActive = false
+    var overviewControlSelected: Bool { mergedGlobalActive || surfaceOverviewActive }
     var usesTwoViewPoseControl: Bool { usesTwoViewCameraControls && !mergedGlobalActive }
 
     @discardableResult
@@ -91,11 +117,13 @@ final class CameraRig: ObservableObject {
             let bearing = CameraSurface.nearestOverviewBearing(yaw: atan2(back.z,back.x))
             if let cue, let aim { twoViewShotReference = (cue, aim) }
             guard let reference = twoViewShotReference else { return false }
-            if twoViewCamera?.simpleShot?.surface == nil {
+            if twoViewMode != .thirdPerson || twoViewCamera?.simpleShot?.surface == nil {
                 guard enterPlayerView(.thirdPerson, cue: reference.cue, aim: aim ?? reference.aim, duration: 0) else { return false }
             }
-            return activeTwoViewCamera().retreatSurface(cue: SIMD3(reference.cue.x,reference.cue.y,reference.cue.z),
+            let accepted = activeTwoViewCamera().retreatSurface(cue: SIMD3(reference.cue.x,reference.cue.y,reference.cue.z),
                 duration: UIAccessibility.isReduceMotionEnabled ? 0.1 : nil, bearing: bearing)
+            if accepted { surfaceOverviewActive = true }
+            return accepted
         }
         // Seed the production orbit from the actual shot camera before handing it ownership.
         beginManualOrbit()
@@ -821,7 +849,13 @@ final class CameraRig: ObservableObject {
         cuePose = (strike, aim, elevation)
         if usesTwoViewPoseControl, let cue {
             twoViewShotReference = (cue, aim)
-            if usesSimpleCueCamera, !mergedGlobalActive, !temporaryTopDownActive {
+            // Restored daily first-person follows actual cue/aim changes, while head
+            // turns remain untouched when the shot parameters have not changed.
+            if usesSurfaceCamera, twoViewMode == .firstPerson, !temporaryTopDownActive,
+               old.map({ ($0.strike - strike).length() > 0.0001 || ($0.aim - aim).length() > 0.0001
+                   || abs($0.elevation - elevation) > 0.0001 }) == true {
+                _ = enterPlayerView(.firstPerson, cue: cue, aim: aim, duration: 0.18)
+            } else if usesSimpleCueCamera, !mergedGlobalActive, !temporaryTopDownActive {
                 twoViewCamera?.updateSimpleShot(cue: SIMD3(cue.x,cue.y,cue.z),
                     strike: SIMD3(strike.x,strike.y,strike.z), aim: SIMD3(aim.x,aim.y,aim.z),
             nearPose: usesMergedCamera && !usesSurfaceCamera ? mergedNearPose(cue: cue, aim: aim) : nil)
@@ -888,7 +922,7 @@ final class CameraRig: ObservableObject {
     @discardableResult
     func enterPlayerView(_ view: PlayerView, cue: SCNVector3, aim: SCNVector3,
                          duration: Float = 0.95, focus: SCNVector3? = nil, surfaceTravel: Float = 0.5) -> Bool {
-        let view: PlayerView = usesMergedCamera ? .thirdPerson : view
+        let view: PlayerView = usesMergedCamera && !usesSurfaceCamera ? .thirdPerson : view
         if usesTwoViewCameraControls {
             guard !temporaryTopDownActive else { return false }
             resumePerspectivePresentation()
@@ -910,6 +944,7 @@ final class CameraRig: ObservableObject {
                     duration: usesSurfaceCamera
                         ? (duration <= 0 || UIAccessibility.isReduceMotionEnabled ? duration : nil)
                         : min(duration,0.3))
+                surfaceOverviewActive = false
                 playerView = .thirdPerson; playerReference = (cue,aim.normalized())
                 keepsWholeTableFramed = false; currentViewMode = .observation
                 return true
@@ -946,6 +981,7 @@ final class CameraRig: ObservableObject {
             currentOrbit = nil
             targetOrbit = nil
             activeTwoViewCamera().enterFirstPerson(base, duration: duration)
+            surfaceOverviewActive = false
             playerView = .firstPerson
             playerReference = (cue, aim.normalized())
             keepsWholeTableFramed = false

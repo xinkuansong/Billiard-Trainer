@@ -286,27 +286,77 @@ final class RoomReflectionProbe {
 
     // MARK: - Room bake
 
-    private static let cacheLock = NSLock()
-    private static var cache: [RoomStyle: RoomReflectionProbe] = [:]
+    /// Inputs to the static room/table bake. Ball layout and viewing camera are
+    /// deliberately absent: neither is part of the isolated bake scene below.
+    struct Inputs: Hashable {
+        let room: RoomStyle
+        let table: TableStyle
+        let cloth: ClothColor
+        let sights: Bool
+        let profile: String
+        let mergesClothSupport: Bool
+        let factorsClothBRDF: Bool
+        let clothPrototype: Bool
 
-    /// Cached per room style; bakes from `scene` on first use.
+        init(style: RoomStyle, scene: AngleTrainingScene) {
+            room = style
+            table = scene.installedTableStyle
+            cloth = scene.installedClothColor
+            sights = scene.showsTableSights
+            profile = scene.renderingProfile.rawValue
+            mergesClothSupport = scene.mergesDailyClothSupport
+            factorsClothBRDF = scene.factorsDailyClothBRDF
+            #if DEBUG
+            clothPrototype = scene.usesClothLightingPrototype
+            #else
+            clothPrototype = false
+            #endif
+        }
+    }
+
+    private static let cacheLock = NSLock()
+    // Preserve the old three-room retention budget when adding appearance variants.
+    static let cacheCapacity = RoomStyle.allCases.count
+    private static var cache: [Inputs: RoomReflectionProbe] = [:]
+    private static var recentlyUsed: [Inputs] = []
+
+    /// Cache immutable textures, never the live scene or its mutable materials.
     static func probe(for style: RoomStyle, scene: AngleTrainingScene) -> RoomReflectionProbe? {
+        let inputs = Inputs(style: style, scene: scene)
         cacheLock.lock()
-        if let cached = cache[style] { cacheLock.unlock(); return cached }
+        if let cached = cache[inputs] {
+            recentlyUsed.removeAll { $0 == inputs }
+            recentlyUsed.append(inputs)
+            cacheLock.unlock()
+            return cached
+        }
         cacheLock.unlock()
         guard let baked = bake(scene: scene, style: style) else { return neutral }
         cacheLock.lock()
-        cache[style] = baked
-        cacheLock.unlock()
+        defer { cacheLock.unlock() }
+        // Another caller may have completed this same input while we rendered.
+        if let cached = cache[inputs] {
+            recentlyUsed.removeAll { $0 == inputs }
+            recentlyUsed.append(inputs)
+            return cached
+        }
+        cache[inputs] = baked
+        recentlyUsed.append(inputs)
+        while recentlyUsed.count > cacheCapacity {
+            cache.removeValue(forKey: recentlyUsed.removeFirst())
+        }
         return baked
     }
 
     static func resetCache() {
-        cacheLock.lock(); cache.removeAll(); cacheLock.unlock()
+        cacheLock.lock()
+        cache.removeAll()
+        recentlyUsed.removeAll()
+        cacheLock.unlock()
     }
 
-    /// Render the installed room from the table centre at ball height. Balls, cue
-    /// and overlays are hidden for the bake; the table and lights stay.
+    /// Render only static room/table/light copies from table centre at ball height.
+    /// Live visibility, materials, cameras and contact-shadow uniforms stay untouched.
     static func bake(scene: AngleTrainingScene, style: RoomStyle,
                      device: MTLDevice? = MTLCreateSystemDefaultDevice()) -> RoomReflectionProbe? {
         guard let device,
@@ -316,18 +366,55 @@ final class RoomReflectionProbe {
         #endif
         let centre = SCNVector3(0, scene.surfaceY + AngleSceneCalculator.ballRadius, 0)
 
-        // Visibility: keep the table, the room and light nodes.
-        var hiddenState: [(SCNNode, Bool)] = []
-        for child in scene.rootNode.childNodes {
-            guard child !== scene.tableNode, child !== room, child.light == nil else { continue }
-            hiddenState.append((child, child.isHidden))
-            child.isHidden = true
+        let bakeScene = SCNScene()
+        bakeScene.background.contents = scene.background.contents
+        bakeScene.lightingEnvironment.contents = scene.lightingEnvironment.contents
+        bakeScene.lightingEnvironment.intensity = scene.lightingEnvironment.intensity
+        bakeScene.lightingEnvironment.contentsTransform = scene.lightingEnvironment.contentsTransform
+        var materialCopies: [ObjectIdentifier: SCNMaterial] = [:]
+        let ballGroupCount = (scene.allBallNodes.count + 3) / 4
+        func copyStaticNode(_ source: SCNNode) -> SCNNode {
+            // Do not call clone on imported custom subclasses (FL-102).
+            let copy = SCNNode()
+            copy.name = source.name
+            copy.transform = source.transform
+            copy.pivot = source.pivot
+            copy.opacity = source.opacity
+            copy.isHidden = source.isHidden
+            copy.castsShadow = source.castsShadow
+            copy.renderingOrder = source.renderingOrder
+            copy.categoryBitMask = source.categoryBitMask
+            copy.light = source.light?.copy() as? SCNLight
+            let marker = source as? PocketLeatherMarker
+            if let geometry = marker?.unhighlightedGeometry ?? source.geometry {
+                copy.geometry = geometry.copy() as? SCNGeometry
+                copy.geometry?.materials = geometry.materials.map { material in
+                    let id = ObjectIdentifier(material)
+                    if let existing = materialCopies[id] { return existing }
+                    let result = material.copy() as! SCNMaterial
+                    if material.name == "TaiNi" {
+                        // Hiding ball geometry alone leaves their analytic shadows.
+                        result.setValue(Data(count: ballGroupCount * 64) as NSData, forKey: "contactUniforms")
+                        for group in 0..<ballGroupCount {
+                            result.setValue(NSValue(scnMatrix4: SCNMatrix4()), forKey: "contactGroup\(group)")
+                        }
+                    }
+                    materialCopies[id] = result
+                    return result
+                }
+            }
+            if marker == nil {
+                for child in source.childNodes { copy.addChildNode(copyStaticNode(child)) }
+            }
+            return copy
         }
-        let roomWasHidden = room.isHidden
-        room.isHidden = false
-        defer {
-            for (node, hidden) in hiddenState { node.isHidden = hidden }
-            room.isHidden = roomWasHidden
+        let roomCopy = copyStaticNode(room)
+        roomCopy.isHidden = false
+        bakeScene.rootNode.addChildNode(roomCopy)
+        let tableCopy = scene.tableNode.map(copyStaticNode)
+        if let tableCopy { bakeScene.rootNode.addChildNode(tableCopy) }
+        for light in scene.rootNode.childNodes where light.light != nil {
+            bakeScene.rootNode.addChildNode(copyStaticNode(light))
         }
 
         let camera = SCNCamera()
@@ -341,11 +428,10 @@ final class RoomReflectionProbe {
         cameraNode.name = "roomReflectionProbeCamera"
         cameraNode.camera = camera
         cameraNode.position = centre
-        scene.rootNode.addChildNode(cameraNode)
-        defer { cameraNode.removeFromParentNode() }
+        bakeScene.rootNode.addChildNode(cameraNode)
 
         let renderer = SCNRenderer(device: device, options: nil)
-        renderer.scene = scene
+        renderer.scene = bakeScene
         renderer.pointOfView = cameraNode
         renderer.autoenablesDefaultLighting = false
         let size = CGSize(width: faceSize, height: faceSize)
@@ -359,11 +445,9 @@ final class RoomReflectionProbe {
             faces.append(Face(forward: basis.forward, up: basis.up, size: faceSize, linear: linear))
         }
         // Floor under the table: one more downward face with the table hidden.
-        let tableWasHidden = scene.tableNode?.isHidden ?? false
-        scene.tableNode?.isHidden = true
+        tableCopy?.isHidden = true
         cameraNode.look(at: SCNVector3(centre.x, centre.y - 1, centre.z), up: SCNVector3(0, 0, 1), localFront: SCNVector3(0, 0, -1))
         let floorShot = renderer.snapshot(atTime: 0, with: size, antialiasingMode: .none)
-        scene.tableNode?.isHidden = tableWasHidden
         guard let floorPixels = linearPixels(of: floorShot, size: faceSize) else { return nil }
         let floorRadiance = floorPixels.reduce(SIMD3<Float>.zero, +) / Float(floorPixels.count)
         #if DEBUG

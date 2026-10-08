@@ -8,13 +8,20 @@ import SwiftUI
 /// 后台 `DispatchQueue.concurrentPerform` 并行 8 次 `simulateFree`。
 /// 球库语义对齐「角度与瞄准」：换目标 / 加减障碍 / 母球不可撤（D-v15-1/3）。
 @MainActor
-final class SeparationAngleAtlasViewModel: ObservableObject {
+final class SeparationAngleAtlasViewModel: TeachingTableHost {
 
     let scene = AngleTrainingScene()
     private var pocketMarkers: [SCNNode] = []
     private var trajectoryNodes: [SCNNode] = []
 
     @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated
+    @Published var cameraTransitionBusy = false
+    @Published var temporaryTopDownActive = false
+    @Published var topDownContentRevision = 0
+    var topDownSelectionChanged = false
+
+    var currentPlayerAim: SCNVector3? { currentIntent()?.aim }
+
     @Published var velocity: Double = ShotTuning.defaultVelocity
     @Published private(set) var cutAngleDegrees: Double = 0
     @Published private(set) var isDragging = false
@@ -73,7 +80,11 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
     // MARK: - Setup
 
     func setupScene() {
+        scene.usesAdaptiveDiagramLabels = true
+        scene.configureReferenceTableRendering()
+        scene.configureShotAwareCamera()
         scene.setupScene()
+        configureTeachingCamera()
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
         placeDefaultBalls()
@@ -149,6 +160,7 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
         updatePocketHighlights()
         updateAimVisualization()
         scheduleRecompute(interactive: false)
+        selectionCameraChanged()
     }
 
     /// 点选目标球（换号后切角 / 轨迹瞄准随之切换）。
@@ -159,6 +171,7 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
         selectBestPocket()
         updateAimVisualization()
         scheduleRecompute(interactive: false)
+        selectionCameraChanged()
     }
 
     /// 点在桌球的球库槽位 → 脉冲提示位置。
@@ -201,6 +214,7 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
         updatePocketHighlights()
         updateAimVisualization()
         scheduleRecompute(interactive: false)
+        selectionCameraChanged()
     }
 
     func selectBestPocket() {
@@ -262,6 +276,7 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
         updatePocketHighlights()
         updateAimVisualization()
         scheduleRecompute(interactive: false)
+        selectionCameraChanged()
     }
 
     private func clampBall(_ world: SCNVector3, moving: SCNNode) -> SCNVector3 {
@@ -427,6 +442,7 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
     // MARK: - Visualization
 
     private func updateAimVisualization() {
+        if temporaryTopDownActive { topDownContentRevision &+= 1 }
         guard let intent = currentIntent() else {
             scene.hideCueStick()
             cutAngleDegrees = 0
@@ -438,7 +454,7 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
         // 瞄准线 / 假想球 / 进球线 / 90° 短虚线走共享可视化；碰后 8 色轨迹另画。
         scene.updateVisualization(
             cueBall: intent.cue, targetBall: intent.target, pocket: intent.potAim,
-            showAngleAnnotations: false, showOverlapMarkers: true, showLineLabels: false)
+            showAngleAnnotations: true, showOverlapMarkers: true, showLineLabels: false)
         scene.updateCueStick(cueBallPosition: intent.cue, aimDirection: intent.aim)
     }
 
@@ -453,6 +469,7 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
     }
 
     private func redrawEnabledTrajectories() {
+        if temporaryTopDownActive { topDownContentRevision &+= 1 }
         clearTrajectories()
         for (i, path) in lastPaths.enumerated()
             where path.count >= 2 && enabledTracks.contains(i) {
