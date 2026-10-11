@@ -13,6 +13,16 @@ final class TableProjector {
     /// Valid visible-depth world projection in window coordinates for floating HUD anchors.
     var projectInWindow: ((SCNVector3) -> CGPoint?)?
     var projectVisible: ((SCNVector3) -> CGPoint?)?
+    static func world(at point: CGPoint, in renderer: SCNView, planeY: Float) -> SCNVector3? {
+        let near = renderer.unprojectPoint(SCNVector3(Float(point.x), Float(point.y), 0))
+        let far = renderer.unprojectPoint(SCNVector3(Float(point.x), Float(point.y), 1))
+        let direction = SCNVector3(far.x - near.x, far.y - near.y, far.z - near.z)
+        guard abs(direction.y) > 1e-6 else { return nil }
+        let t = (planeY - near.y) / direction.y
+        guard t > 0 else { return nil }
+        return SCNVector3(near.x + direction.x * t, planeY, near.z + direction.z * t)
+    }
+
 }
 
 /// UIViewRepresentable wrapper for SceneKit angle training.
@@ -90,6 +100,8 @@ struct AngleSceneView: UIViewRepresentable {
 
     var onTemporaryTopDownDismiss: (() -> Void)? = nil
     var topDownContentRevision: Int = 0
+    /// Fit a temporary table to the same measured stage as fixed 2D training.
+    var usesStandardTemporaryTable = false
 
     static func requestedFPS(maximum: Int, selected: RenderFrameRate = .fps60, active: Bool, thermal: ProcessInfo.ThermalState, lowPower: Bool) -> Int {
         let ceiling = thermal == .critical ? 30 : ((thermal == .serious || lowPower) ? 60 : maximum)
@@ -152,6 +164,7 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.onThirdPersonAimNudged = onThirdPersonAimNudged
         context.coordinator.onTemporaryTopDownDismiss = onTemporaryTopDownDismiss
         context.coordinator.topDownContentRevision = topDownContentRevision
+        context.coordinator.usesStandardTemporaryTable = usesStandardTemporaryTable
         context.coordinator.fpsReadoutState = fpsReadoutState
         context.coordinator.installFPSReadout(in: scnView, trailingInset: fpsReadoutTrailingInset)
         context.coordinator.onPocketTapped = onPocketTapped
@@ -160,7 +173,7 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.setDaily3DDiagnostics(daily3DDiagnostics)
         context.coordinator.startRenderLoop()
         context.coordinator.requestInteractiveFrames()
-        bindProjector(to: scnView)
+        bindProjector(to: scnView, coordinator: context.coordinator)
 
         // 4x8 台面网格（条 16）：交互页进场按全局偏好显隐；
         // 离线渲染（缩略图/视频导出）不走本视图，不受影响。
@@ -170,35 +183,14 @@ struct AngleSceneView: UIViewRepresentable {
     }
 
     /// 用捕获的 `SCNView` 填充坐标桥接闭包（台面平面 = surfaceY + 球半径）。
-    private func bindProjector(to scnView: SCNView) {
+    private func bindProjector(to scnView: SCNView, coordinator: Coordinator) {
         guard let projector else { return }
-        projector.unproject = { [weak scnView, weak scene] point in
-            guard let scnView, let scene else { return nil }
-            let nearPoint = scnView.unprojectPoint(SCNVector3(Float(point.x), Float(point.y), 0))
-            let farPoint = scnView.unprojectPoint(SCNVector3(Float(point.x), Float(point.y), 1))
-            let dir = SCNVector3(farPoint.x - nearPoint.x, farPoint.y - nearPoint.y, farPoint.z - nearPoint.z)
-            guard abs(dir.y) > 1e-6 else { return nil }
-            let y = scene.surfaceY + AngleSceneCalculator.ballRadius
-            let t = (y - nearPoint.y) / dir.y
-            guard t > 0 else { return nil }
-            return SCNVector3(nearPoint.x + dir.x * t, y, nearPoint.z + dir.z * t)
-        }
-        projector.projectVisible = { [weak scnView] world in
-            guard let scnView else { return nil }
-            let p = scnView.projectPoint(world)
-            guard p.x.isFinite, p.y.isFinite, p.z > 0, p.z < 1 else { return nil }
-            return CGPoint(x: CGFloat(p.x), y: CGFloat(p.y))
-        }
-        projector.projectInWindow = { [weak scnView] world in
-            guard let scnView else { return nil }
-            let p = scnView.projectPoint(world)
-            guard p.x.isFinite, p.y.isFinite, p.z > 0, p.z < 1 else { return nil }
-            return scnView.convert(CGPoint(x: CGFloat(p.x), y: CGFloat(p.y)), to: nil)
-        }
-        projector.project = { [weak scnView] world in
-            guard let scnView else { return nil }
-            let p = scnView.projectPoint(world)
-            return CGPoint(x: CGFloat(p.x), y: CGFloat(p.y))
+        projector.unproject = { [weak coordinator] point in coordinator?.editingWorld(at: point) }
+        projector.project = { [weak coordinator] world in coordinator?.editingPoint(world, visibleOnly: false) }
+        projector.projectVisible = { [weak coordinator] world in coordinator?.editingPoint(world) }
+        projector.projectInWindow = { [weak coordinator, weak scnView] world in
+            guard let point = coordinator?.editingPoint(world), let scnView else { return nil }
+            return scnView.convert(point, to: nil)
         }
     }
 
@@ -258,6 +250,7 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.onThirdPersonAimNudged = onThirdPersonAimNudged
         context.coordinator.onTemporaryTopDownDismiss = onTemporaryTopDownDismiss
         context.coordinator.topDownContentRevision = topDownContentRevision
+        context.coordinator.usesStandardTemporaryTable = usesStandardTemporaryTable
         context.coordinator.frameDelegate.contact = scene.contactOcclusion
         context.coordinator.updatePocketAccessibility()
         context.coordinator.updateTemporaryTopDownOverlay()
@@ -267,7 +260,7 @@ struct AngleSceneView: UIViewRepresentable {
         }
         #endif
         if let projector, projector.unproject == nil {
-            bindProjector(to: uiView)
+            bindProjector(to: uiView, coordinator: context.coordinator)
         }
     }
 
@@ -318,7 +311,9 @@ struct AngleSceneView: UIViewRepresentable {
         var temporaryTopDownWasActive = false
         var onTemporaryTopDownDismiss: (() -> Void)?
         var topDownContentRevision = 0
+        var usesStandardTemporaryTable = false
         private var mergedOverlay: SCNView?
+        private var mergedDiagramLabels: DiagramLabelOverlay?
         private var mergedOverlayActivation = -1
         private var mergedNodeCopies: [SCNNode: SCNNode] = [:]
         private var mergedOverlayBuildCount = 0
@@ -355,6 +350,7 @@ struct AngleSceneView: UIViewRepresentable {
             mergedOverlay?.scene = nil
             mergedOverlay?.removeFromSuperview()
             mergedOverlay = nil
+            mergedDiagramLabels = nil
             mergedNodeCopies.removeAll()
             mergedDragNode = nil
             temporaryTopDownImageView?.image = nil
@@ -367,6 +363,7 @@ struct AngleSceneView: UIViewRepresentable {
 
         private func updateMergedOverlay(view: SCNView, rig: CameraRig, frame: CameraRig.TemporaryTopDownFrame) {
             let overlay = mergedOverlay ?? SCNView(frame: view.bounds, options: nil)
+            if mergedOverlay == nil { mergedDiagramLabels = DiagramLabelOverlay() }
             let rebuild = mergedOverlay == nil || mergedOverlayActivation != rig.temporaryTopDownActivationCount
             if rebuild {
                 mergedNodeCopies.removeAll()
@@ -383,8 +380,17 @@ struct AngleSceneView: UIViewRepresentable {
                 overlay.pointOfView = node
                 mergedOverlayActivation = rig.temporaryTopDownActivationCount
             }
-            let cameraChanged = rebuild || overlay.frame != view.bounds
-            overlay.frame = view.bounds
+            let stage = usesStandardTemporaryTable
+                ? twoViewReadableFrameInWindow.map { view.convert($0, from: nil).intersection(view.bounds) } ?? view.bounds
+                : view.bounds
+            guard !stage.isEmpty, !stage.isNull else { return }
+            let cameraChanged = rebuild || overlay.frame != stage
+            overlay.frame = stage
+            overlay.clipsToBounds = true
+            let rotated = abs(frame.up.x) > 0.5
+            let standardScale = CameraRig.landscapeOrthographicScale(viewSize: stage.size,
+                halfLength: rotated ? rig.tableOuterHalfWidth : rig.tableOuterHalfLength,
+                halfWidth: rotated ? rig.tableOuterHalfLength : rig.tableOuterHalfWidth)
             overlay.backgroundColor = .clear
             overlay.isOpaque = false
             overlay.isUserInteractionEnabled = false
@@ -393,24 +399,58 @@ struct AngleSceneView: UIViewRepresentable {
             overlay.antialiasingMode = view.antialiasingMode
             overlay.autoenablesDefaultLighting = view.autoenablesDefaultLighting
             if cameraChanged {
-            overlay.pointOfView?.camera?.orthographicScale = frame.orthographicScale
-            overlay.pointOfView?.simdPosition = frame.eye
-            overlay.pointOfView?.look(at: SCNVector3(frame.target.x,frame.target.y,frame.target.z),
+            overlay.pointOfView?.camera?.orthographicScale = usesStandardTemporaryTable ? standardScale ?? frame.orthographicScale : frame.orthographicScale
+            let target = usesStandardTemporaryTable ? SIMD3<Float>(0, frame.target.y, 0) : frame.target
+            overlay.pointOfView?.simdPosition = usesStandardTemporaryTable ? target + SIMD3<Float>(0, 5, 0) : frame.eye
+            overlay.pointOfView?.look(at: SCNVector3(target.x,target.y,target.z),
                 up: SCNVector3(frame.up.x,frame.up.y,frame.up.z), localFront: SCNVector3(0,0,-1))
             }
             if let renderScene = overlay.scene {
                 scene.synchronizeTemporaryTopDownScene(renderScene, copies: &mergedNodeCopies)
+                // The orthographic layer uses the shared screen-space angle arc, not
+                // the main perspective scene's table-space arc. Keep source nodes intact.
+                if scene.usesAdaptiveDiagramLabels {
+                    for (source, copy) in mergedNodeCopies where source.name == "diagramTableArc" {
+                        copy.isHidden = true
+                    }
+                }
             }
             if overlay.superview == nil { view.insertSubview(overlay, at: 0) }
             mergedOverlay = overlay
         }
 
+        /// All standard editable overlays use the renderer actually seen by the user.
+        /// Legacy temporary-image hosts retain their existing frame protocol below.
+        private var editingRenderer: SCNView? {
+            if usesStandardTemporaryTable, scene.cameraRig?.temporaryTopDownActive == true {
+                return mergedOverlay
+            }
+            return scnView
+        }
+
+        func editingWorld(at point: CGPoint) -> SCNVector3? {
+            guard let main = scnView, let renderer = editingRenderer else { return nil }
+            return TableProjector.world(at: renderer.convert(point, from: main), in: renderer,
+                planeY: scene.surfaceY + AngleSceneCalculator.ballRadius)
+        }
+
+        func editingPoint(_ world: SCNVector3, visibleOnly: Bool = true) -> CGPoint? {
+            guard let main = scnView, let renderer = editingRenderer else { return nil }
+            let p = renderer.projectPoint(world)
+            guard p.x.isFinite, p.y.isFinite, !visibleOnly || (p.z > 0 && p.z < 1) else { return nil }
+            return main.convert(CGPoint(x: CGFloat(p.x), y: CGFloat(p.y)), from: renderer)
+        }
+
         private func overlayWorld(_ point: CGPoint) -> SIMD3<Float>? {
+            if usesStandardTemporaryTable {
+                return editingWorld(at: point).map { SIMD3($0.x, $0.y, $0.z) }
+            }
             guard let view = scnView, let frame = scene.cameraRig?.temporaryTopDownOverlayFrame else { return nil }
             return frame.world(at: point, viewport: view.bounds.size)
         }
 
         private func overlayPoint(_ node: SCNNode) -> CGPoint? {
+            if usesStandardTemporaryTable { return editingPoint(node.worldPosition) }
             guard let view = scnView, let frame = scene.cameraRig?.temporaryTopDownOverlayFrame else { return nil }
             return frame.screen(point: node.simdWorldPosition, viewport: view.bounds.size)
         }
@@ -431,7 +471,9 @@ struct AngleSceneView: UIViewRepresentable {
             }
             let pockets = AngleSceneCalculator.pocketMarkerPositions(surfaceY: scene.surfaceY)
             let closest = pockets.enumerated().map { index, p -> (Int, CGFloat) in
-                let screen = frame.screen(point: SIMD3(p.x,p.y,p.z), viewport: view.bounds.size)
+                let screen = usesStandardTemporaryTable
+                    ? editingPoint(p) ?? CGPoint(x: -10000, y: -10000)
+                    : frame.screen(point: SIMD3(p.x,p.y,p.z), viewport: view.bounds.size)
                 return (index,hypot(screen.x-point.x,screen.y-point.y))
             }.min { $0.1 < $1.1 }
             if let closest, closest.1 <= 24 {
@@ -466,6 +508,7 @@ struct AngleSceneView: UIViewRepresentable {
                         onDragMoved?(node,SCNVector3(destination.x,destination.y,destination.z))
                     }
                     onDragEnded?(node)
+                    if gesture.state == .ended { onDragEndedAt?(node, point) }
                 }
                 mergedTouchOrigin = nil
                 mergedDragNode = nil
@@ -1072,9 +1115,25 @@ struct AngleSceneView: UIViewRepresentable {
                 self.frameDelegate.contact = self.scene.contactOcclusion
                 if let view = self.scnView {
                     self.updateViewport(view.bounds.size)
-                    self.diagramLabels.update(scene: self.scene, in: view)
+                    self.updateTemporaryTopDownOverlay()
+                    self.updateDiagramAnnotations()
+                    #if DEBUG
+                    // Static annotation invalidation also updates the UI-test probe;
+                    // the display link may already be paused when results appear.
+                    if self.dragProbeEnabled || self.pocketProbeEnabled { self.updatePocketAccessibility() }
+                    #endif
                 }
                 self.updateFramePacing()
+            }
+        }
+
+        private func updateDiagramAnnotations() {
+            guard let view = scnView else { return }
+            if let overlay = mergedOverlay {
+                diagramLabels.hide()
+                mergedDiagramLabels?.update(scene: scene, in: overlay, projectionMode: .topDown2D)
+            } else {
+                diagramLabels.update(scene: scene, in: view)
             }
         }
 
@@ -1090,7 +1149,7 @@ struct AngleSceneView: UIViewRepresentable {
             displayLinkCallbackCount += 1
             daily3DDiagnostics?.displayLinkCallback()
             defer {
-                if let scnView { diagramLabels.update(scene: scene, in: scnView) }
+                updateDiagramAnnotations()
                 #if DEBUG
                 if dragProbeEnabled || pocketProbeEnabled { updatePocketAccessibility() }
                 #endif
@@ -1687,8 +1746,11 @@ struct AngleSceneView: UIViewRepresentable {
         private func dragProbeValue(in view: SCNView) -> String {
             let balls: [[String: Any]] = scene.allBallNodes.sorted { $0.key < $1.key }.compactMap { key, node in
                 guard !node.isHidden else { return nil }
-                let p = view.projectPoint(scene.visualCenter(of: node))
-                return ["key": key, "screen": [p.x, p.y, p.z],
+                let world = scene.visualCenter(of: node)
+                let p = view.projectPoint(world)
+                let active = usesStandardTemporaryTable && scene.cameraRig?.temporaryTopDownActive == true
+                    ? editingPoint(world) : nil
+                return ["key": key, "screen": [Float(active?.x ?? CGFloat(p.x)), Float(active?.y ?? CGFloat(p.y)), p.z],
                         "world": [node.position.x, node.position.y, node.position.z],
                         "draggable": draggableBallNodes.contains(node)]
             }
@@ -1696,7 +1758,32 @@ struct AngleSceneView: UIViewRepresentable {
             var data: [String: Any] = ["rendererID": dragProbeRendererID, "panCount": dragProbePanCount, "grabCount": dragProbeGrabCount, "moveCount": dragProbeMoveCount, "balls": balls, "camera": [transform.m11, transform.m12, transform.m13,
                 transform.m21, transform.m22, transform.m23, transform.m31, transform.m32, transform.m33,
                 transform.m41, transform.m42, transform.m43]]
-            data["diagram"] = diagramLabels.diagnostic(in: view, scene: scene)
+            if let overlay = mergedOverlay, let labels = mergedDiagramLabels {
+                data["diagram"] = labels.diagnostic(in: overlay, scene: scene)
+                data["diagramSurface"] = "temporaryTopDown"
+            } else {
+                data["diagram"] = diagramLabels.diagnostic(in: view, scene: scene)
+                data["diagramSurface"] = "main"
+            }
+            let displayed = mergedOverlay ?? view
+            if let rig = scene.cameraRig {
+                let corners = [-1.0, 1.0].flatMap { x in [-1.0, 1.0].map { z in
+                    displayed.projectPoint(SCNVector3(Float(x * rig.tableOuterHalfLength), scene.surfaceY,
+                        Float(z * rig.tableOuterHalfWidth)))
+                }}
+                let points = corners.map { displayed.convert(CGPoint(x: CGFloat($0.x), y: CGFloat($0.y)), to: nil) }
+                data["displayedTable"] = [points.map(\.x).min()!, points.map(\.y).min()!,
+                    points.map(\.x).max()!, points.map(\.y).max()!]
+            }
+            data["pockets"] = AngleSceneCalculator.pocketMarkerPositions(surfaceY: scene.surfaceY).enumerated().compactMap { index, world -> [String: Any]? in
+                guard let p = editingPoint(world) else { return nil }
+                return ["index": index, "screen": [p.x, p.y]]
+            }
+            data["cueVisible"] = scene.cueStick?.rootNode.isHidden == false
+            data["standardTemporaryTable"] = mergedOverlay != nil && usesStandardTemporaryTable
+            let renderedFrame = displayed.convert(displayed.bounds, to: nil)
+            data["displayedViewport"] = [renderedFrame.minX, renderedFrame.minY, renderedFrame.width, renderedFrame.height]
+            data["hasMeasuredStage"] = twoViewReadableFrameInWindow != nil
             if DailyLayoutProbe.enabled { data["dailyLayout"] = DailyLayoutProbe.snapshot() }
             do {
                 return String(decoding: try JSONSerialization.data(withJSONObject: data), as: UTF8.self)
@@ -1921,23 +2008,33 @@ class FrameDelegate: NSObject, SCNSceneRendererDelegate {
 /// Only the interactive angle diagram opts in. This overlay never intercepts table gestures.
 @MainActor
 final class DiagramLabelOverlay {
+    /// Screen points; shared by the drawn arc, label clearance and diagnostics.
+    static let angleArcRadius: CGFloat = 28
     private var labels: [UILabel] = []
     private let angleMark = CAShapeLayer()
     private var choices: [Int: Int] = [:]
     private var geometryKey: [Float] = []
     private var previousAngleOffset: CGPoint?
 
-    func update(scene: AngleTrainingScene, in view: SCNView) {
+    func hide() {
+        labels.forEach { $0.isHidden = true }
+        angleMark.isHidden = true
+        geometryKey = []
+        previousAngleOffset = nil
+    }
+
+    func update(scene: AngleTrainingScene, in view: SCNView,
+                projectionMode: AngleTrainingScene.CameraMode? = nil) {
+        let displayMode = projectionMode ?? scene.currentCameraMode
         guard scene.usesAdaptiveDiagramLabels, let g = scene.diagramLabelGeometry,
               view.bounds.width > 0, view.bounds.height > 0 else {
-            labels.forEach { $0.isHidden = true }
-            angleMark.isHidden = true
-            geometryKey = []
-            previousAngleOffset = nil
+            hide()
             return
         }
-        scene.angleArcNode?.childNodes.filter { $0.name == "diagramTableArc" }.forEach {
-            $0.isHidden = scene.currentCameraMode != .perspective3D
+        if view.scene === scene {
+            scene.angleArcNode?.childNodes.filter { $0.name == "diagramTableArc" }.forEach {
+                $0.isHidden = displayMode != .perspective3D
+            }
         }
         // Camera projection and ball positions are the complete layout input. Avoid per-frame
         // text measurement/candidate searches while the table and camera are stationary.
@@ -1946,6 +2043,7 @@ final class DiagramLabelOverlay {
         let key: [Float] = [matrix.m11, matrix.m12, matrix.m13, matrix.m21, matrix.m22, matrix.m23,
             matrix.m31, matrix.m32, matrix.m33, matrix.m41, matrix.m42, matrix.m43,
             Float(view.bounds.width), Float(view.bounds.height), scene.diagramShowsLineLabels ? 1 : 0,
+            displayMode == .perspective3D ? 1 : 0,
             Float(scene.cameraNode?.camera?.orthographicScale ?? 0),
             g.cue.x, g.cue.z, g.target.x, g.target.z, g.pocket.x, g.pocket.z,
             Float(scene.currentTargetNumber ?? 0), Float(scene.cameraNode?.camera?.fieldOfView ?? 0)]
@@ -2042,7 +2140,8 @@ final class DiagramLabelOverlay {
                 let b = atan2(pocket.y - target.y, pocket.x - target.x)
                 let sweep = atan2(sin(b-a), cos(b-a))
                 let mid = a + sweep / 2
-                for distance: CGFloat in [42, 48, 54] {
+                for clearance: CGFloat in [20, 26, 32] {
+                    let distance = Self.angleArcRadius + clearance
                     for fraction: CGFloat in [0.5, 0.35, 0.65] {
                         let direction = a + sweep * fraction
                         candidates.append(CGPoint(x: ghost.x + cos(direction)*distance,
@@ -2050,7 +2149,8 @@ final class DiagramLabelOverlay {
                     }
                 }
                 for offset: CGFloat in [30, 45, 60, 75, 90] {
-                    for distance: CGFloat in [42, 48, 54, 60] {
+                    for clearance: CGFloat in [20, 26, 32] {
+                        let distance = Self.angleArcRadius + clearance
                         for side: CGFloat in [1, -1] {
                             let direction = mid + side * offset * .pi / 180
                             candidates.append(CGPoint(x: ghost.x + cos(direction)*distance,
@@ -2168,9 +2268,9 @@ final class DiagramLabelOverlay {
         let potAngle = atan2(pocket.y - target.y, pocket.x - target.x)
         let sweep = atan2(sin(potAngle - aimAngle), cos(potAngle - aimAngle))
         if abs(sweep) > 0.001 {
-            let arcRadius: CGFloat = 22
+            let arcRadius = Self.angleArcRadius
             let path = UIBezierPath()
-            if scene.currentCameraMode == .perspective3D {
+            if displayMode == .perspective3D {
                 // SceneKit's flat table arc participates in depth testing, so balls
                 // naturally occlude it. Never paint an overlay arc over their pixels.
                 angleMark.isHidden = true
@@ -2195,8 +2295,8 @@ final class DiagramLabelOverlay {
         guard let g = scene.diagramLabelGeometry else { return [:] }
         let cue = view.projectPoint(g.cue), ghost = view.projectPoint(g.ghost)
         let angle = atan2(CGFloat(ghost.y - cue.y), CGFloat(ghost.x - cue.x))
-        let expected = CGPoint(x: CGFloat(ghost.x) + cos(angle) * 22,
-                               y: CGFloat(ghost.y) + sin(angle) * 22)
+        let expected = CGPoint(x: CGFloat(ghost.x) + cos(angle) * Self.angleArcRadius,
+                               y: CGFloat(ghost.y) + sin(angle) * Self.angleArcRadius)
         var firstPoint: CGPoint?
         angleMark.path?.applyWithBlock { element in
             if firstPoint == nil, element.pointee.type == .moveToPoint {
@@ -2204,7 +2304,8 @@ final class DiagramLabelOverlay {
             }
         }
         var result: [String: Any] = ["ghost": [ghost.x, ghost.y],
-            "expectedArcStart": [expected.x, expected.y], "arcHidden": angleMark.isHidden]
+            "expectedArcStart": [expected.x, expected.y], "arcRadiusPoints": Self.angleArcRadius,
+            "arcHidden": angleMark.isHidden]
         if let firstPoint { result["arcStart"] = [firstPoint.x, firstPoint.y] }
         if let label = labels.first {
             result["labelCenter"] = [label.center.x, label.center.y]

@@ -54,6 +54,8 @@ struct BallExtractionView: View {
         .animation(BTMotion.springPanel, value: vm.step)
         .btToast(Binding(get: { vm.toast }, set: { vm.toast = $0 }))
         .coordinateSpace(name: "extract")
+        .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
+        .environment(\.colorScheme, .dark)
         .btDarkToolChrome("拍照建球形")
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -516,11 +518,12 @@ struct BallExtractionView: View {
             Image(systemName: system)
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(.white.opacity(enabled ? 0.9 : 0.25))
-                .frame(width: 40, height: 40)
+                .frame(width: 44, height: 44)
                 .background(.black.opacity(0.4), in: Circle())
                 .overlay(Circle().stroke(.white.opacity(enabled ? 0.3 : 0.1), lineWidth: 1))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(system == "arrow.uturn.backward" ? "撤销" : "重做")
         .disabled(!enabled)
     }
 

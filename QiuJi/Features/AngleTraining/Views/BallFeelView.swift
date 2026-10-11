@@ -9,24 +9,23 @@ struct BallFeelView: View {
             //（2D 图延伸至屏幕宽度），其余分节保持页级 lg 边距。
             VStack(spacing: Spacing.xxl) {
                 whatIsBallFeelSection
-                    .padding(.horizontal, Spacing.lg)
+                    .padding(.horizontal, Spacing.lg).learnDocumentWidth()
                 visualAnchorsSection
-                    .padding(.horizontal, Spacing.lg)
+                    .padding(.horizontal, Spacing.lg).learnDocumentWidth()
                 trainingAdviceSection
-                    .padding(.horizontal, Spacing.lg)
+                    .padding(.horizontal, Spacing.lg).learnDocumentWidth()
                 perspectiveDifferenceSection
                 // 学→练导流（T-P18-51）：厚度锚点学完 → 真台俯视练几何判断。大卡 1≤2。
                 PracticeCTA(title: "用真台验证",
                             destination: "2D 角度训练 · 在真实台面上练厚度锚点",
                             route: .sceneAiming2D)
-                    .padding(.horizontal, Spacing.lg)
+                    .padding(.horizontal, Spacing.lg).learnDocumentWidth()
             }
             .padding(.bottom, Spacing.xxxxl)
         }
         .background(.btBG)
-        .navigationTitle("浅谈球感")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
+        .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
+        .learnReadingNavigation(title: "浅谈球感")
     }
 
     // MARK: - Section 1: What is Ball Feel
@@ -108,7 +107,7 @@ struct BallFeelView: View {
                 .foregroundStyle(.btText)
             Text(angle)
                 .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btText)
         }
     }
 

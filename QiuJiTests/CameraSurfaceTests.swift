@@ -604,6 +604,50 @@ final class CameraSurfaceTests: XCTestCase {
         XCTAssertNotNil(vm.currentPlayerAim)
     }
 
+    @MainActor
+    func testCushionAtlasReusesTeachingCameraAndPreservesCueHeight() throws {
+        let vm = CushionEnglishAtlasViewModel()
+        vm.setupScene()
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = viewport
+        vm.setCameraMode(.perspective3D)
+        let daily = PositionPlayViewModel()
+        daily.scene.configureDailyClearanceRendering(); daily.setupScene(); daily.enablePlayerCameraControls()
+        let reference = try XCTUnwrap(daily.scene.cameraRig)
+        reference.viewportSize = viewport
+        XCTAssertTrue(reference.enterPlayerView(.thirdPerson, cue: try XCTUnwrap(vm.scene.cueBallNode).position,
+            aim: try XCTUnwrap(vm.currentPlayerAim), duration: 0, surfaceTravel: 0.5))
+        XCTAssertEqual(rig.twoViewSnapshot?.pose.transform, reference.twoViewSnapshot?.pose.transform)
+        let pose = try XCTUnwrap(rig.twoViewSnapshot).pose.transform
+        vm.velocity = 3.25; vm.onVelocityChanged(); vm.toggleTrack(2)
+        vm.spinY = 0.15; vm.onCueHeightChanged()
+        XCTAssertEqual(vm.spinY, 0.15, accuracy: 0.00001)
+        XCTAssertEqual(rig.twoViewSnapshot?.pose.transform, pose)
+        XCTAssertTrue(vm.requestPlayerView(.firstPerson, animated: false))
+        let firstPerson = try XCTUnwrap(rig.twoViewSnapshot).pose.transform
+        vm.beginTemporaryTopDown(); XCTAssertTrue(vm.temporaryTopDownActive)
+        let revision = vm.topDownContentRevision
+        vm.spinY = 0.2; vm.onCueHeightChanged()
+        vm.toggleTrack(3)
+        XCTAssertGreaterThan(vm.topDownContentRevision, revision)
+        vm.endTemporaryTopDown()
+        XCTAssertEqual(rig.twoViewSnapshot?.pose.transform, firstPerson)
+        XCTAssertEqual(vm.velocity, 3.25)
+        XCTAssertEqual(vm.spinY, 0.2, accuracy: 0.00001)
+        XCTAssertTrue(vm.scene.usesAdaptiveDiagramLabels)
+        XCTAssertFalse(vm.scene.diagramShowsLineLabels)
+        XCTAssertEqual(vm.enabledTracks, Set([0,1,4,5,6,7]))
+        vm.beginTemporaryTopDown(); vm.selectPocket(at: vm.selectedPocketIndex); vm.endTemporaryTopDown()
+        for _ in 0..<1200 where rig.isTransitioning { rig.update(deltaTime: 1/120) }
+        XCTAssertEqual(rig.twoViewSnapshot?.simpleShot?.surface?.travel, 0.5)
+        vm.removeFromTable("_8")
+        XCTAssertNil(vm.currentPlayerAim)
+        XCTAssertTrue(vm.scene.cueStick?.rootNode.isHidden ?? true)
+        vm.setCameraMode(.topDown2D)
+        vm.placeFromPalette("_8")
+        XCTAssertNotNil(vm.currentPlayerAim)
+    }
+
     private func surfaceCamera(_ surface: CameraSurface) -> TwoViewCamera {
         let camera = TwoViewCamera(pose: surface.pose)
         camera.enterSimpleShot(.init(cue: SIMD3(surface.cue.x,0.829,surface.cue.y),

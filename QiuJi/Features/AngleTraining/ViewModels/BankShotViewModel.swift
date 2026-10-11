@@ -8,7 +8,40 @@ import SceneKit
 @MainActor
 final class BankShotViewModel: ObservableObject {
 
-    @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated
+    @Published var cameraTransitionBusy = false
+    @Published var temporaryTopDownActive = false
+    @Published var topDownContentRevision = 0
+    @Published var topDownSelectionChanged = false
+    @Published var hides3DShotAssists = false {
+        didSet { if oldValue != hides3DShotAssists { refreshShotAssistVisibility() } }
+    }
+    @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated {
+        didSet { if oldValue != cameraMode { refreshShotAssistVisibility() } }
+    }
+    func refreshShotAssistVisibility() {
+        guard !isPlaying else { return }
+        if mode == .free { refreshFreeAim() }
+        else if let solution = currentSolution { drawSolution(solution) }
+    }
+    private func finishGuideRefresh() {
+        if cameraMode == .perspective3D && hides3DShotAssists {
+            (pathNodes + freeAimNodes).forEach { $0.isHidden = true }
+            scene.ghostBallNode?.isHidden = true
+            scene.contactDotNode?.isHidden = true
+        }
+        topDownContentRevision &+= 1
+        refreshObservationCameraContext()
+    }
+    func stopForDismissal() {
+        solveTask?.cancel()
+        playbackFinishTask?.cancel()
+        adjustGeneration += 1
+        endTemporaryTopDown()
+        scene.rootNode.removeAllActions()
+        scene.allBallNodes.values.forEach { $0.removeAllActions() }
+        ShotAudioScheduler.shared.cancel()
+        isPlaying = false
+    }
     var observationPocket: Int? { selectedPocket }
     var observationAim: SCNVector3? {
         if mode == .free { return canFreeStrike ? freeAimDir : nil }
@@ -140,7 +173,6 @@ final class BankShotViewModel: ObservableObject {
     // MARK: - Scene
 
     let scene = AngleTrainingScene()
-    private var guideNodes: [SCNNode] = []
     private var pathNodes: [SCNNode] = []
     private var pocketMarkers: [SCNNode] = []
 
@@ -162,29 +194,21 @@ final class BankShotViewModel: ObservableObject {
     // MARK: - Setup
 
     func setupScene() {
-        scene.setupScene(enhancedRendering: false)
+        scene.usesAdaptiveDiagramLabels = true
+        scene.configureReferenceTableRendering()
+        scene.configureShotAwareCamera()
+        scene.setupScene()
+        configureTeachingCamera()
         // L0 假想球虚线圈 + 接触点绿点（与思路训练 / 编排台 / 打三同口径）。
         // 未调用则 `ghostBallNode == nil`，TrajectoryRenderer 的 showGhost 静默空转。
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
         scene.setCameraMode(cameraMode, animated: false)
-        rebuildGuides()
         placeBalls()
         recompute()
     }
 
     /// 长库钻石刻度点（无数字）。数字标注已去掉——翻袋页不依赖钻石计数。
-    private func rebuildGuides() {
-        scene.clearResultNodes(nodes: &guideNodes)
-        let ticks = DiamondSystemCalculator.diamondTicks(surfaceY: scene.surfaceY)
-        guideNodes = scene.addDiamondGuides(
-            labels: [],
-            ticks: ticks,
-            labelColor: UIColor.white.withAlphaComponent(0.55),
-            tickColor: UIColor.white.withAlphaComponent(0.4)
-        )
-    }
-
     private func placeBalls() {
         let y = scene.surfaceY + AngleSceneCalculator.ballRadius
         let cuePos = SCNVector3(BankShotCalculator.halfL * 0.35, y, -BankShotCalculator.halfW * 0.3)
@@ -318,7 +342,7 @@ final class BankShotViewModel: ObservableObject {
     private static let snapshotCueKey = "__cue"
     private static let snapshotTargetKey = "__target"
 
-    var canStrike: Bool { hasSolution && !isPlaying && !isSolving && !isDragging }
+    var canStrike: Bool { !temporaryTopDownActive && hasSolution && !isPlaying && !isSolving && !isDragging }
 
     /// 求解模式「击打」= 演示：回放该解的引擎全保真 `ShotPrediction`（含母球碰后去向、
     /// 障碍球被扰动等全部真实物理），结束自动复原击打前球形。画面=物理=回放单一口径。
@@ -434,7 +458,7 @@ final class BankShotViewModel: ObservableObject {
 
     /// 上一杆（G17）：回到上次击打（演示）前的完整状态（球形 + 袋口 + 库数 + 解集 + 档位 + 力度）。
     func undoSolveShot() {
-        guard mode == .solve, !isPlaying, let ctx = lastSolveUndo else { return }
+        guard !temporaryTopDownActive, mode == .solve, !isPlaying, let ctx = lastSolveUndo else { return }
         restoreSolve(from: ctx)
         lastSolveUndo = nil
         canUndoSolve = false
@@ -443,7 +467,7 @@ final class BankShotViewModel: ObservableObject {
 
     /// 回放上一杆：恢复击打前状态并重放该解的演示。
     func replaySolveShot() {
-        guard mode == .solve, !isPlaying, let ctx = lastSolveUndo else { return }
+        guard !temporaryTopDownActive, mode == .solve, !isPlaying, let ctx = lastSolveUndo else { return }
         restoreSolve(from: ctx)
         guard let sol = currentSolution else { return }
         runSolveDemo(sol)
@@ -665,6 +689,7 @@ final class BankShotViewModel: ObservableObject {
     private var correctingCueSpin = false
 
     func refreshFreeAim() {
+        defer { finishGuideRefresh() }
         // The selected solve reference is not the current free-aim prediction.
         // Do not mix its grey rebound path with the live single-segment guide.
         referenceNodes.forEach { $0.isHidden = true }
@@ -765,7 +790,7 @@ final class BankShotViewModel: ObservableObject {
 
     /// 自由击球（试手）：`simulateFree` 真物理，球停在哪是哪；进袋球离场（恢复球形/上一杆可回）。
     func freeStrike() {
-        guard canFreeStrike, let cueNode = scene.cueBallNode, let dir = freeAimDir else { return }
+        guard !temporaryTopDownActive, canFreeStrike, let cueNode = scene.cueBallNode, let dir = freeAimDir else { return }
         guard scene.permitsCueStrike(aim:dir,spinX:spinX,spinY:spinY) else {
             simulationNotice = CueStrikeAccess.unavailableMessage
             return
@@ -804,7 +829,7 @@ final class BankShotViewModel: ObservableObject {
 
     /// 上一杆：恢复自由击打前球形（一步撤销）。
     func undoLastShot() {
-        guard mode == .free, !isPlaying, let shot = lastShot else { return }
+        guard !temporaryTopDownActive, mode == .free, !isPlaying, let shot = lastShot else { return }
         applyBoard(shot.before)
         scene.railInventory.restore(lastShotRails)
         canUndoShot = false
@@ -814,7 +839,7 @@ final class BankShotViewModel: ObservableObject {
 
     /// 回放上一杆：摆回击打前球形并重播引擎 recorder（结束停在终态，同「球停在哪是哪」）。
     func replayLastShot() {
-        guard mode == .free, !isPlaying, let shot = lastShot,
+        guard !temporaryTopDownActive, mode == .free, !isPlaying, let shot = lastShot,
               shot.prediction.recorder != nil else { return }
         isPlaying = true
         scene.setIdealObjectLine(nil)
@@ -889,7 +914,7 @@ final class BankShotViewModel: ObservableObject {
     }
 
     /// 自由击打收尾：终态取引擎 `finalPositions`（球停在哪是哪）；进袋球离场
-    ///（母球/目标球进袋 = 试手事实，靠上一杆 / 恢复球形找回）。
+    ///（母球自动回台；目标球进袋保留试手事实，靠上一杆 / 恢复球形找回）。
     private func settleFreeShot(_ pred: ShotPrediction, before: [String: BallRestState]) {
         scene.railInventory.finishPlayback()
         playbackFinishTask = nil
@@ -910,6 +935,7 @@ final class BankShotViewModel: ObservableObject {
             if let node = scene.allBallNodes[key] { settle(node, name: key) }
         }
         onTableObstacleKeys.removeAll { pred.pocketedBalls.contains($0) }
+        respotScratchedCue()
         lastShot = (before, pred)
         lastShotRails = freeBeforeRails
         canUndoShot = true
@@ -926,6 +952,8 @@ final class BankShotViewModel: ObservableObject {
         guard index >= 0, index < pocketMarkers.count else { return }
         selectedPocket = index
         currentIndex = 0
+        updatePocketHighlights(confirmsSelection: false)
+        scene.confirmPocketSelection(at: index, source: .manual)
         recompute()
     }
 
@@ -1032,11 +1060,15 @@ final class BankShotViewModel: ObservableObject {
     }
 
     func nextSolution() {
-        guard !isPlaying, !displayed.isEmpty else { return }
-        // Discard draft before advancing — cycling back must show the catalog original.
+        guard !displayed.isEmpty else { return }
+        selectSolution(at: (currentIndex + 1) % displayed.count)
+    }
+
+    func selectSolution(at index: Int) {
+        guard !isPlaying, !isSolving, displayed.indices.contains(index) else { return }
         adjustmentDraft = nil
-        currentIndex = (currentIndex + 1) % displayed.count
-        showSolution(at: currentIndex)
+        currentIndex = index
+        showSolution(at: index)
     }
 
     /// K11 微调草稿层：改打点/力度后按当前解库序正向 `ShotPredictor.predict` 重算，
@@ -1192,13 +1224,10 @@ final class BankShotViewModel: ObservableObject {
         if isDragging { return "拖动中 · 松手后求解" }
         if isSolving { return "真实物理求解中…" }
         guard hasSolution, let sol = currentSolution else { return noSolutionText }
-        var parts = ["\(currentCushions) 库"]
+        var parts = ["解 \(currentIndex + 1)/\(solutionCount)", "\(currentCushions) 库"]
         if !currentRailText.isEmpty { parts.append(currentRailText) }
         parts.append("切角 \(currentCutAngle)°")
         parts.append(sol.spinLabel)
-        parts.append(currentDifficultyTier.label)
-        if let robust = currentRobustnessPercent { parts.append("容错 \(robust)%") }
-        if solutionCount > 1 { parts.append("解 \(currentIndex + 1)/\(solutionCount)") }
         return parts.joined(separator: " · ")
     }
 
@@ -1226,12 +1255,12 @@ final class BankShotViewModel: ObservableObject {
 
     // MARK: - Pocket highlight
 
-    private func updatePocketHighlights() {
+    private func updatePocketHighlights(confirmsSelection: Bool = true) {
         // 单次求解只针对选定袋（引擎全枚举按袋进行）；其余袋口维持中性可选高亮。
         let feasiblePockets: Set<Int> = solutions.isEmpty ? [] : [selectedPocket]
         for (i, marker) in pocketMarkers.enumerated() {
             if i == selectedPocket {
-                scene.setPocketHighlight(marker, style: .selected)
+                scene.setPocketHighlight(marker, style: .selected, confirmsSelection: confirmsSelection)
             } else {
                 scene.setPocketHighlight(marker, style: feasiblePockets.contains(i) ? .viable : .infeasible)
             }
@@ -1242,6 +1271,7 @@ final class BankShotViewModel: ObservableObject {
 
     /// Draw the solved route with the shared trajectory style and detail levels.
     private func drawSolution(_ sol: BankEngineSolution) {
+        defer { finishGuideRefresh() }
         clearPath()
         guard let cue = scene.cueBallNode, !cue.isHidden else {
             scene.hideCueStick()

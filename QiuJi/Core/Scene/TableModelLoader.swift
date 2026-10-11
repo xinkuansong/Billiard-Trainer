@@ -70,7 +70,7 @@ final class TableModelLoader {
     }
 
     private static func parseModelScene() -> SCNScene? {
-        guard let url = Bundle.main.url(forResource: "TaiQiuZhuo", withExtension: "usdz") else {
+        guard let url = ModelAssetTrial.url("TaiQiuZhuo") else {
             logger.error("Missing TaiQiuZhuo.usdz in bundle")
             return nil
         }

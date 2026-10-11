@@ -5212,3 +5212,207 @@ C56-r03：修复共享DailyPanelSurface的深色环境作用范围，覆盖内�
 
 
 2026-10-08 / FL-136修复验证：r02最终构建、21单测/4次原生UI通过，手机/SE/iPad初始角弧错位已复验；用户要求先提交push当前代码。未把UI通过扩为真机或用户视觉认可。
+
+### FL-136 / r03 · 临时俯视标注补齐（2026-10-08）
+- 补审发现临时SCNView未接入DiagramLabelOverlay，复制的SCNText又被自适应标注隐藏，导致只有角弧没有数字。
+- 为临时层复用同一标注组件、使用该层正交投影；主层标签暂隐并在退出后恢复，不修改主相机或源场景角弧。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md § DR-370/r03；.cursor/rules/57-ui-reviewer.mdc § FL-136；tasks/FAILURE-LOG.md。最终证据见P08a卡及output/table-page-adaptation/P08a/r03/final。
+
+### DR-371 · P08b 加塞吃库图谱接入共享教学容器（2026-10-08）
+- 用户要求继续本页，左侧文字仅切角；八档紧凑全显与数量下置承接P08a。
+- 直接消费BTTeachingTablePage/TeachingTableHost；共同容器新增可选spinHeight绑定与teachingNote。打点使用每日固定盘，BTSceneSpinPadOverlay新增默认false的locksSideSpin；其它消费者保持原入口与行为。
+- 本页保留八档挤偏补偿、simulateFree及库后切片、高低杆重算、至少一档、选球袋/摆球；只统一布局/摄像头/线角标注。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md § DR-371；docs/00-讨论记录.md § DR-371；tasks/table-page-adaptation/P08b-CUSHION-ENGLISH-ATLAS.md。构建/验收以该页面卡为准。
+
+### DR-372 · P09a 首次设置确认后进入横屏训练（2026-10-08）
+- 用户确认：2D角度训练首次设置不自动横屏；正式球桌更多菜单内新增「训练设置」子入口，复用原模式/类型/重新开始。
+- SceneAimingView仅在2D明确开始后创建场景与方向控制；首次返回不生成题。正式2D球桌直接消费每日Foundation/Header/状态/深色菜单，15数字槽只读，保留答题、辅助、计分、限额与成绩归属。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md § DR-372；docs/00-讨论记录.md § DR-372；tasks/table-page-adaptation/P09a-ANGLE-TRAINING-2D.md。验证以页面卡与当前原生证据为准。
+
+
+### FL-134 · P09a r02参考迁移补全（2026-10-09）
+- 用户反馈三项均纳入当前轮：标注/延长线、固定标题与台面球库范围、结果球杆。实施/验证真源：tasks/table-page-adaptation/P09a-ANGLE-TRAINING-2D.md。
+- 已应用至：.cursor/rules/57-ui-reviewer.mdc § FL-134/P09a；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。旧日志和参考双图保留。
+
+
+### FL-137 · E02 Figma制作返工（2026-10-09）
+- 普通圆底alpha复合、P24状态栏遮罩和P33全长homebar误用的根因与原证据见FAILURE-LOG FL-137；保留原导出，实际修订后重新导出/独审。仅图册制作，不改App。E02最终16状态/16编辑复原独审通过，已识别硬制作项闭环；详见E02/r1/review/final/review.md。
+- 已应用至：.cursor/rules/57-ui-reviewer.mdc § FL-137；tasks/UI-IMPLEMENTATION-SPEC Changelog；tasks/app-interface-redesign/batches/E02.md。精确字体/系统材料不假称已修。
+
+
+### DR-345 r4 · 袋口红色1秒 / P09a标题（2026-10-09）
+用户指定两行“2D角 / 度训练”；共用袋口确认色改红、可见时长1秒。复用现有材质混合和反馈生命周期，移除不适用的新色旧黄色增益，不改几何/选择/计分。已应用至tasks/UI-IMPLEMENTATION-SPEC.md § DR-345 r4及Changelog。原生与渲染证据：output/table-page-adaptation/P09a/r03；最终状态见本页卡。
+
+### FL-138 · E03 Figma说明页误触恢复（2026-10-09）
+- 根因与操作证据见FAILURE-LOG FL-138；恢复后PNG字节/RGBA与原图一致，五Text ID保留，容器7:1996→9:2003，新入口单列。只涉及Figma说明页，无App修改。
+- 已应用至：.cursor/rules/57-ui-reviewer.mdc § FL-138；UI-IMPLEMENTATION-SPEC Changelog补充；E03批次卡。
+
+
+### DR-345 r5 — 自动与手动选袋反馈时序（2026-10-09）
+用户明确：自动选择即时震动并红色1秒；手动选择即时震动，延迟0.5秒后红色1秒。覆盖r4中保留的旧延迟。AngleTrainingScene统一震动入口并区分automatic/manual；选袋状态刷新不额外震动，重复选袋仍作为独立事件。P09a每道新题显式确认目标袋，同袋连续题也提示；首次设置未开始时不提示。每日/自由击球及共用教学页按同一时序，快速重选取消旧提示，结束后恢复主题皮革。布局、题目与答案语义保持。验证状态见P09a r04页面卡；模拟器不代表真机触觉体验。
+
+FL-137 / E03：P26六环描边默认语义差异已从INSIDE改CENTER，原图与实际修后树/PNG独审、双主题修改复原留证。已应用至57-ui-reviewer.mdc描边检查、UI-IMPLEMENTATION-SPEC Changelog。
+
+
+### DR-345 r6 · 选袋橙色（2026-10-09）
+用户将选袋提示由红色改为橙色，共用targetTint采用现有btWarning暗色橙；自动/手动震动、0/0.5秒延迟、1秒可见及每道新题触发规则沿用r5。验证证据见P09a r05页面卡。
+
+E03图册限定收口（2026-10-09）：P26/P27/P28标准窗口六状态18可编辑/8参照、6编辑复原及00/50两份.fig CRC/hash通过。P28四角误用修正，FL-137检查已应用至57及UI规范；FL-138说明恢复限定像素通过。精确视觉NOT_PASS，新回导/云端未验。下一E04补其他四尺寸，主入口tasks/app-interface-redesign/CURRENT.md；App未改。
+
+
+### DR-345 r7 · 湖蓝选袋提示（2026-10-09）
+用户确认使用湖蓝#32ADE6，替代r6橙色及r5红色。共用PocketLeatherAppearance.targetTint统一指定该色，不使用警告/错误语义色；保留皮革纹理混合，自动/手动震动、0/0.5秒延迟及1秒持续规则不变。验证见P09a r06页面卡。
+
+
+### DR-345 r8 · 3D角度训练继承共同模板（2026-10-09）
+P09b由旧legacyTable迁入与2D训练相同的Foundation/Palette/Header与深色DailyHUDMenuPanel，标题“3D角 / 度训练”、15数字只读槽、左侧题目/结果、右侧辅助/答题；3D保持全page渲染，可读区测量来自中央stage。首次设置保持原方向，明确开始后手机横屏；iPad横竖可用；设置完成不重开，重开显式触发。
+摄像机使用现有每日曲面控制与四键，TeachingCameraHost从既有TeachingTableHost分离相机要求，原方法直接复用；只读题目不获得编辑/击球能力。3D每题参考沿母球→假想球，目标球/袋/题型/成绩scene3D与Pro限制不变；输入/换题/离页结束临时俯视，返回原观察视角。湖蓝每题提示沿用r7。无2D/3D跨成绩切换项；菜单仅训练设置和适用显示网格，不伪造打点/杆速。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md § DR-345 r8；活动验证见tasks/table-page-adaptation/P09b-ANGLE-TRAINING-3D.md。未装真机、未提交。
+
+
+FL-137 / E04宿主复用补充（2026-10-09）：Pad P28宿主从E02 r1输入复用时漏带最终头卡箭头修复，横竖浅深4状态共12实例错误为金色。根因：27个AX几何锚点一致只能证明布局，不能证明颜色修订一致。已按ProfileView.guestHeader的强制Light环境把唯一头卡chevron strokes改为btTextSecondary(.235,.235,.263,.6)，并在pad_host.py制作入口补入同一修正；旧稿和修后原始导出保留，复审见E04/r1/review/final。已应用至57-ui-reviewer.mdc复用版本检查及UI规范Changelog。
+
+### FL-140 / DR-345 r9 · P09b临时2D与结果复用（2026-10-09）
+按用户反馈，临时2D复用标准stage，保留原背景，3D结果接共用球杆/延长线/标注，结果允许切视角复盘；单一题目场景同步临时副本，未答不泄露角度。已应用至table-page-adaptation技能FL-140及UI规格DR-345 r9。最终构建、10单测/3次原生UI及门禁通过，原图已审，见P09b r02卡；未真机/未重验iPad，待体验。
+
+P09b r02补充：用户明确临时2D透明悬浮，背景替换已撤回；3D主渲染采用每日清台背景GeometryReader的全窗测量与ignoresSafeArea，避免底部露出固定2D地毯，HUD/标准stage保持原安全区布局。
+
+FL-137 / E05单行修复（2026-10-09）：12个中式台球Text自然量测后从59.666667×42修为60×21，中心与胶囊保持，r1/r2及四组真实编辑复原分别留存。复用源同步自然量测策略，独审见output/app-interface-redesign/E05/r1/review/final。已应用至57-ui-reviewer.mdc v0.11与UI-IMPLEMENTATION-SPEC Changelog；无App修改。
+
+FL-137 / E06导航渐隐（2026-10-09）：小屏r1因导航条与ScrollEdge背景范围混同被独审打回；修前原样保存，制源按原生背景范围修订，实际导出复验待完成。已应用至.cursor/rules/57-ui-reviewer.mdc v0.12；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。仅现状图册制作，App未改。
+
+
+### DR-345 r10 · 2026-10-09 · P10瞄准点适配与短标题
+- 用户授权两固定瞄准点入口沿每日核心，并将P09/P10四标题改指定单行短名。
+- 实现：共用布局/15槽/状态/深色菜单/相机，保留原G1评分、验证及限额；离页取消延迟任务，临时2D同步当前线路，标题字形58.28pt最大值置于原60pt区。
+- 验证：build-r3、6单测＋8UI全通过；phone/SE/iPad横竖、P09回归。证据output/table-page-adaptation/P10/r01/final。原图已审，无真机体验外推；全仓gate随下一批P02变更再跑。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §DR-345 r10；页面卡与REVIEWS。无需新增通用规则。
+
+
+FL-123 / P02补充（2026-10-09）：普通自由击球首轮功能通过，但把旧BreakControlBar放进台内后产生460pt宽实色条与重复主动作。原图first-functional-run保留，不能以功能绿通过视觉。改用现有左侧重开、右侧开球/完成、设置取消；原开球状态机不变。适配应逐项迁移操作语义，旧容器尺寸不自动成为新模板的合理布局。已应用至table-page-adaptation技能，r2复验进行中。
+
+FL-137 / E06补验：三窗口12状态修后独审通过，去除矩形BACKGROUND_BLUR效果后保留渐变近似；Pad横未采，精确材质不通过。E07前景来源绑定返工：视觉未变，仅两主题Login sourceMetadata.native从宿主改为实测前景，宿主分字段；旧源与完整diff保留，离线独审通过，实际Figma未验。已应用至.cursor/rules/57-ui-reviewer.mdc v0.13及UI-IMPLEMENTATION-SPEC.md（2026-10-09）。
+
+FL-137 / E08原图误读：原生缺栏错误说明已撤回并保留before，96原始证据hash复核不变；离线Dark013漏系统栏仍待修后独审。原图判断须明确目标区域核查，不能以AX与图的猜测差异制造瞬态缺陷。已应用至.cursor/rules/57-ui-reviewer.mdc v0.14及UI-IMPLEMENTATION-SPEC.md（2026-10-09）。
+
+### DR-345 r11 · P03编辑业务注入核心模板（2026-10-09）
+PositionPlayComposerView删除旧独立布局，由FreePlayView(editorModel:editor:)渲染；保留来源球形/试打模式/序列与确认流程。共用打点盘显式只读参数，紧凑仪表与只读语义分离。已应用至tasks/UI-IMPLEMENTATION-SPEC.md对应API；P03 build-r2通过，验证进行中。
+
+### FL-123 / P03 · 真实按钮动作分支（2026-10-09）
+试打重摆误走普通开球，已沿实际Daily左列修复；不能只凭标签/AX标识证明业务接线。已应用至`.agents/skills/table-page-adaptation/SKILL.md`经验教训；原UI失败保留，P03 r3复验中。
+
+### 2026-10-09 · DR-345 r12 P04
+思路训练复用BTTeachingTablePage及可选规划业务配置，共享Daily击球样式、设置和实测stage临时2D；Silu接入TeachingCameraHost。保留求解、微调目录、完整重打快照和手动开球交付，母球回台策略随15槽调整。源码与改前SE图在output/table-page-adaptation/P04/r01；build-r2成功，r3/定向矩阵运行中。
+P03页面25单测/5UI通过。每日共享旧测试缺实测字号环境变量、mode helper仍找顶栏入口，两次失败均保留并修测试调用链，业务断言未放宽；随P04构建补验。
+
+
+### 2026-10-09 P05 连续适配
+PlanThreeView接入既有BTTablePlanningControls，PlanThreeViewModel实现TeachingTableHost；保留原角色状态/求解/击球/窗口前滑。角色入口在左侧，当前五角色摘要独立于求解状态；共享标准相机与透明临时2D，母球落袋回台。源码/SE改前实图保留output/table-page-adaptation/P05/r01，验证未完成。
+
+
+### 2026-10-09 P06 防守接入
+SnookerTacticsView复用BTTeachingTablePage规划配置；VM实现TeachingTableHost，直接沿用防守求解/轨迹选项/结果覆盖评价和快照。无选袋回调，母球回台、全3D及透明临时2D；新增实际非法8号目标/切换球组、求解/回放/重打及多尺寸UI。P05矩阵完成后串行构建。
+
+FL-137 / E14–E17采集诊断补充（2026-10-09）：P14中段漏采、P16回顶回弹、E17 buffer/MCP异常留证及E16 LLDB回显误判分别保留失败；后续按真实返回、有限缓冲、相邻offset/可见交叠及独立返回证据修订工具。已应用至.cursor/rules/57-ui-reviewer.mdc v0.16和tasks/UI-IMPLEMENTATION-SPEC.md；App源码未改，实际Figma数未增。
+
+- **FL-137 / E17 pilot框比较**（2026-10-09）：首tap前真实frame四值一致，JSON键序不同触发stringify误判；r5/pilot-r1保留，r6逐字段有限数值严格比较并覆盖变化/缺值/重复反例，尚待新原生试跑。**已应用至** `.cursor/rules/57-ui-reviewer.mdc` v0.17；不更改App。
+
+- **FL-137 / E18只读取证前提**（2026-10-09）：r1用KeychainService.load nil判断无凭证被独审打回，nil还涵盖读取/解码错误；r2仅OSStatus==errSecItemNotFound允许，两个token均需满足，仅输出Bool且不读回值/不重置，原r1保留，设备未运行。**已应用至** `.cursor/rules/57-ui-reviewer.mdc` v0.18。
+
+FL-137 / E16系统键盘边界：小屏r2把系统键帽误制为App可编辑层，主控按PLAN§4.1打回。r3保留真实PNG REF、去掉系统节点，仅App内容可编辑，旧r2原样留证；待独审，不以系统层制图扩大本任务。
+
+FL-137 / E17 r8返回协议（2026-10-09）：新增frameActual/Expected后缀未同步lldb-return消费者，root制作与独审漏项导致真实pilot-r4 invalid offset protocol；0图，旧证据和旧许可失效说明保留。r9经真实stdout→真实decoder→实际offset方法→receipt序列化端到端重放再许可；合成延迟仅反例，不代替真实原生观测。
+
+FL-137 / E16卡片可见viewport（2026-10-09）：Pad制层复查发现旧三手机开发卡将aspectFill图像/owner扩展AX联合框当实际卡框；独审确认42实例（三包各14含菜单2），真实cell x88、宽小131.5/标准145/大164，旧union x80/79/77.6667、宽147.5/163/184.6667。源固定4:3 cover+overlay.clipped的可见高度应98.625/108.75/123，非unionWidth×.75。原生截图/采集通过不撤；旧层源审查漏项保留、三包暂停导入，通用sourceclip修复与同类筛查进行中。证据E16/r1/review/prep/card-viewport-correction；已应用57-ui-reviewer v0.21，实际Figma未受影响。
+
+FL-137 / E16 Pad导航归属（2026-10-09）：r2把UITabBar整体当系统REF，遗漏五个App Tab可编辑文字与选中状态；独审据真实原图/源UILabel确认不完整，r2保留不登记。新r3补36viewport共252导航Text/Shape，Pad原图无图标未虚构；修Frame611→实际870及旧phone083→Pad019/137来源口径。独审待复核，实际Figma未执行。已应用57-ui-reviewer v0.22，系统材质近似不能豁免App定义导航。
+
+FL-137 / 采集器资源所有权（2026-10-09）：E16 Pad横r1离线独审发现preflight/初始Shutdown断言失败时finally仍会shutdown；root同类检查发现未运行E14小屏r2及E17 boot失败分支。旧版本保留暂停后续运行，不改活跃进程。E14r3、Pad横r2、E17r15/r16仅在本轮simctl boot成功返回后取得cleanup资格，安装票据另须本轮安装成功；未取得ownership只读记录state。实际AST mock前置失败/boot失败均不terminate/shutdown，取得ownership后的异常仍清理；增量独审均通过，真实试采另验。已应用57-ui-reviewer v0.23。
+
+
+### FL-141 · 跨页每日标准复审（2026-10-09）
+33页/464图、28条用户意见已由全部GPT-6-astra分组复审并主控核实；报告见tasks/ui-reviews/UR-20261009-daily-standard-SUMMARY.md。确认共享调用仍留旧消息表面/尺寸/状态，及两张P1异常交付图；前期“全部原图/定向完成”不再覆盖这些未闭合项。两张图运行时根因未验，未改App/原图/用户审批。已应用至57-ui-reviewer.mdc FL-141，按有效组件版本、消息语义与真实截图状态验收；修复/复采另批进行。
+
+DR-345 / 每日标准返工共享API增补（2026-10-09）：打点盘展开的常驻五角色读数改用实际盘框旁台内窄列，信息项新增可选expandedText；布局按实际盘尺寸计算spinPadFrame/expandedReadoutFrame。已应用至tasks/UI-IMPLEMENTATION-SPEC.md末尾同名节。主控复核另发现迁移后中性图标继承绿色、3D重摆恢复闭包遗漏及按下样式缺少注入，均记入FL-141返工，最终统一矩阵另验；不扩大普通通知/常驻题目语义。
+
+2026-10-09 / DR-345 每日标准跨页返工：全部页面批次已串行集成；首轮统一构建三尺寸62项通过。主控原图复核进一步补齐阅读必要文字对比，新增SE真实滚动回放取证，最终回执与图册见 `tasks/table-page-adaptation/REPAIR-SUMMARY-20261009.md`。未将测试通过自动改写用户审批。
+
+2026-10-09 / DR-345 P14b追加：手机横屏/iPad横竖按每日Foundation重布，编排/反解/guide/保存语义保留。SE发现微移吞滚动后局部手势修复，3设备无trace定向各1项通过、52原图独审，45状态对比入口output/table-page-adaptation/P14/r02/comparison。完整构建身份/失败链/未测边界见REPORT.md；已应用UI-IMPLEMENTATION-SPEC P14b合同，未自动改用户审批。
+
+
+FL-137 / 新基线采集工具错误分层补充（2026-10-10）：Pad横Light本态strictpair与工具tap返回成功，但前后原AX仍训练页，六分类守卫正确停止；原因尚未证明，独立XCTest语义辅助器仅构建/源码审通过，正式运行另验。P12/P13各自12份原AX纯重放实际identity都因正文402⅓/窗口402触发BLOCK_PAGE_BODY_WINDOW，旧循环误包为stability错误；不能据此称App不稳定。三轮0PNG与source/App3/bundle/ownedShutdown四收尾全真分别保留。P05smallLight H2两个JS可见窗口不一致已在运行前阻断，H3修后双consumer实际边界重放通过。已应用至 `.cursor/rules/50-qa-reviewer.mdc` v0.3：输入效果/实际守卫/独立finally分列，窗口相关修订覆盖真实跨语言消费链。App源/API未改；实际页面修复不作为本批结论。
+
+### FL-142 · E17 采集包生成与真实消费者连通（2026-10-10）
+- **任务/状态**：全App现状图册E17；✅本轮生成/消费者/诊断日志工具返工验证完成。P17标准Light、P14大屏浅深、P15小屏Light新输出均独审通过；旧失败不改写，系统服务异常根因仍UNKNOWN。后续页面和Figma验收继续。
+- **现象/根因**：P17 identity校验后漏返回proof，enter取None失败；局部修复又被真正body消费者发现sources只有path而缺frozen、绑定仍沿用402⅓。P14大屏由375→440的文本替换误改SHA尾部，真实来源检查正确拒绝。通用path/sha256/bytes递归和孤立helper通过未覆盖实际调用链。
+- **处理/证据**：失败0PNG原件与旧票保留；source/App3/bundle/Shutdown分别实核通过。新源合同与runtime分版本，独立重放真实identity→enter及native→verify_body_sources→fresh_identity→select_main链和错身份/错hash/错原生反例。见output/app-interface-redesign/E17/r1/review/native/p18-17-standard-light-fresh-r1-failure、p18-14-large-light-fresh-r1-failure及review/prep/p18-17-standard-light-fresh-ownbody-runner-r3-late-hold。
+- **规则改进/已应用至**：.cursor/rules/00-orchestrator.mdc § FL-142；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。只影响图册采集与验收工作流，App组件API、产品布局未改。
+
+FL-142补充（2026-10-10）：P15小屏Light原生仅1PNG后160秒LLDB超时；旧command未保存TimeoutExpired部分输出，后续安装查询失败覆盖外层run错误。原failure.json/原finally保留。新工具仅加强stdout/stderr原字节及primary/secondary、各收尾独立记录，不增超时或自动重试。系统服务崩溃报告与超时时序不能证明因果；缓存App3/ownedPID退出/无本轮debugger等独立资源补证经审只允许下一独立scope，不将失败改为完整通过。证据见E17/r1/review/native/p18-15-small-light-fresh-r1-failure；已应用至00-orchestrator.mdc FL-142及UI规范Changelog。
+
+FL-142验证补记（2026-10-10 08:03）：P17标准Light13PNG（review/native/p18-17-standard-light-fresh-r3）、P14大屏浅深各11PNG（p18-14-large-{light,dark}-fresh-r2）、P15小屏Light14PNG（p18-15-small-light-fresh-r2，15be52e2）均在E17/r1获独立完整原生验收，四项收尾全真。日志3类超时原字节/完整run多故障模型及新版实际成功链分别验证，未增160秒或自动重试。此为采集工具返工完成，不证明原CoreSimulatorService故障已根治、也不代表App或Figma精确视觉验收。旧运行和未消费superseded候选继续封存。
+
+FL-142 Pad增量返工（2026-10-10 08:18，⚠️）：P14PadportraitLight discovery fresh-r2实际E17_ORIENTATION新返回行未被decode_return完整协议接受，orient_portrait尚未进入方向语义验收即拒，0PNG。原源/App3/bundle/ownedShutdown四项真，run错误单独保留。手机已完成验证仍有效；Pad新protocol消费者整链须用本次raw严格复现修订，未知line仍拒，另新票/新输出；未用其他Pad票HOLD，不声称App几何失败。已应用至00-orchestrator.mdc FL-142 v3；UI规范Changelog同步。
+
+FL-142 Pad入口补充（2026-10-10 08:35，⚠️）：横Light fresh-r3在卡片helper执行前拒绝，实际0030标签为“01、瞄准原理、从切球角找瞄准点”，旧Python合同及Swift辅助器遗漏序号前缀；type/role/PID/enabled均符合。原0PNG失败及四项收尾真分开保留，Dark旧票未用HOLD。新helper仅按实际组合语义修订，独立generic编译及56产品hash有限通过，尚未实际导航；逐项guard错误须明确字段/实值，禁止凭短标题猜完整AXLabel。已应用至00-orchestrator.mdc FL-142 v4；UI规范Changelog同步。
+
+FL-142 Pad完整链补充（2026-10-10 08:50，⚠️）：P14竖Light full的enter未调用已有verify_default，capture写来源记录时default_proof属性缺失；已有PNG但无完整manifest/slot，不计全态完成。首帧前方法存在不等于生产调用已连通；下一候选须用真实entry AX经默认状态记录→capture/provenance→cover返回整链验证，禁止手塞空proof通过。原四项收尾全真，Dark同链未消费票HOLD，新票新输出。已应用至00-orchestrator.mdc FL-142 v5；UI规范同步。
+
+### FL-143 · Figma同文件链接读回类型规范化（2026-10-10）
+- **现象/原因**：70目录add-only实际向Text写同文件URL，getRangeHyperlink返回NODE1001:4，旧URL-only相等门禁拒绝。链接目标未证错误，消费者对平台合法规范化的语义假设不全。
+- **处置/证据**：原回执8493a5dc及票保留；独审a265efdabea60e898f29e5b20fd5bd6b26542051bd1d7a068f75c40d424a3f66确认13owned全回滚、00空、selection恢复，120section/60EDITABLE已采元数据前后等。未重新核旧60深层属性/PNG，history仅roster。新r3限定同文件/同实际sectionID的URL或NODE等价，错file/node仍拒；待新票实跑。
+- **已应用至**：.cursor/rules/00-orchestrator.mdc § FL-143（2026-10-10）；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。仅制作工具，App未改。
+
+FL-142 CLI入口补充（2026-10-10 09:43，⚠️）：P14Pad横Light full fresh-r1实际run-start max_views=1；main仍保留发现模式default1及assert==1，cover首图后即退出，不是滚动停滞。原1PNG/不完整尾保留，资源独审b322203c确认四项收尾与实际Shutdown，可接独立scope。新候选必须从真实argv→main参数→Runner→cover完整验证模式转换；禁止仅fixture自设max_views绕过入口。已核另四个已staged P15大屏/P16小屏full入口default120且>=2，未受同遗留影响。已应用至00-orchestrator.mdc FL-142 v6；UI规范Changelog。App未改。
+
+FL-143实际读回补记（2026-10-10 09:43）：r3实际60NODE均与同文件准确section一致，72owned创建、selection恢复及旧业务roster前后等获独审4effb4a9；同文件链接问题已实际验证修复。目录另有视觉HOLD：Text为NONE/height30，标题与副标题render叠6.544pt，备份段与后标题叠13.602pt；67,037,143B/184CRC修前.fig保留。只修owned目录，以真实HEIGHT和renderBounds推进，不改字体大小和60目标，不提升业务深树/PNG验收。已应用至00-orchestrator.mdc FL-143 v2；UI规范Changelog。
+
+FL-143 v3（2026-10-10 10:10）：40首态renderer直接赋历史DROP_SHADOW，缺API必填blendMode而部分创建。原Section3:2/Frame3:3/背景3:4已只读取证，禁止盲重导或删除；先按精确源语义补字段，并让顶层异常保留结构化现场回执。70流布局前range guard另拒，实际只读确认无链接Text的property/styled为null而range返回number1，必须按实证ID与完整styled覆盖联合判定，未知组合仍拒。30五组17副标题把AX紧字框当单行容器，须据自身HStack末Spacer/右界测自然单行容量，不缩字号。仅图册工具，App未改。已应用00-orchestrator.mdc FL-143 v3与UI规范。
+
+FL-137 / P15大屏裁片比例（2026-10-10 10:10）：大屏1320×2868/440×956实际3×，层r1继承2×裁框而截入正文。原始全图/完整原生验收不受影响，r1保留HOLD，新r2按自身比例重导5教学图与20系统裁片待审。已应用57-ui-reviewer.mdc裁片比例补充；RGBA矩形相等不能替代内容边界目视。
+
+### FL-143 续记 v4 · 2026-10-10 · Figma同ID入口与不可变证据
+- 30/40同ID多注册入口出现选中路径与实际返回旧runtime不一致；原错误回执保留，不归因于时钟。两域分别归档4/2已观察code+manifest并统一审定字节，30定点修订/40首态实际成功。
+- 30 CmdK未开搜索时数字30短暂更改6:340 opacity，立即Undo；独立32树前后等与opacity1证实复原，不当作原本无改动。
+- 规则改进与已应用至：`.cursor/rules/00-orchestrator.mdc` FL-143 v4；immutable producer、实际runtimeTag、焦点核验与新鲜proof不可修改。
+
+### FL-143 续记 v7 · 2026-10-10 · 批次握手与失败可见性（待恢复验证）
+
+10标准剩余十态r2实际首态P13Light回执/五图独审通过；磁盘保存后点击一次Continue，随后下载仍首态文件名，第二态与IndexedDB真实结果UNKNOWN，禁止重跑。静态独审确认：UI用隐式全局status.textContent；下载按钮仅按needsPersistence放开继续，未核实际persisted/stopped；停止后waiting保留使下载仍仅旧回执，外层错误不可见。上述是源缺口，尚不能推为本次具体根因。只读恢复前中央173不加首态。证据：output/app-interface-redesign/E12/r1/review/figma/domain10-standard-remaining-ten-import-batch-actual-r1/handshake-static-diagnostic.json 与 post-continue-registration-hold.json。
+
+强制后续：DOM控件显式getElementById；始终能保存包含outer status/errors和当前态的诊断；只在实际保存握手满足且无stopped时允许续步；覆盖ACK拒绝/延迟及真实window.status全局模型。失败原producer/票/回执保持不可变，用新只读恢复锁定实际已建，再按remaining-only新scope续步，不把模型当实际持久化。已应用至.cursor/rules/00-orchestrator.mdc FL-143 v7及UI规范Changelog；App源码未改。
+
+2026-10-10 FL-143 v7 实际恢复补证：10标准批次的独立只读回执f08b991d（105551489B）确认已知21帧/6Section/24媒体和全五页元数据原等、无下一态；独审200c1515允许首态入账174。新iframe实测IndexedDB枚举SecurityError，原controller closure不可见，根因保持部分未知。后续新scope移除IDB依赖，外部文件下载→主控磁盘核对→显式scope/index/key/receipt保存确认→runtime ACK→Continue，不宣称下载或ACK自动证明OS落盘。旧票和producer不重跑/修改，三态完整.fig/52CRC已另存。
+
+FL-143 v8（2026-10-10）：外部编辑器在单次执行中崩溃且无回执时，保留已消费票、最后状态与partial未知边界，先恢复标签页再以新scope只读发现，禁止重跑或把可见图层当验收。大载荷的源码模型不证明平台内存/序列化可承受；先逐段取证与降低重复持有，若改用摘要保护，须保留精确规范化、尺寸和独立标准hash交叉验证，不降旧图层/PNG/媒体不变护栏。此次149.9MB producer与崩溃同现，尚未证明内存为根因。
+
+### FL-137 图标来源与复核分辨率补记（2026-10-11）
+
+用户标出DS01 r12每日清台、官方计划、我的模版及Tab图标明显不同。根因：使用语义近似路径，缩略总览未识别轮廓差异。r13已接入7个iOS实际渲染图标组件，局部对照已查看；其余图标/样式仍待核，整页不验收。已应用至 `/Users/song/.codex/skills/app-design-system-rebuild/SKILL.md` v0.1.3（实际来源、配置与正常尺寸/局部检查）；技能校验通过，页面全量仍未完成。证据：output/app-interface-redesign/DS01/r13/REPORT.md。
+
+### FL-137 推进优先级补记（2026-10-11）
+
+用户指出字体研究过久、明显图标漏检，并要求写入技能。已应用至app-design-system-rebuild v0.1.4：先整页反馈、字体三层分判、探针明确决策与停止条件，无依赖工作继续且不降低精度。校验/情境复核通过；本轮直接完成r14五图标与三处阴影候选修订，不用技能文档替代页面工作。r14整页仍HOLD。证据：output/app-interface-redesign/DS01/r14/REPORT.md。
+
+### FL-144 · 渲染诊断回放球心高度传参错误（2026-10-11）
+- 用户指出r6开球时球嵌入球桌；诊断DynamicSequence给TrajectoryPlayback.surfaceY传scene.surfaceY，而生产launchBalls传scene.surfaceY+R。回放器把平面球心直接置为该参数，导致下沉28.575mm。
+- 已读过的几何技能DR-294已明确该契约，执行时仍遗漏；仅检查A/B像素相等，未先检查场景物理有效性，错误画面被双方共同复现，不能算正常画质通过。
+- r6动态验收/计时结论撤回，持续段PID2031已停止；raw和旧源码保留、报告标INVALIDATED。r5静态不受此路径影响。
+- 修复移至r7：按正式调用传球心高度；逐帧验证未落袋球底=台呢面；真实旧错误调用必须被同一断言拒绝；新图核验后重新计时。当前待构建/真机复验，生产未改。
+- 已应用至：.cursor/skills/geometry-spatial-reasoning/SKILL.md § FL-144（2026-10-11）；tasks/UI-IMPLEMENTATION-SPEC.md Changelog同步。
+
+FL-144修复补证（2026-10-11）：r7构建重试BUILD SUCCEEDED；真机7680次平面球心高度检查最大误差0，旧错误调用被拒绝；50个动态时刻A/B/返回R共150图逐像素一致，初始和击球后原图实看无嵌入。首轮复制脚本残留r6源路径，因heightContract缺失被拒绝；错误副本单列保留，已修copy源及runID/heightContract后置守卫，重新读取同一次r7运行并核实，未重跑负载。高度缺陷已修复，性能重测/持续段及正式页面验收仍单列。
+
+FL-144后续范围记录（2026-10-11）：r7原R持续段在3609/7200帧提前停止，条件最后Fair，瞬时热档位未记；诊断器在保存GPU帧前抛错，未取得有效持续GPU对照。用户明确仍热、暂停测试；已终止诊断PID2062。r8只准备记录停止原因/热档位、先保存GPU样本再退出及120秒上限的源码，未构建/安装/运行。不得称持续测试或降温验证通过，等待用户明确恢复。
+
+
+### 渲染诊断 r8 持续对照收尾（2026-10-11，FL-144 后续证据）
+- 仅诊断宿主修复停止后先保存GPU帧、记录原因/瞬间热档位，持续段120秒墙钟上限；生产未改。构建BUILD SUCCEEDED；UUID CCCA2235-38EC-34A2-B4E7-004AD4D09FCF。真机2秒validation_stop完整保存120帧，completed=false；4个离线实际consumer正/拒例通过。
+- r7修复高度序列与r5候选源保持一致，实际运行shader/sequence核验；365生产Swift对本任务基线无变化。
+- 用户恢复并确认冷却：先候选120秒7176帧、Nominal→Fair，用户末段温感正常；再次确认后原R54.46秒3224帧、Nominal→Serious自动停止，部分GPU成功保留。两组均未充电。
+- 共同完整4周期2880帧：整体-4.18%，真实轨迹+16.47%，人工边界-26.80%；不能将混合平均或耐热时长当真实玩法稳定收益。候选后约88秒启动R，内部温度未知，顺序/余热混杂；频率/功耗未测。
+- 用户要求收敛结果，已结束且关闭诊断PID2080/2082，不追加测试；暂不正式采用，生产R+4×MSAA不变。报告：output/render-system-audit-20261011/r8/review.html。
+
+### FL-137 复建配置与实际像素补记（2026-10-11）
+
+r15读取effective symbol配置；r18按源保留高度/底部100修复并补漏掉的宽度解析；r20实际iOS徽标替代macOS方形拟合；r22七原生状态和同数据局部对照，r24修无源码依据的页头opaque层。已应用app-design-system-rebuild v0.1.5（进入状态、自然图标尺寸、消费者派生规则），校验通过；实际视觉仍HOLD。源126 alias已读，未假称库发布/回导完成。App-I006/I007仅登记。

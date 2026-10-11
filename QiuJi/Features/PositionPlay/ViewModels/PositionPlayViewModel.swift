@@ -259,7 +259,6 @@ final class PositionPlayViewModel: ObservableObject {
     private var dailyManualSelection = false
     private var selectionChangeDepth = 0
     private var pendingAutomaticPocketFeedback = false
-    private let pocketSelectionHaptic = UISelectionFeedbackGenerator()
     var onAimModeNotice: ((String) -> Void)?
     var onAimSelectionNotice: ((String) -> Void)?
     @Published private(set) var preferredAimMode: AimMode = .pocket
@@ -1040,7 +1039,7 @@ final class PositionPlayViewModel: ObservableObject {
         defer {
             selectionChangeDepth -= 1
             recompute()
-            if aimMode == .pocket { scene.confirmPocketSelection(at: selectedPocketIndex, immediately: true) }
+            if aimMode == .pocket { scene.confirmPocketSelection(at: selectedPocketIndex) }
         }
         if usesAutomaticPocketFallback {
             selectedTargetKey = key
@@ -1101,10 +1100,7 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     private func confirmPocketClick(at index: Int) {
-        scene.confirmPocketSelection(at: index, immediately: true)
-        // UIKit honours system haptic settings; automatic recommendations stay silent.
-        pocketSelectionHaptic.prepare()
-        pocketSelectionHaptic.selectionChanged()
+        scene.confirmPocketSelection(at: index, source: .manual)
     }
 
     /// 自由模式：点击桌面任意点设定瞄准方向（母球 → 点击点）。袋口模式忽略。

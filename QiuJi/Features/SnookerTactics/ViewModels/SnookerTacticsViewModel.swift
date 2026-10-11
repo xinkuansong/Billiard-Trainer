@@ -18,7 +18,36 @@ import SwiftUI
 /// X–Z 平面、Y 朝上、单位米（见 `AngleSceneCalculator.defenseCoverage`/`snookerCoverage`）。
 /// 自由球命名沿用 board key（母球 `cueBall`），与 `predName` 一致。
 @MainActor
-final class SnookerTacticsViewModel: ObservableObject {
+final class SnookerTacticsViewModel: TeachingTableHost {
+    @Published var cameraTransitionBusy = false
+    @Published var temporaryTopDownActive = false
+    @Published var topDownContentRevision = 0
+    @Published var topDownSelectionChanged = false
+    @Published private(set) var isDragging = false
+    var selectedPocketIndex: Int { -1 }
+    var targetNode: SCNNode? { selectedTargetKey.flatMap { scene.allBallNodes[$0] } }
+    var currentPlayerAim: SCNVector3? {
+        if let lastAimDirection { return lastAimDirection }
+        guard let cue = scene.cueBallNode, !cue.isHidden, let targetNode, !targetNode.isHidden else { return nil }
+        let dx = targetNode.position.x - cue.position.x, dz = targetNode.position.z - cue.position.z
+        let length = sqrtf(dx * dx + dz * dz)
+        return length > 0.0001 ? SCNVector3(dx / length, 0, dz / length) : nil
+    }
+    func selectTarget(key: String) {
+        guard let node = scene.allBallNodes[key] else { return }
+        selectBall(node: node)
+    }
+    // Defense has no pocket-selection business operation.
+    func selectPocket(at index: Int) {}
+    func stopForDismissal() {
+        solveGeneration += 1
+        endTemporaryTopDown()
+        scene.rootNode.removeAllActions()
+        scene.allBallNodes.values.forEach { $0.removeAllActions() }
+        ShotAudioScheduler.shared.cancel()
+        isPlaying = false
+    }
+
 
     // MARK: - Tools
 
@@ -104,12 +133,24 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     // MARK: - Published solve state
 
-    @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated
+    @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated {
+        didSet { if oldValue != cameraMode { refreshShotAssistVisibility() } }
+    }
+    @Published var hides3DShotAssists = false {
+        didSet { if oldValue != hides3DShotAssists { refreshShotAssistVisibility() } }
+    }
+    private var showsShotAssists: Bool { cameraMode != .perspective3D || !hides3DShotAssists }
+    func refreshShotAssistVisibility() {
+        guard !isPlaying else { return }
+        if let solution = currentSolution { drawTrajectory(solution.prediction, shot: solution.shot) }
+        else { clearTrajectory() }
+        refreshOverlays()
+    }
     @Published private(set) var isPlaying = false
     @Published private(set) var isComputing = false
     @Published private(set) var solutions: [PositionPlaySolution] = []
     @Published private(set) var currentIndex = 0
-    @Published private(set) var statusText = "拖球摆位 · 在2D中选一颗「目标球」，再点求解"
+    @Published private(set) var statusText = "拖球摆位 · 在桌面上选一颗「目标球」，再点求解"
 
     // MARK: - Adjustment draft (K13 / X6 — same contract as SiluTrainerViewModel; X5 transplant source)
     //
@@ -125,7 +166,7 @@ final class SnookerTacticsViewModel: ObservableObject {
     }
     var hasSolutions: Bool { !solutions.isEmpty }
     var canStrike: Bool {
-        !isPlaying && !isComputing && (currentSolution?.prediction.feasible ?? false)
+        !temporaryTopDownActive && !isPlaying && !isComputing && (currentSolution?.prediction.feasible ?? false)
             && (currentSolution?.prediction.hasFinalTableState ?? false)
             && (currentSolution?.prediction.duration ?? 0) > 0.05
     }
@@ -179,7 +220,11 @@ final class SnookerTacticsViewModel: ObservableObject {
     // MARK: - Setup
 
     func setupScene() {
+        scene.usesAdaptiveDiagramLabels = true
+        scene.configureReferenceTableRendering()
+        scene.configureShotAwareCamera()
         scene.setupScene()
+        configureTeachingCamera()
         scene.setupVisualizationNodes()
         _ = scene.addPocketMarkers()
         scene.hideAllBalls()
@@ -215,9 +260,14 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     // MARK: - Board queries
 
-    var draggableBalls: [SCNNode] { onTableKeys.compactMap { scene.allBallNodes[$0] } }
+    var draggableBalls: [SCNNode] {
+        guard !isPlaying, !isComputing,
+              activeTool == .none else { return [] }
+        return onTableKeys.compactMap { scene.allBallNodes[$0] }
+    }
     var selectableBalls: [SCNNode] {
-        onTableKeys.filter { !PositionPlayBall.isCue($0) }.compactMap { scene.allBallNodes[$0] }
+        guard !isPlaying, !isComputing, activeTool == .selectTarget else { return [] }
+        return onTableKeys.filter { !PositionPlayBall.isCue($0) }.compactMap { scene.allBallNodes[$0] }
     }
 
     func currentSnapshot() -> BoardSnapshot {
@@ -239,6 +289,7 @@ final class SnookerTacticsViewModel: ObservableObject {
     func placeFromPalette(_ key: String) {
         guard !isPlaying else { return }
         place(key: key, normalized: freeNormalizedSlot(), cuePose: .reseat)
+        activeTool = .none
         refreshOnTableKeys()
         assignTargetIfNeeded(key)
         invalidateSolutions()
@@ -250,6 +301,7 @@ final class SnookerTacticsViewModel: ObservableObject {
         let n = AngleSceneCalculator.sceneToNormalized(position: clamped)
         place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)),
               cuePose: .reseat)
+        activeTool = .none
         refreshOnTableKeys()
         assignTargetIfNeeded(key)
         invalidateSolutions()
@@ -262,7 +314,7 @@ final class SnookerTacticsViewModel: ObservableObject {
     }
 
     func removeFromTable(_ key: String) {
-        guard !isPlaying else { return }
+        guard !isPlaying, !PositionPlayBall.isCue(key) else { return }
         scene.hideBall(key: key)
         if selectedTargetKey == key { selectedTargetKey = nil }
         refreshOnTableKeys()
@@ -320,6 +372,7 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     func dragBegan(node: SCNNode) {
         guard !isPlaying else { return }
+        isDragging = true
         node.removeAction(forKey: "dragPulse")
         node.runAction(SCNAction.scale(by: 1.15, duration: 0.1), forKey: "dragPulse")
     }
@@ -330,6 +383,7 @@ final class SnookerTacticsViewModel: ObservableObject {
     }
 
     func dragEnded(node: SCNNode) {
+        isDragging = false
         guard !isPlaying else { return }
         node.removeAction(forKey: "dragPulse")
         node.runAction(SCNAction.scale(by: 1.0 / 1.15, duration: 0.15))
@@ -452,9 +506,15 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     func nextSolution() {
         guard !solutions.isEmpty else { return }
+        selectSolution(at: (currentIndex + 1) % solutions.count)
+    }
+
+    /// Selecting a catalog solution shares cycling's draft-reset contract.
+    func selectSolution(at index: Int) {
+        guard !isPlaying, !isComputing, solutions.indices.contains(index) else { return }
         adjustmentDraft = nil
-        currentIndex = (currentIndex + 1) % solutions.count
-        showSolution(at: currentIndex)
+        currentIndex = index
+        showSolution(at: index)
     }
 
     private func showSolution(at index: Int) {
@@ -488,17 +548,13 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     /// 三档轨迹标注切换后重绘当前解（`BTTrajectoryDetailChip` 触发，条 12.5）。
     func redrawTrajectory() {
+        defer { topDownContentRevision &+= 1 }
         guard !isPlaying, let sol = currentSolution else { return }
         drawTrajectory(sol.prediction, shot: sol.shot)
     }
 
     private func solutionStatus(_ sol: PositionPlaySolution) -> String {
-        let prefix = solutions.count > 1 ? "解 \(currentIndex + 1)/\(solutions.count) · " : ""
-        let advanced = sol.beyondCushionBudget ? "进阶（超基础走位）· " : ""
-        if !sol.satisfiesConstraint {
-            return prefix + advanced + "高难度可行解（未完全斯诺克）· " + sol.summary
-        }
-        return prefix + advanced + sol.summary
+        TeachingSolutionSummary.text(sol, index: currentIndex, count: solutions.count, defense: true)
     }
 
     // MARK: - Trajectory + overlay rendering
@@ -506,6 +562,7 @@ final class SnookerTacticsViewModel: ObservableObject {
     private func drawTrajectory(_ p: ShotPrediction, shot: PlannedShot) {
         clearTrajectory()
         guard p.feasible else { scene.hideCueStick(); return }
+        guard showsShotAssists else { return }
         // 防守口径（C3 / D2）：无 objectPath、ghost←firstContact，差异由 options 显式表达。
         TrajectoryRenderer.draw(
             prediction: p,
@@ -538,6 +595,7 @@ final class SnookerTacticsViewModel: ObservableObject {
     ///   被挡死 = 灰视线 + 灰环；仍可见 = 红视线 + 红环。
     /// - 编辑态：目标球青环 + 对方球组红环（提示要隐藏谁）。
     private func refreshOverlays() {
+        defer { topDownContentRevision &+= 1; refreshObservationCameraContext() }
         scene.clearResultNodes(nodes: &overlayNodes)
         guard !isPlaying else { return }
         let cyan = BTScenePalette.constraintCyan
@@ -784,19 +842,19 @@ final class SnookerTacticsViewModel: ObservableObject {
     /// 上一杆（G17）：回到上次击打前的**完整状态**——球形、目标球、已求出的解（缓存回填）、
     /// 打点/力度/瞄准、求解选项，均逐字段还原（无需重选、无需重求解）。
     func undoLastShot() {
-        guard !isPlaying, canUndoShot, let ctx = lastShotContext else { return }
+        guard !temporaryTopDownActive, !isPlaying, canUndoShot, let ctx = lastShotContext else { return }
         restore(from: ctx)
         canUndoShot = false
         canPlayback = false
         lastShotContext = nil
         statusText = ctx.snapshot.solutions.isEmpty
-            ? "已退回上一杆击打前 · 可在2D中重选目标球"
+            ? "已退回上一杆击打前 · 可在桌面上重选目标球"
             : "已退回上一杆击打前 · 球形/目标/解已还原"
     }
 
     /// 回放上一杆击打过程：退回击打前重播动画，播完回到击打后局面。
     func replayLastShot() {
-        guard !isPlaying, canPlayback, let ctx = lastShotContext else { return }
+        guard !temporaryTopDownActive, !isPlaying, canPlayback, let ctx = lastShotContext else { return }
         let snap = ctx.snapshot
         guard acceptCompletePrediction(snap.prediction),
               let recorder = snap.prediction.recorder, snap.prediction.duration > 0.05 else { return }
@@ -926,7 +984,11 @@ final class SnookerTacticsViewModel: ObservableObject {
         for key in onTableKeys { scene.allBallNodes[key]?.removeAllActions() }
         let potted = Set(sol.prediction.pocketedBalls.map { boardKey(forPredName: $0) })
         for key in potted { scene.hideBall(key: key) }
-        if sol.prediction.cuePocketed { scene.hideBall(key: PositionPlayBall.cueKey) }
+        let cueScratched = sol.prediction.cuePocketed
+        if cueScratched {
+            scene.hideBall(key: PositionPlayBall.cueKey)
+            place(key: PositionPlayBall.cueKey, normalized: freeNormalizedSlot(), cuePose: .reseat)
+        }
 
         isPlaying = false
         refreshOnTableKeys()
@@ -945,10 +1007,10 @@ final class SnookerTacticsViewModel: ObservableObject {
         canUndoShot = lastShotContext != nil
         canPlayback = lastShotContext?.snapshot.prediction.recorder != nil
 
-        let cueGone = scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true
+        let cueGone = cueScratched
         statusText = cueGone
-            ? "母球进袋（scratch）· 在2D中补回母球或「恢复默认」"
-            : "已击打 · 母球停在终点，可在2D中重选目标球再求解"
+            ? "母球进袋，已自动回台 · 继续规划下一杆"
+            : "已击打 · 母球停在终点，可在桌面上重选目标球再求解"
     }
 
     private func boardKey(forPredName name: String) -> String {
@@ -960,6 +1022,7 @@ final class SnookerTacticsViewModel: ObservableObject {
     func clearTable() {
         guard !isPlaying else { return }
         scene.hideAllBalls()
+        place(key: PositionPlayBall.cueKey, normalized: CanvasPoint(x: 0.3, y: 0.3), cuePose: .reseat)
         selectedTargetKey = nil
         refreshOnTableKeys()
         invalidateSolutions()
@@ -1016,8 +1079,8 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     private func toolHint() -> String {
         switch activeTool {
-        case .none: return "拖球摆位 · 在2D中选一颗「目标球」，再点求解"
-        case .selectTarget: return "在2D中点选一颗目标球（我方将合法首触的球，系统按中八规则推断防守对方球组）"
+        case .none: return "拖球摆位 · 在桌面上选一颗「目标球」，再点求解"
+        case .selectTarget: return "在桌面上点选一颗目标球（我方将合法首触的球，系统按中八规则推断防守对方球组）"
         }
     }
 
@@ -1027,8 +1090,8 @@ final class SnookerTacticsViewModel: ObservableObject {
     }
 
     private func needsSetupHint() -> String {
-        if scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true { return "请在2D中把母球摆上桌" }
-        if selectedTargetKey == nil { return "在2D中用「目标球」工具选球" }
+        if scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true { return "请在桌面上把母球摆上桌" }
+        if selectedTargetKey == nil { return "在桌面上用「目标球」工具选球" }
         if opponentKeys.isEmpty { return "没有需要隐藏的对方球（对方球组已空）" }
         return readyHint()
     }

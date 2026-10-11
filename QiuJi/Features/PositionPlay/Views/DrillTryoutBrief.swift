@@ -130,7 +130,7 @@ struct DrillTryoutBriefCard: View {
                     Text(line.label)
                         .font(.btCaption2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.btPrimary)
+                        .foregroundStyle(.white.opacity(0.9))
                         .frame(width: 52, alignment: .leading)
                     Text(line.text)
                         .font(.btCaption)

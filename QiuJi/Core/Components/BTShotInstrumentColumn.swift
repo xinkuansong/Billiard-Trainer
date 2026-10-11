@@ -49,7 +49,7 @@ struct BTShotInstrumentColumn: View {
     /// Optional host-local measurement includes the ruler, readout and outer padding.
     var reportsPowerShellBounds = false
 
-    private var compact: Bool { usesCompactAppearance && !isReadOnly }
+    private var compact: Bool { usesCompactAppearance && (!isReadOnly || fixedPowerBarHeight != nil) }
 
     @State private var adaptiveDrag = AdaptiveShotDrag()
     @State private var detents = ShotDragDetents()

@@ -261,7 +261,8 @@ final class AngleDynamicViewModel: TeachingTableHost {
 
     func selectPocket(at index: Int) {
         selectedPocketIndex = index
-        updatePocketHighlights()
+        updatePocketHighlights(confirmsSelection: false)
+        scene.confirmPocketSelection(at: index, source: .manual)
         updateCalculations()
         selectionCameraChanged()
     }
@@ -291,7 +292,8 @@ final class AngleDynamicViewModel: TeachingTableHost {
         }
 
         selectedPocketIndex = bestIndex
-        updatePocketHighlights()
+        updatePocketHighlights(confirmsSelection: false)
+        scene.confirmPocketSelection(at: selectedPocketIndex)
     }
 
     /// 综合可行性检查。
@@ -337,12 +339,12 @@ final class AngleDynamicViewModel: TeachingTableHost {
         return (true, "")
     }
 
-    private func updatePocketHighlights() {
+    private func updatePocketHighlights(confirmsSelection: Bool = true) {
         guard let cue = scene.cueBallNode, let target = targetNode else { return }
 
         for (i, marker) in pocketMarkers.enumerated() {
             if i == selectedPocketIndex {
-                scene.setPocketHighlight(marker, style: .selected)
+                scene.setPocketHighlight(marker, style: .selected, confirmsSelection: confirmsSelection)
             } else {
                 let feasible = pocketFeasibility(
                     pocketIndex: i, cueBall: cue.position, targetBall: target.position

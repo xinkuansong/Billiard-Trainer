@@ -82,7 +82,9 @@ struct DrillRecordView: View {
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxxxl)
+            .learnDocumentWidth()
         }
+        .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
         .scrollDismissesKeyboard(.interactively)
         .task(id: drill.drillId) {
             tableDrillContent = await DrillContentService.shared.loadDrillFromBundle(id: drill.drillId)

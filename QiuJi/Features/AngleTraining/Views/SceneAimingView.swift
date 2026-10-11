@@ -8,6 +8,7 @@ import SceneKit
 /// 入口流程（T-P18-48）：点卡先弹完整训练设置（模式/类型）再开始，训练中三点菜单可换。
 struct SceneAimingView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var pageColorScheme
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @StateObject private var vm: AimingQuizViewModel
@@ -16,112 +17,62 @@ struct SceneAimingView: View {
     @State private var preferredPlayerView: CameraRig.PlayerView = .thirdPerson
 
     /// Camera mode is fixed per route (2D top-down or 3D perspective).
-    private let cameraMode: AngleTrainingScene.CameraMode
+    private let routeCameraMode: AngleTrainingScene.CameraMode
+    @State private var hasStarted = false
+    @State private var cameraReadableFrame: CGRect?
+    @State private var configured = false
+    @State private var portrait = false
+    @State private var showMenu = false
+    @State private var windowControls = UIEdgeInsets.zero
+    @State private var windowSafeArea = UIEdgeInsets.zero
+    @State private var systemStatusVisible = false
+    @State private var titleSize = CGSize(width: 60, height: 34)
+    @StateObject private var fps = TableFPSReadoutState()
+    @ObservedObject private var preferences = UserPreferences.shared
+    private var cameraMode: AngleTrainingScene.CameraMode {
+        is3D ? .perspective3D : (portrait ? .topDown2DRotated : .topDown2D)
+    }
 
     init(initialCameraMode: AngleTrainingScene.CameraMode) {
-        self.cameraMode = initialCameraMode == .perspective3D ? .perspective3D : .topDown2D
+        self.routeCameraMode = initialCameraMode == .perspective3D ? .perspective3D : .topDown2D
         _vm = StateObject(wrappedValue: AimingQuizViewModel(limiter: .shared))
     }
 
-    private var is3D: Bool { cameraMode == .perspective3D }
-
-    // The reference palette keeps a fixed header through every question phase.
-    private static let topRowHeight: CGFloat = 44
+    private var is3D: Bool { routeCameraMode == .perspective3D }
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                Color.black.ignoresSafeArea()
-                if is3D { sceneFullscreen.ignoresSafeArea() }
-                VStack(spacing: 0) {
-                    topInset
-                        .frame(height: Self.topRowHeight)
-                    HStack(spacing: Spacing.sm) {
-                        observationColumn
-                        ZStack {
-                            if !is3D { sceneFullscreen }
-                            if vm.phase == .showingResult, !vm.testFinished, vm.limiter.isLimitReached {
-                                BTDailyLimitGate(compact: true) { showSubscription = true }
-                                    .padding(Spacing.lg)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color.clear.accessibilityElement()
-                            .accessibilityIdentifier("angleTraining.stage"))
-                        actionColumn
-                    }
-                    .padding(.horizontal, Spacing.xs)
-                }
-                if vm.phase == .inputting, !vm.testFinished {
-                    keypadOverlay
-                        .frame(width: min(280, geo.size.width * 0.44))
-                        .padding(Spacing.sm)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                }
-                if vm.testFinished {
-                    // F-OV-05: modal summary — light scrim keeps table readable.
-                    ZStack {
-                        Color.black.opacity(0.32)
-                            .ignoresSafeArea()
-                        ScrollView { summaryOverlay }
-                            .frame(maxWidth: 520, maxHeight: max(geo.size.height - 32, 1))
-                    }
-                    .transition(.opacity)
-                } else if vm.limiter.isLimitReached, vm.phase != .showingResult {
-                    // C23：满额主卡（full）；总结/结果区另用 compact。
-                    ZStack {
-                        Color.black.opacity(0.32)
-                            .ignoresSafeArea()
-                        BTDailyLimitGate { showSubscription = true }
-                            .padding(.horizontal, Spacing.lg)
-                    }
-                    .transition(.opacity)
-                    .sheet(isPresented: $showSubscription) {
-                        SubscriptionView().environmentObject(subscriptionManager)
-                    }
-                }
-            }
-            .animation(BTMotion.easeChrome, value: vm.phase)
-            .animation(BTMotion.easeChrome, value: vm.testFinished)
-            .animation(BTMotion.easeChrome, value: vm.limiter.isLimitReached)
+        Group {
+            if !hasStarted { settingsContent }
+            else { quizTable }
         }
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
         .trainingBackgroundMusic()
-        .btDarkToolChrome(is3D ? "3D 角度训练" : "2D 角度训练")
-        .background { DailyTableOrientation(landscape: true) }
-        .ignoresSafeArea(.container, edges: .bottom)
-        .toolbar(.hidden, for: .navigationBar)
-        .statusBarHidden()
+        .navigationTitle(hasStarted ? (is3D ? "3D角度" : "2D角度") : "训练设置")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
+        .background {
+            if hasStarted {
+                DailyTableOrientation(landscape: true, allowsTabletRotation: true)
+            }
+        }
+        .toolbar(!hasStarted ? .visible : .hidden, for: .navigationBar)
+        .statusBarHidden(hasStarted && UIDevice.current.userInterfaceIdiom != .pad)
         .sheet(isPresented: $vm.showSettings) {
             settingsSheet
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
         .onAppear {
+            guard !configured else { return }
+            configured = true
             vm.quizTypeLabel = is3D ? "scene3D" : "scene2D"
             vm.configure(context: modelContext)
-            // 入口流程（T-P18-48）：先建场景但不出题，弹完整训练设置，
-            // 用户点「开始训练」后才 startTest。
-            // 渲染统一（条 11.2 / ADR-P5-01）：弃 enhanced 管线，与其他球桌页同走
-            // 默认的移动渲染管线（2D/3D 同源），观感一致。
-            if !isScenePrepared {
-                vm.setupScene(initialCameraMode: cameraMode, enhanced: false, autoStart: false)
-                if is3D {
-                    vm.scene.cameraRig?.usesRailCameraControls = true
-                    vm.scene.cameraRig?.usesShotAwareCamera = true
-                }
-                isScenePrepared = true
-            }
-            vm.showSettings = true
+            // Both routes defer renderer and orientation ownership until Start.
         }
-        // Sheet dismissed by swipe before ever starting → start with the
-        // currently-selected defaults so the page is never a dead end.
-        .onChange(of: vm.showSettings) { _, showing in
-            if !showing, vm.currentQuestion == nil, !vm.testFinished {
-                vm.startTest()
-                applyAimingPoseForCurrentQuestion(reason: "settingsDismissed.startTest")
-            }
+        .onChange(of: vm.phase) { _, phase in
+            if phase != .observing { vm.endTemporaryTopDown() }
         }
+        .onDisappear { vm.endTemporaryTopDown() }
         .onReceive(subscriptionManager.$isPremium) { premium in
             vm.limiter.isPremium = premium
         }
@@ -137,58 +88,160 @@ struct SceneAimingView: View {
         }
     }
 
-    // MARK: - Top inset (progress pill OR result HUD)
-
-    private var topInset: some View {
-        HStack(spacing: Spacing.sm) {
-            Button { dismiss() } label: {
-                Image(systemName: "chevron.left")
-                    .font(.btTitle2)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel("返回")
-            .accessibilityIdentifier("angleTraining.back")
-            Text(is3D ? "3D 角度训练" : "2D 角度训练")
-                .font(.btSubheadlineSemibold)
-                .lineLimit(1)
-            Spacer(minLength: 0)
-            topBallPalette
-            Spacer(minLength: 0)
-            Button { vm.showSettings = true } label: {
-                Image(systemName: "ellipsis")
-                    .font(.btHeadline)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel("训练设置")
-            .accessibilityIdentifier("angleTraining.settings")
-        }
-        .padding(.horizontal, Spacing.xs)
-        .foregroundStyle(.white)
-        .background(is3D ? HUDStyle.controlBackground : Color.black)
-        .environment(\.colorScheme, .dark)
+    private func prepareScene() {
+        guard !isScenePrepared else { return }
+        vm.scene.configureReferenceTableRendering()
+        vm.setupScene(initialCameraMode: cameraMode, enhanced: false, autoStart: false)
+        isScenePrepared = true
     }
 
-    /// Reference-only palette: the question owns the balls; changing a ball would change the task.
-    private var topBallPalette: some View {
+    private var quizTable: some View {
         GeometryReader { geo in
-            let keys = PositionPlayBall.allKeys
-            let diameter = min(24, max(12, (geo.size.width - CGFloat(keys.count - 1) * 3) / CGFloat(keys.count)))
-            HStack(spacing: 3) {
-                ForEach(keys, id: \.self) { key in
-                    let isTarget = PositionPlayBall.number(for: key) == vm.targetBallNumber
-                    PoolBallFace(key: key, diameter: diameter)
-                        .opacity(isTarget || key == PositionPlayBall.cueKey ? 1 : 0.25)
-                        .overlay(Circle().stroke(isTarget ? HUDStyle.accent : Color.clear, lineWidth: 2))
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            let extraTop = UIDevice.current.userInterfaceIdiom == .pad ? max(0, windowSafeArea.top - geo.safeAreaInsets.top) : 0
+            let extraBottom = UIDevice.current.userInterfaceIdiom == .pad ? max(0, windowSafeArea.bottom - geo.safeAreaInsets.bottom) : 0
+            let size = CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
+                              height: max(0, geo.size.height - extraTop - extraBottom))
+            quizTemplate(size: size, safe: max(geo.safeAreaInsets.leading, geo.safeAreaInsets.trailing))
+                .frame(width: geo.size.width + geo.safeAreaInsets.trailing, alignment: .leading)
+                .padding(.top, extraTop).padding(.bottom, extraBottom)
+                .offset(x: -geo.safeAreaInsets.leading)
+                .ignoresSafeArea(.container, edges: .trailing)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("球库，当前目标球\(vm.targetBallNumber)号")
-        .accessibilityIdentifier("angleTraining.palette")
-        .allowsHitTesting(false)
+    }
+
+    private func quizTemplate(size: CGSize, safe: CGFloat) -> some View {
+        let side = max(4, safe)
+        let keys = PositionPlayBall.allKeys.filter { !PositionPlayBall.isCue($0) }
+        let reservation = DailyLayoutMetrics.FoundationReservation(width: size.width - 2 * side,
+            targetCount: keys.count, chineseEightBall: true, titleWidth: 92, actionWidth: 138,
+            prefersSeparateRow: size.height > size.width || size.height >= 600,
+            separateWidth: size.width > size.height && size.height < 600 ? size.width - 2 * (side + 68) : nil)
+        let f = DailyLayoutMetrics.Foundation(size: size, leadingSafeArea: safe, trailingSafeArea: safe,
+            halfLength: vm.scene.cameraRig?.tableOuterHalfLength ?? CameraRig.defaultTableOuterHalfLength,
+            halfWidth: vm.scene.cameraRig?.tableOuterHalfWidth ?? CameraRig.defaultTableOuterHalfWidth,
+            instrumentHeight: DailyLayoutMetrics.Controls.initialInstrumentHeight, palette: reservation)
+        let plan = DailyLayoutMetrics.Palette(size: size, sideInset: side, table: f.table,
+            targetCount: keys.count, chineseEightBall: true, obstacles: [
+                CGRect(x: side + windowControls.left, y: 0, width: 44, height: 44),
+                CGRect(x: side + windowControls.left + 32, y: (44 - titleSize.height) / 2,
+                       width: titleSize.width, height: titleSize.height),
+                CGRect(x: size.width - side - windowControls.right - 44, y: 0, width: 44, height: 44), f.left, f.right])
+        let ppm = f.table.height / CGFloat(2 * (f.rotated
+            ? (vm.scene.cameraRig?.tableOuterHalfLength ?? CameraRig.defaultTableOuterHalfLength)
+            : (vm.scene.cameraRig?.tableOuterHalfWidth ?? CameraRig.defaultTableOuterHalfWidth)))
+        return ZStack(alignment: .topLeading) {
+            DailyTemplateHeader(size: size, safe: safe, foundation: f, plan: plan,
+                targets: keys, chineseEightBall: true, titleWidth: titleSize.width, titleHeight: titleSize.height,
+                windowControlInsets: windowControls, fps: fps, showsDeviceStatus: !systemStatusVisible,
+                title: {
+                    HStack(spacing: -12) {
+                        Button { dismiss() } label: {
+                            Image(systemName: "chevron.left").font(.btTitle2)
+                                .frame(width: 44, height: 44).contentShape(Rectangle())
+                        }.accessibilityLabel("返回").accessibilityIdentifier("angleTraining.back")
+                        BTTrainingPageTitle(text: is3D ? "3D角度" : "2D角度")
+                            .background(GeometryReader { g in
+                                Color.clear.preference(key: AngleQuizTitleSize.self, value: g.size)
+                            })
+                    }.fixedSize(horizontal: true, vertical: false)
+                        .onPreferenceChange(AngleQuizTitleSize.self) { titleSize = $0 }
+                }, actions: {
+                    Button { showMenu = true } label: {
+                        Image(systemName: BTIcon.menuCircle).font(.btTitle2)
+                            .frame(width: 44, height: 44)
+                            .background { BTHUDControlBackground(shape: Circle()) }
+                    }.accessibilityLabel("更多").accessibilityIdentifier("angleTraining.settings")
+                }, ball: { key, diameter, height in
+                    let selected = PositionPlayBall.number(for: key) == vm.targetBallNumber
+                    PoolBallFace(key: key, diameter: diameter).opacity(selected ? 1 : 0.25)
+                        .overlay(Circle().stroke(selected ? HUDStyle.accent : .clear, lineWidth: 1))
+                        .frame(width: diameter + 2, height: height)
+                        .accessibilityLabel("\(PositionPlayBall.shortLabel(for: key))号球")
+                        .accessibilityValue(selected ? "当前目标球" : "参考球")
+                        .accessibilityIdentifier("angleTraining.ball." + key)
+                }, paletteMarker: { Color.clear.accessibilityElement().accessibilityIdentifier("angleTraining.palette") })
+                .background(DailyWindowControlInsets { controls, window, visible in
+                    windowControls = controls; windowSafeArea = window; systemStatusVisible = visible
+                }.allowsHitTesting(false))
+            Color.clear.accessibilityElement().accessibilityIdentifier("angleTraining.stage")
+                .frame(width: f.stage.width, height: f.stage.height)
+                .background(GeometryReader { g in
+                    Color.clear.preference(key: AngleQuizReadableFrame.self, value: g.frame(in: .global))
+                })
+                .position(x: f.stage.midX, y: f.stage.midY).allowsHitTesting(false)
+            if is3D {
+                observationColumn.position(x: f.right.midX - f.right.width / 2 - 26, y: f.table.midY)
+            }
+            questionInformation.frame(width: f.left.width).position(x: f.left.midX, y: f.table.midY)
+            actionColumn.frame(height: min(200, f.stage.height)).position(x: f.right.midX, y: f.table.midY)
+            if vm.phase == .inputting, !vm.testFinished {
+                keypadOverlay.frame(width: min(280, f.stage.width))
+                    .padding(.bottom, 8).padding(.trailing, size.width - f.stage.maxX)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            }
+            if vm.testFinished {
+                Color.black.opacity(0.32)
+                ScrollView { summaryOverlay }.frame(width: min(520, size.width - 16), height: size.height - 32)
+                    .position(x: size.width / 2, y: size.height / 2)
+            } else if vm.limiter.isLimitReached {
+                BTDailyLimitGate(compact: vm.phase == .showingResult) { showSubscription = true }
+                    .frame(width: min(400, f.stage.width)).position(x: f.stage.midX, y: f.stage.midY)
+            }
+            if showMenu {
+                Button { showMenu = false } label: { Color.clear.contentShape(Rectangle()) }
+                    .buttonStyle(.plain).accessibilityLabel("关闭菜单").accessibilityIdentifier("angleTraining.dismissMenu")
+                DailyHUDMenuPanel(title: nil, items: quizSettingsItems,
+                    availableSize: CGSize(width: size.width - 2 * side, height: size.height - DailyLayoutMetrics.Panels.top - 8),
+                    onBack: { showMenu = false }, onClose: { showMenu = false })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(.top, DailyLayoutMetrics.Panels.top).padding(.trailing, side + windowControls.right)
+            }
+        }
+        .frame(width: size.width, height: size.height)
+        .background {
+            // Daily Clearance's renderer ownership: measure the full window behind
+            // the safe HUD, and keep one SCNView alive as projection/layout changes.
+            GeometryReader { viewport in
+                let fullFrame = viewport.frame(in: .global)
+                let renderFrame = is3D ? fullFrame : (cameraReadableFrame ?? fullFrame)
+                sceneFullscreen
+                    .frame(width: renderFrame.width, height: renderFrame.height)
+                    .position(x: renderFrame.midX - fullFrame.minX,
+                              y: renderFrame.midY - fullFrame.minY)
+                    .opacity(is3D || cameraReadableFrame != nil ? 1 : 0)
+                    .allowsHitTesting(!showMenu)
+            }
+            .ignoresSafeArea()
+        }
+        .background {
+            DailyCarpetBackground(style: preferences.roomStyle, pointsPerMetre: ppm).ignoresSafeArea()
+        }
+        .environment(\.colorScheme, .dark).environment(\.dailyHUDControls, true)
+        .onChange(of: size.height > size.width, initial: true) { _, rotated in
+            portrait = rotated
+            if !is3D { vm.setCameraMode(rotated ? .topDown2DRotated : .topDown2D) }
+            showMenu = false
+        }
+        .onPreferenceChange(AngleQuizReadableFrame.self) { cameraReadableFrame = $0 }
+        .sheet(isPresented: $showSubscription) { SubscriptionView().environmentObject(subscriptionManager) }
+    }
+
+    private var quizSettingsItems: [DailyHUDMenuItem] {
+        [.init(id: "angleTraining.display", title: "显示"),
+         .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: preferences.showTableGrid, action: {
+            preferences.showTableGrid.toggle(); vm.scene.setTableGridVisible(preferences.showTableGrid)
+            showMenu = false
+         }),
+         .init(id: "angleTraining.trainingSettings", title: "训练设置", disclosure: true, action: {
+            showMenu = false; vm.showSettings = true
+         })]
+    }
+
+    private var questionInformation: some View {
+        Group {
+            if vm.phase == .showingResult, let record = vm.sessionResults.last { resultHUD(record: record) }
+            else if vm.currentQuestion != nil { progressPill }
+        }.accessibilityElement(children: .contain).accessibilityIdentifier("angleTraining.questionInfo")
     }
 
     // MARK: - 答题键盘浮层（G10：不改变 scene 高度）
@@ -203,7 +256,7 @@ struct SceneAimingView: View {
             onSubmit: { vm.submitAnswer() },
             onCancel: { vm.cancelAnswerInput() }
         )
-        .environment(\.colorScheme, .dark)
+        .environment(\.colorScheme, pageColorScheme)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .transition(.move(edge: .trailing).combined(with: .opacity))
     }
@@ -217,15 +270,19 @@ struct SceneAimingView: View {
                 scene: vm.scene,
                 cameraMode: .constant(cameraMode),
                 interactionMode: interactionMode,
-                // Anchor-lock only matters in 3D — in 2D the camera is already
-                // fixed top-down. The lock guard inside AngleSceneView already
-                // bypasses it for non-perspective modes, so this is just an
-                // extra defence.
-                locksCueBallScreenAnchor: is3D,
                 // Landscape uses the same whole-table fitting as Daily Clearance.
                 // World ball positions and the question's pocket index stay fixed.
                 autoFitsLandscapeTable: !is3D,
-                onPocketTapped: nil // Target pocket is fixed by the question; no selection action.
+                backgroundColor: is3D ? .black : .clear,
+                onPocketTapped: nil, // The question owns the pocket.
+                contentIsAnimating: vm.cameraTransitionBusy,
+                fpsReadoutState: fps,
+                twoViewReadableFrameInWindow: is3D ? cameraReadableFrame : nil,
+                onCameraObservationBegan: { vm.beginCameraObservation() },
+                onCameraObservationEnded: { vm.endCameraObservation() },
+                onTemporaryTopDownDismiss: { vm.endTemporaryTopDown() },
+                topDownContentRevision: vm.topDownContentRevision,
+                usesStandardTemporaryTable: is3D
             )
             .clipped()
             .accessibilityIdentifier("angleTraining.scene")
@@ -244,52 +301,29 @@ struct SceneAimingView: View {
     /// inputting / showingResult: all gestures disabled so the keypad and
     /// result HUD aren't fighting touch events.
     private var interactionMode: AngleSceneView.InteractionMode {
-        guard vm.phase == .observing, !vm.showSettings, !vm.testFinished,
+        guard vm.phase == .observing, !showMenu, !vm.showSettings, !vm.testFinished,
               !vm.limiter.isLimitReached else { return .none }
         return is3D ? .cameraControl : .tapsOnly
     }
 
     // MARK: - Question actions
 
-    private var observationColumn: some View {
-        VStack(spacing: Spacing.md) {
-            Spacer(minLength: 0)
-            if is3D {
-                if let rig = vm.scene.cameraRig {
-                    ShotPlayerCameraButtons(rig: rig,
-                        isEnabled: vm.phase == .observing && vm.currentQuestion != nil && !vm.testFinished,
-                        onWholeTable: {
-                            vm.scene.discardSavedPerspectiveView()
-                            rig.observeWholeTable()
-                        }, onSelect: { requestPlayerView($0) })
-                }
-                BTSceneObservationMenu(scene: vm.scene,
-                    targetNode: vm.scene.targetBallNodes.first,
-                    pocketIndex: vm.selectedPocketIndex,
-                    identifierPrefix: "angleTraining") {
-                        requestPlayerView(.firstPerson)
-                    }
-                    .background(HUDStyle.controlBackground, in: RoundedRectangle(cornerRadius: BTRadius.md))
-                    .overlay(RoundedRectangle(cornerRadius: BTRadius.md)
-                        .stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-                    .disabled(vm.phase != .observing || vm.currentQuestion == nil || vm.testFinished)
-            }
+    @ViewBuilder private var observationColumn: some View {
+        if let rig = vm.scene.cameraRig {
+            ShotPlayerCameraButtons(controlSpacing: 4, rig: rig,
+                isEnabled: vm.phase != .inputting && !vm.showSettings && !showMenu
+                    && vm.currentQuestion != nil && !vm.testFinished && !vm.limiter.isLimitReached,
+                onWholeTable: { vm.requestSurfaceOverview() },
+                usesTwoViewControls: rig.usesTwoViewCameraControls,
+                temporaryTopDownActive: vm.temporaryTopDownActive,
+                onTemporaryTopDownBegan: { vm.beginTemporaryTopDown() },
+                onTemporaryTopDownEnded: { vm.endTemporaryTopDown() },
+                onSelect: { requestPlayerView($0) })
         }
-        .frame(width: 52)
-        .padding(.vertical, Spacing.sm)
     }
 
     private var actionColumn: some View {
         VStack(spacing: Spacing.sm) {
-            Group {
-                if vm.phase == .showingResult, let record = vm.sessionResults.last {
-                    resultHUD(record: record)
-                } else if vm.currentQuestion != nil {
-                    progressPill
-                }
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("angleTraining.questionInfo")
             Spacer(minLength: 0)
             if vm.phase == .observing, !vm.testFinished, vm.currentQuestion != nil,
                !vm.limiter.isLimitReached {
@@ -297,12 +331,12 @@ struct SceneAimingView: View {
                     Text(vm.showAimingAssist ? "隐藏" : "辅助")
                         .font(.btSubheadlineSemibold)
                         .foregroundStyle(vm.showAimingAssist ? HUDStyle.accent : .white)
-                        .frame(width: 52, height: 44)
-                        .background(HUDStyle.controlBackground, in: RoundedRectangle(cornerRadius: BTRadius.md))
-                        .overlay(RoundedRectangle(cornerRadius: BTRadius.md)
+                        .frame(width: 52, height: 52)
+                        .background { BTHUDControlBackground(shape: Circle()) }
+                        .overlay(Circle()
                             .stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(BTHUDPressStyle())
                 .accessibilityIdentifier("angleTraining.assist")
                 .accessibilityValue(vm.showAimingAssist ? "已开启" : "已关闭")
                 primaryAction("答题") { vm.openAnswerInput() }
@@ -310,7 +344,7 @@ struct SceneAimingView: View {
                 primaryAction(nextButtonTitle) { vm.advanceToNext() }
             }
         }
-        .frame(width: 96)
+        .frame(width: 60)
         .padding(.vertical, Spacing.sm)
         .environment(\.colorScheme, .dark)
     }
@@ -319,11 +353,8 @@ struct SceneAimingView: View {
         Button(action: action) {
             Text(title).font(.btSubheadlineSemibold)
                 .frame(width: 52, height: 52)
-                .foregroundStyle(HUDStyle.onAccent)
-                .background(HUDStyle.accent, in: Circle())
-                .overlay(Circle().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(DailyStrikeButtonStyle())
         .accessibilityIdentifier("angleTraining.primaryAction")
     }
 
@@ -366,7 +397,9 @@ struct SceneAimingView: View {
         // Perspective can orbit: describe the highlighted pocket, not a screen direction.
         if is3D { return question.pocket.type == .corner ? "高亮角袋" : "高亮中袋" }
         // topDown2D: screen-right = +X; screen-down = +Z (normalized y).
-        let names = ["左上角袋", "右上角袋", "左下角袋", "右下角袋", "上侧中袋", "下侧中袋"]
+        let names = portrait
+            ? ["左下角袋", "左上角袋", "右下角袋", "右上角袋", "左侧中袋", "右侧中袋"]
+            : ["左上角袋", "右上角袋", "左下角袋", "右下角袋", "上侧中袋", "下侧中袋"]
         return names.indices.contains(question.pocketIndex) ? names[question.pocketIndex] : "—"
     }
 
@@ -394,10 +427,12 @@ struct SceneAimingView: View {
 
     // MARK: - Settings Sheet
 
-    /// 完整训练设置（T-P18-48 入口流程）：进页先弹本 sheet 再开始；训练中
-    /// 三点再开、点「开始训练」按新设置重开一轮。§1.6：浮出层统一暗材质。
+    /// 同一份训练设置：两个入口首次由外层导航承载，训练中从共用菜单打开。
     private var settingsSheet: some View {
-        NavigationStack {
+        NavigationStack { settingsContent }
+    }
+
+    private var settingsContent: some View {
             List {
                 Section("练习模式") {
                     Picker("模式", selection: $vm.practiceMode) {
@@ -422,26 +457,28 @@ struct SceneAimingView: View {
                         }
                     }
                 }
-                Section("显示") {
-                    BTTableGridMenuToggle(scene: vm.scene)
-                }
             }
             .navigationTitle("训练设置")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(!hasStarted)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(vm.currentQuestion == nil ? "开始训练" : "重新开始") {
+                        prepareScene()
+                        hasStarted = true
                         vm.showSettings = false
                         vm.startTest()
                         applyAimingPoseForCurrentQuestion(reason: "settingsConfirm.startTest")
                     }
                     .fontWeight(.semibold)
+                    .accessibilityIdentifier("angleTraining.start")
+                }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(hasStarted ? "完成" : "返回") {
+                        if hasStarted { vm.showSettings = false } else { dismiss() }
+                    }.accessibilityIdentifier("angleTraining.settingsClose")
                 }
             }
-        }
-        // §1.6 浮出层统一暗材质：preferredColorScheme 能同时压暗 sheet 的
-        // presentation 背景（environment(\.colorScheme) 只影响内容层）。
-        .preferredColorScheme(.dark)
     }
 
     // MARK: - Summary
@@ -502,7 +539,7 @@ struct SceneAimingView: View {
             #endif
             return
         }
-        let dir = cueToTargetDirection()
+        guard let dir = vm.currentPlayerAim else { return }
         #if DEBUG
         print(String(format:
             "[SceneAiming.applyAimingPose] ENTER reason=%@ qIndex=%d cue=(%.3f,%.3f,%.3f) dir=(%.3f,%.3f) prevZoom=%.2f",
@@ -516,24 +553,11 @@ struct SceneAimingView: View {
     }
 
     private func requestPlayerView(_ view: CameraRig.PlayerView) {
-        guard is3D, let cue = vm.scene.cueBallNode, let rig = vm.scene.cameraRig else { return }
+        guard is3D else { return }
         preferredPlayerView = view
-        vm.scene.discardSavedPerspectiveView()
-        rig.observationCandidates = [cue.position] + vm.scene.targetBallNodes.map(\.position)
-        rig.enterPlayerView(view, cue: cue.position, aim: cueToTargetDirection(),
-            duration: UIAccessibility.isReduceMotionEnabled ? 0.1 : 0.95)
+        vm.requestPlayerView(view)
     }
 
-    /// World-space horizontal vector cue → target, or `-X` fallback.
-    private func cueToTargetDirection() -> SCNVector3 {
-        guard let cueBall = vm.scene.cueBallNode else { return SCNVector3(-1, 0, 0) }
-        guard let target = vm.scene.targetBallNodes.first else { return SCNVector3(-1, 0, 0) }
-        let dx = target.position.x - cueBall.position.x
-        let dz = target.position.z - cueBall.position.z
-        let len = sqrtf(dx * dx + dz * dz)
-        guard len > 0.0001 else { return SCNVector3(-1, 0, 0) }
-        return SCNVector3(dx / len, 0, dz / len)
-    }
 }
 
 #Preview("2D · Light") {
@@ -552,4 +576,25 @@ struct SceneAimingView: View {
             .environmentObject(SubscriptionManager.shared)
     }
     .preferredColorScheme(.dark)
+}
+
+private struct AngleQuizTitleSize: PreferenceKey {
+    static let defaultValue = CGSize(width: 60, height: 34)
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) { value = nextValue() }
+}
+
+private struct AngleQuizReadableFrame: PreferenceKey {
+    static let defaultValue: CGRect? = nil
+    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) { value = nextValue() ?? value }
+}
+
+/// The four training routes share the existing title reservation; renaming must
+/// not feed a wider budget back into the palette/table layout.
+struct BTTrainingPageTitle: View {
+    let text: String
+    var body: some View {
+        Text(text).font(.btFootnote.weight(.semibold)).lineLimit(1)
+            .frame(width: 60, height: 34, alignment: .leading)
+            .accessibilityIdentifier("training.pageTitle")
+    }
 }

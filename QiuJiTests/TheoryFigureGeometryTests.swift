@@ -1,5 +1,6 @@
 import XCTest
 import CoreGraphics
+import UIKit
 @testable import QiuJi
 
 /// v30 W1 返工 r1：球理页说明图所依赖的几何不变量。
@@ -14,6 +15,29 @@ import CoreGraphics
 /// - 直角标记两边 ← 同上两向量 ⇒ 世界直角；投影为均匀缩放线性映射 ⇒ 屏上仍是直角
 /// - 接触点 ← `scene.contact`（= 两球心中点，= `scene.targetContact`）
 final class TheoryFigureGeometryTests: XCTestCase {
+
+    @MainActor
+    func testResizedFigureUsesUniformImageProjection() {
+        for orientation in [TableFigureRenderer.Backdrop.Orientation.landscape, .portrait] {
+            let backdrop = TableFigureRenderer.Backdrop(image: UIImage(), orientation: orientation,
+                orthoScale: 0.6, aspect: 1.4, center: CGPoint(x: 0.2, y: -0.1))
+            for size in [CGSize(width: 300, height: 260), CGSize(width: 720, height: 250), CGSize(width: 820, height: 400)] {
+                let projection = TableFigureProjection(backdrop: backdrop, size: size)
+                let origin = projection.point(x: 0.2, z: -0.1)
+                let x = projection.point(x: 0.3, z: -0.1), z = projection.point(x: 0.2, z: 0)
+                let vx = CGPoint(x: x.x - origin.x, y: x.y - origin.y)
+                let vz = CGPoint(x: z.x - origin.x, y: z.y - origin.y)
+                XCTAssertEqual(origin.x, size.width / 2, accuracy: 1e-8)
+                XCTAssertEqual(origin.y, size.height / 2, accuracy: 1e-8)
+                XCTAssertEqual(hypot(vx.x, vx.y), hypot(vz.x, vz.y), accuracy: 1e-8)
+                XCTAssertEqual(vx.x * vz.x + vx.y * vz.y, 0, accuracy: 1e-8)
+                XCTAssertEqual(hypot(vx.x, vx.y), projection.length(0.1), accuracy: 1e-8)
+                let renderedHeight = max(size.height, size.width / backdrop.aspect)
+                XCTAssertEqual(projection.ballDiameter,
+                    CGFloat(AngleSceneCalculator.ballRadius) * renderedHeight / backdrop.orthoScale, accuracy: 1e-8)
+            }
+        }
+    }
 
     /// 页级 θ 滑条范围（`LearnControlStrip.Theta.defaultRange` = 5…75）全域扫描。
     private let thetas: [CGFloat] = [5, 12, 20, 30, 42, 55, 68, 75]

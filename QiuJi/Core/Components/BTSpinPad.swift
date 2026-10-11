@@ -396,18 +396,22 @@ struct BTSpinPadCard: View {
         VStack(spacing: 0) {
             BTHoldRepeatButton(icon: "chevron.up", accessibility: "高杆增加 1%") { nudge(.up) }
             HStack(spacing: 0) {
-                BTHoldRepeatButton(icon: "chevron.left", accessibility: "左塞增加 1%") { nudge(.left) }
-                    .opacity(locksSideSpin ? 0 : 1)
-                    .allowsHitTesting(!locksSideSpin)
-                    .accessibilityHidden(locksSideSpin)
+                if locksSideSpin {
+                    Color.clear.frame(width: SpinPadLayout.keyHit, height: SpinPadLayout.keyHit)
+                        .accessibilityHidden(true)
+                } else {
+                    BTHoldRepeatButton(icon: "chevron.left", accessibility: "左塞增加 1%") { nudge(.left) }
+                }
                 BTSpinPad(spinX: $spinX, spinY: $spinY, locksSideSpin: locksSideSpin,
                           strikeAccess: strikeAccess, discOpacity: discOpacity, onSpinChange: onSpinChange)
                     .frame(width: padDiameter, height: padDiameter)
                     .accessibilityIdentifier("spinPad.disc")
-                BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") { nudge(.right) }
-                    .opacity(locksSideSpin ? 0 : 1)
-                    .allowsHitTesting(!locksSideSpin)
-                    .accessibilityHidden(locksSideSpin)
+                if locksSideSpin {
+                    Color.clear.frame(width: SpinPadLayout.keyHit, height: SpinPadLayout.keyHit)
+                        .accessibilityHidden(true)
+                } else {
+                    BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") { nudge(.right) }
+                }
             }
             HStack(spacing: 0) {
                 Text((!isReadOnly && !(strikeAccess?.isAvailable(spinX:spinX,spinY:spinY) ?? true)) ? "当前打点受限" : SpinDisplay.readout(spinX: spinX, spinY: spinY))
@@ -685,13 +689,15 @@ struct BTSceneSpinPadOverlay: View {
     let bottomPadding: CGFloat
     var fixedCardExtent: CGFloat? = nil
     var discOpacity: Double = 1
+    var locksSideSpin = false
     var cardHorizontalOffset: CGFloat = 0
+    var isReadOnly = false
     /// A host can submit both axes as one intent; nil preserves the binding behavior.
     var onSpinChange: ((Double, Double) -> Void)? = nil
     var onClose: () -> Void
     var body: some View {
         BTSpinPadOverlay(spinX:$spinX,spinY:$spinY,tableWidth:tableWidth,
-            bottomPadding:bottomPadding,strikeAccess:scene.cueAccessSnapshot,
+            bottomPadding:bottomPadding,isReadOnly:isReadOnly,locksSideSpin:locksSideSpin,strikeAccess:scene.cueAccessSnapshot,
             usesCompactLayout:true,usesFixedLayout:true,fixedCardExtent:fixedCardExtent,discOpacity:discOpacity,
             cardHorizontalOffset:cardHorizontalOffset,
             onSpinChange:onSpinChange,onClose:onClose)

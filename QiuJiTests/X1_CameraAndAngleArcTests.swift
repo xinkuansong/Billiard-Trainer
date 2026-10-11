@@ -14,14 +14,14 @@ final class X1_CameraAndAngleArcTests: XCTestCase {
         limiter.isPremium = true
         let vm = AimPointSceneQuizViewModel(limiter: limiter)
         vm.setupScene(cameraMode: .perspective3D)
-        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 375, height: 480))
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 874, height: 402))
         view.scene = vm.scene
         view.pointOfView = vm.scene.cameraNode
         let rig = try XCTUnwrap(vm.scene.cameraRig)
         rig.viewportSize = view.bounds.size
         for cycle in 0..<3 {
             vm.nextQuestion()
-            rig.snapToTarget()
+            for _ in 0..<1200 { rig.update(deltaTime: 1 / 120) }
             SCNTransaction.flush()
             let question = try XCTUnwrap(vm.question)
             let cue = try XCTUnwrap(vm.scene.cueBallNode)
@@ -40,10 +40,13 @@ final class X1_CameraAndAngleArcTests: XCTestCase {
             let targetPose = target.simdTransform
             let stick = try XCTUnwrap(vm.scene.cueStick?.rootNode)
             let aimPose = stick.simdTransform
-            XCTAssertTrue(rig.observeWholeTable())
-            rig.observe(at: vm.scene.visualCenter(of: target))
+            vm.requestSurfaceOverview()
+            for _ in 0..<1200 { rig.update(deltaTime: 1 / 120) }
+            XCTAssertTrue(rig.overviewControlSelected)
+            vm.beginCameraObservation()
+            vm.endCameraObservation()
             vm.applyAimingPoseIfNeeded()
-            rig.snapToTarget()
+            for _ in 0..<1200 { rig.update(deltaTime: 1 / 120) }
             XCTAssertEqual(cue.simdTransform, cuePose)
             XCTAssertEqual(target.simdTransform, targetPose)
             XCTAssertEqual(stick.simdTransform, aimPose)
@@ -53,6 +56,49 @@ final class X1_CameraAndAngleArcTests: XCTestCase {
             XCTAssertTrue(vm.sessionResults.isEmpty)
             XCTAssertNil(vm.lastErrorMM)
         }
+    }
+
+    @MainActor
+    func testTrainingSingleLineTitlesFitExistingReservation() {
+        let font = UIFont.systemFont(ofSize: 13, weight: .semibold)
+        for title in ["2D角度", "3D角度", "2D瞄准点", "3D瞄准点"] {
+            let width = (title as NSString).size(withAttributes: [.font: font]).width
+            print("Training title width: \(title) = \(width) / 60pt")
+            XCTAssertLessThanOrEqual(width, 60)
+        }
+    }
+
+    @MainActor
+    func testAimPointUsesSharedCameraAndTemporaryStateWithoutChangingAnswer() throws {
+        let suite = "p10-camera-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName:suite))
+        defer { defaults.removePersistentDomain(forName:suite) }
+        let limiter = AngleUsageLimiter(defaults:defaults); limiter.isPremium = true
+        let vm = AimPointSceneQuizViewModel(limiter:limiter)
+        vm.setupScene(cameraMode:.perspective3D)
+        defer { vm.stopTraining() }
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = CGSize(width:874,height:402)
+        vm.applyAimingPoseIfNeeded()
+        XCTAssertTrue(rig.usesTwoViewCameraControls)
+        let question = try XCTUnwrap(vm.question)
+        vm.nudgeAim(byDegrees:2)
+        let aim = try XCTUnwrap(vm.currentPlayerAim)
+        for mode: CameraRig.PlayerView in [.firstPerson,.thirdPerson] {
+            XCTAssertTrue(vm.requestPlayerView(mode,animated:false))
+            XCTAssertEqual(vm.currentPlayerAim?.x,aim.x)
+            XCTAssertEqual(vm.currentPlayerAim?.z,aim.z)
+        }
+        vm.beginTemporaryTopDown()
+        XCTAssertTrue(vm.temporaryTopDownActive)
+        let revision = vm.topDownContentRevision
+        vm.nudgeAim(byDegrees:1)
+        XCTAssertGreaterThan(vm.topDownContentRevision,revision)
+        vm.endTemporaryTopDown()
+        XCTAssertFalse(vm.temporaryTopDownActive)
+        XCTAssertEqual(vm.question?.cueBall,question.cueBall)
+        XCTAssertTrue(vm.sessionResults.isEmpty)
+        XCTAssertFalse(try XCTUnwrap(vm.scene.cueStick).rootNode.isHidden)
     }
 
     /// World X/Z table plane, Y up, metres. Verify SceneKit's actual projection,
@@ -262,6 +308,49 @@ final class AngleDiagramAnnotationTests: XCTestCase {
             XCTAssertEqual(actual[0], expected[0], accuracy: 0.01)
             XCTAssertEqual(actual[1], expected[1], accuracy: 0.01)
         }
+    }
+
+    func testTemporaryTeachingLabelsUseOverlayProjectionWithoutMutatingMainScene() throws {
+        let vm = SeparationAngleAtlasViewModel(); vm.setupScene()
+        let scene = vm.scene
+        let rig = try XCTUnwrap(scene.cameraRig)
+        let size = CGSize(width: 874, height: 402)
+        rig.viewportSize = size
+        vm.setCameraMode(.perspective3D)
+        vm.beginTemporaryTopDown()
+        let frame = try XCTUnwrap(rig.temporaryTopDownOverlayFrame)
+        let main = SCNView(frame: CGRect(origin: .zero, size: size))
+        main.scene = scene; main.pointOfView = scene.cameraNode
+        let mainLabels = DiagramLabelOverlay()
+        mainLabels.update(scene: scene, in: main)
+        let sourcePose = try XCTUnwrap(scene.cameraNode).simdWorldTransform
+        let arcs = try XCTUnwrap(scene.angleArcNode).childNodes.filter { $0.name == "diagramTableArc" }
+        XCTAssertFalse(arcs.isEmpty)
+        XCTAssertTrue(arcs.allSatisfy { !$0.isHidden })
+        let overlay = SCNView(frame: main.bounds)
+        overlay.scene = scene.makeTemporaryTopDownRenderScene()
+        let camera = SCNNode(); camera.camera = SCNCamera()
+        camera.camera?.usesOrthographicProjection = true
+        camera.camera?.orthographicScale = frame.orthographicScale
+        camera.camera?.zNear = 0.01; camera.camera?.zFar = 100
+        camera.simdPosition = frame.eye
+        camera.look(at: SCNVector3(frame.target.x, frame.target.y, frame.target.z),
+                    up: SCNVector3(frame.up.x, frame.up.y, frame.up.z), localFront: SCNVector3(0, 0, -1))
+        overlay.scene?.rootNode.addChildNode(camera); overlay.pointOfView = camera
+        SCNTransaction.flush()
+        let labels = DiagramLabelOverlay()
+        for _ in 0..<2 {
+            labels.update(scene: scene, in: overlay, projectionMode: .topDown2D)
+            let result = labels.diagnostic(in: overlay, scene: scene)
+            XCTAssertEqual(result["labelHidden"] as? Bool, false)
+            XCTAssertEqual(result["arcHidden"] as? Bool, false)
+            XCTAssertEqual(overlay.subviews.compactMap { $0 as? UILabel }.filter { !$0.isHidden }.count, 1)
+            XCTAssertEqual(try XCTUnwrap(scene.cameraNode).simdWorldTransform, sourcePose)
+            XCTAssertTrue(arcs.allSatisfy { !$0.isHidden }, "Overlay labels must not hide main-scene arcs")
+            labels.hide()
+            XCTAssertEqual(labels.diagnostic(in: overlay, scene: scene)["labelHidden"] as? Bool, true)
+        }
+        vm.endTemporaryTopDown()
     }
 
     func testAimRaySplitsAtVisibleRadiusAcrossDirections() throws {

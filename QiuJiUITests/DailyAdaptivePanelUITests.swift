@@ -387,8 +387,14 @@ final class DailyAdaptivePanelUITests: XCTestCase {
 
     private func mode(_ app: XCUIApplication, _ dimension: String) {
         let node = app.buttons["freeplay.cameraMode"]
+        let opened = !node.exists
+        if opened {
+            app.buttons["freeplay.moreMenu"].tap()
+            XCTAssertTrue(node.waitForExistence(timeout: 3))
+        }
         if node.value as? String != dimension { node.tap() }
         waitValue(node, dimension)
+        if opened { app.buttons["关闭菜单"].tap() }
     }
 
     private func state(_ app: XCUIApplication) throws -> [String: Double] {
@@ -513,7 +519,15 @@ final class DailyAdaptivePanelUITests: XCTestCase {
     func testDailySpinKeysResetAndOverlayPreventUnderlyingInput() throws {
         let app = try launch(); defer { app.terminate() }
         for dimension in ["2D", "3D"] {
-            mode(app, dimension)
+            // The C56 mode control now lives in the shared menu.
+            p01More(app)
+            let modeControl = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(modeControl.waitForExistence(timeout: 3))
+            if modeControl.value as? String != dimension { modeControl.tap() }
+            waitValue(modeControl, dimension)
+            let stageCenter = element(app, "freeplay.stage").frame
+            tap(app, at: CGPoint(x: stageCenter.midX, y: stageCenter.midY))
+            XCTAssertFalse(element(app, "dailyClearance.menuPanel").exists)
             let powerPoint = CGPoint(x: element(app, "shotStage.powerBar").frame.midX,
                                      y: element(app, "shotStage.powerBar").frame.midY)
             app.buttons["shotStage.spinEntry"].tap()
@@ -545,7 +559,9 @@ final class DailyAdaptivePanelUITests: XCTestCase {
             try JSONSerialization.data(withJSONObject: ["before": beforeOutside, "after": afterOutside])
                 .write(to: output.appendingPathComponent("spin-\(dimension)-outside-state.json"))
             if disc.exists { app.buttons["shotStage.spinEntry"].tap() }
-            openTransparency(app)
+            p01More(app)
+            customItem(app, "dailyClearance.spinTransparencyMenu").tap()
+            XCTAssertTrue(app.sliders["dailyClearance.spinTransparencySlider"].waitForExistence(timeout: 5))
             let panel = element(app, "dailyClearance.spinTransparencyPanel")
             try assertSpinCardInsideInnerRails(app)
             let before = try state(app)
@@ -886,8 +902,11 @@ final class DailyAdaptivePanelUITests: XCTestCase {
             try waitModel(app, "phase", "manualRacked", state: "confirm-\(dimension)-restarted")
             XCTAssertEqual(try modelField(app, "dailyShotCount"), "0")
             app.terminate()
+            // A pending rule decision intentionally disables the settings menu.
+            // The fixture enters 2D; exercise that real reachable state once, then switch after resolving.
+            guard dimension == "2D" else { continue }
             let weak = try launch(fixture: "weakBreak"); defer { weak.terminate() }
-            mode(weak, dimension)
+            XCTAssertFalse(weak.buttons["freeplay.moreMenu"].isEnabled)
             XCTAssertEqual(try modelField(weak, "breakChoiceCount"), "3")
             let notice = element(weak, "dailyClearance.notice")
             XCTAssertTrue(notice.exists)
@@ -905,6 +924,8 @@ final class DailyAdaptivePanelUITests: XCTestCase {
             XCTAssertEqual(try modelField(weak, "cuePlacement"), "anywhere")
             XCTAssertEqual(try modelField(weak, "dailyShotCount"), count)
             XCTAssertFalse(element(weak, "dailyClearance.ruleChoice.acceptBallInHand").exists)
+            mode(weak, "3D")
+            XCTAssertEqual(try modelField(weak, "cuePlacement"), "anywhere")
             weak.terminate()
         }
     }

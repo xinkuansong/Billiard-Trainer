@@ -69,6 +69,9 @@ __pycache__/
 # Working / scratch assets (not part of the build)
 /TaiQiuZhuo.usdz
 *.usdz
+# Reversible production model trial; originals remain in place.
+!QiuJi/Resources/ModelTrial20261010_TaiQiuZhuo.usdz
+!QiuJi/Resources/ModelTrial20261010_CueUV.usdz
 /drill_005/
 /problem_images/
 /table.png

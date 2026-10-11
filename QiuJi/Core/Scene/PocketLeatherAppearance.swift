@@ -39,8 +39,7 @@ enum PocketLeatherAppearance {
                 gain = "1.3135267863911544,21.81101806224492,10.883660841251789"
             } else if color == secondRoleTint {
                 gain = "0.6493951726466205,18.2971481216344,35.96047560473092"
-            } else if color == targetTint {
-                gain = "8.230530978671244,11.186813922401255,1.5325792484475174"
+
             } else { gain = nil }
             if let gain {
                 modifiers[.surface] = (previous.isEmpty ? "#pragma body" : previous)
@@ -61,6 +60,6 @@ enum PocketLeatherAppearance {
     static let secondRoleTint = UIColor(red: 0.20, green: 0.85, blue: 0.95, alpha: 1)
 
     static var targetTint: UIColor {
-        (UIColor(named: "btAccent") ?? UIColor(red: 0.941, green: 0.678, blue: 0.188, alpha: 1)).resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
+        UIColor(red: 50.0 / 255, green: 173.0 / 255, blue: 230.0 / 255, alpha: 1) // #32ADE6
     }
 }

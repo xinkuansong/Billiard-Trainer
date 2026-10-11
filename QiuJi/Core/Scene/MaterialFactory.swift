@@ -41,12 +41,86 @@ final class MaterialFactory {
     /// Apply low-roughness PBR + clearcoat fragment shader to every geometry under `node`.
     /// Always-on path; safe to call from both enhanced and plain pipelines.
     /// - Parameter diffuseOverride: when non-nil, replaces the USDZ-baked
-    ///   diffuse contents (texture or colour) with this colour. Used for
-    ///   the cue ball, whose USDZ texture carries scuff / fingerprint
-    ///   decorations that read as "dirt" under the studio lighting; the
-    ///   model stays clean white instead.
+    ///   diffuse contents (texture or colour) with this colour. Cue balls use
+    ///   applyCueBallBaseColor instead so their red spin markers survive.
     static func applyBallMaterial(to node: SCNNode, diffuseOverride: UIColor? = nil, usesClearcoat: Bool = true) {
         applyBallMaterialRecursive(node, diffuseOverride: diffuseOverride, usesClearcoat: usesClearcoat)
+    }
+
+    /// Approved B light ivory (#E8E3D5), shared by every cue-ball pipeline.
+    static let cueBallBaseColor = UIColor(red: 232.0 / 255, green: 227.0 / 255,
+                                         blue: 213.0 / 255, alpha: 1)
+    private static var cueBallWarmTexture: UIImage?
+
+    /// Recolour the neutral substrate of the bundled cue texture, retaining its
+    /// saturated red spin markers. Cache once; repeated scene setup cannot tint twice.
+    static func applyCueBallBaseColor(to node: SCNNode) {
+        enumerateMaterials(in: node) { material, _ in
+            textureCacheLock.lock()
+            defer { textureCacheLock.unlock() }
+            // Texture-free fallback balls have no markers to preserve.
+            if material.diffuse.contents is UIColor {
+                material.diffuse.contents = cueBallBaseColor
+                return
+            }
+            if let cached = cueBallWarmTexture {
+                material.diffuse.contents = cached
+                return
+            }
+            guard let source = cueBallSourceImage(from: material.diffuse.contents),
+                  let original = source.cgImage else { return }
+            let width = original.width, height = original.height
+            let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
+            var pixels = [UInt8](repeating: 0, count: width * height * 4)
+            let warmed: CGImage? = pixels.withUnsafeMutableBytes { bytes in
+                guard let context = CGContext(data: bytes.baseAddress, width: width, height: height,
+                    bitsPerComponent: 8, bytesPerRow: width * 4, space: colorSpace,
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+                context.draw(original, in: CGRect(x: 0, y: 0, width: width, height: height))
+                let rgba = bytes.bindMemory(to: UInt8.self)
+                for offset in stride(from: 0, to: rgba.count, by: 4) {
+                    let alpha = Float(rgba[offset + 3]) / 255
+                    guard alpha > 0 else { continue }
+                    let r = Float(rgba[offset]) / alpha
+                    let g = Float(rgba[offset + 1]) / alpha
+                    let b = Float(rgba[offset + 2]) / alpha
+                    // Red paint is retained exactly. Smooth neutral coverage also
+                    // preserves the original antialiased edges and alpha seam.
+                    let chroma = max(r, max(g, b)) - min(r, min(g, b))
+                    let t = max(0, min(1, 1 - chroma / 211))
+                    let coverage = t * t * (3 - 2 * t)
+                    for (channel, delta) in [Float(23), 28, 42].enumerated() {
+                        let value = Float(rgba[offset + channel]) - delta * coverage * alpha
+                        rgba[offset + channel] = UInt8(max(0, min(255, value.rounded())))
+                    }
+                }
+                return context.makeImage()
+            }
+            guard let warmed else { return }
+            let image = UIImage(cgImage: warmed, scale: source.scale, orientation: source.imageOrientation)
+            cueBallWarmTexture = image
+            material.diffuse.contents = image
+        }
+    }
+
+    /// SceneKit may expose USDZ images as a local archive URL plus byte range.
+    /// Decode only this cue texture; leave the shared cloth/wood image path alone.
+    static func cueBallSourceImage(from contents: Any?) -> UIImage? {
+        if let image = extractImage(from: contents) { return image }
+        guard let url = contents as? URL, url.isFileURL else { return nil }
+        let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        if let offsetText = query.first(where: { $0.name == "offset" })?.value,
+           let sizeText = query.first(where: { $0.name == "size" })?.value,
+           let offset = UInt64(offsetText), let size = Int(sizeText), size > 0, size <= 16_777_216 {
+            guard let handle = try? FileHandle(forReadingFrom: URL(fileURLWithPath: url.path)) else { return nil }
+            defer { try? handle.close() }
+            do {
+                try handle.seek(toOffset: offset)
+                guard let data = try handle.read(upToCount: size), data.count == size else { return nil }
+                return UIImage(data: data)
+            } catch { return nil }
+        }
+        return UIImage(contentsOfFile: url.path)
     }
 
     private static func applyBallMaterialRecursive(_ node: SCNNode, diffuseOverride: UIColor?, usesClearcoat: Bool) {

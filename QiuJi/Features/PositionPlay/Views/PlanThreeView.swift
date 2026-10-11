@@ -1,536 +1,196 @@
 import SwiftUI
 import SceneKit
 
-/// 「打一走二想三」走位规划卡。
-///
-/// 底部角色横排选 ①球/①袋 · ②球/②袋 · ③球（随时改派）；② 自动画白球停球**扇形引导**
-/// （无③两侧、有③单侧）。上方工具画真正的**落区/落点/过点**约束，`PositionPlaySolver`
-/// 反解「打一」的塞与力度，可「下一解」翻档、击球。打进①后窗口前滑续打。
+/// Constraint solving keeps its own model and actions inside the shared daily table shell.
 struct PlanThreeView: View {
-    /// 可选初始球形（球形生成器 / 拍照建球形交付的散开快照）。nil = 默认开箱球形。
     let initialBoard: BoardSnapshot?
-
-    init(initialBoard: BoardSnapshot? = nil) {
-        self.initialBoard = initialBoard
-    }
-
+    init(initialBoard: BoardSnapshot? = nil) { self.initialBoard = initialBoard }
     @StateObject private var vm = PlanThreeViewModel()
-    private var is3D: Bool { vm.cameraMode == .perspective3D }
-    @State private var hasAppeared = false
-    @State private var projector = TableProjector()
     @State private var showBreakPicker = false
-    @State private var showSpinPad = false
-
-    @State private var draggingKey: String?
-    @State private var dragLocation: CGPoint = .zero
-    @State private var dragOverTable = false
-
-    @State private var sceneFrame: CGRect = .zero
-    @State private var paletteFrame: CGRect = .zero
-    @State private var toast: BTToastMessage?
-
-    private static let c1 = Color.btPlanRole1
-    private static let c2 = Color.btPlanRole2
-    private static let c3 = Color.btPlanRole3
-    /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
-    private static let topRowHeight = ShotStageMetrics.topRowHeight
-    /// 底栏 = 角色横排 ~48 + 球库两行 regular 36（132；G12 后无解摘要行）。
-    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.planThree.rawValue
+    @AppStorage("planthree.spinTransparency") private var spinTransparency = 0.5
+    @AppStorage("planthree.hides3DAssists") private var hides3DAssists = false
+    private var busy: Bool { vm.isPlaying || vm.isComputing || vm.breakRunner?.isBusy == true }
+    private var toolName: String {
+        switch vm.activeTool { case .none: return "摆球"; case .region: return "落区"; case .restPoint: return "落点"; case .passPoint: return "过点" }
+    }
 
     var body: some View {
-        GeometryReader { geo in
-            let rig = vm.scene.cameraRig
-            let bottomHeight = is3D && !vm.isBreakMode ? 48 + Self.topRowHeight : Self.bottomBarHeight
-            let sceneH = max(geo.size.height - Self.topRowHeight - bottomHeight, 1)
-            let proxy = ShotStageProxy(
-                sceneSize: CGSize(width: geo.size.width, height: sceneH),
-                halfLength: rig?.tableOuterHalfLength ?? ShotTableLayout.defaultHalfLength,
-                halfWidth: rig?.tableOuterHalfWidth ?? ShotTableLayout.defaultHalfWidth
-            )
-            ZStack {
-                Color.black.ignoresSafeArea()
-                VStack(spacing: 0) {
-                    topToolRow
-                        .disabled(is3D)
-                        .frame(height: Self.topRowHeight)
-                    stage(proxy)
-                        .frame(height: sceneH)
-                    bottomBar(proxy)
-                        .frame(height: bottomHeight)
-                }
-                if let key = draggingKey {
-                    BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
-                }
-            }
-        }
-        .animation(BTMotion.springPanel, value: showSpinPad)
-        .btToast($toast)
-        .coordinateSpace(name: "planthree")
-        .onPreferenceChange(BTShotPageFramePreference.self) { frames in
-            if let s = frames["scene"] { sceneFrame = s }
-            if let p = frames["palette"] { paletteFrame = p }
-        }
-        .trainingBackgroundMusic()
-        .btDarkToolChrome("打一走二想三")
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                BTSolverNavStatus(
-                    title: "打一走二想三",
-                    isBusy: vm.isComputing,
-                    statusText: vm.breakRunner?.statusText(isPerspective: is3D) ?? vm.statusText
-                )
-            }
-            ToolbarItem(placement: .topBarTrailing) { cameraToggle }
-            ToolbarItem(placement: .topBarTrailing) { moreMenu }
-        }
+        BTTeachingTablePage(vm: vm, titleLabel: "打一走二想三", identifier: "planthree",
+            velocity: velocity, planning: controls,
+            information: informationItems, usesStandardTitle: true,
+            pairedLeftContent: vm.isBreakMode ? { AnyView(breakControls($0)) } : nil,
+            title: { EmptyView() },
+            leftContent: { size in leftControls(size) },
+            status: { EmptyView() }, onPalettePlace: { vm.placeFromPalette($0, atWorld: $1) })
+        .toolUsageSession(.planThree)
         .sheet(isPresented: $showBreakPicker) {
             BreakGamePickerSheet { vm.startBreakFlow(game: $0) }
-                .presentationDetents([.height(360)])
-                .presentationDragIndicator(.visible)
+                .presentationDetents([.height(360)]).presentationDragIndicator(.visible)
         }
-        .onAppear {
-            if !hasAppeared {
-                hasAppeared = true
-                vm.setupScene()
-                if let initialBoard { vm.loadBoard(initialBoard) }
-                applyUITestHooksIfNeeded()
-            }
-        }
-        // 工具活跃度（契约 §5.3）：只记停留时长，⛔ 不记引擎进袋结果。
-        .toolUsageSession(.planThree)
     }
 
-    /// UITest 确定性场景注入（Q15 截图取证）；生产无对应 launch arg ⇒ 不触发。
+    private var informationItems: [BTTeachingInformation] {
+        var items: [BTTeachingInformation] = [.init(
+            text: vm.breakRunner?.statusText(isPerspective: vm.cameraMode == .perspective3D) ?? vm.statusText,
+            symbol: !vm.isBreakMode && vm.objectBallCount == 0 ? "checkmark.circle" : nil, identifier: "planthree.status")]
+        if !vm.isBreakMode && vm.objectBallCount > 0 {
+            items.append(.init(text: roleSummary, kind: .readout, identifier: "planthree.rolesSummary",
+                expandedText: PlanThreeRole.order.map { roleTitle($0) + ":" + roleValue($0) }.joined(separator: "\n")))
+        }
+        return items
+    }
+
+    private func breakControls(_ metrics: BTTeachingInstrumentLayout) -> some View {
+        VStack(spacing: metrics.groupSpacing) {
+            BTTeachingInstrumentEntry(layout: metrics, label: "开球") {
+                Button {
+                    vm.breakRunner?.reRack()
+                    if vm.cameraMode == .perspective3D { vm.requestPlayerView(.thirdPerson) }
+                } label: {
+                    Image(systemName: "arrow.clockwise").font(.system(size: 22)).foregroundStyle(.white)
+                        .frame(width: metrics.topDiameter, height: metrics.topDiameter)
+                        .background { BTHUDControlBackground(shape: Circle()) }
+                }.buttonStyle(BTHUDPressStyle()).disabled(busy || vm.temporaryTopDownActive)
+                    .opacity(busy || vm.temporaryTopDownActive ? 0.3 : 1)
+                    .accessibilityLabel("重开").accessibilityIdentifier("break.rerack")
+            }
+            BTTeachingAimRuler(layout: metrics, enabled: !busy && !vm.temporaryTopDownActive,
+                onNudge: { vm.breakRunner?.nudgeAim(byDegrees: $0) },
+                degreesPerPoint: vm.breakRunner?.aimWheelDegreesPerPoint ?? AimWheelGain.defaultDegreesPerPoint)
+        }
+    }
+
+    private var velocity: Binding<Double> {
+        Binding(get: { vm.breakRunner?.velocity ?? vm.velocity }, set: {
+            if let runner = vm.breakRunner { runner.velocity = $0 }
+            else { vm.adjustCurrentSolution(velocity: $0) }
+        })
+    }
+    private var spinX: Binding<Double> {
+        Binding(get: { vm.breakRunner?.spinX ?? vm.spinX }, set: {
+            if let runner = vm.breakRunner { runner.spinX = $0 }
+            else { vm.adjustCurrentSolution(spinX: $0) }
+        })
+    }
+    private var spinY: Binding<Double> {
+        Binding(get: { vm.breakRunner?.spinY ?? vm.spinY }, set: {
+            if let runner = vm.breakRunner { runner.spinY = $0 }
+            else { vm.adjustCurrentSolution(spinY: $0) }
+        })
+    }
+    private var controls: BTTablePlanningControls {
+        BTTablePlanningControls(spinX: spinX, spinY: spinY, transparency: $spinTransparency,
+            hides3DAssists: Binding(get: { hides3DAssists }, set: { hides3DAssists = $0; vm.hides3DShotAssists = $0 }),
+            velocityRange: vm.isBreakMode ? BreakFlowRunner.breakVelocityRange : ShotTuning.velocityRange,
+            instrumentsEnabled: !busy && (vm.isBreakMode || vm.hasSolutions), isAnimating: busy,
+            paletteEnabled: !busy && !vm.isBreakMode,
+            primaryTitle: vm.breakRunner.map { $0.showsConfirm ? "完成" : "开球" } ?? (vm.isComputing ? "计算中" : "打一"),
+            primaryEnabled: vm.isBreakMode ? !busy : vm.canStrike,
+            onPrimary: {
+                if let runner = vm.breakRunner {
+                    if runner.showsConfirm { runner.confirmSettled() } else { runner.breakNow() }
+                } else { vm.play() }
+            }, onPaletteTap: { key in
+                if vm.onTableKeys.contains(key) { vm.pulseTableBall(key) } else { vm.placeFromPalette(key) }
+            }, menuItems: menuItems, refreshTrajectory: { vm.redrawTrajectory() },
+            onSetup: { vm.hides3DShotAssists = hides3DAssists; if let initialBoard { vm.loadBoard(initialBoard) }; applyUITestHooksIfNeeded() },
+            onDisappear: { vm.stopForDismissal() },
+            onAimNudged: vm.isBreakMode ? { vm.breakRunner?.nudgeAim(byDegrees: $0) } : nil,
+            overlay: { projector, frame in
+                if !vm.isBreakMode && !busy && vm.activeTool != .none {
+                    return AnyView(SolveConstraintDrawingOverlay(coordinateSpaceName: "planthree", sceneFrame: frame,
+                        unproject: { projector.unproject?($0) }, onDrag: {
+                            vm.toolDrag(startNormalized: $0, currentNormalized: $1, ended: $2)
+                        }))
+                }
+                return AnyView(EmptyView())
+            })
+    }
+
+    private func leftControls(_ size: CGSize) -> some View {
+        ScrollView(.vertical) {
+            VStack(spacing: 4) {
+                if !vm.isBreakMode {
+                    roleMenu
+                    Menu {
+                        Button("落区") { vm.activeTool = .region }
+                        Button("落点") { vm.activeTool = .restPoint }
+                        Button("过点") { vm.activeTool = .passPoint }
+                        Button("摆球") { vm.activeTool = .none }
+                    } label: {
+                        Text(toolName).font(.btCaption).foregroundStyle(.white).frame(width: 44, height: 44)
+                            .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
+                    }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }.disabled(busy)
+                        .opacity(busy ? 0.4 : 1).accessibilityIdentifier("planthree.tool")
+                    action("清除", "eraser", "planthree.clearConstraint", enabled: !busy && vm.hasConstraint) { vm.clearConstraint() }
+                    action("求解", "function", "solver.solve", enabled: !busy && vm.canSolve) { vm.solve() }
+                    TeachingSolutionButton(count: vm.solutions.count, currentIndex: vm.currentIndex,
+                        enabled: !busy, next: { vm.nextSolution() }, select: { vm.selectSolution(at: $0) })
+                    action("重打", "arrow.uturn.backward", "planthree.undo", enabled: !busy && !vm.temporaryTopDownActive && vm.canUndoShot) { vm.undoLastShot() }
+                    action("回放", "play.rectangle", "planthree.replay", enabled: !busy && !vm.temporaryTopDownActive && vm.canPlayback) { vm.replayLastShot() }
+                }
+            }.frame(maxWidth: .infinity)
+        }.scrollIndicators(.hidden).frame(width: size.width, height: min(size.height, vm.isBreakMode ? 232 : 332))
+    }
+    private func action(_ title: String, _ icon: String, _ id: String, enabled: Bool, perform: @escaping () -> Void) -> some View {
+        Button(action: perform) {
+            VStack(spacing: 1) { Image(systemName: icon).font(.system(size: 17)); Text(title).font(.system(size: 10)) }
+                .frame(width: 44, height: 44).background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
+        }.buttonStyle(BTHUDPressStyle()).disabled(!enabled).opacity(enabled ? 1 : 0.4).accessibilityLabel(title).accessibilityIdentifier(id)
+    }
+    private var menuItems: [DailyHUDMenuItem] {
+        var items: [DailyHUDMenuItem] = [
+            .init(id: "planthree.plan", title: "计划"),
+            .init(id: "planthree.clearPlan", title: "清空计划", disabled: busy || vm.isBreakMode,
+                  action: { vm.clearPlan() })]
+        if vm.isBreakMode {
+            items.append(.init(id: "planthree.cancelBreak", title: "取消开球", disabled: busy, action: { vm.cancelBreakFlow() }))
+        } else {
+            items += [.init(id: "break.entry", title: "开球", disabled: busy, action: { showBreakPicker = true }),
+                .init(id: "planthree.clear", title: "清空桌面", disabled: busy, action: { vm.clearTable() }),
+                .init(id: "planthree.reset", title: "恢复默认球形", disabled: busy, action: { vm.resetAll() })]
+        }
+        return items
+    }
+
     private func applyUITestHooksIfNeeded() {
         let args = ProcessInfo.processInfo.arguments
-        for s in ["threeBallDimmed", "twoBallDimmed", "twoBall", "oneBall", "cleared"] where args.contains("-planThree.\(s)") {
-            vm.uiTestConfigure(s)
+        for scenario in ["threeBallDimmed", "twoBallDimmed", "twoBall", "oneBall", "cleared"]
+            where args.contains("-planThree.\(scenario)") {
+            vm.uiTestConfigure(scenario)
             return
         }
     }
-
-    // MARK: - Top tool row
-
-    private var topToolRow: some View {
-        HStack(spacing: Spacing.sm) {
-            if vm.isBreakMode {
-                breakModePill
-                Spacer(minLength: 0)
-            } else {
-                toolChips
-            }
-        }
-        .padding(.horizontal, Spacing.lg)
-        .frame(maxHeight: .infinity)
-        .background(Color.black)
-        .environment(\.colorScheme, .dark)
-    }
-
-    /// 开球模式标识胶囊（T-P18-47；G9：摆架图形与开球按钮同源）。
-    private var breakModePill: some View {
-        HStack(spacing: 4) {
-            BreakRackGlyph(color: HUDStyle.accent, size: 13)
-            Text("开球 · \(vm.breakRunner.map { BreakFlowRunner.title(for: $0.game) } ?? "")")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.92))
-        }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, 6)
-        .btHudGlass()
-    }
-
-    @ViewBuilder
-    private var toolChips: some View {
-            BTChipRow(
-                options: ["落区", "落点", "过点", "摆球"],
-                selection: Binding(
-                    get: {
-                        switch vm.activeTool {
-                        case .region: return 0
-                        case .restPoint: return 1
-                        case .passPoint: return 2
-                        case .none: return 3
-                        }
-                    },
-                    set: {
-                        switch $0 {
-                        case 0: vm.activeTool = .region
-                        case 1: vm.activeTool = .restPoint
-                        case 2: vm.activeTool = .passPoint
-                        default: vm.activeTool = .none
-                        }
-                    }
-                ),
-                scrollable: false
-            )
-            .disabled(vm.isPlaying)
-
-            // Q15.3：清除键正常尺寸、紧贴「摆球」chip 右侧（不再是行末小图标）。
-            BTEraserButton(isEnabled: !vm.isPlaying && vm.hasConstraint) { vm.clearConstraint() }
-
-            Spacer(minLength: 0)
-    }
-
-    private var cameraToggle: some View {
-        Button(is3D ? "3D" : "2D") {
-            showSpinPad = false
-            let needsOverview = !vm.scene.hasPerspectiveView
-            vm.cameraMode = is3D ? .topDown2DRotated : .perspective3D
-            vm.scene.setCameraMode(vm.cameraMode, animated: false)
-            if is3D && needsOverview { _ = vm.scene.cameraRig?.observeWholeTable() }
-        }
-        .font(.btSubheadlineSemibold)
-        .frame(minWidth: 44, minHeight: 44)
-        .accessibilityLabel(is3D ? "切换到2D俯视" : "切换到3D视角")
-        .accessibilityValue(is3D ? "3D" : "2D")
-        .accessibilityIdentifier("planthree.cameraMode")
-    }
-
-    // MARK: - Stage（scene + 贴边控件，G3–G11 走 ShotStageProxy）
-
-    private func stage(_ proxy: ShotStageProxy) -> some View {
-        ZStack(alignment: .topLeading) {
-            sceneContainer
-            if !is3D && !vm.isBreakMode && vm.activeTool != .none {
-                SolveConstraintDrawingOverlay(
-                    coordinateSpaceName: "planthree",
-                    sceneFrame: sceneFrame,
-                    unproject: { projector.unproject?($0) },
-                    onDrag: { start, current, ended in
-                        vm.toolDrag(startNormalized: start, currentNormalized: current, ended: ended)
-                    }
-                )
-            }
-
-            // G18/V6：开球模式贴边仪表（左瞄准轮 + 右力度柱），共享单一真源。
-            if let runner = vm.breakRunner {
-                BreakInstrumentsOverlay(runner: runner, proxy: proxy, scene: vm.scene, projector: projector, isPerspective: is3D)
-            }
-
-            if !vm.isBreakMode && proxy.isValid {
-                // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右。
-                BTTrajectoryDetailChip { vm.redrawTrajectory() }
-                    .btChipBandPlacement(proxy)
-                    .allowsHitTesting(!vm.isPlaying)
-
-                // 左下（G24）：BTSolverLeftColumn + Slot L1 开球。
-                leftColumn
-                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).bottomLeadingFrame(size: BTSolverLeftColumn.stackWithSlotL1Size) : proxy.bottomLeadingFrame(size: BTSolverLeftColumn.stackWithSlotL1Size))
-
-                // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
-                instrumentColumn
-                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
-
-                if is3D && !showSpinPad {
-                    ShotSceneCameraButtons(scene: vm.scene, aim: vm.playerCameraAim,
-                        isEnabled: vm.canObserveCurrentAim) { showSpinPad = false }
-                        .btStageFrame(ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame)
-                        .offset(x: -52)
-                }
-
-                // 条 18.2：打一/上一杆/回放，右下角底边齐球桌底线。
-                actionColumn
-                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).actionFrame : proxy.actionColumnFrame())
-            }
-
-            if showSpinPad {
-                BTProjectedSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
-                                 scene: vm.scene, projector: projector,
-                                 onClose: { showSpinPad = false })
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .zIndex(20)
-            }
-        }
-    }
-
-    // MARK: - Scene
-
-    private var sceneContainer: some View {
-        AngleSceneView(
-            scene: vm.scene,
-            cameraMode: $vm.cameraMode,
-            interactionMode: is3D ? .cameraControl : .tapsOnly,
-            autoFitsRotatedTable: !is3D,
-            onPocketTapped: is3D || vm.isBreakMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },
-            // 开球模式：仅母球可拖（限开球区），其余台面交互挂起。
-            draggableBallNodes: vm.isPlaying ? [] : (vm.breakRunner?.draggableCue
-                ?? (is3D || vm.activeTool == .none ? vm.draggableBalls : [])),
-            onDragBegan: { node in
-                if let runner = vm.breakRunner { runner.dragBegan(node: node) }
-                else { vm.dragBegan(node: node) }
-            },
-            onDragMoved: { node, world in
-                if let runner = vm.breakRunner { runner.dragMoved(node: node, worldPosition: world) }
-                else { vm.dragMoved(node: node, worldPosition: world) }
-            },
-            onDragEnded: { node in
-                if let runner = vm.breakRunner { runner.dragEnded(node: node) }
-                else { vm.dragEnded(node: node) }
-            },
-            onDragEndedAt: { node, localPoint in
-                guard !vm.isBreakMode else { return }
-                handleTableDragEnd(node: node, localPoint: localPoint)
-            },
-            selectableBallNodes: (is3D || vm.isBreakMode || vm.activeTool != .none) ? [] : vm.selectableBalls,
-            onBallTapped: { vm.selectBall(node: $0) },
-            // G18/V6：开球模式拖屏调瞄准（G13 相对语义）；非开球模式本页无自由拖瞄，忽略。
-            onAimNudged: is3D ? nil : { if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) } },
-            projector: projector
-        )
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(frameReader(id: "scene"))
-        .clipped()
-    }
-
-    // MARK: - Role row (Z6, above palette — T-P18-49)
-
-    /// 角色选择横排（球1→袋→球2→袋→球3 + 清空）：从右侧竖排移入 Z6
-    /// 球库行上方，台面恢复全宽。
-    private var roleRow: some View {
-        HStack(spacing: 6) {
-            ForEach(PlanThreeRole.order, id: \.rawValue) { role in
-                roleChip(role)
-            }
-            Button { vm.clearPlan() } label: {
-                Image(systemName: "arrow.counterclockwise")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .frame(width: 34, height: 40)
-                    .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
-            }
-            .buttonStyle(.plain)
-            .disabled(vm.isPlaying)
-            .accessibilityLabel("清空计划")
-        }
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, 4)
-        .frame(maxWidth: .infinity)
-        .environment(\.colorScheme, .dark)
-    }
-
-    private func roleChip(_ role: PlanThreeRole) -> some View {
-        let armed = vm.armedRole == role
-        let filled = vm.isFilled(role)
-        let accent = roleColor(role)
-        return Button { vm.armRole(role) } label: {
-            HStack(spacing: 4) {
-                Text(roleTitle(role))
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(accent)
-                roleContent(role, filled: filled, accent: accent)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 40)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(armed ? accent.opacity(0.18) : Color.white.opacity(0.05))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(armed ? accent : accent.opacity(filled ? 0.5 : 0.22),
-                            style: StrokeStyle(lineWidth: armed ? 2 : 1, dash: filled ? [] : [4, 3]))
-            )
-            .scaleEffect(armed ? 1.03 : 1)
-            .animation(BTMotion.springPanel, value: armed)
-        }
-        .accessibilityLabel(roleTitle(role))
-        .accessibilityValue(role.isBall
-            ? vm.ballKey(for: role).map { String($0.dropFirst()) + "号球" } ?? "未选择"
-            : filled ? "已选择" : "未选择")
-        .accessibilityIdentifier("planthree.role.\(role.rawValue)")
-        .buttonStyle(.plain)
-        .disabled(vm.isPlaying)
-    }
-
-    @ViewBuilder
-    private func roleContent(_ role: PlanThreeRole, filled: Bool, accent: Color) -> some View {
-        if role.isBall {
-            if let key = vm.ballKey(for: role) {
-                PoolBallFace(key: key, diameter: 22)
-                    .overlay(Circle().stroke(.white.opacity(0.2), lineWidth: 0.5))
-            } else {
-                Image(systemName: "circle.dashed")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(accent.opacity(0.55))
-            }
-        } else {
-            Image(systemName: filled ? "scope" : "circle.dashed")
-                .font(.system(size: 15, weight: filled ? .bold : .semibold))
-                .foregroundStyle(filled ? accent : accent.opacity(0.55))
-        }
-    }
-
-    private func roleColor(_ role: PlanThreeRole) -> Color {
-        switch role {
-        case .ball1, .pocket1: return Self.c1
-        case .ball2, .pocket2: return Self.c2
-        case .ball3: return Self.c3
-        }
-    }
-
     private func roleTitle(_ role: PlanThreeRole) -> String {
-        switch role {
-        case .ball1: return "①球"
-        case .pocket1: return "①袋"
-        case .ball2: return "②球"
-        case .pocket2: return "②袋"
-        case .ball3: return "③球"
-        }
+        switch role { case .ball1: return "①球"; case .pocket1: return "①袋"
+        case .ball2: return "②球"; case .pocket2: return "②袋"; case .ball3: return "③球" }
     }
-
-    // MARK: - Side columns（条 21.3 + 条 18 同规范）
-
-    private var leftColumn: some View {
-        VStack(spacing: 8) {
-            BTSolverLeftColumn(
-                canSolve: !vm.isPlaying && !vm.isComputing && vm.canSolve,
-                onSolve: { vm.solve() },
-                canNext: !vm.isPlaying && vm.solutions.count >= 2,
-                onNext: { vm.nextSolution() }
-            )
-            BTBreakSideButton(isEnabled: !vm.isPlaying && !vm.isComputing) {
-                showBreakPicker = true
+    private func roleValue(_ role: PlanThreeRole) -> String {
+        if role.isBall { return vm.ballKey(for: role).map { String($0.dropFirst()) + "号球" } ?? "未选择" }
+        let pocket = vm.pocketIndex(for: role)
+        return pocket >= 0 ? "袋\(pocket + 1)" : "未选择"
+    }
+    private var roleSummary: String {
+        PlanThreeRole.order.map { roleTitle($0) + ":" + roleValue($0) }.joined(separator: " · ")
+    }
+    private var roleMenu: some View {
+        Menu {
+            ForEach(PlanThreeRole.order, id: \.rawValue) { role in
+                Button { vm.armRole(role) } label: {
+                    Label(roleTitle(role) + " · " + roleValue(role), systemImage: vm.armedRole == role ? "checkmark.circle.fill" : "circle")
+                }.disabled(busy)
+                    .accessibilityValue(roleValue(role)).accessibilityIdentifier("planthree.role.\(role.rawValue)")
             }
-        }
+        } label: {
+            VStack(spacing: 1) {
+                Text("计划").font(.system(size: 10))
+                Text(vm.armedRole.map { roleTitle($0) } ?? "已选齐").font(.btCaption)
+            }.foregroundStyle(.white).frame(width: 44, height: 44)
+                .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
+        }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }.disabled(busy).accessibilityIdentifier("planthree.roles")
+            .accessibilityValue(roleSummary)
     }
-
-    private var instrumentColumn: some View {
-        BTShotInstrumentColumn(
-            spinX: vm.spinX, spinY: vm.spinY,
-            onSpinTap: { if vm.hasSolutions { showSpinPad = true } },
-            velocity: velocityBinding,
-            range: ShotTuning.velocityRange,
-            isDisabled: vm.isPlaying || !vm.hasSolutions
-        )
-    }
-
-    private var actionColumn: some View {
-        BTShotActionColumn(
-            strikeTitle: vm.isPlaying ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.planThree,
-            strikeEnabled: vm.canStrike,
-            onStrike: { vm.play() },
-            undoEnabled: !vm.isPlaying && vm.canUndoShot,
-            onUndo: { vm.undoLastShot() },
-            playbackEnabled: !vm.isPlaying && vm.canPlayback,
-            onPlayback: { vm.replayLastShot() }
-        )
-    }
-
-    private var velocityBinding: Binding<Double> {
-        Binding(get: { vm.velocity }, set: { vm.adjustCurrentSolution(velocity: $0) })
-    }
-
-    private var spinXBinding: Binding<Double> {
-        Binding(get: { vm.spinX }, set: { vm.adjustCurrentSolution(spinX: $0) })
-    }
-
-    private var spinYBinding: Binding<Double> {
-        Binding(get: { vm.spinY }, set: { vm.adjustCurrentSolution(spinY: $0) })
-    }
-
-    // MARK: - Bottom bar（G12：删除解摘要行；底部 = 角色横排 + 球库）
-
-    private func bottomBar(_ proxy: ShotStageProxy) -> some View {
-        Group {
-            if let runner = vm.breakRunner {
-                BreakControlBar(runner: runner, onCancel: { vm.cancelBreakFlow() })
-            } else {
-                VStack(spacing: 0) {
-                    roleRow.disabled(is3D)
-                    if is3D {
-                        HStack {
-                            BTSceneObservationMenu(
-                                scene: vm.scene,
-                                targetNode: vm.ball1Key.flatMap { vm.scene.allBallNodes[$0] },
-                                pocketIndex: vm.pocket1Index,
-                                identifierPrefix: "planthree",
-                                canReturnToAim: vm.canObserveCurrentAim,
-                                onReturnToAim: vm.observeCurrentAim
-                            )
-                            .disabled(vm.isPlaying)
-                            Spacer(minLength: 0)
-                            Text("拖球摆位 · 空白处转视角").foregroundStyle(Color.btTextSecondary)
-                        }
-                        .font(.btFootnote)
-                        .padding(.horizontal, Spacing.sm)
-                        .frame(maxHeight: .infinity)
-                    } else {
-                        paletteBar(proxy)
-                    }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(HUDStyle.panelBackground)
-        .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
-        .background(frameReader(id: "palette"))
-        .environment(\.colorScheme, .dark)
-    }
-
-    // MARK: - Palette
-
-    private func paletteBar(_ proxy: ShotStageProxy) -> some View {
-        let libraryWidth = proxy.libraryWidth
-        return BTBallPaletteBar(
-            coordinateSpace: "planthree",
-            ballDiameter: proxy.paletteBallDiameter,
-            isPlaying: vm.isPlaying,
-            libraryWidth: libraryWidth,
-            isOnTable: { vm.onTableKeys.contains($0) },
-            sceneFrame: sceneFrame,
-            unproject: { projector.unproject?($0) },
-            onTap: { key in
-                if vm.onTableKeys.contains(key) { vm.pulseTableBall(key) }
-                else { vm.placeFromPalette(key) }
-            },
-            onPlace: { key, world in
-                if let world { vm.placeFromPalette(key, atWorld: world) }
-                else { vm.placeFromPalette(key) }
-            },
-            draggingKey: $draggingKey,
-            dragLocation: $dragLocation,
-            dragOverTable: $dragOverTable
-        )
-    }
-
-    private func handleTableDragEnd(node: SCNNode, localPoint: CGPoint) {
-        guard !is3D else { return } // The palette is hidden in perspective mode.
-        guard BTBallPaletteDragBack.hitPalette(localPoint: localPoint,
-                                               sceneFrame: sceneFrame,
-                                               paletteFrame: paletteFrame),
-              let key = vm.scene.ballKey(for: node) else { return }
-        vm.removeFromTable(key)
-        flash("已移回球库")
-    }
-
-    // MARK: - Toolbar menu
-
-    /// K12：三点菜单不再含「求解范围」（仅思路训练保留）；显示 → 清空/恢复默认。
-    private var moreMenu: some View {
-        BTSolverMoreMenu(
-            scene: vm.scene,
-            onClearTable: { vm.clearTable() },
-            onReset: { vm.resetAll() },
-            pageExtras: { EmptyView() }
-        )
-    }
-
-    // MARK: - Banner
-
-    private func flash(_ message: String, tone: BTToastTone = .success) {
-        BTToast.present(message, tone: tone) { toast = $0 }
-    }
-
-    private func frameReader(id: String) -> some View {
-        GeometryReader { geo in
-            Color.clear.preference(key: BTShotPageFramePreference.self,
-                                   value: [id: geo.frame(in: .named("planthree"))])
-        }
-    }
-}
-
-#Preview("Dark") {
-    NavigationStack { PlanThreeView() }
-        .preferredColorScheme(.dark)
 }

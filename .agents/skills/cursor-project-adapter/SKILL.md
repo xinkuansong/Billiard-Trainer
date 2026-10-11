@@ -51,6 +51,7 @@ Cursor 专属能力不得假装在 Codex 中存在。`.mdc` 的 `alwaysApply` �
 | 构建、证书、TestFlight | `.cursor/rules/60-devops-release.mdc` | `.cursor/agents/devops-release.md` | 读取构建脚本与发布文档 |
 | 疑似语音或台球近音词 | `.cursor/rules/02-voice-billiard-terms.mdc` | 当前任务角色 | `.cursor/skills/voice-billiard-terms/SKILL.md`，需要时再读 `glossary.md` |
 | 复杂问题清单拆批 | Orchestrator 规则 | Orchestrator | `.cursor/skills/issue-collection-restructure/SKILL.md` |
+| 从现有App复建/维护Figma设计系统、组件与页面族同态验收 | Orchestrator；按操作叠加Figma与UI审查规则 | 单主控串行；不调用子智能体 | `/Users/song/.codex/skills/app-design-system-rebuild/SKILL.md`；先读 `tasks/app-interface-redesign/CURRENT.md` 与当前批次，D020优先于旧并行安排 |
 | 执行既有批次方案 | Orchestrator + 对应专项规则 | 对应任务角色 | `.cursor/skills/plan-batch-execution/SKILL.md` |
 | 用户明确要求委派或并行智能体 | Orchestrator + `.cursor/rules/01-subagent-model-selection.mdc` | 读取被委派角色文件 | 在 `plan-delegated-execution` 与 `plan-parallel-delegated-execution` 中选择适用者 |
 | 结构化辩论 | `.cursor/rules/70-debate-protocol.mdc` 及议题规则 | 对应 debate agent | 在 idea generation/evaluation/recording 中选择当前轮需要者 |

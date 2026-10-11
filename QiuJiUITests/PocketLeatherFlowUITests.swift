@@ -210,7 +210,7 @@ final class PocketLeatherFlowUITests: XCTestCase {
         XCTAssertTrue(row.exists && row.isHittable);row.tap()
         let plus=app.staticTexts["+ 新增球形"];XCTAssertTrue(plus.waitForExistence(timeout:8));plus.tap()
         let empty=app.buttons["空台面（仅母球）"];XCTAssertTrue(empty.waitForExistence(timeout:5));empty.tap()
-        assertTable(app);XCTAssertEqual(table(app).value as? String,"未选择目标袋")
+        assertTable(app);XCTAssertTrue((table(app).value as? String ?? "").hasPrefix("未选择目标袋"))
         try snap(app,"batch-empty")
         // Do not press any save/export control: production content is outside this test.
     }

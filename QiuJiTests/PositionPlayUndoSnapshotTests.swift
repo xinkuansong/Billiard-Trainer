@@ -42,15 +42,16 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
             let pocket = vm.observationPocket, cushions = vm.selectedCushions
             let spinX = vm.spinX, spinY = vm.spinY, power = vm.reflectionPower
             let status = vm.statusText
-            vm.setViewingMode(.perspective3D)
+            vm.setCameraMode(.perspective3D)
             XCTAssertFalse(try XCTUnwrap(camera.camera).usesOrthographicProjection)
-            vm.observeCurrentAim()
+            vm.requestPlayerView(.thirdPerson, animated: false)
             rig.handleHorizontalSwipe(delta: 80)
             rig.snapToTarget()
+            rig.update(deltaTime: 1)
             let observed = camera.transform
-            vm.setViewingMode(.topDown2DRotated)
+            vm.setCameraMode(.topDown2DRotated)
             XCTAssertTrue(try XCTUnwrap(camera.camera).usesOrthographicProjection)
-            vm.setViewingMode(.perspective3D)
+            vm.setCameraMode(.perspective3D)
             XCTAssertTrue(SCNMatrix4EqualToMatrix4(observed, camera.transform))
             XCTAssertFalse(vm.isSolving)
             XCTAssertEqual(vm.currentIndex, index)
@@ -69,7 +70,7 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
                 XCTAssertTrue(SCNMatrix4EqualToMatrix4(node.transform, transform))
                 XCTAssertEqual(node.isHidden, hidden)
             }
-            vm.setViewingMode(.topDown2DRotated)
+            vm.setCameraMode(.topDown2DRotated)
         }
     }
 
@@ -156,29 +157,27 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
             vm.setupScene()
             let rig = try XCTUnwrap(vm.scene.cameraRig)
             rig.viewportSize = CGSize(width: 375, height: 480)
-            vm.cameraMode = .perspective3D
-            vm.scene.setCameraMode(.perspective3D, animated: false)
-            XCTAssertTrue(rig.observeWholeTable())
-            rig.snapToTarget()
+            vm.setCameraMode(.perspective3D)
+            XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
+            rig.update(deltaTime: 1)
             let before = try XCTUnwrap(vm.scene.cameraNode).transform
             // Physics is irrelevant here: exercise the same context capture used
             // by play(), then disturb the view before restoring the board.
             let solution = stubSolution(velocity: 2, spinX: 0, spinY: 0)
             let context = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
             XCTAssertNotNil(context.perspectiveView)
-            rig.handleHorizontalSwipe(delta: 100)
-            rig.snapToTarget()
+            XCTAssertTrue(vm.requestPlayerView(.firstPerson, animated: false))
+            rig.update(deltaTime: 1)
             XCTAssertFalse(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
             if restoreIn2D {
-                vm.cameraMode = .topDown2DRotated
-                vm.scene.setCameraMode(.topDown2DRotated, animated: false)
+                vm.setCameraMode(.topDown2DRotated)
             }
             vm.restore(from: context)
             if restoreIn2D {
                 XCTAssertTrue(try XCTUnwrap(vm.scene.cameraNode.camera).usesOrthographicProjection)
-                vm.cameraMode = .perspective3D
-                vm.scene.setCameraMode(.perspective3D, animated: false)
+                vm.setCameraMode(.perspective3D)
             }
+            rig.update(deltaTime: 1)
             XCTAssertTrue(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
             XCTAssertEqual(vm.selectedTargetKey, context.selectedTargetKey)
             XCTAssertEqual(vm.selectedPocketIndex, context.selectedPocketIndex)
@@ -191,29 +190,27 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
             vm.setupScene()
             let rig = try XCTUnwrap(vm.scene.cameraRig)
             rig.viewportSize = CGSize(width: 375, height: 480)
-            vm.cameraMode = .perspective3D
-            vm.scene.setCameraMode(.perspective3D, animated: false)
-            XCTAssertTrue(rig.observeWholeTable())
-            rig.snapToTarget()
+            vm.setCameraMode(.perspective3D)
+            XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
+            rig.update(deltaTime: 1)
             let before = try XCTUnwrap(vm.scene.cameraNode).transform
             // Physics is irrelevant here: exercise the same context capture used
             // by play(), then disturb the view before restoring the board.
             let solution = stubSolution(velocity: 2, spinX: 0, spinY: 0)
             let context = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
             XCTAssertNotNil(context.perspectiveView)
-            rig.handleHorizontalSwipe(delta: 100)
-            rig.snapToTarget()
+            XCTAssertTrue(vm.requestPlayerView(.firstPerson, animated: false))
+            rig.update(deltaTime: 1)
             XCTAssertFalse(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
             if restoreIn2D {
-                vm.cameraMode = .topDown2DRotated
-                vm.scene.setCameraMode(.topDown2DRotated, animated: false)
+                vm.setCameraMode(.topDown2DRotated)
             }
             vm.restore(from: context)
             if restoreIn2D {
                 XCTAssertTrue(try XCTUnwrap(vm.scene.cameraNode.camera).usesOrthographicProjection)
-                vm.cameraMode = .perspective3D
-                vm.scene.setCameraMode(.perspective3D, animated: false)
+                vm.setCameraMode(.perspective3D)
             }
+            rig.update(deltaTime: 1)
             XCTAssertTrue(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
             XCTAssertEqual(vm.selectedTargetKey, context.selectedTargetKey)
         }
@@ -223,31 +220,30 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
         for restoreIn2D in [false, true] {
             let vm = PlanThreeViewModel()
             vm.setupScene()
+            vm.uiTestConfigure("threeBallDimmed")
             let rig = try XCTUnwrap(vm.scene.cameraRig)
             rig.viewportSize = CGSize(width: 375, height: 480)
-            vm.cameraMode = .perspective3D
-            vm.scene.setCameraMode(.perspective3D, animated: false)
-            XCTAssertTrue(rig.observeWholeTable())
-            rig.snapToTarget()
+            vm.setCameraMode(.perspective3D)
+            XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
+            rig.update(deltaTime: 1)
             let before = try XCTUnwrap(vm.scene.cameraNode).transform
             // Physics is irrelevant here: exercise the same context capture used
             // by play(), then disturb the view before restoring the board.
             let solution = stubSolution(velocity: 2, spinX: 0, spinY: 0)
             let context = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
             XCTAssertNotNil(context.perspectiveView)
-            rig.handleHorizontalSwipe(delta: 100)
-            rig.snapToTarget()
+            XCTAssertTrue(vm.requestPlayerView(.firstPerson, animated: false))
+            rig.update(deltaTime: 1)
             XCTAssertFalse(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
             if restoreIn2D {
-                vm.cameraMode = .topDown2DRotated
-                vm.scene.setCameraMode(.topDown2DRotated, animated: false)
+                vm.setCameraMode(.topDown2DRotated)
             }
             vm.restore(from: context)
             if restoreIn2D {
                 XCTAssertTrue(try XCTUnwrap(vm.scene.cameraNode.camera).usesOrthographicProjection)
-                vm.cameraMode = .perspective3D
-                vm.scene.setCameraMode(.perspective3D, animated: false)
+                vm.setCameraMode(.perspective3D)
             }
+            rig.update(deltaTime: 1)
             XCTAssertTrue(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
             XCTAssertEqual(vm.ball1Key, context.ball1Key)
             XCTAssertEqual(vm.pocket1Index, context.pocket1Index)

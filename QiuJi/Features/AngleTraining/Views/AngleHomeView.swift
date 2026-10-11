@@ -196,11 +196,11 @@ struct AngleHomeView: View {
     /// 「练」——测验类：练角度直觉。
     private let trainEntries: [AngleEntry] = [
         .init(route: .geometricQuiz, title: "角度预测", subtitle: "估切角看误差", topics: [.accuracy]),
-        .init(route: .sceneAiming2D, title: "2D 角度训练", subtitle: "俯视瞄准看误差", topics: [.accuracy]),
-        .init(route: .sceneAiming3D, title: "3D 角度训练", subtitle: "站位瞄准看误差", isPremium: true, topics: [.accuracy]),
+        .init(route: .sceneAiming2D, title: "2D角度", subtitle: "俯视瞄准看误差", topics: [.accuracy]),
+        .init(route: .sceneAiming3D, title: "3D角度", subtitle: "站位瞄准看误差", isPremium: true, topics: [.accuracy]),
         .init(route: .aimPointTraining, title: "瞄准点训练", subtitle: "拖假想球看毫米差", topics: [.accuracy]),
-        .init(route: .aimPointScene2D, title: "2D 瞄准点训练", subtitle: "俯视调线击球验证", topics: [.accuracy]),
-        .init(route: .aimPointScene3D, title: "3D 瞄准点训练", subtitle: "站位调线击球验证", isPremium: true, topics: [.accuracy]),
+        .init(route: .aimPointScene2D, title: "2D瞄准点", subtitle: "俯视调线击球验证", topics: [.accuracy]),
+        .init(route: .aimPointScene3D, title: "3D瞄准点", subtitle: "站位调线击球验证", isPremium: true, topics: [.accuracy]),
     ]
 
     /// 「打」——沙盘类：摆球、击打、看真实物理结果。

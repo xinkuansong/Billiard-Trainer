@@ -11,8 +11,8 @@ final class PocketLeatherMarker: SCNNode {
     private var variants: [Style: SCNNode] = [:]
     /// Current table appearance without transient selection or teaching-role tints.
     var unhighlightedGeometry: SCNGeometry? { variants[.original]?.geometry }
-    static let selectionPulseDuration: TimeInterval = 0.6
-    static let selectionPulseDelay: TimeInterval = 1
+    static let selectionPulseDuration: TimeInterval = 1
+    static let manualSelectionPulseDelay: TimeInterval = 0.5
     private let selectionPulse = SCNNode()
     private static let pulseActionKey = "pocketSelectionPulse"
 
@@ -81,10 +81,10 @@ final class PocketLeatherMarker: SCNNode {
 
     /// An accepted click is an event, independent of the persistent target style.
     /// It can acknowledge an unavailable pocket while the actual mode is free.
-    func confirmSelection(delay: TimeInterval = selectionPulseDelay) {
+    func confirmSelection(delay: TimeInterval = 0) {
         cancelSelectionFeedback()
         if delay <= 0 {
-            // A direct click is acknowledged now, before the next render/solve.
+            // Automatic selection is visible immediately, before the next render/solve.
             selectionPulse.isHidden = false
             selectionPulse.opacity = 1
             selectionPulse.runAction(.sequence([

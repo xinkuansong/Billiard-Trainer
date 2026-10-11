@@ -25,8 +25,10 @@ struct AimingPrincipleView: View {
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxxxl)
+            .learnDocumentWidth()
         }
         .background(.btBG)
+        .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
         .navigationTitle("瞄准原理")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
@@ -175,10 +177,10 @@ struct AimingPrincipleView: View {
                     Text("派生公式")
                         .font(.btCaption)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.btTextSecondary)
+                        .foregroundStyle(.btText)
                     Text("接触点偏移 = R × sin(θ)")
                         .font(.system(size: 14, design: .monospaced))
-                        .foregroundStyle(.btTextSecondary)
+                        .foregroundStyle(.btText)
                     LearnDocText.footnote("仅描述目标球表面接触点位置，不是瞄准主公式。")
                 }
             }
@@ -277,7 +279,7 @@ struct AimingPrincipleView: View {
 
             Text("\(angle) | d/R \(dOverR)")
                 .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btText)
         }
     }
 
@@ -404,10 +406,11 @@ private struct AimingFigure: View {
                               y: l.ghost.y - (l.arcR + 18) * sin((l.potAngle + l.aimAngle) / 2))
                 // 标签在球正下方（取景左缘余量 ≈0.10m ≈ 1.8 球径，可容纳）。
                 BTFigureTag(text: "母球").position(x: l.cue.x, y: l.cue.y + l.d / 2 + 12)
-                BTFigureTag(text: "目标球").position(x: l.target.x + l.d * 0.8,
-                                                     y: l.target.y + l.d / 2 + 14)
-                BTFigureTag(text: "假想球", color: FigureLine.contact)
-                    .position(x: l.ghost.x - l.d * 0.9, y: l.ghost.y - l.d / 2 - 12)
+                if !showsGlossaryLabels {
+                    BTFigureTag(text: "目标球").position(x: l.target.x + l.d * 0.8, y: l.target.y + l.d / 2 + 14)
+                    BTFigureTag(text: "假想球", color: FigureLine.contact)
+                        .position(x: l.ghost.x - l.d * 0.9, y: l.ghost.y - l.d / 2 - 12)
+                }
 
                 // 线标签（条 1.2）：贴线段靠端点 30% 处外侧，避开假想球标注群。
                 BTFigureTag(text: "瞄准线")
@@ -417,12 +420,25 @@ private struct AimingFigure: View {
                     .position(alongLabel(from: l.target, to: l.pocket, t: 0.35, offset: -14))
 
                 if showsGlossaryLabels {
-                    BTFigureTag(text: "瞄准点", color: FigureLine.aimPoint)
-                        .position(x: l.aimPoint.x + l.d * 0.15, y: l.aimPoint.y + l.d / 2 + 13)
-                    BTFigureTag(text: "接触点", color: FigureLine.contact)
-                        .position(x: l.contact.x + l.d * 0.4, y: l.contact.y - l.d * 0.9)
+                    let dx = max(48, l.d * 1.8), dy = max(32, l.d * 1.4)
+                    pointLabel("假想球", anchor: l.ghost,
+                        at: CGPoint(x: l.ghost.x - dx, y: l.ghost.y - dy), color: FigureLine.contact)
+                    pointLabel("接触点", anchor: l.contact,
+                        at: CGPoint(x: l.target.x + dx, y: l.target.y - dy), color: FigureLine.contact)
+                    pointLabel("目标球", anchor: l.target,
+                        at: CGPoint(x: l.target.x + dx, y: l.target.y), color: .white)
+                    pointLabel("瞄准点", anchor: l.aimPoint,
+                        at: CGPoint(x: l.aimPoint.x + dx, y: l.aimPoint.y + dy), color: FigureLine.aimPoint)
                 }
             }
+        }
+    }
+
+    private func pointLabel(_ title: String, anchor: CGPoint, at point: CGPoint, color: Color) -> some View {
+        ZStack {
+            Path { $0.move(to: anchor); $0.addLine(to: point) }
+                .stroke(color.opacity(0.5), lineWidth: 0.8)
+            BTFigureTag(text: title, color: color).position(point)
         }
     }
 

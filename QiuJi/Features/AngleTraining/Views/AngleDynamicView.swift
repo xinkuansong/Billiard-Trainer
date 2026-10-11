@@ -10,28 +10,16 @@ struct AngleDynamicView: View {
 
     var body: some View {
         BTTeachingTablePage(vm: vm, titleLabel: "角度与瞄准", identifier: "angleDynamic",
-            title: {
-                BTTeachingFiveCharacterTitle(words: "角度\n瞄准", middleCharacter: "与", identifier: "angleDynamic")
-            }, leftContent: { _ in primaryMetricChip }, status: { overlayLayer },
+            information: teachingInformation, usesStandardTitle: true,
+            title: { EmptyView() }, leftContent: { _ in primaryMetricChip }, status: { EmptyView() },
             onFirstDrag: { hasDraggedOnce = true })
     }
 
-    // MARK: - Floating overlays (status banner only — all metrics live in the top chip)
-
-    /// F-OV-03 / OV-疑3: bottom HUD status is a **persistent teaching state**,
-    /// not an ephemeral flash. Do **not** migrate to shared `BTToast` (top capsule).
-    private var overlayLayer: some View {
-        VStack {
-            Spacer()
-            if let banner = statusBannerText {
-                statusBanner(text: banner.0, icon: banner.1, tint: banner.2)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.bottom, Spacing.md)
-        .animation(BTMotion.easeInOutChrome, value: statusBannerKey)
-        .allowsHitTesting(false)
+    /// Teaching guidance remains visible for its underlying state; changing its
+    /// placement must not turn first-drag guidance into a timed toast.
+    private var teachingInformation: [BTTeachingInformation] {
+        guard let text = statusText else { return [] }
+        return [.init(text: text, identifier: "angleDynamic.status")]
     }
 
     // MARK: - Primary metric chip (常驻：角度 / 厚度图示 / d/R / 横移 / 偏移 一排展示)
@@ -60,45 +48,14 @@ struct AngleDynamicView: View {
         }.accessibilityElement(children: .combine)
     }
 
-    // MARK: - Status banner (bottom)
-
-    private var statusBannerKey: String {
-        if vm.isDragging { return "drag" }
-        if !hasDraggedOnce { return "firstDrag" }
-        if vm.selectedPocketIndex < 0 { return "hint" }
-        if !vm.isFeasible { return "infeasible:\(vm.infeasibleReason)" }
-        return ""
-    }
-
-    /// Returns text/icon/tint when a banner should appear; nil otherwise.
-    private var statusBannerText: (String, String, Color)? {
-        if vm.isDragging {
-            return ("拖动中…", "hand.draw.fill", .btPrimary)
-        }
-        if !hasDraggedOnce && !is3D {
-            return ("母球和目标球都可以拖动，指标实时联动", "hand.draw", .btPrimary)
-        }
-        if vm.selectedPocketIndex < 0 {
-            return ("点击袋口选择目标", "scope", .white.opacity(0.7))
-        }
-        if !vm.isFeasible {
-            return (vm.infeasibleReason, "exclamationmark.triangle.fill", .btDestructive)
-        }
+    private var statusText: String? {
+        if vm.isDragging { return "拖动中…" }
+        if !hasDraggedOnce && !is3D { return "母球和目标球都可以拖动，指标实时联动" }
+        if vm.selectedPocketIndex < 0 { return "点击袋口选择目标" }
+        if !vm.isFeasible { return vm.infeasibleReason }
         return nil
     }
 
-    private func statusBanner(text: String, icon: String, tint: Color) -> some View {
-        HStack(spacing: Spacing.sm) {
-            Image(systemName: icon)
-            Text(text)
-                .font(.btSubheadlineMedium)
-        }
-        .foregroundStyle(.white)
-        .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.sm)
-        .btHudGlass()
-    }
 }
 
 

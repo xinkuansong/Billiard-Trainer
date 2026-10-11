@@ -75,6 +75,7 @@ struct RootView: View {
             case "bank": return AnyView(NavigationStack { BankShotView() })
             case "diamond": return AnyView(NavigationStack { DiamondSystemView() })
             case "cushion": return AnyView(NavigationStack { CushionEnglishAtlasView() })
+            case "cushion": return AnyView(NavigationStack { CushionEnglishAtlasView() })
             case "separation": return AnyView(NavigationStack { SeparationAngleAtlasView() })
             case "composer": return AnyView(NavigationStack { PositionPlayComposerView() })
             #if targetEnvironment(simulator)

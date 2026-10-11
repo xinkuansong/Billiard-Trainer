@@ -30,11 +30,11 @@ struct AimingMethodsView: View {
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxxxl)
+            .learnDocumentWidth()
         }
         .background(.btBG)
-        .navigationTitle("瞄准方法")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
+        .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
+        .learnReadingNavigation(title: "瞄准方法")
     }
 
     // MARK: - Intro + shared θ
@@ -61,7 +61,7 @@ struct AimingMethodsView: View {
             Text("符号图例")
                 .font(.btCaption)
                 .fontWeight(.semibold)
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btText)
             symbolLegendRow("θ", "切角：瞄准线与进球线的夹角")
             symbolLegendRow("φ", "试瞄角（管道法）：拖到 φ≈θ 时两管相切")
             symbolLegendRow("Q", "接触点：碰撞瞬间两球切点（碰合点）")
@@ -85,7 +85,7 @@ struct AimingMethodsView: View {
                 .frame(width: 28, alignment: .leading)
             Text(desc)
                 .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+                .foregroundStyle(.btText)
         }
     }
 
@@ -97,7 +97,7 @@ struct AimingMethodsView: View {
                 .frame(width: 72, alignment: .leading)
             Text(desc)
                 .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btText)
         }
     }
 
@@ -106,7 +106,7 @@ struct AimingMethodsView: View {
         Text("当前 θ = \(Int(cutAngleDeg))°")
             .font(.btCaption)
             .fontWeight(.medium)
-            .foregroundStyle(.btTextSecondary)
+            .foregroundStyle(.btText)
             .monospacedDigit()
             .accessibilityIdentifier("aimingMethods.sectionTheta")
     }
@@ -156,15 +156,15 @@ struct AimingMethodsView: View {
         return HStack(spacing: Spacing.sm) {
             Text(t.name)
                 .font(.btSubheadlineMedium)
-                .foregroundStyle(isOn ? .btPrimary : .btTextSecondary)
+                .foregroundStyle(isOn ? .btPrimary : .btText)
                 .frame(width: 64, alignment: .leading)
             Text("切角 \(angleText)")
                 .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btText)
             Spacer()
             Text("d/R \(dText)")
                 .font(.system(size: 13, weight: .medium, design: .monospaced))
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btText)
             if isOn {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 14))
@@ -273,7 +273,7 @@ private struct PipeMethodSection: View {
                     .background(Color.btTeachingGuide.opacity(0.14), in: Capsule())
                 Text("仅本管道节 · 不改页顶 θ")
                     .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
+                    .foregroundStyle(.btText)
             }
 
             LearnControlStrip.ReadoutRow(
@@ -317,7 +317,7 @@ private struct PipeMethodSection: View {
             Text(String(format: "轴距 %.1f mm · 相切时 = 2R（%.1f mm）",
                         result.distance * 1000, twoR * 1000))
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.md)
@@ -474,7 +474,7 @@ private struct ContactMethodSection: View {
                 .foregroundStyle(.btWarning)
             Text("灰虚线让球心直指 Pt，与真瞄准线夹角如上——瞄它必打厚。")
                 .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.md)

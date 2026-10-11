@@ -103,7 +103,7 @@ final class RoomReflectionProbeTests: XCTestCase {
         subject.applyBallLayout(cueBallPosition: SCNVector3(0.9, y, -0.4), targetBallNumber: 13,
                                 targetPosition: SCNVector3(-0.8, y, 0.3))
         subject.setPocketRoles(first: 0, second: 3)
-        subject.confirmPocketSelection(at: 1, immediately: true)
+        subject.confirmPocketSelection(at: 1)
         let pocketState = subject.pocketSelectionDescription
         var descendants: [SCNNode] = []
         subject.rootNode.enumerateChildNodes { node, _ in descendants.append(node) }

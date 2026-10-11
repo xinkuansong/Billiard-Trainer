@@ -3,7 +3,6 @@ import SwiftData
 
 struct GeometricAngleQuizView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @StateObject private var vm: GeometricAngleViewModel
     @State private var showSubscription = false
@@ -17,8 +16,7 @@ struct GeometricAngleQuizView: View {
         _vm = StateObject(wrappedValue: GeometricAngleViewModel(limiter: .shared))
     }
 
-    // 暗色场景语言重做（ADR-P11-07）：黑底 + 顶部指标胶囊 + 右下 FAB，
-    // 与 2D/3D 瞄准训练、角度与打点等场景页同一套设计。
+    // C2：宿主与读数跟随系统主题，桌面示意图保留深色材质。
     // C31：本页无可配显示项（无 SCN 台面网格）→ 不并三点；重置统计保留独立 trailing。
     var body: some View {
         GeometryReader { available in
@@ -53,13 +51,14 @@ struct GeometricAngleQuizView: View {
                 }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.bottom, Spacing.xxl)
+                .learnDocumentWidth()
                 .animation(BTMotion.easeChrome, value: vm.showResult)
                 .animation(BTMotion.easeChrome, value: vm.limiter.isLimitReached)
             }
             .scrollBounceBehavior(.basedOnSize)
-            .background(Color.black.ignoresSafeArea())
+            .background(Color.btBG.ignoresSafeArea())
             .safeAreaInset(edge: .top, spacing: 0) {
-                statsCapsule.background(heightReader("stats"))
+                statsCapsule.learnDocumentWidth().background(heightReader("stats"))
             }
 
             // C30：NumericKeypadHUD 与 SceneAiming 同构——全屏 ZStack 底浮层（不改内容高度）。
@@ -73,18 +72,19 @@ struct GeometricAngleQuizView: View {
         }
         .onPreferenceChange(AngleQuizHeightKey.self) { layoutHeights = $0 }
         }
+        .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
         .animation(BTMotion.easeChrome, value: isInputting)
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
         .trainingBackgroundMusic()
-        .btDarkToolChrome("角度预测")
+        .btAdaptiveToolChrome("角度预测")
         .toolbar {
             ToolbarItem(placement: .principal) {
-                BTSolverNavStatus(title: "角度预测")
+                Text("角度预测").font(.btSubheadlineSemibold).foregroundStyle(.btText)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showResetConfirm = true } label: {
                     Image(systemName: "arrow.counterclockwise")
-                        .foregroundStyle(.white.opacity(0.75))
+                        .foregroundStyle(.btText)
                 }
                 .accessibilityLabel("重置统计")
             }
@@ -143,6 +143,8 @@ struct GeometricAngleQuizView: View {
             showReference: vm.showReferenceGrid,
             showResult: vm.showResult
         )
+        .environment(\.colorScheme, .dark)
+        .accessibilityIdentifier("geometric.figure")
     }
 
     // MARK: - Top stats capsule（统一指标条）
@@ -151,21 +153,21 @@ struct GeometricAngleQuizView: View {
     private var statsCapsule: some View {
         HStack {
             HStack(spacing: Spacing.sm) {
-                BTReadout(label: "次数", value: "\(vm.practiceCount)")
+                BTAdaptiveToolReadout(label: "次数", value: "\(vm.practiceCount)")
                 divider
-                BTReadout(label: "正确率", value: String(format: "%.0f%%", vm.accuracyRate))
+                BTAdaptiveToolReadout(label: "正确率", value: String(format: "%.0f%%", vm.accuracyRate))
                 divider
-                BTReadout(label: "平均", value: String(format: "%.1f°", vm.averageError))
+                BTAdaptiveToolReadout(label: "平均", value: String(format: "%.1f°", vm.averageError))
                 if !vm.limiter.isPremium {
                     divider
-                    BTReadout(label: "剩余", value: "\(vm.limiter.remainingToday)",
-                              emphasis: .adjustable, size: .compact)
+                    BTAdaptiveToolReadout(label: "剩余", value: "\(vm.limiter.remainingToday)",
+                              size: .compact)
                 }
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(.btText)
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)
-            .btHudGlass()
+            .background(Color.btSurface, in: Capsule())
 
             Spacer()
         }
@@ -175,7 +177,7 @@ struct GeometricAngleQuizView: View {
     }
 
     private var divider: some View {
-        BTHudMetricSeparator()
+        Rectangle().fill(Color.btSeparator).frame(width: 1, height: 16)
     }
 
     // MARK: - 操作胶囊行（统一胶囊语言；置于画布下方避免遮挡表单）
@@ -232,6 +234,7 @@ struct GeometricAngleQuizView: View {
                 }
             }
         )
+        .frame(maxWidth: 720)
         .background(heightReader("keypad"))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -239,19 +242,8 @@ struct GeometricAngleQuizView: View {
 
     private func actionChip(icon: String, title: String, filled: Bool,
                             action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
-                Text(title)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-            }
-            .foregroundStyle(filled ? .white : .white.opacity(0.85))
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, 7)
-            .background(Capsule().fill(filled ? Color.btPrimary : Color.white.opacity(0.12)))
-        }
-        .buttonStyle(BTPressableStyle.capsule)
+        Button(action: action) { Label(title, systemImage: icon) }
+            .buttonStyle(BTAdaptiveToolActionStyle(isPrimary: filled))
     }
 
     // MARK: - Freemium Gate
@@ -266,18 +258,18 @@ struct GeometricAngleQuizView: View {
                 if !vm.sessionResults.isEmpty {
                     Text("最近 \(min(vm.sessionResults.count, 5)) 题")
                         .font(.btCaption)
-                        .foregroundStyle(.btTextSecondary)
+                        .foregroundStyle(.btText)
                 }
             }
 
             if vm.sessionResults.isEmpty {
                 Text("先判断大致角度，再点击答题")
                     .font(.btFootnote)
-                    .foregroundStyle(.btTextSecondary)
+                    .foregroundStyle(.btText)
                     .accessibilityIdentifier("geometric.recent.empty")
                 Text("答题后，在这里回看你的估角与偏差。")
                     .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
+                    .foregroundStyle(.btText)
             } else {
                 HStack {
                     Text("估角 → 实际")
@@ -285,7 +277,7 @@ struct GeometricAngleQuizView: View {
                     Text("偏差")
                 }
                 .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btText)
 
                 VStack(spacing: 0) {
                     ForEach(Array(vm.sessionResults.indices.suffix(5).reversed()), id: \.self) { index in
@@ -294,13 +286,13 @@ struct GeometricAngleQuizView: View {
                         HStack(spacing: Spacing.sm) {
                             Text("\(index + 1)")
                                 .font(.btCaption)
-                                .foregroundStyle(.btTextSecondary)
+                                .foregroundStyle(.btText)
                                 .frame(minWidth: Spacing.xl, alignment: .leading)
                             Text("\(Int(record.userAngle))°")
                                 .foregroundStyle(.btText)
                             Image(systemName: "arrow.right")
                                 .font(.btCaption)
-                                .foregroundStyle(.btTextSecondary)
+                                .foregroundStyle(.btText)
                                 .accessibilityHidden(true)
                             Text(String(format: "%.1f°", record.actualAngle))
                                 .foregroundStyle(.btText)
@@ -327,8 +319,6 @@ struct GeometricAngleQuizView: View {
         }
         .padding(.top, Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // The question surface is always black, including in system Light mode.
-        .environment(\.colorScheme, .dark)
     }
 
     private func deviationText(_ record: GeometricAngleViewModel.AnswerRecord) -> String {
@@ -339,7 +329,7 @@ struct GeometricAngleQuizView: View {
     }
 
     private var limitReachedCard: some View {
-        BTDailyLimitGate { showSubscription = true }
+        BTAdaptiveToolLimitGate { showSubscription = true }
     }
 
     // MARK: - Result
@@ -361,23 +351,22 @@ struct GeometricAngleQuizView: View {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text("你答了 ") + Text("\(Int(last.userAngle))°").bold().monospacedDigit() +
                     Text("，实际是 ") + Text("\(Int(round(last.actualAngle)))°")
-                        .bold().monospacedDigit().foregroundColor(.btPrimary)
+                        .bold().monospacedDigit().foregroundColor(.btText)
                     Text("误差 \(Int(round(last.error)))°")
                         .font(.btTitle)
                         .monospacedDigit()
                         .foregroundStyle(vm.lastErrorRating.color)
                 }
                 .font(.btBody)
-                .foregroundStyle(.white)
+                .foregroundStyle(.btText)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             if vm.limiter.isLimitReached {
-                BTDailyLimitGate(compact: true) { showSubscription = true }
+                BTAdaptiveToolLimitGate(compact: true) { showSubscription = true }
             } else {
-                BTTextActionButton(title: "下一题", role: .primary, width: 112) {
-                    vm.nextQuestion()
-                }
+                Button("下一题") { vm.nextQuestion() }
+                    .buttonStyle(BTAdaptiveToolActionStyle(isPrimary: true))
             }
 
             // 学↔练闭环（T-P18-51）：偏差较大 → 回看原理补课；随时可去真台把估角落地。
@@ -386,27 +375,27 @@ struct GeometricAngleQuizView: View {
                     NavigationLink(value: AngleRoute.aimingPrinciple) {
                         Label("回看原理", systemImage: "book")
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.85))
+                            .foregroundStyle(.btText)
                             .padding(.horizontal, Spacing.md)
                             .padding(.vertical, 7)
-                            .background(Capsule().fill(Color.white.opacity(0.12)))
+                            .background(Capsule().fill(Color.btBGTertiary))
                     }
                     .buttonStyle(BTPressableStyle.capsule)
                 }
                 NavigationLink(value: AngleRoute.sceneAiming2D) {
                     Label("去真台练", systemImage: "target")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(.btText)
                         .padding(.horizontal, Spacing.md)
                         .padding(.vertical, 7)
-                        .background(Capsule().fill(Color.white.opacity(0.12)))
+                        .background(Capsule().fill(Color.btBGTertiary))
                 }
                 .buttonStyle(BTPressableStyle.capsule)
             }
         }
         .padding(Spacing.xl)
         .frame(maxWidth: .infinity)
-        .background(.white.opacity(0.06))
+        .background(Color.btSurface)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 }

@@ -60,8 +60,10 @@ struct TheoryT03View: View {
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxxxl)
+            .learnDocumentWidth()
         }
-        .theoryPageChrome(title: "切线法则")
+        .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
+        .theoryPageChrome(title: "切线法则", stableReadingNavigation: true)
         .accessibilityIdentifier("theoryPage_t03")
     }
 

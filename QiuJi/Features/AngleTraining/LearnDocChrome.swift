@@ -5,7 +5,7 @@ import SwiftUI
 /// 文档学页正文/脚注样式口径（问题集合 v14 B1）。
 ///
 /// - 主阅读路径：主色 `.btText` + 明确行距（参照精讲舒适度，**不**抄 items 三标签）。
-/// - 脚注 / caption：次级色 `.btTextSecondary`。
+/// - 脚注 / caption：保留较小字号层级，必要说明使用 `.btText`。
 enum LearnDocText {
     /// 主阅读路径行距（pt）。与 `DrillTutorialView.paragraphs` 舒适度对齐。
     static let bodyLineSpacing: CGFloat = 5
@@ -16,14 +16,45 @@ enum LearnDocText {
             .learnDocBodyStyle()
     }
 
-    /// 脚注 / caption：`.btCaption` + `.btTextSecondary`。
+    /// 脚注 / caption：`.btCaption` + `.btText`。
     static func footnote(_ string: String) -> some View {
         Text(string)
             .learnDocFootnoteStyle()
     }
 }
 
+private struct LearnReadingNavigation: ViewModifier {
+    let title: String
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.btBG, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(colorScheme, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(title).font(.btHeadline).foregroundStyle(.btText)
+                }
+            }
+            .toolbar(.hidden, for: .tabBar)
+    }
+}
+
 extension View {
+    /// Keep reading navigation independent of the diagram scrolling underneath.
+    func learnReadingNavigation(title: String) -> some View {
+        modifier(LearnReadingNavigation(title: title))
+    }
+
+    /// About forty Chinese body characters per line on tablets; narrow pages use
+    /// their full available width. Apply inside ScrollView so scrolling stays full-width.
+    func learnDocumentWidth() -> some View {
+        frame(maxWidth: 720).frame(maxWidth: .infinity)
+    }
+
     /// 文档学页主阅读路径样式。
     func learnDocBodyStyle() -> some View {
         self
@@ -37,7 +68,7 @@ extension View {
     func learnDocFootnoteStyle() -> some View {
         self
             .font(.btCaption)
-            .foregroundStyle(.btTextSecondary)
+            .foregroundStyle(.btText)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -114,7 +145,7 @@ struct LearnDocFormulaNest<Content: View>: View {
                 Text(title)
                     .font(.btCaption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(.btTextSecondary)
+                    .foregroundStyle(.btText)
             }
             content()
         }
@@ -149,7 +180,7 @@ struct LearnDocTextLink: View {
                     if let subtitle, !subtitle.isEmpty {
                         Text(subtitle)
                             .font(.btCaption)
-                            .foregroundStyle(.btTextSecondary)
+                            .foregroundStyle(.btText)
                     }
                 }
                 Spacer()
@@ -174,7 +205,7 @@ struct LearnDocTextLink: View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             LearnDocSectionCard(title: "节卡标题") {
                 LearnDocText.body("主阅读路径正文：主色 + 行距。供 B2/B3 六学页接入。")
-                LearnDocText.footnote("脚注 / caption：次级色，不抢主路径。")
+                LearnDocText.footnote("脚注 / caption：较小字号保留层级，文字清晰可读。")
             }
             LearnDocSectionCard(title: "次节", titleLevel: .subsection) {
                 Text("也可对任意 Text 使用 .learnDocBodyStyle() / .learnDocFootnoteStyle()。")

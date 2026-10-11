@@ -86,6 +86,10 @@ struct BTBallPaletteToken: View {
                      : (isOnTable ? BTBallPaletteMetrics.dimmedOpacity : 1))
             .accessibilityElement()
             .accessibilityIdentifier("paletteBall_\(key)")
+            .accessibilityLabel(key == PositionPlayBall.cueKey ? "母球" : "\(key.replacingOccurrences(of: "_", with: ""))号球")
+            .accessibilityValue(isOnTable ? "在桌上" : "未在桌上")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { onTap() }
             .onTapGesture(perform: onTap)
             .gesture(paletteDrag, including: allowsDrag ? .all : .subviews)
     }

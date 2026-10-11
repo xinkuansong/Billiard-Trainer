@@ -24,6 +24,82 @@ extension View {
     }
 }
 
+// Opt-in chrome for document-like training tools. Existing dark table consumers stay unchanged.
+private struct BTAdaptiveToolChromeModifier: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    let title: String
+    func body(content: Content) -> some View {
+        content
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .tabBar)
+            .toolbarColorScheme(colorScheme, for: .navigationBar)
+            .toolbarBackground(Color.btBG, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+    }
+}
+
+extension View {
+    func btAdaptiveToolChrome(_ title: String) -> some View {
+        modifier(BTAdaptiveToolChromeModifier(title: title))
+    }
+}
+
+/// Theme-following readouts for quizzes; table HUD readouts retain their scene colors.
+struct BTAdaptiveToolReadout: View {
+    let label: String
+    let value: String
+    var size: BTReadout.Size = .regular
+    var body: some View {
+        HStack(spacing: Spacing.xs) {
+            Text(label)
+                .font(size == .regular ? HUDStyle.labelFont : HUDStyle.labelFontCompact)
+                .foregroundStyle(.btText)
+            Text(value)
+                .font(size == .regular ? HUDStyle.valueFont : HUDStyle.valueFontCompact)
+                .monospacedDigit().foregroundStyle(.btText)
+        }
+    }
+}
+
+struct BTAdaptiveToolActionStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    var isPrimary = false
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.btFootnote.weight(.semibold))
+            .foregroundStyle(Color.btText)
+            .padding(.horizontal, Spacing.md)
+            .frame(minHeight: 44)
+            .background(configuration.isPressed ? Color.btPrimary.opacity(0.15)
+                        : (isPrimary ? Color.btBGTertiary : Color.btSurface), in: Capsule())
+            .overlay(Capsule().stroke(isPrimary ? Color.btPrimary.opacity(0.6) : Color.btSeparator, lineWidth: 1))
+            .opacity(isEnabled ? 1 : 0.4)
+    }
+}
+
+/// Same quota and unlock action as the scene gate, using document colors.
+struct BTAdaptiveToolLimitGate: View {
+    var compact = false
+    let onUnlock: () -> Void
+    var body: some View {
+        VStack(spacing: Spacing.md) {
+            Text("今日免费次数已用完").font(.btSubheadlineSemibold).foregroundStyle(.btText)
+            if !compact {
+                Text("每日可免费练习 \(AngleUsageLimiter.dailyLimit) 题，升级 Pro 后不限次数。")
+                    .font(.btFootnote).foregroundStyle(.btText)
+                    .multilineTextAlignment(.center)
+            }
+            Button(action: onUnlock) {
+                Label(BTDailyLimitGate.unlockCTATitle, systemImage: BTIcon.crown)
+            }
+            .buttonStyle(BTAdaptiveToolActionStyle(isPrimary: true))
+        }
+        .padding(Spacing.xl).frame(maxWidth: .infinity)
+        .background(Color.btSurface, in: RoundedRectangle(cornerRadius: BTRadius.lg))
+    }
+}
+
 // MARK: - 页面布局规范 v2（问题集合条 18，优先级最高）
 //
 // 击打页共享布局件（各击打页复用，保证布局/风格全局一致）：

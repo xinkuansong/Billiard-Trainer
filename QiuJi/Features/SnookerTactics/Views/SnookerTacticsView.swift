@@ -1,355 +1,76 @@
 import SwiftUI
 import SceneKit
 
-/// 防守战术工具（安全球反解，ADR-P16-01；V8 中八语义重做）。
-///
-/// 独立页面、布局参考思路训练器：顶部工具行（目标/摆球 + 清除键）→ 球桌 → 底部条（解指示 + 球库 + 操作列）。
-/// 只选一颗目标球（青环，我方要打的球），系统按中八规则推断对方球组，由
-/// `PositionPlaySolver.solveSnooker` 反解出令母球合法首触目标球、不进袋、并停在让对方球组
-/// 完全斯诺克（或只剩长台/大切角高难度球）的塞/力度/瞄准。
+/// Defense retains its legal target and coverage solver inside the shared table shell.
 struct SnookerTacticsView: View {
-    /// 可选初始球形（如「拍照建球形」产出的快照）。nil = 默认开箱球形。
     let initialBoard: BoardSnapshot?
-
-    init(initialBoard: BoardSnapshot? = nil) {
-        self.initialBoard = initialBoard
-    }
-
+    init(initialBoard: BoardSnapshot? = nil) { self.initialBoard = initialBoard }
     @StateObject private var vm = SnookerTacticsViewModel()
-    private var is3D: Bool { vm.cameraMode == .perspective3D }
-    @State private var hasAppeared = false
-    @State private var projector = TableProjector()
-    @State private var showSpinPad = false
-
-    @State private var draggingKey: String?
-    @State private var dragLocation: CGPoint = .zero
-    @State private var dragOverTable = false
-
-    @State private var sceneFrame: CGRect = .zero
-    @State private var paletteFrame: CGRect = .zero
-    @State private var toast: BTToastMessage?
-
-    /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
-    private static let topRowHeight = ShotStageMetrics.topRowHeight
-    /// 底栏 = 球库两行 regular 36（与 Composer 同档；G12 后无解摘要行）。
-    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
+    @AppStorage("snooker.spinTransparency") private var spinTransparency = 0.5
+    @AppStorage("snooker.hides3DAssists") private var hides3DAssists = false
+    private var busy: Bool { vm.isPlaying || vm.isComputing }
 
     var body: some View {
-        GeometryReader { geo in
-            let rig = vm.scene.cameraRig
-            let bottomHeight = is3D ? Self.topRowHeight : Self.bottomBarHeight
-            let sceneH = max(geo.size.height - Self.topRowHeight - bottomHeight, 1)
-            let proxy = ShotStageProxy(
-                sceneSize: CGSize(width: geo.size.width, height: sceneH),
-                halfLength: rig?.tableOuterHalfLength ?? ShotTableLayout.defaultHalfLength,
-                halfWidth: rig?.tableOuterHalfWidth ?? ShotTableLayout.defaultHalfWidth
-            )
-            ZStack {
-                Color.black.ignoresSafeArea()
-                VStack(spacing: 0) {
-                    topToolRow
-                        .disabled(is3D)
-                        .frame(height: Self.topRowHeight)
-                    stage(proxy)
-                        .frame(height: sceneH)
-                    bottomBar(proxy)
-                        .frame(height: bottomHeight)
-                }
-                if let key = draggingKey {
-                    BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
-                }
-            }
-        }
-        .animation(BTMotion.springPanel, value: showSpinPad)
-        .btToast($toast)
-        .coordinateSpace(name: "snooker")
-        .onPreferenceChange(BTShotPageFramePreference.self) { frames in
-            if let s = frames["scene"] { sceneFrame = s }
-            if let p = frames["palette"] { paletteFrame = p }
-        }
-        .trainingBackgroundMusic()
-        .btDarkToolChrome("防守")
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                BTSolverNavStatus(
-                    title: "防守",
-                    isBusy: vm.isComputing,
-                    statusText: vm.statusText
-                )
-            }
-            ToolbarItem(placement: .topBarTrailing) { cameraToggle }
-            ToolbarItem(placement: .topBarTrailing) { moreMenu }
-        }
-        .onAppear {
-            if !hasAppeared {
-                hasAppeared = true
-                vm.setupScene()
-                if let initialBoard { vm.loadBoard(initialBoard) }
-                // UITest 取证钩子（仅 launch arg 触发；生产无这些 arg ⇒ 不注入）。
-                let args = ProcessInfo.processInfo.arguments
-                if args.contains("-snooker.full") { vm.uiTestConfigure("full") }
-                else if args.contains("-snooker.partial") { vm.uiTestConfigure("partial") }
-                else if args.contains("-snooker.none") { vm.uiTestConfigure("none") }
-            }
-        }
+        BTTeachingTablePage(vm: vm, titleLabel: "防守", identifier: "snooker", velocity: velocity,
+            planning: controls,
+            information: [.init(text: vm.statusText, identifier: "snooker.status")], usesStandardTitle: true,
+            title: { EmptyView() },
+            leftContent: { size in leftControls(size) },
+            status: { EmptyView() }, onPalettePlace: { vm.placeFromPalette($0, atWorld: $1) })
     }
-
-    private var cameraToggle: some View {
-        Button(is3D ? "3D" : "2D") {
-            showSpinPad = false
-            let needsOverview = !vm.scene.hasPerspectiveView
-            vm.cameraMode = is3D ? .topDown2DRotated : .perspective3D
-            vm.scene.setCameraMode(vm.cameraMode, animated: false)
-            if is3D && needsOverview { _ = vm.scene.cameraRig?.observeWholeTable() }
-        }
-        .font(.btSubheadlineSemibold)
-        .frame(minWidth: 44, minHeight: 44)
-        .accessibilityLabel(is3D ? "切换到2D俯视" : "切换到3D视角")
-        .accessibilityValue(is3D ? "3D" : "2D")
-        .accessibilityIdentifier("snooker.cameraMode")
-    }
-
-    // MARK: - Top tool row
-
-    private var topToolRow: some View {
-        HStack(spacing: Spacing.sm) {
-            BTChipRow(
-                options: ["目标球", "摆球"],
-                selection: Binding(
-                    get: {
-                        switch vm.activeTool {
-                        case .selectTarget: return 0
-                        case .none: return 1
-                        }
-                    },
-                    set: {
-                        switch $0 {
-                        case 0: vm.activeTool = .selectTarget
-                        default: vm.activeTool = .none
-                        }
-                    }
-                ),
-                scrollable: false
-            )
-            .disabled(vm.isPlaying)
-
-            // Q15.3：清除键正常尺寸（BTEraserButton 42×32）、紧贴「摆球」chip 右侧（与打三/思路同布局）。
-            BTEraserButton(isEnabled: !vm.isPlaying && vm.selectedTargetKey != nil) { vm.clearSelection() }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, Spacing.lg)
-        .frame(maxHeight: .infinity)
-        .background(Color.black)
-        .environment(\.colorScheme, .dark)
-    }
-
-    // MARK: - Stage（scene + 贴边控件，G3–G11 走 ShotStageProxy）
-
-    private func stage(_ proxy: ShotStageProxy) -> some View {
-        ZStack(alignment: .topLeading) {
-            sceneContainer
-
-            if proxy.isValid {
-                // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右。
-                BTTrajectoryDetailChip { vm.redrawTrajectory() }
-                    .btChipBandPlacement(proxy)
-                    .allowsHitTesting(!vm.isPlaying)
-
-                // 左下（G24 / D14）：BTSolverLeftColumn；无开球不占位，Slot L1 = 下一解在柱底。
-                leftColumn
-                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).bottomLeadingFrame(size: BTSolverLeftColumn.stackSize) : proxy.bottomLeadingFrame(size: BTSolverLeftColumn.stackSize))
-
-                // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
-                instrumentColumn
-                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
-
-                if is3D && !showSpinPad {
-                    ShotSceneCameraButtons(scene: vm.scene, aim: vm.playerCameraAim,
-                        isEnabled: vm.canObserveCurrentAim) { showSpinPad = false }
-                        .btStageFrame(ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame)
-                        .offset(x: -52)
-                }
-
-                // 条 18.2：击球/上一杆/回放，右下角底边齐球桌底线。
-                actionColumn
-                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).actionFrame : proxy.actionColumnFrame())
-            }
-
-            if showSpinPad {
-                BTProjectedSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
-                                 scene: vm.scene, projector: projector,
-                                 onClose: { showSpinPad = false })
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .zIndex(20)
-            }
-        }
-    }
-
-    // MARK: - Scene
-
-    private var sceneContainer: some View {
-        let selectable: [SCNNode] = !is3D && vm.activeTool == .selectTarget ? vm.selectableBalls : []
-        return AngleSceneView(
-            scene: vm.scene,
-            cameraMode: $vm.cameraMode,
-            interactionMode: is3D ? .cameraControl : .tapsOnly,
-            autoFitsRotatedTable: !is3D,
-            draggableBallNodes: !vm.isPlaying && (is3D || vm.activeTool == .none) ? vm.draggableBalls : [],
-            onDragBegan: { vm.dragBegan(node: $0) },
-            onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },
-            onDragEnded: { vm.dragEnded(node: $0) },
-            onDragEndedAt: { node, localPoint in handleTableDragEnd(node: node, localPoint: localPoint) },
-            selectableBallNodes: selectable,
-            onBallTapped: { vm.selectBall(node: $0) },
-            projector: projector
-        )
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(frameReader(id: "scene"))
-        .clipped()
-    }
-
-    // MARK: - Side columns（条 21.3 + 条 18 同规范）
-
-    private var leftColumn: some View {
-        BTSolverLeftColumn(
-            canSolve: !vm.isPlaying && !vm.isComputing && vm.canSolve,
-            onSolve: { vm.solve() },
-            canNext: !vm.isPlaying && vm.solutions.count >= 2,
-            onNext: { vm.nextSolution() }
-        )
-    }
-
-    private var instrumentColumn: some View {
-        BTShotInstrumentColumn(
-            spinX: vm.spinX, spinY: vm.spinY,
-            onSpinTap: { if vm.hasSolutions { showSpinPad = true } },
-            velocity: velocityBinding,
-            range: ShotTuning.velocityRange,
-            isDisabled: vm.isPlaying || !vm.hasSolutions
-        )
-    }
-
-    private var actionColumn: some View {
-        BTShotActionColumn(
-            strikeTitle: vm.isPlaying ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.freePlay,
-            strikeEnabled: vm.canStrike,
-            onStrike: { vm.play() },
-            undoEnabled: !vm.isPlaying && vm.canUndoShot,
-            onUndo: { vm.undoLastShot() },
-            playbackEnabled: !vm.isPlaying && vm.canPlayback,
-            onPlayback: { vm.replayLastShot() }
-        )
-    }
-
-    private var velocityBinding: Binding<Double> {
+    private var velocity: Binding<Double> {
         Binding(get: { vm.velocity }, set: { vm.adjustCurrentSolution(velocity: $0) })
     }
-
-    private var spinXBinding: Binding<Double> {
-        Binding(get: { vm.spinX }, set: { vm.adjustCurrentSolution(spinX: $0) })
-    }
-
-    private var spinYBinding: Binding<Double> {
-        Binding(get: { vm.spinY }, set: { vm.adjustCurrentSolution(spinY: $0) })
-    }
-
-    // MARK: - Bottom bar（G12：删除解摘要行，底部只留球库；解读数入口 = 右柱打点/力度）
-
-    private func bottomBar(_ proxy: ShotStageProxy) -> some View {
-        Group {
-            if is3D {
-                HStack {
-                    BTSceneObservationMenu(
-                        scene: vm.scene,
-                        targetNode: vm.selectedTargetKey.flatMap { vm.scene.allBallNodes[$0] },
-                        pocketIndex: nil,
-                        identifierPrefix: "snooker",
-                        canReturnToAim: vm.canObserveCurrentAim,
-                        onReturnToAim: vm.observeCurrentAim
-                    )
-                    .disabled(vm.isPlaying)
-                    Spacer(minLength: 0)
-                    Text("拖球摆位 · 空白处转视角").foregroundStyle(Color.btTextSecondary)
+    private var controls: BTTablePlanningControls {
+        BTTablePlanningControls(
+            spinX: Binding(get: { vm.spinX }, set: { vm.adjustCurrentSolution(spinX: $0) }),
+            spinY: Binding(get: { vm.spinY }, set: { vm.adjustCurrentSolution(spinY: $0) }),
+            transparency: $spinTransparency,
+            hides3DAssists: Binding(get: { hides3DAssists }, set: { hides3DAssists = $0; vm.hides3DShotAssists = $0 }),
+            velocityRange: ShotTuning.velocityRange, instrumentsEnabled: !busy && vm.hasSolutions,
+            isAnimating: busy, paletteEnabled: !busy, allowsPocketSelection: false,
+            primaryTitle: vm.isComputing ? "计算中" : "击球", primaryEnabled: vm.canStrike,
+            onPrimary: { vm.play() }, onPaletteTap: { key in
+                if vm.onTableKeys.contains(key) { vm.pulseTableBall(key) } else { vm.placeFromPalette(key) }
+            }, menuItems: [
+                .init(id: "snooker.board", title: "球形"),
+                .init(id: "snooker.clear", title: "清空桌面", disabled: busy, action: { vm.clearTable() }),
+                .init(id: "snooker.reset", title: "恢复默认球形", disabled: busy, action: { vm.resetAll() })
+            ], refreshTrajectory: { vm.redrawTrajectory() }, onSetup: {
+                vm.hides3DShotAssists = hides3DAssists
+                if let initialBoard { vm.loadBoard(initialBoard) }
+                for scenario in ["full", "partial", "none"] where ProcessInfo.processInfo.arguments.contains("-snooker.\(scenario)") {
+                    vm.uiTestConfigure(scenario); break
                 }
-                .font(.btFootnote)
-                .padding(.horizontal, Spacing.sm)
-            } else {
-                paletteBar(proxy)
-            }
-        }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(HUDStyle.panelBackground)
-            .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
-            .background(frameReader(id: "palette"))
-            .environment(\.colorScheme, .dark)
+            }, onDisappear: { vm.stopForDismissal() })
     }
-
-    // MARK: - Palette
-
-    private func paletteBar(_ proxy: ShotStageProxy) -> some View {
-        let libraryWidth = proxy.libraryWidth
-        return BTBallPaletteBar(
-            coordinateSpace: "snooker",
-            ballDiameter: proxy.paletteBallDiameter,
-            isPlaying: vm.isPlaying,
-            libraryWidth: libraryWidth,
-            isOnTable: { vm.onTableKeys.contains($0) },
-            sceneFrame: sceneFrame,
-            unproject: { projector.unproject?($0) },
-            onTap: { key in
-                if vm.onTableKeys.contains(key) { vm.pulseTableBall(key) }
-                else { vm.placeFromPalette(key) }
-            },
-            onPlace: { key, world in
-                if let world { vm.placeFromPalette(key, atWorld: world) }
-                else { vm.placeFromPalette(key) }
-            },
-            draggingKey: $draggingKey,
-            dragLocation: $dragLocation,
-            dragOverTable: $dragOverTable
-        )
+    private func leftControls(_ size: CGSize) -> some View {
+        ScrollView(.vertical) {
+            VStack(spacing: 4) {
+                Menu {
+                    Button("目标球") { vm.activeTool = .selectTarget }
+                    Button("摆球") { vm.activeTool = .none }
+                } label: {
+                    Text(vm.activeTool == .selectTarget ? "目标球" : "摆球").font(.btCaption).foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
+                }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }.disabled(busy)
+                    .opacity(busy ? 0.4 : 1).accessibilityIdentifier("snooker.tool")
+                action("清除", "eraser", "snooker.clearSelection", enabled: !busy && vm.selectedTargetKey != nil) { vm.clearSelection() }
+                action("求解", "function", "solver.solve", enabled: !busy && vm.canSolve) { vm.solve() }
+                TeachingSolutionButton(count: vm.solutions.count, currentIndex: vm.currentIndex,
+                        enabled: !busy, next: { vm.nextSolution() }, select: { vm.selectSolution(at: $0) })
+                action("重打", "arrow.uturn.backward", "snooker.undo", enabled: !busy && !vm.temporaryTopDownActive && vm.canUndoShot) { vm.undoLastShot() }
+                action("回放", "play.rectangle", "snooker.replay", enabled: !busy && !vm.temporaryTopDownActive && vm.canPlayback) { vm.replayLastShot() }
+            }.frame(maxWidth: .infinity)
+        }.scrollIndicators(.hidden).frame(width: size.width, height: min(size.height, 284))
     }
-
-    private func handleTableDragEnd(node: SCNNode, localPoint: CGPoint) {
-        guard !is3D else { return } // The palette is hidden in perspective mode.
-        guard BTBallPaletteDragBack.hitPalette(localPoint: localPoint,
-                                               sceneFrame: sceneFrame,
-                                               paletteFrame: paletteFrame),
-              let key = vm.scene.ballKey(for: node) else { return }
-        vm.removeFromTable(key)
-        flash("已移回球库")
+    private func action(_ title: String, _ icon: String, _ id: String, enabled: Bool, perform: @escaping () -> Void) -> some View {
+        Button(action: perform) {
+            VStack(spacing: 1) { Image(systemName: icon).font(.system(size: 17)); Text(title).font(.system(size: 10)) }
+                .frame(width: 44, height: 44).background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
+        }.buttonStyle(BTHUDPressStyle()).disabled(!enabled).opacity(enabled ? 1 : 0.4).accessibilityLabel(title).accessibilityIdentifier(id)
     }
-
-    // MARK: - Toolbar menu
-
-    /// K12：三点菜单不再含「求解范围」（仅思路训练保留）；显示 → 清空/恢复默认。
-    private var moreMenu: some View {
-        BTSolverMoreMenu(
-            scene: vm.scene,
-            onClearTable: { vm.clearTable() },
-            onReset: { vm.resetAll() },
-            pageExtras: { EmptyView() }
-        )
-    }
-
-    // MARK: - Banner
-
-    private func flash(_ message: String, tone: BTToastTone = .success) {
-        BTToast.present(message, tone: tone) { toast = $0 }
-    }
-
-    private func frameReader(id: String) -> some View {
-        GeometryReader { geo in
-            Color.clear.preference(key: BTShotPageFramePreference.self,
-                                   value: [id: geo.frame(in: .named("snooker"))])
-        }
-    }
-}
-
-
-#Preview("Dark") {
-    NavigationStack { SnookerTacticsView() }
-        .preferredColorScheme(.dark)
 }

@@ -106,6 +106,7 @@ struct DrillDetailView: View {
                         loadRadarSection(drill)
                     }
                     .padding(.bottom, 100)
+                    .learnDocumentWidth()
                 } else if didFinishLoading {
                     BTEmptyState(
                         icon: "exclamationmark.triangle",
@@ -121,13 +122,14 @@ struct DrillDetailView: View {
             .background(.btBG)
 
             if drill != nil {
-                bottomBar.btTrainingPillObstacle()
+                bottomBar.learnDocumentWidth().btTrainingPillObstacle()
             }
 
             if let toast {
                 BTToastBanner(message: toast)
             }
         }
+        .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
         .navigationBarTitleDisplayMode(.inline)
         // 固定顶栏始终显示材质背景，避免滚动内容穿透状态栏/标题（UR-20260529 U-06）。
         .toolbarBackground(.visible, for: .navigationBar)

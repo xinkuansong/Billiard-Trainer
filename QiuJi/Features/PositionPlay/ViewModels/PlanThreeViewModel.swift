@@ -163,7 +163,45 @@ enum PlanThreeSectorSolver {
 /// 由 `PositionPlaySolver` 反解出「打一」的塞与力度，可「下一解」翻档、击球。
 /// 打进①后白球停下、窗口前滑（老②→新①、老②袋→新①袋、老③→新②）续打；角色随时可改派。
 @MainActor
-final class PlanThreeViewModel: ObservableObject {
+final class PlanThreeViewModel: TeachingTableHost {
+    @Published var cameraTransitionBusy = false
+    @Published var temporaryTopDownActive = false
+    @Published var topDownContentRevision = 0
+    @Published var topDownSelectionChanged = false
+    @Published private(set) var isDragging = false
+    var selectedTargetKey: String? { ball1Key }
+    var selectedPocketIndex: Int { pocket1Index }
+    var targetNode: SCNNode? { isBreakMode ? nil : selectedTargetKey.flatMap { scene.allBallNodes[$0] } }
+    var currentPlayerAim: SCNVector3? {
+        if let runner = breakRunner { return runner.aimDir }
+        if let lastAimDirection { return lastAimDirection }
+        guard let cue = scene.cueBallNode, !cue.isHidden, let targetNode, !targetNode.isHidden,
+              selectedPocketIndex >= 0 else { return nil }
+        let aim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: targetNode.position,
+            pocketIndex: selectedPocketIndex, surfaceY: scene.surfaceY)
+        let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: targetNode.position,
+            pocket: aim, ballRadius: AngleSceneCalculator.ballRadius)
+        let dx = ghost.x - cue.position.x, dz = ghost.z - cue.position.z
+        let length = sqrtf(dx * dx + dz * dz)
+        return length > 0.0001 ? SCNVector3(dx / length, 0, dz / length) : nil
+    }
+    func selectTarget(key: String) {
+        guard !isBreakMode, activeTool == .none, let node = scene.allBallNodes[key] else { return }
+        selectBall(node: node)
+    }
+
+
+    func stopForDismissal() {
+        solveGeneration += 1
+        endTemporaryTopDown()
+        breakRunner?.cancel()
+        scene.rootNode.removeAllActions()
+        scene.allBallNodes.values.forEach { $0.removeAllActions() }
+        ShotAudioScheduler.shared.cancel()
+        isPlaying = false
+    }
+
+
 
     // MARK: - Tools (复用思路训练器约束工具)
 
@@ -214,14 +252,27 @@ final class PlanThreeViewModel: ObservableObject {
 
     // MARK: - Published solve state
 
-    @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated
+    @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated {
+        didSet { if oldValue != cameraMode { refreshShotAssistVisibility() } }
+    }
+    @Published var hides3DShotAssists = false {
+        didSet { if oldValue != hides3DShotAssists { refreshShotAssistVisibility() } }
+    }
+    private var showsShotAssists: Bool { cameraMode != .perspective3D || !hides3DShotAssists }
+    func refreshShotAssistVisibility() {
+        breakRunner?.showsAimAssist = showsShotAssists
+        guard !isPlaying, !isBreakMode else { return }
+        if let solution = currentSolution { drawTrajectory(solution.prediction, shot: solution.shot) }
+        else { clearTrajectory() }
+        refreshOverlays()
+    }
     @Published private(set) var isPlaying = false {
         didSet { if isPlaying { scene.clearPocketHighlights() } }
     }
     @Published private(set) var isComputing = false
     @Published private(set) var solutions: [PositionPlaySolution] = []
     @Published private(set) var currentIndex = 0
-    @Published private(set) var statusText = "在2D中点①，再选球设为一号球"
+    @Published private(set) var statusText = "在桌面上点①，再选球设为一号球"
 
     // MARK: - Adjustment draft (K13 / X6 — same contract as SiluTrainerViewModel; X5 transplant source)
     //
@@ -237,7 +288,7 @@ final class PlanThreeViewModel: ObservableObject {
     }
     var hasSolutions: Bool { !solutions.isEmpty }
     var canStrike: Bool {
-        !isPlaying && !isComputing && (currentSolution?.prediction.feasible ?? false)
+        !temporaryTopDownActive && !isPlaying && !isComputing && (currentSolution?.prediction.feasible ?? false)
             && (currentSolution?.prediction.hasFinalTableState ?? false)
             && (currentSolution?.prediction.duration ?? 0) > 0.05
     }
@@ -284,6 +335,7 @@ final class PlanThreeViewModel: ObservableObject {
     /// 回放开始时抓的「击打后局面」姿态，回放收尾连同 `after` 位置一起写回。
     private var replayAfterPoses: BallPoseSnapshot = [:]
     private var replayAfterRails = PocketRailSnapshot()
+    private var replayAfterContext: UndoContext?
     @Published private(set) var canUndoShot = false
     @Published private(set) var canPlayback = false
 
@@ -294,7 +346,11 @@ final class PlanThreeViewModel: ObservableObject {
     // MARK: - Setup
 
     func setupScene() {
+        scene.configureReferenceTableRendering()
+        scene.configureShotAwareCamera()
+        scene.usesAdaptiveDiagramLabels = true
         scene.setupScene()
+        configureTeachingCamera()
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
         scene.hideAllBalls()
@@ -343,9 +399,14 @@ final class PlanThreeViewModel: ObservableObject {
         return BoardSnapshot(onTable: dict)
     }
 
-    var draggableBalls: [SCNNode] { onTableKeys.compactMap { scene.allBallNodes[$0] } }
+    var draggableBalls: [SCNNode] {
+        guard !isPlaying, !isComputing else { return [] }
+        if let runner = breakRunner { return runner.draggableCue }
+        return activeTool == .none ? onTableKeys.compactMap { scene.allBallNodes[$0] } : []
+    }
     var selectableBalls: [SCNNode] {
-        onTableKeys.filter { !PositionPlayBall.isCue($0) }.compactMap { scene.allBallNodes[$0] }
+        guard !isPlaying, !isComputing, !isBreakMode, activeTool == .none else { return [] }
+        return onTableKeys.filter { !PositionPlayBall.isCue($0) }.compactMap { scene.allBallNodes[$0] }
     }
 
     // MARK: - Palette place / remove / drag
@@ -357,6 +418,7 @@ final class PlanThreeViewModel: ObservableObject {
     func placeFromPalette(_ key: String) {
         guard !isPlaying else { return }
         place(key: key, normalized: freeNormalizedSlot(), cuePose: .reseat)
+        activeTool = .none
         refreshOnTableKeys()
         invalidateSolutions()
     }
@@ -367,12 +429,13 @@ final class PlanThreeViewModel: ObservableObject {
         let n = AngleSceneCalculator.sceneToNormalized(position: clamped)
         place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)),
               cuePose: .reseat)
+        activeTool = .none
         refreshOnTableKeys()
         invalidateSolutions()
     }
 
     func removeFromTable(_ key: String) {
-        guard !isPlaying else { return }
+        guard !isPlaying, !PositionPlayBall.isCue(key) else { return }
         scene.hideBall(key: key)
         clearRolesReferencing(key)
         refreshOnTableKeys()
@@ -410,17 +473,22 @@ final class PlanThreeViewModel: ObservableObject {
 
     func dragBegan(node: SCNNode) {
         guard !isPlaying else { return }
+        isDragging = true
+        if let runner = breakRunner { runner.dragBegan(node: node); return }
         node.removeAction(forKey: "dragPulse")
         node.runAction(SCNAction.scale(by: 1.15, duration: 0.1), forKey: "dragPulse")
     }
 
     func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
         guard !isPlaying else { return }
+        if let runner = breakRunner { runner.dragMoved(node: node, worldPosition: worldPosition); return }
         node.position = clampMultiBall(worldPosition, movingNode: node)
         refreshOverlays()
     }
 
     func dragEnded(node: SCNNode) {
+        isDragging = false
+        if let runner = breakRunner { runner.dragEnded(node: node); return }
         guard !isPlaying else { return }
         node.removeAction(forKey: "dragPulse")
         node.runAction(SCNAction.scale(by: 1.0 / 1.15, duration: 0.15))
@@ -483,7 +551,7 @@ extension PlanThreeViewModel {
     func selectBall(node: SCNNode) {
         guard !isPlaying, let key = scene.ballKey(for: node), !PositionPlayBall.isCue(key) else { return }
         guard let role = armedRole, role.isBall else {
-            statusText = "请先点下方「球」角色芯片"
+            statusText = "请先在左侧计划中选「球」角色"
             return
         }
         assignBall(key, to: role)
@@ -491,9 +559,9 @@ extension PlanThreeViewModel {
 
     /// 点袋口（场景回调）：赋给当前装填的袋角色。
     func selectPocket(at index: Int) {
-        guard !isPlaying else { return }
+        guard !isPlaying, !isComputing, !isBreakMode else { return }
         guard let role = armedRole, role.isPocket else {
-            statusText = "请先点下方「袋」角色芯片"
+            statusText = "请先在左侧计划中选「袋」角色"
             return
         }
         if role == .pocket1 { pocket1Index = index } else { pocket2Index = index }
@@ -741,15 +809,22 @@ extension PlanThreeViewModel {
 
     /// 三档轨迹标注切换后重绘当前解（`BTTrajectoryDetailChip` 触发，条 12.5）。
     func redrawTrajectory() {
+        defer { topDownContentRevision &+= 1 }
         guard !isPlaying, let sol = currentSolution else { return }
         drawTrajectory(sol.prediction, shot: sol.shot)
     }
 
     func nextSolution() {
         guard !solutions.isEmpty else { return }
+        selectSolution(at: (currentIndex + 1) % solutions.count)
+    }
+
+    /// Selecting a catalog solution shares cycling's draft-reset contract.
+    func selectSolution(at index: Int) {
+        guard !isPlaying, !isComputing, solutions.indices.contains(index) else { return }
         adjustmentDraft = nil
-        currentIndex = (currentIndex + 1) % solutions.count
-        showSolution(at: currentIndex)
+        currentIndex = index
+        showSolution(at: index)
     }
 
     private func showSolution(at index: Int) {
@@ -783,38 +858,34 @@ extension PlanThreeViewModel {
     }
 
     private func solutionStatus(_ sol: PositionPlaySolution) -> String {
-        let prefix = solutions.count > 1 ? "解 \(currentIndex + 1)/\(solutions.count) · " : ""
-        let advanced = sol.beyondCushionBudget ? "进阶 · " : ""
-        if sol.summary.hasPrefix("翻袋备选") { return prefix + sol.summary }
-        if !sol.satisfiesConstraint { return prefix + advanced + "最接近解 · " + sol.summary }
-        return prefix + advanced + sol.summary
+        TeachingSolutionSummary.text(sol, index: currentIndex, count: solutions.count, defense: false)
     }
 
     // MARK: Hints
 
     func hintForState() -> String {
-        if scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true { return "请在2D中把母球摆上桌" }
-        if objectBallCount == 0 { return "清台完成 🎉 · 用「恢复默认」重开一局" }
+        if scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true { return "请在桌面上把母球摆上桌" }
+        if objectBallCount == 0 { return "清台完成 · 用「恢复默认」重开一局" }
         if ball1Key == nil { return hint(for: .ball1) }
         if pocket1Index < 0 { return hint(for: .pocket1) }
         // ①+①袋 就绪：优先扇形/自选约束，其次 <3 球 pot-only。
         if draft != nil { return "约束就绪，点「求解」反解打一杆法" }
         if sectorRegion != nil {
-            return "扇形为默认落区 · 点「求解」（或在2D中自定义落区/落点/过点）"
+            return "扇形为默认落区 · 点「求解」（或在桌面上自定义落区/落点/过点）"
         }
         if canPotOnly { return "台面仅剩此球 · 点「求解」直接打进" }
         // ≥2 球但②未就绪：引导设②走位，或自画约束。
         if let role = nextEmptyRole() { return hint(for: role) }
-        return "在2D中画落区/落点/过点，再「求解」"
+        return "在桌面上画落区/落点/过点，再「求解」"
     }
 
     func hint(for role: PlanThreeRole) -> String {
         switch role {
-        case .ball1: return "在2D中选球，设为①一号球"
-        case .pocket1: return "在2D中选袋，设为①一号球目标袋"
-        case .ball2: return "在2D中选球，设为②二号球"
-        case .pocket2: return "在2D中选袋，设为②二号球目标袋"
-        case .ball3: return "在2D中选球，设为③三号球（决定扇形朝向）"
+        case .ball1: return "在桌面上选球，设为①一号球"
+        case .pocket1: return "在桌面上选袋，设为①一号球目标袋"
+        case .ball2: return "在桌面上选球，设为②二号球"
+        case .pocket2: return "在桌面上选袋，设为②二号球目标袋"
+        case .ball3: return "在桌面上选球，设为③三号球（决定扇形朝向）"
         }
     }
 }
@@ -824,6 +895,7 @@ extension PlanThreeViewModel {
 extension PlanThreeViewModel {
 
     func refreshOverlays() {
+        defer { topDownContentRevision &+= 1; refreshObservationCameraContext() }
         scene.clearResultNodes(nodes: &selectionNodes)
         guard !isPlaying, !isBreakMode else { scene.clearPocketHighlights(); return }
         scene.setPocketRoles(first: ball1Key == nil ? nil : pocket1Index,
@@ -835,7 +907,7 @@ extension PlanThreeViewModel {
         drawRoleRing(ball3Key, color: Self.color3)
         drawSector()
 
-        if showingSolution { return }   // ghost/aim by trajectory layer
+        if showingSolution || !showsShotAssists { return }   // Role rings and sectors remain visible.
         drawBall1Preview()
     }
 
@@ -927,6 +999,7 @@ extension PlanThreeViewModel {
     func drawTrajectory(_ p: ShotPrediction, shot: PlannedShot) {
         clearTrajectory()
         guard p.feasible else { scene.hideCueStick(); return }
+        guard showsShotAssists else { return }
         // 全量口径（C3 / D2）：与 Composer/Silu 同 options。
         TrajectoryRenderer.draw(
             prediction: p,
@@ -951,6 +1024,7 @@ extension PlanThreeViewModel {
     // MARK: Constraint rendering (青/琥珀，与角色色区分)
 
     func renderConstraint() {
+        defer { topDownContentRevision &+= 1 }
         clearConstraintNodes()
         let color = BTScenePalette.constraintCyan
         let y = surfaceY + 0.002
@@ -1015,6 +1089,7 @@ extension PlanThreeViewModel {
         scene.hideAllVisualization()
         scene.hideCueStick()
         let runner = BreakFlowRunner(scene: scene, game: game)
+        runner.showsAimAssist = showsShotAssists
         // K6 / D-v8-3a：与 FreePlay 对齐——停稳后取消/重开/完成三态，不自动落座。
         runner.autoDeliverOnSettle = false
         breakChangeForwarder = runner.objectWillChange
@@ -1026,6 +1101,8 @@ extension PlanThreeViewModel {
         }
         breakRunner = runner
         runner.rackUp()
+        refreshOnTableKeys()
+        if cameraMode == .perspective3D { requestPlayerView(.thirdPerson) }
     }
 
     /// 取消开球模式并恢复进场前桌面。
@@ -1171,7 +1248,7 @@ extension PlanThreeViewModel {
     /// 上一杆（条 21.3 + G17）：回到上次击打前的**完整状态**——球形、①②③ 角色指派、约束、
     /// 已求出的解（缓存回填，无需重画重求解）、打点/力度/瞄准，均逐字段还原。
     func undoLastShot() {
-        guard !isPlaying, canUndoShot, let ctx = lastShotContext else { return }
+        guard !temporaryTopDownActive, !isPlaying, canUndoShot, let ctx = lastShotContext else { return }
         restore(from: ctx)
         canUndoShot = false
         canPlayback = false
@@ -1275,11 +1352,12 @@ extension PlanThreeViewModel {
 
     /// 回放上一杆击打过程：退回击打前重播动画，播完回到击打后局面。
     func replayLastShot() {
-        guard !isPlaying, canPlayback, let ctx = lastShotContext else { return }
+        guard !temporaryTopDownActive, !isPlaying, canPlayback, let ctx = lastShotContext else { return }
         let snap = ctx.snapshot
         guard acceptCompletePrediction(snap.prediction),
               let recorder = snap.prediction.recorder, snap.prediction.duration > 0.05 else { return }
         let after = currentSnapshot()
+        replayAfterContext = makeUndoContext(shot: snap.shot, prediction: snap.prediction)
         replayAfterRails = scene.railInventory.snapshot()
         replayAfterPoses = scene.captureBallPoses()   // 回放不改变桌面真相，姿态也原样带回
         isPlaying = true
@@ -1355,7 +1433,9 @@ extension PlanThreeViewModel {
         isPlaying = false
         scene.hideCueStick()
         let ctx = lastShotContext
-        loadBoard(after)
+        if let replayAfterContext { restore(from: replayAfterContext) }
+        else { loadBoard(after) }
+        replayAfterContext = nil
         scene.railInventory.restore(replayAfterRails)
         scene.restoreBallPoses(replayAfterPoses)
         replayAfterPoses = [:]
@@ -1404,7 +1484,11 @@ extension PlanThreeViewModel {
         for key in onTableKeys { scene.allBallNodes[key]?.removeAllActions() }
         let potted = Set(sol.prediction.pocketedBalls.map { boardKey(forPredName: $0, shot: sol.shot) })
         for key in potted { scene.hideBall(key: key) }
-        if sol.prediction.cuePocketed { scene.hideBall(key: PositionPlayBall.cueKey) }
+        let cueScratched = sol.prediction.cuePocketed
+        if cueScratched {
+            scene.hideBall(key: PositionPlayBall.cueKey)
+            place(key: PositionPlayBall.cueKey, normalized: freeNormalizedSlot(), cuePose: .reseat)
+        }
 
         isPlaying = false
         refreshOnTableKeys()
@@ -1427,19 +1511,19 @@ extension PlanThreeViewModel {
         canUndoShot = lastShotContext != nil
         canPlayback = lastShotContext?.snapshot.prediction.recorder != nil
 
-        let cueGone = scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true
+        let cueGone = cueScratched
         // Q15.2 清台终局：台面无目标球 ⇒ 终局提示（清空后重开）。
         if objectBallCount == 0 {
             statusText = cueGone
-                ? "清台完成 🎉（母球也进袋）· 用「恢复默认」重开一局"
-                : "清台完成 🎉 · 用「恢复默认」重开一局"
+                ? "清台完成（母球已回台）· 用「恢复默认」重开一局"
+                : "清台完成 · 用「恢复默认」重开一局"
         } else if cueGone {
-            statusText = "母球进袋（scratch）· 在2D中补回母球或「恢复默认」"
+            statusText = "母球进袋，已自动回台 · 继续规划下一杆"
         } else if ball1Potted {
             statusText = armedRole.map { "①进袋 · 窗口前滑 · " + hint(for: $0) }
                 ?? "①进袋 · 窗口前滑 · 继续规划下一杆"
         } else {
-            statusText = "①未进袋 · 计划保留，可在2D中重画约束再求解"
+            statusText = "①未进袋 · 计划保留，可在桌面上重画约束再求解"
         }
     }
 
@@ -1476,6 +1560,7 @@ extension PlanThreeViewModel {
     func clearTable() {
         guard !isPlaying else { return }
         scene.hideAllBalls()
+        place(key: PositionPlayBall.cueKey, normalized: CanvasPoint(x: 0.3, y: 0.3), cuePose: .reseat)
         ball1Key = nil; ball2Key = nil; ball3Key = nil
         pocket1Index = -1; pocket2Index = -1
         armedRole = .ball1

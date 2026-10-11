@@ -324,6 +324,134 @@ import SceneKit
 
 @MainActor
 final class TrainingAssistSceneTests: XCTestCase {
+    func test3DQuizReusesCameraAndEndsTemporaryViewBeforeNextQuestion() throws {
+        let suite = "TrainingAssistSceneTests.camera.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let limiter = AngleUsageLimiter(defaults: defaults); limiter.isPremium = true
+        let vm = AimingQuizViewModel(limiter: limiter)
+        vm.setupScene(initialCameraMode: .perspective3D)
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = CGSize(width: 874, height: 402)
+        XCTAssertTrue(rig.usesSurfaceCamera)
+        XCTAssertTrue(rig.usesMergedCamera)
+        XCTAssertTrue(vm.requestPlayerView(.firstPerson, animated: false))
+        let pocket = vm.selectedPocketIndex
+        let question = try XCTUnwrap(vm.currentQuestion)
+        vm.beginTemporaryTopDown()
+        XCTAssertTrue(vm.temporaryTopDownActive)
+        XCTAssertTrue(rig.temporaryTopDownActive)
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        XCTAssertEqual(vm.currentQuestion?.actualAngle, question.actualAngle)
+        vm.endTemporaryTopDown()
+        XCTAssertFalse(rig.temporaryTopDownActive)
+        XCTAssertEqual(rig.playerView, .firstPerson)
+        vm.beginTemporaryTopDown()
+        let revision = vm.topDownContentRevision
+        vm.advanceToNext()
+        XCTAssertFalse(vm.temporaryTopDownActive)
+        XCTAssertFalse(rig.temporaryTopDownActive)
+        XCTAssertGreaterThan(vm.topDownContentRevision, revision)
+        XCTAssertFalse(vm.showAimingAssist, "New questions must not expose the answer")
+        XCTAssertTrue(try XCTUnwrap(vm.scene.cueStick).rootNode.isHidden)
+    }
+
+    func testTeachingPocketSelectionDoesNotDuplicateFeedback() throws {
+        let vm = AngleDynamicViewModel()
+        var haptics = 0
+        vm.scene.pocketSelectionHaptic = { haptics += 1 }
+        vm.setupScene()
+        XCTAssertEqual(haptics, 1)
+        vm.selectBestPocket()
+        XCTAssertEqual(haptics, 2, "Automatic reselection also acknowledges")
+        let index = (vm.selectedPocketIndex + 1) % 6
+        vm.selectPocket(at: index)
+        XCTAssertEqual(haptics, 3, "Changed target must not emit both automatic and manual haptics")
+        let marker = vm.scene.addPocketMarkers()[index]
+        let pulse = try XCTUnwrap(marker.childNode(withName: "leather_selectionPulse", recursively: true))
+        XCTAssertTrue(pulse.isHidden)
+        XCTAssertNotNil(pulse.action(forKey: "pocketSelectionPulse"))
+        vm.updateCalculations()
+        XCTAssertEqual(haptics, 3)
+        vm.selectPocket(at: index)
+        XCTAssertEqual(haptics, 4)
+    }
+
+    func testEveryQuestionAcknowledgesEvenAnAlreadySelectedPocket() throws {
+        let suite = "TrainingAssistSceneTests.feedback.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let limiter = AngleUsageLimiter(defaults: defaults); limiter.isPremium = true
+        let vm = AimingQuizViewModel(limiter: limiter)
+        var haptics = 0
+        vm.scene.pocketSelectionHaptic = { haptics += 1 }
+        vm.setupScene(initialCameraMode: .topDown2DRotated, autoStart: false)
+        XCTAssertEqual(haptics, 0, "Initial training settings must stay quiet")
+        vm.startTest()
+        XCTAssertEqual(haptics, 1)
+        for question in 2...7 {
+            // Whichever pocket is generated, its persistent style is already selected.
+            // This exercises same-pocket questions without relying on random chance.
+            for marker in vm.scene.addPocketMarkers() {
+                vm.scene.setPocketHighlight(marker, style: .selected, confirmsSelection: false)
+            }
+            vm.advanceToNext()
+            XCTAssertEqual(haptics, question)
+            let marker = vm.scene.addPocketMarkers()[vm.selectedPocketIndex]
+            let pulse = try XCTUnwrap(marker.childNode(withName: "leather_selectionPulse", recursively: true))
+            XCTAssertEqual(pulse.opacity, 1)
+            XCTAssertFalse(pulse.isHidden)
+            vm.refreshVisualization()
+            vm.openAnswerInput(); vm.userInput = "45"; vm.submitAnswer()
+            XCTAssertEqual(haptics, question, "Answer and visualization refresh are not selections")
+        }
+    }
+
+    func test2DQuizResultReusesTeachingDiagramAndKeepsCue() throws {
+        let suite = "TrainingAssistSceneTests.result.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let limiter = AngleUsageLimiter(defaults: defaults); limiter.isPremium = true
+        for mode: AngleTrainingScene.CameraMode in [.topDown2D, .topDown2DRotated, .perspective3D] {
+            let vm = AimingQuizViewModel(limiter: limiter)
+            vm.setupScene(initialCameraMode: mode)
+            let scene = vm.scene
+            let stick = try XCTUnwrap(scene.cueStick)
+            XCTAssertTrue(stick.rootNode.isHidden)
+            vm.toggleAimingAssist()
+            XCTAssertNil(scene.diagramLabelGeometry, "辅助不能提前暴露角度答案")
+            XCTAssertFalse(stick.rootNode.isHidden)
+            vm.toggleAimingAssist()
+            XCTAssertTrue(stick.rootNode.isHidden)
+            vm.openAnswerInput(); vm.userInput = "45"; vm.submitAnswer()
+            XCTAssertTrue(scene.usesAdaptiveDiagramLabels)
+            XCTAssertFalse(stick.rootNode.isHidden, "2D/3D结果均保留瞄准球杆")
+            let g = try XCTUnwrap(scene.diagramLabelGeometry)
+            let dx = g.ghost.x - g.cue.x, dz = g.ghost.z - g.cue.z
+            XCTAssertEqual((g.rail.x-g.cue.x)*dz - (g.rail.z-g.cue.z)*dx, 0, accuracy: 1e-5)
+            XCTAssertGreaterThan(hypot(g.rail.x-g.cue.x, g.rail.z-g.cue.z), hypot(dx,dz))
+            XCTAssertTrue(abs(abs(g.rail.x)-AngleSceneCalculator.innerLength/2) < 1e-5
+                || abs(abs(g.rail.z)-AngleSceneCalculator.innerWidth/2) < 1e-5)
+            // Verify the same geometry in canonical 2D; perspective labels may be
+            // culled when their anchors are occluded or outside the camera frustum.
+            if mode == .perspective3D { scene.setCameraMode(.topDown2D, animated: false) }
+            let view = SCNView(frame: CGRect(x: 0, y: 0, width: 874, height: 402))
+            view.scene = scene; view.pointOfView = scene.cameraNode
+            let rig = try XCTUnwrap(scene.cameraRig)
+            rig.viewportSize = view.bounds.size; rig.snapToTarget(); SCNTransaction.flush()
+            let overlay = DiagramLabelOverlay(); overlay.update(scene: scene, in: view)
+            let labels = view.subviews.compactMap { $0 as? UILabel }.filter { !$0.isHidden }
+            XCTAssertEqual(Set(labels.compactMap(\.text)), ["\(Int(g.angle.rounded()))°", "瞄准线", "进球线"])
+            for label in labels {
+                XCTAssertEqual(label.transform, .identity, "文字保持屏幕正向")
+                XCTAssertEqual(label.font.pointSize, label.text!.hasSuffix("°") ? 11 : 10)
+            }
+            vm.advanceToNext()
+            XCTAssertTrue(stick.rootNode.isHidden)
+            XCTAssertNil(scene.diagramLabelGeometry)
+        }
+    }
+
     func testAssistKeepsShotDirectionAcrossCameraMotionAndModes() async throws {
         let suite = "TrainingAssistSceneTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -512,8 +640,10 @@ final class TrainingAssistSceneTests: XCTestCase {
         }
         XCTAssertFalse(endpoints.isEmpty)
         XCTAssertEqual(try XCTUnwrap(endpoints.map(\.x).max()), AngleSceneCalculator.innerLength / 2, accuracy: 1e-5)
-        let clothY = try XCTUnwrap(MobileClothAlignment.measuredBedY(in: scene))
-        for point in endpoints { XCTAssertEqual(point.y, clothY + 0.001, accuracy: 1e-5) }
+        // The unaligned USDZ bed has raised edge faces: assists must clear its
+        // highest accepted face, not the median flat-bed measurement.
+        let clothTop = try TableAssistSurface.load(from: scene).topY
+        for point in endpoints { XCTAssertEqual(point.y, clothTop + 0.001, accuracy: 1e-5) }
         XCTAssertEqual(ghost.position.y, y, accuracy: 1e-6)
 
     }

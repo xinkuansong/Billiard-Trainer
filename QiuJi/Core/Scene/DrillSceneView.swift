@@ -743,6 +743,8 @@ struct DrillSceneView: View {
                             .clipShape(Circle())
                             .opacity(controller.playbackState == .pausingAfterShot ? 0.45 : 1)
                     }
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
                     .buttonStyle(BTPressableStyle.capsule)
                     .padding(.leading, Spacing.md)
                     .padding(.bottom, Spacing.md)

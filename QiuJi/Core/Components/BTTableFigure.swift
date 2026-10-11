@@ -27,6 +27,8 @@ struct BTTableFigure<Overlay: View>: View {
                     Image(uiImage: backdrop.image)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
                     overlay(TableFigureProjection(backdrop: backdrop, size: geo.size))
                 } else {
                     // F-SC-04：台面加载占位用毛毡色，与预览/烘焙缺图同源（非页面黑底铁律）。
@@ -34,11 +36,11 @@ struct BTTableFigure<Overlay: View>: View {
                     ProgressView().tint(.white.opacity(0.4))
                 }
             }
-            .onAppear {
-                guard backdrop == nil, geo.size.width > 1, geo.size.height > 1 else { return }
+            .onChange(of: geo.size, initial: true) { _, size in
+                guard size.width > 1, size.height > 1 else { return }
                 backdrop = TableFigureRenderer.backdrop(
                     orientation: orientation,
-                    aspect: geo.size.width / geo.size.height,
+                    aspect: size.width / size.height,
                     closeup: closeup
                 )
             }
@@ -56,16 +58,21 @@ struct TableFigureProjection {
     /// 世界点 → 视图点。
     func point(x: CGFloat, z: CGFloat) -> CGPoint {
         let n = backdrop.imagePoint(x: x, z: z)
-        return CGPoint(x: n.x * size.width, y: n.y * size.height)
+        // Match the image's aspectFill uniformly, including the resize frame before
+        // the newly fitted backdrop arrives and quantized cache aspect differences.
+        return CGPoint(x: (n.x - 0.5) * backdrop.aspect * renderedImageHeight + size.width / 2,
+                       y: (n.y - 0.5) * renderedImageHeight + size.height / 2)
     }
 
     func point(_ v: SCNVector3) -> CGPoint {
         point(x: CGFloat(v.x), z: CGFloat(v.z))
     }
 
+    private var renderedImageHeight: CGFloat { max(size.height, size.width / backdrop.aspect) }
+
     /// 世界长度（米）→ 视图点长。
     func length(_ meters: CGFloat) -> CGFloat {
-        backdrop.imageLength(meters) * size.height
+        backdrop.imageLength(meters) * renderedImageHeight
     }
 
     /// 标准球直径（57.15mm）的视图点长。

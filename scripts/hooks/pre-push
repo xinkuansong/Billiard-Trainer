@@ -77,3 +77,10 @@ EOF
   exit 1
 fi
 echo "✅ [pre-push] 双端对齐门禁通过"
+
+# Preserve the checks above; upload model assets tracked by .gitattributes.
+if ! command -v git-lfs >/dev/null 2>&1; then
+  echo "Git LFS is required for the model assets; install git-lfs before pushing." >&2
+  exit 1
+fi
+git lfs pre-push "$@"

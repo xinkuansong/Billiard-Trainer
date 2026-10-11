@@ -4,7 +4,7 @@ import SceneKit
 /// Shared host contract for editable teaching diagrams. Geometry and simulation
 /// remain in each model; camera transitions use the daily production rig.
 @MainActor
-protocol TeachingTableHost: ObservableObject {
+protocol TeachingCameraHost: ObservableObject {
     var scene: AngleTrainingScene { get }
     var cameraMode: AngleTrainingScene.CameraMode { get set }
     var cameraTransitionBusy: Bool { get set }
@@ -13,8 +13,13 @@ protocol TeachingTableHost: ObservableObject {
     var topDownSelectionChanged: Bool { get set }
     var currentPlayerAim: SCNVector3? { get }
     var targetNode: SCNNode? { get }
-    var selectedTargetKey: String? { get }
     var selectedPocketIndex: Int { get }
+}
+
+/// Editing is separate from the shared camera contract so read-only quizzes reuse it.
+@MainActor
+protocol TeachingTableHost: TeachingCameraHost {
+    var selectedTargetKey: String? { get }
     var onTableKeys: [String] { get }
     var draggableBalls: [SCNNode] { get }
     var selectableBalls: [SCNNode] { get }
@@ -29,7 +34,7 @@ protocol TeachingTableHost: ObservableObject {
     func dragEnded(node: SCNNode)
 }
 
-extension TeachingTableHost {
+extension TeachingCameraHost {
     func configureTeachingCamera() {
         scene.cameraRig?.configurePlayerCameraControls(daily: true)
         scene.cameraRig?.setTwoViewViewingContext(UUID())
@@ -96,8 +101,11 @@ extension TeachingTableHost {
     }
 
     func beginTemporaryTopDown() {
+        // Editing may start before a target/solution exists; the fallback sets only
+        // the temporary table orientation and never creates a shot or changes aim.
+        let aim = currentPlayerAim ?? SCNVector3(0, 0, -1)
         guard cameraMode == .perspective3D, !temporaryTopDownActive,
-              let aim = currentPlayerAim, scene.cameraRig?.beginTemporaryTopDown(aim: aim) == true else { return }
+              scene.cameraRig?.beginTemporaryTopDown(aim: aim) == true else { return }
         topDownSelectionChanged = false
         temporaryTopDownActive = true
     }
@@ -106,7 +114,9 @@ extension TeachingTableHost {
         guard temporaryTopDownActive else { return }
         scene.cameraRig?.endTemporaryTopDown()
         temporaryTopDownActive = false
-        if topDownSelectionChanged { selectionCameraChanged() }
+        // The rig restores the saved perspective pose. Refresh candidates without
+        // replacing that pose with an automatic third-person entry after editing.
+        refreshObservationCameraContext()
         topDownSelectionChanged = false
     }
 

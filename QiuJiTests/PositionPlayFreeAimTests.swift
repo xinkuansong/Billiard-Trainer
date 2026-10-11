@@ -2496,29 +2496,39 @@ final class PocketSelectionUXTests: XCTestCase {
         XCTAssertNotNil(restored.temporaryFreeReason)
     }
 
-    func testS6ManualSelectionAcknowledgesBallAndPocketImmediately() throws {
+    func testManualSelectionHapticsImmediatelyAndDelaysPocketColour() throws {
         let vm = makeVM(); defer { vm.cancelDailyAttempt() }
         XCTAssertTrue(vm.selectTarget(key: "_1"))
         let ball = try XCTUnwrap(vm.scene.allBallNodes["_1"])
         XCTAssertNotNil(ball.action(forKey: TableBallPulse.actionKey))
         let index = vm.selectedPocketIndex
+        var haptics = 0
+        vm.scene.pocketSelectionHaptic = { haptics += 1 }
         vm.selectPocket(at:index)
+        XCTAssertEqual(haptics, 1)
         let marker = try XCTUnwrap(vm.scene.addPocketMarkers()[index] as? PocketLeatherMarker)
         let pulse = try XCTUnwrap(marker.childNode(withName:"leather_selectionPulse",recursively:true))
-        XCTAssertEqual(pulse.opacity,1)
-        XCTAssertFalse(pulse.isHidden)
+        XCTAssertEqual(pulse.opacity,0)
+        XCTAssertTrue(pulse.isHidden)
         XCTAssertNotNil(pulse.action(forKey:"pocketSelectionPulse"))
+        vm.selectPocket(at:index)
+        XCTAssertEqual(haptics, 2, "Repeated accepted clicks each acknowledge once")
     }
 
     func testAutomaticDefaultAcknowledgesOnceAndParameterRedrawDoesNotReplay() throws {
-        let vm = PositionPlayViewModel(); vm.setupScene()
+        let vm = PositionPlayViewModel()
+        var haptics = 0
+        vm.scene.pocketSelectionHaptic = { haptics += 1 }
+        vm.setupScene()
+        XCTAssertEqual(haptics, 1)
         defer { vm.cancelDailyAttempt() }
         let marker = try XCTUnwrap(vm.scene.addPocketMarkers()[vm.selectedPocketIndex] as? PocketLeatherMarker)
         let pulse = try XCTUnwrap(marker.childNode(withName: "leather_selectionPulse", recursively: true))
         let initial = try XCTUnwrap(pulse.action(forKey: "pocketSelectionPulse"))
         vm.velocity = 2.2
         XCTAssertTrue(initial === pulse.action(forKey: "pocketSelectionPulse"))
-        XCTAssertEqual(pulse.opacity, 0, "Default acknowledgement also waits before yellow")
+        XCTAssertEqual(pulse.opacity, 1, "Automatic red begins immediately")
+        XCTAssertEqual(haptics, 1, "Parameter redraw must not replay feedback")
     }
 
     func testRapidTargetThenUnavailablePocketKeepsVisiblePreviewInsteadOfOldPrediction() async throws {

@@ -183,7 +183,7 @@ final class BatchShotSolver: ObservableObject {
     func toolHint() -> String {
         switch activeTool {
         case .arrange: return "摆球：拖/点球调位（含母球）· 左侧四键 0.5mm 精调 · 球库增删 · 设打点力度后击球"
-        case .free: return "自由瞄：点桌面 / 球 / 袋口设定母球方向，下方设打点 + 力度点「击球」（不进球的安全球 / 走位）"
+        case .free: return "自由瞄：点桌面 / 球 / 袋口设定母球方向，右侧设打点 + 杆速点「击球」（不进球的安全球 / 走位）"
         case .region: return "在球桌上拖出\(regionShape.rawValue)可行落区，点「求解」"
         case .restPoint: return "点按球桌标出母球期望停的落点，点「求解」"
         case .passPoint: return "点按球桌标出母球需经过的 K 球点，点「求解」"
@@ -265,8 +265,21 @@ struct BatchAuthoringView: View {
     @State private var dragLocation: CGPoint = .zero
     @State private var dragOverTable = false
     @State private var sceneFrame: CGRect = .zero
+    @State private var sceneFrameInWindow: CGRect?
     @State private var paletteFrame: CGRect = .zero
     @State private var toast: BTToastMessage?
+    @State private var toastGeneration = 0
+    @Environment(\.displayScale) private var displayScale
+    @ObservedObject private var preferences = UserPreferences.shared
+    @StateObject private var fps = TableFPSReadoutState()
+    @State private var windowControls = UIEdgeInsets.zero
+    @State private var windowSafeArea = UIEdgeInsets.zero
+    @State private var systemStatusVisible = true
+    @State private var portrait = false
+    @State private var menu: AuthorMenu?
+    @AppStorage("batchAuthor.spinDiscTransparency") private var spinTransparency = 0.5
+    private enum AuthorMenu { case more, tools, trajectory, transparency }
+    private let paletteKeys = (1...15).map { "_\($0)" }
     /// F-BD-01：覆盖确认（仅目标文件已存在时）。
     @State private var pendingOverwriteStay = false
     @State private var showOverwriteConfirm = false
@@ -281,57 +294,40 @@ struct BatchAuthoringView: View {
     // 在线上的球自动均分；不进 JSON（仅场景节点）；击球时隐藏。
     @StateObject private var guide = BatchGuideLine()
 
-    /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
-    /// 顶部工具行含条件性的求解状态行，取两行高度上限常显。
-    private static let topRowHeight: CGFloat = 72
-    /// 底栏 = 保存横排 33 + 间距 4 + 球库两行 regular 36（79；K5/X2 前为 101 @ compact 30）。
-    private static let bottomBarHeight: CGFloat = 116
 
     private var drill: BatchDrill? { context.current }
 
     var body: some View {
         GeometryReader { geo in
-            let extents = composer.tableOuterHalfExtents
-            let sceneH = max(geo.size.height - Self.topRowHeight - Self.bottomBarHeight, 1)
-            let proxy = ShotStageProxy(
-                sceneSize: CGSize(width: geo.size.width, height: sceneH),
-                halfLength: extents.length, halfWidth: extents.width
-            )
-            ZStack {
-                Color.black.ignoresSafeArea()
-                VStack(spacing: 0) {
-                    solverToolRow
-                        .frame(height: Self.topRowHeight)
-                    stage(proxy)
-                        .frame(height: sceneH)
-                    bottomBar(proxy)
-                        .frame(height: Self.bottomBarHeight)
+            let extraTop = UIDevice.current.userInterfaceIdiom == .pad ? max(0, windowSafeArea.top - geo.safeAreaInsets.top) : 0
+            let extraBottom = UIDevice.current.userInterfaceIdiom == .pad ? max(0, windowSafeArea.bottom - geo.safeAreaInsets.bottom) : 0
+            let size = CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
+                              height: max(0, geo.size.height - extraTop - extraBottom))
+            ZStack(alignment: .topLeading) {
+                template(size: size, safe: max(geo.safeAreaInsets.leading, geo.safeAreaInsets.trailing))
+                    .frame(width: geo.size.width + geo.safeAreaInsets.trailing, alignment: .leading)
+                    .padding(.top, extraTop).padding(.bottom, extraBottom)
+                    .offset(x: -geo.safeAreaInsets.leading)
+                    .ignoresSafeArea(.container, edges: .trailing)
+                // DragGesture locations use the outer batchAuthor space, before safe-area offsets.
+                if let draggingKey {
+                    BTBallPaletteDragGhost(key: draggingKey, location: dragLocation, overTable: dragOverTable)
                 }
-                if let key = draggingKey {
-                    BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
-                }
-            }
+            }.frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
         .animation(BTMotion.springPanel, value: showSpinPad)
-        .btToast($toast)
         .coordinateSpace(name: "batchAuthor")
         .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
+            if let s = frames["scene.window"] { sceneFrameInWindow = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
-        .btDarkToolChrome(drill.map { "编排求解 · \($0.drillId)" } ?? "编排求解")
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                BTSolverNavStatus(
-                    title: drill?.drillId ?? "编排求解",
-                    isBusy: solver.isComputing || composer.isComputing,
-                    statusText: solver.isComputing || composer.isComputing
-                        ? "求解中…"
-                        : composer.statusText
-                )
-            }
-            ToolbarItem(placement: .topBarTrailing) { moreMenu }
-        }
+        .background { DailyTableOrientation(landscape: true, allowsTabletRotation: true) }
+        .environment(\.colorScheme, .dark)
+        .environment(\.dailyHUDControls, true)
+        .btDarkToolChrome("编排求解")
+        .toolbar(.hidden, for: .navigationBar)
+        .statusBarHidden(UIDevice.current.userInterfaceIdiom != .pad)
         .confirmationDialog(
             "覆盖已存序列？",
             isPresented: $showOverwriteConfirm,
@@ -348,14 +344,15 @@ struct BatchAuthoringView: View {
             if !hasAppeared {
                 hasAppeared = true
                 composer.setupScene()
+                updateProjection()
                 if let editing = context.editingSequence {
                     // 存档 + 在原有基础上修改：用当前引擎重放重建，跳过拍照建球形。
                     let result = composer.loadSequenceForEditing(editing)
                     context.editingSequence = nil
                     if result.replayed < result.total {
-                        flash("已重放 \(result.replayed)/\(result.total) 杆 · 第 \(result.replayed + 1) 杆在新物理下不可行，从此处修")
+                        flash("已重放 \(result.replayed)/\(result.total) 杆 · 第 \(result.replayed + 1) 杆在新物理下不可行，从此处修", tone: .warning)
                     } else {
-                        flash("存档已载入 · \(result.total) 杆（末杆可「重打」重编）")
+                        flash("存档已载入 · \(result.total) 杆（末杆可「重打」重编）", tone: .success)
                     }
                 } else {
                     if let board = context.confirmedBoard { composer.loadBoard(board) }
@@ -373,94 +370,242 @@ struct BatchAuthoringView: View {
         }
     }
 
-    // MARK: - Solver tool row
+    // MARK: - Daily Foundation (page points; scene gestures remain SCNView-local)
 
-    private var solverToolRow: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: Spacing.sm) {
-                BTChipRow(
-                    options: ["落区", "落点", "过点", "摆球", "自由"],
-                    selection: Binding(
-                        get: {
-                            switch solver.activeTool {
-                            case .region: return 0
-                            case .restPoint: return 1
-                            case .passPoint: return 2
-                            case .arrange: return 3
-                            case .free: return 4
-                            }
-                        },
-                        set: {
-                            switch $0 {
-                            case 0: solver.activeTool = .region
-                            case 1: solver.activeTool = .restPoint
-                            case 2: solver.activeTool = .passPoint
-                            case 3: solver.activeTool = .arrange
-                            default: solver.activeTool = .free
-                            }
-                            if solver.activeTool != .arrange { arrangeFocusKey = nil }
-                            // 自由 → 母球直瞄方向；其余（摆球 / 反解约束）→ 袋口模式。
-                            composer.aimMode = solver.activeTool == .free ? .free : .pocket
-                            solver.clearConstraint(scene: composer.scene)
-                        }
-                    ),
-                    scrollable: true
-                )
-                .disabled(composer.isPlaying)
-
-                if solver.activeTool == .region {
-                    BTChipRow(
-                        options: SiluTrainerViewModel.RegionShape.allCases.map { $0.rawValue },
-                        selection: Binding(
-                            get: { solver.regionShape == .rect ? 0 : 1 },
-                            set: { solver.regionShape = $0 == 0 ? .rect : .circle }
-                        ),
-                        scrollable: false
-                    )
-                    .disabled(composer.isPlaying)
-                }
-
-                Spacer(minLength: 0)
-
-                Button { solver.clearConstraint(scene: composer.scene) } label: {
-                    Image(systemName: "eraser")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white.opacity(solver.hasConstraint ? 0.8 : 0.3))
-                }
-                .disabled(composer.isPlaying || !solver.hasConstraint)
+    private func template(size: CGSize, safe: CGFloat) -> some View {
+        let side = max(4, safe)
+        let extents = composer.tableOuterHalfExtents
+        let reservation = DailyLayoutMetrics.FoundationReservation(width: size.width - 2 * side,
+            targetCount: 15, chineseEightBall: true, titleWidth: 92, actionWidth: 138,
+            prefersSeparateRow: size.height > size.width || size.height >= 600,
+            separateWidth: size.width > size.height && size.height < 600 ? size.width - 2 * (side + 68) : nil)
+        let f = DailyLayoutMetrics.Foundation(size: size, leadingSafeArea: safe, trailingSafeArea: safe,
+            halfLength: extents.length, halfWidth: extents.width,
+            instrumentHeight: DailyLayoutMetrics.Controls.initialInstrumentHeight, palette: reservation)
+        let plan = DailyLayoutMetrics.Palette(size: size, sideInset: side, table: f.table,
+            targetCount: 15, chineseEightBall: true, obstacles: [
+                CGRect(x: side + windowControls.left, y: 0, width: 92, height: 44),
+                CGRect(x: size.width - side - windowControls.right - 44, y: 0, width: 44, height: 44), f.left, f.right])
+        let scale = f.table.height / CGFloat(2 * (f.rotated ? extents.length : extents.width))
+        let innerSize = CGSize(width: CGFloat(f.rotated ? AngleSceneCalculator.innerWidth : AngleSceneCalculator.innerLength) * scale,
+                               height: CGFloat(f.rotated ? AngleSceneCalculator.innerLength : AngleSceneCalculator.innerWidth) * scale)
+        let inner = CGRect(x: f.table.midX - innerSize.width / 2, y: f.table.midY - innerSize.height / 2,
+                           width: innerSize.width, height: innerSize.height)
+        let metrics = BTTeachingInstrumentLayout(foundation: f)
+        return ZStack(alignment: .topLeading) {
+            // The actual SCNView has the Foundation stage's aspect and fit margin.
+            // Its measured frame, not T/I, is the origin for all unprojection.
+            sceneContainer
+                .frame(width: f.stage.width, height: f.stage.height)
+                .position(x: f.stage.midX, y: f.stage.midY)
+                .allowsHitTesting(menu == nil && !showSpinPad && !editingBusy)
+            if solver.isSolvingTool && !guide.isPicking && !swapMode && !showSpinPad && menu == nil {
+                drawingOverlay.frame(width: f.stage.width, height: f.stage.height)
+                    .position(x: f.stage.midX, y: f.stage.midY).allowsHitTesting(!editingBusy)
             }
-
-            if solver.isSolvingTool {
-                HStack(spacing: 8) {
-                    Text(solver.statusText)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.65))
-                        .lineLimit(1)
-                    Spacer(minLength: 0)
-                    if solver.isComputing { ProgressView().controlSize(.mini).tint(.white) }
-                    Button { solver.nextSolution(apply: applyShot) } label: {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.white.opacity(solver.solutions.count > 1 ? 0.9 : 0.3))
+            if guide.isPicking && !showSpinPad && menu == nil {
+                guideOverlay.frame(width: f.stage.width, height: f.stage.height)
+                    .position(x: f.stage.midX, y: f.stage.midY).allowsHitTesting(!editingBusy)
+            }
+            DailyTemplateHeader(size: size, safe: safe, foundation: f, plan: plan,
+                targets: paletteKeys, chineseEightBall: true, titleWidth: 60, titleHeight: 34,
+                windowControlInsets: windowControls, fps: fps, showsDeviceStatus: !systemStatusVisible,
+                title: {
+                    HStack(spacing: -12) {
+                        Button { dismiss() } label: {
+                            Image(systemName: "chevron.left").font(.system(size: 20, weight: .semibold))
+                                .frame(width: 44, height: 44).contentShape(Rectangle())
+                        }.accessibilityLabel("返回").accessibilityIdentifier("batch.back")
+                        BTTablePageTitle("编排求解", width: 60, compact: plan.diameter < DailyLayoutMetrics.regularBallDiameter)
+                    }.fixedSize(horizontal: true, vertical: false)
+                }, actions: {
+                    Button { showSpinPad = false; menu = .more } label: {
+                        Image(systemName: BTIcon.menuCircle).font(.system(size: 22, weight: .medium))
+                            .frame(width: 44, height: 44).background { BTHUDControlBackground(shape: Circle()) }
+                    }.buttonStyle(BTHUDPressStyle()).accessibilityLabel("更多").accessibilityIdentifier("batch.more")
+                }, ball: { key, diameter, height in ballToken(key, diameter: diameter, slotHeight: height) },
+                paletteMarker: { frameReader(id: "palette") })
+                .background(DailyWindowControlInsets { controls, window, visible in
+                    windowControls = controls; windowSafeArea = window; systemStatusVisible = visible
+                }.allowsHitTesting(false))
+            if solver.activeTool == .free {
+                freeControls(metrics).frame(width: f.left.width, height: f.left.height, alignment: .top)
+                    .position(x: f.left.midX, y: f.left.midY).accessibilityHidden(menu != nil)
+            } else {
+                let top = max(44, f.table.minY)
+                let height = max(44, min(420, size.height - top))
+                ScrollView(.vertical) { editorControls.padding(.vertical, 2) }
+                    .scrollBounceBehavior(.basedOnSize)
+                    .frame(width: 60, height: height).position(x: f.left.midX, y: top + height / 2)
+                    .accessibilityIdentifier("batch.toolScroll").accessibilityHidden(menu != nil)
+            }
+            VStack(spacing: metrics.groupSpacing) {
+                BTShotInstrumentColumn(spinX: composer.spinX, spinY: composer.spinY,
+                    onSpinTap: { menu = nil; showSpinPad = true }, velocity: $composer.velocity,
+                    range: ShotTuning.velocityRange, isDisabled: editingBusy,
+                    fixedPowerBarHeight: metrics.rulerLength, powerLabel: "杆速", compactPowerBarWidth: metrics.rulerWidth,
+                    compactSpinButtonDiameter: metrics.topDiameter, compactGroupSpacing: metrics.groupSpacing)
+                Button { showSpinPad = false; strike() } label: {
+                    Text(sequenceBusy ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.freePlay)
+                        .font(.btSubheadlineSemibold).frame(width: 60, height: 60)
+                }.buttonStyle(DailyStrikeButtonStyle()).disabled(!strikeEnabled || solver.isComputing)
+                    .opacity(strikeEnabled && !solver.isComputing ? 1 : 0.3).accessibilityIdentifier("batch.strike")
+            }.frame(width: f.right.width, height: f.right.height, alignment: .top)
+                .position(x: f.right.midX, y: f.right.midY)
+            if !showSpinPad {
+                BTNoticeContent(message: toast ?? BTToastMessage(guide.hint ?? (solver.isSolvingTool ? solver.statusText : composer.statusText), tone: .info), textOnly: true)
+                    .frame(width: max(1, inner.width - 16))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .offset(x: inner.minX + 8, y: inner.minY + Spacing.md)
+                    .allowsHitTesting(false).accessibilityIdentifier(toast == nil ? "batch.status" : "batch.notice")
+            }
+            if guide.isPicking && !showSpinPad && menu == nil {
+                guideControls.position(x: inner.midX, y: inner.midY)
+            }
+            if showSpinPad {
+                let layout = DailyLayoutMetrics.SpinPad(playingRect: inner, displayScale: displayScale,
+                    maximumExtent: UIDevice.current.userInterfaceIdiom == .pad ? 310 : max(inner.width, inner.height))
+                BTSceneSpinPadOverlay(spinX: $composer.spinX, spinY: $composer.spinY, scene: composer.scene,
+                    tableWidth: inner.width, bottomPadding: (f.stage.height - layout.extent) / 2,
+                    fixedCardExtent: layout.extent, discOpacity: 1 - spinTransparency, onClose: { showSpinPad = false })
+                    .frame(width: f.stage.width, height: f.stage.height)
+                    .position(x: f.stage.midX, y: f.stage.midY)
+            }
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-batchAuthor.audit")
+                || ProcessInfo.processInfo.arguments.contains("-batchAuthor.markers") {
+                TimelineView(.periodic(from: .now, by: 0.1)) { _ in
+                    ZStack(alignment: .topLeading) {
+                        if BatchNudgeAudit.enabled {
+                            Color.clear.frame(width: 2, height: 2)
+                                .accessibilityElement().accessibilityLabel("微移触控事件")
+                                .accessibilityIdentifier("batch.nudgeAudit")
+                                .accessibilityValue(BatchNudgeAudit.snapshot)
+                                .allowsHitTesting(false)
+                        }
+                        ForEach(composer.onTableKeys.sorted(), id: \.self) { key in
+                            if let node = composer.scene.allBallNodes[key], !node.isHidden,
+                               let point = projector.project?(node.position) {
+                                Color.clear.frame(width: 2, height: 2).contentShape(Rectangle())
+                                    .accessibilityElement().accessibilityIdentifier("batch.ball." + key)
+                                    .accessibilityLabel(key)
+                                    .accessibilityValue("x=\(node.position.x);z=\(node.position.z)")
+                                    .position(point).allowsHitTesting(false)
+                            }
+                        }
+                    }.frame(width: f.stage.width, height: f.stage.height)
+                }.frame(width: f.stage.width, height: f.stage.height)
+                    .position(x: f.stage.midX, y: f.stage.midY).allowsHitTesting(false)
+            }
+            #endif
+            boundsMarker(f.table, id: "batch.tableBounds", value: f.rotated ? "竖桌" : "横桌")
+            boundsMarker(inner, id: "batch.playingBounds", value: toolTitle)
+            if let menu {
+                Button { self.menu = nil } label: { Color.clear.contentShape(Rectangle()) }
+                    .buttonStyle(.plain).accessibilityLabel("关闭菜单").accessibilityIdentifier("batch.dismissMenu")
+                Group {
+                    if menu == .transparency {
+                        DailySpinTransparencyPanel(transparency: $spinTransparency,
+                            availableSize: CGSize(width: size.width - 2 * side, height: size.height - DailyLayoutMetrics.Panels.top - 8),
+                            onClose: { self.menu = nil })
+                    } else {
+                        DailyHUDMenuPanel(title: menu == .tools ? "工具" : (menu == .trajectory ? "轨迹显示" : nil), items: menuItems,
+                            availableSize: CGSize(width: size.width - 2 * side, height: size.height - DailyLayoutMetrics.Panels.top - 8),
+                            onBack: { self.menu = .more }, onClose: { self.menu = nil })
                     }
-                    .disabled(composer.isPlaying || solver.solutions.count < 2)
-                    Button { solver.solve(composer: composer, apply: applyShot) } label: {
-                        Text("求解")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 12).frame(height: 28)
-                            .background(solver.hasConstraint ? Color.btPhysicsAdjustable : Color.btPhysicsAdjustable.opacity(0.3),
-                                        in: Capsule())
-                    }
-                    .buttonStyle(BTPressableStyle.capsule)
-                    .disabled(composer.isPlaying || solver.isComputing || !solver.hasConstraint)
-                }
+                }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(.top, DailyLayoutMetrics.Panels.top).padding(.trailing, side + windowControls.right)
             }
         }
-        .padding(.horizontal, Spacing.lg)
-        .frame(maxHeight: .infinity)
-        .background(Color.black)
-        .environment(\.colorScheme, .dark)
+        .foregroundStyle(.white).frame(width: size.width, height: size.height)
+        .background { DailyCarpetBackground(style: preferences.roomStyle, pointsPerMetre: scale).ignoresSafeArea() }
+        .onChange(of: f.rotated, initial: true) { _, value in portrait = value; updateProjection() }
+        .onChange(of: size) { _, _ in menu = nil }
+    }
+
+    private func boundsMarker(_ rect: CGRect, id: String, value: String) -> some View {
+        Color.clear.frame(width: rect.width, height: rect.height)
+            .contentShape(Rectangle()).accessibilityElement().accessibilityLabel(id).accessibilityValue(value)
+            .accessibilityIdentifier(id).allowsHitTesting(false).position(x: rect.midX, y: rect.midY)
+    }
+
+    private func updateProjection() {
+        composer.cameraMode = portrait ? .topDown2DRotated : .topDown2D
+        composer.scene.setCameraMode(composer.cameraMode, animated: false)
+    }
+
+    private var editingBusy: Bool { sequenceBusy || solver.isComputing }
+    private var toolTitle: String {
+        switch solver.activeTool {
+        case .arrange: return "摆球"
+        case .free: return "自由"
+        case .region: return "落区"
+        case .restPoint: return "落点"
+        case .passPoint: return "过点"
+        }
+    }
+
+    private func selectTool(_ tool: BatchShotSolver.Tool) {
+        solver.activeTool = tool
+        if tool != .arrange { arrangeFocusKey = nil }
+        composer.aimMode = tool == .free ? .free : .pocket
+        solver.clearConstraint(scene: composer.scene)
+        swapMode = false; menu = nil
+    }
+
+    private func control(_ title: String, icon: String, id: String, enabled: Bool = true,
+                         selected: Bool = false, size: CGFloat = 44, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                Image(systemName: icon).font(.system(size: 16, weight: .medium))
+                Text(title).font(.btMicro).lineLimit(1)
+            }.foregroundStyle(.white).frame(width: size, height: size)
+                .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 14), selected: selected) }
+        }.buttonStyle(BTHUDPressStyle()).disabled(!enabled).opacity(enabled ? 1 : 0.3)
+            .accessibilityLabel(title).accessibilityIdentifier(id)
+    }
+
+    private var editorControls: some View {
+        VStack(spacing: 4) {
+            control(toolTitle, icon: "chevron.down", id: "batch.tool", enabled: !editingBusy) { showSpinPad = false; menu = .tools }
+                .accessibilityValue(toolTitle).accessibilityHint("选择落区、落点、过点、摆球或自由")
+            if solver.activeTool == .region {
+                control(solver.regionShape.rawValue, icon: solver.regionShape == .rect ? "rectangle" : "circle", id: "batch.shape", enabled: !editingBusy) {
+                    solver.regionShape = solver.regionShape == .rect ? .circle : .rect
+                }
+            }
+            if solver.isSolvingTool {
+                control("求解", icon: "scope", id: "batch.solve", enabled: !editingBusy && solver.hasConstraint) { solver.solve(composer: composer, apply: applyShot) }
+                control("下一解", icon: "arrow.triangle.2.circlepath", id: "batch.nextSolution", enabled: !editingBusy && solver.solutions.count > 1) { solver.nextSolution(apply: applyShot) }
+                control("清除", icon: "eraser", id: "batch.clearConstraint", enabled: !editingBusy && solver.hasConstraint) { solver.clearConstraint(scene: composer.scene) }
+            }
+            control("点换", icon: "arrow.left.arrow.right", id: "batch.swap", enabled: !editingBusy, selected: swapMode) { toggleSwapMode() }
+            control(guide.phase == .off ? "辅助线" : "清除线", icon: "line.diagonal", id: "batch.guide", enabled: !editingBusy) { guideButtonTapped() }
+            if solver.activeTool == .arrange && arrangeFocusKey != nil { ballNudgePad.disabled(editingBusy) }
+            control("播序列", icon: "play.rectangle", id: "batch.playSequence", enabled: !editingBusy && composer.stepCount > 0) { composer.previewPlayRecordedSequence() }
+                .accessibilityLabel("播放当前录制序列")
+            control("重打", icon: "arrow.uturn.backward", id: "batch.rehit", enabled: !editingBusy && composer.canReplay) { composer.replayCurrent() }
+            control("回放", icon: "play", id: "batch.replay", enabled: !editingBusy && composer.canPlayback) { composer.replayLastShot() }
+        }
+    }
+
+    private func freeControls(_ metrics: BTTeachingInstrumentLayout) -> some View {
+        VStack(spacing: metrics.groupSpacing) {
+            BTTeachingInstrumentEntry(layout: metrics, label: "工具") {
+                Button { showSpinPad = false; menu = .tools } label: {
+                    VStack(spacing: 2) { Text("自由").font(.btFootnote); Image(systemName: "chevron.down").font(.btMicro) }
+                        .foregroundStyle(.white).frame(width: metrics.topDiameter, height: metrics.topDiameter)
+                        .background { BTHUDControlBackground(shape: Circle()) }
+                }.buttonStyle(BTHUDPressStyle()).disabled(editingBusy)
+                    .accessibilityIdentifier("batch.tool").accessibilityLabel("工具").accessibilityValue(toolTitle)
+            }
+            BTTeachingAimRuler(layout: metrics, enabled: !editingBusy, onNudge: { composer.nudgeFreeAim(byDegrees: $0) })
+            let layout = metrics.horizontalActions ? AnyLayout(HStackLayout(spacing: 4)) : AnyLayout(VStackLayout(spacing: 4))
+            layout {
+                control("重打", icon: "arrow.uturn.backward", id: "batch.rehit", enabled: !editingBusy && composer.canReplay, size: metrics.auxiliarySize) { composer.replayCurrent() }
+                control("回放", icon: "play", id: "batch.replay", enabled: !editingBusy && composer.canPlayback, size: metrics.auxiliarySize) { composer.replayLastShot() }
+            }
+        }
     }
 
     /// 把反解出的解写回编排引擎（target/pocket 已选中，只需设塞与力度）。
@@ -469,156 +614,6 @@ struct BatchAuthoringView: View {
         composer.velocity = shot.velocity
         composer.spinX = shot.spinX
         composer.spinY = shot.spinY
-    }
-
-    // MARK: - Stage（scene + 贴边控件，G3–G11 走 ShotStageProxy）
-
-    private func stage(_ proxy: ShotStageProxy) -> some View {
-        ZStack(alignment: .topLeading) {
-            sceneContainer
-            if solver.isSolvingTool { drawingOverlay }
-            if guide.isPicking { guideOverlay }
-
-            if proxy.isValid {
-                // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右。
-                BTTrajectoryDetailChip { composer.recompute() }
-                    .btChipBandPlacement(proxy)
-                    .allowsHitTesting(!sequenceBusy)
-
-                // 条 20.1/20.5 左柱：辅助线按钮（刻度轮/开球上方）+ 刻度轮（自由）+ 开球禁用态。
-                if composer.aimMode == .free {
-                    BTAimWheel(onNudge: { composer.nudgeFreeAim(byDegrees: $0) })
-                        .btStageFrame(proxy.aimWheelFrame())
-                        .allowsHitTesting(!sequenceBusy)
-                        .disabled(sequenceBusy)
-                }
-                BTTextActionButton(title: guide.phase == .off ? "辅助线" : "清除线",
-                                   isDisabled: sequenceBusy, width: 46) {
-                    guideButtonTapped()
-                }
-                .btStageFrame(guideButtonRect(proxy))
-
-                // 辅助线下方：两行「播放 / 序列」，预览内存录制序列。
-                playSequenceSideButton
-                    .btStageFrame(playSequenceButtonRect(proxy))
-
-                // 摆球 + 已选球：左侧竖直四向键（0.5mm 步进，点按/长按）。
-                if solver.activeTool == .arrange, arrangeFocusKey != nil {
-                    ballNudgePad
-                        .btStageFrame(ballNudgePadRect(proxy))
-                        .allowsHitTesting(!sequenceBusy)
-                }
-
-                // D14：无开球页不显示禁用开球占位（辅助线仍锚定原 break 几何位）。
-
-                // 右柱：点换（仪表柱上方）+ 打点/力度柱 + 击球/上一杆/回放列。
-                BTTextActionButton(title: "点换",
-                                   role: swapMode ? .primary : .plain,
-                                   isDisabled: sequenceBusy, width: 46) {
-                    toggleSwapMode()
-                }
-                .btStageFrame(swapButtonRect(proxy))
-
-                BTShotInstrumentColumn(
-                    spinX: composer.spinX, spinY: composer.spinY,
-                    onSpinTap: { showSpinPad = true },
-                    velocity: $composer.velocity,
-                    range: ShotTuning.velocityRange,
-                    isDisabled: sequenceBusy
-                )
-                .btStageFrame(proxy.instrumentFrame())
-
-                BTShotActionColumn(
-                    strikeTitle: sequenceBusy ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.freePlay,
-                    strikeEnabled: strikeEnabled,
-                    onStrike: { strike() },
-                    undoEnabled: !sequenceBusy && composer.canReplay,
-                    onUndo: { composer.replayCurrent() },
-                    playbackEnabled: !sequenceBusy && composer.canPlayback,
-                    onPlayback: { composer.replayLastShot() }
-                )
-                .btStageFrame(proxy.actionColumnFrame())
-            }
-
-            if showSpinPad {
-                BTProjectedSpinPadOverlay(spinX: $composer.spinX, spinY: $composer.spinY,
-                                 scene: composer.scene, projector: projector,
-                                 onClose: { showSpinPad = false })
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .zIndex(20)
-            }
-        }
-    }
-
-    /// 左柱侧钮统一宽（与辅助线 / 点换一致）。
-    private static let sideButtonWidth: CGFloat = 46
-    private static let guideButtonHeight: CGFloat = 30
-    private static let playSequenceButtonHeight: CGFloat = 44
-    private static let sideButtonStackGap: CGFloat = 6
-
-    /// 辅助线按钮：贴左缘；其下紧接「播放序列」，整组底边距刻度轮/开球槽 8pt。
-    private func guideButtonRect(_ proxy: ShotStageProxy) -> CGRect {
-        let stack = leftGuideStackRect(proxy)
-        return CGRect(x: stack.minX, y: stack.minY,
-                      width: Self.sideButtonWidth, height: Self.guideButtonHeight)
-    }
-
-    /// 「播放序列」：辅助线正下方，两行字高度 44。
-    private func playSequenceButtonRect(_ proxy: ShotStageProxy) -> CGRect {
-        let stack = leftGuideStackRect(proxy)
-        let y = stack.minY + Self.guideButtonHeight + Self.sideButtonStackGap
-        return CGRect(x: stack.minX, y: y,
-                      width: Self.sideButtonWidth, height: Self.playSequenceButtonHeight)
-    }
-
-    /// 辅助线 + 播放序列竖叠：底边 = 刻度轮（自由）或开球槽上方 8pt。
-    private func leftGuideStackRect(_ proxy: ShotStageProxy) -> CGRect {
-        let above = composer.aimMode == .free
-            ? proxy.aimWheelFrame().minY : proxy.breakButtonFrame().minY
-        let h = Self.guideButtonHeight + Self.sideButtonStackGap + Self.playSequenceButtonHeight
-        let y = above - 8 - h
-        return CGRect(x: proxy.tableRect.minX - Self.sideButtonWidth, y: y,
-                      width: Self.sideButtonWidth, height: h)
-    }
-
-    /// 摆球精调四键：贴左缘、台面竖向居中（避让辅助线+播放序列叠组）。
-    private func ballNudgePadRect(_ proxy: ShotStageProxy) -> CGRect {
-        let w: CGFloat = 40
-        let gap: CGFloat = 6
-        let h: CGFloat = 40 * 4 + gap * 3
-        let x = proxy.tableRect.minX - w
-        let stack = leftGuideStackRect(proxy)
-        var y = proxy.tableRect.midY - h / 2
-        // 若与左柱叠组重叠则上移到其上方。
-        if y + h > stack.minY - 4 {
-            y = stack.minY - 4 - h
-        }
-        y = max(proxy.tableRect.minY, y)
-        return CGRect(x: x, y: y, width: w, height: h)
-    }
-
-    /// 两行字侧钮（宽 46，与 `BTTextActionButton` 同族样式）。
-    private var playSequenceSideButton: some View {
-        let disabled = sequenceBusy || composer.stepCount < 1
-        return Button {
-            composer.previewPlayRecordedSequence()
-        } label: {
-            VStack(spacing: 1) {
-                Text("播放")
-                Text("序列")
-            }
-            .font(.system(size: 12, weight: .semibold, design: .rounded))
-            .foregroundStyle(.white.opacity(0.85))
-            .multilineTextAlignment(.center)
-            .frame(width: Self.sideButtonWidth, height: Self.playSequenceButtonHeight)
-            .background(.white.opacity(0.12), in: Capsule())
-            .overlay(Capsule().strokeBorder(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-        }
-        .buttonStyle(BTPressableStyle.capsule)
-        .disabled(disabled)
-        .opacity(disabled ? 0.42 : 1)
-        .accessibilityLabel("播放当前录制序列")
     }
 
     private var ballNudgePad: some View {
@@ -631,16 +626,29 @@ struct BatchAuthoringView: View {
     }
 
     private func nudgeButton(dir: BallNudgeDirection, icon: String, label: String) -> some View {
-        BTHoldRepeatButton(icon: icon, accessibility: label) {
+        BatchScrollNudgeButton(icon: icon, accessibility: label) {
             guard let key = arrangeFocusKey else { return false }
-            return composer.nudgeBall(key: key, direction: dir)
-        }
-    }
-
-    /// 点换按钮：贴右缘、位于仪表柱上方 8pt。
-    private func swapButtonRect(_ proxy: ShotStageProxy) -> CGRect {
-        CGRect(x: proxy.tableRect.maxX, y: proxy.instrumentFrame().minY - 8 - 30,
-               width: 46, height: 30)
+            guard !editingBusy, let project = projector.project,
+                  let node = composer.scene.allBallNodes[key], let origin = project(node.position) else { return false }
+            // Select the world-axis step whose rendered direction matches the button.
+            // This remains correct after either orientation, without changing the VM's portrait contract.
+            let desired: CGPoint
+            switch dir {
+            case .up: desired = CGPoint(x: 0, y: -1)
+            case .down: desired = CGPoint(x: 0, y: 1)
+            case .left: desired = CGPoint(x: -1, y: 0)
+            case .right: desired = CGPoint(x: 1, y: 0)
+            }
+            let mapped = BallNudgeDirection.allCases.max { a, b in
+                func score(_ direction: BallNudgeDirection) -> CGFloat {
+                    let d = BallNudgeMath.delta(for: direction, stepMeters: 0.1)
+                    guard let point = project(SCNVector3(node.position.x + d.dx, node.position.y, node.position.z + d.dz)) else { return -.greatestFiniteMagnitude }
+                    return (point.x - origin.x) * desired.x + (point.y - origin.y) * desired.y
+                }
+                return score(a) < score(b)
+            } ?? dir
+            return composer.nudgeBall(key: key, direction: mapped)
+        }.accessibilityIdentifier("batch.nudge.\(dir)")
     }
 
     // MARK: - Scene
@@ -650,7 +658,8 @@ struct BatchAuthoringView: View {
             scene: composer.scene,
             cameraMode: $composer.cameraMode,
             interactionMode: .tapsOnly,
-            autoFitsRotatedTable: true,
+            autoFitsLandscapeTable: true,
+            backgroundColor: .clear,
             onPocketTapped: { composer.selectPocket(at: $0) },
             draggableBallNodes: solver.activeTool == .arrange ? composer.draggableBalls : [],
             onDragBegan: { node in
@@ -672,10 +681,17 @@ struct BatchAuthoringView: View {
             onBallTapped: { handleBallTapped($0) },
             onTableTapped: { composer.handleTableTap(world: $0) },
             onAimNudged: { composer.nudgeFreeAim(byDegrees: $0) },
-            projector: projector
+            projector: projector,
+            contentIsAnimating: sequenceBusy,
+            fpsReadoutState: fps,
+            twoViewReadableFrameInWindow: sceneFrameInWindow
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(frameReader(id: "scene"))
+        .background(GeometryReader { geometry in
+            Color.clear.preference(key: BTShotPageFramePreference.self,
+                value: ["scene.window": geometry.frame(in: .global)])
+        })
         .clipped()
     }
 
@@ -703,72 +719,9 @@ struct BatchAuthoringView: View {
         return CanvasPoint(x: Double(n.x), y: Double(n.y))
     }
 
-    // MARK: - Bottom bar（条 20.2：原球库右侧按键上移，两排球上方一字排开）
-
-    private func bottomBar(_ proxy: ShotStageProxy) -> some View {
-        VStack(spacing: 4) {
-            saveRow
-            paletteBar(proxy)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(HUDStyle.panelBackground)
-        .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
-        .background(frameReader(id: "palette"))
-        .environment(\.colorScheme, .dark)
-    }
-
-    /// 保存/序列操作横排（条 20.2）：杆数 + 回上一杆球形 + 两个保存去向。
-    /// 「播放序列」在左柱辅助线下方（两行字侧钮），不占底栏。
-    private var saveRow: some View {
-        HStack(spacing: 8) {
-            Text("\(composer.stepCount) 杆")
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-                .monospacedDigit()
-                .frame(width: 56, height: 28)
-                .background(.white.opacity(0.08), in: Capsule())
-
-            Button { composer.restorePreviousBoard() } label: {
-                actionPill(title: "回上一杆球形", system: "clock.arrow.circlepath",
-                           tint: .white.opacity(0.14))
-            }
-            .buttonStyle(BTPressableStyle.capsule)
-            .disabled(sequenceBusy || !composer.canReplay)
-
-            Spacer(minLength: 0)
-
-            Button { requestSave(mode: .stay) } label: {
-                actionPill(title: "保存·选下张图", system: "square.and.arrow.down",
-                           tint: .white.opacity(0.16))
-            }
-            .buttonStyle(BTPressableStyle.capsule)
-            .disabled(sequenceBusy)
-
-            Button { requestSave(mode: .nextDrill) } label: {
-                actionPill(title: "保存·下个drill", system: "arrow.right.circle", tint: Color.btPrimary)
-            }
-            .buttonStyle(BTPressableStyle.capsule)
-            .disabled(sequenceBusy)
-        }
-        .padding(.horizontal, Spacing.sm)
-        .padding(.top, 5)
-    }
-
     /// 单杆回放中，或整段序列预览中（含杆间停顿）——禁止序列级操作。
     private var sequenceBusy: Bool {
         composer.isPlaying || composer.isSequencePlaying
-    }
-
-    private func actionPill(title: String, system: String, tint: Color) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: system).font(.system(size: 12, weight: .bold))
-            Text(title).font(.system(size: 12, weight: .bold, design: .rounded))
-                .lineLimit(1).minimumScaleFactor(0.7)
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 10)
-        .frame(height: 28)
-        .background(tint, in: Capsule())
     }
 
     private var strikeEnabled: Bool {
@@ -782,10 +735,11 @@ struct BatchAuthoringView: View {
         if swapMode {
             guard composer.onTableKeys.contains(PositionPlayBall.cueKey) else {
                 swapMode = false
-                flash("桌面无母球，无法点换")
+                flash("桌面无母球，无法点换", tone: .warning)
                 return
             }
-            flash("点换：点击桌上另一颗球，与母球交换位置")
+            if guide.isPicking { guide.clear(scene: composer.scene) }
+            flash("点目标球，与母球换位")
         }
     }
 
@@ -811,20 +765,21 @@ struct BatchAuthoringView: View {
         guard let key = composer.scene.ballKey(for: node),
               key != PositionPlayBall.cueKey,
               let cue = composer.scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else {
-            flash("请点击桌上一颗非母球")
+            flash("请点击桌上一颗非母球", tone: .warning)
             return
         }
         let cuePos = cue.position
         cue.position = node.position
         node.position = cuePos
         composer.recompute()
-        flash("已交换母球与 \(PositionPlayBall.shortLabel(for: key)) 的位置")
+        flash("已交换母球与 \(PositionPlayBall.shortLabel(for: key)) 的位置", tone: .success)
     }
 
     // MARK: - 辅助线（条 20.4–20.9）
 
     private func guideButtonTapped() {
         if guide.phase == .off {
+            swapMode = false
             guide.begin()
         } else {
             guide.clear(scene: composer.scene)
@@ -840,7 +795,7 @@ struct BatchAuthoringView: View {
                     .onChanged { setGuidePoint(at: $0.location) }
                     .onEnded { setGuidePoint(at: $0.location) }
             )
-            .overlay(alignment: .top) { guideControls }
+
     }
 
     private func setGuidePoint(at location: CGPoint) {
@@ -850,44 +805,14 @@ struct BatchAuthoringView: View {
         guide.setPoint(world, scene: composer.scene)
     }
 
-    /// 辅助线阶段提示 + 确认/取消（两步确认，条 20.5）。
+    /// Prompt stays at the inner-cloth top; these independent actions stay at table centre.
     private var guideControls: some View {
         HStack(spacing: Spacing.sm) {
-            if let hint = guide.hint {
-                Text(hint)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.75))
-                    .lineLimit(1)
+            control("确认", icon: "checkmark", id: "batch.guideConfirm", enabled: guide.hasCurrentPoint && !editingBusy) {
+                if guide.confirm(scene: composer.scene) { redistributeGuideBalls() }
             }
-            Button {
-                if guide.confirm(scene: composer.scene) {
-                    redistributeGuideBalls()
-                }
-            } label: {
-                Text("确认")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12).frame(height: 26)
-                    .background(guide.hasCurrentPoint ? Color.btPrimary : Color.btPrimary.opacity(0.3),
-                                in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .disabled(!guide.hasCurrentPoint)
-            Button {
-                guide.clear(scene: composer.scene)
-            } label: {
-                Text("取消")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.8))
-                    .padding(.horizontal, 12).frame(height: 26)
-                    .background(.white.opacity(0.12), in: Capsule())
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, 6)
-        .btHudGlass()
-        .padding(.top, Spacing.sm)
+            control("取消", icon: "xmark", id: "batch.guideCancel") { guide.clear(scene: composer.scene) }
+        }.fixedSize()
     }
 
     /// 均分摆球（条 20.6）：把落在辅助线上的球调整到均分位置（1 球中点、2 球 1/3 与 2/3，
@@ -895,7 +820,7 @@ struct BatchAuthoringView: View {
     private func redistributeGuideBalls() {
         if guide.redistribute(keys: composer.onTableKeys, scene: composer.scene) {
             composer.recompute()
-            flash("在线球已均分排布")
+            flash("在线球已均分排布", tone: .success)
         }
     }
 
@@ -912,29 +837,31 @@ struct BatchAuthoringView: View {
 
     // MARK: - Palette
 
-    private func paletteBar(_ proxy: ShotStageProxy) -> some View {
-        let libraryWidth = proxy.libraryWidth
-        return BTBallPaletteBar(
-            coordinateSpace: "batchAuthor",
-            ballDiameter: proxy.paletteBallDiameter,
-            isPlaying: composer.isPlaying,
-            libraryWidth: libraryWidth,
-            isOnTable: { composer.onTableKeys.contains($0) },
-            sceneFrame: sceneFrame,
-            unproject: { projector.unproject?($0) },
-            onTap: { key in
-                if composer.onTableKeys.contains(key) { composer.pulseTableBall(key) }
-                else { composer.placeFromPalette(key) }
-            },
-            onPlace: { key, world in
-                if let world { composer.placeFromPalette(key, atWorld: world) }
-                else { composer.placeFromPalette(key) }
-                redistributeGuideBalls()
-            },
-            draggingKey: $draggingKey,
-            dragLocation: $dragLocation,
-            dragOverTable: $dragOverTable
-        )
+    private func ballToken(_ key: String, diameter: CGFloat, slotHeight: CGFloat) -> some View {
+        let onTable = composer.onTableKeys.contains(key)
+        let selected = composer.selectedTargetKey == key
+        return Button {
+            if onTable { composer.pulseTableBall(key) } else { composer.placeFromPalette(key); redistributeGuideBalls() }
+        } label: {
+            PoolBallFace(key: key, diameter: diameter).opacity(onTable ? 0.3 : 1)
+                .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 1).padding(-1).opacity(selected ? 1 : 0))
+                .frame(width: diameter + 2, height: min(max(32, diameter), slotHeight))
+                .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 4), selected: selected, normal: .clear) }
+                .frame(height: slotHeight).contentShape(Rectangle())
+        }.buttonStyle(BTHUDPressStyle()).disabled(editingBusy)
+            .simultaneousGesture(DragGesture(minimumDistance: BTBallPaletteMetrics.dragMinimumDistance, coordinateSpace: .named("batchAuthor"))
+                .onChanged { value in
+                    guard !editingBusy, !onTable else { return }
+                    draggingKey = key; dragLocation = value.location; dragOverTable = sceneFrame.contains(value.location)
+                }.onEnded { value in
+                    defer { draggingKey = nil; dragOverTable = false }
+                    guard !editingBusy, !onTable, sceneFrame.contains(value.location) else { return }
+                    let local = CGPoint(x: value.location.x - sceneFrame.minX, y: value.location.y - sceneFrame.minY)
+                    if let world = projector.unproject?(local) { composer.placeFromPalette(key, atWorld: world); redistributeGuideBalls() }
+                }, including: !onTable ? .all : .subviews)
+            .accessibilityLabel("\(PositionPlayBall.shortLabel(for: key))号球")
+            .accessibilityValue(onTable ? "在桌上" : "未在桌上")
+            .accessibilityIdentifier("paletteBall_\(key)")
     }
 
     private func handleTableDragEnd(node: SCNNode, localPoint: CGPoint) {
@@ -944,27 +871,59 @@ struct BatchAuthoringView: View {
               let key = composer.scene.ballKey(for: node) else { return }
         composer.removeFromTable(key)
         if arrangeFocusKey == key { arrangeFocusKey = nil }
-        flash("已移回球库")
+        flash("已移回球库", tone: .success)
     }
 
     // MARK: - More menu
 
-    private var moreMenu: some View {
-        Menu {
-            Section("求解范围") {
-                Toggle("允许左右塞", isOn: $solver.allowSideSpin)
-                Toggle("仅基础走位（≤1 库）", isOn: $solver.basicPositionOnly)
+    private var menuItems: [DailyHUDMenuItem] {
+        if menu == .tools {
+            return [("落区", BatchShotSolver.Tool.region), ("落点", .restPoint), ("过点", .passPoint), ("摆球", .arrange), ("自由", .free)].map { title, tool in
+                DailyHUDMenuItem(id: "batch.tool." + title, title: title, selected: solver.activeTool == tool,
+                    disabled: editingBusy, action: { selectTool(tool) })
             }
-            Section {
-                Button("重打", systemImage: "arrow.uturn.backward") { composer.replayCurrent() }
-                    .disabled(!composer.canReplay)
-            }
-            Section("显示") {
-                BTTableGridMenuToggle(scene: composer.scene)
-            }
-        } label: {
-            Image(systemName: "ellipsis.circle")
         }
+        if menu == .trajectory {
+            return TrajectoryDetail.allCases.map { detail in
+                DailyHUDMenuItem(id: "batch.trajectory." + String(detail.rawValue), title: detail.label,
+                    selected: preferences.trajectoryDetail == detail, disabled: editingBusy,
+                    action: { preferences.trajectoryDetail = detail; composer.recompute(); menu = nil })
+            }
+        }
+        return [
+            .init(id: "batch.displayHeading", title: "显示"),
+            .init(id: "batch.trajectory", title: "轨迹显示", detail: preferences.trajectoryDetail.label, disclosure: true,
+                  action: { menu = .trajectory }),
+            .init(id: "batch.transparency", title: "打点盘透明度", detail: "\(Int((spinTransparency * 100).rounded()))%",
+                  action: { showSpinPad = true; menu = .transparency }),
+            .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: preferences.showTableGrid,
+                  action: { preferences.showTableGrid.toggle(); composer.scene.setTableGridVisible(preferences.showTableGrid) }),
+            .init(id: "batch.context", title: "\(drill?.drillId ?? "编排求解") · \(composer.stepCount) 杆"),
+            .init(id: "batch.guide", title: guide.phase == .off ? "辅助线" : "清除辅助线", disabled: editingBusy,
+                  action: { guideButtonTapped(); menu = nil }),
+            .init(id: "batch.swap", title: "点换母球与目标球", selected: swapMode, disabled: editingBusy,
+                  action: { toggleSwapMode(); menu = nil }),
+            .init(id: "batch.playSequence", title: "播放当前录制序列", disabled: editingBusy || composer.stepCount < 1,
+                  action: { composer.previewPlayRecordedSequence(); menu = nil }),
+            .init(id: "batch.previousBoard", title: "回上一杆球形", disabled: editingBusy || !composer.canReplay,
+                  action: { composer.restorePreviousBoard(); menu = nil }),
+            .init(id: "batch.cue", title: "母球", detail: composer.onTableKeys.contains(PositionPlayBall.cueKey) ? "定位" : "摆回球桌", disabled: editingBusy,
+                  action: {
+                      if composer.onTableKeys.contains(PositionPlayBall.cueKey) { composer.pulseTableBall(PositionPlayBall.cueKey) }
+                      else { composer.placeFromPalette(PositionPlayBall.cueKey) }
+                      menu = nil
+                  }),
+            .init(id: "batch.solverHeading", title: "求解范围"),
+            .init(id: "batch.sideSpin", title: "允许左右塞", selected: solver.allowSideSpin, disabled: editingBusy,
+                  action: { solver.allowSideSpin.toggle() }),
+            .init(id: "batch.basicPosition", title: "仅基础走位（≤1 库）", selected: solver.basicPositionOnly, disabled: editingBusy,
+                  action: { solver.basicPositionOnly.toggle() }),
+            .init(id: "batch.saveHeading", title: "保存去向"),
+            .init(id: "batch.saveImage", title: "保存并选择下一张图", disabled: editingBusy,
+                  action: { menu = nil; requestSave(mode: .stay) }),
+            .init(id: "batch.saveDrill", title: "保存并进入下一个练习", disabled: editingBusy,
+                  action: { menu = nil; requestSave(mode: .nextDrill) })
+        ]
     }
 
     // MARK: - Save / advance
@@ -1045,14 +1004,191 @@ struct BatchAuthoringView: View {
         return drill.drillId
     }
 
-    private func flash(_ message: String, tone: BTToastTone = .success) {
-        BTToast.present(message, tone: tone) { toast = $0 }
+    private func flash(_ message: String, tone: BTToastTone = .info) {
+        toastGeneration += 1
+        let generation = toastGeneration
+        BTToast.present(message, tone: tone) { value in
+            guard generation == toastGeneration else { return }
+            toast = value
+        }
     }
 
     private func frameReader(id: String) -> some View {
         GeometryReader { geo in
             Color.clear.preference(key: BTShotPageFramePreference.self,
                                    value: [id: geo.frame(in: .named("batchAuthor"))])
+        }
+    }
+}
+
+#if DEBUG
+/// Diagnostic ring buffer only; the existing audit-only TimelineView reads it.
+/// Recording never publishes state or invalidates the live gesture view.
+private enum BatchNudgeAudit {
+    private struct Entry {
+        let time: TimeInterval
+        let key: String
+        let event: String
+        var count: Int
+    }
+    private static var entries: [Entry] = []
+    static let enabled = ProcessInfo.processInfo.arguments.contains("-batchAuthor.audit")
+
+    static func record(key: String, event: String) {
+        guard enabled else { return }
+        if let last = entries.lastIndex(where: { $0.key == key }), entries[last].event == event {
+            entries[last].count += 1
+        } else {
+            entries.append(Entry(time: ProcessInfo.processInfo.systemUptime, key: key, event: event, count: 1))
+            if entries.count > 256 { entries.removeFirst(entries.count - 256) }
+        }
+    }
+
+    static var snapshot: String {
+        entries.map { String(format: "%.3f", $0.time) + " " + $0.key + " " + $0.event + " ×" + String($0.count) }
+            .joined(separator: "\n")
+    }
+}
+#endif
+
+// MARK: - Scroll-compatible editor nudge
+
+/// A scroll must be distinguishable from a nudge before mutating the ball.
+/// Tap commits on release; a stationary 0.4s hold starts the same accelerating
+/// 0.5mm action. This local policy leaves non-scrolling shared controls unchanged.
+private struct BatchScrollNudgeButton: View {
+    let icon: String
+    let accessibility: String
+    let onStep: () -> Bool
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isPressing = false
+
+    var body: some View {
+        Image(systemName: icon)
+            .font(.system(size: 15, weight: .bold))
+            .foregroundStyle(.white.opacity(isPressing ? 1 : 0.82))
+            .frame(width: 30, height: 30)
+            .background(isPressing ? HUDStyle.selectedBackground : .white.opacity(0.12), in: Circle())
+            .frame(width: 44, height: 44)
+            .overlay {
+                BatchNudgeGestureSurface(enabled: isEnabled, isPressing: $isPressing, auditKey: icon, onStep: onStep)
+                    .accessibilityHidden(true)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibility)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { if isEnabled { _ = onStep() } }
+    }
+}
+
+private struct BatchNudgeGestureSurface: UIViewRepresentable {
+    let enabled: Bool
+    @Binding var isPressing: Bool
+    let auditKey: String
+    let onStep: () -> Bool
+
+    func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.backgroundColor = .clear
+        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tap(_:)))
+        let hold = UILongPressGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.hold(_:)))
+        hold.minimumPressDuration = 0.4
+        hold.allowableMovement = 10
+        // A completed hold must never also commit the release as a single tap.
+        tap.require(toFail: hold)
+        // Install the same explicit touch gate in normal and diagnostic runs.
+        // Audit recording must not alter the recognizers' delegate arrangement.
+        tap.delegate = context.coordinator
+        hold.delegate = context.coordinator
+        view.addGestureRecognizer(tap)
+        view.addGestureRecognizer(hold)
+        context.coordinator.trace("make view=\(ObjectIdentifier(view))")
+        return view
+    }
+
+    func updateUIView(_ view: UIView, context: Context) {
+        context.coordinator.parent = self
+        context.coordinator.trace("update view=\(ObjectIdentifier(view)) enabled=\(enabled) states=\((view.gestureRecognizers ?? []).map { "\(type(of: $0)):\($0.state.rawValue):\($0.isEnabled)" }.joined(separator: ","))")
+        for gesture in view.gestureRecognizers ?? [] { gesture.isEnabled = enabled }
+        if !enabled { context.coordinator.stop() }
+    }
+
+    static func dismantleUIView(_ view: UIView, coordinator: Coordinator) {
+        coordinator.trace("dismantle view=\(ObjectIdentifier(view))")
+        coordinator.stop()
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var parent: BatchNudgeGestureSurface
+        private var timer: Timer?
+        private var ticks = 0
+        private var repeating = false
+
+        init(parent: BatchNudgeGestureSurface) { self.parent = parent }
+
+        func trace(_ event: @autoclosure () -> String) {
+            #if DEBUG
+            guard BatchNudgeAudit.enabled else { return }
+            BatchNudgeAudit.record(key: parent.auditKey, event: event())
+            #endif
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            trace("receive \(type(of: gestureRecognizer)) enabled=\(gestureRecognizer.isEnabled) point=\(touch.location(in: gestureRecognizer.view)) window=\(touch.location(in: nil)) view=\(gestureRecognizer.view.map { String(describing: ObjectIdentifier($0)) } ?? "nil") bounds=\(gestureRecognizer.view?.bounds ?? .zero) frameWindow=\(gestureRecognizer.view.map { $0.convert($0.bounds, to: nil) } ?? .zero)")
+            return parent.enabled
+        }
+
+        @objc func tap(_ gesture: UITapGestureRecognizer) {
+            trace("tap state=\(gesture.state.rawValue) enabled=\(parent.enabled)")
+            guard gesture.state == .ended, parent.enabled else { return }
+            _ = step()
+        }
+
+        @objc func hold(_ gesture: UILongPressGestureRecognizer) {
+            trace("hold state=\(gesture.state.rawValue) enabled=\(parent.enabled)")
+            switch gesture.state {
+            case .began:
+                guard parent.enabled else { return }
+                repeating = true
+                parent.isPressing = true
+                if step() { scheduleNext(after: 0.12) } else { stop() }
+            case .ended, .cancelled, .failed:
+                stop()
+            default:
+                break
+            }
+        }
+
+        private func step() -> Bool {
+            guard parent.enabled else { return false }
+            let moved = parent.onStep()
+            trace("step moved=\(moved) repeating=\(repeating) ticks=\(ticks)")
+            UIImpactFeedbackGenerator(style: moved ? .light : .rigid)
+                .impactOccurred(intensity: moved ? 0.6 : 0.9)
+            return moved
+        }
+
+        private func scheduleNext(after delay: TimeInterval) {
+            timer?.invalidate()
+            let next = Timer(timeInterval: delay, repeats: false) { [weak self] _ in
+                guard let self, self.repeating else { return }
+                guard self.step() else { self.stop(); return }
+                self.ticks += 1
+                self.scheduleNext(after: max(0.05, 0.12 - Double(self.ticks) * 0.005))
+            }
+            timer = next
+            RunLoop.main.add(next, forMode: .common)
+        }
+
+        func stop() {
+            trace("stop repeating=\(repeating) ticks=\(ticks)")
+            timer?.invalidate()
+            timer = nil
+            repeating = false
+            ticks = 0
+            if parent.isPressing { parent.isPressing = false }
         }
     }
 }

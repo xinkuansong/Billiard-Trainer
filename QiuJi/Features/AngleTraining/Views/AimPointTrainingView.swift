@@ -195,6 +195,10 @@ struct AimPointTrainingView: View {
         ScrollView {
             VStack(spacing: Spacing.lg) {
                 figureCard
+                Text(String(format: "球半径 R = %.1f mm · 偏移以目标球心为基准", AimPointTrainingViewModel.ballRadiusMM))
+                    .font(.btFootnote).foregroundStyle(.btText)
+                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("aimPointDiagram.radius")
                 if vm.showResult {
                     resultCard
                         .transition(.opacity)
@@ -208,18 +212,20 @@ struct AimPointTrainingView: View {
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxl)
+            .learnDocumentWidth()
             .animation(BTMotion.easeChrome, value: vm.showResult)
             .animation(BTMotion.easeChrome, value: vm.limiter.isLimitReached)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .background(Color.black.ignoresSafeArea())
-        .safeAreaInset(edge: .top, spacing: 0) { statsCapsule }
+        .background(Color.btBG.ignoresSafeArea())
+        .safeAreaInset(edge: .top, spacing: 0) { statsCapsule.learnDocumentWidth() }
+        .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
         .trainingBackgroundMusic()
-        .btDarkToolChrome("瞄准点训练")
+        .btAdaptiveToolChrome("瞄准点训练")
         .toolbar {
             ToolbarItem(placement: .principal) {
-                BTSolverNavStatus(title: "瞄准点训练")
+                Text("瞄准点训练").font(.btSubheadlineSemibold).foregroundStyle(.btText)
             }
             // C31 / G25：本页为 2D 特写图（无 AngleTrainingScene）→ 无可配台面网格，不并三点（留档）。
         }
@@ -241,29 +247,29 @@ struct AimPointTrainingView: View {
     private var statsCapsule: some View {
         HStack {
             HStack(spacing: Spacing.sm) {
-                BTReadout(label: "题", value: "\(vm.sessionResults.count)", size: .compact)
+                BTAdaptiveToolReadout(label: "题", value: "\(vm.sessionResults.count)", size: .compact)
                 divider
-                BTReadout(label: "均差",
+                BTAdaptiveToolReadout(label: "均差",
                           value: vm.sessionResults.isEmpty
                               ? "—" : String(format: "%.1fmm", vm.sessionMeanAbsMM),
                           size: .compact)
                 if let hist = vm.historicalMeanAbsMM {
                     divider
-                    BTReadout(label: "历史", value: String(format: "%.1fmm", hist),
+                    BTAdaptiveToolReadout(label: "历史", value: String(format: "%.1fmm", hist),
                               size: .compact)
                 }
                 if !vm.limiter.isPremium {
                     divider
-                    BTReadout(label: "剩余", value: "\(vm.limiter.remainingToday)",
-                              emphasis: .adjustable, size: .compact)
+                    BTAdaptiveToolReadout(label: "剩余", value: "\(vm.limiter.remainingToday)",
+                              size: .compact)
                 }
             }
             .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
-            .foregroundStyle(.white)
+            .minimumScaleFactor(0.8)
+            .foregroundStyle(.btText)
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)
-            .btHudGlass()
+            .background(Color.btSurface, in: Capsule())
 
             Spacer()
         }
@@ -273,14 +279,16 @@ struct AimPointTrainingView: View {
     }
 
     private var divider: some View {
-        BTHudMetricSeparator()
+        Rectangle().fill(Color.btSeparator).frame(width: 1, height: 16)
     }
 
     // MARK: - Figure（拖假想球）
 
     private var figureCard: some View {
         AimPointDragFigure(vm: vm)
+            .environment(\.colorScheme, .dark)
             .frame(height: 320)
+            .accessibilityIdentifier("aimPointDiagram.figure")
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
@@ -291,24 +299,24 @@ struct AimPointTrainingView: View {
             if let q = vm.question {
                 Text("切角 θ = \(Int(q.angleDegrees))° · 向\(q.cutsRight ? "右" : "左")切")
                     .font(.system(size: 22, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.btText)
                 Text("向\(q.cutsRight ? "右" : "左")切 = 目标球向\(q.cutsRight ? "右" : "左")移动，母球应打目标球\(q.cutsRight ? "左" : "右")侧。拖动假想球，使红色瞄准点符合该切角，然后提交")
                     .font(.btFootnote)
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(.btText)
                     .multilineTextAlignment(.center)
 
                 Text(String(format: "当前偏移 %.1f mm", vm.userOffsetMM))
                     .font(.system(size: 14, design: .monospaced))
-                    .foregroundStyle(.btPrimary)
+                    .foregroundStyle(.btText)
+                    .accessibilityIdentifier("aimPointDiagram.offset")
 
-                BTTextActionButton(title: "提交瞄准点", role: .primary, width: 120) {
-                    vm.submit()
-                }
+                Button("提交瞄准点") { vm.submit() }
+                    .buttonStyle(BTAdaptiveToolActionStyle(isPrimary: true))
             }
         }
         .padding(Spacing.xl)
         .frame(maxWidth: .infinity)
-        .background(.white.opacity(0.06))
+        .background(Color.btSurface)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
@@ -324,29 +332,28 @@ struct AimPointTrainingView: View {
                 Text(String(format: "正确偏移 %.1f mm · 你的偏移 %.1f mm",
                             vm.correctOffsetMM(for: q), vm.userOffsetMM))
                     .font(.btFootnote)
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(.btText)
 
                 Text(last.errorMM >= 0 ? "瞄薄了一点（偏移偏大）" : "瞄厚了一点（偏移偏小）")
                     .font(.btCaption)
-                    .foregroundStyle(.white.opacity(0.45))
+                    .foregroundStyle(.btText)
             }
 
             if vm.limiter.isLimitReached {
-                BTDailyLimitGate(compact: true) { showSubscription = true }
+                BTAdaptiveToolLimitGate(compact: true) { showSubscription = true }
             } else {
-                BTTextActionButton(title: "下一题", role: .primary, width: 112) {
-                    vm.nextQuestion()
-                }
+                Button("下一题") { vm.nextQuestion() }
+                    .buttonStyle(BTAdaptiveToolActionStyle(isPrimary: true))
             }
         }
         .padding(Spacing.xl)
         .frame(maxWidth: .infinity)
-        .background(.white.opacity(0.06))
+        .background(Color.btSurface)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     private var limitCard: some View {
-        BTDailyLimitGate { showSubscription = true }
+        BTAdaptiveToolLimitGate { showSubscription = true }
     }
 
     private func ratingColor(_ absMM: Double) -> Color {
@@ -364,8 +371,10 @@ private struct AimPointDragFigure: View {
     var body: some View {
         let r = CGFloat(AngleSceneCalculator.ballRadius)
         // P8.5：特写取景收紧（4.3R → 2.7R 半高），目标球占比放大约 60%。
+        GeometryReader { geometry in
+        let halfHeight = max(r * 2.7, 3 * r * geometry.size.height / max(1, geometry.size.width - 16))
         BTTableFigure(orientation: .landscape,
-                      closeup: (center: .zero, halfHeight: r * 2.7)) { proj in
+                      closeup: (center: .zero, halfHeight: halfHeight)) { proj in
             let d = proj.ballDiameter
             let target = CGPoint(x: proj.size.width / 2, y: proj.size.height * 0.34)
             let ghost = ghostCenter(target: target, d: d, phi: vm.userPhi)
@@ -441,6 +450,7 @@ private struct AimPointDragFigure: View {
                     }
             )
             // F-SA-04：拖动跟手 1:1，去掉 value: userPhi 的隐式动画。
+        }
         }
     }
 

@@ -18,7 +18,7 @@ enum LearnControlStrip {
         @Binding var cutAngleDeg: Double
         var range: ClosedRange<Double> = Self.defaultRange
         var step: Double = Self.defaultStep
-        /// 可选说明（caption / tertiary）。
+        /// 可选操作说明（caption / primary text）。
         var caption: String? = nil
         var accessibilityIdentifier: String? = nil
 
@@ -36,7 +36,7 @@ enum LearnControlStrip {
                 if let caption, !caption.isEmpty {
                     Text(caption)
                         .font(.btCaption)
-                        .foregroundStyle(.btTextTertiary)
+                        .foregroundStyle(.btText)
                 }
             }
             .padding(Spacing.lg)
@@ -92,7 +92,7 @@ enum LearnControlStrip {
 
                 Text("高低杆")
                     .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
+                    .foregroundStyle(.btText)
                 Picker("高低杆", selection: $spinYTier) {
                     ForEach(AimingCorrectionMath.SpinYTier.allCases) { tier in
                         Text(tier.label).tag(tier)
@@ -119,7 +119,7 @@ enum LearnControlStrip {
                 if let footer, !footer.isEmpty {
                     Text(footer)
                         .font(.btCaption)
-                        .foregroundStyle(.btTextTertiary)
+                        .foregroundStyle(.btText)
                 }
             }
             .padding(Spacing.lg)
@@ -159,7 +159,7 @@ enum LearnControlStrip {
             HStack {
                 Text(label)
                     .font(labelEmphasis == .primary ? Font.btSubheadlineMedium : Font.btCaption)
-                    .foregroundStyle(labelEmphasis == .primary ? Color.btText : Color.btTextSecondary)
+                    .foregroundStyle(Color.btText)
                 Spacer()
                 Text(value)
                     .font(.system(size: valueSize, weight: .semibold, design: .monospaced))

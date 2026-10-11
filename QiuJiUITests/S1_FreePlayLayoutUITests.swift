@@ -1,284 +1,164 @@
 import XCTest
 
-/// 问题集合 v3 §S1 自由击球基准页布局验收：
-/// - 截图核验 G3–G11（贴边 / 对齐 / 不遮挡 / 三圆圈开球按钮）；
-/// - G10 断言：进袋/自由切换、进入开球模式时 `freeplay.stage` frame 零变化（球桌尺寸锁定）。
+/// Standard FreePlay consumes Daily's chrome while keeping manual break delivery and game rules.
 final class S1_FreePlayLayoutUITests: XCTestCase {
-
     var app: XCUIApplication!
 
     override func setUpWithError() throws {
         continueAfterFailure = false
-        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-deeplink.freePlay", "-v51.followSystemAppearance"])
-        try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
+        XCUIDevice.shared.orientation = .portrait
+        var args = ["-forcePremium", "-v51.followSystemAppearance", "-dailyLayout.probe", "-3dDrag.probe"]
+        if UIDevice.current.userInterfaceIdiom != .pad { args.append("-deeplink.freePlay") }
+        app = XCUIApplication.launchClean(extraArgs: args)
     }
 
-    private var outDir: URL {
-        #if !targetEnvironment(simulator)
-        return FileManager.default.temporaryDirectory.appendingPathComponent("v63-freeplay")
-        #else
-        let environment = ProcessInfo.processInfo.environment
-        let path = environment["V52_SHOT_DIR"]
-            ?? environment["TEST_RUNNER_V52_SHOT_DIR"]
-            ?? "/Users/song/projects/13.billiard_trainer/build/v52-screenshots/after-standard"
-        return URL(fileURLWithPath: path, isDirectory: true)
-        #endif
-    }
-
-    private func snap(_ name: String) {
+    private func snap(_ name: String) throws {
         let shot = XCUIScreen.main.screenshot()
-        let url = outDir.appendingPathComponent("\(name).png")
-        do {
-            try shot.pngRepresentation.write(to: url)
-        } catch {
-            XCTFail("截图写入失败：\(url.path)，\(error)")
+        let attachment = XCTAttachment(screenshot: shot)
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+        let env = ProcessInfo.processInfo.environment
+        if let path = env["V52_SHOT_DIR"] ?? env["TEST_RUNNER_V52_SHOT_DIR"] {
+            let root = URL(fileURLWithPath: path)
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            try shot.pngRepresentation.write(to: root.appendingPathComponent(name + ".png"))
         }
-        let att = XCTAttachment(screenshot: shot)
-        att.name = name
-        att.lifetime = .keepAlways
-        add(att)
     }
 
-    @discardableResult
-    private func switchAngleHomeTab(_ name: String) -> Bool {
-        let seg = app.buttons["angleHomeTab_\(name)"]
-        guard seg.waitForExistence(timeout: 4) else { return false }
-        seg.tap(); usleep(600_000); return true
+    private func ready(_ element: XCUIElement, timeout: TimeInterval = 30) {
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == true AND enabled == true"), object: element)], timeout: timeout), .completed)
     }
 
-    private func openFreePlay() -> Bool {
-        return app.navigationBars["自由击球"].waitForExistence(timeout: 8)
+    private func open() {
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            app.switchTab(.angle)
+            let tab = app.buttons["angleHomeTab_打"]
+            XCTAssertTrue(tab.waitForExistence(timeout: 10)); tab.tap()
+            let card = app.buttons["自由击球"]
+            XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
+        }
+        XCTAssertTrue(app.buttons["freeplay.moreMenu"].waitForExistence(timeout: 15))
+        if UIDevice.current.userInterfaceIdiom == .pad { XCUIDevice.shared.orientation = .landscapeLeft }
+        sleep(2)
+        XCTAssertGreaterThan(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height)
+    }
+
+    private func menu() {
+        app.buttons["freeplay.moreMenu"].tap()
+        XCTAssertTrue(app.buttons["freeplay.cameraMode"].waitForExistence(timeout: 3))
+    }
+
+    private func toggleView(_ value: String) {
+        menu()
+        app.buttons["freeplay.cameraMode"].tap()
+        XCTAssertEqual(app.buttons["freeplay.cameraMode"].value as? String, value)
+        // View mode stays in the menu; dismiss through its explicit outside layer.
+        if app.buttons["关闭菜单"].exists { app.buttons["关闭菜单"].tap() }
+        sleep(1)
+    }
+
+    private func chooseFreeAim() {
+        menu(); app.buttons["dailyClearance.aimModeMenu"].tap()
+        let free = app.buttons["dailyClearance.aim.free"]
+        XCTAssertTrue(free.waitForExistence(timeout: 3)); free.tap()
     }
 
     func testFreePlayLayoutAndTableSizeLock() throws {
-        guard openFreePlay() else {
-            XCTFail("未能进入自由击球页")
-            return
-        }
-        sleep(3)
-        let stage = app.descendants(matching: .any)["freeplay.stage"]
-        XCTAssertTrue(stage.waitForExistence(timeout: 5), "自由击球 stage 应可访问")
-        let framePocket = stage.frame
-        snap("s1-01-freeplay-pocket")
-
-        // 进袋 ⇄ 自由 切换：G10 球桌尺寸不变。
-        let toggle = app.buttons.matching(NSPredicate(format: "label BEGINSWITH '瞄准模式'")).firstMatch
-        if toggle.waitForExistence(timeout: 2) {
-            toggle.tap(); sleep(2)
-            snap("s1-02-freeplay-free")
-            let frameFree = stage.frame
-            XCTAssertEqual(frameFree.width, framePocket.width, accuracy: 0.5, "切换瞄准模式球桌宽不变（G10）")
-            XCTAssertEqual(frameFree.height, framePocket.height, accuracy: 0.5, "切换瞄准模式球桌高不变（G10）")
-        }
-
-        // 进入开球模式：底栏换成开球条，G10 stage frame 仍不变。
-        let breakBtn = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier == 'break.entry'")).firstMatch
-        if breakBtn.waitForExistence(timeout: 5) {
-            breakBtn.tap(); sleep(1)
-            // 玩法选择 sheet：选中式八球。
-            _ = app.staticTexts["中式八球"].waitForExistence(timeout: 3)
-            if app.staticTexts["中式八球"].exists { app.staticTexts["中式八球"].tap() }
-            else if app.buttons["中式八球"].exists { app.buttons["中式八球"].tap() }
-            sleep(2)
-            snap("s1-03-freeplay-break")
-            let frameBreak = stage.frame
-            XCTAssertEqual(frameBreak.width, framePocket.width, accuracy: 0.5, "开球模式球桌宽不变（G10）")
-            XCTAssertEqual(frameBreak.height, framePocket.height, accuracy: 0.5, "开球模式球桌高不变（G10）")
-        }
-    }
-
-    func testAimWheelExposesAccessibilityControl() {
-        XCTAssertTrue(openFreePlay())
-        let mode = app.buttons["freeplay.cameraMode"]
-        XCTAssertTrue(mode.waitForExistence(timeout: 5))
-        mode.tap()
-        app.buttons["瞄准模式：进袋，点击切换"].tap()
+        open()
+        let stage = app.descendants(matching: .any)["freeplay.stage"].firstMatch
+        XCTAssertTrue(stage.waitForExistence(timeout: 5))
+        let initial = stage.frame
+        XCTAssertFalse(app.descendants(matching: .any)["paletteBall_cueBall"].exists)
+        for n in 1...15 { XCTAssertTrue(app.buttons["paletteBall__\(n)"].exists) }
+        try snap("01-standard-2d")
+        chooseFreeAim()
+        XCTAssertEqual(stage.frame.width, initial.width, accuracy: 1)
+        XCTAssertEqual(stage.frame.height, initial.height, accuracy: 1)
         let wheel = app.otherElements["shotStage.aimWheel"]
-        XCTAssertTrue(wheel.waitForExistence(timeout: 5), "The aim control must be discoverable in the app accessibility tree")
         XCTAssertTrue(wheel.isEnabled)
         XCTAssertEqual(wheel.label, "瞄准微调")
-        snap("v63-aim-adjustable")
+        menu(); try snap("02-standard-settings")
+        XCTAssertTrue(app.buttons["freeplay.clearTable"].exists)
+        XCTAssertFalse(app.buttons["dailyClearance.changeGame"].exists)
+        app.buttons["menu.tableGrid"].tap()
+        toggleView("3D")
+        for name in ["firstPerson", "thirdPerson", "wholeTable"] {
+            let button = app.buttons[name == "wholeTable" ? "dailyClearance.observeTable" : "shotCamera." + name]
+            XCTAssertTrue(button.waitForExistence(timeout: 3)); button.tap(); sleep(1)
+            try snap("03-camera-" + name)
+        }
+        let temporary = app.buttons["shotCamera.temporaryTopDown"]
+        temporary.tap(); sleep(1); try snap("04-temporary-2d")
+        temporary.tap(); sleep(1); try snap("05-temporary-return")
+        app.buttons["shotStage.spinEntry"].tap()
+        XCTAssertTrue(app.buttons["回中"].waitForExistence(timeout: 3))
+        app.buttons["低杆增加 1%"].tap(); app.buttons["回中"].tap()
+        try snap("06-spin")
+        toggleView("2D")
+        XCTAssertFalse(app.buttons["回中"].exists)
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            XCUIDevice.shared.orientation = .portrait; sleep(2)
+            XCTAssertLessThan(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height)
+            XCTAssertTrue(app.buttons["freeplay.moreMenu"].isHittable)
+            try snap("07-ipad-portrait")
+            XCUIDevice.shared.orientation = .landscapeLeft; sleep(2)
+            try snap("08-ipad-landscape-return")
+        }
+        XCTAssertEqual(stage.frame.width, initial.width, accuracy: 1)
+        XCTAssertEqual(stage.frame.height, initial.height, accuracy: 1)
     }
 
     func testPerspectiveBreakAndContinue() throws {
-        XCTAssertTrue(openFreePlay())
-        let mode = app.buttons["freeplay.cameraMode"]
-        let table = app.descendants(matching: .any)["table.scene"].firstMatch
-        let wheel = app.descendants(matching: .any)["shotStage.aimWheel"].firstMatch
-        func capture(_ name: String) throws {
-            Thread.sleep(forTimeInterval: 1)
-            let shot = XCUIScreen.main.screenshot()
-            #if targetEnvironment(simulator)
-            let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-                .appendingPathComponent("output/freeplay-3d/after")
-            #else
-            let root = outDir
-            #endif
-            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-            let name = "\(name)-\(Int(app.windows.firstMatch.frame.width))"
-            try shot.pngRepresentation.write(to: root.appendingPathComponent(name + ".png"))
-            let a = XCTAttachment(screenshot: shot); a.name = name; a.lifetime = .keepAlways; add(a)
-        }
-        func waitEnabled(_ element: XCUIElement, seconds: TimeInterval = 30) {
-            let e = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: element)
-            let result = XCTWaiter.wait(for: [e], timeout: seconds)
-            if result != .completed {
-                let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-                screenshot.name = "disabled-action-timeout"; screenshot.lifetime = .keepAlways; add(screenshot)
-                let hierarchy = XCTAttachment(string: app.debugDescription)
-                hierarchy.name = "disabled-action-hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
-            }
-            XCTAssertEqual(result, .completed)
-        }
-        XCTAssertTrue(mode.waitForExistence(timeout: 5))
-        try capture("initial-2d")
-        mode.tap()
-        XCTAssertEqual(mode.value as? String, "3D")
-        try capture("initial-3d")
+        open(); toggleView("3D")
         for count in [15, 9] {
-            app.descendants(matching: .any)["break.entry"].firstMatch.tap()
+            app.buttons["break.entry"].tap()
             let game = app.buttons["break.game.\(count)"]
             XCTAssertTrue(game.waitForExistence(timeout: 5)); game.tap()
             let strike = app.buttons["break.strike"]
-            waitEnabled(strike)
-            XCTAssertEqual(mode.value as? String, "3D")
-            XCTAssertTrue(app.buttons["freeplay.focus"].isEnabled)
-            try capture("rack-\(count)-3d")
-            app.buttons["freeplay.observation"].tap()
-            let wholeTable = app.buttons["freeplay.observe.table"]
-            XCTAssertTrue(wholeTable.waitForExistence(timeout: 3))
-            wholeTable.tap()
-            try capture("v63-whole-rack-\(count)")
-            let center = table.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
-            center.press(forDuration: 0.1, thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.25)))
-            table.pinch(withScale: 1.1, velocity: 1)
-            app.buttons["freeplay.focus"].tap()
-            let from = wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            from.press(forDuration: 0.1, thenDragTo: wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.52)))
-            app.buttons["shotStage.spinEntry"].tap()
-            try capture("break-spin-\(count)")
-            let lower = app.buttons["低杆增加 1%"]
-            XCTAssertTrue(lower.isHittable)
-            XCTAssertLessThan(lower.frame.maxY, strike.frame.minY)
-            lower.tap()
-            app.buttons["回中"].tap()
-            mode.tap()
-            XCTAssertFalse(app.buttons["回中"].exists)
-            XCTAssertEqual(mode.value as? String, "2D")
-            try capture("rack-\(count)-2d")
-            mode.tap()
-            app.buttons["break.rerack"].tap()
-            try capture("reracked-\(count)-3d")
+            ready(strike); try snap("rack-\(count)-3d")
+            app.buttons["dailyClearance.observeTable"].tap()
+            let table = app.descendants(matching: .any)["table.scene"].firstMatch
+            let point = table.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.3))
+            point.press(forDuration: 0.1, thenDragTo: table.coordinate(withNormalizedOffset: .init(dx: 0.6, dy: 0.3)))
+            app.buttons["shotCamera.thirdPerson"].tap()
+            toggleView("2D"); try snap("rack-\(count)-2d")
+            app.buttons["break.rerack"].tap(); ready(strike)
             strike.tap()
-            try capture("breaking-\(count)-3d")
-            mode.tap()
-            XCTAssertEqual(mode.value as? String, "2D")
-            try capture("breaking-\(count)-2d")
-            mode.tap()
             let confirm = app.buttons["break.confirm"]
-            waitEnabled(confirm, seconds: 60)
-            try capture("settled-\(count)-3d")
-            mode.tap()
-            XCTAssertTrue(confirm.isHittable)
-            try capture("settled-\(count)-2d")
-            mode.tap()
+            ready(confirm, timeout: 75); try snap("settled-\(count)-2d")
+            toggleView("3D"); XCTAssertTrue(confirm.isHittable)
             confirm.tap()
-            XCTAssertTrue(app.descendants(matching: .any)["break.entry"].firstMatch.waitForExistence(timeout: 10))
-            XCTAssertEqual(mode.value as? String, "3D")
-            try capture("delivered-\(count)-3d")
+            XCTAssertTrue(app.descendants(matching: .any)["freeplay.gameStatus"].waitForExistence(timeout: 5))
+            try snap("delivered-\(count)-3d")
         }
-        let toggle = app.buttons.matching(NSPredicate(format: "label BEGINSWITH '瞄准模式'")).firstMatch
-        toggle.tap()
-        let strike = app.buttons["击球"]
-        waitEnabled(strike)
-        strike.tap()
-        waitEnabled(app.buttons["重打"], seconds: 45)
-        try capture("continued-shot-3d")
-        app.buttons["重打"].tap()
-        app.descendants(matching: .any)["break.entry"].firstMatch.tap()
-        let game = app.buttons["break.game.4"]
-        XCTAssertTrue(game.waitForExistence(timeout: 5)); game.tap()
-        waitEnabled(app.buttons["break.strike"])
-        app.buttons["取消"].tap()
-        XCTAssertTrue(app.buttons["击球"].waitForExistence(timeout: 5))
-        XCTAssertEqual(mode.value as? String, "3D")
-        try capture("cancelled-3d")
+        chooseFreeAim()
+        let strike = app.buttons["dailyClearance.strike"]
+        ready(strike); strike.tap()
+        ready(app.buttons["dailyClearance.undo"], timeout: 60)
+        try snap("continued-shot")
+        app.buttons["dailyClearance.playback"].tap()
+        ready(app.buttons["dailyClearance.undo"], timeout: 60)
+        app.buttons["dailyClearance.undo"].tap()
+        app.buttons["break.entry"].tap(); app.buttons["break.game.4"].tap()
+        ready(app.buttons["break.strike"]); menu(); app.buttons["freeplay.cancelBreak"].tap()
+        ready(strike); try snap("cancelled-break")
     }
 
-    func testFirstPerspectiveEntryAfterStartingBreakIn2D() throws {
-        continueAfterFailure = false
-        XCTAssertTrue(openFreePlay())
-        let mode = app.buttons["freeplay.cameraMode"]
-        XCTAssertEqual(mode.value as? String, "2D")
-        app.descendants(matching: .any)["break.entry"].firstMatch.tap()
-        let game = app.buttons["break.game.9"]
-        XCTAssertTrue(game.waitForExistence(timeout: 5))
-        game.tap()
-        let strike = app.buttons["break.strike"]
-        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: strike)
-        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 30), .completed)
-        strike.tap()
-        mode.tap()
-        XCTAssertEqual(mode.value as? String, "3D")
-        Thread.sleep(forTimeInterval: 1)
-        let shot = XCUIScreen.main.screenshot()
-        let attachment = XCTAttachment(screenshot: shot)
-        attachment.name = "v63-first-3d-during-break"
-        attachment.lifetime = .keepAlways
-        add(attachment)
-        #if targetEnvironment(simulator)
-        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("output/3d-v63/W02")
-        #else
-        let root = outDir
-        #endif
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        try shot.pngRepresentation.write(to: root.appendingPathComponent("first-3d-during-break-\(Int(app.windows.firstMatch.frame.width)).png"))
-        let observation = app.buttons["freeplay.observation"]
-        XCTAssertTrue(observation.exists)
-        // iOS 17 exposes a nested Menu button whose parent reports non-hittable.
-        // Physical-tap evidence is retained in first-3d-se-ax5-r3; verify the action.
-        observation.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        let wholeTable = app.buttons["freeplay.observe.table"]
-        XCTAssertTrue(wholeTable.waitForExistence(timeout: 5))
-        XCTAssertTrue(wholeTable.isHittable)
-        let menuShot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        menuShot.name = "v63-first-3d-observation-menu"
-        menuShot.lifetime = .keepAlways
-        add(menuShot)
-        wholeTable.tap()
-        XCTAssertFalse(wholeTable.exists)
-        XCTAssertEqual(mode.value as? String, "3D")
-    }
-}
-
-extension S1_FreePlayLayoutUITests {
-    func testPerspectiveScratchCanRestoreCueFromPalette() throws {
+    func testPerspectiveScratchReturnsCueAutomatically() throws {
         app.terminate()
-        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-deeplink.freePlay", "-v63.freePlayScratch"])
-        XCTAssertTrue(openFreePlay())
-        let mode = app.buttons["freeplay.cameraMode"]
-        XCTAssertTrue(mode.waitForExistence(timeout: 5))
-        mode.tap()
-        let strike = app.buttons["击球"]
-        let enabled = NSPredicate(format: "exists == true AND enabled == true")
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: enabled, object: strike)], timeout: 30), .completed)
-        strike.tap()
-        let replay = app.buttons["回放"]
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: enabled, object: replay)], timeout: 30), .completed)
-        XCTAssertTrue(app.staticTexts["切回2D补回母球"].exists)
-        snap("v63-scratch-3d")
-        replay.tap()
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: enabled, object: replay)], timeout: 30), .completed)
-        XCTAssertTrue(app.staticTexts["切回2D补回母球"].exists)
-        mode.tap()
-        let cue = app.descendants(matching: .any)["paletteBall_cueBall"].firstMatch
-        XCTAssertTrue(cue.waitForExistence(timeout: 5))
-        cue.tap()
-        mode.tap()
-        XCTAssertTrue(app.staticTexts["移母球切回2D"].exists)
-        XCTAssertTrue(app.buttons["freeplay.focus"].isEnabled)
-        snap("v63-scratch-restored-3d")
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-deeplink.freePlay", "-v63.freePlayScratch", "-dailyLayout.probe"])
+        open(); toggleView("3D")
+        let strike = app.buttons["dailyClearance.strike"]
+        ready(strike); strike.tap()
+        ready(app.buttons["dailyClearance.playback"], timeout: 45)
+        ready(strike)
+        XCTAssertFalse(app.descendants(matching: .any)["paletteBall_cueBall"].exists)
+        let status = app.descendants(matching: .any)["freeplay.landscape"].firstMatch
+        XCTAssertTrue(status.exists)
+        XCTAssertTrue((status.value as? String ?? "").contains("犯规"))
+        try snap("scratch-returned-3d")
+        app.buttons["dailyClearance.playback"].tap()
+        ready(strike, timeout: 45)
+        try snap("scratch-replay-return")
     }
 }

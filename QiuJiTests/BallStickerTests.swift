@@ -10,6 +10,57 @@ final class BallStickerTests: XCTestCase {
             .appendingPathComponent("output/ball-stickers-20260913-v2/app-renders")
     }
 
+    func testCueBallWarmWhitePreservesMarkersAndRenders() throws {
+        let env = ProcessInfo.processInfo.environment
+        let path = env["CUE_BALL_WARMTH_DIR"] ?? env["TEST_RUNNER_CUE_BALL_WARMTH_DIR"]
+        let folder = path.map { URL(fileURLWithPath: $0) }
+        if let folder { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
+        let original = try XCTUnwrap(TableModelLoader.loadTable())
+        let originalCue = try XCTUnwrap(original.ballNodes["cueBall"])
+        let contents = try XCTUnwrap(materials(originalCue).first?.diffuse.contents)
+        let originalTexture = try XCTUnwrap(MaterialFactory.cueBallSourceImage(from: contents))
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        for (pipeline, enhanced, mobile) in [("plain", false, false), ("studio", true, false), ("mobile", false, true)] {
+            let scene = AngleTrainingScene()
+            scene.setupScene(enhancedRendering: enhanced, mobileRendering: mobile)
+            let cue = try XCTUnwrap(scene.allBallNodes["cueBall"])
+            let cueMaterials = materials(cue)
+            let warmed = try XCTUnwrap(cueMaterials.first?.diffuse.contents as? UIImage)
+            XCTAssertEqual(warmed.size, originalTexture.size)
+            let pose = cue.transform
+            MaterialFactory.applyCueBallBaseColor(to: cue)
+            XCTAssertTrue(cueMaterials.first?.diffuse.contents as? UIImage === warmed)
+            XCTAssertTrue(SCNMatrix4EqualToMatrix4(cue.transform, pose))
+            let y = scene.surfaceY + AngleSceneCalculator.ballRadius
+            scene.applyBallLayout(cueBallPosition: SCNVector3(0,y,0), targetBallNumber: 3, targetPosition: SCNVector3(0.15,y,-0.06))
+            scene.setCueBallHomeOrientation(BallSpinIntegrator.identityOrientation)
+            scene.cueStick?.rootNode.isHidden = true
+            scene.cameraNode.camera!.usesOrthographicProjection = false
+            scene.cameraNode.camera!.fieldOfView = 38
+            let center = scene.visualCenter(of: cue)
+            scene.cameraNode.position = SCNVector3(center.x,center.y + 0.07,center.z + 0.22)
+            scene.cameraNode.look(at: center, up: SCNVector3(0,1,0), localFront: SCNVector3(0,0,-1))
+            let renderer = SCNRenderer(device: device, options: nil)
+            renderer.scene = scene; renderer.pointOfView = scene.cameraNode
+            renderer.autoenablesDefaultLighting = false
+            renderer.delegate = scene.contactOcclusion
+            if let folder {
+                for (version, texture) in [("before", originalTexture), ("B", warmed)] {
+                    for material in cueMaterials { material.diffuse.contents = texture }
+                    for (view, rotation) in [("front", Float(0)), ("back", Float.pi)] {
+                        cue.eulerAngles.y = rotation
+                        SCNTransaction.flush()
+                        _ = renderer.snapshot(atTime: 0, with: CGSize(width: 1000, height: 700), antialiasingMode: .multisampling4X)
+                        let image = renderer.snapshot(atTime: 1.0 / 60, with: CGSize(width: 1000, height: 700), antialiasingMode: .multisampling4X)
+                        try XCTUnwrap(image.pngData()).write(to: folder.appendingPathComponent("\(pipeline)-\(version)-\(view).png"))
+                    }
+                }
+                try XCTUnwrap(originalTexture.pngData()).write(to: folder.appendingPathComponent("cue-texture-before.png"))
+                try XCTUnwrap(warmed.pngData()).write(to: folder.appendingPathComponent("cue-texture-B.png"))
+            }
+        }
+    }
+
     func testPreferencePersistenceAndUnknownValue() {
         let name = "BallStickerTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!

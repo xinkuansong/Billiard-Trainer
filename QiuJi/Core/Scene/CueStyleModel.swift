@@ -12,7 +12,7 @@ enum CueStyleModel {
     static func geometry(preserving materials: [SCNMaterial]) -> SCNGeometry? {
         lock.lock(); defer { lock.unlock() }
         if uvGeometry == nil {
-            guard let url = Bundle.main.url(forResource: "CueUV", withExtension: "usdz", subdirectory: "CueStyles") else { return nil }
+            guard let url = ModelAssetTrial.url("CueUV", subdirectory: "CueStyles") else { return nil }
             do {
                 let scene = try SCNScene(url: url, options: [.checkConsistency: true])
                 var candidates: [SCNGeometry] = []

@@ -179,3 +179,13 @@ DR-336 r2（2026-09-28）：AdaptiveShotControlsUITests截图目录改为`build/
 FreePlayView 生产入口维持训练首页每日清台/自由击球；每日页将原系统菜单、玩法 sheet 和 confirmationDialog 收敛为单一 DailyHUDPresentation，新增分层开球处置，未新设深链或额外导航入口。普通自由击球保留原系统 Menu。源码路由表面变化逐项核对，本轮只更新 FreePlayView 签名；UI 测试写盘为显式 fresh 输出目录，测试未默认运行整个写盘套件。
 
 2026-10-07 B8：FreePlayView每日标题新增系统窗口控件安全区读回，仅调整标题带leading/trailing，导航目的地与非每日入口不变；核对后更新对应surface签名。
+
+## 2026-10-09 每日标准推广修复
+
+主控核对四处路由签名变化：几何测验只变导航标签颜色/底色；SceneAiming 只变相邻菜单顺序；Silu/PlanThree 只变 sheet 后相邻属性名。导航目的地、sheet 绑定及生产入口均保留。逐行差异在 `output/table-page-adaptation/fixes-20261009/final-matrix/route-surface-audit.diff`。更新四行签名及覆盖登记，不改变验证脚本、历史截图基线。
+
+新增 `DailyStandardFreePlayUITests.swift`、`DailyStandardQuizEditorUITests.swift`：仅向调用方明确注入的 V52_SHOT_DIR / TEST_RUNNER_V52_SHOT_DIR 写 PNG、AX、测量 JSON，并附 xcresult；缺少路径不回落历史截图目录。使用独立模拟器及内存夹具，不点正式保存/导出、不写 Bundle、训练资源或用户真机。调用器创建新轮次叶子，失败证据保留；固定名称在同目录可能覆盖，因此禁止复用目录，由任务方保留/按需清理。当前证据根为 `output/table-page-adaptation/fixes-20261009/`。登记真实写盘面，未降低门禁。
+
+## 2026-10-11 当前版本提交：模型性能试用写盘登记
+
+`ModelAssetPerformanceTests.testLiveScenePerformance` 只在显式设置 `MODEL_PERF_OUTPUT` 时执行。模拟器使用该路径；真机写应用 Caches/model-asset-performance/<输出末级目录>，输出 start.json、settled.png、metrics.json。固定文件名会覆盖同目录，因此调用方必须为每轮使用新目录，失败证据保留，按任务清理；不写 Bundle/内容真源。测试会临时调整亮度、禁止自动锁屏、方向及帧率，并以 defer 恢复；仅登记真实写盘面，本次提交未执行该性能负载。不得把任意路径指向内容资产或历史基线。

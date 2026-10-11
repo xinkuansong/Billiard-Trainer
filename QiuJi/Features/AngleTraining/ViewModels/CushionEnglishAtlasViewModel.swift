@@ -15,13 +15,19 @@ import SwiftUI
 /// 后台 `DispatchQueue.concurrentPerform` 并行 8 次 `simulateFree`。
 /// 球库语义对齐「角度与瞄准」/ Y3：换目标 / 加减障碍 / 母球不可撤（D-v15-1/3）。
 @MainActor
-final class CushionEnglishAtlasViewModel: ObservableObject {
+final class CushionEnglishAtlasViewModel: TeachingTableHost {
 
     let scene = AngleTrainingScene()
     private var pocketMarkers: [SCNNode] = []
     private var trajectoryNodes: [SCNNode] = []
 
     @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated
+    @Published var cameraTransitionBusy = false
+    @Published var temporaryTopDownActive = false
+    @Published var topDownContentRevision = 0
+    var topDownSelectionChanged = false
+    var currentPlayerAim: SCNVector3? { currentIntent()?.aim }
+
     @Published var velocity: Double = ShotTuning.defaultVelocity
     /// 选定高低杆（接触点/R）；默认中杆。左右塞由该高度下的打滑弦重算。
     @Published var spinY: Double = 0
@@ -88,7 +94,11 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
     // MARK: - Setup
 
     func setupScene() {
+        scene.usesAdaptiveDiagramLabels = true
+        scene.configureReferenceTableRendering()
+        scene.configureShotAwareCamera()
         scene.setupScene()
+        configureTeachingCamera()
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
         placeDefaultBalls()
@@ -164,6 +174,7 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
         updatePocketHighlights()
         updateAimVisualization()
         scheduleRecompute(interactive: false)
+        selectionCameraChanged()
     }
 
     /// 点选目标球（换号后切角 / 轨迹瞄准随之切换）。
@@ -174,6 +185,7 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
         selectBestPocket()
         updateAimVisualization()
         scheduleRecompute(interactive: false)
+        selectionCameraChanged()
     }
 
     /// 点在桌球的球库槽位 → 脉冲提示位置。
@@ -213,9 +225,11 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
 
     func selectPocket(at index: Int) {
         selectedPocketIndex = index
-        updatePocketHighlights()
+        updatePocketHighlights(confirmsSelection: false)
+        scene.confirmPocketSelection(at: index, source: .manual)
         updateAimVisualization()
         scheduleRecompute(interactive: false)
+        selectionCameraChanged()
     }
 
     func selectBestPocket() {
@@ -235,15 +249,16 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
             }
         }
         selectedPocketIndex = best
-        updatePocketHighlights()
+        updatePocketHighlights(confirmsSelection: false)
+        scene.confirmPocketSelection(at: selectedPocketIndex)
     }
 
-    private func updatePocketHighlights() {
+    private func updatePocketHighlights(confirmsSelection: Bool = true) {
         guard let cue = scene.cueBallNode,
               let target = targetNode, !target.isHidden else { return }
         for (i, marker) in pocketMarkers.enumerated() {
             if i == selectedPocketIndex {
-                scene.setPocketHighlight(marker, style: .selected)
+                scene.setPocketHighlight(marker, style: .selected, confirmsSelection: confirmsSelection)
             } else {
                 let aim = AngleSceneCalculator.effectivePocketAimPoint(
                     targetBall: target.position, pocketIndex: i, surfaceY: scene.surfaceY)
@@ -277,6 +292,7 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
         updatePocketHighlights()
         updateAimVisualization()
         scheduleRecompute(interactive: false)
+        selectionCameraChanged()
     }
 
     private func clampBall(_ world: SCNVector3, moving: SCNNode) -> SCNVector3 {
@@ -454,6 +470,7 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
     // MARK: - Visualization
 
     private func updateAimVisualization() {
+        if temporaryTopDownActive { topDownContentRevision &+= 1 }
         guard let intent = currentIntent() else {
             scene.hideCueStick()
             cutAngleDegrees = 0
@@ -469,7 +486,7 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
         // Aim / ghost / pot line via shared viz; 8-color post-cushion tracks drawn separately.
         scene.updateVisualization(
             cueBall: intent.cue, targetBall: intent.target, pocket: intent.potAim,
-            showAngleAnnotations: false, showOverlapMarkers: true, showLineLabels: false)
+            showAngleAnnotations: true, showOverlapMarkers: true, showLineLabels: false)
         // One reference cue for the shared aim, updated on every drag event.
         scene.updateCueStick(
             cueBallPosition: CueStroke.strikePosition(
@@ -491,6 +508,7 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
     }
 
     private func redrawEnabledTrajectories() {
+        if temporaryTopDownActive { topDownContentRevision &+= 1 }
         clearTrajectories()
         let n = max(lastPostCushionPaths.count, lastPreCushionPaths.count)
         for i in 0..<n where enabledTracks.contains(i) {

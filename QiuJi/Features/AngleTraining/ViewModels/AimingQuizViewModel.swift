@@ -4,7 +4,7 @@ import SwiftUI
 import SceneKit
 
 @MainActor
-final class AimingQuizViewModel: ObservableObject {
+final class AimingQuizViewModel: TeachingCameraHost {
 
     // MARK: - Training Types
 
@@ -106,6 +106,22 @@ final class AimingQuizViewModel: ObservableObject {
     // MARK: - Scene
 
     let scene = AngleTrainingScene()
+    @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2D
+    @Published var cameraTransitionBusy = false
+    @Published var temporaryTopDownActive = false
+    @Published var topDownContentRevision = 0
+    var topDownSelectionChanged = false
+    var targetNode: SCNNode? { scene.targetBallNodes.first }
+    var currentPlayerAim: SCNVector3? {
+        guard let cue = scene.cueBallNode, let target = targetNode,
+              !cue.isHidden, !target.isHidden, selectedPocketIndex >= 0 else { return nil }
+        let pocket = AngleSceneCalculator.effectivePocketAimPoint(
+            targetBall: target.position, pocketIndex: selectedPocketIndex, surfaceY: scene.surfaceY)
+        let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target.position,
+            pocket: pocket, ballRadius: AngleSceneCalculator.ballRadius)
+        let direction = SCNVector3(ghost.x - cue.position.x, 0, ghost.z - cue.position.z)
+        return direction.length() > 0.000001 ? direction.normalized() : nil
+    }
     private var pocketMarkers: [SCNNode] = []
     private var resultNodes: [SCNNode] = []
 
@@ -147,10 +163,16 @@ final class AimingQuizViewModel: ObservableObject {
                     enhanced: Bool = false,
                     mobileRendering: Bool = MobileTableRendering.isEnabled,
                     autoStart: Bool = true) {
+        // Both training routes share the teaching diagram and cue presentation.
+        // Projection changes the camera only, never the answer/assist content.
+        cameraMode = initialCameraMode
+        scene.usesAdaptiveDiagramLabels = true
+        if initialCameraMode == .perspective3D { scene.configureShotAwareCamera() }
         scene.setupScene(enhancedRendering: enhanced, mobileRendering: mobileRendering)
         scene.setupVisualizationNodes(usesTrainingAssistStyle: true)
         pocketMarkers = scene.addPocketMarkers()
 
+        if initialCameraMode == .perspective3D { configureTeachingCamera() }
         scene.setCameraMode(initialCameraMode, animated: false)
         if autoStart { startTest() }
     }
@@ -184,6 +206,7 @@ final class AimingQuizViewModel: ObservableObject {
     func toggleAimingAssist() {
         guard phase == .observing, currentQuestion != nil else { return }
         showAimingAssist.toggle()
+        topDownContentRevision &+= 1
         if showAimingAssist {
             showAimingAssistVisualization()
         } else {
@@ -284,6 +307,8 @@ final class AimingQuizViewModel: ObservableObject {
             return
         }
 
+        endTemporaryTopDown()
+        topDownContentRevision &+= 1
         clearResult()
         scene.hideCueStick()
         showAimingAssist = false
@@ -326,19 +351,15 @@ final class AimingQuizViewModel: ObservableObject {
         // so no label-based lookup is needed.
         selectedPocketIndex = question.pocketIndex
         for (i, marker) in pocketMarkers.enumerated() {
-            scene.highlightPocket(marker, highlighted: i == question.pocketIndex)
+            scene.setPocketHighlight(marker, style: i == question.pocketIndex ? .selected : .viable,
+                                     confirmsSelection: false)
         }
+        // A new question is an event even when its pocket matches the previous one.
+        scene.confirmPocketSelection(at: question.pocketIndex)
 
         showResult = false
         userInput = ""
         phase = .observing
-    }
-
-    /// Inline 瞄准线 / 进球线 text labels lie flat on the cloth — readable
-    /// in the 2D rotated top-down view but illegible in 3D perspective.
-    /// Hide them when the scene is currently rendering in `.perspective3D`.
-    private var shouldShowLineLabels: Bool {
-        scene.currentCameraMode != .perspective3D
     }
 
     private func showAimingAssistVisualization() {
@@ -359,7 +380,7 @@ final class AimingQuizViewModel: ObservableObject {
             pocket: aimPoint,
             showAngleAnnotations: false,
             showOverlapMarkers: true,
-            showLineLabels: shouldShowLineLabels,
+            showLineLabels: true,
             extendStrikeLineToRail: true
         )
         scene.showAuxiliaryCue()
@@ -367,6 +388,7 @@ final class AimingQuizViewModel: ObservableObject {
 
     private func showResultVisualization() {
         guard let q = currentQuestion else { return }
+        topDownContentRevision &+= 1
         showAimingAssist = false
         let surfaceY = scene.surfaceY
         let targetPos = AngleSceneCalculator.normalizedToScene(point: q.targetBall, surfaceY: surfaceY)
@@ -382,9 +404,9 @@ final class AimingQuizViewModel: ObservableObject {
                 cueBall: cuePos,
                 targetBall: targetPos,
                 pocket: aimPoint,
-                showLineLabels: shouldShowLineLabels
+                showLineLabels: true
             )
-            scene.hideCueStick()
+            scene.showAuxiliaryCue()
         }
     }
 

@@ -8,9 +8,8 @@ struct SeparationAngleAtlasView: View {
     var body: some View {
         BTTeachingTablePage(vm: vm, titleLabel: "分离角图谱", identifier: "separationAngleAtlas",
             velocity: $vm.velocity,
-            title: {
-                BTTeachingFiveCharacterTitle(words: "分离\n图谱", middleCharacter: "角", identifier: "separationAngleAtlas")
-            },
+            information: teachingInformation, usesStandardTitle: true,
+            title: { EmptyView() },
             leftContent: { size in
                 VStack(spacing: 4) {
                     VStack(spacing: 2) {
@@ -24,15 +23,7 @@ struct SeparationAngleAtlasView: View {
                         .foregroundStyle(.white.opacity(0.6))
                         .accessibilityIdentifier("separationAngleAtlas.trackCount")
                 }.frame(height: min(size.height, 320)).foregroundStyle(.white)
-            }, status: {
-                VStack {
-                    Spacer()
-                    if let text = vm.statusText, !vm.isComputing {
-                        Text(text).font(.btFootnote).padding(8).btHudGlass()
-                            .accessibilityIdentifier("separationAngleAtlas.status")
-                    }
-                }.padding(.bottom, 8).allowsHitTesting(false)
-            }, onPalettePlace: { vm.placeFromPalette($0, atWorld: $1) })
+            }, status: { EmptyView() }, onPalettePlace: { vm.placeFromPalette($0, atWorld: $1) })
             .onChange(of: vm.velocity) { _, _ in vm.onVelocityChanged() }
             .overlay(alignment: .bottom) {
                 if ProcessInfo.processInfo.arguments.contains("-y3.uiHooks") {
@@ -44,6 +35,11 @@ struct SeparationAngleAtlasView: View {
             }
             .background(Color.clear.accessibilityIdentifier("separationAngleAtlas.root"))
     }
+    private var teachingInformation: [BTTeachingInformation] {
+        guard let text = vm.statusText, !vm.isComputing else { return [] }
+        return [.init(text: text, identifier: "separationAngleAtlas.status")]
+    }
+
 }
 
 // MARK: - Left-edge 8 mini spin pads (A2 / D-v15-2)

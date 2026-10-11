@@ -35,11 +35,11 @@ struct SpinAndEnglishView: View {
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxxxl)
+            .learnDocumentWidth()
         }
         .background(.btBG)
-        .navigationTitle("旋转与加塞")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
+        .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
+        .learnReadingNavigation(title: "旋转与加塞")
     }
 
     // MARK: - Intro
@@ -82,7 +82,7 @@ struct SpinAndEnglishView: View {
                 Spacer()
                 Text(String(format: "示意角 · 教学折线 ≈ %.0f°", sep))
                     .font(.system(size: 13, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.btTextSecondary)
+                    .foregroundStyle(.btText)
             }
             .padding(Spacing.md)
             .background(Color.btPrimaryMuted)
@@ -128,7 +128,7 @@ struct SpinAndEnglishView: View {
                 .frame(width: 72, alignment: .leading)
             Text(desc)
                 .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btText)
         }
     }
 
@@ -398,12 +398,12 @@ private struct TipContactFigure: View {
                             Circle().fill(m.color).frame(width: 8, height: 8)
                             Text(m.label)
                                 .font(.btCaption)
-                                .foregroundStyle(.btTextSecondary)
+                                .foregroundStyle(.btText)
                         }
                     }
                     Text("虚线内 = 可靠打点")
                         .font(.btCaption)
-                        .foregroundStyle(.btTextTertiary)
+                        .foregroundStyle(.btText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .position(x: geo.size.width * 0.72, y: cy)
@@ -477,7 +477,7 @@ private struct MiscueLimitFigure: View {
             Circle().fill(color).frame(width: 8, height: 8)
             Text(text)
                 .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btText)
         }
     }
 }

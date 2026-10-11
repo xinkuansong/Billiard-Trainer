@@ -10,14 +10,15 @@ struct NumericKeypadHUD: View {
     /// P5.1（问题集合 v3）：紧凑档——键高/读数再压一档，保证角度预测页
     /// 「换题 / 显示参考」按钮在键盘弹出时仍完整可见。
     var compact: Bool = false
-    /// Opt-in for dark table quizzes; other keypad consumers keep their presentation.
+    /// Table layout only: inline readout, no subtitle and no external shadow.
+    /// Colors always follow the caller's color scheme, independently of this layout.
     var usesSceneStyle: Bool = false
     let onSubmit: () -> Void
     let onCancel: () -> Void
 
     private let maxLength = 3 // angles 0-90 (or 0-100 just in case)
 
-    private var keyHeight: CGFloat { usesSceneStyle ? 44 : (compact ? 36 : 48) }
+    private var keyHeight: CGFloat { usesSceneStyle || compact ? 44 : 48 }
     private var displayFontSize: CGFloat { compact ? 24 : 38 }
 
     var body: some View {
@@ -69,13 +70,12 @@ struct NumericKeypadHUD: View {
                         onSubmit()
                     }
                     .disabled(input.isEmpty)
-                    .opacity(usesSceneStyle && input.isEmpty ? 0.4 : 1)
                 }
             }
             .padding(.horizontal, Spacing.md)
             .padding(.bottom, Spacing.sm)
         }
-        .background(usesSceneStyle ? AnyShapeStyle(HUDStyle.panelBackground) : AnyShapeStyle(.regularMaterial))
+        .background(usesSceneStyle ? AnyShapeStyle(Color.btBGSecondary) : AnyShapeStyle(.regularMaterial))
         .clipShape(UnevenRoundedRectangle(topLeadingRadius: BTRadius.lg,
                                           topTrailingRadius: BTRadius.lg))
         .shadow(color: .black.opacity(0.25), radius: usesSceneStyle ? 0 : 12, y: -4)
@@ -128,27 +128,18 @@ struct NumericKeypadHUD: View {
                                           design: .rounded))
                     }
                 }
-                .foregroundStyle(role == .submit ? (usesSceneStyle ? HUDStyle.onAccent : .white) : .btText)
             }
             .frame(maxWidth: .infinity)
             .frame(height: keyHeight)
-            .background(background(for: role))
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-            .overlay {
-                if usesSceneStyle {
-                    RoundedRectangle(cornerRadius: BTRadius.sm)
-                        .stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth)
-                }
-            }
+            .contentShape(Rectangle())
         }
-        .buttonStyle(KeypadKeyStyle())
+        .buttonStyle(KeypadKeyStyle(normalBackground: background(for: role)))
     }
 
-    private func background(for role: KeyRole) -> some ShapeStyle {
+    private func background(for role: KeyRole) -> Color {
         switch role {
-        case .digit: return AnyShapeStyle(Color.btBGTertiary)
-        case .erase: return AnyShapeStyle(Color.btBGSecondary)
-        case .submit: return AnyShapeStyle(usesSceneStyle ? HUDStyle.accent : Color.btPrimary)
+        case .digit, .submit: return .btBGTertiary
+        case .erase: return .btBGSecondary
         }
     }
 
@@ -165,10 +156,33 @@ struct NumericKeypadHUD: View {
 }
 
 private struct KeypadKeyStyle: ButtonStyle {
+    let normalBackground: Color
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.95 : 1)
-            .opacity(configuration.isPressed ? 0.85 : 1)
+        let pressed = isEnabled && configuration.isPressed
+        return configuration.label
+            .foregroundStyle(Color.btText)
+            .background(pressed ? HUDStyle.selectedBackground : normalBackground,
+                        in: RoundedRectangle(cornerRadius: BTRadius.sm))
+            .overlay {
+                RoundedRectangle(cornerRadius: BTRadius.sm)
+                    .stroke(Color.btSeparator, lineWidth: HUDStyle.hairlineWidth)
+            }
+            .scaleEffect(pressed ? 0.95 : 1)
+            .opacity(isEnabled ? 1 : HUDStyle.chipTextDisabledOpacity)
             .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
     }
+}
+
+#Preview("Keypad Light") {
+    NumericKeypadHUD(input: .constant("28"), title: "第1题", subtitle: nil,
+                     compact: true, usesSceneStyle: true, onSubmit: {}, onCancel: {})
+        .environment(\.colorScheme, .light)
+}
+
+#Preview("Keypad Dark") {
+    NumericKeypadHUD(input: .constant("28"), title: "第1题", subtitle: nil,
+                     compact: true, usesSceneStyle: true, onSubmit: {}, onCancel: {})
+        .environment(\.colorScheme, .dark)
 }

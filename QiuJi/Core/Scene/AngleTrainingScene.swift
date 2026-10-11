@@ -402,7 +402,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             cueBallNode = cue
         } else {
             fallbackCueBall?.removeFromParentNode()
-            let node = addBall(at: cuePos, color: .white)
+            let node = addBall(at: cuePos, color: MaterialFactory.cueBallBaseColor)
             node.name = "cueBall"
             fallbackCueBall = node
             reseatCueBallHome(on: node)
@@ -553,12 +553,10 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     }
 
     func enhanceBallMaterials() {
-        // Keep every ball's USDZ-baked diffuse texture intact: the cue
-        // ball carries red position-marker dots ("stickers") that are
-        // intentional spin / aim references, and overriding the diffuse
-        // erases them.
+        // Preserve cue-ball red spin markers while warming the neutral substrate.
         for (key, ballNode) in allBallNodes {
             MaterialFactory.applyBallMaterial(to: ballNode, usesClearcoat: !mobileRendering)
+            if key == "cueBall" { MaterialFactory.applyCueBallBaseColor(to: ballNode) }
             if mobileRendering && MobileReferenceLighting.requested {
                 let numbered = key.hasPrefix("_") && (Int(key.dropFirst()).map { (1...15).contains($0) } ?? false)
                 MobileReferenceLighting.applyBall(to: ballNode, exposureOffset: cameraNode?.camera?.exposureOffset ?? 0,
@@ -2028,6 +2026,14 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     }
 
     enum PocketHighlight { case selected, viable, infeasible }
+    enum PocketSelectionSource { case automatic, manual }
+
+    /// One shared feedback owner; injectable so callers can verify event counts.
+    var pocketSelectionHaptic: () -> Void = {
+        let generator = UISelectionFeedbackGenerator()
+        generator.prepare()
+        generator.selectionChanged()
+    }
 
     func highlightPocket(_ node: SCNNode, highlighted: Bool) {
         setPocketHighlight(node, style: highlighted ? .selected : .viable)
@@ -2035,16 +2041,20 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
 
     func setPocketHighlight(_ node: SCNNode, style: PocketHighlight, confirmsSelection: Bool = true) {
         guard let marker = node as? PocketLeatherMarker else { return }
-        marker.show(style == .selected ? .target : .original, confirmsSelection: confirmsSelection)
+        let newlySelected = style == .selected && marker.style != .target
+        marker.show(style == .selected ? .target : .original, confirmsSelection: false)
+        if newlySelected, confirmsSelection { confirmPocketSelection(at: marker.pocketIndex) }
     }
 
     func cancelPocketSelectionFeedback() {
         for marker in leatherMarkers { marker.cancelSelectionFeedback() }
     }
 
-    func confirmPocketSelection(at index: Int, immediately: Bool = false) {
+    func confirmPocketSelection(at index: Int, source: PocketSelectionSource = .automatic) {
+        guard let marker = leatherMarkers.first(where: { $0.pocketIndex == index }) else { return }
         cancelPocketSelectionFeedback()
-        leatherMarkers.first { $0.pocketIndex == index }?.confirmSelection(delay: immediately ? 0 : PocketLeatherMarker.selectionPulseDelay)
+        pocketSelectionHaptic()
+        marker.confirmSelection(delay: source == .manual ? PocketLeatherMarker.manualSelectionPulseDelay : 0)
     }
 
     /// Explicit dual-role state; equal indices show both roles on the same leather.
@@ -2616,7 +2626,9 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
 
         // 角度弧 = 品牌绿 + 白读数（T-P18-41 线语言，弃蓝）。
         let arcColor = TrajectoryStyle.contactColor
-        let arcRadius: Float = r * (usesAdaptiveDiagramLabels ? 4.5 : 2.6)
+        // World metres, independent of the 2D overlay's point-sized arc.
+        // Keep the legacy diagram radius; only adaptive teaching diagrams move outward.
+        let arcRadius: Float = r * (usesAdaptiveDiagramLabels ? 5.5 : 2.6)
         let arcY = usesAdaptiveDiagramLabels ? surfaceY + 0.002 : ghost.y + 0.0015
         let segments = 24
         // K3：弧画在前向楔形（瞄准前向 ↔ 进球前向）。旧实现用 aStart+π 落在背向楔形。

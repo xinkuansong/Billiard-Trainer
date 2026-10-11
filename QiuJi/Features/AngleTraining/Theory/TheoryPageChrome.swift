@@ -192,7 +192,7 @@ struct TheoryMatrixTable: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .foregroundStyle(.btTextSecondary)
+        .foregroundStyle(.btText)
         .padding(.horizontal, Spacing.sm)
         .padding(.vertical, Spacing.sm)
         .background(.btBGTertiary)
@@ -202,7 +202,7 @@ struct TheoryMatrixTable: View {
         HStack(alignment: .top, spacing: Spacing.sm) {
             Text(row.label)
                 .font(.btCaption.weight(.semibold))
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btText)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(width: labelWidth, alignment: .leading)
             ForEach(Array(row.cells.enumerated()), id: \.offset) { _, cell in
@@ -223,12 +223,17 @@ struct TheoryMatrixTable: View {
 
 extension View {
     /// 球理详情页页级壳（组件规范 §一）：与现有 9 张学页同一套外壳，勿另发明。
-    func theoryPageChrome(title: String) -> some View {
-        self
-            .background(.btBG)
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar(.hidden, for: .tabBar)
+    @ViewBuilder
+    func theoryPageChrome(title: String, stableReadingNavigation: Bool = false) -> some View {
+        if stableReadingNavigation {
+            self.background(.btBG).learnReadingNavigation(title: title)
+        } else {
+            self
+                .background(.btBG)
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar(.hidden, for: .tabBar)
+        }
     }
 }
 

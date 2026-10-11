@@ -1,26 +1,23 @@
 import SwiftUI
 import SceneKit
 
-/// 走位编排台（ADR-P11-01 / ADR-P11-03 / ADR-P11-04）：自由摆球 + 连续击打，用于走位演示与教学素材录制。
-///
-/// 布局：左侧信息栏（进袋/自由切换、角度/厚薄、母球进袋警示、录制指示，从上往下排）+
-/// 球桌区（完整外框取景，零叠层遮挡）；底部条 = 控制行（打点图标 + 力度滑条）+
-/// 微边框球库（两行固定序）+ 右下操作列（击球 / 录制 / 重打）。状态文案上移到导航栏。
-/// 交互：球库球拖到桌面落位、桌面球拖回底部条移除、点桌上球选目标（袋口模式）/ 设定瞄准（自由模式）。
-/// 击球后桌面前进为新真相（进袋回库、母球停在走位终点，自动选下一杆）；「重打」退回上一杆
-/// 击打前并恢复该杆全部参数。「录制」开关（仅模拟器构建，ADR-P11-10）：开启后每次击球
-/// 自动记一杆，结束后序列 JSON 直写仓库 `content/position_play/sequences/`（内容生产采集口）。
+/// Business hooks for an editable PositionPlay board; rendering and controls remain in the core page.
+struct PositionPlayEditorConfiguration {
+    var title: String
+    var isTryout: Bool
+    var setup: () -> Void
+    var onInteraction: () -> Void
+    var onRearrange: () -> Void
+    var aimItems: [DailyHUDMenuItem]?
+    var menuItems: [DailyHUDMenuItem]
+    var overlay: AnyView
+}
+
+/// Free layout / drill tryout retain their board and sequence semantics inside the daily table shell.
 struct PositionPlayComposerView: View {
-    /// 可选初始球形（如「拍照建球形」产出的快照）。nil = 默认开箱球形。
     let initialBoard: BoardSnapshot?
-    /// 可选初始瞄准模式（ADR-P18-01「自由击球」入口传 `.free`）。nil = 默认（进袋）。
     let initialMode: PositionPlayViewModel.AimMode?
-    /// 试打模式来源 drill（方案 20260709-动作库试打模式）：非 nil 时进入试打变体——
-    /// 标题 = drill 名、隐藏开球/重命名、左下「重摆球形」一键回 drill 初始布局、
-    /// 进场说明卡（§1.8）；球库与拖球保持编排台原样。默认自由模式（§1.1 自己上手试线路）。
     let sourceDrill: DrillContent?
-    /// 试打球形（D4，与视频示范同源的出片序列）：非 nil 时初始布局/重摆目标/说明卡
-    /// 均取该序列；nil 回退 `DrillBoardBuilder` 的 shotIntent 路径。
     let tryoutFormation: DrillTryoutFormation?
 
     init(initialBoard: BoardSnapshot? = nil,
@@ -33,816 +30,118 @@ struct PositionPlayComposerView: View {
         self.tryoutFormation = tryoutFormation
     }
 
-    private var isTryout: Bool { sourceDrill != nil }
-    private var is3D: Bool { vm.cameraMode == .perspective3D }
-    private var cameraIdentifierPrefix: String { isTryout ? "tryout" : "composer" }
-
     @StateObject private var vm = PositionPlayViewModel()
-    @State private var hasAppeared = false
-    @State private var showSpinPad = false
-    @State private var showBreakPicker = false
-
-    @State private var projector = TableProjector()
-
-    // Palette drag-to-place state (composer coordinate space)
-    @State private var draggingKey: String?
-    @State private var dragLocation: CGPoint = .zero
-    @State private var dragOverTable = false
-
-    // Frames in "composer" coordinate space
-    @State private var sceneFrame: CGRect = .zero
-    @State private var paletteFrame: CGRect = .zero
-
+    @State private var tryoutBoard: BoardSnapshot?
+    @State private var showBrief = false
     @State private var showRename = false
     @State private var renameText = ""
-    @State private var toast: BTToastMessage?
-
-    // Tryout mode state（试打变体）
-    /// drill 初始布局快照（「重摆球形」回退目标）。
-    @State private var tryoutBoard: BoardSnapshot?
-    /// 进场说明卡显示态：落位后淡入，首次交互/点卡淡出，顶栏 info 召回。
-    @State private var showBrief = false
-    /// 首次手势提示（D3）：合并为说明卡底部一行，跨启动记忆（参照「角度与打点」首拖提示模式）。
-    @AppStorage("drillTryout.hasSeenGestureHint") private var hasSeenGestureHint = false
-    /// 进场淡入（D3）：试打变体球形落位后台面淡入。
-    @State private var stageRevealed = false
-
-    // Destructive confirmations
     @State private var showClearTableConfirm = false
     @State private var showResetConfirm = false
-
-    /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
-    private static let topRowHeight = ShotStageMetrics.topRowHeight
-    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
+    @AppStorage("drillTryout.hasSeenGestureHint") private var hasSeenGestureHint = false
+    private var isTryout: Bool { sourceDrill != nil }
 
     var body: some View {
-        GeometryReader { geo in
-            let extents = vm.tableOuterHalfExtents
-            let bottomHeight = is3D && !vm.isBreakMode ? Self.topRowHeight : Self.bottomBarHeight
-            let sceneH = max(geo.size.height - Self.topRowHeight - bottomHeight, 1)
-            let proxy = ShotStageProxy(
-                sceneSize: CGSize(width: geo.size.width, height: sceneH),
-                halfLength: extents.length, halfWidth: extents.width
-            )
-            ZStack {
-                Color.black.ignoresSafeArea()
-                VStack(spacing: 0) {
-                    topInfoRow
-                        .frame(height: Self.topRowHeight)
-                    stage(proxy)
-                        .frame(height: sceneH)
-                        // D3 进场淡入：仅试打变体，球形落位后台面淡入（非试打路径恒为 1，零影响）。
-                        .opacity(isTryout && !stageRevealed ? 0 : 1)
-                    bottomBar(proxy)
-                        .frame(height: bottomHeight)
-                        .btTrainingPillObstacle()
-                }
-                if let key = draggingKey {
-                    BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
-                }
-            }
-        }
-        .animation(BTMotion.springPanel, value: showSpinPad)
-        .btToast($toast)
-        .coordinateSpace(name: "composer")
-        .onPreferenceChange(BTShotPageFramePreference.self) { frames in
-            if let s = frames["scene"] { sceneFrame = s }
-            if let p = frames["palette"] { paletteFrame = p }
-        }
-        .trainingBackgroundMusic()
-        .btDarkToolChrome(navTitleText)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                BTSolverNavStatus(
-                    title: navTitleText,
-                    isBusy: vm.isComputing,
-                    statusText: vm.breakRunner?.statusText(isPerspective: is3D)
-                        ?? (vm.isSequenceMode || vm.isPlaying ? vm.statusText : vm.aimSelectionLabel)
-                )
-            }
-            ToolbarItem(placement: .topBarTrailing) { cameraToggle }
-            ToolbarItem(placement: .topBarTrailing) { moreMenu }
-        }
-        .sheet(isPresented: $showBreakPicker) {
-            BreakGamePickerSheet { vm.startBreakFlow(game: $0, manualDeliver: true) }
-                .presentationDetents([.height(360)])
-                .presentationDragIndicator(.visible)
-        }
+        FreePlayView(editorModel: vm, editor: .init(
+            title: navTitleText, isTryout: isTryout, setup: setupBoard,
+            onInteraction: dismissBriefOnInteraction, onRearrange: rearrange,
+            aimItems: tryoutAimItems, menuItems: editorMenuItems, overlay: AnyView(briefOverlay)))
         .alert("命名走位序列", isPresented: $showRename) {
             TextField("名称", text: $renameText)
             Button("保存") { vm.renameSequence(renameText) }
             Button("取消", role: .cancel) {}
         }
-        .confirmationDialog(
-            clearTableWarning,
-            isPresented: $showClearTableConfirm, titleVisibility: .visible
-        ) {
+        .confirmationDialog(vm.isRecording ? "清空桌面将丢弃录制中的 \(vm.stepCount) 杆。" : "清空桌面上所有球？",
+                            isPresented: $showClearTableConfirm, titleVisibility: .visible) {
             Button("取消", role: .cancel) {}
-            Button("清空桌面", role: .destructive) { vm.clearTable() }
+            Button("清空桌面", role: .destructive) { vm.clearTable(); vm.placeFromPalette(PositionPlayBall.cueKey) }
         }
-        .confirmationDialog(
-            vm.isRecording
-                ? "清空并重来将丢弃录制中的 \(vm.stepCount) 杆。"
-                : "回到默认球形并重新开始？",
-            isPresented: $showResetConfirm, titleVisibility: .visible
-        ) {
+        .confirmationDialog(vm.isRecording ? "清空并重来将丢弃录制中的 \(vm.stepCount) 杆。" : "回到默认球形并重新开始？",
+                            isPresented: $showResetConfirm, titleVisibility: .visible) {
             Button("取消", role: .cancel) {}
             Button("清空并重来", role: .destructive) { vm.resetAll() }
         }
-        .onAppear {
-            vm.usesAutomaticPocketFallback = true
-            if !hasAppeared {
-                hasAppeared = true
-                vm.setupScene()
-                if let sourceDrill {
-                    // 试打变体：载入球形（优先出片序列 D4，兜底 shotIntent），
-                    // 默认自由模式（§1.1），球落位后说明卡淡入。
-                    if let board = tryoutFormation?.initial
-                        ?? DrillBoardBuilder.board(for: sourceDrill) {
-                        tryoutBoard = board
-                        vm.loadBoard(board)
-                    }
-                    // Q19.2④：有逐杆序列 ⇒ 默认「序列」模式；无序列 drill 降级为自由模式（保持既有行为）。
-                    if let steps = tryoutFormation?.steps, !steps.isEmpty {
-                        vm.configureSequence(steps)
-                        vm.enterSequenceMode()
-                    } else {
-                        vm.setPreferredAimMode(initialMode ?? .free)
-                    }
-                    withAnimation(BTMotion.easeChrome.delay(0.1)) { stageRevealed = true }
-                    withAnimation(.easeInOut(duration: 0.35).delay(0.6)) { showBrief = true }
-                } else {
-                    if let initialBoard { vm.loadBoard(initialBoard) }
-                    if let initialMode { vm.setPreferredAimMode(initialMode) }
-                }
-            }
-        }
-        // 工具活跃度（契约 §5.3）：本 View 承载两个产品入口，按变体分记。
         .toolUsageSession(isTryout ? .drillTryout : .freePosition)
     }
 
-    // MARK: - Tryout helpers（试打变体）
-
-    private var cameraToggle: some View {
-        Button(is3D ? "3D" : "2D") {
-            let needsOverview = vm.isSequenceMode && !vm.scene.hasPerspectiveView
-            showSpinPad = false
-            dismissBriefOnInteraction()
-            ShotPlayCamera.setMode(is3D ? .topDown2DRotated : .perspective3D, on: vm)
-            if is3D && needsOverview { ShotPlayCamera.observeWholeTable(on: vm) }
-        }
-        .font(.btSubheadlineSemibold)
-        .frame(minWidth: 44, minHeight: 44)
-        .accessibilityLabel(is3D ? "切换到2D俯视" : "切换到3D视角")
-        .accessibilityValue(is3D ? "3D" : "2D")
-        .accessibilityIdentifier("\(cameraIdentifierPrefix).cameraMode")
-    }
-
-    private var observationBar: some View {
-        HStack(spacing: Spacing.sm) {
-            ShotObservationMenu(vm: vm, identifierPrefix: cameraIdentifierPrefix)
-            Text(vm.isSequenceMode ? "拖动转视角 · 双指缩放" : "拖球摆位 · 空白处转视角")
-                .font(.btCaption)
-                .foregroundStyle(Color.btTextSecondary)
-                .lineLimit(1)
-            Spacer(minLength: 0)
-            Button(vm.isSequenceMode ? "全桌" : "回到瞄准") {
-                if vm.isSequenceMode { ShotPlayCamera.observeWholeTable(on: vm) }
-                else { ShotPlayCamera.focus(on: vm) }
-            }
-            .font(.btFootnote)
-            .frame(minHeight: 44)
-            .disabled(!vm.isSequenceMode && !ShotPlayCamera.canFocus(on: vm))
-            .accessibilityIdentifier("\(cameraIdentifierPrefix).focus")
-        }
-        .padding(.horizontal, Spacing.sm)
-    }
-
-    private func leadingFrame(_ proxy: ShotStageProxy, size: CGSize) -> CGRect {
-        is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).bottomLeadingFrame(size: size)
-            : proxy.bottomLeadingFrame(size: size)
-    }
-
-    /// 首次交互（拖瞄/拖球/击球/点桌面）自动淡出说明卡（§1.8 交互红线：不阻断操作）；
-    /// 首次交互同时记忆「已见手势提示」（D3，跨启动）。
-    private func dismissBriefOnInteraction() {
-        if isTryout, !hasSeenGestureHint { hasSeenGestureHint = true }
-        guard showBrief else { return }
-        withAnimation(BTMotion.easeChrome) { showBrief = false }
-    }
-
-    /// Slot L1「重摆球形」（G24 外形 = breakButtonSize）：一键回 drill 初始布局。
-    /// `loadBoard` 有 `!isPlaying` 闸 ⇒ 回放中禁用。
-    private var rearrangeButton: some View {
-        BTSlotL1Button(
-            title: "重摆球形",
-            systemImage: "arrow.counterclockwise",
-            isEnabled: tryoutBoard != nil && !vm.isPlaying,
-            accessibilityId: "tryout.rearrange"
-        ) {
-            showSpinPad = false
-            if vm.isSequenceMode {
-                vm.restartSequence()
-            } else if let tryoutBoard {
-                vm.loadBoard(tryoutBoard)
-            }
-        }
-    }
-
-    private var clearTableWarning: String {
-        vm.isRecording
-            ? "清空桌面将丢弃录制中的 \(vm.stepCount) 杆。"
-            : "清空桌面上所有球？"
-    }
-
-    // MARK: - Stage（scene + 贴边控件，G3–G11 走 ShotStageProxy）
-
-    private func stage(_ proxy: ShotStageProxy) -> some View {
-        ZStack(alignment: .topLeading) {
-            sceneContainer
-
-            // G18/V6：开球模式贴边仪表（左瞄准轮 + 右力度柱），共享单一真源。
-            if let runner = vm.breakRunner {
-                BreakInstrumentsOverlay(runner: runner, proxy: proxy, scene: vm.scene, projector: projector, isPerspective: is3D)
-            }
-
-            if !vm.isBreakMode && proxy.isValid {
-                // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右。
-                if is3D {
-                    BTTrajectoryDetailChip { vm.recompute() }
-                        .padding(.trailing, Spacing.sm)
-                        .frame(maxWidth: .infinity, alignment: .topTrailing)
-                        .allowsHitTesting(!vm.isPlaying)
-                } else {
-                    BTTrajectoryDetailChip { vm.recompute() }
-                        .btChipBandPlacement(proxy)
-                        .allowsHitTesting(!vm.isPlaying)
-                }
-
-                // Q19.2④ 序列模式：隐藏瞄准轮，仅逐杆播放；
-                // v28 Q2：右侧照常显示打点盘/力度条——展示的是本杆真实参数，只读不可调。
-                if vm.isSequenceMode {
-                    rearrangeButton
-                        .btStageFrame(leadingFrame(proxy, size: ShotStageMetrics.breakButtonSize))
-
-                    if !is3D {
-                        BTShotInstrumentColumn(
-                            spinX: vm.spinX, spinY: vm.spinY,
-                            onSpinTap: { showSpinPad = true },
-                            velocity: .constant(vm.velocity),
-                            range: ShotTuning.velocityRange,
-                            isReadOnly: true,
-                            // 播放中点开会挡住台面；只在暂停时允许点开细看本杆打点。
-                            spinTapEnabled: vm.isSequencePaused
-                        )
-                        .btStageFrame(proxy.instrumentFrame())
-                    }
-
-                    // 击打 / 暂停 / 继续（主键三态）+ 上一杆 + 重播（后两者仅暂停后可用）。
-                    BTShotActionColumn(
-                        strikeTitle: sequenceStrikeTitle,
-                        strikeEnabled: sequenceStrikeEnabled,
-                        onStrike: {
-                            dismissBriefOnInteraction()
-                            showSpinPad = false
-                            vm.toggleSequencePlayback()
-                        },
-                        undoTitle: "上一杆",
-                        undoEnabled: vm.canReplayPreviousStep,
-                        onUndo: {
-                            showSpinPad = false
-                            vm.replayPreviousSequenceStep()
-                        },
-                        playbackTitle: "重播",
-                        playbackEnabled: vm.canReplayCurrentStep,
-                        onPlayback: {
-                            showSpinPad = false
-                            vm.replayCurrentSequenceStep()
-                        }
-                    )
-                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).actionFrame : proxy.actionColumnFrame())
-                } else {
-                    // G4/G5/G7 瞄准刻度轮（自由模式）：右缘贴球桌左侧、底部对齐。
-                    if vm.aimMode == .free {
-                        BTAimWheel(
-                            onNudge: { vm.nudgeFreeAim(byDegrees: $0) },
-                            degreesPerPoint: vm.aimWheelDegreesPerPoint,
-                            degreeHapticEnabled: false,
-                            onDragActiveChanged: { vm.setAimWheelDragging($0) }
-                        )
-                            .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).aimWheelFrame : proxy.aimWheelFrame())
-                            .allowsHitTesting(!vm.isPlaying)
-                            .disabled(vm.isPlaying)
-                    }
-
-                    // Slot L1：翻袋备选「下一解」+（试打「重摆」/ 编排台开球）。
-                    VStack(spacing: 8) {
-                        if vm.canCycleBankAlternatives {
-                            BTTextActionButton(
-                                title: "下一解",
-                                isDisabled: false,
-                                width: ShotStageMetrics.actionColumnWidth,
-                                action: { vm.nextBankAlternative() }
-                            )
-                            .accessibilityIdentifier("composer.nextBankAlternative")
-                        }
-                        if isTryout {
-                            rearrangeButton
-                        } else {
-                            BTBreakSideButton(
-                                isEnabled: !vm.isPlaying && !vm.isComputing && !vm.isRecording
-                            ) {
-                                showBreakPicker = true
-                            }
-                        }
-                    }
-                    .btStageFrame(
-                        leadingFrame(proxy,
-                            size: {
-                                let base = ShotStageMetrics.breakButtonSize
-                                return vm.canCycleBankAlternatives
-                                    ? CGSize(width: 48, height: 30 + 8 + base.height)
-                                    : base
-                            }()
-                        )
-                    )
-
-                    // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
-                    BTShotInstrumentColumn(
-                        spinX: vm.spinX, spinY: vm.spinY,
-                        onSpinTap: { showSpinPad = true },
-                        velocity: $vm.velocity,
-                        range: ShotTuning.velocityRange,
-                        isDisabled: vm.isPlaying
-                    )
-                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
-
-                    if is3D, !showSpinPad, let rig = vm.scene.cameraRig {
-                        ShotPlayerCameraButtons(rig: rig,
-                            isEnabled: !vm.isPlaying && !vm.isComputing && vm.currentPlayerAim != nil) { view in
-                            showSpinPad = false
-                            vm.enablePlayerCameraControls()
-                            vm.requestPlayerView(view)
-                        }
-                        .btStageFrame(ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame)
-                        .offset(x: -52)
-                    }
-
-                    // 条 18.2：击球/上一杆/回放竖排，右下角底边齐球桌底线。
-                    BTShotActionColumn(
-                        strikeTitle: vm.isPlaying ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.freePlay,
-                        strikeEnabled: strikeEnabled,
-                        onStrike: {
-                            dismissBriefOnInteraction()
-                            vm.play()
-                        },
-                        undoTitle: "重打",
-                        undoEnabled: !vm.isPlaying && vm.canReplay,
-                        onUndo: { vm.replayCurrent() },
-                        playbackEnabled: !vm.isPlaying && vm.canPlayback,
-                        onPlayback: { vm.replayLastShot() }
-                    )
-                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).actionFrame : proxy.actionColumnFrame())
-                }
-            }
-
-            // v23 W3：近区瞄准特写（自由模式；三点菜单可关）。
-            BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize,
-                                    scene: vm.scene, safeInsets: is3D
-                                    ? .init(top: 56, leading: 56, bottom: 46, trailing: 62)
-                                    : proxy.aimCloseupSafeInsets)
-
-            // 进场说明卡（§1.8）：贴球桌上方淡入，非 modal 不阻断操作。
-            if isTryout, showBrief, let sourceDrill {
-                DrillTryoutBriefCard(
-                    drill: sourceDrill,
-                    formation: tryoutFormation,
-                    footnote: hasSeenGestureHint
-                        ? nil
-                        : (is3D ? "拖球摆位 · 空白处转视角 · 双指缩放" : "拖动台面瞄准 · 拖动球改摆 · 点「击球」试打")
-                ) {
-                    // 点卡关闭也视为「已见手势提示」（D3 跨启动记忆）。
-                    if !hasSeenGestureHint { hasSeenGestureHint = true }
-                    withAnimation(BTMotion.easeChrome) { showBrief = false }
-                }
-                .padding(.horizontal, 64)
-                .padding(.top, is3D ? Spacing.md : (proxy.isValid ? max(proxy.tableRect.minY + 6, 6) : 40))
-                .frame(maxWidth: .infinity, alignment: .center)
-                .transition(.opacity)
-                .zIndex(5)
-            }
-
-            // 打点盘浮层贴球桌底缘：半透明材质透出桌面绿色（ADR-P11-09）。
-            if showSpinPad {
-                // 序列模式：只读查看本杆打点（演示的是录制真值，不允许改）。
-                Group {
-                    if vm.isSequenceMode {
-                BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
-                                 tableWidth: is3D ? proxy.sceneSize.width - Spacing.lg * 2 : proxy.playingRect.width,
-                                 bottomPadding: is3D ? Spacing.sm : proxy.spinPadBottomPadding,
-                                 isReadOnly: true,
-                                 usesCompactLayout: is3D,
-                                 onClose: { showSpinPad = false })
-                    } else {
-                        BTProjectedSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
-                            scene: vm.scene, projector: projector,
-                            onClose: { showSpinPad = false })
-                    }
-                }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .zIndex(20)
-            }
-        }
-    }
-
-    // MARK: - Scene container (table only, zero overlays #2/#3)
-
-    private var sceneContainer: some View {
-        AngleSceneView(
-            scene: vm.scene,
-            cameraMode: $vm.cameraMode,
-            interactionMode: is3D ? .cameraControl : .tapsOnly,
-            autoFitsRotatedTable: !is3D,
-            onPocketTapped: vm.isBreakMode || vm.isSequenceMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },
-            // 开球模式：仅母球可拖（限开球区）；序列模式：台面只读（逐杆演示），其余台面交互挂起。
-            draggableBallNodes: (vm.isPlaying || vm.isSequenceMode) ? [] : (vm.breakRunner?.draggableCue ?? vm.draggableBalls),
-            onDragBegan: { node in
-                dismissBriefOnInteraction()
-                if let runner = vm.breakRunner { runner.dragBegan(node: node) }
-                else { vm.dragBegan(node: node) }
-            },
-            onDragMoved: { node, world in
-                if let runner = vm.breakRunner {
-                    runner.dragMoved(node: node, worldPosition: world)
-                } else {
-                    vm.dragMoved(node: node, worldPosition: world)
-                }
-            },
-            onDragEnded: { node in
-                if let runner = vm.breakRunner { runner.dragEnded(node: node) }
-                else { vm.dragEnded(node: node) }
-            },
-            onDragEndedAt: { node, localPoint in
-                guard !vm.isBreakMode else { return }
-                handleTableDragEnd(node: node, localPoint: localPoint)
-            },
-            selectableBallNodes: (vm.isBreakMode || vm.isSequenceMode) ? [] : vm.selectableBalls,
-            onBallTapped: { if !vm.isSequenceMode { vm.selectTarget(node: $0) } },
-            onTableTapped: is3D ? nil : {
-                dismissBriefOnInteraction()
-                if !vm.isBreakMode && !vm.isSequenceMode { vm.handleTableTap(world: $0) }
-            },
-            onAimNudged: is3D ? nil : {
-                dismissBriefOnInteraction()
-                if vm.isSequenceMode { return }
-                if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) }
-                else { vm.nudgeFreeAim(byDegrees: $0) }
-            },
-            onAimDragActiveChanged: { vm.setAimTableDragging($0) },
-            projector: projector
-        )
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Keep UIKit hit-test geometry aligned while tryout chrome fades or changes mode.
-        .transaction { $0.animation = nil }
-        .background(frameReader(id: "scene"))
-        .clipped()
-    }
-
-    /// 首次进入不暴露「未命名走位」（T-P18-37 / 条 19.4）：默认名时标题显示「自由走位」；
-    /// 用户重命名后才显示文档名。试打变体标题 = drill 名（§1.7）。
     private var navTitleText: String {
         if let sourceDrill { return sourceDrill.nameZh }
         return vm.sequence.name == "未命名走位" ? "自由走位" : vm.sequence.name
     }
 
-    // MARK: - Top info row（ADR-P11-08：信息行上移球桌上方，球桌全宽居中）
-
-    /// 顶部信息行：进袋/自由切换 + 角度胶囊 + 母球进袋警示 + 录制指示。
-    /// 与其他 2D 场景页的「顶部控件行 + 信息胶囊」同一套语言，左对齐。
-    private var topInfoRow: some View {
-        HStack(spacing: Spacing.sm) {
-            if vm.isBreakMode {
-                breakModePill
-            } else if isTryout && vm.hasSequence {
-                // Q19.2④：试打三模式选择（序列/进袋/自由）。
-                tryoutModeSelector
-                // v28 Q4：序列模式不再在此重复当前杆信息——导航栏副标题已经说了同一件事。
-                if !vm.isSequenceMode {
-                    aimCapsule
-                    if vm.cuePocketed { scratchPill }
-                }
-            } else {
-                // 条 15.2/15.3：进袋/自由单按钮点击切换，切自由保留进袋瞄准方向。
-                BTAimModeToggleButton(isFree: vm.aimMode == .free,
-                                      isDisabled: vm.isPlaying) {
-                    vm.toggleAimMode()
-                }
-
-                aimCapsule
-
-                if vm.cuePocketed { scratchPill }
+    private func setupBoard() {
+        if let sourceDrill {
+            if let board = tryoutFormation?.initial ?? DrillBoardBuilder.board(for: sourceDrill) {
+                tryoutBoard = board
+                vm.loadBoard(board)
             }
-
-            Spacer(minLength: 0)
-            if is3D && vm.isSequenceMode { sequenceParameterReadout }
+            if let steps = tryoutFormation?.steps, !steps.isEmpty {
+                vm.configureSequence(steps)
+                vm.enterSequenceMode()
+            } else { vm.setPreferredAimMode(initialMode ?? .free) }
+            withAnimation(.easeInOut(duration: 0.35).delay(0.6)) { showBrief = true }
+        } else {
+            if let initialBoard { vm.loadBoard(initialBoard) }
+            if let initialMode { vm.setPreferredAimMode(initialMode) }
         }
-        .padding(.horizontal, Spacing.lg)
-        .frame(maxHeight: .infinity)
-        .background(Color.black)
-        .environment(\.colorScheme, .dark)
     }
 
-    /// Sequence parameters are recorded values; keep them above the 3D table.
-    private var sequenceParameterReadout: some View {
-        HStack(spacing: Spacing.sm) {
-            Button { showSpinPad = true } label: {
-                BTSpinMiniIcon(spinX: vm.spinX, spinY: vm.spinY, diameter: 30)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("打点")
-            .accessibilityIdentifier("shotStage.spinEntry")
-            .disabled(!vm.isSequencePaused)
-            VStack(spacing: 0) {
-                Text(PowerDisplay.name(vm.velocity))
-                    .font(HUDStyle.labelFontCompact)
-                    .foregroundStyle(HUDStyle.labelColor)
-                Text(String(format: "%.1f", vm.velocity))
-                    .font(HUDStyle.valueFontCompact)
-                    .foregroundStyle(HUDStyle.valueAdjustable)
-                    .monospacedDigit()
-            }
-            .fixedSize()
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("本杆打点与力度")
-        .accessibilityIdentifier("tryout.sequenceReadout")
+    private func dismissBriefOnInteraction() {
+        if isTryout, !hasSeenGestureHint { hasSeenGestureHint = true }
+        if showBrief { withAnimation(BTMotion.easeChrome) { showBrief = false } }
     }
 
-    // MARK: - Tryout sequence mode (Q19.2④)
+    private func rearrange() {
+        dismissBriefOnInteraction()
+        if vm.isSequenceMode { vm.restartSequence() }
+        else if let tryoutBoard { vm.loadBoard(tryoutBoard) }
+    }
 
-    /// 试打三模式选择：序列 / 进袋 / 自由。切换即刷新台面与控件。
+    @ViewBuilder private var briefOverlay: some View {
+        if showBrief, let sourceDrill {
+            DrillTryoutBriefCard(drill: sourceDrill, formation: tryoutFormation,
+                footnote: hasSeenGestureHint ? nil : "拖球摆位 · 设置中切换模式 · 点主按钮试打",
+                onClose: dismissBriefOnInteraction)
+                .frame(maxWidth: 460)
+                .padding(.horizontal, 8)
+        }
+    }
+
+    private var editorMenuItems: [DailyHUDMenuItem] {
+        if isTryout {
+            return [.init(id: "tryout.info", title: "试打说明", action: { showBrief.toggle() })]
+        }
+        let busy = vm.isPlaying || vm.isBreakMode
+        return [
+            .init(id: "composer.rename", title: "重命名", disabled: busy, action: {
+                renameText = vm.sequence.name; showRename = true
+            }),
+            .init(id: "composer.clear", title: "清空桌面", disabled: busy, action: { showClearTableConfirm = true }),
+            .init(id: "composer.reset", title: "清空并重来", disabled: busy, action: { showResetConfirm = true })
+        ]
+    }
+
     private enum TryoutMode: String, CaseIterable { case sequence = "序列", pocket = "进袋", free = "自由" }
-
-    private var currentTryoutMode: TryoutMode {
-        if vm.isSequenceMode { return .sequence }
-        return vm.aimMode == .free ? .free : .pocket
-    }
-
-    private var tryoutModeSelector: some View {
-        HStack(spacing: 2) {
-            ForEach(TryoutMode.allCases, id: \.self) { mode in
-                let selected = currentTryoutMode == mode
-                Button {
-                    selectTryoutMode(mode)
-                } label: {
-                    Text(mode.rawValue)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(selected ? .black : .white.opacity(0.85))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(selected ? HUDStyle.accent : Color.clear, in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("tryoutMode_\(mode.rawValue)")
-            }
-        }
-        .padding(3)
-        .btHudGlass(in: Capsule())
-        .disabled(vm.isPlaying || vm.isSequencePlaying)
-        .opacity(vm.isPlaying || vm.isSequencePlaying ? 0.5 : 1)
-    }
-
-    /// 序列模式主键三态（v28 Q1）：未播 → 击打；播放中 → 暂停；已暂停 → 继续。
-    private var sequenceStrikeTitle: String {
-        switch vm.sequencePlayState {
-        case .idle: return BTStrikeTitle.solutionDemo
-        case .playing: return BTStrikeTitle.sequencePause
-        case .paused: return BTStrikeTitle.sequenceResume
+    private var currentTryoutMode: TryoutMode { vm.isSequenceMode ? .sequence : (vm.aimMode == .free ? .free : .pocket) }
+    private var tryoutAimItems: [DailyHUDMenuItem]? {
+        guard isTryout, vm.hasSequence else { return nil }
+        return TryoutMode.allCases.map { mode in
+            .init(id: "tryoutMode_\(mode.rawValue)", title: mode.rawValue, selected: currentTryoutMode == mode,
+                  disabled: vm.isPlaying || vm.isSequencePlaying, action: { selectTryoutMode(mode) })
         }
     }
-
-    /// 暂停请求已受理、正等当前杆打完时置灰——避免连点，也是「已收到」的反馈。
-    private var sequenceStrikeEnabled: Bool {
-        guard !vm.isSequencePausePending else { return false }
-        return vm.isSequencePlaying || !vm.isPlaying
-    }
-
     private func selectTryoutMode(_ mode: TryoutMode) {
         guard !vm.isPlaying, !vm.isSequencePlaying, mode != currentTryoutMode else { return }
-        showSpinPad = false
+        dismissBriefOnInteraction()
         switch mode {
-        case .sequence:
-            vm.enterSequenceMode()
-        case .pocket:
+        case .sequence: vm.enterSequenceMode()
+        case .pocket, .free:
             vm.exitSequenceMode()
             if let tryoutBoard { vm.loadBoard(tryoutBoard) }
-            vm.setPreferredAimMode(.pocket)
-        case .free:
-            vm.exitSequenceMode()
-            if let tryoutBoard { vm.loadBoard(tryoutBoard) }
-            vm.setPreferredAimMode(.free)
-        }
-    }
-
-    /// 角度/厚薄（袋口模式）或自由球标识——统一信息胶囊样式。
-    private var aimCapsule: some View {
-        HStack(spacing: 4) {
-            if vm.aimMode == .free {
-                // 首碰读数（T-P18-06/08）：厚度重叠图示 + 切角 + 厚度名 + 首碰球号；
-                // 空杆（射线不碰任何球）退回「自由球」标识。
-                if let contact = vm.freeAimContact {
-                    ThicknessOverlapIcon(cutAngle: contact.cutAngleDeg,
-                                         size: CGSize(width: 22, height: 12))
-                    BTReadout(value: "\(Int(contact.cutAngleDeg.rounded()))°", size: .compact)
-                    let name = AngleSceneCalculator.thicknessName(cutAngle: contact.cutAngleDeg)
-                    if name != "—" {
-                        BTHudMetricSeparator()
-                        Text(name)
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.8))
-                            .lineLimit(1)
-                    }
-                    BTHudMetricSeparator()
-                    Text("碰 \(PositionPlayBall.shortLabel(for: contact.targetKey))")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.8))
-                        .lineLimit(1)
-                } else {
-                    Image(systemName: "scope")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.75))
-                    Text("自由球")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.92))
-                }
-            } else {
-                BTReadout(value: vm.cutAngleDeg.map { "\(Int($0.rounded()))°" } ?? "—°",
-                          size: .compact)
-                if let angle = vm.cutAngleDeg {
-                    BTHudMetricSeparator()
-                    Text(AngleSceneCalculator.thicknessName(cutAngle: angle))
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.8))
-                        .lineLimit(1)
-                }
-            }
-        }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, 6)
-        .btHudGlass()
-    }
-
-    /// 开球模式标识胶囊（T-P18-47）：玩法名 + 提示（G9：摆架图形与开球按钮同源）。
-    private var breakModePill: some View {
-        HStack(spacing: 4) {
-            BreakRackGlyph(color: HUDStyle.accent, size: 13)
-            Text("开球 · \(vm.breakRunner.map { BreakFlowRunner.title(for: $0.game) } ?? "")")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.92))
-        }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, 6)
-        .btHudGlass()
-    }
-
-    /// 母球进袋（失误）警示胶囊。
-    private var scratchPill: some View {
-        HStack(spacing: 4) {
-            Circle().fill(Color.btDestructive).frame(width: 6, height: 6)
-            Text("母球进袋")
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(.btDestructive)
-        }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, 6)
-        .background(Color.btDestructive.opacity(0.16), in: Capsule())
-    }
-
-    // MARK: - Bottom bar (布局规范 v2：动作按钮上移球桌区，底部只留球库，条 18)
-
-    private func bottomBar(_ proxy: ShotStageProxy) -> some View {
-        Group {
-            if vm.isBreakMode {
-                breakBar
-            } else if is3D {
-                observationBar
-            } else {
-                paletteBar(proxy)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(HUDStyle.panelBackground)
-        .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
-        .background(frameReader(id: "palette"))
-        .environment(\.colorScheme, .dark)
-    }
-
-    // MARK: - Break bar（T-P18-47：开球模式底部条，共享 `BreakControlBar`）
-
-    @ViewBuilder
-    private var breakBar: some View {
-        if let runner = vm.breakRunner {
-            BreakControlBar(runner: runner, onCancel: { vm.cancelBreakFlow() })
-        }
-    }
-
-    private var strikeEnabled: Bool {
-        !vm.isPlaying && !vm.isComputing && vm.isFeasible
-    }
-
-    // MARK: - Palette bar (G21：BTBallPaletteBar)
-
-    private func paletteBar(_ proxy: ShotStageProxy) -> some View {
-        let libraryWidth = proxy.libraryWidth
-        return BTBallPaletteBar(
-            coordinateSpace: "composer",
-            ballDiameter: proxy.paletteBallDiameter,
-            isPlaying: vm.isPlaying,
-            libraryWidth: libraryWidth,
-            isOnTable: { vm.onTableKeys.contains($0) },
-            sceneFrame: sceneFrame,
-            unproject: { projector.unproject?($0) },
-            onTap: { key in
-                if vm.onTableKeys.contains(key) { vm.pulseTableBall(key) }
-                else { vm.placeFromPalette(key) }
-            },
-            onPlace: { key, world in
-                if let world { vm.placeFromPalette(key, atWorld: world) }
-                else { vm.placeFromPalette(key) }
-            },
-            onDragInteraction: { dismissBriefOnInteraction() },
-            draggingKey: $draggingKey,
-            dragLocation: $dragLocation,
-            dragOverTable: $dragOverTable
-        )
-    }
-
-    // MARK: - Table ball dragged back to palette → remove
-
-    private func handleTableDragEnd(node: SCNNode, localPoint: CGPoint) {
-        guard !is3D else { return } // The palette is hidden in perspective mode.
-        guard BTBallPaletteDragBack.hitPalette(localPoint: localPoint,
-                                               sceneFrame: sceneFrame,
-                                               paletteFrame: paletteFrame),
-              let key = vm.scene.ballKey(for: node) else { return }
-        vm.removeFromTable(key)
-        flash("已移回球库")
-    }
-
-    // MARK: - Toolbar menu
-
-    /// 试打变体（§1.7）：隐藏「重命名」，清空桌面/清空重来由「重摆球形」一等公民按钮取代。
-    /// 「清空并重来」为编排台页特有语义，不并入「恢复默认」文案（G25 留档豁免）。
-    private var moreMenu: some View {
-        BTSolverMoreMenu(
-            scene: vm.scene,
-            accessibilityId: "composer.more",
-            showsAimCloseupToggle: true,
-            pageExtras: {
-                if isTryout {
-                    // Q19.2③：说明卡召回入口。
-                    Button("试打说明", systemImage: "info.circle") {
-                        withAnimation(BTMotion.easeInOutChrome) { showBrief.toggle() }
-                    }
-                    .accessibilityIdentifier("tryout.info")
-                }
-                if !isTryout {
-                    Button("重命名", systemImage: "pencil") {
-                        renameText = vm.sequence.name
-                        showRename = true
-                    }
-                    Section {
-                        Button("清空桌面", systemImage: "trash",
-                               role: vm.isRecording ? .destructive : nil) {
-                            if vm.isRecording { showClearTableConfirm = true } else { vm.clearTable() }
-                        }
-                        Button("清空并重来", systemImage: "arrow.counterclockwise", role: .destructive) {
-                            showResetConfirm = true
-                        }
-                    }
-                }
-            }
-        )
-    }
-
-    private func flash(_ message: String, tone: BTToastTone = .success) {
-        BTToast.present(message, tone: tone) { toast = $0 }
-    }
-
-    // MARK: - Frame reader
-
-    private func frameReader(id: String) -> some View {
-        GeometryReader { geo in
-            Color.clear.preference(key: BTShotPageFramePreference.self,
-                                   value: [id: geo.frame(in: .named("composer"))])
+            vm.setPreferredAimMode(mode == .free ? .free : .pocket)
         }
     }
 }
 
 #Preview("Dark") {
-    NavigationStack { PositionPlayComposerView() }
-        .preferredColorScheme(.dark)
+    NavigationStack { PositionPlayComposerView() }.preferredColorScheme(.dark)
 }

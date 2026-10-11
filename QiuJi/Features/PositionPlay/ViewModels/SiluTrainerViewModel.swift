@@ -10,7 +10,41 @@ import Combine
 /// 画**可行落区**（情形 A）或标 **K 球过点**（情形 B），由 `PositionPlaySolver` 离线反解出
 /// 塞与力度。结果默认显示最优解、可「下一解」翻档；塞/力度控件转为**只读指示器**展示当前解。
 @MainActor
-final class SiluTrainerViewModel: ObservableObject {
+final class SiluTrainerViewModel: TeachingTableHost {
+    @Published var cameraTransitionBusy = false
+    @Published var temporaryTopDownActive = false
+    @Published var topDownContentRevision = 0
+    @Published var topDownSelectionChanged = false
+    @Published private(set) var isDragging = false
+    var targetNode: SCNNode? { isBreakMode ? nil : selectedTargetKey.flatMap { scene.allBallNodes[$0] } }
+    var currentPlayerAim: SCNVector3? {
+        if let runner = breakRunner { return runner.aimDir }
+        if let lastAimDirection { return lastAimDirection }
+        guard let cue = scene.cueBallNode, !cue.isHidden, let targetNode, !targetNode.isHidden,
+              selectedPocketIndex >= 0 else { return nil }
+        let aim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: targetNode.position,
+            pocketIndex: selectedPocketIndex, surfaceY: scene.surfaceY)
+        let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: targetNode.position,
+            pocket: aim, ballRadius: AngleSceneCalculator.ballRadius)
+        let dx = ghost.x - cue.position.x, dz = ghost.z - cue.position.z
+        let length = sqrtf(dx * dx + dz * dz)
+        return length > 0.0001 ? SCNVector3(dx / length, 0, dz / length) : nil
+    }
+    func selectTarget(key: String) {
+        guard !isBreakMode, activeTool == .none, let node = scene.allBallNodes[key] else { return }
+        selectTarget(node: node)
+    }
+
+
+    func stopForDismissal() {
+        solveGeneration += 1
+        endTemporaryTopDown()
+        breakRunner?.cancel()
+        scene.rootNode.removeAllActions()
+        scene.allBallNodes.values.forEach { $0.removeAllActions() }
+        ShotAudioScheduler.shared.cancel()
+        isPlaying = false
+    }
 
     // MARK: - Tools
 
@@ -80,12 +114,25 @@ final class SiluTrainerViewModel: ObservableObject {
 
     // MARK: - Published solve state
 
-    @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated
+    @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated {
+        didSet { if oldValue != cameraMode { refreshShotAssistVisibility() } }
+    }
+    @Published var hides3DShotAssists = false {
+        didSet { if oldValue != hides3DShotAssists { refreshShotAssistVisibility() } }
+    }
+    private var showsShotAssists: Bool { cameraMode != .perspective3D || !hides3DShotAssists }
+    func refreshShotAssistVisibility() {
+        breakRunner?.showsAimAssist = showsShotAssists
+        guard !isPlaying, !isBreakMode else { return }
+        if let solution = currentSolution { drawTrajectory(solution.prediction, shot: solution.shot) }
+        else { clearTrajectory() }
+        refreshOverlays()
+    }
     @Published private(set) var isPlaying = false
     @Published private(set) var isComputing = false
     @Published private(set) var solutions: [PositionPlaySolution] = []
     @Published private(set) var currentIndex = 0
-    @Published private(set) var statusText = "拖球摆位 · 在2D中选目标球、袋口及约束"
+    @Published private(set) var statusText = "拖球摆位 · 在桌面上选目标球、袋口及约束"
 
     // MARK: - Adjustment draft (K13 / X6 — semantic source for X5 bank/kick transplant)
     //
@@ -109,7 +156,7 @@ final class SiluTrainerViewModel: ObservableObject {
         return adjustmentDraft ?? solutions[currentIndex]
     }
     var hasSolutions: Bool { !solutions.isEmpty }
-    var canStrike: Bool { !isPlaying && !isComputing && (currentSolution?.prediction.feasible ?? false)
+    var canStrike: Bool { !temporaryTopDownActive && !isPlaying && !isComputing && (currentSolution?.prediction.feasible ?? false)
             && (currentSolution?.prediction.hasFinalTableState ?? false)
         && (currentSolution?.prediction.duration ?? 0) > 0.05 }
 
@@ -158,7 +205,11 @@ final class SiluTrainerViewModel: ObservableObject {
     // MARK: - Setup
 
     func setupScene() {
+        scene.usesAdaptiveDiagramLabels = true
+        scene.configureReferenceTableRendering()
+        scene.configureShotAwareCamera()
         scene.setupScene()
+        configureTeachingCamera()
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
         scene.hideAllBalls()
@@ -196,9 +247,14 @@ final class SiluTrainerViewModel: ObservableObject {
 
     // MARK: - Board queries
 
-    var draggableBalls: [SCNNode] { onTableKeys.compactMap { scene.allBallNodes[$0] } }
+    var draggableBalls: [SCNNode] {
+        guard !isPlaying, !isComputing else { return [] }
+        if let runner = breakRunner { return runner.draggableCue }
+        return activeTool == .none ? onTableKeys.compactMap { scene.allBallNodes[$0] } : []
+    }
     var selectableBalls: [SCNNode] {
-        onTableKeys.filter { !PositionPlayBall.isCue($0) }.compactMap { scene.allBallNodes[$0] }
+        guard !isPlaying, !isComputing, !isBreakMode, activeTool == .none else { return [] }
+        return onTableKeys.filter { !PositionPlayBall.isCue($0) }.compactMap { scene.allBallNodes[$0] }
     }
 
     func currentSnapshot() -> BoardSnapshot {
@@ -220,6 +276,7 @@ final class SiluTrainerViewModel: ObservableObject {
     func placeFromPalette(_ key: String) {
         guard !isPlaying else { return }
         place(key: key, normalized: freeNormalizedSlot(), cuePose: .reseat)
+        activeTool = .none
         refreshOnTableKeys()
         if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
             selectedTargetKey = key
@@ -235,6 +292,7 @@ final class SiluTrainerViewModel: ObservableObject {
         let n = AngleSceneCalculator.sceneToNormalized(position: clamped)
         place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)),
               cuePose: .reseat)
+        activeTool = .none
         refreshOnTableKeys()
         if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
             selectedTargetKey = key
@@ -244,7 +302,7 @@ final class SiluTrainerViewModel: ObservableObject {
     }
 
     func removeFromTable(_ key: String) {
-        guard !isPlaying else { return }
+        guard !isPlaying, !isBreakMode, !PositionPlayBall.isCue(key) else { return }
         scene.hideBall(key: key)
         if selectedTargetKey == key { selectedTargetKey = nil }
         refreshOnTableKeys()
@@ -283,16 +341,21 @@ final class SiluTrainerViewModel: ObservableObject {
 
     func dragBegan(node: SCNNode) {
         guard !isPlaying else { return }
+        isDragging = true
+        if let runner = breakRunner { runner.dragBegan(node: node); return }
         node.removeAction(forKey: "dragPulse")
         node.runAction(SCNAction.scale(by: 1.15, duration: 0.1), forKey: "dragPulse")
     }
 
     func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
         guard !isPlaying else { return }
+        if let runner = breakRunner { runner.dragMoved(node: node, worldPosition: worldPosition); return }
         node.position = clampMultiBall(worldPosition, movingNode: node)
     }
 
     func dragEnded(node: SCNNode) {
+        isDragging = false
+        if let runner = breakRunner { runner.dragEnded(node: node); return }
         guard !isPlaying else { return }
         node.removeAction(forKey: "dragPulse")
         node.runAction(SCNAction.scale(by: 1.0 / 1.15, duration: 0.15))
@@ -337,9 +400,11 @@ final class SiluTrainerViewModel: ObservableObject {
     }
 
     func selectPocket(at index: Int) {
+        guard !isBreakMode, !isPlaying, !isComputing, activeTool == .none else { return }
         guard !isPlaying else { return }
         selectedPocketIndex = index
-        updatePocketHighlights()
+        updatePocketHighlights(confirmsSelection: false)
+        scene.confirmPocketSelection(at: index, source: .manual)
         invalidateSolutions()
     }
 
@@ -377,13 +442,14 @@ final class SiluTrainerViewModel: ObservableObject {
             if bestFeasible == nil || dist < bestFeasible!.dist { bestFeasible = (i, dist) }
         }
         selectedPocketIndex = bestFeasible?.index ?? bestAny?.index ?? 0
-        updatePocketHighlights()
+        updatePocketHighlights(confirmsSelection: false)
+        scene.confirmPocketSelection(at: selectedPocketIndex)
     }
 
-    private func updatePocketHighlights() {
+    private func updatePocketHighlights(confirmsSelection: Bool = true) {
         for (i, marker) in pocketMarkers.enumerated() {
             let targetVisible = selectedTargetKey.flatMap { scene.allBallNodes[$0] }.map { !$0.isHidden } ?? false
-            scene.setPocketHighlight(marker, style: !isBreakMode && targetVisible && i == selectedPocketIndex ? .selected : .viable)
+            scene.setPocketHighlight(marker, style: !isBreakMode && targetVisible && i == selectedPocketIndex ? .selected : .viable, confirmsSelection: confirmsSelection)
         }
     }
 
@@ -541,16 +607,22 @@ final class SiluTrainerViewModel: ObservableObject {
 
     /// 三档轨迹标注切换后重绘当前解（`BTTrajectoryDetailChip` 触发，条 12.5）。
     func redrawTrajectory() {
+        defer { topDownContentRevision &+= 1 }
         guard !isPlaying, let sol = currentSolution else { return }
         drawTrajectory(sol.prediction, shot: sol.shot)
     }
 
     func nextSolution() {
         guard !solutions.isEmpty else { return }
-        // Discard draft before advancing — cycling back must show the catalog original.
+        selectSolution(at: (currentIndex + 1) % solutions.count)
+    }
+
+    /// Selecting a catalog solution shares cycling's draft-reset contract.
+    func selectSolution(at index: Int) {
+        guard !isPlaying, !isComputing, solutions.indices.contains(index) else { return }
         adjustmentDraft = nil
-        currentIndex = (currentIndex + 1) % solutions.count
-        showSolution(at: currentIndex)
+        currentIndex = index
+        showSolution(at: index)
     }
 
     /// 微调当前解（K13 草稿层）：改打点/力度后经正向管线重算预测，写入 `adjustmentDraft`，
@@ -636,21 +708,7 @@ final class SiluTrainerViewModel: ObservableObject {
     }
 
     private func solutionStatus(_ sol: PositionPlaySolution) -> String {
-        let prefix = solutions.count > 1 ? "解 \(currentIndex + 1)/\(solutions.count) · " : ""
-        // 「仅基础走位」预算内无解、回退的多库解：标「进阶」（用户拍板兜底语义）。
-        var advanced = sol.beyondCushionBudget ? "进阶（超基础走位）· " : ""
-        // 「禁左右塞」预算内无解、回退的横塞解（E3 兜底）：如实标注「此走位必须加塞」。
-        if sol.beyondSpinBudget { advanced += "进阶（需横塞）· " }
-        // 扰动容错度（E5）：小幅执行误差下仍满足约束的比例，教学取舍参考。
-        let robust = sol.robustness.map { " · 容错 \(Int(($0 * 100).rounded()))%" } ?? ""
-        // 翻袋备选：summary 已含「翻袋备选」前缀，不再套「最接近解」。
-        if sol.summary.hasPrefix("翻袋备选") {
-            return prefix + sol.summary + robust
-        }
-        if !sol.satisfiesConstraint {
-            return prefix + advanced + "最接近解（未满足约束）· " + sol.summary + robust
-        }
-        return prefix + advanced + sol.summary + robust
+        TeachingSolutionSummary.text(sol, index: currentIndex, count: solutions.count, defense: false)
     }
 
     // MARK: - Trajectory + constraint rendering
@@ -658,6 +716,7 @@ final class SiluTrainerViewModel: ObservableObject {
     private func drawTrajectory(_ p: ShotPrediction, shot: PlannedShot) {
         clearTrajectory()
         guard p.feasible else { scene.hideCueStick(); return }
+        guard showsShotAssists else { return }
         // 全量口径（C3 / D2）：与 Composer/PlanThree 同 options。
         TrajectoryRenderer.draw(
             prediction: p,
@@ -687,6 +746,7 @@ final class SiluTrainerViewModel: ObservableObject {
 
     /// 落区 / 过点叠加（青色，与轨迹区分）。
     private func renderConstraint() {
+        defer { topDownContentRevision &+= 1 }
         clearConstraintNodes()
         let color = BTScenePalette.constraintCyan
         let y = surfaceY + 0.002
@@ -753,8 +813,9 @@ final class SiluTrainerViewModel: ObservableObject {
     /// 无解时叠加几何预览（假想球 + 瞄准线 + 进球线，纯几何即时绘制，不跑物理），
     /// 让「点球选目标 / 点袋选袋」立刻可见，无需先求解。
     private func refreshOverlays() {
+        defer { topDownContentRevision &+= 1; refreshObservationCameraContext() }
         scene.clearResultNodes(nodes: &selectionNodes)
-        guard !isPlaying else { return }
+        guard !isPlaying, showsShotAssists else { return }
         let showingSolution = currentSolution != nil && !isComputing
         guard let tkey = selectedTargetKey,
               let tn = scene.allBallNodes[tkey], !tn.isHidden else {
@@ -856,7 +917,7 @@ final class SiluTrainerViewModel: ObservableObject {
     /// 上一杆（条 21.3 + G17）：回到上次击打前的**完整状态**——球形、目标球/袋口、约束、
     /// 已求出的解（缓存回填，无需重画重求解）、打点/力度/瞄准，均逐字段还原。
     func undoLastShot() {
-        guard !isPlaying, canUndoShot, let ctx = lastShotContext else { return }
+        guard !temporaryTopDownActive, !isPlaying, canUndoShot, let ctx = lastShotContext else { return }
         restore(from: ctx)
         canUndoShot = false
         canPlayback = false
@@ -960,7 +1021,7 @@ final class SiluTrainerViewModel: ObservableObject {
 
     /// 回放上一杆击打过程（条 21.3）：退回击打前重播动画，播完回到击打后局面。
     func replayLastShot() {
-        guard !isPlaying, canPlayback, let ctx = lastShotContext else { return }
+        guard !temporaryTopDownActive, !isPlaying, canPlayback, let ctx = lastShotContext else { return }
         let snap = ctx.snapshot
         guard acceptCompletePrediction(snap.prediction),
               let recorder = snap.prediction.recorder, snap.prediction.duration > 0.05 else { return }
@@ -1100,6 +1161,11 @@ final class SiluTrainerViewModel: ObservableObject {
 
         isPlaying = false
         refreshOnTableKeys()
+        let scratched = scene.cueBallNode?.isHidden != false
+        if scratched {
+            place(key: PositionPlayBall.cueKey, normalized: freeNormalizedSlot(), cuePose: .reseat)
+            refreshOnTableKeys()
+        }
         if let t = selectedTargetKey, !onTableKeys.contains(t) { selectedTargetKey = nil }
         if selectedTargetKey == nil { autoSelectTarget() } else { selectBestPocket() }
 
@@ -1121,10 +1187,9 @@ final class SiluTrainerViewModel: ObservableObject {
         canUndoShot = lastShotContext != nil
         canPlayback = lastShotContext?.snapshot.prediction.recorder != nil
 
-        let cueGone = scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true
-        statusText = cueGone
-            ? "母球进袋（scratch）· 在2D中补回母球或「恢复默认」"
-            : "已击打 · 母球停在终点，可在2D中画约束再求解"
+        statusText = scratched
+            ? "母球已回台 · 可继续摆球和设置约束"
+            : "已击打 · 母球停在终点，可在桌面上画约束再求解"
     }
 
     // MARK: - Reset
@@ -1138,6 +1203,7 @@ final class SiluTrainerViewModel: ObservableObject {
     func clearTable() {
         guard !isPlaying else { return }
         scene.hideAllBalls()
+        place(key: PositionPlayBall.cueKey, normalized: CanvasPoint(x: 0.3, y: 0.3), cuePose: .reseat)
         selectedTargetKey = nil
         selectedPocketIndex = -1
         refreshOnTableKeys()
@@ -1158,17 +1224,17 @@ final class SiluTrainerViewModel: ObservableObject {
 
     private func toolHint() -> String {
         switch activeTool {
-        case .none: return "拖球摆位 · 在2D中选目标球、袋口及约束"
-        case .region: return "在2D球桌上拖出\(regionShape.rawValue)可行落区"
-        case .restPoint: return "在2D中点按球桌标出母球期望停的落点（琥珀十字为目标，环为命中容差）"
-        case .passPoint: return "在2D中点按球桌标出母球需经过的 K 球点"
+        case .none: return "拖球摆位 · 在桌面上选目标球、袋口及约束"
+        case .region: return "在球桌上拖出\(regionShape.rawValue)可行落区"
+        case .restPoint: return "在桌面上点按球桌标出母球期望停的落点（琥珀十字为目标，环为命中容差）"
+        case .passPoint: return "在桌面上点按球桌标出母球需经过的 K 球点"
         }
     }
 
     private func needsSetupHint() -> String {
-        if scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true { return "请在2D中把母球摆上桌" }
-        if selectedTargetKey == nil { return "在2D中点选一颗目标球" }
-        if selectedPocketIndex < 0 { return "在2D中点击袋口选择目标袋" }
+        if scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true { return "请在桌面上把母球摆上桌" }
+        if selectedTargetKey == nil { return "在桌面上点选一颗目标球" }
+        if selectedPocketIndex < 0 { return "在桌面上点击袋口选择目标袋" }
         if currentConstraint() == nil { return toolHint() }
         return "已就绪，点「求解」反解走位"
     }
@@ -1193,6 +1259,7 @@ final class SiluTrainerViewModel: ObservableObject {
         scene.hideAllVisualization()   // 假想球等持久可视化节点不在 selectionNodes 内
         scene.hideCueStick()
         let runner = BreakFlowRunner(scene: scene, game: game)
+        runner.showsAimAssist = showsShotAssists
         // K6 / D-v8-3a：与 FreePlay 对齐——停稳后取消/重开/完成三态，不自动落座。
         runner.autoDeliverOnSettle = false
         breakChangeForwarder = runner.objectWillChange
@@ -1204,6 +1271,8 @@ final class SiluTrainerViewModel: ObservableObject {
         }
         breakRunner = runner
         runner.rackUp()
+        refreshOnTableKeys()
+        if cameraMode == .perspective3D { requestPlayerView(.thirdPerson) }
     }
 
     /// 取消开球模式并恢复进场前桌面。

@@ -211,7 +211,8 @@ final class SeparationAngleAtlasViewModel: TeachingTableHost {
 
     func selectPocket(at index: Int) {
         selectedPocketIndex = index
-        updatePocketHighlights()
+        updatePocketHighlights(confirmsSelection: false)
+        scene.confirmPocketSelection(at: index, source: .manual)
         updateAimVisualization()
         scheduleRecompute(interactive: false)
         selectionCameraChanged()
@@ -234,15 +235,16 @@ final class SeparationAngleAtlasViewModel: TeachingTableHost {
             }
         }
         selectedPocketIndex = best
-        updatePocketHighlights()
+        updatePocketHighlights(confirmsSelection: false)
+        scene.confirmPocketSelection(at: selectedPocketIndex)
     }
 
-    private func updatePocketHighlights() {
+    private func updatePocketHighlights(confirmsSelection: Bool = true) {
         guard let cue = scene.cueBallNode,
               let target = targetNode, !target.isHidden else { return }
         for (i, marker) in pocketMarkers.enumerated() {
             if i == selectedPocketIndex {
-                scene.setPocketHighlight(marker, style: .selected)
+                scene.setPocketHighlight(marker, style: .selected, confirmsSelection: confirmsSelection)
             } else {
                 let aim = AngleSceneCalculator.effectivePocketAimPoint(
                     targetBall: target.position, pocketIndex: i, surfaceY: scene.surfaceY)

@@ -57,8 +57,10 @@ struct ContactPointTableView: View {
                 sineCurveSection
             }
             .padding(Spacing.lg)
+            .learnDocumentWidth()
         }
         .background(.btBG)
+        .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
         .navigationTitle("瞄准点对照表")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
@@ -324,7 +326,7 @@ struct ContactPointTableView: View {
             Spacer()
             Text("通称").font(.btCaption2).frame(width: 56, alignment: .trailing)
         }
-        .foregroundStyle(.btTextSecondary)
+        .foregroundStyle(.btText)
         .padding(.horizontal, Spacing.sm)
         .padding(.vertical, Spacing.sm)
         .background(.btBGTertiary)
@@ -349,7 +351,7 @@ struct ContactPointTableView: View {
                 .frame(width: 44, alignment: .leading)
             Text(String(format: "%.3f", sinA))
                 .font(.system(size: 13, design: .monospaced))
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btText)
                 .frame(width: 44)
             Text(String(format: "%.2f", dOverR))
                 .font(.system(size: 13, design: .monospaced))
@@ -357,11 +359,11 @@ struct ContactPointTableView: View {
                 .frame(width: 36)
             Text(String(format: "%.0f%%", sinA * 100))
                 .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btText)
                 .frame(width: 40)
             Text(String(format: "%.1f", dMM))
                 .font(.system(size: 13, design: .monospaced))
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btText)
                 .frame(width: 44)
             Spacer()
             if let name = entry.commonName {
@@ -416,7 +418,7 @@ struct ContactPointTableView: View {
                 context.draw(
                     Text(String(format: yVal == 0 || yVal == 1 || yVal == 2 ? "%.0f" : "%.1f", yVal))
                         .font(.system(size: 10))
-                        .foregroundColor(.btTextTertiary),
+                        .foregroundColor(.btText),
                     at: CGPoint(x: padding.leading - 14, y: y)
                 )
             }
@@ -430,7 +432,7 @@ struct ContactPointTableView: View {
                 context.stroke(gridLine, with: .color(.btSeparator),
                               style: StrokeStyle(lineWidth: 0.5, dash: [4, 4]))
                 context.draw(
-                    Text("\(xVal)°").font(.system(size: 10)).foregroundColor(.btTextTertiary),
+                    Text("\(xVal)°").font(.system(size: 10)).foregroundColor(.btText),
                     at: CGPoint(x: x, y: h - padding.bottom + 14)
                 )
             }

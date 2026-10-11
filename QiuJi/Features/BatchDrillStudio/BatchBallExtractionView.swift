@@ -54,6 +54,8 @@ struct BatchBallExtractionView: View {
         }
         .btToast(Binding(get: { vm.toast }, set: { vm.toast = $0 }))
         .coordinateSpace(name: "batchExtract")
+        .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
+        .environment(\.colorScheme, .dark)
         .btDarkToolChrome(drill.map { "建球形 · \($0.drillId)" } ?? "建球形")
         .navigationDestination(isPresented: $goAuthor) {
             BatchAuthoringView(context: context)
@@ -712,11 +714,12 @@ struct BatchBallExtractionView: View {
         Button(action: action) {
             Image(systemName: system).font(.system(size: 16, weight: .bold))
                 .foregroundStyle(.white.opacity(enabled ? 0.9 : 0.25))
-                .frame(width: 40, height: 40)
+                .frame(width: 44, height: 44)
                 .background(.black.opacity(0.4), in: Circle())
                 .overlay(Circle().stroke(.white.opacity(enabled ? 0.3 : 0.1), lineWidth: 1))
         }
         .buttonStyle(BTPressableStyle.capsule)
+        .accessibilityLabel(system == "arrow.uturn.backward" ? "撤销" : "重做")
         .disabled(!enabled)
     }
 

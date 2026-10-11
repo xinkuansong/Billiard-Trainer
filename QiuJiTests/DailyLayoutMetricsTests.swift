@@ -479,3 +479,76 @@ final class DailyLayoutMetricsTests: XCTestCase {
         }
     }
 }
+
+extension DailyLayoutMetricsTests {
+    func testTeachingInformationUsesUnzoomedInnerFrameAcrossWindowShapes() {
+        for size in [CGSize(width: 874, height: 402), CGSize(width: 667, height: 375),
+                     CGSize(width: 1180, height: 820), CGSize(width: 820, height: 1180)] {
+            let halfLength = CameraRig.defaultTableOuterHalfLength
+            let halfWidth = CameraRig.defaultTableOuterHalfWidth
+            let foundation = DailyLayoutMetrics.Foundation(size: size, leadingSafeArea: 0, trailingSafeArea: 0,
+                halfLength: halfLength, halfWidth: halfWidth,
+                instrumentHeight: DailyLayoutMetrics.Controls.initialInstrumentHeight)
+            let instruments = BTTeachingInstrumentLayout(foundation: foundation)
+            let points = foundation.table.height / CGFloat(2 * (foundation.rotated ? halfLength : halfWidth))
+            let layout = BTTeachingPageLayout(stageSize: foundation.stage.size, rotated: foundation.rotated,
+                pointsPerMetre: points, instruments: instruments, spinPadPresented: false)
+            // Independently use the same orthographic fit used by the native 2D camera.
+            let scale = CameraRig.landscapeOrthographicScale(viewSize: foundation.stage.size,
+                halfLength: foundation.rotated ? halfWidth : halfLength,
+                halfWidth: foundation.rotated ? halfLength : halfWidth)!
+            let nativePoints = foundation.stage.height / CGFloat(2 * scale)
+            let innerHeight = CGFloat(foundation.rotated ? AngleSceneCalculator.innerLength : AngleSceneCalculator.innerWidth) * nativePoints
+            XCTAssertEqual(layout.informationTop, (foundation.stage.height - innerHeight) / 2 + Spacing.md, accuracy: 0.001)
+            XCTAssertEqual(layout.innerRect.midX, foundation.stage.width / 2, accuracy: 0.001)
+            XCTAssertEqual(layout.innerRect.midY, foundation.stage.height / 2, accuracy: 0.001)
+            XCTAssertGreaterThan(layout.informationTop, layout.innerRect.minY)
+            XCTAssertEqual(instruments.rulerLength, foundation.rulerLength)
+            XCTAssertEqual(instruments.rulerWidth, 32)
+            XCTAssertEqual(instruments.topDiameter, foundation.topDiameter)
+            XCTAssertEqual(instruments.strikeDiameter, 60)
+        }
+    }
+
+    func testTeachingSpinEditorSuppressesOnlyOrdinaryInformation() {
+        let notice = BTTeachingInformation(text: "已恢复上一杆")
+        let readout = BTTeachingInformation(text: "①球：1号球", kind: .readout)
+        XCTAssertTrue(notice.isVisible(spinPadPresented: false))
+        XCTAssertFalse(notice.isVisible(spinPadPresented: true))
+        XCTAssertTrue(readout.isVisible(spinPadPresented: true))
+        XCTAssertFalse(BTTeachingInformation(text: " \n").isVisible(spinPadPresented: false))
+        XCTAssertEqual(notice.effectiveSymbol, "info.circle")
+        XCTAssertNil(readout.effectiveSymbol)
+        XCTAssertEqual(BTTeachingInformation(text: "完成", symbol: "checkmark.circle").effectiveSymbol, "checkmark.circle")
+    }
+
+    func testTeachingTemporaryViewCannotEnablePrimaryOrParameterActions() {
+        for hostEnabled in [false, true] {
+            XCTAssertFalse(BTTeachingInstrumentLayout.effectiveEnabled(hostEnabled, temporaryTopDownActive: true))
+            XCTAssertEqual(BTTeachingInstrumentLayout.effectiveEnabled(hostEnabled, temporaryTopDownActive: false), hostEnabled)
+        }
+    }
+
+    func testTeachingTitleKeepsFourCharactersOnOneLineAndSplitsEvenly() {
+        let four = BTTablePageTitleLayout("思路\n训练")
+        XCTAssertEqual(four.upper, "思路训练")
+        XCTAssertNil(four.lower)
+        XCTAssertEqual(four.fontSize, 15)
+        let six = BTTablePageTitleLayout("打一走二想三")
+        XCTAssertEqual(six.upper, "打一走")
+        XCTAssertEqual(six.lower, "二想三")
+        XCTAssertNil(six.middle)
+        XCTAssertEqual(six.fontSize, 13)
+        XCTAssertEqual(six.width, four.width, "Wrapping cannot enlarge the title reservation or push the palette")
+    }
+
+    func testTeachingOddTitleHasSeparateVerticallyCentredMiddleCharacter() {
+        let five = BTTablePageTitleLayout("旋转与加塞")
+        XCTAssertEqual(five.upper, "旋转")
+        XCTAssertEqual(five.lower, "加塞")
+        XCTAssertEqual(five.middle, "与")
+        let compact = BTTablePageTitleLayout("旋转与加塞", width: 60, compact: true)
+        XCTAssertEqual(compact.fontSize, 12)
+        XCTAssertEqual(BTTablePageTitleLayout("防守", compact: true).fontSize, 13)
+    }
+}

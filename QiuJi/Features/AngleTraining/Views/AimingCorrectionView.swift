@@ -24,11 +24,11 @@ struct AimingCorrectionView: View {
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxxxl)
+            .learnDocumentWidth()
         }
         .background(.btBG)
-        .navigationTitle("瞄准修正")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
+        .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
+        .learnReadingNavigation(title: "瞄准修正")
         .onAppear { vm.onAppear() }
     }
 
@@ -94,7 +94,7 @@ struct AimingCorrectionView: View {
                     Spacer()
                     Text(String(format: "切角 ≈ %.1f°", snap.cutAngleDeg))
                         .font(.btCaption)
-                        .foregroundStyle(.btTextSecondary)
+                        .foregroundStyle(.btText)
                 }
                 .padding(Spacing.md)
                 .background(Color.btPrimaryMuted)
@@ -137,7 +137,7 @@ struct AimingCorrectionView: View {
                     Spacer()
                     Text(String(format: "力度 %.1f · %@", sample.velocity, vm.spinYTier.label))
                         .font(.btCaption)
-                        .foregroundStyle(.btTextSecondary)
+                        .foregroundStyle(.btText)
                 }
                 .padding(Spacing.md)
                 .background(Color.btPrimaryMuted)
@@ -183,7 +183,7 @@ struct AimingCorrectionView: View {
                             Text(String(format: "bias %+0.2f°（%@）",
                                          lane.thicknessBiasDegrees, biasLabel))
                                 .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                .foregroundStyle(.btTextSecondary)
+                                .foregroundStyle(.btText)
                             Spacer()
                         }
                     }
@@ -234,13 +234,13 @@ struct AimingCorrectionView: View {
                              ? "负值 = 向右"
                              : (snap.squirtDegrees > 0.01 ? "正值 = 向左" : "无挤偏"))
                             .font(.btCaption)
-                            .foregroundStyle(.btTextSecondary)
+                            .foregroundStyle(.btText)
                     }
                     if let swerve {
                         Text(String(format: "弧线横向漂移 ≈ %+.1f mm（%@）",
                                      swerve.signedMeters * 1000, swerve.signLabel))
                             .font(.system(size: 13, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.btTextSecondary)
+                            .foregroundStyle(.btText)
                     }
                 }
                 .padding(Spacing.md)
@@ -337,7 +337,7 @@ struct AimingCorrectionView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(conclusion)
                     .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
+                    .foregroundStyle(.btText)
                 Text(source)
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(.btTextTertiary)
@@ -454,7 +454,7 @@ private struct DeltaAimFigure: View {
                 BTGhostCircle(diameter: proj.ballDiameter, showsAimPoint: true)
                     .position(proj.point(snap.ghost))
 
-                BTFigureTag(text: "Δ", color: .btPrimary)
+                BTFigureTag(text: "Δ", color: FigureLine.contact)
                     .position(alongLabel(from: proj.point(geoEnd),
                                          to: proj.point(solEnd), t: 0.5, offset: 0))
             }
@@ -550,13 +550,16 @@ private struct ThrowCollisionFigure: View {
                 BTFigureTag(text: "理想进球线", color: FigureLine.pot(number: 1))
                     .position(alongLabel(from: proj.point(target),
                                          to: proj.point(potEnd), t: 0.75, offset: -14))
-                BTFigureTag(text: "实际离开", color: .btPrimary)
-                    .position(alongLabel(from: proj.point(target),
-                                         to: proj.point(leaveEnd), t: 0.8, offset: 14))
+                let leaveLabel = alongLabel(from: proj.point(target),
+                                            to: proj.point(leaveEnd), t: 0.8, offset: 14)
+                // Four 10pt characters plus capsule padding stay within the figure.
+                BTFigureTag(text: "实际离开", color: FigureLine.contact)
+                    .position(x: min(max(30, leaveLabel.x), max(30, proj.size.width - 30)),
+                              y: leaveLabel.y)
                 BTFigureTag(text: "摩擦", color: .btWarning)
                     .position(alongLabel(from: proj.point(contact),
                                          to: proj.point(frEnd), t: 0.85, offset: -12))
-                BTFigureTag(text: "Δ ×\(max(1, Int(effExaggerate.rounded()))) 夸大", color: .btPrimary)
+                BTFigureTag(text: "Δ ×\(max(1, Int(effExaggerate.rounded()))) 夸大", color: FigureLine.contact)
                     .position(x: proj.size.width - 52, y: 16)
                 BTFigureTag(text: "假想球", color: FigureLine.contact)
                     .position(x: proj.point(ghost).x,
@@ -732,7 +735,7 @@ private struct SquirtSwerveFigure: View {
                 BTFigureTag(text: "瞄准线", color: FigureLine.aim)
                     .position(alongLabel(from: proj.point(aimBack),
                                          to: proj.point(aimFwd), t: 0.2, offset: -14))
-                BTFigureTag(text: "实际轨迹", color: .btPrimary)
+                BTFigureTag(text: "实际轨迹", color: FigureLine.contact)
                     .position(pts.count >= 2
                               ? alongLabel(from: proj.point(pts[0]),
                                            to: proj.point(pts[pts.count / 2]),
@@ -806,7 +809,7 @@ private struct SolverCompareFigure: View {
                                          to: proj.point(geoEnd), t: 0.85, offset: -12))
                 BTFigureTag(
                     text: String(format: "A Δ%+.1f°", cmp.a.aimOffsetDegrees),
-                    color: .btPrimary
+                    color: FigureLine.contact
                 )
                 .position(alongLabel(from: proj.point(cue),
                                      to: proj.point(aEnd), t: 0.7, offset: 14))
