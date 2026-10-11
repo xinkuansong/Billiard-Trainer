@@ -10,7 +10,7 @@
 <!-- 头部会话摘要注释只保留最近 10 条；更早条目见 tasks/archive/PROGRESS-头部注释-归档.md（2026-09-14 起，体积门禁）。 -->
 # 开发进度（PROGRESS）
 
-- **DS01 设计系统复建（2026-10-11）⏸ 用户要求暂停／FL-137未闭环**：本轮完整验收页面0；r28标准同态4图保留，完整备份仍r25（93CRC）。五尺寸同态/稳定尾屏等开放，174历史已验不增。[暂停记录](app-interface-redesign/PAUSE-PROGRESS-20261011.md)。
+- **全App原生截图方案（2026-10-11，D022）**：当前App已提交`f75cbafd`，Debug构建/门禁通过；[PLAN v3.0](app-interface-redesign/PLAN.md)改为截图→审查→确认修改→代码修复→重拍，117条旧项迁移候选已路由。N00起待启动；DS01保持暂停/未验，历史174不转入新进度。[GitHub记录](app-interface-redesign/GITHUB-CHECKPOINT-20261011.md)。
 
 V025黑球角袋（2026-10-10）：四视角r2成片及参数记录完成，正反45°、球心距75cm，20秒1440×2280/60fps无声、32.40Mbps；原生采集/运行时外观、1200帧几何、完整解码及抽帧检查通过。第一人称近库遮挡球杆渐隐；匹配封面r2已获认可，与r2视频原样归集待发布，大小/SHA-256及规格核对通过；未发布。已同步[视频台账](../docs/视频台账.md)；[播放](/Users/song/projects/25.snooker/output/snooker-black-corner-45-20261010/r2-video/review.html)。
 
