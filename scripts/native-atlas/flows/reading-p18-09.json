@@ -1,0 +1,31 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_理"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "风险报酬决策矩阵",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "风险报酬决策矩阵"
+    },
+    {
+      "action": "cover",
+      "name": "P18-09-default",
+      "entry": "practice/理/风险报酬决策矩阵",
+      "maximumViews": 40
+    }
+  ]
+}

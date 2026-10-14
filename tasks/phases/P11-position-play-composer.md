@@ -291,3 +291,13 @@
 - **影响**：`Core/Physics/TrajectoryPlayback.swift`（状态/积分器/闭包/游标）、`Core/Media/SequenceVideoExporter.swift`（运动帧自转三行）、`Core/Scene/AngleTrainingScene.swift`、`Core/Scene/DrillSceneView.swift`、`BankShotViewModel`/`DiamondSystemViewModel`（复位）、删除 `Core/Physics/SceneKitBridge.swift` 与 `TrajectoryRecorder.action`（死代码）。**物理层零改动**——任何物理测试波动都应当作误改追查。
 - **替代方案**：给 ω 乘视觉系数「让旋转更明显」——伪造物理、与轨迹脱节，未采纳；只补一个旋转指示器 UI 而不改球体自转——答非所问（用户要的是球面真转），未采纳。
 - **遗留**：a) 存量出片资产（`build/position_play_export/` 除 drill_c019 外的 125 条）仍是旧口径渲染，需批量重出才带正确自转；b) 与 ADR-P10-04 Layer C ②「加塞旋转真实化」是两件事——那条是**物理层** drop/jaw 标定（依赖真实俯拍视频，人工 backlog），本轮只动渲染层，Layer C ② 仍未做。
+
+### ADR-P11-17 — 页面状态独立、静态球桌独占复用与限时缓存（2026-10-14）
+
+**背景**：每日清台、自由走位和上手试打每关闭一次仍残留一份场景、ViewModel 与每日控制器；原 USDZ 缓存未免除每页静态桌装配。用户授权先修释放，再实施复用/缓存，并仅在模拟器重复实测。
+
+**决策**：FreePlay 回调弱引用具体会话对象，规则展示移到独立 `FreePlayRulesSession`。静态桌体、台布与袋口组件可脱离场景后独占复用，全局仅一个空闲实例；球、相机、物理、规则、播放、回调、SCNView 始终归页面。导航栈内的父详情仍保留自身状态，离窗暂停绘制。模型缓存保存一个已适配不可变原型，复制动态球杆；已有初始球形时跳过默认三球初始化。
+
+**清理协议**：最后场景离开后保留 30 秒；退后台/内存警告立即清理空闲资源。代号隔离过期归还/异步预热，保护活动场景。示意图 LRU 8 张/24 MiB 解码成本，Bundle 试打数据 LRU 16 项/4 MiB 源 JSON；原型/静态桌按实例数约束，未声称 GPU 内存硬预算。
+
+**代价及验证**：入口预热把模型成本前移，立即退出的内存可能高于原本不泄漏的页面；因此同时核对 30 秒清理与长期进退趋势，不能只报首次耗时。保留现有物理和球形状态；复用材质须覆盖同主题与切主题路径（FL-150）。最终数据、原件及验证边界见 [报告](../../output/table-runtime-20261013/REPORT.md) 与 [设计说明](../../output/table-runtime-20261013/DESIGN.md)。未部署真机或发布。

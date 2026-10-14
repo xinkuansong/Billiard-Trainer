@@ -659,24 +659,35 @@ enum PowerDisplay {
 // MARK: - Pocket display helper
 
 enum PocketDisplay {
-    /// schema Pocket index (0..5) → portrait 屏幕系中文名（DR-063）。
-    /// 用于 drill 封面/精讲/击打等 `applyTopDown2DRotated` 面：
-    /// 屏幕上=+X，屏幕右=+Z。
-    static func name(index: Int) -> String {
-        switch index {
-        case 0: return "左下角袋"   // topLeft
-        case 1: return "左上角袋"   // topRight
-        case 2: return "右下角袋"   // bottomLeft
-        case 3: return "右上角袋"   // bottomRight
-        case 4: return "左侧中袋"   // topCenter
-        case 5: return "右侧中袋"   // bottomCenter
-        default: return "—"
-        }
+    /// The page's fixed 2D reference, also used in 3D regardless of camera orbit.
+    enum Orientation: CaseIterable, Equatable {
+        case landscape, portrait
+
+        init(portrait: Bool) { self = portrait ? .portrait : .landscape }
+    }
+
+    /// Internal indices/IDs remain unchanged; only the user-facing direction changes.
+    static func name(index: Int, orientation: Orientation) -> String {
+        let names = orientation == .portrait
+            ? ["左下角袋", "左上角袋", "右下角袋", "右上角袋", "左中袋", "右中袋"]
+            : ["左上角袋", "右上角袋", "左下角袋", "右下角袋", "上中袋", "下中袋"]
+        return names.indices.contains(index) ? names[index] : "—"
     }
 
     /// schema Pocket ID → 中文短名。
-    static func name(id: String) -> String {
-        ShotIntent.pocketIndex(for: id).map(name(index:)) ?? "—"
+    static func name(id: String, orientation: Orientation) -> String {
+        ShotIntent.pocketIndex(for: id).map { name(index: $0, orientation: orientation) } ?? "—"
+    }
+}
+
+private struct PocketDisplayOrientationKey: EnvironmentKey {
+    static let defaultValue = PocketDisplay.Orientation.portrait
+}
+
+extension EnvironmentValues {
+    var pocketDisplayOrientation: PocketDisplay.Orientation {
+        get { self[PocketDisplayOrientationKey.self] }
+        set { self[PocketDisplayOrientationKey.self] = newValue }
     }
 }
 

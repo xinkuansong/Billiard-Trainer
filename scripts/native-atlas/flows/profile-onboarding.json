@@ -1,0 +1,84 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "tap",
+      "id": "profile.onboarding",
+      "kind": "button",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "onboarding.title.0",
+      "kind": "any"
+    },
+    {
+      "action": "snapshot",
+      "name": "P31-intro-0",
+      "entry": "profile/product-introduction/page-0"
+    },
+    {
+      "action": "tap",
+      "id": "onboarding.continue",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "onboarding.title.1",
+      "kind": "any"
+    },
+    {
+      "action": "snapshot",
+      "name": "P31-intro-1",
+      "entry": "profile/product-introduction/page-1"
+    },
+    {
+      "action": "tap",
+      "id": "onboarding.continue",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "onboarding.title.2",
+      "kind": "any"
+    },
+    {
+      "action": "snapshot",
+      "name": "P31-intro-2",
+      "entry": "profile/product-introduction/page-2"
+    },
+    {
+      "action": "tap",
+      "id": "onboarding.continue",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "onboarding.title.3",
+      "kind": "any"
+    },
+    {
+      "action": "snapshot",
+      "name": "P31-intro-3",
+      "entry": "profile/product-introduction/page-3"
+    },
+    {
+      "action": "tap",
+      "id": "onboarding.continue"
+    },
+    {
+      "action": "wait",
+      "id": "onboarding.title.4",
+      "kind": "any"
+    },
+    {
+      "action": "snapshot",
+      "name": "P31-intro-4",
+      "entry": "profile/product-introduction/page-4"
+    }
+  ]
+}

@@ -24,6 +24,8 @@ protocol TeachingTableHost: TeachingCameraHost {
     var draggableBalls: [SCNNode] { get }
     var selectableBalls: [SCNNode] { get }
     var isDragging: Bool { get }
+    func suspendTeachingActivity()
+    func resumeTeachingActivity()
     func setupScene()
     func selectPocket(at index: Int)
     func selectTarget(key: String)
@@ -32,6 +34,35 @@ protocol TeachingTableHost: TeachingCameraHost {
     func dragBegan(node: SCNNode)
     func dragMoved(node: SCNNode, worldPosition: SCNVector3)
     func dragEnded(node: SCNNode)
+}
+
+extension TeachingTableHost {
+    func suspendTeachingActivity() {}
+    func resumeTeachingActivity() {}
+    /// Reads the exact contact currently rendered by the page's own predictor.
+    func solvedContactCloseup(for prediction: ShotPrediction) -> AimCloseupSnapshot? {
+        guard let cue = scene.cueBallNode, !cue.isHidden,
+              let target = targetNode, !target.isHidden,
+              let ghost = scene.ghostBallNode, !ghost.isHidden else { return nil }
+        let contact = prediction.firstContact ?? ghost.position
+        let points = prediction.cuePath
+        // Use the incoming recorded segment, including after a cushion. The
+        // original cue-to-contact chord can point in the opposite direction.
+        let nearest = points.indices.min { a, b in
+            hypotf(points[a].x - contact.x, points[a].z - contact.z)
+                < hypotf(points[b].x - contact.x, points[b].z - contact.z)
+        }
+        let start = nearest.flatMap { $0 > 0 ? points[$0 - 1] : nil } ?? cue.position
+        let incoming = AimCloseupSegment(
+            start: CGPoint(x: CGFloat(start.x), y: CGFloat(start.z)),
+            end: CGPoint(x: CGFloat(contact.x), y: CGFloat(contact.z)))
+        return AimCloseupBuilder.solvedContact(
+            cue: CGPoint(x: CGFloat(cue.position.x), y: CGFloat(cue.position.z)),
+            target: CGPoint(x: CGFloat(target.position.x), y: CGFloat(target.position.z)),
+            ghost: CGPoint(x: CGFloat(ghost.position.x), y: CGFloat(ghost.position.z)),
+            number: selectedTargetKey.flatMap { PositionPlayBall.number(for: $0) },
+            ballRadius: CGFloat(AngleSceneCalculator.ballRadius), incoming: incoming)
+    }
 }
 
 extension TeachingCameraHost {

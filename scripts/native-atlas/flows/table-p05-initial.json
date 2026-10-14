@@ -1,0 +1,50 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_解"
+    },
+    {
+      "action": "tap",
+      "id": "打一走二想三",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "planthree.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P05-default",
+      "entry": "normal App navigation; original native initial state"
+    },
+    {
+      "action": "tapCenter",
+      "id": "planthree.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P05-more"
+    }
+  ],
+  "catalog": {
+    "TABLE-P05-default": {
+      "id": "TABLE/P05",
+      "title": "打一走二想三",
+      "state": "default",
+      "figmaPage": "71"
+    },
+    "TABLE-P05-more": {
+      "id": "TABLE/P05",
+      "title": "打一走二想三",
+      "state": "more",
+      "figmaPage": "71"
+    }
+  },
+  "requiresTestRunner": "native-atlas-r10-tapCenter"
+}

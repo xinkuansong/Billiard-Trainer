@@ -42,6 +42,8 @@ struct AngleSceneView: UIViewRepresentable {
 
     let scene: AngleTrainingScene
     @Binding var cameraMode: AngleTrainingScene.CameraMode
+    /// Adaptive hosts supply the same 2D reference in both camera modes.
+    var pocketDisplayOrientation: PocketDisplay.Orientation? = nil
     var interactionMode: InteractionMode = .cameraControl
     var locksCueBallScreenAnchor = false
     /// rotated 顶视下按视口自适应取景（统一各 2D 球桌页的球桌占比/居中，ADR-P11-08）。
@@ -109,9 +111,13 @@ struct AngleSceneView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> SCNView {
+        if let pocketDisplayOrientation { scene.pocketDisplayOrientation = pocketDisplayOrientation }
         let scnView = LayoutAwareSceneView()
         scnView.onLayout = { [weak coordinator = context.coordinator] in
             coordinator?.synchronizeDailyViewportAfterLayout()
+        }
+        scnView.onWindowChange = { [weak coordinator = context.coordinator] in
+            coordinator?.requestInteractiveFrames()
         }
         DailyLayoutProbe.record("viewport.make", ["renderer": String(describing: ObjectIdentifier(scnView)), "scene": String(describing: ObjectIdentifier(scene))])
         scnView.scene = scene
@@ -195,6 +201,7 @@ struct AngleSceneView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: SCNView, context: Context) {
+        if let pocketDisplayOrientation { scene.pocketDisplayOrientation = pocketDisplayOrientation }
         #if DEBUG
         let cameraDiagnosticsChanged = context.coordinator.twoViewAutomaticEntryCount != twoViewAutomaticEntryCount
             || context.coordinator.twoViewSolverDiagnostics != twoViewSolverDiagnostics
@@ -221,6 +228,12 @@ struct AngleSceneView: UIViewRepresentable {
         }
         context.coordinator.setDaily3DDiagnostics(daily3DDiagnostics)
         context.coordinator.updateContentActivity(contentIsAnimating, cameraMode: cameraMode)
+        if scene.usesAdaptiveDiagramLabels,
+           context.coordinator.diagramLabelVisibility != scene.diagramVisibleLabelIndices {
+            context.coordinator.diagramLabelVisibility = scene.diagramVisibleLabelIndices
+            // A guide visibility change must redraw even when the table is idle.
+            context.coordinator.requestInteractiveFrames()
+        }
         context.coordinator.interactionMode = interactionMode
         context.coordinator.updateTwoViewReadableFrame(twoViewReadableFrameInWindow)
         let temporary2D = scene.cameraRig?.temporaryTopDownActive == true
@@ -280,6 +293,7 @@ struct AngleSceneView: UIViewRepresentable {
         // The page owns visibility; teardown only detaches this renderer's target.
         coordinator.setDaily3DDiagnostics(nil)
         uiView.isPlaying = false
+        uiView.delegate = nil
         uiView.pointOfView = nil
         uiView.scene = nil
     }
@@ -290,6 +304,7 @@ struct AngleSceneView: UIViewRepresentable {
     final class Coordinator: NSObject {
         let scene: AngleTrainingScene
         var cameraMode: AngleTrainingScene.CameraMode
+        var diagramLabelVisibility: [Int] = []
         var interactionMode: InteractionMode
         var locksCueBallScreenAnchor = false
         var autoFitsRotatedTable = false
@@ -965,6 +980,13 @@ struct AngleSceneView: UIViewRepresentable {
 
         private func updateFramePacing() {
             guard let scnView, let displayLink else { return }
+            guard scnView.window != nil else {
+                displayLink.isPaused = true
+                frameDelegate.watchesIdleInvalidation = false
+                scnView.isPlaying = false
+                lastTimestamp = 0
+                return
+            }
             let gestureActive = scnView.gestureRecognizers?.contains { $0.state == .began || $0.state == .changed } ?? false
             var active = (contentIsAnimating ?? true) || gestureActive || scene.isCameraModeTransitioning
                 || (scene.cameraRig?.temporaryTopDownActive == true && scene.cameraRig?.usesMergedCamera != true)
@@ -993,6 +1015,7 @@ struct AngleSceneView: UIViewRepresentable {
                         || (scene.cameraRig?.isTransitioning ?? false)
                         || (cameraMode == .perspective3D && (scene.cameraRig?.hasPendingDamping ?? false)))
             }
+            displayLink.isPaused = eventDrivenIdle && !active
             if eventDrivenIdle {
                 displayLink.isPaused = !active
                 frameDelegate.watchesIdleInvalidation = !active
@@ -1835,7 +1858,7 @@ struct AngleSceneView: UIViewRepresentable {
             if dragProbeEnabled { scnView.accessibilityValue = dragProbeValue(in: scnView) }
             #endif
             scnView.accessibilityCustomActions = onPocketTapped == nil || interactionMode == .none ? [] : (0..<6).map { index in
-                UIAccessibilityCustomAction(name: "选择\(index + 1)号\(index < 4 ? "角袋" : "中袋")") { [weak self] _ in
+                UIAccessibilityCustomAction(name: "选择\(PocketDisplay.name(index: index, orientation: scene.pocketDisplayOrientation))") { [weak self] _ in
                     guard let self, self.gesturesEnabled, self.interactionMode != .none,
                           let select = self.onPocketTapped else { return false }
                     select(index)
@@ -1851,6 +1874,11 @@ struct AngleSceneView: UIViewRepresentable {
 /// Layout callback is only consumed for the daily page's measured readable viewport.
 private final class LayoutAwareSceneView: SCNView {
     var onLayout: (() -> Void)?
+    var onWindowChange: (() -> Void)?
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        onWindowChange?()
+    }
     override func layoutSubviews() {
         super.layoutSubviews()
         onLayout?()
@@ -2040,9 +2068,11 @@ final class DiagramLabelOverlay {
         // text measurement/candidate searches while the table and camera are stationary.
         let matrix = scene.cameraNode?.presentation.worldTransform ?? SCNMatrix4Identity
         let visible = scene.allBallNodes.values.filter { !$0.isHidden }
+        let labelIndices = scene.diagramVisibleLabelIndices
         let key: [Float] = [matrix.m11, matrix.m12, matrix.m13, matrix.m21, matrix.m22, matrix.m23,
             matrix.m31, matrix.m32, matrix.m33, matrix.m41, matrix.m42, matrix.m43,
             Float(view.bounds.width), Float(view.bounds.height), scene.diagramShowsLineLabels ? 1 : 0,
+            labelIndices.contains(1) ? 1 : 0, labelIndices.contains(2) ? 1 : 0,
             displayMode == .perspective3D ? 1 : 0,
             Float(scene.cameraNode?.camera?.orthographicScale ?? 0),
             g.cue.x, g.cue.z, g.target.x, g.target.z, g.pocket.x, g.pocket.z,
@@ -2122,9 +2152,8 @@ final class DiagramLabelOverlay {
         let lines = [(cue, rail), (pocket, back), (tangentA, tangentB)]
         let texts = ["\(Int(g.angle.rounded()))°", "瞄准线", "进球线"]
         var layouts: [[(Int, CGRect)]] = []
-        let labelCount = scene.diagramShowsLineLabels ? 3 : 1
-        labels.dropFirst(labelCount).forEach { $0.isHidden = true }
-        for index in 0..<labelCount {
+        for index in labels.indices where !labelIndices.contains(index) { labels[index].isHidden = true }
+        for index in labelIndices {
             let label = labels[index]
             label.text = texts[index]
             label.backgroundColor = .clear
@@ -2244,15 +2273,17 @@ final class DiagramLabelOverlay {
             return nil
         }
         if let solution = solve(0, placed: []) {
-            for (index, item) in solution.enumerated() {
+            for (slot, item) in solution.enumerated() {
+                let index = labelIndices[slot]
                 labels[index].isHidden = false; labels[index].frame = item.1; choices[index] = item.0
             }
         } else {
             // At extreme zoom or a densely occupied table, preserve readable labels in
             // semantic priority order. Never draw a label through a ball to keep it visible.
             var placed: [CGRect] = []
-            for index in layouts.indices {
-                let item = layouts[index].first { candidate in
+            for slot in layouts.indices {
+                let index = labelIndices[slot]
+                let item = layouts[slot].first { candidate in
                     !placed.contains { $0.insetBy(dx: -6, dy: -6).intersects(candidate.1) }
                 }
                 labels[index].isHidden = item == nil

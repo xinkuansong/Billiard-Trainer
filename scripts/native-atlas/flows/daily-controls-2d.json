@@ -1,0 +1,109 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.dailyClearance"
+    },
+    {
+      "action": "wait",
+      "id": "dailyClearance.back",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "DAILY-D00-2d-settled",
+      "entry": "normal App navigation; existing settled fixture where specified"
+    },
+    {
+      "action": "tap",
+      "id": "freeplay.moreMenu"
+    },
+    {
+      "action": "wait",
+      "id": "dailyClearance.menuPanel",
+      "kind": "any"
+    },
+    {
+      "action": "snapshot",
+      "name": "DAILY-D00-2d-more",
+      "entry": "normal App navigation; existing settled fixture where specified"
+    },
+    {
+      "action": "tap",
+      "id": "dailyClearance.aimModeMenu"
+    },
+    {
+      "action": "snapshot",
+      "name": "DAILY-D00-2d-aim-menu",
+      "entry": "normal App navigation; existing settled fixture where specified"
+    },
+    {
+      "action": "tap",
+      "id": "dailyClearance.menuBack"
+    },
+    {
+      "action": "tap",
+      "id": "dailyClearance.trajectoryMenu"
+    },
+    {
+      "action": "snapshot",
+      "name": "DAILY-D00-2d-trajectory-menu",
+      "entry": "normal App navigation; existing settled fixture where specified"
+    },
+    {
+      "action": "tap",
+      "id": "dailyClearance.menuBack"
+    },
+    {
+      "action": "tap",
+      "id": "dailyClearance.changeGame"
+    },
+    {
+      "action": "snapshot",
+      "name": "DAILY-D00-2d-game-menu",
+      "entry": "normal App navigation; existing settled fixture where specified"
+    },
+    {
+      "action": "tap",
+      "id": "dailyClearance.menuClose"
+    }
+  ],
+  "catalog": {
+    "DAILY-D00-2d-settled": {
+      "id": "DAILY/D00",
+      "title": "每日清台",
+      "state": "2d-settled",
+      "figmaPage": "70"
+    },
+    "DAILY-D00-2d-more": {
+      "id": "DAILY/D00",
+      "title": "每日清台",
+      "state": "2d-more",
+      "figmaPage": "70"
+    },
+    "DAILY-D00-2d-aim-menu": {
+      "id": "DAILY/D00",
+      "title": "每日清台",
+      "state": "2d-aim-menu",
+      "figmaPage": "70"
+    },
+    "DAILY-D00-2d-trajectory-menu": {
+      "id": "DAILY/D00",
+      "title": "每日清台",
+      "state": "2d-trajectory-menu",
+      "figmaPage": "70"
+    },
+    "DAILY-D00-2d-game-menu": {
+      "id": "DAILY/D00",
+      "title": "每日清台",
+      "state": "2d-game-menu",
+      "figmaPage": "70"
+    }
+  },
+  "launchArguments": [
+    "-dailyClearance.resetState",
+    "-dailyClearance.resetHomeState",
+    "-dailyClearance.fixtureSettled"
+  ]
+}

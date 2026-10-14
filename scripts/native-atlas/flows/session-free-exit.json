@@ -1,0 +1,60 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.freeTraining",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "添加中袋直线出杆",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "添加中袋直线出杆",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "完成(1)",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "activeTraining.more",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P07-01-unstarted-free",
+      "entry": "normal UI; existing in-memory fixture"
+    },
+    {
+      "action": "tap",
+      "id": "activeTraining.more",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "结束训练",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "退出",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P07-04-exit-confirm",
+      "entry": "normal UI; existing in-memory fixture"
+    },
+    {
+      "action": "tap",
+      "id": "继续训练",
+      "kind": "button"
+    }
+  ]
+}

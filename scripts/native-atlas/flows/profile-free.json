@@ -1,0 +1,21 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "wait",
+      "id": "profile.login",
+      "kind": "button"
+    },
+    {
+      "action": "cover",
+      "name": "P24-free",
+      "entry": "normal profile tab",
+      "maximumViews": 40
+    }
+  ],
+  "premium": false
+}

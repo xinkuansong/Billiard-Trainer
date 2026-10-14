@@ -1,0 +1,48 @@
+{
+  "fixture": "empty",
+  "sourceBaseline": "f75cbafd",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "tap",
+      "id": "个人信息",
+      "kind": "buttonContains",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "个人信息",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "tap",
+      "id": "9球",
+      "scrollTo": 5
+    },
+    {
+      "action": "snapshot",
+      "name": "P25-sport-nine"
+    },
+    {
+      "action": "tap",
+      "id": "高级",
+      "scrollTo": 5
+    },
+    {
+      "action": "snapshot",
+      "name": "P25-level-advanced"
+    },
+    {
+      "action": "tap",
+      "id": "5 年以上",
+      "scrollTo": 5
+    },
+    {
+      "action": "snapshot",
+      "name": "P25-years-fiveplus"
+    }
+  ]
+}

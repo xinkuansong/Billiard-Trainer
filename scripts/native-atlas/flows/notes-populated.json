@@ -1,0 +1,34 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.moreMenu",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "训练心得",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "训练心得",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "wait",
+      "id": "trainingNotes.day",
+      "kind": "button"
+    },
+    {
+      "action": "cover",
+      "name": "P10-populated",
+      "entry": "training/more/notes; existing journal.fixture",
+      "maximumViews": 40
+    }
+  ],
+  "launchArguments": [
+    "-journal.fixture"
+  ]
+}

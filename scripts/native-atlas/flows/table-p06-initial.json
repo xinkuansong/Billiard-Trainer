@@ -1,0 +1,50 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_解"
+    },
+    {
+      "action": "tap",
+      "id": "防守",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "snooker.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P06-default",
+      "entry": "normal App navigation; original native initial state"
+    },
+    {
+      "action": "tapCenter",
+      "id": "snooker.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P06-more"
+    }
+  ],
+  "catalog": {
+    "TABLE-P06-default": {
+      "id": "TABLE/P06",
+      "title": "防守",
+      "state": "default",
+      "figmaPage": "71"
+    },
+    "TABLE-P06-more": {
+      "id": "TABLE/P06",
+      "title": "防守",
+      "state": "more",
+      "figmaPage": "71"
+    }
+  },
+  "requiresTestRunner": "native-atlas-r10-tapCenter"
+}

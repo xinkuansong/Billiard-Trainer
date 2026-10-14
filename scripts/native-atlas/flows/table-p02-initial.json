@@ -1,0 +1,49 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_打"
+    },
+    {
+      "action": "tap",
+      "id": "自由击球",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "freeplay.moreMenu"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P02-default",
+      "entry": "normal App navigation; original native initial state"
+    },
+    {
+      "action": "tap",
+      "id": "freeplay.moreMenu"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P02-more"
+    }
+  ],
+  "catalog": {
+    "TABLE-P02-default": {
+      "id": "TABLE/P02",
+      "title": "自由击球",
+      "state": "default",
+      "figmaPage": "71"
+    },
+    "TABLE-P02-more": {
+      "id": "TABLE/P02",
+      "title": "自由击球",
+      "state": "more",
+      "figmaPage": "71"
+    }
+  }
+}

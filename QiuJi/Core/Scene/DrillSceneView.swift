@@ -13,20 +13,35 @@ final class DrillSceneController: ObservableObject {
     let scene = AngleTrainingScene()
     @Published private(set) var cameraMode: AngleTrainingScene.CameraMode = .topDown2D
 
-    func setCameraMode(_ mode: AngleTrainingScene.CameraMode) {
-        let needsOverview = mode == .perspective3D && !scene.hasPerspectiveView
-        cameraMode = mode
-        scene.setCameraMode(mode, animated: false)
-        if needsOverview { observeWholeTable() }
+    /// Sequence timing owns when to move; CameraRig owns framing and the connector.
+    enum PlaybackPhase { case idle, arranging, observing, transitioning, aiming, moving, holding, finished }
+    @Published private(set) var playbackPhase: PlaybackPhase = .idle
+    var phaseLabel: String {
+        switch playbackPhase {
+        case .idle: return "等待回放"
+        case .arranging: return "切换球形"
+        case .observing: return "观察球形"
+        case .transitioning: return "转镜中"
+        case .aiming: return "瞄准中"
+        case .moving: return "球运动中"
+        case .holding: return "杆间停留"
+        case .finished: return "播放结束"
+        }
     }
+    @Published private(set) var playbackMessage: String?
+    private var shotView: (cue: SCNVector3, aim: SCNVector3)?
+    private var completed = false
 
-    func observeWholeTable() {
-        guard cameraMode == .perspective3D, let rig = scene.cameraRig else { return }
-        // The detail viewport is landscape: look across Z so the long X axis
-        // spans its width. Manual observation remains unconstrained afterwards.
-        guard rig.observeWholeTable(yaw: .pi / 2) else { return }
-        scene.discardSavedPerspectiveView()
-        rig.snapToTarget()
+    func setCameraMode(_ mode: AngleTrainingScene.CameraMode) {
+        guard mode != cameraMode else { return }
+        if mode == .perspective3D, shotView == nil { prepareOpeningShotView() }
+        cameraMode = mode
+        scene.setCameraMode(mode, animated: false) { [weak self] in
+            self?.enterShotView(animated: false) ?? false
+        }
+        if mode == .perspective3D, playbackPhase == .transitioning, isPlaying {
+            _ = enterShotView(animated: true)
+        }
     }
 
     /// 本杆「打点 + 力度」HUD 条数据（逐杆更新为当前杆参数）。
@@ -55,7 +70,7 @@ final class DrillSceneController: ObservableObject {
     @Published private var stepIndex = 0
     var stepLabel: String {
         guard !steps.isEmpty else { return "" }
-        return "第 \(playbackState == .idle ? 1 : stepIndex + 1)/\(steps.count) 杆"
+        return "第 \(stepIndex + 1)/\(steps.count) 杆"
     }
     private var homePositions: [String: SCNVector3] = [:]
     private var surfaceY: Float = 0
@@ -92,13 +107,17 @@ final class DrillSceneController: ObservableObject {
     private let followUpSetupHold: TimeInterval = 0.45
     /// 杆间停顿：与 `PositionPlayViewModel.sequenceInterShotPause` 同值。
     private let interShotPause: TimeInterval = 0.7
+    private let boardChangeDuration: TimeInterval = 0.45
+    private let boardChangeActionKey = "drill.sequence.boardChange"
 
     func setup(drill: DrillContent) {
         guard !didSetup else { return }
         didSetup = true
         self.drill = drill
 
+        scene.configureShotAwareCamera()
         scene.setupScene(enhancedRendering: false)
+        scene.cameraRig?.configurePlayerCameraControls(daily: true)
         surfaceY = scene.surfaceY
 
         // 物理求解放后台；回主线程画与缩略图同契约的静帧。
@@ -126,6 +145,13 @@ final class DrillSceneController: ObservableObject {
         scene.railInventory.clear()
         // 停演示：置 idle 让已排期的异步回调全部失效，清动画与装饰。
         ShotAudioScheduler.shared.cancel()
+        playbackGeneration += 1
+        cancelScheduledPlayback()
+        scene.isPaused = false
+        completed = false
+        playbackMessage = nil
+        playbackPhase = .idle
+        shotView = nil
         playbackState = .idle
         showOverlay = false
         for (_, node) in scene.allBallNodes { node.removeAllActions() }
@@ -155,7 +181,32 @@ final class DrillSceneController: ObservableObject {
         placeStepBoard(source.board)
         homePositions = source.board.onTable.mapValues { point($0) }
         didPlaceBoard = true
-        if cameraMode == .perspective3D { observeWholeTable() }
+        scene.discardSavedPerspectiveView()
+        if cameraMode == .perspective3D {
+            prepareOpeningShotView()
+            _ = enterShotView(animated: false)
+        }
+    }
+
+    private func prepareOpeningShotView() {
+        guard let source = previewSource,
+              let pred = prediction ?? PositionPlayShotSolver.solve(
+                before: source.board, shot: source.shot, surfaceY: surfaceY),
+              pred.feasible, let cue = scene.cueBallNode else { return }
+        shotView = (cue.position, pred.aimDirection)
+    }
+
+    @discardableResult
+    private func enterShotView(animated: Bool) -> Bool {
+        guard let shotView, let rig = scene.cameraRig else { return false }
+        // A positive request selects the shared surface speed clock (not a fixed duration).
+        return rig.enterPlayerView(.thirdPerson, cue: shotView.cue, aim: shotView.aim,
+                                   duration: animated ? 0.95 : 0)
+    }
+
+    private func freezeCamera() {
+        guard cameraMode == .perspective3D, let rig = scene.cameraRig else { return }
+        rig.restorePerspectiveState(rig.capturePerspectiveState())
     }
 
     /// 后台解算静帧首杆；完成时若球形已被切走则丢弃结果（防在途结果串台）。
@@ -170,7 +221,9 @@ final class DrillSceneController: ObservableObject {
                 self.prediction = pred
                 // A late preview result must not redraw decorations or reset cue
                 // orientation during an already started or paused demonstration.
-                if self.playbackState == .idle { self.applyPreviewFrame() }
+                if self.playbackState == .idle, !self.completed, self.playbackMessage == nil {
+                    self.applyPreviewFrame()
+                }
             }
         }
     }
@@ -216,7 +269,11 @@ final class DrillSceneController: ObservableObject {
         case .idle:
             play()
         case .playing:
-            playbackState = .pausingAfterShot
+            if playbackPhase == .arranging || playbackPhase == .transitioning || playbackPhase == .holding {
+                pauseAtCurrentPhase()
+            } else {
+                playbackState = .pausingAfterShot
+            }
         case .pausingAfterShot:
             playbackState = .playing
         case .paused:
@@ -225,19 +282,79 @@ final class DrillSceneController: ObservableObject {
     }
 
     /// 从暂停处继续：接着下一杆演示（当前杆已在暂停时播完）。
+    private var playbackGeneration = 0
+    private var scheduleRevision = 0
+    private var pendingWork: (() -> Void)?
+    private var pendingDeadline: TimeInterval = 0
+    private var remainingDelay: TimeInterval = 0
+
+    /// Backgrounding freezes the actual scene, including ball orientations and cue actions.
+    func suspendPlayback() {
+        guard isPlaying else { return }
+        scene.isPaused = true
+        ShotAudioScheduler.shared.cancel()
+        pauseAtCurrentPhase()
+    }
+
+    private func pauseAtCurrentPhase() {
+        if playbackPhase == .arranging { scene.isPaused = true }
+        remainingDelay = max(0, pendingDeadline - ProcessInfo.processInfo.systemUptime)
+        scheduleRevision += 1
+        freezeCamera()
+        playbackState = .paused
+    }
+
+    private func cancelScheduledPlayback() {
+        scene.rootNode.removeAction(forKey: boardChangeActionKey)
+        scheduleRevision += 1
+        pendingWork = nil
+        remainingDelay = 0
+    }
+
+    private func schedulePlayback(after delay: TimeInterval, _ work: @escaping () -> Void) {
+        let generation = playbackGeneration
+        scheduleRevision += 1
+        let revision = scheduleRevision
+        pendingWork = work
+        pendingDeadline = ProcessInfo.processInfo.systemUptime + delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.playbackGeneration == generation,
+                  self.scheduleRevision == revision, self.isPlaying else { return }
+            self.pendingWork = nil
+            work()
+        }
+    }
+
+    /// SceneKit may already have queued a contact/completion when the app backgrounds.
+    private func performWhenResumed(_ work: @escaping () -> Void) {
+        if playbackState == .paused {
+            pendingWork = work
+            remainingDelay = 0
+        } else if isPlaying {
+            work()
+        }
+    }
+
     private func resume() {
-        guard playbackState == .paused, !steps.isEmpty else { return }
+        guard playbackState == .paused else { return }
+        scene.isPaused = false
         playbackState = .playing
         showOverlay = overlayData != nil
-        let next = stepIndex + 1
-        guard next < steps.count else { finishPlayback(); return }
-        runStep(next)
+        if playbackPhase == .transitioning, cameraMode == .perspective3D {
+            _ = enterShotView(animated: true)
+        }
+        if let work = pendingWork { schedulePlayback(after: remainingDelay, work) }
     }
 
     /// 播放整条示范序列：开场「读球形」一拍后逐杆演示，杆间停顿衔接，全部走完才收尾。
     /// HUD 条自点播放起常显（逐杆更新为当前杆参数），整条序列播完才隐藏。
     func play() {
         guard !isPlaying, scene.cueBallNode != nil else { return }
+        playbackGeneration += 1
+        cancelScheduledPlayback()
+        scene.isPaused = false
+        completed = false
+        playbackMessage = nil
         playbackState = .playing
         stepIndex = 0
         restoreHomePositions(clearActions: true)
@@ -250,39 +367,152 @@ final class DrillSceneController: ObservableObject {
         updateOverlay(shot: steps.first?.shot ?? previewSource?.shot)
         showOverlay = overlayData != nil
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + observeHold) { [weak self] in
-            guard let self, self.isPlaying else { return }
-            self.runStep(0)
-        }
+        runStep(0)
     }
 
-    /// 逐杆演示的一杆：摆该杆击球前盘面 → 亮方案（线 + 假想球 + 瞄准位杆）→ 定格 → 运杆出杆。
-    /// 与试打页 `PositionPlayViewModel.runSequenceStep` 同结构、同 `CueStroke` 运动学。
+    /// Authored resets are a separate board-change phase before the camera connector.
     private func runStep(_ i: Int) {
         guard isPlaying else { return }
         // 无多杆数据（shotIntent / animation 类）退回单杆演示。
-        guard !steps.isEmpty else { startSingleShot(); return }
+        guard !steps.isEmpty else {
+            playbackPhase = .observing
+            schedulePlayback(after: observeHold) { [weak self] in self?.startSingleShot() }
+            return
+        }
         guard i < steps.count else { finishPlayback(); return }
 
         stepIndex = i
-        let step = steps[i]
-        placeStepBoard(step.before, preservePoses: true)
-        updateOverlay(shot: step.shot)
+        if i > 0, Self.requiresBoardChange(after: steps[i - 1].after, before: steps[i].before) {
+            changeBoard(to: steps[i].before) { [weak self] in self?.solveStep(i) }
+        } else {
+            solveStep(i)
+        }
+    }
 
-        guard let pred = PositionPlayShotSolver.solve(
-                  before: step.before, shot: step.shot, surfaceY: surfaceY
-              ), pred.feasible,
-              let recorder = pred.recorder, pred.duration > 0.05,
-              let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
-              let aim = DrillStaticPreview.aimDirection(path: pred.cuePath, from: cueNode.position)
-        else {
-            // 本杆不可行：直接落到该杆结果并推进，不阻断整条演示（同试打页）。
-            clearTrajectory()
-            scene.hideCueStick()
-            applyStepRest(step: step, prediction: nil)
-            scheduleNextStep(after: i)
+    /// Compare authored intent, never live physics drift. Normalized XY has a uniform metre scale.
+    static func requiresBoardChange(after: BoardSnapshot, before: BoardSnapshot) -> Bool {
+        guard Set(after.onTable.keys) == Set(before.onTable.keys) else { return true }
+        let serializationTolerance = 0.0001 / Double(AngleSceneCalculator.innerLength)
+        return before.onTable.contains { key, next in
+            guard let previous = after.onTable[key] else { return true }
+            return abs(next.x - previous.x) > serializationTolerance
+                || abs(next.y - previous.y) > serializationTolerance
+        }
+    }
+
+    private func changeBoard(to board: BoardSnapshot, completion: @escaping () -> Void) {
+        playbackPhase = .arranging
+        hidePlanDecorations()
+        scene.hideCueStick()
+        freezeCamera()
+        let duration = UIAccessibility.isReduceMotionEnabled ? 0 : boardChangeDuration
+        for (key, node) in scene.allBallNodes {
+            node.removeAllActions()
+            if let destination = board.onTable[key] {
+                if node.isHidden || node.parent == nil || node.opacity < 0.01 {
+                    scene.showBall(key: key, scenePosition: point(destination), cuePose: .home)
+                    // A returned ball leaves the pocket inventory using its existing fade policy.
+                    scene.railInventory.reconcile(animated: duration > 0)
+                    node.opacity = 0
+                }
+                let move = SCNAction.move(to: point(destination), duration: duration)
+                move.timingMode = .easeInEaseOut
+                node.runAction(.group([move, .fadeIn(duration: duration)]))
+            } else if !node.isHidden {
+                node.runAction(.fadeOut(duration: duration))
+            }
+        }
+        let generation = playbackGeneration
+        scene.rootNode.runAction(.wait(duration: duration), forKey: boardChangeActionKey) { [weak self] in
+            Task { @MainActor in
+                guard let self, self.playbackGeneration == generation else { return }
+                self.performWhenResumed { [weak self] in
+                    guard let self else { return }
+                    for (key, node) in self.scene.allBallNodes {
+                        node.isHidden = board.onTable[key] == nil
+                        node.opacity = 1
+                    }
+                    completion()
+                }
+            }
+        }
+    }
+
+    private func solveStep(_ i: Int) {
+        guard isPlaying, steps.indices.contains(i) else { return }
+        var step = steps[i]
+        step.before = currentBoard()
+        updateOverlay(shot: step.shot)
+        guard step.before.onTable[PositionPlayBall.cueKey] != nil else {
+            stopUnavailableShot(reason: "母球已离台")
             return
         }
+        guard step.shot.isFree || step.before.onTable[step.shot.targetKey] != nil else {
+            stopUnavailableShot(reason: "目标球已离台")
+            return
+        }
+
+        let solved = PositionPlayShotSolver.solve(before: step.before, shot: step.shot, surfaceY: surfaceY)
+        guard let pred = solved, pred.feasible, pred.hasFinalTableState,
+              let recorder = pred.recorder, pred.duration > 0.05,
+              let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden
+        else {
+            let reason = solved?.infeasibleReason ?? ""
+            stopUnavailableShot(reason: reason.isEmpty ? "当前球位无法接续" : reason)
+            return
+        }
+
+        shotView = (cueNode.position, pred.aimDirection)
+        scene.discardSavedPerspectiveView()
+        hidePlanDecorations()
+        scene.hideCueStick()
+        playbackPhase = .transitioning
+        if cameraMode == .perspective3D { _ = enterShotView(animated: true) }
+        waitForShotView { [weak self] in
+            guard let self else { return }
+            self.playbackPhase = .observing
+            self.schedulePlayback(after: i == 0 ? self.observeHold : 0) { [weak self] in
+                self?.prepareShot(step: step, prediction: pred, recorder: recorder, index: i)
+            }
+        }
+    }
+
+    /// Also used by continuity tests: only visible, on-table nodes feed the next solve.
+    func currentBoard() -> BoardSnapshot {
+        BoardSnapshot(onTable: scene.allBallNodes.reduce(into: [:]) { board, entry in
+            let (key, node) = entry
+            guard !node.isHidden, node.parent != nil else { return }
+            let p = AngleSceneCalculator.sceneToNormalized(position: node.position)
+            board[key] = CanvasPoint(x: Double(p.x), y: Double(p.y))
+        })
+    }
+
+    private func waitForShotView(_ completion: @escaping () -> Void) {
+        guard isPlaying else { return }
+        if cameraMode == .perspective3D, scene.cameraRig?.isTransitioning == true {
+            schedulePlayback(after: 1.0 / 60) { [weak self] in self?.waitForShotView(completion) }
+        } else {
+            completion()
+        }
+    }
+
+    private func stopUnavailableShot(reason: String) {
+        playbackGeneration += 1
+        cancelScheduledPlayback()
+        freezeCamera()
+        playbackPhase = .finished
+        playbackState = .idle
+        playbackMessage = "第 \(stepIndex + 1) 杆已停止：\(reason)。可重新回放或切换球形。"
+        showOverlay = false
+        hidePlanDecorations()
+        scene.hideCueStick()
+    }
+
+    private func prepareShot(step: SequenceStep, prediction pred: ShotPrediction,
+                             recorder: TrajectoryRecorder, index i: Int) {
+        guard isPlaying, let cueNode = scene.cueBallNode else { return }
+        playbackPhase = .aiming
+        let aim = pred.aimDirection
 
         drawPlan(prediction: pred, shot: step.shot)
         let strikePos = CueStroke.strikePosition(
@@ -296,13 +526,17 @@ final class DrillSceneController: ObservableObject {
         let clearancePlayback = TrajectoryPlayback(
             recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
         )
-        DispatchQueue.main.asyncAfter(deadline: .now() + hold) { [weak self] in
+        let generation = playbackGeneration
+        schedulePlayback(after: hold) { [weak self] in
             guard let self, self.isPlaying else { return }
             self.scene.runCueStroke(
                 strikePosition: strikePos, aim: aim, velocity: Float(step.shot.velocity),
                 clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
             ) { [weak self] in
-                self?.playStep(step: step, prediction: pred, recorder: recorder, index: i)
+                guard let self, self.playbackGeneration == generation else { return }
+                self.performWhenResumed { [weak self] in
+                    self?.playStep(step: step, prediction: pred, recorder: recorder, index: i)
+                }
             }
         }
     }
@@ -312,6 +546,7 @@ final class DrillSceneController: ObservableObject {
     private func playStep(step: SequenceStep, prediction pred: ShotPrediction,
                           recorder: TrajectoryRecorder, index i: Int) {
         guard isPlaying else { return }
+        playbackPhase = .moving
         clearTrajectory()
         scene.ghostBallNode?.isHidden = true
         scene.hideContactDot()
@@ -345,27 +580,24 @@ final class DrillSceneController: ObservableObject {
             scheduleNextStep(after: i)
             return
         }
+        let generation = playbackGeneration
         cueNode.runAction(.group([cueAction, .wait(duration: completionDuration)])) { [weak self] in
             Task { @MainActor in
-                guard let self, self.isPlaying else { return }
-                self.applyStepRest(step: step, prediction: pred)
-                self.scheduleNextStep(after: i)
+                guard let self, self.playbackGeneration == generation else { return }
+                self.performWhenResumed { [weak self] in
+                    guard let self else { return }
+                    self.applyStepRest(step: step, prediction: pred)
+                    self.scheduleNextStep(after: i)
+                }
             }
         }
         ShotAudioScheduler.shared.play(prediction: pred)
     }
 
-    /// 一杆收尾：球落静止位（有预测用引擎终位，否则用录制 `after`），清动画与球杆。
-    private func applyStepRest(step: SequenceStep, prediction pred: ShotPrediction?) {
+    /// Playback has already written the final poses; never overwrite surviving balls here.
+    private func applyStepRest(step: SequenceStep, prediction pred: ShotPrediction) {
         scene.railInventory.finishPlayback()
         ShotAudioScheduler.shared.cancel()
-        guard let pred else {
-            placeStepBoard(step.after, preservePoses: true)
-            scene.hideCueStick()
-            clearTrajectory()
-            return
-        }
-        let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let potted = Set(pred.pocketedBalls.map { boardKey(forPredName: $0, shot: step.shot) })
         for (key, node) in scene.allBallNodes {
             guard step.before.onTable[key] != nil else { continue }
@@ -376,10 +608,6 @@ final class DrillSceneController: ObservableObject {
                 node.isHidden = true
             } else {
                 node.isHidden = false
-                let predName = PositionPlayShotSolver.predName(boardKey: key, shot: step.shot)
-                if let p = pred.finalPositions[predName] {
-                    node.position = SCNVector3(p.x, yLevel, p.z)
-                }
             }
         }
         scene.hideCueStick()
@@ -391,23 +619,26 @@ final class DrillSceneController: ObservableObject {
         guard isPlaying else { return }
         let next = i + 1
         guard next < steps.count else { finishPlayback(); return }
+        playbackPhase = .holding
+        schedulePlayback(after: interShotPause) { [weak self] in
+            self?.runStep(next)
+        }
         if playbackState == .pausingAfterShot {
             // 停在本杆结果盘面；HUD 保留（整条序列尚未播完）。
-            playbackState = .paused
-            return
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + interShotPause) { [weak self] in
-            guard let self, self.isPlaying else { return }
-            self.runStep(next)
+            pauseAtCurrentPhase()
         }
     }
 
-    /// 整条序列播完：隐藏 HUD，复位回静帧（与缩略图同契约）。
+    /// Keep the final board and camera until the user explicitly replays.
     private func finishPlayback() {
+        playbackGeneration += 1
+        cancelScheduledPlayback()
+        completed = true
+        playbackPhase = .finished
         playbackState = .idle
         showOverlay = false
         scene.hideCueStick()
-        resetBalls()
+        ShotAudioScheduler.shared.cancel()
     }
 
     /// 无序列数据时的单杆演示：沿用静帧的代表性一杆。
@@ -432,7 +663,7 @@ final class DrillSceneController: ObservableObject {
         let clearancePlayback = TrajectoryPlayback(
             recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
         )
-        DispatchQueue.main.asyncAfter(deadline: .now() + setupHold) { [weak self] in
+        schedulePlayback(after: setupHold) { [weak self] in
             guard let self, self.isPlaying else { return }
             self.scene.runCueStroke(
                 strikePosition: strikePos, aim: aim, velocity: Float(source.shot.velocity),
@@ -462,9 +693,7 @@ final class DrillSceneController: ObservableObject {
 
         let ballTail: TimeInterval = pred.pocketedBalls.isEmpty
             ? 0 : TrajectoryPlayback.pocketSettleDuration + 0.1
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + TimeInterval(playback.duration) + ballTail
-        ) { [weak self] in
+        schedulePlayback(after: TimeInterval(playback.duration) + ballTail) { [weak self] in
             self?.finishPlayback()
         }
     }
@@ -488,12 +717,8 @@ final class DrillSceneController: ObservableObject {
         )
     }
 
-    /// 摆某杆的盘面：不在该盘面的球一律隐藏，在桌球复原 parent / opacity / 动作后定位。
-    /// - Parameter preservePoses: 演示中逐杆摆盘传 `true`——第 i+1 杆的 `before` 就是第 i 杆停稳的
-    ///   局面，姿态沿用球当前朝向（DR-304：否则杆间停顿后刚停稳的贴纸会被重置成单位姿态、
-    ///   肉眼「原地转一下」）。静帧落座（`preparePreviewBoard`）保持 `false`，画面与缩略图同契约。
-    private func placeStepBoard(_ board: BoardSnapshot, preservePoses: Bool = false) {
-        let poses = preservePoses ? scene.captureBallPoses() : [:]
+    /// Explicit formation selection seats its opening board. Shot boundaries never call this.
+    private func placeStepBoard(_ board: BoardSnapshot) {
         for (key, node) in scene.allBallNodes {
             node.removeAllActions()
             if board.onTable[key] == nil {
@@ -507,8 +732,7 @@ final class DrillSceneController: ObservableObject {
         DrillStaticPreview.placeBoard(
             board, on: scene, ballScale: DrillStaticPreview.Options.detail.ballScale
         )
-        scene.setCueBallHomeOrientation(BallSpinIntegrator.identityOrientation, apply: !preservePoses)
-        if preservePoses { scene.restoreBallPoses(poses) }
+        scene.setCueBallHomeOrientation(BallSpinIntegrator.identityOrientation, apply: true)
     }
 
     /// `PositionPlayShotSolver.predName` 的逆映射（引擎球名 → 盘面键）。
@@ -555,7 +779,11 @@ final class DrillSceneController: ObservableObject {
         let cuePts = scenePoints(start: animation.cueBall.start, path: animation.cueBall.path, y: cueHome.y)
         let tgtPts = scenePoints(start: animation.targetBall.start, path: animation.targetBall.path, y: targetHome.y)
         if let cueAction = moveAction(points: cuePts, duration: total * 0.9, initialDelay: 0) {
-            cue.runAction(cueAction) { [weak self] in Task { @MainActor in self?.resetBalls() } }
+            let generation = playbackGeneration
+            cue.runAction(cueAction) { [weak self] in Task { @MainActor in
+                guard let self, self.playbackGeneration == generation else { return }
+                self.resetBalls()
+            } }
         }
         if let target, let tgtAction = moveAction(points: tgtPts, duration: total * 0.5, initialDelay: total * 0.38) {
             target.runAction(tgtAction)
@@ -566,6 +794,7 @@ final class DrillSceneController: ObservableObject {
     private func resetBalls() {
         ShotAudioScheduler.shared.cancel()
         restoreHomePositions(clearActions: true)
+        playbackGeneration += 1
         playbackState = .idle
         showOverlay = false
         applyPreviewFrame()
@@ -656,8 +885,10 @@ final class DrillSceneController: ObservableObject {
 /// 详情页 live USDZ 2D 顶视球桌（2:1）+ 回放按钮 + 播放期 HUD。
 /// 「上手试打」入口在详情底栏（DR-057），台面不再叠主色胶囊以免与内容争抢。
 struct DrillSceneView: View {
+    @Environment(\.scenePhase) private var scenePhase
     let drill: DrillContent
     @StateObject private var controller = DrillSceneController()
+    @StateObject private var fpsReadout = TableFPSReadoutState()
     @State private var didAppear = false
     @State private var playbackControlsVisible = true
     @State private var controlHideTask: Task<Void, Never>?
@@ -672,26 +903,29 @@ struct DrillSceneView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: Spacing.sm) {
-                Button(controller.cameraMode == .perspective3D ? "3D" : "2D") {
+                Button {
                     controller.setCameraMode(controller.cameraMode == .perspective3D ? .topDown2D : .perspective3D)
                     revealPlaybackControls()
+                } label: {
+                    HStack(spacing: 0) {
+                        cameraModeLabel("2D", selected: controller.cameraMode == .topDown2D)
+                        Text("/")
+                            .foregroundStyle(Color.btTextSecondary)
+                        cameraModeLabel("3D", selected: controller.cameraMode == .perspective3D)
+                    }
+                    .font(.btSubheadlineSemibold)
+                    .padding(.horizontal, 4)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
                 }
-                .font(.btSubheadlineSemibold)
-                .frame(minWidth: 44, minHeight: 44)
                 .accessibilityLabel(controller.cameraMode == .perspective3D ? "切换到2D俯视" : "切换到3D视角")
                 .accessibilityValue(controller.cameraMode == .perspective3D ? "3D" : "2D")
                 .accessibilityIdentifier("drillScene.cameraMode")
-                if controller.cameraMode == .perspective3D {
-                    Button("全桌") { controller.observeWholeTable() }
-                        .font(.btFootnote)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .accessibilityLabel("查看全桌")
-                        .accessibilityIdentifier("drillScene.overview")
-                }
                 Spacer(minLength: 0)
                 Text(controller.stepLabel)
                     .font(.btFootnote)
                     .foregroundStyle(Color.btTextSecondary)
+                    .accessibilityValue(controller.phaseLabel)
                     .accessibilityIdentifier("drillScene.step")
             }
             .buttonStyle(.plain)
@@ -704,12 +938,31 @@ struct DrillSceneView: View {
                     interactionMode: controller.cameraMode == .perspective3D ? .cameraControl : .none,
                     autoFitsLandscapeTable: true,
                     backgroundColor: controller.cameraMode == .perspective3D ? .black : Self.feltBackground,
-                    onTableTapped: { _ in revealPlaybackControls() }
+                    onTableTapped: { _ in revealPlaybackControls() },
+                    contentIsAnimating: controller.isPlaying,
+                    fpsReadoutState: fpsReadout
                 )
                 // 相框比例取 USDZ 外框实测兜底；相机再按运行时实测外框与容器双轴自适应，
                 // 保证六袋四库完整可见且保留抗锯齿安全余量。
                 .aspectRatio(CGFloat(DrillSceneController.frameAspect), contentMode: .fit)
                 .accessibilityIdentifier("drillScene.renderViewport")
+                .overlay(alignment: .topTrailing) {
+                    if controller.cameraMode == .perspective3D {
+                        Text(fpsReadout.text)
+                            .font(.btCaption2)
+                            .monospacedDigit()
+                            .fixedSize()
+                            .foregroundStyle(Color.btTextSecondary)
+                            .padding(.horizontal, Spacing.sm)
+                            .padding(.vertical, Spacing.xs)
+                            .background(Color.btBGSecondary.opacity(0.85), in: Capsule())
+                            .environment(\.colorScheme, .dark)
+                            .padding(Spacing.sm)
+                            .allowsHitTesting(false)
+                            .accessibilityLabel("渲染帧率，" + fpsReadout.text)
+                            .accessibilityIdentifier("table.renderFPS")
+                    }
+                }
 
                 // 球桌控制面：播放中控件隐藏后，轻点这里只唤出控件，不直接暂停。
                 // 独立 AX 元素也供 UI 测试量取台面 frame；不能把 identifier 挂在 ZStack 上，
@@ -768,6 +1021,15 @@ struct DrillSceneView: View {
                 hudBar
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+            if let message = controller.playbackMessage {
+                Text(message)
+                    .font(.btFootnote)
+                    .foregroundStyle(Color.btTextSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(Spacing.sm)
+                    .background(Color.btBGSecondary)
+                    .accessibilityIdentifier("drillScene.playbackMessage")
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
         .animation(BTMotion.easeInOutFast, value: controller.showOverlay)
@@ -780,9 +1042,26 @@ struct DrillSceneView: View {
             didAppear = true
             controller.setup(drill: drill)
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { controller.suspendPlayback() }
+        }
         .onDisappear {
+            controller.suspendPlayback()
             controlHideTask?.cancel()
         }
+    }
+
+    private func cameraModeLabel(_ title: String, selected: Bool) -> some View {
+        Text(title)
+            .foregroundStyle(selected ? Color.btPrimary : Color.btTextSecondary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 5)
+            .background {
+                if selected {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.btPrimary.opacity(0.12))
+                }
+            }
     }
 
     private func revealPlaybackControls() {

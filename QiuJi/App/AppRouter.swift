@@ -47,6 +47,29 @@ final class AppRouter: ObservableObject {
     @Published var historyPath = NavigationPath()
     @Published var profilePath = NavigationPath()
 
+    #if DEBUG && targetEnvironment(simulator)
+    private var didConsumeLiveReviewLaunch = false
+
+    /// Consume once per router, including after popping or recreating MainTabView.
+    @discardableResult
+    func applyLiveReviewLaunchOnce(_ request: LiveReviewLaunchRequest) -> Bool {
+        guard !didConsumeLiveReviewLaunch else { return false }
+        didConsumeLiveReviewLaunch = true
+        switch request.destination {
+        case .theory(let id):
+            anglePath = NavigationPath()
+            anglePath.append(AngleRoute.theoryPage(id))
+            selectedTab = .angle
+        case .drillDetail(let id):
+            drillLibraryPath = NavigationPath()
+            drillLibraryPath.append(id)
+            selectedTab = .drillLibrary
+        }
+        print("\(request.capabilityMarker) routed pageId=\(request.pageID) contentId=\(request.contentID)")
+        return true
+    }
+    #endif
+
     /// 「训练计划」列表上次点开的计划 id（官方 planId 或自定义 UUID 串）。
     /// 不发 published：只在 pop 时读，避免无关刷新。
     var planListRestoreID: String?

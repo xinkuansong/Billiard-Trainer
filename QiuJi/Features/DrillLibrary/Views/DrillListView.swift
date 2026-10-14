@@ -79,7 +79,7 @@ struct DrillListView: View {
                     .accessibilityIdentifier("ballTypeMenu_\(filter.rawValue)")
                 }
             }
-            Section("精讲类型") {
+            Section("动作类型") {
                 ForEach(DrillBadgeFilter.allCases) { filter in
                     Button {
                         withAnimation(BTMotion.easeFast) {
@@ -129,7 +129,7 @@ struct DrillListView: View {
         .accessibilityLabel(
             libraryFilterActiveCount > 0
                 ? "筛选，已选 \(libraryFilterActiveCount) 项"
-                : "筛选球种与精讲"
+                : "筛选球种与动作类型"
         )
     }
 

@@ -1,0 +1,31 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_学"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "浅谈球感",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "浅谈球感"
+    },
+    {
+      "action": "cover",
+      "name": "P18-19-default",
+      "entry": "practice/学/浅谈球感",
+      "maximumViews": 40
+    }
+  ]
+}

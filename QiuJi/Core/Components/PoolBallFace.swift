@@ -145,6 +145,15 @@ enum PoolBallStyle {
 /// - 接触点 = 品牌绿；瞄准点（假想球球心）= 红点
 /// 线宽只有两档：`lineMain`（瞄准/进球/球迹同粗）与 `lineHint`（释义线细一档）。
 enum TrajectoryStyle {
+    /// Teaching overlays on rendered felt use fixed, bright colors in both appearances.
+    /// Page chrome keeps its adaptive brand/warning palette.
+    enum TeachingFigure {
+        static let actual = TrajectoryStyle.contactColor
+        static let effect = UIColor(Color("btFigureEffect"))
+        static let follow = UIColor(Color("btFigureFollow"))
+        static let guide = UIColor(Color("btFigureGuide"))
+    }
+
     /// Training-only overlay palette; other teaching diagrams retain their existing style.
     enum TrainingAssist {
         static let aimPoint = UIColor(red: 0.20, green: 0.80, blue: 1.0, alpha: 1)
@@ -205,7 +214,10 @@ enum TrajectoryStyle {
     /// 瞄准点（假想球球心）标记 = 红点（问题集合条 1.6/4.2：球心是瞄准参考点，全页统一）。
     static let aimPointColor = UIColor(red: 1.0, green: 0.30, blue: 0.26, alpha: 0.95)
 
-    /// 90° 分离角释义线 = 品牌绿短虚线，与假想球圈/接触点同「教学标注」家族。
+    /// Ghost cue-ball outline; independent of the green contact marker.
+    static let ghostColor = UIColor.white.withAlphaComponent(0.95)
+
+    /// 90° 分离角释义线 = 品牌绿短虚线，与接触点同「教学标注」家族。
     /// 语义：过**假想球球心**（母球碰撞瞬间位置）、垂直于撞击线的切线——定杆母球沿它离开。
     /// DR-021：弃白——定杆时该线与母球白色轨迹线共线重合，白色无法区分。
     static let separationColor = UIColor(red: 0.36, green: 0.92, blue: 0.55, alpha: 0.9)

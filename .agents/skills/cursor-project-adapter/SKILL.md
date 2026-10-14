@@ -53,8 +53,13 @@ Cursor 专属能力不得假装在 Codex 中存在。`.mdc` 的 `alwaysApply` �
 | 复杂问题清单拆批 | Orchestrator 规则 | Orchestrator | `.cursor/skills/issue-collection-restructure/SKILL.md` |
 | 从现有App复建/维护Figma设计系统、组件与页面族同态验收 | Orchestrator；按操作叠加Figma与UI审查规则 | 单主控串行；不调用子智能体 | `/Users/song/.codex/skills/app-design-system-rebuild/SKILL.md`；先读 `tasks/app-interface-redesign/CURRENT.md` 与当前批次，D020优先于旧并行安排 |
 | 执行既有批次方案 | Orchestrator + 对应专项规则 | 对应任务角色 | `.cursor/skills/plan-batch-execution/SKILL.md` |
+| 球迹十设备实时人工评审、问题修复、用户复验 | Orchestrator；按诊断/实现/复核叠加专项规则 | 主控统筹，按当前方案已确认模型分工 | `/Users/song/.codex/skills/app-live-review/SKILL.md`；先读 `tasks/app-interface-redesign/CURRENT.md` 与 PLAN，D025重新开始及逐批闭环优先于旧Figma/采集队列；模型路由在PLAN §9.1，不套Cursor默认 |
 | 用户明确要求委派或并行智能体 | Orchestrator + `.cursor/rules/01-subagent-model-selection.mdc` | 读取被委派角色文件 | 在 `plan-delegated-execution` 与 `plan-parallel-delegated-execution` 中选择适用者 |
 | 结构化辩论 | `.cursor/rules/70-debate-protocol.mdc` 及议题规则 | 对应 debate agent | 在 idea generation/evaluation/recording 中选择当前轮需要者 |
+
+上述实时评审使用自身闭环流程和PLAN §9.1；用户已确认模型时无需再询问，也不自动叠加通用委派技能的其他审批/批次机制。
+
+页面布局、自适应实现与相应 QA/UI 复核均读取 `swiftui-design-system` 及其 `references/adaptive-layout.md`；该参考规定通用决策方法，页面宽度和专项球桌例外仍以当前页面卡为准。纯数据/构建检查不因此加载布局参考。
 
 一个任务可叠加多个技能，但只读取确实影响当前任务的文件。选中某个 `SKILL.md` 后必须完整读取；它引用的资源仅在该分支需要时读取。
 

@@ -1,0 +1,40 @@
+{
+  "fixture": "templateOnly",
+  "premium": true,
+  "steps": [
+    {
+      "action": "tap",
+      "id": "我的模版",
+      "scrollTo": 4
+    },
+    {
+      "action": "tap",
+      "id": "管理模版，赛前热身",
+      "scrollTo": 4
+    },
+    {
+      "action": "tap",
+      "id": "编辑"
+    },
+    {
+      "action": "wait",
+      "id": "customPlanNameField",
+      "kind": "textField"
+    },
+    {
+      "action": "tap",
+      "id": "ellipsis.circle"
+    },
+    {
+      "action": "wait",
+      "id": "遍数",
+      "kind": "text"
+    },
+    {
+      "action": "cover",
+      "name": "P05-02-default-dose",
+      "entry": "正常首页模版入口；冻结内存fixture；不改生产界面",
+      "maximumViews": 12
+    }
+  ]
+}

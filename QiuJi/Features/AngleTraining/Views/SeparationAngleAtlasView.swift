@@ -7,7 +7,7 @@ struct SeparationAngleAtlasView: View {
 
     var body: some View {
         BTTeachingTablePage(vm: vm, titleLabel: "分离角图谱", identifier: "separationAngleAtlas",
-            velocity: $vm.velocity,
+            velocity: $vm.velocity, showsDisabledSpinEntry: true,
             information: teachingInformation, usesStandardTitle: true,
             title: { EmptyView() },
             leftContent: { size in

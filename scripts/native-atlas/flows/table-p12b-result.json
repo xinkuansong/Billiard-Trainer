@@ -1,0 +1,44 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_练"
+    },
+    {
+      "action": "tap",
+      "id": "瞄准点训练",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "aimPointDiagram.figure",
+      "kind": "any"
+    },
+    {
+      "action": "tap",
+      "id": "提交瞄准点"
+    },
+    {
+      "action": "wait",
+      "id": "下一题"
+    },
+    {
+      "action": "cover",
+      "name": "TABLE-P12b-result",
+      "maximumViews": 40
+    }
+  ],
+  "catalog": {
+    "TABLE-P12b-result": {
+      "id": "TABLE/P12b",
+      "title": "瞄准点训练",
+      "state": "result",
+      "figmaPage": "71"
+    }
+  }
+}

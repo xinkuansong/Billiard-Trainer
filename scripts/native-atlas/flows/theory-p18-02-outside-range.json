@@ -1,0 +1,41 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_理"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "30° 法则",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "30° 法则"
+    },
+    {
+      "action": "adjustSlider",
+      "id": "theoryT01.thetaSlider",
+      "position": 1,
+      "scrollTo": 8
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-02-outside-range-selected"
+    },
+    {
+      "action": "cover",
+      "name": "P18-02-outside-range-body",
+      "maximumViews": 40,
+      "dragX": 0.97
+    }
+  ]
+}

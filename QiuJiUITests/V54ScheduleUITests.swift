@@ -1184,7 +1184,7 @@ final class V57PracticeLibraryUITests: XCTestCase {
         let menu = app.buttons["badgeFilterMenu"]
         XCTAssertTrue(menu.waitForExistence(timeout: 15))
         menu.tap()
-        XCTAssertTrue(app.staticTexts["精讲类型"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["动作类型"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["已完成"].exists)
         capture("v57-count-filter-menu")
     }

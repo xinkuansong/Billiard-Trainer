@@ -269,6 +269,7 @@ struct SceneAimingView: View {
             AngleSceneView(
                 scene: vm.scene,
                 cameraMode: .constant(cameraMode),
+                pocketDisplayOrientation: .init(portrait: portrait),
                 interactionMode: interactionMode,
                 // Landscape uses the same whole-table fitting as Daily Clearance.
                 // World ball positions and the question's pocket index stay fixed.
@@ -394,13 +395,7 @@ struct SceneAimingView: View {
 
     private var targetPocketText: String {
         guard let question = vm.currentQuestion else { return "—" }
-        // Perspective can orbit: describe the highlighted pocket, not a screen direction.
-        if is3D { return question.pocket.type == .corner ? "高亮角袋" : "高亮中袋" }
-        // topDown2D: screen-right = +X; screen-down = +Z (normalized y).
-        let names = portrait
-            ? ["左下角袋", "左上角袋", "右下角袋", "右上角袋", "左侧中袋", "右侧中袋"]
-            : ["左上角袋", "右上角袋", "左下角袋", "右下角袋", "上侧中袋", "下侧中袋"]
-        return names.indices.contains(question.pocketIndex) ? names[question.pocketIndex] : "—"
+        return PocketDisplay.name(index: question.pocketIndex, orientation: .init(portrait: portrait))
     }
 
     // MARK: - Top result HUD

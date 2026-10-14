@@ -25,11 +25,13 @@ App 里看不到；`--skip-publish` 只在明确不想动发布产物时用。
     与 content-engineering SKILL / JSON `image` 约定一致，D-v25-6）
   - `manual01` 默认别名：token 为 `manual01` 时，额外写入无 token 前缀的副本
     （`<drillId>_initial.png` / `<drillId>_sNN.png`），供 JSON 未写 manual 前缀时使用
+  - 真源库中仅一个有效球形的历史 token 同样写默认别名；不按选中出片目录数推断单球形
   - seq_* 目录默认跳过（除非 --include-seq）；c042 历史 demo 用 drill 序列，不靠 seq_f4ded688
 
 用法：
   python3 scripts/import-engine-export-to-app.py --dry-run
   python3 scripts/import-engine-export-to-app.py --prune
+  python3 scripts/import-engine-export-to-app.py --stills-only --export-root <reviewed-output>
 """
 
 from __future__ import annotations
@@ -117,6 +119,8 @@ def import_one(
     token: str,
     multi: bool,
     dry_run: bool,
+    stills_only: bool = False,
+    write_default_alias: bool = False,
 ) -> list[dict]:
     """Copy media; return videos[] entries for this variant."""
     prefix = f"{token}_" if multi else ""
@@ -128,7 +132,7 @@ def import_one(
         ("full_3d.mp4", f"{prefix}full_3d.mp4", f"{prefix}full3d" if multi else "full3d"),
         ("full.gif", f"{prefix}full.gif", None),  # gif 进 Videos，不进 videos[]（详情页播 mp4）
     ]
-    for src_name, dst_name, vid_id in mapping:
+    for src_name, dst_name, vid_id in ([] if stills_only else mapping):
         src = export_dir / src_name
         if not src.is_file():
             print(f"  ⚠️ missing {src_name} in {export_dir.name}")
@@ -138,8 +142,10 @@ def import_one(
             video_entries.append({"id": vid_id, "file": dst_name})
 
     # Stills → DrillTutorials（去掉 sNN_still 的 `_still`；与 JSON image 约定对齐）
-    still_prefix = f"{drill_id}_{token}_" if multi else f"{drill_id}_"
-    write_manual01_alias = token == MANUAL01_TOKEN
+    # Static names retain explicit formation tokens even in a selected batch.
+    # Video naming continues to use the original single/multi recipe above.
+    still_prefix = f"{drill_id}_{token}_" if multi or token != "main" else f"{drill_id}_"
+    write_alias = token == MANUAL01_TOKEN or write_default_alias
     for src in sorted(export_dir.glob("*.png")):
         if src.name in {"cover.png"}:
             continue
@@ -149,14 +155,14 @@ def import_one(
         primary = TUTORIALS_ROOT / f"{still_prefix}{dest_stem}.png"
         copy_file(src, primary, dry_run)
         # 默认取 manual01：JSON 未写 manual 前缀时指向无 token 文件名
-        if write_manual01_alias:
+        if write_alias:
             alias = TUTORIALS_ROOT / f"{drill_id}_{dest_stem}.png"
             if alias != primary:
                 copy_file(src, alias, dry_run)
 
     # Preview frames
     preview_src = export_dir / "preview"
-    if preview_src.is_dir():
+    if not stills_only and preview_src.is_dir():
         asset_key = f"{drill_id}_{token}" if multi else drill_id
         for frame in sorted(preview_src.glob("frame_*.png")):
             copy_file(frame, PREVIEWS_ROOT / asset_key / frame.name, dry_run)
@@ -203,6 +209,8 @@ def prune_videos(drill_id: str, keep_files: set[str], dry_run: bool) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--stills-only", action="store_true", help="只回填静帧，不复制视频/预览、不改 JSON、不要求 full.mp4")
+    ap.add_argument("--export-root", type=Path, default=EXPORT_ROOT, help="已审查的出片目录，默认 build/position_play_export")
     ap.add_argument("--prune", action="store_true", help="删除目标目录中未回填的旧 take_*/旧文件")
     ap.add_argument("--include-seq", action="store_true", help="也处理 seq_* 目录（默认跳过）")
     ap.add_argument(
@@ -220,15 +228,27 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    if not EXPORT_ROOT.is_dir():
-        print(f"无出片目录: {EXPORT_ROOT}", file=sys.stderr)
+    if args.stills_only and (args.prune or not args.skip_json):
+        ap.error("--stills-only 不可与 --prune / --no-skip-json 同用")
+    export_root = args.export_root
+
+    if not export_root.is_dir():
+        print(f"无出片目录: {export_root}", file=sys.stderr)
         return 1
 
     index_ids = load_index_ids()
+    # Default aliases also exist for historical single-formation Snipaste tokens.
+    # Count the source library, not this selected export batch: a partial import
+    # of manual02 must never replace a multi-formation drill's default image.
+    source_counts: dict[str, int] = defaultdict(int)
+    for source in (REPO_ROOT / "content/position_play/sequences").glob("*.json"):
+        parsed = parse_export_dir(source.stem)
+        if parsed and json.loads(source.read_text(encoding="utf-8")).get("steps"):
+            source_counts[parsed[0]] += 1
     # group export dirs by drill
     by_drill: dict[str, list[tuple[str, Path]]] = defaultdict(list)
     skipped = 0
-    for d in sorted(EXPORT_ROOT.iterdir()):
+    for d in sorted(export_root.iterdir()):
         if not d.is_dir() or d.name.startswith("."):
             continue
         if d.name.startswith("seq_") and not args.include_seq:
@@ -245,7 +265,7 @@ def main() -> int:
             skipped += 1
             continue
         # require at least full.mp4
-        if not (d / "full.mp4").is_file():
+        if not args.stills_only and not (d / "full.mp4").is_file():
             print(f"SKIP incomplete (no full.mp4): {d.name}")
             skipped += 1
             continue
@@ -262,7 +282,8 @@ def main() -> int:
         all_videos: list[dict] = []
         keep: set[str] = set()
         for token, export_dir in variants:
-            entries = import_one(export_dir, drill_id, token, multi, args.dry_run)
+            entries = import_one(export_dir, drill_id, token, multi, args.dry_run,
+                                 args.stills_only, source_counts.get(drill_id) == 1)
             all_videos.extend(entries)
             for e in entries:
                 keep.add(e["file"])

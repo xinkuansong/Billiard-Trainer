@@ -1,0 +1,36 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_练"
+    },
+    {
+      "action": "tap",
+      "id": "角度预测",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "geometric.figure",
+      "kind": "any"
+    },
+    {
+      "action": "cover",
+      "name": "TABLE-P12a-default",
+      "maximumViews": 40
+    }
+  ],
+  "catalog": {
+    "TABLE-P12a-default": {
+      "id": "TABLE/P12a",
+      "title": "角度预测",
+      "state": "default",
+      "figmaPage": "71"
+    }
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "batch": "N01",
+  "workers": [
+    {
+      "id": "standard",
+      "udid": "F2BE90C4-370D-46AB-B3E8-8F0060424B2D",
+      "jobs": [
+        {
+          "id": "light",
+          "theme": "light",
+          "size": [
+            402,
+            874
+          ],
+          "orientation": "portrait",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasPilotEmpty",
+            "ScreenshotTourUITests/testNativeAtlasPilotTemplate"
+          ],
+          "expected": [
+            "P02-empty-top",
+            "P02-empty-scroll1",
+            "P02-empty-scroll2",
+            "P02-templateCard-top",
+            "P02-templateCard-scroll1",
+            "P02-templateCard-scroll2"
+          ]
+        },
+        {
+          "id": "dark",
+          "theme": "dark",
+          "size": [
+            402,
+            874
+          ],
+          "orientation": "portrait",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasPilotEmpty",
+            "ScreenshotTourUITests/testNativeAtlasPilotTemplate"
+          ],
+          "expected": [
+            "P02-empty-top",
+            "P02-empty-scroll1",
+            "P02-empty-scroll2",
+            "P02-templateCard-top",
+            "P02-templateCard-scroll1",
+            "P02-templateCard-scroll2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "small",
+      "udid": "DF09A8D3-2574-43D7-85D8-369CFDB2C36D",
+      "jobs": [
+        {
+          "id": "light",
+          "theme": "light",
+          "size": [
+            375,
+            667
+          ],
+          "orientation": "portrait",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasPilotEmpty"
+          ],
+          "expected": [
+            "P02-empty-top",
+            "P02-empty-scroll1",
+            "P02-empty-scroll2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pad",
+      "udid": "47AE5F33-3D60-4102-BBC7-E29D05114E6E",
+      "jobs": [
+        {
+          "id": "portrait-light",
+          "theme": "light",
+          "size": [
+            834,
+            1210
+          ],
+          "orientation": "portrait",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasPilotEmpty"
+          ],
+          "expected": [
+            "P02-empty-top",
+            "P02-empty-scroll1",
+            "P02-empty-scroll2"
+          ]
+        },
+        {
+          "id": "landscape-light",
+          "theme": "light",
+          "size": [
+            1210,
+            834
+          ],
+          "orientation": "landscape",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasPilotEmpty"
+          ],
+          "expected": [
+            "P02-empty-top",
+            "P02-empty-scroll1",
+            "P02-empty-scroll2"
+          ]
+        }
+      ]
+    }
+  ]
+}

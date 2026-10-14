@@ -1,0 +1,56 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_练"
+    },
+    {
+      "action": "tap",
+      "id": "3D角度",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "angleTraining.start"
+    },
+    {
+      "action": "tap",
+      "id": "angleTraining.start"
+    },
+    {
+      "action": "wait",
+      "id": "angleTraining.settings"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P09b-question"
+    },
+    {
+      "action": "tap",
+      "id": "angleTraining.settings"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P09b-more"
+    }
+  ],
+  "catalog": {
+    "TABLE-P09b-question": {
+      "id": "TABLE/P09b",
+      "title": "3D角度",
+      "state": "question",
+      "figmaPage": "71"
+    },
+    "TABLE-P09b-more": {
+      "id": "TABLE/P09b",
+      "title": "3D角度",
+      "state": "more",
+      "figmaPage": "71"
+    }
+  }
+}

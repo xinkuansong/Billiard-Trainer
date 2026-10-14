@@ -1,0 +1,24 @@
+{
+  "fixture": "empty",
+  "premium": true,
+  "steps": [
+    {
+      "action": "tap",
+      "id": "planPoster-plan_beginner",
+      "scrollTo": 8
+    },
+    {
+      "action": "wait",
+      "id": "planDetail.primaryCTA"
+    },
+    {
+      "action": "tap",
+      "id": "planDetail.primaryCTA"
+    },
+    {
+      "action": "snapshot",
+      "name": "P04-03-start-confirm",
+      "entry": "Normal UI from frozen App home fixture; in-memory data only"
+    }
+  ]
+}

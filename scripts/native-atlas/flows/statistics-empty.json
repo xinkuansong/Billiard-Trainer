@@ -1,0 +1,25 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "记录"
+    },
+    {
+      "action": "tap",
+      "id": "统计",
+      "kind": "any"
+    },
+    {
+      "action": "wait",
+      "id": "角度训练",
+      "kind": "text"
+    },
+    {
+      "action": "cover",
+      "name": "P20-empty",
+      "entry": "history/statistics",
+      "maximumViews": 40
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "fixture": "single",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.startTraining",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "activeTraining.timerToggle",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "activeTraining.timerToggle",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "切换到单项视图",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "显示成功率",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "每组计时",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "设置",
+      "kind": "button",
+      "scrollTo": 8
+    },
+    {
+      "action": "wait",
+      "id": "休息时长",
+      "kind": "text"
+    },
+    {
+      "action": "selectWheel",
+      "value": "30s"
+    },
+    {
+      "action": "snapshot",
+      "name": "P07-03-duration-30"
+    },
+    {
+      "action": "selectWheel",
+      "value": "45s"
+    },
+    {
+      "action": "snapshot",
+      "name": "P07-03-duration-45"
+    },
+    {
+      "action": "selectWheel",
+      "value": "90s"
+    },
+    {
+      "action": "snapshot",
+      "name": "P07-03-duration-90"
+    },
+    {
+      "action": "selectWheel",
+      "value": "120s"
+    },
+    {
+      "action": "snapshot",
+      "name": "P07-03-duration-120"
+    }
+  ]
+}

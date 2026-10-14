@@ -1,0 +1,54 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_学"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "瞄准方法",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "瞄准方法"
+    },
+    {
+      "action": "adjustSlider",
+      "id": "aimingMethods.pipe.trialSlider",
+      "position": 0,
+      "scrollTo": 12
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-15-pipe-thick"
+    },
+    {
+      "action": "adjustSlider",
+      "id": "aimingMethods.pipe.trialSlider",
+      "position": 1,
+      "scrollTo": 12
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-15-pipe-thin"
+    },
+    {
+      "action": "tap",
+      "id": "aimingMethods.contact.play",
+      "scrollTo": 12
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-15-contact-merge-settled"
+    }
+  ]
+}

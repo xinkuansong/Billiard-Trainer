@@ -5,6 +5,89 @@ import SceneKit
 @MainActor
 final class DrillStaticPreviewTests: XCTestCase {
 
+    private let thumbnailRadius = Double(AngleSceneCalculator.ballRadius)
+        * Double(DrillStaticPreview.Options.thumbnail.ballScale) / Double(AngleSceneCalculator.innerLength)
+
+    func test_thumbnailLayout_preservesAlreadySeparatedPositions() throws {
+        let input = ["a": CanvasPoint(x: 0.2, y: 0.2), "b": CanvasPoint(x: 0.7, y: 0.4)]
+        let result = try ThumbnailBallLayout.resolve(input, radius: thumbnailRadius)
+        for key in input.keys {
+            XCTAssertEqual(result[key]!.x, input[key]!.x, accuracy: 1e-12)
+            XCTAssertEqual(result[key]!.y, input[key]!.y, accuracy: 1e-12)
+        }
+    }
+
+    func test_thumbnailLayout_movesPairEquallyToTangency() throws {
+        let input = ["a": CanvasPoint(x: 0.49, y: 0.25), "b": CanvasPoint(x: 0.51, y: 0.25)]
+        let result = try ThumbnailBallLayout.resolve(input, radius: thumbnailRadius)
+        XCTAssertEqual(result["a"]!.x, 0.5 - thumbnailRadius, accuracy: 1e-8)
+        XCTAssertEqual(result["b"]!.x, 0.5 + thumbnailRadius, accuracy: 1e-8)
+        XCTAssertEqual(result["a"]!.y, 0.25, accuracy: 1e-12)
+        assertThumbnailLayout(result)
+    }
+
+    func test_thumbnailLayout_keepsDenseRailRowOrderedAndInside() throws {
+        let input = Dictionary(uniqueKeysWithValues: (0..<8).map {
+            (String(format: "%02d", $0), CanvasPoint(x: 0.012 + Double($0) * 0.023, y: 0.015))
+        })
+        let result = try ThumbnailBallLayout.resolve(input, radius: thumbnailRadius)
+        let row = result.keys.sorted().map { result[$0]! }
+        for i in 1..<row.count {
+            XCTAssertEqual(row[i].x - row[i-1].x, 2 * thumbnailRadius, accuracy: 1e-7)
+            XCTAssertEqual(row[i].y, row[0].y, accuracy: 1e-12)
+        }
+        assertThumbnailLayout(result)
+    }
+
+    func test_thumbnailLayout_diagonalClusterIsDeterministicAndDoesNotOverlap() throws {
+        let input = ["a": CanvasPoint(x: 0.48, y: 0.23), "b": CanvasPoint(x: 0.50, y: 0.25),
+                     "c": CanvasPoint(x: 0.52, y: 0.23), "d": CanvasPoint(x: 0.5, y: 0.21)]
+        let result = try ThumbnailBallLayout.resolve(input, radius: thumbnailRadius)
+        let reversed = try ThumbnailBallLayout.resolve(Dictionary(uniqueKeysWithValues: input.sorted { $0.key > $1.key }), radius: thumbnailRadius)
+        for key in input.keys {
+            XCTAssertEqual(result[key]!.x, reversed[key]!.x, accuracy: 1e-12)
+            XCTAssertEqual(result[key]!.y, reversed[key]!.y, accuracy: 1e-12)
+        }
+        assertThumbnailLayout(result)
+    }
+
+    func test_thumbnailLayout_coincidentCentersAndImpossibleBounds() throws {
+        let same = Dictionary(uniqueKeysWithValues: (0..<4).map { (String($0), CanvasPoint(x: 0.5, y: 0.25)) })
+        assertThumbnailLayout(try ThumbnailBallLayout.resolve(same, radius: thumbnailRadius))
+        XCTAssertThrowsError(try ThumbnailBallLayout.resolve(same, radius: 0.2))
+    }
+
+    func test_thumbnailLayout_allActiveFormationCopiesFitWithoutOverlaps() async throws {
+        let loaded = await DrillContentService.shared.loadDrillIndex()
+        let index = try XCTUnwrap(loaded)
+        for id in index.allDrillIds {
+            let loaded = await DrillContentService.shared.loadDrillFromBundle(id: id)
+            let drill = try XCTUnwrap(loaded)
+            let source = try XCTUnwrap(DrillStaticPreview.resolveSource(for: drill))
+            let original = source.board.onTable
+            let positions = try ThumbnailBallLayout.resolve(original, radius: thumbnailRadius)
+            assertThumbnailLayout(positions, label: id)
+            let reloaded = try XCTUnwrap(DrillStaticPreview.resolveSource(for: drill)).board.onTable
+            for key in original.keys {
+                XCTAssertEqual(reloaded[key]!.x, original[key]!.x)
+                XCTAssertEqual(reloaded[key]!.y, original[key]!.y)
+            }
+        }
+    }
+
+    private func assertThumbnailLayout(_ points: [String: CanvasPoint], label: String = "", file: StaticString = #filePath, line: UInt = #line) {
+        let values = Array(points.values)
+        for (i, p) in values.enumerated() {
+            XCTAssertGreaterThanOrEqual(p.x, thumbnailRadius - 1e-8, label, file: file, line: line)
+            XCTAssertLessThanOrEqual(p.x, 1 - thumbnailRadius + 1e-8, label, file: file, line: line)
+            XCTAssertGreaterThanOrEqual(p.y, thumbnailRadius - 1e-8, label, file: file, line: line)
+            XCTAssertLessThanOrEqual(p.y, 0.5 - thumbnailRadius + 1e-8, label, file: file, line: line)
+            for j in values.indices where j > i {
+                XCTAssertGreaterThanOrEqual(hypot(p.x-values[j].x, p.y-values[j].y), 2*thumbnailRadius-1e-8, label, file: file, line: line)
+            }
+        }
+    }
+
     /// `A*` 序列命名已随 8293ef4 全量退役（Bundle `DrillBoards/` 零个 `__A[0-9]` 文件），
     /// 门面球形改由 `manual*` 承担；断言前提随之更新为 manual 语义。
     func test_representative_prefersManual_overSnipaste() {
@@ -117,10 +200,10 @@ final class DrillStaticPreviewTests: XCTestCase {
         for mode: AngleTrainingScene.CameraMode in [.perspective3D, .topDown2D, .perspective3D] {
             controller.setCameraMode(mode)
             if mode == .perspective3D {
-                XCTAssertEqual(try XCTUnwrap(controller.scene.cameraRig).targetYaw, .pi / 2, accuracy: 0.00001)
-                let camera = try XCTUnwrap(controller.scene.cameraNode)
-                // Check SceneKit's actual camera basis, not a hand-derived yaw convention.
-                XCTAssertGreaterThan(camera.convertVector(SCNVector3(1, 0, 0), to: nil).x, 0.99)
+                let rig = try XCTUnwrap(controller.scene.cameraRig)
+                XCTAssertTrue(rig.usesSurfaceCamera)
+                XCTAssertEqual(rig.twoViewSnapshot?.mode, .thirdPerson)
+                XCTAssertNotNil(rig.twoViewSnapshot?.simpleShot?.surface)
             }
             XCTAssertEqual(controller.cameraMode, mode)
             XCTAssertEqual(controller.playbackState, .playing)
@@ -202,5 +285,231 @@ final class DrillStaticPreviewTests: XCTestCase {
             firstShot: nil,
             steps: []
         )
+    }
+}
+
+/// Exercises the real controller, physics recorder, SceneKit actions and shared camera.
+@MainActor
+final class DrillSequenceCameraTests: XCTestCase {
+    private func controller(id: String = "drill_c042") async throws -> DrillSceneController {
+        let loaded = await DrillContentService.shared.loadDrillFromBundle(id: id)
+        let drill = try XCTUnwrap(loaded)
+        let result = DrillSceneController()
+        result.setup(drill: drill)
+        result.switchFormation(token: "manual02")
+        result.scene.cameraRig?.viewportSize = CGSize(width: 390, height: 220)
+        result.setCameraMode(.perspective3D)
+        return result
+    }
+
+    private func pump(_ controller: DrillSceneController, renderer: SCNRenderer,
+                      timeout: TimeInterval = 45, until condition: () -> Bool) async throws {
+        let deadline = ProcessInfo.processInfo.systemUptime + timeout
+        while !condition(), ProcessInfo.processInfo.systemUptime < deadline {
+            renderer.update(atTime: ProcessInfo.processInfo.systemUptime)
+            controller.scene.cameraRig?.update(deltaTime: 0.02)
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertTrue(condition(), "Timed out: \(controller.playbackPhase), \(controller.stepLabel), \(controller.playbackMessage ?? "")")
+    }
+
+    private func renderer(_ controller: DrillSceneController) -> SCNRenderer {
+        let renderer = SCNRenderer(device: nil, options: nil)
+        renderer.scene = controller.scene
+        renderer.pointOfView = controller.scene.cameraNode
+        return renderer
+    }
+
+    func testAuthoredBoardChangeDistinguishesReseatFromContinuousPhysics() async throws {
+        let c = try await controller()
+        let independent = try XCTUnwrap(c.availableFormations.first { $0.token == "manual01" }).steps
+        let continuous = try XCTUnwrap(c.availableFormations.first { $0.token == "manual02" }).steps
+        for index in 1..<independent.count {
+            XCTAssertTrue(DrillSceneController.requiresBoardChange(after: independent[index - 1].after, before: independent[index].before))
+        }
+        for index in 1..<continuous.count {
+            XCTAssertFalse(DrillSceneController.requiresBoardChange(after: continuous[index - 1].after, before: continuous[index].before))
+        }
+        var movedCue = continuous[0].after
+        let originalCue = try XCTUnwrap(movedCue.onTable[PositionPlayBall.cueKey])
+        movedCue.onTable[PositionPlayBall.cueKey] = CanvasPoint(x: originalCue.x + 0.05, y: originalCue.y)
+        XCTAssertTrue(DrillSceneController.requiresBoardChange(after: continuous[0].after, before: movedCue),
+            "A saved cue reposition is a board change even when the ball identities stay the same")
+    }
+
+    func testIndependentShotsRestoreTargetBeforeTurningCameraAndCompleteAllEight() async throws {
+        let c = try await controller()
+        c.switchFormation(token: "manual01")
+        let steps = try XCTUnwrap(c.availableFormations.first { $0.token == "manual01" }).steps
+        let target = try XCTUnwrap(c.scene.allBallNodes[steps[1].shot.targetKey])
+        let cue = try XCTUnwrap(c.scene.cueBallNode)
+        let r = renderer(c)
+        c.play()
+        try await pump(c, renderer: r) { c.playbackPhase == .aiming }
+        c.togglePlayback()
+        try await pump(c, renderer: r) { c.playbackState == .paused }
+        XCTAssertTrue(target.isHidden, "The first shot actually potted the repeated target")
+        let heldCamera = try XCTUnwrap(c.scene.cameraRig?.twoViewSnapshot?.pose)
+        let cueRest = cue.simdPosition
+        c.togglePlayback()
+        try await pump(c, renderer: r) { c.playbackPhase == .arranging }
+        XCTAssertEqual(c.scene.cameraRig?.twoViewSnapshot?.pose.eye, heldCamera.eye)
+        XCTAssertEqual(cue.simdPosition, cueRest, "Reseating must begin at the visible rest position")
+        XCTAssertFalse(target.isHidden)
+        XCTAssertEqual(target.opacity, 0, accuracy: 0.0001, "The potted target reappears by fading in")
+        try await Task.sleep(nanoseconds: 100_000_000)
+        r.update(atTime: ProcessInfo.processInfo.systemUptime)
+        c.togglePlayback()
+        XCTAssertEqual(c.playbackState, .paused)
+        let pausedPosition = cue.simdPosition
+        try await Task.sleep(nanoseconds: 150_000_000)
+        r.update(atTime: ProcessInfo.processInfo.systemUptime)
+        XCTAssertEqual(cue.simdPosition, pausedPosition)
+        XCTAssertEqual(c.scene.cameraRig?.twoViewSnapshot?.pose.eye, heldCamera.eye)
+        c.togglePlayback()
+        try await pump(c, renderer: r) { c.playbackPhase == .transitioning }
+        XCTAssertFalse(target.isHidden)
+        XCTAssertEqual(target.opacity, 1)
+        for (key, p) in steps[1].before.onTable {
+            let node = try XCTUnwrap(c.scene.allBallNodes[key])
+            let expected = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: p.x, y: p.y), surfaceY: c.scene.surfaceY)
+            XCTAssertEqual(node.position.x, expected.x, accuracy: 0.00001)
+            XCTAssertEqual(node.position.z, expected.z, accuracy: 0.00001)
+        }
+        XCTAssertEqual(c.scene.cameraRig?.twoViewSnapshot?.pose.eye, heldCamera.eye,
+            "The connector must start only after the new board is completely seated")
+        try await pump(c, renderer: r, timeout: 120) { c.playbackState == .idle }
+        XCTAssertNil(c.playbackMessage)
+        XCTAssertEqual(c.stepLabel, "第 8/8 杆")
+        XCTAssertEqual(c.playbackPhase, .finished)
+    }
+
+    func testCurrentEngineContinuationMatchesPlaybackRest() async throws {
+        for id in ["drill_c042", "drill_c064", "drill_c079", "drill_c081", "drill_c071"] {
+            let loaded = await DrillContentService.shared.loadDrillFromBundle(id: id)
+            let drill = try XCTUnwrap(loaded)
+            let c = DrillSceneController()
+            c.setup(drill: drill)
+            let formation = try XCTUnwrap(c.availableFormations.last)
+            var board = try XCTUnwrap(formation.steps.first).before
+            var count = 0
+            for (index, step) in formation.steps.enumerated() {
+                guard let pred = PositionPlayShotSolver.solve(before: board, shot: step.shot, surfaceY: c.scene.surfaceY),
+                      pred.feasible, pred.hasFinalTableState, let recorder = pred.recorder else {
+                    print("CHAIN-AUDIT", id, "stopped", index + 1, board)
+                    break
+                }
+                let playback = TrajectoryPlayback(recorder: recorder, surfaceY: c.scene.surfaceY + AngleSceneCalculator.ballRadius)
+                var next = board
+                for key in board.onTable.keys {
+                    let name = PositionPlayShotSolver.predName(boardKey: key, shot: step.shot)
+                    if pred.pocketedBalls.contains(name) { next.onTable.removeValue(forKey: key); continue }
+                    if let final = playback.stateAt(ballName: name, time: playback.duration), let engine = pred.finalPositions[name] {
+                        XCTAssertEqual(final.position.x, engine.x, accuracy: 0.00001)
+                        XCTAssertEqual(final.position.z, engine.z, accuracy: 0.00001)
+                        let point = AngleSceneCalculator.sceneToNormalized(position: final.position)
+                        next.onTable[key] = CanvasPoint(x: Double(point.x), y: Double(point.y))
+                    }
+                }
+                board = next
+                count += 1
+            }
+            print("CHAIN-AUDIT", id, "completed", count, "of", formation.steps.count)
+        }
+    }
+
+    func testOpeningUsesSharedThirdPersonSurfaceAndSolvedAim() async throws {
+        let c = try await controller()
+        let step = try XCTUnwrap(c.availableFormations.first { $0.token == "manual02" }?.steps.first)
+        let pred = try XCTUnwrap(PositionPlayShotSolver.solve(before: step.before, shot: step.shot, surfaceY: c.scene.surfaceY))
+        let cue = try XCTUnwrap(c.scene.cueBallNode).position
+        let expected = CameraSurface(cue: SIMD2(cue.x, cue.z), surfaceY: c.scene.surfaceY,
+            viewport: CGSize(width: 390, height: 220),
+            bearing: CameraSurface.bearing(cue: SIMD2(cue.x, cue.z), backwards: SIMD2(-pred.aimDirection.x, -pred.aimDirection.z))).pose
+        let actual = try XCTUnwrap(c.scene.cameraRig?.twoViewSnapshot)
+        XCTAssertEqual(actual.mode, .thirdPerson)
+        XCTAssertLessThan(simd_distance(actual.pose.eye, expected.eye), 0.0001)
+        XCTAssertLessThan(simd_distance(actual.pose.forward, expected.forward), 0.0001)
+        XCTAssertEqual(actual.pose.fov, expected.fov, accuracy: 0.0001)
+    }
+
+    func testContinuousFourShotCameraPauseAndFinalBoard() async throws {
+        let c = try await controller(id: "drill_c081")
+        let r = renderer(c)
+        let opening = c.currentBoard()
+        c.play()
+        try await pump(c, renderer: r) { c.playbackPhase == .aiming }
+        let rig = try XCTUnwrap(c.scene.cameraRig)
+        rig.handleSurfacePan(delta: SIMD2(40, 0))
+        try await Task.sleep(nanoseconds: 80_000_000)
+        rig.update(deltaTime: 0.08)
+        XCTAssertTrue(rig.twoViewOwnerIsManual)
+        c.togglePlayback() // Aiming/motion requests finish the whole shot.
+        let firstView = try XCTUnwrap(c.scene.cameraRig?.twoViewSnapshot?.pose)
+        try await pump(c, renderer: r) { c.playbackPhase == .moving }
+        c.suspendPlayback() // Backgrounding must freeze actual in-flight ball poses.
+        let flight = c.scene.allBallNodes.mapValues(\.simdPosition)
+        let flightPoses = c.scene.captureBallPoses()
+        try await Task.sleep(nanoseconds: 100_000_000)
+        r.update(atTime: ProcessInfo.processInfo.systemUptime)
+        for (key, p) in flight { XCTAssertEqual(c.scene.allBallNodes[key]?.simdPosition, p) }
+        for (key, p) in flightPoses { XCTAssertEqual(c.scene.allBallNodes[key]?.simdOrientation.vector, p.vector) }
+        c.togglePlayback()
+        c.togglePlayback() // Re-request the boundary pause after background resume.
+        try await pump(c, renderer: r) { c.playbackState == .paused }
+        XCTAssertEqual(c.playbackPhase, .holding)
+        XCTAssertLessThan(simd_distance(try XCTUnwrap(c.scene.cameraRig?.twoViewSnapshot?.pose.eye), firstView.eye), 0.0001)
+        let stopped = c.scene.allBallNodes.mapValues(\.simdPosition)
+        let poses = c.scene.captureBallPoses()
+        c.togglePlayback()
+        try await pump(c, renderer: r) { c.playbackPhase == .transitioning }
+        for (key, p) in stopped { XCTAssertEqual(c.scene.allBallNodes[key]?.simdPosition, p, "Ball moved at shot boundary: \(key)") }
+        for (key, p) in poses { XCTAssertEqual(c.scene.allBallNodes[key]?.simdOrientation.vector, p.vector) }
+        c.scene.cameraRig?.update(deltaTime: 0.1)
+        c.togglePlayback() // Transition pause is immediate and preserves displayed pose.
+        XCTAssertEqual(c.playbackState, .paused)
+        let pausedView = try XCTUnwrap(c.scene.cameraRig?.twoViewSnapshot?.pose)
+        c.scene.cameraRig?.update(deltaTime: 1)
+        XCTAssertEqual(c.scene.cameraRig?.twoViewSnapshot?.pose.eye, pausedView.eye)
+        c.setCameraMode(.topDown2D)
+        c.setCameraMode(.perspective3D)
+        XCTAssertEqual(c.scene.cameraRig?.twoViewSnapshot?.pose.eye, pausedView.eye)
+        c.togglePlayback()
+        try await pump(c, renderer: r) { c.playbackPhase == .aiming }
+        XCTAssertFalse(rig.twoViewOwnerIsManual, "The next shot resumes automatic framing")
+        for (key, p) in stopped { XCTAssertEqual(c.scene.allBallNodes[key]?.simdPosition, p) }
+        XCTAssertFalse(c.scene.cameraRig?.isTransitioning ?? true)
+        try await pump(c, renderer: r, timeout: 120) { c.playbackState == .idle }
+        XCTAssertNil(c.playbackMessage)
+        XCTAssertEqual(c.stepLabel, "第 4/4 杆")
+        XCTAssertEqual(c.playbackPhase, .finished)
+        XCTAssertNotEqual(c.currentBoard().onTable.count, opening.onTable.count)
+        let finalBoard = c.currentBoard()
+        try await Task.sleep(nanoseconds: 150_000_000)
+        XCTAssertEqual(c.currentBoard().onTable.count, finalBoard.onTable.count)
+        c.play()
+        XCTAssertEqual(c.currentBoard().onTable.count, opening.onTable.count)
+        XCTAssertEqual(c.stepLabel, "第 1/4 杆")
+        c.suspendPlayback()
+    }
+
+    func testMissingNextTargetStopsWithoutLoadingSavedBoard() async throws {
+        let c = try await controller()
+        let r = renderer(c)
+        let steps = try XCTUnwrap(c.availableFormations.first { $0.token == "manual02" }).steps
+        c.play()
+        try await pump(c, renderer: r) { c.playbackPhase == .aiming }
+        c.togglePlayback()
+        try await pump(c, renderer: r) { c.playbackState == .paused }
+        let target = try XCTUnwrap(c.scene.allBallNodes[steps[1].shot.targetKey])
+        target.isHidden = true
+        let positions = c.scene.allBallNodes.mapValues(\.simdPosition)
+        let poses = c.scene.captureBallPoses()
+        c.togglePlayback()
+        try await pump(c, renderer: r) { c.playbackState == .idle }
+        XCTAssertNotNil(c.playbackMessage)
+        XCTAssertTrue(target.isHidden)
+        for (key, p) in positions { XCTAssertEqual(c.scene.allBallNodes[key]?.simdPosition, p) }
+        for (key, p) in poses { XCTAssertEqual(c.scene.allBallNodes[key]?.simdOrientation.vector, p.vector) }
     }
 }

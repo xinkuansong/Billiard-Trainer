@@ -1,4 +1,5 @@
 import XCTest
+import StoreKitTest
 
 /// 全页面截图巡游。
 /// 依次进入 5 个 Tab 及主要子页面，逐页捕获 `XCUIScreen.main.screenshot()` 为 keepAlways 附件。
@@ -10,6 +11,7 @@ import XCTest
 final class ScreenshotTourUITests: XCTestCase {
 
     var app: XCUIApplication!
+    private var nativeAtlasUsesStoreKitFixture = false
     private var v47ForcedShotDirURL: URL?
     private var usesDeterministicInMemoryStore = false
 
@@ -37,6 +39,11 @@ final class ScreenshotTourUITests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = true
+        if name.contains("testNativeAtlas") {
+            // Each atlas job launches exactly once with its own explicit fixture.
+            app = XCUIApplication()
+            return
+        }
         app = XCUIApplication.launchClean()
     }
 
@@ -548,6 +555,426 @@ final class ScreenshotTourUITests: XCTestCase {
     }
 
     // MARK: - The Tour
+
+    /// Native atlas v4: small independent jobs, explicit output and fixture identity.
+    /// Reuses the existing fixed-ID fixture; does not change production UI or data.
+    func testNativeAtlasPilotEmpty() throws {
+        try nativeAtlasPilot(fixture: "empty")
+    }
+
+    func testNativeAtlasPilotTemplate() throws {
+        try nativeAtlasPilot(fixture: "templateCard")
+    }
+
+    func testNativeAtlasRootTraining() throws { try nativeAtlasRoot(.training, page: "P02", identity: "本周训练") }
+    func testNativeAtlasRootLibrary() throws { try nativeAtlasRoot(.drillLibrary, page: "P14", identity: "搜索动作") }
+    func testNativeAtlasRootPractice() throws { try nativeAtlasRoot(.angle, page: "P17", identity: "搜索练习") }
+    func testNativeAtlasRootHistory() throws { try nativeAtlasRoot(.history, page: "P19", identity: "统计") }
+    func testNativeAtlasRootProfile() throws { try nativeAtlasRoot(.profile, page: "P24", identity: "收藏") }
+
+    private var nativeAtlasEntry = "normal-training-tab; existing-test-fixture"
+
+    /// Data-driven tours let later atlas batches reuse the same frozen build.
+    /// Every interaction is explicit; missing controls fail instead of silently skipping pages.
+    func testNativeAtlasConfiguredFlow() throws {
+        let environment = ProcessInfo.processInfo.environment
+        let path = try XCTUnwrap(environment["ATLAS_FLOW_PATH"])
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        let flow = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let steps = try XCTUnwrap(flow["steps"] as? [[String: Any]])
+        let fixture = flow["fixture"] as? String ?? "empty"
+        nativeAtlasUsesStoreKitFixture = flow["storeKitFixture"] as? Bool ?? false
+        var storeSession: SKTestSession?
+        if nativeAtlasUsesStoreKitFixture {
+            let catalog = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "Products", withExtension: "storekit"))
+            storeSession = try SKTestSession(contentsOf: catalog)
+            storeSession?.resetToDefaultState()
+            storeSession?.clearTransactions()
+        }
+        defer {
+            if let storeSession {
+                app.terminate()
+                storeSession.clearTransactions()
+            }
+        }
+        try nativeAtlasPrepare(fixture: fixture, premium: flow["premium"] as? Bool ?? true,
+                               extraArguments: flow["launchArguments"] as? [String] ?? [],
+                               useHomeFixture: flow["homeFixture"] as? Bool ?? true)
+        for (index, step) in steps.enumerated() {
+            let action = try XCTUnwrap(step["action"] as? String)
+            let directory = try XCTUnwrap(v47ForcedShotDirURL)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try JSONSerialization.data(withJSONObject: ["index": index, "step": step], options: [.prettyPrinted, .sortedKeys])
+                .write(to: directory.appendingPathComponent("flow-current-step.json"))
+            if let entry = step["entry"] as? String { nativeAtlasEntry = entry }
+            switch action {
+            case "tab":
+                app.switchTab(try XCTUnwrap(XCUIApplication.Tab(rawValue: try XCTUnwrap(step["name"] as? String))))
+            case "snapshot":
+                try nativeAtlasSnapshot(try XCTUnwrap(step["name"] as? String), fixture: fixture,
+                                        editingField: step["editingField"] as? String,
+                                        animatedRegion: step["animatedRegion"] as? String)
+            case "cover":
+                try nativeAtlasCover(try XCTUnwrap(step["name"] as? String), fixture: fixture,
+                                     maximumViews: step["maximumViews"] as? Int ?? 40,
+                                     scrollIdentifier: step["scrollId"] as? String,
+                                     scrollKind: step["scrollKind"] as? String,
+                                     endText: step["endText"] as? String,
+                                     dragX: step["dragX"] as? Double ?? 0.65)
+            case "back":
+                let back = app.navigationBars.buttons["BackButton"].firstMatch
+                XCTAssertTrue(back.waitForExistence(timeout: 5)); back.tap()
+            case "swipeUp", "swipeDown":
+                if action == "swipeUp" { app.swipeUp() } else { app.swipeDown() }
+            case "adjustSlider":
+                let identifier = try XCTUnwrap(step["id"] as? String)
+                let position = try XCTUnwrap(step["position"] as? Double)
+                XCTAssertTrue(position.isFinite && (0...1).contains(position))
+                let slider = app.sliders[identifier].firstMatch
+                for _ in 0..<(step["scrollTo"] as? Int ?? 0) {
+                    if slider.exists && slider.isHittable { break }
+                    app.swipeUp()
+                }
+                XCTAssertTrue(slider.waitForExistence(timeout: 8) && slider.isHittable,
+                              "Slider must be visible: \(identifier)")
+                slider.adjust(toNormalizedSliderPosition: CGFloat(position))
+                if step["endpointDrag"] as? Bool == true {
+                    guard position == 0 || position == 1 else {
+                        throw NSError(domain: "NativeAtlas", code: 3,
+                                      userInfo: [NSLocalizedDescriptionKey: "Endpoint drag requires position 0 or 1"])
+                    }
+                    // XCTest's normalized adjustment can stop one discrete step short.
+                    // Drag within this slider's measured frame, then check its own readout.
+                    let start = slider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                    let end = slider.coordinate(withNormalizedOffset: CGVector(dx: position, dy: 0.5))
+                    start.press(forDuration: 0.1, thenDragTo: end)
+                }
+                if let expected = step["expectedReadout"] as? String {
+                    let containerID = try XCTUnwrap(step["readoutContainer"] as? String)
+                    let container = app.descendants(matching: .any)[containerID].firstMatch
+                    let readout = container.staticTexts[expected].firstMatch
+                    guard readout.waitForExistence(timeout: 3), readout.isHittable else {
+                        throw NSError(domain: "NativeAtlas", code: 4,
+                                      userInfo: [NSLocalizedDescriptionKey:
+                                        "Slider readout mismatch: expected \(expected); \(container.debugDescription)"])
+                    }
+                }
+            case "selectWheel":
+                // Explicit single-wheel sheets only; never guess among date/time wheels.
+                let value = try XCTUnwrap(step["value"] as? String)
+                XCTAssertTrue(app.pickerWheels.firstMatch.waitForExistence(timeout: 8))
+                XCTAssertEqual(app.pickerWheels.count, 1)
+                let wheel = app.pickerWheels.firstMatch
+                XCTAssertTrue(wheel.isHittable)
+                wheel.adjust(toPickerWheelValue: value)
+                XCTAssertEqual(wheel.value as? String, value)
+            case "tap", "tapCenter", "wait", "type":
+                let identifier = try XCTUnwrap(step["id"] as? String)
+                let element: XCUIElement
+                switch step["kind"] as? String ?? "button" {
+                case "button": element = app.buttons[identifier].firstMatch
+                case "text": element = app.staticTexts[identifier].firstMatch
+                case "textField": element = app.textFields[identifier].firstMatch
+                case "searchField": element = app.searchFields[identifier].firstMatch
+                case "switch":
+                    // SwiftUI exposes the labelled row as a parent Switch and the
+                    // actual thumb as a nested Switch. Tap the thumb when present.
+                    let row = app.switches[identifier].firstMatch
+                    let thumb = row.switches.firstMatch
+                    element = thumb.exists ? thumb : row
+                case "navigationBar": element = app.navigationBars[identifier].firstMatch
+                case "any": element = app.descendants(matching: .any)[identifier].firstMatch
+                case "buttonContains": element = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", identifier)).firstMatch
+                default: throw NSError(domain: "NativeAtlas", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unknown element kind"])
+                }
+                if let maximumScrolls = step["scrollTo"] as? Int {
+                    for _ in 0..<maximumScrolls {
+                        if element.exists && element.isHittable { break }
+                        app.swipeUp()
+                    }
+                }
+                XCTAssertTrue(element.waitForExistence(timeout: step["timeout"] as? Double ?? 8), "Missing required step \(index): \(identifier)")
+                if action == "tap" { element.tap() }
+                if action == "tapCenter" {
+                    // Explicit opt-in for controls whose transformed AX frame makes
+                    // XCTest's automatic activation point invalid. Use the observed
+                    // visible frame, never a device-specific hard-coded coordinate.
+                    let window = app.windows.firstMatch
+                    let visible = element.frame.intersection(window.frame)
+                    guard !visible.isNull, visible.width >= 24, visible.height >= 24 else {
+                        XCTFail("No safe visible hit area for step \(index): \(identifier)")
+                        return
+                    }
+                    window.coordinate(withNormalizedOffset: .zero)
+                        .withOffset(CGVector(dx: visible.midX - window.frame.minX,
+                                             dy: visible.midY - window.frame.minY)).tap()
+                }
+                if action == "type" { element.tap(); element.typeText(try XCTUnwrap(step["text"] as? String)) }
+            default:
+                throw NSError(domain: "NativeAtlas", code: 2, userInfo: [NSLocalizedDescriptionKey: "Unknown action \(action)"])
+            }
+        }
+    }
+
+    private func nativeAtlasCover(_ prefix: String, fixture: String, maximumViews: Int,
+                                  scrollIdentifier: String? = nil, scrollKind: String? = nil, endText: String? = nil,
+                                  dragX: Double = 0.65) throws {
+        guard dragX > 0 && dragX < 1 else {
+            XCTFail("Scroll dragX must be inside the viewport")
+            return
+        }
+        let directory = try XCTUnwrap(v47ForcedShotDirURL)
+        var names: [String] = []
+        var previous: Data?
+        var reachedEnd = false
+        for index in 0..<maximumViews {
+            let name = prefix + String(format: "-scroll%02d", index)
+            try nativeAtlasSnapshot(name, fixture: fixture)
+            names.append(name)
+            let data = try Data(contentsOf: directory.appendingPathComponent(name + ".png"))
+            if data == previous { reachedEnd = true; break }
+            previous = data
+            // A fling can jump farther than the unobscured viewport on a small phone.
+            // Drag a short distance and hold before release to eliminate momentum.
+            let host = try XCTUnwrap(app)
+            let viewport: XCUIElement
+            if let scrollKind {
+                guard scrollKind == "collection" else {
+                    XCTFail("Unsupported explicit scroll kind: \(scrollKind)")
+                    return
+                }
+                let collections = host.collectionViews.allElementsBoundByIndex.filter { $0.exists && $0.isHittable }
+                guard collections.count == 1, let collection = collections.first else {
+                    XCTFail("Expected one hittable foreground collection, found \(collections.count)")
+                    return
+                }
+                viewport = collection
+            } else if let scrollIdentifier {
+                viewport = host.scrollViews[scrollIdentifier].firstMatch
+                guard viewport.exists && viewport.isHittable else {
+                    XCTFail("Explicit scroll target unavailable: \(scrollIdentifier)")
+                    return
+                }
+            } else {
+                viewport = host.scrollViews.allElementsBoundByIndex.filter { $0.exists && $0.isHittable }
+                    .max(by: { $0.frame.width < $1.frame.width }) ?? host
+            }
+            // Reading pages can place a Slider at the usual drag origin. The
+            // flow may opt into the page margin, paired with a required end marker.
+            let start = viewport.coordinate(withNormalizedOffset: CGVector(dx: dragX, dy: 0.72))
+            let end = viewport.coordinate(withNormalizedOffset: CGVector(dx: dragX, dy: 0.42))
+            start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.25)
+        }
+        if let endText {
+            let markers = scrollKind == "collection"
+                ? app.collectionViews.staticTexts.matching(identifier: endText).allElementsBoundByIndex
+                : app.staticTexts.matching(identifier: endText).allElementsBoundByIndex
+            reachedEnd = reachedEnd && markers.contains { $0.exists && $0.isHittable && app.frame.intersects($0.frame) }
+        }
+        try JSONSerialization.data(withJSONObject: ["prefix": prefix, "names": names, "reachedEnd": reachedEnd,
+                                                     "dragX": dragX, "requiredEndText": endText ?? "",
+                                                     "method": "unchanged stable full-screen PNG after upward swipe"], options: [.prettyPrinted, .sortedKeys])
+            .write(to: directory.appendingPathComponent(prefix + ".coverage.json"))
+        XCTAssertTrue(reachedEnd, "Cover did not reach an unchanged end frame within its bound: \(prefix)")
+    }
+
+    /// One launch for related pages; every page has a required identity and output.
+    /// The production Help link is the normal route to PlanListView.
+    func testNativeAtlasPlanEntryFlow() throws {
+        try nativeAtlasPrepare(fixture: "empty")
+        app.buttons["trainingHome.moreMenu"].tap()
+        XCTAssertTrue(app.buttons["使用帮助"].waitForExistence(timeout: 5))
+        try nativeAtlasSnapshot("P02-menu", fixture: "empty")
+        app.buttons["使用帮助"].tap()
+        XCTAssertTrue(app.navigationBars["使用帮助"].waitForExistence(timeout: 5))
+        nativeAtlasEntry = "training/more/help"
+        try nativeAtlasSnapshot("P13-collapsed", fixture: "empty")
+        XCTAssertTrue(tapIfExists("怎样安排今天的训练？", timeout: 3))
+        XCTAssertTrue(app.buttons["浏览训练计划"].waitForExistence(timeout: 5))
+        try nativeAtlasSnapshot("P13-start-expanded", fixture: "empty")
+        app.buttons["浏览训练计划"].tap()
+        XCTAssertTrue(app.navigationBars["训练计划"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["基本功"].firstMatch.waitForExistence(timeout: 8))
+        nativeAtlasEntry = "training/more/help/start-training/browse-plans"
+        try nativeAtlasSnapshot("P03-official-top", fixture: "empty")
+        app.navigationBars.buttons["BackButton"].tap()
+        XCTAssertTrue(app.navigationBars["使用帮助"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons["BackButton"].tap()
+        XCTAssertTrue(app.buttons["trainingHome.moreMenu"].waitForExistence(timeout: 5))
+        app.buttons["我的模版"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["新建模版"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["新建模版"].firstMatch.tap()
+        XCTAssertTrue(app.textFields["customPlanNameField"].waitForExistence(timeout: 5))
+        nativeAtlasEntry = "training/custom-tab/new-template"
+        try nativeAtlasSnapshot("P05-new-empty", fixture: "empty")
+        XCTAssertTrue(tapIfExists("添加训练项目", timeout: 3))
+        XCTAssertTrue(app.navigationBars["选择训练动作"].waitForExistence(timeout: 5))
+        nativeAtlasEntry += "/add-drill"
+        try nativeAtlasSnapshot("P06-picker-top", fixture: "empty")
+    }
+
+    private func nativeAtlasRoot(_ tab: XCUIApplication.Tab, page: String, identity: String) throws {
+        try nativeAtlasPrepare(fixture: "empty")
+        app.switchTab(tab)
+        nativeAtlasEntry = "normal-tab/\(tab.rawValue); existing-test-fixture"
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: identity).firstMatch.waitForExistence(timeout: 8))
+        try nativeAtlasSnapshot("\(page)-default-top", fixture: "empty")
+    }
+
+    private func nativeAtlasPrepare(fixture: String, premium: Bool = true, extraArguments: [String] = [],
+                                    useHomeFixture: Bool = true) throws {
+        continueAfterFailure = false
+        nativeAtlasEntry = "normal-training-tab; existing-test-fixture"
+        let environment = ProcessInfo.processInfo.environment
+        let directory = try XCTUnwrap(environment["V50_SHOT_DIR"] ?? environment["TEST_RUNNER_V50_SHOT_DIR"])
+        v47ForcedShotDirURL = URL(fileURLWithPath: directory, isDirectory: true)
+        XCUIDevice.shared.orientation = environment["ATLAS_ORIENTATION"] == "landscape" ? .landscapeLeft : .portrait
+        var arguments = ["-v50.inMemoryStore", "-v51.followSystemAppearance"]
+        if useHomeFixture {
+            arguments += ["-v54.todayState=\(fixture)", "-v54.templateCount=1"]
+        }
+        if premium { arguments.append("-forcePremium") }
+        app = XCUIApplication.launchClean(extraArgs: arguments + extraArguments)
+        XCTAssertTrue(app.buttons["trainingHome.moreMenu"].waitForExistence(timeout: 15))
+    }
+
+    private func nativeAtlasPilot(fixture: String) throws {
+        try nativeAtlasPrepare(fixture: fixture)
+        let custom = app.buttons["我的模版"].firstMatch
+        XCTAssertTrue(custom.waitForExistence(timeout: 5))
+        custom.tap()
+        nativeAtlasEntry = "normal-training-tab/custom-tab; existing-test-fixture"
+        if fixture == "templateCard" {
+            XCTAssertTrue(app.staticTexts["测试名字"].firstMatch.waitForExistence(timeout: 5))
+        } else {
+            XCTAssertFalse(app.staticTexts["测试名字"].firstMatch.exists)
+        }
+        try nativeAtlasSnapshot("P02-\(fixture)-top", fixture: fixture)
+        let scroll = app.scrollViews.firstMatch
+        XCTAssertTrue(scroll.exists)
+        scroll.swipeUp()
+        try nativeAtlasSnapshot("P02-\(fixture)-scroll1", fixture: fixture)
+        scroll.swipeUp()
+        try nativeAtlasSnapshot("P02-\(fixture)-scroll2", fixture: fixture)
+    }
+
+    private func nativeAtlasSnapshot(_ name: String, fixture: String, editingField: String? = nil,
+                                     animatedRegion: String? = nil) throws {
+        let dir = try XCTUnwrap(v47ForcedShotDirURL)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        // Only an explicitly identified editor may blink. Preserve the original screenshot;
+        // exclude its rectangle from comparison, while independently checking value and frame.
+        var editor: XCUIElement?
+        var editorFrame = CGRect.zero
+        var editorValue = ""
+        var ringFrame = CGRect.zero
+        var ringCenter = CGPoint.zero
+        if let animatedRegion {
+            XCTAssertEqual(animatedRegion, "rest-ring", "Only the known continuous rest ring may be excluded")
+            XCTAssertNil(editingField, "Do not combine dynamic exclusions")
+            for label in ["+30S", "完成休息", "最小化组间休息"] {
+                XCTAssertTrue(app.buttons[label].firstMatch.isHittable)
+            }
+            let clocks = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "^[0-9]+:[0-9]{2}$"))
+                .allElementsBoundByIndex.filter { $0.isHittable }
+            XCTAssertEqual(clocks.count, 1, "Require one visible rest clock")
+            let clock = try XCTUnwrap(clocks.first)
+            let captions = app.staticTexts.matching(identifier: "组间休息").allElementsBoundByIndex
+                .filter { $0.frame.minY > clock.frame.maxY && $0.frame.minY - clock.frame.maxY < 30 }
+            let caption = try XCTUnwrap(captions.first)
+            let content = clock.frame.union(caption.frame)
+            ringCenter = CGPoint(x: content.midX, y: content.midY)
+            // Frozen native layout: 200pt ring + 12pt stroke. The center text stays
+            // in comparison so animated/blurry digit transitions cannot pass.
+            ringFrame = CGRect(x: ringCenter.x - 110, y: ringCenter.y - 110, width: 220, height: 220)
+            XCTAssertTrue(app.windows.firstMatch.frame.contains(ringFrame))
+            XCTAssertLessThan(content.width, 140)
+            XCTAssertLessThan(content.height, 140)
+        }
+        if let editingField {
+            let field = app.descendants(matching: .any)[editingField].firstMatch
+            XCTAssertTrue(field.waitForExistence(timeout: 5))
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+            let keyboard = app.keyboards.firstMatch
+            let visibleKeyboard = keyboard.frame.intersection(app.windows.firstMatch.frame)
+            XCTAssertGreaterThan(visibleKeyboard.height, 100, "Software keyboard must be on screen, not only present in AX")
+            XCTAssertTrue(keyboard.keys.matching(NSPredicate(format: "label == 'q' OR label == '1'")).firstMatch.isHittable,
+                          "Software keyboard keys must be visible and hittable")
+            XCTAssertTrue(field.isHittable)
+            editor = field; editorFrame = field.frame; editorValue = String(describing: field.value)
+            XCTAssertGreaterThan(editorFrame.width, 0)
+        }
+        func comparisonData(_ shot: XCUIScreenshot) throws -> Data {
+            guard editor != nil || animatedRegion != nil else { return shot.pngRepresentation }
+            let image = shot.image
+            // AX frames use window points; XCUIScreenshot UIImage size/scale may
+            // describe pixel coordinates. Always normalize the comparison canvas.
+            let windowSize = app.windows.firstMatch.frame.size
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = image.size.width * image.scale / windowSize.width
+            let rendered = UIGraphicsImageRenderer(size: windowSize, format: format).image { context in
+                image.draw(in: CGRect(origin: .zero, size: windowSize))
+                UIColor.black.setFill()
+                if editor != nil { context.fill(editorFrame) }
+                if animatedRegion != nil {
+                    let ring = UIBezierPath(ovalIn: ringFrame)
+                    ring.append(UIBezierPath(ovalIn: CGRect(x: ringCenter.x - 70, y: ringCenter.y - 70, width: 140, height: 140)))
+                    ring.usesEvenOddFillRule = true
+                    ring.fill()
+                }
+            }
+            return try XCTUnwrap(rendered.pngData())
+        }
+        // XCTest idling does not guarantee SwiftUI crossfades have finished.
+        // Require consecutive identical frames rather than importing transition frames.
+        var screenshot = XCUIScreen.main.screenshot()
+        var last = try comparisonData(screenshot)
+        var equalFrames = 0
+        let requiredEqualFrames = animatedRegion == nil ? 3 : 2
+        for _ in 0..<(animatedRegion == nil ? 20 : 60) {
+            Thread.sleep(forTimeInterval: animatedRegion == nil ? 0.2 : 0.08)
+            screenshot = XCUIScreen.main.screenshot()
+            let current = try comparisonData(screenshot)
+            equalFrames = current == last ? equalFrames + 1 : 0
+            last = current
+            if equalFrames >= requiredEqualFrames { break }
+        }
+        XCTAssertGreaterThanOrEqual(equalFrames, requiredEqualFrames, "Screenshot did not settle; retain failure attachment, do not import")
+        if animatedRegion != nil {
+            for label in ["+30S", "完成休息", "最小化组间休息"] {
+                XCTAssertTrue(app.buttons[label].firstMatch.isHittable)
+            }
+        }
+        if let editor {
+            XCTAssertEqual(editor.frame, editorFrame, "Editor moved during settling")
+            XCTAssertEqual(String(describing: editor.value), editorValue, "Editor text changed during settling")
+            XCTAssertTrue(app.keyboards.firstMatch.exists)
+        }
+        let destination = dir.appendingPathComponent(name + ".png")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path), "Never overwrite evidence")
+        try screenshot.pngRepresentation.write(to: destination)
+        try app.debugDescription.write(to: dir.appendingPathComponent(name + ".ax.txt"), atomically: true, encoding: .utf8)
+        let frame = app.windows.firstMatch.frame
+        let metadata: [String: Any] = [
+            "name": name, "fixture": fixture, "capturedAt": ISO8601DateFormatter().string(from: Date()),
+            "window": ["x": frame.minX, "y": frame.minY, "width": frame.width, "height": frame.height],
+            "appearance": XCUIDevice.shared.appearance == .dark ? "dark" : "light",
+            "launchArguments": app.launchArguments, "entry": nativeAtlasEntry,
+            "storeKitFixture": nativeAtlasUsesStoreKitFixture,
+            "stabilityMethod": animatedRegion != nil ? "identical pixels except explicit continuous rest annulus; center digits and controls included; original PNG unchanged" : (editingField == nil ? "identical full PNG" : "identical pixels outside explicit editor; stable editor value/frame; keyboard visible"),
+            "animatedRegion": animatedRegion ?? "",
+            "comparisonAnnulus": [ringFrame.minX, ringFrame.minY, ringFrame.width, ringFrame.height, 140],
+            "screenshotUIImageSize": [screenshot.image.size.width, screenshot.image.size.height],
+            "screenshotUIImageScale": screenshot.image.scale,
+            "requiredEqualFrames": requiredEqualFrames,
+            "editingField": editingField ?? "",
+            "reviewStatus": "UNREVIEWED"
+        ]
+        try JSONSerialization.data(withJSONObject: metadata, options: [.prettyPrinted, .sortedKeys])
+            .write(to: dir.appendingPathComponent(name + ".json"))
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+    }
 
     func testFullScreenshotTour() {
         // 外观不在测试内切换（反复设 XCUIDevice.appearance 易把 Runner 打崩）。

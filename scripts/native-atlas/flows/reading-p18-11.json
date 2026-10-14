@@ -1,0 +1,31 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_理"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "安全球三维度模型",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "安全球三维度模型"
+    },
+    {
+      "action": "cover",
+      "name": "P18-11-default",
+      "entry": "practice/理/安全球三维度模型",
+      "maximumViews": 40
+    }
+  ]
+}

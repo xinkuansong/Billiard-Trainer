@@ -1,0 +1,46 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.moreMenu",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "训练心得",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "训练心得",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "wait",
+      "id": "trainingNotes.day",
+      "kind": "button"
+    },
+    {
+      "action": "back"
+    },
+    {
+      "action": "tab",
+      "name": "记录"
+    },
+    {
+      "action": "wait",
+      "id": "统计",
+      "kind": "any"
+    },
+    {
+      "action": "cover",
+      "name": "P19-populated",
+      "entry": "normal history tab after journal fixture seed",
+      "maximumViews": 40
+    }
+  ],
+  "launchArguments": [
+    "-journal.fixture"
+  ]
+}

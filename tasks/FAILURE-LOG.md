@@ -1516,3 +1516,54 @@ FL-143 v8（2026-10-10）：外部编辑器在单次执行中崩溃且无回执�
 - 已应用至：.cursor/skills/geometry-spatial-reasoning/SKILL.md § FL-144（2026-10-11）；tasks/UI-IMPLEMENTATION-SPEC.md Changelog同步。
 
 FL-144修复补证（2026-10-11）：r7构建重试BUILD SUCCEEDED；真机7680次平面球心高度检查最大误差0，旧错误调用被拒绝；50个动态时刻A/B/返回R共150图逐像素一致，初始和击球后原图实看无嵌入。首轮复制脚本残留r6源路径，因heightContract缺失被拒绝；错误副本单列保留，已修copy源及runID/heightContract后置守卫，重新读取同一次r7运行并核实，未重跑负载。高度缺陷已修复，性能重测/持续段及正式页面验收仍单列。
+
+### FL-145 · 名称全选以单设备一次成功代替跨设备交互闭环（2026-10-12）
+- APP-I034 r2使用SwiftUI TextField全局通知+AX过滤+异步全选；SE一次成功后交付，用户四手机与真机复现键盘/选区问题。局部实测范围虽有说明，但首次、重入与设备差异覆盖不足，不能把软件键盘异常全部归因模拟器。
+- r3改局部UIKit字段首次点击独占、显式becomeFirstResponder与selectedTextRange；编辑中不重选，组合草稿同步。三台手机原生检查与真机安装完成，02控制缺口/真机用户验收仍未闭环。
+- 已应用至：.cursor/rules/20-swiftui-developer.mdc DR-376 r3；后续分别记录焦点、可见键盘、完整选区、替换/追加、组词与重入，禁止用安装或单次选区代替交互通过。
+
+### FL-146 · 隐藏标签的UI断言混淆对象存在与可见（2026-10-13）
+- 角度页线条开关UI测试用exists断言隐藏文字消失；UILabel已隐藏但XCTest仍检出对象，连续失败。实际原图与单测isHidden确认显示正确。
+- 改为等待hittable状态，并保留菜单选中状态、UILabel.isHidden与截图交叉证据；最终重跑暂被其它会话PlanThree编译中间态阻断，未记通过。
+- 已应用至：.cursor/rules/55-test-engineer.mdc；证据见UR-20261013-angle-assists.md追加章节。
+
+### FL-147 · 整页触摸监听拦截内部滚动与滑块（2026-10-13）
+- B05为聚合活动在球桌页根部增加minimumDistance=0的DragGesture；SE/iOS17复现编排菜单多次滑动仍在顶部、透明度滑块不变。r1失败结果与原图保留在remaining-20261013/B09。
+- 已将活动收集限定到方向尺原生生命周期、杆速拖动回调、打点盘自身；菜单/滚动区不参与整页识别。方向活动经环境回调传回宿主，布局数值对象保持Equatable。SE/iOS17 se-r5编排菜单滚动及完整录杆回放通过，se-r7五页×2D/3D透明度端点调节通过；中点原生拖动53%的测试定位误差单列，不冒称精确50%。连续拖动与跨尺寸扩展仍在B09。
+- 已应用至：.cursor/rules/20-swiftui-developer.mdc；新活动监听必须同时回归内层ScrollView、Slider与取消路径，不能只验证点击。
+
+### FL-148 · 导航验证必须先区分正式路由与旧直达宿主（2026-10-13）
+- SE/iOS17旧`-deeplink.drillDetail`把详情放在NavigationStack根部，进入试打后反复重建（r12诊断中DrillDetailView的`@self changed`超过一万次）。r9–r13旧入口失败全部保留；dismiss变化不能独立证明其是根因。
+- r13同构建、同设备从动作库真实点击进入试打并返回通过（17.613秒；准确计时以se-r13.log为准）。单次进入对照证明此前失败范围不能直接归为正式入口故障；se-r15正式点击路径的播放/暂停、方向请求及十次往返已通过（72.614秒）；手机详情受其既有竖屏约束，实际双向旋转另由iPad覆盖。
+- 未奏效的返回闭包、局部dismiss、隐藏工具栏删改及Root静态入口候选均已撤回。完整用例改为从动作库真实点击进入；已有liveReview路由注入在r14未到详情页，也不计通过；未删除功能断言。增加tearDown终止本用例App，避免挂起进程污染后继用例。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc`；报告须区分旧测试宿主失败与正式入口的实际范围。不得把不可交互截图或强制终止后的用例记通过。
+
+### FL-149 · 最大字号信息越界挤掉特写（2026-10-13）
+- B09/SE深色AXXXL真实截图与AX显示打三status高116.5pt、角色说明高290.5pt，后者延至375pt窗口外；特写避让真实文字后无可用位置。r17透明度操作通过不代表整页视觉通过。
+- 共享信息层按台面容量保留默认特写直径及间距，超过可用高度时滚动完整文字；不缩字、不隐藏必要说明。特写保护信息视口，而非被裁剪的全部滚动内容。菜单测试先真实滚入可见区域。r26/SE深色最大字号完整3页特写与后台恢复通过（136.971秒），打三末尾说明真实滚动可达；10张原图已目视。标准字号跨设备回归仍在B09。
+- r28普通字号防守再次暴露特写缺失：整个分配宽度被误作障碍。r29改为内容Anchor与实际视口的交集，排除空白区域；SE普通2D r30、3D r31、深色最大字号三页和五页透明度r31，以及标准手机/iPad横屏2D/3D均通过。旧r26只作为当时构建证据，不替代新版本复验。iPad竖屏r32三页2D/3D及恢复通过，原生图已核对，详见实施报告。
+- 已应用至：.cursor/rules/20-swiftui-developer.mdc § FL-149；UI-IMPLEMENTATION-SPEC Changelog同步。
+- r28补充：SE普通字号防守2D仍无特写。原生图文字仅居中约173.5pt，而SwiftUI外层滚动视口占整条宽度；过度保护空白可能排除合法位置。r29改用真实内容Anchor与视口交集，仅保护可见文字；保留字号与滚动，不放宽球/瞄准线保护。对应测试显式固定2D/3D，拒绝继承上次镜头造成误标，跨尺寸复验中。
+
+### FL-150 · 静态桌复用不能重写已生成的袋口主题/角色材质（2026-10-14）
+- 优化中间版 `output/table-runtime-20261013/after/tryout/inside-2.png` 对照 before 同页，袋口从默认浅色变为原始棕色。旧测试覆盖切主题再恢复，但未覆盖同主题连续复用；后者因 `applyTableStyle` 的同值短路未重建已被灯光覆盖的 shader。
+- 修正：重新安装新场景灯光期间，将已完成主题/角色处理的 PocketLeatherMarker 暂时从遍历树移出，之后装回；不重建几何、不改调色、不改球形。新增全部袋口主题/角色 shader 同值复用检查；修复后 38 项单测通过，最终原生五页对照与混合进退记录在 after-final/，中间版数据保留且不作为最终交付。
+- 另一个测试夹具问题：共享缓存活动计数受先前播放测试的窗口生命周期影响，组合测试失败；改用独立管理器检查代号/过期协议，真实 scene 析构另有弱引用测试，未取消活动页面保护条件。失败原件 `after/unit-final.log` 保留。
+- 已应用至：`.cursor/rules/20-swiftui-developer.mdc`（FL-150）；`RenderQualityV62Tests` 新增同主题和切主题两条路径。
+
+### FL-151 · 后台返回检查不能读取已关闭菜单内的元素（2026-10-14）
+- 本轮 `DailyAdaptivePanelUITests/testV4BackgroundRestoresParametersAndRenderer` 的 `mode()` helper已关闭菜单，返回后直接读取其中的cameraMode按钮，XCTest报No matches found。此前球形参数与rendererID断言已通过；该失败不能直接归类为后台状态丢失。
+- 修正为先打开菜单，等待按钮出现后只读当前值，再关菜单；不调用可能改写模式的helper来“验证”模式，保留原参数与renderer身份检查。初轮ui/test.log失败保留，ui-background/test.log的2D/3D补验通过；生产二进制保持6eb3f97c...。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` FL-151。完整证据在output/table-runtime-20261013。
+
+### FL-152 · 提示为空时不能丢失球桌取景几何（2026-10-14）
+- 信息精简第1批候选在正常无提示状态下，2D台面消失，求解/菜单等AX操作仍能通过。目视 `candidate-before-viewport-fix/phone/planthree-initial.png` 发现；旧有取景frame偏好挂在状态Group上，Group没有子视图时不再发出偏好，cameraReadableFrame变nil，触发旧2D透明规则。
+- 修复：取景区域保留独立透明布局容器，消息有无不决定相机可读区域；不改变球桌尺寸或镜头算法。UI截图检查增加台呢绿色像素最低占比，以拒绝“控件存在但球桌未渲染”的图；仍逐图目视，不把颜色断言替代视觉验收。
+- 修复候选与自动化菜单命中失败原件保留在 `output/information-simplification-20261014/`，最终验证记录见本轮UI报告。当前复验中。
+- 已应用至：`.cursor/rules/20-swiftui-developer.mdc` FL-152；`tasks/UI-IMPLEMENTATION-SPEC.md` changelog。
+
+
+### FL-153 · 序列镜头不能遗漏作者重新摆球（2026-10-14）
+- 用户反馈r1“不同母球位置、击打同一目标球”无法继续：目标球首杆进袋后，播放器直接从实停盘面求下一杆，误报缺球。r1的20单测／3UI通过不能代表覆盖独立首杆组；以连续4杆代替独立8杆验收遗漏了内容语义。
+- 修正：相邻保存after/before区分连续走位与作者重新摆球；后者必须先在原机位完成新球形（含重新出现的目标球），然后才转第三人称。实际物理漂移不能用来判定作者摆球。球形移动／淡入淡出和转镜分别可暂停；连续走位保留实际停点与姿态。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` DR-392 r2、UI-IMPLEMENTATION-SPEC；新增真实SceneKit完整8杆与原生UI8杆检查，验证状态见任务报告。

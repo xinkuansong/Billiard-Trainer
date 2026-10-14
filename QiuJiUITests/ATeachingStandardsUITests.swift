@@ -1,5 +1,351 @@
 import XCTest
 
+/// Production-entry regression for the remaining daily-template adoption gaps.
+final class RemainingTeachingAdoptionUITests: XCTestCase {
+    private var app: XCUIApplication!
+    private var pageOrientation: UIDeviceOrientation = .landscapeLeft
+    private var closeupIn3D = false
+    override func setUpWithError() throws { continueAfterFailure = false }
+    override func tearDownWithError() throws { app?.terminate() }
+
+    private func element(_ id: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: id).firstMatch
+    }
+    private func ready(_ item: XCUIElement, timeout: TimeInterval = 90) {
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == true AND enabled == true"), object: item)],
+            timeout: timeout), .completed)
+    }
+    private func capture(_ name: String) {
+        let image = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        image.name = (pageOrientation == .portrait ? "portrait-" : "") + (closeupIn3D ? "3D-" : "") + name
+        image.lifetime = .keepAlways; add(image)
+    }
+    private func launch(_ page: String) {
+        app?.terminate()
+        XCUIDevice.shared.orientation = pageOrientation
+        let deep = ["silu": "silu", "planthree": "planThree", "snooker": "snooker"]
+        var args = ["-forcePremium", "-v50.inMemoryStore", "-3dDrag.probe", "-v51.followSystemAppearance", "-appearanceMode", "system"]
+        if let route = deep[page] { args += ["-deeplink." + route] }
+        if page == "planthree" { args += ["-planThree.twoBall"] }
+        if page == "snooker" { args += ["-snooker.full"] }
+        app = XCUIApplication.launchClean(extraArgs: args)
+        if deep[page] == nil {
+            app.switchTab(.angle)
+            ready(app.buttons["angleHomeTab_解"]); app.buttons["angleHomeTab_解"].tap()
+            let card = app.buttons[page == "bankshot" ? "翻袋解球" : "颗星解球"]
+            ready(card); card.tap()
+        }
+        XCTAssertTrue(element(page + ".template").waitForExistence(timeout: 30))
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            let orientation = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                let frame = self.app.windows.firstMatch.frame
+                return self.pageOrientation.isLandscape ? frame.width > frame.height : frame.height > frame.width
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [orientation], timeout: 8), .completed,
+                           "The native window must actually reach the requested iPad orientation")
+        }
+    }
+
+    func testTransparencyShowsDiscAcrossFivePages() {
+        for page in ["silu", "planthree", "snooker", "bankshot", "reflection"] {
+            launch(page)
+            for mode in ["2D", "3D"] {
+                let more = app.buttons[page + ".more"]
+                ready(more)
+                more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                let camera = app.buttons[page + ".cameraMode"]
+                ready(camera)
+                if camera.value as? String != mode { camera.tap() }
+                let item = app.buttons[page + ".transparency"]
+                ready(item); item.tap()
+                let disc = element("spinPad.disc")
+                XCTAssertTrue(disc.exists, "Transparency must show the actual disc on " + page)
+                let slider = app.sliders["dailyClearance.spinTransparencySlider"]
+                ready(slider)
+                for value in [0.0, 0.5, 1.0] {
+                    slider.adjust(toNormalizedSliderPosition: value)
+                    func displayedPercent() -> Double {
+                        Double(app.staticTexts["dailyClearance.spinTransparencyPercent"].label
+                            .replacingOccurrences(of: "%", with: "")) ?? -1
+                    }
+                    var percent = displayedPercent()
+                    // Always make a full-length drag from a known endpoint. Tiny
+                    // corrective drags can remain below the native pan threshold.
+                    // Read visible percentages to calibrate the touch destination;
+                    // UIKit thumb insets differ between OS versions and presentations.
+                    let native = UISlider(frame: CGRect(origin: .zero, size: slider.frame.size))
+                    let track = native.trackRect(forBounds: native.bounds)
+                    let origin = slider.coordinate(withNormalizedOffset: .zero)
+                    func drag(from current: Double, to x: CGFloat) {
+                        let thumb = native.thumbRect(forBounds: native.bounds, trackRect: track,
+                                                     value: Float(current / 100))
+                        origin.withOffset(CGVector(dx: thumb.midX, dy: thumb.midY))
+                            .press(forDuration: 0.1, thenDragTo: origin.withOffset(
+                                CGVector(dx: x, dy: thumb.midY)),
+                                withVelocity: .slow, thenHoldForDuration: 0.2)
+                    }
+                    if value == 0 || value == 1 {
+                        if percent != value * 100 {
+                            drag(from: percent, to: value == 0 ? -native.bounds.width / 2
+                                 : native.bounds.width * 1.5)
+                            percent = displayedPercent()
+                        }
+                    } else {
+                        var lower: CGFloat = 0, upper = native.bounds.width
+                        var observations: [String] = []
+                        for _ in 0..<8 where abs(percent - 50) > 1 {
+                            drag(from: percent, to: -native.bounds.width / 2)
+                            XCTAssertEqual(displayedPercent(), 0, "Calibration starts at the real opaque endpoint")
+                            let destination = (lower + upper) / 2
+                            drag(from: 0, to: destination)
+                            percent = displayedPercent()
+                            observations.append("destination=\(destination), displayed=\(percent)")
+                            if percent < 50 { lower = destination } else { upper = destination }
+                        }
+                        let calibration = XCTAttachment(string: observations.joined(separator: "\n"))
+                        calibration.name = page + "-" + mode + "-slider-calibration"
+                        calibration.lifetime = .keepAlways; add(calibration)
+                    }
+                    if abs(percent - value * 100) > 1 { capture(page + "-slider-target-missed") }
+                    XCTAssertEqual(percent, value * 100, accuracy: 1)
+                    capture(page + "-" + mode + "-transparency-" + String(Int(value * 100)))
+                }
+                app.buttons[page + ".dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
+                XCTAssertTrue(disc.exists, "Closing settings retains the disc")
+                ready(app.buttons["关闭打点"]); app.buttons["关闭打点"].tap()
+            }
+            // A new process must retain this page's last setting and show its real disc.
+            launch(page); openMore(page)
+            ready(app.buttons[page + ".transparency"]); app.buttons[page + ".transparency"].tap()
+            XCTAssertTrue(element("spinPad.disc").exists)
+            XCTAssertEqual(app.staticTexts["dailyClearance.spinTransparencyPercent"].label, "100%")
+            capture(page + "-transparency-reentered")
+        }
+    }
+
+    private func prepareSolution(_ page: String) {
+        if page == "silu" {
+            app.buttons["silu.tool"].tap(); app.buttons["落区"].tap()
+            let table = element("table.scene")
+            let information = app.scrollViews.containing(.any, identifier: "silu.status").firstMatch
+            let frame = table.frame
+            // Start on exposed cloth, not on the scrollable information overlay.
+            let cloth = CGRect(x: frame.minX + frame.width * 0.25, y: frame.minY + frame.height * 0.3,
+                               width: frame.width * 0.55, height: frame.height * 0.45)
+            let obstacle = information.frame.intersection(cloth)
+            let candidates = obstacle.isNull ? [cloth] : [
+                CGRect(x: cloth.minX, y: cloth.minY, width: max(0, obstacle.minX - cloth.minX), height: cloth.height),
+                CGRect(x: obstacle.maxX, y: cloth.minY, width: max(0, cloth.maxX - obstacle.maxX), height: cloth.height),
+                CGRect(x: cloth.minX, y: cloth.minY, width: cloth.width, height: max(0, obstacle.minY - cloth.minY)),
+                CGRect(x: cloth.minX, y: obstacle.maxY, width: cloth.width, height: max(0, cloth.maxY - obstacle.maxY))]
+            let clear = candidates.max { $0.width * $0.height < $1.width * $1.height }!
+            XCTAssertGreaterThan(clear.width, 20); XCTAssertGreaterThan(clear.height, 20)
+            let start = table.coordinate(withNormalizedOffset: CGVector(
+                dx: (clear.minX + clear.width * 0.15 - frame.minX) / frame.width,
+                dy: (clear.minY + clear.height * 0.15 - frame.minY) / frame.height))
+            let end = table.coordinate(withNormalizedOffset: CGVector(
+                dx: (clear.maxX - clear.width * 0.15 - frame.minX) / frame.width,
+                dy: (clear.maxY - clear.height * 0.15 - frame.minY) / frame.height))
+            start.press(forDuration: 0.1, thenDragTo: end)
+        }
+        if page == "silu" || page == "planthree" {
+            ready(app.buttons["solver.solve"]); app.buttons["solver.solve"].tap()
+        }
+    }
+    private func openMore(_ page: String) {
+        let more = app.buttons[page + ".more"]; ready(more)
+        more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+    private func revealMenuItem(_ id: String) -> XCUIElement {
+        let item = app.buttons[id], scroll = element("dailyClearance.menuScroll")
+        XCTAssertTrue(scroll.waitForExistence(timeout: 5))
+        for _ in 0..<16 where !item.exists || !scroll.frame.contains(item.frame) {
+            let above = item.exists && item.frame.minY < scroll.frame.minY
+            scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: above ? 0.35 : 0.65))
+                .press(forDuration: 0.1, thenDragTo: scroll.coordinate(
+                    withNormalizedOffset: CGVector(dx: 0.4, dy: above ? 0.65 : 0.35)))
+        }
+        XCTAssertTrue(item.exists && scroll.frame.contains(item.frame), "Menu item must be visible: " + id)
+        XCTAssertTrue(item.isHittable)
+        return item
+    }
+    private func holdAimRulerForNativeCapture(_ label: String) {
+        let wheel = element("shotStage.aimWheel"); ready(wheel)
+        let name = (closeupIn3D ? "3D-" : "2D-") + label
+        FileHandle.standardOutput.write(Data("CLOSEUP_HOLD \(name)\n".utf8))
+        let start = wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.1,
+                    thenDragTo: start.withOffset(CGVector(dx: 0, dy: 2)),
+                    withVelocity: .slow, thenHoldForDuration: 8)
+    }
+
+    func testSolvedCloseupsAndBackgroundRecovery() {
+        for page in ["silu", "planthree", "snooker"] {
+            launch(page); prepareSolution(page)
+            ready(app.buttons[page + ".strike"])
+            openMore(page)
+            let camera = app.buttons[page + ".cameraMode"]; ready(camera)
+            let expectedCamera = closeupIn3D ? "3D" : "2D"
+            if camera.value as? String != expectedCamera { camera.tap() }
+            XCTAssertEqual(camera.value as? String, expectedCamera)
+            let closeup = revealMenuItem("menu.aimCloseup"); ready(closeup)
+            if closeup.value as? String == "已选" { closeup.tap() }
+            else { app.buttons[page + ".dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap() }
+            let hud = element("aimCloseup.hud")
+            XCTAssertFalse(hud.exists, "Disabled closeup must not appear at rest")
+            capture(page + "-closeup-off")
+            openMore(page); revealMenuItem("menu.aimCloseup").tap()
+            XCTAssertFalse(hud.exists, "Enabling the preference must not show a persistent loupe")
+            capture(page + "-enabled-idle")
+            XCTAssertFalse(element("shotStage.aimWheel").exists,
+                           "Ordinary planning has no direction ruler; solving is not an aiming gesture")
+            app.buttons["shotStage.spinEntry"].tap()
+            let disc = element("spinPad.disc"); ready(disc)
+            disc.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.4)).tap()
+            XCTAssertFalse(hud.exists, "Spin adjustment must not reveal an aim closeup")
+            app.buttons["关闭打点"].tap()
+            ready(app.buttons[page + ".strike"])
+            XCTAssertFalse(hud.exists, "An updated solution must not reveal an aim closeup")
+            capture(page + "-spin-updated-idle")
+            let notice = element(page + ".status")
+            if notice.exists {
+                let viewport = app.scrollViews.containing(.any, identifier: page + ".status").firstMatch
+                XCTAssertTrue(viewport.exists)
+                XCTAssertTrue(element("table.scene").frame.contains(viewport.frame))
+            }
+            XCTAssertFalse(element("planthree.rolesSummary").exists)
+            if page == "planthree" {
+                XCTAssertFalse((app.buttons["planthree.roles"].value as? String ?? "").isEmpty)
+            }
+            capture(page + "-closeup-on")
+            XCUIDevice.shared.press(.home); app.activate()
+            ready(app.buttons[page + ".strike"])
+            openMore(page); _ = revealMenuItem("menu.aimCloseup"); ready(closeup)
+            XCTAssertEqual(closeup.value as? String, "已选")
+            app.buttons[page + ".dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
+            XCTAssertFalse(hud.exists, "Returning to the foreground must not revive a released loupe")
+            capture(page + "-foreground-closeup")
+        }
+    }
+    func testThreeDimensionalCloseups() {
+        closeupIn3D = true
+        testSolvedCloseupsAndBackgroundRecovery()
+    }
+
+    func testIPadPortraitCloseupInformation() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "Portrait contract applies to iPad")
+        pageOrientation = .portrait
+        testSolvedCloseupsAndBackgroundRecovery()
+        testThreeDimensionalCloseups()
+    }
+
+    func testIPadPortraitAdoption() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "Portrait contract applies to iPad")
+        pageOrientation = .portrait
+        testTransparencyShowsDiscAcrossFivePages()
+        testSolvedCloseupsAndBackgroundRecovery()
+        testThreeDimensionalCloseups()
+        testFreePreviewDragStrikeUndoAndBackground()
+    }
+
+    func testFreeCloseupOnlyWhileDirectionRulerIsHeld() {
+        for page in ["bankshot", "reflection"] {
+            launch(page)
+            ready(app.buttons["solver.mode"]); app.buttons["solver.mode"].tap()
+            for mode in ["2D", "3D"] {
+                closeupIn3D = mode == "3D"
+                openMore(page)
+                let camera = app.buttons[page + ".cameraMode"]; ready(camera)
+                if camera.value as? String != mode { camera.tap() }
+                let toggle = revealMenuItem("menu.aimCloseup")
+                if toggle.value as? String == "已选" { toggle.tap() }
+                else { app.buttons[page + ".dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap() }
+                let hud = element("aimCloseup.hud")
+                XCTAssertFalse(hud.exists)
+                holdAimRulerForNativeCapture(page + "-disabled-drag")
+                XCTAssertFalse(hud.exists)
+                openMore(page); revealMenuItem("menu.aimCloseup").tap()
+                XCTAssertFalse(hud.exists, "Preference alone must not show the loupe")
+                capture(page + "-free-enabled-idle")
+                holdAimRulerForNativeCapture(page + "-enabled-drag")
+                XCTAssertFalse(hud.exists, "Release must immediately remove the loupe")
+                capture(page + "-free-released")
+                XCUIDevice.shared.press(.home); app.activate()
+                XCTAssertFalse(hud.exists, "Foreground must not revive the loupe")
+            }
+        }
+    }
+
+    func testFreePreviewDragStrikeUndoAndBackground() {
+        for page in ["bankshot", "reflection"] {
+            launch(page)
+            ready(app.buttons["solver.mode"]); app.buttons["solver.mode"].tap()
+            let wheel = element("shotStage.aimWheel"); ready(wheel)
+            for _ in 0..<3 {
+                wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
+                    .press(forDuration: 0.1, thenDragTo: wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)), withVelocity: .slow, thenHoldForDuration: 0.1)
+            }
+            ready(app.buttons[page + ".strike"])
+            capture(page + "-free-full-preview")
+            app.buttons[page + ".strike"].tap()
+            ready(app.buttons["solver.undo"], timeout: 90)
+            capture(page + "-free-settled")
+            app.buttons["solver.undo"].tap()
+            ready(app.buttons[page + ".strike"])
+            XCUIDevice.shared.press(.home); app.activate()
+            ready(app.buttons[page + ".strike"])
+            capture(page + "-free-restored")
+            app.buttons["solver.mode"].tap()
+            XCTAssertEqual(app.buttons["solver.mode"].value as? String, "求解")
+        }
+    }
+
+    func testPairedSpinOnPlanningAndSolverPages() throws {
+        for page in ["silu", "planthree", "snooker", "bankshot", "reflection"] {
+            launch(page)
+            prepareSolution(page)
+            ready(app.buttons["shotStage.spinEntry"])
+            app.buttons["shotStage.spinEntry"].tap()
+            let disc = element("spinPad.disc"); ready(disc)
+            // Physical contact uses both axes; a mirrored second point cannot
+            // accidentally pass by retaining a catalog's existing spin.
+            var firstPoint = true
+            for (dx, dy, xLabel, yLabel) in [(0.38, 0.38, "左", "高"), (0.62, 0.38, "右", "高"),
+                                                (0.38, 0.62, "左", "低"), (0.62, 0.62, "右", "低")] {
+                let point = CGVector(dx: dx, dy: dy)
+                if firstPoint {
+                    disc.coordinate(withNormalizedOffset: point).tap()
+                    firstPoint = false
+                } else {
+                    app.buttons["回中"].tap()
+                    XCTAssertEqual(disc.value as? String, "中心球")
+                    // The documented gesture first moves the finger 52pt clear,
+                    // then adjusts relatively. A short in-disc drag intentionally does nothing.
+                    let dx = point.dx - 0.5, dy = point.dy - 0.5
+                    let length = hypot(dx, dy)
+                    let travel = 52 + min(disc.frame.width, disc.frame.height) / 2
+                    let start = disc.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                    start.press(forDuration: 0.1,
+                        thenDragTo: start.withOffset(CGVector(dx: dx / length * travel, dy: dy / length * travel)),
+                        withVelocity: .slow, thenHoldForDuration: 0.1)
+                }
+                let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    let value = disc.value as? String ?? ""
+                    return value.contains(xLabel) && value.contains(yLabel)
+                }, object: nil)
+                XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 30), .completed,
+                               page + " must accept both axes from one point")
+                capture(page + "-paired-" + xLabel + yLabel)
+            }
+            // Use the exact-zero control; a rounded screen coordinate can be off-centre on SE.
+            app.buttons["回中"].tap()
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "value == '中心球'"), object: disc)], timeout: 30), .completed)
+        }
+    }
+}
+
 /// W1-A native evidence. The audit case intentionally records the baseline
 /// before a repair; acceptance assertions live in separate cases.
 final class ATeachingStandardsUITests: XCTestCase {
@@ -247,4 +593,191 @@ final class ATeachingStandardsUITests: XCTestCase {
         capture("2D-free-remaining-and-ruler")
     }
 
+}
+
+/// Information hierarchy evidence uses identical boards before and after migration.
+final class PlanningInformationUITests: XCTestCase {
+    private var app: XCUIApplication!
+    private var phase = "before"
+    override func setUpWithError() throws { continueAfterFailure = false }
+    override func tearDownWithError() throws { app?.terminate() }
+    private func item(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
+    private func ready(_ element: XCUIElement, timeout: TimeInterval = 90) {
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: element)], timeout: timeout), .completed)
+    }
+    private func snap(_ name: String) throws {
+        let device = UIDevice.current.userInterfaceIdiom == .pad ? "pad" : (app.windows.firstMatch.frame.height < 390 ? "compact" : "phone")
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("output/information-simplification-20261014/\(phase)/\(device)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        usleep(350_000)
+        let screenshot = XCUIScreen.main.screenshot()
+        if !["help", "details", "-plan", "guide-reopened"].contains(where: name.contains) {
+            XCTAssertGreaterThan(tableGreenFraction(screenshot.image), 0.02,
+                "The rendered table must remain visible even with no notice: " + name)
+        }
+        try screenshot.pngRepresentation.write(to: root.appendingPathComponent(name + ".png"))
+        try app.debugDescription.write(to: root.appendingPathComponent(name + ".txt"), atomically: true, encoding: .utf8)
+        let attachment = XCTAttachment(screenshot: screenshot); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+    }
+    private func tableGreenFraction(_ image: UIImage) -> Double {
+        guard let image = image.cgImage else { return 0 }
+        var pixels = [UInt8](repeating: 0, count: 64 * 64 * 4)
+        pixels.withUnsafeMutableBytes { buffer in
+            let context = CGContext(data: buffer.baseAddress, width: 64, height: 64, bitsPerComponent: 8,
+                bytesPerRow: 256, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)!
+            context.draw(image, in: CGRect(x: 0, y: 0, width: 64, height: 64))
+        }
+        return Double(stride(from: 0, to: pixels.count, by: 4).filter {
+            Double(pixels[$0 + 1]) > max(Double(pixels[$0]), Double(pixels[$0 + 2])) * 1.3
+                && pixels[$0 + 1] > 45
+        }.count) / 4096
+    }
+    private func launch(_ page: String, scenario: String = "full", extraArgs: [String] = [], learned: Bool? = true) {
+        app?.terminate(); XCUIDevice.shared.orientation = .landscapeLeft
+        var args = ["-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance", "-appearanceMode", "system",
+                    "-deeplink." + (page == "planthree" ? "planThree" : page)]
+        if let learned { args += ["-\(page).informationLearned", learned ? "YES" : "NO"] }
+        if page == "planthree" { args += ["-planThree.twoBall"] }
+        if page == "snooker" { args += ["-snooker." + scenario] }
+        app = XCUIApplication.launchClean(extraArgs: args + extraArgs)
+        XCTAssertTrue(item(page + ".template").waitForExistence(timeout: 45))
+        usleep(500_000)
+        mode(page, "2D")
+    }
+    private func mode(_ page: String, _ mode: String) {
+        ready(app.buttons[page + ".more"]); app.buttons[page + ".more"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let camera = app.buttons[page + ".cameraMode"]; ready(camera)
+        if camera.value as? String != mode { camera.tap() }
+        app.buttons[page + ".dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
+    }
+    private func solve(_ page: String) {
+        if page == "silu" {
+            app.buttons["silu.tool"].tap(); app.buttons["落区"].tap()
+            let table = item("table.scene")
+            table.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.4)).press(forDuration: 0.1,
+                thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.78, dy: 0.77)))
+        }
+        if page != "snooker" { ready(app.buttons["solver.solve"]); app.buttons["solver.solve"].tap() }
+        ready(app.buttons[page + ".strike"])
+    }
+    func testBefore() throws { try capturePages() }
+    func testAfter() throws { phase = "after"; try capturePages() }
+    private func capturePages() throws {
+        for page in ["planthree", "silu", "snooker"] {
+            launch(page); try snap(page + "-initial")
+            solve(page); try snap(page + "-solved")
+            if page == "planthree" {
+                app.buttons["planthree.roles"].tap(); try snap(page + "-plan")
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.85)).tap()
+            }
+            if phase == "after" {
+                XCTAssertFalse(item("planthree.rolesSummary").exists)
+                let solution = app.buttons["solver.nextSolution"]; ready(solution)
+                XCTAssertTrue(solution.label.contains("解"))
+                solution.press(forDuration: 1)
+                ready(app.buttons["当前方案详情"]); app.buttons["当前方案详情"].tap()
+                XCTAssertTrue(item("planning.details").waitForExistence(timeout: 5))
+                try snap(page + "-details")
+                app.buttons["planning.close"].tap()
+            }
+            app.buttons["shotStage.spinEntry"].tap(); XCTAssertTrue(item("spinPad.disc").waitForExistence(timeout: 5))
+            try snap(page + "-spin"); app.buttons["关闭打点"].tap()
+            mode(page, "3D"); try snap(page + "-3d")
+            if phase == "after" {
+                app.buttons[page + ".strike"].tap(); ready(app.buttons[page + ".undo"])
+                try snap(page + "-settled")
+                app.buttons[page + ".undo"].tap(); ready(app.buttons[page + ".strike"])
+                try snap(page + "-undo")
+            }
+        }
+    }
+
+    private func openHelp(_ page: String) {
+        app.buttons[page + ".more"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let help = app.buttons[page + ".help"]
+        let scroll = item("dailyClearance.menuScroll")
+        XCTAssertTrue(scroll.waitForExistence(timeout: 5))
+        for _ in 0..<16 where !help.exists || !scroll.frame.contains(help.frame) {
+            let above = help.exists && help.frame.minY < scroll.frame.minY
+            scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: above ? 0.35 : 0.65))
+                .press(forDuration: 0.1, thenDragTo: scroll.coordinate(
+                    withNormalizedOffset: CGVector(dx: 0.4, dy: above ? 0.65 : 0.35)))
+        }
+        XCTAssertTrue(help.exists && scroll.frame.contains(help.frame))
+        ready(help); help.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(item("planning.help").waitForExistence(timeout: 5))
+    }
+    func testAdaptiveHelpAndSelection() throws {
+        phase = "after"
+        for page in ["planthree", "silu", "snooker"] {
+            launch(page, extraArgs: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+            if UIDevice.current.userInterfaceIdiom == .pad {
+                XCUIDevice.shared.orientation = .portrait
+                XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    self.app.windows.firstMatch.frame.height > self.app.windows.firstMatch.frame.width
+                }, object: nil)], timeout: 10), .completed)
+            }
+            try snap(page + "-maximum-type")
+            openHelp(page); try snap(page + "-help-maximum-type")
+            item("planning.help").swipeUp(); try snap(page + "-help-scrolled")
+            app.buttons["planning.close"].tap()
+            XCTAssertTrue(item(page + ".template").exists)
+            if page == "planthree" {
+                app.buttons["planthree.roles"].tap(); app.buttons["planthree.role.0"].tap()
+                XCTAssertTrue(item("planthree.status").label.contains("选择第1杆目标球"))
+                try snap("planthree-select-step")
+            }
+            mode(page, "3D")
+            app.buttons["shotCamera.temporaryTopDown"].tap()
+            try snap(page + "-temporary-maximum-type")
+            app.buttons["shotCamera.temporaryTopDown"].tap()
+        }
+    }
+    func testFailurePersistsAndFineTuningIsMarked() throws {
+        phase = "after"
+        launch("snooker", scenario: "none")
+        let status = item("snooker.status")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            status.exists && status.label.contains("未找到")
+        }, object: nil)], timeout: 90), .completed)
+        let reason = status.label; usleep(3_500_000)
+        XCTAssertEqual(status.label, reason)
+        try snap("snooker-no-solution-persistent")
+        openHelp("snooker"); XCTAssertTrue(app.staticTexts["当前问题"].exists)
+        try snap("snooker-failure-help"); app.buttons["planning.close"].tap()
+        launch("silu"); solve("silu")
+        app.buttons["shotStage.spinEntry"].tap()
+        item("spinPad.disc").coordinate(withNormalizedOffset: CGVector(dx: 0.58, dy: 0.42)).tap()
+        app.buttons["关闭打点"].tap(); ready(app.buttons["silu.strike"])
+        XCTAssertTrue((app.buttons["solver.nextSolution"].value as? String ?? "").contains("微调"))
+        try snap("silu-adjusted")
+    }
+
+    func testFirstGuideDismissalIsRememberedAndHelpCanReopen() throws {
+        phase = "after"
+        launch("silu", learned: false)
+        XCTAssertTrue(app.buttons["planning.dismissNotice"].waitForExistence(timeout: 5))
+        try snap("silu-first-guide")
+        app.buttons["planning.dismissNotice"].tap()
+        XCTAssertFalse(item("silu.status").exists)
+        launch("silu", learned: nil)
+        XCTAssertFalse(item("silu.status").exists)
+        openHelp("silu"); try snap("silu-guide-reopened")
+        app.buttons["planning.close"].tap()
+    }
+
+    func testDefenseTargetMenuKeepsGroupAndCountReadable() throws {
+        phase = "after"
+        launch("snooker"); solve("snooker")
+        app.buttons["snooker.tool"].tap()
+        let summary = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "对方球组")).firstMatch
+        XCTAssertTrue(summary.waitForExistence(timeout: 5))
+        XCTAssertTrue(summary.label.contains("花色"))
+        XCTAssertTrue(summary.label.contains("1颗"))
+        try snap("snooker-targets")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.85)).tap()
+        XCTAssertTrue(app.buttons["snooker.strike"].isEnabled)
+    }
 }

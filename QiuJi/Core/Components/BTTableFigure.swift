@@ -99,6 +99,13 @@ struct TableFigureProjection {
 
 /// 教学插图线语言 token：从 `TrajectoryStyle`（唯一真源）取色，SwiftUI 侧零私设。
 enum FigureLine {
+    /// Actual/corrected path, distinct from the ideal dashed reference.
+    static let actual = Color(uiColor: TrajectoryStyle.TeachingFigure.actual)
+    /// Friction, draw and reverse english overlays on felt.
+    static let effect = Color(uiColor: TrajectoryStyle.TeachingFigure.effect)
+    static let follow = Color(uiColor: TrajectoryStyle.TeachingFigure.follow)
+    static let guide = Color(uiColor: TrajectoryStyle.TeachingFigure.guide)
+
     /// 瞄准线 / 母球路径 = 白实线。
     static let aim = Color(uiColor: TrajectoryStyle.aimColor)
     /// 进球线 = 目标球本色（黑 8 亮灰变体）。
@@ -109,7 +116,9 @@ enum FigureLine {
     static let hint = Color(uiColor: TrajectoryStyle.hintColor)
     /// 90° 分离角释义线 = 品牌绿短虚线（DR-021）。
     static let separation = Color(uiColor: TrajectoryStyle.separationColor)
-    /// 假想球圈 / 接触点 = 品牌绿。
+    /// Ghost cue-ball outline = white.
+    static let ghost = Color(uiColor: TrajectoryStyle.ghostColor)
+    /// 接触点 = 品牌绿。
     static let contact = Color(uiColor: TrajectoryStyle.contactColor)
     /// 瞄准点（假想球球心）= 红（线语言 v2，条 1.6/4.2）。
     static let aimPoint = Color(uiColor: TrajectoryStyle.aimPointColor)
@@ -142,7 +151,7 @@ struct BTFigureBall: View {
     }
 }
 
-/// 假想球（§1.2/§1.3 L0）：品牌绿虚线圈 + 球心红点（瞄准点，线语言 v2 条 1.6），
+/// 假想球（§1.2/§1.3 L0）：白色虚线圈 + 球心红点（瞄准点，线语言 v2 条 1.6），
 /// 与场景 `ghostBallNode`（含 `ghostAimDot` 子节点）同语义同色。
 struct BTGhostCircle: View {
     let diameter: CGFloat
@@ -153,7 +162,7 @@ struct BTGhostCircle: View {
         ZStack {
             Circle()
                 .strokeBorder(
-                    FigureLine.contact.opacity(0.9),
+                    FigureLine.ghost.opacity(0.9),
                     style: StrokeStyle(lineWidth: max(1.2, diameter * 0.035),
                                        dash: [diameter * 0.12, diameter * 0.08])
                 )

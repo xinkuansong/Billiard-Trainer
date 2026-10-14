@@ -9,6 +9,70 @@ final class AngleDynamicViewModel: TeachingTableHost {
 
     let scene = AngleTrainingScene()
     private var pocketMarkers: [SCNNode] = []
+    private let assistOverlay = AngleDynamicAssistOverlay()
+    private let displayDefaults: UserDefaults
+    private var isRandomizing = false
+    private var activitySuspended = false
+    private var randomizeGeneration = 0
+    private var resumeRandomization = false
+    private weak var draggedNode: SCNNode?
+
+    func suspendTeachingActivity() {
+        guard !activitySuspended else { return }
+        activitySuspended = true
+        randomizeGeneration += 1
+        resumeRandomization = isRandomizing
+        isRandomizing = false
+        isDragging = false
+        if let draggedNode { TableBallPulse.restore(draggedNode) }
+        draggedNode = nil
+        scene.hideCueStick()
+    }
+
+    func resumeTeachingActivity() {
+        guard activitySuspended else { return }
+        activitySuspended = false
+        if resumeRandomization { selectBestPocket() }
+        resumeRandomization = false
+        updateCalculations()
+    }
+
+    @Published var showsAimLine: Bool {
+        didSet { displayDefaults.set(showsAimLine, forKey: "angleDynamic.showsAimLine"); refreshLineVisibility() }
+    }
+    @Published var showsPotLine: Bool {
+        didSet { displayDefaults.set(showsPotLine, forKey: "angleDynamic.showsPotLine"); refreshLineVisibility() }
+    }
+    @Published var showsGhost3D: Bool {
+        didSet { displayDefaults.set(showsGhost3D, forKey: "angleDynamic.showsGhost3D"); refreshDisplayAssists() }
+    }
+    @Published var showsAimPipe: Bool {
+        didSet { displayDefaults.set(showsAimPipe, forKey: "angleDynamic.showsAimPipe"); refreshDisplayAssists() }
+    }
+    @Published var showsPotPipe: Bool {
+        didSet { displayDefaults.set(showsPotPipe, forKey: "angleDynamic.showsPotPipe"); refreshDisplayAssists() }
+    }
+
+    init(displayDefaults: UserDefaults = .standard) {
+        self.displayDefaults = displayDefaults
+        showsAimLine = displayDefaults.object(forKey: "angleDynamic.showsAimLine") as? Bool ?? true
+        showsPotLine = displayDefaults.object(forKey: "angleDynamic.showsPotLine") as? Bool ?? true
+        showsGhost3D = displayDefaults.bool(forKey: "angleDynamic.showsGhost3D")
+        showsAimPipe = displayDefaults.bool(forKey: "angleDynamic.showsAimPipe")
+        showsPotPipe = displayDefaults.bool(forKey: "angleDynamic.showsPotPipe")
+    }
+
+    private func refreshDisplayAssists() {
+        assistOverlay.setVisibility(ghost: showsGhost3D, aim: showsAimPipe, pot: showsPotPipe)
+        if temporaryTopDownActive { topDownContentRevision &+= 1 }
+    }
+
+    private func refreshLineVisibility() {
+        guard !isRandomizing, let geometry = scene.diagramLabelGeometry else { return }
+        scene.updateVisualization(cueBall: geometry.cue, targetBall: geometry.target, pocket: geometry.pocket,
+                                  showStrikeLine: showsAimLine, showPocketLine: showsPotLine)
+        if temporaryTopDownActive { topDownContentRevision &+= 1 }
+    }
 
     // MARK: - Published State
 
@@ -81,6 +145,8 @@ final class AngleDynamicViewModel: TeachingTableHost {
         scene.setupScene()
         configureTeachingCamera()
         scene.setupVisualizationNodes()
+        assistOverlay.attach(to: scene)
+        refreshDisplayAssists()
         pocketMarkers = scene.addPocketMarkers()
 
         placeBallsAtDefaults()
@@ -192,15 +258,14 @@ final class AngleDynamicViewModel: TeachingTableHost {
     // MARK: - Drag Handling
 
     func dragBegan(node: SCNNode) {
+        guard !activitySuspended else { return }
         isDragging = true
-
-        // USDZ-extracted balls carry a non-unit world scale on their wrapper.
-        // Use a relative scale-by action so we don't clobber that to (1,1,1).
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.15, duration: 0.1), forKey: "dragPulse")
+        draggedNode = node
+        TableBallPulse.beginDrag(node)
     }
 
     func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
+        guard !activitySuspended else { return }
         var clamped = clampMultiBall(worldPosition, movingNode: node)
         clamped = AngleSceneCalculator.clampAwayFromPockets(clamped, surfaceY: scene.surfaceY)
         node.position = clamped
@@ -246,9 +311,9 @@ final class AngleDynamicViewModel: TeachingTableHost {
     func dragEnded(node: SCNNode) {
         isDragging = false
 
-        // Reverse the relative scale applied in dragBegan, preserving worldScale.
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.0 / 1.15, duration: 0.15))
+        guard !activitySuspended else { TableBallPulse.restore(node); return }
+        draggedNode = nil
+        TableBallPulse.endDrag(node)
 
         // 拖动结束后**不**自动重选袋口——用户期望保留当前选择，只有点击袋口或
         // 显式调用 randomize/reset 才会切换目标袋口。
@@ -358,6 +423,7 @@ final class AngleDynamicViewModel: TeachingTableHost {
 
     func updateCalculations() {
         if temporaryTopDownActive { topDownContentRevision &+= 1 }
+        assistOverlay.hide()
         guard let cue = scene.cueBallNode, let target = targetNode,
               selectedPocketIndex >= 0 else {
             isFeasible = false
@@ -412,8 +478,12 @@ final class AngleDynamicViewModel: TeachingTableHost {
 
         if result.feasible {
             scene.updateVisualization(
-                cueBall: cue.position, targetBall: target.position, pocket: aim
+                cueBall: cue.position, targetBall: target.position, pocket: aim,
+                showStrikeLine: showsAimLine, showPocketLine: showsPotLine
             )
+            if !isRandomizing {
+                assistOverlay.update(cue: cue.position, ghost: ghost, pocket: aim)
+            }
         } else {
             scene.hideAllVisualization()
         }
@@ -422,6 +492,9 @@ final class AngleDynamicViewModel: TeachingTableHost {
     // MARK: - Random / Reset
 
     func randomizeBalls() {
+        guard !activitySuspended else { return }
+        randomizeGeneration += 1
+        let generation = randomizeGeneration
         let surfaceY = scene.surfaceY
         let r = AngleSceneCalculator.ballRadius
         let halfL = AngleSceneCalculator.innerLength / 2
@@ -455,6 +528,8 @@ final class AngleDynamicViewModel: TeachingTableHost {
         scene.hideAllVisualization()
         scene.hideCueStick()
 
+        isRandomizing = true
+        assistOverlay.hide()
         SCNTransaction.begin()
         SCNTransaction.animationDuration = 0.3
         SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
@@ -464,12 +539,17 @@ final class AngleDynamicViewModel: TeachingTableHost {
         SCNTransaction.commit()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            self?.selectBestPocket()
-            self?.updateCalculations()
+            guard let self, !self.activitySuspended, self.randomizeGeneration == generation else { return }
+            self.isRandomizing = false
+            self.selectBestPocket()
+            self.updateCalculations()
         }
     }
 
     func resetToDefaults() {
+        randomizeGeneration += 1
+        isRandomizing = false
+        resumeRandomization = false
         scene.hideAllVisualization()
         scene.hideCueStick()
         placeBallsAtDefaults()

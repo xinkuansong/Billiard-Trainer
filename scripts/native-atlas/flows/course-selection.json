@@ -1,0 +1,60 @@
+{
+  "fixture": "mixed",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.startTraining",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "courseSelection.start",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P02-02-none-selected",
+      "entry": "normal UI; existing in-memory fixture"
+    },
+    {
+      "action": "tap",
+      "id": "courseSelection.option.0",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P02-02-one-selected",
+      "entry": "normal UI; existing in-memory fixture"
+    },
+    {
+      "action": "tap",
+      "id": "courseSelection.option.1",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "courseSelection.reorder.1",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P02-02-reorder-menu",
+      "entry": "normal UI; existing in-memory fixture"
+    },
+    {
+      "action": "tap",
+      "id": "上移",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P02-02-multiple-reordered",
+      "entry": "normal UI; existing in-memory fixture"
+    },
+    {
+      "action": "tap",
+      "id": "courseSelection.cancel",
+      "kind": "button"
+    }
+  ]
+}

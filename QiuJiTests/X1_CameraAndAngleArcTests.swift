@@ -4186,7 +4186,7 @@ extension AngleAimingVideoCaptureTests {
                 let hit=AngleSceneCalculator.aimRayTargetEntry(from:st.cue,toward:aimEnd,target:st.target)
                 try XCTUnwrap(s.cueBallNode).position=st.cue;try XCTUnwrap(vm.targetNode).position=st.target
                 vm.selectPocket(at:4)
-                XCTAssertEqual(s.pocketSelectionDescription,"5号袋：目标")
+                XCTAssertEqual(s.pocketSelectionDescription,"\(PocketDisplay.name(index: 4, orientation: s.pocketDisplayOrientation))：目标")
                 for node in [s.ghostBallNode,s.strikeLineNode,s.pocketLineNode,s.contactDotNode,s.perpLineNode,s.angleArcNode,s.cueStick?.rootNode].compactMap({$0}){node.isHidden=true}
                 let a=SIMD2<Float>(st.a.x-st.b.x,st.a.z-st.b.z),b=SIMD2<Float>(st.ghost.x-st.cue.x,st.ghost.z-st.cue.z)
                 XCTAssertLessThan(simd_length(a-b),0.000001)
@@ -5330,11 +5330,19 @@ extension ClockAimingPreviewCaptureTests {
         let smilePath=env["TEST_RUNNER_CLOCK_SMILE_PATH"] ?? env["CLOCK_SMILE_PATH"]
         let smileImage=try smilePath.map { try XCTUnwrap(UIImage(contentsOfFile:$0)) }
         let showCutAngle=env["TEST_RUNNER_CLOCK_CUT_ANGLE"] == "1" || env["CLOCK_CUT_ANGLE"] == "1"
+        let centerAxis = env["TEST_RUNNER_CLOCK_CENTER_AXIS"] == "1" || env["CLOCK_CENTER_AXIS"] == "1"
+        let orbit = env["TEST_RUNNER_CLOCK_ORBIT"] == "1" || env["CLOCK_ORBIT"] == "1"
+        if orbit { XCTAssertTrue(centerAxis) }
+        let singleSide=env["TEST_RUNNER_CLOCK_SINGLE_SIDE"] == "1" || env["CLOCK_SINGLE_SIDE"] == "1"
+        if singleSide { XCTAssertTrue(orbit) }
+        let orbitExtent=Double(env["TEST_RUNNER_CLOCK_ORBIT_EXTENT"] ?? env["CLOCK_ORBIT_EXTENT"] ?? "45")!
+        let endpointDegrees: Double = orbit ? orbitExtent : centerAxis ? 30 : 60
         let vm=AngleDynamicViewModel();vm.setupScene();let s=vm.scene
         XCTAssertTrue(s.applyTableStyle(.charcoal,showsSights:true));s.applyClothColor(.green)
         s.setCameraMode(.perspective3D,animated:false);s.installReferenceRoom(style:.tournament)
         XCTAssertTrue(try XCTUnwrap(s.cueStick).applyStyle(.inkDragon))
-        let r=AngleSceneCalculator.ballRadius,y=s.surfaceY+r,cue=SCNVector3(0,s.surfaceY+AngleSceneCalculator.ballRadius,0.48)
+        let r=AngleSceneCalculator.ballRadius,y=s.surfaceY+r
+        var cue=SCNVector3(0,y,0.48)
         let camera=try XCTUnwrap(s.cameraNode),cam=try XCTUnwrap(camera.camera)
         cam.projectionDirection = .vertical;cam.zNear=0.01;cam.zFar=100;cam.wantsExposureAdaptation=false
         let renderer=SCNRenderer(device:nil,options:nil);renderer.scene=s;renderer.pointOfView=camera
@@ -5345,6 +5353,15 @@ extension ClockAimingPreviewCaptureTests {
         let fixedCuePose=s.cueBallHomeOrientation
         var records:[[String:Any]]=[]
         func project(_ p:SCNVector3,_ h:CGFloat)->CGPoint{let q=renderer.projectPoint(p);return CGPoint(x:CGFloat(q.x)/renderScale,y:h-CGFloat(q.y)/renderScale)}
+        func setOrbitCamera(eye:SCNVector3,focus:SCNVector3,up:SIMD3<Float>) {
+            // Preserve tiny yaw components near a straight shot: construct the orthonormal
+            // camera basis directly rather than SCNNode.look(at:)'s axis-angle conversion.
+            let e=SIMD3<Float>(eye.x,eye.y,eye.z)
+            let forward=simd_normalize(SIMD3<Float>(focus.x,focus.y,focus.z)-e)
+            let right=simd_normalize(simd_cross(forward,up))
+            let correctedUp=simd_cross(right,forward)
+            camera.simdTransform=simd_float4x4(SIMD4<Float>(right,0),SIMD4<Float>(correctedUp,0),SIMD4<Float>(-forward,0),SIMD4<Float>(e,1))
+        }
         // Solve the endpoint against the production cut-angle calculation; keep cue and pocket fixed.
         try XCTUnwrap(s.cueBallNode).position=cue
         var lower:Float=0,upper:Float=0.46
@@ -5352,30 +5369,68 @@ extension ClockAimingPreviewCaptureTests {
             let candidate=(lower+upper)/2
             try XCTUnwrap(vm.targetNode).position=SCNVector3(candidate,y,-0.18)
             vm.selectPocket(at:4);vm.updateCalculations()
-            if vm.cutAngleDegrees<60 {lower=candidate} else {upper=candidate}
+            if vm.cutAngleDegrees<endpointDegrees {lower=candidate} else {upper=candidate}
         }
         let endpoint=(lower+upper)/2
         let video=env["TEST_RUNNER_CLOCK_VIDEO"] == "1" || env["CLOCK_VIDEO"] == "1"
-        let fps=60, frameCount=1080
-        let writer=video ? try VideoWriter(url:out.appendingPathComponent("clock-aiming-2k60-18s.mp4"),size:renderCanvas,fps:fps,averageBitRate:40_000_000):nil
-        let positions: [Float] = video ? (0..<frameCount).map { frame in
+        if centerAxis && !orbit { XCTAssertFalse(video, "The fixed-camera center-axis revision remains still-only") }
+        let fps=60, frameCount=singleSide ? 900:1080
+        let writer=video ? try VideoWriter(url:out.appendingPathComponent(singleSide ? "clock-aiming-single-side-2k60-15s.mp4":"clock-aiming-2k60-18s.mp4"),size:renderCanvas,fps:fps,averageBitRate:40_000_000):nil
+        let positions: [Float] = orbit ? (video ? (0..<frameCount).map { frame in
+            let time=Double(frame)/Double(fps)
+            func smooth(_ value:Double)->Double { let u=max(0,min(1,value));return u*u*(3-2*u) }
+            // Single-side: one-second endpoint holds and a slower thirteen-second sweep.
+            if singleSide { return Float(orbitExtent*smooth((time-1)/13)) }
+            // One-second holds at each end and at the straight shot; 18 seconds total.
+            let signedDegrees = time<8.5 ? orbitExtent*(1-smooth((time-1)/7.5)) : -orbitExtent*smooth((time-9.5)/7.5)
+            return Float(signedDegrees)
+        } : (orbitExtent>45 ? [Float(orbitExtent),45,0,-45,-Float(orbitExtent)] : [45,0,-45])) : video ? (0..<frameCount).map { frame in
             let u=max(0,min(1,(Double(frame)/Double(fps)-1)/16))
             let eased=u*u*(3-2*u)
             return endpoint*Float(2*eased-1)
-        } : [-endpoint,-endpoint/2,0,endpoint/2,endpoint]
+        } : (centerAxis ? [-endpoint,0,endpoint] : [-endpoint,-endpoint/2,0,endpoint/2,endpoint])
         for (index,x) in positions.enumerated() {
           try autoreleasepool {
-            let target=SCNVector3(x,y,-0.18)
+            var target=SCNVector3(x,y,-0.18)
+            if orbit {
+                let pocket=AngleSceneCalculator.effectivePocketAimPoint(targetBall:SCNVector3(0,y,-0.23),pocketIndex:4,surfaceY:s.surfaceY)
+                let angle=x * .pi / 180, distance:Float=0.50
+                let length = -2*r*cos(angle)+sqrt(distance*distance-pow(2*r*sin(angle),2))
+                target=SCNVector3(pocket.x,y,pocket.z+0.40)
+                cue=SCNVector3(target.x-length*sin(angle),y,target.z+2*r+length*cos(angle))
+            }
             try XCTUnwrap(vm.targetNode).position=target;try XCTUnwrap(s.cueBallNode).position=cue
             vm.selectPocket(at:4);vm.updateCalculations()
             s.setCueBallHomeOrientation(fixedCuePose)
-            if index == 0 || index == positions.count-1 {XCTAssertEqual(vm.cutAngleDegrees,60,accuracy:0.01)}
+            if index == 0 || index == positions.count-1 {
+                let expected = singleSide && video && index == 0 ? 0 : endpointDegrees
+                XCTAssertEqual(vm.cutAngleDegrees,expected,accuracy:0.01)
+            }
+            // XZ table plane, Y up, metres. Both clocks share cue->target as 12 o'clock.
+            let twelve = centerAxis ? simd_normalize(SIMD2<Float>(target.x-cue.x,target.z-cue.z)) : SIMD2<Float>(0,-1)
+            let three = SIMD2<Float>(-twelve.y,twelve.x)
+            let worldClockRotation = Double(atan2(twelve.x,-twelve.y))
+            func axisPoint(_ center: SCNVector3, _ forward: Float, _ lateral: Float = 0) -> SCNVector3 {
+                SCNVector3(center.x+twelve.x*forward+three.x*lateral,s.surfaceY+0.002,center.z+twelve.y*forward+three.y*lateral)
+            }
             let pocket=AngleSceneCalculator.effectivePocketAimPoint(targetBall:target,pocketIndex:4,surfaceY:s.surfaceY)
             let n=simd_normalize(SIMD2<Float>(pocket.x-target.x,pocket.z-target.z))
             let ghost=AngleSceneCalculator.ghostBallPosition(targetBall:target,pocket:pocket,ballRadius:r)
+            let viewDirection=simd_normalize(SIMD2<Float>(ghost.x-cue.x,ghost.z-cue.z))
+            let viewRotation=orbit ? Double(atan2(viewDirection.x,-viewDirection.y)) : 0
+            let clockRotation=worldClockRotation-viewRotation
+            if orbit {
+                XCTAssertEqual(AngleSceneCalculator.horizontalDistance(cue,target),0.50,accuracy:0.000001)
+                XCTAssertEqual(AngleSceneCalculator.horizontalDistance(target,pocket),0.40,accuracy:0.000001)
+                XCTAssertEqual(vm.cutAngleDegrees,Double(abs(x)),accuracy:0.01)
+            }
             let a=AngleSceneCalculator.contactPointPosition(targetBall:target,pocket:pocket),b=SCNVector3(cue.x+r*n.x,y,cue.z+r*n.y)
             XCTAssertEqual(a.x-target.x,-(b.x-cue.x),accuracy:0.000001);XCTAssertEqual(a.z-target.z,-(b.z-cue.z),accuracy:0.000001)
             s.updateCueStick(cueBallPosition:cue,aimDirection:SCNVector3(ghost.x-cue.x,0,ghost.z-cue.z))
+            if centerAxis {
+                s.hideAllVisualization()
+                s.rootNode.childNode(withName:"angleDynamic.assists",recursively:true)?.isHidden=true
+            }
             for node in [s.ghostBallNode,s.pocketLineNode,s.strikeLineNode,s.contactDotNode,s.angleArcNode,s.perpLineNode] {node?.isHidden=true}
             s.rootNode.childNode(withName:"strikeContinuation",recursively:true)?.isHidden=true
             let extras=SCNNode();s.rootNode.addChildNode(extras)
@@ -5405,30 +5460,48 @@ extension ClockAimingPreviewCaptureTests {
                     }
                 }
             }
+            if centerAxis {
+                extras.addChildNode(s.addDashedLine(from:axisPoint(cue,0),to:axisPoint(target,0),color:UIColor(white:0.72,alpha:1),radius:0.0009,dash:0.012,gap:0.009,placement:.table,layer:.aiming))
+            }
             for (axisIndex,center) in [target,cue].enumerated() {
-                let axisEnd=SCNVector3(center.x,s.surfaceY,center.z+(axisIndex==0 ? -0.12:0.12))
+                let axisEnd=axisPoint(center,axisIndex==0 ? 0.12:-0.12)
                 extras.addChildNode(s.addLine(from:SCNVector3(center.x,s.surfaceY,center.z),to:axisEnd,color:.white,radius:0.0012,placement:.table,layer:.aiming))
-                extras.addChildNode(s.addLine(from:SCNVector3(center.x-0.055,s.surfaceY,center.z),to:SCNVector3(center.x+0.055,s.surfaceY,center.z),color:.white,radius:0.0012,placement:.table,layer:.aiming))
+                extras.addChildNode(s.addLine(from:axisPoint(center,0,-0.055),to:axisPoint(center,0,0.055),color:.white,radius:0.0012,placement:.table,layer:.aiming))
             }
             XCTAssertTrue(abs(abs(rail.x)-AngleSceneCalculator.innerLength/2)<0.0001 || abs(abs(rail.z)-AngleSceneCalculator.innerWidth/2)<0.0001)
             cam.usesOrthographicProjection=false;cam.fieldOfView=76
             camera.position=SCNVector3(0,s.surfaceY+1.02,0.98)
             camera.look(at:SCNVector3(0,s.surfaceY,-0.05),up:SCNVector3(0,1,0),localFront:SCNVector3(0,0,-1))
+            if orbit {
+                cam.fieldOfView=80
+                camera.position=SCNVector3(cue.x-0.35*aimDirection.x,s.surfaceY+0.75,cue.z-0.35*aimDirection.y)
+                setOrbitCamera(eye:camera.position,focus:ghost,up:SIMD3<Float>(0,1,0))
+            }
+            let mainCameraPosition=camera.position
             SCNTransaction.flush()
             _=renderer.snapshot(atTime:0,with:renderCanvas,antialiasingMode:.multisampling4X)
             let base=renderer.snapshot(atTime:0,with:renderCanvas,antialiasingMode:.multisampling4X)
+            if centerAxis && !video {
+                try XCTUnwrap(base.pngData()).write(to:out.appendingPathComponent(String(format:"base-%02d.png",index+1)))
+            }
             let railLeft=project(SCNVector3(-0.5,s.surfaceY,-0.635),canvas.height)
             let railRight=project(SCNVector3(0.5,s.surfaceY,-0.635),canvas.height)
-            XCTAssertEqual(railLeft.y,railRight.y,accuracy:0.01)
+            if !orbit { XCTAssertEqual(railLeft.y,railRight.y,accuracy:0.01) }
             let ap=project(a,canvas.height),bp=project(b,canvas.height),cp=project(cue,canvas.height),tp=project(target,canvas.height)
             XCTAssertTrue(CGRect(origin:.zero,size:canvas).insetBy(dx:25,dy:25).contains(cp));XCTAssertTrue(CGRect(origin:.zero,size:canvas).insetBy(dx:25,dy:25).contains(tp))
+            let ghostPixel=project(ghost,canvas.height),pocketPixel=project(pocket,canvas.height)
+            if orbit {
+                XCTAssertEqual(cp.x,canvas.width/2,accuracy:0.05)
+                XCTAssertEqual(ghostPixel.x,canvas.width/2,accuracy:0.05)
+                XCTAssertTrue(CGRect(origin:.zero,size:canvas).insetBy(dx:25,dy:25).contains(pocketPixel))
+            }
             let potAnchor=project(SCNVector3((target.x+pocket.x)/2,s.surfaceY+0.002,(target.z+pocket.z)/2),canvas.height)
             let aimAnchor=project(SCNVector3(cue.x*0.55+ghost.x*0.45,s.surfaceY+0.002,cue.z*0.55+ghost.z*0.45),canvas.height)
             let axisSegments=[target,cue].map { center in
-                (project(SCNVector3(center.x-0.055,s.surfaceY+0.002,center.z),canvas.height),project(SCNVector3(center.x+0.055,s.surfaceY+0.002,center.z),canvas.height))
+                (project(axisPoint(center,0,-0.055),canvas.height),project(axisPoint(center,0,0.055),canvas.height))
             }
-            let twelveLabel=project(SCNVector3(target.x,s.surfaceY+0.002,target.z-0.12),canvas.height)
-            let sixLabel=project(SCNVector3(cue.x,s.surfaceY+0.002,cue.z+0.12),canvas.height)
+            let twelveLabel=project(axisPoint(target,0.12),canvas.height)
+            let sixLabel=project(axisPoint(cue,-0.12),canvas.height)
             let angleMid=potHeading+arcSweep/2
             let cutLabel=project(SCNVector3(ghost.x+0.20*cos(angleMid),s.surfaceY+0.002,ghost.z+0.20*sin(angleMid)),canvas.height)
             extras.isHidden=true;s.hideCueStick()
@@ -5436,17 +5509,30 @@ extension ClockAimingPreviewCaptureTests {
             for (center,contact) in [(target,a),(cue,b)] {
                 cam.usesOrthographicProjection=true;cam.orthographicScale=0.064
                 camera.position=SCNVector3(center.x,center.y+3,center.z)
-                camera.look(at:center,up:SCNVector3(0,0,-1),localFront:SCNVector3(0,0,-1));SCNTransaction.flush()
+                if orbit { setOrbitCamera(eye:camera.position,focus:center,up:SIMD3<Float>(aimDirection.x,0,aimDirection.y)) }
+                else { camera.look(at:center,up:SCNVector3(0,0,-1),localFront:SCNVector3(0,0,-1)) }
+                SCNTransaction.flush()
                 details.append(renderer.snapshot(atTime:0,with:small,antialiasingMode:.multisampling4X));contactPixels.append(project(contact,480))
-                let theta=Double(atan2(contact.x-center.x,-(contact.z-center.z)));angles.append(theta)
-                let positive=theta<0 ? theta+2 * .pi:theta
+                let theta=Double(atan2(contact.x-center.x,-(contact.z-center.z)))-viewRotation;angles.append(theta)
+                let relative=atan2(sin(theta-clockRotation),cos(theta-clockRotation))
+                let positive=relative<0 ? relative+2 * .pi:relative
                 minutes.append((Int((positive/(2 * .pi)*720/5).rounded())*5)%720)
             }
             XCTAssertEqual((minutes[1]-minutes[0]+720)%720,360)
+            if centerAxis {
+                let initialAxis=SIMD2<Float>(target.x-cue.x,target.z-cue.z)
+                XCTAssertEqual(initialAxis.x*twelve.y-initialAxis.y*twelve.x,0,accuracy:0.000001)
+                XCTAssertGreaterThan(simd_dot(initialAxis,twelve),0)
+                let contactDelta=SIMD2<Float>(a.x-b.x,a.z-b.z)
+                let aimDelta=SIMD2<Float>(ghost.x-cue.x,ghost.z-cue.z)
+                XCTAssertLessThan(simd_length(contactDelta-aimDelta),0.000001)
+                if orbit ? abs(x)<0.0001 : index == 1 { XCTAssertEqual(minutes,[360,0]) }
+            }
             let axisAngles=angles.map { acos(min(1,abs(cos($0)))) * 180 / Double.pi }
             XCTAssertEqual(axisAngles[0],axisAngles[1],accuracy:0.001)
             XCTAssertTrue(axisAngles.allSatisfy { $0 >= 0 && $0 <= 90 })
             let image=UIGraphicsImageRenderer(size:canvas,format:format).image { context in
+                UIColor.black.setFill();context.fill(CGRect(origin:.zero,size:canvas))
                 base.draw(in:CGRect(origin:.zero,size:canvas));let g=context.cgContext
                 func line(_ p:CGPoint,_ q:CGPoint,_ color:UIColor,_ width:CGFloat=2) {g.setStrokeColor(color.cgColor);g.setLineWidth(width);g.move(to:p);g.addLine(to:q);g.strokePath()}
                 func text(_ value:String,_ p:CGPoint,_ size:CGFloat=30,_ color:UIColor = .white,centered:Bool=false) {
@@ -5457,11 +5543,11 @@ extension ClockAimingPreviewCaptureTests {
                 }
                 func dot(_ p:CGPoint,_ color:UIColor) {color.setFill();let shape=UIBezierPath(ovalIn:CGRect(x:p.x-6,y:p.y-6,width:12,height:12));shape.fill();UIColor.white.setStroke();shape.lineWidth=1.5;shape.stroke()}
                 line(ap,bp,.cyan,2.5)
-                if showCutAngle {
+                if showCutAngle && (!centerAxis || abs(arcSweep)>0.001) {
                     text(String(format:"%.0f°",vm.cutAngleDegrees),CGPoint(x:cutLabel.x,y:cutLabel.y-70),34,.systemYellow,centered:true)
                 }
                 text("12点",CGPoint(x:twelveLabel.x,y:twelveLabel.y-38),27,.white,centered:true)
-                text("6点",CGPoint(x:sixLabel.x,y:sixLabel.y+10),27,.white,centered:true)
+                text("6点",CGPoint(x:sixLabel.x+(orbit ? 55:0),y:sixLabel.y+10),27,.white,centered:true)
                 dot(ap,.systemRed);dot(bp,.systemOrange)
                 func leader(_ title:String,_ anchor:CGPoint,_ label:CGPoint,_ color:UIColor) {
                     text(title,label,34,color)
@@ -5474,7 +5560,7 @@ extension ClockAimingPreviewCaptureTests {
                     text("9点",CGPoint(x:left.x-42,y:left.y-16),27,.white,centered:true)
                     text("3点",CGPoint(x:right.x+32,y:right.y-16),27,.white,centered:true)
                 }
-                leader("进球线",potAnchor,CGPoint(x:potAnchor.x+(target.x>0 ? -240:80),y:potAnchor.y-60),.black)
+                leader("进球线",potAnchor,CGPoint(x:potAnchor.x+(orbit ? (potAnchor.x < tp.x-1 ? -240:80) : (target.x>0 ? -240:80)),y:potAnchor.y+(orbit ? 30:-60)),.black)
                 let contactMid=CGPoint(x:ap.x*0.5+bp.x*0.5,y:ap.y*0.5+bp.y*0.5)
                 let fraction=(aimAnchor.y-ap.y)/(bp.y-ap.y)
                 let contactAtAimX=ap.x+(bp.x-ap.x)*fraction
@@ -5485,20 +5571,40 @@ extension ClockAimingPreviewCaptureTests {
                 leader("瞄准线",aimAnchor,aimLabel,.white)
                 UIColor.black.withAlphaComponent(0.90).setFill()
                 UIBezierPath(roundedRect:CGRect(x:35,y:365,width:520,height:128),cornerRadius:18).fill()
+                if centerAxis {
+                    let heading = orbit ? (abs(x)<0.0001 ? "直球 · 0°" : String(format:"%@ · %.0f°",x>0 ? "左切":"右切",vm.cutAngleDegrees)) : (index == 1 ? "直球 · 0°" : index == 0 ? "左侧角度球 · 30°" : "右侧角度球 · 30°")
+                    text(heading,CGPoint(x:45,y:275),38)
+                    text("球心连线定钟面",CGPoint(x:55,y:383),34)
+                    text("母球 → 目标球：12点方向",CGPoint(x:55,y:435),30)
+                    text("灰虚线：球心基准",CGPoint(x:45,y:1230),28,UIColor(white:0.85,alpha:1))
+                    text("白实线：瞄准方向",CGPoint(x:45,y:1275),28)
+                    if orbit ? abs(x)<0.0001 : index == 1 { text("直球时，两线重合",CGPoint(x:45,y:1320),26) }
+                }
                 text("瞄准流程：",CGPoint(x:45,y:1400),showCutAngle ? 28:34,.white)
                 smileImage?.draw(in:CGRect(x:showCutAngle ? 185:220,y:showCutAngle ? 1391:1395,width:50,height:50))
-                let aimingSteps=["1. 定目标球接触点；","2. 定目标球接触点时间；","3. 定母球时间；","4. 定母球接触点；","5. 定瞄准线方向"]
+                let aimingSteps = centerAxis ? ["1. 球心连线定12—6点；","2. 找目标球接触点时间；","3. 相差6小时找母球点；","4. 连接两个接触点；","5. 平移到母球中心出杆"] : ["1. 定目标球接触点；","2. 定目标球接触点时间；","3. 定母球时间；","4. 定母球接触点；","5. 定瞄准线方向"]
                 for (stepIndex,step) in aimingSteps.enumerated() {
                     text(step,CGPoint(x:45,y:(showCutAngle ? 1450:1460)+CGFloat(stepIndex)*(showCutAngle ? 48:56)),showCutAngle ? 24:30,.white)
                 }
-                text("注：母球与目标球的接触点，",CGPoint(x:55,y:383),34,.white)
-                text("对应的钟表时间相差6小时。",CGPoint(x:55,y:435),34,.white)
+                if !centerAxis {
+                    text("注：母球与目标球的接触点，",CGPoint(x:55,y:383),34,.white)
+                    text("对应的钟表时间相差6小时。",CGPoint(x:55,y:435),34,.white)
+                }
                 let offset = -tan(angles[0])*350
-                let centers=[CGPoint(x:1190-offset/2,y:650),CGPoint(x:1190+offset/2,y:1000)]
+                let centers: [CGPoint]
+                if orbit {
+                    // Slide the equal-sized windows together along their shared contact axis.
+                    let separation = 260 / max(abs(sin(angles[0])),abs(cos(angles[0])))
+                    let dx=sin(angles[0])*separation,dy = -cos(angles[0])*separation
+                    centers=[CGPoint(x:1155-dx/2,y:440-dy/2),CGPoint(x:1155+dx/2,y:440+dy/2)]
+                } else { centers=[CGPoint(x:1190-offset/2,y:650),CGPoint(x:1190+offset/2,y:1000)] }
                 let linkColor=UIColor.cyan
                 line(centers[0],centers[1],linkColor.withAlphaComponent(0.8),2)
                 for i in 0..<2 {
-                    let center=centers[i],box=CGRect(x:center.x-170,y:center.y-170,width:340,height:340)
+                    let center=centers[i]
+                    let insetScale:CGFloat=orbit ? 260.0/340.0 : 1
+                    g.saveGState();g.translateBy(x:center.x*(1-insetScale),y:center.y*(1-insetScale));g.scaleBy(x:insetScale,y:insetScale)
+                    let box=CGRect(x:center.x-170,y:center.y-170,width:340,height:340)
                     let color:UIColor=i==0 ? .systemRed:.systemOrange
                     let panel=CGRect(x:box.minX,y:box.minY-(i==0 ? 54:0),width:box.width,height:box.height+54)
                     g.saveGState();UIBezierPath(roundedRect:panel,cornerRadius:20).addClip()
@@ -5506,28 +5612,36 @@ extension ClockAimingPreviewCaptureTests {
                     details[i].draw(in:box);g.restoreGState()
                     UIColor.white.withAlphaComponent(0.85).setStroke();let border=UIBezierPath(roundedRect:panel,cornerRadius:20);border.lineWidth=2;border.stroke()
                     for tick in 0..<60 {
-                        let t=Double(tick)*2 * .pi/60,outer:CGFloat=108,inner:CGFloat=tick%5==0 ? 94:101
+                        let t=Double(tick)*2 * .pi/60+clockRotation,outer:CGFloat=108,inner:CGFloat=tick%5==0 ? 94:101
                         line(CGPoint(x:center.x+sin(t)*inner,y:center.y-cos(t)*inner),CGPoint(x:center.x+sin(t)*outer,y:center.y-cos(t)*outer),UIColor.white.withAlphaComponent(tick%5==0 ? 1:0.75),tick%5==0 ? 3:1.5)
                     }
                     for hour in 1...12 {
-                        let t=Double(hour)*Double.pi/6
+                        let t=Double(hour)*Double.pi/6+clockRotation
                         text(String(hour),CGPoint(x:center.x+sin(t)*129,y:center.y-cos(t)*129-14),26,.white,centered:true)
+                    }
+                    if centerAxis {
+                        line(CGPoint(x:center.x-sin(clockRotation)*147,y:center.y+cos(clockRotation)*147),CGPoint(x:center.x+sin(clockRotation)*147,y:center.y-cos(clockRotation)*147),UIColor(white:0.75,alpha:1),1.5)
                     }
                     let theta=angles[i]
                     line(CGPoint(x:center.x-sin(theta)*158,y:center.y+cos(theta)*158),CGPoint(x:center.x+sin(theta)*158,y:center.y-cos(theta)*158),linkColor,2)
                     dot(CGPoint(x:box.minX+contactPixels[i].x*340/480,y:box.minY+contactPixels[i].y*340/480),color)
-                    let m=minutes[i],hour=m/60
+                    let m=minutes[i],hour=(centerAxis && m == 0) ? 12 : m/60
                     text(String(format:"%@ · 约%d点%02d分",i==0 ? "目标球":"母球",hour,m%60),CGPoint(x:box.minX+16,y:i==0 ? panel.minY+12:box.maxY+12),25,.white)
+                    g.restoreGState()
                 }
 
             }
             if let writer {
                 try writer.append(XCTUnwrap(image.cgImage))
                 if index % 60 == 0 { print("CLOCK_VIDEO_FRAME \(index)/\(frameCount)") }
+                let sampleFrames=singleSide ? [0,60,180,300,450,600,720,840,899] : [0,60,300,510,540,570,780,1020,1079]
+                if sampleFrames.contains(index) {
+                    try XCTUnwrap(image.pngData()).write(to:out.appendingPathComponent(String(format:"native-frame-%04d.png",index)))
+                }
             } else {
                 try XCTUnwrap(image.pngData()).write(to:out.appendingPathComponent(String(format:"keyframe-%02d.png",index+1)))
             }
-            records.append(["frame":index+1,"cue":[cue.x,cue.y,cue.z],"target":[target.x,target.y,target.z],"cutAngle":vm.cutAngleDegrees,"clockMinutes":minutes,"axisAnglesDegrees":axisAngles,"aimRail":[rail.x,rail.y,rail.z],"aimOccluded":entry != nil,"cuePixel":[cp.x,cp.y],"targetPixel":[tp.x,tp.y]])
+            records.append(["revision":singleSide ? "center-axis-single-side-r9" : orbit ? "center-axis-orbit-video-r8" : centerAxis ? "center-axis-r2" : "legacy", "camera":[mainCameraPosition.x,mainCameraPosition.y,mainCameraPosition.z],"ghost":[ghost.x,ghost.y,ghost.z],"pocket":[pocket.x,pocket.y,pocket.z],"ghostPixel":[ghostPixel.x,ghostPixel.y],"pocketPixel":[pocketPixel.x,pocketPixel.y],"viewRotationRadians":viewRotation, "clockTwelveXZ":[twelve.x,twelve.y],"clockRotationRadians":clockRotation,"frame":index+1,"time":Double(index)/Double(fps),"signedCutDegrees":orbit ? Double(x) : 0,"cue":[cue.x,cue.y,cue.z],"target":[target.x,target.y,target.z],"cutAngle":vm.cutAngleDegrees,"clockMinutes":minutes,"axisAnglesDegrees":axisAngles,"aimRail":[rail.x,rail.y,rail.z],"aimOccluded":entry != nil,"cuePixel":[cp.x,cp.y],"targetPixel":[tp.x,tp.y]])
             extras.removeFromParentNode()
           }
           if video { try await Task.sleep(nanoseconds:1_000_000) }

@@ -1,0 +1,20 @@
+{
+  "fixture": "planStatuses",
+  "premium": true,
+  "steps": [
+    {
+      "action": "cover",
+      "name": "P02-01-planStatuses",
+      "entry": "normal training Tab; pre-existing v54 in-memory fixture planStatuses",
+      "maximumViews": 40
+    }
+  ],
+  "catalog": {
+    "P02-01-planStatuses": {
+      "id": "APP/P02-01",
+      "title": "训练首页",
+      "state": "planStatuses",
+      "figmaPage": "10"
+    }
+  }
+}

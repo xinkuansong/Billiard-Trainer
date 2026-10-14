@@ -1,0 +1,2485 @@
+{
+  "baseline": "f75cbafdc455e5521a248d2187943956456dcaaa",
+  "status": "TABLE_CANDIDATE_INITIAL_SOURCE_AUDIT_COMPLETE_MATRIX_NOT_FROZEN",
+  "note": "163候选逐一核对源码入口/守卫。含待定义、瞬态及环境缺口；并非最终矩阵或运行完成。原候选及原证据不删除，独立用户验收仍为0。",
+  "entries": [
+    {
+      "stateIds": [
+        "DAILY/D00/2d-default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1334,1713-1746,1917-1929,2024-2046,2177-2185",
+      "evidence": "进入页面并通过视图菜单明确选择2D；不能从前次持久化偏好推定。",
+      "boundEvidenceSummary": {
+        "DAILY/D00/2d-default": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "DAILY/D00/3d-default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1334,1713-1746,1917-1929,2024-2046,2177-2185",
+      "evidence": "进入页面并通过视图菜单选择3D，等相机转换完成；2D图不代替3D。",
+      "boundEvidenceSummary": {
+        "DAILY/D00/3d-default": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "DAILY/D00/2d-more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1334,1713-1746,1917-1929,2024-2046,2177-2185",
+      "evidence": "明确2D视角后打开更多菜单。",
+      "boundEvidenceSummary": {
+        "DAILY/D00/2d-more": {
+          "reviewedViewports": 2,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "DAILY/D00/3d-more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1334,1713-1746,1917-1929,2024-2046,2177-2185",
+      "evidence": "明确3D视角后打开更多菜单。",
+      "boundEvidenceSummary": {
+        "DAILY/D00/3d-more": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "DAILY/D00/aim-menu"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1334,1713-1746,1917-1929,2024-2046,2177-2185",
+      "evidence": "更多→瞄准模式；有击球/开球/结果等禁用条件，须在闲置可操作状态进入。",
+      "boundEvidenceSummary": {
+        "DAILY/D00/aim-menu": {
+          "reviewedViewports": 2,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "DAILY/D00/trajectory-menu"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1334,1713-1746,1917-1929,2024-2046,2177-2185",
+      "evidence": "更多→轨迹显示；2D与3D选项不同，截图须标明视角。",
+      "boundEvidenceSummary": {
+        "DAILY/D00/trajectory-menu": {
+          "reviewedViewports": 2,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "DAILY/D00/game-menu"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1334,1713-1746,1917-1929,2024-2046,2177-2185",
+      "evidence": "每日清台更多→临时换玩法，列出实际游戏类型。",
+      "boundEvidenceSummary": {
+        "DAILY/D00/game-menu": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "DAILY/D00/game-change-confirm"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1334,1713-1746,1917-1929,2024-2046,2177-2185",
+      "evidence": "必须已有shotCount>0、未完成且选择不同玩法；初始直接切换不出现此确认。",
+      "boundEvidenceSummary": {
+        "DAILY/D00/game-change-confirm": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "DAILY/D00/spin-panel"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1334,1713-1746,1917-1929,2024-2046,2177-2185",
+      "evidence": "闲置时打开打点盘，记录视角和展开状态。",
+      "boundEvidenceSummary": {
+        "DAILY/D00/spin-panel": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "DAILY/D00/transparency-panel"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1334,1713-1746,1917-1929,2024-2046,2177-2185",
+      "evidence": "更多→打点盘透明度；展开面板与数值修改分开记录。",
+      "boundEvidenceSummary": {
+        "DAILY/D00/transparency-panel": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "DAILY/D00/break-ready"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1334,1713-1746,1917-1929,2024-2046,2177-2185",
+      "evidence": "正常选择玩法/重开到BreakFlowRunner待开球阶段；需要验证杆/母球/按钮可用，不能只按名字绑定。",
+      "boundEvidenceSummary": {
+        "DAILY/D00/break-ready": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "DAILY/D00/playing"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1334,1713-1746,1917-1929,2024-2046,2177-2185",
+      "evidence": "真实击球过程；必须定义观察时点，静态稳定帧采集器会拒绝动画，停球后不能冒充进行中。",
+      "boundEvidenceSummary": {
+        "DAILY/D00/playing": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "DAILY/D00/replay"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1334,1713-1746,1917-1929,2024-2046,2177-2185",
+      "evidence": "必须先完成一杆生成可回放记录，再点回放；动画时点与结束态分别记录。",
+      "boundEvidenceSummary": {
+        "DAILY/D00/replay": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "DAILY/D00/result"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1334,1713-1746,1917-1929,2024-2046,2177-2185",
+      "evidence": "真实提交答案后结果；需区分正确/偏差、验证中/验证后及限额叠层，默认截图不替代。",
+      "boundEvidenceSummary": {
+        "DAILY/D00/result": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P01/2d-default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/ShotSimulationView.swift:16;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1276,1917-1929,2024-2046",
+      "evidence": "进入页面并通过视图菜单明确选择2D；不能从前次持久化偏好推定。",
+      "boundEvidenceSummary": {
+        "TABLE/P01/2d-default": {
+          "reviewedViewports": 2,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P01/3d-default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/ShotSimulationView.swift:16;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1276,1917-1929,2024-2046",
+      "evidence": "进入页面并通过视图菜单选择3D，等相机转换完成；2D图不代替3D。",
+      "boundEvidenceSummary": {
+        "TABLE/P01/3d-default": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P01/2d-more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/ShotSimulationView.swift:16;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1276,1917-1929,2024-2046",
+      "evidence": "明确2D视角后打开更多菜单。",
+      "boundEvidenceSummary": {
+        "TABLE/P01/2d-more": {
+          "reviewedViewports": 2,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P01/3d-more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/ShotSimulationView.swift:16;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1276,1917-1929,2024-2046",
+      "evidence": "明确3D视角后打开更多菜单。",
+      "boundEvidenceSummary": {
+        "TABLE/P01/3d-more": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P01/aim-menu"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/ShotSimulationView.swift:16;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1276,1917-1929,2024-2046",
+      "evidence": "更多→瞄准模式；有击球/开球/结果等禁用条件，须在闲置可操作状态进入。",
+      "boundEvidenceSummary": {
+        "TABLE/P01/aim-menu": {
+          "reviewedViewports": 2,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P01/trajectory-menu"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/ShotSimulationView.swift:16;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1276,1917-1929,2024-2046",
+      "evidence": "更多→轨迹显示；2D与3D选项不同，截图须标明视角。",
+      "boundEvidenceSummary": {
+        "TABLE/P01/trajectory-menu": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P01/spin-panel"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/ShotSimulationView.swift:16;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1276,1917-1929,2024-2046",
+      "evidence": "闲置时打开打点盘，记录视角和展开状态。",
+      "boundEvidenceSummary": {
+        "TABLE/P01/spin-panel": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P01/transparency-panel"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/ShotSimulationView.swift:16;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1276,1917-1929,2024-2046",
+      "evidence": "更多→打点盘透明度；展开面板与数值修改分开记录。",
+      "boundEvidenceSummary": {
+        "TABLE/P01/transparency-panel": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P01/playing"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/PositionPlay/Views/ShotSimulationView.swift:16;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1276,1917-1929,2024-2046",
+      "evidence": "真实击球过程；必须定义观察时点，静态稳定帧采集器会拒绝动画，停球后不能冒充进行中。",
+      "boundEvidenceSummary": {
+        "TABLE/P01/playing": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P01/replay"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/PositionPlay/Views/ShotSimulationView.swift:16;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:115-123,1214-1276,1917-1929,2024-2046",
+      "evidence": "必须先完成一杆生成可回放记录，再点回放；动画时点与结束态分别记录。",
+      "boundEvidenceSummary": {
+        "TABLE/P01/replay": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P02/2d-default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:351-359,1214-1295,1917-1929,2024-2046",
+      "evidence": "进入页面并通过视图菜单明确选择2D；不能从前次持久化偏好推定。",
+      "boundEvidenceSummary": {
+        "TABLE/P02/2d-default": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P02/3d-default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:351-359,1214-1295,1917-1929,2024-2046",
+      "evidence": "进入页面并通过视图菜单选择3D，等相机转换完成；2D图不代替3D。",
+      "boundEvidenceSummary": {
+        "TABLE/P02/3d-default": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P02/more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:351-359,1214-1295,1917-1929,2024-2046",
+      "evidence": "通过本页更多按钮打开实际菜单；沿用已验证正常入口。",
+      "boundEvidenceSummary": {
+        "TABLE/P02/more": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P02/aim-menu"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:351-359,1214-1295,1917-1929,2024-2046",
+      "evidence": "更多→瞄准模式；有击球/开球/结果等禁用条件，须在闲置可操作状态进入。",
+      "boundEvidenceSummary": {
+        "TABLE/P02/aim-menu": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P02/trajectory-menu"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:351-359,1214-1295,1917-1929,2024-2046",
+      "evidence": "更多→轨迹显示；2D与3D选项不同，截图须标明视角。",
+      "boundEvidenceSummary": {
+        "TABLE/P02/trajectory-menu": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P02/spin-panel"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:351-359,1214-1295,1917-1929,2024-2046",
+      "evidence": "闲置时打开打点盘，记录视角和展开状态。",
+      "boundEvidenceSummary": {
+        "TABLE/P02/spin-panel": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P02/game-selection"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:351-359,1214-1295,1917-1929,2024-2046",
+      "evidence": "自由击球开球入口打开BreakGamePickerSheet，选择玩法后进入开球流程。",
+      "boundEvidenceSummary": {
+        "TABLE/P02/game-selection": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P02/break-ready"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:351-359,1214-1295,1917-1929,2024-2046",
+      "evidence": "正常选择玩法/重开到BreakFlowRunner待开球阶段；需要验证杆/母球/按钮可用，不能只按名字绑定。",
+      "boundEvidenceSummary": {
+        "TABLE/P02/break-ready": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P02/clear-confirm"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:351-359,1214-1295,1917-1929,2024-2046",
+      "evidence": "更多→清空桌面→确认弹层；只采确认，不破坏真实数据。",
+      "boundEvidenceSummary": {
+        "TABLE/P02/clear-confirm": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P02/end-confirm"
+      ],
+      "classification": "NO_CONFIRMATION_IN_IMPLEMENTATION",
+      "captureStatus": "NOT_APPLICABLE_AT_FROZEN_BASELINE",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:351-359,1214-1295,1917-1929,2024-2046",
+      "evidence": "FreePlayView:1288-1291结束对局直接endGame并flash，无确认卡。候选end-confirm不适用，正常结束后的状态可另列，不冒充确认。",
+      "boundEvidenceSummary": {
+        "TABLE/P02/end-confirm": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P02/playing"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:351-359,1214-1295,1917-1929,2024-2046",
+      "evidence": "真实击球过程；必须定义观察时点，静态稳定帧采集器会拒绝动画，停球后不能冒充进行中。",
+      "boundEvidenceSummary": {
+        "TABLE/P02/playing": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P02/replay"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift:351-359,1214-1295,1917-1929,2024-2046",
+      "evidence": "必须先完成一杆生成可回放记录，再点回放；动画时点与结束态分别记录。",
+      "boundEvidenceSummary": {
+        "TABLE/P02/replay": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P03/2d-default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift:16-63,71-85,109-140;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:1214-1295;QiuJi/Features/PositionPlay/ViewModels/PositionPlayViewModel.swift:458-459,1746-1747,1820-1851",
+      "evidence": "进入页面并通过视图菜单明确选择2D；不能从前次持久化偏好推定。",
+      "boundEvidenceSummary": {
+        "TABLE/P03/2d-default": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P03/3d-default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift:16-63,71-85,109-140;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:1214-1295;QiuJi/Features/PositionPlay/ViewModels/PositionPlayViewModel.swift:458-459,1746-1747,1820-1851",
+      "evidence": "进入页面并通过视图菜单选择3D，等相机转换完成；2D图不代替3D。",
+      "boundEvidenceSummary": {
+        "TABLE/P03/3d-default": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P03/more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift:16-63,71-85,109-140;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:1214-1295;QiuJi/Features/PositionPlay/ViewModels/PositionPlayViewModel.swift:458-459,1746-1747,1820-1851",
+      "evidence": "通过本页更多按钮打开实际菜单；沿用已验证正常入口。",
+      "boundEvidenceSummary": {
+        "TABLE/P03/more": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P03/ball-selection"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift:16-63,71-85,109-140;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:1214-1295;QiuJi/Features/PositionPlay/ViewModels/PositionPlayViewModel.swift:458-459,1746-1747,1820-1851",
+      "evidence": "球库摆球/桌面选目标后读取实际选择标记；视角及目标明确。",
+      "boundEvidenceSummary": {
+        "TABLE/P03/ball-selection": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P03/pocket-selection"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift:16-63,71-85,109-140;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:1214-1295;QiuJi/Features/PositionPlay/ViewModels/PositionPlayViewModel.swift:458-459,1746-1747,1820-1851",
+      "evidence": "点选实际袋口并确认选中/轨迹；不可仅截尚未选择的默认态。",
+      "boundEvidenceSummary": {
+        "TABLE/P03/pocket-selection": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P03/constraints"
+      ],
+      "classification": "UNRESOLVED_CANDIDATE_SEMANTICS",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift:16-63,71-85,109-140;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:1214-1295;QiuJi/Features/PositionPlay/ViewModels/PositionPlayViewModel.swift:458-459,1746-1747,1820-1851",
+      "evidence": "Composer宿主只提供命名/清空/重来/试打说明/瞄准模式；未定位落区/落点/过点约束工具。需厘清候选原意，不套用Silu/PlanThree约束页。",
+      "boundEvidenceSummary": {
+        "TABLE/P03/constraints": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P03/solution"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift:16-63,71-85,109-140;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:1214-1295;QiuJi/Features/PositionPlay/ViewModels/PositionPlayViewModel.swift:458-459,1746-1747,1820-1851",
+      "evidence": "有效输入后求解完成且实际结果非空；需固定球形、约束与解序号。",
+      "boundEvidenceSummary": {
+        "TABLE/P03/solution": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P03/no-solution"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift:16-63,71-85,109-140;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:1214-1295;QiuJi/Features/PositionPlay/ViewModels/PositionPlayViewModel.swift:458-459,1746-1747,1820-1851",
+      "evidence": "完成一次真实求解且无结果；需固定可复现球形，初始未求解不等于无解。",
+      "boundEvidenceSummary": {
+        "TABLE/P03/no-solution": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P03/next-solution"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift:16-63,71-85,109-140;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:1214-1295;QiuJi/Features/PositionPlay/ViewModels/PositionPlayViewModel.swift:458-459,1746-1747,1820-1851",
+      "evidence": "必须至少2个解且闲置，点下一解后核实际序号/轨迹变化。",
+      "boundEvidenceSummary": {
+        "TABLE/P03/next-solution": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P03/playing"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift:16-63,71-85,109-140;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:1214-1295;QiuJi/Features/PositionPlay/ViewModels/PositionPlayViewModel.swift:458-459,1746-1747,1820-1851",
+      "evidence": "真实击球过程；必须定义观察时点，静态稳定帧采集器会拒绝动画，停球后不能冒充进行中。",
+      "boundEvidenceSummary": {
+        "TABLE/P03/playing": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P03/replay"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift:16-63,71-85,109-140;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:1214-1295;QiuJi/Features/PositionPlay/ViewModels/PositionPlayViewModel.swift:458-459,1746-1747,1820-1851",
+      "evidence": "必须先完成一杆生成可回放记录，再点回放；动画时点与结束态分别记录。",
+      "boundEvidenceSummary": {
+        "TABLE/P03/replay": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P03/drill-entry"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift:16-63,71-85,109-140;QiuJi/Features/PositionPlay/Views/FreePlayView.swift:1214-1295;QiuJi/Features/PositionPlay/ViewModels/PositionPlayViewModel.swift:458-459,1746-1747,1820-1851",
+      "evidence": "经具体Drill正常试打入口；sourceDrill/tryoutFormation决定简报、单杆或序列，需细分。",
+      "boundEvidenceSummary": {
+        "TABLE/P03/drill-entry": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P04/default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/SiluTrainerView.swift:18-27,76-149;QiuJi/Features/PositionPlay/ViewModels/SiluTrainerViewModel.swift:523-581,884-902,1023-1036",
+      "evidence": "正常路由进入并等待页面布局/渲染稳定；默认数据和视角须在采集元数据中明确。",
+      "boundEvidenceSummary": {
+        "TABLE/P04/default": {
+          "reviewedViewports": 2,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P04/more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/SiluTrainerView.swift:18-27,76-149;QiuJi/Features/PositionPlay/ViewModels/SiluTrainerViewModel.swift:523-581,884-902,1023-1036",
+      "evidence": "通过本页更多按钮打开实际菜单；沿用已验证正常入口。",
+      "boundEvidenceSummary": {
+        "TABLE/P04/more": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P04/target-region"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/SiluTrainerView.swift:18-27,76-149;QiuJi/Features/PositionPlay/ViewModels/SiluTrainerViewModel.swift:523-581,884-902,1023-1036",
+      "evidence": "工具→落区后在桌面绘制；需要有可见约束和正常求解前置。",
+      "boundEvidenceSummary": {
+        "TABLE/P04/target-region": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P04/solving"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/PositionPlay/Views/SiluTrainerView.swift:18-27,76-149;QiuJi/Features/PositionPlay/ViewModels/SiluTrainerViewModel.swift:523-581,884-902,1023-1036",
+      "evidence": "真实求解中的isComputing状态；持续时间依球形，不注入延时伪造，不用求解后截图替代。",
+      "boundEvidenceSummary": {
+        "TABLE/P04/solving": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P04/solution"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/SiluTrainerView.swift:18-27,76-149;QiuJi/Features/PositionPlay/ViewModels/SiluTrainerViewModel.swift:523-581,884-902,1023-1036",
+      "evidence": "有效输入后求解完成且实际结果非空；需固定球形、约束与解序号。",
+      "boundEvidenceSummary": {
+        "TABLE/P04/solution": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P04/no-solution"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/SiluTrainerView.swift:18-27,76-149;QiuJi/Features/PositionPlay/ViewModels/SiluTrainerViewModel.swift:523-581,884-902,1023-1036",
+      "evidence": "完成一次真实求解且无结果；需固定可复现球形，初始未求解不等于无解。",
+      "boundEvidenceSummary": {
+        "TABLE/P04/no-solution": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P04/free-mode"
+      ],
+      "classification": "UNRESOLVED_CANDIDATE_SEMANTICS",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/PositionPlay/Views/SiluTrainerView.swift:18-27,76-149;QiuJi/Features/PositionPlay/ViewModels/SiluTrainerViewModel.swift:523-581,884-902,1023-1036",
+      "evidence": "Silu实际工具为摆球/落区/落点/过点；另有开球流程。完整宿主View无SolverStageChrome的自由/求解切换。候选free-mode需重新定义。",
+      "boundEvidenceSummary": {
+        "TABLE/P04/free-mode": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P04/break-ready"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/SiluTrainerView.swift:18-27,76-149;QiuJi/Features/PositionPlay/ViewModels/SiluTrainerViewModel.swift:523-581,884-902,1023-1036",
+      "evidence": "正常选择玩法/重开到BreakFlowRunner待开球阶段；需要验证杆/母球/按钮可用，不能只按名字绑定。",
+      "boundEvidenceSummary": {
+        "TABLE/P04/break-ready": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P04/playing"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/PositionPlay/Views/SiluTrainerView.swift:18-27,76-149;QiuJi/Features/PositionPlay/ViewModels/SiluTrainerViewModel.swift:523-581,884-902,1023-1036",
+      "evidence": "真实击球过程；必须定义观察时点，静态稳定帧采集器会拒绝动画，停球后不能冒充进行中。",
+      "boundEvidenceSummary": {
+        "TABLE/P04/playing": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P04/replay"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/PositionPlay/Views/SiluTrainerView.swift:18-27,76-149;QiuJi/Features/PositionPlay/ViewModels/SiluTrainerViewModel.swift:523-581,884-902,1023-1036",
+      "evidence": "必须先完成一杆生成可回放记录，再点回放；动画时点与结束态分别记录。",
+      "boundEvidenceSummary": {
+        "TABLE/P04/replay": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P05/default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/PlanThreeView.swift:110-194;QiuJi/Features/PositionPlay/ViewModels/PlanThreeViewModel.swift:638-739,1167,1248-1258,1353-1354",
+      "evidence": "正常路由进入并等待页面布局/渲染稳定；默认数据和视角须在采集元数据中明确。",
+      "boundEvidenceSummary": {
+        "TABLE/P05/default": {
+          "reviewedViewports": 2,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P05/more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/PlanThreeView.swift:110-194;QiuJi/Features/PositionPlay/ViewModels/PlanThreeViewModel.swift:638-739,1167,1248-1258,1353-1354",
+      "evidence": "通过本页更多按钮打开实际菜单；沿用已验证正常入口。",
+      "boundEvidenceSummary": {
+        "TABLE/P05/more": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P05/role-selection"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/PlanThreeView.swift:110-194;QiuJi/Features/PositionPlay/ViewModels/PlanThreeViewModel.swift:638-739,1167,1248-1258,1353-1354",
+      "evidence": "计划菜单选择①球/①袋/②球/②袋/③球，再在桌面完成角色赋值。",
+      "boundEvidenceSummary": {
+        "TABLE/P05/role-selection": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P05/pocket-selection"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/PlanThreeView.swift:110-194;QiuJi/Features/PositionPlay/ViewModels/PlanThreeViewModel.swift:638-739,1167,1248-1258,1353-1354",
+      "evidence": "点选实际袋口并确认选中/轨迹；不可仅截尚未选择的默认态。",
+      "boundEvidenceSummary": {
+        "TABLE/P05/pocket-selection": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P05/constraints"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/PositionPlay/Views/PlanThreeView.swift:110-194;QiuJi/Features/PositionPlay/ViewModels/PlanThreeViewModel.swift:638-739,1167,1248-1258,1353-1354",
+      "evidence": "候选名过宽，须区分工具菜单、绘制中、绘制完成及具体约束类型。",
+      "boundEvidenceSummary": {
+        "TABLE/P05/constraints": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P05/step-progress"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/PositionPlay/Views/PlanThreeView.swift:110-194;QiuJi/Features/PositionPlay/ViewModels/PlanThreeViewModel.swift:638-739,1167,1248-1258,1353-1354",
+      "evidence": "需明确指角色选择进度还是击打后计划推进，不能把同名序列演示器套用到本页。",
+      "boundEvidenceSummary": {
+        "TABLE/P05/step-progress": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P05/undo"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/PlanThreeView.swift:110-194;QiuJi/Features/PositionPlay/ViewModels/PlanThreeViewModel.swift:638-739,1167,1248-1258,1353-1354",
+      "evidence": "真实击打一杆后canUndoShot可用，重打恢复击打前完整球形/角色/约束/解。",
+      "boundEvidenceSummary": {
+        "TABLE/P05/undo": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P05/solution"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/PositionPlay/Views/PlanThreeView.swift:110-194;QiuJi/Features/PositionPlay/ViewModels/PlanThreeViewModel.swift:638-739,1167,1248-1258,1353-1354",
+      "evidence": "有效输入后求解完成且实际结果非空；需固定球形、约束与解序号。",
+      "boundEvidenceSummary": {
+        "TABLE/P05/solution": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P05/playing"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/PositionPlay/Views/PlanThreeView.swift:110-194;QiuJi/Features/PositionPlay/ViewModels/PlanThreeViewModel.swift:638-739,1167,1248-1258,1353-1354",
+      "evidence": "真实击球过程；必须定义观察时点，静态稳定帧采集器会拒绝动画，停球后不能冒充进行中。",
+      "boundEvidenceSummary": {
+        "TABLE/P05/playing": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P05/replay"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/PositionPlay/Views/PlanThreeView.swift:110-194;QiuJi/Features/PositionPlay/ViewModels/PlanThreeViewModel.swift:638-739,1167,1248-1258,1353-1354",
+      "evidence": "必须先完成一杆生成可回放记录，再点回放；动画时点与结束态分别记录。",
+      "boundEvidenceSummary": {
+        "TABLE/P05/replay": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P06/default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/SnookerTactics/Views/SnookerTacticsView.swift:14-65;QiuJi/Features/SnookerTactics/ViewModels/SnookerTacticsViewModel.swift:462-495,684-701,856-868",
+      "evidence": "正常路由进入并等待页面布局/渲染稳定；默认数据和视角须在采集元数据中明确。",
+      "boundEvidenceSummary": {
+        "TABLE/P06/default": {
+          "reviewedViewports": 2,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P06/more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/SnookerTactics/Views/SnookerTacticsView.swift:14-65;QiuJi/Features/SnookerTactics/ViewModels/SnookerTacticsViewModel.swift:462-495,684-701,856-868",
+      "evidence": "通过本页更多按钮打开实际菜单；沿用已验证正常入口。",
+      "boundEvidenceSummary": {
+        "TABLE/P06/more": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P06/obstacle-selection"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/SnookerTactics/Views/SnookerTacticsView.swift:14-65;QiuJi/Features/SnookerTactics/ViewModels/SnookerTacticsViewModel.swift:462-495,684-701,856-868",
+      "evidence": "原候选需细分目标选择与障碍球摆放；防守页工具只有目标球/摆球，不能假设另有障碍菜单。",
+      "boundEvidenceSummary": {
+        "TABLE/P06/obstacle-selection": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P06/planning"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/SnookerTactics/Views/SnookerTacticsView.swift:14-65;QiuJi/Features/SnookerTactics/ViewModels/SnookerTacticsViewModel.swift:462-495,684-701,856-868",
+      "evidence": "真实选择合法目标后点击求解；需明确采求解中还是编辑完待求解态。",
+      "boundEvidenceSummary": {
+        "TABLE/P06/planning": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P06/solution"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/SnookerTactics/Views/SnookerTacticsView.swift:14-65;QiuJi/Features/SnookerTactics/ViewModels/SnookerTacticsViewModel.swift:462-495,684-701,856-868",
+      "evidence": "有效输入后求解完成且实际结果非空；需固定球形、约束与解序号。",
+      "boundEvidenceSummary": {
+        "TABLE/P06/solution": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P06/no-solution"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/SnookerTactics/Views/SnookerTacticsView.swift:14-65;QiuJi/Features/SnookerTactics/ViewModels/SnookerTacticsViewModel.swift:462-495,684-701,856-868",
+      "evidence": "完成一次真实求解且无结果；需固定可复现球形，初始未求解不等于无解。",
+      "boundEvidenceSummary": {
+        "TABLE/P06/no-solution": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P06/playing"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/SnookerTactics/Views/SnookerTacticsView.swift:14-65;QiuJi/Features/SnookerTactics/ViewModels/SnookerTacticsViewModel.swift:462-495,684-701,856-868",
+      "evidence": "真实击球过程；必须定义观察时点，静态稳定帧采集器会拒绝动画，停球后不能冒充进行中。",
+      "boundEvidenceSummary": {
+        "TABLE/P06/playing": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P06/replay"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/SnookerTactics/Views/SnookerTacticsView.swift:14-65;QiuJi/Features/SnookerTactics/ViewModels/SnookerTacticsViewModel.swift:462-495,684-701,856-868",
+      "evidence": "必须先完成一杆生成可回放记录，再点回放；动画时点与结束态分别记录。",
+      "boundEvidenceSummary": {
+        "TABLE/P06/replay": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07a/default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/BankShotView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/BankShotViewModel.swift:1210-1231",
+      "evidence": "正常路由进入并等待页面布局/渲染稳定；默认数据和视角须在采集元数据中明确。",
+      "boundEvidenceSummary": {
+        "TABLE/P07a/default": {
+          "reviewedViewports": 2,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07a/more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/BankShotView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/BankShotViewModel.swift:1210-1231",
+      "evidence": "通过本页更多按钮打开实际菜单；沿用已验证正常入口。",
+      "boundEvidenceSummary": {
+        "TABLE/P07a/more": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07a/rail-count"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/BankShotView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/BankShotViewModel.swift:1210-1231",
+      "evidence": "求解模式打开自动/n库菜单，选择后等解更新；可选值来自cushionOptions。",
+      "boundEvidenceSummary": {
+        "TABLE/P07a/rail-count": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07a/obstacles"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/BankShotView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/BankShotViewModel.swift:1210-1231",
+      "evidence": "通过球库放入非固定球并核实际桌面；固定母球/8号点击是提示脉冲，不是新增障碍。",
+      "boundEvidenceSummary": {
+        "TABLE/P07a/obstacles": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07a/solution"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/BankShotView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/BankShotViewModel.swift:1210-1231",
+      "evidence": "有效输入后求解完成且实际结果非空；需固定球形、约束与解序号。",
+      "boundEvidenceSummary": {
+        "TABLE/P07a/solution": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07a/no-solution"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/BankShotView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/BankShotViewModel.swift:1210-1231",
+      "evidence": "完成一次真实求解且无结果；需固定可复现球形，初始未求解不等于无解。",
+      "boundEvidenceSummary": {
+        "TABLE/P07a/no-solution": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07a/next-solution"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/BankShotView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/BankShotViewModel.swift:1210-1231",
+      "evidence": "必须至少2个解且闲置，点下一解后核实际序号/轨迹变化。",
+      "boundEvidenceSummary": {
+        "TABLE/P07a/next-solution": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07a/free-mode"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/BankShotView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/BankShotViewModel.swift:1210-1231",
+      "evidence": "SolverStageChrome:264通过solver.mode切换自由/求解；自由模式击球/回放守卫与求解模式独立。",
+      "boundEvidenceSummary": {
+        "TABLE/P07a/free-mode": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07a/playing"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/AngleTraining/Views/BankShotView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/BankShotViewModel.swift:1210-1231",
+      "evidence": "真实击球过程；必须定义观察时点，静态稳定帧采集器会拒绝动画，停球后不能冒充进行中。",
+      "boundEvidenceSummary": {
+        "TABLE/P07a/playing": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07a/replay"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/AngleTraining/Views/BankShotView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/BankShotViewModel.swift:1210-1231",
+      "evidence": "必须先完成一杆生成可回放记录，再点回放；动画时点与结束态分别记录。",
+      "boundEvidenceSummary": {
+        "TABLE/P07a/replay": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07b/default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/DiamondSystemView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/DiamondSystemViewModel.swift:1140-1158",
+      "evidence": "正常路由进入并等待页面布局/渲染稳定；默认数据和视角须在采集元数据中明确。",
+      "boundEvidenceSummary": {
+        "TABLE/P07b/default": {
+          "reviewedViewports": 2,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07b/more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/DiamondSystemView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/DiamondSystemViewModel.swift:1140-1158",
+      "evidence": "通过本页更多按钮打开实际菜单；沿用已验证正常入口。",
+      "boundEvidenceSummary": {
+        "TABLE/P07b/more": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07b/rail-count"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/DiamondSystemView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/DiamondSystemViewModel.swift:1140-1158",
+      "evidence": "求解模式打开自动/n库菜单，选择后等解更新；可选值来自cushionOptions。",
+      "boundEvidenceSummary": {
+        "TABLE/P07b/rail-count": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07b/obstacles"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/DiamondSystemView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/DiamondSystemViewModel.swift:1140-1158",
+      "evidence": "通过球库放入非固定球并核实际桌面；固定母球/8号点击是提示脉冲，不是新增障碍。",
+      "boundEvidenceSummary": {
+        "TABLE/P07b/obstacles": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07b/solution"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/DiamondSystemView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/DiamondSystemViewModel.swift:1140-1158",
+      "evidence": "有效输入后求解完成且实际结果非空；需固定球形、约束与解序号。",
+      "boundEvidenceSummary": {
+        "TABLE/P07b/solution": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07b/no-solution"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/DiamondSystemView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/DiamondSystemViewModel.swift:1140-1158",
+      "evidence": "完成一次真实求解且无结果；需固定可复现球形，初始未求解不等于无解。",
+      "boundEvidenceSummary": {
+        "TABLE/P07b/no-solution": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07b/next-solution"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/DiamondSystemView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/DiamondSystemViewModel.swift:1140-1158",
+      "evidence": "必须至少2个解且闲置，点下一解后核实际序号/轨迹变化。",
+      "boundEvidenceSummary": {
+        "TABLE/P07b/next-solution": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07b/free-mode"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/DiamondSystemView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/DiamondSystemViewModel.swift:1140-1158",
+      "evidence": "SolverStageChrome:264通过solver.mode切换自由/求解；自由模式击球/回放守卫与求解模式独立。",
+      "boundEvidenceSummary": {
+        "TABLE/P07b/free-mode": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07b/playing"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/AngleTraining/Views/DiamondSystemView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/DiamondSystemViewModel.swift:1140-1158",
+      "evidence": "真实击球过程；必须定义观察时点，静态稳定帧采集器会拒绝动画，停球后不能冒充进行中。",
+      "boundEvidenceSummary": {
+        "TABLE/P07b/playing": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P07b/replay"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/AngleTraining/Views/DiamondSystemView.swift;QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift:178-219,261-282,323-338;QiuJi/Features/AngleTraining/ViewModels/DiamondSystemViewModel.swift:1140-1158",
+      "evidence": "必须先完成一杆生成可回放记录，再点回放；动画时点与结束态分别记录。",
+      "boundEvidenceSummary": {
+        "TABLE/P07b/replay": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P08a/default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SeparationAngleAtlasView.swift:8-40,79-107;QiuJi/Core/Components/BTTeachingTablePage.swift:165-176,286-288",
+      "evidence": "正常路由进入并等待页面布局/渲染稳定；默认数据和视角须在采集元数据中明确。",
+      "boundEvidenceSummary": {
+        "TABLE/P08a/default": {
+          "reviewedViewports": 2,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P08a/more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SeparationAngleAtlasView.swift:8-40,79-107;QiuJi/Core/Components/BTTeachingTablePage.swift:165-176,286-288",
+      "evidence": "通过本页更多按钮打开实际菜单；沿用已验证正常入口。",
+      "boundEvidenceSummary": {
+        "TABLE/P08a/more": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P08a/parameter-changed"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/AngleTraining/Views/SeparationAngleAtlasView.swift:8-40,79-107;QiuJi/Core/Components/BTTeachingTablePage.swift:165-176,286-288",
+      "evidence": "修改真实力度/轨迹档位（吃库图谱另含高低杆），等计算完成，核可见数值或轨迹档位。",
+      "boundEvidenceSummary": {
+        "TABLE/P08a/parameter-changed": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P08a/view-changed"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SeparationAngleAtlasView.swift:8-40,79-107;QiuJi/Core/Components/BTTeachingTablePage.swift:165-176,286-288",
+      "evidence": "更多中的视图切换2D/3D；等相机完成，记录真实视角。",
+      "boundEvidenceSummary": {
+        "TABLE/P08a/view-changed": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P08a/playing"
+      ],
+      "classification": "NO_PRODUCTION_UI_TRIGGER",
+      "captureStatus": "NOT_APPLICABLE_AT_FROZEN_BASELINE",
+      "source": "QiuJi/Features/AngleTraining/Views/SeparationAngleAtlasView.swift:8-40,79-107;QiuJi/Core/Components/BTTeachingTablePage.swift:165-176,286-288",
+      "evidence": "本页BTTeachingTablePage未传planning；共享主击球按钮只在planning非nil时生成。完整宿主View无击球/回放按钮，ViewModel只有isComputing无play/replay/isPlaying。并行模拟轨迹不等于用户击球或回放。保留原候选便于追溯，不采造假的动画态。",
+      "boundEvidenceSummary": {
+        "TABLE/P08a/playing": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P08a/replay"
+      ],
+      "classification": "NO_PRODUCTION_UI_TRIGGER",
+      "captureStatus": "NOT_APPLICABLE_AT_FROZEN_BASELINE",
+      "source": "QiuJi/Features/AngleTraining/Views/SeparationAngleAtlasView.swift:8-40,79-107;QiuJi/Core/Components/BTTeachingTablePage.swift:165-176,286-288",
+      "evidence": "本页BTTeachingTablePage未传planning；共享主击球按钮只在planning非nil时生成。完整宿主View无击球/回放按钮，ViewModel只有isComputing无play/replay/isPlaying。并行模拟轨迹不等于用户击球或回放。保留原候选便于追溯，不采造假的动画态。",
+      "boundEvidenceSummary": {
+        "TABLE/P08a/replay": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P08b/default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/CushionEnglishAtlasView.swift:8-43,91-119;QiuJi/Core/Components/BTTeachingTablePage.swift:165-176,286-288",
+      "evidence": "正常路由进入并等待页面布局/渲染稳定；默认数据和视角须在采集元数据中明确。",
+      "boundEvidenceSummary": {
+        "TABLE/P08b/default": {
+          "reviewedViewports": 2,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P08b/more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/CushionEnglishAtlasView.swift:8-43,91-119;QiuJi/Core/Components/BTTeachingTablePage.swift:165-176,286-288",
+      "evidence": "通过本页更多按钮打开实际菜单；沿用已验证正常入口。",
+      "boundEvidenceSummary": {
+        "TABLE/P08b/more": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P08b/parameter-changed"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/AngleTraining/Views/CushionEnglishAtlasView.swift:8-43,91-119;QiuJi/Core/Components/BTTeachingTablePage.swift:165-176,286-288",
+      "evidence": "修改真实力度/轨迹档位（吃库图谱另含高低杆），等计算完成，核可见数值或轨迹档位。",
+      "boundEvidenceSummary": {
+        "TABLE/P08b/parameter-changed": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P08b/view-changed"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/CushionEnglishAtlasView.swift:8-43,91-119;QiuJi/Core/Components/BTTeachingTablePage.swift:165-176,286-288",
+      "evidence": "更多中的视图切换2D/3D；等相机完成，记录真实视角。",
+      "boundEvidenceSummary": {
+        "TABLE/P08b/view-changed": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P08b/playing"
+      ],
+      "classification": "NO_PRODUCTION_UI_TRIGGER",
+      "captureStatus": "NOT_APPLICABLE_AT_FROZEN_BASELINE",
+      "source": "QiuJi/Features/AngleTraining/Views/CushionEnglishAtlasView.swift:8-43,91-119;QiuJi/Core/Components/BTTeachingTablePage.swift:165-176,286-288",
+      "evidence": "本页BTTeachingTablePage未传planning；共享主击球按钮只在planning非nil时生成。完整宿主View无击球/回放按钮，ViewModel只有isComputing无play/replay/isPlaying。并行模拟轨迹不等于用户击球或回放。保留原候选便于追溯，不采造假的动画态。",
+      "boundEvidenceSummary": {
+        "TABLE/P08b/playing": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P08b/replay"
+      ],
+      "classification": "NO_PRODUCTION_UI_TRIGGER",
+      "captureStatus": "NOT_APPLICABLE_AT_FROZEN_BASELINE",
+      "source": "QiuJi/Features/AngleTraining/Views/CushionEnglishAtlasView.swift:8-43,91-119;QiuJi/Core/Components/BTTeachingTablePage.swift:165-176,286-288",
+      "evidence": "本页BTTeachingTablePage未传planning；共享主击球按钮只在planning非nil时生成。完整宿主View无击球/回放按钮，ViewModel只有isComputing无play/replay/isPlaying。并行模拟轨迹不等于用户击球或回放。保留原候选便于追溯，不采造假的动画态。",
+      "boundEvidenceSummary": {
+        "TABLE/P08b/replay": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/AD01/default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/AngleDynamicView.swift:11-15,27-56;QiuJi/Core/Components/BTTeachingTablePage.swift:51-59,74,141-151,286-288",
+      "evidence": "正常路由进入并等待页面布局/渲染稳定；默认数据和视角须在采集元数据中明确。",
+      "boundEvidenceSummary": {
+        "TABLE/AD01/default": {
+          "reviewedViewports": 2,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/AD01/more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/AngleDynamicView.swift:11-15,27-56;QiuJi/Core/Components/BTTeachingTablePage.swift:51-59,74,141-151,286-288",
+      "evidence": "通过本页更多按钮打开实际菜单；沿用已验证正常入口。",
+      "boundEvidenceSummary": {
+        "TABLE/AD01/more": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/AD01/ball-moved"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/AngleDynamicView.swift:11-15,27-56;QiuJi/Core/Components/BTTeachingTablePage.swift:51-59,74,141-151,286-288",
+      "evidence": "正常拖球后核指标与桌面变化；首次拖动提示由持久化hasDraggedOnce决定。",
+      "boundEvidenceSummary": {
+        "TABLE/AD01/ball-moved": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/AD01/pocket-selected"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/AngleDynamicView.swift:11-15,27-56;QiuJi/Core/Components/BTTeachingTablePage.swift:51-59,74,141-151,286-288",
+      "evidence": "桌面选袋口后核指标有效，记录目标球及袋口。",
+      "boundEvidenceSummary": {
+        "TABLE/AD01/pocket-selected": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/AD01/multi-ball"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/AngleTraining/Views/AngleDynamicView.swift:11-15,27-56;QiuJi/Core/Components/BTTeachingTablePage.swift:51-59,74,141-151,286-288",
+      "evidence": "需进一步核本页球库交互是否允许新增多球；共享外壳展示球库不等于已证明新增入口。",
+      "boundEvidenceSummary": {
+        "TABLE/AD01/multi-ball": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09a/setup"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:43-78,175-237,249-260,435-510",
+      "evidence": "未hasStarted时完整训练设置页；开始后才进入球桌和横屏约束。",
+      "boundEvidenceSummary": {
+        "TABLE/P09a/setup": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09a/question"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:43-78,175-237,249-260,435-510",
+      "evidence": "已开始且有真实当前题目；route固定2D或3D，记录题号和题型。",
+      "boundEvidenceSummary": {
+        "TABLE/P09a/question": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09a/more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:43-78,175-237,249-260,435-510",
+      "evidence": "通过本页更多按钮打开实际菜单；沿用已验证正常入口。",
+      "boundEvidenceSummary": {
+        "TABLE/P09a/more": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09a/answer-keypad"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:43-78,175-237,249-260,435-510",
+      "evidence": "使用App NumericKeypadHUD进入答题；与系统软键盘区分，空/已输入需要分别保留。",
+      "boundEvidenceSummary": {
+        "TABLE/P09a/answer-keypad": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09a/result"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:43-78,175-237,249-260,435-510",
+      "evidence": "真实提交答案后结果；需区分正确/偏差、验证中/验证后及限额叠层，默认截图不替代。",
+      "boundEvidenceSummary": {
+        "TABLE/P09a/result": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09a/session-summary"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:43-78,175-237,249-260,435-510",
+      "evidence": "完整训练结束testFinished显示汇总；记录题数/模式及是否同时达到免费限额。",
+      "boundEvidenceSummary": {
+        "TABLE/P09a/session-summary": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09a/free-limit"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:43-78,175-237,249-260,435-510",
+      "evidence": "非Premium且真实AngleUsageLimiter已达当天额度；Premium默认fixture不覆盖此状态。",
+      "boundEvidenceSummary": {
+        "TABLE/P09a/free-limit": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09a/settings"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:43-78,175-237,249-260,435-510",
+      "evidence": "训练开始后更多→训练设置sheet；与开始前setup分开记录，模式/类型选择另核。",
+      "boundEvidenceSummary": {
+        "TABLE/P09a/settings": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09b/setup"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:36-78,175-237,249-260,435-510",
+      "evidence": "未hasStarted时完整训练设置页；开始后才进入球桌和横屏约束。",
+      "boundEvidenceSummary": {
+        "TABLE/P09b/setup": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09b/question"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:36-78,175-237,249-260,435-510",
+      "evidence": "已开始且有真实当前题目；route固定2D或3D，记录题号和题型。",
+      "boundEvidenceSummary": {
+        "TABLE/P09b/question": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09b/more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:36-78,175-237,249-260,435-510",
+      "evidence": "通过本页更多按钮打开实际菜单；沿用已验证正常入口。",
+      "boundEvidenceSummary": {
+        "TABLE/P09b/more": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09b/answer-keypad"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:36-78,175-237,249-260,435-510",
+      "evidence": "使用App NumericKeypadHUD进入答题；与系统软键盘区分，空/已输入需要分别保留。",
+      "boundEvidenceSummary": {
+        "TABLE/P09b/answer-keypad": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09b/result"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:36-78,175-237,249-260,435-510",
+      "evidence": "真实提交答案后结果；需区分正确/偏差、验证中/验证后及限额叠层，默认截图不替代。",
+      "boundEvidenceSummary": {
+        "TABLE/P09b/result": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09b/session-summary"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:36-78,175-237,249-260,435-510",
+      "evidence": "完整训练结束testFinished显示汇总；记录题数/模式及是否同时达到免费限额。",
+      "boundEvidenceSummary": {
+        "TABLE/P09b/session-summary": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09b/free-limit"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:36-78,175-237,249-260,435-510",
+      "evidence": "非Premium且真实AngleUsageLimiter已达当天额度；Premium默认fixture不覆盖此状态。",
+      "boundEvidenceSummary": {
+        "TABLE/P09b/free-limit": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P09b/settings"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:36-78,175-237,249-260,435-510",
+      "evidence": "训练开始后更多→训练设置sheet；与开始前setup分开记录，模式/类型选择另核。",
+      "boundEvidenceSummary": {
+        "TABLE/P09b/settings": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P10a/question"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift:107-144,182-228,274-315,591-612,700-749",
+      "evidence": "已开始且有真实当前题目；route固定2D或3D，记录题号和题型。",
+      "boundEvidenceSummary": {
+        "TABLE/P10a/question": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P10a/more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift:107-144,182-228,274-315,591-612,700-749",
+      "evidence": "通过本页更多按钮打开实际菜单；沿用已验证正常入口。",
+      "boundEvidenceSummary": {
+        "TABLE/P10a/more": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P10a/aim-changed"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift:107-144,182-228,274-315,591-612,700-749",
+      "evidence": "aiming阶段用实际瞄准交互调整，读取偏移/桌面变化，未提交。",
+      "boundEvidenceSummary": {
+        "TABLE/P10a/aim-changed": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P10a/striking"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift:107-144,182-228,274-315,591-612,700-749",
+      "evidence": "提交后真实验证击球.phase=striking；动态帧需实际时点，不能冒用结果静态帧。",
+      "boundEvidenceSummary": {
+        "TABLE/P10a/striking": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P10a/result"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift:107-144,182-228,274-315,591-612,700-749",
+      "evidence": "真实提交答案后结果；需区分正确/偏差、验证中/验证后及限额叠层，默认截图不替代。",
+      "boundEvidenceSummary": {
+        "TABLE/P10a/result": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P10a/free-limit"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift:107-144,182-228,274-315,591-612,700-749",
+      "evidence": "非Premium且真实AngleUsageLimiter已达当天额度；Premium默认fixture不覆盖此状态。",
+      "boundEvidenceSummary": {
+        "TABLE/P10a/free-limit": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P10a/verification-error"
+      ],
+      "classification": "ENVIRONMENT_OR_FAILURE_DEPENDENT",
+      "captureStatus": "BLOCKED_REPRODUCTION",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift:107-144,182-228,274-315,591-612,700-749",
+      "evidence": "预测无完整终态/recorder或duration<=0.05时才出现错误；尚无正常可控复现球形。",
+      "boundEvidenceSummary": {
+        "TABLE/P10a/verification-error": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P10b/question"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift:107-144,182-228,274-315,591-612,700-749",
+      "evidence": "已开始且有真实当前题目；route固定2D或3D，记录题号和题型。",
+      "boundEvidenceSummary": {
+        "TABLE/P10b/question": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P10b/more"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift:107-144,182-228,274-315,591-612,700-749",
+      "evidence": "通过本页更多按钮打开实际菜单；沿用已验证正常入口。",
+      "boundEvidenceSummary": {
+        "TABLE/P10b/more": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P10b/aim-changed"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift:107-144,182-228,274-315,591-612,700-749",
+      "evidence": "aiming阶段用实际瞄准交互调整，读取偏移/桌面变化，未提交。",
+      "boundEvidenceSummary": {
+        "TABLE/P10b/aim-changed": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P10b/striking"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift:107-144,182-228,274-315,591-612,700-749",
+      "evidence": "提交后真实验证击球.phase=striking；动态帧需实际时点，不能冒用结果静态帧。",
+      "boundEvidenceSummary": {
+        "TABLE/P10b/striking": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P10b/result"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift:107-144,182-228,274-315,591-612,700-749",
+      "evidence": "真实提交答案后结果；需区分正确/偏差、验证中/验证后及限额叠层，默认截图不替代。",
+      "boundEvidenceSummary": {
+        "TABLE/P10b/result": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P10b/free-limit"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift:107-144,182-228,274-315,591-612,700-749",
+      "evidence": "非Premium且真实AngleUsageLimiter已达当天额度；Premium默认fixture不覆盖此状态。",
+      "boundEvidenceSummary": {
+        "TABLE/P10b/free-limit": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P10b/verification-error"
+      ],
+      "classification": "ENVIRONMENT_OR_FAILURE_DEPENDENT",
+      "captureStatus": "BLOCKED_REPRODUCTION",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift:107-144,182-228,274-315,591-612,700-749",
+      "evidence": "预测无完整终态/recorder或duration<=0.05时才出现错误；尚无正常可控复现球形。",
+      "boundEvidenceSummary": {
+        "TABLE/P10b/verification-error": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P12a/default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/GeometricAngleQuizView.swift:37-75,92-96,185-240,251-319,331-368",
+      "evidence": "正常路由进入并等待页面布局/渲染稳定；默认数据和视角须在采集元数据中明确。",
+      "boundEvidenceSummary": {
+        "TABLE/P12a/default": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P12a/answer-keypad"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/GeometricAngleQuizView.swift:37-75,92-96,185-240,251-319,331-368",
+      "evidence": "使用App NumericKeypadHUD进入答题；与系统软键盘区分，空/已输入需要分别保留。",
+      "boundEvidenceSummary": {
+        "TABLE/P12a/answer-keypad": {
+          "reviewedViewports": 20,
+          "environments": 10
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P12a/result"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/AngleTraining/Views/GeometricAngleQuizView.swift:37-75,92-96,185-240,251-319,331-368",
+      "evidence": "真实提交答案后结果；需区分正确/偏差、验证中/验证后及限额叠层，默认截图不替代。",
+      "boundEvidenceSummary": {
+        "TABLE/P12a/result": {
+          "reviewedViewports": 18,
+          "environments": 10
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P12a/recent-empty"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/GeometricAngleQuizView.swift:37-75,92-96,185-240,251-319,331-368",
+      "evidence": "历史/当前最近表现无条目；需按源码真实数据集合验证，不能按默认fixture名字猜测。",
+      "boundEvidenceSummary": {
+        "TABLE/P12a/recent-empty": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P12a/recent-populated"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/GeometricAngleQuizView.swift:37-75,92-96,185-240,251-319,331-368",
+      "evidence": "已有答题表现，滚动到最近表现并核列表；首屏结果不等于覆盖这一段。",
+      "boundEvidenceSummary": {
+        "TABLE/P12a/recent-populated": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P12a/reference-visible"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/GeometricAngleQuizView.swift:37-75,92-96,185-240,251-319,331-368",
+      "evidence": "正常切换参考网格，保存真实开关状态及图示。",
+      "boundEvidenceSummary": {
+        "TABLE/P12a/reference-visible": {
+          "reviewedViewports": 10,
+          "environments": 10
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P12a/reset-confirm"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/GeometricAngleQuizView.swift:37-75,92-96,185-240,251-319,331-368",
+      "evidence": "更多重置触发统计重置确认，只采弹层，不删除用户历史。",
+      "boundEvidenceSummary": {
+        "TABLE/P12a/reset-confirm": {
+          "reviewedViewports": 11,
+          "environments": 10
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P12a/free-limit"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/GeometricAngleQuizView.swift:37-75,92-96,185-240,251-319,331-368",
+      "evidence": "非Premium且真实AngleUsageLimiter已达当天额度；Premium默认fixture不覆盖此状态。",
+      "boundEvidenceSummary": {
+        "TABLE/P12a/free-limit": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P12b/default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointTrainingView.swift:62-98,202-239,297-345,438-450",
+      "evidence": "正常路由进入并等待页面布局/渲染稳定；默认数据和视角须在采集元数据中明确。",
+      "boundEvidenceSummary": {
+        "TABLE/P12b/default": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P12b/offset-changed"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointTrainingView.swift:62-98,202-239,297-345,438-450",
+      "evidence": "拖动假想球时userPhi受范围约束；须在showResult=false时操作并核实际偏移。",
+      "boundEvidenceSummary": {
+        "TABLE/P12b/offset-changed": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P12b/result"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointTrainingView.swift:62-98,202-239,297-345,438-450",
+      "evidence": "真实提交答案后结果；需区分正确/偏差、验证中/验证后及限额叠层，默认截图不替代。",
+      "boundEvidenceSummary": {
+        "TABLE/P12b/result": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P12b/free-limit"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointTrainingView.swift:62-98,202-239,297-345,438-450",
+      "evidence": "非Premium且真实AngleUsageLimiter已达当天额度；Premium默认fixture不覆盖此状态。",
+      "boundEvidenceSummary": {
+        "TABLE/P12b/free-limit": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P13/default"
+      ],
+      "classification": "NORMAL_UI_ENTRY",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/BallExtraction/Views/BallExtractionView.swift:44-86,96-169,174-220,271-303,336-375,378-508,705-729",
+      "evidence": "正常路由进入并等待页面布局/渲染稳定；默认数据和视角须在采集元数据中明确。",
+      "boundEvidenceSummary": {
+        "TABLE/P13/default": {
+          "reviewedViewports": 1,
+          "environments": 1
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P13/photo-picker"
+      ],
+      "classification": "OS_UI_WITH_AUTHORIZED_ASSET",
+      "captureStatus": "FIXTURE_REQUIRED",
+      "source": "QiuJi/Features/BallExtraction/Views/BallExtractionView.swift:44-86,96-169,174-220,271-303,336-375,378-508,705-729",
+      "evidence": "PhotosPicker系统相册选择器，需模拟器图库有可用合成/授权照片；保留系统UI边界。",
+      "boundEvidenceSummary": {
+        "TABLE/P13/photo-picker": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P13/loading-photo"
+      ],
+      "classification": "TRANSIENT_REAL_CAPTURE_REQUIRED",
+      "captureStatus": "DYNAMIC_CAPTURE_POLICY_REQUIRED",
+      "source": "QiuJi/Features/BallExtraction/Views/BallExtractionView.swift:44-86,96-169,174-220,271-303,336-375,378-508,705-729",
+      "evidence": "PhotosPicker选择后loadTransferable异步读图中；短暂状态不能通过重复静态帧强行认定。",
+      "boundEvidenceSummary": {
+        "TABLE/P13/loading-photo": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P13/calibration"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/BallExtraction/Views/BallExtractionView.swift:44-86,96-169,174-220,271-303,336-375,378-508,705-729",
+      "evidence": "读图成功进入calibrate并初始化四角，拖角后calibrationValid才允许下一步。",
+      "boundEvidenceSummary": {
+        "TABLE/P13/calibration": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P13/mark-balls"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/BallExtraction/Views/BallExtractionView.swift:44-86,96-169,174-220,271-303,336-375,378-508,705-729",
+      "evidence": "实际校准后在图上标母球/目标球，记录照片/角点/标记前置。",
+      "boundEvidenceSummary": {
+        "TABLE/P13/mark-balls": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P13/mark-correction"
+      ],
+      "classification": "COMPOSITE_CANDIDATE",
+      "captureStatus": "NEEDS_STATE_DEFINITION",
+      "source": "QiuJi/Features/BallExtraction/Views/BallExtractionView.swift:44-86,96-169,174-220,271-303,336-375,378-508,705-729",
+      "evidence": "正常编辑已有标记/编号/删除或撤销重做；需定义对应操作后的具体画面。",
+      "boundEvidenceSummary": {
+        "TABLE/P13/mark-correction": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P13/confirm-board"
+      ],
+      "classification": "DATA_OR_PRIOR_ACTION_DEPENDENT",
+      "captureStatus": "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING",
+      "source": "QiuJi/Features/BallExtraction/Views/BallExtractionView.swift:44-86,96-169,174-220,271-303,336-375,378-508,705-729",
+      "evidence": "正常照片→校准→标球→确认3D球形；-extract.confirmDemo只证明内部预览，不证明照片全链路。",
+      "boundEvidenceSummary": {
+        "TABLE/P13/confirm-board": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    },
+    {
+      "stateIds": [
+        "TABLE/P13/failure"
+      ],
+      "classification": "ENVIRONMENT_OR_FAILURE_DEPENDENT",
+      "captureStatus": "BLOCKED_REPRODUCTION",
+      "source": "QiuJi/Features/BallExtraction/Views/BallExtractionView.swift:44-86,96-169,174-220,271-303,336-375,378-508,705-729",
+      "evidence": "照片传输失败/不可解码时toast；需可控系统环境与真实失败证据，不能把测试注入当正常生产入口。",
+      "boundEvidenceSummary": {
+        "TABLE/P13/failure": {
+          "reviewedViewports": 0,
+          "environments": 0
+        }
+      }
+    }
+  ],
+  "sourceAudit": {
+    "classifiedUniqueCandidates": 163,
+    "missingCandidates": 0,
+    "duplicateClassifications": 0,
+    "runtimeCoverageChanged": false,
+    "statesWithReviewedEvidence": 43,
+    "captureStatusCounts": {
+      "SOURCE_LOCATED_RUNTIME_MATRIX_PENDING": 114,
+      "DYNAMIC_CAPTURE_POLICY_REQUIRED": 22,
+      "NEEDS_STATE_DEFINITION": 18,
+      "NOT_APPLICABLE_AT_FROZEN_BASELINE": 5,
+      "BLOCKED_REPRODUCTION": 3,
+      "FIXTURE_REQUIRED": 1
+    }
+  },
+  "environmentNotes": [
+    {
+      "source": "QiuJi/Core/Components/BTTeachingTablePage.swift:93,248",
+      "note": "共享教学球桌主体显式environment(colorScheme,.dark)，iPhone横屏且Pad允许旋转。仍保留宿主light/dark验证义务，系统sheet/导航/键盘须独立核，不能仅因黑底合并。"
+    },
+    {
+      "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift:43-64,219,249-260",
+      "note": "开始前设置页继承主题；球桌主体强制dark，但答题NumericKeypadHUD显式恢复pageColorScheme。不能将整条路由两个主题判成相同。"
+    },
+    {
+      "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift:612,749",
+      "note": "球桌模板强制dark、iPhone横屏且Pad允许旋转；警告与订阅弹层仍按各自作用域核。"
+    },
+    {
+      "source": "QiuJi/Features/BallExtraction/Views/BallExtractionView.swift:57-58",
+      "note": "照片页强制dark、iPhone竖屏且Pad允许旋转；OS相册主题仍需实测。"
+    }
+  ]
+}

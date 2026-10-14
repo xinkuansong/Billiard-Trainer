@@ -51,6 +51,11 @@ final class BatchShotSolver: ObservableObject {
     private var constraintNodes: [SCNNode] = []
     private let solveQueue = DispatchQueue(label: "com.qiuji.batch-solve", qos: .userInitiated)
     private var solveGeneration = 0
+    func suspend() {
+        solveGeneration += 1
+        if isComputing { statusText = "求解已暂停 · 保留约束，可重新求解" }
+        isComputing = false
+    }
 
     var currentSolution: PositionPlaySolution? {
         solutions.indices.contains(currentIndex) ? solutions[currentIndex] : nil
@@ -257,6 +262,11 @@ struct BatchAuthoringView: View {
     @StateObject private var composer = PositionPlayViewModel()
     @StateObject private var solver = BatchShotSolver()
 
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var protectedCloseupFrames: [CGRect] = []
+    @GestureState private var spinTouchActive = false
+    @State private var aimTouchActive = false
+    @State private var powerTouchActive = false
     @State private var hasAppeared = false
     @State private var showSpinPad = false
     @State private var projector = TableProjector()
@@ -340,9 +350,18 @@ struct BatchAuthoringView: View {
         } message: {
             Text("同图已有存档，保存将覆盖原杆序。")
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { composer.resumeAuthoringActivity() }
+            else { aimTouchActive = false; powerTouchActive = false; solver.suspend(); composer.suspendAuthoringActivity(); draggingKey = nil }
+        }
+        .onDisappear { solver.suspend(); composer.suspendAuthoringActivity() }
+        .onPreferenceChange(BTCloseupProtectedFramesKey.self) { protectedCloseupFrames = $0 }
         .onAppear {
+            composer.resumeAuthoringActivity()
             if !hasAppeared {
                 hasAppeared = true
+                composer.usesContinuousTrajectoryPreview = true
+                composer.scene.configureReferenceTableRendering()
                 composer.setupScene()
                 updateProjection()
                 if let editing = context.editingSequence {
@@ -443,6 +462,8 @@ struct BatchAuthoringView: View {
                 BTShotInstrumentColumn(spinX: composer.spinX, spinY: composer.spinY,
                     onSpinTap: { menu = nil; showSpinPad = true }, velocity: $composer.velocity,
                     range: ShotTuning.velocityRange, isDisabled: editingBusy,
+                    onPowerDragBegan: { powerTouchActive = true; composer.beginPowerDrag() },
+                    onPowerDragEnded: { powerTouchActive = false; composer.endPowerDrag(commit: $0) },
                     fixedPowerBarHeight: metrics.rulerLength, powerLabel: "杆速", compactPowerBarWidth: metrics.rulerWidth,
                     compactSpinButtonDiameter: metrics.topDiameter, compactGroupSpacing: metrics.groupSpacing)
                 Button { showSpinPad = false; strike() } label: {
@@ -456,18 +477,34 @@ struct BatchAuthoringView: View {
                 BTNoticeContent(message: toast ?? BTToastMessage(guide.hint ?? (solver.isSolvingTool ? solver.statusText : composer.statusText), tone: .info), textOnly: true)
                     .frame(width: max(1, inner.width - 16))
                     .fixedSize(horizontal: false, vertical: true)
+                    .background(GeometryReader { geometry in
+                        Color.clear.preference(key: BTCloseupProtectedFramesKey.self,
+                                               value: [geometry.frame(in: .global)])
+                    })
                     .offset(x: inner.minX + 8, y: inner.minY + Spacing.md)
                     .allowsHitTesting(false).accessibilityIdentifier(toast == nil ? "batch.status" : "batch.notice")
             }
             if guide.isPicking && !showSpinPad && menu == nil {
                 guideControls.position(x: inner.midX, y: inner.midY)
             }
+            if !sequenceBusy && !showSpinPad && !composer.isComputing {
+                GeometryReader { stage in
+                    BTAimCloseupOverlay(snapshot: composer.closeupSnapshot, sceneSize: f.stage.size,
+                        scene: composer.scene, safeInsets: .init(top: 0, leading: 0, bottom: 28, trailing: 0),
+                        blockedSide: nil, protectsDailySight: true, frameInWindow: stage.frame(in: .global),
+                        placementBounds: inner.offsetBy(dx: -f.stage.minX, dy: -f.stage.minY),
+                        protectedFramesInWindow: protectedCloseupFrames)
+                }.frame(width: f.stage.width, height: f.stage.height)
+                    .position(x: f.stage.midX, y: f.stage.midY)
+            }
             if showSpinPad {
                 let layout = DailyLayoutMetrics.SpinPad(playingRect: inner, displayScale: displayScale,
                     maximumExtent: UIDevice.current.userInterfaceIdiom == .pad ? 310 : max(inner.width, inner.height))
                 BTSceneSpinPadOverlay(spinX: $composer.spinX, spinY: $composer.spinY, scene: composer.scene,
                     tableWidth: inner.width, bottomPadding: (f.stage.height - layout.extent) / 2,
-                    fixedCardExtent: layout.extent, discOpacity: 1 - spinTransparency, onClose: { showSpinPad = false })
+                    fixedCardExtent: layout.extent, discOpacity: 1 - spinTransparency,
+                    onSpinChange: { composer.updateSpin(x: $0, y: $1) }, onClose: { showSpinPad = false })
+                    .simultaneousGesture(DragGesture(minimumDistance: 0).updating($spinTouchActive) { _, active, _ in active = true })
                     .frame(width: f.stage.width, height: f.stage.height)
                     .position(x: f.stage.midX, y: f.stage.midY)
             }
@@ -599,7 +636,8 @@ struct BatchAuthoringView: View {
                 }.buttonStyle(BTHUDPressStyle()).disabled(editingBusy)
                     .accessibilityIdentifier("batch.tool").accessibilityLabel("工具").accessibilityValue(toolTitle)
             }
-            BTTeachingAimRuler(layout: metrics, enabled: !editingBusy, onNudge: { composer.nudgeFreeAim(byDegrees: $0) })
+            BTTeachingAimRuler(layout: metrics, enabled: !editingBusy, onNudge: { composer.nudgeFreeAim(byDegrees: $0) },
+                onDragActiveChanged: { aimTouchActive = $0; composer.setAimWheelDragging($0) })
             let layout = metrics.horizontalActions ? AnyLayout(HStackLayout(spacing: 4)) : AnyLayout(VStackLayout(spacing: 4))
             layout {
                 control("重打", icon: "arrow.uturn.backward", id: "batch.rehit", enabled: !editingBusy && composer.canReplay, size: metrics.auxiliarySize) { composer.replayCurrent() }
@@ -682,7 +720,7 @@ struct BatchAuthoringView: View {
             onTableTapped: { composer.handleTableTap(world: $0) },
             onAimNudged: { composer.nudgeFreeAim(byDegrees: $0) },
             projector: projector,
-            contentIsAnimating: sequenceBusy,
+            contentIsAnimating: sequenceBusy || aimTouchActive || powerTouchActive || spinTouchActive,
             fpsReadoutState: fps,
             twoViewReadableFrameInWindow: sceneFrameInWindow
         )
@@ -894,6 +932,8 @@ struct BatchAuthoringView: View {
             .init(id: "batch.displayHeading", title: "显示"),
             .init(id: "batch.trajectory", title: "轨迹显示", detail: preferences.trajectoryDetail.label, disclosure: true,
                   action: { menu = .trajectory }),
+            .init(id: "menu.aimCloseup", title: "瞄准特写", selected: preferences.showAimCloseup,
+                  action: { preferences.showAimCloseup.toggle(); menu = nil }),
             .init(id: "batch.transparency", title: "打点盘透明度", detail: "\(Int((spinTransparency * 100).rounded()))%",
                   action: { showSpinPad = true; menu = .transparency }),
             .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: preferences.showTableGrid,
@@ -919,9 +959,9 @@ struct BatchAuthoringView: View {
             .init(id: "batch.basicPosition", title: "仅基础走位（≤1 库）", selected: solver.basicPositionOnly, disabled: editingBusy,
                   action: { solver.basicPositionOnly.toggle() }),
             .init(id: "batch.saveHeading", title: "保存去向"),
-            .init(id: "batch.saveImage", title: "保存并选择下一张图", disabled: editingBusy,
+            .init(id: "batch.saveImage", title: "保存并选择下一张图", disabled: editingBusy || composer.isComputing,
                   action: { menu = nil; requestSave(mode: .stay) }),
-            .init(id: "batch.saveDrill", title: "保存并进入下一个练习", disabled: editingBusy,
+            .init(id: "batch.saveDrill", title: "保存并进入下一个练习", disabled: editingBusy || composer.isComputing,
                   action: { menu = nil; requestSave(mode: .nextDrill) })
         ]
     }
@@ -935,6 +975,7 @@ struct BatchAuthoringView: View {
     /// F-BD-01：仅当目标文件已存在时弹确认；不加「记住不再问」。
     /// 人工无图路径允许 `steps:[]`（initial-only）；截图来源路径仍要求 ≥1 杆。
     private func requestSave(mode: SaveMode) {
+        guard !editingBusy, !composer.isComputing else { return }
         guard let drill = context.current else { return }
         if !context.isManualFormationPath, composer.sequence.steps.isEmpty {
             flash("尚无击打：先「击球」记录至少一杆", tone: .info)
@@ -951,6 +992,7 @@ struct BatchAuthoringView: View {
     }
 
     private func performSave(mode: SaveMode) {
+        guard !editingBusy, !composer.isComputing else { return }
         guard let drill = context.current else { return }
         var seq = composer.sequence
         if !context.isManualFormationPath, seq.steps.isEmpty {

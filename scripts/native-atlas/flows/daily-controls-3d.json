@@ -1,0 +1,98 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.dailyClearance"
+    },
+    {
+      "action": "wait",
+      "id": "dailyClearance.back",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "freeplay.moreMenu"
+    },
+    {
+      "action": "tap",
+      "id": "freeplay.cameraMode"
+    },
+    {
+      "action": "tap",
+      "id": "关闭菜单"
+    },
+    {
+      "action": "snapshot",
+      "name": "DAILY-D00-3d-settled",
+      "entry": "normal App navigation; existing settled fixture where specified"
+    },
+    {
+      "action": "tap",
+      "id": "freeplay.moreMenu"
+    },
+    {
+      "action": "snapshot",
+      "name": "DAILY-D00-3d-more",
+      "entry": "normal App navigation; existing settled fixture where specified"
+    },
+    {
+      "action": "tap",
+      "id": "dailyClearance.trajectoryMenu"
+    },
+    {
+      "action": "snapshot",
+      "name": "DAILY-D00-3d-trajectory-menu",
+      "entry": "normal App navigation; existing settled fixture where specified"
+    },
+    {
+      "action": "tap",
+      "id": "dailyClearance.menuClose"
+    },
+    {
+      "action": "tap",
+      "id": "shotStage.spinEntry"
+    },
+    {
+      "action": "wait",
+      "id": "spinPad.card",
+      "kind": "any"
+    },
+    {
+      "action": "snapshot",
+      "name": "DAILY-D00-3d-spin",
+      "entry": "normal App navigation; existing settled fixture where specified"
+    }
+  ],
+  "catalog": {
+    "DAILY-D00-3d-settled": {
+      "id": "DAILY/D00",
+      "title": "每日清台",
+      "state": "3d-settled",
+      "figmaPage": "70"
+    },
+    "DAILY-D00-3d-more": {
+      "id": "DAILY/D00",
+      "title": "每日清台",
+      "state": "3d-more",
+      "figmaPage": "70"
+    },
+    "DAILY-D00-3d-trajectory-menu": {
+      "id": "DAILY/D00",
+      "title": "每日清台",
+      "state": "3d-trajectory-menu",
+      "figmaPage": "70"
+    },
+    "DAILY-D00-3d-spin": {
+      "id": "DAILY/D00",
+      "title": "每日清台",
+      "state": "3d-spin",
+      "figmaPage": "70"
+    }
+  },
+  "launchArguments": [
+    "-dailyClearance.resetState",
+    "-dailyClearance.resetHomeState",
+    "-dailyClearance.fixtureSettled"
+  ]
+}

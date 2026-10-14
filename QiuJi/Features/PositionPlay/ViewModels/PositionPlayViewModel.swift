@@ -334,12 +334,12 @@ final class PositionPlayViewModel: ObservableObject {
     /// nil = 当前方向打不到任何球（空杆 / 直奔库边）。
     @Published private(set) var freeAimContact: AngleSceneCalculator.FreeAimContact?
 
-    var aimSelectionLabel: String {
+    func aimSelectionLabel(orientation: PocketDisplay.Orientation) -> String {
         guard aimMode == .pocket else { return "自由" }
         guard let key = selectedTargetKey else { return "进袋 · 请选择目标球" }
         guard selectedPocketIndex >= 0 else { return "进袋 · 请选择袋口" }
         let number = key.trimmingCharacters(in: CharacterSet(charactersIn: "_"))
-        return "进袋 · \(number)球 → \(selectedPocketIndex + 1)\(selectedPocketIndex < 4 ? "角袋" : "中袋")"
+        return "进袋 · \(number)号球 → \(PocketDisplay.name(index: selectedPocketIndex, orientation: orientation))"
     }
 
     // MARK: - Published shot params
@@ -1569,6 +1569,46 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     /// Leaving/backgrounding must also invalidate a queued preview and late callbacks.
+    private var authoringSuspended = false
+    func suspendAuthoringActivity() {
+        guard !authoringSuspended else { return }
+        authoringSuspended = true
+        let wasPlaying = isPlaying
+        strokeGeneration = UUID()
+        cancelPendingSelectionCamera()
+        cancelPowerRelease()
+        endTemporaryTopDown()
+        scene.hideCueStick()
+        if isSequenceMode {
+            hardStopSequence()
+            isSequenceMode = false
+            if let restore = recordedSequencePreviewRestore {
+                recordedSequencePreviewRestore = nil
+                restoreEditingState(restore)
+                applyBoard(restore.board, cuePose: .unchanged)
+                scene.railInventory.restore(restore.rails)
+            }
+        } else if wasPlaying {
+            scene.allBallNodes.values.forEach { $0.removeAllActions() }
+            scene.railInventory.cancelPlayback()
+            ShotAudioScheduler.shared.cancel()
+            isPlaying = false
+            if let shot = lastShot {
+                applyBoard(shot.before, cuePose: .unchanged)
+                scene.railInventory.restore(lastShotBeforeRails)
+                if let poses = lastShotBeforePoses { scene.restoreBallPoses(poses) }
+            }
+        }
+        cameraTransitionBusy = false
+        cancelInteractiveTrajectoryPreview()
+    }
+
+    func resumeAuthoringActivity() {
+        guard authoringSuspended else { return }
+        authoringSuspended = false
+        recompute(continuousPreview: usesContinuousTrajectoryPreview)
+    }
+
     func cancelInteractiveTrajectoryPreview() {
         isAimWheelDragging = false
         invalidatePendingPredict()
@@ -2021,6 +2061,7 @@ final class PositionPlayViewModel: ObservableObject {
     // MARK: - Strike (#10 运杆 + 击球)
 
     func play() {
+        guard !(isGuidedTryout && canReplay) else { return }
         scene.cancelPocketSelectionFeedback()
         guard !isPlaying, !isSequenceMode, !isComputing, !cameraTransitionBusy, !temporaryTopDownActive,
               !isPowerDragging, !isAimWheelDragging,
@@ -2204,6 +2245,8 @@ final class PositionPlayViewModel: ObservableObject {
 
         // 规则裁决（条 15.10）：把本杆物理事实交给宿主（自由击球页喂规则引擎）。
         onShotSettled?(makeShotFacts(solved: solved, potted: potted))
+        // The tryout user observes this exact result, then explicitly retries or changes step.
+        if isGuidedTryout { return }
 
         // 自动选下一杆（#6）：距母球最近的目标球 + 距目标球最近的可进袋袋口。
         selectedTargetKey = nil
@@ -2596,6 +2639,10 @@ final class PositionPlayViewModel: ObservableObject {
     private static let sequenceInterShotPause: TimeInterval = 0.7
     /// 整条序列播完后停在终局的观察时长，之后自动回初始球形（v28 Q5）。
     private static let sequenceFinishHold: TimeInterval = 1.2
+    /// Only drill tryout owns manual step navigation and holds the final board.
+    var isGuidedTryout = false
+    private var sequencePlaybackGeneration = UUID()
+    private var sequenceStepUnavailable = false
     /// 「打完当前杆后停」请求位。**只在杆间边界消费**——按下暂停就翻 `sequencePlayState`
     /// 会被 `runSequenceStep` 的存活 guard 判成已停，把飞行中的这一杆掐断在半空。
     @Published private(set) var pauseRequested = false
@@ -2659,6 +2706,51 @@ final class PositionPlayViewModel: ObservableObject {
         sequenceRailsBefore = [0: PocketRailSnapshot()]
     }
 
+    var canContinueTryoutSequence: Bool { !sequenceStepUnavailable }
+
+    var canGoToPreviousTryoutStep: Bool {
+        isGuidedTryout && hasSequence && !isPlaying && !isSequencePlaying && sequenceStepIndex > 0
+    }
+    var canGoToNextTryoutStep: Bool {
+        isGuidedTryout && hasSequence && !isPlaying && !isSequencePlaying && sequenceStepIndex + 1 < sequenceSteps.count
+    }
+    func tryoutStatusText(orientation: PocketDisplay.Orientation) -> String {
+        let selection = aimSelectionLabel(orientation: orientation)
+        return hasSequence ? "第 \(sequenceStepIndex + 1)/\(sequenceSteps.count) 杆 · \(selection)" : selection
+    }
+
+    func enterTryoutFreeMode(aimMode: AimMode) {
+        guard isGuidedTryout, hasSequence, !isPlaying, !isSequencePlaying else { return }
+        exitSequenceMode()
+        resetSequenceProgress()
+        prepareTryoutStep(0, aimMode: aimMode)
+    }
+
+    func moveTryoutStep(by offset: Int) {
+        guard isGuidedTryout, !isPlaying, !isSequencePlaying else { return }
+        let next = sequenceStepIndex + offset
+        guard sequenceSteps.indices.contains(next) else { return }
+        if isSequenceMode { playSingleSequenceStep(next) }
+        else { prepareTryoutStep(next, aimMode: preferredAimMode) }
+    }
+
+    private func prepareTryoutStep(_ index: Int, aimMode preference: AimMode) {
+        let step = sequenceSteps[index]
+        sequenceStepIndex = index
+        loadBoard(step.before)
+        restoreShotParams(step.shot)
+        // Preserve the user's aim assistance choice, but load this step's target,
+        // pocket and reference power/spin instead of recommending a marker ball.
+        preferredAimMode = preference
+        temporaryFreeReason = nil
+        if preference == .free, !step.shot.isFree {
+            lastAimDirection = nil
+            freeAimDir = defaultFreeAim()
+        }
+        aimMode = preference
+        applyBoard(step.before, cuePose: .reseat)
+    }
+
     /// 取第 i 杆的可行解（命中缓存即返回；未命中同步求解并回填）。
     /// 只做懒缓存、不做后台预解：求解链路未验证可重入，与主线程求解并发会打崩 App
     /// （实测：整条序列后台预解 + 播放期间主线程求解 ⇒ Lost connection）。
@@ -2703,6 +2795,8 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     private func resetSequenceProgress() {
+        sequencePlaybackGeneration = UUID()
+        sequenceStepUnavailable = false
         sequencePlayState = .idle
         pauseRequested = false
         completedStepIndex = -1
@@ -2724,8 +2818,10 @@ final class PositionPlayViewModel: ObservableObject {
         let step = sequenceSteps[i]
         placeSequenceBoard(step.before)
         if let rails = sequenceRailsBefore[i] { scene.railInventory.restore(rails) }
+        else if isGuidedTryout { scene.railInventory.restore(PocketRailSnapshot()) }
         // 恢复该杆参数供假想球/瞄准线绘制（didSet 的 recompute 已被 isSequenceMode 拦截）。
         restoreShotParams(step.shot)
+        sequenceStepUnavailable = false
         if let pred = prediction(forStep: i) {
             applySolvedShot(SolvedShot(before: step.before, shot: step.shot, prediction: pred))
         } else {
@@ -2763,12 +2859,20 @@ final class PositionPlayViewModel: ObservableObject {
     /// 「暂停」：不打断飞行中的这一杆——等它播完落定后停在该杆终局（v28 Q1 语义）。
     func requestSequencePause() {
         guard sequencePlayState == .playing else { return }
+        if isGuidedTryout, !isPlaying {
+            // During the inter-shot hold there is no moving shot to finish.
+            // Invalidate its queued advance even if Continue is tapped immediately.
+            sequencePlaybackGeneration = UUID()
+            pauseRequested = false
+            sequencePlayState = .paused
+            return
+        }
         pauseRequested = true
     }
 
     /// 「继续」：从暂停处的下一杆接着播到底。
     func resumeSequence() {
-        guard sequencePlayState == .paused else { return }
+        guard sequencePlayState == .paused, !sequenceStepUnavailable else { return }
         let next = completedStepIndex + 1
         guard next < sequenceSteps.count else {
             sequencePlayState = .playing
@@ -2795,6 +2899,8 @@ final class PositionPlayViewModel: ObservableObject {
     /// 单杆重播：预置暂停请求位 ⇒ 这一杆播完在杆间边界自动停回暂停态。
     private func playSingleSequenceStep(_ i: Int) {
         guard isSequenceMode, !isPlaying, i >= 0, i < sequenceSteps.count else { return }
+        sequencePlaybackGeneration = UUID()
+        sequenceStepUnavailable = false
         pauseRequested = true
         sequenceFinished = false
         sequencePlayState = .playing
@@ -2812,12 +2918,23 @@ final class PositionPlayViewModel: ObservableObject {
         // 摆回该杆击打前。
         placeSequenceBoard(step.before)
         if let rails = sequenceRailsBefore[i] { scene.railInventory.restore(rails) }
+        else if isGuidedTryout { scene.railInventory.restore(PocketRailSnapshot()) }
         restoreShotParams(step.shot)
 
         guard let pred = prediction(forStep: i),
               let recorder = pred.recorder, pred.duration > 0.05,
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
               let aim = aimDirection(path: pred.cuePath, from: cueNode.position) else {
+            if isGuidedTryout {
+                clearTrajectory()
+                scene.hideCueStick()
+                isPlaying = false
+                sequencePlayState = .paused
+                pauseRequested = false
+                sequenceStepUnavailable = true
+                statusText = sequenceStatusText(i) + " · 本杆暂无法演示，请选择其他杆"
+                return
+            }
             // 本杆不可行：落到录制结果并推进（不阻断整条演示），但明说跳过——
             // 否则用户只看到球凭空瞬移、没有任何解释。
             clearTrajectory()
@@ -2843,13 +2960,15 @@ final class PositionPlayViewModel: ObservableObject {
         let clearancePlayback = TrajectoryPlayback(
             recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
         )
+        let generation = sequencePlaybackGeneration
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 400_000_000)
-            guard let self, self.isSequencePlaying, self.isPlaying else { return }
+            guard let self, self.sequencePlaybackGeneration == generation, self.isSequencePlaying, self.isPlaying else { return }
             self.scene.runCueStroke(
                 strikePosition: strikePos, aim: aim, velocity: Float(step.shot.velocity),
                 clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
             ) { [weak self] in
+                guard self?.sequencePlaybackGeneration == generation else { return }
                 self?.runSequencePlayback(step: step, prediction: pred, recorder: recorder, index: i)
             }
         }
@@ -2858,6 +2977,7 @@ final class PositionPlayViewModel: ObservableObject {
     /// 触球瞬间：收杆、按真实轨迹回放球体（复用 `TrajectoryPlayback` 骨架）。
     private func runSequencePlayback(step: SequenceStep, prediction: ShotPrediction,
                                      recorder: TrajectoryRecorder, index i: Int) {
+        let generation = sequencePlaybackGeneration
         // 出杆完成回调是从场景动画里回来的，期间可能已被 `hardStopSequence` 掐断。
         guard sequencePlayState == .playing else { return }
         statusText = sequenceStatusText(i)
@@ -2887,7 +3007,7 @@ final class PositionPlayViewModel: ObservableObject {
         if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
             cueNode.runAction(.group([cueAction, .wait(duration: completionDuration)])) { [weak self] in
                 Task { @MainActor in
-                    guard let self, self.sequencePlayState == .playing else { return }
+                    guard let self, self.sequencePlaybackGeneration == generation, self.sequencePlayState == .playing else { return }
                     self.applySequenceRest(step: step, prediction: prediction)
                     self.scheduleNextSequenceStep(after: i)
                 }
@@ -2950,6 +3070,10 @@ final class PositionPlayViewModel: ObservableObject {
         guard sequencePlayState == .playing else { return }
         sequenceRailsBefore[i + 1] = scene.railInventory.snapshot()
         completedStepIndex = i
+        if isGuidedTryout, i == sequenceSteps.count - 1 {
+            finishSequencePlayback()
+            return
+        }
         if pauseRequested {
             pauseRequested = false
             sequencePlayState = .paused
@@ -2962,9 +3086,10 @@ final class PositionPlayViewModel: ObservableObject {
             finishSequencePlayback()
             return
         }
+        let generation = sequencePlaybackGeneration
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: UInt64(Self.sequenceInterShotPause * 1_000_000_000))
-            guard self.sequencePlayState == .playing else { return }
+            guard self.sequencePlaybackGeneration == generation, self.sequencePlayState == .playing else { return }
             self.runSequenceStep(next)
         }
     }
@@ -2990,6 +3115,7 @@ final class PositionPlayViewModel: ObservableObject {
             return
         }
         statusText = "序列演示完成"
+        if isGuidedTryout { return }
         // v28 Q5：终局停留片刻供观察，随后自动回到初始球形并预览第 1 杆。
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: UInt64(Self.sequenceFinishHold * 1_000_000_000))
@@ -3102,6 +3228,68 @@ final class PositionPlayViewModel: ObservableObject {
         breakRunner = nil
         breakChangeForwarder = nil
         boardBeforeBreak = nil
+    }
+}
+
+/// One uncancellable prediction in flight, plus one replaceable latest intent.
+/// Invalidating a page never pretends its physical computation has finished.
+@MainActor
+final class LatestPredictionScheduler<Result> {
+    private struct Job {
+        let epoch: Int
+        let revision: Int
+        let compute: () -> Result
+        let receive: (Result, Bool) -> Void
+    }
+    private let queue = DispatchQueue(label: "com.qiuji.latest-prediction", qos: .userInitiated)
+    private var epoch = 0
+    private var revision = 0
+    private var pending: Job?
+    private(set) var isRunning = false
+    var pendingCount: Int { pending == nil ? 0 : 1 }
+    private var lastStart = -Double.infinity
+    private var scheduled: DispatchWorkItem?
+
+    func submit(compute: @escaping () -> Result, receive: @escaping (Result, Bool) -> Void) {
+        revision += 1
+        pending = Job(epoch: epoch, revision: revision, compute: compute, receive: receive)
+        drain()
+    }
+
+    func invalidate() {
+        epoch += 1
+        pending = nil
+        scheduled?.cancel()
+        scheduled = nil
+    }
+
+    private func drain() {
+        guard !isRunning, pending != nil, scheduled == nil else { return }
+        let delay = max(0, 1.0 / 15 - (ProcessInfo.processInfo.systemUptime - lastStart))
+        if delay > 0 {
+            let item = DispatchWorkItem { [weak self] in
+                self?.scheduled = nil
+                self?.startLatest()
+            }
+            scheduled = item
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+        } else { startLatest() }
+    }
+
+    private func startLatest() {
+        guard !isRunning, let job = pending else { return }
+        pending = nil
+        isRunning = true
+        lastStart = ProcessInfo.processInfo.systemUptime
+        queue.async { [weak self] in
+            let result = job.compute()
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.isRunning = false
+                if self.epoch == job.epoch { job.receive(result, self.revision == job.revision) }
+                self.drain()
+            }
+        }
     }
 }
 

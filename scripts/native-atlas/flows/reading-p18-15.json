@@ -1,0 +1,33 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_学"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "瞄准方法",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "瞄准方法"
+    },
+    {
+      "action": "cover",
+      "name": "P18-15-default",
+      "entry": "practice/学/瞄准方法",
+      "maximumViews": 60,
+      "dragX": 0.97,
+      "endText": "打开旋转与加塞"
+    }
+  ]
+}

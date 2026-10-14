@@ -1,0 +1,20 @@
+{
+  "fixture": "partial",
+  "premium": true,
+  "steps": [
+    {
+      "action": "cover",
+      "name": "P02-01-partial",
+      "entry": "normal training Tab; pre-existing v54 in-memory fixture partial",
+      "maximumViews": 40
+    }
+  ],
+  "catalog": {
+    "P02-01-partial": {
+      "id": "APP/P02-01",
+      "title": "训练首页",
+      "state": "partial",
+      "figmaPage": "10"
+    }
+  }
+}

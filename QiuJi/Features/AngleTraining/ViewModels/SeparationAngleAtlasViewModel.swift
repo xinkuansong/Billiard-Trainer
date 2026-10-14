@@ -326,7 +326,23 @@ final class SeparationAngleAtlasViewModel: TeachingTableHost {
 
     // MARK: - Recompute (debounce + single-flight + last bus)
 
+    private var activitySuspended = false
+    func suspendTeachingActivity() {
+        activitySuspended = true
+        predictGeneration += 1
+        solveScheduler.cancel()
+        predictRerunWanted = false
+        isComputing = false
+        isDragging = false
+    }
+    func resumeTeachingActivity() {
+        guard activitySuspended else { return }
+        activitySuspended = false
+        scheduleRecompute(interactive: false)
+    }
+
     func scheduleRecompute(interactive: Bool) {
+        guard !activitySuspended else { return }
         predictGeneration += 1
         isComputing = true
         statusText = "计算中…"
@@ -336,6 +352,7 @@ final class SeparationAngleAtlasViewModel: TeachingTableHost {
     }
 
     private func launchIfIdle() {
+        guard !activitySuspended else { return }
         if predictInFlight {
             predictRerunWanted = true
             return

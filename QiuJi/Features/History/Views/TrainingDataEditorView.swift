@@ -239,7 +239,7 @@ struct TrainingDataEditorView: View {
                         Text(entry.wrappedValue.criteriaText)
                             .font(.btCaption)
                             .foregroundStyle(.btTextSecondary)
-                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Spacer()

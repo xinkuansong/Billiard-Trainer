@@ -81,7 +81,7 @@ enum DirectPotBankFallback {
                 difficultyScore: score,
                 difficultyTier: DifficultyModel.tier(spinX: shot.spinX, spinY: shot.spinY),
                 beyondSpinBudget: false,
-                robustness: bank.robustness
+                robustness: bank.robustness, isBankFallback: true
             )
         }
     }

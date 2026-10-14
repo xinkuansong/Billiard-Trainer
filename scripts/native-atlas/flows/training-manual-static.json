@@ -1,0 +1,26 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.moreMenu",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "补记训练",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "补记训练",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "cover",
+      "name": "P11-default",
+      "entry": "training/more/manual",
+      "maximumViews": 40
+    }
+  ]
+}

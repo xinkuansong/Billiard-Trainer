@@ -251,7 +251,7 @@ struct AimingCorrectionView: View {
 
             VStack(alignment: .leading, spacing: Spacing.md) {
                 LearnDocText.body("挤偏（Squirt）：杆头打在球侧，出杆瞬间母球出发方向偏向加塞反侧——立即发生，与行程和速度基本无关。左塞（spinX>0）挤偏向右（引擎：squirt 为负；Z1 草稿左塞 +0.35 → −1.415°；Z3 同参 −1.232°）。这是三个偏差源里唯一不随力度变的。")
-                LearnDocText.body("弧线（Swerve）：滑动段侧旋与台呢摩擦使轨迹微弯，越慢累积越明显（Z3 草稿组合档：v=0.8 漂移 4.6mm > v=4.0 0.1mm）。注意：平杆纯左右塞时自转轴竖直、轨迹几乎不弯（Z3 草稿 ≈0）——弧线要叠加高低杆（自转轴倾斜）或抬杆仰角才明显（草稿仰角 5° 实测 8.9mm）。无塞时瞄准线、出发方向与碰前轨迹近乎重合；加塞后挤偏使瞄准线与实际出发分离——上图杆指向线（白虚线）、母球实际行进曲线（主色）、假想球位置可对照。")
+                LearnDocText.body("弧线（Swerve）：滑动段侧旋与台呢摩擦使轨迹微弯，越慢累积越明显（Z3 草稿组合档：v=0.8 漂移 4.6mm > v=4.0 0.1mm）。注意：平杆纯左右塞时自转轴竖直、轨迹几乎不弯（Z3 草稿 ≈0）——弧线要叠加高低杆（自转轴倾斜）或抬杆仰角才明显（草稿仰角 5° 实测 8.9mm）。无塞时瞄准线、出发方向与碰前轨迹近乎重合；加塞后挤偏使瞄准线与实际出发分离——上图杆指向线（白虚线）、母球实际行进曲线（亮绿）、假想球位置可对照。")
                 LearnDocText.body("净效果 = 挤偏 + 弧线 + 到达后的塞致投掷（SIT），三者叠加没有简单口诀——所以才需要⑤节的自动求解。")
             }
 
@@ -444,17 +444,17 @@ private struct DeltaAimFigure: View {
                 let geoEnd = extend(from: cue, dir: snap.geometricAimDir, meters: 0.45)
                 let solEnd = extend(from: cue, dir: snap.solvedAimDir, meters: 0.45)
 
-                dashedLine(proj: proj, from: cue, to: geoEnd, color: FigureLine.hint.opacity(0.7))
+                dashedLine(proj: proj, from: cue, to: geoEnd, color: FigureLine.hint)
                 Path { p in
                     p.move(to: proj.point(cue))
                     p.addLine(to: proj.point(solEnd))
                 }
-                .stroke(Color.btPrimary, style: StrokeStyle(lineWidth: proj.lineMainWidth, lineCap: .round))
+                .stroke(FigureLine.actual, style: StrokeStyle(lineWidth: proj.lineMainWidth, lineCap: .round))
 
                 BTGhostCircle(diameter: proj.ballDiameter, showsAimPoint: true)
                     .position(proj.point(snap.ghost))
 
-                BTFigureTag(text: "Δ", color: FigureLine.contact)
+                BTFigureTag(text: "Δ", color: FigureLine.actual)
                     .position(alongLabel(from: proj.point(geoEnd),
                                          to: proj.point(solEnd), t: 0.5, offset: 0))
             }
@@ -531,7 +531,7 @@ private struct ThrowCollisionFigure: View {
                     p.move(to: proj.point(target))
                     p.addLine(to: proj.point(leaveEnd))
                 }
-                .stroke(Color.btPrimary,
+                .stroke(FigureLine.actual,
                         style: StrokeStyle(lineWidth: proj.lineMainWidth + 0.4, lineCap: .round))
 
                 // Friction arrow (token color; Path only — no Text labels)
@@ -553,15 +553,15 @@ private struct ThrowCollisionFigure: View {
                 let leaveLabel = alongLabel(from: proj.point(target),
                                             to: proj.point(leaveEnd), t: 0.8, offset: 14)
                 // Four 10pt characters plus capsule padding stay within the figure.
-                BTFigureTag(text: "实际离开", color: FigureLine.contact)
+                BTFigureTag(text: "实际离开", color: FigureLine.actual)
                     .position(x: min(max(30, leaveLabel.x), max(30, proj.size.width - 30)),
                               y: leaveLabel.y)
-                BTFigureTag(text: "摩擦", color: .btWarning)
+                BTFigureTag(text: "摩擦", color: FigureLine.effect)
                     .position(alongLabel(from: proj.point(contact),
                                          to: proj.point(frEnd), t: 0.85, offset: -12))
                 BTFigureTag(text: "Δ ×\(max(1, Int(effExaggerate.rounded()))) 夸大", color: FigureLine.contact)
                     .position(x: proj.size.width - 52, y: 16)
-                BTFigureTag(text: "假想球", color: FigureLine.contact)
+                BTFigureTag(text: "假想球", color: FigureLine.ghost)
                     .position(x: proj.point(ghost).x,
                               y: proj.point(ghost).y + proj.ballDiameter * 0.65)
                 BTFigureTag(text: "目标球")
@@ -590,7 +590,7 @@ private struct ThrowCollisionFigure: View {
             p.addLine(to: CGPoint(x: b.x - head * cos(angle + 0.4),
                                   y: b.y - head * sin(angle + 0.4)))
         }
-        .stroke(Color.btWarning, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+        .stroke(FigureLine.effect, style: StrokeStyle(lineWidth: 2, lineCap: .round))
     }
 }
 
@@ -640,7 +640,7 @@ private struct ThicknessTripleFigure: View {
                         p.move(to: proj.point(target))
                         p.addLine(to: proj.point(leaveEnd))
                     }
-                    .stroke(color.opacity(isActive ? 1 : 0.28),
+                    .stroke(color.opacity(isActive ? 1 : 0.85),
                             style: StrokeStyle(
                                 lineWidth: isActive ? proj.lineMainWidth : proj.lineHintWidth,
                                 lineCap: .round
@@ -669,9 +669,9 @@ private struct ThicknessTripleFigure: View {
 
     private func laneColor(_ tier: AimingCorrectionMath.SpinYTier) -> Color {
         switch tier {
-        case .low: return .btWarning
+        case .low: return FigureLine.effect
         case .mid: return FigureLine.separation
-        case .high: return .btPhysicsAdjustable
+        case .high: return FigureLine.follow
         }
     }
 
@@ -713,7 +713,7 @@ private struct SquirtSwerveFigure: View {
                     p.move(to: proj.point(aimBack))
                     p.addLine(to: proj.point(aimFwd))
                 }
-                .stroke(FigureLine.aim.opacity(0.75),
+                .stroke(FigureLine.aim,
                         style: StrokeStyle(lineWidth: proj.lineHintWidth, dash: [4, 3]))
 
                 // Pre-contact curve
@@ -725,7 +725,7 @@ private struct SquirtSwerveFigure: View {
                             p.addLine(to: proj.point(pts[i]))
                         }
                     }
-                    .stroke(Color.btPrimary,
+                    .stroke(FigureLine.actual,
                             style: StrokeStyle(lineWidth: proj.lineMainWidth, lineCap: .round))
                 }
 
@@ -735,19 +735,19 @@ private struct SquirtSwerveFigure: View {
                 BTFigureTag(text: "瞄准线", color: FigureLine.aim)
                     .position(alongLabel(from: proj.point(aimBack),
                                          to: proj.point(aimFwd), t: 0.2, offset: -14))
-                BTFigureTag(text: "实际轨迹", color: FigureLine.contact)
+                BTFigureTag(text: "实际轨迹", color: FigureLine.actual)
                     .position(pts.count >= 2
                               ? alongLabel(from: proj.point(pts[0]),
                                            to: proj.point(pts[pts.count / 2]),
                                            t: 0.6, offset: 14)
                               : proj.point(setup.cue))
-                BTFigureTag(text: "假想球", color: FigureLine.contact)
+                BTFigureTag(text: "假想球", color: FigureLine.ghost)
                     .position(x: proj.point(snap.ghost).x,
                               y: proj.point(snap.ghost).y - d * 0.7)
                 if abs(snap.squirtDegrees) > 0.05 {
                     BTFigureTag(
                         text: String(format: "挤偏 %+.1f°", snap.squirtDegrees),
-                        color: .btWarning
+                        color: FigureLine.effect
                     )
                     .position(x: proj.point(setup.cue).x,
                               y: proj.point(setup.cue).y + d * 0.75)
@@ -784,21 +784,21 @@ private struct SolverCompareFigure: View {
                     p.move(to: proj.point(cue))
                     p.addLine(to: proj.point(geoEnd))
                 }
-                .stroke(FigureLine.hint.opacity(0.7),
+                .stroke(FigureLine.hint,
                         style: StrokeStyle(lineWidth: proj.lineHintWidth, dash: [5, 4]))
 
                 Path { p in
                     p.move(to: proj.point(cue))
                     p.addLine(to: proj.point(aEnd))
                 }
-                .stroke(Color.btPrimary,
+                .stroke(FigureLine.actual,
                         style: StrokeStyle(lineWidth: proj.lineMainWidth, lineCap: .round))
 
                 Path { p in
                     p.move(to: proj.point(cue))
                     p.addLine(to: proj.point(bEnd))
                 }
-                .stroke(Color.btWarning,
+                .stroke(FigureLine.effect,
                         style: StrokeStyle(lineWidth: proj.lineMainWidth, lineCap: .round))
 
                 BTGhostCircle(diameter: d, showsAimPoint: true)
@@ -809,13 +809,13 @@ private struct SolverCompareFigure: View {
                                          to: proj.point(geoEnd), t: 0.85, offset: -12))
                 BTFigureTag(
                     text: String(format: "A Δ%+.1f°", cmp.a.aimOffsetDegrees),
-                    color: FigureLine.contact
+                    color: FigureLine.actual
                 )
                 .position(alongLabel(from: proj.point(cue),
                                      to: proj.point(aEnd), t: 0.7, offset: 14))
                 BTFigureTag(
                     text: String(format: "B Δ%+.1f°", cmp.b.aimOffsetDegrees),
-                    color: .btWarning
+                    color: FigureLine.effect
                 )
                 .position(alongLabel(from: proj.point(cue),
                                      to: proj.point(bEnd), t: 0.55, offset: -16))

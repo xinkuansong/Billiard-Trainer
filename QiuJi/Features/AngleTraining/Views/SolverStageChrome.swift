@@ -13,6 +13,7 @@ protocol SolverStageHosting: TeachingTableHost {
     var observationPocket: Int? { get }
     var mode: BankKickPageMode { get }
     var isSolving: Bool { get }
+    var isAdjustingSolution: Bool { get }
     var statusText: String { get }
     var isPlaying: Bool { get }
     var currentIndex: Int { get }
@@ -36,6 +37,7 @@ protocol SolverStageHosting: TeachingTableHost {
     var aimWheelDegreesPerPoint: Float { get }
     /// v23 W3：近区特写快照（自由模式；nil = 不显示）。
     var closeupSnapshot: AimCloseupSnapshot? { get }
+    func updateFreeSpin(x: Double, y: Double)
     /// v23 W3：瞄准轮拖动生命周期（特写显隐门）。
     func setAimTableDragging(_ active: Bool)
     func setAimWheelDragging(_ active: Bool)
@@ -192,7 +194,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             transparency: $spinTransparency,
             hides3DAssists: Binding(get: { hides3DAssists }, set: { hides3DAssists = $0; vm.hides3DShotAssists = $0 }),
             velocityRange: Double(CushionReflectionSettings.minPower)...Double(CushionReflectionSettings.maxPower),
-            instrumentsEnabled: !vm.isPlaying, showsSpinSlot: free || vm.hasSolution,
+            instrumentsEnabled: !vm.isPlaying && (!vm.isSolving || vm.isAdjustingSolution), showsSpinSlot: free || vm.solutionCount > 0,
             isAnimating: vm.isPlaying || vm.isSolving, paletteEnabled: !vm.isPlaying,
             allowsPocketSelection: onPocketTapped != nil,
             primaryTitle: vm.isPlaying ? "击球中" : (free ? "击球" : "击打"),
@@ -207,7 +209,11 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             onDisappear: { vm.stopForDismissal() },
             onAimNudged: free && !is3D ? { vm.nudgeFreeAim(byDegrees: $0) } : nil,
             onAimDragActiveChanged: { vm.setAimTableDragging($0) },
-            closeupSnapshot: vm.closeupSnapshot)
+            closeupSnapshot: vm.closeupSnapshot,
+            onSpinChange: { x, y in
+                if !free && vm.solutionCount > 0 { vm.adjustCurrentSolution(velocity: nil, spinX: x, spinY: y) }
+                else { vm.updateFreeSpin(x: x, y: y) }
+            })
     }
     private var solverMenuItems: [DailyHUDMenuItem] {
         var items: [DailyHUDMenuItem] = [.init(id: "solver.info", title: "原理说明", action: { showInfo = true })]
@@ -293,19 +299,19 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
     }
     private var powerBinding: Binding<Double> {
         Binding(get: { vm.reflectionPower }, set: {
-            if !free && vm.hasSolution { vm.adjustCurrentSolution(velocity: $0, spinX: nil, spinY: nil) }
+            if !free && vm.solutionCount > 0 { vm.adjustCurrentSolution(velocity: $0, spinX: nil, spinY: nil) }
             else { vm.reflectionPower = $0 }
         })
     }
     private var spinXBinding: Binding<Double> {
         Binding(get: { vm.spinX }, set: {
-            if !free && vm.hasSolution { vm.adjustCurrentSolution(velocity: nil, spinX: $0, spinY: nil) }
+            if !free && vm.solutionCount > 0 { vm.adjustCurrentSolution(velocity: nil, spinX: $0, spinY: nil) }
             else { vm.spinX = $0 }
         })
     }
     private var spinYBinding: Binding<Double> {
         Binding(get: { vm.spinY }, set: {
-            if !free && vm.hasSolution { vm.adjustCurrentSolution(velocity: nil, spinX: nil, spinY: $0) }
+            if !free && vm.solutionCount > 0 { vm.adjustCurrentSolution(velocity: nil, spinX: nil, spinY: $0) }
             else { vm.spinY = $0 }
         })
     }
@@ -326,26 +332,32 @@ struct TeachingSolutionButton: View {
     let enabled: Bool
     let next: () -> Void
     let select: (Int) -> Void
+    var onDetails: (() -> Void)? = nil
+    var isModified = false
+    private var available: Bool { enabled && (count >= 2 || (count == 1 && onDetails != nil)) }
+    private var title: String { onDetails == nil ? "下一解" : (count > 0 ? "解\(currentIndex + 1)/\(count)" : "方案") }
     var body: some View {
-        Button(action: next) {
+        Button { if count == 1, let onDetails { onDetails() } else { next() } } label: {
             VStack(spacing: 1) {
                 Image(systemName: "arrow.right").font(.system(size: 17))
-                Text("下一解").font(.system(size: 10))
+                Text(title).font(.system(size: 10))
+                if isModified { Text("微调").font(.system(size: 9)) }
             }.frame(width: 44, height: 44)
                 .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
                 .overlay(alignment: .topTrailing) { TeachingMenuIndicator() }
-        }.buttonStyle(BTHUDPressStyle()).disabled(!enabled || count < 2)
-            .opacity(enabled && count >= 2 ? 1 : 0.4)
+        }.buttonStyle(BTHUDPressStyle()).disabled(!available)
+            .opacity(available ? 1 : 0.4)
             .contextMenu {
+                if let onDetails, count > 0 { Button("当前方案详情", action: onDetails) }
                 ForEach(0..<count, id: \.self) { index in
                     Button { select(index) } label: {
                         Label("解 \(index + 1)/\(count)", systemImage: index == currentIndex ? "checkmark" : "circle")
                     }.accessibilityIdentifier("solver.selectSolution.\(index)")
                 }
             }
-            .accessibilityLabel("下一解").accessibilityHint("轻点下一解，长按选择解")
-            .accessibilityValue("解 \(currentIndex + 1)/\(count)")
+            .accessibilityLabel(title).accessibilityHint(onDetails == nil ? "轻点下一解，长按选择解" : "轻点切换方案，单个方案时查看详情；长按选择方案或查看详情")
+            .accessibilityValue(count > 0 ? "解 \(currentIndex + 1)/\(count)" + (isModified ? "，微调" : "") : "无方案")
             .accessibilityIdentifier("solver.nextSolution")
     }
 }
@@ -364,5 +376,130 @@ enum TeachingSolutionSummary {
         parts.append(ShotSpinLabel.text(spinX: solution.shot.spinX, spinY: solution.shot.spinY))
         parts.append(solution.cushionCount == 0 ? "不吃库" : "\(solution.cushionCount)库")
         return parts.joined(separator: " · ")
+    }
+}
+
+/// Events carry identity so an old feedback timer cannot remove a newer error.
+struct PlanningInformationEvent: Equatable {
+    enum Kind: Equatable { case context, busy, solution, failure, feedback, completion }
+    let id = UUID()
+    let kind: Kind
+    let text: String
+}
+
+enum PlanningPanel: String, Identifiable {
+    case help, details
+    var id: String { rawValue }
+}
+
+struct PlanningInformationOverlay: View {
+    let page: String
+    let event: PlanningInformationEvent
+    let prompt: String?
+    let solution: PositionPlaySolution?
+    let defense: Bool
+    let busy: Bool
+    let setupComplete: Bool
+    let introduction: String
+    @AppStorage private var learned: Bool
+    @State private var expiredEvent: UUID?
+    @AccessibilityFocusState private var noticeFocused: Bool
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
+
+    init(page: String, event: PlanningInformationEvent, prompt: String?, solution: PositionPlaySolution?,
+         defense: Bool = false, busy: Bool, setupComplete: Bool, introduction: String) {
+        self.page = page; self.event = event; self.prompt = prompt; self.solution = solution
+        self.defense = defense; self.busy = busy; self.setupComplete = setupComplete; self.introduction = introduction
+        _learned = AppStorage(wrappedValue: false, page + ".informationLearned")
+    }
+
+    private var message: (String, Bool, Bool)? {
+        if event.kind == .failure { return (event.text, true, false) }
+        if busy { return nil }
+        if event.kind == .completion { return (event.text, true, false) }
+        let caution = PlanningSolutionDetails.cautions(solution, defense: defense)
+        if !caution.isEmpty { return (caution, true, false) }
+        // A completed action owns a brief feedback interval; selecting a tool/role
+        // produces a new context event and immediately hands back to that step.
+        if event.kind == .feedback, expiredEvent != event.id, !event.text.isEmpty {
+            return (event.text, false, true)
+        }
+        if let prompt, !prompt.isEmpty { return (prompt, false, false) }
+        if !learned && expiredEvent != event.id && !setupComplete { return (introduction, false, true) }
+        return nil
+    }
+
+    var body: some View {
+        Group {
+            if busy && event.kind == .busy {
+                Text(event.text).font(.caption).foregroundStyle(.clear).frame(width: 1, height: 1)
+                    .accessibilityLabel(event.text)
+            }
+            if let (text, persistent, dismissible) = message {
+                BTTeachingInformationLayer(items: [.init(text: text, kind: persistent ? .readout : .notice,
+                    identifier: page + ".status", showsSymbol: false)], onDismiss: dismissible ? {
+                        learned = true; expiredEvent = event.id
+                    } : nil)
+                .accessibilityFocused($noticeFocused)
+            }
+        }
+        .task(id: event.id) {
+            guard event.kind == .feedback else { return }
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled, !voiceOver, !noticeFocused else { return }
+            expiredEvent = event.id
+        }
+        .onChange(of: setupComplete, initial: true) { _, complete in if complete { learned = true } }
+    }
+}
+
+enum PlanningSolutionDetails {
+    static func cautions(_ solution: PositionPlaySolution?, defense: Bool) -> String {
+        guard let solution else { return "" }
+        var tags: [String] = []
+        if solution.isBankFallback { tags.append("翻袋备选") }
+        if !solution.satisfiesConstraint { tags.append(defense ? "未完全斯诺克" : "未满足约束") }
+        if solution.beyondCushionBudget { tags.append("进阶") }
+        if solution.beyondSpinBudget { tags.append("需横塞") }
+        return tags.joined(separator: " · ")
+    }
+    static func text(_ solution: PositionPlaySolution?, index: Int, count: Int, adjusted: Bool, defense: Bool) -> String {
+        guard let solution else { return "当前没有方案。请完成选择后求解。" }
+        var rows = ["解 \(index + 1)/\(count)" + (adjusted ? " · 微调" : ""),
+            "杆法：" + ShotSpinLabel.text(spinX: solution.shot.spinX, spinY: solution.shot.spinY),
+            String(format: "杆速：%.1f m/s", solution.shot.velocity),
+            "母球吃库：\(solution.cushionCount) 库"]
+        let caution = cautions(solution, defense: defense)
+        if !caution.isEmpty { rows.append(caution) }
+        if !solution.satisfiesConstraint { rows.append(defense ? "当前方案未完全遮挡对方球，请结合台面轨迹判断。" : "当前方案未满足所设约束，请结合轨迹调整条件。") }
+        if solution.isBankFallback { rows.append("这是翻袋备选，不代表已满足原走位要求。") }
+        if solution.beyondCushionBudget { rows.append("方案吃库数超出当前基础走位筛选范围。") }
+        if solution.beyondSpinBudget { rows.append("方案需要超出当前筛选范围的横塞。") }
+        return rows.joined(separator: "\n\n")
+    }
+}
+
+struct PlanningInformationSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let panel: PlanningPanel
+    let sections: [(String, String)]
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: Spacing.lg) {
+                    ForEach(sections.indices, id: \.self) { index in
+                        VStack(alignment: .leading, spacing: Spacing.sm) {
+                            Text(sections[index].0).font(.headline)
+                            Text(sections[index].1).font(.body).fixedSize(horizontal: false, vertical: true)
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }.padding(Spacing.lg)
+            }.accessibilityIdentifier("planning." + panel.rawValue)
+                .navigationTitle(panel == .details ? "当前方案详情" : "操作说明")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) {
+                    Button("关闭") { dismiss() }.accessibilityIdentifier("planning.close")
+                } }
+        }
     }
 }

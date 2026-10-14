@@ -1,0 +1,26 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "tap",
+      "id": "订阅管理",
+      "kind": "buttonContains",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "订阅管理",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "cover",
+      "name": "P30-debug-premium",
+      "entry": "profile/subscription-status",
+      "maximumViews": 40
+    }
+  ]
+}

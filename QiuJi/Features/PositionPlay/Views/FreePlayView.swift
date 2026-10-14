@@ -74,6 +74,7 @@ struct FreePlayView: View {
 
     @State private var dailyCameraReadableFrame: CGRect?
     @State private var dailyPortrait = false
+    private var pocketOrientation: PocketDisplay.Orientation { .init(portrait: dailyPortrait) }
     @State private var dailyCameraControlStackHeight: CGFloat = 188
     @State private var dailyHeaderTitleWidths: [Int: CGFloat] = [:]
     @State private var dailyHeaderTitleHeight: CGFloat = 44
@@ -90,11 +91,24 @@ struct FreePlayView: View {
 
     // 规则对局（条 15.10）：开球「完成」后按玩法启用引擎；引擎只做裁决与轮转提示，
     // 台面操作仍全开放（单机一人扮两方，自由球=用户自行拖母球）。
-    @State private var rules: (any BilliardRulesEngine)?
+    @StateObject private var rulesSession = FreePlayRulesSession()
+    private var rules: (any BilliardRulesEngine)? {
+        get { rulesSession.rules }
+        nonmutating set { rulesSession.rules = newValue }
+    }
     @State private var pendingGame: RackGame?
-    @State private var rulingText = ""
-    @State private var scoreboardText = ""
-    @State private var currentPlayerLabel = ""
+    private var rulingText: String {
+        get { rulesSession.rulingText }
+        nonmutating set { rulesSession.rulingText = newValue }
+    }
+    private var scoreboardText: String {
+        get { rulesSession.scoreboardText }
+        nonmutating set { rulesSession.scoreboardText = newValue }
+    }
+    private var currentPlayerLabel: String {
+        get { rulesSession.currentPlayerLabel }
+        nonmutating set { rulesSession.currentPlayerLabel = newValue }
+    }
 
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
     private static let topRowHeight = ShotStageMetrics.topRowHeight
@@ -118,6 +132,7 @@ struct FreePlayView: View {
     private var isEditor: Bool { editor != nil }
     private var isManualBreakPage: Bool { isStandard || isEditor }
     private var editablePalette: Bool { isShotSimulation || isEditor }
+    private var isTryoutPage: Bool { editor?.isTryout == true }
     private var sequenceReadOnly: Bool { isEditor && vm.isSequenceMode }
     private var usesCoreTemplate: Bool { true }
     private var isDailyResult: Bool {
@@ -146,7 +161,8 @@ struct FreePlayView: View {
     }
 
     private var templateStateDescription: String {
-        let selection = "\(is3D ? "3D" : "2D")，\(aimModeLabel)模式，目标\(vm.selectedTargetKey ?? "无")，袋口\(vm.selectedPocketIndex)"
+        let pocket = PocketDisplay.name(index: vm.selectedPocketIndex, orientation: pocketOrientation)
+        let selection = "\(is3D ? "3D" : "2D")，\(aimModeLabel)模式，目标\(vm.selectedTargetKey ?? "无")，目标袋\(pocket)"
         if isShotSimulation {
             return selection + "，目标球\(vm.onTableKeys.filter { !PositionPlayBall.isCue($0) }.count)/2，在桌\(vm.onTableKeys.joined(separator: ","))"
         }
@@ -402,7 +418,7 @@ struct FreePlayView: View {
                     vm.scene.configureReferenceTableRendering()
                     vm.scene.configureShotAwareCamera()
                 }
-                vm.setupScene(loadsDefaultLayout: isStandard || isEditor)
+                vm.setupScene(loadsDefaultLayout: isStandard || (editor?.loadsDefaultLayout ?? false))
                 vm.enablePlayerCameraControls()
                 #if DEBUG
                 if isDailyClearance,
@@ -420,24 +436,14 @@ struct FreePlayView: View {
                     vm.usesAutomaticPocketFallback = true
                     vm.usesDailyShotRanking = isDailyClearance
                     vm.usesContinuousTrajectoryPreview = true
-                    if isDailyClearance {
-                        vm.legalAimTargets = { keys in dailyController.legalTargetKeys(tableKeys: keys) }
-                    } else if isStandard {
-                        vm.legalAimTargets = { keys in rules?.legalTargetKeys(tableKeys: keys) ?? keys }
-                    }
-                    vm.onAimModeNotice = { text in ruleNotices.show(text, tone: .info, priority: .mode) }
-                    vm.onAimSelectionNotice = { text in ruleNotices.show(text, tone: .warning, priority: .selection) }
                 } else {
                     vm.usesAutomaticPocketFallback = true
-                    vm.legalAimTargets = { keys in rules?.legalTargetKeys(tableKeys: keys) ?? keys }
-                    vm.onAimModeNotice = { ruleNotices.show($0, tone: .info, priority: .mode) }
-                    vm.onAimSelectionNotice = { ruleNotices.show($0, tone: .warning, priority: .selection) }
                 }
+                FreePlayRulesSession.connect(vm: vm, rules: rulesSession, daily: dailyController,
+                    notices: ruleNotices, mode: entryMode, isEditor: isEditor, isTryout: isTryoutPage)
                 if isShotSimulation { vm.loadBoard(ShotSimulationView.defaultBoard) }
                 editor?.setup()
                 vm.scene.setCameraMode(vm.cameraMode, animated: false)
-                vm.onShotSettled = { facts in handleShotSettled(facts) }
-                if isDailyClearance { vm.onShotWillStart = { dailyController.prepareShot() } }
                 #if DEBUG
                 if !isDailyClearance, ProcessInfo.processInfo.arguments.contains("-v63.freePlayScratch") {
                     vm.clearTable()
@@ -658,30 +664,6 @@ struct FreePlayView: View {
         refreshRulesHUD(message: "对局开始：玩家 A 先击球")
     }
 
-    private func handleShotSettled(_ facts: ShotFacts) {
-        if sequenceReadOnly { return }
-        if isShotSimulation {
-            if facts.cuePocketed { vm.placeFromPalette(PositionPlayBall.cueKey) }
-            return
-        }
-        if isDailyClearance {
-            guard let ruling = dailyController.handleShotSettled(facts) else { return }
-            if ruling.completed || ruling.failed { ruleNotices.clear() }
-            else if ruling.message != "继续击球" {
-                ruleNotices.show(ruling.message, tone: ruling.foul ? .warning : .info, priority: .ruling)
-            }
-            return
-        }
-        // Judge the recorded scratch before restoring the cue for the next shot.
-        defer { if facts.cuePocketed { vm.placeFromPalette(PositionPlayBall.cueKey) } }
-        guard let rules else { return }
-        let ruling = rules.judge(facts)
-        refreshRulesHUD(message: ruling.message)
-        if ruling.ballInHand, !ruling.gameOver {
-            ruleNotices.show(ruling.message + "；自由球：可任意拖放母球", tone: .warning, priority: .ruling)
-        }
-    }
-
     private func refreshRulesHUD(message: String) {
         guard let rules else { return }
         rulingText = message
@@ -702,6 +684,7 @@ struct FreePlayView: View {
         AngleSceneView(
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
+            pocketDisplayOrientation: pocketOrientation,
             interactionMode: is3D ? .cameraControl : .tapsOnly,
             autoFitsRotatedTable: !is3D && !isDaily2D,
             autoFitsLandscapeTable: isDaily2D,
@@ -930,7 +913,7 @@ struct FreePlayView: View {
             BTHudMetricSeparator()
             Text(dailyController.assignedGroup?.displayName ?? (dailyController.game == .chineseEightBall ? "开放局" : "第\(dailyController.visitCount)次上手"))
             BTHudMetricSeparator()
-            Text(vm.aimSelectionLabel)
+            Text(vm.aimSelectionLabel(orientation: pocketOrientation))
             BTHudMetricSeparator()
             Text("余 \(dailyController.remainingBallCount)")
             BTHudMetricSeparator()
@@ -1149,7 +1132,7 @@ struct FreePlayView: View {
 
     // MARK: - Toolbar menu
 
-    private var aimModeLabel: String { if sequenceReadOnly { return "序列" }; return vm.aimMode == .pocket ? "进袋" : "自由" }
+    private var aimModeLabel: String { if sequenceReadOnly { return "跟随示范" }; return vm.aimMode == .pocket ? "进袋" : "自由" }
 
     private func trajectoryMenuLabel(_ detail: TrajectoryDetail) -> String {
         switch detail {
@@ -1266,10 +1249,18 @@ struct FreePlayView: View {
                 }),
                 .init(id: "dailyClearance.shotSettings", title: "击球设置"),
                 .init(id: "dailyClearance.aimModeMenu", title: "瞄准模式 · \(aimModeLabel)", disclosure: true,
-                      disabled: vm.isPlaying || vm.isSequencePlaying || vm.isBreakMode || isDailyResult, action: { showSpinPad = false; dailyPresentation = .aim }),
+                      disabled: sequenceReadOnly || vm.isPlaying || vm.isSequencePlaying || vm.isBreakMode || isDailyResult, action: { showSpinPad = false; dailyPresentation = .aim }),
                 .init(id: "dailyClearance.trajectoryMenu", title: "轨迹显示 · \(dailyTrajectoryLabel)", disclosure: true,
                       disabled: disabled, action: { dailyPresentation = .trajectory }),
             ]
+            if let modeItem = editor?.modeItem {
+                // Keep the view toggle first, followed immediately by the tryout
+                // mode and its existing option-list aim selector.
+                let settingsIDs: Set<String> = ["dailyClearance.shotSettings", "dailyClearance.aimModeMenu"]
+                let shotItems = items.filter { settingsIDs.contains($0.id) }
+                items.removeAll { settingsIDs.contains($0.id) }
+                items.insert(contentsOf: [shotItems[0], modeItem, shotItems[1]], at: 2)
+            }
             if isShotSimulation {
                 items.append(.init(id: "shotSimulation.reset", title: "恢复默认球形", disabled: disabled, action: {
                     closeDailyPresentation(); ruleNotices.clear(); vm.loadBoard(ShotSimulationView.defaultBoard)
@@ -1312,7 +1303,7 @@ struct FreePlayView: View {
         if is3D, vm.breakRunner?.phase == .racked, vm.breakRunner?.simulationFailure == nil {
             return "刻度轮调方向 · 拖动母球摆位"
         }
-        if !vm.isPlaying, vm.breakRunner == nil, rulingText.isEmpty { return vm.aimSelectionLabel }
+        if !vm.isPlaying, vm.breakRunner == nil, rulingText.isEmpty { return vm.aimSelectionLabel(orientation: pocketOrientation) }
         return vm.breakRunner?.statusText(isPerspective: is3D)
             ?? (vm.isComputing ? "求解中…"
                 : (!vm.isPlaying && !rulingText.isEmpty ? rulingText : vm.statusText))
@@ -1615,6 +1606,7 @@ private extension FreePlayView {
                             VStack(spacing: 4) {
                                 dailyFeedbackOverlay
                                 editor?.overlay
+                                    .environment(\.pocketDisplayOrientation, pocketOrientation)
                             }
                                 .padding(.top, dailyFeedbackTop(in: stage.size))
                         }
@@ -1670,7 +1662,7 @@ private extension FreePlayView {
                         .accessibilityIdentifier("dailyLayout.limited")
                     Text("当前空间无法完整放下球桌和操作控件。").font(.btFootnote)
                         .multilineTextAlignment(.center)
-                    Button("返回") { vm.cancelPowerRelease(); dismiss() }
+                    Button { vm.cancelPowerRelease(); dismiss() } label: { Text("返回") }
                         .buttonStyle(BTSceneDecisionActionStyle())
                         .accessibilityIdentifier("dailyLayout.limitedBack")
                 }
@@ -1755,6 +1747,7 @@ private extension FreePlayView {
         .onChange(of: size) { _, _ in cancelPaletteDrag() }
         .onChange(of: size.height > size.width, initial: true) { _, portrait in
             dailyPortrait = portrait
+            vm.scene.pocketDisplayOrientation = .init(portrait: portrait)
             if !is3D { ShotPlayCamera.setMode(portrait ? .topDown2DRotated : .topDown2D, on: vm) }
         }
         .onPreferenceChange(DailyStrikeFrameKey.self) { frame in
@@ -1816,7 +1809,7 @@ private extension FreePlayView {
                 BTNoticeContent(message: message, compact: true, textOnly: true)
                     .accessibilityIdentifier("dailyClearance.notice")
             } else if isEditor {
-                dailyInformation(sequenceReadOnly ? vm.statusText : vm.aimSelectionLabel)
+                dailyInformation(sequenceReadOnly ? vm.statusText : (isTryoutPage ? vm.tryoutStatusText(orientation: pocketOrientation) : vm.aimSelectionLabel(orientation: pocketOrientation)))
                     .accessibilityIdentifier("composer.status")
             } else if isShotSimulation, vm.cuePocketed, !showSpinPad {
                 dailyInformation("母球进袋")
@@ -1914,19 +1907,21 @@ private extension FreePlayView {
                 : AnyLayout(VStackLayout(spacing: Spacing.xs))
             dailyActionSlot(height: horizontalActions ? auxiliary : auxiliary * 2 + Spacing.xs, originalTopFraction: space.docked ? 1 : (horizontalActions ? 0.5 : 1), natural: space.foundation != nil) {
                 actionLayout {
-                    dailyCompactAction(sequenceReadOnly ? "上一杆" : "重打", symbol: "arrow.uturn.backward", id: "dailyClearance.undo", size: auxiliary) {
+                    dailyCompactAction(isTryoutPage || sequenceReadOnly ? "上一杆" : "重打", symbol: isTryoutPage ? "backward.end" : "arrow.uturn.backward", id: "dailyClearance.undo", size: auxiliary) {
                         daily3DDiagnostics?.input(.undo, intent: .aim)
                         vm.cancelPowerRelease()
-                        if sequenceReadOnly { vm.replayPreviousSequenceStep() }
+                        if isTryoutPage { vm.moveTryoutStep(by: -1) }
+                        else if sequenceReadOnly { vm.replayPreviousSequenceStep() }
                         else if isDailyClearance { dailyController.undoShot() } else { vm.replayCurrent() }
                     }
-                    .disabled(vm.isPlaying || !(sequenceReadOnly ? vm.canReplayPreviousStep : (isDailyClearance ? dailyController.canUndo : vm.canReplay)) || isDailyResult || isTemporaryTopDown)
-                    dailyCompactAction(sequenceReadOnly ? "重播" : "回放", symbol: "play.rectangle", id: "dailyClearance.playback", size: auxiliary) {
+                    .disabled(vm.isPlaying || !(isTryoutPage ? vm.canGoToPreviousTryoutStep : (sequenceReadOnly ? vm.canReplayPreviousStep : (isDailyClearance ? dailyController.canUndo : vm.canReplay))) || isDailyResult || isTemporaryTopDown)
+                    dailyCompactAction(isTryoutPage ? "下一杆" : (sequenceReadOnly ? "重播" : "回放"), symbol: isTryoutPage ? "forward.end" : "play.rectangle", id: "dailyClearance.playback", size: auxiliary) {
                         daily3DDiagnostics?.input(.replay)
                         vm.cancelPowerRelease()
-                        if sequenceReadOnly { vm.replayCurrentSequenceStep() } else { vm.replayLastShot() }
+                        if isTryoutPage { vm.moveTryoutStep(by: 1) }
+                        else if sequenceReadOnly { vm.replayCurrentSequenceStep() } else { vm.replayLastShot() }
                     }
-                    .disabled(vm.isPlaying || !(sequenceReadOnly ? vm.canReplayCurrentStep : vm.canPlayback) || isTemporaryTopDown)
+                    .disabled(vm.isPlaying || !(isTryoutPage ? vm.canGoToNextTryoutStep : (sequenceReadOnly ? vm.canReplayCurrentStep : vm.canPlayback)) || isTemporaryTopDown)
                 }
                 .frame(width: horizontalActions ? auxiliary * 2 + Spacing.xs : auxiliary)
                 .frame(width: space.docked ? auxiliary : dailyControlColumnWidth, alignment: horizontalActions ? .trailing : .center)
@@ -1954,6 +1949,12 @@ private extension FreePlayView {
 
     var templateStrikeTitle: String {
         if sequenceReadOnly {
+            if isTryoutPage {
+                if !vm.canContinueTryoutSequence { return "无法演示" }
+                if vm.sequenceFinished { return "重新开始" }
+                if vm.isSequencePausePending { return "暂停中" }
+                if vm.sequencePlayState == .idle { return "开始" }
+            }
             switch vm.sequencePlayState {
             case .idle: return BTStrikeTitle.solutionDemo
             case .playing: return BTStrikeTitle.sequencePause
@@ -1963,14 +1964,16 @@ private extension FreePlayView {
         if isManualBreakPage, let runner = vm.breakRunner {
             return runner.showsConfirm ? "完成" : (runner.isBusy ? "开球中" : "开球")
         }
+        if isTryoutPage, vm.canReplay { return "重打" }
         return dailyController.isAutomaticallyBreaking ? "开球中" : (vm.isComputing ? "计算中" : "击球")
     }
 
     var templateStrikeDisabled: Bool {
-        if sequenceReadOnly { return isTemporaryTopDown || vm.isSequencePausePending || (!vm.isSequencePlaying && vm.isPlaying) }
+        if sequenceReadOnly { return (isTryoutPage && !vm.canContinueTryoutSequence) || isTemporaryTopDown || vm.isSequencePausePending || (!vm.isSequencePlaying && vm.isPlaying) }
         if isManualBreakPage, let runner = vm.breakRunner {
             return isTemporaryTopDown || dailyDecisionActive || runner.isBusy
         }
+        if isTryoutPage, vm.canReplay { return vm.isPlaying || isTemporaryTopDown }
         return vm.isBreakMode ? dailyControlsDisabled : !strikeEnabled
     }
 
@@ -2027,6 +2030,7 @@ private extension FreePlayView {
                             editor?.onInteraction()
                             showSpinPad = false
                             if sequenceReadOnly { vm.toggleSequencePlayback() }
+                            else if isTryoutPage, vm.canReplay { vm.replayCurrent() }
                             else if let runner = vm.breakRunner {
                                 if isManualBreakPage && runner.showsConfirm { runner.confirmSettled() }
                                 else { runner.breakNow() }
@@ -2389,6 +2393,10 @@ private extension FreePlayView {
     /// Before the first measurement, four CJK ems retain the qualified baseline
     /// budget. Subsequent capacity decisions use Text's actual ideal width.
     func dailyHeaderTitleWidth(size: CGFloat) -> CGFloat {
+        // Drill names must use the same reservation as the reference page.
+        // Feeding their unwrapped width back into Foundation moves the palette
+        // into another row and shrinks the table.
+        if editor?.isTryout == true { return 60 }
         let width = dailyHeaderTitleWidths[Int(size)] ?? 4 * size
         // Keep the template's four-character title budget for shorter wrapped lines,
         // so the palette does not grow into the shared time/battery/FPS region.
@@ -2403,15 +2411,20 @@ private extension FreePlayView {
         dailyHeaderTitleLabel.contains("\n")
     }
 
-    func dailyHeaderTitleText(compact: Bool) -> some View {
-        // An intentional line break does not trigger minimumScaleFactor.
-        // Two-line titles use a smaller token while retaining the width budget.
-        let font: Font = dailyHeaderTitleIsMultiline
-            ? (compact ? .btCaption : .btFootnote)
-            : (compact ? .btFootnote : .btSubheadline)
-        return Text(dailyHeaderTitleLabel)
-            .accessibilityLabel(pageTitle)
-            .font(font.weight(.semibold))
+    @ViewBuilder func dailyHeaderTitleText(compact: Bool) -> some View {
+        if editor?.isTryout == true {
+            BTTablePageTitle(pageTitle, width: dailyHeaderTitleWidth(size: 15), compact: compact, fitsLongText: true)
+                .accessibilityIdentifier("tryout.title")
+        } else {
+            // An intentional line break does not trigger minimumScaleFactor.
+            // Two-line titles use a smaller token while retaining the width budget.
+            let font: Font = dailyHeaderTitleIsMultiline
+                ? (compact ? .btCaption : .btFootnote)
+                : (compact ? .btFootnote : .btSubheadline)
+            Text(dailyHeaderTitleLabel)
+                .accessibilityLabel(pageTitle)
+                .font(font.weight(.semibold))
+        }
     }
 
     func dailyFullHeader(size: CGSize, trailingShift: CGFloat, plan: DailyLayoutMetrics.Header) -> some View {
@@ -2441,10 +2454,7 @@ private extension FreePlayView {
     func dailyHeaderTitle(compact: Bool, showsTitle: Bool = true,
                       preservesBaselineTextFit: Bool = false) -> some View {
         HStack(spacing: -12) {
-            Button {
-                vm.cancelPowerRelease()
-                dismiss()
-            } label: {
+            Button { vm.cancelPowerRelease(); dismiss() } label: {
                 Image(systemName: "chevron.left").font(.system(size: 20, weight: .semibold))
                     .frame(width: 44, height: 44)
                     .background { BTHUDControlBackground(shape: Capsule(), normal: .clear) }
@@ -2769,4 +2779,50 @@ private struct DailyStrikeFrameKey: PreferenceKey {
 private struct DailyHeaderTitleHeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// Page state is independent of the View value. Model callbacks only borrow it;
+/// capturing FreePlayView itself retains its StateObject (and the entire scene).
+@MainActor
+final class FreePlayRulesSession: ObservableObject {
+    @Published var rules: (any BilliardRulesEngine)?
+    @Published var rulingText = ""
+    @Published var scoreboardText = ""
+    @Published var currentPlayerLabel = ""
+
+    static func connect(vm: PositionPlayViewModel, rules: FreePlayRulesSession,
+                        daily: DailyClearanceController, notices: BTRuleNoticeCenter,
+                        mode: FreePlayEntryMode, isEditor: Bool, isTryout: Bool) {
+        vm.legalAimTargets = { [weak rules, weak daily] keys in
+            if mode == .dailyClearance { return daily?.legalTargetKeys(tableKeys: keys) ?? keys }
+            return rules?.rules?.legalTargetKeys(tableKeys: keys) ?? keys
+        }
+        vm.onAimModeNotice = { [weak notices] in notices?.show($0, tone: .info, priority: .mode) }
+        vm.onAimSelectionNotice = { [weak notices] in notices?.show($0, tone: .warning, priority: .selection) }
+        vm.onShotWillStart = mode == .dailyClearance ? { [weak daily] in daily?.prepareShot() } : nil
+        vm.onShotSettled = { [weak vm, weak rules, weak daily, weak notices] facts in
+            guard let vm, !(isEditor && vm.isSequenceMode), !isTryout else { return }
+            if mode == .shotSimulation {
+                if facts.cuePocketed { vm.placeFromPalette(PositionPlayBall.cueKey) }
+                return
+            }
+            if mode == .dailyClearance {
+                guard let ruling = daily?.handleShotSettled(facts) else { return }
+                if ruling.completed || ruling.failed { notices?.clear() }
+                else if ruling.message != "继续击球" {
+                    notices?.show(ruling.message, tone: ruling.foul ? .warning : .info, priority: .ruling)
+                }
+                return
+            }
+            defer { if facts.cuePocketed { vm.placeFromPalette(PositionPlayBall.cueKey) } }
+            guard let session = rules, let engine = session.rules else { return }
+            let ruling = engine.judge(facts)
+            session.rulingText = ruling.message
+            session.scoreboardText = engine.scoreboardText
+            session.currentPlayerLabel = engine.isGameOver ? "" : engine.playerLabel(engine.currentPlayer)
+            if ruling.ballInHand, !ruling.gameOver {
+                notices?.show(ruling.message + "；自由球：可任意拖放母球", tone: .warning, priority: .ruling)
+            }
+        }
+    }
 }

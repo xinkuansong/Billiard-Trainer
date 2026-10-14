@@ -1,0 +1,31 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_理"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "最少加塞原则",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "最少加塞原则"
+    },
+    {
+      "action": "cover",
+      "name": "P18-10-default",
+      "entry": "practice/理/最少加塞原则",
+      "maximumViews": 40
+    }
+  ]
+}

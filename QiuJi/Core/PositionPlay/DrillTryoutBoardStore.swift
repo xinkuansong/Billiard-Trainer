@@ -59,10 +59,29 @@ struct DrillTryoutFormation: Identifiable {
 enum DrillTryoutBoardStore {
 
     static let bundleSubdirectory = "DrillBoards"
+    private static let cacheLock = NSLock()
+    private static var cache: [String: [DrillTryoutFormation]] = [:]
+    private static var recent: [String] = []
+    private static var costs: [String: Int] = [:]
+    static let cacheCapacity = 16
+    static let cacheByteBudget = 4 * 1024 * 1024
+    static func resetCache() {
+        cacheLock.lock(); defer { cacheLock.unlock() }
+        cache.removeAll(); recent.removeAll(); costs.removeAll()
+    }
 
     /// 某 drill 的全部球形，按文件名稳定排序；无序列文件返回空数组
     /// （调用侧回退 `DrillBoardBuilder` 的 shotIntent 路径）。
     static func formations(for drillId: String, bundle: Bundle = .main) -> [DrillTryoutFormation] {
+        // Bundled content is immutable. Custom bundles used by editors/tests
+        // retain their existing reload semantics.
+        let cachesResult = bundle.bundleURL == Bundle.main.bundleURL
+        cacheLock.lock(); defer { cacheLock.unlock() }
+        if cachesResult, let hit = cache[drillId] {
+            recent.removeAll { $0 == drillId }; recent.append(drillId)
+            return hit
+        }
+        var byteCost = 0
         let urls = bundle.urls(
             forResourcesWithExtension: "json", subdirectory: bundleSubdirectory
         ) ?? []
@@ -79,6 +98,7 @@ enum DrillTryoutBoardStore {
                       !sequence.steps.isEmpty
                 else { return nil }
                 // 开局盘面：首杆 before 优先（录制残留 initial 常只有母球）。
+                byteCost += data.count
                 let opening = sequence.steps.first?.before ?? sequence.initial
                 guard !opening.onTable.isEmpty else { return nil }
                 return DrillTryoutFormation(
@@ -92,11 +112,18 @@ enum DrillTryoutBoardStore {
                 )
             }
         // 展示名 = 稳定顺序序号（本函数是球形顺序唯一真源，映射只在此处赋一次）。
-        return loaded.enumerated().map { index, formation in
+        let result = loaded.enumerated().map { index, formation in
             var formation = formation
             formation.displayName = "球形\(index + 1)"
             return formation
         }
+        if cachesResult, byteCost <= cacheByteBudget {
+            cache[drillId] = result; costs[drillId] = byteCost; recent.append(drillId)
+            while recent.count > cacheCapacity || costs.values.reduce(0, +) > cacheByteBudget {
+                let oldest = recent.removeFirst(); cache.removeValue(forKey: oldest); costs.removeValue(forKey: oldest)
+            }
+        }
+        return result
     }
 
     /// 列表/缩略图门面球形：`preferredToken`（profile.representative）→

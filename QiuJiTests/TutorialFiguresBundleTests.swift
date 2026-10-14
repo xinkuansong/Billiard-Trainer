@@ -68,4 +68,16 @@ final class TutorialFiguresBundleTests: XCTestCase {
         XCTAssertEqual(image.size.width, 1440, accuracy: 1,
                        "配图宽度偏离出片分辨率，全屏查看会糊")
     }
+
+    func test_activeDrillThumbnails_resolveFromBundleAtBakedResolution() async throws {
+        let loaded = await DrillContentService.shared.loadDrillIndex()
+        let index = try XCTUnwrap(loaded)
+        XCTAssertFalse(index.allDrillIds.isEmpty)
+        for id in index.allDrillIds {
+            let image = try XCTUnwrap(DrillThumbnailStore.image(for: id), "Missing thumbnail: \(id)")
+            let pixels = try XCTUnwrap(image.cgImage, "Cannot decode thumbnail: \(id)")
+            XCTAssertEqual(pixels.width, 640, id)
+            XCTAssertEqual(pixels.height, 320, id)
+        }
+    }
 }

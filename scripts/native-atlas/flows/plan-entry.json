@@ -1,0 +1,114 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.moreMenu"
+    },
+    {
+      "action": "wait",
+      "id": "使用帮助",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P02-menu",
+      "entry": "training/more"
+    },
+    {
+      "action": "tap",
+      "id": "使用帮助"
+    },
+    {
+      "action": "wait",
+      "id": "使用帮助",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "snapshot",
+      "name": "P13-collapsed",
+      "entry": "training/more/help"
+    },
+    {
+      "action": "tap",
+      "id": "怎样安排今天的训练？"
+    },
+    {
+      "action": "wait",
+      "id": "浏览训练计划",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P13-start-expanded",
+      "entry": "training/more/help/start-training"
+    },
+    {
+      "action": "tap",
+      "id": "浏览训练计划"
+    },
+    {
+      "action": "wait",
+      "id": "训练计划",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "wait",
+      "id": "基本功",
+      "kind": "text"
+    },
+    {
+      "action": "snapshot",
+      "name": "P03-official-top",
+      "entry": "training/more/help/start-training/browse-plans"
+    },
+    {
+      "action": "back"
+    },
+    {
+      "action": "wait",
+      "id": "使用帮助",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "back"
+    },
+    {
+      "action": "wait",
+      "id": "trainingHome.moreMenu",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "我的模版"
+    },
+    {
+      "action": "tap",
+      "id": "新建模版"
+    },
+    {
+      "action": "wait",
+      "id": "customPlanNameField",
+      "kind": "textField"
+    },
+    {
+      "action": "snapshot",
+      "name": "P05-new-empty",
+      "entry": "training/custom-tab/new-template"
+    },
+    {
+      "action": "tap",
+      "id": "添加训练项目"
+    },
+    {
+      "action": "wait",
+      "id": "选择训练动作",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "snapshot",
+      "name": "P06-picker-top",
+      "entry": "training/custom-tab/new-template/add-drill"
+    }
+  ]
+}

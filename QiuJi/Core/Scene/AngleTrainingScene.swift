@@ -114,6 +114,8 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     private(set) var cameraRig: CameraRig?
     private(set) var surfaceY: Float = 0.5
     private(set) var currentCameraMode: CameraMode = .topDown2D
+    /// Naming reference belongs to the page layout, never to the orbiting 3D camera.
+    var pocketDisplayOrientation: PocketDisplay.Orientation = .landscape
     private(set) var isCameraModeTransitioning = false
     /// Invalidates delayed transaction callbacks when a newer mode takes ownership.
     private var cameraTransitionID = UUID()
@@ -207,6 +209,13 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     /// Opt-in for the interactive angle diagram; quiz/export consumers retain their contract.
     var usesAdaptiveDiagramLabels = false
     private(set) var diagramShowsLineLabels = true
+    private var diagramShowsStrikeLine = true
+    private var diagramShowsPocketLine = true
+    /// Stable semantic indices used by the adaptive labels (angle, aim, pot).
+    var diagramVisibleLabelIndices: [Int] {
+        [0] + (diagramShowsLineLabels && diagramShowsStrikeLine ? [1] : [])
+            + (diagramShowsLineLabels && diagramShowsPocketLine ? [2] : [])
+    }
     private(set) var diagramLabelGeometry: (cue: SCNVector3, target: SCNVector3,
         ghost: SCNVector3, pocket: SCNVector3, rail: SCNVector3, angle: Double)?
     private(set) var contactDotNode: SCNNode?
@@ -218,6 +227,44 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     /// 4x8 台面网格叠加（条 16）：`setTableGridVisible` 懒建。
     private var tableGridNode: SCNNode?
     private var tableGridNeedsRebuild = true
+
+    /// Only stationary, prepared table parts can cross a page boundary.
+    /// All balls, cameras, callbacks, overlays and physics remain scene-owned.
+    final class ReusableTable {
+        let node: SCNNode
+        let appearance: TableAppearance?
+        let cloth: ClothAppearance?
+        var markers: [PocketLeatherMarker]
+        let key: String
+        init(scene: AngleTrainingScene, key: String) {
+            node = scene.tableNode!
+            appearance = scene.tableAppearance
+            cloth = scene.clothAppearance
+            markers = scene.leatherMarkers
+            self.key = key
+        }
+        func detach() {
+            node.removeFromParentNode()
+            for marker in markers { marker.cancelSelectionFeedback(); marker.show(.original, confirmsSelection: false) }
+        }
+    }
+    private var reusableTableKey: String {
+        var key = "\(renderingProfile.rawValue)|\(sceneExposureOffset ?? 0)|\(mergesDailyClothSupport)|\(factorsDailyClothBRDF)"
+        #if DEBUG
+        key += "|prototype=\(usesClothLightingPrototype)"
+        #endif
+        return key
+    }
+    private var reusableTable: ReusableTable?
+    private var resourceGeneration: UInt64?
+    private var reusedPreparedTable = false
+    deinit {
+        guard let generation = resourceGeneration else { return }
+        let table = reusableTable
+        // SceneKit/offline callers can release on a worker. Only detached assets
+        // travel to the main actor; no closure retains the dying scene.
+        DispatchQueue.main.async { TableResourceCache.shared.release(table, generation: generation) }
+    }
 
     // MARK: - Setup
 
@@ -237,6 +284,10 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     ///   shares one look; offline renderers pass `false` to keep bundled output stable.
     func setupScene(enhancedRendering: Bool = false, mobileRendering: Bool = MobileTableRendering.isEnabled,
                     roomStyle: RoomStyle = .selected) {
+        // Explicit reconfiguration of the same scene must rebuild for its new
+        // pipeline rather than treating its currently attached table as idle.
+        if tableNode != nil { reusableTable = nil }
+        reusedPreparedTable = false
         isSettingUpScene = true
         roomReflectionProbe = nil
         installedProbeInputs = nil
@@ -255,6 +306,19 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         self.enhancedRendering = enhancedRendering
         self.mobileRendering = mobileRendering && !enhancedRendering && MobileTableRendering.environmentURL != nil
         contactOcclusion = nil
+        if self.mobileRendering, Thread.isMainThread, resourceGeneration == nil {
+            MainActor.assumeIsolated {
+                resourceGeneration = TableResourceCache.shared.acquire()
+                let key = reusableTableKey
+                #if DEBUG
+                if !usesClothLightingPrototype {
+                    reusableTable = TableResourceCache.shared.takeTable(key: key)
+                }
+                #else
+                reusableTable = TableResourceCache.shared.takeTable(key: key)
+                #endif
+            }
+        }
 
         if enhancedRendering {
             EnhancedEnvironment.apply(to: self)
@@ -272,13 +336,25 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         #endif
         if self.mobileRendering {
             MobileTableRendering.applyLighting(to: self)
-            MobileClothAlignment.apply(to: self)
-            MobilePocketOcclusion.apply(to: self)
+            if !reusedPreparedTable {
+                MobileClothAlignment.apply(to: self)
+                MobilePocketOcclusion.apply(to: self)
+            }
             contactOcclusion = MobileContactOcclusion(scene: self)
             #if DEBUG
             mark("mobileBaseMs")
             #endif
-            if MobileReferenceLighting.requested { MobileReferenceLighting.apply(to: self) }
+            if MobileReferenceLighting.requested {
+                // Fresh tables receive lighting before marker/theme variants are
+                // created. Reused markers already own those finished shaders;
+                // traversing them again would erase their theme and role tints.
+                let preparedMarkers = reusedPreparedTable ? leatherMarkers.compactMap { marker in
+                    marker.parent.map { (marker, $0) }
+                } : []
+                for (marker, _) in preparedMarkers { marker.removeFromParentNode() }
+                MobileReferenceLighting.apply(to: self)
+                for (marker, parent) in preparedMarkers { parent.addChildNode(marker) }
+            }
             #if DEBUG
             mark("referenceMs")
             #endif
@@ -292,6 +368,10 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         applyTableStyle(requestedTableStyle, showsSights: requestedTableSights)
         applyClothColor(requestedClothColor)
         cueStick?.prepareOpacityAnimation()
+        if resourceGeneration != nil, mobileRendering, !enhancedRendering, reusableTable == nil, tableNode != nil {
+            let key = reusableTableKey
+            reusableTable = ReusableTable(scene: self, key: key)
+        }
 
         // 台面网格重放（G2 根因修复）：makeUIView 可能先于本方法按偏好建网格，
         // 彼时 surfaceY 还是默认值，网格会埋进桌身。表面高度就位后重建。
@@ -303,11 +383,29 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     // MARK: - Table
 
     private func setupTable() {
-        guard let model = TableModelLoader.loadTable() else {
+        guard let model = TableModelLoader.loadTable(includeVisual: reusableTable == nil) else {
             pocketLeatherFailure = "Table model could not be loaded; see TableModelLoader log"
             return
         }
 
+        if let prepared = reusableTable {
+            reusedPreparedTable = true
+            surfaceY = BTTablePhysics.surfaceY
+            tableNode = prepared.node
+            tableAppearance = prepared.appearance
+            clothAppearance = prepared.cloth
+            leatherMarkers = prepared.markers
+            // Restore the captured standard bindings before reapplying lighting.
+            // Requested preferences are reapplied after the new scene is assembled.
+            tableAppearance?.apply(.standard, showsSights: true)
+            clothAppearance?.apply(.green)
+            rootNode.addChildNode(prepared.node)
+            modelCueStickNode = model.cueStickNode
+            setupModelBalls(from: model.ballNodes, uniformScale: model.appliedScale.x)
+            enhanceBallMaterials()
+            setupCueStick()
+            return
+        }
         surfaceY = model.surfaceY
         let tableHeight = BTTablePhysics.surfaceY
         let yOffset = tableHeight - model.surfaceY
@@ -1291,6 +1389,9 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     /// before any fallback overview is applied. Return false to use the normal fallback.
     func setCameraMode(_ mode: CameraMode, animated: Bool = true,
                        initializePerspective: (() -> Bool)? = nil) {
+        if mode != .perspective3D {
+            pocketDisplayOrientation = .init(portrait: mode == .topDown2DRotated)
+        }
         if cameraRig?.temporaryTopDownActive == true {
             cameraRig?.endTemporaryTopDown()
         }
@@ -2015,6 +2116,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             for replacement in extraction.replacements { replacement.node.geometry = replacement.geometry }
             for (parent, marker) in prepared { parent.addChildNode(marker) }
             leatherMarkers = prepared.map { $0.1 }
+            reusableTable?.markers = leatherMarkers
             for marker in leatherMarkers { marker.applyTableStyle(requestedTableStyle) }
             pocketLeatherFailure = nil
             return leatherMarkers
@@ -2072,11 +2174,11 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             switch marker.style {
             case .original: role = ""
             case .target: role = "目标"
-            case .firstRole: role = "①目标"
-            case .secondRole: role = "②目标"
-            case .bothRoles: role = "①②共同目标"
+            case .firstRole: role = "第1杆目标"
+            case .secondRole: role = "第2杆目标"
+            case .bothRoles: role = "第1、2杆共同目标"
             }
-            return "\(marker.pocketIndex + 1)号袋：\(role)"
+            return "\(PocketDisplay.name(index: marker.pocketIndex, orientation: pocketDisplayOrientation))：\(role)"
         }
         return selected.isEmpty ? "未选择目标袋" : selected.joined(separator: "，")
     }
@@ -2216,7 +2318,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         let ghost = SCNNode()
         do {
             let ringMat = SCNMaterial()
-            ringMat.diffuse.contents = TrajectoryStyle.contactColor
+            ringMat.diffuse.contents = TrajectoryStyle.ghostColor
             ringMat.lightingModel = .constant
             let dashCount = 16
             let ringDashLen = 2 * Float.pi * r / Float(dashCount) * 0.55
@@ -2449,7 +2551,9 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         showAngleAnnotations: Bool = true,
         showOverlapMarkers: Bool = true,
         showLineLabels: Bool = true,
-        extendStrikeLineToRail: Bool = false
+        extendStrikeLineToRail: Bool = false,
+        showStrikeLine: Bool = true,
+        showPocketLine: Bool = true
     ) {
         let r = AngleSceneCalculator.ballRadius
 
@@ -2472,7 +2576,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         updateLineNode(pocketLineNode, from: pocket, to: pocketLineEnd)
         // Training green-ball guides use white for contrast; other consumers retain ball colors.
         pocketLineNode?.geometry?.firstMaterial?.multiply.contents = visualizationPotColor
-        pocketLineNode?.isHidden = false
+        pocketLineNode?.isHidden = !showPocketLine
 
         strikeContinuationNode?.isHidden = true
         let strikeEnd = (extendStrikeLineToRail || usesAdaptiveDiagramLabels)
@@ -2485,11 +2589,13 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
                 from: cueBall, toward: strikeEnd, target: targetBall) {
             solidEnd = hit
             updateLineNode(strikeContinuationNode, from: hit, to: strikeEnd)
-            strikeContinuationNode?.isHidden = false
+            strikeContinuationNode?.isHidden = !showStrikeLine
         }
         updateLineNode(strikeLineNode, from: cueBall, to: solidEnd)
-        strikeLineNode?.isHidden = false
+        strikeLineNode?.isHidden = !showStrikeLine
         diagramShowsLineLabels = showLineLabels
+        diagramShowsStrikeLine = showStrikeLine
+        diagramShowsPocketLine = showPocketLine
         diagramLabelGeometry = usesAdaptiveDiagramLabels && showAngleAnnotations
             ? (cueBall, targetBall, ghostPos, pocket, strikeEnd,
                AngleSceneCalculator.cutAngle(cueBall: cueBall, targetBall: targetBall, pocket: pocket)) : nil
@@ -2508,7 +2614,8 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
 
         if showAngleAnnotations {
             updateAngleArc(cueBall: cueBall, targetBall: targetBall, pocket: pocket, ghost: ghostPos,
-                           showLineLabels: showLineLabels)
+                           showLineLabels: showLineLabels,
+                           showStrikeLine: showStrikeLine, showPocketLine: showPocketLine)
             angleArcNode?.isHidden = false
         } else {
             angleArcNode?.isHidden = true
@@ -2606,7 +2713,8 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     /// The angle between these two rays IS the cut angle α (acute side).
     private func updateAngleArc(cueBall: SCNVector3, targetBall: SCNVector3,
                                 pocket: SCNVector3, ghost: SCNVector3,
-                                showLineLabels: Bool = true) {
+                                showLineLabels: Bool = true,
+                                showStrikeLine: Bool = true, showPocketLine: Bool = true) {
         angleArcNode?.childNodes.forEach { $0.removeFromParentNode() }
         inlineLineLabels.removeAll()
 
@@ -2695,10 +2803,12 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         // Line labels along the strike line and pocket line, in matching colors.
         // Keep labels away from the ghost/angle label cluster. Callers may
         // suppress them; visible labels face the observer in perspective.
-        if showLineLabels {
+        if showLineLabels && showStrikeLine {
             addInlineLineLabel(text: "瞄准线", color: .white,
                                lineStart: cueBall, lineEnd: ghost,
                                tParam: strikeLabelT, sideOffset: lineLabelOffset)
+        }
+        if showLineLabels && showPocketLine {
             // The label follows the same contrast policy as its line.
             addInlineLineLabel(text: "进球线",
                                color: visualizationPotColor,

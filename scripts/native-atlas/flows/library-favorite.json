@@ -1,0 +1,66 @@
+{
+  "fixture": "empty",
+  "premium": true,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "动作库"
+    },
+    {
+      "action": "tap",
+      "id": "drillCard_drill_c012",
+      "kind": "any"
+    },
+    {
+      "action": "wait",
+      "id": "bottomTryoutButton"
+    },
+    {
+      "action": "tap",
+      "id": "收藏"
+    },
+    {
+      "action": "wait",
+      "id": "取消收藏"
+    },
+    {
+      "action": "snapshot",
+      "name": "P15-c012-favorited"
+    },
+    {
+      "action": "back"
+    },
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "tap",
+      "id": "收藏"
+    },
+    {
+      "action": "wait",
+      "id": "收藏",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "cover",
+      "name": "P27-populated",
+      "maximumViews": 40
+    }
+  ],
+  "catalog": {
+    "P15-c012-favorited": {
+      "id": "APP/P15-01",
+      "title": "动作详情",
+      "state": "favorited",
+      "figmaPage": "20"
+    },
+    "P27-populated": {
+      "id": "APP/P27",
+      "title": "收藏",
+      "state": "populated",
+      "figmaPage": "20"
+    }
+  }
+}

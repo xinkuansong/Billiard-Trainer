@@ -64,3 +64,38 @@ full_3d.mp4             3D 静态斜视角整段视频（手机档 1080×2040@60
 - **击球参数 HUD（ADR-P11-13）**：teaching 档画面底部 80px 暗色条显示本杆打点
   （`BTSpinMiniIcon` 球面 + 占满塞百分比读数）与力度条（档名 + m/s），每杆常驻、换杆更新；
   gif / card 档不带 HUD。场景背景为暗色（与 App 场景页一致）。
+
+## 精讲静帧更新（2026-10-12）
+
+`make -f scripts/Makefile position-export-stills` 的静帧使用
+`SequenceVideoExporter.Options.tutorialStills()`：与当前 App 共用模型、默认炭灰球桌、
+绿色台呢，并使用用户认可的原缩略图光影（`mobileRendering: false`）。
+球杆显式使用墨龙（`.inkDragon`），不继承烘焙设备的用户偏好；款式应用失败阻止出图。
+精讲保持真实球径（`ballScale = 1`）与原始球位，不使用缩略图放大或防重叠移位。
+保持 1440×2560 开局/终局及 1440×2720 逐杆图。
+视频、封面与卡片预览继续使用各自配方。
+
+仅更新精讲图片时，用 `python3 scripts/import-engine-export-to-app.py --stills-only`
+回填并自动发布 HEIC。`--export-root <directory>` 可指向已审查的隔离输出；静帧模式
+不要求视频存在，也不复制视频/预览或改 JSON。明确的球形 token 保留，manual01 同时
+写默认别名；真源库中只有一个有效球形的历史 token 也保留默认别名。发布后运行 `make -f scripts/Makefile verify-tutorials` 和 `verify-gate`。
+
+少量样张可使用 `PositionPlaySequenceExportRunnerTests/test_exportTutorialStills`，
+需要新鲜的 `build/.run-bake-runners` 门控及 `build/tutorial-stills-request.json`：
+`outputDirectory` 为绝对输出目录，`sequenceFiles` 为真源目录中的文件名数组。
+正常测试不启用门控；制作结束移除请求和门控文件。样张检查与用户视觉验收分别记录。
+
+
+## 动作库缩略图（2026-10-12 修订）
+
+列表仍读取 `DrillThumbnails/<id>.png`。`DrillThumbnailRenderer` 使用当前模型、默认炭灰
+球桌、墨龙球杆和原缩略图光照（`mobileRendering: false`，用户已选定样张），不套用移动端面光源配方。
+输出保持 640×320 与 1.8 倍球体。`ThumbnailBallLayout` 在显示副本上求最小平方位移：
+以原球对方向约束至少一个放大球直径，台面边界内缩放大半径；保持球的排列顺序，
+没有重叠且未越界的布局不变。Dykstra 投影未收敛或约束不可行时明确失败，不发布重叠图。
+调整后的副本重新求首杆预告，真实训练布局和内容 JSON 不回写。
+
+隔离生成可在 `build/thumbnail-bake-request.json` 指定绝对 `outputDirectory` 和可选
+`drillIDs`，开启新鲜 `build/.run-bake-runners` 后运行
+`DrillThumbnailBakeRunnerTests/test_bakeAllThumbnails`。无请求时 `make thumbnails`
+沿用正式资源输出。生产前先检查样张的球体明暗、库边阴影及拥挤球形，结束移除临时门控/请求。

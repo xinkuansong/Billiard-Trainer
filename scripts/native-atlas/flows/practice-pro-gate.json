@@ -1,0 +1,35 @@
+{
+  "fixture": "empty",
+  "premium": false,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_打"
+    },
+    {
+      "action": "tap",
+      "id": "自由走位",
+      "scrollTo": 3
+    },
+    {
+      "action": "wait",
+      "id": "subscription.close"
+    },
+    {
+      "action": "snapshot",
+      "name": "P17-pro-gate"
+    }
+  ],
+  "catalog": {
+    "P17-pro-gate": {
+      "id": "APP/P17",
+      "title": "练习",
+      "state": "pro-gate",
+      "figmaPage": "30"
+    }
+  }
+}

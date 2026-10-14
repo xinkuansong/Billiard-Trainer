@@ -1,0 +1,137 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.moreMenu",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "使用帮助",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "使用帮助",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "tap",
+      "id": "怎样安排今天的训练？",
+      "kind": "button",
+      "scrollTo": 4
+    },
+    {
+      "action": "cover",
+      "name": "P13-expanded-01",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "怎样安排今天的训练？",
+      "kind": "button",
+      "scrollTo": 4
+    },
+    {
+      "action": "tap",
+      "id": "练完后忘记记录怎么办？",
+      "kind": "button",
+      "scrollTo": 4
+    },
+    {
+      "action": "cover",
+      "name": "P13-expanded-02",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "练完后忘记记录怎么办？",
+      "kind": "button",
+      "scrollTo": 4
+    },
+    {
+      "action": "tap",
+      "id": "在哪里回看训练心得？",
+      "kind": "button",
+      "scrollTo": 4
+    },
+    {
+      "action": "cover",
+      "name": "P13-expanded-03",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "在哪里回看训练心得？",
+      "kind": "button",
+      "scrollTo": 4
+    },
+    {
+      "action": "tap",
+      "id": "为什么没有收到训练提醒？",
+      "kind": "button",
+      "scrollTo": 4
+    },
+    {
+      "action": "cover",
+      "name": "P13-expanded-04",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "为什么没有收到训练提醒？",
+      "kind": "button",
+      "scrollTo": 4
+    },
+    {
+      "action": "tap",
+      "id": "换手机后如何恢复记录？",
+      "kind": "button",
+      "scrollTo": 4
+    },
+    {
+      "action": "cover",
+      "name": "P13-expanded-05",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "换手机后如何恢复记录？",
+      "kind": "button",
+      "scrollTo": 4
+    }
+  ],
+  "catalog": {
+    "P13-expanded-01": {
+      "id": "APP/P13",
+      "title": "使用帮助",
+      "state": "question-1-expanded",
+      "figmaPage": "10"
+    },
+    "P13-expanded-02": {
+      "id": "APP/P13",
+      "title": "使用帮助",
+      "state": "question-2-expanded",
+      "figmaPage": "10"
+    },
+    "P13-expanded-03": {
+      "id": "APP/P13",
+      "title": "使用帮助",
+      "state": "question-3-expanded",
+      "figmaPage": "10"
+    },
+    "P13-expanded-04": {
+      "id": "APP/P13",
+      "title": "使用帮助",
+      "state": "question-4-expanded",
+      "figmaPage": "10"
+    },
+    "P13-expanded-05": {
+      "id": "APP/P13",
+      "title": "使用帮助",
+      "state": "question-5-expanded",
+      "figmaPage": "10"
+    }
+  }
+}

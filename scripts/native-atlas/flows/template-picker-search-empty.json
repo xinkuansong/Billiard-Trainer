@@ -1,0 +1,40 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "我的模版",
+      "scrollTo": 5
+    },
+    {
+      "action": "tap",
+      "id": "新建模版",
+      "scrollTo": 5
+    },
+    {
+      "action": "wait",
+      "id": "customPlanNameField",
+      "kind": "textField"
+    },
+    {
+      "action": "tap",
+      "id": "添加训练项目"
+    },
+    {
+      "action": "wait",
+      "id": "选择训练动作",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "type",
+      "kind": "searchField",
+      "id": "搜索训练动作",
+      "text": "zzznomatch\n"
+    },
+    {
+      "action": "snapshot",
+      "name": "P06-search-empty",
+      "entry": "normal-template-builder/add-drills/search"
+    }
+  ]
+}

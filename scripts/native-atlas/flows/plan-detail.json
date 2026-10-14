@@ -1,0 +1,22 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "planPoster-plan_beginner",
+      "kind": "button",
+      "scrollTo": 8
+    },
+    {
+      "action": "wait",
+      "id": "planDetail.primaryCTA",
+      "kind": "button"
+    },
+    {
+      "action": "cover",
+      "name": "P04-beginner-default",
+      "entry": "training/official-plan/beginner",
+      "maximumViews": 40
+    }
+  ]
+}

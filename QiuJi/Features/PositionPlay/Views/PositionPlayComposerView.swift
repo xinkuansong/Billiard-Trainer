@@ -5,9 +5,11 @@ import SceneKit
 struct PositionPlayEditorConfiguration {
     var title: String
     var isTryout: Bool
+    var loadsDefaultLayout: Bool = true
     var setup: () -> Void
     var onInteraction: () -> Void
     var onRearrange: () -> Void
+    var modeItem: DailyHUDMenuItem?
     var aimItems: [DailyHUDMenuItem]?
     var menuItems: [DailyHUDMenuItem]
     var overlay: AnyView
@@ -32,6 +34,7 @@ struct PositionPlayComposerView: View {
 
     @StateObject private var vm = PositionPlayViewModel()
     @State private var tryoutBoard: BoardSnapshot?
+    @State private var tryoutAimPreference: PositionPlayViewModel.AimMode = .pocket
     @State private var showBrief = false
     @State private var showRename = false
     @State private var renameText = ""
@@ -39,12 +42,16 @@ struct PositionPlayComposerView: View {
     @State private var showResetConfirm = false
     @AppStorage("drillTryout.hasSeenGestureHint") private var hasSeenGestureHint = false
     private var isTryout: Bool { sourceDrill != nil }
+    private var openingBoard: BoardSnapshot? {
+        if let sourceDrill { return tryoutFormation?.initial ?? DrillBoardBuilder.board(for: sourceDrill) }
+        return initialBoard
+    }
 
     var body: some View {
         FreePlayView(editorModel: vm, editor: .init(
-            title: navTitleText, isTryout: isTryout, setup: setupBoard,
+            title: navTitleText, isTryout: isTryout, loadsDefaultLayout: openingBoard?.onTable.isEmpty != false, setup: setupBoard,
             onInteraction: dismissBriefOnInteraction, onRearrange: rearrange,
-            aimItems: tryoutAimItems, menuItems: editorMenuItems, overlay: AnyView(briefOverlay)))
+            modeItem: tryoutModeItem, aimItems: tryoutAimItems, menuItems: editorMenuItems, overlay: AnyView(briefOverlay)))
         .alert("命名走位序列", isPresented: $showRename) {
             TextField("名称", text: $renameText)
             Button("保存") { vm.renameSequence(renameText) }
@@ -70,11 +77,13 @@ struct PositionPlayComposerView: View {
 
     private func setupBoard() {
         if let sourceDrill {
+            vm.isGuidedTryout = true
             if let board = tryoutFormation?.initial ?? DrillBoardBuilder.board(for: sourceDrill) {
                 tryoutBoard = board
                 vm.loadBoard(board)
             }
             if let steps = tryoutFormation?.steps, !steps.isEmpty {
+                tryoutAimPreference = steps.first?.shot.isFree == true ? .free : .pocket
                 vm.configureSequence(steps)
                 vm.enterSequenceMode()
             } else { vm.setPreferredAimMode(initialMode ?? .free) }
@@ -93,12 +102,13 @@ struct PositionPlayComposerView: View {
     private func rearrange() {
         dismissBriefOnInteraction()
         if vm.isSequenceMode { vm.restartSequence() }
+        else if vm.hasSequence { vm.enterTryoutFreeMode(aimMode: vm.preferredAimMode) }
         else if let tryoutBoard { vm.loadBoard(tryoutBoard) }
     }
 
     @ViewBuilder private var briefOverlay: some View {
         if showBrief, let sourceDrill {
-            DrillTryoutBriefCard(drill: sourceDrill, formation: tryoutFormation,
+            DrillTryoutBriefCard(drill: sourceDrill, formation: currentTryoutFormation,
                 footnote: hasSeenGestureHint ? nil : "拖球摆位 · 设置中切换模式 · 点主按钮试打",
                 onClose: dismissBriefOnInteraction)
                 .frame(maxWidth: 460)
@@ -120,26 +130,41 @@ struct PositionPlayComposerView: View {
         ]
     }
 
-    private enum TryoutMode: String, CaseIterable { case sequence = "序列", pocket = "进袋", free = "自由" }
-    private var currentTryoutMode: TryoutMode { vm.isSequenceMode ? .sequence : (vm.aimMode == .free ? .free : .pocket) }
+    private var currentTryoutFormation: DrillTryoutFormation? {
+        guard let formation = tryoutFormation,
+              formation.steps.indices.contains(vm.sequenceStepIndex) else { return tryoutFormation }
+        let step = formation.steps[vm.sequenceStepIndex]
+        return DrillTryoutFormation(token: formation.token, title: formation.title,
+            fileName: formation.fileName, initial: step.before, stepCount: formation.stepCount,
+            firstShot: step.shot, steps: formation.steps, displayName: formation.displayName)
+    }
+
+    private var tryoutModeItem: DailyHUDMenuItem? {
+        guard isTryout else { return nil }
+        return .init(id: "tryout.mode", title: "击球模式", detail: vm.isSequenceMode ? "序列" : "自由",
+                     segments: ["序列", "自由"], disabled: !vm.hasSequence || vm.isPlaying || vm.isSequencePlaying,
+                     action: {
+            dismissBriefOnInteraction()
+            if vm.isSequenceMode {
+                vm.enterTryoutFreeMode(aimMode: tryoutAimPreference)
+            } else {
+                tryoutAimPreference = vm.preferredAimMode
+                vm.enterSequenceMode()
+            }
+        })
+    }
+
     private var tryoutAimItems: [DailyHUDMenuItem]? {
-        guard isTryout, vm.hasSequence else { return nil }
-        return TryoutMode.allCases.map { mode in
-            .init(id: "tryoutMode_\(mode.rawValue)", title: mode.rawValue, selected: currentTryoutMode == mode,
-                  disabled: vm.isPlaying || vm.isSequencePlaying, action: { selectTryoutMode(mode) })
+        guard isTryout else { return nil }
+        return [("进袋", PositionPlayViewModel.AimMode.pocket), ("自由", .free)].map { title, mode in
+            .init(id: "tryoutAim_\(title)", title: title, selected: vm.preferredAimMode == mode,
+                  disabled: vm.isSequenceMode || vm.isPlaying || vm.isSequencePlaying, action: {
+                tryoutAimPreference = mode
+                vm.setPreferredAimMode(mode)
+            })
         }
     }
-    private func selectTryoutMode(_ mode: TryoutMode) {
-        guard !vm.isPlaying, !vm.isSequencePlaying, mode != currentTryoutMode else { return }
-        dismissBriefOnInteraction()
-        switch mode {
-        case .sequence: vm.enterSequenceMode()
-        case .pocket, .free:
-            vm.exitSequenceMode()
-            if let tryoutBoard { vm.loadBoard(tryoutBoard) }
-            vm.setPreferredAimMode(mode == .free ? .free : .pocket)
-        }
-    }
+
 }
 
 #Preview("Dark") {

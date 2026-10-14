@@ -1,0 +1,89 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "wait",
+      "id": "收藏",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "个人信息",
+      "kind": "buttonContains",
+      "scrollTo": 5
+    },
+    {
+      "action": "wait",
+      "id": "个人信息",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "cover",
+      "name": "P25-default",
+      "entry": "profile/personal-info",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "personalInfo.displayNameButton",
+      "kind": "button",
+      "scrollTo": 0
+    },
+    {
+      "action": "wait",
+      "id": "personalInfo.displayNameField",
+      "kind": "textField"
+    },
+    {
+      "action": "snapshot",
+      "name": "P25-name-keyboard",
+      "entry": "profile/personal-info/name-edit",
+      "editingField": "personalInfo.displayNameField"
+    },
+    {
+      "action": "tap",
+      "id": "personalInfo.displayNameSave",
+      "kind": "button"
+    },
+    {
+      "action": "back"
+    },
+    {
+      "action": "tap",
+      "id": "训练目标",
+      "kind": "buttonContains",
+      "scrollTo": 5
+    },
+    {
+      "action": "wait",
+      "id": "训练目标",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "cover",
+      "name": "P26-default",
+      "entry": "profile/training-goal",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "训练提醒",
+      "kind": "buttonContains"
+    },
+    {
+      "action": "wait",
+      "id": "训练提醒",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "cover",
+      "name": "P12-default",
+      "entry": "profile/training-goal/reminder",
+      "maximumViews": 40
+    }
+  ]
+}

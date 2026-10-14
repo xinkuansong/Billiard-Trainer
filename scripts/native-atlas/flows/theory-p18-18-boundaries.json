@@ -1,0 +1,83 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_学"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "瞄准点对照表",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "瞄准点对照表"
+    },
+    {
+      "action": "adjustSlider",
+      "id": "contactPointTable.thetaSlider",
+      "position": 0.0,
+      "scrollTo": 8,
+      "endpointDrag": true,
+      "readoutContainer": "learnControlStrip.theta",
+      "expectedReadout": "0°"
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-18-zero-control"
+    },
+    {
+      "action": "swipeDown"
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-18-zero-figure"
+    },
+    {
+      "action": "adjustSlider",
+      "id": "contactPointTable.thetaSlider",
+      "position": 1.0,
+      "scrollTo": 8,
+      "endpointDrag": true,
+      "readoutContainer": "learnControlStrip.theta",
+      "expectedReadout": "90°"
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-18-ninety-control"
+    },
+    {
+      "action": "swipeDown"
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-18-ninety-figure"
+    },
+    {
+      "action": "adjustSlider",
+      "id": "contactPointTable.thetaSlider",
+      "position": 0.45,
+      "scrollTo": 8
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-18-unnamed-control"
+    },
+    {
+      "action": "swipeDown"
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-18-unnamed-figure"
+    }
+  ],
+  "captureScope": "局部交互变体；control/figure两视口，不宣称全文新版本。0/90边界与无常用厚度名需运行读数及逐图核验。"
+}

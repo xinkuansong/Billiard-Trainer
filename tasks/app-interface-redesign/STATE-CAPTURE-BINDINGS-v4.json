@@ -1,0 +1,1276 @@
+{
+  "baseline": "f75cbafdc455e5521a248d2187943956456dcaaa",
+  "note": "Explicit links from reviewed capture layoutGroup to state atoms. A link establishes identity only; full-body coverage, applicability, ten environments, Figma delivery and user acceptance are evaluated separately. Unmapped states remain obligations, never auto N/A.",
+  "bindings": [
+    {
+      "layoutGroup": "P02-02-none-selected",
+      "stateIds": [
+        "APP/P02-02/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P02-02-one-selected",
+      "stateIds": [
+        "APP/P02-02/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P02-02-multiple-reordered",
+      "stateIds": [
+        "APP/P02-02/S03",
+        "APP/P02-02/S07"
+      ]
+    },
+    {
+      "layoutGroup": "P02-02-templateOnly",
+      "stateIds": [
+        "APP/P02-01/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P12-01-enabled-all-days",
+      "stateIds": [
+        "APP/P12-01/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P12-01-enabled-no-days",
+      "stateIds": [
+        "APP/P12-01/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P12-01-enabled-one-day",
+      "stateIds": [
+        "APP/P12-01/S04"
+      ]
+    },
+    {
+      "layoutGroup": "P15-c012-favorited",
+      "stateIds": [
+        "APP/P15-01/S06"
+      ]
+    },
+    {
+      "layoutGroup": "P15-c018-locked",
+      "stateIds": [
+        "APP/P15-01/S04"
+      ]
+    },
+    {
+      "layoutGroup": "P15-02-formations",
+      "stateIds": [
+        "APP/P15-02/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P27-populated",
+      "stateIds": [
+        "APP/P27/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P27-empty",
+      "stateIds": [
+        "APP/P27/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P14-active-filter-menu",
+      "stateIds": [
+        "APP/P14/S05",
+        "APP/P14/S06"
+      ]
+    },
+    {
+      "layoutGroup": "P14-nine-ball-rules-filter",
+      "stateIds": [
+        "APP/P14/S09"
+      ]
+    },
+    {
+      "layoutGroup": "P17-topic-menu",
+      "stateIds": [
+        "APP/P17/S07"
+      ]
+    },
+    {
+      "layoutGroup": "P17-pro-gate",
+      "stateIds": [
+        "APP/P17/S10"
+      ]
+    },
+    {
+      "layoutGroup": "P20-empty",
+      "stateIds": [
+        "APP/P20/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P20-free-populated",
+      "stateIds": [
+        "APP/P20/S04"
+      ]
+    },
+    {
+      "layoutGroup": "P20-debug-pro-populated",
+      "stateIds": [
+        "APP/P20/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P20-pro-month",
+      "stateIds": [
+        "APP/P20/S06"
+      ]
+    },
+    {
+      "layoutGroup": "P20-pro-year",
+      "stateIds": [
+        "APP/P20/S07"
+      ]
+    },
+    {
+      "layoutGroup": "P19-populated",
+      "stateIds": [
+        "APP/P19/S04"
+      ]
+    },
+    {
+      "layoutGroup": "P10-02-detail",
+      "stateIds": [
+        "APP/P10-02/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P10-02-edit",
+      "stateIds": [
+        "APP/P10-02/S04"
+      ]
+    },
+    {
+      "layoutGroup": "P10-empty",
+      "stateIds": [
+        "APP/P10-01/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P24-free",
+      "stateIds": [
+        "APP/P24-01/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P07-01-unstarted-free",
+      "stateIds": [
+        "APP/P07-01/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P07-01-paused-plan",
+      "stateIds": [
+        "APP/P07-01/S07"
+      ]
+    },
+    {
+      "layoutGroup": "P07-04-exit-confirm",
+      "stateIds": [
+        "APP/P07-04/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P07-04-end-confirm",
+      "stateIds": [
+        "APP/P07-04/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P01-01-minimized-plan",
+      "stateIds": [
+        "APP/P01-01/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P21-01-normal",
+      "stateIds": [
+        "APP/P21-01/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P21-01-menu",
+      "stateIds": [
+        "APP/P21-01/S07"
+      ]
+    },
+    {
+      "layoutGroup": "P22-01-data-editor",
+      "stateIds": [
+        "APP/P22-01/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P28-guest-login",
+      "stateIds": [
+        "APP/P28-01/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P29-free-offer",
+      "stateIds": [
+        "APP/P29-01/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P13-expanded-01",
+      "stateIds": [
+        "APP/P13/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P31-intro-0",
+      "stateIds": [
+        "APP/P31/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P13-expanded-02",
+      "stateIds": [
+        "APP/P13/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P31-intro-1",
+      "stateIds": [
+        "APP/P31/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P13-expanded-03",
+      "stateIds": [
+        "APP/P13/S04"
+      ]
+    },
+    {
+      "layoutGroup": "P31-intro-2",
+      "stateIds": [
+        "APP/P31/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P13-expanded-04",
+      "stateIds": [
+        "APP/P13/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P31-intro-3",
+      "stateIds": [
+        "APP/P31/S04"
+      ]
+    },
+    {
+      "layoutGroup": "P13-expanded-05",
+      "stateIds": [
+        "APP/P13/S06"
+      ]
+    },
+    {
+      "layoutGroup": "P31-intro-4",
+      "stateIds": [
+        "APP/P31/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P18-02-default",
+      "stateIds": [
+        "APP/P18-02/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-03-default",
+      "stateIds": [
+        "APP/P18-03/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-04-default",
+      "stateIds": [
+        "APP/P18-04/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-05-default",
+      "stateIds": [
+        "APP/P18-05/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-06-default",
+      "stateIds": [
+        "APP/P18-06/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-07-default",
+      "stateIds": [
+        "APP/P18-07/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-08-default",
+      "stateIds": [
+        "APP/P18-08/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-09-default",
+      "stateIds": [
+        "APP/P18-09/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-10-default",
+      "stateIds": [
+        "APP/P18-10/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-11-default",
+      "stateIds": [
+        "APP/P18-11/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-12-default",
+      "stateIds": [
+        "APP/P18-12/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-13-default",
+      "stateIds": [
+        "APP/P18-13/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-14-default",
+      "stateIds": [
+        "APP/P18-14/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-15-default",
+      "stateIds": [
+        "APP/P18-15/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-16-default",
+      "stateIds": [
+        "APP/P18-16/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-17-default",
+      "stateIds": [
+        "APP/P18-17/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-18-default",
+      "stateIds": [
+        "APP/P18-18/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P18-19-default",
+      "stateIds": [
+        "APP/P18-19/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P34-01-default",
+      "stateIds": [
+        "APP/P34-01/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P34-01-selected",
+      "stateIds": [
+        "APP/P34-01/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P34-02-default",
+      "stateIds": [
+        "APP/P34-02/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P34-02-selected",
+      "stateIds": [
+        "APP/P34-02/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P34-03-default",
+      "stateIds": [
+        "APP/P34-03/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P34-03-selected",
+      "stateIds": [
+        "APP/P34-03/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P35-01-default",
+      "stateIds": [
+        "APP/P35-01/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P35-01-selected",
+      "stateIds": [
+        "APP/P35-01/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P35-02-default",
+      "stateIds": [
+        "APP/P35-02/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P35-02-selected",
+      "stateIds": [
+        "APP/P35-02/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P17-section-学",
+      "stateIds": [
+        "APP/P17/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P17-section-理",
+      "stateIds": [
+        "APP/P17/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P17-section-练",
+      "stateIds": [
+        "APP/P17/S04"
+      ]
+    },
+    {
+      "layoutGroup": "P17-section-打",
+      "stateIds": [
+        "APP/P17/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P17-section-解",
+      "stateIds": [
+        "APP/P17/S06"
+      ]
+    },
+    {
+      "layoutGroup": "P02-01-completed",
+      "stateIds": [
+        "APP/P02-01/S03",
+        "APP/P02-01/S10"
+      ]
+    },
+    {
+      "layoutGroup": "P02-01-freeCompleted",
+      "stateIds": [
+        "APP/P02-01/S03",
+        "APP/P02-01/S10",
+        "APP/P02-01/S17"
+      ]
+    },
+    {
+      "layoutGroup": "P02-01-multipleFree",
+      "stateIds": [
+        "APP/P02-01/S03",
+        "APP/P02-01/S10",
+        "APP/P02-01/S17"
+      ]
+    },
+    {
+      "layoutGroup": "P02-02-reorder-menu",
+      "stateIds": [
+        "APP/P02-02/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P04-beginner-default",
+      "stateIds": [
+        "APP/P04-01/S03",
+        "APP/P04-01/S12",
+        "APP/P04-01/S14"
+      ]
+    },
+    {
+      "layoutGroup": "P11-default",
+      "stateIds": [
+        "APP/P11-01/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P12-default",
+      "stateIds": [
+        "APP/P12-01/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P25-default",
+      "stateIds": [
+        "APP/P25-01/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P26-default",
+      "stateIds": [
+        "APP/P26-01/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P14-filter-menu",
+      "stateIds": [
+        "APP/P14/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P15-c012-default",
+      "stateIds": [
+        "APP/P15-01/S03",
+        "APP/P15-01/S10"
+      ]
+    },
+    {
+      "layoutGroup": "P32-default",
+      "stateIds": [
+        "APP/P32-01/S01",
+        "APP/P32-01/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P33-default",
+      "stateIds": [
+        "APP/P33-01/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P02-01-partial",
+      "stateIds": [
+        "APP/P02-01/S09"
+      ]
+    },
+    {
+      "layoutGroup": "P02-01-single",
+      "stateIds": [
+        "APP/P02-01/S08"
+      ]
+    },
+    {
+      "layoutGroup": "P02-01-suggestion",
+      "stateIds": [
+        "APP/P02-01/S07"
+      ]
+    },
+    {
+      "layoutGroup": "P02-01-yesterday",
+      "stateIds": [
+        "APP/P02-01/S11"
+      ]
+    },
+    {
+      "layoutGroup": "P02-01-planStatuses",
+      "stateIds": [
+        "APP/P02-01/S03",
+        "APP/P02-01/S07"
+      ]
+    },
+    {
+      "layoutGroup": "P02-04-delete-confirm",
+      "stateIds": [
+        "APP/P02-04/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P05-01-existing",
+      "stateIds": [
+        "APP/P05-01/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P05-01-save-menu",
+      "stateIds": [
+        "APP/P05-01/S07"
+      ]
+    },
+    {
+      "layoutGroup": "P05-01-saved-home",
+      "stateIds": [
+        "APP/P05-01/S08"
+      ]
+    },
+    {
+      "layoutGroup": "P02-01-template-scheduled",
+      "stateIds": [
+        "APP/P02-01/S08"
+      ]
+    },
+    {
+      "layoutGroup": "P25-sport-nine",
+      "stateIds": [
+        "APP/P25-01/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P25-level-advanced",
+      "stateIds": [
+        "APP/P25-01/S04"
+      ]
+    },
+    {
+      "layoutGroup": "P25-years-fiveplus",
+      "stateIds": [
+        "APP/P25-01/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P26-goal-one",
+      "stateIds": [
+        "APP/P26-01/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P26-goal-seven",
+      "stateIds": [
+        "APP/P26-01/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P33-02-cache-confirm",
+      "stateIds": [
+        "APP/P33-02/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P33-game-menu",
+      "stateIds": [
+        "APP/P33-01/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P33-fps120-selected",
+      "stateIds": [
+        "APP/P33-01/S04"
+      ]
+    },
+    {
+      "layoutGroup": "P07-01-overview-paused",
+      "stateIds": [
+        "APP/P07-01/S04",
+        "APP/P07-01/S07"
+      ]
+    },
+    {
+      "layoutGroup": "P07-01-drill-scoring",
+      "stateIds": [
+        "APP/P07-01/S08"
+      ]
+    },
+    {
+      "layoutGroup": "P07-01-success-hidden",
+      "stateIds": [
+        "APP/P07-01/S13"
+      ]
+    },
+    {
+      "layoutGroup": "P07-01-settimer-hidden",
+      "stateIds": [
+        "APP/P07-01/S14"
+      ]
+    },
+    {
+      "layoutGroup": "P07-03-duration-default",
+      "stateIds": [
+        "APP/P07-03/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P08-01-empty-note",
+      "stateIds": [
+        "APP/P08-01/S04"
+      ],
+      "note": "r16补充：已有已审原图复核身份后绑定；仅证明视口，矩阵/长页/Figma分别核。"
+    },
+    {
+      "layoutGroup": "P08-03-summary",
+      "stateIds": [
+        "APP/P08-03/S01",
+        "APP/P08-03/S04"
+      ],
+      "note": "r16补充：已有已审原图复核身份后绑定；仅证明视口，矩阵/长页/Figma分别核。"
+    },
+    {
+      "layoutGroup": "P09-01-share",
+      "stateIds": [
+        "APP/P09-01/S01",
+        "APP/P09-01/S03"
+      ],
+      "note": "r16补充：已有已审原图复核身份后绑定；仅证明视口，矩阵/长页/Figma分别核。"
+    },
+    {
+      "layoutGroup": "P10-populated",
+      "stateIds": [
+        "APP/P10-01/S06"
+      ],
+      "note": "r16补充：已有已审原图复核身份后绑定；仅证明视口，矩阵/长页/Figma分别核。"
+    },
+    {
+      "layoutGroup": "P11-01-balltype-menu",
+      "stateIds": [
+        "APP/P11-01/S05"
+      ],
+      "note": "r16补充：已有已审原图复核身份后绑定；仅证明视口，矩阵/长页/Figma分别核。"
+    },
+    {
+      "layoutGroup": "P15-add-to-training",
+      "stateIds": [
+        "APP/P15-03/S01"
+      ],
+      "note": "r16补充：已有已审原图复核身份后绑定；仅证明视口，矩阵/长页/Figma分别核。"
+    },
+    {
+      "layoutGroup": "P21-01-after-delete-request",
+      "stateIds": [
+        "APP/P21-03/S01"
+      ],
+      "note": "r16补充：已有已审原图复核身份后绑定；仅证明视口，矩阵/长页/Figma分别核。"
+    },
+    {
+      "layoutGroup": "P30-debug-premium",
+      "stateIds": [
+        "APP/P30-01/S04"
+      ],
+      "note": "r16补充：已有已审原图复核身份后绑定；仅证明视口，矩阵/长页/Figma分别核。"
+    },
+    {
+      "layoutGroup": "P14-nine-ball-filter",
+      "stateIds": [
+        "APP/P14/S09"
+      ],
+      "note": "r16补充：已有已审原图复核身份后绑定；仅证明视口，矩阵/长页/Figma分别核。"
+    },
+    {
+      "layoutGroup": "P24-authenticated-offline",
+      "stateIds": [
+        "APP/P24-01/S03"
+      ],
+      "note": "r16内置离线账号fixture，原图逐图核对；无真实登录/同步/删除证明。"
+    },
+    {
+      "layoutGroup": "P24-authenticated-longname",
+      "stateIds": [
+        "APP/P24-01/S03"
+      ],
+      "note": "r16内置离线账号fixture，原图逐图核对；无真实登录/同步/删除证明。"
+    },
+    {
+      "layoutGroup": "P25-authenticated-offline",
+      "stateIds": [
+        "APP/P25-01/S06"
+      ],
+      "note": "r16内置离线账号fixture，原图逐图核对；无真实登录/同步/删除证明。"
+    },
+    {
+      "layoutGroup": "P25-authenticated-longname",
+      "stateIds": [
+        "APP/P25-01/S06"
+      ],
+      "note": "r16内置离线账号fixture，原图逐图核对；无真实登录/同步/删除证明。"
+    },
+    {
+      "layoutGroup": "P24-cloud-choice",
+      "stateIds": [
+        "APP/P24-02/S01"
+      ],
+      "note": "r16内置离线账号fixture，原图逐图核对；无真实登录/同步/删除证明。"
+    },
+    {
+      "layoutGroup": "P33-account-sync-off",
+      "stateIds": [
+        "APP/P33-01/S02",
+        "APP/P33-01/S07",
+        "APP/P33-01/S06"
+      ],
+      "note": "r16内置离线账号fixture，原图逐图核对；无真实登录/同步/删除证明。"
+    },
+    {
+      "layoutGroup": "P33-account-sync-on",
+      "stateIds": [
+        "APP/P33-01/S08"
+      ],
+      "note": "r16内置离线账号fixture，原图逐图核对；无真实登录/同步/删除证明。"
+    },
+    {
+      "layoutGroup": "P33-03-delete-account-confirm",
+      "stateIds": [
+        "APP/P33-03/S01"
+      ],
+      "note": "r16内置离线账号fixture，原图逐图核对；无真实登录/同步/删除证明。"
+    },
+    {
+      "layoutGroup": "P02-02-reorder-first",
+      "stateIds": [
+        "APP/P02-02/S04"
+      ]
+    },
+    {
+      "layoutGroup": "P02-02-reorder-last",
+      "stateIds": [
+        "APP/P02-02/S06"
+      ]
+    },
+    {
+      "layoutGroup": "P02-01-level-beginner",
+      "stateIds": [
+        "APP/P02-01/S06"
+      ]
+    },
+    {
+      "layoutGroup": "P04-02-current-preselected",
+      "stateIds": [
+        "APP/P04-02/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P04-02-multiple-selected",
+      "stateIds": [
+        "APP/P04-02/S03",
+        "APP/P04-02/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P04-03-start-confirm",
+      "stateIds": [
+        "APP/P04-03/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P05-02-default-dose",
+      "stateIds": [
+        "APP/P05-02/S01",
+        "APP/P05-02/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P06-one-selected",
+      "stateIds": [
+        "APP/P06/S04"
+      ]
+    },
+    {
+      "layoutGroup": "P06-multiple-selected",
+      "stateIds": [
+        "APP/P06/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P07-03-duration-30",
+      "stateIds": [
+        "APP/P07-03/S01"
+      ]
+    },
+    {
+      "layoutGroup": "P07-03-duration-45",
+      "stateIds": [
+        "APP/P07-03/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P07-03-duration-90",
+      "stateIds": [
+        "APP/P07-03/S04"
+      ]
+    },
+    {
+      "layoutGroup": "P07-03-duration-120",
+      "stateIds": [
+        "APP/P07-03/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P18-02-outside-range-selected",
+      "stateIds": [
+        "APP/P18-02/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P18-02-outside-range-body",
+      "stateIds": [
+        "APP/P18-02/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P18-16-high-spin-selected",
+      "stateIds": [
+        "APP/P18-16/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P18-16-high-spin-body",
+      "stateIds": [
+        "APP/P18-16/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P18-16-low-spin-selected",
+      "stateIds": [
+        "APP/P18-16/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P18-16-low-spin-body",
+      "stateIds": [
+        "APP/P18-16/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P18-17-follow-selected",
+      "stateIds": [
+        "APP/P18-17/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P18-17-follow-body",
+      "stateIds": [
+        "APP/P18-17/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P18-17-draw-selected",
+      "stateIds": [
+        "APP/P18-17/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P18-17-draw-body",
+      "stateIds": [
+        "APP/P18-17/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P25-years-fiveplus-visible",
+      "stateIds": [
+        "APP/P25-01/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P18-18-zero-control",
+      "stateIds": [
+        "APP/P18-18/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P18-18-zero-figure",
+      "stateIds": [
+        "APP/P18-18/S02"
+      ]
+    },
+    {
+      "layoutGroup": "P18-18-ninety-control",
+      "stateIds": [
+        "APP/P18-18/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P18-18-ninety-figure",
+      "stateIds": [
+        "APP/P18-18/S03"
+      ]
+    },
+    {
+      "layoutGroup": "P18-18-unnamed-control",
+      "stateIds": [
+        "APP/P18-18/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P18-18-unnamed-figure",
+      "stateIds": [
+        "APP/P18-18/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P05-01-new-with-drills",
+      "stateIds": [
+        "APP/P05-01/S04"
+      ]
+    },
+    {
+      "layoutGroup": "P03-01-official-and-template-full",
+      "stateIds": [
+        "APP/P03-01/S03",
+        "APP/P03-01/S05"
+      ]
+    },
+    {
+      "layoutGroup": "P14-search-match",
+      "stateIds": [
+        "APP/P14/S07"
+      ]
+    },
+    {
+      "layoutGroup": "P14-search-empty",
+      "stateIds": [
+        "APP/P14/S08"
+      ]
+    },
+    {
+      "layoutGroup": "P17-search-match",
+      "stateIds": [
+        "APP/P17/S08"
+      ]
+    },
+    {
+      "layoutGroup": "P17-search-empty",
+      "stateIds": [
+        "APP/P17/S09"
+      ]
+    },
+    {
+      "layoutGroup": "P03-01-template-menu",
+      "stateIds": [
+        "APP/P03-01/S08"
+      ],
+      "evidenceNote": "r20真实截图逐图核对；矩阵完整性与Figma/用户验收另计"
+    },
+    {
+      "layoutGroup": "P03-02-delete-confirm",
+      "stateIds": [
+        "APP/P03-02/S01"
+      ],
+      "evidenceNote": "r20真实截图逐图核对；矩阵完整性与Figma/用户验收另计"
+    },
+    {
+      "layoutGroup": "P03-01-template-present-full",
+      "stateIds": [
+        "APP/P03-01/S03",
+        "APP/P03-01/S05",
+        "APP/P03-01/S07"
+      ],
+      "evidenceNote": "r20真实截图逐图核对；矩阵完整性与Figma/用户验收另计"
+    },
+    {
+      "layoutGroup": "P03-01-statuses-full",
+      "stateIds": [
+        "APP/P03-01/S03",
+        "APP/P03-01/S04",
+        "APP/P03-01/S05"
+      ],
+      "evidenceNote": "r20真实截图逐图核对；矩阵完整性与Figma/用户验收另计"
+    },
+    {
+      "layoutGroup": "P06-search-match",
+      "stateIds": [
+        "APP/P06/S06"
+      ],
+      "evidenceNote": "r20真实截图逐图核对；矩阵完整性与Figma/用户验收另计"
+    },
+    {
+      "layoutGroup": "P06-search-empty",
+      "stateIds": [
+        "APP/P06/S07"
+      ],
+      "evidenceNote": "r20真实截图逐图核对；矩阵完整性与Figma/用户验收另计"
+    },
+    {
+      "layoutGroup": "P18-15-global-angle-selected",
+      "stateIds": [
+        "APP/P18-15/S02"
+      ],
+      "evidenceNote": "r20真实截图逐图核对；矩阵完整性与Figma/用户验收另计"
+    },
+    {
+      "layoutGroup": "P18-15-global-angle-body",
+      "stateIds": [
+        "APP/P18-15/S02"
+      ],
+      "evidenceNote": "r20真实截图逐图核对；矩阵完整性与Figma/用户验收另计"
+    },
+    {
+      "layoutGroup": "P18-15-pipe-thick",
+      "stateIds": [
+        "APP/P18-15/S03"
+      ],
+      "evidenceNote": "r20真实截图逐图核对；矩阵完整性与Figma/用户验收另计"
+    },
+    {
+      "layoutGroup": "P18-15-pipe-thin",
+      "stateIds": [
+        "APP/P18-15/S03"
+      ],
+      "evidenceNote": "r20真实截图逐图核对；矩阵完整性与Figma/用户验收另计"
+    },
+    {
+      "layoutGroup": "P18-15-contact-merge-settled",
+      "stateIds": [
+        "APP/P18-15/S04"
+      ],
+      "evidenceNote": "r20真实截图逐图核对；矩阵完整性与Figma/用户验收另计"
+    },
+    {
+      "layoutGroup": "P18-16-side-min",
+      "stateIds": [
+        "APP/P18-16/S04"
+      ],
+      "evidenceNote": "r20实际数值与图示逐图核对；仅所见环境，不代表全矩阵"
+    },
+    {
+      "layoutGroup": "P18-16-side-max",
+      "stateIds": [
+        "APP/P18-16/S04"
+      ],
+      "evidenceNote": "r20实际数值与图示逐图核对；仅所见环境，不代表全矩阵"
+    },
+    {
+      "layoutGroup": "P18-16-side-clamped",
+      "stateIds": [
+        "APP/P18-16/S05"
+      ],
+      "evidenceNote": "r20实际数值与图示逐图核对；仅所见环境，不代表全矩阵"
+    },
+    {
+      "layoutGroup": "P18-16-side-clamped-body",
+      "stateIds": [
+        "APP/P18-16/S05"
+      ],
+      "evidenceNote": "r20实际数值与图示逐图核对；仅所见环境，不代表全矩阵"
+    },
+    {
+      "layoutGroup": "P18-17-angle-selected",
+      "stateIds": [
+        "APP/P18-17/S04"
+      ],
+      "evidenceNote": "r20实际数值与图示逐图核对；仅所见环境，不代表全矩阵"
+    },
+    {
+      "layoutGroup": "P18-17-angle-body",
+      "stateIds": [
+        "APP/P18-17/S04"
+      ],
+      "evidenceNote": "r20实际数值与图示逐图核对；仅所见环境，不代表全矩阵"
+    },
+    {
+      "layoutGroup": "P18-18-distance-near",
+      "stateIds": [
+        "APP/P18-18/S04"
+      ],
+      "evidenceNote": "r20实际数值与图示逐图核对；仅所见环境，不代表全矩阵"
+    },
+    {
+      "layoutGroup": "P18-18-distance-far",
+      "stateIds": [
+        "APP/P18-18/S04"
+      ],
+      "evidenceNote": "r20实际数值与图示逐图核对；仅所见环境，不代表全矩阵"
+    },
+    {
+      "layoutGroup": "P11-03-invalid-minutes",
+      "stateIds": [
+        "APP/P11-03/S01"
+      ],
+      "evidenceNote": "r22标准浅色真实输入0分钟+内容→未能保存；仅输入校验分支，不代表存储失败或全矩阵。"
+    }
+  ],
+  "legacySlotBindings": [
+    {
+      "slotPrefix": "APP/P03/official-top/",
+      "stateIds": [
+        "APP/P03-01/S03"
+      ],
+      "evidence": "已逐图核对的r3/r4十环境证据；r17/legacy-binding-check.jpg再次核标准浅色页面身份。仅首屏，不推断完整长页。"
+    },
+    {
+      "slotPrefix": "APP/P05/new-empty/",
+      "stateIds": [
+        "APP/P05-01/S01"
+      ],
+      "evidence": "已逐图核对的r3/r4十环境证据；r17/legacy-binding-check.jpg再次核标准浅色页面身份。仅首屏，不推断完整长页。"
+    },
+    {
+      "slotPrefix": "APP/P06/picker-top/",
+      "stateIds": [
+        "APP/P06/S03"
+      ],
+      "evidence": "已逐图核对的r3/r4十环境证据；r17/legacy-binding-check.jpg再次核标准浅色页面身份。仅首屏，不推断完整长页。"
+    },
+    {
+      "slotPrefix": "APP/P02/custom-empty/",
+      "stateIds": [
+        "APP/P02-01/S04"
+      ],
+      "evidence": "r17/legacy-bindings-0..2.jpg重新核标准浅色身份；源十环境图片已有逐图审查，按原slot绑定。只证明可见视口，不替代全页/交互核对。"
+    },
+    {
+      "slotPrefix": "APP/P02/default/",
+      "stateIds": [
+        "APP/P02-01/S02",
+        "APP/P02-01/S03"
+      ],
+      "evidence": "r17/legacy-bindings-0..2.jpg重新核标准浅色身份；源十环境图片已有逐图审查，按原slot绑定。只证明可见视口，不替代全页/交互核对。"
+    },
+    {
+      "slotPrefix": "APP/P13/collapsed/",
+      "stateIds": [
+        "APP/P13/S01"
+      ],
+      "evidence": "r17/legacy-bindings-0..2.jpg重新核标准浅色身份；源十环境图片已有逐图审查，按原slot绑定。只证明可见视口，不替代全页/交互核对。"
+    },
+    {
+      "slotPrefix": "APP/P13/start-expanded/",
+      "stateIds": [
+        "APP/P13/S02"
+      ],
+      "evidence": "r17/legacy-bindings-0..2.jpg重新核标准浅色身份；源十环境图片已有逐图审查，按原slot绑定。只证明可见视口，不替代全页/交互核对。"
+    },
+    {
+      "slotPrefix": "APP/P14/default/",
+      "stateIds": [
+        "APP/P14/S02"
+      ],
+      "evidence": "r17/legacy-bindings-0..2.jpg重新核标准浅色身份；源十环境图片已有逐图审查，按原slot绑定。只证明可见视口，不替代全页/交互核对。"
+    },
+    {
+      "slotPrefix": "APP/P17/default/",
+      "stateIds": [
+        "APP/P17/S01"
+      ],
+      "evidence": "r17/legacy-bindings-0..2.jpg重新核标准浅色身份；源十环境图片已有逐图审查，按原slot绑定。只证明可见视口，不替代全页/交互核对。"
+    },
+    {
+      "slotPrefix": "APP/P19/default/",
+      "stateIds": [
+        "APP/P19/S03",
+        "APP/P19/S05"
+      ],
+      "evidence": "r17/legacy-bindings-0..2.jpg重新核标准浅色身份；源十环境图片已有逐图审查，按原slot绑定。只证明可见视口，不替代全页/交互核对。"
+    },
+    {
+      "slotPrefix": "APP/P24/default/",
+      "stateIds": [
+        "APP/P24-01/S02"
+      ],
+      "evidence": "r17/legacy-bindings-0..2.jpg重新核标准浅色身份；源十环境图片已有逐图审查，按原slot绑定。只证明可见视口，不替代全页/交互核对。"
+    }
+  ]
+}

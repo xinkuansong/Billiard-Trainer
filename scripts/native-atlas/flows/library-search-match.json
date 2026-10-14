@@ -1,0 +1,20 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "动作库"
+    },
+    {
+      "action": "type",
+      "kind": "textField",
+      "id": "librarySearchField",
+      "text": "直线\n"
+    },
+    {
+      "action": "snapshot",
+      "name": "P14-search-match",
+      "entry": "library/normal-search/直线"
+    }
+  ]
+}

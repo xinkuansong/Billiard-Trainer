@@ -1,0 +1,34 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_打"
+    },
+    {
+      "action": "tap",
+      "id": "拍照建球形",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "选择照片"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P13-photo-entry"
+    }
+  ],
+  "catalog": {
+    "TABLE-P13-photo-entry": {
+      "id": "TABLE/P13",
+      "title": "拍照建球形",
+      "state": "entry",
+      "figmaPage": "71"
+    }
+  }
+}

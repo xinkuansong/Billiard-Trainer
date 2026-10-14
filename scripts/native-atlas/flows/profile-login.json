@@ -1,0 +1,24 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "tap",
+      "id": "profile.login",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "看懂球路，练出结果",
+      "kind": "text"
+    },
+    {
+      "action": "snapshot",
+      "name": "P28-guest-login",
+      "entry": "profile/login"
+    }
+  ]
+}

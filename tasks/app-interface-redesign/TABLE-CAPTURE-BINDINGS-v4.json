@@ -1,0 +1,271 @@
+{
+  "baseline": "f75cbafdc455e5521a248d2187943956456dcaaa",
+  "status": "REVIEWED_VIEWPORT_BINDINGS_NOT_FULL_MATRIX",
+  "note": "仅绑定已审截图确切画面；未将不明确的default或每日settled推断成完整初始状态。空/有键盘是同候选的两个真实子态。",
+  "bindings": [
+    {
+      "layoutGroup": "DAILY-D00-2d-more",
+      "stateIds": [
+        "DAILY/D00/2d-more"
+      ]
+    },
+    {
+      "layoutGroup": "DAILY-D00-2d-aim-menu",
+      "stateIds": [
+        "DAILY/D00/aim-menu"
+      ]
+    },
+    {
+      "layoutGroup": "DAILY-D00-2d-trajectory-menu",
+      "stateIds": [
+        "DAILY/D00/trajectory-menu"
+      ]
+    },
+    {
+      "layoutGroup": "DAILY-D00-2d-game-menu",
+      "stateIds": [
+        "DAILY/D00/game-menu"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P01-2d-default",
+      "stateIds": [
+        "TABLE/P01/2d-default"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P01-2d-more",
+      "stateIds": [
+        "TABLE/P01/2d-more"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P01-2d-aim-menu",
+      "stateIds": [
+        "TABLE/P01/aim-menu"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P02-more",
+      "stateIds": [
+        "TABLE/P02/more"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P03-more",
+      "stateIds": [
+        "TABLE/P03/more"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P12a-keypad-empty",
+      "stateIds": [
+        "TABLE/P12a/answer-keypad"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P12a-keypad-filled",
+      "stateIds": [
+        "TABLE/P12a/answer-keypad"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P12a-reference",
+      "stateIds": [
+        "TABLE/P12a/reference-visible"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P12a-reset-confirm",
+      "stateIds": [
+        "TABLE/P12a/reset-confirm"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P12a-result",
+      "stateIds": [
+        "TABLE/P12a/result"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P12b-result",
+      "stateIds": [
+        "TABLE/P12b/result"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P13-photo-entry",
+      "stateIds": [
+        "TABLE/P13/default"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P04-default",
+      "stateIds": [
+        "TABLE/P04/default"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P04-more",
+      "stateIds": [
+        "TABLE/P04/more"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P05-default",
+      "stateIds": [
+        "TABLE/P05/default"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P05-more",
+      "stateIds": [
+        "TABLE/P05/more"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P06-default",
+      "stateIds": [
+        "TABLE/P06/default"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P06-more",
+      "stateIds": [
+        "TABLE/P06/more"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P07a-default",
+      "stateIds": [
+        "TABLE/P07a/default"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P07a-more",
+      "stateIds": [
+        "TABLE/P07a/more"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P07b-default",
+      "stateIds": [
+        "TABLE/P07b/default"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P07b-more",
+      "stateIds": [
+        "TABLE/P07b/more"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P08a-default",
+      "stateIds": [
+        "TABLE/P08a/default"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P08a-more",
+      "stateIds": [
+        "TABLE/P08a/more"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P08b-default",
+      "stateIds": [
+        "TABLE/P08b/default"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P08b-more",
+      "stateIds": [
+        "TABLE/P08b/more"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-AD01-default",
+      "stateIds": [
+        "TABLE/AD01/default"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-AD01-more",
+      "stateIds": [
+        "TABLE/AD01/more"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P09a-setup",
+      "stateIds": [
+        "TABLE/P09a/setup"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P09a-question",
+      "stateIds": [
+        "TABLE/P09a/question"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P09a-more",
+      "stateIds": [
+        "TABLE/P09a/more"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P09b-setup",
+      "stateIds": [
+        "TABLE/P09b/setup"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P09b-question",
+      "stateIds": [
+        "TABLE/P09b/question"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P09b-more",
+      "stateIds": [
+        "TABLE/P09b/more"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P10a-default",
+      "stateIds": [
+        "TABLE/P10a/question"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P10a-more",
+      "stateIds": [
+        "TABLE/P10a/more"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P10b-default",
+      "stateIds": [
+        "TABLE/P10b/question"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P10b-more",
+      "stateIds": [
+        "TABLE/P10b/more"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P12a-default",
+      "stateIds": [
+        "TABLE/P12a/default"
+      ]
+    },
+    {
+      "layoutGroup": "TABLE-P12b-default",
+      "stateIds": [
+        "TABLE/P12b/default"
+      ]
+    }
+  ]
+}

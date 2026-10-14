@@ -1,0 +1,36 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_练"
+    },
+    {
+      "action": "tap",
+      "id": "瞄准点训练",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "aimPointDiagram.figure",
+      "kind": "any"
+    },
+    {
+      "action": "cover",
+      "name": "TABLE-P12b-default",
+      "maximumViews": 40
+    }
+  ],
+  "catalog": {
+    "TABLE-P12b-default": {
+      "id": "TABLE/P12b",
+      "title": "瞄准点训练",
+      "state": "default",
+      "figmaPage": "71"
+    }
+  }
+}

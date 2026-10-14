@@ -102,6 +102,8 @@ enum SequenceVideoExporter {
         /// Match the current app's room, wide table light, materials and contact shadows.
         /// Opt-in so existing offline asset recipes keep their established appearance.
         var useAppAppearance: Bool = false
+        /// Published stills use the user-approved plain lighting with current table finishes.
+        var useTutorialAppearance: Bool = false
         var tableStyle: TableStyle = .defaultStyle
         var clothColor: ClothColor = .green
         var cueStyle: CueStyle? = nil
@@ -184,6 +186,15 @@ enum SequenceVideoExporter {
             var o = Options()
             o.size = CGSize(width: 1440, height: 2560)
             o.portrait = true
+            return o
+        }
+
+        /// Published figures share the approved thumbnail lighting and current table,
+        /// while keeping true-size balls and unmodified teaching geometry.
+        static func tutorialStills() -> Options {
+            var o = teaching()
+            o.useTutorialAppearance = true
+            o.cueStyle = .inkDragon
             return o
         }
 
@@ -1013,7 +1024,11 @@ enum SequenceVideoExporter {
             let scene = AngleTrainingScene()
             // 3D 档启用 studio 光照 + IBL + 接地阴影（与 Scene3DAimingView 同款，球读作立体接地）。
             // Exported media keeps its own pipeline (ADR-P5-01: offline output unchanged).
-            if options.useAppAppearance {
+            if options.useTutorialAppearance {
+                scene.setupScene(enhancedRendering: false, mobileRendering: false)
+                scene.applyTableStyle(options.tableStyle, showsSights: true)
+                scene.applyClothColor(options.clothColor)
+            } else if options.useAppAppearance {
                 scene.setupScene(enhancedRendering: false, mobileRendering: true)
                 scene.applyTableStyle(options.tableStyle, showsSights: true)
                 scene.applyClothColor(options.clothColor)

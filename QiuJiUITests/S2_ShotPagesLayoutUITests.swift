@@ -621,6 +621,13 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
         XCTAssertFalse(metrics.label.contains("/8"))
         for removed in ["力度", "打点", "可加塞"] { XCTAssertFalse(metrics.label.contains(removed)) }
         try assertTeachingDiagramAlignment()
+        let spinEntry = app.buttons["shotStage.spinEntry"]
+        XCTAssertTrue(spinEntry.exists)
+        XCTAssertEqual(spinEntry.isEnabled, hasSpin)
+        if !hasSpin {
+            spinEntry.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            XCTAssertFalse(app.buttons["关闭打点"].exists)
+        }
         snap(shotPrefix + "-2d")
         func inspectSpin(_ state: String) {
             app.buttons["shotStage.spinEntry"].tap()
@@ -664,7 +671,7 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
         let ids = ["dailyClearance.observeTable", "shotCamera.thirdPerson", "shotCamera.firstPerson", "shotCamera.temporaryTopDown"]
         for id in ids { XCTAssertTrue(app.buttons[id].isHittable) }
         // Camera stack uses the complete ruler shell's centre, exactly as daily.
-        let shell = hasSpin ? app.descendants(matching: .any).matching(identifier: "shotStage.powerShell").firstMatch.frame : power.frame
+        let shell = app.descendants(matching: .any).matching(identifier: "shotStage.powerShell").firstMatch.frame
         let first = app.buttons[ids[0]].frame, last = app.buttons[ids[3]].frame
         XCTAssertEqual((first.minY + last.maxY) / 2, shell.midY, accuracy: 1)
         XCTAssertLessThan(first.midX, shell.minX)
@@ -977,8 +984,15 @@ final class P03_ComposerTemplateUITests: XCTestCase {
         app.buttons["关闭菜单"].tap(); sleep(1)
     }
     private func aimMode(_ value: String, tryout: Bool = false) {
-        menu(); app.buttons["dailyClearance.aimModeMenu"].tap()
-        let item = app.buttons[tryout ? "tryoutMode_" + value : "dailyClearance.aim." + value]
+        menu()
+        if tryout {
+            let mode = app.buttons["tryout.mode"]
+            let desired = value == "序列" ? "序列" : "自由"
+            if mode.value as? String != desired { mode.tap() }
+            if value == "序列" { app.buttons["关闭菜单"].tap(); return }
+        }
+        app.buttons["dailyClearance.aimModeMenu"].tap()
+        let item = app.buttons[tryout ? "tryoutAim_" + value : "dailyClearance.aim." + value]
         ready(item); item.tap()
     }
     func testEditableBoardAndCameraRoundTrip() throws {
@@ -1033,7 +1047,7 @@ final class P03_ComposerTemplateUITests: XCTestCase {
         XCTAssertFalse(element("shotStage.aimWheel").isEnabled)
         viewMode("3D"); try capture("tryout-sequence-3d")
         let strike = app.buttons["dailyClearance.strike"]
-        XCTAssertEqual(strike.label, "击打"); ready(strike); strike.tap()
+        XCTAssertEqual(strike.label, "开始"); ready(strike); strike.tap()
         XCTAssertEqual(strike.label, "暂停"); ready(strike); strike.tap()
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@ AND enabled == true", "继续"), object: strike)], timeout: 60), .completed)
         let status = element("composer.status").label
@@ -1043,16 +1057,17 @@ final class P03_ComposerTemplateUITests: XCTestCase {
         XCTAssertFalse(app.buttons["回中"].exists); XCTAssertFalse(app.buttons["高杆增加 1%"].exists)
         try capture("tryout-paused-readonly-spin")
         viewMode("2D"); XCTAssertEqual(element("composer.status").label, status)
-        app.buttons["dailyClearance.playback"].tap(); ready(strike, timeout: 60)
-        XCTAssertEqual(element("composer.status").label, status)
-        try capture("tryout-replayed")
+        app.buttons["dailyClearance.playback"].tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == '继续' AND enabled == true"), object: strike)], timeout: 60), .completed)
+        XCTAssertTrue(element("composer.status").label.contains("第 2/"))
+        try capture("tryout-next-paused")
         aimMode("自由", tryout: true)
         XCTAssertEqual(strike.label, "击球"); XCTAssertTrue(app.buttons["paletteBall__15"].isEnabled)
         XCTAssertTrue(element("shotStage.aimWheel").isEnabled)
         try capture("tryout-free")
         aimMode("进袋", tryout: true); try capture("tryout-pocket")
         aimMode("序列", tryout: true)
-        XCTAssertEqual(strike.label, "击打"); XCTAssertFalse(app.buttons["paletteBall__1"].isEnabled)
+        XCTAssertEqual(strike.label, "开始"); XCTAssertFalse(app.buttons["paletteBall__1"].isEnabled)
         app.buttons["tryout.rearrange"].tap()
         XCTAssertFalse(app.buttons["break.game.15"].exists, "重摆试打球形不能打开普通开球玩法")
         XCTAssertTrue(element("composer.status").label.contains("第 1/"))
@@ -1236,7 +1251,7 @@ final class P05_PlanThreeTemplateUITests: XCTestCase {
         let temp = app.buttons["shotCamera.temporaryTopDown"]
         ready(temp); temp.tap(); sleep(1); try capture("planthree-temporary2d"); temp.tap()
         app.buttons["planthree.strike"].tap(); ready(app.buttons["planthree.undo"], timeout: 60)
-        XCTAssertTrue(roles.contains("①球:2号球")); XCTAssertTrue(roles.contains("②球:3号球")); XCTAssertTrue(roles.contains("③球:未选择")); XCTAssertTrue(roles.contains("②袋:未选择"))
+        XCTAssertTrue(roles.contains("①球:2号球")); XCTAssertTrue(roles.contains("②球:3号球")); XCTAssertTrue(roles.contains("③球:未选择")); XCTAssertTrue(roles.contains("第2杆目标袋:未选择"))
         try capture("planthree-advanced")
         let advancedRoles = roles
         ready(app.buttons["planthree.replay"]); app.buttons["planthree.replay"].tap()
@@ -1628,6 +1643,7 @@ final class P12_StandaloneQuizUITests: XCTestCase {
 final class P13_15_EmbeddedTableUITests: XCTestCase {
     private var app: XCUIApplication!
     override func setUpWithError() throws { continueAfterFailure = false; XCUIDevice.shared.orientation = .portrait }
+    override func tearDownWithError() throws { app?.terminate() }
     private func launch(_ args: [String] = []) {
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-v53.authenticatedProfileFixture"] + args)
     }
@@ -1694,38 +1710,81 @@ final class P13_15_EmbeddedTableUITests: XCTestCase {
         plus.tap(); app.buttons["空台面（仅母球）"].tap()
         XCTAssertTrue(element("table.scene").waitForExistence(timeout: 12))
         try capture("batch-author-empty")
-        app.buttons["摆球"].tap()
+        func chooseTool(_ name: String) {
+            let tool = app.buttons["batch.tool"]
+            for _ in 0..<8 where !tool.isHittable { element("batch.toolScroll").swipeDown() }
+            XCTAssertTrue(tool.isHittable); tool.tap()
+            let choice = app.buttons["batch.tool." + name]
+            XCTAssertTrue(choice.waitForExistence(timeout: 4)); choice.tap()
+        }
+        chooseTool("摆球")
         let ball = app.buttons["paletteBall__1"]
         XCTAssertTrue(ball.exists); ball.tap(); XCTAssertEqual(ball.value as? String, "在桌上")
         try landscape("batch-author"); XCTAssertEqual(ball.value as? String, "在桌上")
-        try portrait("batch-author")
-        app.buttons["自由"].tap()
-        XCTAssertTrue(app.buttons["播放当前录制序列"].exists)
+        if UIDevice.current.userInterfaceIdiom == .pad { try portrait("batch-author") }
+        else {
+            XCUIDevice.shared.orientation = .portrait
+            XCTAssertGreaterThan(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height,
+                                 "The current phone authoring contract retains landscape")
+        }
+        chooseTool("自由")
         try capture("batch-author-free")
-        XCTAssertFalse(app.buttons["轨迹标注档位"].exists, "轨迹设置收进菜单，不能遮挡打点盘")
-        app.buttons["更多"].firstMatch.tap()
-        let trajectory = app.buttons["轨迹标注档位"]
-        XCTAssertTrue(trajectory.waitForExistence(timeout: 4))
-        let previous = trajectory.identifier // Native Menu exports its selected system image, not SwiftUI value.
-        try capture("batch-display-menu")
-        trajectory.tap()
-        app.buttons["更多"].firstMatch.tap()
-        XCTAssertTrue(trajectory.waitForExistence(timeout: 4))
-        XCTAssertNotEqual(trajectory.identifier, previous)
-        // Complete the cycle to restore the shared preference.
-        trajectory.tap(); app.buttons["更多"].firstMatch.tap()
+        XCTAssertFalse(app.buttons["batch.trajectory"].exists, "轨迹设置收进菜单，不能遮挡打点盘")
+        app.buttons["batch.more"].tap()
+        XCTAssertTrue(app.buttons["batch.playSequence"].exists)
+        let trajectory = app.buttons["batch.trajectory"]
         XCTAssertTrue(trajectory.waitForExistence(timeout: 4)); trajectory.tap()
+        let options = (0..<3).map { app.buttons["batch.trajectory." + String($0)] }
+        let previous = try XCTUnwrap(options.first { $0.value as? String == "已选" })
+        for option in options {
+            XCTAssertTrue(option.isHittable); option.tap()
+            app.buttons["batch.more"].tap(); trajectory.tap()
+            XCTAssertEqual(option.value as? String, "已选")
+        }
+        try capture("batch-display-menu")
+        previous.tap()
 
         // No save, overwrite, delete, or export action is invoked.
     }
+    func testLibraryToTryoutProductionRoute() throws {
+        launch(["-v54.forceLight"])
+        app.switchTab(.drillLibrary)
+        let card = element("drillCard_drill_c001")
+        XCTAssertTrue(card.waitForExistence(timeout: 15)); card.tap()
+        XCTAssertTrue(app.buttons["bottomTryoutButton"].waitForExistence(timeout: 15))
+        app.buttons["bottomTryoutButton"].tap()
+        XCTAssertTrue(element("composer.landscape").waitForExistence(timeout: 15))
+        try capture("production-library-tryout")
+        app.buttons["dailyClearance.back"].tap()
+        XCTAssertTrue(app.buttons["bottomTryoutButton"].waitForExistence(timeout: 10))
+    }
+
+    func testDetailFirstTryoutEntry() throws {
+        launch(["-v54.forceLight"])
+        app.switchTab(.drillLibrary)
+        let card = element("drillCard_drill_c001")
+        XCTAssertTrue(card.waitForExistence(timeout: 15)); card.tap()
+        XCTAssertTrue(app.buttons["bottomTryoutButton"].waitForExistence(timeout: 15))
+        app.buttons["bottomTryoutButton"].tap()
+        XCTAssertTrue(element("composer.landscape").waitForExistence(timeout: 15))
+        try capture("detail-first-tryout-entry")
+        app.buttons["dailyClearance.back"].tap()
+        XCTAssertTrue(app.buttons["bottomTryoutButton"].waitForExistence(timeout: 10))
+    }
+
     func testDetailViewCameraPlaybackAndRotation() throws {
-        launch(["-deeplink.drillDetail=drill_c001", "-v54.forceLight"])
+        launch(["-v54.forceLight"])
+        app.switchTab(.drillLibrary)
+        let card = element("drillCard_drill_c001")
+        XCTAssertTrue(card.waitForExistence(timeout: 15)); card.tap()
         let mode = app.buttons["drillScene.cameraMode"], play = app.buttons["drillPlayButton"]
         XCTAssertTrue(mode.waitForExistence(timeout: 15)); XCTAssertTrue(play.exists)
         XCTAssertGreaterThanOrEqual(play.frame.width, 44); XCTAssertGreaterThanOrEqual(play.frame.height, 44)
         try capture("detail-2d"); try landscape("detail-2d")
         mode.tap(); XCTAssertEqual(mode.value as? String, "3D")
-        app.buttons["drillScene.overview"].tap(); try capture("detail-3d")
+        // DR-374 removed the redundant overview button; cameraMode is the sole control.
+        XCTAssertFalse(app.buttons["drillScene.overview"].exists)
+        try capture("detail-3d")
         mode.tap(); XCTAssertEqual(mode.value as? String, "2D")
         play.tap(); XCTAssertTrue(play.label == "暂停" || play.label == "本杆结束后暂停")
         play.tap()
@@ -1735,6 +1794,16 @@ final class P13_15_EmbeddedTableUITests: XCTestCase {
         app.buttons["bottomTryoutButton"].tap()
         XCTAssertTrue(element("composer.landscape").waitForExistence(timeout: 15))
         try capture("detail-to-tryout")
+        for index in 0..<10 {
+            let back = app.buttons["dailyClearance.back"]
+            XCTAssertTrue(back.waitForExistence(timeout: 5)); back.tap()
+            XCTAssertTrue(app.buttons["bottomTryoutButton"].waitForExistence(timeout: 10))
+            if index < 9 {
+                app.buttons["bottomTryoutButton"].tap()
+                XCTAssertTrue(element("composer.landscape").waitForExistence(timeout: 15))
+            }
+        }
+        try capture("detail-after-ten-tryout-returns")
     }
     func testTrainingRecordEmbeddedTableWithoutSaving() throws {
         launch(); app.switchTab(.training)

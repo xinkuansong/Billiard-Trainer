@@ -43,6 +43,8 @@
 | 球桌几何常量 | `.kiro/steering/table-geometry.md` | — | — |
 | 用户训练数据 | 设备 SwiftData | 后端 MongoDB 副本 | App 写入 + `BackendSyncService` 推送 |
 
+精讲静帧更新（2026-10-12）：出图用 `Options.tutorialStills()` 接新版球桌＋墨龙球杆＋用户认可的原光影（非移动端灯光），真实球径与原始球位不变；`import-engine-export-to-app.py --stills-only` 仅回填图片并发布 HEIC，不要求或修改视频。C2 同时识别有 `initial.png` 的纯静帧目录，明确 token 保留、manual01 及真源单球形写默认别名。渲染版本证据及样张/全量验收见 `tasks/TUTORIAL-FIGURES-REFRESH-20261012.md`。
+
 ### 1.1 球形几何真源 = 出片台录制序列（2026-08-06 用户裁定）
 
 **用户拍板**：以批量出片台产出的序列为准；精讲内容等出片台内容定稿后统一重写。

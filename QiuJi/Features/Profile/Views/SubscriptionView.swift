@@ -169,15 +169,12 @@ struct SubscriptionView: View {
                         ProgressView("正在加载订阅方案…")
                             .tint(.btPrimary)
                     } else {
-                        Text(subscriptionManager.errorMessage ?? "暂时无法加载订阅方案")
+                        Text(productLoadingMessage)
                             .font(.btFootnote)
                             .foregroundStyle(.btTextSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                         Button("重新加载") {
-                            Task {
-                                await subscriptionManager.retryLoadProducts()
-                                selectAvailableProduct()
-                            }
+                            Task { await reloadProducts() }
                         }
                         .font(.btSubheadline)
                         .foregroundStyle(.btPrimary)
@@ -239,31 +236,69 @@ struct SubscriptionView: View {
         .accessibilityIdentifier("subscription.product.\(product.id)")
     }
 
+    @ViewBuilder
     private var subscribeButton: some View {
-        Button {
-            if authState.isLoggedIn { Task { await handlePurchase() } }
-            else { showLogin = true }
-        } label: {
-            HStack {
-                if subscriptionManager.isLoading { ProgressView().tint(.white) }
-                Text(subscriptionManager.isPremium ? "已是 Pro 会员" : subscribeButtonText)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+        if subscriptionManager.isPremium || subscriptionManager.isLoading {
+            Button {} label: {
+                subscribeButtonLabel
+                    .font(.btHeadline)
+                    .foregroundStyle(.btTextSecondary)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 52)
+                    .background(Color.btBGQuaternary, in: RoundedRectangle(cornerRadius: BTRadius.sm))
             }
-            .frame(maxWidth: .infinity)
+            .buttonStyle(.plain)
+            .disabled(true)
+            .accessibilityIdentifier("subscription.purchase")
+        } else {
+            Button {
+                if selectedProduct == nil { Task { await reloadProducts() } }
+                else if authState.isLoggedIn { Task { await handlePurchase() } }
+                else { showLogin = true }
+            } label: {
+                subscribeButtonLabel.frame(maxWidth: .infinity)
+            }
+            .buttonStyle(BTButtonStyle.primary)
+            .accessibilityIdentifier("subscription.purchase")
         }
-        .buttonStyle(BTButtonStyle.primary)
-        .disabled(selectedProductID == nil || subscriptionManager.isLoading || subscriptionManager.isPremium)
-        .accessibilityIdentifier("subscription.purchase")
+    }
+
+    private var subscribeButtonLabel: some View {
+        HStack {
+            if subscriptionManager.isLoading && !subscriptionManager.isPremium {
+                ProgressView().tint(.btTextSecondary)
+            }
+            Text(subscribeButtonText)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var selectedProduct: Product? {
+        subscriptionManager.products.first(where: { $0.id == selectedProductID })
     }
 
     private var subscribeButtonText: String {
-        guard let product = subscriptionManager.products.first(where: { $0.id == selectedProductID }) else {
-            return "解锁 Pro"
+        if subscriptionManager.isPremium { return "已是 Pro 会员" }
+        if subscriptionManager.isLoading {
+            return selectedProduct == nil ? "正在加载订阅方案…" : "正在处理…"
+        }
+        guard let product = selectedProduct else {
+            return "重新加载订阅方案"
         }
         let period = product.id == StoreKitService.lifetimeID ? "一次性"
             : product.id == StoreKitService.yearlyID ? "每年" : "每月"
         return "解锁 Pro · \(product.displayPrice) / \(period)"
+    }
+
+    private var productLoadingMessage: String {
+        let message = subscriptionManager.errorMessage ?? "暂时无法加载订阅方案"
+        #if DEBUG && targetEnvironment(simulator)
+        if message == "模拟器未注入商店配置，无法购买。请点下方「模拟器解锁 Pro」。" {
+            return "模拟器未注入商店配置，当前无法购买。请配置商店后重新加载订阅方案。"
+        }
+        #endif
+        return message
     }
 
     private var legalSection: some View {
@@ -290,18 +325,41 @@ struct SubscriptionView: View {
     }
 
     #if DEBUG && targetEnvironment(simulator)
+    @ViewBuilder
     private var simulatorUnlockSection: some View {
-        Button(subscriptionManager.isDebugPremiumPersisted ? "关闭模拟器 Pro" : "模拟器解锁 Pro") {
-            subscriptionManager.setDebugPremiumUnlocked(!subscriptionManager.isDebugPremiumPersisted)
-            dismiss()
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            if ProcessInfo.processInfo.arguments.contains(SubscriptionManager.forceNonPremiumArgument) {
+                Text("当前为强制免费评审，无法在此解锁 Pro。")
+            } else if ProcessInfo.processInfo.arguments.contains(SubscriptionManager.forcePremiumArgument) {
+                Text("当前为强制 Pro 评审，无法在此切换会员状态。")
+            } else if !authState.isLoggedIn {
+                Text("模拟器解锁 Pro 需先登录。")
+                Button("登录") { showLogin = true }
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("subscription.simulatorLogin")
+            } else if subscriptionManager.isPremium &&
+                        (!subscriptionManager.isDebugPremiumPersisted || !subscriptionManager.purchasedProductIDs.isEmpty) {
+                Text("当前已是 Pro 会员，无需模拟器解锁。")
+            } else {
+                Button(subscriptionManager.isPremium ? "关闭模拟器 Pro" : "模拟器解锁 Pro") {
+                    subscriptionManager.setDebugPremiumUnlocked(!subscriptionManager.isPremium)
+                    dismiss()
+                }
+                .frame(minHeight: 44)
+                .accessibilityIdentifier(subscriptionManager.isPremium
+                                         ? "simulatorLockProButton" : "simulatorUnlockProButton")
+            }
         }
         .font(.btFootnote)
         .foregroundStyle(.btTextSecondary)
-        .frame(minHeight: 44)
-        .accessibilityIdentifier(subscriptionManager.isDebugPremiumPersisted
-                                 ? "simulatorLockProButton" : "simulatorUnlockProButton")
+        .fixedSize(horizontal: false, vertical: true)
     }
     #endif
+
+    private func reloadProducts() async {
+        await subscriptionManager.retryLoadProducts()
+        selectAvailableProduct()
+    }
 
     private func selectAvailableProduct() {
         guard !subscriptionManager.products.contains(where: { $0.id == selectedProductID }) else { return }
@@ -310,7 +368,7 @@ struct SubscriptionView: View {
     }
 
     private func handlePurchase() async {
-        guard let product = subscriptionManager.products.first(where: { $0.id == selectedProductID }) else { return }
+        guard let product = selectedProduct else { return }
         if await subscriptionManager.purchase(product) { dismiss() }
         else if subscriptionManager.errorMessage != nil { showPurchaseErrorAlert = true }
     }

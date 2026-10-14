@@ -1,0 +1,24 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "动作库"
+    },
+    {
+      "action": "tap",
+      "id": "badgeFilterMenu",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "球种",
+      "kind": "text"
+    },
+    {
+      "action": "snapshot",
+      "name": "P14-filter-menu",
+      "entry": "library/filter-menu"
+    }
+  ]
+}

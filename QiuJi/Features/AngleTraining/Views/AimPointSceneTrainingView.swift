@@ -758,6 +758,7 @@ struct AimPointSceneTrainingView: View {
     @ViewBuilder private var sceneFullscreen: some View {
         if scenePrepared {
             AngleSceneView(scene: vm.scene, cameraMode: .constant(cameraMode),
+                pocketDisplayOrientation: .init(portrait: portrait),
                 interactionMode: canAim ? (is3D ? .cameraControl : .tapsOnly) : .none,
                 autoFitsLandscapeTable: !is3D, backgroundColor: is3D ? .black : .clear,
                 onPocketTapped: nil,

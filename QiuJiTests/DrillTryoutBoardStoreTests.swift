@@ -7,6 +7,7 @@
 //
 
 import XCTest
+import SceneKit
 @testable import QiuJi
 
 final class DrillTryoutBoardStoreTests: XCTestCase {
@@ -142,9 +143,9 @@ final class DrillTryoutBoardStoreTests: XCTestCase {
             DrillTryoutBoardStore.formations(for: "drill_c042")
                 .first(where: { $0.token == "manual02" }))
 
-        let lines = DrillTryoutBrief.lines(for: drill, formation: formation)
+        let lines = DrillTryoutBrief.lines(for: drill, formation: formation, orientation: .portrait)
         let goal = try XCTUnwrap(lines.first(where: { $0.label == "局面目标" }))
-        XCTAssertTrue(goal.text.contains("左侧中袋"), "袋口应取序列首杆 topCenter（DR-063 portrait）")
+        XCTAssertTrue(goal.text.contains("左中袋"), "袋口应取序列首杆 topCenter 的竖桌方位")
         XCTAssertTrue(goal.text.contains("共 5 杆"), "杆数应取序列 stepCount")
 
         let ref = try XCTUnwrap(lines.first(where: { $0.label == "参考打法" }))
@@ -157,12 +158,70 @@ final class DrillTryoutBoardStoreTests: XCTestCase {
         let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c042")
         let drill = try XCTUnwrap(loaded)
         let shot = try XCTUnwrap(drill.shotIntent?.shots.first)
-        let lines = DrillTryoutBrief.lines(for: drill)
+        let lines = DrillTryoutBrief.lines(for: drill, orientation: .portrait)
         let goal = try XCTUnwrap(lines.first(where: { $0.label == "局面目标" }))
-        XCTAssertEqual(goal.text, "把目标球打进\(PocketDisplay.name(id: shot.pocket))",
+        XCTAssertEqual(goal.text, "把目标球打进\(PocketDisplay.name(id: shot.pocket, orientation: .portrait))",
                        "单杆且无 formation 时应直接使用根级 shotIntent 袋口")
         let reference = try XCTUnwrap(lines.first(where: { $0.label == "参考打法" }))
         XCTAssertEqual(reference.text, DrillTryoutBrief.referenceText(for: shot),
                        "无 formation 时参考打法应来自根级 shotIntent")
+    }
+}
+
+
+@MainActor
+final class PocketDisplayTests: XCTestCase {
+    /// 从实际相机坐标推导屏幕方位，避免用第二份名称数组验证第一份数组。
+    func testNamesMatchBothActualTopDownCameraProjections() {
+        let camera = SCNNode()
+        camera.camera = SCNCamera()
+        let rig = CameraRig(cameraNode: camera, tableSurfaceY: 0)
+        for orientation in PocketDisplay.Orientation.allCases {
+            if orientation == .portrait { rig.applyTopDown2DRotated() }
+            else { rig.applyTopDown2D() }
+            for (index, pocket) in AngleSceneCalculator.pocketPositions(surfaceY: 0).enumerated() {
+                let point = camera.convertPosition(pocket, from: nil)
+                let horizontal = point.x < 0 ? "左" : "右"
+                let vertical = point.y > 0 ? "上" : "下"
+                let expected = index < 4 ? horizontal + vertical + "角袋"
+                    : (orientation == .portrait ? horizontal : vertical) + "中袋"
+                XCTAssertEqual(PocketDisplay.name(index: index, orientation: orientation), expected)
+            }
+        }
+    }
+
+    func testPerspectiveKeepsLast2DReferenceAndRotationUpdatesIt() {
+        let scene = AngleTrainingScene()
+        scene.setCameraMode(.topDown2D)
+        scene.setCameraMode(.perspective3D)
+        XCTAssertEqual(scene.pocketDisplayOrientation, .landscape)
+        scene.setCameraMode(.topDown2DRotated)
+        scene.setCameraMode(.perspective3D)
+        XCTAssertEqual(scene.pocketDisplayOrientation, .portrait)
+        // 页面在 3D 中旋转也要刷新参考方向，镜头转动不参与命名。
+        scene.pocketDisplayOrientation = .landscape
+        scene.setCameraMode(.perspective3D)
+        XCTAssertEqual(scene.pocketDisplayOrientation, .landscape)
+    }
+
+    func testBriefRotatesNameWithoutChangingSelectedPocket() async throws {
+        let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c042")
+        let drill = try XCTUnwrap(loaded)
+        let formation = try XCTUnwrap(DrillTryoutBoardStore.formations(for: "drill_c042").first)
+        let id = try XCTUnwrap(formation.firstShot?.pocket)
+        XCTAssertEqual(id, "topCenter")
+        for (orientation, expected) in [(PocketDisplay.Orientation.landscape, "上中袋"), (.portrait, "左中袋")] {
+            let lines = DrillTryoutBrief.lines(for: drill, formation: formation, orientation: orientation)
+            XCTAssertTrue(try XCTUnwrap(lines.first { $0.label == "局面目标" }).text.contains(expected))
+            XCTAssertEqual(formation.firstShot?.pocket, id)
+        }
+    }
+
+    func testInvalidPocketNeverProducesNumberedLabel() {
+        for orientation in PocketDisplay.Orientation.allCases {
+            XCTAssertEqual(PocketDisplay.name(index: -1, orientation: orientation), "—")
+            XCTAssertEqual(PocketDisplay.name(index: 6, orientation: orientation), "—")
+            XCTAssertEqual(PocketDisplay.name(id: "unknown", orientation: orientation), "—")
+        }
     }
 }

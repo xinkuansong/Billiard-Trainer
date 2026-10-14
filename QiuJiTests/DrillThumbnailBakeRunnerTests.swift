@@ -40,18 +40,32 @@ final class DrillThumbnailBakeRunnerTests: XCTestCase {
     func test_bakeAllThumbnails() async throws {
         try BakeRunnerGate.skipUnlessEnabled("test_bakeAllThumbnails")
         let fm = FileManager.default
-        try? fm.createDirectory(atPath: outputDir, withIntermediateDirectories: true)
+
+        struct Request: Decodable {
+            let outputDirectory: String
+            let drillIDs: [String]?
+        }
+        let requestURL = BakeRunnerGate.repositoryRoot.appendingPathComponent("build/thumbnail-bake-request.json")
+        let request = fm.fileExists(atPath: requestURL.path)
+            ? try JSONDecoder().decode(Request.self, from: Data(contentsOf: requestURL)) : nil
+        let outputDir = request?.outputDirectory ?? self.outputDir
+        try fm.createDirectory(atPath: outputDir, withIntermediateDirectories: true)
 
         guard let index = await DrillContentService.shared.loadDrillIndex() else {
             XCTFail("无法加载 Drills/index.json")
             return
         }
-        let ids = index.allDrillIds
+        let ids = request?.drillIDs ?? index.allDrillIds
         XCTAssertFalse(ids.isEmpty, "index.allDrillIds 为空")
+        guard Set(ids).isSubset(of: Set(index.allDrillIds)) else {
+            XCTFail("缩略图请求含未上架动作")
+            return
+        }
 
         var ok = 0
         var failed: [String] = []
         var sourceLog: [String] = []
+        var layouts: [[String: Any]] = []
         for id in ids {
             guard let drill = await DrillContentService.shared.loadDrillFromBundle(id: id) else {
                 failed.append("\(id)(load)")
@@ -61,25 +75,43 @@ final class DrillThumbnailBakeRunnerTests: XCTestCase {
                 sourceLog.append(
                     "\(id) token=\(src.token.isEmpty ? "legacy" : src.token) kind=\(src.kind.rawValue) balls=\(src.board.onTable.count)"
                 )
+                let radius = Double(AngleSceneCalculator.ballRadius)
+                    * Double(DrillStaticPreview.Options.thumbnail.ballScale) / Double(AngleSceneCalculator.innerLength)
+                let adjusted = try ThumbnailBallLayout.resolve(src.board.onTable, radius: radius)
+                let balls = src.board.onTable.keys.sorted().map { key -> [String: Any] in
+                    let old = src.board.onTable[key]!, new = adjusted[key]!
+                    return ["key": key, "before": [old.x, old.y], "after": [new.x, new.y]]
+                }
+                layouts.append(["id": id, "radius": radius, "balls": balls])
             } else {
                 sourceLog.append("\(id) token=? kind=unresolved")
             }
-            guard let image = DrillThumbnailRenderer.render(drill: drill),
-                  let png = image.pngData(), png.count > 4_000 else {
+            let png = autoreleasepool { () -> Data? in
+                guard let image = DrillThumbnailRenderer.render(drill: drill) else { return nil }
+                XCTAssertEqual(image.size.width * image.scale, 640)
+                XCTAssertEqual(image.size.height * image.scale, 320)
+                return image.pngData()
+            }
+            guard let png, png.count > 4_000 else {
                 failed.append("\(id)(render)")
                 continue
             }
             let path = "\(outputDir)/\(id).png"
-            if (try? png.write(to: URL(fileURLWithPath: path))) != nil {
+            do {
+                try png.write(to: URL(fileURLWithPath: path))
                 ok += 1
-            } else {
-                failed.append("\(id)(write)")
+            } catch {
+                failed.append("\(id)(write: \(error.localizedDescription))")
             }
         }
 
         print("THUMB-BAKE done: \(ok)/\(ids.count) written to \(outputDir)")
         for line in sourceLog { print("THUMB-SRC \(line)") }
         if !failed.isEmpty { print("THUMB-BAKE failures: \(failed.joined(separator: ", "))") }
+        if request != nil {
+            let data = try JSONSerialization.data(withJSONObject: layouts, options: [.prettyPrinted, .sortedKeys])
+            try data.write(to: URL(fileURLWithPath: outputDir).appendingPathComponent("layout-report.json"))
+        }
         XCTAssertTrue(failed.isEmpty, "缩略图烘焙失败：\(failed.joined(separator: ", "))")
     }
 

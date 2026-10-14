@@ -1,0 +1,31 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_学"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "旋转与加塞",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "旋转与加塞"
+    },
+    {
+      "action": "cover",
+      "name": "P18-17-default",
+      "entry": "practice/学/旋转与加塞",
+      "maximumViews": 40
+    }
+  ]
+}

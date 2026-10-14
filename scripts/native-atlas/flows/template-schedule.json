@@ -1,0 +1,26 @@
+{
+  "fixture": "templateOnly",
+  "premium": true,
+  "steps": [
+    {
+      "action": "tap",
+      "id": "我的模版",
+      "scrollTo": 4
+    },
+    {
+      "action": "tap",
+      "id": "管理模版，赛前热身",
+      "scrollTo": 4
+    },
+    {
+      "action": "tap",
+      "id": "加入今日安排"
+    },
+    {
+      "action": "cover",
+      "name": "P02-01-template-scheduled",
+      "entry": "training/my-templates; original templateOnly fixture",
+      "maximumViews": 40
+    }
+  ]
+}

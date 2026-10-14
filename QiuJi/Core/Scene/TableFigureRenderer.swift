@@ -58,6 +58,12 @@ enum TableFigureRenderer {
     }
 
     private static var cache: [String: Backdrop] = [:]
+    private static var recent: [String] = []
+    static let cacheCapacity = 8
+    static let cacheByteBudget = 24 * 1024 * 1024
+    private static var costs: [String: Int] = [:]
+    static func resetCache() { cache.removeAll(); recent.removeAll(); costs.removeAll() }
+
 
     /// 渲染（或取缓存）空台底图。`aspect` = 目标视图宽高比（决定取景与图像比例）。
     ///
@@ -76,7 +82,11 @@ enum TableFigureRenderer {
             key += String(format: "-c%.3f,%.3f,%.3f",
                           closeup.center.x, closeup.center.y, closeup.halfHeight)
         }
-        if let hit = cache[key] { return hit }
+        key += "-\(heightPoints)-\(scale)"
+        if let hit = cache[key] {
+            recent.removeAll { $0 == key }; recent.append(key)
+            return hit
+        }
 
         guard let device = MTLCreateSystemDefaultDevice() else { return nil }
 
@@ -124,7 +134,13 @@ enum TableFigureRenderer {
                                 orthoScale: CGFloat(rig.topDownOrthographicScale),
                                 aspect: aspect,
                                 center: center)
-        cache[key] = backdrop
+        let bytes = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
+        if bytes <= cacheByteBudget {
+            cache[key] = backdrop; costs[key] = bytes; recent.append(key)
+            while recent.count > cacheCapacity || costs.values.reduce(0, +) > cacheByteBudget {
+                let oldest = recent.removeFirst(); cache.removeValue(forKey: oldest); costs.removeValue(forKey: oldest)
+            }
+        }
         return backdrop
     }
 }

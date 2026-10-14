@@ -7,8 +7,9 @@ import SceneKit
 /// Magnification = larger meters→points scale inside the circle, not a bitmap
 /// crop. Layers are optional — pages only fill what the main scene already shows.
 struct BTAimCloseupHUD: View {
+    static let defaultDiameter: CGFloat = 128
     let snapshot: AimCloseupSnapshot
-    var diameter: CGFloat = 128
+    var diameter: CGFloat = BTAimCloseupHUD.defaultDiameter
 
     @ObservedObject private var prefs = UserPreferences.shared
 
@@ -155,7 +156,7 @@ struct BTAimCloseupOverlay: View {
     let snapshot: AimCloseupSnapshot?
     let sceneSize: CGSize
     var scene: AngleTrainingScene? = nil
-    var diameter: CGFloat = 128
+    var diameter: CGFloat = BTAimCloseupHUD.defaultDiameter
     var safeInsets: AimCloseupPlacement.SafeInsets = .aimWheelPage
     /// Column occupied by the aim wheel / thumb (loupe is pushed to the far side).
     var blockedSide: AimCloseupPlacement.Side? = .leading
@@ -163,6 +164,7 @@ struct BTAimCloseupOverlay: View {
     var protectsDailySight = false
     var frameInWindow: CGRect? = nil
     var placementBounds: CGRect? = nil
+    var protectedFramesInWindow: [CGRect] = []
     @State private var protectedPlacement: AimCloseupPlacement.ProtectedPlacement?
 
     @ObservedObject private var prefs = UserPreferences.shared
@@ -194,6 +196,8 @@ struct BTAimCloseupOverlay: View {
                 if protectsDailySight {
                     if let placement = dailyPlacement(snap) {
                         BTAimCloseupHUD(snapshot: snap, diameter: placement.diameter)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("瞄准特写").accessibilityIdentifier("aimCloseup.hud")
                             .position(placement.center)
                             .onAppear { protectedPlacement = placement }
                             .onChange(of: placement) { _, value in protectedPlacement = value }
@@ -226,7 +230,13 @@ struct BTAimCloseupOverlay: View {
     private func dailyPlacement(_ projected: AimCloseupSnapshot) -> AimCloseupPlacement.ProtectedPlacement? {
         guard let snapshot, let scene, let view = scene.closeupViewport else { return nil }
         let rect = DailyCloseupProjection.destinationRect(in: view, frameInWindow: frameInWindow)
-        let obstacles = DailyCloseupProjection.obstacles(snapshot: snapshot, scene: scene, view: view, destination: rect)
+        var obstacles = DailyCloseupProjection.obstacles(snapshot: snapshot, scene: scene, view: view, destination: rect)
+        if let frameInWindow {
+            // Both frames are screen points; convert once to this overlay's local stage.
+            obstacles.rectangles += protectedFramesInWindow.map {
+                $0.offsetBy(dx: -frameInWindow.minX, dy: -frameInWindow.minY)
+            }
+        }
         let norm = projected.focusNorm ?? CGPoint(x: 0.5,y: 0.5)
         let tableBounds = scene.currentCameraMode == .topDown2D
             ? DailyCloseupProjection.topDownPlayingRect(scene:scene,view:view,destination:rect) : placementBounds
@@ -273,4 +283,10 @@ struct AimCloseupSnapshot: Equatable {
 struct AimCloseupSegment: Equatable {
     var start: CGPoint
     var end: CGPoint
+}
+
+/// Measured chrome rectangles, in global screen points, that a loupe must avoid.
+struct BTCloseupProtectedFramesKey: PreferenceKey {
+    static var defaultValue: [CGRect] = []
+    static func reduce(value: inout [CGRect], nextValue: () -> [CGRect]) { value += nextValue() }
 }

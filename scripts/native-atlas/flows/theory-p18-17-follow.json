@@ -1,0 +1,41 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_学"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "旋转与加塞",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "旋转与加塞"
+    },
+    {
+      "action": "tap",
+      "id": "前旋",
+      "scrollTo": 8
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-17-follow-selected"
+    },
+    {
+      "action": "cover",
+      "name": "P18-17-follow-body",
+      "maximumViews": 60,
+      "dragX": 0.97,
+      "entry": "practice/学/P18-17/前旋"
+    }
+  ]
+}

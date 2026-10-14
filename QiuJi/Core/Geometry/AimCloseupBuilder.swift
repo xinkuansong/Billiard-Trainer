@@ -34,6 +34,19 @@ enum AimCloseupBuilder {
         var isNear: Bool
     }
 
+    /// A solved contact already drawn by the main scene. XZ metres, no new
+    /// pocket or ideal-direction layer; reject non-tangent/stale scene data.
+    static func solvedContact(cue: CGPoint, target: CGPoint, ghost: CGPoint,
+                              number: Int?, ballRadius r: CGFloat, incoming: AimCloseupSegment? = nil) -> AimCloseupSnapshot? {
+        let distance = hypot(target.x - ghost.x, target.y - ghost.y)
+        guard distance.isFinite, abs(distance - 2 * r) < 0.0001 else { return nil }
+        let contact = CGPoint(x: (target.x + ghost.x) / 2, y: (target.y + ghost.y) / 2)
+        return AimCloseupSnapshot(band: .contact, focus: target, ballRadius: r,
+            halfWorld: r * halfWorldMultiple, targetBallNumber: number,
+            aimLine: incoming ?? .init(start: cue, end: ghost), ghost: ghost,
+            ghostShowsAimPoint: false, contactMarker: contact)
+    }
+
     /// Free-aim closeup: focus = first ball the aim corridor hits; if none is hit,
     /// the nearest **near-band** ball being skimmed (offset < 3R/3.5R) is framed and
     /// captioned 「打空」. `railEnd` = aim line end when nothing is contacted.

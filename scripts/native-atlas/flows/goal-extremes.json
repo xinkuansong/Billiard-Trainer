@@ -1,0 +1,39 @@
+{
+  "fixture": "empty",
+  "sourceBaseline": "f75cbafd",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "tap",
+      "id": "训练目标",
+      "kind": "buttonContains",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "训练目标",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "tap",
+      "id": "1 天",
+      "scrollTo": 5
+    },
+    {
+      "action": "snapshot",
+      "name": "P26-goal-one"
+    },
+    {
+      "action": "tap",
+      "id": "7 天",
+      "scrollTo": 5
+    },
+    {
+      "action": "snapshot",
+      "name": "P26-goal-seven"
+    }
+  ]
+}

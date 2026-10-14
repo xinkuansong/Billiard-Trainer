@@ -319,6 +319,44 @@ final class DailyStandardQuizEditorUITests: XCTestCase {
         app.buttons["batch.more"].tap()
         XCTAssertFalse(card.exists, "Opening another panel closes the spin panel")
         closeRootMenu()
+        // Exercise the adopted preview and the recorded-sequence lifecycle without writing an archive.
+        app.buttons["batch.more"].tap()
+        let closeup = revealMenuItem("menu.aimCloseup")
+        if closeup.value as? String != "已选" { closeup.tap() } else { closeRootMenu() }
+        let target = element("batch.ball._1")
+        XCTAssertTrue(target.exists)
+        target.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let strike = app.buttons["batch.strike"]
+        func awaitEnabled(_ button: XCUIElement) {
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "exists == true AND enabled == true"), object: button)], timeout: 90), .completed)
+        }
+        awaitEnabled(strike)
+        XCTContext.runActivity(named: "Batch closeup during a held real aim gesture") { _ in
+            let wheel = element("shotStage.aimWheel")
+            XCTAssertTrue(wheel.isHittable)
+            wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .press(forDuration: 0.1, thenDragTo: wheel.coordinate(
+                    withNormalizedOffset: CGVector(dx: 0.5, dy: 0.52)),
+                    withVelocity: .slow, thenHoldForDuration: 3)
+        }
+        awaitEnabled(strike)
+        try capture("batch-author-current-preview")
+        XCUIDevice.shared.press(.home); app.activate()
+        awaitEnabled(strike)
+        strike.tap()
+        let rehit = app.buttons["batch.rehit"]
+        awaitEnabled(rehit)
+        try capture("batch-author-recorded-shot")
+        let settledCue = ballWorld("cueBall")
+        app.buttons["batch.more"].tap()
+        let playback = revealMenuItem("batch.playSequence")
+        XCTAssertTrue(playback.isEnabled); playback.tap()
+        XCUIDevice.shared.press(.home); app.activate()
+        awaitEnabled(strike)
+        XCTAssertEqual(ballWorld("cueBall").x, settledCue.x, accuracy: 0.000001)
+        XCTAssertEqual(ballWorld("cueBall").y, settledCue.y, accuracy: 0.000001)
+        try capture("batch-author-background-restored")
         app.buttons["batch.back"].tap()
         XCTAssertTrue(plus.waitForExistence(timeout: 8))
         if UIDevice.current.userInterfaceIdiom != .pad { rotate(.portrait) }

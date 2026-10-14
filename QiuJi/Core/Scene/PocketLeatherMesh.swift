@@ -192,6 +192,11 @@ extension PocketLeatherMesh {
     private static let layoutLock = NSLock()
     private static var cachedRegions: [CachedRegion]?
 
+    static func resetCache() {
+        layoutLock.lock(); defer { layoutLock.unlock() }
+        cachedRegions = nil
+    }
+
     static func cachedExtraction(from table: SCNNode, centers: [SCNVector3]) throws -> Extraction {
         layoutLock.lock()
         defer { layoutLock.unlock() }

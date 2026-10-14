@@ -1,0 +1,59 @@
+{
+  "fixture": "empty",
+  "premium": false,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "动作库"
+    },
+    {
+      "action": "tap",
+      "id": "sidebar_杆法"
+    },
+    {
+      "action": "tap",
+      "id": "levelFilter_中级"
+    },
+    {
+      "action": "tap",
+      "id": "drillCard_drill_c018",
+      "kind": "any",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "unlockProButton"
+    },
+    {
+      "action": "cover",
+      "name": "P15-c018-locked",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "unlockProButton"
+    },
+    {
+      "action": "wait",
+      "id": "subscription.close"
+    },
+    {
+      "action": "snapshot",
+      "name": "P29-from-drill-locked"
+    }
+  ],
+  "catalog": {
+    "P15-c018-locked": {
+      "id": "APP/P15-01",
+      "title": "Pro动作详情",
+      "state": "c018-locked-preview",
+      "figmaPage": "20"
+    },
+    "P29-from-drill-locked": {
+      "id": "APP/P29-01",
+      "title": "购买订阅",
+      "state": "from-drill-locked",
+      "figmaPage": "60"
+    }
+  }
+}

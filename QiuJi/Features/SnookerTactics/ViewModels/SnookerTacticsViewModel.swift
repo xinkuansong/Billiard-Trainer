@@ -39,13 +39,41 @@ final class SnookerTacticsViewModel: TeachingTableHost {
     }
     // Defense has no pocket-selection business operation.
     func selectPocket(at index: Int) {}
+    var solvedContactCloseup: AimCloseupSnapshot? {
+        guard canStrike, let solution = currentSolution else { return nil }
+        return solvedContactCloseup(for: solution.prediction)
+    }
+
+    private var playbackGeneration = 0
+    private var activitySuspended = false
+    private var resumeAdjustment = false
+    private var resumeSolve = false
+    func resumeTeachingActivity() {
+        guard activitySuspended else { return }
+        activitySuspended = false
+        if resumeAdjustment { resumeAdjustment = false; adjustCurrentSolution() }
+        else if resumeSolve { resumeSolve = false; solve() }
+        else { redrawTrajectory() }
+    }
+
     func stopForDismissal() {
+        guard !activitySuspended else { return }
+        activitySuspended = true
+        playbackGeneration += 1
+        resumeAdjustment = isAdjustingSolution
+        resumeSolve = isComputing && !isAdjustingSolution
+        let interruptedPlayback = isPlaying
         solveGeneration += 1
         endTemporaryTopDown()
         scene.rootNode.removeAllActions()
         scene.allBallNodes.values.forEach { $0.removeAllActions() }
-        ShotAudioScheduler.shared.cancel()
+        if interruptedPlayback { ShotAudioScheduler.shared.cancel() }
+        scene.hideCueStick()
+        scene.railInventory.cancelPlayback()
+        isDragging = false
+        isComputing = false
         isPlaying = false
+        if interruptedPlayback, let context = lastShotContext { restore(from: context) }
     }
 
 
@@ -158,6 +186,13 @@ final class SnookerTacticsViewModel: TeachingTableHost {
     // candidate. `currentSolution` = draft ?? catalog. adjust → Drafted (further tweak on draft);
     // nextSolution / showSolution / invalidate / solve → Clean (draft discarded).
 
+    @Published private(set) var informationEvent = PlanningInformationEvent(kind: .context, text: "")
+    var isSolutionAdjusted: Bool { adjustmentDraft != nil }
+    private func setStatus(_ text: String, kind: PlanningInformationEvent.Kind = .context, displayText: String? = nil) {
+        statusText = text
+        informationEvent = PlanningInformationEvent(kind: kind, text: displayText ?? text)
+    }
+
     private var adjustmentDraft: PositionPlaySolution?
 
     var currentSolution: PositionPlaySolution? {
@@ -166,7 +201,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
     }
     var hasSolutions: Bool { !solutions.isEmpty }
     var canStrike: Bool {
-        !temporaryTopDownActive && !isPlaying && !isComputing && (currentSolution?.prediction.feasible ?? false)
+        !activitySuspended && !temporaryTopDownActive && !isPlaying && !isComputing && adjustmentIsValid && (currentSolution?.prediction.feasible ?? false)
             && (currentSolution?.prediction.hasFinalTableState ?? false)
             && (currentSolution?.prediction.duration ?? 0) > 0.05
     }
@@ -174,7 +209,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
     // MARK: - Published tool state
 
     @Published var activeTool: Tool = .none {
-        didSet { if oldValue != activeTool { statusText = toolHint() } }
+        didSet { if oldValue != activeTool && informationEvent.kind != .failure { setStatus(toolHint())} }
     }
 
     // MARK: - Internals
@@ -194,7 +229,13 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         scene.cameraRig?.enterAiming(cueBallPosition: cue.position, targetDirection: aim)
     }
     private let solveQueue = DispatchQueue(label: "com.qiuji.snooker-solve", qos: .userInitiated)
-    private var solveGeneration = 0
+    private var solveWork: DispatchWorkItem?
+    private let adjustmentScheduler = LatestPredictionScheduler<ShotPrediction?>()
+    @Published private(set) var isAdjustingSolution = false
+    private var adjustmentIsValid = true
+    private var solveGeneration = 0 {
+        didSet { solveWork?.cancel(); solveWork = nil; adjustmentScheduler.invalidate(); isAdjustingSolution = false }
+    }
     private var surfaceY: Float { scene.surfaceY }
 
     // MARK: - Last shot（G17：上一杆完整恢复 / 回放）
@@ -425,7 +466,8 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         guard !isPlaying, onTableKeys.contains(key), !PositionPlayBall.isCue(key) else { return }
         guard activeTool == .selectTarget else { return }
         guard Self.canTarget(key, onTable: onTableKeys) else {
-            statusText = "台面同时有全色与花色，不能选 8 号做目标球（须先清完本方组）"
+            setStatus("台面同时有全色与花色，不能选 8 号做目标球（须先清完本方组）", kind: .failure,
+                displayText: "当前不能选8号，请先清完本方球组")
             return
         }
         selectedTargetKey = key
@@ -437,7 +479,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         selectedTargetKey = nil
         refreshOverlays()
         invalidateSolutions()
-        statusText = toolHint()
+        setStatus(toolHint())
     }
 
     // MARK: - Solve (background)
@@ -452,7 +494,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         scene.hideCueStick()
         resetParamDisplay()
         refreshOverlays()
-        statusText = canSolve ? readyHint() : toolHint()
+        setStatus(canSolve ? readyHint() : toolHint())
     }
 
     private func resetParamDisplay() {
@@ -462,12 +504,12 @@ final class SnookerTacticsViewModel: TeachingTableHost {
     func solve() {
         guard !isPlaying else { return }
         guard let targetKey = selectedTargetKey else {
-            statusText = needsSetupHint()
+            setStatus(needsSetupHint(), kind: .failure)
             return
         }
         let opponents = opponentKeys
         guard !opponents.isEmpty else {
-            statusText = "没有需要隐藏的对方球（对方球组已空）"
+            setStatus("没有需要隐藏的对方球（对方球组已空）", kind: .failure)
             return
         }
         let before = currentSnapshot()
@@ -477,11 +519,11 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         solveGeneration += 1
         let gen = solveGeneration
         isComputing = true
-        statusText = "求解中…"
+        setStatus("求解中…", kind: .busy)
         clearTrajectory()
         scene.hideCueStick()
 
-        solveQueue.async { [weak self] in
+        let work = DispatchWorkItem { [weak self] in
             let result = PositionPlaySolver.solveSnooker(
                 before: before, targetKey: targetKey, opponentKeys: opponents,
                 surfaceY: y, params: params)
@@ -492,7 +534,8 @@ final class SnookerTacticsViewModel: TeachingTableHost {
                 self.currentIndex = 0
                 self.adjustmentDraft = nil
                 if result.isEmpty {
-                    self.statusText = "未找到可行防守解（母球难以合法碰目标球并停稳；试着移动母球/目标球）"
+                    self.setStatus("未找到可行防守解（母球难以合法碰目标球并停稳；试着移动母球/目标球）", kind: .failure,
+                        displayText: "未找到防守解，试着移动母球或目标球")
                     self.resetParamDisplay()
                     self.refreshOverlays()
                 } else {
@@ -500,6 +543,8 @@ final class SnookerTacticsViewModel: TeachingTableHost {
                 }
             }
         }
+        solveWork = work
+        solveQueue.async(execute: work)
     }
 
     // MARK: - Solution display
@@ -520,6 +565,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
     private func showSolution(at index: Int) {
         guard solutions.indices.contains(index) else { return }
         adjustmentDraft = nil
+        adjustmentIsValid = true
         presentDisplayedSolution(solutions[index])
     }
 
@@ -529,18 +575,19 @@ final class SnookerTacticsViewModel: TeachingTableHost {
             clearTrajectory()
             scene.hideCueStick()
             lastAimDirection = nil
-            statusText = "本次模拟未完成，请调整击球参数后重试"
+            setStatus("本次模拟未完成，请调整击球参数后重试", kind: .failure)
             return false
         }
         return true
     }
 
     private func presentDisplayedSolution(_ sol: PositionPlaySolution) {
+        adjustmentIsValid = sol.prediction.hasFinalTableState
         guard acceptCompletePrediction(sol.prediction) else { return }
         velocity = sol.shot.velocity
         spinX = sol.shot.spinX
         spinY = sol.shot.spinY
-        statusText = solutionStatus(sol)
+        setStatus(solutionStatus(sol), kind: .solution)
         drawTrajectory(sol.prediction, shot: sol.shot)
         updateCueStickAiming(sol.prediction)
         refreshOverlays()
@@ -688,7 +735,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
               let aim = lastAimDirection ?? aimDirection(path: sol.prediction.cuePath, from: cueNode.position)
         else { return }
         guard scene.permitsCueStrike(aim:aim,spinX:spinX,spinY:spinY) else {
-            statusText = CueStrikeAccess.unavailableMessage
+            setStatus(CueStrikeAccess.unavailableMessage, kind: .failure)
             return
         }
 
@@ -697,8 +744,9 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         canUndoShot = false
         canPlayback = false
 
+        playbackGeneration += 1
         isPlaying = true
-        statusText = "运杆…"
+        setStatus("运杆…", kind: .busy)
         scene.clearResultNodes(nodes: &overlayNodes)
         let strikePos = strikePosition(cue: cueNode.position)
         let clearancePlayback = TrajectoryPlayback(
@@ -708,7 +756,8 @@ final class SnookerTacticsViewModel: TeachingTableHost {
             strikePosition: strikePos, aim: aim, velocity: Float(sol.shot.velocity),
             switchesPlayerCameraOnContact: true,
             clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
-        ) { [weak self] in
+        ) { [weak self, generation = playbackGeneration] in
+            guard self?.playbackGeneration == generation else { return }
             self?.launchBalls(sol: sol, recorder: recorder)
         }
     }
@@ -716,14 +765,17 @@ final class SnookerTacticsViewModel: TeachingTableHost {
     /// 微调当前解（K13 草稿层，与 Silu 同契约）：正向重算写入 `adjustmentDraft`，不改 `solutions[]`。
     func adjustCurrentSolution(velocity v: Double? = nil,
                                spinX sx: Double? = nil, spinY sy: Double? = nil) {
-        guard !isPlaying, !isComputing else { return }
+        guard !activitySuspended, !isPlaying, (!isComputing || isAdjustingSolution) else { return }
         guard solutions.indices.contains(currentIndex) else { return }
         let catalog = solutions[currentIndex]
         let base = adjustmentDraft ?? catalog
         var shot = base.shot
-        if let v { shot.velocity = v }
-        if let sx { shot.spinX = sx }
-        if let sy { shot.spinY = sy }
+        shot.velocity = v ?? velocity
+        shot.spinX = sx ?? spinX
+        shot.spinY = sy ?? spinY
+        velocity = shot.velocity
+        spinX = shot.spinX
+        spinY = shot.spinY
         let before = currentSnapshot()
         let y = surfaceY
         let idx = currentIndex
@@ -731,16 +783,30 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         let satisfies = catalog.satisfiesConstraint
         let beyondCushion = catalog.beyondCushionBudget
         let beyondSpin = catalog.beyondSpinBudget
-        solveGeneration += 1
         let gen = solveGeneration
         isComputing = true
+        isAdjustingSolution = true
+        adjustmentIsValid = false
 
-        solveQueue.async { [weak self] in
-            let pred = PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y)
-            DispatchQueue.main.async {
+        adjustmentScheduler.submit(compute: {
+            PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y)
+        }, receive: { [weak self] pred, isLatest in
                 guard let self, self.solveGeneration == gen, !self.isPlaying else { return }
+                guard isLatest else {
+                    if let pred, pred.hasFinalTableState {
+                        self.drawTrajectory(pred, shot: shot)
+                    }
+                    return
+                }
                 self.isComputing = false
-                guard let pred, self.solutions.indices.contains(idx), self.currentIndex == idx else { return }
+                self.isAdjustingSolution = false
+                guard self.solutions.indices.contains(idx), self.currentIndex == idx else { return }
+                guard let pred else {
+                    self.clearTrajectory()
+                    self.scene.hideCueStick()
+                    self.setStatus("当前参数无完整预测，请调整后重试", kind: .failure)
+                    return
+                }
                 let drafted = PositionPlaySolution(
                     shot: shot, prediction: pred,
                     cushionCount: pred.cueCushionCount,
@@ -753,12 +819,12 @@ final class SnookerTacticsViewModel: TeachingTableHost {
                     difficultyScore: DifficultyModel.score(
                         spinX: shot.spinX, spinY: shot.spinY, velocity: shot.velocity),
                     difficultyTier: DifficultyModel.tier(spinX: shot.spinX, spinY: shot.spinY),
-                    beyondSpinBudget: beyondSpin
+                    beyondSpinBudget: beyondSpin, isBankFallback: catalog.isBankFallback
                 )
+                self.adjustmentIsValid = pred.hasFinalTableState
                 self.adjustmentDraft = drafted
                 self.presentDisplayedSolution(drafted)
-            }
-        }
+        })
     }
 
     /// 组装当前状态为「上一杆」完整上下文（击打前调用；`play()` 与单测共用同一处捕获逻辑）。
@@ -819,7 +885,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
                     difficultyScore: DifficultyModel.score(
                         spinX: snap.shot.spinX, spinY: snap.shot.spinY, velocity: snap.shot.velocity),
                     difficultyTier: DifficultyModel.tier(spinX: snap.shot.spinX, spinY: snap.shot.spinY),
-                    beyondSpinBudget: catalog.beyondSpinBudget
+                    beyondSpinBudget: catalog.beyondSpinBudget, isBankFallback: catalog.isBankFallback
                 )
                 presentDisplayedSolution(adjustmentDraft!)
             } else {
@@ -847,9 +913,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         canUndoShot = false
         canPlayback = false
         lastShotContext = nil
-        statusText = ctx.snapshot.solutions.isEmpty
-            ? "已退回上一杆击打前 · 可在桌面上重选目标球"
-            : "已退回上一杆击打前 · 球形/目标/解已还原"
+        setStatus("已退回上一杆击打前", kind: .feedback)
     }
 
     /// 回放上一杆击打过程：退回击打前重播动画，播完回到击打后局面。
@@ -861,11 +925,12 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         let after = currentSnapshot()
         replayAfterRails = scene.railInventory.snapshot()
         replayAfterPoses = scene.captureBallPoses()   // 回放不改变桌面真相，姿态也原样带回
+        playbackGeneration += 1
         isPlaying = true
         clearTrajectory()
         scene.clearResultNodes(nodes: &overlayNodes)
         scene.hideCueStick()
-        statusText = "回放上一杆…"
+        setStatus("回放上一杆…", kind: .busy)
 
         scene.hideAllBalls()
         for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
@@ -885,7 +950,8 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         scene.runCueStroke(
             strikePosition: strikePos, aim: aim, velocity: Float(snap.shot.velocity),
             clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
-        ) { [weak self] in
+        ) { [weak self, generation = playbackGeneration] in
+            guard self?.playbackGeneration == generation else { return }
             self?.runPlaybackAnimation(snapshot: snap, recorder: recorder, after: after)
         }
     }
@@ -909,9 +975,10 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         let tail: TimeInterval = snap.prediction.pocketedBalls.isEmpty
             ? 0 : TrajectoryPlayback.pocketSettleDuration + 0.1
         if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
-            cueNode.runAction(cueAction) { [weak self] in
+            cueNode.runAction(cueAction) { [weak self, generation = playbackGeneration] in
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: UInt64(tail * 1_000_000_000))
+                    guard self?.playbackGeneration == generation else { return }
                     self?.finishPlayback(after: after)
                 }
             }
@@ -939,11 +1006,11 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         lastShotContext = ctx
         canUndoShot = ctx != nil
         canPlayback = ctx != nil
-        statusText = "回放结束 · 球停在击打后局面"
+        setStatus("回放结束 · 球停在击打后局面", kind: .feedback)
     }
 
     private func launchBalls(sol: PositionPlaySolution, recorder: TrajectoryRecorder) {
-        statusText = "击球中…"
+        setStatus("击球中…", kind: .busy)
         clearTrajectory()
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel, railInventory: scene.railInventory)
@@ -961,9 +1028,10 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         let tail: TimeInterval = sol.prediction.pocketedBalls.isEmpty
             ? 0 : TrajectoryPlayback.pocketSettleDuration + 0.1
         if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
-            cueNode.runAction(cueAction) { [weak self] in
+            cueNode.runAction(cueAction) { [weak self, generation = playbackGeneration] in
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: UInt64(tail * 1_000_000_000))
+                    guard self?.playbackGeneration == generation else { return }
                     self?.finishStrike(sol: sol)
                 }
             }
@@ -1008,9 +1076,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         canPlayback = lastShotContext?.snapshot.prediction.recorder != nil
 
         let cueGone = cueScratched
-        statusText = cueGone
-            ? "母球进袋，已自动回台 · 继续规划下一杆"
-            : "已击打 · 母球停在终点，可在桌面上重选目标球再求解"
+        setStatus(cueGone ? "母球进袋，已自动回台" : "", kind: .feedback)
     }
 
     private func boardKey(forPredName name: String) -> String {

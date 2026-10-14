@@ -41,7 +41,6 @@ enum LoadRadarGeometry {
 enum LoadRadarCopy {
     /// On-screen section title. Contract / JSON still use “执行负荷”.
     static let sectionTitle = "难度画像"
-    static let sectionSubtitle = "这项动作难在哪"
 }
 
 struct BTLoadRadarChart: View {

@@ -278,8 +278,35 @@ final class BreakFlowRunner: ObservableObject {
 
     // MARK: - Break
 
+    private var lifecycleSuspended = false
+    private var interruptedRack: [String: BallRestState] = [:]
+    private var interruptedRails = PocketRailSnapshot()
+
+    /// A background transition is not a request to abandon the user's rack.
+    func suspendActivity() {
+        guard !lifecycleSuspended else { return }
+        lifecycleSuspended = true
+        let interrupted = isBusy
+        cancelPlayback(stopAudio: phase == .breaking)
+        if interrupted {
+            for (key, rest) in interruptedRack {
+                scene.showBall(key: key, scenePosition: rest.position, cuePose: .unchanged)
+                if let node = scene.allBallNodes[key] { BallSpinIntegrator.applyPose(node, rest.orientation) }
+            }
+            scene.railInventory.restore(interruptedRails)
+            phase = .racked
+            statusText = "开球已暂停 · 保留原球形与参数"
+        }
+    }
+
+    func resumeActivity() {
+        guard lifecycleSuspended else { return }
+        lifecycleSuspended = false
+        if phase == .racked { drawAimLine() }
+    }
+
     func breakNow() {
-        guard phase == .racked,
+        guard !lifecycleSuspended, phase == .racked,
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden else { return }
         let cuePos = cueNode.position
         let theRack = rack
@@ -297,6 +324,11 @@ final class BreakFlowRunner: ObservableObject {
         lastBreakSpin = (sx, sy)
         breakGeneration += 1
         let gen = breakGeneration
+        interruptedRack = Dictionary(uniqueKeysWithValues: allKeys.compactMap { key in
+            guard let node = scene.allBallNodes[key], !node.isHidden else { return nil }
+            return (key, BallRestState(node: node))
+        })
+        interruptedRails = scene.railInventory.snapshot()
         phase = .computing
         statusText = "开球计算中…"
         scene.clearResultNodes(nodes: &aimNodes)
@@ -480,8 +512,8 @@ final class BreakFlowRunner: ObservableObject {
         scene.hideCueStick()
     }
 
-    private func cancelPlayback() {
-        ShotAudioScheduler.shared.cancel()
+    private func cancelPlayback(stopAudio: Bool = true) {
+        if stopAudio { ShotAudioScheduler.shared.cancel() }
         breakGeneration += 1
         scene.hideCueStick()
         breakFinishTask?.cancel()

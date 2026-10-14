@@ -253,18 +253,35 @@ enum MobileReferenceLighting {
         return block + "#pragma declaration\n"
     }()
 
+    // Launch flags are immutable for this process. Build each shader once,
+    // rather than doing identical large string rewrites for every ball/material.
+    private static let cueSurface = makeBallSurface(stickerFinish: false)
+    private static let stickerSurface = makeBallSurface(stickerFinish: true)
+    private static func makeBallSurface(stickerFinish: Bool) -> String {
+        let roughness = stickerFinish ? stickerBallRoughness : 0.34
+        let surface = ballShader.replacingOccurrences(of: "float roughness=\(ballRoughness);", with: "float roughness=\(roughness);")
+        let colored = ballShaderArguments + surface.replacingOccurrences(
+            of: "float3 clothAlbedo=float3(0.0074764,0.1612358,0.0036536);",
+            with: "float3 clothAlbedo=selectedClothAlbedo;")
+        return trialShader(samplingShader(colored, profile: previewSamplingProfile))
+    }
+    private static let environmentImages = NSCache<NSString, UIImage>()
+    static func resetImageCache() { environmentImages.removeAllObjects() }
+    private static func environmentImage() -> UIImage? {
+        if let image = environmentImages.object(forKey: "rig") { return image }
+        guard let image = UIImage(data: environment) else { return nil }
+        environmentImages.countLimit = 1
+        environmentImages.setObject(image, forKey: "rig")
+        return image
+    }
+
     static func applyBall(to node: SCNNode, exposureOffset: CGFloat, stickerFinish: Bool = false,
                           probe: RoomReflectionProbe? = nil, profile: SpecializedProfile? = nil) {
         let probe = probe ?? RoomReflectionProbe.neutral
         func apply(_ node:SCNNode) {
             for m in node.geometry?.materials ?? [] {
                 m.lightingModel = .constant
-                let roughness = stickerFinish ? stickerBallRoughness : 0.34
-                let surface = ballShader.replacingOccurrences(of: "float roughness=\(ballRoughness);", with: "float roughness=\(roughness);")
-                let coloredSurface = ballShaderArguments + surface.replacingOccurrences(
-                    of: "float3 clothAlbedo=float3(0.0074764,0.1612358,0.0036536);",
-                    with: "float3 clothAlbedo=selectedClothAlbedo;")
-                m.shaderModifiers = [.surface:trialShader(samplingShader(coloredSurface, profile: previewSamplingProfile))]
+                m.shaderModifiers = [.surface: stickerFinish ? stickerSurface : cueSurface]
                 m.setValue(NSValue(scnVector3: ClothColor.green.linearAlbedo), forKey: "selectedClothAlbedo")
                 probe?.install(on: m, usesPrefilteredReflection: (profile ?? specializedProfile).usesReflection)
                 applyHighlightHeadroom(to: m, exposureOffset: exposureOffset)
@@ -291,7 +308,7 @@ enum MobileReferenceLighting {
             if node.light != nil { node.light?.intensity=0 }
         }
         // UIImage decodes the same RGBE data as the URL-based diagnostic.
-        scene.lightingEnvironment.contents=UIImage(data:environment)
+        scene.lightingEnvironment.contents=environmentImage()
         scene.lightingEnvironment.intensity=1
         for panel in rig.panels {
             let light = SCNLight(); light.type = .area; light.areaType = .rectangle

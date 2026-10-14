@@ -1,0 +1,135 @@
+{
+  "fixture": "single",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.startTraining",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "activeTraining.timerToggle",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "activeTraining.timerToggle",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P07-01-paused-plan",
+      "entry": "normal UI; existing in-memory fixture"
+    },
+    {
+      "action": "tap",
+      "id": "最小化训练",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "minimizedTraining.resume",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P01-01-minimized-plan",
+      "entry": "normal UI; existing in-memory fixture"
+    },
+    {
+      "action": "tap",
+      "id": "minimizedTraining.resume",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "activeTraining.timerToggle",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "activeTraining.more",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P07-01-menu",
+      "entry": "normal UI; existing in-memory fixture"
+    },
+    {
+      "action": "tap",
+      "id": "结束训练",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "结束",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P07-04-end-confirm",
+      "entry": "normal UI; existing in-memory fixture"
+    },
+    {
+      "action": "tap",
+      "id": "结束",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "trainingNote.dismissKeyboard",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "trainingNote.dismissKeyboard",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P08-01-empty-note",
+      "entry": "normal UI; existing in-memory fixture"
+    },
+    {
+      "action": "tap",
+      "id": "跳过",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "生成分享图",
+      "kind": "button"
+    },
+    {
+      "action": "cover",
+      "name": "P08-03-summary",
+      "entry": "normal UI; existing in-memory fixture",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "生成分享图",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "分享训练",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "cover",
+      "name": "P09-01-share",
+      "entry": "normal UI; existing in-memory fixture",
+      "maximumViews": 40
+    }
+  ],
+  "catalog": {
+    "P01-01-minimized-plan": {
+      "id": "APP/P01-01",
+      "title": "训练最小化胶囊",
+      "state": "minimized-plan",
+      "figmaPage": "10"
+    }
+  }
+}

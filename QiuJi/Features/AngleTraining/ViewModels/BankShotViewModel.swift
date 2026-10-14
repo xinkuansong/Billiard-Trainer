@@ -25,7 +25,7 @@ final class BankShotViewModel: ObservableObject {
     }
     private func finishGuideRefresh() {
         if cameraMode == .perspective3D && hides3DShotAssists {
-            (pathNodes + freeAimNodes).forEach { $0.isHidden = true }
+            (pathNodes + freeAimNodes + freePreviewNodes).forEach { $0.isHidden = true }
             scene.ghostBallNode?.isHidden = true
             scene.contactDotNode?.isHidden = true
         }
@@ -33,14 +33,30 @@ final class BankShotViewModel: ObservableObject {
         refreshObservationCameraContext()
     }
     func stopForDismissal() {
+        guard !activitySuspended else { return }
+        activitySuspended = true
+        resumeAdjustment = isAdjustingSolution
+        resumeSolve = isSolving && !isAdjustingSolution
         solveTask?.cancel()
         playbackFinishTask?.cancel()
         adjustGeneration += 1
         endTemporaryTopDown()
         scene.rootNode.removeAllActions()
         scene.allBallNodes.values.forEach { $0.removeAllActions() }
-        ShotAudioScheduler.shared.cancel()
+        if isPlaying { ShotAudioScheduler.shared.cancel() }
+        scene.hideCueStick()
+        scene.railInventory.cancelPlayback()
+        closeupGate.reset()
+        isSolving = false
+        isDragging = false
+        if isPlaying {
+            if mode == .free, let before = interruptedFreeBoard { applyBoard(before); scene.railInventory.restore(interruptedFreeRails) }
+            else if !strikeSnapshot.isEmpty { applyBoard(strikeSnapshot); scene.railInventory.restore(strikeRails) }
+        }
         isPlaying = false
+        freePreviewPrediction = nil
+        freePreviewKey = nil
+        scene.clearResultNodes(nodes: &freePreviewNodes)
     }
     var observationPocket: Int? { selectedPocket }
     var observationAim: SCNVector3? {
@@ -76,7 +92,7 @@ final class BankShotViewModel: ObservableObject {
     /// 打点（接触点偏移/R）：spinX +左/−右、spinY +高/−低。
     /// 自由模式：sheet 写入后刷新瞄准；求解模式：由 `adjustCurrentSolution` / `presentDisplayedSolution` 写入。
     @Published var spinX: Double = 0 { didSet { if mode == .free, !correctingCueSpin { refreshFreeAim() } } }
-    @Published var spinY: Double = 0
+    @Published var spinY: Double = 0 { didSet { if mode == .free, !correctingCueSpin { refreshFreeAim() } } }
     /// 自由模式首碰预览（纯几何，`AngleSceneCalculator.freeAimFirstContact`）；
     /// nil = 空杆（当前方向碰不到球）。
     @Published private(set) var freeAimContact: AngleSceneCalculator.FreeAimContact?
@@ -139,11 +155,16 @@ final class BankShotViewModel: ObservableObject {
 
     private var adjustmentDraft: BankEngineSolution?
     /// Fine-tune re-predict generation (discard stale async results).
-    private var adjustGeneration = 0
+    private let adjustmentScheduler = LatestPredictionScheduler<ShotPrediction>()
+    private var adjustmentIsValid = true
+    @Published private(set) var isAdjustingSolution = false
+    private var adjustGeneration = 0 {
+        didSet { adjustmentScheduler.invalidate(); isAdjustingSolution = false }
+    }
 
     var canRestoreSnapshot: Bool { lastSolveSnapshot != nil }
     var canFreeStrike: Bool {
-        mode == .free && !isPlaying && freeAimDir != nil
+        mode == .free && !isPlaying && freeAimDir != nil && freePreviewPrediction != nil && !activitySuspended
             && !(scene.cueBallNode?.isHidden ?? true)
     }
 
@@ -153,14 +174,12 @@ final class BankShotViewModel: ObservableObject {
         didSet {
             CushionReflectionSettings.power = Float(reflectionPower)
             if isRestoringSolve || isPresentingSolution { return }
-            if mode == .solve { recompute() }
+            if mode == .solve { recompute() } else { refreshFreeAim() }
         }
     }
 
     let cushionOptions = [1, 2, 3]
 
-    /// 各袋口名称（顺序同 pocketPositions；DR-063 portrait 屏幕系——本页 `topDown2DRotated`）。
-    let pocketNames = ["左下角", "左上角", "右下角", "右上角", "左侧中", "右侧中"]
 
     // MARK: - Obstacles（W4 球库带：拖入 = 真实碰撞体，方案 §4.3）
 
@@ -342,7 +361,7 @@ final class BankShotViewModel: ObservableObject {
     private static let snapshotCueKey = "__cue"
     private static let snapshotTargetKey = "__target"
 
-    var canStrike: Bool { !temporaryTopDownActive && hasSolution && !isPlaying && !isSolving && !isDragging }
+    var canStrike: Bool { !activitySuspended && !temporaryTopDownActive && hasSolution && adjustmentIsValid && !isPlaying && !isSolving && !isDragging }
 
     /// 求解模式「击打」= 演示：回放该解的引擎全保真 `ShotPrediction`（含母球碰后去向、
     /// 障碍球被扰动等全部真实物理），结束自动复原击打前球形。画面=物理=回放单一口径。
@@ -366,6 +385,7 @@ final class BankShotViewModel: ObservableObject {
               sol.prediction.hasFinalTableState, sol.prediction.recorder != nil, sol.prediction.duration > 0.05 else { return }
         solveTask?.cancel()
         isSolving = false
+        adjustGeneration += 1
         isPlaying = true
 
         strikeRails = scene.railInventory.snapshot()
@@ -382,7 +402,8 @@ final class BankShotViewModel: ObservableObject {
             aim: aim,
             velocity: Float(reflectionPower),
             switchesPlayerCameraOnContact: switchesPlayerCamera
-        ) { [weak self] in
+        ) { [weak self, generation = adjustGeneration] in
+            guard self?.adjustGeneration == generation else { return }
             self?.launchPlayback(sol)
         }
     }
@@ -585,6 +606,7 @@ final class BankShotViewModel: ObservableObject {
     /// 回求解触发 recompute——球形未变则命中解缓存直显（§4.1）。
     func toggleMode() {
         guard !isPlaying else { return }
+        adjustGeneration += 1
         if mode == .solve {
             solveTask?.cancel()
             isSolving = false
@@ -616,7 +638,7 @@ final class BankShotViewModel: ObservableObject {
 
     /// 自由模式瞄准相对调整（G13）：`delta > 0` = 屏幕顺时针。台面空白处拖动（`onAimNudged`）与
     /// 左缘刻度齿轮（`BTAimWheel`）共用本入口——均为对**当前**瞄准方向的增量旋转（第一落点只选中
-    /// 不转向由手势层保证）。自由模式为纯几何预览（`freeAimFirstContact`），本就不求解，不受 G14 影响。
+    /// 不转向由手势层保证）。自由模式先刷新几何提示，再由有界调度器计算完整物理预览。
     func nudgeFreeAim(byDegrees delta: Float) {
         guard mode == .free, !isPlaying, delta.isFinite, delta != 0 else { return }
         let base = freeAimDir ?? defaultFreeAim()
@@ -686,6 +708,81 @@ final class BankShotViewModel: ObservableObject {
 
     /// 刷新自由瞄准覆盖：瞄准线（至假想球 / 空杆至库边）+ 标准假想球（ghostBallNode）+ 接触点 + 球杆摆位；
     /// 首碰胶囊数据走 `freeAimFirstContact`（纯几何，方案 §1.3）。
+    private var activitySuspended = false
+    @Published private(set) var freePreviewPrediction: ShotPrediction?
+    private var freePreviewKey: [Float]?
+    private var freePreviewBoard: [Float] = []
+    private var freePreviewNames: [String] = []
+    private var freePreviewNodes: [SCNNode] = []
+    private var interruptedFreeBoard: [String: BallRestState]?
+    private var interruptedFreeRails = PocketRailSnapshot()
+    private var resumeAdjustment = false
+    private var resumeSolve = false
+
+    func updateFreeSpin(x: Double, y: Double) {
+        correctingCueSpin = true
+        spinX = x; spinY = y
+        correctingCueSpin = false
+        refreshFreeAim()
+    }
+
+    func resumeTeachingActivity() {
+        guard activitySuspended else { return }
+        activitySuspended = false
+        if mode == .free { refreshFreeAim() }
+        else if resumeAdjustment { resumeAdjustment = false; adjustCurrentSolution() }
+        else if resumeSolve { resumeSolve = false; recompute() }
+        else { drawCurrent() }
+    }
+
+    private func requestFreePreview(cue: SCNVector3, direction: SCNVector3) {
+        guard !activitySuspended else { return }
+        let balls = freeContactBalls().sorted { $0.key < $1.key }.map { ObstacleBall(name: $0.key, position: $0.pos) }
+        let names = balls.map(\.name)
+        let board = [cue.x, cue.z] + balls.flatMap { [$0.position.x, $0.position.z] }
+        let v = Float(reflectionPower), x = Float(spinX), y = Float(spinY), surface = scene.surfaceY
+        let key = board + [direction.x, direction.z, v, x, y]
+        if freePreviewKey == key && freePreviewNames == names {
+            if let prediction = freePreviewPrediction { drawFreePreview(prediction, current: true) }
+            return
+        }
+        freePreviewKey = key
+        freePreviewBoard = board
+        freePreviewNames = names
+        freePreviewPrediction = nil
+        freePreviewNodes.forEach { $0.opacity = 0.45 }
+        adjustmentScheduler.submit(compute: {
+            ShotPredictor.simulateFree(cueBall: cue, aimDir: direction, velocity: v,
+                                      spinX: x, spinY: y, surfaceY: surface, balls: balls)
+        }, receive: { [weak self] prediction, latest in
+            guard let self, !self.activitySuspended, self.mode == .free, !self.isPlaying,
+                  self.freePreviewBoard == board, self.freePreviewNames == names else { return }
+            if latest {
+                guard prediction.hasFinalTableState, prediction.recorder != nil else {
+                    self.scene.clearResultNodes(nodes: &self.freePreviewNodes)
+                    self.simulationNotice = "本次模拟未完成，请调整击球参数后重试"
+                    return
+                }
+                self.freePreviewPrediction = prediction
+                self.simulationNotice = nil
+            }
+            if prediction.hasFinalTableState { self.drawFreePreview(prediction, current: latest) }
+        })
+    }
+
+    private func drawFreePreview(_ prediction: ShotPrediction, current: Bool) {
+        scene.clearResultNodes(nodes: &freePreviewNodes)
+        guard !(cameraMode == .perspective3D && hides3DShotAssists) else { return }
+        let detail = UserPreferences.shared.trajectoryDetail
+        scene.addCueTrajectory(prediction.cuePath, contact: prediction.firstContact, detail: detail, into: &freePreviewNodes)
+        if detail != .minimal {
+            for (key, path) in prediction.extraBallPaths {
+                scene.addObjectTrajectory(path, ballKey: key, into: &freePreviewNodes)
+            }
+        }
+        freePreviewNodes.forEach { $0.opacity = current ? 1 : 0.45 }
+    }
+
     private var correctingCueSpin = false
 
     func refreshFreeAim() {
@@ -698,6 +795,10 @@ final class BankShotViewModel: ObservableObject {
         guard mode == .free, !isPlaying,
               let cue = scene.cueBallNode, !cue.isHidden,
               let dir = freeAimDir else {
+            freePreviewKey = nil
+            freePreviewPrediction = nil
+            adjustmentScheduler.invalidate()
+            scene.clearResultNodes(nodes: &freePreviewNodes)
             freeAimContact = nil
             closeupGate.reset()
             scene.ghostBallNode?.isHidden = true
@@ -746,6 +847,7 @@ final class BankShotViewModel: ObservableObject {
             cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX, spinY: spinY),
             aimDirection: dir
         )
+        requestFreePreview(cue: cue.position, direction: dir)
     }
 
     private func freeBallNode(for key: String) -> SCNNode? {
@@ -780,6 +882,10 @@ final class BankShotViewModel: ObservableObject {
     }
 
     private func clearFreeOverlays() {
+        adjustmentScheduler.invalidate()
+        freePreviewKey = nil
+        freePreviewPrediction = nil
+        scene.clearResultNodes(nodes: &freePreviewNodes)
         scene.setIdealObjectLine(nil)
         scene.clearResultNodes(nodes: &freeAimNodes)
         scene.clearResultNodes(nodes: &referenceNodes)
@@ -790,41 +896,35 @@ final class BankShotViewModel: ObservableObject {
 
     /// 自由击球（试手）：`simulateFree` 真物理，球停在哪是哪；进袋球离场（恢复球形/上一杆可回）。
     func freeStrike() {
-        guard !temporaryTopDownActive, canFreeStrike, let cueNode = scene.cueBallNode, let dir = freeAimDir else { return }
+        guard !temporaryTopDownActive, canFreeStrike, let cueNode = scene.cueBallNode, let dir = freeAimDir, let pred = freePreviewPrediction else { return }
         guard scene.permitsCueStrike(aim:dir,spinX:spinX,spinY:spinY) else {
             simulationNotice = CueStrikeAccess.unavailableMessage
             return
         }
 
         simulationNotice=nil
+        adjustGeneration += 1
         isPlaying = true
+        interruptedFreeBoard = captureBoard()
+        interruptedFreeRails = scene.railInventory.snapshot()
+        adjustmentScheduler.invalidate()
+        scene.clearResultNodes(nodes: &freePreviewNodes)
         let before = captureBoard()
         freeBeforeRails = scene.railInventory.snapshot()
         scene.setIdealObjectLine(nil)
         scene.clearResultNodes(nodes: &freeAimNodes)
         scene.clearResultNodes(nodes: &referenceNodes)
 
-        let balls = freeContactBalls().map { ObstacleBall(name: $0.key, position: $0.pos) }
         let cuePos = cueNode.position
         let velocity = Float(reflectionPower)
         let sx = Float(spinX), sy = Float(spinY)
-        let surfaceY = scene.surfaceY
-
-        Task { [weak self] in
-            let pred = await Task.detached(priority: .userInitiated) {
-                ShotPredictor.simulateFree(
-                    cueBall: cuePos, aimDir: dir, velocity: velocity,
-                    spinX: sx, spinY: sy, surfaceY: surfaceY, balls: balls
-                )
-            }.value
-            guard let self, self.isPlaying else { return }
-            guard self.acceptFreePrediction(pred,before:before) else { return }
+            guard acceptFreePrediction(pred,before:before) else { return }
             let strikePos = CueStroke.strikePosition(cue: cuePos, aim: dir, spinX: Double(sx), spinY: Double(sy))
-            self.scene.runCueStroke(strikePosition: strikePos, aim: dir,
-                                    velocity: velocity, switchesPlayerCameraOnContact: true) { [weak self] in
+            scene.runCueStroke(strikePosition: strikePos, aim: dir,
+                                    velocity: velocity, switchesPlayerCameraOnContact: true) { [weak self, generation = adjustGeneration] in
+                guard self?.adjustGeneration == generation else { return }
                 self?.launchFreePlayback(pred, before: before)
             }
-        }
     }
 
     /// 上一杆：恢复自由击打前球形（一步撤销）。
@@ -841,6 +941,7 @@ final class BankShotViewModel: ObservableObject {
     func replayLastShot() {
         guard !temporaryTopDownActive, mode == .free, !isPlaying, let shot = lastShot,
               shot.prediction.recorder != nil else { return }
+        adjustGeneration += 1
         isPlaying = true
         scene.setIdealObjectLine(nil)
         scene.clearResultNodes(nodes: &freeAimNodes)
@@ -941,6 +1042,7 @@ final class BankShotViewModel: ObservableObject {
         canUndoShot = true
         canPlaybackShot = true
         isPlaying = false
+        freePreviewKey = nil
         refreshFreeAim()
         drawReferenceSolution()
     }
@@ -1067,6 +1169,7 @@ final class BankShotViewModel: ObservableObject {
     func selectSolution(at index: Int) {
         guard !isPlaying, !isSolving, displayed.indices.contains(index) else { return }
         adjustmentDraft = nil
+        adjustmentIsValid = true
         currentIndex = index
         showSolution(at: index)
     }
@@ -1075,13 +1178,13 @@ final class BankShotViewModel: ObservableObject {
     /// 写入 `adjustmentDraft`，**不**改写 `solutions`/`displayed`。再次微调以草稿为基底。
     func adjustCurrentSolution(velocity v: Double? = nil,
                                spinX sx: Double? = nil, spinY sy: Double? = nil) {
-        guard mode == .solve, !isPlaying, !isDragging else { return }
+        guard !activitySuspended, mode == .solve, !isPlaying, !isDragging,
+              !isSolving || isAdjustingSolution else { return }
         guard displayed.indices.contains(currentIndex) else { return }
         let catalog = displayed[currentIndex]
-        let base = adjustmentDraft ?? catalog
         let newPower = v ?? reflectionPower
-        let newSX = Float(sx ?? Double(base.spinX))
-        let newSY = Float(sy ?? Double(base.spinY))
+        let newSX = Float(sx ?? spinX)
+        let newSY = Float(sy ?? spinY)
         guard let cue = scene.cueBallNode?.position,
               let object = scene.targetBallNodes.first?.position else { return }
         let surfaceY = scene.surfaceY
@@ -1091,23 +1194,30 @@ final class BankShotViewModel: ObservableObject {
         let obstacles = currentObstacles()
         let idx = currentIndex
         // Supersede in-flight adjust (spin-pad continuous updates).
-        adjustGeneration += 1
         let gen = adjustGeneration
         isSolving = true
+        isAdjustingSolution = true
+        adjustmentIsValid = false
+        isPresentingSolution = true
+        reflectionPower = newPower
+        spinX = Double(newSX)
+        spinY = Double(newSY)
+        isPresentingSolution = false
 
-        Task { [weak self] in
+        adjustmentScheduler.submit(compute: {
             var input = ShotInput(
                 cueBall: cue, targetBall: object, pocketIndex: pocket,
                 velocity: Float(newPower), spinX: newSX, spinY: newSY,
                 surfaceY: surfaceY, bankRails: rails
             )
             input.obstacles = obstacles
-            let pred = await Task.detached(priority: .userInitiated) {
-                ShotPredictor.predict(input)
-            }.value
-            await MainActor.run {
+            return ShotPredictor.predict(input)
+        }, receive: { [weak self] pred, isLatest in
                 guard let self, self.adjustGeneration == gen, !self.isPlaying else { return }
+                guard isLatest else { return }
                 self.isSolving = false
+                self.isAdjustingSolution = false
+                self.adjustmentIsValid = pred.hasFinalTableState
                 guard self.displayed.indices.contains(idx), self.currentIndex == idx else { return }
                 // 草稿库序同解集口径：实测主库序重标（重算轨迹可能已换拓扑/脱靶，
                 // 脱靶时保留原解标签避免 chip 闪变）。
@@ -1128,8 +1238,7 @@ final class BankShotViewModel: ObservableObject {
                 )
                 self.adjustmentDraft = drafted
                 self.presentDisplayedSolution(drafted, power: newPower)
-            }
-        }
+        })
     }
 
     func reset() {
@@ -1160,12 +1269,14 @@ final class BankShotViewModel: ObservableObject {
     private func showSolution(at index: Int) {
         guard displayed.indices.contains(index) else { return }
         adjustmentDraft = nil
+        adjustmentIsValid = true
         currentIndex = index
         presentDisplayedSolution(displayed[index], power: catalogSolvePower)
     }
 
     /// Apply power/spin/trajectory from a solution (catalog or draft) without clearing draft.
     private func presentDisplayedSolution(_ sol: BankEngineSolution, power: Double) {
+        adjustmentIsValid = sol.prediction.hasFinalTableState
         guard sol.prediction.hasFinalTableState else {
             hasSolution=false
             clearPath()

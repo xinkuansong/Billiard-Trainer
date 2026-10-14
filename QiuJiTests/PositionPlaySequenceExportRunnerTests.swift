@@ -81,7 +81,7 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
                 let outDir = URL(fileURLWithPath: outputDir).appendingPathComponent(dirName)
                 if stillsOnly {
                     try fm.createDirectory(at: outDir, withIntermediateDirectories: true)
-                    for (name, image) in SequenceVideoExporter.renderStills(sequence: sequence) {
+                    for (name, image) in SequenceVideoExporter.renderStills(sequence: sequence, options: .tutorialStills()) {
                         try writePNG(image, to: outDir.appendingPathComponent("\(name).png"))
                     }
                     ok += 1
@@ -100,7 +100,7 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
                                        withIntermediateDirectories: true)
 
                 // 教学静帧（真实风格）：initial / sNN_still / final。
-                for (name, image) in SequenceVideoExporter.renderStills(sequence: sequence) {
+                for (name, image) in SequenceVideoExporter.renderStills(sequence: sequence, options: .tutorialStills()) {
                     try writePNG(image, to: outDir.appendingPathComponent("\(name).png"))
                 }
 
@@ -142,6 +142,41 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    /// Isolated, explicitly selected static-figure export. The request is local and
+    /// opt-in, so normal tests never replace production media or consume an old inbox.
+    @MainActor
+    func test_exportTutorialStills() throws {
+        try BakeRunnerGate.skipUnlessEnabled("test_exportTutorialStills")
+        struct Request: Decodable {
+            let outputDirectory: String
+            let sequenceFiles: [String]
+        }
+        let root = BakeRunnerGate.repositoryRoot
+        let requestURL = root.appendingPathComponent("build/tutorial-stills-request.json")
+        let request = try JSONDecoder().decode(Request.self, from: Data(contentsOf: requestURL))
+        XCTAssertFalse(request.sequenceFiles.isEmpty)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        for file in request.sequenceFiles {
+            try autoreleasepool {
+                let source = root.appendingPathComponent("content/position_play/sequences").appendingPathComponent(file)
+                let sequence = try decoder.decode(PositionPlaySequence.self, from: Data(contentsOf: source))
+                let directory = URL(fileURLWithPath: request.outputDirectory)
+                    .appendingPathComponent(source.deletingPathExtension().lastPathComponent)
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                let frames = SequenceVideoExporter.renderStills(sequence: sequence, options: .tutorialStills())
+                let expected = ["initial", "final"] + sequence.steps.indices.map { String(format: "s%02d_still", $0 + 1) }
+                XCTAssertEqual(Set(frames.map(\.name)), Set(expected), "Missing frames: \(file)")
+                for (name, image) in frames {
+                    XCTAssertEqual(image.width, 1440)
+                    XCTAssertEqual(image.height, name.hasSuffix("_still") ? 2720 : 2560)
+                    try writePNG(image, to: directory.appendingPathComponent("\(name).png"))
+                }
+                print("TUTORIAL-STILLS \(file): \(frames.count) frames, lighting=approvedPlain ballScale=1")
+            }
+        }
+    }
 
     private func writePNG(_ image: CGImage, to url: URL) throws {
         guard let data = UIImage(cgImage: image).pngData() else {

@@ -1,0 +1,117 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_练"
+    },
+    {
+      "action": "tap",
+      "id": "角度预测",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "geometric.figure",
+      "kind": "any"
+    },
+    {
+      "action": "tap",
+      "id": "显示参考"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P12a-reference"
+    },
+    {
+      "action": "tap",
+      "id": "答题"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P12a-keypad-empty"
+    },
+    {
+      "action": "tap",
+      "id": "4"
+    },
+    {
+      "action": "tap",
+      "id": "5"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P12a-keypad-filled"
+    },
+    {
+      "action": "tap",
+      "id": "提交"
+    },
+    {
+      "action": "wait",
+      "id": "下一题"
+    },
+    {
+      "action": "cover",
+      "name": "TABLE-P12a-result",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "重置统计"
+    },
+    {
+      "action": "wait",
+      "id": "重置"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P12a-reset-confirm"
+    }
+  ],
+  "catalog": {
+    "TABLE-P12a-reference": {
+      "id": "TABLE/P12a",
+      "title": "角度预测",
+      "state": "reference",
+      "figmaPage": "71",
+      "note": "参考线开启；使用已有forcedAngle=45测试参数，正常UI导航"
+    },
+    "TABLE-P12a-keypad-empty": {
+      "id": "TABLE/P12a",
+      "title": "角度预测",
+      "state": "keypad-empty",
+      "figmaPage": "71",
+      "note": "答题键盘未输入；使用已有forcedAngle=45测试参数，正常UI导航"
+    },
+    "TABLE-P12a-keypad-filled": {
+      "id": "TABLE/P12a",
+      "title": "角度预测",
+      "state": "keypad-filled",
+      "figmaPage": "71",
+      "note": "答题键盘45；使用已有forcedAngle=45测试参数，正常UI导航"
+    },
+    "TABLE-P12a-result": {
+      "id": "TABLE/P12a",
+      "title": "角度预测",
+      "state": "result",
+      "figmaPage": "71",
+      "note": "45度题答45度结果；使用已有forcedAngle=45测试参数，正常UI导航"
+    },
+    "TABLE-P12a-reset-confirm": {
+      "id": "TABLE/P12a",
+      "title": "角度预测",
+      "state": "reset-confirm",
+      "figmaPage": "71",
+      "note": "重置统计确认；使用已有forcedAngle=45测试参数，正常UI导航"
+    }
+  },
+  "launchArguments": [
+    "-geometricQuiz.forcedAngle",
+    "45"
+  ]
+}

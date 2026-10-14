@@ -26,6 +26,7 @@ struct DrillTutorialView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedFormation = 0
     /// 本次打开精讲后访问过的球形。各球形自带 ScrollView，访问过的保留滚动；
     /// 未进过的不建（从头）。退出页面 @State 销毁，再进全部从头。
@@ -58,22 +59,33 @@ struct DrillTutorialView: View {
     }
 
     var body: some View {
-        Group {
-            if formations.count > 1 {
-                multiFormationBody
-            } else {
-                formationScroll(for: 0)
+        ScrollViewReader { proxy in
+            Group {
+                if formations.count > 1 {
+                    multiFormationBody
+                } else {
+                    formationScroll(for: 0)
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                VStack(spacing: ScrollControlsMetrics.spacing) {
+                    scrollButton(to: .top, proxy: proxy)
+                    scrollButton(to: .bottom, proxy: proxy)
+                }
+                .padding(ScrollControlsMetrics.edgeInset)
+            }
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(drill.nameZh)
+                        .font(.btHeadline)
+                        .foregroundStyle(.btPrimary)
+                        .lineLimit(1)
+                }
             }
         }
         .background(.btBG)
+        .navigationTitle(drill.nameZh)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("精讲")
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
-            }
-        }
         .fullScreenCover(item: $viewer) { presentation in
             TutorialMediaViewer(items: presentation.items, startIndex: presentation.startIndex)
         }
@@ -110,14 +122,74 @@ struct DrillTutorialView: View {
     private func formationScroll(for index: Int) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                header
-                    .padding(.bottom, Spacing.xl)
-                LazyVStack(alignment: .leading, spacing: Spacing.xl) {
-                    sectionList(for: index)
+                scrollAnchor(.top, formationIndex: index)
+                VStack(alignment: .leading, spacing: 0) {
+                    // Tutorials are bounded documents. Lay out every section to avoid
+                    // lazy height estimation and anchor correction during deep scrolling.
+                    VStack(alignment: .leading, spacing: Spacing.xl) {
+                        sectionList(for: index)
+                    }
                 }
+                .padding(.top, Spacing.md)
+                .padding(.bottom, ScrollControlsMetrics.readingBottomPadding)
+                scrollAnchor(.bottom, formationIndex: index)
             }
-            .padding(.bottom, Spacing.xxl)
         }
+    }
+
+    private enum ScrollControlsMetrics {
+        static let touchDiameter: CGFloat = 44
+        static let spacing: CGFloat = Spacing.sm
+        static let edgeInset: CGFloat = Spacing.lg
+        static let readingGap: CGFloat = Spacing.md
+        // At the bottom anchor the last paragraph ends above the entire control
+        // stack. Keep this clearance derived from the same metrics as the overlay.
+        static let readingBottomPadding = touchDiameter * 2 + spacing + edgeInset + readingGap
+    }
+
+    private enum ScrollEndpoint: String {
+        case top, bottom
+
+        var label: String { self == .top ? "回到顶部" : "跳到末尾" }
+        var symbol: String { self == .top ? "arrow.up.to.line" : "arrow.down.to.line" }
+        var accessibilityID: String {
+            self == .top ? "tutorialScrollTopButton" : "tutorialScrollBottomButton"
+        }
+    }
+
+    private struct ScrollAnchor: Hashable {
+        let formationIndex: Int
+        let endpoint: ScrollEndpoint
+    }
+
+    private func scrollAnchor(_ endpoint: ScrollEndpoint, formationIndex: Int) -> some View {
+        Color.clear
+            .frame(height: 0)
+            .id(ScrollAnchor(formationIndex: formationIndex, endpoint: endpoint))
+            .accessibilityHidden(true)
+    }
+
+    private func scrollButton(to endpoint: ScrollEndpoint, proxy: ScrollViewProxy) -> some View {
+        Button {
+            // Each unique target belongs to one retained ScrollView. Only the
+            // selected formation receives the jump; the other offsets stay intact.
+            let anchor = ScrollAnchor(formationIndex: selectedFormation, endpoint: endpoint)
+            withAnimation(reduceMotion ? nil : BTMotion.easeInOutChrome) {
+                proxy.scrollTo(anchor, anchor: endpoint == .top ? .top : .bottom)
+            }
+        } label: {
+            Label(endpoint.label, systemImage: endpoint.symbol)
+                .labelStyle(.iconOnly)
+                .font(.btHeadline)
+                .frame(width: ScrollControlsMetrics.touchDiameter,
+                       height: ScrollControlsMetrics.touchDiameter)
+                .background(.regularMaterial, in: Circle())
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.btPrimary)
+        .accessibilityLabel(endpoint.label)
+        .accessibilityIdentifier(endpoint.accessibilityID)
     }
 
     @ViewBuilder
@@ -125,8 +197,7 @@ struct DrillTutorialView: View {
         let sections = formations.indices.contains(formationIndex)
             ? formations[formationIndex].sections
             : []
-        // 行 id 绑定球形：LazyVStack 按 ForEach id 复用，切球形时必须重建行
-        // （切换正文不刷新，B4 发现的存量缺陷）。
+        // Keep section identity scoped to its formation when switching content.
         ForEach(Array(sections.enumerated()), id: \.offset) { index, section in
             sectionCard(section, index: index)
                 .id("\(formationIndex)-\(index)")
@@ -147,31 +218,6 @@ struct DrillTutorialView: View {
         .padding(.vertical, Spacing.sm)
         .frame(maxWidth: .infinity)
         .background(.btBG)
-    }
-
-    // MARK: - Header
-
-    /// F-DD-05：详情页已露 description / 分类等级；精讲头去重，只保留标题 + 阅读定位副文。
-    private var header: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text(drill.nameZh)
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
-            Text(Self.headerSubtitle(for: drill.tutorial?.tutorialKind))
-                .font(.btCallout)
-                .foregroundStyle(.btTextSecondary)
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.top, Spacing.md)
-    }
-
-    private static func headerSubtitle(for kind: DrillTutorialKind?) -> String {
-        switch kind {
-        case .singleShot: return "单杆技术课"
-        case .ruleset: return "规则流程课"
-        case .multiShot, .none: return "图文分步精讲"
-        }
     }
 
     // MARK: - Section Card

@@ -28,6 +28,89 @@ final class PocketLeatherFlowUITests: XCTestCase {
         XCTAssertGreaterThan(table(app).frame.height,100)
     }
 
+    /// 同一真实序列：横竖布局、2D/3D 与镜头转动不得换成另一个物理袋。
+    func testAdaptivePocketNames() throws {
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = launch(["-deeplink.tryout=drill_c042"])
+        assertTable(app)
+        let frame = app.windows.firstMatch.frame
+        let pad = min(frame.width, frame.height) > 600
+        func expectedMiddle() -> String {
+            let frame = app.windows.firstMatch.frame
+            return frame.height > frame.width ? "左中袋" : "上中袋"
+        }
+        func assertGoal() {
+            let goal = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "把目标球打进" + expectedMiddle())).firstMatch
+            XCTAssertTrue(goal.waitForExistence(timeout: 10), app.debugDescription)
+        }
+        assertGoal()
+        try snap(app, pad ? "names-pad-portrait-2d" : "names-phone-landscape-2d")
+        app.buttons["freeplay.moreMenu"].tap()
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 5))
+        if mode.value as? String != "3D" { mode.tap() }
+        app.buttons["关闭菜单"].tap()
+        assertGoal()
+        table(app).swipeLeft()
+        assertGoal()
+        try snap(app, pad ? "names-pad-portrait-3d" : "names-phone-landscape-3d")
+        if pad {
+            XCUIDevice.shared.orientation = .landscapeLeft
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+                predicate: NSPredicate { _, _ in
+                    let frame = app.windows.firstMatch.frame
+                    return frame.width > frame.height
+                }, object: nil)], timeout: 10), .completed)
+            assertGoal()
+            try snap(app, "names-pad-landscape-3d")
+            app.buttons["freeplay.moreMenu"].tap()
+            app.buttons["freeplay.cameraMode"].tap()
+            app.buttons["关闭菜单"].tap()
+            assertGoal()
+            try snap(app, "names-pad-landscape-2d")
+        }
+        app.terminate()
+
+        let daily = launch(["-deeplink.dailyClearance", "-dailyClearance.resetState", "-dailyClearance.fixture=cueAccessRoom", "-dailyClearance.fixtureSettled"])
+        assertTable(daily)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value CONTAINS %@", "袋：目标"), object: table(daily))], timeout: 15), .completed)
+        let dailyValue = table(daily).value as? String ?? ""
+        XCTAssertTrue(dailyValue.contains("袋：目标"), dailyValue)
+        XCTAssertFalse(dailyValue.contains("号袋"), dailyValue)
+        try snap(daily, pad ? "names-daily-pad" : "names-daily-phone")
+        daily.terminate()
+
+        let plan = launch(["-planThree.twoBall"])
+        assertTable(plan)
+        plan.buttons["planthree.roles"].tap()
+        let firstPocket = plan.buttons["planthree.role.1"]
+        XCTAssertTrue(firstPocket.waitForExistence(timeout: 5), plan.debugDescription)
+        XCTAssertTrue(firstPocket.label.contains("第1杆目标袋"))
+        XCTAssertTrue(firstPocket.label.contains("角袋") || firstPocket.label.contains("中袋"))
+        try snap(plan, pad ? "names-plan-pad-menu" : "names-plan-phone-menu")
+        firstPocket.tap()
+        try snap(plan, pad ? "names-plan-pad-active" : "names-plan-phone-active")
+        plan.terminate()
+    }
+
+    func testQuizPocketNames() throws {
+        for title in ["2D角度", "3D角度"] {
+            let app = launch()
+            open(title, in: app)
+            let start = app.buttons["开始训练"]
+            XCTAssertTrue(start.waitForExistence(timeout: 10))
+            start.tap()
+            let name = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "(左上|右上|左下|右下)角袋|(上|下|左|右)中袋")).firstMatch
+            XCTAssertTrue(name.waitForExistence(timeout: 10), app.debugDescription)
+            XCTAssertFalse(app.staticTexts["高亮角袋"].exists)
+            XCTAssertFalse(app.staticTexts["高亮中袋"].exists)
+            try snap(app, "names-quiz-" + title, requiresTable: false)
+            app.terminate()
+        }
+    }
+
     func testAllSingleTargetAndNeutralRoutes() throws {
         let titles=["自由击球","自由走位","分离角与走位","思路训练","2D 角度训练","3D 角度训练","2D 瞄准点训练","3D 瞄准点训练","角度与瞄准","分离角图谱","加塞吃库图谱","翻袋解球","颗星解球","防守"]
         for (index,title) in titles.enumerated() {
@@ -60,10 +143,10 @@ final class PocketLeatherFlowUITests: XCTestCase {
         app.terminate()
         app=launch(["-planThree.twoBall"])
         XCTAssertTrue(app.buttons["清空计划"].waitForExistence(timeout:20));assertTable(app)
-        XCTAssertTrue((table(app).value as? String ?? "").contains("①目标"))
-        XCTAssertTrue((table(app).value as? String ?? "").contains("②目标"))
+        XCTAssertTrue((table(app).value as? String ?? "").contains("第1杆目标"))
+        XCTAssertTrue((table(app).value as? String ?? "").contains("第2杆目标"))
         try snap(app,"plan-different")
-        let second=app.buttons.matching(NSPredicate(format:"label BEGINSWITH %@","②袋")).firstMatch
+        let second=app.buttons.matching(NSPredicate(format:"label BEGINSWITH %@","第2杆目标袋")).firstMatch
         XCTAssertTrue(second.exists,app.debugDescription);second.tap()
         // Project the CAD corner through the documented rotated orthographic
         // framing, accounting for the actual viewport on phones and tablets.
@@ -71,7 +154,7 @@ final class PocketLeatherFlowUITests: XCTestCase {
         let aspect = scene.frame.width / scene.frame.height
         let scale = max(1.50, 0.7995 * 1.012 / aspect)
         scene.coordinate(withNormalizedOffset:CGVector(dx:0.5 - 0.665 / (2 * scale * aspect),dy:0.5 - 1.30 / (2 * scale))).tap()
-        XCTAssertTrue((scene.value as? String ?? "").contains("①②共同目标"),app.debugDescription)
+        XCTAssertTrue((scene.value as? String ?? "").contains("第1、2杆共同目标"),app.debugDescription)
         try snap(app,"plan-same")
         app.buttons["清空计划"].tap()
         let cleared = scene.value as? String ?? ""
@@ -91,7 +174,7 @@ final class PocketLeatherFlowUITests: XCTestCase {
         Thread.sleep(forTimeInterval: 3)
         func target() -> String? { (table(app).value as? String)?.components(separatedBy: "，").first }
         let selected = try XCTUnwrap(target())
-        XCTAssertTrue(selected.contains("号袋：目标"), selected)
+        XCTAssertTrue(selected.contains("袋：目标"), selected)
         try snap(app, "yellow-pulse-restored-2d")
         if mode.value as? String != "3D" { mode.tap() }
         Thread.sleep(forTimeInterval: 3)

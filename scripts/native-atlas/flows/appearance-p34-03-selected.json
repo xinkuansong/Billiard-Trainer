@@ -1,0 +1,41 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "tap",
+      "id": "设置",
+      "kind": "buttonContains",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "设置",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "tap",
+      "id": "台呢颜色",
+      "kind": "buttonContains",
+      "scrollTo": 8
+    },
+    {
+      "action": "wait",
+      "id": "台呢颜色",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "tap",
+      "id": "settings.clothColor.tournamentBlue",
+      "scrollTo": 8
+    },
+    {
+      "action": "snapshot",
+      "name": "P34-03-selected",
+      "entry": "profile/settings/nondefault-selection/赛事蓝"
+    }
+  ]
+}

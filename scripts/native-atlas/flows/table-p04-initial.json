@@ -1,0 +1,50 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_解"
+    },
+    {
+      "action": "tap",
+      "id": "思路训练",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "silu.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P04-default",
+      "entry": "normal App navigation; original native initial state"
+    },
+    {
+      "action": "tapCenter",
+      "id": "silu.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P04-more"
+    }
+  ],
+  "catalog": {
+    "TABLE-P04-default": {
+      "id": "TABLE/P04",
+      "title": "思路训练",
+      "state": "default",
+      "figmaPage": "71"
+    },
+    "TABLE-P04-more": {
+      "id": "TABLE/P04",
+      "title": "思路训练",
+      "state": "more",
+      "figmaPage": "71"
+    }
+  },
+  "requiresTestRunner": "native-atlas-r10-tapCenter"
+}

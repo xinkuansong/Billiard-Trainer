@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct DrillDetailView: View {
     let drillId: String
@@ -64,17 +65,7 @@ struct DrillDetailView: View {
                         tableSection(drill)
 
                         VStack(alignment: .leading, spacing: Spacing.sm) {
-                            // 正文标题与导航标题职责不同：前者建立内容层级，后者负责页面定位。
-                            HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
-                                Text(drill.nameZh)
-                                    .font(.btTitle)
-                                    .foregroundStyle(.btText)
-
-                                Spacer(minLength: Spacing.sm)
-
-                                // 难度是标题的核心识别信息；球种与分类仍留在下一行，避免长标题受挤压。
-                                BTLevelBadge(level: DrillLevel(rawValue: drill.level) ?? .L0)
-                            }
+                            tagsRow(drill)
 
                             // F-DD-01：露出 Bundle 已有 description（转化页信息权重）。
                             Text(drill.description)
@@ -82,8 +73,6 @@ struct DrillDetailView: View {
                                 .foregroundStyle(.btTextSecondary)
                                 .lineSpacing(3)
                                 .fixedSize(horizontal: false, vertical: true)
-
-                            tagsRow(drill)
                                 .padding(.top, Spacing.xs)
 
                             Divider()
@@ -106,7 +95,7 @@ struct DrillDetailView: View {
                         loadRadarSection(drill)
                     }
                     .padding(.bottom, 100)
-                    .learnDocumentWidth()
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 } else if didFinishLoading {
                     BTEmptyState(
                         icon: "exclamationmark.triangle",
@@ -122,7 +111,9 @@ struct DrillDetailView: View {
             .background(.btBG)
 
             if drill != nil {
-                bottomBar.learnDocumentWidth().btTrainingPillObstacle()
+                bottomBar
+                    .frame(maxWidth: .infinity)
+                    .btTrainingPillObstacle()
             }
 
             if let toast {
@@ -130,6 +121,7 @@ struct DrillDetailView: View {
             }
         }
         .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
+        .navigationTitle(drill?.nameZh ?? "动作详情")
         .navigationBarTitleDisplayMode(.inline)
         // 固定顶栏始终显示材质背景，避免滚动内容穿透状态栏/标题（UR-20260529 U-06）。
         .toolbarBackground(.visible, for: .navigationBar)
@@ -137,9 +129,10 @@ struct DrillDetailView: View {
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text(drill?.nameZh ?? "")
+                Text(drill?.nameZh ?? "动作详情")
                     .font(.btHeadline)
-                    .foregroundStyle(.btText)
+                    .foregroundStyle(.btPrimary)
+                    .lineLimit(1)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -278,7 +271,9 @@ struct DrillDetailView: View {
     ]
 
     private func tagsRow(_ drill: DrillContent) -> some View {
-        HStack(spacing: Spacing.sm) {
+        MetadataLayout(spacing: Spacing.sm) {
+            BTLevelBadge(level: DrillLevel(rawValue: drill.level) ?? .L0)
+
             ForEach(drill.ballType, id: \.self) { ball in
                 Text(Self.ballTypeDisplayNames[ball] ?? ball)
                     .font(.btCaption2)
@@ -307,6 +302,67 @@ struct DrillDetailView: View {
                     .overlay(Capsule().stroke(Color.btSeparator, lineWidth: 1))
                     .accessibilityLabel("副分类 \(DrillCategory(rawValue: secondary)?.nameZh ?? secondary)")
             }
+        }
+    }
+
+    /// Keep the leading level badge on the left and right-align each wrapped row of tags.
+    private struct MetadataLayout: Layout {
+        let spacing: CGFloat
+
+        func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+            arrangement(width: proposal.width, subviews: subviews).size
+        }
+
+        func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+            let layout = arrangement(width: bounds.width, subviews: subviews)
+            for (subview, frame) in zip(subviews, layout.frames) {
+                subview.place(
+                    at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                    anchor: .topLeading,
+                    proposal: ProposedViewSize(frame.size)
+                )
+            }
+        }
+
+        private func arrangement(width proposedWidth: CGFloat?, subviews: Subviews) -> (size: CGSize, frames: [CGRect]) {
+            let idealSizes = subviews.map { $0.sizeThatFits(.unspecified) }
+            let idealWidth = idealSizes.reduce(0) { $0 + $1.width }
+                + spacing * CGFloat(max(0, subviews.count - 1))
+            let width = max(0, proposedWidth.flatMap { $0.isFinite ? $0 : nil } ?? idealWidth)
+            var frames: [CGRect] = []
+            var x: CGFloat = 0
+            var y: CGFloat = 0
+            var rowHeight: CGFloat = 0
+
+            for (index, subview) in subviews.enumerated() {
+                let size = subview.sizeThatFits(
+                    ProposedViewSize(width: min(idealSizes[index].width, width), height: nil)
+                )
+                if x > 0, x + size.width > width {
+                    x = 0
+                    y += rowHeight + spacing
+                    rowHeight = 0
+                }
+                frames.append(CGRect(origin: CGPoint(x: x, y: y), size: size))
+                x += size.width + spacing
+                rowHeight = max(rowHeight, size.height)
+            }
+
+            // Shift tags as a group per row, leaving the first (level) subview in place.
+            var rowStart = 1
+            while rowStart < frames.count {
+                var rowEnd = rowStart + 1
+                while rowEnd < frames.count, frames[rowEnd].minY == frames[rowStart].minY {
+                    rowEnd += 1
+                }
+                let offset = max(0, width - frames[rowEnd - 1].maxX)
+                for index in rowStart..<rowEnd {
+                    frames[index].origin.x += offset
+                }
+                rowStart = rowEnd
+            }
+
+            return (CGSize(width: width, height: y + rowHeight), frames)
         }
     }
 
@@ -395,11 +451,7 @@ struct DrillDetailView: View {
                     .font(.btCaption)
                     .foregroundStyle(.btTextSecondary)
 
-                Text(drill.standardCriteria)
-                    .font(.btCallout)
-                    .foregroundStyle(.btText)
-                    .lineSpacing(3)
-                    .fixedSize(horizontal: false, vertical: true)
+                standardCriteriaView(drill.standardCriteria)
             }
 
             Divider()
@@ -416,6 +468,38 @@ struct DrillDetailView: View {
         }
         .padding(.horizontal, Spacing.lg)
         .accessibilityIdentifier("trainingRequirementsSection")
+    }
+
+    @ViewBuilder
+    private func standardCriteriaView(_ criteria: String) -> some View {
+        let items = criteria.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        if items.count > 1 {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                ForEach(items.indices, id: \.self) { index in
+                    HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                        Text("\(index + 1).")
+                            .monospacedDigit()
+                            .fixedSize()
+                        Text(items[index])
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
+            .font(.btCallout)
+            .foregroundStyle(.btText)
+            .lineSpacing(3)
+        } else {
+            Text(criteria)
+                .font(.btCallout)
+                .foregroundStyle(.btText)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     /// 建议训练量：逐球形一行（v34 R10 紧凑口径：球形名 + 模式标签 + m × n），
@@ -468,14 +552,9 @@ struct DrillDetailView: View {
     /// 页底六轴雷达。数据 = drill 代表分；展示分 = 存储分 + 1（1–5）。无 load 时仍画网格、不崩。
     private func loadRadarSection(_ drill: DrillContent) -> some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text(LoadRadarCopy.sectionTitle)
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
-                Text(LoadRadarCopy.sectionSubtitle)
-                    .font(.btFootnote)
-                    .foregroundStyle(.btTextSecondary)
-            }
+            Text(LoadRadarCopy.sectionTitle)
+                .font(.btHeadline)
+                .foregroundStyle(.btText)
 
             BTLoadRadarChart(load: drill.load)
         }
@@ -652,8 +731,7 @@ private struct AddDrillToTrainingSheet: View {
                 }
 
                 Section("新建模版") {
-                    TextField("模版名称", text: $newPlanName)
-                        .accessibilityIdentifier("newPlanNameField")
+                    PlanNameInput(text: $newPlanName)
                     Button {
                         requestCreatePlan()
                     } label: {
@@ -725,6 +803,105 @@ private struct AddDrillToTrainingSheet: View {
                 .foregroundStyle(.btPrimary)
         }
         .contentShape(Rectangle())
+    }
+}
+
+/// Owns the initial tap so UIKit's caret-placement gesture cannot undo the selection.
+/// Once editing starts, all touches and marked-text handling belong to UITextField.
+private struct PlanNameInput: UIViewRepresentable {
+    @Binding var text: String
+
+    func makeUIView(context: Context) -> PlanNameInputView {
+        PlanNameInputView()
+    }
+
+    func updateUIView(_ view: PlanNameInputView, context: Context) {
+        view.onChange = { text = $0 }
+        if view.field.markedTextRange == nil, view.field.text != text {
+            view.field.text = text
+        }
+        view.field.textColor = UIColor(Color.btText)
+        view.field.tintColor = UIColor(Color.btPrimary)
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: PlanNameInputView, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? uiView.field.intrinsicContentSize.width,
+               height: uiView.field.intrinsicContentSize.height)
+    }
+}
+
+private final class PlanNameInputView: UIView, UITextFieldDelegate {
+    let field = PlanNameTextField()
+    private let activationButton = UIButton(type: .custom)
+    var onChange: ((String) -> Void)?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        field.placeholder = "模版名称"
+        field.font = .preferredFont(forTextStyle: .body)
+        field.adjustsFontForContentSizeCategory = true
+        field.returnKeyType = .done
+        field.accessibilityLabel = "模版名称"
+        field.accessibilityHint = "点按后全选名称，可直接输入替换"
+        field.accessibilityIdentifier = "newPlanNameField"
+        field.delegate = self
+        field.activate = { [weak self] in self?.activateEditing() ?? false }
+        field.addTarget(self, action: #selector(textChanged), for: .editingChanged)
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        addSubview(field)
+        // This button only intercepts the first tap; it is never an extra AX element.
+        activationButton.isAccessibilityElement = false
+        activationButton.addTarget(self, action: #selector(beginEditingFromTap), for: .touchUpInside)
+        addSubview(activationButton)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        field.frame = bounds
+        activationButton.frame = bounds
+    }
+
+    @objc private func beginEditingFromTap() { _ = activateEditing() }
+
+    private func activateEditing() -> Bool {
+        guard window != nil else { return false }
+        guard !field.isFirstResponder else { return true }
+        guard field.becomeFirstResponder() else { return false }
+        activationButton.isHidden = true
+        field.selectedTextRange = field.textRange(from: field.beginningOfDocument, to: field.endOfDocument)
+        return true
+    }
+
+    func textFieldDidBeginEditing(_ textField: UITextField) {
+        activationButton.isHidden = true
+        // Also covers keyboard/VoiceOver focus without depending on notification AX IDs.
+        textField.selectedTextRange = textField.textRange(from: textField.beginningOfDocument, to: textField.endOfDocument)
+    }
+
+    func textFieldDidEndEditing(_ textField: UITextField) {
+        activationButton.isHidden = false
+        onChange?(textField.text ?? "")
+    }
+
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        textField.resignFirstResponder()
+        return true
+    }
+
+    @objc private func textChanged() {
+        // Publish the visible draft even during composition; updateUIView never
+        // writes back into marked text, so creation cannot read the old name.
+        onChange?(field.text ?? "")
+    }
+}
+
+private final class PlanNameTextField: UITextField {
+    var activate: (() -> Bool)?
+
+    override func accessibilityActivate() -> Bool {
+        activate?() ?? super.accessibilityActivate()
     }
 }
 

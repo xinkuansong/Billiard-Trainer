@@ -1,0 +1,50 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_解"
+    },
+    {
+      "action": "tap",
+      "id": "颗星解球",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "reflection.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P07b-default",
+      "entry": "normal App navigation; original native initial state"
+    },
+    {
+      "action": "tapCenter",
+      "id": "reflection.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P07b-more"
+    }
+  ],
+  "catalog": {
+    "TABLE-P07b-default": {
+      "id": "TABLE/P07b",
+      "title": "颗星解球",
+      "state": "default",
+      "figmaPage": "71"
+    },
+    "TABLE-P07b-more": {
+      "id": "TABLE/P07b",
+      "title": "颗星解球",
+      "state": "more",
+      "figmaPage": "71"
+    }
+  },
+  "requiresTestRunner": "native-atlas-r10-tapCenter"
+}

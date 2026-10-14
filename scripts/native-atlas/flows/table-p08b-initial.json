@@ -1,0 +1,50 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_学"
+    },
+    {
+      "action": "tap",
+      "id": "加塞吃库图谱",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "cushionEnglishAtlas.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P08b-default",
+      "entry": "normal App navigation; original native initial state"
+    },
+    {
+      "action": "tapCenter",
+      "id": "cushionEnglishAtlas.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P08b-more"
+    }
+  ],
+  "catalog": {
+    "TABLE-P08b-default": {
+      "id": "TABLE/P08b",
+      "title": "加塞吃库图谱",
+      "state": "default",
+      "figmaPage": "71"
+    },
+    "TABLE-P08b-more": {
+      "id": "TABLE/P08b",
+      "title": "加塞吃库图谱",
+      "state": "more",
+      "figmaPage": "71"
+    }
+  },
+  "requiresTestRunner": "native-atlas-r10-tapCenter"
+}

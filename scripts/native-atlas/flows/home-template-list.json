@@ -1,0 +1,25 @@
+{
+  "fixture": "templateOnly",
+  "premium": true,
+  "steps": [
+    {
+      "action": "tap",
+      "id": "我的模版",
+      "scrollTo": 4
+    },
+    {
+      "action": "cover",
+      "name": "P02-02-templateOnly",
+      "entry": "training/my-templates; existing v54 templateOnly fixture",
+      "maximumViews": 40
+    }
+  ],
+  "catalog": {
+    "P02-02-templateOnly": {
+      "id": "APP/P02-01",
+      "title": "训练首页·我的模版",
+      "state": "one-template",
+      "figmaPage": "10"
+    }
+  }
+}

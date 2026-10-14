@@ -1,0 +1,106 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.moreMenu",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "训练提醒",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "trainingReminder.enabled",
+      "kind": "any"
+    },
+    {
+      "action": "tap",
+      "id": "trainingReminder.enabled",
+      "kind": "switch"
+    },
+    {
+      "action": "wait",
+      "id": "周一",
+      "kind": "button"
+    },
+    {
+      "action": "cover",
+      "name": "P12-01-enabled-all-days",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "周一",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "周二",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "周三",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "周四",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "周五",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "周六",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "周日",
+      "kind": "button"
+    },
+    {
+      "action": "cover",
+      "name": "P12-01-enabled-no-days",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "周一",
+      "kind": "button"
+    },
+    {
+      "action": "cover",
+      "name": "P12-01-enabled-one-day",
+      "maximumViews": 40
+    }
+  ],
+  "catalog": {
+    "P12-01-enabled-all-days": {
+      "id": "APP/P12-01",
+      "title": "训练提醒设置",
+      "state": "enabled-all-days",
+      "figmaPage": "50"
+    },
+    "P12-01-enabled-no-days": {
+      "id": "APP/P12-01",
+      "title": "训练提醒设置",
+      "state": "enabled-no-days",
+      "figmaPage": "50"
+    },
+    "P12-01-enabled-one-day": {
+      "id": "APP/P12-01",
+      "title": "训练提醒设置",
+      "state": "enabled-one-day",
+      "figmaPage": "50"
+    }
+  },
+  "requiresTestRunner": "native-atlas-r11-switch-thumb"
+}

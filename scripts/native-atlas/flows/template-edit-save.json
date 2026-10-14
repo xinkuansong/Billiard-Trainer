@@ -1,0 +1,55 @@
+{
+  "fixture": "templateOnly",
+  "premium": true,
+  "steps": [
+    {
+      "action": "tap",
+      "id": "我的模版",
+      "scrollTo": 4
+    },
+    {
+      "action": "tap",
+      "id": "管理模版，赛前热身",
+      "scrollTo": 4
+    },
+    {
+      "action": "tap",
+      "id": "编辑"
+    },
+    {
+      "action": "wait",
+      "id": "customPlanNameField",
+      "kind": "textField"
+    },
+    {
+      "action": "cover",
+      "name": "P05-01-existing",
+      "entry": "training/my-templates; original templateOnly fixture",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "保存"
+    },
+    {
+      "action": "snapshot",
+      "name": "P05-01-save-menu",
+      "entry": "training/my-templates; original templateOnly fixture"
+    },
+    {
+      "action": "tap",
+      "id": "保存并加入今日安排"
+    },
+    {
+      "action": "wait",
+      "id": "trainingHome.moreMenu",
+      "kind": "button"
+    },
+    {
+      "action": "cover",
+      "name": "P05-01-saved-home",
+      "entry": "training/my-templates; original templateOnly fixture",
+      "maximumViews": 40
+    }
+  ]
+}

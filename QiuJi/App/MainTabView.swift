@@ -3,6 +3,9 @@ import SwiftUI
 struct MainTabView: View {
     let ownerKey: String
     @EnvironmentObject private var router: AppRouter
+    #if DEBUG && targetEnvironment(simulator)
+    var liveReviewLaunchRequest: LiveReviewLaunchRequest? = nil
+    #endif
 
     var body: some View {
         TabView(selection: $router.selectedTab) {
@@ -84,6 +87,22 @@ struct MainTabView: View {
             if let vm = router.activeTrainingVM {
                 ActiveTrainingView(viewModel: vm)
             }
+        }
+        .task { warmTableAssetsForSelectedTab() }
+        .onChange(of: router.selectedTab) { _, _ in warmTableAssetsForSelectedTab() }
+        #if DEBUG && targetEnvironment(simulator)
+        .task {
+            if let request = liveReviewLaunchRequest {
+                router.applyLiveReviewLaunchOnce(request)
+            }
+        }
+        #endif
+    }
+
+    private func warmTableAssetsForSelectedTab() {
+        switch router.selectedTab {
+        case .training, .drillLibrary, .angle: TableResourceCache.shared.warmForEntry()
+        default: break
         }
     }
 

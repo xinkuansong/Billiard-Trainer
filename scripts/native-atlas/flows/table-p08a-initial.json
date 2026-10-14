@@ -1,0 +1,50 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_学"
+    },
+    {
+      "action": "tap",
+      "id": "分离角图谱",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "separationAngleAtlas.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P08a-default",
+      "entry": "normal App navigation; original native initial state"
+    },
+    {
+      "action": "tapCenter",
+      "id": "separationAngleAtlas.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P08a-more"
+    }
+  ],
+  "catalog": {
+    "TABLE-P08a-default": {
+      "id": "TABLE/P08a",
+      "title": "分离角图谱",
+      "state": "default",
+      "figmaPage": "71"
+    },
+    "TABLE-P08a-more": {
+      "id": "TABLE/P08a",
+      "title": "分离角图谱",
+      "state": "more",
+      "figmaPage": "71"
+    }
+  },
+  "requiresTestRunner": "native-atlas-r10-tapCenter"
+}

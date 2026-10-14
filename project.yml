@@ -53,7 +53,7 @@ targets:
           - "Resources/BallStickers/**"
           - "Resources/CueStyles/**"
           - "Resources/Plans/**"
-          # v25 W1：引擎渲染视频已下线，目录保留磁盘但不进包（红线：不 rm）。
+          # v25 W1：引擎渲染视频已下线；历史 MP4 已于 2026-10-11 按用户授权清理，仍不进包。
           - "Resources/Videos/**"
           - "Resources/DrillThumbnails/**"
           - "Resources/DrillTutorials/**"
@@ -83,7 +83,7 @@ targets:
         type: folder
         buildPhase: resources
       # ⚠️ v25 W1：示范视频（Resources/Videos）不打包。引擎渲染视频已下线
-      # （D-v25-1）；`videos` JSON 字段预留真人示范位。磁盘资源保留不 rm。
+      # （D-v25-1）；`videos` JSON 字段预留真人示范位。2026-10-11 用户授权清理历史 MP4。
       # sources.excludes 已登记 Resources/Videos/**。
       # 恢复真人示范时：取消下面三行注释并重跑 `make xcodegen`。
       # - path: QiuJi/Resources/Videos

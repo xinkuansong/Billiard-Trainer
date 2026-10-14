@@ -1,0 +1,42 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_学"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "瞄准方法",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "瞄准方法"
+    },
+    {
+      "action": "adjustSlider",
+      "id": "aimingMethods.thetaSlider",
+      "position": 1,
+      "scrollTo": 12
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-15-global-angle-selected"
+    },
+    {
+      "action": "cover",
+      "name": "P18-15-global-angle-body",
+      "maximumViews": 60,
+      "dragX": 0.03,
+      "endText": "打开旋转与加塞"
+    }
+  ]
+}

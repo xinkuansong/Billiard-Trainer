@@ -37,13 +37,14 @@ final class TableModelLoader {
     /// 并发访问同一节点树安全（缩略图渲染、视频导出会在后台线程调用）。
     private static let cacheLock = NSLock()
     private static var cachedModelScene: SCNScene?
+    private static var preparedModel: TableModel?
 
     /// App 启动时后台预热：把 USDZ 解析挪出「首次进球桌页」的主线程临界区。
     /// 可从任意线程调用；已缓存时为 no-op。
     static func preloadModel() {
         cacheLock.lock()
         defer { cacheLock.unlock() }
-        if cachedModelScene == nil {
+        if cachedModelScene == nil && preparedModel == nil {
             cachedModelScene = parseModelScene()
         }
     }
@@ -83,9 +84,34 @@ final class TableModelLoader {
 
     // MARK: - Public
 
-    static func loadTable() -> TableModel? {
+    /// The adapted prototype is immutable. Nodes, native geometries and materials
+    /// are copied; decoded images/buffers are shared. Never share live ball state.
+    static func loadTable(includeVisual: Bool = true) -> TableModel? {
         cacheLock.lock()
         defer { cacheLock.unlock() }
+        if preparedModel == nil {
+            preparedModel = prepareTable()
+            if preparedModel != nil { cachedModelScene = nil }
+        }
+        guard let model = preparedModel else { return nil }
+        func copy(_ node: SCNNode) -> SCNNode {
+            let result = node.clone()
+            deepCopyGeometryAndMaterials(in: result)
+            return result
+        }
+        return TableModel(visualNode: includeVisual ? copy(model.visualNode) : SCNNode(),
+            appliedScale: model.appliedScale, surfaceY: model.surfaceY,
+            cueStickNode: model.cueStickNode.map(copy), ballNodes: model.ballNodes.mapValues(copy))
+    }
+
+    static func resetCache() {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        cachedModelScene = nil
+        preparedModel = nil
+    }
+
+    private static func prepareTable() -> TableModel? {
 
         guard let modelScene = cachedOrParsedModelScene() else {
             return nil
@@ -354,5 +380,113 @@ final class TableModelLoader {
         for child in node.childNodes {
             collectCamerasAndLights(in: child, result: &result)
         }
+    }
+}
+
+/// Process-wide asset budget; live page state is never cached here. A single
+/// detached table may be lent to one new scene at a time. Simultaneous windows
+/// get independent node trees, and returning one cannot mutate another.
+@MainActor
+final class TableResourceCache: NSObject {
+    static let shared = TableResourceCache()
+    static let idleLifetime: TimeInterval = 30
+    private(set) var activeScenes = 0
+    private(set) var generation: UInt64 = 0
+    private(set) var idleTable: AngleTrainingScene.ReusableTable?
+    private var isForeground = true
+    private var expiry: DispatchWorkItem?
+    private var warming = false
+    private var warmed = false
+    private let warmQueue = DispatchQueue(label: "com.qiuji.table-assets", qos: .utility)
+
+    override init() {
+        super.init()
+        NotificationCenter.default.addObserver(self, selector: #selector(memoryWarning),
+            name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(background),
+            name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(foreground),
+            name: UIApplication.didBecomeActiveNotification, object: nil)
+    }
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    func acquire() -> UInt64 {
+        expiry?.cancel(); expiry = nil
+        activeScenes += 1
+        record("acquire")
+        return generation
+    }
+    func takeTable(key: String) -> AngleTrainingScene.ReusableTable? {
+        guard idleTable?.key == key else { record("tableMiss"); return nil }
+        record("tableHit")
+        defer { idleTable = nil }
+        return idleTable
+    }
+    func release(_ table: AngleTrainingScene.ReusableTable?, generation leaseGeneration: UInt64) {
+        activeScenes = max(0, activeScenes - 1)
+        table?.detach()
+        if isForeground, leaseGeneration == generation, let table { idleTable = table }
+        record("release")
+        scheduleExpiry()
+    }
+    private func scheduleExpiry() {
+        guard activeScenes == 0, isForeground else { return }
+        expiry?.cancel()
+        let ticket = generation
+        let work = DispatchWorkItem { [weak self] in self?.expireIfIdle(generation: ticket) }
+        expiry = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.idleLifetime, execute: work)
+    }
+    func expireIfIdle(generation ticket: UInt64) {
+        guard activeScenes == 0, ticket == generation else { return }
+        purge(reason: "expired")
+    }
+
+    /// Intent warm-up only from the three table entry tabs; never constructs a
+    /// hidden page, camera or renderer, and never gates navigation/orientation.
+    func warmForEntry() {
+        guard isForeground, !warming, !warmed else { return }
+        warming = true
+        let ticket = generation
+        warmQueue.async { [weak self] in
+            autoreleasepool { TableModelLoader.preloadPocketRegions() }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.warming = false
+                if ticket == self.generation, self.isForeground {
+                    self.warmed = true
+                    self.scheduleExpiry()
+                } else {
+                    // A warning/background event during decode must not resurrect
+                    // a cache that has already been evicted.
+                    TableModelLoader.resetCache()
+                    PocketLeatherMesh.resetCache()
+                }
+            }
+        }
+    }
+    @objc private func memoryWarning() { purge(reason: "memoryWarning") }
+    @objc private func background() { isForeground = false; purge(reason: "background") }
+    @objc private func foreground() { isForeground = true }
+
+    private func record(_ event: String) {
+        DailyLayoutProbe.record("tableCache." + event, ["activeScenes": String(activeScenes),
+            "idleTables": idleTable == nil ? "0" : "1", "generation": String(generation),
+            "table": idleTable.map { String(describing: ObjectIdentifier($0.node)) } ?? "none"])
+    }
+    func purge(reason: String = "explicit") {
+        generation &+= 1
+        expiry?.cancel(); expiry = nil
+        idleTable = nil
+        warmed = false
+        TableModelLoader.resetCache()
+        MobileReferenceLighting.resetImageCache()
+        BakedTrainingRoom.resetCache()
+        RoomReflectionProbe.resetCache()
+        PocketLeatherMesh.resetCache()
+        BallStickerAppearance.resetCache()
+        TableFigureRenderer.resetCache()
+        DrillTryoutBoardStore.resetCache()
+        record("purge." + reason)
     }
 }

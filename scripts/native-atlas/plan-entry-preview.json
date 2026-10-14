@@ -1,0 +1,31 @@
+{
+  "batch": "N03-entry-preview",
+  "workers": [
+    {
+      "id": "standard",
+      "udid": "F2BE90C4-370D-46AB-B3E8-8F0060424B2D",
+      "jobs": [
+        {
+          "id": "portrait-light",
+          "theme": "light",
+          "size": [
+            402,
+            874
+          ],
+          "orientation": "portrait",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasPlanEntryFlow"
+          ],
+          "expected": [
+            "P02-menu",
+            "P13-collapsed",
+            "P13-start-expanded",
+            "P03-official-top",
+            "P05-new-empty",
+            "P06-picker-top"
+          ]
+        }
+      ]
+    }
+  ]
+}

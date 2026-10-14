@@ -1,0 +1,35 @@
+{
+  "fixture": "empty",
+  "sourceBaseline": "f75cbafd",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "tap",
+      "id": "设置",
+      "kind": "buttonContains",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "设置",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "tap",
+      "id": "清除缓存",
+      "kind": "buttonContains",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "id": "确认清除"
+    },
+    {
+      "action": "snapshot",
+      "name": "P33-02-cache-confirm"
+    }
+  ]
+}

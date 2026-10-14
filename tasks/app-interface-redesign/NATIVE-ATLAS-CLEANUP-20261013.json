@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-13",
+  "authorized_scope": "/Users/song/projects/13.billiard_trainer/output/app-native-audit",
+  "preserved": "/Users/song/projects/13.billiard_trainer/output/app-interface-redesign",
+  "scope": "Local native screenshot archive, images, test results, intermediate products, screenshot Figma backup and recovery copies; cloud Figma not changed.",
+  "preflight": {
+    "gitTrackedFiles": 0,
+    "openHandles": 0,
+    "activeCaptureProcesses": 0,
+    "recentFilesLastHour": 0,
+    "fileEntries": 597287,
+    "internalSymlinks": 11
+  },
+  "before": {
+    "raw": "Filesystem   1024-blocks      Used Available Capacity iused    ifree %iused  Mounted on\n/dev/disk3s5   971298980 928811836   2838100   100% 5201688 28381000   15%   /System/Volumes/Data\n",
+    "availableKiB": 2838100,
+    "usedKiB": 928811836
+  },
+  "status": "complete",
+  "after": {
+    "raw": "Filesystem   1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s5   971298980 890073224  41576712    96% 4589948 415767120    1%   /System/Volumes/Data\n",
+    "availableKiB": 41576712,
+    "usedKiB": 890073224
+  },
+  "targetAbsent": true,
+  "codeRebuiltFigmaDirectoryExists": true,
+  "availableIncreaseGiB": 36.94401931762695
+}

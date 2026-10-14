@@ -107,7 +107,9 @@ sceneKitZ = canvasY × 2.540 − 0.635
 | `bottomCenter` | 右侧中袋 | 0.5 | +0.516128 | side |
 
 > 袋口中心略超出 Canvas 边界（负值 / 超过 1.0 / 超过 0.5），在 Canvas 内绘制时使用截断或超出绘制。
-> 与上表 SceneKit 袋口表：`topLeft`↔`pocket_0`(−X,−Z)、`topRight`↔索引1(+X,−Z)、`bottomLeft`↔索引2(−X,+Z)、`bottomRight`↔索引3(+X,+Z)、`topCenter`↔索引4(Z−)、`bottomCenter`↔索引5(Z+)——坐标对齐 `AngleSceneCalculator.pocketPositions`；表头中文「左上/上中」是历史 landscape 简称，用户可见名以本节 portrait 列为准。
+> 与上表 SceneKit 袋口表：`topLeft`↔`pocket_0`(−X,−Z)、`topRight`↔索引1(+X,−Z)、`bottomLeft`↔索引2(−X,+Z)、`bottomRight`↔索引3(+X,+Z)、`topCenter`↔索引4(Z−)、`bottomCenter`↔索引5(Z+)——坐标对齐 `AngleSceneCalculator.pocketPositions`；表头中文「左上/上中」是历史 landscape 简称，该列仅代表竖桌参考；自适应击球页面遵循下述 DR-391。
+
+**击球页面方位命名（2026-10-13，DR-391）**：每日清台、练习击球页、试打目标说明及无障碍选袋共用 `PocketDisplay`。按当前页面实际 2D 球桌布局选方向，不能用机型或设备传感器代替布局。横桌的 0…5 依次为左上角袋、右上角袋、左下角袋、右下角袋、上中袋、下中袋；竖桌依次为左下角袋、左上角袋、右下角袋、右上角袋、左中袋、右中袋。3D 沿用当前页面对应的 2D 名称，镜头转动不重新命名；页面横竖切换则刷新。编号仅作内部标识，所有物理坐标、schema ID、存档与选袋不变。固定竖版教学素材仍有自己的固定参考方向。
 
 **归一化关键尺寸**（相对于 Canvas 宽度 1.0）：
 

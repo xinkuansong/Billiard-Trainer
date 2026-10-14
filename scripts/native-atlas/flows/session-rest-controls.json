@@ -1,0 +1,72 @@
+{
+  "fixture": "single",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.startTraining",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "activeTraining.timerToggle",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "activeTraining.timerToggle",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "activeTraining.rest",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "+30S",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P07-02-rest-overlay",
+      "entry": "normal UI; frozen App; existing fixture",
+      "animatedRegion": "rest-ring"
+    },
+    {
+      "action": "tap",
+      "id": "+30S",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P07-02-rest-added",
+      "entry": "normal UI; frozen App; existing fixture",
+      "animatedRegion": "rest-ring"
+    },
+    {
+      "action": "tap",
+      "id": "最小化组间休息",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P07-02-rest-minimized",
+      "entry": "normal UI; frozen App; existing fixture"
+    },
+    {
+      "action": "tap",
+      "id": "activeTraining.restPill",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "完成休息",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P07-02-rest-finished",
+      "entry": "normal UI; frozen App; existing fixture"
+    }
+  ]
+}

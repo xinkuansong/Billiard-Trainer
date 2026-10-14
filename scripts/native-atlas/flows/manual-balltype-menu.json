@@ -1,0 +1,35 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.moreMenu",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "补记训练",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "补记训练",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "tap",
+      "id": "球种",
+      "kind": "buttonContains"
+    },
+    {
+      "action": "wait",
+      "id": "美式九球",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P11-01-balltype-menu",
+      "entry": "normal UI; frozen App; existing fixture"
+    }
+  ]
+}

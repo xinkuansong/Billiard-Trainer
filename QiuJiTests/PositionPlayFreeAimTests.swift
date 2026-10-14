@@ -2862,3 +2862,137 @@ final class ContinuousTrajectoryPreviewTests: XCTestCase {
         XCTAssertFalse(vm.isPlaying, "A cancelled preview cannot play a stale solved shot")
     }
 }
+
+
+@MainActor
+final class GuidedTryoutControlTests: XCTestCase {
+    private func waitUntil(_ condition: () -> Bool) async throws {
+        let deadline = Date().addingTimeInterval(30)
+        while !condition(), Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertTrue(condition())
+    }
+
+    func testScratchRetryRestoresActualPreShotBoardAndParameters() async throws {
+        let vm = PositionPlayViewModel(); vm.setupScene(); vm.isGuidedTryout = true
+        vm.clearTable(); vm.setPreferredAimMode(.free)
+        let cueKey = PositionPlayBall.cueKey
+        let position = SCNVector3(0, vm.scene.surfaceY + BallPhysics.radius, -0.45)
+        vm.placeFromPalette(cueKey, atWorld: position)
+        vm.velocity = 1.5; vm.spinY = -0.2
+        vm.handleTableTap(world: AngleSceneCalculator.pocketPositions(surfaceY: vm.scene.surfaceY)[4])
+        try await waitUntil { !vm.isComputing && vm.solvedShot != nil }
+        XCTAssertTrue(try XCTUnwrap(vm.solvedShot).prediction.cuePocketed)
+        let direction = try XCTUnwrap(vm.freeAimDir)
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 402, height: 700))
+        view.scene = vm.scene; view.pointOfView = vm.scene.cameraNode
+        let window = UIWindow(windowScene: try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene))
+        let controller = UIViewController(); controller.view = view
+        window.rootViewController = controller; window.makeKeyAndVisible(); view.isPlaying = true
+        defer { view.isPlaying = false; window.isHidden = true; vm.clearTable() }
+        var settled = 0
+        vm.onShotSettled = { _ in settled += 1 }
+        vm.play(); XCTAssertTrue(vm.isPlaying)
+        try await waitUntil { !vm.isPlaying }
+        XCTAssertEqual(settled, 1)
+        XCTAssertFalse(vm.onTableKeys.contains(cueKey), "Tryout preserves the scratch result for inspection")
+        XCTAssertTrue(vm.canReplay)
+        vm.play(); XCTAssertFalse(vm.isPlaying, "A result must be restored before another hit")
+        vm.replayCurrent()
+        XCTAssertFalse(vm.canReplay)
+        XCTAssertEqual(vm.onTableKeys, [cueKey])
+        let actual = try XCTUnwrap(vm.scene.allBallNodes[cueKey]).position
+        XCTAssertEqual(actual.x, position.x, accuracy: 0.0001)
+        XCTAssertEqual(actual.z, position.z, accuracy: 0.0001)
+        XCTAssertEqual(vm.velocity, 1.5)
+        XCTAssertEqual(vm.spinY, -0.2)
+        XCTAssertEqual(vm.preferredAimMode, .free)
+        XCTAssertEqual(try XCTUnwrap(vm.freeAimDir).x, direction.x, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(vm.freeAimDir).z, direction.z, accuracy: 0.0001)
+        try await waitUntil { !vm.isComputing }
+        XCTAssertTrue(vm.isFeasible)
+    }
+
+    func testPauseDuringInterShotHoldDoesNotStartNextShot() async throws {
+        let formation = try XCTUnwrap(DrillTryoutBoardStore.formations(for: "drill_c029").first)
+        let vm = PositionPlayViewModel(); vm.setupScene(); vm.isGuidedTryout = true
+        vm.configureSequence(formation.steps); vm.enterSequenceMode()
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 402, height: 700))
+        view.scene = vm.scene; view.pointOfView = vm.scene.cameraNode
+        let window = UIWindow(windowScene: try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene))
+        let controller = UIViewController(); controller.view = view
+        window.rootViewController = controller; window.makeKeyAndVisible(); view.isPlaying = true
+        defer { vm.exitSequenceMode(); view.isPlaying = false; window.isHidden = true; vm.clearTable() }
+        vm.playSequence()
+        try await waitUntil { vm.isSequencePlaying && !vm.isPlaying }
+        vm.requestSequencePause()
+        XCTAssertTrue(vm.isSequencePaused)
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertEqual(vm.sequenceStepIndex, 0)
+        XCTAssertFalse(vm.isPlaying)
+        vm.resumeSequence(); vm.requestSequencePause()
+        try await waitUntil { vm.isSequencePaused }
+        XCTAssertEqual(vm.sequenceStepIndex, 1)
+    }
+
+    func testFreeStepNavigationRestoresAuthoredBoardAndModeSwitchResetsFirstStep() throws {
+        let formation = try XCTUnwrap(DrillTryoutBoardStore.formations(for: "drill_c029").first)
+        let vm = PositionPlayViewModel(); vm.setupScene(); vm.isGuidedTryout = true
+        defer { vm.exitSequenceMode(); vm.clearTable() }
+        vm.configureSequence(formation.steps)
+        vm.enterSequenceMode()
+        vm.enterTryoutFreeMode(aimMode: .free)
+        XCTAssertFalse(vm.canGoToPreviousTryoutStep)
+        XCTAssertTrue(vm.canGoToNextTryoutStep)
+        vm.moveTryoutStep(by: 1); vm.moveTryoutStep(by: 1)
+        XCTAssertEqual(vm.sequenceStepIndex, 2)
+        XCTAssertEqual(vm.preferredAimMode, .free)
+        XCTAssertEqual(vm.aimMode, .free)
+        XCTAssertFalse(vm.isPlaying)
+        XCTAssertNotNil(vm.freeAimDir, "Loading a pocket reference in free aim must keep a playable direction")
+        let expected = formation.steps[2]
+        XCTAssertEqual(Set(vm.onTableKeys), Set(expected.before.onTable.keys))
+        for (key, point) in expected.before.onTable {
+            let actual = try XCTUnwrap(vm.scene.allBallNodes[key]).position
+            let reference = PositionPlayShotSolver.scenePoint(point, surfaceY: vm.scene.surfaceY)
+            XCTAssertEqual(actual.x, reference.x, accuracy: 0.00001)
+            XCTAssertEqual(actual.z, reference.z, accuracy: 0.00001)
+        }
+        XCTAssertEqual(vm.velocity, expected.shot.velocity)
+        vm.moveTryoutStep(by: -1); vm.moveTryoutStep(by: -1); vm.moveTryoutStep(by: -1)
+        XCTAssertEqual(vm.sequenceStepIndex, 0)
+        vm.moveTryoutStep(by: 1)
+        vm.enterSequenceMode()
+        XCTAssertEqual(vm.sequenceStepIndex, 0)
+        XCTAssertTrue(vm.isSequenceMode)
+        vm.enterTryoutFreeMode(aimMode: .pocket)
+        XCTAssertEqual(vm.sequenceStepIndex, 0)
+        XCTAssertEqual(vm.selectedTargetKey, formation.steps[0].shot.targetKey)
+        XCTAssertEqual(vm.selectedPocketIndex, ShotIntent.pocketIndex(for: formation.steps[0].shot.pocket))
+        for _ in 0..<formation.steps.count + 1 { vm.moveTryoutStep(by: 1) }
+        XCTAssertEqual(vm.sequenceStepIndex, formation.steps.count - 1)
+        XCTAssertFalse(vm.canGoToNextTryoutStep)
+        XCTAssertFalse(vm.canReplay)
+    }
+
+    func testUnavailableSequenceStepStopsInsteadOfSkippingOrApplyingRecordedOutcome() {
+        let vm = PositionPlayViewModel(); vm.setupScene(); vm.isGuidedTryout = true
+        defer { vm.exitSequenceMode(); vm.clearTable() }
+        let before = BoardSnapshot(onTable: ["_1": CanvasPoint(x: 0.5, y: 0.25)])
+        let shot = PlannedShot(targetKey: "_1", pocket: "topLeft", velocity: 1)
+        vm.configureSequence([.init(before: before, shot: shot, after: .init(onTable: [:])),
+                              .init(before: before, shot: shot, after: before)])
+        vm.enterSequenceMode(); vm.toggleSequencePlayback()
+        XCTAssertTrue(vm.isSequencePaused)
+        XCTAssertFalse(vm.isPlaying)
+        XCTAssertEqual(vm.sequenceStepIndex, 0)
+        XCTAssertFalse(vm.canContinueTryoutSequence)
+        XCTAssertEqual(Set(vm.onTableKeys), Set(before.onTable.keys))
+        vm.resumeSequence()
+        XCTAssertEqual(vm.sequenceStepIndex, 0)
+        XCTAssertTrue(vm.canGoToNextTryoutStep)
+        vm.moveTryoutStep(by: 1)
+        XCTAssertEqual(vm.sequenceStepIndex, 1)
+        XCTAssertFalse(vm.sequenceFinished)
+        XCTAssertFalse(vm.canGoToNextTryoutStep)
+    }
+}

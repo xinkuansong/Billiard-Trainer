@@ -10641,3 +10641,191 @@ extension RenderQualityV62Tests {
             rankingMode: 3, combinedClothAudit: true, clothCandidateComparison: true)
     }
 }
+
+extension RenderQualityV62Tests {
+    func testTablePageCallbacksDoNotOwnSessionOrScene() {
+        weak var releasedVM: PositionPlayViewModel?
+        weak var releasedScene: AngleTrainingScene?
+        weak var releasedDaily: DailyClearanceController?
+        weak var releasedRules: FreePlayRulesSession?
+        autoreleasepool {
+            let vm = PositionPlayViewModel()
+            let daily = DailyClearanceController()
+            let rules = FreePlayRulesSession()
+            let notices = BTRuleNoticeCenter()
+            releasedVM = vm; releasedScene = vm.scene
+            releasedDaily = daily; releasedRules = rules
+            FreePlayRulesSession.connect(vm: vm, rules: rules, daily: daily, notices: notices,
+                mode: .dailyClearance, isEditor: false, isTryout: false)
+            XCTAssertNotNil(vm.onShotSettled)
+        }
+        XCTAssertNil(releasedVM)
+        XCTAssertNil(releasedScene)
+        XCTAssertNil(releasedDaily)
+        XCTAssertNil(releasedRules)
+    }
+
+    func testTableReuseKeepsNewSessionCleanAndLiveSessionsIsolated() async throws {
+        let cache = TableResourceCache.shared
+        cache.purge()
+        weak var oldScene: AngleTrainingScene?
+        var tableID: ObjectIdentifier?
+        try autoreleasepool {
+            let first = AngleTrainingScene()
+            first.configureDailyClearanceRendering(); first.setupScene(mobileRendering: true)
+            oldScene = first
+            tableID = ObjectIdentifier(try XCTUnwrap(first.tableNode))
+            let markers = first.addPocketMarkers()
+            XCTAssertEqual(markers.count, 6)
+            first.highlightPocket(markers[1], highlighted: true)
+            first.applyClothColor(.burgundy); first.applyTableStyle(.blossom, showsSights: false)
+            first.showBall(key: "_8", scenePosition: SCNVector3(0.3, first.surfaceY + BallPhysics.radius, -0.2))
+            first.setCameraMode(.perspective3D, animated: false)
+            first.setupVisualizationNodes(); first.setTableGridVisible(true)
+        }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertNil(oldScene, "The asset pool must never own a runtime scene")
+        XCTAssertNotNil(cache.idleTable)
+        let second = AngleTrainingScene()
+        second.configureDailyClearanceRendering(); second.setupScene(mobileRendering: true)
+        XCTAssertEqual(ObjectIdentifier(try XCTUnwrap(second.tableNode)), tableID)
+        XCTAssertTrue(second.visibleBalls().isEmpty)
+        XCTAssertEqual(second.currentCameraMode, .topDown2D)
+        XCTAssertFalse(second.hasPerspectiveView)
+        XCTAssertEqual(second.installedClothColor, .green)
+        XCTAssertEqual(second.installedTableStyle, .defaultStyle)
+        XCTAssertTrue(second.showsTableSights)
+        XCTAssertEqual(second.addPocketMarkers().count, 6)
+        XCTAssertTrue(second.addPocketMarkers().compactMap { $0 as? PocketLeatherMarker }.allSatisfy { $0.style == .original })
+        XCTAssertNil(second.ghostBallNode)
+        let third = AngleTrainingScene()
+        third.configureDailyClearanceRendering(); third.setupScene(mobileRendering: true)
+        XCTAssertFalse(third.tableNode === second.tableNode)
+        XCTAssertFalse(third.cueBallNode === second.cueBallNode)
+        second.showBall(key: "_8", scenePosition: SCNVector3(0.4, second.surfaceY + BallPhysics.radius, 0.1))
+        second.allBallNodes["_8"]?.simdOrientation = simd_quatf(angle: 0.7, axis: SIMD3(0, 1, 0))
+        let position = second.allBallNodes["_8"]!.simdPosition
+        let pose = second.allBallNodes["_8"]!.simdOrientation.vector
+        NotificationCenter.default.post(name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
+        XCTAssertNil(cache.idleTable)
+        XCTAssertEqual(second.allBallNodes["_8"]!.simdPosition, position)
+        XCTAssertEqual(second.allBallNodes["_8"]!.simdOrientation.vector, pose)
+        XCTAssertTrue(third.visibleBalls().isEmpty)
+    }
+
+    func testTableIdleExpiryAndEvictionCannotResurrectOldLease() throws {
+        // This budget is deliberately independent of earlier playback tests'
+        // UIWindow/renderer lifetimes. Actual scene deinit is checked separately.
+        let cache = TableResourceCache()
+        let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: true)
+        let table = AngleTrainingScene.ReusableTable(scene: scene, key: "expiry-fixture")
+        let oldGeneration = cache.acquire()
+        cache.expireIfIdle(generation: oldGeneration)
+        XCTAssertEqual(cache.generation, oldGeneration, "An active scene prevents idle eviction")
+        XCTAssertEqual(cache.activeScenes, 1)
+        cache.purge()
+        cache.release(table, generation: oldGeneration)
+        XCTAssertEqual(cache.activeScenes, 0)
+        XCTAssertNil(cache.idleTable, "Pre-warning leases must not repopulate the evicted pool")
+        let newGeneration = cache.acquire()
+        cache.release(table, generation: newGeneration)
+        XCTAssertNotNil(cache.idleTable)
+        cache.expireIfIdle(generation: oldGeneration)
+        XCTAssertNotNil(cache.idleTable, "An obsolete timer cannot evict a new cache generation")
+        cache.expireIfIdle(generation: newGeneration)
+        XCTAssertNil(cache.idleTable)
+        XCTAssertEqual(cache.activeScenes, 0)
+    }
+}
+
+extension RenderQualityV62Tests {
+    func testTableReusePreservesPocketThemeAndRoleMaterialsWithoutThemeChanges() async throws {
+        TableResourceCache.shared.purge()
+        func finishes(_ scene: AngleTrainingScene) -> [String: String] {
+            var result: [String: String] = [:]
+            for marker in scene.addPocketMarkers() {
+                marker.enumerateChildNodes { node, _ in
+                    for (index, material) in (node.geometry?.materials ?? []).enumerated() {
+                        result["\(marker.name ?? "")/\(node.name ?? "")/\(index)"] = material.shaderModifiers?[.surface] ?? ""
+                    }
+                }
+            }
+            return result
+        }
+        var expected: [String: String] = [:]
+        var tableID: ObjectIdentifier?
+        autoreleasepool {
+            let first = AngleTrainingScene()
+            first.configureDailyClearanceRendering(); first.setupScene(mobileRendering: true)
+            expected = finishes(first)
+            tableID = first.tableNode.map(ObjectIdentifier.init)
+        }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        let second = AngleTrainingScene()
+        second.configureDailyClearanceRendering(); second.setupScene(mobileRendering: true)
+        XCTAssertEqual(second.tableNode.map(ObjectIdentifier.init), tableID)
+        let actual = finishes(second)
+        XCTAssertFalse(expected.isEmpty)
+        XCTAssertEqual(actual.keys.sorted(), expected.keys.sorted())
+        for key in expected.keys {
+            XCTAssertEqual(actual[key], expected[key], "Theme and training-role finish changed during reuse: \(key)")
+        }
+    }
+
+    func testTableReuseRestoresRenderedAppearanceAfterThemeChanges() async throws {
+        let cache = TableResourceCache.shared
+        cache.purge()
+        let folder = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("output/table-runtime-20261013/visual")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        func snapshot(_ scene: AngleTrainingScene) throws -> UIImage {
+            let rig = try XCTUnwrap(scene.cameraRig)
+            rig.viewportSize = CGSize(width: 640, height: 360)
+            scene.setCameraMode(.perspective3D, animated: false)
+            XCTAssertTrue(rig.observeWholeTable(yaw: .pi / 2))
+            rig.snapToTarget()
+            let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+            renderer.scene = scene; renderer.pointOfView = scene.cameraNode
+            renderer.delegate = scene.contactOcclusion
+            renderer.autoenablesDefaultLighting = false
+            defer { renderer.scene = nil; renderer.pointOfView = nil; renderer.delegate = nil }
+            for _ in 0..<3 { _ = renderer.snapshot(atTime: 0, with: rig.viewportSize, antialiasingMode: .multisampling4X) }
+            return renderer.snapshot(atTime: 0, with: rig.viewportSize, antialiasingMode: .multisampling4X)
+        }
+        var reference: UIImage!
+        var firstID: ObjectIdentifier?
+        try autoreleasepool {
+            let first = AngleTrainingScene()
+            first.configureDailyClearanceRendering(); first.setupScene(mobileRendering: true)
+            _ = first.addPocketMarkers()
+            firstID = ObjectIdentifier(try XCTUnwrap(first.tableNode))
+            reference = try snapshot(first)
+            first.applyTableStyle(.ivory, showsSights: false)
+            first.applyClothColor(.burgundy)
+        }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        let second = AngleTrainingScene()
+        second.configureDailyClearanceRendering(); second.setupScene(mobileRendering: true)
+        _ = second.addPocketMarkers()
+        XCTAssertEqual(ObjectIdentifier(try XCTUnwrap(second.tableNode)), firstID)
+        let reused = try snapshot(second)
+        try XCTUnwrap(reference.pngData()).write(to: folder.appendingPathComponent("fresh.png"))
+        try XCTUnwrap(reused.pngData()).write(to: folder.appendingPathComponent("reused.png"))
+        func pixels(_ image: UIImage) throws -> [UInt8] {
+            let cg = try XCTUnwrap(image.cgImage)
+            var bytes = [UInt8](repeating: 0, count: cg.width * cg.height * 4)
+            try bytes.withUnsafeMutableBytes { buffer in
+                let context = try XCTUnwrap(CGContext(data: buffer.baseAddress, width: cg.width, height: cg.height,
+                    bitsPerComponent: 8, bytesPerRow: cg.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                context.draw(cg, in: CGRect(x: 0, y: 0, width: cg.width, height: cg.height))
+            }
+            return bytes
+        }
+        let a = try pixels(reference), b = try pixels(reused)
+        XCTAssertEqual(a.count, b.count)
+        let mean = zip(a, b).reduce(0.0) { $0 + abs(Double($1.0) - Double($1.1)) } / Double(a.count)
+        print("TableReuse rendered pixel mean absolute difference: \(mean)")
+        XCTAssertLessThan(mean, 0.5, "Reusing a table must restore its original rendering, including cloth and rail finishes")
+    }
+}

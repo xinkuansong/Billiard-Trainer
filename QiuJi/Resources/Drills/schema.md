@@ -19,7 +19,7 @@
 | `isPremium` | `Bool` | ✅ | Freemium gate flag |
 | `description` | `String` | ✅ | Teaching description (Chinese) |
 | `coachingPoints` | `[String]` | ✅ | Ordered coaching tips |
-| `standardCriteria` | `String` | ✅ | Pass criteria, e.g. "15球进10球" |
+| `standardCriteria` | `String` | ✅ | Pass criteria, e.g. "15球进10球". Optional explicit `\n` separates display items: details number multiple nonempty items; a single item stays plain text (DR-379). No punctuation inference or scoring semantics. |
 | `sets` | `DrillSetsConfig` | ✅ | Default practice sets configuration |
 | `animation` | `DrillAnimation` | ✅ | Canvas animation data (hand-drawn `manual` or engine-`baked`) |
 | `tutorial` | `DrillTutorial?` | ❌ | Detailed coaching tutorial sections |

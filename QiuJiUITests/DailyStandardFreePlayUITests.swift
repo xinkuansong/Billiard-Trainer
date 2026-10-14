@@ -4,6 +4,135 @@ import XCTest
 /// The baseline failure is retained in fixes-20261009/before-p1; no production delay is used.
 final class DailyStandardFreePlayUITests: XCTestCase {
     private var app: XCUIApplication!
+
+    /// A real detail push must reserve exactly the reference table space,
+    /// independently of the drill name and the selected camera mode.
+    func testTryoutLongTitlesPreserveDailyTableSize() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let common = ["-forcePremium", "-v50.inMemoryStore", "-v53.authenticatedProfileFixture",
+                      "-dailyLayout.probe", "-drillTryout.hasSeenGestureHint", "YES"]
+        // Match tryout's 15-ball palette; a persisted nine-ball game has a
+        // different header height on compact screens even at the same table size.
+        app = XCUIApplication.launchClean(extraArgs: common + ["-deeplink.dailyClearance",
+            "-dailyClearance.resetState", "-dailyClearance.preferredGame.v1", "chineseEightBall"])
+        XCTAssertTrue(element("dailyClearance.landscape").waitForExistence(timeout: 20))
+        XCTAssertTrue(element("freeplay.stage").waitForExistence(timeout: 10))
+        let reference = element("freeplay.stage").frame
+        XCTAssertGreaterThan(reference.width, reference.height)
+        try capture("title-daily-reference")
+        app.terminate()
+
+        for (id, name) in [("drill_c003", "高杆跟进"), ("drill_c029", "定杆分离角精确控制"),
+                           ("drill_c034", "不吃库短距离走位"), ("drill_c065", "Ghost Game 单人练习")] {
+            app = XCUIApplication.launchClean(extraArgs: common + ["-deeplink.drillDetail=" + id])
+            let entry = app.buttons["bottomTryoutButton"]
+            XCTAssertTrue(entry.waitForExistence(timeout: 15)); entry.tap()
+            let formation = app.buttons["tryoutFormation_0"]
+            if formation.waitForExistence(timeout: 2) { formation.tap() }
+            XCTAssertTrue(element("composer.landscape").waitForExistence(timeout: 15))
+            let title = element("tryout.title")
+            XCTAssertTrue(title.waitForExistence(timeout: 5))
+            XCTAssertEqual(title.label, name)
+            XCTAssertLessThanOrEqual(title.frame.width, 60.5)
+            let stage = element("freeplay.stage").frame
+            XCTAssertEqual(stage.width, reference.width, accuracy: 1, name)
+            XCTAssertEqual(stage.height, reference.height, accuracy: 1, name)
+            XCTAssertEqual(stage.minY, reference.minY, accuracy: 1, name)
+            assertRendererMatchesStage()
+            try capture("title-" + id + "-2D")
+            app.buttons["freeplay.moreMenu"].tap()
+            let mode = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 5)); mode.tap()
+            XCTAssertEqual(mode.value as? String, "3D")
+            app.buttons["关闭菜单"].tap()
+            try capture("title-" + id + "-3D")
+            XCTAssertEqual(element("freeplay.stage").frame.size, stage.size)
+            app.buttons["dailyClearance.back"].tap()
+            XCTAssertTrue(entry.waitForExistence(timeout: 10))
+            app.terminate()
+        }
+    }
+    func testTryoutModeAndManualSequenceControls() throws {
+        continueAfterFailure = false
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore",
+            "-v53.authenticatedProfileFixture", "-dailyLayout.probe", "-drillTryout.hasSeenGestureHint", "YES",
+            "-deeplink.drillDetail=drill_c029"])
+        XCTAssertTrue(app.buttons["bottomTryoutButton"].waitForExistence(timeout: 15))
+        app.buttons["bottomTryoutButton"].tap()
+        XCTAssertTrue(element("composer.landscape").waitForExistence(timeout: 15))
+        let main = app.buttons["dailyClearance.strike"]
+        let previous = app.buttons["dailyClearance.undo"]
+        let next = app.buttons["dailyClearance.playback"]
+        let status = element("composer.status")
+        func wait(_ predicate: String, _ item: XCUIElement, timeout: TimeInterval = 45) {
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: predicate), object: item)], timeout: timeout), .completed)
+        }
+        func step(_ number: Int) { wait("label CONTAINS '第 \(number)/6 杆'", status) }
+        func mainLabel(_ label: String) { wait("label == '\(label)' AND enabled == true", main) }
+        func menu() { app.buttons["freeplay.moreMenu"].tap() }
+        func closeMenu() { app.buttons["关闭菜单"].tap() }
+        app.buttons["tryout.rearrange"].tap()
+        step(1); mainLabel("开始")
+        XCTAssertFalse(previous.isEnabled); XCTAssertEqual(next.label, "下一杆")
+        let stage = element("freeplay.stage").frame
+        try capture("tryout-sequence-ready")
+        menu()
+        let mode = app.buttons["tryout.mode"]
+        let aim = app.buttons["dailyClearance.aimModeMenu"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 5))
+        XCTAssertEqual(mode.value as? String, "序列")
+        XCTAssertGreaterThan(mode.frame.minY, app.buttons["freeplay.cameraMode"].frame.minY)
+        XCTAssertFalse(aim.isEnabled)
+        try capture("tryout-sequence-settings")
+        mode.tap()
+        XCTAssertEqual(mode.value as? String, "自由")
+        XCTAssertTrue(aim.isEnabled)
+        try capture("tryout-free-settings")
+        aim.tap()
+        XCTAssertTrue(app.buttons["tryoutAim_自由"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["tryoutMode_序列"].exists)
+        try capture("tryout-aim-options")
+        app.buttons["tryoutAim_自由"].tap()
+        step(1); mainLabel("击球")
+        next.tap(); step(2); mainLabel("击球")
+        next.tap(); step(3); previous.tap(); step(2); previous.tap(); step(1)
+        XCTAssertFalse(previous.isEnabled)
+        mainLabel("击球"); main.tap(); mainLabel("重打")
+        try capture("tryout-free-shot-result")
+        main.tap(); mainLabel("击球"); step(1)
+        try capture("tryout-free-retry")
+        next.tap(); step(2)
+        menu(); mode.tap(); closeMenu()
+        step(1); mainLabel("开始")
+        main.tap(); mainLabel("暂停"); main.tap(); mainLabel("继续"); step(1)
+        try capture("tryout-sequence-paused")
+        next.tap(); mainLabel("继续"); step(2)
+        previous.tap(); mainLabel("继续"); step(1)
+        XCTAssertFalse(previous.isEnabled)
+        next.tap(); mainLabel("继续"); step(2)
+        main.tap(); mainLabel("暂停"); main.tap(); mainLabel("继续"); step(3)
+        menu(); app.buttons["freeplay.cameraMode"].tap(); closeMenu()
+        try capture("tryout-sequence-3D-paused")
+        for number in 4...6 {
+            next.tap()
+            mainLabel(number == 6 ? "重新开始" : "继续")
+            if number < 6 { step(number) }
+        }
+        XCTAssertFalse(next.isEnabled)
+        try capture("tryout-sequence-finished")
+        // The last result must not vanish under the old 1.2-second automatic reset.
+        XCTAssertEqual(main.label, "重新开始")
+        previous.tap(); mainLabel("继续"); step(5)
+        menu(); mode.tap(); closeMenu()
+        step(1); mainLabel("击球")
+        XCTAssertFalse(previous.isEnabled)
+        XCTAssertEqual(element("freeplay.stage").frame, stage)
+        try capture("tryout-mode-reset-first")
+        app.terminate()
+    }
+
     private func element(_ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }

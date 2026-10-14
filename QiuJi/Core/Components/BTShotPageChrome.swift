@@ -342,7 +342,7 @@ struct BTSlotL1Button: View {
 
 // MARK: - 开球排球图标（G9：三角形内含三个圆圈，示意码球）
 
-/// 开球按钮/胶囊统一图标：等边三角形描边 + 内部三颗球（1 顶 2 底的迷你球堆）。
+/// 开球按钮/胶囊统一图标：等边三角形描边 + 内部六颗球（三行 1/2/3）。
 /// 单点定义，`BTBreakSideButton` 与 `breakModePill` 共用（改一处全局生效）。
 struct BreakRackGlyph: View {
     var color: Color
@@ -368,14 +368,17 @@ struct BreakRackGlyph: View {
             tri.move(to: apex); tri.addLine(to: bl); tri.addLine(to: br); tri.closeSubpath()
             ctx.stroke(tri, with: .color(color),
                        style: StrokeStyle(lineWidth: lineWidth, lineJoin: .miter))
-            // Three mutually tangent circles, each tangent to two inner rack edges.
-            // Inner inradius = r + r / sqrt(3); center-to-center distance = 2r.
+            // Six equal circles in rows 1/2/3. For three rows the inner
+            // inradius is r + 2r/sqrt(3); adjacent centres are 2r apart.
             let innerInradius = outerRadius / 2 - lineWidth
-            let r = innerInradius * rootThree / (rootThree + 1)
-            let topBall = CGPoint(x: center.x, y: center.y - 2 * r / rootThree)
-            let leftBall = CGPoint(x: center.x - r, y: center.y + r / rootThree)
-            let rightBall = CGPoint(x: center.x + r, y: center.y + r / rootThree)
-            for c in [topBall, leftBall, rightBall] {
+            let r = innerInradius / (1 + 2 / rootThree)
+            let centers = (0..<3).flatMap { row in
+                (0...row).map { column in
+                    CGPoint(x: center.x + CGFloat(2 * column - row) * r,
+                            y: center.y - 4 * r / rootThree + CGFloat(row) * rootThree * r)
+                }
+            }
+            for c in centers {
                 let rect = CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)
                 if hollowBalls {
                     let stroke = diameter * 1.8 / 47

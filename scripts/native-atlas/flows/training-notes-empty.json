@@ -1,0 +1,30 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.moreMenu",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "训练心得",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "训练心得",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "wait",
+      "id": "还没有训练心得",
+      "kind": "text"
+    },
+    {
+      "action": "snapshot",
+      "name": "P10-empty",
+      "entry": "training/more/notes"
+    }
+  ]
+}

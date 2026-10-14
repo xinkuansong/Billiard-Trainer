@@ -277,7 +277,7 @@ struct SeparationPathsFigure: View {
 
             ZStack {
                 Path { p in p.move(to: cue); p.addLine(to: ghost) }
-                    .stroke(FigureLine.aim.opacity(0.35), lineWidth: proj.lineHintWidth)
+                    .stroke(FigureLine.hint, lineWidth: proj.lineHintWidth)
 
                 Path { p in p.move(to: target); p.addLine(to: potFar) }
                     .stroke(FigureLine.pot(number: 1),
@@ -289,7 +289,7 @@ struct SeparationPathsFigure: View {
                     let active = emphasizeAll || state == selected
                     let color = pathColor(state)
                     Path { p in p.move(to: ghost); p.addLine(to: end) }
-                        .stroke(color.opacity(active ? 1 : 0.28),
+                        .stroke(color.opacity(active ? 1 : 0.85),
                                 style: StrokeStyle(
                                     lineWidth: active ? proj.lineMainWidth : proj.lineHintWidth,
                                     dash: state == .stun ? [4, 3] : []
@@ -308,7 +308,7 @@ struct SeparationPathsFigure: View {
                 BTFigureTag(text: "进球线", color: FigureLine.pot(number: 1))
                     .position(spinAlongLabel(from: target, to: potFar, t: 0.45, offset: -14))
                 BTFigureTag(text: "母球").position(x: cue.x, y: cue.y + d / 2 + 12)
-                BTFigureTag(text: "假想球", color: FigureLine.contact)
+                BTFigureTag(text: "假想球", color: FigureLine.ghost)
                     .position(x: ghost.x - d * 0.9, y: ghost.y + d / 2 + 12)
             }
         }
@@ -317,8 +317,8 @@ struct SeparationPathsFigure: View {
     private func pathColor(_ state: SpinAndEnglishGeometry.SpinState) -> Color {
         switch state {
         case .stun:   return FigureLine.separation
-        case .follow: return Color.btPhysicsAdjustable
-        case .draw:   return Color.btWarning
+        case .follow: return FigureLine.follow
+        case .draw:   return FigureLine.effect
         }
     }
 }
@@ -509,18 +509,18 @@ private struct CushionEnglishFigure: View {
                     p.move(to: CGPoint(x: 8, y: y))
                     p.addLine(to: CGPoint(x: proj.size.width - 8, y: y))
                 }
-                .stroke(Color.btTextTertiary.opacity(0.5), lineWidth: 3)
+                .stroke(FigureLine.hint, lineWidth: 3)
 
                 Path { p in p.move(to: c); p.addLine(to: hit) }
-                    .stroke(FigureLine.aim.opacity(0.55), lineWidth: proj.lineHintWidth)
+                    .stroke(FigureLine.aim, lineWidth: proj.lineHintWidth)
 
                 Path { p in p.move(to: hit); p.addLine(to: a0) }
                     .stroke(FigureLine.separation,
                             style: StrokeStyle(lineWidth: proj.lineMainWidth, dash: [5, 3]))
                 Path { p in p.move(to: hit); p.addLine(to: aRun) }
-                    .stroke(Color.btTeachingGuide, lineWidth: proj.lineMainWidth)
+                    .stroke(FigureLine.guide, lineWidth: proj.lineMainWidth)
                 Path { p in p.move(to: hit); p.addLine(to: aRev) }
-                    .stroke(Color.btWarning, lineWidth: proj.lineMainWidth)
+                    .stroke(FigureLine.effect, lineWidth: proj.lineMainWidth)
 
                 BTFigureBall(diameter: d).position(c)
                 BTContactDot(diameter: max(4, d * 0.22)).position(hit)
@@ -529,9 +529,9 @@ private struct CushionEnglishFigure: View {
                     .position(spinAlongLabel(from: c, to: hit, t: 0.45, offset: -14))
                 BTFigureTag(text: "无塞", color: FigureLine.separation)
                     .position(spinAlongLabel(from: hit, to: a0, t: 0.7, offset: 14))
-                BTFigureTag(text: "顺塞更开", color: .btTeachingGuide)
+                BTFigureTag(text: "顺塞更开", color: FigureLine.guide)
                     .position(spinAlongLabel(from: hit, to: aRun, t: 0.75, offset: -14))
-                BTFigureTag(text: "逆塞更闭", color: .btWarning)
+                BTFigureTag(text: "逆塞更闭", color: FigureLine.effect)
                     .position(spinAlongLabel(from: hit, to: aRev, t: 0.7, offset: 14))
             }
         }

@@ -1,0 +1,46 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.moreMenu",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "使用帮助",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "使用帮助",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "tap",
+      "id": "怎样安排今天的训练？",
+      "kind": "button",
+      "scrollTo": 4
+    },
+    {
+      "action": "tap",
+      "id": "浏览训练计划"
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "训练计划"
+    },
+    {
+      "action": "wait",
+      "kind": "text",
+      "id": "基本功"
+    },
+    {
+      "action": "cover",
+      "name": "P03-01-official-and-template-full",
+      "maximumViews": 40,
+      "entry": "training/more/help/start-training/browse-plans"
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_打"
+    },
+    {
+      "action": "tap",
+      "id": "分离角与走位",
+      "scrollTo": 5
+    },
+    {
+      "action": "wait",
+      "id": "freeplay.moreMenu",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P01-2d-default",
+      "entry": "normal App navigation; existing settled fixture where specified"
+    },
+    {
+      "action": "tap",
+      "id": "freeplay.moreMenu"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P01-2d-more",
+      "entry": "normal App navigation; existing settled fixture where specified"
+    },
+    {
+      "action": "tap",
+      "id": "dailyClearance.aimModeMenu"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P01-2d-aim-menu",
+      "entry": "normal App navigation; existing settled fixture where specified"
+    },
+    {
+      "action": "tap",
+      "id": "dailyClearance.menuClose"
+    },
+    {
+      "action": "tap",
+      "id": "freeplay.moreMenu"
+    },
+    {
+      "action": "tap",
+      "id": "freeplay.cameraMode"
+    },
+    {
+      "action": "tap",
+      "id": "关闭菜单"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P01-3d-default",
+      "entry": "normal App navigation; existing settled fixture where specified"
+    }
+  ],
+  "catalog": {
+    "TABLE-P01-2d-default": {
+      "id": "TABLE/P01",
+      "title": "分离角与走位",
+      "state": "2d-default",
+      "figmaPage": "71"
+    },
+    "TABLE-P01-2d-more": {
+      "id": "TABLE/P01",
+      "title": "分离角与走位",
+      "state": "2d-more",
+      "figmaPage": "71"
+    },
+    "TABLE-P01-2d-aim-menu": {
+      "id": "TABLE/P01",
+      "title": "分离角与走位",
+      "state": "2d-aim-menu",
+      "figmaPage": "71"
+    },
+    "TABLE-P01-3d-default": {
+      "id": "TABLE/P01",
+      "title": "分离角与走位",
+      "state": "3d-default",
+      "figmaPage": "71"
+    }
+  },
+  "launchArguments": []
+}

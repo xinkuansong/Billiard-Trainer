@@ -1,0 +1,68 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.moreMenu",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "训练心得",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "训练心得",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "wait",
+      "id": "trainingNotes.day",
+      "kind": "button"
+    },
+    {
+      "action": "back"
+    },
+    {
+      "action": "tab",
+      "name": "记录"
+    },
+    {
+      "action": "tap",
+      "id": "统计",
+      "kind": "any"
+    },
+    {
+      "action": "wait",
+      "id": "角度训练",
+      "kind": "text"
+    },
+    {
+      "action": "tap",
+      "id": "月",
+      "kind": "button"
+    },
+    {
+      "action": "cover",
+      "name": "P20-pro-month",
+      "entry": "history/statistics/month",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "年",
+      "kind": "button"
+    },
+    {
+      "action": "cover",
+      "name": "P20-pro-year",
+      "entry": "history/statistics/year",
+      "maximumViews": 40
+    }
+  ],
+  "launchArguments": [
+    "-journal.fixture"
+  ],
+  "premium": true
+}

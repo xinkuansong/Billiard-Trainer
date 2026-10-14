@@ -1,0 +1,25 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "tap",
+      "id": "收藏",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "收藏",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "cover",
+      "name": "P27-empty",
+      "entry": "profile/favorites",
+      "maximumViews": 40
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_学"
+    },
+    {
+      "action": "cover",
+      "name": "P17-section-学",
+      "entry": "practice/学",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_理"
+    },
+    {
+      "action": "cover",
+      "name": "P17-section-理",
+      "entry": "practice/理",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_练"
+    },
+    {
+      "action": "cover",
+      "name": "P17-section-练",
+      "entry": "practice/练",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_打"
+    },
+    {
+      "action": "cover",
+      "name": "P17-section-打",
+      "entry": "practice/打",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_解"
+    },
+    {
+      "action": "cover",
+      "name": "P17-section-解",
+      "entry": "practice/解",
+      "maximumViews": 40
+    }
+  ]
+}

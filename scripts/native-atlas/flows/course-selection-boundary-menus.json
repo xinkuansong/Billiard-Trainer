@@ -1,0 +1,36 @@
+{
+  "fixture": "mixed",
+  "premium": true,
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.startTraining"
+    },
+    {
+      "action": "wait",
+      "id": "courseSelection.start"
+    },
+    {
+      "action": "tap",
+      "id": "courseSelection.reorder.0"
+    },
+    {
+      "action": "snapshot",
+      "name": "P02-02-reorder-first",
+      "entry": "Normal UI from frozen App home fixture; in-memory data only"
+    },
+    {
+      "action": "tap",
+      "id": "下移"
+    },
+    {
+      "action": "tap",
+      "id": "courseSelection.reorder.2"
+    },
+    {
+      "action": "snapshot",
+      "name": "P02-02-reorder-last",
+      "entry": "Normal UI from frozen App home fixture; in-memory data only"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import SceneKit
 struct SiluTrainerView: View {
     let initialBoard: BoardSnapshot?
     init(initialBoard: BoardSnapshot? = nil) { self.initialBoard = initialBoard }
+    @State private var informationPanel: PlanningPanel?
     @StateObject private var vm = SiluTrainerViewModel()
     @State private var showBreakPicker = false
     @AppStorage("silu.spinTransparency") private var spinTransparency = 0.5
@@ -17,22 +18,18 @@ struct SiluTrainerView: View {
     var body: some View {
         BTTeachingTablePage(vm: vm, titleLabel: "思路训练", identifier: "silu",
             velocity: velocity, planning: controls,
-            information: informationItems, usesStandardTitle: true,
+            usesStandardTitle: true,
             pairedLeftContent: vm.isBreakMode ? { AnyView(breakControls($0)) } : nil,
             title: { EmptyView() },
             leftContent: { size in leftControls(size) },
-            status: { EmptyView() }, onPalettePlace: { vm.placeFromPalette($0, atWorld: $1) })
+            status: { informationOverlay }, onPalettePlace: { vm.placeFromPalette($0, atWorld: $1) })
         .sheet(isPresented: $showBreakPicker) {
             BreakGamePickerSheet { vm.startBreakFlow(game: $0) }
                 .presentationDetents([.height(360)]).presentationDragIndicator(.visible)
         }
-    }
-
-    private var informationItems: [BTTeachingInformation] {
-        var items: [BTTeachingInformation] = [.init(
-            text: vm.breakRunner?.statusText(isPerspective: vm.cameraMode == .perspective3D) ?? vm.statusText,
-            identifier: "silu.status")]
-        return items
+        .sheet(item: $informationPanel) { panel in
+            PlanningInformationSheet(panel: panel, sections: informationSections(panel))
+        }
     }
 
     private func breakControls(_ metrics: BTTeachingInstrumentLayout) -> some View {
@@ -77,7 +74,7 @@ struct SiluTrainerView: View {
         BTTablePlanningControls(spinX: spinX, spinY: spinY, transparency: $spinTransparency,
             hides3DAssists: Binding(get: { hides3DAssists }, set: { hides3DAssists = $0; vm.hides3DShotAssists = $0 }),
             velocityRange: vm.isBreakMode ? BreakFlowRunner.breakVelocityRange : ShotTuning.velocityRange,
-            instrumentsEnabled: !busy && (vm.isBreakMode || vm.hasSolutions), isAnimating: busy,
+            instrumentsEnabled: (!busy || vm.isAdjustingSolution) && (vm.isBreakMode || vm.hasSolutions), isAnimating: busy,
             paletteEnabled: !busy && !vm.isBreakMode,
             primaryTitle: vm.breakRunner.map { $0.showsConfirm ? "完成" : "开球" } ?? (vm.isComputing ? "计算中" : "击球"),
             primaryEnabled: vm.isBreakMode ? !busy : vm.canStrike,
@@ -91,6 +88,12 @@ struct SiluTrainerView: View {
             onSetup: { vm.hides3DShotAssists = hides3DAssists; if let initialBoard { vm.loadBoard(initialBoard) } },
             onDisappear: { vm.stopForDismissal() },
             onAimNudged: vm.isBreakMode ? { vm.breakRunner?.nudgeAim(byDegrees: $0) } : nil,
+            closeupSnapshot: vm.canStrike ? vm.solvedContactCloseup : nil,
+            closeupUnavailableReason: vm.canStrike && vm.solvedContactCloseup != nil ? nil : "当前首碰暂无特写",
+            onSpinChange: { x, y in
+                if let runner = vm.breakRunner { runner.spinX = x; runner.spinY = y }
+                else { vm.adjustCurrentSolution(spinX: x, spinY: y) }
+            },
             overlay: { projector, frame in
                 if !vm.isBreakMode && !busy && vm.activeTool != .none {
                     return AnyView(SolveConstraintDrawingOverlay(coordinateSpaceName: "silu", sceneFrame: frame,
@@ -120,7 +123,8 @@ struct SiluTrainerView: View {
                     action("清除", "eraser", "silu.clearConstraint", enabled: !busy && vm.hasConstraint) { vm.clearConstraint() }
                     action("求解", "function", "solver.solve", enabled: !busy && vm.hasConstraint) { vm.solve() }
                     TeachingSolutionButton(count: vm.solutions.count, currentIndex: vm.currentIndex,
-                        enabled: !busy, next: { vm.nextSolution() }, select: { vm.selectSolution(at: $0) })
+                        enabled: !busy, next: { vm.nextSolution() }, select: { vm.selectSolution(at: $0) },
+                        onDetails: { informationPanel = .details }, isModified: vm.isSolutionAdjusted)
                     action("重打", "arrow.uturn.backward", "silu.undo", enabled: !busy && !vm.temporaryTopDownActive && vm.canUndoShot) { vm.undoLastShot() }
                     action("回放", "play.rectangle", "silu.replay", enabled: !busy && !vm.temporaryTopDownActive && vm.canPlayback) { vm.replayLastShot() }
                 }
@@ -133,9 +137,11 @@ struct SiluTrainerView: View {
                 .frame(width: 44, height: 44).background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
                             .overlay(RoundedRectangle(cornerRadius: 12).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
         }.buttonStyle(BTHUDPressStyle()).disabled(!enabled).opacity(enabled ? 1 : 0.4).accessibilityLabel(title).accessibilityIdentifier(id)
+            .accessibilityHint(id == "solver.solve" && !enabled ? (compactPrompt ?? "请查看更多中的操作说明") : "")
     }
     private var menuItems: [DailyHUDMenuItem] {
         var items: [DailyHUDMenuItem] = [
+            .init(id: "silu.help", title: "操作说明", disabled: vm.isBreakMode, action: { informationPanel = .help }),
             .init(id: "silu.solveOptions", title: "求解范围"),
             .init(id: "silu.sideSpin", title: "允许左右塞", selected: vm.allowSideSpin, disabled: busy || vm.isBreakMode, action: { vm.allowSideSpin.toggle() }),
             .init(id: "silu.basicOnly", title: "仅基础走位（≤1库）", selected: vm.basicPositionOnly, disabled: busy || vm.isBreakMode, action: { vm.basicPositionOnly.toggle() })]
@@ -147,5 +153,41 @@ struct SiluTrainerView: View {
                 .init(id: "silu.reset", title: "恢复默认球形", disabled: busy, action: { vm.resetAll() })]
         }
         return items
+    }
+    @ViewBuilder private var informationOverlay: some View {
+        if let runner = vm.breakRunner {
+            BTTeachingInformationLayer(items: [.init(text: runner.statusText(isPerspective: vm.cameraMode == .perspective3D))])
+        } else {
+            PlanningInformationOverlay(page: "silu", event: vm.informationEvent, prompt: compactPrompt,
+                solution: vm.currentSolution, defense: false, busy: busy,
+                setupComplete: vm.hasConstraint && vm.selectedTargetKey != nil && vm.selectedPocketIndex >= 0, introduction: "拖球摆位，选择目标球、目标袋和约束；更多操作可查看说明。")
+        }
+    }
+    private var compactPrompt: String? {
+        if !vm.onTableKeys.contains(PositionPlayBall.cueKey) { return "请摆上母球" }
+        if vm.selectedTargetKey == nil { return "选择目标球" }
+        if vm.selectedPocketIndex < 0 { return "选择目标袋" }
+        guard !vm.hasConstraint else { return nil }
+        switch vm.activeTool {
+        case .none: return nil
+        case .region: return "拖出落区"
+        case .restPoint: return "点选落点"
+        case .passPoint: return "点选过点"
+        }
+    }
+    private func informationSections(_ panel: PlanningPanel) -> [(String, String)] {
+        if panel == .details {
+            return [("当前方案", PlanningSolutionDetails.text(vm.currentSolution, index: vm.currentIndex,
+                count: vm.solutions.count, adjusted: vm.isSolutionAdjusted, defense: false))]
+        }
+        var sections: [(String, String)] = []
+        if vm.informationEvent.kind == .failure { sections.append(("当前问题", vm.informationEvent.text)) }
+        else if let prompt = compactPrompt { sections.append(("当前步骤", prompt)) }
+        sections += [
+            ("摆球与选择", "拖动球调整球形；点选目标球和目标袋。完成选择与约束后求解。"),
+            ("约束工具", "落区：拖出母球期望停下的区域。\n落点：点选母球期望停下的位置；琥珀十字表示目标，圆环表示容差。\n过点：点选母球需要经过的位置。\n切回“摆球”可继续选择目标球和袋口。"),
+            ("方案与微调", "轻点方案按钮切换解；长按选择方案或查看当前方案详情。调整打点、杆速后，当前方案标记“微调”。不满足约束或超出筛选范围的方案仍保留提示。")
+        ]
+        return sections
     }
 }

@@ -132,7 +132,7 @@ final class W1BTeachingEditingTests: XCTestCase {
             XCTAssertTrue(layout.innerRect.contains(lane))
             XCTAssertFalse(lane.intersects(layout.spinPadFrame))
             XCTAssertGreaterThanOrEqual(lane.width, 44)
-            let text = "①球:15号球\n①袋:袋6\n②球:14号球\n②袋:袋5\n③球:未选择" as NSString
+            let text = "①球:15号球\n第1杆目标袋:右中袋\n②球:14号球\n第2杆目标袋:左中袋\n③球:未选择" as NSString
             let bounds = text.boundingRect(with: CGSize(width: lane.width, height: .greatestFiniteMagnitude),
                 options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: UIFont.preferredFont(forTextStyle: .footnote)], context: nil)
             XCTAssertLessThanOrEqual(ceil(bounds.height), lane.height)

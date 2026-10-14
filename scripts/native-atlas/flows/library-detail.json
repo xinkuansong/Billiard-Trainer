@@ -1,0 +1,45 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "动作库"
+    },
+    {
+      "action": "wait",
+      "id": "搜索动作",
+      "kind": "textField"
+    },
+    {
+      "action": "tap",
+      "id": "drillCard_drill_c012",
+      "kind": "any"
+    },
+    {
+      "action": "wait",
+      "id": "bottomTryoutButton",
+      "kind": "button"
+    },
+    {
+      "action": "cover",
+      "name": "P15-c012-default",
+      "entry": "library/drill-c012",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "addToTrainingButton",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "newPlanNameField",
+      "kind": "textField"
+    },
+    {
+      "action": "snapshot",
+      "name": "P15-add-to-training",
+      "entry": "library/drill-c012/add-to-training"
+    }
+  ]
+}

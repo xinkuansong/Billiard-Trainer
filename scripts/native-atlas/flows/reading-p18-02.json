@@ -1,0 +1,31 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_理"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "30° 法则",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "30° 法则"
+    },
+    {
+      "action": "cover",
+      "name": "P18-02-default",
+      "entry": "practice/理/30° 法则",
+      "maximumViews": 40
+    }
+  ]
+}

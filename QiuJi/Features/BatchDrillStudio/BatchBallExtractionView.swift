@@ -624,7 +624,8 @@ struct BatchBallExtractionView: View {
             selectableBallNodes: vm.draggableBalls,
             onBallTapped: { vm.selectBall(node: $0) },
             onTableTapped: { _ in vm.deselect() },
-            projector: projector
+            projector: projector,
+            contentIsAnimating: false
         )
     }
 

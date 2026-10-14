@@ -64,11 +64,27 @@ private enum PracticeTopic: String, CaseIterable, Identifiable {
 
 // MARK: - Entry Model
 
+/// The primary activity on the destination, independent of the sidebar section.
+private enum PracticeContentKind: String, CaseIterable {
+    case reading = "阅读"
+    case quiz = "答题"
+    case striking = "击球"
+    case interactive = "交互"
+
+    static func theory(_ page: TheoryPageID) -> Self {
+        switch page {
+        case .t01, .t02, .t03: .interactive
+        case .t04, .t05, .t06, .t07, .t08, .t09, .t10, .flow, .quickRef: .reading
+        }
+    }
+}
+
 private struct AngleEntry: Identifiable {
     var id: AngleRoute { route }
     let route: AngleRoute
     let title: String
     let subtitle: String
+    let contentKind: PracticeContentKind
     let palette: CoverPalette.Pair
     var isPremium: Bool = false
     /// 主题标签（可多个）；空 = 综合内容，仅在未选主题时出现。
@@ -78,12 +94,14 @@ private struct AngleEntry: Identifiable {
         route: AngleRoute,
         title: String,
         subtitle: String,
+        contentKind: PracticeContentKind,
         isPremium: Bool = false,
         topics: Set<PracticeTopic> = []
     ) {
         self.route = route
         self.title = title
         self.subtitle = subtitle
+        self.contentKind = contentKind
         self.palette = AtmosphereCatalog.cover(for: route).pair
         self.isPremium = isPremium
         self.topics = topics
@@ -155,15 +173,15 @@ struct AngleHomeView: View {
 
     /// 「学」——交互/文档学页（v32：球理入口已迁至「理」区）。
     private let learnEntries: [AngleEntry] = [
-        .init(route: .aimingPrinciple, title: "瞄准原理", subtitle: "从切球角找瞄准点", topics: [.accuracy]),
-        .init(route: .aimingMethods, title: "瞄准方法", subtitle: "三种方法找瞄准点", topics: [.accuracy]),
-        .init(route: .aimingCorrection, title: "瞄准修正", subtitle: "补偿投掷与加塞", topics: [.accuracy, .english]),
-        .init(route: .spinAndEnglish, title: "旋转与加塞", subtitle: "预判旋转后路线", topics: [.english, .position]),
-        .init(route: .angleDynamic, title: "角度与瞄准", subtitle: "拖球看瞄准点变化", topics: [.accuracy]),
-        .init(route: .separationAngleAtlas, title: "分离角图谱", subtitle: "看高低杆碰后方向", isPremium: true, topics: [.position]),
-        .init(route: .cushionEnglishAtlas, title: "加塞吃库图谱", subtitle: "换塞侧看出库方向", isPremium: true, topics: [.english, .cushion]),
-        .init(route: .ballFeel, title: "浅谈球感", subtitle: "用误差练出直觉", topics: [.accuracy]),
-        .init(route: .contactPointTable, title: "瞄准点对照表", subtitle: "按切球角查瞄准点", topics: [.accuracy]),
+        .init(route: .aimingPrinciple, title: "瞄准原理", subtitle: "从切球角找瞄准点", contentKind: .reading, topics: [.accuracy]),
+        .init(route: .aimingMethods, title: "瞄准方法", subtitle: "三种方法找瞄准点", contentKind: .interactive, topics: [.accuracy]),
+        .init(route: .aimingCorrection, title: "瞄准修正", subtitle: "补偿投掷与加塞", contentKind: .interactive, topics: [.accuracy, .english]),
+        .init(route: .spinAndEnglish, title: "旋转与加塞", subtitle: "预判旋转后路线", contentKind: .interactive, topics: [.english, .position]),
+        .init(route: .angleDynamic, title: "角度与瞄准", subtitle: "拖球看瞄准点变化", contentKind: .interactive, topics: [.accuracy]),
+        .init(route: .separationAngleAtlas, title: "分离角图谱", subtitle: "看高低杆碰后方向", contentKind: .interactive, isPremium: true, topics: [.position]),
+        .init(route: .cushionEnglishAtlas, title: "加塞吃库图谱", subtitle: "换塞侧看出库方向", contentKind: .interactive, isPremium: true, topics: [.english, .cushion]),
+        .init(route: .ballFeel, title: "浅谈球感", subtitle: "用误差练出直觉", contentKind: .reading, topics: [.accuracy]),
+        .init(route: .contactPointTable, title: "瞄准点对照表", subtitle: "按切球角查瞄准点", contentKind: .interactive, topics: [.accuracy]),
     ]
 
     /// 「理」——16 理论体系（v32.2：每篇一卡直达详情；索引页仅深链可达，首页不再放「球理」总卡）。
@@ -175,6 +193,7 @@ struct AngleHomeView: View {
                     route: .theoryPage(entry.id),
                     title: entry.title,
                     subtitle: entry.cardSubtitle,
+                    contentKind: .theory(entry.id),
                     topics: Self.theoryTopics(for: entry.id)
                 )
             }
@@ -195,12 +214,12 @@ struct AngleHomeView: View {
 
     /// 「练」——测验类：练角度直觉。
     private let trainEntries: [AngleEntry] = [
-        .init(route: .geometricQuiz, title: "角度预测", subtitle: "估切角看误差", topics: [.accuracy]),
-        .init(route: .sceneAiming2D, title: "2D角度", subtitle: "俯视瞄准看误差", topics: [.accuracy]),
-        .init(route: .sceneAiming3D, title: "3D角度", subtitle: "站位瞄准看误差", isPremium: true, topics: [.accuracy]),
-        .init(route: .aimPointTraining, title: "瞄准点训练", subtitle: "拖假想球看毫米差", topics: [.accuracy]),
-        .init(route: .aimPointScene2D, title: "2D瞄准点", subtitle: "俯视调线击球验证", topics: [.accuracy]),
-        .init(route: .aimPointScene3D, title: "3D瞄准点", subtitle: "站位调线击球验证", isPremium: true, topics: [.accuracy]),
+        .init(route: .geometricQuiz, title: "角度预测", subtitle: "估切角看误差", contentKind: .quiz, topics: [.accuracy]),
+        .init(route: .sceneAiming2D, title: "2D角度", subtitle: "俯视瞄准看误差", contentKind: .quiz, topics: [.accuracy]),
+        .init(route: .sceneAiming3D, title: "3D角度", subtitle: "站位瞄准看误差", contentKind: .quiz, isPremium: true, topics: [.accuracy]),
+        .init(route: .aimPointTraining, title: "瞄准点训练", subtitle: "拖假想球看毫米差", contentKind: .quiz, topics: [.accuracy]),
+        .init(route: .aimPointScene2D, title: "2D瞄准点", subtitle: "俯视调线击球验证", contentKind: .quiz, topics: [.accuracy]),
+        .init(route: .aimPointScene3D, title: "3D瞄准点", subtitle: "站位调线击球验证", contentKind: .quiz, isPremium: true, topics: [.accuracy]),
     ]
 
     /// 「打」——沙盘类：摆球、击打、看真实物理结果。
@@ -211,7 +230,8 @@ struct AngleHomeView: View {
         entries.append(.init(
             route: .batchDrillStudio,
             title: "批量出片台",
-            subtitle: "drill 截图 → 序列 → 素材"
+            subtitle: "drill 截图 → 序列 → 素材",
+            contentKind: .interactive
         ))
         #endif
         return entries
@@ -219,19 +239,19 @@ struct AngleHomeView: View {
 
     /// P11.1：入口顺序 = 分离角与走位、自由走位、自由击球、拍照建球形（、批量出片台）。
     private let basePlayEntries: [AngleEntry] = [
-        .init(route: .shotSimulation, title: "分离角与走位", subtitle: "调打点力度看走位", topics: [.position, .english]),
-        .init(route: .positionPlayComposer, title: "自由走位", subtitle: "逐杆摆打推演走位", isPremium: true, topics: [.position, .english]),
-        .init(route: .freePlay, title: "自由击球", subtitle: "从开球打一整局"),
-        .init(route: .ballExtraction, title: "拍照建球形", subtitle: "拍球局导入沙盘", isPremium: true),
+        .init(route: .shotSimulation, title: "分离角与走位", subtitle: "调打点力度看走位", contentKind: .striking, topics: [.position, .english]),
+        .init(route: .positionPlayComposer, title: "自由走位", subtitle: "逐杆摆打推演走位", contentKind: .striking, isPremium: true, topics: [.position, .english]),
+        .init(route: .freePlay, title: "自由击球", subtitle: "从开球打一整局", contentKind: .striking),
+        .init(route: .ballExtraction, title: "拍照建球形", subtitle: "拍球局导入沙盘", contentKind: .interactive, isPremium: true),
     ]
 
     /// 「解」——教练类：给定局面，让引擎反解怎么打。
     private let solveEntries: [AngleEntry] = [
-        .init(route: .positionPlaySolver, title: "思路训练", subtitle: "定落点看塞与力度", topics: [.position, .english]),
-        .init(route: .planThree, title: "打一走二想三", subtitle: "定三颗倒推第一杆", isPremium: true, topics: [.position]),
-        .init(route: .snookerTactics, title: "防守", subtitle: "选目标球求防守线", isPremium: true, topics: [.safety]),
-        .init(route: .bankShot, title: "翻袋解球", subtitle: "选袋求一至三库线", topics: [.cushion, .accuracy]),
-        .init(route: .diamondSystem, title: "颗星解球", subtitle: "摆球求一至三库线", topics: [.cushion]),
+        .init(route: .positionPlaySolver, title: "思路训练", subtitle: "定落点看塞与力度", contentKind: .striking, topics: [.position, .english]),
+        .init(route: .planThree, title: "打一走二想三", subtitle: "定三颗倒推第一杆", contentKind: .striking, isPremium: true, topics: [.position]),
+        .init(route: .snookerTactics, title: "防守", subtitle: "选目标球求防守线", contentKind: .striking, isPremium: true, topics: [.safety]),
+        .init(route: .bankShot, title: "翻袋解球", subtitle: "选袋求一至三库线", contentKind: .striking, topics: [.cushion, .accuracy]),
+        .init(route: .diamondSystem, title: "颗星解球", subtitle: "摆球求一至三库线", contentKind: .striking, topics: [.cushion]),
     ]
 
     private func entries(for section: PracticeSection) -> [AngleEntry] {
@@ -552,7 +572,92 @@ private struct AngleGridCard: View {
                 .background(Color.btTablePocket.opacity(0.32), in: RoundedRectangle(cornerRadius: BTRadius.xs))
                 .padding(Spacing.sm)
         }
+        .overlay(alignment: .bottomTrailing) {
+            PracticeContentBadge(kind: entry.contentKind)
+                .padding(Spacing.sm)
+        }
     }
+}
+
+/// DR-387: the approved compact, non-interactive cover badge.
+private struct PracticeContentBadge: View {
+    let kind: PracticeContentKind
+
+    var body: some View {
+        HStack(spacing: Spacing.xs) {
+            if kind == .striking {
+                BTTrainingIcon(size: 14, filled: true, asTemplate: true)
+            } else {
+                PracticeContentGlyph(kind: kind)
+                    .stroke(style: StrokeStyle(lineWidth: 1.05, lineCap: .round, lineJoin: .round))
+                    .frame(width: 14, height: 14)
+            }
+            Text(kind.rawValue)
+                .font(.btCaption.weight(.medium))
+                .lineLimit(1)
+        }
+        .foregroundStyle(Color.btPracticeBadgeForeground)
+        .padding(.horizontal, 7)
+        .frame(height: 24)
+        .background(Color.btPracticeBadgeBackground, in: RoundedRectangle(cornerRadius: BTRadius.xs))
+        .fixedSize()
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(kind.rawValue)
+    }
+}
+
+/// Vector paths from the approved badge preview, in a 24 × 24 design space.
+private struct PracticeContentGlyph: Shape {
+    let kind: PracticeContentKind
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        func line(_ points: [CGPoint]) {
+            guard let first = points.first else { return }
+            path.move(to: first)
+            for point in points.dropFirst() { path.addLine(to: point) }
+        }
+        switch kind {
+        case .reading:
+            path.move(to: CGPoint(x: 12, y: 5.5))
+            path.addCurve(to: CGPoint(x: 3, y: 4.5), control1: CGPoint(x: 9, y: 3.5), control2: CGPoint(x: 5.5, y: 3.5))
+            path.addLine(to: CGPoint(x: 3, y: 18.5))
+            path.addCurve(to: CGPoint(x: 12, y: 19.5), control1: CGPoint(x: 6, y: 17.5), control2: CGPoint(x: 9, y: 17.5))
+            path.addCurve(to: CGPoint(x: 21, y: 18.5), control1: CGPoint(x: 15, y: 17.5), control2: CGPoint(x: 18, y: 17.5))
+            path.addLine(to: CGPoint(x: 21, y: 4.5))
+            path.addCurve(to: CGPoint(x: 12, y: 5.5), control1: CGPoint(x: 18.5, y: 3.5), control2: CGPoint(x: 15, y: 3.5))
+            path.closeSubpath()
+            line([CGPoint(x: 12, y: 5.5), CGPoint(x: 12, y: 19.5)])
+        case .quiz:
+            path.addRoundedRect(in: CGRect(x: 4, y: 3, width: 16, height: 18), cornerSize: CGSize(width: 2, height: 2))
+            for y: CGFloat in [8, 14] {
+                line([CGPoint(x: 7, y: y), CGPoint(x: 8, y: y + 1), CGPoint(x: 10, y: y - 1)])
+                line([CGPoint(x: 13, y: y), CGPoint(x: 17, y: y)])
+            }
+        case .interactive:
+            line([CGPoint(x: 12, y: 3), CGPoint(x: 12, y: 21)])
+            line([CGPoint(x: 3, y: 12), CGPoint(x: 21, y: 12)])
+            line([CGPoint(x: 9, y: 6), CGPoint(x: 12, y: 3), CGPoint(x: 15, y: 6)])
+            line([CGPoint(x: 9, y: 18), CGPoint(x: 12, y: 21), CGPoint(x: 15, y: 18)])
+            line([CGPoint(x: 6, y: 9), CGPoint(x: 3, y: 12), CGPoint(x: 6, y: 15)])
+            line([CGPoint(x: 18, y: 9), CGPoint(x: 21, y: 12), CGPoint(x: 18, y: 15)])
+        case .striking:
+            break // Uses the existing BTTrainingIcon above.
+        }
+        return path.applying(CGAffineTransform(scaleX: rect.width / 24, y: rect.height / 24))
+            .applying(CGAffineTransform(translationX: rect.minX, y: rect.minY))
+    }
+}
+
+#Preview("Practice badges · Light") {
+    HStack { ForEach(PracticeContentKind.allCases, id: \.self) { PracticeContentBadge(kind: $0) } }
+        .padding().background(Color.btBG).preferredColorScheme(.light)
+}
+
+#Preview("Practice badges · Dark") {
+    HStack { ForEach(PracticeContentKind.allCases, id: \.self) { PracticeContentBadge(kind: $0) } }
+        .padding().background(Color.btBG).preferredColorScheme(.dark)
 }
 
 // MARK: - Learn → Practice CTA（T-P18-51 学→练导流，设计稿 §3.1/§5-10）

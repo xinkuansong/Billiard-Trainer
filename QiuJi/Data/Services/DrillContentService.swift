@@ -233,9 +233,9 @@ enum DrillTutorialKind: String, Codable, Equatable, CaseIterable, Identifiable {
     /// Filter / accessibility label.
     var filterLabel: String {
         switch self {
-        case .singleShot: return "单杆技术课"
-        case .multiShot: return "应用课"
-        case .ruleset: return "规则流程课"
+        case .singleShot: return "单杆技术"
+        case .multiShot: return "应用"
+        case .ruleset: return "规则流程"
         }
     }
 }

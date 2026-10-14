@@ -1,0 +1,20 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "type",
+      "kind": "textField",
+      "id": "librarySearchField",
+      "text": "zzznomatch\n"
+    },
+    {
+      "action": "snapshot",
+      "name": "P17-search-empty",
+      "entry": "practice/normal-search/zzznomatch"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "fixture": "empty",
+  "premium": false,
+  "sourceBaseline": "f75cbafd",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "wait",
+      "id": "profile.accountHeader",
+      "kind": "any"
+    },
+    {
+      "action": "wait",
+      "id": "认真练球认真练球认真练球认真练球认真练球",
+      "kind": "text"
+    },
+    {
+      "action": "cover",
+      "name": "P24-authenticated-longname",
+      "maximumViews": 40,
+      "entry": "normal UI; frozen App; explicitly offline account/local StoreKit fixture"
+    },
+    {
+      "action": "tap",
+      "id": "profile.accountHeader",
+      "kind": "any"
+    },
+    {
+      "action": "wait",
+      "id": "个人信息",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "cover",
+      "name": "P25-authenticated-longname",
+      "maximumViews": 40,
+      "entry": "normal UI; frozen App; explicitly offline account/local StoreKit fixture"
+    }
+  ],
+  "launchArguments": [
+    "-v53.authenticatedProfileFixture",
+    "-v57.longProfileName"
+  ],
+  "homeFixture": false
+}

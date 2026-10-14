@@ -1,0 +1,50 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_学"
+    },
+    {
+      "action": "tap",
+      "id": "角度与瞄准",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "angleDynamic.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-AD01-default",
+      "entry": "normal App navigation; original native initial state"
+    },
+    {
+      "action": "tapCenter",
+      "id": "angleDynamic.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-AD01-more"
+    }
+  ],
+  "catalog": {
+    "TABLE-AD01-default": {
+      "id": "TABLE/AD01",
+      "title": "角度与瞄准",
+      "state": "default",
+      "figmaPage": "71"
+    },
+    "TABLE-AD01-more": {
+      "id": "TABLE/AD01",
+      "title": "角度与瞄准",
+      "state": "more",
+      "figmaPage": "71"
+    }
+  },
+  "requiresTestRunner": "native-atlas-r10-tapCenter"
+}

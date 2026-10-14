@@ -1,0 +1,49 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_练"
+    },
+    {
+      "action": "tap",
+      "id": "2D瞄准点",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "aimPointTraining.settings"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P10a-default",
+      "entry": "normal App navigation; original native initial state"
+    },
+    {
+      "action": "tap",
+      "id": "aimPointTraining.settings"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P10a-more"
+    }
+  ],
+  "catalog": {
+    "TABLE-P10a-default": {
+      "id": "TABLE/P10a",
+      "title": "2D瞄准点",
+      "state": "default",
+      "figmaPage": "71"
+    },
+    "TABLE-P10a-more": {
+      "id": "TABLE/P10a",
+      "title": "2D瞄准点",
+      "state": "more",
+      "figmaPage": "71"
+    }
+  }
+}

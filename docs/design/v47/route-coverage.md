@@ -46,3 +46,8 @@
 ## 2026-09-24 每日交互与规则路由审计
 
 FreePlay既有玩法/开球sheet保留；每日重开改成同页双操作浮层，规则裁决也是同页状态，不增加生产目的地。签名漂移来自sheet后7行采样包含的开球镜头onChange调整，已对照本轮baseline核实后仅刷新FreePlay签名。RootView新增dailyInteraction.sharedPage是DEBUG启动参数取证入口；batch额外限制targetEnvironment(simulator)，不进入真机。覆盖状态已追加CSV；本轮证据见tasks/每日清台交互规则_交付验收.md。
+
+
+## 2026-10-14 三规划页信息入口审计
+
+用户批准信息精简第1批，三页新增同一互斥sheet枚举：更多→操作说明、方案按钮长按→当前方案详情（单解亦可轻点进入）；关闭恢复原页，未新增Tab或更换练习入口。PlanThree/Silu原开球sheet继续保留，防守首次具有sheet路由。审计三份View源码及实际手机入口后，只刷新这三份路由签名，CSV补充状态/测试/原图位置。共享PlanningInformationSheet为三页内部面板，不登记成新的独立练习页面。跨尺寸及最终验证见本轮信息精简报告。

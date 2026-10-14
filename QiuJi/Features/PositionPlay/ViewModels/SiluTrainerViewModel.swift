@@ -36,14 +36,43 @@ final class SiluTrainerViewModel: TeachingTableHost {
     }
 
 
+    var solvedContactCloseup: AimCloseupSnapshot? {
+        guard canStrike, let solution = currentSolution else { return nil }
+        return solvedContactCloseup(for: solution.prediction)
+    }
+
+    private var playbackGeneration = 0
+    private var activitySuspended = false
+    private var resumeAdjustment = false
+    private var resumeSolve = false
+    func resumeTeachingActivity() {
+        guard activitySuspended else { return }
+        activitySuspended = false
+        if let runner = breakRunner { runner.resumeActivity(); return }
+        if resumeAdjustment { resumeAdjustment = false; adjustCurrentSolution() }
+        else if resumeSolve { resumeSolve = false; solve() }
+        else { redrawTrajectory() }
+    }
+
     func stopForDismissal() {
+        guard !activitySuspended else { return }
+        activitySuspended = true
+        playbackGeneration += 1
+        resumeAdjustment = isAdjustingSolution
+        resumeSolve = isComputing && !isAdjustingSolution
+        let interruptedPlayback = isPlaying
         solveGeneration += 1
         endTemporaryTopDown()
-        breakRunner?.cancel()
+        breakRunner?.suspendActivity()
         scene.rootNode.removeAllActions()
         scene.allBallNodes.values.forEach { $0.removeAllActions() }
-        ShotAudioScheduler.shared.cancel()
+        if interruptedPlayback { ShotAudioScheduler.shared.cancel() }
+        scene.hideCueStick()
+        scene.railInventory.cancelPlayback()
+        isDragging = false
+        isComputing = false
         isPlaying = false
+        if interruptedPlayback, let context = lastShotContext { restore(from: context) }
     }
 
     // MARK: - Tools
@@ -84,7 +113,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
     // MARK: - Published tool state
 
     @Published var activeTool: Tool = .none {
-        didSet { if oldValue != activeTool { statusText = toolHint() } }
+        didSet { if oldValue != activeTool && informationEvent.kind != .failure { setStatus(toolHint())} }
     }
     @Published var regionShape: RegionShape = .rect
     @Published private(set) var hasConstraint = false
@@ -149,6 +178,13 @@ final class SiluTrainerViewModel: TeachingTableHost {
     // clamp stays in `BTSpinPad`. Solve-range toggles do NOT constrain fine-tune spin axes.
 
     /// Fine-tune draft for the current catalog index; nil means showing the catalog solution.
+    @Published private(set) var informationEvent = PlanningInformationEvent(kind: .context, text: "")
+    var isSolutionAdjusted: Bool { adjustmentDraft != nil }
+    private func setStatus(_ text: String, kind: PlanningInformationEvent.Kind = .context) {
+        statusText = text
+        informationEvent = PlanningInformationEvent(kind: kind, text: text)
+    }
+
     private var adjustmentDraft: PositionPlaySolution?
 
     var currentSolution: PositionPlaySolution? {
@@ -156,7 +192,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
         return adjustmentDraft ?? solutions[currentIndex]
     }
     var hasSolutions: Bool { !solutions.isEmpty }
-    var canStrike: Bool { !temporaryTopDownActive && !isPlaying && !isComputing && (currentSolution?.prediction.feasible ?? false)
+    var canStrike: Bool { !activitySuspended && !temporaryTopDownActive && !isPlaying && !isComputing && adjustmentIsValid && (currentSolution?.prediction.feasible ?? false)
             && (currentSolution?.prediction.hasFinalTableState ?? false)
         && (currentSolution?.prediction.duration ?? 0) > 0.05 }
 
@@ -177,7 +213,13 @@ final class SiluTrainerViewModel: TeachingTableHost {
         scene.cameraRig?.enterAiming(cueBallPosition: cue.position, targetDirection: aim)
     }
     private let solveQueue = DispatchQueue(label: "com.qiuji.silu-solve", qos: .userInitiated)
-    private var solveGeneration = 0
+    private var solveWork: DispatchWorkItem?
+    private let adjustmentScheduler = LatestPredictionScheduler<ShotPrediction?>()
+    @Published private(set) var isAdjustingSolution = false
+    private var adjustmentIsValid = true
+    private var solveGeneration = 0 {
+        didSet { solveWork?.cancel(); solveWork = nil; adjustmentScheduler.invalidate(); isAdjustingSolution = false }
+    }
     private var surfaceY: Float { scene.surfaceY }
 
     // MARK: - Last shot（条 21.3 + G17：上一杆完整恢复 / 回放）
@@ -481,7 +523,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
         hasConstraint = draft != nil
         renderConstraint()
         // 画完不自动求解（用户拍板）：约束就绪后由「求解」按钮显式触发。
-        if ended, currentConstraint() != nil { statusText = "已就绪，点「求解」反解走位" }
+        if ended, currentConstraint() != nil { setStatus("已就绪，点「求解」反解走位")}
     }
 
     func clearConstraint() {
@@ -489,7 +531,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
         hasConstraint = false
         clearConstraintNodes()
         invalidateSolutions()
-        statusText = toolHint()
+        setStatus(toolHint())
     }
 
     private func currentConstraint() -> SolveConstraint? {
@@ -513,7 +555,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
         scene.hideCueStick()
         resetParamDisplay()
         refreshOverlays()
-        if currentConstraint() != nil { statusText = "已就绪，点「求解」反解走位" } else { statusText = toolHint() }
+        if currentConstraint() != nil { setStatus("已就绪，点「求解」反解走位")} else { setStatus(toolHint())}
     }
 
     private func resetParamDisplay() {
@@ -525,7 +567,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
         guard let targetKey = selectedTargetKey, selectedPocketIndex >= 0,
               let pocketId = ShotIntent.pocketId(for: selectedPocketIndex),
               let constraint = currentConstraint() else {
-            statusText = needsSetupHint()
+            setStatus(needsSetupHint(), kind: .failure)
             return
         }
         let before = currentSnapshot()
@@ -534,11 +576,11 @@ final class SiluTrainerViewModel: TeachingTableHost {
         solveGeneration += 1
         let gen = solveGeneration
         isComputing = true
-        statusText = "求解中…"
+        setStatus("求解中…", kind: .busy)
         clearTrajectory()
         scene.hideCueStick()
 
-        solveQueue.async { [weak self] in
+        let work = DispatchWorkItem { [weak self] in
             let result = PositionPlaySolver.solve(
                 before: before, targetKey: targetKey, pocket: pocketId,
                 constraint: constraint, surfaceY: y, params: params)
@@ -574,17 +616,19 @@ final class SiluTrainerViewModel: TeachingTableHost {
                 self.currentIndex = 0
                 self.adjustmentDraft = nil
                 if final.isEmpty {
-                    self.statusText = DirectPotBankFallback.emptySolveMessage(
+                    self.setStatus(DirectPotBankFallback.emptySolveMessage(
                         directInfeasible: directInfeasible,
                         bankAttempted: bankTried,
                         bankEmpty: bankEmpty,
-                        positionHint: "未找到解（试着放大区域或换目标袋口）")
+                        positionHint: "未找到解（试着放大区域或换目标袋口）"), kind: .failure)
                     self.resetParamDisplay()
                 } else {
                     self.showSolution(at: 0)
                 }
             }
         }
+        solveWork = work
+        solveQueue.async(execute: work)
     }
 
     /// 由可选开关构造搜索参数：基底按约束类型取（落区/落点用 `.standard`、过点用 `.passThrough`），
@@ -629,14 +673,17 @@ final class SiluTrainerViewModel: TeachingTableHost {
     /// **不**改写 `solutions[idx]`。再次微调以当前草稿为基底；`nextSolution` 弃草稿回显原解。
     func adjustCurrentSolution(velocity v: Double? = nil,
                                spinX sx: Double? = nil, spinY sy: Double? = nil) {
-        guard !isPlaying, !isComputing else { return }
+        guard !activitySuspended, !isPlaying, (!isComputing || isAdjustingSolution) else { return }
         guard solutions.indices.contains(currentIndex) else { return }
         let catalog = solutions[currentIndex]
         let base = adjustmentDraft ?? catalog
         var shot = base.shot
-        if let v { shot.velocity = v }
-        if let sx { shot.spinX = sx }
-        if let sy { shot.spinY = sy }
+        shot.velocity = v ?? velocity
+        shot.spinX = sx ?? spinX
+        shot.spinY = sy ?? spinY
+        velocity = shot.velocity
+        spinX = shot.spinX
+        spinY = shot.spinY
         let before = currentSnapshot()
         let y = surfaceY
         let idx = currentIndex
@@ -644,16 +691,30 @@ final class SiluTrainerViewModel: TeachingTableHost {
         let satisfies = catalog.satisfiesConstraint
         let beyondCushion = catalog.beyondCushionBudget
         let beyondSpin = catalog.beyondSpinBudget
-        solveGeneration += 1
         let gen = solveGeneration
         isComputing = true
+        isAdjustingSolution = true
+        adjustmentIsValid = false
 
-        solveQueue.async { [weak self] in
-            let pred = PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y)
-            DispatchQueue.main.async {
+        adjustmentScheduler.submit(compute: {
+            PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y)
+        }, receive: { [weak self] pred, isLatest in
                 guard let self, self.solveGeneration == gen, !self.isPlaying else { return }
+                guard isLatest else {
+                    if let pred, pred.hasFinalTableState {
+                        self.drawTrajectory(pred, shot: shot)
+                    }
+                    return
+                }
                 self.isComputing = false
-                guard let pred, self.solutions.indices.contains(idx), self.currentIndex == idx else { return }
+                self.isAdjustingSolution = false
+                guard self.solutions.indices.contains(idx), self.currentIndex == idx else { return }
+                guard let pred else {
+                    self.clearTrajectory()
+                    self.scene.hideCueStick()
+                    self.setStatus("当前参数无完整预测，请调整后重试", kind: .failure)
+                    return
+                }
                 let drafted = PositionPlaySolution(
                     shot: shot, prediction: pred,
                     cushionCount: pred.cueCushionCount,
@@ -667,18 +728,19 @@ final class SiluTrainerViewModel: TeachingTableHost {
                         spinX: shot.spinX, spinY: shot.spinY, velocity: shot.velocity,
                         cutAngleDeg: pred.cutAngleDeg),
                     difficultyTier: DifficultyModel.tier(spinX: shot.spinX, spinY: shot.spinY),
-                    beyondSpinBudget: beyondSpin
+                    beyondSpinBudget: beyondSpin, isBankFallback: catalog.isBankFallback
                 )
+                self.adjustmentIsValid = pred.hasFinalTableState
                 self.adjustmentDraft = drafted
                 self.presentDisplayedSolution(drafted)
-            }
-        }
+        })
     }
 
     /// Present a catalog solution at `index`, clearing any fine-tune draft.
     private func showSolution(at index: Int) {
         guard solutions.indices.contains(index) else { return }
         adjustmentDraft = nil
+        adjustmentIsValid = true
         presentDisplayedSolution(solutions[index])
     }
 
@@ -689,18 +751,19 @@ final class SiluTrainerViewModel: TeachingTableHost {
             clearTrajectory()
             scene.hideCueStick()
             lastAimDirection = nil
-            statusText = "本次模拟未完成，请调整击球参数后重试"
+            setStatus("本次模拟未完成，请调整击球参数后重试", kind: .failure)
             return false
         }
         return true
     }
 
     private func presentDisplayedSolution(_ sol: PositionPlaySolution) {
+        adjustmentIsValid = sol.prediction.hasFinalTableState
         guard acceptCompletePrediction(sol.prediction) else { return }
         velocity = sol.shot.velocity
         spinX = sol.shot.spinX
         spinY = sol.shot.spinY
-        statusText = solutionStatus(sol)
+        setStatus(solutionStatus(sol), kind: .solution)
         drawTrajectory(sol.prediction, shot: sol.shot)
         updateCueStickAiming(sol.prediction)
         renderConstraint()
@@ -888,7 +951,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
               let aim = lastAimDirection ?? aimDirection(path: sol.prediction.cuePath, from: cueNode.position)
         else { return }
         guard scene.permitsCueStrike(aim:aim,spinX:spinX,spinY:spinY) else {
-            statusText = CueStrikeAccess.unavailableMessage
+            setStatus(CueStrikeAccess.unavailableMessage, kind: .failure)
             return
         }
 
@@ -898,8 +961,9 @@ final class SiluTrainerViewModel: TeachingTableHost {
         canUndoShot = false
         canPlayback = false
 
+        playbackGeneration += 1
         isPlaying = true
-        statusText = "运杆…"
+        setStatus("运杆…", kind: .busy)
         clearConstraintNodes()
         let strikePos = strikePosition(cue: cueNode.position)
         let clearancePlayback = TrajectoryPlayback(
@@ -909,7 +973,8 @@ final class SiluTrainerViewModel: TeachingTableHost {
             strikePosition: strikePos, aim: aim, velocity: Float(sol.shot.velocity),
             switchesPlayerCameraOnContact: true,
             clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
-        ) { [weak self] in
+        ) { [weak self, generation = playbackGeneration] in
+            guard self?.playbackGeneration == generation else { return }
             self?.launchBalls(sol: sol, recorder: recorder)
         }
     }
@@ -922,9 +987,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
         canUndoShot = false
         canPlayback = false
         lastShotContext = nil
-        statusText = ctx.snapshot.solutions.isEmpty
-            ? "已退回上一杆击打前"
-            : "已退回上一杆击打前 · 球形/约束/解已还原"
+        setStatus("已退回上一杆击打前", kind: .feedback)
     }
 
     /// 组装当前状态为「上一杆」完整上下文（击打前调用；`play()` 与单测共用同一处捕获逻辑）。
@@ -997,7 +1060,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
                         spinX: snap.shot.spinX, spinY: snap.shot.spinY, velocity: snap.shot.velocity,
                         cutAngleDeg: snap.prediction.cutAngleDeg),
                     difficultyTier: DifficultyModel.tier(spinX: snap.shot.spinX, spinY: snap.shot.spinY),
-                    beyondSpinBudget: catalog.beyondSpinBudget
+                    beyondSpinBudget: catalog.beyondSpinBudget, isBankFallback: catalog.isBankFallback
                 )
                 presentDisplayedSolution(adjustmentDraft!)
             } else {
@@ -1028,12 +1091,13 @@ final class SiluTrainerViewModel: TeachingTableHost {
         let after = currentSnapshot()
         replayAfterRails = scene.railInventory.snapshot()
         replayAfterPoses = scene.captureBallPoses()   // 回放不改变桌面真相，姿态也原样带回
+        playbackGeneration += 1
         isPlaying = true
         clearTrajectory()
         clearConstraintNodes()
         scene.clearResultNodes(nodes: &selectionNodes)
         scene.hideCueStick()
-        statusText = "回放上一杆…"
+        setStatus("回放上一杆…", kind: .busy)
 
         scene.hideAllBalls()
         for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
@@ -1053,7 +1117,8 @@ final class SiluTrainerViewModel: TeachingTableHost {
         scene.runCueStroke(
             strikePosition: strikePos, aim: aim, velocity: Float(snap.shot.velocity),
             clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
-        ) { [weak self] in
+        ) { [weak self, generation = playbackGeneration] in
+            guard self?.playbackGeneration == generation else { return }
             self?.runPlaybackAnimation(snapshot: snap, recorder: recorder, after: after)
         }
     }
@@ -1078,9 +1143,10 @@ final class SiluTrainerViewModel: TeachingTableHost {
         let tail: TimeInterval = ctx.prediction.pocketedBalls.isEmpty
             ? 0 : TrajectoryPlayback.pocketSettleDuration + 0.1
         if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
-            cueNode.runAction(cueAction) { [weak self] in
+            cueNode.runAction(cueAction) { [weak self, generation = playbackGeneration] in
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: UInt64(tail * 1_000_000_000))
+                    guard self?.playbackGeneration == generation else { return }
                     self?.finishPlayback(after: after)
                 }
             }
@@ -1109,11 +1175,11 @@ final class SiluTrainerViewModel: TeachingTableHost {
         lastShotContext = ctx   // loadBoard 不动上下文，但显式保底
         canUndoShot = ctx != nil
         canPlayback = ctx != nil
-        statusText = "回放结束 · 球停在击打后局面"
+        setStatus("回放结束 · 球停在击打后局面", kind: .feedback)
     }
 
     private func launchBalls(sol: PositionPlaySolution, recorder: TrajectoryRecorder) {
-        statusText = "击球中…"
+        setStatus("击球中…", kind: .busy)
         clearTrajectory()
         // 收杆不在此处：触球后球杆继续减速跟杆 + 停留一拍再消失（由 `runCueStroke` 接管）。
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
@@ -1133,9 +1199,10 @@ final class SiluTrainerViewModel: TeachingTableHost {
         let tail: TimeInterval = sol.prediction.pocketedBalls.isEmpty
             ? 0 : TrajectoryPlayback.pocketSettleDuration + 0.1
         if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
-            cueNode.runAction(cueAction) { [weak self] in
+            cueNode.runAction(cueAction) { [weak self, generation = playbackGeneration] in
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: UInt64(tail * 1_000_000_000))
+                    guard self?.playbackGeneration == generation else { return }
                     self?.finishStrike(sol: sol)
                 }
             }
@@ -1187,9 +1254,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
         canUndoShot = lastShotContext != nil
         canPlayback = lastShotContext?.snapshot.prediction.recorder != nil
 
-        statusText = scratched
-            ? "母球已回台 · 可继续摆球和设置约束"
-            : "已击打 · 母球停在终点，可在桌面上画约束再求解"
+        setStatus(scratched ? "母球进袋，已自动回台" : "", kind: .feedback)
     }
 
     // MARK: - Reset

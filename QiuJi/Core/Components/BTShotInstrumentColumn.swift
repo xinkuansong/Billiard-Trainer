@@ -19,8 +19,10 @@ struct BTShotInstrumentColumn: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let spinX: Double
     let spinY: Double
-    /// 点开打点盘；nil = 不显示打点位（纯力度柱）。
+    /// Opens spin editing; nil hides the entry unless a disabled entry is requested.
     var onSpinTap: (() -> Void)? = nil
+    /// Keep the standard entry footprint when the page has no editable spin.
+    var showsDisabledSpinEntry: Bool = false
     @Binding var velocity: Double
     let range: ClosedRange<Double>
     /// Visual/coarse haptic spacing only; dragging never snaps to this interval.
@@ -70,8 +72,8 @@ struct BTShotInstrumentColumn: View {
         // 顺序（G5）：打点迷你图 + 两行读数在**顶部固定区**，力度条本体在**底部**填充——
         // 使力度条本体底部与左侧刻度轮底部齐平、且两者等长（顶部固定区不计入条长）。
         VStack(spacing: compact ? compactGroupSpacing : 6) {
-            if let onSpinTap {
-                Button(action: onSpinTap) {
+            if onSpinTap != nil || showsDisabledSpinEntry {
+                Button { onSpinTap?() } label: {
                     VStack(spacing: 2) {
                         BTSpinMiniIcon(spinX: spinX, spinY: spinY,
                                        diameter: compact ? compactSpinButtonDiameter - 10 : 30)
@@ -81,12 +83,13 @@ struct BTShotInstrumentColumn: View {
                             .overlay(Circle().stroke(compact ? HUDStyle.hairline : .clear, lineWidth: 1))
                         if compact { Text("击球点").font(.btMicro).foregroundStyle(.btTextSecondary) }
                     }
+                    .opacity(onSpinTap == nil ? HUDStyle.chipTextDisabledOpacity : 1)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(BTHUDPressStyle())
                 .accessibilityLabel("打点")
                 .accessibilityIdentifier("shotStage.spinEntry")
-                .disabled(isDisabled || !spinTapEnabled)
+                .disabled(onSpinTap == nil || isDisabled || !spinTapEnabled)
             }
 
             VStack(spacing: 6) {

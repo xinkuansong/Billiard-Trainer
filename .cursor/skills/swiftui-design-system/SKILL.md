@@ -1,3 +1,16 @@
+---
+name: swiftui-design-system
+description: 实施与审查球迹 SwiftUI 设计系统、组件和跨窗口自适应布局。适用于功能页、阅读页、表单及共享视觉组件；球桌投影与实时设备评审另按专项技能协作。
+metadata:
+  adaptive-layout-version: "1.0"
+---
+
+## 全 App 通用自适应入口
+
+设计、实现或复核页面布局、字号适配、底栏避让与跨尺寸问题时，读取 [通用自适应准则](references/adaptive-layout.md)。它规定决策与验证方法，不给所有页面套用同一个宽度或球桌模板。
+
+具体宽度、内容优先级和例外以当前页面方案及用户最新决定为准；下文历史 DR/FL 仅在其适用页面内使用。设计 token 的实现以 `QiuJi/Core/DesignSystem/` 为准；技能更新不代表存量页面已迁移或通过验收。
+
 ### FL-130 — 基准尺寸须解释设计用途
 每日适配先区分硬约束、参考偏好、上限与弹性空间；同时审桌面实际大小、触点、剩余空间和宽高瓶颈。基准保护限定参考容器，不把固定侧栏/球径/按钮外推所有尺寸；近方形结构比较不得后置成可选美化。下文DR-349/350固定值保留为历史实现，未来调整以每日方案v3为准。测试绿只证明所测契约，不等于用户设计目标达成。Changelog：2026-10-06 / FL-130；R0复审完成，App返工待实施。
 
@@ -236,11 +249,13 @@ extension Font {
 **使用原则**：
 - 数字永远比文字字号更大（训练成绩是主角）
 - 标题使用 `.rounded` 设计，正文使用默认设计
-- 不使用自定义字体（纯系统字体，减小包体积，适配无障碍）
+- 默认使用系统字体；已明确批准的专用字体例外仍按对应页面决定。系统字体不自动等于 Dynamic Type：现有 `Typography.swift` 的固定 `.system(size:)` token 尚不能据此宣称随字号设置缩放。
 - **避免 `btTitle2` 滥用于列表卡片标题**：默认列表行用 `btHeadline`
 - **避免 `btDisplaySmall` 用于卡片内统计数字**：用 `btStatNumber` 替代
 - **避免 `btTitleMedium` 用作强调正文**：用 `btBodyMedium`
 - **保留 `.system(size:)`** 仅限：Canvas/SceneKit 文本、数字键盘、SF Symbol 图标精确大小、live monospaced 计时器
+
+上条是后续字体治理方向，不能视为现有 token 已完成迁移。普通阅读与操作文字需验证真实字形增长；固定尺寸例外也要检查可读性及可操作性。共享 token 迁移须单列影响范围，不在单页修复时顺带全局替换。
 
 ---
 
@@ -439,7 +454,7 @@ view.btThumbnailFrame(
 
 - `typealias AngleCoverPalette = CoverPalette`（旧调用方无需改名）
 - 分区阶梯用每区 `ZoneLadder`（练区防泥褐 B 地板；解区起点压暗）
-- 训练计划颜色按 `targetLevel` 只供缺图回退；**禁止**再叠主题水印（DR-081）。列表保留「第 N 期」。`PlanCoverLabel` 不上屏。练习卡禁止两字水印 / chip，保留左上 01 + Pro
+- 训练计划颜色按 `targetLevel` 只供缺图回退；**禁止**再叠主题水印（DR-081）。列表保留「第 N 期」。`PlanCoverLabel` 不上屏。练习卡禁止主题两字水印 / chip，保留左上 01 + Pro；DR-387 用户批准例外：仅练习卡封面右下增加阅读/答题/击球/交互内容类型角标（24pt高、14pt图标、12pt medium、4pt间距、水平padding7pt、圆角6pt、边距8pt；统一深色80%底/白字，击球复用BTTrainingIcon三球加球杆）
 - 禁止为封面色板发明 Dark 专用变体；禁止按卡硬写 RGB 绕过阶梯
 
 ## 九-d、共享表层语法与练习混合封面（DR-045 / v28）
@@ -803,6 +818,8 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 `BTBlueprintBackground(style:)` 是五个 Tab 的共享静态底层。`training` 保留原训练构图，`library` / `practice` 使用边缘瞄准圈、虚线和刻度（练习另有圆弧），`history` 无虚线路径，`profile` 仅瞄准圈和圆弧。统一 `btBG` + `btPrimary`（Dark 13%、Light 8%），线宽 1pt；这是低对比度线稿，不是大面积品牌色铺底。放在根页 `.background` 或 ZStack 内容下方并忽略安全区，不放进 ScrollView 内容；不改卡片底色，不向详情页自动传播。组件内部关闭命中、无障碍朗读并裁剪越界线稿。图案使用页面 point 坐标，不表达真实球桌几何或统计数据。扩展时检查手机及 iPad、Light/Dark 原图，禁止用提高透明度掩盖被卡片遮住的正常层级。
 
 ## Changelog
+
+- 2026-10-12 / 通用自适应 v1.0：新增按需参考，覆盖窗口容量、分区宽度、重排、真实字号、底栏键盘与验证边界；保留页面专属决定，未迁移生产字体或底栏。
 
 - 2026-10-04 / DR-326 r2：每日击球按钮常态中性背景，仅按下时浅绿高亮。
 
@@ -1509,3 +1526,16 @@ Changelog：2026-10-05 / DR-335 r13 / 打点成对提交与连续预览。
 Changelog：2026-10-06 / DR-323 r4 / 用户授权入口回退。验证见tasks/ui-reviews/UR-20261006-daily-entry-rollback.md。
 
 DR-323 r4初始化边界：setupScene(loadsDefaultLayout:)默认true，只有每日传false，按需建空场景后由每日控制器摆架/恢复；不重新引入普通自由击球示例球或其初始求解。
+
+
+### DR-383 — 试打标题固定预算与完整绘制（2026-10-13）
+BTTablePageTitle新增fitsLongText（默认false）；试打显式true，以SwiftUI自然内容宽统一缩放两行及奇数中间列，保持60×34pt占位。测量值仅供文字缩放，不回流Foundation的leading reservation，避免球库换行缩桌。仍须原图核全文；AX label完整不能排除省略。非试打消费者默认不变。Changelog：DR-383；证据tasks/ui-reviews/UR-20261013-tryout-title.md。
+
+
+### DR-384 — 试打双层模式与六球图标（2026-10-13）
+上手试打设置在视图下放击球设置；击球模式复用现有分段“序列／自由”，瞄准模式保留子菜单“进袋／自由”，序列时禁用。左右三动作复用现有触点，不增加球桌侧栏宽度。状态语义以tasks/UI-IMPLEMENTATION-SPEC的DR-384为准，不外推到普通自由击球／编排。共享BreakRackGlyph改三行六球，等半径与相切约束推导，外框尺寸及实心／空心调用方式保留。Changelog：DR-384；真实原图与验证tasks/ui-reviews/UR-20261013-tryout-controls.md。
+
+
+### 动作库序列第三人称（DR-392 r2 / FL-153，2026-10-14）
+
+`DrillSceneController`仅拥有逐杆时序；机位和转镜复用`CameraRig.enterPlayerView(.thirdPerson)`及共享曲面速度时钟。必须先区分内容：保存的上一杆after与下一杆before相同时，连续走位沿用实际停点和四元数；不同则是作者重新摆球，必须先在原机位完成新球形（含恢复已进袋目标球），再求解并转到新杆第三人称。禁止将独立首杆示例误判为缺球异常。所有分支等待自然停稳／落袋尾段后才开始杆间流程；球形切换、转镜均可原位暂停续接；末杆保留现场。合同见`tasks/DRILL-SEQUENCE-CAMERA-20261014.md`。

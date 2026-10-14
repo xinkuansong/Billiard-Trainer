@@ -1,0 +1,27 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "tap",
+      "id": "解锁球迹 Pro",
+      "kind": "buttonContains",
+      "scrollTo": 5
+    },
+    {
+      "action": "wait",
+      "id": "subscription.close",
+      "kind": "button"
+    },
+    {
+      "action": "cover",
+      "name": "P29-free-offer",
+      "entry": "profile/pro-promotion",
+      "maximumViews": 40
+    }
+  ],
+  "premium": false
+}

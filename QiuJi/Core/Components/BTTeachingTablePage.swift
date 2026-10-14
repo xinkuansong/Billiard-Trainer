@@ -24,6 +24,9 @@ struct BTTablePlanningControls {
     var onAimNudged: ((Float) -> Void)? = nil
     var onAimDragActiveChanged: ((Bool) -> Void)? = nil
     var closeupSnapshot: AimCloseupSnapshot? = nil
+    var closeupUnavailableReason: String? = nil
+    /// One physical contact point must reach the host as one complete intent.
+    var onSpinChange: ((Double, Double) -> Void)? = nil
     var overlay: (TableProjector, CGRect) -> AnyView = { _, _ in AnyView(EmptyView()) }
 }
 
@@ -36,13 +39,22 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     var velocity: Binding<Double>? = nil
     /// Optional vertical-only spin control for the side-spin atlas.
     var spinHeight: Binding<Double>? = nil
+    var showsDisabledSpinEntry: Bool = false
     var teachingNote: String? = nil
     var planning: BTTablePlanningControls? = nil
+    /// Page-owned display options; empty for all existing consumers.
+    var displayMenuItems: [DailyHUDMenuItem] = []
     /// Opt-in migration: notices and persistent teaching readouts retain distinct lifetimes.
     var information: [BTTeachingInformation]? = nil
     var usesStandardTitle = false
+    var onPocketOrientationChange: (PocketDisplay.Orientation) -> Void = { _ in }
     /// Paired instrument hosts receive the same dimensions and top anchor as the power column.
     var pairedLeftContent: ((BTTeachingInstrumentLayout) -> AnyView)? = nil
+    @Environment(\.scenePhase) private var scenePhase
+    @GestureState private var spinTouchActive = false
+    @State private var aimTouchActive = false
+    @State private var powerTouchActive = false
+    @State private var protectedCloseupFrames: [CGRect] = []
     @State private var showSpinPad = false
     @Environment(\.displayScale) private var displayScale
     @ViewBuilder var title: () -> Title
@@ -96,13 +108,29 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         .toolbar(.hidden, for: .navigationBar)
         .statusBarHidden(UIDevice.current.userInterfaceIdiom != .pad)
         .onAppear {
+            vm.resumeTeachingActivity()
             guard !hasAppeared else { return }
             hasAppeared = true
             vm.setupScene()
             planning?.onSetup()
             updateProjection()
         }
-        .onDisappear { planning?.onDisappear() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { vm.resumeTeachingActivity() }
+            else { suspendActivity() }
+        }
+        .onDisappear { suspendActivity() }
+        .onPreferenceChange(BTCloseupProtectedFramesKey.self) { protectedCloseupFrames = $0 }
+    }
+
+    private func suspendActivity() {
+        aimTouchActive = false
+        powerTouchActive = false
+        draggingKey = nil
+        vm.endTemporaryTopDown()
+        vm.cameraTransitionBusy = false
+        planning?.onDisappear()
+        vm.suspendTeachingActivity()
     }
 
     private func template(size: CGSize, safe: CGFloat) -> some View {
@@ -155,6 +183,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 }.allowsHitTesting(false))
             if let pairedLeftContent {
                 pairedLeftContent(instruments)
+                    .environment(\.teachingInstrumentActivity, { aimTouchActive = $0 })
                     .frame(width: f.left.width, height: f.left.height, alignment: .top)
                     .position(x: f.left.midX, y: f.left.midY)
             } else {
@@ -180,7 +209,11 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             } else if is3D {
                 cameraButtons.position(x: f.right.midX, y: f.table.midY)
             }
-            Group {
+            // The camera viewport exists even when there is no information to show.
+            // An empty conditional Group emits no geometry preference and would
+            // incorrectly hide the 2D scene when the final notice disappears.
+            ZStack {
+                Color.clear.allowsHitTesting(false)
                 if let information {
                     BTTeachingInformationLayer(items: information)
                 } else {
@@ -192,7 +225,10 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                     Color.clear.preference(key: TeachingCameraFrame.self, value: proxy.frame(in: .global))
                 })
                 .position(x: f.stage.midX, y: f.stage.midY)
-            if let snapshot = planning?.closeupSnapshot, !vm.temporaryTopDownActive {
+            // A solved contact supplies geometry, not permission to keep the loupe visible.
+            // Only the direction ruler's live gesture may reveal it; spin/power and idle must not.
+            if aimTouchActive, !showSpinPad, menu == nil,
+               let snapshot = planning?.closeupSnapshot, !vm.temporaryTopDownActive {
                 GeometryReader { proxy in
                     let inner = CGSize(
                         width: CGFloat(f.rotated ? AngleSceneCalculator.innerWidth : AngleSceneCalculator.innerLength) * pointsPerMetre,
@@ -201,7 +237,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                         safeInsets: .init(top: 0, leading: 0, bottom: 28, trailing: 0),
                         blockedSide: nil, protectsDailySight: true, frameInWindow: proxy.frame(in: .global),
                         placementBounds: CGRect(x: (f.stage.width - inner.width) / 2, y: (f.stage.height - inner.height) / 2,
-                            width: inner.width, height: inner.height))
+                            width: inner.width, height: inner.height), protectedFramesInWindow: protectedCloseupFrames)
                 }.frame(width: f.stage.width, height: f.stage.height).position(x: f.stage.midX, y: f.stage.midY)
             }
             if showSpinPad, spinHeight != nil || planning != nil {
@@ -250,6 +286,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         .environment(\.teachingTableLayout, layout)
         .onChange(of: size.height > size.width, initial: true) { _, value in
             portrait = value; updateProjection()
+            onPocketOrientationChange(.init(portrait: value))
         }
         .onChange(of: size) { _, _ in menu = nil; showSpinPad = false }
         .onChange(of: vm.temporaryTopDownActive) { _, active in if active { showSpinPad = false } }
@@ -278,6 +315,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     }
 
     private func updateProjection() {
+        vm.scene.pocketDisplayOrientation = .init(portrait: portrait)
         guard !is3D else { return }
         vm.cameraMode = portrait ? .topDown2DRotated : .topDown2D
         vm.scene.setCameraMode(vm.cameraMode, animated: false)
@@ -312,8 +350,9 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
          })]
         if let planning {
             items.insert(.init(id: identifier + ".transparency", title: "打点盘透明度",
-                detail: "\(Int((planning.transparency.wrappedValue * 100).rounded()))%", action: { menu = .transparency }), at: 2)
-            items.append(.init(id: "menu.aimCloseup", title: "瞄准特写", selected: preferences.showAimCloseup,
+                detail: "\(Int((planning.transparency.wrappedValue * 100).rounded()))%", action: { showSpinPad = true; menu = .transparency }), at: 2)
+            items.append(.init(id: "menu.aimCloseup", title: "瞄准特写", detail: planning.closeupUnavailableReason, selected: preferences.showAimCloseup,
+                disabled: planning.closeupUnavailableReason != nil,
                 action: { preferences.showAimCloseup.toggle(); menu = nil }))
             items.append(.init(id: identifier + ".trajectory", title: "轨迹显示 · " + (is3D && planning.hides3DAssists?.wrappedValue == true ? "关闭" : preferences.trajectoryDetail.label),
                 disclosure: true, action: { menu = .trajectory }))
@@ -323,6 +362,11 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 return closingItem
             }
         }
+        items += displayMenuItems.map { item in
+            var closingItem = item
+            if let action = item.action { closingItem.action = { menu = nil; action() } }
+            return closingItem
+        }
         if let teachingNote { items.append(.init(id: identifier + ".teachingNote", title: teachingNote)) }
         return items
     }
@@ -331,6 +375,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         AngleSceneView(
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
+            pocketDisplayOrientation: .init(portrait: portrait),
             interactionMode: is3D ? .cameraControl : .tapsOnly,
             // Core-template fitting also handles rotated 2D; the legacy rotated
             // fitter imposes an extra minimum scale and detaches the palette from the rail.
@@ -360,7 +405,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             onAimNudged: planning?.onAimNudged,
             onAimDragActiveChanged: planning?.onAimDragActiveChanged,
             projector: projector,
-            contentIsAnimating: vm.isDragging || vm.cameraTransitionBusy || planning?.isAnimating == true,
+            contentIsAnimating: spinTouchActive || aimTouchActive || powerTouchActive || vm.isDragging || vm.cameraTransitionBusy || planning?.isAnimating == true,
             fpsReadoutState: fps,
             twoViewReadableFrameInWindow: cameraReadableFrame,
             onCameraObservationBegan: { vm.beginCameraObservation() },
@@ -387,11 +432,14 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
 
     private func powerColumn(velocity: Binding<Double>, foundation f: DailyLayoutMetrics.Foundation) -> some View {
         BTShotInstrumentColumn(spinX: planning?.spinX.wrappedValue ?? 0, spinY: planning?.spinY.wrappedValue ?? spinHeight?.wrappedValue ?? 0,
-            onSpinTap: (spinHeight == nil && planning == nil) || planning?.showsSpinSlot == false ? nil : { showSpinPad = true }, velocity: velocity,
+            onSpinTap: (spinHeight == nil && planning == nil) || planning?.showsSpinSlot == false ? nil : { showSpinPad = true },
+            showsDisabledSpinEntry: showsDisabledSpinEntry, velocity: velocity,
             range: planning?.velocityRange ?? ShotTuning.velocityRange,
             isDisabled: !BTTeachingInstrumentLayout.effectiveEnabled(planning?.instrumentsEnabled ?? true,
                 temporaryTopDownActive: vm.temporaryTopDownActive),
-            spinTapEnabled: !vm.temporaryTopDownActive, fixedPowerBarHeight: f.rulerLength,
+            spinTapEnabled: !vm.temporaryTopDownActive,
+            onPowerDragBegan: { powerTouchActive = true }, onPowerDragEnded: { _ in powerTouchActive = false },
+            fixedPowerBarHeight: f.rulerLength,
             powerLabel: "杆速", compactPowerBarWidth: DailyLayoutMetrics.rulerWidth,
             compactSpinButtonDiameter: f.topDiameter, compactGroupSpacing: Spacing.xs,
             reportsPowerShellBounds: true)
@@ -427,7 +475,9 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             tableWidth: inner.width, bottomPadding: (f.stage.height - layout.extent) / 2,
             fixedCardExtent: layout.extent, discOpacity: planning.map { 1 - $0.transparency.wrappedValue } ?? 1,
             locksSideSpin: planning == nil,
+            onSpinChange: planning?.onSpinChange,
             onClose: { showSpinPad = false })
+            .simultaneousGesture(DragGesture(minimumDistance: 0).updating($spinTouchActive) { _, active, _ in active = true })
             .frame(width: f.stage.width, height: f.stage.height)
             .position(x: f.stage.midX, y: f.stage.midY)
             .accessibilityIdentifier(identifier + ".spinPad")
@@ -545,7 +595,19 @@ struct BTTeachingInstrumentEntry<Content: View>: View {
 
 /// Matches the daily direction shell without stretching the effective track to
 /// fill its hit target or adding a fake numeric footer opposite the speed readout.
+private struct TeachingInstrumentActivityKey: EnvironmentKey {
+    static let defaultValue: ((Bool) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var teachingInstrumentActivity: ((Bool) -> Void)? {
+        get { self[TeachingInstrumentActivityKey.self] }
+        set { self[TeachingInstrumentActivityKey.self] = newValue }
+    }
+}
+
 struct BTTeachingAimRuler: View {
+    @Environment(\.teachingInstrumentActivity) private var reportActivity
     let layout: BTTeachingInstrumentLayout
     var enabled = true
     let onNudge: (Float) -> Void
@@ -556,7 +618,10 @@ struct BTTeachingAimRuler: View {
         VStack(spacing: 6) {
             BTAimWheel(onNudge: onNudge, degreesPerPoint: degreesPerPoint,
                 degreeHapticEnabled: false, travelHapticEnabled: true,
-                onDragActiveChanged: onDragActiveChanged, visibleWidth: layout.rulerWidth,
+                onDragActiveChanged: { active in
+                    reportActivity?(active)
+                    onDragActiveChanged?(active)
+                }, visibleWidth: layout.rulerWidth,
                 usesCompactAppearance: true, showsDirectionLabel: false)
                 .frame(width: 44, height: layout.rulerLength)
             Text("方向").font(.btMicro).foregroundStyle(.btTextSecondary)
@@ -631,8 +696,9 @@ struct BTTeachingInformation: Equatable {
     var symbol: String? = nil
     var identifier: String? = nil
     var expandedText: String? = nil
+    var showsSymbol = true
 
-    var effectiveSymbol: String? { symbol ?? (kind == .notice ? "info.circle" : nil) }
+    var effectiveSymbol: String? { showsSymbol ? (symbol ?? (kind == .notice ? "info.circle" : nil)) : nil }
     func isVisible(spinPadPresented: Bool) -> Bool {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && (kind == .readout || !spinPadPresented)
@@ -641,39 +707,114 @@ struct BTTeachingInformation: Equatable {
 
 struct BTTeachingInformationLayer: View {
     @Environment(\.teachingTableLayout) private var layout
+    @State private var naturalHeight: CGFloat = 1
+    @State private var wideHeight: CGFloat = 1
     let items: [BTTeachingInformation]
+    var onDismiss: (() -> Void)? = nil
 
     var body: some View {
         if let layout {
             let expanded = layout.spinPadPresented
             let lane = layout.expandedReadoutFrame
-            VStack(alignment: expanded ? .leading : .center, spacing: Spacing.xs) {
-                ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                    if item.isVisible(spinPadPresented: expanded) {
-                        HStack(alignment: .top, spacing: Spacing.sm) {
-                            if let symbol = item.effectiveSymbol {
-                                Image(systemName: symbol).accessibilityHidden(true)
-                            }
-                            Text(expanded ? item.expandedText ?? item.text : item.text)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .font(expanded ? .footnote : .subheadline).foregroundStyle(.white)
-                        .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel(item.text)
-                        .accessibilityIdentifier(item.identifier ?? "teaching.information")
-                    }
+            let fullWidth = max(1, layout.innerRect.width - 2 * Spacing.md)
+            let topCapacity = max(44, layout.innerRect.maxY - layout.informationTop - Spacing.md
+                - BTAimCloseupHUD.defaultDiameter - Spacing.sm)
+            // When a top strip cannot fit the text, reserve the closeup's width
+            // beside a scrollable information column. This also leaves a clear
+            // vertical region around horizontal aiming and defensive sight lines.
+            let sideColumn = !expanded && wideHeight > topCapacity
+            let width = expanded ? lane.width : (sideColumn
+                ? max(44, fullWidth - BTAimCloseupHUD.defaultDiameter - Spacing.sm) : fullWidth)
+            let availableHeight = expanded || sideColumn ? lane.height : topCapacity
+            ScrollView(.vertical) {
+                content(expanded: expanded, leading: expanded || sideColumn)
+                    .background(GeometryReader { geometry in
+                        Color.clear.preference(key: BTTeachingInformationHeightKey.self, value: geometry.size.height)
+                    })
+                    .anchorPreference(key: BTTeachingInformationBoundsKey.self, value: .bounds) { $0 }
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollDisabled(naturalHeight <= availableHeight)
+            .frame(width: width, height: min(naturalHeight, availableHeight))
+            .background {
+                // Measure the preferred width independently of the chosen layout,
+                // so narrowing the visible column cannot create a feedback loop.
+                content(expanded: expanded, leading: false)
+                    .frame(width: fullWidth).fixedSize(horizontal: false, vertical: true)
+                    .background(GeometryReader { geometry in
+                        Color.clear.preference(key: BTTeachingInformationWideHeightKey.self, value: geometry.size.height)
+                    })
+                    .hidden().allowsHitTesting(false).accessibilityHidden(true)
+            }
+            .backgroundPreferenceValue(BTTeachingInformationBoundsKey.self) { contentBounds in
+                GeometryReader { geometry in
+                    let window = geometry.frame(in: .global)
+                    let visible = contentBounds.map {
+                        geometry[$0].intersection(CGRect(origin: .zero, size: geometry.size))
+                    } ?? .null
+                    // Protect visible information, not the empty horizontal space
+                    // in a wide scroll viewport. Clipped text remains scrollable.
+                    Color.clear.preference(key: BTCloseupProtectedFramesKey.self,
+                        value: visible.isNull || visible.isEmpty ? [] : [
+                            visible.offsetBy(dx: window.minX, dy: window.minY)])
                 }
             }
-            .frame(width: expanded ? lane.width : max(0, layout.innerRect.width - 2 * Spacing.md),
-                   alignment: expanded ? .leading : .center)
-            .padding(.leading, expanded ? lane.minX : 0)
+            .accessibilityIdentifier("teaching.informationViewport")
+            .allowsHitTesting(onDismiss != nil || naturalHeight > availableHeight)
+            .onPreferenceChange(BTTeachingInformationHeightKey.self) { height in
+                if height.isFinite && height >= 0 { naturalHeight = height }
+            }
+            .onPreferenceChange(BTTeachingInformationWideHeightKey.self) { height in
+                if height.isFinite && height >= 0 { wideHeight = height }
+            }
+            .padding(.leading, expanded ? lane.minX : (sideColumn ? layout.innerRect.minX + Spacing.md : 0))
             .padding(.top, layout.informationTop)
             .frame(width: layout.stageSize.width, height: layout.stageSize.height,
-                   alignment: expanded ? .topLeading : .top)
-            .allowsHitTesting(false)
+                   alignment: expanded || sideColumn ? .topLeading : .top)
         }
     }
+
+    private func content(expanded: Bool, leading: Bool) -> some View {
+        VStack(alignment: leading ? .leading : .center, spacing: Spacing.xs) {
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                if item.isVisible(spinPadPresented: expanded) {
+                    HStack(alignment: .top, spacing: Spacing.sm) {
+                        if let symbol = item.effectiveSymbol {
+                            Image(systemName: symbol).accessibilityHidden(true)
+                        }
+                        Text(expanded ? item.expandedText ?? item.text : item.text)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let onDismiss {
+                            Button(action: onDismiss) {
+                                Image(systemName: "xmark").frame(width: 44, height: 44)
+                            }.accessibilityLabel("关闭提示").accessibilityIdentifier("planning.dismissNotice")
+                        }
+                    }
+                    .font(expanded ? .footnote : .subheadline).foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(item.text)
+                    .accessibilityIdentifier(item.identifier ?? "teaching.information")
+                }
+            }
+        }
+    }
+}
+
+private struct BTTeachingInformationBoundsKey: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = nextValue() ?? value
+    }
+}
+
+private struct BTTeachingInformationHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+private struct BTTeachingInformationWideHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
 /// Uses the actual font's advance to choose a line, without expanding the header
@@ -708,13 +849,38 @@ struct BTTablePageTitle: View {
     let text: String
     var width: CGFloat = 60
     var compact = false
+    var fitsLongText = false
+    @State private var naturalWidth: CGFloat = 0
 
-    init(_ text: String, width: CGFloat = 60, compact: Bool = false) {
+    init(_ text: String, width: CGFloat = 60, compact: Bool = false, fitsLongText: Bool = false) {
         self.text = text; self.width = width; self.compact = compact
+        self.fitsLongText = fitsLongText
     }
 
     var body: some View {
         let layout = BTTablePageTitleLayout(text, width: width, compact: compact)
+        Group {
+            if fitsLongText {
+                // Measure the actual two-row SwiftUI content, including the odd
+                // middle column. Fit both rows together; never truncate either row
+                // or publish the natural width back to the table's reservation.
+                titleContent(layout)
+                    .fixedSize()
+                    .background(GeometryReader { geometry in
+                        Color.clear.preference(key: TablePageTitleNaturalWidth.self, value: geometry.size.width)
+                    })
+                    .scaleEffect(min(1, layout.width / max(layout.width, naturalWidth, 1)))
+                    .frame(width: layout.width, height: 34)
+                    .onPreferenceChange(TablePageTitleNaturalWidth.self) { naturalWidth = $0 }
+            } else {
+                titleContent(layout).frame(width: layout.width, height: 34)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(text.replacingOccurrences(of: "\n", with: ""))
+    }
+
+    private func titleContent(_ layout: BTTablePageTitleLayout) -> some View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
                 Text(layout.upper).lineLimit(1)
@@ -724,8 +890,10 @@ struct BTTablePageTitle: View {
         }
         .font(.system(size: layout.fontSize, weight: .semibold))
         .foregroundStyle(.white)
-        .frame(width: layout.width, height: 34)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(text.replacingOccurrences(of: "\n", with: ""))
     }
+}
+
+private struct TablePageTitleNaturalWidth: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }

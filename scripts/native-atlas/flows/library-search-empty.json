@@ -1,0 +1,25 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "动作库"
+    },
+    {
+      "action": "type",
+      "kind": "textField",
+      "id": "librarySearchField",
+      "text": "zzznomatch\n"
+    },
+    {
+      "action": "wait",
+      "kind": "any",
+      "id": "drillListEmptyState"
+    },
+    {
+      "action": "snapshot",
+      "name": "P14-search-empty",
+      "entry": "library/normal-search/zzznomatch"
+    }
+  ]
+}

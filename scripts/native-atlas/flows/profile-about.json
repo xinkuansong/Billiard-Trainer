@@ -1,0 +1,26 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "tap",
+      "id": "关于与反馈",
+      "kind": "buttonContains",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "关于与反馈",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "cover",
+      "name": "P32-default",
+      "entry": "profile/about",
+      "maximumViews": 40
+    }
+  ]
+}

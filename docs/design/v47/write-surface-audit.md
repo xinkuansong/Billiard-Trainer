@@ -1,5 +1,7 @@
 # v47 W0 测试写盘盘点
 
+2026-10-14 特写手势回归：登记 `ATeachingStandardsUITests.swift`，新增 `FileHandle.standardOutput.write` 只向测试进程标准输出发送 `CLOSEUP_HOLD` 时序标记，不直接写文件或素材。XCTest截图仍为附件；B10/run-review.py消费日志标记，在独立设备真实持触期间用simctl截图至本轮B10叶子，叶子mkdir拒绝复用；截图/日志/xcresult均保留，无自动删除，不写正式资源或存档。清理由本任务负责。
+
 2026-10-06 每日面板补充：`DailyAdaptivePanelUITests.swift`只消费调用方显式注入的本批 `DAILY_ADAPTIVITY_DIR`/`TEST_RUNNER_DAILY_ADAPTIVITY_DIR`，缺省失败。方法独立目录，入口截图加入launch序号/fixture避免同方法多次启动覆盖；原PNG、完整AX、状态/目标测量JSON、manifest及xcresult附件为测试证据。调用器新叶子exist_ok=false，失败不覆盖；字号由专用模拟器实际设定并读回，结束恢复large。测试只对该专用设备resetState/fixture与本地偏好做操作，不写内容资源/设计golden/用户真机；不自动删除证据。历史失效采集按原目录保留，不能将旧入口同名覆盖计为多个独立画面。
 
 
@@ -189,3 +191,9 @@ FreePlayView 生产入口维持训练首页每日清台/自由击球；每日页
 ## 2026-10-11 当前版本提交：模型性能试用写盘登记
 
 `ModelAssetPerformanceTests.testLiveScenePerformance` 只在显式设置 `MODEL_PERF_OUTPUT` 时执行。模拟器使用该路径；真机写应用 Caches/model-asset-performance/<输出末级目录>，输出 start.json、settled.png、metrics.json。固定文件名会覆盖同目录，因此调用方必须为每轮使用新目录，失败证据保留，按任务清理；不写 Bundle/内容真源。测试会临时调整亮度、禁止自动锁屏、方向及帧率，并以 defer 恢复；仅登记真实写盘面，本次提交未执行该性能负载。不得把任意路径指向内容资产或历史基线。
+
+## 2026-10-14 球桌生命周期回归取证
+
+`RenderQualityV62Tests.testTableReuseRestoresRenderedAppearanceAfterThemeChanges` 向忽略目录 `output/table-runtime-20261013/visual/` 写 fresh/reused PNG。固定名称由本任务覆盖复验，原先失败日志及 xcresult 独立保留；不写 Bundle、内容或历史截图基线。原生进退证据使用专用模拟器和独立 before/after/mixed 目录，物理内存采样与 LLDB 对象检查按时段分开。
+
+本轮门禁同时发现工作区已有的 `AdjustmentDraftLayerTests.testBatchArchiveRoundTripRestoresEditingIntentInIsolatedDirectory` 新增写盘面：已核实仅向 `temporaryDirectory/UUID` 写编排序列，defer 删除并将清理失败报为 XCTest 失败；内容真源只读，不写正式归档目录。这里只登记已存在实现的真实写盘行为，不修改该测试，也不据此认定其功能测试通过。

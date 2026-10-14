@@ -245,7 +245,9 @@ def check_backfill(referenced: set[str], paths: Paths | None = None) -> dict:
         if not export_sub.is_dir() or export_sub.name.startswith("."):
             continue
         parsed = parse_export_dir(export_sub.name)
-        if parsed is None or not (export_sub / "full.mp4").is_file():
+        # Static-only exports are complete media inputs in their own right.
+        # Requiring a video here would silently skip their PNG backfill checks.
+        if parsed is None or not any((export_sub / name).is_file() for name in ("full.mp4", "initial.png")):
             continue
         drill_id, token = parsed
         by_drill[drill_id].append((token, export_sub))
@@ -254,11 +256,17 @@ def check_backfill(referenced: set[str], paths: Paths | None = None) -> dict:
     pairs: list[tuple[str, Path, Path]] = []
     expected: set[str] = set()
 
+    source_counts: dict[str, int] = defaultdict(int)
+    for source in paths.sequences.glob("*.json"):
+        parsed = parse_export_dir(source.stem)
+        if parsed and json.loads(source.read_text(encoding="utf-8")).get("steps"):
+            source_counts[parsed[0]] += 1
+
     for drill_id, variants in by_drill.items():
-        multi = len(variants) > 1
+        multi = len(variants) > 1 or any(token != "main" for token, _ in variants)
         for token, export_sub in variants:
             still_prefix = f"{drill_id}_{token}_" if multi else f"{drill_id}_"
-            write_alias = token == MANUAL01_TOKEN
+            write_alias = token == MANUAL01_TOKEN or source_counts.get(drill_id) == 1
             for png in sorted(export_sub.glob("*.png")):
                 if png.stem in NON_BACKFILL_STEMS:
                     continue

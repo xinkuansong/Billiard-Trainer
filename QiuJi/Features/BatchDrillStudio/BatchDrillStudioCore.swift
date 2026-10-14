@@ -341,7 +341,8 @@ enum BatchSequenceArchive {
     ///     这是**作者显式改旧存档**的路径，区别于写新球形时「绝不动旧文件」的默认约定。
     @discardableResult
     static func archive(_ sequence: PositionPlaySequence, drillId: String,
-                        imageStem: String, legacy: Bool = false) throws -> URL {
+                        imageStem: String, legacy: Bool = false,
+                        directory: String = BatchSequenceArchive.directory) throws -> URL {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         encoder.dateEncodingStrategy = .iso8601

@@ -52,7 +52,16 @@ final class BankKickAdjustmentDraftLayerTests: XCTestCase {
         let tweakSX = 0.22
         let tweakSY = -0.18
         let tweakV = min(vm.reflectionPower + 0.3, Double(CushionReflectionSettings.maxPower))
+        // Burst while the first real prediction is still in flight. The final
+        // complete intent must win without changing the immutable catalog.
+        for i in 0..<30 {
+            vm.adjustCurrentSolution(velocity: 2 + Double(i) / 100,
+                                     spinX: Double(i) / 200, spinY: -Double(i) / 200)
+        }
         vm.adjustCurrentSolution(velocity: tweakV, spinX: tweakSX, spinY: tweakSY)
+        vm.adjustCurrentSolution(spinX: tweakSX)
+        vm.adjustCurrentSolution(spinY: tweakSY)
+        vm.adjustCurrentSolution(velocity: tweakV)
         waitForIdle({ vm.isSolving })
 
         // 1) Catalog immutable.
@@ -107,7 +116,16 @@ final class BankKickAdjustmentDraftLayerTests: XCTestCase {
         let tweakSX = -0.20
         let tweakSY = 0.15
         let tweakV = max(vm.reflectionPower - 0.2, Double(CushionReflectionSettings.minPower))
+        // Burst while the first real prediction is still in flight. The final
+        // complete intent must win without changing the immutable catalog.
+        for i in 0..<30 {
+            vm.adjustCurrentSolution(velocity: 2 + Double(i) / 100,
+                                     spinX: Double(i) / 200, spinY: -Double(i) / 200)
+        }
         vm.adjustCurrentSolution(velocity: tweakV, spinX: tweakSX, spinY: tweakSY)
+        vm.adjustCurrentSolution(spinX: tweakSX)
+        vm.adjustCurrentSolution(spinY: tweakSY)
+        vm.adjustCurrentSolution(velocity: tweakV)
         waitForIdle({ vm.isSolving })
 
         guard let catalogAfter = vm.catalogSolution else { return XCTFail("catalog 应仍在") }

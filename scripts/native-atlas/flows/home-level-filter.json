@@ -1,0 +1,17 @@
+{
+  "fixture": "empty",
+  "premium": true,
+  "steps": [
+    {
+      "action": "tap",
+      "id": "入门",
+      "scrollTo": 4
+    },
+    {
+      "action": "cover",
+      "name": "P02-01-level-beginner",
+      "entry": "Normal home level filter; beginner selected",
+      "maximumViews": 30
+    }
+  ]
+}

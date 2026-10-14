@@ -190,6 +190,25 @@ enum AngleSceneCalculator {
         )
     }
 
+    #if DEBUG
+    /// Read-only video diagnostic: the same pipe predicates and clearance policy as
+    /// effectiveAimPoint. A far-jaw candidate still requires a physics pot verdict.
+    static func videoPipeCandidateKind(targetBall: SCNVector3, aimPoint: SCNVector3,
+                                       pocketIndex: Int, surfaceY: Float) -> Int {
+        let positions = pocketPositions(surfaceY: surfaceY)
+        guard positions.indices.contains(pocketIndex) else { return 0 }
+        let origin = Vector2(targetBall.x, targetBall.z)
+        let aim = Vector2(aimPoint.x, aimPoint.z)
+        let railDistance = mainCushionSegments.map { pointSegmentDistance(origin, $0) }.min()
+            ?? Float.greatestFiniteMagnitude
+        let clearance = max(ballRadius, min(railDistance, ballRadius + aimMargin))
+        let center = positions[pocketIndex]
+        let geometry = buildPipeGeometry(pocketIndex: pocketIndex, pocketCenter: Vector2(center.x, center.z))
+        if cleanPipeMargin(origin: origin, aim: aim, geometry: geometry, clearance: clearance) != nil { return 1 }
+        return aimPointIsPipeSafe(origin: origin, aim: aim, geometry: geometry, clearance: clearance) ? 2 : 0
+    }
+    #endif
+
     /// Core math for `effectivePocketAimPoint`. Uses the pipe model described above.
     private static func effectiveAimPoint(
         targetBall: SCNVector3,

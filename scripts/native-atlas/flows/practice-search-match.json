@@ -1,0 +1,20 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "type",
+      "kind": "textField",
+      "id": "librarySearchField",
+      "text": "瞄准\n"
+    },
+    {
+      "action": "snapshot",
+      "name": "P17-search-match",
+      "entry": "practice/normal-search/瞄准"
+    }
+  ]
+}

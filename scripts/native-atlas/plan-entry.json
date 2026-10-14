@@ -1,0 +1,239 @@
+{
+  "batch": "N03-entry",
+  "workers": [
+    {
+      "id": "small",
+      "udid": "DF09A8D3-2574-43D7-85D8-369CFDB2C36D",
+      "jobs": [
+        {
+          "id": "portrait-light",
+          "theme": "light",
+          "size": [
+            375,
+            667
+          ],
+          "orientation": "portrait",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasConfiguredFlow"
+          ],
+          "expected": [
+            "P02-menu",
+            "P13-collapsed",
+            "P13-start-expanded",
+            "P03-official-top",
+            "P05-new-empty",
+            "P06-picker-top"
+          ],
+          "flow": "scripts/native-atlas/flows/plan-entry.json"
+        },
+        {
+          "id": "portrait-dark",
+          "theme": "dark",
+          "size": [
+            375,
+            667
+          ],
+          "orientation": "portrait",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasConfiguredFlow"
+          ],
+          "expected": [
+            "P02-menu",
+            "P13-collapsed",
+            "P13-start-expanded",
+            "P03-official-top",
+            "P05-new-empty",
+            "P06-picker-top"
+          ],
+          "flow": "scripts/native-atlas/flows/plan-entry.json"
+        }
+      ]
+    },
+    {
+      "id": "standard",
+      "udid": "F2BE90C4-370D-46AB-B3E8-8F0060424B2D",
+      "jobs": [
+        {
+          "id": "portrait-light",
+          "theme": "light",
+          "size": [
+            402,
+            874
+          ],
+          "orientation": "portrait",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasConfiguredFlow"
+          ],
+          "expected": [
+            "P02-menu",
+            "P13-collapsed",
+            "P13-start-expanded",
+            "P03-official-top",
+            "P05-new-empty",
+            "P06-picker-top"
+          ],
+          "flow": "scripts/native-atlas/flows/plan-entry.json"
+        },
+        {
+          "id": "portrait-dark",
+          "theme": "dark",
+          "size": [
+            402,
+            874
+          ],
+          "orientation": "portrait",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasConfiguredFlow"
+          ],
+          "expected": [
+            "P02-menu",
+            "P13-collapsed",
+            "P13-start-expanded",
+            "P03-official-top",
+            "P05-new-empty",
+            "P06-picker-top"
+          ],
+          "flow": "scripts/native-atlas/flows/plan-entry.json"
+        }
+      ]
+    },
+    {
+      "id": "large",
+      "udid": "2787E369-465A-46B1-A09E-5FA6E13AC9C5",
+      "jobs": [
+        {
+          "id": "portrait-light",
+          "theme": "light",
+          "size": [
+            440,
+            956
+          ],
+          "orientation": "portrait",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasConfiguredFlow"
+          ],
+          "expected": [
+            "P02-menu",
+            "P13-collapsed",
+            "P13-start-expanded",
+            "P03-official-top",
+            "P05-new-empty",
+            "P06-picker-top"
+          ],
+          "flow": "scripts/native-atlas/flows/plan-entry.json"
+        },
+        {
+          "id": "portrait-dark",
+          "theme": "dark",
+          "size": [
+            440,
+            956
+          ],
+          "orientation": "portrait",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasConfiguredFlow"
+          ],
+          "expected": [
+            "P02-menu",
+            "P13-collapsed",
+            "P13-start-expanded",
+            "P03-official-top",
+            "P05-new-empty",
+            "P06-picker-top"
+          ],
+          "flow": "scripts/native-atlas/flows/plan-entry.json"
+        }
+      ]
+    },
+    {
+      "id": "pad",
+      "udid": "47AE5F33-3D60-4102-BBC7-E29D05114E6E",
+      "jobs": [
+        {
+          "id": "portrait-light",
+          "theme": "light",
+          "size": [
+            834,
+            1210
+          ],
+          "orientation": "portrait",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasConfiguredFlow"
+          ],
+          "expected": [
+            "P02-menu",
+            "P13-collapsed",
+            "P13-start-expanded",
+            "P03-official-top",
+            "P05-new-empty",
+            "P06-picker-top"
+          ],
+          "flow": "scripts/native-atlas/flows/plan-entry.json"
+        },
+        {
+          "id": "portrait-dark",
+          "theme": "dark",
+          "size": [
+            834,
+            1210
+          ],
+          "orientation": "portrait",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasConfiguredFlow"
+          ],
+          "expected": [
+            "P02-menu",
+            "P13-collapsed",
+            "P13-start-expanded",
+            "P03-official-top",
+            "P05-new-empty",
+            "P06-picker-top"
+          ],
+          "flow": "scripts/native-atlas/flows/plan-entry.json"
+        },
+        {
+          "id": "landscape-light",
+          "theme": "light",
+          "size": [
+            1210,
+            834
+          ],
+          "orientation": "landscape",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasConfiguredFlow"
+          ],
+          "expected": [
+            "P02-menu",
+            "P13-collapsed",
+            "P13-start-expanded",
+            "P03-official-top",
+            "P05-new-empty",
+            "P06-picker-top"
+          ],
+          "flow": "scripts/native-atlas/flows/plan-entry.json"
+        },
+        {
+          "id": "landscape-dark",
+          "theme": "dark",
+          "size": [
+            1210,
+            834
+          ],
+          "orientation": "landscape",
+          "selectors": [
+            "ScreenshotTourUITests/testNativeAtlasConfiguredFlow"
+          ],
+          "expected": [
+            "P02-menu",
+            "P13-collapsed",
+            "P13-start-expanded",
+            "P03-official-top",
+            "P05-new-empty",
+            "P06-picker-top"
+          ],
+          "flow": "scripts/native-atlas/flows/plan-entry.json"
+        }
+      ]
+    }
+  ]
+}

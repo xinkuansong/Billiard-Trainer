@@ -208,6 +208,8 @@ struct PositionPlaySolution: Identifiable {
     /// 扰动容错度（E5，0–1）：对本解做小幅参数扰动（瞄准/力度/打点）后仍满足约束的比例。
     /// nil = 未启用容错分析（默认关，`SearchParams.robustnessEnabled`）。
     var robustness: Double?
+    /// Presentation provenance; retained when a catalog solution is adjusted.
+    var isBankFallback: Bool = false
 }
 
 // MARK: - Constraint draft（跨反解页共享的「用户所画约束」草稿，G17）

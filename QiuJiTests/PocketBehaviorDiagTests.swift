@@ -2237,3 +2237,239 @@ extension PocketBehaviorDiagTests {
         }
     }
 }
+
+// V026 opt-in still capture. Uses production scene and app-default physics only.
+@MainActor
+final class PocketToleranceKeyframeCaptureTests: XCTestCase {
+    private let radius = AngleSceneCalculator.ballRadius
+    private let distance: Float = 0.75
+    private let speed: Float = 1.5
+    private let step: Float = 0.05
+    private let green = UIColor(red: 0.57, green: 1, blue: 0.30, alpha: 1)
+    private let cyan = UIColor(red: 0.24, green: 0.86, blue: 1, alpha: 1)
+    private struct Sample {
+        let offset: Float
+        let kind: Int // 0 miss, 1 direct pot, 2 cushion then pot
+        let path: [SCNVector3]
+        let end: String
+        let pipeKind: Int
+        let physicsKind: Int
+        let surfaces: [String]
+    }
+    private func run(_ start: SCNVector3, pocket: SCNVector3, offset: Float, surfaceY: Float, seed: SCNVector3) throws -> Sample {
+        let base = atan2(seed.z-start.z, seed.x-start.x)
+        let a = base + offset * .pi / 180
+        let v = SCNVector3(cos(a)*speed,0,sin(a)*speed)
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
+        let aim = SCNVector3(start.x+distance*cos(a),surfaceY,start.z+distance*sin(a))
+        let pipeKind = AngleSceneCalculator.videoPipeCandidateKind(targetBall:start,aimPoint:aim,pocketIndex:0,surfaceY:surfaceY)
+        let engine = EventDrivenEngine(tableGeometry: geometry)
+        engine.setBall(BallState(position:start,velocity:v,angularVelocity:SCNVector3(0,1,0).cross(v)*(1/radius),state:.rolling,name:"obj"))
+        let end = engine.simulatePrediction(model:.appDefault,maxEvents:1000,maxTime:25,highFidelityBounds:true)
+        XCTAssertEqual(end,.settled,"Incomplete sample offset=\(offset): \(end)")
+        guard end == .settled else { throw NSError(domain:"V026 incomplete physics",code:1) }
+        var touches = 0
+        var surfaces: [String] = []
+        var pot: String?
+        var potTime: Float?
+        for (index,event) in engine.resolvedEvents.enumerated() {
+            switch event {
+            case .ballCushion(let b,let c,_) where b == "obj" && pot == nil:
+                touches += 1
+                surfaces.append(geometry.linearCushions.indices.contains(c) ? geometry.linearCushions[c].soundSurface.rawValue : "jaw")
+            case .pocket(let b,let p) where b == "obj" && pot == nil:
+                pot=p; potTime=engine.resolvedEventTimes[index]
+            default: break
+            }
+        }
+        let rec=engine.getTrajectoryRecorder()
+        let path=(rec.framesByBallName["obj"] ?? []).filter { $0.time <= (potTime ?? rec.duration) }.map(\.position)
+        let physicsKind = pot == "pocket_0" ? (touches == 0 ? 1 : 2) : 0
+        let kind = pipeKind > 0 ? physicsKind : 0
+        if kind == 2 { XCTAssertTrue(surfaces.allSatisfy { $0 == "jaw" }, "Non-jaw rebound in pocket window") }
+        return Sample(offset:offset,kind:kind,path:path,end:String(describing:end),pipeKind:pipeKind,physicsKind:physicsKind,surfaces:surfaces)
+    }
+    private func ranges(_ samples:[Sample], kind:Int? = nil) -> [(Float,Float)] {
+        var result:[(Float,Float)]=[]
+        var first:Float?
+        var last:Float=0
+        for s in samples {
+            let ok=kind == nil ? s.kind>0 : s.kind == kind!
+            if ok { if first == nil { first=s.offset };last=s.offset }
+            else if let f=first { result.append((f,last));first=nil }
+        }
+        if let f=first { result.append((f,last)) }
+        return result
+    }
+    private func formatted(_ ranges:[(Float,Float)]) -> String {
+        if ranges.isEmpty { return "无" }
+        return ranges.map { String(format:"%+.2f° 至 %+.2f°",$0.0,$0.1) }.joined(separator:" / ")
+    }
+    private func line(_ points:[SCNVector3],color:UIColor,width:CGFloat,parent:SCNNode) {
+        guard points.count>1 else { return }
+        for i in 1..<points.count {
+            let a=points[i-1],b=points[i]
+            let length=(b-a).length()
+            guard length>0.00001 else { continue }
+            let g=SCNCylinder(radius:width,height:CGFloat(length));g.radialSegmentCount=6
+            let m=SCNMaterial();m.lightingModel = .constant;m.diffuse.contents=color
+            g.materials=[m]
+            let n=SCNNode(geometry:g);n.position=(a+b)*0.5
+            n.look(at:b,up:SCNVector3(0,1,0),localFront:SCNVector3(0,1,0))
+            n.castsShadow=false;parent.addChildNode(n)
+        }
+    }
+    private func sector(start:SCNVector3,base:Float,lo:Float,hi:Float,color:UIColor,parent:SCNNode) {
+        guard hi>lo else { return }
+        var vertices=[start]
+        for i in 0...12 {
+            let a=base+(lo+(hi-lo)*Float(i)/12) * .pi/180
+            vertices.append(SCNVector3(start.x+distance*cos(a),start.y,start.z+distance*sin(a)))
+        }
+        var indices:[Int32]=[]
+        for i in 1...12 { indices += [0,Int32(i),Int32(i+1)] }
+        let g=SCNGeometry(sources:[SCNGeometrySource(vertices:vertices)],elements:[SCNGeometryElement(indices:indices,primitiveType:.triangles)])
+        let m=SCNMaterial();m.lightingModel = .constant;m.diffuse.contents=color.withAlphaComponent(0.32)
+        m.isDoubleSided=true;m.writesToDepthBuffer=false;g.materials=[m]
+        let n=SCNNode(geometry:g);n.castsShadow=false;parent.addChildNode(n)
+        for o in [lo,hi] {
+            let a=base+o * .pi/180
+            line([start,SCNVector3(start.x+distance*cos(a),start.y,start.z+distance*sin(a))],color:color,width:0.0012,parent:parent)
+        }
+    }
+    private func text(_ value:String,_ rect:CGRect,_ size:CGFloat,_ color:UIColor = .white) {
+        let style=NSMutableParagraphStyle();style.lineBreakMode = .byWordWrapping
+        (value as NSString).draw(in:rect,withAttributes:[.font:UIFont.systemFont(ofSize:size,weight:.semibold),.foregroundColor:color,.paragraphStyle:style])
+    }
+    func testCaptureKeyframes() throws {
+        let env=ProcessInfo.processInfo.environment
+        guard let root=env["V026_KEYFRAMES_DIR"] ?? env["TEST_RUNNER_V026_KEYFRAMES_DIR"] else { throw XCTSkip("Opt-in V026 keyframes") }
+        let output=URL(fileURLWithPath:root)
+        try FileManager.default.createDirectory(at:output,withIntermediateDirectories:true)
+        let scene=AngleTrainingScene();scene.setupScene();scene.setupVisualizationNodes()
+        XCTAssertTrue(scene.applyTableStyle(.charcoal,showsSights:true));XCTAssertTrue(scene.applyClothColor(.green))
+        scene.hideAllBalls();scene.hideAllVisualization()
+        scene.setCameraMode(.perspective3D,animated:false)
+        XCTAssertTrue(scene.mobileRendering)
+        let surface=try TableAssistSurface.load(from:scene)
+        let lift=scene.surfaceY-surface.sourceY
+        let clothY=scene.mobileRendering && lift>0.0001 && lift<radius/2 ? scene.surfaceY : surface.topY
+        let pocket=AngleSceneCalculator.pocketPositions(surfaceY:scene.surfaceY)[0]
+        XCTAssertEqual(pocket.x,-1.312,accuracy:0.00001);XCTAssertEqual(pocket.z,-0.677,accuracy:0.00001)
+        let camera=SCNNode();camera.camera=try XCTUnwrap(scene.cameraNode.camera?.copy() as? SCNCamera);camera.camera?.usesOrthographicProjection=true
+        camera.camera?.orthographicScale=0.58;camera.camera?.zNear=0.01;camera.camera?.zFar=10
+        camera.camera?.wantsExposureAdaptation=false
+        let focus=SCNVector3(-0.97,scene.surfaceY,-0.35)
+        camera.position=SCNVector3(focus.x,scene.surfaceY+1.8,focus.z)
+        camera.look(at:focus,up:SCNVector3(-1,0,0),localFront:SCNVector3(0,0,-1));scene.rootNode.addChildNode(camera)
+        let zoom=SCNNode();zoom.camera=try XCTUnwrap(scene.cameraNode.camera?.copy() as? SCNCamera);zoom.camera?.usesOrthographicProjection=true
+        zoom.camera?.orthographicScale=0.16;zoom.camera?.zNear=0.01;zoom.camera?.zFar=10
+        let zoomFocus=SCNVector3(pocket.x+0.035,scene.surfaceY,pocket.z+0.035)
+        zoom.position=SCNVector3(zoomFocus.x,scene.surfaceY+1,zoomFocus.z)
+        zoom.look(at:zoomFocus,up:SCNVector3(-1,0,0),localFront:SCNVector3(0,0,-1));scene.rootNode.addChildNode(zoom)
+        // SCNCamera.copy does not preserve every exposure field on this runtime.
+        let sourceCamera=try XCTUnwrap(scene.cameraNode.camera)
+        for node in [camera,zoom] {
+            let c=try XCTUnwrap(node.camera)
+            c.wantsHDR=sourceCamera.wantsHDR
+            c.wantsExposureAdaptation=false
+            c.exposureOffset=sourceCamera.exposureOffset
+            c.minimumExposure=sourceCamera.minimumExposure
+            c.maximumExposure=sourceCamera.maximumExposure
+            XCTAssertEqual(c.exposureOffset,sourceCamera.exposureOffset)
+        }
+        let renderer=SCNRenderer(device:nil,options:nil);renderer.scene=scene;renderer.autoenablesDefaultLighting=false
+        renderer.delegate=scene.contactOcclusion
+        var records:[[String:Any]]=[]
+        for (index,bearing) in [Float(0),25,38].enumerated() {
+            let a=(45-bearing) * .pi/180
+            let target=SCNVector3(pocket.x+distance*cos(a),scene.surfaceY+radius,pocket.z+distance*sin(a))
+            XCTAssertEqual(hypot(target.x-pocket.x,target.z-pocket.z),distance,accuracy:0.000001)
+            XCTAssertGreaterThan(target.z+AngleSceneCalculator.innerWidth/2-radius,0)
+            scene.hideAllBalls();scene.showBall(key:"_1",scenePosition:target)
+            let seed=AngleSceneCalculator.effectivePocketAimPoint(targetBall:target,pocketIndex:0,surfaceY:scene.surfaceY)
+            let base=atan2(seed.z-target.z,seed.x-target.x)
+            let seedOffset=atan2(sin(base-atan2(pocket.z-target.z,pocket.x-target.x)),cos(base-atan2(pocket.z-target.z,pocket.x-target.x)))*180 / .pi
+            var samples:[Sample]=[]
+            // Start at the production solution and sweep independently to both sides.
+            samples.append(try run(target,pocket:pocket,offset:0,surfaceY:scene.surfaceY,seed:seed))
+            for k in 1...160 {
+                for side:Float in [-1,1] { samples.append(try run(target,pocket:pocket,offset:side*Float(k)*step,surfaceY:scene.surfaceY,seed:seed)) }
+            }
+            samples.sort { $0.offset < $1.offset }
+            XCTAssertEqual(samples.first?.kind,0);XCTAssertEqual(samples.last?.kind,0)
+            let direct=ranges(samples,kind:1),jaw=ranges(samples,kind:2),all=ranges(samples)
+            XCTAssertFalse(all.isEmpty,"No pot at bearing \(bearing)")
+            // Boundary neighbors are independently rerun to guard sample/label drift.
+            var checks=0
+            for k in 1..<samples.count where samples[k].kind != samples[k-1].kind {
+                for j in [k-1,k] {
+                    let fresh=try run(target,pocket:pocket,offset:samples[j].offset,surfaceY:scene.surfaceY,seed:seed)
+                    XCTAssertEqual(fresh.kind,samples[j].kind);checks += 1
+                }
+            }
+            print("V026 bearing=\(bearing) direct=\(formatted(direct)) jaw=\(formatted(jaw)) checks=\(checks)")
+            let layer=SCNNode();scene.rootNode.addChildNode(layer)
+            let origin=SCNVector3(target.x,clothY+0.002,target.z)
+            for r in direct { sector(start:origin,base:base,lo:r.0,hi:r.1,color:green,parent:layer) }
+            for r in jaw { sector(start:origin,base:base,lo:r.0,hi:r.1,color:cyan,parent:layer) }
+            // Draw both ball-width boundary pipes, then the production solution axis.
+            for r in all {
+                for offset in [r.0,r.1] {
+                    let direction=base+offset * .pi/180
+                    let dx=cos(direction),dz=sin(direction)
+                    for side:Float in [-1,1] {
+                        let ox=target.x-side*dz*radius,oz=target.z+side*dx*radius
+                        for k in 2..<25 {
+                            let lo=Float(k)*distance/25,hi=lo+distance/50
+                            line([SCNVector3(ox+dx*lo,clothY+0.003,oz+dz*lo),SCNVector3(ox+dx*hi,clothY+0.003,oz+dz*hi)],color:UIColor.white.withAlphaComponent(0.80),width:0.00065,parent:layer)
+                        }
+                    }
+                }
+            }
+            let refEnd=SCNVector3(target.x+distance*cos(base),clothY,target.z+distance*sin(base))
+            // A dashed reference to the production solver's pipe axis.
+            for k in 0..<24 {
+                let u=Float(k)/24,v=min(u+0.022,1)
+                line([SCNVector3(target.x+(refEnd.x-target.x)*u,clothY+0.003,target.z+(refEnd.z-target.z)*u),
+                      SCNVector3(target.x+(refEnd.x-target.x)*v,clothY+0.003,target.z+(refEnd.z-target.z)*v)],color:.black,width:0.0007,parent:layer)
+            }
+            SCNTransaction.flush()
+            renderer.pointOfView=camera
+            _=renderer.snapshot(atTime:0,with:CGSize(width:360,height:360),antialiasingMode:.multisampling4X)
+            let main=renderer.snapshot(atTime:0,with:CGSize(width:1440,height:1430),antialiasingMode:.multisampling4X)
+            renderer.pointOfView=zoom
+            let inset=renderer.snapshot(atTime:0,with:CGSize(width:700,height:700),antialiasingMode:.multisampling4X)
+            let format=UIGraphicsImageRendererFormat();format.scale=1;format.opaque=true
+            let title=["正对底袋","斜入底袋","近库入袋"][index]
+            let img=UIGraphicsImageRenderer(size:CGSize(width:1440,height:2280),format:format).image { context in
+                UIColor(red:0.035,green:0.055,blue:0.05,alpha:1).setFill();context.fill(CGRect(x:0,y:0,width:1440,height:2280))
+                text("袋口容错 · 左右管道扫描",CGRect(x:48,y:38,width:1340,height:76),52)
+                text(String(format:"%@  ·  偏离袋口中轴 %.0f°",title,bearing),CGRect(x:48,y:125,width:1340,height:62),40)
+                text("球心距袋心 75 cm  ·  初速 1.5 m/s  ·  自然滚动",CGRect(x:48,y:188,width:1340,height:46),28,UIColor(white:0.72,alpha:1))
+                main.draw(in:CGRect(x:0,y:245,width:1440,height:1430))
+                inset.draw(in:CGRect(x:48,y:1744,width:440,height:440))
+                text("袋口放大",CGRect(x:48,y:1690,width:440,height:48),30)
+                text("直接进袋",CGRect(x:540,y:1728,width:850,height:48),34,green)
+                text(formatted(direct),CGRect(x:540,y:1783,width:850,height:94),35)
+                text("碰袋角后仍进袋",CGRect(x:540,y:1888,width:850,height:48),32,cyan)
+                text(formatted(jaw),CGRect(x:540,y:1940,width:850,height:130),30)
+                let width=all.reduce(Float(0)) { $0+$1.1-$1.0 }
+                text(String(format:"求解器可行角宽  %.2f°",width),CGRect(x:540,y:2080,width:850,height:56),34)
+                if let left=all.first?.0,let right=all.last?.1 {
+                    text(String(format:"左界 %+.2f°    右界 %+.2f°",left,right),CGRect(x:540,y:2140,width:850,height:44),28)
+                }
+                text("以求解器中线为 0° · 白虚线为一球宽管道 · 扫描步长 0.05°",CGRect(x:48,y:2200,width:1350,height:36),24,UIColor(white:0.70,alpha:1))
+                text("沿用求解器安全余量及远袋角规则；彩色范围已通过进袋验证",CGRect(x:48,y:2237,width:1350,height:36),23,UIColor(white:0.70,alpha:1))
+            }
+            let file=String(format:"keyframe-%02d-%02ddeg.png",index+1,Int(bearing))
+            try XCTUnwrap(img.pngData()).write(to:output.appendingPathComponent(file))
+            let record:[String:Any]=["bearingDegrees":bearing,"file":file,"target":[target.x,target.y,target.z],"pocket":[pocket.x,pocket.y,pocket.z],"distance":distance,"speed":speed,"longRailSurfaceGap":target.z+AngleSceneCalculator.innerWidth/2-radius,"directIntervals":direct.map { [$0.0,$0.1] },"jawIntervals":jaw.map { [$0.0,$0.1] },"boundaryRechecks":checks,"seedAim":[seed.x,seed.y,seed.z],"seedOffsetFromPocketDegrees":seedOffset,"cameraExposure":camera.camera!.exposureOffset,"cameraHDR":camera.camera!.wantsHDR,"samples":samples.map { ["offset":$0.offset,"kind":$0.kind,"termination":$0.end,"pipeKind":$0.pipeKind,"physicsKind":$0.physicsKind,"collisionSurfaces":$0.surfaces] as [String:Any] }]
+            records.append(record)
+            try JSONSerialization.data(withJSONObject:record,options:[.prettyPrinted,.sortedKeys]).write(to:output.appendingPathComponent(String(format:"scan-%02d.json",index+1)))
+            layer.removeFromParentNode()
+        }
+        try JSONSerialization.data(withJSONObject:["version":"v026-keyframes-r3-pipe-scan","stepDegrees":step,"physics":"production pipe predicates then EventDrivenEngine.appDefault","surfaceY":scene.surfaceY,"clothY":clothY,"ballRadius":radius,"frames":records] as [String:Any],options:[.prettyPrinted,.sortedKeys]).write(to:output.appendingPathComponent("manifest.json"))
+        XCTAssertEqual(records.count,3)
+    }
+}

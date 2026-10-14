@@ -1,0 +1,41 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_学"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "瞄准修正",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "瞄准修正"
+    },
+    {
+      "action": "tap",
+      "id": "高杆",
+      "scrollTo": 8
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-16-high-spin-selected"
+    },
+    {
+      "action": "cover",
+      "name": "P18-16-high-spin-body",
+      "maximumViews": 60,
+      "dragX": 0.97,
+      "entry": "practice/学/P18-16/高杆"
+    }
+  ]
+}

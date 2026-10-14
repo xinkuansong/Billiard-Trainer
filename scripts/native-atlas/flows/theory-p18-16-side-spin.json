@@ -1,0 +1,61 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_学"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "瞄准修正",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "瞄准修正"
+    },
+    {
+      "action": "adjustSlider",
+      "id": "aimingCorrection.spinXSlider",
+      "position": 0,
+      "scrollTo": 12
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-16-side-min"
+    },
+    {
+      "action": "adjustSlider",
+      "id": "aimingCorrection.spinXSlider",
+      "position": 1,
+      "scrollTo": 12
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-16-side-max"
+    },
+    {
+      "action": "tap",
+      "id": "高杆",
+      "scrollTo": 4
+    },
+    {
+      "action": "snapshot",
+      "name": "P18-16-side-clamped"
+    },
+    {
+      "action": "cover",
+      "name": "P18-16-side-clamped-body",
+      "maximumViews": 60,
+      "dragX": 0.03,
+      "endText": "练挤偏认知"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "fixture": "empty",
+  "premium": true,
+  "steps": [
+    {
+      "action": "tap",
+      "id": "我的模版",
+      "scrollTo": 5
+    },
+    {
+      "action": "tap",
+      "id": "新建模版",
+      "scrollTo": 5
+    },
+    {
+      "action": "wait",
+      "id": "customPlanNameField",
+      "kind": "textField"
+    },
+    {
+      "action": "tap",
+      "id": "添加训练项目"
+    },
+    {
+      "action": "wait",
+      "id": "选择训练动作",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "tap",
+      "id": "添加中袋直线出杆"
+    },
+    {
+      "action": "snapshot",
+      "name": "P06-one-selected",
+      "entry": "正常首页模版入口；冻结内存fixture；不改生产界面"
+    },
+    {
+      "action": "tap",
+      "id": "添加底袋直线出杆"
+    },
+    {
+      "action": "snapshot",
+      "name": "P06-multiple-selected",
+      "entry": "正常首页模版入口；冻结内存fixture；不改生产界面"
+    },
+    {
+      "action": "tap",
+      "id": "完成(2)"
+    },
+    {
+      "action": "wait",
+      "id": "customPlanNameField",
+      "kind": "textField"
+    },
+    {
+      "action": "snapshot",
+      "name": "P05-01-new-with-drills",
+      "entry": "正常首页模版入口；冻结内存fixture；不改生产界面"
+    }
+  ]
+}

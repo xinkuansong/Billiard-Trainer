@@ -1,0 +1,80 @@
+{
+  "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+  "bundleIdentifier": "com.xinkuan.qiuji",
+  "launchArguments": [
+    "-AppleLanguages",
+    "(zh-Hans)",
+    "-AppleLocale",
+    "zh_CN",
+    "-hasCompletedOnboarding",
+    "YES",
+    "-resetDebugPremium",
+    "-v50.inMemoryStore",
+    "-v51.followSystemAppearance",
+    "-v54.todayState=empty",
+    "-v54.templateCount=1",
+    "-forcePremium"
+  ],
+  "devices": [
+    {
+      "label": "01-SE",
+      "udid": "DF09A8D3-2574-43D7-85D8-369CFDB2C36D",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation",
+      "orientation": "portrait"
+    },
+    {
+      "label": "02-16Pro",
+      "udid": "F2BE90C4-370D-46AB-B3E8-8F0060424B2D",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro",
+      "orientation": "portrait"
+    },
+    {
+      "label": "03-16ProMax",
+      "udid": "16D968CB-FA14-4E00-B79F-0D675D80179E",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro-Max",
+      "orientation": "portrait"
+    },
+    {
+      "label": "04-iPhone13",
+      "udid": "0D3AE337-488E-49D0-8AFF-E711249046EC",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-13",
+      "orientation": "portrait"
+    },
+    {
+      "label": "05-Pad11-P",
+      "udid": "47AE5F33-3D60-4102-BBC7-E29D05114E6E",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-11-inch-M4-8GB",
+      "orientation": "portrait"
+    },
+    {
+      "label": "06-Pad11-L",
+      "udid": "FB9B9FE0-F820-4E04-A4AD-DCF8E916C504",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-11-inch-M4-8GB",
+      "orientation": "landscape"
+    },
+    {
+      "label": "07-PadMini-P",
+      "udid": "F80E0C5B-2B47-44DD-A460-5CE19CD5259A",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-mini-6th-generation",
+      "orientation": "portrait"
+    },
+    {
+      "label": "08-PadMini-L",
+      "udid": "AF60E8C0-A1C9-4D5B-A27D-AEA07EF1602D",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-mini-6th-generation",
+      "orientation": "landscape"
+    },
+    {
+      "label": "09-Pad13-P",
+      "udid": "4F00E012-1FA4-4F08-97E0-1B41160A63CC",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M4-8GB",
+      "orientation": "portrait"
+    },
+    {
+      "label": "10-Pad13-L",
+      "udid": "2351AE54-8DC8-49A7-812A-BBA56596DAE1",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M4-8GB",
+      "orientation": "landscape"
+    }
+  ]
+}

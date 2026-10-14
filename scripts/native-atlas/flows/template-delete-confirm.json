@@ -1,0 +1,35 @@
+{
+  "fixture": "templateOnly",
+  "premium": true,
+  "steps": [
+    {
+      "action": "tap",
+      "id": "我的模版",
+      "scrollTo": 4
+    },
+    {
+      "action": "tap",
+      "id": "管理模版，赛前热身",
+      "scrollTo": 4
+    },
+    {
+      "action": "snapshot",
+      "name": "P02-01-template-menu",
+      "entry": "training/my-templates; original templateOnly fixture"
+    },
+    {
+      "action": "tap",
+      "id": "删除"
+    },
+    {
+      "action": "wait",
+      "id": "删除模版",
+      "kind": "text"
+    },
+    {
+      "action": "snapshot",
+      "name": "P02-04-delete-confirm",
+      "entry": "training/my-templates; original templateOnly fixture"
+    }
+  ]
+}

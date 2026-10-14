@@ -1,0 +1,20 @@
+{
+  "fixture": "freeCompleted",
+  "premium": true,
+  "steps": [
+    {
+      "action": "cover",
+      "name": "P02-01-freeCompleted",
+      "entry": "normal training Tab; pre-existing v54 in-memory fixture freeCompleted",
+      "maximumViews": 40
+    }
+  ],
+  "catalog": {
+    "P02-01-freeCompleted": {
+      "id": "APP/P02-01",
+      "title": "训练首页",
+      "state": "freeCompleted",
+      "figmaPage": "10"
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "tap",
+      "id": "设置",
+      "kind": "buttonContains",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "设置",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "tap",
+      "id": "球贴纸",
+      "kind": "buttonContains",
+      "scrollTo": 8
+    },
+    {
+      "action": "wait",
+      "id": "球贴纸",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "cover",
+      "name": "P35-01-default",
+      "entry": "profile/settings/球贴纸",
+      "maximumViews": 40
+    }
+  ]
+}

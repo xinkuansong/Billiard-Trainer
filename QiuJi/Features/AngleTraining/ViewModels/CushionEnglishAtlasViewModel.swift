@@ -345,7 +345,23 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
 
     // MARK: - Recompute (debounce + single-flight + last bus)
 
+    private var activitySuspended = false
+    func suspendTeachingActivity() {
+        activitySuspended = true
+        predictGeneration += 1
+        solveScheduler.cancel()
+        predictRerunWanted = false
+        isComputing = false
+        isDragging = false
+    }
+    func resumeTeachingActivity() {
+        guard activitySuspended else { return }
+        activitySuspended = false
+        scheduleRecompute(interactive: false)
+    }
+
     func scheduleRecompute(interactive: Bool) {
+        guard !activitySuspended else { return }
         predictGeneration += 1
         isComputing = true
         statusText = "计算中…"
@@ -355,6 +371,7 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
     }
 
     private func launchIfIdle() {
+        guard !activitySuspended else { return }
         if predictInFlight {
             predictRerunWanted = true
             return
@@ -499,7 +516,7 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
     }
 
     /// 碰前 / 库后均按该档 `simulateFree` 实况上色（与左缘 8 盘同序）。
-    /// 碰前用 `lineHint`、库后用 `lineMain`，层次区分但仍是真实轨迹。
+    /// 吃库前后保持同色同不透明度，仅用 `lineHint` / `lineMain` 区分线宽。
     private func drawTrajectories(postCushion paths: [[SCNVector3]],
                                   preCushion: [[SCNVector3]]) {
         lastPostCushionPaths = paths
@@ -516,7 +533,7 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
             if i < lastPreCushionPaths.count, lastPreCushionPaths[i].count >= 2 {
                 scene.addDashedPolyline(
                     lastPreCushionPaths[i],
-                    color: color.withAlphaComponent(0.55),
+                    color: color,
                     radius: TrajectoryStyle.lineHint,
                     placement: .table, into: &trajectoryNodes)
             }

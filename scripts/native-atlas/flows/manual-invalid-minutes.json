@@ -1,0 +1,50 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.moreMenu",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "补记训练",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "补记训练",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "type",
+      "id": "manualTraining.minutes",
+      "kind": "textField",
+      "text": "0"
+    },
+    {
+      "action": "type",
+      "id": "manualTraining.content",
+      "kind": "textField",
+      "text": "Native atlas validation"
+    },
+    {
+      "action": "tap",
+      "id": "manualTraining.dismissKeyboard"
+    },
+    {
+      "action": "tap",
+      "id": "manualTraining.save"
+    },
+    {
+      "action": "wait",
+      "id": "未能保存",
+      "kind": "text"
+    },
+    {
+      "action": "snapshot",
+      "name": "P11-03-invalid-minutes",
+      "entry": "normal UI; empty in-memory fixture; minutes=0, content filled; no valid record saved"
+    }
+  ]
+}

@@ -7,19 +7,46 @@ struct RootView: View {
     @EnvironmentObject private var ownerContext: CurrentOwnerContext
     @ObservedObject private var preferences = UserPreferences.shared
 
+    #if DEBUG && targetEnvironment(simulator)
+    private static let liveReviewLaunchResult = Result {
+        try LiveReviewLaunchRequest.parse(arguments: ProcessInfo.processInfo.arguments)
+    }
+    #endif
+
     var body: some View {
         Group {
-            if let deepLink = Self.uiTestDeepLink {
-                deepLink.preferredColorScheme(Self.uiTestDeepLinkColorScheme)
-            } else {
-                MainTabView(ownerKey: ownerContext.ownerKey)
+            #if DEBUG && targetEnvironment(simulator)
+            if case .failure(let error) = Self.liveReviewLaunchResult {
+                Text("Live review launch rejected: \(error.localizedDescription)")
+                    .font(.btBody)
+                    .foregroundStyle(Color.btText)
+                    .padding(Spacing.lg)
+                    .accessibilityIdentifier("liveReview.launchRejected")
+            } else if case .success(.some(let request)) = Self.liveReviewLaunchResult {
+                MainTabView(ownerKey: ownerContext.ownerKey, liveReviewLaunchRequest: request)
                     .id(ownerContext.ownerKey)
                     .preferredColorScheme(mainColorScheme)
+            } else {
+                normalContent
             }
+            #else
+            normalContent
+            #endif
         }
         .task(id: authState.currentUser) {
             preferences.synchronizeDefaultGame(ownerKey: ownerContext.ownerKey,
                                                user: authState.currentUser)
+        }
+    }
+
+    @ViewBuilder
+    private var normalContent: some View {
+        if let deepLink = Self.uiTestDeepLink {
+            deepLink.preferredColorScheme(Self.uiTestDeepLinkColorScheme)
+        } else {
+            MainTabView(ownerKey: ownerContext.ownerKey)
+                .id(ownerContext.ownerKey)
+                .preferredColorScheme(mainColorScheme)
         }
     }
 

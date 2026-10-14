@@ -1,0 +1,50 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_解"
+    },
+    {
+      "action": "tap",
+      "id": "翻袋解球",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "bankshot.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P07a-default",
+      "entry": "normal App navigation; original native initial state"
+    },
+    {
+      "action": "tapCenter",
+      "id": "bankshot.more"
+    },
+    {
+      "action": "snapshot",
+      "name": "TABLE-P07a-more"
+    }
+  ],
+  "catalog": {
+    "TABLE-P07a-default": {
+      "id": "TABLE/P07a",
+      "title": "翻袋解球",
+      "state": "default",
+      "figmaPage": "71"
+    },
+    "TABLE-P07a-more": {
+      "id": "TABLE/P07a",
+      "title": "翻袋解球",
+      "state": "more",
+      "figmaPage": "71"
+    }
+  },
+  "requiresTestRunner": "native-atlas-r10-tapCenter"
+}

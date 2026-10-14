@@ -14,6 +14,11 @@ enum BakedTrainingRoom {
     private static let cacheLock = NSLock()
     private static var cached: (style: RoomStyle, node: SCNNode)?
 
+    static func resetCache() {
+        cacheLock.lock(); defer { cacheLock.unlock() }
+        cached = nil
+    }
+
     static func make(style: RoomStyle) -> SCNNode {
         cacheLock.lock()
         defer { cacheLock.unlock() }

@@ -1145,7 +1145,12 @@ final class DailyAdaptivePanelUITests: XCTestCase {
             XCTAssertTrue(element(app, "freeplay.stage").waitForExistence(timeout: 8))
             unchanged(before, try state(app))
             XCTAssertEqual(try renderer(), identity)
+            // mode() closes the menu. Reopen it to read the current selection;
+            // do not call mode() here, which could change the value under test.
+            app.buttons["freeplay.moreMenu"].tap()
+            XCTAssertTrue(app.buttons["freeplay.cameraMode"].waitForExistence(timeout: 3))
             XCTAssertEqual(app.buttons["freeplay.cameraMode"].value as? String, dimension)
+            app.buttons["关闭菜单"].tap()
             try capture(app, "background-\(dimension)-returned")
         }
     }

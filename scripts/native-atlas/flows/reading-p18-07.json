@@ -1,0 +1,31 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_理"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "关键球原理",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "关键球原理"
+    },
+    {
+      "action": "cover",
+      "name": "P18-07-default",
+      "entry": "practice/理/关键球原理",
+      "maximumViews": 40
+    }
+  ]
+}

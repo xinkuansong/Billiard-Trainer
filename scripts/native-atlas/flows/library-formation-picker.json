@@ -1,0 +1,41 @@
+{
+  "fixture": "empty",
+  "premium": true,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "动作库"
+    },
+    {
+      "action": "tap",
+      "id": "drillCard_drill_c022",
+      "kind": "any",
+      "scrollTo": 3
+    },
+    {
+      "action": "wait",
+      "id": "bottomTryoutButton"
+    },
+    {
+      "action": "tap",
+      "id": "bottomTryoutButton"
+    },
+    {
+      "action": "wait",
+      "id": "tryoutFormation_0"
+    },
+    {
+      "action": "cover",
+      "name": "P15-02-formations",
+      "maximumViews": 40
+    }
+  ],
+  "catalog": {
+    "P15-02-formations": {
+      "id": "APP/P15-02",
+      "title": "试打球形选择",
+      "state": "c022-multiple-forced-dark",
+      "figmaPage": "20"
+    }
+  }
+}

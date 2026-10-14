@@ -1,0 +1,39 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "动作库"
+    },
+    {
+      "action": "wait",
+      "id": "搜索动作",
+      "kind": "textField"
+    },
+    {
+      "action": "tap",
+      "id": "drillCard_drill_c012",
+      "kind": "any"
+    },
+    {
+      "action": "wait",
+      "id": "bottomTryoutButton",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "查看精讲",
+      "scrollTo": 4
+    },
+    {
+      "action": "wait",
+      "id": "精讲",
+      "kind": "text"
+    },
+    {
+      "action": "cover",
+      "name": "P16-01-c012-reading",
+      "maximumViews": 40
+    }
+  ]
+}

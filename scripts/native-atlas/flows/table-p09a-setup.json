@@ -1,0 +1,35 @@
+{
+  "fixture": "empty",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_练"
+    },
+    {
+      "action": "tap",
+      "id": "2D角度",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "angleTraining.start"
+    },
+    {
+      "action": "cover",
+      "name": "TABLE-P09a-setup",
+      "maximumViews": 20
+    }
+  ],
+  "catalog": {
+    "TABLE-P09a-setup": {
+      "id": "TABLE/P09a",
+      "title": "2D角度",
+      "state": "setup",
+      "figmaPage": "71"
+    }
+  }
+}

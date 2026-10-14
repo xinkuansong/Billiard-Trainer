@@ -1,0 +1,95 @@
+{
+  "fixture": "empty",
+  "premium": false,
+  "sourceBaseline": "f75cbafd",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "wait",
+      "id": "仅保存在本机",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P24-cloud-choice",
+      "entry": "normal UI; frozen App; explicitly offline account/local StoreKit fixture"
+    },
+    {
+      "action": "tap",
+      "id": "仅保存在本机",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "设置",
+      "kind": "buttonContains",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "设置",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "cover",
+      "name": "P33-account-sync-off",
+      "maximumViews": 40,
+      "entry": "normal UI; frozen App; explicitly offline account/local StoreKit fixture",
+      "scrollId": "settings.content"
+    },
+    {
+      "action": "tap",
+      "id": "settings.cloudSync",
+      "kind": "switch"
+    },
+    {
+      "action": "wait",
+      "id": "settings.syncNow",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P33-account-sync-on",
+      "entry": "normal UI; frozen App; explicitly offline account/local StoreKit fixture"
+    },
+    {
+      "action": "tap",
+      "id": "settings.syncNow",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "测试账号未连接云端",
+      "kind": "text"
+    },
+    {
+      "action": "snapshot",
+      "name": "P33-account-sync-offline-message",
+      "entry": "normal UI; frozen App; explicitly offline account/local StoreKit fixture"
+    },
+    {
+      "action": "tap",
+      "id": "注销账号",
+      "kind": "button",
+      "scrollTo": 4
+    },
+    {
+      "action": "wait",
+      "id": "确认注销",
+      "kind": "button"
+    },
+    {
+      "action": "snapshot",
+      "name": "P33-03-delete-account-confirm",
+      "entry": "normal UI; frozen App; explicitly offline account/local StoreKit fixture"
+    }
+  ],
+  "launchArguments": [
+    "-v53.authenticatedProfileFixture",
+    "-syncChoice.explicitLogin"
+  ],
+  "homeFixture": false
+}

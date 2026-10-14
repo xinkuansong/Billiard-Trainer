@@ -1,0 +1,55 @@
+{
+  "fixture": "freeCompleted",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "记录"
+    },
+    {
+      "action": "tap",
+      "id": "直线球",
+      "kind": "buttonContains",
+      "scrollTo": 4
+    },
+    {
+      "action": "wait",
+      "id": "编辑数据",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "编辑数据",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "dataEditorCancel",
+      "kind": "button"
+    },
+    {
+      "action": "type",
+      "id": "editSetMade_1",
+      "kind": "textField",
+      "text": "999"
+    },
+    {
+      "action": "wait",
+      "id": "进球数不能大于总数（10）",
+      "kind": "text"
+    },
+    {
+      "action": "tap",
+      "id": "dataEditorSave"
+    },
+    {
+      "action": "wait",
+      "id": "无法保存",
+      "kind": "text"
+    },
+    {
+      "action": "snapshot",
+      "name": "P22-02-invalid-made",
+      "entry": "normal UI; freeCompleted fixture target=10, made gains 999 via actual keyboard; rejects save"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "fixture": "suggestion",
+  "premium": true,
+  "steps": [
+    {
+      "action": "tap",
+      "id": "planPoster-plan_beginner",
+      "scrollTo": 8
+    },
+    {
+      "action": "wait",
+      "id": "planDetail.primaryCTA"
+    },
+    {
+      "action": "tap",
+      "id": "planDetail.primaryCTA"
+    },
+    {
+      "action": "wait",
+      "id": "planDetail.addToToday"
+    },
+    {
+      "action": "snapshot",
+      "name": "P04-02-current-preselected",
+      "entry": "Normal UI from frozen App home fixture; in-memory data only"
+    },
+    {
+      "action": "tap",
+      "id": "底袋直线出杆入门",
+      "kind": "buttonContains"
+    },
+    {
+      "action": "snapshot",
+      "name": "P04-02-multiple-selected",
+      "entry": "Normal UI from frozen App home fixture; in-memory data only"
+    },
+    {
+      "action": "cover",
+      "name": "P04-02-arrangement-list",
+      "entry": "Active beginner plan; normal arrange-today sheet; current and future lesson selected",
+      "maximumViews": 20
+    }
+  ]
+}

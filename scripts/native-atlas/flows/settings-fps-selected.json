@@ -1,0 +1,30 @@
+{
+  "fixture": "empty",
+  "sourceBaseline": "f75cbafd",
+  "steps": [
+    {
+      "action": "tab",
+      "name": "我的"
+    },
+    {
+      "action": "tap",
+      "id": "设置",
+      "kind": "buttonContains",
+      "scrollTo": 6
+    },
+    {
+      "action": "wait",
+      "id": "设置",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "tap",
+      "id": "120 帧",
+      "scrollTo": 4
+    },
+    {
+      "action": "snapshot",
+      "name": "P33-fps120-selected"
+    }
+  ]
+}

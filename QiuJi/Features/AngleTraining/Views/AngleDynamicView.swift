@@ -10,6 +10,18 @@ struct AngleDynamicView: View {
 
     var body: some View {
         BTTeachingTablePage(vm: vm, titleLabel: "角度与瞄准", identifier: "angleDynamic",
+            displayMenuItems: [
+                .init(id: "angleDynamic.aimLine", title: "瞄准线", selected: vm.showsAimLine,
+                      action: { vm.showsAimLine.toggle() }),
+                .init(id: "angleDynamic.potLine", title: "进球线", selected: vm.showsPotLine,
+                      action: { vm.showsPotLine.toggle() }),
+                .init(id: "angleDynamic.ghost3D", title: "3D 假想球", selected: vm.showsGhost3D,
+                      action: { vm.showsGhost3D.toggle() }),
+                .init(id: "angleDynamic.aimPipe", title: "瞄准管道", selected: vm.showsAimPipe,
+                      action: { vm.showsAimPipe.toggle() }),
+                .init(id: "angleDynamic.potPipe", title: "进球管道", selected: vm.showsPotPipe,
+                      action: { vm.showsPotPipe.toggle() })
+            ],
             information: teachingInformation, usesStandardTitle: true,
             title: { EmptyView() }, leftContent: { _ in primaryMetricChip }, status: { EmptyView() },
             onFirstDrag: { hasDraggedOnce = true })

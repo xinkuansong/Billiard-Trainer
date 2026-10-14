@@ -1,0 +1,66 @@
+{
+  "fixture": "empty",
+  "premium": true,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "动作库"
+    },
+    {
+      "action": "tap",
+      "id": "badgeFilterMenu"
+    },
+    {
+      "action": "tap",
+      "id": "ballTypeMenu_9球"
+    },
+    {
+      "action": "snapshot",
+      "name": "P14-nine-ball-filter"
+    },
+    {
+      "action": "tap",
+      "id": "badgeFilterMenu"
+    },
+    {
+      "action": "tap",
+      "id": "规则流程"
+    },
+    {
+      "action": "snapshot",
+      "name": "P14-nine-ball-rules-filter"
+    },
+    {
+      "action": "tap",
+      "id": "badgeFilterMenu"
+    },
+    {
+      "action": "wait",
+      "id": "清除筛选"
+    },
+    {
+      "action": "snapshot",
+      "name": "P14-active-filter-menu"
+    }
+  ],
+  "catalog": {
+    "P14-nine-ball-filter": {
+      "id": "APP/P14",
+      "title": "动作库",
+      "state": "nine-ball-filter",
+      "figmaPage": "20"
+    },
+    "P14-nine-ball-rules-filter": {
+      "id": "APP/P14",
+      "title": "动作库",
+      "state": "nine-ball-rules-filter",
+      "figmaPage": "20"
+    },
+    "P14-active-filter-menu": {
+      "id": "APP/P14",
+      "title": "动作库",
+      "state": "active-filter-menu",
+      "figmaPage": "20"
+    }
+  }
+}

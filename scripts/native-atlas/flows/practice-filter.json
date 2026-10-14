@@ -1,0 +1,71 @@
+{
+  "fixture": "empty",
+  "premium": true,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_学"
+    },
+    {
+      "action": "tap",
+      "id": "practiceTopicFilterMenu"
+    },
+    {
+      "action": "wait",
+      "id": "practiceTopicMenu_防守"
+    },
+    {
+      "action": "snapshot",
+      "name": "P17-topic-menu"
+    },
+    {
+      "action": "tap",
+      "id": "practiceTopicMenu_防守"
+    },
+    {
+      "action": "wait",
+      "id": "没有找到相关练习",
+      "kind": "text"
+    },
+    {
+      "action": "snapshot",
+      "name": "P17-topic-empty"
+    },
+    {
+      "action": "tap",
+      "id": "浏览全部练习"
+    },
+    {
+      "action": "wait",
+      "id": "瞄准原理"
+    },
+    {
+      "action": "snapshot",
+      "name": "P17-cleared-filter"
+    }
+  ],
+  "catalog": {
+    "P17-topic-menu": {
+      "id": "APP/P17",
+      "title": "练习",
+      "state": "topic-menu",
+      "figmaPage": "30"
+    },
+    "P17-topic-empty": {
+      "id": "APP/P17",
+      "title": "练习",
+      "state": "learn-safety-empty",
+      "figmaPage": "30"
+    },
+    "P17-cleared-filter": {
+      "id": "APP/P17",
+      "title": "练习",
+      "state": "learn-cleared-filter",
+      "figmaPage": "30"
+    }
+  }
+}

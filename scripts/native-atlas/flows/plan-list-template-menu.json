@@ -1,0 +1,68 @@
+{
+  "fixture": "templateOnly",
+  "steps": [
+    {
+      "action": "tap",
+      "id": "trainingHome.moreMenu",
+      "kind": "button"
+    },
+    {
+      "action": "tap",
+      "id": "使用帮助",
+      "kind": "button"
+    },
+    {
+      "action": "wait",
+      "id": "使用帮助",
+      "kind": "navigationBar"
+    },
+    {
+      "action": "tap",
+      "id": "怎样安排今天的训练？",
+      "kind": "button",
+      "scrollTo": 4
+    },
+    {
+      "action": "tap",
+      "id": "浏览训练计划"
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "训练计划"
+    },
+    {
+      "action": "wait",
+      "kind": "text",
+      "id": "基本功"
+    },
+    {
+      "action": "cover",
+      "name": "P03-01-template-present-full",
+      "maximumViews": 40,
+      "entry": "training/more/help/start-training/browse-plans"
+    },
+    {
+      "action": "tap",
+      "id": "管理模版，赛前热身",
+      "scrollTo": 4
+    },
+    {
+      "action": "snapshot",
+      "name": "P03-01-template-menu"
+    },
+    {
+      "action": "tap",
+      "id": "删除"
+    },
+    {
+      "action": "wait",
+      "kind": "text",
+      "id": "删除模版"
+    },
+    {
+      "action": "snapshot",
+      "name": "P03-02-delete-confirm"
+    }
+  ]
+}

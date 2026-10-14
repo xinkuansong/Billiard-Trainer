@@ -191,14 +191,43 @@ final class PlanThreeViewModel: TeachingTableHost {
     }
 
 
+    var solvedContactCloseup: AimCloseupSnapshot? {
+        guard canStrike, let solution = currentSolution else { return nil }
+        return solvedContactCloseup(for: solution.prediction)
+    }
+
+    private var playbackGeneration = 0
+    private var activitySuspended = false
+    private var resumeAdjustment = false
+    private var resumeSolve = false
+    func resumeTeachingActivity() {
+        guard activitySuspended else { return }
+        activitySuspended = false
+        if let runner = breakRunner { runner.resumeActivity(); return }
+        if resumeAdjustment { resumeAdjustment = false; adjustCurrentSolution() }
+        else if resumeSolve { resumeSolve = false; solve() }
+        else { redrawTrajectory() }
+    }
+
     func stopForDismissal() {
+        guard !activitySuspended else { return }
+        activitySuspended = true
+        playbackGeneration += 1
+        resumeAdjustment = isAdjustingSolution
+        resumeSolve = isComputing && !isAdjustingSolution
+        let interruptedPlayback = isPlaying
         solveGeneration += 1
         endTemporaryTopDown()
-        breakRunner?.cancel()
+        breakRunner?.suspendActivity()
         scene.rootNode.removeAllActions()
         scene.allBallNodes.values.forEach { $0.removeAllActions() }
-        ShotAudioScheduler.shared.cancel()
+        if interruptedPlayback { ShotAudioScheduler.shared.cancel() }
+        scene.hideCueStick()
+        scene.railInventory.cancelPlayback()
+        isDragging = false
+        isComputing = false
         isPlaying = false
+        if interruptedPlayback, let context = lastShotContext { restore(from: context) }
     }
 
 
@@ -230,7 +259,7 @@ final class PlanThreeViewModel: TeachingTableHost {
 
     // MARK: - Published tool state
 
-    @Published var activeTool: Tool = .none { didSet { if oldValue != activeTool { statusText = hintForState() } } }
+    @Published var activeTool: Tool = .none { didSet { if oldValue != activeTool && informationEvent.kind != .failure { setStatus(hintForState())} } }
     @Published var regionShape: RegionShape = .rect
     @Published private(set) var hasConstraint = false
     var draft: Draft?
@@ -280,6 +309,13 @@ final class PlanThreeViewModel: TeachingTableHost {
     // candidate. `currentSolution` = draft ?? catalog. adjust → Drafted (further tweak on draft);
     // nextSolution / showSolution / invalidate / solve → Clean (draft discarded).
 
+    @Published private(set) var informationEvent = PlanningInformationEvent(kind: .context, text: "")
+    var isSolutionAdjusted: Bool { adjustmentDraft != nil }
+    private func setStatus(_ text: String, kind: PlanningInformationEvent.Kind = .context) {
+        statusText = text
+        informationEvent = PlanningInformationEvent(kind: kind, text: text)
+    }
+
     private var adjustmentDraft: PositionPlaySolution?
 
     var currentSolution: PositionPlaySolution? {
@@ -288,7 +324,7 @@ final class PlanThreeViewModel: TeachingTableHost {
     }
     var hasSolutions: Bool { !solutions.isEmpty }
     var canStrike: Bool {
-        !temporaryTopDownActive && !isPlaying && !isComputing && (currentSolution?.prediction.feasible ?? false)
+        !activitySuspended && !temporaryTopDownActive && !isPlaying && !isComputing && adjustmentIsValid && (currentSolution?.prediction.feasible ?? false)
             && (currentSolution?.prediction.hasFinalTableState ?? false)
             && (currentSolution?.prediction.duration ?? 0) > 0.05
     }
@@ -310,7 +346,13 @@ final class PlanThreeViewModel: TeachingTableHost {
         scene.cameraRig?.enterAiming(cueBallPosition: cue.position, targetDirection: aim)
     }
     let solveQueue = DispatchQueue(label: "com.qiuji.planthree-solve", qos: .userInitiated)
-    var solveGeneration = 0
+    private var solveWork: DispatchWorkItem?
+    private let adjustmentScheduler = LatestPredictionScheduler<ShotPrediction?>()
+    @Published private(set) var isAdjustingSolution = false
+    private var adjustmentIsValid = true
+    var solveGeneration = 0 {
+        didSet { solveWork?.cancel(); solveWork = nil; adjustmentScheduler.invalidate(); isAdjustingSolution = false }
+    }
     var surfaceY: Float { scene.surfaceY }
 
     // MARK: - Last shot（条 21.3 + G17：上一杆完整恢复 / 回放）
@@ -382,7 +424,7 @@ final class PlanThreeViewModel: TeachingTableHost {
         pocket1Index = -1; pocket2Index = -1
         armedRole = .ball1
         activeTool = .none
-        statusText = hint(for: .ball1)
+        setStatus(hint(for: .ball1))
         refreshOverlays()
         invalidateSolutions()
     }
@@ -544,14 +586,14 @@ extension PlanThreeViewModel {
         guard !isPlaying else { return }
         activeTool = .none
         armedRole = role
-        statusText = hint(for: role)
+        setStatus(hint(for: role))
     }
 
     /// 点桌上球（场景回调，仅 .none 工具态生效）：赋给当前装填的球角色。
     func selectBall(node: SCNNode) {
         guard !isPlaying, let key = scene.ballKey(for: node), !PositionPlayBall.isCue(key) else { return }
         guard let role = armedRole, role.isBall else {
-            statusText = "请先在左侧计划中选「球」角色"
+            setStatus("请先在左侧计划中选「球」角色", kind: .failure)
             return
         }
         assignBall(key, to: role)
@@ -561,7 +603,7 @@ extension PlanThreeViewModel {
     func selectPocket(at index: Int) {
         guard !isPlaying, !isComputing, !isBreakMode else { return }
         guard let role = armedRole, role.isPocket else {
-            statusText = "请先在左侧计划中选「袋」角色"
+            setStatus("请先在左侧计划中选「袋」角色", kind: .failure)
             return
         }
         if role == .pocket1 { pocket1Index = index } else { pocket2Index = index }
@@ -583,7 +625,7 @@ extension PlanThreeViewModel {
 
     private func advanceAndArm() {
         armedRole = nextEmptyRole()
-        statusText = hintForState()
+        setStatus(hintForState())
         invalidateSolutions()
     }
 
@@ -618,7 +660,7 @@ extension PlanThreeViewModel {
         pocket1Index = -1; pocket2Index = -1
         armedRole = .ball1
         activeTool = .none
-        statusText = hint(for: .ball1)
+        setStatus(hint(for: .ball1))
         invalidateSolutions()
     }
 
@@ -658,7 +700,7 @@ extension PlanThreeViewModel {
         }
         hasConstraint = draft != nil
         renderConstraint()
-        if ended, currentConstraint() != nil { statusText = "约束就绪，点「求解」反解打一杆法" }
+        if ended, currentConstraint() != nil { setStatus("约束就绪，点「求解」反解打一杆法")}
     }
 
     func clearConstraint() {
@@ -666,7 +708,7 @@ extension PlanThreeViewModel {
         hasConstraint = false
         clearConstraintNodes()
         invalidateSolutions()
-        statusText = hintForState()
+        setStatus(hintForState())
     }
 
     /// 台面在桌目标球数（不含母球）。
@@ -729,7 +771,7 @@ extension PlanThreeViewModel {
         scene.hideCueStick()
         velocity = 3.0; spinX = 0; spinY = 0
         refreshOverlays()
-        statusText = hintForState()
+        setStatus(hintForState())
     }
 
     func solve() {
@@ -737,7 +779,7 @@ extension PlanThreeViewModel {
         guard let targetKey = ball1Key, pocket1Index >= 0,
               let pocketId = ShotIntent.pocketId(for: pocket1Index),
               let constraint = currentConstraint() else {
-            statusText = hintForState()
+            setStatus(hintForState())
             return
         }
         let before = currentSnapshot()
@@ -746,11 +788,11 @@ extension PlanThreeViewModel {
         solveGeneration += 1
         let gen = solveGeneration
         isComputing = true
-        statusText = "求解中…"
+        setStatus("求解中…", kind: .busy)
         clearTrajectory()
         scene.hideCueStick()
 
-        solveQueue.async { [weak self] in
+        let work = DispatchWorkItem { [weak self] in
             let result = PositionPlaySolver.solve(
                 before: before, targetKey: targetKey, pocket: pocketId,
                 constraint: constraint, surfaceY: y, params: params)
@@ -786,17 +828,19 @@ extension PlanThreeViewModel {
                 self.currentIndex = 0
                 self.adjustmentDraft = nil
                 if final.isEmpty {
-                    self.statusText = DirectPotBankFallback.emptySolveMessage(
+                    self.setStatus(DirectPotBankFallback.emptySolveMessage(
                         directInfeasible: directInfeasible,
                         bankAttempted: bankTried,
                         bankEmpty: bankEmpty,
-                        positionHint: "未找到解（试着放大区域或换①目标袋）")
+                        positionHint: "未找到解（试着放大区域或换第1杆目标袋）"), kind: .failure)
                     self.velocity = 3.0; self.spinX = 0; self.spinY = 0
                 } else {
                     self.showSolution(at: 0)
                 }
             }
         }
+        solveWork = work
+        solveQueue.async(execute: work)
     }
 
     /// K12: always full capability (`allowSideSpin` / `basicPositionOnly` ignored; snapshot-compat only).
@@ -830,6 +874,7 @@ extension PlanThreeViewModel {
     private func showSolution(at index: Int) {
         guard solutions.indices.contains(index) else { return }
         adjustmentDraft = nil
+        adjustmentIsValid = true
         presentDisplayedSolution(solutions[index])
     }
 
@@ -839,18 +884,19 @@ extension PlanThreeViewModel {
             clearTrajectory()
             scene.hideCueStick()
             lastAimDirection = nil
-            statusText = "本次模拟未完成，请调整击球参数后重试"
+            setStatus("本次模拟未完成，请调整击球参数后重试", kind: .failure)
             return false
         }
         return true
     }
 
     private func presentDisplayedSolution(_ sol: PositionPlaySolution) {
+        adjustmentIsValid = sol.prediction.hasFinalTableState
         guard acceptCompletePrediction(sol.prediction) else { return }
         velocity = sol.shot.velocity
         spinX = sol.shot.spinX
         spinY = sol.shot.spinY
-        statusText = solutionStatus(sol)
+        setStatus(solutionStatus(sol), kind: .solution)
         drawTrajectory(sol.prediction, shot: sol.shot)
         updateCueStickAiming(sol.prediction)
         renderConstraint()
@@ -882,9 +928,9 @@ extension PlanThreeViewModel {
     func hint(for role: PlanThreeRole) -> String {
         switch role {
         case .ball1: return "在桌面上选球，设为①一号球"
-        case .pocket1: return "在桌面上选袋，设为①一号球目标袋"
+        case .pocket1: return "在桌面上选袋，设为第1杆目标袋"
         case .ball2: return "在桌面上选球，设为②二号球"
-        case .pocket2: return "在桌面上选袋，设为②二号球目标袋"
+        case .pocket2: return "在桌面上选袋，设为第2杆目标袋"
         case .ball3: return "在桌面上选球，设为③三号球（决定扇形朝向）"
         }
     }
@@ -1171,7 +1217,7 @@ extension PlanThreeViewModel {
               let aim = lastAimDirection ?? aimDirection(path: sol.prediction.cuePath, from: cueNode.position)
         else { return }
         guard scene.permitsCueStrike(aim:aim,spinX:spinX,spinY:spinY) else {
-            statusText = CueStrikeAccess.unavailableMessage
+            setStatus(CueStrikeAccess.unavailableMessage, kind: .failure)
             return
         }
 
@@ -1180,8 +1226,9 @@ extension PlanThreeViewModel {
         canUndoShot = false
         canPlayback = false
 
+        playbackGeneration += 1
         isPlaying = true
-        statusText = "运杆…"
+        setStatus("运杆…", kind: .busy)
         clearConstraintNodes()
         let strikePos = strikePosition(cue: cueNode.position)
         let clearancePlayback = TrajectoryPlayback(
@@ -1191,7 +1238,8 @@ extension PlanThreeViewModel {
             strikePosition: strikePos, aim: aim, velocity: Float(sol.shot.velocity),
             switchesPlayerCameraOnContact: true,
             clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
-        ) { [weak self] in
+        ) { [weak self, generation = playbackGeneration] in
+            guard self?.playbackGeneration == generation else { return }
             self?.launchBalls(sol: sol, recorder: recorder)
         }
     }
@@ -1199,14 +1247,17 @@ extension PlanThreeViewModel {
     /// 微调当前解（K13 草稿层，与 Silu 同契约）：正向重算写入 `adjustmentDraft`，不改 `solutions[]`。
     func adjustCurrentSolution(velocity v: Double? = nil,
                                spinX sx: Double? = nil, spinY sy: Double? = nil) {
-        guard !isPlaying, !isComputing else { return }
+        guard !activitySuspended, !isPlaying, (!isComputing || isAdjustingSolution) else { return }
         guard solutions.indices.contains(currentIndex) else { return }
         let catalog = solutions[currentIndex]
         let base = adjustmentDraft ?? catalog
         var shot = base.shot
-        if let v { shot.velocity = v }
-        if let sx { shot.spinX = sx }
-        if let sy { shot.spinY = sy }
+        shot.velocity = v ?? velocity
+        shot.spinX = sx ?? spinX
+        shot.spinY = sy ?? spinY
+        velocity = shot.velocity
+        spinX = shot.spinX
+        spinY = shot.spinY
         let before = currentSnapshot()
         let y = surfaceY
         let idx = currentIndex
@@ -1214,16 +1265,30 @@ extension PlanThreeViewModel {
         let satisfies = catalog.satisfiesConstraint
         let beyondCushion = catalog.beyondCushionBudget
         let beyondSpin = catalog.beyondSpinBudget
-        solveGeneration += 1
         let gen = solveGeneration
         isComputing = true
+        isAdjustingSolution = true
+        adjustmentIsValid = false
 
-        solveQueue.async { [weak self] in
-            let pred = PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y)
-            DispatchQueue.main.async {
+        adjustmentScheduler.submit(compute: {
+            PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y)
+        }, receive: { [weak self] pred, isLatest in
                 guard let self, self.solveGeneration == gen, !self.isPlaying else { return }
+                guard isLatest else {
+                    if let pred, pred.hasFinalTableState {
+                        self.drawTrajectory(pred, shot: shot)
+                    }
+                    return
+                }
                 self.isComputing = false
-                guard let pred, self.solutions.indices.contains(idx), self.currentIndex == idx else { return }
+                self.isAdjustingSolution = false
+                guard self.solutions.indices.contains(idx), self.currentIndex == idx else { return }
+                guard let pred else {
+                    self.clearTrajectory()
+                    self.scene.hideCueStick()
+                    self.setStatus("当前参数无完整预测，请调整后重试", kind: .failure)
+                    return
+                }
                 let drafted = PositionPlaySolution(
                     shot: shot, prediction: pred,
                     cushionCount: pred.cueCushionCount,
@@ -1237,12 +1302,12 @@ extension PlanThreeViewModel {
                         spinX: shot.spinX, spinY: shot.spinY, velocity: shot.velocity,
                         cutAngleDeg: pred.cutAngleDeg),
                     difficultyTier: DifficultyModel.tier(spinX: shot.spinX, spinY: shot.spinY),
-                    beyondSpinBudget: beyondSpin
+                    beyondSpinBudget: beyondSpin, isBankFallback: catalog.isBankFallback
                 )
+                self.adjustmentIsValid = pred.hasFinalTableState
                 self.adjustmentDraft = drafted
                 self.presentDisplayedSolution(drafted)
-            }
-        }
+        })
     }
 
     /// 上一杆（条 21.3 + G17）：回到上次击打前的**完整状态**——球形、①②③ 角色指派、约束、
@@ -1253,9 +1318,7 @@ extension PlanThreeViewModel {
         canUndoShot = false
         canPlayback = false
         lastShotContext = nil
-        statusText = ctx.snapshot.solutions.isEmpty
-            ? "已退回上一杆击打前"
-            : "已退回上一杆击打前 · 球形/①②③/约束/解已还原"
+        setStatus("已退回上一杆击打前", kind: .feedback)
     }
 
     /// 组装当前状态为「上一杆」完整上下文（击打前调用；`play()` 与单测共用同一处捕获逻辑）。
@@ -1329,7 +1392,7 @@ extension PlanThreeViewModel {
                         spinX: snap.shot.spinX, spinY: snap.shot.spinY, velocity: snap.shot.velocity,
                         cutAngleDeg: snap.prediction.cutAngleDeg),
                     difficultyTier: DifficultyModel.tier(spinX: snap.shot.spinX, spinY: snap.shot.spinY),
-                    beyondSpinBudget: catalog.beyondSpinBudget
+                    beyondSpinBudget: catalog.beyondSpinBudget, isBankFallback: catalog.isBankFallback
                 )
                 presentDisplayedSolution(adjustmentDraft!)
             } else {
@@ -1360,12 +1423,13 @@ extension PlanThreeViewModel {
         replayAfterContext = makeUndoContext(shot: snap.shot, prediction: snap.prediction)
         replayAfterRails = scene.railInventory.snapshot()
         replayAfterPoses = scene.captureBallPoses()   // 回放不改变桌面真相，姿态也原样带回
+        playbackGeneration += 1
         isPlaying = true
         clearTrajectory()
         clearConstraintNodes()
         scene.clearResultNodes(nodes: &selectionNodes)
         scene.hideCueStick()
-        statusText = "回放上一杆…"
+        setStatus("回放上一杆…", kind: .busy)
 
         scene.hideAllBalls()
         for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
@@ -1385,7 +1449,8 @@ extension PlanThreeViewModel {
         scene.runCueStroke(
             strikePosition: strikePos, aim: aim, velocity: Float(snap.shot.velocity),
             clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
-        ) { [weak self] in
+        ) { [weak self, generation = playbackGeneration] in
+            guard self?.playbackGeneration == generation else { return }
             self?.runPlaybackAnimation(snapshot: snap, recorder: recorder, after: after)
         }
     }
@@ -1410,9 +1475,10 @@ extension PlanThreeViewModel {
         let tail: TimeInterval = ctx.prediction.pocketedBalls.isEmpty
             ? 0 : TrajectoryPlayback.pocketSettleDuration + 0.1
         if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
-            cueNode.runAction(cueAction) { [weak self] in
+            cueNode.runAction(cueAction) { [weak self, generation = playbackGeneration] in
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: UInt64(tail * 1_000_000_000))
+                    guard self?.playbackGeneration == generation else { return }
                     self?.finishPlayback(after: after)
                 }
             }
@@ -1442,11 +1508,11 @@ extension PlanThreeViewModel {
         lastShotContext = ctx
         canUndoShot = ctx != nil
         canPlayback = ctx != nil
-        statusText = "回放结束 · 球停在击打后局面"
+        setStatus("回放结束 · 球停在击打后局面", kind: .feedback)
     }
 
     private func launchBalls(sol: PositionPlaySolution, recorder: TrajectoryRecorder) {
-        statusText = "击球中…"
+        setStatus("击球中…", kind: .busy)
         clearTrajectory()
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel, railInventory: scene.railInventory)
@@ -1462,9 +1528,10 @@ extension PlanThreeViewModel {
         }
         let tail: TimeInterval = sol.prediction.pocketedBalls.isEmpty ? 0 : TrajectoryPlayback.pocketSettleDuration + 0.1
         if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
-            cueNode.runAction(cueAction) { [weak self] in
+            cueNode.runAction(cueAction) { [weak self, generation = playbackGeneration] in
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: UInt64(tail * 1_000_000_000))
+                    guard self?.playbackGeneration == generation else { return }
                     self?.finishStrike(sol: sol)
                 }
             }
@@ -1514,16 +1581,13 @@ extension PlanThreeViewModel {
         let cueGone = cueScratched
         // Q15.2 清台终局：台面无目标球 ⇒ 终局提示（清空后重开）。
         if objectBallCount == 0 {
-            statusText = cueGone
-                ? "清台完成（母球已回台）· 用「恢复默认」重开一局"
-                : "清台完成 · 用「恢复默认」重开一局"
+            setStatus(cueGone ? "清台完成，母球已回台" : "清台完成", kind: .completion)
         } else if cueGone {
-            statusText = "母球进袋，已自动回台 · 继续规划下一杆"
+            setStatus("母球进袋，已自动回台", kind: .feedback)
         } else if ball1Potted {
-            statusText = armedRole.map { "①进袋 · 窗口前滑 · " + hint(for: $0) }
-                ?? "①进袋 · 窗口前滑 · 继续规划下一杆"
+            setStatus("已进袋，计划已顺延", kind: .feedback)
         } else {
-            statusText = "①未进袋 · 计划保留，可在桌面上重画约束再求解"
+            setStatus("未进袋，计划保留", kind: .feedback)
         }
     }
 
@@ -1586,7 +1650,7 @@ extension PlanThreeViewModel {
         ball2Key = ball2; pocket2Index = pocket2
         ball3Key = ball3
         armedRole = nextEmptyRole()
-        statusText = hintForState()
+        setStatus(hintForState())
         invalidateSolutions()
     }
 

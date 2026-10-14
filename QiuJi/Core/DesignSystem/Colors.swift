@@ -3,6 +3,8 @@ import SwiftUI
 // MARK: - Color tokens（用于 Color(...) 调用场景）
 
 extension Color {
+    static let btPracticeBadgeBackground = Color("btPracticeBadgeBackground")
+    static let btPracticeBadgeForeground = Color("btPracticeBadgeForeground")
     static let btJournalPaper = Color("btJournalPaper")
     static let btOverviewDays = Color("btOverviewDays")
     static let btOverviewDuration = Color("btOverviewDuration")

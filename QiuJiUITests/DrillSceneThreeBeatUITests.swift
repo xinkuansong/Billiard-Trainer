@@ -88,44 +88,59 @@ final class DrillSceneThreeBeatUITests: XCTestCase {
         }
     }
 
-    func testPerspectiveDetailCompletesBothFormationsAtEveryShotBoundary() {
+    func testPerspectiveContinuousFormationCompletesAtEveryShotBoundary() {
+        verifyPerspectiveSequence(name: "四球同袋走位", id: "drill_c081", count: 4)
+    }
+
+    func testPerspectiveIndependentFormationCompletesAllEightShots() {
+        verifyPerspectiveSequence(name: "初级蛇彩", id: "drill_c042", count: 8)
+    }
+
+    private func verifyPerspectiveSequence(name: String, id: String, count: Int) {
         continueAfterFailure = false
         app.terminate()
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
         app.switchTab(.drillLibrary)
         let search = app.textFields["搜索动作"]
         XCTAssertTrue(search.waitForExistence(timeout: 5))
-        search.tap(); search.typeText("初级蛇彩")
-        let card = app.descendants(matching: .any).matching(identifier: "drillCard_drill_c042").firstMatch
+        search.tap(); search.typeText(name)
+        let card = app.descendants(matching: .any).matching(identifier: "drillCard_" + id).firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 10)); card.tap()
         let mode = app.buttons["drillScene.cameraMode"]
         XCTAssertTrue(mode.waitForExistence(timeout: 10)); mode.tap()
         let play = app.buttons["drillPlayButton"]
         let step = app.staticTexts["drillScene.step"]
-        for (token, count) in [("manual01", 8), ("manual02", 5)] {
-            app.buttons["formationSwitchChip_" + token].tap()
+        for token in ["manual01"] {
             XCTAssertEqual(step.label, "第 1/\(count) 杆")
+            savePNG("sequence-\(id)-opening-third-person")
             for index in 1...count {
                 play.tap()
                 let current = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "第 \(index)/\(count) 杆"), object: step)
                 XCTAssertEqual(XCTWaiter.wait(for: [current], timeout: 5), .completed)
+                let moving = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == '球运动中'"), object: step)
+                XCTAssertEqual(XCTWaiter.wait(for: [moving], timeout: 15), .completed)
+                if !play.exists {
+                    app.otherElements["drillScene.renderViewport"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                }
                 play.tap()
                 let label = index == count ? "回放" : "继续"
                 let boundary = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", label), object: play)
                 XCTAssertEqual(XCTWaiter.wait(for: [boundary], timeout: 45), .completed, "\(token) shot \(index)")
                 if index < count {
                     XCTAssertEqual(step.label, "第 \(index)/\(count) 杆")
+                    savePNG("sequence-\(id)-boundary-\(index)")
                     if index == 1 {
                         mode.tap(); mode.tap()
                         XCTAssertEqual(play.label, "继续")
-                        savePNG("v63-detail-\(token)-first-boundary")
+                        savePNG("sequence-\(id)-first-boundary-restored")
                     }
                 }
             }
-            XCTAssertEqual(step.label, "第 1/\(count) 杆")
+            XCTAssertEqual(step.label, "第 \(count)/\(count) 杆")
+            XCTAssertFalse(app.staticTexts["drillScene.playbackMessage"].exists)
             XCTAssertEqual(mode.value as? String, "3D")
             XCTAssertFalse(app.otherElements["drillShotHUDBar"].exists)
-            savePNG("v63-detail-\(token)-completed")
+            savePNG("sequence-\(id)-completed")
         }
     }
 

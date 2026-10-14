@@ -1,0 +1,31 @@
+{
+  "fixture": "empty",
+  "timeout": 420,
+  "steps": [
+    {
+      "action": "tab",
+      "name": "练习"
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_理"
+    },
+    {
+      "action": "tap",
+      "kind": "any",
+      "id": "反向规划",
+      "scrollTo": 12
+    },
+    {
+      "action": "wait",
+      "kind": "navigationBar",
+      "id": "反向规划"
+    },
+    {
+      "action": "cover",
+      "name": "P18-06-default",
+      "entry": "practice/理/反向规划",
+      "maximumViews": 40
+    }
+  ]
+}

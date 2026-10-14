@@ -12,6 +12,8 @@ enum BallStickerAppearance {
         return cache
     }()
 
+    static func resetCache() { images.removeAllObjects() }
+
     static func image(named name: String) -> UIImage? {
         if let cached = images.object(forKey: name as NSString) { return cached }
         guard let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: "BallStickers"),

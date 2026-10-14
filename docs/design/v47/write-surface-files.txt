@@ -1,3 +1,4 @@
+QiuJiTests/AdjustmentDraftLayerTests.swift
 QiuJiTests/AdvancedSnakeVideoCaptureTests.swift
 QiuJiTests/AimCloseupEvidenceTests.swift
 QiuJiTests/AimPointTheoryScanTests.swift
@@ -67,6 +68,7 @@ QiuJiTests/V54DataMigrationTests.swift
 QiuJiTests/V54ScheduleDomainTests.swift
 QiuJiTests/W10_1_BakedThumbnailRenderTests.swift
 QiuJiTests/X1_CameraAndAngleArcTests.swift
+QiuJiUITests/ATeachingStandardsUITests.swift
 QiuJiUITests/AdaptiveShotControlsUITests.swift
 QiuJiUITests/AimingCorrectionZ1UITests.swift
 QiuJiUITests/AimingCorrectionZ2UITests.swift
