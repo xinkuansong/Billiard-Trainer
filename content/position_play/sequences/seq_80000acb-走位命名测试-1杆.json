@@ -16,6 +16,8 @@
   "name" : "走位命名测试",
   "steps" : [
     {
+      "analysis": {"aim":{"aimAngleDegrees":1.4958874164242544,"ghostCenterMeters":{"x":-0.2542854845523834,"y":0.8285750150680542,"z":-0.06233328580856323},"pocket":"bottomCenter","pocketAimPointMeters":{"x":0,"y":0.800000011920929,"z":0.6759647130966187},"targetBallKey":"_4"},"cueCushionContacts":[{"cushionIndex":0,"mainRail":"positiveZ","phase":"afterFirstContact","timeSeconds":3.3714122772216797}],"cueTravelDistanceMeters":1.1619869669913054,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":1.5661096616538102,"ballKey":"_4","cueAngularVelocityRadiansPerSecond":{"x":43.67330551147461,"y":0,"z":-13.771143913269043},"cueClothSlipSpeedMetersPerSecond":0.1683210898913457,"cueForwardRollRatio":0.8860275319610158,"cueMotionState":"sliding","cueSpeedMetersPerSecond":1.4768569715510766,"cueVelocity":{"x":0.44412893056869507,"y":0,"z":1.408494234085083},"timeSeconds":0.266775906085968},"schemaVersion":1},
+      "recordedDirection": {"x": 0.3007258474826813, "z": 0.9537106156349182},
       "after" : {
         "onTable" : {
           "cueBall" : {

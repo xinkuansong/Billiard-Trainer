@@ -24,6 +24,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from simulator_lifecycle import device_lease
+
 
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = REPO / "scripts/simulator-matrix.json"
@@ -745,12 +747,13 @@ def main() -> int:
     def execute(unit: tuple[ResolvedDevice, str, str, str]) -> dict[str, Any]:
         device, appearance, state, suite = unit
         print(f"[{utc_now()}] START {device.matrix_id} iOS {device.runtime_version} {appearance} {state} {suite}", flush=True)
-        summary = run_unit(
-            config, device, appearance, state, suite,
-            resume=args.resume,
-            content_size=args.content_size,
-            fingerprint=fingerprint,
-        )
+        with device_lease(device.udid, f"matrix:{device.matrix_id}:{suite}"):
+            summary = run_unit(
+                config, device, appearance, state, suite,
+                resume=args.resume,
+                content_size=args.content_size,
+                fingerprint=fingerprint,
+            )
         print(f"[{utc_now()}] {summary['status'].upper()} {device.matrix_id} {appearance} {state} {suite}", flush=True)
         return summary
 

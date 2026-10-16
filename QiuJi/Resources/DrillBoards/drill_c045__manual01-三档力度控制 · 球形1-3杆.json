@@ -12,6 +12,8 @@
   "name": "三档力度控制 · 球形1",
   "steps": [
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":5,"mainRail":"positiveX","phase":"noBallContact","timeSeconds":1.704397201538086},{"cushionIndex":4,"mainRail":"negativeX","phase":"noBallContact","timeSeconds":6.813997268676758}],"cueTravelDistanceMeters":4.805874998200604,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": 1.0, "z": 0.0},
       "after": {
         "onTable": {
           "cueBall": {
@@ -45,6 +47,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":5,"mainRail":"positiveX","phase":"noBallContact","timeSeconds":0.9243539571762085},{"cushionIndex":4,"mainRail":"negativeX","phase":"noBallContact","timeSeconds":2.85718035697937},{"cushionIndex":5,"mainRail":"positiveX","phase":"noBallContact","timeSeconds":8.517518043518066}],"cueTravelDistanceMeters":7.232197560005964,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": 1.0, "z": 0.0},
       "after": {
         "onTable": {
           "cueBall": {
@@ -78,6 +82,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":5,"mainRail":"positiveX","phase":"noBallContact","timeSeconds":0.5431298017501831},{"cushionIndex":4,"mainRail":"negativeX","phase":"noBallContact","timeSeconds":1.6030348539352417},{"cushionIndex":5,"mainRail":"positiveX","phase":"noBallContact","timeSeconds":3.5768203735351562},{"cushionIndex":4,"mainRail":"negativeX","phase":"noBallContact","timeSeconds":10.297572135925293}],"cueTravelDistanceMeters":9.668890202672307,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": 1.0, "z": 0.0},
       "after": {
         "onTable": {
           "cueBall": {

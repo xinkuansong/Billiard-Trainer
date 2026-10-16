@@ -28,7 +28,7 @@
 - `canvasX = (sceneKitX + 1.270)/2.540`，`canvasY = (sceneKitZ + 0.635)/2.540`——**canvasY 增 = Z 增（同向）**。旧文档/旧版本技能写的 `(0.635 − Z)/2.540` 是**错的**（DR-063 纠错），发现残留即改。
 - 屏幕系两套（用户可见方位词必须按渲染面选对）：
   - landscape（`applyTopDown2D`）：屏幕右 = +X，屏幕上 = −Z（= canvasY 小）。
-  - portrait（`applyTopDown2DRotated`，全部 drill 用户面）：屏幕上 = +X（= canvasX 大），屏幕右 = +Z（= canvasY 大）。
+  - portrait（`applyTopDown2DRotated`，竖版精讲图及实际竖桌页面）：屏幕上 = +X（= canvasX 大），屏幕右 = +Z（= canvasY 大）。动作详情当前为landscape；试打随实际桌面布局选择，不得认定全部Drill页面都是portrait。
   - ⇒ portrait 屏幕系袋口名：topLeft=左下角袋、topRight=左上角袋、bottomLeft=右下角袋、bottomRight=右上角袋、topCenter=左侧中袋、bottomCenter=右侧中袋。
 
 ### 2. 禁止脑算清单（命中任一 → 必须落到数值草稿或图）
@@ -123,6 +123,7 @@
 - 自动取景的高度下限复用相机姿态配置；新题取景和持续渲染须分开验证，持续帧不能抢回手动姿态。
 
 ## Changelog
+- 2026-10-16 v1.4：FL-163补充，撤销“全部Drill用户面为portrait”；方位按实际页面，跨页文字分别验收，击球相对词不旋转。
 - 2026-09-29 v1.3：FL-094 r3，必须真实验证双轴/球命中冲突/边界反向；观察恢复与沿杆请求分开。
 - 2026-09-28 v1.2：FL-094 r2，观察对象身份与眼位/视线分离；禁止用被否决的强制居中断言证明人视角正确。
 - 2026-09-14 DR-298：「底部」要问是谁的底——资产捕获边界的最低点是网兜底环，不是球的终点；袋下结构（支架杆/挡头）先按材质分层做支撑探测再建模。

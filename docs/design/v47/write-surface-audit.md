@@ -27,7 +27,13 @@
 
 2026-09-13 球贴纸：`BallStickerTests` / `BallStickerUITests` 只写 `output/ball-stickers-20260913/app-renders` 与 `ui`，所有写盘错误抛出。UV 相机校验帧为测试 Bundle 中的 `BallStickerUVFrames.json`，不依赖旧 output。SettingsView → BallStickerSettingsView 为正常生产导航，六款选择与本地重启保留由 BallStickerUITests 覆盖；深链取证外观使用已有显式 Light 参数，不将默认强制 Dark 的图冒充 Light。
 
-机器清单见 `write-surface-files.txt`，由 `verify_v47_ui_baseline.py` 对 `QiuJiTests/` 与 `QiuJiUITests/` 中的 `.write(`、`FileManager.default.createDirectory`、`pngRepresentation` 扫描生成并做差集门禁。当前共登记 167 个文件；新增写盘测试未登记时 `verify-gate` 失败。
+机器清单见 `write-surface-files.txt`，由 `verify_v47_ui_baseline.py` 对 `QiuJiTests/` 与 `QiuJiUITests/` 中的 `.write(`、`FileManager.default.createDirectory`、`pngRepresentation` 扫描生成并做差集门禁。2026-10-16实扫登记181个文件；新增写盘测试未登记时 `verify-gate` 失败。
+
+### 2026-10-16 当前文案审核与迁移测试写盘面复核
+
+`V49W1CopyEvidenceUITests.testCurrentCopyReviewManifest` 读取 `output/drill-copy-full-20261016/native` 内显式清单，只将PNG、逐球形原子更新的visited.json及显式AX诊断输出写到该目录的独立运行子目录。输入名/输出子目录来自COPY_REVIEW_INPUT、COPY_REVIEW_DEVICE（或TEST_RUNNER前缀）；任务调用者逐轮使用新名称，保留失败轮及原始日志。测试通过内存账号/训练夹具只读访问详情和精讲，不保存训练、写图片真源或序列。历史W1用例仍输出build/v49-screenshots，当前入口不执行它们；setUp仅确保其目录存在。写盘错误抛出令测试失败。模拟器安装前的旧App与数据已另行备份并逐文件核验，不能用新截图代替旧现场保留。
+
+`SceneTrainingRulesTests.swift` 内 `SceneTrainingPersistenceTests.testV5DiskStoreMigratesWithoutInventingLegacyAssistance` 在系统temporaryDirectory/UUID内创建migration.store及SwiftData伴生文件，验证V5到当前迁移；不会打开用户正式数据库或内容资源。defer尝试删除该临时目录，但当前实现使用try?，因此失败时可能残留，不能宣称清理一定成功；残留由系统临时目录策略处理。另两生命周期测试使用独立UUID命名的UserDefaults suite并在defer移除。此处仅登记已读代码的真实边界，不修改测试逻辑，也不把写盘登记当作测试通过。路由签名检查独立验收，不由此放宽。
 
 2026-09-14 补登记已有 `RoomReflectionProbeTests`：仅显式 `V62_SHOT_DIR` 指定且非 `device` 时写 PNG；默认不写盘，写入失败抛出；任务方须给独立 `output/` 或 `build/` 证据目录，留存由该任务负责，不得指向 Bundle/content/docs 基线。此次仅补清单和审计，未改反射测试。
 
@@ -197,3 +203,21 @@ FreePlayView 生产入口维持训练首页每日清台/自由击球；每日页
 `RenderQualityV62Tests.testTableReuseRestoresRenderedAppearanceAfterThemeChanges` 向忽略目录 `output/table-runtime-20261013/visual/` 写 fresh/reused PNG。固定名称由本任务覆盖复验，原先失败日志及 xcresult 独立保留；不写 Bundle、内容或历史截图基线。原生进退证据使用专用模拟器和独立 before/after/mixed 目录，物理内存采样与 LLDB 对象检查按时段分开。
 
 本轮门禁同时发现工作区已有的 `AdjustmentDraftLayerTests.testBatchArchiveRoundTripRestoresEditingIntentInIsolatedDirectory` 新增写盘面：已核实仅向 `temporaryDirectory/UUID` 写编排序列，defer 删除并将清理失败报为 XCTest 失败；内容真源只读，不写正式归档目录。这里只登记已存在实现的真实写盘行为，不修改该测试，也不据此认定其功能测试通过。
+
+## 2026-10-14 球桌资源优化与合并验收写盘
+
+`RenderQualityV62Tests` 新增57图矩阵仅在显式 `TABLE_RESOURCE_VISUAL_DIR` 下输出固定命名 PNG；本任务各批使用独立 output/table-optimization-20261014/visual-* 目录。资源/GIF测试只写任务临时目录，退出/异常清理；未写Bundle、训练存档或设计基线。复跑先换目录或保留证据。
+
+合并验收发现同期 `DrillTryoutUITests` 新增截图写盘，补登记现状：仅写 output/snake2-replay-fix-20261014/tryout，名称为drill id＋阶段；同名复跑覆盖、写失败抛出、不主动清理、不写资源真源或用户数据。该测试由序列任务维护，本次未改其测试逻辑，也未运行其固定目录截图步骤；清理由该任务负责。
+
+同期 `CueClearanceTests` 新增出杆/导出渲染断言，按 `#filePath` 的源码副本根目录写 output/cue-stroke-20261014 下分组PNG；固定帧名复跑覆盖、无主动清理，失败抛出。仅为该测试输出目录登记，原生产出杆和测试逻辑由同期任务维护；本任务用独立源码副本执行时不会覆盖对方output。
+
+## 2026-10-15 蛇彩练习
+
+`SnakePracticeUITests` 仅在显式 V52_SHOT_DIR / TEST_RUNNER_V52_SHOT_DIR 下写原生 PNG，并添加 XCTest 附件；本轮目录 output/snake-practice-20261015/r1/{phone,phone-final,se}。同目录复跑会覆盖同名图，各轮 xcresult 保留完整原件；写失败直接抛出，不写资源、用户存档或设计基线，不主动清理。正式入口已由 testRealEntryPlacementStrokeReplayUndoAndRestart 覆盖；RootView 的直达仅为 DEBUG 测试便利。
+
+蛇彩r2（2026-10-15）：同一SnakePracticeUITests写盘入口，独立输出output/snake-practice-20261015/r2/{phone,se}，不覆盖r1；逐个选择3～15球新增table-N-2d原图，清理与失败抛出策略不变。
+
+蛇彩r3（2026-10-15）：SnakePracticeController.swift新增SnakePracticeHistory，UserDefaults键snakePractice.history.v1仅含近10次已结束记录＋1活动检查点，按ID更新/去重；字段为UUID、时间、球数、玩法、合法数量、结束原因。仅此页消费，无SwiftData/成绩同步。设置count/mode从开始时保存扩展为选中即保存。DEBUG -snakePractice.resetHistory只在定向UI测试清理该键；原生截图输出独立r3/{phone,se}，历史证据保留。
+
+蛇彩r4（2026-10-16）：history.v1字段不变；活动检查点写入推迟到首次实际出杆，零出杆退出/重开/换配置不保存。已出杆重打首杆仍保留记录资格，不根据0/N删除既有记录。

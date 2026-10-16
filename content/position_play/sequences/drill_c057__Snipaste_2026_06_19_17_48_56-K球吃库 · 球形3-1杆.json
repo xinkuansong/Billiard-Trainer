@@ -20,15 +20,17 @@
   "name" : "K球吃库 · 球形3",
   "steps" : [
     {
+      "analysis": {"aim":{"aimAngleDegrees":10.451092114545384,"ghostCenterMeters":{"x":-1.0738662481307983,"y":0.8285750150680542,"z":-0.2960655093193054},"pocket":"topLeft","pocketAimPointMeters":{"x":-1.268580436706543,"y":0.800000011920929,"z":-0.6385301351547241},"targetBallKey":"_1"},"cueCushionContacts":[{"cushionIndex":4,"mainRail":"negativeX","phase":"afterFirstContact","timeSeconds":0.7058448791503906}],"cueTravelDistanceMeters":1.1127736808097946,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":10.7313888327633,"ballKey":"_1","cueAngularVelocityRadiansPerSecond":{"x":46.04389190673828,"y":-14.951900482177734,"z":-39.109535217285156},"cueClothSlipSpeedMetersPerSecond":5.60002255500751,"cueForwardRollRatio":-0.44562675685230774,"cueMotionState":"sliding","cueSpeedMetersPerSecond":3.873764472111742,"cueVelocity":{"x":-2.494889736175537,"y":0,"z":-2.9633724689483643},"timeSeconds":0.14543691277503967},"schemaVersion":1},
+      "recordedDirection": {"x": -0.6467083096504211, "z": -0.7627374529838562},
       "after" : {
         "onTable" : {
           "_2" : {
-            "x" : 0.0205217394977808,
-            "y" : 0.38100466132164
+            "x" : 0.03165203705430031,
+            "y" : 0.3916279971599579
           },
           "cueBall" : {
-            "x" : 0.044809646904468536,
-            "y" : 0.2766818702220917
+            "x" : 0.06570670753717422,
+            "y" : 0.2931869924068451
           }
         }
       },
@@ -49,19 +51,25 @@
         }
       },
       "cuePocketed" : false,
-      "id" : "EE7D5124-20B8-45B5-896D-8FD4625BA0B9",
+      "id" : "20537B91-C6CF-42DE-A845-305629E6D0F7",
       "objectPocketed" : true,
       "potted" : [
         "_1"
       ],
       "shot" : {
         "pocket" : "topLeft",
+        "selectionContext" : {
+          "isManual" : true,
+          "prefersPocketAssist" : true,
+          "requestedPocketIndex" : 0,
+          "requestedTargetKey" : "_1"
+        },
         "spinX" : 0.045447151876439044,
-        "spinY" : -0.21963043716667782,
+        "spinY" : -0.23463043716667784,
         "targetKey" : "_1",
         "velocity" : 3
       }
     }
   ],
-  "updatedAt" : "2026-07-04T09:53:38Z"
+  "updatedAt" : "2026-10-14T13:03:16Z"
 }

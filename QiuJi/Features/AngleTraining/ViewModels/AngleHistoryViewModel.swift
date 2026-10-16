@@ -38,6 +38,11 @@ final class AngleHistoryViewModel: ObservableObject {
 
     // MARK: - Published
 
+    @Published var cohortSelection: String? { didSet { applyFilters() } }
+    @Published private(set) var availableCohorts: [String] = []
+    var unit: String { filteredResults.first?.measurementUnit ?? "°" }
+    var validSampleCount: Int { filteredResults.compactMap(\.measurementError).count }
+    var invalidCount: Int { filteredResults.count - validSampleCount }
     @Published var allResults: [AngleTestResult] = []
     @Published var timeRange: AngleTimeRange = .all {
         didSet { applyFilters() }
@@ -61,6 +66,7 @@ final class AngleHistoryViewModel: ObservableObject {
         let id: Int
         let label: String
         let accurateRate: Double
+        var sampleCount: Int? = nil
     }
 
     // MARK: - Computed stats
@@ -69,16 +75,17 @@ final class AngleHistoryViewModel: ObservableObject {
 
     var overallAverageError: Double {
         guard !filteredResults.isEmpty else { return 0 }
-        return filteredResults.map(\.error).reduce(0, +) / Double(filteredResults.count)
+        let values = filteredResults.compactMap(\.measurementError)
+        return values.isEmpty ? 0 : values.reduce(0, +) / Double(values.count)
     }
 
     var bestScore: Double {
-        filteredResults.map(\.error).min() ?? 0
+        filteredResults.compactMap(\.measurementError).min() ?? 0
     }
 
     var accurateRate: Double {
         guard !filteredResults.isEmpty else { return 0 }
-        return Double(filteredResults.filter { $0.error <= 3 }.count) / Double(filteredResults.count)
+        return Double(filteredResults.filter { ($0.measurementError ?? .infinity) <= $0.measurementThreshold }.count) / Double(filteredResults.count)
     }
 
     // MARK: - Repository
@@ -125,7 +132,11 @@ final class AngleHistoryViewModel: ObservableObject {
             }
         }
 
-        filteredResults = results
+        results = results.filter(\.isFirstAnswer)
+        availableCohorts = Array(Set(results.map(\.cohort))).sorted()
+        let selected = cohortSelection.flatMap { availableCohorts.contains($0) ? $0 : nil }
+            ?? results.sorted { $0.date > $1.date }.first?.cohort
+        filteredResults = results.filter { $0.cohort == selected && $0.isFirstAnswer }
         buildTrends(from: filteredResults)
         buildRangeStats(from: filteredResults)
     }
@@ -133,7 +144,7 @@ final class AngleHistoryViewModel: ObservableObject {
     // MARK: - Trend calculation
 
     private func buildTrends(from results: [AngleTestResult]) {
-        let sorted = results.sorted { $0.date < $1.date }
+        let sorted = results.filter { $0.measurementError != nil }.sorted { $0.date < $1.date }
         overallTrend = grouped(sorted)
         cornerTrend  = grouped(sorted.filter { $0.pocketType == PocketType.corner.rawValue })
         sideTrend    = grouped(sorted.filter { $0.pocketType == PocketType.side.rawValue })
@@ -145,7 +156,7 @@ final class AngleHistoryViewModel: ObservableObject {
         var i = 0
         while i < results.count {
             let end = min(i + size, results.count)
-            let avg = results[i..<end].map(\.error).reduce(0, +) / Double(end - i)
+            let avg = results[i..<end].compactMap(\.measurementError).reduce(0, +) / Double(end - i)
             pts.append(TrendPoint(id: pts.count, groupIndex: pts.count + 1, averageError: avg))
             i = end
         }
@@ -164,13 +175,21 @@ final class AngleHistoryViewModel: ObservableObject {
     ]
 
     private func buildRangeStats(from results: [AngleTestResult]) {
+        if results.first?.trainingMetadata != nil {
+            rangeStats = SceneTrainingConfiguration.AngleRange.allCases.filter { $0 != .mixed }.enumerated().map { idx, range in
+                let samples = results.filter { range.degrees.contains(Int(($0.trainingMetadata?.angle ?? $0.actualAngle).rounded())) }
+                let rate = samples.isEmpty ? 0 : Double(samples.filter { ($0.measurementError ?? .infinity) <= $0.measurementThreshold }.count) / Double(samples.count)
+                return RangeStat(id:idx,label:range.label,accurateRate:rate,sampleCount:samples.count)
+            }
+            return
+        }
         rangeStats = Self.ranges.enumerated().map { idx, range in
-            let inRange = results.filter { $0.actualAngle >= range.low && $0.actualAngle < range.high }
+            let inRange = results.filter { ($0.trainingMetadata?.angle ?? $0.actualAngle) >= range.low && ($0.trainingMetadata?.angle ?? $0.actualAngle) < range.high }
             let rate: Double
             if inRange.isEmpty {
                 rate = 0
             } else {
-                rate = Double(inRange.filter { $0.error <= 3 }.count) / Double(inRange.count)
+                rate = Double(inRange.filter { ($0.measurementError ?? .infinity) <= $0.measurementThreshold }.count) / Double(inRange.count)
             }
             return RangeStat(id: idx, label: range.label, accurateRate: rate)
         }

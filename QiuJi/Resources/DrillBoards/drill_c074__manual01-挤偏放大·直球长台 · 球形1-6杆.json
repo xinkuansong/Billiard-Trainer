@@ -12,6 +12,8 @@
   "name": "挤偏放大·直球长台 · 球形1",
   "steps": [
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":51,"phase":"noBallContact","timeSeconds":0.7916433215141296},{"cushionIndex":50,"phase":"noBallContact","timeSeconds":0.8154645562171936}],"cueTravelDistanceMeters":1.9766938045119338,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": 0.9996341466903687, "z": 0.027049314230680466},
       "after": {
         "onTable": {}
       },
@@ -42,13 +44,10 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":51,"phase":"noBallContact","timeSeconds":0.8426932692527771},{"cushionIndex":50,"phase":"noBallContact","timeSeconds":0.8671586513519287},{"cushionIndex":51,"phase":"noBallContact","timeSeconds":0.9046176671981812},{"cushionIndex":50,"phase":"noBallContact","timeSeconds":0.970323383808136},{"cushionIndex":51,"phase":"noBallContact","timeSeconds":1.124774694442749}],"cueTravelDistanceMeters":2.051175176150008,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": 0.9993283748626709, "z": 0.03664374351501465},
       "after": {
-        "onTable": {
-          "cueBall": {
-            "x": 0.9971218109130859,
-            "y": 0.5028549432754517
-          }
-        }
+        "onTable": {}
       },
       "before": {
         "onTable": {
@@ -58,10 +57,12 @@
           }
         }
       },
-      "cuePocketed": false,
+      "cuePocketed": true,
       "id": "988E2FE3-191D-4EE2-A9F5-5799F6220F72",
       "objectPocketed": false,
-      "potted": [],
+      "potted": [
+        "cueBall"
+      ],
       "shot": {
         "freeAim": {
           "x": 0.9993284344673157,
@@ -75,6 +76,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":1,"mainRail":"positiveZ","phase":"noBallContact","timeSeconds":0.692187488079071},{"cushionIndex":51,"phase":"noBallContact","timeSeconds":0.8451364636421204},{"cushionIndex":50,"phase":"noBallContact","timeSeconds":0.8694395422935486},{"cushionIndex":51,"phase":"noBallContact","timeSeconds":0.907343327999115}],"cueTravelDistanceMeters":2.012817079032644,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": 0.9990097880363464, "z": 0.0444912426173687},
       "after": {
         "onTable": {}
       },
@@ -105,6 +108,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":51,"phase":"noBallContact","timeSeconds":0.9981601238250732}],"cueTravelDistanceMeters":1.957839598764425,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": 0.9986748695373535, "z": 0.0514645054936409},
       "after": {
         "onTable": {}
       },
@@ -135,6 +140,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":51,"phase":"noBallContact","timeSeconds":0.8437235951423645},{"cushionIndex":50,"phase":"noBallContact","timeSeconds":0.8698346018791199}],"cueTravelDistanceMeters":1.9700399349880788,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": 0.9998766779899597, "z": 0.015707356855273247},
       "after": {
         "onTable": {}
       },
@@ -165,6 +172,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":51,"phase":"noBallContact","timeSeconds":0.9979290962219238},{"cushionIndex":50,"phase":"noBallContact","timeSeconds":1.0302504301071167}],"cueTravelDistanceMeters":1.9794825492625483,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": 0.9999966025352478, "z": 0.0026180220302194357},
       "after": {
         "onTable": {}
       },
@@ -195,5 +204,5 @@
       }
     }
   ],
-  "updatedAt": "2026-08-05T05:08:36Z"
+  "updatedAt": "2026-10-14T18:30:20Z"
 }

@@ -15,6 +15,8 @@ protocol SolverStageHosting: TeachingTableHost {
     var isSolving: Bool { get }
     var isAdjustingSolution: Bool { get }
     var statusText: String { get }
+    var tableStatusText: String? { get }
+    var tableStatusIsReadout: Bool { get }
     var isPlaying: Bool { get }
     var currentIndex: Int { get }
     var cushionOptions: [Int] { get }
@@ -179,7 +181,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
     var body: some View {
         BTTeachingTablePage(vm: vm, titleLabel: title, identifier: coordinateSpaceName,
             velocity: powerBinding, planning: controls,
-            information: [.init(text: vm.statusText, identifier: "solver.status")], usesStandardTitle: true,
+            information: vm.tableStatusText.map { [.init(text: $0, kind: .readout, symbol: vm.tableStatusIsReadout ? nil : "info.circle", identifier: "solver.status")] } ?? [], usesStandardTitle: true,
             pairedLeftContent: free ? { AnyView(freeControls($0)) } : nil,
             title: { EmptyView() },
             leftContent: { leftControls($0) }, status: { EmptyView() }, onPalettePlace: { vm.placeObstacle($0, atWorld: $1) })
@@ -267,7 +269,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
     private func leftControls(_ size: CGSize) -> some View {
         ScrollView(.vertical) {
             VStack(spacing: 4) {
-                action(free ? "自由" : "求解", free ? "scope" : "function", "solver.mode", enabled: !vm.isPlaying) { vm.toggleMode() }
+                action(free ? "自由" : "求解", free ? "scope" : TeachingSolverSymbols.solve, "solver.mode", enabled: !vm.isPlaying) { vm.toggleMode() }
                     .accessibilityValue(free ? "自由" : "求解")
                 if !free {
                     Menu {
@@ -278,7 +280,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                             .frame(width: 44, height: 44)
                             .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
                     }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }.disabled(vm.isPlaying).accessibilityIdentifier("solver.cushions")
-                    TeachingSolutionButton(count: vm.solutionCount, currentIndex: vm.currentIndex, enabled: !vm.isPlaying && !vm.isSolving, next: { vm.nextSolution() }, select: { vm.selectSolution(at: $0) })
+                    TeachingSolutionButton(count: vm.solutionCount, currentIndex: vm.currentIndex, enabled: !vm.isPlaying && !vm.isSolving, next: { vm.nextSolution() })
                 }
                 action("重打", "arrow.uturn.backward", "solver.undo", enabled: !vm.isPlaying && !vm.temporaryTopDownActive && (free ? vm.canUndoShot : vm.canUndoSolve)) {
                     if free { vm.undoLastShot() } else { vm.undoSolveShot() }
@@ -326,38 +328,32 @@ struct TeachingMenuIndicator: View {
     }
 }
 
+enum TeachingSolverSymbols {
+    static let solve = "point.topleft.down.to.point.bottomright.curvepath"
+}
+
 struct TeachingSolutionButton: View {
     let count: Int
     let currentIndex: Int
     let enabled: Bool
     let next: () -> Void
-    let select: (Int) -> Void
-    var onDetails: (() -> Void)? = nil
     var isModified = false
-    private var available: Bool { enabled && (count >= 2 || (count == 1 && onDetails != nil)) }
-    private var title: String { onDetails == nil ? "下一解" : (count > 0 ? "解\(currentIndex + 1)/\(count)" : "方案") }
+    private var available: Bool { enabled && count > 1 }
+    private var title: String { count > 0 ? "解\(currentIndex + 1)/\(count)" : "解" }
     var body: some View {
-        Button { if count == 1, let onDetails { onDetails() } else { next() } } label: {
+        Button(action: next) {
             VStack(spacing: 1) {
                 Image(systemName: "arrow.right").font(.system(size: 17))
-                Text(title).font(.system(size: 10))
+                Text(title).font(.system(size: 10)).monospacedDigit()
                 if isModified { Text("微调").font(.system(size: 9)) }
             }.frame(width: 44, height: 44)
                 .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-                .overlay(alignment: .topTrailing) { TeachingMenuIndicator() }
         }.buttonStyle(BTHUDPressStyle()).disabled(!available)
-            .opacity(available ? 1 : 0.4)
-            .contextMenu {
-                if let onDetails, count > 0 { Button("当前方案详情", action: onDetails) }
-                ForEach(0..<count, id: \.self) { index in
-                    Button { select(index) } label: {
-                        Label("解 \(index + 1)/\(count)", systemImage: index == currentIndex ? "checkmark" : "circle")
-                    }.accessibilityIdentifier("solver.selectSolution.\(index)")
-                }
-            }
-            .accessibilityLabel(title).accessibilityHint(onDetails == nil ? "轻点下一解，长按选择解" : "轻点切换方案，单个方案时查看详情；长按选择方案或查看详情")
-            .accessibilityValue(count > 0 ? "解 \(currentIndex + 1)/\(count)" + (isModified ? "，微调" : "") : "无方案")
+            .opacity(enabled && count > 0 ? 1 : 0.4)
+            .accessibilityLabel(title)
+            .accessibilityHint(count > 1 ? "轻点切换下一解，末解后回到第一解" : "")
+            .accessibilityValue(count > 0 ? title + (isModified ? "，微调" : "") : "暂无可切换的解")
             .accessibilityIdentifier("solver.nextSolution")
     }
 }
@@ -388,7 +384,7 @@ struct PlanningInformationEvent: Equatable {
 }
 
 enum PlanningPanel: String, Identifiable {
-    case help, details
+    case help
     var id: String { rawValue }
 }
 
@@ -402,7 +398,12 @@ struct PlanningInformationOverlay: View {
     let setupComplete: Bool
     let introduction: String
     @AppStorage private var learned: Bool
-    @State private var expiredEvent: UUID?
+    private struct NoticeKey: Equatable {
+        let event: UUID
+        let prompt: String?
+    }
+    private var noticeKey: NoticeKey { .init(event: event.id, prompt: prompt) }
+    @State private var expiredNotice: NoticeKey?
     @AccessibilityFocusState private var noticeFocused: Bool
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
 
@@ -421,11 +422,11 @@ struct PlanningInformationOverlay: View {
         if !caution.isEmpty { return (caution, true, false) }
         // A completed action owns a brief feedback interval; selecting a tool/role
         // produces a new context event and immediately hands back to that step.
-        if event.kind == .feedback, expiredEvent != event.id, !event.text.isEmpty {
+        if event.kind == .feedback, expiredNotice != noticeKey, !event.text.isEmpty {
             return (event.text, false, true)
         }
-        if let prompt, !prompt.isEmpty { return (prompt, false, false) }
-        if !learned && expiredEvent != event.id && !setupComplete { return (introduction, false, true) }
+        if let prompt, !prompt.isEmpty, expiredNotice != noticeKey { return (prompt, false, true) }
+        if !learned && expiredNotice != noticeKey && !setupComplete { return (introduction, false, true) }
         return nil
     }
 
@@ -435,19 +436,19 @@ struct PlanningInformationOverlay: View {
                 Text(event.text).font(.caption).foregroundStyle(.clear).frame(width: 1, height: 1)
                     .accessibilityLabel(event.text)
             }
-            if let (text, persistent, dismissible) = message {
+            if let (text, persistent, _) = message {
                 BTTeachingInformationLayer(items: [.init(text: text, kind: persistent ? .readout : .notice,
-                    identifier: page + ".status", showsSymbol: false)], onDismiss: dismissible ? {
-                        learned = true; expiredEvent = event.id
-                    } : nil)
+                    symbol: "info.circle", identifier: page + ".status")])
                 .accessibilityFocused($noticeFocused)
             }
         }
-        .task(id: event.id) {
-            guard event.kind == .feedback else { return }
-            try? await Task.sleep(for: .seconds(3))
+        .task(id: noticeKey) {
+            guard let (_, persistent, _) = message, !persistent else { return }
+            let key = noticeKey
+            do { try await Task.sleep(for: .seconds(3)) } catch { return }
             guard !Task.isCancelled, !voiceOver, !noticeFocused else { return }
-            expiredEvent = event.id
+            expiredNotice = key
+            learned = true
         }
         .onChange(of: setupComplete, initial: true) { _, complete in if complete { learned = true } }
     }
@@ -463,20 +464,7 @@ enum PlanningSolutionDetails {
         if solution.beyondSpinBudget { tags.append("需横塞") }
         return tags.joined(separator: " · ")
     }
-    static func text(_ solution: PositionPlaySolution?, index: Int, count: Int, adjusted: Bool, defense: Bool) -> String {
-        guard let solution else { return "当前没有方案。请完成选择后求解。" }
-        var rows = ["解 \(index + 1)/\(count)" + (adjusted ? " · 微调" : ""),
-            "杆法：" + ShotSpinLabel.text(spinX: solution.shot.spinX, spinY: solution.shot.spinY),
-            String(format: "杆速：%.1f m/s", solution.shot.velocity),
-            "母球吃库：\(solution.cushionCount) 库"]
-        let caution = cautions(solution, defense: defense)
-        if !caution.isEmpty { rows.append(caution) }
-        if !solution.satisfiesConstraint { rows.append(defense ? "当前方案未完全遮挡对方球，请结合台面轨迹判断。" : "当前方案未满足所设约束，请结合轨迹调整条件。") }
-        if solution.isBankFallback { rows.append("这是翻袋备选，不代表已满足原走位要求。") }
-        if solution.beyondCushionBudget { rows.append("方案吃库数超出当前基础走位筛选范围。") }
-        if solution.beyondSpinBudget { rows.append("方案需要超出当前筛选范围的横塞。") }
-        return rows.joined(separator: "\n\n")
-    }
+
 }
 
 struct PlanningInformationSheet: View {
@@ -495,7 +483,7 @@ struct PlanningInformationSheet: View {
                     }
                 }.padding(Spacing.lg)
             }.accessibilityIdentifier("planning." + panel.rawValue)
-                .navigationTitle(panel == .details ? "当前方案详情" : "操作说明")
+                .navigationTitle("操作说明")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) {
                     Button("关闭") { dismiss() }.accessibilityIdentifier("planning.close")

@@ -20,6 +20,8 @@
   "name" : "未命名走位",
   "steps" : [
     {
+      "analysis": {"aim":{"aimAngleDegrees":10.891596711780561,"ghostCenterMeters":{"x":0.25411614775657654,"y":0.8285750150680542,"z":-0.10059419274330139},"pocket":"topRight","pocketAimPointMeters":{"x":1.2747676372528076,"y":0.800000011920929,"z":-0.6323429346084595},"targetBallKey":"_1"},"cueCushionContacts":[{"cushionIndex":1,"mainRail":"positiveZ","phase":"afterFirstContact","timeSeconds":1.6778010129928589},{"cushionIndex":5,"mainRail":"positiveX","phase":"afterFirstContact","timeSeconds":2.3890559673309326}],"cueTravelDistanceMeters":2.3336484932207275,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":12.631812443178083,"ballKey":"_1","cueAngularVelocityRadiansPerSecond":{"x":-7.8923845291137695,"y":0,"z":-26.62213897705078},"cueClothSlipSpeedMetersPerSecond":3.966778197443229,"cueForwardRollRatio":0.1666837423890448,"cueMotionState":"sliding","cueSpeedMetersPerSecond":4.760231428498623,"cueVelocity":{"x":4.563898086547852,"y":0,"z":-1.3530105352401733},"timeSeconds":0.16176415979862213},"schemaVersion":1},
+      "recordedDirection": {"x": 0.9587554931640625, "z": -0.2842322289943695},
       "after" : {
         "onTable" : {
           "_2" : {
@@ -63,6 +65,8 @@
       }
     },
     {
+      "analysis": {"aim":{"aimAngleDegrees":36.03414231724549,"ghostCenterMeters":{"x":0.7477511167526245,"y":0.8285750150680542,"z":0.27253326773643494},"pocket":"topCenter","pocketAimPointMeters":{"x":-0.032249998301267624,"y":0.800000011920929,"z":-0.6650000214576721},"targetBallKey":"_2"},"cueCushionContacts":[{"cushionIndex":1,"mainRail":"positiveZ","phase":"afterFirstContact","timeSeconds":0.35317349433898926},{"cushionIndex":3,"mainRail":"negativeZ","phase":"afterFirstContact","timeSeconds":2.2139761447906494}],"cueTravelDistanceMeters":2.6306805418277612,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":36.28753035240918,"ballKey":"_2","cueAngularVelocityRadiansPerSecond":{"x":26.94429588317871,"y":-49.43511199951172,"z":-112.44356536865234},"cueClothSlipSpeedMetersPerSecond":6.899095291821699,"cueForwardRollRatio":-0.9189456053717312,"cueMotionState":"sliding","cueSpeedMetersPerSecond":3.5951905195170837,"cueVelocity":{"x":-3.485635280609131,"y":0,"z":-0.8807619214057922},"timeSeconds":0.08814504742622375},"schemaVersion":1},
+      "recordedDirection": {"x": -0.9722967147827148, "z": -0.23375003039836884},
       "after" : {
         "onTable" : {
           "cueBall" : {

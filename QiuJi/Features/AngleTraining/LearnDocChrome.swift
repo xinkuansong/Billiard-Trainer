@@ -36,7 +36,7 @@ private struct LearnReadingNavigation: ViewModifier {
             .toolbarColorScheme(colorScheme, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text(title).font(.btHeadline).foregroundStyle(.btText)
+                    Text(title).font(.btHeadline).foregroundStyle(.btPrimary)
                 }
             }
             .toolbar(.hidden, for: .tabBar)

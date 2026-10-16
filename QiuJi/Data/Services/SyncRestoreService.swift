@@ -388,6 +388,7 @@ final class SyncRestoreService: ObservableObject {
         )
         result.id = id
         result.date = dto.date
+        result.trainingMetadataJSON = dto.trainingMetadataJSON
         return result
     }
 

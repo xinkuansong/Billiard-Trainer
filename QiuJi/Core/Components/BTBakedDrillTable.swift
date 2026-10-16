@@ -4,17 +4,13 @@ import UIKit
 /// 运行时加载离线烘焙的「USDZ 球桌 2D 顶视」缩略图 PNG（`Resources/DrillThumbnails/<id>.png`）。
 /// 内存缓存，零 SceneKit 运行时成本。取代旧的实时 Canvas 缩略图（`BTDrillTableView` / `BTMiniTable`）。
 enum DrillThumbnailStore {
-    private static let cache = NSCache<NSString, UIImage>()
-
+    private static let cache = TableAssetImageCache(byteLimit: 24 * 1024 * 1024)
+    static func resetCache() { cache.reset() }
     static func image(for drillId: String) -> UIImage? {
-        if let cached = cache.object(forKey: drillId as NSString) { return cached }
-        guard let url = Bundle.main.url(forResource: drillId, withExtension: "png",
-                                        subdirectory: "DrillThumbnails"),
-              let image = UIImage(contentsOfFile: url.path) else {
-            return nil
+        cache.image(for: drillId) {
+            guard let url = Bundle.main.url(forResource: drillId, withExtension: "png", subdirectory: "DrillThumbnails") else { return nil }
+            return UIImage(contentsOfFile: url.path)
         }
-        cache.setObject(image, forKey: drillId as NSString)
-        return image
     }
 }
 

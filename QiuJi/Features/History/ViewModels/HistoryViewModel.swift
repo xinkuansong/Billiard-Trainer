@@ -58,26 +58,29 @@ struct CognitiveSessionItem: Identifiable, Hashable {
     let durationMinutes: Int
     let results: [AngleTestResult]
 
-    var questionCount: Int { results.count }
+    var firstResults: [AngleTestResult] { results.filter(\.isFirstAnswer) }
+    var questionCount: Int { firstResults.count }
+    var measurementUnit: String { firstResults.first?.measurementUnit ?? "°" }
+    var hasValidMeasurement: Bool { firstResults.contains { $0.measurementError != nil } }
 
     var averageError: Double {
-        guard !results.isEmpty else { return 0 }
-        return results.map(\.error).reduce(0, +) / Double(results.count)
+        guard !firstResults.isEmpty else { return 0 }
+        let values = firstResults.compactMap(\.measurementError)
+        return values.isEmpty ? 0 : values.reduce(0, +) / Double(values.count)
     }
 
     var bestError: Double {
-        results.map(\.error).min() ?? 0
+        firstResults.compactMap(\.measurementError).min() ?? 0
     }
 
-    /// "Accurate" answers = absolute error ≤ 3°. Matches the rule used in
-    /// `AngleHistoryViewModel` for consistent accuracy stats across views.
+    /// Use each record's versioned threshold (degrees or millimetres).
     var accurateCount: Int {
-        results.filter { $0.error <= 3 }.count
+        firstResults.filter { ($0.measurementError ?? .infinity) <= $0.measurementThreshold }.count
     }
 
     var accurateRate: Double {
-        guard !results.isEmpty else { return 0 }
-        return Double(accurateCount) / Double(results.count)
+        guard !firstResults.isEmpty else { return 0 }
+        return Double(accurateCount) / Double(firstResults.count)
     }
 
     /// 由真会话 + 其归属成绩装配。`results` 会按时间升序归一。

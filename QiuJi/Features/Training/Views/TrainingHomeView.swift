@@ -2008,15 +2008,19 @@ struct TrainingHomeView: View {
 
     /// The single primary action for today's whole session. Individual rows stay informational.
     private var startTrainingCircle: some View {
-        BTTrainingPill(
-            title: isFreeTrainingPrimary ? "自由" : (unfinishedScheduleItems.count == 1 && nextScheduleItem?.state == TodayScheduleItemState.inProgress ? "继续" : "训练"),
-            icon: isFreeTrainingPrimary ? "plus" : BTIcon.playCircle
-        ) {
+        Button {
             if router.isTrainingMinimized { router.resumeMinimizedTraining() }
             else if unfinishedScheduleItems.count > 1 { showCourseSelection = true }
             else if let item = unfinishedScheduleItems.first { startScheduledItem(item) }
             else { startFreeTraining() }
+        } label: {
+            HStack(spacing: Spacing.xs) {
+                BTTrainingEntryIcon(kind: isFreeTrainingPrimary ? .route : .target)
+                Text(isFreeTrainingPrimary ? "自由" : (unfinishedScheduleItems.count == 1 && nextScheduleItem?.state == TodayScheduleItemState.inProgress ? "继续" : "训练"))
+                    .lineLimit(1)
+            }
         }
+        .buttonStyle(BTAdaptiveToolActionStyle(isSelected: true, size: .regular))
         .accessibilityIdentifier(isFreeTrainingPrimary ? "trainingHome.freeTraining" : "trainingHome.startTraining")
         .accessibilityLabel(
             isFreeTrainingPrimary ? "自由训练" : (unfinishedScheduleItems.count == 1 && nextScheduleItem?.state == TodayScheduleItemState.inProgress ? "继续" : "开始训练")

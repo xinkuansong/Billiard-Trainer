@@ -24,6 +24,13 @@ struct AngleHistorySection: View {
                              subtitle: "完成角度训练后，误差趋势将在这里显示")
             } else {
                 quizTypeFilter
+                Picker("成绩口径", selection: $vm.cohortSelection) {
+                    Text("最近口径").tag(String?.none)
+                    ForEach(vm.availableCohorts, id: \.self) { Text(cohortLabel($0)).tag(Optional($0)) }
+                }
+                .accessibilityIdentifier("history.trainingCohort")
+                Text("同一来源、评分版本及辅助状态分开统计。有效数值 \(vm.validSampleCount)，异常 \(vm.invalidCount)。")
+                    .font(.btCaption).foregroundStyle(.btTextSecondary)
                 statsGrid
                 BTSegmentedTab(tabs: AngleTimeRange.allCases,
                                selected: $vm.timeRange) { $0.rawValue }
@@ -40,6 +47,13 @@ struct AngleHistorySection: View {
         }
         .onAppear { vm.configure(context: modelContext) }
         .task { await vm.loadData() }
+    }
+
+    private func cohortLabel(_ value: String) -> String {
+        let parts = value.components(separatedBy: " · ")
+        guard parts.count == 3 else { return value }
+        return AngleQuizType(rawValue: parts[0]).displayNameZh + " · "
+            + (parts[1] == "legacy" ? "旧版" : "新版") + " · " + parts[2]
     }
 
     // MARK: - Quiz Type Filter
@@ -79,9 +93,9 @@ struct AngleHistorySection: View {
             statCard(icon: "number", iconColor: .btPrimary,
                      label: "总测试次数", value: "\(vm.totalQuestions)")
             statCard(icon: "arrow.left.arrow.right", iconColor: .btAccent,
-                     label: "平均误差", value: String(format: "%.1f°", vm.overallAverageError))
+                     label: "平均误差", value: vm.validSampleCount == 0 ? "—" : String(format: "%.1f%@", vm.overallAverageError, vm.unit))
             statCard(icon: "trophy.fill", iconColor: .btPrimary,
-                     label: "最佳成绩", value: String(format: "%.1f°", vm.bestScore))
+                     label: "最佳成绩", value: vm.validSampleCount == 0 ? "—" : String(format: "%.1f%@", vm.bestScore, vm.unit))
             statCard(icon: "checkmark.circle.fill", iconColor: .btPrimary,
                      label: "正确率", value: String(format: "%.0f%%", vm.accurateRate * 100))
         }
@@ -132,7 +146,7 @@ struct AngleHistorySection: View {
             } else {
                 TrendLineChart(cornerPoints: vm.cornerTrend,
                                sidePoints: vm.sideTrend,
-                               selectedPocket: selectedPocket)
+                               selectedPocket: selectedPocket, unit: vm.unit)
                     .frame(height: 180)
             }
 
@@ -196,11 +210,12 @@ struct AngleHistorySection: View {
                     .font(.btCaption)
                     .foregroundStyle(.btTextSecondary)
                 Spacer()
-                Text(String(format: "%.0f%%", range.accurateRate * 100))
+                Text(range.sampleCount.map { $0 < 5 ? "\($0)题 · 样本不足5题" : String(format:"%d题 · 达标%.0f%%",$0,range.accurateRate * 100) } ?? String(format: "%.0f%%", range.accurateRate * 100))
                     .font(.btCaption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(barColor(for: range.accurateRate))
+                    .foregroundStyle((range.sampleCount ?? 5) < 5 ? Color.btTextSecondary : barColor(for: range.accurateRate))
             }
+            if (range.sampleCount ?? 5) >= 5 {
             GeometryReader { geo in
                 RoundedRectangle(cornerRadius: BTRadius.full)
                     .fill(Color.btBGTertiary)
@@ -211,6 +226,7 @@ struct AngleHistorySection: View {
                     }
             }
             .frame(height: 8)
+            }
         }
     }
 
@@ -227,6 +243,7 @@ private struct TrendLineChart: View {
     let cornerPoints: [AngleHistoryViewModel.TrendPoint]
     let sidePoints: [AngleHistoryViewModel.TrendPoint]
     let selectedPocket: PocketTrendFilter
+    let unit: String
 
     var body: some View {
         Canvas { ctx, size in
@@ -236,7 +253,7 @@ private struct TrendLineChart: View {
 
             let allErrors = (primary + secondary).map(\.averageError)
             let maxErr = max(allErrors.max() ?? 1, 5)
-            let padX: CGFloat = 30
+            let padX: CGFloat = unit == "mm" ? 46 : 30
             let padTop: CGFloat = 8
             let padBot: CGFloat = 24
             let chartW = size.width - padX
@@ -244,7 +261,7 @@ private struct TrendLineChart: View {
 
             for step in stride(from: 0, through: maxErr, by: max(1, (maxErr / 4).rounded(.up))) {
                 let y = padTop + chartH * (1 - step / maxErr)
-                ctx.draw(Text("\(Int(step))°").font(.btCaption2).foregroundColor(.btTextTertiary),
+                ctx.draw(Text("\(Int(step))\(unit)").font(.btCaption2).foregroundColor(.btTextTertiary),
                          at: CGPoint(x: padX / 2, y: y), anchor: .center)
                 var gridLine = Path()
                 gridLine.move(to: CGPoint(x: padX, y: y))

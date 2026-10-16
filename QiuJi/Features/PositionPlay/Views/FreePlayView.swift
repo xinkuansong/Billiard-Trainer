@@ -5,6 +5,7 @@ enum FreePlayEntryMode {
     case standard
     case dailyClearance
     case shotSimulation
+    case snakePractice
 }
 
 /// 自由击球（条 15 / ADR-P18-01 拆页）：球库 + 开球 + 对局的独立页面。
@@ -21,6 +22,10 @@ struct FreePlayView: View {
 
     @StateObject private var vm: PositionPlayViewModel
     @StateObject private var dailyController = DailyClearanceController()
+    @StateObject private var snakeController = SnakePracticeController()
+    @AppStorage("snakePractice.spinDiscTransparency") private var snakeSpinTransparency = 0.5
+    @AppStorage("snakePractice.3DTrajectoryHidden") private var snake3DHidden = false
+    @AppStorage("snakePractice.view3D") private var snakeView3D = false
     @ObservedObject private var preferences = UserPreferences.shared
     @AppStorage("shotSimulation.spinDiscTransparency") private var simulationSpinTransparency = 0.5
     @AppStorage("shotSimulation.3DTrajectoryHidden") private var simulation3DHidden = false
@@ -44,7 +49,9 @@ struct FreePlayView: View {
         nonmutating set { dailyPresentation = newValue ? .transparency : nil }
     }
     private var showDailyRerackConfirm: Bool { dailyPresentation == .rerack }
-    private var dailyDecisionActive: Bool { dailyPresentation?.isDecision == true }
+    @State private var showSnakeRestartConfirm = false
+    private var snakeDecisionActive: Bool { isSnake && (showSnakeRestartConfirm || snakeController.showFailureChoice) }
+    private var dailyDecisionActive: Bool { dailyPresentation?.isDecision == true || snakeDecisionActive }
     @State private var showBreakPicker = false
 
     #if DEBUG
@@ -120,12 +127,20 @@ struct FreePlayView: View {
         self._vm = StateObject(wrappedValue: PositionPlayViewModel())
     }
 
+    init(snakeConfiguration: SnakePracticeConfiguration) {
+        self.entryMode = .snakePractice
+        self.editor = nil
+        self._vm = StateObject(wrappedValue: PositionPlayViewModel())
+        self._snakeController = StateObject(wrappedValue: SnakePracticeController(configuration: snakeConfiguration))
+    }
+
     init(editorModel: PositionPlayViewModel, editor: PositionPlayEditorConfiguration) {
         self.entryMode = .standard
         self.editor = editor
         self._vm = StateObject(wrappedValue: editorModel)
     }
 
+    private var isSnake: Bool { entryMode == .snakePractice }
     private var isDailyClearance: Bool { entryMode == .dailyClearance }
     private var isShotSimulation: Bool { entryMode == .shotSimulation }
     private var isStandard: Bool { entryMode == .standard && editor == nil }
@@ -140,20 +155,22 @@ struct FreePlayView: View {
     }
     private var is3D: Bool { vm.cameraMode == .perspective3D }
     private var isDaily2D: Bool { usesCoreTemplate && !is3D }
-    private var pageTitle: String { if let editor { return editor.title }; return isShotSimulation ? "分离角与走位" : (isDailyClearance ? "每日清台" : "自由击球") }
+    private var pageTitle: String { if isSnake { return "蛇彩练习" }; if let editor { return editor.title }; return isShotSimulation ? "分离角与走位" : (isDailyClearance ? "每日清台" : "自由击球") }
     private var page3DHidden: Bool {
-        get { if isEditor { return editor3DHidden }; return isShotSimulation ? simulation3DHidden : (isStandard ? standard3DHidden : preferences.daily3DTrajectoryHidden) }
+        get { if isSnake { return snake3DHidden }; if isEditor { return editor3DHidden }; return isShotSimulation ? simulation3DHidden : (isStandard ? standard3DHidden : preferences.daily3DTrajectoryHidden) }
         nonmutating set {
-            if isEditor { editor3DHidden = newValue }
+            if isSnake { snake3DHidden = newValue }
+            else if isEditor { editor3DHidden = newValue }
             else if isShotSimulation { simulation3DHidden = newValue }
             else if isStandard { standard3DHidden = newValue }
             else { preferences.daily3DTrajectoryHidden = newValue }
         }
     }
     private var pageSpinTransparency: Binding<Double> {
-        Binding(get: { if isEditor { return editorSpinTransparency }; return isShotSimulation ? simulationSpinTransparency : (isStandard ? standardSpinTransparency : preferences.dailySpinDiscTransparency) },
+        Binding(get: { if isSnake { return snakeSpinTransparency }; if isEditor { return editorSpinTransparency }; return isShotSimulation ? simulationSpinTransparency : (isStandard ? standardSpinTransparency : preferences.dailySpinDiscTransparency) },
                 set: { value in
-            if isEditor { editorSpinTransparency = value }
+            if isSnake { snakeSpinTransparency = value }
+            else if isEditor { editorSpinTransparency = value }
             else if isShotSimulation { simulationSpinTransparency = value }
             else if isStandard { standardSpinTransparency = value }
             else { preferences.dailySpinDiscTransparency = value }
@@ -163,6 +180,7 @@ struct FreePlayView: View {
     private var templateStateDescription: String {
         let pocket = PocketDisplay.name(index: vm.selectedPocketIndex, orientation: pocketOrientation)
         let selection = "\(is3D ? "3D" : "2D")，\(aimModeLabel)模式，目标\(vm.selectedTargetKey ?? "无")，目标袋\(pocket)"
+        if isSnake { return "\(is3D ? "3D" : "2D")，\(aimModeLabel)，目标袋\(pocket)，目标\(snakeController.targetKey ?? "无")，母球可摆\(snakeController.canPlaceCue)，\(snakeController.notice)，在桌\(vm.onTableKeys.joined(separator: ","))" }
         if isShotSimulation {
             return selection + "，目标球\(vm.onTableKeys.filter { !PositionPlayBall.isCue($0) }.count)/2，在桌\(vm.onTableKeys.joined(separator: ","))"
         }
@@ -206,26 +224,26 @@ struct FreePlayView: View {
         if !vm.onTableKeys.contains(key) { flash(vm.statusText, tone: .warning) }
     }
 
-    private func simulationPaletteDrag(_ key: String) -> some Gesture {
+    private func simulationPaletteDrag(_ key: String, diameter: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: BTBallPaletteMetrics.dragMinimumDistance, coordinateSpace: .named("freeplay"))
             .onChanged { value in
                 guard editablePalette, !is3D, !dailyControlsDisabled else { return }
                 draggingKey = key
-                dragLocation = value.location
-                dragOverTable = sceneFrame.contains(value.location)
+                let preview = BTPalettePlacement.sample(key: key, finger: value.location,
+                    sourceDiameter: diameter, sceneFrame: sceneFrame,
+                    projector: projector, constrain: vm.palettePlacement)
+                dragLocation = preview.location; dragOverTable = preview.isValid
             }
             .onEnded { value in
                 defer { cancelPaletteDrag() }
-                guard draggingKey == key, sceneFrame.contains(value.location) else { return }
-                let local = CGPoint(x: value.location.x - sceneFrame.minX, y: value.location.y - sceneFrame.minY)
-                guard let world = projector.unproject?(local) else { return }
+                guard draggingKey == key, let world = projector.palettePreview?.requestedWorld else { return }
                 placeSimulationBall(key, world: world)
             }
     }
 
     var body: some View {
         Group {
-            if isShotSimulation || isEditor { coreBody }
+            if isShotSimulation || isEditor || isSnake { coreBody }
             else { coreBody.toolUsageSession(isDailyClearance ? .dailyClearance : .freePlay) }
         }
     }
@@ -262,6 +280,9 @@ struct FreePlayView: View {
         .onChange(of: vm.cameraMode) { _, mode in
             daily3DDiagnostics?.setPage(perspective: mode == .perspective3D)
             cancelPaletteDrag()
+        }
+        .onChange(of: vm.cameraMode) { _, mode in
+            if isSnake { snakeView3D = mode == .perspective3D }
         }
         .onChange(of: vm.isPlaying) { _, _ in
             updateDaily3DPlaybackDiagnostics()
@@ -372,6 +393,12 @@ struct FreePlayView: View {
                 vm.clearTable()
             }
         }
+        .sheet(isPresented: $snakeController.showSettings) {
+            NavigationStack {
+                SnakePracticeSettingsView(configuration: .load(), isRestart: true,
+                    onStart: { snakeController.start($0) }, onCancel: { snakeController.showSettings = false })
+            }
+        }
         .sheet(isPresented: $showBreakPicker) {
             BreakGamePickerSheet { game in
                 pendingGame = isStandard ? game : nil
@@ -443,6 +470,10 @@ struct FreePlayView: View {
                     notices: ruleNotices, mode: entryMode, isEditor: isEditor, isTryout: isTryoutPage)
                 if isShotSimulation { vm.loadBoard(ShotSimulationView.defaultBoard) }
                 editor?.setup()
+                if isSnake {
+                    snakeController.attach(to: vm)
+                    vm.cameraMode = snakeView3D ? .perspective3D : .topDown2D
+                }
                 vm.scene.setCameraMode(vm.cameraMode, animated: false)
                 #if DEBUG
                 if !isDailyClearance, ProcessInfo.processInfo.arguments.contains("-v63.freePlayScratch") {
@@ -479,6 +510,9 @@ struct FreePlayView: View {
         }
         .onReceive(ruleNotices.$message) { toast = $0 }
         .onDisappear {
+            if isSnake && !snakeController.showSettings {
+                snakeController.finishAttempt()
+            }
             if sequenceReadOnly { vm.exitSequenceMode() }
             daily3DDiagnostics?.setPage(visible: false)
             vm.endTemporaryTopDown()
@@ -498,6 +532,7 @@ struct FreePlayView: View {
                 if !vm.isPlaying && !vm.isBreakMode { vm.recompute() }
             }
             else {
+                vm.suspendGuidedSequence()
                 vm.endTemporaryTopDown()
                 vm.cancelPowerRelease()
                 dailyAimWheelIsDragging = false
@@ -692,6 +727,7 @@ struct FreePlayView: View {
             onPocketTapped: sequenceReadOnly || vm.isBreakMode || vm.isPlaying || isDailyResult || (isTemporaryTopDown && !usesMergedCamera) ? nil : { vm.selectPocket(at: $0) },
             // P10.1 禁止摆球：非开球模式仅母球可拖（自由球/走位微调）；开球模式拖开球区母球。
             draggableBallNodes: sequenceReadOnly || vm.isPlaying || isDailyResult || (isTemporaryTopDown && !usesMergedCamera)
+                || (isSnake && !snakeController.canPlaceCue)
                 || (isDailyClearance && !vm.isBreakMode && dailyController.cuePlacement == .none)
                 ? [] : (vm.breakRunner?.draggableCue ?? (editablePalette ? vm.draggableBalls : vm.draggableCueOnly)),
             onDragBegan: { node in
@@ -713,7 +749,10 @@ struct FreePlayView: View {
                         }
                         constrained.x = max(constrained.x, AngleSceneCalculator.innerLength / 4 + 0.001)
                     }
-                    if isDailyClearance {
+                    if isSnake {
+                        guard snakeController.canPlaceCue else { return }
+                        _ = vm.moveDailyCue(node: node, world: constrained, placement: .anywhere)
+                    } else if isDailyClearance {
                         if !vm.moveDailyCue(node: node, world: constrained, placement: dailyController.cuePlacement) {
                             flash("此处不能放球，请移到台内空位", tone: .warning)
                         }
@@ -762,12 +801,12 @@ struct FreePlayView: View {
             onThirdPersonAimNudged: usesDailyTwoViewControls && !sequenceReadOnly ? { vm.nudgeThirdPersonAim(byDegrees: $0) } : nil,
             onTemporaryTopDownDismiss: { vm.endTemporaryTopDown() },
             topDownContentRevision: vm.topDownContentRevision,
-            usesStandardTemporaryTable: isStandard || isEditor
+            usesStandardTemporaryTable: isStandard || isEditor || isSnake
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(templateFrameReader("scene"))
         .clipped()
-        .allowsHitTesting((!isTemporaryTopDown || usesMergedCamera) && (!isDailyClearance || (!dailyDecisionActive && dailyController.breakChoices.isEmpty)))
+        .allowsHitTesting(!snakeDecisionActive && (!isTemporaryTopDown || usesMergedCamera) && (!isDailyClearance || (!dailyDecisionActive && dailyController.breakChoices.isEmpty)))
     }
 
     /// P10.2：按当前玩法规则拦截不合法目标球选择，并给出提示。
@@ -775,6 +814,7 @@ struct FreePlayView: View {
         guard !sequenceReadOnly, !vm.isBreakMode, !vm.isPlaying, !isDailyResult, (!isTemporaryTopDown || usesMergedCamera),
               let key = vm.scene.ballKey(for: node) else { return }
         editor?.onInteraction()
+        if isSnake { vm.pulseTableBall(key); return }
         if PositionPlayBall.isCue(key) {
             if isDailyClearance, is3D, !isTemporaryTopDown { vm.requestPlayerView(usesMergedCamera ? .thirdPerson : .firstPerson) }
             return
@@ -1103,7 +1143,7 @@ struct FreePlayView: View {
     }
 
     private var strikeEnabled: Bool {
-        !isTemporaryTopDown && !dailyDecisionActive && !isDailyResult && (!isDailyClearance || dailyController.breakChoices.isEmpty) && !vm.isPlaying && !vm.isComputing && !vm.cameraTransitionBusy && vm.isFeasible
+        !isTemporaryTopDown && (!isSnake || snakeController.canStrike) && !dailyDecisionActive && !isDailyResult && (!isDailyClearance || dailyController.breakChoices.isEmpty) && !vm.isPlaying && !vm.isComputing && !vm.cameraTransitionBusy && vm.isFeasible
     }
 
     private var dailyResultLayout: AnyLayout {
@@ -1272,6 +1312,12 @@ struct FreePlayView: View {
                     closeDailyPresentation(); showClearTableConfirm = true
                 }))
             }
+            if isSnake {
+                items += [
+                    .init(id: "snake.practice", title: "练习"),
+                    .init(id: "snake.settings", title: "训练设置", disabled: disabled, action: { closeDailyPresentation(); snakeController.showSettings = true })
+                ]
+            }
             items += closingEditorMenuItems(editor?.menuItems ?? [])
             if isEditor && vm.canCycleBankAlternatives {
                 items.append(.init(id: "composer.nextBankAlternative", title: "下一解", disabled: disabled, action: { closeDailyPresentation(); vm.nextBankAlternative() }))
@@ -1298,12 +1344,12 @@ struct FreePlayView: View {
         }
     }
 
-    private var navigationStatusText: String {
+    private var navigationStatusText: String? {
         if isDailyClearance { return dailyController.statusText }
         if is3D, vm.breakRunner?.phase == .racked, vm.breakRunner?.simulationFailure == nil {
             return "刻度轮调方向 · 拖动母球摆位"
         }
-        if !vm.isPlaying, vm.breakRunner == nil, rulingText.isEmpty { return vm.aimSelectionLabel(orientation: pocketOrientation) }
+        if !vm.isPlaying, vm.breakRunner == nil, rulingText.isEmpty { return nil }
         return vm.breakRunner?.statusText(isPerspective: is3D)
             ?? (vm.isComputing ? "求解中…"
                 : (!vm.isPlaying && !rulingText.isEmpty ? rulingText : vm.statusText))
@@ -1721,7 +1767,7 @@ private extension FreePlayView {
                             } else if presentation == .breakRerack {
                                 DailyHUDMenuPanel(title: "重新开球", items: dailyBreakRerackItems,
                                     availableSize: CGSize(width: size.width - 2 * max(4, max(leadingSafeArea, trailingSafeArea)), height: decisionHeight),
-                                    onBack: closeDailyPresentation, onClose: closeDailyPresentation)
+                                    onBack: closeDailyPresentation, onClose: closeDailyPresentation, followsAppearance: true)
                             } else { dailyRerackConfirmation(availableHeight: decisionHeight, availableWidth: decisionWidth) }
                         }
                         .position(x: foundation?.table.midX ?? size.width / 2,
@@ -1738,10 +1784,30 @@ private extension FreePlayView {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
         }
+        .overlay {
+            if snakeDecisionActive {
+                let centerY = is3D ? size.height / 2 : (foundation?.table.midY ?? size.height / 2)
+                let failed = snakeController.showFailureChoice
+                ZStack(alignment: .topLeading) {
+                    Color.black.opacity(0.2).contentShape(Rectangle()).onTapGesture { }
+                        .accessibilityHidden(true)
+                    DailyConfirmationCard(title: failed ? (snakeController.failure?.message ?? "本杆未完成") : "重新开始这一局？",
+                        availableHeight: 2 * min(centerY, size.height - centerY) - 16,
+                        availableWidth: size.width - 2 * max(4, max(leadingSafeArea, trailingSafeArea)),
+                        firstTitle: failed ? "重打本杆" : "重新开始", secondTitle: failed ? "重新开始" : "继续练习",
+                        firstID: failed ? "snake.failure.retry" : "snake.restart.confirm",
+                        secondID: failed ? "snake.failure.restart" : "snake.restart.cancel",
+                        first: { if failed { snakeController.undo() } else { showSnakeRestartConfirm = false; snakeController.restart() } },
+                        second: { if failed { snakeController.restart() } else { showSnakeRestartConfirm = false } },
+                        firstIsPrimary: failed)
+                        .position(x: foundation?.table.midX ?? size.width / 2, y: centerY)
+                }
+            }
+        }
         .coordinateSpace(name: "freeplay")
         .overlay {
             if let key = draggingKey {
-                BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
+                BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable, placement: projector.palettePreview, projector: projector)
             }
         }
         .onChange(of: size) { _, _ in cancelPaletteDrag() }
@@ -1771,12 +1837,12 @@ private extension FreePlayView {
                 Color.clear.accessibilityElement()
                     .accessibilityIdentifier("dailyLayout.controlsProbe")
                     .accessibilityValue(dailyControlsProbe(stageHeight: sceneSize.height, controls: controls, foundation: foundation)
-                        + " panelWidth=\(panels.settingsWidth) panelLeading=\(panels.settingsLeading) docked=\(space.docked) sideTableWidth=\(space.sideTableWidth) dockTableWidth=\(space.dockTableWidth) pageWidth=\(size.width) pageHeight=\(size.height)")
+                        + " sequencePhase=\(vm.guidedSequencePhase) sequenceStep=\(vm.sequenceStepIndex) panelWidth=\(panels.settingsWidth) panelLeading=\(panels.settingsLeading) docked=\(space.docked) sideTableWidth=\(space.sideTableWidth) dockTableWidth=\(space.dockTableWidth) pageWidth=\(size.width) pageHeight=\(size.height)")
             }
         }
         #endif
         .background(Color.clear.accessibilityElement()
-            .accessibilityIdentifier(isShotSimulation ? "shotSimulation.landscape" : (isEditor ? "composer.landscape" : (isStandard ? "freeplay.landscape" : "dailyClearance.landscape")))
+            .accessibilityIdentifier(isSnake ? "snake.landscape" : (isShotSimulation ? "shotSimulation.landscape" : (isEditor ? "composer.landscape" : (isStandard ? "freeplay.landscape" : "dailyClearance.landscape"))))
             .accessibilityLabel(pageTitle + "状态")
             .accessibilityValue(templateStateDescription))
     }
@@ -1788,7 +1854,16 @@ private extension FreePlayView {
 
     @ViewBuilder var dailyFeedbackOverlay: some View {
         Group {
-            if dailyDecisionActive { EmptyView() }
+            if isSnake {
+                if snakeController.canPlaceCue && !dailyDecisionActive && !showSpinPad {
+                    dailyInformation("母球自由球上手").accessibilityIdentifier("snake.ballInHand")
+                } else if !snakeController.notice.isEmpty && !dailyDecisionActive {
+                    dailyInformation(snakeController.notice).accessibilityIdentifier("snake.notice")
+                } else if !dailyDecisionActive && !vm.isPlaying && !vm.isComputing && !vm.isFeasible && !snakeController.isComplete {
+                    dailyInformation(vm.statusText).accessibilityIdentifier("snake.unavailable")
+                }
+            }
+            else if dailyDecisionActive { EmptyView() }
             else if isManualBreakPage, let runner = vm.breakRunner {
                 dailyInformation(runner.statusText(isPerspective: is3D))
             } else if isStandard, rules != nil, ruleNotices.message == nil, !showSpinPad {
@@ -1808,8 +1883,8 @@ private extension FreePlayView {
             } else if !showSpinPad, let message = ruleNotices.message {
                 BTNoticeContent(message: message, compact: true, textOnly: true)
                     .accessibilityIdentifier("dailyClearance.notice")
-            } else if isEditor {
-                dailyInformation(sequenceReadOnly ? vm.statusText : (isTryoutPage ? vm.tryoutStatusText(orientation: pocketOrientation) : vm.aimSelectionLabel(orientation: pocketOrientation)))
+            } else if isEditor, sequenceReadOnly || isTryoutPage {
+                dailyInformation(sequenceReadOnly ? vm.statusText : vm.tryoutStatusText(orientation: pocketOrientation))
                     .accessibilityIdentifier("composer.status")
             } else if isShotSimulation, vm.cuePocketed, !showSpinPad {
                 dailyInformation("母球进袋")
@@ -1842,6 +1917,21 @@ private extension FreePlayView {
             VStack(spacing: space.foundation == nil ? 6 : 4) {
                 if isShotSimulation {
                     simulationReadout.frame(width: dailyControlColumnWidth, height: dailyTopButtonDiameter + 14)
+                } else if isSnake {
+                    Button {
+                        vm.cancelPowerRelease(); showSpinPad = false; showSnakeRestartConfirm = true
+                    } label: {
+                        VStack(spacing: 2) {
+                            Image(systemName: "arrow.clockwise").font(.title2)
+                                .btHUDActionContent()
+                                .frame(width: dailyTopButtonDiameter, height: dailyTopButtonDiameter)
+                                .background { BTHUDControlBackground(shape: Circle()) }
+                            Text("重新开始").font(.btMicro)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("snake.restart")
+                    .disabled(vm.isPlaying || vm.isComputing || isTemporaryTopDown || dailyDecisionActive)
                 } else if manualBreakNeedsConfirmation {
                     // Preserve the control lane height without an invisible actionable button.
                     VStack(spacing: 2) {
@@ -1912,7 +2002,8 @@ private extension FreePlayView {
                         vm.cancelPowerRelease()
                         if isTryoutPage { vm.moveTryoutStep(by: -1) }
                         else if sequenceReadOnly { vm.replayPreviousSequenceStep() }
-                        else if isDailyClearance { dailyController.undoShot() } else { vm.replayCurrent() }
+                        else if isDailyClearance { dailyController.undoShot() }
+                        else if isSnake { snakeController.undo() } else { vm.replayCurrent() }
                     }
                     .disabled(vm.isPlaying || !(isTryoutPage ? vm.canGoToPreviousTryoutStep : (sequenceReadOnly ? vm.canReplayPreviousStep : (isDailyClearance ? dailyController.canUndo : vm.canReplay))) || isDailyResult || isTemporaryTopDown)
                     dailyCompactAction(isTryoutPage ? "下一杆" : (sequenceReadOnly ? "重播" : "回放"), symbol: isTryoutPage ? "forward.end" : "play.rectangle", id: "dailyClearance.playback", size: auxiliary) {
@@ -1948,6 +2039,7 @@ private extension FreePlayView {
     }
 
     var templateStrikeTitle: String {
+        if isSnake && snakeController.isComplete { return "再来一局" }
         if sequenceReadOnly {
             if isTryoutPage {
                 if !vm.canContinueTryoutSequence { return "无法演示" }
@@ -1969,7 +2061,8 @@ private extension FreePlayView {
     }
 
     var templateStrikeDisabled: Bool {
-        if sequenceReadOnly { return (isTryoutPage && !vm.canContinueTryoutSequence) || isTemporaryTopDown || vm.isSequencePausePending || (!vm.isSequencePlaying && vm.isPlaying) }
+        if isSnake && snakeController.isComplete { return vm.isPlaying || isTemporaryTopDown || vm.cameraTransitionBusy }
+        if sequenceReadOnly { return (isTryoutPage && !vm.canContinueTryoutSequence) || isTemporaryTopDown || vm.isSequencePausePending || (!vm.isSequencePlaying && !vm.isSequencePaused && vm.isPlaying) }
         if isManualBreakPage, let runner = vm.breakRunner {
             return isTemporaryTopDown || dailyDecisionActive || runner.isBusy
         }
@@ -2029,7 +2122,8 @@ private extension FreePlayView {
                             vm.cancelPowerRelease()
                             editor?.onInteraction()
                             showSpinPad = false
-                            if sequenceReadOnly { vm.toggleSequencePlayback() }
+                            if isSnake && snakeController.isComplete { snakeController.nextRack() }
+                            else if sequenceReadOnly { vm.toggleSequencePlayback() }
                             else if isTryoutPage, vm.canReplay { vm.replayCurrent() }
                             else if let runner = vm.breakRunner {
                                 if isManualBreakPage && runner.showsConfirm { runner.confirmSettled() }
@@ -2252,7 +2346,7 @@ private extension FreePlayView {
     func dailyFoundationReservation(size: CGSize, safe: CGFloat) -> DailyLayoutMetrics.FoundationReservation {
         .init(width: size.width - 2 * max(4, safe),
               targetCount: templatePaletteKeys.count,
-              chineseEightBall: dailyPaletteGame == .chineseEightBall,
+              chineseEightBall: !isSnake && dailyPaletteGame == .chineseEightBall,
               titleWidth: 32 + dailyHeaderTitleWidth(size: 15), actionWidth: 138,
               prefersSeparateRow: size.height > size.width || size.height >= 600,
               // A separate row in a shallow landscape must leave both side
@@ -2264,7 +2358,7 @@ private extension FreePlayView {
     func dailyPalettePlan(size: CGSize, safe: CGFloat, foundation: DailyLayoutMetrics.Foundation) -> DailyLayoutMetrics.Palette {
         let side = max(4, safe)
         return DailyLayoutMetrics.Palette(size: size, sideInset: side, table: foundation.table,
-            targetCount: templatePaletteKeys.count, chineseEightBall: dailyPaletteGame == .chineseEightBall,
+            targetCount: templatePaletteKeys.count, chineseEightBall: !isSnake && dailyPaletteGame == .chineseEightBall,
             obstacles: [
                 CGRect(x: side + dailyWindowControlInsets.left, y: 0, width: 44, height: 44),
                 CGRect(x: side + dailyWindowControlInsets.left + 32, y: (44 - dailyHeaderTitleHeight) / 2,
@@ -2277,7 +2371,7 @@ private extension FreePlayView {
     func dailyFoundationHeader(size: CGSize, safe: CGFloat, foundation: DailyLayoutMetrics.Foundation) -> some View {
         let plan = dailyPalettePlan(size: size, safe: safe, foundation: foundation)
         return DailyTemplateHeader(size: size, safe: safe, foundation: foundation, plan: plan,
-            targets: templatePaletteKeys, chineseEightBall: dailyPaletteGame == .chineseEightBall,
+            targets: templatePaletteKeys, chineseEightBall: !isSnake && dailyPaletteGame == .chineseEightBall,
             titleWidth: dailyHeaderTitleWidth(size: 15), titleHeight: dailyHeaderTitleHeight,
             windowControlInsets: dailyWindowControlInsets, fps: dailyFPSReadout,
             showsDeviceStatus: !dailySystemStatusVisible,
@@ -2311,7 +2405,7 @@ private extension FreePlayView {
         let headerSize = dailyHeaderAuditSize(size, leadingAllowance: leadingAllowance, trailingShift: trailingShift)
         let plan = DailyLayoutMetrics.Header(width: headerSize.width,
             targetCount: templatePaletteKeys.count,
-            separators: dailyPaletteGame == .chineseEightBall ? 10 : 0,
+            separators: !isSnake && dailyPaletteGame == .chineseEightBall ? 10 : 0,
             regularTitleWidth: dailyHeaderTitleWidth(size: 15), compactTitleWidth: dailyHeaderTitleWidth(size: 13),
             leadingAllowance: leadingAllowance, trailingExtension: trailingShift)
         Group {
@@ -2366,7 +2460,7 @@ private extension FreePlayView {
     func dailyRegularHeaderThreshold(leadingAllowance: CGFloat, trailingShift: CGFloat) -> CGFloat {
         DailyLayoutMetrics.Header.minimumWidth(
             targetCount: templatePaletteKeys.count,
-            separators: dailyPaletteGame == .chineseEightBall ? 10 : 0, style: .regular,
+            separators: !isSnake && dailyPaletteGame == .chineseEightBall ? 10 : 0, style: .regular,
             titleWidth: dailyHeaderTitleWidth(size: 15), leadingAllowance: leadingAllowance,
             trailingExtension: trailingShift)
     }
@@ -2539,10 +2633,11 @@ private extension FreePlayView {
         !isDailyClearance ? .chineseEightBall : (dailyController.game ?? preferences.dailyClearanceGame)
     }
 
-    var dailyPaletteKeys: [String] { !isDailyClearance ? PositionPlayBall.allKeys : dailyPaletteGame.paletteKeys }
+    var dailyPaletteKeys: [String] { if isSnake { return snakeController.configuration.keys }; return !isDailyClearance ? PositionPlayBall.allKeys : dailyPaletteGame.paletteKeys }
     var templatePaletteKeys: [String] { dailyPaletteKeys.filter { !PositionPlayBall.isCue($0) } }
 
     func dailyPaletteActive(_ key: String) -> Bool {
+        if isSnake { return key == snakeController.targetKey && vm.onTableKeys.contains(key) }
         if editablePalette { return !PositionPlayBall.isCue(key) && vm.onTableKeys.contains(key) }
         if isStandard {
             guard !vm.isBreakMode, vm.onTableKeys.contains(key) else { return false }
@@ -2554,7 +2649,7 @@ private extension FreePlayView {
     }
 
     func dailyPaletteSectionStart(_ key: String) -> Bool {
-        dailyPaletteGame == .chineseEightBall && ["_8", "_9"].contains(key)
+        !isSnake && dailyPaletteGame == .chineseEightBall && ["_8", "_9"].contains(key)
     }
 
     func dailyLandscapePalette(diameter: CGFloat) -> some View {
@@ -2603,12 +2698,12 @@ private extension FreePlayView {
             } else if onTable {
                 if PositionPlayBall.isCue(key) { vm.pulseTableBall(key) }
                 if let node = vm.scene.allBallNodes[key] { handleTargetTap(node) }
-            } else { flash("这颗球已进袋", tone: .warning) }
+            } else if !isSnake { flash("这颗球已进袋", tone: .warning) }
         } label: {
             PoolBallFace(key: key, diameter: diameter)
                 .opacity(editablePalette ? (onTable ? 0.3 : 1) : (onTable ? 1 : 0.25))
                 .overlay(Circle().stroke(Color.white.opacity(0.9), lineWidth: 1)
-                    .padding(-1).opacity(onTable && vm.selectedTargetKey == key ? 1 : 0))
+                    .padding(-1).opacity(onTable && (isSnake ? snakeController.targetKey == key : vm.selectedTargetKey == key) ? 1 : 0))
                 .frame(width: slotWidth ?? diameter + 2, height: min(max(32, diameter), slotHeight))
                 .background {
                     let targets = templatePaletteKeys
@@ -2625,7 +2720,7 @@ private extension FreePlayView {
         .accessibilityValue(vm.isBreakMode ? "开球准备，不可选" : (onTable ? (dailyPaletteActive(key) ? "本轮可击打" : "在桌上") : (editablePalette ? "未在桌上" : "已进袋")))
         .accessibilityIdentifier("paletteBall_\(key)")
         .accessibilityHint(editablePalette ? (is3D ? "切到2D摆球" : "点按或拖到台面摆球，拖回球库移除") : "")
-        .simultaneousGesture(simulationPaletteDrag(key), including: editablePalette && !is3D && !onTable ? .all : .subviews)
+        .simultaneousGesture(simulationPaletteDrag(key, diameter: diameter), including: editablePalette && !is3D && !onTable ? .all : .subviews)
     }
 
     func dailySpinPadRect(in size: CGSize) -> CGRect {
@@ -2797,7 +2892,12 @@ final class FreePlayRulesSession: ObservableObject {
             if mode == .dailyClearance { return daily?.legalTargetKeys(tableKeys: keys) ?? keys }
             return rules?.rules?.legalTargetKeys(tableKeys: keys) ?? keys
         }
-        vm.onAimModeNotice = { [weak notices] in notices?.show($0, tone: .info, priority: .mode) }
+        vm.onAimModeNotice = { [weak notices] message in
+            // The selected mode is already readable on the practice controls.
+            if mode == .dailyClearance || isTryout {
+                notices?.show(message, tone: .info, priority: .mode)
+            }
+        }
         vm.onAimSelectionNotice = { [weak notices] in notices?.show($0, tone: .warning, priority: .selection) }
         vm.onShotWillStart = mode == .dailyClearance ? { [weak daily] in daily?.prepareShot() } : nil
         vm.onShotSettled = { [weak vm, weak rules, weak daily, weak notices] facts in

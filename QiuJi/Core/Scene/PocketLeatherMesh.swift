@@ -244,12 +244,20 @@ extension PocketLeatherMesh {
             }
             let g = replacement.node.geometry!
             regions.append(CachedRegion(path: path, sourceIndices: g.elements.map(\.data), materialNames: g.materials.map(\.name),
-                parts: result.parts.filter { $0.parent === replacement.node }.map { ($0.index, $0.geometry, $0.center) },
-                remainder: replacement.geometry,
+                parts: result.parts.filter { $0.parent === replacement.node }.map { ($0.index, materialFreeTemplate($0.geometry), $0.center) },
+                remainder: materialFreeTemplate(replacement.geometry),
                 remainderMaterialIndices: g.elements.indices.map { $0 % g.materials.count }.filter { g.materials[$0].name != "Leather" }))
         }
         cachedRegions = regions
         return result
+    }
+
+    /// Copy the container before clearing materials: the initial extraction is
+    /// already owned by its caller and must keep its original finish.
+    private static func materialFreeTemplate(_ geometry: SCNGeometry) -> SCNGeometry {
+        let template = geometry.copy() as! SCNGeometry
+        template.materials = []
+        return template
     }
 
     /// Keep independently indexed attributes and exact bytes, but discard unused

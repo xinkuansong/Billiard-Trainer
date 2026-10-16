@@ -26,6 +26,7 @@
 
 import XCTest
 import UIKit
+import CryptoKit
 @testable import QiuJi
 
 final class PositionPlaySequenceExportRunnerTests: XCTestCase {
@@ -81,7 +82,7 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
                 let outDir = URL(fileURLWithPath: outputDir).appendingPathComponent(dirName)
                 if stillsOnly {
                     try fm.createDirectory(at: outDir, withIntermediateDirectories: true)
-                    for (name, image) in SequenceVideoExporter.renderStills(sequence: sequence, options: .tutorialStills()) {
+                    try SequenceVideoExporter.renderStills(sequence: sequence, options: .tutorialStills()) { name, image in
                         try writePNG(image, to: outDir.appendingPathComponent("\(name).png"))
                     }
                     ok += 1
@@ -100,7 +101,7 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
                                        withIntermediateDirectories: true)
 
                 // 教学静帧（真实风格）：initial / sNN_still / final。
-                for (name, image) in SequenceVideoExporter.renderStills(sequence: sequence, options: .tutorialStills()) {
+                try SequenceVideoExporter.renderStills(sequence: sequence, options: .tutorialStills()) { name, image in
                     try writePNG(image, to: outDir.appendingPathComponent("\(name).png"))
                 }
 
@@ -165,15 +166,29 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
                 let directory = URL(fileURLWithPath: request.outputDirectory)
                     .appendingPathComponent(source.deletingPathExtension().lastPathComponent)
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-                let frames = SequenceVideoExporter.renderStills(sequence: sequence, options: .tutorialStills())
-                let expected = ["initial", "final"] + sequence.steps.indices.map { String(format: "s%02d_still", $0 + 1) }
-                XCTAssertEqual(Set(frames.map(\.name)), Set(expected), "Missing frames: \(file)")
-                for (name, image) in frames {
+                var names: [String] = []
+                try SequenceVideoExporter.renderStills(sequence: sequence, options: .tutorialStills()) { name, image in
+                    names.append(name)
                     XCTAssertEqual(image.width, 1440)
                     XCTAssertEqual(image.height, name.hasSuffix("_still") ? 2720 : 2560)
                     try writePNG(image, to: directory.appendingPathComponent("\(name).png"))
                 }
-                print("TUTORIAL-STILLS \(file): \(frames.count) frames, lighting=approvedPlain ballScale=1")
+                let expected = ["initial", "final"] + sequence.steps.indices.map { String(format: "s%02d_still", $0 + 1) }
+                XCTAssertEqual(Set(names), Set(expected), "Missing frames: \(file)")
+                var renderInput = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: source)) as? [String: Any])
+                var steps = try XCTUnwrap(renderInput["steps"] as? [[String: Any]])
+                for index in steps.indices { steps[index].removeValue(forKey: "analysis") }
+                renderInput["steps"] = steps
+                var hashes: [String: String] = [:]
+                for name in expected {
+                    let png = name + ".png"
+                    hashes[png] = SHA256.hash(data: try Data(contentsOf: directory.appendingPathComponent(png)))
+                        .map { String(format: "%02x", $0) }.joined()
+                }
+                let proof: [String: Any] = ["schemaVersion": 1, "sequence": renderInput, "framesSHA256": hashes]
+                try JSONSerialization.data(withJSONObject: proof, options: [.sortedKeys])
+                    .write(to: directory.appendingPathComponent("render-input.json"), options: .atomic)
+                print("TUTORIAL-STILLS \(file): \(names.count) frames, lighting=\(SequenceVideoExporter.Options.tutorialStills().resolvedRenderRecipe.rawValue) ballScale=1")
             }
         }
     }

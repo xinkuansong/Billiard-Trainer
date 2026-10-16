@@ -62,10 +62,21 @@ struct PositionPlayComposerView: View {
             Button("取消", role: .cancel) {}
             Button("清空桌面", role: .destructive) { vm.clearTable(); vm.placeFromPalette(PositionPlayBall.cueKey) }
         }
-        .confirmationDialog(vm.isRecording ? "清空并重来将丢弃录制中的 \(vm.stepCount) 杆。" : "回到默认球形并重新开始？",
-                            isPresented: $showResetConfirm, titleVisibility: .visible) {
-            Button("取消", role: .cancel) {}
-            Button("清空并重来", role: .destructive) { vm.resetAll() }
+        .overlay {
+            if showResetConfirm {
+                GeometryReader { geometry in
+                    ZStack {
+                        Color.black.opacity(0.2).contentShape(Rectangle()).onTapGesture { }
+                            .accessibilityHidden(true)
+                        DailyConfirmationCard(title: vm.isRecording ? "清空并重来将丢弃录制中的 \(vm.stepCount) 杆。" : "回到默认球形并重新开始？",
+                            availableHeight: geometry.size.height - 32, availableWidth: geometry.size.width - 32,
+                            firstTitle: "清空并重来", secondTitle: "取消",
+                            firstID: "composer.reset.confirm", secondID: "composer.reset.cancel",
+                            first: { showResetConfirm = false; vm.resetAll() },
+                            second: { showResetConfirm = false })
+                    }
+                }
+            }
         }
         .toolUsageSession(isTryout ? .drillTryout : .freePosition)
     }

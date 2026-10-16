@@ -13,7 +13,7 @@ struct AppearanceCombinationPreview: UIViewRepresentable {
     func makeUIView(context: Context) -> SCNView {
         let view = SCNView()
         let scene = context.coordinator.scene
-        scene.setupScene(mobileRendering: true)
+        scene.setupScene(recipe: .liveReference)
         scene.hideAllBalls()
         scene.setCameraMode(.perspective3D, animated: false)
         // Keep the material-preview direction and scale, but move the orthographic
@@ -67,6 +67,9 @@ struct AppearanceCombinationPreview: UIViewRepresentable {
 
     static func dismantleUIView(_ view: SCNView, coordinator: Coordinator) {
         view.isPlaying = false
+        view.rendersContinuously = false
+        view.delegate = nil
+        view.pointOfView = nil
         view.scene = nil
     }
 

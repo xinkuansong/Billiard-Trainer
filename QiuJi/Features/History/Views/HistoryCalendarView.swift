@@ -302,6 +302,8 @@ struct HistoryCalendarView: View {
             }
             .buttonStyle(BTPressableStyle.row)
 
+            .accessibilityIdentifier("history.cognitive." + cognitiveSession.quizType)
+
         case .tool(let toolSession):
             // ⛔ 无成绩、无详情可看（契约 §5.3 只记日期与时长），故不可点。
             toolRow(toolSession)
@@ -416,7 +418,7 @@ struct HistoryCalendarView: View {
 
                 HStack(spacing: Spacing.lg) {
                     Text("\(session.questionCount) 题")
-                    Text(String(format: "平均 %.1f°", session.averageError))
+                    Text(session.hasValidMeasurement ? String(format: "平均 %.1f%@", session.averageError, session.measurementUnit) : "平均 —")
                     Text(String(format: "正确率 %.0f%%", session.accurateRate * 100))
                     Text(timeRange(from: session.startDate, to: session.endDate))
                 }

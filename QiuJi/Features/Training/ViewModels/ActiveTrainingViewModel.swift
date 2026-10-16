@@ -333,6 +333,10 @@ final class ActiveTrainingViewModel: ObservableObject {
     /// 每个 drill 的可选球形（多球形 drill 才非空；单球形不出选择 UI）。
     @Published var drillFormations: [[DrillFormationOption]] = []
 
+    // Session-scoped UI placement survives cover dismissal, never enters saved training data.
+    let minimizedPillPosition = BTTrainingPillPosition()
+    let restPillPosition = BTTrainingPillPosition()
+
     // Rest timer
     @Published var restDuration: Int = 60
     @Published var restSecondsRemaining: Int = 0

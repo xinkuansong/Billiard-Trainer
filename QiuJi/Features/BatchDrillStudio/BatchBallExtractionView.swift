@@ -49,7 +49,7 @@ struct BatchBallExtractionView: View {
             Color.black.ignoresSafeArea()
             content
             if let key = draggingKey {
-                BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
+                BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable, placement: projector.palettePreview, projector: projector)
             }
         }
         .btToast(Binding(get: { vm.toast }, set: { vm.toast = $0 }))
@@ -631,19 +631,28 @@ struct BatchBallExtractionView: View {
 
     private var confirmBottomBar: some View {
         VStack(spacing: 0) {
+            // Reserve both status states so selecting a dropped ball cannot resize the table.
             HStack(spacing: Spacing.sm) {
-                if let key = vm.selectedKey {
-                    Text("已选 \(PositionPlayBall.shortLabel(for: key)) 号 · 拖动球可移位 · 点球库改号")
-                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.btPrimary)
-                    Spacer()
-                    Button { vm.removeFromTable(key) } label: {
-                        Label("移除", systemImage: "trash").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.btDestructive)
-                    }
-                } else {
+                ZStack(alignment: .leading) {
+                    Text("已选 \(PositionPlayBall.shortLabel(for: vm.selectedKey ?? "_1")) 号 · 拖动球可移位 · 点球库改号")
+                        .foregroundStyle(Color.btPrimary)
+                        .opacity(vm.selectedKey == nil ? 0 : 1)
+                        .accessibilityHidden(vm.selectedKey == nil)
                     Text("桌上 \(vm.onTableKeys.count) 颗 · 拖动球可移位 · 点选可改号/移除")
-                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.6))
-                    Spacer()
+                        .foregroundStyle(.white.opacity(0.6))
+                        .opacity(vm.selectedKey == nil ? 1 : 0)
+                        .accessibilityHidden(vm.selectedKey != nil)
                 }
+                .font(.system(size: 11, weight: .semibold))
+                Spacer()
+                Button { if let key = vm.selectedKey { vm.removeFromTable(key) } } label: {
+                    Label("移除", systemImage: "trash")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.btDestructive)
+                }
+                .opacity(vm.selectedKey == nil ? 0 : 1)
+                .disabled(vm.selectedKey == nil)
+                .accessibilityHidden(vm.selectedKey == nil)
             }
             .padding(.horizontal, Spacing.md)
             .padding(.top, Spacing.sm)
@@ -677,7 +686,8 @@ struct BatchBallExtractionView: View {
             allowsDrag: !onTable,
             coordinateSpace: "batchExtract",
             sceneFrame: sceneFrame,
-            unproject: { projector.unproject?($0) },
+            projector: projector,
+            resolvePlacement: vm.palettePlacement,
             onTap: {
                 if onTable { vm.pulseTableBall(key) }
                 else if vm.selectedKey != nil { vm.assignNumber(key) }

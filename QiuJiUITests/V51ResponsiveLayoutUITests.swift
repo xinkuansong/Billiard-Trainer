@@ -8,6 +8,147 @@ final class V51ResponsiveLayoutUITests: XCTestCase {
         continueAfterFailure = false
     }
 
+    func testFloatingTrainingDragDocksAndSurvivesTabsAndResume() throws {
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance",
+            "-v51.minimizedTraining", "-v51.elapsedSeconds=360006",
+        ])
+        let pill = app.buttons["minimizedTraining.resume"].firstMatch
+        XCTAssertTrue(pill.waitForExistence(timeout: 15))
+        let original = pill.frame
+        try capture("drag-training-before", elements: ["pill": pill])
+        dragPill(pill, to: CGVector(dx: 0.25, dy: 0.45))
+        XCTAssertTrue(pill.exists, "拖动不能误触返回训练")
+        XCTAssertLessThan(pill.frame.midY, original.midY - 80)
+        assertPillDocked(pill)
+        let movedY = pill.frame.midY
+        try capture("drag-training-docked", elements: ["pill": pill])
+        for tab in XCUIApplication.Tab.allCases {
+            tabElement(tab).tap()
+            XCTAssertTrue(pill.exists)
+            XCTAssertEqual(pill.frame.midY, movedY, accuracy: 2)
+            assertPillDocked(pill)
+        }
+        // Scroll from outside the pill; the full-window overlay must not intercept.
+        let settings = app.buttons["设置"].firstMatch
+        XCTAssertTrue(settings.exists)
+        let beforeScroll = settings.frame.minY
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.75))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.35)))
+        XCTAssertLessThan(settings.frame.minY, beforeScroll - 20)
+        XCTAssertEqual(pill.frame.midY, movedY, accuracy: 2)
+        try capture("drag-training-scroll", elements: ["pill": pill, "settings": settings])
+        pill.tap()
+        let minimize = app.buttons["最小化训练"].firstMatch
+        XCTAssertTrue(minimize.waitForExistence(timeout: 8))
+        let timer = app.descendants(matching: .any)["activeTraining.timer"].firstMatch
+        XCTAssertTrue(timer.label.contains("100:00:"))
+        minimize.tap()
+        XCTAssertTrue(pill.waitForExistence(timeout: 8))
+        XCTAssertEqual(pill.frame.midY, movedY, accuracy: 2)
+        try capture("drag-training-reminimized", elements: ["pill": pill])
+    }
+
+    func testRestPillDragKeepsTapAndRespectsTopAndBottomBars() throws {
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance",
+            "-v51.activeTraining", "-v57.restDuration=180",
+        ])
+        let rest = app.buttons["activeTraining.rest"].firstMatch
+        XCTAssertTrue(rest.waitForExistence(timeout: 15))
+        rest.tap()
+        let minimizeRest = app.buttons["最小化组间休息"].firstMatch
+        XCTAssertTrue(minimizeRest.waitForExistence(timeout: 8))
+        minimizeRest.tap()
+        let pill = app.buttons["activeTraining.restPill"].firstMatch
+        XCTAssertTrue(pill.waitForExistence(timeout: 8))
+        try capture("drag-rest-before", elements: ["pill": pill])
+        let originalY = pill.frame.midY
+        dragPill(pill, to: CGVector(dx: 0.25, dy: 0.45))
+        XCTAssertTrue(pill.exists, "拖动不能误触展开休息卡")
+        XCTAssertFalse(minimizeRest.exists)
+        assertPillDocked(pill)
+        XCTAssertLessThan(pill.frame.midY, originalY - 60)
+        let movedY = pill.frame.midY
+        try capture("drag-rest-docked", elements: ["pill": pill])
+        pill.tap()
+        XCTAssertTrue(minimizeRest.waitForExistence(timeout: 5))
+        minimizeRest.tap()
+        XCTAssertTrue(pill.waitForExistence(timeout: 5))
+        XCTAssertEqual(pill.frame.midY, movedY, accuracy: 2)
+        dragPill(pill, to: CGVector(dx: 0.6, dy: 0.07))
+        let title = app.staticTexts["activeTraining.title"].firstMatch
+        XCTAssertGreaterThan(pill.frame.minY, title.frame.maxY + 12)
+        assertPillDocked(pill)
+        try capture("drag-rest-top-limit", elements: ["pill": pill, "title": title])
+        dragPill(pill, to: CGVector(dx: 0.6, dy: 0.96))
+        let minimizeTraining = app.buttons["最小化训练"].firstMatch
+        XCTAssertLessThan(pill.frame.maxY, minimizeTraining.frame.minY)
+        assertPillDocked(pill)
+        try capture("drag-rest-bottom-limit", elements: ["pill": pill, "minimize": minimizeTraining])
+    }
+
+    func testHomeTrainingEntryRemainsFixedAfterDrag() throws {
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance", "-v54.todayState=empty",
+        ])
+        let pill = app.buttons["trainingHome.freeTraining"].firstMatch
+        XCTAssertTrue(pill.waitForExistence(timeout: 15))
+        let before = pill.frame
+        dragPill(pill, to: CGVector(dx: 0.25, dy: 0.4))
+        XCTAssertTrue(pill.exists)
+        XCTAssertEqual(pill.frame.minX, before.minX, accuracy: 1)
+        XCTAssertEqual(pill.frame.minY, before.minY, accuracy: 1)
+        pill.tap()
+        XCTAssertTrue(app.navigationBars["选择训练动作"].waitForExistence(timeout: 8))
+    }
+
+    func testFloatingTrainingAvoidsKeyboardAndRestoresHeight() throws {
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance", "-v51.minimizedTraining",
+        ])
+        let pill = app.buttons["minimizedTraining.resume"].firstMatch
+        XCTAssertTrue(pill.waitForExistence(timeout: 15))
+        tabElement(.drillLibrary).tap()
+        dragPill(pill, to: CGVector(dx: 0.4, dy: 0.72))
+        assertPillDocked(pill)
+        let preferredY = pill.frame.midY
+        let search = app.textFields["librarySearchField"].firstMatch
+        XCTAssertTrue(search.exists)
+        search.tap()
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
+        let clearOfKeyboard = NSPredicate { _, _ in
+            pill.exists && pill.frame.maxY <= keyboard.frame.minY - 12
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: clearOfKeyboard, object: nil)], timeout: 4), .completed)
+        assertPillDocked(pill)
+        try capture("drag-training-keyboard", elements: ["pill": pill, "keyboard": keyboard])
+        search.typeText("\n")
+        let restored = NSPredicate { _, _ in
+            !keyboard.exists && abs(pill.frame.midY - preferredY) < 2
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: restored, object: nil)], timeout: 5), .completed)
+        try capture("drag-training-keyboard-dismissed", elements: ["pill": pill])
+    }
+
+    private func dragPill(_ pill: XCUIElement, to target: CGVector) {
+        pill.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: target))
+    }
+
+    private func assertPillDocked(_ pill: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+        let window = app.windows.firstMatch.frame
+        // XCTest can finish the gesture while the spring is still returning right.
+        let docked = NSPredicate { _, _ in
+            pill.exists && abs(window.maxX - pill.frame.maxX - 12) < 1
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: docked, object: nil)], timeout: 3), .completed, file: file, line: line)
+        XCTAssertTrue(window.contains(pill.frame), file: file, line: line)
+        XCTAssertEqual(window.maxX - pill.frame.maxX, 12, accuracy: 1, file: file, line: line)
+        XCTAssertEqual(pill.frame.height, 44, accuracy: 0.5, file: file, line: line)
+    }
+
     func testTrainingNumericKeyboardHidesChromeAndKeepsScore() throws {
         app = XCUIApplication.launchClean(extraArgs: [
             "-forcePremium", "-v50.inMemoryStore", "-v51.activeTraining", "-v49.forceLight",
@@ -147,22 +288,24 @@ final class V51ResponsiveLayoutUITests: XCTestCase {
 
     func testHomeTrainingPillsShareCompactHeightAndInsets() throws {
         for (state, title, identifier) in [
-            ("suggestion", "开始训练", "trainingHome.startTraining"),
-            ("partial", "继续", "trainingHome.startTraining"),
+            ("single", "开始训练", "trainingHome.startTraining"),
+            ("oneRemaining", "继续", "trainingHome.startTraining"),
             ("empty", "自由训练", "trainingHome.freeTraining"),
         ] {
             app = XCUIApplication.launchClean(extraArgs: [
-                "-forcePremium", "-v50.inMemoryStore", "-v54.todayState=\(state)",
+                "-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance", "-v54.todayState=\(state)",
             ])
             let pill = app.buttons[identifier].firstMatch
             XCTAssertTrue(pill.waitForExistence(timeout: 15))
+            let tab = tabElement(.training)
+            try capture("hud-home-\(state)", elements: ["pill": pill, "tab": tab])
             XCTAssertEqual(pill.label, title)
-            XCTAssertEqual(pill.frame.height, 44, accuracy: 0.5)
+            // The standard tool capsule has a 44pt body plus a centered 1pt border in its AX frame.
+            XCTAssertGreaterThanOrEqual(pill.frame.height, 44)
+            XCTAssertLessThanOrEqual(pill.frame.height, 45)
             XCTAssertEqual(app.windows.firstMatch.frame.maxX - pill.frame.maxX, 12, accuracy: 1)
             XCTAssertLessThan(pill.frame.width, 130)
-            let tab = tabElement(.training)
             XCTAssertFalse(pill.frame.intersects(tab.frame))
-            try capture("hud-home-\(state)", elements: ["pill": pill, "tab": tab])
             pill.tap()
             if state == "empty" {
                 XCTAssertTrue(app.navigationBars["选择训练动作"].waitForExistence(timeout: 12))

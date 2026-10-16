@@ -6,64 +6,6 @@ import SceneKit
 @MainActor
 final class AimingQuizViewModel: TeachingCameraHost {
 
-    // MARK: - Training Types
-
-    enum TrainingType: String, CaseIterable, Identifiable {
-        case random = "随机模式"
-        case nearStraight = "近台直球"
-        case nearSmallAngle = "近台小角度"
-        case midStraight = "中台直球"
-        case midSmallAngle = "中台小角度"
-        case farMedium = "远台中角度"
-        case farLarge = "远台大角度"
-        case sidePocket = "中袋专项"
-        case cornerPocket = "角袋专项"
-
-        var id: String { rawValue }
-
-        var pocketFilter: PocketType? {
-            switch self {
-            case .sidePocket: return .side
-            case .cornerPocket: return .corner
-            default: return nil
-            }
-        }
-
-        var angleRange: ClosedRange<Double> {
-            switch self {
-            case .random: return 5...85
-            case .nearStraight, .midStraight: return 5...20
-            case .nearSmallAngle, .midSmallAngle: return 15...40
-            case .farMedium: return 25...55
-            case .farLarge: return 45...80
-            case .sidePocket: return 15...60
-            case .cornerPocket: return 5...85
-            }
-        }
-
-        /// Target ball → pocket distance range in normalised table-length units.
-        /// 1.0 means one full table length (2.54m). These ranges make "近台 / 中台 / 远台"
-        /// materially affect question generation instead of only changing angle range.
-        var targetPocketDistanceRange: ClosedRange<Double> {
-            switch self {
-            case .nearStraight, .nearSmallAngle:
-                return 0.12...0.28
-            case .midStraight, .midSmallAngle:
-                return 0.28...0.45
-            case .farMedium, .farLarge:
-                return 0.45...0.65
-            case .random, .sidePocket, .cornerPocket:
-                return 0.12...0.65
-            }
-        }
-    }
-
-    enum PracticeMode: String, CaseIterable, Identifiable {
-        case twentyQuestions = "20 题模式"
-        case freePractice = "自由练习"
-        var id: String { rawValue }
-    }
-
     // MARK: - Published state
 
     /// High-level quiz phase. The 2D aiming quiz uses this to decide whether to show
@@ -81,15 +23,16 @@ final class AimingQuizViewModel: TeachingCameraHost {
     @Published var showResult: Bool = false
     @Published var testFinished: Bool = false
     @Published var selectedPocketIndex: Int = -1
-    @Published var trainingType: TrainingType = .random
-    @Published var practiceMode: PracticeMode = .twentyQuestions
+    @Published var run = SceneTrainingRun()
+    @Published var generationError: String?
+    @Published var lastRecord: AnswerRecord?
     @Published var showSettings: Bool = false
     @Published var showAimingAssist: Bool = false
     /// 当前题目标球号（条 6.2：随机球号，避免只会看 8 号）。
     @Published private(set) var targetBallNumber: Int = 8
 
-    var totalQuestions: Int { practiceMode == .twentyQuestions ? 20 : Int.max }
-    var isFreePractice: Bool { practiceMode == .freePractice }
+    var totalQuestions: Int { run.configuration.freePractice ? Int.max : 20 }
+    var isFreePractice: Bool { run.configuration.freePractice }
 
     @Published private(set) var sessionResults: [AnswerRecord] = []
     /// 落库失败的可见错误态（nil = 无错误）。禁止静默丢题。
@@ -179,7 +122,10 @@ final class AimingQuizViewModel: TeachingCameraHost {
 
     // MARK: - Test lifecycle
 
-    func startTest() {
+    func startTest(configuration: SceneTrainingConfiguration = .init(), questions: [SceneTrainingQuestion] = []) {
+        run = SceneTrainingRun(configuration: configuration, queue: questions)
+        lastRecord = nil
+        generationError = nil
         questionIndex = 0
         sessionResults = []
         testFinished = false
@@ -206,6 +152,7 @@ final class AimingQuizViewModel: TeachingCameraHost {
     func toggleAimingAssist() {
         guard phase == .observing, currentQuestion != nil else { return }
         showAimingAssist.toggle()
+        if showAimingAssist { run.assistance.insert("graphical") }
         topDownContentRevision &+= 1
         if showAimingAssist {
             showAimingAssistVisualization()
@@ -216,26 +163,22 @@ final class AimingQuizViewModel: TeachingCameraHost {
     }
 
     func submitAnswer() {
-        guard let q = currentQuestion,
+        guard phase == .inputting, !run.submitted,
+              !limiter.isLimitReached, let q = currentQuestion,
               let userAngle = Double(userInput),
               userAngle >= 0, userAngle <= 90 else { return }
 
         let err = abs(q.actualAngle - userAngle)
-        sessionResults.append(AnswerRecord(question: q, userAngle: userAngle, error: err))
-
-        engine.recordResult(angle: q.actualAngle, error: err, pocketType: q.pocketType)
-        limiter.recordQuestion()
+        let record = AnswerRecord(question: q, userAngle: userAngle, error: err)
+        lastRecord = record
+        let metadata = run.metadata(unit: "degrees")
+        sessionResults.append(record); limiter.recordQuestion()
+        run.record(error: err, signedError: userAngle - q.actualAngle, angle: q.actualAngle)
         BTFeedback.quiz(errorDegrees: err)
-
-        Task {
-            let result = AngleTestResult(
-                actualAngle: q.actualAngle,
-                userAngle: userAngle,
-                pocketType: q.pocketType.rawValue,
-                quizType: quizTypeLabel
-            )
-            await persist(result)
-        }
+        let result = AngleTestResult(actualAngle: q.actualAngle, userAngle: userAngle,
+            pocketType: q.pocketType.rawValue, quizType: quizTypeLabel)
+        result.trainingMetadataJSON = metadata?.json
+        Task { await persist(result) }
 
         showResultVisualization()
         showResult = true
@@ -265,14 +208,15 @@ final class AimingQuizViewModel: TeachingCameraHost {
 
     /// Transition: showingResult → observing (close modal, advance to next question).
     func advanceToNext() {
-        questionIndex += 1
+        guard phase == .showingResult else { return }
+        questionIndex = run.firstAnswers.count
         phase = .observing
         nextQuestion()
     }
 
     // MARK: - Derived state
 
-    var lastError: Double? { sessionResults.last?.error }
+    var lastError: Double? { lastRecord?.error }
 
     var averageError: Double {
         guard !sessionResults.isEmpty else { return 0 }
@@ -291,7 +235,7 @@ final class AimingQuizViewModel: TeachingCameraHost {
     enum ErrorRating {
         case accurate, close, off
         var label: String {
-            switch self { case .accurate: "精准"; case .close: "接近"; case .off: "偏差较大" }
+            switch self { case .accurate: "接近标准"; case .close: "有偏差"; case .off: "偏差较大" }
         }
         var color: Color {
             switch self { case .accurate: .btSuccess; case .close: .btWarning; case .off: .btDestructive }
@@ -300,10 +244,10 @@ final class AimingQuizViewModel: TeachingCameraHost {
 
     // MARK: - Private
 
-    private func nextQuestion() {
+    func nextQuestion() {
         let limit = isFreePractice ? Int.max : totalQuestions
         guard questionIndex < limit, !limiter.isLimitReached else {
-            testFinished = !isFreePractice
+            testFinished = true
             return
         }
 
@@ -313,19 +257,9 @@ final class AimingQuizViewModel: TeachingCameraHost {
         scene.hideCueStick()
         showAimingAssist = false
 
-        let pt = trainingType.pocketFilter
-
-        let range = trainingType.angleRange
-        let angle = Double(Int.random(in: Int(range.lowerBound)...Int(range.upperBound)) / 5 * 5)
-        let clampedAngle = max(range.lowerBound, min(range.upperBound, angle == 0 ? 5 : angle))
-        var question = AngleCalculator.generateQuestion(
-            angle: clampedAngle,
-            pocketType: pt,
-            targetPocketDistanceRange: trainingType.targetPocketDistanceRange
-        )
-        #if DEBUG || RENDER_QUALITY_VALIDATION
-        if RenderQualityFixture.requested { question = RenderQualityFixture.question(surfaceY: scene.surfaceY) }
-        #endif
+        let question: AngleQuestion
+        do { question = try run.next(); generationError = nil }
+        catch { generationError = error.localizedDescription; currentQuestion = nil; return }
         currentQuestion = question
 
         let surfaceY = scene.surfaceY
@@ -361,6 +295,13 @@ final class AimingQuizViewModel: TeachingCameraHost {
         userInput = ""
         phase = .observing
     }
+
+
+    func markObservation() {
+        if phase == .observing && cameraMode == .perspective3D { run.assistance.insert("observation") }
+    }
+
+    func finish() { endTemporaryTopDown(); testFinished = true }
 
     private func showAimingAssistVisualization() {
         guard let q = currentQuestion,

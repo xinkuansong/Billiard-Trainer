@@ -54,7 +54,7 @@ final class DailyStandardQuizEditorUITests: XCTestCase {
     }
     private func selectTool(_ title: String) {
         let tool = app.buttons["batch.tool"]
-        if element("batch.toolScroll").exists { _ = revealEditor("batch.tool") }
+        if !tool.isHittable && element("batch.toolScroll").exists { _ = revealEditor("batch.tool") }
         XCTAssertTrue(tool.isHittable); tool.tap()
         let choice = app.buttons["batch.tool.\(title)"]
         XCTAssertTrue(choice.waitForExistence(timeout: 3)); choice.tap()
@@ -223,6 +223,347 @@ final class DailyStandardQuizEditorUITests: XCTestCase {
         }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 8), .completed, "Capture only after rotation and layout settle")
     }
+    func testBatchAimRulerAndSelectRerecordWithoutSaving() throws {
+        func awaitEnabled(_ element: XCUIElement) {
+            let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: element)
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 45), .completed)
+        }
+        func openSteps() {
+            if app.buttons["batch.editFollowingSteps"].exists { app.buttons["batch.editFollowingSteps"].tap() }
+            else {
+                app.buttons["batch.more"].tap()
+                revealMenuItem("batch.selectFollowingSteps").tap()
+            }
+        }
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-v53.authenticatedProfileFixture", "-batchAuthor.markers"])
+        app.switchTab(.angle)
+        let search = app.textFields["librarySearchField"]
+        XCTAssertTrue(search.waitForExistence(timeout: 10)); search.tap(); search.typeText("批量出片台")
+        app.buttons["批量出片台"].tap()
+        let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "drill_c042")).firstMatch
+        for _ in 0..<50 where !row.isHittable {
+            let w = app.windows.firstMatch
+            w.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
+                .press(forDuration: 0.1, thenDragTo: w.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)))
+        }
+        XCTAssertTrue(row.isHittable); row.tap()
+        let saved = app.staticTexts["manual02"]
+        XCTAssertTrue(saved.waitForExistence(timeout: 8)); saved.tap()
+        XCTAssertTrue(app.buttons["batch.tool"].waitForExistence(timeout: 15))
+        waitForStableBatchLayout()
+        for number in 1...15 { XCTAssertTrue(app.buttons["paletteBall__\(number)"].isHittable, "Palette must remain visible") }
+        let wheel = element("shotStage.aimWheel")
+        XCTAssertTrue(wheel.isHittable, "Default region tool must expose the direction ruler")
+        XCTAssertTrue(app.windows.firstMatch.frame.contains(wheel.frame))
+        try capture("rerecord-default-ruler")
+        openSteps()
+        XCTAssertTrue(app.buttons["batch.editStep.4"].exists, "Opening old archives must keep all five shots")
+        try capture("rerecord-shot-picker")
+        revealMenuItem("batch.editStep.2").tap()
+        let selectedCue = ballWorld("cueBall")
+        let originalAim = element("batch.aimState").value as? String
+        wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
+            .press(forDuration: 0.1, thenDragTo: wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)))
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let value = self.element("batch.aimState").value as? String
+            return value != originalAim && value?.hasPrefix("free;") == true
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
+        try capture("rerecord-third-shot-aim")
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            rotate(.landscapeLeft)
+            XCTAssertTrue(wheel.isHittable)
+            XCTAssertEqual(ballWorld("cueBall").x, selectedCue.x, accuracy: 0.000001)
+            try capture("rerecord-landscape")
+            rotate(.portrait)
+        }
+        openSteps()
+        XCTAssertTrue(app.buttons["batch.editStep.4"].exists, "Selecting and aiming must not truncate")
+        revealMenuItem("batch.resumeAppend").tap()
+        openSteps()
+        XCTAssertTrue(app.buttons["batch.editStep.4"].exists, "Cancel keeps the complete archive")
+        revealMenuItem("batch.editStep.2").tap()
+        XCTAssertEqual(ballWorld("cueBall").x, selectedCue.x, accuracy: 0.000001)
+        let strike = app.buttons["batch.strike"]
+        awaitEnabled(strike); strike.tap()
+        awaitEnabled(app.buttons["batch.tool"])
+        openSteps()
+        XCTAssertTrue(app.buttons["batch.editStep.2"].exists)
+        XCTAssertFalse(app.buttons["batch.editStep.3"].exists, "The replacement commits prefix plus the new third shot")
+        try capture("rerecord-third-shot-committed")
+        closeRootMenu()
+        app.buttons["batch.back"].tap()
+        XCTAssertTrue(saved.waitForExistence(timeout: 8))
+    }
+
+    func testPortraitRerecordTemplateParametersAndContinuousRestWithoutSaving() throws {
+        func awaitEnabled(_ control: XCUIElement) {
+            let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: control)
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 45), .completed)
+        }
+        func state() -> [String] {
+            (element("batch.recordingState").value as? String ?? "").components(separatedBy: ";")
+        }
+        func waitForIndex(_ index: String) {
+            let expected = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in state().first == index }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [expected], timeout: 45), .completed)
+        }
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-v53.authenticatedProfileFixture", "-batchAuthor.markers"])
+        app.switchTab(.angle)
+        let search = app.textFields["librarySearchField"]
+        XCTAssertTrue(search.waitForExistence(timeout: 10)); search.tap(); search.typeText("批量出片台")
+        app.buttons["批量出片台"].tap()
+        let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "drill_c042")).firstMatch
+        for _ in 0..<50 where !row.isHittable {
+            let w = app.windows.firstMatch
+            w.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
+                .press(forDuration: 0.1, thenDragTo: w.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)))
+        }
+        XCTAssertTrue(row.isHittable); row.tap()
+        let saved = app.staticTexts["manual02"]
+        XCTAssertTrue(saved.waitForExistence(timeout: 8)); saved.tap()
+        XCTAssertTrue(app.buttons["batch.tool"].waitForExistence(timeout: 15))
+        waitForStableBatchLayout()
+        XCTAssertGreaterThan(app.windows.firstMatch.frame.height, app.windows.firstMatch.frame.width)
+        app.buttons["batch.editSteps"].tap(); revealMenuItem("batch.editStep.1").tap()
+        awaitEnabled(app.buttons["batch.strike"])
+        let landing = element("batch.originalCueLanding")
+        XCTAssertTrue(landing.waitForExistence(timeout: 5))
+        let originalSecondLanding = landing.value as? String
+        XCTAssertTrue(originalSecondLanding?.hasPrefix("1;") == true)
+        // Independent portrait geometry check against actual rendered ball centres (screen up = +X).
+        let fields = try XCTUnwrap(originalSecondLanding).components(separatedBy: ";")
+        let nx = try XCTUnwrap(Double(fields[1])), ny = try XCTUnwrap(Double(fields[2]))
+        let a = ballWorld("_3"), b = ballWorld("_5"), cue = ballWorld("cueBall")
+        let aFrame = element("batch.ball._3").frame, bFrame = element("batch.ball._5").frame
+        let cueFrame = element("batch.ball.cueBall").frame
+        let scale = (bFrame.midY - aFrame.midY) / (a.x - b.x)
+        XCTAssertGreaterThan(scale, 0)
+        let dx = ny * 2.54 - 0.635 - cue.y, dz = nx * 2.54 - 1.27 - cue.x
+        // AX encloses each marker in integral-point rectangles. Two rounded centres produce
+        // up to 1 pt baseline error, amplified by the distance/baseline ratio; do not confuse
+        // that measurement error with drift of the actual SceneKit projection.
+        let xBound = 1 + abs(dx / (a.x - b.x)), yBound = 1 + abs(dz / (a.x - b.x))
+        print("Landing geometry: a=\(aFrame), b=\(bFrame), cue=\(cueFrame), marker=\(landing.frame), scale=\(scale), bounds=\(xBound),\(yBound)")
+        try capture("landing-single-shot")
+        XCTAssertEqual(landing.frame.midX, cueFrame.midX + dx * scale, accuracy: xBound)
+        XCTAssertEqual(landing.frame.midY, cueFrame.midY - dz * scale, accuracy: yBound)
+        let originalSecond = state()
+        let secondAim = element("batch.aimState").value as? String
+        app.buttons["batch.initialBoard"].tap()
+        XCTAssertFalse(landing.exists)
+        app.buttons["batch.rerecordStart"].tap()
+        waitForIndex("0")
+        XCTAssertTrue(landing.waitForExistence(timeout: 5))
+        XCTAssertTrue((landing.value as? String)?.hasPrefix("0;") == true)
+        try capture("landing-first-shot")
+        awaitEnabled(app.buttons["batch.strike"]); app.buttons["batch.strike"].tap()
+        waitForIndex("1"); awaitEnabled(app.buttons["batch.strike"])
+        XCTAssertEqual(landing.value as? String, originalSecondLanding)
+        XCTAssertTrue(element("batch.tableBounds").frame.contains(CGPoint(x: landing.frame.midX, y: landing.frame.midY)))
+        let inherited = state()
+        XCTAssertEqual(Array(inherited[1...3]), Array(originalSecond[1...3]), "Speed and both spin axes come from original shot 2")
+        XCTAssertEqual(Array(inherited[5...6]), Array(originalSecond[5...6]), "Original target/pocket retained")
+        XCTAssertEqual(element("batch.aimState").value as? String, secondAim)
+        let firstStop = ballWorld("cueBall")
+        try capture("template-next-shot")
+        app.buttons["batch.strike"].tap()
+        waitForIndex("2"); awaitEnabled(app.buttons["batch.tool"])
+        app.buttons["batch.rehit"].tap()
+        waitForIndex("1"); awaitEnabled(app.buttons["batch.strike"])
+        XCTAssertEqual(landing.value as? String, originalSecondLanding)
+        try capture("landing-retry-shot")
+        let retriedBefore = ballWorld("cueBall")
+        XCTAssertEqual(retriedBefore.x, firstStop.x, accuracy: 0.000001)
+        XCTAssertEqual(retriedBefore.y, firstStop.y, accuracy: 0.000001)
+        XCTAssertEqual(Array(state()[1...3]), Array(originalSecond[1...3]))
+        app.buttons["batch.strike"].tap()
+        waitForIndex("2"); awaitEnabled(app.buttons["batch.tool"])
+        XCTAssertEqual(state()[4], "2", "Retry replaces shot 2 without advancing an extra template")
+        try capture("template-rerecord-retry")
+        // Do not save any test shot. Reopen the original archive for the user-facing handoff.
+    }
+
+    func testPortraitWorkbenchInitialNudgeAndRerecordWithoutSaving() throws {
+        func awaitEnabled(_ control: XCUIElement) {
+            let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: control)
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 45), .completed)
+        }
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-v53.authenticatedProfileFixture", "-batchAuthor.markers"])
+        app.switchTab(.angle)
+        let search = app.textFields["librarySearchField"]
+        XCTAssertTrue(search.waitForExistence(timeout: 10)); search.tap(); search.typeText("批量出片台")
+        app.buttons["批量出片台"].tap()
+        let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "drill_c042")).firstMatch
+        for _ in 0..<50 where !row.isHittable {
+            let w = app.windows.firstMatch
+            w.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
+                .press(forDuration: 0.1, thenDragTo: w.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)))
+        }
+        XCTAssertTrue(row.isHittable); row.tap()
+        let saved = app.staticTexts["manual02"]
+        XCTAssertTrue(saved.waitForExistence(timeout: 8)); saved.tap()
+        XCTAssertTrue(app.buttons["batch.tool"].waitForExistence(timeout: 15))
+        waitForStableBatchLayout()
+
+        let window = app.windows.firstMatch.frame
+        XCTAssertGreaterThan(window.height, window.width)
+        for id in ["batch.previousBoard", "batch.initialBoard", "batch.editFollowingSteps", "batch.save", "batch.rehit", "batch.playSequence"] {
+            XCTAssertTrue(app.buttons[id].isHittable, id)
+            XCTAssertFalse(app.buttons[id].frame.intersects(element("batch.tableBounds").frame), id)
+        }
+        for dir in ["up", "down", "left", "right"] {
+            XCTAssertTrue(app.buttons["batch.nudge." + dir].exists)
+            XCTAssertFalse(app.buttons["batch.nudge." + dir].isEnabled)
+        }
+        try capture("workbench-default")
+        XCTAssertEqual(app.buttons["batch.editSteps"].label, "选杆重录")
+        XCTAssertEqual(app.buttons["batch.editFollowingSteps"].label, "选杆重录后续")
+        XCTAssertTrue(app.buttons["batch.editSteps"].isHittable)
+        XCTAssertFalse(app.buttons["batch.editSteps"].frame.intersects(app.buttons["batch.editFollowingSteps"].frame))
+        app.buttons["batch.editSteps"].tap()
+        try capture("single-shot-picker")
+        revealMenuItem("batch.editStep.3").tap()
+        let fourthCue = ballWorld("cueBall"), fourthTarget = ballWorld("_4")
+        app.buttons["batch.editSteps"].tap()
+        revealMenuItem("batch.editStep.2").tap()
+        let singleStart = ballWorld("cueBall")
+        selectTool("摆球")
+        element("batch.ball.cueBall").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        app.buttons["batch.nudge.right"].tap()
+        let changedStart = ballWorld("cueBall")
+        XCTAssertGreaterThan(hypot(changedStart.x - singleStart.x, changedStart.y - singleStart.y), 0.0001)
+        awaitEnabled(app.buttons["batch.strike"]); app.buttons["batch.strike"].tap()
+        awaitEnabled(app.buttons["batch.tool"])
+        app.buttons["batch.editSteps"].tap()
+        for index in 0...4 { XCTAssertTrue(app.buttons["batch.editStep.\(index)"].exists) }
+        try capture("single-third-replaced-five-retained")
+        revealMenuItem("batch.editStep.3").tap()
+        XCTAssertEqual(ballWorld("cueBall").x, fourthCue.x, accuracy: 0.000001)
+        XCTAssertEqual(ballWorld("cueBall").y, fourthCue.y, accuracy: 0.000001)
+        XCTAssertEqual(ballWorld("_4").x, fourthTarget.x, accuracy: 0.000001)
+        XCTAssertEqual(ballWorld("_4").y, fourthTarget.y, accuracy: 0.000001)
+        try capture("single-original-fourth-board")
+        app.buttons["batch.editSteps"].tap()
+        revealMenuItem("batch.resumeAppend").tap()
+        app.buttons["batch.playSequence"].tap()
+        XCTAssertFalse(app.buttons["batch.editSteps"].isEnabled)
+        let previewFinished = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: app.buttons["batch.tool"])
+        XCTAssertEqual(XCTWaiter.wait(for: [previewFinished], timeout: 120), .completed)
+        try capture("single-five-shot-preview-complete")
+        app.buttons["batch.editFollowingSteps"].tap()
+        revealMenuItem("batch.editStep.2").tap()
+        let wheel = element("shotStage.aimWheel")
+        let originalAim = element("batch.aimState").value as? String
+        wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
+            .press(forDuration: 0.1, thenDragTo: wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)))
+        let aimChanged = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let value = self.element("batch.aimState").value as? String
+            return value != originalAim && value?.hasPrefix("free;") == true
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [aimChanged], timeout: 5), .completed)
+        selectTool("摆球")
+        let target = element("batch.ball._3")
+        XCTAssertTrue(target.waitForExistence(timeout: 4))
+        target.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        for (dir, dx, dy) in [("up", 0.0, -1.0), ("down", 0.0, 1.0), ("left", -1.0, 0.0), ("right", 1.0, 0.0)] {
+            let button = app.buttons["batch.nudge." + dir]
+            XCTAssertTrue(button.isHittable)
+            let before = ballWorld("_3")
+            button.tap()
+            let moved = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                let now = self.ballWorld("_3")
+                return hypot(now.x - before.x, now.y - before.y) > 0.0001
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 4), .completed)
+            let after = ballWorld("_3")
+            XCTAssertEqual(hypot(after.x - before.x, after.y - before.y), 0.0005, accuracy: 0.00001)
+            XCTAssertGreaterThan((after.y - before.y) * dx - (after.x - before.x) * dy, 0, dir)
+        }
+        let beforeHold = ballWorld("_3")
+        app.buttons["batch.nudge.up"].press(forDuration: 0.7)
+        let afterHold = ballWorld("_3")
+        XCTAssertGreaterThan(hypot(afterHold.x - beforeHold.x, afterHold.y - beforeHold.y), 0.0005)
+        try capture("workbench-nudge")
+        let editedCue = ballWorld("cueBall"), editedTarget = ballWorld("_3")
+        app.buttons["batch.initialBoard"].tap()
+        for n in 1...5 { XCTAssertEqual(app.buttons["paletteBall__\(n)"].value as? String, "在桌上") }
+        XCTAssertFalse(app.buttons["batch.strike"].isEnabled)
+        XCTAssertFalse(app.buttons["batch.previousBoard"].isEnabled)
+        for dir in ["up", "down", "left", "right"] { XCTAssertFalse(app.buttons["batch.nudge." + dir].isEnabled) }
+        XCTAssertFalse(app.buttons["batch.save"].isEnabled)
+        XCTAssertEqual(app.buttons["batch.initialBoard"].label, "回到当前")
+        try capture("workbench-initial-preview")
+        app.buttons["batch.initialBoard"].tap()
+        XCTAssertEqual(ballWorld("cueBall").x, editedCue.x, accuracy: 0.000001)
+        XCTAssertEqual(ballWorld("cueBall").y, editedCue.y, accuracy: 0.000001)
+        XCTAssertEqual(ballWorld("_3").x, editedTarget.x, accuracy: 0.000001)
+        XCTAssertEqual(ballWorld("_3").y, editedTarget.y, accuracy: 0.000001)
+        app.buttons["batch.editFollowingSteps"].tap()
+        XCTAssertTrue(app.buttons["batch.editStep.4"].exists)
+        closeRootMenu()
+        app.buttons["batch.initialBoard"].tap()
+        app.buttons["batch.rerecordStart"].tap()
+        XCTAssertFalse(app.buttons["batch.rerecordStart"].exists)
+        for n in 1...5 { XCTAssertEqual(app.buttons["paletteBall__\(n)"].value as? String, "在桌上") }
+        app.buttons["batch.editFollowingSteps"].tap()
+        XCTAssertTrue(app.buttons["batch.editStep.4"].exists)
+        revealMenuItem("batch.editStep.2").tap()
+        let thirdCueStart = ballWorld("cueBall"), thirdTargetStart = ballWorld("_3")
+        awaitEnabled(app.buttons["batch.strike"]); app.buttons["batch.strike"].tap()
+        awaitEnabled(app.buttons["batch.tool"])
+        app.buttons["batch.editFollowingSteps"].tap()
+        XCTAssertTrue(app.buttons["batch.editStep.2"].exists)
+        XCTAssertFalse(app.buttons["batch.editStep.3"].exists)
+        try capture("workbench-third-replaced")
+        closeRootMenu()
+        app.buttons["batch.rehit"].tap()
+        app.buttons["batch.editFollowingSteps"].tap()
+        XCTAssertTrue(app.buttons["batch.editStep.2"].exists, "Retry selection must retain its shot until a replacement succeeds")
+        closeRootMenu()
+        let previous = app.buttons["batch.previousBoard"]
+        XCTAssertEqual(previous.label, "回上一杆球形")
+        XCTAssertTrue(previous.isHittable)
+        previous.tap()
+        XCTAssertEqual(ballWorld("cueBall").x, thirdCueStart.x, accuracy: 0.00001)
+        XCTAssertEqual(ballWorld("cueBall").y, thirdCueStart.y, accuracy: 0.00001)
+        XCTAssertEqual(ballWorld("_3").x, thirdTargetStart.x, accuracy: 0.00001)
+        XCTAssertEqual(ballWorld("_3").y, thirdTargetStart.y, accuracy: 0.00001)
+        app.buttons["batch.editFollowingSteps"].tap()
+        XCTAssertTrue(app.buttons["batch.editStep.2"].exists)
+        XCTAssertFalse(app.buttons["batch.editStep.3"].exists)
+        closeRootMenu()
+        app.buttons["batch.swap"].tap()
+        element("batch.ball._3").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertEqual(ballWorld("cueBall").x, thirdTargetStart.x, accuracy: 0.00001)
+        XCTAssertEqual(ballWorld("cueBall").y, thirdTargetStart.y, accuracy: 0.00001)
+        XCTAssertEqual(ballWorld("_3").x, thirdCueStart.x, accuracy: 0.00001)
+        XCTAssertEqual(ballWorld("_3").y, thirdCueStart.y, accuracy: 0.00001)
+        try capture("previous-board-cue-swapped")
+        selectTool("自由")
+        awaitEnabled(app.buttons["batch.strike"]); app.buttons["batch.strike"].tap()
+        awaitEnabled(app.buttons["batch.tool"])
+        app.buttons["batch.editFollowingSteps"].tap()
+        for index in 0...3 { XCTAssertTrue(app.buttons["batch.editStep.\(index)"].exists) }
+        XCTAssertFalse(app.buttons["batch.editStep.4"].exists)
+        try capture("previous-board-fourth-appended")
+        closeRootMenu()
+        app.buttons["batch.previousBoard"].tap()
+        XCTAssertEqual(ballWorld("cueBall").x, thirdTargetStart.x, accuracy: 0.00001)
+        XCTAssertEqual(ballWorld("cueBall").y, thirdTargetStart.y, accuracy: 0.00001)
+        try capture("previous-board-ready")
+        awaitEnabled(app.buttons["batch.save"]); app.buttons["batch.save"].tap()
+        XCTAssertTrue(app.buttons["覆盖"].waitForExistence(timeout: 4))
+        try capture("workbench-save-confirmation")
+        // iPad confirmationDialog is a popover: Cancel is represented by outside dismissal.
+        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.3)).tap()
+        XCTAssertFalse(app.buttons["覆盖"].exists)
+        XCTAssertTrue(app.buttons["batch.tool"].exists)
+        try capture("workbench-ready")
+        app.buttons["batch.back"].tap()
+        XCTAssertTrue(saved.waitForExistence(timeout: 8))
+    }
+
     func testBatchControlsNoticeAndRotationWithoutSaving() throws {
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-v53.authenticatedProfileFixture", "-batchAuthor.markers"])
         app.switchTab(.angle)

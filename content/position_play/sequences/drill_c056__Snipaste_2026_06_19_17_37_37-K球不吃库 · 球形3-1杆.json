@@ -20,15 +20,17 @@
   "name": "K球不吃库 · 球形3",
   "steps": [
     {
+      "analysis": {"aim":{"aimAngleDegrees":11.75785598755996,"ghostCenterMeters":{"x":-1.1268525123596191,"y":0.8285750150680542,"z":-0.49285537004470825},"pocket":"topLeft","pocketAimPointMeters":{"x":-1.312000036239624,"y":0.800000011920929,"z":-0.6769999861717224},"targetBallKey":"_1"},"cueCushionContacts":[],"cueTravelDistanceMeters":1.6185650409133645,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":12.154275685644112,"ballKey":"_1","cueAngularVelocityRadiansPerSecond":{"x":56.04585266113281,"y":6.31450080871582,"z":-36.717350006103516},"cueClothSlipSpeedMetersPerSecond":5.456021800066345,"cueForwardRollRatio":-0.5406233334850353,"cueMotionState":"sliding","cueSpeedMetersPerSecond":3.541436577792609,"cueVelocity":{"x":-1.9481130838394165,"y":0,"z":-2.957469940185547},"timeSeconds":0.20559746026992798},"schemaVersion":1},
+      "recordedDirection": {"x": -0.5484700202941895, "z": -0.8361703157424927},
       "after": {
         "onTable": {
           "_2": {
-            "x": 0.47610917687416077,
-            "y": 0.027528099715709686
+            "x": 0.461324006319046,
+            "y": 0.02983151562511921
           },
           "cueBall": {
-            "x": 0.3520357608795166,
-            "y": 0.06553859263658524
+            "x": 0.3622972071170807,
+            "y": 0.07645117491483688
           }
         }
       },
@@ -63,5 +65,5 @@
       }
     }
   ],
-  "updatedAt": "2026-07-04T09:51:00Z"
+  "updatedAt": "2026-10-14T18:30:20Z"
 }

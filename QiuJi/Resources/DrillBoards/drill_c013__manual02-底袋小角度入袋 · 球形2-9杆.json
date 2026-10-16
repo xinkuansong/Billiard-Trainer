@@ -48,6 +48,8 @@
   "name": "底袋小角度入袋 · 球形2",
   "steps": [
     {
+      "analysis": {"aim":{"aimAngleDegrees":31.416980129612114,"ghostCenterMeters":{"x":-0.7156440019607544,"y":0.8285750150680542,"z":-0.17397283017635345},"pocket":"topLeft","pocketAimPointMeters":{"x":-1.312000036239624,"y":0.800000011920929,"z":-0.6769999861717224},"targetBallKey":"_8"},"cueCushionContacts":[{"cushionIndex":2,"mainRail":"negativeZ","phase":"afterFirstContact","timeSeconds":1.0700751543045044}],"cueTravelDistanceMeters":1.7698977867383197,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":32.711812174143724,"ballKey":"_8","cueAngularVelocityRadiansPerSecond":{"x":-39.7053108215332,"y":0,"z":13.150965690612793},"cueClothSlipSpeedMetersPerSecond":1.228781230931777e-07,"cueForwardRollRatio":0.9999999386815824,"cueMotionState":"rolling","cueSpeedMetersPerSecond":1.195193483459236,"cueVelocity":{"x":-0.3757888674736023,"y":0,"z":-1.1345793008804321},"timeSeconds":0.38675743341445923},"schemaVersion":1},
+      "recordedDirection": {"x": -0.31441691517829895, "z": -0.9492850303649902},
       "after": {
         "onTable": {
           "_1": {
@@ -83,8 +85,8 @@
             "y": 0.37780582904815674
           },
           "cueBall": {
-            "x": 0.35743996500968933,
-            "y": 0.3095087707042694
+            "x": 0.35758236050605774,
+            "y": 0.3101285696029663
           }
         }
       },
@@ -147,6 +149,8 @@
       }
     },
     {
+      "analysis": {"aim":{"aimAngleDegrees":18.070365337741887,"ghostCenterMeters":{"x":-0.7156440019607544,"y":0.8285750150680542,"z":-0.17397283017635345},"pocket":"topLeft","pocketAimPointMeters":{"x":-1.312000036239624,"y":0.800000011920929,"z":-0.6769999861717224},"targetBallKey":"_8"},"cueCushionContacts":[{"cushionIndex":2,"mainRail":"negativeZ","phase":"afterFirstContact","timeSeconds":1.0122703313827515}],"cueTravelDistanceMeters":1.7145285812641373,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":18.82281044865834,"ballKey":"_8","cueAngularVelocityRadiansPerSecond":{"x":-42.34002685546875,"y":0,"z":26.168415069580078},"cueClothSlipSpeedMetersPerSecond":0.31679133712298674,"cueForwardRollRatio":0.8178404174726193,"cueMotionState":"sliding","cueSpeedMetersPerSecond":1.7390870509195453,"cueVelocity":{"x":-0.9143133759498596,"y":0,"z":-1.4793426990509033},"timeSeconds":0.2899685502052307},"schemaVersion":1},
+      "recordedDirection": {"x": -0.525743305683136, "z": -0.8506432771682739},
       "after": {
         "onTable": {
           "_2": {
@@ -178,8 +182,8 @@
             "y": 0.37780582904815674
           },
           "cueBall": {
-            "x": 0.25318267941474915,
-            "y": 0.28125104308128357
+            "x": 0.25346264243125916,
+            "y": 0.28215765953063965
           }
         }
       },
@@ -238,6 +242,8 @@
       }
     },
     {
+      "analysis": {"aim":{"aimAngleDegrees":7.680782149309286,"ghostCenterMeters":{"x":-0.7156440019607544,"y":0.8285750150680542,"z":-0.17397283017635345},"pocket":"topLeft","pocketAimPointMeters":{"x":-1.312000036239624,"y":0.800000011920929,"z":-0.6769999861717224},"targetBallKey":"_8"},"cueCushionContacts":[{"cushionIndex":2,"mainRail":"negativeZ","phase":"afterFirstContact","timeSeconds":1.3915929794311523}],"cueTravelDistanceMeters":1.5046152213865518,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":7.9138190195521645,"ballKey":"_8","cueAngularVelocityRadiansPerSecond":{"x":-42.758567810058594,"y":0,"z":38.70770263671875},"cueClothSlipSpeedMetersPerSecond":1.1920928955078125e-07,"cueForwardRollRatio":0.9999999541570265,"cueMotionState":"rolling","cueSpeedMetersPerSecond":1.6481067016000526,"cueVelocity":{"x":-1.1060726642608643,"y":0,"z":-1.2218260765075684},"timeSeconds":0.3408769965171814},"schemaVersion":1},
+      "recordedDirection": {"x": -0.6711170077323914, "z": -0.7413513660430908},
       "after": {
         "onTable": {
           "_3": {
@@ -265,8 +271,8 @@
             "y": 0.37780582904815674
           },
           "cueBall": {
-            "x": 0.08178353309631348,
-            "y": 0.1357899159193039
+            "x": 0.08222056925296783,
+            "y": 0.13640524446964264
           }
         }
       },
@@ -321,6 +327,8 @@
       }
     },
     {
+      "analysis": {"aim":{"aimAngleDegrees":0.15562202095113656,"ghostCenterMeters":{"x":-0.7156440019607544,"y":0.8285750150680542,"z":-0.17397283017635345},"pocket":"topLeft","pocketAimPointMeters":{"x":-1.312000036239624,"y":0.800000011920929,"z":-0.6769999861717224},"targetBallKey":"_8"},"cueCushionContacts":[],"cueTravelDistanceMeters":1.1917302287395386,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":0.1509948097318365,"ballKey":"_8","cueAngularVelocityRadiansPerSecond":{"x":-22.99884796142578,"y":0,"z":27.406831741333008},"cueClothSlipSpeedMetersPerSecond":8.429369702178807e-08,"cueForwardRollRatio":0.9999999316034744,"cueMotionState":"rolling","cueSpeedMetersPerSecond":1.0223628483823899,"cueVelocity":{"x":-0.7831502556800842,"y":0,"z":-0.6571921110153198},"timeSeconds":0.5205405354499817},"schemaVersion":1},
+      "recordedDirection": {"x": -0.7666719555854797, "z": -0.6420390009880066},
       "after": {
         "onTable": {
           "_4": {
@@ -344,8 +352,8 @@
             "y": 0.37780582904815674
           },
           "cueBall": {
-            "x": 0.09109851717948914,
-            "y": 0.07825302332639694
+            "x": 0.09207645803689957,
+            "y": 0.07714542746543884
           }
         }
       },
@@ -396,6 +404,8 @@
       }
     },
     {
+      "analysis": {"aim":{"aimAngleDegrees":6.07188377245921,"ghostCenterMeters":{"x":-0.7156440019607544,"y":0.8285750150680542,"z":-0.17397283017635345},"pocket":"topLeft","pocketAimPointMeters":{"x":-1.312000036239624,"y":0.800000011920929,"z":-0.6769999861717224},"targetBallKey":"_8"},"cueCushionContacts":[{"cushionIndex":4,"mainRail":"negativeX","phase":"afterFirstContact","timeSeconds":1.798831582069397}],"cueTravelDistanceMeters":1.732698400977474,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":6.251602370989753,"ballKey":"_8","cueAngularVelocityRadiansPerSecond":{"x":-32.0521240234375,"y":0,"z":47.403236389160156},"cueClothSlipSpeedMetersPerSecond":5.960464477539063e-08,"cueForwardRollRatio":0.9999999495017207,"cueMotionState":"rolling","cueSpeedMetersPerSecond":1.6351307319290789,"cueVelocity":{"x":-1.3545475006103516,"y":0,"z":-0.9158895015716553},"timeSeconds":0.47314733266830444},"schemaVersion":1},
+      "recordedDirection": {"x": -0.8284034729003906, "z": -0.5601319074630737},
       "after": {
         "onTable": {
           "_5": {
@@ -415,8 +425,8 @@
             "y": 0.37780582904815674
           },
           "cueBall": {
-            "x": 0.11628828942775726,
-            "y": 0.07262531667947769
+            "x": 0.11571794003248215,
+            "y": 0.0719933807849884
           }
         }
       },
@@ -463,6 +473,8 @@
       }
     },
     {
+      "analysis": {"aim":{"aimAngleDegrees":10.607258252107723,"ghostCenterMeters":{"x":-0.7156440019607544,"y":0.8285750150680542,"z":-0.17397283017635345},"pocket":"topLeft","pocketAimPointMeters":{"x":-1.312000036239624,"y":0.800000011920929,"z":-0.6769999861717224},"targetBallKey":"_8"},"cueCushionContacts":[{"cushionIndex":4,"mainRail":"negativeX","phase":"afterFirstContact","timeSeconds":1.6491559743881226}],"cueTravelDistanceMeters":1.960829725087471,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":10.923381167452419,"ballKey":"_8","cueAngularVelocityRadiansPerSecond":{"x":-28.072444915771484,"y":0,"z":49.5698356628418},"cueClothSlipSpeedMetersPerSecond":1.3328003749250113e-07,"cueForwardRollRatio":0.9999999259298485,"cueMotionState":"rolling","cueSpeedMetersPerSecond":1.627830026503531,"cueVelocity":{"x":-1.4164581298828125,"y":0,"z":-0.8021701574325562},"timeSeconds":0.5475717782974243},"schemaVersion":1},
+      "recordedDirection": {"x": -0.8701510429382324, "z": -0.49278515577316284},
       "after": {
         "onTable": {
           "_6": {
@@ -478,8 +490,8 @@
             "y": 0.37780582904815674
           },
           "cueBall": {
-            "x": 0.17346686124801636,
-            "y": 0.14500011503696442
+            "x": 0.17408916354179382,
+            "y": 0.14543388783931732
           }
         }
       },
@@ -522,6 +534,8 @@
       }
     },
     {
+      "analysis": {"aim":{"aimAngleDegrees":14.153553863804223,"ghostCenterMeters":{"x":-0.7156440019607544,"y":0.8285750150680542,"z":-0.17397283017635345},"pocket":"topLeft","pocketAimPointMeters":{"x":-1.312000036239624,"y":0.800000011920929,"z":-0.6769999861717224},"targetBallKey":"_8"},"cueCushionContacts":[{"cushionIndex":4,"mainRail":"negativeX","phase":"afterFirstContact","timeSeconds":1.604736566543579}],"cueTravelDistanceMeters":2.2150702705165024,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":14.572670976992754,"ballKey":"_8","cueAngularVelocityRadiansPerSecond":{"x":-24.832887649536133,"y":0,"z":50.97241973876953},"cueClothSlipSpeedMetersPerSecond":5.960464477539063e-08,"cueForwardRollRatio":0.9999999748489031,"cueMotionState":"rolling","cueSpeedMetersPerSecond":1.6201949189541738,"cueVelocity":{"x":-1.456536889076233,"y":0,"z":-0.7095997929573059},"timeSeconds":0.6253994107246399},"schemaVersion":1},
+      "recordedDirection": {"x": -0.8989884853363037, "z": -0.43797212839126587},
       "after": {
         "onTable": {
           "_7": {
@@ -533,8 +547,8 @@
             "y": 0.37780582904815674
           },
           "cueBall": {
-            "x": 0.2238226681947708,
-            "y": 0.20150406658649445
+            "x": 0.2256225049495697,
+            "y": 0.2025495320558548
           }
         }
       },
@@ -573,6 +587,8 @@
       }
     },
     {
+      "analysis": {"aim":{"aimAngleDegrees":16.982414328968108,"ghostCenterMeters":{"x":-0.7156440019607544,"y":0.8285750150680542,"z":-0.17397283017635345},"pocket":"topLeft","pocketAimPointMeters":{"x":-1.312000036239624,"y":0.800000011920929,"z":-0.6769999861717224},"targetBallKey":"_8"},"cueCushionContacts":[{"cushionIndex":4,"mainRail":"negativeX","phase":"afterFirstContact","timeSeconds":1.609703779220581}],"cueTravelDistanceMeters":2.467130074309536,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":17.482054989960112,"ballKey":"_8","cueAngularVelocityRadiansPerSecond":{"x":-22.1774845123291,"y":0,"z":51.882667541503906},"cueClothSlipSpeedMetersPerSecond":1.3328003749250113e-07,"cueForwardRollRatio":0.9999999393475032,"cueMotionState":"rolling","cueSpeedMetersPerSecond":1.6123118730796127,"cueVelocity":{"x":-1.4825472831726074,"y":0,"z":-0.633721649646759},"timeSeconds":0.7057539820671082},"schemaVersion":1},
+      "recordedDirection": {"x": -0.9195164442062378, "z": -0.39305129647254944},
       "after": {
         "onTable": {
           "_9": {
@@ -580,8 +596,8 @@
             "y": 0.37780582904815674
           },
           "cueBall": {
-            "x": 0.26661157608032227,
-            "y": 0.2488792985677719
+            "x": 0.2693338096141815,
+            "y": 0.25033992528915405
           }
         }
       },
@@ -616,11 +632,13 @@
       }
     },
     {
+      "analysis": {"aim":{"aimAngleDegrees":19.281133999545307,"ghostCenterMeters":{"x":-0.7156440019607544,"y":0.8285750150680542,"z":-0.17397283017635345},"pocket":"topLeft","pocketAimPointMeters":{"x":-1.312000036239624,"y":0.800000011920929,"z":-0.6769999861717224},"targetBallKey":"_8"},"cueCushionContacts":[{"cushionIndex":4,"mainRail":"negativeX","phase":"afterFirstContact","timeSeconds":1.6416577100753784}],"cueTravelDistanceMeters":2.706557820076263,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":19.848066044518045,"ballKey":"_8","cueAngularVelocityRadiansPerSecond":{"x":-19.97774314880371,"y":0,"z":52.46649169921875},"cueClothSlipSpeedMetersPerSecond":0,"cueForwardRollRatio":0.9999999615931817,"cueMotionState":"rolling","cueSpeedMetersPerSecond":1.604237016720149,"cueVelocity":{"x":-1.4992300271987915,"y":0,"z":-0.5708640217781067},"timeSeconds":0.7880683541297913},"schemaVersion":1},
+      "recordedDirection": {"x": -0.9345439672470093, "z": -0.3558475971221924},
       "after": {
         "onTable": {
           "cueBall": {
-            "x": 0.3014286458492279,
-            "y": 0.2894294559955597
+            "x": 0.3048572540283203,
+            "y": 0.2911836802959442
           }
         }
       },
@@ -651,5 +669,5 @@
       }
     }
   ],
-  "updatedAt": "2026-07-24T18:04:07Z"
+  "updatedAt": "2026-10-14T18:30:20Z"
 }

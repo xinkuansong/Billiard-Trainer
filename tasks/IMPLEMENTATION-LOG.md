@@ -5597,3 +5597,157 @@ DrillSceneController独立管理逐杆观察／转镜／瞄准／运动／结果
 ## DR-392 r2 / FL-153 — 补独立示例的球形切换（2026-10-14）
 
 r1只验证连续走位与缺球停止，漏掉反复打同一目标球的独立首杆组。r2依据保存的前after／后before识别作者重新摆球，新增arranging阶段：保留相机，球移位／恢复完成后才求解并调用共享转镜；换球形可暂停，取消旧代次及根动作。必须以初级蛇彩球形1完整8杆回归，另验证连续4杆不重摆。
+
+### DR-392 r3 / FL-153 · 上手试打序列共用镜头时序（2026-10-14）
+
+- 用户授权：补上手试打序列，连续走位不得跳球；安装真机，自行测试、不录像。
+- `SequenceSceneTransition`同时服务详情和试打：作者换球判定、摆球淡入、共享第三人称入口、杆间停留。
+- 试打自动接杆从可见球位求解并保留自然回放终位；手动选杆恢复作者before；转镜完成后才瞄准出杆。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-392 r3 / FL-153、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+- 本轮验证与真机结果以`tasks/DRILL-SEQUENCE-CAMERA-20261014.md` r3及复核报告为准。
+
+### FL-155 · macOS进程列截断导致模拟器占用漏检（2026-10-14）
+- 现象：`ps -axo pid=,comm=,args=` 将comm截为`/Applications/Xc`，按basename匹配xcodebuild会漏检；`-ww`并不能修复非末列comm的宽度。本轮删除前检查发现，尚未执行任何存量删除。
+- 修正：分别读取末列为comm、args的两份完整输出，以PID关联；可执行文件路径支持空格，无法关联参数时按占用未知保护。真实读回识别正在其他设备运行的PID42988与目标A0E93E68；新增真实格式夹具测试。
+- 规则改进/已应用至：`.cursor/rules/60-devops-release.mdc` FL-155；`scripts/simulator_lifecycle.py`。本轮生命周期22项通过，含限定UDID清理不会波及其他可清理设备。上轮已保留的58台不受该漏检影响，原工具测试通过范围不等同于覆盖真实ps输出边界。
+
+
+### FL-156 · 流式解压须消费到END，不能把单次OK当失败（2026-10-14）
+- 蛇彩轨迹无损压缩首轮，解压器只调用一次compression_stream_process；6.16MB真实文件首次返回OK且仍有内部待输出数据，被错误拒绝为corruptPayload。r1失败日志保留，定位后主动中止剩余依赖回归，未计通过。
+- 系统库独立探针确认同一载荷需8次调用才到END；修正为有进度地循环，保留输出上限、截断／尾随数据拒绝、长度和SHA256验证。新增完整五杆大载荷及旧格式兼容检查，不能只测小字符串自编自解。
+- 已应用至：`.cursor/rules/10-ios-architect.mdc` FL-156；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（仅存储，UI/API不变）。验证结果见`tasks/SNAKE2-REPLAY-FIX-20261014.md`。
+
+FL-156补充：r2完整流复验恢复正常轨迹，但尾随字节拒绝用例揭示Compression可能消费尾随填充；最终采用系统zlib的精确剩余输入计数和Z_STREAM_END判定，保留原拒绝断言。原生JSON旧格式夹具改为直接拼入既有原始JSON字节，避免NSNumber重写数字；轨迹精度断言不变。
+
+FL-155补充（2026-10-14）：全库引擎核验被generic build-for-testing误判占用持续拦住。仅排除单一generic、无UDID且无测试动作的纯编译；实际测试／多目标／未知仍保护。生命周期23项通过，未删除设备或抢占租约。已应用至scripts/simulator_lifecycle.py及60-devops-release.mdc；证据output/sequence-current-engine-audit-20261014/lifecycle-check.log。
+
+
+## DR-393 — 练习页第二轮信息精简（2026-10-14）
+- **任务**：用户明确授权的跨页信息一致性反馈。
+- **原始规范**：第1批通过解按钮长按承接详情；计划原生菜单以当前编辑项打勾；默认推荐与自绘同色。
+- **调整后**：`TeachingSolutionButton(count:currentIndex:enabled:next:isModified:)`只负责显示解k/N并点击循环，不接受详情或列表选择回调。`PlanningPanel`只保留help；普通i提示按事件和步骤计时3秒，持久失败及约束差异不自动隐去。计划popover以isFilled显示绿勾，球项用PoolBallFace，袋项用第一杆/第二杆；推荐落区用BTScenePalette.recommendedRegionAmber虚线，自绘青色实线。
+- **原因**：控件已经承载解数和选项，台面与长按再次展示增加理解负担；编辑焦点不是完成状态。用户否决淡紫色，批准亮琥珀色方案。
+- **已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md`第二轮组件合同；对应页面源码。验证结论独立记录于`tasks/ui-reviews/UR-20261014-information-consistency-r2.md`，不以第1批证据替代。
+- **日期**：2026-10-14
+
+## DR-394 — 球库预览落点与提示图标独立语义（2026-10-14）
+
+- 用户确认：角度与瞄准补球库拖动；相关页保持正常拖动球径、避手指且预览与松手落点一致；自动消失提示不带x，提示统一i。
+- 原因：旧42pt独立球径；教学ghost位于安全区偏移内层而输入在外层；松手才做避碰/编排均分；常驻状态被一并隐藏图标；44pt关闭框参与顶部对齐。
+- 实现：BTPalettePlacement消费TableProjector当前renderer球径与各页palettePlacement纯约束，预览/提交采用相同输入。教学ghost移到手势外层；台面拖动用TableBallPulse恢复原始scale/pivot，点击定位pulse保留。编排辅助线共享纯均分结果。BTTeachingInformationLayer首基线对齐且不接onDismiss；PlanningInformationOverlay提示显式i；翻袋/颗星区分真实读数和提示。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md DR-394；任务范围、状态与验证以tasks/table-page-adaptation/PALETTE-DRAG-20261014.md为准。
+
+
+DR-394追加（同日用户反馈）：拖出后不能继续使用球库PoolBallFace。最终预览改为BTPaletteBallModel复制当前台面真实球网格/材质、灯光与相机方向，由透明SceneKit视图按正常物理球径渲染；预览树不进入VM球集合与求解状态。原贴纸预览阶段证据不作为最终外观验收，专项记录追踪模型阶段复验。
+
+## DR-395 — 批量编排方向尺与选杆重录（2026-10-14）
+- **原始规范**：只有自由工具显示方向尺，存档载入自动重算，修改依赖逐杆撤回末杆。
+- **调整后**：各工具常驻共享方向尺；以当前方向进入手动微调。存档原样载入；用户选任意杆起重录后续，实际新轨迹录成才提交替换，选择/取消不截断。顶部快捷入口按实际球库触控空间显示，更多菜单始终保留入口。
+- **原因**：用户在竖屏 iPad 重新录制旧序列，需要保留当前物理与瞄准改进，并能直接定位待修杆。
+- **证据与边界**：[任务](BATCH-AUTHORING-RERECORD-20261014.md)；FL-159 记录小屏视觉返工；不自动写原序列数据。
+
+## DR-396 — 个人 iPad 竖屏编排工作台（2026-10-14）
+- 用户批准：固定球位微调、左右栏常用动作、只读初始球形及返回、显式从头重录、保存留在当前页。
+- 行为：查看保留内存编辑状态；任何选杆替换延迟到实际轨迹成功录成。初始来源优先第一杆 before。当前物理/瞄准算法与原序列文件不修改。
+- 已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md` DR-396；实现与验证见 `tasks/BATCH-AUTHORING-RERECORD-20261014.md`。
+
+DR-396追加（2026-10-14）：用户确认“回上一杆球形”是保留已录杆、恢复最近一杆起点、换母球后追加；右侧独立按钮与重录并存，取消挂起替换状态，六字标题自然两行。已应用至 UI-IMPLEMENTATION-SPEC.md DR-396；本轮不写序列存档。
+
+## DR-397 — 单杆替换与后续重录明确分开（2026-10-14）
+- 用户确认名称：右栏「选杆重录」只替换所选杆；原功能改名「选杆重录后续」。两者选杆/取消/失败均不改历史，实际轨迹录成才提交。
+- 单杆模式保留其余杆的ID、球形、参数、轨迹、顺序，选中杆备注沿用；本杆重录跟踪最近单杆替换位置，避免误截断末尾。编排预览逐杆从各自before播放；不改引擎/瞄准算法和原文件。
+- 已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog DR-397；实现与验证见`tasks/BATCH-AUTHORING-RERECORD-20261014.md`第四轮。
+
+FL-160：单杆UI新增循环查询标识插值漏写，r1测试失败；修正测试并重跑完整UI，生产未变。已应用至`.cursor/rules/55-test-engineer.mdc` FL-160；证据见第四轮任务记录。
+
+FL-161（2026-10-15）：root等长wait先于球节点最终帧导致真机偶发接续失败。换球改为逐节点动画完成屏障，连续走位/序列/物理/瞄准不变。已应用至`.cursor/rules/55-test-engineer.mdc` FL-161；复现及修复验收见`tasks/SEQUENCE-INTERMITTENT-STOP-20261015.md`。
+
+## FL-162 — 序列更新不能触发全局旧方向校验失败（2026-10-15）
+- 现象：重录同步后各球形统一报“当前球位无法接续”。旧方向兼容表绑定的 c042/manual02 已改名／改内容，静态 registry 缓存 missingArchive，并让所有 solve 在调用物理引擎前返回 nil。
+- 漏检：上轮只验证 JSON 解码与同步一致性，没有执行生产回放入口；按稳定 drill/token 比对漏报了三个中文文件名变化。
+- 修复：按用户授权撤除旧方向表、全局注册表与调用分支；before + 当前引擎为唯一回放求解路径，原序列／物理／瞄准不变。
+- 强制检查点：内容替换必须覆盖包内实际生产解析及播放器，不能以源文件可解码代替回放；单条坏数据须验证不会污染其他条目，稳定标识与完整文件名分别核对。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` FL-162；证据和最终验证状态见 `tasks/CURRENT-ENGINE-REPLAY-20261015.md`。
+
+
+## 2026-10-15 — 序列方向持久化与生产定向回放（ADR-P11-20）
+- 已先备份215份JSON，再为103份当前源/639杆插入recordedDirection，并同步98份生产资源；原字段逐字节可还原，历史备份不变。物理方程及原求瞄不改，编排台保存当次实际方向。
+- 95个有杆生产球形629杆、48次连续接续、两库/五分点各三轮、编排18测及试打3测通过；最终构建与方向/持久化契约9测通过。
+- 保存方向与旧求瞄在相同before输入下逐位一致；独立解码出现原引擎字典顺序相关的既有浮点波动，实测最大停点0.000194mm、采样位置0.000228mm。保留失败对照日志，未放宽生产物理阈值。
+- 非生产4份旧草稿的5次连续接续不一致单列，原球位不改且未发布。教程C1新鲜度86项未过，不伪造媒体时间；未安装用户设备/提交发布。证据与边界：[任务](DIRECTION-ONLY-REPLAY-20261015.md)。
+
+## DR-398 — 蛇彩练习复用标准球桌（2026-10-15）
+
+用户确认v1.1后授权实现：练习→练新增蛇彩；5/8/10/15球、沿线/按号清台、可随机号位。顶部仅本局N球；首杆自由摆母球、指定目标、禁碰其他待打球、自由袋口；失误重打/重开，无成绩或使用统计。复用FreePlayView标准菜单/布局/相机/回放，新增可选onCommittedPracticeShot完整提交回调，默认nil、回放不触发。配置与规则独立于通用比赛引擎。详见tasks/table-page-adaptation/SNAKE-PRACTICE-PLAN-20261015.md；模拟器证据见output/snake-practice-20261015/r1/REPORT.md，未真机/提交/发布。
+
+### DR-398 r2 — 连续球数与两项设置（2026-10-15）
+
+用户截图反馈覆盖r1：设置仅保留目标球数与清台方式，删除预览、摘要、排列开关和换组；球数支持3～15，系统菜单选择，按号每次开始自动随机。摆法参考动作库c042/c069/c071连续5/10/15球的15～16cm球心间距，统一按台长1/16居中扩展；禁止少球也撑满固定长度。此为产品归纳摆法，不宣称官方标准。已应用至本文件DR-398行为定义；任务合同v1.2与output/snake-practice-20261015/r2/REPORT.md保留计算/来源和验证。
+
+### FL-165 · 已公布答案的认知题不应提供同题重试（2026-10-15）
+
+用户指出3D角度结果页已知答案仍提供「重试」没有训练意义。移除2D/3D角度、瞄准点四入口按钮与状态回退，结果只继续下一题或总结；保留旧记录兼容。已应用至训练方案v2、docs/05、ADR与UI-IMPLEMENTATION-SPEC：答案揭晓后的认知练习默认不允许同题再作答，除非用户明确要求。验证见output/angle-aim-rules-20261015/r2-no-retry/REPORT.md。
+
+### DR-398 r3 — 蛇彩本地记录与失误选择（2026-10-15）
+
+用户最终授权覆盖原不记成绩及临时“犯规只能重开”方案：球数/玩法即时记忆，设置下方原生列表近10次；失误弹原生双操作“重打本杆/重新开始”。合法重打继续同一局、正常计分；重开/换配置/退出幂等结束旧局；合法清台成功，未清完失败，只计算合法完成数。最后一杆撤销重新打开同一ID。仅本页UserDefaults Codable档案，最多10条已结束＋1活动检查点；异常退出下次进入归档，非续局、不接SwiftData统计/同步。已应用至本文件DR-398行为定义及蛇彩方案v1.3；生产控制器/设置/FreePlayView与定向测试。
+
+
+### FL-163补充 — 资料读取与教学理解分开验收（2026-10-15）
+
+R4把独立首杆误解为无下一颗任务；“已读”摘要、截断输出和工作树旧技能不能证明当前资料已完整加载。主控与作者、审稿均须按文案入口实际读取、先独立形成逐杆教学判断，再分层验收；机器门禁不替代语义。旧固定模板/留空/图文绝对去重已清理，v40原件备份。已应用至billiard-copy-editing、tutorial-authoring、内容工程/迁移技能、主控和QA入口；统一规范v1.2、UI-IMPLEMENTATION-SPEC Changelog（无UI/API变化）。本轮不改样稿/正式内容，R5未完成；验证见output/drill-copy-rewrite-20261015/workflow-refresh/。
+
+FL-164 r3补充（2026-10-15，蛇彩）：原生UIAlert按钮在iOS26 AX树中有同标识的父子Button节点，应限定已观察的firstMatch并验证结果；长球数菜单在横屏需滚动实际menu scrollView后查找，保留全部13档断言。软重启前同步XCUIDevice方向，不能把设置标题截断的截图交付为视觉通过。进一步取证发现测试的小幅拖动未超过共享52pt手指避让死区，母球并未移动，实际仍为初始薄球母球落袋；不可把预期摆位当实际输入。拖动必须跨死区，并断言真实世界坐标后再测合法切球/回放。首轮phone.xcresult及probe.xcresult保留；最终通过范围另记r3报告。
+已应用至 `.cursor/rules/55-test-engineer.mdc` FL-164；只修测试定位/输入与弹窗重复提示，未弱化产品判罚。
+
+蛇彩DR-398 r3收尾：build-r8、23单测、标准手机5方法（4＋1补测）及SE5方法验证通过；原失败包与菜单/拖动取证保留。效果、源码快照与门禁边界：output/snake-practice-20261015/r3/REPORT.md。无真机/提交/发布。
+
+
+### DR-398 r4 — 蛇彩零出杆不记录（2026-10-16）
+
+用户修订：未出杆退出不产生训练记录。控制器以独立attemptHasStruck判定本局曾出杆，首次prepareShot才持久化活动检查点；重打不会清除本局尝试事实。退出/重开/换配置统一门槛，已出杆但零进球仍记录。未扩展存储字段、未回溯清除旧0/N。已应用至UI-IMPLEMENTATION-SPEC、产品规格和数据契约；验证见output/snake-practice-20261016/r4/REPORT.md。
+
+## DR-399 — 四入口训练设置默认综合混合（2026-10-16）
+
+用户指定2D/3D角度与瞄准点，20题及自由练习默认综合0–70°、母球距离/目标球距袋/袋型混合；「练习模式」替代「练习长度」，球形条件默认展开。共用配置与页面一次修改覆盖全部；新偏好命名空间覆盖旧版初始配置，随后手选值照常记忆，训练中编辑保留当前配置。回写20-swiftui-developer.mdc及UI-IMPLEMENTATION-SPEC，验证见output/angle-aim-rules-20261016/r3-defaults/。
+
+### DR-398 r5（2026-10-16）：蛇彩八项反馈与共用决策主题
+
+用户明确要求三种顺序、默认从右到左、数量改名、入口置末、首杆自由球提示、左上重开、菜单精简、网格重复开启与临时俯视避让修复；确认卡沿用每日结构，浅黑深白，同类页面统一。实施与失败原始证据统一在output/snake-practice-20261016/r5；首次UI两项等待旧Other容器失败，原生图确认新卡存在，改按操作按钮ID验证后重测，未调整规则来迎合测试。
+
+已应用至：tasks/UI-IMPLEMENTATION-SPEC.md DR-398 r5；tasks/table-page-adaptation/SNAKE-PRACTICE-PLAN-20261015.md §15。共用几何与主题API随最终构建及手机/SE实际截图验证，真机/发布另计。
+
+
+## DR-094 r2 / FL-166 — 训练浮窗拖动与右侧吸附（2026-10-16）
+- 用户批准先前分析方案：两类最小化浮窗可拖，松手贴右；同场分别记忆高度，新训练重置。
+- 共享浮层新增可选position与top障碍；首页未启用拖动。训练VM仅持有临时UI位置，不改变计时/成绩保存。
+- FL-166首轮尺寸回传为零造成越界，改直接自然尺寸测量；失败与修后证据均保留。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-094 r2 / FL-166；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+- 验证及遗留：见`tasks/ui-reviews/UR-20261016-floating-pill-drag.md`；未提交/发布，真机待体验。
+
+### FL-163补充 — 球角色与跨页面方位（2026-10-16）
+用户复阅指出c012单母球练习被写入“不需要先碰目标球”，c033横桌详情却沿用竖图右下角袋。此前验收漏核语义及共享文字的实际朝向，相关结论重开。本轮冻结资源，全库区分母球起点标记、实际目标与下一颗，标记定义仅基础动作引入；方向在显示边界按实际2D布局转换，精讲保留竖图参考，左右塞等非屏幕语义不得改。首要点及试打独立/连续说明纳入真实消费者验证。27动作45叶修订、370字段显示核查、12单测+6UI通过，2901保护项一致；iPad已打开供复阅。状态与证据边界见tasks/DRILL-COPY-ORIENTATION-20261016.md，未提交/发布。
+- 已应用至：统一规范v1.6、billiard-copy-editing/SKILL.md、geometry/content技能和table-geometry.md、UI-IMPLEMENTATION-SPEC Changelog。
+
+### FL-163补充 — 打点存档与展示百分比（2026-10-16）
+主控审c064时误把spinY=-0.4627直乘100称“低46%”，据此给出过强返工理由；交叉审图HUD低93%发现分母缺失。实际SpinDisplay为spin/miscueLimitFraction×100，当前极限0.5；已核源码、向用户及作者更正。新版“按图中的低打点击球”仅避免“下缘”含糊，不再把原稿判成46%事实错误。原shot、图片及物理未改。已应用至billiard-copy-editing/SKILL.md §FL-163补充及UI-IMPLEMENTATION-SPEC Changelog；该项闭环，不代表全库X/F通过。
+
+
+## DR-094 r3 — 首页训练入口标准胶囊（2026-10-16）
+用户明确选择普通工具页胶囊。TrainingHomeView 复用默认 BTAdaptiveToolActionStyle，训练/继续使用 target，自由使用已有工具页也采用的路径 SF Symbol；沿用现有定位与点击动作。规范同步至 UI-IMPLEMENTATION-SPEC Changelog、swiftui-design-system §训练浮层胶囊。验证与边界见 `ui-reviews/UR-20261016-training-entry-style.md`。
+
+## DR-400 — 练Tab普通页顶部标题归一（2026-10-16）
+
+用户指定以“瞄准原理”顶部标题为基准。LearnReadingNavigation的7个阅读/交互文档消费者由中性色改为btPrimary；角度预测、瞄准点训练由btSubheadlineSemibold/btText改为btHeadline/btPrimary（17pt semibold）。既有原生inline页本已符合，不改全局导航或字体token。球桌紧凑/双行状态顶栏、首页卡片名和正文分节不在此统一范围。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` §DR-400；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+- 验证及未验边界：`tasks/ui-reviews/UR-20261016-practice-titles.md`；不把本轮样式验证当作同期阅读文案验收。
+
+
+## DR-094 r4 / FL-167 — 默认选中态与确认稿比例返工（2026-10-16）
+用户指出原生效果差异，后续明确参考训练Tab选中态且默认就是选中。BTAdaptiveToolActionStyle新增默认不启用的isSelected与regular尺寸；首页显式使用，普通工具页默认不迁移。BTTrainingEntryIcon提供同网格靶心/横向路径，恢复稿件15pt/16pt/16pt比例。
+- 已应用至：swiftui-design-system §训练浮层胶囊；UI-IMPLEMENTATION-SPEC Changelog；FAILURE-LOG FL-167。原r3技术验证保留，视觉结论被用户反馈重开。
+
+
+## DR-094 r5 — 首页入口收紧留白（2026-10-16）
+用户要求长度更短、图文更紧凑。常规工具胶囊水平内边距16→12pt，首页图文间距8→4pt；保留15pt文字、16pt图标及44pt触点。regular目前只有首页消费。
+- 已应用至：swiftui-design-system §训练浮层胶囊；UI-IMPLEMENTATION-SPEC Changelog。证据见ui-reviews/UR-20261016-training-entry-style.md。

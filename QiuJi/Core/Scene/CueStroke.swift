@@ -4,20 +4,49 @@ import SceneKit
 ///
 /// 所有「有击球」的场景（走位编排台 / 思路训练器 / 斯诺克战术 / 分离角轨迹模拟）
 /// 与离线出片导出器（`SequenceVideoExporter`）共用同一套公式：
-/// 回杆距离 `d = a + k·v`（线性）→ 回杆 smoothstep（0→d）→ 蓄力停顿（d）→
-/// 匀加速出杆（d→0），**触球瞬间杆速恰为目标球速 v**（`a_accel = v²/(2d)`，前推时长 `t = 2d/v`）。
+/// One rehearsal → address pause → final backswing → back pause → delivery.
+/// Excursion and preparation tempo vary continuously with the selected cue speed.
+/// Delivery reaches that cue speed at contact; it does not drive the ball physics.
 ///
 /// 实时场景用 `AngleTrainingScene.runCueStroke(...)`（`SCNAction` 驱动）；
 /// 导出器逐帧采样用 `pullBack(at:velocity:)`。二者共享下列常量与曲线，杜绝多份漂移。
 enum CueStroke {
-    /// a：最小回杆距离 (m)。
-    static let basePullBack: Float = 0.05
-    /// k：每 1 m/s 杆速增加的回杆距离 (s)。
-    static let pullBackPerSpeed: Float = 0.035
-    /// 回杆时长（慢、带缓动，模拟瞄准后撤杆）。
-    static let backswingDuration: TimeInterval = 0.5
-    /// 回杆到位后的停顿（出杆前蓄力一拍）。
-    static let pauseDuration: TimeInterval = 0.12
+    /// Extra axial gap at address and the end of the rehearsal. Never touch early.
+    static let addressPull: Float = 0.003
+    static let maximumPullBack: Float = 0.32
+
+    /// Frozen per-shot timing, shared by realtime and frame-by-frame export.
+    struct Timing {
+        let velocity: Float
+        let rehearsalDistance: Float
+        let pullBackDistance: Float
+        let rehearsalDuration: TimeInterval
+        let addressPause: TimeInterval
+        let backswingDuration: TimeInterval
+        let backPause: TimeInterval
+
+        var rehearsalBackDuration: TimeInterval { rehearsalDuration * 0.55 }
+        var backswingStart: TimeInterval { rehearsalDuration + addressPause }
+        var backPauseStart: TimeInterval { backswingStart + backswingDuration }
+        var deliveryStart: TimeInterval { backPauseStart + backPause }
+        var forwardDuration: TimeInterval { 2 * Double(pullBackDistance) / Double(velocity) }
+        var contactTime: TimeInterval { deliveryStart + forwardDuration }
+    }
+
+    static func timing(velocity: Float, rehearsalEnabled: Bool = true) -> Timing {
+        let v = clampedSpeed(velocity)
+        // 0.5–10 m/s spans ordinary shots and the existing break-shot control.
+        let strength = min(1, max(0, (v - 0.5) / 9.5))
+        let excursion = powf(strength, 0.8)
+        let finalExcursion = powf(strength, 0.7)
+        return Timing(velocity: v,
+                      rehearsalDistance: 0.03 + 0.17 * excursion,
+                      pullBackDistance: 0.065 + (maximumPullBack - 0.065) * finalExcursion,
+                      rehearsalDuration: rehearsalEnabled ? 0.80 + 0.30 * Double(strength) : 0,
+                      addressPause: rehearsalEnabled ? 0.25 + 0.10 * Double(strength) : 0,
+                      backswingDuration: 0.55 + 0.25 * Double(finalExcursion),
+                      backPause: 0.18 + 0.10 * Double(strength))
+    }
 
     /// 触球后的跟杆（follow-through）减速送杆时长。
     static let followThroughDuration: TimeInterval = 0.2
@@ -56,48 +85,65 @@ enum CueStroke {
         return min(0, max(ballLimit, clothLimit))
     }
 
-    /// 触球后送杆量（`pullBack`）：0 → `endPull`，ease-out（触球瞬间最快、随后减速到停）。
+    /// Follow-through starts at the incoming cue speed and decelerates to rest.
+    /// A nil velocity retains the envelope-only curve used by geometry callers.
     /// - Parameter endPull: defaults to unclamped `followThroughPull` (−3R).
-    static func followThrough(at t: TimeInterval, endPull: Float? = nil) -> Float {
+    static func followThrough(at t: TimeInterval, endPull: Float? = nil, velocity: Float? = nil) -> Float {
         let end = endPull ?? followThroughPull
-        let u = Float(min(1, max(0, t / followThroughDuration)))
-        let ease = 1 - (1 - u) * (1 - u)        // 减速曲线（ease-out）
-        return end * ease
+        guard end < 0 else { return 0 }
+        let u = min(1, max(0, t / followThroughDuration))
+        let exponent = velocity.map { Double(clampedSpeed($0)) * followThroughDuration / Double(-end) } ?? 2
+        return end * Float(1 - pow(1 - u, max(2, exponent)))
+    }
+
+    /// Keep the established maximum sweep; soft shots use less of it.
+    static func desiredFollowThroughPull(velocity: Float) -> Float {
+        let strength = min(1, max(0, (clampedSpeed(velocity) - 0.5) / 9.5))
+        return -(0.03 + (-followThroughPull - 0.03) * powf(strength, 0.8))
     }
 
     /// 速度下限，避免极慢杆出现除零 / 超长前推。
     private static func clampedSpeed(_ v: Float) -> Float { max(0.3, v) }
 
-    /// 回杆距离 d = a + k·v。
+    /// Final backswing distance, bounded independently of out-of-range input speeds.
     static func pullBackDistance(velocity: Float) -> Float {
-        basePullBack + pullBackPerSpeed * clampedSpeed(velocity)
+        timing(velocity: velocity).pullBackDistance
     }
 
     /// 匀加速前推时长 t = 2d / v。
     static func forwardDuration(velocity: Float) -> TimeInterval {
-        let v = clampedSpeed(velocity)
-        return TimeInterval(2 * pullBackDistance(velocity: v) / v)
+        timing(velocity: velocity).forwardDuration
     }
 
-    /// 一杆总时长 = 回杆 + 停顿 + 前推。
-    static func totalDuration(velocity: Float) -> TimeInterval {
-        backswingDuration + pauseDuration + forwardDuration(velocity: velocity)
+    /// Time to contact, including exactly one rehearsal and both pauses.
+    static func totalDuration(velocity: Float, rehearsalEnabled: Bool = true) -> TimeInterval {
+        timing(velocity: velocity, rehearsalEnabled: rehearsalEnabled).contactTime
     }
 
-    /// 经过时间 `t`（秒）时的回杆量：回杆 smoothstep 0→d、停顿 d、出杆匀加速 d→0。
-    static func pullBack(at t: TimeInterval, velocity: Float) -> Float {
-        let v = clampedSpeed(velocity)
-        let d = pullBackDistance(velocity: v)
-        let accel = v * v / (2 * d)                          // v² = 2·a_accel·d
-        if t < backswingDuration {
-            let u = Float(t / backswingDuration)
-            return d * (u * u * (3 - 2 * u))                 // 回杆 smoothstep
-        } else if t < backswingDuration + pauseDuration {
-            return d                                         // 蓄力停顿
-        } else {
-            let dt = Float(t - backswingDuration - pauseDuration)
-            return max(0, d - 0.5 * accel * dt * dt)         // 匀加速出杆 d → 0
+    /// One non-contact rehearsal, address, final backswing, pause, then delivery.
+    static func pullBack(at t: TimeInterval, velocity: Float, rehearsalEnabled: Bool = true) -> Float {
+        let p = timing(velocity: velocity, rehearsalEnabled: rehearsalEnabled)
+        guard t > 0 else { return addressPull }
+        func ease(_ u: Double) -> Float {
+            let x = Float(min(1, max(0, u)))
+            return x * x * (3 - 2 * x)
         }
+        if t < p.rehearsalBackDuration {
+            return addressPull + p.rehearsalDistance * ease(t / p.rehearsalBackDuration)
+        }
+        if t < p.rehearsalDuration {
+            let u = (t - p.rehearsalBackDuration) / (p.rehearsalDuration - p.rehearsalBackDuration)
+            return addressPull + p.rehearsalDistance * (1 - ease(u))
+        }
+        if t < p.backswingStart { return addressPull }
+        if t < p.backPauseStart {
+            return addressPull + (p.pullBackDistance - addressPull) * ease((t - p.backswingStart) / p.backswingDuration)
+        }
+        if t < p.deliveryStart { return p.pullBackDistance }
+        if t >= p.contactTime { return 0 }
+        let elapsed = t - p.deliveryStart
+        let acceleration = Double(p.velocity) * Double(p.velocity) / (2 * Double(p.pullBackDistance))
+        return Float(max(0, Double(p.pullBackDistance) - 0.5 * acceleration * elapsed * elapsed))
     }
 
     /// 含加塞横向偏移的击球点（杆头对准的母球击球中心）。
@@ -146,7 +192,7 @@ extension AngleTrainingScene {
     }
 
     /// 运杆 / 出杆 / 跟杆动画（#10，单一权威，实时场景用）：
-    /// 回杆 → 蓄力 → 匀加速出杆（触球瞬间杆速 = `velocity`，此刻触发 `onContact` 发球）→
+    /// 一次试运 → 球前定杆 → 后拉 → 后点停顿 → 出杆（此刻触发 `onContact` 发球）→
     /// 减速跟杆（杆头越过母球原中心约一颗球，可被前方球钳制）→ 停留 `followThroughHold` → 淡出收杆。
     /// 无球杆节点时立即回调（直接发球）。
     ///
@@ -162,6 +208,7 @@ extension AngleTrainingScene {
         strikePosition: SCNVector3,
         aim: SCNVector3,
         velocity: Float,
+        rehearsalEnabled: Bool? = nil,
         switchesPlayerCameraOnContact: Bool = false,
         clearanceProbe: ((TimeInterval) -> [String: SCNVector3])? = nil,
         onContact: @escaping () -> Void
@@ -199,25 +246,29 @@ extension AngleTrainingScene {
             return
         }
         let tipInset = resolvedPose?.inset ?? cueTipInset(forStrike: strikePosition) ?? 0
-        let endPull = CueStroke.clampedFollowThroughPull(
+        let clearanceLimit = CueStroke.clampedFollowThroughPull(
             cueBallPosition: renderStrike, aimDirection: aim, obstacleCenters: obstacles,
             elevation: elevation, tipInset: tipInset, surfaceY: surfaceY, profile: stick.clearanceProfile
         )
+        let endPull = max(clearanceLimit, CueStroke.desiredFollowThroughPull(velocity: velocity))
         let drive: (Float) -> Void = { [weak stick] pull in
             lifetime.perform(ifCurrent: generation) {
                 stick?.update(cueBallPosition: renderStrike, aimDirection: aim,
                               pullBack: pull, elevation: elevation, tipInset: tipInset)
             }
         }
-        drive(0)
+        drive(CueStroke.addressPull)
         stick.show()
         stick.setFadeOpacity(1)
 
-        let contactDur = CueStroke.totalDuration(velocity: velocity)
+        // Freeze the preference for this shot; a settings change applies to the next one.
+        let rehearses = rehearsalEnabled ?? CueRehearsalPreference.isEnabled()
+        let contactDur = CueStroke.totalDuration(velocity: velocity, rehearsalEnabled: rehearses)
         let toContact = SCNAction.customAction(duration: contactDur) { _, elapsed in
-            drive(CueStroke.pullBack(at: TimeInterval(elapsed), velocity: velocity))
+            drive(CueStroke.pullBack(at: TimeInterval(elapsed), velocity: velocity, rehearsalEnabled: rehearses))
         }
         let launch = SCNAction.run { _ in
+            drive(0)
             Task { @MainActor in
                 lifetime.perform(ifCurrent: generation) { contact() }
             }
@@ -231,6 +282,7 @@ extension AngleTrainingScene {
                 elevation: elevation,
                 endPull: endPull,
                 holdDuration: CueStroke.followThroughHold,
+                velocity: velocity,
                 ballsAt: probe
             )
         }
@@ -239,6 +291,7 @@ extension AngleTrainingScene {
             collisionT: collisionT,
             endPull: endPull,
             holdDuration: CueStroke.followThroughHold,
+            velocity: velocity,
             drive: drive,
             stick: stick,
             generation: generation
@@ -264,6 +317,7 @@ extension AngleTrainingScene {
         collisionT: TimeInterval?,
         endPull: Float,
         holdDuration: TimeInterval,
+        velocity: Float,
         drive: @escaping (Float) -> Void,
         stick: CueStick,
         generation: UInt64
@@ -277,7 +331,7 @@ extension AngleTrainingScene {
         // No predicted collision: normal follow-through + hold + short fade (not hard cut).
         guard let tStar = collisionT else {
             let followThrough = SCNAction.customAction(duration: followDur) { _, elapsed in
-                drive(CueStroke.followThrough(at: TimeInterval(elapsed), endPull: endPull))
+                drive(CueStroke.followThrough(at: TimeInterval(elapsed), endPull: endPull, velocity: velocity))
             }
             let hold = SCNAction.wait(duration: holdDuration)
             let fadeOut = SCNAction.run { [weak stick] _ in
@@ -297,13 +351,13 @@ extension AngleTrainingScene {
             let preDur = retractStart
             let pre = SCNAction.customAction(duration: preDur) { _, elapsed in
                 let tau = TimeInterval(elapsed)
-                drive(CueClearance.pullBackAfterContact(tau: tau, endPull: endPull))
+                drive(CueClearance.pullBackAfterContact(tau: tau, endPull: endPull, velocity: velocity))
             }
             actions.append(pre)
         }
 
         // Capture pull at retract start for lerp.
-        let pullAtRetract = CueClearance.pullBackAfterContact(tau: retractStart, endPull: endPull)
+        let pullAtRetract = CueClearance.pullBackAfterContact(tau: retractStart, endPull: endPull, velocity: velocity)
         let retract = SCNAction.customAction(duration: fade) { [weak stick] _, elapsed in
             lifetime.perform(ifCurrent: generation) {
                 let u = Float(min(1, max(0, elapsed / CGFloat(fade))))

@@ -17,6 +17,7 @@ enum DrillStaticPreview {
         /// Formation token (`A1`, `manual01`, or `""` for legacy single-file).
         var token: String
         var kind: Kind
+        var recordedStep: SequenceStep? = nil
 
         enum Kind: String {
             case boardSequence
@@ -73,7 +74,7 @@ enum DrillStaticPreview {
         if let formation = DrillTryoutBoardStore.representative(from: formations) {
             let board = formation.steps.first?.before ?? formation.initial
             if let shot = formation.firstShot {
-                return Source(board: board, shot: shot, token: formation.token, kind: .boardSequence)
+                return Source(board: board, shot: shot, token: formation.token, kind: .boardSequence, recordedStep: formation.steps.first)
             }
             if let planned = plannedShot(fromIntent: drill, board: board) {
                 return Source(board: board, shot: planned, token: formation.token, kind: .boardSequence)
@@ -133,9 +134,13 @@ enum DrillStaticPreview {
         }
 
         var nodes: [SCNNode] = []
-        let prediction = precomputed ?? PositionPlayShotSolver.solve(
-            before: source.board, shot: source.shot, surfaceY: scene.surfaceY
-        )
+        let prediction: ShotPrediction? = {
+            if let precomputed { return precomputed }
+            if let step = source.recordedStep {
+                return SequenceReplayResolver.solve(step: step, before: source.board, surfaceY: scene.surfaceY)
+            }
+            return PositionPlayShotSolver.solve(before: source.board, shot: source.shot, surfaceY: scene.surfaceY)
+        }()
 
         if let pred = prediction, pred.feasible {
             TrajectoryRenderer.draw(

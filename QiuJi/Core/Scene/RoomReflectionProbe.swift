@@ -319,6 +319,7 @@ final class RoomReflectionProbe {
     static let cacheCapacity = RoomStyle.allCases.count
     private static var cache: [Inputs: RoomReflectionProbe] = [:]
     private static var recentlyUsed: [Inputs] = []
+    private static var cacheGeneration: UInt64 = 0
 
     /// Cache immutable textures, never the live scene or its mutable materials.
     static func probe(for style: RoomStyle, scene: AngleTrainingScene) -> RoomReflectionProbe? {
@@ -330,6 +331,7 @@ final class RoomReflectionProbe {
             cacheLock.unlock()
             return cached
         }
+        let generation = cacheGeneration
         cacheLock.unlock()
         guard let baked = bake(scene: scene, style: style) else { return neutral }
         cacheLock.lock()
@@ -340,6 +342,7 @@ final class RoomReflectionProbe {
             recentlyUsed.append(inputs)
             return cached
         }
+        guard generation == cacheGeneration else { return baked }
         cache[inputs] = baked
         recentlyUsed.append(inputs)
         while recentlyUsed.count > cacheCapacity {
@@ -348,11 +351,19 @@ final class RoomReflectionProbe {
         return baked
     }
 
+    static func trimToMostRecent() {
+        cacheLock.lock(); defer { cacheLock.unlock() }
+        cacheGeneration &+= 1
+        while recentlyUsed.count > 1 { cache.removeValue(forKey: recentlyUsed.removeFirst()) }
+    }
+
     static func resetCache() {
         cacheLock.lock()
+        cacheGeneration &+= 1
         cache.removeAll()
         recentlyUsed.removeAll()
         cacheLock.unlock()
+        neutralLock.lock(); neutralProbe = nil; neutralLock.unlock()
     }
 
     /// Render only static room/table/light copies from table centre at ball height.

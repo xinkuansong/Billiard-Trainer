@@ -37,8 +37,8 @@ struct AimingPrincipleView: View {
     // MARK: - Section 1: 名词系统
 
     private var termsSection: some View {
-        LearnDocSectionCard(title: "名词系统") {
-            LearnDocText.body("先统一语言：后面所有页面（学习、训练、对局）都使用同一套名词与同一套线条样式。")
+        LearnDocSectionCard(title: "先看清一杆球里的点和线") {
+            LearnDocText.body("想把目标球送向袋口，首先要确定母球从哪里碰上它。下面先看最基本的几何关系：两球大小相同，暂不计碰撞摩擦和母球途中偏转。后面的「瞄准修正」再讨论实际击球为什么会与这个参照有差别。")
 
             AimingFigure(showsGlossaryLabels: true)
                 .frame(height: 250)
@@ -48,7 +48,7 @@ struct AimingPrincipleView: View {
                 termRow("母球", "你用球杆直接击打的白球。")
                 termRow("目标球", "你想送进袋口的球。")
                 termRow("假想球", "与母球等大的虚拟球（虚线圈）：碰撞瞬间母球应到达的位置，恰好与目标球相切。")
-                termRow("瞄准线", "母球球心 → 假想球球心的直线（白色实线），是你出杆的方向。")
+                termRow("瞄准线", "连接母球球心与假想球球心的直线（白色实线），给出这杆球的几何瞄准方向。")
                 termRow("进球线", "目标球球心 → 袋口中心的直线（随目标球本色的虚线）。")
                 termRow("瞄准点", "瞄准线与「过目标球心、垂直于瞄准线的直线」的交点（红点）。它参考目标球定义：瞄准线穿过目标球时在球内/球面上，从旁边经过时在球外——不是假想球心。")
                 termRow("接触点", "碰撞瞬间两球球面相触的点（绿点），在目标球表面、两球心连线上。")
@@ -59,7 +59,7 @@ struct AimingPrincipleView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 13))
                     .foregroundStyle(.btTeachingGuide)
-                LearnDocText.footnote("常见误区：从目标球看向袋口方向（沿进球线）时，你在目标球上看到的那个点，其实是击球过程中正确的「母球与目标球的接触点」（绿点），而不是瞄准点（红点）。直接瞄着这个点打，母球会打厚偏离——瞄准点永远在接触点靠外一侧。")
+                LearnDocText.footnote("接触点是目标球背向袋口一侧、进球线穿过球面的那个点。它告诉你两球应该在哪里相碰，并不是让母球球心直接朝它走。切球时这样直瞄，通常会把球打厚；正球时，两者才在同一条瞄准方向上。")
             }
             .padding(Spacing.md)
             .background(Color.btTeachingGuide.opacity(0.10))
@@ -82,9 +82,9 @@ struct AimingPrincipleView: View {
 
     private var whyAngleSection: some View {
         LearnDocSectionCard(title: "为什么用角度瞄准") {
-            LearnDocText.body("站在球桌旁（第三人称视角），你能看清瞄准线与进球线的夹角 θ——这是对一杆球最客观的描述：θ 越大，球越「薄」，越难打。")
-            LearnDocText.body("但俯身出杆时（第一人称视角），角度消失了：你只能看到母球、目标球和台面。这时能落实的只有一个「点」——瞄准点。")
-            LearnDocText.body("角度瞄准法做的就是这件事：先在第三人称把 θ 看出来，再用几何关系把 θ 翻译成第一人称可执行的瞄准点位置。这座桥梁就是下面的公式 d = 2R × sin(θ)。")
+            LearnDocText.body("从上方看，两球的位置和目标球的进袋方向比较容易分辨。我们用切角 θ 描述这一杆有多厚或多薄：θ 越大，需要碰到的部分越薄。")
+            LearnDocText.body("俯身以后，球位关系没有变，但你看到的是带有远近和遮挡的画面，角度不再像俯视图里那样好读。这时需要把对角度的判断，落到眼前的瞄准方向上。")
+            LearnDocText.body("角度与瞄准点偏移之间有确定的几何关系：d = 2R × sin(θ)。理解它，可以帮助你把「大约多少度」与「应该瞄多偏」联系起来。练熟一些典型球形后，就不必每杆临时计算。")
 
             // D-v14-6：同「学」互链用轻量文字行，不占 PracticeCTA 大卡配额。
             LearnDocTextLink(
@@ -103,7 +103,7 @@ struct AimingPrincipleView: View {
                 .frame(height: 250)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
 
-            LearnDocText.body("切角 θ 是瞄准线与进球线之间的夹角，范围 0°（正对）到 90°（极薄）。图中把 θ 标注在两条线的反向延长线（虚线）夹角处——两条线在假想球心相交，向后延长后夹角相同、且不与球重叠，读图更清晰。")
+            LearnDocText.body("切角 θ 是母球入射方向与目标球预期进袋方向的夹角。正球是 0°，越接近 90° 越薄；90° 是擦边的几何极限，不能当作正常有撞击量的进球。图中把两条线反向延长，在假想球心后方标出相同的夹角，方便避开球体读图。")
         }
     }
 
@@ -111,7 +111,7 @@ struct AimingPrincipleView: View {
 
     private var derivationSection: some View {
         LearnDocSectionCard(title: "公式从哪来", titleLevel: .subsection) {
-            LearnDocText.body("知道了切角 θ，就能算出瞄准点偏移量——不必先背公式，先记住「θ → 偏移 → 瞄准点」。")
+            LearnDocText.body("这里的偏移量 d，指目标球心到瞄准线的垂直距离。看清下面这个直角三角形，就能知道它与切角有什么关系。")
 
             LearnDocFormulaNest(title: "几何推导（速查）") {
                 DerivationFigure()
@@ -124,7 +124,7 @@ struct AimingPrincipleView: View {
                     derivationStep(3, "直角三角形中「对边 = 斜边 × sin(夹角)」，所以垂线段长 d = 2R × sin(θ)。这条垂线的垂足就是瞄准点：它到目标球心的距离恰好是 d。")
                 }
 
-                LearnDocText.footnote("这就是为什么知道了角度就能找到瞄准点：θ 决定 sin(θ)，sin(θ) 决定偏移量 d，d 决定瞄准点在过目标球心垂线上的位置。")
+                LearnDocText.footnote("角度越大，d 越大，瞄准点越偏离目标球心。还要结合球在袋口哪一侧，判断偏向左还是右；公式给出的是距离大小。")
             }
         }
     }
@@ -145,7 +145,7 @@ struct AimingPrincipleView: View {
 
     private var coreFormulaSection: some View {
         LearnDocSectionCard(title: "核心公式", titleLevel: .subsection) {
-            LearnDocText.body("实战里最常用的是这一条：把切角翻成瞄准点偏移。")
+            LearnDocText.body("需要核对数值时，可以查下面的公式。R 是球半径，2R 就是一个球的直径。")
 
             LearnDocFormulaNest(title: "速查表") {
                 HStack {
@@ -161,8 +161,8 @@ struct AimingPrincipleView: View {
                 }
 
                 VStack(alignment: .leading, spacing: Spacing.xs) {
-                    formulaRow("d", "偏移量（瞄准点到目标球心的距离，也等于假想球心的横移量）")
-                    formulaRow("R", "球半径（中八 28.575mm）")
+                    formulaRow("d", "目标球心到瞄准线的垂直距离；横向均以垂直于瞄准线为准")
+                    formulaRow("R", "球半径（本页按球径 57.15 mm，即 R = 28.575 mm）")
                     formulaRow("θ", "切角（0°–90°）")
                     formulaRow("d/R", "= 2sin(θ)，无量纲比")
                 }
@@ -171,7 +171,7 @@ struct AimingPrincipleView: View {
                     .frame(height: 140)
                     .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
 
-                LearnDocText.footnote("30° 示例：sin(30°) = 0.5，d = 2R × 0.5 = R，即假想球中心偏移一个球半径。")
+                LearnDocText.footnote("30° 示例：sin(30°) = 0.5，因此 d = R。沿瞄准方向看，母球球心的行进线恰好对着目标球边缘，这就是半球的几何关系。")
 
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text("派生公式")
@@ -181,7 +181,7 @@ struct AimingPrincipleView: View {
                     Text("接触点偏移 = R × sin(θ)")
                         .font(.system(size: 14, design: .monospaced))
                         .foregroundStyle(.btText)
-                    LearnDocText.footnote("仅描述目标球表面接触点位置，不是瞄准主公式。")
+                    LearnDocText.footnote("同样沿垂直于瞄准线的方向量取，接触点相对目标球心的偏移只有 d 的一半。这也是切球时不能让母球球心直接瞄向接触点的原因。")
                 }
             }
         }
@@ -210,10 +210,10 @@ struct AimingPrincipleView: View {
                          description: "连接目标球中心与袋口中心点。")
 
             ghostBallStep(number: 2, title: "放置假想球",
-                         description: "在进球线反方向放置一个与母球等大的圆。假想球中心 = 目标球中心 − 2R × 进球方向。")
+                         description: "在目标球背向袋口的一侧，想象一颗与母球等大的球，让它与目标球相切。两个球心相距 2R，连心线与进球线重合。用向量表示，就是：假想球心 = 目标球心 − 2R × 进球方向单位向量。")
 
             ghostBallStep(number: 3, title: "沿瞄准线出杆",
-                         description: "母球朝假想球圆心方向出杆。这条瞄准线与「过目标球心的垂线」的交点就是瞄准点（红点）——瞄准线定了，瞄准点随之确定。接触瞬间，白球与目标球连心线与进球线重合。")
+                         description: "让母球球心朝假想球心走，母球到达那里时，就会在预期位置碰上目标球。先用这条线建立几何参照，实际需要的让点，再结合力度和杆法判断。")
         }
     }
 
@@ -240,6 +240,7 @@ struct AimingPrincipleView: View {
 
     private var thicknessSection: some View {
         LearnDocSectionCard(title: "厚薄球概念") {
+            LearnDocText.body("厚薄说的是沿瞄准方向看，两球横向重叠的比例。这里用等比例投影示意：满球全部重叠，四分之三球重叠 75%，半球重叠 50%。它们适合用来记住常见球形，真实低视角下还要考虑透视。")
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())],
                       spacing: Spacing.lg) {
                 thicknessCard(from: AngleSceneCalculator.fullBall, offset: "0%")

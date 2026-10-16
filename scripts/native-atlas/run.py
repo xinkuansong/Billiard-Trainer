@@ -6,6 +6,9 @@ No automatic retries: failed jobs retain evidence and independent jobs continue.
 import argparse, concurrent.futures, hashlib, json, os, plistlib, shutil, subprocess, time
 from pathlib import Path
 from PIL import Image, ImageStat, ImageOps
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from simulator_lifecycle import device_lease
 
 def write(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -70,6 +73,11 @@ def validate(job, output):
     return evidence,errors
 
 def worker(spec, args):
+    with device_lease(spec['udid'], 'native-atlas:' + spec['id']):
+        return _worker(spec, args)
+
+
+def _worker(spec, args):
     udid=spec['udid'];directory=args.output/spec['id'];directory.mkdir(parents=True,exist_ok=False)
     log=directory/'device.log';acquired=False;results=[]
     devices=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','-j']))

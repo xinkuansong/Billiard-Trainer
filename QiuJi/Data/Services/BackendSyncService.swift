@@ -190,6 +190,7 @@ struct AngleTestDTO: Codable {
     let errorMM: Double
     /// 归属的 `kind="cognitive"` 会话（契约 §5.3）。历史数据回填前为 nil。
     let sessionId: String?
+    let trainingMetadataJSON: String?
 
     init(from result: AngleTestResult) {
         self.clientId = result.id.uuidString
@@ -200,6 +201,7 @@ struct AngleTestDTO: Codable {
         self.quizType = result.quizType
         self.errorMM = result.errorMM
         self.sessionId = result.sessionId?.uuidString
+        self.trainingMetadataJSON = result.trainingMetadataJSON
     }
 
     /// 与 `TrainingSessionDTO` 同理：新增字段容忍旧后端回包缺字段，避免解码失败被
@@ -214,6 +216,7 @@ struct AngleTestDTO: Codable {
         quizType = try c.decodeIfPresent(String.self, forKey: .quizType) ?? "table2D"
         errorMM = try c.decodeIfPresent(Double.self, forKey: .errorMM) ?? 0
         sessionId = try c.decodeIfPresent(String.self, forKey: .sessionId)
+        trainingMetadataJSON = try c.decodeIfPresent(String.self, forKey: .trainingMetadataJSON)
     }
 }
 

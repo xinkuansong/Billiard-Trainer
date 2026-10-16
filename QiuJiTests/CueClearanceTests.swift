@@ -838,30 +838,181 @@ final class CueClearanceTests: XCTestCase {
 
     // MARK: - Regression: pullBack literals (v=1.5)
 
-    /// Nail concrete samples from `build/cue-clearance-evidence/rework_latch_draft.txt`
-    /// so curve edits are caught (not a self-derived recompute of the same formula).
-    func test_regression_pullBackLiteralSamples_v1_5() {
-        let v: Float = 1.5
-        // d = 0.05 + 0.035·1.5 = 0.1025; total = 0.5 + 0.12 + 2d/v = 0.7566…
-        let samples: [(t: Double, expected: Float)] = [
-            (0.0,      0.0),
-            (0.125,    0.016015625),
-            (0.25,     0.05125),
-            (0.375,    0.086484375),
-            (0.5,      0.1025),          // end of backswing
-            (0.56,     0.1025),          // mid pause
-            (0.62,     0.1025),          // end pause
-            (0.70,     0.06737805),      // mid forward
-            (0.756667, 0.0),             // contact
+    /// Approved single-rehearsal contract (2026-10-14), replacing the old direct stroke.
+    /// Soft-shot values are independent literal phase midpoints in metres/seconds.
+    func test_singleRehearsal_literalSoftShotSamples() {
+        let samples: [(Double, Float)] = [
+            (0, 0.003), (0.22, 0.018), (0.44, 0.033),
+            (0.62, 0.018), (0.80, 0.003), (0.925, 0.003),
+            (1.05, 0.003), (1.325, 0.034), (1.60, 0.065),
+            (1.69, 0.065), (1.78, 0.065), (1.91, 0.04875), (2.04, 0)
         ]
-        for s in samples {
-            let p = CueStroke.pullBack(at: s.t, velocity: v)
-            XCTAssertEqual(p, s.expected, accuracy: 1e-5, "t=\(s.t)")
+        for (time, pull) in samples {
+            XCTAssertEqual(CueStroke.pullBack(at: time, velocity: 0.5), pull,
+                           accuracy: 1e-6, "time=\(time)")
         }
-        XCTAssertEqual(
-            CueStroke.followThrough(at: CueStroke.followThroughDuration),
-            CueStroke.followThroughPull, accuracy: 1e-6
-        )
+        XCTAssertEqual(CueStroke.totalDuration(velocity: 0.5), 2.04, accuracy: 1e-6)
+    }
+
+    func test_singleRehearsal_oneRoundTripBeforeDeliveryAtEverySpeed() {
+        for v: Float in [0.5, 1, 1.5, 3, 6, 8, 10] {
+            let timing = CueStroke.timing(velocity: v)
+            var directions: [Int] = []
+            var previous = CueStroke.pullBack(at: 0, velocity: v)
+            for frame in 1...4000 {
+                let time = timing.contactTime * Double(frame) / 4000
+                let pull = CueStroke.pullBack(at: time, velocity: v)
+                XCTAssertGreaterThanOrEqual(pull, 0)
+                XCTAssertLessThanOrEqual(pull, CueStroke.maximumPullBack + 1e-6)
+                if time < timing.deliveryStart { XCTAssertGreaterThanOrEqual(pull, 0.003 - 1e-6) }
+                if frame < 4000 { XCTAssertGreaterThan(pull, 0, "Early contact at v=\(v)") }
+                let delta = pull - previous
+                if abs(delta) > 1e-7 {
+                    let direction = delta > 0 ? 1 : -1
+                    if directions.last != direction { directions.append(direction) }
+                }
+                previous = pull
+            }
+            XCTAssertEqual(directions, [1, -1, 1, -1], "Exactly one rehearsal then delivery, v=\(v)")
+            XCTAssertEqual(previous, 0)
+        }
+    }
+
+    func test_singleRehearsal_amplitudeAndPreparationGrowWithSpeed() {
+        var previous = CueStroke.timing(velocity: 0.5)
+        for index in 1...95 {
+            let current = CueStroke.timing(velocity: 0.5 + Float(index) / 10)
+            XCTAssertGreaterThan(current.rehearsalDistance, previous.rehearsalDistance)
+            XCTAssertGreaterThan(current.pullBackDistance, previous.pullBackDistance)
+            XCTAssertGreaterThan(current.deliveryStart, previous.deliveryStart)
+            XCTAssertLessThan(current.rehearsalDistance + CueStroke.addressPull, current.pullBackDistance)
+            XCTAssertLessThanOrEqual(current.contactTime, 2.6)
+            previous = current
+        }
+        XCTAssertEqual(previous.rehearsalDistance, 0.20, accuracy: 1e-6)
+        XCTAssertEqual(previous.pullBackDistance, 0.32, accuracy: 1e-6)
+        XCTAssertEqual(previous.contactTime, 2.594, accuracy: 1e-6)
+        XCTAssertEqual(CueStroke.pullBackDistance(velocity: 20), 0.32, accuracy: 1e-6)
+    }
+
+    @MainActor
+    func test_rehearsalPreference_defaultsOffAndPersistsIndependently() throws {
+        let name = "CueRehearsalTests-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let preferences = UserPreferences(defaults: defaults)
+        XCTAssertFalse(preferences.cueRehearsalEnabled)
+        XCTAssertFalse(CueRehearsalPreference.isEnabled(in: defaults))
+        let separation = preferences.showSeparationAngle
+        preferences.cueRehearsalEnabled = false
+        XCTAssertFalse(CueRehearsalPreference.isEnabled(in: defaults))
+        XCTAssertFalse(UserPreferences(defaults: defaults).cueRehearsalEnabled)
+        XCTAssertEqual(preferences.showSeparationAngle, separation)
+        preferences.cueRehearsalEnabled = true
+        XCTAssertTrue(UserPreferences(defaults: defaults).cueRehearsalEnabled)
+    }
+
+    func test_rehearsalDisabled_removesOnlyPreparationAndKeepsFinalStrokeIdentical() {
+        for velocity: Float in [0.5, 1.5, 3, 6, 10] {
+            let full = CueStroke.timing(velocity: velocity)
+            let direct = CueStroke.timing(velocity: velocity, rehearsalEnabled: false)
+            let removed = full.rehearsalDuration + full.addressPause
+            XCTAssertEqual(full.contactTime - direct.contactTime, removed, accuracy: 1e-10)
+            XCTAssertEqual(direct.backswingStart, 0)
+            XCTAssertEqual(direct.backPause, full.backPause)
+            XCTAssertEqual(direct.pullBackDistance, full.pullBackDistance)
+            XCTAssertEqual(direct.forwardDuration, full.forwardDuration)
+            // Compare the entire remaining trajectory, not just timing fields.
+            for frame in 0...500 {
+                let time = Double(frame) / 500 * direct.contactTime
+                let without = CueStroke.pullBack(at: time, velocity: velocity, rehearsalEnabled: false)
+                let with = CueStroke.pullBack(at: time + removed, velocity: velocity)
+                XCTAssertEqual(without, with, accuracy: 1e-6)
+            }
+            XCTAssertEqual(CueStroke.pullBack(at: -1, velocity: velocity, rehearsalEnabled: false), CueStroke.addressPull)
+            let epsilon = 1e-6
+            let incoming = CueStroke.pullBack(at: direct.contactTime - epsilon, velocity: velocity,
+                                             rehearsalEnabled: false) / Float(epsilon)
+            XCTAssertEqual(incoming, velocity, accuracy: velocity * 0.002)
+        }
+    }
+
+    func test_singleRehearsal_revisedTempoAndLongerFinalBackswing() {
+        // Review anchors from the approved slower / longer revision, in SI units.
+        let medium = CueStroke.timing(velocity: 3)
+        XCTAssertEqual(medium.rehearsalDuration, 0.878947, accuracy: 1e-5)
+        XCTAssertEqual(medium.rehearsalDistance, 0.088428, accuracy: 1e-5)
+        XCTAssertEqual(medium.pullBackDistance, 0.165159, accuracy: 1e-5)
+        XCTAssertEqual(medium.backswingDuration, 0.648195, accuracy: 1e-5)
+        for v: Float in [0.5, 1, 3, 6, 8, 10] {
+            let p = CueStroke.timing(velocity: v)
+            let strength = Double((v - 0.5) / 9.5)
+            let oldDuration = 0.45 + 0.15 * strength
+            let oldBackswing = 0.05 + 0.23 * pow(strength, 0.8)
+            XCTAssertGreaterThan(p.rehearsalDuration / oldDuration, 1.7)
+            XCTAssertGreaterThan(Double(p.pullBackDistance), oldBackswing)
+        }
+    }
+
+    func test_singleRehearsal_finalDeliveryHasConstantAcceleration() {
+        for v: Float in [0.5, 1.5, 3, 6, 10] {
+            let p = CueStroke.timing(velocity: v)
+            let dt = p.forwardDuration / 10
+            let samples = (0...10).map {
+                Double(CueStroke.pullBack(at: p.deliveryStart + Double($0) * dt, velocity: v))
+            }
+            let expected = Double(v) * Double(v) / (2 * Double(p.pullBackDistance))
+            for index in 1..<10 {
+                let secondDifference = samples[index + 1] - 2.0 * samples[index] + samples[index - 1]
+                let acceleration = -secondDifference / (dt * dt)
+                XCTAssertEqual(acceleration, expected, accuracy: expected * 0.001)
+            }
+            XCTAssertEqual(p.velocity, v, "Selected contact speed must not be rescaled")
+            XCTAssertEqual(samples.last!, 0, accuracy: 1e-6)
+        }
+    }
+
+    func test_singleRehearsal_pausesAndTransitionsAreContinuous() {
+        let epsilon = 1e-5
+        for v: Float in [0.5, 3, 10] {
+            let p = CueStroke.timing(velocity: v)
+            for time in [p.rehearsalBackDuration, p.rehearsalDuration, p.backswingStart,
+                         p.backPauseStart, p.deliveryStart] {
+                let left = CueStroke.pullBack(at: time - epsilon, velocity: v)
+                let at = CueStroke.pullBack(at: time, velocity: v)
+                let right = CueStroke.pullBack(at: time + epsilon, velocity: v)
+                XCTAssertEqual(left, at, accuracy: 1e-6)
+                XCTAssertEqual(right, at, accuracy: 1e-6)
+                XCTAssertLessThan(abs((right - left) / Float(2 * epsilon)), 0.01)
+            }
+            XCTAssertEqual(CueStroke.pullBack(at: p.rehearsalDuration + p.addressPause / 2, velocity: v), 0.003, accuracy: 1e-6)
+            XCTAssertEqual(CueStroke.pullBack(at: p.backPauseStart + p.backPause / 2, velocity: v), p.pullBackDistance, accuracy: 1e-6)
+        }
+    }
+
+    func test_singleRehearsal_contactSpeedAndFollowThroughAreContinuous() {
+        let epsilon = 1e-6
+        for v: Float in [0.5, 1.5, 3, 8, 10] {
+            let contact = CueStroke.totalDuration(velocity: v)
+            let incoming = CueStroke.pullBack(at: contact - epsilon, velocity: v) / Float(epsilon)
+            XCTAssertEqual(incoming, v, accuracy: v * 0.002)
+            let end = CueStroke.desiredFollowThroughPull(velocity: v)
+            for limit in [end, end / 2] {
+                let outgoing = -CueStroke.followThrough(at: epsilon, endPull: limit, velocity: v) / Float(epsilon)
+                XCTAssertEqual(outgoing, v, accuracy: v * 0.002)
+                var previous: Float = 0
+                for frame in 0...200 {
+                    let time = Double(frame) / 1000
+                    let pull = CueStroke.followThrough(at: time, endPull: limit, velocity: v)
+                    XCTAssertLessThanOrEqual(pull, previous + 1e-7)
+                    XCTAssertGreaterThanOrEqual(pull, limit)
+                    XCTAssertEqual(CueClearance.pullBackAfterContact(tau: time, endPull: limit, velocity: v), pull)
+                    previous = pull
+                }
+                XCTAssertEqual(previous, limit)
+            }
+            XCTAssertEqual(CueStroke.followThrough(at: 0.1, endPull: 0, velocity: v), 0)
+        }
     }
 
     // MARK: - Shaft radius smoke
@@ -907,5 +1058,118 @@ final class CueClearanceTests: XCTestCase {
             x = vFwd * tRev - vBack * (tf - tRev)
         }
         return SCNVector3(x, y, 0)
+    }
+}
+
+
+extension CueClearanceTests {
+    @MainActor
+    func test_singleRehearsal_realtimeContactOnceAndCancellation() async throws {
+        try await verifyRealtimeRehearsal(enabled: true)
+    }
+
+    @MainActor
+    func test_rehearsalDisabled_realtimeFreezesPreferenceAndContactsOnce() async throws {
+        try await verifyRealtimeRehearsal(enabled: false)
+    }
+
+    @MainActor
+    private func verifyRealtimeRehearsal(enabled: Bool) async throws {
+        let previous = UserDefaults.standard.object(forKey: CueRehearsalPreference.key)
+        defer { UserDefaults.standard.set(previous, forKey: CueRehearsalPreference.key) }
+        UserDefaults.standard.set(enabled, forKey: CueRehearsalPreference.key)
+        let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: true); scene.hideAllBalls()
+        let cuePosition = SCNVector3(0, scene.surfaceY + AngleSceneCalculator.ballRadius, 0)
+        let aim = SCNVector3(1, 0, 0)
+        scene.showBall(key: PositionPlayBall.cueKey, scenePosition: cuePosition)
+        scene.updateCueStick(cueBallPosition: cuePosition, aimDirection: aim)
+        let stick = try XCTUnwrap(scene.cueStick)
+        let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        renderer.scene = scene; renderer.pointOfView = scene.cameraNode
+        let size = CGSize(width: 480, height: 320)
+        let output = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("output/cue-stroke-20261014/r3/realtime-\(enabled ? "on" : "off")")
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        let velocity: Float = 3
+        let timing = CueStroke.timing(velocity: velocity, rehearsalEnabled: enabled)
+        var contacts = 0
+        _ = renderer.snapshot(atTime: 0, with: size, antialiasingMode: .none)
+        scene.runCueStroke(strikePosition: cuePosition, aim: aim, velocity: velocity) { contacts += 1 }
+        XCTAssertFalse(stick.rootNode.isHidden)
+        let contactFrames = Int(ceil(timing.contactTime * 60))
+        for frame in 1...(contactFrames + 20) {
+            let time = Double(frame) / 60
+            let picture = renderer.snapshot(atTime: time, with: size, antialiasingMode: .none)
+            await Task.yield()
+            if frame == 2 { UserDefaults.standard.set(!enabled, forKey: CueRehearsalPreference.key) }
+            if time < timing.contactTime { XCTAssertEqual(contacts, 0, "Premature launch on frame \(frame)") }
+            if [1, 16, 30, 45, 65, contactFrames, contactFrames + 12].contains(frame) {
+                try XCTUnwrap(picture.pngData()).write(to: output.appendingPathComponent("frame-\(frame).png"))
+            }
+        }
+        // The callback is enqueued onto the main actor, as in the actual app.
+        for _ in 0..<5 { await Task.yield() }
+        XCTAssertEqual(contacts, 1)
+        scene.hideCueStick()
+        contacts = 0
+        UserDefaults.standard.set(enabled, forKey: CueRehearsalPreference.key)
+        scene.updateCueStick(cueBallPosition: cuePosition, aimDirection: aim)
+        scene.runCueStroke(strikePosition: cuePosition, aim: aim, velocity: velocity) { contacts += 1 }
+        _ = renderer.snapshot(atTime: 5, with: size, antialiasingMode: .none)
+        scene.hideCueStick()
+        for time in [5.5, 6.5, 8.0] {
+            _ = renderer.snapshot(atTime: time, with: size, antialiasingMode: .none)
+            await Task.yield()
+        }
+        XCTAssertEqual(contacts, 0, "Cancelled rehearsal must never fire")
+        XCTAssertTrue(stick.rootNode.isHidden)
+    }
+}
+
+extension CueClearanceTests {
+    @MainActor
+    func test_singleRehearsal_exportUsesSameContactTimeAtBothPlaybackSpeeds() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let sequences = root.appendingPathComponent("content/position_play/sequences")
+        let file = try XCTUnwrap(FileManager.default.contentsOfDirectory(atPath: sequences.path)
+            .sorted().first { $0.hasPrefix("drill_c001__") && $0.hasSuffix(".json") })
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        let source = try decoder.decode(PositionPlaySequence.self, from: Data(contentsOf: sequences.appendingPathComponent(file)))
+        var step = try XCTUnwrap(source.steps.first)
+        step.shot.velocity = 3
+        let sequence = PositionPlaySequence(name: "Single rehearsal regression", initial: step.before, steps: [step])
+        let previous = UserDefaults.standard.object(forKey: CueRehearsalPreference.key)
+        defer { UserDefaults.standard.set(previous, forKey: CueRehearsalPreference.key) }
+        for (enabled, speed, expectedStrokeFrames): (Bool, Float, Int) in [
+            (true, 1, 51), (true, 2, 26), (false, 1, 24), (false, 2, 12)
+        ] {
+            UserDefaults.standard.set(enabled, forKey: CueRehearsalPreference.key)
+            var options = SequenceVideoExporter.Options.card()
+            options.size = CGSize(width: 480, height: 240)
+            options.ballScale = 1
+            options.fps = 24; options.playbackSpeed = speed
+            options.setupHold = 0.05; options.tailHold = 0.05
+            var phases: [String: Int] = [:]
+            var phase = ""
+            options.phaseFrameObserver = { _, current in
+                phase = current; phases[current, default: 0] += 1
+            }
+            var frames = 0
+            let output = root.appendingPathComponent("output/cue-stroke-20261014/r3/export-\(enabled ? "on" : "off")-\(Int(speed))x")
+            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+            try SequenceVideoExporter.renderFrames(sequence: sequence, options: options) { frame in
+                frames += 1
+                // Even a change during export must not alter its frozen timeline.
+                if frames == 1 { UserDefaults.standard.set(!enabled, forKey: CueRehearsalPreference.key) }
+                let count = phases[phase, default: 0]
+                if phase == "stroke", [1, expectedStrokeFrames / 4, expectedStrokeFrames / 2, expectedStrokeFrames - 1].contains(count) {
+                    try XCTUnwrap(UIImage(cgImage: frame).pngData())
+                        .write(to: output.appendingPathComponent("stroke-\(count).png"))
+                }
+            }
+            XCTAssertEqual(phases["stroke"], expectedStrokeFrames)
+            XCTAssertGreaterThan(phases["motion", default: 0], 0)
+            XCTAssertGreaterThan(frames, expectedStrokeFrames)
+        }
     }
 }

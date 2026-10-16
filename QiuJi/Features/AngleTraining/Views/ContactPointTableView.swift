@@ -48,7 +48,7 @@ struct ContactPointTableView: View {
                 LearnControlStrip.Theta(
                     cutAngleDeg: $sliderAngle,
                     range: 0...90,
-                    caption: "对照表范围 0°–90°（全厚→最薄）。",
+                    caption: "从 0° 正球拖到 90° 擦边极限，比较瞄准点、接触点和偏移量。90° 只表示几何边界。",
                     accessibilityIdentifier: "contactPointTable.thetaSlider"
                 )
                 principleSection
@@ -70,6 +70,7 @@ struct ContactPointTableView: View {
 
     private var interactiveSection: some View {
         LearnDocSectionCard(title: "拖动查看瞄准点与接触点", titleLevel: .subsection) {
+            LearnDocText.body("先选一个切角，看红色瞄准点离目标球心多远，再与绿色接触点比较。它们作用不同：红点帮助确定母球球心的行进方向，绿点表示两球应该在哪里相碰。这里先看几何关系，不包含力度和加塞后的修正。")
             // P3.1（问题集合 v3）：卡片加高 220→260，配合图内几何调整（目标球下移、
             // 进球线延伸缩短），拖动全程「袋口方向」标签不再超出卡片。
             aimFigure
@@ -78,7 +79,7 @@ struct ContactPointTableView: View {
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 LearnControlStrip.ReadoutRow(
-                    label: "偏移",
+                    label: "偏移 / 球径",
                     value: String(format: "%.0f%%", sin(sliderAngle * .pi / 180) * 100),
                     labelEmphasis: .secondary,
                     valueSize: 14
@@ -191,8 +192,9 @@ struct ContactPointTableView: View {
             Text("d = 2R × sin(θ)")
                 .font(.system(.body, design: .monospaced))
                 .foregroundStyle(.btPrimary)
-            LearnDocText.body("d 为偏移量：瞄准点（瞄准线与过目标球心垂线的交点，红点）到目标球心的距离，也等于假想球心的横移量。θ 为切角，R 为球半径。")
-            LearnDocText.footnote("d/R = 2sin(θ) 为无量纲比，表中「d(mm)」按中八球径 57.15mm 计算。")
+            LearnDocText.body("d 是目标球心到瞄准线的垂直距离，也就是球心到红点的距离。θ 是切角，R 是球半径。注意量取方向垂直于瞄准线，不是垂直于进球线。")
+            LearnDocText.body("表中的「偏移%」以一个球的直径为 100%，即 d ÷ 2R；d/R 则以半径为单位。比如 30° 时，偏移为 50%，d/R = 1，表示瞄准点偏离球心一个半径。等比例投影下，重叠厚度 = 100% − 偏移%，所以此时是半球。")
+            LearnDocText.footnote("「d(mm)」按球径 57.15 mm 计算。换用其他球径时，毫米数会变，但 d/R、偏移百分比和对应切角不变。完整推导见「瞄准原理」。")
         }
     }
 
@@ -202,7 +204,7 @@ struct ContactPointTableView: View {
     /// 本节交互演示：两线夹角 Δ 随母球距离增大而变小 → 远台估角更可靠。
     private var estimationSection: some View {
         LearnDocSectionCard(title: "实战估角：中心连线法", titleLevel: .subsection) {
-            LearnDocText.body("台面上并不存在假想球，真实瞄准线（白）也就无从直接看见。实战里常用的替代方法：把母球与目标球球心连线（金色虚线）当作近似瞄准线来估计切角 θ。")
+            LearnDocText.body("实际球桌上没有画出的假想球，可以先用母球与目标球的球心连线，和进球线比较，大致估计切角。但球心连线不是正确的切球瞄准线，两者有一个角度差。下面固定为 30° 球形，只改变母球到假想球的距离，看看这个近似差在哪里。")
 
             estimationFigure
                 .frame(height: 190)
@@ -217,7 +219,7 @@ struct ContactPointTableView: View {
             LearnDocText.footnote("两线夹角 = 用中心连线估角时引入的角度误差")
 
             LearnControlStrip.ReadoutRow(
-                label: "母球距（近↔远）",
+                label: "到假想球的距离",
                 value: String(format: "%.2f m", estimationDistance),
                 labelEmphasis: .secondary,
                 valueSize: 14
@@ -226,7 +228,7 @@ struct ContactPointTableView: View {
                 .tint(.btPrimary)
                 .accessibilityIdentifier("contactPointTable.estimationSlider")
 
-            LearnDocText.body("两线在目标球附近相差固定的一段横移量（≤2R），距离越远，同样的横移量对应的夹角越小。因此远台用中心连线估角误差很小；近台两线夹角明显，需要有意识地把估出的角度再修正一点。")
+            LearnDocText.body("把母球移远，白色瞄准线与金色球心连线的夹角会缩小；移近，差别就更明显。因此球心连线更适合用来粗估较远球形，近距离切球需要更仔细地找假想球或接触点关系。这里只说明估角近似变得更接近，并不表示远台更容易打进。")
         }
     }
 
@@ -389,6 +391,7 @@ struct ContactPointTableView: View {
 
     private var sineCurveSection: some View {
         LearnDocSectionCard(title: "d/R = 2sin(θ) 曲线", titleLevel: .subsection) {
+            LearnDocText.body("偏移量随切角增大而增加，但不是每增加 5° 就移动相同的距离。曲线前段上升较快，靠近 90° 时逐渐变平。可以用它核对趋势，再回到上面的图看具体位置。")
             sineCurveCanvas
                 .frame(height: 220)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))

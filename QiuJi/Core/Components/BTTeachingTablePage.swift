@@ -91,11 +91,17 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             let extraBottom = UIDevice.current.userInterfaceIdiom == .pad ? max(0, windowSafeArea.bottom - geo.safeAreaInsets.bottom) : 0
             let size = CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
                               height: max(0, geo.size.height - extraTop - extraBottom))
+            ZStack(alignment: .topLeading) {
             template(size: size, safe: max(geo.safeAreaInsets.leading, geo.safeAreaInsets.trailing))
                 .frame(width: geo.size.width + geo.safeAreaInsets.trailing, alignment: .leading)
                 .padding(.top, extraTop).padding(.bottom, extraBottom)
                 .offset(x: -geo.safeAreaInsets.leading)
                 .ignoresSafeArea(.container, edges: .trailing)
+                if let draggingKey {
+                    BTBallPaletteDragGhost(key: draggingKey, location: dragLocation, overTable: dragOverTable,
+                        placement: projector.palettePreview, projector: projector)
+                }
+            }.frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
         .coordinateSpace(name: identifier)
         .onPreferenceChange(BTShotPageFramePreference.self) { frames in
@@ -247,9 +253,6 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 Text("扩大窗口后继续摆球").font(.btFootnote).padding()
                     .background(.regularMaterial, in: Capsule())
                     .position(x: size.width / 2, y: size.height / 2)
-            }
-            if let draggingKey {
-                BTBallPaletteDragGhost(key: draggingKey, location: dragLocation, overTable: dragOverTable)
             }
             if menu != nil {
                 Button { self.menu = nil } label: { Color.clear.contentShape(Rectangle()) }
@@ -502,13 +505,15 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                                         coordinateSpace: .named(identifier))
             .onChanged { value in
                 guard allowsPaletteDrag, planning?.paletteEnabled != false, (!is3D || planning != nil), !onTable else { return }
-                draggingKey = key; dragLocation = value.location
-                dragOverTable = sceneFrame.contains(value.location)
+                draggingKey = key
+                let preview = BTPalettePlacement.sample(key: key, finger: value.location, sourceDiameter: diameter,
+                    sceneFrame: sceneFrame, projector: projector, constrain: vm.palettePlacement)
+                dragLocation = preview.location; dragOverTable = preview.isValid
             }.onEnded { value in
                 defer { draggingKey = nil; dragOverTable = false }
-                guard allowsPaletteDrag, planning?.paletteEnabled != false, (!is3D || planning != nil), !onTable, sceneFrame.contains(value.location) else { return }
-                let local = CGPoint(x: value.location.x - sceneFrame.minX, y: value.location.y - sceneFrame.minY)
-                if let world = projector.unproject?(local) { onPalettePlace?(key, world) }
+                guard allowsPaletteDrag, planning?.paletteEnabled != false, (!is3D || planning != nil), !onTable,
+                      let world = projector.palettePreview?.requestedWorld else { return }
+                onPalettePlace?(key, world)
             }, including: allowsPaletteDrag && (!is3D || planning != nil) && !onTable ? .all : .subviews)
         .accessibilityLabel("\(PositionPlayBall.shortLabel(for: key))号球")
         .accessibilityValue(onTable ? "在桌上" : "未在桌上")
@@ -710,7 +715,6 @@ struct BTTeachingInformationLayer: View {
     @State private var naturalHeight: CGFloat = 1
     @State private var wideHeight: CGFloat = 1
     let items: [BTTeachingInformation]
-    var onDismiss: (() -> Void)? = nil
 
     var body: some View {
         if let layout {
@@ -760,7 +764,7 @@ struct BTTeachingInformationLayer: View {
                 }
             }
             .accessibilityIdentifier("teaching.informationViewport")
-            .allowsHitTesting(onDismiss != nil || naturalHeight > availableHeight)
+            .allowsHitTesting(naturalHeight > availableHeight)
             .onPreferenceChange(BTTeachingInformationHeightKey.self) { height in
                 if height.isFinite && height >= 0 { naturalHeight = height }
             }
@@ -778,17 +782,12 @@ struct BTTeachingInformationLayer: View {
         VStack(alignment: leading ? .leading : .center, spacing: Spacing.xs) {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 if item.isVisible(spinPadPresented: expanded) {
-                    HStack(alignment: .top, spacing: Spacing.sm) {
+                    HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
                         if let symbol = item.effectiveSymbol {
                             Image(systemName: symbol).accessibilityHidden(true)
                         }
                         Text(expanded ? item.expandedText ?? item.text : item.text)
                             .fixedSize(horizontal: false, vertical: true)
-                        if let onDismiss {
-                            Button(action: onDismiss) {
-                                Image(systemName: "xmark").frame(width: 44, height: 44)
-                            }.accessibilityLabel("关闭提示").accessibilityIdentifier("planning.dismissNotice")
-                        }
                     }
                     .font(expanded ? .footnote : .subheadline).foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.8), radius: 2, y: 1)

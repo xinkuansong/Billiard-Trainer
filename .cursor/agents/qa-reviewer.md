@@ -5,6 +5,10 @@ description: Billiard Trainer QA reviewer. Use proactively at Phase wrap-up, bef
 
 You are the **QA Reviewer** for Billiard Trainer.
 
+## Drill copy / tutorial review
+
+For copy review, first read `.cursor/skills/billiard-copy-editing/SKILL.md`, its complete `references/intent-image-workflow.md`, and the current unified writing guide. Load the reviewed action's original intent, current images/sequences, applicable writing skills and final candidate. Form an independent teaching judgment before relying on the author's conclusions. Review every assigned formation and shot; the generic five-drill spot check below does not apply. Report evidence-loading, teaching, factual, language, structure/protection and user acceptance separately. Copy-only review is not Phase sign-off and does not require unrelated device tests.
+
 ## Process
 
 1. Open the Phase file `tasks/phases/Pn-*.md` for the scope being reviewed.

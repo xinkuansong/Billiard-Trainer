@@ -64,7 +64,8 @@ struct ActiveTrainingView: View {
                 }
 
             }
-            .btTrainingPillOverlay(isPresented: viewModel.showsMinimizedRestChip && !isKeyboardVisible && !viewModel.isEditingTrainingNote && viewModel.trainingPhase == .active) {
+            .btTrainingPillOverlay(isPresented: viewModel.showsMinimizedRestChip && !isKeyboardVisible && !viewModel.isEditingTrainingNote && viewModel.trainingPhase == .active,
+                                   position: viewModel.restPillPosition) {
                 if viewModel.showsMinimizedRestChip && !isKeyboardVisible && !viewModel.isEditingTrainingNote && viewModel.trainingPhase == .active { minimizedRestChip }
             }
             // F-AT-04: shrink toward the bottom-trailing floating pill when minimizing.
@@ -252,7 +253,7 @@ struct ActiveTrainingView: View {
 
     private var overviewContent: some View {
         VStack(spacing: 0) {
-            frostedTopBar
+            frostedTopBar.btTrainingPillObstacle(edge: .top)
 
             ScrollView {
                 VStack(spacing: Spacing.md) {
@@ -535,7 +536,7 @@ struct ActiveTrainingView: View {
 
     private var drillRecordContent: some View {
         VStack(spacing: 0) {
-            frostedTopBar
+            frostedTopBar.btTrainingPillObstacle(edge: .top)
 
             TabView(selection: $viewModel.currentDrillIndex) {
                 ForEach(Array(viewModel.drills.enumerated()), id: \.element.id) { index, drill in

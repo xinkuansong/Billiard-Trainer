@@ -3,6 +3,66 @@ import XCTest
 
 @MainActor
 final class V51ResponsiveLayoutTests: XCTestCase {
+    func testFloatingPillDragBoundsKeepWholeCapsuleClearOfChrome() {
+        for size in [CGSize(width: 375, height: 667), CGSize(width: 402, height: 874), CGSize(width: 1024, height: 768)] {
+            for width in [CGFloat(80), 180, 210] {
+                let viewport = CGRect(origin: CGPoint(x: 24, y: 20), size: size)
+                let available = CGRect(x: viewport.minX, y: 120, width: size.width, height: size.height - 220)
+                let layout = BTTrainingPillDragLayout(viewport: viewport, available: available,
+                                                     pillSize: CGSize(width: width, height: 44))
+                XCTAssertTrue(layout.fits)
+                for x in [CGFloat(-10000), 0, 300, 10000] {
+                    for y in [CGFloat(-10000), 0, 400, 10000] {
+                        let point = layout.clamped(CGPoint(x: x, y: y))
+                        let capsule = CGRect(x: point.x - width / 2, y: point.y - 22, width: width, height: 44)
+                        XCTAssertTrue(available.insetBy(dx: 12, dy: 12).contains(capsule))
+                        let docked = layout.docked(fraction: layout.fraction(at: point))
+                        XCTAssertEqual(docked.y, point.y, accuracy: 0.001)
+                        XCTAssertEqual(docked.x + width / 2, available.maxX - 12, accuracy: 0.001)
+                    }
+                }
+            }
+        }
+    }
+
+    func testFloatingPillTemporaryObstaclesDoNotOverwritePreferredHeight() {
+        let viewport = CGRect(x: 0, y: 60, width: 402, height: 780)
+        let full = BTTrainingPillDragLayout(viewport: viewport, available: viewport,
+                                           pillSize: CGSize(width: 100, height: 44))
+        let blocked = BTTrainingPillDragLayout(viewport: viewport,
+                                              available: CGRect(x: 0, y: 180, width: 402, height: 340),
+                                              pillSize: full.pillSize)
+        XCTAssertEqual(full.docked(fraction: nil).y, 806)
+        XCTAssertEqual(blocked.docked(fraction: 0.8).y, 486)
+        XCTAssertEqual(full.docked(fraction: 0.8).y, 684)
+        let rotated = BTTrainingPillDragLayout(viewport: CGRect(x: 60, y: 0, width: 700, height: 370),
+                                              available: CGRect(x: 60, y: 44, width: 700, height: 280),
+                                              pillSize: full.pillSize)
+        XCTAssertEqual(rotated.docked(fraction: 0.5).y, 185)
+    }
+
+    func testFloatingPillPositionsSurviveResumeAndStayIndependentPerSession() {
+        let router = AppRouter()
+        router.startTraining(mode: .free)
+        let vm = router.activeTrainingVM!
+        vm.restPillPosition.verticalFraction = 0.25
+        vm.minimizedPillPosition.verticalFraction = 0.65
+        vm.elapsedSeconds = 123
+        vm.isRestTimerActive = true
+        vm.isRestOverlayMinimized = true
+        router.minimizeTraining(vm)
+        router.onTrainingDismissed()
+        router.resumeMinimizedTraining()
+        XCTAssertTrue(router.activeTrainingVM === vm)
+        XCTAssertEqual(vm.restPillPosition.verticalFraction, 0.25)
+        XCTAssertEqual(vm.minimizedPillPosition.verticalFraction, 0.65)
+        XCTAssertEqual(vm.elapsedSeconds, 123)
+        XCTAssertTrue(vm.shouldShowRestOverlay)
+        router.startTraining(mode: .free)
+        XCTAssertNil(router.activeTrainingVM?.restPillPosition.verticalFraction)
+        XCTAssertNil(router.activeTrainingVM?.minimizedPillPosition.verticalFraction)
+    }
+
     func testTimerBoundaryFormatsPreserveFullElapsedTime() {
         let vm = ActiveTrainingViewModel(mode: .free)
         let cases = [

@@ -295,7 +295,7 @@ final class BallExtractionViewModel: ObservableObject {
     /// 进入确认页：建场景并以照片标记的球形为初值。
     func enterConfirm() {
         if !sceneReady {
-            scene.setupScene()
+            scene.setupScene(recipe: .liveReference)
             scene.hideAllBalls()
             scene.hideCueStick()
             scene.cameraRig?.topDownPanOffset = .zero
@@ -348,8 +348,7 @@ final class BallExtractionViewModel: ObservableObject {
     private var dragStartSnapshot: BoardSnapshot?
 
     func dragBegan(node: SCNNode) {
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(to: 1.15, duration: 0.1), forKey: "dragPulse")
+        TableBallPulse.beginDrag(node)
         dragStartSnapshot = currentSnapshot()
     }
 
@@ -359,8 +358,7 @@ final class BallExtractionViewModel: ObservableObject {
     }
 
     func dragEnded(node: SCNNode) {
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(to: 1.0, duration: 0.15))
+        TableBallPulse.endDrag(node)
         if let start = dragStartSnapshot, !boardsEqual(start, currentSnapshot()) {
             pushConfirmHistory()
         }
@@ -453,6 +451,12 @@ final class BallExtractionViewModel: ObservableObject {
     }
 
     /// 落点钳制：台面内 + 远离袋口 + 不与其它球重叠。
+    /// Pure preview: same constraints as the committed palette placement.
+    func palettePlacement(_ key: String, atWorld world: SCNVector3) -> SCNVector3? {
+        guard let node = scene.allBallNodes[key] else { return nil }
+        return clampMultiBall(world, movingNode: node)
+    }
+
     private func clampMultiBall(_ pos: SCNVector3, movingNode: SCNNode) -> SCNVector3 {
         var p = AngleSceneCalculator.clampAwayFromPockets(pos, surfaceY: surfaceY)
         let halfL = AngleSceneCalculator.innerLength / 2

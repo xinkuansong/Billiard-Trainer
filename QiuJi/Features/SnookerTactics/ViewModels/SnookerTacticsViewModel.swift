@@ -414,8 +414,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
     func dragBegan(node: SCNNode) {
         guard !isPlaying else { return }
         isDragging = true
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.15, duration: 0.1), forKey: "dragPulse")
+        TableBallPulse.beginDrag(node)
     }
 
     func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
@@ -426,9 +425,14 @@ final class SnookerTacticsViewModel: TeachingTableHost {
     func dragEnded(node: SCNNode) {
         isDragging = false
         guard !isPlaying else { return }
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.0 / 1.15, duration: 0.15))
+        TableBallPulse.endDrag(node)
         invalidateSolutions()
+    }
+
+    /// Pure preview: same constraints as the committed palette placement.
+    func palettePlacement(_ key: String, atWorld world: SCNVector3) -> SCNVector3? {
+        guard let node = scene.allBallNodes[key] else { return nil }
+        return clampMultiBall(world, movingNode: node)
     }
 
     private func clampMultiBall(_ pos: SCNVector3, movingNode: SCNNode) -> SCNVector3 {

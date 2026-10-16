@@ -1559,7 +1559,7 @@ FL-144修复补证（2026-10-11）：r7构建重试BUILD SUCCEEDED；真机7680�
 ### FL-152 · 提示为空时不能丢失球桌取景几何（2026-10-14）
 - 信息精简第1批候选在正常无提示状态下，2D台面消失，求解/菜单等AX操作仍能通过。目视 `candidate-before-viewport-fix/phone/planthree-initial.png` 发现；旧有取景frame偏好挂在状态Group上，Group没有子视图时不再发出偏好，cameraReadableFrame变nil，触发旧2D透明规则。
 - 修复：取景区域保留独立透明布局容器，消息有无不决定相机可读区域；不改变球桌尺寸或镜头算法。UI截图检查增加台呢绿色像素最低占比，以拒绝“控件存在但球桌未渲染”的图；仍逐图目视，不把颜色断言替代视觉验收。
-- 修复候选与自动化菜单命中失败原件保留在 `output/information-simplification-20261014/`，最终验证记录见本轮UI报告。当前复验中。
+- 修复候选与自动化菜单命中失败原件保留在 `output/information-simplification-20261014/`，最终三设备复验通过，验证记录见[本轮UI报告](ui-reviews/UR-20261014-planning-information.md)。
 - 已应用至：`.cursor/rules/20-swiftui-developer.mdc` FL-152；`tasks/UI-IMPLEMENTATION-SPEC.md` changelog。
 
 
@@ -1567,3 +1567,116 @@ FL-144修复补证（2026-10-11）：r7构建重试BUILD SUCCEEDED；真机7680�
 - 用户反馈r1“不同母球位置、击打同一目标球”无法继续：目标球首杆进袋后，播放器直接从实停盘面求下一杆，误报缺球。r1的20单测／3UI通过不能代表覆盖独立首杆组；以连续4杆代替独立8杆验收遗漏了内容语义。
 - 修正：相邻保存after/before区分连续走位与作者重新摆球；后者必须先在原机位完成新球形（含重新出现的目标球），然后才转第三人称。实际物理漂移不能用来判定作者摆球。球形移动／淡入淡出和转镜分别可暂停；连续走位保留实际停点与姿态。
 - 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` DR-392 r2、UI-IMPLEMENTATION-SPEC；新增真实SceneKit完整8杆与原生UI8杆检查，验证状态见任务报告。
+
+
+### FL-154 · 原生Menu的AX全文不等于可见全文（2026-10-14）
+- 防守当前选择摘要用一个三行Text，SE上被原生菜单截为两行，球数和球号不可见；AX仍返回完整字符串，存在性断言通过。原件：output/information-simplification-20261014/snooker-targets-truncated.png。
+- 将首碰、对方球组/数量、球号拆成独立菜单项，重新在同一小屏截图验证。全文长说明继续进入滚动sheet，避免在原生菜单内堆长段落。
+- 已应用至：.cursor/rules/20-swiftui-developer.mdc FL-154。
+
+FL-153 r3（2026-10-14）：用户指出详情修正没有覆盖“上手试打→序列”。根因是将动作库序列等同于详情播放器，遗漏PositionPlayViewModel独立消费者。补共享SequenceSceneTransition，并分别通过真实入口验收；详情测试不得代表试打。回写swiftui-design-system／DR-392，r3结果见任务卡。
+
+### FL-155 · macOS进程列截断导致模拟器占用漏检（2026-10-14）
+- 现象：`ps -axo pid=,comm=,args=` 将comm截为`/Applications/Xc`，按basename匹配xcodebuild会漏检；`-ww`并不能修复非末列comm的宽度。本轮删除前检查发现，尚未执行任何存量删除。
+- 修正：分别读取末列为comm、args的两份完整输出，以PID关联；可执行文件路径支持空格，无法关联参数时按占用未知保护。真实读回识别正在其他设备运行的PID42988与目标A0E93E68；新增真实格式夹具测试。
+- 规则改进/已应用至：`.cursor/rules/60-devops-release.mdc` FL-155；`scripts/simulator_lifecycle.py`。本轮生命周期22项通过，含限定UDID清理不会波及其他可清理设备。上轮已保留的58台不受该漏检影响，原工具测试通过范围不等同于覆盖真实ps输出边界。
+
+
+### FL-156 · 流式解压须消费到END，不能把单次OK当失败（2026-10-14）
+- 蛇彩轨迹无损压缩首轮，解压器只调用一次compression_stream_process；6.16MB真实文件首次返回OK且仍有内部待输出数据，被错误拒绝为corruptPayload。r1失败日志保留，定位后主动中止剩余依赖回归，未计通过。
+- 系统库独立探针确认同一载荷需8次调用才到END；修正为有进度地循环，保留输出上限、截断／尾随数据拒绝、长度和SHA256验证。新增完整五杆大载荷及旧格式兼容检查，不能只测小字符串自编自解。
+- 已应用至：`.cursor/rules/10-ios-architect.mdc` FL-156；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（仅存储，UI/API不变）。验证结果见`tasks/SNAKE2-REPLAY-FIX-20261014.md`。
+
+FL-156补充：r2完整流复验恢复正常轨迹，但尾随字节拒绝用例揭示Compression可能消费尾随填充；最终采用系统zlib的精确剩余输入计数和Z_STREAM_END判定，保留原拒绝断言。原生JSON旧格式夹具改为直接拼入既有原始JSON字节，避免NSNumber重写数字；轨迹精度断言不变。
+
+FL-155补充（2026-10-14）：全库引擎核验被generic build-for-testing误判占用持续拦住。仅排除单一generic、无UDID且无测试动作的纯编译；实际测试／多目标／未知仍保护。生命周期23项通过，未删除设备或抢占租约。已应用至scripts/simulator_lifecycle.py及60-devops-release.mdc；证据output/sequence-current-engine-audit-20261014/lifecycle-check.log。
+
+
+### FL-157 · PNG 中转不能替代真实渲染帧的无损验证（2026-10-14）
+- 球桌导出临时帧首轮采用PNG spool，8位合成图、GIF采样测试通过；最终补测真实SceneKit live/teaching帧时，转换后RGBA逐字节比较两项失败。即便同为8位sRGB，也不能据PNG格式名称推断整个CGImage往返完全不变。
+- 修正：按原CGImage的provider像素字节做LZFSE无损压缩；保留原色彩空间、位深、行宽、bitmapInfo、decode、插值及renderingIntent，格式描述最多16项，帧索引在磁盘头部；仍不持有全部解码帧。成功、错误和取消清理任务临时目录。
+- 验证：merged-r2.xcresult实际30项0失败；真实live/teaching的原始字节、格式、色彩空间及绘制后RGBA均相同；原抽帧/GIF时序、旧成品异常保护继续通过。首轮失败原件保留在output/table-optimization-20261014/merged-test.log。
+- 已应用至：.cursor/rules/10-ios-architect.mdc FL-157；本任务报告与导出回归。后续存储优化必须用真实消费者输出作往返，不只用小型自造样本。
+
+FL-157补充（GIF内部留存）：90帧provider释放探针测得ImageIO多帧destination峰值持有90个原始帧（最终释放为0），证明producer/autoreleasepool不足以约束编码器内部缓存。单帧finalize再拼接虽释放输入，但旧画面调色板对照失败，已撤回。最终保留多帧编码并提供原格式只读磁盘映射；必须同时通过旧编码器画面/时序对照及输入帧生命周期检查，并明确ImageIO原生工作集仍随帧数增长，不能仅根据调用方式宣称总编码有界。首轮失败证据gif-probe.xcresult保留。
+
+
+### FL-158 · 落点一致还须冻结选择前后的视口布局（2026-10-14）
+- 球库拖放首轮11页通过，但建球形确认页松手后投影偏移1.276pt，世界坐标相同。选中球新增“移除”按钮，底栏高度变化，触发球桌自适应缩放；单测只比较世界坐标不能覆盖此问题。
+- 修正：普通/批量建球形的选中与未选中状态共同预留文本与按钮尺寸，隐藏元素不接收交互/无障碍焦点。手机同一路径复验球心误差0pt；后续矩阵详见专项记录。
+- 规则改进/已应用至：.cursor/rules/20-swiftui-developer.mdc FL-158。原失败保留output/palette-drag-20261014/after-phone.xcresult；通过复验after-r2-phone.xcresult。预览/松手必须同时比较世界坐标、实际窗口投影和原生画面，不能放宽误差掩盖布局变化。
+
+## FL-159 — 编排选杆入口挤掉小屏球库
+- **任务**：批量编排瞄准条与选杆重录；2026-10-14。
+- **严重程度**：P1。
+- **现象**：新功能操作测试通过，但原图审查发现 SE 横屏球库整体隐藏。
+- **根因**：新增顶部按钮扩大 Palette 障碍区，所有单行档位与 44pt 球库触控区域冲突；测试只查新入口，漏查旧球库。
+- **解决**：维持原球库布局，按实际触控矩形决定是否显示快捷按钮；空间不足时通过更多菜单进入。补齐 15 颗球库控件可点击断言，最终复验见 BATCH-AUTHORING-RERECORD-20261014.md。
+- **已应用至**：BatchAuthoringView、DailyStandardQuizEditorUITests、20-swiftui-developer.mdc。
+
+
+FL-158追加（真实球预览）：单独模型预览的首轮投影单测测得30px而预期60px，确认SCNCamera.orthographicScale为世界半高；已修正为R×viewport/diameter，真实SCNView投影断言通过。测试初始化缺少setupScene的夹具失败另保留；不以改期望值掩盖尺寸错误。知识回写20-swiftui-developer.mdc同条。
+
+## FL-161 — 独立等长计时不是全桌动画完成屏障（2026-10-15）
+- 真机两库走位/五分点偶发“无法接续”；原摆球流程使用root等待0.45秒代替各球动画完成，渲染线程尚未写最后位置时主线程可能已读起点。
+- 隔离复现：单线程0/40提前，多线程80/200；同生产easeInEaseOut组合42/100提前。比例仅验证竞态存在，不是设备发生率。
+- 修复：逐球完成后计数汇合，显式存档换球形提交其动画终点；连续走位停点不回写，0.1mm接续检查不放宽。取消路径撤销逐球摆球动作。
+- 验证：新增延迟单球/取消替换/两库及五分点各三轮完整回放，另验共享试打入口与正常界面；最终结果见SEQUENCE-INTERMITTENT-STOP-20261015.md。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` FL-161；后续动画接续须异步渲染和不同节点结束时间验证，禁止以单线程renderer.update或静态轨迹解码代替真实交接测试。
+
+## FL-160 — UI测试杆序标识丢失插值（2026-10-14）
+- 单杆重录r1实际完成录制后，测试查询字面量batch.editStep.(index)，未查询真实序号；11项业务单测通过不抵消该UI失败。
+- 修正测试标识插值，保留原五杆断言和失败证据，生产代码不改；完整UI重跑见BATCH-AUTHORING-RERECORD-20261014.md第四轮。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` FL-160；生成测试源码时检查Swift插值经过脚本层转义后的实际文件及运行日志目标，不改产品标识迎合错误选择器。
+
+## FL-162 — 序列更新不能触发全局旧方向校验失败（2026-10-15）
+- 现象：重录同步后各球形统一报“当前球位无法接续”。旧方向兼容表绑定的 c042/manual02 已改名／改内容，静态 registry 缓存 missingArchive，并让所有 solve 在调用物理引擎前返回 nil。
+- 漏检：上轮只验证 JSON 解码与同步一致性，没有执行生产回放入口；按稳定 drill/token 比对漏报了三个中文文件名变化。
+- 修复：按用户授权撤除旧方向表、全局注册表与调用分支；before + 当前引擎为唯一回放求解路径，原序列／物理／瞄准不变。
+- 强制检查点：内容替换必须覆盖包内实际生产解析及播放器，不能以源文件可解码代替回放；单条坏数据须验证不会污染其他条目，稳定标识与完整文件名分别核对。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` FL-162；证据和最终验证状态见 `tasks/CURRENT-ENGINE-REPLAY-20261015.md`。
+
+## FL-163 — 事实核对通过不代表文案自然（2026-10-15）
+
+- 反馈：三份重写样稿虽事实正确，用户仍认为“不自然”。
+- 原因：把编辑分析写进学员文案，每杆套“为什么／怎么打／自检”，制造重复和说明书口吻。
+- 处理：只返工三个样稿，改成直接讲打法与排查的短段；无额外要点则留图和参数。连续杆保留留位目的。第一版留档，第二版待用户复审。
+- 后续护栏：自然度独立于事实/脚本检查，不能以机器门禁或互审替代用户定调。见 `DRILL-COPY-REWRITE-20261015.md` v1.2。
+
+## FL-164 — 强制横屏不等于测试设备方向同步（2026-10-15）
+
+蛇彩设置首两轮UI在随机预览查询失败。附件层级显示按号/随机均已选中，但滚动条仍为0%；测试设备仍portrait，App已强制横屏，application级swipeUp没有滚到预览。改为入桌后显式设置设备landscapeLeft并滚动设置CollectionView，保留换一组/15球/真实入口等原断言，phone-r3整套通过。未为测试修改产品滚动行为。后续横竖屏测试先同步设备方向，再定位实际滚动容器；不要用延长等待或删除存在性断言掩盖失败。已应用至55-test-engineer.mdc与SnakePracticeUITests；原失败xcresult保留。
+
+### FL-165 · 已公布答案的认知题不应提供同题重试（2026-10-15）
+
+用户指出3D角度结果页已知答案仍提供「重试」没有训练意义。移除2D/3D角度、瞄准点四入口按钮与状态回退，结果只继续下一题或总结；保留旧记录兼容。已应用至训练方案v2、docs/05、ADR与UI-IMPLEMENTATION-SPEC：答案揭晓后的认知练习默认不允许同题再作答，除非用户明确要求。验证见output/angle-aim-rules-20261015/r2-no-retry/REPORT.md。
+
+
+### FL-163补充 — 资料读取与教学理解分开验收（2026-10-15）
+
+R4把独立首杆误解为无下一颗任务；“已读”摘要、截断输出和工作树旧技能不能证明当前资料已完整加载。主控与作者、审稿均须按文案入口实际读取、先独立形成逐杆教学判断，再分层验收；机器门禁不替代语义。旧固定模板/留空/图文绝对去重已清理，v40原件备份。已应用至billiard-copy-editing、tutorial-authoring、内容工程/迁移技能、主控和QA入口；统一规范v1.2、UI-IMPLEMENTATION-SPEC Changelog（无UI/API变化）。本轮不改样稿/正式内容，R5未完成；验证见output/drill-copy-rewrite-20261015/workflow-refresh/。
+
+FL-164 r3补充（2026-10-15，蛇彩）：原生UIAlert按钮在iOS26 AX树中有同标识的父子Button节点，应限定已观察的firstMatch并验证结果；长球数菜单在横屏需滚动实际menu scrollView后查找，保留全部13档断言。软重启前同步XCUIDevice方向，不能把设置标题截断的截图交付为视觉通过。进一步取证发现测试的小幅拖动未超过共享52pt手指避让死区，母球并未移动，实际仍为初始薄球母球落袋；不可把预期摆位当实际输入。拖动必须跨死区，并断言真实世界坐标后再测合法切球/回放。首轮phone.xcresult及probe.xcresult保留；最终通过范围另记r3报告。
+
+蛇彩r3补充取证：phone-verified在13颗选项处的AX层级明确显示原生菜单为CollectionView，ScrollView查询为空；仅修正UI测试容器定位为包含snake.count.*选项的CollectionView，保留全3～15数量断言。phone-counts独立复验，未改产品菜单。
+
+
+## FL-166 — 嵌套浮层的胶囊尺寸读回为零（2026-10-16）
+- **任务**：训练/组间休息浮窗拖动。
+- **现象**：首轮原生UI中胶囊越过右边界；训练与休息两项边界断言失败。首页固定入口通过。
+- **严重程度**：P1（候选未交付）。
+- **根因**：在 `overlayPreferenceValue` 内嵌套通过 PreferenceKey 读胶囊尺寸，消费到了默认零值；计算中心时未扣真实半宽/半高。
+- **解决**：改由胶囊自身 `onGeometryChange` 直接测量自然尺寸，零尺寸不呈现、不命中；保持完整胶囊边界断言。修后验证见 `ui-reviews/UR-20261016-floating-pill-drag.md`。
+- **证据**：`output/floating-pill-20261016/phone-r1/` 保留失败日志、截图、xcresult及导出附件。
+- **规则改进建议**：浮层自身的尺寸不得以嵌套Preference默认值作为有效测量；必须用真实宽高核完整frame入界，再验证拖动和点击。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` § FL-166；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+### FL-163补充 · c064打点读数误判（2026-10-16，已纠正）
+主控把原spinY直乘100误称低46%，未先按当前SpinDisplay除0.5极限；实际图HUD低93%。已核显示源码和常量，撤回错误返工理由、告知用户及两审稿者，候选仅保留不歧义的按图打点措辞，原数据未变。规则已落billiard-copy-editing/SKILL.md，见IMPLEMENTATION-LOG同日补充。技术参数校验未被放宽。
+
+
+## FL-167 — 首页胶囊复用组件时丢失确认稿比例与图标（2026-10-16）
+- 用户指出实际版与确认图差异：默认工具样式13pt/12pt内边距压缩了15pt/16pt稿件；SF斜路径替换了横向路径。此前只检查可点击/不遮挡，没有核对参考图的形状和比例。
+- 修正：同一工具胶囊增加regular尺寸与isSelected外观；首页按最新要求默认选中，采用现有btPrimary/btPrimaryMuted与原生玻璃，恢复15pt字/16pt图标/16pt内边距，矢量重现靶心和横向路径。
+- 强制检查：确认稿与原生实现同尺寸对照图标轮廓、字体、内边距和材质；组件复用不能覆盖已确认视觉约束，测试绿不等于设计匹配。
+- 已应用至：swiftui-design-system §训练浮层胶囊；UI-IMPLEMENTATION-SPEC Changelog，DR-094 r4。验证见ui-reviews/UR-20261016-training-entry-style.md。

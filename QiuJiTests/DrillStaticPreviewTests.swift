@@ -513,3 +513,182 @@ final class DrillSequenceCameraTests: XCTestCase {
         for (key, p) in poses { XCTAssertEqual(c.scene.allBallNodes[key]?.simdOrientation.vector, p.vector) }
     }
 }
+
+/// Regression for renderer-thread completion racing the next shot's live-board read.
+@MainActor
+final class SequenceArrangementRegressionTests: XCTestCase {
+    private func makeController(_ id: String) async throws -> DrillSceneController {
+        let loaded = await DrillContentService.shared.loadDrillFromBundle(id: id)
+        let drill = try XCTUnwrap(loaded)
+        let c = DrillSceneController()
+        c.setup(drill: drill)
+        c.scene.cameraRig?.viewportSize = CGSize(width: 390, height: 220)
+        return c
+    }
+
+    private func renderer(_ c: DrillSceneController) -> SCNRenderer {
+        let r = SCNRenderer(device: nil, options: nil)
+        r.scene = c.scene
+        r.pointOfView = c.scene.cameraNode
+        return r
+    }
+
+    private func tick(_ r: SCNRenderer, rate: Double = 1) async throws {
+        let time = ProcessInfo.processInfo.systemUptime * rate
+        await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
+            DispatchQueue.global(qos: .userInteractive).async {
+                r.update(atTime: time)
+                done.resume()
+            }
+        }
+        try await Task.sleep(nanoseconds: 10_000_000)
+    }
+
+    func testArrangementWaitsForSlowestBallAndCommitsExactBoard() async throws {
+        let c = try await makeController("drill_c038")
+        let board = try XCTUnwrap(c.availableFormations.first).steps[6].before
+        let cue = try XCTUnwrap(c.scene.cueBallNode)
+        cue.isPaused = true // One ball deliberately finishes after every other node.
+        let r = renderer(c)
+        var completions = 0
+        SequenceSceneTransition.arrange(board, in: c.scene) {
+            completions += 1
+            SequenceSceneTransition.finishArrangement(board, in: c.scene)
+            for (key, point) in board.onTable {
+                let actual = c.scene.allBallNodes[key]!.position
+                let expected = PositionPlayShotSolver.scenePoint(point, surfaceY: c.scene.surfaceY)
+                XCTAssertEqual(actual.x, expected.x, accuracy: 0.000001, key)
+                XCTAssertEqual(actual.z, expected.z, accuracy: 0.000001, key)
+                XCTAssertFalse(c.scene.allBallNodes[key]!.isHidden)
+            }
+        }
+        let start = ProcessInfo.processInfo.systemUptime
+        while ProcessInfo.processInfo.systemUptime - start < 0.9 { try await tick(r) }
+        XCTAssertEqual(completions, 0, "Do not advance merely because the nominal 0.45s elapsed")
+        cue.isPaused = false
+        while completions == 0, ProcessInfo.processInfo.systemUptime - start < 6 { try await tick(r) }
+        XCTAssertEqual(completions, 1)
+        let step = try XCTUnwrap(c.availableFormations.first).steps[6]
+        let prediction = SequenceReplayResolver.solve(step: step, before: c.currentBoard(), surfaceY: c.scene.surfaceY)
+        XCTAssertTrue(try XCTUnwrap(prediction).feasible, "Actual arranged board must satisfy the recorded trajectory")
+    }
+
+    func testCancelledArrangementCannotCompleteOverReplacement() async throws {
+        let c = try await makeController("drill_c038")
+        let steps = try XCTUnwrap(c.availableFormations.first).steps
+        let r = renderer(c)
+        var cancelledCompletions = 0
+        var replacementCompletions = 0
+        SequenceSceneTransition.arrange(steps[6].before, in: c.scene) { cancelledCompletions += 1 }
+        try await tick(r)
+        SequenceSceneTransition.cancelArrangement(in: c.scene)
+        SequenceSceneTransition.arrange(steps[0].before, in: c.scene) {
+            replacementCompletions += 1
+            SequenceSceneTransition.finishArrangement(steps[0].before, in: c.scene)
+        }
+        let deadline = ProcessInfo.processInfo.systemUptime + 2
+        while ProcessInfo.processInfo.systemUptime < deadline { try await tick(r) }
+        XCTAssertEqual(cancelledCompletions, 0)
+        XCTAssertEqual(replacementCompletions, 1)
+        for (key, point) in steps[0].before.onTable {
+            let expected = PositionPlayShotSolver.scenePoint(point, surfaceY: c.scene.surfaceY)
+            XCTAssertEqual(c.scene.allBallNodes[key]!.position.x, expected.x, accuracy: 0.000001)
+            XCTAssertEqual(c.scene.allBallNodes[key]!.position.z, expected.z, accuracy: 0.000001)
+        }
+    }
+
+    func testEveryBundledFormationCompletesProductionPlayback() async throws {
+        let directory = try XCTUnwrap(Bundle.main.resourceURL).appendingPathComponent("DrillBoards")
+        let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("drill_c") && $0.pathExtension == "json" }
+        let ids = Set(files.map { String($0.lastPathComponent.prefix(10)) }).sorted()
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        let archives = try files.map { try decoder.decode(PositionPlaySequence.self, from: Data(contentsOf: $0)) }
+        let empty = archives.filter { $0.steps.isEmpty }.count
+        var formations = 0, shots = 0
+        var playedFiles: Set<String> = []
+        let playableFiles = Set(zip(files, archives).filter { !$0.1.steps.isEmpty }.map { $0.0.lastPathComponent })
+        for id in ids {
+            // Production intentionally excludes initial-only archives from sequence playback.
+            if !playableFiles.contains(where: { $0.hasPrefix(id + "__") }) { continue }
+            let current = await DrillContentService.shared.loadDrillFromBundle(id: id)
+            let drill: DrillContent
+            if let current {
+                drill = current
+            } else {
+                // Retired catalog entries still have bundled sequences. Use their actual
+                // archived metadata only to host the same production sequence consumer.
+                let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+                let retired = root.appendingPathComponent("content/retired-drills/Drills")
+                let categories = try FileManager.default.contentsOfDirectory(at: retired, includingPropertiesForKeys: nil)
+                let file = try XCTUnwrap(categories.map { $0.appendingPathComponent(id + ".json") }
+                    .first { FileManager.default.fileExists(atPath: $0.path) }, id)
+                drill = try JSONDecoder().decode(DrillContent.self, from: Data(contentsOf: file))
+                print("PRODUCTION-REPLAY archived catalog metadata", id)
+            }
+            let c = DrillSceneController()
+            c.setup(drill: drill)
+            c.scene.cameraRig?.viewportSize = CGSize(width: 390, height: 220)
+            let r = renderer(c)
+            for formation in c.availableFormations {
+                formations += 1
+                c.switchFormation(token: formation.token)
+                c.setCameraMode(formations.isMultiple(of: 2) ? .perspective3D : .topDown2D)
+                XCTAssertTrue(playedFiles.insert(formation.fileName).inserted, formation.fileName)
+                c.play()
+                let deadline = ProcessInfo.processInfo.systemUptime + 150
+                while c.isPlaying, ProcessInfo.processInfo.systemUptime < deadline {
+                    try await tick(r, rate: 8)
+                    c.scene.cameraRig?.update(deltaTime: 0.05)
+                }
+                XCTAssertFalse(c.isPlaying, "Timed out: \(id) \(formation.token) \(c.stepLabel)")
+                XCTAssertNil(c.playbackMessage, "\(id) \(formation.token): \(c.playbackMessage ?? "")")
+                XCTAssertEqual(c.stepLabel, "第 \(formation.steps.count)/\(formation.steps.count) 杆", "\(id) \(formation.token)")
+                XCTAssertEqual(c.playbackPhase, .finished)
+                shots += formation.steps.count
+                print("PRODUCTION-REPLAY FINISHED", id, formation.token, "shots", formation.steps.count, "message", c.playbackMessage ?? "none")
+                c.suspendPlayback()
+            }
+        }
+        XCTAssertEqual(playedFiles, playableFiles)
+        XCTAssertEqual(formations, 95)
+        XCTAssertEqual(formations + empty, 98)
+        XCTAssertEqual(shots, 629)
+        XCTAssertEqual(empty, 3)
+        print("PRODUCTION-REPLAY total=98 shots=629 empty=3")
+    }
+
+    func testTwoRailAndFivePointRepeatedPlayback() async throws {
+        for (id, count) in [("drill_c038", 12), ("drill_c023", 8)] {
+            let c = try await makeController(id)
+            let r = renderer(c)
+            for cycle in 0..<3 {
+                c.setCameraMode(cycle == 1 ? .perspective3D : .topDown2D)
+                c.play()
+                let deadline = ProcessInfo.processInfo.systemUptime + 150
+                var paused = false
+                while c.isPlaying || c.playbackState == .paused {
+                    try await tick(r, rate: 8)
+                    c.scene.cameraRig?.update(deltaTime: 0.01)
+                    if cycle == 2, !paused, c.playbackPhase == .arranging {
+                        c.suspendPlayback()
+                        let before = c.currentBoard()
+                        for _ in 0..<5 { try await tick(r, rate: 8) }
+                        for (key, point) in before.onTable {
+                            XCTAssertEqual(c.currentBoard().onTable[key]?.x, point.x)
+                            XCTAssertEqual(c.currentBoard().onTable[key]?.y, point.y)
+                        }
+                        c.togglePlayback()
+                        paused = true
+                    }
+                    if ProcessInfo.processInfo.systemUptime > deadline { XCTFail("Timed out: \(id) cycle \(cycle) \(c.stepLabel)"); break }
+                }
+                XCTAssertNil(c.playbackMessage, "\(id) cycle \(cycle): \(c.playbackMessage ?? "")")
+                XCTAssertEqual(c.stepLabel, "第 \(count)/\(count) 杆")
+                XCTAssertEqual(c.playbackPhase, .finished)
+                if cycle == 2 { XCTAssertTrue(paused) }
+                print("ARRANGEMENT-REPLAY PASS", id, "cycle", cycle + 1, "shots", count)
+            }
+        }
+    }
+}

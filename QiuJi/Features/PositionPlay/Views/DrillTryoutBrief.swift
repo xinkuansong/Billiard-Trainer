@@ -8,7 +8,7 @@ import SwiftUI
 //
 //  三行内容全部从既有 drill JSON 字段自动生成（硬约束：不新增文案字段）：
 //  - 局面目标：`shotIntent.shots[0].pocket`（或 `animation.pocket` 兜底）+ 多杆补充。
-//  - 训练重点：`coachingPoints[0]` 原文。
+//  - 训练重点：`coachingPoints[0]`，按当前球桌朝向显示。
 //  - 参考打法：velocity/spin 转人话（与既有力度档名 `PowerDisplay.name`、
 //    打点语义同口径）；无 shotIntent 的 drill 省略此行。
 //  明确不放 `standardCriteria`（实球计分口径，无计分模式下有误导）。
@@ -36,7 +36,8 @@ enum DrillTryoutBrief {
         var lines: [Line] = []
         lines.append(Line(label: "局面目标", text: goalText(for: drill, formation: formation, orientation: orientation)))
         if let focus = drill.coachingPoints.first, !focus.isEmpty {
-            lines.append(Line(label: "训练重点", text: focus))
+            lines.append(Line(label: "训练重点", text: DrillCopyDisplay.text(focus,
+                drillID: drill.id, field: "coachingPoints[0]", orientation: orientation)))
         }
         if let shot = formation?.firstShot, !shot.isFree {
             lines.append(Line(label: "参考打法", text: referenceText(
@@ -52,32 +53,54 @@ enum DrillTryoutBrief {
                          formation: DrillTryoutFormation? = nil,
                          orientation: PocketDisplay.Orientation) -> String {
         if let formation {
-            return goalText(forFormation: formation, orientation: orientation)
+            return goalText(forFormation: formation, orientation: orientation,
+                            mode: formationMode(for: drill, formation: formation))
         }
-        let pocketId = drill.shotIntent?.shots.first?.pocket ?? drill.animation.pocket
-        var text = "把目标球打进\(PocketDisplay.name(id: pocketId, orientation: orientation))"
+        let pocketName = drill.shotIntent?.shots.first.map {
+            PocketDisplay.name(id: $0.pocket, orientation: orientation)
+        }
+        // A legacy animation pocket alone does not establish the ball's teaching role.
+        var text = pocketName.flatMap { $0 == "—" ? nil : "把目标球打进\($0)" }
+            ?? "按本球形示范练习"
         if let count = drill.shotIntent?.shots.count, count > 1 {
-            text += "；本局共 \(count) 杆，进球后继续走位下一杆"
+            text += "；共 \(count) 杆示范"
         }
         return text
     }
 
     /// 序列球形版局面目标：首杆选袋 + 杆数（首杆自由球/袋口缺失时省略袋口句）。
-    static func goalText(forFormation formation: DrillTryoutFormation, orientation: PocketDisplay.Orientation) -> String {
+    static func goalText(forFormation formation: DrillTryoutFormation,
+                         orientation: PocketDisplay.Orientation,
+                         mode: DrillContent.DoseMode? = nil) -> String {
         var parts: [String] = []
-        if let shot = formation.firstShot, !shot.isFree {
+        if let shot = formation.firstShot, !shot.isFree, !shot.targetKey.isEmpty {
             let pocketName = PocketDisplay.name(id: shot.pocket, orientation: orientation)
             if pocketName != "—" {
                 parts.append("把目标球打进\(pocketName)")
             }
         }
         if formation.stepCount > 1 {
-            parts.append("本局共 \(formation.stepCount) 杆，进球后继续走位下一杆")
+            switch mode {
+            case .sequence:
+                parts.append("共 \(formation.stepCount) 杆，按顺序接续完成")
+            case .repetition:
+                parts.append("共 \(formation.stepCount) 杆示范，各杆按示范摆位练习")
+            case nil:
+                parts.append("共 \(formation.stepCount) 杆示范")
+            }
         }
         if parts.isEmpty {
             parts.append("按视频示范球形自由练习")
         }
         return parts.joined(separator: "；")
+    }
+
+    /// Match authored training semantics, not physical board equality: a continuous
+    /// cue-ball drill may restore its target after every shot. Unknown tokens stay neutral.
+    static func formationMode(for drill: DrillContent,
+                              formation: DrillTryoutFormation) -> DrillContent.DoseMode? {
+        let matches = (drill.sets.perFormation ?? []).filter { $0.token == formation.token }
+        return matches.count == 1 ? matches.first?.mode : nil
     }
 
     /// 参考打法：力度档（`PowerDisplay.name` 同口径）+ 杆法用语。

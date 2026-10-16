@@ -77,7 +77,7 @@ class PreviewTests(unittest.TestCase):
             request += ['--drill-id', drill_id]
         if content_id:
             request += ['--content-id', content_id]
-        with patch.object(preview, 'ROOT', self.root), patch.object(preview.subprocess, 'run', side_effect=self.fake_run), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        with patch.object(preview, 'device_lease', side_effect=lambda *args: contextlib.nullcontext()), patch.object(preview, 'ROOT', self.root), patch.object(preview.subprocess, 'run', side_effect=self.fake_run), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             code = preview.main([*request, *arguments])
         folders = list((self.root / 'output/simulator-preview').glob('20*')) if (self.root / 'output/simulator-preview').exists() else []
         return code, folders[0] if folders else None

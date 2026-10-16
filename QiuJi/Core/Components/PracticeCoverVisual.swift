@@ -148,6 +148,8 @@ enum PracticeCoverCatalog {
             return .tablePreview(collisionPreview(tint: "shotSimulation"))
         case .positionPlayComposer:
             return .tablePreview(multiBallPreview(tint: "positionPlayComposer", count: 4))
+        case .snakePractice:
+            return .tablePreview(multiBallPreview(tint: "positionPlayComposer", count: 5))
         case .freePlay:
             return .tablePreview(rackPreview(tint: "freePlay"))
         case .ballExtraction:

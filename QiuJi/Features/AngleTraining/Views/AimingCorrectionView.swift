@@ -36,14 +36,14 @@ struct AimingCorrectionView: View {
 
     private var introSection: some View {
         LearnDocSectionCard {
-            Text("理想 vs 现实")
+            Text("找到几何方向以后，还要看什么")
                 .font(.btTitle)
                 .foregroundStyle(.btText)
                 .accessibilityIdentifier("aimingCorrection.intro.title")
 
-            LearnDocText.body("角度瞄准法假设碰撞无摩擦、母球走直线。真实球台两条都不成立：进球线可以固定，但「怎么瞄」会随力度与杆法变化。本页讲三个偏差源——投掷、高低杆对有效厚度的影响、加塞下的挤偏与弧线——以及自动求解如何把它们算进去。")
+            LearnDocText.body("按假想球找到方向以后，同一个球形，换一种力度或杆法，目标球可能不再沿原来的方向走。原因有的发生在碰球时，有的发生在母球到达之前：球间摩擦会带来投掷，加塞还会涉及挤偏与弧线。先分清偏差从哪里来，再讨论怎样调整瞄准。")
 
-            LearnDocText.footnote("几何瞄准点仍由切角决定（d = 2R·sinθ，详见「瞄准原理」「瞄准方法」）；下面只讲几何之外还要补的那一截。")
+            LearnDocText.footnote("d = 2R × sin(θ) 仍是几何参照。下面的交互用当前模拟条件展示修正量，帮助你比较变化；具体让多少，还需要在自己的球杆、球台和打法下核对。")
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("aimingCorrection.intro")
@@ -67,7 +67,7 @@ struct AimingCorrectionView: View {
             ),
             spinXRange: -vm.spinXMaxAbs...max(vm.spinXMaxAbs, 1e-6),
             spinXDisabled: vm.spinXMaxAbs < 1e-4,
-            footer: "拖动控件时 ①–④ 节插图按引擎实况实时重算（约 20ms 去抖）。左右塞与高低杆合成幅值钳在打滑极限内（0.5R，与打点盘同口径）。",
+            footer: "改变力度、高低杆或左右塞，下面四组图会重新计算。先一次改一项，比较瞄准线和碰后方向怎样变化。打点范围与 App 打点盘一致，上下打得越偏，可选的左右塞越少。",
             velocityAccessibilityIdentifier: "aimingCorrection.velocitySlider",
             spinYAccessibilityIdentifier: "aimingCorrection.spinYPicker",
             spinXAccessibilityIdentifier: "aimingCorrection.spinXSlider"
@@ -79,7 +79,7 @@ struct AimingCorrectionView: View {
 
     private var idealVsRealitySection: some View {
         LearnDocSectionCard(title: "同一局面：几何瞄准 vs 求解瞄准") {
-            LearnDocText.body("虚线 = 假想球几何方向（角度瞄准法）；实线 = 自动求解的瞄准方向。两线夹角 Δ 与自动求解读的是同一份引擎数值。")
+            LearnDocText.body("虚线是按假想球找到的几何方向，实线是当前力度和杆法下自动求解得到的方向。两线的夹角记作 Δ。先保持球位不变，调整上方控件，看看需要修正的方向和幅度是否改变。")
 
             DeltaAimFigure(snapshot: vm.snapshot, setup: vm.setup)
                 .frame(height: 260)
@@ -109,7 +109,7 @@ struct AimingCorrectionView: View {
                     .foregroundStyle(.btWarning)
             }
 
-            LearnDocText.footnote("中杆中速、小切角时 Δ 往往很小，角度瞄准法够用；大切角、慢速或加塞时，这段偏差必须补偿。")
+            LearnDocText.footnote("偏差是否影响进球，还与目标球到袋口的距离和袋口容错有关。不要只看 Δ 的数字大小，也要看这样的方向差会把目标球带到袋口哪里。")
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("aimingCorrection.section1")
@@ -146,9 +146,9 @@ struct AimingCorrectionView: View {
             }
 
             VStack(alignment: .leading, spacing: Spacing.md) {
-                LearnDocText.body("碰撞瞬间，接触面摩擦把目标球拽离理想进球线——这就是投掷。下图夸大画出了实际离开方向相对进球线的夹角 Δ；离开方向数值与自动求解读的是同一份引擎实况。")
-                LearnDocText.body("切角投掷（CIT）：不加塞也会发生，切角越大越明显、到半球附近最明显（引擎草稿：同速下 30° 切角 1.55° > 15° 切角 1.12°，45° 与半球持平）。塞致投掷（SIT）：左右塞改变接触面相对滑动，目标球离开方向再偏一截——左塞的投掷分量把目标球向右带（引擎草稿核验；净方向还叠加挤偏，见④节）。")
-                LearnDocText.body("力度规律：越慢投掷越大（接触面相对速度越低，摩擦越大）。引擎草稿同局面：慢速投掷 1.454° > 快速 0.793°——轻推薄球容易不进，往往就是投掷把球带离进球线。")
+                LearnDocText.body("两球碰撞时，除了沿连心线的挤压，接触面的摩擦也会给目标球一个侧向作用，使它偏离理想离开方向。这种现象叫投掷。图中把方向差放大，方便观察；读数来自当前模拟结果。")
+                LearnDocText.body("不加左右塞，切球本身也能产生投掷，称为切角投掷（CIT）。加塞会改变接触面相对滑动，形成塞致投掷（SIT）。两种作用可能加强，也可能抵消，不能把塞量直接换成固定的目标球偏转角。")
+                LearnDocText.body("碰球时接近斯登状态，也就是几乎没有前旋和后旋，投掷通常比较明显。无塞斯登球的切角投掷常在半球附近较大，不能理解为切得越薄就一直增大。较慢的击球在不少条件下投掷更明显，但小切角斯登球对速度可能并不敏感；判断时还要看碰球时的旋转。")
             }
 
             LearnDocText.footnote("切角与假想球几何见「瞄准原理」「瞄准方法」；本节省去复述。")
@@ -161,7 +161,7 @@ struct AimingCorrectionView: View {
 
     private var thicknessSection: some View {
         LearnDocSectionCard {
-            Text("高低杆改变有效厚度")
+            Text("为什么换了高低杆，原来的瞄法会变")
                 .font(.btTitle)
                 .foregroundStyle(.btText)
                 .accessibilityIdentifier("aimingCorrection.section3.title")
@@ -180,7 +180,7 @@ struct AimingCorrectionView: View {
                                 .font(.btSubheadlineMedium)
                                 .foregroundStyle(lane.tier == vm.spinYTier ? .btPrimary : .btText)
                                 .frame(width: 40, alignment: .leading)
-                            Text(String(format: "bias %+0.2f°（%@）",
+                            Text(String(format: "偏差 %+0.2f°（%@）",
                                          lane.thicknessBiasDegrees, biasLabel))
                                 .font(.system(size: 13, weight: .medium, design: .monospaced))
                                 .foregroundStyle(.btText)
@@ -195,9 +195,9 @@ struct AimingCorrectionView: View {
             }
 
             VStack(alignment: .leading, spacing: Spacing.md) {
-                LearnDocText.body("同一瞄准点下，上下旋改变碰撞瞬间接触面相对滑动方向，摩擦力水平分量变化，投掷方向跟着变——观感上就像「厚度变了」。")
-                LearnDocText.body("Z1 草稿同局面（v=1.5、无塞）：高杆 bias −0.726° > 中杆 −1.546°（相对中杆更偏薄）；低杆 bias −2.995° < 中杆（相对中杆更偏厚）。正值 = 偏薄侧（符号经 ±1.5° 瞄准扰动标定）。")
-                LearnDocText.body("实战翻译：高杆瞄厚一点、低杆瞄薄一点——补偿的是投掷带来的有效厚度变化，不是几何瞄准点公式本身变了。")
+                LearnDocText.body("有时同一球形，中杆能进，换成高杆或低杆却偏了，看起来像是碰厚或碰薄了。两球的大小没有变；需要检查的是，换打法以后，母球到达时的速度、旋转和实际入射方向发生了什么变化。")
+                LearnDocText.body("上图保留相同的几何瞄准方向，比较三种打点。读数表示目标球离开方向相对理想进球方向的偏差，正值标作偏薄侧，负值标作偏厚侧；它不是要直接照搬的让点量，也不是相对中杆的差值。")
+                LearnDocText.body("关键是碰球时的状态，不只是出杆时打得高还是低。低杆的后旋可能在途中逐渐消失，甚至转成自然滚动。前旋和后旋都可能使投掷比斯登时减小，因此「高杆一律瞄厚、低杆一律瞄薄」不能作为通用口诀。先比较同一球形下自己熟悉的打法，再根据实际偏差调整。")
             }
 
             LearnDocText.footnote("厚度与切角对照仍见「瞄准点对照表」；本页只讲杆法对有效厚度的修正。")
@@ -250,9 +250,9 @@ struct AimingCorrectionView: View {
             }
 
             VStack(alignment: .leading, spacing: Spacing.md) {
-                LearnDocText.body("挤偏（Squirt）：杆头打在球侧，出杆瞬间母球出发方向偏向加塞反侧——立即发生，与行程和速度基本无关。左塞（spinX>0）挤偏向右（引擎：squirt 为负；Z1 草稿左塞 +0.35 → −1.415°；Z3 同参 −1.232°）。这是三个偏差源里唯一不随力度变的。")
-                LearnDocText.body("弧线（Swerve）：滑动段侧旋与台呢摩擦使轨迹微弯，越慢累积越明显（Z3 草稿组合档：v=0.8 漂移 4.6mm > v=4.0 0.1mm）。注意：平杆纯左右塞时自转轴竖直、轨迹几乎不弯（Z3 草稿 ≈0）——弧线要叠加高低杆（自转轴倾斜）或抬杆仰角才明显（草稿仰角 5° 实测 8.9mm）。无塞时瞄准线、出发方向与碰前轨迹近乎重合；加塞后挤偏使瞄准线与实际出发分离——上图杆指向线（白虚线）、母球实际行进曲线（亮绿）、假想球位置可对照。")
-                LearnDocText.body("净效果 = 挤偏 + 弧线 + 到达后的塞致投掷（SIT），三者叠加没有简单口诀——所以才需要⑤节的自动求解。")
+                LearnDocText.body("挤偏（Squirt）发生在出杆瞬间：杆头打在母球左侧，母球通常先偏向杆线右侧出发；右塞则相反。它主要与偏心打点和球杆特性有关。图中的白虚线是杆指向，亮绿轨迹是母球实际行进路线，可以比较两者从哪里开始分开。")
+                LearnDocText.body("弧线（Swerve）发生在行进途中。加塞并带有杆身仰角时，台呢摩擦会使母球路线逐渐向加塞一侧弯回；仰角、速度、行程和上下旋都会影响弯回的过程。理想水平出杆、纯侧旋的母球，不会只因为有左右塞就必然画出明显弧线。")
+                LearnDocText.body("挤偏先改变出发方向，弧线再改变到达位置和入射方向，碰球时还可能产生投掷。最终需要让向哪边、让多少，要看这些作用合起来的结果。换距离或力度以后，原来合适的让点就未必仍然合适。")
             }
 
             LearnDocText.footnote("母球旋转状态与分离角见「旋转与加塞」；本页只讲加塞对瞄准线的影响。")
@@ -294,21 +294,21 @@ struct AimingCorrectionView: View {
                 .accessibilityIdentifier("aimingCorrection.compareReadout")
             }
 
-            LearnDocText.body("收拢①–④：求解器用完整物理链——杆-球碰撞含挤偏 → 滑动/滚动含弧线 → 球-球摩擦碰撞含投掷——反向搜索瞄准方向，使目标球碰后方向正对袋口。力度和塞是搜索输入，每换一档瞄准线重算。上图档 A（中杆中速无塞，v=1.5）与档 B（低杆轻推+左塞，v=0.8 / spinY=−0.4 / spinX=+0.3）各调一次求解，几何基准虚线对照。")
+            LearnDocText.body("自动求解会在当前模拟条件下尝试不同的瞄准方向，计算母球怎样到达目标球、碰后目标球朝哪里走，再寻找通向袋口的方向。上图固定比较两套打法：A 是中杆中速无塞，B 是低杆轻推加左塞。它们的力度和打点同时不同，所以两条线的差别是综合结果，不能只归因于其中一个因素。")
 
-            Text("定性速查（方向不给度数；符号均经数值草稿核验）")
+            Text("判断修正时，先核对这些条件")
                 .font(.btSubheadlineMedium)
                 .foregroundStyle(.btText)
                 .accessibilityIdentifier("aimingCorrection.quickref.title")
 
             VStack(spacing: Spacing.sm) {
-                quickRefRow("轻力", "投掷更大", "z1 CIT 慢>快")
-                quickRefRow("大切角", "投掷更明显（半球附近见顶）", "z2 CIT 15→30↑ / 45≈峰")
-                quickRefRow("高杆", "偏薄 → 需瞄厚一点", "z1 bias 高>中")
-                quickRefRow("低杆", "偏厚 → 需瞄薄一点", "z1 bias 低<中")
-                quickRefRow("左塞", "挤偏向右 + SIT 把目标球向右带", "z1 squirt<0；z2 SIT")
-                quickRefRow("挤偏", "与力度基本无关（三源唯一）", "z3 squirt 无 v 参数")
-                quickRefRow("弧线", "纯侧旋平杆几乎不弯；叠加高低杆/仰角才弯，越慢越明显", "z3 swerve 漂移实测")
+                quickRefRow("轻力", "留意投掷与弯回的变化", "仍要比较碰球速度、旋转和行程")
+                quickRefRow("切角", "半球附近的斯登球值得特别留意", "投掷不会随切角无限增大")
+                quickRefRow("高杆", "检查到达时是怎样的前旋", "不能一律按「瞄厚一点」处理")
+                quickRefRow("低杆", "检查后旋是否还保留到碰球", "打低不等于到达时仍有后旋")
+                quickRefRow("左塞", "母球通常先向杆线右侧挤偏", "最终让点还取决于弧线和投掷")
+                quickRefRow("挤偏", "先看打点和球杆特性", "起始偏角与最终横向偏差要分开")
+                quickRefRow("弧线", "看仰角、速度和行程", "它发生在途中，不是出杆瞬间的偏角")
             }
             .accessibilityIdentifier("aimingCorrection.quickref")
         }
@@ -328,7 +328,7 @@ struct AimingCorrectionView: View {
         }
     }
 
-    private func quickRefRow(_ condition: String, _ conclusion: String, _ source: String) -> some View {
+    private func quickRefRow(_ condition: String, _ conclusion: String, _ note: String) -> some View {
         HStack(alignment: .top, spacing: Spacing.sm) {
             Text(condition)
                 .font(.btSubheadlineMedium)
@@ -338,9 +338,9 @@ struct AimingCorrectionView: View {
                 Text(conclusion)
                     .font(.btCaption)
                     .foregroundStyle(.btText)
-                Text(source)
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.btTextTertiary)
+                Text(note)
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -386,7 +386,7 @@ struct AimingCorrectionView: View {
                 .foregroundStyle(.btText)
                 .accessibilityIdentifier("aimingCorrection.section6.title")
 
-            LearnDocText.body("边界感知：中杆中速小切角时，用角度瞄准法通常够用；大切角 + 慢速 + 加塞时，必须让求解（或经验补偿）把投掷、挤偏与弧线算进去。到「思路训练」里换力度与塞，直接看瞄准线怎么动。")
+            LearnDocText.body("练习时，先固定一个容易重摆的球形，用熟悉的力度和打点建立参照。再一次改变一项，观察目标球偏向哪里，并检查出杆是否按原计划完成。把调整后的瞄准与这套打法一起记住；换球距或换球台后，再重新核对。也可以到「思路训练」中比较不同打法的瞄准线，帮助理解变化从哪里来。")
 
             PracticeCTA(
                 title: "去思路训练看实况",
@@ -396,7 +396,7 @@ struct AimingCorrectionView: View {
 
             PracticeCTA(
                 title: "练挤偏认知",
-                destination: "免费钩子 · 直球近台带塞让点",
+                destination: "直球近台 · 比较带塞后的瞄准变化",
                 route: .drillDetail("drill_c073")
             )
             .accessibilityIdentifier("aimingCorrection.squirtDrillCTA")

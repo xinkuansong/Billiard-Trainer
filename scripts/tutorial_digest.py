@@ -129,29 +129,32 @@ def octant(from_p, to_p):
     return names[int((ang + 22.5) // 45) % 8]
 
 
-def cut_angle_deg(cue, target, pocket_xy):
-    """切球角（近似）：cue→target 方向与 target→袋口 方向的夹角。0° = 直线球。"""
-    v1 = (target[0] - cue[0], target[1] - cue[1])
-    v2 = (pocket_xy[0] - target[0], pocket_xy[1] - target[1])
-    n1, n2 = math.hypot(*v1), math.hypot(*v2)
-    if n1 < 1e-9 or n2 < 1e-9:
-        return 0.0
-    c = (v1[0] * v2[0] + v1[1] * v2[1]) / (n1 * n2)
-    return math.degrees(math.acos(max(-1.0, min(1.0, c))))
+def aim_angle(step):
+    """Only the recorded geometric aim angle may feed tutorial captions; never infer it."""
+    shot = step.get("shot", {})
+    if shot.get("freeAim") is not None or not shot.get("targetKey"):
+        return None, "freeAimHasNoPocketLine"
+    analysis = step.get("analysis")
+    if not isinstance(analysis, dict):
+        return None, "missingAnalysis"
+    if analysis.get("schemaVersion") != 1:
+        return None, "unsupportedAnalysisSchema"
+    if analysis.get("engineVersion") != "qiuji-planar-reference-20261015":
+        return None, "unverifiedAnalysisEngineVersion"
+    aim = analysis.get("aim")
+    if not isinstance(aim, dict):
+        return None, analysis.get("noAimReason", "missingAim")
+    if aim.get("targetBallKey") != shot.get("targetKey") or aim.get("pocket") != shot.get("pocket"):
+        return None, "aimIdentityMismatch"
+    value = aim.get("aimAngleDegrees")
+    if isinstance(value, bool) or not isinstance(value, (float, int)) or not math.isfinite(value) or not 0 <= value <= 180:
+        return None, "invalidAimAngle"
+    return value, None
 
 
-def cut_desc(deg):
-    if deg < 5:
-        return "直线球"
-    if deg < 15:
-        return "近直线（小角度）"
-    if deg < 35:
-        return "中小角度"
-    if deg < 55:
-        return "中等角度"
-    if deg < 75:
-        return "大角度"
-    return "极薄切球"
+def aim_caption(step, number):
+    value, _ = aim_angle(step)
+    return f"第{number}杆：瞄准角约 {value:.1f}°" if value is not None else f"第{number}杆"
 
 
 def spin_readout(sx, sy):
@@ -243,24 +246,13 @@ def spin_class(sx, sy):
     return vert_bucket, side_bucket
 
 
-def theory_hints(vert, side, cut, n_steps, step_idx):
-    """理论参考（16.billiard_theory 定理编号）。仅供作者转成教练话，禁止正文出现编号。"""
+def theory_hints(vert, side):
+    """Reading pointers, not conclusions inferred from strike settings or shot count."""
     hints = []
-    if vert == "中心" and cut >= 15:
-        hints.append("T02 90°法则：中心/定杆击球，母球沿切线（垂直于两球连心线）分离约90°")
-    if vert == "高杆":
-        hints.append("T01 30°法则/T03 切线法则：母球先走切线，随后被前旋拉弯向前；短距离时来不及转成滚动，实际更贴切线")
-    if vert == "低杆":
-        hints.append("T03 切线法则：母球先走切线，随后被回旋向后拉弯；距离越短切线段占比越大")
-    if cut < 5:
-        hints.append("直线球没有切角可用：母球只能沿击球线前后走（跟进/定/缩），无法横向走位")
+    if vert in ("高杆", "低杆"):
+        hints.append("可查杆法与碰撞后母球运动的理论；击球打点不能单独证明碰撞时的旋转状态")
     if side:
-        hints.append("T09 最少加塞原则：此杆用了侧塞，正文应交代为什么中杆做不到（否则应反思参数）")
-    if n_steps >= 2:
-        if step_idx == n_steps - 2:
-            hints.append("T06 关键球原理：这是倒数第二杆（key ball 位），走位质量直接决定收尾成败")
-        if step_idx < n_steps - 1:
-            hints.append("T05 反向规划：本杆落点由下一杆需求倒推而来，「为什么」条必须写出下一杆需要什么")
+        hints.append("可查加塞、挤偏、弧线及库边作用；微小打点偏移不自动代表刻意加塞")
     return hints
 
 
@@ -279,12 +271,12 @@ def digest(path):
     w(f"来源文件：{path}")
     w("")
     w("> 本清单由 scripts/tutorial_digest.py 确定性计算生成。写精讲时几何事实只准抄本清单，")
-    w("> 禁止自行从坐标脑算。清单不含轨迹细节（吃库/路径形状），涉及吃库表述须核对出片视频。")
+    w("> 禁止自行从坐标脑算。清单不含轨迹细节；吃库与路径须结合最新图片及引擎事实核验。")
     w("")
 
     # ---- 开局
     w("## 开局布局")
-    initial = seq.get("initial", {}).get("onTable", {})
+    initial = steps[0]["before"]["onTable"] if steps else seq.get("initial", {}).get("onTable", {})
     for key in sorted(initial, key=lambda k: (k != "cueBall", k)):
         p = (initial[key]["x"], initial[key]["y"])
         w(f"- {ball_label(key)}：({p[0]:.3f}, {p[1]:.3f}) — {region(p)}")
@@ -296,29 +288,7 @@ def digest(path):
     w(f"- 击打顺序与袋口：{order}")
     w("")
 
-    # ---- 形态判定（DR-062）：开局布局之后、逐杆之前；纯新增行，不改既有字段格式
-    # 判据：各杆目标球距袋距离极差 < 0.5 颗球 且袋口一致 → 独立阶梯；否则走位链。
-    pocket_set = set()
-    dtp_balls = []
-    for step in steps:
-        shot = step["shot"]
-        tkey = shot.get("targetKey", "")
-        pocket = shot.get("pocket", "")
-        if not tkey or not pocket:
-            continue
-        before = {k: (v["x"], v["y"]) for k, v in step["before"]["onTable"].items()}
-        if tkey not in before:
-            continue
-        pk = POCKETS.get(pocket)
-        if not pk:
-            continue
-        pocket_set.add(pocket)
-        dtp_balls.append(in_balls(dist(before[tkey], pk)))
-    if dtp_balls and len(pocket_set) == 1 and (max(dtp_balls) - min(dtp_balls)) < 0.5:
-        dtp_rep = sum(dtp_balls) / len(dtp_balls)
-        w(f"形态判定：独立阶梯（目标球距袋恒定 {dtp_rep:.1f} 颗球，袋口不变）")
-    else:
-        w("形态判定：走位链（目标球距袋逐杆变化）")
+    w("形态判定：以 Drill sets.perFormation.mode 与用户训练意图交叉核验；不根据球距或杆数自动判断走位链。")
     w("")
 
     # ---- 逐杆
@@ -347,19 +317,24 @@ def digest(path):
         w(f"- 打点读数：{readout}（h={h_pct}% v={v_pct}%）；"
           f"杆法：{cue_zh}；力度：{power_phrase(vel)}")
 
-        if cue_b and tkey in before and not free:
+        if cue_b and tkey in before and not free and pocket in POCKETS:
             tgt = before[tkey]
             pk = POCKETS.get(pocket)
             w(f"- 击球前：母球在{ball_label(tkey)}的{octant(tgt, cue_b)}方，"
               f"两球相距{fmt_balls(dist(cue_b, tgt))}"
               f"（{dist(cue_b, tgt) * TABLE_LEN_M:.2f} m）；"
               f"{ball_label(tkey)}距{pocket_zh}{fmt_balls(dist(tgt, pk))}")
-            cut = cut_angle_deg(cue_b, tgt, pk)
-            w(f"- 切球角（近似）：{cut:.0f}° — {cut_desc(cut)}")
+
         else:
-            cut = 0.0
             if cue_b:
                 w(f"- 击球前：母球位于 ({cue_b[0]:.3f}, {cue_b[1]:.3f}) — {region(cue_b)}")
+
+        angle, reason = aim_angle(step)
+        if angle is not None:
+            w(f"- 瞄准角：{angle:.1f}°（analysis.aim.aimAngleDegrees；原值 {angle}）")
+        else:
+            w(f"- 瞄准角：不提供（{reason}）；不得用实际切角或近似角兜底")
+        w(f"- 图注事实格式：{aim_caption(step, i + 1)}")
 
         potted = step.get("potted", [])
         if potted:
@@ -369,11 +344,11 @@ def digest(path):
         if cue_a:
             w(f"- 母球落点（after 快照）：({cue_a[0]:.3f}, {cue_a[1]:.3f}) — {region(cue_a)}")
             if tkey in before:
-                w(f"- 母球接触后移动距离：{fmt_balls(dist(before[tkey], cue_a))}"
+                w(f"- 目标球原位至母球停点的直线间距（非行程）：{fmt_balls(dist(before[tkey], cue_a))}"
                   f"（自目标球原位起算，近似值）")
             if cue_b:
                 crossed = (cue_b[1] - MIDLINE_Y) * (cue_a[1] - MIDLINE_Y) < 0
-                w(f"- 是否穿越纵向中线（canvasY=0.25，portrait 左右分界）："
+                w(f"- 起终点是否分处纵向中线两侧（canvasY=0.25，portrait 左右分界）："
                   f"{'是' if crossed else '否'}")
         elif step.get("cuePocketed"):
             w("- 母球落点：进袋离场（scratch）")
@@ -387,16 +362,15 @@ def digest(path):
             if cue_a and n_tkey in n_before:
                 n_tgt = n_before[n_tkey]
                 n_pk = POCKETS.get(n_shot.get("pocket", ""))
-                w(f"- 【为下一杆创造的局面】母球停在{ball_label(n_tkey)}的"
+                w(f"- 【与下一杆目标球的快照关系，不证明自然接续】母球停在{ball_label(n_tkey)}的"
                   f"{octant(n_tgt, cue_a)}方，相距{fmt_balls(dist(cue_a, n_tgt))}")
-                if n_pk:
-                    n_cut = cut_angle_deg(cue_a, n_tgt, n_pk)
-                    w(f"- 【为下一杆留出的切球角】约{n_cut:.0f}° — {cut_desc(n_cut)}"
-                      f"（下一杆打{POCKET_NAMES.get(n_shot.get('pocket', ''), '?')}）")
+                next_angle, next_reason = aim_angle(nxt)
+                if next_angle is not None:
+                    w(f"- 【下一杆存档瞄准角】约 {next_angle:.1f}°（以该杆 before 为准，不以当前 after 重算）")
 
-        hints = theory_hints(vert, side, cut, len(steps), i)
+        hints = theory_hints(vert, side)
         if hints:
-            w("- 理论参考（转成教练话用，正文禁止出现编号）：")
+            w("- 候选理论阅读（不是本杆已证实的结论，需核事实）：")
             for hint in hints:
                 w(f"    - {hint}")
         w("")

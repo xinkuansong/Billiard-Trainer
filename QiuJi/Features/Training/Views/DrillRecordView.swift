@@ -370,7 +370,8 @@ struct DrillRecordView: View {
                     }
 
                     if !drill.description.isEmpty {
-                        Text(drill.description)
+                        Text(DrillCopyDisplay.text(drill.description, drillID: drill.drillId,
+                            field: "description", orientation: .landscape))
                             .font(.btCaption)
                             .foregroundStyle(.btTextSecondary)
                     }

@@ -20,6 +20,8 @@
   "name": "远台直线球极限 · 球形1",
   "steps": [
     {
+      "analysis": {"aim":{"aimAngleDegrees":1.5115687161595126,"ghostCenterMeters":{"x":-1.033892035484314,"y":0.8285750150680542,"z":0.5204973220825195},"pocket":"bottomLeft","pocketAimPointMeters":{"x":-1.2747676372528076,"y":0.800000011920929,"z":0.6323429346084595},"targetBallKey":"_1"},"cueCushionContacts":[],"cueTravelDistanceMeters":2.561077752234128,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":1.7657274898318756,"ballKey":"_1","cueAngularVelocityRadiansPerSecond":{"x":-11.653358459472656,"y":0,"z":-23.42650604248047},"cueClothSlipSpeedMetersPerSecond":4.837796348001364,"cueForwardRollRatio":-0.18279642175650282,"cueMotionState":"sliding","cueSpeedMetersPerSecond":4.090134289722617,"cueVelocity":{"x":-3.662830352783203,"y":0,"z":1.8201297521591187},"timeSeconds":0.5421586036682129},"schemaVersion":1},
+      "recordedDirection": {"x": -0.8954645991325378, "z": 0.44513291120529175},
       "after": {
         "onTable": {
           "_2": {
@@ -27,8 +29,8 @@
             "y": 0.02743123099207878
           },
           "cueBall": {
-            "x": 0.0977245420217514,
-            "y": 0.4456910192966461
+            "x": 0.11049173772335052,
+            "y": 0.4651850759983063
           }
         }
       },
@@ -63,11 +65,13 @@
       }
     },
     {
+      "analysis": {"aim":{"aimAngleDegrees":2.1965201506332153,"ghostCenterMeters":{"x":-1.0415176153182983,"y":0.8285750150680542,"z":-0.5277642607688904},"pocket":"topLeft","pocketAimPointMeters":{"x":-1.2760050296783447,"y":0.800000011920929,"z":-0.6311055421829224},"targetBallKey":"_2"},"cueCushionContacts":[],"cueTravelDistanceMeters":2.57953321711106,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":2.5864521569717027,"ballKey":"_2","cueAngularVelocityRadiansPerSecond":{"x":11.769179344177246,"y":0,"z":-24.167009353637695},"cueClothSlipSpeedMetersPerSecond":4.866422020016111,"cueForwardRollRatio":-0.1874206096967117,"cueMotionState":"sliding","cueSpeedMetersPerSecond":4.098313543238731,"cueVelocity":{"x":-3.6838746070861816,"y":0,"z":-1.7958958148956299},"timeSeconds":0.537990152835846},"schemaVersion":1},
+      "recordedDirection": {"x": -0.8989383578300476, "z": -0.43807515501976013},
       "after": {
         "onTable": {
           "cueBall": {
-            "x": 0.09777180105447769,
-            "y": 0.04604010656476021
+            "x": 0.11695902794599533,
+            "y": 0.02065512165427208
           }
         }
       },
@@ -98,5 +102,5 @@
       }
     }
   ],
-  "updatedAt": "2026-07-04T09:59:55Z"
+  "updatedAt": "2026-10-14T18:30:20Z"
 }

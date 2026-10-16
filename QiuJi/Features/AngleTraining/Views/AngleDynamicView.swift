@@ -24,6 +24,7 @@ struct AngleDynamicView: View {
             ],
             information: teachingInformation, usesStandardTitle: true,
             title: { EmptyView() }, leftContent: { _ in primaryMetricChip }, status: { EmptyView() },
+            onPalettePlace: { vm.placeFromPalette($0, atWorld: $1) },
             onFirstDrag: { hasDraggedOnce = true })
     }
 
@@ -61,7 +62,7 @@ struct AngleDynamicView: View {
     }
 
     private var statusText: String? {
-        if vm.isDragging { return "拖动中…" }
+        if vm.isDragging { return nil }
         if !hasDraggedOnce && !is3D { return "母球和目标球都可以拖动，指标实时联动" }
         if vm.selectedPocketIndex < 0 { return "点击袋口选择目标" }
         if !vm.isFeasible { return vm.infeasibleReason }

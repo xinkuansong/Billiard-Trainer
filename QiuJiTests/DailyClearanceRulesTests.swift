@@ -369,7 +369,8 @@ final class DailyClearancePhysicalGameTests: XCTestCase {
             board = BoardSnapshot(onTable: after)
             let ruling = engine.judge(facts)
             steps.append(SequenceStep(before: before, shot: shot, after: board,
-                potted: facts.pocketedKeys, cuePocketed: facts.cuePocketed, objectPocketed: prediction.objectPocketed, note: ruling.message))
+                potted: facts.pocketedKeys, cuePocketed: facts.cuePocketed, objectPocketed: prediction.objectPocketed,
+                note: ruling.message, recordedDirection: prediction.recordedDirection))
             print("[DailyPhysicalGame] \(game) shot=\(turn + 1) \(ruling.message) remaining=\(board.onTable.count - 1)")
             applyPlacement(ruling, board: &board)
             XCTAssertFalse(ruling.failed, "\(game) \(ruling.message)")

@@ -63,18 +63,44 @@ struct BTAdaptiveToolReadout: View {
 }
 
 struct BTAdaptiveToolActionStyle: ButtonStyle {
+    enum Size { case compact, regular }
+
     @Environment(\.isEnabled) private var isEnabled
     var isPrimary = false
+    var isSelected = false
+    var size: Size = .compact
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.btFootnote.weight(.semibold))
-            .foregroundStyle(Color.btText)
+            .font(size == .regular ? .btSubheadlineSemibold : .btFootnote.weight(.semibold))
+            .foregroundStyle(isSelected ? Color.btPrimary : Color.btText)
             .padding(.horizontal, Spacing.md)
             .frame(minHeight: 44)
-            .background(configuration.isPressed ? Color.btPrimary.opacity(0.15)
-                        : (isPrimary ? Color.btBGTertiary : Color.btSurface), in: Capsule())
-            .overlay(Capsule().stroke(isPrimary ? Color.btPrimary.opacity(0.6) : Color.btSeparator, lineWidth: 1))
+            .contentShape(Capsule())
+            .background {
+                if isSelected {
+                    selectedSurface(isPressed: configuration.isPressed)
+                } else {
+                    Capsule().fill(configuration.isPressed ? Color.btPrimary.opacity(0.15)
+                                   : (isPrimary ? Color.btBGTertiary : Color.btSurface))
+                        .overlay(Capsule().stroke(isPrimary ? Color.btPrimary.opacity(0.6) : Color.btSeparator, lineWidth: 1))
+                }
+            }
             .opacity(isEnabled ? 1 : 0.4)
+    }
+
+    @ViewBuilder
+    private func selectedSurface(isPressed: Bool) -> some View {
+        if #available(iOS 26.0, *) {
+            Capsule().fill(.clear)
+                .glassEffect(.regular.tint(Color.btPrimaryMuted), in: Capsule())
+                .overlay(Capsule().fill(Color.btPrimary.opacity(isPressed ? 0.12 : 0)))
+        } else {
+            Capsule().fill(.ultraThinMaterial)
+                .overlay(Capsule().fill(Color.btPrimaryMuted))
+                .overlay(Capsule().fill(Color.btPrimary.opacity(isPressed ? 0.12 : 0)))
+                .overlay(Capsule().strokeBorder(Color.btSeparator, lineWidth: 0.5))
+        }
     }
 }
 

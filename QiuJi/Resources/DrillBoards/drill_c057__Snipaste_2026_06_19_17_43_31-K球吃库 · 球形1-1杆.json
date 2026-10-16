@@ -1,67 +1,69 @@
 {
-  "createdAt" : "2026-06-25T03:53:46Z",
-  "id" : "BDD12EFE-0312-4BCA-8D7E-8F2711586353",
-  "initial" : {
-    "onTable" : {
-      "_1" : {
-        "x" : 0.10762679576873779,
-        "y" : 0.09718287736177444
+  "createdAt": "2026-06-25T03:53:46Z",
+  "id": "BDD12EFE-0312-4BCA-8D7E-8F2711586353",
+  "initial": {
+    "onTable": {
+      "_1": {
+        "x": 0.10762679576873779,
+        "y": 0.09718287736177444
       },
-      "_2" : {
-        "x" : 0.3131116032600403,
-        "y" : 0.04269154742360115
+      "_2": {
+        "x": 0.3131116032600403,
+        "y": 0.04269154742360115
       },
-      "cueBall" : {
-        "x" : 0.22407619655132294,
-        "y" : 0.31046098470687866
+      "cueBall": {
+        "x": 0.22407619655132294,
+        "y": 0.31046098470687866
       }
     }
   },
-  "name" : "K球吃库 · 球形1",
-  "steps" : [
+  "name": "K球吃库 · 球形1",
+  "steps": [
     {
-      "after" : {
-        "onTable" : {
-          "_2" : {
-            "x" : 0.7922137975692749,
-            "y" : 0.38469499349594116
+      "analysis": {"aim":{"aimAngleDegrees":20.760273393531946,"ghostCenterMeters":{"x":-0.954483151435852,"y":0.8285750150680542,"z":-0.34955573081970215},"pocket":"topLeft","pocketAimPointMeters":{"x":-1.312000036239624,"y":0.800000011920929,"z":-0.6769999861717224},"targetBallKey":"_1"},"cueCushionContacts":[{"cushionIndex":2,"mainRail":"negativeZ","phase":"afterFirstContact","timeSeconds":0.45510509610176086},{"cushionIndex":1,"mainRail":"positiveZ","phase":"afterFirstContact","timeSeconds":3.1255064010620117}],"cueTravelDistanceMeters":2.8489028389409135,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":20.989002592753046,"ballKey":"_1","cueAngularVelocityRadiansPerSecond":{"x":145.2659149169922,"y":-5.619065284729004,"z":-73.44879913330078},"cueClothSlipSpeedMetersPerSecond":8.643574622599292,"cueForwardRollRatio":-1.165128123106984,"cueMotionState":"sliding","cueSpeedMetersPerSecond":3.992175675775423,"cueVelocity":{"x":-1.7957563400268555,"y":0,"z":-3.565490961074829},"timeSeconds":0.1365722417831421},"schemaVersion":1},
+      "recordedDirection": {"x": -0.4511374831199646, "z": -0.8924544453620911},
+      "after": {
+        "onTable": {
+          "_2": {
+            "x": 0.7951327562332153,
+            "y": 0.40323546528816223
           },
-          "cueBall" : {
-            "x" : 0.663712739944458,
-            "y" : 0.3567453622817993
+          "cueBall": {
+            "x": 0.672020435333252,
+            "y": 0.371614545583725
           }
         }
       },
-      "before" : {
-        "onTable" : {
-          "_1" : {
-            "x" : 0.10762679576873779,
-            "y" : 0.09718287736177444
+      "before": {
+        "onTable": {
+          "_1": {
+            "x": 0.10762679576873779,
+            "y": 0.09718287736177444
           },
-          "_2" : {
-            "x" : 0.3131116032600403,
-            "y" : 0.04269154742360115
+          "_2": {
+            "x": 0.3131116032600403,
+            "y": 0.04269154742360115
           },
-          "cueBall" : {
-            "x" : 0.22407619655132294,
-            "y" : 0.31046098470687866
+          "cueBall": {
+            "x": 0.22407619655132294,
+            "y": 0.31046098470687866
           }
         }
       },
-      "cuePocketed" : false,
-      "id" : "62B70EA3-E337-4644-BC06-130620F3957D",
-      "objectPocketed" : true,
-      "potted" : [
+      "cuePocketed": false,
+      "id": "62B70EA3-E337-4644-BC06-130620F3957D",
+      "objectPocketed": true,
+      "potted": [
         "_1"
       ],
-      "shot" : {
-        "pocket" : "topLeft",
-        "spinX" : 0.019070083952186744,
-        "spinY" : -0.49963619954728716,
-        "targetKey" : "_1",
-        "velocity" : 4.1
+      "shot": {
+        "pocket": "topLeft",
+        "spinX": 0.019070083952186744,
+        "spinY": -0.49963619954728716,
+        "targetKey": "_1",
+        "velocity": 4.1
       }
     }
   ],
-  "updatedAt" : "2026-07-04T09:51:39Z"
+  "updatedAt": "2026-10-14T18:30:20Z"
 }

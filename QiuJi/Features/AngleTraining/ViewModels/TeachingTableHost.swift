@@ -30,6 +30,7 @@ protocol TeachingTableHost: TeachingCameraHost {
     func selectPocket(at index: Int)
     func selectTarget(key: String)
     func placeFromPalette(_ key: String)
+    func palettePlacement(_ key: String, atWorld world: SCNVector3) -> SCNVector3?
     func removeFromTable(_ key: String)
     func dragBegan(node: SCNNode)
     func dragMoved(node: SCNNode, worldPosition: SCNVector3)

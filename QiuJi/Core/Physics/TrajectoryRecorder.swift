@@ -135,6 +135,25 @@ struct PocketCollectionTail {
 }
 
 final class TrajectoryRecorder {
+
+    /// Value snapshots before the first applied ball impulse, separate from playback frames.
+    struct BallContactSnapshot {
+        let time: Float
+        let incoming: BallState
+        let other: BallState
+    }
+    private(set) var firstBallContacts: [String: BallContactSnapshot] = [:]
+    var hasPlanarAnalysisFacts = false
+
+    func recordBallContact(time: Float, a: BallState, b: BallState) {
+        if firstBallContacts[a.name] == nil {
+            firstBallContacts[a.name] = BallContactSnapshot(time: time, incoming: a, other: b)
+        }
+        if firstBallContacts[b.name] == nil {
+            firstBallContacts[b.name] = BallContactSnapshot(time: time, incoming: b, other: a)
+        }
+    }
+
     private(set) var contactSounds: [ContactSoundEvent] = []
     // Replaced per ball when the visual pocket tail is re-laid against live occupancy.
     var pocketContactSounds: [String: [ContactSoundEvent]] = [:]

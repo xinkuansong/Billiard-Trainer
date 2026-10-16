@@ -11,7 +11,6 @@ enum BTBallPaletteMetrics {
     /// Compact visual tier; hit testing remains decoupled through `minimumHitSize`.
     static let compactDiameter: CGFloat = 30
     static let regularDiameter: CGFloat = 36
-    static let ghostDiameter: CGFloat = 42
     static let columns = 8
     // Compact the gaps, not the balls or the page's reserved table area.
     static let rowSpacing: CGFloat = 0
@@ -36,20 +35,103 @@ struct BTBallPaletteDragGhost: View {
     let key: String
     let location: CGPoint
     let overTable: Bool
+    let placement: BTPalettePlacement?
+    let projector: TableProjector
 
     var body: some View {
-        PoolBallFace(key: key, diameter: BTBallPaletteMetrics.ghostDiameter)
-            .overlay(
-                Circle().stroke(
-                    overTable ? Color.btSuccess : BTBallPaletteMetrics.ghostIdleStroke,
-                    lineWidth: overTable
-                        ? BTBallPaletteMetrics.ghostSuccessLineWidth
-                        : BTBallPaletteMetrics.ghostIdleLineWidth
-                )
-            )
-            .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
-            .position(location)
+        let diameter = placement?.diameter ?? BTBallPaletteMetrics.regularDiameter
+        BTPaletteBallModelView(key: key, projector: projector, placement: placement)
+            .frame(width: diameter + 2, height: diameter + 2)
+            .position(placement?.location ?? location)
             .allowsHitTesting(false)
+    }
+}
+
+/// The actual table mesh/material, with the same light rig and camera orientation.
+/// A separate render tree keeps dragging a preview out of gameplay/solver state.
+final class BTPaletteBallModel {
+    let scene = SCNScene()
+    let ball: SCNNode
+    let camera = SCNNode()
+
+    init?(source: AngleTrainingScene, key: String, camera sourceCamera: SCNNode) {
+        guard let sourceBall = source.allBallNodes[key] else { return nil }
+        ball = sourceBall.clone()
+        ball.enumerateHierarchy { node, _ in
+            node.removeAllActions()
+            node.physicsBody = nil
+            if let geometry = node.geometry {
+                let copy = geometry.copy() as! SCNGeometry
+                copy.materials = geometry.materials
+                node.geometry = copy
+            }
+        }
+        TableBallPulse.restore(ball)
+        source.restoreNodePose(ball)
+        ball.isHidden = false
+        ball.opacity = 1
+        scene.rootNode.addChildNode(ball)
+        scene.background.contents = UIColor.clear
+        scene.lightingEnvironment.contents = source.lightingEnvironment.contents
+        scene.lightingEnvironment.intensity = source.lightingEnvironment.intensity
+        scene.lightingEnvironment.contentsTransform = source.lightingEnvironment.contentsTransform
+        source.rootNode.enumerateHierarchy { node, _ in
+            guard let light = node.light else { return }
+            let copy = SCNNode()
+            copy.light = light.copy() as? SCNLight
+            copy.simdTransform = node.presentation.simdWorldTransform
+            scene.rootNode.addChildNode(copy)
+        }
+        camera.camera = sourceCamera.camera?.copy() as? SCNCamera ?? SCNCamera()
+        camera.simdTransform = sourceCamera.presentation.simdWorldTransform
+        camera.camera?.usesOrthographicProjection = true
+        camera.camera?.projectionDirection = .vertical
+        camera.camera?.zNear = 0.001
+        camera.camera?.zFar = 100
+        scene.rootNode.addChildNode(camera)
+    }
+
+    func update(world: SCNVector3?, diameter: CGFloat, viewport: CGFloat) {
+        SCNTransaction.begin()
+        SCNTransaction.disableActions = true
+        if let world { ball.position = world }
+        camera.simdPosition = ball.simdWorldPosition - camera.simdWorldFront
+        // SceneKit orthographicScale is the half-height of the visible world.
+        camera.camera?.orthographicScale = Double(AngleSceneCalculator.ballRadius) * Double(viewport / diameter)
+        SCNTransaction.commit()
+    }
+}
+
+private struct BTPaletteBallModelView: UIViewRepresentable {
+    let key: String
+    let projector: TableProjector
+    let placement: BTPalettePlacement?
+
+    final class Coordinator { var model: BTPaletteBallModel? }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeUIView(context: Context) -> SCNView {
+        let view = SCNView(frame: .zero)
+        view.backgroundColor = .clear
+        view.isOpaque = false
+        view.isUserInteractionEnabled = false
+        view.antialiasingMode = .multisampling4X
+        view.autoenablesDefaultLighting = false
+        view.isPlaying = false
+        view.rendersContinuously = false
+        return view
+    }
+    func updateUIView(_ view: SCNView, context: Context) {
+        if context.coordinator.model == nil {
+            context.coordinator.model = projector.makePaletteBallModel?(key)
+            view.scene = context.coordinator.model?.scene
+            view.pointOfView = context.coordinator.model?.camera
+        }
+        let diameter = placement?.diameter ?? BTBallPaletteMetrics.regularDiameter
+        context.coordinator.model?.update(world: placement?.resolvedWorld, diameter: diameter, viewport: diameter + 2)
+        view.setNeedsDisplay()
+    }
+    static func dismantleUIView(_ view: SCNView, coordinator: Coordinator) {
+        view.scene = nil; coordinator.model = nil
     }
 }
 
@@ -66,7 +148,8 @@ struct BTBallPaletteToken: View {
     var isPlaying: Bool = false
     let coordinateSpace: String
     var sceneFrame: CGRect
-    var unproject: ((CGPoint) -> SCNVector3?)? = nil
+    var projector: TableProjector
+    var resolvePlacement: (String, SCNVector3) -> SCNVector3?
     var onTap: () -> Void
     var onPlace: (SCNVector3?) -> Void
     var onDragInteraction: (() -> Void)? = nil
@@ -101,15 +184,15 @@ struct BTBallPaletteToken: View {
                 guard !isPlaying else { return }
                 onDragInteraction?()
                 draggingKey = key
-                dragLocation = value.location
-                dragOverTable = sceneFrame.contains(value.location)
+                let preview = BTPalettePlacement.sample(key: key, finger: value.location, sourceDiameter: ballDiameter,
+                    sceneFrame: sceneFrame, projector: projector, constrain: resolvePlacement)
+                dragLocation = preview.location
+                dragOverTable = preview.isValid
             }
             .onEnded { value in
-                let loc = value.location
                 defer { draggingKey = nil; dragOverTable = false }
-                guard !isPlaying, sceneFrame.contains(loc) else { return }
-                let local = CGPoint(x: loc.x - sceneFrame.minX, y: loc.y - sceneFrame.minY)
-                onPlace(unproject?(local))
+                guard !isPlaying, let world = projector.palettePreview?.requestedWorld else { return }
+                onPlace(world)
             }
     }
 }
@@ -132,7 +215,8 @@ struct BTBallPaletteBar: View {
     var allowsDrag: ((String) -> Bool)? = nil
 
     var sceneFrame: CGRect = .zero
-    var unproject: ((CGPoint) -> SCNVector3?)? = nil
+    var projector: TableProjector
+    var resolvePlacement: (String, SCNVector3) -> SCNVector3?
 
     var onTap: (String) -> Void
     var onPlace: (String, SCNVector3?) -> Void
@@ -187,7 +271,8 @@ struct BTBallPaletteBar: View {
             isPlaying: isPlaying,
             coordinateSpace: coordinateSpace,
             sceneFrame: sceneFrame,
-            unproject: unproject,
+            projector: projector,
+            resolvePlacement: resolvePlacement,
             onTap: { onTap(key) },
             onPlace: { world in onPlace(key, world) },
             onDragInteraction: onDragInteraction,
@@ -313,5 +398,48 @@ enum BTBallPaletteDragBack {
         let point = CGPoint(x: localPoint.x + sceneFrame.minX,
                             y: localPoint.y + sceneFrame.minY)
         return paletteFrame.contains(point)
+    }
+}
+
+/// Shared finger clearance for table dragging and palette previews (points).
+enum BTBallDragMetrics {
+    static let fingerClearance: CGFloat = 52
+}
+
+/// A single sample owns both the displayed legal position and the input committed
+/// at release. The host's placement constraint runs with identical inputs in both.
+struct BTPalettePlacement {
+    let location: CGPoint // host coordinate space
+    let diameter: CGFloat
+    let requestedWorld: SCNVector3?
+    let resolvedWorld: SCNVector3?
+    var isValid: Bool { requestedWorld != nil }
+
+    static func sample(key: String, finger: CGPoint, sourceDiameter: CGFloat,
+                       sceneFrame: CGRect, projector: TableProjector,
+                       constrain: (String, SCNVector3) -> SCNVector3?) -> BTPalettePlacement {
+        let sample = CGPoint(x: finger.x, y: finger.y - BTBallDragMetrics.fingerClearance)
+        // Even between the library and the viewport, use the table's ball size.
+        let referenceWorld = projector.unproject?(CGPoint(x: sceneFrame.width / 2, y: sceneFrame.height / 2))
+        let referenceDiameter = referenceWorld.flatMap { projector.ballDiameter?($0) } ?? sourceDiameter
+        let outside = BTPalettePlacement(location: sample, diameter: referenceDiameter,
+                                        requestedWorld: nil, resolvedWorld: nil)
+        guard sceneFrame.contains(sample),
+              let requested = projector.unproject?(CGPoint(x: sample.x - sceneFrame.minX, y: sample.y - sceneFrame.minY)),
+              let resolved = constrain(key, requested),
+              let centre = projector.projectVisible?(resolved),
+              let diameter = projector.ballDiameter?(resolved), diameter.isFinite, diameter > 0 else {
+            projector.palettePreview = outside
+            return outside
+        }
+        let result = BTPalettePlacement(location: CGPoint(x: centre.x + sceneFrame.minX, y: centre.y + sceneFrame.minY),
+            diameter: diameter, requestedWorld: requested, resolvedWorld: resolved)
+        projector.palettePreview = result
+        #if DEBUG
+        projector.palettePlacementDiagnostic = ["key": key, "screen": [centre.x, centre.y],
+            "diameter": diameter, "finger": [finger.x - sceneFrame.minX, finger.y - sceneFrame.minY],
+            "world": [resolved.x, resolved.y, resolved.z]]
+        #endif
+        return result
     }
 }

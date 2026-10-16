@@ -17,7 +17,25 @@ final class AngleTestResult {
     var errorMM: Double = 0
     /// 归属的 `kind="cognitive"` 会话 id（契约 §4.1/§5.3）。历史数据为 nil，W5 一次性回填。
     var sessionId: UUID?
+    /// v2 scene training contract; nil means legacy/unknown, never independent.
+    var trainingMetadataJSON: String?
 
+    var trainingMetadata: SceneTrainingMetadata? {
+        guard let data = trainingMetadataJSON?.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(SceneTrainingMetadata.self, from: data)
+    }
+    var isFirstAnswer: Bool { trainingMetadata?.firstAttempt ?? true }
+    var measurementError: Double? {
+        if let metadata = trainingMetadata, metadata.unit == "mm" { return metadata.score?.millimetres.map(abs) }
+        return quizType.hasPrefix("aimPoint") ? abs(errorMM) : error
+    }
+    var measurementUnit: String { quizType.hasPrefix("aimPoint") ? "mm" : "°" }
+    var measurementThreshold: Double { measurementUnit == "mm" ? 2 : 3 }
+    var cohort: String {
+        let version = trainingMetadata?.scoringVersion ?? "legacy"
+        let mode = trainingMetadata.map { $0.firstAttempt ? ($0.independent ? "独立" : "辅助") : "复练" } ?? "辅助状态未知"
+        return quizType + " · " + version + " · " + mode
+    }
     var error: Double { abs(actualAngle - userAngle) }
 
     init(actualAngle: Double, userAngle: Double, pocketType: String,

@@ -466,6 +466,103 @@ final class PositionPlayViewModel: ObservableObject {
     @Published private(set) var sequence = PositionPlaySequence(name: "未命名走位")
     /// 已记录的步数（= sequence.steps.count）。
     var stepCount: Int { sequence.steps.count }
+    /// Selecting a starting shot is non-destructive until its replacement is recorded successfully.
+    @Published private(set) var rerecordingStepIndex: Int?
+    // Keep the original inputs separate from the new, progressively recorded sequence.
+    // Editing-session reference only: inputs and the old landing marker, never live board positions/results.
+    @Published private var followingShotTemplate: PositionPlaySequence?
+    @Published private var singleShotLandingReference: (index: Int, step: SequenceStep)?
+
+    /// Original result for the shot being edited, never fed back into the physics or live board.
+    var authoringLandingReference: (index: Int, point: CanvasPoint?, cuePocketed: Bool)? {
+        guard isRecording, !isPlaying, !isSequencePlaying, !isViewingAuthoringInitial else { return nil }
+        let reference: (index: Int, step: SequenceStep)
+        if let index = authoringTemplateStepIndex, let template = followingShotTemplate {
+            reference = (index, template.steps[index])
+        } else if rerecordingScope == .singleStep,
+                  let index = rerecordingStepIndex, let single = singleShotLandingReference,
+                  single.index == index {
+            reference = single
+        } else { return nil }
+        let pocketed = reference.step.cuePocketed || reference.step.potted.contains(PositionPlayBall.cueKey)
+        return (reference.index, pocketed ? nil : reference.step.after.onTable[PositionPlayBall.cueKey], pocketed)
+    }
+
+    var authoringLandingHint: String? {
+        guard let reference = authoringLandingReference else { return nil }
+        if reference.cuePocketed { return "原第 \(reference.index + 1) 杆母球落袋，无台面落点" }
+        return reference.point == nil ? "原第 \(reference.index + 1) 杆未记录母球落点" : nil
+    }
+
+    var authoringTemplateStepIndex: Int? {
+        guard let template = followingShotTemplate else { return nil }
+        let index = rerecordingStepIndex ?? sequence.steps.count
+        return template.steps.indices.contains(index) ? index : nil
+    }
+    var authoringTemplateHint: String? {
+        guard let index = authoringTemplateStepIndex, let template = followingShotTemplate else { return nil }
+        if aimMode == .pocket, selectedTargetKey == nil {
+            return "原第 \(index + 1) 杆目标球不在台上，请重新选择目标球"
+        }
+        return "第 \(index + 1)/\(template.steps.count) 杆 · 已带入原参数，可微调后击球"
+    }
+    enum RerecordingScope { case singleStep, followingSteps }
+    @Published private(set) var rerecordingScope: RerecordingScope = .followingSteps
+    @Published private var lastSingleRerecordedStepID: UUID?
+    private var lastSingleRerecordedStepIndex: Int? {
+        lastSingleRerecordedStepID.flatMap { id in sequence.steps.firstIndex { $0.id == id } }
+    }
+    var authoringCurrentStepIndex: Int? {
+        rerecordingStepIndex ?? lastSingleRerecordedStepIndex ?? sequence.steps.indices.last
+    }
+    var authoringCurrentRerecordingScope: RerecordingScope {
+        rerecordingStepIndex != nil ? rerecordingScope
+            : (lastSingleRerecordedStepIndex != nil ? .singleStep : .followingSteps)
+    }
+    @Published private(set) var isViewingAuthoringInitial = false
+    private var authoringInitialReturn: (state: RecordedSequencePreviewRestore, poses: BallPoseSnapshot)?
+
+    /// First executed input is authoritative when the author adjusted the opening layout.
+    var authoringInitialBoard: BoardSnapshot { sequence.steps.first?.before ?? sequence.initial }
+
+    func showAuthoringInitialBoard() {
+        guard isRecording, !isPlaying, !isSequenceMode, !isViewingAuthoringInitial else { return }
+        authoringInitialReturn = (RecordedSequencePreviewRestore(
+            selection: selectionSnapshot, rails: scene.railInventory.snapshot(), board: currentSnapshot(),
+            aimMode: aimMode, velocity: velocity, spinX: spinX, spinY: spinY,
+            selectedTargetKey: selectedTargetKey, selectedPocketIndex: selectedPocketIndex, freeAimDir: freeAimDir),
+            scene.captureBallPoses())
+        invalidatePendingPredict()
+        isViewingAuthoringInitial = true
+        if let first = sequence.steps.first { restoreShotParams(first.shot) }
+        scene.railInventory.clear()
+        applyBoard(authoringInitialBoard, cuePose: .reseat)
+    }
+
+    func returnFromAuthoringInitialBoard() {
+        guard let saved = authoringInitialReturn else { return }
+        invalidatePendingPredict()
+        authoringInitialReturn = nil
+        isViewingAuthoringInitial = false
+        restoreEditingState(saved.state)
+        applyBoard(saved.state.board, cuePose: .unchanged)
+        // Board restoration may auto-select a target; restore the author's exact selection afterwards.
+        restoreSelection(saved.state.selection)
+        recompute()
+        scene.restoreBallPoses(saved.poses)
+        scene.railInventory.restore(saved.state.rails)
+        updatePocketHighlights()
+    }
+
+    /// Viewing never edits history; explicitly starting again uses the same deferred replacement as selecting a shot.
+    func beginAuthoringFromInitial() {
+        guard isRecording, !isPlaying, !isSequenceMode else { return }
+        if !sequence.steps.isEmpty { _ = beginRerecording(at: 0); return }
+        let initial = authoringInitialBoard
+        returnFromAuthoringInitialBoard()
+        clearAuthoringShotHistory()
+        applyBoard(initial, cuePose: .reseat)
+    }
 
     // MARK: - Solved-shot context (ADR-P11-03)
 
@@ -481,6 +578,8 @@ final class PositionPlayViewModel: ObservableObject {
     /// 每杆停稳后的物理事实回调（条 15.10：自由击球页把它喂给规则引擎裁决）。
     var onShotSettled: ((ShotFacts) -> Void)?
     var onShotWillStart: (() -> Void)?
+    /// Optional practice consumer receives only the committed, fully played stroke.
+    var onCommittedPracticeShot: ((SolvedShot) -> Void)?
     private var strokeGeneration = UUID() {
         didSet { scene.cameraRig?.setTwoViewViewingContext(strokeGeneration) }
     }
@@ -679,6 +778,8 @@ final class PositionPlayViewModel: ObservableObject {
     /// 空快照不改动默认球形（保持开箱可用）。
     func loadBoard(_ snapshot: BoardSnapshot) {
         guard !isPlaying, !snapshot.onTable.isEmpty else { return }
+        authoringInitialReturn = nil
+        isViewingAuthoringInitial = false
         selectionChangeDepth += 1
         defer { selectionChangeDepth -= 1; recompute() }
         invalidatePendingPredict()
@@ -688,6 +789,9 @@ final class PositionPlayViewModel: ObservableObject {
         scene.railInventory.clear()
         recordedRailsBefore.removeAll()
         lastShotBeforeRails = PocketRailSnapshot()
+        rerecordingStepIndex = nil
+        followingShotTemplate = nil
+        singleShotLandingReference = nil
         sequence = PositionPlaySequence(name: sequence.name)
         lastShot = nil
         lastShotSelection = nil
@@ -701,8 +805,8 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 载入一条已存序列并进入「续接编辑」态（存档 + 在原有基础上修改）。
     ///
-    /// **不信任存档里的 `after`/`potted`**（物理引擎可能已变）：只取 `initial` 开局与每一杆的
-    /// 作者意图 `shot`，用**当前引擎**逐杆无动画重放，重建 `after`；一旦某杆在新引擎下不可行
+    /// 按每杆保存的方向与当前引擎重建结果。旧草稿缺方向时仅在编辑器求瞄。
+    /// 一旦某杆不可行
     /// 即停在该杆之前，把桌面留给作者从这里修。重放完开启录制续接，末杆可「重打」删除重编。
     /// - Returns: (成功重放杆数, 存档总杆数)；`replayed < total` 表示第 `replayed+1` 杆已崩、需人工修。
     @discardableResult
@@ -726,14 +830,16 @@ final class PositionPlayViewModel: ObservableObject {
             createdAt: archived.createdAt, updatedAt: Date()
         )
         // 每杆以**存档里该杆自己的 `before`** 为输入（作者确认过的局面，含击打间的手动摆球
-        // 调整），只用当前引擎重建 `after`/`potted`。不能从 initial 链式推进：那会把作者在
+        // 调整），按保存方向重新模拟。不能从 initial 链式推进：那会把作者在
         // 杆与杆之间挪过球的修正全部丢掉（重放结果 ≠ 存档，保存后再进看似「没更新」）。
         var landing = archived.initial          // 重放结束后呈现给作者的桌面
         var brokenShot: PlannedShot?            // 新物理下不可行的那杆（停在其击打前）
         for step in archived.steps {
             let before = step.before
-            guard let pred = PositionPlayShotSolver.solve(before: before, shot: step.shot, surfaceY: surfaceY),
-                  pred.feasible else {
+            let resolved = step.recordedDirection == nil
+                ? PositionPlayShotSolver.solve(before: before, shot: step.shot, surfaceY: surfaceY)
+                : SequenceReplayResolver.solve(step: step, surfaceY: surfaceY)
+            guard let pred = resolved, pred.feasible, pred.hasFinalTableState else {
                 landing = before
                 brokenShot = step.shot
                 break
@@ -766,12 +872,16 @@ final class PositionPlayViewModel: ObservableObject {
                 before: before, shot: step.shot, after: after,
                 potted: Array(potted),
                 cuePocketed: pred.cuePocketed, objectPocketed: pred.objectPocketed,
-                note: step.note
+                note: step.note, recordedDirection: pred.recordedDirection,
+                analysis: ShotAnalysis.make(prediction: pred, shot: step.shot, before: before, surfaceY: scene.surfaceY)
             ))
             if let rebuiltStep = rebuilt.steps.last { recordedRailsBefore[rebuiltStep.id] = beforeRails }
             landing = after
         }
 
+        rerecordingStepIndex = nil
+        followingShotTemplate = nil
+        singleShotLandingReference = nil
         sequence = rebuilt
         isRecording = true
         // 末杆可「重打」：删掉重放出的最后一杆并退回其击打前，供作者重编（与真实击球后一致）。
@@ -786,6 +896,77 @@ final class PositionPlayViewModel: ObservableObject {
         if let shot = brokenShot { restoreShotParams(shot) }
         applyBoard(landing, cuePose: .reseat)
         return (rebuilt.steps.count, archived.steps.count)
+    }
+
+    /// Batch authoring loads archives verbatim: opening an old sequence must not re-solve or truncate it.
+    func loadSequenceForSelectiveRerecording(_ archived: PositionPlaySequence) {
+        guard !isPlaying, !isSequencePlaying else { return }
+        authoringInitialReturn = nil
+        isViewingAuthoringInitial = false
+        invalidatePendingPredict()
+        followingShotTemplate = nil
+        singleShotLandingReference = nil
+        sequence = archived
+        recordedRailsBefore.removeAll()
+        isRecording = true
+        resumeSequenceAppending()
+    }
+
+    @discardableResult
+    func beginRerecording(at index: Int, scope: RerecordingScope = .followingSteps) -> Bool {
+        guard isRecording, !isPlaying, !isSequencePlaying,
+              sequence.steps.indices.contains(index) else { return false }
+        returnFromAuthoringInitialBoard()
+        invalidatePendingPredict()
+        if scope == .followingSteps {
+            singleShotLandingReference = nil
+            if followingShotTemplate == nil { followingShotTemplate = sequence }
+        } else {
+            followingShotTemplate = nil
+            // Retrying a replacement keeps its original goal, rather than the newly computed after.
+            if singleShotLandingReference?.index != index {
+                singleShotLandingReference = (index, sequence.steps[index])
+            }
+        }
+        rerecordingStepIndex = index
+        rerecordingScope = scope
+        let step = sequence.steps[index]
+        clearAuthoringShotHistory()
+        restoreShotParams(step.shot)
+        applyBoard(step.before, cuePose: .reseat)
+        canReplay = true
+        return true
+    }
+
+    /// Cancels a pending selection or returns to the last recorded stop for appending.
+    func resumeSequenceAppending() {
+        guard !isPlaying, !isSequencePlaying else { return }
+        followingShotTemplate = nil
+        singleShotLandingReference = nil
+        returnFromAuthoringInitialBoard()
+        invalidatePendingPredict()
+        rerecordingStepIndex = nil
+        clearAuthoringShotHistory()
+        if let last = sequence.steps.last {
+            lastShot = (last.before, last.shot)
+            lastShotWasRecorded = true
+            canReplay = true
+            restoreShotParams(last.shot)
+        }
+        applyBoard(sequence.currentBoard, cuePose: .reseat)
+    }
+
+    private func clearAuthoringShotHistory() {
+        lastSingleRerecordedStepID = nil
+        lastShot = nil
+        lastShotSelection = nil
+        lastShotBeforePoses = nil
+        lastShotWasRecorded = false
+        lastPlaybackContext = nil
+        lastShotBeforeRails = PocketRailSnapshot()
+        scene.railInventory.clear()
+        canReplay = false
+        canPlayback = false
     }
 
     // MARK: - Board queries
@@ -978,6 +1159,12 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     /// 多球摆位钳制：库内 + 远离袋口 + 不与任意其他在桌球重叠。
+    /// Pure preview: same constraints as the committed palette placement.
+    func palettePlacement(_ key: String, atWorld world: SCNVector3) -> SCNVector3? {
+        guard let node = scene.allBallNodes[key] else { return nil }
+        return clampMultiBall(world, movingNode: node)
+    }
+
     private func clampMultiBall(_ pos: SCNVector3, movingNode: SCNNode) -> SCNVector3 {
         var p = AngleSceneCalculator.clampAwayFromPockets(pos, surfaceY: surfaceY)
         let halfL = AngleSceneCalculator.innerLength / 2
@@ -2061,6 +2248,7 @@ final class PositionPlayViewModel: ObservableObject {
     // MARK: - Strike (#10 运杆 + 击球)
 
     func play() {
+        guard !isViewingAuthoringInitial else { return }
         guard !(isGuidedTryout && canReplay) else { return }
         scene.cancelPocketSelectionFeedback()
         guard !isPlaying, !isSequenceMode, !isComputing, !cameraTransitionBusy, !temporaryTopDownActive,
@@ -2245,8 +2433,20 @@ final class PositionPlayViewModel: ObservableObject {
 
         // 规则裁决（条 15.10）：把本杆物理事实交给宿主（自由击球页喂规则引擎）。
         onShotSettled?(makeShotFacts(solved: solved, potted: potted))
+        onCommittedPracticeShot?(solved)
         // The tryout user observes this exact result, then explicitly retries or changes step.
         if isGuidedTryout { return }
+
+        // Reuse only the next archived input. The scene already holds the new engine rest.
+        if isRecording, let index = authoringTemplateStepIndex,
+           let template = followingShotTemplate {
+            restoreShotParams(template.steps[index].shot)
+            if let target = selectedTargetKey, !onTableKeys.contains(target) {
+                selectedTargetKey = nil
+            }
+            recompute()
+            return
+        }
 
         // 自动选下一杆（#6）：距母球最近的目标球 + 距目标球最近的可进袋袋口。
         selectedTargetKey = nil
@@ -2275,6 +2475,9 @@ final class PositionPlayViewModel: ObservableObject {
     /// 开始录制：以当前桌面为开局快照开一条新序列，此后每次击球自动记为一杆。
     func startRecording() {
         guard !isPlaying, !isRecording else { return }
+        rerecordingStepIndex = nil
+        followingShotTemplate = nil
+        singleShotLandingReference = nil
         sequence = PositionPlaySequence(name: sequence.name, initial: currentSnapshot())
         isRecording = true
         lastShotWasRecorded = false
@@ -2284,6 +2487,8 @@ final class PositionPlayViewModel: ObservableObject {
     func stopRecording() -> PositionPlaySequence? {
         guard isRecording else { return nil }
         isRecording = false
+        followingShotTemplate = nil
+        singleShotLandingReference = nil
         return sequence.steps.isEmpty ? nil : sequence
     }
 
@@ -2302,12 +2507,34 @@ final class PositionPlayViewModel: ObservableObject {
             }
         }
 
-        let step = SequenceStep(
+        var step = SequenceStep(
             before: before, shot: solved.shot, after: BoardSnapshot(onTable: afterDict),
             potted: Array(potted),
-            cuePocketed: pred.cuePocketed, objectPocketed: pred.objectPocketed
+            cuePocketed: pred.cuePocketed, objectPocketed: pred.objectPocketed,
+            recordedDirection: pred.recordedDirection,
+            analysis: ShotAnalysis.make(prediction: pred, shot: solved.shot, before: before, surfaceY: scene.surfaceY)
         )
-        sequence.steps.append(step)
+        if let index = rerecordingStepIndex, rerecordingScope == .singleStep,
+           sequence.steps.indices.contains(index) {
+            step.note = sequence.steps[index].note
+        }
+        if let index = rerecordingStepIndex {
+            // Commit the completed engine result. Failed shots/cancel preserve the archive.
+            guard sequence.steps.indices.contains(index) else { return }
+            if rerecordingScope == .singleStep {
+                recordedRailsBefore.removeValue(forKey: sequence.steps[index].id)
+                sequence.steps[index] = step
+                lastSingleRerecordedStepID = step.id
+            } else {
+                for discarded in sequence.steps[index...] { recordedRailsBefore.removeValue(forKey: discarded.id) }
+                sequence.steps.replaceSubrange(index..., with: [step])
+                lastSingleRerecordedStepID = nil
+            }
+            rerecordingStepIndex = nil
+        } else {
+            sequence.steps.append(step)
+            lastSingleRerecordedStepID = nil
+        }
         recordedRailsBefore[step.id] = lastShotBeforeRails
         sequence.updatedAt = Date()
     }
@@ -2321,6 +2548,14 @@ final class PositionPlayViewModel: ObservableObject {
     /// `canReplay` 保持 true，可一路退回到第一杆击打前（= 开局球形）。
     func replayCurrent() {
         guard !isPlaying else { return }
+        if let index = rerecordingStepIndex {
+            beginRerecording(at: index, scope: rerecordingScope)
+            return
+        }
+        if isRecording, let index = lastSingleRerecordedStepIndex {
+            beginRerecording(at: index, scope: .singleStep)
+            return
+        }
         if isRecording, let last = sequence.steps.last {
             sequence.steps.removeLast()
             sequence.updatedAt = Date()
@@ -2493,6 +2728,19 @@ final class PositionPlayViewModel: ObservableObject {
     /// 回到上一杆击打前的球形以便**临时再追加一杆**：恢复桌面与该杆参数，但**不删除**已录的那一杆
     /// （区别于 `replayCurrent()` 的「重打＝删末杆＋退回」）。`lastShot`/`canReplay`/`stepCount` 不变，
     /// 退回后再次击球将**追加**新的一杆、与已录的并存（允许从同一局面分叉补打）。
+    /// Keeps every recorded shot and returns to the last shot's start for another appended shot.
+    @discardableResult
+    func restorePreviousBoardForAppending() -> Bool {
+        guard isRecording, !isPlaying, !isSequencePlaying, !isViewingAuthoringInitial,
+              !sequence.steps.isEmpty else { return false }
+        followingShotTemplate = nil
+        singleShotLandingReference = nil
+        // A pending rerecord must not turn the next shot into a replacement.
+        if rerecordingStepIndex != nil || lastShot == nil { resumeSequenceAppending() }
+        restorePreviousBoard()
+        return true
+    }
+
     func restorePreviousBoard() {
         guard !isPlaying, let last = lastShot else { return }
         restoreShotParams(last.shot)
@@ -2540,6 +2788,8 @@ final class PositionPlayViewModel: ObservableObject {
     /// 重置整条序列与桌面（回到默认球形）。录制中则丢弃录制。
     func resetAll() {
         guard !isPlaying else { return }
+        authoringInitialReturn = nil
+        isViewingAuthoringInitial = false
         scene.railInventory.clear()
         lastShotBeforeRails = PocketRailSnapshot()
         recordedRailsBefore.removeAll()
@@ -2552,6 +2802,9 @@ final class PositionPlayViewModel: ObservableObject {
         canReplay = false
         canPlayback = false
         lastPlaybackContext = nil
+        rerecordingStepIndex = nil
+        followingShotTemplate = nil
+        singleShotLandingReference = nil
         sequence = PositionPlaySequence(name: sequence.name)
         scene.hideAllBalls()
         applyDefaultLayout()
@@ -2560,6 +2813,8 @@ final class PositionPlayViewModel: ObservableObject {
     /// 清空桌面（不留任何球），便于从零自由摆球。录制中则丢弃录制。
     func clearTable() {
         guard !isPlaying else { return }
+        authoringInitialReturn = nil
+        isViewingAuthoringInitial = false
         scene.invalidatePerspectiveView()
         isRecording = false
         lastShot = nil
@@ -2569,6 +2824,7 @@ final class PositionPlayViewModel: ObservableObject {
         canReplay = false
         canPlayback = false
         lastPlaybackContext = nil
+        rerecordingStepIndex = nil
         if !sequence.steps.isEmpty { sequence = PositionPlaySequence(name: sequence.name) }
         invalidatePendingPredict()
         scene.hideAllBalls()
@@ -2610,9 +2866,159 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 试打序列模式：按 drill 出片序列 `steps` 逐杆演示（隐藏瞄准轮，打点/力度只读展示本杆真值，
     /// 主键三态走完整序列，杆间停顿）。复用既有单杆回放骨架
-    /// （`PositionPlayShotSolver.solve` + `scene.runCueStroke` + `TrajectoryPlayback`），不另造播放器。
+    /// （`SequenceReplayResolver.solve` + `scene.runCueStroke` + `TrajectoryPlayback`），不另造播放器。
 
-    /// 演示播放态（v28 Q1）。暂停只在**杆间边界**生效：当前杆必定播完并落定。
+    // Guided playback owns its clock; board changes and camera travel finish before aiming.
+    enum GuidedSequencePhase { case idle, arranging, transitioning, aiming, moving, holding, finished }
+    @Published private(set) var guidedSequencePhase: GuidedSequencePhase = .idle
+    private var guidedShotView: (cue: SCNVector3, aim: SCNVector3)?
+    private var guidedPendingWork: (() -> Void)?
+    private var guidedDeadline: TimeInterval = 0
+    private var guidedRemainingDelay: TimeInterval = 0
+    private var guidedScheduleRevision = 0
+
+    private func scheduleGuidedSequence(after delay: TimeInterval, _ work: @escaping () -> Void) {
+        guidedScheduleRevision += 1
+        let revision = guidedScheduleRevision
+        let generation = sequencePlaybackGeneration
+        guidedPendingWork = work
+        guidedDeadline = ProcessInfo.processInfo.systemUptime + delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.sequencePlaybackGeneration == generation,
+                  self.guidedScheduleRevision == revision, self.isSequencePlaying else { return }
+            self.guidedPendingWork = nil
+            work()
+        }
+    }
+
+    private func performGuidedWhenResumed(_ work: @escaping () -> Void) {
+        if isSequencePaused {
+            guidedPendingWork = work
+            guidedRemainingDelay = 0
+        } else if isSequencePlaying { work() }
+    }
+
+    private func pauseGuidedSequence() {
+        guidedRemainingDelay = max(0, guidedDeadline - ProcessInfo.processInfo.systemUptime)
+        guidedScheduleRevision += 1
+        scene.isPaused = true
+        if cameraMode == .perspective3D { SequenceSceneTransition.freezeCamera(in: scene) }
+        cameraTransitionBusy = false
+        pauseRequested = false
+        sequencePlayState = .paused
+    }
+
+    func suspendGuidedSequence() {
+        guard isGuidedTryout, isSequenceMode, isSequencePlaying else { return }
+        ShotAudioScheduler.shared.cancel()
+        pauseGuidedSequence()
+    }
+
+    @discardableResult
+    func enterGuidedSequenceCamera(animated: Bool) -> Bool {
+        guard isGuidedTryout, isSequenceMode, cameraMode == .perspective3D,
+              let view = guidedShotView else { return false }
+        let accepted = SequenceSceneTransition.enterThirdPerson(in: scene, cue: view.cue,
+                                                                aim: view.aim, animated: animated)
+        cameraTransitionBusy = scene.cameraRig?.isTransitioning == true
+        return accepted
+    }
+
+    func guidedSequenceCameraModeChanged() {
+        guard isGuidedTryout, isSequenceMode, isSequencePlaying,
+              guidedSequencePhase == .transitioning else { return }
+        if cameraMode == .perspective3D { enterGuidedSequenceCamera(animated: true) }
+    }
+
+    private func runGuidedSequenceStep(_ i: Int, restoreAuthoredBoard: Bool) {
+        sequenceStepIndex = i
+        clearTrajectory()
+        scene.hideCueStick()
+        cancelPendingSelectionCamera()
+        if cameraMode == .perspective3D { SequenceSceneTransition.freezeCamera(in: scene) }
+        isPlaying = true
+        let step = sequenceSteps[i]
+        let changesBoard = (restoreAuthoredBoard && SequenceSceneTransition.requiresBoardChange(
+            after: currentSnapshot(), before: step.before)) || (i > 0 && SequenceSceneTransition.requiresBoardChange(
+            after: sequenceSteps[i - 1].after, before: step.before))
+        if changesBoard {
+            guidedSequencePhase = .arranging
+            let generation = sequencePlaybackGeneration
+            SequenceSceneTransition.arrange(step.before, in: scene) { [weak self] in
+                guard let self, self.sequencePlaybackGeneration == generation else { return }
+                self.performGuidedWhenResumed { [weak self] in
+                    guard let self else { return }
+                    SequenceSceneTransition.finishArrangement(step.before, in: self.scene)
+                    self.refreshOnTableKeys()
+                    self.solveGuidedSequenceStep(i)
+                }
+            }
+        } else { solveGuidedSequenceStep(i) }
+    }
+
+    private func solveGuidedSequenceStep(_ i: Int) {
+        var step = sequenceSteps[i]
+        // Live positions and orientations remain authoritative for continuous shots.
+        step.before = currentSnapshot()
+        restoreShotParams(step.shot)
+        guard step.before.onTable[PositionPlayBall.cueKey] != nil,
+              step.shot.isFree || step.before.onTable[step.shot.targetKey] != nil,
+              let pred = SequenceReplayResolver.solve(step: sequenceSteps[i], before: step.before, surfaceY: surfaceY),
+              pred.feasible, pred.hasFinalTableState, let recorder = pred.recorder, pred.duration > 0.05,
+              let cue = scene.cueBallNode, !cue.isHidden else {
+            solvedShot = nil
+            clearTrajectory(); scene.hideCueStick()
+            isPlaying = false
+            sequencePlayState = .paused
+            pauseRequested = false
+            sequenceStepUnavailable = true
+            guidedSequencePhase = .idle
+            statusText = sequenceStatusText(i) + " · 当前球位无法接续，请选择其他杆"
+            return
+        }
+        solvedShot = SolvedShot(before: step.before, shot: step.shot, prediction: pred)
+        guidedShotView = (cue.position, pred.aimDirection)
+        guidedSequencePhase = .transitioning
+        enterGuidedSequenceCamera(animated: true)
+        waitForGuidedCamera { [weak self] in
+            guard let self else { return }
+            self.guidedSequencePhase = .aiming
+            self.applySolvedShot(SolvedShot(before: step.before, shot: step.shot, prediction: pred))
+            self.statusText = self.sequenceStatusText(i)
+            let aim = pred.aimDirection
+            let strike = CueStroke.strikePosition(cue: cue.position, aim: aim,
+                                                 spinX: step.shot.spinX, spinY: step.shot.spinY)
+            self.lastAimDirection = aim
+            self.scene.updateCueStick(cueBallPosition: strike, aimDirection: aim)
+            let clearance = TrajectoryPlayback(recorder: recorder,
+                                               surfaceY: self.surfaceY + AngleSceneCalculator.ballRadius)
+            let generation = self.sequencePlaybackGeneration
+            self.scheduleGuidedSequence(after: 0.45) { [weak self] in
+                guard let self else { return }
+                #if DEBUG
+                self.sequenceShotEventsObserver?(step.id, pred.events)
+                #endif
+                self.scene.runCueStroke(strikePosition: strike, aim: aim, velocity: Float(step.shot.velocity),
+                    clearanceProbe: { clearance.allBallCentersByName(at: Float($0)) }) { [weak self] in
+                    guard let self, self.sequencePlaybackGeneration == generation else { return }
+                    self.performGuidedWhenResumed { [weak self] in
+                        guard let self else { return }
+                        self.guidedSequencePhase = .moving
+                        self.runSequencePlayback(step: step, prediction: pred, recorder: recorder, index: i)
+                    }
+                }
+            }
+        }
+    }
+
+    private func waitForGuidedCamera(_ completion: @escaping () -> Void) {
+        guard isSequencePlaying else { return }
+        if cameraMode == .perspective3D, scene.cameraRig?.isTransitioning == true {
+            scheduleGuidedSequence(after: 1.0 / 60) { [weak self] in self?.waitForGuidedCamera(completion) }
+        } else { cameraTransitionBusy = false; completion() }
+    }
+
+    /// Shot pauses settle at the boundary; guided board/camera phases can pause immediately.
     enum SequencePlayState { case idle, playing, paused }
 
     /// 序列模式激活标志（进袋/自由/序列三选一里的「序列」）。
@@ -2621,7 +3027,7 @@ final class PositionPlayViewModel: ObservableObject {
     @Published private(set) var sequencePlayState: SequencePlayState = .idle
     /// 当前正在逐杆演示。
     var isSequencePlaying: Bool { sequencePlayState == .playing }
-    /// 已暂停：画面停在 `completedStepIndex` 那一杆的终局，参数仍是该杆参数。
+    /// Paused at the shot result, or within a guided board/camera phase.
     var isSequencePaused: Bool { sequencePlayState == .paused }
     /// 当前呈现/播放的杆序（0-based）。
     @Published private(set) var sequenceStepIndex = 0
@@ -2673,7 +3079,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 批量出片台：预览播放内存录制序列（≥1 杆）。播完自动恢复编辑盘面与参数，不改录制内容。
     func previewPlayRecordedSequence() {
-        guard !isPlaying, !isSequencePlaying, !isSequenceMode,
+        guard !isPlaying, !isSequencePlaying, !isSequenceMode, !isViewingAuthoringInitial,
               !sequence.steps.isEmpty else { return }
         recordedSequencePreviewRestore = RecordedSequencePreviewRestore(
             selection: selectionSnapshot,
@@ -2754,13 +3160,13 @@ final class PositionPlayViewModel: ObservableObject {
     /// 取第 i 杆的可行解（命中缓存即返回；未命中同步求解并回填）。
     /// 只做懒缓存、不做后台预解：求解链路未验证可重入，与主线程求解并发会打崩 App
     /// （实测：整条序列后台预解 + 播放期间主线程求解 ⇒ Lost connection）。
-    /// 缓存的价值在「继续 / 上一杆 / 重播」不再重复求解已走过的杆。
+    /// Used for static authored previews and export playback; guided continuation solves the live board.
     private func prediction(forStep i: Int) -> ShotPrediction? {
         if let cached = sequencePredictionCache[i] { return cached }
         guard i >= 0, i < sequenceSteps.count else { return nil }
         let step = sequenceSteps[i]
-        guard let pred = PositionPlayShotSolver.solve(
-            before: step.before, shot: step.shot, surfaceY: surfaceY
+        guard let pred = SequenceReplayResolver.solve(
+            step: step, surfaceY: surfaceY
         ), pred.feasible, pred.hasFinalTableState else { return nil }
         sequencePredictionCache[i] = pred
         return pred
@@ -2787,6 +3193,13 @@ final class PositionPlayViewModel: ObservableObject {
     /// 硬停：掐掉飞行中的球动作与音频，清空全部播放请求位。
     /// 切模式 / 退出页面等「不再演示」的路径走这里；「暂停」**不**走这里。
     private func hardStopSequence() {
+        if isGuidedTryout {
+            SequenceSceneTransition.cancelArrangement(in: scene)
+            for node in scene.allBallNodes.values { node.removeAllActions() }
+            scene.isPaused = false
+            if cameraMode == .perspective3D { SequenceSceneTransition.freezeCamera(in: scene) }
+            cameraTransitionBusy = false
+        }
         scene.railInventory.cancelPlayback()
         ShotAudioScheduler.shared.cancel()
         for key in onTableKeys { if let node = scene.allBallNodes[key] { TableBallPulse.restore(node); node.removeAllActions() } }
@@ -2795,6 +3208,11 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     private func resetSequenceProgress() {
+        scene.isPaused = false
+        guidedScheduleRevision += 1
+        guidedPendingWork = nil
+        guidedShotView = nil
+        guidedSequencePhase = .idle
         sequencePlaybackGeneration = UUID()
         sequenceStepUnavailable = false
         sequencePlayState = .idle
@@ -2824,6 +3242,10 @@ final class PositionPlayViewModel: ObservableObject {
         sequenceStepUnavailable = false
         if let pred = prediction(forStep: i) {
             applySolvedShot(SolvedShot(before: step.before, shot: step.shot, prediction: pred))
+            if isGuidedTryout, let cue = scene.cueBallNode {
+                guidedShotView = (cue.position, pred.aimDirection)
+                enterGuidedSequenceCamera(animated: false)
+            }
         } else {
             solvedShot = nil
             clearTrajectory()
@@ -2859,12 +3281,8 @@ final class PositionPlayViewModel: ObservableObject {
     /// 「暂停」：不打断飞行中的这一杆——等它播完落定后停在该杆终局（v28 Q1 语义）。
     func requestSequencePause() {
         guard sequencePlayState == .playing else { return }
-        if isGuidedTryout, !isPlaying {
-            // During the inter-shot hold there is no moving shot to finish.
-            // Invalidate its queued advance even if Continue is tapped immediately.
-            sequencePlaybackGeneration = UUID()
-            pauseRequested = false
-            sequencePlayState = .paused
+        if isGuidedTryout, [.arranging, .transitioning, .holding].contains(guidedSequencePhase) {
+            pauseGuidedSequence()
             return
         }
         pauseRequested = true
@@ -2873,6 +3291,14 @@ final class PositionPlayViewModel: ObservableObject {
     /// 「继续」：从暂停处的下一杆接着播到底。
     func resumeSequence() {
         guard sequencePlayState == .paused, !sequenceStepUnavailable else { return }
+        if isGuidedTryout, guidedPendingWork != nil || isPlaying {
+            scene.isPaused = false
+            sequencePlayState = .playing
+            if guidedSequencePhase == .transitioning { enterGuidedSequenceCamera(animated: true) }
+            if let work = guidedPendingWork { scheduleGuidedSequence(after: guidedRemainingDelay, work) }
+            return
+        }
+        scene.isPaused = false
         let next = completedStepIndex + 1
         guard next < sequenceSteps.count else {
             sequencePlayState = .playing
@@ -2900,31 +3326,38 @@ final class PositionPlayViewModel: ObservableObject {
     private func playSingleSequenceStep(_ i: Int) {
         guard isSequenceMode, !isPlaying, i >= 0, i < sequenceSteps.count else { return }
         sequencePlaybackGeneration = UUID()
+        guidedScheduleRevision += 1
+        guidedPendingWork = nil
+        scene.isPaused = false
         sequenceStepUnavailable = false
         pauseRequested = true
         sequenceFinished = false
         sequencePlayState = .playing
-        runSequenceStep(i)
+        runSequenceStep(i, restoreAuthoredBoard: true)
     }
 
-    private func runSequenceStep(_ i: Int) {
+    private func runSequenceStep(_ i: Int, restoreAuthoredBoard: Bool = false) {
         guard sequencePlayState == .playing else { return }
         guard i >= 0, i < sequenceSteps.count else {
             finishSequencePlayback()
             return
         }
+        if isGuidedTryout {
+            runGuidedSequenceStep(i, restoreAuthoredBoard: restoreAuthoredBoard)
+            return
+        }
         sequenceStepIndex = i
         let step = sequenceSteps[i]
-        // 摆回该杆击打前。
+        // Authoring previews honor every stored start, including single-shot edits.
         placeSequenceBoard(step.before)
         if let rails = sequenceRailsBefore[i] { scene.railInventory.restore(rails) }
         else if isGuidedTryout { scene.railInventory.restore(PocketRailSnapshot()) }
         restoreShotParams(step.shot)
 
-        guard let pred = prediction(forStep: i),
+        let replayPrediction = prediction(forStep: i)
+        guard let pred = replayPrediction, pred.feasible, pred.hasFinalTableState,
               let recorder = pred.recorder, pred.duration > 0.05,
-              let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
-              let aim = aimDirection(path: pred.cuePath, from: cueNode.position) else {
+              let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden else {
             if isGuidedTryout {
                 clearTrajectory()
                 scene.hideCueStick()
@@ -2948,6 +3381,7 @@ final class PositionPlayViewModel: ObservableObject {
         #if DEBUG
         sequenceShotEventsObserver?(step.id, pred.events)
         #endif
+        let aim = pred.aimDirection
         // C7：预告线 + 杆同现 → 静止瞄准定格 0.3～0.5s → 直接运杆（出杆前不 hide）。
         // 须先写入本杆 solvedShot：`drawTrajectory` 用 `solvedShot.shot.targetKey` 取进球线球色；
         // 不更新会沿用上一杆/编辑态目标键，颜色与当前目标球不一致。
@@ -3007,9 +3441,13 @@ final class PositionPlayViewModel: ObservableObject {
         if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
             cueNode.runAction(.group([cueAction, .wait(duration: completionDuration)])) { [weak self] in
                 Task { @MainActor in
-                    guard let self, self.sequencePlaybackGeneration == generation, self.sequencePlayState == .playing else { return }
-                    self.applySequenceRest(step: step, prediction: prediction)
-                    self.scheduleNextSequenceStep(after: i)
+                    guard let self, self.sequencePlaybackGeneration == generation else { return }
+                    let finish = { [weak self] in
+                        self?.applySequenceRest(step: step, prediction: prediction)
+                        self?.scheduleNextSequenceStep(after: i)
+                    }
+                    if self.isGuidedTryout { self.performGuidedWhenResumed(finish) }
+                    else if self.isSequencePlaying { finish() }
                 }
             }
             ShotAudioScheduler.shared.play(prediction: prediction)
@@ -3037,7 +3475,7 @@ final class PositionPlayViewModel: ObservableObject {
                 } else {
                     node.isHidden = false
                     let predName = PositionPlayShotSolver.predName(boardKey: key, shot: step.shot)
-                    if let p = pred.finalPositions[predName] {
+                    if !isGuidedTryout, let p = pred.finalPositions[predName] {
                         node.position = SCNVector3(p.x, yLevel, p.z)
                     }
                 }
@@ -3070,6 +3508,7 @@ final class PositionPlayViewModel: ObservableObject {
         guard sequencePlayState == .playing else { return }
         sequenceRailsBefore[i + 1] = scene.railInventory.snapshot()
         completedStepIndex = i
+        if isGuidedTryout { guidedSequencePhase = .holding }
         if isGuidedTryout, i == sequenceSteps.count - 1 {
             finishSequencePlayback()
             return
@@ -3086,6 +3525,12 @@ final class PositionPlayViewModel: ObservableObject {
             finishSequencePlayback()
             return
         }
+        if isGuidedTryout {
+            scheduleGuidedSequence(after: SequenceSceneTransition.resultHold) { [weak self] in
+                self?.runSequenceStep(next)
+            }
+            return
+        }
         let generation = sequencePlaybackGeneration
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: UInt64(Self.sequenceInterShotPause * 1_000_000_000))
@@ -3095,6 +3540,7 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     private func finishSequencePlayback() {
+        if isGuidedTryout { guidedSequencePhase = .finished }
         sequencePlayState = .idle
         pauseRequested = false
         isPlaying = false
@@ -3382,13 +3828,15 @@ enum ShotPlayCamera {
         var initialized = false
         vm.scene.setCameraMode(mode, animated: false, initializePerspective: {
             guard initializesSurface else { return false }
-            initialized = vm.requestPlayerView(.thirdPerson, animated: false)
+            initialized = vm.enterGuidedSequenceCamera(animated: false)
+                || vm.requestPlayerView(.thirdPerson, animated: false)
             return initialized
         })
         if needsBreakOverview && !initialized {
             observeWholeTable(on: vm)
             vm.scene.cameraRig?.update(deltaTime: 1)
         }
+        vm.guidedSequenceCameraModeChanged()
         return initialized
     }
 

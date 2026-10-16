@@ -1,67 +1,75 @@
 {
-  "createdAt": "2026-06-25T03:59:27Z",
-  "id": "4D712934-E51B-4A6A-8AC6-FA687CE3A472",
-  "initial": {
-    "onTable": {
-      "_1": {
-        "x": 0.05846192687749863,
-        "y": 0.03753182664513588
+  "createdAt" : "2026-06-25T03:59:27Z",
+  "id" : "4D712934-E51B-4A6A-8AC6-FA687CE3A472",
+  "initial" : {
+    "onTable" : {
+      "_1" : {
+        "x" : 0.05846192687749863,
+        "y" : 0.03753182664513588
       },
-      "_2": {
-        "x": 0.015664100646972656,
-        "y": 0.2680085003376007
+      "_2" : {
+        "x" : 0.015664100646972656,
+        "y" : 0.2680085003376007
       },
-      "cueBall": {
-        "x": 0.28229373693466187,
-        "y": 0.28026527166366577
+      "cueBall" : {
+        "x" : 0.28229373693466187,
+        "y" : 0.28026527166366577
       }
     }
   },
-  "name": "K球吃库 · 球形2",
-  "steps": [
+  "name" : "K球吃库 · 球形2",
+  "steps" : [
     {
-      "after": {
-        "onTable": {
-          "_2": {
-            "x": 0.020113235339522362,
-            "y": 0.3583355247974396
+      "analysis": {"aim":{"aimAngleDegrees":16.739152692312473,"ghostCenterMeters":{"x":-1.0728856325149536,"y":0.8285750150680542,"z":-0.5096338987350464},"pocket":"topLeft","pocketAimPointMeters":{"x":-1.2735302448272705,"y":0.800000011920929,"z":-0.6335804462432861},"targetBallKey":"_1"},"cueCushionContacts":[{"cushionIndex":2,"mainRail":"negativeZ","phase":"afterFirstContact","timeSeconds":0.2598009705543518},{"cushionIndex":4,"mainRail":"negativeX","phase":"afterFirstContact","timeSeconds":2.05920147895813}],"cueTravelDistanceMeters":1.6321329898661705,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":16.98997713418559,"ballKey":"_1","cueAngularVelocityRadiansPerSecond":{"x":-98.28069305419922,"y":-6.8123273849487305,"z":87.16161346435547},"cueClothSlipSpeedMetersPerSecond":0.5356251322577669,"cueForwardRollRatio":0.8751263922746446,"cueMotionState":"sliding","cueSpeedMetersPerSecond":4.289320684748615,"cueVelocity":{"x":-2.8447177410125732,"y":0,"z":-3.210273027420044},"timeSeconds":0.17568375170230865},"schemaVersion":1},
+      "recordedDirection": {"x": -0.6642510890960693, "z": -0.7475096583366394},
+      "after" : {
+        "onTable" : {
+          "_2" : {
+            "x" : 0.02688765525817871,
+            "y" : 0.3301318287849426
           },
-          "cueBall": {
-            "x": 0.026342954486608505,
-            "y": 0.25544556975364685
+          "cueBall" : {
+            "x" : 0.01445055939257145,
+            "y" : 0.2556690275669098
           }
         }
       },
-      "before": {
-        "onTable": {
-          "_1": {
-            "x": 0.05846192687749863,
-            "y": 0.03753182664513588
+      "before" : {
+        "onTable" : {
+          "_1" : {
+            "x" : 0.05846192687749863,
+            "y" : 0.03753182664513588
           },
-          "_2": {
-            "x": 0.015664100646972656,
-            "y": 0.2680085003376007
+          "_2" : {
+            "x" : 0.015664100646972656,
+            "y" : 0.2680085003376007
           },
-          "cueBall": {
-            "x": 0.28229373693466187,
-            "y": 0.28026527166366577
+          "cueBall" : {
+            "x" : 0.28229373693466187,
+            "y" : 0.28026527166366577
           }
         }
       },
-      "cuePocketed": false,
-      "id": "0CD247DE-E6F6-4BF5-832D-D8C7E6F30127",
-      "objectPocketed": true,
-      "potted": [
+      "cuePocketed" : false,
+      "id" : "74295F7D-C886-4D35-9E1E-543CF1AAEB8C",
+      "objectPocketed" : true,
+      "potted" : [
         "_1"
       ],
-      "shot": {
-        "pocket": "topLeft",
-        "spinX": 0.051526237045977856,
-        "spinY": 0.20963043716667712,
-        "targetKey": "_1",
-        "velocity": 3.5
+      "shot" : {
+        "pocket" : "topLeft",
+        "selectionContext" : {
+          "isManual" : true,
+          "prefersPocketAssist" : true,
+          "requestedPocketIndex" : 0,
+          "requestedTargetKey" : "_1"
+        },
+        "spinX" : 0.021526237045977864,
+        "spinY" : 0.24963043716667715,
+        "targetKey" : "_1",
+        "velocity" : 3.3753449600073657
       }
     }
   ],
-  "updatedAt": "2026-07-04T09:52:55Z"
+  "updatedAt" : "2026-10-14T13:02:20Z"
 }

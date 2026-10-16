@@ -1,4 +1,6 @@
 import XCTest
+import ImageIO
+import SwiftUI
 import SceneKit
 import Metal
 import MetalKit
@@ -10306,6 +10308,7 @@ extension RenderQualityV62Tests {
             var options = SequenceVideoExporter.Options.teaching()
             options.size = CGSize(width: 360, height: 640)
             options.useAppAppearance = mobile
+            options.renderRecipe = mobile ? .legacyMobile : nil
             let frames = SequenceVideoExporter.renderStills(sequence: sequence, options: options)
             let shot = try XCTUnwrap(frames.first { $0.name == "s01_still" })
             XCTAssertEqual(shot.image.width, Int(options.outputSize.width))
@@ -10827,5 +10830,776 @@ extension RenderQualityV62Tests {
         let mean = zip(a, b).reduce(0.0) { $0 + abs(Double($1.0) - Double($1.1)) } / Double(a.count)
         print("TableReuse rendered pixel mean absolute difference: \(mean)")
         XCTAssertLessThan(mean, 0.5, "Reusing a table must restore its original rendering, including cloth and rail finishes")
+    }
+}
+
+
+// Resource ownership and lossless export regression coverage.
+extension RenderQualityV62Tests {
+    func testBoundedImageCacheEvictionKeepsBorrowedImageValid() throws {
+        let cache = TableAssetImageCache(byteLimit: 4 * 16 * 16)
+        func make(_ color: UIColor) -> UIImage {
+            let format = UIGraphicsImageRendererFormat(); format.scale = 1
+            return UIGraphicsImageRenderer(size: CGSize(width: 16, height: 16), format: format).image { c in
+                color.setFill(); c.fill(CGRect(x: 0, y: 0, width: 16, height: 16))
+            }
+        }
+        let image = try XCTUnwrap(cache.image(for: "first") { make(.red) })
+        var reloaded = false
+        XCTAssertTrue(cache.image(for: "first") { reloaded = true; return nil } === image)
+        XCTAssertFalse(reloaded)
+        _ = cache.image(for: "second") { make(.blue) }
+        XCTAssertLessThanOrEqual(cache.retainedBytes, 4 * 16 * 16)
+        cache.reset()
+        XCTAssertEqual(cache.retainedBytes, 0)
+        XCTAssertNotNil(image.cgImage, "Evicting the store cannot invalidate a borrowed image")
+    }
+
+    func testLosslessSpoolPreservesPixelsSamplingAndGIFAndCleansUp() throws {
+        var directory: URL!
+        try autoreleasepool {
+            let spool = try LosslessFrameSpool(); directory = spool.directory
+            let space = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
+            var originals: [CGImage] = []
+            for i in 0..<17 {
+                var bytes = [UInt8](repeating: 0, count: 8 * 8 * 4)
+                for j in stride(from: 0, to: bytes.count, by: 4) {
+                    bytes[j] = UInt8(i * 13); bytes[j + 1] = UInt8(j % 255)
+                    bytes[j + 2] = 70; bytes[j + 3] = 255
+                }
+                let provider = try XCTUnwrap(CGDataProvider(data: Data(bytes) as CFData))
+                let image = try XCTUnwrap(CGImage(width: 8, height: 8, bitsPerComponent: 8, bitsPerPixel: 32,
+                    bytesPerRow: 32, space: space, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                    provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent))
+                originals.append(image); try spool.append(image)
+            }
+            func pixels(_ image: CGImage) throws -> Data {
+                let c = try XCTUnwrap(CGContext(data: nil, width: 8, height: 8, bitsPerComponent: 8, bytesPerRow: 32,
+                    space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                c.draw(image, in: CGRect(x: 0, y: 0, width: 8, height: 8))
+                return Data(bytes: try XCTUnwrap(c.data), count: 256)
+            }
+            let sampled = try spool.sampledImages(frameCount: 5)
+            XCTAssertEqual(sampled.count, 5)
+            for (n, index) in [0,4,8,12,16].enumerated() {
+                XCTAssertEqual(try pixels(sampled[n]), try pixels(originals[index]))
+            }
+            let old = spool.directory.appendingPathComponent("array.gif")
+            let new = spool.directory.appendingPathComponent("stream.gif")
+            let legacy = try XCTUnwrap(CGImageDestinationCreateWithURL(old as CFURL, "com.compuserve.gif" as CFString, originals.count, nil))
+            CGImageDestinationSetProperties(legacy, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
+            for image in originals {
+                CGImageDestinationAddImage(legacy, image, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: 1.0 / 12.0]] as CFDictionary)
+            }
+            XCTAssertTrue(CGImageDestinationFinalize(legacy))
+            try GIFEncoder.encode(frameCount: spool.count, to: new) { try spool.image(at: $0) }
+            let a = try XCTUnwrap(CGImageSourceCreateWithURL(old as CFURL, nil))
+            let b = try XCTUnwrap(CGImageSourceCreateWithURL(new as CFURL, nil))
+            XCTAssertEqual(CGImageSourceGetCount(a), 17); XCTAssertEqual(CGImageSourceGetCount(b), 17)
+            XCTAssertEqual((CGImageSourceCopyProperties(a, nil) as NSDictionary?)?[kCGImagePropertyGIFDictionary] as? NSDictionary,
+                           (CGImageSourceCopyProperties(b, nil) as NSDictionary?)?[kCGImagePropertyGIFDictionary] as? NSDictionary)
+            for i in 0..<17 {
+                XCTAssertEqual(try pixels(XCTUnwrap(CGImageSourceCreateImageAtIndex(a, i, nil))),
+                               try pixels(XCTUnwrap(CGImageSourceCreateImageAtIndex(b, i, nil))))
+                let pa = CGImageSourceCopyPropertiesAtIndex(a, i, nil) as NSDictionary?
+                let pb = CGImageSourceCopyPropertiesAtIndex(b, i, nil) as NSDictionary?
+                XCTAssertEqual(pa?[kCGImagePropertyGIFDictionary] as? NSDictionary, pb?[kCGImagePropertyGIFDictionary] as? NSDictionary)
+            }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.path))
+    }
+
+    func testPlainExportSceneLeaseAndPurgePreserveLiveBallState() async throws {
+        // Drain releases queued by the previous main-actor rendering test.
+        try await Task.sleep(nanoseconds: 50_000_000)
+        let cache = TableResourceCache.shared
+        cache.purge()
+        let count = cache.activeScenes
+        weak var released: AngleTrainingScene?
+        autoreleasepool {
+            let scene = AngleTrainingScene(); released = scene
+            scene.setupScene(enhancedRendering: false, mobileRendering: false)
+            XCTAssertEqual(cache.activeScenes, count + 1)
+            scene.showBall(key: "_8", scenePosition: SCNVector3(0.3, scene.surfaceY + BallPhysics.radius, -0.2))
+            let ball = scene.allBallNodes["_8"]!
+            ball.simdOrientation = simd_quatf(angle: 0.7, axis: SIMD3(0, 1, 0))
+            let position = ball.simdPosition, rotation = ball.simdOrientation.vector
+            cache.purge()
+            XCTAssertEqual(ball.simdPosition, position); XCTAssertEqual(ball.simdOrientation.vector, rotation)
+            XCTAssertFalse(ball.isHidden)
+        }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertNil(released)
+        XCTAssertEqual(cache.activeScenes, count)
+    }
+}
+
+
+extension RenderQualityV62Tests {
+    func testWorkerSceneLeaseAndExportFailureCleanup() async throws {
+        let count = TableResourceCache.shared.activeScenes
+        let ready = expectation(description: "worker scene acquired")
+        let release = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .userInitiated).async {
+            autoreleasepool {
+                let scene = AngleTrainingScene()
+                scene.setupScene(enhancedRendering: false, mobileRendering: false)
+                ready.fulfill()
+                _ = release.wait(timeout: .now() + 10)
+                withExtendedLifetime(scene) {}
+            }
+        }
+        await fulfillment(of: [ready], timeout: 15)
+        XCTAssertEqual(TableResourceCache.shared.activeScenes, count + 1)
+        TableResourceCache.shared.purge()
+        release.signal()
+        try await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertEqual(TableResourceCache.shared.activeScenes, count)
+
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let destination = directory.appendingPathComponent("previous.gif")
+        let previous = Data("existing output must survive a failed export".utf8)
+        try previous.write(to: destination)
+        XCTAssertThrowsError(try GIFEncoder.encode(frameCount: 4, to: destination) { _ in throw CancellationError() })
+        XCTAssertEqual(try Data(contentsOf: destination), previous)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path), ["previous.gif"])
+        var spoolPath: URL!
+        XCTAssertThrowsError(try autoreleasepool {
+            let spool = try LosslessFrameSpool(); spoolPath = spool.directory
+            throw CancellationError()
+        })
+        XCTAssertFalse(FileManager.default.fileExists(atPath: spoolPath.path))
+    }
+}
+
+extension RenderQualityV62Tests {
+    func testResourceAppearanceMatrixPreservesBallState() throws {
+        let path = ProcessInfo.processInfo.environment["TABLE_RESOURCE_VISUAL_DIR"]
+            ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+                .appendingPathComponent("output/resource-visual").path
+        let folder = URL(fileURLWithPath: path)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let defaults = UserDefaults.standard
+        let oldCue = defaults.object(forKey: CueStyle.preferenceKey)
+        let oldSticker = defaults.object(forKey: BallStickerStyle.preferenceKey)
+        defaults.set(CueStyle.inkDragon.rawValue, forKey: CueStyle.preferenceKey)
+        defaults.set(BallStickerStyle.badge.rawValue, forKey: BallStickerStyle.preferenceKey)
+        defer { defaults.set(oldCue, forKey: CueStyle.preferenceKey); defaults.set(oldSticker, forKey: BallStickerStyle.preferenceKey) }
+        TableResourceCache.shared.purge()
+        for pipeline in ["live", "legacy", "plain", "studio"] {
+            try autoreleasepool {
+                let scene = AngleTrainingScene()
+                if pipeline == "live" { scene.configureReferenceTableRendering() }
+                scene.setupScene(enhancedRendering: pipeline == "studio", mobileRendering: pipeline == "live" || pipeline == "legacy", roomStyle: .tournament)
+                scene.hideAllBalls()
+                for number in 0...15 {
+                    let key = number == 0 ? PositionPlayBall.cueKey : "_\(number)"
+                    let p = SCNVector3(Float(number % 4) * 0.23 - 0.36, scene.surfaceY + BallPhysics.radius, Float(number / 4) * 0.19 - 0.28)
+                    scene.showBall(key: key, scenePosition: p)
+                    scene.allBallNodes[key]?.simdOrientation = simd_quatf(angle: Float(number) * 0.23, axis: SIMD3(0, 1, 0))
+                }
+                let poses = scene.allBallNodes.mapValues { ($0.simdPosition, $0.simdOrientation.vector, $0.isHidden, $0.simdScale) }
+                let rig = try XCTUnwrap(scene.cameraRig)
+                rig.viewportSize = CGSize(width: 960, height: 640)
+                let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+                renderer.scene = scene; renderer.pointOfView = scene.cameraNode
+                renderer.delegate = scene.contactOcclusion; renderer.autoenablesDefaultLighting = false
+                defer { renderer.scene = nil; renderer.pointOfView = nil; renderer.delegate = nil }
+                func save(_ name: String) throws {
+                    for _ in 0..<3 { _ = renderer.snapshot(atTime: 0, with: rig.viewportSize, antialiasingMode: .multisampling4X) }
+                    let image = renderer.snapshot(atTime: 0, with: rig.viewportSize, antialiasingMode: .multisampling4X)
+                    try XCTUnwrap(image.pngData()).write(to: folder.appendingPathComponent(pipeline + "-" + name + ".png"))
+                    for (key, pose) in poses {
+                        let node = try XCTUnwrap(scene.allBallNodes[key])
+                        XCTAssertEqual(node.simdPosition, pose.0); XCTAssertEqual(node.simdOrientation.vector, pose.1)
+                        XCTAssertEqual(node.isHidden, pose.2); XCTAssertEqual(node.simdScale, pose.3)
+                    }
+                }
+                for style in TableStyle.allCases {
+                    scene.applyTableStyle(style, showsSights: true)
+                    scene.setCameraMode(.perspective3D, animated: false)
+                    XCTAssertTrue(rig.observeWholeTable(yaw: .pi / 2)); rig.snapToTarget()
+                    try save(style.rawValue + "-3d")
+                    scene.setCameraMode(.topDown2D, animated: false)
+                    rig.topDownOrthographicScale = 0.9; rig.applyTopDown2D()
+                    try save(style.rawValue + "-2d")
+                }
+                if pipeline == "live" {
+                    scene.setCameraMode(.perspective3D, animated: false)
+                    XCTAssertTrue(rig.observeWholeTable(yaw: .pi / 2)); rig.snapToTarget()
+                    for style in BallStickerStyle.allCases {
+                        scene.applyBallStickerStyle(style); try save("sticker-" + style.rawValue)
+                    }
+                    for style in CueStyle.allCases {
+                        XCTAssertTrue(scene.cueStick?.applyStyle(style) == true)
+                        let cue = try XCTUnwrap(scene.allBallNodes[PositionPlayBall.cueKey])
+                        scene.updateCueStick(cueBallPosition: cue.position, aimDirection: SCNVector3(1, 0, 0))
+                        try save("cue-" + style.rawValue)
+                    }
+                }
+            }
+        }
+    }
+}
+
+extension RenderQualityV62Tests {
+    func testSharedCueImagesAndUVCacheKeepMaterialsAndBallPosesIndependent() throws {
+        CueStyleModel.resetCache(); BallStickerAppearance.resetCache()
+        let a = SCNMaterial(); a.name = "White_Wood"
+        let b = SCNMaterial(); b.name = "White_Wood"
+        XCTAssertTrue(CueStyleModel.apply(.inkDragon, to: [a]))
+        XCTAssertTrue(CueStyleModel.apply(.heritage, to: [b]))
+        XCTAssertTrue(try XCTUnwrap(a.roughness.contents as? UIImage) === XCTUnwrap(b.roughness.contents as? UIImage))
+        XCTAssertFalse(try XCTUnwrap(a.diffuse.contents as? UIImage) === XCTUnwrap(b.diffuse.contents as? UIImage))
+        let borrowed = try XCTUnwrap(a.roughness.contents as? UIImage)
+        XCTAssertLessThanOrEqual(CueStyleModel.retainedImageBytes, 48 * 1024 * 1024)
+        CueStyleModel.resetCache()
+        XCTAssertEqual(CueStyleModel.retainedImageBytes, 0); XCTAssertNotNil(borrowed.cgImage)
+        let first = try XCTUnwrap(TableModelLoader.loadTable())
+        let second = try XCTUnwrap(TableModelLoader.loadTable())
+        XCTAssertTrue(BallStickerAppearance.apply(.badge, to: first.ballNodes))
+        XCTAssertTrue(BallStickerAppearance.apply(.badge, to: second.ballNodes))
+        func geometry(_ node: SCNNode) -> SCNGeometry? {
+            if let g = node.geometry { return g }
+            return node.childNodes.compactMap(geometry).first
+        }
+        let left = try XCTUnwrap(geometry(XCTUnwrap(first.ballNodes["_8"])))
+        let right = try XCTUnwrap(geometry(XCTUnwrap(second.ballNodes["_8"])))
+        XCTAssertFalse(left === right); XCTAssertFalse(left.firstMaterial === right.firstMaterial)
+        XCTAssertEqual(left.sources.map(\.data), right.sources.map(\.data))
+        XCTAssertEqual(left.elements.map(\.data), right.elements.map(\.data))
+        let previous = right.firstMaterial?.diffuse.contents as? UIImage
+        left.firstMaterial?.diffuse.contents = UIColor.magenta
+        XCTAssertTrue(right.firstMaterial?.diffuse.contents as? UIImage === previous)
+        first.ballNodes["_8"]?.position.x += 0.2
+        XCTAssertNotEqual(first.ballNodes["_8"]?.position.x, second.ballNodes["_8"]?.position.x)
+        XCTAssertGreaterThan(BallStickerAppearance.retainedUVBytes, 0)
+        XCTAssertLessThanOrEqual(BallStickerAppearance.retainedUVBytes, 64 * 1024 * 1024)
+        BallStickerAppearance.resetCache()
+        XCTAssertEqual(BallStickerAppearance.retainedUVBytes, 0)
+        XCTAssertFalse(right.sources.isEmpty)
+    }
+}
+
+extension RenderQualityV62Tests {
+    func testNamedRecipesAndExtractionPreserveGeometryAndAuthoredBoard() throws {
+        var options = SequenceVideoExporter.Options.teaching()
+        XCTAssertEqual(options.resolvedRenderRecipe, .plainLegacy)
+        options.useAppAppearance = true
+        XCTAssertEqual(options.resolvedRenderRecipe, .liveReference)
+        options.renderRecipe = .legacyMobile
+        XCTAssertEqual(options.resolvedRenderRecipe, .legacyMobile)
+        XCTAssertEqual(SequenceVideoExporter.Options.tutorialStills().resolvedRenderRecipe, .liveReference)
+        var firstBounds: SCNVector3?
+        for recipe in [TableRenderRecipe.liveReference, .legacyMobile, .plainLegacy, .teachingPlain, .studioLegacy] {
+            autoreleasepool {
+                let scene = AngleTrainingScene(); scene.setupScene(recipe: recipe)
+                XCTAssertEqual(scene.declaredRenderRecipe, recipe)
+                if recipe == .liveReference {
+                    XCTAssertEqual(scene.renderingProfile, .reflection)
+                    XCTAssertEqual(scene.cameraNode.camera!.exposureOffset, -0.1, accuracy: 0.000001)
+                } else if recipe == .legacyMobile {
+                    XCTAssertEqual(scene.renderingProfile, .reference)
+                    XCTAssertEqual(scene.cameraNode.camera!.exposureOffset, -0.45, accuracy: 0.000001)
+                }
+                let bound = scene.tableNode!.boundingBox.max
+                if let expected = firstBounds { XCTAssertEqual(bound.x, expected.x); XCTAssertEqual(bound.z, expected.z) }
+                else { firstBounds = bound }
+            }
+        }
+        let vm = BallExtractionViewModel()
+        vm.marks = [.init(key: PositionPlayBall.cueKey, uv: CGPoint(x: 0.4, y: 0.4)),
+                    .init(key: "_8", uv: CGPoint(x: 0.6, y: 0.55))]
+        let expected = vm.snapshotFromMarks()
+        vm.enterConfirm()
+        XCTAssertEqual(vm.scene.declaredRenderRecipe, .liveReference)
+        XCTAssertEqual(vm.scene.renderingProfile, .reflection)
+        XCTAssertTrue(vm.scene.cameraNode.camera?.usesOrthographicProjection == true)
+        let actual = vm.currentSnapshot()
+        XCTAssertEqual(Set(actual.onTable.keys), Set(expected.onTable.keys))
+        for (key, point) in expected.onTable {
+            let actualPoint = try XCTUnwrap(actual.onTable[key])
+            XCTAssertEqual(actualPoint.x, point.x, accuracy: 0.000001)
+            XCTAssertEqual(actualPoint.y, point.y, accuracy: 0.000001)
+        }
+        let poses = vm.scene.captureBallPoses()
+        TableResourceCache.shared.purge()
+        for (key, pose) in poses { XCTAssertEqual(vm.scene.allBallNodes[key]?.simdOrientation.vector, pose.vector) }
+    }
+
+    func testAppearancePreviewUsesLiveRecipeAndDismantlesItsRenderer() async throws {
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
+        func sceneViews(_ view: UIView) -> [SCNView] { (view as? SCNView).map { [$0] } ?? view.subviews.flatMap(sceneViews) }
+        for roomOverview in [false, true] {
+            let host = UIHostingController(rootView: AppearanceCombinationPreview(label: "test", identifier: "test.appearance", showsRoomOverview: roomOverview))
+            host.view.frame = CGRect(x: 0, y: 0, width: 390, height: 300)
+            window.addSubview(host.view); host.view.layoutIfNeeded()
+            defer { host.view.removeFromSuperview() }
+            try await Task.sleep(nanoseconds: 200_000_000)
+            let view = try XCTUnwrap(sceneViews(host.view).first)
+            let scene = try XCTUnwrap(view.scene as? AngleTrainingScene)
+            XCTAssertEqual(scene.declaredRenderRecipe, .liveReference)
+            XCTAssertEqual(scene.renderingProfile, .reflection)
+            XCTAssertEqual(scene.cameraNode.camera?.usesOrthographicProjection, !roomOverview)
+            XCTAssertFalse(view.isPlaying); XCTAssertFalse(view.rendersContinuously)
+            let coordinator = AppearanceCombinationPreview.Coordinator()
+            AppearanceCombinationPreview.dismantleUIView(view, coordinator: coordinator)
+            XCTAssertNil(view.scene)
+        }
+    }
+}
+
+extension RenderQualityV62Tests {
+    func testForegroundHotSetSurvivesIdleButWarningAndBackgroundEvict() async throws {
+        let cache = TableResourceCache(retainsForegroundHotSet: true)
+        let scene = AngleTrainingScene(); scene.setupScene(recipe: .liveReference)
+        scene.showBall(key: "_8", scenePosition: SCNVector3(0.2, scene.surfaceY + BallPhysics.radius, 0.3))
+        let ball = try XCTUnwrap(scene.allBallNodes["_8"])
+        ball.simdOrientation = simd_quatf(angle: 0.8, axis: SIMD3(0, 1, 0))
+        let position = ball.simdPosition, pose = ball.simdOrientation.vector
+        let table = AngleTrainingScene.ReusableTable(scene: scene, key: "hot-fixture")
+        let ticket = cache.acquire(); cache.release(table, generation: ticket)
+        cache.expireIfIdle(generation: ticket)
+        XCTAssertTrue(cache.idleTable === table)
+        XCTAssertEqual(cache.generation, ticket)
+        NotificationCenter.default.post(name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
+        XCTAssertNil(cache.idleTable)
+        cache.release(table, generation: ticket)
+        XCTAssertNil(cache.idleTable, "A stale return cannot resurrect the hot table")
+        let next = cache.acquire(); cache.release(table, generation: next)
+        XCTAssertNotNil(cache.idleTable)
+        NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
+        XCTAssertNil(cache.idleTable)
+        XCTAssertEqual(ball.simdPosition, position); XCTAssertEqual(ball.simdOrientation.vector, pose)
+        XCTAssertFalse(ball.isHidden)
+        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+        cache.purge()
+    }
+
+    func testCancelledWarmupCannotRefillPurgedResources() async throws {
+        // The host starts the shared warmer too. Test its actual owner instead
+        // of clearing global asset caches from an unrelated cache instance.
+        let cache = TableResourceCache.shared
+        cache.warmForEntry(); cache.warmForEntry()
+        cache.purge()
+        let generation = cache.generation
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertEqual(cache.generation, generation)
+        XCTAssertNil(cache.idleTable)
+        XCTAssertEqual(BallStickerAppearance.retainedImageBytes, 0)
+        XCTAssertEqual(BallStickerAppearance.retainedUVBytes, 0)
+        XCTAssertEqual(CueStyleModel.retainedImageBytes, 0)
+        // A fresh request is still allowed after cancellation; its resources
+        // must remain independent from a live scene's ball state.
+        cache.warmForEntry()
+        try await Task.sleep(nanoseconds: 500_000_000)
+        cache.purge()
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(BallStickerAppearance.retainedImageBytes, 0)
+        XCTAssertEqual(BallStickerAppearance.retainedUVBytes, 0)
+    }
+}
+
+
+extension RenderQualityV62Tests {
+    private func assertStreamingGIFMatchesLegacy(_ frames: [CGImage]) throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let old = directory.appendingPathComponent("legacy.gif"), new = directory.appendingPathComponent("mapped.gif")
+        let destination = try XCTUnwrap(CGImageDestinationCreateWithURL(old as CFURL,
+            "com.compuserve.gif" as CFString, frames.count, nil))
+        CGImageDestinationSetProperties(destination, [kCGImagePropertyGIFDictionary:
+            [kCGImagePropertyGIFLoopCount: 3]] as CFDictionary)
+        for frame in frames {
+            CGImageDestinationAddImage(destination, frame, [kCGImagePropertyGIFDictionary:
+                [kCGImagePropertyGIFDelayTime: 0.12]] as CFDictionary)
+        }
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+        try GIFEncoder.encode(frames: frames, to: new, frameDelay: 0.12, loop: 3)
+        let a = try XCTUnwrap(CGImageSourceCreateWithURL(old as CFURL, nil))
+        let b = try XCTUnwrap(CGImageSourceCreateWithURL(new as CFURL, nil))
+        XCTAssertEqual(CGImageSourceGetCount(a), frames.count); XCTAssertEqual(CGImageSourceGetCount(b), frames.count)
+        XCTAssertEqual((CGImageSourceCopyProperties(a, nil) as NSDictionary?)?[kCGImagePropertyGIFDictionary] as? NSDictionary,
+                       (CGImageSourceCopyProperties(b, nil) as NSDictionary?)?[kCGImagePropertyGIFDictionary] as? NSDictionary)
+        func rgba(_ image: CGImage) throws -> Data {
+            let context = try XCTUnwrap(CGContext(data: nil, width: image.width, height: image.height,
+                bitsPerComponent: 8, bytesPerRow: image.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+            return Data(bytes: try XCTUnwrap(context.data), count: image.width * image.height * 4)
+        }
+        for index in frames.indices {
+            XCTAssertEqual(try rgba(XCTUnwrap(CGImageSourceCreateImageAtIndex(a, index, nil))),
+                           try rgba(XCTUnwrap(CGImageSourceCreateImageAtIndex(b, index, nil))))
+            XCTAssertEqual((CGImageSourceCopyPropertiesAtIndex(a, index, nil) as NSDictionary?)?[kCGImagePropertyGIFDictionary] as? NSDictionary,
+                           (CGImageSourceCopyPropertiesAtIndex(b, index, nil) as NSDictionary?)?[kCGImagePropertyGIFDictionary] as? NSDictionary)
+        }
+    }
+
+    func testMappedGIFPreservesTransparencyAndColourAgainstLegacy() throws {
+        var frames: [CGImage] = []
+        for index in 0..<4 {
+            let context = try XCTUnwrap(CGContext(data: nil, width: 64, height: 32,
+                bitsPerComponent: 8, bytesPerRow: 256, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.setFillColor(red: CGFloat(index) / 3, green: 0.4, blue: 0.7, alpha: 0.5)
+            context.fill(CGRect(x: index * 8, y: 0, width: 32, height: 32))
+            context.setFillColor(red: 0.9, green: 0.3, blue: 0.1, alpha: 1)
+            context.fill(CGRect(x: 8, y: 8, width: 16, height: 16))
+            frames.append(try XCTUnwrap(context.makeImage()))
+        }
+        try assertStreamingGIFMatchesLegacy(frames)
+    }
+
+    func testRealRenderedFramesSurviveLosslessSpoolInLiveAndTeachingRecipes() throws {
+        let space = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
+        func rgba(_ image: CGImage) throws -> Data {
+            let context = try XCTUnwrap(CGContext(data: nil, width: image.width, height: image.height,
+                bitsPerComponent: 8, bytesPerRow: image.width * 4, space: space,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+            return Data(bytes: try XCTUnwrap(context.data), count: image.width * image.height * 4)
+        }
+        for recipe: TableRenderRecipe in [.liveReference, .teachingPlain] {
+            try autoreleasepool {
+                let scene = AngleTrainingScene(); scene.setupScene(recipe: recipe)
+                scene.setCameraMode(.topDown2D, animated: false)
+                for (i, key) in [PositionPlayBall.cueKey, "_1", "_8", "_15"].enumerated() {
+                    scene.showBall(key: key, scenePosition: SCNVector3(Float(i) * 0.17 - 0.25,
+                        scene.surfaceY + BallPhysics.radius, 0.1))
+                }
+                let renderer = SCNRenderer(device: nil, options: nil)
+                renderer.scene = scene; renderer.pointOfView = scene.cameraNode
+                defer { renderer.pointOfView = nil; renderer.scene = nil }
+                let frame = try XCTUnwrap(renderer.snapshot(atTime: 0, with: CGSize(width: 640, height: 360),
+                    antialiasingMode: .multisampling4X).cgImage)
+                let spool = try LosslessFrameSpool(); try spool.append(frame)
+                let decoded = try spool.image(at: 0)
+                XCTAssertEqual(frame.width, decoded.width); XCTAssertEqual(frame.height, decoded.height)
+                XCTAssertEqual(frame.bitmapInfo, decoded.bitmapInfo)
+                XCTAssertEqual(frame.bitsPerComponent, decoded.bitsPerComponent)
+                XCTAssertTrue(CFEqual(frame.colorSpace, decoded.colorSpace))
+                XCTAssertEqual(frame.dataProvider?.data as Data?, decoded.dataProvider?.data as Data?)
+                print("PIXEL-SPOOL recipe=\(recipe) bits=\(frame.bitsPerComponent) pixelBits=\(frame.bitsPerPixel) space=\(String(describing: frame.colorSpace?.name))")
+                XCTAssertEqual(try rgba(frame), try rgba(decoded), "Pixel spool changed rendered colours for \(recipe)")
+                scene.showBall(key: "_1", scenePosition: SCNVector3(0.31, scene.surfaceY + BallPhysics.radius, -0.35))
+                let moved = try XCTUnwrap(renderer.snapshot(atTime: 1, with: CGSize(width: 640, height: 360),
+                    antialiasingMode: .multisampling4X).cgImage)
+                try assertStreamingGIFMatchesLegacy([frame, moved, decoded])
+            }
+        }
+    }
+}
+
+private final class GIFFrameLifetimeCounter {
+    private let lock = NSLock()
+    private var live = 0
+    private var peak = 0
+    func allocate() { lock.lock(); live += 1; peak = max(peak, live); lock.unlock() }
+    func release() { lock.lock(); live -= 1; lock.unlock() }
+    var values: (live: Int, peak: Int) { lock.lock(); defer { lock.unlock() }; return (live, peak) }
+}
+
+extension RenderQualityV62Tests {
+    func testGIFProducerReleasesDecodedFrameBuffersBeforeFinishingMovie() throws {
+        let counter = GIFFrameLifetimeCounter()
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appendingPathComponent("stream.gif")
+        try GIFEncoder.encode(frameCount: 90, to: url) { index in
+            let size = 320 * 180 * 4
+            let buffer = UnsafeMutableRawPointer.allocate(byteCount: size, alignment: 16)
+            let bytes = buffer.bindMemory(to: UInt8.self, capacity: size)
+            for i in stride(from: 0, to: size, by: 4) {
+                bytes[i] = UInt8((i / 4 + index) % 255)
+                bytes[i + 1] = UInt8(index * 2); bytes[i + 2] = 90; bytes[i + 3] = 255
+            }
+            counter.allocate()
+            let info = Unmanaged.passRetained(counter).toOpaque()
+            guard let provider = CGDataProvider(dataInfo: info, data: buffer, size: size, releaseData: { info, data, _ in
+                UnsafeMutableRawPointer(mutating: data).deallocate()
+                Unmanaged<GIFFrameLifetimeCounter>.fromOpaque(info!).takeRetainedValue().release()
+            }) else {
+                buffer.deallocate(); counter.release(); Unmanaged<GIFFrameLifetimeCounter>.fromOpaque(info).release()
+                throw GIFEncoder.GIFError.cannotCreateDestination
+            }
+            return try XCTUnwrap(CGImage(width: 320, height: 180, bitsPerComponent: 8, bitsPerPixel: 32,
+                bytesPerRow: 320 * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent))
+        }
+        let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil))
+        XCTAssertEqual(CGImageSourceGetCount(source), 90)
+        print("GIF-FRAME-OWNERSHIP peak=\(counter.values.peak) live=\(counter.values.live) frames=90")
+        XCTAssertEqual(counter.values.live, 0)
+        XCTAssertLessThanOrEqual(counter.values.peak, 4, "ImageIO must release producer buffers instead of retaining the entire decoded movie")
+    }
+}
+
+extension RenderQualityV62Tests {
+    func testMaterialRecipeDoesNotOwnDecodedSourceAndRestoresAllSettings() async throws {
+        weak var source: SCNMaterial?
+        let url = try XCTUnwrap(Bundle.main.url(forResource: "WoodCoat_Wood", withExtension: "png"))
+        var recipe: TableMaterialRecipe!
+        autoreleasepool {
+            let material = SCNMaterial(); source = material
+            material.name = "Wood"; material.lightingModel = .physicallyBased
+            material.diffuse.contents = url
+            material.diffuse.contentsTransform = SCNMatrix4MakeScale(2, 3, 1)
+            material.diffuse.wrapS = .mirror; material.diffuse.maxAnisotropy = 8
+            material.roughness.contents = 0.37; material.clearCoat.contents = 0.4
+            material.shaderModifiers = [.surface: "#pragma body\n_surface.roughness *= 0.8;"]
+            material.setValue(SCNMaterialProperty(contents: UIColor.green), forKey: "customMap")
+            recipe = TableMaterialRecipe(material)
+        }
+        SCNTransaction.flush()
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertNil(source)
+        let a = recipe.make(), b = recipe.make()
+        XCTAssertFalse(a === b)
+        XCTAssertEqual(a.diffuse.contents as? URL, url)
+        XCTAssertEqual(a.diffuse.contentsTransform.m11, 2)
+        XCTAssertEqual(a.diffuse.contentsTransform.m22, 3)
+        XCTAssertEqual(a.diffuse.wrapS, .mirror); XCTAssertEqual(a.diffuse.maxAnisotropy, 8)
+        XCTAssertEqual(a.roughness.contents as? Double, 0.37)
+        XCTAssertEqual(a.clearCoat.contents as? Double, 0.4)
+        XCTAssertEqual(a.shaderModifiers, b.shaderModifiers)
+        XCTAssertNotNil(a.value(forKey: "customMap"))
+        a.diffuse.contents = UIColor.red
+        XCTAssertEqual(b.diffuse.contents as? URL, url)
+        let themed = recipe.make(omittingContents: [\.diffuse])
+        XCTAssertNil(themed.diffuse.contents)
+        XCTAssertEqual(themed.diffuse.contentsTransform.m11, 2)
+        XCTAssertEqual(themed.diffuse.maxAnisotropy, 8)
+        XCTAssertEqual(recipe.make().diffuse.contents as? URL, url)
+    }
+
+    func testPocketCachedTemplateDoesNotRetainInitialMaterials() async throws {
+        PocketLeatherMesh.resetCache()
+        weak var original: SCNMaterial?
+        try autoreleasepool {
+            let model = try XCTUnwrap(TableModelLoader.loadTable())
+            model.visualNode.position.y += BTTablePhysics.surfaceY - model.surfaceY
+            let extraction = try PocketLeatherMesh.cachedExtraction(from: model.visualNode,
+                centers: AngleSceneCalculator.pocketPositions(surfaceY: BTTablePhysics.surfaceY))
+            XCTAssertEqual(extraction.parts.count, 6)
+            original = try XCTUnwrap(extraction.replacements.first?.geometry.materials.first)
+        }
+        SCNTransaction.flush()
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertNil(original, "A geometry cache must not retain the first scene's materials")
+        let model = try XCTUnwrap(TableModelLoader.loadTable())
+        model.visualNode.position.y += BTTablePhysics.surfaceY - model.surfaceY
+        let extraction = try PocketLeatherMesh.cachedExtraction(from: model.visualNode,
+            centers: AngleSceneCalculator.pocketPositions(surfaceY: BTTablePhysics.surfaceY))
+        XCTAssertEqual(extraction.parts.count, 6)
+        XCTAssertTrue(extraction.parts.allSatisfy { $0.geometry.firstMaterial?.name == "Leather" })
+        XCTAssertTrue(extraction.replacements.allSatisfy { !$0.geometry.materials.isEmpty })
+    }
+}
+
+extension RenderQualityV62Tests {
+    func testComponentPrototypesPreserveGeometryAndIsolateLiveInstances() throws {
+        TableModelLoader.resetCache()
+        let full = try XCTUnwrap(TableModelLoader.loadTable())
+        let parts = try XCTUnwrap(TableModelLoader.loadTable(includeVisual: false))
+        XCTAssertTrue(parts.visualNode.childNodes.isEmpty)
+        XCTAssertEqual(Set(full.ballNodes.keys), Set(parts.ballNodes.keys))
+        XCTAssertEqual(full.ballNodes.count, 16)
+        XCTAssertEqual(full.appliedScale.x, parts.appliedScale.x)
+        XCTAssertEqual(full.surfaceY, parts.surfaceY)
+        func compare(_ a: SCNNode, _ b: SCNNode) {
+            XCTAssertFalse(a === b); XCTAssertEqual(a.name, b.name)
+            XCTAssertEqual(a.simdTransform, b.simdTransform)
+            XCTAssertEqual(a.childNodes.count, b.childNodes.count)
+            if let x = a.geometry, let y = b.geometry {
+                XCTAssertFalse(x === y)
+                XCTAssertEqual(x.sources.map(\.data), y.sources.map(\.data))
+                XCTAssertEqual(x.elements.map(\.data), y.elements.map(\.data))
+                XCTAssertEqual(x.materials.map(\.name), y.materials.map(\.name))
+                for (m, n) in zip(x.materials, y.materials) { XCTAssertFalse(m === n) }
+            } else { XCTAssertNil(a.geometry); XCTAssertNil(b.geometry) }
+            for (x, y) in zip(a.childNodes, b.childNodes) { compare(x, y) }
+        }
+        for key in full.ballNodes.keys { compare(full.ballNodes[key]!, parts.ballNodes[key]!) }
+        compare(try XCTUnwrap(full.cueStickNode), try XCTUnwrap(parts.cueStickNode))
+        parts.ballNodes["_1"]?.position.x += 0.5
+        parts.ballNodes["_1"]?.enumerateChildNodes { node, _ in node.geometry?.firstMaterial?.diffuse.contents = UIColor.magenta }
+        let again = try XCTUnwrap(TableModelLoader.loadTable())
+        compare(full.visualNode, again.visualNode)
+        compare(full.ballNodes["_1"]!, again.ballNodes["_1"]!)
+        TableModelLoader.resetCache()
+        XCTAssertEqual(full.ballNodes.count, 16)
+        XCTAssertFalse(full.visualNode.childNodes.isEmpty)
+    }
+
+    func testAllTableAndRoomRoundTripsPreserveRenderedState() throws {
+        let scene = AngleTrainingScene(); scene.setupScene(recipe: .liveReference, roomStyle: .tournament)
+        scene.hideAllBalls()
+        for n in 0...15 {
+            let key = n == 0 ? PositionPlayBall.cueKey : "_\(n)"
+            scene.showBall(key: key, scenePosition: SCNVector3(Float(n % 4)*0.25-0.4,
+                scene.surfaceY+BallPhysics.radius,Float(n/4)*0.2-0.3))
+            scene.allBallNodes[key]?.simdOrientation = simd_quatf(angle: Float(n)*0.3, axis: SIMD3(0,1,0))
+        }
+        let poses = scene.allBallNodes.mapValues { ($0.simdTransform, $0.isHidden) }
+        let rig = try XCTUnwrap(scene.cameraRig); rig.viewportSize = CGSize(width: 640, height: 420)
+        scene.setCameraMode(.perspective3D, animated: false)
+        XCTAssertTrue(rig.observeWholeTable(yaw: .pi/2)); rig.snapToTarget()
+        let camera = scene.cameraNode.simdTransform
+        let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        renderer.scene = scene; renderer.pointOfView = scene.cameraNode; renderer.delegate = scene.contactOcclusion
+        renderer.autoenablesDefaultLighting = false
+        defer { renderer.scene = nil; renderer.pointOfView = nil; renderer.delegate = nil }
+        func pixels() throws -> [UInt8] {
+            for _ in 0..<3 { _ = renderer.snapshot(atTime: 0, with: rig.viewportSize, antialiasingMode: .multisampling4X) }
+            let image = try XCTUnwrap(renderer.snapshot(atTime: 0, with: rig.viewportSize, antialiasingMode: .multisampling4X).cgImage)
+            var bytes = [UInt8](repeating: 0, count: image.width*image.height*4)
+            try bytes.withUnsafeMutableBytes { data in
+                let context = try XCTUnwrap(CGContext(data: data.baseAddress, width: image.width, height: image.height,
+                    bitsPerComponent: 8, bytesPerRow: image.width*4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+            }
+            for (key, pose) in poses {
+                XCTAssertEqual(scene.allBallNodes[key]?.simdTransform, pose.0)
+                XCTAssertEqual(scene.allBallNodes[key]?.isHidden, pose.1)
+            }
+            XCTAssertEqual(scene.cameraNode.simdTransform, camera)
+            return bytes
+        }
+        func unchanged(_ before: [UInt8], _ after: [UInt8], _ label: String) {
+            XCTAssertEqual(before.count, after.count)
+            let mean = zip(before,after).reduce(0.0) { $0+abs(Double($1.0)-Double($1.1)) }/Double(before.count)
+            print("Appearance round trip \(label): \(mean)")
+            XCTAssertLessThan(mean,0.5,label)
+        }
+        // Evict the importer before the first render of these native bindings.
+        // Compare against independently reopened maps, not a previously drawn
+        // scene that could mask a missing native image provider.
+        TableModelLoader.withNativeMaterialBacking { XCTAssertNotNil($0) }
+        XCTAssertTrue(scene.applyTableStyle(.walnut))
+        TableResourceCache.shared.purge()
+        TableModelLoader.withNativeMaterialBacking { XCTAssertNil($0) }
+        let borrowedAfterEviction = try pixels()
+        XCTAssertTrue(scene.applyTableStyle(.standard))
+        XCTAssertTrue(scene.applyTableStyle(.walnut))
+        unchanged(borrowedAfterEviction, try pixels(), "unrendered native bindings after eviction")
+        for style in TableStyle.allCases {
+            XCTAssertTrue(scene.applyTableStyle(style)); let before = try pixels()
+            for other in TableStyle.allCases.reversed() { XCTAssertTrue(scene.applyTableStyle(other, showsSights: false)) }
+            XCTAssertTrue(scene.applyTableStyle(style, showsSights: true))
+            unchanged(before,try pixels(),style.rawValue)
+        }
+        for style in RoomStyle.allCases {
+            scene.installReferenceRoom(style: style); let before = try pixels()
+            for other in RoomStyle.allCases.reversed() { scene.installReferenceRoom(style: other) }
+            scene.installReferenceRoom(style: style)
+            unchanged(before,try pixels(),"room-"+style.rawValue)
+        }
+    }
+}
+
+extension RenderQualityV62Tests {
+    func testSingleChannelSurfaceMapsPreserveEveryMipByte() throws {
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        for name in ["WoodCoat_Wood", "LeatherMicro_roughness"] {
+            let url = try XCTUnwrap(Bundle.main.url(forResource: name, withExtension: "png"))
+            let source = try MTKTextureLoader(device: device).newTexture(URL: url, options: [
+                .SRGB: false, .generateMipmaps: true, .origin: MTKTextureLoader.Origin.bottomLeft,
+                .textureStorageMode: MTLStorageMode.shared.rawValue])
+            let compact = name == "WoodCoat_Wood" ? TableSurfaceTextures.woodRoughness : TableSurfaceTextures.leatherRoughness
+            XCTAssertEqual(compact.pixelFormat, .r8Unorm)
+            XCTAssertEqual(compact.width, source.width); XCTAssertEqual(compact.height, source.height)
+            XCTAssertEqual(compact.mipmapLevelCount, source.mipmapLevelCount)
+            let red = source.pixelFormat == .bgra8Unorm ? 2 : 0
+            XCTAssertTrue(source.pixelFormat == .bgra8Unorm || source.pixelFormat == .rgba8Unorm)
+            var bytes = 0
+            for level in 0..<source.mipmapLevelCount {
+                let width = max(1, source.width >> level), height = max(1, source.height >> level)
+                var rgba = [UInt8](repeating: 0, count: width*height*4)
+                var actual = [UInt8](repeating: 0, count: width*height)
+                rgba.withUnsafeMutableBytes { source.getBytes($0.baseAddress!, bytesPerRow: width*4, from: MTLRegionMake2D(0,0,width,height), mipmapLevel: level) }
+                actual.withUnsafeMutableBytes { compact.getBytes($0.baseAddress!, bytesPerRow: width, from: MTLRegionMake2D(0,0,width,height), mipmapLevel: level) }
+                let expected = stride(from: red, to: rgba.count, by: 4).map { rgba[$0] }
+                XCTAssertEqual(actual, expected, "\(name) mip \(level)")
+                bytes += actual.count
+            }
+            print("R8 exact mips \(name): rgbaBytes=\(bytes*4) r8Bytes=\(bytes)")
+        }
+        XCTAssertNotEqual(TableSurfaceTextures.leatherNormal.pixelFormat, .r8Unorm)
+        let borrowed = TableSurfaceTextures.woodRoughness
+        XCTAssertTrue(borrowed === TableSurfaceTextures.woodRoughness)
+        TableSurfaceTextures.resetCache()
+        XCTAssertFalse(borrowed === TableSurfaceTextures.woodRoughness)
+        XCTAssertEqual(borrowed.width,1024)
+    }
+
+    func testRoomStylesShareOnlyImmutableYarnAndPurgePreservesBorrower() throws {
+        BakedTrainingRoom.resetCache(); MobileReferenceLighting.resetImageCache()
+        func yarn(_ room: SCNNode) throws -> UIImage {
+            let floor = try XCTUnwrap(room.childNode(withName: "room_floor", recursively: true))
+            var result: UIImage?
+            floor.enumerateChildNodes { node,_ in
+                if let image = node.geometry?.firstMaterial?.multiply.contents as? UIImage { result = image }
+            }
+            return try XCTUnwrap(result)
+        }
+        let first = BakedTrainingRoom.make(style:.tournament)
+        let a = try yarn(first)
+        for style in RoomStyle.allCases {
+            let room = BakedTrainingRoom.make(style:style)
+            XCTAssertTrue(a === (try yarn(room)))
+        }
+        let expected = try XCTUnwrap(a.pngData())
+        MobileReferenceLighting.resetImageCache(); BakedTrainingRoom.resetCache()
+        let second = BakedTrainingRoom.make(style:.eastern)
+        XCTAssertFalse(a === (try yarn(second)))
+        XCTAssertEqual(try XCTUnwrap(yarn(second).pngData()),expected)
+        XCTAssertEqual(try XCTUnwrap(yarn(first).pngData()),expected)
+    }
+
+    func testModelAndFallbackRecipesKeepOnlyReopenableTextureReferences() async throws {
+        TableResourceCache.shared.purge()
+        autoreleasepool { _ = TableModelLoader.loadTable(); _ = TableModelLoader.loadTable() }
+        weak var source: SCNMaterial?
+        var recipe: TableMaterialRecipe!
+        try autoreleasepool {
+            let model = try XCTUnwrap(TableModelLoader.loadTable())
+            let other = try XCTUnwrap(TableModelLoader.loadTable())
+            func wood(_ node: SCNNode) throws -> SCNMaterial {
+                var result: SCNMaterial?
+                node.enumerateChildNodes { child, _ in
+                    if let material = child.geometry?.materials.first(where: { $0.name == "Wood" }) { result = material }
+                }
+                return try XCTUnwrap(result)
+            }
+            let original = try wood(model.visualNode)
+            let originalURL = try XCTUnwrap(original.diffuse.contents as? URL)
+            source = original
+            XCTAssertEqual(originalURL, try wood(other.visualNode).diffuse.contents as? URL)
+            recipe = TableMaterialRecipe(original)
+            let file = try XCTUnwrap(recipe.make().diffuse.contents as? URL)
+            let archive = try XCTUnwrap(TableMaterialRecipe.sourceContents(file) as? URL)
+            let query = try XCTUnwrap(URLComponents(url: archive, resolvingAgainstBaseURL: false)?.queryItems)
+            let offset = try XCTUnwrap(UInt64(try XCTUnwrap(query.first { $0.name == "offset" }?.value)))
+            let size = try XCTUnwrap(Int(try XCTUnwrap(query.first { $0.name == "size" }?.value)))
+            let handle = try FileHandle(forReadingFrom: URL(fileURLWithPath: archive.path))
+            defer { try? handle.close() }
+            try handle.seek(toOffset: offset)
+            XCTAssertEqual(try Data(contentsOf: file), try handle.read(upToCount: size))
+            recipe = TableMaterialRecipe(original)
+        }
+        SCNTransaction.flush(); try await Task.sleep(nanoseconds:50_000_000)
+        XCTAssertNil(source, "Neither the model prototype nor a fallback recipe may own the native material")
+        let restored = recipe.make()
+        let file = try XCTUnwrap(restored.diffuse.contents as? URL)
+        XCTAssertEqual(UIImage(contentsOfFile: file.path)?.cgImage?.width, 2048)
+        XCTAssertNotNil(TableMaterialRecipe.sourceContents(file) as? URL)
+        TableResourceCache.shared.purge()
+        XCTAssertEqual(UIImage(contentsOfFile: file.path)?.cgImage?.width, 2048, "Purging owners must preserve a borrower's lazy file")
     }
 }

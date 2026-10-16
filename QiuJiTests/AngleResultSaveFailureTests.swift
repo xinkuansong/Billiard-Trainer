@@ -92,6 +92,7 @@ final class AngleResultSaveFailureTests: XCTestCase {
         vm.configure(repository: AngleSaveFailureStub())
         let question = AngleCalculator.generateQuestion(angle: 30)
         vm.currentQuestion = question
+        vm.openAnswerInput()
         vm.userInput = "20"
 
         vm.submitAnswer()

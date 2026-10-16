@@ -112,6 +112,16 @@ struct PlannedShot: Codable {
     }
 }
 
+/// Exact X/Z components passed to CueBallStrike, before squirt/physics.
+/// Preserve Float bits: replay must not normalize this vector a second time.
+struct RecordedStrikeDirection: Codable {
+    var x: Float
+    var z: Float
+    var isValid: Bool {
+        x.isFinite && z.isFinite && abs(x * x + z * z - 1) < 0.0001
+    }
+}
+
 // MARK: - Sequence step
 
 /// 一杆 = 前快照 + 意图 + 引擎求解出的后快照（含进袋离场）。
@@ -125,6 +135,8 @@ struct SequenceStep: Codable, Identifiable {
     var cuePocketed: Bool
     var objectPocketed: Bool
     var note: String?
+    var recordedDirection: RecordedStrikeDirection?
+    var analysis: ShotAnalysis?
 
     init(
         id: UUID = UUID(),
@@ -134,7 +146,9 @@ struct SequenceStep: Codable, Identifiable {
         potted: [String] = [],
         cuePocketed: Bool = false,
         objectPocketed: Bool = false,
-        note: String? = nil
+        note: String? = nil,
+        recordedDirection: RecordedStrikeDirection? = nil,
+        analysis: ShotAnalysis? = nil
     ) {
         self.id = id
         self.before = before
@@ -144,6 +158,30 @@ struct SequenceStep: Codable, Identifiable {
         self.cuePocketed = cuePocketed
         self.objectPocketed = objectPocketed
         self.note = note
+        self.recordedDirection = recordedDirection
+        self.analysis = analysis
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, before, shot, after, potted, cuePocketed, objectPocketed, note, recordedDirection, analysis
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        before = try c.decode(BoardSnapshot.self, forKey: .before)
+        shot = try c.decode(PlannedShot.self, forKey: .shot)
+        after = try c.decode(BoardSnapshot.self, forKey: .after)
+        potted = try c.decode([String].self, forKey: .potted)
+        cuePocketed = try c.decode(Bool.self, forKey: .cuePocketed)
+        objectPocketed = try c.decode(Bool.self, forKey: .objectPocketed)
+        note = try c.decodeIfPresent(String.self, forKey: .note)
+        recordedDirection = try c.decodeIfPresent(RecordedStrikeDirection.self, forKey: .recordedDirection)
+        do { analysis = try c.decodeIfPresent(ShotAnalysis.self, forKey: .analysis) }
+        catch {
+            analysis = nil
+            print("[SequenceStep] Ignoring invalid teaching analysis for \(id), path=\(decoder.codingPath): \(error)")
+        }
     }
 }
 

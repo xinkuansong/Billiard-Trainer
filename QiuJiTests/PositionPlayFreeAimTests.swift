@@ -473,6 +473,27 @@ final class ShotSimulationCameraTests: XCTestCase {
         }
         let recorded = try XCTUnwrap(vm.stopRecording())
         XCTAssertEqual(try encoder.encode(recorded), draft)
+        let recordedStep = try XCTUnwrap(recorded.steps.first)
+        let savedObject = try XCTUnwrap(JSONSerialization.jsonObject(with: encoder.encode(recordedStep)) as? [String: Any])
+        XCTAssertNil(savedObject["trajectory"])
+        // Exercise persisted bytes, not only the in-memory recorder.
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
+        try draft.write(to: file, options: .atomic)
+        defer { do { try FileManager.default.removeItem(at: file) } catch { XCTFail("cleanup: \(error)") } }
+        let reloaded = try JSONDecoder().decode(PositionPlaySequence.self, from: Data(contentsOf: file))
+        let replay = try XCTUnwrap(SequenceReplayResolver.solve(step: reloaded.steps[0], surfaceY: vm.scene.surfaceY))
+        XCTAssertTrue(replay.hasFinalTableState)
+        let loaded = vm.loadSequenceForEditing(reloaded)
+        XCTAssertEqual(loaded.replayed, 1)
+        XCTAssertEqual(try encoder.encode(vm.sequence.steps[0].before), try encoder.encode(recordedStep.before))
+        XCTAssertEqual(try encoder.encode(vm.sequence.steps[0].shot), try encoder.encode(recordedStep.shot))
+        XCTAssertEqual(try encoder.encode(vm.sequence.steps[0].after), try encoder.encode(recordedStep.after))
+        for (key, point) in recordedStep.after.onTable {
+            let final = try XCTUnwrap(replay.finalPositions[PositionPlayShotSolver.predName(boardKey: key, shot: recordedStep.shot)])
+            let normalized = AngleSceneCalculator.sceneToNormalized(position: final)
+            XCTAssertEqual(Double(normalized.x), point.x, accuracy: 0.000001)
+            XCTAssertEqual(Double(normalized.y), point.y, accuracy: 0.000001)
+        }
     }
 
     func testViewSwitchAndOrbitPreserveShotAndBoard() async throws {
@@ -717,7 +738,8 @@ final class PerspectiveStateV63Tests: XCTestCase {
         let board = BoardSnapshot(onTable: ["cueBall": CanvasPoint(x: 0.3, y: 0.2)])
         let shot = PlannedShot(targetKey: "", pocket: "", velocity: 1.5,
                                freeAim: CanvasPoint(x: 1, y: 0))
-        vm.configureSequence([SequenceStep(before: board, shot: shot, after: board)])
+        vm.configureSequence([SequenceStep(before: board, shot: shot, after: board,
+            recordedDirection: .init(x: 1, z: 0))])
         vm.enterSequenceMode()
         XCTAssertTrue(vm.isSequenceMode)
         let index = vm.sequenceStepIndex
@@ -1073,36 +1095,26 @@ final class OrbitInputV63Tests: XCTestCase {
 }
 
 extension IdealDirectionIntegrationTests {
-    func testIncompleteAimVerificationKeepsAnswerAndQuestion() throws {
-        let suite = "v63.verification." + UUID().uuidString
+    func testAimResultKeepsUserDirectionAndQuestion() throws {
+        let suite = "sceneRules." + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let vm = AimPointSceneQuizViewModel(limiter: AngleUsageLimiter(defaults: defaults))
         vm.setupScene(cameraMode: .topDown2D)
+        let direction = try XCTUnwrap(vm.currentPlayerAim)
         vm.submit()
         let question = try XCTUnwrap(vm.question)
-        let error = vm.lastErrorMM
-        let count = vm.sessionResults.count
-        var prediction = ShotPredictor.simulateFree(
-            cueBall: SCNVector3(0, BTTablePhysics.surfaceY + BallPhysics.radius, 0),
-            aimDir: SCNVector3(1, 0, 0), velocity: 0.3, spinX: 0, spinY: 0,
-            surfaceY: BTTablePhysics.surfaceY, balls: [])
-        XCTAssertTrue(prediction.hasFinalTableState)
-        let complete = prediction
-        for termination: EventDrivenEngine.Termination? in [nil, .timeLimit, .eventLimit, .failed("test")] {
-            prediction.termination = termination
-            XCTAssertFalse(vm.acceptVerificationPrediction(prediction))
-            XCTAssertEqual(vm.phase, .showingResult)
-            XCTAssertEqual(vm.question?.cueBall, question.cueBall)
-            XCTAssertEqual(vm.question?.targetBall, question.targetBall)
-            XCTAssertEqual(vm.lastErrorMM, error)
-            XCTAssertEqual(vm.sessionResults.count, count)
-            XCTAssertNotNil(vm.verificationErrorMessage)
-        }
-        XCTAssertTrue(vm.acceptVerificationPrediction(complete))
-        XCTAssertNil(vm.verificationErrorMessage)
-        XCTAssertEqual(vm.sessionResults.count, count)
+        vm.submit()
+        XCTAssertEqual(vm.phase, .showingResult)
+        XCTAssertEqual(vm.sessionResults.count, 1)
+        XCTAssertEqual(vm.currentPlayerAim?.x, direction.x)
+        XCTAssertEqual(vm.currentPlayerAim?.z, direction.z)
+        XCTAssertEqual(vm.question?.cueBall, question.cueBall)
+        XCTAssertEqual(vm.phase, .showingResult)
+        vm.submit()
+        XCTAssertEqual(vm.sessionResults.count, 1)
     }
+
 }
 
 @MainActor
@@ -2929,7 +2941,10 @@ final class GuidedTryoutControlTests: XCTestCase {
         try await Task.sleep(for: .seconds(1))
         XCTAssertEqual(vm.sequenceStepIndex, 0)
         XCTAssertFalse(vm.isPlaying)
-        vm.resumeSequence(); vm.requestSequencePause()
+        vm.resumeSequence()
+        // Resume preserves the remaining result hold; wait for the next shot before pausing it.
+        try await waitUntil { vm.sequenceStepIndex == 1 && vm.guidedSequencePhase == .aiming }
+        vm.requestSequencePause()
         try await waitUntil { vm.isSequencePaused }
         XCTAssertEqual(vm.sequenceStepIndex, 1)
     }
@@ -2994,5 +3009,676 @@ final class GuidedTryoutControlTests: XCTestCase {
         XCTAssertEqual(vm.sequenceStepIndex, 1)
         XCTAssertFalse(vm.sequenceFinished)
         XCTAssertFalse(vm.canGoToNextTryoutStep)
+    }
+}
+
+@MainActor
+final class GuidedTryoutSequenceCameraTests: XCTestCase {
+    private func make(_ id: String) throws -> (PositionPlayViewModel, [SequenceStep], SCNRenderer) {
+        let steps = try XCTUnwrap(DrillTryoutBoardStore.formations(for: id).first).steps
+        let vm = PositionPlayViewModel()
+        vm.scene.configureShotAwareCamera()
+        vm.setupScene(loadsDefaultLayout: false)
+        vm.enablePlayerCameraControls()
+        vm.isGuidedTryout = true
+        vm.configureSequence(steps); vm.enterSequenceMode()
+        vm.scene.cameraRig?.viewportSize = CGSize(width: 700, height: 350)
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        let r = SCNRenderer(device: nil, options: nil)
+        r.scene = vm.scene; r.pointOfView = vm.scene.cameraNode
+        return (vm, steps, r)
+    }
+
+    private func pump(_ vm: PositionPlayViewModel, _ r: SCNRenderer,
+                      timeout: TimeInterval = 90, until condition: () -> Bool) async throws {
+        let deadline = ProcessInfo.processInfo.systemUptime + timeout
+        while !condition(), ProcessInfo.processInfo.systemUptime < deadline {
+            r.update(atTime: ProcessInfo.processInfo.systemUptime)
+            vm.scene.cameraRig?.update(deltaTime: 0.02)
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertTrue(condition(), "Timeout: \(vm.guidedSequencePhase), \(vm.sequenceStepIndex), \(vm.statusText)")
+    }
+
+    func testIndependentEightShotsArrangeBeforeCameraAndPauseResumesSameStage() async throws {
+        let (vm, steps, r) = try make("drill_c042")
+        defer { vm.exitSequenceMode() }
+        vm.playSequence()
+        try await pump(vm, r) { vm.guidedSequencePhase == .aiming }
+        vm.requestSequencePause()
+        try await pump(vm, r) { vm.isSequencePaused }
+        let target = try XCTUnwrap(vm.scene.allBallNodes[steps[1].shot.targetKey])
+        XCTAssertTrue(target.isHidden)
+        let oldCamera = try XCTUnwrap(vm.scene.cameraRig?.twoViewSnapshot?.pose)
+        let cue = try XCTUnwrap(vm.scene.cueBallNode)
+        let rest = cue.simdPosition
+        vm.resumeSequence()
+        XCTAssertEqual(vm.guidedSequencePhase, .arranging)
+        XCTAssertEqual(cue.simdPosition, rest)
+        XCTAssertEqual(target.opacity, 0, accuracy: 0.0001)
+        XCTAssertEqual(vm.scene.cameraRig?.twoViewSnapshot?.pose.eye, oldCamera.eye)
+        vm.requestSequencePause()
+        XCTAssertTrue(vm.isSequencePaused)
+        let paused = cue.simdPosition
+        try await Task.sleep(for: .milliseconds(150))
+        r.update(atTime: ProcessInfo.processInfo.systemUptime)
+        XCTAssertEqual(cue.simdPosition, paused)
+        vm.resumeSequence()
+        try await pump(vm, r) { vm.guidedSequencePhase == .transitioning }
+        for (key, pt) in steps[1].before.onTable {
+            let node = try XCTUnwrap(vm.scene.allBallNodes[key])
+            let expected = PositionPlayShotSolver.scenePoint(pt, surfaceY: vm.scene.surfaceY)
+            XCTAssertFalse(node.isHidden)
+            XCTAssertEqual(node.opacity, 1, accuracy: 0.0001)
+            XCTAssertEqual(node.position.x, expected.x, accuracy: 0.00001)
+            XCTAssertEqual(node.position.z, expected.z, accuracy: 0.00001)
+        }
+        vm.requestSequencePause()
+        let camera = vm.scene.cameraRig?.twoViewSnapshot?.pose
+        ShotPlayCamera.setMode(.topDown2D, on: vm)
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        XCTAssertTrue(vm.isSequencePaused)
+        XCTAssertEqual(vm.scene.cameraRig?.twoViewSnapshot?.pose.eye, camera?.eye)
+        vm.resumeSequence()
+        try await pump(vm, r) { vm.sequenceFinished }
+        XCTAssertEqual(vm.sequenceStepIndex, 7)
+        XCTAssertTrue(vm.canContinueTryoutSequence)
+        XCTAssertEqual(vm.guidedSequencePhase, .finished)
+    }
+
+    func testContinuousFourShotsPreserveRestAndBackgroundThenManualReplay() async throws {
+        let (vm, _, r) = try make("drill_c081")
+        defer { vm.exitSequenceMode() }
+        vm.playSequence()
+        try await pump(vm, r) { vm.guidedSequencePhase == .moving }
+        vm.suspendGuidedSequence()
+        let frozen = vm.scene.allBallNodes.mapValues(\.simdPosition)
+        let poses = vm.scene.captureBallPoses()
+        try await Task.sleep(for: .milliseconds(150))
+        r.update(atTime: ProcessInfo.processInfo.systemUptime)
+        for (key, point) in frozen { XCTAssertEqual(vm.scene.allBallNodes[key]?.simdPosition, point) }
+        for (key, pose) in poses { XCTAssertEqual(vm.scene.allBallNodes[key]?.simdOrientation.vector, pose.vector) }
+        vm.resumeSequence(); vm.requestSequencePause()
+        try await pump(vm, r) { vm.isSequencePaused }
+        let stopped = vm.scene.allBallNodes.mapValues(\.simdPosition)
+        let stoppedPoses = vm.scene.captureBallPoses()
+        vm.resumeSequence()
+        XCTAssertEqual(vm.guidedSequencePhase, .transitioning)
+        for (key, point) in stopped { XCTAssertEqual(vm.scene.allBallNodes[key]?.simdPosition, point) }
+        try await pump(vm, r) { vm.guidedSequencePhase == .aiming }
+        for (key, point) in stopped { XCTAssertEqual(vm.scene.allBallNodes[key]?.simdPosition, point) }
+        for (key, pose) in stoppedPoses { XCTAssertEqual(vm.scene.allBallNodes[key]?.simdOrientation.vector, pose.vector) }
+        try await pump(vm, r) { vm.sequenceFinished }
+        XCTAssertEqual(vm.sequenceStepIndex, 3)
+        XCTAssertTrue(vm.canContinueTryoutSequence)
+        vm.moveTryoutStep(by: -1)
+        XCTAssertEqual(vm.guidedSequencePhase, .arranging)
+        try await pump(vm, r) { vm.isSequencePaused }
+        XCTAssertEqual(vm.sequenceStepIndex, 2)
+        XCTAssertTrue(vm.canContinueTryoutSequence)
+    }
+
+    func testExitDuringArrangementCancelsOldCallbacksAndMissingTargetDoesNotReseat() async throws {
+        let (vm, steps, r) = try make("drill_c081")
+        defer { vm.exitSequenceMode() }
+        vm.playSequence()
+        try await pump(vm, r) { vm.guidedSequencePhase == .aiming }
+        vm.requestSequencePause()
+        try await pump(vm, r) { vm.isSequencePaused }
+        let target = try XCTUnwrap(vm.scene.allBallNodes[steps[1].shot.targetKey])
+        target.isHidden = true
+        let rest = vm.scene.allBallNodes.mapValues(\.simdPosition)
+        vm.resumeSequence()
+        XCTAssertFalse(vm.canContinueTryoutSequence)
+        XCTAssertTrue(target.isHidden)
+        for (key, point) in rest { XCTAssertEqual(vm.scene.allBallNodes[key]?.simdPosition, point) }
+        vm.moveTryoutStep(by: -1)
+        XCTAssertEqual(vm.guidedSequencePhase, .arranging)
+        vm.exitSequenceMode()
+        let exited = vm.scene.allBallNodes.mapValues(\.simdPosition)
+        try await Task.sleep(for: .milliseconds(600))
+        r.update(atTime: ProcessInfo.processInfo.systemUptime)
+        XCTAssertFalse(vm.isSequenceMode)
+        XCTAssertFalse(vm.isPlaying)
+        XCTAssertFalse(vm.scene.rootNode.hasActions)
+        for (key, point) in exited { XCTAssertEqual(vm.scene.allBallNodes[key]?.simdPosition, point) }
+    }
+}
+
+@MainActor
+final class BatchSelectiveRerecordingTests: XCTestCase {
+    private func archive() -> PositionPlaySequence {
+        let steps = (0..<3).map { index in
+            let before = BoardSnapshot(onTable: [PositionPlayBall.cueKey: .init(x: 0.35 + Double(index) * 0.08, y: 0.25)])
+            let after = BoardSnapshot(onTable: [PositionPlayBall.cueKey: .init(x: 0.4 + Double(index) * 0.08, y: 0.25)])
+            return SequenceStep(before: before, shot: .init(targetKey: "", pocket: "", velocity: 0.45,
+                freeAim: .init(x: 1, y: 0)), after: after, note: "Original \(index)",
+                recordedDirection: .init(x: 1, z: 0))
+        }
+        return PositionPlaySequence(name: "Selective edit", initial: steps[0].before, steps: steps)
+    }
+    private func bytes<T: Encodable>(_ value: T) throws -> Data {
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        return try encoder.encode(value)
+    }
+    private func ready(_ vm: PositionPlayViewModel) async throws {
+        let deadline = Date().addingTimeInterval(20)
+        while (vm.isComputing || !vm.isFeasible), Date() < deadline { try await Task.sleep(for: .milliseconds(25)) }
+        XCTAssertFalse(vm.isComputing)
+        XCTAssertTrue(vm.isFeasible, vm.statusText)
+    }
+    private func record(_ vm: PositionPlayViewModel) async throws {
+        try await ready(vm)
+        let renderer = SCNRenderer(device: nil, options: nil)
+        renderer.scene = vm.scene; renderer.pointOfView = vm.scene.cameraNode
+        let expectedDirection = try XCTUnwrap(vm.solvedShot?.prediction.recordedDirection)
+        let solved = try XCTUnwrap(vm.solvedShot)
+        let expectedAnalysis = try XCTUnwrap(ShotAnalysis.make(prediction: solved.prediction, shot: solved.shot, before: solved.before, surfaceY: vm.scene.surfaceY))
+        let recordedIndex = vm.rerecordingStepIndex ?? vm.stepCount
+        vm.play()
+        XCTAssertTrue(vm.isPlaying)
+        XCTAssertFalse(vm.beginRerecording(at: 0), "Cannot change selection during a shot")
+        let deadline = Date().addingTimeInterval(25)
+        while vm.isPlaying, Date() < deadline {
+            renderer.update(atTime: ProcessInfo.processInfo.systemUptime)
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertFalse(vm.isPlaying, vm.statusText)
+        let saved = try XCTUnwrap(vm.sequence.steps.indices.contains(recordedIndex) ? vm.sequence.steps[recordedIndex].recordedDirection : nil)
+        XCTAssertEqual(saved.x.bitPattern, expectedDirection.x.bitPattern)
+        XCTAssertEqual(saved.z.bitPattern, expectedDirection.z.bitPattern)
+        XCTAssertEqual(vm.sequence.steps[recordedIndex].analysis, expectedAnalysis)
+        let decoded = try JSONDecoder().decode(SequenceStep.self, from: bytes(vm.sequence.steps[recordedIndex]))
+        XCTAssertEqual(decoded.analysis, expectedAnalysis)
+    }
+    private func assertEngineAfter(_ step: SequenceStep, surfaceY: Float) throws {
+        let encoded = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes(step)) as? [String: Any])
+        XCTAssertNil(encoded["trajectory"])
+        XCTAssertTrue(try XCTUnwrap(step.recordedDirection).isValid)
+        let prediction = try XCTUnwrap(PositionPlayShotSolver.solve(before: step.before, shot: step.shot, surfaceY: surfaceY))
+        XCTAssertTrue(prediction.hasFinalTableState)
+        for (key, point) in step.after.onTable {
+            let stop = try XCTUnwrap(prediction.finalPositions[PositionPlayShotSolver.predName(boardKey: key, shot: step.shot)])
+            let normalized = AngleSceneCalculator.sceneToNormalized(position: stop)
+            XCTAssertEqual(point.x, Double(normalized.x), accuracy: 0.000001)
+            XCTAssertEqual(point.y, Double(normalized.y), accuracy: 0.000001)
+        }
+    }
+    private func recordedArchive(surfaceY: Float) throws -> PositionPlaySequence {
+        var result = archive()
+        for index in result.steps.indices {
+            var step = result.steps[index]
+            let prediction = try XCTUnwrap(PositionPlayShotSolver.solve(before: step.before, shot: step.shot, surfaceY: surfaceY))
+            XCTAssertTrue(prediction.hasFinalTableState)
+            XCTAssertTrue(prediction.pocketedBalls.isEmpty)
+            let stop = AngleSceneCalculator.sceneToNormalized(position: try XCTUnwrap(prediction.finalPositions[ShotInput.cueBallName]))
+            step.after = BoardSnapshot(onTable: [PositionPlayBall.cueKey: .init(x: Double(stop.x), y: Double(stop.y))])
+            step.recordedDirection = prediction.recordedDirection
+            result.steps[index] = step
+        }
+        return result
+    }
+
+    func testSingleShotReplacementKeepsOtherShotsAndPreviewsEveryAuthoredBoard() async throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        let original = try recordedArchive(surfaceY: vm.scene.surfaceY)
+        vm.loadSequenceForSelectiveRerecording(original)
+        XCTAssertTrue(vm.beginRerecording(at: 1, scope: .singleStep))
+        vm.nudgeBall(key: PositionPlayBall.cueKey, direction: .right)
+        vm.velocity = 0.65
+        try await record(vm)
+        XCTAssertNil(vm.rerecordingStepIndex)
+        XCTAssertEqual(vm.stepCount, 3)
+        XCTAssertEqual(vm.authoringCurrentStepIndex, 1)
+        XCTAssertEqual(vm.authoringCurrentRerecordingScope, .singleStep)
+        for index in [0, 2] { XCTAssertEqual(try bytes(vm.sequence.steps[index]), try bytes(original.steps[index])) }
+        XCTAssertEqual(try bytes(vm.sequence.initial), try bytes(original.initial))
+        XCTAssertEqual(vm.sequence.id, original.id)
+        XCTAssertEqual(vm.sequence.steps[1].note, original.steps[1].note)
+        XCTAssertNotEqual(vm.sequence.steps[1].id, original.steps[1].id)
+        XCTAssertNotEqual(try bytes(vm.sequence.steps[1].after), try bytes(original.steps[1].after))
+        XCTAssertTrue(SequenceSceneTransition.requiresBoardChange(after: vm.sequence.steps[1].after, before: vm.sequence.steps[2].before))
+        let updated = vm.sequence
+        let savedBytes = try bytes(updated)
+        let reloaded = try JSONDecoder().decode(PositionPlaySequence.self, from: savedBytes)
+        XCTAssertEqual(try bytes(reloaded), savedBytes, "Round-trip must preserve every retained shot")
+        vm.loadSequenceForSelectiveRerecording(reloaded)
+        let editorBoard = vm.currentSnapshot()
+        var starts: [UUID: BoardSnapshot] = [:]
+        vm.sequenceShotEventsObserver = { id, _ in starts[id] = vm.currentSnapshot() }
+        let renderer = SCNRenderer(device: nil, options: nil)
+        renderer.scene = vm.scene; renderer.pointOfView = vm.scene.cameraNode
+        vm.previewPlayRecordedSequence()
+        var checked = Set<Int>()
+        let deadline = Date().addingTimeInterval(45)
+        while vm.isSequencePlaying, Date() < deadline {
+            let index = vm.sequenceStepIndex
+            if vm.isPlaying, !checked.contains(index), let played = vm.solvedShot?.prediction {
+                let expected = try XCTUnwrap(SequenceReplayResolver.solve(step: updated.steps[index], surfaceY: vm.scene.surfaceY))
+                XCTAssertEqual(played.finalPositions[ShotInput.cueBallName]?.x, expected.finalPositions[ShotInput.cueBallName]?.x)
+                XCTAssertEqual(played.finalPositions[ShotInput.cueBallName]?.z, expected.finalPositions[ShotInput.cueBallName]?.z)
+                checked.insert(index)
+            }
+            renderer.update(atTime: ProcessInfo.processInfo.systemUptime)
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertFalse(vm.isSequencePlaying)
+        XCTAssertFalse(vm.isSequenceMode, vm.statusText)
+        XCTAssertEqual(checked, Set(updated.steps.indices))
+        XCTAssertEqual(starts.count, updated.steps.count)
+        for step in updated.steps {
+            let actual = try XCTUnwrap(starts[step.id]?.onTable[PositionPlayBall.cueKey])
+            XCTAssertEqual(actual.x, step.before.onTable[PositionPlayBall.cueKey]!.x, accuracy: 0.000001)
+            XCTAssertEqual(actual.y, step.before.onTable[PositionPlayBall.cueKey]!.y, accuracy: 0.000001)
+        }
+        XCTAssertEqual(try bytes(vm.sequence), savedBytes)
+        XCTAssertEqual(try bytes(vm.currentSnapshot()), try bytes(editorBoard))
+    }
+
+    func testSingleFirstAndLastReplacementRetryNeverRemovesOtherShots() async throws {
+        for index in [0, 2] {
+            let vm = PositionPlayViewModel(); vm.setupScene()
+            let original = try recordedArchive(surfaceY: vm.scene.surfaceY)
+            vm.loadSequenceForSelectiveRerecording(original)
+            XCTAssertTrue(vm.beginRerecording(at: index, scope: .singleStep))
+            try await record(vm)
+            XCTAssertEqual(vm.stepCount, 3)
+            for other in original.steps.indices where other != index {
+                XCTAssertEqual(try bytes(vm.sequence.steps[other]), try bytes(original.steps[other]))
+            }
+            let replaced = try bytes(vm.sequence)
+            vm.replayCurrent()
+            XCTAssertEqual(vm.rerecordingStepIndex, index)
+            XCTAssertEqual(vm.rerecordingScope, .singleStep)
+            XCTAssertEqual(try bytes(vm.sequence), replaced)
+            vm.resumeSequenceAppending()
+            XCTAssertNil(vm.rerecordingStepIndex)
+            XCTAssertEqual(vm.authoringCurrentStepIndex, 2)
+            XCTAssertEqual(vm.authoringCurrentRerecordingScope, .followingSteps)
+            XCTAssertEqual(try bytes(vm.sequence), replaced)
+            vm.cancelDailyAttempt()
+        }
+    }
+
+    func testSingleSelectionFailureInitialPreviewAndSwitchDoNotCommit() throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        let original = archive()
+        vm.loadSequenceForSelectiveRerecording(original)
+        XCTAssertTrue(vm.beginRerecording(at: 1, scope: .singleStep))
+        vm.showAuthoringInitialBoard(); vm.returnFromAuthoringInitialBoard()
+        XCTAssertEqual(vm.rerecordingScope, .singleStep)
+        XCTAssertEqual(vm.rerecordingStepIndex, 1)
+        vm.removeFromTable(PositionPlayBall.cueKey); vm.play()
+        XCTAssertFalse(vm.isPlaying)
+        XCTAssertEqual(try bytes(vm.sequence), try bytes(original))
+        XCTAssertFalse(vm.beginRerecording(at: 99, scope: .followingSteps))
+        XCTAssertEqual(vm.rerecordingScope, .singleStep)
+        XCTAssertTrue(vm.beginRerecording(at: 1, scope: .followingSteps))
+        XCTAssertEqual(vm.rerecordingScope, .followingSteps)
+        XCTAssertEqual(try bytes(vm.sequence), try bytes(original))
+        XCTAssertTrue(vm.beginRerecording(at: 2, scope: .singleStep))
+        XCTAssertTrue(vm.restorePreviousBoardForAppending())
+        XCTAssertNil(vm.rerecordingStepIndex)
+        XCTAssertEqual(try bytes(vm.sequence), try bytes(original))
+    }
+
+    func testInitialPreviewReturnsExactEditingStateWithoutChangingArchive() async throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        var original = archive()
+        original.initial = BoardSnapshot(onTable: [PositionPlayBall.cueKey: .init(x: 0.2, y: 0.2)])
+        vm.loadSequenceForSelectiveRerecording(original)
+        XCTAssertTrue(vm.beginRerecording(at: 1))
+        vm.nudgeBall(key: PositionPlayBall.cueKey, direction: .up)
+        vm.velocity = 0.55
+        vm.updateSpin(x: 0.1, y: 0.2)
+        vm.nudgeFreeAim(byDegrees: 3)
+        try await ready(vm)
+        let board = vm.currentSnapshot(), poses = vm.scene.captureBallPoses()
+        let direction = try XCTUnwrap(vm.freeAimDir)
+        let velocity = vm.velocity, spinX = vm.spinX, spinY = vm.spinY
+        vm.showAuthoringInitialBoard()
+        XCTAssertTrue(vm.isViewingAuthoringInitial)
+        XCTAssertEqual(vm.currentSnapshot().onTable[PositionPlayBall.cueKey]!.x, original.steps[0].before.onTable[PositionPlayBall.cueKey]!.x, accuracy: 0.000001)
+        vm.play()
+        XCTAssertFalse(vm.isPlaying, "Viewing must not append or replace any shot")
+        XCTAssertFalse(vm.beginRerecording(at: 99))
+        XCTAssertTrue(vm.isViewingAuthoringInitial)
+        vm.returnFromAuthoringInitialBoard()
+        XCTAssertFalse(vm.isViewingAuthoringInitial)
+        XCTAssertEqual(vm.rerecordingStepIndex, 1)
+        XCTAssertEqual(vm.velocity, velocity); XCTAssertEqual(vm.spinX, spinX); XCTAssertEqual(vm.spinY, spinY)
+        XCTAssertEqual(vm.freeAimDir!.x, direction.x); XCTAssertEqual(vm.freeAimDir!.z, direction.z)
+        XCTAssertEqual(try bytes(vm.currentSnapshot()), try bytes(board))
+        for (key, pose) in poses { XCTAssertEqual(vm.scene.captureBallPoses()[key], pose) }
+        XCTAssertEqual(try bytes(vm.sequence), try bytes(original))
+    }
+
+    func testInitialPreviewCanStartAgainOrSelectAnotherShotWithoutEarlyTruncation() throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        let original = archive()
+        vm.loadSequenceForSelectiveRerecording(original)
+        vm.showAuthoringInitialBoard(); vm.beginAuthoringFromInitial()
+        XCTAssertFalse(vm.isViewingAuthoringInitial)
+        XCTAssertEqual(vm.rerecordingStepIndex, 0)
+        XCTAssertEqual(try bytes(vm.sequence), try bytes(original))
+        vm.showAuthoringInitialBoard()
+        XCTAssertTrue(vm.beginRerecording(at: 2))
+        XCTAssertFalse(vm.isViewingAuthoringInitial)
+        XCTAssertEqual(vm.rerecordingStepIndex, 2)
+        XCTAssertEqual(try bytes(vm.sequence), try bytes(original))
+        vm.showAuthoringInitialBoard(); vm.resumeSequenceAppending()
+        XCTAssertFalse(vm.isViewingAuthoringInitial)
+        XCTAssertNil(vm.rerecordingStepIndex)
+    }
+
+    func testInitialOnlyArchivePreviewAndResetDoNotLeakReturnState() throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        let original = PositionPlaySequence(name: "Initial only", initial: archive().initial)
+        vm.loadSequenceForSelectiveRerecording(original)
+        vm.nudgeBall(key: PositionPlayBall.cueKey, direction: .right)
+        vm.showAuthoringInitialBoard(); vm.beginAuthoringFromInitial()
+        XCTAssertFalse(vm.isViewingAuthoringInitial)
+        XCTAssertTrue(vm.sequence.steps.isEmpty)
+        XCTAssertEqual(try bytes(vm.sequence), try bytes(original))
+        XCTAssertEqual(vm.currentSnapshot().onTable[PositionPlayBall.cueKey]!.x, original.initial.onTable[PositionPlayBall.cueKey]!.x, accuracy: 0.000001)
+        vm.showAuthoringInitialBoard(); vm.resetAll()
+        let reset = vm.currentSnapshot()
+        vm.returnFromAuthoringInitialBoard()
+        XCTAssertFalse(vm.isViewingAuthoringInitial)
+        XCTAssertEqual(try bytes(vm.currentSnapshot()), try bytes(reset))
+    }
+
+    func testLoadSelectRetryAndCancelNeverRewriteArchive() throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        let original = archive()
+        vm.loadSequenceForSelectiveRerecording(original)
+        XCTAssertEqual(try bytes(vm.sequence), try bytes(original))
+        XCTAssertFalse(vm.beginRerecording(at: -1)); XCTAssertFalse(vm.beginRerecording(at: 3))
+        for index in [0, 1, 2] {
+            XCTAssertTrue(vm.beginRerecording(at: index))
+            XCTAssertEqual(vm.rerecordingStepIndex, index)
+            XCTAssertEqual(vm.velocity, original.steps[index].shot.velocity)
+            XCTAssertEqual(vm.currentSnapshot().onTable[PositionPlayBall.cueKey]!.x,
+                           original.steps[index].before.onTable[PositionPlayBall.cueKey]!.x, accuracy: 0.000001)
+            vm.replayCurrent()
+            XCTAssertEqual(try bytes(vm.sequence), try bytes(original))
+        }
+        vm.resumeSequenceAppending()
+        XCTAssertNil(vm.rerecordingStepIndex)
+        XCTAssertEqual(try bytes(vm.sequence), try bytes(original))
+        XCTAssertEqual(vm.currentSnapshot().onTable[PositionPlayBall.cueKey]!.x,
+                       original.currentBoard.onTable[PositionPlayBall.cueKey]!.x, accuracy: 0.000001)
+    }
+    func testFollowingTemplateUsesEachOriginalInputAndNewRestIncludingRetry() async throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        var original = archive()
+        for i in original.steps.indices {
+            original.steps[i].shot.velocity = 0.4 + Double(i) * 0.1
+            original.steps[i].shot.spinX = Double(i) * 0.03
+            original.steps[i].shot.spinY = Double(i) * 0.05
+            original.steps[i].shot.freeAim = .init(x: i == 1 ? -1 : 1, y: 0)
+        }
+        let originalBytes = try bytes(original)
+        vm.loadSequenceForSelectiveRerecording(original)
+        vm.beginAuthoringFromInitial()
+        XCTAssertEqual(vm.authoringTemplateStepIndex, 0)
+        XCTAssertEqual(try bytes(vm.authoringLandingReference?.point), try bytes(original.steps[0].after.onTable[PositionPlayBall.cueKey]))
+        vm.velocity = 0.48 // An author's adjustment must be kept on retry, not reset to the template.
+        try await record(vm)
+        XCTAssertEqual(vm.sequence.steps[0].shot.velocity, 0.48)
+        XCTAssertEqual(vm.authoringTemplateStepIndex, 1)
+        XCTAssertEqual(vm.velocity, original.steps[1].shot.velocity)
+        XCTAssertEqual(vm.spinX, original.steps[1].shot.spinX)
+        XCTAssertEqual(vm.spinY, original.steps[1].shot.spinY)
+        XCTAssertEqual(vm.aimMode, .free)
+        XCTAssertEqual(vm.freeAimDir!.x, -1, accuracy: 0.00001)
+        let stop = vm.sequence.steps[0].after
+        XCTAssertEqual(try bytes(vm.currentSnapshot()), try bytes(stop))
+        XCTAssertNotEqual(try bytes(stop), try bytes(original.steps[1].before))
+        vm.replayCurrent()
+        XCTAssertEqual(vm.authoringTemplateStepIndex, 0)
+        XCTAssertEqual(try bytes(vm.authoringLandingReference?.point), try bytes(original.steps[0].after.onTable[PositionPlayBall.cueKey]))
+        XCTAssertEqual(vm.velocity, 0.48)
+        try await record(vm)
+        for i in 1..<3 {
+            XCTAssertEqual(vm.authoringTemplateStepIndex, i)
+            XCTAssertEqual(try bytes(vm.authoringLandingReference?.point), try bytes(original.steps[i].after.onTable[PositionPlayBall.cueKey]))
+            let previous = vm.sequence.steps.last!.after
+            XCTAssertEqual(vm.velocity, original.steps[i].shot.velocity)
+            XCTAssertEqual(vm.spinX, original.steps[i].shot.spinX)
+            XCTAssertEqual(vm.spinY, original.steps[i].shot.spinY)
+            try await record(vm)
+            XCTAssertEqual(try bytes(vm.sequence.steps[i].before), try bytes(previous))
+            try assertEngineAfter(vm.sequence.steps[i], surfaceY: vm.scene.surfaceY)
+        }
+        XCTAssertNil(vm.authoringTemplateStepIndex)
+        XCTAssertNil(vm.authoringLandingReference)
+        XCTAssertEqual(vm.stepCount, 3)
+        XCTAssertEqual(try bytes(original), originalBytes)
+    }
+
+    func testOriginalLandingReferenceSingleRetryPreviewCancelAndPocketed() async throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        let original = archive()
+        vm.loadSequenceForSelectiveRerecording(original)
+        XCTAssertNil(vm.authoringLandingReference)
+        XCTAssertTrue(vm.beginRerecording(at: 1, scope: .singleStep))
+        let oldPoint = original.steps[1].after.onTable[PositionPlayBall.cueKey]
+        XCTAssertEqual(try bytes(vm.authoringLandingReference?.point), try bytes(oldPoint))
+        XCTAssertNotEqual(try bytes(oldPoint), try bytes(original.steps[2].before.onTable[PositionPlayBall.cueKey]))
+        vm.showAuthoringInitialBoard()
+        XCTAssertNil(vm.authoringLandingReference)
+        vm.returnFromAuthoringInitialBoard()
+        XCTAssertEqual(try bytes(vm.authoringLandingReference?.point), try bytes(oldPoint))
+        try await record(vm)
+        XCTAssertNil(vm.authoringLandingReference)
+        XCTAssertNotEqual(try bytes(vm.sequence.steps[1].after.onTable[PositionPlayBall.cueKey]), try bytes(oldPoint))
+        vm.replayCurrent()
+        XCTAssertEqual(try bytes(vm.authoringLandingReference?.point), try bytes(oldPoint), "Retry must retain the original goal")
+        vm.resumeSequenceAppending()
+        XCTAssertNil(vm.authoringLandingReference)
+        var pocketed = original
+        pocketed.steps[0].cuePocketed = true
+        vm.loadSequenceForSelectiveRerecording(pocketed)
+        XCTAssertTrue(vm.beginRerecording(at: 0))
+        XCTAssertNil(vm.authoringLandingReference?.point, "Even an inconsistent stored point must not depict a potted cue on the table")
+        XCTAssertEqual(vm.authoringLandingReference?.cuePocketed, true)
+        XCTAssertTrue(vm.authoringLandingHint?.contains("落袋") == true)
+        var missing = original
+        missing.steps[0].after.onTable.removeValue(forKey: PositionPlayBall.cueKey)
+        vm.loadSequenceForSelectiveRerecording(missing)
+        XCTAssertTrue(vm.beginRerecording(at: 0))
+        XCTAssertNil(vm.authoringLandingReference?.point)
+        XCTAssertTrue(vm.authoringLandingHint?.contains("未记录") == true)
+        XCTAssertEqual(try bytes(vm.sequence), try bytes(missing))
+    }
+
+    func testFollowingTemplateMissingTargetRequiresSelectionAndCancelClearsTemplate() async throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        var original = archive()
+        original.steps[1].shot = .init(targetKey: "_2", pocket: "topLeft", velocity: 0.6, spinX: 0.1, spinY: -0.1)
+        vm.loadSequenceForSelectiveRerecording(original)
+        XCTAssertTrue(vm.beginRerecording(at: 0))
+        try await record(vm)
+        XCTAssertEqual(vm.aimMode, .pocket)
+        XCTAssertNil(vm.selectedTargetKey)
+        XCTAssertTrue(vm.authoringTemplateHint!.contains("请重新选择"))
+        XCTAssertEqual(vm.spinX, 0.1)
+        XCTAssertEqual(vm.velocity, 0.6)
+        vm.play(); XCTAssertFalse(vm.isPlaying)
+        vm.resumeSequenceAppending()
+        XCTAssertNil(vm.authoringTemplateStepIndex)
+        vm.loadSequenceForSelectiveRerecording(original)
+        XCTAssertTrue(vm.beginRerecording(at: 0, scope: .singleStep))
+        XCTAssertNil(vm.authoringTemplateStepIndex)
+    }
+
+    func testFollowingTemplateRestoresPocketSelectionAgainstNewBoard() async throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        var original = archive()
+        original.steps[0].before.onTable["_2"] = .init(x: 0.7, y: 0.35)
+        original.steps[1].shot = .init(targetKey: "_2", pocket: "topRight", velocity: 0.6, spinX: 0.05, spinY: 0.1)
+        vm.loadSequenceForSelectiveRerecording(original)
+        XCTAssertTrue(vm.beginRerecording(at: 0))
+        try await record(vm)
+        XCTAssertEqual(vm.authoringTemplateStepIndex, 1)
+        XCTAssertEqual(vm.aimMode, .pocket)
+        XCTAssertEqual(vm.selectedTargetKey, "_2")
+        XCTAssertEqual(vm.selectedPocketIndex, ShotIntent.pocketIndex(for: "topRight"))
+        XCTAssertEqual(vm.velocity, 0.6); XCTAssertEqual(vm.spinX, 0.05); XCTAssertEqual(vm.spinY, 0.1)
+        XCTAssertEqual(try bytes(vm.currentSnapshot()), try bytes(vm.sequence.steps[0].after))
+        vm.showAuthoringInitialBoard(); vm.returnFromAuthoringInitialBoard()
+        XCTAssertEqual(vm.authoringTemplateStepIndex, 1)
+        XCTAssertEqual(vm.selectedTargetKey, "_2")
+        vm.restorePreviousBoardForAppending()
+        XCTAssertNil(vm.authoringTemplateStepIndex)
+    }
+
+    func testArchiveBackupPreservesExactBytesForRenameAndSameFilename() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let original = archive()
+        let first = try BatchSequenceArchive.archive(original, drillId: "drill_c999", imageStem: "manual01", directory: root.path)
+        let oldBytes = try Data(contentsOf: first)
+        var changed = original; changed.steps.removeLast()
+        let second = try BatchSequenceArchive.archive(changed, drillId: "drill_c999", imageStem: "manual01", directory: root.path)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: first.path))
+        let secondBytes = try Data(contentsOf: second)
+        changed.steps[0].shot.velocity = 0.8
+        _ = try BatchSequenceArchive.archive(changed, drillId: "drill_c999", imageStem: "manual01", directory: root.path)
+        let backups = try XCTUnwrap(FileManager.default.enumerator(at: root.appendingPathComponent("_backups"), includingPropertiesForKeys: nil))
+        let jsons = backups.allObjects.compactMap { $0 as? URL }.filter { $0.pathExtension == "json" }
+        let bytes = try jsons.map { try Data(contentsOf: $0) }
+        XCTAssertEqual(bytes.count, 2)
+        XCTAssertTrue(bytes.contains(oldBytes)); XCTAssertTrue(bytes.contains(secondBytes))
+        XCTAssertNotEqual(try Data(contentsOf: second), secondBytes)
+    }
+
+    func testBackupFailureDoesNotOverwriteOriginal() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        var original = archive()
+        let file = try BatchSequenceArchive.archive(original, drillId: "drill_c999", imageStem: "manual01", directory: root.path)
+        let before = try Data(contentsOf: file)
+        try Data().write(to: root.appendingPathComponent("_backups"))
+        original.steps.removeLast()
+        XCTAssertThrowsError(try BatchSequenceArchive.archive(original, drillId: "drill_c999", imageStem: "manual01", directory: root.path))
+        XCTAssertEqual(try Data(contentsOf: file), before)
+    }
+
+    func testMiddleShotCommitsOnlyPrefixThenContinuesRecording() async throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        let original = archive()
+        vm.loadSequenceForSelectiveRerecording(original)
+        XCTAssertTrue(vm.beginRerecording(at: 1))
+        vm.velocity = 0.5
+        try await record(vm)
+        XCTAssertNil(vm.rerecordingStepIndex)
+        XCTAssertEqual(vm.stepCount, 2)
+        XCTAssertEqual(try bytes(vm.sequence.steps[0]), try bytes(original.steps[0]))
+        XCTAssertEqual(try bytes(vm.sequence.initial), try bytes(original.initial))
+        XCTAssertNotEqual(vm.sequence.steps[1].id, original.steps[1].id)
+        try assertEngineAfter(vm.sequence.steps[1], surfaceY: vm.scene.surfaceY)
+        let stop = vm.sequence.steps[1].after
+        try await record(vm)
+        XCTAssertEqual(vm.stepCount, 3)
+        XCTAssertEqual(vm.sequence.steps[2].before.onTable[PositionPlayBall.cueKey]!.x,
+                       stop.onTable[PositionPlayBall.cueKey]!.x, accuracy: 0.000001)
+    }
+    func testFirstAndLastShotTruncateAtSelectedBoundary() async throws {
+        for index in [0, 2] {
+            let vm = PositionPlayViewModel(); vm.setupScene()
+            let original = archive()
+            vm.loadSequenceForSelectiveRerecording(original)
+            XCTAssertTrue(vm.beginRerecording(at: index))
+            try await record(vm)
+            XCTAssertEqual(vm.stepCount, index + 1)
+            for prefix in 0..<index { XCTAssertEqual(try bytes(vm.sequence.steps[prefix]), try bytes(original.steps[prefix])) }
+            try assertEngineAfter(vm.sequence.steps[index], surfaceY: vm.scene.surfaceY)
+            vm.cancelDailyAttempt()
+        }
+    }
+    func testInvalidShotKeepsSelectedSuffix() async throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        let original = archive()
+        vm.loadSequenceForSelectiveRerecording(original)
+        XCTAssertTrue(vm.beginRerecording(at: 1))
+        vm.removeFromTable(PositionPlayBall.cueKey)
+        vm.play()
+        XCTAssertFalse(vm.isPlaying)
+        XCTAssertEqual(vm.rerecordingStepIndex, 1)
+        XCTAssertEqual(try bytes(vm.sequence), try bytes(original))
+    }
+
+    func testPreviousBoardKeepsShotsAndAppendsAfterCueMoveEvenFromRerecording() async throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        let original = archive()
+        vm.loadSequenceForSelectiveRerecording(original)
+        XCTAssertTrue(vm.beginRerecording(at: 0))
+        XCTAssertTrue(vm.restorePreviousBoardForAppending())
+        XCTAssertNil(vm.rerecordingStepIndex)
+        XCTAssertEqual(try bytes(vm.sequence), try bytes(original))
+        XCTAssertEqual(vm.currentSnapshot().onTable[PositionPlayBall.cueKey]!.x,
+                       original.steps.last!.before.onTable[PositionPlayBall.cueKey]!.x, accuracy: 0.000001)
+        vm.nudgeBall(key: PositionPlayBall.cueKey, direction: .right)
+        let moved = vm.currentSnapshot()
+        try await record(vm)
+        XCTAssertEqual(vm.stepCount, original.steps.count + 1)
+        for index in original.steps.indices {
+            XCTAssertEqual(try bytes(vm.sequence.steps[index]), try bytes(original.steps[index]))
+        }
+        let appended = vm.sequence.steps.last!
+        XCTAssertEqual(appended.before.onTable[PositionPlayBall.cueKey]!.x,
+                       moved.onTable[PositionPlayBall.cueKey]!.x, accuracy: 0.000001)
+        XCTAssertEqual(appended.before.onTable[PositionPlayBall.cueKey]!.y,
+                       moved.onTable[PositionPlayBall.cueKey]!.y, accuracy: 0.000001)
+        try assertEngineAfter(appended, surfaceY: vm.scene.surfaceY)
+        let recorded = try bytes(vm.sequence)
+        XCTAssertTrue(vm.restorePreviousBoardForAppending())
+        XCTAssertEqual(try bytes(vm.sequence), recorded)
+        XCTAssertEqual(vm.currentSnapshot().onTable[PositionPlayBall.cueKey]!.y,
+                       moved.onTable[PositionPlayBall.cueKey]!.y, accuracy: 0.000001)
+        vm.showAuthoringInitialBoard()
+        XCTAssertFalse(vm.restorePreviousBoardForAppending())
+        XCTAssertTrue(vm.isViewingAuthoringInitial)
+        XCTAssertEqual(try bytes(vm.sequence), recorded)
+    }
+}
+
+
+extension BatchSelectiveRerecordingTests {
+    func testPocketAuthoringRecordsActualDirectionAndRoundTrips() async throws {
+        let formation = try XCTUnwrap(DrillTryoutBoardStore.formations(for: "drill_c001").first)
+        let original = PositionPlaySequence(name: "Pocket direction recording",
+            initial: formation.initial, steps: formation.steps)
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        vm.loadSequenceForSelectiveRerecording(original)
+        XCTAssertTrue(vm.beginRerecording(at: 0, scope: .singleStep))
+        try await ready(vm)
+        XCTAssertEqual(vm.aimMode, .pocket)
+        try await record(vm)
+        let step = vm.sequence.steps[0]
+        XCTAssertFalse(step.shot.isFree)
+        let decoded = try JSONDecoder().decode(SequenceStep.self, from: bytes(step))
+        let prediction = try XCTUnwrap(SequenceReplayResolver.solve(step: decoded, surfaceY: vm.scene.surfaceY))
+        XCTAssertTrue(prediction.hasFinalTableState)
+        try assertEngineAfter(decoded, surfaceY: vm.scene.surfaceY)
+        for index in 1..<original.steps.count {
+            XCTAssertEqual(try bytes(original.steps[index]), try bytes(vm.sequence.steps[index]))
+        }
     }
 }

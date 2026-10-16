@@ -73,7 +73,8 @@ struct MainTabView: View {
                 }
                 .tag(AppTab.profile)
         }
-        .btTrainingPillOverlay(isPresented: router.isTrainingMinimized, includesTabBar: true) {
+        .btTrainingPillOverlay(isPresented: router.isTrainingMinimized, includesTabBar: true,
+                               position: router.minimizedTrainingVM?.minimizedPillPosition) {
             if let vm = router.minimizedTrainingVM {
                 MinimizedTrainingChrome(viewModel: vm) {
                     router.resumeMinimizedTraining()
@@ -88,7 +89,7 @@ struct MainTabView: View {
                 ActiveTrainingView(viewModel: vm)
             }
         }
-        .task { warmTableAssetsForSelectedTab() }
+        .task { TableResourceCache.shared.warmForEntry() }
         .onChange(of: router.selectedTab) { _, _ in warmTableAssetsForSelectedTab() }
         #if DEBUG && targetEnvironment(simulator)
         .task {
@@ -198,6 +199,8 @@ struct MainTabView: View {
             AngleDynamicView()
         case .geometricQuiz:
             GeometricAngleQuizView()
+        case .snakePractice:
+            SnakePracticeView()
         case .sceneAiming2D:
             // T-P18-48 拆两卡：同一 View 两个 route，视角固定、成绩分记。
             SceneAimingView(initialCameraMode: .topDown2DRotated)

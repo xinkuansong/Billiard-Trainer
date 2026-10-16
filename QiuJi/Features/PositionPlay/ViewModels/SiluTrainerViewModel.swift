@@ -385,8 +385,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
         guard !isPlaying else { return }
         isDragging = true
         if let runner = breakRunner { runner.dragBegan(node: node); return }
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.15, duration: 0.1), forKey: "dragPulse")
+        TableBallPulse.beginDrag(node)
     }
 
     func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
@@ -399,9 +398,14 @@ final class SiluTrainerViewModel: TeachingTableHost {
         isDragging = false
         if let runner = breakRunner { runner.dragEnded(node: node); return }
         guard !isPlaying else { return }
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.0 / 1.15, duration: 0.15))
+        TableBallPulse.endDrag(node)
         invalidateSolutions()
+    }
+
+    /// Pure preview: same constraints as the committed palette placement.
+    func palettePlacement(_ key: String, atWorld world: SCNVector3) -> SCNVector3? {
+        guard let node = scene.allBallNodes[key] else { return nil }
+        return clampMultiBall(world, movingNode: node)
     }
 
     private func clampMultiBall(_ pos: SCNVector3, movingNode: SCNNode) -> SCNVector3 {

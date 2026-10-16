@@ -79,7 +79,7 @@ struct GeometricAngleQuizView: View {
         .btAdaptiveToolChrome("角度预测")
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text("角度预测").font(.btSubheadlineSemibold).foregroundStyle(.btText)
+                Text("角度预测").font(.btHeadline).foregroundStyle(.btPrimary)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showResetConfirm = true } label: {

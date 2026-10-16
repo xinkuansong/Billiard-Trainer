@@ -45,7 +45,7 @@ final class CognitiveSessionRecorder {
 
     /// 解析 `result` 应归属的 cognitive 会话，必要时新建并插入 `context`（不 `save`，由调用方一并提交）。
     func resolveSession(for result: AngleTestResult) throws -> Resolution {
-        if let active = try activeSession(quizType: result.quizType, at: result.date) {
+        if let active = try activeSession(quizType: result.quizType, at: result.date, runID: result.trainingMetadata?.runID) {
             let updated = Self.durationMinutes(from: active.date, to: result.date)
             let changed = updated != active.totalDurationMinutes
             active.totalDurationMinutes = updated
@@ -78,7 +78,7 @@ final class CognitiveSessionRecorder {
     // MARK: - Private
 
     /// 同 quizType 最近一条已归属会话的题目，若与 `date` 间隔在窗口内则复用其会话。
-    private func activeSession(quizType: String, at date: Date) throws -> TrainingSession? {
+    private func activeSession(quizType: String, at date: Date, runID: UUID?) throws -> TrainingSession? {
         let ownerKey = ownerContext.ownerKey
         var descriptor = FetchDescriptor<AngleTestResult>(
             predicate: #Predicate {
@@ -90,6 +90,7 @@ final class CognitiveSessionRecorder {
 
         let recent = try context.fetch(descriptor)
         guard let anchor = recent.first(where: { $0.sessionId != nil }),
+              anchor.trainingMetadata?.runID == runID,
               let sessionId = anchor.sessionId,
               date.timeIntervalSince(anchor.date) <= Self.gap else { return nil }
 

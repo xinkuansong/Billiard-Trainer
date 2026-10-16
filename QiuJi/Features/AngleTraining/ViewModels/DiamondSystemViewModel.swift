@@ -225,8 +225,7 @@ final class DiamondSystemViewModel: ObservableObject {
 
     /// 拖动中只清线不重算（引擎反解重于旧追迹，拖动中连续重算无意义）；求解在拖球结束触发。
     func dragBegan(node: SCNNode) {
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.15, duration: 0.1), forKey: "dragPulse")
+        TableBallPulse.beginDrag(node)
         solveTask?.cancel()
         isSolving = false
         isDragging = true
@@ -234,8 +233,7 @@ final class DiamondSystemViewModel: ObservableObject {
     }
 
     func dragEnded(node: SCNNode) {
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.0 / 1.15, duration: 0.15))
+        TableBallPulse.endDrag(node)
         isDragging = false
         if mode == .free {
             refreshFreeAim()   // 自由模式拖球只刷新瞄准预览，不触发反解。
@@ -250,6 +248,12 @@ final class DiamondSystemViewModel: ObservableObject {
     }
 
     /// 多球摆位钳制（编排台同款）：库内 + 远离袋口 + 不与任意其他在桌球重叠（迭代推开）。
+    /// Pure preview: same constraints as the committed palette placement.
+    func palettePlacement(_ key: String, atWorld world: SCNVector3) -> SCNVector3? {
+        guard let node = scene.allBallNodes[key] else { return nil }
+        return clampMultiBall(world, movingNode: node)
+    }
+
     private func clampMultiBall(_ pos: SCNVector3, movingNode: SCNNode) -> SCNVector3 {
         var p = AngleSceneCalculator.clampAwayFromPockets(pos, surfaceY: scene.surfaceY)
         let halfL = AngleSceneCalculator.innerLength / 2
@@ -1248,6 +1252,15 @@ final class DiamondSystemViewModel: ObservableObject {
     }
 
     /// principal 副标题文案：求解态 = 解读数 / 求解中 / 无解；自由态 = 首碰通称（替代原左下 pill）。
+    var tableStatusIsReadout: Bool { simulationNotice == nil && mode == .free && freeAimContact != nil }
+
+    var tableStatusText: String? {
+        if let simulationNotice { return simulationNotice }
+        if isPlaying || isDragging || isSolving { return nil }
+        if mode == .free { return statusText }
+        return hasSolution ? nil : noSolutionText
+    }
+
     var statusText: String {
         if let simulationNotice { return simulationNotice }
         if mode == .free {

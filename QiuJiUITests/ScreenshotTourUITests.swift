@@ -1848,7 +1848,7 @@ final class ScreenshotTourUITests: XCTestCase {
             ("学", "旋转与加塞", "a14-spin-and-english"),
             ("学", "分离角图谱", "a15-separation-angle-atlas"),
             ("学", "加塞吃库图谱", "a17-cushion-english-atlas"),
-            ("学", "浅谈球感", "a11-ball-feel"),
+            ("学", "浅谈凭感觉瞄准", "a11-ball-feel"),
             ("学", "瞄准点对照表", "a10-contact-point"),
             ("练", "角度预测", "a12-geometric-quiz"),
         ]
@@ -2151,6 +2151,101 @@ final class ScreenshotTourUITests: XCTestCase {
         }
     }
 
+    /// 六篇长文从真实入口深滚动；控件在可见时操作，不能因正文变长而静默跳过。
+    func testLearningArticleRewrite() {
+        continueAfterFailure = false
+        let pages: [(String, String, [String])] = [
+            ("浅谈凭感觉瞄准", "用真台验证", []),
+            ("瞄准原理", "去练一练", []),
+            ("瞄准方法", "相关页面", ["aimingMethods.thetaSlider", "aimingMethods.pipe.trialSlider"]),
+            ("瞄准修正", "练挤偏认知", ["aimingCorrection.velocitySlider", "aimingCorrection.spinXSlider"]),
+            ("旋转与加塞", "相关页面", ["spinAndEnglish.thetaSlider"]),
+            ("瞄准点对照表", "d/R = 2sin(θ) 曲线", ["contactPointTable.thetaSlider", "contactPointTable.estimationSlider"])
+        ]
+        let testEnvironment = ProcessInfo.processInfo.environment
+        let startPage = Int(testEnvironment["LEARNING_PAGE_START"]
+                            ?? testEnvironment["TEST_RUNNER_LEARNING_PAGE_START"] ?? "0") ?? 0
+        XCTAssertTrue((0..<pages.count).contains(startPage))
+        for (index, page) in pages.enumerated() where index >= startPage {
+            app = XCUIApplication.launchClean()
+            app.switchTab(.angle)
+            switchAngleHomeTab("学")
+            let card = app.staticTexts[page.0].firstMatch
+            for _ in 0..<8 {
+                if card.exists && card.isHittable { break }
+                app.swipeUp()
+            }
+            XCTAssertTrue(card.exists && card.isHittable, "入口不可达：\(page.0)")
+            card.tap()
+            XCTAssertTrue(app.navigationBars[page.0].waitForExistence(timeout: 10))
+            var exercised = Set<String>()
+            var replayed = false
+            var picked = false
+            var pickedHeight = false
+            var reachedEnd = false
+            for frame in 0..<45 {
+                let bounds = app.windows.firstMatch.frame
+                let navigationBottom = app.navigationBars.firstMatch.frame.maxY
+                for id in page.2 where !exercised.contains(id) {
+                    let slider = app.sliders[id]
+                    if slider.exists && slider.isHittable,
+                       slider.frame.minY > navigationBottom + 12,
+                       slider.frame.maxY < bounds.maxY - 40 {
+                        let before = slider.value as? String
+                        // φ 已跟随 θ 到 0.8，局部试瞄必须选另一方向，才能验证变化。
+                        slider.adjust(toNormalizedSliderPosition: id == "aimingMethods.pipe.trialSlider" ? 0.2 : 0.8)
+                        XCTAssertNotEqual(before, slider.value as? String, "滑杆未响应：\(id)")
+                        exercised.insert(id)
+                    }
+                }
+                let play = app.buttons["aimingMethods.contact.play"]
+                if page.0 == "瞄准方法", !replayed, play.exists && play.isHittable {
+                    play.tap()
+                    usleep(1_500_000)
+                    replayed = true
+                }
+                let picker = app.segmentedControls["spinAndEnglish.spinPicker"]
+                if page.0 == "旋转与加塞", !picked, picker.exists && picker.isHittable {
+                    let follow = picker.buttons["前旋"]
+                    follow.tap()
+                    XCTAssertTrue(follow.isSelected)
+                    picked = true
+                }
+                let height = app.segmentedControls["aimingCorrection.spinYPicker"]
+                if page.0 == "瞄准修正", !pickedHeight, height.exists && height.isHittable {
+                    let high = height.buttons["高杆"]
+                    if high.isHittable {
+                        high.tap()
+                        XCTAssertTrue(high.isSelected)
+                        pickedHeight = true
+                    }
+                }
+                snap("learning-r1-\(index)-\(frame)")
+                let end = app.staticTexts[page.1].firstMatch
+                if end.exists && end.isHittable {
+                    reachedEnd = true
+                    // 页尾正文、图表及按钮再向上移一屏，保留完整末段取证。
+                    let scroll = app.scrollViews.firstMatch
+                    scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.78))
+                        .press(forDuration: 0.05, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.25)), withVelocity: 300, thenHoldForDuration: 0.25)
+                    snap("learning-r1-\(index)-end")
+                    break
+                }
+                let scroll = app.scrollViews.firstMatch
+                // 避开右侧滚动指示条；拖动指示条会让长文来回跳，不能代表正常阅读。
+                scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.78))
+                    .press(forDuration: 0.05, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.28)), withVelocity: 300, thenHoldForDuration: 0.25)
+            }
+            XCTAssertTrue(reachedEnd, "页尾不可达：\(page.0)")
+            XCTAssertEqual(exercised, Set(page.2), "交互未全部执行：\(page.0)")
+            if page.0 == "瞄准方法" { XCTAssertTrue(replayed, "碰合回放未执行") }
+            if page.0 == "旋转与加塞" { XCTAssertTrue(picked, "旋转状态未切换") }
+            if page.0 == "瞄准修正" { XCTAssertTrue(pickedHeight, "高低杆未切换") }
+            popBack()
+            XCTAssertTrue(app.buttons["angleHomeTab_学"].waitForExistence(timeout: 5))
+        }
+    }
+
     func testAimingMethodsInteractions() {
         sleep(3)
         app.switchTab(.angle)
@@ -2172,6 +2267,10 @@ final class ScreenshotTourUITests: XCTestCase {
 
         // v13 B1：先在页顶把 θ 调到 45°（φ 跟随，后续管道默认仍相切），再取厚薄非 30° 帧。
         let thetaSlider = app.sliders["aimingMethods.thetaSlider"]
+        for _ in 0..<8 {
+            if thetaSlider.exists && thetaSlider.isHittable { break }
+            dragScrollUp(0.25)
+        }
         XCTAssertTrue(thetaSlider.waitForExistence(timeout: 4) && thetaSlider.isHittable,
                       "θ 滑杆不可达")
         // θ ∈ [5,75] → 45° 归一化位置 ≈ (45−5)/(75−5) = 0.571
@@ -2380,7 +2479,7 @@ final class ScreenshotTourUITests: XCTestCase {
 
         // ③ 浅谈球感页末 CTA「用真台验证」→ 2D 角度训练（进页先弹训练设置 sheet）。
         switchAngleHomeTab("学")
-        if tapIfExists("浅谈球感", timeout: 4) {
+        if tapIfExists("浅谈凭感觉瞄准", timeout: 4) {
             sleep(2)
             app.swipeUp(); app.swipeUp(); app.swipeUp(); app.swipeUp()
             sleep(1)
@@ -3099,7 +3198,7 @@ final class ScreenshotTourUITests: XCTestCase {
         [
             ("学", "瞄准原理", "09-aiming-principle"),
             ("学", "角度与瞄准", "10-angle-dynamic"),
-            ("学", "浅谈球感", "11-ball-feel"),
+            ("学", "浅谈凭感觉瞄准", "11-ball-feel"),
             ("学", "瞄准点对照表", "12-contact-point-table"),
         ]
     }

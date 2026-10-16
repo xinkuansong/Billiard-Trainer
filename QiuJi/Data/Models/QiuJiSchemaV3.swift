@@ -194,7 +194,7 @@ enum QiuJiMigrationPlan: SchemaMigrationPlan {
 
     static var schemas: [any VersionedSchema.Type] {
         [QiuJiSchemaV1.self, QiuJiSchemaV2.self, QiuJiSchemaV3.self,
-         QiuJiSchemaV4.self, QiuJiSchemaV5.self]
+         QiuJiSchemaV4.self, QiuJiSchemaV5.self, QiuJiSchemaV6.self]
     }
 
     static var stages: [MigrationStage] {
@@ -202,7 +202,8 @@ enum QiuJiMigrationPlan: SchemaMigrationPlan {
             .lightweight(fromVersion: QiuJiSchemaV1.self, toVersion: QiuJiSchemaV2.self),
             .lightweight(fromVersion: QiuJiSchemaV2.self, toVersion: QiuJiSchemaV3.self),
             .lightweight(fromVersion: QiuJiSchemaV3.self, toVersion: QiuJiSchemaV4.self),
-            .lightweight(fromVersion: QiuJiSchemaV4.self, toVersion: QiuJiSchemaV5.self)
+            .lightweight(fromVersion: QiuJiSchemaV4.self, toVersion: QiuJiSchemaV5.self),
+            .lightweight(fromVersion: QiuJiSchemaV5.self, toVersion: QiuJiSchemaV6.self)
         ]
     }
 }

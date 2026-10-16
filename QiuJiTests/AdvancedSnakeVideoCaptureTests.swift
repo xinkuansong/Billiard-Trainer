@@ -149,6 +149,7 @@ final class AdvancedSnakeVideoCaptureTests: XCTestCase {
     private func options() -> SequenceVideoExporter.Options {
         var o = SequenceVideoExporter.Options.teachingVideo3D()
         o.useAppAppearance = true
+        o.renderRecipe = .legacyMobile // Published capture retains its original A/-0.45 recipe.
         o.tableStyle = .charcoal; o.clothColor = .green; o.cueStyle = .inkDragon
         o.showAimingHUD = true; o.transparentAimingHUD = true
         o.showShotHUD = false; o.overlaySequenceProgress = true

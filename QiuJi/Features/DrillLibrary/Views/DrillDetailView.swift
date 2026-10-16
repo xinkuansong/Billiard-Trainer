@@ -68,7 +68,8 @@ struct DrillDetailView: View {
                             tagsRow(drill)
 
                             // F-DD-01：露出 Bundle 已有 description（转化页信息权重）。
-                            Text(drill.description)
+                            Text(DrillCopyDisplay.text(drill.description, drillID: drill.id,
+                                field: "description", orientation: .landscape))
                                 .font(.btSubheadline)
                                 .foregroundStyle(.btTextSecondary)
                                 .lineSpacing(3)
@@ -418,7 +419,8 @@ struct DrillDetailView: View {
                             .background(.btPrimary)
                             .clipShape(Circle())
 
-                        Text(point)
+                        Text(DrillCopyDisplay.text(point, drillID: drill.id,
+                            field: "coachingPoints[\(index)]", orientation: .landscape))
                             .font(.btCallout)
                             .foregroundStyle(.btText)
                             .fixedSize(horizontal: false, vertical: true)
@@ -451,7 +453,8 @@ struct DrillDetailView: View {
                     .font(.btCaption)
                     .foregroundStyle(.btTextSecondary)
 
-                standardCriteriaView(drill.standardCriteria)
+                standardCriteriaView(DrillCopyDisplay.text(drill.standardCriteria, drillID: drill.id,
+                    field: "standardCriteria", orientation: .landscape))
             }
 
             Divider()

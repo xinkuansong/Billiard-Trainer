@@ -53,6 +53,81 @@ final class DrillTryoutUITests: XCTestCase {
         sleep(3)
     }
 
+    func testSharedSequenceCameraIndependentEightShotsFromLibrary() throws {
+        try verifySharedSequenceCamera(id: "drill_c042", search: "初级蛇彩", count: 8)
+    }
+
+    func testSharedSequenceCameraContinuousFourShotsFromLibrary() throws {
+        try verifySharedSequenceCamera(id: "drill_c081", search: "四球同袋走位", count: 4)
+    }
+
+    func testSnakeFormationTwoCompletesFiveRecordedShotsFromLibrary() throws {
+        try verifySharedSequenceCamera(id: "drill_c042", search: "初级蛇彩", count: 5, formationIndex: 1)
+    }
+
+    private func verifySharedSequenceCamera(id: String, search: String, count: Int, formationIndex: Int = 0) throws {
+        continueAfterFailure = false
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-dailyLayout.probe"])
+        openDrillDetail(search: search, drillId: id)
+        let entry = app.buttons["bottomTryoutButton"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 10)); entry.tap()
+        if id == "drill_c042" {
+            let first = app.buttons["tryoutFormation_\(formationIndex)"]
+            XCTAssertTrue(first.waitForExistence(timeout: 5)); first.tap()
+        }
+        XCTAssertTrue(element(id: "composer.landscape").waitForExistence(timeout: 25))
+        let brief = element(id: "tryout.briefCard")
+        if brief.waitForExistence(timeout: 3) { brief.tap() }
+        func mode(_ expected: String) {
+            app.buttons["freeplay.moreMenu"].tap()
+            let camera = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(camera.waitForExistence(timeout: 3)); camera.tap()
+            XCTAssertEqual(camera.value as? String, expected)
+            app.buttons["关闭菜单"].tap()
+        }
+        func wait(_ predicate: String, on value: XCUIElement, timeout: TimeInterval = 45) {
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: predicate), object: value)], timeout: timeout), .completed)
+        }
+        func capture(_ suffix: String) throws {
+            let shot = XCUIScreen.main.screenshot()
+            let attachment = XCTAttachment(screenshot: shot)
+            attachment.name = id + "-tryout-" + suffix; attachment.lifetime = .keepAlways; add(attachment)
+            let directory = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/output/snake2-replay-fix-20261014/tryout")
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try shot.pngRepresentation.write(to: directory.appendingPathComponent(id + "-" + suffix + ".png"))
+        }
+        mode("3D")
+        try capture("opening")
+        let strike = app.buttons["dailyClearance.strike"]
+        let phase = element(id: "dailyLayout.controlsProbe")
+        for index in 0..<count {
+            wait("enabled == true", on: strike); strike.tap()
+            wait("value CONTAINS 'sequencePhase=moving' AND value CONTAINS 'sequenceStep=\(index)'", on: phase, timeout: 20)
+            strike.tap()
+            wait("label == '\(index == count - 1 ? "重新开始" : "继续")' AND enabled == true", on: strike)
+            if index == count - 1 {
+                XCTAssertEqual(element(id: "composer.status").label, "序列演示完成")
+                XCTAssertTrue((phase.value as? String ?? "").contains("sequenceStep=\(index)"))
+            } else {
+                XCTAssertTrue(element(id: "composer.status").label.contains("第 \(index + 1)/\(count)"))
+            }
+            if index == 0 {
+                mode("2D"); mode("3D")
+                XCTAssertEqual(strike.label, "继续")
+            }
+            if index == 1 || index == count - 1 { try capture("boundary-\(index + 1)") }
+        }
+        XCTAssertEqual(strike.label, "重新开始")
+        // Explicit step navigation restores that authored board and pauses after its shot.
+        app.buttons["dailyClearance.undo"].tap()
+        wait("label == '继续' AND enabled == true", on: strike)
+        XCTAssertTrue(element(id: "composer.status").label.contains("第 \(count - 1)/\(count)"))
+        app.buttons["tryout.rearrange"].tap()
+        XCTAssertEqual(strike.label, "开始")
+        XCTAssertTrue(element(id: "composer.status").label.contains("第 1/\(count)"))
+    }
+
     // MARK: - 主流程：c042（多球形 drill，非 Premium；D4 与视频示范同源）
 
     func testTryoutC042Flow() {

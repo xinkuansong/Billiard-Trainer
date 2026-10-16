@@ -313,6 +313,14 @@ enum AngleSceneCalculator {
         return SCNVector3(bestAim.x, nominalPocket.y, bestAim.z)
     }
 
+    /// Training accepts only clean straight corridors; no far-jaw rebound allowance.
+    static func trainingHasCleanPocketPath(target: SCNVector3, aim: SCNVector3, pocketIndex: Int) -> Bool {
+        let pocket = pocketPositions(surfaceY: 0)[pocketIndex]
+        let geometry = buildPipeGeometry(pocketIndex: pocketIndex, pocketCenter: Vector2(pocket.x, pocket.z))
+        return cleanPipeMargin(origin: Vector2(target.x, target.z), aim: Vector2(aim.x, aim.z),
+                               geometry: geometry, clearance: ballRadius) != nil
+    }
+
     private static func aimPointIsPipeSafe(
         origin: Vector2,
         aim: Vector2,

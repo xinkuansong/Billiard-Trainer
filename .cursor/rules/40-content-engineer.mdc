@@ -5,19 +5,29 @@ alwaysApply: false
 ---
 
 ## Changelog
+- 2026-10-16：FL-163补充，详情横桌、精讲竖图、试打实际布局；第一要点跨页复用须核方位，左右塞不随桌面转。
 
 - 2026-03-27 v0.1：初始版本
 - 2026-08-07 v0.2：§ 经验教训追加 PD-028（棘轮豁免 + 影子库构造性用例；内容不变量门禁纪律）
 - 2026-08-30 v0.3：清除 DR-063 前的顶视方向/袋名副本；归一化公式与 portrait 用户袋名统一引用 `table-geometry.md`。
+- 2026-10-15 v0.4：区分数据生产与文案修订；教学统一路由文案入口和统一规范，取消训练要求的固定数字句式。
 
 # Content Engineer — 内容工程师
+
+## 先按任务分支
+
+- **文案修订**：实际读取 `.cursor/skills/billiard-copy-editing/SKILL.md` 及其要求的上下文和 `docs/research/20261015-动作库内容重写统一规范.md`，由该入口管理教学写作；本规则不另立模板。只编辑当次授权文字字段，保留训练配置、球形、序列、`shotIntent`、`animation`、参数及图片媒体，不因下文生产步骤自动改 `sets`、坐标、索引或出片。
+- **新建内容、数据接入或迁移**：任务明确授权后，执行下文对应生产流程；其中的文案仍走同一文案入口。数据真源与字段契约以 `.kiro/steering/content-data-contract.md` 为准，Schema 示例不是用于覆盖存量内容的默认值。
+- 按任务范围验证；若发现事实缺口或门禁失败，先报告归属，不借校验扩大修改范围。文案验证包括保护字段差异检查。
+
+原序列参数始终受保护；教学`params`与caption如在字段白名单内，可对齐当前shot和有效瞄准角。不要把保护原击球数据误读为保留过期展示参数；纯流程整理不编辑任何展示字段。
 
 ## 坐标系协议（所有 JSON 必须遵循）
 
 - **唯一真源**：`.kiro/steering/table-geometry.md` + `AngleSceneCalculator.sceneToNormalized` / `normalizedToScene`。
 - **归一化**：Canvas X 随 SceneKit `+X` 增，Canvas Y 随 SceneKit `+Z` 增；范围分别为 `[0,1]` / `[0,0.5]`，单位基准为 2.540 m 台面长度。
 - **公式**：`canvasX = (sceneKitX + 1.270) / 2.540`；`canvasY = (sceneKitZ + 0.635) / 2.540`。
-- **用户可见袋名**：Drill 使用 portrait 屏幕系，必须按 `table-geometry.md` 的 schema ID 映射。禁止根据 JSON 的 `top/bottom` 或 Canvas 图面位置自行翻译。
+- **用户可见袋名**：按实际页面桌面朝向使用 `table-geometry.md` 的 schema ID 映射：详情横桌、精讲竖图、试打实际布局。跨页复用的要点须转换空间方位，左右塞等击球语义不随桌面旋转。禁止根据 JSON 的 `top/bottom` 自行翻译。
 
 ## Drill JSON Schema
 
@@ -34,7 +44,7 @@ alwaysApply: false
   "targetBallCount": 1,
   "description": "将目标球从半台距离沿直线打入底袋，训练基础瞄准稳定性。",
   "coachingPoints": ["保持跟杆方向一致", "发力均匀"],
-  "standardCriteria": "15球进10球",
+  "standardCriteria": "目标球进入指定袋，母球留台。",
   "isPremium": false,
   "animation": {
     "cueBall": { "start": {"x": 0.5, "y": 0.35}, "path": [{"x": 0.5, "y": 0.5}] },
@@ -51,11 +61,11 @@ alwaysApply: false
 - `isPremium`：Freemium 边界（参照 `docs/08`）
 - `animation.path`：贝塞尔路径点数组（直线用2点，曲线加控制点 `cp1/cp2`）
 
-## 分批生产 SOP
+## 新建内容的分批生产 SOP
 
-每批 **10 个 Drill**，按以下流程：
+仅适用于已授权的新建 Drill 批次，数量由任务确定；旧有 10 条一批不套用于存量文案修订。
 
-1. 生成 10 条 JSON，确保坐标合理（在台面范围内，母球/目标球不重叠）。
+1. 按本批授权数量生成 JSON，确保坐标合理（在台面范围内，母球/目标球不重叠）。
 2. 自检：`isPremium` 分布符合 `docs/08` 的 Freemium 比例。
 3. 写入 `Resources/Drills/<category>/drill_xxx.json`。
 4. 更新 `Resources/Drills/index.json`（Drill ID 列表）。
@@ -63,7 +73,7 @@ alwaysApply: false
    - [ ] 所有坐标在 `[0.0, 1.0]` 内，且 `y ≤ 0.5`（台面顶视图半高，与 2:1 宽高效一致）。
    - [ ] 母球与目标球起始位置不重叠：欧氏距离（在归一化宽度坐标下）**> 0.05**。
    - [ ] `isPremium`：本批中 **L0 全部为 `false`**；**L1** 条目中 `true` 占比 **≤ 30%**（与 `docs/08` 冲突时以 `docs/08` 为准并在此批说明）。
-   - [ ] 每条 `standardCriteria` 格式为「N球进M球」（N、M 为正整数，与文案一致）。
+   - [ ] `standardCriteria` 的成功条件与实际训练目标一致，训练量依据真实配置核对；不套固定数字句式、不新增门槛，也不因 App 未解析而删除既有人工成功条件。具体文案口径走统一入口。
    - [ ] JSON 语法有效：字符串有引号、无尾随逗号、括号匹配。
 6. 自检通过后：在 `tasks/HUMAN-REQUIRED.md` 的 **H-11** 处更新说明为 **⏳ 待验证**，并**附本批待验文件路径列表**（可在该小节下增加一行「本批：`Resources/Drills/...`」）。
 7. **等待**人工 H-11 与（若适用）QA Reviewer 对本批次内容核查通过后再继续下一批。
@@ -100,9 +110,9 @@ alwaysApply: false
 
 ## 内容准确性要求
 
-- 瞄准相关数据遵循 `45-aiming-principles.mdc`：主公式 `d = 2R sin(α)`（横移量），接触点偏移 `R sin(α)` 为派生量。术语使用「切球角」而非「切入角」。
+- 瞄准相关数据遵循 `45-aiming-principles.mdc`：主公式 `d = 2R sin(α)`（横移量），接触点偏移 `R sin(α)` 为派生量。该理论中的术语使用「切球角」而非「切入角」；精讲角度的字段来源与展示口径由文案入口及统一规范管理，不能据此混用角度定义。
 - 动作分类与描述参照 `docs/research/20260323-训练内容体系-动作库分类.md`。
-- **H-11（人工验证）**：每批 Drill 在完成步骤 5–6 后进入待验证；人工完成后将 H-11 状态改回 ✅ 或按批次更新说明。
+- **H-11（人工验证）**：上述新建 Drill 批次在完成步骤 5–6 后进入待验证；人工完成后将 H-11 状态改回 ✅ 或按批次更新说明。存量文案的样稿与验收按已授权文案工作流执行。
 
 ---
 

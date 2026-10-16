@@ -13,6 +13,12 @@ final class TableProjector {
     /// Valid visible-depth world projection in window coordinates for floating HUD anchors.
     var projectInWindow: ((SCNVector3) -> CGPoint?)?
     var projectVisible: ((SCNVector3) -> CGPoint?)?
+    var ballDiameter: ((SCNVector3) -> CGFloat?)?
+    var makePaletteBallModel: ((String) -> BTPaletteBallModel?)?
+    var palettePreview: BTPalettePlacement?
+    #if DEBUG
+    var palettePlacementDiagnostic: [String: Any]?
+    #endif
     static func world(at point: CGPoint, in renderer: SCNView, planeY: Float) -> SCNVector3? {
         let near = renderer.unprojectPoint(SCNVector3(Float(point.x), Float(point.y), 0))
         let far = renderer.unprojectPoint(SCNVector3(Float(point.x), Float(point.y), 1))
@@ -191,6 +197,11 @@ struct AngleSceneView: UIViewRepresentable {
     /// 用捕获的 `SCNView` 填充坐标桥接闭包（台面平面 = surfaceY + 球半径）。
     private func bindProjector(to scnView: SCNView, coordinator: Coordinator) {
         guard let projector else { return }
+        coordinator.paletteProjector = projector
+        projector.makePaletteBallModel = { [weak coordinator] key in
+            coordinator?.makePaletteBallModel(key)
+        }
+        projector.ballDiameter = { [weak coordinator] world in coordinator?.projectedBallDiameter(at: world) }
         projector.unproject = { [weak coordinator] point in coordinator?.editingWorld(at: point) }
         projector.project = { [weak coordinator] world in coordinator?.editingPoint(world, visibleOnly: false) }
         projector.projectVisible = { [weak coordinator] world in coordinator?.editingPoint(world) }
@@ -208,6 +219,11 @@ struct AngleSceneView: UIViewRepresentable {
         #endif
         context.coordinator.fpsReadoutState = fpsReadoutState
         context.coordinator.positionFPSReadout(trailingInset: fpsReadoutTrailingInset)
+        if context.coordinator.tableGridVisible != roomPreferences.showTableGrid {
+            context.coordinator.tableGridVisible = roomPreferences.showTableGrid
+            scene.setTableGridVisible(roomPreferences.showTableGrid)
+            context.coordinator.requestInteractiveFrames()
+        }
         scene.applyTableStyle(roomPreferences.tableStyle, showsSights: roomPreferences.showsTableSights)
         scene.applyClothColor(roomPreferences.clothColor)
         scene.applyBallStickerStyle(roomPreferences.ballStickerStyle)
@@ -443,6 +459,23 @@ struct AngleSceneView: UIViewRepresentable {
             return scnView
         }
 
+        weak var paletteProjector: TableProjector?
+
+        func makePaletteBallModel(_ key: String) -> BTPaletteBallModel? {
+            guard let camera = editingRenderer?.pointOfView else { return nil }
+            return BTPaletteBallModel(source: scene, key: key, camera: camera)
+        }
+
+
+        func projectedBallDiameter(at world: SCNVector3) -> CGFloat? {
+            guard let renderer = editingRenderer, let camera = renderer.pointOfView else { return nil }
+            let right = camera.presentation.convertVector(SCNVector3(AngleSceneCalculator.ballRadius, 0, 0), to: nil)
+            let a = renderer.projectPoint(SCNVector3(world.x - right.x, world.y - right.y, world.z - right.z))
+            let b = renderer.projectPoint(SCNVector3(world.x + right.x, world.y + right.y, world.z + right.z))
+            let diameter = CGFloat(hypotf(b.x - a.x, b.y - a.y))
+            return diameter.isFinite && diameter > 0 ? diameter : nil
+        }
+
         func editingWorld(at point: CGPoint) -> SCNVector3? {
             guard let main = scnView, let renderer = editingRenderer else { return nil }
             return TableProjector.world(at: renderer.convert(point, from: main), in: renderer,
@@ -511,14 +544,20 @@ struct AngleSceneView: UIViewRepresentable {
                     let world = overlayWorld(start) else { return }
                 mergedDragNode = node
                 mergedDragOffset = node.simdWorldPosition - world
+                // Match ordinary 2D: retain the grab point and leave finger clearance
+                // in view-local points before converting to the overlay world plane.
+                dragStartLocation = start
+                dragGrabOffset = .zero
+                dragBrokeDeadZone = false
+                dragLockedOffset = .zero
                 onDragBegan?(node)
             case .changed:
-                guard let node = mergedDragNode, let world = overlayWorld(point) else { return }
+                guard let node = mergedDragNode, let world = overlayWorld(dragSamplePoint(for: point)) else { return }
                 let destination = world + mergedDragOffset
                 onDragMoved?(node,SCNVector3(destination.x,destination.y,destination.z))
             case .ended, .cancelled, .failed:
                 if let node = mergedDragNode {
-                    if gesture.state == .ended, let world = overlayWorld(point) {
+                    if gesture.state == .ended, let world = overlayWorld(dragSamplePoint(for: point)) {
                         let destination = world + mergedDragOffset
                         onDragMoved?(node,SCNVector3(destination.x,destination.y,destination.z))
                     }
@@ -964,6 +1003,8 @@ struct AngleSceneView: UIViewRepresentable {
             requestInteractiveFrames()
         }
 
+        var tableGridVisible = UserPreferences.shared.showTableGrid
+
         func updateContentActivity(_ animating: Bool?, cameraMode mode: AngleTrainingScene.CameraMode) {
             let changed = contentIsAnimating != animating || cameraMode != mode
             contentIsAnimating = animating
@@ -1093,7 +1134,7 @@ struct AngleSceneView: UIViewRepresentable {
         private var dragStartLocation: CGPoint = .zero
         private var dragBrokeDeadZone = false
         private var dragLockedOffset: CGSize = .zero
-        private let dragDeadZone: CGFloat = 52
+        private let dragDeadZone = BTBallDragMetrics.fingerClearance
 
         /// Effective screen sample point for the current finger location.
         /// Dead zone is a one-time gate: before breaking it the ball stays put;
@@ -1775,12 +1816,14 @@ struct AngleSceneView: UIViewRepresentable {
                     ? editingPoint(world) : nil
                 return ["key": key, "screen": [Float(active?.x ?? CGFloat(p.x)), Float(active?.y ?? CGFloat(p.y)), p.z],
                         "world": [node.position.x, node.position.y, node.position.z],
+                        "diameter": projectedBallDiameter(at: world) ?? 0, "scale": [node.scale.x, node.scale.y, node.scale.z],
                         "draggable": draggableBallNodes.contains(node)]
             }
             let transform = view.pointOfView?.worldTransform ?? SCNMatrix4Identity
             var data: [String: Any] = ["rendererID": dragProbeRendererID, "panCount": dragProbePanCount, "grabCount": dragProbeGrabCount, "moveCount": dragProbeMoveCount, "balls": balls, "camera": [transform.m11, transform.m12, transform.m13,
                 transform.m21, transform.m22, transform.m23, transform.m31, transform.m32, transform.m33,
                 transform.m41, transform.m42, transform.m43]]
+            if let placement = paletteProjector?.palettePlacementDiagnostic { data["palettePlacement"] = placement }
             if let overlay = mergedOverlay, let labels = mergedDiagramLabels {
                 data["diagram"] = labels.diagnostic(in: overlay, scene: scene)
                 data["diagramSurface"] = "temporaryTopDown"

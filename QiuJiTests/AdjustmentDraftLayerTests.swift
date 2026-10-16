@@ -617,9 +617,9 @@ final class PlanningInformationStateTests: XCTestCase {
         for event in [silu.informationEvent, plan.informationEvent, defense.informationEvent] {
             XCTAssertEqual(event.kind, .failure)
             XCTAssertFalse(event.text.isEmpty)
-            let notice = BTTeachingInformation(text: event.text, kind: .readout, showsSymbol: false)
+            let notice = BTTeachingInformation(text: event.text, kind: .readout, symbol: "info.circle")
             XCTAssertTrue(notice.isVisible(spinPadPresented: true))
-            XCTAssertNil(notice.effectiveSymbol)
+            XCTAssertEqual(notice.effectiveSymbol, "info.circle")
         }
         XCTAssertEqual(BTTeachingInformation(text: "Other page").effectiveSymbol, "info.circle")
     }
@@ -636,5 +636,129 @@ final class PlanningInformationStateTests: XCTestCase {
         XCTAssertEqual(PlanningSolutionDetails.cautions(solution, defense: false), "翻袋备选 · 未满足约束 · 进阶 · 需横塞")
         XCTAssertTrue(PlanningSolutionDetails.cautions(solution, defense: true).contains("未完全斯诺克"))
         XCTAssertEqual(PlanningSolutionDetails.cautions(nil, defense: false), "")
+    }
+}
+
+@MainActor
+final class PalettePlacementTests: XCTestCase {
+    func testPreviewAndCommitUseSameConstraintsAcrossTeachingHosts() throws {
+        func check(_ host: any TeachingTableHost, commit: (String, SCNVector3) -> Void) throws {
+            host.setupScene()
+            let key = try XCTUnwrap((1...15).map { "_\($0)" }.first { host.scene.allBallNodes[$0]?.isHidden == true })
+            for input in [SCNVector3(0.31, host.scene.surfaceY, 0.15),
+                          SCNVector3(1.3, host.scene.surfaceY, 0.68),
+                          try XCTUnwrap(host.scene.cueBallNode).position] {
+                let expected = try XCTUnwrap(host.palettePlacement(key, atWorld: input))
+                commit(key, input)
+                let node = try XCTUnwrap(host.scene.allBallNodes[key])
+                XCTAssertFalse(node.isHidden)
+                XCTAssertEqual(node.position.x, expected.x, accuracy: 0.00001)
+                XCTAssertEqual(node.position.y, expected.y, accuracy: 0.00001)
+                XCTAssertEqual(node.position.z, expected.z, accuracy: 0.00001)
+                host.removeFromTable(key)
+            }
+            host.suspendTeachingActivity()
+        }
+        let angle = AngleDynamicViewModel(); try check(angle, commit: angle.placeFromPalette)
+        let plan = PlanThreeViewModel(); try check(plan, commit: plan.placeFromPalette)
+        let silu = SiluTrainerViewModel(); try check(silu, commit: silu.placeFromPalette)
+        let defense = SnookerTacticsViewModel(); try check(defense, commit: defense.placeFromPalette)
+        let separation = SeparationAngleAtlasViewModel(); try check(separation, commit: separation.placeFromPalette)
+        let cushion = CushionEnglishAtlasViewModel(); try check(cushion, commit: cushion.placeFromPalette)
+        let bank = BankShotViewModel(); try check(bank, commit: { bank.placeObstacle($0, atWorld: $1) })
+        let kick = DiamondSystemViewModel(); try check(kick, commit: { kick.placeObstacle($0, atWorld: $1) })
+    }
+
+    func testPalettePreviewUsesTableModelAtNormalProjectedSize() throws {
+        let vm = AngleDynamicViewModel()
+        vm.setupScene()
+        defer { vm.suspendTeachingActivity() }
+        let source = try XCTUnwrap(vm.scene.allBallNodes["_1"])
+        let originalPosition = source.position
+        let camera = try XCTUnwrap(vm.scene.cameraNode)
+        let model = try XCTUnwrap(BTPaletteBallModel(source: vm.scene, key: "_1", camera: camera))
+        XCTAssertFalse(model.ball === source)
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 64, height: 64))
+        view.scene = model.scene; view.pointOfView = model.camera
+        model.update(world: SCNVector3(0, vm.scene.surfaceY + AngleSceneCalculator.ballRadius, 0), diameter: 60, viewport: 64)
+        view.layoutIfNeeded(); _ = view.snapshot()
+        let centre = model.ball.worldPosition
+        let right = model.camera.convertVector(SCNVector3(AngleSceneCalculator.ballRadius, 0, 0), to: nil)
+        let a = view.projectPoint(SCNVector3(centre.x - right.x, centre.y - right.y, centre.z - right.z))
+        let b = view.projectPoint(SCNVector3(centre.x + right.x, centre.y + right.y, centre.z + right.z))
+        XCTAssertEqual(hypot(a.x - b.x, a.y - b.y), 60, accuracy: 0.1)
+        XCTAssertEqual(source.position.x, originalPosition.x)
+        XCTAssertEqual(source.position.z, originalPosition.z)
+        XCTAssertTrue(source.isHidden)
+        XCTAssertFalse(model.ball.isHidden)
+        var originalMeshes = 0; source.enumerateHierarchy { node, _ in if node.geometry != nil { originalMeshes += 1 } }
+        var previewMeshes = 0; model.ball.enumerateHierarchy { node, _ in if node.geometry != nil { previewMeshes += 1 } }
+        XCTAssertGreaterThan(originalMeshes, 0)
+        XCTAssertEqual(previewMeshes, originalMeshes)
+    }
+
+    func testPreviewRoundTripAcrossViewportOriginsAndScales() throws {
+        for origin in [CGPoint.zero, CGPoint(x: 59, y: 24), CGPoint(x: -20, y: 30)] {
+            for scale in [CGFloat(90), 220, 510] {
+                let projector = TableProjector()
+                projector.unproject = { SCNVector3(Float(($0.x - 280) / scale), 0.828575, Float(($0.y - 140) / scale)) }
+                projector.projectVisible = { CGPoint(x: CGFloat($0.x) * scale + 280, y: CGFloat($0.z) * scale + 140) }
+                projector.ballDiameter = { _ in CGFloat(2 * AngleSceneCalculator.ballRadius) * scale }
+                let frame = CGRect(origin: origin, size: CGSize(width: 560, height: 280))
+                let finger = CGPoint(x: origin.x + 350, y: origin.y + 210)
+                let sample = BTPalettePlacement.sample(key: "_7", finger: finger, sourceDiameter: 30,
+                    sceneFrame: frame, projector: projector, constrain: { _, p in p })
+                XCTAssertEqual(sample.location.x, finger.x, accuracy: 0.0001)
+                XCTAssertEqual(sample.location.y, finger.y - BTBallDragMetrics.fingerClearance, accuracy: 0.0001)
+                XCTAssertEqual(sample.diameter, CGFloat(2 * AngleSceneCalculator.ballRadius) * scale, accuracy: 0.0001)
+                XCTAssertNotNil(sample.requestedWorld)
+                let outside = BTPalettePlacement.sample(key: "_7", finger: CGPoint(x: origin.x - 1, y: finger.y),
+                    sourceDiameter: 30, sceneFrame: frame, projector: projector, constrain: { _, p in p })
+                XCTAssertNil(outside.requestedWorld, "Leaving the viewport invalidates a prior valid drop")
+                XCTAssertEqual(outside.diameter, sample.diameter, accuracy: 0.0001,
+                    "The ball keeps table size before entering or after leaving the viewport")
+            }
+        }
+    }
+
+    func testComposerExtractionAndGuidePreviewMatchPlacement() throws {
+        let composer = PositionPlayViewModel(); composer.setupScene()
+        let input = SCNVector3(0.4, composer.scene.surfaceY, 0.2)
+        let expected = try XCTUnwrap(composer.palettePlacement("_7", atWorld: input))
+        composer.placeFromPalette("_7", atWorld: input)
+        let actual = try XCTUnwrap(composer.scene.allBallNodes["_7"]).position
+        XCTAssertEqual(actual.x, expected.x, accuracy: 0.00001)
+        XCTAssertEqual(actual.z, expected.z, accuracy: 0.00001)
+        let extraction = BallExtractionViewModel(); extraction.enterConfirm()
+        let extracted = try XCTUnwrap(extraction.palettePlacement("_7", atWorld: input))
+        extraction.addFromPalette("_7", atWorld: input)
+        let ball = try XCTUnwrap(extraction.scene.allBallNodes["_7"])
+        XCTAssertEqual(ball.position.x, extracted.x, accuracy: 0.00001)
+        XCTAssertEqual(ball.position.z, extracted.z, accuracy: 0.00001)
+        #if targetEnvironment(simulator)
+        let guide = BatchGuideLine()
+        guide.begin(); guide.setPoint(SCNVector3(-0.5, 0.8, 0), scene: composer.scene)
+        guide.confirm(scene: composer.scene)
+        guide.setPoint(SCNVector3(0.5, 0.8, 0), scene: composer.scene); guide.confirm(scene: composer.scene)
+        let position = SCNVector3(0.3, composer.scene.surfaceY + AngleSceneCalculator.ballRadius, 0)
+        let preview = guide.previewPlacement(key: "_6", position: position, keys: composer.onTableKeys, scene: composer.scene)
+        composer.scene.showBall(key: "_6", scenePosition: position)
+        XCTAssertTrue(guide.redistribute(keys: composer.onTableKeys + ["_6"], scene: composer.scene))
+        let placed = try XCTUnwrap(composer.scene.allBallNodes["_6"]).position
+        XCTAssertEqual(placed.x, preview.x, accuracy: 0.00001)
+        XCTAssertEqual(placed.z, preview.z, accuracy: 0.00001)
+        #endif
+    }
+
+    func testDraggingPreservesImportedScaleAndPivot() {
+        let node = SCNNode(); node.scale = SCNVector3(0.035, 0.035, 0.035)
+        let scale = node.simdScale, pivot = node.simdPivot
+        TableBallPulse.pulse(node)
+        TableBallPulse.beginDrag(node)
+        XCTAssertEqual(node.simdScale, scale); XCTAssertEqual(node.simdPivot, pivot)
+        XCTAssertNil(node.action(forKey: TableBallPulse.actionKey))
+        XCTAssertNil(node.action(forKey: "dragPulse"))
+        TableBallPulse.endDrag(node)
+        XCTAssertEqual(node.simdScale, scale); XCTAssertEqual(node.simdPivot, pivot)
     }
 }

@@ -928,6 +928,7 @@ class EventDrivenEngine {
                   earlyStopBallNames: Set<String>? = nil,
                   stopAfterContactBetween: (String, String)? = nil,
                   rejectCushionBeforeAnyContactFor: String? = nil) -> Termination {
+        trajectoryRecorder.hasPlanarAnalysisFacts = true
         PerformanceProfiler.begin(ProfilerLabel.simulate)
         defer { PerformanceProfiler.end(ProfilerLabel.simulate) }
 
@@ -1696,6 +1697,7 @@ class EventDrivenEngine {
         )
         
         if (result.velA - stateA.velocity).length() > 0 || (result.velB - stateB.velocity).length() > 0 {
+            trajectoryRecorder.recordBallContact(time: currentTime, a: stateA, b: stateB)
             trajectoryRecorder.recordContactSound(.init(time: currentTime, ball: ballA, other: ballB,
                                                          surface: .ball, approachSpeed: approach))
         }

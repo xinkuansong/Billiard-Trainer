@@ -451,7 +451,7 @@ final class ATeachingStandardsUITests: XCTestCase {
             XCTAssertLessThan(display.frame.minY, settings.frame.minY)
             capture(mode + "-display-first-menu")
             settings.tap()
-            XCTAssertTrue(app.buttons["angleTraining.settingsClose"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["training.settingsCancel"].waitForExistence(timeout: 5))
             capture(mode + "-settings-sheet-system")
         }
     }
@@ -459,6 +459,7 @@ final class ATeachingStandardsUITests: XCTestCase {
     func testAimPointBothModes() throws {
         for mode in ["2D", "3D"] {
             openTraining(mode + "瞄准点")
+            app.buttons["aimPointTraining.start"].tap()
             let submit = app.buttons["aimPointTraining.submit"]
             XCTAssertTrue(submit.waitForExistence(timeout: 15))
             let ruler = app.descendants(matching: .any).matching(identifier: "aimPointTraining.aimWheel").firstMatch
@@ -472,13 +473,13 @@ final class ATeachingStandardsUITests: XCTestCase {
             ruler.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
                 .press(forDuration: 0.1, thenDragTo: ruler.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65)))
             submit.tap()
-            let info = app.descendants(matching: .any).matching(identifier: "aimPointTraining.verificationInfo").firstMatch
-            XCTAssertTrue(info.waitForExistence(timeout: 2))
-            XCTAssertLessThan(info.frame.midY, app.windows.firstMatch.frame.midY)
-            XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "aimPointTraining.questionInfo").firstMatch.label.contains("误差"))
-            capture(mode + "-verification-top-error-retained")
-            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: submit)], timeout: 5), .completed)
-            XCTAssertTrue(submit.waitForExistence(timeout: 45))
+            let next = app.buttons["aimPointTraining.next"]
+            XCTAssertTrue(next.waitForExistence(timeout: 5))
+            capture(mode + "-static-result")
+            sleep(3)
+            XCTAssertFalse(submit.exists)
+            next.tap()
+            XCTAssertTrue(submit.waitForExistence(timeout: 10))
             capture(mode + "-next-question")
         }
     }
@@ -629,10 +630,15 @@ final class PlanningInformationUITests: XCTestCase {
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)!
             context.draw(image, in: CGRect(x: 0, y: 0, width: 64, height: 64))
         }
-        return Double(stride(from: 0, to: pixels.count, by: 4).filter {
-            Double(pixels[$0 + 1]) > max(Double(pixels[$0]), Double(pixels[$0 + 2])) * 1.3
-                && pixels[$0 + 1] > 45
-        }.count) / 4096
+        var greenPixelCount = 0
+        for index in stride(from: 0, to: pixels.count, by: 4) {
+            let green = Double(pixels[index + 1])
+            let other = max(Double(pixels[index]), Double(pixels[index + 2]))
+            if green > other * 1.3 && green > 45 {
+                greenPixelCount += 1
+            }
+        }
+        return Double(greenPixelCount) / 4096
     }
     private func launch(_ page: String, scenario: String = "full", extraArgs: [String] = [], learned: Bool? = true) {
         app?.terminate(); XCUIDevice.shared.orientation = .landscapeLeft
@@ -674,13 +680,10 @@ final class PlanningInformationUITests: XCTestCase {
             }
             if phase == "after" {
                 XCTAssertFalse(item("planthree.rolesSummary").exists)
-                let solution = app.buttons["solver.nextSolution"]; ready(solution)
-                XCTAssertTrue(solution.label.contains("解"))
-                solution.press(forDuration: 1)
-                ready(app.buttons["当前方案详情"]); app.buttons["当前方案详情"].tap()
-                XCTAssertTrue(item("planning.details").waitForExistence(timeout: 5))
-                try snap(page + "-details")
-                app.buttons["planning.close"].tap()
+                let solution = app.buttons["solver.nextSolution"]
+                XCTAssertTrue(solution.exists)
+                XCTAssertTrue(solution.label.hasPrefix("解"))
+                XCTAssertFalse(app.buttons["当前方案详情"].exists)
             }
             app.buttons["shotStage.spinEntry"].tap(); XCTAssertTrue(item("spinPad.disc").waitForExistence(timeout: 5))
             try snap(page + "-spin"); app.buttons["关闭打点"].tap()
@@ -726,7 +729,7 @@ final class PlanningInformationUITests: XCTestCase {
             XCTAssertTrue(item(page + ".template").exists)
             if page == "planthree" {
                 app.buttons["planthree.roles"].tap(); app.buttons["planthree.role.0"].tap()
-                XCTAssertTrue(item("planthree.status").label.contains("选择第1杆目标球"))
+                XCTAssertTrue(item("planthree.status").label.contains("选择第1球"))
                 try snap("planthree-select-step")
             }
             mode(page, "3D")
@@ -736,7 +739,7 @@ final class PlanningInformationUITests: XCTestCase {
         }
     }
     func testFailurePersistsAndFineTuningIsMarked() throws {
-        phase = "after"
+        phase = "r2/after"
         launch("snooker", scenario: "none")
         let status = item("snooker.status")
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
@@ -758,10 +761,8 @@ final class PlanningInformationUITests: XCTestCase {
     func testFirstGuideDismissalIsRememberedAndHelpCanReopen() throws {
         phase = "after"
         launch("silu", learned: false)
-        XCTAssertTrue(app.buttons["planning.dismissNotice"].waitForExistence(timeout: 5))
-        try snap("silu-first-guide")
-        app.buttons["planning.dismissNotice"].tap()
-        XCTAssertFalse(item("silu.status").exists)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: item("silu.status"))], timeout: 6), .completed)
+        try snap("silu-first-guide-expired")
         launch("silu", learned: nil)
         XCTAssertFalse(item("silu.status").exists)
         openHelp("silu"); try snap("silu-guide-reopened")
@@ -779,5 +780,309 @@ final class PlanningInformationUITests: XCTestCase {
         try snap("snooker-targets")
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.85)).tap()
         XCTAssertTrue(app.buttons["snooker.strike"].isEnabled)
+    }
+}
+
+/// User-approved second pass: one visible solution count, no secondary solution menu.
+final class InformationConsistencyUITests: XCTestCase {
+    private var app: XCUIApplication!
+    private var phase = "before"
+    override func setUpWithError() throws { continueAfterFailure = false }
+    override func tearDownWithError() throws { app?.terminate() }
+    private func item(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
+    private func ready(_ e: XCUIElement, timeout: TimeInterval = 90) {
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: e)], timeout: timeout), .completed)
+    }
+    private func launch(_ page: String, maximum: Bool = false, scenario: String = "twoBall") {
+        app?.terminate(); XCUIDevice.shared.orientation = .landscapeLeft
+        var args = ["-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance", "-appearanceMode", "system", "-3dDrag.probe",
+                    "-planthree.informationLearned", "YES", "-silu.informationLearned", "YES", "-snooker.informationLearned", "YES"]
+        if maximum { args += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
+        switch page {
+        case "planthree": args += ["-deeplink.planThree", "-planThree." + scenario]
+        case "silu": args += ["-deeplink.silu"]
+        case "snooker": args += ["-deeplink.snooker", "-snooker.full"]
+        case "composer": args += ["-dailyInteraction.sharedPage=composer"]
+        case "freeplay": args += ["-deeplink.freePlay"]
+        case "angleDynamic": args += ["-dailyInteraction.sharedPage=angleDynamic"]
+        default: break
+        }
+        app = XCUIApplication.launchClean(extraArgs: args)
+        if ["bankshot", "reflection"].contains(page) {
+            app.switchTab(.angle); ready(app.buttons["angleHomeTab_解"]); app.buttons["angleHomeTab_解"].tap()
+            let card = app.buttons[page == "bankshot" ? "翻袋解球" : "颗星解球"]; ready(card); card.tap()
+        }
+        let anchor = ["composer", "freeplay"].contains(page) ? page + ".landscape" : page + ".template"
+        XCTAssertTrue(item(anchor).waitForExistence(timeout: 45))
+        if !["composer", "freeplay"].contains(page) { mode(page, "2D") }
+    }
+    private func mode(_ page: String, _ mode: String) {
+        let more = app.buttons[page + ".more"]; ready(more)
+        more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let camera = app.buttons[page + ".cameraMode"]; ready(camera)
+        if camera.value as? String != mode { camera.tap() }
+        app.buttons[page + ".dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
+    }
+    private func snap(_ name: String) throws {
+        let device = UIDevice.current.userInterfaceIdiom == .pad ? "pad" : (min(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height) < 390 ? "compact" : "phone")
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("output/information-simplification-20261014/r2/\(phase)/\(device)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let hierarchy = app.debugDescription
+        usleep(350_000) // Capture after the popover presentation transaction commits.
+        let shot = XCUIScreen.main.screenshot()
+        try shot.pngRepresentation.write(to: root.appendingPathComponent(name + ".png"))
+        try hierarchy.write(to: root.appendingPathComponent(name + ".txt"), atomically: true, encoding: .utf8)
+        let a = XCTAttachment(screenshot: shot); a.name = name; a.lifetime = .keepAlways; add(a)
+    }
+    private func solve(_ page: String) {
+        if page == "silu" {
+            app.buttons["silu.tool"].tap(); app.buttons["落区"].tap()
+            let table = item("table.scene")
+            table.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.4)).press(forDuration: 0.1,
+                thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.78, dy: 0.77)))
+        }
+        if ["planthree", "silu"].contains(page) { ready(app.buttons["solver.solve"]); app.buttons["solver.solve"].tap() }
+        ready(app.buttons[page + ".strike"])
+    }
+    func testBefore() throws { try capturePages() }
+    func testAfter() throws { phase = "after"; try capturePages() }
+    private func capturePages() throws {
+        for page in ["planthree", "silu", "snooker", "bankshot", "reflection"] {
+            launch(page); solve(page); try snap(page + "-solved")
+            if page == "planthree" {
+                app.buttons["planthree.roles"].tap(); ready(app.buttons["planthree.role.0"]); try snap(page + "-roles")
+                if phase == "after" {
+                    XCTAssertTrue((app.buttons["planthree.role.0"].value as? String ?? "").contains("已选"))
+                    XCTAssertTrue((app.buttons["planthree.role.4"].value as? String ?? "").contains("未选择"))
+                }
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.85)).tap()
+            }
+            if phase == "after" {
+                let next = app.buttons["solver.nextSolution"]
+                XCTAssertTrue(next.label.hasPrefix("解1/"))
+                let count = Int(next.label.split(separator: "/").last!)!
+                if count > 1 {
+                    next.tap(); XCTAssertEqual(next.label, "解2/\(count)")
+                    for _ in 1..<count { next.tap() }
+                    XCTAssertEqual(next.label, "解1/\(count)")
+                    next.press(forDuration: 1)
+                    XCTAssertFalse(app.buttons["当前方案详情"].exists)
+                    XCTAssertFalse(app.buttons["solver.selectSolution.0"].exists)
+                } else { XCTAssertFalse(next.isEnabled) }
+                try snap(page + "-simple-control")
+            }
+            mode(page, "3D"); try snap(page + "-3d")
+        }
+        for page in ["composer", "freeplay", "angleDynamic"] {
+            launch(page); try snap(page + "-initial")
+            if phase == "after" {
+                let redundant = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "进袋 ·"))
+                XCTAssertEqual(redundant.count, 0)
+            }
+        }
+    }
+    func testRolePromptExpiresAndMenuRemainsReadable() throws {
+        phase = "after"
+        launch("planthree"); solve("planthree")
+        app.buttons["planthree.roles"].tap(); ready(app.buttons["planthree.role.0"]); try snap("planthree-roles")
+        launch("planthree", maximum: true)
+        XCTAssertEqual(app.buttons["solver.nextSolution"].label, "解")
+        XCTAssertFalse(app.buttons["solver.nextSolution"].isEnabled)
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            XCUIDevice.shared.orientation = .portrait
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                self.app.windows.firstMatch.frame.height > self.app.windows.firstMatch.frame.width
+            }, object: nil)], timeout: 10), .completed)
+        }
+        app.buttons["planthree.roles"].tap(); ready(app.buttons["planthree.role.0"]); try snap("planthree-roles-maximum")
+        let menuScroll = app.popovers.firstMatch.scrollViews.firstMatch
+        if menuScroll.exists {
+            menuScroll.swipeUp(); try snap("planthree-roles-maximum-bottom")
+            menuScroll.swipeDown()
+        }
+        app.buttons["planthree.role.0"].tap()
+        let status = item("planthree.status")
+        XCTAssertTrue(status.waitForExistence(timeout: 2)); XCTAssertTrue(status.label.contains("选择第1球"))
+        try snap("planthree-prompt")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: status)], timeout: 6), .completed)
+        try snap("planthree-prompt-expired")
+        app.buttons["planthree.roles"].tap(); app.buttons["planthree.role.0"].tap()
+        XCTAssertTrue(status.waitForExistence(timeout: 2))
+        mode("planthree", "3D"); app.buttons["shotCamera.temporaryTopDown"].tap(); try snap("planthree-temporary")
+        launch("planthree", scenario: "twoBallDimmed"); try snap("planthree-user-region")
+    }
+}
+
+/// Native palette placement: the preview's projected centre must survive release.
+final class PalettePlacementUITests: XCTestCase {
+    private var app: XCUIApplication!
+    private var phase = "before"
+    private var page = ""
+    override func setUpWithError() throws { continueAfterFailure = false }
+    override func tearDownWithError() throws { app?.terminate() }
+    private func item(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
+    private func ready(_ e: XCUIElement) {
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: e)], timeout: 60), .completed)
+    }
+    private var folder: URL {
+        let device = UIDevice.current.userInterfaceIdiom == .pad ? "pad" : (min(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height) < 390 ? "compact" : "phone")
+        return URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("output/palette-drag-20261014/\(phase == "after" ? "after-real" : phase)/\(device)")
+    }
+    private func snap(_ name: String) throws {
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let ax = app.debugDescription; usleep(300_000)
+        let shot = XCUIScreen.main.screenshot()
+        try shot.pngRepresentation.write(to: folder.appendingPathComponent(page + "-" + name + ".png"))
+        try ax.write(to: folder.appendingPathComponent(page + "-" + name + ".txt"), atomically: true, encoding: .utf8)
+    }
+    private func probe() throws -> [String: Any] {
+        let raw = try XCTUnwrap(item("table.scene").value as? String)
+        return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+    }
+    private func launch(_ route: String, maximum: Bool = false) {
+        app?.terminate(); XCUIDevice.shared.orientation = .landscapeLeft
+        let prefix = ["bank": "bankshot", "diamond": "reflection", "separation": "separationAngleAtlas", "cushion": "cushionEnglishAtlas", "shot": "shotSimulation", "batch": "batchAuthor"]
+        page = prefix[route] ?? route
+        var args = ["-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance", "-appearanceMode", "system", "-3dDrag.probe", "-planthree.informationLearned", "YES", "-silu.informationLearned", "YES", "-snooker.informationLearned", "YES"]
+        if maximum { args += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
+        if ["planthree", "silu", "snooker"].contains(route) {
+            args += ["-deeplink." + (route == "planthree" ? "planThree" : route)]
+            if route == "planthree" { args += ["-planThree.twoBall"] }
+        } else { args += ["-dailyInteraction.sharedPage=" + route] }
+        app = XCUIApplication.launchClean(extraArgs: args)
+        XCTAssertTrue(item("table.scene").waitForExistence(timeout: 45))
+        let more = app.buttons[page + ".more"]
+        if more.exists && !["composer", "shotSimulation", "batchAuthor"].contains(page) {
+            more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap(); let mode = app.buttons[page + ".cameraMode"]; ready(mode)
+            if mode.value as? String != "2D" { mode.tap() }
+            app.buttons[page + ".dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
+        }
+    }
+    private func drag(_ suffix: String = "drop", nearRail: Bool = false) throws {
+        let key = try XCTUnwrap((1...15).map { "_\($0)" }.first {
+            let e = item("paletteBall_" + $0)
+            return e.exists && e.isEnabled && (e.value as? String) == "未在桌上"
+        })
+        let palette = item("paletteBall_" + key); ready(palette)
+        let table = item("table.scene")
+        let p = try probe()
+        let rect = try XCTUnwrap(p["displayedTable"] as? [Double])
+        let window = app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
+        let end = window.withOffset(CGVector(dx: rect[0] + (rect[2] - rect[0]) * (nearRail ? 0.015 : 0.62), dy: rect[1] + (rect[3] - rect[1]) * 0.65))
+        try snap(suffix + "-start")
+        let started = Date().timeIntervalSince1970
+        palette.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.2, thenDragTo: end, withVelocity: 150, thenHoldForDuration: 1.5)
+        let finished = Date().timeIntervalSince1970
+        try snap(suffix + "-end")
+        let result = try probe()
+        let event: [String: Any] = ["start": started, "end": finished, "key": key, "probe": result, "tableFrame": [table.frame.minX, table.frame.minY, table.frame.width, table.frame.height]]
+        try JSONSerialization.data(withJSONObject: event, options: [.prettyPrinted, .sortedKeys]).write(to: folder.appendingPathComponent(page + "-" + suffix + ".json"))
+        if phase == "after" {
+            XCTAssertTrue(["在桌上", "本轮可击打"].contains(palette.value as? String ?? ""))
+            let preview = try XCTUnwrap(result["palettePlacement"] as? [String: Any])
+            let expected = try XCTUnwrap(preview["screen"] as? [Double])
+            let balls = try XCTUnwrap(result["balls"] as? [[String: Any]])
+            let ball = try XCTUnwrap(balls.first { $0["key"] as? String == key })
+            let actual = try XCTUnwrap(ball["screen"] as? [Double])
+            XCTAssertEqual(actual[0], expected[0], accuracy: 1)
+            XCTAssertEqual(actual[1], expected[1], accuracy: 1)
+            XCTAssertEqual(try XCTUnwrap(preview["diameter"] as? Double), try XCTUnwrap(ball["diameter"] as? Double), accuracy: 0.5)
+        }
+    }
+    func testBefore() throws {
+        for route in ["planthree", "angleDynamic", "composer", "bank"] { launch(route); try drag() }
+        try prompts()
+    }
+    func testAfter() throws {
+        phase = "after"
+        for route in ["planthree", "angleDynamic", "composer", "bank", "diamond", "silu", "snooker", "separation", "cushion", "shot", "batch"] { launch(route); try drag() }
+        try prompts()
+    }
+    func testAfterCompact() throws {
+        phase = "after"
+        for route in ["planthree", "angleDynamic", "composer"] { launch(route); try drag() }
+        try prompts()
+    }
+    func testProjectionAndExtraction() throws {
+        phase = "after"
+        launch("planthree")
+        item("table.scene").pinch(withScale: 1.4, velocity: 1)
+        try drag("zoomed")
+        item("table.scene").doubleTap()
+        try drag("near-rail", nearRail: true)
+        let more = app.buttons["planthree.more"]
+        more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        app.buttons["planthree.cameraMode"].tap()
+        app.buttons["planthree.dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
+        ready(app.buttons["shotCamera.temporaryTopDown"]); app.buttons["shotCamera.temporaryTopDown"].tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            (try? self.probe()["standardTemporaryTable"] as? Bool) == true
+        }, object: nil)], timeout: 10), .completed)
+        try drag("temporary")
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            XCUIDevice.shared.orientation = .portrait
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                self.app.windows.firstMatch.frame.height > self.app.windows.firstMatch.frame.width
+            }, object: nil)], timeout: 10), .completed)
+            try drag("portrait-temporary")
+        }
+        app.terminate(); page = "extract"
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-extract.confirmDemo", "-3dDrag.probe", "-v51.followSystemAppearance", "-appearanceMode", "system"])
+        app.switchTab(.angle); ready(app.buttons["angleHomeTab_打"]); app.buttons["angleHomeTab_打"].tap()
+        let card = app.buttons["拍照建球形"]; ready(card); card.tap()
+        XCTAssertTrue(item("table.scene").waitForExistence(timeout: 30))
+        try drag("confirm")
+    }
+
+    func testComposerHostIntegration() throws {
+        phase = "after"
+        for route in ["composer", "batch"] {
+            launch(route); page += "-integration"; try drag()
+        }
+    }
+
+    func testTableDragAndPersistentHint() throws {
+        phase = "after"
+        launch("planthree")
+        let initial = try probe()
+        let before = try XCTUnwrap((initial["balls"] as? [[String: Any]])?.first { $0["key"] as? String == "_2" })
+        let centre = try XCTUnwrap(before["screen"] as? [Double])
+        let frame = item("table.scene").frame
+        let origin = app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
+        let start = origin.withOffset(CGVector(dx: frame.minX + centre[0], dy: frame.minY + centre[1]))
+        let end = origin.withOffset(CGVector(dx: frame.minX + centre[0] - 60, dy: frame.minY + centre[1] - 20))
+        try snap("table-drag-start")
+        let started = Date().timeIntervalSince1970
+        start.press(forDuration: 0.2, thenDragTo: end, withVelocity: 100, thenHoldForDuration: 1.5)
+        let finished = Date().timeIntervalSince1970
+        try snap("table-drag-end")
+        let result = try probe()
+        let after = try XCTUnwrap((result["balls"] as? [[String: Any]])?.first { $0["key"] as? String == "_2" })
+        XCTAssertEqual(before["scale"] as? [Double], after["scale"] as? [Double])
+        XCTAssertNotEqual(before["world"] as? [Double], after["world"] as? [Double])
+        try JSONSerialization.data(withJSONObject: ["start": started, "end": finished, "before": initial, "probe": result], options: [.prettyPrinted, .sortedKeys]).write(to: folder.appendingPathComponent("planthree-table-drag.json"))
+        app.terminate(); page = "snooker"
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-deeplink.snooker", "-snooker.none", "-snooker.informationLearned", "YES", "-v51.followSystemAppearance", "-appearanceMode", "system"])
+        let status = item("snooker.status")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            status.exists && status.label.contains("未找到")
+        }, object: nil)], timeout: 90), .completed)
+        let reason = status.label
+        usleep(3_500_000)
+        XCTAssertEqual(status.label, reason)
+        XCTAssertFalse(item("planning.dismissNotice").exists)
+        try snap("persistent-hint")
+    }
+
+    private func prompts() throws {
+        for maximum in [false, true] {
+            launch("planthree", maximum: maximum)
+            app.buttons["planthree.roles"].tap(); ready(app.buttons["planthree.role.0"]); app.buttons["planthree.role.0"].tap()
+            XCTAssertTrue(item("planthree.status").waitForExistence(timeout: 2))
+            if phase == "after" { XCTAssertFalse(item("planning.dismissNotice").exists) }
+            try snap(maximum ? "prompt-maximum" : "prompt")
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: item("planthree.status"))], timeout: 6), .completed)
+        }
     }
 }

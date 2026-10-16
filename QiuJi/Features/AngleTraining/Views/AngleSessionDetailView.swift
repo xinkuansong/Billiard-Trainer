@@ -22,7 +22,13 @@ struct AngleSessionDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.xxl) {
                 header
-                statsGrid
+                if session.results.contains(where: { $0.trainingMetadata != nil }) {
+                    SceneTrainingSummary(samples: session.firstResults.map { result in
+                        SceneTrainingSample(angle: result.trainingMetadata?.angle ?? result.actualAngle,
+                            error: result.measurementError, signedError: result.trainingMetadata?.unit == "mm" ? (result.trainingMetadata?.score?.straight == true ? nil : result.trainingMetadata?.score?.millimetres) : result.userAngle - result.actualAngle,
+                            assisted: !(result.trainingMetadata?.independent ?? false))
+                    }, unit: session.quizType.hasPrefix("aimPoint") ? "mm" : "°", onClose: nil)
+                } else { statsGrid }
                 questionsSection
             }
             .padding(Spacing.lg)
@@ -79,9 +85,9 @@ struct AngleSessionDetailView: View {
             statCard(icon: "number", iconColor: .btPrimary,
                      label: "总题数", value: "\(session.questionCount)")
             statCard(icon: "arrow.left.arrow.right", iconColor: .btDataSecondary,
-                     label: "平均误差", value: String(format: "%.1f°", session.averageError))
+                     label: "平均误差", value: String(format: "%.1f%@", session.averageError, session.quizType.hasPrefix("aimPoint") ? "mm" : "°"))
             statCard(icon: "trophy.fill", iconColor: .btPrimary,
-                     label: "最佳成绩", value: String(format: "%.1f°", session.bestError))
+                     label: "最佳成绩", value: String(format: "%.1f%@", session.bestError, session.quizType.hasPrefix("aimPoint") ? "mm" : "°"))
             statCard(icon: "checkmark.circle.fill", iconColor: .btPrimary,
                      label: "正确率", value: String(format: "%.0f%%", session.accurateRate * 100))
         }
@@ -151,17 +157,24 @@ struct AngleSessionDetailView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: Spacing.md) {
-                    valueLabel("实际", value: String(format: "%.0f°", result.actualAngle))
-                    valueLabel("你答", value: String(format: "%.0f°", result.userAngle))
+                    if result.measurementUnit == "mm" {
+                        Text(result.trainingMetadata?.score?.label ?? "旧版毫米误差")
+                    } else {
+                        valueLabel("实际", value: String(format: "%.0f°", result.actualAngle))
+                        valueLabel("你答", value: String(format: "%.0f°", result.userAngle))
+                    }
                 }
-                Text(pocketLabel(for: result))
+                Text(pocketLabel(for: result) + " · " + (result.trainingMetadata.map { $0.firstAttempt ? ($0.independent ? "独立" : "辅助") : "复练" } ?? "辅助状态未知"))
                     .font(.btCaption2)
                     .foregroundStyle(.btTextTertiary)
             }
 
             Spacer()
 
-            errorBadge(result.error)
+            if let error = result.measurementError {
+                Text(String(format: "%.1f%@", error, result.measurementUnit)).font(.btCaption)
+                    .foregroundStyle(error <= result.measurementThreshold ? Color.btSuccess : .btDestructive)
+            } else { Text("未达标").font(.btCaption).foregroundStyle(.btDestructive) }
         }
         .padding(.vertical, Spacing.xs)
     }

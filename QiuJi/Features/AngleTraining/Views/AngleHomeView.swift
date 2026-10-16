@@ -23,6 +23,7 @@ enum AngleRoute: Hashable {
     case angleDynamic
     case geometricQuiz
     /// 2D 瞄准训练（T-P18-48 拆两卡）：俯视练几何判断。
+    case snakePractice
     case sceneAiming2D
     /// 3D 瞄准训练（T-P18-48 拆两卡）：站位视角练临场球感。
     case sceneAiming3D
@@ -143,7 +144,7 @@ private enum PracticeSection: String, CaseIterable, Identifiable {
         switch self {
         case .learn: "交互弄懂瞄准、旋转与走位"
         case .theory: "定理、流程与速查：分主题看懂原理"
-        case .train: "每天几分钟，校准角度直觉"
+        case .train: "练准度判断与连续走位"
         case .play:  "真实物理沙盘，摆球就能打"
         case .solve: "让引擎当教练，反解这杆怎么打"
         }
@@ -180,7 +181,7 @@ struct AngleHomeView: View {
         .init(route: .angleDynamic, title: "角度与瞄准", subtitle: "拖球看瞄准点变化", contentKind: .interactive, topics: [.accuracy]),
         .init(route: .separationAngleAtlas, title: "分离角图谱", subtitle: "看高低杆碰后方向", contentKind: .interactive, isPremium: true, topics: [.position]),
         .init(route: .cushionEnglishAtlas, title: "加塞吃库图谱", subtitle: "换塞侧看出库方向", contentKind: .interactive, isPremium: true, topics: [.english, .cushion]),
-        .init(route: .ballFeel, title: "浅谈球感", subtitle: "用误差练出直觉", contentKind: .reading, topics: [.accuracy]),
+        .init(route: .ballFeel, title: "浅谈凭感觉瞄准", subtitle: "从找参照到凭感觉判断", contentKind: .reading, topics: [.accuracy]),
         .init(route: .contactPointTable, title: "瞄准点对照表", subtitle: "按切球角查瞄准点", contentKind: .interactive, topics: [.accuracy]),
     ]
 
@@ -212,14 +213,15 @@ struct AngleHomeView: View {
         }
     }
 
-    /// 「练」——测验类：练角度直觉。
+    /// 「练」——准度测验与有规则的连续击球练习。
     private let trainEntries: [AngleEntry] = [
         .init(route: .geometricQuiz, title: "角度预测", subtitle: "估切角看误差", contentKind: .quiz, topics: [.accuracy]),
         .init(route: .sceneAiming2D, title: "2D角度", subtitle: "俯视瞄准看误差", contentKind: .quiz, topics: [.accuracy]),
         .init(route: .sceneAiming3D, title: "3D角度", subtitle: "站位瞄准看误差", contentKind: .quiz, isPremium: true, topics: [.accuracy]),
         .init(route: .aimPointTraining, title: "瞄准点训练", subtitle: "拖假想球看毫米差", contentKind: .quiz, topics: [.accuracy]),
-        .init(route: .aimPointScene2D, title: "2D瞄准点", subtitle: "俯视调线击球验证", contentKind: .quiz, topics: [.accuracy]),
-        .init(route: .aimPointScene3D, title: "3D瞄准点", subtitle: "站位调线击球验证", contentKind: .quiz, isPremium: true, topics: [.accuracy]),
+        .init(route: .aimPointScene2D, title: "2D瞄准点", subtitle: "俯视调线几何对照", contentKind: .quiz, topics: [.accuracy]),
+        .init(route: .aimPointScene3D, title: "3D瞄准点", subtitle: "站位调线几何对照", contentKind: .quiz, isPremium: true, topics: [.accuracy]),
+        .init(route: .snakePractice, title: "蛇彩练习", subtitle: "连续进球与走位", contentKind: .striking, isPremium: true, topics: [.position, .accuracy]),
     ]
 
     /// 「打」——沙盘类：摆球、击打、看真实物理结果。

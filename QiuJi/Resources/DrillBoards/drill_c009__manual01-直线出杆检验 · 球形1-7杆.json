@@ -36,6 +36,8 @@
   "name": "直线出杆检验 · 球形1",
   "steps": [
     {
+      "analysis": {"cueCushionContacts":[],"cueTravelDistanceMeters":2.4874785377093684,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": -0.8980168700218201, "z": 0.4399610161781311},
       "after": {
         "onTable": {
           "_1": {
@@ -115,6 +117,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[],"cueTravelDistanceMeters":2.418882415403326,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": -0.9212371110916138, "z": 0.38900163769721985},
       "after": {
         "onTable": {
           "_2": {
@@ -186,6 +190,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[],"cueTravelDistanceMeters":2.36579540374372,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": -0.9443209171295166, "z": 0.32902589440345764},
       "after": {
         "onTable": {
           "_3": {
@@ -249,6 +255,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":47,"phase":"noBallContact","timeSeconds":0.9123281240463257}],"cueTravelDistanceMeters":2.326565401517763,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": -0.9649109244346619, "z": 0.2625774145126343},
       "after": {
         "onTable": {
           "_4": {
@@ -304,6 +312,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":47,"phase":"noBallContact","timeSeconds":0.8949424624443054}],"cueTravelDistanceMeters":2.2937566668848373,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": -0.9805511832237244, "z": 0.19626347720623016},
       "after": {
         "onTable": {
           "_5": {
@@ -351,6 +361,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":47,"phase":"noBallContact","timeSeconds":0.8836014866828918}],"cueTravelDistanceMeters":2.2696418271477374,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": -0.9917417168617249, "z": 0.12825113534927368},
       "after": {
         "onTable": {
           "_6": {
@@ -390,6 +402,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":47,"phase":"noBallContact","timeSeconds":0.877052366733551}],"cueTravelDistanceMeters":2.258151191255882,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": -0.9982959628105164, "z": 0.05835402011871338},
       "after": {
         "onTable": {}
       },

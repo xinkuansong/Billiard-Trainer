@@ -20,6 +20,8 @@
   "name": "未命名走位",
   "steps": [
     {
+      "analysis": {"aim":{"aimAngleDegrees":11.164334825446598,"ghostCenterMeters":{"x":0.2290056049823761,"y":0.8285750150680542,"z":0.43834981322288513},"pocket":"bottomCenter","pocketAimPointMeters":{"x":-0.0430000014603138,"y":0.800000011920929,"z":0.6650000214576721},"targetBallKey":"_2"},"cueCushionContacts":[{"cushionIndex":1,"mainRail":"positiveZ","phase":"afterFirstContact","timeSeconds":1.2844245433807373}],"cueTravelDistanceMeters":0.992216882586606,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":11.763592758526862,"ballKey":"_2","cueAngularVelocityRadiansPerSecond":{"x":25.676204681396484,"y":0,"z":20.782739639282227},"cueClothSlipSpeedMetersPerSecond":8.429369702178807e-08,"cueForwardRollRatio":0.9999999165691866,"cueMotionState":"rolling","cueSpeedMetersPerSecond":0.9439226473838248,"cueVelocity":{"x":-0.5938668251037598,"y":0,"z":0.7336975932121277},"timeSeconds":0.6626424193382263},"schemaVersion":1},
+      "recordedDirection": {"x": -0.6291476488113403, "z": 0.7772858738899231},
       "after": {
         "onTable": {
           "_3": {
@@ -63,6 +65,8 @@
       }
     },
     {
+      "analysis": {"aim":{"aimAngleDegrees":25.082585219222477,"ghostCenterMeters":{"x":-0.9550024271011353,"y":0.8285750150680542,"z":-0.15447358787059784},"pocket":"topLeft","pocketAimPointMeters":{"x":-1.26981782913208,"y":0.800000011920929,"z":-0.637292742729187},"targetBallKey":"_3"},"cueCushionContacts":[{"cushionIndex":4,"mainRail":"negativeX","phase":"afterFirstContact","timeSeconds":2.0239245891571045}],"cueTravelDistanceMeters":1.8471741938052575,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":26.421696832514787,"ballKey":"_3","cueAngularVelocityRadiansPerSecond":{"x":-16.209232330322266,"y":0,"z":26.183786392211914},"cueClothSlipSpeedMetersPerSecond":5.960464477539063e-08,"cueForwardRollRatio":0.9999999493556564,"cueMotionState":"rolling","cueSpeedMetersPerSecond":0.8799661577692865,"cueVelocity":{"x":-0.7482017278671265,"y":0,"z":-0.463178813457489},"timeSeconds":1.3145952224731445},"schemaVersion":1},
+      "recordedDirection": {"x": -0.8502619862556458, "z": -0.5263596177101135},
       "after": {
         "onTable": {
           "cueBall": {

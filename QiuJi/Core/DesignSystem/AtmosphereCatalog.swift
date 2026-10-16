@@ -187,7 +187,7 @@ enum AtmosphereCatalog {
         case .aimPointScene3D: return .coverPracticeAimPoint3D
         case .shotSimulation: return .coverPracticeShotSim
         case .positionPlayComposer: return .coverPracticeComposer
-        case .freePlay: return .coverPracticeFreePlay
+        case .freePlay, .snakePractice: return .coverPracticeFreePlay
         case .ballExtraction: return .coverPracticeBallExtraction
         case .positionPlaySolver: return .coverPracticeSolver
         case .planThree: return .coverPracticePlanThree
@@ -226,7 +226,7 @@ enum AtmosphereCatalog {
         case .contactPointTable: multicolor.contactPointTable
         case .shotSimulation: multicolor.shotSimulation
         case .positionPlayComposer: multicolor.positionPlayComposer
-        case .freePlay: multicolor.freePlay
+        case .freePlay, .snakePractice: multicolor.freePlay
         case .ballExtraction: multicolor.ballExtraction
         case .batchDrillStudio: multicolor.batchDrillStudio
         case .positionPlaySolver: multicolor.positionPlaySolver

@@ -129,6 +129,9 @@ struct RootView: View {
         if args.contains("-deeplink.silu") {
             return AnyView(NavigationStack { SiluTrainerView() })
         }
+        if args.contains("-deeplink.snakePractice") {
+            return AnyView(NavigationStack { SnakePracticeView() })
+        }
         if args.contains("-deeplink.freePlay") {
             return AnyView(NavigationStack { FreePlayView() })
         }

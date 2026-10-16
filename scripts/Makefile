@@ -17,6 +17,8 @@ PROJECT_ROOT := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))/..
 BUILD_DIR    := $(PROJECT_ROOT)/build
 DERIVED_DATA := $(BUILD_DIR)/DerivedData
 TEST_LOG     := $(BUILD_DIR)/test-results.log
+SIM_LIFECYCLE := python3 "$(PROJECT_ROOT)/scripts/simulator_lifecycle.py"
+SIM_TEST_GUARD = $(if $(filter test test-without-building,$(TEST_ACTION)),$(SIM_LIFECYCLE) run --task make-test --destination "$(TEST_DESTINATION)" --,)
 TEST_SELECTOR := $(if $(strip $(ONLY_TESTING)),-only-testing:$(strip $(ONLY_TESTING)),)
 ARCHIVE_PATH := $(BUILD_DIR)/QiuJi.xcarchive
 EXPORT_PATH  := $(BUILD_DIR)/export
@@ -72,6 +74,8 @@ help:
 	@echo "  make screenshot   当前运行的模拟器截图"
 	@echo "  make open         用 Xcode 打开项目"
 	@echo "  make clean        清理 build/ 目录"
+	@echo "  make sim-test     从有上限的设备池独占借用模拟器并测试"
+	@echo "  make sim-inventory / sim-clean / sim-clean-apply  设备清单 / 回收预览 / 回收已释放临时设备"
 	@echo "  make dsym         从 Archive 提取 dSYM"
 	@echo "────────────────────────────────────"
 	@echo "  变量覆盖示例："
@@ -137,8 +141,14 @@ BUNDLE_ID ?= com.xinkuan.qiuji
 APP_PATH  := $(DERIVED_DATA)/Build/Products/Debug-iphonesimulator/$(APP_NAME).app
 PREMIUM   ?= 1
 
-.PHONY: run
+.PHONY: run _sim-run
 run: build
+	@$(SIM_LIFECYCLE) run --task make-run --destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' -- \
+	  make -f "$(PROJECT_ROOT)/scripts/Makefile" _sim-run SIM_DEVICE='{udid}'
+
+# Internal recipe; the public run target owns the host-wide simulator lease.
+_sim-run:
+	@test -n "$$QIUJI_SIMULATOR_LEASE_TOKEN" || (echo "Use make run to acquire a simulator lease"; exit 1)
 	@echo "→ 启动模拟器 $(SIM_DEVICE)..."
 	@open -a Simulator
 	@xcrun simctl boot "$(SIM_DEVICE)" 2>/dev/null || true
@@ -162,12 +172,13 @@ test:
 	@echo "→ 运行 XCTest..."
 	@mkdir -p $(DERIVED_DATA)
 	@status=0; pretty_status=0; \
-	  xcodebuild \
+	  $(SIM_TEST_GUARD) xcodebuild \
 	    $(PROJECT_FLAG) \
 	    -scheme $(SCHEME) \
 	    -configuration $(TEST_CONFIGURATION) \
 	    -derivedDataPath $(DERIVED_DATA) \
 	    -destination '$(TEST_DESTINATION)' \
+	    $(if $(filter test test-without-building,$(TEST_ACTION)),-parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1,) \
 	    $(if $(filter test test-without-building build-for-testing,$(TEST_ACTION)),-enableCodeCoverage $(TEST_CODE_COVERAGE),) \
 	    $(TEST_BUILD_SETTINGS) \
 	    $(TEST_SELECTOR) \
@@ -206,12 +217,13 @@ position-export:
 	  echo "  已同步内容库序列: $$(ls $(SEQUENCE_CONTENT_DIR)/*.json | wc -l | tr -d ' ') 个"; \
 	fi
 	@touch $(BAKE_GATE_FLAG)
-	xcodebuild \
+	$(SIM_LIFECYCLE) run --task position-export --destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' -- xcodebuild \
 	  $(PROJECT_FLAG) \
 	  -scheme $(SCHEME) \
 	  -configuration Debug \
 	  -derivedDataPath $(DERIVED_DATA) \
 	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
+	  -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
 	  -only-testing:QiuJiTests/PositionPlaySequenceExportRunnerTests \
 	  $(BAKE_GATE_ENV) \
 	  test; \
@@ -228,12 +240,13 @@ position-export-stills:
 	  echo "  已同步内容库序列: $$(ls $(SEQUENCE_CONTENT_DIR)/*.json | wc -l | tr -d ' ') 个"; \
 	fi
 	@touch $(BAKE_GATE_FLAG)
-	xcodebuild \
+	$(SIM_LIFECYCLE) run --task position-export-stills --destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' -- xcodebuild \
 	  $(PROJECT_FLAG) \
 	  -scheme $(SCHEME) \
 	  -configuration Debug \
 	  -derivedDataPath $(DERIVED_DATA) \
 	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
+	  -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
 	  -only-testing:QiuJiTests/PositionPlaySequenceExportRunnerTests \
 	  $(BAKE_GATE_ENV) \
 	  test; \
@@ -255,12 +268,13 @@ thumbnails:
 	@echo "→ 动作库缩略图烘焙 → $(THUMBNAIL_DIR)"
 	@mkdir -p $(BUILD_DIR) $(DERIVED_DATA) "$(THUMBNAIL_DIR)"
 	@touch $(BAKE_GATE_FLAG)
-	xcodebuild \
+	$(SIM_LIFECYCLE) run --task thumbnails --destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' -- xcodebuild \
 	  $(PROJECT_FLAG) \
 	  -scheme $(SCHEME) \
 	  -configuration Debug \
 	  -derivedDataPath $(DERIVED_DATA) \
 	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
+	  -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
 	  -only-testing:QiuJiTests/DrillThumbnailBakeRunnerTests/test_bakeAllThumbnails \
 	  $(BAKE_GATE_ENV) \
 	  QIUJI_THUMBNAIL_OUTPUT_DIR="$(THUMBNAIL_DIR)" \
@@ -277,13 +291,17 @@ thumbnails:
 # 序列在批量出片台更新后重跑本命令即可刷新试打球形（含删除失效文件）。
 # ────────────────────────────────────────────
 DRILL_BOARDS_DIR := $(PROJECT_ROOT)/QiuJi/Resources/DrillBoards
+# Optional scoped publication, e.g. TRYOUT_DRILL_IDS='drill_c031 drill_c085'.
+# Excluded drills remain protected from rsync --delete.
+TRYOUT_DRILL_IDS ?=
+TRYOUT_SYNC_INCLUDES = $(if $(strip $(TRYOUT_DRILL_IDS)),$(foreach drill,$(TRYOUT_DRILL_IDS),--include='$(drill)__*.json' --include='$(drill)-*.json'),--include='drill_c*.json')
 
 .PHONY: tryout-sync
 tryout-sync:
 	@echo "→ 同步 drill 序列 → $(DRILL_BOARDS_DIR)"
 	@mkdir -p "$(DRILL_BOARDS_DIR)"
-	@rsync -a --delete \
-	  --include='drill_c*.json' --exclude='*' \
+	@rsync -a --checksum --delete \
+	  $(TRYOUT_SYNC_INCLUDES) --exclude='*' \
 	  "$(SEQUENCE_CONTENT_DIR)/" "$(DRILL_BOARDS_DIR)/"
 	@echo "✅ 已同步 $$(ls "$(DRILL_BOARDS_DIR)" | wc -l | tr -d ' ') 个球形序列"
 
@@ -485,3 +503,20 @@ camera-surface-device: camera-surface-project
 	  -scheme QiuJi -configuration Debug -destination 'generic/platform=iOS' \
 	  -derivedDataPath $(CAMERA_EXPERIMENT_DIR)/DerivedData -allowProvisioningUpdates \
 	  SWIFT_OPTIMIZATION_LEVEL=-O build
+
+# Host-wide lifecycle: all worktrees share leases outside build/.
+SIM_TASK ?= automated-test
+SIM_TYPE ?= com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro
+SIM_RUNTIME ?= com.apple.CoreSimulator.SimRuntime.iOS-26-3
+.PHONY: sim-inventory sim-clean sim-clean-apply sim-test sim-lifecycle-check
+sim-inventory:
+	@$(SIM_LIFECYCLE) inventory
+sim-clean:
+	@$(SIM_LIFECYCLE) cleanup
+sim-clean-apply:
+	@$(SIM_LIFECYCLE) cleanup --apply
+sim-test:
+	@$(SIM_LIFECYCLE) run --task "$(SIM_TASK)" --type "$(SIM_TYPE)" --runtime "$(SIM_RUNTIME)" -- \
+	  make -f "$(PROJECT_ROOT)/scripts/Makefile" test TEST_DESTINATION='platform=iOS Simulator,id={udid}'
+sim-lifecycle-check:
+	@python3 -m unittest discover -s "$(PROJECT_ROOT)/scripts/simulator-lifecycle" -v

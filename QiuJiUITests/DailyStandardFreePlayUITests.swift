@@ -158,34 +158,43 @@ final class DailyStandardFreePlayUITests: XCTestCase {
         XCTAssertEqual(renderer.width, stage.width, accuracy: 2, file: file, line: line)
         XCTAssertEqual(renderer.height, stage.height, accuracy: 2, file: file, line: line)
     }
-    func testTryoutRendererFollowsStageAfterDetailRotation() throws {
-        continueAfterFailure = true
+    func testTryoutRendererFollowsStageAfterDetailCameraSwitch() throws {
+        continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
-        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-v53.authenticatedProfileFixture", "-deeplink.drillDetail=drill_c001", "-v54.forceLight", "-dailyLayout.probe"])
-        let mode = app.buttons["drillScene.cameraMode"], play = app.buttons["drillPlayButton"]
+        defer { XCUIDevice.shared.orientation = .portrait }
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-v53.authenticatedProfileFixture", "-deeplink.drillDetail=drill_c001", "-v54.forceLight", "-dailyLayout.probe", "-drillTryout.hasSeenGestureHint", "YES"])
+        let mode = app.buttons["drillScene.cameraMode"]
         XCTAssertTrue(mode.waitForExistence(timeout: 15))
+        let originalMode = mode.value as? String
+        mode.tap()
+        XCTAssertNotEqual(mode.value as? String, originalMode)
+        mode.tap()
+        XCTAssertEqual(mode.value as? String, originalMode)
+        // Current phone contract: detail stays portrait and tryout owns landscape.
         XCUIDevice.shared.orientation = .landscapeLeft
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in self.app.windows.firstMatch.frame.width > self.app.windows.firstMatch.frame.height }, object: nil)], timeout: 10), .completed)
-        mode.tap(); app.buttons["drillScene.overview"].tap(); mode.tap()
-        play.tap(); play.tap()
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == '继续' OR label == '回放'"), object: play)], timeout: 40), .completed)
-        XCUIDevice.shared.orientation = .portrait
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in self.app.windows.firstMatch.frame.height > self.app.windows.firstMatch.frame.width }, object: nil)], timeout: 10), .completed)
+        XCTAssertGreaterThan(app.windows.firstMatch.frame.height, app.windows.firstMatch.frame.width)
         app.buttons["bottomTryoutButton"].tap()
         XCTAssertTrue(element("composer.landscape").waitForExistence(timeout: 15))
         try capture("tryout-renderer-entry")
         assertRendererMatchesStage()
-        // A second independent snapshot exposes stale placement; this is observation,
-        // not a readiness delay or an attempt to make the first assertion pass.
         try capture("tryout-renderer-second")
         assertRendererMatchesStage()
-        if ProcessInfo.processInfo.environment["FREEPLAY_DIAGNOSTIC_BASELINE"] == "1" { return }
-        XCUIDevice.shared.orientation = .landscapeLeft
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in self.app.windows.firstMatch.frame.width > self.app.windows.firstMatch.frame.height }, object: nil)], timeout: 10), .completed)
-        try capture("tryout-renderer-landscape"); assertRendererMatchesStage()
         XCUIDevice.shared.orientation = .portrait
+        XCTAssertGreaterThan(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height)
+        try capture("tryout-renderer-device-portrait"); assertRendererMatchesStage()
+        app.buttons["freeplay.moreMenu"].tap()
+        let tryoutMode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(tryoutMode.waitForExistence(timeout: 5)); tryoutMode.tap()
+        app.buttons["关闭菜单"].tap()
+        try capture("tryout-renderer-3d")
+        // Perspective uses the full scene viewport; the fitted stage is a 2D contract.
+        XCTAssertTrue(element("table.scene").frame.contains(element("freeplay.stage").frame))
+        app.buttons["freeplay.moreMenu"].tap(); tryoutMode.tap()
+        app.buttons["关闭菜单"].tap()
+        assertRendererMatchesStage()
+        app.buttons["dailyClearance.back"].tap()
+        XCTAssertTrue(mode.waitForExistence(timeout: 10))
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in self.app.windows.firstMatch.frame.height > self.app.windows.firstMatch.frame.width }, object: nil)], timeout: 10), .completed)
-        try capture("tryout-renderer-return"); assertRendererMatchesStage()
     }
     private func openPlayPage(_ title: String) {
         XCUIDevice.shared.orientation = .portrait

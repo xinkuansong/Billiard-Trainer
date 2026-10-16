@@ -121,10 +121,10 @@ struct SiluTrainerView: View {
                     }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }.disabled(busy)
                         .opacity(busy ? 0.4 : 1).accessibilityIdentifier("silu.tool")
                     action("清除", "eraser", "silu.clearConstraint", enabled: !busy && vm.hasConstraint) { vm.clearConstraint() }
-                    action("求解", "function", "solver.solve", enabled: !busy && vm.hasConstraint) { vm.solve() }
+                    action("求解", TeachingSolverSymbols.solve, "solver.solve", enabled: !busy && vm.hasConstraint) { vm.solve() }
                     TeachingSolutionButton(count: vm.solutions.count, currentIndex: vm.currentIndex,
-                        enabled: !busy, next: { vm.nextSolution() }, select: { vm.selectSolution(at: $0) },
-                        onDetails: { informationPanel = .details }, isModified: vm.isSolutionAdjusted)
+                        enabled: !busy, next: { vm.nextSolution() },
+                        isModified: vm.isSolutionAdjusted)
                     action("重打", "arrow.uturn.backward", "silu.undo", enabled: !busy && !vm.temporaryTopDownActive && vm.canUndoShot) { vm.undoLastShot() }
                     action("回放", "play.rectangle", "silu.replay", enabled: !busy && !vm.temporaryTopDownActive && vm.canPlayback) { vm.replayLastShot() }
                 }
@@ -176,17 +176,13 @@ struct SiluTrainerView: View {
         }
     }
     private func informationSections(_ panel: PlanningPanel) -> [(String, String)] {
-        if panel == .details {
-            return [("当前方案", PlanningSolutionDetails.text(vm.currentSolution, index: vm.currentIndex,
-                count: vm.solutions.count, adjusted: vm.isSolutionAdjusted, defense: false))]
-        }
         var sections: [(String, String)] = []
         if vm.informationEvent.kind == .failure { sections.append(("当前问题", vm.informationEvent.text)) }
         else if let prompt = compactPrompt { sections.append(("当前步骤", prompt)) }
         sections += [
             ("摆球与选择", "拖动球调整球形；点选目标球和目标袋。完成选择与约束后求解。"),
             ("约束工具", "落区：拖出母球期望停下的区域。\n落点：点选母球期望停下的位置；琥珀十字表示目标，圆环表示容差。\n过点：点选母球需要经过的位置。\n切回“摆球”可继续选择目标球和袋口。"),
-            ("方案与微调", "轻点方案按钮切换解；长按选择方案或查看当前方案详情。调整打点、杆速后，当前方案标记“微调”。不满足约束或超出筛选范围的方案仍保留提示。")
+            ("方案与微调", "轻点解按钮切换下一解，按钮显示当前序号和总数。调整打点、杆速后，当前方案标记“微调”。不满足约束或超出筛选范围的方案仍保留提示。")
         ]
         return sections
     }

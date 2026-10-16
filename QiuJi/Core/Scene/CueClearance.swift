@@ -18,9 +18,8 @@ enum CueClearance {
     /// per-ball separation latch rather than widening this offset (render pivot unchanged).
     static var tipOffset: Float { AngleSceneCalculator.ballRadius + 0.001 }
     /// Conservative max backswing for occlusion span.
-    /// Source: `CueStroke.basePullBack + pullBackPerSpeed · v` with v ≈ 2.9 m/s
-    /// → 0.05 + 0.035·2.86 ≈ 0.15 m.
-    static let maxPullBack: Float = 0.15
+    /// Covers every speed's rehearsal and final backswing.
+    static let maxPullBack: Float = CueStroke.maximumPullBack
     /// Visual clearance added on top of R + shaft radius (m).
     static let ballClearance: Float = 0.002
     /// Contact margin for post-contact collision probe (m).
@@ -74,9 +73,9 @@ enum CueClearance {
     }
 
     /// Pull-back after contact: follow-through curve then hold at `endPull`.
-    static func pullBackAfterContact(tau: TimeInterval, endPull: Float) -> Float {
+    static func pullBackAfterContact(tau: TimeInterval, endPull: Float, velocity: Float? = nil) -> Float {
         if tau <= CueStroke.followThroughDuration {
-            return CueStroke.followThrough(at: tau, endPull: endPull)
+            return CueStroke.followThrough(at: tau, endPull: endPull, velocity: velocity)
         }
         return endPull
     }
@@ -104,6 +103,7 @@ enum CueClearance {
         elevation: Float,
         endPull: Float,
         holdDuration: TimeInterval,
+        velocity: Float? = nil,
         ballsAt: (TimeInterval) -> [String: SCNVector3],
         sampleDt: TimeInterval = sampleDt,
         searchHorizon: TimeInterval? = nil
@@ -117,7 +117,7 @@ enum CueClearance {
         var hasSeparated: Set<String> = []
         for i in 1...steps {
             let t = min(horizon, TimeInterval(i) * sampleDt)
-            let pull = pullBackAfterContact(tau: t, endPull: endPull)
+            let pull = pullBackAfterContact(tau: t, endPull: endPull, velocity: velocity)
             let seg = shaftSegment(
                 strikePosition: strikePosition,
                 aimDirection: aimDirection,

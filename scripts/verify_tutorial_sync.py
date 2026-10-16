@@ -219,6 +219,29 @@ def check_export_freshness(sequences: dict[str, list[dict]],
             if not marker.exists():
                 missing.append((drill_id, item["stem"]))
                 continue
+            proof = marker.parent / "render-input.json"
+            if proof.exists():
+                # analysis is non-rendering metadata. Explicit source + frame evidence
+                # replaces the coarse mtime heuristic, never an unconditional exemption.
+                try:
+                    stamp = json.loads(proof.read_text(encoding="utf-8"))
+                    current = json.loads(item["path"].read_text(encoding="utf-8"))
+                    for step in current["steps"]:
+                        step.pop("analysis", None)
+                    expected_frames = {"initial.png", "final.png"} | {
+                        f"s{i + 1:02d}_still.png" for i in range(item["shots"])
+                    }
+                    valid = (stamp["schemaVersion"] == 1 and stamp["sequence"] == current
+                             and set(stamp["framesSHA256"]) == expected_frames
+                             and all(hashlib.sha256((marker.parent / name).read_bytes()).hexdigest() == digest
+                                     for name, digest in stamp["framesSHA256"].items()))
+                except (OSError, ValueError, KeyError, TypeError, AttributeError):
+                    valid = False
+                if valid:
+                    ok += 1
+                else:
+                    stale.append((drill_id, item["stem"]))
+                continue
             if marker.stat().st_mtime < item["path"].stat().st_mtime:
                 stale.append((drill_id, item["stem"]))
             else:

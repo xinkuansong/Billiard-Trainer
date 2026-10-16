@@ -16,6 +16,10 @@ final class MaterialFactory {
     private static let textureCacheLock = NSLock()
     private static var feltNormalMapCache: [Int: UIImage] = [:]
     private static var woodNormalMapCache: [Int: UIImage] = [:]
+    static func resetTextureCache() {
+        textureCacheLock.lock(); defer { textureCacheLock.unlock() }
+        feltNormalMapCache.removeAll(); woodNormalMapCache.removeAll(); cueBallWarmTexture = nil
+    }
 
     // MARK: - Tuning constants
 

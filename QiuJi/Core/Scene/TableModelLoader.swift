@@ -1,4 +1,5 @@
 import SceneKit
+import UIKit
 import os
 
 /// Loads the TaiQiuZhuo.usdz billiard table model and adapts it
@@ -30,20 +31,29 @@ final class TableModelLoader {
 
     // MARK: - Model Scene Cache
 
-    /// 解析 94 MB 的 TaiQiuZhuo.usdz 需要数秒（同步磁盘 IO + 网格/贴图解码），
-    /// 是所有 2D/3D 球桌页进页卡顿的根因。这里缓存解析结果（进程级、只读原型），
-    /// 每次 `loadTable()` 从原型 clone + 几何/材质副本（毫秒级）。
+    /// 解析 ModelAssetTrial 当前选择的 USDZ 涉及磁盘读取及网格/贴图准备。
+    /// 缓存只读原型以避免每页重复解析；加载耗时仍需与材质、反射和首帧分别测量。
+    /// `loadTable()` 复制节点、几何和材质容器，共享不可变的底层图像/缓冲。
     /// 锁同时串行化「加载缓存」与「从缓存 clone」——SceneKit 未承诺跨线程
     /// 并发访问同一节点树安全（缩略图渲染、视频导出会在后台线程调用）。
     private static let cacheLock = NSLock()
     private static var cachedModelScene: SCNScene?
-    private static var preparedModel: TableModel?
+    private static var preparedModel: PreparedModel?
+    private static var modelIdentity: String?
+    private static func validateAssetIdentity() {
+        let identity = ModelAssetTrial.identity("TaiQiuZhuo")
+        if identity != modelIdentity {
+            cachedModelScene = nil; preparedModel = nil; modelIdentity = identity
+            PocketLeatherMesh.resetCache()
+        }
+    }
 
     /// App 启动时后台预热：把 USDZ 解析挪出「首次进球桌页」的主线程临界区。
     /// 可从任意线程调用；已缓存时为 no-op。
     static func preloadModel() {
         cacheLock.lock()
         defer { cacheLock.unlock() }
+        validateAssetIdentity()
         if cachedModelScene == nil && preparedModel == nil {
             cachedModelScene = parseModelScene()
         }
@@ -60,6 +70,37 @@ final class TableModelLoader {
         } catch {
             logger.error("Pocket region warm-up failed; page will retry: \(String(describing: error), privacy: .public)")
         }
+    }
+
+    /// Asset preparation on an isolated clone. Never creates a renderer or
+    /// publishes page state; cancellation is checked between expensive stages.
+    static func preloadAppearance(ball: BallStickerStyle, cue: CueStyle, table: TableStyle,
+                                  cancelled: () -> Bool) {
+        guard !cancelled(), let model = loadTable() else { return }
+        guard !cancelled() else { return }
+        model.visualNode.position.y += BTTablePhysics.surfaceY - model.surfaceY
+        _ = try? PocketLeatherMesh.cachedExtraction(from: model.visualNode,
+            centers: AngleSceneCalculator.pocketPositions(surfaceY: BTTablePhysics.surfaceY))
+        guard !cancelled() else { return }
+        _ = BallStickerAppearance.apply(ball, to: model.ballNodes)
+        guard !cancelled() else { return }
+        if cue != .original, let node = model.cueStickNode {
+            var materials: [SCNMaterial] = node.geometry?.materials ?? []
+            node.enumerateChildNodes { child, _ in materials += child.geometry?.materials ?? [] }
+            _ = CueStyleModel.geometry(preserving: materials)
+            _ = CueStyleModel.apply(cue, to: materials)
+        }
+        guard !cancelled() else { return }
+        TableAppearance.preloadTexture(table)
+        // Numerical-map conversion must not wait for the first visible page.
+        // The existing warm queue is drained before purge, so cancelled work
+        // cannot repopulate these caches after eviction.
+        guard !cancelled() else { return }
+        _ = TableSurfaceTextures.woodRoughness
+        guard !cancelled() else { return }
+        _ = TableSurfaceTextures.leatherRoughness
+        guard !cancelled() else { return }
+        _ = TableSurfaceTextures.leatherNormal
     }
 
     /// 必须在持有 `cacheLock` 时调用。
@@ -87,21 +128,54 @@ final class TableModelLoader {
     /// The adapted prototype is immutable. Nodes, native geometries and materials
     /// are copied; decoded images/buffers are shared. Never share live ball state.
     static func loadTable(includeVisual: Bool = true) -> TableModel? {
+        TableResourceCache.beginModelRead()
+        defer { TableResourceCache.endModelRead() }
         cacheLock.lock()
         defer { cacheLock.unlock() }
+        validateAssetIdentity()
         if preparedModel == nil {
-            preparedModel = prepareTable()
-            if preparedModel != nil { cachedModelScene = nil }
+            preparedModel = autoreleasepool {
+                guard let model = prepareTable() else { return nil }
+                let prototype = PreparedModel(model)
+                cachedModelScene = nil
+                return prototype
+            }
         }
         guard let model = preparedModel else { return nil }
-        func copy(_ node: SCNNode) -> SCNNode {
-            let result = node.clone()
-            deepCopyGeometryAndMaterials(in: result)
-            return result
-        }
-        return TableModel(visualNode: includeVisual ? copy(model.visualNode) : SCNNode(),
+        return TableModel(visualNode: includeVisual ? Self.instance(of: model.table) : SCNNode(),
             appliedScale: model.appliedScale, surfaceY: model.surfaceY,
-            cueStickNode: model.cueStickNode.map(copy), ballNodes: model.ballNodes.mapValues(copy))
+            cueStickNode: model.cue.map(Self.instance), ballNodes: model.balls.mapValues(Self.instance))
+    }
+
+    /// Cache table, balls and cue as separate immutable components. Keep native
+    /// material backing shared for predictable page-entry cost; every consumer
+    /// still receives independent nodes and mutable geometry/material containers.
+    /// The source scene is released. Page state never enters these prototypes.
+    private struct PreparedModel {
+        let table: SCNNode
+        let cue: SCNNode?
+        let balls: [String: SCNNode]
+        let appliedScale: SCNVector3
+        let surfaceY: Float
+        let archivePath: String?
+        init(_ model: TableModel) {
+            archivePath = ModelAssetTrial.url("TaiQiuZhuo")?.path
+            table = model.visualNode; cue = model.cueStickNode; balls = model.ballNodes
+            appliedScale = model.appliedScale; surfaceY = model.surfaceY
+        }
+    }
+    /// Pin the original native texture backing for one synchronous material
+    /// update, including when another thread evicts the cache during that update.
+    static func withNativeMaterialBacking<Result>(_ body: (String?) -> Result) -> Result {
+        cacheLock.lock()
+        let backing = preparedModel
+        cacheLock.unlock()
+        return withExtendedLifetime(backing) { body(backing?.archivePath) }
+    }
+    private static func instance(of prototype: SCNNode) -> SCNNode {
+        let node = prototype.clone()
+        deepCopyGeometryAndMaterials(in: node)
+        return node
     }
 
     static func resetCache() {
@@ -388,19 +462,39 @@ final class TableModelLoader {
 /// get independent node trees, and returning one cannot mutate another.
 @MainActor
 final class TableResourceCache: NSObject {
-    static let shared = TableResourceCache()
+    nonisolated private static let sceneOwnership = TableResourceOwnership()
+    static let shared = TableResourceCache(ownership: sceneOwnership, retainsForegroundHotSet: true)
     static let idleLifetime: TimeInterval = 30
-    private(set) var activeScenes = 0
-    private(set) var generation: UInt64 = 0
+    var activeScenes: Int { ownership.sceneCount }
+    var generation: UInt64 { ownership.generation }
+    nonisolated private let ownership: TableResourceOwnership
     private(set) var idleTable: AngleTrainingScene.ReusableTable?
     private var isForeground = true
     private var expiry: DispatchWorkItem?
     private var warming = false
     private var warmed = false
+    private let retainsForegroundHotSet: Bool
+    private var warmToken: TableWarmToken?
+    private var warmedKey: String?
+    private var requestedWarmup = false
     private let warmQueue = DispatchQueue(label: "com.qiuji.table-assets", qos: .utility)
 
     override init() {
+        ownership = TableResourceOwnership()
+        retainsForegroundHotSet = false
         super.init()
+        registerObservers()
+    }
+    convenience init(retainsForegroundHotSet: Bool) {
+        self.init(ownership: TableResourceOwnership(), retainsForegroundHotSet: retainsForegroundHotSet)
+    }
+    private init(ownership: TableResourceOwnership, retainsForegroundHotSet: Bool) {
+        self.ownership = ownership
+        self.retainsForegroundHotSet = retainsForegroundHotSet
+        super.init()
+        registerObservers()
+    }
+    private func registerObservers() {
         NotificationCenter.default.addObserver(self, selector: #selector(memoryWarning),
             name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(background),
@@ -410,11 +504,27 @@ final class TableResourceCache: NSObject {
     }
     deinit { NotificationCenter.default.removeObserver(self) }
 
+    /// A worker-created export scene participates without synchronously hopping
+    /// to the main queue (which may itself be waiting for the export).
+    nonisolated static func acquireScene() -> UInt64 {
+        let ticket = sceneOwnership.acquire()
+        DispatchQueue.main.async {
+            guard ticket == shared.generation else { return }
+            shared.didAcquire()
+            if shared.retainsForegroundHotSet { shared.warmForEntry() }
+        }
+        return ticket
+    }
+    // Direct geometry extraction borrows only during its synchronous model read.
+    // Returned nodes/images own their buffers and remain valid after eviction.
+    nonisolated static func beginModelRead() { sceneOwnership.beginRead() }
+    nonisolated static func endModelRead() { sceneOwnership.endRead() }
     func acquire() -> UInt64 {
+        let ticket = ownership.acquire(); didAcquire(); return ticket
+    }
+    private func didAcquire() {
         expiry?.cancel(); expiry = nil
-        activeScenes += 1
         record("acquire")
-        return generation
     }
     func takeTable(key: String) -> AngleTrainingScene.ReusableTable? {
         guard idleTable?.key == key else { record("tableMiss"); return nil }
@@ -423,7 +533,7 @@ final class TableResourceCache: NSObject {
         return idleTable
     }
     func release(_ table: AngleTrainingScene.ReusableTable?, generation leaseGeneration: UInt64) {
-        activeScenes = max(0, activeScenes - 1)
+        ownership.release()
         table?.detach()
         if isForeground, leaseGeneration == generation, let table { idleTable = table }
         record("release")
@@ -438,47 +548,77 @@ final class TableResourceCache: NSObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.idleLifetime, execute: work)
     }
     func expireIfIdle(generation ticket: UInt64) {
-        guard activeScenes == 0, ticket == generation else { return }
-        purge(reason: "expired")
+        guard activeScenes == 0, ticket == generation, isForeground else { return }
+        if retainsForegroundHotSet {
+            // Keep the shared hot resources and one detached table. Derived
+            // teaching/card images and old room probes are cheap to rebuild.
+            TableFigureRenderer.resetCache()
+            DrillThumbnailStore.resetCache()
+            DrillTutorialImageStore.resetCache()
+            BallFeelPerspectiveRenderer.resetCache()
+            RoomReflectionProbe.trimToMostRecent()
+            expiry = nil
+            record("warmIdle")
+        } else { purge(reason: "expired") }
     }
 
-    /// Intent warm-up only from the three table entry tabs; never constructs a
-    /// hidden page, camera or renderer, and never gates navigation/orientation.
+    /// Called after the home view is visible and again at each live entry.
+    /// Repeated requests coalesce; only the selected appearance is prepared.
     func warmForEntry() {
-        guard isForeground, !warming, !warmed else { return }
+        requestedWarmup = true
+        guard isForeground else { return }
+        let ball = BallStickerStyle.selected(), cue = CueStyle.selected()
+        let table = TableStyle(rawValue: UserDefaults.standard.string(forKey: TableStyle.preferenceKey) ?? "") ?? .defaultStyle
+        let key = [ModelAssetTrial.identity("TaiQiuZhuo"), ball.rawValue, cue.rawValue, table.rawValue].joined(separator: "|")
+        guard !warming, warmedKey != key else { return }
         warming = true
+        let token = TableWarmToken(); warmToken = token
         let ticket = generation
+        record("preparing")
         warmQueue.async { [weak self] in
-            autoreleasepool { TableModelLoader.preloadPocketRegions() }
+            autoreleasepool {
+                TableModelLoader.preloadAppearance(ball: ball, cue: cue, table: table,
+                                                   cancelled: { token.isCancelled })
+            }
             DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self.warming = false
-                if ticket == self.generation, self.isForeground {
-                    self.warmed = true
-                    self.scheduleExpiry()
-                } else {
-                    // A warning/background event during decode must not resurrect
-                    // a cache that has already been evicted.
-                    TableModelLoader.resetCache()
-                    PocketLeatherMesh.resetCache()
-                }
+                guard let self, self.warmToken === token else { return }
+                self.warming = false; self.warmToken = nil
+                guard !token.isCancelled, ticket == self.generation, self.isForeground else { return }
+                self.warmed = true; self.warmedKey = key
+                self.record("warm")
+                self.scheduleExpiry()
+                // A preference may have changed while this request was running.
+                self.warmForEntry()
             }
         }
     }
     @objc private func memoryWarning() { purge(reason: "memoryWarning") }
     @objc private func background() { isForeground = false; purge(reason: "background") }
-    @objc private func foreground() { isForeground = true }
+    @objc private func foreground() {
+        isForeground = true
+        if requestedWarmup { warmForEntry() }
+    }
 
     private func record(_ event: String) {
         DailyLayoutProbe.record("tableCache." + event, ["activeScenes": String(activeScenes),
             "idleTables": idleTable == nil ? "0" : "1", "generation": String(generation),
+            "modelReads": String(ownership.modelReads),
+            "ballImageBytes": String(BallStickerAppearance.retainedImageBytes),
+            "ballUVBytes": String(BallStickerAppearance.retainedUVBytes),
+            "cueImageBytes": String(CueStyleModel.retainedImageBytes),
+            "warm": String(warmed), "preparing": String(warming),
             "table": idleTable.map { String(describing: ObjectIdentifier($0.node)) } ?? "none"])
     }
     func purge(reason: String = "explicit") {
-        generation &+= 1
+        ownership.invalidate()
         expiry?.cancel(); expiry = nil
         idleTable = nil
-        warmed = false
+        warmToken?.cancel()
+        // A warm worker never waits for the main actor. Drain its current CPU
+        // stage before clearing caches so an obsolete worker cannot refill them.
+        warmQueue.sync {}
+        warmToken = nil; warming = false
+        warmed = false; warmedKey = nil
         TableModelLoader.resetCache()
         MobileReferenceLighting.resetImageCache()
         BakedTrainingRoom.resetCache()
@@ -487,6 +627,76 @@ final class TableResourceCache: NSObject {
         BallStickerAppearance.resetCache()
         TableFigureRenderer.resetCache()
         DrillTryoutBoardStore.resetCache()
+        TableSurfaceTextures.resetCache()
+        TableAppearance.resetImageCache()
+        MaterialFactory.resetTextureCache()
+        CueStyleModel.resetCache()
+        DrillThumbnailStore.resetCache()
+        DrillTutorialImageStore.resetCache()
+        BallFeelPerspectiveRenderer.resetCache()
         record("purge." + reason)
     }
+}
+
+
+/// Bounded ownership of decoded images. Live materials/views retain their own
+/// references; eviction never mutates an image already borrowed by a consumer.
+final class TableAssetImageCache {
+    private let lock = NSLock()
+    private let byteLimit: Int
+    private var images: [String: UIImage] = [:]
+    private var costs: [String: Int] = [:]
+    private var recent: [String] = []
+    init(byteLimit: Int) { self.byteLimit = byteLimit }
+    var retainedBytes: Int {
+        lock.lock(); defer { lock.unlock() }
+        return costs.values.reduce(0, +)
+    }
+    func image(for key: String, load: () -> UIImage?) -> UIImage? {
+        lock.lock(); defer { lock.unlock() }
+        if let image = images[key] {
+            recent.removeAll { $0 == key }; recent.append(key)
+            return image
+        }
+        guard let image = load() else { return nil }
+        let bytes = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
+        if bytes > 0, bytes <= byteLimit {
+            images[key] = image; costs[key] = bytes; recent.append(key)
+            while costs.values.reduce(0, +) > byteLimit, !recent.isEmpty {
+                let key = recent.removeFirst(); images.removeValue(forKey: key); costs.removeValue(forKey: key)
+            }
+        }
+        return image
+    }
+    func reset() {
+        lock.lock(); defer { lock.unlock() }
+        images.removeAll(); costs.removeAll(); recent.removeAll()
+    }
+}
+
+/// Only scalar ownership crosses threads; SceneKit trees remain confined to
+/// their caller, and idle-table transfer is always on the main actor.
+private final class TableResourceOwnership: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    private var reads = 0
+    var modelReads: Int { lock.lock(); defer { lock.unlock() }; return reads }
+    func beginRead() { lock.lock(); defer { lock.unlock() }; reads += 1 }
+    func endRead() { lock.lock(); defer { lock.unlock() }; reads = max(0, reads - 1) }
+    private var ticket: UInt64 = 0
+    var sceneCount: Int { lock.lock(); defer { lock.unlock() }; return count }
+    var generation: UInt64 { lock.lock(); defer { lock.unlock() }; return ticket }
+    func acquire() -> UInt64 {
+        lock.lock(); defer { lock.unlock() }; count += 1; return ticket
+    }
+    func release() { lock.lock(); defer { lock.unlock() }; count = max(0, count - 1) }
+    func invalidate() { lock.lock(); defer { lock.unlock() }; ticket &+= 1 }
+}
+
+/// Cancellation crosses only the warm queue/main actor boundary.
+private final class TableWarmToken: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+    var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelled }
+    func cancel() { lock.lock(); cancelled = true; lock.unlock() }
 }

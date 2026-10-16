@@ -12,6 +12,8 @@
   "name": "五档力度阶梯 · 球形1",
   "steps": [
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":5,"mainRail":"positiveX","phase":"noBallContact","timeSeconds":5.292623043060303}],"cueTravelDistanceMeters":2.249479451435787,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": 1.0, "z": 0.0},
       "after": {
         "onTable": {
           "cueBall": {
@@ -45,6 +47,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":5,"mainRail":"positiveX","phase":"noBallContact","timeSeconds":1.6917343139648438},{"cushionIndex":4,"mainRail":"negativeX","phase":"noBallContact","timeSeconds":6.784115314483643}],"cueTravelDistanceMeters":4.793211482947726,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": 1.0, "z": 0.0},
       "after": {
         "onTable": {
           "cueBall": {
@@ -78,6 +82,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":5,"mainRail":"positiveX","phase":"noBallContact","timeSeconds":0.9174175262451172},{"cushionIndex":4,"mainRail":"negativeX","phase":"noBallContact","timeSeconds":2.8494863510131836},{"cushionIndex":5,"mainRail":"positiveX","phase":"noBallContact","timeSeconds":8.498612403869629}],"cueTravelDistanceMeters":7.218153254778048,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": 1.0, "z": 0.0},
       "after": {
         "onTable": {
           "cueBall": {
@@ -111,6 +117,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":5,"mainRail":"positiveX","phase":"noBallContact","timeSeconds":0.5389308929443359},{"cushionIndex":4,"mainRail":"negativeX","phase":"noBallContact","timeSeconds":1.5962059497833252},{"cushionIndex":5,"mainRail":"positiveX","phase":"noBallContact","timeSeconds":3.5632259845733643},{"cushionIndex":4,"mainRail":"negativeX","phase":"noBallContact","timeSeconds":9.956117630004883}],"cueTravelDistanceMeters":9.661402836828593,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": 1.0, "z": 0.0},
       "after": {
         "onTable": {
           "cueBall": {
@@ -144,6 +152,8 @@
       }
     },
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":5,"mainRail":"positiveX","phase":"noBallContact","timeSeconds":0.36059969663619995},{"cushionIndex":4,"mainRail":"negativeX","phase":"noBallContact","timeSeconds":0.9598207473754883},{"cushionIndex":5,"mainRail":"positiveX","phase":"noBallContact","timeSeconds":1.9962047338485718},{"cushionIndex":4,"mainRail":"negativeX","phase":"noBallContact","timeSeconds":3.962693691253662},{"cushionIndex":5,"mainRail":"positiveX","phase":"noBallContact","timeSeconds":10.336849212646484}],"cueTravelDistanceMeters":12.144839173139085,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": 1.0, "z": 0.0},
       "after": {
         "onTable": {
           "cueBall": {

@@ -1,55 +1,57 @@
 {
-  "createdAt" : "2026-06-25T06:42:07Z",
-  "id" : "981E1708-50FC-4741-9DF4-A6E9D64B7E58",
-  "initial" : {
-    "onTable" : {
-      "_1" : {
-        "x" : 0.27973973751068115,
-        "y" : 0.48713529109954834
+  "createdAt": "2026-06-25T06:42:07Z",
+  "id": "981E1708-50FC-4741-9DF4-A6E9D64B7E58",
+  "initial": {
+    "onTable": {
+      "_1": {
+        "x": 0.27973973751068115,
+        "y": 0.48713529109954834
       },
-      "cueBall" : {
-        "x" : 0.7791876196861267,
-        "y" : 0.3826209008693695
+      "cueBall": {
+        "x": 0.7791876196861267,
+        "y": 0.3826209008693695
       }
     }
   },
-  "name" : "贴库球处理 · 球形1",
-  "steps" : [
+  "name": "贴库球处理 · 球形1",
+  "steps": [
     {
-      "after" : {
-        "onTable" : {
-          "cueBall" : {
-            "x" : 0.20042546093463898,
-            "y" : 0.43405652046203613
+      "analysis": {"aim":{"aimAngleDegrees":12.29615582756107,"ghostCenterMeters":{"x":-0.502311110496521,"y":0.8285750150680542,"z":0.6022627353668213},"pocket":"bottomLeft","pocketAimPointMeters":{"x":-1.3250236511230469,"y":0.800000011920929,"z":0.6031394004821777},"targetBallKey":"_1"},"cueCushionContacts":[{"cushionIndex":0,"mainRail":"positiveZ","phase":"afterFirstContact","timeSeconds":1.2139819860458374}],"cueTravelDistanceMeters":1.53860702499403,"engineVersion":"qiuji-planar-reference-20261015","firstContact":{"actualCutAngleDegrees":12.912350331732824,"ballKey":"_1","cueAngularVelocityRadiansPerSecond":{"x":7.330416679382324,"y":0,"z":33.38589096069336},"cueClothSlipSpeedMetersPerSecond":6.143906154658885e-08,"cueForwardRollRatio":0.9999999083768796,"cueMotionState":"rolling","cueSpeedMetersPerSecond":0.9767271451661871,"cueVelocity":{"x":-0.9540019035339355,"y":0,"z":0.20946666598320007},"timeSeconds":1.1968424320220947},"schemaVersion":1},
+      "recordedDirection": {"x": -0.9767333269119263, "z": 0.21445775032043457},
+      "after": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.20058786869049072,
+            "y": 0.4348873198032379
           }
         }
       },
-      "before" : {
-        "onTable" : {
-          "_1" : {
-            "x" : 0.27973973751068115,
-            "y" : 0.48713529109954834
+      "before": {
+        "onTable": {
+          "_1": {
+            "x": 0.27973973751068115,
+            "y": 0.48713529109954834
           },
-          "cueBall" : {
-            "x" : 0.7791876196861267,
-            "y" : 0.3826209008693695
+          "cueBall": {
+            "x": 0.7791876196861267,
+            "y": 0.3826209008693695
           }
         }
       },
-      "cuePocketed" : false,
-      "id" : "0505ECA7-2384-4FAA-930C-9A1890187A90",
-      "objectPocketed" : true,
-      "potted" : [
+      "cuePocketed": false,
+      "id": "0505ECA7-2384-4FAA-930C-9A1890187A90",
+      "objectPocketed": true,
+      "potted": [
         "_1"
       ],
-      "shot" : {
-        "pocket" : "bottomLeft",
-        "spinX" : 0,
-        "spinY" : 0.3200000000000002,
-        "targetKey" : "_1",
-        "velocity" : 0.9
+      "shot": {
+        "pocket": "bottomLeft",
+        "spinX": 0,
+        "spinY": 0.3200000000000002,
+        "targetKey": "_1",
+        "velocity": 0.9
       }
     }
   ],
-  "updatedAt" : "2026-08-23T10:36:53Z"
+  "updatedAt": "2026-10-14T18:30:20Z"
 }

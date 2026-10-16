@@ -14,6 +14,7 @@ const angleTestSchema = new mongoose.Schema(
     errorMM: { type: Number, default: 0 },
     // 归属的 kind="cognitive" 会话 clientId（契约 §5.3）。
     sessionId: String,
+    trainingMetadataJSON: String,
   },
   { timestamps: true }
 );

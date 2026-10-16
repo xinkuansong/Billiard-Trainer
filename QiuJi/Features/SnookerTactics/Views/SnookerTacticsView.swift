@@ -56,7 +56,9 @@ struct SnookerTacticsView: View {
         ScrollView(.vertical) {
             VStack(spacing: 4) {
                 Menu {
-                    Section("当前选择") { Text(targetSummary) }
+                    Section("当前选择") {
+                        ForEach(targetSummary, id: \.self) { Text($0) }
+                    }
                     Button("目标球") { vm.activeTool = .selectTarget }
                     Button("摆球") { vm.activeTool = .none }
                 } label: {
@@ -67,10 +69,10 @@ struct SnookerTacticsView: View {
                 }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }.disabled(busy)
                     .opacity(busy ? 0.4 : 1).accessibilityIdentifier("snooker.tool")
                 action("清除", "eraser", "snooker.clearSelection", enabled: !busy && vm.selectedTargetKey != nil) { vm.clearSelection() }
-                action("求解", "function", "solver.solve", enabled: !busy && vm.canSolve) { vm.solve() }
+                action("求解", TeachingSolverSymbols.solve, "solver.solve", enabled: !busy && vm.canSolve) { vm.solve() }
                 TeachingSolutionButton(count: vm.solutions.count, currentIndex: vm.currentIndex,
-                        enabled: !busy, next: { vm.nextSolution() }, select: { vm.selectSolution(at: $0) },
-                        onDetails: { informationPanel = .details }, isModified: vm.isSolutionAdjusted)
+                        enabled: !busy, next: { vm.nextSolution() },
+                        isModified: vm.isSolutionAdjusted)
                 action("重打", "arrow.uturn.backward", "snooker.undo", enabled: !busy && !vm.temporaryTopDownActive && vm.canUndoShot) { vm.undoLastShot() }
                 action("回放", "play.rectangle", "snooker.replay", enabled: !busy && !vm.temporaryTopDownActive && vm.canPlayback) { vm.replayLastShot() }
             }.frame(maxWidth: .infinity)
@@ -96,21 +98,17 @@ struct SnookerTacticsView: View {
         return nil
     }
     private func informationSections(_ panel: PlanningPanel) -> [(String, String)] {
-        if panel == .details {
-            return [("当前方案", PlanningSolutionDetails.text(vm.currentSolution, index: vm.currentIndex,
-                count: vm.solutions.count, adjusted: vm.isSolutionAdjusted, defense: true))]
-        }
         var sections: [(String, String)] = []
         if vm.informationEvent.kind == .failure { sections.append(("当前问题", vm.statusText)) }
         else if let prompt = compactPrompt { sections.append(("当前步骤", prompt)) }
         sections += [
             ("首碰目标球", "使用“目标球”工具选择本杆合法首碰的球。按中八规则，从首碰目标球推断对方球组；可在目标球菜单核查球号与数量。台面同时有全色和花色时，不能选择8号为首碰目标。"),
             ("防守方案", "求解尝试让对方球尽量被遮挡。标记“未完全斯诺克”的方案没有完全达到防守目标，请结合轨迹判断。"),
-            ("方案与重打", "轻点方案按钮切换解；长按选择方案或查看详情。调整打点和杆速后显示“微调”。重打恢复击打前状态；回放结束后停在击打后的局面。")
+            ("方案与重打", "轻点解按钮切换下一解，按钮显示当前序号和总数。调整打点和杆速后显示“微调”。重打恢复击打前状态；回放结束后停在击打后的局面。")
         ]
         return sections
     }
-    private var targetSummary: String {
+    private var targetSummary: [String] {
         let target = vm.selectedTargetKey.map { String($0.dropFirst()) + "号球" } ?? "未选择"
         let opponents = vm.opponentKeys.map { String($0.dropFirst()) }.joined(separator: "、")
         let group: String
@@ -120,6 +118,8 @@ struct SnookerTacticsView: View {
         case .eight: group = "8号球"
         case .none: group = "无"
         }
-        return "首碰：" + target + "\n对方球组：" + group + "\n球号：" + (opponents.isEmpty ? "无" : opponents + "号") + "（\(vm.opponentKeys.count)颗）"
+        return ["首碰：" + target,
+                "对方球组：" + group + "（\(vm.opponentKeys.count)颗）",
+                "球号：" + (opponents.isEmpty ? "无" : opponents + "号")]
     }
 }

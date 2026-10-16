@@ -102,6 +102,8 @@ struct DailyHUDMenuPanel: View {
     let availableSize: CGSize
     let onBack: () -> Void
     let onClose: () -> Void
+    var followsAppearance = false
+    @Environment(\.colorScheme) private var colorScheme
     @State private var measuredHeight: CGFloat = 1
     @State private var measuredHeaderHeight: CGFloat = 44
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -143,9 +145,14 @@ struct DailyHUDMenuPanel: View {
         }
         .padding(.vertical, 8)
         .frame(width: width)
-        .foregroundStyle(.white)
-        .environment(\.colorScheme, .dark)
-        .modifier(DailyPanelSurface())
+        .foregroundStyle(followsAppearance ? Color.btText : .white)
+        .background {
+            if followsAppearance {
+                RoundedRectangle(cornerRadius: BTRadius.md).fill(Color.btBGSecondary)
+                    .overlay(RoundedRectangle(cornerRadius: BTRadius.md).stroke(Color.btSeparator, lineWidth: 0.75))
+            } else { Color.clear.modifier(DailyPanelSurface()) }
+        }
+        .environment(\.colorScheme, followsAppearance ? colorScheme : .dark)
         .buttonStyle(.plain)
         .contentShape(Rectangle()).onTapGesture {}
         .accessibilityElement(children: .contain)
@@ -183,10 +190,10 @@ struct DailyHUDMenuPanel: View {
                                 .background { BTHUDControlBackground(shape: Capsule()) }
                                 .overlay(Capsule().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
                             } else if let detail = item.detail {
-                                Text(detail).foregroundStyle(.white.opacity(0.7))
+                                Text(detail).foregroundStyle(followsAppearance ? Color.btTextSecondary : .white.opacity(0.7))
                             }
                             if item.selected { Image(systemName: "checkmark").foregroundStyle(HUDStyle.accent) }
-                            if item.disclosure { Image(systemName: "chevron.right").foregroundStyle(.white.opacity(0.6)) }
+                            if item.disclosure { Image(systemName: "chevron.right").foregroundStyle(followsAppearance ? Color.btTextSecondary : .white.opacity(0.6)) }
                         }
                         .font(.subheadline)
                         .padding(.horizontal, 16).padding(.vertical, 8)
@@ -198,7 +205,7 @@ struct DailyHUDMenuPanel: View {
                     .accessibilityIdentifier(item.id)
                     .accessibilityValue(item.selected ? "已选" : (item.detail ?? ""))
                 } else {
-                    Text(item.title).font(.caption).foregroundStyle(.white.opacity(0.6))
+                    Text(item.title).font(.caption).foregroundStyle(followsAppearance ? Color.btTextSecondary : .white.opacity(0.6))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 16).padding(.vertical, 4)
                         .accessibilityAddTraits(.isHeader)
@@ -208,7 +215,7 @@ struct DailyHUDMenuPanel: View {
     }
 
     private func separator(strong: Bool) -> some View {
-        Rectangle().fill(Color.white.opacity(strong ? 0.16 : 0.08))
+        Rectangle().fill(followsAppearance ? Color.btSeparator : Color.white.opacity(strong ? 0.16 : 0.08))
             .frame(height: 0.5).padding(.horizontal, 16).accessibilityHidden(true)
     }
 }
@@ -223,6 +230,7 @@ struct DailyConfirmationCard: View {
     let secondID: String
     let first: () -> Void
     let second: () -> Void
+    var firstIsPrimary = false
     @Environment(\.dynamicTypeSize) private var typeSize
     @AccessibilityFocusState private var titleFocused: Bool
     @State private var titleHeight: CGFloat = 21
@@ -253,8 +261,8 @@ struct DailyConfirmationCard: View {
             let layout = typeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
             layout {
-                action(firstTitle, id: firstID, primary: false, perform: first)
-                action(secondTitle, id: secondID, primary: true, perform: second)
+                action(firstTitle, id: firstID, primary: firstIsPrimary, perform: first)
+                action(secondTitle, id: secondID, primary: !firstIsPrimary, perform: second)
             }
             .fixedSize(horizontal: false, vertical: true)
             .background(GeometryReader { geometry in
@@ -262,8 +270,9 @@ struct DailyConfirmationCard: View {
             })
         }
         .padding(12).frame(width: min(typeSize.isAccessibilitySize ? 360 : 252, availableWidth))
-        .foregroundStyle(.white).environment(\.colorScheme, .dark)
-        .modifier(DailyPanelSurface())
+        .foregroundStyle(Color.btText)
+        .background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.md))
+        .overlay(RoundedRectangle(cornerRadius: BTRadius.md).stroke(Color.btSeparator, lineWidth: 0.75))
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
         .accessibilityIdentifier("dailyClearance.confirmation")
@@ -277,7 +286,7 @@ struct DailyConfirmationCard: View {
             Text(text).font(.subheadline).multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .background(primary ? HUDStyle.selectedBackground : Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                .background(primary ? Color.btPrimaryMuted : Color.btBGTertiary, in: RoundedRectangle(cornerRadius: 10))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain).accessibilityIdentifier(id)

@@ -19,7 +19,7 @@ struct AimingMethodsView: View {
                 introSection
                 LearnControlStrip.Theta(
                     cutAngleDeg: $cutAngleDeg,
-                    caption: "拖动切角 θ：管道 / 接触点 / 平行线 / Mosconi / 厚薄同步。默认 30°（半球）。",
+                    caption: "先选一个切角，再往下比较不同方法。所有图都会跟着变化；默认 30°，也就是半球。",
                     accessibilityIdentifier: "aimingMethods.thetaSlider"
                 )
                 PipeMethodSection(cutAngleDeg: cutAngleDeg)
@@ -41,7 +41,8 @@ struct AimingMethodsView: View {
 
     private var introSection: some View {
         LearnDocSectionCard(title: "三种常用瞄准法") {
-            LearnDocText.body("「瞄准原理」里的角度瞄准法：先读出切角 θ，再用 d = 2R·sin(θ) 翻成瞄准点。下面三种方法与它同一套几何，只是换了「怎么看见」——殊途同归，都落到 d = 2R·sin(θ)。")
+            LearnDocText.body("知道母球应到达假想球的位置，还要在出杆时找到容易辨认的参照。管道法看路线的宽度，接触点法看两个对应点，平行线法则把这两个点的连线移到母球球心。先用同一杆球比较它们，看看自己更容易理解哪一种。")
+            LearnDocText.body("下面都以不计摩擦和偏转的几何关系为基础，与「瞄准原理」中的 d = 2R × sin(θ) 一致。它们帮助你确定起始方向；换力度或加塞后的调整，另见「瞄准修正」。")
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 methodSummaryRow("管道法", "把瞄准线、进球线扩成圆管，用相切代替点瞄准")
@@ -68,6 +69,7 @@ struct AimingMethodsView: View {
             symbolLegendRow("Pt", "目标球侧接触点（背袋点）")
             symbolLegendRow("Pc", "母球侧接触点（对应点）")
             symbolLegendRow("G", "假想球球心（虚线圈中心）")
+            symbolLegendRow("C", "母球球心")
             symbolLegendRow("管", "管道（隧道）：瞄准线/进球线扩成半径 R 的圆管")
         }
         .padding(Spacing.md)
@@ -131,7 +133,7 @@ struct AimingMethodsView: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("aimingMethods.overlap.figure")
 
-            LearnDocText.body("俯身时不估 θ，改看母球与目标球在视线方向上的重合比例（厚度）：叠得越多球越厚、θ 越小。图随页顶 θ 连续变化。")
+            LearnDocText.body("也可以把注意力放在厚薄上：沿瞄准方向看，母球的轮廓要与目标球重叠多少？重叠越多，切角越小。拖动页顶切角，比较满球、四分之三球和半球这些熟悉的参照，再看它们之间的球形。")
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 thicknessRow(AngleSceneCalculator.threeQuarterBall, highlighted: nearest?.name)
@@ -140,7 +142,7 @@ struct AimingMethodsView: View {
             }
             .accessibilityIdentifier("aimingMethods.overlap.table")
 
-            LearnDocText.footnote("sin(θ) = 1 − 重合比例，故 d/R = 2·(1 − 重合比例)。数值与「瞄准点对照表」同一口径；靠近命名厚度时表行高亮。")
+            LearnDocText.footnote("等比例投影下，sin(θ) = 1 − 重合比例，因此 d/R = 2 × (1 − 重合比例)。图表用这一关系展示厚薄；真实站位的透视会改变画面，不能直接拿屏幕上两球的大小和重叠量代入。接近常用厚度时，对应表行会高亮。")
         }
     }
 
@@ -245,12 +247,12 @@ private struct PipeMethodSection: View {
             trialPhiControls(result: result)
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                aimingStep(1, "把进球线、瞄准线各扩成半径 = 球半径 R 的管道（管宽恰好一个球径）。")
-                aimingStep(2, "目标球走黄管进袋；母球走白管靠近目标球。")
-                aimingStep(3, "瞄准正确时两管外切，切点就是接触点 Q。")
+                aimingStep(1, "先把目标球到袋口的路线想象成一条管道，管道半径与球半径 R 相同，宽度就是一个球径。")
+                aimingStep(2, "再给母球的入射路线画出同样宽的管道。图中黄管通向袋口，白管从母球通向碰撞位置。")
+                aimingStep(3, "在碰撞位置，两段管道的端部恰好相切时，母球到达假想球的位置，两球在 Q 点接触。这里比较的是入射段与离开段，不是两条无限延长的直管。")
             }
 
-            LearnDocText.footnote("两管外切 ⇔ 母球心到达假想球心 G（球心距 = 2R）。管道把「打厚打薄」变成看得见的相交与相离。加塞时管道中心随让点修正，见「瞄准修正」。")
+            LearnDocText.footnote("试着把白管往两侧转一点，观察端部由相切变成相交或分离。这种看法把两球的半径也包括进来，避免只盯着目标球表面的一个点。")
         }
         // A4：页顶 θ 变化时试瞄角 φ 对齐到新 θ（吸附区内亦为相切）。
         .onChange(of: cutAngleDeg) { _, newTheta in
@@ -286,7 +288,7 @@ private struct PipeMethodSection: View {
             Slider(value: $trialAngleDeg, in: 5...75, step: 1)
                 .tint(.btTeachingGuide)
                 .accessibilityIdentifier("aimingMethods.pipe.trialSlider")
-            Text("拖试瞄角：太厚＝两管相交，太薄＝相离，φ≈θ 时吸附为相切。改页顶 θ 时 φ 跟随到新 θ，默认保持相切。")
+            Text("拖动 φ，只改变这一幅图的试瞄方向。看两管怎样由相切变为相交或分离；偏得很远时，也可能从另一侧完全错开。接近正确角度会自动贴合；改变页顶 θ 后，这里会回到新球形的正确方向。")
                 .learnDocFootnoteStyle()
         }
         .padding(Spacing.md)
@@ -458,12 +460,12 @@ private struct ContactMethodSection: View {
             .accessibilityIdentifier("aimingMethods.contact.play")
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                aimingStep(1, "找 Pt：目标球背对袋口一侧，球心沿进球方向后退一个半径 R。")
-                aimingStep(2, "找 Pc：母球心沿同一进球方向前进一个半径 R。")
-                aimingStep(3, "瞄准 = 想象击球把这两个点碰到一起。")
+                aimingStep(1, "先找目标球上的 Pt：沿进球线，取背向袋口一侧的球面点。")
+                aimingStep(2, "再找母球上的 Pc：从母球球心出发，沿目标球的进袋方向前进一个半径。注意，这个方向不是母球当前的瞄准方向。")
+                aimingStep(3, "想象把这两个对应位置碰到一起。点击回放，观察 Pc 怎样靠近 Pt，以及母球球心最终落在哪里。")
             }
 
-            LearnDocText.footnote("Pc→Pt 与 C→G 同向等长；两点碰合时母球心恰好落在假想球心 G。接触点≠瞄准点见「瞄准原理」。")
+            LearnDocText.footnote("Pc 到 Pt 的位移，与母球心 C 到假想球心 G 的位移相同，所以两点碰合时，母球心恰好到达 G。图中的 Pc 是相对球心确定的几何位置，不是一块随球滚动的固定球面标记。")
         }
     }
 
@@ -472,7 +474,7 @@ private struct ContactMethodSection: View {
             Text(String(format: "误差角约 %.1f° · 别「心对点」", degrees))
                 .font(.btSubheadlineMedium)
                 .foregroundStyle(.btWarning)
-            Text("灰虚线让球心直指 Pt，与真瞄准线夹角如上——瞄它必打厚。")
+            Text("灰虚线让母球球心直接瞄着 Pt。对图中的切球，它比正确方向更厚；上面的角差显示两者差了多少。要碰合的是 Pc 与 Pt，不是球心与 Pt。")
                 .font(.btCaption)
                 .foregroundStyle(.btText)
         }
@@ -585,12 +587,12 @@ private struct ParallelMethodSection: View {
                 .accessibilityIdentifier("aimingMethods.parallel.figure")
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                aimingStep(1, "连金线：两球接触点 Pc → Pt。")
-                aimingStep(2, "过母球心作金线的平行线（白线）——就是瞄准方向。")
-                aimingStep(3, "碰撞瞬间两球心关于接触点 Q 点对称。")
+                aimingStep(1, "沿用上节找到的 Pc 和 Pt，把它们连起来，得到图中的金线。")
+                aimingStep(2, "保持金线的方向不变，把它平移到母球球心，得到白色瞄准线。")
+                aimingStep(3, "沿白线看，母球应到达的位置就是假想球心。碰撞瞬间，两球心分处 Q 的两侧，且到 Q 的距离都为一个半径。")
             }
 
-            LearnDocText.footnote("白线与母球心→假想球心连线同向重合；拖页顶切角 θ 时金线与白线始终平行。")
+            LearnDocText.footnote("金线负责确定方向，白线负责把方向落到母球球心。改变页顶切角，检查这两条线是否仍然平行，有助于理解为什么这一方法与假想球法一致。")
 
             Divider()
 
@@ -602,7 +604,7 @@ private struct ParallelMethodSection: View {
                     .frame(height: 190)
                     .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
                     .accessibilityIdentifier("aimingMethods.mosconi.figure")
-                LearnDocText.footnote("过目标球心作进球线，过母球心作平行线；两线间距 δ 即横移量，平移收拢后得瞄准线。与主图同源，随页顶 θ 变化。")
+                LearnDocText.footnote("这幅辅助图先画进球线，再过母球心画一条平行线。δ 表示两线之间的垂直距离，用来观察两球相对进袋方向错开了多少；它不是瞄准点偏移 d。仅凭 δ 不能确定瞄准线，还需要结合两球前后距离与假想球位置。白线仍连接母球心与假想球心；具体找方向可沿用上面的 Pc—Pt 平行线步骤。")
             }
         }
     }

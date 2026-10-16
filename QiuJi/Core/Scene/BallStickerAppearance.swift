@@ -1,32 +1,38 @@
 import SceneKit
 import UIKit
+import CryptoKit
 import os
 
 /// Generated albedo on two opposite spherical caps. Corrects the original
 /// folded back UVs once while retaining every position/normal and face.
 enum BallStickerAppearance {
     private static let logger = Logger(subsystem: "com.xinkuan.qiuji", category: "BallStickerAppearance")
-    private static let images: NSCache<NSString, UIImage> = {
-        let cache = NSCache<NSString, UIImage>()
-        cache.totalCostLimit = 36 * 1024 * 1024
-        return cache
-    }()
+    private static let images = TableAssetImageCache(byteLimit: 36 * 1024 * 1024)
+    private static let uvLock = NSLock()
+    private static var uvCache: [String: SCNGeometry] = [:]
+    private static var uvCosts: [String: Int] = [:]
+    private static var uvRecent: [String] = []
+    private static let uvByteLimit = 64 * 1024 * 1024
+    static var retainedUVBytes: Int { uvLock.lock(); defer { uvLock.unlock() }; return uvCosts.values.reduce(0, +) }
+    static var retainedImageBytes: Int { images.retainedBytes }
 
-    static func resetCache() { images.removeAllObjects() }
-
-    static func image(named name: String) -> UIImage? {
-        if let cached = images.object(forKey: name as NSString) { return cached }
-        guard let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: "BallStickers"),
-              let image = UIImage(contentsOfFile: url.path) else {
-            logger.error("Missing ball sticker asset: \(name, privacy: .public)")
-            return nil
-        }
-        images.setObject(image, forKey: name as NSString,
-                         cost: Int(image.size.width * image.size.height * image.scale * image.scale * 4))
-        return image
+    static func resetCache() {
+        images.reset()
+        uvLock.lock(); defer { uvLock.unlock() }
+        uvCache.removeAll(); uvCosts.removeAll(); uvRecent.removeAll()
     }
 
-    @discardableResult
+    static func image(named name: String) -> UIImage? {
+        images.image(for: name) {
+            guard let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: "BallStickers"),
+                  let image = UIImage(contentsOfFile: url.path) else {
+                logger.error("Missing ball sticker asset: \(name, privacy: .public)")
+                return nil
+            }
+            return image
+        }
+    }
+
     static func apply(_ style: BallStickerStyle, to balls: [String: SCNNode]) -> Bool {
         // Resolve the complete set before mutating materials; a missing resource
         // must not leave one table displaying a mixture of styles.
@@ -39,7 +45,7 @@ enum BallStickerAppearance {
         for (ball, image, number) in resolved {
             func applyToNode(_ node: SCNNode) throws {
                 if let geometry = node.geometry, !(geometry.name ?? "").hasSuffix(".BallStickerUV.v2") {
-                    node.geometry = try sphericalUVs(geometry, number: number)
+                    node.geometry = try cachedSphericalUVs(geometry, number: number)
                 }
                 node.geometry?.materials.forEach {
                     $0.diffuse.contents = image
@@ -57,6 +63,43 @@ enum BallStickerAppearance {
             }
         }
         return true
+    }
+
+    /// Key includes every source/index byte and layout, the model identity,
+    /// ball's orientation frame and unwrap revision. No material or pose is shared.
+    private static func cachedSphericalUVs(_ geometry: SCNGeometry, number: String) throws -> SCNGeometry {
+        var hash = SHA256()
+        func add(_ value: String) { hash.update(data: Data(value.utf8)); hash.update(data: Data([0])) }
+        add(ModelAssetTrial.identity("TaiQiuZhuo")); add("BallStickerUV.v2"); add(number)
+        if let frame = frames[number] { add(String(describing: frame.front)); add(String(describing: frame.up)) }
+        for source in geometry.sources {
+            add("\(source.semantic.rawValue)|\(source.vectorCount)|\(source.usesFloatComponents)|\(source.bytesPerComponent)|\(source.componentsPerVector)|\(source.dataOffset)|\(source.dataStride)")
+            hash.update(data: source.data)
+        }
+        add(String(describing: geometry.geometrySourceChannels))
+        for element in geometry.elements {
+            add("\(element.primitiveType.rawValue)|\(element.primitiveCount)|\(element.bytesPerIndex)|\(element.indicesChannelCount)")
+            hash.update(data: element.data)
+        }
+        let key = hash.finalize().map { String(format: "%02x", $0) }.joined()
+        uvLock.lock(); defer { uvLock.unlock() }
+        let prepared: SCNGeometry
+        if let found = uvCache[key] { prepared = found }
+        else {
+            prepared = try sphericalUVs(geometry, number: number)
+            prepared.materials = []
+            let cost = prepared.sources.reduce(0) { $0 + $1.data.count }
+                + prepared.elements.reduce(0) { $0 + $1.data.count }
+            if cost <= uvByteLimit { uvCache[key] = prepared; uvCosts[key] = cost }
+        }
+        uvRecent.removeAll { $0 == key }
+        if uvCache[key] != nil { uvRecent.append(key) }
+        while uvCosts.values.reduce(0, +) > uvByteLimit, !uvRecent.isEmpty {
+            let old = uvRecent.removeFirst(); uvCache.removeValue(forKey: old); uvCosts.removeValue(forKey: old)
+        }
+        let result = prepared.copy() as! SCNGeometry
+        result.materials = geometry.materials
+        return result
     }
 
     private struct Frame: Decodable { let front: [Float]; let up: [Float] }

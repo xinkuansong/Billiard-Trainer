@@ -28,7 +28,7 @@ enum SpinAndEnglishGeometry {
         /// 分段选择器标题（用户可见）。
         var pickerTitle: String {
             switch self {
-            case .stun:   return "滑动"
+            case .stun:   return "斯登"
             case .follow: return "前旋"
             case .draw:   return "后旋"
             }

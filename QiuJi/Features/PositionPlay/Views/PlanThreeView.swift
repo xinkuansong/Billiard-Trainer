@@ -7,6 +7,9 @@ struct PlanThreeView: View {
     init(initialBoard: BoardSnapshot? = nil) { self.initialBoard = initialBoard }
     @State private var selectedRolePrompt: PlanThreeRole?
     @State private var informationPanel: PlanningPanel?
+    @State private var showRoles = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .body) private var roleBallDiameter: CGFloat = 26
     @StateObject private var vm = PlanThreeViewModel()
     @State private var pocketOrientation = PocketDisplay.Orientation.landscape
     @State private var showBreakPicker = false
@@ -132,10 +135,10 @@ struct PlanThreeView: View {
                     }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }.disabled(busy)
                         .opacity(busy ? 0.4 : 1).accessibilityIdentifier("planthree.tool")
                     action("清除", "eraser", "planthree.clearConstraint", enabled: !busy && vm.hasConstraint) { vm.clearConstraint() }
-                    action("求解", "function", "solver.solve", enabled: !busy && vm.canSolve) { vm.solve() }
+                    action("求解", TeachingSolverSymbols.solve, "solver.solve", enabled: !busy && vm.canSolve) { vm.solve() }
                     TeachingSolutionButton(count: vm.solutions.count, currentIndex: vm.currentIndex,
-                        enabled: !busy, next: { vm.nextSolution() }, select: { vm.selectSolution(at: $0) },
-                        onDetails: { informationPanel = .details }, isModified: vm.isSolutionAdjusted)
+                        enabled: !busy, next: { vm.nextSolution() },
+                        isModified: vm.isSolutionAdjusted)
                     action("重打", "arrow.uturn.backward", "planthree.undo", enabled: !busy && !vm.temporaryTopDownActive && vm.canUndoShot) { vm.undoLastShot() }
                     action("回放", "play.rectangle", "planthree.replay", enabled: !busy && !vm.temporaryTopDownActive && vm.canPlayback) { vm.replayLastShot() }
                 }
@@ -175,8 +178,8 @@ struct PlanThreeView: View {
         }
     }
     private func roleTitle(_ role: PlanThreeRole) -> String {
-        switch role { case .ball1: return "①球"; case .pocket1: return "第1杆目标袋"
-        case .ball2: return "②球"; case .pocket2: return "第2杆目标袋"; case .ball3: return "③球" }
+        switch role { case .ball1: return "1球"; case .pocket1: return "第一杆"
+        case .ball2: return "2球"; case .pocket2: return "第二杆"; case .ball3: return "3球" }
     }
     private func roleValue(_ role: PlanThreeRole) -> String {
         if role.isBall { return vm.ballKey(for: role).map { String($0.dropFirst()) + "号球" } ?? "未选择" }
@@ -187,29 +190,71 @@ struct PlanThreeView: View {
         PlanThreeRole.order.map { roleTitle($0) + ":" + roleValue($0) }.joined(separator: " · ")
     }
     private var roleMenu: some View {
-        Menu {
-            ForEach(PlanThreeRole.order, id: \.rawValue) { role in
-                Button { vm.armRole(role); selectedRolePrompt = role } label: {
-                    Label(roleTitle(role) + " · " + roleValue(role), systemImage: vm.armedRole == role ? "checkmark.circle.fill" : "circle")
-                }.disabled(busy)
-                    .accessibilityValue(roleValue(role)).accessibilityIdentifier("planthree.role.\(role.rawValue)")
-            }
-        } label: {
+        Button { showRoles = true } label: {
             VStack(spacing: 1) {
-                Text(vm.armedRole?.isBall == false ? "目标袋" : "计划").font(.system(size: 10))
-                Text(vm.armedRole.map { role in
-                    switch role {
-                    case .pocket1: return "第1杆"
-                    case .pocket2: return "第2杆"
-                    default: return roleTitle(role)
-                    }
-                } ?? "已选齐").font(.btCaption)
+                Text("计划").font(.system(size: 10))
+                Text(vm.armedRole.map(roleTitle) ?? "已选齐").font(.btCaption)
             }.foregroundStyle(.white).frame(width: 44, height: 44)
                 .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-        }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }.disabled(busy).accessibilityIdentifier("planthree.roles")
-            .accessibilityLabel("计划，" + (vm.armedRole.map { roleTitle($0) } ?? "已选齐"))
+        }.buttonStyle(BTHUDPressStyle())
+            .overlay(alignment: .topTrailing) { TeachingMenuIndicator() }
+            .disabled(busy).accessibilityIdentifier("planthree.roles")
+            .accessibilityLabel("计划，" + (vm.armedRole.map(roleTitle) ?? "已选齐"))
             .accessibilityValue(roleSummary)
+            .popover(isPresented: $showRoles) {
+                ViewThatFits(in: .vertical) {
+                    roleRows
+                    ScrollView { roleRows }.frame(height: dynamicTypeSize.isAccessibilitySize ? 300 : 240)
+                }
+                .frame(width: dynamicTypeSize.isAccessibilitySize ? 360 : 280)
+                .frame(maxHeight: dynamicTypeSize.isAccessibilitySize ? 340 : 280)
+                .presentationCompactAdaptation(.popover)
+                .presentationBackground(.ultraThinMaterial)
+                .preferredColorScheme(.dark)
+            }
+    }
+    private var roleRows: some View {
+        VStack(spacing: 2) {
+            ForEach(PlanThreeRole.order, id: \.rawValue) { role in roleRow(role) }
+        }.padding(Spacing.sm)
+    }
+    private func roleRow(_ role: PlanThreeRole) -> some View {
+        let filled = vm.isFilled(role)
+        let active = vm.armedRole == role
+        return Button {
+            showRoles = false
+            vm.armRole(role)
+            selectedRolePrompt = role
+        } label: {
+            roleRowContent(role, filled: filled)
+                .padding(.horizontal, Spacing.sm).padding(.vertical, 2)
+                .background(active ? Color.white.opacity(0.12) : Color.clear,
+                            in: RoundedRectangle(cornerRadius: BTRadius.sm))
+                .contentShape(Rectangle())
+        }.buttonStyle(.plain).disabled(busy)
+            .accessibilityLabel(roleTitle(role) + "，" + roleValue(role))
+            .accessibilityValue((filled ? "已选" : "未选择") + (active ? "，正在设置" : ""))
+            .accessibilityIdentifier("planthree.role.\(role.rawValue)")
+    }
+    private func roleRowContent(_ role: PlanThreeRole, filled: Bool) -> some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: filled ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: dynamicTypeSize.isAccessibilitySize ? 28 : 20))
+                .foregroundStyle(filled ? Color.btSuccess : Color.btTextSecondary)
+                .frame(width: dynamicTypeSize.isAccessibilitySize ? 32 : 24)
+                .accessibilityHidden(true)
+            if role.isBall, let key = vm.ballKey(for: role) {
+                Text(roleTitle(role) + " ·").fixedSize()
+                PoolBallFace(key: key, diameter: min(roleBallDiameter, 52)).accessibilityHidden(true)
+            } else {
+                Text(roleTitle(role) + " · " + roleValue(role))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .font(.body).foregroundStyle(.white)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
     }
     @ViewBuilder private var informationOverlay: some View {
         if let runner = vm.breakRunner {
@@ -234,26 +279,22 @@ struct PlanThreeView: View {
         guard !vm.canSolve || selectedRolePrompt != nil else { return nil }
         guard let role = selectedRolePrompt ?? vm.armedRole else { return "选择约束工具" }
         switch role {
-        case .ball1: return "选择第1杆目标球"
-        case .pocket1: return "选择第1杆目标袋"
-        case .ball2: return "选择第2杆目标球"
-        case .pocket2: return "选择第2杆目标袋"
-        case .ball3: return "选择第3杆目标球"
+        case .ball1: return "选择第1球"
+        case .pocket1: return "选择第一杆袋口"
+        case .ball2: return "选择第2球"
+        case .pocket2: return "选择第二杆袋口"
+        case .ball3: return "选择第3球"
         }
     }
     private func informationSections(_ panel: PlanningPanel) -> [(String, String)] {
-        if panel == .details {
-            return [("当前方案", PlanningSolutionDetails.text(vm.currentSolution, index: vm.currentIndex,
-                count: vm.solutions.count, adjusted: vm.isSolutionAdjusted, defense: false))]
-        }
         var sections: [(String, String)] = []
         if vm.informationEvent.kind == .failure { sections.append(("当前问题", vm.informationEvent.text)) }
         else if let prompt = compactPrompt { sections.append(("当前步骤", prompt)) }
         sections += [
             ("计划", "在“计划”菜单选择当前要设置的球或袋，再点桌面。①是本杆目标球，②是下一杆目标球，③用于决定扇形朝向。完整角色和值可随时在计划菜单查看。"),
-            ("默认落区与自定义约束", "计划具备所需条件后，扇形作为默认落区。也可选择落区、落点或过点工具自定约束。落点的十字表示目标，圆环表示容差。台面球数较少时按实际可用计划求解，无需强行补齐五个角色。"),
+            ("默认落区与自定义约束", "计划具备所需条件后，亮琥珀色虚线扇形作为默认落区；青色实线表示自绘区域。也可选择落区、落点或过点工具自定约束。落点的十字表示目标，圆环表示容差。台面球数较少时按实际可用计划求解，无需强行补齐五个角色。"),
             ("击球与重打", "①进袋后计划顺延；未进袋则保留原计划。重打恢复上一杆击打前的球形、角色、约束和方案。回放结束后显示击打后的局面。"),
-            ("方案", "轻点方案按钮切换解；长按选择方案或查看详情。打点和杆速调整后显示“微调”。")
+            ("方案", "轻点解按钮切换下一解，按钮显示当前序号和总数。打点和杆速调整后显示“微调”。")
         ]
         return sections
     }

@@ -266,7 +266,10 @@ enum MobileReferenceLighting {
         return trialShader(samplingShader(colored, profile: previewSamplingProfile))
     }
     private static let environmentImages = NSCache<NSString, UIImage>()
-    static func resetImageCache() { environmentImages.removeAllObjects() }
+    // This yarn map is identical across room styles. Share the original RGBA
+    // pixels across simultaneous rooms; the selected room still owns its bake.
+    private static let roomImages = TableAssetImageCache(byteLimit: 4 * 1024 * 1024)
+    static func resetImageCache() { environmentImages.removeAllObjects(); roomImages.reset() }
     private static func environmentImage() -> UIImage? {
         if let image = environmentImages.object(forKey: "rig") { return image }
         guard let image = UIImage(data: environment) else { return nil }
@@ -687,11 +690,12 @@ enum MobileReferenceLighting {
     }
 
     static func roomTexture(_ name: String) -> UIImage {
-        guard let url = Bundle.main.url(forResource: name, withExtension: "jpg"),
-              let image = UIImage(contentsOfFile: url.path) else {
-            preconditionFailure("Missing room texture: \(name)")
-        }
-        return roomRGBA(image)
+        guard let image = roomImages.image(for: name, load: {
+            guard let url = Bundle.main.url(forResource: name, withExtension: "jpg"),
+                  let source = UIImage(contentsOfFile: url.path) else { return nil }
+            return roomRGBA(source)
+        }) else { preconditionFailure("Missing room texture: \(name)") }
+        return image
     }
 
     static func roomRGBA(_ image: UIImage) -> UIImage {
@@ -933,7 +937,7 @@ extension MobileReferenceLighting {
             NSError(domain: "DailyClothPrototype", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
         }
         guard let device = MTLCreateSystemDefaultDevice(),
-              let url = material.roughness.contents as? URL, url.isFileURL,
+              let url = TableMaterialRecipe.sourceContents(material.roughness.contents) as? URL, url.isFileURL,
               let source = material.shaderModifiers?[.surface],
               source.contains("#pragma arguments"), source.contains("#pragma body"),
               material.roughness.mappingChannel == material.diffuse.mappingChannel else {

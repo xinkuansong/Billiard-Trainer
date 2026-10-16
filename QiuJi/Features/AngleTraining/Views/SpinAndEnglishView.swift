@@ -10,9 +10,6 @@ struct SpinAndEnglishView: View {
     @State private var cutAngleDeg: Double = AngleSceneCalculator.halfBall.cutAngleDegrees
 
     private var miscueLimit: Float { CuePhysics.miscueLimitFraction }
-    private var isHalfBall: Bool {
-        abs(cutAngleDeg - AngleSceneCalculator.halfBall.cutAngleDegrees) < 0.5
-    }
 
     var body: some View {
         ScrollView {
@@ -20,9 +17,7 @@ struct SpinAndEnglishView: View {
                 introSection
                 LearnControlStrip.Theta(
                     cutAngleDeg: $cutAngleDeg,
-                    caption: isHalfBall
-                        ? "默认 30°（半球）。此时示意角与半球口诀一致。"
-                        : "当前非半球：插图为教学折线示意，不声称精确分离角。实战随切角变化见「分离角图谱」。",
+                    caption: "拖动切角改变球形，再选择旋转状态比较方向。三条线是示意，不随切角计算精确分离角；默认球形为 30° 半球。",
                     accessibilityIdentifier: "spinAndEnglish.thetaSlider"
                 )
                 linkageSection
@@ -45,10 +40,10 @@ struct SpinAndEnglishView: View {
     // MARK: - Intro
 
     private var introSection: some View {
-        LearnDocSectionCard(title: "接触瞬间的旋转决定分离角") {
-            LearnDocText.body("出杆后母球先滑动，再过渡到滚动。真正决定碰后母球走向的，不是你打了高杆还是低杆本身，而是碰到目标球那一瞬间母球处于哪种旋转状态。同一杆几何、不同接触旋转，会走出截然不同的分离角。")
+        LearnDocSectionCard(title: "看打点，也要看碰球时的旋转") {
+            LearnDocText.body("打了低杆，母球碰后却没有拉回来，并不一定是打点选错了。后旋可能在到达目标球之前已经消失。判断碰后走向，要把打点、力度和球距联系起来，看看母球碰球时还带着怎样的旋转。")
 
-            LearnDocText.footnote("本页主轴：旋转状态 → 分离角；左右塞如何改吃库反弹见下文。挤偏、弧线、投掷对瞄准的细修正见「瞄准修正」。")
+            LearnDocText.footnote("先比较前后旋怎样影响碰后路线，再看左右塞怎样影响吃库。加塞带来的瞄准变化，另见「瞄准修正」。")
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spinAndEnglish.intro")
@@ -59,8 +54,8 @@ struct SpinAndEnglishView: View {
     private var linkageSection: some View {
         let scene = SpinAndEnglishGeometry.scene(cutAngleDeg: CGFloat(cutAngleDeg))
         let sep = SpinAndEnglishGeometry.separationDegrees(scene: scene, state: selectedSpin)
-        return LearnDocSectionCard(title: "三种旋转 → 三条分离角走向") {
-            LearnDocText.body("下图同一杆几何：目标球沿进球线离开；母球碰后先沿切线出发，再按接触时的旋转前弯或后弯。拖动切角可改球形；点选状态可高亮对应轨迹。")
+        return LearnDocSectionCard(title: "从切线看前旋与后旋") {
+            LearnDocText.body("先把目标球离开方向当作参照，与它垂直的方向就是切线。忽略球间摩擦时，切球后的母球最初沿切线出发，随后前旋或后旋通过台呢摩擦改变路线。图中用三条直线概括最终偏向哪边；点选状态可以高亮对应线。")
 
             Picker("旋转状态", selection: $selectedSpin) {
                 ForEach(SpinAndEnglishGeometry.SpinState.allCases) { state in
@@ -80,7 +75,7 @@ struct SpinAndEnglishView: View {
                     .font(.btSubheadlineMedium)
                     .foregroundStyle(.btPrimary)
                 Spacer()
-                Text(String(format: "示意角 · 教学折线 ≈ %.0f°", sep))
+                Text(String(format: "示意角 ≈ %.0f°", sep))
                     .font(.system(size: 13, weight: .medium, design: .monospaced))
                     .foregroundStyle(.btText)
             }
@@ -90,12 +85,12 @@ struct SpinAndEnglishView: View {
             .accessibilityIdentifier("spinAndEnglish.sepReadout")
 
             VStack(alignment: .leading, spacing: Spacing.md) {
-                LearnDocText.body("滑动（stun / 定杆）：接触时几乎无前旋后旋，母球沿切线离开，与进球线夹角约 90°（90° 法则 / 切线法则）。")
-                LearnDocText.body("前旋（高杆 / 自然滚动）：接触时已有前旋或已自然滚动，母球从切线向前弯回瞄准线一侧——半球口诀约 30° 偏离原瞄准线（30° 法则）。")
-                LearnDocText.body("后旋（低杆）：接触时后旋仍在，母球从切线向后弯，分离角大于 90°。")
+                LearnDocText.body("斯登（Stun）：碰球时几乎没有前旋和后旋。切球后母球大致沿切线走，与目标球离开方向约成 90°，这就是切线法则。正球打成这种状态时，母球才会留在碰撞附近，也就是定杆。")
+                LearnDocText.body("前旋：碰球后，母球路线逐渐向前偏离切线。自然滚动是前旋的一种特定状态；切角约在 14°–49° 时，最终路线相对原入射方向大约偏转 30°。这是方便估计的 30° 法则，不能套在所有高杆球上。")
+                LearnDocText.body("后旋：碰球时若还保留后旋，母球路线会逐渐向切线后方偏。在这类理想切球中，最终路线与目标球方向的夹角大于 90°；具体能拉回多少，取决于剩余后旋、速度和切角。")
             }
 
-            LearnDocText.footnote("图上三条路径是教学折线（滑动 90° / 前旋 60° / 后旋 120°，相对进球线），用来记住口诀；实战分离角随切角、力度与滑动→滚动进度连续变化，见「分离角图谱」。App 内辅助线经验修正约为 90°±20°（高杆减小、低杆增大），仅作提示，不参与物理求解。")
+            LearnDocText.footnote("图中相对进球线固定画出 90°、60°、120°，只帮助辨认切线、前偏和后偏，不表示真实轨迹会沿直线立即转向。上面的 30° 法则则以原入射方向为基准，两种角度不要混用。要比较不同打点的模拟轨迹，可打开「分离角图谱」。")
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spinAndEnglish.linkage")
@@ -106,13 +101,13 @@ struct SpinAndEnglishView: View {
     private var statesSection: some View {
         LearnDocSectionCard(title: "母球旋转状态") {
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                stateRow("滑动", "stun：纯平移、几乎无前后旋。中杆、较短距离、偏快力度时常见。")
-                stateRow("自然滚动", "滑动被台呢摩擦「吃掉」后的稳态：线速度与自转匹配，既前进又前旋。")
-                stateRow("前旋", "高杆或已自然滚动：碰后向前弯（跟进走位）。")
-                stateRow("后旋", "低杆：碰后向后弯（缩杆走位）。后旋也会被摩擦逐渐吃掉。")
+                stateRow("斯登", "母球仍在前进，但几乎没有前后旋。这是滑动的一种特殊状态，不能把所有滑动都叫斯登。")
+                stateRow("自然滚动", "前进速度与向前滚动的转速匹配：v = Rω。球与台呢的接触处没有相对滑动。")
+                stateRow("前旋", "球向前转，但转速未必与行进速度匹配；有前旋，不一定已经自然滚动。")
+                stateRow("后旋", "球向前走，却向后转。台呢摩擦会逐渐消耗后旋，碰球时是否还剩下后旋很关键。")
             }
 
-            LearnDocText.body("出杆后常见过程：滑动 →（可选）仍带后旋或已前旋 → 最终自然滚动。距离越长、力度越小，越容易在碰到目标球之前进入滚动；短距大力则更常以滑动状态接触。")
+            LearnDocText.body("以低杆为例，母球可能先带后旋向前滑行，随后后旋减到接近零，再逐渐获得前旋，最后进入自然滚动。碰球可能发生在这段过程中的任何时刻。同样的打点，换了球距或力度，碰球时的状态就可能不同；高杆也可以很快进入自然滚动，不必先经历无旋阶段。")
 
             LearnDocText.footnote("切角、假想球与瞄准点本身见「瞄准原理」；本页不重复瞄准几何。")
         }
@@ -136,7 +131,7 @@ struct SpinAndEnglishView: View {
 
     private var tipContactSection: some View {
         LearnDocSectionCard(title: "打点如何产生旋转") {
-            LearnDocText.body("皮头打在母球正面的不同位置，接触瞬间把不同方向的旋转传给母球：高低打点改前后旋，左右打点改侧旋（加塞）。")
+            LearnDocText.body("从出杆方向看，皮头打在球心上方或下方，会产生不同的前后旋；打在左侧或右侧，则会加入侧旋，也就是左右塞。上下与左右打点可以组合，但偏离球心越多，越需要控制好出杆。")
 
             TipContactFigure(limitFraction: CGFloat(miscueLimit))
                 .frame(height: 200)
@@ -144,11 +139,11 @@ struct SpinAndEnglishView: View {
                 .accessibilityIdentifier("spinAndEnglish.tipFigure")
 
             VStack(alignment: .leading, spacing: Spacing.md) {
-                LearnDocText.body("高杆 / 低杆：改变接触瞬间的前旋或后旋，从而改变分离角（见上文主轴与「分离角图谱」）。")
-                LearnDocText.body("左塞 / 右塞：改变侧旋。侧旋主要改吃库后的反弹（见下节）；对瞄准线的挤偏、弧线与投掷细修正见「瞄准修正」。")
+                LearnDocText.body("高杆和低杆先改变的是母球出发时的旋转。能有多少旋转保留到碰球，要结合力度和路程判断，再据此预计碰后路线。")
+                LearnDocText.body("左右塞常用来调整吃库后的路线，但它的影响从出杆时就开始了。即使母球还没碰到库，也可能需要考虑挤偏、弧线和球间投掷。")
             }
 
-            LearnDocText.footnote("可靠打点须落在打滑极限圈内（约 \(String(format: "%.0f", miscueLimit * 100))% 球半径）；圈外易滑杆，塞不再稳定传递。")
+            LearnDocText.footnote("图中虚线圈半径约为球半径的 \(String(format: "%.0f", miscueLimit * 100))%，与 App 可选打点范围一致。它是练习时的范围参照，圈内也仍需良好的皮头、巧粉和出杆。")
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spinAndEnglish.tipContact")
@@ -165,14 +160,14 @@ struct SpinAndEnglishView: View {
                 .accessibilityIdentifier("spinAndEnglish.miscueFigure")
 
             VStack(alignment: .leading, spacing: Spacing.md) {
-                LearnDocText.body("能用中杆 + 高低杆（配合切线 / 30° / 90° 法则）完成的走位，尽量不要加左右塞——这就是最小加塞原则：每多一分塞，就多一分瞄准误差来源。")
+                LearnDocText.body("先用厚薄、力度和高低杆安排路线；如果已经能到合适的位置，就不必额外加左右塞。确实需要改变吃库路线时，再用能完成目的的塞量。这样更容易分清失误来自瞄准、力度，还是加塞后的补偿。")
                 LearnDocText.body(String(
-                    format: "打点偏离球心的可靠上限是母球半径的 %.0f%%（皮头打滑极限）。超过约 %.1fR，皮头容易打滑（滑杆），塞不再稳定传递。App 打点盘把可拖区域钳在这一比例内，与引擎常量一致。",
+                    format: "打点越靠近球边，越容易滑杆。App 将可选打点限制在球半径的 %.0f%%，即约 %.1fR 范围内。这个距离按上下和左右的合成偏移计算：已经打得很高或很低时，就不能再横向加同样多的塞。",
                     Float(pct), miscueLimit
                 ))
             }
 
-            LearnDocText.footnote("打滑极限与 App 打点盘钳制同一常量（母球半径的 \(String(format: "%.0f", miscueLimit * 100))%）。")
+            LearnDocText.footnote("真实的滑杆边界还受皮头、巧粉和击球条件影响。练习从较小偏移开始，不要把图中的边界当作每杆都要打到的位置。")
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spinAndEnglish.minimumEnglish")
@@ -182,7 +177,7 @@ struct SpinAndEnglishView: View {
 
     private var cushionEnglishSection: some View {
         LearnDocSectionCard(title: "左右塞与吃库反弹") {
-            LearnDocText.body("无塞吃库时，可用「入射角 ≈ 反射角」作教学基线。侧旋会打破这条基线：顺塞让反弹更开，逆塞让反弹更闭——用来制造「反常」反弹角完成走位。")
+            LearnDocText.body("碰库时，母球的侧旋会通过与库边的摩擦改变反弹方向。「入射角约等于反射角」可以作为最初的镜面参照，但真实库边并不是镜子；即使没有左右塞，速度、前后旋和库边条件也会让结果偏离这个参照。")
 
             CushionEnglishFigure()
                 .frame(height: 220)
@@ -190,12 +185,12 @@ struct SpinAndEnglishView: View {
                 .accessibilityIdentifier("spinAndEnglish.cushionFigure")
 
             VStack(alignment: .leading, spacing: Spacing.md) {
-                LearnDocText.body("顺塞（Running）：侧旋与反弹切向大致同向，吃库后反弹更开（离开库法线更大）。")
-                LearnDocText.body("逆塞（Reverse）：侧旋与反弹切向大致反向，吃库后反弹更闭（更靠近库法线）。")
-                LearnDocText.body("实战用途：走位优先用高低杆改分离角；左右塞留给需要改吃库反弹、或必须微调瞄准的场合。")
+                LearnDocText.body("顺塞（Running）：在当前这次吃库中，侧旋有助于母球继续沿库边的行进方向走。与相近条件下的无塞球比较，反弹通常更开，也就是更偏离库边法线。")
+                LearnDocText.body("逆塞（Reverse）：侧旋与这次沿库行进的方向相反，反弹通常更收，靠近库边法线；塞量足够大时，还可能改变沿库方向。")
+                LearnDocText.body("左塞不固定等于顺塞，右塞也不固定等于逆塞，要看母球碰哪条库、从哪边来。先比较同一入射路线下的变化，再把它用到需要改变吃库方向的走位中。")
             }
 
-            LearnDocText.footnote("上图为定性示意（非引擎实况采样）。口径来自最少加塞原则中「用加塞调反弹角」与撞库后顺/逆塞分类；精确吃库后扇形请打开「加塞吃库图谱」（引擎实况，已补偿挤偏）。")
+            LearnDocText.footnote("这幅图只比较反弹变开、变收的方向，不给出实测角度。想进一步比较不同塞量，可以打开「加塞吃库图谱」查看对应模拟轨迹。")
 
             LearnDocTextLink(title: "打开加塞吃库图谱",
                              subtitle: "中杆 · 8 档左右塞 · 吃库后出射",
@@ -210,7 +205,7 @@ struct SpinAndEnglishView: View {
 
     private var aimingCorrectionCTA: some View {
         LearnDocSectionCard(title: "加塞还会改变瞄准") {
-            LearnDocText.body("左右塞还会带来挤偏（squirt）、弧线（swerve）与投掷（throw）等效应，使实际进球线相对几何瞄准产生偏差。")
+            LearnDocText.body("加塞后，母球可能不沿杆指向直走，目标球也可能因碰撞摩擦偏离理想离开方向。因此先确定要用什么打法，再核对瞄准，比先瞄好、临出杆才决定加塞更容易保持一致。")
 
             PracticeCTA(title: "打开瞄准修正",
                         destination: "投掷 · 挤偏 · 弧线：几何之外的偏差",
@@ -230,7 +225,7 @@ struct SpinAndEnglishView: View {
                 .foregroundStyle(.btText)
 
             PracticeCTA(title: "练挤偏认知",
-                        destination: "免费钩子 · 直球近台带塞让点",
+                        destination: "直球近台 · 比较带塞后的瞄准变化",
                         route: .drillDetail("drill_c073"))
                 .accessibilityIdentifier("spinAndEnglish.squirtDrillCTA")
 
@@ -401,7 +396,7 @@ private struct TipContactFigure: View {
                                 .foregroundStyle(.btText)
                         }
                     }
-                    Text("虚线内 = 可靠打点")
+                    Text("虚线内：建议打点范围")
                         .font(.btCaption)
                         .foregroundStyle(.btText)
                 }
@@ -463,7 +458,7 @@ private struct MiscueLimitFigure: View {
                     .position(x: cx + r * 0.78, y: cy - r * 0.2)
 
                 VStack(alignment: .leading, spacing: Spacing.sm) {
-                    legendDot(Color.btPrimary, "可靠打点 ≤ \(String(format: "%.1f", Double(limitFraction)))R")
+                    legendDot(Color.btPrimary, "打点范围 ≤ \(String(format: "%.1f", Double(limitFraction)))R")
                     legendDot(Color.btSuccess, "区内：塞可传递")
                     legendDot(Color.btDestructive, "区外：易滑杆")
                 }

@@ -273,8 +273,7 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
 
     func dragBegan(node: SCNNode) {
         isDragging = true
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.15, duration: 0.1), forKey: "dragPulse")
+        TableBallPulse.beginDrag(node)
     }
 
     func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
@@ -287,12 +286,17 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
 
     func dragEnded(node: SCNNode) {
         isDragging = false
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.0 / 1.15, duration: 0.15))
+        TableBallPulse.endDrag(node)
         updatePocketHighlights()
         updateAimVisualization()
         scheduleRecompute(interactive: false)
         selectionCameraChanged()
+    }
+
+    /// Pure preview: same constraints as the committed palette placement.
+    func palettePlacement(_ key: String, atWorld world: SCNVector3) -> SCNVector3? {
+        guard let node = scene.allBallNodes[key] else { return nil }
+        return AngleSceneCalculator.clampAwayFromPockets(clampBall(world, moving: node), surfaceY: scene.surfaceY)
     }
 
     private func clampBall(_ world: SCNVector3, moving: SCNNode) -> SCNVector3 {

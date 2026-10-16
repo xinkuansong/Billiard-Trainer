@@ -225,7 +225,7 @@ struct AimPointTrainingView: View {
         .btAdaptiveToolChrome("瞄准点训练")
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text("瞄准点训练").font(.btSubheadlineSemibold).foregroundStyle(.btText)
+                Text("瞄准点训练").font(.btHeadline).foregroundStyle(.btPrimary)
             }
             // C31 / G25：本页为 2D 特写图（无 AngleTrainingScene）→ 无可配台面网格，不并三点（留档）。
         }

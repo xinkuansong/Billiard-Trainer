@@ -95,6 +95,10 @@
 cd scripts && make help
 ```
 
+## 模拟器生命周期（所有会话）
+
+新建、复用、测试及录制模拟器前，读取 [`scripts/simulator-lifecycle/README.md`](scripts/simulator-lifecycle/README.md)。优先 `make -f scripts/Makefile sim-test` 或 `scripts/simulator_lifecycle.py run`，禁止按每个任务随意裸建模拟器。已有设备需显式借用；固定评审设备、其他任务占用和未知归属均保留。回收只走登记表与证据检查，禁止按名称/日期批量删除。任务完成后由入口释放租约，需保留现场时 `protect`；只启动过任务或进程已退出不能视为允许清理。
+
 ## Steering（`.kiro/steering/`）
 
 - `product.md` — 产品共识摘要

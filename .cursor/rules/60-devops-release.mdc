@@ -32,6 +32,10 @@ make screenshot # 当前运行的模拟器截图
 make clean      # 清理 build/
 ```
 
+## 模拟器管理（2026-10-14）
+
+所有新模拟器统一由 `scripts/simulator_lifecycle.py run` 创建/复用，先读 `scripts/simulator-lifecycle/README.md`。日常测试优先 `make sim-test`；`make test`、矩阵、原生图册与预览工具共用主机租约。临时任务成功导出后回收、失败保留7天；固定池复用且设上限。旧设备未知归属默认保护，人工评审/其他任务设备不得自动擦除。禁止直接 `simctl create/clone/delete` 绕过生命周期（管理器自身除外）。新增构建/视频/诊断入口也需沿用这一层；所有worktree共用主机状态，不能建立各自独立的竞争租约表。
+
 ## 证书与 Provisioning Profile
 
 **开发阶段（本机）**：
@@ -113,3 +117,10 @@ Changelog：2026-09-24 / FL-089 / 增补导出版本一致性检查。
 ### ⛔ FL-116 — 视频结束必须覆盖完整呈现尾段
 **场景**：原生视频依据落袋事件或台面高度决定停帧/转场。
 **强制检查点**：规则进袋、球顶低于台面与斜视下落袋视觉完成不是同一时刻；播放至生产呈现尾段结束，再核验当前摄像头的袋口近景及编码转场前帧。不能先冻结动画再加静帧等待，不能用全桌缩略图代替袋口检查。
+
+### ⛔ FL-155 — macOS进程保护须读取未截断的真实字段
+**场景**：模拟器/构建清理前按进程可执行文件和UDID判断占用。
+**强制检查点**：macOS的ps非末列comm可能截断，即便-ww仍然如此；不能用截断路径的basename做占用判断。分别取末列comm与args并按PID关联，支持路径空格；检测失败或活动目标无法解析时保守阻止删除。必须用真实输出格式夹具并和本机实际进程交叉核对。限定一批清理时按精确UDID白名单执行，不扩大为全部可删项。
+Changelog：2026-10-14 / FL-155 / 进程占用识别v1。
+
+FL-155补充（2026-10-14）：进程保护须区分构建与设备工作负载；只排除单一generic/platform=iOS Simulator、无UDID、无test/test-without-building的build-for-testing。缺失目标／多目标／真实测试继续保护。真实命令格式交叉验证与23项生命周期测试见output/sequence-current-engine-audit-20261014/lifecycle-check.log。

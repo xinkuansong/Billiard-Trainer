@@ -1,5 +1,43 @@
 import SwiftUI
 
+/// The entry glyphs share the reference's 24-unit grid and rounded line weight.
+struct BTTrainingEntryIcon: View {
+    enum Kind { case target, route }
+    var kind: Kind
+
+    var body: some View {
+        EntryGlyph(kind: kind)
+            .stroke(style: StrokeStyle(lineWidth: 2.3 * 16 / 24, lineCap: .round, lineJoin: .round))
+            .frame(width: 16, height: 16)
+            .accessibilityHidden(true)
+    }
+
+    private struct EntryGlyph: Shape {
+        let kind: Kind
+
+        func path(in rect: CGRect) -> Path {
+            var path = Path()
+            switch kind {
+            case .target:
+                for radius: CGFloat in [9, 6, 3] {
+                    path.addEllipse(in: CGRect(x: 12 - radius, y: 12 - radius, width: 2 * radius, height: 2 * radius))
+                }
+            case .route:
+                path.addEllipse(in: CGRect(x: 15, y: 3, width: 6, height: 6))
+                path.addEllipse(in: CGRect(x: 3, y: 15, width: 6, height: 6))
+                path.move(to: CGPoint(x: 15, y: 6))
+                path.addLine(to: CGPoint(x: 6, y: 6))
+                path.addCurve(to: CGPoint(x: 6, y: 12), control1: CGPoint(x: 2, y: 6), control2: CGPoint(x: 2, y: 12))
+                path.addLine(to: CGPoint(x: 18, y: 12))
+                path.addCurve(to: CGPoint(x: 18, y: 18), control1: CGPoint(x: 22, y: 12), control2: CGPoint(x: 22, y: 18))
+                path.addLine(to: CGPoint(x: 9, y: 18))
+            }
+            return path.applying(CGAffineTransform(scaleX: rect.width / 24, y: rect.height / 24)
+                .concatenating(CGAffineTransform(translationX: rect.minX, y: rect.minY)))
+        }
+    }
+}
+
 /// 训练 Tab 自定义图标 — 替代之前的 `dumbbell.fill`（健身哑铃，与台球语义不符）。
 ///
 /// 台球母题："上方三颗球三角堆（1 顶 + 2 底）+ 下方一根球杆"，比早期「球+轨迹弧」在小尺寸下更易识别。

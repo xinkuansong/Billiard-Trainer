@@ -180,9 +180,9 @@ sceneKitZ = canvasY × 2.540 − 0.635
 
 ---
 
-## 袋口 ID → 用户屏幕名（portrait，DR-063）
+## 袋口 ID → 用户屏幕名（按实际渲染面）
 
-全部 drill 用户面（精讲页 / 封面 / 击打页）为 `CameraRig.applyTopDown2DRotated`：
+固定竖版精讲图使用 `CameraRig.applyTopDown2DRotated`，轴向如下。动作详情的横向2D球桌用landscape；试打按当前实际桌面布局选取映射。设备竖屏不代表桌面一定竖放。
 
 | 屏幕轴 | 世界轴 | canvas |
 |--------|--------|--------|
@@ -198,7 +198,7 @@ sceneKitZ = canvasY × 2.540 − 0.635
 | `topCenter` | 左侧中袋 | 上中袋（屏幕上方中点） |
 | `bottomCenter` | 右侧中袋 | 下中袋 |
 
-> learn 页横版插图仍用 landscape 对照列；禁止一刀切改名。写精讲/封面文案只用 portrait 列。
+> 文字以对应画面为准：横桌详情及横版插图用landscape，竖版精讲图用portrait；第一训练要点等跨页复用时必须按接收页面映射。3D沿用该页2D参考，不随镜头绕台改名。左右塞、相对于进球方向的左右等不是桌面方位，禁止一刀切替词。
 
 ---
 
@@ -223,6 +223,7 @@ canvasY=0.5 (+Z 长库；landscape 屏幕下 / portrait 屏幕右)
 |------|------|------|
 | 1.0 | 2026-03-24 | 初版 |
 | 1.1 | 2026-08-07 | DR-063：按代码修正 canvasY 公式与原点 (−1.270,−0.635)；归一化袋口表改 schema ID + portrait 名；新增袋口屏幕名映射与 landscape 对照 |
+| 1.2 | 2026-10-16 | FL-163补充：明确详情横桌、精讲竖图、试打实际布局；删除全部Drill为portrait的旧断言，未改几何数值。 |
 
 > 2026-09-12 v63 W00：修正上表 pocket_1 / pocket_2 的历史顺序，按生产 TableGeometry+QiuJi 与 AngleSceneCalculator 对齐；未改变实际物理坐标或 portrait 名称映射。
 

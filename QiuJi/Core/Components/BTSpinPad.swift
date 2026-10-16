@@ -680,6 +680,90 @@ enum PocketDisplay {
     }
 }
 
+/// Drill prose is authored against the fixed portrait tutorial image. Convert only
+/// reviewed table-space phrases at the receiving view; never mutate content/snapshots.
+/// Keep these scopes in sync with the full-library direction audit, not a global
+/// left/right replacement (side spin and shot-relative directions do not rotate).
+enum DrillCopyDisplay {
+    private static let scopedPhrases: [String: [(String, String)]] = [
+        "drill_c009.description": [("从左到右", "从上到下"), ("越靠右", "越靠下")],
+        "drill_c009.coachingPoints[1]": [("越靠右", "越靠下")],
+        "drill_c018.description": [("下短库", "左短库")],
+        "drill_c018.coachingPoints[0]": [("下短库", "左短库")],
+        "drill_c018.standardCriteria": [("左右方向", "上下方向")],
+        "drill_c024.coachingPoints[0]": [("向下分离", "向左分离")],
+        "drill_c026.coachingPoints[0]": [("向上还是向下走", "向右还是向左走")],
+        "drill_c027.coachingPoints[1]": [("右长库", "下长库"), ("下短库", "左短库")],
+        "drill_c028.description": [("向左带开", "向上带开")],
+        "drill_c028.coachingPoints[0]": [("向左带开", "向上带开")],
+        "drill_c029.coachingPoints[0]": [("向上还是向下分离", "向右还是向左分离")],
+        "drill_c030.description": [("下角袋", "左侧角袋")],
+        "drill_c030.coachingPoints[0]": [("左下还是右下角袋", "左上还是左下角袋")],
+        "drill_c030.coachingPoints[1]": [("左侧或右侧两库路线", "上侧或下侧两库路线")],
+        "drill_c031.description": [("右侧、下端还是左侧", "下侧、左端还是上侧")],
+        "drill_c031.coachingPoints[1]": [("右侧目标", "下侧目标"), ("下端和左侧", "左端和上侧")],
+        "drill_c032.coachingPoints[1]": [("向右换位", "向下换位")],
+        "drill_c037.description": [("右侧一库", "下侧一库"), ("左侧一库", "上侧一库")],
+        "drill_c037.coachingPoints[0]": [("左右两侧吃库", "上下两侧吃库")],
+        "drill_c037.coachingPoints[1]": [("右侧一库", "下侧一库"), ("左侧一库", "上侧一库")],
+        "drill_c041.description": [("下端的 1 号", "左端的 1 号")],
+        "drill_c045.coachingPoints[2]": [("停在下端", "停在左端")],
+        "drill_c046.description": [("左右下角袋", "左侧上下角袋"), ("左右往返", "上下往返")],
+        "drill_c046.coachingPoints[0]": [("下一杆的底袋", "下一杆的左侧角袋")],
+        "drill_c050.description": [("台面下端", "台面左端")],
+        "drill_c054.description": [("右侧长库", "下侧长库")],
+        "drill_c054.coachingPoints[0]": [("右侧长库", "下侧长库")],
+        "drill_c055.description": [("右侧长库", "下侧长库")],
+        "drill_c055.coachingPoints[0]": [("右侧长库", "下侧长库")],
+        "drill_c057.coachingPoints[1]": [("左长库", "上长库"), ("下短库", "左短库")],
+        "drill_c058.description": [("右侧长库", "下侧长库")],
+        "drill_c063.description": [("底库", "左侧短库")],
+        "drill_c064.coachingPoints[1]": [("左长库", "上长库"), ("右长库", "下长库"),
+            ("2 号左侧", "2 号上侧"), ("3 号右侧", "3 号下侧")],
+        "drill_c064.standardCriteria": [("2 号左侧", "2 号上侧"), ("3 号右侧", "3 号下侧")],
+        "drill_c071.description": [("底库", "左侧短库")],
+        "drill_c071.coachingPoints[0]": [("底库", "左侧短库")],
+        "drill_c071.standardCriteria": [("底库", "左侧短库")],
+        "drill_c079.description": [("左右下角袋", "左侧上下角袋")],
+        "drill_c080.description": [("上下半台", "左右半台")],
+        "drill_c081.description": [("纵排", "横排")],
+        "drill_c081.coachingPoints[0]": [("它的右上方", "它的右下方")],
+        "drill_c082.description": [("横排", "纵排"), ("左右两端", "上下两端"), ("上下两端", "左右两端")],
+        "drill_c082.coachingPoints[0]": [("横排", "纵排")],
+        "drill_c082.coachingPoints[1]": [("向下叫", "向左叫"), ("向上接球", "向右接球")],
+        "drill_c083.description": [("下短库", "左短库"), ("横排", "纵排"), ("左侧还是右侧", "上侧还是下侧")],
+        "drill_c083.coachingPoints[0]": [("下短库", "左短库")],
+        "drill_c084.description": [("横排", "纵排")],
+        "drill_c084.coachingPoints[0]": [("横排", "纵排")],
+        "drill_c084.coachingPoints[1]": [("右侧目标", "下侧目标"), ("向左侧换目标", "向上侧换目标")]
+    ]
+
+    static func text(_ source: String, drillID: String, field: String,
+                     orientation: PocketDisplay.Orientation) -> String {
+        guard orientation == .landscape else { return source }
+        var phrases = scopedPhrases["\(drillID).\(field)"] ?? []
+        for index in 0..<6 {
+            phrases.append((PocketDisplay.name(index: index, orientation: .portrait),
+                            PocketDisplay.name(index: index, orientation: orientation)))
+        }
+        phrases += [("左侧中袋", PocketDisplay.name(index: 4, orientation: orientation)),
+                    ("右侧中袋", PocketDisplay.name(index: 5, orientation: orientation))]
+        phrases.sort { $0.0.count > $1.0.count }
+        var result = ""
+        var cursor = source.startIndex
+        while cursor < source.endIndex {
+            if let match = phrases.first(where: { source[cursor...].hasPrefix($0.0) }) {
+                result += match.1
+                cursor = source.index(cursor, offsetBy: match.0.count)
+            } else {
+                result.append(source[cursor])
+                cursor = source.index(after: cursor)
+            }
+        }
+        return result
+    }
+}
+
 private struct PocketDisplayOrientationKey: EnvironmentKey {
     static let defaultValue = PocketDisplay.Orientation.portrait
 }

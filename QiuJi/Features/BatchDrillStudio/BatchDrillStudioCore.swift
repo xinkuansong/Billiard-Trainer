@@ -353,28 +353,27 @@ enum BatchSequenceArchive {
 
         let safeName = sequence.name.replacingOccurrences(of: "/", with: "-")
 
-        if legacy {
-            // 只覆盖同 drill 的旧版单序列文件（无 `__`），不碰任何新版球形文件。
-            for file in (try? fm.contentsOfDirectory(atPath: directory)) ?? []
-            where file.hasPrefix("\(drillId)-") && !file.contains("__") && file.hasSuffix(".json") {
-                try? fm.removeItem(atPath: "\(directory)/\(file)")
-            }
-            let url = URL(fileURLWithPath: directory)
-                .appendingPathComponent("\(drillId)-\(safeName)-\(sequence.steps.count)杆.json")
-            try data.write(to: url)
-            return url
-        }
-
         let token = BatchDrillCatalog.formationToken(forImageStem: imageStem)
-        let stemPrefix = "\(drillId)__\(token)-"   // 仅同图覆盖；旧版单序列与其它图一律不动
-        for file in (try? fm.contentsOfDirectory(atPath: directory)) ?? []
-        where file.hasPrefix(stemPrefix) {
-            try? fm.removeItem(atPath: "\(directory)/\(file)")
+        let prefix = legacy ? "\(drillId)-" : "\(drillId)__\(token)-"
+        let existing = try fm.contentsOfDirectory(atPath: directory).filter {
+            $0.hasPrefix(prefix) && $0.hasSuffix(".json") && (!legacy || !$0.contains("__"))
         }
-
-        let url = URL(fileURLWithPath: directory)
-            .appendingPathComponent("\(stemPrefix)\(safeName)-\(sequence.steps.count)杆.json")
-        try data.write(to: url)
+        let root = URL(fileURLWithPath: directory)
+        // Back up exact original bytes before any replacement, including name/shot-count changes.
+        // Catalogs scan only the root, so backups cannot become duplicate formations.
+        if !existing.isEmpty {
+            let backup = root.appendingPathComponent("_backups", isDirectory: true)
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            try fm.createDirectory(at: backup, withIntermediateDirectories: true)
+            for file in existing {
+                try fm.copyItem(at: root.appendingPathComponent(file), to: backup.appendingPathComponent(file))
+            }
+        }
+        let url = root.appendingPathComponent("\(prefix)\(safeName)-\(sequence.steps.count)杆.json")
+        try data.write(to: url, options: .atomic)
+        for file in existing where file != url.lastPathComponent {
+            try fm.removeItem(at: root.appendingPathComponent(file))
+        }
         return url
     }
 }

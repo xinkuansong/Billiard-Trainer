@@ -225,3 +225,87 @@ final class PocketDisplayTests: XCTestCase {
         }
     }
 }
+
+@MainActor
+final class DrillCopyDisplayTests: XCTestCase {
+    func testPocketProseMatchesActualCameraProjection() {
+        let node = SCNNode()
+        node.camera = SCNCamera()
+        let rig = CameraRig(cameraNode: node, tableSurfaceY: 0)
+        rig.applyTopDown2D()
+        for (index, pocket) in AngleSceneCalculator.pocketPositions(surfaceY: 0).enumerated() {
+            let position = node.convertPosition(pocket, from: nil)
+            let expected = index < 4
+                ? (position.x < 0 ? "左" : "右") + (position.y > 0 ? "上" : "下") + "角袋"
+                : (position.y > 0 ? "上" : "下") + "中袋"
+            let source = PocketDisplay.name(index: index, orientation: .portrait)
+            XCTAssertEqual(DrillCopyDisplay.text(source, drillID: "drill_c033",
+                field: "description", orientation: .landscape), expected)
+        }
+    }
+
+    func testScopedCompoundPhrasesDoNotCascade() {
+        let source = "横排从左右两端开始，让上下两端接起来"
+        XCTAssertEqual(DrillCopyDisplay.text(source, drillID: "drill_c082",
+            field: "description", orientation: .landscape), "纵排从上下两端开始，让左右两端接起来")
+        XCTAssertEqual(DrillCopyDisplay.text("先确定8号打左下还是右下角袋", drillID: "drill_c030",
+            field: "coachingPoints[0]", orientation: .landscape), "先确定8号打左上还是左下角袋")
+        XCTAssertEqual(DrillCopyDisplay.text("左右下角袋", drillID: "drill_c046",
+            field: "description", orientation: .landscape), "左侧上下角袋")
+        XCTAssertEqual(DrillCopyDisplay.text("左长库与右长库", drillID: "drill_c064",
+            field: "coachingPoints[1]", orientation: .landscape), "上长库与下长库")
+    }
+
+    func testStrokeRelativeWordsAndUnknownScopesStayUntouched() {
+        let source = "左塞向左让、右塞向右让；高低杆、母球下方、向前跟进、横着甩杆、下一杆"
+        XCTAssertEqual(DrillCopyDisplay.text(source, drillID: "drill_c073",
+            field: "coachingPoints[0]", orientation: .landscape), source)
+        // This relative phrase is only approved as table-space in c064's audited fields.
+        XCTAssertEqual(DrillCopyDisplay.text("2 号左侧", drillID: "drill_unknown",
+            field: "description", orientation: .landscape), "2 号左侧")
+        XCTAssertEqual(DrillCopyDisplay.text("右下角袋与上下两端", drillID: "drill_c082",
+            field: "description", orientation: .portrait), "右下角袋与上下两端")
+    }
+
+    func testBriefFirstPointUsesReceivingTableAndDoesNotMutateContent() async throws {
+        let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c033")
+        let drill = try XCTUnwrap(loaded)
+        let original = drill.coachingPoints[0]
+        for orientation in PocketDisplay.Orientation.allCases {
+            let lines = DrillTryoutBrief.lines(for: drill, orientation: orientation)
+            let focus = try XCTUnwrap(lines.first { $0.label == "训练重点" })
+            XCTAssertTrue(focus.text.contains(orientation == .landscape ? "左下角袋" : "右下角袋"))
+        }
+        XCTAssertEqual(drill.coachingPoints[0], original)
+    }
+
+    func testBriefRespectsTrainingModeIncludingRestoredTarget() async throws {
+        for (id, token, expected) in [
+            ("drill_c012", "manual01", "各杆按示范摆位练习"),
+            ("drill_c046", "Snipaste_2026_06_19_16_49_09", "按顺序接续完成"),
+            ("drill_c069", "manual02", "按顺序接续完成")
+        ] {
+            let loaded = await DrillContentService.shared.loadDrillFromBundle(id: id)
+            let drill = try XCTUnwrap(loaded)
+            let formation = try XCTUnwrap(DrillTryoutBoardStore.formations(for: id).first { $0.token == token })
+            let goal = DrillTryoutBrief.goalText(for: drill, formation: formation, orientation: .landscape)
+            XCTAssertTrue(goal.contains(expected), "\(id): \(goal)")
+            XCTAssertFalse(goal.contains("进球后"))
+            if id == "drill_c012" { XCTAssertFalse(goal.contains("目标球")) }
+        }
+    }
+
+    func testUnknownFormationTokenKeepsNeutralSummary() async throws {
+        let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c069")
+        let drill = try XCTUnwrap(loaded)
+        let source = try XCTUnwrap(DrillTryoutBoardStore.formations(for: drill.id).first)
+        let unknown = DrillTryoutFormation(token: "unknown", title: source.title,
+            fileName: source.fileName, initial: source.initial, stepCount: source.stepCount,
+            firstShot: source.firstShot, steps: source.steps)
+        XCTAssertNil(DrillTryoutBrief.formationMode(for: drill, formation: unknown))
+        let goal = DrillTryoutBrief.goalText(for: drill, formation: unknown, orientation: .portrait)
+        XCTAssertTrue(goal.contains("共 \(source.stepCount) 杆示范"))
+        XCTAssertFalse(goal.contains("接续"))
+        XCTAssertFalse(goal.contains("各杆"))
+    }
+}

@@ -807,7 +807,8 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 ## 训练浮层胶囊（DR-094）
 
 - 五种展示：训练、继续、自由、播放图标+累计时间、计时器图标+倒计时。带时间时隐藏可见标题，保留完整无障碍说明（2026-09-06用户后续裁定）。
-- 统一 `BTTrainingPill`：高44pt，水平内边距16pt，图标/文字/时间间距8pt；普通品牌绿、休息warning；不持续漂浮。
+- 首页入口（DR-094 r5 / FL-167，2026-10-16用户修订）：默认选中，复用 `BTAdaptiveToolActionStyle(isSelected: true, size: .regular)`；字号15pt semibold、水平内边距12pt、图标16pt、间距4pt、最小高44pt。`BTTrainingEntryIcon` 靶心/横向路径保持确认稿形状；原生玻璃 tint 使用 btPrimaryMuted，文字/图标 btPrimary，旧系统为材质降级。普通工具页保留默认compact与未选中。不得用SF近似替换确认图标；须按同尺度核图标、比例、材质，不能以测试绿替代视觉匹配。
+- 最小化训练/休息继续使用 `BTTrainingPill`：高44pt，水平内边距16pt，图标/文字/时间间距8pt；普通品牌绿、休息warning；不持续漂浮。
 - 定位统一 `btTrainingPillOverlay`：右侧12pt；底部距当前安全区/可见Tab/操作栏上沿12pt。
 - 固定操作栏完整布局（含padding）声明 `btTrainingPillObstacle`；页面退出清除占位。不可只给某设备额外加bottom偏移，不可把含Spacer的全屏容器登记为障碍。
 - 修改后验证五状态高度、真实按钮不相交及可点击、push/pop后占位恢复、长计时和不同底部安全区。
@@ -1539,3 +1540,16 @@ BTTablePageTitle新增fitsLongText（默认false）；试打显式true，以Swif
 ### 动作库序列第三人称（DR-392 r2 / FL-153，2026-10-14）
 
 `DrillSceneController`仅拥有逐杆时序；机位和转镜复用`CameraRig.enterPlayerView(.thirdPerson)`及共享曲面速度时钟。必须先区分内容：保存的上一杆after与下一杆before相同时，连续走位沿用实际停点和四元数；不同则是作者重新摆球，必须先在原机位完成新球形（含恢复已进袋目标球），再求解并转到新杆第三人称。禁止将独立首杆示例误判为缺球异常。所有分支等待自然停稳／落袋尾段后才开始杆间流程；球形切换、转镜均可原位暂停续接；末杆保留现场。合同见`tasks/DRILL-SEQUENCE-CAMERA-20261014.md`。
+
+DR-392 r3 / FL-153（2026-10-14）：动作库详情与“上手试打→序列”是两个消费者，换球形／第三人称须复用`SequenceSceneTransition`，分别跑真实入口。自动连续接杆沿用实际停点重新求解；手动上一杆／下一杆／重播才显式恢复作者球形。试打新增换球、转镜阶段后，暂停按钮应允许恢复该阶段，不能因`isPlaying`仍为真把继续禁用。后台暂停与离页取消分别验收。
+
+
+### FL-166 — 浮层自身尺寸须直接测量（2026-10-16）
+嵌套overlayPreferenceValue中的Preference读数可能回到默认零值；浮层自身采用onGeometryChange等直接测量，零尺寸不能参与可见定位。验收核整个胶囊frame与窗口/上下栏边界，并真实拖动、点击；不只检查中心点或AX存在。Changelog：FL-166 / 训练胶囊尺寸回传修正。
+
+### DR-094 r2 — 两类最小化浮窗可拖动（2026-10-16）
+仅休息胶囊和跨Tab训练浮窗向btTrainingPillOverlay传入会话持有的BTTrainingPillPosition；首页入口仍走固定分支。拖动跟手，松手吸附安全区域右侧12pt；44pt高度、颜色、点击展开语义保持。两类位置独立，以窗口可用高度比例记录，新会话重置，不持久化到训练数据。btTrainingPillObstacle(edge:)默认bottom，训练自定义顶栏显式top；导航/键盘/Tab与操作栏动态约束完整胶囊。仅胶囊识别拖动，取消/消失清临时手势；Reduce Motion关闭吸附动画，VoiceOver提供上下移操作。验证边界见tasks/ui-reviews/UR-20261016-floating-pill-drag.md。覆盖DR-094两类最小化浮窗固定右下位置的旧要求。
+
+
+### DR-400 — 练Tab普通页顶部标题（2026-10-16）
+用户以“瞄准原理”为基准：练Tab普通阅读与答题页的居中顶部页名用`btHeadline`（17pt semibold）+`btPrimary`，深色随主题变体。LearnReadingNavigation七个消费者及角度预测/瞄准点训练显式采用；原生inline导航已由QiuJiApp全局样式满足。此约定不修改首页卡片/分类名、文档分节、统计或按钮；横屏球桌与拍照建球形双行状态顶栏继续用其专属空间/对比度契约。保留阅读页稳定背景与导航语义，不在单页修复时改全局token。Changelog：DR-400 / 普通页标题v1；验证与范围见`tasks/ui-reviews/UR-20261016-practice-titles.md`。

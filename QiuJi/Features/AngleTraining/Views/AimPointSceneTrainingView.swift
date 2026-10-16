@@ -2,22 +2,15 @@ import SwiftUI
 import SwiftData
 import SceneKit
 
-// MARK: - 2D/3D 瞄准点训练（问题集合 v3 批次 S3：G1 口径）
-//
-// 瞄准训练最终版：给定母球/目标球/袋口并**展示进球线**（虚线，绿色球用白线增强对比，其余绑目标球色）；
-// 瞄准线初始 = 两球心连线；手指粗调 + 刻度轮微调。
-// G1 口径：瞄准点 = 瞄准线与「过目标球心且垂直于瞄准线的直线」的交点（垂足）；
-// 辅助线（白色细虚线）随用户瞄准线旋转、恒与其垂直。误差 = 用户瞄准点与正确瞄准点
-// 相对目标球心的有符号偏移之差（mm，偏大为正 = 瞄薄）；正确瞄准点提交后以青蓝小点
-// 标注；1.5 秒后物理击球验证（DR-031：|误差|≤2mm 用几何正解线，否则用户线；杆速中等），然后下一题。
+// Shared range training; submission freezes the user line for geometric comparison.
 
 @MainActor
 final class AimPointSceneQuizViewModel: TeachingCameraHost {
 
-    enum Phase { case aiming, showingResult, striking }
+    enum Phase { case aiming, showingResult }
 
     struct RoundResult {
-        let errorMM: Double
+        let errorMM: Double?
     }
 
     // MARK: - Published
@@ -27,8 +20,12 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     @Published private(set) var targetBallNumber: Int = 8
     @Published private(set) var sessionResults: [RoundResult] = []
     @Published private(set) var lastErrorMM: Double?
-    /// 本轮验证是否走几何正解瞄准（与 `BTFeedback` mm success 档同口径，≤2mm）。
-    @Published private(set) var verifyUsesGeometricAim = false
+    @Published var run = SceneTrainingRun()
+    @Published var showSettings = false
+    @Published var finished = false
+    @Published var generationError: String?
+    @Published private(set) var showAngleHint = false
+    @Published private(set) var lastScore: SceneAimScore?
     /// v23：毫米口径轮增益（°/pt）；默认旧值，redraw 后刷新。
     @Published private(set) var aimWheelDegreesPerPoint: Float = AimWheelGain.defaultDegreesPerPoint
     /// v23：近区 ∧ 正在改瞄准时非 nil → 显示特写 HUD。
@@ -37,7 +34,6 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     @Published private(set) var closeupCorner: AimCloseupPlacement.Corner = .topTrailing
     /// 落库失败的可见错误态（nil = 无错误）。禁止静默丢题。
     @Published private(set) var saveErrorMessage: String?
-    @Published private(set) var verificationErrorMessage: String?
     /// 落库失败但已保留的成绩，供重试；用户答案始终留在 `sessionResults`。
     @Published private(set) var unsavedResults: [AngleTestResult] = []
 
@@ -49,7 +45,6 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     var targetNode: SCNNode? { scene.targetBallNodes.first }
     var selectedPocketIndex: Int { question?.pocketIndex ?? -1 }
     var currentPlayerAim: SCNVector3? { question == nil ? nil : aimDir }
-    private var isActive = true
     let scene = AngleTrainingScene()
     let limiter: AngleUsageLimiter
     /// "aimPoint2D" / "aimPoint3D"
@@ -60,9 +55,6 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     private var repository: AngleTestRepositoryProtocol?
     /// 用户瞄准方向（XZ 单位向量）。
     private var aimDir = SCNVector3(1, 0, 0)
-    /// 提交后锁定的验证出杆方向（容差内 = 几何正解，否则 = 用户线）。
-    private var pendingStrikeDir = SCNVector3(1, 0, 0)
-    private var strikeTask: Task<Void, Never>?
     private var proximityWasNear = false
     private lazy var closeupGate: AimCloseupGate = {
         let gate = AimCloseupGate()
@@ -85,8 +77,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
 
     // MARK: - Setup
 
-    func setupScene(cameraMode: AngleTrainingScene.CameraMode) {
-        isActive = true
+    func setupScene(cameraMode: AngleTrainingScene.CameraMode, autoStart: Bool = true) {
         self.cameraMode = cameraMode
         scene.configureReferenceTableRendering()
         if cameraMode == .perspective3D { scene.configureShotAwareCamera() }
@@ -95,30 +86,30 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         pocketMarkers = scene.addPocketMarkers()
         if cameraMode == .perspective3D { configureTeachingCamera() }
         scene.setCameraMode(cameraMode, animated: false)
-        nextQuestion()
+        if autoStart { startTest() }
     }
 
     // MARK: - Question lifecycle
 
+    func startTest(configuration: SceneTrainingConfiguration = .init(), questions: [SceneTrainingQuestion] = []) {
+        run = SceneTrainingRun(configuration: configuration, queue: questions)
+        sessionResults = []; finished = false; generationError = nil
+        nextQuestion()
+    }
+
     func nextQuestion() {
-        guard isActive else { return }
         endTemporaryTopDown()
-        strikeTask?.cancel()
-        verificationErrorMessage = nil
-        guard !limiter.isLimitReached else {
-            // C23：击球验证结束后若已满额，回到 aiming 以展示 full 主卡（避免卡在 striking）。
-            phase = .aiming
-            return
-        }
+        guard !run.canFinish, !limiter.isLimitReached else { finished = true; return }
+        let q: AngleQuestion
+        do { q = try run.next(); generationError = nil }
+        catch { generationError = error.localizedDescription; return }
+        applyQuestion(q)
+    }
+
+    private func applyQuestion(_ q: AngleQuestion) {
         clearLines()
         scene.hideCueStick()
         scene.hideAllVisualization()
-
-        let angle = Double(Int.random(in: 2...16) * 5) // 10°–80°
-        let q = AngleCalculator.generateQuestion(
-            angle: angle, pocketType: nil,
-            targetPocketDistanceRange: 0.15...0.55
-        )
         question = q
         targetBallNumber = Int.random(in: 1...15)
 
@@ -136,9 +127,9 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
 
         // 条 9.4：瞄准线初始 = 母球-目标球中心连线。
         aimDir = normalizedXZ(from: cuePos, to: targetPos)
-        pendingStrikeDir = aimDir
         lastErrorMM = nil
-        verifyUsesGeometricAim = false
+        showAngleHint = false
+        lastScore = nil
         proximityWasNear = false
         closeupGate.reset()
         phase = .aiming
@@ -179,7 +170,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     // MARK: - Submit（条 9.6/9.7，G1 口径）
 
     func submit() {
-        guard phase == .aiming, let q = question,
+        guard phase == .aiming, !run.submitted, !limiter.isLimitReached, let q = question,
               let cue = scene.cueBallNode, let target = scene.targetBallNodes.first else { return }
         let surfaceY = scene.surfaceY
 
@@ -193,59 +184,36 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         )
         let correctDir = normalizedXZ(from: cue.position, to: ghost)
 
-        // G1 瞄准点：目标球心到各瞄准线的垂足（XZ 平面，AimPointGeometry 唯一真源）。
-        let cueP = xzPoint(cue.position)
-        let targetP = xzPoint(target.position)
-        let userFoot = AimPointGeometry.aimPoint(
-            lineOrigin: cueP, direction: xzPoint(aimDir), targetCenter: targetP)
-        let correctFoot = AimPointGeometry.aimPoint(
-            lineOrigin: cueP, direction: xzPoint(correctDir), targetCenter: targetP)
-
-        // 参考法向 = 目标球心 → 正确瞄准点（正确解所在侧为正，可区分瞄错侧）。
-        // 直球退化（正确垂距 ≈ 0）时以用户侧为正，误差 = 用户垂距（恒偏大）。
-        var normal = CGPoint(x: correctFoot.x - targetP.x, y: correctFoot.y - targetP.y)
-        if hypot(normal.x, normal.y) < 1e-6 {
-            normal = CGPoint(x: userFoot.x - targetP.x, y: userFoot.y - targetP.y)
-        }
-        let sCorrect = Double(hypot(correctFoot.x - targetP.x, correctFoot.y - targetP.y))
-        let sUser = hypot(normal.x, normal.y) < 1e-9
-            ? 0
-            : Double(AimPointGeometry.signedOffset(
-                lineOrigin: cueP, direction: xzPoint(aimDir),
-                targetCenter: targetP, positiveNormal: normal))
-        // 偏大为正（= 瞄薄，与瞄准点训练同约定）。
-        let errorMM = (sUser - sCorrect) * 1000
-
-        lastErrorMM = errorMM
-        // DR-031：success 档（≤2mm，与 `BTFeedback.quiz(errorMM:)` 同口径）用几何正解验证，
-        // 避免「几何已对但仍按用户微偏线 + 软力打」导致进袋反馈失真；偏了仍打用户线。
-        verifyUsesGeometricAim = BTFeedback.outcome(forMM: abs(errorMM)) == .correct
-        pendingStrikeDir = verifyUsesGeometricAim ? correctDir : aimDir
-        sessionResults.append(RoundResult(errorMM: errorMM))
+        let score = SceneAimScore.measure(cue: cue.position, target: target.position, ghost: ghost, direction: aimDir)
+        lastScore = score
+        lastErrorMM = score.millimetres
+        let metadata = run.metadata(unit: "mm", direction: aimDir, score: score)
+        sessionResults.append(RoundResult(errorMM: score.millimetres))
         limiter.recordQuestion()
-        BTFeedback.quiz(errorMM: errorMM)
-
+        run.record(error: score.millimetres.map(abs), signedError: score.straight ? nil : score.millimetres, angle: q.actualAngle)
+        BTFeedback.quiz(errorMM: score.millimetres ?? 100)
         phase = .showingResult
+        endTemporaryTopDown()
         redrawLines(correctDir: correctDir)
-
-        Task {
-            let result = AngleTestResult(
-                actualAngle: sCorrect * 1000,
-                userAngle: sUser * 1000,
-                pocketType: q.pocketType.rawValue,
-                quizType: quizTypeLabel,
-                errorMM: errorMM
-            )
-            await persist(result)
-        }
-
-        // 条 9.8 / Q7.3：停留 1.5 秒 → 物理击球验证（含运杆动画）→ 下一题。
-        strikeTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
-            guard !Task.isCancelled else { return }
-            self?.strike()
-        }
+        // Legacy numeric fields remain finite for old clients; metadata is authoritative for invalid answers.
+        let result = AngleTestResult(actualAngle: 0, userAngle: score.millimetres ?? 0,
+            pocketType: q.pocketType.rawValue, quizType: quizTypeLabel, errorMM: score.millimetres ?? 0)
+        result.trainingMetadataJSON = metadata?.json
+        Task { await persist(result) }
     }
+
+    func toggleAngleHint() {
+        guard phase == .aiming else { return }
+        showAngleHint.toggle()
+        if showAngleHint { run.assistance.insert("angleHint") }
+    }
+
+    func markObservation() {
+        if phase == .aiming && cameraMode == .perspective3D { run.assistance.insert("observation") }
+    }
+
+
+    func finish() { endTemporaryTopDown(); finished = true }
 
     /// 重试此前失败的落库；失败仍会重新置错误态。
     func retryFailedSaves() {
@@ -265,82 +233,6 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         } catch {
             unsavedResults.append(result)
             saveErrorMessage = AngleResultSaveFailure.message(error)
-        }
-    }
-
-    // MARK: - Strike（物理击球）
-
-    func retryVerification() {
-        guard verificationErrorMessage != nil, phase == .showingResult else { return }
-        strike()
-    }
-
-    @discardableResult
-    func acceptVerificationPrediction(_ prediction: ShotPrediction) -> Bool {
-        guard prediction.hasFinalTableState, prediction.recorder != nil, prediction.duration > 0.05 else {
-            strikeTask?.cancel()
-            phase = .showingResult
-            verificationErrorMessage = "击球验证未完成，已保留本题答案。可以重试验证或继续下一题。"
-            return false
-        }
-        verificationErrorMessage = nil
-        return true
-    }
-
-    private func strike() {
-        guard isActive else { return }
-        endTemporaryTopDown()
-        guard phase == .showingResult,
-              let cue = scene.cueBallNode, let target = scene.targetBallNodes.first else { return }
-        verificationErrorMessage = nil
-
-        let surfaceY = scene.surfaceY
-        let velocity = ShotTuning.aimPointVerifyVelocity
-        let strikeAim = pendingStrikeDir
-        let prediction = ShotPredictor.simulateFree(
-            cueBall: cue.position, aimDir: strikeAim,
-            velocity: velocity, spinX: 0, spinY: 0,
-            surfaceY: surfaceY,
-            balls: [ObstacleBall(name: "object", position: target.position)]
-        )
-        guard acceptVerificationPrediction(prediction), let recorder = prediction.recorder else { return }
-        phase = .striking
-        clearLines()
-
-        // Q7.4：验证击球走单一权威运杆链路（运杆→出杆→触球起播），与其他击打页
-        // （`PositionPlayViewModel`/`SiluTrainerViewModel` 等）同口径 `AngleTrainingScene.runCueStroke`。
-        let strikePos = CueStroke.strikePosition(cue: cue.position, aim: strikeAim, spinX: 0)
-        scene.runCueStroke(strikePosition: strikePos, aim: strikeAim, velocity: velocity) { [weak self] in
-            self?.launchStrikePlayback(cue: cue, target: target, recorder: recorder)
-        }
-    }
-
-    /// 触球瞬间起播球体轨迹（收杆由 `runCueStroke` 的跟杆序列接管，勿在此 hideCueStick）。
-    private func launchStrikePlayback(cue: SCNNode, target: SCNNode, recorder: TrajectoryRecorder) {
-        let yLevel = scene.surfaceY + AngleSceneCalculator.ballRadius
-        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel, railInventory: scene.railInventory)
-        let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
-
-        if let targetAction = playback.action(for: target, ballName: "object",
-                                              removeOnPocket: false, maxSimTime: settle) {
-            target.runAction(targetAction)
-        }
-
-        if let cueAction = playback.action(for: cue, ballName: ShotInput.cueBallName,
-                                           removeOnPocket: false, maxSimTime: settle) {
-            cue.runAction(cueAction) { [weak self] in
-                Task { @MainActor in self?.advanceAfterStrike() }
-            }
-        } else {
-            advanceAfterStrike()
-        }
-    }
-
-    private func advanceAfterStrike() {
-        strikeTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 600_000_000)
-            guard !Task.isCancelled else { return }
-            self?.nextQuestion()
         }
     }
 
@@ -548,8 +440,6 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     }
 
     func stopTraining() {
-        isActive = false
-        strikeTask?.cancel()
         endTemporaryTopDown()
         closeupGate.reset()
     }
@@ -558,7 +448,8 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
 
     var sessionMeanAbsMM: Double {
         guard !sessionResults.isEmpty else { return 0 }
-        return sessionResults.map { abs($0.errorMM) }.reduce(0, +) / Double(sessionResults.count)
+        let values = sessionResults.compactMap { $0.errorMM }.map(abs)
+        return values.isEmpty ? 0 : values.reduce(0, +) / Double(values.count)
     }
 }
 
@@ -571,6 +462,7 @@ struct AimPointSceneTrainingView: View {
     @StateObject private var vm = AimPointSceneQuizViewModel(limiter: .shared)
     @StateObject private var fps = TableFPSReadoutState()
     @ObservedObject private var preferences = UserPreferences.shared
+    @State private var hasStarted = false
     @State private var hasAppeared = false
     @State private var scenePrepared = false
     @State private var showSubscription = false
@@ -588,9 +480,50 @@ struct AimPointSceneTrainingView: View {
         is3D ? .perspective3D : (portrait ? .topDown2DRotated : .topDown2D)
     }
     private var title: String { is3D ? "3D瞄准点" : "2D瞄准点" }
-    private var canAim: Bool { vm.phase == .aiming && !vm.limiter.isLimitReached && !showMenu }
+    private var canAim: Bool { vm.phase == .aiming && !vm.limiter.isLimitReached && !showMenu && !vm.finished && !vm.showSettings }
 
     var body: some View {
+        ZStack {
+            if hasStarted { tableContent }
+            else { settingsContent }
+        }
+        .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
+        .trainingBackgroundMusic()
+        .navigationTitle(hasStarted ? title : "训练设置")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
+        .toolbar(hasStarted ? .hidden : .visible, for: .navigationBar)
+        .background { if hasStarted { DailyTableOrientation(landscape: true, allowsTabletRotation: true) } }
+        .statusBarHidden(hasStarted && UIDevice.current.userInterfaceIdiom != .pad)
+        .onAppear {
+            guard !hasAppeared else { return }
+            hasAppeared = true
+            vm.quizTypeLabel = is3D ? "aimPoint3D" : "aimPoint2D"
+            vm.configure(context: modelContext)
+            vm.run.configuration = .load(for: vm.quizTypeLabel)
+        }
+        .onDisappear { vm.stopTraining() }
+        .onReceive(subscriptionManager.$isPremium) { vm.limiter.isPremium = $0 }
+        .sheet(isPresented: $showSubscription) { SubscriptionView().environmentObject(subscriptionManager) }
+        .sheet(isPresented: $vm.showSettings) { NavigationStack { settingsContent } }
+        .alert("出题未完成", isPresented: Binding(get: { vm.generationError != nil }, set: { if !$0 { vm.generationError = nil } })) {
+            Button("重新生成") { vm.nextQuestion() }
+            Button("调整范围") { vm.showSettings = true }
+        } message: { Text(vm.generationError ?? "") }
+    }
+
+    private var settingsContent: some View {
+        SceneTrainingSettings(route: is3D ? "aimPoint3D" : "aimPoint2D", configuration: vm.run.configuration,
+            restarting: hasStarted, onStart: { configuration, questions in
+                if !scenePrepared { vm.setupScene(cameraMode: cameraMode, autoStart: false); scenePrepared = true }
+                vm.startTest(configuration: configuration, questions: questions)
+                hasStarted = true; vm.showSettings = false
+            }, onCancel: {
+                if hasStarted { vm.showSettings = false } else { dismiss() }
+            })
+    }
+
+    private var tableContent: some View {
         GeometryReader { geo in
             let extraTop = UIDevice.current.userInterfaceIdiom == .pad ? max(0, windowSafeArea.top - geo.safeAreaInsets.top) : 0
             let extraBottom = UIDevice.current.userInterfaceIdiom == .pad ? max(0, windowSafeArea.bottom - geo.safeAreaInsets.bottom) : 0
@@ -602,27 +535,6 @@ struct AimPointSceneTrainingView: View {
                 .offset(x: -geo.safeAreaInsets.leading)
                 .ignoresSafeArea(.container, edges: .trailing)
         }
-        .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
-        .alert("击球验证未完成", isPresented: Binding(get: { vm.verificationErrorMessage != nil }, set: { _ in })) {
-            Button("重试验证") { vm.retryVerification() }
-            Button("下一题") { vm.nextQuestion() }
-        } message: { Text(vm.verificationErrorMessage ?? "") }
-        .trainingBackgroundMusic()
-        .btDarkToolChrome(title)
-        .background { DailyTableOrientation(landscape: true, allowsTabletRotation: true) }
-        .toolbar(.hidden, for: .navigationBar)
-        .statusBarHidden(UIDevice.current.userInterfaceIdiom != .pad)
-        .onAppear {
-            guard !hasAppeared else { return }
-            hasAppeared = true
-            vm.quizTypeLabel = is3D ? "aimPoint3D" : "aimPoint2D"
-            vm.configure(context: modelContext)
-            vm.setupScene(cameraMode: cameraMode)
-            scenePrepared = true
-        }
-        .onDisappear { vm.stopTraining() }
-        .onReceive(subscriptionManager.$isPremium) { vm.limiter.isPremium = $0 }
-        .sheet(isPresented: $showSubscription) { SubscriptionView().environmentObject(subscriptionManager) }
     }
 
     private func tableTemplate(size: CGSize, safe: CGFloat) -> some View {
@@ -695,7 +607,7 @@ struct AimPointSceneTrainingView: View {
                 }
             }.frame(width: f.left.width, height: f.left.height, alignment: .top)
                 .position(x: f.left.midX, y: f.left.midY)
-            BTTeachingInformationLayer(items: verificationInformation)
+            BTTeachingInformationLayer(items: trainingInformation)
                 .environment(\.teachingTableLayout, teachingLayout)
                 .frame(width: f.stage.width, height: f.stage.height)
                 .position(x: f.stage.midX, y: f.stage.midY)
@@ -705,12 +617,21 @@ struct AimPointSceneTrainingView: View {
             VStack {
                 Spacer(minLength: 0)
                 if vm.phase == .aiming {
+                    Button { vm.toggleAngleHint() } label: {
+                        Text(vm.showAngleHint ? "收起提示" : "角度提示").font(.btCaption)
+                            .foregroundStyle(vm.showAngleHint ? HUDStyle.accent : .white)
+                            .frame(width: 52, height: 52)
+                            .background { BTHUDControlBackground(shape: Circle()) }
+                    }.buttonStyle(BTHUDPressStyle()).disabled(!canAim).accessibilityIdentifier("aimPointTraining.angleHint")
                     Button { vm.submit() } label: {
                         Text("提交").font(.btSubheadlineSemibold).frame(width: 52, height: 52)
                     }.buttonStyle(DailyStrikeButtonStyle()).disabled(!canAim)
                         .accessibilityIdentifier("aimPointTraining.submit")
-                } else if vm.phase == .striking {
-                    ProgressView().tint(HUDStyle.labelColor).accessibilityLabel("击球验证中")
+                } else {
+                    Button { vm.nextQuestion() } label: {
+                        Text(vm.run.canFinish || vm.limiter.isLimitReached ? "总结" : "下一题")
+                            .font(.btSubheadlineSemibold).frame(width: 52, height: 52)
+                    }.buttonStyle(DailyStrikeButtonStyle()).accessibilityIdentifier("aimPointTraining.next")
                 }
             }.frame(width: 60, height: min(200, f.stage.height))
                 .padding(.vertical, Spacing.sm).position(x: f.right.midX, y: f.table.midY)
@@ -721,9 +642,18 @@ struct AimPointSceneTrainingView: View {
                     placementBounds: playingRect(size: stage.size, halfL: halfL, halfW: halfW, rotated: f.rotated))
             }.frame(width: f.stage.width, height: f.stage.height)
                 .position(x: f.stage.midX, y: f.stage.midY).allowsHitTesting(false)
-            if vm.limiter.isLimitReached {
+            if vm.limiter.isLimitReached && vm.phase == .aiming && !vm.finished {
                 BTDailyLimitGate(compact: vm.phase != .aiming) { showSubscription = true }
                     .frame(width: min(400, f.stage.width)).position(x: f.stage.midX, y: f.stage.midY)
+            }
+            if vm.finished {
+                Color.black.opacity(0.32)
+                ScrollView {
+                    SceneTrainingSummary(samples: vm.run.firstAnswers, unit: "mm") {
+                        hasStarted = false; vm.finished = false
+                    }
+                }.frame(width: min(520, size.width - 16), height: size.height - 32)
+                    .position(x: size.width / 2, y: size.height / 2)
             }
             if showMenu {
                 Button { showMenu = false } label: { Color.clear.contentShape(Rectangle()) }
@@ -765,9 +695,12 @@ struct AimPointSceneTrainingView: View {
                 onTableTapped: is3D ? { vm.aimToward(worldPoint: $0) } : nil,
                 onAimNudged: is3D ? nil : { vm.nudgeAim(byDegrees: $0) },
                 onAimDragActiveChanged: { vm.setAimTableDragging($0) },
-                contentIsAnimating: vm.cameraTransitionBusy || vm.phase == .striking,
+                contentIsAnimating: vm.cameraTransitionBusy,
                 fpsReadoutState: fps, twoViewReadableFrameInWindow: is3D ? cameraReadableFrame : nil,
-                onCameraObservationBegan: { vm.beginCameraObservation() },
+                onCameraObservationBegan: {
+                    if vm.scene.cameraRig?.twoViewMode == .thirdPerson { vm.markObservation() }
+                    vm.beginCameraObservation()
+                },
                 onCameraObservationEnded: { vm.endCameraObservation() },
                 onTemporaryTopDownDismiss: { vm.endTemporaryTopDown() },
                 topDownContentRevision: vm.topDownContentRevision, usesStandardTemporaryTable: is3D)
@@ -778,12 +711,12 @@ struct AimPointSceneTrainingView: View {
     @ViewBuilder private var observationColumn: some View {
         if let rig = vm.scene.cameraRig {
             ShotPlayerCameraButtons(controlSpacing: 4, rig: rig,
-                isEnabled: vm.phase != .striking && !showMenu && !vm.limiter.isLimitReached,
-                onWholeTable: { vm.requestSurfaceOverview() }, usesTwoViewControls: rig.usesTwoViewCameraControls,
+                isEnabled: !showMenu && !vm.finished && !vm.showSettings,
+                onWholeTable: { vm.markObservation(); vm.requestSurfaceOverview() }, usesTwoViewControls: rig.usesTwoViewCameraControls,
                 temporaryTopDownActive: vm.temporaryTopDownActive,
-                onTemporaryTopDownBegan: { vm.beginTemporaryTopDown() },
+                onTemporaryTopDownBegan: { vm.markObservation(); vm.beginTemporaryTopDown() },
                 onTemporaryTopDownEnded: { vm.endTemporaryTopDown() },
-                onSelect: { vm.requestPlayerView($0) })
+                onSelect: { if $0 == .thirdPerson { vm.markObservation() }; vm.requestPlayerView($0) })
         }
     }
 
@@ -794,30 +727,35 @@ struct AimPointSceneTrainingView: View {
          }),
          .init(id: "menu.aimCloseup", title: "瞄准特写", selected: preferences.showAimCloseup, action: {
              preferences.showAimCloseup.toggle(); showMenu = false
-         })]
+         }),
+         .init(id: "aimPointTraining.trainingSettings", title: "训练设置", disclosure: true, action: { showMenu = false; vm.showSettings = true }),
+         .init(id: "aimPointTraining.finish", title: "结束练习", action: { showMenu = false; vm.finish() }),
+         .init(id: "aimPointTraining.coverage", title: vm.run.coverage)]
     }
 
-    private var verificationInformation: [BTTeachingInformation] {
-        switch vm.phase {
-        case .aiming: return []
-        case .showingResult: return [.init(text: "即将验证", identifier: "aimPointTraining.verificationInfo")]
-        case .striking: return [.init(text: "验证中", identifier: "aimPointTraining.verificationInfo")]
+    private var trainingInformation: [BTTeachingInformation] {
+        if vm.phase == .aiming, vm.showAngleHint, let question = vm.question {
+            return [.init(text: "本题瞄准角：\(Int(question.actualAngle.rounded()))°", identifier: "aimPointTraining.angleHintText")]
         }
+        return []
     }
 
     private var questionInformation: some View {
         VStack(spacing: 2) {
-            if let error = vm.lastErrorMM, vm.phase != .aiming {
-                Text("误差").foregroundStyle(HUDStyle.labelColor)
-                Text(String(format: "%+.1f", error) + "mm")
-                    .foregroundStyle(abs(error) <= 2 ? Color.btSuccess : abs(error) <= 6 ? .btWarning : .btDestructive)
-                Text(error >= 0 ? "偏薄" : "偏厚").foregroundStyle(HUDStyle.labelColor)
+            if vm.phase == .showingResult, let score = vm.lastScore {
+                Text(score.label).foregroundStyle(HUDStyle.labelColor)
+                if let error = score.millimetres {
+                    Text(String(format: "%.1fmm", abs(error)))
+                        .foregroundStyle(abs(error) <= 2 ? Color.btSuccess : abs(error) <= 6 ? .btWarning : .btDestructive)
+                    Text(abs(error) <= 2 ? "接近标准" : abs(error) <= 6 ? "有偏差" : "偏差较大")
+                        .foregroundStyle(HUDStyle.labelColor)
+                }
             } else {
                 Text("题目").foregroundStyle(HUDStyle.labelColor)
-                Text("\(vm.sessionResults.count + 1)")
-                Text("平均误差").foregroundStyle(HUDStyle.labelColor)
-                Text(vm.sessionResults.isEmpty ? "—" : String(format: "%.1fmm", vm.sessionMeanAbsMM))
+                Text("\(vm.run.firstAnswers.count + 1)" + (vm.run.configuration.freePractice ? "" : "/20"))
             }
+            Text(vm.run.assistance.isEmpty ? "独立作答" : "用过辅助")
+                .foregroundStyle(HUDStyle.labelColor)
         }.font(.btCaption).monospacedDigit().foregroundStyle(.white)
             .accessibilityElement(children: .combine).accessibilityIdentifier("aimPointTraining.questionInfo")
     }

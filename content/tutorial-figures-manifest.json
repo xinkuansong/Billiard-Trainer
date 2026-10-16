@@ -2,4231 +2,4231 @@
   "_note": "publish_tutorial_figures.py 产物清单；src_md5 = 母版 PNG 的 md5，供增量与门禁新鲜度判据",
   "quality": 70,
   "count": 704,
-  "total_bytes": 102619997,
+  "total_bytes": 152411432,
   "figures": {
     "drill_c001_initial.heic": {
       "src": "drill_c001_initial.png",
-      "src_md5": "72fe4f27647b35ea0a34b0e3b69bd7c7",
+      "src_md5": "ce039eca01bb283254d55cd6d379312a",
       "quality": 70,
-      "bytes": 128394
+      "bytes": 202847
     },
     "drill_c001_s01.heic": {
       "src": "drill_c001_s01.png",
-      "src_md5": "998dc5073063b287c79d29bc4e00aa26",
+      "src_md5": "8baa70a3629d02bc3654a72e0d6302ed",
       "quality": 70,
-      "bytes": 141970
+      "bytes": 214889
     },
     "drill_c001_s02.heic": {
       "src": "drill_c001_s02.png",
-      "src_md5": "857ceab42a8f8b55c95dbb32fbfbf7d0",
+      "src_md5": "517a37bc88bcce687763abf2bcb3ffdf",
       "quality": 70,
-      "bytes": 143620
+      "bytes": 215089
     },
     "drill_c001_s03.heic": {
       "src": "drill_c001_s03.png",
-      "src_md5": "bd78fa0e30135955cfb3af3ad9402ddc",
+      "src_md5": "d2b764e1191b801dfb4c9cc83bf09243",
       "quality": 70,
-      "bytes": 145599
+      "bytes": 216211
     },
     "drill_c001_s04.heic": {
       "src": "drill_c001_s04.png",
-      "src_md5": "e73489a11faf1cd56a5d0433609d054e",
+      "src_md5": "52913b29dbaaffbb329a7d96c5f14352",
       "quality": 70,
-      "bytes": 143875
+      "bytes": 215821
     },
     "drill_c001_s05.heic": {
       "src": "drill_c001_s05.png",
-      "src_md5": "0b51e6cdadcae62ecb32459b9206eebe",
+      "src_md5": "2f61fad2627b51047b2c92202186c8fb",
       "quality": 70,
-      "bytes": 147892
+      "bytes": 218288
     },
     "drill_c003_manual01_initial.heic": {
       "src": "drill_c003_manual01_initial.png",
-      "src_md5": "ca112ecc6c9e3a5e1d31f6749b775190",
+      "src_md5": "59e3f37ea64c2b315f3709813bc60d3e",
       "quality": 70,
-      "bytes": 127453
+      "bytes": 202244
     },
     "drill_c003_manual01_s01.heic": {
       "src": "drill_c003_manual01_s01.png",
-      "src_md5": "d8a5c40812056d85c2493b8fe5f37694",
+      "src_md5": "99291fad5ca9fbd5c11f2839572694ca",
       "quality": 70,
-      "bytes": 146902
+      "bytes": 217244
     },
     "drill_c003_manual01_s02.heic": {
       "src": "drill_c003_manual01_s02.png",
-      "src_md5": "45d8790a4a7a8b3ac689bc9c36239fd2",
+      "src_md5": "27a2a23ac9199bf769b5dd29c6c82a6c",
       "quality": 70,
-      "bytes": 146169
+      "bytes": 216509
     },
     "drill_c003_manual01_s03.heic": {
       "src": "drill_c003_manual01_s03.png",
-      "src_md5": "b86beb998a46ccbe704d572b26546b8f",
+      "src_md5": "9f3e39b0281798e6c6192252f9f90809",
       "quality": 70,
-      "bytes": 145491
+      "bytes": 215790
     },
     "drill_c003_manual01_s04.heic": {
       "src": "drill_c003_manual01_s04.png",
-      "src_md5": "c47c02036124db907bbdc2845efe8f47",
+      "src_md5": "a2067c76bf67d8d10785dcc0ddaa8b79",
       "quality": 70,
-      "bytes": 144563
+      "bytes": 214786
     },
     "drill_c003_manual02_initial.heic": {
       "src": "drill_c003_manual02_initial.png",
-      "src_md5": "034749152895f806b70a9df36d060547",
+      "src_md5": "31de56b1642f123e8e96fca7617c9ea6",
       "quality": 70,
-      "bytes": 125699
+      "bytes": 201393
     },
     "drill_c003_manual02_s01.heic": {
       "src": "drill_c003_manual02_s01.png",
-      "src_md5": "258ecd639646ec9cc0787628d0b98996",
+      "src_md5": "08291ce46bac5bc0e7f2f807f74f5e75",
       "quality": 70,
-      "bytes": 140164
+      "bytes": 211888
     },
     "drill_c003_manual02_s02.heic": {
       "src": "drill_c003_manual02_s02.png",
-      "src_md5": "bf0e2048a0c28dc4358f6a19aa530878",
+      "src_md5": "342061ae73ef988a6d652b114e19fd61",
       "quality": 70,
-      "bytes": 142581
+      "bytes": 213876
     },
     "drill_c003_manual02_s03.heic": {
       "src": "drill_c003_manual02_s03.png",
-      "src_md5": "a6af30382a1837fa6edbc2744ccf0b4f",
+      "src_md5": "c24b4848e78afdd108e6cb5207623122",
       "quality": 70,
-      "bytes": 142027
+      "bytes": 213402
     },
     "drill_c003_manual02_s04.heic": {
       "src": "drill_c003_manual02_s04.png",
-      "src_md5": "585e61e0d135dd7d207b8c2c349620f9",
+      "src_md5": "6d3ad612aecf41f09b12b09e26ef9969",
       "quality": 70,
-      "bytes": 142443
+      "bytes": 214109
     },
     "drill_c003_manual02_s05.heic": {
       "src": "drill_c003_manual02_s05.png",
-      "src_md5": "400963db3756a96fd8921b7c7e2373b0",
+      "src_md5": "e4f31c56461de9c6bfdab328e423c7f4",
       "quality": 70,
-      "bytes": 142688
+      "bytes": 214192
     },
     "drill_c004_manual01_initial.heic": {
       "src": "drill_c004_manual01_initial.png",
-      "src_md5": "df4a6870725b6d10ed7f6eb14316fa54",
+      "src_md5": "3d2df68ae9ac0763aa825930983d6740",
       "quality": 70,
-      "bytes": 125807
+      "bytes": 201562
     },
     "drill_c004_manual01_s01.heic": {
       "src": "drill_c004_manual01_s01.png",
-      "src_md5": "390c8e1fe3a14c25d33367c5fbfa25a8",
+      "src_md5": "168b4506bb3ff7dd12368b2b443069c0",
       "quality": 70,
-      "bytes": 143353
+      "bytes": 214484
     },
     "drill_c004_manual01_s02.heic": {
       "src": "drill_c004_manual01_s02.png",
-      "src_md5": "f184ee6c7065ecc1fcee1c365b5a87d9",
+      "src_md5": "04c231f1e5378f08887f27d3bb02fc27",
       "quality": 70,
-      "bytes": 144490
+      "bytes": 215498
     },
     "drill_c004_manual01_s03.heic": {
       "src": "drill_c004_manual01_s03.png",
-      "src_md5": "17a38f110a6f3c7381596129323d20fe",
+      "src_md5": "35d8cb69536b3902e928d2789367da31",
       "quality": 70,
-      "bytes": 148064
+      "bytes": 218090
     },
     "drill_c004_manual01_s04.heic": {
       "src": "drill_c004_manual01_s04.png",
-      "src_md5": "7d49feead4644a4eab1cacf0223e8599",
+      "src_md5": "b69de1863f85564fbfa7fa71da832e67",
       "quality": 70,
-      "bytes": 153207
+      "bytes": 221245
     },
     "drill_c004_manual02_initial.heic": {
       "src": "drill_c004_manual02_initial.png",
-      "src_md5": "cebdf51ce39158e1e2830f61552c0912",
+      "src_md5": "722d2e0d79e25eea95da011446c12a66",
       "quality": 70,
-      "bytes": 125841
+      "bytes": 201999
     },
     "drill_c004_manual02_s01.heic": {
       "src": "drill_c004_manual02_s01.png",
-      "src_md5": "399f3b513cbe4cf8483916f0352ca966",
+      "src_md5": "91d347bbd5bcbd259916c86c26e3f8fd",
       "quality": 70,
-      "bytes": 147006
+      "bytes": 218631
     },
     "drill_c004_manual02_s02.heic": {
       "src": "drill_c004_manual02_s02.png",
-      "src_md5": "e1cddca0fccf5c9c8807dc500adfb02f",
+      "src_md5": "ec4fd56d4dc2f23ccb46493f74aac873",
       "quality": 70,
-      "bytes": 146390
+      "bytes": 218028
     },
     "drill_c004_manual02_s03.heic": {
       "src": "drill_c004_manual02_s03.png",
-      "src_md5": "e593c4bb050b59568fff9d2a8f014db9",
+      "src_md5": "136fd98bac40ddf6f7a175d815051186",
       "quality": 70,
-      "bytes": 147577
+      "bytes": 218424
     },
     "drill_c004_manual02_s04.heic": {
       "src": "drill_c004_manual02_s04.png",
-      "src_md5": "0acac21c33bcffe0f211a08ad1ce44db",
+      "src_md5": "99aa1c9fc58dfd24f452481482c6a916",
       "quality": 70,
-      "bytes": 147934
+      "bytes": 218753
     },
     "drill_c005_initial.heic": {
       "src": "drill_c005_initial.png",
-      "src_md5": "3860ff895f3b007ab8170f350121e5f9",
+      "src_md5": "34a2fe5b035d9342900a10c4d2b50a13",
       "quality": 70,
-      "bytes": 126295
+      "bytes": 201960
     },
     "drill_c005_s01.heic": {
       "src": "drill_c005_s01.png",
-      "src_md5": "143dbf410184b777be21597062b77d6f",
+      "src_md5": "c4eb2f5f200c2f49b49c93aaa0bc385a",
       "quality": 70,
-      "bytes": 152024
+      "bytes": 221203
     },
     "drill_c005_s02.heic": {
       "src": "drill_c005_s02.png",
-      "src_md5": "fd6a1eb1dea5f882a5272c0ca497cf4e",
+      "src_md5": "e07e1dd0cb996bc1e1adc66ffaeb4fb1",
       "quality": 70,
-      "bytes": 145537
+      "bytes": 218157
     },
     "drill_c005_s03.heic": {
       "src": "drill_c005_s03.png",
-      "src_md5": "7ca1dc9179389df29eb369e439c99bf9",
+      "src_md5": "b316fb9428833362d86b1d126df996b6",
       "quality": 70,
-      "bytes": 158217
+      "bytes": 226436
     },
     "drill_c005_s04.heic": {
       "src": "drill_c005_s04.png",
-      "src_md5": "36b5bdeda12cdff4866dc45f80ea34d9",
+      "src_md5": "045bbe2cb8ec0e705fe22375af9ba0ff",
       "quality": 70,
-      "bytes": 147384
+      "bytes": 216038
     },
     "drill_c009_initial.heic": {
       "src": "drill_c009_initial.png",
-      "src_md5": "d9a490d31520257926d1af99627e4fae",
+      "src_md5": "91d128e022944f615ec6c2d22196d79d",
       "quality": 70,
-      "bytes": 128733
+      "bytes": 202337
     },
     "drill_c009_s01.heic": {
       "src": "drill_c009_s01.png",
-      "src_md5": "068d305567b08ce428e56cfaf8f1371b",
+      "src_md5": "f65b37aabe3c9e766a6ccd862fa31b1b",
       "quality": 70,
-      "bytes": 148081
+      "bytes": 215904
     },
     "drill_c009_s02.heic": {
       "src": "drill_c009_s02.png",
-      "src_md5": "d94ea13f3c6de2f742013d8727fe648b",
+      "src_md5": "514baca4391f610484d527d2c65ec0e6",
       "quality": 70,
-      "bytes": 148923
+      "bytes": 216841
     },
     "drill_c009_s03.heic": {
       "src": "drill_c009_s03.png",
-      "src_md5": "31ae27e6e47f0a03cb6d54a18a00426a",
+      "src_md5": "a57b7639858b0350ce89f2274167fc46",
       "quality": 70,
-      "bytes": 147929
+      "bytes": 216283
     },
     "drill_c009_s04.heic": {
       "src": "drill_c009_s04.png",
-      "src_md5": "af863bcca15f4246922ad4eaa25c4ca6",
+      "src_md5": "0d971c0da0b7942f619d013cbbcd12b6",
       "quality": 70,
-      "bytes": 146438
+      "bytes": 215866
     },
     "drill_c009_s05.heic": {
       "src": "drill_c009_s05.png",
-      "src_md5": "d9f3bbf3b997d809d54cc91785607af9",
+      "src_md5": "4a26222015e10981f8906e835375fbc1",
       "quality": 70,
-      "bytes": 144179
+      "bytes": 214421
     },
     "drill_c009_s06.heic": {
       "src": "drill_c009_s06.png",
-      "src_md5": "a030c08f413f88610b3aa5b76b136230",
+      "src_md5": "9440e2971e3243e918a74df27a8d50d5",
       "quality": 70,
-      "bytes": 142643
+      "bytes": 213469
     },
     "drill_c009_s07.heic": {
       "src": "drill_c009_s07.png",
-      "src_md5": "c7ba89e9d6a2b2cfa4d91d98ee81ded2",
+      "src_md5": "2be6dd5872f87cef1195dbe301886268",
       "quality": 70,
-      "bytes": 139898
+      "bytes": 211573
     },
     "drill_c010_initial.heic": {
       "src": "drill_c010_initial.png",
-      "src_md5": "56c9efd5585d322c2be09012dc588665",
+      "src_md5": "0e5ef64592dc3994f2f3dc6392e279b9",
       "quality": 70,
-      "bytes": 128939
+      "bytes": 202874
     },
     "drill_c010_s01.heic": {
       "src": "drill_c010_s01.png",
-      "src_md5": "71379b02e26ad4f02334b7d16aec4494",
+      "src_md5": "65ff0a55e4cbaf46fb758b15fb48b848",
       "quality": 70,
-      "bytes": 142701
+      "bytes": 214692
     },
     "drill_c010_s02.heic": {
       "src": "drill_c010_s02.png",
-      "src_md5": "624617e793a9e511f1b4a09b7b96b9a0",
+      "src_md5": "841028668240063daf591b83479cb566",
       "quality": 70,
-      "bytes": 144868
+      "bytes": 215800
     },
     "drill_c010_s03.heic": {
       "src": "drill_c010_s03.png",
-      "src_md5": "71e463f01c529a58d68f4ccc5073cd39",
+      "src_md5": "939616b3aff6ab674f4f05eac1c4b923",
       "quality": 70,
-      "bytes": 143087
+      "bytes": 213781
     },
     "drill_c010_s04.heic": {
       "src": "drill_c010_s04.png",
-      "src_md5": "8494a7f5d3f799f9b49419090e611c12",
+      "src_md5": "addc5c09854c687fe5f837de8bfdc5b7",
       "quality": 70,
-      "bytes": 147166
+      "bytes": 217531
     },
     "drill_c010_s05.heic": {
       "src": "drill_c010_s05.png",
-      "src_md5": "bc415b2d3dfdfd1c2a81a5528ca5dec8",
+      "src_md5": "9b0f1cca4635a6b270d1942ee0f1f76e",
       "quality": 70,
-      "bytes": 149149
+      "bytes": 219446
     },
     "drill_c010_s06.heic": {
       "src": "drill_c010_s06.png",
-      "src_md5": "dbfc0189b79d1d4493718e6a70882774",
+      "src_md5": "79b913a7cb6256118e3f1989c52f07b2",
       "quality": 70,
-      "bytes": 148538
+      "bytes": 219417
     },
     "drill_c010_s07.heic": {
       "src": "drill_c010_s07.png",
-      "src_md5": "626415059ff593e47ab15b993ff5ad3a",
+      "src_md5": "f0b0d788333b6ae87bd4d55be2f897a3",
       "quality": 70,
-      "bytes": 148014
+      "bytes": 218712
     },
     "drill_c011_initial.heic": {
       "src": "drill_c011_initial.png",
-      "src_md5": "e6eaaf4401b671b4c638e308f9576049",
+      "src_md5": "796792ce482ea11623d97137669e9d67",
       "quality": 70,
-      "bytes": 128015
+      "bytes": 202394
     },
     "drill_c011_s01.heic": {
       "src": "drill_c011_s01.png",
-      "src_md5": "b93fee8555e541ed70b3eaad2c531db2",
+      "src_md5": "05ae4bd0d41c13fb65be1aed47309119",
       "quality": 70,
-      "bytes": 138647
+      "bytes": 211942
     },
     "drill_c011_s02.heic": {
       "src": "drill_c011_s02.png",
-      "src_md5": "36e9ff51591ecdfc1adec2a37bcedb55",
+      "src_md5": "f367c4c5a52d28e6beb3550137b79205",
       "quality": 70,
-      "bytes": 139556
+      "bytes": 212767
     },
     "drill_c011_s03.heic": {
       "src": "drill_c011_s03.png",
-      "src_md5": "26e0350c1bf70c2665c89f5a65b67279",
+      "src_md5": "e12488c879ac70b24c6f2e625ea3761c",
       "quality": 70,
-      "bytes": 140134
+      "bytes": 213343
     },
     "drill_c011_s04.heic": {
       "src": "drill_c011_s04.png",
-      "src_md5": "af3211a4e128aae75b209cab72fab350",
+      "src_md5": "139cf927d303bbc4b28ccc38d35bbc62",
       "quality": 70,
-      "bytes": 140839
+      "bytes": 213808
     },
     "drill_c011_s05.heic": {
       "src": "drill_c011_s05.png",
-      "src_md5": "75a6d07dde1b13de313c4be27aafa243",
+      "src_md5": "f0613c347a6a26cff622ebdfe08f6244",
       "quality": 70,
-      "bytes": 140298
+      "bytes": 213842
     },
     "drill_c012_initial.heic": {
       "src": "drill_c012_initial.png",
-      "src_md5": "355f6f7481cd93af8106da1e96bb28a8",
+      "src_md5": "f296a2eef5e4a9362f8d2323481776a5",
       "quality": 70,
-      "bytes": 129536
+      "bytes": 202178
     },
     "drill_c012_s01.heic": {
       "src": "drill_c012_s01.png",
-      "src_md5": "ec82e3d4d00c69b5425706d34643f8fc",
+      "src_md5": "f2c9881be805a52f623132c0b9ed19fa",
       "quality": 70,
-      "bytes": 140535
+      "bytes": 209327
     },
     "drill_c012_s02.heic": {
       "src": "drill_c012_s02.png",
-      "src_md5": "b519b6b76e9656460b2b378692c23d75",
+      "src_md5": "be85fc3adfef8fe97ba76ff3d65c06ee",
       "quality": 70,
-      "bytes": 144363
+      "bytes": 213652
     },
     "drill_c012_s03.heic": {
       "src": "drill_c012_s03.png",
-      "src_md5": "ccfad206806a1a32b9b5c6d4d29873fe",
+      "src_md5": "8c4c0e9957a2e37d51a1f09fc8fb37be",
       "quality": 70,
-      "bytes": 142659
+      "bytes": 213007
     },
     "drill_c012_s04.heic": {
       "src": "drill_c012_s04.png",
-      "src_md5": "66bcbbc3389374764902a5fd15e6dd4b",
+      "src_md5": "6fff2be8861ece62ea01b1d1f2a7ac71",
       "quality": 70,
-      "bytes": 139366
+      "bytes": 211301
     },
     "drill_c012_s05.heic": {
       "src": "drill_c012_s05.png",
-      "src_md5": "a51a07feb1f9954f914b2056feb3f984",
+      "src_md5": "967fc65655505d7a69055666cd8cb4a2",
       "quality": 70,
-      "bytes": 138771
+      "bytes": 211002
     },
     "drill_c012_s06.heic": {
       "src": "drill_c012_s06.png",
-      "src_md5": "96e7230eafd2c63f5e77ece441482341",
+      "src_md5": "c2b761fc1433752c4d58e7bffcc837a2",
       "quality": 70,
-      "bytes": 140243
+      "bytes": 212942
     },
     "drill_c012_s07.heic": {
       "src": "drill_c012_s07.png",
-      "src_md5": "a332a014cf64f4b3c2b50451d42c2e9c",
+      "src_md5": "41a0f4966a8dd38969d1a3f7b88bd2f7",
       "quality": 70,
-      "bytes": 142363
+      "bytes": 215261
     },
     "drill_c012_s08.heic": {
       "src": "drill_c012_s08.png",
-      "src_md5": "4c4f3f50c98472c28c55bfdb42d7ff45",
+      "src_md5": "99fc7764376c38d6189db925a9175da5",
       "quality": 70,
-      "bytes": 138970
+      "bytes": 211783
     },
     "drill_c013_manual01_initial.heic": {
       "src": "drill_c013_manual01_initial.png",
-      "src_md5": "462fccde048fab90ee059af2ca14ca1d",
+      "src_md5": "eca766004c1ed8f515c14769ee2145b0",
       "quality": 70,
-      "bytes": 129827
+      "bytes": 202482
     },
     "drill_c013_manual01_s01.heic": {
       "src": "drill_c013_manual01_s01.png",
-      "src_md5": "d553ad7fbb7c92371635e187564bf641",
+      "src_md5": "87e04578d6d77fe17f916887b8139e90",
       "quality": 70,
-      "bytes": 156569
+      "bytes": 221785
     },
     "drill_c013_manual01_s02.heic": {
       "src": "drill_c013_manual01_s02.png",
-      "src_md5": "62f5d090ff3d3b7e10d0a190f77520de",
+      "src_md5": "27723dc3e709500f700abf6574e62d81",
       "quality": 70,
-      "bytes": 149034
+      "bytes": 216604
     },
     "drill_c013_manual01_s03.heic": {
       "src": "drill_c013_manual01_s03.png",
-      "src_md5": "0cb06583e7a0399b5dce3c53d6743750",
+      "src_md5": "dbb98ceb0af82001828a0055a11cec07",
       "quality": 70,
-      "bytes": 144563
+      "bytes": 215028
     },
     "drill_c013_manual01_s04.heic": {
       "src": "drill_c013_manual01_s04.png",
-      "src_md5": "ec1944acf073f82f7d97986391a2926f",
+      "src_md5": "7af6950bc5b4448458d91adb342bc7b6",
       "quality": 70,
-      "bytes": 143674
+      "bytes": 215358
     },
     "drill_c013_manual01_s05.heic": {
       "src": "drill_c013_manual01_s05.png",
-      "src_md5": "734de53bfcd0ce45754a32d8238d9ea2",
+      "src_md5": "5cfff2283135228d5cdaf9934dcc25e0",
       "quality": 70,
-      "bytes": 145320
+      "bytes": 216331
     },
     "drill_c013_manual01_s06.heic": {
       "src": "drill_c013_manual01_s06.png",
-      "src_md5": "d377201327ff390cf200ac21c40c3c20",
+      "src_md5": "fbc850c39216e4bbeb79b8be98ec2f61",
       "quality": 70,
-      "bytes": 146780
+      "bytes": 217346
     },
     "drill_c013_manual01_s07.heic": {
       "src": "drill_c013_manual01_s07.png",
-      "src_md5": "af6b7d43f4def91da40c8fc73a6e23cf",
+      "src_md5": "ca097c7bed5b07c9455de8cc36d559ed",
       "quality": 70,
-      "bytes": 149333
+      "bytes": 218359
     },
     "drill_c013_manual01_s08.heic": {
       "src": "drill_c013_manual01_s08.png",
-      "src_md5": "3139627d90f115291d542fe2ae8753b1",
+      "src_md5": "d19d0cae6f992bfbc8f6fe4886fb342f",
       "quality": 70,
-      "bytes": 150770
+      "bytes": 219570
     },
     "drill_c013_manual02_initial.heic": {
       "src": "drill_c013_manual02_initial.png",
-      "src_md5": "5fd2c1df91ac60b3ec9673a6b195c259",
+      "src_md5": "030412da9776b73b32e6d619c1b08967",
       "quality": 70,
-      "bytes": 130778
+      "bytes": 203151
     },
     "drill_c013_manual02_s01.heic": {
       "src": "drill_c013_manual02_s01.png",
-      "src_md5": "48d5035576ce069da4ad8f01db7f6767",
+      "src_md5": "2c3a92b7fb5baa92f10344fa66e36621",
       "quality": 70,
-      "bytes": 151271
+      "bytes": 218796
     },
     "drill_c013_manual02_s02.heic": {
       "src": "drill_c013_manual02_s02.png",
-      "src_md5": "f4d98f94fd4b38c79a30ed22f62a6a92",
+      "src_md5": "8a80c955aa9334591ae2549a0131ea28",
       "quality": 70,
-      "bytes": 150323
+      "bytes": 218777
     },
     "drill_c013_manual02_s03.heic": {
       "src": "drill_c013_manual02_s03.png",
-      "src_md5": "9cffc861e8534315fc4e72a4a0bc5162",
+      "src_md5": "6a49af1fa211407ed6cbc48c3d34e24d",
       "quality": 70,
-      "bytes": 149704
+      "bytes": 218352
     },
     "drill_c013_manual02_s04.heic": {
       "src": "drill_c013_manual02_s04.png",
-      "src_md5": "e52f10c929c7f82b33b88384e133641a",
+      "src_md5": "aa88ed90c6c9f173912f090e6030522c",
       "quality": 70,
-      "bytes": 150252
+      "bytes": 219780
     },
     "drill_c013_manual02_s05.heic": {
       "src": "drill_c013_manual02_s05.png",
-      "src_md5": "0da275848cbcf29eb244169936d9a813",
+      "src_md5": "7dcdf063d77b82e3fae9a473256585ab",
       "quality": 70,
-      "bytes": 152269
+      "bytes": 221011
     },
     "drill_c013_manual02_s06.heic": {
       "src": "drill_c013_manual02_s06.png",
-      "src_md5": "fa382c1350068578ee35cedda90da921",
+      "src_md5": "f82b018f53e56704f1da2e4760141dc5",
       "quality": 70,
-      "bytes": 153226
+      "bytes": 221873
     },
     "drill_c013_manual02_s07.heic": {
       "src": "drill_c013_manual02_s07.png",
-      "src_md5": "b123191985a8c945bb3bd6cc09c0001a",
+      "src_md5": "a7e1e242898b4e9631961fc579ab3cb0",
       "quality": 70,
-      "bytes": 153556
+      "bytes": 222277
     },
     "drill_c013_manual02_s08.heic": {
       "src": "drill_c013_manual02_s08.png",
-      "src_md5": "2676fdf414c4a78fd39d9710aa62df21",
+      "src_md5": "19f1792d43969f8d4e0604630d737d84",
       "quality": 70,
-      "bytes": 154359
+      "bytes": 222698
     },
     "drill_c013_manual02_s09.heic": {
       "src": "drill_c013_manual02_s09.png",
-      "src_md5": "720a83f9c2bbb9331969844aca01bcf5",
+      "src_md5": "12c29e6639e39674b71a40e381ef1b53",
       "quality": 70,
-      "bytes": 153656
+      "bytes": 222494
     },
     "drill_c014_initial.heic": {
       "src": "drill_c014_initial.png",
-      "src_md5": "3ea89d426fcacaa4766420bc4d1f96e9",
+      "src_md5": "dd2cca15dd2cc24e14382054ad2f2a33",
       "quality": 70,
-      "bytes": 129411
+      "bytes": 203047
     },
     "drill_c014_s01.heic": {
       "src": "drill_c014_s01.png",
-      "src_md5": "dc54a7f223767b74324cc0a1968f249f",
+      "src_md5": "c70854c6d694aff78a73db1bffe6e3a8",
       "quality": 70,
-      "bytes": 146172
+      "bytes": 216317
     },
     "drill_c014_s02.heic": {
       "src": "drill_c014_s02.png",
-      "src_md5": "b1a1393a0b00f2262e4077e991da9690",
+      "src_md5": "91276e6351faa820860ed3ad36456ebc",
       "quality": 70,
-      "bytes": 145297
+      "bytes": 215311
     },
     "drill_c014_s03.heic": {
       "src": "drill_c014_s03.png",
-      "src_md5": "24625ddfd5e1b5118db292a71da32554",
+      "src_md5": "4b7992cbfecb24aa86c636049a0fe1f8",
       "quality": 70,
-      "bytes": 147462
+      "bytes": 217240
     },
     "drill_c014_s04.heic": {
       "src": "drill_c014_s04.png",
-      "src_md5": "eff8e360eb7828c3ad143d01c140f673",
+      "src_md5": "b05c34f99d7d5e6cebc2ffce2937bfd1",
       "quality": 70,
-      "bytes": 148680
+      "bytes": 218543
     },
     "drill_c014_s05.heic": {
       "src": "drill_c014_s05.png",
-      "src_md5": "6f3a848d4e9ba0205bb8942cd67d64dc",
+      "src_md5": "d24beff6025a6e3cc9218dd13b39285c",
       "quality": 70,
-      "bytes": 149821
+      "bytes": 219985
     },
     "drill_c014_s06.heic": {
       "src": "drill_c014_s06.png",
-      "src_md5": "ef57fb2475c10255216ee0402e6255d1",
+      "src_md5": "abd9843fadde32194d0e661db76ae895",
       "quality": 70,
-      "bytes": 149312
+      "bytes": 219637
     },
     "drill_c014_s07.heic": {
       "src": "drill_c014_s07.png",
-      "src_md5": "577b46d68e22343315cbad9dd70107ce",
+      "src_md5": "fa631d27bc4ecf04bcf03d6cd1e0a9ce",
       "quality": 70,
-      "bytes": 148763
+      "bytes": 219691
     },
     "drill_c015_initial.heic": {
       "src": "drill_c015_initial.png",
-      "src_md5": "640ce08912a8e7c510403cb889ee360a",
+      "src_md5": "42eaab101b9b59fcccb3f30ad9f26fdb",
       "quality": 70,
-      "bytes": 129832
+      "bytes": 202886
     },
     "drill_c015_s01.heic": {
       "src": "drill_c015_s01.png",
-      "src_md5": "60be113d923d82efad9efdcba1fae2b4",
+      "src_md5": "d36a4b8a86a670793a201dcc462dea5a",
       "quality": 70,
-      "bytes": 147417
+      "bytes": 217015
     },
     "drill_c015_s02.heic": {
       "src": "drill_c015_s02.png",
-      "src_md5": "d70c658df1e2423423f637af42578598",
+      "src_md5": "a07493149ffdea5408e6d37fb65a9d8d",
       "quality": 70,
-      "bytes": 147534
+      "bytes": 217736
     },
     "drill_c015_s03.heic": {
       "src": "drill_c015_s03.png",
-      "src_md5": "98ff7941f8f53f1af881566e11c6d5c7",
+      "src_md5": "fe27d2b462b3da30f676dec5c208387a",
       "quality": 70,
-      "bytes": 144166
+      "bytes": 214662
     },
     "drill_c015_s04.heic": {
       "src": "drill_c015_s04.png",
-      "src_md5": "b5704600fe09a6f7388545675628ed17",
+      "src_md5": "25dbd6f667c2a984b616bbaf386c8b92",
       "quality": 70,
-      "bytes": 148570
+      "bytes": 218850
     },
     "drill_c015_s05.heic": {
       "src": "drill_c015_s05.png",
-      "src_md5": "03b917a382b4e932a69abfe977d1b8c0",
+      "src_md5": "034191f78069e20a60791341ccab0e2c",
       "quality": 70,
-      "bytes": 150683
+      "bytes": 219910
     },
     "drill_c015_s06.heic": {
       "src": "drill_c015_s06.png",
-      "src_md5": "89136fb54a2e46552ec82a1958fa72c1",
+      "src_md5": "302cf1ff43135647f6b9bd4981c6c8a9",
       "quality": 70,
-      "bytes": 152034
+      "bytes": 221921
     },
     "drill_c015_s07.heic": {
       "src": "drill_c015_s07.png",
-      "src_md5": "ce79f5fbfc17f18d7f2a6055c23c6e33",
+      "src_md5": "4b5ebc8a826cf885ca1ca08d3695c8f5",
       "quality": 70,
-      "bytes": 152510
+      "bytes": 221823
     },
     "drill_c015_s08.heic": {
       "src": "drill_c015_s08.png",
-      "src_md5": "6a5302ab514bcb3ddb841e58b923e77b",
+      "src_md5": "d7bd7a4613b0b5f1a2de15ad4688da89",
       "quality": 70,
-      "bytes": 151497
+      "bytes": 221683
     },
     "drill_c016_initial.heic": {
       "src": "drill_c016_initial.png",
-      "src_md5": "67baf27ba5f1fd628aa3f713f68fa94f",
+      "src_md5": "c28fd16771d1e2f57d2f212ab0a06883",
       "quality": 70,
-      "bytes": 125948
+      "bytes": 201789
     },
     "drill_c016_s01.heic": {
       "src": "drill_c016_s01.png",
-      "src_md5": "2667562c5ef093d9413189482d449361",
+      "src_md5": "207052286373f66887f25cff560b7557",
       "quality": 70,
-      "bytes": 145040
+      "bytes": 216319
     },
     "drill_c016_s02.heic": {
       "src": "drill_c016_s02.png",
-      "src_md5": "62137ece22818b7594b64e3061ef674d",
+      "src_md5": "9f9ff72a0e72d7dfdb604cea263ffa3d",
       "quality": 70,
-      "bytes": 144907
+      "bytes": 216306
     },
     "drill_c016_s03.heic": {
       "src": "drill_c016_s03.png",
-      "src_md5": "47949406ed22f669b17b915060ed936e",
+      "src_md5": "f44127fbf00a582c5001be092c4ee395",
       "quality": 70,
-      "bytes": 145170
+      "bytes": 216498
     },
     "drill_c016_s04.heic": {
       "src": "drill_c016_s04.png",
-      "src_md5": "64d318a15e0af674ac6f39581ea8dd47",
+      "src_md5": "720155a35c7515df136923e25a07bd4c",
       "quality": 70,
-      "bytes": 145010
+      "bytes": 216504
     },
     "drill_c016_s05.heic": {
       "src": "drill_c016_s05.png",
-      "src_md5": "37fc0ae1f0313387f56ae9958e075630",
+      "src_md5": "0b2c37e666dce5336985ca0432a01a81",
       "quality": 70,
-      "bytes": 145122
+      "bytes": 216443
     },
     "drill_c016_s06.heic": {
       "src": "drill_c016_s06.png",
-      "src_md5": "3d68f81fcf38857b8874dbfb9d50dba8",
+      "src_md5": "35c99ded9c7d275dcdf3ee0f4e21d787",
       "quality": 70,
-      "bytes": 144814
+      "bytes": 216354
     },
     "drill_c017_initial.heic": {
       "src": "drill_c017_initial.png",
-      "src_md5": "55cdf47e36f05e968f24ae1dfaad75ef",
+      "src_md5": "93e534738b89f822b66bf8dff86ad892",
       "quality": 70,
-      "bytes": 127801
+      "bytes": 202002
     },
     "drill_c017_s01.heic": {
       "src": "drill_c017_s01.png",
-      "src_md5": "e4c6d931fd54d210e52eeced6de1b9ea",
+      "src_md5": "2524d1deab39f01bb9ece9515ed67b7f",
       "quality": 70,
-      "bytes": 154137
+      "bytes": 222709
     },
     "drill_c017_s02.heic": {
       "src": "drill_c017_s02.png",
-      "src_md5": "022286d1d0db205992b8821dd87a4fbf",
+      "src_md5": "0174901d22df20f9e338c0257f4c92c9",
       "quality": 70,
-      "bytes": 155142
+      "bytes": 224234
     },
     "drill_c017_s03.heic": {
       "src": "drill_c017_s03.png",
-      "src_md5": "b9874969e2fdf836f6eead011970c93d",
+      "src_md5": "5ef4432ec2a671d6a5873c099f4a02c9",
       "quality": 70,
-      "bytes": 156247
+      "bytes": 225260
     },
     "drill_c017_s04.heic": {
       "src": "drill_c017_s04.png",
-      "src_md5": "a61f8bc4969f2ce9a5024a5254bfb1f5",
+      "src_md5": "ca77fed5ff827c99c7bf13415283cbf1",
       "quality": 70,
-      "bytes": 156853
+      "bytes": 226148
     },
     "drill_c017_s05.heic": {
       "src": "drill_c017_s05.png",
-      "src_md5": "f8f6cbe53a173c3e8f46cad4652f0bcf",
+      "src_md5": "a2db6e4a4f181f57d37831d67a7cf575",
       "quality": 70,
-      "bytes": 157360
+      "bytes": 226278
     },
     "drill_c018_initial.heic": {
       "src": "drill_c018_initial.png",
-      "src_md5": "629d6e4f79d15a7693bd65bdd47bb53d",
+      "src_md5": "c55c2987da6baea504c2ee644040a9ae",
       "quality": 70,
-      "bytes": 125692
+      "bytes": 201468
     },
     "drill_c018_s01.heic": {
       "src": "drill_c018_s01.png",
-      "src_md5": "3f00ad821c4082bc1757a9ad6b36dc38",
+      "src_md5": "90f32e7c11bf885c4484d2e373d454bf",
       "quality": 70,
-      "bytes": 143365
+      "bytes": 215429
     },
     "drill_c018_s02.heic": {
       "src": "drill_c018_s02.png",
-      "src_md5": "1496440b60faa2f51992130a36a0e270",
+      "src_md5": "151ba7664cdce843c8e9680c65bbd8c4",
       "quality": 70,
-      "bytes": 141465
+      "bytes": 214441
     },
     "drill_c018_s03.heic": {
       "src": "drill_c018_s03.png",
-      "src_md5": "f16334d843f4b971a544db56b198614d",
+      "src_md5": "bb5ac5e2309d3176bd1e5e7a0d2dce9f",
       "quality": 70,
-      "bytes": 144363
+      "bytes": 216443
     },
     "drill_c018_s04.heic": {
       "src": "drill_c018_s04.png",
-      "src_md5": "5793956a1181c19e9c42e8502457fb59",
+      "src_md5": "1dc61a724965b9a72f7c713a40f111ec",
       "quality": 70,
-      "bytes": 145048
+      "bytes": 216897
     },
     "drill_c018_s05.heic": {
       "src": "drill_c018_s05.png",
-      "src_md5": "5032688d4661714abed2454831ede03b",
+      "src_md5": "6ad9b02def9c5e7eec56d87d10d3a87b",
       "quality": 70,
-      "bytes": 145706
+      "bytes": 218093
     },
     "drill_c018_s06.heic": {
       "src": "drill_c018_s06.png",
-      "src_md5": "21424cd2d00699b8d3a9dd138ba24f1f",
+      "src_md5": "2a040b2ae45bb78d6ed7bef332ad972d",
       "quality": 70,
-      "bytes": 151146
+      "bytes": 221213
     },
     "drill_c018_s07.heic": {
       "src": "drill_c018_s07.png",
-      "src_md5": "701eba70bed059c726c5b05d2fabdb76",
+      "src_md5": "9c1bf0eb282e412e76cc7f856d1eed7e",
       "quality": 70,
-      "bytes": 142794
+      "bytes": 215252
     },
     "drill_c018_s08.heic": {
       "src": "drill_c018_s08.png",
-      "src_md5": "97d3fb429de09269ad205812884f6886",
+      "src_md5": "32e928e99a0c6519d7763e7e1c944ce9",
       "quality": 70,
-      "bytes": 145048
+      "bytes": 217625
     },
     "drill_c018_s09.heic": {
       "src": "drill_c018_s09.png",
-      "src_md5": "5d982f646cc6d1ef5bf1687efffb97bc",
+      "src_md5": "447dee6c22dbae9e9ac9756cde877015",
       "quality": 70,
-      "bytes": 144094
+      "bytes": 216503
     },
     "drill_c020_initial.heic": {
       "src": "drill_c020_initial.png",
-      "src_md5": "6e8e2f8f10b263d8b678405fe9036d2a",
+      "src_md5": "c4490bd001a9dd44891eea56b79a18c5",
       "quality": 70,
-      "bytes": 129867
+      "bytes": 202933
     },
     "drill_c020_s01.heic": {
       "src": "drill_c020_s01.png",
-      "src_md5": "7506aab32f2426f74de438d42d682292",
+      "src_md5": "ebb8c976892beaf0224d1bac0a38a0a3",
       "quality": 70,
-      "bytes": 149596
+      "bytes": 218938
     },
     "drill_c020_s02.heic": {
       "src": "drill_c020_s02.png",
-      "src_md5": "ff3230e5a802ce75f6d4e22da8dbfb9f",
+      "src_md5": "a128a9e7d927ffd878c50fbc95772a18",
       "quality": 70,
-      "bytes": 153493
+      "bytes": 220604
     },
     "drill_c020_s03.heic": {
       "src": "drill_c020_s03.png",
-      "src_md5": "baf40f2c10e633ac3ab3ff37ab7a4471",
+      "src_md5": "eaad1a261241bc7674748493975aecfa",
       "quality": 70,
-      "bytes": 148547
+      "bytes": 218485
     },
     "drill_c020_s04.heic": {
       "src": "drill_c020_s04.png",
-      "src_md5": "ece6485f52a39a66409152f94fbc1f25",
+      "src_md5": "f03dd833d019926f24d0c5b0109eb4a5",
       "quality": 70,
-      "bytes": 149325
+      "bytes": 218815
     },
     "drill_c020_s05.heic": {
       "src": "drill_c020_s05.png",
-      "src_md5": "38023b4a699054f492a595e06d862c68",
+      "src_md5": "e2dccb7a824a0a43a624338c94e702a5",
       "quality": 70,
-      "bytes": 149286
+      "bytes": 219561
     },
     "drill_c020_s06.heic": {
       "src": "drill_c020_s06.png",
-      "src_md5": "b4e8b9870d2c09c16f9118d350e78b95",
+      "src_md5": "50553b7afce156197800dd2e7a6939ad",
       "quality": 70,
-      "bytes": 148200
+      "bytes": 218500
     },
     "drill_c020_s07.heic": {
       "src": "drill_c020_s07.png",
-      "src_md5": "f1a58263f6b49e24095ad0c638af962b",
+      "src_md5": "39daafdbd63b62fd457483efd86b8b26",
       "quality": 70,
-      "bytes": 148954
+      "bytes": 219336
     },
     "drill_c020_s08.heic": {
       "src": "drill_c020_s08.png",
-      "src_md5": "3b59ccffc393d390771174d6c693d4fe",
+      "src_md5": "0e17106ed1f8331a316f51e2ba278566",
       "quality": 70,
-      "bytes": 150344
+      "bytes": 220138
     },
     "drill_c020_s09.heic": {
       "src": "drill_c020_s09.png",
-      "src_md5": "0a5f591b73a8115a24c531d601909a1e",
+      "src_md5": "5ef946349bbd3ce4e800359f23f03ad6",
       "quality": 70,
-      "bytes": 146004
+      "bytes": 216223
     },
     "drill_c020_s10.heic": {
       "src": "drill_c020_s10.png",
-      "src_md5": "a30db18ed319bfecfb210df3c2d53b90",
+      "src_md5": "04c63d8151f998b7b35d3ef049740389",
       "quality": 70,
-      "bytes": 146965
+      "bytes": 217058
     },
     "drill_c020_s11.heic": {
       "src": "drill_c020_s11.png",
-      "src_md5": "31130f04ea3a57fe0efeec83b2ef431e",
+      "src_md5": "5ec84f74175c9b8815eb144ba04a3eff",
       "quality": 70,
-      "bytes": 148675
+      "bytes": 218873
     },
     "drill_c020_s12.heic": {
       "src": "drill_c020_s12.png",
-      "src_md5": "05ae26339cf6d83667c3caab3cc7ecca",
+      "src_md5": "66937f0b0f2afe109125c7d5f22ee34d",
       "quality": 70,
-      "bytes": 150471
+      "bytes": 220459
     },
     "drill_c020_s13.heic": {
       "src": "drill_c020_s13.png",
-      "src_md5": "7c5634d4a6a9a19ba7e70cde7ee0c0a3",
+      "src_md5": "64eb3f325432a9aa41680eadc05b8a1f",
       "quality": 70,
-      "bytes": 151728
+      "bytes": 221748
     },
     "drill_c020_s14.heic": {
       "src": "drill_c020_s14.png",
-      "src_md5": "24bee488a92e869c24e30ef4f4da3425",
+      "src_md5": "4f5064461189cc0a8738441bc628ecfd",
       "quality": 70,
-      "bytes": 152702
+      "bytes": 222333
     },
     "drill_c020_s15.heic": {
       "src": "drill_c020_s15.png",
-      "src_md5": "41586427e1f6bd8574d7f5fedf0b593b",
+      "src_md5": "65ce924b1e8c3588df7f224db7a2d7e4",
       "quality": 70,
-      "bytes": 154390
+      "bytes": 223644
     },
     "drill_c020_s16.heic": {
       "src": "drill_c020_s16.png",
-      "src_md5": "780d757e1b727a2066e487c489095b70",
+      "src_md5": "0d998a56c6a63c4631fddaf85092888e",
       "quality": 70,
-      "bytes": 153595
+      "bytes": 222887
     },
     "drill_c021_initial.heic": {
       "src": "drill_c021_initial.png",
-      "src_md5": "b0cf14ce1a6ca51770da7a96fb425955",
+      "src_md5": "80768fd1922cde49ba4d06bb83e4d432",
       "quality": 70,
-      "bytes": 128794
+      "bytes": 202709
     },
     "drill_c021_s01.heic": {
       "src": "drill_c021_s01.png",
-      "src_md5": "c266f9ff89194b62aee279fdaf963911",
+      "src_md5": "3bf4f83b740caad0222bcee95d3efa2f",
       "quality": 70,
-      "bytes": 150283
+      "bytes": 219745
     },
     "drill_c021_s02.heic": {
       "src": "drill_c021_s02.png",
-      "src_md5": "b93d17ba7775f240107e5e3d0f09cc5f",
+      "src_md5": "0b2f6a3644cae9a9cde6e9ca130b4c20",
       "quality": 70,
-      "bytes": 150174
+      "bytes": 219331
     },
     "drill_c021_s03.heic": {
       "src": "drill_c021_s03.png",
-      "src_md5": "98b8f2334bb0a6d424362947e782eda2",
+      "src_md5": "0ce55f707828dc5b5a13e6b7e98d55a7",
       "quality": 70,
-      "bytes": 148179
+      "bytes": 218614
     },
     "drill_c021_s04.heic": {
       "src": "drill_c021_s04.png",
-      "src_md5": "56ca1c83d60f56725832fea22924cb5b",
+      "src_md5": "23ed6e8c1bdda477ebb54790227df033",
       "quality": 70,
-      "bytes": 148051
+      "bytes": 218475
     },
     "drill_c021_s05.heic": {
       "src": "drill_c021_s05.png",
-      "src_md5": "06b3359ef0e4e59ea0b5cfe5e535e4b4",
+      "src_md5": "83da74486198e7d370e19033dc2aacff",
       "quality": 70,
-      "bytes": 150765
+      "bytes": 220299
     },
     "drill_c021_s06.heic": {
       "src": "drill_c021_s06.png",
-      "src_md5": "b425cbcbcdcfdf7d80e0127d0eac6684",
+      "src_md5": "d56edcc741931b2839dc2abdd3eaaabc",
       "quality": 70,
-      "bytes": 150204
+      "bytes": 220163
     },
     "drill_c021_s07.heic": {
       "src": "drill_c021_s07.png",
-      "src_md5": "3658da1c61a09b430039bf65c432d0e7",
+      "src_md5": "6ce8f23697ac2e5e26f9c5fe3975c8df",
       "quality": 70,
-      "bytes": 147794
+      "bytes": 219313
     },
     "drill_c021_s08.heic": {
       "src": "drill_c021_s08.png",
-      "src_md5": "9f5680989a89a965514b7f8d4de61915",
+      "src_md5": "eaeee7a57224b678ff7b73114be24545",
       "quality": 70,
-      "bytes": 146614
+      "bytes": 218129
     },
     "drill_c021_s09.heic": {
       "src": "drill_c021_s09.png",
-      "src_md5": "3489b94b27c20a070370a8e0a51cfd2d",
+      "src_md5": "db5e2f28c385296fdd340401108b693d",
       "quality": 70,
-      "bytes": 148125
+      "bytes": 219022
     },
     "drill_c021_s10.heic": {
       "src": "drill_c021_s10.png",
-      "src_md5": "22a18acd46cbf635f6d3edefe5a46637",
+      "src_md5": "0cddbcaef430b87fdf09127fab9372b0",
       "quality": 70,
-      "bytes": 148400
+      "bytes": 219192
     },
     "drill_c021_s11.heic": {
       "src": "drill_c021_s11.png",
-      "src_md5": "85452cdf4777ef1f0ad22326d0dde218",
+      "src_md5": "45e08631ceef0515e3b88be4efc88523",
       "quality": 70,
-      "bytes": 146731
+      "bytes": 217567
     },
     "drill_c021_s12.heic": {
       "src": "drill_c021_s12.png",
-      "src_md5": "11660f417291523fa64da4fabe2a275f",
+      "src_md5": "c04e4d2ccc8dd195656d32c8367503f1",
       "quality": 70,
-      "bytes": 146924
+      "bytes": 217876
     },
     "drill_c022_Snipaste_2026_06_02_00_19_36_initial.heic": {
       "src": "drill_c022_Snipaste_2026_06_02_00_19_36_initial.png",
-      "src_md5": "fc58a24fcc1ffbc35ca4a7ca1fd380fb",
+      "src_md5": "5cf6d687ab6a7ab6c99bc10d552dde07",
       "quality": 70,
-      "bytes": 125190
+      "bytes": 201453
     },
     "drill_c022_Snipaste_2026_06_02_00_19_36_s01.heic": {
       "src": "drill_c022_Snipaste_2026_06_02_00_19_36_s01.png",
-      "src_md5": "19741092657dc24a8ef12ec615306a30",
+      "src_md5": "ca8767a86c7673a9fd56e1a2af1a1dce",
       "quality": 70,
-      "bytes": 133792
+      "bytes": 208274
     },
     "drill_c022_Snipaste_2026_06_02_00_22_05_initial.heic": {
       "src": "drill_c022_Snipaste_2026_06_02_00_22_05_initial.png",
-      "src_md5": "18b6db5f67aedd6b5b566e0bc2094045",
+      "src_md5": "9ab75177f0ae74f7db575e71cd3e355c",
       "quality": 70,
-      "bytes": 125164
+      "bytes": 201605
     },
     "drill_c022_Snipaste_2026_06_02_00_22_05_s01.heic": {
       "src": "drill_c022_Snipaste_2026_06_02_00_22_05_s01.png",
-      "src_md5": "943cc8402aa93d5c77498de80666eb10",
+      "src_md5": "0113882ff6590c30dc801418e8643d73",
       "quality": 70,
-      "bytes": 138828
+      "bytes": 211267
     },
     "drill_c023_manual01_initial.heic": {
       "src": "drill_c023_manual01_initial.png",
-      "src_md5": "1f413f55cb89e9c96d9c2b4e83d09567",
+      "src_md5": "46e1cc83f8a661bbe41e6328bcd1a765",
       "quality": 70,
-      "bytes": 125754
+      "bytes": 201674
     },
     "drill_c023_manual01_s01.heic": {
       "src": "drill_c023_manual01_s01.png",
-      "src_md5": "dd9c10386b40a0b6777db94571c8861b",
+      "src_md5": "ee87dc2126296f7bb7e0423a026ed885",
       "quality": 70,
-      "bytes": 147291
+      "bytes": 217937
     },
     "drill_c023_manual01_s02.heic": {
       "src": "drill_c023_manual01_s02.png",
-      "src_md5": "4c728dcaa21f633aa3e2ed7e414cb467",
+      "src_md5": "9e2576835f04c324e00fb793afc93cd8",
       "quality": 70,
-      "bytes": 146586
+      "bytes": 218112
     },
     "drill_c023_manual01_s03.heic": {
       "src": "drill_c023_manual01_s03.png",
-      "src_md5": "dfed08551625820753c6a474f1ebc7b8",
+      "src_md5": "5acf0e0aca9ccb9b91cf2f48c5060757",
       "quality": 70,
-      "bytes": 151878
+      "bytes": 221461
     },
     "drill_c023_manual01_s04.heic": {
       "src": "drill_c023_manual01_s04.png",
-      "src_md5": "290c9e0931f938ae0db1e2bd3a346279",
+      "src_md5": "a1535536cdfdc980be40afe1a8b38174",
       "quality": 70,
-      "bytes": 151321
+      "bytes": 218975
     },
     "drill_c023_manual01_s05.heic": {
       "src": "drill_c023_manual01_s05.png",
-      "src_md5": "f18130c6bf0ac6f58fbc3659da9c5c2a",
+      "src_md5": "fabc35221088fdabd9230f26f637c3b3",
       "quality": 70,
-      "bytes": 147147
+      "bytes": 217796
     },
     "drill_c023_manual01_s06.heic": {
       "src": "drill_c023_manual01_s06.png",
-      "src_md5": "1219fb6147b20eae466d8735276f2329",
+      "src_md5": "67f5676fcf91dfa1c0977bc8c15ecf51",
       "quality": 70,
-      "bytes": 148340
+      "bytes": 218402
     },
     "drill_c023_manual01_s07.heic": {
       "src": "drill_c023_manual01_s07.png",
-      "src_md5": "0190c0868c591aa1b8bbf6bd926f6ab3",
+      "src_md5": "d82846ba354a08159637f9dbc9e94b87",
       "quality": 70,
-      "bytes": 147076
+      "bytes": 218114
     },
     "drill_c023_manual01_s08.heic": {
       "src": "drill_c023_manual01_s08.png",
-      "src_md5": "cbe68af6119ae112193fde0771a2beb3",
+      "src_md5": "b3d4be86b2792e98ded5bb0563384b74",
       "quality": 70,
-      "bytes": 148176
+      "bytes": 218388
     },
     "drill_c024_manual01_initial.heic": {
       "src": "drill_c024_manual01_initial.png",
-      "src_md5": "c0da3d276af5909df86d120aa9807c4e",
+      "src_md5": "e9c9fd73e72ac2c48f017f9bb910c874",
       "quality": 70,
-      "bytes": 128646
+      "bytes": 202253
     },
     "drill_c024_manual01_s01.heic": {
       "src": "drill_c024_manual01_s01.png",
-      "src_md5": "398591a071c170781af6c73b4d4ca44f",
+      "src_md5": "80a2cdfa5771dd51cc73a53c979e8a74",
       "quality": 70,
-      "bytes": 145494
+      "bytes": 214488
     },
     "drill_c024_manual01_s02.heic": {
       "src": "drill_c024_manual01_s02.png",
-      "src_md5": "fade26e0e6056374cb28810a00281984",
+      "src_md5": "93d555fc32cb61b5f44044979f8d7826",
       "quality": 70,
-      "bytes": 148818
+      "bytes": 216617
     },
     "drill_c024_manual01_s03.heic": {
       "src": "drill_c024_manual01_s03.png",
-      "src_md5": "c2658ef2a34dba2f4d6f71a25c42f68c",
+      "src_md5": "3d0e31d33dbea5c70e50f8c612a85c5b",
       "quality": 70,
-      "bytes": 150117
+      "bytes": 218567
     },
     "drill_c024_manual01_s04.heic": {
       "src": "drill_c024_manual01_s04.png",
-      "src_md5": "fd81799dff477224af77e2a9e985e5c0",
+      "src_md5": "d5b92b8f7bcf90cbccf0eaa3c63f7761",
       "quality": 70,
-      "bytes": 152943
+      "bytes": 219920
     },
     "drill_c024_manual01_s05.heic": {
       "src": "drill_c024_manual01_s05.png",
-      "src_md5": "47090d07c6db604e476310b34dc660ba",
+      "src_md5": "08e05126517e2bd4442cb1e5f8459755",
       "quality": 70,
-      "bytes": 153783
+      "bytes": 220602
     },
     "drill_c024_manual01_s06.heic": {
       "src": "drill_c024_manual01_s06.png",
-      "src_md5": "09a4e9f4d305023fa713f9ac67da28cc",
+      "src_md5": "30e6015ee2fba47cca58ef8986b73db9",
       "quality": 70,
-      "bytes": 155588
+      "bytes": 222282
     },
     "drill_c025_manual01_initial.heic": {
       "src": "drill_c025_manual01_initial.png",
-      "src_md5": "44f9740713089b8b0be4c7f9d177ec0b",
+      "src_md5": "74a3adfb4f673f4fecb7f1ad1a647a5e",
       "quality": 70,
-      "bytes": 128533
+      "bytes": 202554
     },
     "drill_c025_manual01_s01.heic": {
       "src": "drill_c025_manual01_s01.png",
-      "src_md5": "9ceea370193c7e7d6d46aa335ff41a38",
+      "src_md5": "297bbcb7eb337ba86246272eec82d548",
       "quality": 70,
-      "bytes": 157634
+      "bytes": 222895
     },
     "drill_c025_manual01_s02.heic": {
       "src": "drill_c025_manual01_s02.png",
-      "src_md5": "b2bcc378c38567721511d5f93a2e6867",
+      "src_md5": "dd813d0f59116aca22e1fd4fa59c11ba",
       "quality": 70,
-      "bytes": 160035
+      "bytes": 225057
     },
     "drill_c025_manual01_s03.heic": {
       "src": "drill_c025_manual01_s03.png",
-      "src_md5": "528f40c98be6ef9b31d65dce0e87c1c2",
+      "src_md5": "7008bb802af6d17b6e245fc0d84b89d7",
       "quality": 70,
-      "bytes": 158779
+      "bytes": 224845
     },
     "drill_c025_manual01_s04.heic": {
       "src": "drill_c025_manual01_s04.png",
-      "src_md5": "791ebb091b21c7189dbed5e88e11925e",
+      "src_md5": "c7a8cb7ab205efba34d456e24560bac9",
       "quality": 70,
-      "bytes": 158126
+      "bytes": 225059
     },
     "drill_c025_manual01_s05.heic": {
       "src": "drill_c025_manual01_s05.png",
-      "src_md5": "69eedd21051ac53ba87e227752742840",
+      "src_md5": "66fdbf56d91969af1defd501c8d78a33",
       "quality": 70,
-      "bytes": 158089
+      "bytes": 224985
     },
     "drill_c025_manual01_s06.heic": {
       "src": "drill_c025_manual01_s06.png",
-      "src_md5": "92a63a6fc7dad595d1946ffd570d9663",
+      "src_md5": "d6159c8976a5d8c6dbc35839290d46dd",
       "quality": 70,
-      "bytes": 154788
+      "bytes": 222917
     },
     "drill_c025_manual02_initial.heic": {
       "src": "drill_c025_manual02_initial.png",
-      "src_md5": "062fa38291c17a124c124327a3411e53",
+      "src_md5": "339f00108e16d4d29d9144f343faa9db",
       "quality": 70,
-      "bytes": 129543
+      "bytes": 204092
     },
     "drill_c025_manual02_s01.heic": {
       "src": "drill_c025_manual02_s01.png",
-      "src_md5": "afe70239cbc8ca3f630e9ffb9122d9f1",
+      "src_md5": "a6441c29e9cc42881f3ee2afe241b799",
       "quality": 70,
-      "bytes": 157694
+      "bytes": 224294
     },
     "drill_c025_manual02_s02.heic": {
       "src": "drill_c025_manual02_s02.png",
-      "src_md5": "4c5520d5a8fb7eb5af6f87dd030c78a6",
+      "src_md5": "656770953b0f3f8496e487a9666f5930",
       "quality": 70,
-      "bytes": 158066
+      "bytes": 224382
     },
     "drill_c025_manual02_s03.heic": {
       "src": "drill_c025_manual02_s03.png",
-      "src_md5": "434f5fa9b060eb8d15d1e7ea4d92bc22",
+      "src_md5": "1caaaeb8367d96babc6a6201b96ecd51",
       "quality": 70,
-      "bytes": 157700
+      "bytes": 224179
     },
     "drill_c025_manual02_s04.heic": {
       "src": "drill_c025_manual02_s04.png",
-      "src_md5": "7f84c11e17355e5df1319fb65eb128c8",
+      "src_md5": "2d162dcfd15b37194e68e0d7b67c6e98",
       "quality": 70,
-      "bytes": 157591
+      "bytes": 224467
     },
     "drill_c025_manual02_s05.heic": {
       "src": "drill_c025_manual02_s05.png",
-      "src_md5": "dcde1626ce5f05cbb59204bf25cbaadb",
+      "src_md5": "d1bcfbbd54dd770a1e99ea4d6ae95a5d",
       "quality": 70,
-      "bytes": 157459
+      "bytes": 223487
     },
     "drill_c025_manual02_s06.heic": {
       "src": "drill_c025_manual02_s06.png",
-      "src_md5": "adc3571f6bce45481d6011cd74b70c29",
+      "src_md5": "0d18d83d05144aa2baf0d49f1e075036",
       "quality": 70,
-      "bytes": 156128
+      "bytes": 222055
     },
     "drill_c025_manual02_s07.heic": {
       "src": "drill_c025_manual02_s07.png",
-      "src_md5": "aa188939ab0562b572a63e0cb4e2a096",
+      "src_md5": "14927df7b883961f38fcf00a5b27a78c",
       "quality": 70,
-      "bytes": 156947
+      "bytes": 221829
     },
     "drill_c026_manual01_initial.heic": {
       "src": "drill_c026_manual01_initial.png",
-      "src_md5": "b5522443bade8f5a67b0caef960efa4d",
+      "src_md5": "bc957b756e5aba8f1d493fbb3f0426ac",
       "quality": 70,
-      "bytes": 127950
+      "bytes": 202140
     },
     "drill_c026_manual01_s01.heic": {
       "src": "drill_c026_manual01_s01.png",
-      "src_md5": "9ca21c93232de9477a8bfe35fddfeefc",
+      "src_md5": "57a4b14c1f7b314e24f3d04b50ee2cfa",
       "quality": 70,
-      "bytes": 147856
+      "bytes": 216746
     },
     "drill_c026_manual01_s02.heic": {
       "src": "drill_c026_manual01_s02.png",
-      "src_md5": "1e5856d38158d237d024b600139fc3db",
+      "src_md5": "b5d49dd4994ee614fc85513d78d3e855",
       "quality": 70,
-      "bytes": 142538
+      "bytes": 213684
     },
     "drill_c026_manual01_s03.heic": {
       "src": "drill_c026_manual01_s03.png",
-      "src_md5": "6efb8d67624cf18703e2872eaf45a8d3",
+      "src_md5": "16a2ae1a92962588d62d95d2cf3725e1",
       "quality": 70,
-      "bytes": 138949
+      "bytes": 210821
     },
     "drill_c026_manual01_s04.heic": {
       "src": "drill_c026_manual01_s04.png",
-      "src_md5": "a0cf5e11e695663844d47fd1f808d859",
+      "src_md5": "0268acf3925703310d20d54eed105e99",
       "quality": 70,
-      "bytes": 143651
+      "bytes": 215038
     },
     "drill_c026_manual01_s05.heic": {
       "src": "drill_c026_manual01_s05.png",
-      "src_md5": "97d338424855b258e4144c8b87d3e665",
+      "src_md5": "afd9c94f5249f186156ceb4372679b15",
       "quality": 70,
-      "bytes": 146709
+      "bytes": 217439
     },
     "drill_c026_manual02_initial.heic": {
       "src": "drill_c026_manual02_initial.png",
-      "src_md5": "7de7b5babcd283c6bb90749ea34614a5",
+      "src_md5": "317f5a6e221c1dd7d3f5f0feba2432c4",
       "quality": 70,
-      "bytes": 125502
+      "bytes": 201448
     },
     "drill_c026_manual02_s01.heic": {
       "src": "drill_c026_manual02_s01.png",
-      "src_md5": "c8a8ba3687e49d8ff7cf2e780a1eb402",
+      "src_md5": "e3e2979ebcacc567bacbb5dfb6ad2e44",
       "quality": 70,
-      "bytes": 146141
+      "bytes": 216069
     },
     "drill_c026_manual02_s02.heic": {
       "src": "drill_c026_manual02_s02.png",
-      "src_md5": "6c51e6164af33331019dc99edfc3574d",
+      "src_md5": "5c71f8c8d6256fd66aa02a79c6ba59cb",
       "quality": 70,
-      "bytes": 146264
+      "bytes": 216083
     },
     "drill_c026_manual02_s03.heic": {
       "src": "drill_c026_manual02_s03.png",
-      "src_md5": "f4bc6796f9b782a65638530fc52c9cd9",
+      "src_md5": "85677533cf6ee1c8d4f08a720d1033f7",
       "quality": 70,
-      "bytes": 149988
+      "bytes": 218432
     },
     "drill_c026_manual02_s04.heic": {
       "src": "drill_c026_manual02_s04.png",
-      "src_md5": "39a3097e62c2c8d97f5d029feeff57c0",
+      "src_md5": "999f59ba89270d486d40f679c3af2f10",
       "quality": 70,
-      "bytes": 153253
+      "bytes": 220713
     },
     "drill_c026_manual02_s05.heic": {
       "src": "drill_c026_manual02_s05.png",
-      "src_md5": "1a8176ffc775f9ab5f4be9486aa94009",
+      "src_md5": "a0b522f32eb5053c788af81f89b5a861",
       "quality": 70,
-      "bytes": 154584
+      "bytes": 221439
     },
     "drill_c026_manual02_s06.heic": {
       "src": "drill_c026_manual02_s06.png",
-      "src_md5": "2bac0dfb7e21b73658d226d7ed60f880",
+      "src_md5": "1bb4615478c27962ea36fcfcd080a6b9",
       "quality": 70,
-      "bytes": 154091
+      "bytes": 220882
     },
     "drill_c026_manual02_s07.heic": {
       "src": "drill_c026_manual02_s07.png",
-      "src_md5": "a68c87e8e0eecde370e65db1526ef730",
+      "src_md5": "bb4dbc05a341e31d24d5470836d6f796",
       "quality": 70,
-      "bytes": 161564
+      "bytes": 226492
     },
     "drill_c026_manual03_initial.heic": {
       "src": "drill_c026_manual03_initial.png",
-      "src_md5": "f19d3b4548fde465bbe824531a4c4310",
+      "src_md5": "856f5551b1fb72b7b5aefd8d3c77f2ca",
       "quality": 70,
-      "bytes": 125629
+      "bytes": 201416
     },
     "drill_c026_manual03_s01.heic": {
       "src": "drill_c026_manual03_s01.png",
-      "src_md5": "31d042ee7ecc9e3b52a6db8eb2d40061",
+      "src_md5": "909b1b8f6df80127ed597c397cfcf1df",
       "quality": 70,
-      "bytes": 154807
+      "bytes": 221842
     },
     "drill_c026_manual03_s02.heic": {
       "src": "drill_c026_manual03_s02.png",
-      "src_md5": "f37683b7ebc2edb88478f306f4bf183e",
+      "src_md5": "ea8de7ca72ed5f2c35692884518b07fe",
       "quality": 70,
-      "bytes": 156538
+      "bytes": 223425
     },
     "drill_c026_manual03_s03.heic": {
       "src": "drill_c026_manual03_s03.png",
-      "src_md5": "ddd45d4d7459534297a674cbd33f5ddc",
+      "src_md5": "07806d9d8daaee74d3975e2e890da284",
       "quality": 70,
-      "bytes": 153308
+      "bytes": 220782
     },
     "drill_c026_manual03_s04.heic": {
       "src": "drill_c026_manual03_s04.png",
-      "src_md5": "d8833e4ba492781034c0ecc4842d588c",
+      "src_md5": "29a84d74faca2372744d9612b88071f6",
       "quality": 70,
-      "bytes": 149919
+      "bytes": 219002
     },
     "drill_c026_manual03_s05.heic": {
       "src": "drill_c026_manual03_s05.png",
-      "src_md5": "a5a42b8e6283d838f79bd06c43b85976",
+      "src_md5": "0ecae72fa1ea983a6ecf958c360d005c",
       "quality": 70,
-      "bytes": 149609
+      "bytes": 218426
     },
     "drill_c027_initial.heic": {
       "src": "drill_c027_initial.png",
-      "src_md5": "4c978af5a48280903b52db49a16f005b",
+      "src_md5": "61e263d00e1e80b76706f194c4c82163",
       "quality": 70,
-      "bytes": 125480
+      "bytes": 201341
     },
     "drill_c027_s01.heic": {
       "src": "drill_c027_s01.png",
-      "src_md5": "0d1dfec3078dbeec3acd0f1240e1f8ed",
+      "src_md5": "ce1c173d98cdba6fcf741a7107ca0fac",
       "quality": 70,
-      "bytes": 145396
+      "bytes": 215923
     },
     "drill_c027_s02.heic": {
       "src": "drill_c027_s02.png",
-      "src_md5": "c16446b1c00b9b861c0290292855cb78",
+      "src_md5": "d42702ebbcc49d32e7c04732d19f7819",
       "quality": 70,
-      "bytes": 147822
+      "bytes": 217110
     },
     "drill_c027_s03.heic": {
       "src": "drill_c027_s03.png",
-      "src_md5": "b416d9c0bd3dae1bb715f27f8cd33ae6",
+      "src_md5": "b421e488a51c4a0596f115fdf51d57c3",
       "quality": 70,
-      "bytes": 147893
+      "bytes": 217423
     },
     "drill_c027_s04.heic": {
       "src": "drill_c027_s04.png",
-      "src_md5": "b2ea051cd2ec06450120cf494960fb6c",
+      "src_md5": "cd69386406c0d3931e711fa45b87c806",
       "quality": 70,
-      "bytes": 146998
+      "bytes": 216526
     },
     "drill_c028_initial.heic": {
       "src": "drill_c028_initial.png",
-      "src_md5": "b1bfac6a4b4f764c73daf1cbc7af71a7",
+      "src_md5": "cc7011806b3bc7588d2fca30acf5fb8d",
       "quality": 70,
-      "bytes": 125567
+      "bytes": 201464
     },
     "drill_c028_s01.heic": {
       "src": "drill_c028_s01.png",
-      "src_md5": "a49272472ddb5f8437ffcbf63c67e2ca",
+      "src_md5": "def1475c11f5c1437a75272369e4509f",
       "quality": 70,
-      "bytes": 149227
+      "bytes": 218159
     },
     "drill_c028_s02.heic": {
       "src": "drill_c028_s02.png",
-      "src_md5": "9c3275152ad2a56451d5182f1449972c",
+      "src_md5": "206d8a22af677ce91a63bdbf55c3f936",
       "quality": 70,
-      "bytes": 147626
+      "bytes": 216692
     },
     "drill_c028_s03.heic": {
       "src": "drill_c028_s03.png",
-      "src_md5": "95959f7e5eaac200b484d1a6630a97f3",
+      "src_md5": "eb63998fcde6b89c56927de63653719e",
       "quality": 70,
-      "bytes": 146654
+      "bytes": 216420
     },
     "drill_c028_s04.heic": {
       "src": "drill_c028_s04.png",
-      "src_md5": "9a018af3335ba98fd2b497e8f9a45ec2",
+      "src_md5": "ac7fc5c72f342a81a55b71e07c48fda5",
       "quality": 70,
-      "bytes": 146208
+      "bytes": 215862
     },
     "drill_c029_initial.heic": {
       "src": "drill_c029_initial.png",
-      "src_md5": "c897382311404bb49ac4b8e836321cce",
+      "src_md5": "a0acad7102617526a16d69a62d5ffb6b",
       "quality": 70,
-      "bytes": 128041
+      "bytes": 201354
     },
     "drill_c029_s01.heic": {
       "src": "drill_c029_s01.png",
-      "src_md5": "55df85ba5d5e3f09004e07b2ddcaa611",
+      "src_md5": "965f675a7e736c5d92076ab782ae2d43",
       "quality": 70,
-      "bytes": 147450
+      "bytes": 214899
     },
     "drill_c029_s02.heic": {
       "src": "drill_c029_s02.png",
-      "src_md5": "0cabf29a68438cbe3573289ff40e85f4",
+      "src_md5": "b6d1745589110e1658af5d73a4d1f417",
       "quality": 70,
-      "bytes": 144613
+      "bytes": 213779
     },
     "drill_c029_s03.heic": {
       "src": "drill_c029_s03.png",
-      "src_md5": "081bd4e66ac5359bbf86ea76deeb3fdd",
+      "src_md5": "1bfa581fa25794015e15a21f84c43626",
       "quality": 70,
-      "bytes": 139954
+      "bytes": 211469
     },
     "drill_c029_s04.heic": {
       "src": "drill_c029_s04.png",
-      "src_md5": "fadbf0e719cf3181d98721966554998b",
+      "src_md5": "45eb63ceba736a7c548657540885700f",
       "quality": 70,
-      "bytes": 139659
+      "bytes": 211270
     },
     "drill_c029_s05.heic": {
       "src": "drill_c029_s05.png",
-      "src_md5": "2143afcaa3b5652f6922283239d1fa1d",
+      "src_md5": "2b78768c0db8bf7c8a29825fd0ee57c4",
       "quality": 70,
-      "bytes": 143642
+      "bytes": 213910
     },
     "drill_c029_s06.heic": {
       "src": "drill_c029_s06.png",
-      "src_md5": "c36204b59f4db5e3191102552dd71771",
+      "src_md5": "6c558932daeb996535b253d445d272a7",
       "quality": 70,
-      "bytes": 144601
+      "bytes": 214359
     },
     "drill_c030_initial.heic": {
       "src": "drill_c030_initial.png",
-      "src_md5": "827b85f93793f3bea6a9a291009e030e",
+      "src_md5": "ae962ad03b10317883f7bc34f6e92e2c",
       "quality": 70,
-      "bytes": 126183
+      "bytes": 201265
     },
     "drill_c030_s01.heic": {
       "src": "drill_c030_s01.png",
-      "src_md5": "234f234d148c0ddf505f94474f2800de",
+      "src_md5": "e6496092a1fbc014a43636306d2283c5",
       "quality": 70,
-      "bytes": 144874
+      "bytes": 215555
     },
     "drill_c030_s02.heic": {
       "src": "drill_c030_s02.png",
-      "src_md5": "bde5a2be5cff212cc6117feec385abb1",
+      "src_md5": "4df945729188e7622fef2a7c506dc70d",
       "quality": 70,
-      "bytes": 144930
+      "bytes": 216163
     },
     "drill_c030_s03.heic": {
       "src": "drill_c030_s03.png",
-      "src_md5": "b86409979b7d3e6d4f849efe6670e32a",
+      "src_md5": "c3ddfd2002575f642bc12c9d0960e861",
       "quality": 70,
-      "bytes": 149307
+      "bytes": 218529
     },
     "drill_c030_s04.heic": {
       "src": "drill_c030_s04.png",
-      "src_md5": "6edbc3caeb562b323778ecadd51abf30",
+      "src_md5": "cfa59a7a48eae4b274aba3ea8d831884",
       "quality": 70,
-      "bytes": 149409
+      "bytes": 218775
     },
     "drill_c030_s05.heic": {
       "src": "drill_c030_s05.png",
-      "src_md5": "7b511f91bac687d04a9a457b19221955",
+      "src_md5": "68cd38974c35a66fc598a457b748df6e",
       "quality": 70,
-      "bytes": 153451
+      "bytes": 220890
     },
     "drill_c031_initial.heic": {
       "src": "drill_c031_initial.png",
-      "src_md5": "20f2061fc4beb3c038be9cd0190f4567",
+      "src_md5": "be4281f87490bb75eb73b88b1127f580",
       "quality": 70,
-      "bytes": 133189
+      "bytes": 206179
     },
     "drill_c031_s01.heic": {
       "src": "drill_c031_s01.png",
-      "src_md5": "5cd930babbdef9964028e06bfee8dca6",
+      "src_md5": "15bf63f10581fbc5c35b49670da0a577",
       "quality": 70,
-      "bytes": 142440
+      "bytes": 223506
     },
     "drill_c031_s02.heic": {
       "src": "drill_c031_s02.png",
-      "src_md5": "c3c1b254c9fc3b68f028f4cdd34b493b",
+      "src_md5": "bb7ce1569e661230b96f55ea5ac3d39e",
       "quality": 70,
-      "bytes": 139997
+      "bytes": 220615
     },
     "drill_c031_s03.heic": {
       "src": "drill_c031_s03.png",
-      "src_md5": "54dca170c28c07e7285d7f46cdc4e03d",
+      "src_md5": "44d263ae982a93bd50eb667386ed7981",
       "quality": 70,
-      "bytes": 139543
+      "bytes": 219684
     },
     "drill_c031_s04.heic": {
       "src": "drill_c031_s04.png",
-      "src_md5": "eab43905a2bd6fc1e0a5d5dcfd80b449",
+      "src_md5": "8302d8b905f52268c05231f54ae68a2e",
       "quality": 70,
-      "bytes": 138569
+      "bytes": 218696
     },
     "drill_c031_s05.heic": {
       "src": "drill_c031_s05.png",
-      "src_md5": "6536e9d7647488a8e1af5deebb1bfb22",
+      "src_md5": "f2108d3ac550e346b7aa348d10690bb8",
       "quality": 70,
-      "bytes": 138568
+      "bytes": 218475
     },
     "drill_c031_s06.heic": {
       "src": "drill_c031_s06.png",
-      "src_md5": "0b1d2c7fe465df6212ecd7a84a02ecbe",
+      "src_md5": "6143d40381efac66c467abc848fde24d",
       "quality": 70,
-      "bytes": 138358
+      "bytes": 216719
     },
     "drill_c031_s07.heic": {
       "src": "drill_c031_s07.png",
-      "src_md5": "5b988ce0b7c7958bc17594879cc69ff0",
+      "src_md5": "fc193d18c11a5183d041a4ff56301750",
       "quality": 70,
-      "bytes": 137597
+      "bytes": 218435
     },
     "drill_c031_s08.heic": {
       "src": "drill_c031_s08.png",
-      "src_md5": "1aedda64125974d6daf0afc709e5ab01",
+      "src_md5": "7f4d34daf0509b0f16127cc136184b43",
       "quality": 70,
-      "bytes": 137443
+      "bytes": 218554
     },
     "drill_c031_s09.heic": {
       "src": "drill_c031_s09.png",
-      "src_md5": "18eea879c1d532b0535da3d0a5bacd0c",
+      "src_md5": "4be14742f6640f0f7d6312460fdc8953",
       "quality": 70,
-      "bytes": 137039
+      "bytes": 218373
     },
     "drill_c031_s10.heic": {
       "src": "drill_c031_s10.png",
-      "src_md5": "ad0bdf88039f3edb62793af51fd5d150",
+      "src_md5": "48bca8bfcb2f6d6b1dbef76181c3f395",
       "quality": 70,
-      "bytes": 135963
+      "bytes": 217659
     },
     "drill_c031_s11.heic": {
       "src": "drill_c031_s11.png",
-      "src_md5": "782bd84e361a6820508ed325d2e5d9dc",
+      "src_md5": "a10a1f43d74eeb5617372633a15eec7f",
       "quality": 70,
-      "bytes": 135435
+      "bytes": 217436
     },
     "drill_c031_s12.heic": {
       "src": "drill_c031_s12.png",
-      "src_md5": "2eff9e9a58e181add0ba64e4583479f2",
+      "src_md5": "103f73b3b6ac74e09deb320ba6247246",
       "quality": 70,
-      "bytes": 134946
+      "bytes": 216121
     },
     "drill_c031_s13.heic": {
       "src": "drill_c031_s13.png",
-      "src_md5": "9487bc7b41fe2ef3078e2809bcc1d45f",
+      "src_md5": "daaa2b676edeaea92432556f60efe83c",
       "quality": 70,
-      "bytes": 134247
+      "bytes": 216281
     },
     "drill_c032_initial.heic": {
       "src": "drill_c032_initial.png",
-      "src_md5": "7e4852be2f57a5876eab08fe5e4aa447",
+      "src_md5": "db03eb188ddfa624d4684e8375f7d922",
       "quality": 70,
-      "bytes": 129171
+      "bytes": 202701
     },
     "drill_c032_s01.heic": {
       "src": "drill_c032_s01.png",
-      "src_md5": "f66b7979b6f9dd57168de217de804ffd",
+      "src_md5": "3a84c411ac2dd06dcb8893f2942b4773",
       "quality": 70,
-      "bytes": 156264
+      "bytes": 221501
     },
     "drill_c032_s02.heic": {
       "src": "drill_c032_s02.png",
-      "src_md5": "c761804e57dda76337442ffbb928d3ad",
+      "src_md5": "7af4ab7cfdd6c428367945520706efb0",
       "quality": 70,
-      "bytes": 157191
+      "bytes": 222956
     },
     "drill_c032_s03.heic": {
       "src": "drill_c032_s03.png",
-      "src_md5": "57897d62eee0efe19b2188b514f7804c",
+      "src_md5": "3a786c25a61ab910bb75bdce4b4d26a9",
       "quality": 70,
-      "bytes": 153366
+      "bytes": 220658
     },
     "drill_c032_s04.heic": {
       "src": "drill_c032_s04.png",
-      "src_md5": "bdff1b9c0e272382cdab63bc1a37a841",
+      "src_md5": "d97c588a5179ec009daa301c000c9ba3",
       "quality": 70,
-      "bytes": 155723
+      "bytes": 220747
     },
     "drill_c032_s05.heic": {
       "src": "drill_c032_s05.png",
-      "src_md5": "35c3de704671643df7aabd787831c40c",
+      "src_md5": "e5e8ec4d1924703f42da22bc975c2d16",
       "quality": 70,
-      "bytes": 157336
+      "bytes": 223303
     },
     "drill_c032_s06.heic": {
       "src": "drill_c032_s06.png",
-      "src_md5": "38f016ecae71f1cbbeaf5e6eccb53a25",
+      "src_md5": "88ef34fa335e3a535d825c6de44ad547",
       "quality": 70,
-      "bytes": 159137
+      "bytes": 224327
     },
     "drill_c032_s07.heic": {
       "src": "drill_c032_s07.png",
-      "src_md5": "9fb08766ae9eeb97e0593c6214c4a981",
+      "src_md5": "8daf4872966ea63ae30b58a8b3a6fff1",
       "quality": 70,
-      "bytes": 160159
+      "bytes": 225630
     },
     "drill_c033_initial.heic": {
       "src": "drill_c033_initial.png",
-      "src_md5": "d148dadf10709d9093503bf99c685822",
+      "src_md5": "719039891bb9ad8bf7995fa3971d06a4",
       "quality": 70,
-      "bytes": 129354
+      "bytes": 203026
     },
     "drill_c033_s01.heic": {
       "src": "drill_c033_s01.png",
-      "src_md5": "e4e0d1add5cd23e15dbf5967a6502985",
+      "src_md5": "6b173faa668946b74376bb81e2aaca81",
       "quality": 70,
-      "bytes": 156769
+      "bytes": 221784
     },
     "drill_c033_s02.heic": {
       "src": "drill_c033_s02.png",
-      "src_md5": "d70ad7fd0628950894377707c66add7c",
+      "src_md5": "9707f9951e59f8a142fea9f3674c9669",
       "quality": 70,
-      "bytes": 159801
+      "bytes": 224351
     },
     "drill_c033_s03.heic": {
       "src": "drill_c033_s03.png",
-      "src_md5": "cb4e8ae0210430f7ec9f0446b388aa11",
+      "src_md5": "e318ad8d1db3cbdd9440c80bdb276e77",
       "quality": 70,
-      "bytes": 160140
+      "bytes": 224282
     },
     "drill_c033_s04.heic": {
       "src": "drill_c033_s04.png",
-      "src_md5": "46c9edc9e43aa08461ff1028e7dc14c2",
+      "src_md5": "31c6f9b07b1193c2293b33ffa4b165d5",
       "quality": 70,
-      "bytes": 159858
+      "bytes": 224360
     },
     "drill_c033_s05.heic": {
       "src": "drill_c033_s05.png",
-      "src_md5": "d1f3933bc21c6fe7cbe357bbc3dbe84a",
+      "src_md5": "5ef8ffd0a461cfda1075a0bc50ad0dec",
       "quality": 70,
-      "bytes": 159653
+      "bytes": 223887
     },
     "drill_c033_s06.heic": {
       "src": "drill_c033_s06.png",
-      "src_md5": "7ea5443297bcb5adc68bdfb08786137c",
+      "src_md5": "47a3477b9e8625fba34d6f6dbe76b198",
       "quality": 70,
-      "bytes": 159155
+      "bytes": 224093
     },
     "drill_c033_s07.heic": {
       "src": "drill_c033_s07.png",
-      "src_md5": "e558da80c7d997aeaa888c0a121dad26",
+      "src_md5": "f60e299dfd0bc84dd930d0ba2ca39305",
       "quality": 70,
-      "bytes": 156817
+      "bytes": 222436
     },
     "drill_c033_s08.heic": {
       "src": "drill_c033_s08.png",
-      "src_md5": "cc3a0e01bbbe53b3e6c025362c2992b3",
+      "src_md5": "b6de5fbc4da5bb7ca7bd41b33ed06991",
       "quality": 70,
-      "bytes": 156662
+      "bytes": 222065
     },
     "drill_c034_initial.heic": {
       "src": "drill_c034_initial.png",
-      "src_md5": "503f95f32ea88f9f37b14d4d3f5fed88",
+      "src_md5": "0a60a46a05c8b46c3337b59f9a612a98",
       "quality": 70,
-      "bytes": 126477
+      "bytes": 201404
     },
     "drill_c034_s01.heic": {
       "src": "drill_c034_s01.png",
-      "src_md5": "734d48430972800c6f2f3d6f629a9131",
+      "src_md5": "a0060f5b2553f0b0dbd224ae12e8f6be",
       "quality": 70,
-      "bytes": 143928
+      "bytes": 214381
     },
     "drill_c034_s02.heic": {
       "src": "drill_c034_s02.png",
-      "src_md5": "ca32e1655a95d0e2c6f7a2f182493696",
+      "src_md5": "ab491a66d8ece6a81ced6fe0eed8e716",
       "quality": 70,
-      "bytes": 142366
+      "bytes": 213632
     },
     "drill_c034_s03.heic": {
       "src": "drill_c034_s03.png",
-      "src_md5": "7a82f57e563c8628679fbb86ecb3e1d1",
+      "src_md5": "49c9decac61c93496dc39d030fe23cc2",
       "quality": 70,
-      "bytes": 145196
+      "bytes": 215322
     },
     "drill_c034_s04.heic": {
       "src": "drill_c034_s04.png",
-      "src_md5": "e92b2d735b49d65b003d7a4aa5d35fba",
+      "src_md5": "f3f1443789e044d1f79cdfe4ba488425",
       "quality": 70,
-      "bytes": 144922
+      "bytes": 215195
     },
     "drill_c034_s05.heic": {
       "src": "drill_c034_s05.png",
-      "src_md5": "2c4cf22239e301b8f4dd0043cb6a5b81",
+      "src_md5": "9136b9fe749fe949c067c8173c566484",
       "quality": 70,
-      "bytes": 143192
+      "bytes": 214126
     },
     "drill_c035_initial.heic": {
       "src": "drill_c035_initial.png",
-      "src_md5": "63d3c545ff8bb98e6d3a4a8f29aaa128",
+      "src_md5": "48d9e452b6326f01c6d87eaac45f8717",
       "quality": 70,
-      "bytes": 126172
+      "bytes": 201653
     },
     "drill_c035_s01.heic": {
       "src": "drill_c035_s01.png",
-      "src_md5": "124a16f0fa397b4b685e947cb140dd22",
+      "src_md5": "c43e88d0fb91ee0072f4c203f51874b4",
       "quality": 70,
-      "bytes": 152081
+      "bytes": 220559
     },
     "drill_c035_s02.heic": {
       "src": "drill_c035_s02.png",
-      "src_md5": "1fb76ddbbe879de20fddacb750857bfe",
+      "src_md5": "1739a8d9bc0d89d08c6988fcb2d8ea7f",
       "quality": 70,
-      "bytes": 151868
+      "bytes": 220242
     },
     "drill_c035_s03.heic": {
       "src": "drill_c035_s03.png",
-      "src_md5": "58459658a249bd7a9534cf5f80e3db0c",
+      "src_md5": "6b93faa631b7b24d41389d1c101d0e14",
       "quality": 70,
-      "bytes": 152198
+      "bytes": 220076
     },
     "drill_c035_s04.heic": {
       "src": "drill_c035_s04.png",
-      "src_md5": "3e7d57a4906e0211045ef24550ef767e",
+      "src_md5": "b69c4b6767447ec2ca48b7584046da4a",
       "quality": 70,
-      "bytes": 156150
+      "bytes": 224420
     },
     "drill_c035_s05.heic": {
       "src": "drill_c035_s05.png",
-      "src_md5": "fbc18f602ece70eb165ff732d170ca17",
+      "src_md5": "a55789ad901f3401c6642f158ecae601",
       "quality": 70,
-      "bytes": 157868
+      "bytes": 226333
     },
     "drill_c035_s06.heic": {
       "src": "drill_c035_s06.png",
-      "src_md5": "63153d62a79e8c78a69e4ca4ae47bc1b",
+      "src_md5": "32429db677bf3d60fa9814b721d0a923",
       "quality": 70,
-      "bytes": 156027
+      "bytes": 224369
     },
     "drill_c035_s07.heic": {
       "src": "drill_c035_s07.png",
-      "src_md5": "b251ff34b428d77f9af488a599d10e93",
+      "src_md5": "fe025e37d3e31ebb1e98a8f32816c1f5",
       "quality": 70,
-      "bytes": 147279
+      "bytes": 217536
     },
     "drill_c035_s08.heic": {
       "src": "drill_c035_s08.png",
-      "src_md5": "7d5ddb1fd7a34951b9d9bccd3cfac2db",
+      "src_md5": "b546044510e6a567b135f5e3b4da359c",
       "quality": 70,
-      "bytes": 144855
+      "bytes": 216171
     },
     "drill_c036_initial.heic": {
       "src": "drill_c036_initial.png",
-      "src_md5": "6e784dd6c1cc348f41aee04a278c1a96",
+      "src_md5": "5d370fd771ab032e7a8852ffa183405a",
       "quality": 70,
-      "bytes": 126115
+      "bytes": 201668
     },
     "drill_c036_s01.heic": {
       "src": "drill_c036_s01.png",
-      "src_md5": "cb81f07ce2432d1be22952ba8ee78ad3",
+      "src_md5": "d7c246da010e2b5bb451e1a35726fd78",
       "quality": 70,
-      "bytes": 149082
+      "bytes": 219993
     },
     "drill_c036_s02.heic": {
       "src": "drill_c036_s02.png",
-      "src_md5": "52475df67a16a7b87b90f9bd077477d1",
+      "src_md5": "8c2c0da24f41ce891ecec8d4d1f47835",
       "quality": 70,
-      "bytes": 150742
+      "bytes": 220268
     },
     "drill_c036_s03.heic": {
       "src": "drill_c036_s03.png",
-      "src_md5": "47022e3de6b9c8b6c2d8db479a6f0df4",
+      "src_md5": "9eb613013279cde830e67ad819c96016",
       "quality": 70,
-      "bytes": 148002
+      "bytes": 219241
     },
     "drill_c036_s04.heic": {
       "src": "drill_c036_s04.png",
-      "src_md5": "cfc8000c5379c5715a30e9561f3edafa",
+      "src_md5": "06560a7b16b64f087a5a521023692dee",
       "quality": 70,
-      "bytes": 153185
+      "bytes": 222608
     },
     "drill_c036_s05.heic": {
       "src": "drill_c036_s05.png",
-      "src_md5": "a5cbceb7b4bec1efdd85a337580c6f58",
+      "src_md5": "6f1f56559e133d5ee32be8b4442a3303",
       "quality": 70,
-      "bytes": 155629
+      "bytes": 223448
     },
     "drill_c036_s06.heic": {
       "src": "drill_c036_s06.png",
-      "src_md5": "3c4dcc4509e1ac07691d7b4b17e98fd6",
+      "src_md5": "b676244a3801890ea70e2439319f2746",
       "quality": 70,
-      "bytes": 160298
+      "bytes": 226880
     },
     "drill_c036_s07.heic": {
       "src": "drill_c036_s07.png",
-      "src_md5": "fa22f318882ccbd986de2be9bca8b11b",
+      "src_md5": "4378758b210c74ebee780ed289d956e6",
       "quality": 70,
-      "bytes": 155270
+      "bytes": 223762
     },
     "drill_c036_s08.heic": {
       "src": "drill_c036_s08.png",
-      "src_md5": "6e1e3bb3ae12bd444fd5054316b93791",
+      "src_md5": "3c555d89fac96b48da2b378982c9ec67",
       "quality": 70,
-      "bytes": 146621
+      "bytes": 216858
     },
     "drill_c036_s09.heic": {
       "src": "drill_c036_s09.png",
-      "src_md5": "f33cdf58380b1f02dc10e88d6f2936e1",
+      "src_md5": "bf6b25cfa1cdedf1cbfb235cde55b3c2",
       "quality": 70,
-      "bytes": 148151
+      "bytes": 218251
     },
     "drill_c037_initial.heic": {
       "src": "drill_c037_initial.png",
-      "src_md5": "bb4d4d734bdf4e08980505503a970276",
+      "src_md5": "20b64a3391089658f0a1c942a26aecb4",
       "quality": 70,
-      "bytes": 126195
+      "bytes": 201560
     },
     "drill_c037_s01.heic": {
       "src": "drill_c037_s01.png",
-      "src_md5": "ca74dd83c4a9aaabc96a8a387746a513",
+      "src_md5": "c56e5bb351ddb95b02a51a5375aaba47",
       "quality": 70,
-      "bytes": 145113
+      "bytes": 215073
     },
     "drill_c037_s02.heic": {
       "src": "drill_c037_s02.png",
-      "src_md5": "8cdeb99bd24732297b8bdd5ff928b1a5",
+      "src_md5": "1c3ce81a378f786f31599bfb15d31722",
       "quality": 70,
-      "bytes": 144834
+      "bytes": 214407
     },
     "drill_c037_s03.heic": {
       "src": "drill_c037_s03.png",
-      "src_md5": "4fe4d912ff4f4a65d128d7a35e66ae10",
+      "src_md5": "f3c7b83b6ec1912d8faa5b81ba8a4ded",
       "quality": 70,
-      "bytes": 148549
+      "bytes": 216798
     },
     "drill_c038_initial.heic": {
       "src": "drill_c038_initial.png",
-      "src_md5": "13fa2885b76a4deebf80a3c28f90f471",
+      "src_md5": "2d6fc5d14e70cb29e3d1f8e33c609bea",
       "quality": 70,
-      "bytes": 126158
+      "bytes": 201373
     },
     "drill_c038_s01.heic": {
       "src": "drill_c038_s01.png",
-      "src_md5": "f4adcfde8c84f111f18be03ed18b9915",
+      "src_md5": "8f5cfe05aec6493a70d4a5362dae795b",
       "quality": 70,
-      "bytes": 150826
+      "bytes": 219389
     },
     "drill_c038_s02.heic": {
       "src": "drill_c038_s02.png",
-      "src_md5": "bef024f76697c8df55bed84c3bf12b9e",
+      "src_md5": "41b87d8b5f9abe6cf3086d04dc537b0d",
       "quality": 70,
-      "bytes": 150393
+      "bytes": 219812
     },
     "drill_c038_s03.heic": {
       "src": "drill_c038_s03.png",
-      "src_md5": "8b8c7f7505b67e2b019c50836df552c6",
+      "src_md5": "988a624ffbcd4f1415332d150ea5a629",
       "quality": 70,
-      "bytes": 146810
+      "bytes": 217918
     },
     "drill_c038_s04.heic": {
       "src": "drill_c038_s04.png",
-      "src_md5": "1496511706946a7a2f733480a7049e03",
+      "src_md5": "835aac551be07c5d59c59f627dd17cf1",
       "quality": 70,
-      "bytes": 149571
+      "bytes": 220015
     },
     "drill_c038_s05.heic": {
       "src": "drill_c038_s05.png",
-      "src_md5": "9e9e44411417ebb4933bd26b0d2065be",
+      "src_md5": "58bc723c3ba99c4b4377ee491880f629",
       "quality": 70,
-      "bytes": 155384
+      "bytes": 222105
     },
     "drill_c038_s06.heic": {
       "src": "drill_c038_s06.png",
-      "src_md5": "bfaa7ccec020b9e2cdf1db625fe7e000",
+      "src_md5": "509d604f2a5eac2c89b899ca85c1abff",
       "quality": 70,
-      "bytes": 158733
+      "bytes": 224575
     },
     "drill_c038_s07.heic": {
       "src": "drill_c038_s07.png",
-      "src_md5": "7cacca240bb3462ae7fb0f6762ab99c1",
+      "src_md5": "3512ebe279f35c7320006c8622a114dc",
       "quality": 70,
-      "bytes": 160213
+      "bytes": 226800
     },
     "drill_c038_s08.heic": {
       "src": "drill_c038_s08.png",
-      "src_md5": "62cd4dae3be4aba68c46c64c4e5b1a14",
+      "src_md5": "acf16b28bbaab0a82c67a0cd7eeb6b55",
       "quality": 70,
-      "bytes": 158664
+      "bytes": 225218
     },
     "drill_c038_s09.heic": {
       "src": "drill_c038_s09.png",
-      "src_md5": "a75f7a6c34f3a35e5d2b3a6207f60beb",
+      "src_md5": "4dab6d272860eddcc7c19a0e11e2eee9",
       "quality": 70,
-      "bytes": 163232
+      "bytes": 228953
     },
     "drill_c038_s10.heic": {
       "src": "drill_c038_s10.png",
-      "src_md5": "4656d27049c939d3dea7496b88843a2c",
+      "src_md5": "9e105a5932b7a99443c44232b9ac65f9",
       "quality": 70,
-      "bytes": 164345
+      "bytes": 230516
     },
     "drill_c038_s11.heic": {
       "src": "drill_c038_s11.png",
-      "src_md5": "684b7aa1f8dbdd7290679d3213d2e7ce",
+      "src_md5": "03b927b9b0eaa15d57e999937662bc49",
       "quality": 70,
-      "bytes": 151457
+      "bytes": 219401
     },
     "drill_c038_s12.heic": {
       "src": "drill_c038_s12.png",
-      "src_md5": "0a802b6083caf8a0864e9d74116e8355",
+      "src_md5": "5636f4ada171343741cd6e3385f9d989",
       "quality": 70,
-      "bytes": 156144
+      "bytes": 223704
     },
     "drill_c039_initial.heic": {
       "src": "drill_c039_initial.png",
-      "src_md5": "4b9aadebfde49e416b776455ec6d081c",
+      "src_md5": "2e952a13957491161dce3f1645df672b",
       "quality": 70,
-      "bytes": 129875
+      "bytes": 203690
     },
     "drill_c039_s01.heic": {
       "src": "drill_c039_s01.png",
-      "src_md5": "850869bd4f8c1d414b984e38823aa4ea",
+      "src_md5": "e270eacce1ec66af09c2b3adecc69eff",
       "quality": 70,
-      "bytes": 149210
+      "bytes": 219388
     },
     "drill_c039_s02.heic": {
       "src": "drill_c039_s02.png",
-      "src_md5": "ea9c2330e609f6919990481aac4fab63",
+      "src_md5": "cec2a279bf76e4ed30f5f5bffd720c95",
       "quality": 70,
-      "bytes": 143433
+      "bytes": 215653
     },
     "drill_c039_s03.heic": {
       "src": "drill_c039_s03.png",
-      "src_md5": "96e5c5b3bd1350c9258bcc378c654e00",
+      "src_md5": "8bb849345ab7a1a5bd1057a552e42999",
       "quality": 70,
-      "bytes": 145712
+      "bytes": 219218
     },
     "drill_c039_s04.heic": {
       "src": "drill_c039_s04.png",
-      "src_md5": "747b3b3ac79d2968e6d5da2579fb2f2f",
+      "src_md5": "0e2829d9a8fb2a8360df41433eca4bae",
       "quality": 70,
-      "bytes": 142710
+      "bytes": 215652
     },
     "drill_c039_s05.heic": {
       "src": "drill_c039_s05.png",
-      "src_md5": "14355cb865a905de445a9816f405dc4c",
+      "src_md5": "45b36f0f171537e7d5cb9984e0d7b733",
       "quality": 70,
-      "bytes": 150247
+      "bytes": 221197
     },
     "drill_c039_s06.heic": {
       "src": "drill_c039_s06.png",
-      "src_md5": "9a84a13a512ddd2ee4092ff4069fd1e1",
+      "src_md5": "6975ad7299d54e9e781359dfc0a8b9c4",
       "quality": 70,
-      "bytes": 143007
+      "bytes": 214053
     },
     "drill_c039_s07.heic": {
       "src": "drill_c039_s07.png",
-      "src_md5": "7c53ec1543c9491db534d98efa5e2bd1",
+      "src_md5": "63bfd5ad948698e531a946318a1dcd1b",
       "quality": 70,
-      "bytes": 143998
+      "bytes": 215695
     },
     "drill_c039_s08.heic": {
       "src": "drill_c039_s08.png",
-      "src_md5": "1bc5a2118e98a6f71a942d6683a130e6",
+      "src_md5": "a9b95b253e6f9fe72de0fcdcfbd45184",
       "quality": 70,
-      "bytes": 140000
+      "bytes": 212419
     },
     "drill_c040_initial.heic": {
       "src": "drill_c040_initial.png",
-      "src_md5": "5f1eda6b0a77ee8d0d803751250ebf92",
+      "src_md5": "02f61c7899dd1d637204d34151c1c5ff",
       "quality": 70,
-      "bytes": 125885
+      "bytes": 201580
     },
     "drill_c040_s01.heic": {
       "src": "drill_c040_s01.png",
-      "src_md5": "5c3fd50cad121f58225176079061874b",
+      "src_md5": "901baca795ede340ab0d050da09c60ae",
       "quality": 70,
-      "bytes": 152727
+      "bytes": 221401
     },
     "drill_c040_s02.heic": {
       "src": "drill_c040_s02.png",
-      "src_md5": "a27cf17e9cd9c23644455e06d3994ad7",
+      "src_md5": "7309e5ac634bee5f8d0e68365b3ace23",
       "quality": 70,
-      "bytes": 153294
+      "bytes": 221349
     },
     "drill_c040_s03.heic": {
       "src": "drill_c040_s03.png",
-      "src_md5": "4aa8d57527d588fabc4a3dc91d5ba40a",
+      "src_md5": "f83e80018a473cb920651575c4cec5e0",
       "quality": 70,
-      "bytes": 160172
+      "bytes": 226028
     },
     "drill_c040_s04.heic": {
       "src": "drill_c040_s04.png",
-      "src_md5": "428c258be230ace0d4917ddf867b40e9",
+      "src_md5": "a640d1b42c6e76f3bde83c7e368b30cc",
       "quality": 70,
-      "bytes": 160180
+      "bytes": 226531
     },
     "drill_c040_s05.heic": {
       "src": "drill_c040_s05.png",
-      "src_md5": "f75b4bf933d219ed15092c42b10d4cbb",
+      "src_md5": "faf9a1b9aeddb36b7612a4eb8a6b2794",
       "quality": 70,
-      "bytes": 155338
+      "bytes": 221966
     },
     "drill_c040_s06.heic": {
       "src": "drill_c040_s06.png",
-      "src_md5": "4f9a03c07c514e298e2d82797f4fadda",
+      "src_md5": "526a75232fb382639a0dbf462bd25af0",
       "quality": 70,
-      "bytes": 158264
+      "bytes": 224264
     },
     "drill_c040_s07.heic": {
       "src": "drill_c040_s07.png",
-      "src_md5": "501a2a642bb1271ffaa387c671528b35",
+      "src_md5": "f1782592f0473f5dd10551054a214d1c",
       "quality": 70,
-      "bytes": 159649
+      "bytes": 225953
     },
     "drill_c040_s08.heic": {
       "src": "drill_c040_s08.png",
-      "src_md5": "537935b9f507f32e61ee631c91b371a8",
+      "src_md5": "7b703989046530789fe70d5c3ece194f",
       "quality": 70,
-      "bytes": 156241
+      "bytes": 223295
     },
     "drill_c040_s09.heic": {
       "src": "drill_c040_s09.png",
-      "src_md5": "11fa12abb1292f580fa3258afb15b6d1",
+      "src_md5": "219569cf303180f5d48dfa99736d9aa5",
       "quality": 70,
-      "bytes": 159159
+      "bytes": 225817
     },
     "drill_c040_s10.heic": {
       "src": "drill_c040_s10.png",
-      "src_md5": "40793ff2b0275874010a4a808e31e9a4",
+      "src_md5": "4a6328e59f340d1f2e7a3c6810cf4662",
       "quality": 70,
-      "bytes": 160344
+      "bytes": 226016
     },
     "drill_c041_initial.heic": {
       "src": "drill_c041_initial.png",
-      "src_md5": "fe9d7b8099ea01493e2d398e8dc64e5d",
+      "src_md5": "476c138dad6a59b8aa4ce97396762c3d",
       "quality": 70,
-      "bytes": 126121
+      "bytes": 202138
     },
     "drill_c041_s01.heic": {
       "src": "drill_c041_s01.png",
-      "src_md5": "eabb5d2194c707439b993685b88113d7",
+      "src_md5": "2ddfc19c40ae6f264b6dcc94ea56e0ae",
       "quality": 70,
-      "bytes": 154289
+      "bytes": 222533
     },
     "drill_c041_s02.heic": {
       "src": "drill_c041_s02.png",
-      "src_md5": "1ff70ec145b13783491183870259cefd",
+      "src_md5": "31c860775697a358e276b01208c1da37",
       "quality": 70,
-      "bytes": 152309
+      "bytes": 221387
     },
     "drill_c041_s03.heic": {
       "src": "drill_c041_s03.png",
-      "src_md5": "025cf52b3b8ab6f5ebd660d0d6650464",
+      "src_md5": "4ed35c4ce9e4fd1a186185a3d3e5ebc4",
       "quality": 70,
-      "bytes": 152455
+      "bytes": 221266
     },
     "drill_c041_s04.heic": {
       "src": "drill_c041_s04.png",
-      "src_md5": "41e75ce0a39567dffa2ce8b9c900fd8f",
+      "src_md5": "e283c865b55caf80d310d5dd69846692",
       "quality": 70,
-      "bytes": 148365
+      "bytes": 218455
     },
     "drill_c041_s05.heic": {
       "src": "drill_c041_s05.png",
-      "src_md5": "f4c7a01c73aa1eaba4734eca1a3de5e3",
+      "src_md5": "8e3d660695b100fe9def005127ffe19a",
       "quality": 70,
-      "bytes": 154475
+      "bytes": 222584
     },
     "drill_c041_s06.heic": {
       "src": "drill_c041_s06.png",
-      "src_md5": "720c7e78739605f7bf1c17f99ff1ae50",
+      "src_md5": "7716a070d163f014e07710330389dd1f",
       "quality": 70,
-      "bytes": 153560
+      "bytes": 222817
     },
     "drill_c041_s07.heic": {
       "src": "drill_c041_s07.png",
-      "src_md5": "9e5a790fdfa7f10484e5fe6e7a1d9835",
+      "src_md5": "8f774bc1b3a550170d67e3bd8ba896f0",
       "quality": 70,
-      "bytes": 149595
+      "bytes": 219292
     },
     "drill_c041_s08.heic": {
       "src": "drill_c041_s08.png",
-      "src_md5": "80a94a969930c6b6494aa46b828f0964",
+      "src_md5": "713bffdcf66692786549e0fc59205b10",
       "quality": 70,
-      "bytes": 150437
+      "bytes": 220833
     },
     "drill_c041_s09.heic": {
       "src": "drill_c041_s09.png",
-      "src_md5": "57577543a3797e1c58521079acacdeae",
+      "src_md5": "302a61f4b053fb983a0571fabdbca6a7",
       "quality": 70,
-      "bytes": 151526
+      "bytes": 221008
     },
     "drill_c041_s10.heic": {
       "src": "drill_c041_s10.png",
-      "src_md5": "33e00579f0c4210185dbcb0db462501d",
+      "src_md5": "5db564e8fc84371082676d5c1bbd5b9a",
       "quality": 70,
-      "bytes": 151902
+      "bytes": 221531
     },
     "drill_c041_s11.heic": {
       "src": "drill_c041_s11.png",
-      "src_md5": "6ee47949f81cd540cab3b4ac6a96bffd",
+      "src_md5": "e64139cb4d817e59c52a954ec1843a54",
       "quality": 70,
-      "bytes": 152174
+      "bytes": 220953
     },
     "drill_c041_s12.heic": {
       "src": "drill_c041_s12.png",
-      "src_md5": "7cd937da81e55406d51e526e0ba73f43",
+      "src_md5": "e85ec0076ef31897ab89b90a86e420a4",
       "quality": 70,
-      "bytes": 149340
+      "bytes": 219765
     },
     "drill_c042_manual01_initial.heic": {
       "src": "drill_c042_manual01_initial.png",
-      "src_md5": "bddccb177c1f2b46a72e07cc42666dce",
+      "src_md5": "3cceb9ffd7b285246e725f4fca6ef253",
       "quality": 70,
-      "bytes": 127410
+      "bytes": 202257
     },
     "drill_c042_manual01_s01.heic": {
       "src": "drill_c042_manual01_s01.png",
-      "src_md5": "0a66aee7f36c4e0328ca3dc805f4ece6",
+      "src_md5": "425f96fb7d9a9726bade34bc68ca1643",
       "quality": 70,
-      "bytes": 148441
+      "bytes": 218666
     },
     "drill_c042_manual01_s02.heic": {
       "src": "drill_c042_manual01_s02.png",
-      "src_md5": "51c07f587390b23ddc2c57836a3bbc14",
+      "src_md5": "7e1cb033380d773b07d4423751de53db",
       "quality": 70,
-      "bytes": 144672
+      "bytes": 216188
     },
     "drill_c042_manual01_s03.heic": {
       "src": "drill_c042_manual01_s03.png",
-      "src_md5": "1a182ddefa27a05af498853abecbe28d",
+      "src_md5": "9464c510330858a9ffca8104f9cdf688",
       "quality": 70,
-      "bytes": 146416
+      "bytes": 217870
     },
     "drill_c042_manual01_s04.heic": {
       "src": "drill_c042_manual01_s04.png",
-      "src_md5": "8c875544319aeaa9749f788f14cc53b6",
+      "src_md5": "0b3077efed8848a09ceb5617651b89cf",
       "quality": 70,
-      "bytes": 147428
+      "bytes": 218130
     },
     "drill_c042_manual01_s05.heic": {
       "src": "drill_c042_manual01_s05.png",
-      "src_md5": "729351602d2434924e50ff5b065eabb2",
+      "src_md5": "54144736c8908cda7062d5e375f6c4e0",
       "quality": 70,
-      "bytes": 146833
+      "bytes": 217351
     },
     "drill_c042_manual01_s06.heic": {
       "src": "drill_c042_manual01_s06.png",
-      "src_md5": "9755b8ab2fb7a3c41537022012217699",
+      "src_md5": "c8aa4cd13227b7921c090cc0ffc3bdb5",
       "quality": 70,
-      "bytes": 143983
+      "bytes": 215575
     },
     "drill_c042_manual01_s07.heic": {
       "src": "drill_c042_manual01_s07.png",
-      "src_md5": "934597835e7246e5785cea8bfe3647a2",
+      "src_md5": "301fa98c9933b70f7e130adf8044ea72",
       "quality": 70,
-      "bytes": 153402
+      "bytes": 221825
     },
     "drill_c042_manual01_s08.heic": {
       "src": "drill_c042_manual01_s08.png",
-      "src_md5": "6a74cd461c899b435b4e77777b93943e",
+      "src_md5": "f89a96e0a846f1edb606ee4dd7338a43",
       "quality": 70,
-      "bytes": 151262
+      "bytes": 220470
     },
     "drill_c042_manual02_initial.heic": {
       "src": "drill_c042_manual02_initial.png",
-      "src_md5": "322aa1b702ced35204423ad4f214a8f5",
+      "src_md5": "a83a3f7b5d0215891124a9efe0866f26",
       "quality": 70,
-      "bytes": 128541
+      "bytes": 202981
     },
     "drill_c042_manual02_s01.heic": {
       "src": "drill_c042_manual02_s01.png",
-      "src_md5": "2683e47b9fe70edb6b7a5a64b2ed7aaf",
+      "src_md5": "a727ca4875a499b4b478e562f5e372ff",
       "quality": 70,
-      "bytes": 147830
+      "bytes": 217756
     },
     "drill_c042_manual02_s02.heic": {
       "src": "drill_c042_manual02_s02.png",
-      "src_md5": "74c1db9358f4dc912274caaef8f80bd5",
+      "src_md5": "de399d20c051f230c950eb4939cb1997",
       "quality": 70,
-      "bytes": 141999
+      "bytes": 213779
     },
     "drill_c042_manual02_s03.heic": {
       "src": "drill_c042_manual02_s03.png",
-      "src_md5": "21f7a3b5ce2641f0ec3d83dbe6d1f1b1",
+      "src_md5": "cf3907e10cafd4a06f41b72934a3bc5d",
       "quality": 70,
-      "bytes": 143452
+      "bytes": 214793
     },
     "drill_c042_manual02_s04.heic": {
       "src": "drill_c042_manual02_s04.png",
-      "src_md5": "1cbc113ef61b426661176af5f385ba8c",
+      "src_md5": "a3c10a9ef73bc5178a52ebed104e5bad",
       "quality": 70,
-      "bytes": 146172
+      "bytes": 215863
     },
     "drill_c042_manual02_s05.heic": {
       "src": "drill_c042_manual02_s05.png",
-      "src_md5": "601414f213ad1c4f499951c18b7df18a",
+      "src_md5": "a123af565537b053748199b2ce00458c",
       "quality": 70,
-      "bytes": 147787
+      "bytes": 216679
     },
     "drill_c044_initial.heic": {
       "src": "drill_c044_initial.png",
-      "src_md5": "a8177a9fe69d07015af605fbc437abc4",
+      "src_md5": "924dbf89fbacbf5fc79897df882ecd92",
       "quality": 70,
-      "bytes": 125986
+      "bytes": 201590
     },
     "drill_c044_s01.heic": {
       "src": "drill_c044_s01.png",
-      "src_md5": "d7ab1be7573b45898e53c522680a669d",
+      "src_md5": "8fc6e882fae0e4497a5744607172ab28",
       "quality": 70,
-      "bytes": 137068
+      "bytes": 210456
     },
     "drill_c044_s02.heic": {
       "src": "drill_c044_s02.png",
-      "src_md5": "d744f4e54c04d46b530c0e0aae1dc008",
+      "src_md5": "05537630d4a17648d16955544efe9f96",
       "quality": 70,
-      "bytes": 146000
+      "bytes": 217205
     },
     "drill_c044_s03.heic": {
       "src": "drill_c044_s03.png",
-      "src_md5": "525731a7608120085ee839b860d0f2ef",
+      "src_md5": "29ebaf02153d8ec97ef8b7ceb80c0b3c",
       "quality": 70,
-      "bytes": 149625
+      "bytes": 219589
     },
     "drill_c044_s04.heic": {
       "src": "drill_c044_s04.png",
-      "src_md5": "9b797aef2e85162d664940f98111b193",
+      "src_md5": "5925018eaab08f0c1a4fd54fad156854",
       "quality": 70,
-      "bytes": 149051
+      "bytes": 218503
     },
     "drill_c044_s05.heic": {
       "src": "drill_c044_s05.png",
-      "src_md5": "982f0e1fa542f9906b63a3edd7065c39",
+      "src_md5": "3cb093c48d0350907e8f826bb8ee3510",
       "quality": 70,
-      "bytes": 147213
+      "bytes": 218119
     },
     "drill_c044_s06.heic": {
       "src": "drill_c044_s06.png",
-      "src_md5": "1530476242a4e8b6de4d34230af19bac",
+      "src_md5": "3c9de8dc05f1f35a1b825c4493fb9d4c",
       "quality": 70,
-      "bytes": 146263
+      "bytes": 217204
     },
     "drill_c045_initial.heic": {
       "src": "drill_c045_initial.png",
-      "src_md5": "a4950aa6ae26d2dc9c2af02f248847fb",
+      "src_md5": "d78521e781d5f6a3a46ac26b85f621f6",
       "quality": 70,
-      "bytes": 125136
+      "bytes": 201306
     },
     "drill_c045_s01.heic": {
       "src": "drill_c045_s01.png",
-      "src_md5": "2f4a767b85c84457f31715f078118fed",
+      "src_md5": "f1d3e4e7056fa89dcfee4b7eb472225d",
       "quality": 70,
-      "bytes": 134065
+      "bytes": 206130
     },
     "drill_c045_s02.heic": {
       "src": "drill_c045_s02.png",
-      "src_md5": "f62fe2a48306074c263034f8f14de068",
+      "src_md5": "ce810bc977357b5cd5891efb8b07df2c",
       "quality": 70,
-      "bytes": 133907
+      "bytes": 205870
     },
     "drill_c045_s03.heic": {
       "src": "drill_c045_s03.png",
-      "src_md5": "edf53786da0a20eecc3ba267529a1c72",
+      "src_md5": "34a05d5a38fb747628702c14c1b3285c",
       "quality": 70,
-      "bytes": 133354
+      "bytes": 205452
     },
     "drill_c046_initial.heic": {
       "src": "drill_c046_initial.png",
-      "src_md5": "e9f41bfbdfb3a6be437189398e27e091",
+      "src_md5": "aaf9cc61bff6f6c7d424a5401590ce0f",
       "quality": 70,
-      "bytes": 125579
+      "bytes": 201458
     },
     "drill_c046_s01.heic": {
       "src": "drill_c046_s01.png",
-      "src_md5": "b28d2577b52c9006af3f5da1cb5db410",
+      "src_md5": "de47937e0580409d37d4a26e89c59475",
       "quality": 70,
-      "bytes": 145036
+      "bytes": 215380
     },
     "drill_c046_s02.heic": {
       "src": "drill_c046_s02.png",
-      "src_md5": "8d4b570d6562900b7205e6103c8e6e49",
+      "src_md5": "48141a60ce957a73ccd531c3ce830628",
       "quality": 70,
-      "bytes": 146085
+      "bytes": 216469
     },
     "drill_c046_s03.heic": {
       "src": "drill_c046_s03.png",
-      "src_md5": "f32bd0c2891cf9b9f50a2c79ff77eadf",
+      "src_md5": "5d56e653369259f8a14391b96c740f5d",
       "quality": 70,
-      "bytes": 144806
+      "bytes": 215651
     },
     "drill_c046_s04.heic": {
       "src": "drill_c046_s04.png",
-      "src_md5": "7c544b625921171b180e25048d34ef0c",
+      "src_md5": "7874f4f317ae666977c40e46741fc7e8",
       "quality": 70,
-      "bytes": 146021
+      "bytes": 216786
     },
     "drill_c046_s05.heic": {
       "src": "drill_c046_s05.png",
-      "src_md5": "04eb1b9a45cc83df49fcabcb61062b8d",
+      "src_md5": "d40145a301f4d6021d95ad59cc5f2889",
       "quality": 70,
-      "bytes": 144284
+      "bytes": 215380
     },
     "drill_c047_initial.heic": {
       "src": "drill_c047_initial.png",
-      "src_md5": "f1d6b801a78c560179c8b5cbb4b58f69",
+      "src_md5": "c2b15ee61245d32eef78f42d0db3123f",
       "quality": 70,
-      "bytes": 125733
+      "bytes": 201585
     },
     "drill_c047_s01.heic": {
       "src": "drill_c047_s01.png",
-      "src_md5": "2a2ead8ebf198173ed1671093f95f8ae",
+      "src_md5": "30f9242c649d2e7d244ef657663de7cb",
       "quality": 70,
-      "bytes": 143306
+      "bytes": 215659
     },
     "drill_c047_s02.heic": {
       "src": "drill_c047_s02.png",
-      "src_md5": "a5d7a53475f24355202edab443ecdaaf",
+      "src_md5": "bc50c1c96ac059dccc61bc6034549501",
       "quality": 70,
-      "bytes": 143063
+      "bytes": 215514
     },
     "drill_c047_s03.heic": {
       "src": "drill_c047_s03.png",
-      "src_md5": "0bd2a4883c5ebccf59f70545f492e185",
+      "src_md5": "0709acc18e81dbe49650b9a9a5408707",
       "quality": 70,
-      "bytes": 143604
+      "bytes": 215884
     },
     "drill_c047_s04.heic": {
       "src": "drill_c047_s04.png",
-      "src_md5": "a6f9903b7c4a673b96e014288e33731a",
+      "src_md5": "0a7a2153dc7e465964c3bfd4df438ceb",
       "quality": 70,
-      "bytes": 147939
+      "bytes": 218122
     },
     "drill_c047_s05.heic": {
       "src": "drill_c047_s05.png",
-      "src_md5": "5ac71f087d05c387bd606629acd5fb70",
+      "src_md5": "ac69c0e8a0e99ff6ffdf3a24d0108dd5",
       "quality": 70,
-      "bytes": 155727
+      "bytes": 222573
     },
     "drill_c047_s06.heic": {
       "src": "drill_c047_s06.png",
-      "src_md5": "5c7298e689dee7a8f32680c58ee25055",
+      "src_md5": "6bd895c076afe2570efa0c0102235eb8",
       "quality": 70,
-      "bytes": 156041
+      "bytes": 223177
     },
     "drill_c047_s07.heic": {
       "src": "drill_c047_s07.png",
-      "src_md5": "3a98cddd9acd2f7469ebbe620e1a6f54",
+      "src_md5": "99421095986ac3478735b15963ad91c7",
       "quality": 70,
-      "bytes": 152124
+      "bytes": 219244
     },
     "drill_c047_s08.heic": {
       "src": "drill_c047_s08.png",
-      "src_md5": "2ff3b6fadd5c7c8127e3f158293c08cf",
+      "src_md5": "9f1dadf8c3d06160659af0c3d4b32d35",
       "quality": 70,
-      "bytes": 152751
+      "bytes": 219932
     },
     "drill_c047_s09.heic": {
       "src": "drill_c047_s09.png",
-      "src_md5": "4aca58964ed78e62005da34844f1280c",
+      "src_md5": "3802def48005938328222137b58ae8ae",
       "quality": 70,
-      "bytes": 154272
+      "bytes": 220969
     },
     "drill_c047_s10.heic": {
       "src": "drill_c047_s10.png",
-      "src_md5": "37c29cde64c3222a98ef8af8bc76615d",
+      "src_md5": "6d5db656cbf3189165881371dec26ddd",
       "quality": 70,
-      "bytes": 152822
+      "bytes": 220205
     },
     "drill_c047_s11.heic": {
       "src": "drill_c047_s11.png",
-      "src_md5": "887f37c6fdea6c9d71cfe1698f0e0389",
+      "src_md5": "87420224029132be115e5ea5de8bf023",
       "quality": 70,
-      "bytes": 156559
+      "bytes": 222604
     },
     "drill_c047_s12.heic": {
       "src": "drill_c047_s12.png",
-      "src_md5": "f95f699abbba278249173800ca49ed92",
+      "src_md5": "39cc7230493be74f13ac37e6cdbe2a4e",
       "quality": 70,
-      "bytes": 162099
+      "bytes": 226398
     },
     "drill_c048_initial.heic": {
       "src": "drill_c048_initial.png",
-      "src_md5": "e014f00fd12e7ce3c400b0cffd30893b",
+      "src_md5": "74269ef128adb7db082b7f6bc8ea94e8",
       "quality": 70,
-      "bytes": 125662
+      "bytes": 201514
     },
     "drill_c048_s01.heic": {
       "src": "drill_c048_s01.png",
-      "src_md5": "0e374d1c74c7cfca04e23b7baf619899",
+      "src_md5": "0ebdabb8c3814e1cf0556a0362351de4",
       "quality": 70,
-      "bytes": 144388
+      "bytes": 216091
     },
     "drill_c048_s02.heic": {
       "src": "drill_c048_s02.png",
-      "src_md5": "803eedc82d86347dcf761f582e57fa06",
+      "src_md5": "07840f41d79a87665c7abcbe5c0ef88d",
       "quality": 70,
-      "bytes": 147943
+      "bytes": 218394
     },
     "drill_c048_s03.heic": {
       "src": "drill_c048_s03.png",
-      "src_md5": "972fdaf9d44f20f486db2b677c2d3031",
+      "src_md5": "11d690e3557924f1b4be441c3afa8088",
       "quality": 70,
-      "bytes": 153576
+      "bytes": 222287
     },
     "drill_c048_s04.heic": {
       "src": "drill_c048_s04.png",
-      "src_md5": "6991890b9ef4357aecad6f8f20246955",
+      "src_md5": "dfac8b2603268642758b2409a81e20d0",
       "quality": 70,
-      "bytes": 147421
+      "bytes": 217273
     },
     "drill_c048_s05.heic": {
       "src": "drill_c048_s05.png",
-      "src_md5": "4ed7ee23e39d24adcdb66e4db61af1c8",
+      "src_md5": "2043863459a41d3ec63643fcc5e2bfb1",
       "quality": 70,
-      "bytes": 154216
+      "bytes": 221324
     },
     "drill_c048_s06.heic": {
       "src": "drill_c048_s06.png",
-      "src_md5": "76b5e4fc6649241d24b668b5d1c6e1fa",
+      "src_md5": "61241a0e3de32a6e4e4d38816eebdcec",
       "quality": 70,
-      "bytes": 157180
+      "bytes": 223726
     },
     "drill_c048_s07.heic": {
       "src": "drill_c048_s07.png",
-      "src_md5": "0a987d7cb7d9868c4956d3fdcfe2a832",
+      "src_md5": "a4c3e73a69820af31f4792b5bbe9889c",
       "quality": 70,
-      "bytes": 147729
+      "bytes": 217204
     },
     "drill_c048_s08.heic": {
       "src": "drill_c048_s08.png",
-      "src_md5": "da885514103864c84f5bd1fd80326616",
+      "src_md5": "3b271b202e532c92bf21b6a820bacf73",
       "quality": 70,
-      "bytes": 154571
+      "bytes": 223439
     },
     "drill_c048_s09.heic": {
       "src": "drill_c048_s09.png",
-      "src_md5": "65511dc95a682df4bb7e4fe349a8679d",
+      "src_md5": "ca16e7f52e1cc911a34360f0d824a00b",
       "quality": 70,
-      "bytes": 160958
+      "bytes": 227567
     },
     "drill_c048_s10.heic": {
       "src": "drill_c048_s10.png",
-      "src_md5": "056826b51120c1d7787f8cb6a5617656",
+      "src_md5": "6fcf99a49b0f14d5860fbf83b0356b19",
       "quality": 70,
-      "bytes": 149461
+      "bytes": 218941
     },
     "drill_c048_s11.heic": {
       "src": "drill_c048_s11.png",
-      "src_md5": "405879303b485136cc53296b61573c57",
+      "src_md5": "ad59c751772090efa638913b703cfed6",
       "quality": 70,
-      "bytes": 156678
+      "bytes": 223759
     },
     "drill_c048_s12.heic": {
       "src": "drill_c048_s12.png",
-      "src_md5": "bd9141bc2132d48c275d41c25f81285a",
+      "src_md5": "379b018048335e79982ec46982d12858",
       "quality": 70,
-      "bytes": 165077
+      "bytes": 229518
     },
     "drill_c049_initial.heic": {
       "src": "drill_c049_initial.png",
-      "src_md5": "cc0970bf4b4e3cc57baa580808a3c9b4",
+      "src_md5": "a595f8e7be2847a547636a977ef0fe9c",
       "quality": 70,
-      "bytes": 125514
+      "bytes": 201292
     },
     "drill_c049_s01.heic": {
       "src": "drill_c049_s01.png",
-      "src_md5": "c4fbda0f70daf7c652a2f4023baeca3c",
+      "src_md5": "3f1cee59b2a216a03113e0fba79e6bbc",
       "quality": 70,
-      "bytes": 135207
+      "bytes": 206849
     },
     "drill_c049_s02.heic": {
       "src": "drill_c049_s02.png",
-      "src_md5": "37701f986e60fd4c91bf95e82b53d9f5",
+      "src_md5": "e0486d1df7aea20e4984ecfa608cddf3",
       "quality": 70,
-      "bytes": 134756
+      "bytes": 206456
     },
     "drill_c049_s03.heic": {
       "src": "drill_c049_s03.png",
-      "src_md5": "31b6566244f2ab38d0223e5fa6aeb7c5",
+      "src_md5": "f13cb797df280f155df78ac6ceb57ee4",
       "quality": 70,
-      "bytes": 134535
+      "bytes": 206105
     },
     "drill_c049_s04.heic": {
       "src": "drill_c049_s04.png",
-      "src_md5": "7c6ae57bf74b97d9cd8593e4da6efc6d",
+      "src_md5": "459872a94acc7d32a9aa0c53d7fe40f7",
       "quality": 70,
-      "bytes": 134032
+      "bytes": 205671
     },
     "drill_c049_s05.heic": {
       "src": "drill_c049_s05.png",
-      "src_md5": "cb7dfa52502b15d1a50c7b2b57f7bbd1",
+      "src_md5": "d3e57d62a53b21bdbc8085914c9659b0",
       "quality": 70,
-      "bytes": 134360
+      "bytes": 206090
     },
     "drill_c050_initial.heic": {
       "src": "drill_c050_initial.png",
-      "src_md5": "7cdf49c07af0b181a169e63482b39ab1",
+      "src_md5": "8c8e8c6232bc88ec8a0ab32446826250",
       "quality": 70,
-      "bytes": 126107
+      "bytes": 202184
     },
     "drill_c050_s01.heic": {
       "src": "drill_c050_s01.png",
-      "src_md5": "2648579aa228cacf5dd66312a2d622a4",
+      "src_md5": "5923da82228474097f12d321656a8a53",
       "quality": 70,
-      "bytes": 145220
+      "bytes": 216986
     },
     "drill_c050_s02.heic": {
       "src": "drill_c050_s02.png",
-      "src_md5": "5e7f2472eff368c65b235ccffb62cf17",
+      "src_md5": "c42698eae17b40a18d017e06fb5382e5",
       "quality": 70,
-      "bytes": 150661
+      "bytes": 220011
     },
     "drill_c050_s03.heic": {
       "src": "drill_c050_s03.png",
-      "src_md5": "45d9d8f5148b714be2b753c230633801",
+      "src_md5": "5c368915795ea2a26ce61fb1cca5bb64",
       "quality": 70,
-      "bytes": 149404
+      "bytes": 218655
     },
     "drill_c050_s04.heic": {
       "src": "drill_c050_s04.png",
-      "src_md5": "5c9c7159ab07cb03f42b776ed86d6e30",
+      "src_md5": "4d27d73eb6dcd955675a1416ad600a37",
       "quality": 70,
-      "bytes": 146993
+      "bytes": 216733
     },
     "drill_c050_s05.heic": {
       "src": "drill_c050_s05.png",
-      "src_md5": "2ee82a4ac667acd7b17d4106be07e7e0",
+      "src_md5": "bca52e3451459f08f777f438e6fcb545",
       "quality": 70,
-      "bytes": 148510
+      "bytes": 217801
     },
     "drill_c051_initial.heic": {
       "src": "drill_c051_initial.png",
-      "src_md5": "42be7127eb48aa090fddb6f2d5c9441f",
+      "src_md5": "8daa79d48455126da64121b4a8b2cfde",
       "quality": 70,
-      "bytes": 126206
+      "bytes": 202067
     },
     "drill_c051_s01.heic": {
       "src": "drill_c051_s01.png",
-      "src_md5": "992833b11f9bbaf244ec6dfbc04a0bf2",
+      "src_md5": "205a30e0033368b817dbddd2eacbf1e2",
       "quality": 70,
-      "bytes": 147074
+      "bytes": 217605
     },
     "drill_c051_s02.heic": {
       "src": "drill_c051_s02.png",
-      "src_md5": "5e60aede4072b6cd01ab81e4e128d89f",
+      "src_md5": "75b7ca3b208a03a0b1b2b5d5888b06a6",
       "quality": 70,
-      "bytes": 152914
+      "bytes": 221545
     },
     "drill_c051_s03.heic": {
       "src": "drill_c051_s03.png",
-      "src_md5": "a6bc4380dea1e2c280bca7b3124e80cd",
+      "src_md5": "c8fc5ea3fe03c331606dd4d49548e9cd",
       "quality": 70,
-      "bytes": 158504
+      "bytes": 225269
     },
     "drill_c051_s04.heic": {
       "src": "drill_c051_s04.png",
-      "src_md5": "218c8446813ae08a71657e213bd126d7",
+      "src_md5": "b22f0fbd6c0d57d9c03ba1bac6e94ae8",
       "quality": 70,
-      "bytes": 162444
+      "bytes": 228613
     },
     "drill_c052_initial.heic": {
       "src": "drill_c052_initial.png",
-      "src_md5": "b98da07e31dde39a2354312301100783",
+      "src_md5": "d79e6a97d749e4a78ddeee6014ca696e",
       "quality": 70,
-      "bytes": 128898
+      "bytes": 203179
     },
     "drill_c052_s01.heic": {
       "src": "drill_c052_s01.png",
-      "src_md5": "36a0c5e551c81b09c001634c4e2bf675",
+      "src_md5": "9c39e082c855be7e8396293f5b922527",
       "quality": 70,
-      "bytes": 161326
+      "bytes": 227056
     },
     "drill_c052_s02.heic": {
       "src": "drill_c052_s02.png",
-      "src_md5": "504e92c9181146e446d4024368aeb777",
+      "src_md5": "84a30cd8bf6a50e650dc17c02f01750f",
       "quality": 70,
-      "bytes": 160829
+      "bytes": 225631
     },
     "drill_c052_s03.heic": {
       "src": "drill_c052_s03.png",
-      "src_md5": "cde9f6cc5c486eb8c9d696fa02bccf2c",
+      "src_md5": "4c0ad20e0627e2646890275c8839ff25",
       "quality": 70,
-      "bytes": 160079
+      "bytes": 225132
     },
     "drill_c052_s04.heic": {
       "src": "drill_c052_s04.png",
-      "src_md5": "09d5bc08f6fc8868cfabb56f2b61858e",
+      "src_md5": "2d47186fe5d7fba5e490771e8997d3a0",
       "quality": 70,
-      "bytes": 154513
+      "bytes": 219888
     },
     "drill_c052_s05.heic": {
       "src": "drill_c052_s05.png",
-      "src_md5": "997d7a7086544e7d51a35beefefd7b93",
+      "src_md5": "b8d585e3074ccad35c2b4ab27c54c87b",
       "quality": 70,
-      "bytes": 164631
+      "bytes": 228755
     },
     "drill_c052_s06.heic": {
       "src": "drill_c052_s06.png",
-      "src_md5": "2ea1a67a28731d38c2ff3218abd084f1",
+      "src_md5": "440041525abcbfa33a6fe3d945ae6998",
       "quality": 70,
-      "bytes": 166772
+      "bytes": 230420
     },
     "drill_c052_s07.heic": {
       "src": "drill_c052_s07.png",
-      "src_md5": "0444bf4873d34de5539c5ef557815462",
+      "src_md5": "e1bc1a9e1ee87987b09e793bb7641fa7",
       "quality": 70,
-      "bytes": 184620
+      "bytes": 244303
     },
     "drill_c053_manual01_initial.heic": {
       "src": "drill_c053_manual01_initial.png",
-      "src_md5": "7e018293a59e6d2c9c089b9f7db6fd4b",
+      "src_md5": "3af06051627c026738978ac6abafb6f3",
       "quality": 70,
-      "bytes": 130792
+      "bytes": 204719
     },
     "drill_c053_manual01_s01.heic": {
       "src": "drill_c053_manual01_s01.png",
-      "src_md5": "2eb642f693f6a5fa5b61eb753c577a78",
+      "src_md5": "0a5c3ccec5f2a7ae611854b973e53acf",
       "quality": 70,
-      "bytes": 151386
+      "bytes": 220072
     },
     "drill_c053_manual01_s02.heic": {
       "src": "drill_c053_manual01_s02.png",
-      "src_md5": "2820dcec21bc1a8ae6cd33af2504b35a",
+      "src_md5": "511d5ddd87d2091487c64e5939ced957",
       "quality": 70,
-      "bytes": 149596
+      "bytes": 218850
     },
     "drill_c053_manual01_s03.heic": {
       "src": "drill_c053_manual01_s03.png",
-      "src_md5": "f46fc5e72ac1d04fb4380a82db4e6d77",
+      "src_md5": "f52a128bd8a1bd906f43b0f603412a4b",
       "quality": 70,
-      "bytes": 149629
+      "bytes": 218980
     },
     "drill_c053_manual01_s04.heic": {
       "src": "drill_c053_manual01_s04.png",
-      "src_md5": "b28b71c00424e2829392c7e6b9751713",
+      "src_md5": "c20144459d3e94c8744fbac045014b28",
       "quality": 70,
-      "bytes": 148756
+      "bytes": 218180
     },
     "drill_c053_manual01_s05.heic": {
       "src": "drill_c053_manual01_s05.png",
-      "src_md5": "271644760b948bc59b05afbd59348d49",
+      "src_md5": "c748d6a85b1471db0b90a2401bb21232",
       "quality": 70,
-      "bytes": 146992
+      "bytes": 216919
     },
     "drill_c053_manual01_s06.heic": {
       "src": "drill_c053_manual01_s06.png",
-      "src_md5": "7bda3774ca41de5dd517ff0ad9abcbad",
+      "src_md5": "5adbc5b4754695bd39d97b9f341e0380",
       "quality": 70,
-      "bytes": 147651
+      "bytes": 217636
     },
     "drill_c053_manual01_s07.heic": {
       "src": "drill_c053_manual01_s07.png",
-      "src_md5": "032eb2346670e6de1e7b5f58feb44543",
+      "src_md5": "17738041a85160d56c5113de50f199a0",
       "quality": 70,
-      "bytes": 147700
+      "bytes": 217798
     },
     "drill_c053_manual01_s08.heic": {
       "src": "drill_c053_manual01_s08.png",
-      "src_md5": "aa5aca071472a208766f0d22fa29680c",
+      "src_md5": "873fcfa7522d47ebb9a995ae26986902",
       "quality": 70,
-      "bytes": 149703
+      "bytes": 218836
     },
     "drill_c053_manual01_s09.heic": {
       "src": "drill_c053_manual01_s09.png",
-      "src_md5": "2019becc77c2aa9f6eae35cb37b27c35",
+      "src_md5": "c27b44301087066ad7838da014f42f65",
       "quality": 70,
-      "bytes": 150779
+      "bytes": 219576
     },
     "drill_c053_manual01_s10.heic": {
       "src": "drill_c053_manual01_s10.png",
-      "src_md5": "078c3906f94af00d6c64a6c1aea61db2",
+      "src_md5": "dc496bc7e7a7a80404eb0e808720e659",
       "quality": 70,
-      "bytes": 149002
+      "bytes": 218070
     },
     "drill_c053_manual02_initial.heic": {
       "src": "drill_c053_manual02_initial.png",
-      "src_md5": "2a8d81e0f77157fd1cb8bf7e1b551411",
+      "src_md5": "8c5db5b90c43d8f68c50286edc79fbc9",
       "quality": 70,
-      "bytes": 131983
+      "bytes": 205854
     },
     "drill_c053_manual02_s01.heic": {
       "src": "drill_c053_manual02_s01.png",
-      "src_md5": "e9c19071e48b62e37bbea01b806d7e91",
+      "src_md5": "101aa61085bfedf974e64d3fe50bda3a",
       "quality": 70,
-      "bytes": 154599
+      "bytes": 222790
     },
     "drill_c053_manual02_s02.heic": {
       "src": "drill_c053_manual02_s02.png",
-      "src_md5": "c2e9fe2466313586c2088592a0f89d72",
+      "src_md5": "798061da540ab4992b440e81be33f741",
       "quality": 70,
-      "bytes": 152213
+      "bytes": 220881
     },
     "drill_c053_manual02_s03.heic": {
       "src": "drill_c053_manual02_s03.png",
-      "src_md5": "4ca609fa01411510f469600a5dee5842",
+      "src_md5": "92c248414ad949ffacb2ad5f5feb3de3",
       "quality": 70,
-      "bytes": 152194
+      "bytes": 220743
     },
     "drill_c053_manual02_s04.heic": {
       "src": "drill_c053_manual02_s04.png",
-      "src_md5": "90f4489a5f2b7c52e939d0f403451a06",
+      "src_md5": "fbc758c3fe2bd4ddbe74d90139a3c390",
       "quality": 70,
-      "bytes": 147889
+      "bytes": 218078
     },
     "drill_c053_manual02_s05.heic": {
       "src": "drill_c053_manual02_s05.png",
-      "src_md5": "5e20f0eed4aa546303bc91b0655ce6ce",
+      "src_md5": "cbb3f79e885d31074610487c6e91bb5e",
       "quality": 70,
-      "bytes": 150116
+      "bytes": 219862
     },
     "drill_c053_manual02_s06.heic": {
       "src": "drill_c053_manual02_s06.png",
-      "src_md5": "6b0680c28645643a3237991bf4700e1b",
+      "src_md5": "190548b714253ca5cb0f6ece451ac046",
       "quality": 70,
-      "bytes": 149481
+      "bytes": 218862
     },
     "drill_c053_manual02_s07.heic": {
       "src": "drill_c053_manual02_s07.png",
-      "src_md5": "0d039f2b4b79a1cbe09aad4646ce16b3",
+      "src_md5": "f9f90d6236778b0bd9e2ddf955fe22f5",
       "quality": 70,
-      "bytes": 151608
+      "bytes": 220594
     },
     "drill_c053_manual02_s08.heic": {
       "src": "drill_c053_manual02_s08.png",
-      "src_md5": "ae1588bb1bca866deb5bf5d57cf1cc8f",
+      "src_md5": "efde78f0efc29ac96a17668ab762c352",
       "quality": 70,
-      "bytes": 152813
+      "bytes": 221277
     },
     "drill_c053_manual02_s09.heic": {
       "src": "drill_c053_manual02_s09.png",
-      "src_md5": "1c16b836c1d24a4bd4a90e7ec712b18a",
+      "src_md5": "5c589b8b6608bae57d7539459287fcd5",
       "quality": 70,
-      "bytes": 153550
+      "bytes": 221690
     },
     "drill_c053_manual02_s10.heic": {
       "src": "drill_c053_manual02_s10.png",
-      "src_md5": "7ce35ab5840e26e77842897447484e82",
+      "src_md5": "d7d04f61b04f969a814d4c9899c5ec8b",
       "quality": 70,
-      "bytes": 154619
+      "bytes": 222503
     },
     "drill_c053_manual02_s11.heic": {
       "src": "drill_c053_manual02_s11.png",
-      "src_md5": "44256b591cbb74adb66f03c8f4db436c",
+      "src_md5": "4ab9c329fc69eb13fe64b60bd9cfaf87",
       "quality": 70,
-      "bytes": 151134
+      "bytes": 220224
     },
     "drill_c053_manual02_s12.heic": {
       "src": "drill_c053_manual02_s12.png",
-      "src_md5": "1fb68ca7ce8112917b2c9918bbfa0f05",
+      "src_md5": "6be6d1236c060f3ac2be99fdbe8ad238",
       "quality": 70,
-      "bytes": 153030
+      "bytes": 220549
     },
     "drill_c053_manual02_s13.heic": {
       "src": "drill_c053_manual02_s13.png",
-      "src_md5": "94f8ce79e05e50525af10879aa8bfbcd",
+      "src_md5": "b57c2c1cf04646183b5e01cef5203b62",
       "quality": 70,
-      "bytes": 154882
+      "bytes": 222333
     },
     "drill_c054_initial.heic": {
       "src": "drill_c054_initial.png",
-      "src_md5": "e697df44f5eb83a56a9effc3c348a506",
+      "src_md5": "d197f9357db93b6bdb2bbab96d254c8d",
       "quality": 70,
-      "bytes": 128633
+      "bytes": 201793
     },
     "drill_c054_s01.heic": {
       "src": "drill_c054_s01.png",
-      "src_md5": "9bd10a37b9646f2c51d5914d8be5cd8f",
+      "src_md5": "dccce5ba55aa46bba7f7c93f8c04afef",
       "quality": 70,
-      "bytes": 148537
+      "bytes": 217961
     },
     "drill_c054_s02.heic": {
       "src": "drill_c054_s02.png",
-      "src_md5": "5edc6d5c155e8db210d3a4eb14980484",
+      "src_md5": "0aa0072cb5c42d4bace39eb613b49272",
       "quality": 70,
-      "bytes": 148768
+      "bytes": 217705
     },
     "drill_c054_s03.heic": {
       "src": "drill_c054_s03.png",
-      "src_md5": "8c5f288db27516a17818ffb4aefc074f",
+      "src_md5": "725982a74b058857e1c4fb21d0d9d900",
       "quality": 70,
-      "bytes": 145641
+      "bytes": 216442
     },
     "drill_c054_s04.heic": {
       "src": "drill_c054_s04.png",
-      "src_md5": "be3cfb44cc3d243721a76cdfc164a91b",
+      "src_md5": "1bc2e78a6eb6d4982b3d4b3a62c43031",
       "quality": 70,
-      "bytes": 144761
+      "bytes": 214918
     },
     "drill_c054_s05.heic": {
       "src": "drill_c054_s05.png",
-      "src_md5": "19daba71c1c06ed5beabd1800019fc69",
+      "src_md5": "3da2b5ebf3aee8724e48c156e218ccff",
       "quality": 70,
-      "bytes": 148558
+      "bytes": 218147
     },
     "drill_c055_initial.heic": {
       "src": "drill_c055_initial.png",
-      "src_md5": "e4466842bbda1899e83b7ae563c6871b",
+      "src_md5": "0aecefe07b76405ab6553ebe36d2673b",
       "quality": 70,
-      "bytes": 127984
+      "bytes": 201856
     },
     "drill_c055_s01.heic": {
       "src": "drill_c055_s01.png",
-      "src_md5": "406af1c3cf7d82227d8890b53da30384",
+      "src_md5": "b634a1d98f076fca7a3b4e4562798a3a",
       "quality": 70,
-      "bytes": 145238
+      "bytes": 215140
     },
     "drill_c055_s02.heic": {
       "src": "drill_c055_s02.png",
-      "src_md5": "53b514aa027f00b5b9d34f3ec286ca98",
+      "src_md5": "faa464e3ac9b7d26dafefefe4e67f569",
       "quality": 70,
-      "bytes": 144881
+      "bytes": 214910
     },
     "drill_c055_s03.heic": {
       "src": "drill_c055_s03.png",
-      "src_md5": "aecc41daf47d1a8580478b19fd7de1ce",
+      "src_md5": "2eec42f3ae944a84f200ec7ebda92233",
       "quality": 70,
-      "bytes": 148713
+      "bytes": 217603
     },
     "drill_c055_s04.heic": {
       "src": "drill_c055_s04.png",
-      "src_md5": "bab8bcac65fd08fb0874d8c73a9acb1d",
+      "src_md5": "85b357bc36c8a4e65b32a771bc4f1277",
       "quality": 70,
-      "bytes": 145816
+      "bytes": 215709
     },
     "drill_c055_s05.heic": {
       "src": "drill_c055_s05.png",
-      "src_md5": "629a8af2bf64d51bea348c1a6f784b86",
+      "src_md5": "e14868dde7d140dd3edca12bec08a926",
       "quality": 70,
-      "bytes": 151411
+      "bytes": 220415
     },
     "drill_c056_Snipaste_2026_06_19_17_32_46_initial.heic": {
       "src": "drill_c056_Snipaste_2026_06_19_17_32_46_initial.png",
-      "src_md5": "bf126f51eda10693e9aab9fbdd978b30",
+      "src_md5": "4c95feaa140c29d97e449376fb3140dc",
       "quality": 70,
-      "bytes": 126125
+      "bytes": 201763
     },
     "drill_c056_Snipaste_2026_06_19_17_32_46_s01.heic": {
       "src": "drill_c056_Snipaste_2026_06_19_17_32_46_s01.png",
-      "src_md5": "5bb739a5c98c5f75a57e452128e46144",
+      "src_md5": "5c2f8900c5b8e221280480be1babe10f",
       "quality": 70,
-      "bytes": 146202
+      "bytes": 216889
     },
     "drill_c056_Snipaste_2026_06_19_17_35_51_initial.heic": {
       "src": "drill_c056_Snipaste_2026_06_19_17_35_51_initial.png",
-      "src_md5": "f2feac432c07eb593a73b1c3f5a5dba7",
+      "src_md5": "4caadc8e58215732baf0761f9981b3f2",
       "quality": 70,
-      "bytes": 126328
+      "bytes": 202016
     },
     "drill_c056_Snipaste_2026_06_19_17_35_51_s01.heic": {
       "src": "drill_c056_Snipaste_2026_06_19_17_35_51_s01.png",
-      "src_md5": "b3d2c3e11fd87b36ae2ff216a96c5d7c",
+      "src_md5": "3ea090a41c74de7f3bd6c84cb8d85591",
       "quality": 70,
-      "bytes": 146515
+      "bytes": 217253
     },
     "drill_c056_Snipaste_2026_06_19_17_37_37_initial.heic": {
       "src": "drill_c056_Snipaste_2026_06_19_17_37_37_initial.png",
-      "src_md5": "46eb3843baccbe3034f6b30d83fa19dc",
+      "src_md5": "13f5bb85748ba642f3bb84f56d405d46",
       "quality": 70,
-      "bytes": 126122
+      "bytes": 201720
     },
     "drill_c056_Snipaste_2026_06_19_17_37_37_s01.heic": {
       "src": "drill_c056_Snipaste_2026_06_19_17_37_37_s01.png",
-      "src_md5": "9cfdd2432e6a8fb9871641219146aae6",
+      "src_md5": "a3d884c161ea641e9e1461c7dc121414",
       "quality": 70,
-      "bytes": 148678
+      "bytes": 219002
     },
     "drill_c057_Snipaste_2026_06_19_17_43_31_initial.heic": {
       "src": "drill_c057_Snipaste_2026_06_19_17_43_31_initial.png",
-      "src_md5": "f7a30fc8cb749220835902f10412b299",
+      "src_md5": "00054a62b003147cc9dc8f83fc78b3c1",
       "quality": 70,
-      "bytes": 126614
+      "bytes": 201775
     },
     "drill_c057_Snipaste_2026_06_19_17_43_31_s01.heic": {
       "src": "drill_c057_Snipaste_2026_06_19_17_43_31_s01.png",
-      "src_md5": "46f1bdae41b6ce5bfb1d5dc5a78394e2",
+      "src_md5": "d7ca9b644a7966bdf7ceb4773bf8c3c4",
       "quality": 70,
-      "bytes": 163939
+      "bytes": 227015
     },
     "drill_c057_Snipaste_2026_06_19_17_45_48_initial.heic": {
       "src": "drill_c057_Snipaste_2026_06_19_17_45_48_initial.png",
-      "src_md5": "95e9c55f62ae061ea011534fa2541b69",
+      "src_md5": "8a5dc6a94bd020762e4821160af2616a",
       "quality": 70,
-      "bytes": 126579
+      "bytes": 201952
     },
     "drill_c057_Snipaste_2026_06_19_17_45_48_s01.heic": {
       "src": "drill_c057_Snipaste_2026_06_19_17_45_48_s01.png",
-      "src_md5": "24d48ad788bc4751e732b09f5348e378",
+      "src_md5": "4e3b75748800cfbefa0e6ad8f3f6e896",
       "quality": 70,
-      "bytes": 152465
+      "bytes": 220253
     },
     "drill_c057_Snipaste_2026_06_19_17_48_56_initial.heic": {
       "src": "drill_c057_Snipaste_2026_06_19_17_48_56_initial.png",
-      "src_md5": "4ce25456614aa67625a1d6d9ed6f39a4",
+      "src_md5": "79596a6b972365aaebf7540c8677c7d6",
       "quality": 70,
-      "bytes": 126515
+      "bytes": 201982
     },
     "drill_c057_Snipaste_2026_06_19_17_48_56_s01.heic": {
       "src": "drill_c057_Snipaste_2026_06_19_17_48_56_s01.png",
-      "src_md5": "caff2191e659b8648efdbffd33eab8cd",
+      "src_md5": "027922d7d6ed2b881114c3626d5c20e8",
       "quality": 70,
-      "bytes": 149765
+      "bytes": 219693
     },
     "drill_c058_Snipaste_2026_06_19_17_50_08_initial.heic": {
       "src": "drill_c058_Snipaste_2026_06_19_17_50_08_initial.png",
-      "src_md5": "c58619b59bc6b75e0a4aab59dd945eb4",
+      "src_md5": "e4e7ee304c9164f9a4a5a373410ca582",
       "quality": 70,
-      "bytes": 125948
+      "bytes": 201374
     },
     "drill_c058_Snipaste_2026_06_19_17_50_08_s01.heic": {
       "src": "drill_c058_Snipaste_2026_06_19_17_50_08_s01.png",
-      "src_md5": "1fbd7e2b9e0466aea4fae57a42e9f785",
+      "src_md5": "ecb7e8cd58d5d12a8177a9a3ddad6d43",
       "quality": 70,
-      "bytes": 146523
+      "bytes": 216961
     },
     "drill_c058_Snipaste_2026_06_19_17_50_48_initial.heic": {
       "src": "drill_c058_Snipaste_2026_06_19_17_50_48_initial.png",
-      "src_md5": "2ba8a2d1fb2bf35107f2b9f5c1a0df9c",
+      "src_md5": "97312bf28f2f36eb025770e0ba204aa1",
       "quality": 70,
-      "bytes": 125663
+      "bytes": 201249
     },
     "drill_c058_Snipaste_2026_06_19_17_50_48_s01.heic": {
       "src": "drill_c058_Snipaste_2026_06_19_17_50_48_s01.png",
-      "src_md5": "401388ecec66dd5da858f3460617e1b8",
+      "src_md5": "878defbb1d880de06499ed33cd720eaa",
       "quality": 70,
-      "bytes": 146331
+      "bytes": 216002
     },
     "drill_c060_initial.heic": {
       "src": "drill_c060_initial.png",
-      "src_md5": "32a2b2f6ae28cb65f4a01622217f6832",
+      "src_md5": "20bd0db1f8d39e786d2c886793c61038",
       "quality": 70,
-      "bytes": 126734
+      "bytes": 201940
     },
     "drill_c060_s01.heic": {
       "src": "drill_c060_s01.png",
-      "src_md5": "24fcf9df1ed727e4f0ae240f88408b61",
+      "src_md5": "1fc0684dd4fd56a6f65be0ecc061ec32",
       "quality": 70,
-      "bytes": 155850
+      "bytes": 222588
     },
     "drill_c060_s02.heic": {
       "src": "drill_c060_s02.png",
-      "src_md5": "a7f4ff85957985e46137a2c595aba772",
+      "src_md5": "111932c95a495e9954866f72a43431a4",
       "quality": 70,
-      "bytes": 157508
+      "bytes": 223602
     },
     "drill_c060_s03.heic": {
       "src": "drill_c060_s03.png",
-      "src_md5": "88a7a3e21728235855b18d5e4c1512e8",
+      "src_md5": "82c530120abd71ff22fb380b870f8384",
       "quality": 70,
-      "bytes": 156824
+      "bytes": 223984
     },
     "drill_c060_s04.heic": {
       "src": "drill_c060_s04.png",
-      "src_md5": "22cc7bc8d7bfadb75af6100147a80609",
+      "src_md5": "32a43ab34e741855039e4eae90328593",
       "quality": 70,
-      "bytes": 144006
+      "bytes": 215782
     },
     "drill_c060_s05.heic": {
       "src": "drill_c060_s05.png",
-      "src_md5": "87cf9195cf1511191592076e2c81cbb4",
+      "src_md5": "4fa1753415081836af4879bf1b18b131",
       "quality": 70,
-      "bytes": 147767
+      "bytes": 218123
     },
     "drill_c060_s06.heic": {
       "src": "drill_c060_s06.png",
-      "src_md5": "569c5eca95fb43d5255162b69b180a2d",
+      "src_md5": "f87c460c63fdb026bcc687f895b02a7a",
       "quality": 70,
-      "bytes": 145509
+      "bytes": 216776
     },
     "drill_c060_s07.heic": {
       "src": "drill_c060_s07.png",
-      "src_md5": "004762851520b31e31b03c20e62c1002",
+      "src_md5": "6e1aac86edf8d9b9752b7857f22be257",
       "quality": 70,
-      "bytes": 152843
+      "bytes": 222422
     },
     "drill_c060_s08.heic": {
       "src": "drill_c060_s08.png",
-      "src_md5": "2eab38decf8b81cd4e64b14853ed9514",
+      "src_md5": "18a2af03b056fb7a9275079452220737",
       "quality": 70,
-      "bytes": 153304
+      "bytes": 219917
     },
     "drill_c063_initial.heic": {
       "src": "drill_c063_initial.png",
-      "src_md5": "c4e71d6fcd6be3911cae6f73c2c56bd1",
+      "src_md5": "9afa4fa35dd16a509273e30568f0793e",
       "quality": 70,
-      "bytes": 126141
+      "bytes": 201527
     },
     "drill_c063_s01.heic": {
       "src": "drill_c063_s01.png",
-      "src_md5": "36c5c404a1c51347905130e3b9e4e8cf",
+      "src_md5": "c9cc5070d0b99bfc9bd483d5f109b121",
       "quality": 70,
-      "bytes": 156601
+      "bytes": 222793
     },
     "drill_c063_s02.heic": {
       "src": "drill_c063_s02.png",
-      "src_md5": "649cc0549ec3d75ec012013889a97c33",
+      "src_md5": "6a0c41f96f97d53b1621c10b4d2dda81",
       "quality": 70,
-      "bytes": 164989
+      "bytes": 228828
     },
     "drill_c064_initial.heic": {
       "src": "drill_c064_initial.png",
-      "src_md5": "d5e763c64abf3b37f12213aa7c48811f",
+      "src_md5": "c6b5a01e6b5fa97304891bafc3117cc3",
       "quality": 70,
-      "bytes": 126773
+      "bytes": 202208
     },
     "drill_c064_s01.heic": {
       "src": "drill_c064_s01.png",
-      "src_md5": "f4d352b4a3aa9c85c1ece60a874802a0",
+      "src_md5": "ce995a3a91040d7a0c723361850aaf8f",
       "quality": 70,
-      "bytes": 146762
+      "bytes": 217981
     },
     "drill_c064_s02.heic": {
       "src": "drill_c064_s02.png",
-      "src_md5": "5349d0c80a8bc6bba9eb4dd878e462b3",
+      "src_md5": "9acf5ffa0fa2d3cd397178a4adf38797",
       "quality": 70,
-      "bytes": 143592
+      "bytes": 215446
     },
     "drill_c064_s03.heic": {
       "src": "drill_c064_s03.png",
-      "src_md5": "1ddd182145c646c94d1d2d89b7b4b216",
+      "src_md5": "c47a803d9124f51a30f50dccbb2cd9ee",
       "quality": 70,
-      "bytes": 140254
+      "bytes": 214827
     },
     "drill_c069_manual01_initial.heic": {
       "src": "drill_c069_manual01_initial.png",
-      "src_md5": "9d39bba3ff27d72f0ecc5dfed029ce5c",
+      "src_md5": "9fe97f3d260f02b22f0ac9f4a68860d0",
       "quality": 70,
-      "bytes": 127204
+      "bytes": 202436
     },
     "drill_c069_manual01_s01.heic": {
       "src": "drill_c069_manual01_s01.png",
-      "src_md5": "48d51091124a8c6373c289cb24b8422c",
+      "src_md5": "5312cbb873b72e604afd3a33b93eb886",
       "quality": 70,
-      "bytes": 149106
+      "bytes": 219037
     },
     "drill_c069_manual01_s02.heic": {
       "src": "drill_c069_manual01_s02.png",
-      "src_md5": "fe622b8b9b646a770919d1a9a9462087",
+      "src_md5": "5dbde413ad5a1535923e61053ca68855",
       "quality": 70,
-      "bytes": 145656
+      "bytes": 216499
     },
     "drill_c069_manual01_s03.heic": {
       "src": "drill_c069_manual01_s03.png",
-      "src_md5": "b24fe246f155f2ca239a5094d9d349af",
+      "src_md5": "00e7baad40d62e3afece4052fe5f95fc",
       "quality": 70,
-      "bytes": 148131
+      "bytes": 218301
     },
     "drill_c069_manual01_s04.heic": {
       "src": "drill_c069_manual01_s04.png",
-      "src_md5": "752d7781921f910f22725eacc1237e0c",
+      "src_md5": "e3a99e7873d0a8d58eea77577ff36a9a",
       "quality": 70,
-      "bytes": 146636
+      "bytes": 217243
     },
     "drill_c069_manual01_s05.heic": {
       "src": "drill_c069_manual01_s05.png",
-      "src_md5": "8439a5a9a05253feda61cd5536469386",
+      "src_md5": "2e93b5867b50d638048d3dcfc751822f",
       "quality": 70,
-      "bytes": 147190
+      "bytes": 217325
     },
     "drill_c069_manual01_s06.heic": {
       "src": "drill_c069_manual01_s06.png",
-      "src_md5": "e6ee9fd369ed46ce8abb495e398c33a8",
+      "src_md5": "6dbd2212c284c789399d2efa4d3af399",
       "quality": 70,
-      "bytes": 144067
+      "bytes": 215163
     },
     "drill_c069_manual01_s07.heic": {
       "src": "drill_c069_manual01_s07.png",
-      "src_md5": "94726bf91077d0a1f30717bd22798c16",
+      "src_md5": "d9df145e722090b818c342f7bc0d6a9f",
       "quality": 70,
-      "bytes": 147869
+      "bytes": 218628
     },
     "drill_c069_manual01_s08.heic": {
       "src": "drill_c069_manual01_s08.png",
-      "src_md5": "941ac26226183037d8fd6f8f29792c2c",
+      "src_md5": "35d1176fc0013576ba58481fdbe9d06d",
       "quality": 70,
-      "bytes": 157868
+      "bytes": 225313
     },
     "drill_c069_manual02_initial.heic": {
       "src": "drill_c069_manual02_initial.png",
-      "src_md5": "a8b7d830ca8b13611b518c4e434bb8dc",
+      "src_md5": "918ef3b16c7021300d7d4c15acb74603",
       "quality": 70,
-      "bytes": 131401
+      "bytes": 205031
     },
     "drill_c069_manual02_s01.heic": {
       "src": "drill_c069_manual02_s01.png",
-      "src_md5": "6c9dee7d1782e05086f907f7bd142ae3",
+      "src_md5": "84e1ada21407a7f03c0f9c2e634177af",
       "quality": 70,
-      "bytes": 151528
+      "bytes": 220375
     },
     "drill_c069_manual02_s02.heic": {
       "src": "drill_c069_manual02_s02.png",
-      "src_md5": "d7c1bf7b19cd78fa98ce4b8f0a643343",
+      "src_md5": "af770f6829f54ad9be424e9357f1be70",
       "quality": 70,
-      "bytes": 148018
+      "bytes": 217975
     },
     "drill_c069_manual02_s03.heic": {
       "src": "drill_c069_manual02_s03.png",
-      "src_md5": "c4319d9ea7a932276103c7bebcf2fbb9",
+      "src_md5": "06e49ad7e4e2fb9c4d339ae7ea5f896a",
       "quality": 70,
-      "bytes": 150712
+      "bytes": 220894
     },
     "drill_c069_manual02_s04.heic": {
       "src": "drill_c069_manual02_s04.png",
-      "src_md5": "b687402c2d2d496afca1331d84ff21bc",
+      "src_md5": "98c81fadd6f19645f3bd8bce5f47dcb6",
       "quality": 70,
-      "bytes": 147517
+      "bytes": 217351
     },
     "drill_c069_manual02_s05.heic": {
       "src": "drill_c069_manual02_s05.png",
-      "src_md5": "5758dfa26bccf7c9da953dfc26807bb9",
+      "src_md5": "4e4b567082ac53fb79834481fc5108aa",
       "quality": 70,
-      "bytes": 144182
+      "bytes": 215258
     },
     "drill_c069_manual02_s06.heic": {
       "src": "drill_c069_manual02_s06.png",
-      "src_md5": "3aed413fae548094b8bbbe9bf71646d8",
+      "src_md5": "611953103d1e5fe458ac664eb249b0a7",
       "quality": 70,
-      "bytes": 145815
+      "bytes": 216044
     },
     "drill_c069_manual02_s07.heic": {
       "src": "drill_c069_manual02_s07.png",
-      "src_md5": "54d7ca9a0aff126f9a4b554f483da7be",
+      "src_md5": "36ee4f88797a8a2d6cad25301cc3fedd",
       "quality": 70,
-      "bytes": 144309
+      "bytes": 215737
     },
     "drill_c069_manual02_s08.heic": {
       "src": "drill_c069_manual02_s08.png",
-      "src_md5": "264f440227ac139daa556b7ca86f0e92",
+      "src_md5": "8d1de4e856fd97f3eb72c436d2d4a440",
       "quality": 70,
-      "bytes": 143950
+      "bytes": 216272
     },
     "drill_c069_manual02_s09.heic": {
       "src": "drill_c069_manual02_s09.png",
-      "src_md5": "5eda71a366153524a6726d5d1e57affd",
+      "src_md5": "1256323b1a2643eaa33988ab4f653dc7",
       "quality": 70,
-      "bytes": 147455
+      "bytes": 217188
     },
     "drill_c069_manual02_s10.heic": {
       "src": "drill_c069_manual02_s10.png",
-      "src_md5": "990f3db7380075f3873e6ecb18a820c9",
+      "src_md5": "0e97b917b43775220aeea246d016fd6f",
       "quality": 70,
-      "bytes": 142249
+      "bytes": 213656
     },
     "drill_c071_manual01_initial.heic": {
       "src": "drill_c071_manual01_initial.png",
-      "src_md5": "e2ef97a27ee528edf7a855e5609fd1fb",
+      "src_md5": "10b3d33c8ac09d7f4e08579646f89783",
       "quality": 70,
-      "bytes": 126731
+      "bytes": 202112
     },
     "drill_c071_manual01_s01.heic": {
       "src": "drill_c071_manual01_s01.png",
-      "src_md5": "520ac83aa7f229771365644a6004ee6c",
+      "src_md5": "f761065189d665b78272b965facca0db",
       "quality": 70,
-      "bytes": 140439
+      "bytes": 213571
     },
     "drill_c071_manual01_s02.heic": {
       "src": "drill_c071_manual01_s02.png",
-      "src_md5": "a9ae21a0bbab21c7ead075d8214622bd",
+      "src_md5": "daf2f52ec6b72113101c2886a3bd9bc4",
       "quality": 70,
-      "bytes": 142446
+      "bytes": 214797
     },
     "drill_c071_manual01_s03.heic": {
       "src": "drill_c071_manual01_s03.png",
-      "src_md5": "b9d68fd1ca42ddb23368f6cdd424f6dc",
+      "src_md5": "f3ca592a968a57f284b65f6edce463e8",
       "quality": 70,
-      "bytes": 145200
+      "bytes": 217466
     },
     "drill_c071_manual01_s04.heic": {
       "src": "drill_c071_manual01_s04.png",
-      "src_md5": "e0addf368e668ea1f844ae83504f0f93",
+      "src_md5": "1546ff895699fbf6b02307df36f22c2a",
       "quality": 70,
-      "bytes": 141482
+      "bytes": 214590
     },
     "drill_c071_manual01_s05.heic": {
       "src": "drill_c071_manual01_s05.png",
-      "src_md5": "a393597e40e00fe41699f4fba423692b",
+      "src_md5": "e3953d73f34779c3c4c4c382a91c4e2f",
       "quality": 70,
-      "bytes": 144608
+      "bytes": 217292
     },
     "drill_c071_manual01_s06.heic": {
       "src": "drill_c071_manual01_s06.png",
-      "src_md5": "87d1516ed96a9e3293aae3f8558e4e76",
+      "src_md5": "35a73c344798bfc5be1ecafdc17b3eb6",
       "quality": 70,
-      "bytes": 144456
+      "bytes": 216616
     },
     "drill_c071_manual01_s07.heic": {
       "src": "drill_c071_manual01_s07.png",
-      "src_md5": "d581e2013b29808f1500c5b14a759c90",
+      "src_md5": "de735d087204bbd7fc28712093333a9a",
       "quality": 70,
-      "bytes": 146892
+      "bytes": 219241
     },
     "drill_c071_manual01_s08.heic": {
       "src": "drill_c071_manual01_s08.png",
-      "src_md5": "9c32fcc8243ced79107acfb39268ec37",
+      "src_md5": "e87c962e4ed5c685a530965d4df47db2",
       "quality": 70,
-      "bytes": 147533
+      "bytes": 219864
     },
     "drill_c071_manual02_initial.heic": {
       "src": "drill_c071_manual02_initial.png",
-      "src_md5": "22ba4bcf5a725a73cedeec8d75d6b117",
+      "src_md5": "878921b2f28ec4a6fe7b209cb197e851",
       "quality": 70,
-      "bytes": 135343
+      "bytes": 207413
     },
     "drill_c071_manual02_s01.heic": {
       "src": "drill_c071_manual02_s01.png",
-      "src_md5": "cc2b7af545656096ef8cd49cb420a334",
+      "src_md5": "b6302fd0230e228f8f370f18961352d3",
       "quality": 70,
-      "bytes": 154235
+      "bytes": 223015
     },
     "drill_c071_manual02_s02.heic": {
       "src": "drill_c071_manual02_s02.png",
-      "src_md5": "a43c8d9dd0b3d320d21ea2d78a6694e7",
+      "src_md5": "bb5004d94ce5230ebc6eb3feabd15b1a",
       "quality": 70,
-      "bytes": 155573
+      "bytes": 222839
     },
     "drill_c071_manual02_s03.heic": {
       "src": "drill_c071_manual02_s03.png",
-      "src_md5": "92dcecdb083316c1ab8ff93e93ef4a12",
+      "src_md5": "816e17cab9465a60406137586ab1035c",
       "quality": 70,
-      "bytes": 152687
+      "bytes": 221759
     },
     "drill_c071_manual02_s04.heic": {
       "src": "drill_c071_manual02_s04.png",
-      "src_md5": "79b5e4183727f55036f8f9881181b268",
+      "src_md5": "cdbfc60d5169d456fbff558a5cd3fbce",
       "quality": 70,
-      "bytes": 154240
+      "bytes": 220760
     },
     "drill_c071_manual02_s05.heic": {
       "src": "drill_c071_manual02_s05.png",
-      "src_md5": "52bd2b1d05ceb2ed69b21f36d318a9cb",
+      "src_md5": "7fe91b5fa70f25ba67659d275e7ff8a6",
       "quality": 70,
-      "bytes": 149857
+      "bytes": 220517
     },
     "drill_c071_manual02_s06.heic": {
       "src": "drill_c071_manual02_s06.png",
-      "src_md5": "f48976d97db365ab52145429618713dc",
+      "src_md5": "7445c4b40692a188ed80001454138708",
       "quality": 70,
-      "bytes": 149826
+      "bytes": 219611
     },
     "drill_c071_manual02_s07.heic": {
       "src": "drill_c071_manual02_s07.png",
-      "src_md5": "e560b9aea091d14b95a06eb07634e63b",
+      "src_md5": "438cc2dbe3957708a2a2d4b0c03dfe8b",
       "quality": 70,
-      "bytes": 147150
+      "bytes": 217616
     },
     "drill_c071_manual02_s08.heic": {
       "src": "drill_c071_manual02_s08.png",
-      "src_md5": "b66d927945ecd926e82a5a168e469fa5",
+      "src_md5": "072853fc0a36e0a54a56949d3e6ddf9c",
       "quality": 70,
-      "bytes": 144754
+      "bytes": 216338
     },
     "drill_c071_manual02_s09.heic": {
       "src": "drill_c071_manual02_s09.png",
-      "src_md5": "c977470c8a240444272c8202eb69fc09",
+      "src_md5": "767d0003e2455698b902ef5d48f6db9e",
       "quality": 70,
-      "bytes": 145072
+      "bytes": 216406
     },
     "drill_c071_manual02_s10.heic": {
       "src": "drill_c071_manual02_s10.png",
-      "src_md5": "46b151cd06a05f0db130ea5fe1141fee",
+      "src_md5": "22fb3b615571fd423d017dd54c5f1cca",
       "quality": 70,
-      "bytes": 147398
+      "bytes": 219402
     },
     "drill_c071_manual02_s11.heic": {
       "src": "drill_c071_manual02_s11.png",
-      "src_md5": "438839df09143b82ade5412bd12bff94",
+      "src_md5": "3146ca07e8f01b8ae7bb74ca313a5343",
       "quality": 70,
-      "bytes": 150329
+      "bytes": 219529
     },
     "drill_c071_manual02_s12.heic": {
       "src": "drill_c071_manual02_s12.png",
-      "src_md5": "3dc73008a4d0f83c27f1690043ad579f",
+      "src_md5": "69d772cef15b183916d95db7c96eb982",
       "quality": 70,
-      "bytes": 145626
+      "bytes": 218672
     },
     "drill_c071_manual02_s13.heic": {
       "src": "drill_c071_manual02_s13.png",
-      "src_md5": "2421aed83cd6674d281dc7f9c65ae682",
+      "src_md5": "0d9407bc6f84102d8b0da32124f62329",
       "quality": 70,
-      "bytes": 149244
+      "bytes": 215029
     },
     "drill_c071_manual02_s14.heic": {
       "src": "drill_c071_manual02_s14.png",
-      "src_md5": "70dc5a2d173dfc019d6e46f03f45b780",
+      "src_md5": "be8ecb9744be3ac726ec6cd4114c3e5d",
       "quality": 70,
-      "bytes": 142496
+      "bytes": 214411
     },
     "drill_c071_manual02_s15.heic": {
       "src": "drill_c071_manual02_s15.png",
-      "src_md5": "56af82b5b1d58c247cc03643f18e790a",
+      "src_md5": "0814882f48f9909fc7f203c766759bd9",
       "quality": 70,
-      "bytes": 138679
+      "bytes": 212465
     },
     "drill_c072_initial.heic": {
       "src": "drill_c072_initial.png",
-      "src_md5": "06ce9d7a539adf3193241e6c73d2068d",
+      "src_md5": "51e798b61f4764bd4b254617a6468482",
       "quality": 70,
-      "bytes": 126075
+      "bytes": 201378
     },
     "drill_c072_s01.heic": {
       "src": "drill_c072_s01.png",
-      "src_md5": "2ba67a69672ca1f8d4c3d3930edcd414",
+      "src_md5": "2e0a3805ff89d9cb41305179a810df96",
       "quality": 70,
-      "bytes": 147715
+      "bytes": 217237
     },
     "drill_c072_s02.heic": {
       "src": "drill_c072_s02.png",
-      "src_md5": "e09f8fab0c72f6a1c74c2aacc92e4331",
+      "src_md5": "ae6bd4639d1ac2cfa1940ef89aefb043",
       "quality": 70,
-      "bytes": 149336
+      "bytes": 219898
     },
     "drill_c073_manual01_initial.heic": {
       "src": "drill_c073_manual01_initial.png",
-      "src_md5": "f76a1d34567d721d8b8f8e658192d7ca",
+      "src_md5": "bd40fe8b3e35794b11729f8a929621f3",
       "quality": 70,
-      "bytes": 125889
+      "bytes": 201300
     },
     "drill_c073_manual01_s01.heic": {
       "src": "drill_c073_manual01_s01.png",
-      "src_md5": "86ce2af6b4aa89e61cc091abc681c3dc",
+      "src_md5": "40a17c56db70c4c6142bcd24ae8b745e",
       "quality": 70,
-      "bytes": 136282
+      "bytes": 210328
     },
     "drill_c073_manual01_s02.heic": {
       "src": "drill_c073_manual01_s02.png",
-      "src_md5": "ab2e6e9602b76f0afbff734d0ff45e2d",
+      "src_md5": "92cdba4aae4deb7cfd9fbf585e5e3021",
       "quality": 70,
-      "bytes": 136394
+      "bytes": 210513
     },
     "drill_c073_manual01_s03.heic": {
       "src": "drill_c073_manual01_s03.png",
-      "src_md5": "40932f6fd7188c4102cfe623f31db04a",
+      "src_md5": "a287b1b75d3e62ad36043bf4efc593e4",
       "quality": 70,
-      "bytes": 136492
+      "bytes": 210465
     },
     "drill_c073_manual01_s04.heic": {
       "src": "drill_c073_manual01_s04.png",
-      "src_md5": "6ff88f1fb70efb72b47a2e5c7e6a51c2",
+      "src_md5": "d33b2cc1ea2049e64fb7ab9b2dd76bbb",
       "quality": 70,
-      "bytes": 136119
+      "bytes": 210276
     },
     "drill_c073_manual01_s05.heic": {
       "src": "drill_c073_manual01_s05.png",
-      "src_md5": "b9d04b2071594a5da32bbd0a3166aa88",
+      "src_md5": "342785fa6a3218fb433cbcfc73a70537",
       "quality": 70,
-      "bytes": 136600
+      "bytes": 210792
     },
     "drill_c073_manual01_s06.heic": {
       "src": "drill_c073_manual01_s06.png",
-      "src_md5": "8a43a9034f0aea4569c963f88f87e597",
+      "src_md5": "045732b06996c6689127a7fb64445073",
       "quality": 70,
-      "bytes": 136035
+      "bytes": 210482
     },
     "drill_c073_manual01_s07.heic": {
       "src": "drill_c073_manual01_s07.png",
-      "src_md5": "b31191c46b79455efc8a7bf36d1bef7b",
+      "src_md5": "7af418cce03087ff0282f0059862d00f",
       "quality": 70,
-      "bytes": 135883
+      "bytes": 210045
     },
     "drill_c073_manual02_initial.heic": {
       "src": "drill_c073_manual02_initial.png",
-      "src_md5": "92c5404345ff7951dc3e32e51bca3385",
+      "src_md5": "e746936f86c1421db3475bec1ecd3f02",
       "quality": 70,
-      "bytes": 125683
+      "bytes": 201388
     },
     "drill_c073_manual02_s01.heic": {
       "src": "drill_c073_manual02_s01.png",
-      "src_md5": "03d269b6e52e223e30a5c21d48720a9b",
+      "src_md5": "045cb980dfb4dcbbbaa24292610e7034",
       "quality": 70,
-      "bytes": 137823
+      "bytes": 210224
     },
     "drill_c073_manual02_s02.heic": {
       "src": "drill_c073_manual02_s02.png",
-      "src_md5": "b51edd97beb44e12df8f846f4c7e06bc",
+      "src_md5": "450e419e9ed1b76c7600cd03195a9c6b",
       "quality": 70,
-      "bytes": 137830
+      "bytes": 209825
     },
     "drill_c073_manual02_s03.heic": {
       "src": "drill_c073_manual02_s03.png",
-      "src_md5": "7a8a3fd75ef0f3bfffefdf4d5a7db203",
+      "src_md5": "10e1a26e0e1e4d5a0c37c868037c2340",
       "quality": 70,
-      "bytes": 137965
+      "bytes": 210627
     },
     "drill_c073_manual02_s04.heic": {
       "src": "drill_c073_manual02_s04.png",
-      "src_md5": "4108b7c4119993660ab81bfe6dfc17ea",
+      "src_md5": "62a930ee2d7de85f5c03fff3bea60ee9",
       "quality": 70,
-      "bytes": 137478
+      "bytes": 210082
     },
     "drill_c073_manual02_s05.heic": {
       "src": "drill_c073_manual02_s05.png",
-      "src_md5": "dcac00e1041a0f5e3b1ef56b09b2c711",
+      "src_md5": "05fed3812e00f73a290bfe813fb2002b",
       "quality": 70,
-      "bytes": 138015
+      "bytes": 211310
     },
     "drill_c073_manual02_s06.heic": {
       "src": "drill_c073_manual02_s06.png",
-      "src_md5": "3d59729e30eaf2c527d421c38cc57138",
+      "src_md5": "7040caef4d6e1ef5f38d734e5d656bcc",
       "quality": 70,
-      "bytes": 137452
+      "bytes": 210778
     },
     "drill_c073_manual02_s07.heic": {
       "src": "drill_c073_manual02_s07.png",
-      "src_md5": "1cda23042685d525aa03b6117f6eac7e",
+      "src_md5": "282f29dcd10e69720e1938f484defc2c",
       "quality": 70,
-      "bytes": 138210
+      "bytes": 211064
     },
     "drill_c073_manual02_s08.heic": {
       "src": "drill_c073_manual02_s08.png",
-      "src_md5": "dccc6bd5a34821e7c589001c175bf4e0",
+      "src_md5": "eef6f7a317ec36498f40bcb656f43b6a",
       "quality": 70,
-      "bytes": 137313
+      "bytes": 210563
     },
     "drill_c074_manual01_initial.heic": {
       "src": "drill_c074_manual01_initial.png",
-      "src_md5": "a884cb52426e84859081c10570b96a33",
+      "src_md5": "a13269a4028ed744c4dd3e19dba268df",
       "quality": 70,
-      "bytes": 125130
+      "bytes": 201252
     },
     "drill_c074_manual01_s01.heic": {
       "src": "drill_c074_manual01_s01.png",
-      "src_md5": "801c2472a2ba4a5efc89a614ab215886",
+      "src_md5": "ba92696ca41aa089dff8af85fec71b4e",
       "quality": 70,
-      "bytes": 137927
+      "bytes": 209759
     },
     "drill_c074_manual01_s02.heic": {
       "src": "drill_c074_manual01_s02.png",
-      "src_md5": "aa63b344531ff983c0679e830ba057d8",
+      "src_md5": "3974f617cd69efd778c2a2b18df4d502",
       "quality": 70,
-      "bytes": 138070
+      "bytes": 210080
     },
     "drill_c074_manual01_s03.heic": {
       "src": "drill_c074_manual01_s03.png",
-      "src_md5": "4c5425f82d07654e30cb8a6e9c5e2879",
+      "src_md5": "f67e572177eea5f5cf0a7bb734c4ae37",
       "quality": 70,
-      "bytes": 138353
+      "bytes": 210200
     },
     "drill_c074_manual01_s04.heic": {
       "src": "drill_c074_manual01_s04.png",
-      "src_md5": "85ee63fe7b25085c01fde5bd78076137",
+      "src_md5": "66dd31418d63e3b51e17851563129a16",
       "quality": 70,
-      "bytes": 138086
+      "bytes": 210330
     },
     "drill_c074_manual01_s05.heic": {
       "src": "drill_c074_manual01_s05.png",
-      "src_md5": "5a11fe8f5105074be6419177f854c271",
+      "src_md5": "3565bc377e4b7a925d8f31c2bb7c9681",
       "quality": 70,
-      "bytes": 138336
+      "bytes": 209988
     },
     "drill_c074_manual01_s06.heic": {
       "src": "drill_c074_manual01_s06.png",
-      "src_md5": "c5dd52873000d45e661dbdfd19f4fd45",
+      "src_md5": "822ec1f0a096925919ecabde0c0e98ff",
       "quality": 70,
-      "bytes": 138332
+      "bytes": 210202
     },
     "drill_c074_manual02_initial.heic": {
       "src": "drill_c074_manual02_initial.png",
-      "src_md5": "bf78758f0bab3a28034953205bf5b384",
+      "src_md5": "197fad190fafb910122c3c8f7dc63a57",
       "quality": 70,
-      "bytes": 125829
+      "bytes": 201798
     },
     "drill_c074_manual02_s01.heic": {
       "src": "drill_c074_manual02_s01.png",
-      "src_md5": "fd2a9cfb8b544a6651dabe8f376985d0",
+      "src_md5": "6a5223d17b3165d2f7babf21d3de9e4f",
       "quality": 70,
-      "bytes": 144145
+      "bytes": 214912
     },
     "drill_c074_manual02_s02.heic": {
       "src": "drill_c074_manual02_s02.png",
-      "src_md5": "9b1c9a318e636ab988c73a4dfab6f4b0",
+      "src_md5": "8b9f0786444559a59c0fb9e5164ed4a2",
       "quality": 70,
-      "bytes": 146848
+      "bytes": 217716
     },
     "drill_c074_manual02_s03.heic": {
       "src": "drill_c074_manual02_s03.png",
-      "src_md5": "55cf6b35dd3158affd31194b638a5e3e",
+      "src_md5": "a0aa0e150aced811c878926489c1b386",
       "quality": 70,
-      "bytes": 146842
+      "bytes": 217536
     },
     "drill_c074_manual02_s04.heic": {
       "src": "drill_c074_manual02_s04.png",
-      "src_md5": "806689d1ff1b5eca4ee98d35020c79ee",
+      "src_md5": "5bdec14319d8fc35f7dbd2ab4188660e",
       "quality": 70,
-      "bytes": 147312
+      "bytes": 218209
     },
     "drill_c074_manual02_s05.heic": {
       "src": "drill_c074_manual02_s05.png",
-      "src_md5": "709128e84b25fe268e9040e87f6a160d",
+      "src_md5": "e8cc9be293194d1b5c66291c6874dc73",
       "quality": 70,
-      "bytes": 147085
+      "bytes": 217880
     },
     "drill_c074_manual02_s06.heic": {
       "src": "drill_c074_manual02_s06.png",
-      "src_md5": "cc9fc15cdf398d9c7b77e71af8c766fe",
+      "src_md5": "db80e595571d582a531c0fd45e93f159",
       "quality": 70,
-      "bytes": 146731
+      "bytes": 217493
     },
     "drill_c074_manual02_s07.heic": {
       "src": "drill_c074_manual02_s07.png",
-      "src_md5": "3cf1916ed52e767df36ac09134c2eae5",
+      "src_md5": "0d3773163a05a14a06af5d413e760df1",
       "quality": 70,
-      "bytes": 146825
+      "bytes": 217503
     },
     "drill_c074_manual02_s08.heic": {
       "src": "drill_c074_manual02_s08.png",
-      "src_md5": "931c4e573b6ea41d92b3f75c5091f315",
+      "src_md5": "a2d959150cb301b50d5098ae3352ac61",
       "quality": 70,
-      "bytes": 146326
+      "bytes": 216920
     },
     "drill_c074_manual02_s09.heic": {
       "src": "drill_c074_manual02_s09.png",
-      "src_md5": "4dbbed793dce8ec2c1b82f21792db04e",
+      "src_md5": "845c482925fab15d3bc0570ede48e994",
       "quality": 70,
-      "bytes": 146163
+      "bytes": 216615
     },
     "drill_c075_manual01_initial.heic": {
       "src": "drill_c075_manual01_initial.png",
-      "src_md5": "56688126c99947fe6e748a839aaec0ce",
+      "src_md5": "5ba76572bbe3515b0f0413346549797a",
       "quality": 70,
-      "bytes": 125545
+      "bytes": 201355
     },
     "drill_c075_manual01_s01.heic": {
       "src": "drill_c075_manual01_s01.png",
-      "src_md5": "9907a037497b82fcd32621827db9e84d",
+      "src_md5": "8f17ddd277d213135a0abc3cd43286b8",
       "quality": 70,
-      "bytes": 148300
+      "bytes": 217686
     },
     "drill_c075_manual01_s02.heic": {
       "src": "drill_c075_manual01_s02.png",
-      "src_md5": "9445918c3f24efcbe8721b237bec7ecc",
+      "src_md5": "50843673a1c30755ac875043dc918490",
       "quality": 70,
-      "bytes": 146129
+      "bytes": 216483
     },
     "drill_c075_manual01_s03.heic": {
       "src": "drill_c075_manual01_s03.png",
-      "src_md5": "6a32688664f408885213fe93f6e84071",
+      "src_md5": "afa3d985de719428e9d251ac31636b5a",
       "quality": 70,
-      "bytes": 144690
+      "bytes": 215447
     },
     "drill_c075_manual01_s04.heic": {
       "src": "drill_c075_manual01_s04.png",
-      "src_md5": "04f3ea0b0ef339b9ab87eb11333ebc41",
+      "src_md5": "bfd8f7729a716cf90db85df55d20ed98",
       "quality": 70,
-      "bytes": 144945
+      "bytes": 215325
     },
     "drill_c075_manual01_s05.heic": {
       "src": "drill_c075_manual01_s05.png",
-      "src_md5": "0fbf76e4dfaa567a7ee98eab7e337815",
+      "src_md5": "1bf8440996c1113f62db0a89333c00a0",
       "quality": 70,
-      "bytes": 149274
+      "bytes": 218570
     },
     "drill_c075_manual01_s06.heic": {
       "src": "drill_c075_manual01_s06.png",
-      "src_md5": "16ca6e32d349c6ee4793d8cea3333944",
+      "src_md5": "6836f4754b243cb9b1082242ad49725c",
       "quality": 70,
-      "bytes": 144922
+      "bytes": 215580
     },
     "drill_c075_manual01_s07.heic": {
       "src": "drill_c075_manual01_s07.png",
-      "src_md5": "dbe827c87fc54fe8ab44010b4cbb57e7",
+      "src_md5": "32b63c070558fe5089d2f137fff2f6b2",
       "quality": 70,
-      "bytes": 144635
+      "bytes": 215348
     },
     "drill_c075_manual02_initial.heic": {
       "src": "drill_c075_manual02_initial.png",
-      "src_md5": "c3f4efe58d123f6c07284f6e58e4a353",
+      "src_md5": "5e938fc4db347774e83684a5ebdf2c44",
       "quality": 70,
-      "bytes": 125437
+      "bytes": 201364
     },
     "drill_c075_manual02_s01.heic": {
       "src": "drill_c075_manual02_s01.png",
-      "src_md5": "e8709cd7376b900b852565f87166dfd1",
+      "src_md5": "91c748d79dea43579a7ca5dc6759ccfd",
       "quality": 70,
-      "bytes": 144828
+      "bytes": 215200
     },
     "drill_c075_manual02_s02.heic": {
       "src": "drill_c075_manual02_s02.png",
-      "src_md5": "96d730b451d26f98bbdd5527f7ef0ed4",
+      "src_md5": "dfc1348a484975d2c322f8a8690364aa",
       "quality": 70,
-      "bytes": 148009
+      "bytes": 217878
     },
     "drill_c075_manual02_s03.heic": {
       "src": "drill_c075_manual02_s03.png",
-      "src_md5": "63d840cd0b8ce5e97549c9e5c836c69e",
+      "src_md5": "a9a2a92916d09a8f11b41a55c1200791",
       "quality": 70,
-      "bytes": 146065
+      "bytes": 216742
     },
     "drill_c075_manual02_s04.heic": {
       "src": "drill_c075_manual02_s04.png",
-      "src_md5": "e8161ca3fb39b1626a201e7ffc0c40a8",
+      "src_md5": "218c595dc09a6d6d5eb319902317a0f4",
       "quality": 70,
-      "bytes": 144493
+      "bytes": 215743
     },
     "drill_c075_manual02_s05.heic": {
       "src": "drill_c075_manual02_s05.png",
-      "src_md5": "0e95faac4b403b08a1709f221c7a73a9",
+      "src_md5": "490a284eb2bbebf8a3378b74497399d6",
       "quality": 70,
-      "bytes": 143554
+      "bytes": 215042
     },
     "drill_c075_manual03_initial.heic": {
       "src": "drill_c075_manual03_initial.png",
-      "src_md5": "6ecf81ca1336f8a92094000f2552a647",
+      "src_md5": "988328ce70fcb30321e845ae7a680f98",
       "quality": 70,
-      "bytes": 125816
+      "bytes": 201287
     },
     "drill_c075_manual03_s01.heic": {
       "src": "drill_c075_manual03_s01.png",
-      "src_md5": "45ca2165f510859d9346fb94ee042a44",
+      "src_md5": "9a5defe39d50cc5aad3a5c14507d55c0",
       "quality": 70,
-      "bytes": 144711
+      "bytes": 215290
     },
     "drill_c075_manual03_s02.heic": {
       "src": "drill_c075_manual03_s02.png",
-      "src_md5": "de3b18822ddff046e34aa5748744509e",
+      "src_md5": "02aec30013d9c70fc10716e936c3c181",
       "quality": 70,
-      "bytes": 144357
+      "bytes": 215966
     },
     "drill_c075_manual03_s03.heic": {
       "src": "drill_c075_manual03_s03.png",
-      "src_md5": "ba140b3774eca55fd44f0a0730efa231",
+      "src_md5": "9cb5950c2b19f5466eb9fd1bbb674e68",
       "quality": 70,
-      "bytes": 143801
+      "bytes": 215590
     },
     "drill_c075_manual03_s04.heic": {
       "src": "drill_c075_manual03_s04.png",
-      "src_md5": "73e293d32d5648ab981424608e2c4a78",
+      "src_md5": "03cf0a6bd9f5406cd7394479c8cdee34",
       "quality": 70,
-      "bytes": 146698
+      "bytes": 217238
     },
     "drill_c075_manual03_s05.heic": {
       "src": "drill_c075_manual03_s05.png",
-      "src_md5": "52c5e3497ef8fe8c6727d414dacc3a73",
+      "src_md5": "7ebbd5499699b20f159adf391b8084d4",
       "quality": 70,
-      "bytes": 144408
+      "bytes": 216035
     },
     "drill_c076_manual01_initial.heic": {
       "src": "drill_c076_manual01_initial.png",
-      "src_md5": "007720e765dc00cb98dde06b419697a0",
+      "src_md5": "8cdb8e7414061e9f4b2938898171e4c2",
       "quality": 70,
-      "bytes": 129539
+      "bytes": 202034
     },
     "drill_c076_manual01_s01.heic": {
       "src": "drill_c076_manual01_s01.png",
-      "src_md5": "147c8cf1b0d1dba03441a3c8fecf8a7e",
+      "src_md5": "c94e0284def23c87e66c30a5d8c4626e",
       "quality": 70,
-      "bytes": 154582
+      "bytes": 220547
     },
     "drill_c076_manual01_s02.heic": {
       "src": "drill_c076_manual01_s02.png",
-      "src_md5": "c4d30d4583081253b12395622596317f",
+      "src_md5": "4ea6377ef7dbf4484eade9ed12f5bb66",
       "quality": 70,
-      "bytes": 151090
+      "bytes": 218609
     },
     "drill_c076_manual01_s03.heic": {
       "src": "drill_c076_manual01_s03.png",
-      "src_md5": "51245c0efaaa3b9e439ae6048b28b18b",
+      "src_md5": "b2aa4c8dad258da33ed858cfda3e4abd",
       "quality": 70,
-      "bytes": 151100
+      "bytes": 218725
     },
     "drill_c076_manual01_s04.heic": {
       "src": "drill_c076_manual01_s04.png",
-      "src_md5": "e71083571f67e347ffe93279d0216d5a",
+      "src_md5": "e73e1b2f65076cfb6f3fe60ce9a7413f",
       "quality": 70,
-      "bytes": 149151
+      "bytes": 217563
     },
     "drill_c076_manual01_s05.heic": {
       "src": "drill_c076_manual01_s05.png",
-      "src_md5": "d799cfa58446d0fdff4d9f7fe3e1c7c5",
+      "src_md5": "9b45e80dfd172333d543407572a6b66d",
       "quality": 70,
-      "bytes": 148005
+      "bytes": 216630
     },
     "drill_c076_manual01_s06.heic": {
       "src": "drill_c076_manual01_s06.png",
-      "src_md5": "00bcfe36ed6c6200944cf07cc31efc76",
+      "src_md5": "85468143ab3ed2e47efbb8eec14956dd",
       "quality": 70,
-      "bytes": 145585
+      "bytes": 214955
     },
     "drill_c076_manual01_s07.heic": {
       "src": "drill_c076_manual01_s07.png",
-      "src_md5": "d017af160a4921643f2f3e0aa8fe70d2",
+      "src_md5": "37650dcdb59119a25e2c3b0f40255d00",
       "quality": 70,
-      "bytes": 143011
+      "bytes": 213212
     },
     "drill_c076_manual01_s08.heic": {
       "src": "drill_c076_manual01_s08.png",
-      "src_md5": "61992b8382faaa3b9b91dcfe0e1045b9",
+      "src_md5": "4a59b4860b1a790d1a131c44edd6b387",
       "quality": 70,
-      "bytes": 141827
+      "bytes": 212423
     },
     "drill_c076_manual01_s09.heic": {
       "src": "drill_c076_manual01_s09.png",
-      "src_md5": "56fff642cea6127f2878fbfe1c523b16",
+      "src_md5": "b13ed6a4d70c0a1d3085b7c8f5d098bd",
       "quality": 70,
-      "bytes": 140805
+      "bytes": 212789
     },
     "drill_c076_manual01_s10.heic": {
       "src": "drill_c076_manual01_s10.png",
-      "src_md5": "d66ad53305394ed381ae969e54191409",
+      "src_md5": "9137dd6ddb658a4d8ef7890e7e980a19",
       "quality": 70,
-      "bytes": 140317
+      "bytes": 212344
     },
     "drill_c076_manual01_s11.heic": {
       "src": "drill_c076_manual01_s11.png",
-      "src_md5": "d33e8803274cac31bde0178db05495f3",
+      "src_md5": "7e3d77d7b6dd6a260a9d7d20e89d358d",
       "quality": 70,
-      "bytes": 142633
+      "bytes": 214013
     },
     "drill_c076_manual01_s12.heic": {
       "src": "drill_c076_manual01_s12.png",
-      "src_md5": "756892271c9177b3f71f6cc65e0de6b9",
+      "src_md5": "f9b30b33513ea08d8991288d489d3f9b",
       "quality": 70,
-      "bytes": 144856
+      "bytes": 215412
     },
     "drill_c076_manual01_s13.heic": {
       "src": "drill_c076_manual01_s13.png",
-      "src_md5": "434427db49a947efa476853f76a4d73e",
+      "src_md5": "643ee28f647ef748f7a44624bb3d3e12",
       "quality": 70,
-      "bytes": 146451
+      "bytes": 217131
     },
     "drill_c076_manual01_s14.heic": {
       "src": "drill_c076_manual01_s14.png",
-      "src_md5": "87789ac6e743098d527653d598eb4566",
+      "src_md5": "b53ed96c1fcf24b4b6ef4fe9223aa2a4",
       "quality": 70,
-      "bytes": 148374
+      "bytes": 218086
     },
     "drill_c076_manual02_initial.heic": {
       "src": "drill_c076_manual02_initial.png",
-      "src_md5": "dfd0305ea258cf2ccc2437bca016e31e",
+      "src_md5": "e6f5091146543ab841208b376aa9eab7",
       "quality": 70,
-      "bytes": 129044
+      "bytes": 202690
     },
     "drill_c076_manual02_s01.heic": {
       "src": "drill_c076_manual02_s01.png",
-      "src_md5": "c05e26e9abfc432e0aea7fa65a4e8264",
+      "src_md5": "e0115c0defb54e6d70b02e1d7ce4b291",
       "quality": 70,
-      "bytes": 148275
+      "bytes": 218129
     },
     "drill_c076_manual02_s02.heic": {
       "src": "drill_c076_manual02_s02.png",
-      "src_md5": "d6ba57c757f0f5bbee36519321d25639",
+      "src_md5": "a152930e18bd1d646ee46edeab6b7128",
       "quality": 70,
-      "bytes": 148782
+      "bytes": 218262
     },
     "drill_c076_manual02_s03.heic": {
       "src": "drill_c076_manual02_s03.png",
-      "src_md5": "3068f71a9cb5c6a95ca2014f2d810a28",
+      "src_md5": "e67fdffd88b951b95e1bc7bb68293a35",
       "quality": 70,
-      "bytes": 145873
+      "bytes": 216556
     },
     "drill_c076_manual02_s04.heic": {
       "src": "drill_c076_manual02_s04.png",
-      "src_md5": "c8c3d8b603502af00216570e440e1db4",
+      "src_md5": "9cfbb745f5af09e7ff69232845b39fc7",
       "quality": 70,
-      "bytes": 147234
+      "bytes": 218011
     },
     "drill_c076_manual02_s05.heic": {
       "src": "drill_c076_manual02_s05.png",
-      "src_md5": "dac8e423be179d9a0bba61005fbb49bd",
+      "src_md5": "16377ef2c99893b7d3e97efb870d1ba4",
       "quality": 70,
-      "bytes": 143945
+      "bytes": 215819
     },
     "drill_c076_manual02_s06.heic": {
       "src": "drill_c076_manual02_s06.png",
-      "src_md5": "a16964c5581ae4a5bc552dbe87091989",
+      "src_md5": "135139528a4aeeb80cf866d4db45aefe",
       "quality": 70,
-      "bytes": 144308
+      "bytes": 215957
     },
     "drill_c076_manual02_s07.heic": {
       "src": "drill_c076_manual02_s07.png",
-      "src_md5": "d8544927daaac377883c39a6f3f8d229",
+      "src_md5": "d16f2924ecb912d7281481759ef34f68",
       "quality": 70,
-      "bytes": 143602
+      "bytes": 215192
     },
     "drill_c076_manual02_s08.heic": {
       "src": "drill_c076_manual02_s08.png",
-      "src_md5": "dba9143dd12cbb5df07d11a5d07e558b",
+      "src_md5": "3e7deadef6cbf32eb0a98ed16f0c9c51",
       "quality": 70,
-      "bytes": 144950
+      "bytes": 215988
     },
     "drill_c076_manual02_s09.heic": {
       "src": "drill_c076_manual02_s09.png",
-      "src_md5": "13cb7408b747cf3acd593ba391579fe7",
+      "src_md5": "3175d305d4164789e25f086328c8aec7",
       "quality": 70,
-      "bytes": 145068
+      "bytes": 215383
     },
     "drill_c076_manual02_s10.heic": {
       "src": "drill_c076_manual02_s10.png",
-      "src_md5": "08a6396a3d84de3977c5686bdfe89cad",
+      "src_md5": "3ac6a8aa853ba2c94bd3a29d1df04eae",
       "quality": 70,
-      "bytes": 151283
+      "bytes": 219661
     },
     "drill_c076_manual02_s11.heic": {
       "src": "drill_c076_manual02_s11.png",
-      "src_md5": "d8c4a3d487ba1485b17d0746802de060",
+      "src_md5": "ec9fc34176a61f1e746b169f139c2625",
       "quality": 70,
-      "bytes": 152244
+      "bytes": 220647
     },
     "drill_c076_manual02_s12.heic": {
       "src": "drill_c076_manual02_s12.png",
-      "src_md5": "02fc42458b4b03d391cf8a820b991357",
+      "src_md5": "7543d34ba6d93f0ed338b5f8879e4e23",
       "quality": 70,
-      "bytes": 156414
+      "bytes": 223149
     },
     "drill_c076_manual02_s13.heic": {
       "src": "drill_c076_manual02_s13.png",
-      "src_md5": "829c58724e1237ef79881a1a23defe5b",
+      "src_md5": "de9fc7ca4439f2ae1308946325c7df15",
       "quality": 70,
-      "bytes": 154816
+      "bytes": 222682
     },
     "drill_c076_manual02_s14.heic": {
       "src": "drill_c076_manual02_s14.png",
-      "src_md5": "b5bd0a05d631794c7b8621074dcc3e59",
+      "src_md5": "6d0057b1d11eac3445cfd0a9704ed4c4",
       "quality": 70,
-      "bytes": 161302
+      "bytes": 226810
     },
     "drill_c077_initial.heic": {
       "src": "drill_c077_initial.png",
-      "src_md5": "b70c6ff4c0f4bb1c88996fbd49a87d84",
+      "src_md5": "479e60d8ae97e12b0ff939d58e72a29c",
       "quality": 70,
-      "bytes": 128046
+      "bytes": 203024
     },
     "drill_c077_s01.heic": {
       "src": "drill_c077_s01.png",
-      "src_md5": "ba06736a3f6e866e0a8c8d42dfaf4739",
+      "src_md5": "f7985c72c7fab0fa33ec3948d9fe3076",
       "quality": 70,
-      "bytes": 154606
+      "bytes": 221602
     },
     "drill_c077_s02.heic": {
       "src": "drill_c077_s02.png",
-      "src_md5": "db84326f8f8dd96bd0efb4fa72916236",
+      "src_md5": "d288e3aafa8aac9a6773ddde548ec461",
       "quality": 70,
-      "bytes": 155470
+      "bytes": 222202
     },
     "drill_c077_s03.heic": {
       "src": "drill_c077_s03.png",
-      "src_md5": "688c4542eafbfe89b497aabcb78467f2",
+      "src_md5": "cbe584a6b229f5ff3c69e039aedf8c42",
       "quality": 70,
-      "bytes": 155682
+      "bytes": 222495
     },
     "drill_c077_s04.heic": {
       "src": "drill_c077_s04.png",
-      "src_md5": "97df0cf4f3e085666d5c5f18800c5a9a",
+      "src_md5": "8666e68789ac91b4e7b3bc5965e29e36",
       "quality": 70,
-      "bytes": 158362
+      "bytes": 225212
     },
     "drill_c077_s05.heic": {
       "src": "drill_c077_s05.png",
-      "src_md5": "54be798b8800a4e0ff3c418ce155d465",
+      "src_md5": "1834cae7ff932db89db0b9c8f3ec8ecc",
       "quality": 70,
-      "bytes": 164005
+      "bytes": 229793
     },
     "drill_c078_initial.heic": {
       "src": "drill_c078_initial.png",
-      "src_md5": "ed88c1ef20fdec586e2619e6c017d5b6",
+      "src_md5": "1fb6f82ff04f6fc8a683f90debdd369a",
       "quality": 70,
-      "bytes": 129344
+      "bytes": 203138
     },
     "drill_c078_s01.heic": {
       "src": "drill_c078_s01.png",
-      "src_md5": "9fb8816d769ee3f8bac181878f8336c1",
+      "src_md5": "df126fd8bcb81cfae22ca14759da1e42",
       "quality": 70,
-      "bytes": 161034
+      "bytes": 225995
     },
     "drill_c078_s02.heic": {
       "src": "drill_c078_s02.png",
-      "src_md5": "584777381f704978ec36b4ed0b639b90",
+      "src_md5": "714b2579010bcf8295d9b4e5966af1a8",
       "quality": 70,
-      "bytes": 156178
+      "bytes": 222264
     },
     "drill_c078_s03.heic": {
       "src": "drill_c078_s03.png",
-      "src_md5": "c23fd3bc326689f98b4da1612dd78d64",
+      "src_md5": "04cf37fb3716ab37c7aeb559c0ad8107",
       "quality": 70,
-      "bytes": 159076
+      "bytes": 224830
     },
     "drill_c078_s04.heic": {
       "src": "drill_c078_s04.png",
-      "src_md5": "b25951ba1e67317678b58731e70a82a2",
+      "src_md5": "c2c0c8cec38a36c7994374b06246c579",
       "quality": 70,
-      "bytes": 154935
+      "bytes": 222070
     },
     "drill_c078_s05.heic": {
       "src": "drill_c078_s05.png",
-      "src_md5": "2c83634a31d800cd9d5160a9d6a5949f",
+      "src_md5": "c3a0a113eec5f464d0094ca5468a5a61",
       "quality": 70,
-      "bytes": 157902
+      "bytes": 223568
     },
     "drill_c078_s06.heic": {
       "src": "drill_c078_s06.png",
-      "src_md5": "730dacede9c347cdff0d28ff3d4d70c3",
+      "src_md5": "425115a4267e8be64ebb695aaf152a56",
       "quality": 70,
-      "bytes": 153680
+      "bytes": 220940
     },
     "drill_c078_s07.heic": {
       "src": "drill_c078_s07.png",
-      "src_md5": "7a4292bc775683394be9883bdee38948",
+      "src_md5": "fe0f76ecc83bd8c221a034439f8009e9",
       "quality": 70,
-      "bytes": 156593
+      "bytes": 222095
     },
     "drill_c078_s08.heic": {
       "src": "drill_c078_s08.png",
-      "src_md5": "2c9e9b97cef7f40b6be24799e70f8973",
+      "src_md5": "19693c2e01f294b3b2e585efb2d593b1",
       "quality": 70,
-      "bytes": 149940
+      "bytes": 217380
     },
     "drill_c078_s09.heic": {
       "src": "drill_c078_s09.png",
-      "src_md5": "c7f108246ae6d909561e07f910c5dc07",
+      "src_md5": "36e77dd090fbd4b534f60d844a6d43f3",
       "quality": 70,
-      "bytes": 158257
+      "bytes": 224342
     },
     "drill_c078_s10.heic": {
       "src": "drill_c078_s10.png",
-      "src_md5": "dda1fa9bedb30d65cdd04951d01ffbf3",
+      "src_md5": "877bcc9fcead87973459e2c964e754ee",
       "quality": 70,
-      "bytes": 150642
+      "bytes": 218922
     },
     "drill_c078_s11.heic": {
       "src": "drill_c078_s11.png",
-      "src_md5": "7cebf66b54af7b2533cfc208b976317e",
+      "src_md5": "422f2cdbf02e0b01e5353101cac7d37b",
       "quality": 70,
-      "bytes": 161717
+      "bytes": 227042
     },
     "drill_c078_s12.heic": {
       "src": "drill_c078_s12.png",
-      "src_md5": "a9ef76560b1bed00456d227e6547e3b0",
+      "src_md5": "ca2050459e4e736537c97a78f9d5119e",
       "quality": 70,
-      "bytes": 151705
+      "bytes": 219870
     },
     "drill_c078_s13.heic": {
       "src": "drill_c078_s13.png",
-      "src_md5": "dfcfc45ed80b36adc0f2e1c20aa5d110",
+      "src_md5": "8a4b1ed3be35594ff9a70569d537ffc7",
       "quality": 70,
-      "bytes": 161946
+      "bytes": 228181
     },
     "drill_c078_s14.heic": {
       "src": "drill_c078_s14.png",
-      "src_md5": "d8053966793e64da152b3636d8fae3ab",
+      "src_md5": "8c6e9a96b6550ee21a4f71e9f12613ca",
       "quality": 70,
-      "bytes": 152761
+      "bytes": 221197
     },
     "drill_c078_s15.heic": {
       "src": "drill_c078_s15.png",
-      "src_md5": "ec4c43d0fc0ad610569edb3b1bc209f7",
+      "src_md5": "22581bdd6f4f5f4d3e86f5f632ef50f0",
       "quality": 70,
-      "bytes": 155519
+      "bytes": 223079
     },
     "drill_c078_s16.heic": {
       "src": "drill_c078_s16.png",
-      "src_md5": "f66db107a7e10597a4ed37d432550341",
+      "src_md5": "96907187c1514fc27416ebed54f0d99e",
       "quality": 70,
-      "bytes": 153698
+      "bytes": 221547
     },
     "drill_c079_initial.heic": {
       "src": "drill_c079_initial.png",
-      "src_md5": "adaa798db25cb76209550ea918a68d2b",
+      "src_md5": "61447a461436e30d07d056e278c49098",
       "quality": 70,
-      "bytes": 127481
+      "bytes": 202948
     },
     "drill_c079_s01.heic": {
       "src": "drill_c079_s01.png",
-      "src_md5": "69e862b16efc85f01311e7f0a998474f",
+      "src_md5": "d45e1fb07683e7adbbbe2fad3eb679cd",
       "quality": 70,
-      "bytes": 156508
+      "bytes": 224804
     },
     "drill_c079_s02.heic": {
       "src": "drill_c079_s02.png",
-      "src_md5": "d2a2926f16b74028d568d31eaf3a0078",
+      "src_md5": "91f4276dff4d6a483e630d57326b51ca",
       "quality": 70,
-      "bytes": 150711
+      "bytes": 220000
     },
     "drill_c079_s03.heic": {
       "src": "drill_c079_s03.png",
-      "src_md5": "a390ef11b70ae366c658514acdd2cfda",
+      "src_md5": "d59aa85a6a55d572f2a0b8f0668dc410",
       "quality": 70,
-      "bytes": 149465
+      "bytes": 220861
     },
     "drill_c079_s04.heic": {
       "src": "drill_c079_s04.png",
-      "src_md5": "a0b5437cc3e42dafd6f6c3a1a1419e55",
+      "src_md5": "2bd92ed847b22dce3a5ea22a7fe7da9e",
       "quality": 70,
-      "bytes": 142399
+      "bytes": 212676
     },
     "drill_c080_initial.heic": {
       "src": "drill_c080_initial.png",
-      "src_md5": "2fd1104ac45b795c457212744d0401b2",
+      "src_md5": "0b75e97f0d71d7a771135d435d7ba093",
       "quality": 70,
-      "bytes": 126340
+      "bytes": 202145
     },
     "drill_c080_s01.heic": {
       "src": "drill_c080_s01.png",
-      "src_md5": "460636078e9f85c37f510a13bc991ca7",
+      "src_md5": "5549b4e7eaa689dcfeccb5224a0da95c",
       "quality": 70,
-      "bytes": 148592
+      "bytes": 218891
     },
     "drill_c080_s02.heic": {
       "src": "drill_c080_s02.png",
-      "src_md5": "32eb7b2dbe146b3c5843deebd91b1bd9",
+      "src_md5": "c1afaaa0dc289564fcf98868ec5a9d77",
       "quality": 70,
-      "bytes": 147200
+      "bytes": 218079
     },
     "drill_c080_s03.heic": {
       "src": "drill_c080_s03.png",
-      "src_md5": "2facacef067f9197c73b61af99cf3cad",
+      "src_md5": "acbd9669488be8d99bdedea62960ef66",
       "quality": 70,
-      "bytes": 157529
+      "bytes": 225016
     },
     "drill_c080_s04.heic": {
       "src": "drill_c080_s04.png",
-      "src_md5": "943b381cbf86d3f2876a363d8f7c4a9a",
+      "src_md5": "9ed6c1d57f4e601a70b8365eb23e1add",
       "quality": 70,
-      "bytes": 147223
+      "bytes": 218206
     },
     "drill_c081_initial.heic": {
       "src": "drill_c081_initial.png",
-      "src_md5": "913a105fc52a2d8f899982ff4d9d93f2",
+      "src_md5": "7a24064643befc4c691c9b5031dfdd4c",
       "quality": 70,
-      "bytes": 127702
+      "bytes": 202569
     },
     "drill_c081_s01.heic": {
       "src": "drill_c081_s01.png",
-      "src_md5": "1a173fe26ec158c354c4e533f77295f2",
+      "src_md5": "fe903f6d9debf15e44bfd69cc6eb9363",
       "quality": 70,
-      "bytes": 149813
+      "bytes": 220501
     },
     "drill_c081_s02.heic": {
       "src": "drill_c081_s02.png",
-      "src_md5": "d1b12d4a2619b05abbc5348891657f58",
+      "src_md5": "7dd9be13b42a6acad69222c125ebbf7c",
       "quality": 70,
-      "bytes": 150376
+      "bytes": 219325
     },
     "drill_c081_s03.heic": {
       "src": "drill_c081_s03.png",
-      "src_md5": "e2ba83f415a61cf10190b2cba4477ef6",
+      "src_md5": "1cede9077b37922ee83bc568c4b76263",
       "quality": 70,
-      "bytes": 152504
+      "bytes": 222002
     },
     "drill_c081_s04.heic": {
       "src": "drill_c081_s04.png",
-      "src_md5": "96d7e068778e6c9d17ad909823625d08",
+      "src_md5": "28603b390d2f48475acda1e55a79b2e3",
       "quality": 70,
-      "bytes": 144130
+      "bytes": 214909
     },
     "drill_c082_initial.heic": {
       "src": "drill_c082_initial.png",
-      "src_md5": "364b93d345c5bda5d9c23b114bace90c",
+      "src_md5": "9a4da7473efda7e0c44153d4496deba8",
       "quality": 70,
-      "bytes": 128948
+      "bytes": 203058
     },
     "drill_c082_s01.heic": {
       "src": "drill_c082_s01.png",
-      "src_md5": "160ea821bbc0433f76b071666f357bf2",
+      "src_md5": "2997b2fecc6a652341e95b577b371667",
       "quality": 70,
-      "bytes": 156710
+      "bytes": 223716
     },
     "drill_c082_s02.heic": {
       "src": "drill_c082_s02.png",
-      "src_md5": "601c14cdb1e6761577dc0393457dd957",
+      "src_md5": "8996557cebd77b5cc3e4b2b6a32578e0",
       "quality": 70,
-      "bytes": 158733
+      "bytes": 224510
     },
     "drill_c082_s03.heic": {
       "src": "drill_c082_s03.png",
-      "src_md5": "a9700e588fe154d4dd2c036d73951b52",
+      "src_md5": "39224bb39bf1c608766bb4d3af2dba79",
       "quality": 70,
-      "bytes": 154350
+      "bytes": 223308
     },
     "drill_c082_s04.heic": {
       "src": "drill_c082_s04.png",
-      "src_md5": "144386dad1d3c45b5f5cfa1f807b7064",
+      "src_md5": "181c00271c086eb4c1610fe2dd0b79cf",
       "quality": 70,
-      "bytes": 160881
+      "bytes": 227410
     },
     "drill_c082_s05.heic": {
       "src": "drill_c082_s05.png",
-      "src_md5": "93f21b24777c58d05da4986d22381542",
+      "src_md5": "90c49dca6b58236c13479c25550589da",
       "quality": 70,
-      "bytes": 148329
+      "bytes": 217746
     },
     "drill_c082_s06.heic": {
       "src": "drill_c082_s06.png",
-      "src_md5": "fcf0ba038fbaaa3db9dc48e17b716b48",
+      "src_md5": "7421bcce4be311d70948ac5cbebeee4f",
       "quality": 70,
-      "bytes": 158678
+      "bytes": 227000
     },
     "drill_c082_s07.heic": {
       "src": "drill_c082_s07.png",
-      "src_md5": "c64c8ce642bb640435fa41ee2436348f",
+      "src_md5": "b07f7984380d0e54bc7cb99eb0080f6d",
       "quality": 70,
-      "bytes": 154334
+      "bytes": 223077
     },
     "drill_c082_s08.heic": {
       "src": "drill_c082_s08.png",
-      "src_md5": "f35dd7632480bf49a4e26a21c9852af7",
+      "src_md5": "13c7bf0fb6579fe913caf178b64c5b47",
       "quality": 70,
-      "bytes": 161873
+      "bytes": 228548
     },
     "drill_c082_s09.heic": {
       "src": "drill_c082_s09.png",
-      "src_md5": "99d5f9a676bc9f09e14e576568cae7ab",
+      "src_md5": "1c56e0f302f9b6d8296e3d63d6fb8b5a",
       "quality": 70,
-      "bytes": 149805
+      "bytes": 220759
     },
     "drill_c082_s10.heic": {
       "src": "drill_c082_s10.png",
-      "src_md5": "cdbc94200684cddb2e5a78325e710e6c",
+      "src_md5": "07242af532a9fb586e6c61db6c8beb45",
       "quality": 70,
-      "bytes": 156991
+      "bytes": 224937
     },
     "drill_c082_s11.heic": {
       "src": "drill_c082_s11.png",
-      "src_md5": "097e029c7913f40a357bbe582e7a5c41",
+      "src_md5": "e942a6d777491516827ac3851b04a985",
       "quality": 70,
-      "bytes": 151417
+      "bytes": 220502
     },
     "drill_c082_s12.heic": {
       "src": "drill_c082_s12.png",
-      "src_md5": "b9af2f5c5482f647ca29f7f39e1a397d",
+      "src_md5": "27b61c00a43aeb58b4f6a15a5b2b606c",
       "quality": 70,
-      "bytes": 148013
+      "bytes": 216819
     },
     "drill_c083_initial.heic": {
       "src": "drill_c083_initial.png",
-      "src_md5": "1d2a9ff6ab5f076ededb8bce9cb35b28",
+      "src_md5": "e2a80e56c46bafd631ab9ea101af143a",
       "quality": 70,
-      "bytes": 130119
+      "bytes": 203792
     },
     "drill_c083_s01.heic": {
       "src": "drill_c083_s01.png",
-      "src_md5": "ac12efd58eccfc8f82a74f43e7482b46",
+      "src_md5": "e9c7153280a996eb23effd34dd42f3fe",
       "quality": 70,
-      "bytes": 147699
+      "bytes": 219205
     },
     "drill_c083_s02.heic": {
       "src": "drill_c083_s02.png",
-      "src_md5": "66269af491eb86465fb9d3dee064dac9",
+      "src_md5": "89f762327e7cb864b5a85e5998d3362c",
       "quality": 70,
-      "bytes": 146754
+      "bytes": 218399
     },
     "drill_c083_s03.heic": {
       "src": "drill_c083_s03.png",
-      "src_md5": "f145ff4148fa2c5b788c1085b15864e3",
+      "src_md5": "6995a0dfe568b10c9e91fc37618395ae",
       "quality": 70,
-      "bytes": 144052
+      "bytes": 216243
     },
     "drill_c083_s04.heic": {
       "src": "drill_c083_s04.png",
-      "src_md5": "261d9ba68938fc6383973313ceec38b9",
+      "src_md5": "4fdfa4b575da9c78bf10c3083ec2cea4",
       "quality": 70,
-      "bytes": 143902
+      "bytes": 215941
     },
     "drill_c083_s05.heic": {
       "src": "drill_c083_s05.png",
-      "src_md5": "753757b6baef0b8a90414a0c0fc02ec3",
+      "src_md5": "51c57e8986372987bd29c2312616f0a5",
       "quality": 70,
-      "bytes": 144666
+      "bytes": 216395
     },
     "drill_c083_s06.heic": {
       "src": "drill_c083_s06.png",
-      "src_md5": "dd6eae414bcf17f9f4c0876ff555e7b8",
+      "src_md5": "2224798b47c8ae3fc9832464c39f0aa5",
       "quality": 70,
-      "bytes": 147094
+      "bytes": 218159
     },
     "drill_c083_s07.heic": {
       "src": "drill_c083_s07.png",
-      "src_md5": "5e0fd55850757febb6debbb41e593131",
+      "src_md5": "25051254558927ce541722bade3a9e4e",
       "quality": 70,
-      "bytes": 147229
+      "bytes": 219315
     },
     "drill_c083_s08.heic": {
       "src": "drill_c083_s08.png",
-      "src_md5": "c45aa42eb29ee5247249a5963c76131c",
+      "src_md5": "e35f23b454fa6688788726148d7a9dbb",
       "quality": 70,
-      "bytes": 147064
+      "bytes": 219494
     },
     "drill_c084_initial.heic": {
       "src": "drill_c084_initial.png",
-      "src_md5": "2a6c002d38faf3380604638753ff9fc4",
+      "src_md5": "5102c87ba98cd4306c0aa9d7ff1bf00c",
       "quality": 70,
-      "bytes": 130221
+      "bytes": 203727
     },
     "drill_c084_s01.heic": {
       "src": "drill_c084_s01.png",
-      "src_md5": "fd4cd0c8fc7875f018264746d3a21f99",
+      "src_md5": "8260c3c1263d41308cd133cc0f192010",
       "quality": 70,
-      "bytes": 143700
+      "bytes": 215189
     },
     "drill_c084_s02.heic": {
       "src": "drill_c084_s02.png",
-      "src_md5": "146a57665b4ce65cd998cb632200eb8a",
+      "src_md5": "e71024b666cf6a4196f7bdfe0bf6ee96",
       "quality": 70,
-      "bytes": 143416
+      "bytes": 214974
     },
     "drill_c084_s03.heic": {
       "src": "drill_c084_s03.png",
-      "src_md5": "505e9992913f68a4d5b2564bcb049aac",
+      "src_md5": "e60c38f68d8c5e4fc835d0a452310fe0",
       "quality": 70,
-      "bytes": 143283
+      "bytes": 215162
     },
     "drill_c084_s04.heic": {
       "src": "drill_c084_s04.png",
-      "src_md5": "4ef1380cedc0718b6b7b3ad80254edf9",
+      "src_md5": "763769c90386a340bb9dc25272497141",
       "quality": 70,
-      "bytes": 144186
+      "bytes": 215089
     },
     "drill_c084_s05.heic": {
       "src": "drill_c084_s05.png",
-      "src_md5": "f7f177277019cf3cf66dd85e489c0702",
+      "src_md5": "5f5df1a815b02fa474ce6681d2b0fe9f",
       "quality": 70,
-      "bytes": 142228
+      "bytes": 214065
     },
     "drill_c084_s06.heic": {
       "src": "drill_c084_s06.png",
-      "src_md5": "e70c3a0cecd86075518173d9e354de0f",
+      "src_md5": "a81837c7f74144e5ff8ec4c10b63023f",
       "quality": 70,
-      "bytes": 142522
+      "bytes": 213722
     },
     "drill_c084_s07.heic": {
       "src": "drill_c084_s07.png",
-      "src_md5": "c4232352ffd82c2794fb7d6aaf3b5d46",
+      "src_md5": "25c1547a0bb64dd7f831e17de157a0f3",
       "quality": 70,
-      "bytes": 141289
+      "bytes": 213567
     },
     "drill_c084_s08.heic": {
       "src": "drill_c084_s08.png",
-      "src_md5": "22297f288a77d1d8e1601bff51644f24",
+      "src_md5": "21bd76d58d9592ba0d75dc2e93dd103a",
       "quality": 70,
-      "bytes": 141186
+      "bytes": 213950
     },
     "drill_c085_initial.heic": {
       "src": "drill_c085_initial.png",
-      "src_md5": "99216b3c79adb22fc070f17ff44d7927",
+      "src_md5": "7842088363d96544b5462aa2fda9403b",
       "quality": 70,
-      "bytes": 133972
+      "bytes": 206713
     },
     "drill_c085_s01.heic": {
       "src": "drill_c085_s01.png",
-      "src_md5": "6c529dde3dd3be8720bb180e6a0b53bc",
+      "src_md5": "806b2c305dcd801ec5ada1a7809a6ec7",
       "quality": 70,
-      "bytes": 141903
+      "bytes": 222649
     },
     "drill_c085_s02.heic": {
       "src": "drill_c085_s02.png",
-      "src_md5": "167e75d2f2e9c5ceafa51d6bf871fd06",
+      "src_md5": "30750f87b74d18f2c49843c385f673a1",
       "quality": 70,
-      "bytes": 141710
+      "bytes": 222345
     },
     "drill_c085_s03.heic": {
       "src": "drill_c085_s03.png",
-      "src_md5": "e569c9d9a01e2fa4d8065fc195ecce60",
+      "src_md5": "1a313168351bbbaad71c9aa556a74e1d",
       "quality": 70,
-      "bytes": 140364
+      "bytes": 220317
     },
     "drill_c085_s04.heic": {
       "src": "drill_c085_s04.png",
-      "src_md5": "b0e503e57177cacfcb1e3a60ee0a41fd",
+      "src_md5": "bf6d7bdda0cc54f63d835c7d0f8cd37e",
       "quality": 70,
-      "bytes": 139929
+      "bytes": 222959
     },
     "drill_c085_s05.heic": {
       "src": "drill_c085_s05.png",
-      "src_md5": "a2ad8b860757fa44912cc53184d25762",
+      "src_md5": "60c64f70614d44a583be2d799acc5626",
       "quality": 70,
-      "bytes": 139228
+      "bytes": 219411
     },
     "drill_c085_s06.heic": {
       "src": "drill_c085_s06.png",
-      "src_md5": "2a2be081246db93b00ff24185b6b3912",
+      "src_md5": "4abbffe4605b2955adefad2358f1e150",
       "quality": 70,
-      "bytes": 140948
+      "bytes": 225411
     },
     "drill_c085_s07.heic": {
       "src": "drill_c085_s07.png",
-      "src_md5": "397f9b057572aecc29678856ea9024e2",
+      "src_md5": "b7b9cb1b8ad2faf23faa03f0f1cf21a3",
       "quality": 70,
-      "bytes": 140633
+      "bytes": 225219
     },
     "drill_c085_s08.heic": {
       "src": "drill_c085_s08.png",
-      "src_md5": "39eff133621c77fe54ebc62ca2859605",
+      "src_md5": "4ca7c91a549ba44db4fa6bb31ba06b24",
       "quality": 70,
-      "bytes": 140178
+      "bytes": 224851
     },
     "drill_c085_s09.heic": {
       "src": "drill_c085_s09.png",
-      "src_md5": "2dea23aa236eedf7ee65816d58a15465",
+      "src_md5": "25afecbd8977c86da7b20a7e181f24ed",
       "quality": 70,
-      "bytes": 139676
+      "bytes": 228146
     },
     "drill_c085_s10.heic": {
       "src": "drill_c085_s10.png",
-      "src_md5": "9645ba5189f764ccdf20479a42984179",
+      "src_md5": "f2eb5afb5272aa57cd2e349bb66ef7dc",
       "quality": 70,
-      "bytes": 138538
+      "bytes": 220767
     },
     "drill_c085_s11.heic": {
       "src": "drill_c085_s11.png",
-      "src_md5": "6d9196dda94323e13b71de0104530ba9",
+      "src_md5": "a61822390d94554e8cdc3f2cb4c7b213",
       "quality": 70,
-      "bytes": 136577
+      "bytes": 218450
     },
     "drill_c085_s12.heic": {
       "src": "drill_c085_s12.png",
-      "src_md5": "3e761bcbb446374b75ed240567d225cb",
+      "src_md5": "c4f707c72b544e0871c8f26fe702e823",
       "quality": 70,
-      "bytes": 137666
+      "bytes": 223528
     },
     "drill_c085_s13.heic": {
       "src": "drill_c085_s13.png",
-      "src_md5": "27240b60fc0853a2fee4b83d26480670",
+      "src_md5": "5ca9ca352744b962bac45d8e18349169",
       "quality": 70,
-      "bytes": 136982
+      "bytes": 223573
     },
     "drill_c085_s14.heic": {
       "src": "drill_c085_s14.png",
-      "src_md5": "87df7e61d5af02831f729b6a695197c1",
+      "src_md5": "b4652a2818fe4a84dfcd8d7bca5610ab",
       "quality": 70,
-      "bytes": 159685
+      "bytes": 225535
     }
   }
 }

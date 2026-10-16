@@ -1,6 +1,42 @@
 import XCTest
 
 final class TrainingMusicSettingsUITests: XCTestCase {
+    func testCueRehearsalTogglePersistsAcrossLaunches() {
+        continueAfterFailure = false
+        let app = XCUIApplication.launchClean(extraArgs: [
+            "-v50.inMemoryStore", "-v53.authenticatedProfileFixture", "-deeplink.settings"
+        ])
+        let toggle = app.switches["settings.cueRehearsal"]
+        func revealToggle() {
+            XCTAssertTrue(app.scrollViews["settings.content"].waitForExistence(timeout: 10))
+            for _ in 0..<4 where !toggle.isHittable { app.swipeUp() }
+            XCTAssertTrue(toggle.isHittable)
+        }
+        revealToggle()
+        XCTAssertEqual(toggle.label, "运杆")
+        // Both branches are exercised through the real setting, without a launch override.
+        if toggle.value as? String != "1" { toggle.tap() }
+        capture("settings-rehearsal-on-dark")
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "0")
+        capture("settings-rehearsal-off-dark")
+        app.terminate()
+        app.launchArguments.append("-v54.forceLight")
+        app.launch()
+        revealToggle()
+        XCTAssertEqual(toggle.value as? String, "0")
+        XCTAssertEqual(app.scrollViews["settings.content"].value as? String, "light")
+        capture("settings-rehearsal-off-light")
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "1")
+        app.terminate()
+        app.launch()
+        revealToggle()
+        XCTAssertEqual(toggle.value as? String, "1")
+        capture("settings-rehearsal-on-light")
+        toggle.tap()
+    }
+
     func testSoundTogglesAreIndependentAndPersist() {
         let app = XCUIApplication.launchClean(extraArgs: [
             "-v50.inMemoryStore", "-v53.authenticatedProfileFixture", "-deeplink.settings"

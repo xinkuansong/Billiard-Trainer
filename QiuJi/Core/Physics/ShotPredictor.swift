@@ -112,6 +112,11 @@ struct ShotPrediction {
     var tangentDir: SCNVector3?
     /// 实际瞄准方向（母球→幽灵球，XZ 单位向量）。
     var aimDirection: SCNVector3 = SCNVector3(1, 0, 0)
+    /// Exact input to the strike, distinct from normalized presentation aimDirection.
+    var strikeDirection: SCNVector3?
+    var recordedDirection: RecordedStrikeDirection? {
+        strikeDirection.map { RecordedStrikeDirection(x: $0.x, z: $0.z) }
+    }
     /// 幽灵球中心。
     var ghost: SCNVector3 = SCNVector3Zero
     /// 首次球-球碰撞时刻母球位置（≈ 接触瞬间）。
@@ -423,6 +428,7 @@ enum ShotPredictor {
         // 与 |G−target|=2R 的首个正 t 交点。kick 的 ghost 在首碰后用 firstContact 回写。
         let aimUnit = unitXZ(finalAim)
         result.aimDirection = aimUnit
+        result.strikeDirection = finalAim
         let isKick = !(input.kickRails ?? []).isEmpty
         if !isKick, let g = ghostAlongFinalAim(
             cue: input.cueBall, target: input.targetBall, aim: aimUnit, ballRadius: r
@@ -559,13 +565,14 @@ enum ShotPredictor {
         includePresentation: Bool = true,
         earlyStopBallNames: Set<String>? = nil,
         simulationModel:EventDrivenEngine.SimulationModel = .appDefault,
-        cancellation: PredictionCancellation? = nil
+        cancellation: PredictionCancellation? = nil,
+        recordedStrikeDirection: SCNVector3? = nil
     ) -> ShotPrediction {
         if cancellation?.isCancelled == true { return cancelledPrediction() }
         let y = surfaceY
         let r = BallPhysics.radius
         let len = sqrtf(aimDir.x * aimDir.x + aimDir.z * aimDir.z)
-        let dir = len > 1e-5 ? SCNVector3(aimDir.x / len, 0, aimDir.z / len) : SCNVector3(1, 0, 0)
+        let dir = recordedStrikeDirection ?? (len > 1e-5 ? SCNVector3(aimDir.x / len, 0, aimDir.z / len) : SCNVector3(1, 0, 0))
 
         let strike = CueBallStrike.executeStrike(
             aimDirection: dir, velocity: velocity,
@@ -611,6 +618,7 @@ enum ShotPredictor {
         var result = ShotPrediction()
         result.feasible = true
         result.aimDirection = dir
+        result.strikeDirection = dir
         result.termination = termination
         result.recorder = recorder
         result.duration = duration

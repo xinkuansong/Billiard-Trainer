@@ -14,6 +14,7 @@ QiuJiTests/BankKickDifficultyTests.swift
 QiuJiTests/BankKickSpinSearchEvidenceTests.swift
 QiuJiTests/BatchSequenceReplayRegressionTests.swift
 QiuJiTests/BreakFlowRunnerV6Tests.swift
+QiuJiTests/CueClearanceTests.swift
 QiuJiTests/CueSpinPreviewCaptureTests.swift
 QiuJiTests/CueStyleTests.swift
 QiuJiTests/CushionEnglishAtlasTests.swift
@@ -36,6 +37,7 @@ QiuJiTests/PositioningFormationRenderTests.swift
 QiuJiTests/ReachabilityVizTests.swift
 QiuJiTests/RenderQualityV62Tests.swift
 QiuJiTests/RoomReflectionProbeTests.swift
+QiuJiTests/SceneTrainingRulesTests.swift
 QiuJiTests/SeparationAngleAtlasTests.swift
 QiuJiTests/SequenceStillCueTests.swift
 QiuJiTests/ShareCardImageRendererRootCauseDiagTests.swift
@@ -84,6 +86,7 @@ QiuJiUITests/DailyStandardFreePlayUITests.swift
 QiuJiUITests/DailyStandardQuizEditorUITests.swift
 QiuJiUITests/DeviceMatrixUITests.swift
 QiuJiUITests/DrillSceneThreeBeatUITests.swift
+QiuJiUITests/DrillTryoutUITests.swift
 QiuJiUITests/Helpers/TheoryFigureEvidence.swift
 QiuJiUITests/P5_AngleTrainingUITests.swift
 QiuJiUITests/PocketLeatherFlowUITests.swift
@@ -94,6 +97,7 @@ QiuJiUITests/S2_ShotPagesLayoutUITests.swift
 QiuJiUITests/S5_TrainingPagesLayoutUITests.swift
 QiuJiUITests/ScreenshotTourUITests.swift
 QiuJiUITests/ShotAudioPreviewUITests.swift
+QiuJiUITests/SnakePracticeUITests.swift
 QiuJiUITests/SpinAndEnglishZ4UITests.swift
 QiuJiUITests/TrainingAtmosphereUITests.swift
 QiuJiUITests/V19_CueAimLineUITests.swift

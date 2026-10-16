@@ -42,20 +42,26 @@ struct BTTrainingPill: View {
     }
 }
 
+private struct BTTrainingPillObstruction: Equatable {
+    let frame: CGRect
+    let edge: VerticalEdge
+}
+
 private struct BTTrainingPillObstructions: PreferenceKey {
-    static var defaultValue: [CGRect] = []
-    static func reduce(value: inout [CGRect], nextValue: () -> [CGRect]) {
+    static var defaultValue: [BTTrainingPillObstruction] = []
+    static func reduce(value: inout [BTTrainingPillObstruction], nextValue: () -> [BTTrainingPillObstruction]) {
         value.append(contentsOf: nextValue())
     }
 }
 
 private struct BTTrainingPillObstacle: ViewModifier {
+    var edge: VerticalEdge
     @State private var isVisible = false
     func body(content: Content) -> some View {
         content.background {
             GeometryReader { geometry in
                 Color.clear.preference(key: BTTrainingPillObstructions.self,
-                    value: isVisible ? [geometry.frame(in: .global)] : [])
+                    value: isVisible ? [BTTrainingPillObstruction(frame: geometry.frame(in: .global), edge: edge)] : [])
             }
         }
         .onAppear { isVisible = true }
@@ -64,30 +70,36 @@ private struct BTTrainingPillObstacle: ViewModifier {
 }
 
 extension View {
-    /// Register the complete, currently visible bottom action bar, including its padding.
-    func btTrainingPillObstacle() -> some View {
-        modifier(BTTrainingPillObstacle())
+    /// Register a complete, currently visible action bar, including its padding.
+    func btTrainingPillObstacle(edge: VerticalEdge = .bottom) -> some View {
+        modifier(BTTrainingPillObstacle(edge: edge))
     }
 
     func btTrainingPillOverlay<Pill: View>(isPresented: Bool = true, includesTabBar: Bool = false,
+                                         position: BTTrainingPillPosition? = nil,
                                          @ViewBuilder pill: @escaping () -> Pill) -> some View {
-        modifier(BTTrainingPillOverlay(isPresented: isPresented, includesTabBar: includesTabBar, pill: pill))
+        modifier(BTTrainingPillOverlay(isPresented: isPresented, includesTabBar: includesTabBar, position: position, pill: pill))
     }
 }
 
 private struct BTTrainingPillOverlay<Pill: View>: ViewModifier {
     var isPresented: Bool
     var includesTabBar: Bool
+    var position: BTTrainingPillPosition?
     @ViewBuilder var pill: () -> Pill
-    @State private var safeBottom: CGFloat?
+    @State private var safeFrame: CGRect?
+    @State private var navigationBottom: CGFloat = 0
+    @State private var keyboardTop: CGFloat?
     @State private var tabFrame: CGRect?
 
     func body(content: Content) -> some View {
         content
             .background {
                 if isPresented {
-                    BTTrainingPillBoundaryReader(includesTabBar: includesTabBar) { bottom, tab in
-                        if safeBottom != bottom { safeBottom = bottom }
+                    BTTrainingPillBoundaryReader(includesTabBar: includesTabBar) { safe, tab, navBottom, keyboard in
+                        if keyboardTop != keyboard { keyboardTop = keyboard }
+                        if safeFrame != safe { safeFrame = safe }
+                        if navigationBottom != navBottom { navigationBottom = navBottom }
                         if tabFrame != tab { tabFrame = tab }
                     }.frame(width: 0, height: 0)
                 }
@@ -95,24 +107,116 @@ private struct BTTrainingPillOverlay<Pill: View>: ViewModifier {
             .overlayPreferenceValue(BTTrainingPillObstructions.self) { obstacles in
                 GeometryReader { geometry in
                     let frame = geometry.frame(in: .global)
-                    let barriers = obstacles + (tabFrame.map { [$0] } ?? [])
-                    let floor = min(frame.maxY, safeBottom ?? frame.maxY)
+                    let barriers = obstacles.filter { $0.edge == .bottom }.map(\.frame)
+                        + (tabFrame.map { [$0] } ?? [])
+                    let floor = min(frame.maxY, safeFrame?.maxY ?? frame.maxY, keyboardTop ?? frame.maxY)
                     let boundary = barriers.filter {
                         !$0.isEmpty && $0.intersects(frame) && $0.maxY > frame.midY
                     }.reduce(floor) { min($0, $1.minY) }
-                    pill()
-                        .padding(.trailing, BTTrainingPillMetrics.edgeGap)
-                        .padding(.bottom, max(0, frame.maxY - boundary) + BTTrainingPillMetrics.edgeGap)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    if isPresented, let position {
+                        let viewport = frame.intersection(safeFrame ?? frame)
+                        let ceiling = obstacles.filter {
+                            $0.edge == .top && $0.frame.intersects(frame)
+                        }.reduce(max(viewport.minY, navigationBottom)) { max($0, $1.frame.maxY) }
+                        let available = CGRect(x: viewport.minX, y: ceiling,
+                                               width: viewport.width, height: max(0, boundary - ceiling))
+                        BTDraggableTrainingPill(position: position, viewport: viewport,
+                                                available: available, hostOrigin: frame.origin, pill: pill)
+                    } else {
+                        pill()
+                            .padding(.trailing, BTTrainingPillMetrics.edgeGap)
+                            .padding(.bottom, max(0, frame.maxY - boundary) + BTTrainingPillMetrics.edgeGap)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    }
                 }
             }
+    }
+}
+
+/// Owned by a training session; each kind of pill has its own placement.
+final class BTTrainingPillPosition: ObservableObject {
+    @Published var verticalFraction: CGFloat?
+}
+
+/// All inputs are window points (x right, y down). Bounds include the full pill.
+struct BTTrainingPillDragLayout {
+    let viewport: CGRect
+    let available: CGRect
+    let pillSize: CGSize
+
+    private var insetX: CGFloat { BTTrainingPillMetrics.edgeGap + pillSize.width / 2 }
+    private var insetY: CGFloat { BTTrainingPillMetrics.edgeGap + pillSize.height / 2 }
+    var fits: Bool {
+        !viewport.isNull && pillSize.width > 0 && pillSize.height > 0
+            && available.width >= insetX * 2 && available.height >= insetY * 2
+    }
+    func clamped(_ point: CGPoint) -> CGPoint {
+        guard fits else { return .zero }
+        return CGPoint(x: min(max(point.x, available.minX + insetX), available.maxX - insetX),
+                y: min(max(point.y, available.minY + insetY), available.maxY - insetY))
+    }
+    func docked(fraction: CGFloat?) -> CGPoint {
+        clamped(CGPoint(x: available.maxX - insetX,
+                        y: fraction.map { viewport.minY + $0 * viewport.height } ?? (available.maxY - insetY)))
+    }
+    func fraction(at point: CGPoint) -> CGFloat {
+        guard viewport.height > 0 else { return 1 }
+        return min(1, max(0, (clamped(point).y - viewport.minY) / viewport.height))
+    }
+}
+
+private struct BTDraggableTrainingPill<Pill: View>: View {
+    @ObservedObject var position: BTTrainingPillPosition
+    let viewport: CGRect
+    let available: CGRect
+    let hostOrigin: CGPoint
+    @ViewBuilder var pill: () -> Pill
+    @State private var pillSize: CGSize = .zero
+    @GestureState private var translation: CGSize? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let layout = BTTrainingPillDragLayout(viewport: viewport, available: available, pillSize: pillSize)
+        let docked = layout.docked(fraction: position.verticalFraction)
+        let center = layout.clamped(CGPoint(x: docked.x + (translation?.width ?? 0),
+                                            y: docked.y + (translation?.height ?? 0)))
+        pill()
+            .fixedSize()
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { pillSize = $0 }
+            // A recognized drag wins over the button's tap. Outside this capsule,
+            // the underlying page retains all scrolling and table gestures.
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 10, coordinateSpace: .global)
+                    .updating($translation) { value, state, transaction in
+                        transaction.animation = nil
+                        state = value.translation
+                    }
+                    .onEnded { value in
+                        let end = CGPoint(x: docked.x + value.translation.width,
+                                          y: docked.y + value.translation.height)
+                        position.verticalFraction = layout.fraction(at: end)
+                    }
+            )
+            .accessibilityHint("可拖动调整位置，松手后贴靠右侧")
+            .accessibilityAction(named: Text("上移浮窗")) {
+                position.verticalFraction = layout.fraction(at: CGPoint(x: docked.x, y: docked.y - pillSize.height))
+            }
+            .accessibilityAction(named: Text("下移浮窗")) {
+                position.verticalFraction = layout.fraction(at: CGPoint(x: docked.x, y: docked.y + pillSize.height))
+            }
+            .position(x: center.x - hostOrigin.x, y: center.y - hostOrigin.y)
+            .opacity(layout.fits ? 1 : 0)
+            .allowsHitTesting(layout.fits)
+            .accessibilityHidden(!layout.fits)
+            .animation(reduceMotion || translation != nil ? nil : BTMotion.springPanel,
+                       value: translation == nil)
     }
 }
 
 /// Window coordinates match the SwiftUI global frames used by the page action bars.
 private struct BTTrainingPillBoundaryReader: UIViewRepresentable {
     let includesTabBar: Bool
-    let onMeasure: (CGFloat, CGRect?) -> Void
+    let onMeasure: (CGRect, CGRect?, CGFloat, CGFloat?) -> Void
 
     func makeUIView(context: Context) -> Probe {
         Probe(includesTabBar: includesTabBar, onMeasure: onMeasure)
@@ -121,7 +225,7 @@ private struct BTTrainingPillBoundaryReader: UIViewRepresentable {
 
     final class Probe: UIView {
         let includesTabBar: Bool
-        let onMeasure: (CGFloat, CGRect?) -> Void
+        let onMeasure: (CGRect, CGRect?, CGFloat, CGFloat?) -> Void
         private weak var trackedTab: UITabBar?
         private var displayLink: CADisplayLink?
 
@@ -130,7 +234,7 @@ private struct BTTrainingPillBoundaryReader: UIViewRepresentable {
             init(_ probe: Probe) { self.probe = probe }
             @objc func tick() { probe?.report() }
         }
-        init(includesTabBar: Bool, onMeasure: @escaping (CGFloat, CGRect?) -> Void) {
+        init(includesTabBar: Bool, onMeasure: @escaping (CGRect, CGRect?, CGFloat, CGFloat?) -> Void) {
             self.includesTabBar = includesTabBar
             self.onMeasure = onMeasure
             super.init(frame: .zero)
@@ -163,8 +267,11 @@ private struct BTTrainingPillBoundaryReader: UIViewRepresentable {
                 }
                 let tab = includesTabBar && Self.isVisible(trackedTab) ? trackedTab : nil
                 let frame = tab.map { $0.convert($0.bounds, to: window) }
-                onMeasure(window.bounds.maxY - window.safeAreaInsets.bottom,
-                          frame.flatMap { $0.midY > window.bounds.midY ? $0 : nil })
+                let safe = window.bounds.inset(by: window.safeAreaInsets)
+                let keyboard = window.keyboardLayoutGuide.layoutFrame
+                let keyboardTop = !keyboard.isEmpty && keyboard.intersects(safe) ? keyboard.minY : nil
+                let navigationBottom = Self.visibleNavigationBottom(in: window, window: window)
+                onMeasure(safe, frame.flatMap { $0.midY > window.bounds.midY ? $0 : nil }, navigationBottom, keyboardTop)
             }
         }
         private static func isVisible(_ view: UIView?) -> Bool {
@@ -175,6 +282,13 @@ private struct BTTrainingPillBoundaryReader: UIViewRepresentable {
                 cursor = current.superview
             }
             return true
+        }
+        private static func visibleNavigationBottom(in view: UIView, window: UIWindow) -> CGFloat {
+            guard isVisible(view) else { return 0 }
+            if let bar = view as? UINavigationBar {
+                return bar.convert(bar.bounds, to: window).maxY
+            }
+            return view.subviews.map { visibleNavigationBottom(in: $0, window: window) }.max() ?? 0
         }
         private static func findTab(in view: UIView) -> UITabBar? {
             if let tab = view as? UITabBar { return tab }

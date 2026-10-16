@@ -40,7 +40,13 @@ enum SequenceVideoExporter {
 
     enum SimulationError: LocalizedError {
         case incompleteTrajectory
-        var errorDescription: String? { "有一杆模拟未完成，请调整击球参数后重新导出" }
+        case missingRecordedDirection
+        var errorDescription: String? {
+            switch self {
+            case .incompleteTrajectory: return "有一杆模拟未完成，请调整击球参数后重新导出"
+            case .missingRecordedDirection: return "有一杆缺少有效的录制方向，请重新保存后导出"
+            }
+        }
     }
 
     static func validateCompletedSimulation(_ prediction:ShotPrediction) throws {
@@ -102,7 +108,17 @@ enum SequenceVideoExporter {
         /// Match the current app's room, wide table light, materials and contact shadows.
         /// Opt-in so existing offline asset recipes keep their established appearance.
         var useAppAppearance: Bool = false
-        /// Published stills use the user-approved plain lighting with current table finishes.
+        /// Prefer a named recipe for new exports. Historical captures choose
+        /// legacyMobile explicitly instead of inheriting a changing App default.
+        var renderRecipe: TableRenderRecipe? = nil
+        var resolvedRenderRecipe: TableRenderRecipe {
+            if let renderRecipe { return renderRecipe }
+            if useTutorialAppearance { return .teachingPlain }
+            if useAppAppearance { return .liveReference }
+            if case .perspective3D(let config) = cameraMode, config.studioLook { return .studioLegacy }
+            return .plainLegacy
+        }
+        /// Legacy plain teaching lighting, retained for explicit historical exports.
         var useTutorialAppearance: Bool = false
         var tableStyle: TableStyle = .defaultStyle
         var clothColor: ClothColor = .green
@@ -146,9 +162,12 @@ enum SequenceVideoExporter {
         /// `TrajectoryStyle` 常量，此系数只在导出器 `drawAimLines` 叠加，故不影响 App。
         /// 默认 1（教学视频档取 0.65 变细）。
         var aimLineScale: Float = 1
-        /// 击球前是否渲染球杆运杆/出杆动画（#10）：回杆缓动 → 蓄力停顿 → 匀加速出杆，
-        /// 触球瞬间杆速 = 目标球速（公式与编排台 `runStrokeAnimation` 单一同源）。
+        /// 击球前是否渲染球杆运杆/出杆动画（#10）：一次试运 → 球前定杆 → 后拉停顿 → 出杆，
+        /// 触球瞬间达到设定杆速，与实时 `runCueStroke` 共用公式。
         var showCueStroke: Bool = true
+        /// Nil follows the device preference, frozen when rendering starts.
+        /// Explicit values keep scripted export recipes reproducible.
+        var cueRehearsalEnabled: Bool? = nil
         /// 画面底部是否追加击球参数 HUD 条（打点 + 力度，ADR-P11-13）。
         /// 开启时输出高度 = `size.height` + HUD 条高；gif/card 档小尺寸下会糊，默认关。
         var showShotHUD: Bool = true
@@ -189,11 +208,11 @@ enum SequenceVideoExporter {
             return o
         }
 
-        /// Published figures share the approved thumbnail lighting and current table,
-        /// while keeping true-size balls and unmodified teaching geometry.
+        /// Published figures use the live App lighting and materials, while keeping
+        /// true-size balls and unmodified teaching geometry.
         static func tutorialStills() -> Options {
             var o = teaching()
-            o.useTutorialAppearance = true
+            o.renderRecipe = .liveReference
             o.cueStyle = .inkDragon
             return o
         }
@@ -293,13 +312,15 @@ enum SequenceVideoExporter {
         progress: ((Double) -> Void)? = nil
     ) throws -> URL {
         let url = tempURL(ext: "gif", name: sequence.name)
-        var frames: [CGImage] = []
+        let frames = try LosslessFrameSpool()
         let total = estimatedFrameCount(sequence: sequence, options: options)
         try renderFrames(sequence: sequence, options: options) { image in
-            frames.append(image)
+            try frames.append(image)
             if total > 0 { progress?(min(0.9, Double(frames.count) / Double(total))) }
         }
-        try GIFEncoder.encode(frames: frames, to: url, frameDelay: 1.0 / Double(options.fps))
+        try GIFEncoder.encode(frameCount: frames.count, to: url, frameDelay: 1.0 / Double(options.fps)) {
+            try frames.image(at: $0)
+        }
         progress?(1)
         return url
     }
@@ -330,9 +351,19 @@ enum SequenceVideoExporter {
         sequence: PositionPlaySequence,
         options: Options = .teaching()
     ) -> [(name: String, image: CGImage)] {
-        guard let ctx = RenderContext(options: options) else { return [] }
-        var out: [(String, CGImage)] = []
+        var out: [(name: String, image: CGImage)] = []
+        renderStills(sequence: sequence, options: options) { out.append(($0, $1)) }
+        return out
+    }
 
+    /// Streaming variant for batch publishers. Each callback consumes one image;
+    /// the compatibility array API above remains available for bounded callers.
+    static func renderStills(
+        sequence: PositionPlaySequence,
+        options: Options = .teaching(),
+        emit: (String, CGImage) throws -> Void
+    ) rethrows {
+        guard let ctx = RenderContext(options: options) else { return }
         let openingBoard = sequence.steps.first?.before ?? sequence.initial
         if openingBoard.onTable.count != sequence.initial.onTable.count {
             print("SEQ-EXPORT ⚠️ \(sequence.name)：initial 球数 \(sequence.initial.onTable.count)"
@@ -342,48 +373,48 @@ enum SequenceVideoExporter {
         if options.referenceOpeningOverview {
             ctx.applyReferenceOpeningOverview()
         } else if options.standingObservation, let first = sequence.steps.first,
-           let prediction = PositionPlayShotSolver.solve(before: first.before, shot: first.shot, surfaceY: ctx.surfaceY) {
+           let prediction = SequenceReplayResolver.solve(step: first, surfaceY: ctx.surfaceY) {
             ctx.moveToObservation(prediction: prediction, first: true, snapshot: {})
         }
-        if let img = ctx.snapshot() { out.append(("initial", img)) }
+        if let img = ctx.snapshot() { try emit("initial", img) }
 
         for (i, step) in sequence.steps.enumerated() {
-            ctx.placeBoard(step.before)
-            ctx.scene.hideCueStick()
-            let pred = options.showTrajectories
-                ? PositionPlayShotSolver.solve(
-                    before: step.before, shot: step.shot, surfaceY: ctx.surfaceY)
-                : nil
-            let lines = options.showTrajectories
-                ? ctx.drawAimLines(for: step, prediction: pred)
-                : []
-            if options.showCueStroke, let pred, pred.feasible {
-                _ = ctx.showCueAtRest(step: step, prediction: pred)
+            try autoreleasepool {
+                ctx.placeBoard(step.before)
+                ctx.scene.hideCueStick()
+                let pred = options.showTrajectories
+                    ? SequenceReplayResolver.solve(step: step, surfaceY: ctx.surfaceY)
+                    : nil
+                let lines = options.showTrajectories
+                    ? ctx.drawAimLines(for: step, prediction: pred)
+                    : []
+                if options.showCueStroke, let pred, pred.feasible {
+                    _ = ctx.showCueAtRest(step: step, prediction: pred)
+                }
+                if options.standingObservation, let pred {
+                    ctx.moveToObservation(prediction: pred, first: true, snapshot: {})
+                    if let img = ctx.snapshot() { try emit(String(format: "s%02d_observe", i + 1), img) }
+                }
+                if options.aimingHold > 0, let pred {
+                    ctx.showAimingCamera(prediction: pred, shot: step.shot)
+                }
+                let hud = options.showShotHUD ? makeHUDImage(shot: step.shot, options: options) : nil
+                if let img = ctx.snapshot() {
+                    let framed = options.showShotHUD ? composeWithHUD(scene: img, hud: hud, options: options) : img
+                    try emit(String(format: "s%02d_still", i + 1), framed)
+                }
+                lines.forEach { $0.removeFromParentNode() }
+                ctx.hideAimDecorations()
+                ctx.scene.hideCueStick()
+                ctx.restoreOverviewCamera()
             }
-            if options.standingObservation, let pred {
-                ctx.moveToObservation(prediction: pred, first: true, snapshot: {})
-                if let img = ctx.snapshot() { out.append((String(format: "s%02d_observe", i + 1), img)) }
-            }
-            if options.aimingHold > 0, let pred {
-                ctx.showAimingCamera(prediction: pred, shot: step.shot)
-            }
-            let hud = options.showShotHUD ? makeHUDImage(shot: step.shot, options: options) : nil
-            if let img = ctx.snapshot() {
-                let framed = options.showShotHUD ? composeWithHUD(scene: img, hud: hud, options: options) : img
-                out.append((String(format: "s%02d_still", i + 1), framed))
-            }
-            lines.forEach { $0.removeFromParentNode() }
-            ctx.hideAimDecorations()
-            ctx.scene.hideCueStick()
-            ctx.restoreOverviewCamera()
         }
 
         if let last = sequence.steps.last {
             ctx.placeBoard(last.after)
             ctx.scene.hideCueStick()
-            if let img = ctx.snapshot() { out.append(("final", img)) }
+            if let img = ctx.snapshot() { try emit("final", img) }
         }
-        return out
     }
 
     /// 封面（卡片风格，球放大）：首杆击球前 + 预告线；空序列退回开局布局。
@@ -406,10 +437,9 @@ enum SequenceVideoExporter {
     ) throws -> [CGImage] {
         var options = Options.card()
         options.fps = 8
-        var all: [CGImage] = []
-        try renderFrames(sequence: sequence, options: options) { all.append($0) }
-        guard all.count > frameCount, frameCount >= 2 else { return all }
-        return (0..<frameCount).map { all[$0 * (all.count - 1) / (frameCount - 1)] }
+        let frames = try LosslessFrameSpool()
+        try renderFrames(sequence: sequence, options: options) { try frames.append($0) }
+        return try frames.sampledImages(frameCount: frameCount)
     }
 
     // MARK: - Frame generation
@@ -420,8 +450,12 @@ enum SequenceVideoExporter {
         options: Options,
         emit: (CGImage) throws -> Void
     ) throws {
+        guard sequence.steps.allSatisfy({ $0.recordedDirection?.isValid == true }) else {
+            throw SimulationError.missingRecordedDirection
+        }
         guard let ctx = RenderContext(options: options) else { return }
         let fps = options.fps
+        let rehearses = options.cueRehearsalEnabled ?? CueRehearsalPreference.isEnabled()
         var currentStepID: UUID?
         var currentPhase = "initial"
 
@@ -433,6 +467,7 @@ enum SequenceVideoExporter {
         // `ctx.snapshot()` 产出的 UIImage/CGImage 若不及时释放会累积到 jetsam 被 SIGKILL
         // （旧 720 档 ~4MB/帧侥幸不越线，提分辨率后必越线）。pool 把驻留压到 ~1 帧。
         func snapshot() throws {
+            try Task.checkCancellation()
             try autoreleasepool {
                 guard let img = ctx.snapshot() else { return }
                 #if DEBUG
@@ -454,10 +489,11 @@ enum SequenceVideoExporter {
             for _ in 0..<holdFrames(options.initialHold, fps: fps) { try snapshot() }
         }
 
-        for (index, step) in sequence.steps.enumerated() {
+        for (index, authoredStep) in sequence.steps.enumerated() {
+            let step = authoredStep
+            ctx.placeBoard(step.before)
             currentStepID = step.id
             currentPhase = "observe"
-            ctx.placeBoard(step.before)
             ctx.scene.hideCueStick()
             // 第1拍·读球形：只摆球，HUD 置空（不剧透打点/力度），预告线/假想球/球杆均不出现。
             currentHUD = nil
@@ -465,13 +501,12 @@ enum SequenceVideoExporter {
             currentProgress = makeProgressImage("\(progress) · 观察球形", options: options)
 
             // 求解本杆（多球；自由球走直瞄模拟）。
-            let prediction = PositionPlayShotSolver.solve(
-                before: step.before, shot: step.shot, surfaceY: ctx.surfaceY)
+            let prediction = SequenceReplayResolver.solve(step: authoredStep, before: step.before, surfaceY: ctx.surfaceY)
             if let prediction { try validateCompletedSimulation(prediction) }
             guard let pred = prediction,
                   pred.feasible,
                   let recorder = pred.recorder, pred.duration > 0.02 else {
-                // 不可行：直接跳到 after 球形，给一小段静帧。
+                // 保留不可行单杆的导出提示。
                 currentProgress = makeProgressImage("\(progress) · 本杆无可行解", options: options)
                 ctx.placeBoard(step.after)
                 for _ in 0..<holdFrames(options.tailHold, fps: fps) { try snapshot() }
@@ -522,7 +557,7 @@ enum SequenceVideoExporter {
             currentProgress = makeProgressImage(options.aimingHold > 0 ? "\(progress) · 击球走位" : progress, options: options)
             for _ in 0..<holdFrames(options.setupHold, fps: fps) { try snapshot() }
 
-            // 运杆/出杆动画（#10，与编排台同源）：回杆→蓄力→匀加速出杆，渲染到触球为止。
+            // 运杆/出杆动画（#10，与编排台同源）：一次试运→球前定杆→后拉停顿→出杆，渲染到触球为止。
             // 跟杆/短停改由下面的运动帧循环**并行叠加**：母球离位与球杆送杆同刻发生，
             // 杜绝导出中「球静止时杆头穿过母球」（App 实时路径本就并行，此处对齐）。
             var cueAnchor: RenderContext.CueStrokeAnchor?
@@ -530,6 +565,7 @@ enum SequenceVideoExporter {
             if options.showCueStroke {
                 cueAnchor = try ctx.renderStrokeToContact(step: step, prediction: pred,
                                                           fps: fps, speed: options.playbackSpeed,
+                                                          rehearsalEnabled: rehearses,
                                                           snapshot: snapshot)
             }
             // 触球瞬间清线、收掉假想球（运动/跟杆期间不再显示预告线）。
@@ -569,6 +605,7 @@ enum SequenceVideoExporter {
                 elevation: anchor.elevation,
                 endPull: anchor.endPull,
                 holdDuration: TimeInterval(holdSim),
+                velocity: anchor.velocity,
                 ballsAt: { playback.allBallCentersByName(at: Float($0)) }
                ) {
                 let retractStart = max(0, Float(tStar - CueClearance.retractLead))
@@ -675,7 +712,7 @@ enum SequenceVideoExporter {
                     if let retractStart = anchor.collisionRetractStart, t >= retractStart - 1e-4 {
                         let u = min(1, max(0, (t - retractStart) / Float(CueClearance.retractFade)))
                         let pullAt = CueClearance.pullBackAfterContact(
-                            tau: TimeInterval(retractStart), endPull: anchor.endPull
+                            tau: TimeInterval(retractStart), endPull: anchor.endPull, velocity: anchor.velocity
                         )
                         let pull = pullAt + u * (CueClearance.retractPullExtra - min(0, pullAt))
                         ctx.scene.updateCueStick(
@@ -690,7 +727,7 @@ enum SequenceVideoExporter {
                     } else if t <= followSim + 1e-4 {
                         ctx.scene.updateCueStick(
                             cueBallPosition: anchor.strikePos, aimDirection: anchor.aim,
-                            pullBack: CueStroke.followThrough(at: TimeInterval(t), endPull: anchor.endPull),
+                            pullBack: CueStroke.followThrough(at: TimeInterval(t), endPull: anchor.endPull, velocity: anchor.velocity),
                             elevationOverride: anchor.elevation
                         )
                     } else if t <= cueOverlayEndSim + 1e-4 {
@@ -1022,21 +1059,16 @@ enum SequenceVideoExporter {
             self.lineScale = persp?.lineRadiusScale ?? 1
 
             let scene = AngleTrainingScene()
-            // 3D 档启用 studio 光照 + IBL + 接地阴影（与 Scene3DAimingView 同款，球读作立体接地）。
-            // Exported media keeps its own pipeline (ADR-P5-01: offline output unchanged).
-            if options.useTutorialAppearance {
-                scene.setupScene(enhancedRendering: false, mobileRendering: false)
+            let recipe = options.resolvedRenderRecipe
+            scene.setupScene(recipe: recipe)
+            if recipe == .teachingPlain || recipe == .liveReference || recipe == .legacyMobile {
                 scene.applyTableStyle(options.tableStyle, showsSights: true)
                 scene.applyClothColor(options.clothColor)
-            } else if options.useAppAppearance {
-                scene.setupScene(enhancedRendering: false, mobileRendering: true)
-                scene.applyTableStyle(options.tableStyle, showsSights: true)
-                scene.applyClothColor(options.clothColor)
+            }
+            if recipe == .liveReference || recipe == .legacyMobile {
                 scene.setCameraMode(persp == nil ? .topDown2D : .perspective3D, animated: false)
                 guard scene.contactOcclusion != nil,
                       scene.rootNode.childNode(withName: "reference_room", recursively: false) != nil else { return nil }
-            } else {
-                scene.setupScene(enhancedRendering: persp?.studioLook ?? false, mobileRendering: false)
             }
             guard scene.cameraNode != nil else { return nil }
             // 暗色背景与 App 场景页一致（ADR-P11-13）；HUD 白字依赖暗底可读。
@@ -1103,6 +1135,12 @@ enum SequenceVideoExporter {
             self.frameDt = 1.0 / Double(max(1, options.fps))
         }
 
+        deinit {
+            renderer.delegate = nil
+            renderer.pointOfView = nil
+            renderer.scene = nil
+        }
+
         func snapshot() -> CGImage? {
             let image = renderer.snapshot(atTime: clock, with: options.size,
                                           antialiasingMode: .multisampling4X)
@@ -1161,6 +1199,15 @@ enum SequenceVideoExporter {
             }
         }
 
+        func currentBoard() -> BoardSnapshot {
+            BoardSnapshot(onTable: scene.allBallNodes.reduce(into: [:]) { result, entry in
+                let (key, node) = entry
+                guard !node.isHidden, node.parent != nil else { return }
+                let point = AngleSceneCalculator.sceneToNormalized(position: node.position)
+                result[key] = CanvasPoint(x: Double(point.x), y: Double(point.y))
+            })
+        }
+
         func placeBoard(_ board: BoardSnapshot) {
             scene.railInventory.watchesBoard = false
             scene.hideAllBalls()
@@ -1182,7 +1229,7 @@ enum SequenceVideoExporter {
         /// 调用方移除返回的线节点时须同步 `hideAimDecorations()` 收掉假想球。
         func drawAimLines(for step: SequenceStep, prediction: ShotPrediction? = nil) -> [SCNNode] {
             guard let pred = prediction
-                    ?? PositionPlayShotSolver.solve(before: step.before, shot: step.shot, surfaceY: surfaceY),
+                    ?? SequenceReplayResolver.solve(step: step, surfaceY: surfaceY),
                   pred.feasible else { return [] }
 
             var objPath = pred.objectPath
@@ -1239,11 +1286,12 @@ enum SequenceVideoExporter {
             let aim: SCNVector3
             let elevation: Float
             let endPull: Float
+            let velocity: Float
             /// When set, start retract+fade at this sim-time (seconds after contact).
             var collisionRetractStart: Float?
         }
 
-        /// 第2拍·亮方案：把球杆摆到**静止瞄准位**（`pullBack=0`，杆头贴母球击球点）并显示。
+        /// 第2拍·亮方案：把球杆摆到**静止瞄准位**（`addressPull`，杆头停在母球前）并显示。
         /// 母球此刻未动，锚点与随后 `renderStrokeToContact` 一致，故起杆无缝衔接。
         /// 无球杆节点 / 瞄准方向缺失时不显示。Blocked elevation → hide.
         @discardableResult
@@ -1261,27 +1309,29 @@ enum SequenceVideoExporter {
                 scene.hideCueStick()
                 return nil
             case .angle(let elev):
-                let endPull = CueStroke.clampedFollowThroughPull(
+                let clearanceLimit = CueStroke.clampedFollowThroughPull(
                     cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles,
                     elevation: elev, tipInset: scene.cueTipInset(forStrike: strikePos) ?? 0, surfaceY: scene.surfaceY
                 )
+                let endPull = max(clearanceLimit, CueStroke.desiredFollowThroughPull(velocity: Float(step.shot.velocity)))
                 scene.updateCueStick(
-                    cueBallPosition: strikePos, aimDirection: aim, pullBack: 0,
+                    cueBallPosition: strikePos, aimDirection: aim, pullBack: CueStroke.addressPull,
                     elevationOverride: elev
                 )
                 return CueStrokeAnchor(strikePos: strikePos, aim: aim, elevation: elev,
-                                       endPull: endPull, collisionRetractStart: nil)
+                                       endPull: endPull, velocity: Float(step.shot.velocity), collisionRetractStart: nil)
             }
         }
 
-        /// 逐帧渲染一杆的运杆/出杆动画**直到触球**：回杆 smoothstep → 蓄力停顿 → 匀加速出杆，
-        /// 触球瞬间杆速 = 目标球速 v。`speed` 与运动帧同一倍速，使运杆/击球节奏一致。
+        /// 逐帧渲染一杆的运杆/出杆动画**直到触球**：一次试运 → 球前定杆 → 正式后拉停顿 → 出杆，
+        /// 触球瞬间杆速 = 用户设定杆速 v。`speed` 与运动帧同一倍速，使运杆/击球节奏一致。
         /// 返回击球锚点（含冻结仰角与钳制跟杆量）供触球后的跟杆叠加使用；无球杆/瞄准方向时返回 nil。
         ///
         /// **跟杆/短停不在此处**：改由运动帧循环与球运动**并行**驱动（母球一边离位、球杆一边送杆），
         /// 与实时场景一致——否则球静止时杆头越过母球原中心会视觉穿球（导出专属回归修复）。
         func renderStrokeToContact(step: SequenceStep, prediction: ShotPrediction,
-                                   fps: Int, speed: Float, snapshot: () throws -> Void) rethrows
+                                   fps: Int, speed: Float, rehearsalEnabled: Bool,
+                                   snapshot: () throws -> Void) rethrows
             -> CueStrokeAnchor? {
             guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
                   let aim = Self.aimDirection(path: prediction.cuePath, from: cueNode.position)
@@ -1294,26 +1344,26 @@ enum SequenceVideoExporter {
                 scene.hideCueStick()
                 return nil
             }
-            let endPull = CueStroke.clampedFollowThroughPull(
+            let clearanceLimit = CueStroke.clampedFollowThroughPull(
                 cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles,
                     elevation: elev, tipInset: scene.cueTipInset(forStrike: strikePos) ?? 0, surfaceY: scene.surfaceY
             )
             let v = max(0.3, Float(step.shot.velocity))
-            let total = CueStroke.totalDuration(velocity: v)
+            let endPull = max(clearanceLimit, CueStroke.desiredFollowThroughPull(velocity: v))
+            let total = CueStroke.totalDuration(velocity: v, rehearsalEnabled: rehearsalEnabled)
 
-            let dt = Float(speed) / Float(max(1, fps))
-            var t: Float = 0
-            while t <= Float(total) + 1e-4 {
-                let pull = CueStroke.pullBack(at: TimeInterval(t), velocity: v)
+            let dt = Double(max(0.01, speed)) / Double(max(1, fps))
+            let frameCount = Int(ceil(total / dt))
+            for frame in 0..<frameCount {
+                let pull = CueStroke.pullBack(at: Double(frame) * dt, velocity: v, rehearsalEnabled: rehearsalEnabled)
                 scene.updateCueStick(
                     cueBallPosition: strikePos, aimDirection: aim, pullBack: pull,
                     elevationOverride: elev
                 )
                 try snapshot()
-                t += dt
             }
             return CueStrokeAnchor(strikePos: strikePos, aim: aim, elevation: elev,
-                                   endPull: endPull, collisionRetractStart: nil)
+                                   endPull: endPull, velocity: Float(step.shot.velocity), collisionRetractStart: nil)
         }
 
         /// 母球路线首段方向（跳过过近采样点），与编排台 `aimDirection(path:from:)` 同逻辑。
@@ -1490,14 +1540,17 @@ enum SequenceVideoExporter {
     }
 
     private static func estimatedFrameCount(sequence: PositionPlaySequence, options: Options) -> Int {
-        // 粗估：开局静帧 + 每杆（设置静帧 + 运杆 ~0.9s + 平均 2.2s 运动 + 收尾静帧）。
+        // Stroke timing is exact; ball motion remains a coarse 2.2-second estimate per shot.
         let initial = options.initialHold > 0 ? holdFrames(options.initialHold, fps: options.fps) : 0
         let setup = holdFrames(options.setupHold, fps: options.fps)
         let tail = holdFrames(options.tailHold, fps: options.fps)
-        let stroke = options.showCueStroke
-            ? Int(0.9 / Double(options.playbackSpeed) * Double(options.fps)) : 0
+        let stroke = options.showCueStroke ? sequence.steps.reduce(0) { count, step in
+            count + Int(ceil(CueStroke.totalDuration(velocity: Float(step.shot.velocity),
+                             rehearsalEnabled: options.cueRehearsalEnabled ?? CueRehearsalPreference.isEnabled())
+                             / Double(options.playbackSpeed) * Double(options.fps)))
+        } : 0
         let motion = Int(2.2 / Double(options.playbackSpeed) * Double(options.fps))
-        return initial + sequence.steps.count * (setup + stroke + motion + tail)
+        return initial + stroke + sequence.steps.count * (setup + motion + tail)
     }
 
     private static func tempURL(ext: String, name: String) -> URL {

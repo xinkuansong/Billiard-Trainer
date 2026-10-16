@@ -99,6 +99,15 @@ enum RoomStyle: String, CaseIterable, Identifiable {
 
 // MARK: - UserPreferences
 
+/// Shared by UI preferences and SceneKit consumers outside the main actor.
+enum CueRehearsalPreference {
+    static let key = "cueRehearsalEnabled"
+
+    static func isEnabled(in defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: key) as? Bool ?? false
+    }
+}
+
 @MainActor
 final class UserPreferences: ObservableObject {
     static let shared = UserPreferences()
@@ -191,6 +200,10 @@ final class UserPreferences: ObservableObject {
     // New: 在所有击球轨迹上叠加 90° 分离角辅助线（过碰撞点、垂直于撞击线）。默认关闭。
     @Published var showSeparationAngle: Bool {
         didSet { defaults.set(showSeparationAngle, forKey: "showSeparationAngle") }
+    }
+
+    @Published var cueRehearsalEnabled: Bool {
+        didSet { defaults.set(cueRehearsalEnabled, forKey: CueRehearsalPreference.key) }
     }
 
     // 三档轨迹标注（问题集合条 12.5，全击打页统一）：全部球 / 母球+目标球 / 仅瞄准线+假想球。
@@ -286,6 +299,7 @@ final class UserPreferences: ObservableObject {
 
         // 默认关闭（可选辅助线）。
         self.showSeparationAngle = (defaults.object(forKey: "showSeparationAngle") as? Bool) ?? false
+        self.cueRehearsalEnabled = CueRehearsalPreference.isEnabled(in: defaults)
 
         // 默认最全档（条 12.5）。
         let detailRaw = defaults.object(forKey: "trajectoryDetail") as? Int

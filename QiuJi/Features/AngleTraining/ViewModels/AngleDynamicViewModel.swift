@@ -179,6 +179,15 @@ final class AngleDynamicViewModel: TeachingTableHost {
         }
     }
 
+    func placeFromPalette(_ key: String, atWorld world: SCNVector3) {
+        guard scene.allBallNodes[key]?.isHidden == true,
+              let position = palettePlacement(key, atWorld: world) else { return }
+        scene.showBall(key: key, scenePosition: position, cuePose: .reseat)
+        refreshOnTableKeys()
+        if !PositionPlayBall.isCue(key), selectedTargetKey == nil { selectTarget(key: key) }
+        else { updatePocketHighlights(); updateCalculations() }
+    }
+
     /// 从球库上一颗球（自动找空位）；若为目标球且当前无目标则自动选中。
     func placeFromPalette(_ key: String) {
         guard scene.allBallNodes[key]?.isHidden ?? false else { return }
@@ -276,6 +285,12 @@ final class AngleDynamicViewModel: TeachingTableHost {
     }
 
     /// 多球互斥钳制：台面范围内推开与其它在桌球的重叠。
+    /// Pure preview: same constraints as the committed palette placement.
+    func palettePlacement(_ key: String, atWorld world: SCNVector3) -> SCNVector3? {
+        guard let node = scene.allBallNodes[key] else { return nil }
+        return AngleSceneCalculator.clampAwayFromPockets(clampMultiBall(world, movingNode: node), surfaceY: scene.surfaceY)
+    }
+
     private func clampMultiBall(_ worldPosition: SCNVector3, movingNode: SCNNode) -> SCNVector3 {
         let r = AngleSceneCalculator.ballRadius
         let halfL = AngleSceneCalculator.innerLength / 2

@@ -102,7 +102,7 @@ final class W1BOperationsUITests: XCTestCase {
         app.buttons["shotCamera.temporaryTopDown"].tap()
         app.buttons["planthree.roles"].tap(); ready(app.buttons["planthree.role.0"]); app.buttons["planthree.role.0"].tap()
         try point("_7").tap()
-        XCTAssertTrue((app.buttons["planthree.roles"].value as? String ?? "").contains("①球:7号球"))
+        XCTAssertTrue((app.buttons["planthree.roles"].value as? String ?? "").contains("1球:7号球"))
         snap("temporary-role-selected")
         app.terminate(); launch("planthree", args: ["-planThree.oneBall"])
         ready(app.buttons["solver.solve"]); app.buttons["solver.solve"].tap()
@@ -169,10 +169,11 @@ final class W1BOperationsUITests: XCTestCase {
         }
         ready(next, timeout: 90)
         snap("solved")
+        next.tap()
+        XCTAssertTrue(next.label.hasPrefix("解2/"))
         next.press(forDuration: 1)
-        let second = app.buttons["solver.selectSolution.1"]; ready(second); snap("solution-menu"); second.tap()
-        XCTAssertTrue((next.value as? String ?? "").hasPrefix("解 2/"))
-        XCTAssertTrue(element("solver.status").label.hasPrefix("解 2/"))
+        XCTAssertFalse(app.buttons["solver.selectSolution.1"].exists)
+        XCTAssertFalse(element("solver.status").exists)
         snap("selected-second")
         app.buttons["shotStage.spinEntry"].tap()
         XCTAssertTrue(element(prefix + ".spinPad").waitForExistence(timeout: 5))
@@ -276,11 +277,13 @@ final class W1BOperationsUITests: XCTestCase {
     }
 
     private func assertMatrixShortSummary(_ identifier: String) {
-        let status = element(identifier).label
-        XCTAssertTrue(status.hasPrefix("解 "), "Capture only a real solved state: \(status)")
-        XCTAssertTrue(status.hasSuffix("库"), "Summary should end with its cushion count: \(status)")
-        XCTAssertFalse(status.contains("容错"))
-        XCTAssertFalse(status.contains("求解中"))
+        XCTAssertTrue(app.buttons["solver.nextSolution"].label.hasPrefix("解"))
+        if element(identifier).exists {
+            let status = element(identifier).label
+            XCTAssertFalse(status.contains("容错"))
+            XCTAssertFalse(status.contains("求解中"))
+            XCTAssertFalse(status.hasPrefix("解 "))
+        }
     }
 
     private func captureMatrixBreakAndVerifyRerackCamera() throws {

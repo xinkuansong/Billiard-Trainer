@@ -106,9 +106,7 @@ final class DrillSceneController: ObservableObject {
     /// 不用首杆的 1.5s，否则多杆序列整体拖沓。
     private let followUpSetupHold: TimeInterval = 0.45
     /// 杆间停顿：与 `PositionPlayViewModel.sequenceInterShotPause` 同值。
-    private let interShotPause: TimeInterval = 0.7
-    private let boardChangeDuration: TimeInterval = 0.45
-    private let boardChangeActionKey = "drill.sequence.boardChange"
+    private let interShotPause = SequenceSceneTransition.resultHold
 
     func setup(drill: DrillContent) {
         guard !didSetup else { return }
@@ -116,7 +114,7 @@ final class DrillSceneController: ObservableObject {
         self.drill = drill
 
         scene.configureShotAwareCamera()
-        scene.setupScene(enhancedRendering: false)
+        scene.setupScene(recipe: .liveReference)
         scene.cameraRig?.configurePlayerCameraControls(daily: true)
         surfaceY = scene.surfaceY
 
@@ -160,7 +158,8 @@ final class DrillSceneController: ObservableObject {
 
         let board = formation.steps.first?.before ?? formation.initial
         let source = DrillStaticPreview.Source(
-            board: board, shot: shot, token: formation.token, kind: .boardSequence
+            board: board, shot: shot, token: formation.token, kind: .boardSequence,
+            recordedStep: formation.steps.first
         )
         previewSource = source
         currentToken = formation.token
@@ -190,18 +189,17 @@ final class DrillSceneController: ObservableObject {
 
     private func prepareOpeningShotView() {
         guard let source = previewSource,
-              let pred = prediction ?? PositionPlayShotSolver.solve(
-                before: source.board, shot: source.shot, surfaceY: surfaceY),
+              let pred = prediction ?? Self.openingPrediction(for: source, step: steps.first, surfaceY: surfaceY),
               pred.feasible, let cue = scene.cueBallNode else { return }
         shotView = (cue.position, pred.aimDirection)
     }
 
     @discardableResult
     private func enterShotView(animated: Bool) -> Bool {
-        guard let shotView, let rig = scene.cameraRig else { return false }
+        guard let shotView, scene.cameraRig != nil else { return false }
         // A positive request selects the shared surface speed clock (not a fixed duration).
-        return rig.enterPlayerView(.thirdPerson, cue: shotView.cue, aim: shotView.aim,
-                                   duration: animated ? 0.95 : 0)
+        return SequenceSceneTransition.enterThirdPerson(in: scene, cue: shotView.cue,
+                                                       aim: shotView.aim, animated: animated)
     }
 
     private func freezeCamera() {
@@ -209,13 +207,18 @@ final class DrillSceneController: ObservableObject {
         rig.restorePerspectiveState(rig.capturePerspectiveState())
     }
 
+    nonisolated private static func openingPrediction(for source: DrillStaticPreview.Source,
+                                                      step: SequenceStep?, surfaceY: Float) -> ShotPrediction? {
+        if let step { return SequenceReplayResolver.solve(step: step, surfaceY: surfaceY) }
+        return PositionPlayShotSolver.solve(before: source.board, shot: source.shot, surfaceY: surfaceY)
+    }
+
     /// 后台解算静帧首杆；完成时若球形已被切走则丢弃结果（防在途结果串台）。
     private func solvePreviewShot(for source: DrillStaticPreview.Source) {
         let solveSurfaceY = surfaceY
+        let openingStep = steps.first
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let pred = PositionPlayShotSolver.solve(
-                before: source.board, shot: source.shot, surfaceY: solveSurfaceY
-            )
+            let pred = Self.openingPrediction(for: source, step: openingStep, surfaceY: solveSurfaceY)
             DispatchQueue.main.async {
                 guard let self, self.previewSource?.token == source.token else { return }
                 self.prediction = pred
@@ -305,7 +308,7 @@ final class DrillSceneController: ObservableObject {
     }
 
     private func cancelScheduledPlayback() {
-        scene.rootNode.removeAction(forKey: boardChangeActionKey)
+        SequenceSceneTransition.cancelArrangement(in: scene)
         scheduleRevision += 1
         pendingWork = nil
         remainingDelay = 0
@@ -391,13 +394,7 @@ final class DrillSceneController: ObservableObject {
 
     /// Compare authored intent, never live physics drift. Normalized XY has a uniform metre scale.
     static func requiresBoardChange(after: BoardSnapshot, before: BoardSnapshot) -> Bool {
-        guard Set(after.onTable.keys) == Set(before.onTable.keys) else { return true }
-        let serializationTolerance = 0.0001 / Double(AngleSceneCalculator.innerLength)
-        return before.onTable.contains { key, next in
-            guard let previous = after.onTable[key] else { return true }
-            return abs(next.x - previous.x) > serializationTolerance
-                || abs(next.y - previous.y) > serializationTolerance
-        }
+        SequenceSceneTransition.requiresBoardChange(after: after, before: before)
     }
 
     private func changeBoard(to board: BoardSnapshot, completion: @escaping () -> Void) {
@@ -405,35 +402,13 @@ final class DrillSceneController: ObservableObject {
         hidePlanDecorations()
         scene.hideCueStick()
         freezeCamera()
-        let duration = UIAccessibility.isReduceMotionEnabled ? 0 : boardChangeDuration
-        for (key, node) in scene.allBallNodes {
-            node.removeAllActions()
-            if let destination = board.onTable[key] {
-                if node.isHidden || node.parent == nil || node.opacity < 0.01 {
-                    scene.showBall(key: key, scenePosition: point(destination), cuePose: .home)
-                    // A returned ball leaves the pocket inventory using its existing fade policy.
-                    scene.railInventory.reconcile(animated: duration > 0)
-                    node.opacity = 0
-                }
-                let move = SCNAction.move(to: point(destination), duration: duration)
-                move.timingMode = .easeInEaseOut
-                node.runAction(.group([move, .fadeIn(duration: duration)]))
-            } else if !node.isHidden {
-                node.runAction(.fadeOut(duration: duration))
-            }
-        }
         let generation = playbackGeneration
-        scene.rootNode.runAction(.wait(duration: duration), forKey: boardChangeActionKey) { [weak self] in
-            Task { @MainActor in
-                guard let self, self.playbackGeneration == generation else { return }
-                self.performWhenResumed { [weak self] in
-                    guard let self else { return }
-                    for (key, node) in self.scene.allBallNodes {
-                        node.isHidden = board.onTable[key] == nil
-                        node.opacity = 1
-                    }
-                    completion()
-                }
+        SequenceSceneTransition.arrange(board, in: scene) { [weak self] in
+            guard let self, self.playbackGeneration == generation else { return }
+            self.performWhenResumed { [weak self] in
+                guard let self else { return }
+                SequenceSceneTransition.finishArrangement(board, in: self.scene)
+                completion()
             }
         }
     }
@@ -452,7 +427,7 @@ final class DrillSceneController: ObservableObject {
             return
         }
 
-        let solved = PositionPlayShotSolver.solve(before: step.before, shot: step.shot, surfaceY: surfaceY)
+        let solved = SequenceReplayResolver.solve(step: steps[i], before: step.before, surfaceY: surfaceY)
         guard let pred = solved, pred.feasible, pred.hasFinalTableState,
               let recorder = pred.recorder, pred.duration > 0.05,
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden

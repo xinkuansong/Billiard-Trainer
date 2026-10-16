@@ -4,6 +4,12 @@ import Combine
 import simd
 import os
 
+/// Rendering resources and lighting only. Cameras, game rules and board state
+/// belong to the caller. Legacy recipes keep existing published output reproducible.
+enum TableRenderRecipe: String {
+    case liveReference, legacyMobile, teachingPlain, plainLegacy, studioLegacy
+}
+
 /// SceneKit scene for angle training: loads the USDZ table model,
 /// manages camera (2D/3D), lighting, USDZ ball nodes, and cue stick.
 final class AngleTrainingScene: SCNScene, ObservableObject {
@@ -17,6 +23,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
 
     /// Selected before setup; scene-local so daily-clearance trials do not change other pages or exports.
     var renderingProfile = MobileReferenceLighting.specializedProfile
+    private(set) var declaredRenderRecipe: TableRenderRecipe?
     #if DEBUG
     var usesClothLightingPrototype = false
     #endif
@@ -32,8 +39,18 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     /// Opt in to the current reference materials without selecting a camera policy.
     /// Configure before setup; this does not attach any page's rules controller.
     func configureReferenceTableRendering() {
+        declaredRenderRecipe = .liveReference
         renderingProfile = .reflection
         sceneExposureOffset = -0.1
+    }
+
+    func setupScene(recipe: TableRenderRecipe, roomStyle: RoomStyle = .selected) {
+        declaredRenderRecipe = recipe
+        if recipe == .liveReference { configureReferenceTableRendering() }
+        else { renderingProfile = .reference; sceneExposureOffset = nil }
+        setupScene(enhancedRendering: recipe == .studioLegacy,
+                   mobileRendering: recipe == .liveReference || recipe == .legacyMobile,
+                   roomStyle: roomStyle)
     }
 
     /// Opt in to the shot-aware camera independently of the material profile.
@@ -249,7 +266,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         }
     }
     private var reusableTableKey: String {
-        var key = "\(renderingProfile.rawValue)|\(sceneExposureOffset ?? 0)|\(mergesDailyClothSupport)|\(factorsDailyClothBRDF)"
+        var key = "\(ModelAssetTrial.identity("TaiQiuZhuo"))|tableBindings.v2|\(renderingProfile.rawValue)|\(sceneExposureOffset ?? 0)|\(mergesDailyClothSupport)|\(factorsDailyClothBRDF)"
         #if DEBUG
         key += "|prototype=\(usesClothLightingPrototype)"
         #endif
@@ -294,6 +311,12 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         defer {
             isSettingUpScene = false
             refreshRoomReflectionProbe()
+            DailyLayoutProbe.record("tableScene.configuration", [
+                "recipe": declaredRenderRecipe?.rawValue ?? (self.enhancedRendering ? "studioLegacy" : self.mobileRendering ? "legacyMobile" : "plainLegacy"),
+                "asset": ModelAssetTrial.identity("TaiQiuZhuo"), "profile": renderingProfile.rawValue,
+                "exposure": String(describing: cameraNode?.camera?.exposureOffset ?? 0),
+                "mobile": String(self.mobileRendering), "studio": String(self.enhancedRendering)
+            ])
         }
         #if DEBUG
         var stageStart = CACurrentMediaTime()
@@ -306,16 +329,16 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         self.enhancedRendering = enhancedRendering
         self.mobileRendering = mobileRendering && !enhancedRendering && MobileTableRendering.environmentURL != nil
         contactOcclusion = nil
-        if self.mobileRendering, Thread.isMainThread, resourceGeneration == nil {
+        if resourceGeneration == nil { resourceGeneration = TableResourceCache.acquireScene() }
+        if Thread.isMainThread {
             MainActor.assumeIsolated {
-                resourceGeneration = TableResourceCache.shared.acquire()
                 let key = reusableTableKey
                 #if DEBUG
-                if !usesClothLightingPrototype {
+                if self.mobileRendering && !usesClothLightingPrototype {
                     reusableTable = TableResourceCache.shared.takeTable(key: key)
                 }
                 #else
-                reusableTable = TableResourceCache.shared.takeTable(key: key)
+                if self.mobileRendering { reusableTable = TableResourceCache.shared.takeTable(key: key) }
                 #endif
             }
         }
@@ -397,7 +420,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             leatherMarkers = prepared.markers
             // Restore the captured standard bindings before reapplying lighting.
             // Requested preferences are reapplied after the new scene is assembled.
-            tableAppearance?.apply(.standard, showsSights: true)
+            tableAppearance?.restoreForReuse(applying: requestedTableStyle)
             clothAppearance?.apply(.green)
             rootNode.addChildNode(prepared.node)
             modelCueStickNode = model.cueStickNode
@@ -720,7 +743,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     func updateCueStick(
         cueBallPosition: SCNVector3,
         aimDirection: SCNVector3,
-        pullBack: Float = 0,
+        pullBack: Float = CueStroke.addressPull,
         elevationOverride: Float? = nil
     ) {
         // 显式重新摆杆（如击球后复位重新瞄准）会取消尚未结束的出杆/跟杆/收杆序列，

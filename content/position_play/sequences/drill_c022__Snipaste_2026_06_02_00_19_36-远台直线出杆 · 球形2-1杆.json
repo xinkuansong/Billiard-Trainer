@@ -12,6 +12,8 @@
   "name" : "直线推白球 · 球形A",
   "steps" : [
     {
+      "analysis": {"cueCushionContacts":[{"cushionIndex":1,"mainRail":"positiveZ","phase":"noBallContact","timeSeconds":0.37404486536979675},{"cushionIndex":3,"mainRail":"negativeZ","phase":"noBallContact","timeSeconds":1.1096245050430298},{"cushionIndex":1,"mainRail":"positiveZ","phase":"noBallContact","timeSeconds":2.4763882160186768},{"cushionIndex":3,"mainRail":"negativeZ","phase":"noBallContact","timeSeconds":6.719723701477051}],"cueTravelDistanceMeters":4.721081972170782,"engineVersion":"qiuji-planar-reference-20261015","noAimReason":"freeAimHasNoPocketLine","noContactReason":"noCueBallCollision","schemaVersion":1},
+      "recordedDirection": {"x": -0.000545266957487911, "z": 0.9999998807907104},
       "after" : {
         "onTable" : {
           "cueBall" : {

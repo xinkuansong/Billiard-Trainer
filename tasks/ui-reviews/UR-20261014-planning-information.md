@@ -1,6 +1,8 @@
 # 三规划页信息精简 · 第1批
 
-2026-10-14。用户已确认方案并授权实施打一走二想三、思路训练、防守；新界面观感待用户体验。当前跨尺寸收尾中，最终测试结果在本报告补齐。
+> 第一批历史记录；详情/长按、i提示、计划菜单和区域样式已由[第二轮](UR-20261014-information-consistency-r2.md)覆盖。
+
+2026-10-14。用户已确认方案并授权实施打一走二想三、思路训练、防守；新界面观感待用户体验。本批代码与模拟器验证完成。
 
 [原生前后对比](../../output/information-simplification-20261014/review.html) · [批准清单](../table-page-adaptation/INFORMATION-SIMPLIFICATION-20261014.md)
 
@@ -21,20 +23,23 @@
 
 普通手机：完整求解→方案详情→打点盘→3D→击球→重打；最大字号操作说明打开/滚动/关闭、选角色步骤、临时2D；无解持续超过3秒/从说明重查、微调标识；首次提示关闭/跨启动记忆/说明召回均有执行。
 
-小屏与iPad矩阵正在补齐。照片只用于所列状态，未验证完整VoiceOver朗读或真实球桌效果；不把模拟器通过写成真机验收。
+iPhone SE第3代（深色）通过同一三页求解、详情、打点盘、3D、击球、重打，以及最大字号帮助和临时2D；另实看防守菜单三个字段完整可见。iPad Air 13英寸M3（深色）通过横屏同一流程及竖屏最大字号、帮助滚动/关闭、临时2D、目标菜单。三台均为iOS 26.3。
+
+已目视主手机前后关键状态、小屏菜单与大字号，以及iPad横屏2D/3D/打点盘、竖屏帮助/临时2D的原生图。照片只用于所列状态，未验证完整VoiceOver朗读或真实球桌效果；不把模拟器通过写成真机验收。
 
 ## 发现与修复
 
 1. **FL-152：无提示时2D球桌消失。** 原生图发现，旧取景frame的测量挂在条件Group上；内容为空后不再发出frame，旧opacity规则隐藏了球桌。改为独立透明测量容器。新增原生台呢像素存在性断言，并实看修复图；同断言拒绝旧错误图（绿色占比0.22%），接受修复图（49.10%）。相关原件在candidate-before-viewport-fix，不能作为最终效果。
 2. 自动化脚本的谓词语法、横屏AX激活点与滚动菜单命中问题已修正。菜单先按实际frame滚入视口，再以中心点点击；保留前几轮失败日志，未把它们当成产品失败。
 3. 首次提示测试使用NO启动参数强制偏好，初版只写持久值而未检查已关闭的事件；现在关闭事件立即抑制当前提示，再写持久值，跨启动去掉强制参数后确认不会重播。
-4. 变更新增说明sheet触发路由签名门禁，已审计三页生产入口、补CSV状态和测试，再只刷新对应三份签名。
+4. **FL-154**：小屏防守菜单的多行Text被原生菜单截为两行。拆成首碰、球组/数量、球号三条，保留截断原图snooker-targets-truncated.png；读取AX全文不代替目视完整性。
+5. 变更新增说明sheet触发路由签名门禁，已审计三页生产入口、补CSV状态和测试，再只刷新对应三份签名。
 
 ## 验证记录与交付边界
 
-最终构建：build-final2.log。定向单测：final-phone-feedback.log共46项通过；三页快照还原另在此前final-phone.log中3项通过，后续最终矩阵补跑。首轮候选的testAfter虽通过AX操作，但出现空台面，因此已撤销其视觉结论；交付只用修复后的after目录。
+最终构建：build-target-rows.log通过，二进制身份见final-build-identity.json。定向单测49项通过：final-phone-feedback.log中46项，final-pad.log中3项三页快照还原。UI通过日志：final-phone-fixed（大字号与三页流程）、final-phone-feedback（无解/微调与首次提示记忆）、final-compact（小屏流程/大字号）、compact-targets-fixed（小屏菜单）、final-pad（平板流程/大字号/菜单）。完整旧W1B套件和全App回归未执行。首轮候选的testAfter虽通过AX操作，但出现空台面，因此已撤销其视觉结论；交付只用修复后的after目录。
 
-门禁：gates-retry.log，verify-gate与verify-doc-size通过。最终报告补齐后再检查文档门禁。
+门禁：gates-final.log，verify-gate与verify-doc-size通过；本轮源码差异空白检查通过。
 
 所有证据位于output/information-simplification-20261014。只改本轮拥有的文件段落，保留工作区已有修改；同时出现的DrillSceneView、DrillStaticPreviewTests、DrillSceneThreeBeatUITests等变更不归本任务。
 

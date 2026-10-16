@@ -260,11 +260,11 @@ final class TrajectoryPlayback {
     }
     
     var duration: Float {
-        max(recorder.duration, Float(railShot?.timeline.duration ?? 0), Float(recorder.collectionTailsByBallName.values.map(\.end.time).max() ?? 0))
+        return max(recorder.duration, Float(railShot?.timeline.duration ?? 0), Float(recorder.collectionTailsByBallName.values.map(\.end.time).max() ?? 0))
     }
 
     var collectionPresentationEnd:Float {
-        Float((recorder.collectionTailsByBallName.values.map(\.end.time).max() ?? 0)+Self.pocketPauseDuration+Self.pocketFadeDuration)
+        return Float((recorder.collectionTailsByBallName.values.map(\.end.time).max() ?? 0)+Self.pocketPauseDuration+Self.pocketFadeDuration)
     }
 
     /// Shared by live playback and export; physical position and visual removal

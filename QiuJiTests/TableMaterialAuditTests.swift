@@ -353,6 +353,7 @@ final class TableMaterialAuditTests: XCTestCase {
         for mobile in [false, true] {
             var options = SequenceVideoExporter.Options.teaching()
             options.size = CGSize(width: 360, height: 640); options.useAppAppearance = mobile
+            options.renderRecipe = mobile ? .legacyMobile : nil
             let frames = SequenceVideoExporter.renderStills(sequence: sequence, options: options)
             let shot = try XCTUnwrap(frames.first { $0.name == "s01_still" })
             XCTAssertEqual(shot.image.width, Int(options.outputSize.width))

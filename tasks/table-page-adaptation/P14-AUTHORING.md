@@ -21,3 +21,11 @@ source-before位于output/table-page-adaptation/P14/r01。下一构建以现有�
 复用 Daily Foundation 的桌体、顶部球库、左右仪表、打点及提示/面板；专属反解约束、摆球/微移、点换、辅助线、序列预览与两种保存去向完整保留。保存操作收进更多，语义不变。
 
 本轮计划与证据：output/table-page-adaptation/P14/r02/PLAN.md。改前标准手机/SE/iPad各1项通过，13张改前图冻结；最终三设备各1项通过，52张原图独审完成。手机横屏及退出恢复、iPad竖横竖保留球位/工具、四向0.5mm/长按/滚动互斥均实证。图册45状态（16组前后）/58唯一图，见output/table-page-adaptation/P14/r02/REPORT.md及comparison/index.html。保存/导出未执行，真实求解与非零序列深层后果仍为边界；用户本轮认可待审，不改变旧意见。
+
+## r03 · 2026-10-14 个人 iPad 竖屏工作台
+
+用户明确本工具仅本人使用，后续只按 iPad 竖屏验收。固定四向微调、左右常用操作、初始球形只读查看与精确返回、选杆重录、保存留页完成，保留当前物理与瞄准改进。7 单测+1 完整 iPad UI 通过，103 份序列无改动。详见 [任务记录](../BATCH-AUTHORING-RERECORD-20261014.md) 与 [原图复核](../ui-reviews/UR-20261014-batch-authoring-rerecord.md)。用户体验待确认，未提交发布。
+
+r03第三轮追加：用户要求“回上一杆球形”进入右栏，保留已录杆、换母球后继续追加。8单测+1完整iPad竖屏UI通过，原图已审；证据 output/batch-previous-board-20261014/。物理/瞄准未改，103份序列未改，用户旧窗口未安装重启。
+
+r03第四轮：右栏「选杆重录」仅换选中杆，其余球形/轨迹保留；「选杆重录后续」沿用原功能。11单测+1完整iPad竖屏UI通过，原图已审、103原序列未改；证据output/batch-single-rerecord-20261014/。

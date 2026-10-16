@@ -2,7 +2,7 @@ import Foundation
 import SceneKit
 
 /// 走位序列单杆离线求解（ADR-P11-03）：把「前快照 + 作者意图」翻译成 `ShotPredictor` 调用。
-/// 序列播放器、视频导出器共用此入口（编排台实时路径持有场景节点，单独组装）。
+/// 用于编排求瞄与存量方向迁移；生产序列回放/视频走 SequenceReplayResolver 的保存方向。
 ///
 /// 坐标契约：快照为归一化系（x∈[0,1]、y∈[0,0.5]，`AngleSceneCalculator.sceneToNormalized` 真源：
 /// canvasX 增 = sceneX 增，canvasY 增 = sceneZ 增；因 innerLength = 2×innerWidth，方向向量

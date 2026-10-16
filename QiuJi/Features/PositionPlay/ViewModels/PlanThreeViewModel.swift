@@ -517,8 +517,7 @@ final class PlanThreeViewModel: TeachingTableHost {
         guard !isPlaying else { return }
         isDragging = true
         if let runner = breakRunner { runner.dragBegan(node: node); return }
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.15, duration: 0.1), forKey: "dragPulse")
+        TableBallPulse.beginDrag(node)
     }
 
     func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
@@ -532,9 +531,14 @@ final class PlanThreeViewModel: TeachingTableHost {
         isDragging = false
         if let runner = breakRunner { runner.dragEnded(node: node); return }
         guard !isPlaying else { return }
-        node.removeAction(forKey: "dragPulse")
-        node.runAction(SCNAction.scale(by: 1.0 / 1.15, duration: 0.15))
+        TableBallPulse.endDrag(node)
         invalidateSolutions()
+    }
+
+    /// Pure preview: same constraints as the committed palette placement.
+    func palettePlacement(_ key: String, atWorld world: SCNVector3) -> SCNVector3? {
+        guard let node = scene.allBallNodes[key] else { return nil }
+        return clampMultiBall(world, movingNode: node)
     }
 
     private func clampMultiBall(_ pos: SCNVector3, movingNode: SCNNode) -> SCNVector3 {
@@ -593,7 +597,7 @@ extension PlanThreeViewModel {
     func selectBall(node: SCNNode) {
         guard !isPlaying, let key = scene.ballKey(for: node), !PositionPlayBall.isCue(key) else { return }
         guard let role = armedRole, role.isBall else {
-            setStatus("请先在左侧计划中选「球」角色", kind: .failure)
+            setStatus("请先在左侧选择球项", kind: .failure)
             return
         }
         assignBall(key, to: role)
@@ -603,7 +607,7 @@ extension PlanThreeViewModel {
     func selectPocket(at index: Int) {
         guard !isPlaying, !isComputing, !isBreakMode else { return }
         guard let role = armedRole, role.isPocket else {
-            setStatus("请先在左侧计划中选「袋」角色", kind: .failure)
+            setStatus("请先在左侧选择袋口项", kind: .failure)
             return
         }
         if role == .pocket1 { pocket1Index = index } else { pocket2Index = index }
@@ -625,8 +629,8 @@ extension PlanThreeViewModel {
 
     private func advanceAndArm() {
         armedRole = nextEmptyRole()
-        setStatus(hintForState())
         invalidateSolutions()
+        if canSolve { setStatus("已选齐", kind: .feedback) } else { setStatus(hintForState()) }
     }
 
     private func nextEmptyRole() -> PlanThreeRole? { PlanThreeRole.order.first { !isFilled($0) } }
@@ -972,9 +976,9 @@ extension PlanThreeViewModel {
         if let b3 = ball3Key, let n3 = scene.allBallNodes[b3], !n3.isHidden { b3pos = n3.position }
         let sectors = PlanThreeSectorSolver.compute(
             ball2: n2.position, aim2: aim2, ball3: b3pos, surfaceY: surfaceY)
-        // Q15.1：无自选约束 ⇒ 扇形为**默认落区**（高亮 color2）；用户自画约束 ⇒ 降级为参考（灰）。
+        // Q15.1：无自选约束 ⇒ 扇形为**默认落区**（亮琥珀虚线）；用户自画约束 ⇒ 降级为参考（灰）。
         let dimmed = draft != nil
-        let color = dimmed ? UIColor(white: 0.62, alpha: 1) : Self.color2
+        let color = dimmed ? UIColor(white: 0.62, alpha: 1) : BTScenePalette.recommendedRegionAmber
         for s in sectors { addSector(s, color: color, dimmed: dimmed) }
     }
 
@@ -986,15 +990,10 @@ extension PlanThreeViewModel {
             selectionNodes.append(fill)
         }
         let edge = color.withAlphaComponent(dimmed ? 0.45 : 0.9)
-        let innerColor = color.withAlphaComponent(dimmed ? 0.28 : 0.5)
-        let n = s.inner.count
-        for i in 0..<(n - 1) {
-            selectionNodes.append(scene.addLine(from: s.outer[i], to: s.outer[i + 1], color: edge, radius: 0.0024, placement: .table))
-            selectionNodes.append(scene.addLine(from: s.inner[i], to: s.inner[i + 1],
-                                                color: innerColor, radius: 0.0016, placement: .table))
-        }
-        selectionNodes.append(scene.addLine(from: s.inner[0], to: s.outer[0], color: edge, radius: 0.0024, placement: .table))
-        selectionNodes.append(scene.addLine(from: s.inner[n - 1], to: s.outer[n - 1], color: edge, radius: 0.0024, placement: .table))
+        // Reuse the established world-space polyline; only its stroke style changes.
+        let boundary = s.outer + Array(s.inner.reversed()) + [s.outer[0]]
+        scene.addDashedPolyline(boundary, color: edge, radius: 0.0024,
+                                placement: .table, into: &selectionNodes)
     }
 
     private func makeSectorFill(_ s: PlanThreeSector, color: UIColor) -> SCNNode? {

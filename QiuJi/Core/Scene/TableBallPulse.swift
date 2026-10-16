@@ -65,16 +65,6 @@ enum TableBallPulse {
         ]), forKey:actionKey)
     }
 
-    static func beginDrag(_ node: SCNNode) {
-        restore(node)
-        let base = baseScale(node)
-        let enlarged = SCNVector3(base.x*1.15,base.y*1.15,base.z*1.15)
-        node.runAction(scaleAction(from:base,to:enlarged,duration:0.1),forKey:dragKey)
-    }
-
-    static func endDrag(_ node: SCNNode) {
-        let current = node.presentation.scale
-        node.removeAction(forKey:dragKey)
-        node.runAction(scaleAction(from:current,to:baseScale(node),duration:0.15),forKey:dragKey)
-    }
+    static func beginDrag(_ node: SCNNode) { restore(node) }
+    static func endDrag(_ node: SCNNode) { restore(node) }
 }

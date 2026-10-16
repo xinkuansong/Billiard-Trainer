@@ -176,10 +176,10 @@ struct BTDecisionPanel<Content: View>: View {
             VStack(spacing: Spacing.md) { content }
                 .padding(Spacing.lg)
                 .frame(maxWidth: 360)
-                .background(HUDStyle.panelBackground, in: RoundedRectangle(cornerRadius: BTRadius.lg))
+                .background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.lg))
                 .overlay(RoundedRectangle(cornerRadius: BTRadius.lg)
-                    .stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-                .foregroundStyle(.white)
+                    .stroke(Color.btSeparator, lineWidth: HUDStyle.hairlineWidth))
+                .foregroundStyle(Color.btText)
                 .padding(Spacing.lg)
                 .accessibilityAddTraits(.isModal)
         }
@@ -192,9 +192,9 @@ struct BTDecisionActionStyle: ButtonStyle {
         configuration.label.font(.btSubheadlineSemibold)
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.horizontal, Spacing.sm)
-            .background(isPrimary ? Color.btPrimary : Color.white.opacity(0.08),
+            .background(isPrimary ? Color.btPrimaryMuted : Color.btBGTertiary,
                         in: RoundedRectangle(cornerRadius: BTRadius.sm))
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.btText)
             .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
@@ -206,11 +206,12 @@ struct BTSceneDecisionActionStyle: ButtonStyle {
         configuration.label.font(.btSubheadlineSemibold)
             .padding(.horizontal, Spacing.md)
             .frame(minWidth: 64, minHeight: 44)
-            .foregroundStyle(Color.white)
-            .background(configuration.isPressed ? HUDStyle.selectedBackground : HUDStyle.controlBackground,
+            .foregroundStyle(Color.btText)
+            .background(isPrimary ? Color.btPrimaryMuted : Color.btBGSecondary,
                         in: RoundedRectangle(cornerRadius: BTRadius.sm))
             .overlay(RoundedRectangle(cornerRadius: BTRadius.sm)
-                .stroke(isPrimary ? HUDStyle.accent.opacity(0.6) : HUDStyle.hairline, lineWidth: 0.75))
+                .stroke(isPrimary ? HUDStyle.accent.opacity(0.6) : Color.btSeparator, lineWidth: 0.75))
+            .opacity(configuration.isPressed ? 0.7 : 1)
             .contentShape(Rectangle())
     }
 }

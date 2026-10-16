@@ -1514,7 +1514,7 @@ final class P11_ReadingTableUITests: XCTestCase {
     func testReadingTablesRotateAndScroll() throws {
         continueAfterFailure = false
         let pages = [("学", "瞄准原理"), ("学", "瞄准方法"), ("学", "瞄准修正"),
-                     ("学", "旋转与加塞"), ("学", "浅谈球感"), ("学", "瞄准点对照表"),
+                     ("学", "旋转与加塞"), ("学", "浅谈凭感觉瞄准"), ("学", "瞄准点对照表"),
                      ("理", "30° 法则"), ("理", "90° 法则"), ("理", "切线法则")]
         let filter = ProcessInfo.processInfo.environment["READING_PAGE_FILTER"]
         for (index, page) in pages.enumerated() {

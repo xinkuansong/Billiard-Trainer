@@ -6,8 +6,8 @@ import UIKit
 /// 用途：内容管线离线烘焙缩略图 PNG（运行时零成本）。静帧契约见
 /// `DrillStaticPreview`（代表性球形首杆 · 真球号 · 杆 · 线语言 v2 · ghost）。
 ///
-/// ⚠️ 不要在可滚动列表里逐卡实时调用——`AngleTrainingScene.setupScene()` 每次都从磁盘
-/// 解析 USDZ + 克隆节点，开销很大。仅用于离线烘焙或单个详情场景。
+/// 列表使用烘焙图片；共享模型缓存仍不能免去每张卡的场景装配、渲染器和帧缓冲成本。
+/// 此入口保留离线教学配方，详情实时展示由 DrillSceneController 管理。
 enum DrillThumbnailRenderer {
 
     /// 渲染缩略图。`size` 为点尺寸（2:1 横向最佳），`scale` 为像素倍率。
@@ -21,7 +21,7 @@ enum DrillThumbnailRenderer {
         let scene = AngleTrainingScene()
         // Approved thumbnail recipe: current model/style with the original
         // thumbnail lighting. Mobile area-light shaders have a different look.
-        scene.setupScene(enhancedRendering: false, mobileRendering: false)
+        scene.setupScene(recipe: .plainLegacy)
         scene.applyTableStyle(.defaultStyle, showsSights: true)
         scene.applyClothColor(.green)
         // Freeze the published cue finish instead of inheriting bake-device preferences.

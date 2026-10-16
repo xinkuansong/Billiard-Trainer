@@ -86,11 +86,11 @@ final class SpinAndEnglishZ4UITests: XCTestCase {
             snap("z4-02-spin-follow")
         }
 
-        // 主轴读数：教学折线文案（半球或非半球均应出现「教学折线」）。
+        // 主轴读数明确为示意角，不能伪装成当前球形的精确物理角度。
         let fold = app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS %@", "教学折线")
+            NSPredicate(format: "label CONTAINS %@", "示意角")
         ).firstMatch
-        XCTAssertTrue(fold.waitForExistence(timeout: 3), "应显示示意角·教学折线读数")
+        XCTAssertTrue(fold.waitForExistence(timeout: 3), "应显示示意角读数")
 
         dragScrollUp(times: 2)
         snap("z4-03-tip-or-miscue")

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Control review simulators only on explicit calls; launch success never means page READY."""
 import argparse
+from contextlib import ExitStack
 import datetime
 import fcntl
 import hashlib
@@ -10,6 +11,9 @@ import plistlib
 import re
 import subprocess
 import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from simulator_lifecycle import device_lease
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = Path(__file__).with_name('devices.json')
@@ -198,6 +202,7 @@ def main(argv=None):
                 'pageStatus': 'NOT_CHECKED', 'phase': 'preflight'} for d in devices]
     log_dir = None
     lock = None
+    leases = ExitStack()
     current = None
 
     def save_results():
@@ -260,6 +265,8 @@ def main(argv=None):
                 'devices': devices, 'pageVerification': 'Required separately by the review controller'
             }, default=str, ensure_ascii=False, indent=2))
             save_results()
+            for device in sorted(devices, key=lambda d: d['udid']):
+                leases.enter_context(device_lease(device['udid'], 'simulator-preview:' + options.action))
         try:
             live = json.loads(run('xcrun', 'simctl', 'list', 'devices', 'available', '-j'))
             lookup = {d['udid']: (runtime, d) for runtime, rows in live['devices'].items() for d in rows}
@@ -394,8 +401,11 @@ def main(argv=None):
     finally:
         if log_dir:
             print('Command evidence:', log_dir)
-        if lock:
-            lock.close()
+        try:
+            leases.close()
+        finally:
+            if lock:
+                lock.close()
     # Windows, orientation, foreground page and interactivity require separate UI checks.
 
 

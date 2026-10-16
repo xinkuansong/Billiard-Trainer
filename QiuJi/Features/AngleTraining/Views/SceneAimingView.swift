@@ -45,6 +45,11 @@ struct SceneAimingView: View {
             if !hasStarted { settingsContent }
             else { quizTable }
         }
+        .alert("出题未完成", isPresented: Binding(get: { vm.generationError != nil }, set: { if !$0 { vm.generationError = nil } })) {
+            Button("重新生成") { vm.nextQuestion() }
+            Button("调整范围") { vm.showSettings = true }
+            Button("结束练习") { vm.finish() }
+        } message: { Text(vm.generationError ?? "") }
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
         .trainingBackgroundMusic()
         .navigationTitle(hasStarted ? (is3D ? "3D角度" : "2D角度") : "训练设置")
@@ -67,6 +72,7 @@ struct SceneAimingView: View {
             configured = true
             vm.quizTypeLabel = is3D ? "scene3D" : "scene2D"
             vm.configure(context: modelContext)
+            vm.run.configuration = .load(for: vm.quizTypeLabel)
             // Both routes defer renderer and orientation ownership until Start.
         }
         .onChange(of: vm.phase) { _, phase in
@@ -183,7 +189,7 @@ struct SceneAimingView: View {
                 Color.black.opacity(0.32)
                 ScrollView { summaryOverlay }.frame(width: min(520, size.width - 16), height: size.height - 32)
                     .position(x: size.width / 2, y: size.height / 2)
-            } else if vm.limiter.isLimitReached {
+            } else if vm.limiter.isLimitReached && vm.phase != .showingResult {
                 BTDailyLimitGate(compact: vm.phase == .showingResult) { showSubscription = true }
                     .frame(width: min(400, f.stage.width)).position(x: f.stage.midX, y: f.stage.midY)
             }
@@ -234,12 +240,14 @@ struct SceneAimingView: View {
          }),
          .init(id: "angleTraining.trainingSettings", title: "训练设置", disclosure: true, action: {
             showMenu = false; vm.showSettings = true
-         })]
+         }),
+         .init(id: "angleTraining.finish", title: "结束练习", action: { showMenu = false; vm.finish() }),
+         .init(id: "angleTraining.coverage", title: vm.run.coverage)]
     }
 
     private var questionInformation: some View {
         Group {
-            if vm.phase == .showingResult, let record = vm.sessionResults.last { resultHUD(record: record) }
+            if vm.phase == .showingResult, let record = vm.lastRecord { resultHUD(record: record) }
             else if vm.currentQuestion != nil { progressPill }
         }.accessibilityElement(children: .contain).accessibilityIdentifier("angleTraining.questionInfo")
     }
@@ -279,7 +287,10 @@ struct SceneAimingView: View {
                 contentIsAnimating: vm.cameraTransitionBusy,
                 fpsReadoutState: fps,
                 twoViewReadableFrameInWindow: is3D ? cameraReadableFrame : nil,
-                onCameraObservationBegan: { vm.beginCameraObservation() },
+                onCameraObservationBegan: {
+                    if vm.scene.cameraRig?.twoViewMode == .thirdPerson { vm.markObservation() }
+                    vm.beginCameraObservation()
+                },
                 onCameraObservationEnded: { vm.endCameraObservation() },
                 onTemporaryTopDownDismiss: { vm.endTemporaryTopDown() },
                 topDownContentRevision: vm.topDownContentRevision,
@@ -314,12 +325,12 @@ struct SceneAimingView: View {
             ShotPlayerCameraButtons(controlSpacing: 4, rig: rig,
                 isEnabled: vm.phase != .inputting && !vm.showSettings && !showMenu
                     && vm.currentQuestion != nil && !vm.testFinished && !vm.limiter.isLimitReached,
-                onWholeTable: { vm.requestSurfaceOverview() },
+                onWholeTable: { vm.markObservation(); vm.requestSurfaceOverview() },
                 usesTwoViewControls: rig.usesTwoViewCameraControls,
                 temporaryTopDownActive: vm.temporaryTopDownActive,
-                onTemporaryTopDownBegan: { vm.beginTemporaryTopDown() },
+                onTemporaryTopDownBegan: { vm.markObservation(); vm.beginTemporaryTopDown() },
                 onTemporaryTopDownEnded: { vm.endTemporaryTopDown() },
-                onSelect: { requestPlayerView($0) })
+                onSelect: { if $0 == .thirdPerson { vm.markObservation() }; requestPlayerView($0) })
         }
     }
 
@@ -341,7 +352,7 @@ struct SceneAimingView: View {
                 .accessibilityIdentifier("angleTraining.assist")
                 .accessibilityValue(vm.showAimingAssist ? "已开启" : "已关闭")
                 primaryAction("答题") { vm.openAnswerInput() }
-            } else if vm.phase == .showingResult, !vm.testFinished, !vm.limiter.isLimitReached {
+            } else if vm.phase == .showingResult, !vm.testFinished {
                 primaryAction(nextButtonTitle) { vm.advanceToNext() }
             }
         }
@@ -366,7 +377,7 @@ struct SceneAimingView: View {
         VStack(spacing: Spacing.sm) {
             sideMetric("题目", value: progressText)
             sideMetric("目标袋", value: targetPocketText)
-            sideMetric("平均误差", value: averageErrorText)
+            sideMetric("作答", value: vm.run.assistance.isEmpty ? "独立" : "用过辅助")
             if !vm.limiter.isPremium {
                 sideMetric("剩余", value: "\(vm.limiter.remainingToday)")
             }
@@ -405,14 +416,17 @@ struct SceneAimingView: View {
             Text(vm.errorRating.label).font(.btCaption.weight(.semibold))
                 .foregroundStyle(vm.errorRating.color)
             sideMetric("作答", value: "\(Int(record.userAngle))°")
-            sideMetric("答案", value: "\(Int(record.question.actualAngle))°", color: HUDStyle.accent)
-            sideMetric("误差", value: String(format: "%.0f°", record.error), color: vm.errorRating.color)
+            sideMetric("答案", value: "\(Int(record.question.actualAngle.rounded()))°", color: HUDStyle.accent)
+            sideMetric("误差", value: String(format: "%.1f°", record.error), color: vm.errorRating.color)
+            Text(record.error < 0.05 ? "一致" : (record.userAngle > record.question.actualAngle ? "估大" : "估小")).font(.btCaption)
+            Text(vm.run.assistance.isEmpty ? "独立作答" : "辅助作答").font(.btCaption2)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Spacing.xs)
     }
 
     private var nextButtonTitle: String {
+        if vm.limiter.isLimitReached { return "总结" }
         if vm.isFreePractice { return "下一题" }
         if vm.questionIndex + 1 < vm.totalQuestions, !vm.limiter.isLimitReached {
             return "下一题"
@@ -428,93 +442,21 @@ struct SceneAimingView: View {
     }
 
     private var settingsContent: some View {
-            List {
-                Section("练习模式") {
-                    Picker("模式", selection: $vm.practiceMode) {
-                        ForEach(AimingQuizViewModel.PracticeMode.allCases) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-                Section("训练类型") {
-                    ForEach(AimingQuizViewModel.TrainingType.allCases) { type in
-                        Button {
-                            vm.trainingType = type
-                        } label: {
-                            HStack {
-                                Text(type.rawValue).foregroundStyle(.btText)
-                                Spacer()
-                                if vm.trainingType == type {
-                                    Image(systemName: "checkmark").foregroundStyle(.btPrimary)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("训练设置")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(!hasStarted)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(vm.currentQuestion == nil ? "开始训练" : "重新开始") {
-                        prepareScene()
-                        hasStarted = true
-                        vm.showSettings = false
-                        vm.startTest()
-                        applyAimingPoseForCurrentQuestion(reason: "settingsConfirm.startTest")
-                    }
-                    .fontWeight(.semibold)
-                    .accessibilityIdentifier("angleTraining.start")
-                }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(hasStarted ? "完成" : "返回") {
-                        if hasStarted { vm.showSettings = false } else { dismiss() }
-                    }.accessibilityIdentifier("angleTraining.settingsClose")
-                }
-            }
+        SceneTrainingSettings(route: is3D ? "scene3D" : "scene2D", configuration: vm.run.configuration,
+            restarting: hasStarted, onStart: { configuration, questions in
+                prepareScene()
+                vm.startTest(configuration: configuration, questions: questions)
+                hasStarted = true; vm.showSettings = false
+                applyAimingPoseForCurrentQuestion(reason: "settingsConfirm")
+            }, onCancel: {
+                if hasStarted { vm.showSettings = false } else { dismiss() }
+            })
     }
-
-    // MARK: - Summary
 
     private var summaryOverlay: some View {
-        VStack(spacing: Spacing.xxl) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.btSuccess)
-            Text("测试完成").font(.btTitle).foregroundStyle(.white)
-
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())],
-                      spacing: Spacing.lg) {
-                summaryCard(title: "题数", value: "\(vm.sessionResults.count)")
-                summaryCard(title: "平均误差", value: String(format: "%.1f°", vm.averageError))
-                summaryCard(title: "精准 (≤3°)", value: "\(vm.accurateCount)")
-            }
-
-            if vm.limiter.isLimitReached {
-                BTDailyLimitGate(compact: true) { showSubscription = true }
-                    .padding(.horizontal, Spacing.xxxxl)
-            }
+        SceneTrainingSummary(samples: vm.run.firstAnswers, unit: "°") {
+            hasStarted = false; vm.testFinished = false
         }
-        .padding(Spacing.xl)
-        .btHudGlass(in: RoundedRectangle(cornerRadius: BTRadius.xl))
-        .environment(\.colorScheme, .dark)
-        .padding(.horizontal, Spacing.lg)
-        .sheet(isPresented: $showSubscription) {
-            SubscriptionView().environmentObject(subscriptionManager)
-        }
-    }
-
-    private func summaryCard(title: String, value: String) -> some View {
-        VStack(spacing: Spacing.xs) {
-            Text(value).font(.btTitle2).foregroundStyle(.white).monospacedDigit()
-            Text(title).font(.btCaption).foregroundStyle(.white.opacity(0.6))
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, Spacing.lg)
-        .background(.white.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
     // MARK: - Camera framing helpers

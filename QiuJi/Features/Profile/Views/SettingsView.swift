@@ -292,6 +292,22 @@ struct SettingsView: View {
             .padding(.vertical, Spacing.md)
             .background(Color.btBGSecondary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Toggle("运杆", isOn: $prefs.cueRehearsalEnabled)
+                    .font(.btBody)
+                    .foregroundStyle(.btText)
+                    .tint(.btPrimary)
+                    .accessibilityIdentifier("settings.cueRehearsal")
+                Text("击球前试运一次，展示完整准备节奏。")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
+            .background(Color.btBGSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
     }
 

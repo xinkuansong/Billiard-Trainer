@@ -5,19 +5,16 @@ import AVKit
 /// 运行时加载图文精讲配图（`Resources/TutorialFigures/<name>.heic`）。内存缓存，缺图回退占位。
 /// 落位与格式约定见 `TutorialAssets`（v25 W4：PNG 母版不进包，包内只有 HEIC 发布图）。
 enum DrillTutorialImageStore {
-    private static let cache = NSCache<NSString, UIImage>()
-
+    private static let cache = TableAssetImageCache(byteLimit: 64 * 1024 * 1024)
+    static func resetCache() { cache.reset() }
     static func image(named name: String) -> UIImage? {
-        if let cached = cache.object(forKey: name as NSString) { return cached }
-        let url = TutorialAssets.imageExtensions.lazy.compactMap {
-            Bundle.main.url(forResource: name, withExtension: $0,
-                            subdirectory: TutorialAssets.bundleSubdirectory)
-        }.first
-        guard let url, let image = UIImage(contentsOfFile: url.path) else {
-            return nil
+        cache.image(for: name) {
+            let url = TutorialAssets.imageExtensions.lazy.compactMap {
+                Bundle.main.url(forResource: name, withExtension: $0, subdirectory: TutorialAssets.bundleSubdirectory)
+            }.first
+            guard let url else { return nil }
+            return UIImage(contentsOfFile: url.path)
         }
-        cache.setObject(image, forKey: name as NSString)
-        return image
     }
 }
 

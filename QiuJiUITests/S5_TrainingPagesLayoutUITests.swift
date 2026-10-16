@@ -59,7 +59,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
             XCTAssertFalse(app.otherElements["angleTraining.scene"].exists)
             try capture("initial-settings")
             XCTAssertGreaterThan(app.windows.firstMatch.frame.height, app.windows.firstMatch.frame.width)
-            app.buttons["angleTraining.settingsClose"].tap()
+            app.buttons["training.settingsCancel"].tap()
             XCTAssertTrue(openCard(homeTab: "练", title: "\(mode)角度"))
             XCTAssertTrue(app.buttons["angleTraining.start"].waitForExistence(timeout: 5))
             XCTAssertGreaterThan(app.windows.firstMatch.frame.height, app.windows.firstMatch.frame.width)
@@ -92,7 +92,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         XCTAssertTrue(stage.exists)
         let stageFrame = stage.frame
         let referenceBallFrame = mode == "2D" ? app.descendants(matching: .any).matching(identifier: "angleTraining.ball._1").firstMatch.frame : .zero
-        XCTAssertTrue(app.staticTexts[mode == "2D" ? "右下角袋" : "高亮角袋"].exists)
+        XCTAssertTrue(app.staticTexts["目标袋"].exists)
         XCTAssertTrue(app.staticTexts["1/20"].exists)
         let palette = app.otherElements["angleTraining.palette"]
         XCTAssertTrue(palette.exists)
@@ -165,7 +165,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         app.buttons["提交"].tap()
         let next = app.buttons["下一题"].firstMatch
         if nearLimit {
-            XCTAssertTrue(app.staticTexts["今日免费次数已用完"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["总结"].waitForExistence(timeout: 5))
             XCTAssertFalse(next.exists)
             XCTAssertTrue(app.staticTexts["答案"].exists)
             try capture("limit-result")
@@ -254,12 +254,12 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
             trainingSettings.tap()
             XCTAssertTrue(app.buttons["angleTraining.start"].waitForExistence(timeout: 3))
             try capture("training-settings")
-            app.buttons["angleTraining.settingsClose"].tap()
+            app.buttons["training.settingsCancel"].tap()
             XCTAssertTrue(app.staticTexts["2/20"].waitForExistence(timeout: 3), "关闭设置保留当前轮次")
             app.buttons["angleTraining.settings"].tap()
             trainingSettings.tap()
             app.buttons["自由练习"].tap()
-            app.buttons["近台直球"].tap()
+            app.buttons["training.range.straight"].tap()
             app.buttons["angleTraining.start"].tap()
             XCTAssertTrue(answer.waitForExistence(timeout: 5))
             XCTAssertTrue(app.staticTexts["1"].exists)
@@ -464,8 +464,9 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         XCTAssertTrue(openCard(homeTab: "练", title: "\(mode)瞄准点"))
         let tablet = UIDevice.current.userInterfaceIdiom == .pad
         if tablet { XCUIDevice.shared.orientation = .landscapeLeft; sleep(2) }
+        app.buttons["aimPointTraining.start"].tap()
         let submit = app.buttons["aimPointTraining.submit"]
-        XCTAssertTrue(submit.waitForExistence(timeout: 10))
+        XCTAssertTrue(submit.waitForExistence(timeout: 40))
         let title = app.staticTexts["training.pageTitle"]
         XCTAssertEqual(title.label, "\(mode)瞄准点")
         // AX exposes the rendered glyph bounds, not the enclosing 60 × 34 reservation.
@@ -518,9 +519,12 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         try capture("adjusted")
         submit.tap()
         try capture("result")
-        XCTAssertTrue(app.descendants(matching:.any).matching(identifier:"aimPointTraining.questionInfo").firstMatch.label.contains("误差"))
+        XCTAssertTrue(app.buttons["aimPointTraining.next"].exists)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate:NSPredicate(format:"exists == false"),object:submit)],timeout:5),.completed)
-        XCTAssertTrue(submit.waitForExistence(timeout:45), "真实物理验证后自动下一题")
+        sleep(3)
+        XCTAssertFalse(submit.exists)
+        app.buttons["aimPointTraining.next"].tap()
+        XCTAssertTrue(submit.waitForExistence(timeout:10))
         try capture("next")
         if tablet {
             XCUIDevice.shared.orientation = .portrait; sleep(2)
