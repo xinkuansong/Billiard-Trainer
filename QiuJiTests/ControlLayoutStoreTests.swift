@@ -6,6 +6,62 @@ import XCTest
 #endif
 
 final class ControlLayoutStoreTests: XCTestCase {
+    @MainActor func testLegacyRecoveryCreatesMeasuredDraftWithoutChangingEitherArchive() throws {
+        let disk = MemoryStorage(), legacy = MemoryStorage(), old = ControlLayoutStore(storage: legacy), id = UUID()
+        let field = address(.replay)
+        try old.saveAs(id: id, name: "旧模板", page: .dailyClearance, edits: [field: .offset(8)],
+                       incorporating: [field], expectedRevision: 0)
+        let bytes = legacy.data
+        let store = FreeControlLayoutStore(storage: disk, legacyStorage: legacy)
+        let input = ControlLayoutPlacement.Input(page: CGRect(x: 0, y: 0, width: 800, height: 400),
+            leading: CGRect(x: 0, y: 44, width: 100, height: 312), trailing: CGRect(x: 700, y: 44, width: 100, height: 312),
+            defaults: [.replay: CGRect(x: 20, y: 100, width: 44, height: 44)])
+        let control = FreeControlLegacyMeasurements.Control(frame: CGRect(x: 20, y: 100, width: 44, height: 44), group: .replay)
+        let draft = try store.recoverLegacyDraft(id, page: .freePlay, mode: .twoD, domain: .phoneLandscape,
+            input: input, controls: ["shot.undo": control], window: .init(width: 800, height: 400))
+        XCTAssertNil(draft.pending)
+        XCTAssertEqual(draft.values["shot.undo"]?.y, 130.0 / 400)
+        XCTAssertNil(disk.data)
+        XCTAssertEqual(legacy.data, bytes)
+        XCTAssertTrue(legacy.backups.contains(try XCTUnwrap(bytes)))
+        legacy.failBackup = true
+        XCTAssertThrowsError(try store.recoverLegacyDraft(id, page: .freePlay, mode: .twoD, domain: .phoneLandscape,
+            input: input, controls: ["shot.undo": control], window: .init(width: 800, height: 400)))
+        XCTAssertNil(disk.data)
+    }
+
+    @MainActor func testUnassignedRecoveryDoesNotReopenCrossPageSharing() throws {
+        let disk = MemoryStorage(), store = FreeControlLayoutStore(storage: disk)
+        let value = FreeControlPlacement(x: 0.2, y: 0.3)
+        let template = FreeControlTemplate(id: UUID(), baseName: "无来源", mode: .twoD, sourcePage: "legacy-unknown", values: ["shot.undo": value])
+        try store.saveCopyOnly(template)
+        let before = disk.data
+        XCTAssertEqual(try store.recoverUnassignedDraft(template, page: .freePlay, mode: .twoD), template.values)
+        XCTAssertEqual(disk.data, before)
+        var local = template; local.sourcePage = TablePreferencePage.silu.rawValue
+        XCTAssertThrowsError(try store.recoverUnassignedDraft(local, page: .freePlay, mode: .twoD))
+        XCTAssertThrowsError(try store.recoverUnassignedDraft(template, page: .freePlay, mode: .threeD))
+    }
+    @MainActor func test_localActionsRejectCrossPageAndModeWithoutChangingArchive() throws {
+        let disk = MemoryStorage(), store = FreeControlLayoutStore(storage: disk), id = UUID()
+        let value = FreeControlPlacement(x: -0.1, y: 0.8, scale: 1.3)
+        try store.saveNew(id: id, name: "自由击球", page: .freePlay, mode: .twoD,
+            values: ["shot.undo": value], expectedPageRevision: 0)
+        let template = try XCTUnwrap(store.archive.templates.first)
+        let original = store.archive
+        XCTAssertThrowsError(try store.applyLocal(id, page: .silu, mode: .twoD, expectedPageRevision: 0))
+        XCTAssertThrowsError(try store.applyLocal(id, page: .freePlay, mode: .threeD, expectedPageRevision: 0))
+        XCTAssertThrowsError(try store.setPinnedLocal(template, pinned: true, page: .silu, mode: .twoD))
+        XCTAssertThrowsError(try store.deleteLocal(template, page: .freePlay, mode: .threeD))
+        XCTAssertThrowsError(try store.validateLocal(template, page: .silu, mode: .twoD))
+        XCTAssertEqual(store.archive, original)
+        XCTAssertEqual(FreeControlLayoutStore(storage: disk).archive, original)
+        try store.applyLocal(id, page: .freePlay, mode: .twoD, expectedPageRevision: 1)
+        XCTAssertEqual(store.values(page: .freePlay, mode: .twoD), ["shot.undo": value])
+        try store.deleteLocal(template, page: .freePlay, mode: .twoD)
+        XCTAssertEqual(store.values(page: .freePlay, mode: .twoD), ["shot.undo": value])
+    }
+
     @MainActor func test_localTemplatePinPersistsAndLibrarySeparatesPagesAndModes() throws {
         let disk = MemoryStorage(), store = FreeControlLayoutStore(storage: disk)
         let point = FreeControlPlacement(x: 0.2, y: 0.4, scale: 1.2)
@@ -678,9 +734,10 @@ final class ControlLayoutStoreTests: XCTestCase {
         XCTAssertEqual(active[.keyboard, .lane], .lane(.leading))
         XCTAssertEqual(reloaded.archive.revision, revision)
         XCTAssertTrue(resolve(reloaded.archive, .sceneAiming2D, .twoD, .padPortrait, [.keyboard]).values.isEmpty)
-        XCTAssertEqual(TablePreferencePage.allCases.filter(\.supportsControlLayoutEditing).count, 18)
+        XCTAssertEqual(TablePreferencePage.allCases.filter(\.supportsControlLayoutEditing).count, 20)
         XCTAssertFalse(TablePreferencePage.drillRecordPreview.supportsControlLayoutEditing)
-        XCTAssertFalse(TablePreferencePage.customFormationEditor.supportsControlLayoutEditing)
+        XCTAssertTrue(TablePreferencePage.customFormationEditor.supportsControlLayoutEditing)
+        XCTAssertEqual(TablePreferencePage.customFormationEditor.fixedControlLayoutMode, .twoD)
     }
 
     @MainActor func test_sameValueIsExplicitUntilRestoredAndFixedQuizEntriesStayIndependent() async throws {
@@ -768,7 +825,7 @@ final class ControlLayoutStoreTests: XCTestCase {
         }
         XCTAssertThrowsError(try other.savePage(.dailyClearance, edits: [address(): .lane(.leading)], expectedRevision: 0))
         XCTAssertThrowsError(try other.apply(.template(UUID()), to: .dailyClearance, expectedRevision: 0))
-        XCTAssertThrowsError(try other.savePage(.customFormationPractice, edits: [:], expectedRevision: 0))
+        XCTAssertThrowsError(try other.savePage(.drillDetailPreview, edits: [:], expectedRevision: 0))
         XCTAssertThrowsError(try other.saveAs(id: UUID(), name: " \n ", page: .dailyClearance, incorporating: [], expectedRevision: 0))
         XCTAssertNil(disk.data)
     }

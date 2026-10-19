@@ -240,7 +240,7 @@ final class CustomFormationUITests: XCTestCase {
         XCTAssertEqual(app.buttons["paletteBall__2"].value as? String,"2颗")
         XCTAssertFalse(app.buttons["paletteBall__3"].exists)
         try snap("09-practice")
-        app.buttons["dailyClearance.strike"].tap(); ready(app.buttons["dailyClearance.playback"])
+        app.buttons["dailyClearance.strike"].tap(); ready(app.buttons["dailyClearance.undo"])
     }
     func testLineSortThreeStatesAndRestore() throws {
         launch(); newTemplate(0)
@@ -264,6 +264,100 @@ final class CustomFormationUITests: XCTestCase {
             try snap("21-sort-\(i)")
         }
         XCTAssertEqual(try ordered(),original)
+    }
+    func testPracticeDragRetrieveReplayUndoAndRestart() throws {
+        launch(); newTemplate(0)
+        app.buttons["formation.tool.line"].tap()
+        table.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.70)).tap()
+        table.coordinate(withNormalizedOffset: CGVector(dx: 0.70, dy: 0.70)).tap()
+        for i in 0..<3 { app.buttons["paletteBall__1"].tap(); count(i + 1) }
+        save("自由练习回归")
+        app.buttons["formation.start"].tap(); ready(app.buttons["dailyClearance.strike"])
+        setView("2D"); count(3)
+        func board() throws -> [String: [Double]] {
+            let entries = try XCTUnwrap(probe()["balls"] as? [[String: Any]])
+            return try Dictionary(uniqueKeysWithValues: entries.map {
+                (try XCTUnwrap($0["key"] as? String), try XCTUnwrap($0["world"] as? [Double]))
+            })
+        }
+        func assertBoard(_ expected: [String: [Double]], file: StaticString = #filePath, line: UInt = #line) throws {
+            let actual = try board()
+            XCTAssertEqual(Set(actual.keys), Set(expected.keys), file: file, line: line)
+            for (key, position) in expected {
+                let current = try XCTUnwrap(actual[key])
+                for axis in 0..<3 { XCTAssertEqual(current[axis], position[axis], accuracy: 0.0001, file: file, line: line) }
+            }
+        }
+        let initial = try board()
+        XCTAssertFalse(app.buttons["dailyClearance.playback"].exists)
+        XCTAssertFalse(app.buttons["formation.tools"].exists)
+        XCTAssertFalse(app.buttons["formation.nudge.up"].exists)
+        XCTAssertFalse(app.buttons["formation.tool.line"].exists)
+        try snap("40-practice-simple")
+
+        let target = try XCTUnwrap(balls().max { ($0["screen"] as! [Double])[0] < ($1["screen"] as! [Double])[0] })
+        let key = try XCTUnwrap(target["key"] as? String)
+        let origin = try coordinate(target)
+        origin.press(forDuration: 0.15, thenDragTo: origin.withOffset(CGVector(dx: 0, dy: -110)))
+        let moved = try XCTUnwrap(board()[key])
+        XCTAssertGreaterThan(hypot(moved[0] - initial[key]![0], moved[2] - initial[key]![2]), 0.05)
+        try snap("41-practice-dragged")
+
+        let movedBall = try XCTUnwrap(balls().first { $0["key"] as? String == key })
+        let palette = app.buttons["paletteBall__1"]
+        try coordinate(movedBall).press(forDuration: 0.15, thenDragTo: palette.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+        count(2)
+        XCTAssertNil(try board()[key])
+        palette.tap(); count(3)
+        XCTAssertNotNil(try board()[key], "Retrieval must restore the same repeated-ball identity")
+        XCTAssertEqual(Set(try board().keys), Set(initial.keys))
+        try snap("42-practice-retrieved")
+
+        ready(app.buttons["dailyClearance.strike"])
+        let beforeShot = try board()
+        app.buttons["dailyClearance.strike"].tap()
+        ready(app.buttons["dailyClearance.undo"])
+        let afterShot = try board()
+        XCTAssertNotEqual(afterShot, beforeShot)
+        app.buttons["freeplay.moreMenu"].tap()
+        let scroll = app.scrollViews["dailyClearance.menuScroll"]
+        for _ in 0..<5 {
+            if app.buttons["formation.playback"].isHittable { break }
+            scroll.swipeUp()
+        }
+        for id in ["formation.arrange", "formation.line", "formation.cue", "formation.clear", "formation.settings"] {
+            XCTAssertFalse(app.buttons[id].exists, id)
+        }
+        ready(app.buttons["formation.playback"])
+        XCTAssertTrue(app.buttons["formation.save"].exists)
+        try snap("43-practice-settings")
+        app.buttons["formation.playback"].tap()
+        ready(app.buttons["dailyClearance.strike"])
+        try assertBoard(afterShot)
+        app.buttons["dailyClearance.undo"].tap()
+        ready(app.buttons["dailyClearance.strike"])
+        try assertBoard(beforeShot)
+        XCTAssertFalse(app.buttons["dailyClearance.undo"].isEnabled)
+        try snap("44-practice-undo")
+
+        app.buttons["formation.restart"].tap()
+        ready(app.buttons["formation.restart.cancel"])
+        app.buttons["formation.restart.cancel"].tap()
+        try assertBoard(beforeShot)
+        app.buttons["formation.restart"].tap()
+        ready(app.buttons["formation.restart.confirm"])
+        try snap("45-practice-restart-confirm")
+        app.buttons["formation.restart.confirm"].tap()
+        ready(app.buttons["dailyClearance.strike"]); count(3)
+        try assertBoard(initial)
+        XCTAssertFalse(app.buttons["dailyClearance.undo"].isEnabled)
+        try snap("46-practice-restarted")
+        setView("3D")
+        XCTAssertFalse(app.buttons["dailyClearance.playback"].exists)
+        try assertBoard(initial)
+        try snap("47-practice-3d")
+        setView("2D")
+        try assertBoard(initial)
     }
     func testLocalSyncStatusUsesExistingTemplateRow() throws {
         launch(); newTemplate(3); save("三颗同号球同步模板")
@@ -289,6 +383,6 @@ final class CustomFormationUITests: XCTestCase {
         XCTAssertFalse(app.buttons["paletteBall__2"].exists)
         XCTAssertEqual(app.buttons.matching(NSPredicate(format:"identifier BEGINSWITH %@", "paletteBall__")).count,1)
         try snap("11-practice-grouped-25")
-        app.buttons["dailyClearance.strike"].tap(); ready(app.buttons["dailyClearance.playback"])
+        app.buttons["dailyClearance.strike"].tap(); ready(app.buttons["dailyClearance.undo"])
     }
 }

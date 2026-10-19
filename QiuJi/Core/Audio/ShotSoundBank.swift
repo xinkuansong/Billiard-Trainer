@@ -8,8 +8,7 @@
 //  --------
 //  1. 多 player 池（默认 12 个）支持开球瞬间多次碰撞「同时发声」——
 //     单个 SystemSound / 单 player 做不到重叠。
-//  2. 缺资源优雅降级：Bundle 中没有对应音频文件时，`play` 静默 no-op，
-//     不影响功能与构建（音频资产可后续补入，详见 Resources/Audio/CREDITS.md）。
+//  2. 已选音效随 Bundle 打包；本地试听覆盖缺失时回退到包内样本。
 //  3. AVAudioSession 用 `.ambient + .mixWithOthers`：尊重硬件静音键、
 //     永不打断其他音频，与休息计时器的后台保活（`.playback`，仅组间休息阶段）
 //     时段不重叠，安全共存。
@@ -25,7 +24,7 @@ import UIKit
 final class ShotSoundBank {
     static let shared = ShotSoundBank()
 
-    private let engine = AVAudioEngine()
+    private let engine: AVAudioEngine
     private var players: [AVAudioPlayerNode] = []
     private var voiceEnds = Array(repeating: 0.0, count: 12)
     private var voiceWeights = Array(repeating: Float(0), count: 12)
@@ -44,7 +43,9 @@ final class ShotSoundBank {
     private var controlBuffers: [Control: AVAudioPCMBuffer] = [:]
     private var lastControlTickTime: TimeInterval?
 
-    private init() {}
+    init(engine: AVAudioEngine = AVAudioEngine()) {
+        self.engine = engine
+    }
 
     // MARK: - Lifecycle
 
@@ -240,13 +241,22 @@ final class ShotSoundBank {
     }
 
     private func resourceURL(name: String) -> URL? {
+        var previewDirectory: URL?
         #if DEBUG
         if UserDefaults.standard.bool(forKey: "shotAudioPreviewEnabled") {
-            let file = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("ShotAudioPreview").appendingPathComponent(name + ".caf")
-            return FileManager.default.fileExists(atPath: file.path) ? file : nil
+            previewDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("ShotAudioPreview")
         }
         #endif
+        return Self.resourceURL(name: name, previewDirectory: previewDirectory)
+    }
+
+    /// Missing local audition files must never hide the installed sound bank.
+    static func resourceURL(name: String, previewDirectory: URL? = nil) -> URL? {
+        if let file = previewDirectory?.appendingPathComponent(name + ".caf"),
+           FileManager.default.fileExists(atPath: file.path) {
+            return file
+        }
         for ext in ["caf", "wav", "m4a", "mp3", "aiff"] {
             if let url = Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Audio")
                 ?? Bundle.main.url(forResource: name, withExtension: ext) {

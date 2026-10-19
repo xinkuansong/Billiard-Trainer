@@ -279,7 +279,7 @@ struct ProfileView: View {
                     Circle()
                         .fill(Color.btPremiumSurface.opacity(0.22))
                         .frame(width: 56, height: 56)
-                    BTPremiumMaterialSymbol(systemName: BTIcon.star, size: 32)
+                    BTProfileCrown(width: 44)
                 }
             }
             .padding(Spacing.xl)
@@ -287,6 +287,7 @@ struct ProfileView: View {
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("profile.proPromotion")
     }
 
     // MARK: - Primary Menu Group

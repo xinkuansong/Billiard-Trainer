@@ -154,12 +154,12 @@ extension V52DailyClearanceUITests {
         try XCUIScreen.main.screenshot().pngRepresentation.write(to: dailyHUDEvidence.appendingPathComponent(name + ".png"))
     }
 
-    private func holdDailyControl(_ control: XCUIElement, name: String) throws {
+    private func holdDailyControl(_ control: XCUIElement, name: String, duration: TimeInterval = 7) throws {
         try FileManager.default.createDirectory(at: dailyHUDEvidence, withIntermediateDirectories: true)
         try Data().write(to: dailyHUDEvidence.appendingPathComponent(name + ".hold"))
         let start = control.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         start.press(forDuration: 0.15, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -1)),
-                    withVelocity: .slow, thenHoldForDuration: 7)
+                    withVelocity: .slow, thenHoldForDuration: duration)
     }
 
     func testDailyHUDAlignmentMenuAndFeedback() throws {
@@ -214,6 +214,32 @@ extension V52DailyClearanceUITests {
                     try holdDailyControl(wheel,name:"pocket-0-2d-zoomed-held")
                     stage.pinch(withScale:1.333333,velocity:1)
                 }
+            }
+            app.terminate()
+        }
+    }
+
+    func testAimCloseupClothAppearance() throws {
+        XCUIDevice.shared.orientation = .landscapeRight
+        for cloth in ["green", "tournamentBlue"] {
+            let app = launch(["-dailyClearance.fixture=closeup0", "-dailyClearance.fixtureSettled",
+                              "-showAimCloseup", "YES", "-clothColor.v1", cloth,
+                              "-roomStyle.v1", "tournament"])
+            let wheel = app.descendants(matching: .any)["shotStage.aimWheel"].firstMatch
+            XCTAssertTrue(wheel.waitForExistence(timeout: 30))
+            settleDailyCamera(app)
+            for mode in ["2d", "3d"] {
+                app.buttons["freeplay.moreMenu"].tap()
+                let camera = app.buttons["freeplay.cameraMode"]
+                XCTAssertTrue(camera.waitForExistence(timeout: 5))
+                if camera.value as? String != mode.uppercased() { camera.tap() }
+                XCTAssertEqual(camera.value as? String, mode.uppercased())
+                app.buttons["关闭菜单"].tap()
+                settleDailyCamera(app)
+                try holdDailyControl(wheel, name: "cloth-\(cloth)-\(mode)", duration: 12)
+                let hud = app.descendants(matching: .any)["aimCloseup.hud"].firstMatch
+                XCTAssertTrue(hud.waitForNonExistence(timeout: 5),
+                              "Releasing the ruler must dismiss the closeup after its sticky window")
             }
             app.terminate()
         }

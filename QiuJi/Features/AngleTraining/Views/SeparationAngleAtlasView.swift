@@ -9,7 +9,6 @@ struct SeparationAngleAtlasView: View {
         BTTeachingTablePage(vm: vm, titleLabel: "分离角图谱", identifier: "separationAngleAtlas", preferencePage: .separationAngleAtlas,
             velocity: $vm.velocity, showsDisabledSpinEntry: true,
             leftControlGroup: .information, layoutEditingBlocked: vm.isComputing,
-            displayMenuItems: trackMenuItems,
             information: teachingInformation, usesStandardTitle: true,
             title: { EmptyView() },
             leftContent: { size in
@@ -46,13 +45,6 @@ struct SeparationAngleAtlasView: View {
             #endif
             .background(Color.clear.accessibilityIdentifier("separationAngleAtlas.root"))
     }
-    private var trackMenuItems: [DailyHUDMenuItem] {
-        [.init(id: "separationAngleAtlas.tracks", title: "轨迹 · 至少保留一档")] + (0..<8).map { index in
-            .init(id: "separationAngleAtlas.track.\(index)", title: "高低杆第\(index + 1)档",
-                  selected: vm.enabledTracks.contains(index), action: { vm.toggleTrack(index) })
-        }
-    }
-
     private var teachingInformation: [BTTeachingInformation] {
         guard let text = vm.statusText, !vm.isComputing else { return [] }
         return [.init(text: text, identifier: "separationAngleAtlas.status")]
@@ -114,15 +106,16 @@ struct SeparationAngleAtlasSpinLegend: View {
                     .offset(y: dy)
             }
             .frame(width: size, height: size)
+            .opacity(enabled ? 1 : 0.35)
             .frame(width: 44, height: rowHeight)
             .contentShape(Rectangle())
-            .opacity(enabled ? 1 : 0.35)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTAtlasTrackButtonStyle(isSelected: enabled))
         .accessibilityIdentifier("separationAngleAtlas.spinLegend.\(index)")
         .accessibilityLabel("高低杆第\(index + 1)档")
         .accessibilityAddTraits(enabled ? .isSelected : [])
         .accessibilityValue(enabled ? "已选" : "未选")
+        .accessibilityHint(enabled && enabledTracks.count == 1 ? "至少保留一档轨迹" : (enabled ? "轻点隐藏这条轨迹" : "轻点显示这条轨迹"))
         .freeControlItem("separation.legend.\(index)", name: "高低杆第\(index + 1)档")
     }
 }

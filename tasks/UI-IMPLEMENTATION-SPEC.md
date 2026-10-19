@@ -1,3 +1,7 @@
+<!-- Changelog 2026-10-19 DR-412：瞄准特写新增feltImage，按当前台呢/球房预取liveReference材质底图；旧教学卡默认配方及球位/线/避让保持。 -->
+<!-- Changelog 2026-10-19 DR-411 r2 / FL-184：图谱去勾号/加号，可见框36pt、触点44pt，常态共用按键中性底；覆盖r1绿底。 -->
+<!-- Changelog 2026-10-19 DR-411：两图谱取消菜单重复八档，左列使用BTAtlasTrackButtonStyle选中/未选/按压样式；移除teachingNote及重复偏好说明。验证见UR-20261019-atlas-controls。 -->
+<!-- Changelog 2026-10-19 DR-408 r6：Pro宿主主题恢复提前至导航willDisappear，取消侧滑恢复深色；两手机转场及状态栏复验通过，见UR-20261019-pro-return-theme。 -->
 <!-- 2026-10-19 皇冠r11：最新纯金原图等比保真；底圈端点与两球肩部实测接合。r9视觉未接受，r10诊断未上线。证据见 UR-20261016-profile-crown.md。 -->
 <!-- Changelog 2026-10-19 FL-168 皇冠r8：禁重绘，原图像素alpha提取及高质量小图分发；共用组件API/权益不变。 -->
 <!-- Changelog 2026-10-19 FL-181 R08：收起布局工具保留透明单键拖动层，隐藏框线且阻止业务触摸；修复工具遮挡数字键时无直接移动路径。 -->
@@ -1571,6 +1575,7 @@ DR-276（2026-09-13）：完整预测可解析补齐纯台面自旋尾段；时�
 
 - 2026-09-13 / DR-197：局部联合冲量精确去重同球同法线同材料静态约束；界面API不变，袋底双球/解析/跨owner三测及同构建四项回归通过，完整W07仍未完成，见W07-working。
 
+| 2026-10-19 | FL-168 推广卡遗漏 | 修复 | 游客Pro推广星号换共用原冠图44pt；补查入口语义 | Pro视觉补查 |
 | 2026-09-14 | DR-306：`AngleTrainingScene.setupVisualizationNodes` 去掉 `usesTrainingAssistStyle` 的半透明整球假想球分支，2D/3D 角度训练与全站共用 DR-296 贴台呢 16 段虚线环 + 落点小球；训练态瞄准点/接触点/进球线配色不变；删 `TrajectoryStyle.TrainingAssist.ghostBall/ghostOpacity`。API 签名不变 | 用户要求假想球样式统一为标准贴桌样式 | SceneAimingView（2D/3D 角度训练） | DR-306 |
 | 2026-09-14 | DR-305：`AngleSceneView` 单指 pan 成为 `UIGestureRecognizerDelegate`——`interactionMode == .none` 或 `gesturesEnabled == false` 时 pan 立即失败、让路给祖先 UIScrollView（分页 TabView / ScrollView）；否则要求祖先 UIScrollView 的 pan 等待本 pan 失败（3D 起手在台面只转相机、`tapsOnly` 移球不被翻页抢走）。新增 `Coordinator.panGesture`、静态策略 `panClaimsSingleFingerTouch` / `isAncestorScrollPan`；调用方 API 不变 | 用户报训练页 3D 球台示意左右滑与翻页冲突 | AngleSceneView（所有球桌页）、ActiveTrainingView 翻页、DrillRecordView 球台示意 | DR-305 |
 | 2026-09-14 | DR-304：球体姿态是桌面状态——`CueBallPosePolicy.unchanged` 对所有球生效（原目标球无条件 resetPose）；新增 `BallPoseSnapshot` / `AngleTrainingScene.captureBallPoses()` / `restoreBallPoses(_:)` / `BallRestState`；`restoreNodePose` 仅限静帧契约。走位/思路/三球/斯诺克 UndoContext 与回放收尾、翻袋/颛星球形快照均随位置一起恢复姿态 | 用户实看「球停后贴纸原地转」 | AngleTrainingScene、TrajectoryPlayback、PositionPlay/Silu/PlanThree/Snooker/BankShot/DiamondSystem VM | DR-304 |
@@ -3300,3 +3305,13 @@ DR-407 每日简化决定（2026-10-19，覆盖上文共享/派生/菜单选键�
 ### DR-410 — 设置选择与下级入口（2026-10-19）
 自定义选择行未选用灰色空心方框，选中用绿色对勾，统一 BTSelectionIndicator；原生 Toggle/Picker 与分段控件保留。DailyHUDMenuItem.selected 为 Bool?：nil=动作/导航、false=未选、true=已选，未选也有可见标记和读屏值。disclosure 仅用于打开下一层选择/编辑/说明；清空、重置、播放等动作不因此加框。默认模板文字保持可使用，右侧独立灰色 disabled 三点不可触发父行。
 Changelog：2026-10-19 / DR-410 / 共用球桌菜单与自定义设置选择提示；验证记录 UR-20261019-settings-affordance.md。
+
+DR-410 v2 / Changelog（2026-10-19）：操作布局编辑浮层固定深色，覆盖2D/3D的工具栏、模板下拉与操作子菜单；移除 controlLayoutHost.editorColorScheme 参数。其他设置页继续原有外观策略，默认灰色禁用三点保留。
+
+DR-410 v3（2026-10-19）：所有交互球桌的操作布局统一为固定深色浮动工具条、直接选键、页+正式模式本地模板；默认灰色禁用三点。移除旧组编辑器/底部面板/菜单选键和通用布局管理导航。瞄准点与自定义球形分别注册真实按键并隔离编辑输入；无可编辑键模式不显示入口。v1数据模型仅用于测量迁移，页内恢复另存保留原档；现行模板的使用/修改/置顶/删除校验page/mode。详见 tasks/table-control-layout/LOCAL-ROLLOUT-20261019.md。
+
+Changelog（2026-10-19）：FL-164 r6，点选球的TableBallPulse结束后再建立布局往返状态基线，保留原scale及业务不变量断言。
+
+
+### DR-405 v1.7 — 自定义球形开始练习后精简
+2026-10-19用户批准：仅自定义练习左侧保留重新开始/方向/重打，右侧保留原击球仪表和观察控件；回放进入现有DailyHUDMenuPanel，另存模板保留。移除旧摆球工具及重复训练设置；直接拖球和球库取回不依赖摆球开关。只按实际单键收紧动作占位，不改共有字体、颜色、触点与编辑页工具。验证见`ui-reviews/UR-20261019-formation-practice-simplify.md`。

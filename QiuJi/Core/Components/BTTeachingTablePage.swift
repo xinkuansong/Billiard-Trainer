@@ -45,7 +45,6 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     /// Optional vertical-only spin control for the side-spin atlas.
     var spinHeight: Binding<Double>? = nil
     var showsDisabledSpinEntry: Bool = false
-    var teachingNote: String? = nil
     var planning: BTTablePlanningControls? = nil
     var leftControlGroup: ControlLayoutGroup = .planning
     var layoutEditingBlocked = false
@@ -353,7 +352,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             leading: f.left, trailing: f.right, defaultFits: f.fits && plan.fits,
             obstacles: plan.controlLayoutProtectionFrames(table: f.table),
             busy: controlLayoutBusy, editing: $editingControlLayout, rulerHeight: instruments.rulerLength,
-            primaryTitle: planning?.primaryTitle ?? "击球")
+            primaryTitle: planning?.primaryTitle ?? "击球", editorToolbarTop: f.table.minY)
         .background {
             GeometryReader { viewport in
                 let fullFrame = viewport.frame(in: .global)
@@ -457,7 +456,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             if let action = item.action { closingItem.action = { menu = nil; action() } }
             return closingItem
         }
-        if preferencePage.usesFreeControlLayout {
+        if preferencePage.usesFreeControlLayout && !FreeControlCatalog.ids(page: preferencePage, mode: is3D ? .threeD : .twoD).isEmpty {
             items.insert(.init(id: "controlLayout.open", title: "操作布局",
                 detail: controlLayoutBusy ? "请先完成当前操作" : nil, disclosure: true,
                 disabled: controlLayoutBusy, action: {
@@ -465,8 +464,6 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                     menu = nil; showSpinPad = false; editingControlLayout = true
                 }), at: min(5, items.count))
         }
-        items.append(.init(id: identifier + ".preferencesScope", title: "仅调整本页并记住；通用设置可再次统一更新。"))
-        if let teachingNote { items.append(.init(id: identifier + ".teachingNote", title: teachingNote)) }
         return items
     }
 

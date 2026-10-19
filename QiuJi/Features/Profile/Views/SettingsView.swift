@@ -326,14 +326,6 @@ struct SettingsView: View {
                     BTTogglePillGroup(options: [false, true], selected: generalToggle(.view3D)) { $0 ? "3D" : "2D" }
                 }
                 .accessibilityIdentifier("settings.defaultView")
-                Text("用于同时支持 2D / 3D 的页面；固定视图训练保持原题型。")
-                    .font(.btCaption).foregroundStyle(.btTextSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Divider()
-                NavigationLink { ControlLayoutLibrary() } label: {
-                    HStack { Text("操作布局"); Spacer(); Image(systemName: "chevron.right").foregroundStyle(.secondary) }
-                        .frame(minHeight: 44)
-                }.accessibilityIdentifier("settings.controlLayout")
                 Divider()
                 Toggle("台面网格 4×8", isOn: generalToggle(.grid)).accessibilityIdentifier("settings.grid")
                 Divider()
@@ -364,12 +356,8 @@ struct SettingsView: View {
                         Image(systemName: "chevron.up.chevron.down")
                     }.frame(minHeight: 44).contentShape(Rectangle())
                 }.accessibilityIdentifier("settings.trajectory")
-                Text("选中档位会统一更新，并开启相关页面的 3D 轨迹。")
-                    .font(.btCaption).foregroundStyle(.btTextSecondary).fixedSize(horizontal: false, vertical: true)
                 Divider()
                 Toggle("3D 显示轨迹", isOn: generalToggle(.shows3DTrajectory)).accessibilityIdentifier("settings.trajectory3D")
-                Text("关闭仅隐藏 3D 预测辅助；再开启时保留各页轨迹档位，2D 不变。")
-                    .font(.btCaption).foregroundStyle(.btTextSecondary).fixedSize(horizontal: false, vertical: true)
             }
             .font(.btBody).foregroundStyle(.btText).tint(.btPrimary)
             .padding(Spacing.lg).background(Color.btBGSecondary)

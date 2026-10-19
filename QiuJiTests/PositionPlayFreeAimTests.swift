@@ -1185,11 +1185,31 @@ final class CueScratchLifecycleV63Tests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(vm.scene.allBallNodes[cueKey]).isHidden)
         XCTAssertTrue(vm.canPlayback)
         ShotPlayCamera.setMode(.perspective3D, on: vm)
-        vm.replayLastShot()
-        XCTAssertTrue(vm.isPlaying)
-        try await waitForPlayback()
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.handleHorizontalSwipe(delta: 160)
+        rig.snapToTarget()
+        let observationView = vm.scene.cameraNode.transform
+        XCTAssertFalse(SCNMatrix4EqualToMatrix4(observationView, shotView))
+        for _ in 0..<2 {
+            vm.replayLastShot()
+            XCTAssertTrue(vm.isPlaying)
+            XCTAssertTrue(SCNMatrix4EqualToMatrix4(vm.scene.cameraNode.transform, shotView),
+                          "Replay must restore the original shot view before cue stroke")
+            try await waitForPlayback()
+            XCTAssertTrue(SCNMatrix4EqualToMatrix4(vm.scene.cameraNode.transform, observationView),
+                          "Replay must return to the view captured by this replay")
+        }
         XCTAssertEqual(settledCount, 1, "Replay must not judge the shot again")
         XCTAssertFalse(vm.onTableKeys.contains(cueKey))
+        ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+        try await Task.sleep(for: .milliseconds(600))
+        vm.replayLastShot()
+        XCTAssertEqual(vm.cameraMode, .topDown2DRotated)
+        XCTAssertTrue(try XCTUnwrap(vm.scene.cameraNode.camera).usesOrthographicProjection)
+        try await waitForPlayback()
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        XCTAssertTrue(SCNMatrix4EqualToMatrix4(vm.scene.cameraNode.transform, observationView),
+                      "A 2D replay must preserve the observation saved for the next 3D entry")
         ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
         try await Task.sleep(for: .milliseconds(600))
         vm.replayCurrent()
@@ -1383,6 +1403,72 @@ final class DailyPocketCameraTimingTests: XCTestCase {
         XCTAssertFalse(vm.onTableKeys.contains("_1"))
         vm.replayCurrent()
         XCTAssertEqual(vm.scene.cameraRig?.playerView, .firstPerson, "Undo restores the shot's original view")
+    }
+
+    func testReplayRestoresFirstPersonThenObservationAndInterruptionReturnsCurrentBoard() async throws {
+        let (vm, view, window) = try await fixture()
+        defer { vm.cancelDailyAttempt(); view.isPlaying = false; window.isHidden = true }
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        let shotView = vm.scene.cameraNode.transform
+        func attachView(_ name: String) {
+            let attachment = XCTAttachment(image: view.snapshot())
+            attachment.name = name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        attachView("replay-shot-view")
+        var settlements = 0
+        vm.onShotSettled = { _ in settlements += 1 }
+        vm.play()
+        XCTAssertTrue(vm.isPlaying)
+        try await ready(vm) { !vm.isPlaying && !vm.isComputing && !vm.cameraTransitionBusy }
+        XCTAssertEqual(rig.playerView, .thirdPerson)
+        let observationView = vm.scene.cameraNode.transform
+        let after = vm.currentSnapshot()
+        let afterPoses = vm.scene.captureBallPoses()
+        let afterRails = vm.scene.railInventory.snapshot()
+        XCTAssertFalse(SCNMatrix4EqualToMatrix4(shotView, observationView))
+        attachView("replay-observation-before")
+
+        func assertReturned() {
+            XCTAssertFalse(vm.isPlaying)
+            XCTAssertEqual(vm.currentSnapshot().onTable.mapValues { [$0.x, $0.y] },
+                           after.onTable.mapValues { [$0.x, $0.y] })
+            XCTAssertEqual(vm.scene.captureBallPoses(), afterPoses)
+            XCTAssertEqual(vm.scene.railInventory.snapshot(), afterRails)
+            XCTAssertTrue(SCNMatrix4EqualToMatrix4(vm.scene.cameraNode.transform, observationView))
+            XCTAssertEqual(rig.playerView, .thirdPerson)
+            XCTAssertEqual(settlements, 1, "Replay must not produce a second training/rules result")
+        }
+
+        vm.replayLastShot()
+        XCTAssertTrue(vm.isPlaying)
+        XCTAssertEqual(rig.playerView, .firstPerson)
+        XCTAssertTrue(SCNMatrix4EqualToMatrix4(vm.scene.cameraNode.transform, shotView))
+        attachView("replay-start-restored")
+        try await ready(vm) { !vm.isPlaying && !vm.isComputing }
+        assertReturned()
+        attachView("replay-finished-restored")
+
+        // Cover cancellation before the delayed cue stroke and after playback has started.
+        for waitForMotion in [false, true] {
+            vm.replayLastShot()
+            XCTAssertTrue(vm.isPlaying)
+            XCTAssertEqual(rig.playerView, .firstPerson)
+            if waitForMotion {
+                try await ready(vm) { vm.scene.cueBallNode?.hasActions == true }
+                XCTAssertTrue(vm.isPlaying)
+            }
+            vm.suspendAuthoringActivity()
+            assertReturned()
+            vm.resumeAuthoringActivity()
+            try await ready(vm) { !vm.isComputing }
+            try await Task.sleep(for: .milliseconds(200))
+            assertReturned()
+        }
+        vm.replayLastShot()
+        vm.cancelDailyAttempt()
+        assertReturned()
     }
 
     func testMissWaitsUntilSettlementBeforeStanding() async throws {
@@ -3680,5 +3766,239 @@ extension BatchSelectiveRerecordingTests {
         for index in 1..<original.steps.count {
             XCTAssertEqual(try bytes(original.steps[index]), try bytes(vm.sequence.steps[index]))
         }
+    }
+}
+
+@MainActor
+final class SharedShotReplayCameraTests: XCTestCase {
+    private func waitUntil(_ predicate: () -> Bool, scene: AngleTrainingScene,
+                           timeout: TimeInterval = 30) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !predicate(), Date() < deadline {
+            scene.cameraRig?.update(deltaTime: 0.02)
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertTrue(predicate(), "Playback/solve did not finish")
+    }
+
+    private func host(_ scene: AngleTrainingScene) throws -> (SCNView, UIWindow) {
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 874, height: 402))
+        view.scene = scene; view.pointOfView = scene.cameraNode
+        scene.cameraRig?.viewportSize = view.bounds.size
+        let window = UIWindow(windowScene: try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene))
+        let controller = UIViewController(); controller.view = view
+        window.rootViewController = controller; window.makeKeyAndVisible(); view.isPlaying = true
+        return (view, window)
+    }
+
+    private func snapshot(namedBalls: Bool = false) throws -> SolveShotSnapshot {
+        let before = BoardSnapshot(onTable: [
+            PositionPlayBall.cueKey: CanvasPoint(x: 0.5, y: 0.36),
+            "_1": CanvasPoint(x: 0.5, y: 0.16)])
+        var shot = PlannedShot(targetKey: "_1", pocket: "topCenter", velocity: 1.4)
+        if namedBalls { shot.freeAim = CanvasPoint(x: 0, y: -1) }
+        let prediction = try XCTUnwrap(PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: BTTablePhysics.surfaceY))
+        XCTAssertTrue(prediction.hasFinalTableState)
+        let solution = PositionPlaySolution(shot: shot, prediction: prediction, cushionCount: 0,
+            potted: prediction.objectPocketed, margin: 0, summary: "Replay fixture", satisfiesConstraint: true)
+        return SolveShotSnapshot(before: before, shot: shot, prediction: prediction,
+            solutions: [solution], currentIndex: 0, draft: nil, velocity: shot.velocity,
+            spinX: 0, spinY: 0, allowSideSpin: true, basicPositionOnly: false)
+    }
+
+    /// Exercise real cue/action callbacks. A different observation angle makes a missing restore visible.
+    private func exercise<Host: TeachingCameraHost>(host: Host, initialView: CameraRig.PlayerView = .firstPerson,
+                          play: () -> Void, replay: () -> Void, isPlaying: () -> Bool,
+                          stop: (() -> Void)? = nil, prepareObservation: () -> Void = {},
+                          prepareStoppedReplay: () -> Void = {},
+                          verifyReturned: () -> Void = {}, dismiss: () -> Void) async throws {
+        let scene = host.scene
+        let (view, window) = try self.host(scene)
+        defer { dismiss(); view.isPlaying = false; window.isHidden = true }
+        host.setCameraMode(.perspective3D)
+        let rig = try XCTUnwrap(scene.cameraRig)
+        XCTAssertTrue(host.requestPlayerView(initialView, animated: false))
+        for _ in 0..<100 { rig.update(deltaTime: 0.02) }
+        try await waitUntil({ !rig.isTransitioning }, scene: scene)
+        let shotView = scene.cameraNode.transform
+        play()
+        XCTAssertTrue(isPlaying(), "Original shot must start")
+        try await waitUntil({ !isPlaying() }, scene: scene)
+        prepareObservation()
+        host.requestSurfaceOverview()
+        for _ in 0..<100 { rig.update(deltaTime: 0.02) }
+        try await waitUntil({ !rig.isTransitioning }, scene: scene)
+        let returnView = scene.cameraNode.transform
+        let returnOverview = rig.overviewControlSelected
+        XCTAssertTrue(returnOverview)
+        XCTAssertFalse(SCNMatrix4EqualToMatrix4(shotView, returnView), "Fixture needs distinct viewpoints")
+        let poses = scene.captureBallPoses(), rails = scene.railInventory.snapshot()
+        let visible = Set(scene.allBallNodes.filter { !$0.value.isHidden }.keys)
+        let positions = scene.allBallNodes.filter { !$0.value.isHidden }.mapValues { [$0.position.x, $0.position.y, $0.position.z] }
+        func assertBoard() {
+            verifyReturned()
+            XCTAssertEqual(rig.overviewControlSelected, returnOverview)
+            XCTAssertEqual(scene.captureBallPoses(), poses)
+            XCTAssertEqual(scene.railInventory.snapshot(), rails)
+            XCTAssertEqual(Set(scene.allBallNodes.filter { !$0.value.isHidden }.keys), visible)
+            XCTAssertEqual(scene.allBallNodes.filter { !$0.value.isHidden }.mapValues { [$0.position.x, $0.position.y, $0.position.z] }, positions)
+        }
+        for _ in 0..<2 {
+            replay()
+            XCTAssertTrue(isPlaying())
+            XCTAssertTrue(SCNMatrix4EqualToMatrix4(scene.cameraNode.transform, shotView), "Replay must begin at original view")
+            XCTAssertEqual(rig.playerView, initialView)
+            XCTAssertFalse(rig.overviewControlSelected)
+            try await waitUntil({ !isPlaying() }, scene: scene)
+            assertBoard()
+            XCTAssertTrue(SCNMatrix4EqualToMatrix4(scene.cameraNode.transform, returnView), "Replay must return observation")
+            rig.update(deltaTime: 1 / 60)
+            XCTAssertTrue(SCNMatrix4EqualToMatrix4(scene.cameraNode.transform, returnView), "Restored camera must survive its next frame")
+        }
+        if let stop {
+            prepareStoppedReplay()
+            replay()
+            XCTAssertTrue(isPlaying())
+            stop()
+            XCTAssertFalse(isPlaying())
+            assertBoard()
+            XCTAssertTrue(SCNMatrix4EqualToMatrix4(scene.cameraNode.transform, returnView))
+            try await Task.sleep(for: .seconds(1))
+            XCTAssertFalse(isPlaying())
+            assertBoard()
+        }
+        host.setCameraMode(.topDown2DRotated)
+        replay()
+        XCTAssertTrue(isPlaying())
+        XCTAssertTrue(scene.cameraNode.camera?.usesOrthographicProjection == true)
+        try await waitUntil({ !isPlaying() }, scene: scene)
+        assertBoard()
+        XCTAssertEqual(scene.currentCameraMode, .topDown2DRotated)
+        host.setCameraMode(.perspective3D)
+        XCTAssertTrue(SCNMatrix4EqualToMatrix4(scene.cameraNode.transform, returnView))
+        replay()
+        XCTAssertTrue(isPlaying())
+        // Dismiss during playback and wait past the cue callback to detect stale resurrection.
+        try await Task.sleep(for: .milliseconds(150))
+        dismiss()
+        XCTAssertFalse(isPlaying())
+        assertBoard()
+        XCTAssertTrue(SCNMatrix4EqualToMatrix4(scene.cameraNode.transform, returnView))
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertFalse(isPlaying())
+        assertBoard()
+        XCTAssertTrue(SCNMatrix4EqualToMatrix4(scene.cameraNode.transform, returnView))
+    }
+
+    func testSiluReplayLifecycle() async throws {
+        let vm = SiluTrainerViewModel(); vm.setupScene()
+        vm.restore(from: .init(snapshot: try snapshot(), selectedTargetKey: "_1", selectedPocketIndex: 5))
+        try await exercise(host: vm, play: vm.play,
+            replay: vm.replayLastShot, isPlaying: { vm.isPlaying }, dismiss: vm.stopForDismissal)
+    }
+
+    func testPlanThreeReplayLifecycle() async throws {
+        let vm = PlanThreeViewModel(); vm.setupScene()
+        vm.restore(from: .init(snapshot: try snapshot(), ball1Key: "_1", ball2Key: nil, ball3Key: nil,
+            pocket1Index: 5, pocket2Index: -1, armedRole: nil))
+        try await exercise(host: vm, play: vm.play,
+            replay: vm.replayLastShot, isPlaying: { vm.isPlaying }, dismiss: vm.stopForDismissal)
+    }
+
+    func testSnookerReplayLifecycle() async throws {
+        let vm = SnookerTacticsViewModel(); vm.setupScene()
+        vm.restore(from: .init(snapshot: try snapshot(namedBalls: true), selectedTargetKey: "_1"))
+        try await exercise(host: vm, play: vm.play,
+            replay: vm.replayLastShot, isPlaying: { vm.isPlaying }, dismiss: vm.stopForDismissal)
+    }
+
+    func testBankSolveReplayLifecycle() async throws {
+        let vm = BankShotViewModel(); vm.setupScene()
+        defer { vm.stopForDismissal() }
+        try await waitUntil({ !vm.isSolving }, scene: vm.scene, timeout: 120)
+        if !vm.hasSolution {
+            for pocket in 0..<6 {
+                vm.selectPocket(pocket)
+                try await waitUntil({ !vm.isSolving }, scene: vm.scene, timeout: 120)
+                if vm.hasSolution { break }
+            }
+        }
+        XCTAssertTrue(vm.canStrike)
+        var returnIndex = vm.currentIndex
+        var returnCushions = vm.selectedCushions
+        var returnHasSolution = true
+        try await exercise(host: vm, play: vm.strike,
+            replay: vm.replaySolveShot, isPlaying: { vm.isPlaying }, stop: vm.stopStrike,
+            prepareObservation: { vm.nextSolution(); returnIndex = vm.currentIndex },
+            prepareStoppedReplay: {
+                vm.selectCushions(99)
+                XCTAssertFalse(vm.hasSolution, "Fixture must preserve an empty filtered catalog")
+                returnIndex = vm.currentIndex; returnCushions = vm.selectedCushions; returnHasSolution = false
+            },
+            verifyReturned: {
+                XCTAssertEqual(vm.currentIndex, returnIndex)
+                XCTAssertEqual(vm.selectedCushions, returnCushions)
+                XCTAssertEqual(vm.hasSolution, returnHasSolution)
+            }, dismiss: vm.stopForDismissal)
+    }
+
+    func testDiamondSolveReplayLifecycle() async throws {
+        let vm = DiamondSystemViewModel(); vm.setupScene()
+        defer { vm.stopForDismissal() }
+        try await waitUntil({ !vm.isSolving }, scene: vm.scene, timeout: 120)
+        XCTAssertTrue(vm.canStrike)
+        var returnIndex = vm.currentIndex
+        var returnCushions = vm.selectedCushions
+        var returnHasSolution = true
+        // This kick route has no clear first-person entry; exercise its supported shot view.
+        try await exercise(host: vm, initialView: .thirdPerson, play: vm.strike,
+            replay: vm.replaySolveShot, isPlaying: { vm.isPlaying }, stop: vm.stopStrike,
+            prepareObservation: { vm.nextSolution(); returnIndex = vm.currentIndex },
+            prepareStoppedReplay: {
+                vm.selectCushions(99)
+                XCTAssertFalse(vm.hasSolution, "Fixture must preserve an empty filtered catalog")
+                returnIndex = vm.currentIndex; returnCushions = vm.selectedCushions; returnHasSolution = false
+            },
+            verifyReturned: {
+                XCTAssertEqual(vm.currentIndex, returnIndex)
+                XCTAssertEqual(vm.selectedCushions, returnCushions)
+                XCTAssertEqual(vm.hasSolution, returnHasSolution)
+            }, dismiss: vm.stopForDismissal)
+    }
+
+    func testBankFreeReplayLifecycle() async throws {
+        let vm = BankShotViewModel(); vm.setupScene(); vm.toggleMode()
+        defer { vm.stopForDismissal() }
+        vm.reflectionPower = 1.4
+        try await waitUntil({ vm.canFreeStrike }, scene: vm.scene)
+        try await exercise(host: vm, play: vm.freeStrike,
+            replay: vm.replayLastShot, isPlaying: { vm.isPlaying }, stop: vm.stopStrike, dismiss: vm.stopForDismissal)
+    }
+
+    func testDiamondFreeReplayLifecycle() async throws {
+        let vm = DiamondSystemViewModel(); vm.setupScene(); vm.toggleMode()
+        defer { vm.stopForDismissal() }
+        vm.reflectionPower = 1.4
+        try await waitUntil({ vm.canFreeStrike }, scene: vm.scene)
+        try await exercise(host: vm, play: vm.freeStrike,
+            replay: vm.replayLastShot, isPlaying: { vm.isPlaying }, stop: vm.stopStrike, dismiss: vm.stopForDismissal)
+    }
+
+    func testReplayWithNoSaved3DViewDoesNotLeaveShotCameraCached() throws {
+        let scene = AngleTrainingScene(); scene.setupScene()
+        scene.setCameraMode(.perspective3D, animated: false)
+        let original = try XCTUnwrap(ShotReplayCamera.capture(in: scene))
+        scene.setCameraMode(.topDown2DRotated, animated: false)
+        scene.discardSavedPerspectiveView()
+        XCTAssertNil(scene.capturePerspectiveView())
+        var replay = ShotReplayCamera()
+        replay.begin(in: scene)
+        replay.showShot(original, in: scene, aim: SCNVector3(0, 0, -1))
+        XCTAssertNotNil(scene.capturePerspectiveView())
+        replay.finish(in: scene)
+        XCTAssertNil(scene.capturePerspectiveView())
+        XCTAssertEqual(scene.currentCameraMode, .topDown2DRotated)
+        replay.finish(in: scene)
+        XCTAssertNil(scene.capturePerspectiveView())
     }
 }

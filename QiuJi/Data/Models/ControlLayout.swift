@@ -59,6 +59,17 @@ enum FreeControlCatalog {
             guard (page == .sceneAiming2D) == (mode == .twoD) else { return [] }
             ids = Set((0...9).map { "angle.digit." + String($0) })
             ids.formUnion(["angle.erase", "angle.submit", "angle.cancel", "angle.assist", "angle.answer", "angle.next"])
+        case .aimPointScene2D, .aimPointScene3D:
+            guard (page == .aimPointScene2D) == (mode == .twoD) else { return [] }
+            ids = ["shot.aim", "aimPoint.hint", "aimPoint.submit", "aimPoint.next"]
+        case .customFormationPractice:
+            ids = ["shot.undo", "shot.aim", "shot.spin", "shot.power", "shot.strike", "formation.restart"]
+        case .customFormationEditor:
+            guard mode == .twoD else { return [] }
+            ids = ["formation.tool.line", "formation.tool.distance", "formation.tool.angle",
+                   "formation.edit.undo", "formation.edit.redo", "formation.edit.clearMeasure", "formation.edit.finish",
+                   "formation.edit.sort", "formation.edit.delete", "formation.edit.deleteLine", "formation.edit.save",
+                   "formation.nudge.up", "formation.nudge.down", "formation.nudge.left", "formation.nudge.right"]
         case .angleDynamic:
             ids = [] // Readouts are fixed; only the real 3D camera controls are editable.
         case .separationAngleAtlas, .cushionEnglishAtlas:
@@ -164,17 +175,14 @@ enum ControlLayoutFamily: String, CaseIterable, Codable {
 }
 
 extension TablePreferencePage {
-    /// Expand only after the individual-control batch for each page is verified.
-    var usesFreeControlLayout: Bool {
-        [.dailyClearance, .freePlay, .silu, .shotSimulation, .snakePractice, .composer, .drillTryout,
-         .planThree, .snookerTactics, .bankShot, .diamondSystem,
-         .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas, .sceneAiming2D, .sceneAiming3D].contains(self)
+    /// One page-local editor for every interactive table page.
+    var usesFreeControlLayout: Bool { supportsControlLayoutEditing }
+    var supportsControlLayoutEditing: Bool {
+        self != .drillDetailPreview && self != .drillRecordPreview
     }
-    /// Rollout gate shared by page entry points and the template library.
-    var supportsControlLayoutEditing: Bool { [.dailyClearance, .freePlay, .shotSimulation, .snakePractice, .composer, .drillTryout, .silu, .planThree, .snookerTactics, .bankShot, .diamondSystem, .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas, .sceneAiming2D, .sceneAiming3D, .aimPointScene2D, .aimPointScene3D].contains(self) }
     var fixedControlLayoutMode: ControlLayoutLayer? {
         switch self {
-        case .sceneAiming2D, .aimPointScene2D: return .twoD
+        case .sceneAiming2D, .aimPointScene2D, .customFormationEditor: return .twoD
         case .sceneAiming3D, .aimPointScene3D: return .threeD
         default: return nil
         }

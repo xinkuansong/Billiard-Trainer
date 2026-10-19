@@ -11,6 +11,38 @@ extension EnvironmentValues {
     }
 }
 
+/// Reports navigation appearance before animation, including cancelled edge swipes.
+private struct ProBrandAppearanceLifecycle: UIViewControllerRepresentable {
+    var onVisibilityChange: (Bool) -> Void
+
+    func makeUIViewController(context: Context) -> Controller {
+        let controller = Controller()
+        controller.onVisibilityChange = onVisibilityChange
+        return controller
+    }
+
+    func updateUIViewController(_ controller: Controller, context: Context) {
+        controller.onVisibilityChange = onVisibilityChange
+    }
+
+    final class Controller: UIViewController {
+        var onVisibilityChange: (Bool) -> Void = { _ in }
+
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            onVisibilityChange(true)
+        }
+
+        override func viewWillDisappear(_ animated: Bool) {
+            super.viewWillDisappear(animated)
+            onVisibilityChange(false)
+            transitionCoordinator?.animate(alongsideTransition: nil) { [weak self] context in
+                if context.isCancelled { self?.onVisibilityChange(true) }
+            }
+        }
+    }
+}
+
 struct SubscriptionStatusView: View {
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.proBrandSurfaceVisibility) private var setBrandSurfaceVisible
@@ -37,7 +69,8 @@ struct SubscriptionStatusView: View {
             .accessibilityIdentifier("subscription.statusScroll")
         }
         .environment(\.colorScheme, .dark)
-        .preferredColorScheme(.dark)
+        // RootView owns the temporary host appearance. A second preference here
+        // would keep a system-following host dark until the pop finishes.
         .tint(Color.btOverviewDays)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(Color("introLabBackground"), for: .navigationBar)
@@ -45,8 +78,10 @@ struct SubscriptionStatusView: View {
         .navigationTitle(subscriptionManager.purchasedProductIDs.contains(StoreKitService.lifetimeID) ? "Pro 权益" : "订阅管理")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .onAppear { setBrandSurfaceVisible(true) }
-        .onDisappear { setBrandSurfaceVisible(false) }
+        .background {
+            ProBrandAppearanceLifecycle(onVisibilityChange: setBrandSurfaceVisible)
+                .frame(width: 0, height: 0)
+        }
         .sheet(isPresented: $showUpgrade) { SubscriptionView() }
         .task { await subscriptionManager.checkEntitlements(coalescing: true) }
         .alert("恢复购买", isPresented: $showRestoreAlert) {

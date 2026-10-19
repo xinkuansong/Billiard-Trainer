@@ -1,7 +1,6 @@
 # 击球回放音效资产（Audio）
 
-本目录存放击球回放音效。**代码已就绪**：放入符合下方命名约定的音频文件后，
-重新构建即可生效；目录为空时 App 自动静音（功能不受影响）。
+本目录存放随 App 安装包分发的击球回放音效。2026-10-19 已将用户选定的本地试听样本原样接入，普通启动无需额外导入或试听参数。
 
 > 加载逻辑见 `QiuJi/Core/Audio/ShotSoundBank.swift`，事件调度见 `ShotAudioScheduler.swift`。
 > **自行实录方案**（场地/器材/逐类要求/后期规范）见本目录 `RECORDING-PLAN.md`。
@@ -74,3 +73,19 @@ afconvert -f caff -d LEI16@44100 clip.wav sfx_ball_hit_2.caf
 - 瞄准：direction.mp3的0.369–0.413秒，1941帧，约44ms，增益-7.03dB。当前资源SHA-256：`8c364f562e8571363801f985c4987fc92d8bb9dfd7bd6414627bea4eda2f0ee9`。
 - 力度：power.mp3的0.202–0.246秒，1940帧，约44ms，增益-3.41dB。当前资源SHA-256：`2528c4754ed9333acffdaf461663dd56f8d09412fdc5ffef4c7b707b9dfa0b99`。
 - 均为44.1kHz/16bit/stereo，去DC，0.5ms淡入、3ms淡出，峰值0.25；不变调、不加EQ或压缩。每个有效刻度使用一次完整齿声，沿用60ms声音/100ms震动节奏。
+
+
+## 2026-10-19 已选击球样本随包接入
+
+按用户本轮要求，将 2026-09-30 已选试听样本原样加入 App 的 Audio folder reference（Debug / Release 共用）。旧试听覆盖仍可使用；覆盖文件缺失时回退到包内资源。声音开关保留用户选择，新安装默认关闭；沿用原音色、增益曲线及静音键策略。
+
+| 包内文件 | 已选来源 | SHA-256 |
+|---|---|---|
+| sfx_cue_strike.caf | C03_明显换色.wav | 9fee8881e4cc35366e68c3e0e6bd34dea71112cc885d34b585060b77d43e5277 |
+| sfx_ball_hit.caf | B04_明显换色.wav | b0525e6937dde7c28446bb1935e31193af4c6369d56660ae873c1790fb2e490a |
+| sfx_cushion.caf | U02_中.wav | 21a7f3da3423308e876fcce3e92dc73d8b9055d5d48e8479ea6c40fc34685327 |
+| sfx_pocket.caf | P03_明显换色.wav | 03b84f0ee9b5f58e16d1694f9d61877dffaa179a5255a424529fab62202b55d5 |
+| sfx_jaw.caf | 沿用已选 U02 底样及独立增益 | 21a7f3da3423308e876fcce3e92dc73d8b9055d5d48e8479ea6c40fc34685327 |
+| sfx_rail.caf | 沿用试听包 U02 底样；rail/railStop 原增益为零 | 21a7f3da3423308e876fcce3e92dc73d8b9055d5d48e8479ea6c40fc34685327 |
+
+来源详情仍见 `output/shot-audio-preview-20260930/manifest.json`；击杆、碰球、落袋这三种视频裁切换色素材不因本次接入而被重新标注为自录或 CC0。历史“未进入发行资源”是当时状态，以上本轮接入记录取代该使用状态。总计 144372 字节。

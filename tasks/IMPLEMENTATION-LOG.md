@@ -5978,4 +5978,48 @@ FL-168 皇冠r8补充（2026-10-19）：r7生成式去背景改动金属细节�
 - 用户确认：自定义选择项未选灰色空心框、选中绿色对勾；下级选择/编辑入口带箭头；已有系统开关保留。每日默认布局模板补灰色禁用三点。
 - 组件：BTSelectionIndicator 共用方框/勾；DailyHUDMenuItem.selected 改为 Bool?，nil 表示无选择语义，避免把普通动作标成关闭。保持原动作、状态存储与生效范围。
 - 每日默认模板的可点击文字与禁用三点为兄弟控件，禁用区域不得触发默认布局重置。
+- v2 用户追加裁定：操作布局编辑浮层固定深色（含工具栏、模板列表及二级菜单），移除 editorColorScheme 页面传参；不跟随系统切换浅色，App 其他设置外观保持。
 - 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` DR-410、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog及DR-410；验证见 `tasks/ui-reviews/UR-20261019-settings-affordance.md`。
+
+FL-168 / 推广卡遗漏（2026-10-19）：游客Pro推广卡旧星号改共用皇冠44pt，保留56pt圆底、布局与订阅跳转。品牌图形审计扩至游客/登录入口，锁与评分保留语义。已应用至swiftui-design-system §DR-401推广入口补查、UI-IMPLEMENTATION-SPEC Changelog；验证见UR-20261019-pro-unlock-style.md。
+
+
+### DR-408 r6 — Pro返回主题时序（2026-10-19）
+
+DR-408 r6（2026-10-19）：Pro状态页临时宿主主题由UIKit页面willAppear/willDisappear上报，在返回转场开始前恢复用户外观，交互取消后恢复品牌深色；移除子页重复preferredColorScheme，仅保留局部深色环境。不得依赖SwiftUI onDisappear在动画结束后恢复，也不能只在返回页onAppear清除而遗漏取消。验收包含按钮返回、完成侧滑、取消侧滑及系统状态栏的原生截图/录像。
+
+标准机与SE各1项UI通过，18次返回流程；首轮取消侧滑状态栏失败保留，最终原图及转场抽帧通过。已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` DR-408 r6、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。证据与边界：[报告](ui-reviews/UR-20261019-pro-return-theme.md)。
+
+### DR-410 v3 — 操作布局全量替换（2026-10-19）
+- 用户裁定：所有相关页面使用新版，之前模式全部否决；通用设置不再管理布局。
+- 变更：唯一浮动宿主、本地模板、瞄准点/自定义球形逐键接入、旧运行时界面移除；原文件保留，未知来源旧模板由本页预览另存。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` DR-410 v3、`tasks/UI-IMPLEMENTATION-SPEC.md` DR-410 v3；方案及验证见 `tasks/table-control-layout/LOCAL-ROLLOUT-20261019.md`（全量回归进行中）。
+
+FL-164 r6（2026-10-19，操作布局全量推广）：自定义球形点选调用TableBallPulse（0.18秒放大+0.24秒还原），测试即时采集的presentation scale与编辑结束后的稳定scale不同。原final-pad失败保留，world/训练参数一致；新增等待实际scale回到选中前值，并保留完整业务快照等值断言。等待本态复验，不把缩放差异忽略掉。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` FL-164 r6、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；证据`output/layout-local-rollout-20261019/final-pad/test.log`。
+
+DR-410 v3验收补记：20入口/34适用模式定向UI通过，47项存储测试及构建通过；FL-164 r6同手机/平板复验通过。范围与边界见LOCAL-ROLLOUT-20261019.md，不宣称全App/真机/用户验收。
+
+
+### DR-405 v1.7 — 自定义球形练习控件精简（2026-10-19）
+- 用户授权只精简开始练习后的控件，已完成的球形编辑不变。
+- 左侧重新开始/方向/重打，右侧打点/杆速/击球及原有3D观察。回放迁入原设置菜单，另存模板保留。
+- 练习不再提供旧摆球模式、直线/清线、母球换位/选择/放回、四向微调、移除/清空及重复训练设置入口；直接拖球/球库取回沿用原逻辑。
+- FreeControlCatalog只调整customFormationPractice，旧布局档不重写；其他页面与编辑工具/测量代码保持。
+- 已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md` § DR-405 v1.7；规格同步`docs/05-信息架构与交互设计.md`。验证状态与证据见`tasks/ui-reviews/UR-20261019-formation-practice-simplify.md`。
+
+
+## DR-411 — 图谱直接选档与说明精简（2026-10-19）
+
+用户要求两图谱删除菜单八档选择及冗余说明，增强左侧打点盘操作感。新增BTAtlasTrackButtonStyle(isSelected:)使用现有HUD token，52pt宽底框、勾号/加号、按压高亮；保留原行高/几何/至少一档。共用教学菜单及FreePlay删除偏好作用域小字，通用设置删三处同类说明，删除唯一消费的teachingNote API。覆盖DR-406中菜单八档重复入口。已应用至：swiftui-design-system §DR-411、UI-IMPLEMENTATION-SPEC Changelog；验证真源为ui-reviews/UR-20261019-atlas-controls.md。
+
+
+### DR-411 r2 / FL-184 — 图谱打点盘样式返工（2026-10-19）
+用户否定r1的勾号/宽绿色底框。去掉勾号与加号、可见外框52→36pt（命中44pt），常态统一HUDStyle.controlBackground；选中仅球面明暗与中性细框区分，按下使用原HUD选中色。原球径/行高/开关逻辑保持。已应用至：swiftui-design-system §DR-411 r2 / FL-184、UI-IMPLEMENTATION-SPEC Changelog、docs/05；验证见ui-reviews/UR-20261019-atlas-controls.md r2。
+
+## DR-412 — 瞄准特写台呢更新（2026-10-19）
+
+用户要求把瞄准特写的历史台呢替换为当前正式渲染。BTAimCloseupOverlay按台呢颜色/球房/启用状态预取缓存；BTAimCloseupHUD新增可选feltImage，以真实材质底图替代旧采样RGB。TableFigureRenderer.closeupFelt显式使用liveReference，取无置球点的纯台呢近景；backdrop新增默认保持plainLegacy的recipe/clothColor/roomStyle，缓存分开识别。保留现有球位、辅助线、相切、避让与手势可见性。
+
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` DR-412、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+- 验证与范围：`tasks/ui-reviews/UR-20261019-aim-closeup-cloth.md`；构建、4项单测及1项UI通过；6色/3球房采样组合、绿/蓝2D/3D四张原图已核。尚未用户验收或真机验证。

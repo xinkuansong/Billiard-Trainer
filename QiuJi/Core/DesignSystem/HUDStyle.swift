@@ -138,6 +138,26 @@ struct BTHUDPressStyle: ButtonStyle {
     }
 }
 
+/// Compact atlas switches keep their ball faces intact and expose selection on the shell.
+struct BTAtlasTrackButtonStyle: ButtonStyle {
+    let isSelected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background {
+                RoundedRectangle(cornerRadius: BTRadius.sm)
+                    .fill(configuration.isPressed ? HUDStyle.selectedBackground : HUDStyle.controlBackground)
+                    .padding(.horizontal, Spacing.xs)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: BTRadius.sm)
+                    .strokeBorder(isSelected ? HUDStyle.tickMajor : HUDStyle.hairline,
+                                  lineWidth: isSelected ? 1 : HUDStyle.hairlineWidth)
+                    .padding(.horizontal, Spacing.xs)
+            }
+    }
+}
+
 /// Put this behind the content, so feedback never recolors ball faces or labels.
 struct BTHUDControlBackground<S: Shape>: View {
     let shape: S

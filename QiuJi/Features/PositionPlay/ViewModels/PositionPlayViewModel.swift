@@ -781,6 +781,10 @@ final class PositionPlayViewModel: ObservableObject {
     /// A new daily attempt owns all subsequent callbacks; the cancelled stroke cannot settle it.
     func cancelDailyAttempt() {
         strokeGeneration = UUID()
+        if replayReturnContext != nil {
+            scene.railInventory.cancelPlayback()
+            finishPlayback()
+        }
         invalidatePendingPredict()
         if isBreakMode { cancelBreakFlow() }
         scene.allBallNodes.values.forEach { TableBallPulse.restore($0); $0.removeAllActions() }
@@ -1800,6 +1804,10 @@ final class PositionPlayViewModel: ObservableObject {
                 applyBoard(restore.board, cuePose: .unchanged)
                 scene.railInventory.restore(restore.rails)
             }
+        } else if replayReturnContext != nil {
+            // A replay is only a temporary presentation, including when interrupted.
+            scene.railInventory.cancelPlayback()
+            finishPlayback()
         } else if wasPlaying {
             scene.allBallNodes.values.forEach { $0.removeAllActions() }
             scene.railInventory.cancelPlayback()
@@ -2298,7 +2306,7 @@ final class PositionPlayViewModel: ObservableObject {
         lastShotSelection = selectionSnapshot
         let beforePoses = scene.captureBallPoses()
         lastShotBeforePoses = beforePoses
-        lastPlaybackContext = (solved.before, beforePoses, solved.shot, solved.prediction, scene.capturePerspectiveView())
+        lastPlaybackContext = (solved.before, beforePoses, solved.shot, solved.prediction, ShotReplayCamera.capture(in: scene))
         canPlayback = false
         lastShotWasRecorded = false
         canReplay = false
@@ -2634,22 +2642,25 @@ final class PositionPlayViewModel: ObservableObject {
     /// 上一杆完整回放上下文。与「重打」不同：回放**不改变**桌面真相——退回击打前重播动画，
     /// 播完回到当前局面（after），参数/选中态/序列都不动。
     private var lastShotBeforeRails = PocketRailSnapshot()
-    private var replayReturnRails = PocketRailSnapshot()
+    private var replayReturnContext: (board: BoardSnapshot, poses: BallPoseSnapshot,
+                                      rails: PocketRailSnapshot)?
+    private var replayCamera = ShotReplayCamera()
     private var recordedRailsBefore: [UUID: PocketRailSnapshot] = [:]
     private var lastPlaybackContext: (before: BoardSnapshot, beforePoses: BallPoseSnapshot, shot: PlannedShot, prediction: ShotPrediction, perspectiveView: CameraRig.PerspectiveState?)?
     @Published private(set) var canPlayback = false
 
     /// 回放上一杆击打过程（复用 `TrajectoryPlayback`，画面=物理）。
     func replayLastShot() {
-        guard !isPlaying, !isBreakMode,
+        guard !isPlaying, !isBreakMode, !temporaryTopDownActive,
               let ctx = lastPlaybackContext,
               let recorder = ctx.prediction.recorder, ctx.prediction.duration > 0.05 else { return }
         let generation = UUID()
         strokeGeneration = generation
-        let after = currentSnapshot()
-        replayReturnRails = scene.railInventory.snapshot()
+        cancelPendingSelectionCamera()
         // 回放不改变桌面真相：当前局面的姿态也要原样带回（球停稳后贴纸不得再动）。
-        let afterPoses = scene.captureBallPoses()
+        replayReturnContext = (currentSnapshot(), scene.captureBallPoses(),
+                               scene.railInventory.snapshot())
+        replayCamera.begin(in: scene)
         isPlaying = true
         scene.clearResultNodes(nodes: &selectionNodes)
         refreshFreeAimOverlay()
@@ -2666,9 +2677,10 @@ final class PositionPlayViewModel: ObservableObject {
 
         guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
               let aim = aimDirection(path: ctx.prediction.cuePath, from: cueNode.position) else {
-            finishPlayback(after: after, afterPoses: afterPoses)
+            finishPlayback()
             return
         }
+        replayCamera.showShot(ctx.perspectiveView, in: scene, aim: aim)
         let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: ctx.shot.spinX, spinY: ctx.shot.spinY)
         let clearancePlayback = TrajectoryPlayback(
             recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
@@ -2686,7 +2698,7 @@ final class PositionPlayViewModel: ObservableObject {
                 guard let self, self.isPlaying, self.strokeGeneration == generation else { return }
                 self.runPlaybackAnimation(
                     ctx: (ctx.before, ctx.shot, ctx.prediction), recorder: recorder,
-                    after: after, afterPoses: afterPoses, generation: generation
+                    generation: generation
                 )
             }
         }
@@ -2694,7 +2706,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     private func runPlaybackAnimation(
         ctx: (before: BoardSnapshot, shot: PlannedShot, prediction: ShotPrediction),
-        recorder: TrajectoryRecorder, after: BoardSnapshot, afterPoses: BallPoseSnapshot,
+        recorder: TrajectoryRecorder,
         generation: UUID
     ) {
         guard isPlaying, strokeGeneration == generation else { return }
@@ -2724,17 +2736,19 @@ final class PositionPlayViewModel: ObservableObject {
             cueNode.runAction(.group([cueAction, .wait(duration: completionDuration)])) { [weak self] in
                 Task { @MainActor in
                     guard let self, self.isPlaying, self.strokeGeneration == generation else { return }
-                    self.finishPlayback(after: after, afterPoses: afterPoses)
+                    self.finishPlayback()
                 }
             }
             ShotAudioScheduler.shared.play(prediction: ctx.prediction)
         } else {
-            finishPlayback(after: after, afterPoses: afterPoses)
+            finishPlayback()
         }
     }
 
     /// 回放收尾：清动画、恢复当前局面（after，位置 + 姿态），重新求解。
-    private func finishPlayback(after: BoardSnapshot, afterPoses: BallPoseSnapshot) {
+    private func finishPlayback() {
+        guard let context = replayReturnContext else { return }
+        replayReturnContext = nil
         ShotAudioScheduler.shared.cancel()
         for key in availableBallKeys {
             guard let node = scene.allBallNodes[key] else { continue }
@@ -2745,9 +2759,11 @@ final class PositionPlayViewModel: ObservableObject {
         }
         isPlaying = false
         scene.hideCueStick()
-        applyBoard(after, cuePose: .unchanged)
-        scene.restoreBallPoses(afterPoses)
-        scene.railInventory.restore(replayReturnRails)
+        applyBoard(context.board, cuePose: .unchanged)
+        scene.restoreBallPoses(context.poses)
+        scene.railInventory.restore(context.rails)
+        cancelPendingSelectionCamera()
+        replayCamera.finish(in: scene)
         updatePocketHighlights()
     }
 

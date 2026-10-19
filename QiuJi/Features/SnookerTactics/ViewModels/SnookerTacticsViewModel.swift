@@ -73,7 +73,8 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         isDragging = false
         isComputing = false
         isPlaying = false
-        if interruptedPlayback, let context = lastShotContext { restore(from: context) }
+        if let after = replayAfterBoard { finishPlayback(after: after) }
+        else if interruptedPlayback, let context = lastShotContext { restore(from: context) }
     }
 
 
@@ -253,6 +254,8 @@ final class SnookerTacticsViewModel: TeachingTableHost {
     }
     private var lastShotContext: UndoContext?
     /// 回放开始时抓的「击打后局面」姿态，回放收尾连同 `after` 位置一起写回。
+    private var replayCamera = ShotReplayCamera()
+    private var replayAfterBoard: BoardSnapshot?
     private var replayAfterPoses: BallPoseSnapshot = [:]
     private var replayAfterRails = PocketRailSnapshot()
     @Published private(set) var canUndoShot = false
@@ -840,7 +843,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
                 velocity: velocity, spinX: spinX, spinY: spinY,
                 allowSideSpin: allowSideSpin, basicPositionOnly: basicPositionOnly),
             selectedTargetKey: selectedTargetKey,
-            perspectiveView: scene.capturePerspectiveView(),
+            perspectiveView: ShotReplayCamera.capture(in: scene),
             ballPoses: scene.captureBallPoses(), rails: scene.railInventory.snapshot())
     }
 
@@ -927,6 +930,8 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         guard acceptCompletePrediction(snap.prediction),
               let recorder = snap.prediction.recorder, snap.prediction.duration > 0.05 else { return }
         let after = currentSnapshot()
+        replayAfterBoard = after
+        replayCamera.begin(in: scene)
         replayAfterRails = scene.railInventory.snapshot()
         replayAfterPoses = scene.captureBallPoses()   // 回放不改变桌面真相，姿态也原样带回
         playbackGeneration += 1
@@ -947,6 +952,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
             finishPlayback(after: after)
             return
         }
+        replayCamera.showShot(ctx.perspectiveView, in: scene, aim: aim)
         let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: snap.shot.spinX, spinY: snap.shot.spinY)
         let clearancePlayback = TrajectoryPlayback(
             recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
@@ -993,6 +999,8 @@ final class SnookerTacticsViewModel: TeachingTableHost {
     }
 
     private func finishPlayback(after: BoardSnapshot) {
+        guard replayAfterBoard != nil else { return }
+        replayAfterBoard = nil
         ShotAudioScheduler.shared.cancel()
         for key in PositionPlayBall.allKeys {
             guard let node = scene.allBallNodes[key] else { continue }
@@ -1007,6 +1015,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         scene.railInventory.restore(replayAfterRails)
         scene.restoreBallPoses(replayAfterPoses)
         replayAfterPoses = [:]
+        replayCamera.finish(in: scene)
         lastShotContext = ctx
         canUndoShot = ctx != nil
         canPlayback = ctx != nil

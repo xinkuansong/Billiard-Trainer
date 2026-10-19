@@ -161,6 +161,15 @@ private struct CustomFormationTableView: View {
     }
 
     private var menuItems: [DailyHUDMenuItem] {
+        if !session.isTemplateEditor {
+            return [
+                .init(id: "formation.practice", title: "练习"),
+                .init(id: "formation.playback", title: "回放", disabled: session.busy || !session.vm.canPlayback || session.vm.temporaryTopDownActive,
+                    action: { session.vm.cancelPowerRelease(); session.vm.replayLastShot() }),
+                .init(id: "formation.save", title: "将当前球形另存为模板", disabled: !session.canSave,
+                    action: { session.saveAsNew = true; session.showSave = true })
+            ]
+        }
         var items: [DailyHUDMenuItem] = [.init(id: "formation.heading", title: session.isTemplateEditor ? "模板" : "练习")]
         if session.trialBoard != nil {
             items += [
@@ -212,26 +221,11 @@ struct CustomFormationToolEntry: View {
     @ObservedObject var session: CustomFormationSession
     let diameter: CGFloat
     var body: some View {
-        Group {
-            if session.toolsActive {
-                Menu {
-                    Button("直线工具", systemImage: "line.diagonal") { session.startLine() }
-                    Button("清除辅助线", systemImage: "eraser") { session.guide.clear(scene: session.vm.scene) }
-                    Button("母球换位", systemImage: "arrow.left.arrow.right") {
-                        session.guide.clear(scene: session.vm.scene); session.swapMode = true
-                    }
-                    Button("选择母球", systemImage: "circle.dotted") { session.select(PositionPlayBall.cueKey) }
-                    Button("移除选中球", systemImage: "trash") {
-                        if let key = session.focusKey { session.remove(key, permanently: true) }
-                    }.disabled(session.focusKey == nil || session.focusKey == PositionPlayBall.cueKey)
-                    Button("完成摆球", systemImage: "checkmark") { session.clearTools(); session.toolsActive = false }
-                } label: { label("chevron.down", title: "摆球") }
-                .accessibilityIdentifier("formation.tools")
-            } else {
-                Button { session.showRestart = true } label: { label("arrow.clockwise", title: "重新开始") }
-                    .accessibilityIdentifier("formation.restart")
-            }
-        }.buttonStyle(BTHUDPressStyle()).disabled(session.busy)
+        Button { session.showRestart = true } label: { label("arrow.clockwise", title: "重新开始") }
+            .buttonStyle(BTHUDPressStyle())
+            .disabled(session.busy)
+            .accessibilityIdentifier("formation.restart")
+            .freeControlItem("formation.restart", name: "重新开始")
     }
     private func label(_ symbol: String, title: String) -> some View {
         VStack(spacing: 2) {
@@ -243,37 +237,6 @@ struct CustomFormationToolEntry: View {
     }
 }
 
-struct CustomFormationNudgePad: View {
-    @ObservedObject var session: CustomFormationSession
-    let projector: TableProjector
-    var body: some View {
-        ScrollView(.vertical) {
-            VStack(spacing: 0) {
-                Text(session.focusKey.map { PositionPlayBall.isCue($0) ? "母球" : "\(PositionPlayBall.shortLabel(for: $0))号球" } ?? "点选球")
-                    .font(.btMicro).foregroundStyle(.white)
-                Text("0.5 mm").font(.btMicro).foregroundStyle(.white.opacity(0.65))
-                ForEach(Array(BallNudgeDirection.allCases.enumerated()), id: \.offset) { _, direction in
-                    BatchScrollNudgeButton(icon: symbol(direction), accessibility: "球位\(label(direction))移0.5毫米") {
-                        session.nudge(direction, projector: projector)
-                    }
-                    .disabled(session.focusKey == nil || session.busy || session.guide.isPicking)
-                    .opacity(session.focusKey == nil ? 0.35 : 1)
-                    .accessibilityIdentifier("formation.nudge.\(direction)")
-                }
-            }
-        }.scrollBounceBehavior(.basedOnSize)
-    }
-    private func symbol(_ d: BallNudgeDirection) -> String {
-        switch d { case .up: return "chevron.up"; case .down: return "chevron.down"; case .left: return "chevron.left"; case .right: return "chevron.right" }
-    }
-    private func label(_ d: BallNudgeDirection) -> String {
-        switch d { case .up: return "上"; case .down: return "下"; case .left: return "左"; case .right: return "右" }
-    }
-}
-
-#Preview("Light") { NavigationStack { CustomFormationPracticeView(ownerKey: "preview").environmentObject(AuthState()).preferredColorScheme(.light) } }
-#Preview("Dark") { NavigationStack { CustomFormationPracticeView(ownerKey: "preview").environmentObject(AuthState()).preferredColorScheme(.dark) } }
-
 struct FormationEditorLeft: View {
     @ObservedObject var session: CustomFormationSession
     var body: some View {
@@ -283,6 +246,7 @@ struct FormationEditorLeft: View {
                     symbol: tool == .line ? "line.diagonal" : tool == .distance ? "ruler" : "angle",
                     selected: session.editTool == tool) { session.beginTool(tool) }
                     .accessibilityIdentifier("formation.tool.\(tool)")
+                    .freeControlItem("formation.tool.\(tool)", name: tool.rawValue)
             }
             Spacer(minLength: Spacing.xs)
             action("撤销", icon: "arrow.uturn.backward", id: "undo", disabled: session.undoStack.isEmpty, run: session.undoEdit)
@@ -295,6 +259,7 @@ struct FormationEditorLeft: View {
     private func action(_ title: String, icon: String, id: String, disabled: Bool, run: @escaping () -> Void) -> some View {
         BTHUDCompactAction(title: title, symbol: icon, action: run)
             .disabled(disabled).accessibilityIdentifier("formation.edit.\(id)")
+            .freeControlItem("formation.edit.\(id)", name: title)
     }
 }
 
@@ -358,6 +323,7 @@ struct FormationEditorRight: View {
                            isDisabled: !enabled, height: 44, action: run)
             .fixedSize().frame(width: 56, height: 44)
             .accessibilityIdentifier("formation.edit." + id)
+            .freeControlItem("formation.edit." + id, name: title)
     }
 }
 #Preview("Editor Light") { FormationEditorLeft(session: .init(template: nil, editing: true)).frame(width: 60, height: 300) }

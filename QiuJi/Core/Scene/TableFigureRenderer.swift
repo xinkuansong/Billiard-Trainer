@@ -64,6 +64,16 @@ enum TableFigureRenderer {
     private static var costs: [String: Int] = [:]
     static func resetCache() { cache.removeAll(); recent.removeAll(); costs.removeAll() }
 
+    /// A fabric-only swatch at the loupe's physical scale. Sample away from the
+    /// centre spot; this is a material backdrop, not a second view of the board.
+    static func closeupFelt(clothColor: ClothColor, roomStyle: RoomStyle) -> UIImage? {
+        backdrop(orientation: .portrait, aspect: 1,
+                 closeup: (CGPoint(x: 0, y: CGFloat(AngleSceneCalculator.innerWidth) / 4),
+                           CGFloat(AngleSceneCalculator.ballRadius) * AimCloseupBuilder.halfWorldMultiple),
+                 heightPoints: BTAimCloseupHUD.defaultDiameter, scale: 3,
+                 recipe: .liveReference, clothColor: clothColor, roomStyle: roomStyle)?.image
+    }
+
 
     /// 渲染（或取缓存）空台底图。`aspect` = 目标视图宽高比（决定取景与图像比例）。
     ///
@@ -75,7 +85,10 @@ enum TableFigureRenderer {
                          aspect: CGFloat,
                          closeup: (center: CGPoint, halfHeight: CGFloat)? = nil,
                          heightPoints: CGFloat = 360,
-                         scale: CGFloat = 2) -> Backdrop? {
+                         scale: CGFloat = 2,
+                         recipe: TableRenderRecipe = .plainLegacy,
+                         clothColor: ClothColor = .green,
+                         roomStyle: RoomStyle = .selected) -> Backdrop? {
         // aspect 量化进缓存键，避免同页多卡因浮点微差重复渲。
         var key = "\(orientation.rawValue)-\(String(format: "%.2f", aspect))"
         if let closeup {
@@ -83,6 +96,7 @@ enum TableFigureRenderer {
                           closeup.center.x, closeup.center.y, closeup.halfHeight)
         }
         key += "-\(heightPoints)-\(scale)"
+        key += "-\(recipe.rawValue)-\(clothColor.rawValue)-\(roomStyle.rawValue)"
         if let hit = cache[key] {
             recent.removeAll { $0 == key }; recent.append(key)
             return hit
@@ -91,8 +105,10 @@ enum TableFigureRenderer {
         guard let device = MTLCreateSystemDefaultDevice() else { return nil }
 
         let scene = AngleTrainingScene()
-        // Card backdrops keep the plain pipeline (ADR-P5-01: offline output unchanged).
-        scene.setupScene(recipe: .plainLegacy)
+        // Existing teaching cards keep their historical default. The live loupe
+        // explicitly opts into the same materials and exposure as playing pages.
+        scene.setupScene(recipe: recipe, roomStyle: roomStyle)
+        guard scene.applyClothColor(clothColor) else { return nil }
         guard scene.cameraNode != nil, let rig = scene.cameraRig else { return nil }
         scene.background.contents = UIColor.black
         scene.hideAllBalls()

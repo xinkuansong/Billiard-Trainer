@@ -34,6 +34,29 @@ final class FreeControlLayoutStore: ObservableObject {
         try legacyStorage.preserve(bytes)
     }
 
+    /// Explicit page-local recovery creates a draft, never rewrites or guesses the source page.
+    func recoverLegacyDraft(_ id: UUID, page: TablePreferencePage, mode: FreeControlLayoutMode,
+                            domain: ControlLayoutDomain, input: ControlLayoutPlacement.Input,
+                            controls: [String: FreeControlLegacyMeasurements.Control],
+                            window: FreeControlWindow) throws -> FreeControlLegacyConverter.Conversion {
+        guard page.supportsControlLayoutEditing else { throw ControlLayoutError.unsupportedPage }
+        reloadLegacy()
+        guard var legacy = legacyArchive, legacy.templates[id] != nil else { throw ControlLayoutError.missingTemplate }
+        try backUpLegacy()
+        legacy.bindings[page] = .init(selection: .template(id))
+        return FreeControlLegacyConverter.convert(legacy, page: page, mode: mode, domain: domain,
+            input: input, controls: controls, window: window)
+    }
+
+    func recoverUnassignedDraft(_ template: FreeControlTemplate, page: TablePreferencePage,
+                                mode: FreeControlLayoutMode) throws -> FreeControlValues {
+        guard TablePreferencePage(rawValue: template.sourcePage)?.supportsControlLayoutEditing != true else {
+            throw ControlLayoutError.unsupportedPage
+        }
+        guard archive.templates.contains(template) else { throw ControlLayoutError.conflict }
+        return try template.merging(into: [:], page: page, mode: mode)
+    }
+
     func reload() {
         do {
             let bytes = try storage.read()
@@ -110,7 +133,39 @@ final class FreeControlLayoutStore: ObservableObject {
         }
     }
 
-    /// Page-local pilot library; modes never share a template list.
+    /// User-facing actions are page/mode scoped; legacy intersection application remains migration-only.
+    func validateLocal(_ template: FreeControlTemplate, page: TablePreferencePage, mode: FreeControlLayoutMode) throws {
+        guard page.supportsControlLayoutEditing, template.sourcePage == page.rawValue else {
+            throw ControlLayoutError.unsupportedPage
+        }
+        guard template.mode == mode else { throw ControlLayoutError.modeMismatch }
+    }
+
+    func applyLocal(_ templateID: UUID, page: TablePreferencePage, mode: FreeControlLayoutMode,
+                    expectedPageRevision: UInt64) throws {
+        let key = FreeControlArchive.key(page: page, mode: mode)
+        try transactPage(key: key, expectedRevision: expectedPageRevision) { candidate in
+            guard let template = candidate.templates.first(where: { $0.id == templateID }) else {
+                throw ControlLayoutError.missingTemplate
+            }
+            try self.validateLocal(template, page: page, mode: mode)
+            candidate.pages[key] = try template.merging(into: candidate.pages[key] ?? [:], page: page, mode: mode)
+            try candidate.changedPage(key, source: templateID)
+        }
+    }
+
+    func setPinnedLocal(_ template: FreeControlTemplate, pinned: Bool,
+                        page: TablePreferencePage, mode: FreeControlLayoutMode) throws {
+        try validateLocal(template, page: page, mode: mode)
+        try setPinned(template, pinned: pinned)
+    }
+
+    func deleteLocal(_ template: FreeControlTemplate, page: TablePreferencePage, mode: FreeControlLayoutMode) throws {
+        try validateLocal(template, page: page, mode: mode)
+        try delete(template)
+    }
+
+    /// Modes and pages never share a template list.
     func localTemplates(page: TablePreferencePage, mode: FreeControlLayoutMode) -> [FreeControlTemplate] {
         archive.templates.filter { $0.sourcePage == page.rawValue && $0.mode == mode }.sorted {
             if $0.pinnedAt != $1.pinnedAt { return ($0.pinnedAt ?? .distantPast) > ($1.pinnedAt ?? .distantPast) }

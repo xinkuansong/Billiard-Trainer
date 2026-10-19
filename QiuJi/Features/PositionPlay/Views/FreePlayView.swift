@@ -20,6 +20,7 @@ struct FreePlayView: View {
     let entryMode: FreePlayEntryMode
     private let editor: PositionPlayEditorConfiguration?
     private var isFormationEditor: Bool { formation?.isTemplateEditor == true }
+    private var isFormationPractice: Bool { formation?.isTemplateEditor == false }
     private var formation: CustomFormationSession? { editor?.formation }
 
     @StateObject private var vm: PositionPlayViewModel
@@ -83,6 +84,8 @@ struct FreePlayView: View {
         || dailyController.isAutomaticallyBreaking || vm.breakRunner?.isBusy == true
         || !dailyController.breakChoices.isEmpty || isDailyResult || manualBreakNeedsConfirmation
         || showClearTableConfirm || snakeController.showSettings || editor?.layoutEditingBlocked == true
+        || formation?.showSave == true || formation?.showClear == true || formation?.showRestart == true
+        || formation?.swapMode == true || formation?.guide.isPicking == true
     }
     @State private var dailyPresentation: DailyHUDPresentation?
     @AccessibilityFocusState private var dailyMoreFocused: Bool
@@ -1311,6 +1314,11 @@ struct FreePlayView: View {
     private var dailyMenuItems: [DailyHUDMenuItem] {
         if let formation, isFormationEditor {
             return [
+                .init(id: "controlLayout.open", title: "操作布局", detail: controlLayoutBusy ? "请先完成当前操作" : nil,
+                    disclosure: true, disabled: controlLayoutBusy, action: {
+                        guard !controlLayoutBusy else { return }
+                        closeDailyPresentation(); editingControlLayout = true
+                    }),
                 .init(id: "menu.tableGrid", title: "台面网格", selected: pagePreferences.enabled(.grid), action: {
                     setPagePreference(.grid, pagePreferences.enabled(.grid) ? 0 : 1); closeDailyPresentation()
                 }),
@@ -1395,7 +1403,6 @@ struct FreePlayView: View {
                         closeDailyPresentation()
                     })
             }
-            items.append(.init(id: "freeplay.preferencesScope", title: "仅调整本页并记住；通用设置可再次统一更新。"))
             if preferencePage.usesFreeControlLayout {
                 items.insert(.init(id: "controlLayout.open", title: "操作布局",
                     detail: controlLayoutBusy ? "请先完成当前操作" : nil, disclosure: true,
@@ -1804,7 +1811,7 @@ private extension FreePlayView {
             busy: controlLayoutBusy,
             handlesInsufficientSpace: false, editing: $editingControlLayout, rulerHeight: rulerHeight,
             primaryTitle: templateStrikeTitle, sequenceReadOnly: sequenceReadOnly,
-            editorToolbarTop: foundation?.table.minY, editorColorScheme: pageColorScheme)
+            editorToolbarTop: foundation?.table.minY)
         let sceneContent = hudContent
         .backgroundPreferenceValue(DailyCameraReadableBoundsKey.self) { readableBounds in
             // Resolve the stage anchor in the renderer parent's local coordinates.
@@ -2101,10 +2108,6 @@ private extension FreePlayView {
                 .disabled(templateRerackDisabled)
                 .freeControlItem(editor?.isTryout == true ? "tryout.rearrange" : (isManualBreakPage && vm.isBreakMode ? "break.rerack" : "break.entry"), name: editor?.isTryout == true ? "重摆" : "开球")
                 }
-                if let formation, formation.toolsActive {
-                    CustomFormationNudgePad(session: formation, projector: projector)
-                        .frame(width: 52, height: rulerHeight + 30 + (space.docked ? 0 : (horizontalActions ? auxiliary : auxiliary * 2 + Spacing.xs)))
-                } else {
                 VStack(spacing: 6) {
                     BTAimWheel(onNudge: { delta in
                         editor?.onInteraction()
@@ -2131,15 +2134,14 @@ private extension FreePlayView {
                 }
                 .disabled(dailyControlsDisabled)
                 .freeControlItem("shot.aim", name: "方向")
-                }
             }
             .frame(width: dailyControlColumnWidth)
             .controlLayoutGroup(.direction)
             let actionLayout = horizontalActions
                 ? AnyLayout(HStackLayout(spacing: Spacing.xs))
                 : AnyLayout(VStackLayout(spacing: Spacing.xs))
-            if formation?.toolsActive != true || space.docked {
-            dailyActionSlot(height: horizontalActions ? auxiliary : auxiliary * 2 + Spacing.xs, originalTopFraction: space.docked ? 1 : (horizontalActions ? 0.5 : 1), natural: space.foundation != nil) {
+            let actionHeight = horizontalActions || isFormationPractice ? auxiliary : auxiliary * 2 + Spacing.xs
+            dailyActionSlot(height: actionHeight, originalTopFraction: space.docked ? 1 : (horizontalActions ? 0.5 : 1), natural: space.foundation != nil) {
                 actionLayout {
                     dailyCompactAction(isTryoutPage || sequenceReadOnly ? "上一杆" : "重打", symbol: isTryoutPage ? "backward.end" : "arrow.uturn.backward", id: "dailyClearance.undo", size: auxiliary) {
                         daily3DDiagnostics?.input(.undo, intent: .aim)
@@ -2152,6 +2154,7 @@ private extension FreePlayView {
                     .disabled(vm.isPlaying || !(isTryoutPage ? vm.canGoToPreviousTryoutStep : (sequenceReadOnly ? vm.canReplayPreviousStep : (isDailyClearance ? dailyController.canUndo : vm.canReplay))) || isDailyResult || isTemporaryTopDown)
                     .freeControlItem(isTryoutPage ? "tryout.previous" : (sequenceReadOnly ? "sequence.previous" : "shot.undo"),
                                      name: isTryoutPage || sequenceReadOnly ? "上一杆" : "重打")
+                    if !isFormationPractice {
                     dailyCompactAction(isTryoutPage ? "下一杆" : (sequenceReadOnly ? "重播" : "回放"), symbol: isTryoutPage ? "forward.end" : "play.rectangle", id: "dailyClearance.playback", size: auxiliary) {
                         daily3DDiagnostics?.input(.replay)
                         vm.cancelPowerRelease()
@@ -2161,14 +2164,14 @@ private extension FreePlayView {
                     .disabled(vm.isPlaying || !(isTryoutPage ? vm.canGoToNextTryoutStep : (sequenceReadOnly ? vm.canReplayCurrentStep : vm.canPlayback)) || isTemporaryTopDown)
                     .freeControlItem(isTryoutPage ? "tryout.next" : (sequenceReadOnly ? "sequence.replay" : "shot.replay"),
                                      name: isTryoutPage ? "下一杆" : (sequenceReadOnly ? "重播" : "回放"))
+                    }
                 }
-                .frame(width: horizontalActions ? auxiliary * 2 + Spacing.xs : auxiliary)
+                .frame(width: horizontalActions && !isFormationPractice ? auxiliary * 2 + Spacing.xs : auxiliary)
                 .controlLayoutGroup(.replay)
                 .frame(width: space.docked ? auxiliary : dailyControlColumnWidth, alignment: horizontalActions ? .trailing : .center)
             }
             .frame(width: space.docked ? auxiliary : dailyControlColumnWidth,
                    height: space.docked ? space.left.height - 2 * verticalPadding : nil)
-            }
         }
         .frame(width: space.left.width)
         .padding(.vertical, verticalPadding)

@@ -89,180 +89,6 @@ private struct ControlLayoutGroupModifier: ViewModifier {
     }
 }
 
-private struct ControlLayoutHostModifier: ViewModifier {
-    let page: TablePreferencePage
-    let mode: ControlLayoutLayer
-    let size: CGSize
-    let leading: CGRect
-    let trailing: CGRect
-    let defaultFits: Bool
-    let obstacles: [CGRect]
-    let groupRegions: [ControlLayoutGroup: ControlLayoutPlacement.LaneRegions]
-    let busy: Bool
-    let handlesInsufficientSpace: Bool
-    @Binding var editing: Bool
-    let rulerHeight: CGFloat
-    let primaryTitle: String
-    let sequenceReadOnly: Bool
-    @ObservedObject private var store = ControlLayoutStore.shared
-    @Environment(\.dismiss) private var dismiss
-    @State private var fixedFrames: [CGRect] = []
-    @State private var frames: [ControlLayoutGroup: CGRect] = [:]
-    @State private var intent = ControlLayoutResolved()
-    #if DEBUG
-    @State private var rejectedProbeDrop = false
-    #endif
-
-    private var supported: Bool { page.supportsControlLayoutEditing }
-    private var domain: ControlLayoutDomain {
-        UIDevice.current.userInterfaceIdiom == .pad ? (size.height > size.width ? .padPortrait : .padLandscape) : .phoneLandscape
-    }
-    private var input: ControlLayoutPlacement.Input {
-        .init(page: CGRect(origin: .zero, size: size),
-              leading: CGRect(x: leading.minX, y: 44, width: leading.width, height: max(1, size.height - 44)),
-              trailing: CGRect(x: trailing.minX, y: 44, width: trailing.width, height: max(1, size.height - 44)),
-              defaults: mode == .twoD ? frames.filter { $0.key != .camera } : frames,
-              obstacles: obstacles + fixedFrames, defaultFits: defaultFits, groupRegions: groupRegions)
-    }
-    private var placement: ControlLayoutPlacement.Result { ControlLayoutPlacement.place(intent, in: input) }
-
-    func body(content: Content) -> some View {
-        let limited = supported && handlesInsufficientSpace && placement.status == .insufficientSpace
-        content
-            .opacity(editing ? 0 : 1)
-            .allowsHitTesting(!limited && !editing)
-            .accessibilityElement(children: editing ? .ignore : .contain)
-            .accessibilityHidden(limited || editing)
-            .environment(\.controlLayoutContext, supported ? ControlLayoutContext(defaults: frames, placement: placement) : nil)
-            .coordinateSpace(name: "controlLayout")
-            .onPreferenceChange(ControlLayoutFramesKey.self) { measured in
-                // Quantize subpixel layout noise; retain logical points, never device pixels.
-                let next = measured.mapValues { rect in
-                    CGRect(x: (rect.minX * 4).rounded() / 4, y: (rect.minY * 4).rounded() / 4,
-                           width: (rect.width * 4).rounded() / 4, height: (rect.height * 4).rounded() / 4)
-                }
-                if frames != next { frames = next; refreshIntent() }
-            }
-            .onPreferenceChange(ControlLayoutFixedFramesKey.self) { values in
-                let next = values.filter { !$0.isNull && !$0.isEmpty && [$0.minX, $0.minY, $0.width, $0.height].allSatisfy(\.isFinite) }
-                if next != fixedFrames { fixedFrames = next }
-            }
-            .overlay {
-                if limited {
-                    VStack(spacing: Spacing.sm) {
-                        Text("扩大窗口后继续练习").font(.btSubheadlineSemibold)
-                        Text("当前空间无法完整放下球桌和操作控件。").font(.btFootnote)
-                            .multilineTextAlignment(.center)
-                        Button("返回") { dismiss() }
-                            .buttonStyle(BTSceneDecisionActionStyle())
-                            .accessibilityIdentifier("controlLayout.limitedBack")
-                    }
-                    .padding(Spacing.md)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(.regularMaterial)
-                    .contentShape(Rectangle())
-                    .onTapGesture { }
-                    .accessibilityAddTraits(.isModal)
-                    .accessibilityIdentifier("controlLayout.limited")
-                }
-            }
-            .onChange(of: busy, initial: true) { _, value in if !value { loadProbe() } }
-            .onChange(of: mode) { _, _ in if !busy { loadProbe() } }
-            .onChange(of: domain) { _, _ in if !busy { loadProbe() } }
-            .onChange(of: store.archive) { _, _ in refreshIntent() }
-            .onChange(of: editing) { _, value in if !value { refreshIntent() } }
-            .overlay {
-                if editing {
-                    ControlLayoutEditorContainer(editor: ControlLayoutEditor(page: page, domain: domain, mode: mode, input: input,
-                        rulerHeight: rulerHeight, primaryTitle: primaryTitle, sequenceReadOnly: sequenceReadOnly, onClose: { editing = false }))
-                        .allowsHitTesting(true)
-                        .accessibilityHidden(false)
-                }
-            }
-            .overlay(alignment: .top) {
-                if placement.status == .temporaryDefault {
-                    Text("当前空间暂用默认布局").font(.btFootnote)
-                        .padding(6).background(.regularMaterial, in: Capsule()).allowsHitTesting(false)
-                        .accessibilityIdentifier("controlLayout.fallback")
-                        .padding(.top, 44)
-                }
-            }
-            #if DEBUG
-            .overlay {
-                if ProcessInfo.processInfo.environment["CONTROL_LAYOUT_PROBE"] == "drag" {
-                    ZStack(alignment: .topLeading) {
-                        ForEach(placement.frames.keys.filter { $0 != .camera }.sorted { $0.rawValue < $1.rawValue }, id: \.self) { group in
-                            if let frame = placement.frames[group] {
-                                Rectangle().fill(.clear).contentShape(Rectangle())
-                                    .overlay(Rectangle().stroke(Color.btPrimary, lineWidth: 1))
-                                    .frame(width: frame.width, height: frame.height)
-                                    .position(x: frame.midX, y: frame.midY)
-                                    .accessibilityElement()
-                                    .accessibilityLabel("布局位置 " + group.rawValue)
-                                    .accessibilityIdentifier("controlLayout.drag." + group.rawValue)
-                                    .gesture(DragGesture(minimumDistance: 4).onEnded { value in
-                                        var candidate = intent
-                                        let previous: Double
-                                        if case .offset(let offset) = intent[group, .offset] { previous = offset }
-                                        else { previous = 0 }
-                                        candidate.values[group, default: [:]][.offset] = .offset(previous + value.translation.height)
-                                        let result = ControlLayoutPlacement.place(candidate, in: input)
-                                        rejectedProbeDrop = result.status != .customized
-                                        if !rejectedProbeDrop { intent = candidate }
-                                    })
-                            }
-                        }
-                    }
-                    .frame(width: size.width, height: size.height)
-                }
-            }
-            .background {
-                if DailyLayoutProbe.enabled {
-                    Color.clear.accessibilityElement().accessibilityIdentifier("controlLayout.revision")
-                        .accessibilityValue(String(store.archive.revision))
-                }
-                if DailyLayoutProbe.enabled || ProcessInfo.processInfo.environment["CONTROL_LAYOUT_PROBE"] != nil {
-                    Color.clear.accessibilityElement()
-                        .accessibilityIdentifier("controlLayout.geometry")
-                        .accessibilityValue(probeDescription)
-                }
-            }
-            #endif
-    }
-    private func loadProbe() {
-        refreshIntent()
-        #if DEBUG
-        guard supported, let probe = ProcessInfo.processInfo.environment["CONTROL_LAYOUT_PROBE"] else { return }
-        switch probe {
-        case "swap": intent.values = [.direction: [.lane: .lane(.trailing)], .planning: [.lane: .lane(.trailing)],
-            .replay: [.lane: .lane(.trailing)], .instrument: [.lane: .lane(.leading)], .primary: [.lane: .lane(.leading)]]
-        case "order": intent.values = [.primary: [.order: .order(0)], .instrument: [.order: .order(1)]]
-        case "offset": intent.values = [.primary: [.offset: .offset(20)], .direction: [.offset: .offset(-20)], .planning: [.offset: .offset(-20)]]
-        case "invalid": intent.values = [.primary: [.offset: .offset(-80)]]
-        default: intent = ControlLayoutResolved()
-        }
-        #endif
-    }
-    private func refreshIntent() {
-        guard supported, !busy, !editing else { return }
-        #if DEBUG
-        guard ProcessInfo.processInfo.environment["CONTROL_LAYOUT_PROBE"] == nil else { return }
-        #endif
-        intent = ControlLayoutResolver.resolve(store.archive, page: page, domain: domain, mode: mode,
-            capabilities: Set(input.defaults.keys))
-    }
-    #if DEBUG
-    private var probeDescription: String {
-        let groups = placement.frames.keys.sorted { $0.rawValue < $1.rawValue }.map { group in
-            let rect = placement.frames[group]!
-            return "\(group.rawValue)=\(rect.minX),\(rect.minY),\(rect.width),\(rect.height)"
-        }.joined(separator: ";")
-        let primary = placement.translation(for: .primary, from: frames)
-        return "status=\(placement.status.rawValue);domain=\(domain.rawValue);dropRejected=\(rejectedProbeDrop);primaryTranslation=\(primary.width),\(primary.height);\(groups)"
-    }
-    #endif
-}
-
 extension View {
     func controlLayoutFixedRegion() -> some View { modifier(ControlLayoutFixedRegionModifier()) }
     func controlLayoutGroup(_ group: ControlLayoutGroup, enabled: Bool = true, anchorMotion: ControlLayoutAnchorMotion = .none) -> some View {
@@ -273,18 +99,15 @@ extension View {
                            handlesInsufficientSpace: Bool = true, editing: Binding<Bool> = .constant(false),
                            groupRegions: [ControlLayoutGroup: ControlLayoutPlacement.LaneRegions] = [:],
                            rulerHeight: CGFloat = 144, primaryTitle: String = "击球", sequenceReadOnly: Bool = false,
-                           editorToolbarTop: CGFloat? = nil, editorColorScheme: ColorScheme? = nil) -> some View {
+                           editorToolbarTop: CGFloat? = nil) -> some View {
         if page.usesFreeControlLayout {
             modifier(FreeControlHost(page: page, mode: mode == .threeD ? .threeD : .twoD, editing: editing,
-                busy: busy, editorToolbarTop: editorToolbarTop, editorColorScheme: editorColorScheme, legacyInput: .init(page: CGRect(origin: .zero, size: size),
+                busy: busy, editorToolbarTop: editorToolbarTop, legacyInput: .init(page: CGRect(origin: .zero, size: size),
                     leading: CGRect(x: leading.minX, y: 44, width: leading.width, height: max(1, size.height - 44)),
                     trailing: CGRect(x: trailing.minX, y: 44, width: trailing.width, height: max(1, size.height - 44)),
                     defaults: [:], obstacles: obstacles, defaultFits: defaultFits, groupRegions: groupRegions)))
         } else {
-        modifier(ControlLayoutHostModifier(page: page, mode: mode, size: size, leading: leading,
-                                           trailing: trailing, defaultFits: defaultFits, obstacles: obstacles, groupRegions: groupRegions, busy: busy,
-                                           handlesInsufficientSpace: handlesInsufficientSpace, editing: editing,
-                                           rulerHeight: rulerHeight, primaryTitle: primaryTitle, sequenceReadOnly: sequenceReadOnly))
+            self
         }
     }
 }
@@ -298,10 +121,6 @@ private struct FreeControlFramesKey: PreferenceKey {
     static func reduce(value: inout [String: FreeControlMeasurement], nextValue: () -> [String: FreeControlMeasurement]) {
         value.merge(nextValue()) { _, new in new }
     }
-}
-private struct FreeControlLibraryHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 private struct FreeControlContext {
     var values: FreeControlValues
@@ -364,7 +183,7 @@ extension View {
 
 /// A scroll viewport would clip both rendering and native touches after a button
 /// leaves its original column. Free-layout controls retain their default slots
-/// in an unclipped stack; pages still on v1 keep their original scroll behavior.
+/// in an unclipped stack; non-layout consumers retain their original scroll behavior.
 struct FreeControlColumn<Content: View>: View {
     @Environment(\.freeControlContext) private var context
     @ViewBuilder var content: () -> Content
@@ -422,7 +241,6 @@ private struct FreeControlHost: ViewModifier {
     @Binding var editing: Bool
     let busy: Bool
     let editorToolbarTop: CGFloat?
-    let editorColorScheme: ColorScheme?
     let legacyInput: ControlLayoutPlacement.Input
     @ObservedObject private var store = FreeControlLayoutStore.shared
     @State private var frames: [String: FreeControlMeasurement] = [:]
@@ -439,24 +257,20 @@ private struct FreeControlHost: ViewModifier {
     @State private var templateID = UUID()
     @State private var name = ""
     @State private var showName = false
-    @State private var showControls = false
     @State private var error: String?
-    @State private var chosenTemplate: FreeControlTemplate?
     @State private var sourceTemplate: FreeControlTemplate?
-    @State private var libraryHeight: CGFloat = 0
     @State private var legacyMeasurements = FreeControlLegacyMeasurements()
-    @State private var managing = false
     @State private var conflict = false
     @State private var saveOnly = false
     @State private var draftCreatedAt = Date()
     @State private var showScaleValue = false
     @State private var scaleText = ""
 
-    // Pilot opt-in: all other pages retain the existing editor until user review.
-    private var usesFloatingTools: Bool { page == .dailyClearance }
+    // Enable only verified rollout pages; remaining pages retain their entry flow.
     @State private var toolbarOrigin: CGPoint?
     @State private var toolbarDragOrigin: CGPoint?
     @State private var showTemplates = false
+    @State private var showLegacyTemplates = false
     @State private var templatePanelSize = CGSize.zero
     @State private var showReset = false
     @State private var deletingTemplate: FreeControlTemplate?
@@ -506,15 +320,15 @@ private struct FreeControlHost: ViewModifier {
             .onChange(of: editing) { _, active in
                 if active {
                     store.reload(); revision = store.pageRevision(page: page, mode: mode)
-                    draft = nil; selected = nil; collapsed = false; showControls = false; undo = []; redo = []
-                    chosenTemplate = nil; sourceTemplate = nil
+                    draft = nil; selected = nil; collapsed = false; undo = []; redo = []
+                    sourceTemplate = nil
                     conflict = false; saveOnly = false
                     templateID = UUID(); error = store.loadError
-                    toolbarOrigin = nil; toolbarDragOrigin = nil; showTemplates = false; showReset = false
-                    if usesFloatingTools { begin(values: store.values(page: page, mode: mode)) }
+                    toolbarOrigin = nil; toolbarDragOrigin = nil; showTemplates = false; showLegacyTemplates = false; showReset = false
+                    begin(values: store.values(page: page, mode: mode))
                 } else { draft = nil; gestureStart = nil; gestureOrigin = nil }
             }
-            .alert((usesFloatingTools && sourceTemplate != nil && !saveOnly ? "保存模板修改" : "保存为新模板") + " · " + mode.title, isPresented: $showName) {
+            .alert((sourceTemplate != nil && !saveOnly ? "保存模板修改" : "保存为新模板") + " · " + mode.title, isPresented: $showName) {
                 TextField("模板名称", text: $name).accessibilityIdentifier("freeLayout.name")
                 Button("取消", role: .cancel) {}
                 Button("保存") { save() }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -545,21 +359,13 @@ private struct FreeControlHost: ViewModifier {
                 Button("删除", role: .destructive) {
                     guard let template = deletingTemplate else { return }
                     do {
-                        try store.delete(template)
+                        try store.deleteLocal(template, page: page, mode: mode)
                         if sourceTemplate?.id == template.id { sourceTemplate = nil; templateID = UUID(); name = "" }
                     } catch { self.error = error.localizedDescription }
                     deletingTemplate = nil
                 }.accessibilityIdentifier("freeLayout.confirmDelete")
             } message: { Text("删除后，当前正在使用的按键布局会保留。") }
-            .sheet(isPresented: $managing, onDismiss: { store.reload(); migrateLegacy() }) {
-                NavigationStack {
-                    ControlLayoutLibrary().toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("返回布局") { managing = false }.accessibilityIdentifier("freeLibrary.close")
-                        }
-                    }
-                }
-            }
+
     }
 
     private var editor: some View {
@@ -569,8 +375,8 @@ private struct FreeControlHost: ViewModifier {
                 ForEach(frames.keys.sorted(), id: \.self) { id in
                     let rect = displayedFrame(id)
                     RoundedRectangle(cornerRadius: BTRadius.md)
-                        .fill((usesFloatingTools ? Color.btAccent : Color.btPrimary).opacity(collapsed ? 0 : (selected == id ? 0.16 : 0.03)))
-                        .overlay(RoundedRectangle(cornerRadius: BTRadius.md).stroke(usesFloatingTools ? (selected == id ? Color.btAccent : HUDStyle.hairline) : Color.btPrimary, lineWidth: collapsed ? 0 : (selected == id ? 2 : 1)))
+                        .fill(Color.btAccent.opacity(collapsed ? 0 : (selected == id ? 0.16 : 0.03)))
+                        .overlay(RoundedRectangle(cornerRadius: BTRadius.md).stroke(selected == id ? Color.btAccent : HUDStyle.hairline, lineWidth: collapsed ? 0 : (selected == id ? 2 : 1)))
                         .frame(width: max(1, rect.width), height: max(1, rect.height))
                         .contentShape(Rectangle())
                         .position(x: rect.midX, y: rect.midY)
@@ -593,52 +399,13 @@ private struct FreeControlHost: ViewModifier {
                         .accessibilityAction { selected = id }
                 }
             }
-            if usesFloatingTools {
-                floatingTools.environment(\.colorScheme, editorColorScheme ?? .dark).zIndex(2)
-            } else {
-            VStack {
-                Spacer()
-                if draft == nil { entryPanel }
-                else if !collapsed { toolsPanel }
-                if draft != nil {
-                    Button { collapsed.toggle(); showControls = false } label: {
-                        Text(collapsed ? "展开布局工具" : "收起工具看效果").frame(minHeight: 28)
-                    }
-                        .buttonStyle(.borderedProminent).accessibilityIdentifier("freeLayout.collapse")
-                }
-            }
-            .padding(Spacing.sm)
-            .frame(width: hostFrame.width, height: hostFrame.height, alignment: .bottom)
-            .zIndex(2)
-            }
-            if showControls && !usesFloatingTools {
-                VStack(spacing: 0) {
-                    HStack {
-                        Text("选择按键").font(.btSubheadlineSemibold)
-                        Spacer()
-                        Button("关闭") { showControls = false }
-                    }
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            ForEach(frames.keys.sorted(), id: \.self) { id in
-                                Button { selected = id; showControls = false } label: {
-                                    Text(frames[id]?.name ?? id).frame(maxWidth: .infinity, alignment: .leading)
-                                }.accessibilityIdentifier("freeLayout.choose.\(id)")
-                            }
-                        }
-                    }.accessibilityIdentifier("freeLayout.controlList")
-                }
-                .buttonStyle(FreeLayoutToolButtonStyle()).tint(.btText)
-                .padding(Spacing.sm)
-                .frame(width: min(300, max(44, hostFrame.width - 32)), height: min(360, max(44, hostFrame.height - 32)))
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: BTRadius.lg))
-                .position(x: hostFrame.width / 2, y: hostFrame.height / 2)
-                .zIndex(3)
-            }
+            floatingTools.zIndex(2)
         }
         .frame(width: hostFrame.width, height: hostFrame.height)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("freeLayout.editor")
+        // Layout tools use one dark appearance regardless of the surrounding page.
+        .environment(\.colorScheme, .dark)
     }
 
     // Toolbar points are host-local, independent of the window-normalized control placements.
@@ -656,7 +423,7 @@ private struct FreeControlHost: ViewModifier {
                                                          y: editorToolbarTop ?? 64))
     }
     private var hasDropdown: Bool { showTemplates || showReset }
-    private func closeDropdown() { showTemplates = false; showControls = false; showReset = false; actionTemplateID = nil }
+    private func closeDropdown() { showTemplates = false; showLegacyTemplates = false; showReset = false; actionTemplateID = nil }
     private var dropdownAnchor: CGRect {
         menuAnchors[showReset ? "reset" : "templates"] ?? CGRect(origin: toolbarPoint, size: toolbarSize)
     }
@@ -741,7 +508,7 @@ private struct FreeControlHost: ViewModifier {
         closeDropdown()
         withAnimation(reduceMotion ? nil : BTMotion.easeFast) { collapsed.toggle() }
     }
-    private var dropdownTitle: String { showReset ? "重置布局" : "布局模板 · \(mode.title)" }
+    private var dropdownTitle: String { showReset ? "重置布局" : (showLegacyTemplates ? "恢复旧版模板" : "布局模板 · \(mode.title)") }
     @ViewBuilder private var dropdownItems: some View {
         if showReset {
             Button("恢复此键") {
@@ -753,6 +520,23 @@ private struct FreeControlHost: ViewModifier {
             Button("重做") {
                 if let last = redo.popLast() { undo.append(draft ?? [:]); draft = last }; closeDropdown()
             }.disabled(redo.isEmpty).accessibilityIdentifier("freeLayout.redo")
+        } else if showLegacyTemplates {
+            Button("返回本页模板") { showLegacyTemplates = false }
+            Text("选择旧模板，在本页预览并另存。原模板会保留。")
+                .font(.btCaption).foregroundStyle(Color.btTextSecondary).padding(12)
+            if let failure = store.legacyError { Text(failure).font(.btCaption).padding(12) }
+            ForEach((store.legacyArchive?.templates.values.map { $0 } ?? []).sorted { $0.name < $1.name }) { template in
+                Button(template.name) { recoverLegacy(template.id, name: template.name) }
+                    .accessibilityIdentifier("freeLayout.recoverLegacy." + template.id.uuidString)
+            }
+            ForEach(unassignedTemplates) { template in
+                Button(template.displayName) {
+                    do {
+                        begin(values: try store.recoverUnassignedDraft(template, page: page, mode: mode))
+                        name = FreeControlTemplate.userName(template.baseName)
+                    } catch { self.error = error.localizedDescription }
+                }.disabled(template.mode != mode)
+            }
         } else {
             HStack(spacing: 8) {
                 Button { begin(values: [:]) } label: {
@@ -790,20 +574,48 @@ private struct FreeControlHost: ViewModifier {
                 .background(actionTemplateID == template.id ? Color.btPrimaryMuted : .clear)
                 .accessibilityElement(children: .contain).accessibilityIdentifier("freeLayout.template." + template.id.uuidString)
             }
+            if store.legacyArchive?.templates.isEmpty == false || store.legacyError != nil || !unassignedTemplates.isEmpty {
+                Divider().padding(.horizontal, 12)
+                Button { showLegacyTemplates = true; actionTemplateID = nil } label: {
+                    HStack { Text("恢复旧版模板"); Spacer(); Image(systemName: "chevron.right") }
+                }.accessibilityIdentifier("freeLayout.legacyRecovery")
+            }
         }
+    }
+
+    private var unassignedTemplates: [FreeControlTemplate] {
+        store.archive.templates.filter { TablePreferencePage(rawValue: $0.sourcePage)?.supportsControlLayoutEditing != true }
+    }
+
+    private func recoverLegacy(_ id: UUID, name: String) {
+        var input = legacyInput
+        input.defaults = mode == .twoD ? legacyMeasurements.groups.filter { $0.key != .camera } : legacyMeasurements.groups
+        input.obstacles += legacyMeasurements.obstacles
+        let domain: ControlLayoutDomain = UIDevice.current.userInterfaceIdiom == .pad
+            ? (windowSize.height > windowSize.width ? .padPortrait : .padLandscape) : .phoneLandscape
+        do {
+            let result = try store.recoverLegacyDraft(id, page: page, mode: mode, domain: domain,
+                input: input, controls: legacyMeasurements.controls,
+                window: .init(width: windowSize.width, height: windowSize.height))
+            if let pending = result.pending { error = pending; return }
+            begin(values: result.values); self.name = FreeControlTemplate.userName(name)
+        } catch { self.error = error.localizedDescription }
     }
 
     @ViewBuilder private func templateActions(_ template: FreeControlTemplate) -> some View {
         Button { use(template) } label: { Label("使用", systemImage: "checkmark") }
             .accessibilityIdentifier("freeLayout.useTemplate")
         Button {
-            begin(values: template.values)
-            sourceTemplate = template; name = FreeControlTemplate.userName(template.baseName)
+            do {
+                try store.validateLocal(template, page: page, mode: mode)
+                begin(values: template.values)
+                sourceTemplate = template; name = FreeControlTemplate.userName(template.baseName)
+            } catch { self.error = error.localizedDescription }
         } label: { Label("修改", systemImage: "pencil") }
             .accessibilityIdentifier("freeLayout.editTemplate")
         Button {
             do {
-                try store.setPinned(template, pinned: template.pinnedAt == nil)
+                try store.setPinnedLocal(template, pinned: template.pinnedAt == nil, page: page, mode: mode)
                 if sourceTemplate?.id == template.id { sourceTemplate = store.archive.templates.first { $0.id == template.id } }
                 actionTemplateID = nil
             } catch { self.error = error.localizedDescription }
@@ -835,7 +647,7 @@ private struct FreeControlHost: ViewModifier {
     private var floatingHeader: some View {
         HStack(spacing: 0) {
             toolbarHandle
-            Button { let next = !showTemplates; closeDropdown(); showTemplates = next; chosenTemplate = nil } label: {
+            Button { let next = !showTemplates; closeDropdown(); showTemplates = next } label: {
                 HStack(spacing: 4) {
                     Text(sourceTemplate?.displayName ?? ((store.values(page: page, mode: mode).isEmpty ? "本页默认" : "当前布局") + " · " + mode.title))
                         .lineLimit(1)
@@ -888,149 +700,17 @@ private struct FreeControlHost: ViewModifier {
         checkpoint(); var p = placement(id); p.scale = max(0.01, p.scale + amount); draft?[id] = p
     }
 
-    private var entryPanel: some View {
-        VStack(spacing: Spacing.sm) {
-            Text("操作布局 · \(mode.title)").font(.btSubheadlineSemibold)
-            if store.legacyError != nil || (store.archive.legacyRecords?.values.contains { $0.page == page.rawValue && $0.templateID == nil } ?? false) {
-                Text("旧布局有待转换记录，原数据已保留，可在通用设置的操作布局中查看。")
-                    .font(.btCaption).lineLimit(2).accessibilityIdentifier("freeLayout.legacyNotice")
-            }
-            if let template = chosenTemplate {
-                Text(template.displayName).font(.btSubheadlineSemibold).lineLimit(2)
-                Text(templateSource(template)).font(.btCaption)
-                let compatible = !Set(template.values.keys).isDisjoint(with: FreeControlCatalog.ids(page: page, mode: mode))
-                if !compatible { Text("当前页面没有可应用的按键").font(.btFootnote) }
-                Button("使用当前模板") { use(template) }
-                    .disabled(!compatible).accessibilityIdentifier("freeLayout.useTemplate")
-                Button("在此模板基础上修改") { derive(template) }
-                    .disabled(!compatible).accessibilityIdentifier("freeLayout.deriveTemplate")
-                Button("返回模板列表") { chosenTemplate = nil }
-                    .accessibilityIdentifier("freeLayout.backToLibrary")
-            } else {
-                ScrollView {
-                    VStack(spacing: Spacing.xs) {
-                        Button("本页默认 · \(mode.title)") {
-                            do {
-                                try store.restore(page: page, mode: mode, expectedPageRevision: revision)
-                                editing = false
-                            } catch { self.error = error.localizedDescription }
-                        }.accessibilityIdentifier("freeLayout.default")
-                        Button("从本页默认自定义") { begin(values: [:]) }.accessibilityIdentifier("freeLayout.customize")
-                            .disabled(frames.isEmpty)
-                        if frames.isEmpty {
-                            Text("当前 \(mode.title) 页面没有可调整的操作按键")
-                                .font(.btFootnote).accessibilityIdentifier("freeLayout.noControls")
-                        }
-                        if !store.values(page: page, mode: mode).isEmpty {
-                            Button("调整当前布局") { begin(values: store.values(page: page, mode: mode)) }
-                                .accessibilityIdentifier("freeLayout.current")
-                        }
-                        ForEach(personalTemplates) { template in
-                            Button { chosenTemplate = template } label: {
-                                VStack(alignment: .leading, spacing: Spacing.xs) {
-                                    Text(template.displayName).lineLimit(2)
-                                    Text(templateSource(template)).font(.btCaption)
-                                    if template.mode != mode {
-                                        Text("请在 \(template.mode.title) 模式下使用").font(.btCaption)
-                                    }
-                                }.frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            .disabled(template.mode != mode)
-                            .opacity(template.mode == mode ? 1 : 0.55)
-                            .accessibilityIdentifier("freeLayout.template." + template.id.uuidString)
-                        }
-                        if !store.archive.templates.isEmpty || store.legacyArchive != nil || store.legacyError != nil || store.loadError != nil {
-                            Button("管理个人模板") { managing = true }.accessibilityIdentifier("freeLayout.manage")
-                        }
-                    }.background {
-                        GeometryReader { proxy in
-                            Color.clear.preference(key: FreeControlLibraryHeightKey.self, value: proxy.size.height)
-                        }
-                    }
-                }
-                .onPreferenceChange(FreeControlLibraryHeightKey.self) { libraryHeight = $0 }
-                .frame(height: min(libraryHeight, max(44, hostFrame.height - 2 * Spacing.md - 2 * 44 - 4 * Spacing.sm)))
-                .accessibilityIdentifier("freeLayout.templateList")
-            }
-            Button(usesFloatingTools ? "返回编辑" : "取消") { if usesFloatingTools { showTemplates = false } else { editing = false } }.accessibilityIdentifier(usesFloatingTools ? "freeLayout.closeTemplates" : "freeLayout.cancel")
-        }.buttonStyle(FreeLayoutToolButtonStyle()).tint(.btText)
-            .padding(Spacing.md).frame(maxWidth: 440)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: BTRadius.lg))
-    }
-
-    private var personalTemplates: [FreeControlTemplate] {
-        if usesFloatingTools { return store.localTemplates(page: page, mode: mode) }
-        // Daily's pilot templates are local; other pages retain their existing editor until review.
-        return store.archive.templates.filter { $0.sourcePage != TablePreferencePage.dailyClearance.rawValue }.sorted {
-            if ($0.mode == mode) != ($1.mode == mode) { return $0.mode == mode }
-            if $0.createdAt != $1.createdAt { return $0.createdAt > $1.createdAt }
-            return $0.id.uuidString < $1.id.uuidString
-        }
-    }
-    private func templateSource(_ template: FreeControlTemplate) -> String {
-        let title = TablePreferencePage(rawValue: template.sourcePage)?.layoutTitle ?? template.sourcePage
-        return "\(title) · \(template.createdAt.formatted(date: .numeric, time: .shortened))"
-    }
+    private var personalTemplates: [FreeControlTemplate] { store.localTemplates(page: page, mode: mode) }
     private func use(_ template: FreeControlTemplate) {
         do {
-            try store.apply(template.id, page: page, mode: mode, expectedPageRevision: revision)
+            try store.applyLocal(template.id, page: page, mode: mode, expectedPageRevision: revision)
             editing = false
         } catch { self.error = error.localizedDescription }
     }
-    private func derive(_ template: FreeControlTemplate) {
-        do {
-            let merged = try template.merging(into: store.values(page: page, mode: mode), page: page, mode: mode)
-            begin(values: merged)
-            sourceTemplate = template
-            name = FreeControlTemplate.userName(template.baseName)
-        } catch { self.error = error.localizedDescription }
-    }
 
-    private var toolsPanel: some View {
-        VStack(spacing: Spacing.xs) {
-            HStack {
-                Button(selected.flatMap { frames[$0]?.name } ?? "选择按键") { showControls.toggle() }
-                    .accessibilityIdentifier("freeLayout.controls")
-                Button("撤销") { guard let last = undo.popLast() else { return }; redo.append(draft ?? [:]); draft = last }.disabled(undo.isEmpty)
-                Button("重做") { guard let last = redo.popLast() else { return }; undo.append(draft ?? [:]); draft = last }.disabled(redo.isEmpty)
-                Button("全部默认") { checkpoint(); draft = [:] }.accessibilityIdentifier("freeLayout.resetAll")
-                Spacer(minLength: 0)
-                Button("取消") { editing = false }.accessibilityIdentifier("freeLayout.cancel")
-                Button("保存为新模板") { showName = true }.accessibilityIdentifier("freeLayout.save")
-            }
-            if let id = selected {
-                HStack {
-                    Text("大小 \(String(format: "%.2f", placement(id).scale * 100))%")
-                    Slider(value: Binding(get: { min(2.5, max(0.25, placement(id).scale)) }, set: { value in
-                        var p = placement(id); p.scale = value; draft?[id] = p
-                    }), in: 0.25...2.5, onEditingChanged: { active in
-                        if active { gestureStart = draft ?? [:] } else { finishGesture() }
-                    }).accessibilityLabel("按键大小").accessibilityIdentifier("freeLayout.scale")
-                    Button("数值") { scaleText = String(format: "%.2f", placement(id).scale * 100); showScaleValue = true }
-                        .accessibilityIdentifier("freeLayout.exactScale")
-                    Button("恢复此键") {
-                        checkpoint(); draft?.removeValue(forKey: id)
-                    }.accessibilityIdentifier("freeLayout.resetSelected")
-                }
-                HStack {
-                    Button("左移") { nudge(id, dx: -5, dy: 0) }
-                    Button("右移") { nudge(id, dx: 5, dy: 0) }
-                    Button("上移") { nudge(id, dx: 0, dy: -5) }
-                    Button("下移") { nudge(id, dx: 0, dy: 5) }
-                    Button("放大") { checkpoint(); var p = placement(id); p.scale += 0.05; draft?[id] = p }
-                    Button("缩小") { checkpoint(); var p = placement(id); p.scale = max(0.01, p.scale - 0.05); draft?[id] = p }
-                }
-            } else { Text("选择一个按键，拖动位置或调整大小").font(.btCaption) }
-        }
-        .font(.btFootnote)
-        .buttonStyle(FreeLayoutToolButtonStyle())
-        .tint(.btText)
-        .padding(Spacing.sm).frame(maxWidth: 620)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: BTRadius.lg))
-    }
     private func begin(values: FreeControlValues) {
         draft = values; selected = nil; undo = []; redo = []; templateID = UUID(); name = ""; sourceTemplate = nil
-        saveOnly = false; conflict = false; draftCreatedAt = Date(); showTemplates = false
+        saveOnly = false; conflict = false; draftCreatedAt = Date(); showTemplates = false; showLegacyTemplates = false
     }
     private func setScaleValue() {
         guard let id = selected,
@@ -1063,28 +743,23 @@ private struct FreeControlHost: ViewModifier {
         gestureStart = nil
         gestureOrigin = nil
     }
-    private func nudge(_ id: String, dx: Double, dy: Double) {
-        guard canMeasure else { return }
-        checkpoint(); var p = placement(id)
-        p.x += dx / windowSize.width; p.y += dy / windowSize.height; draft?[id] = p
-    }
     private func save() {
         guard canMeasure else { return }
         var result = draft ?? [:]
         // Capture each currently registered control, not the geometry of a group.
         for id in frames.keys where result[id] == nil { result[id] = placement(id) }
         do {
-            let sourceOnly = sourceTemplate?.values.filter { !FreeControlCatalog.ids(page: page, mode: mode).contains($0.key) } ?? [:]
             if saveOnly {
                 try store.saveCopyOnly(.init(id: templateID, baseName: name, mode: mode, sourcePage: page.rawValue,
-                    createdAt: draftCreatedAt, values: sourceOnly.merging(result) { _, new in new },
+                    createdAt: draftCreatedAt, values: result,
                     sourceWindow: .init(width: windowSize.width, height: windowSize.height), sourceTemplateID: sourceTemplate?.id))
-            } else if usesFloatingTools, let sourceTemplate {
+            } else if let sourceTemplate {
+                try store.validateLocal(sourceTemplate, page: page, mode: mode)
                 try store.updateLocal(sourceTemplate, name: name, values: result, expectedPageRevision: revision,
                                       sourceWindow: .init(width: windowSize.width, height: windowSize.height))
             } else {
                 try store.saveNew(id: templateID, name: name, page: page, mode: mode,
-                                  values: result, sourceOnly: sourceOnly, expectedPageRevision: revision,
+                                  values: result, expectedPageRevision: revision,
                                   sourceWindow: .init(width: windowSize.width, height: windowSize.height),
                                   sourceTemplateID: sourceTemplate?.id)
             }
@@ -1111,7 +786,7 @@ extension DailyLayoutMetrics.Palette {
     }
 }
 
-/// Matches the settings material while inheriting the user's appearance, not the scene's fixed dark HUD.
+/// Uses the layout editor's fixed dark environment for material and semantic colors.
 private struct DailyLayoutEditorSurface: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     func body(content: Content) -> some View {

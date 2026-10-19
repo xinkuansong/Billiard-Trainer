@@ -91,6 +91,28 @@ final class P2_DataLayerUITests: XCTestCase {
         }
     }
 
+    func testGuestProPromotionInBothAppearances() {
+        for appearance in ["light", "dark"] {
+            app.terminate()
+            app = XCUIApplication.launchClean(extraArgs: [
+                "-forceNonPremium", "-v50.inMemoryStore",
+                appearance == "light" ? "-v54.forceLight" : "-v54.forceDark"
+            ])
+            app.switchTab(.profile)
+            let promotion = app.buttons["profile.proPromotion"]
+            XCTAssertTrue(promotion.waitForExistence(timeout: 6))
+            XCTAssertTrue(promotion.isHittable)
+            XCTAssertTrue(promotion.label.contains("解锁球迹 Pro"))
+            captureProfileRefinement("guest-promotion-" + appearance)
+            let banner = XCTAttachment(screenshot: promotion.screenshot())
+            banner.name = "pro-promotion-banner-" + appearance
+            banner.lifetime = .keepAlways
+            add(banner)
+            promotion.tap()
+            XCTAssertTrue(app.buttons["恢复购买"].waitForExistence(timeout: 8))
+        }
+    }
+
     private func captureProfileRefinement(_ name: String) {
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "profile-refinement-\(name)"

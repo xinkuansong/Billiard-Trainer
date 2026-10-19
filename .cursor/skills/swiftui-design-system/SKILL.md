@@ -1556,6 +1556,8 @@ DR-392 r3 / FL-153（2026-10-14）：动作库详情与“上手试打→序列�
 
 ### DR-401 — 我的页皇冠会员球（2026-10-16）
 
+FL-168 推广入口补查（2026-10-19）：统一Pro视觉时除按钮外，还须检查游客推广卡、会员/非会员订阅行及其他账号态入口；区分品牌皇冠与评分星号、权限锁。游客推广卡使用BTProfileCrown(width:44)，保留56pt圆底。Changelog：FL-168 / Pro图形消费端补查。
+
 DR-401 Pro按钮统一（2026-10-19）：用户接受淡金原生预览并授权全场景推广。解锁/购买/终身升级入口共用BTProUnlockButtonStyle及btProButtonBackground/Foreground；浅色#E9DEC9/#765C30，深色#3B3325/#EAD6AF，冠图沿用r11原像素。持续深色的球桌及品牌订阅面强制深色消费；普通文档随环境。保持购买禁用态、恢复购买、模拟器调试开关的原有语义，不把管理或调试动作混作Pro解锁按钮。
 
 DR-401 皇冠r11 / FL-168（2026-10-19）：最新纯金透明原图替代r9黑金。禁止靠横纵非等比缩放修接合，保留圆球尖和原材质；底圈两端必须与原球alpha肩部轮廓实测对齐，单纯盖住球顶不等于相切感。分别核黑八/九球，真实App小图复阅；最新用户允许更高后必须恢复球46pt，取消为旧占高缩球的中间方案，不把自动测试通过称为视觉接受。
@@ -1610,3 +1612,21 @@ DR-408 r4：固定品牌深色页若位于显式浅色根宿主下，需同时�
 ### DR-410 — 设置选择可操作提示（2026-10-19）
 自定义设置/选择行复用 `BTSelectionIndicator(isSelected:selectedColor:unselectedColor:)`：灰色空心方框/绿色对勾，图标固定占位且读屏状态由父控件提供。`DailyHUDMenuItem.selected: Bool?` 的 nil 是普通动作/导航，false 是未选，禁止把所有 action 行当开关；下级选择/编辑/说明入口显式 disclosure。原生系统开关、Picker、分段胶囊与完成状态图标保留。默认模板的禁用三点与使用默认布局按钮分离，触摸禁用区不能冒泡触发默认布局。
 Changelog：DR-410 / v1 / 用户确认的全局设置提示；实现及证据见 tasks/ui-reviews/UR-20261019-settings-affordance.md。
+
+DR-410 v2（2026-10-19）：操作布局编辑浮层只使用深色，工具栏/模板列表/二级菜单继承编辑器局部 dark 环境；controlLayoutHost 不再接收 editorColorScheme，避免页面传入系统浅色。其他设置页面外观策略不变。
+
+
+DR-408 r6（2026-10-19）：Pro状态页临时宿主主题由UIKit页面willAppear/willDisappear上报，在返回转场开始前恢复用户外观，交互取消后恢复品牌深色；移除子页重复preferredColorScheme，仅保留局部深色环境。不得依赖SwiftUI onDisappear在动画结束后恢复，也不能只在返回页onAppear清除而遗漏取消。验收包含按钮返回、完成侧滑、取消侧滑及系统状态栏的原生截图/录像。 Changelog：DR-408 r6 / Pro返回主题时序。
+
+DR-410 v3（2026-10-19）：所有交互球桌的操作布局统一为固定深色浮动工具条、直接选键、页+正式模式本地模板；默认灰色禁用三点。移除旧组编辑器/底部面板/菜单选键和通用布局管理导航。瞄准点与自定义球形分别注册真实按键并隔离编辑输入；无可编辑键模式不显示入口。v1数据模型仅用于测量迁移，页内恢复另存保留原档；现行模板的使用/修改/置顶/删除校验page/mode。详见 tasks/table-control-layout/LOCAL-ROLLOUT-20261019.md。
+
+
+### DR-411 — 图谱直接选档（2026-10-19）
+两个图谱八档仅左列直接开关，不再在更多菜单重复。BTAtlasTrackButtonStyle(isSelected:)采用现有HUD token，圆角底框、选中勾号/未选加号及按压高亮；球面颜色/打点几何及至少一档保持，八行全显的紧凑行高沿用页面契约。共用教学菜单与自由击球不再追加偏好作用域小字；必要错误/规则原因与教学正文不因此删除。Changelog：DR-411 / v1；验证见UR-20261019-atlas-controls.md。
+
+
+DR-411 r2 / FL-184（2026-10-19）：用户否定r1宽绿底与勾号。两图谱改为36pt可见中性圆角框、44pt宽命中，取消勾号/加号，常态直接使用HUDStyle.controlBackground；球面明暗及中性细框表达选择，按压用HUDStyle.selectedBackground。局部可点击样式调整先继承同页按键底色，避免叠加用户未要求的符号和大面积高亮。覆盖本节r1样式，菜单精简及业务保持。Changelog：DR-411 v2 / FL-184。
+
+### DR-412 — 瞄准特写同源台呢（2026-10-19）
+BTAimCloseupHUD.feltImage可选底图由共享Overlay预取；台呢/球房变化或重新开启时更新，60Hz定位循环不渲染底图。TableFigureRenderer.closeupFelt使用当前liveReference材质和曝光、当前台呢/球房；纯台呢取样不包含球位、置球点或库边。教学卡backdrop默认plainLegacy保持，缓存key包含recipe/clothColor/roomStyle。不得再以历史RGB/albedo直接填色宣称与当前台呢一致；分别对拍真实材质与最终HUD，并看2D/3D实页。
+Changelog：DR-412 / v1 / 特写背景由旧纯色改为新版材质缓存；证据见tasks/ui-reviews/UR-20261019-aim-closeup-cloth.md。

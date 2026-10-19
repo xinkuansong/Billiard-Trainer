@@ -1,6 +1,49 @@
 import XCTest
 
 final class ShotAudioPreviewUITests: XCTestCase {
+    func testBundledSoundsSupportNormalShotAndBreakWithoutAuditionImport() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeRight
+        for fixture in ["selection", "manual"] {
+            let app = XCUIApplication.launchClean(extraArgs: [
+                "-forcePremium", "-deeplink.dailyClearance", "-dailyClearance.resetState",
+                "-dailyClearance.fixture=\(fixture)", "-shotAudioPreviewEnabled", "NO",
+                "-soundEffectsEnabled", "YES"
+            ])
+            let strike = app.buttons["dailyClearance.strike"]
+            XCTAssertTrue(strike.waitForExistence(timeout: 20))
+            if fixture == "selection" {
+                // The resumed board has no selected pocket. A real aim gesture
+                // enters free aiming and computes the shot before it can fire.
+                let wheel = app.descendants(matching: .any)["shotStage.aimWheel"].firstMatch
+                XCTAssertTrue(wheel.waitForExistence(timeout: 5))
+                let start = wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 24)),
+                            withVelocity: .slow, thenHoldForDuration: 0.1)
+            }
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(
+                for: NSPredicate(format: "enabled == true"), evaluatedWith: strike
+            )], timeout: 15), .completed, app.debugDescription)
+            XCUIDevice.shared.press(.home)
+            app.activate()
+            XCTAssertTrue(strike.waitForExistence(timeout: 10))
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(
+                for: NSPredicate(format: "enabled == true"), evaluatedWith: strike
+            )], timeout: 15), .completed)
+            strike.tap()
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(
+                for: NSPredicate(format: "enabled == false"), evaluatedWith: strike
+            )], timeout: 5), .completed, "Actual shot playback must start")
+            sleep(6)
+            XCTAssertEqual(app.state, .runningForeground)
+            let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            attachment.name = "bundled-audio-\(fixture)"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            app.terminate()
+        }
+    }
+
     func testManualBreakPlaysWithImportedPreviewSounds() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         guard FileManager.default.fileExists(atPath: root.appendingPathComponent("output/shot-audio-preview-20260930/manifest.json").path) else {

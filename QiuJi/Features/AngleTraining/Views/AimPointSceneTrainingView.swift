@@ -458,6 +458,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
 struct AimPointSceneTrainingView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var editingControlLayout = false
+    @State private var scenePausedBeforeLayout = false
     @State private var observingCamera = false
     @State private var draggingAimWheel = false
     @State private var draggingAimTable = false
@@ -516,6 +517,11 @@ struct AimPointSceneTrainingView: View {
         }
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
         .trainingBackgroundMusic()
+        .preference(key: TrainingActivityPausedKey.self, value: editingControlLayout)
+        .onChange(of: editingControlLayout) { _, editing in
+            if editing { scenePausedBeforeLayout = vm.scene.isPaused; vm.scene.isPaused = true }
+            else { vm.scene.isPaused = scenePausedBeforeLayout }
+        }
         .navigationTitle(hasStarted ? title : "训练设置")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
@@ -531,7 +537,10 @@ struct AimPointSceneTrainingView: View {
             vm.configure(context: modelContext)
             vm.run.configuration = .load(for: vm.quizTypeLabel)
         }
-        .onDisappear { endLayoutTouches(); vm.stopTraining() }
+        .onDisappear {
+            if editingControlLayout { vm.scene.isPaused = scenePausedBeforeLayout }
+            endLayoutTouches(); vm.stopTraining()
+        }
         .onChange(of: scenePhase) { _, phase in if phase != .active { endLayoutTouches() } }
         .onReceive(subscriptionManager.$isPremium) { vm.limiter.isPremium = $0 }
         .sheet(isPresented: $showSubscription) { SubscriptionView().environmentObject(subscriptionManager) }
@@ -655,15 +664,18 @@ struct AimPointSceneTrainingView: View {
                             .frame(width: 52, height: 52)
                             .background { BTHUDControlBackground(shape: Circle()) }
                     }.buttonStyle(BTHUDPressStyle()).disabled(!canAim).accessibilityIdentifier("aimPointTraining.angleHint")
+                    .freeControlItem("aimPoint.hint", name: "角度提示")
                     Button { vm.submit() } label: {
                         Text("提交").font(.btSubheadlineSemibold).frame(width: 52, height: 52)
                     }.buttonStyle(DailyStrikeButtonStyle()).disabled(!canAim)
                         .accessibilityIdentifier("aimPointTraining.submit")
+                        .freeControlItem("aimPoint.submit", name: "提交")
                 } else {
                     Button { vm.nextQuestion() } label: {
                         Text(vm.run.canFinish || vm.limiter.isLimitReached ? "总结" : "下一题")
                             .font(.btSubheadlineSemibold).frame(width: 52, height: 52)
                     }.buttonStyle(DailyStrikeButtonStyle()).accessibilityIdentifier("aimPointTraining.next")
+                        .freeControlItem("aimPoint.next", name: "下一题")
                 }
             }.frame(width: 60, height: min(200, f.stage.height))
                 .padding(.vertical, Spacing.sm).controlLayoutGroup(.primary).position(x: f.right.midX, y: f.table.midY)
@@ -714,7 +726,7 @@ struct AimPointSceneTrainingView: View {
             leading: f.left, trailing: f.right, defaultFits: f.fits && plan.fits,
             obstacles: plan.controlLayoutProtectionFrames(table: f.table), busy: controlLayoutBusy,
             editing: $editingControlLayout, rulerHeight: instruments.rulerLength,
-            primaryTitle: vm.phase == .aiming ? "提交" : "下一题")
+            primaryTitle: vm.phase == .aiming ? "提交" : "下一题", editorToolbarTop: f.table.minY)
         .onPreferenceChange(BTCloseupProtectedFramesKey.self) { protectedCloseupFrames = $0 }
         #if DEBUG
         .background {

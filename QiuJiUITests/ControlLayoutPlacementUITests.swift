@@ -1,6 +1,161 @@
 import XCTest
 
 final class ControlLayoutPlacementUITests: XCTestCase {
+    func testFormationRelocatedNudgeStillOperatesBall() throws {
+        launchFormationLayout("formationPractice"); setCoreMode("2D")
+        ready("freeplay.moreMenu").tap()
+        let arrange = ready("formation.arrange")
+        for _ in 0..<5 where !arrange.isHittable { app.scrollViews["dailyClearance.menuScroll"].swipeUp() }
+        arrange.tap()
+        func balls() throws -> [[String: Any]] {
+            let data = try XCTUnwrap((ready("table.scene").value as? String)?.data(using: .utf8))
+            let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            return try XCTUnwrap(json["balls"] as? [[String: Any]])
+        }
+        let target = try XCTUnwrap(try balls().first { $0["key"] as? String != "cueBall" })
+        let key = try XCTUnwrap(target["key"] as? String), point = try XCTUnwrap(target["screen"] as? [Double])
+        ready("table.scene").coordinate(withNormalizedOffset: .zero).withOffset(.init(dx: point[0], dy: point[1])).tap()
+        XCTAssertTrue(ready("formation.nudge.right").isEnabled)
+        // TableBallPulse animates 0.18s up + 0.24s down on selection.
+        // Compare the settled presentation against its actual pre-selection scale.
+        let restingScale = try XCTUnwrap(target["scale"] as? [Double])
+        for _ in 0..<30 {
+            if try balls().first(where: { $0["key"] as? String == key })?["scale"] as? [Double] == restingScale { break }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        XCTAssertEqual(try balls().first(where: { $0["key"] as? String == key })?["scale"] as? [Double], restingScale)
+        let state = try businessSnapshot(includeCamera: false)
+        openFreeEditor(); ready("freeLayout.collapse").tap()
+        let button = ready("freeLayout.select.formation.nudge.right"), original = button.frame
+        let start = button.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(.init(dx: 150, dy: 0)))
+        XCTAssertGreaterThan(button.frame.midX, original.midX + 130)
+        ready("freeLayout.collapse").tap(); saveFreeLayout("移动微调键")
+        XCTAssertEqual(try businessSnapshot(includeCamera: false), state)
+        let moved = ready("formation.nudge.right")
+        XCTAssertGreaterThan(moved.frame.midX, original.midX + 130)
+        let before = try XCTUnwrap(try balls().first { $0["key"] as? String == key }?["world"] as? [Double])
+        moved.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+        let after = try XCTUnwrap(try balls().first { $0["key"] as? String == key }?["world"] as? [Double])
+        XCTAssertGreaterThan(hypot(after[0] - before[0], after[2] - before[2]), 0.0001)
+        try capture("formation-relocated-nudge")
+    }
+
+    func testRetiredGlobalEntryAndEmptyMode() throws {
+        app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-hasCompletedOnboarding", "YES",
+            "-forcePremium", "-v50.inMemoryStore", "-deeplink.settings"]
+        app.launch()
+        let grid = ready("settings.grid")
+        for _ in 0..<5 where !grid.isHittable { app.swipeUp() }
+        XCTAssertTrue(grid.isHittable)
+        XCTAssertFalse(element("settings.controlLayout").exists)
+        XCTAssertTrue(ready("settings.closeup").exists)
+        try capture("general-settings-native-switches")
+        launchTeaching("angleDynamic"); teachingMode("angleDynamic", "2D")
+        ready("angleDynamic.more").coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertFalse(element("controlLayout.open").exists)
+        ready("angleDynamic.dismissMenu").coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.5)).tap()
+        teachingMode("angleDynamic", "3D"); openFreeEditor()
+        XCTAssertTrue(ready("freeLayout.floatingToolbar").exists)
+        XCTAssertTrue(ready("freeLayout.select.camera.thirdPerson").exists)
+        ready("freeLayout.cancel").tap()
+    }
+
+    /// Rollout contract: real page controls, local templates and unchanged business state.
+    func testPageLocalFloatingLayout() throws {
+        let env = ProcessInfo.processInfo.environment
+        let pages = (env["LAYOUT_PAGES"] ?? "freePlay,silu").split(separator: ",").map(String.init)
+        for page in pages {
+            launchMatrixPage(page)
+            let modes = (page.hasSuffix("2d") || page == "formationEditor") ? ["2D"] : (page.hasSuffix("3d") || page == "angleDynamic" ? ["3D"] : ["2D", "3D"])
+            for mode in modes {
+                if !page.hasSuffix("2d") && !page.hasSuffix("3d") && page != "formationEditor" { rolloutMode(page, mode) }
+                if env["LAYOUT_PORTRAIT"] == "1" { XCUIDevice.shared.orientation = .portrait; Thread.sleep(forTimeInterval: 1) }
+                let tag = page + "-" + mode
+                try capture(tag + "-before")
+                let state = try businessSnapshot(includeCamera: false)
+                openFreeEditor()
+                if env["LAYOUT_BEFORE_ONLY"] == "1" {
+                    try capture(tag + "-old-editor")
+                    ready("freeLayout.cancel").tap()
+                    continue
+                }
+                XCTAssertTrue(ready("freeLayout.floatingToolbar").exists)
+                XCTAssertFalse(element("freeLayout.customize").exists)
+                try capture(tag + "-editor")
+                let keys = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "freeLayout.select."))
+                XCTAssertGreaterThanOrEqual(keys.count, 2)
+                let preferred = ["shot.undo", "planning.constraintTool", "shot.aim", "aimPoint.hint", "angle.assist", "shot.power", "camera.thirdPerson", "formation.tool.line"]
+                let id = try XCTUnwrap(preferred.map { "freeLayout.select." + $0 }.first { element($0).exists })
+                let key = ready(id), original = key.frame
+                let otherID = try XCTUnwrap(keys.allElementsBoundByIndex.map(\.identifier).first { $0 != id })
+                let other = ready(otherID).frame
+                key.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+                ready("freeLayout.larger").tap()
+                XCTAssertGreaterThan(key.frame.width, original.width)
+                XCTAssertEqual(ready(otherID).frame, other)
+                ready("freeLayout.collapse").tap()
+                let origin = key.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5))
+                origin.press(forDuration: 0.1, thenDragTo: origin.withOffset(.init(dx: 28, dy: -18)))
+                XCTAssertGreaterThan(key.frame.midX, original.midX + 15)
+                try capture(tag + "-moved")
+                ready("freeLayout.collapse").tap()
+                ready("freeLayout.cancel").tap()
+                XCTAssertEqual(try businessSnapshot(includeCamera: false), state)
+                openFreeEditor()
+                XCTAssertEqual(ready(id).frame.width, original.width, accuracy: 1)
+                XCTAssertEqual(ready(id).frame.midX, original.midX, accuracy: 1)
+                ready(id).coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+                ready("freeLayout.larger").tap()
+                let saved = ready(id).frame
+                let name = "本页验证 " + page + " " + mode
+                saveFreeLayout(name)
+                XCTAssertEqual(try businessSnapshot(includeCamera: false), state)
+                openFreeEditor()
+                XCTAssertEqual(ready(id).frame.width, saved.width, accuracy: 1)
+                ready("freeLayout.templates").tap()
+                let dots = ready("freeLayout.defaultActions")
+                XCTAssertFalse(dots.isEnabled)
+                dots.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+                XCTAssertTrue(element("freeLayout.dropdown").exists)
+                XCTAssertEqual(ready(id).frame, saved)
+                let actions = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "freeLayout.templateActions.", name)).firstMatch
+                XCTAssertTrue(actions.waitForExistence(timeout: 5))
+                let count = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "freeLayout.templateActions.")).count
+                try capture(tag + "-templates")
+                actions.tap(); ready("freeLayout.pinTemplate").tap()
+                actions.tap(); try capture(tag + "-actions")
+                ready("freeLayout.editTemplate").tap()
+                ready(id).coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+                ready("freeLayout.larger").tap()
+                saveFreeLayout(name)
+                openFreeEditor(); ready("freeLayout.templates").tap()
+                XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "freeLayout.templateActions.")).count, count)
+                actions.tap(); ready("freeLayout.useTemplate").tap()
+                XCTAssertFalse(element("freeLayout.editor").exists)
+                openFreeEditor(); let applied = ready(id).frame
+                ready("freeLayout.templates").tap(); actions.tap()
+                ready("freeLayout.deleteTemplate").tap(); ready("freeLayout.confirmDelete").tap()
+                XCTAssertFalse(actions.exists)
+                ready("freeLayout.closeTemplates").tap(); ready("freeLayout.cancel").tap()
+                openFreeEditor(); XCTAssertEqual(ready(id).frame, applied)
+                ready("freeLayout.cancel").tap()
+                XCTAssertEqual(try businessSnapshot(includeCamera: false), state)
+                try capture(tag + "-applied")
+            }
+        }
+    }
+
+    private func rolloutMode(_ page: String, _ mode: String) {
+        if ["angleDynamic", "separation", "cushion"].contains(page) { teachingMode(page, mode); return }
+        if ["dailyClearance", "freePlay", "shotSimulation", "snakePractice", "composer", "drillTryout", "formationPractice"].contains(page) { setCoreMode(mode); return }
+        let prefix = ["silu": "silu", "planThree": "planthree", "snooker": "snooker", "bank": "bankshot", "diamond": "reflection"][page]!
+        ready(prefix + ".more").coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+        if ready(prefix + ".cameraMode").value as? String != mode { ready(prefix + ".cameraMode").tap() }
+        ready(prefix + ".dismissMenu").coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.5)).tap()
+    }
+
     func testSettingsAffordanceAndDisabledDefaultActions() throws {
         launchMatrixPage("dailyClearance")
         for mode in ["2D", "3D"] {
@@ -193,10 +348,10 @@ final class ControlLayoutPlacementUITests: XCTestCase {
             XCTAssertEqual(ready("dailyClearance.undo").frame, applied,
                            "Deleting the template preserves the applied layout snapshot")
         }
-        // The pilot must not change another page's entry flow.
+        // Every page now uses the same editor, with a separate local template list.
         launchCore("freePlay"); openFreeEditor()
-        XCTAssertTrue(ready("freeLayout.customize").exists)
-        XCTAssertFalse(element("freeLayout.floatingToolbar").exists)
+        XCTAssertFalse(element("freeLayout.customize").exists)
+        XCTAssertTrue(ready("freeLayout.floatingToolbar").exists)
         ready("freeLayout.cancel").tap()
     }
 
@@ -1046,112 +1201,109 @@ final class ControlLayoutPlacementUITests: XCTestCase {
         func input(_ value: String) {
             XCTAssertTrue((ready("angleTraining.layoutState").value as? String ?? "").contains("input=\(value);"))
         }
-        for page in (ProcessInfo.processInfo.environment["LAYOUT_PAGES"] ?? "anglequiz2d,anglequiz3d").split(separator: ",").map(String.init) {
-            launchQuiz(page); openFreeEditor(); tap("freeLayout.default")
-            let initial = try businessSnapshot(), original = ready("angleTraining.primaryAction").frame
-            let probes = ["angleTraining.layoutState", "angleTraining.primaryAction", "angleTraining.questionInfo", "angleKeypad.digit.3", "angleKeypad.submit"]
-            try capture(page + "-default", probing: probes)
-            openFreeEditor(); tap("freeLayout.customize"); chooseFreeControl("angle.answer")
-            app.buttons["右移"].tap(); app.buttons["放大"].tap()
-            saveFreeLayout("R08 " + page)
-            XCTAssertEqual(try businessSnapshot(), initial)
-            XCTAssertEqual(ready("angleTraining.primaryAction").frame.midX, original.midX + 5, accuracy: 2)
-            XCTAssertEqual(ready("angleTraining.primaryAction").frame.width, original.width * 1.05, accuracy: 2)
-            try capture(page + "-personal", probing: probes)
+        for page in (ProcessInfo.processInfo.environment["LAYOUT_PAGES"] ?? "anglequiz2d,anglequiz3d").split(separator: ",").map(String.init).filter({ $0.hasPrefix("anglequiz") }) {
+            launchQuiz(page)
+            let initial = try businessSnapshot(includeCamera: false)
             tap("angleTraining.primaryAction"); tap("angleKeypad.digit.3"); tap("angleKeypad.digit.0"); input("30")
-            let inputState = try businessSnapshot(), digit = ready("angleKeypad.digit.3").frame
-            let first = ready("angleKeypad.digit.1").frame
-            try capture(page + "-keyboard-default", probing: probes)
-            openFreeEditor(); tap("freeLayout.current")
+            let inputState = try businessSnapshot(includeCamera: false), digit = ready("angleKeypad.digit.3").frame
+            let neighbor = ready("angleKeypad.digit.1").frame
+            openFreeEditor()
             for id in (0...9).map({ "angle.digit." + String($0) }) + ["angle.erase", "angle.submit", "angle.cancel"] {
                 XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "freeLayout.select." + id).count, 1)
             }
-            chooseFreeControl("angle.digit.3"); app.buttons["放大"].tap(); tap("freeLayout.collapse")
-            let selected = ready("freeLayout.select.angle.digit.3")
-            let start = selected.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5))
-            start.press(forDuration: 0.2, thenDragTo: start.withOffset(.init(dx: first.minX - 80 - digit.midX, dy: 0)),
-                        withVelocity: XCUIGestureVelocity(rawValue: 180), thenHoldForDuration: 0.1)
-            let preview = ready("freeLayout.select.angle.digit.3").frame
-            XCTAssertLessThan(preview.maxX, first.minX)
-            XCTAssertEqual(preview.width, digit.width * 1.05, accuracy: 2)
-            try capture(page + "-keyboard-preview", probing: probes)
-            tap("freeLayout.collapse"); XCUIDevice.shared.press(.home); app.activate()
-            saveFreeLayout("R08 数字 " + page)
-            XCTAssertEqual(try businessSnapshot(), inputState)
-            XCTAssertEqual(ready("angleKeypad.digit.3").frame.midX, preview.midX, accuracy: 2)
-            XCTAssertEqual(ready("angleKeypad.digit.1").frame, first)
-            try capture(page + "-keyboard-personal", probing: probes)
+            tap("freeLayout.select.angle.digit.3"); tap("freeLayout.larger"); tap("freeLayout.collapse")
+            let key = ready("freeLayout.select.angle.digit.3")
+            let origin = key.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5))
+            origin.press(forDuration: 0.1, thenDragTo: origin.withOffset(.init(dx: -70, dy: -15)))
+            XCTAssertLessThan(key.frame.midX, digit.midX - 50)
+            try capture(page + "-keyboard-preview")
+            tap("freeLayout.collapse"); tap("freeLayout.cancel")
+            XCTAssertEqual(try businessSnapshot(includeCamera: false), inputState)
+            XCTAssertEqual(ready("angleKeypad.digit.3").frame, digit)
+            openFreeEditor(); tap("freeLayout.select.angle.digit.3"); tap("freeLayout.larger")
+            let saved = ready("freeLayout.select.angle.digit.3").frame
+            saveFreeLayout("本页数字 " + page)
+            XCTAssertEqual(try businessSnapshot(includeCamera: false), inputState)
+            XCTAssertEqual(ready("angleKeypad.digit.3").frame.width, saved.width, accuracy: 1)
+            XCTAssertEqual(ready("angleKeypad.digit.1").frame, neighbor)
             tap("angleKeypad.erase"); input("3"); tap("angleKeypad.erase"); input("")
-            for number in 0...9 {
-                tap("angleKeypad.digit." + String(number)); input(String(number))
-                tap("angleKeypad.erase"); input("")
-            }
+            for number in 0...9 { tap("angleKeypad.digit." + String(number)); input(String(number)); tap("angleKeypad.erase"); input("") }
             tap("angleKeypad.cancel")
             XCTAssertTrue((ready("angleTraining.layoutState").value as? String ?? "").contains("answers=0"))
             tap("angleTraining.primaryAction"); tap("angleKeypad.digit.3"); tap("angleKeypad.digit.0"); input("30")
-            XCTAssertEqual(ready("angleKeypad.digit.3").frame.midX, preview.midX, accuracy: 2)
             tap("angleKeypad.submit")
             waitUntil("single answer recorded") { (self.element("angleTraining.layoutState").value as? String ?? "").contains("answers=1") }
-            XCTAssertFalse(element("angleKeypad.submit").exists)
-            let result = try businessSnapshot()
-            openFreeEditor(); tap("freeLayout.current"); chooseFreeControl("angle.next"); app.buttons["下移"].tap()
-            tap("freeLayout.cancel"); waitUntil("result editor closed") { !self.element("freeLayout.editor").exists }
-            XCTAssertEqual(try businessSnapshot(), result)
-            try capture(page + "-result", probing: probes)
+            let result = try businessSnapshot(includeCamera: false)
+            openFreeEditor(); tap("freeLayout.select.angle.next"); tap("freeLayout.larger"); tap("freeLayout.cancel")
+            XCTAssertEqual(try businessSnapshot(includeCamera: false), result)
+            try capture(page + "-result")
             tap("angleTraining.primaryAction")
             waitUntil("next question") { (self.element("angleTraining.layoutState").value as? String ?? "").contains("index=1") }
-            let next = try businessSnapshot(); openFreeEditor(); tap("freeLayout.default")
-            XCTAssertEqual(try businessSnapshot(), next)
-            try capture(page + "-restored-next", probing: probes)
-            tap("angleTraining.settings"); tap("angleTraining.finish")
-            _ = ready("training.summary")
-            try capture(page + "-summary", probing: ["training.summary", "training.summaryClose"])
+            XCTAssertNotEqual(try businessSnapshot(includeCamera: false), initial)
+            tap("angleTraining.settings"); tap("angleTraining.finish"); _ = ready("training.summary")
+            try capture(page + "-summary")
         }
     }
 
     func testAimPointQuizLayoutsAndAnswer() throws {
-        for page in (ProcessInfo.processInfo.environment["LAYOUT_PAGES"] ?? "aimpoint2d,aimpoint3d").split(separator: ",").map(String.init) {
-            launchQuiz(page); resetLayoutPage()
-            let probes = ["controlLayout.geometry", "aimPointTraining.layoutState", "aimPointTraining.submit", "aimPointTraining.questionInfo", "aimPointTraining.aimWheel"]
-            let initial = try businessSnapshot(), y = groupY("primary")
-            try capture(page + "-default", probing: probes)
-            openLayoutEditor(); revealEditor("layoutEditor.up").tap(); saveLayoutPage()
-            XCTAssertEqual(try businessSnapshot(), initial)
-            XCTAssertEqual(groupY("primary"), y - 8, accuracy: 0.6)
-            try capture(page + "-personal", probing: probes)
+        func tap(_ id: String) { ready(id).coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap() }
+        for page in (ProcessInfo.processInfo.environment["LAYOUT_PAGES"] ?? "aimpoint2d,aimpoint3d").split(separator: ",").map(String.init).filter({ $0.hasPrefix("aimpoint") }) {
+            launchQuiz(page)
+            let initial = try businessSnapshot(includeCamera: false), original = ready("aimPointTraining.submit").frame
+            openFreeEditor(); tap("freeLayout.select.aimPoint.submit"); tap("freeLayout.larger")
+            let saved = ready("freeLayout.select.aimPoint.submit").frame
+            saveFreeLayout("本页提交 " + page)
+            XCTAssertEqual(try businessSnapshot(includeCamera: false), initial)
+            XCTAssertGreaterThan(saved.width, original.width)
+            XCTAssertEqual(ready("aimPointTraining.submit").frame.width, saved.width, accuracy: 1)
             let wheel = ready("aimPointTraining.aimWheel")
             wheel.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.65)).press(forDuration: 0.2,
                 thenDragTo: wheel.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.35)), withVelocity: XCUIGestureVelocity(rawValue: 90), thenHoldForDuration: 0.1)
-            let aimed = try businessSnapshot()
-            XCTAssertNotEqual(aimed, initial, "real aim input changes direction")
-            ready("aimPointTraining.angleHint").coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
-            XCTAssertTrue(ready("aimPointTraining.layoutState").value.map { String(describing: $0).contains("angleHint") } ?? false)
-            let assisted = try businessSnapshot()
-            openLayoutEditor(); revealEditor("layoutEditor.down").tap()
-            ready("layoutEditor.cancel").coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap(); app.buttons["放弃修改"].tap()
-            XCTAssertEqual(try businessSnapshot(), assisted)
-            try capture(page + "-aimed-cancelled", probing: probes)
-            openLayoutEditor(); revealEditor("layoutEditor.up").tap(); XCUIDevice.shared.press(.home); app.activate(); saveLayoutPage()
-            XCTAssertEqual(try businessSnapshot(), assisted)
-            try capture(page + "-aimed-saved", probing: probes)
-            ready("aimPointTraining.submit").coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+            XCTAssertNotEqual(try businessSnapshot(includeCamera: false), initial)
+            tap("aimPointTraining.angleHint")
+            let assisted = try businessSnapshot(includeCamera: false)
+            openFreeEditor(); tap("freeLayout.select.aimPoint.hint"); tap("freeLayout.larger"); tap("freeLayout.cancel")
+            XCTAssertEqual(try businessSnapshot(includeCamera: false), assisted)
+            try capture(page + "-aimed-cancelled")
+            tap("aimPointTraining.submit")
             waitUntil("aim answer recorded once") { (self.element("aimPointTraining.layoutState").value as? String ?? "").contains("answers=1") }
             XCTAssertFalse(element("aimPointTraining.submit").exists)
-            let result = try businessSnapshot(); openLayoutEditor()
-            ready("layoutEditor.cancel").coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
-            XCTAssertEqual(try businessSnapshot(), result)
-            try capture(page + "-result", probing: probes)
-            ready("aimPointTraining.next").coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+            let result = try businessSnapshot(includeCamera: false)
+            openFreeEditor(); tap("freeLayout.select.aimPoint.next"); tap("freeLayout.larger"); tap("freeLayout.cancel")
+            XCTAssertEqual(try businessSnapshot(includeCamera: false), result)
+            try capture(page + "-result")
+            tap("aimPointTraining.next")
             waitUntil("next aim question") { (self.element("aimPointTraining.layoutState").value as? String ?? "").contains("phase=aiming") }
-            XCTAssertNotEqual(try businessSnapshot(), result)
-            resetLayoutPage(); try capture(page + "-restored-next", probing: probes)
-            ready("aimPointTraining.settings").coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
-            ready("aimPointTraining.finish").coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
-            _ = ready("training.summary"); try capture(page + "-summary", probing: ["training.summary"])
+            XCTAssertNotEqual(try businessSnapshot(includeCamera: false), result)
+            tap("aimPointTraining.settings"); tap("aimPointTraining.finish"); _ = ready("training.summary")
+            try capture(page + "-summary")
+        }
+    }
+
+    private func launchFormationLayout(_ page: String) {
+        app?.terminate(); XCUIDevice.shared.orientation = .landscapeLeft
+        app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-hasCompletedOnboarding", "YES", "-forcePremium",
+            "-v50.inMemoryStore", "-v51.followSystemAppearance", "-appearanceMode", "system", "-dailyLayout.probe", "-3dDrag.probe",
+            "-deeplink.customFormation", "-customFormation.owner=layout-" + UUID().uuidString]
+        app.launch()
+        let new = ready("formation.new")
+        for _ in 0..<5 where !new.isHittable { app.swipeUp() }
+        new.tap(); _ = ready("paletteBall__1")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        ready("paletteBall__1").tap()
+        if page == "formationPractice" {
+            ready("formation.edit.save").tap()
+            let alert = app.alerts["保存模板"], field = alert.textFields.firstMatch
+            XCTAssertTrue(field.waitForExistence(timeout: 10)); field.tap()
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (field.value as? String ?? "").count) + "布局验证球形")
+            alert.buttons.matching(identifier: "formation.save.confirm").firstMatch.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+            ready("formation.start").tap(); _ = ready("freeplay.moreMenu")
         }
     }
 
     private func launchMatrixPage(_ page: String) {
+        if page == "formationEditor" || page == "formationPractice" { launchFormationLayout(page); return }
         if page.hasPrefix("anglequiz") || page.hasPrefix("aimpoint") { launchQuiz(page); return }
         if ["angleDynamic", "separation", "cushion"].contains(page) { launchTeaching(page); teachingMode(page, "2D"); return }
         if ["shotSimulation", "snakePractice", "composer", "drillTryout", "freePlay"].contains(page) { launchCore(page); setCoreMode("2D"); return }
@@ -1274,7 +1426,7 @@ final class ControlLayoutPlacementUITests: XCTestCase {
     }
 
     func testAimPointMovedDirectionAndCloseup() throws {
-        for page in (ProcessInfo.processInfo.environment["LAYOUT_PAGES"] ?? "aimpoint2d,aimpoint3d").split(separator: ",").map(String.init) {
+        for page in (ProcessInfo.processInfo.environment["LAYOUT_PAGES"] ?? "aimpoint2d,aimpoint3d").split(separator: ",").map(String.init).filter({ $0.hasPrefix("aimpoint") }) {
             launchQuiz(page); resetLayoutPage()
             ready("aimPointTraining.settings").coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
             if ready("menu.aimCloseup").value as? String != "已选" { ready("menu.aimCloseup").tap() }
@@ -1323,7 +1475,7 @@ final class ControlLayoutPlacementUITests: XCTestCase {
     }
 
     func testFixedQuizQuotaAfterLayout() throws {
-        for page in (ProcessInfo.processInfo.environment["LAYOUT_PAGES"] ?? "anglequiz2d,anglequiz3d").split(separator: ",").map(String.init) {
+        for page in (ProcessInfo.processInfo.environment["LAYOUT_PAGES"] ?? "anglequiz2d,anglequiz3d").split(separator: ",").map(String.init).filter({ $0.hasPrefix("anglequiz") }) {
             let prefix = page.hasPrefix("aimpoint") ? "aimPointTraining" : "angleTraining"
             launchQuiz(page, premium: false); resetLayoutPage()
             let before = try businessSnapshot()

@@ -3,23 +3,32 @@ import SwiftUI
 import XCTest
 @testable import QiuJi
 
-/// The loupe fakes the table with a flat fill, so "does it look like the felt"
-/// is a measurable question, not a taste one: render both through the same
-/// plain (non-enhanced) pipeline the 2D aim pages use and compare pixels.
-///
-/// Guards UR-20260728: the fill used the `btTableFelt` UI token, which is ~40/255
-/// bluer than the rendered cloth and read as a teal sticker on the table.
+/// Compare the actual SwiftUI loupe background against an independently rendered
+/// live table. The old plain-pipeline sampled RGB is no longer the reference.
 @MainActor
 final class AimCloseupFeltParityTests: XCTestCase {
 
     /// Max per-channel difference (0…1) that still reads as "the same cloth".
-    /// Flat fill (v23.8) should land well inside this; keep room for ImageRenderer
-    /// colour-management drift vs SCNRenderer.
+    /// Allow ImageRenderer resampling/colour management versus SCNRenderer.
     private let tolerance: CGFloat = 0.05
 
     func test_loupeFillMatchesRenderedFelt() throws {
-        let felt = try renderedFeltColor()
-        let loupe = try loupeFillColor()
+        for cloth in ClothColor.allCases {
+            try assertParity(cloth: cloth, room: .tournament)
+        }
+        for room in [RoomStyle.walnut, .eastern] {
+            try assertParity(cloth: .green, room: room)
+        }
+    }
+
+    private func assertParity(cloth: ClothColor, room: RoomStyle) throws {
+        let felt = try renderedFeltColor(cloth: cloth, room: room)
+        let image = try XCTUnwrap(TableFigureRenderer.closeupFelt(clothColor: cloth, roomStyle: room))
+        let loupe = try loupeFillColor(image: image)
+        let attachment = XCTAttachment(image: image)
+        attachment.name = "felt-\(cloth.rawValue)-\(room.rawValue)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
         print(String(format: "felt=(%.3f,%.3f,%.3f) loupe=(%.3f,%.3f,%.3f)",
                      felt.0, felt.1, felt.2, loupe.0, loupe.1, loupe.2))
 
@@ -27,29 +36,43 @@ final class AimCloseupFeltParityTests: XCTestCase {
         XCTAssertEqual(loupe.1, felt.1, accuracy: tolerance, "绿通道偏离台呢")
         XCTAssertEqual(loupe.2, felt.2, accuracy: tolerance, "蓝通道偏离台呢")
 
-        // Hue order of billiard cloth: green ≫ red > blue. Catches a fill that
-        // lands inside the tolerance box but drifts toward teal.
-        XCTAssertGreaterThan(loupe.1, loupe.0)
-        XCTAssertGreaterThan(loupe.0, loupe.2)
+        if cloth == .green {
+            XCTAssertGreaterThan(loupe.1, loupe.0)
+            XCTAssertGreaterThan(loupe.1, loupe.2)
+        }
+    }
+
+    func test_clothAndRoomCacheKeysDoNotReuseStaleAppearance() throws {
+        TableFigureRenderer.resetCache()
+        let green = try XCTUnwrap(TableFigureRenderer.closeupFelt(clothColor: .green, roomStyle: .tournament))
+        let blue = try XCTUnwrap(TableFigureRenderer.closeupFelt(clothColor: .tournamentBlue, roomStyle: .tournament))
+        let walnut = try XCTUnwrap(TableFigureRenderer.closeupFelt(clothColor: .green, roomStyle: .walnut))
+        XCTAssertFalse(green === blue)
+        XCTAssertFalse(green === walnut)
+        XCTAssertTrue(green === TableFigureRenderer.closeupFelt(clothColor: .green, roomStyle: .tournament))
+        let legacy = try XCTUnwrap(TableFigureRenderer.backdrop(orientation: .portrait, aspect: 1,
+            closeup: (CGPoint(x: 0, y: CGFloat(AngleSceneCalculator.innerWidth) / 4),
+                      CGFloat(AngleSceneCalculator.ballRadius) * AimCloseupBuilder.halfWorldMultiple),
+            heightPoints: 128, scale: 3))
+        XCTAssertFalse(legacy.image === green, "Historical teaching images must retain a separate cache entry")
     }
 
     // MARK: - Renderers
 
-    /// Table felt as the 2D aim pages actually render it (plain pipeline,
-    /// rotated top-down), sampled as the median of a patch left of the centre
-    /// spot so table markings do not bias it.
-    private func renderedFeltColor() throws -> (CGFloat, CGFloat, CGFloat) {
+    /// Independent production scene, sampled away from the centre spot.
+    private func renderedFeltColor(cloth: ClothColor, room: RoomStyle) throws -> (CGFloat, CGFloat, CGFloat) {
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw XCTSkip("无 Metal 设备")
         }
-        let size = CGSize(width: 400, height: 800)
+        let size = CGSize(width: 128, height: 128)
         let scene = AngleTrainingScene()
-        scene.setupScene(enhancedRendering: false)
+        scene.setupScene(recipe: .liveReference, roomStyle: room)
+        XCTAssertTrue(scene.applyClothColor(cloth))
         let rig = try XCTUnwrap(scene.cameraRig)
         scene.hideAllBalls()
         scene.hideCueStick()
-        rig.topDownPanOffset = .zero
-        rig.fitRotatedTable(viewSize: size)
+        rig.topDownPanOffset = CGPoint(x: 0, y: CGFloat(AngleSceneCalculator.innerWidth) / 4)
+        rig.topDownOrthographicScale = Double(AngleSceneCalculator.ballRadius) * Double(AimCloseupBuilder.halfWorldMultiple)
         rig.applyTopDown2DRotated()
 
         let renderer = SCNRenderer(device: device, options: nil)
@@ -57,14 +80,13 @@ final class AimCloseupFeltParityTests: XCTestCase {
         renderer.pointOfView = scene.cameraNode
         renderer.autoenablesDefaultLighting = false
         let image = try XCTUnwrap(renderer.snapshot(atTime: 0, with: size,
-                                                    antialiasingMode: .none))
+                                                    antialiasingMode: .multisampling4X))
         return try medianColor(of: image,
-                               patch: CGRect(x: size.width * 0.32, y: size.height * 0.34,
-                                             width: 24, height: 24))
+                               patch: CGRect(x: 44, y: 44, width: 12, height: 12))
     }
 
     /// Loupe background only — no ball / line layers.
-    private func loupeFillColor() throws -> (CGFloat, CGFloat, CGFloat) {
+    private func loupeFillColor(image: UIImage) throws -> (CGFloat, CGFloat, CGFloat) {
         let snapshot = AimCloseupSnapshot(
             band: .contact,
             focus: .zero,
@@ -73,7 +95,7 @@ final class AimCloseupFeltParityTests: XCTestCase {
             showsTargetBall: false
         )
         let renderer = ImageRenderer(content:
-            BTAimCloseupHUD(snapshot: snapshot).frame(width: 128, height: 128))
+            BTAimCloseupHUD(snapshot: snapshot, feltImage: image).frame(width: 128, height: 128))
         renderer.scale = 1
         let image = try XCTUnwrap(renderer.uiImage)
         // Off-centre patch: dead centre is where markers would sit.

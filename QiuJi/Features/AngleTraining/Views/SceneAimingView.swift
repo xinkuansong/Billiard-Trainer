@@ -264,7 +264,7 @@ struct SceneAimingView: View {
             editing: $editingControlLayout, groupRegions: [.keyboard: .init(
                 leading: CGRect(x: f.stage.minX, y: max(44, f.stage.minY), width: min(280, f.stage.width), height: max(1, size.height - 8 - max(44, f.stage.minY))),
                 trailing: CGRect(x: f.stage.maxX - min(280, f.stage.width), y: max(44, f.stage.minY), width: min(280, f.stage.width), height: max(1, size.height - 8 - max(44, f.stage.minY))))],
-            primaryTitle: vm.phase == .showingResult ? nextButtonTitle : "答题")
+            primaryTitle: vm.phase == .showingResult ? nextButtonTitle : "答题", editorToolbarTop: f.table.minY)
         #if DEBUG
         .background {
             if DailyLayoutProbe.enabled {

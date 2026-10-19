@@ -227,7 +227,8 @@ final class PlanThreeViewModel: TeachingTableHost {
         isDragging = false
         isComputing = false
         isPlaying = false
-        if interruptedPlayback, let context = lastShotContext { restore(from: context) }
+        if let after = replayAfterBoard { finishPlayback(after: after) }
+        else if interruptedPlayback, let context = lastShotContext { restore(from: context) }
     }
 
 
@@ -375,6 +376,8 @@ final class PlanThreeViewModel: TeachingTableHost {
     }
     private var lastShotContext: UndoContext?
     /// 回放开始时抓的「击打后局面」姿态，回放收尾连同 `after` 位置一起写回。
+    private var replayCamera = ShotReplayCamera()
+    private var replayAfterBoard: BoardSnapshot?
     private var replayAfterPoses: BallPoseSnapshot = [:]
     private var replayAfterRails = PocketRailSnapshot()
     private var replayAfterContext: UndoContext?
@@ -1330,7 +1333,7 @@ extension PlanThreeViewModel {
                 allowSideSpin: allowSideSpin, basicPositionOnly: basicPositionOnly),
             ball1Key: ball1Key, ball2Key: ball2Key, ball3Key: ball3Key,
             pocket1Index: pocket1Index, pocket2Index: pocket2Index, armedRole: armedRole,
-            perspectiveView: scene.capturePerspectiveView(),
+            perspectiveView: ShotReplayCamera.capture(in: scene),
             ballPoses: scene.captureBallPoses(), rails: scene.railInventory.snapshot())
     }
 
@@ -1419,6 +1422,8 @@ extension PlanThreeViewModel {
         guard acceptCompletePrediction(snap.prediction),
               let recorder = snap.prediction.recorder, snap.prediction.duration > 0.05 else { return }
         let after = currentSnapshot()
+        replayAfterBoard = after
+        replayCamera.begin(in: scene)
         replayAfterContext = makeUndoContext(shot: snap.shot, prediction: snap.prediction)
         replayAfterRails = scene.railInventory.snapshot()
         replayAfterPoses = scene.captureBallPoses()   // 回放不改变桌面真相，姿态也原样带回
@@ -1441,6 +1446,7 @@ extension PlanThreeViewModel {
             finishPlayback(after: after)
             return
         }
+        replayCamera.showShot(ctx.perspectiveView, in: scene, aim: aim)
         let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: snap.shot.spinX, spinY: snap.shot.spinY)
         let clearancePlayback = TrajectoryPlayback(
             recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
@@ -1488,6 +1494,8 @@ extension PlanThreeViewModel {
     }
 
     private func finishPlayback(after: BoardSnapshot) {
+        guard replayAfterBoard != nil else { return }
+        replayAfterBoard = nil
         ShotAudioScheduler.shared.cancel()
         for key in PositionPlayBall.allKeys {
             guard let node = scene.allBallNodes[key] else { continue }
@@ -1504,6 +1512,7 @@ extension PlanThreeViewModel {
         scene.railInventory.restore(replayAfterRails)
         scene.restoreBallPoses(replayAfterPoses)
         replayAfterPoses = [:]
+        replayCamera.finish(in: scene)
         lastShotContext = ctx
         canUndoShot = ctx != nil
         canPlayback = ctx != nil

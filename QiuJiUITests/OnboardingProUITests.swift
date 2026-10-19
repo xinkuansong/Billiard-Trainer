@@ -589,6 +589,44 @@ final class OnboardingProUITests: XCTestCase {
 
     /// Layout-only fixture: these assertions never stand in for a StoreKit transaction.
     @MainActor
+    func testProStatusReturnAppearanceTransitions() {
+        XCUIDevice.shared.orientation = .portrait
+        for appearance in ["-v54.forceLight", "-v54.forceDark", "-v51.followSystemAppearance"] {
+            let app = XCUIApplication.launchClean(extraArgs: [
+                "-forcePremium", "-v53.authenticatedProfileFixture", "-v50.inMemoryStore", appearance
+            ])
+            app.switchTab(.profile)
+            let membership = app.buttons["profile.subscription"]
+            reveal(membership, in: app)
+            capture("return-\(appearance)-profile-before")
+            for action in ["button", "cancel-swipe", "swipe"] {
+                membership.tap()
+                XCTAssertTrue(app.staticTexts["已解锁 Pro"].waitForExistence(timeout: 10))
+                capture("return-\(appearance)-\(action)-pro")
+                if action == "cancel-swipe" {
+                    let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
+                    let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.20, dy: 0.5))
+                    start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.5)
+                    XCTAssertTrue(app.staticTexts["已解锁 Pro"].exists)
+                    XCTAssertTrue(app.buttons["管理订阅"].isHittable)
+                    capture("return-\(appearance)-cancelled-pro")
+                    app.navigationBars.buttons.element(boundBy: 0).tap()
+                } else if action == "swipe" {
+                    app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
+                        .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
+                } else {
+                    app.navigationBars.buttons.element(boundBy: 0).tap()
+                }
+                XCTAssertTrue(membership.waitForExistence(timeout: 6))
+                XCTAssertTrue(membership.isHittable)
+                capture("return-\(appearance)-\(action)-profile-after")
+            }
+            app.terminate()
+        }
+    }
+
+    /// Layout-only fixture: these assertions never stand in for a StoreKit transaction.
+    @MainActor
     func testProStatusFixtureRotationAndLargeText() throws {
         defer { XCUIDevice.shared.orientation = .portrait }
         for largeText in [false, true] {

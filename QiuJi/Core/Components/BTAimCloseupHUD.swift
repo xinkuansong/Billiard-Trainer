@@ -10,25 +10,22 @@ struct BTAimCloseupHUD: View {
     static let defaultDiameter: CGFloat = 128
     let snapshot: AimCloseupSnapshot
     var diameter: CGFloat = BTAimCloseupHUD.defaultDiameter
+    var feltImage: UIImage? = nil
 
     @ObservedObject private var prefs = UserPreferences.shared
-
-    // Follow the same cloth selection as AngleSceneView. The original green
-    // restores USDZ bindings rather than an albedo override, so retain its
-    // sampled flat fill. Scene lighting can still vary the surrounding felt.
-    private var feltFill: Color {
-        if let albedo = prefs.clothColor.albedo {
-            return Color(uiColor: albedo)
-        }
-        return Color(red: 25 / 255, green: 111 / 255, blue: 18 / 255)
-    }
 
     var body: some View {
         let half = snapshot.halfWorld
         let scale = diameter / (2 * half)
         ZStack {
-            Circle()
-                .fill(feltFill)
+            ZStack {
+                Color(uiColor: prefs.clothColor.swatch)
+                if let feltImage {
+                    Image(uiImage: feltImage).resizable().scaledToFill()
+                }
+            }
+                .frame(width: diameter, height: diameter)
+                .clipShape(Circle())
                 .overlay(
                     Circle()
                         .stroke(Color.white.opacity(0.16), lineWidth: HUDStyle.hairlineWidth)
@@ -166,6 +163,7 @@ struct BTAimCloseupOverlay: View {
     var placementBounds: CGRect? = nil
     var protectedFramesInWindow: [CGRect] = []
     @State private var protectedPlacement: AimCloseupPlacement.ProtectedPlacement?
+    @State private var feltImage: UIImage?
 
     @ObservedObject private var prefs = UserPreferences.shared
     /// Placement hysteresis (scene pts); cleared when the loupe hides.
@@ -178,6 +176,13 @@ struct BTAimCloseupOverlay: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !isVisible)) { _ in
             content
+        }
+        // Prepare on preference changes, outside the 60 Hz placement loop and
+        // before the first aiming gesture. No extra live SCNView is retained.
+        .task(id: "\(closeupEnabled)-\(prefs.clothColor.rawValue)-\(prefs.roomStyle.rawValue)") {
+            guard closeupEnabled else { feltImage = nil; return }
+            feltImage = TableFigureRenderer.closeupFelt(clothColor: prefs.clothColor,
+                                                       roomStyle: prefs.roomStyle)
         }
     }
 
@@ -197,7 +202,7 @@ struct BTAimCloseupOverlay: View {
             if closeupEnabled, let snap = displaySnapshot, sceneSize.height > 1 {
                 if protectsDailySight {
                     if let placement = dailyPlacement(snap) {
-                        BTAimCloseupHUD(snapshot: snap, diameter: placement.diameter)
+                        BTAimCloseupHUD(snapshot: snap, diameter: placement.diameter, feltImage: feltImage)
                             .accessibilityElement(children: .ignore)
                             .accessibilityLabel("瞄准特写").accessibilityIdentifier("aimCloseup.hud")
                             .position(placement.center)
@@ -213,7 +218,7 @@ struct BTAimCloseupOverlay: View {
                     blockedSide: blockedSide,
                     previous: center,
                     sightKeepout: snap.sightKeepout)
-                BTAimCloseupHUD(snapshot: snap, diameter: diameter)
+                BTAimCloseupHUD(snapshot: snap, diameter: diameter, feltImage: feltImage)
                     .position(c)
                     .onAppear { center = c }
                     .onChange(of: c) { _, new in center = new }

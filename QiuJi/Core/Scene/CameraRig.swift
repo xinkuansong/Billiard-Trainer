@@ -1167,6 +1167,9 @@ final class CameraRig: ObservableObject {
         fileprivate let dailyObservationControls: Bool
         fileprivate let dailyObservationSubjects: [SCNVector3]
         fileprivate let mergedGlobal: Bool
+        fileprivate let surfaceOverview: Bool
+        fileprivate let shotReference: (cue: SCNVector3, aim: SCNVector3)?
+        fileprivate let cuePose: (strike: SCNVector3, aim: SCNVector3, elevation: Float)?
         fileprivate let twoView: TwoViewCamera.Snapshot?
     }
 
@@ -1190,12 +1193,17 @@ final class CameraRig: ObservableObject {
                          dailyObservationControls: dailyObservationControls,
                          dailyObservationSubjects: dailyObservationSubjects,
                          mergedGlobal: mergedGlobalActive,
+                         surfaceOverview: surfaceOverviewActive,
+                         shotReference: twoViewShotReference, cuePose: cuePose,
                          twoView: usesTwoViewPoseControl ? twoViewCamera?.snapshot() : nil)
     }
 
     func restorePerspectiveState(_ state: PerspectiveState) {
         resumePerspectivePresentation()
         mergedGlobalActive = usesMergedCamera && state.mergedGlobal
+        surfaceOverviewActive = usesSurfaceCamera && state.surfaceOverview
+        twoViewShotReference = state.shotReference
+        cuePose = state.cuePose
         if usesTwoViewCameraControls, let snapshot = state.twoView {
             pendingTwoViewEntry = nil
             activeTwoViewCamera().restore(snapshot)
@@ -2326,3 +2334,44 @@ final class CameraRig: ObservableObject {
 // `normalized()` / `+` / `-` / `*` 现由 `Core/Physics/SCNVector3+Physics.swift`
 // 提供模块级实现（物理引擎移植时引入）。此处原有的 file-private 扩展会与之
 // 产生同签名重载歧义，故移除，统一复用模块级版本。
+
+/// Camera-only lifecycle for previous-shot replay. Board/rule state stays with each page.
+@MainActor
+struct ShotReplayCamera {
+    private var returnView: CameraRig.PerspectiveState?
+    private(set) var isActive = false
+
+    static func capture(in scene: AngleTrainingScene) -> CameraRig.PerspectiveState? {
+        // A board refresh may invalidate the cache while the live 3D camera remains valid.
+        scene.currentCameraMode == .perspective3D
+            ? scene.cameraRig?.capturePerspectiveState() : scene.capturePerspectiveView()
+    }
+
+    mutating func begin(in scene: AngleTrainingScene) {
+        guard !isActive else { return }
+        returnView = Self.capture(in: scene)
+        isActive = true
+    }
+
+    /// Call after seating the original balls. Restoring the cache never switches 2D/3D mode.
+    func showShot(_ view: CameraRig.PerspectiveState?, in scene: AngleTrainingScene,
+                  aim: SCNVector3) {
+        guard isActive else { return }
+        if let view {
+            scene.restorePerspectiveView(view)
+        } else if scene.currentCameraMode == .perspective3D, let cue = scene.cueBallNode {
+            scene.discardSavedPerspectiveView()
+            scene.cameraRig?.enterAiming(cueBallPosition: cue.position, targetDirection: aim)
+        }
+    }
+
+    /// Call after restoring the current board, including cancellation and dismissal.
+    mutating func finish(in scene: AngleTrainingScene) {
+        guard isActive else { return }
+        let view = returnView
+        returnView = nil
+        isActive = false
+        if let view { scene.restorePerspectiveView(view) }
+        else { scene.discardSavedPerspectiveView() }
+    }
+}

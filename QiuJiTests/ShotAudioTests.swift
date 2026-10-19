@@ -5,6 +5,82 @@ import AVFoundation
 
 @MainActor
 final class ShotAudioTests: XCTestCase {
+    func testInstalledShotSamplesDecodeWithoutPreviewAndMissingPreviewFallsBack() throws {
+        let missing = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        for kind in ShotSoundKind.allCases {
+            let bundled = try XCTUnwrap(ShotSoundBank.resourceURL(name: kind.assetPrefix))
+            XCTAssertTrue(bundled.path.hasPrefix(Bundle.main.bundlePath))
+            XCTAssertEqual(ShotSoundBank.resourceURL(name: kind.assetPrefix, previewDirectory: missing), bundled)
+            let file = try AVAudioFile(forReading: bundled)
+            XCTAssertGreaterThan(file.length, 0)
+            let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: file.processingFormat,
+                                                       frameCapacity: AVAudioFrameCount(file.length)))
+            try file.read(into: buffer)
+            let samples = try XCTUnwrap(buffer.floatChannelData)[0]
+            let peak = (0..<Int(buffer.frameLength)).map { abs(samples[$0]) }.max() ?? 0
+            XCTAssertGreaterThan(peak, 0, "Bundled \(kind) must contain audio")
+        }
+        XCTAssertNil(ShotSoundBank.resourceURL(name: "missing-sound-" + UUID().uuidString))
+    }
+
+    func testLocalPreviewOverrideStillWinsWhenPresent() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer {
+            do { try FileManager.default.removeItem(at: directory) }
+            catch { XCTFail("Could not remove preview test directory: \(error)") }
+        }
+        let name = ShotSoundKind.cueStrike.assetPrefix
+        let bundled = try XCTUnwrap(ShotSoundBank.resourceURL(name: name))
+        let preview = directory.appendingPathComponent(name + ".caf")
+        try FileManager.default.copyItem(at: bundled, to: preview)
+        XCTAssertEqual(ShotSoundBank.resourceURL(name: name, previewDirectory: directory), preview)
+    }
+
+    func testBundledSamplesProduceMixerAudioAndMuteStopsNewSounds() async throws {
+        let defaults = UserDefaults.standard
+        let oldPreview = defaults.object(forKey: "shotAudioPreviewEnabled")
+        let oldEnabled = UserPreferences.shared.soundEffectsEnabled
+        defaults.set(false, forKey: "shotAudioPreviewEnabled")
+        UserPreferences.shared.soundEffectsEnabled = true
+        let engine = AVAudioEngine()
+        let bank = ShotSoundBank(engine: engine)
+        let capture = ShotMixerCapture()
+        bank.prepare()
+        XCTAssertTrue(engine.isRunning)
+        engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, _ in
+            capture.append(buffer)
+        }
+        defer {
+            bank.stopAll()
+            engine.mainMixerNode.removeTap(onBus: 0)
+            engine.stop()
+            defaults.set(oldPreview, forKey: "shotAudioPreviewEnabled")
+            UserPreferences.shared.soundEffectsEnabled = oldEnabled
+        }
+        // Exercise the actual production buffer loader, player pool and gain path.
+        for kind in ShotSoundKind.allCases where kind.outputGainScale > 0 {
+            bank.stopAll()
+            try await Task.sleep(for: .milliseconds(200))
+            capture.reset()
+            bank.play(kind: kind, speed: 6)
+            try await Task.sleep(for: .seconds(1))
+            let measured = capture.measurement()
+            XCTAssertGreaterThan(measured.frames, 0, "Audio render callback must run")
+            XCTAssertGreaterThan(measured.peak, 0.0001, "No rendered audio for \(kind)")
+            print("[BundledShotAudio] \(kind) frames=\(measured.frames) peak=\(measured.peak)")
+        }
+        bank.stopAll()
+        try await Task.sleep(for: .milliseconds(200))
+        UserPreferences.shared.soundEffectsEnabled = false
+        capture.reset()
+        bank.play(kind: .cueStrike, speed: 6)
+        try await Task.sleep(for: .milliseconds(500))
+        let muted = capture.measurement()
+        XCTAssertGreaterThan(muted.frames, 0)
+        XCTAssertEqual(muted.peak, 0, "Muted playback must not schedule sound")
+    }
+
     func testBundledMetalControlsDecodeHaveDistinctTimbresAndShortFadedTails() throws {
         var signatures: [[Float]] = []
         let directory = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/control-metal-20261001")
@@ -108,6 +184,39 @@ final class ShotAudioTests: XCTestCase {
     }
 }
 
+private final class ShotMixerCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var frames = 0
+    private var peak: Float = 0
+
+    func append(_ buffer: AVAudioPCMBuffer) {
+        guard let channels = buffer.floatChannelData else { return }
+        var maximum: Float = 0
+        for channel in 0..<Int(buffer.format.channelCount) {
+            for frame in 0..<Int(buffer.frameLength) {
+                maximum = max(maximum, abs(channels[channel][frame]))
+            }
+        }
+        lock.lock()
+        frames += Int(buffer.frameLength)
+        peak = max(peak, maximum)
+        lock.unlock()
+    }
+
+    func reset() {
+        lock.lock()
+        frames = 0
+        peak = 0
+        lock.unlock()
+    }
+
+    func measurement() -> (frames: Int, peak: Float) {
+        lock.lock()
+        defer { lock.unlock() }
+        return (frames, peak)
+    }
+}
+
 
 extension ShotAudioTests {
     func testSeparatingAndTangentialContactsAreSilent() {
@@ -182,7 +291,14 @@ extension ShotAudioTests {
         let timeline = ShotAudioScheduler.timeline(recorder: result.recorder, cueSpeed: 8)
         XCTAssertEqual(timeline.first?.kind, .cueStrike)
         XCTAssertEqual(timeline.first?.speed, 8)
-        XCTAssertEqual(timeline.filter { $0.kind == .ballHit }.count, facts.filter { $0.surface == .ball }.count)
+        let first = try XCTUnwrap(facts.first { $0.surface == .ball })
+        let audible = timeline.filter { $0.kind == .ballHit }
+        XCTAssertEqual(audible.first, .init(time: first.time, kind: .ballHit, speed: first.approachSpeed))
+        XCTAssertLessThan(audible.count, facts.filter { $0.surface == .ball }.count)
+        let lateFacts = facts.filter { $0.surface == .ball && $0.time > first.time + 0.020 }
+        XCTAssertEqual(audible.filter { $0.time > first.time + 0.020 },
+                       lateFacts.map { .init(time: $0.time, kind: .ballHit, speed: $0.approachSpeed) })
+        XCTAssertEqual(result.recorder.contactSounds.count, facts.count, "Audio must preserve physical facts")
         print("[Audio R2 break] contacts=\(facts.count) ball=\(facts.filter { $0.surface == .ball }.count)")
     }
 
@@ -227,6 +343,118 @@ extension ShotAudioTests {
             XCTAssertTrue(occupied.contains { $0.surface == .pocketBall })
             XCTAssertFalse(occupied.contains { $0.surface == .railStop })
             XCTAssertTrue(ShotAudioScheduler.timeline(recorder: recorder, cueSpeed: 0).contains { $0.kind == .pocketBall })
+        }
+    }
+}
+
+extension ShotAudioTests {
+    private func packedAudioRecorder() -> TrajectoryRecorder {
+        let recorder = TrajectoryRecorder()
+        recorder.hasContactSoundFacts = true
+        appendPackedFrame(recorder, time: 0)
+        appendPackedFrame(recorder, time: 1)
+        return recorder
+    }
+
+    private func appendPackedFrame(_ recorder: TrajectoryRecorder, time: Float, bOffset: Float = 0) {
+        let d = 2 * BallPhysics.radius + RackLayout.gap
+        for (name, x) in [(PositionPlayBall.cueKey, time == 0 ? -1 : -d),
+                          ("a", Float(0)), ("b", d + bOffset), ("c", 2 * d),
+                          ("outside", Float(1))] {
+            recorder.recordFrame(ballName: name, frame: BallFrame(time: time,
+                position: SCNVector3(x, 0.8 + BallPhysics.radius, 0), velocity: SCNVector3Zero,
+                angularVelocity: SCNVector4(0, 0, 0, 0), state: .stationary))
+        }
+    }
+
+    private func addAudioContact(_ recorder: TrajectoryRecorder, _ time: Float,
+                                 _ a: String, _ b: String, surface: ContactSoundEvent.Surface = .ball) {
+        recorder.recordContactSound(.init(time: time, ball: a, other: b, surface: surface, approachSpeed: 6))
+    }
+
+    func testPackedTransferKeepsFirstHitOtherContactsAndLateCollisions() {
+        let recorder = packedAudioRecorder()
+        addAudioContact(recorder, 1, PositionPlayBall.cueKey, "a")
+        addAudioContact(recorder, 1, "a", "b")
+        addAudioContact(recorder, 1.001, "b", "c")
+        addAudioContact(recorder, 1.002, "a", PositionPlayBall.cueKey)
+        addAudioContact(recorder, 1.003, "a", "outside")
+        addAudioContact(recorder, 1.004, "a", "c") // Initially non-adjacent, even in the same rack.
+        addAudioContact(recorder, 1.005, "b", "rail", surface: .cushion)
+        addAudioContact(recorder, 1.006, "c", "jaw", surface: .jaw)
+        addAudioContact(recorder, 1.007, "c", "collected", surface: .pocketBall)
+        addAudioContact(recorder, 1.019, "b", "a")
+        addAudioContact(recorder, 1.021, "a", "b")
+        let timeline = ShotAudioScheduler.timeline(recorder: recorder, cueSpeed: 0)
+        XCTAssertEqual(timeline.filter { $0.kind == .ballHit }.map(\.time), [1, 1.003, 1.004, 1.021])
+        XCTAssertEqual(timeline.filter { $0.kind != .ballHit }.map(\.kind), [.cushion, .jaw, .pocketBall])
+        XCTAssertEqual(recorder.contactSounds.count, 11)
+    }
+
+    func testSeparatedNeighborsStayAudibleWhenTheyRecollideInsideWindow() {
+        let recorder = packedAudioRecorder()
+        appendPackedFrame(recorder, time: 1.003, bOffset: 0.01)
+        appendPackedFrame(recorder, time: 1.005)
+        addAudioContact(recorder, 1, PositionPlayBall.cueKey, "a")
+        addAudioContact(recorder, 1.001, "a", "b")
+        addAudioContact(recorder, 1.006, "b", "a")
+        addAudioContact(recorder, 1.007, "a", "b")
+        XCTAssertEqual(ShotAudioScheduler.timeline(recorder: recorder, cueSpeed: 0).map(\.time), [1, 1.006, 1.007])
+    }
+
+    func testRackSuppressionFailsOpenWithoutGeometryAndDoesNotAffectOrdinaryShots() {
+        let recorder = TrajectoryRecorder()
+        recorder.hasContactSoundFacts = true
+        addAudioContact(recorder, 1, PositionPlayBall.cueKey, "a")
+        addAudioContact(recorder, 1.001, "a", "b")
+        XCTAssertEqual(ShotAudioScheduler.timeline(recorder: recorder, cueSpeed: 0).count, 2)
+        // Two object balls are a combination, not a packed multi-ball break.
+        let d = 2 * BallPhysics.radius
+        for (name, x) in [("a", Float(0)), ("b", d)] {
+            recorder.recordFrame(ballName: name, frame: .init(time: 0, position: SCNVector3(x, 0.8, 0),
+                velocity: SCNVector3Zero, angularVelocity: SCNVector4(0, 0, 0, 0), state: .stationary))
+        }
+        XCTAssertEqual(ShotAudioScheduler.timeline(recorder: recorder, cueSpeed: 0).count, 2)
+        let nonCue = packedAudioRecorder()
+        addAudioContact(nonCue, 0.9, "a", "b")
+        addAudioContact(nonCue, 1, PositionPlayBall.cueKey, "a")
+        addAudioContact(nonCue, 1.001, "b", "c")
+        XCTAssertEqual(ShotAudioScheduler.timeline(recorder: nonCue, cueSpeed: 0).count, 3)
+    }
+
+    func testUnreachedRackContactIsNotMistakenForCueTransferAndSortingIsStable() {
+        let recorder = packedAudioRecorder()
+        // Input can be out of time order. At equal times preserve the solver order.
+        addAudioContact(recorder, 1.004, "b", "c")
+        addAudioContact(recorder, 1, PositionPlayBall.cueKey, "a")
+        addAudioContact(recorder, 1.001, "b", "c") // No preceding path from the head.
+        addAudioContact(recorder, 1.002, "a", "b")
+        XCTAssertEqual(ShotAudioScheduler.timeline(recorder: recorder, cueSpeed: 0).map(\.time), [1, 1.001])
+    }
+
+    func testRealBreakAudioAcrossRackSizesSpeedsAndSeeds() throws {
+        for game: RackGame in [.chineseEightBall, .nineBall, .zhuifen(balls: 4), .zhuifen(balls: 5), .zhuifen(balls: 6)] {
+            for seed: UInt64 in [1, 42] {
+                for speed: Float in [2, 8] {
+                    let result = BreakSimulator.breakShot(rack: RackLayout.make(game, seed: seed), power: speed)
+                    XCTAssertTrue(result.settled)
+                    let facts = result.recorder.contactSounds
+                    let balls = facts.filter { $0.surface == .ball }
+                    let first = try XCTUnwrap(balls.first)
+                    let timeline = ShotAudioScheduler.timeline(recorder: result.recorder, cueSpeed: speed)
+                    let audible = timeline.filter { $0.kind == .ballHit }
+                    XCTAssertEqual(audible.first, .init(time: first.time, kind: .ballHit, speed: first.approachSpeed))
+                    XCTAssertLessThan(audible.count, balls.count, "\(game), seed \(seed), speed \(speed)")
+                    XCTAssertEqual(audible.filter { $0.time > first.time + 0.020 },
+                        balls.filter { $0.time > first.time + 0.020 }.map {
+                            .init(time: $0.time, kind: .ballHit, speed: $0.approachSpeed)
+                        })
+                    XCTAssertEqual(timeline.filter { $0.kind == .cushion }.count,
+                                   facts.filter { $0.surface == .cushion }.count)
+                    XCTAssertEqual(result.recorder.contactSounds.count, facts.count)
+                    print("[RackAudio] game=\(game) seed=\(seed) speed=\(speed) ballFacts=\(balls.count) audible=\(audible.count) early=\(audible.filter { $0.time <= first.time + 0.020 }.count)")
+                }
+            }
         }
     }
 }

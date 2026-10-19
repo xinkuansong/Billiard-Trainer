@@ -75,6 +75,7 @@ final class ShotAudioScheduler {
             contacts += recorder.pocketContactSounds[ball] ?? []
         }
         contacts = contacts.filter { $0.time.isFinite && $0.time >= 0 && $0.approachSpeed.isFinite && $0.approachSpeed > 0 }
+        let rackTransfers = suppressedRackTransferIndices(contacts: contacts, recorder: recorder)
         // P03 is a complete pocket recording, not an isolated micro-contact.
         // Replay it only at the strongest liner contact in each captured ball's descent.
         // Keep jaw hits, separate balls and collected-ball contacts independent.
@@ -85,13 +86,117 @@ final class ShotAudioScheduler {
             linerByBall[contact.ball] = index
         }
         cues += contacts.enumerated().filter { index, contact in
-            contact.surface != .liner || linerByBall[contact.ball] == nil || linerByBall[contact.ball] == index
+            !rackTransfers.contains(index) &&
+                (contact.surface != .liner || linerByBall[contact.ball] == nil || linerByBall[contact.ball] == index)
         }.map { _, contact in
             Cue(time: contact.time, kind: ShotSoundKind(surface: contact.surface), speed: contact.approachSpeed)
         }
         // Preserve order for simultaneous contacts after the pocket recording selection.
         return cues.enumerated().filter { $0.element.kind.outputGainScale > 0 && $0.element.time.isFinite && $0.element.time >= 0 && $0.element.speed.isFinite && $0.element.speed > 0 }
             .sorted { $0.element.time == $1.element.time ? $0.offset < $1.offset : $0.element.time < $1.element.time }.map(\.element)
+    }
+
+    /// An audition policy, not a physical contact duration. The clock starts at the
+    /// first cue/object impact and never extends as further contacts arrive.
+    static let rackTransferMaximumDuration: Float = 0.020
+
+    private struct BallPair: Hashable {
+        let a: String
+        let b: String
+        init(_ a: String, _ b: String) {
+            self.a = min(a, b)
+            self.b = max(a, b)
+        }
+    }
+
+    /// Fold the initial tightly packed contact network into the accepted first hit.
+    /// Facts remain untouched. Missing initial geometry/legacy recorders fail open.
+    /// Only original neighbor edges reached by this impact can be suppressed; a
+    /// recorded separation permanently releases an edge, even inside the time cap.
+    static func suppressedRackTransferIndices(contacts: [ContactSoundEvent],
+                                             recorder: TrajectoryRecorder) -> Set<Int> {
+        let ordered = contacts.indices.filter {
+            contacts[$0].surface == .ball && contacts[$0].time.isFinite &&
+                contacts[$0].time >= 0 && contacts[$0].approachSpeed.isFinite && contacts[$0].approachSpeed > 0
+        }.sorted { contacts[$0].time == contacts[$1].time ? $0 < $1 : contacts[$0].time < contacts[$1].time }
+        let cue = PositionPlayBall.cueKey
+        guard let firstIndex = ordered.first else { return [] }
+        let first = contacts[firstIndex]
+        guard first.ball == cue || first.other == cue else { return [] }
+        let head = first.ball == cue ? first.other : first.ball
+        // SceneKit metres; packing gap + both balls' maximum seeded displacement.
+        // The final micrometre is Float distance-comparison tolerance only.
+        let neighborDistance = 2 * BallPhysics.radius + RackLayout.gap + 2 * RackLayout.jitterRadius + 0.000001
+        let initial = recorder.framesByBallName.compactMapValues { frames -> BallFrame? in
+            guard let frame = frames.first, frame.time == 0,
+                  frame.state == .stationary, frame.velocity.length() == 0,
+                  frame.position.length().isFinite else { return nil }
+            return frame
+        }.filter { $0.key != cue }
+        guard initial[head] != nil else { return [] }
+        let names = initial.keys.sorted()
+        var neighbors: [String: Set<String>] = [:]
+        var edges = Set<BallPair>()
+        for (i, a) in names.enumerated() {
+            for b in names.dropFirst(i + 1) {
+                guard let pa = initial[a]?.position, let pb = initial[b]?.position,
+                      (pa - pb).length() <= neighborDistance else { continue }
+                neighbors[a, default: []].insert(b)
+                neighbors[b, default: []].insert(a)
+                edges.insert(BallPair(a, b))
+            }
+        }
+        var component: Set<String> = [head]
+        var queue = [head]
+        while let ball = queue.popLast() {
+            for neighbor in neighbors[ball] ?? [] where component.insert(neighbor).inserted {
+                queue.append(neighbor)
+            }
+        }
+        // Leave isolated hits and two-object combination shots unchanged.
+        guard component.count >= 3 else { return [] }
+        edges = edges.filter { component.contains($0.a) && component.contains($0.b) }
+        // The cue can also chatter against the head during initial impulse transfer.
+        edges.insert(BallPair(cue, head))
+        let end = first.time + rackTransferMaximumDuration
+        var releasedAt: [BallPair: Float] = [:]
+        for edge in edges {
+            guard let a = recorder.framesByBallName[edge.a], let b = recorder.framesByBallName[edge.b] else {
+                releasedAt[edge] = first.time
+                continue
+            }
+            // The engine records all balls at each snapshot. Merge equal timestamps
+            // rather than sampling the next (possibly post-collision) playback frame.
+            var i = 0
+            var j = 0
+            while i < a.count && j < b.count {
+                if a[i].time > end || b[j].time > end { break }
+                if a[i].time < b[j].time { i += 1; continue }
+                if b[j].time < a[i].time { j += 1; continue }
+                if a[i].time >= first.time {
+                    let distance = (a[i].position - b[j].position).length()
+                    if !distance.isFinite || distance > neighborDistance {
+                        releasedAt[edge] = a[i].time
+                        break
+                    }
+                }
+                i += 1
+                j += 1
+            }
+        }
+        var reached: Set<String> = [cue, head]
+        var suppressed = Set<Int>()
+        for index in ordered.dropFirst() {
+            let contact = contacts[index]
+            guard contact.time <= end else { break }
+            let edge = BallPair(contact.ball, contact.other)
+            guard edges.contains(edge), contact.time < (releasedAt[edge] ?? .infinity),
+                  reached.contains(contact.ball) || reached.contains(contact.other) else { continue }
+            suppressed.insert(index)
+            reached.insert(contact.ball)
+            reached.insert(contact.other)
+        }
+        return suppressed
     }
 
     /// 取消所有未触发的音效（回放被打断 / 复位时调用，避免「球已复位声音还在响」）。

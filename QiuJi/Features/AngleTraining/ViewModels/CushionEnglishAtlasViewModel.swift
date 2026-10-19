@@ -65,10 +65,6 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
     /// `-w2.uiHooks` 下由 View 以只读读数暴露，UI 测抽取实测值。
     @Published private(set) var lastParallelSimMs: Double = 0
 
-    /// 页底诚实脚注（W1 主控验收纪要：禁止「本图证明顺开逆闭」）。
-    static let honestyFootnote =
-        "侧旋改变吃库出射；顺/逆塞定性见旋转与加塞；本页为引擎实况扇形（已补偿挤偏）"
-
     var tableOuterHalfExtents: (length: Double, width: Double) {
         if let rig = scene.cameraRig {
             return (rig.tableOuterHalfLength, rig.tableOuterHalfWidth)

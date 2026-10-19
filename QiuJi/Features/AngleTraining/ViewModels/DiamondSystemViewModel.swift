@@ -50,7 +50,8 @@ final class DiamondSystemViewModel: ObservableObject {
         closeupGate.reset()
         isSolving = false
         isDragging = false
-        if isPlaying {
+        if replayCamera.isActive { finishReplay() }
+        else if isPlaying {
             if mode == .free, let before = interruptedFreeBoard { applyBoard(before); scene.railInventory.restore(interruptedFreeRails) }
             else if !strikeSnapshot.isEmpty { applyBoard(strikeSnapshot); scene.railInventory.restore(strikeRails) }
         }
@@ -111,7 +112,7 @@ final class DiamondSystemViewModel: ObservableObject {
     /// 最近求解快照（方案 §4.1）：每次求解成功存球位，供「恢复球形」。
     private var lastSolveSnapshot: [String: BallRestState]?
     /// 上一杆（自由击球）：击打前球形 + 引擎预测（供上一杆 / 回放）。
-    private var lastShot: (before: [String: BallRestState], prediction: ShotPrediction)?
+    private var lastShot: (before: [String: BallRestState], prediction: ShotPrediction, perspectiveView: CameraRig.PerspectiveState?)?
     /// 自由模拟中目标球（黑 8）的引擎名（球名沿用 USDZ 键约定）。
     private static let freeTargetName = "_8"
 
@@ -120,6 +121,7 @@ final class DiamondSystemViewModel: ObservableObject {
     /// `KickEngineSolution`（非 PositionPlay 的 `PositionPlaySolution`），与共享 `SolveShotSnapshot`
     /// 类型不兼容，故按方案「用 VM 层已有 solutions 即可」以本页原生类型承载（如实说明取舍）。
     struct SolveUndoContext {
+        var perspectiveView: CameraRig.PerspectiveState? = nil
         var rails = PocketRailSnapshot()
         var board: [String: BallRestState]
         var cushions: Int?
@@ -341,6 +343,62 @@ final class DiamondSystemViewModel: ObservableObject {
 
     // MARK: - Strike demo（W5：快照 → 出杆 → 播 ShotPrediction → 自动复位，方案 §1.1）
 
+    /// Previous-shot replay returns to the current board; normal strikes keep their own settlement.
+    private var replayCamera = ShotReplayCamera()
+    private var freeShotPerspectiveView: CameraRig.PerspectiveState?
+    private var replayReturnBoard: [String: BallRestState]?
+    private var replayReturnRails = PocketRailSnapshot()
+    private var replayReturnSolve: SolveUndoContext?
+    private var replayReturnNeedsSolve = false
+
+    private func beginReplay() {
+        replayReturnBoard = captureBoard()
+        replayReturnRails = scene.railInventory.snapshot()
+        replayReturnSolve = nil
+        replayReturnNeedsSolve = mode == .solve && isSolving
+        if mode == .solve, let original = lastSolveUndo {
+            replayReturnSolve = captureSolveState(fallback: original.struckPrediction)
+        }
+        replayCamera.begin(in: scene)
+    }
+
+    @discardableResult
+    private func finishReplay() -> Bool {
+        guard let board = replayReturnBoard else { return false }
+        replayReturnBoard = nil
+        ShotAudioScheduler.shared.cancel()
+        playbackFinishTask?.cancel()
+        playbackFinishTask = nil
+        scene.hideCueStick()
+        scene.allBallNodes.values.forEach { $0.removeAllActions() }
+        isPlaying = false
+        if let context = replayReturnSolve {
+            restoreSolve(from: context)
+            // An empty or still-computing catalog can have a newer requested power.
+            isRestoringSolve = true
+            reflectionPower = context.struckPower
+            isRestoringSolve = false
+        }
+        replayReturnSolve = nil
+        // An absent primary ball may have been pocketed before replay started.
+        scene.cueBallNode?.isHidden = true
+        scene.targetBallNodes.first?.isHidden = true
+        applyBoard(board)
+        scene.railInventory.restore(replayReturnRails)
+        strikeSnapshot = [:]
+        if mode == .free {
+            freePreviewKey = nil
+            refreshFreeAim()
+            drawReferenceSolution()
+        } else if replayReturnNeedsSolve {
+            if activitySuspended { resumeSolve = true }
+            else { recompute() }
+        } else { drawCurrent() }
+        replayReturnNeedsSolve = false
+        replayCamera.finish(in: scene)
+        return true
+    }
+
     /// 击打前球形快照（复位真源）：cue/target 用固定键，障碍球用球键。
     private var strikeRails = PocketRailSnapshot()
     private var freeBeforeRails = PocketRailSnapshot()
@@ -404,14 +462,22 @@ final class DiamondSystemViewModel: ObservableObject {
     /// （internal：`strike()` 与单测共用同一处捕获逻辑，单一真源。）
     func makeSolveUndo() -> SolveUndoContext? {
         guard hasSolution, let shown = currentSolution else { return nil }
+        return captureSolveState(fallback: shown.prediction)
+    }
+
+    /// Replay also preserves a filtered-out/empty catalog. Its fallback prediction is
+    /// only a placeholder when no solution is displayed; restoreSolve never plays it.
+    private func captureSolveState(fallback: ShotPrediction) -> SolveUndoContext {
+        let shown = currentSolution
         return SolveUndoContext(
+            perspectiveView: ShotReplayCamera.capture(in: scene),
             rails: scene.railInventory.snapshot(),
             board: captureBoard(), cushions: selectedCushions,
             solutions: solutions, currentIndex: currentIndex,
             catalogPower: catalogSolvePower,
             struckPower: reflectionPower,
-            struckSpinX: Double(shown.spinX), struckSpinY: Double(shown.spinY),
-            struckPrediction: shown.prediction)
+            struckSpinX: Double(shown?.spinX ?? Float(spinX)), struckSpinY: Double(shown?.spinY ?? Float(spinY)),
+            struckPrediction: shown?.prediction ?? fallback)
     }
 
     /// 把击打前完整状态原样恢复（G17，免重解）。catalog 原样回填；若击打用了微调则重建草稿层。
@@ -474,15 +540,24 @@ final class DiamondSystemViewModel: ObservableObject {
 
     /// 回放上一杆：恢复击打前状态并重放该解的演示。
     func replaySolveShot() {
-        guard !temporaryTopDownActive, mode == .solve, !isPlaying, let ctx = lastSolveUndo else { return }
+        guard !temporaryTopDownActive, mode == .solve, !isPlaying, let ctx = lastSolveUndo,
+              ctx.struckPrediction.hasFinalTableState, ctx.struckPrediction.recorder != nil,
+              ctx.struckPrediction.duration > 0.05 else { return }
+        beginReplay()
         restoreSolve(from: ctx)
-        guard let sol = currentSolution else { return }
+        guard let sol = currentSolution, scene.cueBallNode != nil else {
+            finishReplay()
+            return
+        }
+        replayCamera.showShot(ctx.perspectiveView, in: scene, aim: sol.prediction.aimDirection)
         runSolveDemo(sol)
+        if !isPlaying { finishReplay() }
     }
 
     /// 回放中「停止」：立即复位（快照即真源）。
     func stopStrike() {
         guard isPlaying else { return }
+        adjustGeneration += 1
         playbackFinishTask?.cancel()
         ShotAudioScheduler.shared.cancel()
         finishStrike()
@@ -531,6 +606,7 @@ final class DiamondSystemViewModel: ObservableObject {
 
     /// 复位：快照即真源（演示不改变球形）；解列表/序号不变，重绘当前解线。
     private func finishStrike() {
+        if finishReplay() { return }
         playbackFinishTask = nil
         scene.hideCueStick()
         applyBoard(strikeSnapshot)
@@ -901,6 +977,7 @@ final class DiamondSystemViewModel: ObservableObject {
         let velocity = Float(reflectionPower)
         let sx = Float(spinX), sy = Float(spinY)
             guard acceptFreePrediction(pred,before:before) else { return }
+            freeShotPerspectiveView = ShotReplayCamera.capture(in: scene)
             let strikePos = CueStroke.strikePosition(cue: cuePos, aim: dir, spinX: Double(sx), spinY: Double(sy))
             scene.runCueStroke(strikePosition: strikePos, aim: dir,
                                     velocity: velocity, switchesPlayerCameraOnContact: true) { [weak self, generation = adjustGeneration] in
@@ -919,10 +996,11 @@ final class DiamondSystemViewModel: ObservableObject {
         drawReferenceSolution()
     }
 
-    /// 回放上一杆：摆回击打前球形并重播引擎 recorder（结束停在终态，同「球停在哪是哪」）。
+    /// 回放上一杆：重播引擎 recorder，结束恢复点击回放时的球形和视角。
     func replayLastShot() {
         guard !temporaryTopDownActive, mode == .free, !isPlaying, let shot = lastShot,
-              shot.prediction.recorder != nil else { return }
+              shot.prediction.hasFinalTableState, shot.prediction.recorder != nil else { return }
+        beginReplay()
         adjustGeneration += 1
         isPlaying = true
         scene.setIdealObjectLine(nil)
@@ -931,6 +1009,7 @@ final class DiamondSystemViewModel: ObservableObject {
         applyBoard(shot.before)
         scene.railInventory.restore(lastShotRails)
         freeBeforeRails = lastShotRails
+        replayCamera.showShot(shot.perspectiveView, in: scene, aim: shot.prediction.aimDirection)
         launchFreePlayback(shot.prediction, before: shot.before)
     }
 
@@ -997,6 +1076,7 @@ final class DiamondSystemViewModel: ObservableObject {
     /// 自由击打收尾：终态取引擎 `finalPositions`（球停在哪是哪）；进袋球离场
     ///（母球自动回台；目标球进袋保留试手事实，靠上一杆 / 恢复球形找回）。
     private func settleFreeShot(_ pred: ShotPrediction, before: [String: BallRestState]) {
+        if finishReplay() { return }
         scene.railInventory.finishPlayback()
         playbackFinishTask = nil
         scene.hideCueStick()
@@ -1017,7 +1097,7 @@ final class DiamondSystemViewModel: ObservableObject {
         }
         onTableObstacleKeys.removeAll { pred.pocketedBalls.contains($0) }
         respotScratchedCue()
-        lastShot = (before, pred)
+        lastShot = (before, pred, freeShotPerspectiveView)
         lastShotRails = freeBeforeRails
         canUndoShot = true
         canPlaybackShot = true

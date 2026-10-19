@@ -8,9 +8,7 @@ struct CushionEnglishAtlasView: View {
     var body: some View {
         BTTeachingTablePage(vm: vm, titleLabel: "加塞吃库图谱", identifier: "cushionEnglishAtlas", preferencePage: .cushionEnglishAtlas,
             velocity: $vm.velocity, spinHeight: $vm.spinY,
-            teachingNote: CushionEnglishAtlasViewModel.honestyFootnote,
             leftControlGroup: .information, layoutEditingBlocked: vm.isComputing,
-            displayMenuItems: trackMenuItems,
             information: teachingInformation, usesStandardTitle: true,
             title: { EmptyView() },
             leftContent: { size in
@@ -49,13 +47,6 @@ struct CushionEnglishAtlasView: View {
             #endif
             .background(Color.clear.accessibilityIdentifier("cushionEnglishAtlas.root"))
     }
-    private var trackMenuItems: [DailyHUDMenuItem] {
-        [.init(id: "cushionEnglishAtlas.tracks", title: "轨迹 · 至少保留一档")] + (0..<8).map { index in
-            .init(id: "cushionEnglishAtlas.track.\(index)", title: "左右塞第\(index + 1)档",
-                  selected: vm.enabledTracks.contains(index), action: { vm.toggleTrack(index) })
-        }
-    }
-
     private var teachingInformation: [BTTeachingInformation] {
         guard let text = vm.statusText, !vm.isComputing else { return [] }
         return [.init(text: text, identifier: "cushionEnglishAtlas.status")]
@@ -126,15 +117,16 @@ struct CushionEnglishAtlasSpinLegend: View {
                     .offset(x: dx, y: dy)
             }
             .frame(width: size, height: size)
+            .opacity(enabled ? 1 : 0.35)
             .frame(width: 44, height: rowHeight)
             .contentShape(Rectangle())
-            .opacity(enabled ? 1 : 0.35)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTAtlasTrackButtonStyle(isSelected: enabled))
         .accessibilityIdentifier("cushionEnglishAtlas.spinLegend.\(index)")
         .accessibilityLabel("左右塞第\(index + 1)档")
         .accessibilityAddTraits(enabled ? .isSelected : [])
         .accessibilityValue(enabled ? "已选" : "未选")
+        .accessibilityHint(enabled && enabledTracks.count == 1 ? "至少保留一档轨迹" : (enabled ? "轻点隐藏这条轨迹" : "轻点显示这条轨迹"))
         .freeControlItem("cushion.legend.\(index)", name: "左右塞第\(index + 1)档")
     }
 }

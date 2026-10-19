@@ -1828,3 +1828,59 @@ final class P13_15_EmbeddedTableUITests: XCTestCase {
         // All training data is in memory; no training completion or save occurs.
     }
 }
+
+/// User-visible atlas controls: direct switches, last-track guard, and a concise menu.
+final class AtlasTrackControlsUITests: XCTestCase {
+    func testSeparationControls() throws { try checkControls(page: "separation", prefix: "separationAngleAtlas") }
+    func testCushionControls() throws { try checkControls(page: "cushion", prefix: "cushionEnglishAtlas") }
+
+    private func checkControls(page: String, prefix: String) throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-dailyInteraction.sharedPage=\(page)", "-v54.forceDark"])
+        defer { app.terminate() }
+        let more = app.buttons[prefix + ".more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 25))
+        func menu() { more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
+        func capture(_ state: String) throws {
+            let folder = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+                .appendingPathComponent("output/atlas-controls-20261019/r2/after-\(Int(app.windows.firstMatch.frame.width))")
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let screenshot = XCUIScreen.main.screenshot()
+            try screenshot.pngRepresentation.write(to: folder.appendingPathComponent(page + "-" + state + ".png"))
+            let attachment = XCTAttachment(screenshot: screenshot)
+            attachment.name = page + "-" + state; attachment.lifetime = .keepAlways; add(attachment)
+        }
+        menu()
+        let camera = app.buttons[prefix + ".cameraMode"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 5))
+        if (camera.value as? String) == "3D" { camera.tap() }
+        XCTAssertFalse(app.buttons[prefix + ".track.0"].exists)
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "仅调整本页")).firstMatch.exists)
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "引擎实况")).firstMatch.exists)
+        try capture("menu")
+        app.buttons[prefix + ".dismissMenu"].tap()
+        let count = app.staticTexts[prefix + ".trackCount"]
+        XCTAssertEqual(count.label, "8/8")
+        try capture("selected")
+        for index in 0..<7 {
+            let button = app.buttons[prefix + ".spinLegend.\(index)"]
+            XCTAssertTrue(button.isHittable)
+            XCTAssertGreaterThanOrEqual(button.frame.height, 24)
+            if index > 0 { XCTAssertGreaterThanOrEqual(button.frame.minY, app.buttons[prefix + ".spinLegend.\(index - 1)"].frame.maxY) }
+            button.tap()
+            XCTAssertEqual(button.value as? String, "未选")
+        }
+        XCTAssertEqual(count.label, "1/8")
+        app.buttons[prefix + ".spinLegend.7"].tap()
+        XCTAssertEqual(count.label, "1/8")
+        try capture("last-track")
+        app.buttons[prefix + ".spinLegend.0"].tap()
+        XCTAssertEqual(count.label, "2/8")
+        try capture("mixed")
+        menu(); camera.tap(); app.buttons[prefix + ".dismissMenu"].tap()
+        XCTAssertEqual(count.label, "2/8")
+        XCTAssertTrue(app.buttons[prefix + ".spinLegend.0"].isHittable)
+        try capture("3d")
+    }
+}

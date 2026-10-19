@@ -27,3 +27,12 @@
 - `buttons-light-dark-1x.png`为真实组件渲染1x对照；`page-light-1x.png`/`page-dark-1x.png`为详情原生截图。未装真机，未提交/推送/发布。冠球r11原资源、布局及权限逻辑不变。
 
 截图边界补充：SE的portrait/landscape请求截图均为750×1334，App保持纵向；本轮小屏大字号布局已看到，旋转请求通过不等于横屏布局已验收。
+
+
+## 遗漏补查：游客推广卡（2026-10-19）
+
+用户截图中的游客个人页推广卡仍消费 `BTPremiumMaterialSymbol(BTIcon.star)`，此前解锁按钮审计没有覆盖推广横幅。现替换为同一 `BTProfileCrown(width: 44)`，原56pt圆底、深色卡片及文案/跳转保持；素材与冠球组合不变。
+
+源码补查覆盖：个人页游客推广/Pro与免费订阅行、会员购买/终身升级、动作详情双入口、共享渐隐/全遮罩、文档和球桌次数门控。以上实际冠图入口均使用同一资源。内容的 `BTProBadge` 保留锁/开锁表示权限状态；评分的星号、特殊杆法分类的sparkles、订阅页App品牌标记保留原语义。`IconToken`的SF皇冠仅在图标预览和被冠图分支覆盖的参数中，`BTPremiumMaterialSymbol`已无生产调用；没有一键替换通用星号/锁。
+
+本轮证据：`output/pro-brand-omissions-20261019/consumer-audit.txt`；构建通过；`testGuestProPromotionInBothAppearances`通过（1项、两外观、0失败/跳过），两态推广卡点击进入订阅页。已逐张打开两张原生整页图核对：冠图清晰、居中无裁切，订阅管理共用冠图，免费头球无冠。`promotion-light-dark-1x.png`为原生截图按3×屏幕比例缩至1×的上下对照，未重绘。4份相关源码/资源SHA与测试快照一致。diff/doc-size通过；verify-gate仍因路由签名漂移失败（内容/同步/术语通过），未改基线。未装真机；其他入口本轮源码补查，不冒称逐页重新运行。首次冻结遇到并行PositionPlay变更，未用不一致快照构建；两份无关文件改取HEAD，当前工作区未动，详见snapshot-note.json。相关Profile、皇冠及测试文件核对当前源码。
