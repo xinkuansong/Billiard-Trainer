@@ -13,6 +13,13 @@ enum TableRenderRecipe: String {
 /// SceneKit scene for angle training: loads the USDZ table model,
 /// manages camera (2D/3D), lighting, USDZ ball nodes, and cue stick.
 final class AngleTrainingScene: SCNScene, ObservableObject {
+    /// Nil for authoring/export scenes, which retain their explicit configuration.
+    var tablePreferencePage: TablePreferencePage?
+    var tablePreferences: TablePreferenceSnapshot?
+    @MainActor var effectiveTrajectoryDetail: TrajectoryDetail {
+        tablePreferences?.trajectoryDetail ?? UserPreferences.shared.trajectoryDetail
+    }
+
 
     /// Weak bridge to the live viewport; used only while a closeup is visible.
     weak var closeupViewport: SCNView?
@@ -500,6 +507,43 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         }
     }
 
+    /// User formations own independent nodes/materials while sharing immutable mesh resources.
+    func configureBallInstances(_ keys: [String]) {
+        let wanted = Set(keys)
+        for key in Array(allBallNodes.keys) where PositionPlayBall.isInstance(key) && !wanted.contains(key) {
+            if let node = allBallNodes.removeValue(forKey: key) {
+                node.removeAllActions(); node.removeFromParentNode()
+                targetBallNodes.removeAll { $0 === node }
+            }
+            initialBallPositions.removeValue(forKey: key)
+        }
+        for key in keys where PositionPlayBall.isInstance(key) && allBallNodes[key] == nil {
+            guard let number = PositionPlayBall.number(for: key), let source = allBallNodes["_\(number)"] else { continue }
+            let node = source.clone()
+            func isolate(_ node: SCNNode) {
+                if let geometry = node.geometry?.copy() as? SCNGeometry {
+                    geometry.materials = geometry.materials.map { $0.copy() as! SCNMaterial }
+                    node.geometry = geometry
+                }
+                node.removeAllActions()
+                node.childNodes.forEach(isolate)
+            }
+            isolate(node)
+            node.name = key; node.isHidden = true; node.opacity = 1
+            rootNode.addChildNode(node)
+            allBallNodes[key] = node; targetBallNodes.append(node)
+            initialBallPositions[key] = node.position
+        }
+        let tracked = ([PositionPlayBall.cueKey] + keys).compactMap { allBallNodes[$0] }
+        if let contactOcclusion, !contactOcclusion.trackBallInstances(tracked) {
+            let expanded = MobileContactOcclusion(scene: self, trackedBalls: tracked)
+            self.contactOcclusion = expanded
+            if MobileReferenceLighting.requested {
+                MobileReferenceLighting.refreshClothLighting(in: self, ballCount: expanded.capacity)
+            }
+        }
+    }
+
     /// Show only specified balls, hide all others. Position them at given locations.
     /// Falls back to procedural balls if USDZ balls weren't extracted.
     func applyBallLayout(cueBallPosition: SCNVector3, targetBallNumber: Int, targetPosition: SCNVector3) {
@@ -679,7 +723,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             MaterialFactory.applyBallMaterial(to: ballNode, usesClearcoat: !mobileRendering)
             if key == "cueBall" { MaterialFactory.applyCueBallBaseColor(to: ballNode) }
             if mobileRendering && MobileReferenceLighting.requested {
-                let numbered = key.hasPrefix("_") && (Int(key.dropFirst()).map { (1...15).contains($0) } ?? false)
+                let numbered = PositionPlayBall.number(for: key) != nil
                 MobileReferenceLighting.applyBall(to: ballNode, exposureOffset: cameraNode?.camera?.exposureOffset ?? 0,
                                                   stickerFinish: numbered, probe: roomReflectionProbe, profile: renderingProfile)
             }

@@ -55,7 +55,7 @@ final class GeometricAngleViewModel: ObservableObject {
     }
 
     func submitAnswer() {
-        guard let userAngle = Double(userInput),
+        guard !showResult, !limiter.isLimitReached, let userAngle = Double(userInput),
               userAngle >= 0, userAngle <= 90 else { return }
 
         let err = abs(currentAngle - userAngle)

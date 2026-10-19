@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - 时间预算（可测数据）
 
-/// 5 步流程的时间预算（秒）。
+/// 5 步流程的练习用时示例（秒），不是水平分级或比赛时限。
 ///
 /// 数值**逐字**取仓内 vendored `QiuJi/Resources/Theory/contracts/run-out-flow.json`
 /// 的 `states[].duration_target_s` 与 `time_budget_seconds`（转写模板 §2.4 数值纪律：
@@ -52,9 +52,9 @@ struct TheoryFlowView: View {
             VStack(spacing: Spacing.xxl) {
                 TheoryPageHeader(
                     pageID: .flow,
-                    headline: "上台以后，按固定顺序走完五步",
-                    detail: "先扫桌，再倒推，然后过三问，接着执行，最后复盘。每一步只做自己那件事，做完把结论交给下一步。",
-                    caption: "每次轮到自己上台都从第一步开始：自由球、防守后回台也一样，不要凭感觉直接打。"
+                    headline: "先看清局面，再把想好的这一杆打出来",
+                    detail: "扫桌、规划、评估、执行、复盘，五步把一杆球前后的思考连起来。简单局面可以很快完成，遇到问题球时，再把需要的部分想细。",
+                    caption: "流程帮助你少漏掉重要信息，不要求每杆都花相同时间，也不要求把后面所有球算死。"
                 )
 
                 whyOrder
@@ -81,19 +81,19 @@ struct TheoryFlowView: View {
     // MARK: - 为什么要按顺序（execution-guide 总览 + 违规放大）
 
     private var whyOrder: some View {
-        LearnDocSectionCard(title: "顺序本身就是纪律") {
-            LearnDocText.body("业余最常见的打法是「看到一颗能打的就趴下去打」。五步流程做的事很简单：把「看清楚」「想清楚」「敢不敢打」「怎么打」「打完学到什么」分成互不干扰的五段，每段只做一件事。")
+        LearnDocSectionCard(title: "为什么先想好，再趴下") {
+            LearnDocText.body("看到一颗好进的球就马上出杆，容易漏掉后面的难题；趴下后还在换路线，又容易影响执行。五步流程让观察和选择尽量在站立时完成，准备击球后把注意力放回这一杆。")
 
             FiveStepFlowFigure()
                 .frame(height: 300)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
                 .accessibilityElement(children: .ignore)
                 .accessibilityIdentifier("theoryFlow.stepsFigure")
-                .accessibilityLabel("五步主链：全桌扫描、反向规划、风险评估、执行、复盘；风险评估不通过时转到防守支路，防守也回到执行。")
+                .accessibilityLabel("五步主链：全桌扫描、反向规划、风险评估、执行、复盘；评估后可以选择进攻或防守，两者都需要认真执行。")
 
-            LearnDocText.footnote("风险评估这一步有两条出路：过了才进执行；没过就转去打安全球，安全球同样按执行那一步的标准打。")
+            LearnDocText.footnote("风险评估后选择打法。图中的防守支路同样回到执行，提醒你防守也需要明确路线和落点。")
 
-            LearnDocText.body("每跳过一步，失败率大约翻一倍。完整五步不是「高手才做的功课」，而是最低必要纪律。")
+            LearnDocText.body("五步可以互相回看：评估发现风险太大，就重新规划；打完发现角度变了，就更新路线。熟练的目标是少遗漏，而不是机械念完五个名称。")
         }
     }
 
@@ -101,10 +101,10 @@ struct TheoryFlowView: View {
 
     private var step1: some View {
         LearnDocSectionCard(title: "第 1 步 · 全桌扫描") {
-            LearnDocText.body("目的：把整张桌的信息装进脑子——这一步不做任何决策。")
+            LearnDocText.body("先看整张桌，再挑当前这一杆。重点是合法目标、可用袋口、问题球和通道，避免眼睛只跟着最好进的球走。")
 
             TheoryNumberedList(steps: [
-                .init("绕桌走至少半圈", detail: "别用单一视角看桌。换个角度才看得出哪些球是真的挡住了袋口或走位线。"),
+                .init("换角度确认", detail: "看不清的袋口或通道，走到合适位置检查，不必为了凑固定步数绕桌。"),
                 .init("数球数", detail: "己方还剩几颗、对手还剩几颗。"),
                 .init("标出所有球团", detail: "位置、大小、有没有埋住将来要用的关键球。"),
                 .init("标出死球与难球", detail: "贴库的、进死角的、必须踢库才能碰到的。"),
@@ -112,7 +112,7 @@ struct TheoryFlowView: View {
             ])
 
             LearnDocFormulaNest(title: "这一步交出什么") {
-                LearnDocText.footnote("球数对比、球团清单（含大致优先级）、难球与死球清单、袋口球位置。时间：新手 15 秒 / 进阶 10 秒 / 高手 5 秒。")
+                LearnDocText.footnote("记住哪些球可直接打、哪些需要处理，以及袋口球和球团能提供什么机会。")
             }
         }
     }
@@ -121,21 +121,21 @@ struct TheoryFlowView: View {
 
     private var step2: some View {
         LearnDocSectionCard(title: "第 2 步 · 反向规划") {
-            LearnDocText.body("目的：排出一条完整的倒推队列，并选定当前这一杆打哪颗。这一步占整个流程最大一块时间。")
+            LearnDocText.body("先选一个可行的收尾，再看当前能怎样接近它。球形暂时不允许清台时，就把目标缩到改善局面或保留机会。")
 
             TheoryNumberedList(steps: [
-                .init("先看还剩几颗", detail: "桌上还有 4 颗及以上，走完整倒推；只剩 3 颗及以下，按收官三球来打——尺子更严。"),
-                .init("从最后一颗往回排", detail: "最后一颗 ← 关键球 ← 关键球二 ←（球团处理）← 当前这一杆。"),
+                .init("确定规划范围", detail: "球少时连起剩余顺序；球多或遮挡复杂时，先确定关键衔接与问题球处理机会。"),
+                .init("从最后一颗往回排", detail: "依次检查最后一颗、关键球和关键球二需要的位置，再寻找当前路线；把球团处理安排在合适时机。"),
                 .init("定下当前一杆与落位区", detail: "当前一杆打哪颗、打完母球应该停在哪一片区域。"),
             ])
 
             LearnDocFormulaNest(title: "这一步交出什么") {
-                LearnDocText.footnote("倒推队列、当前一杆候选、理想落位区。时间：新手 30 秒 / 进阶 15 秒 / 高手 10 秒。")
+                LearnDocText.footnote("当前候选球、希望到达的区域，以及下一段怎样衔接。")
             }
 
-            LearnDocText.body("两种边界情况：完全排不出队列，就直接进第 3 步、用更严的尺子评估，多半会转去打安全球；球特别多时（开球后第一杆，十颗以上），退化成「找出关键障碍、选一个最好的起点、给自己留角度」，不强求完整队列。")
+            LearnDocText.body("暂时排不出完整路线，可以把防守或处理问题球作为候选。开局后信息多，先抓主要障碍和后续选择，随着局面变清楚再补全计划。")
 
-            LearnDocText.body("为什么这一步不能省：每打进一颗自己的球，可用来防守的资源就少一颗；一旦决定开打，就必须有完整规划。八球里错掉最后一颗黑球，等于把 87.5% 的可击球送到对手手上，基本就是输局。")
+            LearnDocText.body("尤其在八球里，简单球也可能承担保险、衔接或挡袋的作用。先看用途再打，避免清掉了眼前的球，却失去后面需要的资源。")
         }
     }
 
@@ -143,29 +143,29 @@ struct TheoryFlowView: View {
 
     private var step3: some View {
         LearnDocSectionCard(title: "第 3 步 · 风险评估") {
-            LearnDocText.body("目的：用三问快速校验——这一杆到底打，还是转防守。")
+            LearnDocText.body("用三问比较候选方案：不只想成功时能得到什么，也想失误后会留下什么。防守同样需要这样检查。")
 
             TheoryNumberedList(steps: [
                 .init("进得了吗？"),
                 .init("走得到位吗？"),
                 .init("打不进的代价扛得住吗？"),
-                .init("会被挡死吗？", detail: "这是硬性下限：只要这一杆有可能把自己弄成连目标球都看不到，就必须转防守，前三问答得再漂亮也不算。"),
+                .init("会被挡住吗？", detail: "把进球后看不到下一颗的风险算进去，再与替代路线比较，别等走到那里才发现问题。"),
             ])
 
             TheoryMatrixTable(
-                columnTitles: ["进球把握", "走位把握", "代价上限"],
+                columnTitles: ["重点看", "再比较", "别只看"],
                 rows: [
-                    .init("中段 / 默认", ["≥ 65%", "≥ 55%", "不送 1 颗易球"]),
-                    .init("收官阶段", ["≥ 80%", "≥ 75%", "任何失误 = 输局"]),
-                    .init("球数劣势", ["-10%", "-10%", "同上"]),
-                    .init("决胜局", ["不可下调", "不可下调", "同上"]),
+                    .init("中盘", ["后续衔接", "问题球的处理", "眼前好进"]),
+                    .init("收尾", ["进球与母球安全", "失误后的局面", "固定概率线"]),
+                    .init("剩球悬殊", ["双方可用路线", "防守资源", "球数倍数"]),
+                    .init("压力较大", ["熟悉的打法", "实际执行把握", "一时的信心"]),
                 ],
                 labelWidth: 84
             )
-            LearnDocText.footnote("「球数劣势」指自己剩的球数只有对手的一半左右，这时前两问可以各放宽 10%。决胜局不放宽。")
+            LearnDocText.footnote("没有通用的进攻及格线。把自己的同类球表现、当前局面和对手能力一起考虑。")
 
             LearnDocFormulaNest(title: "这一步交出什么") {
-                LearnDocText.footnote("一个决定：通过就进第 4 步；不通过就转防守线——用更严的尺子重估、修正球数对比、在进攻与防守之间定夺，选了防守就按安全球的标准去执行。时间：新手 10 秒 / 进阶 5 秒 / 高手 3 秒。")
+                LearnDocText.footnote("选定这一杆的打法、预期结果和可以接受的偏差。仍不清楚时，回到规划调整方案。")
             }
         }
     }
@@ -174,23 +174,23 @@ struct TheoryFlowView: View {
 
     private var step4: some View {
         LearnDocSectionCard(title: "第 4 步 · 执行") {
-            LearnDocText.body("目的：按「角度 → 速度 → 旋转」的固定顺序完成这一杆。")
+            LearnDocText.body("把方案变成具体的进球线、母球路线、速度和打点。这几项互相影响，要在出杆前一起确认。")
 
             TheoryNumberedList(steps: [
-                .init("先定角度", detail: "先画切线、定切角，用切线法则加上 5/7 + 2/7 的记法估母球碰后往哪走。"),
-                .init("再定速度", detail: "用排除法挑档，靠出杆长度而不是「加力气」。"),
-                .init("最后定旋转", detail: "默认中杆；确实不加塞走不到，才加最小必要量。"),
+                .init("检查方向", detail: "用切线作几何参照，再根据到球时是斯登、自然滚动还是后旋，判断整段母球路线。"),
+                .init("选择速度", detail: "参照练过的力度，结合运杆幅度和节奏，让母球进入可用区域。"),
+                .init("确认旋转", detail: "选能完成路线的打点；需要加左右塞时，说清用途并考虑补偿，再核对进球线。"),
             ])
-            LearnDocText.footnote("业余最常见的错误是倒着来：先想力度，力度想偏了，瞄准被迫跟着改，结果失位。")
+            LearnDocText.footnote("角度、速度、旋转是检查顺序，不是互不影响的三项。改变其中一项，其他两项也要重新核对。")
 
-            LearnDocText.body("这一杆属于哪一类，决定你调用哪套打法：单球进位没有障碍、路径上有障碍要绕、要去碰开球团、或者第 3 步已经选了防守——四种情况的处理方式不同，但顺序铁律都一样。")
+            LearnDocText.body("直接走位、避开障碍、碰开球团和防守，各有不同的检查重点。但无论哪一种，都应在趴下前说清要让球往哪里走。")
 
             LearnDocFormulaNest(title: "出手前的固定动作") {
-                LearnDocText.footnote("站位前空挥 2–3 次找速度感 → 站位、架杆长度按速度档调整 → 在杆上预热挥 2–4 次 → 最后一杆平滑加速进接触 → 完整跟进 → 定住 1 秒。收官、安全球、重力度这三种情况严格走完整流程；中段简单球可以压到一半。")
+                LearnDocText.footnote("站立时确认路线和速度感，入位后完成熟悉的瞄准与运杆，平顺出杆并保持身体稳定。运杆次数按自己的稳定流程安排；趴下后若改变主意，起身重新准备。")
             }
 
             LearnDocFormulaNest(title: "这一步交出什么") {
-                LearnDocText.footnote("这一杆的实际结果，以及母球实际停在哪——后者是下一步复盘的输入。时间：新手 20 秒 / 进阶 10 秒 / 高手 8 秒。")
+                LearnDocText.footnote("观察目标球是否按计划入袋，以及母球的实际路线和停点，留给下一步核对。")
             }
         }
     }
@@ -204,19 +204,19 @@ struct TheoryFlowView: View {
             TheoryMatrixTable(
                 columnTitles: ["下一杆怎么办"],
                 rows: [
-                    .init("差 1 颗球径以内", ["完美，按原计划继续"]),
-                    .init("1 颗球径到 1/3 桌长", ["微调：关键球与关键球二不动，改下一杆的瞄准与力度"]),
-                    .init("超过 1/3 桌长", ["重做：回第 1 步，整局重新规划"]),
+                    .init("仍在可用区域", ["确认通道后继续，不必追求停在同一个点"]),
+                    .init("角度变化，仍能衔接", ["微调下一杆，并重新检查后续路线"]),
+                    .init("衔接或球形改变", ["重新扫桌，比较新的顺序与打法"]),
                 ],
                 labelWidth: 96
             )
 
-            LearnDocText.body("还要看桌面变没变。碰开球团之后，或者打了高杆、低杆之后，可能冒出新的球团、关键球被推走、袋口球被撞下去。只要发生其中任意一种，都必须回第 1 步重新扫桌。")
+            LearnDocText.body("是否重排，不由偏差距离单独决定。差一点可能恰好失去角度，偏得远也可能仍有好路线。发生碰球、球团散开或必要通道变化时，重新看整张桌。")
 
             LearnDocText.body("最后给自己一秒钟：这次偏差是技术问题（瞄准、速度、旋转），还是决策问题（球选错了、队列排错了）？下次遇到同类局面该怎么改。")
 
             LearnDocFormulaNest(title: "这一步交出什么") {
-                LearnDocText.footnote("下一杆的策略（继续 / 微调 / 重做），以及一条留给自己的学习记录。时间：新手 5 秒 / 进阶 3 秒 / 高手 2 秒。")
+                LearnDocText.footnote("决定继续、微调还是重排，并记住一个值得练习的问题。比赛中简短判断，练习后再详细复盘。")
             }
         }
     }
@@ -230,10 +230,10 @@ struct TheoryFlowView: View {
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
                 .accessibilityElement(children: .ignore)
                 .accessibilityIdentifier("theoryFlow.timeFigure")
-                .accessibilityLabel("三档总时长条：新手 80 秒、进阶 43 秒、高手 28 秒，按五步分段，反向规划占最长一段。")
+                .accessibilityLabel("练习用时的三个分配示例，总计分别为 80 秒、43 秒和 28 秒。不是水平分级、统计结果或比赛达标线。")
 
             TheoryMatrixTable(
-                columnTitles: ["新手", "进阶", "高手"],
+                columnTitles: ["示例一", "示例二", "示例三"],
                 rows: TheoryFlowTimeBudget.steps.map { step in
                     TheoryMatrixTable.Row(
                         step.name,
@@ -248,7 +248,7 @@ struct TheoryFlowView: View {
                 ]
             )
 
-            LearnDocText.body("比赛常规是一杆 30 到 60 秒。也就是说，新手必须把这套流程练熟才不会超时；熟练之后，完整走完五步只要半分钟左右。")
+            LearnDocText.body("这些秒数只展示练习时怎样分配时间，不代表新手或高手的实测用时，也不是必须达到的标准。可先慢慢说清思路，再练习简短完成；比赛中按当场计时规则安排，复杂局面与简单球不必同样用时。")
         }
     }
 
@@ -256,8 +256,8 @@ struct TheoryFlowView: View {
 
     private var entryAndExit: some View {
         LearnDocSectionCard(title: "什么时候启动、什么时候结束") {
-            LearnDocText.body("启动：每次轮到自己上台就从第一步开始。对手犯规、自己拿到自由球时也要完整走五步，不要因为「随便摆」就凭感觉打。打完安全球再回到台前，同样完整走五步。")
-            LearnDocText.body("结束：这一杆进了，回到复盘，然后重新扫桌——因为桌面已经变了。自己犯规，整盘交给对手，下次回台时重新启动。全部清完，这一局结束。")
+            LearnDocText.body("每次回到台前，先检查变化。拿到自由球时，也要先想放在哪里、为什么放在那里，别只摆成眼前最好进的位置。")
+            LearnDocText.body("继续击球时，根据上一杆结果更新计划；轮次结束后，观察对手留下的新局面。流程随信息更新，不必每次把已经确认的细节从头想一遍。")
         }
     }
 
@@ -268,15 +268,15 @@ struct TheoryFlowView: View {
             TheoryMatrixTable(
                 columnTitles: ["后果"],
                 rows: [
-                    .init("跳过扫桌", ["漏看球团和袋口球，中后段直接崩"]),
-                    .init("跳过倒推", ["没有队列，到关键球那一杆必崩"]),
-                    .init("跳过三问", ["默认进攻，等于把清台机会送给对手"]),
-                    .init("跳过固定动作", ["重力度球和收官球最容易垮"]),
-                    .init("跳过复盘", ["失位了还按原计划打，一路雪崩"]),
+                    .init("漏看全桌", ["可能错过问题球、保险球和必要通道"]),
+                    .init("只想当前一杆", ["可能提前用掉后续需要的衔接球"]),
+                    .init("不比较后果", ["可能忽略失误代价或更好的替代方案"]),
+                    .init("仓促出杆", ["计划清楚，动作却没准备好"]),
+                    .init("不核对结果", ["可能继续执行已经不适合的路线"]),
                 ],
                 labelWidth: 96
             )
-            LearnDocText.footnote("每跳一步，失败率大约翻一倍。")
+            LearnDocText.footnote("这些是容易遗漏的环节，不是对失败率的量化预测。")
         }
     }
 
@@ -289,15 +289,15 @@ struct TheoryFlowView: View {
         ),
         .init(
             wrong: "边打边想下一杆，不做倒推",
-            right: "没有队列，前面几颗看着都顺，到关键球那一杆必崩。"
+            right: "先想一个可行收尾和眼前的衔接，再根据实际结果调整，避免把必要的过渡球提前打掉。"
         ),
         .init(
             wrong: "默认这一杆就是要进攻",
-            right: "跳过三问，等于把清台机会送给对手。三问里任一不过，就该转防守。"
+            right: "把进球、走位和失败代价一起看，也检查防守的实际把握，再选打法。"
         ),
         .init(
             wrong: "失位了还照原计划打下去",
-            right: "偏差超过三分之一桌长就该整局重做。硬撑只会一路雪崩。"
+            right: "看角度和通道有没有改变；影响衔接时就调整，不必等偏出固定距离。"
         ),
     ]
 
@@ -332,17 +332,17 @@ struct TheoryFlowView: View {
             )
             LearnDocTextLink(
                 title: "球团管理",
-                subtitle: "扫桌标出的球团，要排在关键球之前处理",
+                subtitle: "为问题球安排合适的处理时机",
                 route: .theoryPage(.t07)
             )
             LearnDocTextLink(
                 title: "安全球三维度模型",
-                subtitle: "三问没过时，转到这条线上来打",
+                subtitle: "把防守作为具体方案一起比较",
                 route: .theoryPage(.t10)
             )
             LearnDocTextLink(
                 title: "切线法则",
-                subtitle: "第 4 步先定角度：碰后母球先沿切线走",
+                subtitle: "用几何参照配合到球时旋转判断路线",
                 route: .theoryPage(.t03)
             )
             LearnDocTextLink(
@@ -352,11 +352,11 @@ struct TheoryFlowView: View {
             )
             LearnDocTextLink(
                 title: "最少加塞原则",
-                subtitle: "第 4 步最后定旋转：默认中杆",
+                subtitle: "确认加塞用途与所需补偿",
                 route: .theoryPage(.t09)
             )
 
-            LearnDocText.footnote("还没有绑定专门的跟练题目：先在自己的练习局里强制走完五步，哪怕只剩两颗球也走一遍，最见效。")
+            LearnDocText.footnote("先在练习局里说出每一步的判断，打完核对结果。熟悉后逐渐缩短思考时间，保留重要检查。")
         }
     }
 }
@@ -370,7 +370,7 @@ private struct FiveStepFlowFigure: View {
     private static let steps = [
         ("① 全桌扫描", "看清楚"),
         ("② 反向规划", "想清楚"),
-        ("③ 风险评估", "敢不敢打"),
+        ("③ 风险评估", "选打法"),
         ("④ 执行", "怎么打"),
         ("⑤ 复盘", "学到什么"),
     ]
@@ -412,7 +412,7 @@ private struct FiveStepFlowFigure: View {
                 .stroke(Color.btWarning,
                         style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
 
-                Text("不通过\n转防守")
+                Text("选防守\n再执行")
                     .font(.btMicro)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.btWarning)
@@ -441,7 +441,7 @@ private struct FiveStepFlowFigure: View {
                     .position(x: mainX, y: ys[i])
                 }
 
-                Text("每跳一步，失败率约翻一倍")
+                Text("先决定打法，再专心执行")
                     .font(.btCaption2)
                     .foregroundStyle(.btTextSecondary)
                     .position(x: w * 0.5, y: h * 0.955)
@@ -469,7 +469,7 @@ private struct FiveStepFlowFigure: View {
 
 // MARK: - 抽象图示 ②：三档时间预算分段条
 
-/// 新手 / 进阶 / 高手三档总时长条，按五步分段（非球形，红线 5 合规）。
+/// 三组练习用时示例，按五步分段（非球形，红线 5 合规）。
 ///
 /// 分段比例直接由 `TheoryFlowTimeBudget` 的秒数算出——⛔ 不引入正文没有的标度。
 private struct TimeBudgetFigure: View {
@@ -481,9 +481,9 @@ private struct TimeBudgetFigure: View {
 
     private var lanes: [Lane] {
         [
-            .init(title: "新手", seconds: TheoryFlowTimeBudget.steps.map(\.novice)),
-            .init(title: "进阶", seconds: TheoryFlowTimeBudget.steps.map(\.intermediate)),
-            .init(title: "高手", seconds: TheoryFlowTimeBudget.steps.map(\.expert)),
+            .init(title: "示例一", seconds: TheoryFlowTimeBudget.steps.map(\.novice)),
+            .init(title: "示例二", seconds: TheoryFlowTimeBudget.steps.map(\.intermediate)),
+            .init(title: "示例三", seconds: TheoryFlowTimeBudget.steps.map(\.expert)),
         ]
     }
 
@@ -505,7 +505,7 @@ private struct TimeBudgetFigure: View {
                             .stroke(Color.btSeparator, lineWidth: 1)
                     )
 
-                Text("一杆用多久（按五步分段）")
+                Text("练习用时示例（非达标线）")
                     .font(.btCaption2.weight(.semibold))
                     .foregroundStyle(.btPrimary)
                     .position(x: w * 0.5, y: h * 0.12)
@@ -536,7 +536,7 @@ private struct TimeBudgetFigure: View {
                         .position(x: w * 0.04 + labelW + laneW + w * 0.07, y: ys[laneIndex])
                 }
 
-                Text("最长那段永远是反向规划")
+                Text("按球形复杂程度分配时间")
                     .font(.btCaption2)
                     .foregroundStyle(.btTextSecondary)
                     .position(x: w * 0.5, y: h * 0.90)

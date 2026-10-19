@@ -108,6 +108,34 @@ final class APIClientProfileTests: XCTestCase {
         super.tearDown()
     }
 
+    private func accountToken(_ id: String) -> String {
+        let payload = Data(("{\"sub\":\"" + id + "\"}").utf8).base64EncodedString()
+            .replacingOccurrences(of: "=", with: "").replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
+        return "header." + payload + ".signature"
+    }
+    func testFormationRequestRejectsAnotherAccountBeforeSending() async {
+        tokenStore.save(accountToken("b"), for: .accessToken)
+        StubURLProtocol.configure([])
+        do {
+            let _: EmptyResponse = try await client.request(Endpoint(.put, "/custom-formations/test", expectedAccountID: "a"))
+            XCTFail("Must reject another account")
+        } catch is CancellationError { XCTAssertNil(StubURLProtocol.requestSnapshot()) }
+        catch { XCTFail("Unexpected error: \(error)") }
+    }
+    func testFormationRetryCannotSendPayloadWithAnotherAccountsToken() async {
+        tokenStore.save(accountToken("a"), for: .accessToken)
+        tokenStore.save("refresh-a", for: .refreshToken)
+        let response = "{\"accessToken\":\"" + accountToken("b") + "\",\"refreshToken\":\"refresh-b\"}"
+        StubURLProtocol.configure([
+            .init(statusCode: 401, headers: [:], data: Data()),
+            .init(statusCode: 200, headers: [:], data: Data(response.utf8))
+        ])
+        do {
+            let _: EmptyResponse = try await client.request(Endpoint(.put, "/custom-formations/test", expectedAccountID: "a"))
+            XCTFail("Must not retry against a different account")
+        } catch is CancellationError { XCTAssertEqual(StubURLProtocol.requestSnapshot()?.url?.path, "/auth/refresh") }
+        catch { XCTFail("Unexpected error: \(error)") }
+    }
     func testJSON2xxDecodesProfile() async throws {
         StubURLProtocol.configure(.init(
             statusCode: 200,

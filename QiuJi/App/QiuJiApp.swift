@@ -4,6 +4,8 @@ import UserNotifications
 
 @main
 struct QiuJiApp: App {
+    // Eagerly capture installation history BEFORE the properties below create guest/store data.
+    private let firstRunProfile = FirstRunProfileFlow.prepareForLaunch()
     @UIApplicationDelegateAdaptor(QiuJiOrientationDelegate.self) private var orientationDelegate
     @StateObject private var authState: AuthState
     @StateObject private var ownerContext = CurrentOwnerContext.shared
@@ -25,7 +27,7 @@ struct QiuJiApp: App {
         let authState: AuthState
         if ProcessInfo.processInfo.arguments.contains("-syncRepair.loginSheet") {
             let backend = SyncRepairUITestBackend()
-            authState = AuthState(backend: backend)
+            authState = AuthState(backend: backend, profileImportBackend: backend)
             SyncQueueManager.shared.backend = backend
             SyncRestoreService.shared.backend = backend
         } else {
@@ -67,6 +69,7 @@ struct QiuJiApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environmentObject(firstRunProfile)
                 .environmentObject(authState)
                 .environmentObject(ownerContext)
                 .environmentObject(dataCoordinator)
@@ -111,7 +114,7 @@ struct QiuJiApp: App {
                         return
                     }
                     #endif
-                    await subscriptionManager.checkEntitlements()
+                    await subscriptionManager.checkEntitlements(coalescing: true)
                 }
                 .task {
                     // 预热击球音频引擎：AVAudioEngine 首次冷启动会同步阻塞主线程，
@@ -127,6 +130,8 @@ struct QiuJiApp: App {
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase != .active { ShotAudioScheduler.shared.cancel() }
                     if newPhase == .active {
+                        AngleUsageLimiter.shared.refreshDay()
+                        Task { await subscriptionManager.checkEntitlements(coalescing: true) }
                         if UserPreferences.shared.soundEffectsEnabled { ShotSoundBank.shared.prepare() }
                         Task {
                             await TrainingReminderScheduler.shared.reconcile()
@@ -134,6 +139,10 @@ struct QiuJiApp: App {
                                                                     authState: authState)
                         }
                     }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .formationNeedsSync)) { note in
+                    if let owner = note.object as? String, owner != CurrentOwnerContext.shared.ownerKey { return }
+                    dataCoordinator.requestSync(authState: authState)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .didCompleteLogin)) { note in
                     guard let userId = note.object as? String else { return }
@@ -188,17 +197,20 @@ final class QiuJiOrientationDelegate: NSObject, UIApplicationDelegate {
 struct DailyTableOrientation: UIViewControllerRepresentable {
     var landscape: Bool
     var allowsTabletRotation = false
+    var restoresPreviousOwner = false
 
     func makeUIViewController(context: Context) -> Controller {
         let controller = Controller()
         controller.landscape = landscape
         controller.allowsTabletRotation = allowsTabletRotation
+        controller.restoresPreviousOwner = restoresPreviousOwner
         return controller
     }
 
     func updateUIViewController(_ controller: Controller, context: Context) {
         controller.landscape = landscape
         controller.allowsTabletRotation = allowsTabletRotation
+        controller.restoresPreviousOwner = restoresPreviousOwner
         controller.applyOrientation()
     }
 
@@ -209,6 +221,9 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
     final class Controller: UIViewController {
         var landscape = false
         var allowsTabletRotation = false
+        var restoresPreviousOwner = false
+        private var previousMask: UIInterfaceOrientationMask?
+        private var previousOwner: UUID?
         private let owner = UUID()
         private weak var ownedScene: UIWindowScene?
         private var appliedLandscape: Bool?
@@ -234,6 +249,10 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
         func applyOrientation() {
             guard let scene = view.window?.windowScene,
                   appliedLandscape != landscape || ownedScene !== scene else { return }
+            if ownedScene !== scene, restoresPreviousOwner {
+                previousMask = QiuJiOrientationDelegate.masks[ObjectIdentifier(scene)]
+                previousOwner = QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)]
+            }
             ownedScene = scene
             appliedLandscape = landscape
             QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] = owner
@@ -244,10 +263,12 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
         func restorePortrait() {
             guard let scene = ownedScene else { return }
             if QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] == owner {
-                request(.portrait, in: scene)
-                QiuJiOrientationDelegate.masks.removeValue(forKey: ObjectIdentifier(scene))
-                QiuJiOrientationDelegate.owners.removeValue(forKey: ObjectIdentifier(scene))
+                request(restoresPreviousOwner ? (previousMask ?? .portrait) : .portrait, in: scene)
+                QiuJiOrientationDelegate.masks[ObjectIdentifier(scene)] = restoresPreviousOwner ? previousMask : nil
+                QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] = restoresPreviousOwner ? previousOwner : nil
             }
+            previousMask = nil
+            previousOwner = nil
             ownedScene = nil
             appliedLandscape = nil
         }

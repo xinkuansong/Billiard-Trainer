@@ -13,6 +13,10 @@ struct StatisticsView: View {
     @State private var showSubscription = false
 
     var body: some View {
+        ProAccessGate { authorizedContent }
+    }
+
+    private var authorizedContent: some View {
         Group {
             if vm.isLoading && vm.sessions.isEmpty && vm.errorMessage == nil {
                 ProgressView()

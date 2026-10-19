@@ -1,5 +1,6 @@
 import XCTest
 import SwiftData
+import Combine
 @testable import QiuJi
 
 @MainActor
@@ -230,6 +231,82 @@ final class HistoryViewModelTests: XCTestCase {
 
         XCTAssertTrue(vm.sessions.isEmpty)
         XCTAssertFalse(vm.isLoading)
+    }
+
+    func test_loadSessions_firstLoadShowsLoadingThenRetainsEmptyContentOnRefresh() async {
+        let container = ModelContainerFactory.makeInMemoryContainer()
+        let model = vm!
+        var loadingRequiresPlaceholder: [Bool] = []
+        let observation = model.$isLoading.dropFirst().sink { loading in
+            if loading { loadingRequiresPlaceholder.append(!model.hasLoadedSessions) }
+        }
+        defer { observation.cancel() }
+
+        XCTAssertFalse(model.hasLoadedSessions)
+        await model.loadSessions(context: container.mainContext)
+        XCTAssertTrue(model.hasLoadedSessions, "An empty result is a completed load")
+        await model.loadSessions(context: container.mainContext)
+
+        XCTAssertEqual(loadingRequiresPlaceholder, [true, false])
+        XCTAssertTrue(model.sessions.isEmpty)
+        XCTAssertFalse(model.isLoading)
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func test_loadSessions_refreshRetainsContentAndReadsNewRecords() async throws {
+        let container = ModelContainerFactory.makeInMemoryContainer()
+        let context = container.mainContext
+        let model = vm!
+        let existing = TrainingSession(ownerKey: CurrentOwnerContext.shared.ownerKey)
+        context.insert(existing)
+        try context.save()
+        await model.loadSessions(context: context)
+
+        let selectedDate = model.selectedDate
+        model.previousMonth()
+        let selectedMonth = model.currentMonth
+        let added = TrainingSession(ownerKey: CurrentOwnerContext.shared.ownerKey)
+        context.insert(added)
+        try context.save()
+
+        var contentDuringRefresh: [[UUID]] = []
+        var loadedDuringRefresh: [Bool] = []
+        let observation = model.$isLoading.dropFirst().sink { loading in
+            if loading {
+                contentDuringRefresh.append(model.sessions.map(\.id))
+                loadedDuringRefresh.append(model.hasLoadedSessions)
+            }
+        }
+        defer { observation.cancel() }
+        await model.loadSessions(context: context)
+
+        XCTAssertEqual(contentDuringRefresh, [[existing.id]])
+        XCTAssertEqual(loadedDuringRefresh, [true])
+        XCTAssertEqual(Set(model.sessions.map(\.id)), Set([existing.id, added.id]))
+        XCTAssertEqual(model.selectedDate, selectedDate)
+        XCTAssertEqual(model.currentMonth, selectedMonth)
+        XCTAssertFalse(model.isLoading)
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func test_loadSessions_refreshAfterDeletingLastRecordRemainsLoaded() async throws {
+        let container = ModelContainerFactory.makeInMemoryContainer()
+        let context = container.mainContext
+        let model = vm!
+        let session = TrainingSession(ownerKey: CurrentOwnerContext.shared.ownerKey)
+        context.insert(session)
+        try context.save()
+        await model.loadSessions(context: context)
+        XCTAssertEqual(model.sessions.count, 1)
+
+        context.delete(session)
+        try context.save()
+        await model.loadSessions(context: context)
+
+        XCTAssertTrue(model.sessions.isEmpty)
+        XCTAssertTrue(model.hasLoadedSessions)
+        XCTAssertFalse(model.isLoading)
+        XCTAssertNil(model.errorMessage)
     }
 
     // MARK: - Helpers

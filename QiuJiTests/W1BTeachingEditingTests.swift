@@ -4,6 +4,108 @@ import SceneKit
 
 @MainActor
 final class W1BTeachingEditingTests: XCTestCase {
+    private final class OverlayPan: UIPanGestureRecognizer {
+        var phase: UIGestureRecognizer.State = .possible
+        var point: CGPoint = .zero
+        override var state: UIGestureRecognizer.State { get { phase } set { phase = newValue } }
+        override func location(in view: UIView?) -> CGPoint { point }
+        override func translation(in view: UIView?) -> CGPoint { .zero }
+    }
+
+    func testTemporaryDragMatchesFingerAllowanceClearanceAndPermissions() throws {
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
+        for standard in [false, true] {
+            let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: false)
+            scene.hideAllBalls()
+            scene.showBall(key: "cueBall", scenePosition: SCNVector3(0, scene.surfaceY + BallPhysics.radius, 0))
+            let ball = try XCTUnwrap(scene.cueBallNode), rig = try XCTUnwrap(scene.cameraRig)
+            rig.usesTwoViewCameraControls = true; rig.usesMergedCamera = true
+            rig.viewportSize = CGSize(width: 874, height: 402)
+            let view = SCNView(frame: CGRect(origin: .zero, size: rig.viewportSize))
+            view.scene = scene; view.pointOfView = scene.cameraNode; window.addSubview(view)
+            let coordinator = AngleSceneView.Coordinator(scene: scene, cameraMode: .perspective3D, interactionMode: .cameraControl)
+            coordinator.scnView = view; coordinator.draggableBallNodes = [ball]
+            coordinator.usesStandardTemporaryTable = standard
+            defer { AngleSceneView.dismantleUIView(view, coordinator: coordinator); view.removeFromSuperview() }
+            XCTAssertTrue(rig.beginTemporaryTopDown(aim: SCNVector3(-1, 0, 0)))
+            coordinator.updateTemporaryTopDownOverlay()
+            let overlay = try XCTUnwrap(view.subviews.compactMap { $0 as? SCNView }.first)
+            let p = overlay.projectPoint(ball.position)
+            let start = overlay.convert(CGPoint(x: CGFloat(p.x), y: CGFloat(p.y) + 30), to: view)
+            let pan = OverlayPan(); pan.point = start
+            var began = 0, ended = 0
+            coordinator.onDragBegan = { _ in began += 1 }
+            coordinator.onDragMoved = { node, point in node.position = point }
+            coordinator.onDragEnded = { _ in ended += 1 }
+            let original = ball.position
+            pan.phase = .began; coordinator.handlePan(pan)
+            XCTAssertEqual(began, 1, "30pt near grab must work in both temporary render layouts")
+            pan.point.x += 30; pan.phase = .changed; coordinator.handlePan(pan)
+            XCTAssertEqual(ball.position.x, original.x, accuracy: 0.0001)
+            XCTAssertEqual(ball.position.z, original.z, accuracy: 0.0001)
+            pan.point.x += 30; coordinator.handlePan(pan)
+            pan.point.x += 50; coordinator.handlePan(pan)
+            XCTAssertGreaterThan(AngleSceneCalculator.horizontalDistance(original, ball.position), 0.01)
+            XCTAssertEqual(ball.position.y, original.y, accuracy: 0.0001)
+            coordinator.gesturesEnabled = false
+            pan.phase = .cancelled; coordinator.handlePan(pan)
+            XCTAssertEqual(ended, 1)
+            pan.phase = .began; coordinator.handlePan(pan)
+            XCTAssertEqual(began, 1)
+            coordinator.gesturesEnabled = true; coordinator.draggableBallNodes = []
+            coordinator.handlePan(pan); XCTAssertEqual(began, 1, "Read-only balls must not gain movement permission")
+        }
+    }
+
+    func testTwoDimensionalClearanceSurvivesCoalescedGestureSamples() throws {
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
+        for size in [CGSize(width: 874, height: 402), CGSize(width: 1366, height: 1024)] {
+            // Ordinary 2D, legacy temporary overlay, and standard temporary overlay.
+            for layout in 0..<3 {
+                let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: false)
+                scene.hideAllBalls()
+                scene.showBall(key: "cueBall", scenePosition: SCNVector3(0, scene.surfaceY + BallPhysics.radius, 0))
+                let ball = try XCTUnwrap(scene.cueBallNode), rig = try XCTUnwrap(scene.cameraRig)
+                rig.viewportSize = size
+                scene.setCameraMode(.topDown2D, animated: false)
+                let view = SCNView(frame: CGRect(origin: .zero, size: size))
+                view.scene = scene; view.pointOfView = scene.cameraNode; window.addSubview(view)
+                let coordinator = AngleSceneView.Coordinator(scene: scene,
+                    cameraMode: layout == 0 ? .topDown2D : .perspective3D, interactionMode: .cameraControl)
+                coordinator.scnView = view; coordinator.draggableBallNodes = [ball]
+                coordinator.onDragMoved = { node, position in node.position = position }
+                defer { AngleSceneView.dismantleUIView(view, coordinator: coordinator); view.removeFromSuperview() }
+                let renderer: SCNView
+                if layout == 0 { renderer = view }
+                else {
+                    rig.usesTwoViewCameraControls = true; rig.usesMergedCamera = true
+                    coordinator.usesStandardTemporaryTable = layout == 2
+                    XCTAssertTrue(rig.beginTemporaryTopDown(aim: SCNVector3(-1, 0, 0)))
+                    coordinator.updateTemporaryTopDownOverlay()
+                    renderer = try XCTUnwrap(view.subviews.compactMap { $0 as? SCNView }.first)
+                }
+                let original = ball.position
+                let projected = renderer.projectPoint(scene.visualCenter(of: ball))
+                let start = renderer.convert(CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y)), to: view)
+                let sampleSets: [[CGFloat]] = [[30, 54, 80, 120], [120]]
+                for samples in sampleSets {
+                    ball.position = original
+                    let pan = OverlayPan(); pan.point = start; pan.phase = .began
+                    coordinator.handlePan(pan)
+                    for distance in samples {
+                        pan.point = CGPoint(x: start.x + distance, y: start.y)
+                        pan.phase = .changed; coordinator.handlePan(pan)
+                    }
+                    pan.phase = .ended; coordinator.handlePan(pan)
+                    let final = renderer.projectPoint(scene.visualCenter(of: ball))
+                    XCTAssertEqual(CGFloat(final.x - projected.x), 120 - BTBallDragMetrics.fingerClearance,
+                                   accuracy: 0.2, "2D layout \(layout) must preserve 52pt clearance regardless of sample delivery")
+                    XCTAssertEqual(ball.position.y, original.y, accuracy: 0.0001)
+                }
+            }
+        }
+    }
+
     func testPlanningPaletteReturnsToPlacementInPerspectiveAndTemporaryViews() throws {
         let silu = SiluTrainerViewModel(); silu.setupScene(); silu.scene.cameraRig?.viewportSize = CGSize(width: 874, height: 402)
         silu.setCameraMode(.perspective3D); silu.activeTool = .region

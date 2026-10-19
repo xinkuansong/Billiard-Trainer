@@ -280,6 +280,8 @@ final class HistoryViewModel: ObservableObject {
     @Published var selectedDate: Date = Date()
     @Published var currentMonth: Date = Date()
     @Published var isLoading = false
+    /// An empty successful result also counts as loaded; refreshes keep the current content visible.
+    @Published private(set) var hasLoadedSessions = false
     @Published var errorMessage: String?
     /// 诊断用：仍无 `sessionId` 归属的历史成绩条数。正常应为 0（W5 的
     /// `CognitiveSessionBackfill` 在 App 启动时幂等回填）。>0 说明回填还没跑成功，
@@ -530,6 +532,10 @@ final class HistoryViewModel: ObservableObject {
             // Silently degrade: 认知成绩读取失败不应连带打掉主训练记录的渲染。
             cognitiveSessions = []
             unassignedCognitiveResultCount = 0
+        }
+
+        if errorMessage == nil {
+            hasLoadedSessions = true
         }
     }
 

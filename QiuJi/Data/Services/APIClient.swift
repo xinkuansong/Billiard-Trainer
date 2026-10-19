@@ -12,12 +12,14 @@ struct Endpoint {
     let method: HTTPMethod
     let body: (any Encodable)?
     let queryItems: [URLQueryItem]
+    let expectedAccountID: String?
 
-    init(_ method: HTTPMethod, _ path: String, body: (any Encodable)? = nil, query: [URLQueryItem] = []) {
+    init(_ method: HTTPMethod, _ path: String, body: (any Encodable)? = nil, query: [URLQueryItem] = [], expectedAccountID: String? = nil) {
         self.method = method
         self.path = path
         self.body = body
         self.queryItems = query
+        self.expectedAccountID = expectedAccountID
     }
 }
 
@@ -124,7 +126,7 @@ final class APIClient: Sendable {
         #endif
         let requestRefreshToken = tokenStore.load(.refreshToken)
         var request = try buildRequest(endpoint, rawBody: rawBody, contentType: contentType)
-        authorize(&request)
+        try authorize(&request, expectedAccountID: endpoint.expectedAccountID)
         let (data, response) = try await perform(request)
 
         if let http = response as? HTTPURLResponse, http.statusCode == 401 {
@@ -140,7 +142,7 @@ final class APIClient: Sendable {
                 throw AppError.authRequired
             }
             var retry = try buildRequest(endpoint, rawBody: rawBody, contentType: contentType)
-            authorize(&retry)
+            try authorize(&retry, expectedAccountID: endpoint.expectedAccountID)
             let (retryData, retryResponse) = try await perform(retry)
             return try validatedData(retryData, retryResponse)
         }
@@ -173,10 +175,28 @@ final class APIClient: Sendable {
         return req
     }
 
-    private func authorize(_ request: inout URLRequest) {
+    private func authorize(_ request: inout URLRequest, expectedAccountID: String?) throws {
+        // Bind private sync requests to their original account even if login changes
+        // between the caller's check and this request (or a 401 retry).
+        if let expectedAccountID {
+            guard let token = tokenStore.load(.accessToken),
+                  Self.subject(of: token) == expectedAccountID else { throw CancellationError() }
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            return
+        }
         if let token = tokenStore.load(.accessToken) {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
+    }
+
+    static func subject(of token: String) -> String? {
+        let pieces = token.split(separator: ".")
+        guard pieces.count == 3 else { return nil }
+        var payload = String(pieces[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        payload += String(repeating: "=", count: (4 - payload.count % 4) % 4)
+        guard let data = Data(base64Encoded: payload) else { return nil }
+        do { return (try JSONSerialization.jsonObject(with: data) as? [String: Any])?["sub"] as? String }
+        catch { return nil }
     }
 
     private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {

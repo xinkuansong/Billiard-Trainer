@@ -24,6 +24,7 @@ enum AngleRoute: Hashable {
     case geometricQuiz
     /// 2D 瞄准训练（T-P18-48 拆两卡）：俯视练几何判断。
     case snakePractice
+    case customFormationPractice
     case sceneAiming2D
     /// 3D 瞄准训练（T-P18-48 拆两卡）：站位视角练临场球感。
     case sceneAiming3D
@@ -48,6 +49,21 @@ enum AngleRoute: Hashable {
     case batchDrillStudio
     /// 学区 CTA → 动作库 drill 详情（v21 W5；练习 Tab 内嵌 DrillDetailView）。
     case drillDetail(String)
+
+    var requiresPremium: Bool {
+        switch self {
+        case .separationAngleAtlas, .cushionEnglishAtlas, .sceneAiming3D,
+             .aimPointScene3D, .snakePractice, .positionPlayComposer,
+             .ballExtraction, .planThree, .snookerTactics, .bankShot, .diamondSystem:
+            return true
+        case .theoryIndex, .theoryPage, .contactPointTable, .aimingPrinciple,
+             .aimingMethods, .aimingCorrection, .spinAndEnglish, .angleDynamic,
+             .geometricQuiz, .customFormationPractice, .sceneAiming2D,
+             .aimPointTraining, .aimPointScene2D, .ballFeel, .shotSimulation, .freePlay, .positionPlaySolver,
+             .batchDrillStudio, .drillDetail:
+            return false
+        }
+    }
 }
 
 // MARK: - Topic Filter Model
@@ -222,6 +238,7 @@ struct AngleHomeView: View {
         .init(route: .aimPointScene2D, title: "2D瞄准点", subtitle: "俯视调线几何对照", contentKind: .quiz, topics: [.accuracy]),
         .init(route: .aimPointScene3D, title: "3D瞄准点", subtitle: "站位调线几何对照", contentKind: .quiz, isPremium: true, topics: [.accuracy]),
         .init(route: .snakePractice, title: "蛇彩练习", subtitle: "连续进球与走位", contentKind: .striking, isPremium: true, topics: [.position, .accuracy]),
+        .init(route: .customFormationPractice, title: "自定义球形", subtitle: "自由摆球与练习", contentKind: .striking, topics: [.position, .accuracy]),
     ]
 
     /// 「打」——沙盘类：摆球、击打、看真实物理结果。
@@ -252,8 +269,8 @@ struct AngleHomeView: View {
         .init(route: .positionPlaySolver, title: "思路训练", subtitle: "定落点看塞与力度", contentKind: .striking, topics: [.position, .english]),
         .init(route: .planThree, title: "打一走二想三", subtitle: "定三颗倒推第一杆", contentKind: .striking, isPremium: true, topics: [.position]),
         .init(route: .snookerTactics, title: "防守", subtitle: "选目标球求防守线", contentKind: .striking, isPremium: true, topics: [.safety]),
-        .init(route: .bankShot, title: "翻袋解球", subtitle: "选袋求一至三库线", contentKind: .striking, topics: [.cushion, .accuracy]),
-        .init(route: .diamondSystem, title: "颗星解球", subtitle: "摆球求一至三库线", contentKind: .striking, topics: [.cushion]),
+        .init(route: .bankShot, title: "翻袋解球", subtitle: "选袋求一至三库线", contentKind: .striking, isPremium: true, topics: [.cushion, .accuracy]),
+        .init(route: .diamondSystem, title: "颗星解球", subtitle: "摆球求一至三库线", contentKind: .striking, isPremium: true, topics: [.cushion]),
     ]
 
     private func entries(for section: PracticeSection) -> [AngleEntry] {
@@ -493,7 +510,8 @@ struct AngleHomeView: View {
     }
 
     private func open(_ entry: AngleEntry) {
-        guard !entry.isPremium || subscriptionManager.isPremium else {
+        let decision = subscriptionManager.accessDecision(requiresPremium: entry.route.requiresPremium)
+        guard decision != .requiresLogin && decision != .requiresPro else {
             showSubscription = true
             return
         }

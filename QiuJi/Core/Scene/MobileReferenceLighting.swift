@@ -324,41 +324,11 @@ enum MobileReferenceLighting {
             scene.rootNode.addChildNode(node)
         }
         for (key,node) in scene.allBallNodes {
-            let numbered = key.hasPrefix("_") && (Int(key.dropFirst()).map { (1...15).contains($0) } ?? false)
+            let numbered = PositionPlayBall.number(for: key) != nil
             applyBall(to:node, exposureOffset: scene.cameraNode.camera?.exposureOffset ?? 0, stickerFinish: numbered,
                       probe: scene.roomReflectionProbe, profile: scene.renderingProfile)
         }
-        let shader = directShadowShader(ballCount: scene.allBallNodes.count, profile: scene.renderingProfile,
-                                        mergesSupport: scene.mergesDailyClothSupport,
-                                        factorsBRDF: scene.factorsDailyClothBRDF)
-        scene.tableNode?.enumerateChildNodes { node,_ in
-            for m in node.geometry?.materials ?? [] where m.name == "TaiNi" {
-                var mods=m.shaderModifiers ?? [:]
-                var contactSource = mods[.surface] ?? "#pragma body"
-                // The shared buffer carries legacy 85% artistic opacity. Decode
-                // it for opaque sphere ambient visibility, as direct shadows do.
-                // Keep buffer values, fades, sphere size and culling untouched.
-                for i in 0..<scene.allBallNodes.count {
-                    contactSource = contactSource.replacingOccurrences(
-                        of: "contactVisibility *= 1.0 - contactBall\(i).w *",
-                        with: "contactVisibility *= 1.0 - (contactBall\(i).w / \(MobileContactOcclusion.encodedOpacityScale)) *")
-                }
-                contactSource = contactSource.replacingOccurrences(of: "#pragma body",
-                    with: "#pragma declaration\n" + analyticPanelDiffuse + (scene.renderingProfile.usesShadow ? "\n" + analyticShadowFunctions : "") + "\n#pragma body")
-                mods[.surface]=trialShader(contactSource+"\n"+shader)
-                m.lightingModel = .physicallyBased;m.shaderModifiers=mods
-                #if DEBUG
-                if scene.usesClothLightingPrototype {
-                    do {
-                        try applyClothLightingPrototype(to: m)
-                        print("[DailyClothPrototype] active: explicit linear roughness, constant emission")
-                    } catch {
-                        print("[DailyClothPrototype] reference fallback: \(error)")
-                    }
-                }
-                #endif
-            }
-        }
+        refreshClothLighting(in: scene, ballCount: scene.allBallNodes.count)
         scene.tableNode?.enumerateChildNodes { node, _ in
             for material in node.geometry?.materials ?? [] where material.name == "MG_Gold" {
                 // Warm painted/cast leg body, not a polished conductor. Restrict
@@ -386,6 +356,42 @@ enum MobileReferenceLighting {
             }
         }
 
+    }
+
+    /// Reapply only the cloth program after custom-ball uniform storage grows.
+    /// The contact program must have just been rebuilt, so lighting is appended once.
+    static func refreshClothLighting(in scene: AngleTrainingScene, ballCount: Int) {
+        let shader = directShadowShader(ballCount: ballCount, profile: scene.renderingProfile,
+                                        mergesSupport: scene.mergesDailyClothSupport,
+                                        factorsBRDF: scene.factorsDailyClothBRDF)
+        scene.tableNode?.enumerateChildNodes { node,_ in
+            for m in node.geometry?.materials ?? [] where m.name == "TaiNi" {
+                var mods=m.shaderModifiers ?? [:]
+                var contactSource = mods[.surface] ?? "#pragma body"
+                // The shared buffer carries legacy 85% artistic opacity. Decode
+                // it for opaque sphere ambient visibility, as direct shadows do.
+                // Keep buffer values, fades, sphere size and culling untouched.
+                for i in 0..<ballCount {
+                    contactSource = contactSource.replacingOccurrences(
+                        of: "contactVisibility *= 1.0 - contactBall\(i).w *",
+                        with: "contactVisibility *= 1.0 - (contactBall\(i).w / \(MobileContactOcclusion.encodedOpacityScale)) *")
+                }
+                contactSource = contactSource.replacingOccurrences(of: "#pragma body",
+                    with: "#pragma declaration\n" + analyticPanelDiffuse + (scene.renderingProfile.usesShadow ? "\n" + analyticShadowFunctions : "") + "\n#pragma body")
+                mods[.surface]=trialShader(contactSource+"\n"+shader)
+                m.lightingModel = .physicallyBased;m.shaderModifiers=mods
+                #if DEBUG
+                if scene.usesClothLightingPrototype {
+                    do {
+                        try applyClothLightingPrototype(to: m)
+                        print("[DailyClothPrototype] active: explicit linear roughness, constant emission")
+                    } catch {
+                        print("[DailyClothPrototype] reference fallback: \(error)")
+                    }
+                }
+                #endif
+            }
+        }
     }
 
     /// Cull provably irrelevant blockers once per receiver, retaining the exact

@@ -323,10 +323,9 @@ struct DrillRecordView: View {
             }
         } label: {
             HStack(spacing: Spacing.xs) {
-                Image(systemName: isOn.wrappedValue ? BTIcon.checkmark : "")
+                BTSelectionIndicator(isSelected: isOn.wrappedValue)
                     .font(.btCaption2)
                     .fontWeight(.bold)
-                    .foregroundStyle(.btPrimary)
                     .frame(width: 16, height: 16)
 
                 Text(label)
@@ -335,6 +334,7 @@ struct DrillRecordView: View {
             }
         }
         .buttonStyle(BTPressableStyle.row)
+        .accessibilityValue(isOn.wrappedValue ? "已选" : "未选")
     }
 
     // MARK: - Ball Table
@@ -363,7 +363,7 @@ struct DrillRecordView: View {
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     // Live detail preview: true-size balls (ballScale 1.0), full table — not baked 1.8× thumbnails.
                     if let content = tableDrillContent {
-                        DrillSceneView(drill: content)
+                        DrillSceneView(drill: content, preferencePage: .drillRecordPreview)
                     } else {
                         BTBakedDrillTable(drillId: drill.drillId, contentMode: .fit)
                             .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))

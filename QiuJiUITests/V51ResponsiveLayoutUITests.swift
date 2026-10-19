@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 /// v51 紧凑手机布局阻断测试。截图与 frame JSON 写入矩阵执行器提供的隔离目录。
 final class V51ResponsiveLayoutUITests: XCTestCase {
@@ -493,6 +494,205 @@ final class V51ResponsiveLayoutUITests: XCTestCase {
         }
     }
 
+    func testEndingTrainingDismissesSystemRestActivity() throws {
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance",
+            "-v54.todayState=single", "-v57.restDuration=180",
+        ])
+        let start = app.buttons["trainingHome.startTraining"].firstMatch
+        XCTAssertTrue(start.waitForExistence(timeout: 15))
+        start.tap()
+        let rest = app.buttons["activeTraining.rest"].firstMatch
+        XCTAssertTrue(rest.waitForExistence(timeout: 15))
+        rest.tap()
+        let minimize = app.buttons["最小化组间休息"].firstMatch
+        XCTAssertTrue(minimize.waitForExistence(timeout: 8))
+        minimize.tap()
+
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        func openNotifications() {
+            XCUIDevice.shared.press(.home)
+            XCTAssertTrue(app.wait(for: .runningBackground, timeout: 10))
+            springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.005))
+                .press(forDuration: 0.1, thenDragTo: springboard.coordinate(
+                    withNormalizedOffset: CGVector(dx: 0.08, dy: 0.8)
+                ))
+        }
+        openNotifications()
+        let alwaysAllow = springboard.buttons["始终允许"].firstMatch
+        let allow = springboard.buttons["允许"].firstMatch
+        if alwaysAllow.waitForExistence(timeout: 2) {
+            alwaysAllow.tap()
+        } else if allow.waitForExistence(timeout: 2) {
+            allow.tap()
+        }
+        let systemRest = springboard.staticTexts["组间休息"].firstMatch
+        XCTAssertTrue(systemRest.waitForExistence(timeout: 5))
+        try capture("training-end-system-before", elements: [:])
+
+        app.activate()
+        let end = app.buttons["activeTraining.end"].firstMatch
+        XCTAssertTrue(end.waitForExistence(timeout: 10))
+        end.tap()
+        let confirm = app.alerts.buttons["结束"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        confirm.tap()
+        XCTAssertTrue(app.staticTexts["训练心得"].firstMatch.waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["activeTraining.restPill"].exists)
+        try capture("training-end-note", elements: [:])
+
+        openNotifications()
+        XCTAssertTrue(systemRest.waitForNonExistence(timeout: 8), "Ended training must dismiss the system rest activity")
+        try capture("training-end-system-after", elements: [:])
+        XCUIDevice.shared.press(.home)
+        let homeReady = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                springboard.icons.allElementsBoundByIndex.contains { $0.isHittable }
+            }, object: nil
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [homeReady], timeout: 8), .completed)
+        try capture("training-end-island-after", elements: [:])
+        app.activate()
+    }
+
+    func testRestSystemSurfaceDeviceMatrix() throws {
+        let phone = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        try runRestSystemSurface(hasIsland: phone.frame.height > 700, prefix: "legacy")
+    }
+
+    func testRestStyleIslandLightDark() throws {
+        try runRestStyleMatrix(hasIsland: true, orientations: [.portrait])
+    }
+
+    func testRestStyleCardLightDark() throws {
+        try runRestStyleMatrix(hasIsland: false, orientations: [.portrait])
+    }
+
+    func testRestStylePadLightDarkBothOrientations() throws {
+        try runRestStyleMatrix(hasIsland: false, orientations: [.portrait, .landscapeLeft])
+    }
+
+    private func runRestStyleMatrix(hasIsland: Bool, orientations: [UIDeviceOrientation]) throws {
+        let originalAppearance = XCUIDevice.shared.appearance
+        let originalOrientation = XCUIDevice.shared.orientation
+        defer {
+            XCUIDevice.shared.appearance = originalAppearance
+            XCUIDevice.shared.orientation = originalOrientation
+        }
+        for appearance: XCUIDevice.Appearance in [.light, .dark] {
+            XCUIDevice.shared.appearance = appearance
+            XCTAssertEqual(XCUIDevice.shared.appearance, appearance)
+            for orientation in orientations {
+                XCUIDevice.shared.orientation = orientation
+                let prefix = "\(appearance == .light ? "light" : "dark")-\(orientation == .portrait ? "portrait" : "landscape")"
+                try runRestSystemSurface(hasIsland: hasIsland, prefix: prefix)
+            }
+        }
+    }
+
+    private func runRestSystemSurface(hasIsland: Bool, prefix: String) throws {
+        func captureRest(_ name: String) throws {
+            try capture(prefix + "-" + name, elements: [:])
+        }
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance",
+            "-v54.todayState=single",
+        ])
+        let start = app.buttons["trainingHome.startTraining"].firstMatch
+        XCTAssertTrue(start.waitForExistence(timeout: 15))
+        start.tap()
+        let rest = app.buttons["activeTraining.rest"].firstMatch
+        XCTAssertTrue(rest.waitForExistence(timeout: 15))
+        rest.tap()
+        let minimize = app.buttons["最小化组间休息"].firstMatch
+        XCTAssertTrue(minimize.waitForExistence(timeout: 8))
+        let extend = app.buttons["+30S"].firstMatch
+        XCTAssertTrue(extend.exists)
+        for _ in 0..<4 { extend.tap() }
+        minimize.tap()
+
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        func openNotifications() {
+            XCUIDevice.shared.press(.home)
+            XCTAssertTrue(app.wait(for: .runningBackground, timeout: 10))
+            springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.005))
+                .press(forDuration: 0.1, thenDragTo: springboard.coordinate(
+                    withNormalizedOffset: CGVector(dx: 0.08, dy: 0.8)
+                ))
+        }
+        openNotifications()
+        let alwaysAllow = springboard.buttons["始终允许"].firstMatch
+        let allow = springboard.buttons["允许"].firstMatch
+        if alwaysAllow.waitForExistence(timeout: 2) {
+            alwaysAllow.tap()
+        } else if allow.waitForExistence(timeout: 2) {
+            allow.tap()
+        }
+        let systemRest = springboard.staticTexts["组间休息"].firstMatch
+        XCTAssertTrue(systemRest.waitForExistence(timeout: 5))
+        try captureRest("training-end-system-before")
+
+        XCUIDevice.shared.press(.home)
+        func waitForHome() {
+            let ready = XCTNSPredicateExpectation(
+                predicate: NSPredicate { _, _ in
+                    springboard.icons.allElementsBoundByIndex.contains { $0.isHittable }
+                }, object: nil
+            )
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 8), .completed)
+        }
+        waitForHome()
+        try captureRest("training-end-island-compact-before")
+        // The matrix selector declares the system surface; screen height cannot identify an island.
+        if hasIsland {
+            springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.035))
+                .press(forDuration: 1)
+            XCTAssertTrue(systemRest.waitForExistence(timeout: 5), "Expanded island must show rest title")
+            try captureRest("training-end-island-expanded-before")
+        }
+
+        app.activate()
+        let timer = app.staticTexts["activeTraining.timer"].firstMatch
+        XCTAssertTrue(timer.waitForExistence(timeout: 10))
+        let end = app.buttons["activeTraining.end"].firstMatch
+        if end.exists {
+            end.tap()
+        } else {
+            let more = app.buttons["activeTraining.more"].firstMatch
+            XCTAssertTrue(more.exists)
+            more.tap()
+            let menuEnd = app.buttons["结束训练"].firstMatch
+            XCTAssertTrue(menuEnd.waitForExistence(timeout: 5))
+            let menuReady = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "hittable == true"), object: menuEnd
+            )
+            XCTAssertEqual(XCTWaiter.wait(for: [menuReady], timeout: 5), .completed)
+            // Use a deliberate touch on the resolved menu row. XCTest's default
+            // 50ms tap intermittently leaves the iOS 26 native menu open on SE.
+            menuEnd.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .press(forDuration: 0.15)
+        }
+        let confirm = app.alerts.buttons["结束"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        confirm.tap()
+        XCTAssertTrue(app.staticTexts["训练心得"].firstMatch.waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["activeTraining.restPill"].exists)
+        try captureRest("training-end-note")
+
+        openNotifications()
+        XCTAssertTrue(systemRest.waitForNonExistence(timeout: 8), "Ended training must dismiss the system rest activity")
+        try captureRest("training-end-system-after")
+        XCUIDevice.shared.press(.home)
+        let homeReady = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                springboard.icons.allElementsBoundByIndex.contains { $0.isHittable }
+            }, object: nil
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [homeReady], timeout: 8), .completed)
+        try captureRest("training-end-island-after")
+        app.activate()
+    }
+
     func testV57SystemRestActivityDisplay() throws {
         app = XCUIApplication.launchClean(extraArgs: [
             "-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance",
@@ -519,7 +719,7 @@ final class V51ResponsiveLayoutUITests: XCTestCase {
         Thread.sleep(forTimeInterval: 2)
         try capture("rest-system-notifications-start", elements: [:])
         XCTAssertTrue(springboard.staticTexts["组间休息"].firstMatch.waitForExistence(timeout: 5))
-        XCTAssertTrue(springboard.staticTexts["球迹"].firstMatch.exists, "The trailing metadata must remain visible")
+        XCTAssertTrue(springboard.staticTexts["半台直线球"].firstMatch.exists, "The drill metadata must remain visible")
         Thread.sleep(forTimeInterval: 40)
         try capture("rest-system-notifications-plus40s", elements: [:])
         XCUIDevice.shared.press(.home)

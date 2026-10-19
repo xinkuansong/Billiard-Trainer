@@ -40,6 +40,12 @@ final class DrillTryoutBoardStoreTests: XCTestCase {
             "")
     }
 
+    func test_c029_loadsSixAuthoredStepsForLayoutRegression() throws {
+        let formations = DrillTryoutBoardStore.formations(for: "drill_c029")
+        XCTAssertEqual(formations.count, 1)
+        XCTAssertEqual(try XCTUnwrap(formations.first).steps.count, 6)
+    }
+
     // MARK: - Bundle 加载（真实资源）
 
     /// c042 初级：双球形（manual01=8 杆 / manual02=5 杆）；开局盘面取自首杆 before。

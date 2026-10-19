@@ -79,8 +79,11 @@ final class AppRouter: ObservableObject {
     var activeTrainingVM: ActiveTrainingViewModel?
 
     var isTrainingMinimized: Bool { minimizedTrainingVM != nil }
+    @Published var trainingAccessError: String?
 
     func startTraining(mode: TrainingMode) {
+        do { try ProContentAccess.live.require(mode) }
+        catch { trainingAccessError = error.localizedDescription; return }
         let vm = ActiveTrainingViewModel(mode: mode)
         activeTrainingVM = vm
         activeTrainingMode = mode
@@ -88,6 +91,10 @@ final class AppRouter: ObservableObject {
 
     func resumeMinimizedTraining() {
         guard let vm = minimizedTrainingVM else { return }
+        guard vm.hasCurrentOwner else {
+            trainingAccessError = "账号已切换，请重新开始训练"
+            return
+        }
         vm.expandRestOverlay()
         minimizedTrainingVM = nil
         activeTrainingVM = vm

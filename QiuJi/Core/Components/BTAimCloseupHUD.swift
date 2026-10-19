@@ -171,7 +171,9 @@ struct BTAimCloseupOverlay: View {
     /// Placement hysteresis (scene pts); cleared when the loupe hides.
     @State private var center: CGPoint?
 
-    private var isVisible: Bool { prefs.showAimCloseup && snapshot != nil }
+    @ObservedObject private var tablePreferences = TablePreferencesStore.shared
+    private var closeupEnabled: Bool { scene?.tablePreferences?.enabled(.closeup) ?? prefs.showAimCloseup }
+    private var isVisible: Bool { closeupEnabled && snapshot != nil }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !isVisible)) { _ in
@@ -192,7 +194,7 @@ struct BTAimCloseupOverlay: View {
 
     private var content: some View {
         ZStack(alignment: .topLeading) {
-            if prefs.showAimCloseup, let snap = displaySnapshot, sceneSize.height > 1 {
+            if closeupEnabled, let snap = displaySnapshot, sceneSize.height > 1 {
                 if protectsDailySight {
                     if let placement = dailyPlacement(snap) {
                         BTAimCloseupHUD(snapshot: snap, diameter: placement.diameter)

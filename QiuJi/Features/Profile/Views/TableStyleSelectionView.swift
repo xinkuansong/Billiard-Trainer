@@ -22,8 +22,7 @@ struct TableStyleSelectionView: View {
                                     Text(style.subtitle).font(.btFootnote).foregroundStyle(.btTextSecondary)
                                 }
                                 Spacer(minLength: Spacing.sm)
-                                Image(systemName: prefs.tableStyle == style ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(prefs.tableStyle == style ? Color.btPrimary : Color.btTextSecondary)
+                                BTSelectionIndicator(isSelected: prefs.tableStyle == style)
                                     .accessibilityHidden(true)
                             }
                             .padding(Spacing.lg)

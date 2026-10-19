@@ -14,6 +14,8 @@ final class OwnerProfileStore: ObservableObject {
     @Published private(set) var preferredSport: PreferredSport
     @Published private(set) var skillLevel: SkillLevel
     @Published private(set) var yearsPlaying: YearsPlaying
+    @Published private(set) var gender: ProfileGender = .unspecified
+    @Published private(set) var birthDate: String?
     @Published private(set) var weeklyGoalDays: Int
     @Published private(set) var isSaving = false
     @Published var errorMessage: String?
@@ -22,7 +24,7 @@ final class OwnerProfileStore: ObservableObject {
     private let defaults: UserDefaults
     private let backend: any UserProfileBackend
     private static let persistedFields = [
-        "displayName", "preferredSport", "skillLevel", "yearsPlaying", "weeklyGoalDays",
+        "displayName", "preferredSport", "skillLevel", "yearsPlaying", "weeklyGoalDays", "gender", "birthDate",
     ]
 
     init(ownerKey: String,
@@ -41,6 +43,8 @@ final class OwnerProfileStore: ObservableObject {
             defaults.string(forKey: Self.key(ownerKey, "skillLevel")) ?? "") ?? .beginner
         yearsPlaying = YearsPlaying(rawValue:
             defaults.string(forKey: Self.key(ownerKey, "yearsPlaying")) ?? "") ?? .lessThan1
+        gender = ProfileGender(rawValue: defaults.string(forKey: Self.key(ownerKey, "gender")) ?? "") ?? .unspecified
+        birthDate = defaults.string(forKey: Self.key(ownerKey, "birthDate")).flatMap { ProfileBirthday.date($0) != nil ? $0 : nil }
         let days = defaults.integer(forKey: Self.key(ownerKey, "weeklyGoalDays"))
         weeklyGoalDays = (1...7).contains(days) ? days : 3
     }
@@ -48,12 +52,50 @@ final class OwnerProfileStore: ObservableObject {
     var personalInfoSummary: String { "\(preferredSport.displayName) · \(skillLevel.displayName)" }
     var goalSummary: String { "每周 \(weeklyGoalDays) 天" }
 
+    /// First-use submission only fills explicitly selected, absent guest fields. It never
+    /// applies a whole default profile or sends a guest draft to a restored account.
+    func saveInitialProfile(_ draft: InitialProfileDraft, authState: AuthState,
+                            preferences: UserPreferences = .shared) -> Bool {
+        guard !authState.isLoading, !authState.isLoggedIn,
+              ownerKey == DeviceGuestIdentity.ownerKey(in: defaults) else {
+            errorMessage = "当前资料已变化，请进入个人信息查看"
+            return false
+        }
+        let name = draft.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard name.count <= 20 else {
+            errorMessage = "昵称最多 20 个字符"
+            return false
+        }
+        if let date = draft.birthDate, ProfileBirthday.date(date) == nil {
+            errorMessage = "请选择有效生日"
+            return false
+        }
+        func fill(_ field: String, value: String?, apply: () -> Void) {
+            guard let value, defaults.object(forKey: Self.key(ownerKey, field)) == nil else { return }
+            defaults.set(value, forKey: Self.key(ownerKey, field))
+            apply()
+        }
+        fill("displayName", value: name.isEmpty ? nil : name) { displayName = name }
+        fill("preferredSport", value: draft.preferredSport?.rawValue) {
+            preferredSport = draft.preferredSport!
+            preferences.synchronizeDefaultGame(with: preferredSport)
+        }
+        fill("skillLevel", value: draft.skillLevel?.rawValue) { skillLevel = draft.skillLevel! }
+        fill("yearsPlaying", value: draft.yearsPlaying?.rawValue) { yearsPlaying = draft.yearsPlaying! }
+        fill("gender", value: draft.gender?.rawValue) { gender = draft.gender! }
+        fill("birthDate", value: draft.birthDate) { birthDate = draft.birthDate }
+        errorMessage = nil
+        return true
+    }
+
     func load(from user: AppUser?) {
         guard let user, OwnerKey.account(user.id) == ownerKey else { return }
         displayName = user.displayName?.nilIfBlank ?? "球迹用户"
         preferredSport = user.preferredSport.flatMap(PreferredSport.init(rawValue:)) ?? .chinese8
         skillLevel = user.skillLevel.flatMap(SkillLevel.init(rawValue:)) ?? .beginner
         yearsPlaying = user.yearsPlaying.flatMap(YearsPlaying.init(rawValue:)) ?? .lessThan1
+        gender = user.gender.flatMap(ProfileGender.init(rawValue:)) ?? .unspecified
+        birthDate = user.birthDate.flatMap { ProfileBirthday.date($0) != nil ? $0 : nil }
         weeklyGoalDays = user.weeklyGoalDays.flatMap { (1...7).contains($0) ? $0 : nil } ?? 3
         persistAll()
     }
@@ -76,6 +118,7 @@ final class OwnerProfileStore: ObservableObject {
 
     func setPreferredSport(_ value: PreferredSport, authState: AuthState,
                            preferences: UserPreferences = .shared) async {
+        guard !isSaving else { return }
         let old = preferredSport
         preferredSport = value
         if !(await save(update: UserProfileUpdate(preferredSport: value.rawValue), authState: authState)) {
@@ -86,6 +129,7 @@ final class OwnerProfileStore: ObservableObject {
     }
 
     func setSkillLevel(_ value: SkillLevel, authState: AuthState) async {
+        guard !isSaving else { return }
         let old = skillLevel
         skillLevel = value
         if !(await save(update: UserProfileUpdate(skillLevel: value.rawValue), authState: authState)) {
@@ -94,6 +138,7 @@ final class OwnerProfileStore: ObservableObject {
     }
 
     func setYearsPlaying(_ value: YearsPlaying, authState: AuthState) async {
+        guard !isSaving else { return }
         let old = yearsPlaying
         yearsPlaying = value
         if !(await save(update: UserProfileUpdate(yearsPlaying: value.rawValue), authState: authState)) {
@@ -102,7 +147,7 @@ final class OwnerProfileStore: ObservableObject {
     }
 
     func setWeeklyGoalDays(_ value: Int, authState: AuthState) async {
-        guard (1...7).contains(value) else { return }
+        guard !isSaving, (1...7).contains(value) else { return }
         let old = weeklyGoalDays
         weeklyGoalDays = value
         if !(await save(update: UserProfileUpdate(weeklyGoalDays: value), authState: authState)) {
@@ -110,10 +155,24 @@ final class OwnerProfileStore: ObservableObject {
         }
     }
 
+    func setGender(_ value: ProfileGender, authState: AuthState) async -> Bool {
+        await save(update: UserProfileUpdate(gender: value), authState: authState,
+                   guestMutation: { self.gender = value })
+    }
+
+    func setBirthDate(_ value: String?, authState: AuthState) async -> Bool {
+        if let value, ProfileBirthday.date(value) == nil {
+            errorMessage = "请选择有效生日"; return false
+        }
+        return await save(update: UserProfileUpdate(birthDate: value, updatesBirthDate: true),
+                          authState: authState, guestMutation: { self.birthDate = value })
+    }
+
     @discardableResult
     private func save(update: UserProfileUpdate,
                       authState: AuthState,
                       guestMutation: (() -> Void)? = nil) async -> Bool {
+        guard !isSaving else { return false }
         errorMessage = nil
         if !authState.isLoggedIn {
             guestMutation?()
@@ -145,6 +204,8 @@ final class OwnerProfileStore: ObservableObject {
     }
 
     private func persistAll() {
+        defaults.set(gender.rawValue, forKey: Self.key(ownerKey, "gender"))
+        defaults.set(birthDate, forKey: Self.key(ownerKey, "birthDate"))
         defaults.set(displayName, forKey: Self.key(ownerKey, "displayName"))
         defaults.set(preferredSport.rawValue, forKey: Self.key(ownerKey, "preferredSport"))
         defaults.set(skillLevel.rawValue, forKey: Self.key(ownerKey, "skillLevel"))
@@ -191,5 +252,40 @@ private extension String {
     var nilIfBlank: String? {
         let value = trimmingCharacters(in: .whitespacesAndNewlines)
         return value.isEmpty ? nil : value
+    }
+}
+
+/// Optional, explicitly supplied profile information; never inferred from avatars or names.
+enum ProfileGender: String, CaseIterable, Identifiable {
+    case unspecified, male, female
+    var id: String { rawValue }
+    var title: String {
+        switch self { case .unspecified: "不透露"; case .male: "男"; case .female: "女" }
+    }
+    var symbol: String? {
+        switch self { case .unspecified: nil; case .male: "♂"; case .female: "♀" }
+    }
+}
+
+enum ProfileBirthday {
+    private static var formatter: DateFormatter {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.calendar = Calendar(identifier: .gregorian)
+        f.timeZone = .current
+        f.dateFormat = "yyyy-MM-dd"
+        f.isLenient = false
+        return f
+    }
+    static func string(_ date: Date) -> String { formatter.string(from: date) }
+    static func date(_ value: String, now: Date = .now) -> Date? {
+        let f = formatter
+        guard let date = f.date(from: value), f.string(from: date) == value,
+              value >= "1900-01-01", value <= f.string(from: now) else { return nil }
+        return date
+    }
+    static func age(_ value: String, now: Date = .now) -> Int? {
+        guard let birth = date(value, now: now) else { return nil }
+        return Calendar(identifier: .gregorian).dateComponents([.year], from: birth, to: now).year
     }
 }

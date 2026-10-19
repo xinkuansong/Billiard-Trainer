@@ -30,9 +30,11 @@ struct SceneTrainingSettings: View {
                         HStack {
                             Text(range.label).foregroundStyle(.btText)
                             Spacer()
-                            if draft.angles == range { Image(systemName: "checkmark").foregroundStyle(.btPrimary) }
+                            BTSelectionIndicator(isSelected: draft.angles == range)
                         }
                     }.accessibilityIdentifier("training.range." + range.rawValue)
+                        .accessibilityValue(draft.angles == range ? "已选" : "未选")
+                        .accessibilityAddTraits(draft.angles == range ? .isSelected : [])
                 }
             }
             Section {

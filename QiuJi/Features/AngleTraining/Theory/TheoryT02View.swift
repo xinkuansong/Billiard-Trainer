@@ -21,16 +21,16 @@ struct TheoryT02View: View {
             VStack(spacing: Spacing.xxl) {
                 TheoryPageHeader(
                     pageID: .t02,
-                    headline: "滑动状态下，两球分离角正好 90°",
-                    detail: "母球以纯滑动（几乎没有前后旋）撞目标球时，母球沿切线走、目标球沿连心线走，两条线互相垂直——跟切角无关。唯一例外是正撞直球：母球停下。",
-                    caption: "实测因球间恢复系数略小于 1，分离角大约 85°；业余实战仍按 90° 记就够。"
+                    headline: "到球时没有前后旋，先用 90° 判断走向",
+                    detail: "母球碰到目标球时几乎没有前后旋，这种状态叫斯登。切球时，母球大致沿切线离开，与目标球的走向接近垂直；正撞直球则接近停球。",
+                    caption: "严格 90° 来自等质量、完全弹性且忽略球间摩擦的模型。实际偏差随条件变化，不能统一修正为 85°。"
                 )
 
                 LearnControlStrip.Theta(
                     cutAngleDeg: $cutAngleDeg,
                     caption: isHalfBall
-                        ? "默认 30°（半球）。绿色虚线是滑动碰后的切线；它与进球线始终成 90°。"
-                        : "拖动切角只挪母球位置——分离角仍是 90°。下方为教学折线示意。",
+                        ? "默认切角 30°，也就是半球。绿色虚线为理想斯登的切线方向，与目标球方向成 90°。"
+                        : "改变切角，观察理想斯登的两条分离方向。图中的直角是几何参照，不是实测修正角。",
                     accessibilityIdentifier: "theoryT02.thetaSlider"
                 )
 
@@ -55,8 +55,8 @@ struct TheoryT02View: View {
     // MARK: - 为什么是 90°
 
     private var whyItWorks: some View {
-        LearnDocSectionCard(title: "为什么一定是 90°") {
-            LearnDocText.body("两颗质量差不多的球弹性相撞时：原来静止的那颗，拿走连心线方向上的全部动量；原来在动的那颗，只留下垂直于连心线的那一份速度——也就是切线方向。")
+        LearnDocSectionCard(title: "直角从哪里来") {
+            LearnDocText.body("先看一个简化的碰撞：两球质量相同，目标球静止，碰撞完全弹性，并忽略球间摩擦。母球沿连心线的速度分量传给目标球，自己留下垂直于连心线的分量，也就是切线方向。")
 
             StunNinetyFigure(cutAngleDeg: CGFloat(cutAngleDeg))
                 .frame(height: 250)
@@ -64,27 +64,27 @@ struct TheoryT02View: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("theoryT02.stunFigure")
 
-            LearnDocText.footnote("绿色虚线 = 滑动碰后母球走的切线；彩色虚线 = 目标球进球线。直角标记标的就是分离角 90°——跟切角无关。")
+            LearnDocText.footnote("绿色虚线表示母球的理想离开方向，彩色虚线表示目标球方向。这里的 90° 是两球分离角，不是出杆前的切角。")
 
-            LearnDocText.body("两条方向天生垂直，所以分离角是 90°。这和「切线法则」是同一件事：滑动状态把切线方向完整执行到底，没有前后旋把它拽弯。")
-            LearnDocText.body("自然滚动那一极则是「30° 法则」：旋转会把母球从切线往瞄准线一侧拽回来，稳定后偏约 30°。")
+            LearnDocText.body("到球时没有前后旋，母球碰后就不会因前后旋而明显弯离这条参照方向。因此，切线能帮助你判断母球先往哪边走，再用速度判断走多远。")
+            LearnDocText.body("如果到球时已经自然滚动，就要考虑前旋带来的后续弯曲。在合适厚度内，可用 30° 法则估计稳定走向；它量的是相对母球碰前方向的偏折，和这里的分离角不是同一个角。")
         }
     }
 
     // MARK: - 怎么做出滑动
 
     private var howToGetStun: some View {
-        LearnDocSectionCard(title: "怎么保证碰撞瞬间是滑动") {
-            LearnDocText.body("关键的是撞上目标球那一刻几乎没有前后旋，不是出杆那一刻。短距中杆往往还在滑动；同样打法打远了，母球路上已经转成自然滚动，90° 就失效了。")
+        LearnDocSectionCard(title: "怎样把斯登状态送到目标球") {
+            LearnDocText.body("关键是到球那一刻，而不是刚出杆时。常见做法是用中下打点，让母球起初带一点后旋；后旋沿途衰减，到目标球附近恰好接近零。距离和力度变了，合适的打点也会变。")
             TheoryMatrixTable(
-                columnTitles: ["距离大概", "怎么打"],
+                columnTitles: ["怎样理解"],
                 rows: [
-                    .init("短距（不到约 1/4 桌长）", ["中杆通常就够"]),
-                    .init("中距（约 1/4–1/2 桌长）", ["击点略偏中下（约 1/4）"]),
-                    .init("远距", ["击点更靠下，并配合力度，让后旋刚好衰减到 0 时撞上"]),
+                    .init("距离较近", ["到球前旋转变化较少，打点要避免留下过多后旋"]),
+                    .init("距离增加", ["通常需要更低的打点或更快的速度，延后转为前旋"]),
+                    .init("换台呢或力度", ["重新核对到球状态，旧的距离与打点搭配未必适用"]),
                 ]
             )
-            LearnDocText.footnote("约 1 钻石（约 31.75 cm）是停球 / 滑动距离的实用门槛：超过这个距离，中杆很难再保持滑动到碰撞瞬间。")
+            LearnDocText.footnote("先用直球停球练习建立参照，再把相近的到球状态用于切球。没有一个固定距离，能替所有台呢、力度和打点划出斯登的边界。")
         }
     }
 
@@ -95,15 +95,15 @@ struct TheoryT02View: View {
             TheoryNumberedList(steps: [
                 .init(
                     "先画出切线",
-                    detail: "过两球接触点、垂直于连心线的那条线——就是母球滑动碰后会走的方向（详见「切线法则」）。"
+                    detail: "先确定目标球的进球方向，再找与它垂直的方向。估母球球心路线时，从碰撞时的母球中心，也就是假想球中心，沿这个方向看出去。"
                 ),
                 .init(
-                    "按距离选击点",
-                    detail: "照上表保证碰撞瞬间是滑动；力度只决定沿切线走多远，不改变分离方向。"
+                    "配合打点与力度",
+                    detail: "用熟悉的停球参照判断到球状态。想改变母球走多远时，也要复核改力度后是否仍是斯登，不能只改速度而忽略旋转。"
                 ),
                 .init(
                     "落点预判留一点余量",
-                    detail: "实战大约是 85° 而不是完美 90°，所以按 90° 估完，心里稍微「过一点」是常态。"
+                    detail: "切线附近有袋口或障碍时，不要让预计路线刚好擦着通过。真实碰撞和出杆都有偏差，具体修正应来自当前球形的练习反馈。"
                 ),
             ])
         }
@@ -113,12 +113,12 @@ struct TheoryT02View: View {
 
     private var scope: some View {
         LearnDocSectionCard(title: "什么时候成立") {
-            LearnDocText.body("碰撞瞬间没有前后旋时，任意切角（除直球外）、任意力度都成立——力度只影响沿切线走多远。目标球再撞下一颗目标球时，只要第一颗撞击瞬间也是滑动，同样适用。")
+            LearnDocText.body("对有明确切角的斯登球，90° 是很有用的近似参照。它不保证真实球台上的每一杆都形成严格直角。目标球再撞另一颗球时，也必须重新判断那一刻的运动状态，不能直接照搬上一撞的结论。")
             LearnDocFormulaNest(title: "不成立的几处") {
-                LearnDocText.footnote("正撞直球：母球停下，不再走切线——这是唯一例外。")
-                LearnDocText.footnote("短距强后旋：到目标球时还带着后旋 → 分离角大于 90°。")
-                LearnDocText.footnote("强前旋：到目标球时带着前旋 → 分离角小于 90°，往「30° 法则」靠。")
-                LearnDocText.footnote("加了塞：挤偏和弧线会改掉入射方向，也容易破坏滑动假设。")
+                LearnDocText.footnote("正撞直球：斯登时母球接近停下，没有可比较的两条离开方向。接近擦边的极薄球，目标球运动很小，也不适合拿直角作精细判断。")
+                LearnDocText.footnote("到球时仍有后旋，母球后续路线会向后弯，通常偏到切线的另一侧；不能把这条弯曲路线当成斯登直线。")
+                LearnDocText.footnote("前旋会让母球后续路线偏向前方；只有到球时自然滚动且厚度合适，才进一步使用约 30° 的口诀。")
+                LearnDocText.footnote("左右塞需要另考虑挤偏、弧线和投掷；两球的真实离开方向未必与图中一致。")
             }
         }
     }
@@ -127,16 +127,16 @@ struct TheoryT02View: View {
 
     private static let mistakes: [TheoryMistakeCard.Mistake] = [
         .init(
-            wrong: "把直球停球和滑动 90° 混成一件事",
-            right: "直球滑动：母球停下。非直球滑动：母球沿切线走，两球分离角 90°。"
+            wrong: "以为斯登一定会让母球停住",
+            right: "直球斯登接近停球；切球斯登仍会向切线方向走。到球状态相近，击球厚度不同，结果也不同。"
         ),
         .init(
-            wrong: "远距还用中杆，以为仍是滑动",
-            right: "走远了母球路上已经转成自然滚动，该改用「30° 法则」，不是 90°。"
+            wrong: "远距还用中杆，以为到球时仍是斯登",
+            right: "距离增加后，同样打点和力度可能已让母球滚起来。先判断实际旋转，再选择方向参照，不按距离直接套规则。"
         ),
         .init(
             wrong: "盯着出杆那一刻有没有旋",
-            right: "管用的是撞上目标球那一刻。短距中杆往往仍滑动；远距同样打法可能已经滚起来了。"
+            right: "有后旋不等于到球时仍有后旋，中杆也不保证斯登。观察直球能否停住，能帮助你建立打点、力度与距离的对应关系。"
         ),
     ]
 
@@ -156,12 +156,12 @@ struct TheoryT02View: View {
 
             LearnDocTextLink(
                 title: "切线法则",
-                subtitle: "90° 法则的几何祖父：碰撞瞬间先沿切线",
+                subtitle: "理解垂直方向，并从母球中心判断路线",
                 route: .theoryPage(.t03)
             )
             LearnDocTextLink(
                 title: "30° 法则",
-                subtitle: "自然滚动的另一极：碰后偏约 30°",
+                subtitle: "自然滚动时，相对碰前方向估计偏折",
                 route: .theoryPage(.t01)
             )
             LearnDocTextLink(
@@ -170,7 +170,7 @@ struct TheoryT02View: View {
                 route: .separationAngleAtlas
             )
 
-            LearnDocText.footnote("这一条还没有绑定专门的跟练题目，先用上面的演示页把滑动和自然滚动对比看一遍最直接。")
+            LearnDocText.footnote("在演示页对比斯登与自然滚动，再到球台上核对：同一条进球线，母球为什么会走向不同的位置。")
         }
     }
 }

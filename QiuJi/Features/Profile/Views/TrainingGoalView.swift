@@ -196,11 +196,8 @@ struct TrainingGoalView: View {
 
                             Spacer()
 
-                            if profile.weeklyGoalDays == days {
-                                Image(systemName: "checkmark")
-                                    .font(.btSubheadlineMedium)
-                                    .foregroundStyle(.btPrimary)
-                            }
+                            BTSelectionIndicator(isSelected: profile.weeklyGoalDays == days)
+                                .font(.btSubheadlineMedium)
                         }
                         .padding(.horizontal, Spacing.lg)
                         .padding(.vertical, Spacing.md)

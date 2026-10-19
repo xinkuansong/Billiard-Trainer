@@ -1,6 +1,40 @@
 import XCTest
 
 final class TrainingAtmosphereUITests: XCTestCase {
+    func testWeeklyCardResponsiveBackground() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        defer { XCUIDevice.shared.orientation = .portrait }
+        for appearance in ["Light", "Dark"] {
+            XCUIDevice.shared.orientation = .portrait
+            app.launchArguments = ["-hasCompletedOnboarding", "YES", "-hasCompletedProfileOnboarding", "YES",
+                                   "-AppleLanguages", "(zh-Hans)", "-v50.inMemoryStore",
+                                   "-v54.force\(appearance)", "-v54.todayState=freeCompleted",
+                                   "-dailyClearance.resetHomeState"]
+            app.launchEnvironment["QIUJI_DAYPART"] = "day"
+            app.launch()
+            let entry = app.buttons["trainingHome.dailyClearance"]
+            XCTAssertTrue(entry.waitForExistence(timeout: 20))
+            let orientations: [UIDeviceOrientation] = isPad ? [.portrait, .landscapeLeft, .portrait] : [.portrait]
+            for (index, orientation) in orientations.enumerated() {
+                XCUIDevice.shared.orientation = orientation
+                let landscape = orientation == .landscapeLeft
+                let settled = NSPredicate { _, _ in
+                    let frame = app.frame
+                    return landscape ? frame.width > frame.height : frame.height > frame.width
+                }
+                expectation(for: settled, evaluatedWith: app)
+                waitForExpectations(timeout: 10)
+                XCTAssertTrue(entry.isHittable)
+                XCTAssertGreaterThanOrEqual(entry.frame.height, 44)
+                XCTAssertTrue(app.staticTexts["本周训练"].exists)
+                try capture("weekly-responsive-\(appearance)-\(index)-\(landscape ? "landscape" : "portrait")")
+            }
+            app.terminate()
+        }
+    }
+
     func testWeeklyCardCompletedDayAndClearanceNavigation() throws {
         continueAfterFailure = false
         let app = XCUIApplication()

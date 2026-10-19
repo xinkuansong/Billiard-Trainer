@@ -447,9 +447,10 @@ final class DiamondSystemViewModel: ObservableObject {
                 || abs(catalog.spinY - Float(ctx.struckSpinY)) > 1e-6
                 || abs(ctx.struckPower - ctx.catalogPower) > 1e-9
             if paramsDiffer {
+                let actualRails = BankKickRoute.measured(ctx.struckPrediction, kick: true)?.kickRails ?? []
                 adjustmentDraft = KickEngineSolution(
-                    rails: catalog.rails, prediction: ctx.struckPrediction,
-                    cushions: catalog.cushions,
+                    rails: actualRails, seedRails: catalog.seedRails, prediction: ctx.struckPrediction,
+                    cushions: actualRails.count,
                     difficultyScore: catalog.difficultyScore,
                     difficultyTier: catalog.difficultyTier,
                     robustness: catalog.robustness, pathLength: catalog.pathLength,
@@ -758,7 +759,7 @@ final class DiamondSystemViewModel: ObservableObject {
     private func drawFreePreview(_ prediction: ShotPrediction, current: Bool) {
         scene.clearResultNodes(nodes: &freePreviewNodes)
         guard !(cameraMode == .perspective3D && hides3DShotAssists) else { return }
-        let detail = UserPreferences.shared.trajectoryDetail
+        let detail = scene.effectiveTrajectoryDetail
         scene.addCueTrajectory(prediction.cuePath, contact: prediction.firstContact, detail: detail, into: &freePreviewNodes)
         if detail != .minimal {
             for (key, path) in prediction.extraBallPaths {
@@ -822,7 +823,7 @@ final class DiamondSystemViewModel: ObservableObject {
                 let line = IdealObjectDirection.preview(
                     target: CGPoint(x: CGFloat(targetNode.position.x), y: CGFloat(targetNode.position.z)),
                     ghost: CGPoint(x: CGFloat(end.x), y: CGFloat(end.z)))?.line
-                if let node = scene.setIdealObjectLine(line, detail: UserPreferences.shared.trajectoryDetail) { freeAimNodes.append(node) }
+                if let node = scene.setIdealObjectLine(line, detail: scene.effectiveTrajectoryDetail) { freeAimNodes.append(node) }
             }
         } else {
             scene.ghostBallNode?.isHidden = true
@@ -1152,7 +1153,7 @@ final class DiamondSystemViewModel: ObservableObject {
         guard let cue = scene.cueBallNode?.position,
               let target = scene.targetBallNodes.first?.position else { return }
         let surfaceY = scene.surfaceY
-        let rails = catalog.rails
+        let rails = catalog.seedRails
         let obstacles = currentObstacles()
         let idx = currentIndex
         let gen = adjustGeneration
@@ -1180,8 +1181,9 @@ final class DiamondSystemViewModel: ObservableObject {
                 self.isAdjustingSolution = false
                 self.adjustmentIsValid = pred.hasFinalTableState
                 guard self.displayed.indices.contains(idx), self.currentIndex == idx else { return }
+                let actualRails = BankKickRoute.measured(pred, kick: true)?.kickRails ?? []
                 let drafted = KickEngineSolution(
-                    rails: rails, prediction: pred, cushions: catalog.cushions,
+                    rails: actualRails, seedRails: rails, prediction: pred, cushions: actualRails.count,
                     difficultyScore: catalog.difficultyScore,
                     difficultyTier: catalog.difficultyTier,
                     robustness: catalog.robustness, pathLength: catalog.pathLength,

@@ -1,6 +1,74 @@
 import Foundation
 import SwiftData
 
+/// Shared content authorization. Missing catalog entries are never assumed to be free.
+@MainActor
+struct ProContentAccess {
+    enum Failure: LocalizedError, Equatable {
+        case unavailable, loginRequired, checking, proRequired
+        var errorDescription: String? {
+            switch self {
+            case .unavailable: return "训练内容暂不可用，请重新选择"
+            case .loginRequired: return "请先登录并确认 Pro 权益"
+            case .checking: return "正在确认 Pro 权益，请稍后重试"
+            case .proRequired: return "所选内容需要 Pro，请先开通或恢复购买"
+            }
+        }
+    }
+    var decision: (Bool) -> ProAccessPolicy.Decision
+    var drillRequirement: (String) -> Bool?
+
+    static var live: Self {
+        Self(decision: { SubscriptionManager.shared.accessDecision(requiresPremium: $0) },
+             drillRequirement: { DrillContentService.decodeDrillFromBundle(id: $0)?.isPremium })
+    }
+
+    func require(_ premium: Bool) throws {
+        switch decision(premium) {
+        case .allowed: return
+        case .requiresLogin: throw Failure.loginRequired
+        case .checkingEntitlements: throw Failure.checking
+        case .requiresPro: throw Failure.proRequired
+        }
+    }
+
+    func requireDrills(_ ids: [String]) throws {
+        let requirements = try ids.map { id -> Bool in
+            guard let premium = drillRequirement(id) else { throw Failure.unavailable }
+            return premium
+        }
+        try require(requirements.contains(true))
+    }
+
+    func require(_ block: ScheduledTrainingBlock) throws {
+        guard block.ownerKey == CurrentOwnerContext.shared.ownerKey else { throw Failure.unavailable }
+        if block.sourceKind == TodayScheduleSourceKind.officialLesson {
+            let payload = try JSONDecoder().decode(ScheduledLessonPayload.self, from: block.payloadSnapshot)
+            guard let premium = PlanContentService.decodePlanFromBundle(id: payload.planID)?.isPremium
+                    ?? payload.requiresPremium else { throw Failure.unavailable }
+            try require(premium)
+        }
+        for drill in block.drills {
+            guard let premium = drillRequirement(drill.drillID) ?? drill.requiresPremium else { throw Failure.unavailable }
+            try require(premium)
+        }
+    }
+
+    func require(_ mode: TrainingMode) throws {
+        switch mode {
+        case .free: break
+        case .plan(let drills, let planID):
+            if let planID, UUID(uuidString: planID) == nil {
+                guard let plan = PlanContentService.decodePlanFromBundle(id: planID) else { throw Failure.unavailable }
+                try require(plan.isPremium)
+            }
+            try requireDrills(drills.map(\.drillId))
+        case .scheduled, .scheduledSequence:
+            for block in mode.scheduledBlocks { try require(block) }
+        }
+    }
+}
+
 /// Adds a drill into a `CustomPlan` (the only mutable path that can appear in「今日训练」).
 /// Official bundle plans are immutable JSON — they are never mutated here.
 @MainActor
@@ -55,12 +123,14 @@ enum DrillTrainingPlanService {
     static func addDrill(
         _ drill: DrillContent,
         to plan: CustomPlan,
-        context: ModelContext
+        context: ModelContext,
+        access: ProContentAccess? = nil
     ) throws -> AddResult {
         let appearsInToday = try isActiveCustomPlan(plan, context: context)
         if planContainsDrill(plan, drillId: drill.id) {
             return .alreadyPresent(planName: plan.name, appearsInToday: appearsInToday)
         }
+        try (access ?? .live).requireDrills([drill.id])
 
         let nextOrder = (plan.drills.map(\.order).max() ?? -1) + 1
         let entry = CustomPlanDrill(
@@ -86,10 +156,12 @@ enum DrillTrainingPlanService {
         name: String,
         drill: DrillContent,
         activateAsToday: Bool,
-        context: ModelContext
+        context: ModelContext,
+        access: ProContentAccess? = nil
     ) throws -> (plan: CustomPlan, result: AddResult) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw ServiceError.emptyName }
+        try (access ?? .live).requireDrills([drill.id])
 
         let ownerKey = CurrentOwnerContext.shared.ownerKey
         let plan = CustomPlan(name: trimmed, sessionsPerWeek: 1, ownerKey: ownerKey)
@@ -104,7 +176,7 @@ enum DrillTrainingPlanService {
         context.insert(plan)
 
         if activateAsToday {
-            try activate(plan: plan, context: context)
+            try activate(plan: plan, context: context, access: access)
         }
 
         do {
@@ -120,7 +192,8 @@ enum DrillTrainingPlanService {
     }
 
     /// Replace `UserActivePlan` so this custom plan becomes「今日训练」.
-    static func activate(plan: CustomPlan, context: ModelContext) throws {
+    static func activate(plan: CustomPlan, context: ModelContext, access: ProContentAccess? = nil) throws {
+        try (access ?? .live).requireDrills(plan.drills.map(\.drillId))
         let ownerKey = plan.ownerKey
         let descriptor = FetchDescriptor<UserActivePlan>(
             predicate: #Predicate { $0.ownerKey == ownerKey }

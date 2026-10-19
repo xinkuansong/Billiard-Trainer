@@ -310,6 +310,26 @@ final class DailyClearanceControllerTests: XCTestCase {
         XCTAssertEqual(controller.elapsedSeconds, 15, accuracy: 0.001)
     }
 
+    func test_layoutEditingAndBackgroundKeepBoardAndExcludePausedTime() {
+        let controller = makeController()
+        controller.start(host: host, defaultGame: .nineBall)
+        host.deliverLast()
+        let phase = controller.phase, shots = controller.shotCount
+        clock = clock.addingTimeInterval(10)
+        controller.flushActivity() // Enter editor.
+        clock = clock.addingTimeInterval(60)
+        controller.flushActivity() // Background while editor is still open.
+        clock = clock.addingTimeInterval(100)
+        XCTAssertEqual(controller.elapsedSeconds, 10, accuracy: 0.001)
+        XCTAssertEqual(controller.phase, phase)
+        XCTAssertEqual(controller.shotCount, shots)
+        controller.resumeActivity() // Save/cancel exit, foreground only.
+        controller.resumeActivity()
+        clock = clock.addingTimeInterval(20)
+        controller.flushActivity()
+        XCTAssertEqual(controller.elapsedSeconds, 30, accuracy: 0.001)
+    }
+
     func test_eachSettledShotPersistsElapsedTimeWithoutDoubleCounting() throws {
         let controller = makeController()
         controller.start(host: host, defaultGame: .nineBall)
@@ -429,4 +449,56 @@ final class DailyClearanceControllerTests: XCTestCase {
         XCTAssertEqual(host.requests.count, 2)
     }
 
+}
+
+extension DailyClearanceControllerTests {
+    func testDisplayPreferenceOverwriteKeepsCurrentRackAndGame() throws {
+        let preferences = TablePreferencesStore(defaults: defaults)
+        let vm = PositionPlayViewModel()
+        vm.scene.tablePreferencePage = .dailyClearance
+        vm.scene.tablePreferences = preferences.snapshot(for: .dailyClearance)
+        vm.setupScene(loadsDefaultLayout: false)
+        defer { vm.cancelDailyAttempt() }
+        let controller = makeController()
+        controller.start(host: vm, defaultGame: .nineBall)
+        let runner = try XCTUnwrap(vm.breakRunner)
+        runner.velocity = 7.5
+        runner.spinX = 0.1
+        runner.spinY = 0.2
+        let original = vm.currentDailyClearanceBoard()
+        let identities = vm.scene.allBallNodes.mapValues { ObjectIdentifier($0) }
+        let phase = controller.phase
+        let defaultsBefore = defaults.dictionaryRepresentation()
+        for field in TablePreferenceField.allCases {
+            preferences.apply(field, value: 1)
+            vm.scene.tablePreferences = preferences.snapshot(for: .dailyClearance)
+            vm.hides3DShotAssists = !vm.scene.tablePreferences!.enabled(.shows3DTrajectory)
+            vm.scene.setTableGridVisible(vm.scene.tablePreferences!.enabled(.grid))
+            vm.cameraMode = vm.scene.tablePreferences!.enabled(.view3D) ? .perspective3D : .topDown2D
+            vm.scene.setCameraMode(vm.cameraMode, animated: false)
+            vm.refreshShotAssistVisibility()
+        }
+        UserPreferences(defaults: defaults).selectDailyClearanceGame(.chineseEightBall)
+        XCTAssertTrue(vm.breakRunner === runner)
+        XCTAssertEqual(controller.game, .nineBall, "默认玩法只用于下一个新局")
+        XCTAssertEqual(controller.phase, phase)
+        XCTAssertEqual(controller.shotCount, 0)
+        XCTAssertEqual(controller.foulCount, 0)
+        XCTAssertEqual(runner.velocity, 7.5)
+        XCTAssertEqual(runner.spinX, 0.1, accuracy: 0.001)
+        XCTAssertEqual(runner.spinY, 0.2, accuracy: 0.001)
+        XCTAssertEqual(vm.scene.allBallNodes.mapValues { ObjectIdentifier($0) }, identities)
+        let after = vm.currentDailyClearanceBoard()
+        XCTAssertEqual(Set(after.onTable.keys), Set(original.onTable.keys))
+        for (key, point) in original.onTable {
+            XCTAssertEqual(try XCTUnwrap(after.onTable[key]).x, point.x)
+            XCTAssertEqual(try XCTUnwrap(after.onTable[key]).y, point.y)
+        }
+        for (key, value) in defaultsBefore where key != TablePreferencesStore.storageKey {
+            // Settings writes must leave the existing draft and records untouched.
+            if key.hasPrefix("dailyClearance"), key != DailyClearanceStoreKey.preferredGame {
+                XCTAssertEqual(String(describing: defaults.object(forKey: key)!), String(describing: value), key)
+            }
+        }
+    }
 }

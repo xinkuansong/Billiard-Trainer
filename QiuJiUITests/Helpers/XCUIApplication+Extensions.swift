@@ -55,6 +55,11 @@ extension XCUIApplication {
         app.launchArguments += ["-AppleLocale", "zh_CN"]
         // 跳过 Onboarding，避免新鲜模拟器上 TabBar 尚未出现导致 switchTab 失败。
         app.launchArguments += ["-hasCompletedOnboarding", "YES"]
+        // Account tests bypass both legacy onboarding and the new first-run flow.
+        // Dedicated onboarding tests own a separate progress domain and must keep it intact.
+        if !extraArgs.contains(where: { $0.hasPrefix("-firstRun.fixture=") }) {
+            app.launchArguments += ["-firstRun.profileFlow.v1", "completed"]
+        }
         // 清掉手动「模拟器解锁 Pro」的 UserDefaults，避免污染免费档用例。
         app.launchArguments += ["-resetDebugPremium"]
         app.launchArguments += extraArgs

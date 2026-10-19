@@ -158,6 +158,7 @@ enum TrainingMode: Identifiable {
 struct ScheduledTrainingBlock {
     enum DecodeError: Error { case invalidPayload }
 
+    let ownerKey: String?
     let scheduleItemID: UUID
     let sourceKind: String
     let sourceID: String
@@ -173,6 +174,7 @@ struct ScheduledTrainingBlock {
     let drills: [ScheduledDrillSnapshot]
 
     init(item: TodayScheduleItem) throws {
+        ownerKey = item.schedule?.ownerKey
         scheduleItemID = item.id
         sourceKind = item.sourceKind
         sourceID = item.sourceId
@@ -305,9 +307,25 @@ enum TrainingItemNote {
 @MainActor
 final class ActiveTrainingViewModel: ObservableObject {
     let mode: TrainingMode
+    let ownerKey: String
+    private let access: ProContentAccess
+    private let accessSessionRevision: Int
+    private var startedBlockIDs: Set<UUID> = []
+
+    var hasCurrentOwner: Bool {
+        ownerKey == CurrentOwnerContext.shared.ownerKey
+            && accessSessionRevision == SubscriptionManager.shared.accessSessionRevision
+    }
 
     @Published var drills: [ActiveDrill] = []
-    @Published var currentDrillIndex: Int = 0
+    @Published var currentDrillIndex: Int = 0 {
+        didSet {
+            if !(drills.isEmpty && currentDrillIndex == 0),
+               currentDrillIndex != oldValue && !authorizeDrill(at: currentDrillIndex) {
+                currentDrillIndex = oldValue
+            }
+        }
+    }
     @Published var elapsedSeconds: Int = 0
     @Published var isTimerRunning: Bool = false
     @Published var isTimerSkipped: Bool = false
@@ -468,8 +486,12 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     init(mode: TrainingMode,
          liveActivityManager: (any RestTimerLiveActivityManaging)? = nil,
+         access: ProContentAccess? = nil,
          saveAction: @escaping (ModelContext) throws -> Void = { try $0.save() }) {
         self.mode = mode
+        self.ownerKey = CurrentOwnerContext.shared.ownerKey
+        self.access = access ?? .live
+        self.accessSessionRevision = SubscriptionManager.shared.accessSessionRevision
         switch mode {
         case .free:
             trainingTitle = "自由训练"
@@ -504,6 +526,8 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     func loadDrills() async {
         guard !hasLoaded else { return }
+        do { try access.require(mode) }
+        catch { saveError = error.localizedDescription; isLoading = false; return }
         hasLoaded = true
         isLoading = true
         defer { isLoading = false }
@@ -561,6 +585,7 @@ final class ActiveTrainingViewModel: ObservableObject {
             for id in ids { scheduledDrillOwners[id] = block.scheduleItemID }
             scheduledOffset += block.drills.count
         }
+        if let first = mode.scheduledBlocks.first { startedBlockIDs.insert(first.scheduleItemID) }
         // 计划模式总是重建；自由模式仅在尚未建立录入行时初始化（避免抹掉 addDrill 已写入的行）。
         if case .free = mode, !drills.isEmpty, drillSetsData.count == drills.count {
             return
@@ -628,6 +653,35 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     // MARK: - Drill Navigation
 
+    /// A grant lives only in this running session. Persisted inProgress is not a grant.
+    @discardableResult
+    func authorizeDrill(at index: Int) -> Bool {
+        guard hasCurrentOwner else { saveError = "账号已切换，请重新开始训练"; return false }
+        guard drills.indices.contains(index) else { return false }
+        guard let blockID = scheduledDrillOwners[drills[index].id],
+              let block = mode.scheduledBlocks.first(where: { $0.scheduleItemID == blockID }) else { return true }
+        if startedBlockIDs.contains(blockID) { return true }
+        do {
+            try access.require(block)
+            startedBlockIDs.insert(blockID)
+            return true
+        } catch { saveError = error.localizedDescription; return false }
+    }
+
+    func hasStartedDrill(at index: Int) -> Bool {
+        guard hasCurrentOwner, drills.indices.contains(index) else { return false }
+        guard let blockID = scheduledDrillOwners[drills[index].id] else { return true }
+        return startedBlockIDs.contains(blockID)
+    }
+
+    func drillRequiresPremium(at index: Int) -> Bool {
+        guard drills.indices.contains(index), let blockID = scheduledDrillOwners[drills[index].id],
+              let block = mode.scheduledBlocks.first(where: { $0.scheduleItemID == blockID }) else { return false }
+        // Ask the same catalog policy with a free entitlement, without granting a start.
+        let free = ProContentAccess(decision: { $0 ? .requiresPro : .allowed }, drillRequirement: access.drillRequirement)
+        return (try? free.require(block)) == nil
+    }
+
     func goToDrill(at index: Int) {
         guard index >= 0, index < drills.count else { return }
         currentDrillIndex = index
@@ -637,6 +691,9 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     func addDrill(_ content: DrillContent) {
         guard !drills.contains(where: { $0.drillId == content.id }) else { return }
+        guard hasCurrentOwner else { saveError = "账号已切换，请重新开始训练"; return }
+        do { try access.requireDrills([content.id]) }
+        catch { saveError = error.localizedDescription; return }
         let formations = Self.formationOptions(for: content.id)
         // 自由训练无计划 dose ⇒ 用内容推荐轮数逐球形展开（契约 §5.6 / §6.6）。
         let resolved = TrainingDoseResolver.resolve(content: content, formationOptions: formations)
@@ -668,6 +725,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     }
 
     func removeDrill(at offsets: IndexSet) {
+        guard hasCurrentOwner else { return }
         for index in offsets.sorted(by: >) {
             drills.remove(at: index)
             if index < drillSetsData.count { drillSetsData.remove(at: index) }
@@ -753,6 +811,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     }
 
     func incrementBalls() {
+        guard authorizeDrill(at: currentDrillIndex) else { return }
         guard currentDrillIndex < drillSetsData.count else { return }
         guard let activeIdx = drillSetsData[currentDrillIndex].firstIndex(where: { !$0.isCompleted }) else { return }
         let target = drillSetsData[currentDrillIndex][activeIdx].targetBalls
@@ -762,6 +821,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     }
 
     func decrementBalls() {
+        guard authorizeDrill(at: currentDrillIndex) else { return }
         guard currentDrillIndex < drillSetsData.count else { return }
         guard let activeIdx = drillSetsData[currentDrillIndex].firstIndex(where: { !$0.isCompleted }) else { return }
         if drillSetsData[currentDrillIndex][activeIdx].madeBalls > 0 {
@@ -770,6 +830,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     }
 
     func completeCurrentSet() {
+        guard authorizeDrill(at: currentDrillIndex) else { return }
         guard currentDrillIndex < drillSetsData.count else { return }
         guard let activeIdx = drillSetsData[currentDrillIndex].firstIndex(where: { !$0.isCompleted }) else { return }
         drillSetsData[currentDrillIndex][activeIdx].isCompleted = true
@@ -782,6 +843,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     }
 
     func completeSet(drillIndex: Int, setIndex: Int) {
+        guard authorizeDrill(at: drillIndex) else { return }
         guard drillIndex < drillSetsData.count,
               setIndex < drillSetsData[drillIndex].count else { return }
         let wasCompleted = drillSetsData[drillIndex][setIndex].isCompleted
@@ -811,6 +873,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     }
 
     func addSet(drillIndex: Int) {
+        guard authorizeDrill(at: drillIndex) else { return }
         guard drillIndex < drillSetsData.count, drillIndex < drills.count else { return }
         let sets = drillSetsData[drillIndex]
         // R12：复制「当前位置」（首个未完成组）；全部完成后回落末组。
@@ -831,6 +894,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     /// 结构化加组（v34 后续）：用户指定球形（多球形）与杆号（重复型）。
     /// 新组插到同球形分节末尾（保持分节完整），而不是整表末尾。
     func addSet(drillIndex: Int, choice: DrillAddSetChoice, shotIndex: Int?) {
+        guard authorizeDrill(at: drillIndex) else { return }
         guard drillIndex < drillSetsData.count, drillIndex < drills.count else { return }
         let sets = drillSetsData[drillIndex]
         let nextId = (sets.map(\.id).max() ?? 0) + 1
@@ -879,6 +943,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     }
 
     func deleteSet(drillIndex: Int, setIndex: Int) {
+        guard authorizeDrill(at: drillIndex) else { return }
         guard drillIndex < drillSetsData.count,
               setIndex < drillSetsData[drillIndex].count else { return }
         drillSetsData[drillIndex].remove(at: setIndex)
@@ -1010,6 +1075,7 @@ final class ActiveTrainingViewModel: ObservableObject {
             },
             set: { [weak self] newValue in
                 guard let self, index < self.drillSetsData.count else { return }
+                guard self.authorizeDrill(at: index) else { return }
                 self.drillSetsData[index] = newValue
             }
         )
@@ -1024,6 +1090,7 @@ final class ActiveTrainingViewModel: ObservableObject {
             },
             set: { [weak self] newValue in
                 guard let self, index < self.drillNotes.count else { return }
+                guard self.authorizeDrill(at: index) else { return }
                 self.drillNotes[index] = newValue
             }
         )
@@ -1058,7 +1125,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     }
 
     func endTraining() {
-        pauseTimer()
+        cleanup()
         trainingPhase = .note
     }
 
@@ -1118,9 +1185,15 @@ final class ActiveTrainingViewModel: ObservableObject {
         // Sharing also persists. A second tap must not insert another session
         // or advance the plan cursor twice (DR-079).
         if didSaveSuccessfully { return }
+        guard hasCurrentOwner else { saveError = "账号已切换，不能保存到其他账号"; return }
 
         saveError = nil
+        // Session, schedule, cursor and sync queue must share the explicit save below.
+        let autosaveEnabled = context.autosaveEnabled
+        context.autosaveEnabled = false
+        defer { context.autosaveEnabled = autosaveEnabled }
 
+        var restoreRegisteredModels: [() -> Void] = []
         do {
             // 训练 Tab 的正式训练一律是真实球台成绩（契约 §5.3）。
             let blocks = mode.scheduledBlocks
@@ -1130,11 +1203,41 @@ final class ActiveTrainingViewModel: ObservableObject {
                 var descriptor = FetchDescriptor<TodayScheduleItem>(predicate: #Predicate { $0.id == id })
                 descriptor.fetchLimit = 1
                 guard let found = try context.fetch(descriptor).first,
+                      found.schedule?.ownerKey == ownerKey,
                       found.state == TodayScheduleItemState.pending || found.state == TodayScheduleItemState.inProgress else {
                     saveError = "今日安排已变更，请返回后重新进入"
                     return
                 }
                 items.append(found)
+            }
+            // iOS 17 rolls back the store but can retain changed values on registered objects.
+            // Restore exactly the fields this transaction mutates so the same course can retry.
+            for item in items {
+                let state = item.state
+                let completedAt = item.completedAt
+                let sessionID = item.trainingSessionId
+                let schedule = item.schedule
+                let updatedAt = schedule?.updatedAt
+                restoreRegisteredModels.append {
+                    item.state = state
+                    item.completedAt = completedAt
+                    item.trainingSessionId = sessionID
+                    if let updatedAt { schedule?.updatedAt = updatedAt }
+                }
+            }
+            if !items.isEmpty {
+                for plan in try PlanProgressService.officialRecords(ownerKey: ownerKey, context: context) {
+                    let lesson = plan.currentLessonId
+                    let status = plan.status
+                    let completedAt = plan.completedAt
+                    let updatedAt = plan.updatedAt
+                    restoreRegisteredModels.append {
+                        plan.currentLessonId = lesson
+                        plan.status = status
+                        plan.completedAt = completedAt
+                        plan.updatedAt = updatedAt
+                    }
+                }
             }
             // One UI session, one frozen provenance record per course, one atomic save.
             let ranges: [[Int]] = blocks.count <= 1 ? [Array(drills.indices)] : blocks.map { block in
@@ -1155,6 +1258,9 @@ final class ActiveTrainingViewModel: ObservableObject {
                let timedCourse = ranges.firstIndex(where: { $0.contains(currentDrillIndex) }) {
                 recordedIndices = [timedCourse]
             }
+            guard recordedIndices.allSatisfy({ index in
+                !blocks.indices.contains(index) || startedBlockIDs.contains(blocks[index].scheduleItemID)
+            }) else { saveError = "请先开始对应课程再保存"; return }
             var assignedMinutes = 0
             let totalWeight = recordedIndices.reduce(0) { $0 + ranges[$1].count }
             for index in recordedIndices {
@@ -1250,6 +1356,7 @@ final class ActiveTrainingViewModel: ObservableObject {
             didSaveSuccessfully = true
         } catch {
             context.rollback()
+            restoreRegisteredModels.forEach { $0() }
             saveError = "训练记录保存失败，请确认设备存储空间充足后重试"
         }
     }
@@ -1258,6 +1365,8 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     func cleanup() {
         pauseTimer()
+        stopRestTimer()
+        pendingDrillAdvance = nil
     }
 }
 

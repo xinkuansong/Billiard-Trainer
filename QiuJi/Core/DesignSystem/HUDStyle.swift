@@ -158,3 +158,31 @@ private struct BTHUDActionContent: ViewModifier {
 extension View {
     func btHUDActionContent() -> some View { modifier(BTHUDActionContent()) }
 }
+
+
+/// Shared 44pt table tool/replay action, preserving the standard HUD geometry and states.
+struct BTHUDCompactAction: View {
+    let title: String
+    let symbol: String
+    var size: CGFloat = 44
+    var selected = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                if symbol == "triangle" { BreakRackGlyph(color: .btText, size: 22) }
+                else { Image(systemName: symbol).font(.system(size: 18, weight: .medium)) }
+                Text(title).font(.btMicro)
+            }
+            .btHUDActionContent()
+            .frame(width: size, height: size)
+            .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: BTRadius.md), selected: selected) }
+            .overlay(RoundedRectangle(cornerRadius: BTRadius.md)
+                .stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(BTHUDPressStyle())
+        .accessibilityLabel(title)
+    }
+}

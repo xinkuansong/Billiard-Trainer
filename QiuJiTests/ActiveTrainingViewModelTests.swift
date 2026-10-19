@@ -731,9 +731,11 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         XCTAssertGreaterThan(Set(perFormation.map(\.ballsPerRound)).count, 1,
                              "drill_c069 应为逐球形球数异构")
 
-        let vm = ActiveTrainingViewModel(mode: .free)
+        let vm = ActiveTrainingViewModel(mode: .free, access: ProContentAccess(decision: { _ in .allowed }, drillRequirement: { _ in true }))
         vm.addDrill(content)
 
+        XCTAssertFalse(vm.drillSetsData.isEmpty)
+        guard !vm.drillSetsData.isEmpty else { return }
         XCTAssertEqual(vm.drillSetsData[0].map(\.targetBalls),
                        perFormation.flatMap {
                            Array(repeating: $0.ballsPerRound, count: $0.defaultRounds)
@@ -755,7 +757,7 @@ final class ActiveTrainingViewModelTests: XCTestCase {
             phaseType: "focused", phaseZh: "专项训练", phaseIcon: "target",
             plannedSets: planned, volumeText: "2 球形 · 3 轮 · 共 26 球", isCompleted: false
         )
-        let vm = ActiveTrainingViewModel(mode: .plan(drills: [item], planId: "plan_test"))
+        let vm = ActiveTrainingViewModel(mode: .plan(drills: [item], planId: "plan_beginner"))
         await vm.loadDrills()
 
         XCTAssertEqual(vm.drills.count, 1)
@@ -881,7 +883,7 @@ final class ActiveTrainingViewModelTests: XCTestCase {
             phaseType: "focused", phaseZh: "专项训练", phaseIcon: "target",
             plannedSets: planned, volumeText: "", isCompleted: false
         )
-        let vm = ActiveTrainingViewModel(mode: .plan(drills: [item], planId: "plan_test"))
+        let vm = ActiveTrainingViewModel(mode: .plan(drills: [item], planId: "plan_beginner"))
         await vm.loadDrills()
 
         let sets = vm.drillSetsData[0]
@@ -906,8 +908,9 @@ final class ActiveTrainingViewModelTests: XCTestCase {
             volumeText: resolved.volumeText(unitLabel: "球"),
             isCompleted: false
         )
-        let vm = ActiveTrainingViewModel(mode: .plan(drills: [item], planId: "uitest"))
+        let vm = ActiveTrainingViewModel(mode: .plan(drills: [item], planId: "plan_beginner"))
         await vm.loadDrills()
+        guard !vm.drillSetsData.isEmpty else { return XCTFail(vm.saveError ?? "Missing planned sets") }
         let setTokens = Set(vm.drillSetsData[0].compactMap(\.formationToken))
         XCTAssertEqual(setTokens, tokens)
     }
@@ -980,6 +983,79 @@ final class ActiveTrainingViewModelTests: XCTestCase {
 
     // MARK: - Cleanup
 
+    func test_endTraining_duringMinimizedRestEndsActivityAndAudioImmediately() {
+        let activity = RestActivityRecorder()
+        let vm = ActiveTrainingViewModel(mode: .free, liveActivityManager: activity)
+        defer { vm.cleanup() }
+        vm.startTimer()
+        vm.startRestTimer()
+        vm.minimizeRestOverlay()
+        let endCalls = activity.endCalls
+        let audioStops = activity.audioDeactivations
+
+        vm.endTraining()
+
+        XCTAssertEqual(vm.trainingPhase, .note)
+        XCTAssertFalse(vm.isTimerRunning)
+        XCTAssertFalse(vm.isRestTimerActive)
+        XCTAssertFalse(vm.isRestOverlayMinimized)
+        XCTAssertEqual(vm.restSecondsRemaining, 0)
+        XCTAssertEqual(vm.restTotalSeconds, 0)
+        XCTAssertEqual(activity.endCalls, endCalls + 1)
+        XCTAssertEqual(activity.audioDeactivations, audioStops + 1)
+
+        // Returning from notes or foregrounding must not revive the ended rest.
+        vm.resumeTraining()
+        vm.refreshTimers(now: Date().addingTimeInterval(120))
+        vm.addRestTime(30)
+        XCTAssertEqual(vm.trainingPhase, .active)
+        XCTAssertFalse(vm.isRestTimerActive)
+        XCTAssertEqual(activity.starts.count, 1)
+        XCTAssertTrue(activity.updates.isEmpty)
+        XCTAssertEqual(activity.endCalls, endCalls + 1)
+    }
+
+    func test_cleanup_duringRestEndsActivityAndAudio() {
+        let activity = RestActivityRecorder()
+        let vm = ActiveTrainingViewModel(mode: .free, liveActivityManager: activity)
+        vm.startTimer()
+        vm.startRestTimer()
+        let endCalls = activity.endCalls
+        let audioStops = activity.audioDeactivations
+
+        vm.cleanup()
+
+        XCTAssertFalse(vm.isTimerRunning)
+        XCTAssertFalse(vm.isRestTimerActive)
+        XCTAssertFalse(vm.shouldShowRestOverlay)
+        XCTAssertEqual(vm.restSecondsRemaining, 0)
+        XCTAssertEqual(activity.endCalls, endCalls + 1)
+        XCTAssertEqual(activity.audioDeactivations, audioStops + 1)
+    }
+
+    func test_endTraining_duringRestCompletionCancelsOldDismissal() async throws {
+        let activity = RestActivityRecorder()
+        let vm = ActiveTrainingViewModel(mode: .free, liveActivityManager: activity)
+        defer { vm.cleanup() }
+        vm.startRestTimer()
+        let first = try XCTUnwrap(activity.starts.last)
+        vm.refreshTimers(now: first.endDate.addingTimeInterval(1))
+
+        vm.endTraining()
+        XCTAssertFalse(vm.isRestTimerActive)
+        XCTAssertEqual(vm.restTotalSeconds, 0)
+        vm.resumeTraining()
+        vm.startRestTimer()
+        vm.minimizeRestOverlay()
+        let endCalls = activity.endCalls
+        try await Task.sleep(for: .milliseconds(400))
+
+        XCTAssertTrue(vm.isRestTimerActive)
+        XCTAssertTrue(vm.isRestOverlayMinimized)
+        XCTAssertEqual(activity.starts.count, 2)
+        XCTAssertEqual(activity.endCalls, endCalls)
+    }
+
     func test_cleanup_stops_timer() {
         let vm = ActiveTrainingViewModel(mode: .free)
         vm.startTimer()
@@ -1018,11 +1094,12 @@ private final class RestActivityRecorder: RestTimerLiveActivityManaging {
     var updates: [RestTimerAttributes.ContentState] = []
     var endCalls = 0
     var audioActivations = 0
+    var audioDeactivations = 0
     func startActivity(drillName: String, state: RestTimerAttributes.ContentState) { starts.append(state) }
     func updateActivity(state: RestTimerAttributes.ContentState) { updates.append(state) }
     func endActivity() { endCalls += 1 }
     func activateBackgroundAudio() { audioActivations += 1 }
-    func deactivateBackgroundAudio() {}
+    func deactivateBackgroundAudio() { audioDeactivations += 1 }
 }
 
 final class NoteNumberingTests: XCTestCase {

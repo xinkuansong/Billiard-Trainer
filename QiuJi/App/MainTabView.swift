@@ -90,9 +90,25 @@ struct MainTabView: View {
             }
         }
         .task { TableResourceCache.shared.warmForEntry() }
+        .alert("暂时无法开始训练", isPresented: Binding(
+            get: { router.trainingAccessError != nil },
+            set: { if !$0 { router.trainingAccessError = nil } }
+        )) { Button("好", role: .cancel) {} } message: { Text(router.trainingAccessError ?? "") }
         .onChange(of: router.selectedTab) { _, _ in warmTableAssetsForSelectedTab() }
         #if DEBUG && targetEnvironment(simulator)
         .task {
+            if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-pro.route=") }) {
+                let routes: [String: AngleRoute] = [
+                    "separation": .separationAngleAtlas, "cushion": .cushionEnglishAtlas,
+                    "scene3d": .sceneAiming3D, "aim3d": .aimPointScene3D, "snake": .snakePractice,
+                    "composer": .positionPlayComposer, "photo": .ballExtraction,
+                    "three": .planThree, "snooker": .snookerTactics,
+                    "bank": .bankShot, "diamond": .diamondSystem]
+                if let route = routes[String(argument.dropFirst("-pro.route=".count))], router.anglePath.isEmpty {
+                    router.selectedTab = .angle
+                    router.anglePath.append(route)
+                }
+            }
             if let request = liveReviewLaunchRequest {
                 router.applyLiveReviewLaunchOnce(request)
             }
@@ -176,6 +192,13 @@ struct MainTabView: View {
 
     @ViewBuilder
     private func angleDestination(for route: AngleRoute) -> some View {
+        ProAccessGate(requiresPremium: route.requiresPremium) {
+            authorizedAngleDestination(for: route)
+        }
+    }
+
+    @ViewBuilder
+    private func authorizedAngleDestination(for route: AngleRoute) -> some View {
         switch route {
         case .theoryIndex:
             TheoryIndexView()
@@ -201,6 +224,8 @@ struct MainTabView: View {
             GeometricAngleQuizView()
         case .snakePractice:
             SnakePracticeView()
+        case .customFormationPractice:
+            CustomFormationPracticeView(ownerKey: ownerKey)
         case .sceneAiming2D:
             // T-P18-48 拆两卡：同一 View 两个 route，视角固定、成绩分记。
             SceneAimingView(initialCameraMode: .topDown2DRotated)

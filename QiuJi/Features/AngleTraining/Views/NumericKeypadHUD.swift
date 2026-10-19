@@ -22,6 +22,16 @@ struct NumericKeypadHUD: View {
     private var displayFontSize: CGFloat { compact ? 24 : 38 }
 
     var body: some View {
+        if usesSceneStyle {
+            keypadContent.background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.lg))
+        } else {
+            keypadContent.background(.regularMaterial)
+                .clipShape(UnevenRoundedRectangle(topLeadingRadius: BTRadius.lg, topTrailingRadius: BTRadius.lg))
+                .shadow(color: .black.opacity(0.25), radius: 12, y: -4)
+        }
+    }
+
+    private var keypadContent: some View {
         VStack(spacing: Spacing.sm) {
             // Header — title + subtitle + cancel button
             HStack {
@@ -47,6 +57,8 @@ struct NumericKeypadHUD: View {
                         .frame(minWidth: usesSceneStyle ? 44 : nil, minHeight: usesSceneStyle ? 44 : nil)
                         .contentShape(Rectangle())
                 }
+                .accessibilityIdentifier("angleKeypad.cancel")
+                .freeControlItem("angle.cancel", name: "取消输入")
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.top, Spacing.sm)
@@ -64,21 +76,23 @@ struct NumericKeypadHUD: View {
                 keyRow(["7", "8", "9"])
                 HStack(spacing: Spacing.xs) {
                     keyButton(label: nil, icon: "delete.left", role: .erase) { backspace() }
+                        .accessibilityLabel("退格")
+                        .accessibilityIdentifier("angleKeypad.erase")
+                        .freeControlItem("angle.erase", name: "退格")
                     digitButton("0")
                     keyButton(label: "提交", icon: nil, role: .submit) {
                         guard !input.isEmpty else { return }
                         onSubmit()
                     }
                     .disabled(input.isEmpty)
+                    .accessibilityIdentifier("angleKeypad.submit")
+                    .freeControlItem("angle.submit", name: "提交答案")
                 }
             }
             .padding(.horizontal, Spacing.md)
             .padding(.bottom, Spacing.sm)
         }
-        .background(usesSceneStyle ? AnyShapeStyle(Color.btBGSecondary) : AnyShapeStyle(.regularMaterial))
-        .clipShape(UnevenRoundedRectangle(topLeadingRadius: BTRadius.lg,
-                                          topTrailingRadius: BTRadius.lg))
-        .shadow(color: .black.opacity(0.25), radius: usesSceneStyle ? 0 : 12, y: -4)
+
     }
 
     private var angleReadout: some View {
@@ -103,6 +117,8 @@ struct NumericKeypadHUD: View {
 
     private func digitButton(_ d: String) -> some View {
         keyButton(label: d, icon: nil, role: .digit) { append(d) }
+            .accessibilityIdentifier("angleKeypad.digit." + d)
+            .freeControlItem("angle.digit." + d, name: "数字 " + d)
     }
 
     private enum KeyRole { case digit, erase, submit }

@@ -22,8 +22,10 @@
       <tbody>
         <tr><td>账号标识、昵称、Apple 提供的可选姓名与邮箱</td><td>使用 Apple 登录时</td><td>认证账号、恢复会话、展示账号资料</td></tr>
         <tr><td>头像图片</td><td>您主动从相册选择并确认上传时</td><td>展示个人头像；不用于人脸识别</td></tr>
+        <tr><td>性别、出生日期（选填）</td><td>您主动填写并保存时；游客仅保存在本机，登录账号保存到账号资料</td><td>显示性别角标和自动计算年龄；您可在个人信息中清除</td></tr>
         <tr><td>台球偏好、水平、球龄、每周训练目标</td><td>您编辑个人资料时</td><td>保存资料和训练偏好</td></tr>
         <tr><td>训练记录、训练日期和时长、球种、计划、成绩、训练心得、角度测试结果</td><td>您训练或测验并启用账号同步时</td><td>跨设备同步、历史与统计、训练复盘</td></tr>
+        <tr><td>自定义球形模板的名称、球位、球实例与辅助线</td><td>您保存模板并为当前账号开启云同步时；游客模板另行确认合并</td><td>跨设备恢复、编辑和练习；未保存草稿及当次练习过程不上传</td></tr>
         <tr><td>练习工具使用日期与停留时长</td><td>您使用自由走位、自由击球、打一走二想三或动作库试打等工具时</td><td>产品功能统计与改进；不用于广告或跨产品跟踪</td></tr>
         <tr><td>购买状态</td><td>您通过 Apple 完成或恢复 App 内购买时</td><td>解锁和恢复会员权益；我们不接收银行卡或完整支付凭据</td></tr>
       </tbody>
@@ -44,7 +46,7 @@
     <p>Apple 分别处理 Sign in with Apple、App Store 和 StoreKit 交易所需信息，其处理受 Apple 自身条款和隐私政策约束。除上述必要服务、依法履行义务或获得您的另行同意外，我们不会向其他个人信息处理者提供、公开或出售您的信息。</p>
 
     <h2>四、保存、安全与跨境</h2>
-    <p>账号数据在账号存续及提供服务所必需的最短期限内保存。您注销账号后，主业务数据库中的账号、训练记录、角度测试和头像将删除；因安全备份而暂时保留的副本最长在 {{BACKUP_RETENTION_DAYS}} 天内覆盖或删除，期间仅作安全恢复并限制访问。法律要求另行保存的除外。</p>
+    <p>账号数据在账号存续及提供服务所必需的最短期限内保存。您注销账号后，主业务数据库中的账号、训练记录、角度测试、自定义球形及其同步记录和头像将删除；因安全备份而暂时保留的副本最长在 {{BACKUP_RETENTION_DAYS}} 天内覆盖或删除，期间仅作安全恢复并限制访问。法律要求另行保存的除外。</p>
     <p>我们采取访问控制、传输加密、凭证隔离和最小权限等措施。当前账号与训练云数据存储在 {{DATA_REGION}}，不会主动向境外提供；Apple 自有服务的数据流以 Apple 的说明为准。如未来发生处理目的、接收方或跨境情况变化，我们会依法更新告知并在需要时另行取得同意。</p>
 
     <h2>五、您的权利</h2>
@@ -62,13 +64,13 @@
     <p class="meta">Effective: {{EFFECTIVE_DATE}} · Data controller: {{OPERATOR_NAME}}</p>
     <p>QiuJi does not sell personal data, use it for advertising, or track users across apps or websites.</p>
     <h3>Data we process</h3>
-    <p>When you sign in, we process your account identifier and optional name or email supplied by Apple. If you choose to provide them, we process your display name, avatar, billiards preferences, skill level, years of experience, weekly goal, training sessions, dates and durations, scores, notes, angle-test results, and tool interaction dates and durations. Purchase entitlement is obtained through Apple; we do not receive full payment credentials.</p>
+    <p>When you sign in, we process your account identifier and optional name or email supplied by Apple. If you choose to provide them, we process your display name, avatar, billiards preferences, skill level, years of experience, weekly goal, training sessions, dates and durations, scores, notes, angle-test results, and tool interaction dates and durations. When you enable account sync, saved custom formations include their names, ball positions, ball identities and guide lines. Guest formations require separate merge consent; unsaved drafts and active practice state are not uploaded. Purchase entitlement is obtained through Apple; we do not receive full payment credentials.</p>
     <h3>Device permissions</h3>
     <p>Photo-library access is requested only when you choose media; write access is used when you save a share card; camera access is used when you record training media; notifications are requested only when you enable reminders. Other photos are not uploaded unless you explicitly select and confirm one as your avatar.</p>
     <h3>Use, processors, and sharing</h3>
     <p>We use data to authenticate accounts, sync training records, provide history and statistics, restore purchases, support users, secure the service, and improve product functionality. Infrastructure is provided by {{INFRASTRUCTURE_PROVIDER}} in {{DATA_REGION}}. Apple processes data needed for Sign in with Apple, the App Store, and StoreKit under its own policies. We do not disclose personal data to other controllers unless required by law or with separate consent.</p>
     <h3>Retention and security</h3>
-    <p>We retain account data only while needed to provide the service. Account deletion removes the account, cloud training records, angle tests, and avatar from the primary database. Restricted security backups are overwritten or deleted within {{BACKUP_RETENTION_DAYS}} days unless law requires otherwise. We use access controls, encrypted transport, credential isolation, and least-privilege measures. Account and training cloud data are stored in {{DATA_REGION}} and are not intentionally transferred abroad by us.</p>
+    <p>We retain account data only while needed to provide the service. Account deletion removes the account, cloud training records, angle tests, custom formations and their sync history, and avatar from the primary database. Restricted security backups are overwritten or deleted within {{BACKUP_RETENTION_DAYS}} days unless law requires otherwise. We use access controls, encrypted transport, credential isolation, and least-privilege measures. Account and training cloud data are stored in {{DATA_REGION}} and are not intentionally transferred abroad by us.</p>
     <h3>Your choices</h3>
     <p>You can edit profile data or delete your account in the app. Email <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a> to request access, a copy, correction, deletion, restriction, or withdrawal of consent. The service is not directed to children under 14; they should use it only with guardian consent.</p>
     <h3>Contact and updates</h3>

@@ -167,8 +167,13 @@ enum PlanProgressService {
         ownerKey: String,
         context: ModelContext,
         now: Date = Date(),
-        save: (() throws -> Void)? = nil
+        save: (() throws -> Void)? = nil,
+        access: ProContentAccess? = nil
     ) throws -> UserActivePlan {
+        let autosaveEnabled = context.autosaveEnabled
+        context.autosaveEnabled = false
+        defer { context.autosaveEnabled = autosaveEnabled }
+        try (access ?? .live).require(plan.isPremium)
         let records = try officialRecords(ownerKey: ownerKey, context: context)
         let saved = records.filter { $0.planId == plan.id }.sorted(by: recordIsNewer).first
         let target = saved ?? UserActivePlan(planId: plan.id, ownerKey: ownerKey)
@@ -192,7 +197,10 @@ enum PlanProgressService {
                 row.completedAt = completed
                 row.updatedAt = updated
             }
-            if saved == nil { context.delete(target) }
+            if saved == nil {
+                context.delete(target)
+                context.processPendingChanges()
+            }
             throw error
         }
     }

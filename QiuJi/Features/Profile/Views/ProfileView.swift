@@ -14,6 +14,9 @@ struct ProfileView: View {
     @State private var pendingLoginUser: AppUser?
     @State private var showSubscription = false
     @State private var showOnboarding = false
+    #if DEBUG
+    @State private var showIntroStyleLab = false
+    #endif
 
     init(ownerKey: String = DeviceGuestIdentity.ownerKey()) {
         self.ownerKey = ownerKey
@@ -33,9 +36,17 @@ struct ProfileView: View {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(spacing: Spacing.lg) {
-                        if authState.isLoggedIn {
+                        if authState.hasLocalAccount {
                             loggedInHeader
                             monthlyOverviewCard
+                            if case .offlineAccount = authState.phase {
+                                VStack(spacing: Spacing.sm) {
+                                    Text("当前离线，可使用本机记录与有效的 Apple 购买权益")
+                                        .font(.btCaption).foregroundStyle(.btTextSecondary)
+                                    Button("重新连接账号") { Task { await authState.retryBootstrap() } }
+                                        .font(.btCallout)
+                                }
+                            }
                         } else {
                             guestHeader
                             guestWarning
@@ -45,7 +56,7 @@ struct ProfileView: View {
                         primaryMenuGroup
                         secondaryMenuGroup
 
-                        if authState.isLoggedIn {
+                        if authState.hasLocalAccount {
                             logoutButton
                         } else {
                             guestBottomActions
@@ -97,17 +108,20 @@ struct ProfileView: View {
         .sheet(isPresented: $showOnboarding) {
             OnboardingView()
         }
+        #if DEBUG
+        .fullScreenCover(isPresented: $showIntroStyleLab) { OnboardingStyleLab() }
+        #endif
         .alert("开启训练数据云同步？", isPresented: $authState.showCloudSyncPrompt) {
             Button("开启云同步") { authState.setCloudSyncEnabled(true) }
             Button("仅保存在本机", role: .cancel) { authState.setCloudSyncEnabled(false) }
         } message: {
-            Text("开启后会上传本机的账号训练记录，并下载云端记录。你可以随时在设置中关闭，不影响登录和 Pro 权益。")
+            Text("开启后会上传本机的账号训练记录、成绩和自定义球形，并下载云端数据。你可以随时在设置中关闭，不影响登录和 Pro 权益。")
         }
         .alert("合并本机游客记录？", isPresented: $authState.showMigrationPrompt) {
             Button("合并并同步") { authState.confirmMigration() }
             Button("不合并", role: .cancel) { authState.dismissMigration() }
         } message: {
-            Text("合并后，游客期间的数据将归入当前账号，训练记录与角度、瞄准成绩会上传。收藏、计划和训练安排目前仅保存在本机。不合并则保留在游客模式下，账号云同步仍保持开启。")
+            Text("合并后，游客期间的数据将归入当前账号，训练记录、角度与瞄准成绩和自定义球形会上传。收藏、计划和训练安排目前仅保存在本机。不合并则保留在游客模式下，账号云同步仍保持开启。")
         }
         .alert("同步失败", isPresented: Binding(
             get: { authState.errorMessage != nil },
@@ -129,60 +143,46 @@ struct ProfileView: View {
         NavigationLink(value: "personalInfo") {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 HStack(spacing: Spacing.md) {
-                    ProfileAvatarView(size: 56)
+                    ProfileAvatarView(size: 56, gender: profile.gender)
 
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
                         Text(profile.displayName)
                             .font(.btHeadline)
                             .foregroundStyle(.btText)
-                            .fixedSize(horizontal: false, vertical: true)
-                        HStack(spacing: Spacing.xs) {
-                            Text("修改信息")
-                                .font(.btCaption)
-                                .foregroundStyle(.btTextSecondary)
-                            Image(systemName: BTIcon.chevronRight)
-                                .font(.btMicro)
-                                .foregroundStyle(.btTextTertiary)
+                            .lineLimit(1)
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: Spacing.sm) { accountID; editProfileLabel }
+                            VStack(alignment: .leading, spacing: Spacing.xs) { accountID; editProfileLabel }
                         }
-                        Text("ID: \(String(authState.currentUser?.id.prefix(7) ?? "—"))")
-                            .font(.btCaption)
-                            .foregroundStyle(.btTextTertiary)
                     }
                     Spacer(minLength: Spacing.sm)
-                        .overlay(alignment: .trailing) { BTProfileGameBall() }
+                    BTProfileGameBall(sport: profile.preferredSport, isPremium: subscriptionManager.isPremium)
                 }
 
-                if subscriptionManager.isPremium {
-                    HStack(alignment: .top, spacing: Spacing.sm) {
-                        BTPremiumMaterialSymbol(systemName: BTIcon.star, size: 18)
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: Spacing.xs) {
-                            Text("Pro 会员")
-                                .font(.btCaption)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.btPremiumForeground)
-                            Text(subscriptionManager.entitlementStatusLabel)
-                                .font(.btCaption)
-                                .foregroundStyle(.btTextSecondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(Spacing.sm)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.btPremiumSurface, in: RoundedRectangle(cornerRadius: BTRadius.sm))
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("profile.membershipSummary")
-                }
             }
-            .padding(Spacing.lg)
-            .background(Color.btBGSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+            .padding(.horizontal, Spacing.lg)
+            .padding(.top, Spacing.lg)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("profile.accountHeader")
         .accessibilityLabel("个人信息，\(profile.displayName)")
+        .accessibilityValue(subscriptionManager.isPremium ? "Pro 已解锁" : "普通用户")
+    }
+
+    private var accountID: some View {
+        Text("ID: \(String(authState.currentUser?.id.prefix(7) ?? "—"))")
+            .font(.btCaption).foregroundStyle(.btTextTertiary).fixedSize()
+            .accessibilityIdentifier("profile.accountID")
+    }
+
+    private var editProfileLabel: some View {
+        HStack(spacing: Spacing.xs) {
+            Text("修改信息").font(.btCaption)
+            Image(systemName: BTIcon.chevronRight).font(.btMicro)
+        }
+        .foregroundStyle(.btTextSecondary).fixedSize()
+        .accessibilityIdentifier("profile.editInfo")
     }
 
     // MARK: - Monthly Overview
@@ -205,7 +205,7 @@ struct ProfileView: View {
     private var guestHeader: some View {
         Button { showLoginSheet = true } label: {
             HStack(spacing: Spacing.md) {
-                ProfileAvatarView(size: 56)
+                ProfileAvatarView(size: 56, gender: profile.gender)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(profile.displayName == "球迹用户" ? "点击登录" : profile.displayName)
@@ -216,18 +216,16 @@ struct ProfileView: View {
                         .foregroundStyle(.btTextSecondary)
                 }
 
-                Spacer()
-                    .overlay(alignment: .trailing) { BTProfileGameBall() }
+                Spacer(minLength: Spacing.sm)
+                BTProfileGameBall(sport: profile.preferredSport, isPremium: subscriptionManager.isPremium)
 
                 Image(systemName: BTIcon.chevronRight)
                     .font(.btFootnote)
                     .foregroundStyle(.btTextSecondary)
             }
-            .padding(Spacing.lg)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+            .padding(.horizontal, Spacing.lg)
+            .padding(.top, Spacing.lg)
             .contentShape(Rectangle())
-            .environment(\.colorScheme, .light)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("profile.login")
@@ -298,6 +296,7 @@ struct ProfileView: View {
             NavigationLink(value: "favorites") {
                 ProfileMenuRow(
                     icon: BTIcon.heartFilled,
+                    foregroundColor: .btPrimary,
                     title: "收藏"
                 )
             }
@@ -319,6 +318,7 @@ struct ProfileView: View {
             NavigationLink(value: "trainingGoal") {
                 ProfileMenuRow(
                     icon: BTIcon.target,
+                    foregroundColor: .btPrimary,
                     title: "训练目标",
                     detail: profile.goalSummary
                 )
@@ -340,6 +340,7 @@ struct ProfileView: View {
                 ProfileMenuRow(
                     icon: BTIcon.crown,
                     tint: .accent,
+                    usesCrownArtwork: true,
                     title: subscriptionManager.purchasedProductIDs.contains(StoreKitService.lifetimeID)
                         ? "Pro 权益" : "订阅管理",
                     detail: subscriptionManager.entitlementStatusLabel,
@@ -347,17 +348,20 @@ struct ProfileView: View {
                 )
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("profile.subscription")
         } else {
             Button { showSubscription = true } label: {
                 ProfileMenuRow(
                     icon: BTIcon.crown,
                     tint: .accent,
+                    usesCrownArtwork: true,
                     title: "订阅管理",
                     detail: "升级 Pro",
                     detailColor: .btPremiumForeground
                 )
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("profile.subscription")
         }
     }
 
@@ -380,12 +384,22 @@ struct ProfileView: View {
                 ProfileMenuRow(
                     icon: "book.closed",
                     tint: .neutral,
+                    foregroundColor: .btPrimary,
                     title: "认识球迹"
                 )
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("profile.onboarding")
+            #if DEBUG
+            Divider().padding(.leading, 56)
+            Button { showIntroStyleLab = true } label: {
+                ProfileMenuRow(icon: "rectangle.3.group", title: "引导设计预览")
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("profile.introStyleLab")
+            #endif
 
             Divider().padding(.leading, 56)
 
@@ -516,14 +530,26 @@ struct ProfileMonthlyOverviewCard: View {
 private struct ProfileMenuRow: View {
     let icon: String
     var tint: BTIconBadge.Tint = .neutral
+    var foregroundColor: Color? = nil
+    var usesCrownArtwork = false
+    @Environment(\.colorScheme) private var colorScheme
     let title: String
     var detail: String? = nil
     var detailColor: Color = .btTextSecondary
 
     var body: some View {
         HStack(spacing: Spacing.md) {
-            BTIconBadge(systemName: icon, size: 32, tint: tint)
-                .frame(width: 40)
+            Group {
+                if usesCrownArtwork {
+                    BTProfileCrown(width: 24)
+                        .frame(width: 32, height: 32)
+                        .background(tint.background(colorScheme), in: Circle())
+                } else {
+                    BTIconBadge(systemName: icon, size: 32, tint: tint, foregroundColor: foregroundColor)
+                }
+            }
+            .frame(width: 40)
+            .accessibilityHidden(true)
 
             Text(title)
                 .font(.btCallout)

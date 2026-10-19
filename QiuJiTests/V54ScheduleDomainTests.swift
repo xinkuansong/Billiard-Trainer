@@ -4,18 +4,25 @@ import SwiftData
 
 @MainActor
 final class V54ScheduleDomainTests: XCTestCase {
+    // Domain fixtures use synthetic IDs; entitlement rejection is covered by ProContentBoundaryTests.
+    private var domainAccess: ProContentAccess { ProContentAccess(decision: { _ in .allowed }, drillRequirement: { _ in false }) }
+
     private var container: ModelContainer!
     private var context: ModelContext!
     private let owner = "guest:v54-domain"
+    private var previousOwner = ""
     private let planID = "plan_beginner"
 
     override func setUp() {
         super.setUp()
+        previousOwner = CurrentOwnerContext.shared.ownerKey
+        CurrentOwnerContext.shared.setOwnerKey(owner)
         container = ModelContainerFactory.makeInMemoryContainer()
         context = container.mainContext
     }
 
     override func tearDown() {
+        CurrentOwnerContext.shared.setOwnerKey(previousOwner)
         context = nil; container = nil
         super.tearDown()
     }
@@ -53,7 +60,7 @@ final class V54ScheduleDomainTests: XCTestCase {
     func testPlanSuggestionIsOncePerDayAcrossLessonAndPlanSwitches() throws {
         var clock = Date(timeIntervalSince1970: 1_788_393_600)
         let utc = TimeZone(secondsFromGMT: 0)!
-        let service = TodayTrainingScheduleService(context: context, now: { clock }, timeZone: utc)
+        let service = TodayTrainingScheduleService(context: context, now: { clock }, timeZone: utc, access: domainAccess)
         let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
         let active = activePlan(plan: plan, ordinal: 0)
         _ = try service.addOfficialLessons(plan: plan, lessonIDs: [plan.lessons[0].id], activePlan: active)
@@ -79,7 +86,7 @@ final class V54ScheduleDomainTests: XCTestCase {
 
     func testCarryForwardDoesNotCopyTodaysCompletedPlanAgain() throws {
         var clock = Date(timeIntervalSince1970: 1_788_393_600)
-        let service = TodayTrainingScheduleService(context: context, now: { clock }, timeZone: TimeZone(secondsFromGMT: 0)!)
+        let service = TodayTrainingScheduleService(context: context, now: { clock }, timeZone: TimeZone(secondsFromGMT: 0)!, access: domainAccess)
         let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
         let active = activePlan(plan: plan, ordinal: 0)
         _ = try service.addOfficialLessons(plan: plan, lessonIDs: [plan.lessons[0].id], activePlan: active)
@@ -141,7 +148,7 @@ final class V54ScheduleDomainTests: XCTestCase {
     func test_v57_switchRestoresCursorAndIsolatesOwners() throws {
         let a = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
         let b = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: "plan_intermediate"))
-        let first = try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context)
+        let first = try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context, access: domainAccess)
         first.currentLessonId = a.lessons[2].id
         first.currentWeek = 2
         first.currentDay = 3
@@ -149,10 +156,10 @@ final class V54ScheduleDomainTests: XCTestCase {
         foreign.currentLessonId = a.lessons[1].id
         context.insert(foreign)
         try context.save()
-        let second = try PlanProgressService.activateOfficialPlan(b, ownerKey: owner, context: context)
+        let second = try PlanProgressService.activateOfficialPlan(b, ownerKey: owner, context: context, access: domainAccess)
         XCTAssertEqual(first.status, "paused")
         XCTAssertEqual(second.status, "active")
-        let restored = try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context)
+        let restored = try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context, access: domainAccess)
         XCTAssertEqual(restored.id, first.id)
         XCTAssertEqual(restored.currentLessonId, a.lessons[2].id)
         XCTAssertEqual(restored.currentWeek, 2)
@@ -160,7 +167,7 @@ final class V54ScheduleDomainTests: XCTestCase {
         XCTAssertEqual(second.status, "paused")
         XCTAssertEqual(foreign.status, "active")
         XCTAssertEqual(foreign.currentLessonId, a.lessons[1].id)
-        _ = try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context)
+        _ = try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context, access: domainAccess)
         XCTAssertEqual(try PlanProgressService.officialRecords(ownerKey: owner, context: context).count, 2)
     }
 
@@ -168,11 +175,11 @@ final class V54ScheduleDomainTests: XCTestCase {
         enum Failure: Error { case disk }
         let a = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
         let b = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: "plan_intermediate"))
-        let first = try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context)
-        let second = try PlanProgressService.activateOfficialPlan(b, ownerKey: owner, context: context)
+        let first = try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context, access: domainAccess)
+        let second = try PlanProgressService.activateOfficialPlan(b, ownerKey: owner, context: context, access: domainAccess)
         let previousDate = first.updatedAt
         XCTAssertThrowsError(try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context,
-            save: { throw Failure.disk }))
+            save: { throw Failure.disk }, access: domainAccess))
         XCTAssertEqual(first.status, "paused")
         XCTAssertEqual(first.updatedAt, previousDate)
         XCTAssertEqual(second.status, "active")
@@ -184,12 +191,12 @@ final class V54ScheduleDomainTests: XCTestCase {
     func test_v57_oldQueuedLessonCannotAdvanceNewMainline() throws {
         let a = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
         let b = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: "plan_intermediate"))
-        let old = try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context)
-        let result = try TodayTrainingScheduleService(context: context).addOfficialLessons(
+        let old = try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context, access: domainAccess)
+        let result = try TodayTrainingScheduleService(context: context, access: domainAccess).addOfficialLessons(
             plan: a, lessonIDs: [a.lessons[0].id], activePlan: old
         )
         let item = try addedItem(XCTUnwrap(result.first))
-        let current = try PlanProgressService.activateOfficialPlan(b, ownerKey: owner, context: context)
+        let current = try PlanProgressService.activateOfficialPlan(b, ownerKey: owner, context: context, access: domainAccess)
         item.state = TodayScheduleItemState.completed
         XCTAssertEqual(try PlanProgressService.settleCompletedScheduleItem(item, context: context), .none)
         XCTAssertEqual(current.currentLessonId, b.lessons[0].id)
@@ -200,7 +207,7 @@ final class V54ScheduleDomainTests: XCTestCase {
         enum Failure: Error { case disk }
         let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
         XCTAssertThrowsError(try PlanProgressService.activateOfficialPlan(plan, ownerKey: owner, context: context,
-            save: { throw Failure.disk }))
+            save: { throw Failure.disk }, access: domainAccess))
         XCTAssertTrue(try PlanProgressService.officialRecords(ownerKey: owner, context: context).isEmpty)
         XCTAssertTrue(try PlanProgressService.officialRecords(ownerKey: owner, context: ModelContext(container)).isEmpty)
     }
@@ -236,7 +243,7 @@ final class V54ScheduleDomainTests: XCTestCase {
 
     func test_v57_homeUsesLessonIdentityWhenLegacyCursorDisagrees() async throws {
         let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
-        let active = try PlanProgressService.activateOfficialPlan(plan, ownerKey: owner, context: context)
+        let active = try PlanProgressService.activateOfficialPlan(plan, ownerKey: owner, context: context, access: domainAccess)
         let stage = try XCTUnwrap(plan.stages.last)
         let lesson = try XCTUnwrap(stage.lessons.last)
         active.currentLessonId = lesson.id
@@ -263,8 +270,8 @@ final class V54ScheduleDomainTests: XCTestCase {
             let db = store.mainContext
             let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
             let lesson = plan.lessons[0]
-            let active = try PlanProgressService.activateOfficialPlan(plan, ownerKey: owner, context: db)
-            let service = TodayTrainingScheduleService(context: db, now: { date }, timeZone: TimeZone(secondsFromGMT: 0)!)
+            let active = try PlanProgressService.activateOfficialPlan(plan, ownerKey: owner, context: db, access: domainAccess)
+            let service = TodayTrainingScheduleService(context: db, now: { date }, timeZone: TimeZone(secondsFromGMT: 0)!, access: domainAccess)
             let drillID = try XCTUnwrap(lesson.phases.flatMap(\.drills).first?.drillId)
             let template = CustomPlan(name: "并列模板", sessionsPerWeek: 3, ownerKey: owner)
             template.drills = [CustomPlanDrill(drillId: drillID, drillNameZh: "同一动作", roundsPerFormation: 1, order: 0)]
@@ -310,7 +317,7 @@ final class V54ScheduleDomainTests: XCTestCase {
 
     func test_v57_projectionOtherPlanSuggestionSurvivesFreeTrainingCompletion() throws {
         let date = Date(timeIntervalSince1970: 1_788_393_600)
-        let service = TodayTrainingScheduleService(context: context, now: { date }, timeZone: TimeZone(secondsFromGMT: 0)!)
+        let service = TodayTrainingScheduleService(context: context, now: { date }, timeZone: TimeZone(secondsFromGMT: 0)!, access: domainAccess)
         let item = try addedItem(service.addLibraryDrill(id: "drill_c001", title: "直线球", ownerKey: owner))
         let suggestion = TodaySessionInfo(planId: "plan_beginner", planNameZh: "基本功", weekNumber: 1,
             dayNumber: 1, weekTheme: "阶段", totalMinutes: 20, drills: [], isFromTemplate: false,
@@ -358,7 +365,7 @@ final class V54ScheduleDomainTests: XCTestCase {
 
     func test_v57_projectionCorruptionCannotLookLikeAnEmptyCompletedLesson() throws {
         let date = Date(timeIntervalSince1970: 1_788_393_600)
-        let service = TodayTrainingScheduleService(context: context, now: { date }, timeZone: TimeZone(secondsFromGMT: 0)!)
+        let service = TodayTrainingScheduleService(context: context, now: { date }, timeZone: TimeZone(secondsFromGMT: 0)!, access: domainAccess)
         let item = try addedItem(service.addLibraryDrill(id: "drill_c001", title: "直线球", ownerKey: owner))
         item.payloadSnapshot = Data("invalid".utf8)
         item.state = TodayScheduleItemState.completed
@@ -385,9 +392,9 @@ final class V54ScheduleDomainTests: XCTestCase {
             let template = CustomPlan(name: "冻结标题", sessionsPerWeek: 3, ownerKey: owner)
             template.drills = [CustomPlanDrill(drillId: "drill_c001", drillNameZh: "直线球", roundsPerFormation: 2, order: 0)]
             db.insert(template)
-            let service = TodayTrainingScheduleService(context: db, now: { date }, timeZone: TimeZone(secondsFromGMT: 0)!)
+            let service = TodayTrainingScheduleService(context: db, now: { date }, timeZone: TimeZone(secondsFromGMT: 0)!, access: domainAccess)
             let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
-            let active = try PlanProgressService.activateOfficialPlan(plan, ownerKey: owner, context: db)
+            let active = try PlanProgressService.activateOfficialPlan(plan, ownerKey: owner, context: db, access: domainAccess)
             _ = try service.addOfficialLessons(plan: plan, lessonIDs: [plan.lessons[0].id], activePlan: active)
             let result = try service.addTemplate(template)
             let item: TodayScheduleItem
@@ -422,7 +429,7 @@ final class V54ScheduleDomainTests: XCTestCase {
     func test_v57_projectionAbandonAndDeleteRemovePendingDenominator() throws {
         let date = Date(timeIntervalSince1970: 1_788_393_600)
         let utc = TimeZone(secondsFromGMT: 0)!
-        let service = TodayTrainingScheduleService(context: context, now: { date }, timeZone: utc)
+        let service = TodayTrainingScheduleService(context: context, now: { date }, timeZone: utc, access: domainAccess)
         let a = try addedItem(service.addLibraryDrill(id: "drill_c001", title: "a", ownerKey: owner))
         let b = try addedItem(service.addLibraryDrill(id: "drill_c002", title: "b", ownerKey: owner))
         let schedule = try XCTUnwrap(a.schedule)
@@ -443,8 +450,8 @@ final class V54ScheduleDomainTests: XCTestCase {
         let date = Date(timeIntervalSince1970: 1_788_393_600)
         let utc = TimeZone(secondsFromGMT: 0)!
         let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
-        let active = try PlanProgressService.activateOfficialPlan(plan, ownerKey: owner, context: context)
-        let service = TodayTrainingScheduleService(context: context, now: { date }, timeZone: utc)
+        let active = try PlanProgressService.activateOfficialPlan(plan, ownerKey: owner, context: context, access: domainAccess)
+        let service = TodayTrainingScheduleService(context: context, now: { date }, timeZone: utc, access: domainAccess)
         let results = try service.addOfficialLessons(plan: plan, lessonIDs: [plan.lessons[0].id], activePlan: active)
         let item = try addedItem(XCTUnwrap(results.first))
         let block = try ScheduledTrainingBlock(item: item)
@@ -521,7 +528,7 @@ final class V54ScheduleDomainTests: XCTestCase {
             context: context,
             now: { Date(timeIntervalSince1970: 1_788_393_600) },
             timeZone: TimeZone(secondsFromGMT: 0)!
-        )
+        , access: domainAccess)
         let selected = Set([plan.lessons[4].id, plan.lessons[6].id])
         let first = try service.addOfficialLessons(plan: plan, lessonIDs: selected, activePlan: active)
         XCTAssertEqual(first.count, 2)
@@ -549,7 +556,7 @@ final class V54ScheduleDomainTests: XCTestCase {
     func test_persistentSettlement_handlesReverseOrder_finalCompletion_andReplay() throws {
         let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
         let active = activePlan(plan: plan, ordinal: 4)
-        let service = TodayTrainingScheduleService(context: context)
+        let service = TodayTrainingScheduleService(context: context, access: domainAccess)
         _ = try service.addOfficialLessons(
             plan: plan,
             lessonIDs: [plan.lessons[4].id, plan.lessons[5].id],
@@ -586,7 +593,7 @@ final class V54ScheduleDomainTests: XCTestCase {
     }
 
     func test_reorderDoesNotChangeFrozenRole_andStartedItemCannotBeDeleted() throws {
-        let service = TodayTrainingScheduleService(context: context)
+        let service = TodayTrainingScheduleService(context: context, access: domainAccess)
         let first = try addedItem(service.addLibraryDrill(id: "drill_c001", title: "直线球",
                                                           ownerKey: owner))
         let second = try addedItem(service.addLibraryDrill(id: "drill_c002", title: "定杆",
@@ -606,7 +613,7 @@ final class V54ScheduleDomainTests: XCTestCase {
     func test_crossDayArchivesWithoutAutoCarry_thenCopiesFreshItems() throws {
         var clock = Date(timeIntervalSince1970: 1_788_393_600)
         let utc = TimeZone(secondsFromGMT: 0)!
-        let service = TodayTrainingScheduleService(context: context, now: { clock }, timeZone: utc)
+        let service = TodayTrainingScheduleService(context: context, now: { clock }, timeZone: utc, access: domainAccess)
         let oldItem = try addedItem(service.addLibraryDrill(id: "drill_c010", title: "定杆",
                                                             ownerKey: owner))
         let yesterday = try XCTUnwrap(oldItem.schedule)
@@ -674,5 +681,90 @@ final class V54ScheduleDomainTests: XCTestCase {
         case .added(let item): return item
         case .alreadyPresent: throw XCTSkip("expected a newly added item")
         }
+    }
+}
+
+
+/// Exercises authorization at write and session boundaries, independently of presentation locks.
+@MainActor
+final class ProContentBoundaryTests: XCTestCase {
+    private var premium = false
+    private var store: ModelContainer!
+    private var db: ModelContext { store.mainContext }
+    private var access: ProContentAccess {
+        ProContentAccess(decision: { [unowned self] required in
+            required && !self.premium ? .requiresPro : .allowed
+        }, drillRequirement: { id in
+            guard id == "drill_c001" || id == "drill_c002" else { return nil }
+            return id == "drill_c002"
+        })
+    }
+    override func setUp() {
+        super.setUp()
+        premium = false
+        store = ModelContainerFactory.makeInMemoryContainer()
+    }
+    override func tearDown() { store = nil; super.tearDown() }
+
+    func testDeniedLibraryInsertionLeavesNoEmptySchedule() throws {
+        let service = TodayTrainingScheduleService(context: db, access: access)
+        XCTAssertThrowsError(try service.addLibraryDrill(id: "drill_c002", title: "Pro", ownerKey: CurrentOwnerContext.shared.ownerKey))
+        XCTAssertEqual(try db.fetchCount(FetchDescriptor<TodayTrainingSchedule>()), 0)
+        XCTAssertEqual(try db.fetchCount(FetchDescriptor<TodayScheduleItem>()), 0)
+        XCTAssertThrowsError(try access.requireDrills(["unknown"]))
+    }
+
+    func testMixedTemplateDenialDoesNotPartiallyWrite() throws {
+        let template = CustomPlan(name: "混合", sessionsPerWeek: 1)
+        db.insert(template)
+        template.drills = [CustomPlanDrill(drillId: "drill_c001", drillNameZh: "免费", roundsPerFormation: 1, order: 0),
+                           CustomPlanDrill(drillId: "drill_c002", drillNameZh: "Pro", roundsPerFormation: 1, order: 1)]
+        try db.save()
+        XCTAssertThrowsError(try TodayTrainingScheduleService(context: db, access: access).addTemplate(template))
+        XCTAssertEqual(try db.fetchCount(FetchDescriptor<TodayTrainingSchedule>()), 0)
+        XCTAssertEqual(template.drills.count, 2)
+    }
+
+    func testExpiryKeepsStartedCourseButRejectsNextAndRelaunch() async throws {
+        premium = true
+        let service = TodayTrainingScheduleService(context: db, access: access)
+        _ = try service.addLibraryDrill(id: "drill_c001", title: "免费", ownerKey: CurrentOwnerContext.shared.ownerKey)
+        _ = try service.addLibraryDrill(id: "drill_c002", title: "Pro", ownerKey: CurrentOwnerContext.shared.ownerKey)
+        let schedule = try XCTUnwrap(try service.today(ownerKey: CurrentOwnerContext.shared.ownerKey))
+        let items = schedule.items.sorted { $0.orderIndex < $1.orderIndex }
+        // Start Pro first. The second course independently requires Pro too.
+        let paid = try ScheduledTrainingBlock(item: items[1])
+        let another = TodayScheduleItem(orderIndex: 2, sourceKind: items[1].sourceKind,
+            sourceId: "second", sourceTitleSnapshot: "下一课", payloadSnapshot: items[1].payloadSnapshot,
+            progressRole: TodayScheduleProgressRole.neutral)
+        db.insert(another); another.schedule = schedule
+        let next = try ScheduledTrainingBlock(item: another)
+        let vm = ActiveTrainingViewModel(mode: .scheduledSequence([paid, next]), access: access)
+        await vm.loadDrills()
+        XCTAssertFalse(vm.drills.isEmpty)
+        premium = false
+        XCTAssertTrue(vm.authorizeDrill(at: 0))
+        let nextIndex = paid.drills.count
+        XCTAssertFalse(vm.authorizeDrill(at: nextIndex))
+        vm.completeSet(drillIndex: 0, setIndex: 0)
+        vm.saveTraining(context: db)
+        XCTAssertTrue(vm.didSaveSuccessfully, vm.saveError ?? "")
+        XCTAssertEqual(try db.fetchCount(FetchDescriptor<TrainingSession>()), 1)
+        XCTAssertEqual(another.state, TodayScheduleItemState.pending)
+        let relaunched = ActiveTrainingViewModel(mode: .scheduled(paid), access: access)
+        await relaunched.loadDrills()
+        XCTAssertTrue(relaunched.drills.isEmpty)
+        XCTAssertNotNil(relaunched.saveError)
+    }
+
+    func testAccountSwitchInvalidatesRunningSession() async throws {
+        let vm = ActiveTrainingViewModel(mode: .free, access: access)
+        await vm.loadDrills()
+        let owner = CurrentOwnerContext.shared.ownerKey
+        defer { CurrentOwnerContext.shared.setOwnerKey(owner) }
+        CurrentOwnerContext.shared.useAccount(userID: "different-owner")
+        vm.saveTraining(context: db)
+        XCTAssertFalse(vm.didSaveSuccessfully)
+        XCTAssertEqual(try db.fetchCount(FetchDescriptor<TrainingSession>()), 0)
     }
 }

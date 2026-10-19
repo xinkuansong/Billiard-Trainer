@@ -189,13 +189,15 @@ struct BTIconBadge: View {
     var glyphRatio: CGFloat = 0.5
     var weight: Font.Weight = .semibold
     var tint: Tint = .primary
+    /// Override only the glyph; retain the chosen badge background.
+    var foregroundColor: Color? = nil
 
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         Image(systemName: systemName)
             .font(.system(size: size * glyphRatio, weight: weight))
-            .foregroundStyle(tint.foreground)
+            .foregroundStyle(foregroundColor ?? tint.foreground)
             .frame(width: size, height: size)
             .background(tint.background(scheme))
             .clipShape(Circle())

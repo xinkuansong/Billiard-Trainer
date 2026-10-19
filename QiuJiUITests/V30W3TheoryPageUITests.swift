@@ -10,8 +10,8 @@ import XCTest
 /// 截图落盘 `build/v30-w3-screenshots/`。
 final class V30W3TheoryPageUITests: XCTestCase {
 
-    private let outDir = URL(
-        fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v30-w3-screenshots"
+    private let outDir = TheoryFigureEvidence.outputDirectory(
+        fallback: "/Users/song/projects/13.billiard_trainer/build/v30-w3-screenshots"
     )
 
     private var app: XCUIApplication!
@@ -19,7 +19,7 @@ final class V30W3TheoryPageUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
-        app = XCUIApplication.launchClean()
+        app = XCUIApplication.launchClean(extraArgs: ["-v51.followSystemAppearance"])
     }
 
     func testV30W3_TheoryPagesLight() {

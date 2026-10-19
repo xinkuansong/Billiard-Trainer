@@ -262,7 +262,7 @@ extension AngleTrainingScene {
         stick.setFadeOpacity(1)
 
         // Freeze the preference for this shot; a settings change applies to the next one.
-        let rehearses = rehearsalEnabled ?? CueRehearsalPreference.isEnabled()
+        let rehearses = rehearsalEnabled ?? tablePreferences?.enabled(.rehearsal) ?? CueRehearsalPreference.isEnabled()
         let contactDur = CueStroke.totalDuration(velocity: velocity, rehearsalEnabled: rehearses)
         let toContact = SCNAction.customAction(duration: contactDur) { _, elapsed in
             drive(CueStroke.pullBack(at: TimeInterval(elapsed), velocity: velocity, rehearsalEnabled: rehearses))

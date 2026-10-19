@@ -9,7 +9,8 @@ struct AngleDynamicView: View {
     @AppStorage(PracticeStorageKey.angleDynamicHasDraggedOnce) private var hasDraggedOnce = false
 
     var body: some View {
-        BTTeachingTablePage(vm: vm, titleLabel: "角度与瞄准", identifier: "angleDynamic",
+        BTTeachingTablePage(vm: vm, titleLabel: "角度与瞄准", identifier: "angleDynamic", preferencePage: .angleDynamic,
+            leftControlGroup: .information,
             displayMenuItems: [
                 .init(id: "angleDynamic.aimLine", title: "瞄准线", selected: vm.showsAimLine,
                       action: { vm.showsAimLine.toggle() }),
@@ -26,6 +27,15 @@ struct AngleDynamicView: View {
             title: { EmptyView() }, leftContent: { _ in primaryMetricChip }, status: { EmptyView() },
             onPalettePlace: { vm.placeFromPalette($0, atWorld: $1) },
             onFirstDrag: { hasDraggedOnce = true })
+        #if DEBUG
+        .overlay(alignment: .bottom) {
+            if DailyLayoutProbe.enabled {
+                Color.clear.frame(width: 1, height: 1).allowsHitTesting(false)
+                    .accessibilityElement().accessibilityIdentifier("angleDynamic.layoutState")
+                    .accessibilityValue("target=\(vm.selectedTargetKey ?? "none") pocket=\(vm.selectedPocketIndex) aim=\(vm.showsAimLine) pot=\(vm.showsPotLine) ghost=\(vm.showsGhost3D) aimPipe=\(vm.showsAimPipe) potPipe=\(vm.showsPotPipe)")
+            }
+        }
+        #endif
     }
 
     /// Teaching guidance remains visible for its underlying state; changing its

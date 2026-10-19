@@ -28,6 +28,7 @@ struct TrainingSourceBreadcrumbModel: Equatable {
 }
 
 struct TrainingDetailView: View {
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     let sessionId: UUID
     let ownerKey: String
 
@@ -52,6 +53,12 @@ struct TrainingDetailView: View {
     @State private var revision = 0
 
     var body: some View {
+        ProAccessGate(requiresPremium: session.map { !HistoryAccessController.isAccessible($0, isPremium: false) } ?? false) {
+            authorizedContent
+        }
+    }
+
+    private var authorizedContent: some View {
         Group {
             if let session {
                 if session.isManualTraining {
@@ -494,6 +501,9 @@ struct TrainingDetailView: View {
 
     private func saveNote() {
         guard let session else { return }
+        guard HistoryAccessController.isAccessible(session, isPremium: subscriptionManager.isPremium) else {
+            actionError = "此记录已超出免费历史范围，请先恢复 Pro 权益"; return
+        }
         session.note = editingNote
         do {
             try modelContext.save()
@@ -513,6 +523,7 @@ struct TrainingDetailView: View {
     /// 返回 nil 表示成功；失败时回滚并把原因交回编辑器展示，不吞错。
     private func saveTrainingData(_ draft: TrainingDataDraft) -> String? {
         guard let session else { return "训练记录已不存在。" }
+        guard HistoryAccessController.isAccessible(session, isPremium: subscriptionManager.isPremium) else { return "此记录已超出免费历史范围，请先恢复 Pro 权益" }
         do {
             try draft.apply(to: session)
             try modelContext.save()

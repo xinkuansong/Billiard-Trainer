@@ -13,9 +13,9 @@ struct TheoryT07View: View {
             VStack(spacing: Spacing.xxl) {
                 TheoryPageHeader(
                     pageID: .t07,
-                    headline: "球团要尽早识别、尽早处理",
-                    detail: "由能自然路过它的球去碰开，用最低必要力度；绝不在低成功率球上去破，绝不留到收官三球。",
-                    caption: "桌上有至少一个球团时永远适用。球团：两颗及以上几乎相邻，或相互挡住进球 / 走位。"
+                    headline: "尽早看见球团，选好时机再处理",
+                    detail: "先判断哪些球真的妨碍清台，再找能顺路碰开的机会。准备进攻时，尽量趁备用球还多处理难题；没有可靠后续时，也可以保留球团用于防守。",
+                    caption: "球团不只指靠在一起的球，也包括相互挡住进球或走位的组合。靠得近，不一定需要碰开。"
                 )
 
                 whyItWorks
@@ -37,19 +37,19 @@ struct TheoryT07View: View {
     // MARK: - 为什么要早处理（T07 §2）
 
     private var whyItWorks: some View {
-        LearnDocSectionCard(title: "不确定性放在前面消解") {
-            LearnDocText.body("球团是清台里最大的不确定性——破开后球落到哪里几乎不可预测。把难题放在你还有很多备用球时解决；留到最后，等于在关键球阶段引入随机性，几乎必败。")
+        LearnDocSectionCard(title: "为什么通常要提前考虑") {
+            LearnDocText.body("碰开球团后，球的位置会变化，原来的路线也可能跟着改变。桌上还有可用球时处理，比较容易找到下一杆；把所有散球打完才碰，选择就少了。因此要尽早安排，未必是上来第一杆就碰。")
 
             ClusterPhaseFigure()
                 .frame(height: 250)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
                 .accessibilityElement(children: .ignore)
                 .accessibilityIdentifier("theoryT07.phaseFigure")
-                .accessibilityLabel("球团处理三段：识别所有球团并排优先级；绑定路过球与保险球；顺序上必须排在关键球之前。")
+                .accessibilityLabel("球团处理三段：识别问题球，寻找碰球机会和保险球，再安排合适的处理顺序。")
 
-            LearnDocText.footnote("「保险球」是必备的承转球：万一球团没破开或破得不好，仍有一颗备用入袋球能继续清台。")
+            LearnDocText.footnote("保险球是碰开后仍有希望接着打的备用球。要看母球可能停在哪里，以及通道会不会被挡，不能只挑一颗离袋近的球就算有保险。")
 
-            LearnDocText.body("早期消解给你多颗球的容错；晚期消解只剩一两颗容错。给高方差操作配一个低方差备份，整盘的把握才抬得起来。")
+            LearnDocText.body("处理前想两种结果：顺利散开后打谁；只松开一点，或母球被挡住时怎么办。能预留后续选择，才是真正降低了这次碰球的风险。")
         }
     }
 
@@ -60,19 +60,19 @@ struct TheoryT07View: View {
             TheoryNumberedList(steps: [
                 .init(
                     "识别",
-                    detail: "扫桌时标出所有球团，估计每个里被埋住的关键球。优先级：埋住未来关键球的 → 挡死己方多颗球的 → 挡袋的 → 单纯挡走位的。"
+                    detail: "先找不能直接进袋、挡住必要通道或影响关键衔接的球。根据清台计划判断先处理哪组，不按外观紧不紧来决定。"
                 ),
                 .init(
                     "绑定",
-                    detail: "为每个球团找一颗「路过的承转球」——它的母球落位自然带母球去碰开球团；同时找保险球。没有保险球时，推迟处理，先称风险。"
+                    detail: "寻找进球后母球能顺路碰到球团的球，同时保留保险球。看清接触球团的哪一侧，以及母球会继续走还是容易被夹住。"
                 ),
                 .init(
                     "顺序",
-                    detail: "倒推规划里，球团处理点必须排在关键球之前。力度若需要中重及以上，降到中等档——破开就行，不必散得很远。"
+                    detail: "尽量在收尾前处理，以便重新安排路线。力度以足够打开所需通道为准；太轻打不开，太重可能撞乱好球，要结合接触位置和后续落点选择。"
                 ),
             ])
             LearnDocFormulaNest(title: "优先级一句话") {
-                LearnDocText.footnote("先破「埋住未来关键球」或「挡死必入球」的；后破轻微球团。")
+                LearnDocText.footnote("先解决真正挡住计划的问题；能直接打、能绕开或对防守有用的球团，不必为了散开而散开。")
             }
         }
     }
@@ -80,12 +80,12 @@ struct TheoryT07View: View {
     // MARK: - 四禁忌（T07 §5）
 
     private var taboos: some View {
-        LearnDocSectionCard(title: "四禁忌") {
+        LearnDocSectionCard(title: "四件容易忽略的事") {
             TheoryNumberedList(steps: [
-                .init("别用最后一颗普通球去破", detail: "那颗不是承转球，破完往往无路可走。"),
-                .init("别留到剩三颗及以下", detail: "收官三球阶段再破球团，容错几乎为零。"),
-                .init("别在低成功率球上破", detail: "打不进又破不好，双重损失——该想防守。"),
-                .init("别朝被堵袋口方向破", detail: "也不要打得让己方关键球被堵住。"),
+                .init("留下后续选择", detail: "用掉最后一颗散球前，确认碰开后仍有可打的球，或有能接受的防守结果。"),
+                .init("别无意拖到收尾", detail: "剩球越少，补救选择通常越少。确实要晚处理，应当有明确的接近路线和后续安排。"),
+                .init("把进球和碰球一起评估", detail: "进球本身已经困难时，再承担破球团任务，整杆风险会增加；与防守或先改善位置比较。"),
+                .init("看球会散向哪里", detail: "避免把球推向堵住的袋口、压住关键球，或让母球进入容易被挡的位置。"),
             ])
         }
     }
@@ -94,10 +94,10 @@ struct TheoryT07View: View {
 
     private var scope: some View {
         LearnDocSectionCard(title: "什么时候可以松、什么时候别破") {
-            LearnDocText.body("破解会破坏关键球安排时（罕见），可推迟一杆。小球团且余球丰富，可以等到周围散球清完再破。")
-            LearnDocText.body("没有保险球时：唯一选择是专门用一杆破，并接受随机性——先称「值不值得冒险」。")
-            LearnDocText.body("本方没有清台路径时，球团反而是宝贵的母球藏身资源——此时不应主动破，留作防守用。")
-            LearnDocText.body("有一种极端说法：球团没解前不打任何能进的球。球多时可能太激进、会留太多球妨碍走位——只作重球团局面的指导，不作硬规则。")
+            LearnDocText.body("当前接近角不好，或碰开会撞乱已经安排好的球时，可以先换位置。提前清掉挡路的散球也有意义，但不要顺手把保险球一起打没了。")
+            LearnDocText.body("没有保险球时，先比较能否创造更好的机会、边处理边防守，或暂时不动球团。直接碰开只是选项之一，不是唯一选择。")
+            LearnDocText.body("本方暂时没有清台路径时，球团可能限制对手，也可能用来遮挡母球。主动打开之前，要同时看它会给对手带来什么机会。")
+            LearnDocText.body("「尽早处理」是一种安排顺序的提醒，不是必须马上破球的命令。先把需要解决的问题看清，再选能完成任务、后果可控的时机。")
         }
     }
 
@@ -106,15 +106,15 @@ struct TheoryT07View: View {
     private static let mistakes: [TheoryMistakeCard.Mistake] = [
         .init(
             wrong: "上台扫桌时忽略球团",
-            right: "球团是最大不确定性。没在识别阶段标出来，后面的倒推全是空中楼阁。"
+            right: "先找出妨碍进球与衔接的球，再规划顺序，避免打到一半才发现路线不通。"
         ),
         .init(
             wrong: "用最后一颗散球去砸球团",
-            right: "破完往往无路可走。要用能自然路过的承转球，并先备好保险球。"
+            right: "先看碰开后还能打谁。尽量保留保险球；没有可靠后续时，比较能否换时机处理，或边处理边防守。"
         ),
         .init(
             wrong: "用最重的力度砸开",
-            right: "力度过大，母球失控、球落死角。破开就行，优先最低必要力度；需要中重时也降到中等档。"
+            right: "先选接触位置，再选足够打开通道的力度。不能盲目加大，也不能把所有碰球一律降成中等力度。"
         ),
     ]
 
@@ -127,33 +127,33 @@ struct TheoryT07View: View {
                 .foregroundStyle(.btText)
 
             PracticeCTA(
-                title: "破不开时先称风险",
-                destination: "风险报酬决策矩阵：低成功率球上破球团，先过三问",
+                title: "比较碰开后的收益与代价",
+                destination: "风险报酬决策矩阵：把进球、走位和失败后果一起考虑",
                 route: .theoryPage(.t08)
             )
 
             LearnDocTextLink(
                 title: "反向规划",
-                subtitle: "球团是倒推里的先决约束",
+                subtitle: "把处理问题球的机会放进顺序里",
                 route: .theoryPage(.t05)
             )
             LearnDocTextLink(
                 title: "关键球原理",
-                subtitle: "球团不能埋住关键球；破解排在关键球之前",
+                subtitle: "处理球团时保留收尾所需的衔接",
                 route: .theoryPage(.t06)
             )
             LearnDocTextLink(
                 title: "安全球三维度模型",
-                subtitle: "清不了时，球团可作障碍球维度的藏身资源",
+                subtitle: "没有清台路线时，看看球团的防守价值",
                 route: .theoryPage(.t10)
             )
             LearnDocTextLink(
                 title: "母球速度分级",
-                subtitle: "破球团用最低必要力度，靠出杆长度控档",
+                subtitle: "选足够完成任务、又容易重复的力度",
                 route: .theoryPage(.t04)
             )
 
-            LearnDocText.footnote("这一条还没有绑定专门的跟练题目：开球后先标球团与保险球，再想关键球，最见效。")
+            LearnDocText.footnote("练习时先说明要打开哪条通道、碰开后准备打谁，再观察实际结果，逐步熟悉接触位置与力度的配合。")
         }
     }
 }
@@ -165,7 +165,7 @@ private struct ClusterPhaseFigure: View {
     private static let phases = [
         ("① 识别", "标球团\n排优先级"),
         ("② 绑定", "路过球\n+ 保险球"),
-        ("③ 顺序", "排在\n关键球前"),
+        ("③ 顺序", "安排时机\n保留后续"),
     ]
 
     var body: some View {
@@ -223,7 +223,7 @@ private struct ClusterPhaseFigure: View {
                     .position(x: xs[i], y: y)
                 }
 
-                Text("没有保险球 → 推迟 + 先称风险")
+                Text("没有保险球 → 先比较风险与替代方案")
                     .font(.btCaption2)
                     .foregroundStyle(.btWarning)
                     .position(x: w * 0.50, y: h * 0.84)

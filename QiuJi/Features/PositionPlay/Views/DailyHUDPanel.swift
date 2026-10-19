@@ -90,7 +90,8 @@ struct DailyHUDMenuItem: Identifiable {
     let title: String
     var detail: String? = nil
     var segments: [String] = []
-    var selected = false
+    /// nil is an action/navigation row; false is an explicitly unselected choice.
+    var selected: Bool? = nil
     var disclosure = false
     var disabled = false
     var action: (() -> Void)? = nil
@@ -192,8 +193,16 @@ struct DailyHUDMenuPanel: View {
                             } else if let detail = item.detail {
                                 Text(detail).foregroundStyle(followsAppearance ? Color.btTextSecondary : .white.opacity(0.7))
                             }
-                            if item.selected { Image(systemName: "checkmark").foregroundStyle(HUDStyle.accent) }
-                            if item.disclosure { Image(systemName: "chevron.right").foregroundStyle(followsAppearance ? Color.btTextSecondary : .white.opacity(0.6)) }
+                            if let selected = item.selected {
+                                BTSelectionIndicator(isSelected: selected,
+                                    selectedColor: followsAppearance ? .btPrimary : HUDStyle.accent,
+                                    unselectedColor: followsAppearance ? .btTextSecondary : .white.opacity(0.6))
+                            }
+                            if item.disclosure {
+                                Image(systemName: "chevron.right")
+                                    .foregroundStyle(followsAppearance ? Color.btTextSecondary : .white.opacity(0.6))
+                                    .frame(width: 20).accessibilityHidden(true)
+                            }
                         }
                         .font(.subheadline)
                         .padding(.horizontal, 16).padding(.vertical, 8)
@@ -203,7 +212,8 @@ struct DailyHUDMenuPanel: View {
                     .disabled(item.disabled)
                     .opacity(item.disabled ? 0.4 : 1)
                     .accessibilityIdentifier(item.id)
-                    .accessibilityValue(item.selected ? "已选" : (item.detail ?? ""))
+                    .accessibilityValue(item.selected.map { $0 ? "已选" : "未选" } ?? (item.detail ?? ""))
+                    .accessibilityAddTraits(item.selected == true ? .isSelected : [])
                 } else {
                     Text(item.title).font(.caption).foregroundStyle(followsAppearance ? Color.btTextSecondary : .white.opacity(0.6))
                         .frame(maxWidth: .infinity, alignment: .leading)

@@ -1,6 +1,112 @@
 import SwiftUI
 import StoreKit
 
+enum ProBenefits {
+    struct Item: Identifiable {
+        let id: String
+        let number: String
+        let title: String
+        let subtitle: String
+    }
+
+    static let premium: [Item] = [
+        .init(id: "drills", number: "01", title: "进阶动作与精讲", subtitle: "解锁 Pro 动作与配套精讲，理解练习要点与走位思路。"),
+        .init(id: "plans", number: "02", title: "官方进阶计划", subtitle: "围绕准度、杆法与走位，按计划安排专项练习。"),
+        .init(id: "aiming", number: "03", title: "3D 角度与瞄准训练", subtitle: "从立体视角判断角度与瞄准点，相关判断训练不限次数。"),
+        .init(id: "atlases", number: "04", title: "分离角与加塞吃库图谱", subtitle: "对比不同打点下的球路变化，帮助理解母球路线。"),
+        .init(id: "snake", number: "05", title: "蛇彩练习", subtitle: "在连续击球中练习力度控制与走位衔接。"),
+        .init(id: "position", number: "06", title: "自由走位推演", subtitle: "调整球形与击球参数，观察、比较走位路线。"),
+        .init(id: "three", number: "07", title: "打一走二想三", subtitle: "把当前进球与后续走位连起来，练习多杆规划。"),
+        .init(id: "safety", number: "08", title: "防守推演", subtitle: "结合球形观察防守线路，练习进攻之外的选择。"),
+        .init(id: "photo", number: "09", title: "拍照建球形", subtitle: "将球桌照片转成可继续编辑和推演的球形。"),
+        .init(id: "history", number: "10", title: "训练统计与长期回顾", subtitle: "查看训练趋势，回看超过最近 60 天的训练记录详情。"),
+        .init(id: "bank", number: "11", title: "翻袋解球", subtitle: "选择目标袋口，推演一至三库线路，练习翻袋与吃库判断。"),
+        .init(id: "diamond", number: "12", title: "颗星公式解球", subtitle: "结合颗星刻度与公式，理解瞄准点和吃库线路的关系。")
+    ]
+}
+
+/// Shared editorial presentation for the purchase and membership-status pages.
+struct ProBenefitsSections: View {
+    let isUnlocked: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xxxl) {
+            section(title: "Pro 专属权益", detail: isUnlocked ? "以下 \(ProBenefits.premium.count) 项进阶权益已解锁" : "解锁以下 \(ProBenefits.premium.count) 项进阶内容与工具",
+                    items: ProBenefits.premium)
+        }
+    }
+
+    private func section(title: String, detail: String, items: [ProBenefits.Item]) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.xxl) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text(title).font(.btProSection).foregroundStyle(Color("introLabWhite"))
+                    .accessibilityAddTraits(.isHeader)
+                Text(detail).font(.btProBody).foregroundStyle(Color("introLabMuted"))
+            }
+            ForEach(items) { item in
+                HStack(alignment: .top, spacing: Spacing.lg) {
+                    Text(item.number).font(.btProCaption).monospacedDigit()
+                        .foregroundStyle(Color("introLabMuted"))
+                        .fixedSize(horizontal: true, vertical: false)
+                        .frame(minWidth: Spacing.xxl, alignment: .leading)
+                        .padding(.top, Spacing.xs)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
+                        Text(item.title).font(.btProHeadline)
+                            .foregroundStyle(Color("introLabWhite"))
+                        Text(item.subtitle).font(.btProBody)
+                            .foregroundStyle(Color("introLabMuted"))
+                            .lineSpacing(Spacing.xs)
+                        Text(isUnlocked ? "PRO · 已解锁" : "PRO")
+                            .font(.btProCaption)
+                            .foregroundStyle(Color.btPremiumOnDark)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("subscription.feature.\(item.id)")
+            }
+        }
+        .padding(.top, Spacing.xxl)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color("introLabWhite").opacity(0.12)).frame(height: 1)
+        }
+    }
+}
+
+struct ProBrandHero: View {
+    let title: String
+    let detail: String
+
+    var body: some View {
+        VStack(spacing: Spacing.lg) {
+            Image("BrandLogoMark").resizable().scaledToFit()
+                .frame(width: 88, height: 88).accessibilityHidden(true)
+            VStack(spacing: Spacing.sm) {
+                Text(title).font(.btProTitle).foregroundStyle(Color("introLabWhite"))
+                    .accessibilityAddTraits(.isHeader)
+                Text("让每一杆，都更有把握。")
+                    .font(.btProHeadline).foregroundStyle(Color.btOverviewDays)
+            }
+            Text(detail).font(.btProBody).foregroundStyle(Color("introLabMuted"))
+        }
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Spacing.xxl)
+    }
+}
+
+struct ProBrandButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        BTProUnlockButtonStyle(font: .btProHeadline, minHeight: 56)
+            .makeBody(configuration: configuration)
+            // Subscription pages retain their always-dark brand background.
+            .environment(\.colorScheme, .dark)
+    }
+}
+
 struct SubscriptionView: View {
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @EnvironmentObject private var authState: AuthState
@@ -13,13 +119,7 @@ struct SubscriptionView: View {
     @State private var showLogin = false
     @State private var pendingLoginUser: AppUser?
 
-    private let benefits: [(icon: String, title: String, subtitle: String)] = [
-        ("books.vertical", "完整动作与进阶计划", "解锁 Pro 动作、精讲与官方进阶计划"),
-        ("scope", "3D 判断训练", "练习角度与瞄准点，相关判断训练不限次数"),
-        ("point.3.connected.trianglepath.dotted", "进阶球路图谱", "分离角与加塞吃库，比较不同打点的路线"),
-        ("point.topleft.down.to.point.bottomright.curvepath", "进阶推演工具", "自由走位、多杆规划、防守与拍照建球形"),
-        ("chart.bar", "统计与长期回顾", "查看训练趋势与更长时间的历史记录")
-    ]
+    @State private var purchaseMessage = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -27,28 +127,32 @@ struct SubscriptionView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.xl) {
                     heroSection
-                    featuresList
                     pricingSection
+                    featuresList
                     legalSection
                     #if DEBUG && targetEnvironment(simulator)
                     simulatorUnlockSection
                     #endif
                 }
-                .padding(Spacing.lg)
+                .padding(.horizontal, Spacing.xxl)
+                .padding(.bottom, Spacing.xxl)
                 .frame(maxWidth: 600)
                 .frame(maxWidth: .infinity)
             }
             .accessibilityIdentifier("subscription.scroll")
         }
-        .background { BTBlueprintBackground(style: .profile).ignoresSafeArea() }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             subscribeButton
-                .padding(.horizontal, Spacing.lg)
+                .padding(.horizontal, Spacing.xxl)
                 .padding(.vertical, Spacing.md)
                 .frame(maxWidth: 600)
                 .frame(maxWidth: .infinity)
-                .background(Color.btBG)
+                .background(Color("introLabBackground"))
         }
+        .background { IntroBackground() }
+        .environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark)
+        .tint(Color.btOverviewDays)
         .task {
             await subscriptionManager.loadProducts()
             selectAvailableProduct()
@@ -69,10 +173,10 @@ struct SubscriptionView: View {
         } message: {
             Text(restoreMessage)
         }
-        .alert("购买失败", isPresented: $showPurchaseErrorAlert) {
+        .alert("购买状态", isPresented: $showPurchaseErrorAlert) {
             Button("确定") {}
         } message: {
-            Text(subscriptionManager.errorMessage ?? "购买未完成，请稍后重试")
+            Text(purchaseMessage)
         }
     }
 
@@ -80,23 +184,19 @@ struct SubscriptionView: View {
         HStack(spacing: Spacing.md) {
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
-                    .font(.btBodyMedium)
+                    .font(.btProHeadline)
                     .foregroundStyle(.btTextSecondary)
                     .frame(width: 44, height: 44)
-                    .background(Color.btBGSecondary, in: Circle())
             }
             .accessibilityLabel("关闭")
             .accessibilityIdentifier("subscription.close")
-            Text("球迹 Pro")
-                .font(.btHeadline)
-                .foregroundStyle(.btText)
             Spacer(minLength: Spacing.sm)
             Button("恢复购买") {
-                if authState.isLoggedIn { Task { await handleRestore() } }
+                if authState.hasLocalAccount { Task { await handleRestore() } }
                 else { showLogin = true }
             }
-            .font(.btFootnote)
-            .foregroundStyle(.btPrimary)
+            .font(.btProCaption)
+            .foregroundStyle(Color.btOverviewDays)
             .frame(minHeight: 44)
             .disabled(subscriptionManager.isLoading)
             .accessibilityIdentifier("subscription.restore")
@@ -107,61 +207,17 @@ struct SubscriptionView: View {
     }
 
     private var heroSection: some View {
-        HStack(alignment: .top, spacing: Spacing.lg) {
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                Text("解锁球迹 Pro")
-                    .font(.btTitle)
-                    .foregroundStyle(.btText)
-                    .accessibilityAddTraits(.isHeader)
-                Text("进阶内容与工具，支持你的每次练习")
-                    .font(.btSubheadline)
-                    .foregroundStyle(.btTextSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-            BTPremiumMaterialSymbol(systemName: "star.fill", size: 32)
-                .accessibilityHidden(true)
-        }
-        .padding(.vertical, Spacing.sm)
+        ProBrandHero(title: "解锁球迹 Pro", detail: "从看懂球路，到有方向地练习。\n进阶内容与工具，陪你把思路练成手感。")
     }
 
     private var featuresList: some View {
-        VStack(spacing: 0) {
-            ForEach(benefits.indices, id: \.self) { index in
-                let benefit = benefits[index]
-                HStack(alignment: .top, spacing: Spacing.md) {
-                    Image(systemName: benefit.icon)
-                        .font(.btHeadline)
-                        .foregroundStyle(.btTextSecondary)
-                        .frame(width: 36, height: 36)
-                        .background(Color.btBGTertiary.opacity(0.5), in: Circle())
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: Spacing.xs) {
-                        Text(benefit.title)
-                            .font(.btHeadline)
-                            .foregroundStyle(.btText)
-                        Text(benefit.subtitle)
-                            .font(.btFootnote)
-                            .foregroundStyle(.btTextSecondary)
-                    }
-                    .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
-                }
-                .padding(Spacing.lg)
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("subscription.benefit.\(index)")
-                if index < benefits.count - 1 {
-                    Divider().padding(.leading, 64)
-                }
-            }
-        }
-        .background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.lg))
+        ProBenefitsSections(isUnlocked: subscriptionManager.isPremium)
     }
 
     private var pricingSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("选择方案")
-                .font(.btSubheadline)
+            Text("选择 Pro 方案")
+                .font(.btProBody)
                 .foregroundStyle(.btTextSecondary)
             if subscriptionManager.products.isEmpty {
                 VStack(spacing: Spacing.sm) {
@@ -170,13 +226,13 @@ struct SubscriptionView: View {
                             .tint(.btPrimary)
                     } else {
                         Text(productLoadingMessage)
-                            .font(.btFootnote)
+                            .font(.btProCaption)
                             .foregroundStyle(.btTextSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                         Button("重新加载") {
                             Task { await reloadProducts() }
                         }
-                        .font(.btSubheadline)
+                        .font(.btProBody)
                         .foregroundStyle(.btPrimary)
                         .frame(minHeight: 44)
                         .accessibilityIdentifier("subscription.retry")
@@ -201,9 +257,9 @@ struct SubscriptionView: View {
                     }
                 }
             }
-            if !authState.isLoggedIn {
+            if !authState.hasLocalAccount {
                 Text("购买或恢复前需登录，已选方案会保留。")
-                    .font(.btFootnote)
+                    .font(.btProCaption)
                     .foregroundStyle(.btTextSecondary)
             }
         }
@@ -213,9 +269,9 @@ struct SubscriptionView: View {
         let isSelected = selectedProductID == product.id
         return Button { selectedProductID = product.id } label: {
             VStack(spacing: Spacing.sm) {
-                Text(title).font(.btSubheadlineMedium)
-                Text(product.displayPrice).font(.btHeadline)
-                Text(period).font(.btCaption)
+                Text(title).font(.btProBody)
+                Text(product.displayPrice).font(.btProHeadline)
+                Text(period).font(.btProCaption)
                     .foregroundStyle(.btTextSecondary)
             }
             .foregroundStyle(.btText)
@@ -223,11 +279,11 @@ struct SubscriptionView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, Spacing.lg)
             .padding(.horizontal, Spacing.xs)
-            .background(isSelected ? Color.btPrimaryMuted : Color.btBGSecondary,
+            .background(isSelected ? Color.btOverviewDays.opacity(0.16) : Color("introLabWhite").opacity(0.04),
                         in: RoundedRectangle(cornerRadius: BTRadius.md))
             .overlay {
                 RoundedRectangle(cornerRadius: BTRadius.md)
-                    .stroke(isSelected ? Color.btPrimary : Color.btSeparator, lineWidth: 1)
+                    .stroke(isSelected ? Color.btOverviewDays : Color("introLabWhite").opacity(0.18), lineWidth: 1)
             }
             .contentShape(Rectangle())
         }
@@ -238,10 +294,10 @@ struct SubscriptionView: View {
 
     @ViewBuilder
     private var subscribeButton: some View {
-        if subscriptionManager.isPremium || subscriptionManager.isLoading {
+        if subscriptionManager.isLoading || (selectedProductID.map { !subscriptionManager.canPurchase(productID: $0) } ?? false) {
             Button {} label: {
                 subscribeButtonLabel
-                    .font(.btHeadline)
+                    .font(.btProHeadline)
                     .foregroundStyle(.btTextSecondary)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 52)
@@ -253,12 +309,12 @@ struct SubscriptionView: View {
         } else {
             Button {
                 if selectedProduct == nil { Task { await reloadProducts() } }
-                else if authState.isLoggedIn { Task { await handlePurchase() } }
+                else if authState.hasLocalAccount { Task { await handlePurchase() } }
                 else { showLogin = true }
             } label: {
                 subscribeButtonLabel.frame(maxWidth: .infinity)
             }
-            .buttonStyle(BTButtonStyle.primary)
+            .buttonStyle(ProBrandButtonStyle())
             .accessibilityIdentifier("subscription.purchase")
         }
     }
@@ -267,6 +323,9 @@ struct SubscriptionView: View {
         HStack {
             if subscriptionManager.isLoading && !subscriptionManager.isPremium {
                 ProgressView().tint(.btTextSecondary)
+            }
+            if selectedProduct != nil && !subscriptionManager.isLoading {
+                BTProfileCrown(width: 32)
             }
             Text(subscribeButtonText)
                 .multilineTextAlignment(.center)
@@ -279,7 +338,8 @@ struct SubscriptionView: View {
     }
 
     private var subscribeButtonText: String {
-        if subscriptionManager.isPremium { return "已是 Pro 会员" }
+        if subscriptionManager.awaitingProductID != nil { return "等待 Apple 确认，可恢复购买刷新" }
+        if let id = selectedProductID, subscriptionManager.isPremium, !subscriptionManager.canPurchase(productID: id) { return "已拥有 Pro 权益" }
         if subscriptionManager.isLoading {
             return selectedProduct == nil ? "正在加载订阅方案…" : "正在处理…"
         }
@@ -304,11 +364,22 @@ struct SubscriptionView: View {
     private var legalSection: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             Text(selectedProductID == StoreKitService.lifetimeID
-                 ? "终身方案为一次性购买，不会自动续订。确认后将通过 Apple 账户付款。"
+                 ? "终身方案为一次性购买。已有月度或年度订阅不会自动取消，请在系统订阅设置中管理。确认后将通过 Apple 账户付款。"
                  : "月度与年度方案自动续订。确认后将通过 Apple 账户付款，可在系统订阅设置中管理或取消。")
-                .font(.btFootnote)
+                .font(.btProCaption)
                 .foregroundStyle(.btTextSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+            if subscriptionManager.awaitingProductID != nil {
+                Text("等待 Apple 确认期间无需重复购买，可通过恢复购买刷新权益。")
+                    .font(.btProCaption).foregroundStyle(.btTextSecondary)
+                if subscriptionManager.purchaseOutcome == .pending {
+                    Button("购买已取消或被拒绝，重新选择") {
+                        subscriptionManager.resetWaitingPurchaseAfterCancellation()
+                    }.font(.btProCaption)
+                }
+            }
+            Text("Pro 权益以当前 Apple 购买为依据；球迹账号分别保存各自的训练数据。")
+                .font(.btProCaption).foregroundStyle(.btTextSecondary)
             HStack(spacing: Spacing.lg) {
                 if let termsURL = AppConfig.termsURL, let privacyURL = AppConfig.privacyURL {
                     Link("服务条款", destination: termsURL)
@@ -318,7 +389,7 @@ struct SubscriptionView: View {
                         .foregroundStyle(.btTextSecondary)
                 }
             }
-            .font(.btFootnote)
+            .font(.btProCaption)
             .tint(.btPrimary)
             .frame(minHeight: 44)
         }
@@ -332,7 +403,7 @@ struct SubscriptionView: View {
                 Text("当前为强制免费评审，无法在此解锁 Pro。")
             } else if ProcessInfo.processInfo.arguments.contains(SubscriptionManager.forcePremiumArgument) {
                 Text("当前为强制 Pro 评审，无法在此切换会员状态。")
-            } else if !authState.isLoggedIn {
+            } else if !authState.hasLocalAccount {
                 Text("模拟器解锁 Pro 需先登录。")
                 Button("登录") { showLogin = true }
                     .frame(minHeight: 44)
@@ -350,7 +421,7 @@ struct SubscriptionView: View {
                                          ? "simulatorLockProButton" : "simulatorUnlockProButton")
             }
         }
-        .font(.btFootnote)
+        .font(.btProCaption)
         .foregroundStyle(.btTextSecondary)
         .fixedSize(horizontal: false, vertical: true)
     }
@@ -363,14 +434,22 @@ struct SubscriptionView: View {
 
     private func selectAvailableProduct() {
         guard !subscriptionManager.products.contains(where: { $0.id == selectedProductID }) else { return }
-        selectedProductID = subscriptionManager.yearlyProduct?.id
+        selectedProductID = (subscriptionManager.isPremium ? subscriptionManager.lifetimeProduct?.id : nil)
+            ?? subscriptionManager.yearlyProduct?.id
             ?? subscriptionManager.monthlyProduct?.id ?? subscriptionManager.lifetimeProduct?.id
     }
 
     private func handlePurchase() async {
         guard let product = selectedProduct else { return }
-        if await subscriptionManager.purchase(product) { dismiss() }
-        else if subscriptionManager.errorMessage != nil { showPurchaseErrorAlert = true }
+        switch await subscriptionManager.purchaseResult(product) {
+        case .unlocked: dismiss(); return
+        case .cancelled, .busy: return
+        case .pending: purchaseMessage = "购买待批准。批准后会自动刷新权益，无需重复购买。"
+        case .confirming: purchaseMessage = "购买已完成，权益正在确认。请稍后刷新或恢复购买，无需重复付款。"
+        case .sessionChanged: purchaseMessage = "球迹账号已切换，请在当前账号刷新权益或恢复购买。"
+        case .failed: purchaseMessage = subscriptionManager.errorMessage ?? "购买未完成，请稍后重试"
+        }
+        showPurchaseErrorAlert = true
     }
 
     private func handleRestore() async {

@@ -221,3 +221,17 @@ FreePlayView 生产入口维持训练首页每日清台/自由击球；每日页
 蛇彩r3（2026-10-15）：SnakePracticeController.swift新增SnakePracticeHistory，UserDefaults键snakePractice.history.v1仅含近10次已结束记录＋1活动检查点，按ID更新/去重；字段为UUID、时间、球数、玩法、合法数量、结束原因。仅此页消费，无SwiftData/成绩同步。设置count/mode从开始时保存扩展为选中即保存。DEBUG -snakePractice.resetHistory只在定向UI测试清理该键；原生截图输出独立r3/{phone,se}，历史证据保留。
 
 蛇彩r4（2026-10-16）：history.v1字段不变；活动检查点写入推迟到首次实际出杆，零出杆退出/重开/换配置不保存。已出杆重打首杆仍保留记录资格，不根据0/N删除既有记录。
+
+### 2026-10-17 Pro 回归期间发现的既有引导预览写盘面
+
+审查 OnboardingProUITests.introLabCapture：仅当调用方显式注入 V50_SHOT_DIR / TEST_RUNNER_V50_SHOT_DIR 时写 PNG 和 frames JSON，缺省只保存 XCTest 附件。固定名称可能覆盖同目录，因此调用方使用独立轮次目录；无删除、Bundle 或正式训练库写入。本轮 Pro 用例不设置上述变量，只写 xcresult 附件。登记同期引导预览新增的实际写盘行为，不代表其视觉验收通过。
+
+
+2026-10-18 操作布局 B02：登记 `ControlLayoutPlacementUITests.swift`。必须显式注入 LAYOUT_BASELINE_DIR，向当前轮设备/方向叶子写 PNG、AX、JSON、manifest 和 XCTest 附件；缺少目录参数直接失败。调用方 run_device.py 以 exist_ok=False 拒绝复用叶子，保留失败原件，测试不删除证据、不写 Bundle 或正式训练内容。原生数据使用隔离 bundle ID、内存 SwiftData 和已有深链/夹具；截图含实际主动作与杆速数值断言，非有限的非目标 AX 框在 JSON 明示 nonfinite。清理由本任务按生命周期管理器处理，无自动删除源素材或用户 App。
+
+
+## 2026-10-19 自定义球形同步
+
+CustomFormationSyncTests 仅写每测 UUID 临时目录，tearDown 删除；V53AccountDataCoordinatorTests 注入同样隔离的模板目录。显式 CustomFormationSyncIntegrationTests 从本机隔离后端 fixture 读取测试凭证，仅访问 127.0.0.1；按测试账号 UUID 在各模拟器 Application Support 的 integration owner 存储，跨阶段保留以验证重启恢复，绝不读取正式账号文件。fixture 输出目录为 output/custom-formation-sync-20261019、权限0600，不提交凭证。未提供 fixture 的普通全套执行明确跳过这一个外部集成选择器；本轮显式五阶段均须实际执行，无跳过。UI 图只写显式 V52_SHOT_DIR，失败原件保留，复跑用新轮次目录。
+
+ProfileView 路由签名仅因同步/游客合并说明加入自定义球形而变化，登录/设置/订阅导航目的地保持；已逐项审计。模板同步状态复用现有列表与设置入口，无新增生产路由。

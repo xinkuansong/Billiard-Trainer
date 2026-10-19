@@ -13,6 +13,31 @@ final class P6_HistoryStatsUITests: XCTestCase {
 
     // MARK: - History Calendar
 
+    func testReturningToHistoryPreservesCalendar() throws {
+        let month = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "[0-9]{4}年[0-9]{1,2}月")).firstMatch
+        XCTAssertTrue(month.waitForExistence(timeout: 10))
+        let title = month.label
+        let originalFrame = month.frame
+        let initial = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        initial.name = "history-before-tab-switch"
+        initial.lifetime = .keepAlways
+        add(initial)
+
+        for _ in 0..<3 {
+            app.switchTab(.profile)
+            app.switchTab(.history)
+            XCTAssertTrue(month.waitForExistence(timeout: 5))
+            XCTAssertEqual(month.label, title)
+            XCTAssertEqual(month.frame.minY, originalFrame.minY, accuracy: 1)
+            XCTAssertTrue(app.staticTexts["一"].exists)
+        }
+
+        let returned = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        returned.name = "history-after-tab-switch"
+        returned.lifetime = .keepAlways
+        add(returned)
+    }
+
     func testHistoryTabTitle() {
         XCTAssertTrue(
             app.tabBars.buttons["记录"].waitForExistence(timeout: 3),

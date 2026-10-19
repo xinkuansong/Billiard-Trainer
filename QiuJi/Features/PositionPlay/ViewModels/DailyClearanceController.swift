@@ -510,8 +510,8 @@ final class DailyClearanceController: ObservableObject {
             ])
         case "closeup0", "closeup1", "closeup2", "closeup3", "closeup4", "closeup5":
             // Test input preferences, equivalent to enabling the existing menu toggles.
-            UserPreferences.shared.showAimCloseup = true
-            UserPreferences.shared.trajectoryDetail = .full
+            TablePreferencesStore.shared.apply(.closeup, value: 1, to: .dailyClearance)
+            TablePreferencesStore.shared.apply(.trajectory, value: Double(TrajectoryDetail.full.rawValue), to: .dailyClearance)
             fixtureDraft.phase = .playing
             fixtureDraft.ruleState.assignedGroup = .solid
             let index = Int(fixture.suffix(1)) ?? 0

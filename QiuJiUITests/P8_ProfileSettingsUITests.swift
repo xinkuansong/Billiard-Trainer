@@ -156,7 +156,7 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         personalInfo.tap()
         sleep(2)
         var found = false
-        for sport in ["中式台球", "9球", "两者"] {
+        for sport in ["中八", "追分", "两者"] {
             if app.staticTexts[sport].waitForExistence(timeout: 3) ||
                app.buttons[sport].waitForExistence(timeout: 2) {
                 found = true
@@ -454,5 +454,45 @@ final class P8_ProfileSettingsUITests: XCTestCase {
             failure.buttons["知道了"].tap()
             XCTAssertEqual(reminderToggle.value as? String, "0", "拒绝后提醒开关必须回退关闭")
         }
+    }
+}
+
+extension P8_ProfileSettingsUITests {
+    func testInitialProfileAutomaticImportAndFourSports() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-syncRepair.loginSheet", "-profileImport.fixture", "-v50.inMemoryStore"])
+        app.switchTab(.profile)
+        app.buttons["profile.login"].tap()
+        app.buttons["通过 Apple 登录"].tap()
+        let sync = app.alerts["开启训练数据云同步？"]
+        XCTAssertTrue(sync.waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["profileImport.confirm"].exists)
+        sync.buttons["仅保存在本机"].tap()
+        app.staticTexts["个人信息"].tap()
+        XCTAssertTrue(app.navigationBars["个人信息"].waitForExistence(timeout: 5))
+        captureSyncChoice("profile-import-personal-header")
+        for _ in 0..<4 where !app.buttons["其他"].isHittable { app.swipeUp() }
+        for label in ["中八", "追分", "两者", "其他"] {
+            XCTAssertTrue(app.buttons[label].isHittable, "Sport must be visible and tappable: \(label)")
+        }
+        XCTAssertFalse(app.buttons["9 球"].exists)
+        XCTAssertTrue(app.buttons["追分"].value as? String == "已选中" || app.buttons["追分"].isSelected)
+        captureSyncChoice("profile-import-personal-info")
+    }
+
+    func testInitialProfileImportFailureDoesNotBlockLogin() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-syncRepair.loginSheet", "-profileImport.fixture", "-profileImport.failure", "-v50.inMemoryStore"])
+        app.switchTab(.profile)
+        app.buttons["profile.login"].tap()
+        app.buttons["通过 Apple 登录"].tap()
+        let sync = app.alerts["开启训练数据云同步？"]
+        XCTAssertTrue(sync.waitForExistence(timeout: 8))
+        sync.buttons["仅保存在本机"].tap()
+        XCTAssertFalse(app.buttons["profileImport.confirm"].exists)
+        XCTAssertFalse(app.buttons["profileImport.decline"].exists)
+        app.staticTexts["个人信息"].tap()
+        XCTAssertTrue(app.navigationBars["个人信息"].waitForExistence(timeout: 5))
+        captureSyncChoice("profile-import-offline-no-prompt")
     }
 }

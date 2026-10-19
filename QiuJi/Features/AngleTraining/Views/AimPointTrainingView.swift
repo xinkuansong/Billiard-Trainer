@@ -75,7 +75,7 @@ final class AimPointTrainingViewModel: ObservableObject {
     }
 
     func submit() {
-        guard let q = question, !showResult else { return }
+        guard let q = question, !showResult, !limiter.isLimitReached else { return }
 
         let userMM = userOffsetMM
         let correctMM = correctOffsetMM(for: q)

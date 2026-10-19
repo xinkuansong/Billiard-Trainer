@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema(
     email: String,
     provider: { type: String, enum: ["apple", "phone", "wechat"], required: true },
     avatarRevision: { type: Number, min: 1 },
-    preferredSport: { type: String, enum: ["chinese8", "nineBall", "both"] },
+    preferredSport: { type: String, enum: ["chinese8", "nineBall", "both", "zhuifen", "other"] },
     skillLevel: { type: String, enum: ["beginner", "elementary", "intermediate", "advanced"] },
     // Keep the three v53 early-build aliases readable; all new writes use the iOS/DTO
     // canonical values and serializeUser normalizes old rows on response.
@@ -19,7 +19,11 @@ const userSchema = new mongoose.Schema(
       ],
     },
     weeklyGoalDays: { type: Number, min: 1, max: 7 },
+    gender: { type: String, enum: ["male", "female", null] },
+    birthDate: { type: String, default: undefined },
     refreshToken: String,
+    formationSequence: { type: Number, default: 0 },
+    deletionPending: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

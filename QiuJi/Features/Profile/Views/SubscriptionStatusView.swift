@@ -1,15 +1,26 @@
 import SwiftUI
 
+private struct ProBrandSurfaceVisibilityKey: EnvironmentKey {
+    static let defaultValue: (Bool) -> Void = { _ in }
+}
+
+extension EnvironmentValues {
+    var proBrandSurfaceVisibility: (Bool) -> Void {
+        get { self[ProBrandSurfaceVisibilityKey.self] }
+        set { self[ProBrandSurfaceVisibilityKey.self] = newValue }
+    }
+}
+
 struct SubscriptionStatusView: View {
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    @Environment(\.proBrandSurfaceVisibility) private var setBrandSurfaceVisible
     @State private var showRestoreAlert = false
+    @State private var showUpgrade = false
     @State private var restoreMessage = ""
-
-    private let goldColor = Color.btPremiumForeground
 
     var body: some View {
         ZStack {
-            Color.btBG.ignoresSafeArea()
+            IntroBackground()
 
             ScrollView {
                 VStack(spacing: Spacing.lg) {
@@ -17,14 +28,27 @@ struct SubscriptionStatusView: View {
                     actionsSection
                     featuresSection
                 }
-                .padding(.horizontal, Spacing.lg)
+                .padding(.horizontal, Spacing.xxl)
                 .padding(.top, Spacing.sm)
                 .padding(.bottom, Spacing.xxxl)
+                .frame(maxWidth: 600)
+                .frame(maxWidth: .infinity)
             }
+            .accessibilityIdentifier("subscription.statusScroll")
         }
+        .environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark)
+        .tint(Color.btOverviewDays)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbarBackground(Color("introLabBackground"), for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .navigationTitle(subscriptionManager.purchasedProductIDs.contains(StoreKitService.lifetimeID) ? "Pro 权益" : "订阅管理")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .onAppear { setBrandSurfaceVisible(true) }
+        .onDisappear { setBrandSurfaceVisible(false) }
+        .sheet(isPresented: $showUpgrade) { SubscriptionView() }
+        .task { await subscriptionManager.checkEntitlements(coalescing: true) }
         .alert("恢复购买", isPresented: $showRestoreAlert) {
             Button("确定") {}
         } message: {
@@ -35,40 +59,26 @@ struct SubscriptionStatusView: View {
     // MARK: - Status Card
 
     private var statusCard: some View {
-        VStack(spacing: Spacing.lg) {
-            ZStack {
-                Circle()
-                    .fill(goldColor.opacity(0.15))
-                    .frame(width: 64, height: 64)
-                BTPremiumMaterialSymbol(systemName: BTIcon.crown, size: 28)
+        VStack(spacing: Spacing.sm) {
+            ProBrandHero(title: subscriptionManager.isPremium ? "已解锁 Pro" : "Pro 未解锁",
+                         detail: "有方向地练习，有依据地回看。")
+            VStack(spacing: Spacing.sm) {
+                Text(subscriptionTypeLabel).font(.btProHeadline)
+                    .foregroundStyle(Color.btPremiumOnDark)
+                Text(expiryLabel).font(.btProBody)
+                    .foregroundStyle(Color("introLabMuted"))
             }
-
-            VStack(spacing: Spacing.xs) {
-                Text("Pro 会员")
-                    .font(.btTitle2)
-                    .foregroundStyle(.btText)
-
-                Text(subscriptionTypeLabel)
-                    .font(.btCallout)
-                    .foregroundStyle(.btTextSecondary)
-
-                Text(expiryLabel)
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
-                    .padding(.top, 2)
-            }
+            .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, Spacing.xl)
-        .background(Color.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .padding(.bottom, Spacing.lg)
     }
 
     // MARK: - Actions
 
     private var actionsSection: some View {
         VStack(spacing: Spacing.sm) {
-            if !subscriptionManager.purchasedProductIDs.contains(StoreKitService.lifetimeID) {
+            Group {
                 Button {
                     if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
                         UIApplication.shared.open(url)
@@ -76,19 +86,29 @@ struct SubscriptionStatusView: View {
                 } label: {
                     HStack {
                         Image(systemName: "creditcard")
-                            .font(.btSubheadline)
+                            .font(.btProBody)
                         Text("管理订阅")
-                            .font(.btCallout.weight(.medium))
+                            .font(.btProBody.weight(.medium))
                     }
-                    .foregroundStyle(.btPrimary)
+                    .foregroundStyle(Color.btOverviewDays)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, Spacing.md)
-                    .background(Color.btPrimary.opacity(0.1))
+                    .background(Color.btOverviewDays.opacity(0.10))
                     .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
                 }
                 .buttonStyle(.plain)
             }
 
+            if subscriptionManager.isPremium && !subscriptionManager.purchasedProductIDs.contains(StoreKitService.lifetimeID) {
+                Button { showUpgrade = true } label: {
+                    HStack(spacing: Spacing.sm) {
+                        BTProfileCrown(width: 32)
+                        Text("升级终身 Pro")
+                    }
+                }
+                    .buttonStyle(ProBrandButtonStyle())
+                    .accessibilityIdentifier("subscription.upgradeLifetime")
+            }
             Button {
                 Task { await handleRestore() }
             } label: {
@@ -98,7 +118,7 @@ struct SubscriptionStatusView: View {
                             .tint(.btTextSecondary)
                     } else {
                         Text("恢复购买")
-                            .font(.btCallout)
+                            .font(.btProBody)
                             .foregroundStyle(.btTextSecondary)
                     }
                 }
@@ -113,55 +133,7 @@ struct SubscriptionStatusView: View {
     // MARK: - Features
 
     private var featuresSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("已解锁功能")
-                .font(.btSubheadlineMedium)
-                .foregroundStyle(.btTextSecondary)
-                .padding(.leading, Spacing.xs)
-
-            VStack(spacing: 0) {
-                featureRow(title: "完整动作库", subtitle: "当前全部训练动作")
-                Divider().padding(.leading, 56)
-                featureRow(title: "统计与趋势图表", subtitle: "可视化训练进度")
-                Divider().padding(.leading, 56)
-                featureRow(title: "自定义训练计划", subtitle: "打造专属训练方案")
-                Divider().padding(.leading, 56)
-                featureRow(title: "无限角度测试", subtitle: "不限次数提升角度感知")
-                Divider().padding(.leading, 56)
-                featureRow(title: "训练分享卡全样式", subtitle: "所有配色主题与分享模版")
-                Divider().padding(.leading, 56)
-                featureRow(title: "云端同步", subtitle: "多设备数据无缝同步")
-            }
-            .background(Color.btBGSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-        }
-    }
-
-    private func featureRow(title: String, subtitle: String) -> some View {
-        HStack(spacing: Spacing.md) {
-            ZStack {
-                Circle()
-                    .fill(Color.btPrimary.opacity(0.12))
-                    .frame(width: 32, height: 32)
-                Image(systemName: "checkmark")
-                    .font(.btCaption.weight(.bold))
-                    .foregroundStyle(.btPrimary)
-            }
-            .frame(width: 40)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(.btCallout)
-                    .foregroundStyle(.btText)
-                Text(subtitle)
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
-            }
-
-            Spacer()
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.md)
+        ProBenefitsSections(isUnlocked: subscriptionManager.isPremium)
     }
 
     // MARK: - Computed

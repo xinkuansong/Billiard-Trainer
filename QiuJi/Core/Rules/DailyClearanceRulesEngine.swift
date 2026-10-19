@@ -48,8 +48,9 @@ enum DailyClearanceGame: String, Codable, CaseIterable, Identifiable, Equatable 
         self == .chineseEightBall ? "_8" : "_9"
     }
 
-    static func initialDefault(for preferredSport: PreferredSport) -> DailyClearanceGame {
+    static func initialDefault(for preferredSport: PreferredSport) -> DailyClearanceGame? {
         switch preferredSport {
+        case .zhuifen, .other: return nil // A profile preference does not choose a specific rack/ruleset.
         case .chinese8, .both: return .chineseEightBall
         case .nineBall: return .nineBall
         }

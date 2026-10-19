@@ -13,6 +13,9 @@ struct PositionPlayEditorConfiguration {
     var aimItems: [DailyHUDMenuItem]?
     var menuItems: [DailyHUDMenuItem]
     var overlay: AnyView
+    var layoutEditingBlocked: Bool = false
+    var formation: CustomFormationSession? = nil
+    var onBack: (() -> Void)? = nil
 }
 
 /// Free layout / drill tryout retain their board and sequence semantics inside the daily table shell.
@@ -51,7 +54,8 @@ struct PositionPlayComposerView: View {
         FreePlayView(editorModel: vm, editor: .init(
             title: navTitleText, isTryout: isTryout, loadsDefaultLayout: openingBoard?.onTable.isEmpty != false, setup: setupBoard,
             onInteraction: dismissBriefOnInteraction, onRearrange: rearrange,
-            modeItem: tryoutModeItem, aimItems: tryoutAimItems, menuItems: editorMenuItems, overlay: AnyView(briefOverlay)))
+            modeItem: tryoutModeItem, aimItems: tryoutAimItems, menuItems: editorMenuItems, overlay: AnyView(briefOverlay),
+            layoutEditingBlocked: showRename || showClearTableConfirm || showResetConfirm))
         .alert("命名走位序列", isPresented: $showRename) {
             TextField("名称", text: $renameText)
             Button("保存") { vm.renameSequence(renameText) }
@@ -129,7 +133,7 @@ struct PositionPlayComposerView: View {
 
     private var editorMenuItems: [DailyHUDMenuItem] {
         if isTryout {
-            return [.init(id: "tryout.info", title: "试打说明", action: { showBrief.toggle() })]
+            return [.init(id: "tryout.info", title: "试打说明", disclosure: true, action: { showBrief.toggle() })]
         }
         let busy = vm.isPlaying || vm.isBreakMode
         return [

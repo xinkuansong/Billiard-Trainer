@@ -10,7 +10,7 @@ enum BTButtonStyle {
     case darkPill
     case iconCircle
     case segmentedPill(isSelected: Bool)
-    /// Pro unlock CTA — readable premium foreground with appearance-aware label.
+    /// Pro unlock CTA — shared pale-gold, appearance-aware styling.
     case goldFilled
 }
 
@@ -174,23 +174,30 @@ private struct SegmentedPillButtonBody: View {
 
 // MARK: - Gold Filled (Pro unlock)
 
-private struct GoldFilledButtonBody: View {
-    @Environment(\.colorScheme) private var colorScheme
-    let configuration: ButtonStyleConfiguration
+/// Shared Pro CTA. Dynamic colors preserve the approved pale-gold light style
+/// and use a quieter warm surface with light-gold text in dark contexts.
+struct BTProUnlockButtonStyle: ButtonStyle {
+    var font: Font = .btFootnote14.weight(.bold)
+    var minHeight: CGFloat = 48
+    var expands = true
 
-    var body: some View {
+    func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.btFootnote14)
-            .fontWeight(.bold)
-            .foregroundStyle(colorScheme == .dark ? Color.black.opacity(0.86) : .white)
-            .frame(maxWidth: .infinity)
-            .frame(height: 48)
-            .background(configuration.isPressed
-                ? Color.btPremiumForeground.opacity(0.82)
-                : Color.btPremiumForeground)
-            .clipShape(Capsule())
+            .font(font)
+            .foregroundStyle(Color.btProButtonForeground)
+            .padding(.horizontal, Spacing.xl)
+            .frame(maxWidth: expands ? .infinity : nil, minHeight: minHeight)
+            .background(Color.btProButtonBackground, in: Capsule())
+            .opacity(configuration.isPressed ? 0.82 : 1)
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(BTMotion.easePress, value: configuration.isPressed)
+    }
+}
+
+private struct GoldFilledButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    var body: some View {
+        BTProUnlockButtonStyle().makeBody(configuration: configuration)
     }
 }
 

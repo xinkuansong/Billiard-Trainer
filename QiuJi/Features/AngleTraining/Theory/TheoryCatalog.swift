@@ -62,14 +62,9 @@ struct TheoryIndexEntry: Identifiable, Hashable {
     let title: String
     /// 一句话副标题。
     ///
-    /// **取材纪律（X-v30-2 裁定，v30 W1 起生效；原「只准截断」已放宽）**：
-    /// 以 vendored `theorem-tags.json.statement_one_liner` /
-    /// `run-out-flow.json.description` / 16 `quick-reference.md` 为唯一来源，
-    /// 允许**语义等价的限定改写**——把英文术语与调研腔换成中文人话，
-    /// 但 ⛔ 不得新增断言、不得改变适用条件、不得改动数值 / 单位 / 关键限定词。
-    /// 每条改写的「原文 → 改写 → 依据」逐条记录在
-    /// `docs/research/20260807-v30理论转写模板.md` §六；
-    /// 约束由 `TheoryCatalogTests`（数值守恒 + 语义锚词 + 无拉丁字母 + 逐字条目集合）固化。
+    /// 2026-10-16 用户授权核实理论后重写。以核实后的正文为准，不能为保持与旧
+    /// vendor 文本一致而继续展示错误条件。旧 contracts 保持原始快照，纠错依据见
+    /// `docs/research/20261016-理文章重写与理论核查.md`；测试守适用条件、数值来源和路由。
     let subtitle: String
     /// 练习首页单行卡片使用的行动提示。完整断言仍由 `subtitle` 承担；这里不试图
     /// 把适用条件、数值与推导压进一行，只说明点入后能帮助用户做什么判断。
@@ -89,8 +84,7 @@ enum TheoryCatalog {
         .init(
             id: .t01,
             title: "30° 法则",
-            // 改写自 T01.statement_one_liner 前段：OB→目标球、cut→切角、球击球→球厚度。
-            subtitle: "自然滚动的母球以 1/4–3/4 球厚度（切角 14°–49°）撞目标球，碰后偏约 30°",
+            subtitle: "到球时自然滚动，约 1/4–3/4 球厚度（切角约 14°–49°），母球碰后稳定方向相对入射方向偏约 30°",
             cardSubtitle: "自然滚动约偏30°",
             group: .collision,
             isPublished: true
@@ -98,18 +92,16 @@ enum TheoryCatalog {
         .init(
             id: .t02,
             title: "90° 法则",
-            // 改写自 T02.statement_one_liner 前段：stun→滑动（SPEC §8.8 规范译名）、OB→目标球。
-            subtitle: "母球以滑动状态撞目标球时，两球分离角 90°",
-            cardSubtitle: "滑动碰球分离90°",
+            subtitle: "到球时没有前后旋的斯登击球，理想模型中两球分离角为 90°",
+            cardSubtitle: "认清斯登的90°",
             group: .collision,
             isPublished: true
         ),
         .init(
             id: .t03,
             title: "切线法则",
-            // 改写自 T03.statement_one_liner 前两句：⊥→垂直于（末句含 T 编号，按红线剔除）。
-            subtitle: "碰撞瞬间母球总沿切线走（切线垂直于两球连心线）；之后偏多少由旋转决定",
-            cardSubtitle: "先走切线再看旋转",
+            subtitle: "切线垂直于碰撞时的两球连心线，是理想斯登出射方向的参照；前后旋转会改变后续路线",
+            cardSubtitle: "用切线判断碰后路线",
             group: .collision,
             isPublished: true
         ),
@@ -117,18 +109,16 @@ enum TheoryCatalog {
         .init(
             id: .t04,
             title: "母球速度分级",
-            // 改写自 T04.statement_one_liner 前两段：剔除来源人名、soft/medium/hard→轻/中/重。
-            subtitle: "力度分 9 档，并成轻（1–3）中（4–6）重（7–9）三段；靠出杆长度而不是用力大小来调",
-            cardSubtitle: "用出杆长度调力度",
+            subtitle: "用 9 档建立力度参照，配合稳定的运杆幅度与节奏，再按球形和台况校准",
+            cardSubtitle: "练出可重复的力度",
             group: .spin,
             isPublished: true
         ),
         .init(
             id: .t09,
             title: "最少加塞原则",
-            // 改写自 T09.statement_one_liner 中段：squirt/swerve/throw→挤偏/弧线/投掷（SPEC §8.8）。
-            subtitle: "加塞会同时引入挤偏、弧线、投掷三重耦合误差",
-            cardSubtitle: "少加塞少受偏差",
+            subtitle: "加塞先有明确用途，再综合考虑挤偏、弧线和投掷，用足够完成任务的塞量",
+            cardSubtitle: "先想清加塞的用途",
             group: .spin,
             isPublished: true
         ),
@@ -136,8 +126,7 @@ enum TheoryCatalog {
         .init(
             id: .t05,
             title: "反向规划",
-            // 逐字取 T05.statement_one_liner 前段（破折号前）——原文已是中文人话，不改写。
-            subtitle: "清台决策必须从最后一颗球反向倒推到当前一杆",
+            subtitle: "从最后一颗球需要的落位区倒推，寻找当前路线与收尾的衔接",
             cardSubtitle: "从最后一颗倒推",
             group: .tactics,
             isPublished: true
@@ -145,8 +134,7 @@ enum TheoryCatalog {
         .init(
             id: .t06,
             title: "关键球原理",
-            // 改写自 T06.statement_one_liner 前段：key ball→关键球（与页名同字）。
-            subtitle: "决定成败的不是最后一颗球，而是为它安排好母球的那一颗（关键球）",
+            subtitle: "关键球为最后一颗安排母球位置，前一颗还要为关键球留出合适角度",
             cardSubtitle: "先找收尾关键球",
             group: .tactics,
             isPublished: true
@@ -154,18 +142,15 @@ enum TheoryCatalog {
         .init(
             id: .t07,
             title: "球团管理",
-            // 逐字取 T07.statement_one_liner 前段（分号前）——原文已是中文人话，不改写。
-            subtitle: "球团必须尽早识别、尽早处理",
-            cardSubtitle: "尽早识别处理球团",
+            subtitle: "尽早识别妨碍计划的球团，结合碰球机会、保险球和后续路线选择处理时机",
+            cardSubtitle: "选好球团处理时机",
             group: .tactics,
             isPublished: true
         ),
         .init(
             id: .t08,
             title: "风险报酬决策矩阵",
-            // 改写自 T08.statement_one_liner 前段：X/Y/Z 占位符换成口语「够不够 / 扛不扛得住」，
-            // 阈值本身因人而异（原文 §4「需个体校准」），详情页给参考表。
-            subtitle: "开打前先过三问：进球把握够不够、走位把握够不够、打不进的代价扛不扛得住",
+            subtitle: "用三问一起看进球把握、走位把握和失败代价，再比较进攻与防守",
             cardSubtitle: "打前问把握与代价",
             group: .tactics,
             isPublished: true
@@ -173,8 +158,7 @@ enum TheoryCatalog {
         .init(
             id: .t10,
             title: "安全球三维度模型",
-            // 改写自 T10.statement_one_liner 前段：D/M/O 字母标签换成三个维度的中文说法。
-            subtitle: "安全球的质量由 3 个独立维度决定：拉开距离、占住库位、用障碍球挡住",
+            subtitle: "从距离、库位和障碍球检查防守，再看执行把握与对手的应对，不能只按维度数量评质量",
             cardSubtitle: "看距离库位和障碍",
             group: .tactics,
             isPublished: true
@@ -183,8 +167,7 @@ enum TheoryCatalog {
         .init(
             id: .flow,
             title: "清台 5 步决策流程",
-            // 改写自 run-out-flow.json.description 首句：剔除「状态机」工程腔。
-            subtitle: "从上台到这一杆打完，中间该按什么顺序想",
+            subtitle: "从上台观察到打完复盘，按顺序检查，并随实际球形调整计划",
             cardSubtitle: "按五步想完这一杆",
             group: .flow,
             isPublished: true
@@ -192,9 +175,8 @@ enum TheoryCatalog {
         .init(
             id: .quickRef,
             title: "清台速查手册",
-            // 逐字取 16 quick-reference.md 首段子串——原文已是中文人话，不改写。
-            subtitle: "业余玩家上场前 5 分钟通读",
-            cardSubtitle: "上场前5分钟速查",
+            subtitle: "快速回看碰撞、控制与战术要点，带着适用条件使用",
+            cardSubtitle: "上场前回看判断要点",
             group: .flow,
             isPublished: true
         ),

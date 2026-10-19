@@ -1,3 +1,4 @@
+import Combine
 import XCTest
 @testable import QiuJi
 
@@ -44,6 +45,8 @@ final class AuthStateTests: XCTestCase {
         private let lock = NSLock()
         private var refreshTokenPresent: Bool
         private(set) var clearCount = 0
+        var trustedLocalAccount: LocalAccountIdentity?
+        func saveTrustedLocalAccount(_ identity: LocalAccountIdentity) { trustedLocalAccount = identity }
 
         init(hasRefreshToken: Bool) {
             self.refreshTokenPresent = hasRefreshToken
@@ -58,6 +61,7 @@ final class AuthStateTests: XCTestCase {
         func clearAll() {
             lock.lock()
             refreshTokenPresent = false
+            trustedLocalAccount = nil
             clearCount += 1
             lock.unlock()
         }
@@ -91,6 +95,63 @@ final class AuthStateTests: XCTestCase {
     private var purchasedEntitlements: [StoreEntitlementSnapshot] {
         [StoreEntitlementSnapshot(productID: StoreKitService.lifetimeID,
                                   expirationDate: nil, revocationDate: nil)]
+    }
+
+    func testOfflineColdLaunchUsesTrustedOwnerButDoesNotAuthorizeSync() async {
+        let credentials = MockCredentials(hasRefreshToken: true)
+        credentials.trustedLocalAccount = .init(userID: "offline-A", provider: .apple)
+        let owner = CurrentOwnerContext(defaults: defaults)
+        let state = AuthState(backend: MockBackend(behavior: .networkFailure), credentials: credentials,
+                              defaults: defaults, ownerContext: owner)
+        let snapshots = purchasedEntitlements
+        let manager = SubscriptionManager(entitlementLoader: { snapshots }, listenForUpdates: false, useDebugOverrides: false)
+        manager.bind(to: state)
+        await state.bootstrap()
+        await manager.checkEntitlements()
+        XCTAssertTrue(state.hasLocalAccount)
+        XCTAssertFalse(state.isLoggedIn)
+        XCTAssertFalse(state.cloudSyncEnabled)
+        XCTAssertEqual(owner.ownerKey, OwnerKey.account("offline-A"))
+        XCTAssertTrue(manager.isPremium)
+        state.invalidateSession()
+        XCTAssertNil(credentials.trustedLocalAccount)
+        XCTAssertFalse(manager.isPremium)
+        XCTAssertEqual(owner.ownerKey, owner.guestOwnerKey)
+    }
+
+    func testTrustedIdentityWithoutRefreshCredentialCannotRestoreOffline() async {
+        let credentials = MockCredentials(hasRefreshToken: false)
+        credentials.trustedLocalAccount = .init(userID: "stale-A", provider: .apple)
+        let owner = CurrentOwnerContext(defaults: defaults)
+        let state = AuthState(backend: MockBackend(behavior: .networkFailure), credentials: credentials,
+                              defaults: defaults, ownerContext: owner)
+        await state.bootstrap()
+        XCTAssertFalse(state.hasLocalAccount)
+        XCTAssertEqual(owner.ownerKey, owner.guestOwnerKey)
+    }
+
+    func testDefinitiveAuthFailureDiscardsTrustedOfflineIdentity() async {
+        let credentials = MockCredentials(hasRefreshToken: true)
+        credentials.trustedLocalAccount = .init(userID: "invalid-A", provider: .apple)
+        let state = AuthState(backend: MockBackend(behavior: .authRequired), credentials: credentials,
+                              defaults: defaults, ownerContext: CurrentOwnerContext(defaults: defaults))
+        await state.bootstrap()
+        XCTAssertEqual(state.phase, .signedOut)
+        XCTAssertNil(credentials.trustedLocalAccount)
+        XCTAssertFalse(state.hasLocalAccount)
+    }
+
+    func testAccountSwitchReplacesOfflineIdentityAndLogoutClearsIt() async {
+        let credentials = MockCredentials(hasRefreshToken: true)
+        let state = AuthState(backend: MockBackend(behavior: .networkFailure), credentials: credentials,
+                              defaults: defaults, ownerContext: CurrentOwnerContext(defaults: defaults))
+        state.login(user: AppUser(id: "A", provider: .apple))
+        XCTAssertEqual(credentials.trustedLocalAccount?.userID, "A")
+        state.login(user: AppUser(id: "B", provider: .phone))
+        XCTAssertEqual(credentials.trustedLocalAccount?.userID, "B")
+        await state.logout()
+        XCTAssertNil(credentials.trustedLocalAccount)
+        XCTAssertFalse(state.hasLocalAccount)
     }
 
     func testProLogoutClearsEntitlementsAndReloginRefreshesPurchase() async {
@@ -154,20 +215,228 @@ final class AuthStateTests: XCTestCase {
     func testProLateEntitlementResultCannotUnlockLoggedOutSession() async {
         let state = makeSubscriptionAuthState()
         var pending: [CheckedContinuation<[StoreEntitlementSnapshot], Never>] = []
+        let loginRead = expectation(description: "login read suspended")
+        let explicitRead = expectation(description: "explicit read suspended")
         let manager = SubscriptionManager(entitlementLoader: {
-            await withCheckedContinuation { pending.append($0) }
+            await withCheckedContinuation {
+                pending.append($0)
+                if pending.count == 1 { loginRead.fulfill() }
+                if pending.count == 2 { explicitRead.fulfill() }
+            }
         }, listenForUpdates: false, useDebugOverrides: false)
         manager.bind(to: state)
         state.login(user: AppUser(id: "pro-user", provider: .apple))
+        await fulfillment(of: [loginRead], timeout: 2)
         let refresh = Task { await manager.checkEntitlements() }
         // Both the login read and explicit refresh are suspended until after logout.
-        while pending.count < 2 { await Task.yield() }
+        await fulfillment(of: [explicitRead], timeout: 2)
         await state.logout()
         for continuation in pending { continuation.resume(returning: purchasedEntitlements) }
         await refresh.value
         await manager.checkEntitlements()
         XCTAssertFalse(manager.isPremium)
         XCTAssertTrue(manager.purchasedProductIDs.isEmpty)
+    }
+
+    @MainActor
+    private final class ControlledEntitlementLoader {
+        var initial: [StoreEntitlementSnapshot] = []
+        var suspends = false
+        var onRead: ((Int) -> Void)?
+        private(set) var suspendedReads = 0
+        private var pending: [Int: CheckedContinuation<[StoreEntitlementSnapshot], Never>] = [:]
+
+        func load() async -> [StoreEntitlementSnapshot] {
+            guard suspends else { return initial }
+            suspendedReads += 1
+            let index = suspendedReads
+            // Deliberately ignores cancellation, as a framework response may arrive late.
+            return await withCheckedContinuation {
+                pending[index] = $0
+                onRead?(index)
+            }
+        }
+
+        func resolve(_ index: Int, with snapshots: [StoreEntitlementSnapshot]) {
+            guard let continuation = pending.removeValue(forKey: index) else {
+                XCTFail("No suspended entitlement request \(index)")
+                return
+            }
+            continuation.resume(returning: snapshots)
+        }
+
+        func finishAll() {
+            let continuations = Array(pending.values)
+            pending.removeAll()
+            for continuation in continuations { continuation.resume(returning: []) }
+        }
+    }
+
+    private func readyEntitlementManager(initial: [StoreEntitlementSnapshot] = []) async
+        -> (AuthState, SubscriptionManager, ControlledEntitlementLoader) {
+        let state = makeSubscriptionAuthState()
+        let loader = ControlledEntitlementLoader()
+        loader.initial = initial
+        let manager = SubscriptionManager(entitlementLoader: { await loader.load() },
+                                          listenForUpdates: false, useDebugOverrides: false)
+        let ready = expectation(description: "initial real auth binding resolved")
+        let observation = manager.$hasResolvedEntitlements.filter { $0 }.prefix(1).sink { _ in ready.fulfill() }
+        manager.bind(to: state)
+        state.login(user: AppUser(id: "pro-a", provider: .apple))
+        await fulfillment(of: [ready], timeout: 2)
+        observation.cancel()
+        loader.suspends = true
+        return (state, manager, loader)
+    }
+
+    private func assertLatestEntitlementResponseWins(old: [StoreEntitlementSnapshot],
+                                                   latest: [StoreEntitlementSnapshot]) async {
+        let (state, manager, loader) = await readyEntitlementManager()
+        defer { loader.finishAll(); withExtendedLifetime(state) {} }
+        let firstStarted = expectation(description: "older query started")
+        let secondStarted = expectation(description: "newer query started")
+        loader.onRead = { index in
+            if index == 1 { firstStarted.fulfill() }
+            if index == 2 { secondStarted.fulfill() }
+        }
+        let first = Task { await manager.checkEntitlements() }
+        await fulfillment(of: [firstStarted], timeout: 2)
+        let second = Task { await manager.checkEntitlements() }
+        await fulfillment(of: [secondStarted], timeout: 2)
+        loader.resolve(2, with: latest)
+        await second.value
+        XCTAssertEqual(manager.isPremium, !latest.isEmpty)
+        XCTAssertFalse(manager.isRefreshingEntitlements)
+        loader.resolve(1, with: old)
+        await first.value
+        XCTAssertEqual(manager.entitlementSnapshots, latest)
+        XCTAssertEqual(manager.isPremium, !latest.isEmpty)
+        XCTAssertTrue(manager.hasResolvedEntitlements)
+    }
+
+    func testProOlderValidResponseCannotUndoNewerRevocation() async {
+        await assertLatestEntitlementResponseWins(old: purchasedEntitlements, latest: [])
+    }
+
+    func testProOlderEmptyResponseCannotUndoNewerPurchase() async {
+        await assertLatestEntitlementResponseWins(old: [], latest: purchasedEntitlements)
+    }
+
+    func testProLifecycleQueriesCoalesceButTransactionRefreshSupersedesThem() async {
+        let (state, manager, loader) = await readyEntitlementManager()
+        defer { loader.finishAll(); withExtendedLifetime(state) {} }
+        let firstStarted = expectation(description: "foreground query started")
+        let transactionStarted = expectation(description: "transaction query started")
+        loader.onRead = { index in
+            if index == 1 { firstStarted.fulfill() }
+            if index == 2 { transactionStarted.fulfill() }
+        }
+        let first = Task { await manager.checkEntitlements(coalescing: true) }
+        await fulfillment(of: [firstStarted], timeout: 2)
+        let joined = expectation(description: "second lifecycle caller entered")
+        let second = Task {
+            joined.fulfill()
+            await manager.checkEntitlements(coalescing: true)
+        }
+        await fulfillment(of: [joined], timeout: 2)
+        XCTAssertEqual(loader.suspendedReads, 1)
+        let transaction = Task { await manager.checkEntitlements() }
+        await fulfillment(of: [transactionStarted], timeout: 2)
+        XCTAssertEqual(loader.suspendedReads, 2)
+        loader.resolve(2, with: purchasedEntitlements)
+        await transaction.value
+        loader.resolve(1, with: [])
+        await first.value
+        await second.value
+        XCTAssertTrue(manager.isPremium)
+        XCTAssertFalse(manager.isRefreshingEntitlements)
+    }
+
+    func testProAccountSwitchRejectsOldResultAndPreservesNewRefreshState() async {
+        let (state, manager, loader) = await readyEntitlementManager(initial: purchasedEntitlements)
+        defer { loader.finishAll() }
+        let firstStarted = expectation(description: "A query started")
+        let secondStarted = expectation(description: "B login query started")
+        loader.onRead = { index in
+            if index == 1 { firstStarted.fulfill() }
+            if index == 2 { secondStarted.fulfill() }
+        }
+        let first = Task { await manager.checkEntitlements() }
+        await fulfillment(of: [firstStarted], timeout: 2)
+        state.login(user: AppUser(id: "pro-b", provider: .apple))
+        XCTAssertFalse(manager.isPremium)
+        XCTAssertFalse(manager.hasResolvedEntitlements)
+        await fulfillment(of: [secondStarted], timeout: 2)
+        loader.resolve(1, with: purchasedEntitlements)
+        await first.value
+        XCTAssertFalse(manager.isPremium)
+        XCTAssertTrue(manager.isRefreshingEntitlements)
+        let resolved = expectation(description: "B query resolved")
+        let observation = manager.$hasResolvedEntitlements.filter { $0 }.prefix(1).sink { _ in resolved.fulfill() }
+        loader.resolve(2, with: [])
+        await fulfillment(of: [resolved], timeout: 2)
+        observation.cancel()
+        XCTAssertFalse(manager.isPremium)
+        XCTAssertFalse(manager.isRefreshingEntitlements)
+    }
+
+    func testProRefreshRetainsVerifiedAccessUntilNewQueryCompletes() async {
+        let (state, manager, loader) = await readyEntitlementManager(initial: purchasedEntitlements)
+        defer { loader.finishAll(); withExtendedLifetime(state) {} }
+        let started = expectation(description: "foreground refresh started")
+        loader.onRead = { _ in started.fulfill() }
+        let refresh = Task { await manager.checkEntitlements(coalescing: true) }
+        await fulfillment(of: [started], timeout: 2)
+        XCTAssertTrue(manager.isRefreshingEntitlements)
+        XCTAssertTrue(manager.isPremium)
+        XCTAssertEqual(manager.accessDecision(requiresPremium: true), .allowed)
+        loader.resolve(1, with: [])
+        await refresh.value
+        XCTAssertFalse(manager.isPremium)
+        XCTAssertEqual(manager.accessDecision(requiresPremium: true), .requiresPro)
+    }
+
+    func testProOnlyVerifiedCurrentCatalogProductsContributeAccess() async {
+        let state = makeSubscriptionAuthState()
+        let unknown = StoreEntitlementSnapshot(productID: "future.unrelated.product", expirationDate: nil, revocationDate: nil)
+        let revoked = StoreEntitlementSnapshot(productID: StoreKitService.lifetimeID, expirationDate: nil, revocationDate: .now)
+        var snapshots = [unknown, revoked]
+        let manager = SubscriptionManager(entitlementLoader: { snapshots }, listenForUpdates: false, useDebugOverrides: false)
+        state.login(user: AppUser(id: "pro-user", provider: .apple))
+        manager.bind(to: state)
+        await manager.checkEntitlements(coalescing: true)
+        XCTAssertFalse(manager.isPremium)
+        XCTAssertTrue(manager.purchasedProductIDs.isEmpty)
+        for id in StoreKitService.allProductIDs {
+            let valid = StoreEntitlementSnapshot(productID: id, expirationDate: nil, revocationDate: nil)
+            snapshots = [unknown, revoked, valid]
+            await manager.checkEntitlements()
+            XCTAssertTrue(manager.isPremium)
+            XCTAssertEqual(manager.purchasedProductIDs, [id])
+            XCTAssertEqual(manager.entitlementSnapshots, [valid])
+        }
+    }
+
+    func testProCurrentEntitlementGracePeriodIsNotFilteredByPastExpiration() async {
+        // Models a verified currentEntitlements result during billing grace, not history.
+        let grace = StoreEntitlementSnapshot(productID: StoreKitService.monthlyID,
+                                            expirationDate: .distantPast, revocationDate: nil)
+        let (state, manager, loader) = await readyEntitlementManager(initial: [grace])
+        defer { loader.finishAll(); withExtendedLifetime(state) {} }
+        XCTAssertTrue(manager.isPremium)
+        XCTAssertEqual(manager.entitlementSnapshots, [grace])
+        XCTAssertEqual(manager.accessDecision(requiresPremium: true), .allowed)
+    }
+
+    func testProAccessPolicyDistinguishesGuestCheckingAndConfirmedFree() {
+        XCTAssertEqual(ProAccessPolicy.decision(requiresPremium: false, hasSession: false,
+                                               isPremium: false, hasResolvedEntitlements: false), .allowed)
+        XCTAssertEqual(ProAccessPolicy.decision(requiresPremium: true, hasSession: false,
+                                               isPremium: true, hasResolvedEntitlements: true), .requiresLogin)
+        XCTAssertEqual(ProAccessPolicy.decision(requiresPremium: true, hasSession: true,
+                                               isPremium: false, hasResolvedEntitlements: false), .checkingEntitlements)
+        XCTAssertEqual(ProAccessPolicy.decision(requiresPremium: true, hasSession: true,
+                                               isPremium: false, hasResolvedEntitlements: true), .requiresPro)
     }
 
     func testBootstrapWithoutTokenReturnsStableGuestAfterOnboarding() async {

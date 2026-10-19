@@ -169,22 +169,36 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
     @ObservedObject var vm: VM
     let title: String
     let coordinateSpaceName: String
+    let preferencePage: TablePreferencePage
     var onPocketTapped: ((Int) -> Void)? = nil
     let infoTitle: String
     let infoBlocks: [PrincipleBlock]
     @State private var showInfo = false
-    @AppStorage("bankKick.spinTransparency") private var spinTransparency = 0.5
-    @AppStorage("bankKick.hides3DAssists") private var hides3DAssists = false
+    @ObservedObject private var tablePreferences = TablePreferencesStore.shared
+    private var spinTransparency: Double {
+        get { tablePreferences.snapshot(for: preferencePage)[.transparency] }
+        nonmutating set { tablePreferences.apply(.transparency, value: newValue, to: preferencePage) }
+    }
+    private var hides3DAssists: Bool { !tablePreferences.snapshot(for: preferencePage).enabled(.shows3DTrajectory) }
     private var free: Bool { vm.mode == .free }
     private var is3D: Bool { vm.cameraMode == .perspective3D }
 
     var body: some View {
-        BTTeachingTablePage(vm: vm, titleLabel: title, identifier: coordinateSpaceName,
+        BTTeachingTablePage(vm: vm, titleLabel: title, identifier: coordinateSpaceName, preferencePage: preferencePage,
             velocity: powerBinding, planning: controls,
             information: vm.tableStatusText.map { [.init(text: $0, kind: .readout, symbol: vm.tableStatusIsReadout ? nil : "info.circle", identifier: "solver.status")] } ?? [], usesStandardTitle: true,
             pairedLeftContent: free ? { AnyView(freeControls($0)) } : nil,
             title: { EmptyView() },
             leftContent: { leftControls($0) }, status: { EmptyView() }, onPalettePlace: { vm.placeObstacle($0, atWorld: $1) })
+            #if DEBUG
+            .overlay(alignment: .bottom) {
+                if DailyLayoutProbe.enabled {
+                    Color.clear.frame(width: 1, height: 1).allowsHitTesting(false)
+                        .accessibilityElement().accessibilityIdentifier(coordinateSpaceName + ".layoutState")
+                        .accessibilityValue("target=\(vm.selectedTargetKey ?? "none") pocket=\(vm.selectedPocketIndex) mode=\(vm.mode) cushions=\(vm.selectedCushions ?? -1) solutions=\(vm.solutionCount) index=\(vm.currentIndex) spinX=\(vm.spinX) spinY=\(vm.spinY) velocity=\(vm.reflectionPower) obstacles=\(vm.onTableObstacleKeys.sorted().joined(separator: ",")) status=\(vm.statusText)")
+                }
+            }
+            #endif
             .sheet(isPresented: $showInfo) {
                 PrincipleInfoSheet(title: infoTitle, blocks: infoBlocks)
                     .presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
@@ -193,8 +207,8 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
 
     private var controls: BTTablePlanningControls {
         BTTablePlanningControls(spinX: spinXBinding, spinY: spinYBinding,
-            transparency: $spinTransparency,
-            hides3DAssists: Binding(get: { hides3DAssists }, set: { hides3DAssists = $0; vm.hides3DShotAssists = $0 }),
+            transparency: Binding(get: { spinTransparency }, set: { spinTransparency = $0 }),
+            hides3DAssists: Binding(get: { hides3DAssists }, set: { tablePreferences.apply(.shows3DTrajectory, value: $0 ? 0 : 1, to: preferencePage) }),
             velocityRange: Double(CushionReflectionSettings.minPower)...Double(CushionReflectionSettings.maxPower),
             instrumentsEnabled: !vm.isPlaying && (!vm.isSolving || vm.isAdjustingSolution), showsSpinSlot: free || vm.solutionCount > 0,
             isAnimating: vm.isPlaying || vm.isSolving, paletteEnabled: !vm.isPlaying,
@@ -207,8 +221,10 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                 else if vm.onTableKeys.contains(key) { vm.pulseTableBall(key) }
                 else { vm.placeObstacle(key, atWorld: nil) }
             }, menuItems: solverMenuItems, refreshTrajectory: { vm.refreshShotAssistVisibility() },
+            applyPreferences: { vm.hides3DShotAssists = !$0.enabled(.shows3DTrajectory) },
             onSetup: { vm.hides3DShotAssists = hides3DAssists },
             onDisappear: { vm.stopForDismissal() },
+            layoutEditingBlocked: showInfo,
             onAimNudged: free && !is3D ? { vm.nudgeFreeAim(byDegrees: $0) } : nil,
             onAimDragActiveChanged: { vm.setAimTableDragging($0) },
             closeupSnapshot: vm.closeupSnapshot,
@@ -218,7 +234,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             })
     }
     private var solverMenuItems: [DailyHUDMenuItem] {
-        var items: [DailyHUDMenuItem] = [.init(id: "solver.info", title: "原理说明", action: { showInfo = true })]
+        var items: [DailyHUDMenuItem] = [.init(id: "solver.info", title: "原理说明", disclosure: true, action: { showInfo = true })]
         if free {
             items.append(.init(id: "solver.restore", title: "恢复球形", disabled: vm.isPlaying || !vm.canRestoreSnapshot,
                 action: { vm.restoreSolveSnapshot() }))
@@ -237,6 +253,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                 .background { BTHUDControlBackground(shape: Circle()) }
         }.buttonStyle(BTHUDPressStyle()).disabled(!enabled).opacity(enabled ? 1 : 0.3)
             .accessibilityLabel(title).accessibilityIdentifier(id)
+            .freeControlItem(id == "solver.undo" ? "shot.undo" : "shot.replay", name: title)
     }
 
     private func freeControls(_ metrics: BTTeachingInstrumentLayout) -> some View {
@@ -249,6 +266,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                 }.buttonStyle(BTHUDPressStyle()).disabled(vm.isPlaying).opacity(vm.isPlaying ? 0.3 : 1).accessibilityLabel("切换求解")
                     .accessibilityIdentifier("solver.mode").accessibilityValue("自由")
             }
+            .freeControlItem("solver.mode", name: "求解或自由")
             BTTeachingAimRuler(layout: metrics, enabled: !vm.isPlaying && !vm.temporaryTopDownActive,
                 onNudge: { vm.nudgeFreeAim(byDegrees: $0) }, degreesPerPoint: vm.aimWheelDegreesPerPoint,
                 onDragActiveChanged: { vm.setAimWheelDragging($0) })
@@ -267,10 +285,11 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
     }
 
     private func leftControls(_ size: CGSize) -> some View {
-        ScrollView(.vertical) {
+        FreeControlColumn {
             VStack(spacing: 4) {
                 action(free ? "自由" : "求解", free ? "scope" : TeachingSolverSymbols.solve, "solver.mode", enabled: !vm.isPlaying) { vm.toggleMode() }
                     .accessibilityValue(free ? "自由" : "求解")
+                    .freeControlItem("solver.mode", name: "求解或自由")
                 if !free {
                     Menu {
                         Button("自动") { vm.selectCushions(nil) }
@@ -280,16 +299,20 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                             .frame(width: 44, height: 44)
                             .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
                     }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }.disabled(vm.isPlaying).accessibilityIdentifier("solver.cushions")
+                        .freeControlItem("solver.cushions", name: "库数")
                     TeachingSolutionButton(count: vm.solutionCount, currentIndex: vm.currentIndex, enabled: !vm.isPlaying && !vm.isSolving, next: { vm.nextSolution() })
+                        .freeControlItem("planning.nextSolution", name: "下一解")
                 }
                 action("重打", "arrow.uturn.backward", "solver.undo", enabled: !vm.isPlaying && !vm.temporaryTopDownActive && (free ? vm.canUndoShot : vm.canUndoSolve)) {
                     if free { vm.undoLastShot() } else { vm.undoSolveShot() }
                 }
+                .freeControlItem("shot.undo", name: "重打")
                 action("回放", "play.rectangle", "solver.replay", enabled: !vm.isPlaying && !vm.temporaryTopDownActive && (free ? vm.canPlaybackShot : vm.canReplaySolve)) {
                     if free { vm.replayLastShot() } else { vm.replaySolveShot() }
                 }
+                .freeControlItem("shot.replay", name: "回放")
             }.frame(maxWidth: .infinity)
-        }.scrollIndicators(.hidden).frame(width: size.width, height: min(size.height, free ? 366 : 236))
+        }.frame(width: size.width, height: min(size.height, free ? 366 : 236), alignment: .top)
     }
     private func action(_ label: String, _ icon: String, _ id: String, enabled: Bool, perform: @escaping () -> Void) -> some View {
         Button(action: perform) {

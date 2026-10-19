@@ -18,6 +18,8 @@ QiuJiTests/CueClearanceTests.swift
 QiuJiTests/CueSpinPreviewCaptureTests.swift
 QiuJiTests/CueStyleTests.swift
 QiuJiTests/CushionEnglishAtlasTests.swift
+QiuJiTests/CustomFormationSyncTests.swift
+QiuJiTests/CustomFormationTests.swift
 QiuJiTests/Daily3DCameraPerformanceTests.swift
 QiuJiTests/Daily3DClothPerformanceTests.swift
 QiuJiTests/DailyClearanceRulesTests.swift
@@ -77,7 +79,9 @@ QiuJiUITests/AimingCorrectionZ2UITests.swift
 QiuJiUITests/AimingCorrectionZ3UITests.swift
 QiuJiUITests/B1_ManualFormationUITests.swift
 QiuJiUITests/BallStickerUITests.swift
+QiuJiUITests/ControlLayoutPlacementUITests.swift
 QiuJiUITests/CueStyleUITests.swift
+QiuJiUITests/CustomFormationUITests.swift
 QiuJiUITests/Daily3DDeviceProfilingUITests.swift
 QiuJiUITests/DailyAdaptivePanelUITests.swift
 QiuJiUITests/DailyAdaptivityAuditUITests.swift
@@ -88,6 +92,8 @@ QiuJiUITests/DeviceMatrixUITests.swift
 QiuJiUITests/DrillSceneThreeBeatUITests.swift
 QiuJiUITests/DrillTryoutUITests.swift
 QiuJiUITests/Helpers/TheoryFigureEvidence.swift
+QiuJiUITests/OnboardingProUITests.swift
+QiuJiUITests/P2_DataLayerUITests.swift
 QiuJiUITests/P5_AngleTrainingUITests.swift
 QiuJiUITests/PocketLeatherFlowUITests.swift
 QiuJiUITests/PocketLeatherUITests.swift

@@ -44,11 +44,193 @@ final class P2_DataLayerUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["onboarding.title.0"].waitForExistence(timeout: 5))
     }
 
+    func testProfileCrownedBallsAndSubscriptionNavigation() throws {
+        for appearance in ["Light", "Dark"] {
+            for sport in ["8", "9"] {
+                app.terminate()
+                var args = ["-v53.authenticatedProfileFixture", "-forcePremium",
+                            "-v50.inMemoryStore", "-appearanceMode", appearance.lowercased()]
+                if sport == "8" { args.append("-profile.fixtureChinese8") }
+                // Deliberately select the opposite daily game: main sport owns the header.
+                args += ["-dailyClearance.preferredGame.v1", sport == "8" ? "nineBall" : "chineseEightBall"]
+                app = XCUIApplication.launchClean(extraArgs: args)
+                app.switchTab(.profile)
+                let header = app.buttons["profile.accountHeader"]
+                XCTAssertTrue(header.waitForExistence(timeout: 6))
+                XCTAssertEqual(header.value as? String, "Pro 已解锁")
+                XCTAssertFalse(app.staticTexts["Pro 会员"].exists)
+                XCTAssertFalse(app.descendants(matching: .any)["profile.membershipSummary"].firstMatch.exists)
+                captureProfileRefinement("crown-\(sport)-\(appearance)")
+                let subscription = app.buttons["profile.subscription"]
+                for _ in 0..<3 where !subscription.isHittable { app.swipeUp() }
+                XCTAssertTrue(subscription.isHittable)
+                subscription.tap()
+                XCTAssertTrue(app.buttons["恢复购买"].waitForExistence(timeout: 6))
+                app.navigationBars.buttons.firstMatch.tap()
+                let tour = app.buttons["profile.onboarding"]
+                for _ in 0..<3 where !tour.isHittable { app.swipeUp() }
+                XCTAssertTrue(tour.isHittable)
+                captureProfileRefinement("crown-menu-\(sport)-\(appearance)")
+            }
+        }
+    }
+
+    func testProfileNonPremiumBallsHaveNoCrown() {
+        for sport in ["8", "9"] {
+            app.terminate()
+            var args = ["-v53.authenticatedProfileFixture", "-forceNonPremium",
+                        "-v50.inMemoryStore", "-appearanceMode", "light"]
+            if sport == "8" { args.append("-profile.fixtureChinese8") }
+            app = XCUIApplication.launchClean(extraArgs: args)
+            app.switchTab(.profile)
+            let header = app.buttons["profile.accountHeader"]
+            XCTAssertTrue(header.waitForExistence(timeout: 6))
+            XCTAssertEqual(header.value as? String, "普通用户")
+            XCTAssertTrue(app.buttons["profile.subscription"].label.contains("升级 Pro"))
+            captureProfileRefinement("free-\(sport)-Light")
+        }
+    }
+
     private func captureProfileRefinement(_ name: String) {
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "profile-refinement-\(name)"
         shot.lifetime = .keepAlways
         add(shot)
+    }
+
+    func testDrillProCrownEntrances() {
+        for appearance in ["light", "dark"] {
+            app.terminate()
+            app = XCUIApplication.launchClean(extraArgs: [
+                "-v53.authenticatedProfileFixture", "-forceNonPremium", "-v50.inMemoryStore",
+                "-deeplink.drillDetail=drill_c033", "-appearanceMode", appearance,
+                appearance == "light" ? "-v54.forceLight" : "-v54.forceDark"
+            ])
+            let bottom = app.buttons["unlockProButton"]
+            XCTAssertTrue(bottom.waitForExistence(timeout: 8))
+            let inline = app.buttons["premiumLock.unlock"]
+            for _ in 0..<5 {
+                if inline.exists && inline.frame.maxY < bottom.frame.minY - 12 { break }
+                app.swipeUp()
+            }
+            XCTAssertTrue(inline.isHittable)
+            XCTAssertTrue(bottom.isHittable)
+            XCTAssertLessThan(inline.frame.maxY, bottom.frame.minY - 12)
+            XCTAssertFalse(app.buttons["bottomTryoutButton"].exists)
+            captureProfileRefinement("drill-crown-" + appearance)
+            // Exercise the two independently hosted entry points.
+            (appearance == "light" ? inline : bottom).tap()
+            XCTAssertTrue(app.buttons["恢复购买"].waitForExistence(timeout: 8))
+        }
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-v53.authenticatedProfileFixture", "-forcePremium", "-v50.inMemoryStore",
+            "-deeplink.drillDetail=drill_c033", "-appearanceMode", "light", "-v54.forceLight"
+        ])
+        XCTAssertTrue(app.buttons["bottomTryoutButton"].waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["unlockProButton"].exists)
+        XCTAssertFalse(app.buttons["premiumLock.unlock"].exists)
+        captureProfileRefinement("drill-crown-pro-unlocked")
+    }
+
+    func testProfileCrownedBallWithLongName() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-v53.authenticatedProfileFixture", "-v57.longProfileName", "-forcePremium",
+            "-v50.inMemoryStore", "-appearanceMode", "light"
+        ])
+        app.switchTab(.profile)
+        let header = app.buttons["profile.accountHeader"]
+        XCTAssertTrue(header.waitForExistence(timeout: 6))
+        let name = app.staticTexts[String(repeating: "认真练球", count: 5)].firstMatch
+        XCTAssertTrue(name.exists)
+        XCTAssertTrue(header.frame.contains(name.frame))
+        // The fixed ball occupies the final 60pt plus the card's 16pt padding.
+        XCTAssertLessThanOrEqual(name.frame.maxX, header.frame.maxX - 76)
+        captureProfileRefinement("crown-long-name")
+    }
+
+    private func captureProfileDetails(_ name: String) throws {
+        let image = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: image)
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("output/profile-details-20261017/ui")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try image.pngRepresentation.write(to: root.appendingPathComponent(name + ".png"))
+    }
+
+    func testProfileDetailsHeaderAndSettingsMenu() throws {
+        for appearance in ["light", "dark"] {
+            app.terminate()
+            XCUIDevice.shared.orientation = .portrait
+            app = XCUIApplication.launchClean(extraArgs: ["-v53.authenticatedProfileFixture", "-profile.fixtureBasics",
+                "-forcePremium", "-v50.inMemoryStore", "-appearanceMode", appearance])
+            app.switchTab(.profile)
+            let header = app.buttons["profile.accountHeader"]
+            XCTAssertTrue(header.waitForExistence(timeout: 6))
+            let id = app.staticTexts["profile.accountID"]
+            let edit = app.descendants(matching: .any)["profile.editInfo"].firstMatch
+            XCTAssertTrue(id.exists); XCTAssertTrue(edit.exists)
+            XCTAssertEqual(id.frame.midY, edit.frame.midY, accuracy: 4)
+            try captureProfileDetails("header-" + appearance)
+            header.tap()
+            XCTAssertTrue(app.buttons["personalInfo.gender"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["personalInfo.gender"].label.contains("女"))
+            XCTAssertTrue(app.buttons["personalInfo.age"].label.contains("岁"))
+            try captureProfileDetails("personal-info-" + appearance)
+            app.buttons["personalInfo.age"].tap()
+            XCTAssertTrue(app.buttons["personalInfo.saveBirthday"].waitForExistence(timeout: 5))
+            try captureProfileDetails("birthday-" + appearance)
+            app.buttons["取消"].tap()
+            app.navigationBars.buttons.firstMatch.tap()
+            let settings = app.buttons["设置"]
+            for _ in 0..<4 where !settings.isHittable { app.swipeUp() }
+            settings.tap()
+            XCTAssertTrue(app.buttons["settings.reapply"].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.staticTexts["这里修改的项目会统一应用到相关页面。各页面仍可单独调整并记住。"].exists)
+            try captureProfileDetails("settings-" + appearance)
+            app.buttons["settings.reapply"].tap()
+            XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "台面网格 4×8 ·")).firstMatch.waitForExistence(timeout: 5))
+            try captureProfileDetails("settings-menu-" + appearance)
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "台面网格 4×8 ·")).firstMatch.tap()
+        }
+    }
+
+    func testGuestProfileBirthdaySaveCancelClearAndPersistence() throws {
+        app.terminate()
+        let args = ["-v50.inMemoryStore", "-appearanceMode", "light"]
+        app = XCUIApplication.launchClean(extraArgs: args)
+        func openInfo() {
+            app.switchTab(.profile)
+            let info = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "个人信息")).firstMatch
+            for _ in 0..<4 where !info.isHittable { app.swipeUp() }
+            info.tap()
+            XCTAssertTrue(app.buttons["personalInfo.age"].waitForExistence(timeout: 5))
+        }
+        openInfo()
+        let age = app.buttons["personalInfo.age"]
+        // Establish a known empty value using the real UI without clearing other user data.
+        age.tap()
+        if app.buttons["personalInfo.clearBirthday"].exists { app.buttons["personalInfo.clearBirthday"].tap() }
+        else { app.buttons["取消"].tap() }
+        XCTAssertTrue(age.label.contains("未设置"))
+        age.tap(); app.buttons["取消"].tap()
+        XCTAssertTrue(age.label.contains("未设置"))
+        age.tap(); app.buttons["personalInfo.saveBirthday"].tap()
+        XCTAssertTrue(age.waitForExistence(timeout: 5)); XCTAssertTrue(age.label.contains("岁"))
+        let savedAge = age.label
+        app.buttons["personalInfo.gender"].tap(); app.buttons["男"].tap()
+        XCTAssertTrue(app.buttons["personalInfo.gender"].label.contains("男"))
+        try captureProfileDetails("guest-saved")
+        app.terminate(); app = XCUIApplication.launchClean(extraArgs: args); openInfo()
+        XCTAssertEqual(age.label, savedAge)
+        XCTAssertTrue(app.buttons["personalInfo.gender"].label.contains("男"))
+        age.tap(); app.buttons["personalInfo.clearBirthday"].tap()
+        app.buttons["personalInfo.gender"].tap(); app.buttons["不透露"].tap()
+        XCTAssertTrue(age.label.contains("未设置"))
+        XCTAssertTrue(app.buttons["personalInfo.gender"].label.contains("未设置"))
+        try captureProfileDetails("guest-cleared")
     }
 
     // MARK: - S: App Launch & Schema
@@ -87,9 +269,9 @@ final class P2_DataLayerUITests: XCTestCase {
         let header = app.descendants(matching: .any)["profile.accountHeader"].firstMatch
         XCTAssertTrue(header.waitForExistence(timeout: 6))
         XCTAssertTrue(header.label.contains("服务端球友"))
-        let membership = app.descendants(matching: .any)["profile.membershipSummary"].firstMatch
-        XCTAssertTrue(membership.exists)
-        XCTAssertTrue(membership.label.contains("Pro 会员"))
+        XCTAssertFalse(app.descendants(matching: .any)["profile.membershipSummary"].firstMatch.exists)
+        XCTAssertEqual(header.value as? String, "Pro 已解锁")
+        let membership = app.buttons["profile.subscription"]
         XCTAssertTrue(membership.label.contains("Pro 已解锁，状态待刷新"))
         XCTAssertFalse(app.staticTexts["永久有效"].exists, "测试解锁不能伪装永久权益")
         let screenshot = XCTAttachment(screenshot: app.screenshot())
@@ -121,16 +303,18 @@ final class P2_DataLayerUITests: XCTestCase {
             let window = app.windows.firstMatch.frame
             XCTAssertGreaterThanOrEqual(header.frame.minX, window.minX)
             XCTAssertLessThanOrEqual(header.frame.maxX, window.maxX)
-            let membership = app.descendants(matching: .any)["profile.membershipSummary"].firstMatch
+            let membership = app.buttons["profile.subscription"]
             if let expectedStatus {
                 XCTAssertTrue(membership.waitForExistence(timeout: 6))
                 XCTAssertTrue(membership.label.contains(expectedStatus), membership.label)
-                XCTAssertTrue(header.frame.contains(membership.frame), "会员状态必须位于账号卡内")
+                XCTAssertEqual(header.value as? String, "Pro 已解锁")
+                XCTAssertFalse(app.descendants(matching: .any)["profile.membershipSummary"].firstMatch.exists)
                 if expectedStatus != "永久有效" {
                     XCTAssertFalse(membership.label.contains("永久有效"))
                 }
             } else {
-                XCTAssertFalse(membership.exists)
+                XCTAssertTrue(membership.exists)
+                XCTAssertEqual(header.value as? String, "普通用户")
                 XCTAssertTrue(app.staticTexts["升级 Pro"].exists)
             }
             let screenshot = XCTAttachment(screenshot: app.screenshot())
@@ -206,7 +390,7 @@ final class P2_DataLayerUITests: XCTestCase {
         capture("v57-profile-restore-failure")
         alert.buttons["确定"].tap()
         app.navigationBars.buttons.firstMatch.tap()
-        let membership = app.descendants(matching: .any)["profile.membershipSummary"].firstMatch
+        let membership = app.buttons["profile.subscription"]
         XCTAssertTrue(membership.waitForExistence(timeout: 6))
         XCTAssertTrue(membership.label.contains("永久有效"), "恢复失败不能撤销已有有效权益")
         capture("v57-profile-after-restore-failure")

@@ -4,9 +4,9 @@
 //
 //  翻袋/反射解球页「好打优先」排序（W3，docs/research/20260709-翻袋反射页重构方案 §3）。
 //
-//  与 `DifficultyModel`（E1，走位反解的 spin/力度难度语义）**分立不共码**：两页反解不搜塞，
-//  难度输入是进球几何（切角/球距/库数/路径长/首库入射角），常量集中在本文件单一真源。
-//  排序 = 难度评分 + E5 式扰动容错合成，全部落在「挑选/呈现」层——不碰扫描与终验流水线。
+//  Measured-route grouping and minimum-spin representatives precede cross-route ranking.
+//  Difficulty uses shot geometry; robustness probes aim, speed and horizontal contact error.
+//  Every reduced-spin candidate reuses the production aim search and physics verification.
 //
 //  坐标契约：SceneKit 世界系，水平面 X–Z、+Y 朝上；长库 = 常 Z（±halfW）、短库 = 常 X（±halfL）。
 //
@@ -79,9 +79,10 @@ enum BankKickDifficulty {
     /// 档位阈值（难度评分，不含容错）。
     static let tierBoundaries = (easy: 0.55, medium: 1.1)
 
-    /// E5 同款扰动参数（两页反解不搜塞 ⇒ 不扰打点，仅瞄准 + 力度共 4 次）。
+    /// Aim / speed probes plus horizontal contact-point error, including zero-spin shots.
     static let probeAimDeltaDeg = 0.5
     static let probeVelocityFactor = 0.08
+    static let probeSpinDelta: Float = 0.02
 
     // MARK: 难度评分
 
@@ -127,7 +128,7 @@ enum BankKickDifficulty {
 
     // MARK: E5 式扰动容错（瞄准 ±0.5° / 力度 ±8%，解析优先、歧义回退引擎 scoring-only）
 
-    /// 翻袋解容错：对已终验的解做 4 次扰动，统计仍进选定袋的比例（0–1）。
+    /// Six deterministic probes; this fraction is not a calibrated success probability.
     /// 评估走 `ShotPredictor.bankAimScore`（解析优先，歧义就地回退引擎——判定不降级）。
     static func measureBankRobustness(
         input baseInput: ShotInput, rails: [BankShotCalculator.Rail], aimOffset: Float
@@ -148,10 +149,17 @@ enum BankKickDifficulty {
                 succeeded += 1
             }
         }
-        return Double(succeeded) / 4.0
+        for delta in [-probeSpinDelta, probeSpinDelta] {
+            var probe = input
+            probe.spinX += delta
+            if ShotPredictor.bankAimScore(offset: aimOffset, input: probe, context: ctx, rails: rails) < 0 {
+                succeeded += 1
+            }
+        }
+        return Double(succeeded) / 6.0
     }
 
-    /// 反射解容错：同款 4 次扰动，统计仍「碰到目标球且库序拓扑吻合」的比例。
+    /// Six probes of aim, speed and horizontal contact-point error.
     static func measureKickRobustness(
         input baseInput: ShotInput, rails: [DiamondSystemCalculator.Rail], aimOffset: Float
     ) -> Double? {
@@ -171,7 +179,14 @@ enum BankKickDifficulty {
                 succeeded += 1
             }
         }
-        return Double(succeeded) / 4.0
+        for delta in [-probeSpinDelta, probeSpinDelta] {
+            var probe = input
+            probe.spinX += delta
+            if ShotPredictor.kickAimScore(offset: aimOffset, input: probe, context: ctx, rails: rails) < 0 {
+                succeeded += 1
+            }
+        }
+        return Double(succeeded) / 6.0
     }
 
     private static func perturbations(
@@ -225,11 +240,12 @@ struct BankEngineSolution: Identifiable {
     }
 }
 
-/// 反射页解（引擎全保真物化）。`cushions` = 种子库序数（与 `rails` 文案一致）。
+/// Kick display rails/count come from main-rail events before the cue's first ball contact.
 /// K10：同翻袋，解携带搜索时的加塞。
 struct KickEngineSolution: Identifiable {
     let id = UUID()
     let rails: [DiamondSystemCalculator.Rail]
+    let seedRails: [DiamondSystemCalculator.Rail]
     let prediction: ShotPrediction
     let cushions: Int
     let difficultyScore: Double
@@ -248,6 +264,110 @@ struct KickEngineSolution: Identifiable {
     }
 }
 
+/// Route identity in world XZ metres. Excludes the cue's post-contact motion (kick)
+/// and the object's pocket presentation tail (bank). A ball diameter is the catalogue
+/// grouping tolerance, NOT a physics success tolerance. Rail order must also agree.
+struct BankKickRoute {
+    let rails: [BankShotCalculator.Rail]
+    let contacts: [SCNVector3]
+    let path: [SCNVector3]
+    let pocketID: String?
+
+    static var tolerance: Float { 2 * BallPhysics.radius }
+
+    func matches(_ other: Self) -> Bool {
+        guard rails == other.rails, pocketID == other.pocketID,
+              contacts.count == other.contacts.count,
+              path.count >= 2, other.path.count >= 2 else { return false }
+        func distance(_ a: SCNVector3, _ b: SCNVector3) -> Float {
+            hypotf(a.x - b.x, a.z - b.z)
+        }
+        guard zip(contacts, other.contacts).allSatisfy({ distance($0, $1) <= Self.tolerance }) else {
+            return false
+        }
+        // Ordered arc-length samples distinguish traversals even when their point sets overlap.
+        let a = Self.samples(path), b = Self.samples(other.path)
+        return !a.isEmpty && a.count == b.count && zip(a, b).allSatisfy { distance($0, $1) <= Self.tolerance }
+    }
+
+    private static func samples(_ path: [SCNVector3]) -> [SCNVector3] {
+        var lengths: [Float] = [0]
+        for (a, b) in zip(path, path.dropFirst()) {
+            lengths.append(lengths.last! + hypotf(b.x - a.x, b.z - a.z))
+        }
+        guard let total = lengths.last, total > 0 else { return [] }
+        var segment = 1
+        return (0...32).map { index in
+            let at = total * Float(index) / 32
+            while segment < lengths.count - 1 && lengths[segment] < at { segment += 1 }
+            let length = lengths[segment] - lengths[segment - 1]
+            let t = length > 0 ? (at - lengths[segment - 1]) / length : 0
+            let a = path[segment - 1], b = path[segment]
+            return SCNVector3(a.x + (b.x - a.x) * t, a.y, a.z + (b.z - a.z) * t)
+        }
+    }
+
+    static func measured(_ prediction: ShotPrediction, kick: Bool) -> Self? {
+        let ball = kick ? ShotInput.cueBallName : ShotInput.targetBallName
+        guard let recorder = prediction.recorder,
+              let frames = recorder.framesByBallName[ball], !frames.isEmpty else { return nil }
+        var rails: [BankShotCalculator.Rail] = []
+        var contacts: [SCNVector3] = []
+        var endTime: Float?
+        var pocketID: String?
+        for event in prediction.events {
+            switch event.kind {
+            case let .ballBall(a, b) where kick && (a == ball || b == ball):
+                endTime = event.time
+            case let .pocket(name, id) where name == ball:
+                endTime = event.time
+                pocketID = id
+            case let .ballCushion(name) where name == ball:
+                if let index = event.cushionIndex, let normal = event.contactNormal,
+                   let rail = ShotPredictor.mainRail(cushionIndex: index, normal: normal),
+                   rails.last != rail,
+                   let point = recorder.stateAt(ballName: ball, time: event.time)?.position {
+                    rails.append(rail)
+                    contacts.append(point)
+                }
+            default: break
+            }
+            if endTime != nil { break }
+        }
+        // A manual adjustment can miss; its displayed rail sequence still comes from events.
+        if kick && endTime == nil { endTime = frames.last?.time }
+        guard let endTime else { return nil }
+        var path = frames.filter { $0.time < endTime }.map(\.position)
+        if let end = recorder.stateAt(ballName: ball, time: endTime)?.position { path.append(end) }
+        guard path.count >= 2 else { return nil }
+        if !kick {
+            let reconstructed = BankShotCalculator.reconstructedRailContacts(
+                object: path[0], departure: prediction.objectDepartureDir, engineRails: rails)
+            if reconstructed.count > rails.count { contacts.insert(path[0], at: 0) }
+            rails = reconstructed
+        }
+        return Self(rails: rails, contacts: contacts, path: path, pocketID: pocketID)
+    }
+
+    var kickRails: [DiamondSystemCalculator.Rail] {
+        rails.map {
+            switch $0 {
+            case .left: .left
+            case .right: .right
+            case .far: .far
+            case .near: .near
+            }
+        }
+    }
+
+    var firstRailIncidence: Double? {
+        guard let rail = rails.first, let contact = contacts.first, let start = path.first else { return nil }
+        let dx = abs(contact.x - start.x), dz = abs(contact.z - start.z)
+        guard dx + dz > 0 else { return nil }
+        return Double(rail.isLong ? atan2f(dz, dx) : atan2f(dx, dz)) * 180 / .pi
+    }
+}
+
 // MARK: - 求解管线（VM 与测试共用的纯函数入口）
 
 enum BankKickSolvePipeline {
@@ -256,12 +376,12 @@ enum BankKickSolvePipeline {
     static let bankSolutionLimit = 12
     /// 反射解上限。
     static let kickSolutionLimit = 16
-    /// 去重口径（K9）：精修后瞄准方向差 < 0.3°，或 objectPath 首段方向差 < 0.3°，
-    /// 且库数相同 → 同一解（镜像种子收敛同解时不再双双上屏）。
-    static let dedupAimSeparationRad = Float(0.3) * .pi / 180
     /// K10 加塞搜索档（与走位反解 `spinXValues` 同口径）：≈×3 全枚举成本。
     /// 坐标契约：spinX = 接触点偏移/R，+左塞 / −右塞；本档只搜横塞，spinY 恒 0。
     static let sideSpinSearchValues: [Float] = [-0.3, 0, 0.3]
+    /// Minimum spin is searched on this finite grid, re-solving aim at every step.
+    /// No monotonic-feasibility assumption / binary search across disconnected success windows.
+    static let minimumSpinStep: Float = 0.02
 
     /// 翻袋单袋全枚举 → 装配难度/容错 → 好打优先排序（升序）→ 去重取前 N。
     /// 纯函数、线程安全，供 VM 后台任务与测试直接调用。
@@ -274,140 +394,195 @@ enum BankKickSolvePipeline {
         spinXValues: [Float] = sideSpinSearchValues,
         cancellation: PredictionCancellation? = nil
     ) -> [BankEngineSolution] {
-        let dx = Double(cue.x - object.x), dz = Double(cue.z - object.z)
-        let distance = (dx * dx + dz * dz).squareRoot()
-
-        let frozenSet = BankShotCalculator.frozenRails(for: object)
+        var input = ShotInput(cueBall: cue, targetBall: object, pocketIndex: pocketIndex,
+                              velocity: power, spinX: 0, spinY: 0, surfaceY: surfaceY)
+        input.obstacles = obstacles
         var solutions: [BankEngineSolution] = []
         for sx in spinXValues {
             guard cancellation?.isCancelled != true else { return [] }
-            var input = ShotInput(
-                cueBall: cue, targetBall: object, pocketIndex: pocketIndex,
-                velocity: power, spinX: sx, spinY: 0, surfaceY: surfaceY
-            )
-            input.obstacles = obstacles
+            input.spinX = sx
             for (seedRails, pred) in ShotPredictor.predictBankAll(input, cancellation: cancellation) {
-                guard cancellation?.isCancelled != true else { return [] }
-                let pathLength = Double(polylineLengthXZ(pred.objectPath))
-                // 库序/库数取**实测主库序**（贴库首弹重建补回；jaw 擦碰不计——
-                // `objectCushionCount` 含 jaw 会失真「画面 1 库、读数 5 库」）。
-                // 种子库序只作搜索锚：±8° 精修后真实轨迹可能属别的拓扑族，按实测
-                // 重标才能保证画面 / 文案 / chip 一致；实测空 = 实为直击，非翻袋解。
-                let actualRails = BankShotCalculator.reconstructedRailContacts(
-                    object: object, departure: pred.objectDepartureDir,
-                    engineRails: pred.objectRailContacts
-                )
-                guard !actualRails.isEmpty else { continue }
-                let cushions = actualRails.count
-                let zhaKu = frozenSet.contains(actualRails[0])
-                let score = BankKickDifficulty.bankScore(
-                    cutAngleDeg: pred.cutAngleDeg, cueTargetDistance: distance,
-                    cushions: cushions, pathLength: pathLength
-                )
-                let robustness = pred.aimOffsetUsed.flatMap {
-                    BankKickDifficulty.measureBankRobustness(
-                        input: input, rails: seedRails, aimOffset: $0)
+                if let solution = bankSolution(input: input, seedRails: seedRails, prediction: pred) {
+                    solutions.append(solution)
                 }
-                solutions.append(BankEngineSolution(
-                    rails: actualRails, seedRails: seedRails, prediction: pred,
-                    cushions: cushions,
-                    difficultyScore: score, difficultyTier: BankKickDifficulty.tier(score),
-                    robustness: robustness, pathLength: pathLength,
-                    spinX: sx, spinY: 0,
-                    usedFrozenRailSeed: zhaKu
-                ))
             }
         }
-        return cancellation?.isCancelled == true ? [] : rank(solutions, limit: bankSolutionLimit)
+        let baseInput = input
+        let reduced = minimumSpinRepresentatives(solutions, spinXValues: spinXValues,
+                                                cancellation: cancellation) { candidate, sx in
+            var trial = baseInput
+            trial.spinX = sx
+            trial.bankRails = candidate.seedRails
+            let pred = ShotPredictor.predict(trial, bankCancellation: cancellation)
+            return bankSolution(input: trial, seedRails: candidate.seedRails, prediction: pred)
+        }
+        return cancellation?.isCancelled == true ? [] : rank(reduced, limit: bankSolutionLimit)
     }
 
-    /// 反射全枚举 → 装配难度/容错 → 好打优先排序 → 去重取前 N。
-    /// `obstacles` 语义同 `solveBank`（真实碰撞体）。K10：同翻袋外层加塞档。
+    static func bankSolution(input: ShotInput, seedRails: [BankShotCalculator.Rail],
+                             prediction pred: ShotPrediction) -> BankEngineSolution? {
+        guard pred.feasible, pred.simObjectPotted, pred.hasFinalTableState,
+              pred.cueCushionsBeforeContact == 0,
+              let route = BankKickRoute.measured(pred, kick: false), !route.rails.isEmpty else { return nil }
+        let length = Double(polylineLengthXZ(route.path))
+        let distance = Double(hypotf(input.cueBall.x - input.targetBall.x,
+                                    input.cueBall.z - input.targetBall.z))
+        let score = BankKickDifficulty.bankScore(cutAngleDeg: pred.cutAngleDeg,
+            cueTargetDistance: distance, cushions: route.rails.count, pathLength: length)
+        let robustness = pred.aimOffsetUsed.flatMap {
+            BankKickDifficulty.measureBankRobustness(input: input, rails: seedRails, aimOffset: $0)
+        }
+        return BankEngineSolution(rails: route.rails, seedRails: seedRails, prediction: pred,
+            cushions: route.rails.count, difficultyScore: score, difficultyTier: BankKickDifficulty.tier(score),
+            robustness: robustness, pathLength: length, spinX: input.spinX, spinY: input.spinY,
+            usedFrozenRailSeed: BankShotCalculator.frozenRails(for: input.targetBall).contains(route.rails[0]))
+    }
+
+    /// Search seeds are retained only for re-solving; all display metadata uses measured routes.
     static func solveKick(
         cue: SCNVector3, target: SCNVector3, surfaceY: Float, power: Float,
         obstacles: [ObstacleBall] = [],
         spinXValues: [Float] = sideSpinSearchValues
     ) -> [KickEngineSolution] {
+        var input = ShotInput(cueBall: cue, targetBall: target, pocketIndex: 0,
+                              velocity: power, spinX: 0, spinY: 0, surfaceY: surfaceY)
+        input.obstacles = obstacles
         var solutions: [KickEngineSolution] = []
         for sx in spinXValues {
-            var input = ShotInput(
-                cueBall: cue, targetBall: target, pocketIndex: 0,
-                velocity: power, spinX: sx, spinY: 0, surfaceY: surfaceY
-            )
-            input.obstacles = obstacles
-            for (rails, pred) in ShotPredictor.predictKickAll(input) {
-                let route = pathToFirstContact(pred)
-                let pathLength = Double(polylineLengthXZ(route))
-                let incidence = kickFirstRailIncidenceDeg(
-                    cue: cue, target: target, rails: rails, surfaceY: surfaceY
-                )
-                // 同 bank：库数取种子库序数（chip 语义），引擎实测计数含 jaw 擦碰会失真。
-                let cushions = rails.count
-                let score = BankKickDifficulty.kickScore(
-                    firstRailIncidenceDeg: incidence,
-                    cushions: cushions, pathLength: pathLength
-                )
-                let robustness = pred.aimOffsetUsed.flatMap {
-                    BankKickDifficulty.measureKickRobustness(input: input, rails: rails, aimOffset: $0)
+            input.spinX = sx
+            for (seedRails, pred) in ShotPredictor.predictKickAll(input) {
+                if let solution = kickSolution(input: input, seedRails: seedRails, prediction: pred) {
+                    solutions.append(solution)
                 }
-                solutions.append(KickEngineSolution(
-                    rails: rails, prediction: pred, cushions: cushions,
-                    difficultyScore: score, difficultyTier: BankKickDifficulty.tier(score),
-                    robustness: robustness, pathLength: pathLength,
-                    spinX: sx, spinY: 0
-                ))
             }
         }
-        return rank(solutions, limit: kickSolutionLimit)
+        let baseInput = input
+        let reduced = minimumSpinRepresentatives(solutions, spinXValues: spinXValues) { candidate, sx in
+            var trial = baseInput
+            trial.spinX = sx
+            trial.kickRails = candidate.seedRails
+            return kickSolution(input: trial, seedRails: candidate.seedRails,
+                                prediction: ShotPredictor.predict(trial))
+        }
+        return rank(reduced, limit: kickSolutionLimit)
     }
 
-    // MARK: 排序 + 去重
-
-    /// 好打分升序，tie-break 库数少 → 路径短；同库数且精修后瞄准/进球首段几乎相同则去重
-    ///（保留排序更优者）。K9：比较 `prediction.aimDirection`（已由 finalAim 回写）与
-    /// `objectPath` 首段方向，不再依赖镜像种子瞄准角。
-    private static func rank<S: RankableSolution>(_ solutions: [S], limit: Int) -> [S] {
-        let sorted = solutions.sorted { lhs, rhs in
-            if lhs.goodness != rhs.goodness { return lhs.goodness < rhs.goodness }
-            if lhs.cushions != rhs.cushions { return lhs.cushions < rhs.cushions }
-            return lhs.pathLength < rhs.pathLength
+    static func kickSolution(input: ShotInput, seedRails: [DiamondSystemCalculator.Rail],
+                             prediction pred: ShotPrediction) -> KickEngineSolution? {
+        guard pred.feasible, pred.kickContactMade, pred.hasFinalTableState,
+              let route = BankKickRoute.measured(pred, kick: true), !route.rails.isEmpty else { return nil }
+        let length = Double(polylineLengthXZ(route.path))
+        let score = BankKickDifficulty.kickScore(firstRailIncidenceDeg: route.firstRailIncidence,
+            cushions: route.rails.count, pathLength: length)
+        let robustness = pred.aimOffsetUsed.flatMap {
+            BankKickDifficulty.measureKickRobustness(input: input, rails: seedRails, aimOffset: $0)
         }
-        var out: [S] = []
-        for sol in sorted {
-            // 去重**不**要求库数相同：库数取自种子声明，同一物理解可能被不同种子
-            // 标不同库数（贴库盘面高发）——按精修后瞄准/出球方向判同即为同一杆。
-            let isDup = out.contains { existing in
-                isSameRefinedSolution(existing.prediction, sol.prediction)
+        return KickEngineSolution(rails: route.kickRails, seedRails: seedRails, prediction: pred,
+            cushions: route.rails.count, difficultyScore: score, difficultyTier: BankKickDifficulty.tier(score),
+            robustness: robustness, pathLength: length, spinX: input.spinX, spinY: input.spinY)
+    }
+
+    // MARK: Route grouping / minimum-spin representatives / ranking
+
+    private struct RouteGroup<S: RankableSolution> {
+        let route: BankKickRoute
+        var members: [S]
+    }
+
+    private static func preferred<S: RankableSolution>(_ a: S, _ b: S) -> Bool {
+        if abs(a.spinX) != abs(b.spinX) { return abs(a.spinX) < abs(b.spinX) }
+        if a.goodness != b.goodness { return a.goodness < b.goodness }
+        return a.pathLength < b.pathLength
+    }
+
+    private static func groups<S: RankableSolution>(_ solutions: [S]) -> [RouteGroup<S>] {
+        var groups: [RouteGroup<S>] = []
+        // Anchor to the simplest candidate, rather than transitively chaining nearby routes.
+        for solution in solutions.sorted(by: preferred) {
+            guard let route = solution.route else { continue }
+            if let index = groups.firstIndex(where: { $0.route.matches(route) }) {
+                groups[index].members.append(solution)
+            } else {
+                groups.append(RouteGroup(route: route, members: [solution]))
             }
-            if !isDup { out.append(sol) }
-            if out.count >= limit { break }
+        }
+        return groups
+    }
+
+    static func minimumSpinRepresentatives<S: RankableSolution>(
+        _ solutions: [S], spinXValues: [Float], cancellation: PredictionCancellation? = nil,
+        resolve: (S, Float) -> S?
+    ) -> [S] {
+        var out: [S] = []
+        let signs: [Float] = [-1, 1].filter { sign in spinXValues.contains { $0 * sign > 0 } }
+        // Across route groups, the same seed/spin is exactly the same deterministic solve.
+        var attempted: Set<SpinTrialKey> = []
+        var successesByKey: [SpinTrialKey: S] = [:]
+        for group in groups(solutions) {
+            guard cancellation?.isCancelled != true else { return [] }
+            var best = group.members[0]
+            if best.spinX == 0 { out.append(best); continue }
+            var seeds: [S] = []
+            for member in group.members where !seeds.contains(where: { $0.searchKey == member.searchKey }) {
+                seeds.append(member)
+            }
+            // Spin reduction moves bounce points. Recheck against the NEW measured route
+            // until no smaller grid value solves it, not just against the initial ±0.3 route.
+            // Every accepted iteration strictly reduces |spin|, so termination is bounded.
+            while best.spinX != 0, let reference = best.route {
+                var chosen: S?
+                // nextDown removes a one-ULP quotient overshoot at grid values such as 0.3.
+                let steps = Int((abs(best.spinX) / minimumSpinStep).nextDown.rounded(.up))
+                for step in 0..<max(0, steps) {
+                    let magnitude = Float(step) * minimumSpinStep
+                    let spins: [Float] = step == 0 ? [0] : signs.map { $0 * magnitude }
+                    var successes: [S] = []
+                    for sx in spins {
+                        for seed in seeds {
+                            guard cancellation?.isCancelled != true else { return [] }
+                            let key = SpinTrialKey(rails: seed.searchKey, spin: sx)
+                            if attempted.insert(key).inserted, let candidate = resolve(seed, sx) {
+                                successesByKey[key] = candidate
+                            }
+                            if let candidate = successesByKey[key], let route = candidate.route,
+                               reference.matches(route) {
+                                successes.append(candidate)
+                            }
+                        }
+                    }
+                    if let winner = successes.sorted(by: preferred).first {
+                        chosen = winner
+                        break
+                    }
+                }
+                guard let chosen, abs(chosen.spinX) < abs(best.spinX) else { break }
+                best = chosen
+            }
+            out.append(best)
         }
         return out
     }
 
-    /// K9 去重判据：精修后瞄准方向接近，或目标球路径首段方向接近。
+    private struct SpinTrialKey: Hashable {
+        let rails: [BankShotCalculator.Rail]
+        let spin: Float
+    }
+
+    static func rank<S: RankableSolution>(_ solutions: [S], limit: Int) -> [S] {
+        // Zero/minimal spin wins within a route BEFORE goodness is compared across routes.
+        let representatives = groups(solutions).map { $0.members[0] }
+        return Array(representatives.sorted { lhs, rhs in
+            if lhs.goodness != rhs.goodness { return lhs.goodness < rhs.goodness }
+            if lhs.cushions != rhs.cushions { return lhs.cushions < rhs.cushions }
+            return lhs.pathLength < rhs.pathLength
+        }.prefix(limit))
+    }
+
+    /// Kept for existing bank regression callers; no aim-angle shortcut remains.
     static func isSameRefinedSolution(_ a: ShotPrediction, _ b: ShotPrediction) -> Bool {
-        if aimAngleDifference(a.aimDirection, b.aimDirection) < dedupAimSeparationRad {
-            return true
-        }
-        if let da = firstSegmentDirXZ(a.objectPath), let db = firstSegmentDirXZ(b.objectPath),
-           aimAngleDifference(da, db) < dedupAimSeparationRad {
-            return true
-        }
-        return false
-    }
-
-    private static func firstSegmentDirXZ(_ path: [SCNVector3]) -> SCNVector3? {
-        guard path.count >= 2 else { return nil }
-        let dx = path[1].x - path[0].x, dz = path[1].z - path[0].z
-        let len = sqrtf(dx * dx + dz * dz)
-        guard len > 1e-4 else { return nil }
-        return SCNVector3(dx / len, 0, dz / len)
-    }
-
-    private static func aimAngleDifference(_ a: SCNVector3, _ b: SCNVector3) -> Float {
-        let dot = max(-1, min(1, a.x * b.x + a.z * b.z))
-        return acosf(dot)
+        guard let a = BankKickRoute.measured(a, kick: false),
+              let b = BankKickRoute.measured(b, kick: false) else { return false }
+        return a.matches(b)
     }
 
     // MARK: 几何辅助
@@ -510,14 +685,32 @@ enum BankKickSolvePipeline {
     }
 }
 
-private protocol RankableSolution {
+protocol RankableSolution {
+    var spinX: Float { get }
+    var route: BankKickRoute? { get }
+    var searchKey: [BankShotCalculator.Rail] { get }
     var goodness: Double { get }
     var cushions: Int { get }
     var pathLength: Double { get }
     var prediction: ShotPrediction { get }
 }
-extension BankEngineSolution: RankableSolution {}
-extension KickEngineSolution: RankableSolution {}
+extension BankEngineSolution: RankableSolution {
+    var route: BankKickRoute? { BankKickRoute.measured(prediction, kick: false) }
+    var searchKey: [BankShotCalculator.Rail] { seedRails }
+}
+extension KickEngineSolution: RankableSolution {
+    var route: BankKickRoute? { BankKickRoute.measured(prediction, kick: true) }
+    var searchKey: [BankShotCalculator.Rail] {
+        seedRails.map {
+            switch $0 {
+            case .left: .left
+            case .right: .right
+            case .far: .far
+            case .near: .near
+            }
+        }
+    }
+}
 
 // MARK: - 解缓存（LRU，方案 §4.1）
 

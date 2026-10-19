@@ -90,6 +90,7 @@ struct BTShotInstrumentColumn: View {
                 .accessibilityLabel("打点")
                 .accessibilityIdentifier("shotStage.spinEntry")
                 .disabled(onSpinTap == nil || isDisabled || !spinTapEnabled)
+                .freeControlItem("shot.spin", name: "击球点")
             }
 
             VStack(spacing: 6) {
@@ -108,11 +109,13 @@ struct BTShotInstrumentColumn: View {
                         .frame(width: compactPowerBarWidth + 12)
                 }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("shotStage.powerShell")
+            .freeControlItem("shot.power", name: powerLabel)
+            // Measure the untouched slot, so moving this ruler never moves cameras.
             .anchorPreference(key: BTPowerShellBoundsKey.self, value: .bounds) {
                 reportsPowerShellBounds ? $0 : nil
             }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("shotStage.powerShell")
         }
         .opacity(isDisabled ? 0.5 : 1)
         .accessibilityElement(children: .contain)
@@ -366,6 +369,7 @@ struct ShotPlayerCameraButtons: View {
                             onEnd: { onTemporaryTopDownEnded?() })
                     }
                     .onDisappear { onTemporaryTopDownEnded?() }
+                    .freeControlItem("camera.temporaryTopDown", name: "临时俯视")
             } else if let onWholeTable {
                 cameraButton(label: "全局观察", id: "dailyClearance.observeTable",
                              selected: rig.keepsWholeTableFramed, action: onWholeTable) {
@@ -417,6 +421,7 @@ struct ShotPlayerCameraButtons: View {
         .accessibilityLabel(label)
         .accessibilityValue(selected ? "已选中" : "未选中")
         .accessibilityIdentifier(id)
+        .freeControlItem(id == "dailyClearance.observeTable" ? "camera.overview" : id.replacingOccurrences(of: "shotCamera.", with: "camera."), name: label)
     }
 }
 

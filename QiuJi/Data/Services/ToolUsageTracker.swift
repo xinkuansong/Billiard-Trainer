@@ -82,25 +82,36 @@ enum ToolUsageTracker {
 
 // MARK: - View 埋点
 
-/// 把一个工具页的「出现 → 消失」计成一条 `kind="tool"` 会话。
+struct TrainingActivityPausedKey: PreferenceKey {
+    static var defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+}
+
+/// 每次前台访问累计有效时间；编辑暂停不另起记录，离页或后台统一结算。
 private struct ToolUsageSessionModifier: ViewModifier {
     let entry: ToolUsageEntry
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
 
-    /// 本段计时的起点；nil = 当前未在计时。
-    @State private var startedAt: Date?
+    @State private var clock = ActiveVisitClock()
+    @State private var paused = false
+    @State private var visible = false
 
     func body(content: Content) -> some View {
         content
-            .onAppear { startedAt = Date() }
-            .onDisappear { flush() }
+            .onAppear { visible = true; resumeIfActive() }
+            .onDisappear { visible = false; flush() }
+            .onPreferenceChange(TrainingActivityPausedKey.self) { value in
+                paused = value
+                if value { clock.pause(at: Date()) }
+                else { resumeIfActive() }
+            }
             .onChange(of: scenePhase) { _, phase in
                 switch phase {
                 case .active:
                     // 回前台且页面仍在：开新一段计时。
-                    if startedAt == nil { startedAt = Date() }
+                    resumeIfActive()
                 default:
                     // 退到后台/失活：结算当前段，后台时间不计入活跃度。
                     flush()
@@ -109,9 +120,13 @@ private struct ToolUsageSessionModifier: ViewModifier {
     }
 
     private func flush() {
-        guard let start = startedAt else { return }
-        startedAt = nil
-        ToolUsageTracker.record(entry: entry, start: start, end: Date(), context: modelContext)
+        guard let segment = clock.finish(at: Date()) else { return }
+        ToolUsageTracker.record(entry: entry, start: segment.start,
+            end: segment.start.addingTimeInterval(segment.seconds), context: modelContext)
+    }
+
+    private func resumeIfActive() {
+        if visible && !paused && scenePhase == .active { clock.resume(at: Date()) }
     }
 }
 

@@ -97,6 +97,7 @@ struct ScheduledLessonPayload: Codable {
     let lesson: PlanLesson
     /// Fully resolved at arrangement time. Existing schedules never re-resolve against OTA content.
     let drills: [ScheduledDrillSnapshot]?
+    var requiresPremium: Bool? = nil
 }
 
 struct ScheduledSetSnapshot: Codable, Equatable {
@@ -135,6 +136,7 @@ struct ScheduledDrillSnapshot: Codable {
     let category: String
     let subcategory: String
     let standardCriteria: String
+    var requiresPremium: Bool? = nil
 }
 
 struct ScheduledTemplateDrillPayload: Codable {
@@ -181,17 +183,20 @@ final class TodayTrainingScheduleService {
     private let now: () -> Date
     private let timeZone: TimeZone
     private let calendarIdentifier: String
+    private let access: ProContentAccess
 
     init(
         context: ModelContext,
         now: @escaping () -> Date = Date.init,
         timeZone: TimeZone = .current,
-        calendarIdentifier: String = "gregorian"
+        calendarIdentifier: String = "gregorian",
+        access: ProContentAccess? = nil
     ) {
         self.context = context
         self.now = now
         self.timeZone = timeZone
         self.calendarIdentifier = calendarIdentifier
+        self.access = access ?? .live
     }
 
     func today(ownerKey: String, createIfNeeded: Bool = true) throws -> TodayTrainingSchedule? {
@@ -232,7 +237,7 @@ final class TodayTrainingScheduleService {
             throw Error.activePlanMismatch
         }
         let ownerKey = activePlan.ownerKey
-        let schedule = try requiredToday(ownerKey: ownerKey)
+        try access.require(plan.isPremium)
         let flattened = Self.flatten(plan)
         let ordinalByID = Dictionary(uniqueKeysWithValues: flattened.enumerated().map { ($0.element.lesson.id, $0.offset) })
         let requested = try lessonIDs.map { id -> Int in
@@ -240,6 +245,8 @@ final class TodayTrainingScheduleService {
             return ordinal
         }
         let currentOrdinal = activePlan.currentLessonId.flatMap { ordinalByID[$0] }
+        try access.requireDrills(requested.flatMap { flattened[$0].lesson.phases.flatMap { $0.drills.map(\.drillId) } })
+        let schedule = try requiredToday(ownerKey: ownerKey)
 
         let existingEligible = schedule.items.compactMap { item -> Int? in
             guard item.planId == plan.id,
@@ -270,7 +277,7 @@ final class TodayTrainingScheduleService {
                 version: 1, planID: plan.id, planTitle: plan.nameZh,
                 stageID: value.stage.id, stageTitle: value.stage.title,
                 lesson: value.lesson,
-                drills: Self.snapshots(for: value.lesson)
+                drills: Self.snapshots(for: value.lesson), requiresPremium: plan.isPremium
             ))
             let item = TodayScheduleItem(
                 orderIndex: nextOrder(in: schedule),
@@ -294,6 +301,7 @@ final class TodayTrainingScheduleService {
 
     @discardableResult
     func addTemplate(_ template: CustomPlan) throws -> AddResult {
+        try access.requireDrills(template.drills.map(\.drillId))
         let schedule = try requiredToday(ownerKey: template.ownerKey)
         let sourceID = template.id.uuidString
         if let existing = unfinishedItem(in: schedule, sourceKind: TodayScheduleSourceKind.template,
@@ -330,6 +338,7 @@ final class TodayTrainingScheduleService {
     @discardableResult
     func addLibraryDrill(id: String, title: String, ownerKey: String,
                          roundsPerFormation: Int = 1) throws -> AddResult {
+        try access.requireDrills([id])
         let schedule = try requiredToday(ownerKey: ownerKey)
         if let existing = unfinishedItem(in: schedule,
                                          sourceKind: TodayScheduleSourceKind.libraryDrill,
@@ -384,6 +393,7 @@ final class TodayTrainingScheduleService {
 
     func markStarted(_ item: TodayScheduleItem) throws {
         guard item.state == TodayScheduleItemState.pending else { throw Error.itemNotEditable }
+        try access.require(ScheduledTrainingBlock(item: item))
         item.state = TodayScheduleItemState.inProgress
         item.startedAt = now()
         item.schedule?.updatedAt = now()
@@ -429,9 +439,11 @@ final class TodayTrainingScheduleService {
         officialPlan: OfficialPlan?
     ) throws -> [AddResult] {
         guard let previous = try latestArchivedWithUnfinished(ownerKey: ownerKey) else { return [] }
-        let today = try requiredToday(ownerKey: ownerKey)
+        let dayKey = Self.localDayKey(for: now(), timeZone: timeZone)
+        let currentItems = Self.currentSchedule(in: try schedules(ownerKey: ownerKey), ownerKey: ownerKey, dayKey: dayKey)?.items ?? []
         let sourceItems = Self.carryForwardCandidates(
-            from: previous, todayItems: today.items, activePlanID: activePlan?.planId)
+            from: previous, todayItems: currentItems, activePlanID: activePlan?.planId)
+        for item in sourceItems { try access.require(ScheduledTrainingBlock(item: item)) }
         var results: [AddResult] = []
 
         if let activePlan, let officialPlan, activePlan.planId == officialPlan.id {
@@ -556,7 +568,8 @@ final class TodayTrainingScheduleService {
             level: content?.level,
             category: content?.category ?? "",
             subcategory: content?.subcategory ?? "",
-            standardCriteria: content?.standardCriteria ?? ""
+            standardCriteria: content?.standardCriteria ?? "",
+            requiresPremium: content?.isPremium
         )
     }
 }

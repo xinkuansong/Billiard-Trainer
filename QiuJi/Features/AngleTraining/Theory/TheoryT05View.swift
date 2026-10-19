@@ -15,8 +15,8 @@ struct TheoryT05View: View {
                 TheoryPageHeader(
                     pageID: .t05,
                     headline: "清台要从最后一颗球往回倒推",
-                    detail: "每次至少想清三步：这一杆、下一杆、再下一杆。每打完一杆，对照实际落点，重新规划。",
-                    caption: "桌上还剩两颗及以上时都适用；球越少，越接近把整盘都倒推一遍。"
+                    detail: "先想最后一颗球从哪里打最合适，再找哪颗球能把母球送到那里。这样回头看当前一杆，就更容易知道该留什么角度、哪些球还不能先打。",
+                    caption: "球少时可以连起整段顺序；球多时先选收尾方案，再从当前局面找路接上。"
                 )
 
                 whyItWorks
@@ -39,7 +39,7 @@ struct TheoryT05View: View {
 
     private var whyItWorks: some View {
         LearnDocSectionCard(title: "为什么要从尾往前想") {
-            LearnDocText.body("正向想「下一杆有多少种打法」，选项会爆炸。从最后一颗球倒推，末端约束已经钉死，整条路线就变成一条线往前扫。")
+            LearnDocText.body("只看眼前最容易进的球，可能连续打进几颗，却把最后的走位路线打没了。倒推先回答「最后需要站在哪里」，让前面每一杆有一个明确的去处。它帮助筛选路线，不保证只剩唯一答案。")
 
             BackwardsPlanningChainFigure()
                 .frame(height: 250)
@@ -48,43 +48,43 @@ struct TheoryT05View: View {
                 .accessibilityIdentifier("theoryT05.chainFigure")
                 .accessibilityLabel("反向规划链条：从最后一颗球倒推到关键球、关键球二，再到当前一杆；每杆打完对照落点再重规划。")
 
-            LearnDocText.footnote("箭头方向是「倒推」：先钉死最后一颗要的母球落点，再往前找谁能把母球送过去。")
+            LearnDocText.footnote("箭头表示思考顺序：从最后一颗的合适落位区，往前找能衔接它的球。实际击球顺序与箭头相反。")
 
-            LearnDocText.body("把自由度放在前面、把硬约束留在后面——简单问题先消，难问题就不会堆到收官。")
-            LearnDocText.body("业余走不深，往往不是不知道倒推，而是没把「至少三步」当成硬纪律。两步以下不算规划；四步以上很难稳定记住。")
+            LearnDocText.body("先留住那些能连接困难位置的球，别因为它们好进就提前清掉。选择多的时候处理难题，通常比只剩一条路线时再补救更从容。")
+            LearnDocText.body("练习可以从三杆衔接开始：这一杆把母球送到哪里，下一杆需要什么角度，再下一杆能否接上。三杆是练习方法，不是必须遵守的深度；球形复杂时先抓关键衔接，简单时可以看得更远。")
         }
     }
 
     // MARK: - 五步固定解（T05 §5）
 
     private var fiveSteps: some View {
-        LearnDocSectionCard(title: "上台后固定走五步") {
+        LearnDocSectionCard(title: "把倒推分成五步") {
             TheoryNumberedList(steps: [
                 .init(
                     "找到最后一颗",
-                    detail: "八球 / 中式八球是黑 8；九球是 9 号；散打按自己的决胜球。"
+                    detail: "先确定收尾目标。八球通常围绕黑 8 安排收尾；九球还要遵守击球顺序，不能任意挑选关键球。"
                 ),
                 .init(
                     "标出它的理想母球落位区",
-                    detail: "通常是与该球成大约 15°–45° 切角的几个点——留角度，别把自己逼成正撞。"
+                    detail: "选进球可靠、母球不容易落袋的位置。最后一颗不再需要为下一球留角，正撞也可能很好；前面的衔接球才要按后续路线留角度。"
                 ),
                 .init(
                     "找能自然走到那个区的球",
-                    detail: "这颗就是关键球：打完它，母球刚好停在最后一颗要的位置。"
+                    detail: "这颗可以作为收尾的关键球。优先考虑走位短、落位区宽，而且容易接近的选择。"
                 ),
                 .init(
                     "再倒推一层，找关键球二",
-                    detail: "能为关键球安排好母球的那一颗。"
+                    detail: "也就是能为关键球留出合适角度的前一颗。关键球再好，也要有办法走到它需要的位置。"
                 ),
                 .init(
                     "让当前一杆对齐关键球二",
-                    detail: "对不上就改击球点 / 力度，或换一颗当前可打的球。"
+                    detail: "检查当前路线能否接上这段顺序。接不上时，比较其他合法击球、落位区或收尾方案，不必勉强原计划。"
                 ),
             ])
             LearnDocFormulaNest(title: "打完立刻复盘") {
-                LearnDocText.footnote("对照「实际位置 vs 计划位置」。若失位大约达到桌长的三分之一及以上，整套五步重做，不要硬撑原计划。")
+                LearnDocText.footnote("每杆后都看实际角度和通道。只偏一点也可能失去走位角度，偏得较远也可能仍有好路线；是否重排，看衔接有没有改变，不看固定距离。")
             }
-            LearnDocText.body("五步想完，再进风险评估：这一杆该不该打。该打再按「角度 → 力度 → 旋转」执行。")
+            LearnDocText.body("有了路线，再比较进攻与防守的收益和代价。准备击球前，把进球线、母球路线、力度和旋转一起确认好，避免趴下后临时换主意。")
         }
     }
 
@@ -92,17 +92,17 @@ struct TheoryT05View: View {
 
     private var scope: some View {
         LearnDocSectionCard(title: "什么时候这样用") {
-            LearnDocText.body("桌上剩余两颗及以上时永远适用。球数越少，规划深度越接近「整盘」，倒推越值钱。")
-            LearnDocText.body("想象力只够一两步时，就只精规划最后三颗，其余球走承转——路过、碰开、给后面让路。")
-            LearnDocText.body("中段还有五到七颗时，要混合：从最后三颗往回倒推，从当前一颗往前推，在中段会合。")
+            LearnDocText.body("球少、通道清楚时，适合把剩余顺序完整连起来。别只记球号，还要记住每颗球需要的母球位置和出球方向。")
+            LearnDocText.body("还不习惯看多杆时，先练最后几颗的衔接。其他球也要有用途：接近关键球、处理障碍，或为下一杆保留选择。")
+            LearnDocText.body("中盘可以两头一起看：从收尾往回倒推，从当前往前寻找稳妥路线，在容易衔接的位置接起来。")
         }
     }
 
     private var whenItBreaks: some View {
-        LearnDocSectionCard(title: "什么时候要降级") {
-            LearnDocText.body("开局后第一杆球太多，精确倒推做不到——退化为：识别关键障碍、选最优起点、给后面留角度。")
-            LearnDocText.body("多球团、关键球被埋、根本清不了时，倒推失效——先称风险，该防守就防守。")
-            LearnDocText.body("桌上只剩两颗及以下：规划深度等于剩余球数，退化成「挑唯一一种打法」。")
+        LearnDocSectionCard(title: "什么时候先看眼前的问题") {
+            LearnDocText.body("开局后球多、相互遮挡时，不必假装已经算清每一杆。先找问题球和可用通道，保留一个暂定收尾方案，随着局面变化再细化。")
+            LearnDocText.body("球团没法安全处理，或关键衔接暂时不可达时，倒推仍能帮你看清缺什么。此时可以先改善局面或防守，不必把清台当成唯一目标。")
+            LearnDocText.body("只剩两颗时，仍要比较不同袋口、落位区和母球路线。球少不代表打法只有一种。")
         }
     }
 
@@ -110,16 +110,16 @@ struct TheoryT05View: View {
 
     private static let mistakes: [TheoryMistakeCard.Mistake] = [
         .init(
-            wrong: "正向规划：「下一杆有好多选择」",
-            right: "选项一多就乱。从最后一颗倒推，末端约束已知，路线才会收成一条线。"
+            wrong: "每杆只挑眼前最好进的球",
+            right: "先看它在后续路线里有没有用途。正向寻找机会与反向检查收尾，可以一起使用。"
         ),
         .init(
-            wrong: "只想两步就开打",
-            right: "深度不够，关键球阶段几乎必崩。硬纪律是至少三步：这一杆、下一杆、再下一杆。"
+            wrong: "记住了顺序，却没想过落位",
+            right: "球号顺序还不够。用三杆衔接练习，把每一杆需要的角度和落位区连起来。"
         ),
         .init(
             wrong: "失位了还硬撑原计划",
-            right: "失位达到大约三分之一桌长，就整套重规划。按旧计划硬打，只会雪崩。"
+            right: "下一杆的角度或通道一变，就重新比较方案，不必等偏出某个距离。"
         ),
     ]
 
@@ -132,19 +132,19 @@ struct TheoryT05View: View {
                 .foregroundStyle(.btText)
 
             PracticeCTA(
-                title: "先过三问再决定打不打",
+                title: "用三问比较进攻与防守",
                 destination: "风险报酬决策矩阵：进得了吗、走得到位吗、代价扛得住吗",
                 route: .theoryPage(.t08)
             )
 
             LearnDocTextLink(
                 title: "关键球原理",
-                subtitle: "倒推链条上，真正决定成败的那一颗",
+                subtitle: "选择并保留容易衔接收尾的球",
                 route: .theoryPage(.t06)
             )
             LearnDocTextLink(
                 title: "球团管理",
-                subtitle: "球团是倒推里的先决约束，要排在关键球之前",
+                subtitle: "规划中提前考虑问题球和处理时机",
                 route: .theoryPage(.t07)
             )
             LearnDocTextLink(
@@ -153,7 +153,7 @@ struct TheoryT05View: View {
                 route: .theoryPage(.t03)
             )
 
-            LearnDocText.footnote("这一条还没有绑定专门的跟练题目：开局后先在脑子里报出后三杆顺序，再开打，最见效。")
+            LearnDocText.footnote("练习时先说出计划的顺序和落位区，打完再比较实际结果。先把短段衔接做稳定，再增加规划长度。")
         }
     }
 }
@@ -163,7 +163,7 @@ struct TheoryT05View: View {
 /// 末端 → 关键球 → 关键球二 → 当前一杆（非球形，红线 5 合规）。
 private struct BackwardsPlanningChainFigure: View {
     private static let nodes = [
-        ("最后一颗", "钉死落位区"),
+        ("最后一颗", "选择落位区"),
         ("关键球", "送母球过去"),
         ("关键球二", "再倒推一层"),
         ("当前一杆", "对齐计划"),
@@ -231,7 +231,7 @@ private struct BackwardsPlanningChainFigure: View {
                     .position(x: xs[i], y: y)
                 }
 
-                Text("打完对照落点 · 失位约 1/3 桌长 → 整套重做")
+                Text("每杆核对落位 · 衔接改变时重新规划")
                     .font(.btCaption2)
                     .foregroundStyle(.btWarning)
                     .multilineTextAlignment(.center)

@@ -10,11 +10,15 @@ struct SolveConstraintDrawingOverlay: View {
     let unproject: (CGPoint) -> SCNVector3?
     let onDrag: (_ start: CanvasPoint, _ current: CanvasPoint, _ ended: Bool) -> Void
 
+    var onDragActiveChanged: (Bool) -> Void = { _ in }
+    @GestureState private var dragActive = false
+
     var body: some View {
         Color.clear
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .named(coordinateSpaceName))
+                    .updating($dragActive) { _, active, _ in active = true }
                     .onChanged { value in
                         handle(start: value.startLocation, current: value.location, ended: false)
                     }
@@ -22,6 +26,8 @@ struct SolveConstraintDrawingOverlay: View {
                         handle(start: value.startLocation, current: value.location, ended: true)
                     }
             )
+            .onChange(of: dragActive) { _, active in onDragActiveChanged(active) }
+            .onDisappear { onDragActiveChanged(false) }
     }
 
     private func handle(start: CGPoint, current: CGPoint, ended: Bool) {

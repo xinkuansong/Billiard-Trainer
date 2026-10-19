@@ -12,6 +12,8 @@ struct PersonalInfoView: View {
     @State private var cropSource: UIImage?
     @State private var showCropper = false
     @State private var localError: String?
+    @State private var editingBirthday = false
+    @State private var birthdayDraft = Date.now
     @FocusState private var nameFieldFocused: Bool
 
     var body: some View {
@@ -21,12 +23,15 @@ struct PersonalInfoView: View {
             ScrollView {
                 VStack(spacing: Spacing.lg) {
                     avatarSection
+                    basicInfoSection
                     ballInfoSection
                     yearsSection
                     if authState.isLoggedIn {
                         accountBindingSection
                     }
                 }
+                .frame(maxWidth: 640)
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, Spacing.sm)
                 .padding(.bottom, Spacing.xxxl)
@@ -54,8 +59,9 @@ struct PersonalInfoView: View {
                 }
             }
         }
+        .sheet(isPresented: $editingBirthday) { birthdayEditor }
         .alert("个人资料未保存", isPresented: Binding(
-            get: { localError != nil || profile.errorMessage != nil || avatarStore.errorMessage != nil },
+            get: { !editingBirthday && (localError != nil || profile.errorMessage != nil || avatarStore.errorMessage != nil) },
             set: { if !$0 { localError = nil; profile.errorMessage = nil; avatarStore.errorMessage = nil } }
         )) {
             Button("知道了", role: .cancel) {
@@ -72,7 +78,7 @@ struct PersonalInfoView: View {
         VStack(spacing: Spacing.lg) {
             PhotosPicker(selection: $selectedPhoto, matching: .images) {
                 ZStack(alignment: .bottomTrailing) {
-                    ProfileAvatarView(size: 80)
+                    ProfileAvatarView(size: 80, gender: profile.gender, badgeAlignment: .bottomLeading)
                     Image(systemName: "camera.fill")
                         .font(.btCaption)
                         .foregroundStyle(.white)
@@ -147,6 +153,105 @@ struct PersonalInfoView: View {
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
+    // MARK: - Basic Information
+
+    private var basicInfoSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("基本资料").font(.btSubheadlineMedium).foregroundStyle(.btTextSecondary)
+                .padding(.leading, Spacing.xs)
+            VStack(spacing: 0) {
+                Menu {
+                    ForEach(ProfileGender.allCases) { gender in
+                        Button(gender.title) {
+                            Task { _ = await profile.setGender(gender, authState: authState) }
+                        }
+                    }
+                } label: {
+                    basicInfoRow("性别", value: profile.gender == .unspecified ? "未设置" : profile.gender.title)
+                }
+                .accessibilityIdentifier("personalInfo.gender")
+                Divider().padding(.leading, Spacing.lg)
+                Button {
+                    birthdayDraft = profile.birthDate.flatMap { ProfileBirthday.date($0) }
+                        ?? Calendar(identifier: .gregorian).date(from: DateComponents(year: 2000, month: 1, day: 1))!
+                    editingBirthday = true
+                } label: {
+                    basicInfoRow("年龄", value: profile.birthDate.flatMap { ProfileBirthday.age($0) }.map { "\($0) 岁" } ?? "未设置")
+                }
+                .accessibilityIdentifier("personalInfo.age")
+            }
+            .buttonStyle(.plain)
+            .disabled(profile.isSaving)
+            .background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.md))
+        }
+    }
+
+    private func basicInfoRow(_ title: String, value: String) -> some View {
+        HStack(spacing: Spacing.md) {
+            Text(title).font(.btBody).foregroundStyle(.btText)
+            Spacer(minLength: Spacing.sm)
+            Text(value).font(.btSubheadline).foregroundStyle(.btTextSecondary)
+            Image(systemName: BTIcon.chevronRight).font(.btFootnote).foregroundStyle(.btTextTertiary)
+        }
+        .padding(Spacing.lg).frame(minHeight: 56).contentShape(Rectangle())
+    }
+
+    private var birthdayEditor: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: Spacing.lg) {
+                    DatePicker("生日", selection: $birthdayDraft,
+                               in: Calendar(identifier: .gregorian).date(from: DateComponents(year: 1900, month: 1, day: 1))!...Date.now,
+                               displayedComponents: .date)
+                        .datePickerStyle(.wheel).labelsHidden()
+                        .environment(\.calendar, Calendar(identifier: .gregorian))
+                        .accessibilityIdentifier("personalInfo.birthDatePicker")
+                    Text("根据生日自动计算年龄。")
+                        .font(.btFootnote).foregroundStyle(.btTextSecondary)
+                    if profile.birthDate != nil {
+                        Button {
+                            Task {
+                                if await profile.setBirthDate(nil, authState: authState) { editingBirthday = false }
+                            }
+                        } label: {
+                            Text("不填写生日").frame(minHeight: 44).contentShape(Rectangle())
+                        }
+                        .accessibilityIdentifier("personalInfo.clearBirthday")
+                    }
+                }
+                .padding(Spacing.lg).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
+            .background(Color.btBG)
+            .disabled(profile.isSaving)
+            .navigationTitle("出生日期").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { editingBirthday = false }.disabled(profile.isSaving)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") {
+                        Task {
+                            if await profile.setBirthDate(ProfileBirthday.string(birthdayDraft), authState: authState) {
+                                editingBirthday = false
+                            }
+                        }
+                    }
+                    .disabled(profile.isSaving)
+                    .accessibilityIdentifier("personalInfo.saveBirthday")
+                }
+            }
+        }
+        .alert("个人资料未保存", isPresented: Binding(
+            get: { profile.errorMessage != nil },
+            set: { if !$0 { profile.errorMessage = nil } }
+        )) {
+            Button("知道了", role: .cancel) { profile.errorMessage = nil }
+        } message: { Text(profile.errorMessage ?? "请稍后重试") }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .interactiveDismissDisabled(profile.isSaving)
+    }
+
     // MARK: - Ball Info
 
     private var ballInfoSection: some View {
@@ -162,7 +267,7 @@ struct PersonalInfoView: View {
                         .font(.btCaption)
                         .foregroundStyle(.btTextTertiary)
                     BTTogglePillGroup(
-                        options: PreferredSport.allCases,
+                        options: PreferredSport.onboardingChoices,
                         selected: preferredSportBinding
                     ) { $0.displayName }
                 }
@@ -208,11 +313,8 @@ struct PersonalInfoView: View {
 
                             Spacer()
 
-                            if profile.yearsPlaying == years {
-                                Image(systemName: "checkmark")
-                                    .font(.btSubheadlineMedium)
-                                    .foregroundStyle(.btPrimary)
-                            }
+                            BTSelectionIndicator(isSelected: profile.yearsPlaying == years)
+                                .font(.btSubheadlineMedium)
                         }
                         .padding(.horizontal, Spacing.lg)
                         .padding(.vertical, Spacing.md)

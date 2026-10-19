@@ -2,6 +2,10 @@
 
 2026-10-13｜[PLAN v5.4](PLAN.md)，D028/D029，轮次`LIVE-20261012-R1`。L00/L01控制准备完成，当前按用户要求暂停，停在L04分享训练待对比；既有功能验收直接沿用，视觉结果按原范围保留。
 
+## 资料位置 · 2026-10-18
+
+`output/app-interface-redesign` 的 103.66 GiB 资料已迁至 Mac mini `song@fengchuibuchuifengdeMac-mini.local:/Users/song/Archives/Figma/app-interface-redesign-20261018`。200,063 个文件的 SHA-256 和文件属性校验一致后，本机原件已删除。历史文件链接须到远端新目录按相同相对路径查阅；本地开发插件需重配路径。[迁移记录](../../output/figma-move-20261018/REPORT.md)。本次仅搬迁资料，以下暂停状态和验收范围不变。
+
 ## 当前现场
 
 - **PAUSED_BY_USER（2026-10-13）**：用户表示“先停下来、先记录下，感觉差不多”，要求关闭本轮相关模拟器。停止推进；P08心得/总结已通过，P09分享及后续未看内容保持未验，不认定全App完成。十台评审设备已逐台关机并读回确认全部Shutdown；其他任务3台运行设备未动。回执见`output/app-live-review/LIVE-20261012-R1/pause-20261013.json`。仅用户明确恢复后再继续；配置使用内存数据，恢复时可能需要重新准备展示现场。

@@ -309,7 +309,7 @@ final class V53ProfilePreferencesTests: XCTestCase {
         XCTAssertEqual(manager.entitlementStatusLabel, "永久有效")
         var loadingStates: [Bool] = []
         var statusLabels: [String] = []
-        let observation = manager.$isLoading.dropFirst().sink { value in
+        let observation = manager.$isTransacting.dropFirst().sink { value in
             loadingStates.append(value)
             statusLabels.append(manager.entitlementStatusLabel)
         }
@@ -473,6 +473,244 @@ final class V53ProfilePreferencesTests: XCTestCase {
         XCTAssertNotNil(account.errorMessage)
     }
 
+    func testProfileBasicsGuestPersistenceClearingAndOwnerIsolation() async {
+        let defaults = isolatedDefaults()
+        let owner = CurrentOwnerContext(defaults: defaults)
+        let auth = AuthState(backend: ProfileAuthBackend(), credentials: EmptyCredentials(), defaults: defaults, ownerContext: owner)
+        auth.loginAnonymously()
+        let store = OwnerProfileStore(ownerKey: owner.guestOwnerKey, defaults: defaults)
+        let genderSaved = await store.setGender(.female, authState: auth)
+        let birthdaySaved = await store.setBirthDate("2000-02-29", authState: auth)
+        XCTAssertTrue(genderSaved); XCTAssertTrue(birthdaySaved)
+        let restored = OwnerProfileStore(ownerKey: owner.guestOwnerKey, defaults: defaults)
+        XCTAssertEqual(restored.gender, .female); XCTAssertEqual(restored.birthDate, "2000-02-29")
+        let account = OwnerProfileStore(ownerKey: OwnerKey.account("other"), defaults: defaults)
+        XCTAssertEqual(account.gender, .unspecified); XCTAssertNil(account.birthDate)
+        _ = await restored.setGender(.unspecified, authState: auth)
+        _ = await restored.setBirthDate(nil, authState: auth)
+        let cleared = OwnerProfileStore(ownerKey: owner.guestOwnerKey, defaults: defaults)
+        XCTAssertEqual(cleared.gender, .unspecified); XCTAssertNil(cleared.birthDate)
+        let invalid = await cleared.setBirthDate("2001-02-29", authState: auth)
+        XCTAssertFalse(invalid); XCTAssertNil(cleared.birthDate)
+    }
+
+    func testProfileBasicsServerTruthAndFailurePreserveExistingValues() async {
+        let defaults = isolatedDefaults()
+        let auth = AuthState(backend: ProfileAuthBackend(), credentials: EmptyCredentials(), defaults: defaults,
+                             ownerContext: CurrentOwnerContext(defaults: defaults))
+        auth.login(user: AppUser(id: "user-a", provider: .apple, gender: "male", birthDate: "1990-01-01"))
+        var response = userDTO(name: "服务端昵称")
+        response.gender = "female"; response.birthDate = "2000-02-29"
+        let store = OwnerProfileStore(ownerKey: OwnerKey.account("user-a"), defaults: defaults,
+                                      backend: ProfileUpdateBackend(result: .success(response)))
+        store.load(from: auth.currentUser)
+        let saved = await store.setBirthDate("1999-01-01", authState: auth)
+        XCTAssertTrue(saved); XCTAssertEqual(store.birthDate, "2000-02-29")
+        XCTAssertEqual(store.gender, .female); XCTAssertEqual(auth.currentUser?.birthDate, "2000-02-29")
+        let failing = OwnerProfileStore(ownerKey: store.ownerKey, defaults: defaults,
+                                        backend: ProfileUpdateBackend(result: .failure(TestFailure())))
+        failing.load(from: auth.currentUser)
+        let failed = await failing.setBirthDate(nil, authState: auth)
+        XCTAssertFalse(failed); XCTAssertEqual(failing.birthDate, "2000-02-29")
+        let genderFailed = await failing.setGender(.male, authState: auth)
+        XCTAssertFalse(genderFailed); XCTAssertEqual(failing.gender, .female)
+        OwnerProfileStore.removeLocalProfile(ownerKey: store.ownerKey, in: defaults)
+        let removed = OwnerProfileStore(ownerKey: store.ownerKey, defaults: defaults)
+        XCTAssertNil(removed.birthDate); XCTAssertEqual(removed.gender, .unspecified)
+    }
+
+    func testProfileBasicsPartialPayloadAndLegacyDTOCompatibility() throws {
+        func json(_ update: UserProfileUpdate) throws -> [String: Any] {
+            try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(update)) as? [String: Any])
+        }
+        let nameOnly = try json(UserProfileUpdate(displayName: "昵称"))
+        XCTAssertNil(nameOnly["gender"]); XCTAssertNil(nameOnly["birthDate"])
+        let gender = try json(UserProfileUpdate(gender: .male))
+        XCTAssertEqual(gender["gender"] as? String, "male"); XCTAssertEqual(gender.count, 1)
+        let cleared = try json(UserProfileUpdate(gender: .unspecified, updatesBirthDate: true))
+        XCTAssertTrue(cleared["gender"] is NSNull); XCTAssertTrue(cleared["birthDate"] is NSNull)
+        let dto = try JSONDecoder().decode(UserDTO.self, from: Data(#"{"id":"old","provider":"apple","displayName":"保留昵称"}"#.utf8))
+        XCTAssertNil(dto.birthDate); XCTAssertNil(dto.gender)
+        XCTAssertEqual(AppUser(dto: dto).displayName, "保留昵称")
+    }
+
+    func testProfileBirthdayUsesCivilDatesAndWholeYears() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let before = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 10, day: 16)))
+        let birthday = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 10, day: 17)))
+        XCTAssertEqual(ProfileBirthday.age("2000-10-17", now: before), 25)
+        XCTAssertEqual(ProfileBirthday.age("2000-10-17", now: birthday), 26)
+        XCTAssertEqual(ProfileBirthday.age("2026-10-17", now: birthday), 0)
+        XCTAssertNotNil(ProfileBirthday.date("2000-02-29", now: birthday))
+        for invalid in ["2001-02-29", "2000-2-1", "1899-12-31", "2026-10-18"] {
+            XCTAssertNil(ProfileBirthday.date(invalid, now: birthday), invalid)
+        }
+        XCTAssertEqual(ProfileBirthday.string(birthday), "2026-10-17")
+    }
+
+    func testFirstRunDetectsLegacyGuestsSettingsStoresAndCredentials() {
+        func existing(_ keys: Set<String> = [], completed: Bool = false,
+                      store: Bool = false, credentials: Bool = false) -> Bool {
+            FirstRunProfileFlow.hasExistingInstallation(persistedKeys: keys,
+                completedOnboarding: completed, hasStore: store, hasCredentials: credentials)
+        }
+        XCTAssertFalse(existing(["AppleLanguages", "NSLanguages"]))
+        for key in [DeviceGuestIdentity.defaultsKey, "preferredSport", "appearanceMode",
+                    "ownerProfile.guest:old.birthDate", "hasCompletedOnboarding"] {
+            XCTAssertTrue(existing([key]), key)
+        }
+        XCTAssertTrue(existing(store: true))
+        XCTAssertTrue(existing(credentials: true))
+        XCTAssertTrue(existing(completed: true))
+    }
+
+    func testFirstRunResumesAndSkipIsTerminalDespiteStartupWrites() {
+        let defaults = isolatedDefaults()
+        let flow = FirstRunProfileFlow(defaults: defaults, hasExistingData: false)
+        XCTAssertEqual(flow.stage, .introduction)
+        _ = DeviceGuestIdentity.id(in: defaults)
+        XCTAssertEqual(FirstRunProfileFlow(defaults: defaults, hasExistingData: true).stage, .introduction)
+        flow.finishIntroduction()
+        let resumed = FirstRunProfileFlow(defaults: defaults, hasExistingData: true)
+        XCTAssertEqual(resumed.stage, .profile)
+        let profileBefore = defaults.dictionaryRepresentation().filter { $0.key.hasPrefix("ownerProfile.") }
+        resumed.finish()
+        resumed.finishIntroduction()
+        XCTAssertEqual(FirstRunProfileFlow(defaults: defaults, hasExistingData: false).stage, .completed)
+        XCTAssertEqual(profileBefore as NSDictionary,
+                       defaults.dictionaryRepresentation().filter { $0.key.hasPrefix("ownerProfile.") } as NSDictionary)
+    }
+
+    func testFirstRunUpgradeOnlyWritesProgressMarker() {
+        let defaults = isolatedDefaults()
+        defaults.set("已有昵称", forKey: "ownerProfile.guest:old.displayName")
+        defaults.set("3d", forKey: "table.preferences.savedView")
+        defaults.set(false, forKey: "hasCompletedOnboarding")
+        let before = defaults.dictionaryRepresentation()
+        let flow = FirstRunProfileFlow(defaults: defaults, hasExistingData: true)
+        XCTAssertEqual(flow.stage, .completed)
+        var after = defaults.dictionaryRepresentation()
+        after.removeValue(forKey: FirstRunProfileFlow.progressKey)
+        XCTAssertEqual(before as NSDictionary, after as NSDictionary)
+    }
+
+    func testFirstRunReturningCredentialsSuppressPendingProfileEvenOffline() {
+        let defaults = isolatedDefaults()
+        let flow = FirstRunProfileFlow(defaults: defaults, hasExistingData: false)
+        flow.finishIntroduction()
+        let restored = FirstRunProfileFlow(defaults: defaults, hasExistingData: true, hasCredentials: true)
+        XCTAssertEqual(restored.stage, .completed)
+        XCTAssertEqual(FirstRunProfileFlow(defaults: defaults, hasExistingData: true).stage, .completed)
+    }
+
+    func testInitialProfileOnlySavesChoicesAndPreservesExistingFieldsAndSettings() {
+        let defaults = isolatedDefaults()
+        let owner = CurrentOwnerContext(defaults: defaults)
+        let auth = AuthState(backend: ProfileAuthBackend(), credentials: EmptyCredentials(),
+                             defaults: defaults, ownerContext: owner)
+        auth.loginAnonymously()
+        let prefix = "ownerProfile.\(owner.ownerKey)."
+        defaults.set("旧昵称", forKey: prefix + "displayName")
+        defaults.set("2000-01-01", forKey: prefix + "birthDate")
+        defaults.set(ProfileGender.female.rawValue, forKey: prefix + "gender")
+        defaults.set(YearsPlaying.fivePlus.rawValue, forKey: prefix + "yearsPlaying")
+        defaults.set("3d", forKey: "table.preferences.savedView")
+        defaults.set(DailyClearanceGame.chineseEightBall.rawValue, forKey: DailyClearanceStoreKey.preferredGame)
+        let prefs = UserPreferences(defaults: defaults)
+        let store = OwnerProfileStore(ownerKey: owner.ownerKey, defaults: defaults)
+        XCTAssertTrue(store.saveInitialProfile(InitialProfileDraft(displayName: "新昵称",
+            preferredSport: .nineBall, yearsPlaying: .lessThan1), authState: auth, preferences: prefs))
+        let restored = OwnerProfileStore(ownerKey: owner.ownerKey, defaults: defaults)
+        XCTAssertEqual(restored.displayName, "旧昵称")
+        XCTAssertEqual(restored.preferredSport, .nineBall)
+        XCTAssertEqual(restored.yearsPlaying, .fivePlus)
+        XCTAssertEqual(restored.birthDate, "2000-01-01")
+        XCTAssertEqual(restored.gender, .female)
+        XCTAssertNil(defaults.object(forKey: prefix + "skillLevel"))
+        XCTAssertNil(defaults.object(forKey: prefix + "weeklyGoalDays"))
+        XCTAssertEqual(prefs.dailyClearanceGame, .chineseEightBall)
+        XCTAssertEqual(defaults.string(forKey: "table.preferences.savedView"), "3d")
+    }
+
+    func testInitialProfileEmptyDraftWritesNothingAndInvalidNameIsAtomic() {
+        let defaults = isolatedDefaults()
+        let owner = CurrentOwnerContext(defaults: defaults)
+        let auth = AuthState(backend: ProfileAuthBackend(), credentials: EmptyCredentials(),
+                             defaults: defaults, ownerContext: owner)
+        auth.loginAnonymously()
+        let prefs = UserPreferences(defaults: defaults)
+        let store = OwnerProfileStore(ownerKey: owner.ownerKey, defaults: defaults)
+        let before = defaults.dictionaryRepresentation()
+        XCTAssertTrue(store.saveInitialProfile(InitialProfileDraft(), authState: auth, preferences: prefs))
+        XCTAssertEqual(defaults.dictionaryRepresentation() as NSDictionary, before as NSDictionary)
+        XCTAssertFalse(store.saveInitialProfile(InitialProfileDraft(displayName: String(repeating: "球", count: 21),
+            preferredSport: .nineBall), authState: auth, preferences: prefs))
+        XCTAssertEqual(defaults.dictionaryRepresentation() as NSDictionary, before as NSDictionary)
+    }
+
+    func testInitialProfileRestoredAccountRejectsStaleGuestDraft() {
+        let defaults = isolatedDefaults()
+        let owner = CurrentOwnerContext(defaults: defaults)
+        let auth = AuthState(backend: ProfileAuthBackend(), credentials: EmptyCredentials(),
+                             defaults: defaults, ownerContext: owner)
+        let prefs = UserPreferences(defaults: defaults)
+        let guest = OwnerProfileStore(ownerKey: owner.guestOwnerKey, defaults: defaults)
+        auth.login(user: AppUser(id: "returning", provider: .apple, displayName: "账号旧昵称"))
+        let before = defaults.dictionaryRepresentation()
+        XCTAssertFalse(guest.saveInitialProfile(InitialProfileDraft(displayName: "游客草稿",
+            preferredSport: .nineBall), authState: auth, preferences: prefs))
+        XCTAssertEqual(defaults.dictionaryRepresentation() as NSDictionary, before as NSDictionary)
+        XCTAssertEqual(auth.currentUser?.displayName, "账号旧昵称")
+    }
+
+    func testInitialProfileNewChoicesPersistAndInferDefaultGame() {
+        let defaults = isolatedDefaults()
+        let owner = CurrentOwnerContext(defaults: defaults)
+        let auth = AuthState(backend: ProfileAuthBackend(), credentials: EmptyCredentials(),
+                             defaults: defaults, ownerContext: owner)
+        auth.loginAnonymously()
+        let prefs = UserPreferences(defaults: defaults)
+        let store = OwnerProfileStore(ownerKey: owner.ownerKey, defaults: defaults)
+        XCTAssertTrue(store.saveInitialProfile(InitialProfileDraft(displayName: " 新球友 ",
+            preferredSport: .nineBall, skillLevel: .intermediate, yearsPlaying: .oneToThree),
+            authState: auth, preferences: prefs))
+        let restored = OwnerProfileStore(ownerKey: owner.ownerKey, defaults: defaults)
+        XCTAssertEqual(restored.displayName, "新球友")
+        XCTAssertEqual(restored.preferredSport, .nineBall)
+        XCTAssertEqual(restored.skillLevel, .intermediate)
+        XCTAssertEqual(restored.yearsPlaying, .oneToThree)
+        XCTAssertEqual(prefs.dailyClearanceGame, .nineBall)
+        XCTAssertNil(defaults.object(forKey: DailyClearanceStoreKey.preferredGame))
+    }
+
+    func testInitialFourStepProfilePersistsExplicitFieldsWithoutOverwriting() {
+        let defaults = isolatedDefaults()
+        let owner = CurrentOwnerContext(defaults: defaults)
+        let auth = AuthState(backend: ProfileAuthBackend(), credentials: EmptyCredentials(),
+                             defaults: defaults, ownerContext: owner)
+        auth.loginAnonymously()
+        let prefs = UserPreferences(defaults: defaults)
+        let store = OwnerProfileStore(ownerKey: owner.ownerKey, defaults: defaults)
+        let before = defaults.dictionaryRepresentation()
+        XCTAssertFalse(store.saveInitialProfile(InitialProfileDraft(preferredSport: .zhuifen,
+            gender: .male, birthDate: "2999-01-01"), authState: auth, preferences: prefs))
+        XCTAssertEqual(before as NSDictionary, defaults.dictionaryRepresentation() as NSDictionary)
+        XCTAssertTrue(store.saveInitialProfile(InitialProfileDraft(preferredSport: .zhuifen,
+            yearsPlaying: .threeToFive, gender: .male, birthDate: "1996-06-18"), authState: auth, preferences: prefs))
+        let restored = OwnerProfileStore(ownerKey: owner.ownerKey, defaults: defaults)
+        XCTAssertEqual(restored.preferredSport, .zhuifen)
+        XCTAssertEqual(restored.gender, .male)
+        XCTAssertEqual(restored.birthDate, "1996-06-18")
+        XCTAssertEqual(restored.yearsPlaying, .threeToFive)
+        XCTAssertNil(DailyClearanceGame.initialDefault(for: .zhuifen))
+        XCTAssertNil(DailyClearanceGame.initialDefault(for: .other))
+        XCTAssertTrue(store.saveInitialProfile(InitialProfileDraft(preferredSport: .other,
+            gender: .female, birthDate: "2001-01-01"), authState: auth, preferences: prefs))
+        XCTAssertEqual(store.preferredSport, .zhuifen)
+        XCTAssertEqual(store.gender, .male)
+        XCTAssertEqual(store.birthDate, "1996-06-18")
+    }
+
     private func isolatedDefaults() -> UserDefaults {
         let name = "V53ProfilePreferencesTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
@@ -593,4 +831,245 @@ private func userDTO(name: String?, revision: Int? = nil) -> UserDTO {
     UserDTO(id: "user-a", displayName: name, email: nil, provider: "apple",
             avatarRevision: revision, preferredSport: "chinese8", skillLevel: "beginner",
             yearsPlaying: "lessThan1", weeklyGoalDays: 3)
+}
+
+@MainActor
+final class TablePreferencesStoreTests: XCTestCase {
+    private func defaults() -> UserDefaults {
+        let name = "TablePreferencesStoreTests." + UUID().uuidString
+        let result = UserDefaults(suiteName: name)!
+        addTeardownBlock { result.removePersistentDomain(forName: name) }
+        return result
+    }
+    func testLocalIsolationRestartAndSameValueGlobalOverride() {
+        let d = defaults(), s = TablePreferencesStore(defaults: defaults())
+        XCTAssertFalse(s.snapshot(for: .freePlay).enabled(.view3D))
+        let first = TablePreferencesStore(defaults: d)
+        first.apply(.view3D, value: 1, to: .freePlay)
+        XCTAssertFalse(first.snapshot(for: .dailyClearance).enabled(.view3D))
+        let reopened = TablePreferencesStore(defaults: d)
+        XCTAssertTrue(reopened.snapshot(for: .freePlay).enabled(.view3D))
+        reopened.apply(.view3D, value: 1)
+        reopened.apply(.view3D, value: 0, to: .freePlay)
+        reopened.apply(.grid, value: 1, to: .freePlay)
+        let revision = reopened.revision
+        reopened.reapply(.view3D)
+        XCTAssertGreaterThan(reopened.revision, revision)
+        XCTAssertTrue(reopened.snapshot(for: .freePlay).enabled(.view3D))
+        XCTAssertTrue(reopened.snapshot(for: .freePlay).enabled(.grid))
+        XCTAssertFalse(reopened.snapshot(for: .sceneAiming2D).enabled(.view3D))
+    }
+    func testLegacyMigrationSplitsSharedKeysAndNeverResurrectsThem() {
+        let d = defaults()
+        d.set(true, forKey: "snakePractice.view3D")
+        d.set(0.73, forKey: "bankKick.spinTransparency")
+        d.set(true, forKey: "composer.3DTrajectoryHidden")
+        d.set(true, forKey: "showAimCloseup")
+        d.set("ongoing-game", forKey: "dailyClearance.testDraft")
+        let s = TablePreferencesStore(defaults: d)
+        XCTAssertTrue(s.snapshot(for: .snakePractice).enabled(.view3D))
+        XCTAssertEqual(s.snapshot(for: .bankShot)[.transparency], 0.73)
+        XCTAssertEqual(s.snapshot(for: .diamondSystem)[.transparency], 0.73)
+        XCTAssertFalse(s.snapshot(for: .drillTryout).enabled(.shows3DTrajectory))
+        XCTAssertTrue(s.snapshot(for: .freePlay).enabled(.closeup))
+        s.apply(.transparency, value: 0.2, to: .bankShot)
+        XCTAssertEqual(s.snapshot(for: .diamondSystem)[.transparency], 0.73)
+        s.apply(.transparency, value: 0.5)
+        s.apply(.view3D, value: 0)
+        let restarted = TablePreferencesStore(defaults: d)
+        XCTAssertEqual(restarted.snapshot(for: .bankShot)[.transparency], 0.5)
+        XCTAssertFalse(restarted.snapshot(for: .snakePractice).enabled(.view3D))
+        XCTAssertTrue(d.bool(forKey: "snakePractice.view3D"))
+        XCTAssertEqual(d.string(forKey: "dailyClearance.testDraft"), "ongoing-game")
+    }
+    func testTrajectoryVisibilityPreservesDetailsAndVisibleSelectionUnhides() {
+        let s = TablePreferencesStore(defaults: defaults())
+        s.apply(.trajectory, value: 2, to: .freePlay)
+        s.apply(.trajectory, value: 1, to: .dailyClearance)
+        s.apply(.shows3DTrajectory, value: 0)
+        s.reapply(.shows3DTrajectory)
+        XCTAssertEqual(s.snapshot(for: .freePlay).trajectoryDetail, .minimal)
+        s.apply(.shows3DTrajectory, value: 1)
+        XCTAssertEqual(s.snapshot(for: .dailyClearance).trajectoryDetail, .core)
+        s.apply(.shows3DTrajectory, value: 0, to: .freePlay)
+        s.reapply(.trajectory)
+        for page in TablePreferencePage.allCases where page.fields.contains(.trajectory) {
+            XCTAssertEqual(s.snapshot(for: page).trajectoryDetail, .full)
+            XCTAssertTrue(s.snapshot(for: page).enabled(.shows3DTrajectory))
+        }
+        XCTAssertFalse(TablePreferencePage.separationAngleAtlas.fields.contains(.trajectory))
+    }
+    func testEveryFieldOverwritesOnlySupportedPageField() {
+        let s = TablePreferencesStore(defaults: defaults())
+        for field in TablePreferenceField.allCases {
+            for page in TablePreferencePage.allCases where page.fields.contains(field) {
+                s.apply(field, value: 1, to: page)
+            }
+            s.apply(field, value: field.initialValue)
+            for page in TablePreferencePage.allCases where page.fields.contains(field) {
+                XCTAssertEqual(s.snapshot(for: page)[field], field.initialValue, "\(page)/\(field)")
+            }
+        }
+    }
+    func testInvalidMigrationAndInputStayFiniteAndLegal() {
+        let d = defaults()
+        d.set(Double.nan, forKey: "freePlay.spinDiscTransparency")
+        d.set(99, forKey: "trajectoryDetail")
+        let s = TablePreferencesStore(defaults: d)
+        XCTAssertEqual(s.snapshot(for: .freePlay)[.transparency], 0.5)
+        XCTAssertEqual(s.general.trajectoryDetail, .full)
+        s.apply(.transparency, value: 2)
+        XCTAssertEqual(s.general[.transparency], 1)
+        s.apply(.trajectory, value: .infinity)
+        XCTAssertEqual(s.general.trajectoryDetail, .full)
+    }
+}
+
+extension V53ProfilePreferencesTests {
+    private func proTestAuth() -> AuthState {
+        let defaults = isolatedDefaults()
+        let auth = AuthState(backend: ProfileAuthBackend(), credentials: EmptyCredentials(),
+                             defaults: defaults, ownerContext: CurrentOwnerContext(defaults: defaults))
+        auth.login(user: AppUser(id: "pro-purchase-tests", provider: .apple))
+        return auth
+    }
+
+    func testProPurchaseCancelledPendingAndConfirmingAreNotUnlocks() async throws {
+        let session = try SKTestSession(configurationFileNamed: "Products")
+        session.resetToDefaultState(); session.disableDialogs = true; session.clearTransactions()
+        defer { session.clearTransactions() }
+        let products = try await Product.products(for: [StoreKitService.lifetimeID])
+        let product = try XCTUnwrap(products.first)
+        for outcome in [SubscriptionManager.PurchaseOutcome.cancelled, .pending, .confirming] {
+            let manager = SubscriptionManager(entitlementLoader: { [] }, listenForUpdates: false,
+                useDebugOverrides: false, purchaseOperation: { _ in
+                    if outcome == .cancelled { throw CancellationError() }
+                    if outcome == .pending { throw StoreError.purchasePending }
+                })
+            let auth = proTestAuth()
+            manager.bind(to: auth)
+            await manager.checkEntitlements()
+            let result = await manager.purchaseResult(product)
+            XCTAssertEqual(result, outcome)
+            XCTAssertFalse(manager.isPremium)
+            XCTAssertNil(manager.errorMessage)
+            XCTAssertFalse(manager.isTransacting)
+            if outcome != .cancelled {
+                XCTAssertFalse(manager.canPurchase(productID: product.id))
+                XCTAssertFalse(manager.canPurchase(productID: StoreKitService.monthlyID))
+                manager.resetWaitingPurchaseAfterCancellation()
+                if outcome == .pending {
+                    XCTAssertNil(manager.awaitingProductID)
+                    XCTAssertTrue(manager.canPurchase(productID: product.id))
+                } else {
+                    XCTAssertEqual(manager.awaitingProductID, product.id)
+                    XCTAssertFalse(manager.canPurchase(productID: product.id), "Completed purchases must refresh instead of buying again")
+                }
+                XCTAssertFalse(manager.isPremium, "Acknowledging cancellation cannot grant access")
+            }
+        }
+        XCTAssertEqual(session.allTransactions().count, 0, "Injected outcomes never fabricate an Apple purchase")
+    }
+
+    func testProPurchaseAccountChangeAndConcurrentCallCannotReportSuccess() async throws {
+        let session = try SKTestSession(configurationFileNamed: "Products")
+        session.resetToDefaultState(); session.disableDialogs = true; session.clearTransactions()
+        defer { session.clearTransactions() }
+        let products = try await Product.products(for: [StoreKitService.lifetimeID])
+        let product = try XCTUnwrap(products.first)
+        var release: CheckedContinuation<Void, Never>?
+        let entered = expectation(description: "purchase entered")
+        let manager = SubscriptionManager(entitlementLoader: { [] }, listenForUpdates: false,
+            useDebugOverrides: false, purchaseOperation: { _ in
+                await withCheckedContinuation { continuation in release = continuation; entered.fulfill() }
+            })
+        let auth = proTestAuth()
+        manager.bind(to: auth)
+        let pending = Task { await manager.purchaseResult(product) }
+        await fulfillment(of: [entered], timeout: 3)
+        let duplicate = await manager.purchaseResult(product)
+        XCTAssertEqual(duplicate, .busy)
+        auth.login(user: AppUser(id: "other-purchase-user", provider: .apple))
+        release?.resume()
+        let result = await pending.value
+        XCTAssertEqual(result, .sessionChanged)
+        XCTAssertFalse(manager.isPremium)
+    }
+
+    func testProStoreKitPendingApprovalAndRevocation() async throws {
+        let session = try SKTestSession(configurationFileNamed: "Products")
+        session.resetToDefaultState(); session.disableDialogs = true; session.clearTransactions()
+        session.askToBuyEnabled = true
+        defer { session.clearTransactions(); session.resetToDefaultState() }
+        let products = try await Product.products(for: [StoreKitService.lifetimeID])
+        let product = try XCTUnwrap(products.first)
+        let manager = SubscriptionManager(useDebugOverrides: false)
+        let auth = proTestAuth()
+        manager.bind(to: auth)
+        await manager.checkEntitlements()
+        let result = await manager.purchaseResult(product)
+        XCTAssertEqual(result, .pending)
+        XCTAssertFalse(manager.isPremium)
+        let transaction = try XCTUnwrap(session.allTransactions().first)
+        try session.approveAskToBuyTransaction(identifier: transaction.identifier)
+        _ = try await waitForEntitlement(product.id, present: true)
+        await manager.checkEntitlements()
+        XCTAssertTrue(manager.isPremium)
+        XCTAssertNil(manager.awaitingProductID)
+        try session.refundTransaction(identifier: transaction.identifier)
+        _ = try await waitForEntitlement(product.id, present: false)
+        await manager.checkEntitlements()
+        XCTAssertFalse(manager.isPremium)
+    }
+
+    func testProStoreKitDeclinedApprovalDoesNotUnlockOrDuplicatePurchase() async throws {
+        let session = try SKTestSession(configurationFileNamed: "Products")
+        session.resetToDefaultState(); session.disableDialogs = true; session.clearTransactions()
+        session.askToBuyEnabled = true
+        defer { session.clearTransactions(); session.resetToDefaultState() }
+        let products = try await Product.products(for: [StoreKitService.lifetimeID])
+        let product = try XCTUnwrap(products.first)
+        let manager = SubscriptionManager(useDebugOverrides: false)
+        let auth = proTestAuth()
+        manager.bind(to: auth)
+        await manager.checkEntitlements()
+        let result = await manager.purchaseResult(product)
+        XCTAssertEqual(result, .pending)
+        let duplicate = await manager.purchaseResult(product)
+        XCTAssertNotEqual(duplicate, .unlocked)
+        XCTAssertEqual(manager.purchaseOutcome, .pending)
+        XCTAssertEqual(session.allTransactions().count, 1)
+        let transaction = try XCTUnwrap(session.allTransactions().first)
+        try session.declineAskToBuyTransaction(identifier: transaction.identifier)
+        await manager.checkEntitlements()
+        XCTAssertFalse(manager.isPremium)
+        XCTAssertTrue(manager.purchasedProductIDs.isEmpty)
+        manager.resetWaitingPurchaseAfterCancellation()
+        XCTAssertNil(manager.awaitingProductID)
+        XCTAssertTrue(manager.canPurchase(productID: product.id))
+    }
+
+    func testProStoreKitMonthlyCanUpgradeLifetimeAndRestoreBoth() async throws {
+        let session = try SKTestSession(configurationFileNamed: "Products")
+        session.resetToDefaultState(); session.disableDialogs = true; session.clearTransactions()
+        defer { session.clearTransactions() }
+        _ = try await session.buyProduct(identifier: StoreKitService.monthlyID)
+        _ = try await waitForEntitlement(StoreKitService.monthlyID, present: true)
+        let manager = SubscriptionManager(listenForUpdates: false, useDebugOverrides: false)
+        let auth = proTestAuth()
+        manager.bind(to: auth)
+        await manager.checkEntitlements()
+        XCTAssertTrue(manager.canPurchase(productID: StoreKitService.lifetimeID))
+        XCTAssertFalse(manager.canPurchase(productID: StoreKitService.yearlyID))
+        let products = try await Product.products(for: [StoreKitService.lifetimeID])
+        let product = try XCTUnwrap(products.first)
+        let result = await manager.purchaseResult(product)
+        XCTAssertEqual(result, .unlocked)
+        XCTAssertTrue(manager.purchasedProductIDs.contains(StoreKitService.monthlyID))
+        XCTAssertTrue(manager.purchasedProductIDs.contains(StoreKitService.lifetimeID))
+        XCTAssertFalse(manager.canPurchase(productID: product.id))
+        let restored = await manager.restorePurchases()
+        XCTAssertTrue(restored)
+        XCTAssertEqual(manager.entitlementStatusLabel, "永久有效")
+    }
 }

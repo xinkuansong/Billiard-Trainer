@@ -889,8 +889,8 @@ enum ShotPredictor {
     /// 库边事件 → 主库分类。四条主库 = `TableGeometry` linearCushions 前 6 段
     /// （长库各 2 段、短库各 1 段），法向指向台内：+Z=左库(z=−halfW)、−Z=右库、
     /// +X=底库(far, x=−halfL)、−X=顶库(near)。jaw 直段/圆弧/中袋喉壁（index ≥ 6）不计。
-    private static func mainRail(cushionIndex: Int, normal: SCNVector3) -> BankShotCalculator.Rail? {
-        guard cushionIndex < 6 else { return nil }
+    static func mainRail(cushionIndex: Int, normal: SCNVector3) -> BankShotCalculator.Rail? {
+        guard (0..<6).contains(cushionIndex) else { return nil }
         if normal.z > 0.9 { return .left }
         if normal.z < -0.9 { return .right }
         if normal.x > 0.9 { return .far }

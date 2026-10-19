@@ -6,6 +6,33 @@ struct StoreEntitlementSnapshot: Equatable, Sendable {
     let revocationDate: Date?
 }
 
+/// Shared authorization rules. Snapshots must come from verified current entitlements,
+/// never from transaction history or a persisted premium Boolean.
+enum ProAccessPolicy {
+    enum Decision: Equatable {
+        case allowed
+        case requiresLogin
+        case checkingEntitlements
+        case requiresPro
+    }
+
+    static func decision(requiresPremium: Bool, hasSession: Bool,
+                         isPremium: Bool, hasResolvedEntitlements: Bool) -> Decision {
+        if !requiresPremium { return .allowed }
+        guard hasSession else { return .requiresLogin }
+        if isPremium { return .allowed }
+        return hasResolvedEntitlements ? .requiresPro : .checkingEntitlements
+    }
+
+    static func currentProEntitlements(in snapshots: [StoreEntitlementSnapshot]) -> [StoreEntitlementSnapshot] {
+        // StoreKit's currentEntitlements includes eligible billing grace periods.
+        // An expiration-date-only filter would incorrectly remove those rights.
+        snapshots.filter {
+            StoreKitService.allProductIDs.contains($0.productID) && $0.revocationDate == nil
+        }
+    }
+}
+
 enum StoreError: LocalizedError {
     case failedVerification
     case purchasePending
@@ -80,7 +107,7 @@ actor StoreKitService {
                 }
             }
         }
-        return snapshots
+        return ProAccessPolicy.currentProEntitlements(in: snapshots)
     }
 
     // MARK: - Verification

@@ -273,3 +273,162 @@ final class DailyStandardFreePlayUITests: XCTestCase {
     }
 
 }
+
+final class TablePreferencesUITests: XCTestCase {
+    func testCustomChoicesAndNativeSwitchEvidence() throws {
+        continueAfterFailure = false
+        launch("settings")
+        XCTAssertTrue(app.switches["settings.grid"].waitForExistence(timeout: 15))
+        try capture("native-switches-preserved")
+        let room = app.buttons["settings.roomStyle"]
+        for _ in 0..<8 where !room.isHittable { app.scrollViews["settings.content"].swipeUp() }
+        XCTAssertTrue(room.isHittable); room.tap()
+        let options = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "settings.roomStyle."))
+        XCTAssertGreaterThan(options.count, 1)
+        let unselected = options.allElementsBoundByIndex.first { $0.value as? String == "未选择" }!
+        unselected.tap()
+        XCTAssertEqual(unselected.value as? String, "已选择")
+        XCTAssertTrue(unselected.images["checkmark"].waitForExistence(timeout: 5),
+                      "The selected row must render its checkmark, not only update its accessibility value")
+        try capture("room-style-choices")
+    }
+
+    private var app: XCUIApplication!
+    private func launch(_ route: String) {
+        app?.terminate()
+        XCUIDevice.shared.orientation = route == "settings" ? .portrait : .landscapeLeft
+        app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-v53.authenticatedProfileFixture",
+            "-forcePremium", "-v51.followSystemAppearance",
+            route.hasPrefix("shared:") ? "-dailyInteraction.sharedPage=" + route.dropFirst(7) : "-deeplink." + route])
+    }
+    private func openMenu() {
+        let more = app.buttons["freeplay.moreMenu"]
+        XCTAssertTrue(more.waitForExistence(timeout: 15)); more.tap()
+        XCTAssertTrue(app.buttons["freeplay.cameraMode"].waitForExistence(timeout: 5))
+    }
+    private func assertMode(_ mode: String) {
+        XCTAssertEqual(app.buttons["freeplay.cameraMode"].value as? String, mode)
+    }
+    private func capture(_ name: String) throws {
+        let image = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: image)
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+        let root = ProcessInfo.processInfo.environment["TABLE_PREFERENCES_OUTPUT"].map { URL(fileURLWithPath: $0) }
+            ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+                .appendingPathComponent("output/profile-settings-20261017/implementation/ui")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try image.pngRepresentation.write(to: root.appendingPathComponent(name + ".png"))
+    }
+    func testSharedTeachingPagesAndPreviewRememberIndependentViews() throws {
+        continueAfterFailure = false
+        launch("settings")
+        XCTAssertTrue(app.buttons["3D"].waitForExistence(timeout: 15)); app.buttons["3D"].tap()
+        let routes = [("silu", "silu"), ("planThree", "planthree"), ("snooker", "snooker"),
+            ("shared:bank", "bankshot"), ("shared:diamond", "reflection"),
+            ("shared:angleDynamic", "angleDynamic"), ("shared:separation", "separationAngleAtlas"),
+            ("shared:cushion", "cushionEnglishAtlas"), ("shared:composer", "freeplay"), ("shared:shot", "freeplay")]
+        for (route, id) in routes {
+            func menu() {
+                let more = app.buttons[id == "freeplay" ? "freeplay.moreMenu" : id + ".more"]
+                XCTAssertTrue(more.waitForExistence(timeout: 20), route)
+                // The landscape header can have a fractional negative origin; its visible center remains tappable.
+                more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                XCTAssertTrue(app.buttons[id + ".cameraMode"].waitForExistence(timeout: 5), route)
+            }
+            launch(route); menu()
+            XCTAssertEqual(app.buttons[id + ".cameraMode"].value as? String, "3D", route)
+            app.buttons[id + ".cameraMode"].tap()
+            XCTAssertEqual(app.buttons[id + ".cameraMode"].value as? String, "2D", route)
+            launch(route); menu()
+            XCTAssertEqual(app.buttons[id + ".cameraMode"].value as? String, "2D", route)
+            try capture("memory-" + id + (route == "shared:shot" ? "-shot" : ""))
+        }
+        launch("drillDetail=drill_c001")
+        let camera = app.buttons["drillScene.cameraMode"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 20))
+        XCTAssertEqual(camera.value as? String, "3D")
+        camera.tap(); XCTAssertEqual(camera.value as? String, "2D")
+        launch("drillDetail=drill_c001")
+        XCTAssertTrue(camera.waitForExistence(timeout: 20)); XCTAssertEqual(camera.value as? String, "2D")
+        try capture("memory-detail-preview")
+    }
+
+    func testViewMemoryIsolationAndSameValueReapply() throws {
+        continueAfterFailure = false
+        launch("settings")
+        XCTAssertTrue(app.buttons["2D"].waitForExistence(timeout: 15)); app.buttons["2D"].tap()
+        let grid = app.switches["settings.grid"]
+        if grid.value as? String == "1" { grid.tap() }
+        app.buttons["settings.reapply"].tap()
+        let applyGrid = app.buttons["台面网格 4×8 · 关闭"].firstMatch
+        XCTAssertTrue(applyGrid.waitForExistence(timeout: 5)); applyGrid.tap()
+        try capture("settings-initial")
+        launch("freePlay"); openMenu(); assertMode("2D")
+        app.buttons["freeplay.cameraMode"].tap(); assertMode("3D")
+        app.buttons["menu.tableGrid"].tap()
+        openMenu()
+        XCTAssertEqual(app.buttons["menu.tableGrid"].value as? String, "已选")
+        try capture("freeplay-3d-local-grid")
+        launch("freePlay"); openMenu(); assertMode("3D")
+        XCTAssertEqual(app.buttons["menu.tableGrid"].value as? String, "已选")
+        launch("dailyClearance"); openMenu(); assertMode("2D")
+        XCTAssertNotEqual(app.buttons["menu.tableGrid"].value as? String, "已选")
+        launch("settings"); app.buttons["2D"].tap() // same general value must overwrite local 3D
+        app.buttons["settings.reapply"].tap()
+        app.buttons["台面网格 4×8 · 关闭"].firstMatch.tap()
+        launch("freePlay"); openMenu(); assertMode("2D")
+        XCTAssertNotEqual(app.buttons["menu.tableGrid"].value as? String, "已选")
+        try capture("freeplay-after-same-value-override")
+    }
+    func testLocalTrajectoryHiddenMemoryAndGlobalSameDetailUnhides() throws {
+        continueAfterFailure = false
+        func generalFull() {
+            launch("settings")
+            XCTAssertTrue(app.buttons["3D"].waitForExistence(timeout: 15)); app.buttons["3D"].tap()
+            let field = app.buttons["settings.trajectory"]
+            for _ in 0..<5 where !field.isHittable { app.scrollViews["settings.content"].swipeUp() }
+            field.tap(); app.buttons["轨迹·全"].firstMatch.tap()
+        }
+        func trajectoryMenu() {
+            let field = app.buttons["dailyClearance.trajectoryMenu"]
+            for _ in 0..<5 where !field.isHittable { app.scrollViews["dailyClearance.menuScroll"].swipeUp() }
+            field.tap()
+            XCTAssertTrue(app.buttons["dailyClearance.trajectory.2"].waitForExistence(timeout: 5))
+        }
+        generalFull()
+        launch("freePlay"); openMenu(); trajectoryMenu()
+        app.buttons["dailyClearance.trajectory.2"].tap()
+        openMenu(); trajectoryMenu(); app.buttons["dailyClearance.trajectory.3"].tap()
+        launch("freePlay"); openMenu(); trajectoryMenu()
+        XCTAssertEqual(app.buttons["dailyClearance.trajectory.3"].value as? String, "已选")
+        try capture("trajectory-local-hidden-restored")
+        launch("shared:shot"); openMenu(); trajectoryMenu()
+        XCTAssertEqual(app.buttons["dailyClearance.trajectory.0"].value as? String, "已选")
+        generalFull() // reselect the same global detail: also clears the local hidden state
+        launch("freePlay"); openMenu(); trajectoryMenu()
+        XCTAssertEqual(app.buttons["dailyClearance.trajectory.0"].value as? String, "已选")
+        XCTAssertNotEqual(app.buttons["dailyClearance.trajectory.3"].value as? String, "已选")
+        try capture("trajectory-global-full-unhides")
+    }
+
+    func testGeneralSettingsReachabilityAndTrajectoryReapply() throws {
+        continueAfterFailure = false
+        launch("settings")
+        XCTAssertTrue(app.buttons["settings.reapply"].waitForExistence(timeout: 15))
+        try capture("settings-top")
+        let scroll = app.scrollViews["settings.content"]
+        let trajectory = app.buttons["settings.trajectory"]
+        for _ in 0..<5 where !trajectory.isHittable { scroll.swipeUp() }
+        XCTAssertTrue(trajectory.isHittable); trajectory.tap()
+        let full = app.buttons["轨迹·全"].firstMatch
+        XCTAssertTrue(full.waitForExistence(timeout: 5)); full.tap()
+        XCTAssertEqual(app.switches["settings.trajectory3D"].value as? String, "1")
+        try capture("settings-trajectory")
+        let rehearsal = app.switches["settings.cueRehearsal"]
+        for _ in 0..<5 where !rehearsal.isHittable { scroll.swipeUp() }
+        XCTAssertTrue(rehearsal.isHittable)
+        try capture("settings-assists")
+        for _ in 0..<8 { scroll.swipeUp() }
+        try capture("settings-bottom")
+    }
+}

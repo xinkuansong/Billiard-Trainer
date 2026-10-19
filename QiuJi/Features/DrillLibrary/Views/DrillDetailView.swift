@@ -11,11 +11,9 @@ struct DrillDetailView: View {
     @State private var showSubscription = false
     @State private var showTutorial = false
     /// 「上手试打」push（试打模式方案 §1.6：入口直进试打页，不做预览页）。
-    @State private var showTryout = false
+    @State private var tryoutDestination: TryoutDestination?
     /// 试打球形集合（D4，与视频示范同源；空 = 无序列，回退 shotIntent 球局）。
     @State private var tryoutFormations: [DrillTryoutFormation] = []
-    /// 选中的试打球形（nil = shotIntent 兜底路径）。
-    @State private var selectedFormation: DrillTryoutFormation?
     /// 多球形选择 sheet（>1 个球形时弹出，单球形直进）。
     /// 用 item 承载列表快照：iOS 26 上 `.sheet(isPresented:)` 内容闭包会以陈旧
     /// state 求值（tryoutFormations 渲染为空，B4 发现，c042/c053 均复现）。
@@ -23,6 +21,14 @@ struct DrillDetailView: View {
     /// E15：加入训练（自定义计划 / 今日训练）选择 sheet。
     @State private var showAddToTraining = false
     @State private var toast: BTToastMessage?
+
+    private struct TryoutDestination: Hashable {
+        let id = UUID()
+        let drill: DrillContent
+        let formation: DrillTryoutFormation?
+        static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
+        func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    }
 
     /// sheet(item:) 载荷：球形列表快照。
     private struct FormationPickerPayload: Identifiable {
@@ -155,9 +161,9 @@ struct DrillDetailView: View {
                 DrillTutorialView(drill: drill)
             }
         }
-        .navigationDestination(isPresented: $showTryout) {
-            if let drill {
-                PositionPlayComposerView(sourceDrill: drill, tryoutFormation: selectedFormation)
+        .navigationDestination(item: $tryoutDestination) { destination in
+            ProAccessGate(requiresPremium: destination.drill.isPremium) {
+                PositionPlayComposerView(sourceDrill: destination.drill, tryoutFormation: destination.formation)
             }
         }
         .sheet(item: $formationPicker) { payload in
@@ -190,7 +196,7 @@ struct DrillDetailView: View {
         // 留一点点横向内边距（8pt），露出的是页面浅灰背景而非球台绿边——
         // 绿边已由 DrillSceneView 的相框比例(1.81)+取景(0.77)消除，与此 padding 无关。
         // 「上手试打」仅底栏（DR-057）；锁态底栏为「解锁 Pro」。
-        DrillSceneView(drill: drill)
+        DrillSceneView(drill: drill, preferencePage: .drillDetailPreview)
             .padding(.horizontal, Spacing.sm)
     }
 
@@ -198,12 +204,15 @@ struct DrillDetailView: View {
 
     /// 解锁态入口：>1 个球形弹选择，单球形/无序列直进。
     private func startTryout() {
+        guard let drill, subscriptionManager.accessDecision(requiresPremium: drill.isPremium) == .allowed else {
+            showSubscription = true
+            return
+        }
         tryoutFormations = DrillTryoutBoardStore.formations(for: drillId)
         if tryoutFormations.count > 1 {
             formationPicker = FormationPickerPayload(formations: tryoutFormations)
         } else {
-            selectedFormation = tryoutFormations.first
-            showTryout = true
+            tryoutDestination = .init(drill: drill, formation: tryoutFormations.first)
         }
     }
 
@@ -214,9 +223,9 @@ struct DrillDetailView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(formations.enumerated()), id: \.element.id) { index, formation in
                         Button {
-                            selectedFormation = formation
+                            guard let drill else { return }
                             formationPicker = nil
-                            showTryout = true
+                            tryoutDestination = .init(drill: drill, formation: formation)
                         } label: {
                             HStack(spacing: Spacing.md) {
                                 Text("\(index + 1)")
@@ -579,11 +588,7 @@ struct DrillDetailView: View {
         HStack(spacing: Spacing.md) {
             if isLocked {
                 Button { showSubscription = true } label: {
-                    HStack(spacing: Spacing.sm) {
-                        Image(systemName: BTIcon.crown)
-                            .font(.btFootnote14)
-                        Text("解锁 Pro")
-                    }
+                    BTProUnlockLabel()
                 }
                 .buttonStyle(BTButtonStyle.goldFilled)
                 .accessibilityIdentifier("unlockProButton")
@@ -624,6 +629,8 @@ struct DrillDetailView: View {
             let result = try DrillTrainingPlanService.addDrill(drill, to: plan, context: modelContext)
             showAddToTraining = false
             flashAddResult(result)
+        } catch let error as ProContentAccess.Failure {
+            BTToast.present(error.localizedDescription, tone: .warning) { toast = $0 }
         } catch {
             BTToast.present("加入失败，请稍后重试", tone: .error) { toast = $0 }
         }
@@ -639,6 +646,8 @@ struct DrillDetailView: View {
             case .added: BTToast.present("已加入今日安排") { toast = $0 }
             case .alreadyPresent: BTToast.present("已在今日安排", tone: .info) { toast = $0 }
             }
+        } catch let error as ProContentAccess.Failure {
+            BTToast.present(error.localizedDescription, tone: .warning) { toast = $0 }
         } catch {
             BTToast.present("加入失败，请稍后重试", tone: .error) { toast = $0 }
         }
@@ -654,6 +663,8 @@ struct DrillDetailView: View {
             )
             showAddToTraining = false
             flashAddResult(result)
+        } catch let error as ProContentAccess.Failure {
+            BTToast.present(error.localizedDescription, tone: .warning) { toast = $0 }
         } catch DrillTrainingPlanService.ServiceError.emptyName {
             BTToast.present("请填写模版名称", tone: .warning) { toast = $0 }
         } catch {

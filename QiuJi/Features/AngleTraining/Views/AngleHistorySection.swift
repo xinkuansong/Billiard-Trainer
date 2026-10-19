@@ -17,6 +17,10 @@ struct AngleHistorySection: View {
     @State private var selectedPocket: PocketTrendFilter = .corner
 
     var body: some View {
+        ProAccessGate { authorizedContent }
+    }
+
+    private var authorizedContent: some View {
         VStack(spacing: Spacing.xxl) {
             if vm.allResults.isEmpty {
                 BTEmptyState(icon: "chart.line.uptrend.xyaxis",

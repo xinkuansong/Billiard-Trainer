@@ -63,6 +63,9 @@ struct AngleSceneView: UIViewRepresentable {
     var onPocketTapped: ((Int) -> Void)?
 
     var draggableBallNodes: [SCNNode] = []
+    /// Opt-in drawing handles: priority within 22pt; same finger clearance as balls.
+    var precisionDragNodes: [SCNNode] = []
+    var prioritizesTableTaps = false
     var onDragBegan: ((SCNNode) -> Void)?
     var onDragMoved: ((SCNNode, SCNVector3) -> Void)?
     var onDragEnded: ((SCNNode) -> Void)?
@@ -189,7 +192,7 @@ struct AngleSceneView: UIViewRepresentable {
 
         // 4x8 台面网格（条 16）：交互页进场按全局偏好显隐；
         // 离线渲染（缩略图/视频导出）不走本视图，不受影响。
-        scene.setTableGridVisible(UserPreferences.shared.showTableGrid)
+        scene.setTableGridVisible(scene.tablePreferences?.enabled(.grid) ?? UserPreferences.shared.showTableGrid)
 
         return scnView
     }
@@ -219,9 +222,10 @@ struct AngleSceneView: UIViewRepresentable {
         #endif
         context.coordinator.fpsReadoutState = fpsReadoutState
         context.coordinator.positionFPSReadout(trailingInset: fpsReadoutTrailingInset)
-        if context.coordinator.tableGridVisible != roomPreferences.showTableGrid {
-            context.coordinator.tableGridVisible = roomPreferences.showTableGrid
-            scene.setTableGridVisible(roomPreferences.showTableGrid)
+        let gridVisible = scene.tablePreferences?.enabled(.grid) ?? roomPreferences.showTableGrid
+        if context.coordinator.tableGridVisible != gridVisible {
+            context.coordinator.tableGridVisible = gridVisible
+            scene.setTableGridVisible(gridVisible)
             context.coordinator.requestInteractiveFrames()
         }
         scene.applyTableStyle(roomPreferences.tableStyle, showsSights: roomPreferences.showsTableSights)
@@ -262,6 +266,8 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.autoFitsLandscapeTable = autoFitsLandscapeTable
         context.coordinator.onPocketTapped = onPocketTapped
         context.coordinator.draggableBallNodes = draggableBallNodes
+        context.coordinator.precisionDragNodes = precisionDragNodes
+        context.coordinator.prioritizesTableTaps = prioritizesTableTaps
         context.coordinator.onDragBegan = onDragBegan
         context.coordinator.onDragMoved = onDragMoved
         context.coordinator.onDragEnded = onDragEnded
@@ -511,9 +517,36 @@ struct AngleSceneView: UIViewRepresentable {
             }.min { $0.1 < $1.1 }?.0
         }
 
+        /// Same grab policy as ordinary 2D, resolved in the displayed overlay.
+        /// Tap-to-select retains its smaller target; dragging gets finger allowance.
+        private func overlayDragBall(at point: CGPoint) -> SCNNode? {
+            guard let view = scnView, let overlay = mergedOverlay else { return nil }
+            let candidates = draggableBallNodes.filter { !$0.isHidden && $0.parent != nil }
+            let local = overlay.convert(point, from: view)
+            if let hit = overlay.hitTest(local, options: [
+                .searchMode: SCNHitTestSearchMode.closest.rawValue
+            ]).first {
+                var ancestor: SCNNode? = hit.node
+                while let node = ancestor {
+                    if let source = candidates.first(where: { mergedNodeCopies[$0] === node }) { return source }
+                    ancestor = node.parent
+                }
+            }
+            let nearby = candidates.compactMap { node -> (SCNNode, CGFloat)? in
+                guard let screen = overlayPoint(node),
+                      overlay.bounds.contains(overlay.convert(screen, from: view)) else { return nil }
+                let distance = hypot(point.x - screen.x, point.y - screen.y)
+                return distance < 48 ? (node, distance) : nil
+            }
+            if let selected = nearby.first(where: { $0.0 === selectedDragBall }) { return selected.0 }
+            return nearby.min { $0.1 < $1.1 }?.0
+        }
+
         private func handleOverlayTap(_ point: CGPoint) {
-            guard scene.cameraRig?.usesMergedCamera == true, let view = scnView,
+            guard gesturesEnabled, interactionMode != .none,
+                scene.cameraRig?.usesMergedCamera == true, let view = scnView,
                 let rig = scene.cameraRig, let frame = rig.temporaryTopDownOverlayFrame else { return }
+            selectedDragBall = overlayDragBall(at: point)
             if let ball = overlayBall(at: point, candidates: selectableBallNodes) {
                 onBallTapped?(ball); requestInteractiveFrames(); return
             }
@@ -536,13 +569,31 @@ struct AngleSceneView: UIViewRepresentable {
         private func handleOverlayPan(_ gesture: UIPanGestureRecognizer) {
             guard scene.cameraRig?.usesMergedCamera == true, let view = scnView else { return }
             let point = gesture.location(in: view)
+            #if DEBUG
+            if dragProbeEnabled {
+                dragProbePanCount += 1
+                overlayDragProbe["phase"] = gesture.state.rawValue
+                overlayDragProbe["point"] = [point.x, point.y]
+            }
+            #endif
             switch gesture.state {
             case .began:
+                guard gesturesEnabled, interactionMode != .none else { return }
                 let delta = gesture.translation(in: view)
                 let start = mergedTouchOrigin ?? CGPoint(x: point.x-delta.x,y: point.y-delta.y)
-                guard let node = overlayBall(at: start, candidates: draggableBallNodes),
-                    let world = overlayWorld(start) else { return }
+                guard let node = overlayDragBall(at: start), let world = overlayWorld(start) else {
+                    selectedDragBall = nil
+                    return
+                }
+                selectedDragBall = node
                 mergedDragNode = node
+                #if DEBUG
+                if dragProbeEnabled {
+                    dragProbeGrabCount += 1
+                    overlayDragProbe["key"] = scene.ballKey(for: node) ?? "unknown"
+                    overlayDragProbe["start"] = [start.x, start.y]
+                }
+                #endif
                 mergedDragOffset = node.simdWorldPosition - world
                 // Match ordinary 2D: retain the grab point and leave finger clearance
                 // in view-local points before converting to the overlay world plane.
@@ -555,6 +606,14 @@ struct AngleSceneView: UIViewRepresentable {
                 guard let node = mergedDragNode, let world = overlayWorld(dragSamplePoint(for: point)) else { return }
                 let destination = world + mergedDragOffset
                 onDragMoved?(node,SCNVector3(destination.x,destination.y,destination.z))
+                #if DEBUG
+                if dragProbeEnabled {
+                    dragProbeMoveCount += 1
+                    overlayDragProbe["destination"] = [destination.x, destination.y, destination.z]
+                    overlayDragProbe["result"] = [node.position.x, node.position.y, node.position.z]
+                    overlayDragProbe["clearedFingerAllowance"] = dragBrokeDeadZone
+                }
+                #endif
             case .ended, .cancelled, .failed:
                 if let node = mergedDragNode {
                     if gesture.state == .ended, let world = overlayWorld(dragSamplePoint(for: point)) {
@@ -1088,6 +1147,8 @@ struct AngleSceneView: UIViewRepresentable {
         var gesturesEnabled = true
 
         var draggableBallNodes: [SCNNode] = []
+        var precisionDragNodes: [SCNNode] = []
+        var prioritizesTableTaps = false
         var onDragBegan: ((SCNNode) -> Void)?
         var onDragMoved: ((SCNNode, SCNVector3) -> Void)?
         var onDragEnded: ((SCNNode) -> Void)?
@@ -1138,9 +1199,9 @@ struct AngleSceneView: UIViewRepresentable {
 
         /// Effective screen sample point for the current finger location.
         /// Dead zone is a one-time gate: before breaking it the ball stays put;
-        /// at the moment of breaking we lock `dragLockedOffset` (= start − finger,
-        /// magnitude ≈ deadZone, continuous with no jump) and afterwards the ball
-        /// simply follows the finger by that fixed offset in every direction.
+        /// 2D locks exactly the configured clearance along the first movement,
+        /// even when intermediate samples are coalesced. 3D retains its original
+        /// first-crossing offset. Afterwards both follow that fixed offset.
         private func dragSamplePoint(for location: CGPoint) -> CGPoint {
             if !dragBrokeDeadZone {
                 let dx = location.x - dragStartLocation.x
@@ -1150,8 +1211,17 @@ struct AngleSceneView: UIViewRepresentable {
                                    y: dragStartLocation.y + dragGrabOffset.height)
                 }
                 dragBrokeDeadZone = true
-                dragLockedOffset = CGSize(width: dragStartLocation.x - location.x,
-                                          height: dragStartLocation.y - location.y)
+                if cameraMode != .perspective3D || scene.cameraRig?.temporaryTopDownActive == true {
+                    // A coalesced first sample may already be far beyond the
+                    // clearance. Keep exactly 52pt of finger separation; consuming
+                    // that whole sample could swallow a valid 2D drag completely.
+                    let fraction = dragDeadZone / hypot(dx, dy)
+                    dragLockedOffset = CGSize(width: -dx * fraction, height: -dy * fraction)
+                } else {
+                    // Preserve the existing 3D drag feel.
+                    dragLockedOffset = CGSize(width: dragStartLocation.x - location.x,
+                                              height: dragStartLocation.y - location.y)
+                }
             }
             return CGPoint(x: location.x + dragLockedOffset.width + dragGrabOffset.width,
                            y: location.y + dragLockedOffset.height + dragGrabOffset.height)
@@ -1312,6 +1382,12 @@ struct AngleSceneView: UIViewRepresentable {
             guard let scnView else { return nil }
             let candidates = draggableBallNodes.filter { !$0.isHidden && $0.parent != nil }
             guard !candidates.isEmpty else { return nil }
+            let handles = precisionDragNodes.filter { !$0.isHidden && $0.parent != nil }.compactMap { node -> (SCNNode, CGFloat)? in
+                let p = scnView.projectPoint(node.position)
+                guard p.z >= 0, p.z <= 1 else { return nil }
+                return (node, hypot(location.x-CGFloat(p.x), location.y-CGFloat(p.y)))
+            }
+            if let nearest = handles.min(by: { $0.1 < $1.1 }), nearest.1 <= 22 { return nearest.0 }
 
             func ballAncestor(of node: SCNNode) -> SCNNode? {
                 var current: SCNNode? = node
@@ -1722,6 +1798,13 @@ struct AngleSceneView: UIViewRepresentable {
         func handleTap(at location: CGPoint) {
             guard gesturesEnabled, interactionMode != .none, let scnView else { return }
             selectedDragBall = hitTestBall(at: location)
+            // Like a ball, tapping a handle keeps its centre in place. It must not
+            // fall through to the drawing tool and start a new measurement.
+            if let selectedDragBall, precisionDragNodes.contains(selectedDragBall) { return }
+            if prioritizesTableTaps, let onTableTapped,
+               let world = unprojectToTablePlane(screenPoint:location,in:scnView,planeY:scene.surfaceY + AngleSceneCalculator.ballRadius) {
+                onTableTapped(world); return
+            }
 
             // Resolve the actual visible mesh before enlarging either hit area.
             // A visible leather rim wins over a nearby ball's 40pt tolerance.
@@ -1805,6 +1888,7 @@ struct AngleSceneView: UIViewRepresentable {
         private var dragProbePanCount = 0
         private var dragProbeGrabCount = 0
         private var dragProbeMoveCount = 0
+        private var overlayDragProbe: [String: Any] = [:]
         private let dragProbeEnabled = ProcessInfo.processInfo.arguments.contains("-3dDrag.probe")
         private let pocketProbeEnabled = ProcessInfo.processInfo.arguments.contains("-pocketSelection.probe")
         private func dragProbeValue(in view: SCNView) -> String {
@@ -1812,8 +1896,8 @@ struct AngleSceneView: UIViewRepresentable {
                 guard !node.isHidden else { return nil }
                 let world = scene.visualCenter(of: node)
                 let p = view.projectPoint(world)
-                let active = usesStandardTemporaryTable && scene.cameraRig?.temporaryTopDownActive == true
-                    ? editingPoint(world) : nil
+                let active = scene.cameraRig?.temporaryTopDownActive == true
+                    ? overlayPoint(node) : nil
                 return ["key": key, "screen": [Float(active?.x ?? CGFloat(p.x)), Float(active?.y ?? CGFloat(p.y)), p.z],
                         "world": [node.position.x, node.position.y, node.position.z],
                         "diameter": projectedBallDiameter(at: world) ?? 0, "scale": [node.scale.x, node.scale.y, node.scale.z],
@@ -1823,6 +1907,11 @@ struct AngleSceneView: UIViewRepresentable {
             var data: [String: Any] = ["rendererID": dragProbeRendererID, "panCount": dragProbePanCount, "grabCount": dragProbeGrabCount, "moveCount": dragProbeMoveCount, "balls": balls, "camera": [transform.m11, transform.m12, transform.m13,
                 transform.m21, transform.m22, transform.m23, transform.m31, transform.m32, transform.m33,
                 transform.m41, transform.m42, transform.m43]]
+            data["overlayDrag"] = overlayDragProbe
+            data["formationHandles"] = scene.rootNode.childNodes.filter { $0.name?.hasPrefix("formation.vertex.") == true || $0.name?.hasPrefix("formation.measure.") == true }.map { node -> [String:Any] in
+                let p = view.projectPoint(node.position)
+                return ["name":node.name ?? "", "world":[node.position.x,node.position.y,node.position.z], "screen":[p.x,p.y,p.z]]
+            }
             if let placement = paletteProjector?.palettePlacementDiagnostic { data["palettePlacement"] = placement }
             if let overlay = mergedOverlay, let labels = mergedDiagramLabels {
                 data["diagram"] = labels.diagnostic(in: overlay, scene: scene)

@@ -34,16 +34,16 @@ struct TheoryT03View: View {
             VStack(spacing: Spacing.xxl) {
                 TheoryPageHeader(
                     pageID: .t03,
-                    headline: "碰撞那一瞬间，母球总是先沿切线走",
-                    detail: "之后偏不偏、偏多少，取决于它此刻带着什么旋转。",
-                    caption: "切线 = 过两球接触点、垂直于两球连心线的那条线。"
+                    headline: "先找切线，再判断母球会怎样偏离",
+                    detail: "切线给碰后的母球一个方向参照。到球时几乎没有前后旋，路线接近这个方向；带着前旋或后旋时，后续路线会向不同一侧弯开。",
+                    caption: "两球接触处的切线垂直于连心线。判断球心路线时，要把同方向的参照线移到碰撞时的母球中心。"
                 )
 
                 LearnControlStrip.Theta(
                     cutAngleDeg: $cutAngleDeg,
                     caption: isHalfBall
-                        ? "默认 30°（半球）。拖动切角只挪母球——切线跟着连心线，不跟着切角。"
-                        : "母球位置随切角变了，切线方向没变：它只由两球连心线决定。下方三条路径为教学折线示意，不声称精确分离角。",
+                        ? "默认切角 30°，也就是半球。图中目标球进球方向固定，因此与它垂直的切线方向也固定。"
+                        : "本图改变母球入射方向，目标球进球方向保持不变。三条路径用于比较杆法，不是当前切角下的精确轨迹。",
                     accessibilityIdentifier: "theoryT03.thetaSlider"
                 )
 
@@ -70,8 +70,8 @@ struct TheoryT03View: View {
     // MARK: - 为什么一定是切线（T03 §2 直觉）+ 主图
 
     private var whyItWorks: some View {
-        LearnDocSectionCard(title: "为什么一定是切线") {
-            LearnDocText.body("切线是一条纯几何的线：只看碰撞那一刻两颗球在哪，跟力度、跟旋转都没有关系。")
+        LearnDocSectionCard(title: "切线给了我们什么参照") {
+            LearnDocText.body("先把碰撞时的两个球心连起来，再找垂直于连心线的方向，这就是这里说的切线方向。几何方向本身不随力度变化，但实际母球是否沿它走，还要看碰撞条件和旋转。")
 
             TangentPerpendicularFigure(cutAngleDeg: CGFloat(cutAngleDeg))
                 .frame(height: 250)
@@ -79,10 +79,10 @@ struct TheoryT03View: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("theoryT03.tangentFigure")
 
-            LearnDocText.footnote("图中连心线 = 碰撞瞬间两球球心连成的线，方向就是目标球的入袋方向；切线过两球接触点、与它成 90°。")
+            LearnDocText.footnote("图中按理想碰撞画出连心线与目标球方向的对应，直角标记说明垂直关系。实战中的投掷可能使目标球偏离连心线方向。")
 
-            LearnDocText.body("两颗球接触时只能互相推、不能互相拉，所以垂直于连心线的那个方向上没有力交换。母球在这个方向上的速度被完整保留下来，只有连心线方向的那一份动量交给了目标球——于是母球离开时先走切线。")
-            LearnDocText.body("「30° 法则」和「90° 法则」都是从这里长出来的：它们是切线加上两种不同旋转状态之后的特例。")
+            LearnDocText.body("在等质量、完全弹性且忽略球间摩擦的模型里，母球沿连心线的速度分量传给目标球，切向分量保留下来，因此碰后瞬间沿切线方向运动。真实碰撞会有能量损失和摩擦，所以把切线当参照比把它当绝对路线更合适。")
+            LearnDocText.body("90° 法则用它描述斯登球的分离方向；30° 法则则继续考虑自然滚动母球碰后的旋转变化。两者有关联，但角度的测量基准不同。")
         }
     }
 
@@ -90,7 +90,7 @@ struct TheoryT03View: View {
 
     private var referenceLines: some View {
         LearnDocSectionCard(title: "三条参考线") {
-            LearnDocText.body("同一杆、同一条切线，母球碰后会走出三种不同的路线——差别只在碰撞那一刻它带着什么旋转。")
+            LearnDocText.body("同一球形下，改变到球时的前后旋，可以比较母球怎样从切线附近向两侧偏开。先认识方向差别，再到演示页看完整路线。")
 
             SeparationPathsFigure(
                 selected: .stun,
@@ -105,22 +105,22 @@ struct TheoryT03View: View {
             TheoryMatrixTable(
                 columnTitles: ["碰撞瞬间的旋转", "母球碰后怎么走"],
                 rows: [
-                    .init("滑动线", ["几乎不带前后旋", "全程沿切线走"]),
-                    .init("滚动线", ["已经是自然滚动", "从切线朝原瞄准线一侧偏约 30°"]),
-                    .init("后旋线", ["还带着强后旋", "朝相反一侧偏出去（约 30°），分离角大于 90°"]),
+                    .init("斯登", ["几乎没有前后旋", "碰后大致沿切线方向走"]),
+                    .init("自然滚动", ["前进与转动匹配", "后续向前弯；合适厚度内，相对碰前方向偏约 30°"]),
+                    .init("后旋", ["到球时仍在倒转", "后续向后旋一侧弯，幅度取决于剩余后旋与球形"]),
                 ]
             )
             LearnDocText.footnote("图上三条是教学折线示意（相对进球线 90° / 60° / 120°），用来记住三种走向；实战分离角随切角、力度与滑动→滚动进度连续变化，见「分离角图谱」。")
-            LearnDocText.footnote("要看的是碰撞那一刻的旋转，不是出杆那一刻的。中杆打远距，母球到位时往往已经转成自然滚动，走的是滚动线而不是滑动线。")
+            LearnDocText.footnote("看的是碰球时的状态。母球带后旋时也可能在台呢上滑动，所以不能把所有滑动都叫斯登；斯登特指到球时几乎没有前后旋。")
         }
     }
 
     // MARK: - 沿切线能走多远（T03 §3 curve delay + 抛物线）
 
     private var curveDelay: some View {
-        LearnDocSectionCard(title: "沿切线能走多远") {
-            LearnDocText.body("就算打了高杆或低杆，母球也不是一碰完就拐弯：它先沿切线走一段，之后才被旋转带弯。力度越大，这一段走得越长、弯得越晚。")
-            LearnDocText.body("拐出去之后的那段轨迹是一条抛物线，一直到母球从滑动转成自然滚动为止。")
+        LearnDocSectionCard(title: "碰后最初那段路线也要看") {
+            LearnDocText.body("带前后旋时，母球碰后会逐渐改变方向。靠近碰撞点的路线可能看起来接近切线，但不代表它先走完一段固定直线才开始转弯。同样旋转状态下，速度越快，方向变化展开的距离通常越长。")
+            LearnDocText.body("因此，切线附近有球或袋口时，不能只看母球最终朝向。要同时检查最初离开的位置、弯曲过程以及之后的停位。")
         }
     }
 
@@ -128,19 +128,19 @@ struct TheoryT03View: View {
 
     private var findTangent: some View {
         LearnDocSectionCard(title: "怎么在台上把切线找出来") {
-            LearnDocText.body("先看目标球到袋口那条线——那就是碰撞瞬间的连心线方向。切线垂直于它，从两球接触点出发。")
+            LearnDocText.body("先按理想进球方向找到假想球，再过假想球中心看一条垂直方向。这样观察的是母球球心将经过的位置，不会把两球接触处的切线误当球心路线。")
             TheoryNumberedList(steps: [
                 .init(
                     "球杆比一下",
-                    detail: "把球杆贴着目标球摆，让杆身垂直于目标球的入袋方向，杆身指的就是切线。"
+                    detail: "练习时用杆身在空中比出与目标球进球方向垂直的方向，不碰动台上的球，再把这个方向对应到假想球中心。"
                 ),
                 .init(
                     "三指量一下",
-                    detail: "食指、中指、无名指并拢平贴台面，垂直于目标球的行进方向放。三指总宽差不多是一颗球（约 57 毫米），可以直接看出母球沿切线走会不会碰到旁边的球。"
+                    detail: "手指可以帮助估计通道宽度，但每个人的手宽不同。先与实际球径对照；判断会不会碰到旁边的球，还要给母球本身的半径留位置。"
                 ),
                 .init(
                     "V 字手势",
-                    detail: "一根手指指切线，另一根指偏 30° 之后的方向，两指之间的夹角就是母球可能偏出去的范围。"
+                    detail: "用手势比较两条方向。使用 30° 口诀时，一指要沿母球碰前方向，不能把切线当作 30° 的起点；后旋也没有统一偏 30° 的规则。"
                 ),
             ])
         }
@@ -151,7 +151,7 @@ struct TheoryT03View: View {
     private var pickPosition: some View {
         LearnDocSectionCard(title: "用切线挑走位") {
             LearnDocText.body("估出母球碰后大致会走到哪之后，再想一下下一杆的进球线——也就是下一颗目标球到袋口那条线，往母球这一侧延长出来。")
-            LearnDocText.body("让母球顺着这条线的方向进入落位区，而不是横着穿过去：顺着进，力度上的容错最大；横着穿，容错最小。切角和力度就按这个来挑。")
+            LearnDocText.body("如果母球能沿着所需落位区较长的方向进入，走长或走短一点仍可能留下合适角度。横穿很窄的区域时，力度就更难控制。先选有余量的路线，再配合打点和力度，不为追求一条线而增加不必要的难度。")
         }
     }
 
@@ -159,9 +159,9 @@ struct TheoryT03View: View {
 
     private var scope: some View {
         LearnDocSectionCard(title: "什么时候成立") {
-            LearnDocText.body("切线方向作为母球碰后的起始方向永远成立——它来自动量分解，没有额外前提。唯一的例外是正撞直球（切角 0°）：这时切线方向退化，母球停下。")
+            LearnDocText.body("垂直于连心线的方向始终可以作为几何参照；母球严格沿这个方向离开，则有理想碰撞的前提。直球时没有侧向速度分量，斯登接近停住，前旋会跟进，后旋会拉回。")
             LearnDocFormulaNest(title: "两个容易混的说法") {
-                LearnDocText.footnote("切线方向 ≠ 母球最终方向：只有滑动状态下两者才重合。")
+                LearnDocText.footnote("切线方向不等于最终停位：即使斯登方向判断正确，速度和之后的吃库仍会影响停点。")
                 LearnDocText.footnote("切线 ≠ 切角：切线是一条几何方向，切角是瞄准线与进球线的夹角。")
             }
         }
@@ -172,11 +172,11 @@ struct TheoryT03View: View {
     private static let mistakes: [TheoryMistakeCard.Mistake] = [
         .init(
             wrong: "「母球沿切线走」= 母球最后停在切线上",
-            right: "只有滑动状态下才成立。带旋转时母球先沿切线走一段再拐弯，落点并不在切线上。"
+            right: "斯登时可以沿切线估方向；带前后旋时，后续路线会弯开。还要把吃库和速度一起考虑，才能判断停位。"
         ),
         .init(
             wrong: "打高杆、距离又近，以为母球会「立刻往前跑」",
-            right: "母球还是先沿切线走一段才被前旋带弯，只是近距离这一段短、容易被漏掉。"
+            right: "先观察母球从碰撞点怎样离开，再看前旋如何改变后续路线。不要把高杆理解成母球一碰球就沿目标球方向前进。"
         ),
         .init(
             wrong: "把切线画成沿着连心线的方向",
@@ -200,7 +200,7 @@ struct TheoryT03View: View {
 
             LearnDocTextLink(
                 title: "旋转与加塞",
-                subtitle: "母球旋转四态 → 分离角：滑动沿切线，前旋后旋各偏一边",
+                subtitle: "区分到球时的斯登、前旋与后旋",
                 route: .spinAndEnglish
             )
             LearnDocTextLink(
@@ -216,7 +216,7 @@ struct TheoryT03View: View {
             )
             LearnDocTextLink(
                 title: "90° 法则",
-                subtitle: "滑动特例：两球分离角 90°",
+                subtitle: "理想斯登时，两球出射方向相差 90°",
                 route: .theoryPage(.t02)
             )
             LearnDocText.footnote("这一条还没有绑定专门的跟练题目，先用上面的演示页换着杆法看母球怎么走最直接。")

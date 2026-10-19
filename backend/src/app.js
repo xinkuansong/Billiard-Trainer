@@ -46,6 +46,7 @@ function createApp(overrides = {}) {
   app.use("/user", userRoutes);
   app.use("/training-sessions", trainingSessionRoutes);
   app.use("/angle-tests", angleTestRoutes);
+  app.use("/custom-formations", require("./routes/customFormation"));
   app.use("/drills", drillRoutes);
 
   app.use((err, _req, res, _next) => {

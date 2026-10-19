@@ -5,6 +5,11 @@ import SwiftData
 struct RootView: View {
     @EnvironmentObject private var authState: AuthState
     @EnvironmentObject private var ownerContext: CurrentOwnerContext
+    @EnvironmentObject private var firstRunProfile: FirstRunProfileFlow
+    @State private var showsWelcome = true
+    @State private var returningToIntroduction = false
+    @State private var proBrandSurfaceVisible = false
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var preferences = UserPreferences.shared
 
     #if DEBUG && targetEnvironment(simulator)
@@ -33,7 +38,12 @@ struct RootView: View {
             normalContent
             #endif
         }
+        .environment(\.proBrandSurfaceVisibility, { proBrandSurfaceVisible = $0 })
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { authState.retryPendingInitialProfileImport() }
+        }
         .task(id: authState.currentUser) {
+            if authState.isLoggedIn { firstRunProfile.finish() }
             preferences.synchronizeDefaultGame(ownerKey: ownerContext.ownerKey,
                                                user: authState.currentUser)
         }
@@ -43,6 +53,28 @@ struct RootView: View {
     private var normalContent: some View {
         if let deepLink = Self.uiTestDeepLink {
             deepLink.preferredColorScheme(Self.uiTestDeepLinkColorScheme)
+        } else if showsWelcome {
+            IntroWelcomeView()
+                .task(id: scenePhase) {
+                    guard scenePhase == .active else { return }
+                    do { try await Task.sleep(for: .seconds(1.2)) }
+                    catch { return }
+                    showsWelcome = false
+                }
+        } else if firstRunProfile.stage != .completed && !authState.isLoggedIn {
+            if authState.isLoading {
+                ProgressView("正在准备…")
+            } else if firstRunProfile.stage == .introduction {
+                OnboardingView(onFinish: firstRunProfile.finishIntroduction, initialPage: returningToIntroduction ? 5 : 0)
+            } else {
+                FirstRunProfileView(ownerKey: ownerContext.ownerKey, onFinish: {
+                    firstRunProfile.finish()
+                    authState.hasCompletedOnboarding = true
+                }, onBackToIntroduction: {
+                    returningToIntroduction = true
+                    firstRunProfile.returnToIntroduction()
+                })
+            }
         } else {
             MainTabView(ownerKey: ownerContext.ownerKey)
                 .id(ownerContext.ownerKey)
@@ -50,8 +82,12 @@ struct RootView: View {
         }
     }
 
-    /// 测试显式覆盖 > 用户设备偏好 > 系统外观。
+    /// Pro品牌页临时深色 > 测试显式覆盖 > 用户设备偏好 > 系统外观。
     private var mainColorScheme: ColorScheme? {
+        // The hosting controller owns the status bar. Restore the user's mode on exit.
+        if proBrandSurfaceVisible { return .dark }
+        if ProcessInfo.processInfo.arguments.contains("-v54.forceDark") { return .dark }
+        if ProcessInfo.processInfo.arguments.contains("-v54.forceLight") { return .light }
         // v51 矩阵必须忽略模拟器磁盘里可能残留的用户外观偏好，直接跟随
         // `simctl ui appearance`。返回 nil 才能让同一设备的 Light/Dark
         // 目录代表真实系统外观，而不是被上一次设置页选择污染。
@@ -81,7 +117,9 @@ struct RootView: View {
     /// 这些参数只存在于测试启动路径，不改变生产外观策略。
     private static var uiTestDeepLinkColorScheme: ColorScheme? {
         let args = ProcessInfo.processInfo.arguments
+        if args.contains("-intro.styles") { return nil }
         if args.contains("-intro.preview") { return .dark }
+        if args.contains("-subscription.preview") { return .dark }
         if args.contains("-v49.forceLight") { return .light }
         if args.contains("-v54.forceLight") { return .light }
         if args.contains("-v54.forceDark") { return .dark }
@@ -108,13 +146,19 @@ struct RootView: View {
             #if targetEnvironment(simulator)
             case "batch": return AnyView(NavigationStack { BatchAuthoringView(context: BatchAuthoringContext()) })
             #endif
+            case "anglequiz2d": return AnyView(NavigationStack { SceneAimingView(initialCameraMode: .topDown2D) })
+            case "anglequiz3d": return AnyView(NavigationStack { SceneAimingView(initialCameraMode: .perspective3D) })
             case "aimpoint2d": return AnyView(NavigationStack { AimPointSceneTrainingView(initialCameraMode: .topDown2DRotated) })
             case "aimpoint3d": return AnyView(NavigationStack { AimPointSceneTrainingView(initialCameraMode: .perspective3D) })
             default: break
             }
         }
+        if args.contains("-intro.styles") {
+            return AnyView(OnboardingStyleLab(showsCloseButton: false))
+        }
         if args.contains("-intro.preview") {
-            return AnyView(OnboardingView())
+            let page = args.first(where: { $0.hasPrefix("-intro.page=") })?.split(separator: "=").last.flatMap { Int($0) } ?? 0
+            return AnyView(OnboardingView(initialPage: page))
         }
         if args.contains("-subscription.preview") {
             return AnyView(SubscriptionView())
@@ -131,6 +175,10 @@ struct RootView: View {
         }
         if args.contains("-deeplink.snakePractice") {
             return AnyView(NavigationStack { SnakePracticeView() })
+        }
+        if args.contains("-deeplink.customFormation") {
+            let owner = args.first(where: { $0.hasPrefix("-customFormation.owner=") })?.replacingOccurrences(of: "-customFormation.owner=", with: "") ?? "custom-formation-ui-test"
+            return AnyView(NavigationStack { CustomFormationPracticeView(ownerKey: owner) })
         }
         if args.contains("-deeplink.freePlay") {
             return AnyView(NavigationStack { FreePlayView() })
@@ -505,6 +553,8 @@ private struct V51ResponsiveComponentProbe: View {
 
 #Preview("Light") {
     RootView()
+        .environmentObject(FirstRunProfileFlow(defaults: UserDefaults(suiteName: "firstRun.preview")!, hasExistingData: true))
+        .environmentObject(CurrentOwnerContext.shared)
         .environmentObject(AuthState())
         .environmentObject(AppRouter())
         .environmentObject(SubscriptionManager.shared)
@@ -512,6 +562,8 @@ private struct V51ResponsiveComponentProbe: View {
 
 #Preview("Dark") {
     RootView()
+        .environmentObject(FirstRunProfileFlow(defaults: UserDefaults(suiteName: "firstRun.preview")!, hasExistingData: true))
+        .environmentObject(CurrentOwnerContext.shared)
         .environmentObject(AuthState())
         .environmentObject(AppRouter())
         .environmentObject(SubscriptionManager.shared)

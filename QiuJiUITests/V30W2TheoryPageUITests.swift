@@ -13,8 +13,8 @@ import XCTest
 /// 截图落盘 `build/v30-w2-screenshots/`。
 final class V30W2TheoryPageUITests: XCTestCase {
 
-    private let outDir = URL(
-        fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v30-w2-screenshots"
+    private let outDir = TheoryFigureEvidence.outputDirectory(
+        fallback: "/Users/song/projects/13.billiard_trainer/build/v30-w2-screenshots"
     )
 
     /// 元素截图过小视为失败（黑块 / 空框）；改走全屏。
@@ -25,7 +25,7 @@ final class V30W2TheoryPageUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
-        app = XCUIApplication.launchClean()
+        app = XCUIApplication.launchClean(extraArgs: ["-v51.followSystemAppearance"])
     }
 
     func testV30W2_TheoryPagesLight() {
@@ -68,50 +68,14 @@ final class V30W2TheoryPageUITests: XCTestCase {
         sleep(3)
         let topName = "theory-\(pageID)-top-\(suffix)"
         let topData = savePNG(app.screenshot(), name: topName)
+        if pageID == "t01" || pageID == "t02" {
+            TheoryFigureEvidence.exerciseAngleSlider("theory\(pageID.uppercased()).thetaSlider", app: app, title: title)
+        }
 
         for identifier in figureIdentifiers {
-            let figure = app.descendants(matching: .any)[identifier].firstMatch
-            XCTAssertTrue(
-                figure.waitForExistence(timeout: 6),
-                "\(pageID) 详情页应有说明图 \(identifier)"
-            )
-            var tries = 0
-            while !figure.isHittable && tries < 10 {
-                app.swipeUp()
-                tries += 1
-                sleep(1)
-            }
-            XCTAssertTrue(
-                figure.isHittable,
-                "\(pageID) 说明图 \(identifier) 滚动后仍不可见/不可点"
-            )
-            sleep(1)
-
             let fileStem = "theory-\(pageID)-figure-\(identifier.replacingOccurrences(of: ".", with: "-"))-\(suffix)"
-            let elementShot = figure.screenshot()
-            let elementData = elementShot.pngRepresentation
-            let figureData: Data
-            if elementData.count >= minElementBytes {
-                figureData = savePNG(elementShot, name: fileStem)
-            } else {
-                // 抽象图等元素截图常为黑块：改存滚到该图后的全屏，作为该图的画面证据。
-                // 若仍与 top 同帧（图本就在首屏），再微滚一次拉开。
-                var screen = app.screenshot()
-                var data = screen.pngRepresentation
-                if data == topData {
-                    app.swipeUp()
-                    sleep(1)
-                    XCTAssertTrue(figure.isHittable || figure.exists,
-                                  "微滚后 \(identifier) 应仍在页上")
-                    screen = app.screenshot()
-                    data = screen.pngRepresentation
-                }
-                figureData = savePNG(screen, name: fileStem)
-                XCTAssertGreaterThan(
-                    figureData.count, minElementBytes,
-                    "\(pageID) \(identifier) 全屏回退截图仍过小"
-                )
-            }
+            let figureData = captureTheoryFigure(identifier, app: app, navigationTitle: title,
+                                                  fileStem: fileStem, outDir: outDir)
 
             XCTAssertNotEqual(
                 figureData, topData,

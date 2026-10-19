@@ -13,9 +13,9 @@ struct TheoryT06View: View {
             VStack(spacing: Spacing.xxl) {
                 TheoryPageHeader(
                     pageID: .t06,
-                    headline: "决定成败的不是最后一颗，而是关键球",
-                    detail: "关键球是为最后一颗安排好母球的那一颗；关键球二是为关键球安排母球的那一颗。两层要分开选、优先保护。",
-                    caption: "桌上剩五颗及以下时概念最清晰；更多球时，五球以外都当承转球，不必全盘规划。"
+                    headline: "给最后一颗，留一颗好衔接的球",
+                    detail: "这里说的关键球，是用来为最后一颗安排母球位置的球；再往前，负责衔接关键球的那颗，称为关键球二。选好这两段，收尾就不必临时寻找困难路线。",
+                    caption: "关键球是一颗球在计划中的用途。局面变了，它也可以重新选择。"
                 )
 
                 whyItWorks
@@ -37,19 +37,19 @@ struct TheoryT06View: View {
     // MARK: - 为什么关键球决定成败（T06 §2）
 
     private var whyItWorks: some View {
-        LearnDocSectionCard(title: "自由度在关键球，不在最后一颗") {
-            LearnDocText.body("最后一颗（8 / 9 / 黑 8）的打法通常只有一两种，自由度很低。真正的自由度在关键球——你怎么把母球停在它的最佳进位点，决定了最后一颗能不能打成。")
+        LearnDocSectionCard(title: "好进，还要好走") {
+            LearnDocText.body("一颗球看起来容易进，不代表适合留到最后衔接。好的关键球，既容易接近，又能用熟悉的路线把母球送到收尾位置。反过来，一颗提前打掉的简单球，也可能正是后面最需要的桥梁。")
 
             KeyBallLayerFigure()
                 .frame(height: 250)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
                 .accessibilityElement(children: .ignore)
                 .accessibilityIdentifier("theoryT06.layerFigure")
-                .accessibilityLabel("关键球双层结构：最后一颗约束最死；关键球承接全部末端约束；关键球二再往前一层。失败多半发生在关键球阶段。")
+                .accessibilityLabel("关键球双层结构：先选最后一颗的落位区，关键球把母球送过去，关键球二为关键球留出合适角度。")
 
-            LearnDocText.footnote("约束从末端往上传：关键球既要伺候最后一颗，又要自己能进——可行域比最后一颗还窄。")
+            LearnDocText.footnote("从上往下看需要什么位置，从下往上检查能否衔接。两层都要看进球线和母球路线。")
 
-            LearnDocText.body("业余的失败，大约 90% 发生在关键球阶段，却以为自己败在最后一颗上。关键球与关键球二要分两条独立选——不是一次拍板两颗。")
+            LearnDocText.body("收尾打丢时，不妨往前多看一杆：是最后的瞄准出了问题，还是之前已经留下了难球？分别检查关键球与关键球二，再把它们连起来验证，比只责怪最后一杆更有帮助。")
         }
     }
 
@@ -57,29 +57,29 @@ struct TheoryT06View: View {
 
     private var fourQuestions: some View {
         LearnDocSectionCard(title: "选关键球的四问") {
-            LearnDocText.body("候选关键球必须四问全过，否则换下一颗。")
+            LearnDocText.body("用下面四问比较候选球。没有各方面都理想的选择时，优先保留自己能稳定完成、失位后仍有余地的方案。")
             TheoryNumberedList(steps: [
                 .init(
                     "可达吗？",
-                    detail: "母球能否从现在的位置，经过不超过两步，到达这颗关键球的进位点。"
+                    detail: "前面的球能否把母球送到它需要的位置？不要只看打完它很好走，却忽略根本走不到它的进位区。"
                 ),
                 .init(
                     "角度自然吗？",
-                    detail: "打完它，母球能否不靠加塞，自然走到最后一颗的安排区。理想是走完后与最后一颗成大约 15°–45° 切角。"
+                    detail: "打完它，能否用熟悉的杆法走到收尾区域？最后一颗以进球可靠、避免母球落袋为先，不必刻意留一个固定切角。"
                 ),
                 .init(
                     "有保险吗？",
-                    detail: "母球稍微走偏一点，是否还有备用解——另一袋口，或滑动停球走位。"
+                    detail: "母球稍微走过或走不到，是否仍有合适袋口和可控路线？落位区越宽，通常越容易重复。"
                 ),
                 .init(
                     "不破局吗？",
-                    detail: "打它会不会打散球团，或干扰其他必要的球。"
+                    detail: "母球会不会撞动已经安排好的球、被挡住或落袋？需要碰球时，能否预计后果并留下备用球？"
                 ),
             ])
             LearnDocFormulaNest(title: "关键球二怎么选") {
                 LearnDocText.footnote("把上面四问里的「最后一颗」换成「关键球」，重做一遍。")
             }
-            LearnDocText.body("理想形态：最后一杆前是轻松的滑动停球；再前一杆也是轻松的滑动停球把关键球摆好——两层都「容易」，收官才稳。")
+            LearnDocText.body("停球或短距离走位，常能让收尾更简单，但不必强求连续停球。有角度时，母球仍会沿相应路线离开；应选择容易控制的衔接，而不是为了套杆法勉强找位。")
         }
     }
 
@@ -87,17 +87,17 @@ struct TheoryT06View: View {
 
     private var hangers: some View {
         LearnDocSectionCard(title: "袋口球能不能当关键球") {
-            LearnDocText.body("旧说法是「袋口球永远不能当关键球」——走位余量太小。修订后改成按水平条件使用：")
+            LearnDocText.body("袋口球容易进，常适合作为过渡球或保险球，也可能成为关键球。关键在于从哪里接近、需要把母球送到哪里，不能只凭球离袋口近就肯定或否定它。")
             TheoryMatrixTable(
-                columnTitles: ["水平", "关键球", "关键球二"],
+                columnTitles: ["适合留下", "需要谨慎"],
                 rows: [
-                    .init("业余（未掌握半球双规则）", ["不作", "不作"]),
-                    .init("进阶（掌握半球双规则）", ["可作，限合适接近角", "仍不作"]),
-                    .init("高手", ["可作", "通常仍避免"]),
+                    .init("接近位置", ["容易走到合适一侧", "进位区被挡或很窄"]),
+                    .init("碰后路线", ["方向熟悉，力度好控", "易落袋或需复杂碰库"]),
+                    .init("后续衔接", ["能连到下一颗", "只有进球，没有走位"]),
                 ]
             )
-            LearnDocText.footnote("用袋口球作关键球时，母球必须以「沿库」或「沿对角线」两种角度之一接近；别的角度接近时，半球双规则失效，走位会变差。进袋后母球走位精度大约在正负一颗球径量级。")
-            LearnDocText.body("晚打还是早打，是另一个问题：能清台时，早打袋口球简化收官；清不了时，可留作防守资源或挡袋干扰对手。")
+            LearnDocText.footnote("自然滚动、约半球厚度时，可以借助 30° 法则估计碰后方向。沿库或沿对角线接近是可练习的情形，不是仅有的两种合法选择，也不保证固定落位精度。")
+            LearnDocText.body("是否早打，要看它的用途。它可能连接收尾，也可能为碰开球团提供保险；清台机会不足时，还可能保留挡袋或防守价值。先想清用途，再决定顺序。")
         }
     }
 
@@ -105,11 +105,11 @@ struct TheoryT06View: View {
 
     private var scope: some View {
         LearnDocSectionCard(title: "什么时候成立") {
-            LearnDocText.body("桌上剩五颗及以下时永远适用。球更多时，五球以外都视为承转球，不必全规划。")
+            LearnDocText.body("球少时，这种衔接关系最容易看清；球多时也可以先选一个候选收尾。八球可以在本方球中比较选择，九球则要在规定击球顺序下安排相应位置。")
             LearnDocText.body("关键球选择会变——前面几杆若失位，原计划可能要换。每杆复盘后重新评估它是否仍合适。")
-            LearnDocText.body("所有非决胜球都「死」在死角时，关键球概念退化——转去打安全球。桌上只剩两颗（决胜球 + 一颗）时，那一颗就是关键球，选择已被强制。")
-            LearnDocFormulaNest(title: "三禁忌") {
-                LearnDocText.footnote("① 业余未掌握半球双规则前，不要把袋口球当关键球 / 关键球二。② 不要把要破球团的承转球当关键球——它的母球落点在球团里，不是关键球进位区。③ 桌中央剩孤立球时，不要把它当关键球二——中央球走位选项受限。")
+            LearnDocText.body("没有能顺利衔接的球时，先考虑怎样改善局面，并与防守比较。只剩决胜球和一颗本方球时，关键球的球号已确定，但袋口、进位区和母球路线仍可以选择。")
+            LearnDocFormulaNest(title: "三处值得多看一眼") {
+                LearnDocText.footnote("袋口球要查碰后路线；需要破球团的球要查碰撞后的不确定性；中央孤立球要查接近角和后续方向。它们都不是一律不能用，而是不能省略这一步检查。")
             }
         }
     }
@@ -118,12 +118,12 @@ struct TheoryT06View: View {
 
     private static let mistakes: [TheoryMistakeCard.Mistake] = [
         .init(
-            wrong: "把袋口球当关键球",
-            right: "走位余量小。业余默认不作；进阶只有掌握半球双规则、且接近角合适时，才可作关键球（仍不作关键球二）。"
+            wrong: "球容易进，就认定是好关键球",
+            right: "还要看是否容易接近、能否走到下一颗。袋口球也一样。"
         ),
         .init(
             wrong: "关键球与关键球二一次拍板",
-            right: "两层要独立选。一次定两颗，容易漏掉其中一层的约束。"
+            right: "分别检查两段的进球与走位，再连起来验证，避免只看好了其中一段。"
         ),
         .init(
             wrong: "中段失位后不重选关键球",
@@ -147,21 +147,21 @@ struct TheoryT06View: View {
 
             LearnDocTextLink(
                 title: "球团管理",
-                subtitle: "球团不能埋住关键球；破解排在关键球之前",
+                subtitle: "给关键衔接保留通道和保险球",
                 route: .theoryPage(.t07)
             )
             LearnDocTextLink(
                 title: "风险报酬决策矩阵",
-                subtitle: "四问其实是三问在关键球上的特化",
+                subtitle: "把收尾收益与失误代价一起比较",
                 route: .theoryPage(.t08)
             )
             LearnDocTextLink(
                 title: "30° 法则",
-                subtitle: "袋口球半球击打后，母球偏约 30° 的两条精确走向",
+                subtitle: "自然滚动时，估计袋口球的碰后方向",
                 route: .theoryPage(.t01)
             )
 
-            LearnDocText.footnote("这一条还没有绑定专门的跟练题目：剩五颗时先锁定关键球与关键球二，再开打，最见效。")
+            LearnDocText.footnote("练习收尾时，先选关键球和前一颗，说明各自需要的落位区，再检验两段衔接能否重复完成。")
         }
     }
 }
@@ -171,9 +171,9 @@ struct TheoryT06View: View {
 /// 最后一颗 ← 关键球 ← 关键球二（非球形，红线 5 合规）。
 private struct KeyBallLayerFigure: View {
     private static let layers: [(title: String, detail: String, tint: Bool)] = [
-        ("最后一颗", "打法通常只有 1–2 种", true),
-        ("关键球", "为它安排母球 · 自由度在这里", false),
-        ("关键球二", "为关键球安排母球 · 独立再选", false),
+        ("最后一颗", "选择可靠的收尾位置", true),
+        ("关键球", "把母球送到收尾位置", false),
+        ("关键球二", "为关键球留出合适角度", false),
     ]
 
     var body: some View {
@@ -211,7 +211,7 @@ private struct KeyBallLayerFigure: View {
                     .fill(Color.btPrimary)
                 }
 
-                Text("约束\n上传")
+                Text("逐层\n衔接")
                     .font(.btCaption2)
                     .foregroundStyle(.btPrimary)
                     .multilineTextAlignment(.center)

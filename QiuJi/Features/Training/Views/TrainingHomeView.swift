@@ -1079,14 +1079,17 @@ struct TrainingHomeView: View {
             guard blocks.allSatisfy({ !$0.drills.isEmpty }) else {
                 throw ScheduledTrainingBlock.DecodeError.invalidPayload
             }
+            for block in blocks { try ProContentAccess.live.require(block) }
             // Validate every payload before changing any item; launching is atomic as well.
-            for item in items where item.state == TodayScheduleItemState.pending {
+            for item in items.prefix(1) where item.state == TodayScheduleItemState.pending {
                 item.state = TodayScheduleItemState.inProgress
                 item.startedAt = .now
                 item.schedule?.updatedAt = .now
             }
             try modelContext.save()
             router.startTraining(mode: blocks.count == 1 ? .scheduled(blocks[0]) : .scheduledSequence(blocks))
+        } catch let error as ProContentAccess.Failure {
+            BTToast.present(error.localizedDescription, tone: .warning) { toast = $0 }
         } catch {
             modelContext.rollback()
             BTToast.present("无法开始这项训练，请重新编排", tone: .error) { toast = $0 }
@@ -1352,7 +1355,7 @@ struct TrainingHomeView: View {
                 + "连续训练 \(currentTrainingStreak) 天"
             )
         }
-        .background { BTTrainingAtmosphere() }
+        .background { BTTrainingAtmosphere(keepsWeeklySubjectScale: true) }
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .overlay {
             RoundedRectangle(cornerRadius: BTRadius.lg)
@@ -2059,8 +2062,7 @@ private struct TodayCourseSelectionView: View {
                                 if !selected.insert(option.id).inserted { selected.remove(option.id) }
                             } label: {
                                 HStack(spacing: Spacing.md) {
-                                    Image(systemName: selected.contains(option.id) ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(selected.contains(option.id) ? Color.btPrimary : Color.btTextSecondary)
+                                    BTSelectionIndicator(isSelected: selected.contains(option.id))
                                     VStack(alignment: .leading, spacing: Spacing.xs) {
                                         Text(option.title).font(.btBody).foregroundStyle(.btText)
                                         Text("\(option.drillCount) 个动作").font(.btCaption).foregroundStyle(.btTextSecondary)

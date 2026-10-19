@@ -14,13 +14,19 @@ struct DailyTemplateHeader<Title: View, Actions: View, Ball: View, Marker: View>
     let windowControlInsets: UIEdgeInsets
     let fps: TableFPSReadoutState
     let showsDeviceStatus: Bool
+    var scrollsTargets = false
+    var keepsPaletteVisible = false
     @ViewBuilder var title: () -> Title
     @ViewBuilder var actions: () -> Actions
     @ViewBuilder var ball: (String, CGFloat, CGFloat) -> Ball
     @ViewBuilder var paletteMarker: () -> Marker
 
     var body: some View {
-        let y = foundation.table.minY - plan.height / 2
+        let scrollingFallback = keepsPaletteVisible && !plan.fits
+        let visiblePalette = plan.fits || scrollingFallback
+        let paletteWidth = scrollingFallback ? max(44, min(plan.targetWidth, size.width - 2 * max(4, safe))) : plan.targetWidth
+        let paletteHeight = scrollingFallback ? CGFloat(44) : plan.height
+        let y = scrollingFallback ? max(66, foundation.table.minY - paletteHeight / 2) : foundation.table.minY - plan.height / 2
         let grid = plan.twoRows && chineseEightBall
             ? targets.filter { $0 != "_8" } : targets
         let split = (grid.count + 1) / 2
@@ -47,7 +53,15 @@ struct DailyTemplateHeader<Title: View, Actions: View, Ball: View, Marker: View>
                     .position(x: statusRect.midX, y: statusRect.midY)
             }
             Group {
-                if plan.twoRows {
+                if scrollsTargets || scrollingFallback {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 0) {
+                            ForEach(targets, id: \.self) { key in ball(key, plan.diameter, 44) }
+                        }.padding(.horizontal, 4)
+                    }.scrollIndicators(.hidden)
+                        .background { paletteBackground(height: 34) }
+                        .accessibilityIdentifier(scrollingFallback ? "layout.paletteScroll" : "formation.paletteScroll")
+                } else if plan.twoRows {
                     VStack(spacing: 4) {
                         targetRow(Array(grid.prefix(split)), plan: plan)
                         targetRow(Array(grid.dropFirst(split)), plan: plan)
@@ -58,9 +72,9 @@ struct DailyTemplateHeader<Title: View, Actions: View, Ball: View, Marker: View>
                         .background(Color.clear.accessibilityElement().accessibilityIdentifier("dailyClearance.singleRowPalette"))
                 }
             }
-            .frame(width: plan.targetWidth, height: plan.height)
+            .frame(width: paletteWidth, height: paletteHeight)
             .background(paletteMarker())
-            .opacity(plan.fits ? 1 : 0).allowsHitTesting(plan.fits).accessibilityHidden(!plan.fits)
+            .opacity(visiblePalette ? 1 : 0).allowsHitTesting(visiblePalette).accessibilityHidden(!visiblePalette)
             .position(x: foundation.table.midX, y: y)
             if plan.fits && plan.twoRows && chineseEightBall {
                 wing("_8", plan: plan)

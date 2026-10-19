@@ -14,7 +14,7 @@ struct BankShotView: View {
         SolverStageChrome(
             vm: vm,
             title: "翻袋解球",
-            coordinateSpaceName: "bankshot",
+            coordinateSpaceName: "bankshot", preferencePage: .bankShot,
             onPocketTapped: { vm.selectPocket($0) },
             infoTitle: "翻袋解球原理",
             infoBlocks: Self.infoBlocks

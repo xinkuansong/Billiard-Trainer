@@ -30,7 +30,7 @@ struct HistoryCalendarView: View {
                 selected: $activeTab,
                 systemImage: { $0 == .history ? BTIcon.clockHistory : BTIcon.chartBar },
                 proBadgeState: { tab in
-                    tab == .statistics && activeTab == .statistics
+                    tab == .statistics
                         ? subscriptionManager.isPremium : nil
                 }
             ) { $0.rawValue }
@@ -54,6 +54,7 @@ struct HistoryCalendarView: View {
             Task { await vm.loadSessions(context: modelContext) }
         }
         .task {
+            // Refresh on every appearance so records saved in other tabs become visible.
             await vm.loadSessions(context: modelContext)
         }
         .sheet(isPresented: Binding(
@@ -89,7 +90,7 @@ struct HistoryCalendarView: View {
 
     @ViewBuilder
     private var historyPane: some View {
-        if vm.isLoading {
+        if vm.isLoading && !vm.hasLoadedSessions {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let error = vm.errorMessage {
@@ -296,7 +297,9 @@ struct HistoryCalendarView: View {
 
         case .cognitive(let cognitiveSession):
             Button {
-                selectedCognitiveSession = cognitiveSession
+                if HistoryAccessController.isAccessible(date: cognitiveSession.startDate, isPremium: subscriptionManager.isPremium) {
+                    selectedCognitiveSession = cognitiveSession
+                } else { showSubscription = true }
             } label: {
                 cognitiveRow(cognitiveSession)
             }

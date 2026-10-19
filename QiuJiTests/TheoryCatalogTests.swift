@@ -14,18 +14,19 @@ import XCTest
 ///    - `testSubtitlesUseNoLatinLetters`：不得再出现英文术语（X-v30-2 要解决的问题本身）；
 ///    - `testRewriteInventoryMatchesDocumentedDecision`：「哪几条是逐字、哪几条是改写」
 ///      必须与文档记录的清单**完全一致**——逐字条目被偷偷改写、或改写条目被悄悄回退，都会失败。
-///    取舍记录（原文 → 改写 → 依据）：`docs/research/20260807-v30理论转写模板.md` §六。
+///    2026-10-16 核查后的条件修订：`docs/research/20261016-理文章重写与理论核查.md`。
+///    上游缺少依据的绝对化说法不再作为 App 文案约束。
 /// 3. 上线状态与详情页注册的成对维护（`testPublishedEntriesMatchRegisteredDestinations`）。
 final class TheoryCatalogTests: XCTestCase {
 
     // MARK: - 文档化的取材决策清单（改副标题时必须同步改这里 + 转写模板 §六）
 
     /// 副标题**逐字**取自来源串（连续子串）的条目。
-    private static let verbatimSubtitleIDs: Set<TheoryPageID> = [.t05, .t07]
+    private static let verbatimSubtitleIDs: Set<TheoryPageID> = []
 
     /// 副标题为**语义等价改写**的条目（X-v30-2 裁定允许）。
     private static let rewrittenSubtitleIDs: Set<TheoryPageID> = [
-        .t01, .t02, .t03, .t04, .t06, .t08, .t09, .t10, .flow,
+        .t01, .t02, .t03, .t04, .t05, .t06, .t07, .t08, .t09, .t10, .flow,
     ]
 
     /// 速查表的来源是 16 `quick-reference.md`（未 vendor，不进 Bundle），
@@ -44,17 +45,17 @@ final class TheoryCatalogTests: XCTestCase {
     /// 每条副标题必须保住的语义锚词（适用条件 / 关键限定词 / 规范中文术语）。
     private static let semanticAnchors: [TheoryPageID: [String]] = [
         .t01: ["自然滚动", "厚度", "切角", "30°"],
-        .t02: ["滑动", "分离角", "90°"],
-        .t03: ["碰撞瞬间", "切线", "垂直", "连心线", "旋转"],
-        .t04: ["9 档", "出杆长度"],
+        .t02: ["到球时", "没有前后旋", "斯登", "理想模型", "分离角", "90°"],
+        .t03: ["切线", "垂直", "连心线", "理想斯登", "参照", "旋转"],
+        .t04: ["9 档", "参照", "幅度", "节奏", "校准"],
         .t05: ["最后一颗球", "倒推"],
         .t06: ["关键球"],
-        .t07: ["球团", "尽早"],
+        .t07: ["球团", "尽早识别", "保险球", "处理时机"],
         .t08: ["三问", "进球把握", "走位把握", "代价"],
         .t09: ["加塞", "挤偏", "弧线", "投掷"],
-        .t10: ["3 个独立维度", "距离", "库位", "障碍球"],
+        .t10: ["距离", "库位", "障碍球", "执行把握", "不能只按维度数量"],
         .flow: ["上台", "顺序"],
-        .quickRef: ["5 分钟"],
+        .quickRef: ["快速回看", "适用条件"],
     ]
 
     // MARK: - Bundle packaging
@@ -102,17 +103,17 @@ final class TheoryCatalogTests: XCTestCase {
     func testCardSubtitlesAreShortDistinctAndDoNotReplaceFullClaims() {
         let expected: [TheoryPageID: String] = [
             .t01: "自然滚动约偏30°",
-            .t02: "滑动碰球分离90°",
-            .t03: "先走切线再看旋转",
-            .t04: "用出杆长度调力度",
+            .t02: "认清斯登的90°",
+            .t03: "用切线判断碰后路线",
+            .t04: "练出可重复的力度",
             .t05: "从最后一颗倒推",
             .t06: "先找收尾关键球",
-            .t07: "尽早识别处理球团",
+            .t07: "选好球团处理时机",
             .t08: "打前问把握与代价",
-            .t09: "少加塞少受偏差",
+            .t09: "先想清加塞的用途",
             .t10: "看距离库位和障碍",
             .flow: "按五步想完这一杆",
-            .quickRef: "上场前5分钟速查",
+            .quickRef: "上场前回看判断要点",
         ]
         XCTAssertEqual(expected.count, TheoryCatalog.entries.count)
         XCTAssertEqual(Set(TheoryCatalog.entries.map(\.cardSubtitle)).count, TheoryCatalog.entries.count)
@@ -173,16 +174,11 @@ final class TheoryCatalogTests: XCTestCase {
         return sources
     }
 
-    /// 逐字条目必须仍然是来源串的连续子串（原纪律对这几条不放宽）。
-    func testVerbatimSubtitlesRemainVerbatimSubstrings() throws {
-        let sources = try subtitleSources()
-        for id in Self.verbatimSubtitleIDs {
-            let entry = try XCTUnwrap(TheoryCatalog.entry(for: id))
-            let source = try XCTUnwrap(sources[id], "\(id.rawValue) 没有可比对的来源串")
-            XCTAssertTrue(
-                source.contains(entry.subtitle),
-                "\(id.rawValue) 登记为逐字取材，但已不是来源串的连续子串：\n  副标题=\(entry.subtitle)\n  原文=\(source)"
-            )
+    /// 2026-10-16 纠错后的目录不应恢复旧条件；核查记录见同日研究文档。
+    func testCorrectedSubtitlesDoNotRestoreUnsupportedClaims() {
+        let copy = TheoryCatalog.entries.map(\.subtitle).joined(separator: "\n")
+        for obsolete in ["滑动状态撞", "总沿切线", "靠出杆长度而不是", "三重耦合误差", "必须尽早", "3 个独立维度"] {
+            XCTAssertFalse(copy.contains(obsolete), "目录恢复了已纠正说法：\(obsolete)")
         }
     }
 

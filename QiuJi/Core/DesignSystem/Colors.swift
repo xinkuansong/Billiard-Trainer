@@ -15,6 +15,8 @@ extension Color {
     static let btPremiumForeground = Color("btPremiumForeground")
     static let btPremiumOnDark = Color("btPremiumOnDark")
     static let btPremiumSurface = Color("btPremiumSurface")
+    static let btProButtonBackground = Color("btProButtonBackground")
+    static let btProButtonForeground = Color("btProButtonForeground")
     static let btPremiumBorder = Color("btPremiumBorder")
     static let btTeachingGuide = Color("btTeachingGuide")
     static let btPhysicsAdjustable = Color("btPhysicsAdjustable")
@@ -64,6 +66,8 @@ extension ShapeStyle where Self == Color {
     static var btPremiumForeground: Color { Color("btPremiumForeground") }
     static var btPremiumOnDark: Color { Color("btPremiumOnDark") }
     static var btPremiumSurface: Color { Color("btPremiumSurface") }
+    static var btProButtonBackground: Color { Color("btProButtonBackground") }
+    static var btProButtonForeground: Color { Color("btProButtonForeground") }
     static var btPremiumBorder: Color { Color("btPremiumBorder") }
     static var btTeachingGuide: Color { Color("btTeachingGuide") }
     static var btPhysicsAdjustable: Color { Color("btPhysicsAdjustable") }

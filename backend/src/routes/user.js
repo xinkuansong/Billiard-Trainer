@@ -2,7 +2,7 @@ const express = require("express");
 const config = require("../config");
 const auth = require("../middleware/auth");
 const User = require("../models/User");
-const { serializeUser, validateProfileUpdate } = require("../services/userProfile");
+const { serializeUser, validateProfileUpdate, initialProfileImportPipeline } = require("../services/userProfile");
 const { deleteAvatar, readAvatar, writeAvatar } = require("../services/avatarStorage");
 const { deleteAccountData } = require("../services/accountDeletion");
 
@@ -32,6 +32,17 @@ router.put("/profile", async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// POST /user/profile/import-initial — explicit consent, atomic fill-only write.
+router.post("/profile/import-initial", async (req, res, next) => {
+  try {
+    const pipeline = initialProfileImportPipeline(req.body, req.userId);
+    const user = await User.findByIdAndUpdate(req.userId, pipeline, { new: true })
+      .select("-refreshToken").lean();
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(serializeUser(user));
+  } catch (err) { next(err); }
 });
 
 // PUT /user/avatar — client sends a normalized JPEG body (max 1 MiB).

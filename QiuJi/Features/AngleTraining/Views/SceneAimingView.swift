@@ -23,12 +23,28 @@ struct SceneAimingView: View {
     @State private var configured = false
     @State private var portrait = false
     @State private var showMenu = false
+    @State private var editingControlLayout = false
+    @State private var scenePausedBeforeLayout = false
+    @State private var observingCamera = false
+    @Environment(\.scenePhase) private var scenePhase
     @State private var windowControls = UIEdgeInsets.zero
     @State private var windowSafeArea = UIEdgeInsets.zero
     @State private var systemStatusVisible = false
     @State private var titleSize = CGSize(width: 60, height: 34)
     @StateObject private var fps = TableFPSReadoutState()
     @ObservedObject private var preferences = UserPreferences.shared
+    @ObservedObject private var tablePreferences = TablePreferencesStore.shared
+    private var preferencePage: TablePreferencePage { is3D ? .sceneAiming3D : .sceneAiming2D }
+    private var pagePreferences: TablePreferenceSnapshot { tablePreferences.snapshot(for: preferencePage) }
+    private func applyPagePreferences() {
+        vm.scene.tablePreferencePage = preferencePage
+        vm.scene.tablePreferences = pagePreferences
+        vm.scene.setTableGridVisible(pagePreferences.enabled(.grid))
+    }
+    private func togglePreference(_ field: TablePreferenceField) {
+        tablePreferences.apply(field, value: pagePreferences.enabled(field) ? 0 : 1, to: preferencePage)
+        applyPagePreferences()
+    }
     private var cameraMode: AngleTrainingScene.CameraMode {
         is3D ? .perspective3D : (portrait ? .topDown2DRotated : .topDown2D)
     }
@@ -38,6 +54,10 @@ struct SceneAimingView: View {
         _vm = StateObject(wrappedValue: AimingQuizViewModel(limiter: .shared))
     }
 
+    private var controlLayoutBusy: Bool {
+        observingCamera || vm.cameraTransitionBusy || vm.temporaryTopDownActive || vm.showSettings || vm.testFinished
+            || vm.generationError != nil || vm.currentQuestion == nil || vm.limiter.isLimitReached
+    }
     private var is3D: Bool { routeCameraMode == .perspective3D }
 
     var body: some View {
@@ -52,6 +72,15 @@ struct SceneAimingView: View {
         } message: { Text(vm.generationError ?? "") }
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
         .trainingBackgroundMusic()
+        .preference(key: TrainingActivityPausedKey.self, value: editingControlLayout)
+        .onChange(of: editingControlLayout) { _, editing in
+            if editing {
+                scenePausedBeforeLayout = vm.scene.isPaused
+                vm.scene.isPaused = true
+            } else {
+                vm.scene.isPaused = scenePausedBeforeLayout
+            }
+        }
         .navigationTitle(hasStarted ? (is3D ? "3D角度" : "2D角度") : "训练设置")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
@@ -67,7 +96,9 @@ struct SceneAimingView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+        .onChange(of: tablePreferences.revision) { _, _ in applyPagePreferences() }
         .onAppear {
+            applyPagePreferences()
             guard !configured else { return }
             configured = true
             vm.quizTypeLabel = is3D ? "scene3D" : "scene2D"
@@ -78,7 +109,11 @@ struct SceneAimingView: View {
         .onChange(of: vm.phase) { _, phase in
             if phase != .observing { vm.endTemporaryTopDown() }
         }
-        .onDisappear { vm.endTemporaryTopDown() }
+        .onDisappear {
+            if editingControlLayout { vm.scene.isPaused = scenePausedBeforeLayout }
+            observingCamera = false; vm.endTemporaryTopDown()
+        }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { observingCamera = false } }
         .onReceive(subscriptionManager.$isPremium) { premium in
             vm.limiter.isPremium = premium
         }
@@ -176,12 +211,12 @@ struct SceneAimingView: View {
                 })
                 .position(x: f.stage.midX, y: f.stage.midY).allowsHitTesting(false)
             if is3D {
-                observationColumn.position(x: f.right.midX - f.right.width / 2 - 26, y: f.table.midY)
+                observationColumn.controlLayoutGroup(.camera, enabled: vm.phase != .inputting).position(x: f.right.midX - f.right.width / 2 - 26, y: f.table.midY)
             }
-            questionInformation.frame(width: f.left.width).position(x: f.left.midX, y: f.table.midY)
-            actionColumn.frame(height: min(200, f.stage.height)).position(x: f.right.midX, y: f.table.midY)
+            questionInformation.frame(width: f.left.width).controlLayoutGroup(.information).position(x: f.left.midX, y: f.table.midY)
+            actionColumn.frame(height: min(200, f.stage.height)).controlLayoutGroup(.primary, enabled: vm.phase != .inputting).position(x: f.right.midX, y: f.table.midY)
             if vm.phase == .inputting, !vm.testFinished {
-                keypadOverlay.frame(width: min(280, f.stage.width))
+                keypadOverlay.frame(width: min(280, f.stage.width)).controlLayoutGroup(.keyboard)
                     .padding(.bottom, 8).padding(.trailing, size.width - f.stage.maxX)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             }
@@ -223,6 +258,21 @@ struct SceneAimingView: View {
             DailyCarpetBackground(style: preferences.roomStyle, pointsPerMetre: ppm).ignoresSafeArea()
         }
         .environment(\.colorScheme, .dark).environment(\.dailyHUDControls, true)
+        .controlLayoutHost(page: preferencePage, mode: is3D ? .threeD : .twoD, size: size,
+            leading: f.left, trailing: f.right, defaultFits: f.fits && plan.fits,
+            obstacles: plan.controlLayoutProtectionFrames(table: f.table), busy: controlLayoutBusy,
+            editing: $editingControlLayout, groupRegions: [.keyboard: .init(
+                leading: CGRect(x: f.stage.minX, y: max(44, f.stage.minY), width: min(280, f.stage.width), height: max(1, size.height - 8 - max(44, f.stage.minY))),
+                trailing: CGRect(x: f.stage.maxX - min(280, f.stage.width), y: max(44, f.stage.minY), width: min(280, f.stage.width), height: max(1, size.height - 8 - max(44, f.stage.minY))))],
+            primaryTitle: vm.phase == .showingResult ? nextButtonTitle : "答题")
+        #if DEBUG
+        .background {
+            if DailyLayoutProbe.enabled {
+                Color.clear.accessibilityElement().accessibilityIdentifier("angleTraining.layoutState")
+                    .accessibilityValue("run=\(vm.run.id);question=\(String(describing: vm.currentQuestion));index=\(vm.questionIndex);phase=\(vm.phase);input=\(vm.userInput);submitted=\(vm.run.submitted);answers=\(vm.run.firstAnswers.count);quiz=\(vm.quizTypeLabel);finished=\(vm.testFinished)")
+            }
+        }
+        #endif
         .onChange(of: size.height > size.width, initial: true) { _, rotated in
             portrait = rotated
             if !is3D { vm.setCameraMode(rotated ? .topDown2DRotated : .topDown2D) }
@@ -233,16 +283,22 @@ struct SceneAimingView: View {
     }
 
     private var quizSettingsItems: [DailyHUDMenuItem] {
-        [.init(id: "angleTraining.display", title: "显示"),
-         .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: preferences.showTableGrid, action: {
-            preferences.showTableGrid.toggle(); vm.scene.setTableGridVisible(preferences.showTableGrid)
+        let items: [DailyHUDMenuItem] = [.init(id: "angleTraining.display", title: "显示"),
+         .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
+            togglePreference(.grid)
             showMenu = false
          }),
+         .init(id: "controlLayout.open", title: "操作布局", detail: controlLayoutBusy ? "请先完成当前操作" : nil, disclosure: true,
+            disabled: controlLayoutBusy, action: {
+                guard !controlLayoutBusy else { return }
+                showMenu = false; editingControlLayout = true
+            }),
          .init(id: "angleTraining.trainingSettings", title: "训练设置", disclosure: true, action: {
             showMenu = false; vm.showSettings = true
          }),
          .init(id: "angleTraining.finish", title: "结束练习", action: { showMenu = false; vm.finish() }),
          .init(id: "angleTraining.coverage", title: vm.run.coverage)]
+        return items.filter { $0.id != "controlLayout.open" || preferencePage.usesFreeControlLayout }
     }
 
     private var questionInformation: some View {
@@ -265,7 +321,6 @@ struct SceneAimingView: View {
             onCancel: { vm.cancelAnswerInput() }
         )
         .environment(\.colorScheme, pageColorScheme)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .transition(.move(edge: .trailing).combined(with: .opacity))
     }
 
@@ -289,9 +344,10 @@ struct SceneAimingView: View {
                 twoViewReadableFrameInWindow: is3D ? cameraReadableFrame : nil,
                 onCameraObservationBegan: {
                     if vm.scene.cameraRig?.twoViewMode == .thirdPerson { vm.markObservation() }
+                    observingCamera = true
                     vm.beginCameraObservation()
                 },
-                onCameraObservationEnded: { vm.endCameraObservation() },
+                onCameraObservationEnded: { observingCamera = false; vm.endCameraObservation() },
                 onTemporaryTopDownDismiss: { vm.endTemporaryTopDown() },
                 topDownContentRevision: vm.topDownContentRevision,
                 usesStandardTemporaryTable: is3D
@@ -313,7 +369,7 @@ struct SceneAimingView: View {
     /// inputting / showingResult: all gestures disabled so the keypad and
     /// result HUD aren't fighting touch events.
     private var interactionMode: AngleSceneView.InteractionMode {
-        guard vm.phase == .observing, !showMenu, !vm.showSettings, !vm.testFinished,
+        guard vm.phase == .observing, !showMenu, !editingControlLayout, !vm.showSettings, !vm.testFinished,
               !vm.limiter.isLimitReached else { return .none }
         return is3D ? .cameraControl : .tapsOnly
     }
@@ -351,9 +407,12 @@ struct SceneAimingView: View {
                 .buttonStyle(BTHUDPressStyle())
                 .accessibilityIdentifier("angleTraining.assist")
                 .accessibilityValue(vm.showAimingAssist ? "已开启" : "已关闭")
+                .freeControlItem("angle.assist", name: "瞄准辅助")
                 primaryAction("答题") { vm.openAnswerInput() }
+                    .freeControlItem("angle.answer", name: "答题")
             } else if vm.phase == .showingResult, !vm.testFinished {
                 primaryAction(nextButtonTitle) { vm.advanceToNext() }
+                    .freeControlItem("angle.next", name: "下一题")
             }
         }
         .frame(width: 60)

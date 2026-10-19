@@ -7,17 +7,30 @@ struct SnookerTacticsView: View {
     init(initialBoard: BoardSnapshot? = nil) { self.initialBoard = initialBoard }
     @State private var informationPanel: PlanningPanel?
     @StateObject private var vm = SnookerTacticsViewModel()
-    @AppStorage("snooker.spinTransparency") private var spinTransparency = 0.5
-    @AppStorage("snooker.hides3DAssists") private var hides3DAssists = false
     private var busy: Bool { vm.isPlaying || vm.isComputing }
 
+    @ObservedObject private var tablePreferences = TablePreferencesStore.shared
+    private var spinTransparency: Double {
+        get { tablePreferences.snapshot(for: .snookerTactics)[.transparency] }
+        nonmutating set { tablePreferences.apply(.transparency, value: newValue, to: .snookerTactics) }
+    }
+    private var hides3DAssists: Bool { !tablePreferences.snapshot(for: .snookerTactics).enabled(.shows3DTrajectory) }
     var body: some View {
-        BTTeachingTablePage(vm: vm, titleLabel: "防守", identifier: "snooker", velocity: velocity,
+        BTTeachingTablePage(vm: vm, titleLabel: "防守", identifier: "snooker", preferencePage: .snookerTactics, velocity: velocity,
             planning: controls,
             usesStandardTitle: true,
             title: { EmptyView() },
             leftContent: { size in leftControls(size) },
             status: { informationOverlay }, onPalettePlace: { vm.placeFromPalette($0, atWorld: $1) })
+        #if DEBUG
+        .overlay(alignment: .bottom) {
+            if DailyLayoutProbe.enabled {
+                Color.clear.frame(width: 1, height: 1).allowsHitTesting(false)
+                    .accessibilityElement().accessibilityIdentifier("snooker.layoutState")
+                    .accessibilityValue("target=\(vm.selectedTargetKey ?? "none") opponents=\(vm.opponentKeys.sorted().joined(separator: ",")) tool=\(vm.activeTool) solutions=\(vm.solutions.count) index=\(vm.currentIndex) adjusted=\(vm.isSolutionAdjusted) spinX=\(vm.spinX) spinY=\(vm.spinY) velocity=\(vm.velocity)")
+            }
+        }
+        #endif
         .sheet(item: $informationPanel) { panel in
             PlanningInformationSheet(panel: panel, sections: informationSections(panel))
         }
@@ -29,31 +42,32 @@ struct SnookerTacticsView: View {
         BTTablePlanningControls(
             spinX: Binding(get: { vm.spinX }, set: { vm.adjustCurrentSolution(spinX: $0) }),
             spinY: Binding(get: { vm.spinY }, set: { vm.adjustCurrentSolution(spinY: $0) }),
-            transparency: $spinTransparency,
-            hides3DAssists: Binding(get: { hides3DAssists }, set: { hides3DAssists = $0; vm.hides3DShotAssists = $0 }),
+            transparency: Binding(get: { spinTransparency }, set: { spinTransparency = $0 }),
+            hides3DAssists: Binding(get: { hides3DAssists }, set: { tablePreferences.apply(.shows3DTrajectory, value: $0 ? 0 : 1, to: .snookerTactics) }),
             velocityRange: ShotTuning.velocityRange, instrumentsEnabled: (!busy || vm.isAdjustingSolution) && vm.hasSolutions,
             isAnimating: busy, paletteEnabled: !busy, allowsPocketSelection: false,
             primaryTitle: vm.isComputing ? "计算中" : "击球", primaryEnabled: vm.canStrike,
             onPrimary: { vm.play() }, onPaletteTap: { key in
                 if vm.onTableKeys.contains(key) { vm.pulseTableBall(key) } else { vm.placeFromPalette(key) }
             }, menuItems: [
-                .init(id: "snooker.help", title: "操作说明", action: { informationPanel = .help }),
+                .init(id: "snooker.help", title: "操作说明", disclosure: true, action: { informationPanel = .help }),
                 .init(id: "snooker.board", title: "球形"),
                 .init(id: "snooker.clear", title: "清空桌面", disabled: busy, action: { vm.clearTable() }),
                 .init(id: "snooker.reset", title: "恢复默认球形", disabled: busy, action: { vm.resetAll() })
-            ], refreshTrajectory: { vm.redrawTrajectory() }, onSetup: {
+            ], refreshTrajectory: { vm.redrawTrajectory() }, applyPreferences: { vm.hides3DShotAssists = !$0.enabled(.shows3DTrajectory) }, onSetup: {
                 vm.hides3DShotAssists = hides3DAssists
                 if let initialBoard { vm.loadBoard(initialBoard) }
                 for scenario in ["full", "partial", "none"] where ProcessInfo.processInfo.arguments.contains("-snooker.\(scenario)") {
                     vm.uiTestConfigure(scenario); break
                 }
             }, onDisappear: { vm.stopForDismissal() },
+            layoutEditingBlocked: informationPanel != nil,
             closeupSnapshot: vm.canStrike ? vm.solvedContactCloseup : nil,
             closeupUnavailableReason: vm.canStrike && vm.solvedContactCloseup != nil ? nil : "当前首碰暂无特写",
             onSpinChange: { vm.adjustCurrentSolution(spinX: $0, spinY: $1) })
     }
     private func leftControls(_ size: CGSize) -> some View {
-        ScrollView(.vertical) {
+        FreeControlColumn {
             VStack(spacing: 4) {
                 Menu {
                     Section("当前选择") {
@@ -68,15 +82,21 @@ struct SnookerTacticsView: View {
                         .overlay(RoundedRectangle(cornerRadius: 12).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
                 }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }.disabled(busy)
                     .opacity(busy ? 0.4 : 1).accessibilityIdentifier("snooker.tool")
+                    .freeControlItem("defense.targetTool", name: "防守目标")
                 action("清除", "eraser", "snooker.clearSelection", enabled: !busy && vm.selectedTargetKey != nil) { vm.clearSelection() }
+                    .freeControlItem("defense.clearSelection", name: "清除目标")
                 action("求解", TeachingSolverSymbols.solve, "solver.solve", enabled: !busy && vm.canSolve) { vm.solve() }
+                    .freeControlItem("planning.solve", name: "求解")
                 TeachingSolutionButton(count: vm.solutions.count, currentIndex: vm.currentIndex,
                         enabled: !busy, next: { vm.nextSolution() },
                         isModified: vm.isSolutionAdjusted)
+                    .freeControlItem("planning.nextSolution", name: "下一解")
                 action("重打", "arrow.uturn.backward", "snooker.undo", enabled: !busy && !vm.temporaryTopDownActive && vm.canUndoShot) { vm.undoLastShot() }
+                    .freeControlItem("shot.undo", name: "重打")
                 action("回放", "play.rectangle", "snooker.replay", enabled: !busy && !vm.temporaryTopDownActive && vm.canPlayback) { vm.replayLastShot() }
+                    .freeControlItem("shot.replay", name: "回放")
             }.frame(maxWidth: .infinity)
-        }.scrollIndicators(.hidden).frame(width: size.width, height: min(size.height, 284))
+        }.frame(width: size.width, height: min(size.height, 284), alignment: .top)
     }
     private func action(_ title: String, _ icon: String, _ id: String, enabled: Bool, perform: @escaping () -> Void) -> some View {
         Button(action: perform) {

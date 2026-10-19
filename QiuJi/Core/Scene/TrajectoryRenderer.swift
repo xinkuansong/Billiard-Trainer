@@ -65,7 +65,7 @@ enum TrajectoryRenderer {
         into nodes: inout [SCNNode],
         detailOverride: TrajectoryDetail? = nil
     ) {
-        let detail = detailOverride ?? UserPreferences.shared.trajectoryDetail
+        let detail = detailOverride ?? scene.effectiveTrajectoryDetail
         scene.addCueTrajectory(p.cuePath, contact: p.firstContact, detail: detail, into: &nodes)
 
         if options.includeObjectPath, detail != .minimal {
@@ -89,7 +89,7 @@ enum TrajectoryRenderer {
             prediction: p, options: options, context: context, scene: scene
         )
 
-        if UserPreferences.shared.showSeparationAngle {
+        if scene.tablePreferences?.enabled(.separation) ?? UserPreferences.shared.showSeparationAngle {
             scene.addSeparationAngleLine(for: p, into: &nodes)
         }
     }

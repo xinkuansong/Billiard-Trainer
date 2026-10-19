@@ -13,7 +13,14 @@ final class SubscriptionManager: ObservableObject {
     @Published private(set) var products: [Product] = []
     @Published private(set) var purchasedProductIDs: Set<String> = []
     @Published private(set) var entitlementSnapshots: [StoreEntitlementSnapshot] = []
-    @Published var isLoading: Bool = false
+    @Published private(set) var isRefreshingEntitlements = false
+    @Published private(set) var hasResolvedEntitlements = false
+    @Published private(set) var isLoadingProducts = false
+    @Published private(set) var isTransacting = false
+    var isLoading: Bool { isLoadingProducts || isTransacting }
+    enum PurchaseOutcome: Equatable { case unlocked, cancelled, pending, confirming, sessionChanged, failed, busy }
+    @Published private(set) var purchaseOutcome: PurchaseOutcome?
+    @Published private(set) var awaitingProductID: String?
     @Published var errorMessage: String?
 
     // MARK: - Sorted products for UI
@@ -39,6 +46,7 @@ final class SubscriptionManager: ObservableObject {
             .filter({ subscriptionIDs.contains($0.productID) && $0.revocationDate == nil })
             .compactMap(\.expirationDate)
             .max() {
+            if expiration < Date(), isPremium { return "订阅有效，续订状态待确认" }
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "zh_CN")
             formatter.dateFormat = "yyyy年M月d日"
@@ -56,24 +64,33 @@ final class SubscriptionManager: ObservableObject {
     private var authObservation: AnyCancellable?
     private var authenticatedUserID: String?
     private var sessionRevision = 0
+    var accessSessionRevision: Int { sessionRevision }
+    private var entitlementRequestRevision = 0
+    private var entitlementRefresh: (revision: Int, task: Task<[StoreEntitlementSnapshot], Never>)?
     private var hasAuthenticatedSession = false
     private let entitlementLoader: () async -> [StoreEntitlementSnapshot]
     private let useDebugOverrides: Bool
+    private let purchaseOperation: (Product) async throws -> Void
 
     init(
         entitlementLoader: @escaping () async -> [StoreEntitlementSnapshot] = {
             await StoreKitService.shared.currentEntitlements()
         },
         listenForUpdates: Bool = true,
-        useDebugOverrides: Bool = true
+        useDebugOverrides: Bool = true,
+        purchaseOperation: @escaping (Product) async throws -> Void = { product in
+            _ = try await StoreKitService.shared.purchase(product)
+        }
     ) {
         self.entitlementLoader = entitlementLoader
         self.useDebugOverrides = useDebugOverrides
+        self.purchaseOperation = purchaseOperation
         #if DEBUG
         if useDebugOverrides { Self.applyDebugPremiumLaunchOverrides() }
         isDebugPremiumPersisted = UserDefaults.standard.bool(forKey: Self.debugPremiumUnlockedKey)
         if allowsPremiumSession && useDebugOverrides && Self.isEntitlementForcedPremium {
             isPremium = true
+            hasResolvedEntitlements = true
         }
         #endif
         if listenForUpdates { transactionListener = listenForTransactions() }
@@ -81,6 +98,7 @@ final class SubscriptionManager: ObservableObject {
 
     deinit {
         transactionListener?.cancel()
+        entitlementRefresh?.task.cancel()
     }
 
     /// Bind before bootstrap so every account transition clears presentation synchronously.
@@ -105,29 +123,47 @@ final class SubscriptionManager: ObservableObject {
 
     private func updateSession(_ phase: AuthPhase) {
         let userID: String?
-        if case .authenticated(let user) = phase { userID = user.id }
-        else { userID = nil }
+        switch phase {
+        case .authenticated(let user), .offlineAccount(let user): userID = user.id
+        default: userID = nil
+        }
         guard userID != authenticatedUserID else { return }
         authenticatedUserID = userID
         if userID != nil { hasAuthenticatedSession = true }
         sessionRevision += 1
         clearEntitlements()
-        if userID != nil { Task { await checkEntitlements() } }
+        if userID != nil { Task { await checkEntitlements(coalescing: true) } }
     }
 
     private func clearEntitlements() {
+        invalidateEntitlementRefresh()
         isPremium = false
         purchasedProductIDs = []
         entitlementSnapshots = []
+        hasResolvedEntitlements = false
         errorMessage = nil
+    }
+
+    private func invalidateEntitlementRefresh() {
+        entitlementRequestRevision += 1
+        entitlementRefresh?.task.cancel()
+        entitlementRefresh = nil
+        isRefreshingEntitlements = false
+    }
+
+    func accessDecision(requiresPremium: Bool) -> ProAccessPolicy.Decision {
+        ProAccessPolicy.decision(requiresPremium: requiresPremium,
+                                 hasSession: allowsPremiumSession,
+                                 isPremium: isPremium,
+                                 hasResolvedEntitlements: hasResolvedEntitlements)
     }
 
     // MARK: - Load Products
 
     func loadProducts() async {
-        guard products.isEmpty else { return }
-        isLoading = true
-        defer { isLoading = false }
+        guard products.isEmpty, !isLoadingProducts else { return }
+        isLoadingProducts = true
+        defer { isLoadingProducts = false }
 
         let ids = StoreKitService.allProductIDs
         print("[StoreKit] ⏳ Requesting products for IDs: \(ids)")
@@ -149,7 +185,7 @@ final class SubscriptionManager: ObservableObject {
                 #if DEBUG && targetEnvironment(simulator)
                 errorMessage = "模拟器未注入商店配置，无法购买。请点下方「模拟器解锁 Pro」。"
                 #else
-                errorMessage = "未找到订阅方案。请在 Xcode Edit Scheme → Run → Options 中选择 Products.storekit"
+                errorMessage = "暂时无法获取购买方案，请检查网络后重试"
                 #endif
             } else {
                 print("[StoreKit] ✅ Loaded \(loaded.count) products: \(loaded.map { "\($0.id) (\($0.displayPrice))" })")
@@ -234,6 +270,7 @@ final class SubscriptionManager: ObservableObject {
     }
 
     func setDebugPremiumUnlocked(_ unlocked: Bool) {
+        invalidateEntitlementRefresh()
         UserDefaults.standard.set(unlocked, forKey: Self.debugPremiumUnlockedKey)
         isDebugPremiumPersisted = unlocked
         if !allowsPremiumSession || ProcessInfo.processInfo.arguments.contains(Self.forceNonPremiumArgument) {
@@ -242,6 +279,7 @@ final class SubscriptionManager: ObservableObject {
         }
         if unlocked {
             isPremium = true
+            hasResolvedEntitlements = true
             return
         }
         Task { await checkEntitlements() }
@@ -250,7 +288,9 @@ final class SubscriptionManager: ObservableObject {
 
     // MARK: - Check Entitlements
 
-    func checkEntitlements() async {
+    /// Lifecycle reads can share a pending query. Purchases, restores and transaction
+    /// updates must start a new query, because they carry newer entitlement information.
+    func checkEntitlements(coalescing: Bool = false) async {
         guard allowsPremiumSession else {
             clearEntitlements()
             return
@@ -259,67 +299,127 @@ final class SubscriptionManager: ObservableObject {
         #if DEBUG
         if useDebugOverrides && ProcessInfo.processInfo.arguments.contains(Self.forceNonPremiumArgument) {
             clearEntitlements()
+            hasResolvedEntitlements = true
             return
         }
         if useDebugOverrides && Self.isEntitlementForcedPremium {
+            invalidateEntitlementRefresh()
             isPremium = true
+            hasResolvedEntitlements = true
             return
         }
         #endif
-        let snapshots = await entitlementLoader()
-        // Logout, expiry or account switching invalidates any in-flight StoreKit result.
-        guard revision == sessionRevision, allowsPremiumSession else { return }
+        let refresh: (revision: Int, task: Task<[StoreEntitlementSnapshot], Never>)
+        if coalescing, let pending = entitlementRefresh {
+            refresh = pending
+        } else {
+            entitlementRequestRevision += 1
+            entitlementRefresh?.task.cancel()
+            let loader = entitlementLoader
+            refresh = (entitlementRequestRevision, Task { await loader() })
+            entitlementRefresh = refresh
+            isRefreshingEntitlements = true
+        }
+        let loaded = await refresh.task.value
+        // Cancellation is cooperative; a superseded loader may still return a result.
+        guard revision == sessionRevision, allowsPremiumSession,
+              refresh.revision == entitlementRequestRevision else { return }
+        let snapshots = ProAccessPolicy.currentProEntitlements(in: loaded)
         entitlementSnapshots = snapshots
         purchasedProductIDs = Set(snapshots.map(\.productID))
         isPremium = !snapshots.isEmpty
+        hasResolvedEntitlements = true
+        if let id = awaitingProductID, purchasedProductIDs.contains(id) {
+            awaitingProductID = nil
+            purchaseOutcome = .unlocked
+        }
+        entitlementRefresh = nil
+        isRefreshingEntitlements = false
     }
 
     // MARK: - Purchase
 
+    func canPurchase(productID: String) -> Bool {
+        guard StoreKitService.allProductIDs.contains(productID), awaitingProductID == nil, !isTransacting else { return false }
+        return !isPremium || (productID == StoreKitService.lifetimeID &&
+            !purchasedProductIDs.contains(StoreKitService.lifetimeID))
+    }
+
+    /// Only an Ask to Buy request may be acknowledged as declined/cancelled.
+    /// A completed purchase awaiting entitlement refresh must never invite another payment.
+    func resetWaitingPurchaseAfterCancellation() {
+        guard !isTransacting, purchaseOutcome == .pending else { return }
+        awaitingProductID = nil
+        purchaseOutcome = nil
+    }
+
     @discardableResult
     func purchase(_ product: Product) async -> Bool {
+        await purchaseResult(product) == .unlocked
+    }
+
+    func purchaseResult(_ product: Product) async -> PurchaseOutcome {
+        guard !isTransacting else { return .busy }
         guard allowsPremiumSession else {
             errorMessage = "请先登录后再购买 Pro"
-            return false
+            return .failed
         }
-        isLoading = true
+        guard canPurchase(productID: product.id) else {
+            errorMessage = "已有此权益，可在系统订阅设置中管理订阅"
+            return .failed
+        }
+        let revision = sessionRevision
+        isTransacting = true
         errorMessage = nil
-        defer { isLoading = false }
+        defer { isTransacting = false }
+        let result: PurchaseOutcome
         do {
-            _ = try await service.purchase(product)
+            try await purchaseOperation(product)
+            guard revision == sessionRevision else { return .sessionChanged }
             await checkEntitlements()
-            return true
+            guard revision == sessionRevision else { return .sessionChanged }
+            result = purchasedProductIDs.contains(product.id) ? .unlocked : .confirming
         } catch is CancellationError {
-            return false
+            result = .cancelled
+        } catch StoreError.purchasePending {
+            result = .pending
         } catch {
+            guard revision == sessionRevision else { return .sessionChanged }
             errorMessage = error.localizedDescription
-            return false
+            result = .failed
         }
+        guard revision == sessionRevision else { return .sessionChanged }
+        purchaseOutcome = result
+        if result == .pending || result == .confirming { awaitingProductID = product.id }
+        return result
     }
 
     // MARK: - Restore
 
     func restorePurchases() async -> Bool {
+        guard !isTransacting else { return false }
         guard allowsPremiumSession else {
             errorMessage = "请先登录后再恢复购买"
             return false
         }
-        isLoading = true
+        let revision = sessionRevision
+        isTransacting = true
         errorMessage = nil
-        defer { isLoading = false }
+        defer { isTransacting = false }
         do {
             try await service.restorePurchases()
+            guard revision == sessionRevision else { return false }
             await checkEntitlements()
-            if isPremium {
-                return true
-            } else {
-                errorMessage = "未找到可恢复的购买记录"
-                return false
-            }
-        } catch {
-            errorMessage = "恢复购买失败，请稍后重试"
+            guard revision == sessionRevision else { return false }
+            if isPremium { return true }
+            errorMessage = "未找到可恢复的购买记录"
+        } catch is CancellationError {
             return false
+        } catch {
+            guard revision == sessionRevision else { return false }
+            errorMessage = "恢复购买失败，请稍后重试"
         }
+        return false
     }
 
     // MARK: - Transaction Listener

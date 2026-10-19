@@ -8,8 +8,8 @@ import XCTest
 /// `xcrun simctl ui booted appearance light|dark`。截图落盘 `build/v30-w4-screenshots/`。
 final class V30W4TheoryPageUITests: XCTestCase {
 
-    private let outDir = URL(
-        fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v30-w4-screenshots"
+    private let outDir = TheoryFigureEvidence.outputDirectory(
+        fallback: "/Users/song/projects/13.billiard_trainer/build/v30-w4-screenshots"
     )
 
     /// 索引页 12 条：id → 页名（与 `TheoryCatalog.entries` 逐字一致）。
@@ -33,7 +33,7 @@ final class V30W4TheoryPageUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
-        app = XCUIApplication.launchClean()
+        app = XCUIApplication.launchClean(extraArgs: ["-v51.followSystemAppearance"])
     }
 
     // MARK: - 两篇页面 + 配图（Light / Dark）

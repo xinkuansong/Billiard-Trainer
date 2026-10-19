@@ -3,6 +3,8 @@ import SwiftUI
 struct ProfileAvatarView: View {
     @EnvironmentObject private var avatarStore: AvatarStore
     let size: CGFloat
+    var gender: ProfileGender = .unspecified
+    var badgeAlignment: Alignment = .bottomTrailing
 
     var body: some View {
         ZStack {
@@ -23,6 +25,19 @@ struct ProfileAvatarView: View {
             }
         }
         .frame(width: size, height: size)
-        .accessibilityLabel(avatarStore.image == nil ? "默认头像" : "用户头像")
+        .overlay(alignment: badgeAlignment) {
+            if let symbol = gender.symbol {
+                Text(symbol)
+                    .font(.btFootnote.weight(.bold))
+                    .dynamicTypeSize(.medium)
+                    .foregroundStyle(.white)
+                    .frame(width: size >= 80 ? 24 : 20, height: size >= 80 ? 24 : 20)
+                    .background(Color.btPrimary, in: Circle())
+                    .overlay { Circle().stroke(Color.btBGSecondary, lineWidth: 2) }
+                    .accessibilityHidden(true)
+            }
+        }
+        .accessibilityLabel((avatarStore.image == nil ? "默认头像" : "用户头像") +
+                            (gender == .unspecified ? "" : "，性别" + gender.title))
     }
 }

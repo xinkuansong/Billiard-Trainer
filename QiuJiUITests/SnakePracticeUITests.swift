@@ -429,3 +429,232 @@ final class SnakePracticeUITests: XCTestCase {
     }
 
 }
+
+/// Real gestures, world-position assertions and permission parity across camera modes.
+final class LegalBallMovementUITests: XCTestCase {
+    private var app: XCUIApplication!
+    private var prefix = "freeplay"
+    private var route = ""
+    private var evidenceRun = ""
+    private struct Probe: Decodable {
+        struct Ball: Decodable {
+            let key: String
+            let screen: [Double]
+            let world: [Double]
+            let draggable: Bool
+        }
+        let balls: [Ball]
+        let camera: [Double]
+        let diagramSurface: String
+    }
+    override func setUpWithError() throws { continueAfterFailure = false }
+    override func tearDownWithError() throws { app?.terminate() }
+    private var table: XCUIElement { app.descendants(matching: .any)["table.scene"].firstMatch }
+    private func ready(_ e: XCUIElement) {
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: e)], timeout: 45), .completed)
+    }
+    private func probe() throws -> Probe {
+        try JSONDecoder().decode(Probe.self, from: Data(try XCTUnwrap(table.value as? String).utf8))
+    }
+    private func capture(_ label: String) throws {
+        let a = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        a.name = route + "-" + label; a.lifetime = .keepAlways; add(a)
+        let p = XCTAttachment(string: try XCTUnwrap(table.value as? String))
+        p.name = route + "-" + label + "-world"; p.lifetime = .keepAlways; add(p)
+    }
+    private func launch(_ page: String, extra: [String] = []) throws {
+        route = page + evidenceRun
+        XCUIDevice.shared.orientation = .landscapeLeft
+        prefix = ["bank": "bankshot", "diamond": "reflection", "separation": "separationAngleAtlas", "cushion": "cushionEnglishAtlas"][page] ?? page
+        var args = ["-forcePremium", "-v50.inMemoryStore", "-3dDrag.probe", "-v54.forceDark", "-drillTryout.hasSeenGestureHint", "YES"]
+        switch page {
+        case "freeplay": args += ["-deeplink.freePlay"]
+        case "daily": prefix = "freeplay"; args += ["-deeplink.dailyClearance", "-dailyClearance.resetState", "-dailyClearance.resetHomeState"]
+        case "snake": prefix = "freeplay"; args += ["-deeplink.snakePractice", "-snakePractice.count", "3"]
+        case "silu": args += ["-deeplink.silu"]
+        case "planthree": args += ["-deeplink.planThree", "-planThree.twoBall"]
+        case "snooker": args += ["-deeplink.snooker", "-snooker.full"]
+        case "tryout": prefix = "freeplay"; args += ["-deeplink.tryout=drill_c042"]
+        case "formation": prefix = "freeplay"; args += ["-deeplink.customFormation", "-customFormation.owner=drag-audit-\(UUID())"]
+        default:
+            if ["composer", "shot"].contains(page) { prefix = "freeplay" }
+            args += ["-dailyInteraction.sharedPage=" + page]
+        }
+        app = .launchClean(extraArgs: args + extra)
+        if page == "formation" {
+            ready(app.buttons["formation.new"]); app.buttons["formation.new"].tap()
+            ready(app.buttons["paletteBall__1"]); app.buttons["paletteBall__1"].tap()
+            ready(app.buttons["formation.edit.save"]); app.buttons["formation.edit.save"].tap()
+            let save = app.alerts["保存模板"].buttons.matching(identifier: "formation.save.confirm").firstMatch
+            ready(save); save.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            ready(app.buttons["formation.start"]); app.buttons["formation.start"].tap()
+        }
+        if page == "snake" { ready(app.buttons["snake.start"]); app.buttons["snake.start"].tap() }
+        XCTAssertTrue(table.waitForExistence(timeout: 45))
+        XCUIDevice.shared.orientation = .landscapeLeft
+        if page == "tryout" {
+            openMenu(); ready(app.buttons["tryout.mode"]); app.buttons["tryout.mode"].tap(); closeMenu()
+        }
+    }
+    private func openMenu() {
+        let more = app.buttons[prefix + (prefix == "freeplay" ? ".moreMenu" : ".more")]
+        ready(more)
+        // The floating button's AX activation point can be invalid after rotation;
+        // use its actual visible centre, as for the existing menu backdrop tests.
+        more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+    private func closeMenu() {
+        let dismiss = app.buttons[prefix == "freeplay" ? "关闭菜单" : prefix + ".dismissMenu"]
+        if !dismiss.exists { return } // Some menu actions close their own panel.
+        ready(dismiss); dismiss.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
+    }
+    private func mode(_ value: String) {
+        openMenu()
+        let button = app.buttons[prefix + ".cameraMode"]; ready(button)
+        if button.value as? String != value { button.tap() }
+        // Solver pages apply stored view changes when the pending solve finishes.
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: button)], timeout: 15), .completed)
+        closeMenu()
+        if value == "3D" { ready(app.buttons["dailyClearance.observeTable"]); app.buttons["dailyClearance.observeTable"].tap() }
+    }
+    private func permissions(_ p: Probe) -> Set<String> { Set(p.balls.filter(\.draggable).map(\.key)) }
+    private func assertRetained(_ before: Probe, _ after: Probe) throws {
+        for ball in before.balls {
+            let b = try XCTUnwrap(after.balls.first { $0.key == ball.key })
+            for i in 0..<3 { XCTAssertEqual(ball.world[i], b.world[i], accuracy: 0.0001, "Camera switch changed " + ball.key) }
+        }
+    }
+    private func waitForCameraToSettle() {
+        var previous: [Double] = []
+        var stableSince = Date()
+        let condition = NSPredicate { [weak self] _, _ in
+            guard let p = try? self?.probe() else { return false }
+            let current = p.camera + p.balls.flatMap { Array($0.screen.prefix(2)) }
+            if previous.count != current.count || zip(previous, current).contains(where: { abs($0 - $1) > 0.0001 }) {
+                previous = current; stableSince = Date(); return false
+            }
+            return Date().timeIntervalSince(stableSince) >= 0.4
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: condition, object: nil)], timeout: 15), .completed,
+                       "Read drag coordinates only after the actual camera and ball projections settle")
+    }
+    private func drag(_ key: String, label: String, offset: Double = 0, distance: Double = 120, moves: Bool = true, vertical: Bool = false) throws {
+        if label.hasPrefix("3D-") { waitForCameraToSettle() }
+        let before = try probe()
+        let ball = try XCTUnwrap(before.balls.first { $0.key == key })
+        let x = ball.screen[0], y = ball.screen[1]
+        XCTAssertTrue(CGRect(origin: .zero, size: table.frame.size).contains(CGPoint(x: x, y: y)))
+        let dx = vertical ? 0 : (x > table.frame.width / 2 ? -distance : distance)
+        let dy = vertical ? (y > table.frame.height / 2 ? -distance : distance) : 0
+        let start = table.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: y + offset))
+        try capture(label + "-before")
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: dx, dy: dy)), withVelocity: .slow, thenHoldForDuration: 0.3)
+        let after = try probe()
+        try capture(label + "-after")
+        let moved = try XCTUnwrap(after.balls.first { $0.key == key })
+        let travel = hypot(moved.world[0] - ball.world[0], moved.world[2] - ball.world[2])
+        if moves { XCTAssertGreaterThan(travel, 0.002, label + ": legal ball did not move") }
+        else { XCTAssertLessThan(travel, 0.0001, label + ": finger-clearance gate or permission violated") }
+        XCTAssertEqual(ball.world[1], moved.world[1], accuracy: 0.0001)
+        if moves && vertical && label.hasPrefix("temporary-") {
+            let displayedTravel = hypot(moved.screen[0] - ball.screen[0], moved.screen[1] - ball.screen[1])
+            XCTAssertEqual(displayedTravel, distance - 52, accuracy: 2,
+                           "Temporary 2D must reserve exactly 52pt, even when drag events are coalesced")
+        }
+        for other in before.balls where other.key != key {
+            let b = try XCTUnwrap(after.balls.first { $0.key == other.key })
+            for i in 0..<3 { XCTAssertEqual(other.world[i], b.world[i], accuracy: 0.0001, label + ": moved another ball " + other.key) }
+        }
+    }
+    private func check(_ page: String, extra: [String] = [], cueOnly: Bool = false, restricted: Bool = false, nearHit: Bool = false, kitchen: Bool = false, prepare: (() -> Void)? = nil) throws {
+        try launch(page, extra: extra)
+        prepare?()
+        mode("2D")
+        let baseline = try probe(), allowed = permissions(baseline)
+        if restricted { XCTAssertTrue(allowed.isEmpty) }
+        else if cueOnly { XCTAssertEqual(allowed, ["cueBall"]) }
+        else { XCTAssertTrue(allowed.contains("cueBall")); XCTAssertGreaterThan(allowed.count, 1) }
+        let keys = restricted ? ["cueBall"] : ["cueBall"] + (cueOnly ? [] : Array(allowed.filter { $0 != "cueBall" }.sorted().prefix(1)))
+        for dimension in ["2D", "3D", "temporary"] {
+            let prior = try probe()
+            if dimension == "3D" { mode("3D") }
+            if dimension == "temporary" { ready(app.buttons["shotCamera.temporaryTopDown"]); app.buttons["shotCamera.temporaryTopDown"].tap() }
+            let current = try probe()
+            try assertRetained(prior, current)
+            XCTAssertEqual(permissions(current), allowed, dimension + " changed movement permissions")
+            if dimension == "temporary" { XCTAssertEqual(current.diagramSurface, "temporaryTopDown") }
+            for key in keys {
+                if dimension != "3D" && !restricted { try drag(key, label: dimension + "-short-" + key, distance: 30, moves: false) }
+                // This drill starts with collinear targets. Move its first target
+                // sideways on the table before the perspective pass, so its centre
+                // is not covered by the nearer ball (which correctly wins the hit).
+                let separateTryoutTarget = page == "tryout" && key != "cueBall" && dimension == "2D"
+                try drag(key, label: dimension + "-" + key, moves: !restricted,
+                         vertical: (kitchen && dimension != "3D") || separateTryoutTarget)
+                if kitchen {
+                    let cue = try XCTUnwrap(probe().balls.first { $0.key == "cueBall" })
+                    XCTAssertGreaterThanOrEqual(cue.world[0], 2.54 / 4 - 0.0001, "Cue escaped the legal kitchen")
+                }
+            }
+            if nearHit && dimension != "3D" { try drag("cueBall", label: dimension + "-near-hit", offset: 30) }
+        }
+        let held = try probe()
+        app.buttons["shotCamera.temporaryTopDown"].tap()
+        try assertRetained(held, probe())
+        mode("2D")
+        try assertRetained(held, probe())
+        try capture("returned-2D")
+    }
+    func testAngleDiagram() throws { try check("angleDynamic") }
+    func testSeparationDiagram() throws { try check("separation") }
+    func testCushionDiagram() throws { try check("cushion") }
+    func testBank() throws { try check("bank") }
+    func testDiamond() throws { try check("diamond") }
+    func testSilu() throws { try check("silu") }
+    func testPlanThree() throws { try check("planthree") }
+    func testDefense() throws { try check("snooker") }
+    func testFreePlay() throws { try check("freeplay", cueOnly: true) }
+    func testComposer() throws { try check("composer") }
+    func testSimulation() throws { try check("shot") }
+    func testTryoutFree() throws { try check("tryout") }
+    func testSnakeOpening() throws { try check("snake", cueOnly: true) }
+    func testDailyBallInHand() throws { try check("daily", extra: ["-dailyClearance.fixture=ballInHand"], cueOnly: true) }
+    func testDailyBehindHeadString() throws { try check("daily", extra: ["-dailyClearance.fixture=behindHeadString"], cueOnly: true, kitchen: true) }
+    func testDailyBehindHeadStringRepeated() throws {
+        // A tablet-only zero-movement observation needs repeated complete flows,
+        // with the original gesture and clearance assertions retained.
+        for iteration in 1...3 {
+            evidenceRun = "-repeat\(iteration)"
+            try check("daily", extra: ["-dailyClearance.fixture=behindHeadString"], cueOnly: true, kitchen: true)
+            app.terminate()
+        }
+    }
+    func testDailyLocked() throws { try check("daily", extra: ["-dailyClearance.fixture=selection"], restricted: true) }
+    func testTemporaryNearHitMatchesOrdinary() throws { try check("freeplay", cueOnly: true, nearHit: true) }
+    func testFormationPractice() throws { try check("formation") }
+    func testFormationArrange() throws {
+        try check("formation", prepare: {
+            self.openMenu()
+            let arrange = self.app.buttons["formation.arrange"]
+            for _ in 0..<5 {
+                if arrange.exists && arrange.isHittable { break }
+                self.app.scrollViews["dailyClearance.menuScroll"].swipeUp()
+            }
+            self.ready(arrange); arrange.tap(); self.closeMenu()
+        })
+    }
+    private func checkBreak(_ page: String) throws {
+        try check(page, cueOnly: true, kitchen: true, prepare: {
+            let entry = self.app.buttons["break.entry"]
+            if !entry.exists { self.openMenu() }
+            self.ready(entry); entry.tap()
+            self.ready(self.app.buttons["break.game.9"]); self.app.buttons["break.game.9"].tap()
+            self.ready(self.app.buttons[self.prefix == "freeplay" ? "break.strike" : self.prefix + ".strike"])
+        })
+    }
+    func testFreePlayBreak() throws { try checkBreak("freeplay") }
+    func testComposerBreak() throws { try checkBreak("composer") }
+    func testSiluBreak() throws { try checkBreak("silu") }
+    func testPlanThreeBreak() throws { try checkBreak("planthree") }
+    func testDailyBreak() throws { try check("daily", extra: ["-dailyClearance.fixture=manual"], cueOnly: true, kitchen: true) }
+}

@@ -5,6 +5,9 @@ import SwiftData
 @MainActor
 final class DrillTrainingPlanServiceTests: XCTestCase {
 
+    // Domain fixtures use synthetic IDs; entitlement rejection is covered by ProContentBoundaryTests.
+    private var domainAccess: ProContentAccess { ProContentAccess(decision: { _ in .allowed }, drillRequirement: { _ in false }) }
+
     var container: ModelContainer!
     var context: ModelContext!
 
@@ -28,7 +31,7 @@ final class DrillTrainingPlanServiceTests: XCTestCase {
         try context.save()
 
         let drill = makeDrill(id: "drill_c042", name: "初级蛇彩走位")
-        let result = try DrillTrainingPlanService.addDrill(drill, to: plan, context: context)
+        let result = try DrillTrainingPlanService.addDrill(drill, to: plan, context: context, access: domainAccess)
 
         XCTAssertEqual(result, .added(planName: "晚练清单", appearsInToday: false))
 
@@ -47,7 +50,7 @@ final class DrillTrainingPlanServiceTests: XCTestCase {
         try context.save()
 
         let drill = makeDrill(id: "drill_c001", name: "直线瞄准")
-        let result = try DrillTrainingPlanService.addDrill(drill, to: plan, context: context)
+        let result = try DrillTrainingPlanService.addDrill(drill, to: plan, context: context, access: domainAccess)
 
         XCTAssertEqual(result, .added(planName: "今日清单", appearsInToday: true))
 
@@ -72,7 +75,7 @@ final class DrillTrainingPlanServiceTests: XCTestCase {
             makeDrill(id: "drill_c042", name: "初级蛇彩走位"),
             to: plan,
             context: context
-        )
+        , access: domainAccess)
 
         XCTAssertEqual(result, .alreadyPresent(planName: "清单", appearsInToday: false))
         XCTAssertEqual(plan.drills.count, 1)
@@ -87,7 +90,7 @@ final class DrillTrainingPlanServiceTests: XCTestCase {
             drill: drill,
             activateAsToday: true,
             context: context
-        )
+        , access: domainAccess)
 
         XCTAssertEqual(result, .added(planName: "从动作库 · 中袋准度", appearsInToday: true))
 
@@ -116,7 +119,7 @@ final class DrillTrainingPlanServiceTests: XCTestCase {
             drill: makeDrill(id: "drill_c002", name: "侧袋"),
             activateAsToday: false,
             context: context
-        )
+        , access: domainAccess)
 
         XCTAssertEqual(result, .added(planName: "旁路计划", appearsInToday: false))
         let active = try DrillTrainingPlanService.activeCustomPlan(context: context)
@@ -131,7 +134,7 @@ final class DrillTrainingPlanServiceTests: XCTestCase {
                 drill: makeDrill(id: "x", name: "x"),
                 activateAsToday: false,
                 context: context
-            )
+            , access: domainAccess)
         ) { error in
             XCTAssertEqual(error as? DrillTrainingPlanService.ServiceError, .emptyName)
         }

@@ -34,8 +34,7 @@ struct CueStyleSettingsView: View {
                 HStack {
                     Text(style.displayName).font(.btHeadline).foregroundStyle(.btText)
                     Spacer(minLength: Spacing.sm)
-                    Image(systemName: prefs.cueStyle == style ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(prefs.cueStyle == style ? Color.btPrimary : Color.btTextSecondary)
+                    BTSelectionIndicator(isSelected: prefs.cueStyle == style)
                 }
                 Text(style.detail).font(.btCaption).foregroundStyle(.btTextSecondary)
                 if let image = CueStyleModel.preview(style) {

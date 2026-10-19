@@ -2,6 +2,9 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject private var prefs = UserPreferences.shared
+    @ObservedObject private var tablePreferences = TablePreferencesStore.shared
+    @State private var transparencyDraft = 0.5
+    @State private var editingTransparency = false
     @EnvironmentObject private var authState: AuthState
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @EnvironmentObject private var ownerContext: CurrentOwnerContext
@@ -21,15 +24,16 @@ struct SettingsView: View {
 
             ScrollView {
                 VStack(spacing: Spacing.lg) {
+                    practiceDisplaySection
+                    trainingAidSection
                     appearanceSection
                     frameRateSection
                     soundSection
-                    trainingAidSection
-                    dailyClearanceSection
                     #if DEBUG && targetEnvironment(simulator)
                     simulatorDebugSection
                     #endif
                     equipmentSection
+                    dailyClearanceSection
                     dataSection
                     if authState.isLoggedIn {
                         accountSection
@@ -44,10 +48,33 @@ struct SettingsView: View {
             .accessibilityIdentifier("settings.content")
             .accessibilityValue(colorScheme == .dark ? "dark" : "light")
         }
-        .navigationTitle("设置")
+        .navigationTitle("通用设置")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .task { cacheSize = calculateCacheSize() }
+        .task {
+            cacheSize = calculateCacheSize()
+            transparencyDraft = tablePreferences.general[.transparency]
+        }
+        .onChange(of: tablePreferences.revision) { _, _ in
+            if !editingTransparency { transparencyDraft = tablePreferences.general[.transparency] }
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Section("统一应用到相关页面") {
+                        ForEach(TablePreferenceField.allCases, id: \.self) { field in
+                            Button(field.title + " · " + preferenceLabel(field)) {
+                                applyPreference(field, tablePreferences.general[field])
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+                .accessibilityLabel("统一应用设置")
+                .accessibilityIdentifier("settings.reapply")
+            }
+        }
         // F-OV-02: destructive clear/delete → confirmationDialog (cancel first).
         .confirmationDialog(
             "清除缓存",
@@ -270,21 +297,101 @@ struct SettingsView: View {
         }
     }
 
+    private func applyPreference(_ field: TablePreferenceField, _ value: Double) {
+        tablePreferences.apply(field, value: value)
+    }
+
+    private func generalToggle(_ field: TablePreferenceField) -> Binding<Bool> {
+        Binding(get: { tablePreferences.general.enabled(field) },
+                set: { applyPreference(field, $0 ? 1 : 0) })
+    }
+
+    private func preferenceLabel(_ field: TablePreferenceField) -> String {
+        let values = tablePreferences.general
+        switch field {
+        case .view3D: return values.enabled(field) ? "3D" : "2D"
+        case .transparency: return "\(Int((values[field] * 100).rounded()))%"
+        case .trajectory: return values.trajectoryDetail.label
+        default: return values.enabled(field) ? "开启" : "关闭"
+        }
+    }
+
+    private var practiceDisplaySection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("练习显示").font(.btSubheadlineMedium).foregroundStyle(.btTextSecondary)
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                HStack {
+                    Text("默认视图").font(.btBody)
+                    Spacer()
+                    BTTogglePillGroup(options: [false, true], selected: generalToggle(.view3D)) { $0 ? "3D" : "2D" }
+                }
+                .accessibilityIdentifier("settings.defaultView")
+                Text("用于同时支持 2D / 3D 的页面；固定视图训练保持原题型。")
+                    .font(.btCaption).foregroundStyle(.btTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Divider()
+                NavigationLink { ControlLayoutLibrary() } label: {
+                    HStack { Text("操作布局"); Spacer(); Image(systemName: "chevron.right").foregroundStyle(.secondary) }
+                        .frame(minHeight: 44)
+                }.accessibilityIdentifier("settings.controlLayout")
+                Divider()
+                Toggle("台面网格 4×8", isOn: generalToggle(.grid)).accessibilityIdentifier("settings.grid")
+                Divider()
+                Toggle("瞄准特写", isOn: generalToggle(.closeup)).accessibilityIdentifier("settings.closeup")
+                Divider()
+                HStack {
+                    Text("打点盘透明度")
+                    Spacer()
+                    Text("\(Int((transparencyDraft * 100).rounded()))%").monospacedDigit()
+                }
+                Slider(value: $transparencyDraft, in: 0...1, onEditingChanged: { editing in
+                    editingTransparency = editing
+                    if !editing { applyPreference(.transparency, transparencyDraft) }
+                }).accessibilityLabel("打点盘透明度").accessibilityIdentifier("settings.transparency")
+                Divider()
+                Menu {
+                    ForEach(TrajectoryDetail.allCases, id: \.rawValue) { detail in
+                        Button { applyPreference(.trajectory, Double(detail.rawValue)) } label: {
+                            if detail == tablePreferences.general.trajectoryDetail { Label(detail.label, systemImage: "checkmark") }
+                            else { Text(detail.label) }
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Text("轨迹档位").foregroundStyle(.btText)
+                        Spacer()
+                        Text(tablePreferences.general.trajectoryDetail.label)
+                        Image(systemName: "chevron.up.chevron.down")
+                    }.frame(minHeight: 44).contentShape(Rectangle())
+                }.accessibilityIdentifier("settings.trajectory")
+                Text("选中档位会统一更新，并开启相关页面的 3D 轨迹。")
+                    .font(.btCaption).foregroundStyle(.btTextSecondary).fixedSize(horizontal: false, vertical: true)
+                Divider()
+                Toggle("3D 显示轨迹", isOn: generalToggle(.shows3DTrajectory)).accessibilityIdentifier("settings.trajectory3D")
+                Text("关闭仅隐藏 3D 预测辅助；再开启时保留各页轨迹档位，2D 不变。")
+                    .font(.btCaption).foregroundStyle(.btTextSecondary).fixedSize(horizontal: false, vertical: true)
+            }
+            .font(.btBody).foregroundStyle(.btText).tint(.btPrimary)
+            .padding(Spacing.lg).background(Color.btBGSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        }
+    }
+
     private var trainingAidSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("教学辅助")
+            Text("击球辅助")
                 .font(.btSubheadlineMedium)
                 .foregroundStyle(.btTextSecondary)
                 .padding(.leading, Spacing.xs)
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                Toggle(isOn: $prefs.showSeparationAngle) {
+                Toggle(isOn: generalToggle(.separation)) {
                     Text("显示 90° 分离角辅助线")
                         .font(.btBody)
                         .foregroundStyle(.btText)
                 }
                 .tint(.btPrimary)
-                Text("在所有击球轨迹上叠加一条过碰撞点、垂直于撞击线的辅助线，帮助判断母球分离方向。")
+                Text("在支持的练习页显示分离角参考线，不改变教学图谱本身的轨迹。")
                     .font(.btCaption)
                     .foregroundStyle(.btTextTertiary)
             }
@@ -294,7 +401,7 @@ struct SettingsView: View {
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                Toggle("运杆", isOn: $prefs.cueRehearsalEnabled)
+                Toggle("运杆演示", isOn: generalToggle(.rehearsal))
                     .font(.btBody)
                     .foregroundStyle(.btText)
                     .tint(.btPrimary)
@@ -368,7 +475,7 @@ struct SettingsView: View {
                         Text("关闭后不再上传或下载训练数据，已保存在本机和云端的记录会保留。")
                             .font(.btCaption)
                             .foregroundStyle(.btTextSecondary)
-                        Text("同步训练记录与角度、瞄准成绩。收藏、计划和训练安排目前仅保存在本机。")
+                        Text("同步训练记录、角度与瞄准成绩，以及自定义球形。收藏、计划和训练安排目前仅保存在本机。")
                             .font(.btCaption)
                             .foregroundStyle(.btTextSecondary)
                         if authState.cloudSyncEnabled {
@@ -378,7 +485,7 @@ struct SettingsView: View {
                                     await dataCoordinator.handleCompletedLogin(userId: userId, authState: authState)
                                 }
                             } label: {
-                                Text(dataCoordinator.syncingOwnerKey == ownerContext.ownerKey ? "正在同步…" : "立即同步训练记录")
+                                Text(dataCoordinator.syncingOwnerKey == ownerContext.ownerKey ? "正在同步…" : "立即同步")
                                     .font(.btCallout)
                                     .foregroundStyle(.btPrimary)
                                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)

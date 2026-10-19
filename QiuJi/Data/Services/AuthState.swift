@@ -1,6 +1,6 @@
 import Foundation
 
-enum AuthProvider: String, Equatable, Sendable {
+enum AuthProvider: String, Codable, Equatable, Sendable {
     case apple
     case phone
     case wechat
@@ -18,6 +18,8 @@ struct AppUser: Equatable, Sendable {
     var skillLevel: String?
     var yearsPlaying: String?
     var weeklyGoalDays: Int?
+    var gender: String?
+    var birthDate: String?
 
     init(
         id: String,
@@ -29,7 +31,9 @@ struct AppUser: Equatable, Sendable {
         preferredSport: String? = nil,
         skillLevel: String? = nil,
         yearsPlaying: String? = nil,
-        weeklyGoalDays: Int? = nil
+        weeklyGoalDays: Int? = nil,
+        gender: String? = nil,
+        birthDate: String? = nil
     ) {
         self.id = id
         self.provider = provider
@@ -41,6 +45,8 @@ struct AppUser: Equatable, Sendable {
         self.skillLevel = skillLevel
         self.yearsPlaying = yearsPlaying
         self.weeklyGoalDays = weeklyGoalDays
+        self.gender = gender
+        self.birthDate = birthDate
     }
 
     init(dto: UserDTO) {
@@ -53,7 +59,9 @@ struct AppUser: Equatable, Sendable {
             preferredSport: dto.preferredSport,
             skillLevel: dto.skillLevel,
             yearsPlaying: dto.yearsPlaying,
-            weeklyGoalDays: dto.weeklyGoalDays
+            weeklyGoalDays: dto.weeklyGoalDays,
+            gender: dto.gender,
+            birthDate: dto.birthDate
         )
     }
 }
@@ -64,6 +72,7 @@ enum AuthPhase: Equatable, Sendable {
     case guest(AppUser)
     case signedOut
     case authenticated(AppUser)
+    case offlineAccount(AppUser)
     case sessionUnavailable(message: String)
 }
 
@@ -76,11 +85,37 @@ extension BackendSyncService: AuthSessionBackend {}
 
 protocol AuthCredentialStore: Sendable {
     var hasRefreshToken: Bool { get }
+    var trustedLocalAccount: LocalAccountIdentity? { get }
+    func saveTrustedLocalAccount(_ identity: LocalAccountIdentity)
     func clearAll()
+}
+
+/// Identity only: never stores or grants Pro, and never authorizes a server request.
+struct LocalAccountIdentity: Codable, Equatable, Sendable {
+    let userID: String
+    let provider: AuthProvider
+}
+
+extension AuthCredentialStore {
+    var trustedLocalAccount: LocalAccountIdentity? { nil }
+    func saveTrustedLocalAccount(_ identity: LocalAccountIdentity) {}
 }
 
 struct KeychainAuthCredentialStore: AuthCredentialStore {
     var hasRefreshToken: Bool { KeychainService.load(key: .refreshToken) != nil }
+    var trustedLocalAccount: LocalAccountIdentity? {
+        guard let value = KeychainService.load(key: .trustedLocalAccount) else { return nil }
+        do { return try JSONDecoder().decode(LocalAccountIdentity.self, from: Data(value.utf8)) }
+        catch { return nil } // Corrupt identity is fail-closed; do not log account data.
+    }
+    func saveTrustedLocalAccount(_ identity: LocalAccountIdentity) {
+        do {
+            let data = try JSONEncoder().encode(identity)
+            if !KeychainService.save(key: .trustedLocalAccount, value: String(decoding: data, as: UTF8.self)) {
+                print("[Auth] Unable to persist local account identity")
+            }
+        } catch { print("[Auth] Unable to encode local account identity") }
+    }
     func clearAll() { KeychainService.clearAll() }
 }
 
@@ -92,6 +127,11 @@ final class AuthState: ObservableObject {
     @Published var pendingMigration: Bool = false
     @Published var showCloudSyncPrompt = false
     @Published private(set) var cloudSyncEnabled = false
+    @Published private(set) var initialProfileImport: InitialProfileImport?
+    @Published private(set) var isImportingInitialProfile = false
+    @Published private(set) var initialProfileImportError: String?
+    private var profileImportTask: Task<Void, Never>?
+    private let profileImportBackend: any InitialProfileImportBackend
     private var sessionGeneration: UInt = 0
     private(set) var syncChoiceRevision: UInt = 0
 
@@ -122,7 +162,7 @@ final class AuthState: ObservableObject {
 
     var currentUser: AppUser? {
         switch phase {
-        case .guest(let user), .authenticated(let user): return user
+        case .guest(let user), .authenticated(let user), .offlineAccount(let user): return user
         default: return nil
         }
     }
@@ -134,6 +174,12 @@ final class AuthState: ObservableObject {
     var isAnonymous: Bool {
         if case .guest = phase { return true }
         return false
+    }
+    var hasLocalAccount: Bool {
+        switch phase {
+        case .authenticated, .offlineAccount: return true
+        default: return false
+        }
     }
     var displayNameOrDefault: String { currentUser?.displayName ?? "球迹用户" }
 
@@ -150,9 +196,11 @@ final class AuthState: ObservableObject {
         backend: any AuthSessionBackend = BackendSyncService.shared,
         credentials: any AuthCredentialStore = KeychainAuthCredentialStore(),
         defaults: UserDefaults = .standard,
-        ownerContext: CurrentOwnerContext? = nil
+        ownerContext: CurrentOwnerContext? = nil,
+        profileImportBackend: any InitialProfileImportBackend = BackendSyncService.shared
     ) {
         self.backend = backend
+        self.profileImportBackend = profileImportBackend
         self.credentials = credentials
         self.defaults = defaults
         self.ownerContext = ownerContext ?? .shared
@@ -174,6 +222,15 @@ final class AuthState: ObservableObject {
         #if targetEnvironment(simulator)
         if ProcessInfo.processInfo.arguments.contains("-syncRepair.loginSheet") {
             defaults.removeObject(forKey: syncPreferenceKey("sync-repair-user"))
+            if ProcessInfo.processInfo.arguments.contains("-profileImport.fixture") {
+                let guest = DeviceGuestIdentity.ownerKey(in: defaults)
+                for (field, value) in ["preferredSport": "zhuifen", "yearsPlaying": "threeToFive",
+                                       "gender": "male", "birthDate": "2000-02-29"] {
+                    defaults.set(value, forKey: "ownerProfile.\(guest).\(field)")
+                }
+                let decision = InitialProfileImport(accountID: "sync-repair-user", guestOwner: guest, fields: [:])
+                defaults.removeObject(forKey: decision.completionKey)
+            }
             loginAnonymously()
             return
         }
@@ -191,10 +248,13 @@ final class AuthState: ObservableObject {
                 displayName: fixtureName,
                 // Keep nil so this identity-only fixture never performs an avatar network call.
                 avatarRevision: nil,
-                preferredSport: PreferredSport.nineBall.rawValue,
+                preferredSport: ProcessInfo.processInfo.arguments.contains("-profile.fixtureChinese8")
+                    ? PreferredSport.chinese8.rawValue : PreferredSport.nineBall.rawValue,
                 skillLevel: SkillLevel.intermediate.rawValue,
                 yearsPlaying: YearsPlaying.threeToFive.rawValue,
-                weeklyGoalDays: 4
+                weeklyGoalDays: 4,
+                gender: ProcessInfo.processInfo.arguments.contains("-profile.fixtureBasics") ? "female" : nil,
+                birthDate: ProcessInfo.processInfo.arguments.contains("-profile.fixtureBasics") ? "2000-01-01" : nil
             )
             ownerContext.useAccount(userID: user.id)
             hasCompletedOnboarding = true
@@ -227,8 +287,10 @@ final class AuthState: ObservableObject {
                 return
             }
             ownerContext.useAccount(userID: user.id)
+            credentials.saveTrustedLocalAccount(LocalAccountIdentity(userID: user.id, provider: user.provider))
             phase = .authenticated(user)
             loadSyncPreference(userID: user.id, offerChoice: false)
+            prepareInitialProfileImport(for: user)
             NotificationCenter.default.post(name: .didCompleteLogin, object: user.id)
         } catch AppError.authRequired {
             guard operation == sessionGeneration else { return }
@@ -237,13 +299,23 @@ final class AuthState: ObservableObject {
             phase = .signedOut
         } catch {
             guard operation == sessionGeneration else { return }
-            ownerContext.useGuest()
-            phase = .sessionUnavailable(message: "网络暂不可用")
+            if credentials.hasRefreshToken,
+               let identity = credentials.trustedLocalAccount,
+               !identity.userID.isEmpty, identity.provider != .anonymous {
+                ownerContext.useAccount(userID: identity.userID)
+                phase = .offlineAccount(AppUser(id: identity.userID, provider: identity.provider))
+            } else {
+                ownerContext.useGuest()
+                phase = .sessionUnavailable(message: "网络暂不可用")
+            }
         }
     }
 
     func retryBootstrap() async {
-        guard case .sessionUnavailable = phase else { return }
+        switch phase {
+        case .sessionUnavailable, .offlineAccount: break
+        default: return
+        }
         hasBootstrapped = false
         await bootstrap()
     }
@@ -255,13 +327,16 @@ final class AuthState: ObservableObject {
     /// Called only after the backend exchanged a third-party credential for app JWTs.
     func login(user: AppUser) {
         sessionGeneration &+= 1
+        resetInitialProfileImport()
         guard user.provider != .anonymous else {
             loginAnonymously()
             return
         }
         ownerContext.useAccount(userID: user.id)
+        credentials.saveTrustedLocalAccount(LocalAccountIdentity(userID: user.id, provider: user.provider))
         phase = .authenticated(user)
         loadSyncPreference(userID: user.id, offerChoice: true)
+        prepareInitialProfileImport(for: user)
         hasBootstrapped = true
         hasCompletedOnboarding = true
         pendingMigration = false
@@ -271,6 +346,8 @@ final class AuthState: ObservableObject {
 
     func loginAnonymously() {
         sessionGeneration &+= 1
+        resetInitialProfileImport()
+        credentials.clearAll()
         cloudSyncEnabled = false
         showCloudSyncPrompt = false
         pendingMigration = false
@@ -293,8 +370,9 @@ final class AuthState: ObservableObject {
 
     /// Handles a definitive missing/invalid refresh credential reported by the API layer.
     func invalidateSession() {
-        guard isLoggedIn || phase == .restoring else { return }
+        guard hasLocalAccount || phase == .restoring else { return }
         sessionGeneration &+= 1
+        resetInitialProfileImport()
         credentials.clearAll()
         cloudSyncEnabled = false
         showCloudSyncPrompt = false
@@ -345,6 +423,7 @@ final class AuthState: ObservableObject {
 
     private func clearLocalSession() {
         sessionGeneration &+= 1
+        resetInitialProfileImport()
         credentials.clearAll()
         cloudSyncEnabled = false
         showCloudSyncPrompt = false
@@ -352,6 +431,63 @@ final class AuthState: ObservableObject {
         showMigrationPrompt = false
         ownerContext.useGuest()
         phase = hasCompletedOnboarding ? .guest(makeGuestUser()) : .signedOut
+    }
+
+    private func resetInitialProfileImport() {
+        profileImportTask?.cancel()
+        profileImportTask = nil
+        initialProfileImport = nil
+        initialProfileImportError = nil
+        isImportingInitialProfile = false
+    }
+
+    private func prepareInitialProfileImport(for user: AppUser) {
+        initialProfileImport = InitialProfileImport.proposal(for: user, defaults: defaults)
+        retryPendingInitialProfileImport()
+    }
+
+    /// Login imports the saved onboarding details automatically. A failed attempt keeps
+    /// the guest copy and retries when the app becomes active or the user signs in again.
+    func retryPendingInitialProfileImport() {
+        guard profileImportTask == nil, initialProfileImport != nil, isLoggedIn else { return }
+        initialProfileImportError = nil
+        let operation = sessionGeneration
+        profileImportTask = Task { [weak self] in
+            guard let self, self.sessionGeneration == operation, !Task.isCancelled else { return }
+            await self.importPendingInitialProfile()
+            if self.sessionGeneration == operation { self.profileImportTask = nil }
+        }
+    }
+
+    private func importPendingInitialProfile() async {
+        guard !isImportingInitialProfile, let proposal = initialProfileImport,
+              isLoggedIn, let original = currentUser, original.id == proposal.accountID else { return }
+        let operation = sessionGeneration
+        isImportingInitialProfile = true
+        initialProfileImportError = nil
+        defer {
+            if sessionGeneration == operation { isImportingInitialProfile = false }
+        }
+        do {
+            let dto = try await profileImportBackend.importInitialProfile(proposal)
+            guard operation == sessionGeneration, isLoggedIn,
+                  currentUser?.id == proposal.accountID else { return }
+            guard dto.id == proposal.accountID else { throw AppError.authRequired }
+            // Import only profile fields, preserving edits made while this request was in flight.
+            guard var merged = currentUser else { return }
+            if merged.preferredSport == original.preferredSport { merged.preferredSport = dto.preferredSport }
+            if merged.yearsPlaying == original.yearsPlaying { merged.yearsPlaying = dto.yearsPlaying }
+            if merged.gender == original.gender { merged.gender = dto.gender }
+            if merged.birthDate == original.birthDate { merged.birthDate = dto.birthDate }
+            replaceAuthenticatedUser(merged)
+            OwnerProfileStore(ownerKey: OwnerKey.account(dto.id), defaults: defaults).load(from: currentUser)
+            defaults.set(true, forKey: proposal.completionKey)
+            initialProfileImport = nil
+        } catch {
+            guard operation == sessionGeneration, isLoggedIn,
+                  currentUser?.id == proposal.accountID else { return }
+            initialProfileImportError = "资料尚未同步，本机资料已保留，将自动重试。"
+        }
     }
 
     private func makeGuestUser() -> AppUser {
@@ -373,7 +509,7 @@ extension Notification.Name {
 #if DEBUG && targetEnvironment(simulator)
 /// UI regression fixture: exercises the real login sheet, consent and restore flow
 /// with an isolated backend. Never exchanges credentials or reaches the network.
-struct SyncRepairUITestBackend: AuthSessionBackend, SyncBackend, SyncRestoreBackend {
+struct SyncRepairUITestBackend: AuthSessionBackend, SyncBackend, SyncRestoreBackend, InitialProfileImportBackend {
     let sessions: [SyncedRecord<TrainingSessionDTO>]
 
     @MainActor
@@ -394,6 +530,15 @@ struct SyncRepairUITestBackend: AuthSessionBackend, SyncBackend, SyncRestoreBack
         }
     }
 
+    func importInitialProfile(_ proposal: InitialProfileImport) async throws -> UserDTO {
+        if ProcessInfo.processInfo.arguments.contains("-profileImport.failure") {
+            throw AppError.networkError("Fixture offline")
+        }
+        return UserDTO(id: proposal.accountID, displayName: "同步测试用户", email: nil, provider: "apple",
+                       avatarRevision: nil, preferredSport: proposal.fields["preferredSport"], skillLevel: nil,
+                       yearsPlaying: proposal.fields["yearsPlaying"], weeklyGoalDays: nil,
+                       gender: proposal.fields["gender"], birthDate: proposal.fields["birthDate"])
+    }
     func fetchProfile() async throws -> UserDTO { throw AppError.authRequired }
     func logout() async {}
     func uploadSession(_ dto: TrainingSessionDTO) async throws {}

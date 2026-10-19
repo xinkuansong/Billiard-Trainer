@@ -33,15 +33,15 @@ struct TheoryT01View: View {
                 TheoryPageHeader(
                     pageID: .t01,
                     headline: "自然滚动的母球，在合适厚度里碰后偏约 30°",
-                    detail: "球厚度落在 1/4–3/4（切角 14°–49°）时，碰后相对原瞄准线大约偏 30°；理论极值约 33.7°，出现在切角 28.1° 附近。",
-                    caption: "前提：碰撞瞬间母球已是自然滚动、中杆、常规力度。滑动状态请看「90° 法则」。"
+                    detail: "母球碰到目标球时已经自然滚动，击球厚度又在四分之一球到四分之三球之间，就可以用约 30° 预估它接下来的走向。这个角度从母球碰前的行进方向量起。",
+                    caption: "先以不加左右塞的常规击球理解。自然滚动是碰球时的状态，不由高杆或中杆的名称决定。"
                 )
 
                 LearnControlStrip.Theta(
                     cutAngleDeg: $cutAngleDeg,
                     caption: isInConstantRange
-                        ? String(format: "落在 14°–49° 恒定区间：碰后相对原瞄准线偏 %.0f°。整段都在 27°–34° 之间，口诀取整记「约 30°」。", deflectionDeg)
-                        : String(format: "已超出 14°–49° 恒定区间：碰后只偏 %.0f°，明显离开 30°，这一档别套口诀。", deflectionDeg),
+                        ? String(format: "切角在约 14°–49° 的适用范围内，图中理想模型的偏折角为 %.0f°。30° 是便于判断的近似值。", deflectionDeg)
+                        : String(format: "切角已超出口诀的常用范围，图中理想模型的偏折角为 %.0f°。角度连续变化，不会在边界突然改变。", deflectionDeg),
                     accessibilityIdentifier: "theoryT01.thetaSlider"
                 )
 
@@ -68,7 +68,7 @@ struct TheoryT01View: View {
 
     private var whyItWorks: some View {
         LearnDocSectionCard(title: "为什么会偏约 30°") {
-            LearnDocText.body("自然滚动 = 母球既往前飞、自己也在转。撞完以后，旋转带来的桌面摩擦力方向和大小都差不多恒定，轨迹就像一条抛物线：先沿切线走一段，再被摩擦力往原瞄准线一侧拽回来。")
+            LearnDocText.body("自然滚动时，母球的前进速度与转动相匹配，接触台呢的位置没有相对滑动。碰撞改变了它的前进速度，原有的前旋却仍在起作用。母球随后与台呢发生摩擦，路线从接近切线的方向逐渐弯向前方。")
 
             RollThirtyDegreeFigure(cutAngleDeg: CGFloat(cutAngleDeg))
                 .frame(height: 250)
@@ -78,7 +78,7 @@ struct TheoryT01View: View {
 
             LearnDocText.footnote("白实线 = 母球到假想球的原瞄准线，白虚线是它过假想球后的延长——偏折角就是从这条延长线量起；绿色线 = 自然滚动碰后的走向。拖上面的切角，两条线的夹角会跟着变。")
 
-            LearnDocText.body("在 1/4–3/4 球厚度这一段里，「碰撞瞬间的切线」和「滑转滚之后的稳定方向」合成出来的偏折角，刚好落在约 30° 附近，所以才好记。")
+            LearnDocText.body("在这段常见厚度里，重新进入滚动后的走向变化相对不大，所以能用约 30° 作快速参照。图中画的是这个稳定方向；母球刚碰完时的弯曲过程，需要在实际路线中另留余量。")
         }
     }
 
@@ -89,7 +89,7 @@ struct TheoryT01View: View {
             LearnDocText.body("不是任何厚度都记 30°。只在球厚度 1/4–3/4（切角 14°–49°）这一段，偏折角才大致贴着 30° 走。")
 
             TheoryMatrixTable(
-                columnTitles: ["球厚度", "切角", "偏折角约"],
+                columnTitles: ["切角", "偏折角约"],
                 rows: [
                     .init("1/4 球", ["约 48.6°", "约 27°"]),
                     .init("半球附近", ["约 28.1°", "33.7°（极值）"]),
@@ -97,10 +97,10 @@ struct TheoryT01View: View {
                     .init("3/4 球", ["约 14.5°", "约 27°"]),
                 ]
             )
-            LearnDocText.footnote("极值 33.7° 出现在切角 28.1°（球厚度约 0.53）。超出 14°–49° 就别硬记 30°，改查表或换「90° 法则」。")
+            LearnDocText.footnote("表中数值来自等质量、理想碰撞模型，极值约 33.7°，出现在切角约 28.1°。超出范围后仍要看自然滚动的实际走向，不能只因厚度变了就改套 90° 法则。")
 
             LearnDocFormulaNest(title: "更准一点的记法（可选）") {
-                LearnDocText.footnote("自然滚动的最终方向，可以想成「5/7 沿切线 + 2/7 沿原瞄准线」——对任意切角都成立；30° 只是中间那段的速记。")
+                LearnDocText.footnote("理想模型中，恢复滚动后的速度向量 = 5/7 × 碰后瞬间速度向量 + 2/7 × 碰前速度向量。前一项沿切线，但大小随切角变化；这不是把两条等长方向线按 5∶2 拼起来，也不是最终停点公式。")
             }
         }
     }
@@ -112,7 +112,7 @@ struct TheoryT01View: View {
             TheoryNumberedList(steps: [
                 .init(
                     "先看是不是自然滚动",
-                    detail: "母球离目标球至少大约一颗球径、中等力度、又没明显加塞时，多半已经是自然滚动；否则先按「90° 法则」想。"
+                    detail: "判断到达目标球时是否已经滚起来。打点、力度、距离和台呢都会影响这个状态，不能只凭两球相隔多远来决定。"
                 ),
                 .init(
                     "估厚度",
@@ -120,11 +120,11 @@ struct TheoryT01View: View {
                 ),
                 .init(
                     "V 字手势",
-                    detail: "厚度落在 1/4–3/4 里：食指对准原瞄准线，中指就是母球大概会偏出去的方向。"
+                    detail: "先练熟约 30° 的手势夹角。一指沿母球碰前方向，另一指提示碰后的大致走向；手势是估计，不是精密量角。"
                 ),
                 .init(
                     "力度修正",
-                    detail: "打得重时，母球会先沿切线多走一段再弯到约 30°——V 字整体稍往切线一侧挪一点。慢一点反而更安全，不容易先擦到旁边的球。"
+                    detail: "同样的到球旋转状态下，速度越快，弯向稳定方向前经过的距离通常越长。附近有障碍或袋口时，要看整段路线，不能只看最后朝向。"
                 ),
             ])
         }
@@ -133,16 +133,16 @@ struct TheoryT01View: View {
     // MARK: - 袋口球半球双规则
 
     private var hangerHalfBall: some View {
-        LearnDocSectionCard(title: "袋口球：半球的两条精确走向") {
-            LearnDocText.body("目标球挂在袋口附近时，业余常觉得走位余量特别小——其实半球击打有两条很干净的几何规则：")
+        LearnDocSectionCard(title: "袋口球：用半球找走位参照") {
+            LearnDocText.body("袋口球能从较宽的方向打进，难点往往在母球接下来去哪。下面两种接近方向可以帮助记忆，但要先确认目标球在袋口的实际位置、击球厚度和母球旋转。")
             TheoryMatrixTable(
-                columnTitles: ["母球怎么靠近", "半球打完后母球往哪走"],
+                columnTitles: ["半球打完后母球往哪走"],
                 rows: [
-                    .init("沿库朝角袋", ["沿对角线，朝对侧中袋离开"]),
-                    .init("沿对角线朝角袋", ["沿着库边离开"]),
+                    .init("接近沿库朝角袋", ["可向斜穿台面的方向找走位"]),
+                    .init("斜向接近角袋", ["可向沿库的方向找走位"]),
                 ]
             )
-            LearnDocText.footnote("这是 30° 法则在「目标球几乎贴着袋口」时的精确化。合适角度下，袋口球也可以当很好的关键球来用。")
+            LearnDocText.footnote("这两行是观察方向，不保证母球必到某个袋或严格平行库边。袋口球能否作关键球，要看能不能稳定给下一颗留下合适位置。")
         }
     }
 
@@ -150,12 +150,12 @@ struct TheoryT01View: View {
 
     private var scope: some View {
         LearnDocSectionCard(title: "什么时候成立") {
-            LearnDocText.body("碰撞瞬间母球已是完全自然滚动、切角在 14°–49°、常规力度、中杆——这几条都齐，才好用约 30° 来估。")
+            LearnDocText.body("先确认碰球时自然滚动，再看厚度是否在常用范围内。约 30° 帮你估方向，不能单独告诉你母球会走多远，也不能替代吃库和障碍判断。")
             LearnDocFormulaNest(title: "容易失效的几处") {
                 LearnDocText.footnote("极薄或极厚（切角小于约 10° 或大于约 60°）：偏折角会明显离开 30°，往 0° 靠。")
-                LearnDocText.footnote("短距中杆、或远距强后旋：碰撞瞬间还在滑动——改用「90° 法则」。")
+                LearnDocText.footnote("仍带后旋、前旋不足或前旋过强时，都不属于自然滚动。只有到球时几乎没有前后旋的斯登状态，才用 90° 法则作参照。")
                 LearnDocText.footnote("加了塞：挤偏和弧线会先改掉母球实际入射方向，30° 仍可当参考，但要先校正那条入射线。")
-                LearnDocText.footnote("正撞直球（切角 0°）：母球停下或前后跟进，不偏 30°。")
+                LearnDocText.footnote("自然滚动的正撞直球，母球碰后会继续向前跟进，不向侧面偏 30°。")
             }
         }
     }
@@ -165,11 +165,11 @@ struct TheoryT01View: View {
     private static let mistakes: [TheoryMistakeCard.Mistake] = [
         .init(
             wrong: "半球撞一下，以为母球会停住",
-            right: "半球 + 自然滚动走的是约 30°；母球停住是直球滑动（停球）那一类，别和「90° 法则」搞混。"
+            right: "半球自然滚动时，母球碰后仍会向侧前方走。直球停球需要到球时几乎没有前后旋，是另一种状态。"
         ),
         .init(
             wrong: "以为母球一碰完就立刻偏 30°",
-            right: "力度越大，沿切线先走的那段越长，之后才弯到约 30°。用 30° 躲球团或防吃库时，慢一点更稳。"
+            right: "30° 说的是恢复滚动后的大致方向。障碍很近时，还要检查碰后最初那段路线；只看远处朝向可能漏掉碰球或落袋风险。"
         ),
     ]
 
@@ -189,12 +189,12 @@ struct TheoryT01View: View {
 
             LearnDocTextLink(
                 title: "90° 法则",
-                subtitle: "滑动状态的另一极：两球分离角 90°",
+                subtitle: "到球时几乎没有前后旋，用近似 90° 判断分离方向",
                 route: .theoryPage(.t02)
             )
             LearnDocTextLink(
                 title: "切线法则",
-                subtitle: "30° 法则的几何祖父：碰撞瞬间先沿切线",
+                subtitle: "先找切线参照，再理解前旋如何改变路线",
                 route: .theoryPage(.t03)
             )
             LearnDocTextLink(

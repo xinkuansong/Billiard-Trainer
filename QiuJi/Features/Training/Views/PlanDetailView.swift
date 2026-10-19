@@ -721,10 +721,7 @@ struct PlanDetailView: View {
                                     }
                                 } label: {
                                     HStack(spacing: Spacing.md) {
-                                        Image(systemName: selectedLessonIDs.contains(lesson.id)
-                                              ? "checkmark.circle.fill" : "circle")
-                                            .foregroundStyle(selectedLessonIDs.contains(lesson.id)
-                                                             ? Color.btPrimary : Color.btTextTertiary)
+                                        BTSelectionIndicator(isSelected: selectedLessonIDs.contains(lesson.id))
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(lesson.title).foregroundStyle(.btText)
                                             Text(lessonStatus(lesson).title)
@@ -837,6 +834,8 @@ struct PlanDetailView: View {
             }.count
             showArrangeSheet = false
             BTToast.present(added == 0 ? "所选课程已在今日安排" : "已加入今日安排") { toast = $0 }
+        } catch let error as ProContentAccess.Failure {
+            BTToast.present(error.localizedDescription, tone: .warning) { toast = $0 }
         } catch {
             BTToast.present("加入失败，请稍后重试", tone: .error) { toast = $0 }
         }
@@ -1046,6 +1045,9 @@ struct PlanDetailView: View {
             target = try PlanProgressService.activateOfficialPlan(
                 plan, ownerKey: ownerKey, context: modelContext
             )
+        } catch let error as ProContentAccess.Failure {
+            BTToast.present(error.localizedDescription, tone: .warning) { toast = $0 }
+            return
         } catch {
             BTToast.present("切换失败，已保留原计划，请稍后重试", tone: .error) { toast = $0 }
             return

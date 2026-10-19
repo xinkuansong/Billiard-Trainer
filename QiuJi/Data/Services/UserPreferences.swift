@@ -6,13 +6,19 @@ enum PreferredSport: String, CaseIterable, Identifiable {
     case chinese8 = "chinese8"
     case nineBall = "nineBall"
     case both = "both"
+    case zhuifen = "zhuifen"
+    case other = "other"
+
+    static let onboardingChoices: [PreferredSport] = [.chinese8, .zhuifen, .both, .other]
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
-        case .chinese8: return "中式台球"
-        case .nineBall: return "9球"
+        case .chinese8: return "中八"
+        case .nineBall: return "9 球"
+        case .zhuifen: return "追分"
+        case .other: return "其他"
         case .both:     return "两者"
         }
     }
@@ -133,8 +139,8 @@ final class UserPreferences: ObservableObject {
         if let raw = defaults.string(forKey: DailyClearanceStoreKey.preferredGame),
            DailyClearanceGame(rawValue: raw) != nil { return }
         // “两者”没有单一玩法含义，保留当前值；无历史时初始化为中八。
-        guard sport != .both else { return }
-        dailyClearanceGame = DailyClearanceGame.initialDefault(for: sport)
+        guard sport != .both, let game = DailyClearanceGame.initialDefault(for: sport) else { return }
+        dailyClearanceGame = game
         defaults.set(dailyClearanceGame.rawValue, forKey: Self.inferredGameKey)
     }
 
@@ -257,7 +263,7 @@ final class UserPreferences: ObservableObject {
                   let game = DailyClearanceGame(rawValue: raw) {
             self.dailyClearanceGame = game
         } else {
-            self.dailyClearanceGame = DailyClearanceGame.initialDefault(for: initialSport)
+            self.dailyClearanceGame = DailyClearanceGame.initialDefault(for: initialSport) ?? .chineseEightBall
         }
 
         OwnerProfileStore.migrateLegacyGuestProfile(in: defaults)

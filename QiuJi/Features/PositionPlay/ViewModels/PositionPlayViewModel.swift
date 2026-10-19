@@ -36,6 +36,26 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 当前在桌球键（顺序：母球优先，目标球按号）。
     @Published private(set) var onTableKeys: [String] = []
+    var isFormationEditing = false
+    private(set) var customBallKeys: [String]?
+    var availableBallKeys: [String] { customBallKeys ?? PositionPlayBall.allKeys }
+
+    func configureCustomBalls(_ keys: [String]) {
+        guard !isPlaying else { return }
+        customBallKeys = [PositionPlayBall.cueKey] + keys.filter { PositionPlayBall.isInstance($0) }
+        scene.configureBallInstances(keys)
+        refreshOnTableKeys()
+    }
+
+    /// An explicit user edit starts a new shot history; automatic scratch return does not call this.
+    func invalidateEditedShotHistory() {
+        guard !isPlaying else { return }
+        invalidatePendingPredict()
+        lastShot = nil; lastShotSelection = nil; lastShotBeforePoses = nil
+        lastPlaybackContext = nil; canReplay = false; canPlayback = false
+        lastShotBeforeRails = PocketRailSnapshot()
+        scene.railInventory.clear()
+    }
     @Published private(set) var selectedTargetKey: String? {
         didSet {
             if oldValue != selectedTargetKey { refreshSelectionRing() }
@@ -49,7 +69,7 @@ final class PositionPlayViewModel: ObservableObject {
     /// 球库展示序（#1/#2）：在库球按固定顺序（母球、1…15）排列；
     /// 球上桌即从中消失、后续球补位（向上/向左流动），回库时按号序插回。
     var paletteKeys: [String] {
-        PositionPlayBall.allKeys.filter { !onTableKeys.contains($0) }
+        availableBallKeys.filter { !onTableKeys.contains($0) }
     }
 
     @Published private(set) var cameraTransitionBusy = false
@@ -1012,7 +1032,7 @@ final class PositionPlayViewModel: ObservableObject {
     // MARK: - Palette (place / remove)
 
     private func refreshOnTableKeys() {
-        onTableKeys = PositionPlayBall.allKeys.filter { !(scene.allBallNodes[$0]?.isHidden ?? true) }
+        onTableKeys = availableBallKeys.filter { !(scene.allBallNodes[$0]?.isHidden ?? true) }
     }
 
     /// 从球库把一颗球放上桌（自动找一个空位）。
@@ -1292,7 +1312,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 自由模式：点击桌面任意点设定瞄准方向（母球 → 点击点）。袋口模式忽略。
     func handleTableTap(world: SCNVector3) {
-        guard aimMode == .free, !isPlaying else { return }
+        guard !isFormationEditing, aimMode == .free, !isPlaying else { return }
         let previousSelection = selectionSnapshot
         defer { invalidateTwoViewContextForSelection(from: previousSelection) }
         setFreeAim(toward: world)
@@ -1456,7 +1476,7 @@ final class PositionPlayViewModel: ObservableObject {
                 scene.setIdealObjectLine(IdealObjectDirection.preview(
                     target: CGPoint(x: CGFloat(targetNode.position.x), y: CGFloat(targetNode.position.z)),
                     ghost: CGPoint(x: CGFloat(ghost.position.x), y: CGFloat(ghost.position.z)))?.line,
-                                         detail: UserPreferences.shared.trajectoryDetail)
+                                         detail: scene.effectiveTrajectoryDetail)
             } else {
                 scene.setIdealObjectLine(nil)
             }
@@ -1613,6 +1633,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// Choose the nearest feasible straight pocket, with optional temporary free-aim fallback.
     private func selectBestPocket() {
+        guard !isFormationEditing else { return }
         guard let targetKey = selectedTargetKey,
               let target = scene.allBallNodes[targetKey], !target.isHidden else { return }
         selectionChangeDepth += 1
@@ -1663,6 +1684,10 @@ final class PositionPlayViewModel: ObservableObject {
     ///   `false` = 离散变更（点选目标/袋口、参数微调），按 ~20ms 快速触发（原手感）。
     func recompute(interactive: Bool = false, debounceInterval: TimeInterval? = nil,
                    continuousPreview: Bool = false) {
+        if isFormationEditing {
+            invalidatePendingPredict(); clearTrajectory(); scene.hideAllVisualization(); scene.hideCueStick()
+            isComputing = false; isFeasible = false; return
+        }
         guard selectionChangeDepth == 0 else { return }
         #if DEBUG
         entryTiming["solveRequests", default: 0] += 1
@@ -2170,7 +2195,7 @@ final class PositionPlayViewModel: ObservableObject {
             scene: scene,
             into: &trajectoryNodes
         )
-        scene.closeupCuePath = DailyCloseupTrajectory.protectedCuePath(p, detail: UserPreferences.shared.trajectoryDetail)
+        scene.closeupCuePath = DailyCloseupTrajectory.protectedCuePath(p, detail: scene.effectiveTrajectoryDetail)
     }
 
     private func clearTrajectory() {
@@ -2248,6 +2273,7 @@ final class PositionPlayViewModel: ObservableObject {
     // MARK: - Strike (#10 运杆 + 击球)
 
     func play() {
+        guard !isFormationEditing else { return }
         guard !isViewingAuthoringInitial else { return }
         guard !(isGuidedTryout && canReplay) else { return }
         scene.cancelPocketSelectionFeedback()
@@ -2710,7 +2736,7 @@ final class PositionPlayViewModel: ObservableObject {
     /// 回放收尾：清动画、恢复当前局面（after，位置 + 姿态），重新求解。
     private func finishPlayback(after: BoardSnapshot, afterPoses: BallPoseSnapshot) {
         ShotAudioScheduler.shared.cancel()
-        for key in PositionPlayBall.allKeys {
+        for key in availableBallKeys {
             guard let node = scene.allBallNodes[key] else { continue }
             if node.parent == nil { scene.rootNode.addChildNode(node) }
             TableBallPulse.restore(node)

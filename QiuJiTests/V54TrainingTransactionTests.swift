@@ -21,15 +21,19 @@ final class V54TrainingTransactionTests: XCTestCase {
     private var container: ModelContainer!
     private var context: ModelContext!
     private let owner = "guest:v54-transaction"
+    private var previousOwner = ""
 
     override func setUp() {
         super.setUp()
+        previousOwner = CurrentOwnerContext.shared.ownerKey
+        CurrentOwnerContext.shared.setOwnerKey(owner)
         container = ModelContainerFactory.makeInMemoryContainer()
         context = container.mainContext
         SyncQueueManager.shared.configure(context: context)
     }
 
     override func tearDown() {
+        CurrentOwnerContext.shared.setOwnerKey(previousOwner)
         SyncQueueManager.shared.backend = LiveSyncBackend()
         context = nil
         container = nil
@@ -81,9 +85,17 @@ final class V54TrainingTransactionTests: XCTestCase {
         let activeAfterFailure = try XCTUnwrap(try context.fetch(FetchDescriptor<UserActivePlan>()).first)
         XCTAssertEqual(activeAfterFailure.currentLessonId, fixture.plan.lessons[0].id)
 
+        let fresh = ModelContext(container)
+        XCTAssertTrue(try fresh.fetch(FetchDescriptor<TrainingSession>()).isEmpty)
+        XCTAssertTrue(try fresh.fetch(FetchDescriptor<SyncPendingItem>()).isEmpty)
+        XCTAssertEqual(try fresh.fetch(FetchDescriptor<TodayScheduleItem>()).first?.state, TodayScheduleItemState.pending)
+        XCTAssertEqual(try fresh.fetch(FetchDescriptor<UserActivePlan>()).first?.currentLessonId, fixture.plan.lessons[0].id)
+        XCTAssertTrue(context.autosaveEnabled)
+
         vm.saveTraining(context: context)
 
         XCTAssertTrue(vm.didSaveSuccessfully)
+        XCTAssertTrue(context.autosaveEnabled)
         XCTAssertEqual(try context.fetch(FetchDescriptor<TrainingSession>()).count, 1)
         XCTAssertEqual(try context.fetch(FetchDescriptor<SyncPendingItem>()).count, 1)
         XCTAssertEqual(try fetchItem(id: block.scheduleItemID)?.state, TodayScheduleItemState.completed)
@@ -107,9 +119,9 @@ final class V54TrainingTransactionTests: XCTestCase {
     func test_payloadSnapshot_survivesSourceDeletionAndIsUsedForLaunch() async throws {
         let template = CustomPlan(name: "我的定杆复练", sessionsPerWeek: 3, ownerKey: owner)
         let drill = CustomPlanDrill(drillId: "drill_c001", drillNameZh: "冻结名称", roundsPerFormation: 2, order: 0)
-        template.drills = [drill]
         context.insert(template)
         context.insert(drill)
+        template.drills = [drill]
         try context.save()
         let service = TodayTrainingScheduleService(context: context)
         let item: TodayScheduleItem
@@ -201,6 +213,7 @@ final class V54TrainingTransactionTests: XCTestCase {
         let vm = ActiveTrainingViewModel(mode: .scheduledSequence(blocks))
         await vm.loadDrills()
         for d in vm.drillSetsData.indices {
+            XCTAssertTrue(vm.authorizeDrill(at: d))
             for s in vm.drillSetsData[d].indices { vm.drillSetsData[d][s].isCompleted = true }
         }
         vm.elapsedSeconds = 17 * 60
@@ -247,6 +260,7 @@ final class V54TrainingTransactionTests: XCTestCase {
         })
         await vm.loadDrills()
         for d in vm.drillSetsData.indices {
+            XCTAssertTrue(vm.authorizeDrill(at: d))
             for s in vm.drillSetsData[d].indices { vm.drillSetsData[d][s].isCompleted = true }
         }
         vm.saveTraining(context: context)
@@ -281,13 +295,14 @@ final class V54TrainingTransactionTests: XCTestCase {
     func test_sequence_editingDrillsKeepsOwnershipAndDoesNotCompleteRemovedWork() async throws {
         let fixture = try arrangeTwoLessons()
         let blocks = try fixture.items.map { try ScheduledTrainingBlock(item: $0) }
-        let vm = ActiveTrainingViewModel(mode: .scheduledSequence(blocks))
+        let vm = ActiveTrainingViewModel(mode: .scheduledSequence(blocks), access: ProContentAccess(decision: { _ in .allowed }, drillRequirement: { _ in false }))
         await vm.loadDrills()
         vm.removeDrill(at: IndexSet(integer: 0))
         let extra = try XCTUnwrap(DrillContentService.decodeDrillFromBundle(id: "drill_c053"))
         XCTAssertFalse(vm.drills.contains { $0.drillId == extra.id })
         vm.addDrill(extra)
         for d in vm.drillSetsData.indices {
+            XCTAssertTrue(vm.authorizeDrill(at: d))
             for s in vm.drillSetsData[d].indices { vm.drillSetsData[d][s].isCompleted = true }
         }
         vm.saveTraining(context: context)

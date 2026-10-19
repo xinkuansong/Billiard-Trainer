@@ -54,6 +54,8 @@ final class CustomPlanBuilderViewModel: ObservableObject {
     private static let frozenSessionsPerWeek = 1
 
     let editingPlanId: UUID?
+    private let ownerKey = CurrentOwnerContext.shared.ownerKey
+    private let access: ProContentAccess
 
     var isEditing: Bool { editingPlanId != nil }
 
@@ -69,8 +71,9 @@ final class CustomPlanBuilderViewModel: ObservableObject {
         drillItems.reduce(0) { $0 + $1.totalBalls }
     }
 
-    init(editingPlanId: UUID? = nil) {
+    init(editingPlanId: UUID? = nil, access: ProContentAccess? = nil) {
         self.editingPlanId = editingPlanId
+        self.access = access ?? .live
     }
 
     func loadExistingPlan(context: ModelContext) {
@@ -97,6 +100,8 @@ final class CustomPlanBuilderViewModel: ObservableObject {
 
     func addDrill(_ content: DrillContent) {
         guard !drillItems.contains(where: { $0.drillId == content.id }) else { return }
+        do { try access.requireDrills([content.id]) }
+        catch { saveError = error.localizedDescription; return }
         // 默认遍数 = 1（完整剂量，位置全覆盖）。
         drillItems.append(Self.makeItem(
             drillId: content.id,
@@ -174,6 +179,7 @@ final class CustomPlanBuilderViewModel: ObservableObject {
 
     /// Saves plan and returns the saved plan's UUID for activation, or nil on failure.
     func save(context: ModelContext) -> UUID? {
+        guard ownerKey == CurrentOwnerContext.shared.ownerKey else { saveError = "账号已切换，请重新打开模版"; return nil }
         saveError = nil
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         guard !trimmedName.isEmpty, !drillItems.isEmpty else {
@@ -188,6 +194,8 @@ final class CustomPlanBuilderViewModel: ObservableObject {
                     predicate: #Predicate { $0.ownerKey == ownerKey && $0.id == existingId }
                 )
                 if let existing = try context.fetch(descriptor).first {
+                    let retained = Set(existing.drills.map(\.drillId))
+                    try access.requireDrills(drillItems.map(\.drillId).filter { !retained.contains($0) })
                     existing.name = trimmedName
                     existing.sessionsPerWeek = Self.frozenSessionsPerWeek
                     for drill in existing.drills {
@@ -199,6 +207,7 @@ final class CustomPlanBuilderViewModel: ObservableObject {
                 }
             }
 
+            try access.requireDrills(drillItems.map(\.drillId))
             let plan = CustomPlan(name: trimmedName,
                                   sessionsPerWeek: Self.frozenSessionsPerWeek,
                                   ownerKey: ownerKey)
@@ -206,6 +215,9 @@ final class CustomPlanBuilderViewModel: ObservableObject {
             context.insert(plan)
             try context.save()
             return plan.id
+        } catch let error as ProContentAccess.Failure {
+            saveError = error.localizedDescription
+            return nil
         } catch {
             saveError = "保存失败，请确认设备存储空间充足后重试"
             return nil
@@ -222,7 +234,7 @@ final class CustomPlanBuilderViewModel: ObservableObject {
             guard let plan = try context.fetch(descriptor).first else {
                 throw DrillTrainingPlanService.ServiceError.planNotFound
             }
-            try DrillTrainingPlanService.activate(plan: plan, context: context)
+            try DrillTrainingPlanService.activate(plan: plan, context: context, access: access)
             try context.save()
         } catch {
             if saveError == nil {

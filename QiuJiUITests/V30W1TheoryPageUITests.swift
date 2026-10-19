@@ -10,8 +10,8 @@ import XCTest
 /// 截图落盘 `build/v30-w1-rework-screenshots/`。
 final class V30W1TheoryPageUITests: XCTestCase {
 
-    private let outDir = URL(
-        fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v30-w1-rework-screenshots"
+    private let outDir = TheoryFigureEvidence.outputDirectory(
+        fallback: "/Users/song/projects/13.billiard_trainer/build/v30-w1-rework-screenshots"
     )
 
     private var app: XCUIApplication!
@@ -19,7 +19,7 @@ final class V30W1TheoryPageUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
-        app = XCUIApplication.launchClean()
+        app = XCUIApplication.launchClean(extraArgs: ["-v51.followSystemAppearance"])
     }
 
     func testV30W1_TheoryPagesLight() {
@@ -73,17 +73,14 @@ final class V30W1TheoryPageUITests: XCTestCase {
         )
         sleep(3)
         savePNG("theory-\(pageID)-top-\(suffix)")
+        if pageID == "t03" {
+            TheoryFigureEvidence.exerciseAngleSlider("theoryT03.thetaSlider", app: app, title: title)
+        }
 
         for identifier in figureIdentifiers {
-            let figure = app.descendants(matching: .any)[identifier].firstMatch
-            var tries = 0
-            while !figure.exists && tries < 6 {
-                app.swipeUp()
-                tries += 1
-                sleep(1)
-            }
-            XCTAssertTrue(figure.exists, "\(pageID) 详情页应有说明图 \(identifier)")
-            savePNG("theory-\(pageID)-figure-\(identifier.replacingOccurrences(of: ".", with: "-"))-\(suffix)")
+            captureTheoryFigure(identifier, app: app, navigationTitle: title,
+                                fileStem: "theory-\(pageID)-figure-\(identifier.replacingOccurrences(of: ".", with: "-"))-\(suffix)",
+                                outDir: outDir)
         }
 
         app.swipeUp()

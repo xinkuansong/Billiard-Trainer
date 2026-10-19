@@ -37,8 +37,8 @@ enum BallStickerAppearance {
         // Resolve the complete set before mutating materials; a missing resource
         // must not leave one table displaying a mixture of styles.
         var resolved: [(SCNNode, UIImage, String)] = []
-        for number in 1...15 {
-            guard let ball = balls["_\(number)"] else { continue }
+        for (key, ball) in balls {
+            guard let number = PositionPlayBall.number(for: key) else { continue }
             guard let image = image(named: style.textureName(number: number)) else { return false }
             resolved.append((ball, image, "_\(number)"))
         }

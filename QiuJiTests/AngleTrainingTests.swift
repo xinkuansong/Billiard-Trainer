@@ -270,6 +270,38 @@ final class AngleUsageLimiterTests: XCTestCase {
         XCTAssertTrue(AngleUsageLimiter.shared === AngleUsageLimiter.shared)
     }
 
+    func test_liveInstanceCrossesMidnightAndPersistsOnlyNewDayAnswers() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        var now = calendar.date(from: DateComponents(year: 2026, month: 10, day: 17, hour: 23, minute: 59))!
+        let limiter = AngleUsageLimiter(defaults: defaults, now: { now }, calendar: { calendar })
+        for _ in 0..<20 { limiter.recordQuestion() }
+        XCTAssertTrue(limiter.isLimitReached)
+        now = now.addingTimeInterval(120)
+        XCTAssertEqual(limiter.remainingToday, 20)
+        XCTAssertFalse(limiter.isLimitReached)
+        limiter.recordQuestion()
+        XCTAssertEqual(limiter.questionsUsedToday, 1)
+        let relaunched = AngleUsageLimiter(defaults: defaults, now: { now }, calendar: { calendar })
+        XCTAssertEqual(relaunched.remainingToday, 19)
+    }
+
+    func test_timezoneChangeRefreshAndPremiumDowngradeUseCurrentDay() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 10, day: 17, hour: 23))!
+        let limiter = AngleUsageLimiter(defaults: defaults, now: { now }, calendar: { calendar })
+        limiter.isPremium = true
+        for _ in 0..<21 { limiter.recordQuestion() }
+        XCTAssertFalse(limiter.isLimitReached)
+        limiter.isPremium = false
+        XCTAssertTrue(limiter.isLimitReached)
+        calendar.timeZone = TimeZone(secondsFromGMT: 8 * 3600)!
+        limiter.refreshDay()
+        XCTAssertEqual(limiter.questionsUsedToday, 0)
+        XCTAssertEqual(limiter.remainingToday, 20)
+    }
+
     func test_storageKeys_unchanged() {
         XCTAssertEqual(PracticeStorageKey.angleUsageCount, "AngleUsage_count")
         XCTAssertEqual(PracticeStorageKey.angleUsageDate, "AngleUsage_date")
@@ -346,6 +378,8 @@ final class TrainingAssistSceneTests: XCTestCase {
         vm.endTemporaryTopDown()
         XCTAssertFalse(rig.temporaryTopDownActive)
         XCTAssertEqual(rig.playerView, .firstPerson)
+        vm.openAnswerInput(); vm.userInput = "45"; vm.submitAnswer()
+        XCTAssertEqual(vm.phase, .showingResult)
         vm.beginTemporaryTopDown()
         let revision = vm.topDownContentRevision
         vm.advanceToNext()
@@ -389,6 +423,11 @@ final class TrainingAssistSceneTests: XCTestCase {
         XCTAssertEqual(haptics, 0, "Initial training settings must stay quiet")
         vm.startTest()
         XCTAssertEqual(haptics, 1)
+        vm.advanceToNext()
+        XCTAssertEqual(haptics, 1, "An unanswered question cannot be advanced")
+        vm.openAnswerInput(); vm.userInput = "45"; vm.submitAnswer()
+        XCTAssertEqual(vm.phase, .showingResult)
+        XCTAssertEqual(haptics, 1, "Submitting does not select another pocket")
         for question in 2...7 {
             // Whichever pocket is generated, its persistent style is already selected.
             // This exercises same-pocket questions without relying on random chance.
@@ -943,5 +982,43 @@ extension CushionReflectionTests {
         XCTAssertEqual(path[1].z, rail.coord, accuracy: 0.03)
         XCTAssertEqual(path[2].x, target.x, accuracy: 0.02)
         XCTAssertEqual(path[2].z, target.z, accuracy: 0.02)
+    }
+}
+
+
+@MainActor
+final class ProQuotaSubmissionTests: XCTestCase {
+    func testSharedLastQuestionAndDuplicateSubmissions() {
+        let suite = "pro-quota-submit-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let limiter = AngleUsageLimiter(defaults: defaults)
+        for _ in 0..<19 { limiter.recordQuestion() }
+        let geometry = GeometricAngleViewModel(limiter: limiter)
+        let aim = AimPointTrainingViewModel(limiter: limiter)
+        aim.setQuestionForTesting(.init(angleDegrees: 30, cutsRight: true))
+        geometry.userInput = "30"
+        geometry.submitAnswer()
+        geometry.submitAnswer()
+        aim.submit()
+        XCTAssertEqual(limiter.questionsUsedToday, 20)
+        XCTAssertEqual(geometry.sessionResults.count, 1)
+        XCTAssertTrue(aim.sessionResults.isEmpty)
+        limiter.isPremium = true
+        aim.submit(); aim.submit()
+        XCTAssertEqual(limiter.questionsUsedToday, 21)
+        XCTAssertEqual(aim.sessionResults.count, 1)
+        limiter.isPremium = false
+        XCTAssertTrue(limiter.isLimitReached)
+    }
+
+    func testAllPaidRoutesAndRepresentativeFreeRoutes() {
+        let paid: [AngleRoute] = [.separationAngleAtlas, .cushionEnglishAtlas, .sceneAiming3D,
+            .aimPointScene3D, .snakePractice, .positionPlayComposer, .ballExtraction, .planThree, .snookerTactics, .bankShot, .diamondSystem]
+        XCTAssertEqual(paid.count, 11)
+        for route in paid { XCTAssertTrue(route.requiresPremium) }
+        let free: [AngleRoute] = [.theoryIndex, .angleDynamic, .geometricQuiz, .sceneAiming2D,
+            .aimPointTraining, .aimPointScene2D, .freePlay, .customFormationPractice]
+        for route in free { XCTAssertFalse(route.requiresPremium) }
     }
 }

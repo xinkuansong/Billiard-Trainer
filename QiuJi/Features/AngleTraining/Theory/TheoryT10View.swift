@@ -14,9 +14,9 @@ struct TheoryT10View: View {
             VStack(spacing: Spacing.xxl) {
                 TheoryPageHeader(
                     pageID: .t10,
-                    headline: "安全球质量看三个独立维度",
-                    detail: "拉开距离、占住库位、用障碍球挡住。理想一手三维都拿到；三问没过时，按「满足几个维度」逐级降级。",
-                    caption: "任一维度都能独立抬高质量；维度越多越强，也越难做。"
+                    headline: "从距离、库位和障碍，看防守留下了什么",
+                    detail: "拉开距离可以增加进攻难度，贴库可能限制杆法，障碍球可以挡住直接路线。用这三个角度检查防守，再看自己能否做成、对手会怎样应对。",
+                    caption: "三个维度可以配合使用，但数量不等于质量。一个可靠的限制，有时比勉强凑齐三个更有效。"
                 )
 
                 whyItWorks
@@ -40,16 +40,16 @@ struct TheoryT10View: View {
 
     private var whyItWorks: some View {
         LearnDocSectionCard(title: "防守是主动塑造对手困境") {
-            LearnDocText.body("防守不是消极——是把局面交还时，让对手处于比你更差的位置。业余常把安全球等同于「藏球」，其实那只是障碍球这一个维度；任一维度都能独立抬高质量。")
+            LearnDocText.body("防守的目标，是限制对手下一杆，同时为自己保留机会。把母球藏住是一种方法，留下难以进攻的距离或不舒服的出杆位置，也可能有价值。要看对手实际剩下什么选择，而不只看球藏得深不深。")
 
             SafetyDimensionFigure()
                 .frame(height: 230)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
                 .accessibilityElement(children: .ignore)
                 .accessibilityIdentifier("theoryT10.dimensionFigure")
-                .accessibilityLabel("安全球三个独立维度：拉开距离、占住库位、用障碍球挡住。理想是三维全包含。")
+                .accessibilityLabel("防守的三个观察角度：距离、库位和障碍。可以组合，但要检查实际限制与执行把握，不能按数量直接评定质量。")
 
-            LearnDocText.footnote("理想安全球三维全包含；只做成一两个，也仍有很大机会再上台。")
+            LearnDocText.footnote("图中的连线表示可以组合使用，不表示三项彼此独立，也不保证叠加后一定更好。")
         }
     }
 
@@ -60,19 +60,19 @@ struct TheoryT10View: View {
             TheoryNumberedList(steps: [
                 .init(
                     "拉开距离",
-                    detail: "母球与目标球尽量远，典型至少约三分之二桌长。长距逼对手更准的瞄准、更难的弧线与加塞估算。这是最容易拿到的维度——通常只需控好一颗球的速度。"
+                    detail: "增加母球与合法目标球之间的距离，往往能提高瞄准和控制难度。但还要看目标球离袋多远、角度是否简单，不能只用两球距离判定安全。"
                 ),
                 .init(
                     "占住库位",
-                    detail: "母球与目标球各自落在对侧库的中段。母球贴库时，对手往往只能看到球顶，难加塞、难打后旋。「中段」要离袋口够远，避免对手直接进或翻袋。"
+                    detail: "母球贴库可能限制低打点和舒适出杆，目标球靠库也会改变进攻与解球路线。但贴库不自动等于难打，还要检查薄球、翻袋和一库解球等选择。"
                 ),
                 .init(
                     "用障碍球挡住",
-                    detail: "两球之间被另一颗球或球团挡住直接路径，逼对手至少踢一库或起跳。这是最强也最难的维度——要同时控母球与目标球的位置。"
+                    detail: "用另一颗球或球团挡住直接路径，让对手需要绕路。检查是否真的挡住了合法目标，以及仍可用哪些库线；即使完全遮挡，也未必难解。"
                 ),
             ])
             LearnDocFormulaNest(title: "沿阴影走，别横切") {
-                LearnDocText.footnote("把对手的目标球想成光源、中间障碍想成遮光物，桌面上投出的阴影区就是母球可藏身区。母球应沿阴影方向走（容差大），而不是垂直穿过阴影（容差小）。")
+                LearnDocText.footnote("可把目标球想成光源、障碍球想成遮光物，帮助寻找遮挡区。这只是直观比喻，实际要算上球的大小和可击边缘。若母球沿遮挡区较长的方向进入，通常比横穿狭窄区域更容易控制停点。")
             }
         }
     }
@@ -80,27 +80,27 @@ struct TheoryT10View: View {
     // MARK: - 降级路径（T10 §5）
 
     private var degradePath: some View {
-        LearnDocSectionCard(title: "三问没过后怎么选") {
+        LearnDocSectionCard(title: "从想要的结果，退到能稳定做到的结果") {
             SafetyDegradeLadderFigure()
                 .frame(height: 260)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
                 .accessibilityElement(children: .ignore)
                 .accessibilityIdentifier("theoryT10.ladderFigure")
-                .accessibilityLabel("安全球按维度数降级：先试三维，不行退到二维，再退到一维；通常一维先拿距离。")
+                .accessibilityLabel("检查三种限制的组合，复杂方案难以执行时简化到两种或一种。阶梯表示简化思路，不是防守质量等级。")
 
             TheoryNumberedList(steps: [
-                .init("评估资源", detail: "有没有球团、挡袋球、半桌空间、库边可用。"),
-                .init("优先试三维", detail: "同时满足距离 + 库位 + 障碍。"),
-                .init("退到二维", detail: "选最强组合，常见是「远 + 挡」。"),
-                .init("退到一维", detail: "通常先拿距离——最容易实现。"),
-                .init("加上执行修正", detail: "只控母球或只控目标球（优先控母球）；避开决胜球旁边；沿障碍球线进入；目标球离库别太近（约十五厘米内踢库容易碰到）。"),
+                .init("评估资源", detail: "看看可用的障碍球、库边和空间，也看对手有哪些合法目标。"),
+                .init("检查组合", detail: "能否同时利用距离、库位和障碍？先看路线是否可靠，不为凑齐三项增加无谓难度。"),
+                .init("简化到两项", detail: "例如远距离加遮挡。检查其中一项失手后，另一项是否仍有效。"),
+                .init("保住一项", detail: "复杂方案不稳时，选一个能做成的限制，再与进攻方案比较。"),
+                .init("确定主要控制对象", detail: "可以重点控制母球或目标球，让另一颗去较宽的区域；必要时仍需同时控制两球。检查落袋、组合球和容易的解球路线。"),
             ])
             TheoryMatrixTable(
-                columnTitles: ["维度数", "质量", "难度"],
+                columnTitles: ["可以得到什么", "还要检查什么"],
                 rows: [
-                    .init("1 维", ["低", "易"]),
-                    .init("2 维", ["中", "中"]),
-                    .init("3 维", ["高", "难"]),
+                    .init("1 项", ["集中做好一个限制", "是否仍留简单进攻"]),
+                    .init("2 项", ["两种限制相互补充", "路线是否难以兼顾"]),
+                    .init("3 项", ["限制更多种选择", "能否稳定执行"]),
                 ]
             )
         }
@@ -111,14 +111,14 @@ struct TheoryT10View: View {
     private var checklist: some View {
         LearnDocSectionCard(title: "出手前再过一遍") {
             TheoryNumberedList(steps: [
-                .init("距离够吗？", detail: "两球距离大约有没有到三分之二桌长。"),
-                .init("库位占住了吗？", detail: "母球贴库？目标球在对侧库中段？"),
-                .init("有障碍吗？", detail: "中间有没有球或球团挡住。"),
-                .init("只控一个？", detail: "同时控两球，精度会乘性变差——优先只控母球。"),
-                .init("有没有踩雷？", detail: "目标球别贴决胜球；别贴库太近；别给对手容易的一库踢。"),
-                .init("路径是沿阴影还是横切？", detail: "沿阴影走，速度容差更大。"),
+                .init("距离有用吗？", detail: "拉开后，对手是否仍有简单的进球角度或袋口球？"),
+                .init("库位限制了什么？", detail: "是否真的影响出杆、杆法或进攻路线？"),
+                .init("障碍挡住了吗？", detail: "检查目标球两侧，以及对手其他合法目标。"),
+                .init("控制重点清楚吗？", detail: "哪颗球必须到位，哪颗可以落在较宽的区域？"),
+                .init("有没有遗漏的机会？", detail: "再看组合球、翻袋、容易的解球，以及自己击球的合法性。"),
+                .init("落位区够宽吗？", detail: "尽量沿可用区域较长的方向进入，留出力度余地。"),
             ])
-            LearnDocText.body("六问过了再执行。安全球要按高难度球标准对待——完整准备、完整跟进，不是「打丢了也没事」的备选。")
+            LearnDocText.body("选好后，像认真进攻一样完成准备和出杆。防守也需要准确的厚度、速度和旋转，不能因为不瞄袋口就随手一推。")
         }
     }
 
@@ -126,10 +126,10 @@ struct TheoryT10View: View {
 
     private var scope: some View {
         LearnDocSectionCard(title: "什么时候进这条线") {
-            LearnDocText.body("开打前三问任一不过关，就必须进安全球这条线。决胜阶段已确认无法清台时，或自由球却清不了时，也进这里——有时把目标球放到球团附近，下次自由球再破。")
-            LearnDocText.body("不要把安全球当成「打不进才退而求其次」——被动防守效果差。要按「主动塑造对手困境」的姿态打。")
-            LearnDocText.body("球种差异：九球打丢有时还能变成防守；八球 / 中式八球打丢往往不能，安全球必须更精。中式八球球多桌相对紧，障碍球维度出现更勤，适合多做三维。")
-            LearnDocText.body("对手水平远高于自己时，弱防守可能反被踢库利用——反而要选高风险高回报的进攻。桌上空旷无球团时，障碍维拿不到，只能做一到二维。")
+            LearnDocText.body("进攻把握不足、后续路线困难，或防守能明显改善局面时，都值得把安全球放进比较。有自由球也不等于必须清台，可以先改善问题球，但不能把对手下一次犯规当成必然。")
+            LearnDocText.body("尽早比较进攻与防守，能保留更多选择。决定防守后，也要有明确的预期落点和下一步目的。")
+            LearnDocText.body("八球与九球的合法目标不同，障碍是否有效必须按当前规则判断。藏住一颗目标，不代表八球里其他合法球也被挡住。")
+            LearnDocText.body("面对解球能力强的对手，要重新评估防守的实际收益，而不是一律转成冒险进攻。桌面空旷时，可以更多利用距离、角度和库位。")
         }
     }
 
@@ -138,19 +138,19 @@ struct TheoryT10View: View {
     private static let mistakes: [TheoryMistakeCard.Mistake] = [
         .init(
             wrong: "以为安全球就是「藏球」",
-            right: "藏球只是障碍维。距离与库位各自都能独立抬高质量；理想是三维都拿到。"
+            right: "还要看距离与库位，并检查对手实际有哪些进攻和解球路线。"
         ),
         .init(
             wrong: "同时精确控母球和目标球",
-            right: "精度乘性变差。优先只控母球——切线加力度更稳。"
+            right: "先确定哪颗必须精确到位，让另一颗有更宽的容许区域。两球都要精确控制时，重新评估执行把握。"
         ),
         .init(
-            wrong: "把目标球推到贴库约十五厘米内",
-            right: "贴库太近会变成「大目标」，对手踢库更容易碰到。目标球要离库远一点。"
+            wrong: "目标球靠库，就认为一定难解",
+            right: "靠库有时会增加可碰到目标球的解球路线。看具体库线和可击范围，不能用固定离库距离一概判断。"
         ),
         .init(
             wrong: "停在第一眼看到的方案就出手",
-            right: "至少再剥两三层：优化路径、看阴影区、估对手多库踢的难度，再出手。"
+            right: "再看一个替代方案，并从对手的位置检查解球与反防路线，再作选择。"
         ),
     ]
 
@@ -163,7 +163,7 @@ struct TheoryT10View: View {
                 .foregroundStyle(.btText)
 
             PracticeCTA(
-                title: "先过三问，不过再进这里",
+                title: "比较进攻与防守的后果",
                 destination: "风险报酬决策矩阵：进得了吗、走得到位吗、代价扛得住吗",
                 route: .theoryPage(.t08)
             )
@@ -185,11 +185,11 @@ struct TheoryT10View: View {
             )
             LearnDocTextLink(
                 title: "母球速度分级",
-                subtitle: "拉开距离这一维，靠出杆长度控档最稳",
+                subtitle: "把预期落点换成可重复的力度",
                 route: .theoryPage(.t04)
             )
 
-            LearnDocText.footnote("这一条还没有绑定专门的跟练题目：先在练习里只做「远 + 贴库」二维，再加障碍维。")
+            LearnDocText.footnote("练习时先定一个明确的防守目标，打完站到对手的位置检查效果。能稳定做成后，再练加入第二种限制。")
         }
     }
 }
@@ -198,8 +198,8 @@ struct TheoryT10View: View {
 
 private struct SafetyDimensionFigure: View {
     private static let items = [
-        ("距离", "越远越难打"),
-        ("库位", "贴库 / 对侧中段"),
+        ("距离", "检查长距离难度"),
+        ("库位", "检查出杆与路线"),
         ("障碍", "挡住直接路径"),
     ]
 
@@ -220,7 +220,7 @@ private struct SafetyDimensionFigure: View {
                             .stroke(Color.btSeparator, lineWidth: 1)
                     )
 
-                Text("理想 = 三维全包含")
+                Text("三个角度，检查实际限制")
                     .font(.btCaption2.weight(.semibold))
                     .foregroundStyle(.btPrimary)
                     .position(x: w * 0.50, y: h * 0.12)
@@ -261,7 +261,7 @@ private struct SafetyDimensionFigure: View {
                     .stroke(Color.btPrimary.opacity(0.4), lineWidth: 1.2)
                 }
 
-                Text("任一维独立有效 · 叠加更强")
+                Text("可以组合 · 数量不等于质量")
                     .font(.btCaption2)
                     .foregroundStyle(.btTextSecondary)
                     .position(x: w * 0.50, y: h * 0.90)
@@ -276,7 +276,7 @@ private struct SafetyDegradeLadderFigure: View {
     private static let rungs = [
         ("3 维", "距离 + 库位 + 障碍", true),
         ("2 维", "常见：远 + 挡", false),
-        ("1 维", "通常先拿距离", false),
+        ("1 维", "保住可靠限制", false),
     ]
 
     var body: some View {
@@ -296,7 +296,7 @@ private struct SafetyDegradeLadderFigure: View {
                             .stroke(Color.btSeparator, lineWidth: 1)
                     )
 
-                Text("做不到就降一级")
+                Text("难以执行时，简化方案")
                     .font(.btCaption2)
                     .foregroundStyle(.btTextSecondary)
                     .position(x: w * 0.50, y: h * 0.08)

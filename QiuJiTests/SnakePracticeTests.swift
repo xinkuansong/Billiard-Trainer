@@ -183,6 +183,12 @@ final class SnakePracticeTests: XCTestCase {
         XCTAssertNil(controller.targetKey)
         XCTAssertFalse(controller.canStrike)
         XCTAssertEqual(controller.notice, "已清台")
+        let completedRecords = history.records.count
+        controller.nextRack()
+        XCTAssertFalse(controller.isComplete)
+        XCTAssertTrue(controller.canStrike)
+        XCTAssertEqual(controller.targetKey, "_1")
+        XCTAssertEqual(history.records.count, completedRecords, "Starting the next rack must not duplicate the completed record")
     }
 
     func testControllerFailureRetainsTargetAndRequiresRecovery() {

@@ -1,5 +1,53 @@
 import SwiftUI
 
+/// Keep every upgrade entry on the same crown artwork as the profile.
+struct BTProUnlockLabel: View {
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            BTProfileCrown(width: 32)
+            Text(BTDailyLimitGate.unlockCTATitle)
+        }
+    }
+}
+
+/// The destination is constructed only after authorization, including direct navigation.
+struct ProAccessGate<Content: View>: View {
+    var requiresPremium = true
+    @ViewBuilder let content: () -> Content
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    @State private var showSubscription = false
+
+    var body: some View {
+        let decision = subscriptionManager.accessDecision(requiresPremium: requiresPremium)
+        Group {
+            switch decision {
+            case .allowed:
+                content()
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("pro.authorized")
+            case .checkingEntitlements:
+                VStack(spacing: Spacing.lg) {
+                    ProgressView("正在确认 Pro 权益…")
+                    Button("刷新权益") { Task { await subscriptionManager.checkEntitlements() } }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityIdentifier("pro.checking")
+            case .requiresLogin, .requiresPro:
+                BTPremiumLock(mode: .fullMask, title: "此功能为 Pro 专属",
+                              subtitle: decision == .requiresLogin
+                                  ? "登录后可购买或恢复已有的 Apple 购买权益"
+                                  : "购买 Pro 或恢复已有的 Apple 购买权益",
+                              onSubscribeTap: { showSubscription = true }) {
+                    Color.btBG
+                }
+                .accessibilityIdentifier("pro.locked")
+            }
+        }
+        .task { if requiresPremium { await subscriptionManager.checkEntitlements(coalescing: true) } }
+        .sheet(isPresented: $showSubscription) { SubscriptionView() }
+    }
+}
+
 // MARK: - Lock Mode
 
 enum PremiumLockMode {
@@ -45,6 +93,7 @@ struct BTPremiumLock<Content: View>: View {
                     )
                 )
                 .allowsHitTesting(false)
+                .accessibilityHidden(true)
 
             VStack(spacing: Spacing.md) {
                 lockIcon
@@ -63,6 +112,7 @@ struct BTPremiumLock<Content: View>: View {
             content()
                 .blur(radius: 8)
                 .allowsHitTesting(false)
+                .accessibilityHidden(true)
 
             VStack(spacing: Spacing.lg) {
                 fullMaskLockIcon
@@ -94,9 +144,7 @@ struct BTPremiumLock<Content: View>: View {
 
     private var restorePurchaseLink: some View {
         Button {
-            Task {
-                try? await StoreKitService.shared.restorePurchases()
-            }
+            onSubscribeTap()
         } label: {
             Text("已购买？恢复购买")
                 .font(.btCaption)
@@ -121,24 +169,16 @@ struct BTPremiumLock<Content: View>: View {
         }
     }
 
-    /// F-ST-08: progressive + fullMask share solid-gold primary CTA.
+    /// F-ST-08: progressive and full-mask gates share the same Pro CTA.
     private var goldFilledCTA: some View {
         Button(action: onSubscribeTap) {
-            HStack(spacing: Spacing.sm) {
-                Image(systemName: BTIcon.crown)
-                    .font(.btSubheadline)
-                Text(BTDailyLimitGate.unlockCTATitle)
-                    .font(.btHeadline)
-            }
-            .foregroundStyle(colorScheme == .dark ? Color.black.opacity(0.86) : .white)
-            .frame(maxWidth: .infinity)
-            .frame(height: 48)
-            .background(goldColor)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.full))
+            BTProUnlockLabel()
         }
-        .buttonStyle(BTPressableStyle.capsule)
+        .buttonStyle(BTProUnlockButtonStyle(font: .btHeadline))
+        .accessibilityIdentifier("premiumLock.unlock")
         .padding(.horizontal, Spacing.xxl)
     }
+
 }
 
 // MARK: - Convenience modifier

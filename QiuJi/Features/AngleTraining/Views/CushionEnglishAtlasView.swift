@@ -6,9 +6,11 @@ struct CushionEnglishAtlasView: View {
     @StateObject private var vm = CushionEnglishAtlasViewModel()
 
     var body: some View {
-        BTTeachingTablePage(vm: vm, titleLabel: "加塞吃库图谱", identifier: "cushionEnglishAtlas",
+        BTTeachingTablePage(vm: vm, titleLabel: "加塞吃库图谱", identifier: "cushionEnglishAtlas", preferencePage: .cushionEnglishAtlas,
             velocity: $vm.velocity, spinHeight: $vm.spinY,
             teachingNote: CushionEnglishAtlasViewModel.honestyFootnote,
+            leftControlGroup: .information, layoutEditingBlocked: vm.isComputing,
+            displayMenuItems: trackMenuItems,
             information: teachingInformation, usesStandardTitle: true,
             title: { EmptyView() },
             leftContent: { size in
@@ -36,8 +38,24 @@ struct CushionEnglishAtlasView: View {
                     }.font(.btCaption)
                 }
             }
+            #if DEBUG
+            .overlay(alignment: .bottom) {
+                if DailyLayoutProbe.enabled {
+                    Color.clear.frame(width: 1, height: 1).allowsHitTesting(false)
+                        .accessibilityElement().accessibilityIdentifier("cushionEnglishAtlas.layoutState")
+                        .accessibilityValue("target=\(vm.selectedTargetKey ?? "none") pocket=\(vm.selectedPocketIndex) velocity=\(vm.velocity) tracks=\(vm.enabledTracks.sorted().map(String.init).joined(separator: ",")) spinY=\(vm.spinY)")
+                }
+            }
+            #endif
             .background(Color.clear.accessibilityIdentifier("cushionEnglishAtlas.root"))
     }
+    private var trackMenuItems: [DailyHUDMenuItem] {
+        [.init(id: "cushionEnglishAtlas.tracks", title: "轨迹 · 至少保留一档")] + (0..<8).map { index in
+            .init(id: "cushionEnglishAtlas.track.\(index)", title: "左右塞第\(index + 1)档",
+                  selected: vm.enabledTracks.contains(index), action: { vm.toggleTrack(index) })
+        }
+    }
+
     private var teachingInformation: [BTTeachingInformation] {
         guard let text = vm.statusText, !vm.isComputing else { return [] }
         return [.init(text: text, identifier: "cushionEnglishAtlas.status")]
@@ -50,7 +68,7 @@ struct CushionEnglishAtlasView: View {
 /// 左缘竖列 8 个迷你打点盘：每档一点、与 `trackColors`/spinX 档一一对应。
 /// 点落在当前高低杆的打滑弦上（高杆点偏上、弦更短）。
 /// 纯左塞（index 0）在上 → 纯右塞（index 7）在下；点选开关对应色轨迹。
-private struct CushionEnglishAtlasSpinLegend: View {
+struct CushionEnglishAtlasSpinLegend: View {
     let spinY: Double
     let enabledTracks: Set<Int>
     let onToggle: (Int) -> Void
@@ -117,6 +135,7 @@ private struct CushionEnglishAtlasSpinLegend: View {
         .accessibilityLabel("左右塞第\(index + 1)档")
         .accessibilityAddTraits(enabled ? .isSelected : [])
         .accessibilityValue(enabled ? "已选" : "未选")
+        .freeControlItem("cushion.legend.\(index)", name: "左右塞第\(index + 1)档")
     }
 }
 

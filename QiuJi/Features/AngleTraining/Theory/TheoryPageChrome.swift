@@ -243,24 +243,24 @@ extension View {
         VStack(alignment: .leading, spacing: Spacing.xxl) {
             TheoryPageHeader(
                 pageID: .t03,
-                headline: "碰撞那一瞬间，母球总是先沿切线走",
+                headline: "先用切线判断母球碰后的路线",
                 detail: "之后偏不偏、偏多少，取决于它此刻带着什么旋转。",
                 caption: "切线 = 过两球接触点、垂直于两球连心线的方向。"
             )
             LearnDocSectionCard(title: "三问") {
                 TheoryNumberedList(steps: [
-                    .init("进得了吗？", detail: "把握不够就别开打。"),
+                    .init("进得了吗？", detail: "结合走位和失手代价比较方案。"),
                     .init("走得到位吗？"),
                 ])
             }
-            LearnDocSectionCard(title: "阈值") {
+            LearnDocSectionCard(title: "比较方案") {
                 TheoryMatrixTable(
-                    columnTitles: ["新手", "进阶", "高手"],
-                    rows: [.init("进球把握", ["80%", "65%", "50%"])]
+                    columnTitles: ["进攻", "防守"],
+                    rows: [.init("先判断", ["进球与走位", "限制与回球"])]
                 )
             }
             TheoryMistakeCard(mistakes: [
-                .init(wrong: "把切线当母球最终方向", right: "只有滑动状态下两者才重合。")
+                .init(wrong: "把切线当母球最终方向", right: "理想斯登时沿切线离开；前后旋会改变后续走向。")
             ])
         }
         .padding(Spacing.lg)

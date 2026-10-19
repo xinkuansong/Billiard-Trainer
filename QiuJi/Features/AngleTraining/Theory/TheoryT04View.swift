@@ -16,9 +16,9 @@ struct TheoryT04View: View {
             VStack(spacing: Spacing.xxl) {
                 TheoryPageHeader(
                     pageID: .t04,
-                    headline: "力度先分档，再用出杆长度来调",
-                    detail: "把连续力度收成少数离散档（完整体系是 9 档、并成轻 / 中 / 重三段）；靠出杆长短而不是「加力气」来稳定重复。",
-                    caption: "本 App 的五档杆速，就是这套分级在练习里的落地——业余用 5 档通常就够覆盖大多数走位。"
+                    headline: "把常用力度练成能重复的几档",
+                    detail: "先分清轻、中、重，再逐渐熟悉中间的差别。每一档都要与实际球速和停位联系起来，出手时才有参照，而不是临时猜要用多大力。",
+                    caption: "本页保留九档记法和 App 五档杆速作对照。档位是练习工具，不是所有球手、球台共用的固定标准。"
                 )
 
                 whyItWorks
@@ -42,10 +42,10 @@ struct TheoryT04View: View {
 
     private var whyItWorks: some View {
         LearnDocSectionCard(title: "为什么要收成几档") {
-            LearnDocText.body("压力下人很难稳定输出「连续力度」，但能稳定区分少数几档。档位一定，每档母球大概停在哪就变成已知量——走位变成「挑档」，而不是临场拧力气。")
-            LearnDocText.body("出杆长度是物理上更好重复的变量：短 → 轻，长 → 重。架桥长短和手腕动作只是辅助；7–9 那一档的大力才需要专门练手腕释放。")
+            LearnDocText.body("面对一杆走位，先想它接近自己练熟的哪种力度，通常比从零开始估计更容易。反复打相同球形，记住母球经过哪里、停在哪里，再逐渐增加中间档，力度感觉就有了依据。")
+            LearnDocText.body("回杆幅度和出杆节奏可以帮助重复速度，但同样的出杆长度也能打出不同速度。不要只追求杆走多长，更不要临近触球才突然加力。力度较大的球，同样需要稳定的打点和出杆方向。")
             LearnDocFormulaNest(title: "完整 9 档怎么记") {
-                LearnDocText.footnote("轻：1–3　中：4–6　重：7–9。整数档是认知锚点；熟了以后可以在 4.5、5.3 这类小数上微调。")
+                LearnDocText.footnote("九档记法：轻 1–3，中 4–6，重 7–9。这些数字表示相对轻重；熟悉后可以细调，不必给每一杆都报出一个精确档号。")
             }
         }
     }
@@ -53,8 +53,8 @@ struct TheoryT04View: View {
     // MARK: - App 五档 = T04 落地
 
     private var appFiveLevels: some View {
-        LearnDocSectionCard(title: "App 里的五档就是它的落地") {
-            LearnDocText.body("完整体系是 9 档；进阶路上常见「先去掉最轻与最重、先用 5 档」。球迹练习页的力度选择，就是这 5 个稳定杆速锚点：")
+        LearnDocSectionCard(title: "用 App 五档比较速度变化") {
+            LearnDocText.body("球迹提供五个杆速参照，便于在同一球形中比较路线和远近。它们不与九档记法逐档对应，也不能直接换算成你在球台上的回杆长度。")
 
             AppSpeedSpectrumFigure()
                 .frame(height: 220)
@@ -62,7 +62,7 @@ struct TheoryT04View: View {
                 .accessibilityIdentifier("theoryT04.spectrumFigure")
 
             TheoryMatrixTable(
-                columnTitles: ["档", "杆头速度", "典型用途"],
+                columnTitles: ["杆头速度", "典型用途"],
                 rows: StrokePhysics.SpeedLevel.allCases.map { level in
                     .init(
                         level.label,
@@ -73,7 +73,7 @@ struct TheoryT04View: View {
                     )
                 }
             )
-            LearnDocText.footnote("这五档杆速，和下面「分离角与走位」演示页的力度滑条是同一套数字。")
+            LearnDocText.footnote("表中是 App 的杆头速度，不是母球碰到目标球时的速度。典型用途只帮助理解轻重，实际选择还要看距离、厚度、旋转和吃库。")
         }
     }
 
@@ -94,37 +94,37 @@ struct TheoryT04View: View {
             TheoryNumberedList(steps: [
                 .init(
                     "看清速度画面",
-                    detail: "母球、目标球、想停的区域，三者的位置关系先收进眼里。"
+                    detail: "先确定母球路线和目标停球区域，再想相近球形里自己用过的力度。"
                 ),
                 .init(
                     "定上界",
-                    detail: "「这一档过了吗？」找到第一个明显过的档。"
+                    detail: "估计多大力度会走过目标区，或碰到不想碰的球与库边。"
                 ),
                 .init(
                     "定下界",
-                    detail: "「这一档够吗？」找到第一个够得到的档。"
+                    detail: "估计多轻会停短，或无法完成所需吃库与旋转效果。"
                 ),
                 .init(
-                    "中间二分",
-                    detail: "上下界之间通常只剩 1–2 档窗口，再挑一档。"
+                    "选有余量的一档",
+                    detail: "比较上下限，尽量把停位安排在可接受区域内。若只容许极窄的力度变化，考虑换路线。"
                 ),
                 .init(
-                    "按出杆长度执行",
-                    detail: "选定以后只调杆走多长，不靠「再加把劲」。"
+                    "用熟悉的节奏执行",
+                    detail: "试运杆时体会所需速度，配合熟悉的回杆幅度。趴下后仍拿不准，就起身重新判断。"
                 ),
             ])
-            LearnDocText.body("能用低档完成的，绝不用高档——误差大致随速度放大，低档走位容错也更大。训练时优先把中段（对应完整体系的 4–6）打熟，再补轻档与大力档。")
+            LearnDocText.body("能用较温和的力度完成路线时，通常没必要额外发力；但也不是越轻越好。速度会影响到球旋转、吃库和台呢偏移。选的是适合这条路线、自己又能稳定重复的力度。")
         }
     }
 
     // MARK: - 库当刹车
 
     private var cushionsAsBrakes: some View {
-        LearnDocSectionCard(title: "要贴库停，不如计划撞库") {
-            LearnDocText.body("想让母球停在距库大约一掌到一球杆头那段（大约 ≤ 30 cm）时，别精控成「刚好停在库前」——力度差一点就会停短或弹飞。")
-            LearnDocText.body("改成：选稍重一点的档，让母球撞库后再停。库边会吃掉大量能量，速度容差能放大大约一倍以上。桌中央没有库可借时，才回到精细力度。")
-            LearnDocFormulaNest(title: "和滑动停球的距离门槛") {
-                LearnDocText.footnote("母球离目标球超过大约 1 钻石（约 31.75 cm）时，想打停球就不能只靠中杆——路上已经转成滚动，需要带一点后旋才能在碰撞瞬间回到滑动。")
+        LearnDocSectionCard(title: "临近库边，比较两种停位办法") {
+            LearnDocText.body("想让母球停在库边附近，可以比较直接停住和吃库后停住。若直接停位稍一走长就会撞库，主动安排吃库可能更容易控制；但要确认反弹方向和下一杆角度仍合适。")
+            LearnDocText.body("库边会改变速度和方向，也会受旋转影响。能否增加容错取决于具体路线，没有统一的距离门槛或“容错翻倍”。")
+            LearnDocFormulaNest(title: "力度还会改变到球状态") {
+                LearnDocText.footnote("同一打点换了力度，母球到达目标球时的前后旋也可能不同。练停球或斯登时，要把距离、打点、力度一起核对，不能只记一档速度。")
             }
         }
     }
@@ -133,10 +133,10 @@ struct TheoryT04View: View {
 
     private var scope: some View {
         LearnDocSectionCard(title: "什么时候这样用") {
-            LearnDocText.body("所有「要把母球停在某区」的决策都适用。初学先记轻 / 中 / 重三段，进阶用 5 档，再往上才铺开完整 9 档。")
+            LearnDocText.body("需要控制停位时，都可以用分档建立参照。先把几种常用力度练熟，再按需要细分；不必为了进阶而增加档数。换球台后，也要重新感受台呢和库边。")
             LearnDocFormulaNest(title: "体系外的两头") {
                 LearnDocText.footnote("极慢推杆防守，有时比最轻档还轻——落在分档下限之外，只能单独练手感。")
-                LearnDocText.footnote("极复杂的「加塞 + 速度」连续组合很少见；那时离散档只是起点，还得靠连续微调。")
+                LearnDocText.footnote("加塞吃库、强低杆等打法中，速度和旋转共同影响路线。分档仍可作起点，但不能只按档号推断最终停位。")
             }
         }
     }
@@ -145,16 +145,16 @@ struct TheoryT04View: View {
 
     private static let mistakes: [TheoryMistakeCard.Mistake] = [
         .init(
-            wrong: "靠「用力大小」调力度",
-            right: "改成看出杆长短：短则轻、长则重。用力思维在压力下最不稳。"
+            wrong: "临到触球才突然加力",
+            right: "提前确定所需速度，用熟悉的幅度和节奏完成出杆。突然发力容易连打点和方向一起改变。"
         ),
         .init(
             wrong: "怕不够就直接选最重档",
-            right: "误差大致随速度放大，越重越容易走位失控。能低档完成就别跳高档。"
+            right: "先查路线需要多远、是否吃库和需要什么到球状态。只因担心不够就加大力度，可能把母球送过可接受区域。"
         ),
         .init(
             wrong: "中段球也开大力",
-            right: "中段走位是精度区，不是力量区。大力留给真需要长台或强分离的少数杆。"
+            right: "按这一杆的实际任务选力度。保留大力完成长距离或特定杆法的能力，也要练好轻力下的方向和打点。"
         ),
     ]
 
@@ -174,12 +174,12 @@ struct TheoryT04View: View {
 
             LearnDocTextLink(
                 title: "30° 法则",
-                subtitle: "力度越大，沿切线先走的那段越长，再弯到约 30°",
+                subtitle: "自然滚动时，方向参照与行进距离怎样配合",
                 route: .theoryPage(.t01)
             )
             LearnDocTextLink(
                 title: "切线法则",
-                subtitle: "速度决定沿切线能走多远才被旋转带弯",
+                subtitle: "检查母球碰后的起始方向与弯曲过程",
                 route: .theoryPage(.t03)
             )
             LearnDocTextLink(

@@ -8,20 +8,26 @@ struct PlanThreeView: View {
     @State private var selectedRolePrompt: PlanThreeRole?
     @State private var informationPanel: PlanningPanel?
     @State private var showRoles = false
+    @State private var drawingConstraint = false
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var roleBallDiameter: CGFloat = 26
     @StateObject private var vm = PlanThreeViewModel()
     @State private var pocketOrientation = PocketDisplay.Orientation.landscape
     @State private var showBreakPicker = false
-    @AppStorage("planthree.spinTransparency") private var spinTransparency = 0.5
-    @AppStorage("planthree.hides3DAssists") private var hides3DAssists = false
     private var busy: Bool { vm.isPlaying || vm.isComputing || vm.breakRunner?.isBusy == true }
     private var toolName: String {
         switch vm.activeTool { case .none: return "摆球"; case .region: return "落区"; case .restPoint: return "落点"; case .passPoint: return "过点" }
     }
 
+    @ObservedObject private var tablePreferences = TablePreferencesStore.shared
+    private var spinTransparency: Double {
+        get { tablePreferences.snapshot(for: .planThree)[.transparency] }
+        nonmutating set { tablePreferences.apply(.transparency, value: newValue, to: .planThree) }
+    }
+    private var hides3DAssists: Bool { !tablePreferences.snapshot(for: .planThree).enabled(.shows3DTrajectory) }
     var body: some View {
-        BTTeachingTablePage(vm: vm, titleLabel: "打一走二想三", identifier: "planthree",
+        BTTeachingTablePage(vm: vm, titleLabel: "打一走二想三", identifier: "planthree", preferencePage: .planThree,
             velocity: velocity, planning: controls,
             usesStandardTitle: true,
             onPocketOrientationChange: { pocketOrientation = $0 },
@@ -34,8 +40,20 @@ struct PlanThreeView: View {
             if role != selectedRolePrompt { selectedRolePrompt = nil }
         }
         .onChange(of: vm.activeTool) { _, tool in
+            drawingConstraint = false
             if tool != .none { selectedRolePrompt = nil }
         }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { drawingConstraint = false } }
+        .onDisappear { drawingConstraint = false }
+        #if DEBUG
+        .overlay(alignment: .bottom) {
+            if DailyLayoutProbe.enabled {
+                Color.clear.frame(width: 1, height: 1).allowsHitTesting(false)
+                    .accessibilityElement().accessibilityIdentifier("planthree.layoutState")
+                    .accessibilityValue("target=\(vm.ball1Key ?? "none") second=\(vm.ball2Key ?? "none") third=\(vm.ball3Key ?? "none") pocket=\(vm.pocket1Index) secondPocket=\(vm.pocket2Index) armed=\(vm.armedRole?.rawValue ?? -1) tool=\(vm.activeTool) constraint=\(String(describing: vm.draft)) solutions=\(vm.solutions.count) index=\(vm.currentIndex) adjusted=\(vm.isSolutionAdjusted) spinX=\(vm.spinX) spinY=\(vm.spinY) velocity=\(vm.velocity) break=\(vm.isBreakMode)")
+            }
+        }
+        #endif
         .sheet(isPresented: $showBreakPicker) {
             BreakGamePickerSheet { vm.startBreakFlow(game: $0) }
                 .presentationDetents([.height(360)]).presentationDragIndicator(.visible)
@@ -59,6 +77,7 @@ struct PlanThreeView: View {
                     .opacity(busy || vm.temporaryTopDownActive ? 0.3 : 1)
                     .accessibilityLabel("重开").accessibilityIdentifier("break.rerack")
             }
+            .freeControlItem("break.rerack", name: "重开")
             BTTeachingAimRuler(layout: metrics, enabled: !busy && !vm.temporaryTopDownActive,
                 onNudge: { vm.breakRunner?.nudgeAim(byDegrees: $0) },
                 degreesPerPoint: vm.breakRunner?.aimWheelDegreesPerPoint ?? AimWheelGain.defaultDegreesPerPoint)
@@ -84,8 +103,8 @@ struct PlanThreeView: View {
         })
     }
     private var controls: BTTablePlanningControls {
-        BTTablePlanningControls(spinX: spinX, spinY: spinY, transparency: $spinTransparency,
-            hides3DAssists: Binding(get: { hides3DAssists }, set: { hides3DAssists = $0; vm.hides3DShotAssists = $0 }),
+        BTTablePlanningControls(spinX: spinX, spinY: spinY, transparency: Binding(get: { spinTransparency }, set: { spinTransparency = $0 }),
+            hides3DAssists: Binding(get: { hides3DAssists }, set: { tablePreferences.apply(.shows3DTrajectory, value: $0 ? 0 : 1, to: .planThree) }),
             velocityRange: vm.isBreakMode ? BreakFlowRunner.breakVelocityRange : ShotTuning.velocityRange,
             instrumentsEnabled: (!busy || vm.isAdjustingSolution) && (vm.isBreakMode || vm.hasSolutions), isAnimating: busy,
             paletteEnabled: !busy && !vm.isBreakMode,
@@ -95,11 +114,12 @@ struct PlanThreeView: View {
                 if let runner = vm.breakRunner {
                     if runner.showsConfirm { runner.confirmSettled() } else { runner.breakNow() }
                 } else { vm.play() }
-            }, onPaletteTap: { key in
+            }, primaryControlID: vm.isBreakMode ? (vm.breakRunner?.showsConfirm == true ? "break.confirm" : "break.strike") : "shot.strike", onPaletteTap: { key in
                 if vm.onTableKeys.contains(key) { vm.pulseTableBall(key) } else { vm.placeFromPalette(key) }
             }, menuItems: menuItems, refreshTrajectory: { vm.redrawTrajectory() },
-            onSetup: { vm.hides3DShotAssists = hides3DAssists; if let initialBoard { vm.loadBoard(initialBoard) }; applyUITestHooksIfNeeded() },
+            applyPreferences: { vm.hides3DShotAssists = !$0.enabled(.shows3DTrajectory) }, onSetup: { vm.hides3DShotAssists = hides3DAssists; if let initialBoard { vm.loadBoard(initialBoard) }; applyUITestHooksIfNeeded() },
             onDisappear: { vm.stopForDismissal() },
+            layoutEditingBlocked: drawingConstraint || showRoles || selectedRolePrompt != nil || informationPanel != nil || showBreakPicker || vm.breakRunner?.showsConfirm == true,
             onAimNudged: vm.isBreakMode ? { vm.breakRunner?.nudgeAim(byDegrees: $0) } : nil,
             closeupSnapshot: vm.canStrike ? vm.solvedContactCloseup : nil,
             closeupUnavailableReason: vm.canStrike && vm.solvedContactCloseup != nil ? nil : "当前首碰暂无特写",
@@ -112,14 +132,14 @@ struct PlanThreeView: View {
                     return AnyView(SolveConstraintDrawingOverlay(coordinateSpaceName: "planthree", sceneFrame: frame,
                         unproject: { projector.unproject?($0) }, onDrag: {
                             vm.toolDrag(startNormalized: $0, currentNormalized: $1, ended: $2)
-                        }))
+                        }, onDragActiveChanged: { drawingConstraint = $0 }))
                 }
                 return AnyView(EmptyView())
             })
     }
 
     private func leftControls(_ size: CGSize) -> some View {
-        ScrollView(.vertical) {
+        FreeControlColumn {
             VStack(spacing: 4) {
                 if !vm.isBreakMode {
                     roleMenu
@@ -134,16 +154,22 @@ struct PlanThreeView: View {
                             .overlay(RoundedRectangle(cornerRadius: 12).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
                     }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }.disabled(busy)
                         .opacity(busy ? 0.4 : 1).accessibilityIdentifier("planthree.tool")
+                        .freeControlItem("planning.constraintTool", name: "约束工具")
                     action("清除", "eraser", "planthree.clearConstraint", enabled: !busy && vm.hasConstraint) { vm.clearConstraint() }
+                        .freeControlItem("planning.clearConstraint", name: "清除约束")
                     action("求解", TeachingSolverSymbols.solve, "solver.solve", enabled: !busy && vm.canSolve) { vm.solve() }
+                        .freeControlItem("planning.solve", name: "求解")
                     TeachingSolutionButton(count: vm.solutions.count, currentIndex: vm.currentIndex,
                         enabled: !busy, next: { vm.nextSolution() },
                         isModified: vm.isSolutionAdjusted)
+                        .freeControlItem("planning.nextSolution", name: "下一解")
                     action("重打", "arrow.uturn.backward", "planthree.undo", enabled: !busy && !vm.temporaryTopDownActive && vm.canUndoShot) { vm.undoLastShot() }
+                        .freeControlItem("shot.undo", name: "重打")
                     action("回放", "play.rectangle", "planthree.replay", enabled: !busy && !vm.temporaryTopDownActive && vm.canPlayback) { vm.replayLastShot() }
+                        .freeControlItem("shot.replay", name: "回放")
                 }
             }.frame(maxWidth: .infinity)
-        }.scrollIndicators(.hidden).frame(width: size.width, height: min(size.height, vm.isBreakMode ? 232 : 332))
+        }.frame(width: size.width, height: min(size.height, vm.isBreakMode ? 232 : 332), alignment: .top)
     }
     private func action(_ title: String, _ icon: String, _ id: String, enabled: Bool, perform: @escaping () -> Void) -> some View {
         Button(action: perform) {
@@ -155,14 +181,14 @@ struct PlanThreeView: View {
     }
     private var menuItems: [DailyHUDMenuItem] {
         var items: [DailyHUDMenuItem] = [
-            .init(id: "planthree.help", title: "操作说明", disabled: vm.isBreakMode, action: { informationPanel = .help }),
+            .init(id: "planthree.help", title: "操作说明", disclosure: true, disabled: vm.isBreakMode, action: { informationPanel = .help }),
             .init(id: "planthree.plan", title: "计划"),
             .init(id: "planthree.clearPlan", title: "清空计划", disabled: busy || vm.isBreakMode,
                   action: { vm.clearPlan() })]
         if vm.isBreakMode {
             items.append(.init(id: "planthree.cancelBreak", title: "取消开球", disabled: busy, action: { vm.cancelBreakFlow() }))
         } else {
-            items += [.init(id: "break.entry", title: "开球", disabled: busy, action: { showBreakPicker = true }),
+            items += [.init(id: "break.entry", title: "开球", disclosure: true, disabled: busy, action: { showBreakPicker = true }),
                 .init(id: "planthree.clear", title: "清空桌面", disabled: busy, action: { vm.clearTable() }),
                 .init(id: "planthree.reset", title: "恢复默认球形", disabled: busy, action: { vm.resetAll() })]
         }
@@ -213,6 +239,7 @@ struct PlanThreeView: View {
                 .presentationBackground(.ultraThinMaterial)
                 .preferredColorScheme(.dark)
             }
+            .freeControlItem("planning.roles", name: "计划角色")
     }
     private var roleRows: some View {
         VStack(spacing: 2) {

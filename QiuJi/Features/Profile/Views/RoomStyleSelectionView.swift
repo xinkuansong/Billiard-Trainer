@@ -22,8 +22,7 @@ struct RoomStyleSelectionView: View {
                                     Text(style.subtitle).font(.btFootnote).foregroundStyle(.btTextSecondary)
                                 }
                                 Spacer(minLength: Spacing.sm)
-                                Image(systemName: prefs.roomStyle == style ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(prefs.roomStyle == style ? Color.btPrimary : Color.btTextSecondary)
+                                BTSelectionIndicator(isSelected: prefs.roomStyle == style)
                                     .accessibilityHidden(true)
                             }
                             .padding(Spacing.lg)

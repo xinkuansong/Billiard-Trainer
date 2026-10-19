@@ -5751,3 +5751,231 @@ FL-164 r3补充（2026-10-15，蛇彩）：原生UIAlert按钮在iOS26 AX树中�
 ## DR-094 r5 — 首页入口收紧留白（2026-10-16）
 用户要求长度更短、图文更紧凑。常规工具胶囊水平内边距16→12pt，首页图文间距8→4pt；保留15pt文字、16pt图标及44pt触点。regular目前只有首页消费。
 - 已应用至：swiftui-design-system §训练浮层胶囊；UI-IMPLEMENTATION-SPEC Changelog。证据见ui-reviews/UR-20261016-training-entry-style.md。
+
+## DR-401 — 我的页皇冠会员球与菜单图标（2026-10-16）
+- **用户决定**：选定参考稿，扶正皇冠；黑八/九球随主打球种；组合总可见高度与原球一致；移除会员横条；订阅管理同款皇冠；收藏/训练目标/认识球迹仅中心改品牌绿。
+- **实现**：复用原球 PNG 和独立 `profileCrown` 透明图；球组件60pt外框及原图可见上下边界保持，r2 Pro球图46pt、皇冠图宽40pt，遮住底圈后的球帽。首版造型被用户否决，r2恢复选稿的连续平滑三尖金面（FL-168）。明确主打球种优先；“两者”沿用每日玩法回退。订阅状态文字/导航与真实权益源保留。
+- **API**：`BTProfileGameBall(sport:isPremium:)`；`BTProfileCrown(width:)`；`BTIconBadge.foregroundColor: Color? = nil`只覆盖图形，不改圆底或默认消费者。
+- **验证**：见 `tasks/ui-reviews/UR-20261016-profile-crown.md`，构建/4项组件/两尺寸浅深与长昵称UI通过；2项StoreKit交易用例notEntitled未通过；未装真机/提交/发布。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-401、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog、`docs/05-信息架构与交互设计.md` 我的页（2026-10-16）。
+
+DR-401 r3（2026-10-16）：用户仍觉皇冠偏小、缺相切感；保持r2球图46pt、皇冠纵高与60pt总框，仅球上皇冠横向放大18%至47.2pt绘制宽，使底圈接近球肩。订阅行皇冠尺寸不变。验证见UR-20261016-profile-crown。
+
+DR-401 r4（2026-10-16）：用户强调Pro/非Pro区别及金属过亮。头球皇冠只随SubscriptionManager.isPremium呈现，非Pro原球；共用皇冠saturation0.72/brightness-0.08，顶部与订阅入口同步柔和暖金，不更换素材造型。新增两球非Pro实际页面取证，既有Pro浅深用例保留。
+
+DR-401 r5（2026-10-17）：用户指App中组合明显小于选稿，前几轮只加宽皇冠未解决整体视觉体量；Pro整个冠球×1.28，使球图实际58.9pt、组合可见约64–67pt，相对56pt头像约1.15。免费原球不变，r4柔和金保留。已告知可见总高较原约束增大，以最新选稿比例反馈优先，待用户复阅；60pt布局位保持，绘制溢出由卡片内边距容纳。
+
+
+## DR-123 r2 — 统计 PRO 角标常驻（2026-10-17）
+- 用户截图指出：历史选中时，统计也应带 PRO。根因是 HistoryCalendarView 的 proBadgeState 额外检查 activeTab。
+- 仅移除选中条件；继续读取 subscriptionManager.isPremium，复用原角标尺寸、留位和无障碍语义。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §2.7 / Changelog。验证与边界见 ui-reviews/UR-20261017-statistics-pro.md。
+
+
+## FL-169 — 结构草图擅自替换现行视觉规范（2026-10-17）
+- 用户退回我的/设置Figma r1：未以实际页面及组件为基线，自行更换字体、图标、导航、概览和菜单壳；“草图”不构成替换规范的授权。
+- 根因：先绘制通用列表模板，再补技术可编辑性检查；错误地把无缺字/无溢出当作足够的交付依据。Figma字体和库导入受限后擅自替代，未守住产品字体与资产。
+- 返工：r1标已退回；核对当前源码、DR-401 r5原图、Token与DC12–14后绘制独立r2，保留原账号卡/概览/图标体系，卡片仍使用252pt浮层与44pt操作行。逐项继承和新增入口明确为提案。
+- 验证边界：r2整图及结构读回完成；字体改为原生系统字形转曲并明确不可直接改字；Tab/玻璃为静态示意，尚未用户复阅或设备验收。未改App代码。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` § FL-169；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`PROFILE-SETTINGS-STRUCTURE-20261017.md`。
+
+## DR-402 — 通用覆盖与页面独立记忆（2026-10-17）
+
+- 任务：按用户确认的 Figma r5 实施，优先保留旧值与当前球局。
+- 原始规范：多个显示项读写全局偏好，部分页面共享旧键；大多数视图切换没有重启记忆。
+- 调整后：16 双视图 + 4 固定题型显式能力作用域；逐项统一操作可同值重应用，页面写入局部值；迁移不删除旧键。渲染消费安全时点的快照，默认玩法只影响新局。
+- 原因：通用操作能覆盖单页，又允许正常使用时重新独立调整，避免初始化和自动相机误写偏好。轨迹档位选中同时开启 3D 轨迹，3D 隐藏不清档位。
+- 实现、各轮测试与限制：[实施记录](PROFILE-SETTINGS-IMPLEMENTATION-20261017.md)。
+
+## DR-403 — 个人资料补齐与设置精简（2026-10-17）
+
+用户反馈设置说明杂乱、个人资料不足、修改信息占一行；改为顶部菜单承载同值覆盖、资料卡两行、可选性别角标及生日自动年龄。昵称/球种/既有设置保留，新增资料仍按 owner 隔离、账号服务器响应提交。详见 [任务记录](PROFILE-DETAILS-20261017.md)。
+
+## DR-404 — 可跳过首次资料引导（2026-10-17）
+
+真正新安装先介绍、再资料、后首页；老用户凭据/旧偏好/数据库识别后直达原首页。新 FirstRunProfileFlow 在初始化持久服务前捕获历史；保存只补当前游客明确选择且缺失的字段，保留手动玩法与所有球局/显示偏好。OnboardingView 复用完成回调，可选重看仍返回原账号。8 新单测、标准机3 UI/SE2 UI与独立沙盒冷启动通过，原生图已审；总 gate 与文档门禁通过。介绍重做待后续，未提交/发布/装真机。详见 `tasks/FIRST-RUN-PROFILE-20261017.md`。
+
+### FL-170 r2进展（2026-10-17）
+用户授权按竞品研究方向重做首次体验。r2已完成主视觉、四屏（三阶段）与资料衔接，整图及原型目的地读回通过，待用户视觉认可；不将技术检查当验收。详`INTRO-THREE-PAGE-FIGMA-20261017.md`。已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` §FL-170；UI-IMPLEMENTATION-SPEC既有FL-170条目。未改App。
+
+### FL-170 r2退回与五方向研究（2026-10-17）
+用户否定r2内容与样式，技术检查通过不代表视觉通过。已重新研究Nike、Kino、Flighty、Brilliant、Not Boring、Gentler Streak，提出五方向，未重画Figma或改App。已应用至：swiftui-design-system §FL-170 v2；UI-IMPLEMENTATION-SPEC Changelog；任务卡及Hub已同步。
+
+### FL-169 自定义球形样板退回（2026-10-17）
+
+- 反馈：用户指出“完全不符合”，要求参考蛇彩与编排台写详细方案。
+- 原因：简化球桌、自定义侧栏与替代字体偏离真实页面；生成和图层检查不代表符合现有规范。
+- 处理：保留失败稿但停止沿用；核对原生设置、球桌、编排微调与当前源码，形成 `tasks/table-page-adaptation/CUSTOM-FORMATION-PRACTICE-PLAN-20261017.md`。明确直线只排列线附近球、重复球需要实例身份改造、内部工具须抽出用户侧能力。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` §FL-169球桌补充；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；页面方案、REVIEWS和PROGRESS。
+- 状态：方案待评阅；没有App改动、新功能运行或用户认可证据。
+
+
+## DR-405 — 自定义球形复用原生球桌与摆球工具（2026-10-17）
+
+- 用户批准简单方案直接实施，旧Figma不作视觉基线。入口位于练分类蛇彩之后；训练设置复用原生List/导航，球桌复用FreePlayView。
+- 模板本机按owner隔离；号码与实例UUID分离，最多15颗目标球。模板与练习快照独立；无顺序、犯规、失败与全局统计。支持取回、重开、重打、回放、显式另存。
+- 编排台的BatchGuideLine与BatchScrollNudgeButton提取为共用组件；直线先校验整批球位后提交，选择端点时停用选球/选袋；2D精准摆球、3D点按回球。摆球态以微调取代方向尺，并利用重打/回放区域显示完整四方向。新建/编辑先进入2D。
+- 动态球节点复用原贴图，独立材质/实例身份；接触阴影重绑已有固定容量，保持渲染回调线程安全。
+- 验证与UI截图见 `output/custom-formation-20261017/`；失败轮不覆盖。用户体验/真机验收分开记录。
+- **已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog与自定义球形组件约定；详细范围见 `tasks/table-page-adaptation/CUSTOM-FORMATION-PRACTICE-PLAN-20261017.md`。
+
+## FL-174 — 共用层位移不能读取当前模式覆盖值（2026-10-18）
+
+- B06原生链发现：共用8pt、3D独立16pt时，编辑共用层“上移8pt”错误从16起算，写回8而没有修改；这是编辑读取层与写入层不一致。
+- 修复：草稿按所编辑层解析起点，共用层只读共用，模式层按原优先级读取；预览仍显示当前模式。被独立设置覆盖的共用修改给出明确反馈，不清除模式覆盖。
+- 证据：ControlLayoutStoreTests.test_draftReadsTheEditedLayerWithoutBorrowingModeOverride；B06原生复验结果见批次卡。
+- 已应用至：`.cursor/rules/20-swiftui-developer.mdc` §FL-174；UI-IMPLEMENTATION-SPEC Changelog。
+
+
+### DR-405 v1.3 — 多线辅助与只读测量（2026-10-18）
+用户逐轮明确并授权：先画多条线、可连接已有端点，手动添加球，线上球等距；拖共用端点时相连线与球一起更新。右侧球数、球距cm、线长cm，两距离一位小数。删除旧批量数量/方向输入、距离移球与切角摆球，新增两点测距、三点测角（第二点为顶点），只读测量不移动球。
+沿用 BTHUDCompactAction／BTTextActionButton／BTReadout；测量值使用 measured 语义，摆线参数使用 adjustable。AngleSceneView 新增默认关闭的 precisionDragNodes／prioritizesTableTaps；仅本编辑器启用端点22pt命中优先及保留抓取偏移的直接拖动，松手提交最终位置。其他消费者默认行为保持。
+辅助线以可选 Codable 字段随模板保存、复制重映射球ID；旧模板字段缺失兼容，练习不显示辅助线。共用端点复用同一球；分支只剩共用球时仍锚在连接点，其余独立单球居中。撤销包含线、球及连接；删除线保留球。
+已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md` 本条及 `tasks/table-page-adaptation/CUSTOM-FORMATION-PRACTICE-PLAN-20261017.md` v1.3。功能与视觉结果见本轮报告，未验证项不沿用旧结论。
+
+## FL-175 — 试打导航与球形必须一起传递（2026-10-18）
+
+- B06入口检查发现：c029 Bundle可加载6杆，但真实详情→试打在任何布局操作之前sequenceMode=false，主动作变为自由击球。布尔navigationDestination和独立selectedFormation允许首次宿主构造读到旧空值；VM只初始化一次，后续重算View不能补回序列。
+- 修复：navigationDestination(item:)载荷原子携带drill与formation，单球形直进和多球形选择使用同一路径；保持ProAccessGate及原无序列兜底。
+- 证据：B06/r09/entry失败探针、r01/tryout-loader.log真实Bundle测试通过、r10手机/平板入口和默认图已恢复sequenceMode=true；完整流程复验结果见B06卡。
+- 规则：导航目标首次初始化依赖选中业务值时，使用值载荷承载导航与数据，不以外部布尔与独立State的先后赋值保证一致性。
+
+## FL-176 — 约束绘制忙碌状态独立于投影成功（2026-10-18）
+
+- B07源码审查发现：Silu/PlanThree用成功投影后的onDrag回调维护绘制标志。若结束点不能投影，handle提前返回，标志可能保持true，布局入口一直禁用。这是可达代码路径审查，非已复现的模拟器故障。
+- 修复：SolveConstraintDrawingOverlay通过GestureState报告手势生命周期，结束、取消和移除时解除忙碌；业务坐标回调继续原投影合同。两页共用，不更改约束几何或训练动作。
+- 验证：本批原生绘制→编辑返回、求解与微调、离页及相关构建结果见B07卡。
+
+
+### DR-405 v1.4 — 数量、聚合球库与测量可读性（2026-10-18）
+
+用户确认最多25颗目标球，母球另计；新增和保存受限，旧超限归档保持可读，先编辑减量再开练，不静默删球。练习球库按球号聚合，角标为该号码总数，只显示模板包含的球号；动作映射优先离台实例，保留每球独立ID。编辑来源栏保留1–15号。页标题使用模板名。
+辅助线白色、测距青色、测角橙色，线半径0.003m、端点半径0.018m；复用table reference/aiming层级，测量覆盖重合的辅助线但仍保留台面深度遮挡。三点测角使用最短圆弧，角度线磁吸水平／垂直；右侧与台面均显示实时值。台面文字按真实投影及自身量测尺寸定位，圆弧外侧避让文字，镜头缩放／平移期间同步；不进入碰撞／摆球状态。提示复用BTNoticeContent(info, compact, textOnly)，以info.circle开头。
+本轮原图自审修正两点：测距与辅助线同层导致青色被覆盖，改按角色层级绘制；90°文本底板遮弧，改按文字实测包络避让。失败原图与最终复验分别保存于 `output/custom-formation-refine-20261018/`，结果见本轮UI报告。
+已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md` 本条、`tasks/table-page-adaptation/CUSTOM-FORMATION-PRACTICE-PLAN-20261017.md` v1.4及 `docs/04-功能规划.md`。
+
+用户追加外观修订：角度臂橙色、圆弧与角度标注粉色；距离／角度使用无底板纯文字，重复球数量角标位于球库图标右下角。发现自定义球形仍走旧单行 Text 标题分支，改用编排台同一 BTTablePageTitle 的60×34pt预算及单双行／奇数标题规则，长用户名称复用试打 fitsLongText；不影响其他球桌页分支。最终样式和两尺寸复验见本轮报告。
+
+## FL-177 — 控件测量不能使用外侧预留栏宽（2026-10-18）
+
+- B07小屏3D原生验证：相机框x563..607，杆速测量框x603..663，因60pt预留栏与相机重叠4pt，保存的主动作8pt微调回退temporaryDefault。原杆速手势也随整栏扩张。不是放宽碰撞阈值即可修复。
+- 修复：教学壳杆速组使用真实原生宽度max(44,topDiameter)，既保证至少44pt触点，又让测量与触点一致；外部列中心不动，相机局部锚点按实际组宽换算，绝对位置保持。球桌、组间距和业务参数不改。
+- 证据：r05小屏PlanThree/Snooker的3D失败框与录像；新增test_smallTeachingCameraUsesActualInstrumentBounds，31项纯值测试通过；原生复验见B07卡。
+
+缩放复验补修：TimelineView每次回调先计算世界点投影，再把CGPoint传入GeometryReader，避免稳定闭包导致布局缓存、镜头缩放后标注滞留。回归同时验证文字随镜头移动、与测距线中点横向误差≤2pt、测量数值不变及原图。
+
+DR-405 v1.4最终复验：r7构建、18定向单测、手机浅色／SE深色各2种UI流程、完整gate通过；手机25球首轮计数超时后r8原样独立重跑通过。源码及App／测试产物SHA无漂移，关键原图已审；详见UR-20261018-自定义球形数量与标注.md，失败过程不覆盖、真机及用户认可不代签。
+
+## DR-406 — 教学页面布局能力与独立样例（2026-10-18）
+
+- BTTeachingTablePage新增默认planning的leftControlGroup和默认false的layoutEditingBlocked；教学页选information，两图谱计算时禁止进入布局。
+- 编辑器选择真实存在首组，教学读数/八档轨迹使用独立状态样例；禁用打点及竖向打点语义按页保留。两图谱更多菜单提供同源八档标准触点，原迷你盘和至少留一档规则保持。
+- 已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog/DR-406；本批验证见B08卡。
+
+## FL-178 — 灵动岛圆角内容边界（2026-10-18）
+
+展开态改为显式系统内容边距，Figma 组件同步；初审遗漏图标/进度边缘，修后必须在两档有岛设备上看原图。
+- **已应用至**：`.cursor/rules/57-ui-reviewer.mdc` § FL-178（2026-10-18）；复验见休息实时活动样式报告。
+
+
+## DR-127 r2 — 周卡iPad背景主体保全（2026-10-18）
+- 用户要求：手机现有效果保持，iPad横竖完整白球且大小协调，提供原生截图。
+- 原因与变更：固定2:1照片随全宽等比放大导致顶端裁球；周卡显式开启regular宽卡主体约64pt及左侧同源台呢镜像延展，其他消费者默认保持。
+- 验证：专项App/UI构建通过，Mac mini iOS26.2三设备3次UI/10张浅深原图通过，含iPad竖→横→竖；源码/产物/截图哈希已核对。首次全测试构建被其他模块编译错误阻断，不外推全量单测；未真机/提交发布，待用户复阅。见`tasks/ui-reviews/UR-20261018-weekly-background.md`。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md`与`tasks/UI-IMPLEMENTATION-SPEC.md` § DR-127 r2（2026-10-18）。
+
+
+### DR-405 v1.5 — 直线球号排序与端点防遮挡（2026-10-18）
+
+用户要求角度弧和值改白色，并新增当前直线的三态排序。右侧复用BTTextActionButton，依次按球号沿屏幕左到右、右到左、恢复本轮原始顺序；竖线按上到下。按实际投影判断方向，重复球保留独立ID，连接点通过全图身份置换维持单球共用。增删／手动重排后重新建立基准，撤销重做恢复排列与排序状态；重新编辑模板从保存排列开始新循环。
+
+AngleSceneView的三类端点取消直接拖动特例，沿用球的52pt死区与锁定偏移；点击端点保持位置且不重建测量。44pt优先命中、磁吸和边界校验保持。角度臂仍橙色、测距青色、台面文字无底板。当前验证见`output/custom-formation-sort-20261018/`及后续本轮审查报告；不外推真机触感。
+
+
+### DR-401 r6 — 我的页头像栏去外框（2026-10-18）
+用户提供训记与球迹截图，要求头像信息栏取消外框。ProfileView登录态与游客态移除整行背景及圆角裁剪，保持原内边距、头像/昵称/ID/修改信息/球种图标与Rectangle整行命中。游客态同时取消局部强制light，让语义文字跟随页面主题。仅头像栏透明，下方概览与菜单卡片保持。
+- 已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog与DR-401 r6；验证见`tasks/ui-reviews/UR-20261018-profile-header.md`。
+
+## DR-407 — 固定视角答题的浮层区域（2026-10-18）
+
+ControlLayoutPlacement.Input新增groupRegions，宽键盘独立左右区域，不参与60pt列排布；原默认输入保持。controlLayoutGroup新增enabled测量开关，用于阶段空占位/禁用相机；不隐藏原生内容。固定入口编辑器仅共用与本模式层，预览数据独立。验证见B09任务卡。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md § DR-407（2026-10-18）。
+
+DR-405 v1.5最终复验：r2构建、21定向单测、手机r2浅色／SE r4深色各2UI及完整gate通过，两尺寸各15张原图。源码／产物无漂移；首次测试编译修正与SE借用保护均保留记录，见UR-20261018-自定义球形排序与防遮挡.md。
+
+
+DR-401 r7（2026-10-18）：用户指出头像栏去框后下方空档过大，取消登录/游客头部16pt底内边距，只保留horizontal/top的Spacing.lg；外层间距16pt不变，头像与球图不缩放。已应用至`tasks/UI-IMPLEMENTATION-SPEC.md` DR-401 r7与Changelog；证据见UR-20261018-profile-header r3。
+
+
+## DR-408 — Pro 品牌页与 12 项权益（2026-10-18）
+
+用户确认复用引导背景、完整展示12项、明确免费与Pro。购买页与会员状态页共用原有 `IntroBackground` / `IntroBackgroundDark` 及 `BrandLogoMark`，参考Figma `C6Qt7HUPFvP13ut8NAZGlU` 的 `298:2090`；仅这两个品牌页面固定深色。购买页按品牌介绍→套餐→10项Pro→2项免费工具→法律信息排列，底部购买操作保持可见；会员页显示真实订阅类型及有效期后展示同一列表。
+
+10项Pro为进阶动作与精讲、官方进阶计划、3D角度与瞄准训练、分离角与加塞吃库图谱、蛇彩、自由走位、打一走二想三、防守、拍照建球形、统计与长期回顾。翻袋解球、颗星公式解球独立归入免费工具，明确无需购买；编号01–12，免费行不出现PRO或已解锁字样。说明是现有能力的展示细分，不新增权限、改价或变更StoreKit流程。
+
+`ProBenefitsSections` / `ProBrandHero` / `ProBrandButtonStyle`仅供这两页共享；新增`btProTitle/Section/Headline/Body/Caption`语义字体支持Dynamic Type。正文最大600pt、横向24pt，辅助字号套餐改纵向，按钮允许文字增长。验证与限制见 `tasks/ui-reviews/UR-20261018-pro-brand.md`，不以编译代替视觉验收。
+
+已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md` 与 `.cursor/skills/swiftui-design-system/SKILL.md`；验证见本轮UI报告。
+
+DR-408原图复核补修：底部购买区不透明，避免长正文透出；已购页导航背景固定深色。由于根宿主显式浅色可覆盖子页状态栏，RootView按已购页appear/disappear期间临时采用dark，退出回到原用户/系统偏好，不写设置。测试滚动按safeAreaInset上方可见区域计算，避免大字号CTA增高后手势落在按钮上。
+
+
+## DR-409 — 固定瞄点训练接入操作布局（2026-10-18）
+
+按现有aiming/showingResult状态机接入direction/primary/camera；当前无验证击球阶段，不从旧方案重新增加。持触、相机过渡/临时俯视及额度锁编辑，移动后真实框供特写避让；独立预览采用合成题目与隔离方向。源核及证据见B10任务卡。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md § DR-409（2026-10-18）。
+
+
+FL-179（2026-10-18）：B10方向整列空白被误计入可移动高度，导致8pt下移被拒绝；修为内容测量先于固定列定位。已回写20-swiftui-developer.mdc的FL-177条款并补真实位移断言，r05手机/iPad两入口8节点及特写持触录像通过。详见FAILURE-LOG.md FL-179。
+
+
+### DR-408 r5 — 翻袋与颗星纳入 Pro（2026-10-19）
+用户确认将翻袋解球、颗星公式解球改为Pro，覆盖r1的10＋2分区决定。AngleRoute.requiresPremium与AngleEntry.isPremium同时接入，两种导航路径沿用SubscriptionManager/ProAccessGate。两处品牌页共用12项Pro目录，数量从目录读取；末两项使用同一金色PRO／已解锁标签，删除免费分区。原Figma引导背景、动态字体、价格及购买恢复流程保持。验证见`tasks/ui-reviews/UR-20261019-pro-tools.md`。
+
+- 已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md`、`.cursor/skills/swiftui-design-system/SKILL.md` DR-408 r5。
+
+
+## FL-181 — 自定义按键需求偏差（2026-10-19）
+
+2026-10-19 文档续修：用户确认的新规则已写入 [v2.0 返工方案](TABLE-CONTROL-LAYOUT-PLAN-20261017.md)，重排 R00–R10，首阶段 P01/P02/P07。仅更新文档，未改 App；FL-181 仍待实现与验收关闭。
+
+2026-10-19 用户纠偏：自定义编辑指在画面上选择单个按键，直接二维移动和放大/缩小，参考王者荣耀局内按键编辑。当前控件组侧栏偏移方案未满足核心需求，撤回整体完成结论，状态为待返工。旧B00–B12测试仅证明旧实现所测行为，不证明用户目标达成；保留原代码和证据。本轮查阅网络资料及代码，未修改App实现。
+
+已应用至：`.cursor/rules/00-orchestrator.mdc` FL-181（2026-10-19）；具体根因及待办见`tasks/FAILURE-LOG.md`。
+
+### FL-183 r2 — 授权根标识传播覆盖后代（2026-10-19）
+R05 原生试打发现 ProAccessGate allowed 分支 identifier 传播。增加显式 accessibilityElement(children: .contain) 保留独立子标识；r04 唯一父标记检查及未授权路由测试通过。布局坐标回归仍失败，R05保持进行中。已应用至 `.cursor/rules/55-test-engineer.mdc` FL-183 r2、UI-IMPLEMENTATION-SPEC Changelog。
+
+### FL-181 R05坐标修复 — 全屏呈现中的窗口原点（2026-10-19）
+试打 fullScreenCover 下原宿主与控件的 SwiftUI global 原点不一致，iPad编辑框偏移约半个窗口，原移动断言失败。改为命名宿主坐标＋UIKit convert(bounds,to:window) 实测原点，保存仍为窗口归一化坐标，编辑层反向转换。r06 iPad试打/蛇彩1项原生测试通过、14图，其他共享回归继续。无常数偏移补偿；细节及原失败见R05实施卡。已应用至20-swiftui-developer.mdc FL-181补充与UI实施规范。
+
+
+### FL-164 r5 — 后台返回需验证编辑器实际退出（2026-10-19）
+FL-164 r5（2026-10-19，操作布局R06）：后台返回后的XCTest tap完成不等于编辑器已关闭。失败时先核编辑层是否仍存在，并对比私有草稿与落盘值；不能把仍在草稿中的坐标误判为取消后污染。以实测按钮中心执行触摸，并等待编辑器消失后继续原状态/坐标断言；不放宽误差阈值。平板翻袋r03完整复验通过（7图），生产源码不变，r02失败证据保留。
+已应用至：`.cursor/rules/55-test-engineer.mdc` FL-164 r5及UI-IMPLEMENTATION-SPEC Changelog。
+
+
+### FL-181 R08 — 工具遮住数字键
+FL-181 R08（2026-10-19）：工具面板可遮挡真实按键，收起工具时必须保留透明的逐键编辑命中层，隐藏选中框但仍可直接拖动；不能让“预览”成为无法调整被遮挡按键的死端。业务层仍拦截。验证覆盖收起工具后拖动、原位无残影、保存后真实按钮命中；失败不得靠改拖动断言绕过。
+r01原生2D试验实际拖动未移动，AX与截图证明手势起点落在工具面板保存按钮区域；原失败保留。收起后透明编辑层修复待r02复验，共用宿主追加三试点链回归。已应用至20-swiftui-developer.mdc与UI实施规范。
+
+### DR-407 每日布局单页试用（2026-10-19）
+用户授权仅每日清台按Figma交互试用：直接选键/拖移/缩放，小工具条可拖收起；后续反馈指定贴球库可见下沿、随主题磨砂、统一就近菜单。其他页面不推广。新增宿主可选editorToolbarTop/editorColorScheme只供每日消费。最新简化裁定取消每日模板共享与菜单选键；真实按键选择自动切换大小滑杆。个人模板右侧原生三点菜单提供使用/修改/置顶/删除，修改保存更新原ID，取消不写、删除保留应用快照；可选pinnedAt兼容旧JSON。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md § DR-407 日清单页浮动编辑工具条。
+- 验证与用户复验状态：tasks/table-control-layout/DAILY-FLOATING-TOOLBAR-20261019.md。
+
+FL-168 皇冠r8补充（2026-10-19）：r7生成式去背景改动金属细节，小尺寸碎亮/锯齿被用户退回。按用户要求改原图像素alpha提取、Lanczos缩小与high插值，母版RGB逐像素核对；不得将生成式编辑称为原像素抠图。已应用至swiftui-design-system的皇冠r8条款及UI-IMPLEMENTATION-SPEC Changelog；验证见UR-20261016-profile-crown r8。
+
+
+### DR-407 每日布局菜单位置关系补正（2026-10-19 r09）
+用户反馈原主菜单不对应入口、子菜单与母菜单脱离。将每日菜单改为实测按钮锚点，三点动作菜单与模板行相邻，打开入口/来源行高亮；新增原生主子菜单位置断言。r08旧效果不算此项认可；r09构建通过，SE Light及标准屏Dark的2D/3D完整链和位置断言均通过，24图逐张审查，待用户试用。已应用至UI-IMPLEMENTATION-SPEC DR-407。
+
+
+2026-10-19 / FL-168 皇冠r11：r9测试绿但接合视觉被用户拒绝；改用最新纯金原图，RGB原样保留、等比缩小，以底圈端点对原球肩部alpha定位。去掉旧横向拉伸；用户随后允许略高，取消缩球方案，球恢复46pt且皇冠等比，重新光学居中。原生证据/验收范围见UR-20261016-profile-crown.md。
+
+
+## DR-410 — 设置与选择的可操作提示统一（2026-10-19）
+- 用户确认：自定义选择项未选灰色空心框、选中绿色对勾；下级选择/编辑入口带箭头；已有系统开关保留。每日默认布局模板补灰色禁用三点。
+- 组件：BTSelectionIndicator 共用方框/勾；DailyHUDMenuItem.selected 改为 Bool?，nil 表示无选择语义，避免把普通动作标成关闭。保持原动作、状态存储与生效范围。
+- 每日默认模板的可点击文字与禁用三点为兄弟控件，禁用区域不得触发默认布局重置。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` DR-410、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog及DR-410；验证见 `tasks/ui-reviews/UR-20261019-settings-affordance.md`。

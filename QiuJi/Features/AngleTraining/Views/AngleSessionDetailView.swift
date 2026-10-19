@@ -19,6 +19,12 @@ struct AngleSessionDetailView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        ProAccessGate(requiresPremium: !HistoryAccessController.isAccessible(date: session.startDate, isPremium: false)) {
+            authorizedContent
+        }
+    }
+
+    private var authorizedContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.xxl) {
                 header

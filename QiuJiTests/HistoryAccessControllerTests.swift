@@ -51,9 +51,9 @@ final class HistoryAccessControllerTests: XCTestCase {
 
     // MARK: - Boundary: exactly 60 days
 
-    func test_free_user_boundary_exactly_60_days() {
+    func test_free_user_boundary_startOf59thPreviousDay() {
         let cal = Calendar.current
-        let justInside = cal.date(byAdding: .day, value: -60, to: Date())!.addingTimeInterval(60)
+        let justInside = cal.date(byAdding: .day, value: -59, to: cal.startOfDay(for: Date()))!
         let session = TrainingSession(ballType: "chinese8")
         session.date = justInside
 
@@ -77,9 +77,9 @@ final class HistoryAccessControllerTests: XCTestCase {
 
     // MARK: - cutoffDate
 
-    func test_cutoffDate_is_60_days_ago() {
+    func test_cutoffDate_includesExactly60CalendarDays() {
         let cal = Calendar.current
-        let expected = cal.date(byAdding: .day, value: -60, to: Date())!
+        let expected = cal.date(byAdding: .day, value: -59, to: cal.startOfDay(for: Date()))!
         let cutoff = HistoryAccessController.cutoffDate()
 
         let diff = abs(cutoff.timeIntervalSince(expected))
@@ -92,6 +92,19 @@ final class HistoryAccessControllerTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    func testCalendarBoundaryAcrossDSTAndTimeZones() {
+        for zone in ["America/Los_Angeles", "Asia/Shanghai"] {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: zone)!
+            let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 15, hour: 23))!
+            let first = calendar.date(byAdding: .day, value: -59, to: calendar.startOfDay(for: now))!
+            XCTAssertEqual(HistoryAccessController.cutoffDate(now: now, calendar: calendar), first)
+            XCTAssertTrue(HistoryAccessController.isAccessible(date: first, isPremium: false, now: now, calendar: calendar))
+            XCTAssertFalse(HistoryAccessController.isAccessible(date: first.addingTimeInterval(-1), isPremium: false, now: now, calendar: calendar))
+            XCTAssertTrue(HistoryAccessController.isAccessible(date: first.addingTimeInterval(-1), isPremium: true, now: now, calendar: calendar))
+        }
+    }
 
     private func makeSession(daysAgo: Int) -> TrainingSession {
         let session = TrainingSession(ballType: "chinese8")

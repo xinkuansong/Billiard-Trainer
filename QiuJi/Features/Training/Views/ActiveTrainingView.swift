@@ -540,6 +540,7 @@ struct ActiveTrainingView: View {
 
             TabView(selection: $viewModel.currentDrillIndex) {
                 ForEach(Array(viewModel.drills.enumerated()), id: \.element.id) { index, drill in
+                    ProAccessGate(requiresPremium: !viewModel.hasStartedDrill(at: index) && viewModel.drillRequiresPremium(at: index)) {
                     DrillRecordView(
                         drill: drill,
                         setsData: viewModel.setsBinding(for: index),
@@ -554,6 +555,7 @@ struct ActiveTrainingView: View {
                             viewModel.addSet(drillIndex: index, choice: choice, shotIndex: shotIndex)
                         }
                     )
+                    }
                     .tag(index)
                 }
             }
@@ -893,6 +895,8 @@ struct ActiveTrainingView: View {
 // MARK: - Drill Picker Sheet
 
 struct DrillPickerSheet: View {
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    @State private var showSubscription = false
     @Environment(\.dismiss) private var dismiss
     @State private var drills: [DrillContent] = []
     @State private var searchText = ""
@@ -926,6 +930,10 @@ struct DrillPickerSheet: View {
             List(filteredDrills) { drill in
                 let isSelected = selectedDrillIds.contains(drill.id)
                 Button {
+                    guard isSelected || subscriptionManager.accessDecision(requiresPremium: drill.isPremium) == .allowed else {
+                        showSubscription = true
+                        return
+                    }
                     withAnimation(BTMotion.easeFast) {
                         if isSelected {
                             selectedDrillIds.remove(drill.id)
@@ -962,6 +970,8 @@ struct DrillPickerSheet: View {
                         }
 
                         Spacer()
+
+                        if drill.isPremium { BTProBadge(isUnlocked: subscriptionManager.isPremium) }
 
                         Image(systemName: isSelected ? BTIcon.checkmarkCircle : BTIcon.plusCircle)
                             .foregroundStyle(isSelected ? Color.btSuccess : Color.btPrimary)
@@ -1002,6 +1012,7 @@ struct DrillPickerSheet: View {
             drills = await DrillContentService.shared.loadFallbackDrills()
             isLoading = false
         }
+        .sheet(isPresented: $showSubscription) { SubscriptionView() }
     }
 }
 

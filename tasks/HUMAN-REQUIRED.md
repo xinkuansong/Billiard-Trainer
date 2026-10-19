@@ -42,18 +42,20 @@
 
 ## [BLOCKING] H-04 — IAP 产品在 App Store Connect 创建
 
-- **状态**：✅ 已完成
+- **状态**：✅ 三商品创建已完成；⚠️ 2026-10-19 实查沙盒前置协议未完成（仅阻塞真机沙盒购买）
 - **做什么**：在 App Store Connect → App → 内购买项目中创建以下 3 个产品：
   | 类型 | 产品 ID | 参考价格 |
   |------|---------|---------|
-  | 自动续期订阅（月度） | `com.yourname.billiardtrainer.premium.monthly` | ¥18/月 |
-  | 自动续期订阅（年度） | `com.yourname.billiardtrainer.premium.yearly` | ¥88/年 |
-  | 非消耗型（终身） | `com.yourname.billiardtrainer.premium.lifetime` | ¥198 |
+  | 自动续期订阅（月度） | `com.xinkuan.qiuji.premium.monthly` | ¥18/月 |
+  | 自动续期订阅（年度） | `com.xinkuan.qiuji.premium.yearly` | ¥88/年 |
+  | 非消耗型（终身） | `com.xinkuan.qiuji.premium.lifetime` | ¥198 |
 - **注意**：产品 ID 需与代码中 `StoreKit` 配置一致；定价需在 App Store Connect 价格表中选择
 - **在哪里**：App Store Connect → 你的 App → 内购买项目
 - **预计时长**：1 小时
 - **影响任务**：T-P7-01（StoreKit 2 Product 加载依赖真实产品 ID）
 - **前置条件**：H-03 完成
+
+- **2026-10-19 实查**：三个实际ID与源码一致，均“准备提交”、销售范围为所有国家或地区。商务页仅列免费App协议“有效（新协议可用）”，要求先更新法律实体信息后签署付费App协议；新版开发者许可协议亦待账户持有人接受。由用户自行处理法律实体/协议，完成后须确认付费协议有效，再重试沙盒商品加载。月度level 1/年度level 2与同权益规则不一致，另列待修配置。详见 `output/pro-implementation-20261019/asc-catalog-audit.json`；未修改ASC或提交审核。
 
 ---
 
@@ -132,7 +134,7 @@
   2. 用非隐私测试图在用户手机完成相册允许/拒绝、裁切、上传、删除、退出重登；服务端持久路径与合成往返已验证，还须将该目录纳入备份并完成一次恢复演练。
   3. 以 guest / 账号 A / 账号 B 各造一条记录，验证互不可见；分别走“迁移 / 暂不迁移”，确认未同意前 guest upload 为 0。
   4. 验证通知允许/拒绝、改时间、关闭取消和实际到点；保存 pending request 脱敏记录与真机通知截图。
-  5. StoreKit sandbox 验证月、年、终身、失效、恢复；月/年显示真实到期日，终身不出现“管理订阅/自动续费”。
+  5. StoreKit sandbox 验证月、年、终身、失效、恢复；月/年显示真实到期日；按2026-10-17确认规则，终身仍保留系统订阅管理入口，以便处理并存的月/年续订，不能暗示购买终身会自动取消旧订阅。
 - **自动化基线**：2026-09-03 backend 13/13、v53 iOS unit 46/46、P8 Profile/Settings 基础 UI 17/17、相册系统授权 2/2、通知系统授权 2/2、本地 StoreKit 3/3、法律 HTTP 路由 3/3、Debug build 退出码 0；另覆盖删号缓存清理、account→guest 启动补偿及 A→B 异步头像/phase 隔离。
 - **完成标志**：上述五组都有截图/屏录与脱敏日志，结果回填 `问题集合_v53.md` W7；隐私素材不得提交 Git。
 

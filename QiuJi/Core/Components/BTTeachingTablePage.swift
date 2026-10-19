@@ -16,11 +16,15 @@ struct BTTablePlanningControls {
     var primaryTitle: String
     var primaryEnabled: Bool
     var onPrimary: () -> Void
+    var primaryControlID: String = "shot.strike"
     var onPaletteTap: (String) -> Void
     var menuItems: [DailyHUDMenuItem]
     var refreshTrajectory: () -> Void
+    var applyPreferences: (TablePreferenceSnapshot) -> Void = { _ in }
     var onSetup: () -> Void = {}
     var onDisappear: () -> Void = {}
+    /// Page-owned gestures/confirmation phases outside the scene's drag lifecycle.
+    var layoutEditingBlocked = false
     var onAimNudged: ((Float) -> Void)? = nil
     var onAimDragActiveChanged: ((Bool) -> Void)? = nil
     var closeupSnapshot: AimCloseupSnapshot? = nil
@@ -36,12 +40,15 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     @ObservedObject var vm: Host
     let titleLabel: String
     let identifier: String
+    let preferencePage: TablePreferencePage
     var velocity: Binding<Double>? = nil
     /// Optional vertical-only spin control for the side-spin atlas.
     var spinHeight: Binding<Double>? = nil
     var showsDisabledSpinEntry: Bool = false
     var teachingNote: String? = nil
     var planning: BTTablePlanningControls? = nil
+    var leftControlGroup: ControlLayoutGroup = .planning
+    var layoutEditingBlocked = false
     /// Page-owned display options; empty for all existing consumers.
     var displayMenuItems: [DailyHUDMenuItem] = []
     /// Opt-in migration: notices and persistent teaching readouts retain distinct lifetimes.
@@ -56,6 +63,20 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     @State private var powerTouchActive = false
     @State private var protectedCloseupFrames: [CGRect] = []
     @State private var showSpinPad = false
+    @ObservedObject private var freeControlLayouts = FreeControlLayoutStore.shared
+    private var preservesPersonalControlLayout: Bool {
+        preferencePage.usesFreeControlLayout && (editingControlLayout ||
+            !freeControlLayouts.values(page: preferencePage, mode: is3D ? .threeD : .twoD).isEmpty)
+    }
+    @State private var editingControlLayout = false
+    @State private var scenePausedBeforeLayout = false
+    @State private var layoutAimDragging = false
+    @AccessibilityFocusState private var moreFocused: Bool
+    private var controlLayoutBusy: Bool {
+        layoutEditingBlocked || planning?.isAnimating == true || planning?.layoutEditingBlocked == true
+        || vm.temporaryTopDownActive || vm.cameraTransitionBusy || vm.isDragging
+        || aimTouchActive || powerTouchActive || spinTouchActive || layoutAimDragging || draggingKey != nil
+    }
     @Environment(\.displayScale) private var displayScale
     @ViewBuilder var title: () -> Title
     @ViewBuilder var leftContent: (CGSize) -> Left
@@ -73,6 +94,27 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     private var is3D: Bool { vm.cameraMode == .perspective3D }
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var preferences = UserPreferences.shared
+    @ObservedObject private var tablePreferences = TablePreferencesStore.shared
+    private var pagePreferences: TablePreferenceSnapshot { tablePreferences.snapshot(for: preferencePage) }
+    private func setPagePreference(_ field: TablePreferenceField, _ value: Double) {
+        tablePreferences.apply(field, value: value, to: preferencePage)
+        applyPagePreferences()
+    }
+    private func applyPagePreferences() {
+        guard hasAppeared, !editingControlLayout, planning?.isAnimating != true, !vm.temporaryTopDownActive, !vm.isDragging else { return }
+        let next = pagePreferences
+        let previous = vm.scene.tablePreferences
+        vm.scene.tablePreferencePage = preferencePage
+        vm.scene.tablePreferences = next
+        if previous?.enabled(.view3D) != next.enabled(.view3D) {
+            vm.setCameraMode(next.enabled(.view3D) ? .perspective3D : (portrait ? .topDown2DRotated : .topDown2D))
+        }
+        vm.scene.setTableGridVisible(next.enabled(.grid))
+        planning?.applyPreferences(next)
+        if previous?.trajectoryDetail != next.trajectoryDetail || previous?.enabled(.separation) != next.enabled(.separation) {
+            planning?.refreshTrajectory()
+        }
+    }
     @State private var hasAppeared = false
     @StateObject private var fps = TableFPSReadoutState()
     @State private var portrait = false
@@ -113,25 +155,52 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         .btDarkToolChrome(titleLabel)
         .toolbar(.hidden, for: .navigationBar)
         .statusBarHidden(UIDevice.current.userInterfaceIdiom != .pad)
+        .preference(key: TrainingActivityPausedKey.self, value: editingControlLayout)
+        .onChange(of: editingControlLayout) { _, editing in
+            if editing {
+                scenePausedBeforeLayout = vm.scene.isPaused
+                vm.scene.isPaused = true
+            } else {
+                vm.scene.isPaused = scenePausedBeforeLayout
+                moreFocused = true
+                if scenePhase == .active { applyPagePreferences() }
+            }
+        }
         .onAppear {
-            vm.resumeTeachingActivity()
-            guard !hasAppeared else { return }
+            if !editingControlLayout { vm.resumeTeachingActivity() }
+            guard !hasAppeared else { applyPagePreferences(); return }
             hasAppeared = true
+            vm.scene.tablePreferencePage = preferencePage
+            vm.scene.tablePreferences = pagePreferences
             vm.setupScene()
             planning?.onSetup()
+            vm.setCameraMode(pagePreferences.enabled(.view3D) ? .perspective3D : (portrait ? .topDown2DRotated : .topDown2D))
+            applyPagePreferences()
             updateProjection()
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { vm.resumeTeachingActivity() }
-            else { suspendActivity() }
+            // The idle editor owns a paused scene. Do not call planning.onDisappear:
+            // that callback cancels solver/playback work and belongs to a real exit.
+            if !editingControlLayout {
+                if phase == .active { vm.resumeTeachingActivity(); applyPagePreferences() }
+                else { suspendActivity() }
+            }
         }
-        .onDisappear { suspendActivity() }
+        .onChange(of: tablePreferences.revision) { _, _ in applyPagePreferences() }
+        .onChange(of: planning?.isAnimating) { _, busy in if busy != true { applyPagePreferences() } }
+        .onChange(of: vm.temporaryTopDownActive) { _, active in if !active { applyPagePreferences() } }
+        .onChange(of: vm.isDragging) { _, active in if !active { applyPagePreferences() } }
+        .onDisappear {
+            if editingControlLayout { vm.scene.isPaused = scenePausedBeforeLayout }
+            suspendActivity()
+        }
         .onPreferenceChange(BTCloseupProtectedFramesKey.self) { protectedCloseupFrames = $0 }
     }
 
     private func suspendActivity() {
         aimTouchActive = false
         powerTouchActive = false
+        layoutAimDragging = false
         draggingKey = nil
         vm.endTemporaryTopDown()
         vm.cameraTransitionBusy = false
@@ -174,7 +243,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             }
             DailyTemplateHeader(size: size, safe: safe, foundation: f, plan: plan,
                 targets: paletteKeys, chineseEightBall: true, titleWidth: titleWidth, titleHeight: usesStandardTitle ? 34 : titleSize.height,
-                windowControlInsets: windowControls, fps: fps, showsDeviceStatus: !systemStatusVisible,
+                windowControlInsets: windowControls, fps: fps, showsDeviceStatus: !systemStatusVisible, keepsPaletteVisible: preservesPersonalControlLayout,
                 title: { navigationTitle(compact: compactTitle) }, actions: {
                     Button { showSpinPad = false; menu = .settings } label: {
                         Image(systemName: BTIcon.menuCircle).font(.system(size: 22, weight: .medium))
@@ -182,6 +251,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                             .background { BTHUDControlBackground(shape: Circle()) }
                     }.overlay(Circle().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth).allowsHitTesting(false))
                     .accessibilityLabel("更多").accessibilityIdentifier("\(identifier).more")
+                    .accessibilityFocused($moreFocused)
                 }, ball: { key, diameter, height in ballToken(key, diameter: diameter, slotHeight: height) },
                 paletteMarker: { frameReader("palette") })
                 .background(DailyWindowControlInsets { controls, window, visible in
@@ -190,16 +260,19 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             if let pairedLeftContent {
                 pairedLeftContent(instruments)
                     .environment(\.teachingInstrumentActivity, { aimTouchActive = $0 })
+                    .controlLayoutGroup(.direction)
                     .frame(width: f.left.width, height: f.left.height, alignment: .top)
                     .position(x: f.left.midX, y: f.left.midY)
             } else {
                 leftContent(CGSize(width: f.left.width, height: min(420, size.height - max(44, f.stage.minY))))
                     .frame(width: f.left.width)
+                    .controlLayoutGroup(leftControlGroup)
                     .position(x: f.left.midX, y: f.table.midY)
             }
             if let velocity {
                 VStack(spacing: 4) {
                     powerColumn(velocity: velocity, foundation: f)
+                        .controlLayoutGroup(.instrument)
                     if let planning {
                         Button { showSpinPad = false; planning.onPrimary() } label: {
                             Text(planning.primaryTitle).font(.btSubheadlineSemibold)
@@ -208,12 +281,14 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                             .disabled(!primaryEnabled)
                             .opacity(primaryEnabled ? 1 : 0.3)
                             .accessibilityIdentifier(identifier + ".strike")
+                            .freeControlItem(planning.primaryControlID, name: planning.primaryTitle)
+                            .controlLayoutGroup(.primary)
                     }
                 }
                 .frame(width: f.right.width, height: f.right.height, alignment: .top)
                 .position(x: f.right.midX, y: f.right.midY)
             } else if is3D {
-                cameraButtons.position(x: f.right.midX, y: f.table.midY)
+                cameraButtons.controlLayoutGroup(.camera).position(x: f.right.midX, y: f.table.midY)
             }
             // The camera viewport exists even when there is no information to show.
             // An empty conditional Group emits no geometry preference and would
@@ -249,7 +324,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             if showSpinPad, spinHeight != nil || planning != nil {
                 teachingSpinPad(spinHeight ?? planning!.spinY, foundation: f, pointsPerMetre: pointsPerMetre)
             }
-            if !plan.fits {
+            if !plan.fits && !preservesPersonalControlLayout {
                 Text("扩大窗口后继续摆球").font(.btFootnote).padding()
                     .background(.regularMaterial, in: Capsule())
                     .position(x: size.width / 2, y: size.height / 2)
@@ -274,13 +349,20 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             }
         }
         .frame(width: size.width, height: size.height)
+        .controlLayoutHost(page: preferencePage, mode: is3D ? .threeD : .twoD, size: size,
+            leading: f.left, trailing: f.right, defaultFits: f.fits && plan.fits,
+            obstacles: plan.controlLayoutProtectionFrames(table: f.table),
+            busy: controlLayoutBusy, editing: $editingControlLayout, rulerHeight: instruments.rulerLength,
+            primaryTitle: planning?.primaryTitle ?? "击球")
         .background {
             GeometryReader { viewport in
                 let fullFrame = viewport.frame(in: .global)
                 let renderFrame = is3D ? fullFrame : (cameraReadableFrame ?? fullFrame)
                 sceneFullscreen.frame(width: renderFrame.width, height: renderFrame.height)
                     .position(x: renderFrame.midX - fullFrame.minX, y: renderFrame.midY - fullFrame.minY)
-                    .opacity(is3D || cameraReadableFrame != nil ? 1 : 0).allowsHitTesting(menu == nil)
+                    .opacity((preferencePage.usesFreeControlLayout || !editingControlLayout) && (is3D || cameraReadableFrame != nil) ? 1 : 0)
+                    .allowsHitTesting(menu == nil && !editingControlLayout)
+                    .accessibilityHidden(editingControlLayout)
             }.ignoresSafeArea()
         }
         .background { DailyCarpetBackground(style: preferences.roomStyle, pointsPerMetre: pointsPerMetre).ignoresSafeArea() }
@@ -326,7 +408,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
 
     private func toggleCamera() {
         showSpinPad = false
-        vm.setCameraMode(is3D ? (portrait ? .topDown2DRotated : .topDown2D) : .perspective3D)
+        setPagePreference(.view3D, is3D ? 0 : 1)
     }
 
     private var settingsItems: [DailyHUDMenuItem] {
@@ -334,13 +416,12 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             var items: [DailyHUDMenuItem] = []
             if is3D, let hidden = planning.hides3DAssists {
                 items.append(.init(id: identifier + ".trajectory.off", title: "关闭", selected: hidden.wrappedValue,
-                    action: { hidden.wrappedValue = true; planning.refreshTrajectory(); menu = nil }))
+                    action: { setPagePreference(.shows3DTrajectory, 0); menu = nil }))
             }
             items += TrajectoryDetail.allCases.map { detail in
                 DailyHUDMenuItem(id: identifier + ".trajectory.\(detail.rawValue)", title: detail.label,
-                    selected: preferences.trajectoryDetail == detail && !(is3D && planning.hides3DAssists?.wrappedValue == true), action: {
-                        planning.hides3DAssists?.wrappedValue = false
-                        preferences.trajectoryDetail = detail; planning.refreshTrajectory(); menu = nil
+                    selected: pagePreferences.trajectoryDetail == detail && !(is3D && planning.hides3DAssists?.wrappedValue == true), action: {
+                        setPagePreference(.trajectory, Double(detail.rawValue)); menu = nil
                     })
             }
             return items
@@ -348,17 +429,23 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         var items: [DailyHUDMenuItem] = [.init(id: "\(identifier).display", title: "显示"),
          .init(id: "\(identifier).cameraMode", title: "视图", detail: is3D ? "3D" : "2D",
                segments: ["2D", "3D"], disabled: vm.temporaryTopDownActive, action: toggleCamera),
-         .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: preferences.showTableGrid, action: {
-             preferences.showTableGrid.toggle(); vm.scene.setTableGridVisible(preferences.showTableGrid); menu = nil
+         .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
+             setPagePreference(.grid, pagePreferences.enabled(.grid) ? 0 : 1); menu = nil
          })]
         if let planning {
             items.insert(.init(id: identifier + ".transparency", title: "打点盘透明度",
-                detail: "\(Int((planning.transparency.wrappedValue * 100).rounded()))%", action: { showSpinPad = true; menu = .transparency }), at: 2)
-            items.append(.init(id: "menu.aimCloseup", title: "瞄准特写", detail: planning.closeupUnavailableReason, selected: preferences.showAimCloseup,
+                detail: "\(Int((planning.transparency.wrappedValue * 100).rounded()))%", disclosure: true, action: { showSpinPad = true; menu = .transparency }), at: 2)
+            items.append(.init(id: "menu.aimCloseup", title: "瞄准特写", detail: planning.closeupUnavailableReason, selected: pagePreferences.enabled(.closeup),
                 disabled: planning.closeupUnavailableReason != nil,
-                action: { preferences.showAimCloseup.toggle(); menu = nil }))
-            items.append(.init(id: identifier + ".trajectory", title: "轨迹显示 · " + (is3D && planning.hides3DAssists?.wrappedValue == true ? "关闭" : preferences.trajectoryDetail.label),
+                action: { setPagePreference(.closeup, pagePreferences.enabled(.closeup) ? 0 : 1); menu = nil }))
+            items.append(.init(id: identifier + ".trajectory", title: "轨迹显示 · " + (is3D && planning.hides3DAssists?.wrappedValue == true ? "关闭" : pagePreferences.trajectoryDetail.label),
                 disclosure: true, action: { menu = .trajectory }))
+            items += [TablePreferenceField.separation, .rehearsal].map { field in
+                DailyHUDMenuItem(id: identifier + "." + field.rawValue, title: field.title,
+                    selected: pagePreferences.enabled(field), action: {
+                        setPagePreference(field, pagePreferences.enabled(field) ? 0 : 1); menu = nil
+                    })
+            }
             items += planning.menuItems.map { item in
                 var closingItem = item
                 if let action = item.action { closingItem.action = { menu = nil; action() } }
@@ -370,6 +457,15 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             if let action = item.action { closingItem.action = { menu = nil; action() } }
             return closingItem
         }
+        if preferencePage.usesFreeControlLayout {
+            items.insert(.init(id: "controlLayout.open", title: "操作布局",
+                detail: controlLayoutBusy ? "请先完成当前操作" : nil, disclosure: true,
+                disabled: controlLayoutBusy, action: {
+                    guard !controlLayoutBusy else { return }
+                    menu = nil; showSpinPad = false; editingControlLayout = true
+                }), at: min(5, items.count))
+        }
+        items.append(.init(id: identifier + ".preferencesScope", title: "仅调整本页并记住；通用设置可再次统一更新。"))
         if let teachingNote { items.append(.init(id: identifier + ".teachingNote", title: teachingNote)) }
         return items
     }
@@ -406,7 +502,10 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 }
             },
             onAimNudged: planning?.onAimNudged,
-            onAimDragActiveChanged: planning?.onAimDragActiveChanged,
+            onAimDragActiveChanged: { active in
+                layoutAimDragging = active
+                planning?.onAimDragActiveChanged?(active)
+            },
             projector: projector,
             contentIsAnimating: spinTouchActive || aimTouchActive || powerTouchActive || vm.isDragging || vm.cameraTransitionBusy || planning?.isAnimating == true,
             fpsReadoutState: fps,
@@ -434,7 +533,12 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     }
 
     private func powerColumn(velocity: Binding<Double>, foundation f: DailyLayoutMetrics.Foundation) -> some View {
-        BTShotInstrumentColumn(spinX: planning?.spinX.wrappedValue ?? 0, spinY: planning?.spinY.wrappedValue ?? spinHeight?.wrappedValue ?? 0,
+        // Measure the actual native instrument, not the reserved 60pt column.
+        // Keep a >=44pt power target and the original camera's absolute centre.
+        let instrumentWidth = max(CGFloat(44), f.topDiameter)
+        var cameraColumn = f.right
+        cameraColumn.size.width = instrumentWidth
+        return BTShotInstrumentColumn(spinX: planning?.spinX.wrappedValue ?? 0, spinY: planning?.spinY.wrappedValue ?? spinHeight?.wrappedValue ?? 0,
             onSpinTap: (spinHeight == nil && planning == nil) || planning?.showsSpinSlot == false ? nil : { showSpinPad = true },
             showsDisabledSpinEntry: showsDisabledSpinEntry, velocity: velocity,
             range: planning?.velocityRange ?? ShotTuning.velocityRange,
@@ -450,7 +554,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             .accessibilityIdentifier("solver.power")
             .accessibilityLabel("杆速")
             .accessibilityValue(String(format: "%.2f", velocity.wrappedValue))
-            .frame(width: f.right.width)
+            .frame(width: instrumentWidth)
             .overlayPreferenceValue(BTPowerShellBoundsKey.self) { bounds in
                 GeometryReader { proxy in
                     if is3D, let bounds {
@@ -458,7 +562,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                             .background(GeometryReader { measure in
                                 Color.clear.preference(key: TeachingCameraHeight.self, value: measure.size.height)
                             })
-                            .offset(DailyLayoutMetrics.CameraLane(column: f.right, rulerHeight: f.rulerLength,
+                            .controlLayoutGroup(.camera, anchorMotion: .instrument)
+                            .offset(DailyLayoutMetrics.CameraLane(column: cameraColumn, rulerHeight: f.rulerLength,
                                 powerShell: proxy[bounds], stackHeight: cameraStackHeight).offset)
                     }
                 }
@@ -642,6 +747,7 @@ struct BTTeachingAimRuler: View {
         .frame(width: layout.columnWidth)
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.3)
+        .freeControlItem("shot.aim", name: "方向")
     }
 }
 
@@ -758,9 +864,13 @@ struct BTTeachingInformationLayer: View {
                     } ?? .null
                     // Protect visible information, not the empty horizontal space
                     // in a wide scroll viewport. Clipped text remains scrollable.
+                    let page = geometry.frame(in: .named("controlLayout"))
                     Color.clear.preference(key: BTCloseupProtectedFramesKey.self,
                         value: visible.isNull || visible.isEmpty ? [] : [
                             visible.offsetBy(dx: window.minX, dy: window.minY)])
+                        .preference(key: ControlLayoutFixedFramesKey.self,
+                            value: visible.isNull || visible.isEmpty ? [] : [
+                                visible.offsetBy(dx: page.minX, dy: page.minY)])
                 }
             }
             .accessibilityIdentifier("teaching.informationViewport")

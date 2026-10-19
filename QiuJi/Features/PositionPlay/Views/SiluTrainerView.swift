@@ -8,15 +8,23 @@ struct SiluTrainerView: View {
     @State private var informationPanel: PlanningPanel?
     @StateObject private var vm = SiluTrainerViewModel()
     @State private var showBreakPicker = false
-    @AppStorage("silu.spinTransparency") private var spinTransparency = 0.5
-    @AppStorage("silu.hides3DAssists") private var hides3DAssists = false
+    @State private var drawingConstraint = false
+    @Environment(\.scenePhase) private var scenePhase
     private var busy: Bool { vm.isPlaying || vm.isComputing || vm.breakRunner?.isBusy == true }
     private var toolName: String {
         switch vm.activeTool { case .none: return "摆球"; case .region: return "落区"; case .restPoint: return "落点"; case .passPoint: return "过点" }
     }
 
+    @AppStorage("silu.allowSideSpin") private var savedAllowSideSpin = true
+    @AppStorage("silu.basicPositionOnly") private var savedBasicPositionOnly = false
+    @ObservedObject private var tablePreferences = TablePreferencesStore.shared
+    private var spinTransparency: Double {
+        get { tablePreferences.snapshot(for: .silu)[.transparency] }
+        nonmutating set { tablePreferences.apply(.transparency, value: newValue, to: .silu) }
+    }
+    private var hides3DAssists: Bool { !tablePreferences.snapshot(for: .silu).enabled(.shows3DTrajectory) }
     var body: some View {
-        BTTeachingTablePage(vm: vm, titleLabel: "思路训练", identifier: "silu",
+        BTTeachingTablePage(vm: vm, titleLabel: "思路训练", identifier: "silu", preferencePage: .silu,
             velocity: velocity, planning: controls,
             usesStandardTitle: true,
             pairedLeftContent: vm.isBreakMode ? { AnyView(breakControls($0)) } : nil,
@@ -30,6 +38,17 @@ struct SiluTrainerView: View {
         .sheet(item: $informationPanel) { panel in
             PlanningInformationSheet(panel: panel, sections: informationSections(panel))
         }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { drawingConstraint = false } }
+        .onDisappear { drawingConstraint = false }
+        #if DEBUG
+        .overlay(alignment: .bottom) {
+            if DailyLayoutProbe.enabled {
+                Color.clear.frame(width: 1, height: 1).allowsHitTesting(false)
+                    .accessibilityElement().accessibilityIdentifier("silu.layoutState")
+                    .accessibilityValue("target=\(vm.selectedTargetKey ?? "none") pocket=\(vm.selectedPocketIndex) tool=\(vm.activeTool) solutions=\(vm.solutions.count) index=\(vm.currentIndex) adjusted=\(vm.isSolutionAdjusted) spinX=\(vm.spinX) spinY=\(vm.spinY) velocity=\(vm.velocity) break=\(vm.isBreakMode)")
+            }
+        }
+        #endif
     }
 
     private func breakControls(_ metrics: BTTeachingInstrumentLayout) -> some View {
@@ -46,6 +65,7 @@ struct SiluTrainerView: View {
                     .opacity(busy || vm.temporaryTopDownActive ? 0.3 : 1)
                     .accessibilityLabel("重开").accessibilityIdentifier("break.rerack")
             }
+            .freeControlItem("break.rerack", name: "重开")
             BTTeachingAimRuler(layout: metrics, enabled: !busy && !vm.temporaryTopDownActive,
                 onNudge: { vm.breakRunner?.nudgeAim(byDegrees: $0) },
                 degreesPerPoint: vm.breakRunner?.aimWheelDegreesPerPoint ?? AimWheelGain.defaultDegreesPerPoint)
@@ -71,8 +91,8 @@ struct SiluTrainerView: View {
         })
     }
     private var controls: BTTablePlanningControls {
-        BTTablePlanningControls(spinX: spinX, spinY: spinY, transparency: $spinTransparency,
-            hides3DAssists: Binding(get: { hides3DAssists }, set: { hides3DAssists = $0; vm.hides3DShotAssists = $0 }),
+        BTTablePlanningControls(spinX: spinX, spinY: spinY, transparency: Binding(get: { spinTransparency }, set: { spinTransparency = $0 }),
+            hides3DAssists: Binding(get: { hides3DAssists }, set: { tablePreferences.apply(.shows3DTrajectory, value: $0 ? 0 : 1, to: .silu) }),
             velocityRange: vm.isBreakMode ? BreakFlowRunner.breakVelocityRange : ShotTuning.velocityRange,
             instrumentsEnabled: (!busy || vm.isAdjustingSolution) && (vm.isBreakMode || vm.hasSolutions), isAnimating: busy,
             paletteEnabled: !busy && !vm.isBreakMode,
@@ -82,11 +102,12 @@ struct SiluTrainerView: View {
                 if let runner = vm.breakRunner {
                     if runner.showsConfirm { runner.confirmSettled() } else { runner.breakNow() }
                 } else { vm.play() }
-            }, onPaletteTap: { key in
+            }, primaryControlID: vm.isBreakMode ? (vm.breakRunner?.showsConfirm == true ? "break.confirm" : "break.strike") : "shot.strike", onPaletteTap: { key in
                 if vm.onTableKeys.contains(key) { vm.pulseTableBall(key) } else { vm.placeFromPalette(key) }
             }, menuItems: menuItems, refreshTrajectory: { vm.redrawTrajectory() },
-            onSetup: { vm.hides3DShotAssists = hides3DAssists; if let initialBoard { vm.loadBoard(initialBoard) } },
+            applyPreferences: { vm.hides3DShotAssists = !$0.enabled(.shows3DTrajectory) }, onSetup: { vm.allowSideSpin = savedAllowSideSpin; vm.basicPositionOnly = savedBasicPositionOnly; vm.hides3DShotAssists = hides3DAssists; if let initialBoard { vm.loadBoard(initialBoard) } },
             onDisappear: { vm.stopForDismissal() },
+            layoutEditingBlocked: drawingConstraint || vm.breakRunner?.showsConfirm == true,
             onAimNudged: vm.isBreakMode ? { vm.breakRunner?.nudgeAim(byDegrees: $0) } : nil,
             closeupSnapshot: vm.canStrike ? vm.solvedContactCloseup : nil,
             closeupUnavailableReason: vm.canStrike && vm.solvedContactCloseup != nil ? nil : "当前首碰暂无特写",
@@ -99,14 +120,14 @@ struct SiluTrainerView: View {
                     return AnyView(SolveConstraintDrawingOverlay(coordinateSpaceName: "silu", sceneFrame: frame,
                         unproject: { projector.unproject?($0) }, onDrag: {
                             vm.toolDrag(startNormalized: $0, currentNormalized: $1, ended: $2)
-                        }))
+                        }, onDragActiveChanged: { drawingConstraint = $0 }))
                 }
                 return AnyView(EmptyView())
             })
     }
 
     private func leftControls(_ size: CGSize) -> some View {
-        ScrollView(.vertical) {
+        FreeControlColumn {
             VStack(spacing: 4) {
                 if !vm.isBreakMode {
                     Menu {
@@ -120,16 +141,22 @@ struct SiluTrainerView: View {
                             .overlay(RoundedRectangle(cornerRadius: 12).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
                     }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }.disabled(busy)
                         .opacity(busy ? 0.4 : 1).accessibilityIdentifier("silu.tool")
+                        .freeControlItem("planning.constraintTool", name: "约束工具")
                     action("清除", "eraser", "silu.clearConstraint", enabled: !busy && vm.hasConstraint) { vm.clearConstraint() }
+                        .freeControlItem("planning.clearConstraint", name: "清除约束")
                     action("求解", TeachingSolverSymbols.solve, "solver.solve", enabled: !busy && vm.hasConstraint) { vm.solve() }
+                        .freeControlItem("planning.solve", name: "求解")
                     TeachingSolutionButton(count: vm.solutions.count, currentIndex: vm.currentIndex,
                         enabled: !busy, next: { vm.nextSolution() },
                         isModified: vm.isSolutionAdjusted)
+                        .freeControlItem("planning.nextSolution", name: "下一解")
                     action("重打", "arrow.uturn.backward", "silu.undo", enabled: !busy && !vm.temporaryTopDownActive && vm.canUndoShot) { vm.undoLastShot() }
+                        .freeControlItem("shot.undo", name: "重打")
                     action("回放", "play.rectangle", "silu.replay", enabled: !busy && !vm.temporaryTopDownActive && vm.canPlayback) { vm.replayLastShot() }
+                        .freeControlItem("shot.replay", name: "回放")
                 }
             }.frame(maxWidth: .infinity)
-        }.scrollIndicators(.hidden).frame(width: size.width, height: min(size.height, vm.isBreakMode ? 232 : 284))
+        }.frame(width: size.width, height: min(size.height, vm.isBreakMode ? 232 : 284), alignment: .top)
     }
     private func action(_ title: String, _ icon: String, _ id: String, enabled: Bool, perform: @escaping () -> Void) -> some View {
         Button(action: perform) {
@@ -141,14 +168,14 @@ struct SiluTrainerView: View {
     }
     private var menuItems: [DailyHUDMenuItem] {
         var items: [DailyHUDMenuItem] = [
-            .init(id: "silu.help", title: "操作说明", disabled: vm.isBreakMode, action: { informationPanel = .help }),
+            .init(id: "silu.help", title: "操作说明", disclosure: true, disabled: vm.isBreakMode, action: { informationPanel = .help }),
             .init(id: "silu.solveOptions", title: "求解范围"),
-            .init(id: "silu.sideSpin", title: "允许左右塞", selected: vm.allowSideSpin, disabled: busy || vm.isBreakMode, action: { vm.allowSideSpin.toggle() }),
-            .init(id: "silu.basicOnly", title: "仅基础走位（≤1库）", selected: vm.basicPositionOnly, disabled: busy || vm.isBreakMode, action: { vm.basicPositionOnly.toggle() })]
+            .init(id: "silu.sideSpin", title: "允许左右塞", selected: vm.allowSideSpin, disabled: busy || vm.isBreakMode, action: { vm.allowSideSpin.toggle(); savedAllowSideSpin = vm.allowSideSpin }),
+            .init(id: "silu.basicOnly", title: "仅基础走位（≤1库）", selected: vm.basicPositionOnly, disabled: busy || vm.isBreakMode, action: { vm.basicPositionOnly.toggle(); savedBasicPositionOnly = vm.basicPositionOnly })]
         if vm.isBreakMode {
             items.append(.init(id: "silu.cancelBreak", title: "取消开球", disabled: busy, action: { vm.cancelBreakFlow() }))
         } else {
-            items += [.init(id: "break.entry", title: "开球", disabled: busy, action: { showBreakPicker = true }),
+            items += [.init(id: "break.entry", title: "开球", disclosure: true, disabled: busy, action: { showBreakPicker = true }),
                 .init(id: "silu.clear", title: "清空桌面", disabled: busy, action: { vm.clearTable() }),
                 .init(id: "silu.reset", title: "恢复默认球形", disabled: busy, action: { vm.resetAll() })]
         }

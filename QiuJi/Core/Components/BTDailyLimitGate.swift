@@ -62,7 +62,7 @@ struct BTDailyLimitGate: View {
 
     private var cardBody: some View {
         VStack(spacing: Spacing.md) {
-            BTPremiumMaterialSymbol(systemName: BTIcon.crown, size: 32)
+            BTProfileCrown(width: 48)
 
             Text("今日免费次数已用完")
                 .font(.btHeadline)
@@ -74,14 +74,11 @@ struct BTDailyLimitGate: View {
                 .multilineTextAlignment(.center)
 
             Button(action: onUnlock) {
-                Label(Self.unlockCTATitle, systemImage: "crown.fill")
-                    .font(.btCTALabelRounded)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, Spacing.xl)
-                    .padding(.vertical, 11)
-                    .background(Capsule().fill(Color.btPrimary))
+                BTProUnlockLabel()
             }
-            .buttonStyle(BTPressableStyle.capsule)
+            .buttonStyle(BTProUnlockButtonStyle(font: .btCTALabelRounded, expands: false))
+            // This gate is hosted on the permanently dark table/scene surface.
+            .environment(\.colorScheme, .dark)
         }
         .padding(Spacing.xl)
         .frame(maxWidth: .infinity)
@@ -96,14 +93,11 @@ struct BTDailyLimitGate: View {
                 .foregroundStyle(.white.opacity(0.65))
 
             Button(action: onUnlock) {
-                Label(Self.unlockCTATitle, systemImage: "crown.fill")
-                    .font(.btCTALabelRounded)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, Spacing.xl)
-                    .padding(.vertical, 11)
-                    .background(Capsule().fill(Color.btPrimary))
+                BTProUnlockLabel()
             }
-            .buttonStyle(BTPressableStyle.capsule)
+            .buttonStyle(BTProUnlockButtonStyle(font: .btCTALabelRounded, expands: false))
+            // This gate is hosted on the permanently dark table/scene surface.
+            .environment(\.colorScheme, .dark)
         }
     }
 }

@@ -23,8 +23,7 @@ struct ClothColorSelectionView: View {
                                     Text(style.displayName).font(.btBody).foregroundStyle(.btText)
                                 }
                                 Spacer(minLength: Spacing.sm)
-                                Image(systemName: prefs.clothColor == style ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(prefs.clothColor == style ? Color.btPrimary : Color.btTextSecondary)
+                                BTSelectionIndicator(isSelected: prefs.clothColor == style)
                                     .accessibilityHidden(true)
                             }
                             .padding(Spacing.lg)

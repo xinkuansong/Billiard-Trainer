@@ -151,7 +151,9 @@ enum MobileTableRendering {
 /// Phone frame cost remains to be measured.
 final class MobileContactOcclusion: NSObject, SCNSceneRendererDelegate {
     static let encodedOpacityScale: Float = 0.85
-    private let balls: [SCNNode]
+    private var balls: [SCNNode]
+    var capacity: Int { balls.count }
+    private let ballLock = NSLock()
     private let materials: [SCNMaterial]
     private let surfaceY: Float
     private let radius = AngleSceneCalculator.ballRadius
@@ -164,9 +166,13 @@ final class MobileContactOcclusion: NSObject, SCNSceneRendererDelegate {
             + "};\n#pragma arguments\nQiuJiContactUniforms contactUniforms;\n" : fields
     }
 
-    init(scene: AngleTrainingScene, batchesUniforms: Bool = true) {
+    init(scene: AngleTrainingScene, batchesUniforms: Bool = true, trackedBalls: [SCNNode]? = nil) {
         self.batchesUniforms = batchesUniforms
-        balls = scene.allBallNodes.sorted { $0.key < $1.key }.map(\.value)
+        balls = trackedBalls ?? scene.allBallNodes.sorted { $0.key < $1.key }.map(\.value)
+        if trackedBalls != nil {
+            let capacity = ((balls.count + 15) / 16) * 16
+            balls += (balls.count..<capacity).map { _ in SCNNode() }
+        }
         surfaceY = scene.surfaceY
         previous = Array(repeating: SIMD4<Float>(repeating: .nan), count: balls.count)
         var shader = "#pragma arguments\n"
@@ -239,10 +245,23 @@ final class MobileContactOcclusion: NSObject, SCNSceneRendererDelegate {
         update(usePresentation: true)
     }
 
+    /// Keep the existing shader capacity while rebinding its slots to user-owned balls.
+    /// Render callbacks and editor changes may arrive on different threads.
+    @discardableResult
+    func trackBallInstances(_ nodes: [SCNNode]) -> Bool {
+        ballLock.lock(); defer { ballLock.unlock() }
+        guard nodes.count <= balls.count else { return false }
+        let emptySlots = (nodes.count..<balls.count).map { _ in SCNNode() }
+        balls = nodes + emptySlots
+        previous = Array(repeating: SIMD4<Float>(repeating: .nan), count: balls.count)
+        return true
+    }
+
     private func update(usePresentation: Bool) {
+        ballLock.lock(); defer { ballLock.unlock() }
         // Renderer callbacks already run in the frame's transaction. A nested
         // explicit transaction delays these uniforms by one frame (FL-076).
-        var changedGroups: UInt = 0
+        var changedGroups = Set<Int>()
         for (i, node) in balls.enumerated() {
             let rendered = usePresentation ? node.presentation : node
             let p = rendered.worldPosition
@@ -252,10 +271,10 @@ final class MobileContactOcclusion: NSObject, SCNSceneRendererDelegate {
             let value = SIMD4(p.x, p.z, max(radius, h), weight)
             guard value != previous[i] else { continue }
             previous[i] = value
-            changedGroups |= 1 << (i / 4)
+            changedGroups.insert(i / 4)
         }
         if batchesUniforms {
-            guard changedGroups != 0 else { return }
+            guard !changedGroups.isEmpty else { return }
             // One immutable struct update keeps all groups in the same frame and
             // reduces per-material KVC/buffer bindings without changing ball data.
             var values = previous
@@ -264,7 +283,7 @@ final class MobileContactOcclusion: NSObject, SCNSceneRendererDelegate {
             for material in materials { material.setValue(data as NSData, forKey: "contactUniforms") }
             return
         }
-        for group in 0..<((balls.count + 3) / 4) where changedGroups & (1 << group) != 0 {
+        for group in 0..<((balls.count + 3) / 4) where changedGroups.contains(group) {
             let base = group * 4
             func column(_ offset: Int) -> SIMD4<Float> {
                 base + offset < previous.count ? previous[base + offset] : .zero

@@ -13,6 +13,23 @@ import XCTest
 ///    而不是「某个恰好不同的屏幕」。另存一张全屏作上下文。
 enum TheoryFigureEvidence {
 
+    static func outputDirectory(fallback: String) -> URL {
+        let env = ProcessInfo.processInfo.environment
+        return URL(fileURLWithPath: env["THEORY_EVIDENCE_DIR"]
+                   ?? env["TEST_RUNNER_THEORY_EVIDENCE_DIR"] ?? fallback)
+    }
+
+    static func exerciseAngleSlider(_ id: String, app: XCUIApplication, title: String) {
+        let slider = app.sliders[id]
+        XCTAssertTrue(slider.waitForExistence(timeout: 5))
+        XCTAssertTrue(scrollFullyIntoView(slider, app: app, navigationTitle: title))
+        let before = slider.value as? String
+        slider.adjust(toNormalizedSliderPosition: 0.8)
+        XCTAssertNotEqual(before, slider.value as? String, "切角滑杆必须响应")
+        slider.adjust(toNormalizedSliderPosition: 0.2)
+        XCTAssertNotEqual(before, slider.value as? String, "切角滑杆反向调节必须响应")
+    }
+
     /// 可视区：窗口减去导航栏遮挡（导航栏是浮层，图落在它下面就是被挡住）。
     static func viewport(of app: XCUIApplication, navigationTitle: String) -> CGRect {
         let window = app.windows.firstMatch.frame

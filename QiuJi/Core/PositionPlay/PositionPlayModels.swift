@@ -26,8 +26,17 @@ enum PositionPlayBall {
 
     /// 球号（目标球 1..15）；母球返回 nil。
     static func number(for key: String) -> Int? {
-        guard key.hasPrefix("_"), let n = Int(key.dropFirst()) else { return nil }
+        guard key.hasPrefix("_"), let n = Int(key.dropFirst().split(separator: "@").first ?? ""),
+              (1...15).contains(n) else { return nil }
         return n
+    }
+
+    /// A custom ball keeps its appearance in the prefix and its stable identity in the suffix.
+    static func instanceKey(number: Int, id: UUID = UUID()) -> String { "_\(number)@\(id.uuidString)" }
+
+    static func isInstance(_ key: String) -> Bool {
+        let parts = key.split(separator: "@", omittingEmptySubsequences: false)
+        return parts.count == 2 && number(for: key) != nil && UUID(uuidString: String(parts[1])) != nil
     }
 
     /// UI 短标签：母球「母」，目标球显示号码。

@@ -116,6 +116,7 @@ final class DrillSceneController: ObservableObject {
         scene.configureShotAwareCamera()
         scene.setupScene(recipe: .liveReference)
         scene.cameraRig?.configurePlayerCameraControls(daily: true)
+        scene.setCameraMode(cameraMode, animated: false)
         surfaceY = scene.surfaceY
 
         // 物理求解放后台；回主线程画与缩略图同契约的静帧。
@@ -862,6 +863,19 @@ final class DrillSceneController: ObservableObject {
 struct DrillSceneView: View {
     @Environment(\.scenePhase) private var scenePhase
     let drill: DrillContent
+    let preferencePage: TablePreferencePage
+    @ObservedObject private var tablePreferences = TablePreferencesStore.shared
+    private func applyPagePreferences() {
+        guard !controller.isPlaying else { return }
+        let next = tablePreferences.snapshot(for: preferencePage)
+        let previous = controller.scene.tablePreferences
+        controller.scene.tablePreferencePage = preferencePage
+        controller.scene.tablePreferences = next
+        if previous?.enabled(.view3D) != next.enabled(.view3D) {
+            controller.setCameraMode(next.enabled(.view3D) ? .perspective3D : .topDown2D)
+        }
+        controller.scene.setTableGridVisible(next.enabled(.grid))
+    }
     @StateObject private var controller = DrillSceneController()
     @StateObject private var fpsReadout = TableFPSReadoutState()
     @State private var didAppear = false
@@ -879,7 +893,8 @@ struct DrillSceneView: View {
         VStack(spacing: 0) {
             HStack(spacing: Spacing.sm) {
                 Button {
-                    controller.setCameraMode(controller.cameraMode == .perspective3D ? .topDown2D : .perspective3D)
+                    tablePreferences.apply(.view3D, value: controller.cameraMode == .perspective3D ? 0 : 1, to: preferencePage)
+                    applyPagePreferences()
                     revealPlaybackControls()
                 } label: {
                     HStack(spacing: 0) {
@@ -1011,10 +1026,13 @@ struct DrillSceneView: View {
         .animation(BTMotion.easeInOutFast, value: playbackControlsVisible)
         .onChange(of: controller.playbackState) { _, state in
             updateControlVisibility(for: state)
+            applyPagePreferences()
         }
+        .onChange(of: tablePreferences.revision) { _, _ in applyPagePreferences() }
         .onAppear {
-            guard !didAppear else { return }
+            guard !didAppear else { applyPagePreferences(); return }
             didAppear = true
+            applyPagePreferences()
             controller.setup(drill: drill)
         }
         .onChange(of: scenePhase) { _, phase in

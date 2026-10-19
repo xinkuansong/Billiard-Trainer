@@ -15,7 +15,7 @@ struct DiamondSystemView: View {
         SolverStageChrome(
             vm: vm,
             title: "颗星解球",
-            coordinateSpaceName: "reflection",
+            coordinateSpaceName: "reflection", preferencePage: .diamondSystem,
             onPocketTapped: nil,
             infoTitle: "颗星解球原理",
             infoBlocks: Self.infoBlocks

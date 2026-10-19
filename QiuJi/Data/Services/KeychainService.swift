@@ -7,6 +7,7 @@ enum KeychainService {
         case appleIdentityToken = "com.qiuji.app.apple_identity_token"
         case accessToken = "com.qiuji.app.access_token"
         case refreshToken = "com.qiuji.app.refresh_token"
+        case trustedLocalAccount = "com.qiuji.app.trusted_local_account"
     }
 
     @discardableResult

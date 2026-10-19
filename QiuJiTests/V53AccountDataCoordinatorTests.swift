@@ -11,6 +11,7 @@ final class V53AccountDataCoordinatorTests: XCTestCase {
     private var ownerContext: CurrentOwnerContext!
     private var auth: AuthState!
     private var coordinator: AccountDataCoordinator!
+    private var formationDirectory: URL!
     private var syncBackend: CoordinatorSyncBackend!
     private var restoreBackend: CoordinatorRestoreBackend!
 
@@ -26,7 +27,8 @@ final class V53AccountDataCoordinatorTests: XCTestCase {
                          ownerContext: ownerContext)
         container = ModelContainerFactory.makeInMemoryContainer()
         context = container.mainContext
-        coordinator = AccountDataCoordinator(ownerContext: ownerContext, defaults: defaults)
+        formationDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        coordinator = makeCoordinator()
         coordinator.configure(context: context)
         SyncQueueManager.shared.configure(context: context)
         SyncRestoreService.shared.configure(context: context)
@@ -37,7 +39,12 @@ final class V53AccountDataCoordinatorTests: XCTestCase {
         SyncRestoreService.shared.backend = restoreBackend
     }
 
+    private func makeCoordinator() -> AccountDataCoordinator {
+        AccountDataCoordinator(ownerContext: ownerContext, defaults: defaults,
+            formationService: .init(backend: CoordinatorFormationBackend()), formationDirectory: formationDirectory, monitorNetwork: false)
+    }
     override func tearDown() {
+        if FileManager.default.fileExists(atPath: formationDirectory.path) { try? FileManager.default.removeItem(at: formationDirectory) }
         SyncQueueManager.shared.backend = LiveSyncBackend()
         SyncRestoreService.shared.backend = LiveSyncRestoreBackend()
         SyncRestoreService.shared.defaults = .standard
@@ -52,6 +59,22 @@ final class V53AccountDataCoordinatorTests: XCTestCase {
         super.tearDown()
     }
 
+    func test_guestFormationOnlyRequiresConsentThenMovesAndSyncs() async throws {
+        let guest = CustomFormationRepository(ownerKey: ownerContext.guestOwnerKey, directory: formationDirectory)
+        let key = PositionPlayBall.instanceKey(number: 1)
+        let template = CustomFormationTemplate(name: "游客模板", ballKeys: [key],
+            board: .init(onTable: ["cueBall": .init(x: 0.2, y: 0.3), key: .init(x: 0.5, y: 0.25)]))
+        try guest.put(template)
+        auth.login(user: AppUser(id: "user-a", provider: .apple)); auth.setCloudSyncEnabled(true)
+        await coordinator.handleCompletedLogin(userId: "user-a", authState: auth)
+        XCTAssertTrue(auth.pendingMigration)
+        let account = CustomFormationRepository(ownerKey: OwnerKey.account("user-a"), directory: formationDirectory)
+        XCTAssertTrue(try account.load().templates.isEmpty); XCTAssertEqual(try guest.load().templates.count, 1)
+        auth.confirmMigration(); await coordinator.confirmGuestMigration(userId: "user-a", authState: auth)
+        XCTAssertTrue(try guest.load().templates.isEmpty)
+        XCTAssertEqual(try account.load().templates.first?.id, template.id)
+        XCTAssertEqual(try account.load().pendingCount, 0)
+    }
     func test_loginWithGuestData_waitsForConsentAndUploadsNothing() async throws {
         let guest = ownerContext.guestOwnerKey
         let session = TrainingSession(ownerKey: guest)
@@ -297,11 +320,11 @@ final class V53AccountDataCoordinatorTests: XCTestCase {
                                        ownerKey: account))
         try context.save()
 
-        let beforeRestart = AccountDataCoordinator(ownerContext: ownerContext, defaults: defaults)
+        let beforeRestart = makeCoordinator()
         beforeRestart.markAccountDeletionForLocalCleanup(userId: "deleted-user")
         XCTAssertEqual(beforeRestart.pendingDeletionCleanupUserIds, Set(["deleted-user"]))
 
-        let afterRestart = AccountDataCoordinator(ownerContext: ownerContext, defaults: defaults)
+        let afterRestart = makeCoordinator()
         afterRestart.configure(context: context)
 
         XCTAssertEqual(session.ownerKey, ownerContext.guestOwnerKey)
@@ -394,5 +417,16 @@ private struct FailingCoordinatorRestoreBackend: SyncRestoreBackend {
     }
     func fetchAngleTests(after: Date?) async throws -> [SyncedRecord<AngleTestDTO>] {
         throw AppError.networkError("offline")
+    }
+}
+
+@MainActor
+private struct CoordinatorFormationBackend: CustomFormationSyncBackend {
+    func mutate(_ operation: FormationMutation, userID: String) async throws -> FormationMutationResponse {
+        .init(conflict: false, record: .init(clientId: operation.clientId, revision: operation.baseRevision + 1,
+            deleted: operation.deleted, schemaVersion: 1, template: operation.template, modifiedAt: Date()))
+    }
+    func changes(after: Int, through: Int?, userID: String) async throws -> FormationChangePage {
+        .init(records: [], next: after, through: after, hasMore: false)
     }
 }

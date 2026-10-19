@@ -1,5 +1,19 @@
 import SwiftUI
 
+/// Persistent affordance for custom choice rows. Native switches keep their own style.
+struct BTSelectionIndicator: View {
+    let isSelected: Bool
+    var selectedColor: Color = .btPrimary
+    var unselectedColor: Color = .btTextSecondary
+
+    var body: some View {
+        Image(systemName: isSelected ? "checkmark" : "square")
+            .foregroundStyle(isSelected ? selectedColor : unselectedColor)
+            .frame(width: 20)
+            .accessibilityHidden(true)
+    }
+}
+
 struct BTTogglePillGroup<T: Hashable>: View {
     let options: [T]
     @Binding var selected: T

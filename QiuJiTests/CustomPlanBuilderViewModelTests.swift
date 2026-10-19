@@ -5,6 +5,9 @@ import SwiftData
 @MainActor
 final class CustomPlanBuilderViewModelTests: XCTestCase {
 
+    // Domain fixtures use synthetic IDs; entitlement rejection is covered by ProContentBoundaryTests.
+    private var domainAccess: ProContentAccess { ProContentAccess(decision: { _ in .allowed }, drillRequirement: { _ in false }) }
+
     var container: ModelContainer!
     var context: ModelContext!
 
@@ -22,8 +25,20 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
 
     // MARK: - Initial state
 
+    func test_save_afterOwnerChanges_doesNotCopyDraftIntoNewAccount() throws {
+        let originalOwner = CurrentOwnerContext.shared.ownerKey
+        defer { CurrentOwnerContext.shared.setOwnerKey(originalOwner) }
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
+        vm.name = "Owner A draft"
+        vm.drillItems = [makeItem()]
+        CurrentOwnerContext.shared.useAccount(userID: "pro-draft-owner-B")
+        XCTAssertNil(vm.save(context: context))
+        XCTAssertNotNil(vm.saveError)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<CustomPlan>()), 0)
+    }
+
     func test_initial_state() {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         XCTAssertTrue(vm.name.isEmpty)
         XCTAssertTrue(vm.drillItems.isEmpty)
         XCTAssertFalse(vm.showDrillPicker)
@@ -36,27 +51,27 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
     // MARK: - canSave validation
 
     func test_canSave_empty_name() {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         vm.drillItems = [makeItem()]
         vm.name = ""
         XCTAssertFalse(vm.canSave)
     }
 
     func test_canSave_whitespace_name() {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         vm.drillItems = [makeItem()]
         vm.name = "   "
         XCTAssertFalse(vm.canSave)
     }
 
     func test_canSave_empty_drills() {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         vm.name = "Test Plan"
         XCTAssertFalse(vm.canSave)
     }
 
     func test_canSave_valid() {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         vm.name = "My Plan"
         vm.drillItems = [makeItem()]
         XCTAssertTrue(vm.canSave)
@@ -65,14 +80,14 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
     // MARK: - Drill management
 
     func test_removeDrills() {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         vm.drillItems = [makeItem(), makeItem(), makeItem()]
         vm.removeDrills(at: IndexSet(integer: 1))
         XCTAssertEqual(vm.drillItems.count, 2)
     }
 
     func test_moveDrills() {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         let item0 = makeItem(name: "First")
         let item1 = makeItem(name: "Second")
         vm.drillItems = [item0, item1]
@@ -84,7 +99,7 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
     // MARK: - Update 遍数（v34 R9：倍数语义，球数 = 完整剂量 × 遍数）
 
     func test_updateRounds_clamped() {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         let item = makeItem()
         vm.drillItems = [item]
         vm.updateRounds(for: item.id, rounds: 25)
@@ -100,7 +115,7 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
         let content = try XCTUnwrap(DrillContentService.decodeDrillFromBundle(id: "drill_c053"))
         let perFormation = try XCTUnwrap(content.sets.perFormation)
 
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         vm.addDrill(content)
         let item = try XCTUnwrap(vm.drillItems.first)
         // 默认遍数 = 1（完整剂量）
@@ -124,14 +139,14 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
     }
 
     func test_updateRounds_unknown_id_no_crash() {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         vm.drillItems = [makeItem()]
         vm.updateRounds(for: UUID(), rounds: 5) // should not crash
     }
 
     /// 保存落库的是遍数倍数（`CustomPlanDrill.roundsPerFormation`，v34 R9）。
     func test_save_persistsRoundsPerFormation() throws {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         vm.name = "遍数计划"
         vm.drillItems = [makeItem(rounds: 4)]
 
@@ -143,7 +158,7 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
     // MARK: - Save
 
     func test_save_creates_customPlan() {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         vm.name = "My Plan"
         vm.drillItems = [makeItem(name: "Drill A"), makeItem(name: "Drill B")]
 
@@ -159,7 +174,7 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
     }
 
     func test_save_trims_name() {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         vm.name = "  Trimmed  "
         vm.drillItems = [makeItem()]
 
@@ -171,7 +186,7 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
     }
 
     func test_save_empty_name_fails() {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         vm.name = "   "
         vm.drillItems = [makeItem()]
 
@@ -181,7 +196,7 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
     }
 
     func test_save_no_drills_fails() {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         vm.name = "Plan"
         vm.drillItems = []
 
@@ -191,7 +206,7 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
     }
 
     func test_save_preserves_drill_order() {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         vm.name = "Ordered"
         vm.drillItems = [makeItem(name: "A"), makeItem(name: "B"), makeItem(name: "C")]
 
@@ -206,7 +221,7 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
     // MARK: - Activate
 
     func test_activate_creates_userActivePlan() throws {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         vm.name = "Plan"
         vm.drillItems = [makeItem()]
 
@@ -224,7 +239,7 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
     }
 
     func test_activate_replaces_existing() throws {
-        let vm = CustomPlanBuilderViewModel()
+        let vm = CustomPlanBuilderViewModel(access: domainAccess)
         let existing = UserActivePlan(planId: "plan_beginner")
         context.insert(existing)
         try context.save()

@@ -6,7 +6,7 @@ import SwiftUI
 ///   vendored `Theory/contracts/theorem-tags.json` 的 T09 条目。
 ///   逐段取舍见 `docs/research/20260807-v30理论转写模板.md` §5.6。
 /// - **配图判类**：B 战术/控制决策类（与具体球位无关）→ 非球形抽象图示
-///   `EnglishErrorCouplingFigure`（三重误差）+ `EnglishLevelLadderFigure`（四级优先）。
+///   `EnglishErrorCouplingFigure`（三种影响）+ `EnglishLevelLadderFigure`（四级优先）。
 ///   ⛔ 不画具体球形局面（红线 5）。术语：挤偏 / 弧线 / 投掷（⛔ 不用「塞偏」）。
 struct TheoryT09View: View {
     var body: some View {
@@ -14,9 +14,9 @@ struct TheoryT09View: View {
             VStack(spacing: Spacing.xxl) {
                 TheoryPageHeader(
                     pageID: .t09,
-                    headline: "能用中杆走到位，就绝不加塞",
-                    detail: "加塞会同时引入挤偏、弧线、投掷三重耦合误差；长距加塞往往需要约 1% 的精度估算，超出业余的稳定能力。",
-                    caption: "默认先用中杆配合「30° / 90° / 切线」三条；真不够，再加最小必要的塞。"
+                    headline: "先明确加塞的目的，再选需要的塞量",
+                    detail: "如果不加左右塞就能完成进球和走位，可以先选这条更熟悉的路线。需要改变吃库方向或完成特定走位时，再用足够完成任务的塞量，不把加塞变成每杆的习惯动作。",
+                    caption: "不加塞仍可使用高杆、低杆或斯登。少用不必要的塞，与练好加塞技术并不矛盾。"
                 )
 
                 whyItWorks
@@ -39,28 +39,28 @@ struct TheoryT09View: View {
     // MARK: - 为什么少加塞
 
     private var whyItWorks: some View {
-        LearnDocSectionCard(title: "中杆只有一个误差，加塞变成三个") {
-            LearnDocText.body("中杆击球，误差源基本就是瞄准本身。一加塞，马上多出三条独立误差：挤偏、弧线、投掷——而且它们会叠在一起放大，不是简单相加。")
+        LearnDocSectionCard(title: "加塞后，要多判断哪些变化") {
+            LearnDocText.body("加塞时，母球出手可能偏离杆身指向，这叫挤偏；行进途中，侧旋配合抬杆会使路线弯曲，这叫弧线；碰撞时，球间摩擦还可能改变目标球的方向，这叫投掷。先分清变化发生在哪个阶段，才知道该观察什么。")
 
             EnglishErrorCouplingFigure()
                 .frame(height: 210)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
                 .accessibilityIdentifier("theoryT09.errorFigure")
 
-            LearnDocText.footnote("三块都要从瞄准里补掉：杆头侧偏带来的挤偏、杆微抬带来的弧线、碰撞时目标球被「拉」开的投掷。忘补任意一块，这一杆就歪。")
+            LearnDocText.footnote("三种效应可能相互抵消，也可能加强，不能把误差简单相乘。不加塞也可能有切球投掷；合适的外侧塞可减小它，但仍要考虑挤偏和弧线。")
 
-            LearnDocText.body("长距、目标球又在桌面中部附近时，容差可能只剩大约 1 毫米量级——大约相当于 1% 的精度。业余很难稳定做到；换低偏杆可以把同样局面放到大约 10% 精度量级，但最好的办法仍是：能不加就不加。")
+            LearnDocText.body("距离越长，出手方向的一点偏差越容易变成明显的位置偏差。实际难度还取决于塞量、速度、抬杆、球杆和球台条件，不能用一个固定的精度百分比概括所有长台加塞球。")
         }
     }
 
     // MARK: - 流派神话破除（T09 §3 Spin/Speed）
 
     private var mythBusting: some View {
-        LearnDocSectionCard(title: "加塞不是「多一种控制」") {
-            LearnDocText.body("侧旋和前进速度的比值，几乎只由杆头打点偏离中心的多少决定——跟球多重、皮头软硬、手腕怎么抖、跟进多长，都对不上号。")
-            LearnDocText.body("所以「抖腕」「松握」「硬皮头」这类说法，改变不了挤偏的比例。它们最多影响总速度或击球稳不稳，减不掉三重误差本身。")
-            LearnDocFormulaNest(title: "真能减少挤偏的办法") {
-                LearnDocText.footnote("① 不加塞（首选）② 只加最小必要量 ③ 换低偏的杆（设备层，改善幅度大约数倍）。")
+        LearnDocSectionCard(title: "先把打点和补偿练稳定") {
+            LearnDocText.body("加塞确实能扩展走位选择，但效果要靠稳定的打点和速度来重复。只说「松握一点」或「抖一下手腕」，并不能说明母球会带多少侧旋，更不能代替瞄准修正。")
+            LearnDocText.body("练习时，先固定球形、速度和抬杆程度，只改变一个条件，观察母球出手、目标球方向和吃库后的变化。这样积累的参照，才能用到比赛里。")
+            LearnDocFormulaNest(title: "球杆能帮到哪里") {
+                LearnDocText.footnote("低偏杆可以减小挤偏，但不会消除弧线和投掷。换杆后仍需重新熟悉补偿量；不要把器材变化当成免修正。")
             }
         }
     }
@@ -75,15 +75,15 @@ struct TheoryT09View: View {
                 .accessibilityIdentifier("theoryT09.levelFigure")
 
             TheoryMatrixTable(
-                columnTitles: ["级别", "加多少", "什么时候用"],
+                columnTitles: ["加多少", "什么时候用"],
                 rows: [
-                    .init("0", ["不加塞", "默认，能走到位就停在这"]),
-                    .init("1", ["约 1/4 杆头", "必须加时的优选"]),
-                    .init("2", ["约 1/2 杆头", "1 级不够才升"]),
-                    .init("3", ["接近打滑极限", "极罕见，专门技术"]),
+                    .init("0", ["不加塞", "先看是否已有合适路线"]),
+                    .init("1", ["少量塞", "先试能否完成需要的调整"]),
+                    .init("2", ["增加塞量", "少量不够时，重新核对补偿"]),
+                    .init("3", ["较大偏心", "需要专门练习，留意打滑风险"]),
                 ]
             )
-            LearnDocText.footnote("能用前旋 / 后旋（上下旋）替代左右塞时，优先上下旋——上下旋不引入挤偏。")
+            LearnDocText.footnote("这里的四级表示选择顺序，不是统一的打点刻度。高低杆可以提供不加左右塞的替代路线，但也要控制到球时的旋转状态。")
         }
     }
 
@@ -93,28 +93,28 @@ struct TheoryT09View: View {
         LearnDocSectionCard(title: "决定加不加塞") {
             TheoryNumberedList(steps: [
                 .init(
-                    "先试中杆解",
-                    detail: "用 30° / 90° / 切线，再配合力度档，估一遍不加塞能不能走到。"
+                    "先看不加塞的路线",
+                    detail: "结合到球时的旋转状态，用 30°、90°和切线判断方向，再看力度是否好控制。"
                 ),
                 .init(
                     "再试上下旋",
-                    detail: "高杆或低杆往往比左右塞更可控。"
+                    detail: "比较高杆、低杆或斯登能否完成走位，选自己更熟悉、落位范围更宽的方案。"
                 ),
                 .init(
-                    "仍无解才加塞",
-                    detail: "按 1 → 2 → 3 级往上加；用到 2、3 级时，把自己的瞄准容差再放宽大约一半到一倍。"
+                    "说清加塞的收益",
+                    detail: "例如改变吃库后的方向，或减少切球投掷。先用较少的塞量试出效果，再决定是否增加。"
                 ),
                 .init(
-                    "超过半桌重新评估",
-                    detail: "长距加塞的 1% 精度需求，多半超出能力——回头找不加塞的替代路线。"
+                    "长距离再比较一次",
+                    detail: "距离长、目标薄或落位区窄时，补偿更难重复。重新比较路线收益与自己的实际把握。"
                 ),
             ])
 
             LearnDocFormulaNest(title: "每次加塞前的四问") {
-                LearnDocText.footnote("① 真的非用不可吗？上下旋 / 中杆 / 换个切角能不能替代？")
-                LearnDocText.footnote("② 是 1 级还是已经要到 2、3 级？尽量降级。")
-                LearnDocText.footnote("③ 距离还允许吗？（不到半桌更可接受。）")
-                LearnDocText.footnote("④ 挤偏、弧线、投掷三个修正都补了吗？漏一个就容易打丢。")
+                LearnDocText.footnote("① 这点塞具体要改变什么？有没有更熟悉的替代路线？")
+                LearnDocText.footnote("② 少一点塞能否达到同样目的？")
+                LearnDocText.footnote("③ 当前距离和角度下，我练过这种补偿吗？")
+                LearnDocText.footnote("④ 挤偏、弧线和投掷的综合影响，是否已考虑到瞄准里？")
             }
         }
     }
@@ -123,8 +123,8 @@ struct TheoryT09View: View {
 
     private var scope: some View {
         LearnDocSectionCard(title: "什么时候仍要加塞") {
-            LearnDocText.body("少数局面中杆和上下旋都到不了：要拐过障碍球、吃库后需要「反常」反弹角、或长距走位末段要靠一点点内侧/外侧塞微调速度。即便如此，也只加最小必要量。")
-            LearnDocText.body("加了塞以后，「30° / 90° / 切线」的输入端都要先按挤偏校正——母球实际飞向已经不是杆身指向。")
+            LearnDocText.body("当需要调整吃库后的方向和速度，或某条路线用侧旋更容易完成时，加塞就是有用的工具。判断标准是它是否让整杆球更可靠，而不是塞量越少就一定越好。")
+            LearnDocText.body("绕过障碍的明显弧线球还涉及抬杆和专门技术，不能理解成普通水平加塞就能拐弯。加塞后的碰撞判断，要以母球实际到球方向为参照，不能直接沿用杆身指向。")
         }
     }
 
@@ -132,16 +132,16 @@ struct TheoryT09View: View {
 
     private static let mistakes: [TheoryMistakeCard.Mistake] = [
         .init(
-            wrong: "以为加塞就能「多控制」母球",
-            right: "每加一份塞，就多一份变量。控制感常常是错觉，实打实增加的是瞄准负担。"
+            wrong: "每杆都习惯性加一点塞",
+            right: "先说明它要完成什么。没有明确收益的加塞，只会增加需要判断的变化。"
         ),
         .init(
             wrong: "以为某种握杆或抖腕能改掉挤偏比例",
-            right: "侧旋与速度的比值几乎只由打点偏离决定，流派出杆改不了这个物理量。"
+            right: "先稳定打点、速度和抬杆，再练补偿。动作名称本身不能保证消除挤偏。"
         ),
         .init(
             wrong: "看职业加塞就照着加",
-            right: "职业的手感建立在上万小时的精度上；业余精度够不到长距约 1% 的需求时，直接模仿往往更糟。"
+            right: "先看他为什么用塞、路线有什么收益，再用自己的练习结果判断是否适合照用。"
         ),
     ]
 
@@ -154,8 +154,8 @@ struct TheoryT09View: View {
                 .foregroundStyle(.btText)
 
             PracticeCTA(
-                title: "先把中杆四态看熟",
-                destination: "旋转与加塞：滑动 / 前旋 / 后旋怎么改变分离角",
+                title: "先认清到球时的旋转",
+                destination: "旋转与加塞：斯登、前旋和后旋怎样影响碰后路线",
                 route: .spinAndEnglish
             )
 
@@ -171,23 +171,23 @@ struct TheoryT09View: View {
             )
             LearnDocTextLink(
                 title: "切线法则",
-                subtitle: "中杆走位的几何起点",
+                subtitle: "判断碰后路线的几何参照",
                 route: .theoryPage(.t03)
             )
 
-            LearnDocText.footnote("这一条还没有绑定专门的跟练题目：先逼自己用中杆走完最近十杆，比空练加塞更见效。")
+            LearnDocText.footnote("练习时选同一个球形，对比不加塞和少量加塞的路线，记录进球与落位是否都能重复。")
         }
     }
 }
 
-// MARK: - 抽象图示 ①：三重误差耦合
+// MARK: - 抽象图示 ①：三种加塞影响
 
-/// 挤偏 / 弧线 / 投掷三重误差示意（非球形，红线 5 合规）。
+/// 挤偏 / 弧线 / 投掷三种影响示意（非球形，红线 5 合规）。
 private struct EnglishErrorCouplingFigure: View {
     private static let items = [
-        ("挤偏", "杆头侧偏，母球出手就不沿杆"),
-        ("弧线", "杆微抬，路上慢慢弯"),
-        ("投掷", "碰撞时目标球被「拉」开"),
+        ("挤偏", "出手时偏离杆身方向"),
+        ("弧线", "途中因侧旋和抬杆弯曲"),
+        ("投掷", "碰撞摩擦改变目标球方向"),
     ]
 
     var body: some View {
@@ -207,7 +207,7 @@ private struct EnglishErrorCouplingFigure: View {
                             .stroke(Color.btSeparator, lineWidth: 1)
                     )
 
-                Text("中杆：1 个误差")
+                Text("分清三个阶段")
                     .font(.btCaption2)
                     .foregroundStyle(.btTextSecondary)
                     .position(x: w * 0.50, y: h * 0.12)
@@ -236,14 +236,14 @@ private struct EnglishErrorCouplingFigure: View {
                     .position(x: xs[i], y: ys)
                 }
 
-                Text("三者同时出现 → 误差叠乘放大")
+                Text("综合判断：可能抵消，也可能加强")
                     .font(.btCaption.weight(.semibold))
                     .foregroundStyle(.btText)
                     .position(x: w * 0.50, y: h * 0.86)
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("加塞引入挤偏、弧线、投掷三重误差，同时出现时误差叠乘放大。")
+        .accessibilityLabel("出手看挤偏，途中看弧线，碰撞看投掷；综合影响可能抵消，也可能加强。")
     }
 }
 
@@ -253,9 +253,9 @@ private struct EnglishErrorCouplingFigure: View {
 private struct EnglishLevelLadderFigure: View {
     private static let rows: [(String, String, Bool)] = [
         ("0 不加塞", "默认首选", true),
-        ("1 约 1/4 杆头", "必须时优选", false),
-        ("2 约 1/2 杆头", "1 级不够才升", false),
-        ("3 接近打滑", "极罕见", false),
+        ("1 少量塞", "先试够不够", false),
+        ("2 增加塞量", "核对补偿", false),
+        ("3 大偏心", "专门练习", false),
     ]
 
     var body: some View {
@@ -302,7 +302,7 @@ private struct EnglishLevelLadderFigure: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("加塞四级优先：0 不加塞默认，1 约四分之一杆头，2 约二分之一杆头，3 接近打滑极少用。")
+        .accessibilityLabel("加塞的选择顺序：先看不加塞的路线，再试少量塞，需要时增加塞量；较大偏心需要专门练习。这不是统一的打点刻度。")
     }
 }
 

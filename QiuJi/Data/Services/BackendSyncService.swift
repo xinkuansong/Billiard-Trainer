@@ -230,6 +230,8 @@ struct UserDTO: Codable {
     let skillLevel: String?
     let yearsPlaying: String?
     let weeklyGoalDays: Int?
+    var gender: String? = nil
+    var birthDate: String? = nil
 }
 
 struct UserProfileUpdate: Encodable {
@@ -238,27 +240,44 @@ struct UserProfileUpdate: Encodable {
     let skillLevel: String?
     let yearsPlaying: String?
     let weeklyGoalDays: Int?
+    let gender: ProfileGender?
+    let birthDate: String?
+    let updatesBirthDate: Bool
 
     init(
         displayName: String? = nil,
         preferredSport: String? = nil,
         skillLevel: String? = nil,
         yearsPlaying: String? = nil,
-        weeklyGoalDays: Int? = nil
+        weeklyGoalDays: Int? = nil,
+        gender: ProfileGender? = nil,
+        birthDate: String? = nil,
+        updatesBirthDate: Bool = false
     ) {
         self.displayName = displayName
         self.preferredSport = preferredSport
         self.skillLevel = skillLevel
         self.yearsPlaying = yearsPlaying
         self.weeklyGoalDays = weeklyGoalDays
+        self.gender = gender
+        self.birthDate = birthDate
+        self.updatesBirthDate = updatesBirthDate
     }
 
     private enum CodingKeys: String, CodingKey {
-        case displayName, preferredSport, skillLevel, yearsPlaying, weeklyGoalDays
+        case displayName, preferredSport, skillLevel, yearsPlaying, weeklyGoalDays, gender, birthDate
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        if let gender {
+            if gender == .unspecified { try container.encodeNil(forKey: .gender) }
+            else { try container.encode(gender.rawValue, forKey: .gender) }
+        }
+        if updatesBirthDate {
+            if let birthDate { try container.encode(birthDate, forKey: .birthDate) }
+            else { try container.encodeNil(forKey: .birthDate) }
+        }
         try container.encodeIfPresent(displayName, forKey: .displayName)
         try container.encodeIfPresent(preferredSport, forKey: .preferredSport)
         try container.encodeIfPresent(skillLevel, forKey: .skillLevel)
@@ -394,5 +413,11 @@ actor BackendSyncService {
 
     func deleteAccount() async throws {
         let _: EmptyResponse = try await api.request(Endpoint(.delete, "/user/account"))
+    }
+}
+
+extension BackendSyncService: InitialProfileImportBackend {
+    func importInitialProfile(_ proposal: InitialProfileImport) async throws -> UserDTO {
+        try await api.request(Endpoint(.post, "/user/profile/import-initial", body: proposal))
     }
 }

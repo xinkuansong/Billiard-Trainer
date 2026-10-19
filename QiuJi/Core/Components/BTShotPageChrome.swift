@@ -117,9 +117,9 @@ struct BTAdaptiveToolLimitGate: View {
                     .multilineTextAlignment(.center)
             }
             Button(action: onUnlock) {
-                Label(BTDailyLimitGate.unlockCTATitle, systemImage: BTIcon.crown)
+                BTProUnlockLabel()
             }
-            .buttonStyle(BTAdaptiveToolActionStyle(isPrimary: true))
+            .buttonStyle(BTProUnlockButtonStyle())
         }
         .padding(Spacing.xl).frame(maxWidth: .infinity)
         .background(Color.btSurface, in: RoundedRectangle(cornerRadius: BTRadius.lg))

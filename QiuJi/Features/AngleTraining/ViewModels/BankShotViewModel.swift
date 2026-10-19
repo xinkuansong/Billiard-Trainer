@@ -777,7 +777,7 @@ final class BankShotViewModel: ObservableObject {
     private func drawFreePreview(_ prediction: ShotPrediction, current: Bool) {
         scene.clearResultNodes(nodes: &freePreviewNodes)
         guard !(cameraMode == .perspective3D && hides3DShotAssists) else { return }
-        let detail = UserPreferences.shared.trajectoryDetail
+        let detail = scene.effectiveTrajectoryDetail
         scene.addCueTrajectory(prediction.cuePath, contact: prediction.firstContact, detail: detail, into: &freePreviewNodes)
         if detail != .minimal {
             for (key, path) in prediction.extraBallPaths {
@@ -841,7 +841,7 @@ final class BankShotViewModel: ObservableObject {
                 let line = IdealObjectDirection.preview(
                     target: CGPoint(x: CGFloat(targetNode.position.x), y: CGFloat(targetNode.position.z)),
                     ghost: CGPoint(x: CGFloat(end.x), y: CGFloat(end.z)))?.line
-                if let node = scene.setIdealObjectLine(line, detail: UserPreferences.shared.trajectoryDetail) { freeAimNodes.append(node) }
+                if let node = scene.setIdealObjectLine(line, detail: scene.effectiveTrajectoryDetail) { freeAimNodes.append(node) }
             }
         } else {
             scene.ghostBallNode?.isHidden = true

@@ -14,8 +14,7 @@ struct BallStickerSettingsView: View {
                             HStack {
                                 Text(style.displayName).font(.btHeadline).foregroundStyle(.btText)
                                 Spacer(minLength: Spacing.sm)
-                                Image(systemName: prefs.ballStickerStyle == style ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(prefs.ballStickerStyle == style ? Color.btPrimary : Color.btTextSecondary)
+                                BTSelectionIndicator(isSelected: prefs.ballStickerStyle == style)
                             }
                             if let image = BallStickerAppearance.image(named: style.previewName) {
                                 Image(uiImage: image).resizable().scaledToFit()

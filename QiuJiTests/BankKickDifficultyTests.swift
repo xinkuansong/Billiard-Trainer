@@ -227,7 +227,7 @@ final class BankKickDifficultyTests: XCTestCase {
                               "扎库文案应标明自库：\(sol.railSequenceText)")
             }
         }
-        // 同一杆去重（K9 修订：不再要求库数相同）：任意两解的精修瞄准/出球方向不得判同。
+        // Measured routes, rather than seed labels or starting directions, define duplicates.
         for i in sols.indices {
             for j in sols.indices where j > i {
                 XCTAssertFalse(
@@ -398,19 +398,10 @@ final class BankKickDifficultyTests: XCTestCase {
                     "保留了精修后重复解：\(sols[i].railSequenceText) vs \(sols[j].railSequenceText)")
             }
         }
-        // 合成：两预测瞄准几乎相同 → 判同。
-        var a = ShotPrediction(), b = ShotPrediction()
-        a.aimDirection = SCNVector3(1, 0, 0)
-        b.aimDirection = SCNVector3(cosf(0.2 * .pi / 180), 0, sinf(0.2 * .pi / 180))
-        XCTAssertTrue(BankKickSolvePipeline.isSameRefinedSolution(a, b))
-        // 合成：瞄准差大但 objectPath 首段同向 → 仍判同（镜像收敛兜底）。
-        var c = ShotPrediction(), d = ShotPrediction()
-        c.aimDirection = SCNVector3(1, 0, 0)
-        d.aimDirection = SCNVector3(0, 0, 1)
-        let y = sY + r
-        c.objectPath = [SCNVector3(0, y, 0), SCNVector3(0.2, y, 0)]
-        d.objectPath = [SCNVector3(0, y, 0), SCNVector3(0.2, y, 0.0005)]
-        XCTAssertTrue(BankKickSolvePipeline.isSameRefinedSolution(c, d))
+        // An identical aim with missing physical route evidence is not enough to merge.
+        let a = ShotPrediction(), b = ShotPrediction()
+        XCTAssertFalse(BankKickSolvePipeline.isSameRefinedSolution(a, b))
+
     }
 
     /// K14 验收截图：翻袋/反射典型盘面走 TrajectoryRenderer（full 档含吃库金点）。
@@ -542,5 +533,206 @@ final class BankKickDifficultyTests: XCTestCase {
                                     antialiasingMode: .multisampling4X)
         scene.clearResultNodes(nodes: &nodes)
         return img
+    }
+}
+
+
+/// Catalogue contracts independent of the solver's old angle-dedup implementation.
+final class BankKickRouteSelectionTests: XCTestCase {
+    private struct Candidate: RankableSolution {
+        var spinX: Float
+        var goodness: Double
+        var route: BankKickRoute?
+        var searchKey: [BankShotCalculator.Rail] = [.left]
+        var cushions: Int { route?.rails.count ?? 0 }
+        var pathLength: Double { Double(BankKickSolvePipeline.polylineLengthXZ(route?.path ?? [])) }
+        var prediction = ShotPrediction()
+    }
+    private func route(_ x: Float = 0, rail: BankShotCalculator.Rail = .left) -> BankKickRoute {
+        let p = SCNVector3(x, 0.828575, -0.60)
+        return BankKickRoute(rails: [rail], contacts: [p],
+            path: [SCNVector3(-0.5, p.y, 0), p, SCNVector3(0.4, p.y, 0.25)], pocketID: nil)
+    }
+
+    func test_routeIdentity_usesRailOrderContactsAndWholePath() {
+        let a = route()
+        XCTAssertTrue(a.matches(route(0.01)))
+        XCTAssertFalse(a.matches(route(0.15)), "Same rail with a different bounce region is a different route")
+        XCTAssertFalse(a.matches(route(rail: .right)))
+        let detour = BankKickRoute(rails: a.rails, contacts: a.contacts,
+            path: [a.path[0], SCNVector3(1, 0.8, 0), a.path[1], a.path[2]], pocketID: nil)
+        XCTAssertFalse(a.matches(detour), "Identical rail points alone cannot hide a different traversal")
+        let otherPocket = BankKickRoute(rails: a.rails, contacts: a.contacts, path: a.path, pocketID: "pocket_1")
+        XCTAssertFalse(a.matches(otherPocket))
+    }
+
+    func test_rank_zeroSpinWinsWithinRouteBeforeGoodnessAndLimit() {
+        let zero = Candidate(spinX: 0, goodness: 1, route: route())
+        let spun = Candidate(spinX: 0.3, goodness: -1, route: route(0.01))
+        let different = Candidate(spinX: 0.1, goodness: 0, route: route(0.3))
+        let ranked = BankKickSolvePipeline.rank([spun, zero, different], limit: 2)
+        XCTAssertEqual(ranked.count, 2)
+        XCTAssertEqual(ranked.last?.spinX, 0)
+        XCTAssertEqual(ranked.first?.spinX, 0.1)
+    }
+
+    func test_minimumSpin_checksBothSignsAndDisconnectedWindows() {
+        let original = Candidate(spinX: 0.3, goodness: 0, route: route())
+        var tried: [Float] = []
+        let reduced = BankKickSolvePipeline.minimumSpinRepresentatives(
+            [original], spinXValues: [-0.3, 0, 0.3]) { seed, spin in
+                tried.append(spin)
+                // A small disconnected negative-spin success window; binary-search assumptions fail.
+                guard abs(spin + 0.06) < 0.001 || spin >= 0.20 else { return nil }
+                var candidate = seed
+                candidate.spinX = spin
+                return candidate
+            }
+        XCTAssertEqual(reduced[0].spinX, -0.06, accuracy: 0.0001)
+        for value: Float in [0, -0.02, 0.02, -0.04, 0.04] {
+            XCTAssertTrue(tried.contains { abs($0 - value) < 0.0001 })
+        }
+    }
+
+    func test_minimumSpin_rechecksMovedRouteAndCachesTrials() {
+        let original = Candidate(spinX: 0.3, goodness: 0, route: route(0.15))
+        var counts: [Float: Int] = [:]
+        let result = BankKickSolvePipeline.minimumSpinRepresentatives(
+            [original], spinXValues: [0, 0.3]) { seed, spin in
+                counts[spin, default: 0] += 1
+                var candidate = seed
+                candidate.spinX = spin
+                candidate.route = self.route(spin * 0.5)
+                return candidate
+            }
+        XCTAssertEqual(result[0].spinX, 0, "Reduction must continue after the bounce point moves")
+        XCTAssertTrue(counts.values.allSatisfy { $0 == 1 }, "Reuse identical seed/spin solves")
+    }
+
+    func test_minimumSpin_rejectsSuccessfulShotsOnAnotherRoute() {
+        let original = Candidate(spinX: 0.3, goodness: 0, route: route())
+        let reduced = BankKickSolvePipeline.minimumSpinRepresentatives(
+            [original], spinXValues: [0, 0.3]) { seed, spin in
+                var candidate = seed
+                candidate.spinX = spin
+                candidate.route = self.route(0.3)
+                return candidate
+            }
+        XCTAssertEqual(reduced[0].spinX, 0.3)
+    }
+
+    func test_minimumSpin_doesNotResolveAnAlreadyUnspunRoute() {
+        let zero = Candidate(spinX: 0, goodness: 1, route: route())
+        let spun = Candidate(spinX: -0.3, goodness: -1, route: route())
+        let result = BankKickSolvePipeline.minimumSpinRepresentatives(
+            [spun, zero], spinXValues: [-0.3, 0, 0.3]) { _, _ in
+                XCTFail("Known zero-spin representative needs no new physics search")
+                return nil
+            }
+        XCTAssertEqual(result.count, 1)
+        XCTAssertEqual(result[0].spinX, 0)
+    }
+
+    func test_measuredKick_excludesJawsAndPostContactRailsAndUsesActualOrder() throws {
+        var pred = ShotPrediction()
+        let recorder = TrajectoryRecorder()
+        let points = [SCNVector3(-0.5, 0.83, 0), SCNVector3(-0.2, 0.83, -0.60),
+                      SCNVector3(0.1, 0.83, 0.2), SCNVector3(0.4, 0.83, 0.25),
+                      SCNVector3(1.24, 0.83, 0.1)]
+        for (i, point) in points.enumerated() {
+            recorder.recordFrame(ballName: ShotInput.cueBallName,
+                frame: BallFrame(time: Float(i), position: point, velocity: SCNVector3(1, 0, 0),
+                    angularVelocity: SCNVector4(0, 0, 0, 0), state: .rolling))
+        }
+        pred.recorder = recorder
+        pred.events = [
+            ShotEvent(time: 1, kind: .ballCushion(ball: ShotInput.cueBallName),
+                      contactNormal: SCNVector3(0, 0, 1), cushionIndex: 0),
+            ShotEvent(time: 2, kind: .ballCushion(ball: ShotInput.cueBallName),
+                      contactNormal: SCNVector3(-1, 0, 0), cushionIndex: 8),
+            ShotEvent(time: 3, kind: .ballBall(ballA: ShotInput.cueBallName, ballB: ShotInput.targetBallName)),
+            ShotEvent(time: 4, kind: .ballCushion(ball: ShotInput.cueBallName),
+                      contactNormal: SCNVector3(-1, 0, 0), cushionIndex: 4)
+        ]
+        let measured = try XCTUnwrap(BankKickRoute.measured(pred, kick: true))
+        XCTAssertEqual(measured.kickRails, [.left])
+        XCTAssertEqual(measured.contacts.count, 1)
+        XCTAssertEqual(measured.path.last!.x, points[3].x)
+        pred.feasible = true
+        pred.kickContactMade = true
+        pred.termination = .settled
+        let input = ShotInput(cueBall: points[0], targetBall: points[3], pocketIndex: 0,
+                              velocity: 3.6, spinX: 0, spinY: 0, surfaceY: 0.80)
+        let solution = try XCTUnwrap(BankKickSolvePipeline.kickSolution(
+            input: input, seedRails: [.near, .right], prediction: pred))
+        XCTAssertEqual(solution.rails, [.left], "Never relabel the route with the search seed")
+        XCTAssertEqual(solution.cushions, 1)
+        XCTAssertEqual(solution.seedRails, [.near, .right], "Retain the seed for manual re-solving")
+    }
+
+    func test_realBankAndKickCatalogues_preserveZeroRoutesAndMinimizeRemainingSpin() throws {
+        let y = Float(0.80) + BallPhysics.radius
+        let cue = SCNVector3(-0.5, y, -0.2)
+        let object = SCNVector3(0.1, y, 0.1)
+        let target = SCNVector3(0.4, y, 0.25)
+        let start = Date()
+        let banks = BankKickSolvePipeline.solveBank(cue: cue, object: object, pocketIndex: 1,
+                                                    surfaceY: 0.80, power: 3.6)
+        let zeroBanks = BankKickSolvePipeline.solveBank(cue: cue, object: object, pocketIndex: 1,
+                                                        surfaceY: 0.80, power: 3.6, spinXValues: [0])
+        let kicks = BankKickSolvePipeline.solveKick(cue: cue, target: target, surfaceY: 0.80, power: 3.6)
+        let zeroKicks = BankKickSolvePipeline.solveKick(cue: cue, target: target, surfaceY: 0.80,
+                                                        power: 3.6, spinXValues: [0])
+        XCTAssertFalse(banks.isEmpty)
+        XCTAssertFalse(kicks.isEmpty)
+        func check<S: RankableSolution>(_ all: [S], _ zero: [S]) {
+            for (i, a) in all.enumerated() {
+                for b in all.dropFirst(i + 1) {
+                    XCTAssertFalse(a.route!.matches(b.route!), "Near-duplicate full routes survived")
+                }
+                if zero.contains(where: { $0.route!.matches(a.route!) }) {
+                    XCTAssertEqual(a.spinX, 0, "A zero-spin route was replaced by a spun variant")
+                }
+            }
+        }
+        check(banks, zeroBanks)
+        check(kicks, zeroKicks)
+        for sol in kicks {
+            let route = try XCTUnwrap(sol.route)
+            XCTAssertEqual(sol.rails, route.kickRails)
+            XCTAssertEqual(sol.cushions, route.rails.count)
+        }
+        print("ROUTE-CATALOG bank=\(banks.count) bankZero=\(banks.filter { $0.spinX == 0 }.count) kick=\(kicks.count) kickZero=\(kicks.filter { $0.spinX == 0 }.count) seconds=\(Date().timeIntervalSince(start))")
+        for sol in banks { print("ROUTE-BANK spin=\(sol.spinX) rails=\(sol.railSequenceText)") }
+        for sol in kicks { print("ROUTE-KICK spin=\(sol.spinX) rails=\(sol.railSequenceText)") }
+        // Re-solve independently at EVERY smaller grid value for each surviving nonzero route.
+        for sol in kicks where sol.spinX != 0 {
+            for step in 0..<Int(round(abs(sol.spinX) / BankKickSolvePipeline.minimumSpinStep)) {
+                for sign: Float in [-1, 1] {
+                    let spin = Float(step) * BankKickSolvePipeline.minimumSpinStep * sign
+                    let input = ShotInput(cueBall: cue, targetBall: target, pocketIndex: 0,
+                        velocity: 3.6, spinX: spin, spinY: 0, surfaceY: 0.80, kickRails: sol.seedRails)
+                    let pred = ShotPredictor.predict(input)
+                    if pred.kickContactMade && pred.hasFinalTableState,
+                       let route = BankKickRoute.measured(pred, kick: true) {
+                        XCTAssertFalse(sol.route!.matches(route), "Smaller spin still solves the same kick route: \(spin)")
+                    }
+                }
+            }
+        }
+        for sol in banks where sol.spinX != 0 {
+            for step in 0..<Int(round(abs(sol.spinX) / BankKickSolvePipeline.minimumSpinStep)) {
+                for sign: Float in [-1, 1] {
+                    let spin = Float(step) * BankKickSolvePipeline.minimumSpinStep * sign
+                    let input = ShotInput(cueBall: cue, targetBall: object, pocketIndex: 1,
+                        velocity: 3.6, spinX: spin, spinY: 0, surfaceY: 0.80, bankRails: sol.seedRails)
+                    let pred = ShotPredictor.predict(input)
+                    if pred.simObjectPotted && pred.hasFinalTableState && pred.cueCushionsBeforeContact == 0,
+                       let route = BankKickRoute.measured(pred, kick: false) {
+                        XCTAssertFalse(sol.route!.matches(route), "Smaller spin still solves the same bank route: \(spin)")
+                    }
+                }
+            }
+        }
     }
 }

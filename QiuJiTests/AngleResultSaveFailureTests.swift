@@ -29,6 +29,15 @@ private struct AngleSaveFailureStub: AngleTestRepositoryProtocol {
 }
 
 @MainActor
+private final class AngleSaveRecoveryStub: AngleTestRepositoryProtocol {
+    var saved: [AngleTestResult] = []
+    func save(_ result: AngleTestResult) async throws { saved.append(result) }
+    func fetchAll() async throws -> [AngleTestResult] { saved }
+    func fetchInRange(from: Date, to: Date) async throws -> [AngleTestResult] { saved }
+    func deleteAll() async throws { saved = [] }
+}
+
+@MainActor
 final class AngleResultSaveFailureTests: XCTestCase {
 
     /// 独立 defaults + isPremium，避免测试消耗真实每日额度、也不受额度上限影响。
@@ -59,6 +68,7 @@ final class AngleResultSaveFailureTests: XCTestCase {
         ]
         for (error, expected) in cases {
             for direction in [-1.0, 1.0] {
+                vm.nextQuestion()
                 vm.currentAngle = 45 + direction * error
                 vm.userInput = "45"
                 vm.submitAnswer()
@@ -153,15 +163,16 @@ final class AngleResultSaveFailureTests: XCTestCase {
         vm.submitAnswer()
         _ = try await waitForErrorState { vm.saveErrorMessage }
 
-        let container = ModelContainerFactory.makeInMemoryContainer()
-        vm.configure(repository: LocalAngleTestRepository(context: ModelContext(container)))
+        let repository = AngleSaveRecoveryStub()
+        vm.configure(repository: repository)
         vm.retryFailedSaves()
 
-        for _ in 0..<250 where !vm.unsavedResults.isEmpty || vm.saveErrorMessage != nil {
+        for _ in 0..<250 where repository.saved.isEmpty || !vm.unsavedResults.isEmpty || vm.saveErrorMessage != nil {
             try await Task.sleep(nanoseconds: 20_000_000)
         }
         XCTAssertNil(vm.saveErrorMessage, "重试成功后错误态应清除")
         XCTAssertTrue(vm.unsavedResults.isEmpty, "重试成功后不应再有待保存成绩")
         XCTAssertEqual(vm.sessionResults.count, 1)
+        XCTAssertEqual(repository.saved.count, 1, "Wait for the asynchronous write, not the synchronous queue reset")
     }
 }

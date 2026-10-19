@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import Network
 
 /// 认证身份与本地 owner 数据之间的唯一编排入口。
 ///
@@ -11,16 +12,50 @@ final class AccountDataCoordinator: ObservableObject {
 
     private let ownerContext: CurrentOwnerContext
     private let defaults: UserDefaults
+    private let formationService: CustomFormationSyncService
+    private let formationDirectory: URL?
     private var context: ModelContext?
     private var generation: UInt = 0
     private var offeredMigrationUserId: String?
+    private var retryTask: Task<Void, Never>?
+    private var retryDelay: UInt64 = 5
+    private var needsAnotherSync = false
+    private let networkMonitor = NWPathMonitor()
     @Published private(set) var syncingOwnerKey: String?
     @Published private(set) var statusOwnerKey: String?
     @Published private(set) var statusMessage: String?
 
-    init(ownerContext: CurrentOwnerContext? = nil, defaults: UserDefaults = .standard) {
+    init(ownerContext: CurrentOwnerContext? = nil, defaults: UserDefaults = .standard,
+         formationService: CustomFormationSyncService? = nil, formationDirectory: URL? = nil, monitorNetwork: Bool = true) {
         self.ownerContext = ownerContext ?? .shared
         self.defaults = defaults
+        self.formationService = formationService ?? .shared
+        self.formationDirectory = formationDirectory
+        networkMonitor.pathUpdateHandler = { path in
+            guard path.status == .satisfied else { return }
+            Task { @MainActor in
+                NotificationCenter.default.post(name: .formationNeedsSync, object: nil)
+            }
+        }
+        if monitorNetwork { networkMonitor.start(queue: DispatchQueue(label: "formation.network")) }
+    }
+
+    deinit { networkMonitor.cancel(); retryTask?.cancel() }
+
+    func requestSync(authState: AuthState) {
+        guard authState.cloudSyncEnabled, authState.isLoggedIn else { return }
+        if syncingOwnerKey != nil { needsAnotherSync = true; return }
+        scheduleRetry(authState: authState, seconds: 1)
+    }
+
+    private func scheduleRetry(authState: AuthState, seconds: UInt64) {
+        retryTask?.cancel()
+        retryTask = Task { [weak self, weak authState] in
+            do { try await Task.sleep(nanoseconds: seconds * 1_000_000_000) }
+            catch { return }
+            guard let self, let authState else { return }
+            await self.syncActiveAccount(mode: .incremental, authState: authState)
+        }
     }
 
     func configure(context: ModelContext) {
@@ -43,6 +78,9 @@ final class AccountDataCoordinator: ObservableObject {
             .transfer(from: OwnerKey.account(userId),
                       to: ownerContext.guestOwnerKey,
                       queuePolicy: .discardSource)
+        try CustomFormationRepository.transfer(
+            from: formationRepository(OwnerKey.account(userId)),
+            to: formationRepository(ownerContext.guestOwnerKey))
         var ids = pendingDeletionCleanupUserIds
         ids.remove(userId)
         persistPendingDeletionCleanupUserIds(ids)
@@ -74,7 +112,9 @@ final class AccountDataCoordinator: ObservableObject {
         guard authState.cloudSyncEnabled else { return }
         let guestOwner = ownerContext.guestOwnerKey
         do {
-            if offerGuestMigration, try OwnerTransferService(context: context).hasOwnedData(ownerKey: guestOwner) {
+            let hasGuestRecords = try OwnerTransferService(context: context).hasOwnedData(ownerKey: guestOwner)
+            let hasGuestFormations = try !formationRepository(guestOwner).load().templates.isEmpty
+            if offerGuestMigration && (hasGuestRecords || hasGuestFormations) {
                 // 硬门禁：这里只展示确认；0 次 transfer，0 次 guest upload。
                 offeredMigrationUserId = userId
                 statusOwnerKey = OwnerKey.account(userId)
@@ -102,6 +142,7 @@ final class AccountDataCoordinator: ObservableObject {
         do {
             _ = try OwnerTransferService(context: context)
                 .transfer(from: guestOwner, to: accountOwner)
+            try CustomFormationRepository.transfer(from: formationRepository(guestOwner), to: formationRepository(accountOwner))
         } catch {
             authState.errorMessage = "本机数据迁移失败，尚未上传，请稍后重试"
             return
@@ -145,10 +186,16 @@ final class AccountDataCoordinator: ObservableObject {
         let ownerKey = OwnerKey.account(userId)
         syncingOwnerKey = ownerKey
         statusOwnerKey = ownerKey
-        statusMessage = "正在同步训练记录…"
+        statusMessage = "正在同步训练数据和自定义球形…"
         authState.errorMessage = nil
         defer {
-            if generation == operation { syncingOwnerKey = nil }
+            if generation == operation {
+                syncingOwnerKey = nil
+                if needsAnotherSync {
+                    needsAnotherSync = false
+                    scheduleRetry(authState: authState, seconds: 1)
+                }
+            }
         }
         #if DEBUG
         // Identity-only UI fixtures have no server credential. Exercise the controls offline.
@@ -167,11 +214,22 @@ final class AccountDataCoordinator: ObservableObject {
         guard authState.syncChoiceRevision == choiceRevision, authState.cloudSyncEnabled,
               isCurrent(userId: userId, operation: operation, authState: authState),
               let restore else { return }
-        if upload.failedItems > 0 || restore.hasFailures {
+        let formations = await formationService.sync(
+            userID: userId, repository: formationRepository(ownerKey), full: mode == .full,
+            shouldContinue: {
+                authState.syncChoiceRevision == choiceRevision && authState.cloudSyncEnabled &&
+                self.isCurrent(userId: userId, operation: operation, authState: authState)
+            })
+        guard authState.syncChoiceRevision == choiceRevision, authState.cloudSyncEnabled,
+              isCurrent(userId: userId, operation: operation, authState: authState) else { return }
+        if upload.failedItems > 0 || restore.hasFailures || formations.failed {
             statusMessage = "同步未完成，请重试。本机记录已保留。"
             authState.errorMessage = statusMessage
+            scheduleRetry(authState: authState, seconds: retryDelay)
+            retryDelay = min(retryDelay * 2, 300)
         } else {
-            statusMessage = "同步完成，本次恢复 \(restore.insertedSessions) 条训练记录、\(restore.insertedAngleTests) 条成绩。"
+            retryDelay = 5
+            statusMessage = "同步完成，本次恢复 \(restore.insertedSessions) 条训练记录、\(restore.insertedAngleTests) 条成绩，自定义球形已同步。"
         }
     }
 
@@ -192,6 +250,10 @@ final class AccountDataCoordinator: ObservableObject {
                 authState.syncChoiceRevision == choiceRevision && authState.cloudSyncEnabled && self.isCurrent(userId: userId, operation: operation, authState: authState)
             }
         )
+    }
+
+    private func formationRepository(_ owner: String) -> CustomFormationRepository {
+        .init(ownerKey: owner, directory: formationDirectory)
     }
 
     private func beginOperation() -> UInt {

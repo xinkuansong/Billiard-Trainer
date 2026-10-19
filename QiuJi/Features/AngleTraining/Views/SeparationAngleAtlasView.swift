@@ -6,8 +6,10 @@ struct SeparationAngleAtlasView: View {
     @StateObject private var vm = SeparationAngleAtlasViewModel()
 
     var body: some View {
-        BTTeachingTablePage(vm: vm, titleLabel: "分离角图谱", identifier: "separationAngleAtlas",
+        BTTeachingTablePage(vm: vm, titleLabel: "分离角图谱", identifier: "separationAngleAtlas", preferencePage: .separationAngleAtlas,
             velocity: $vm.velocity, showsDisabledSpinEntry: true,
+            leftControlGroup: .information, layoutEditingBlocked: vm.isComputing,
+            displayMenuItems: trackMenuItems,
             information: teachingInformation, usesStandardTitle: true,
             title: { EmptyView() },
             leftContent: { size in
@@ -33,8 +35,24 @@ struct SeparationAngleAtlasView: View {
                     }.font(.btCaption)
                 }
             }
+            #if DEBUG
+            .overlay(alignment: .bottom) {
+                if DailyLayoutProbe.enabled {
+                    Color.clear.frame(width: 1, height: 1).allowsHitTesting(false)
+                        .accessibilityElement().accessibilityIdentifier("separationAngleAtlas.layoutState")
+                        .accessibilityValue("target=\(vm.selectedTargetKey ?? "none") pocket=\(vm.selectedPocketIndex) velocity=\(vm.velocity) tracks=\(vm.enabledTracks.sorted().map(String.init).joined(separator: ","))")
+                }
+            }
+            #endif
             .background(Color.clear.accessibilityIdentifier("separationAngleAtlas.root"))
     }
+    private var trackMenuItems: [DailyHUDMenuItem] {
+        [.init(id: "separationAngleAtlas.tracks", title: "轨迹 · 至少保留一档")] + (0..<8).map { index in
+            .init(id: "separationAngleAtlas.track.\(index)", title: "高低杆第\(index + 1)档",
+                  selected: vm.enabledTracks.contains(index), action: { vm.toggleTrack(index) })
+        }
+    }
+
     private var teachingInformation: [BTTeachingInformation] {
         guard let text = vm.statusText, !vm.isComputing else { return [] }
         return [.init(text: text, identifier: "separationAngleAtlas.status")]
@@ -46,7 +64,7 @@ struct SeparationAngleAtlasView: View {
 
 /// 左缘竖列 8 个迷你打点盘：每档一点、与 `trackColors`/spinY 档一一对应。
 /// 高杆（index 0）在上 → 低杆（index 7）在下；点选开关对应色轨迹。
-private struct SeparationAngleAtlasSpinLegend: View {
+struct SeparationAngleAtlasSpinLegend: View {
     let enabledTracks: Set<Int>
     let onToggle: (Int) -> Void
 
@@ -105,6 +123,7 @@ private struct SeparationAngleAtlasSpinLegend: View {
         .accessibilityLabel("高低杆第\(index + 1)档")
         .accessibilityAddTraits(enabled ? .isSelected : [])
         .accessibilityValue(enabled ? "已选" : "未选")
+        .freeControlItem("separation.legend.\(index)", name: "高低杆第\(index + 1)档")
     }
 }
 

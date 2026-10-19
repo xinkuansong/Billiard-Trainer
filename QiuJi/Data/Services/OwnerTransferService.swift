@@ -53,6 +53,11 @@ final class OwnerTransferService {
         precondition(!destinationOwner.isEmpty && destinationOwner != OwnerKey.unassigned)
         guard sourceOwner != destinationOwner else { return Result() }
 
+        // Keep implicit SwiftData saves out of this explicit transaction.
+        let autosaveEnabled = context.autosaveEnabled
+        context.autosaveEnabled = false
+        defer { context.autosaveEnabled = autosaveEnabled }
+
         let sourceSessions = try sessions(sourceOwner)
         let sourceAngles = try angleTests(sourceOwner)
         let sourceFavorites = try favorites(sourceOwner)

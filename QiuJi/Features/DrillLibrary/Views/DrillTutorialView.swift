@@ -56,6 +56,10 @@ struct DrillTutorialView: View {
     }
 
     var body: some View {
+        ProAccessGate(requiresPremium: drill.isPremium) { authorizedContent }
+    }
+
+    private var authorizedContent: some View {
         ScrollViewReader { proxy in
             Group {
                 if formations.count > 1 {
