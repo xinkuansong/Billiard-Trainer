@@ -237,6 +237,10 @@ struct MainTabView: View {
             AimPointSceneTrainingView(initialCameraMode: .topDown2DRotated)
         case .aimPointScene3D:
             AimPointSceneTrainingView(initialCameraMode: .perspective3D)
+        case .accuracy2D:
+            AccuracyPracticeView(is3D: false)
+        case .accuracy3D:
+            AccuracyPracticeView(is3D: true)
         case .ballFeel:
             BallFeelView()
         case .bankShot:

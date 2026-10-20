@@ -1,0 +1,892 @@
+[
+  {
+    "code": 0,
+    "count": 5720,
+    "calibratedProbability": 0.0034664978983849383
+  },
+  {
+    "code": 1,
+    "count": 1956,
+    "calibratedProbability": 0.0016490743558032358
+  },
+  {
+    "code": 2,
+    "count": 408,
+    "calibratedProbability": 0.0010330907496424978
+  },
+  {
+    "code": 3,
+    "count": 10528,
+    "calibratedProbability": 0.006000930305025894
+  },
+  {
+    "code": 4,
+    "count": 1424,
+    "calibratedProbability": 0.0028547486734641562
+  },
+  {
+    "code": 5,
+    "count": 492,
+    "calibratedProbability": 0.0017884059846855723
+  },
+  {
+    "code": 6,
+    "count": 6280,
+    "calibratedProbability": 0.004119083286387622
+  },
+  {
+    "code": 7,
+    "count": 532,
+    "calibratedProbability": 0.0019595207659477572
+  },
+  {
+    "code": 8,
+    "count": 336,
+    "calibratedProbability": 0.0012275751969030994
+  },
+  {
+    "code": 9,
+    "count": 9108,
+    "calibratedProbability": 0.0059534786444086045
+  },
+  {
+    "code": 10,
+    "count": 2640,
+    "calibratedProbability": 0.0028321750793186924
+  },
+  {
+    "code": 11,
+    "count": 516,
+    "calibratedProbability": 0.0017742643717159696
+  },
+  {
+    "code": 12,
+    "count": 13160,
+    "calibratedProbability": 0.010306197050977942
+  },
+  {
+    "code": 13,
+    "count": 1784,
+    "calibratedProbability": 0.004902840203809455
+  },
+  {
+    "code": 14,
+    "count": 680,
+    "calibratedProbability": 0.003071467847223767
+  },
+  {
+    "code": 15,
+    "count": 7636,
+    "calibratedProbability": 0.007074250468022639
+  },
+  {
+    "code": 16,
+    "count": 664,
+    "calibratedProbability": 0.00336534605683171
+  },
+  {
+    "code": 17,
+    "count": 420,
+    "calibratedProbability": 0.0021082784220273986
+  },
+  {
+    "code": 18,
+    "count": 4676,
+    "calibratedProbability": 0.004063416577078205
+  },
+  {
+    "code": 19,
+    "count": 1824,
+    "calibratedProbability": 0.0019330391278550639
+  },
+  {
+    "code": 20,
+    "count": 360,
+    "calibratedProbability": 0.001210985323164133
+  },
+  {
+    "code": 21,
+    "count": 6872,
+    "calibratedProbability": 0.007034269281021054
+  },
+  {
+    "code": 22,
+    "count": 1164,
+    "calibratedProbability": 0.0033463262991016954
+  },
+  {
+    "code": 23,
+    "count": 410,
+    "calibratedProbability": 0.0020963631704790544
+  },
+  {
+    "code": 24,
+    "count": 500,
+    "calibratedProbability": 0.0048283748610006
+  },
+  {
+    "code": 27,
+    "count": 5782,
+    "calibratedProbability": 0.005417693449854574
+  },
+  {
+    "code": 28,
+    "count": 6,
+    "calibratedProbability": 0.002577292586826847
+  },
+  {
+    "code": 30,
+    "count": 7246,
+    "calibratedProbability": 0.009378687586027322
+  },
+  {
+    "code": 33,
+    "count": 168,
+    "calibratedProbability": 0.006437601058539459
+  },
+  {
+    "code": 36,
+    "count": 7298,
+    "calibratedProbability": 0.009304526701339987
+  },
+  {
+    "code": 37,
+    "count": 6,
+    "calibratedProbability": 0.004426327903794501
+  },
+  {
+    "code": 39,
+    "count": 2374,
+    "calibratedProbability": 0.01610726961121424
+  },
+  {
+    "code": 45,
+    "count": 168,
+    "calibratedProbability": 0.006350601102029723
+  },
+  {
+    "code": 54,
+    "count": 10392,
+    "calibratedProbability": 0.005547230786119108
+  },
+  {
+    "code": 55,
+    "count": 2564,
+    "calibratedProbability": 0.0026389157885753386
+  },
+  {
+    "code": 56,
+    "count": 680,
+    "calibratedProbability": 0.001653193793638744
+  },
+  {
+    "code": 57,
+    "count": 19316,
+    "calibratedProbability": 0.009602932501099767
+  },
+  {
+    "code": 58,
+    "count": 1708,
+    "calibratedProbability": 0.004568284820092092
+  },
+  {
+    "code": 59,
+    "count": 920,
+    "calibratedProbability": 0.002861879922370523
+  },
+  {
+    "code": 60,
+    "count": 11416,
+    "calibratedProbability": 0.006591524439545692
+  },
+  {
+    "code": 61,
+    "count": 616,
+    "calibratedProbability": 0.003135704748002142
+  },
+  {
+    "code": 62,
+    "count": 560,
+    "calibratedProbability": 0.0019644157083463843
+  },
+  {
+    "code": 63,
+    "count": 16472,
+    "calibratedProbability": 0.009526998425746277
+  },
+  {
+    "code": 64,
+    "count": 3192,
+    "calibratedProbability": 0.00453216163754079
+  },
+  {
+    "code": 65,
+    "count": 962,
+    "calibratedProbability": 0.0028392499387011527
+  },
+  {
+    "code": 66,
+    "count": 23696,
+    "calibratedProbability": 0.016492395277559822
+  },
+  {
+    "code": 67,
+    "count": 1984,
+    "calibratedProbability": 0.007845724104049108
+  },
+  {
+    "code": 68,
+    "count": 1360,
+    "calibratedProbability": 0.004915087647574467
+  },
+  {
+    "code": 69,
+    "count": 14124,
+    "calibratedProbability": 0.011320503036570716
+  },
+  {
+    "code": 70,
+    "count": 880,
+    "calibratedProbability": 0.0053853634993112545
+  },
+  {
+    "code": 71,
+    "count": 760,
+    "calibratedProbability": 0.003373752793512387
+  },
+  {
+    "code": 72,
+    "count": 8216,
+    "calibratedProbability": 0.006502444309485029
+  },
+  {
+    "code": 73,
+    "count": 2040,
+    "calibratedProbability": 0.0030933277547366632
+  },
+  {
+    "code": 74,
+    "count": 720,
+    "calibratedProbability": 0.0019378679183172883
+  },
+  {
+    "code": 75,
+    "count": 11956,
+    "calibratedProbability": 0.011256523516633858
+  },
+  {
+    "code": 76,
+    "count": 1616,
+    "calibratedProbability": 0.0053549273101897695
+  },
+  {
+    "code": 77,
+    "count": 986,
+    "calibratedProbability": 0.00335468552384979
+  },
+  {
+    "code": 78,
+    "count": 1284,
+    "calibratedProbability": 0.00772656163684535
+  },
+  {
+    "code": 79,
+    "count": 76,
+    "calibratedProbability": 0.0036756620160627138
+  },
+  {
+    "code": 80,
+    "count": 18,
+    "calibratedProbability": 0.0023026811460888225
+  },
+  {
+    "code": 81,
+    "count": 10364,
+    "calibratedProbability": 0.009029489083090952
+  },
+  {
+    "code": 82,
+    "count": 54,
+    "calibratedProbability": 0.004295487644711411
+  },
+  {
+    "code": 84,
+    "count": 11511,
+    "calibratedProbability": 0.0156311459767122
+  },
+  {
+    "code": 87,
+    "count": 165,
+    "calibratedProbability": 0.01072933509756576
+  },
+  {
+    "code": 90,
+    "count": 12716,
+    "calibratedProbability": 0.015507544502233303
+  },
+  {
+    "code": 91,
+    "count": 58,
+    "calibratedProbability": 0.007377213172990834
+  },
+  {
+    "code": 93,
+    "count": 4178,
+    "calibratedProbability": 0.026845449352023747
+  },
+  {
+    "code": 99,
+    "count": 350,
+    "calibratedProbability": 0.01058433517004953
+  },
+  {
+    "code": 108,
+    "count": 9708,
+    "calibratedProbability": 0.006656676943342933
+  },
+  {
+    "code": 109,
+    "count": 1928,
+    "calibratedProbability": 0.003166698946290406
+  },
+  {
+    "code": 110,
+    "count": 680,
+    "calibratedProbability": 0.0019838325523664916
+  },
+  {
+    "code": 111,
+    "count": 19096,
+    "calibratedProbability": 0.01152351900131972
+  },
+  {
+    "code": 112,
+    "count": 1452,
+    "calibratedProbability": 0.005481941784110517
+  },
+  {
+    "code": 113,
+    "count": 946,
+    "calibratedProbability": 0.003434255906844628
+  },
+  {
+    "code": 114,
+    "count": 11168,
+    "calibratedProbability": 0.007909829327454834
+  },
+  {
+    "code": 115,
+    "count": 764,
+    "calibratedProbability": 0.0037628456976025715
+  },
+  {
+    "code": 116,
+    "count": 560,
+    "calibratedProbability": 0.0023572988500156606
+  },
+  {
+    "code": 117,
+    "count": 14152,
+    "calibratedProbability": 0.011432398110895534
+  },
+  {
+    "code": 118,
+    "count": 3476,
+    "calibratedProbability": 0.005438593965048946
+  },
+  {
+    "code": 119,
+    "count": 1140,
+    "calibratedProbability": 0.003407099926441384
+  },
+  {
+    "code": 120,
+    "count": 22504,
+    "calibratedProbability": 0.019790874333071792
+  },
+  {
+    "code": 121,
+    "count": 2068,
+    "calibratedProbability": 0.009414868924858944
+  },
+  {
+    "code": 122,
+    "count": 1410,
+    "calibratedProbability": 0.005898105177089366
+  },
+  {
+    "code": 123,
+    "count": 14228,
+    "calibratedProbability": 0.01358460364388486
+  },
+  {
+    "code": 124,
+    "count": 1348,
+    "calibratedProbability": 0.0064624361991735095
+  },
+  {
+    "code": 125,
+    "count": 994,
+    "calibratedProbability": 0.004048503352214864
+  },
+  {
+    "code": 126,
+    "count": 6884,
+    "calibratedProbability": 0.007802933171382037
+  },
+  {
+    "code": 127,
+    "count": 1576,
+    "calibratedProbability": 0.003711993305683996
+  },
+  {
+    "code": 128,
+    "count": 696,
+    "calibratedProbability": 0.0023254415019807466
+  },
+  {
+    "code": 129,
+    "count": 10804,
+    "calibratedProbability": 0.01350782821996063
+  },
+  {
+    "code": 130,
+    "count": 1568,
+    "calibratedProbability": 0.0064259127722277225
+  },
+  {
+    "code": 131,
+    "count": 1262,
+    "calibratedProbability": 0.004025622628619748
+  },
+  {
+    "code": 132,
+    "count": 2268,
+    "calibratedProbability": 0.00927187396421442
+  },
+  {
+    "code": 133,
+    "count": 420,
+    "calibratedProbability": 0.004410794419275255
+  },
+  {
+    "code": 134,
+    "count": 222,
+    "calibratedProbability": 0.002763217375306589
+  },
+  {
+    "code": 135,
+    "count": 10316,
+    "calibratedProbability": 0.009336850794960855
+  },
+  {
+    "code": 136,
+    "count": 24,
+    "calibratedProbability": 0.004441705046786447
+  },
+  {
+    "code": 138,
+    "count": 13347,
+    "calibratedProbability": 0.01616322655643044
+  },
+  {
+    "code": 141,
+    "count": 402,
+    "calibratedProbability": 0.011094559173088388
+  },
+  {
+    "code": 142,
+    "count": 4,
+    "calibratedProbability": 0.005277878007601193
+  },
+  {
+    "code": 144,
+    "count": 13059,
+    "calibratedProbability": 0.016035417716458774
+  },
+  {
+    "code": 147,
+    "count": 5162,
+    "calibratedProbability": 0.027759262214836336
+  },
+  {
+    "code": 153,
+    "count": 442,
+    "calibratedProbability": 0.010944623481706418
+  },
+  {
+    "code": 156,
+    "count": 2,
+    "calibratedProbability": 0.018946477007549853
+  },
+  {
+    "code": 162,
+    "count": 8452,
+    "calibratedProbability": 0.0044377846288952884
+  },
+  {
+    "code": 163,
+    "count": 1920,
+    "calibratedProbability": 0.0021111326308602724
+  },
+  {
+    "code": 164,
+    "count": 680,
+    "calibratedProbability": 0.0013225550349109962
+  },
+  {
+    "code": 165,
+    "count": 19236,
+    "calibratedProbability": 0.007682346000879819
+  },
+  {
+    "code": 166,
+    "count": 1652,
+    "calibratedProbability": 0.003654627856073675
+  },
+  {
+    "code": 167,
+    "count": 1070,
+    "calibratedProbability": 0.00228950393789642
+  },
+  {
+    "code": 168,
+    "count": 10792,
+    "calibratedProbability": 0.0052732195516365585
+  },
+  {
+    "code": 169,
+    "count": 1056,
+    "calibratedProbability": 0.002508563798401716
+  },
+  {
+    "code": 170,
+    "count": 560,
+    "calibratedProbability": 0.0015715325666771083
+  },
+  {
+    "code": 171,
+    "count": 11316,
+    "calibratedProbability": 0.007621598740597022
+  },
+  {
+    "code": 172,
+    "count": 3836,
+    "calibratedProbability": 0.0036257293100326314
+  },
+  {
+    "code": 173,
+    "count": 1346,
+    "calibratedProbability": 0.0022713999509609245
+  },
+  {
+    "code": 174,
+    "count": 22288,
+    "calibratedProbability": 0.013193916222047863
+  },
+  {
+    "code": 175,
+    "count": 2656,
+    "calibratedProbability": 0.006276579283239292
+  },
+  {
+    "code": 176,
+    "count": 1668,
+    "calibratedProbability": 0.003932070118059575
+  },
+  {
+    "code": 177,
+    "count": 12972,
+    "calibratedProbability": 0.009056402429256576
+  },
+  {
+    "code": 178,
+    "count": 2084,
+    "calibratedProbability": 0.004308290799449011
+  },
+  {
+    "code": 179,
+    "count": 1120,
+    "calibratedProbability": 0.0026990022348099105
+  },
+  {
+    "code": 180,
+    "count": 5144,
+    "calibratedProbability": 0.005201955447588027
+  },
+  {
+    "code": 181,
+    "count": 1964,
+    "calibratedProbability": 0.0024746622037893316
+  },
+  {
+    "code": 182,
+    "count": 648,
+    "calibratedProbability": 0.0015502943346538327
+  },
+  {
+    "code": 183,
+    "count": 11408,
+    "calibratedProbability": 0.00900521881330709
+  },
+  {
+    "code": 184,
+    "count": 692,
+    "calibratedProbability": 0.004283941848151815
+  },
+  {
+    "code": 185,
+    "count": 636,
+    "calibratedProbability": 0.002683748419079832
+  },
+  {
+    "code": 186,
+    "count": 3292,
+    "calibratedProbability": 0.006181249309476281
+  },
+  {
+    "code": 187,
+    "count": 820,
+    "calibratedProbability": 0.002940529612850173
+  },
+  {
+    "code": 188,
+    "count": 438,
+    "calibratedProbability": 0.0018421449168710589
+  },
+  {
+    "code": 189,
+    "count": 9870,
+    "calibratedProbability": 0.005198805506262405
+  },
+  {
+    "code": 192,
+    "count": 15510,
+    "calibratedProbability": 0.008999765881006518
+  },
+  {
+    "code": 195,
+    "count": 610,
+    "calibratedProbability": 0.0061775063761043865
+  },
+  {
+    "code": 196,
+    "count": 128,
+    "calibratedProbability": 0.0029387490332508184
+  },
+  {
+    "code": 198,
+    "count": 14118,
+    "calibratedProbability": 0.008928601275768075
+  },
+  {
+    "code": 201,
+    "count": 8856,
+    "calibratedProbability": 0.015456496887597338
+  },
+  {
+    "code": 204,
+    "count": 6,
+    "calibratedProbability": 0.010609454661135213
+  },
+  {
+    "code": 205,
+    "count": 36,
+    "calibratedProbability": 0.005047105212118136
+  },
+  {
+    "code": 207,
+    "count": 1060,
+    "calibratedProbability": 0.006094021428656954
+  },
+  {
+    "code": 210,
+    "count": 102,
+    "calibratedProbability": 0.010549493737683449
+  },
+  {
+    "code": 216,
+    "count": 5884,
+    "calibratedProbability": 0.0022188923144476442
+  },
+  {
+    "code": 217,
+    "count": 1536,
+    "calibratedProbability": 0.0010555663154301362
+  },
+  {
+    "code": 218,
+    "count": 544,
+    "calibratedProbability": 0.0006612775174554981
+  },
+  {
+    "code": 219,
+    "count": 15268,
+    "calibratedProbability": 0.0038411730004399096
+  },
+  {
+    "code": 220,
+    "count": 1580,
+    "calibratedProbability": 0.0018273139280368376
+  },
+  {
+    "code": 221,
+    "count": 930,
+    "calibratedProbability": 0.00114475196894821
+  },
+  {
+    "code": 222,
+    "count": 8528,
+    "calibratedProbability": 0.0026366097758182792
+  },
+  {
+    "code": 223,
+    "count": 896,
+    "calibratedProbability": 0.001254281899200858
+  },
+  {
+    "code": 224,
+    "count": 448,
+    "calibratedProbability": 0.0007857662833385541
+  },
+  {
+    "code": 225,
+    "count": 6824,
+    "calibratedProbability": 0.003810799370298511
+  },
+  {
+    "code": 226,
+    "count": 3072,
+    "calibratedProbability": 0.0018128646550163157
+  },
+  {
+    "code": 227,
+    "count": 1088,
+    "calibratedProbability": 0.0011356999754804622
+  },
+  {
+    "code": 228,
+    "count": 17448,
+    "calibratedProbability": 0.006596958111023931
+  },
+  {
+    "code": 229,
+    "count": 2956,
+    "calibratedProbability": 0.003138289641619646
+  },
+  {
+    "code": 230,
+    "count": 1732,
+    "calibratedProbability": 0.0019660350590297877
+  },
+  {
+    "code": 231,
+    "count": 9012,
+    "calibratedProbability": 0.004528201214628288
+  },
+  {
+    "code": 232,
+    "count": 1792,
+    "calibratedProbability": 0.0021541453997245053
+  },
+  {
+    "code": 233,
+    "count": 896,
+    "calibratedProbability": 0.0013495011174049552
+  },
+  {
+    "code": 234,
+    "count": 2272,
+    "calibratedProbability": 0.0026009777237940134
+  },
+  {
+    "code": 235,
+    "count": 1616,
+    "calibratedProbability": 0.0012373311018946658
+  },
+  {
+    "code": 236,
+    "count": 656,
+    "calibratedProbability": 0.0007751471673269163
+  },
+  {
+    "code": 237,
+    "count": 8452,
+    "calibratedProbability": 0.004502609406653545
+  },
+  {
+    "code": 238,
+    "count": 1292,
+    "calibratedProbability": 0.0021419709240759074
+  },
+  {
+    "code": 239,
+    "count": 718,
+    "calibratedProbability": 0.001341874209539916
+  },
+  {
+    "code": 240,
+    "count": 2676,
+    "calibratedProbability": 0.0030906246547381406
+  },
+  {
+    "code": 241,
+    "count": 792,
+    "calibratedProbability": 0.0014702648064250864
+  },
+  {
+    "code": 242,
+    "count": 224,
+    "calibratedProbability": 0.0009210724584355294
+  },
+  {
+    "code": 243,
+    "count": 7291,
+    "calibratedProbability": 0.0025994027531312026
+  },
+  {
+    "code": 246,
+    "count": 12690,
+    "calibratedProbability": 0.004499882940503259
+  },
+  {
+    "code": 249,
+    "count": 684,
+    "calibratedProbability": 0.0030887531880521932
+  },
+  {
+    "code": 250,
+    "count": 144,
+    "calibratedProbability": 0.0014693745166254092
+  },
+  {
+    "code": 252,
+    "count": 11730,
+    "calibratedProbability": 0.004464300637884037
+  },
+  {
+    "code": 255,
+    "count": 11301,
+    "calibratedProbability": 0.007728248443798669
+  },
+  {
+    "code": 258,
+    "count": 34,
+    "calibratedProbability": 0.005304727330567607
+  },
+  {
+    "code": 259,
+    "count": 58,
+    "calibratedProbability": 0.002523552606059068
+  },
+  {
+    "code": 261,
+    "count": 1754,
+    "calibratedProbability": 0.003047010714328477
+  },
+  {
+    "code": 264,
+    "count": 540,
+    "calibratedProbability": 0.0052747468688417246
+  }
+]

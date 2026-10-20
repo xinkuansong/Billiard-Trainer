@@ -16,6 +16,7 @@ struct HistoryCalendarView: View {
     @State private var showSubscription = false
     @State private var selectedSessionId: UUID?
     @State private var selectedCognitiveSession: CognitiveSessionItem?
+    @State private var selectedAccuracySession: AccuracyPracticeRecord?
 
     private let weekdayLabels = ["一", "二", "三", "四", "五", "六", "日"]
 
@@ -84,6 +85,17 @@ struct HistoryCalendarView: View {
                     }
             }
         }
+        .sheet(item: $selectedAccuracySession) { record in
+            NavigationStack {
+                ScrollView { AccuracyPracticeSummary(record: record) }
+                    .navigationTitle("准度练习记录")
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("完成") { selectedAccuracySession = nil }
+                        }
+                    }
+            }
+        }
     }
 
     // MARK: - History Content
@@ -96,6 +108,10 @@ struct HistoryCalendarView: View {
         } else if let error = vm.errorMessage {
             // F-HI-03：失败与空态分流，可读展示 + 重试。
             VStack(spacing: Spacing.lg) {
+                if vm.unreadableAccuracyCount > 0 {
+                    Text("有 \(vm.unreadableAccuracyCount) 条准度记录暂时无法读取，原记录已保留。")
+                        .font(.btFootnote).foregroundStyle(.btTextSecondary)
+                }
                 BTEmptyState(
                     icon: "exclamationmark.triangle",
                     title: "加载失败",
@@ -310,6 +326,25 @@ struct HistoryCalendarView: View {
         case .tool(let toolSession):
             // ⛔ 无成绩、无详情可看（契约 §5.3 只记日期与时长），故不可点。
             toolRow(toolSession)
+        case .accuracy(let record):
+            Button {
+                if HistoryAccessController.isAccessible(date: record.startedAt, isPremium: subscriptionManager.isPremium) {
+                    selectedAccuracySession = record
+                } else { showSubscription = true }
+            } label: {
+                HStack(spacing: Spacing.md) {
+                    Image(systemName: "scope").foregroundStyle(.btPrimary)
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
+                        Text(record.displayName + " · 模拟练习").font(.btHeadline)
+                        Text("完成 \(record.successCount) / \(record.validAttempts.count) 题")
+                            .font(.btFootnote).foregroundStyle(.btTextSecondary)
+                    }
+                    Spacer()
+                    Image(systemName: BTIcon.chevronRight).foregroundStyle(.btTextTertiary)
+                }.padding(Spacing.lg).background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.lg))
+            }
+            .buttonStyle(BTPressableStyle.row)
+            .accessibilityIdentifier("history.accuracy")
         }
     }
 

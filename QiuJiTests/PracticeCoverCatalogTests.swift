@@ -4,8 +4,15 @@ import XCTest
 /// v28 W1：route → PracticeCoverVisual 全覆盖，禁止 generic fallback。
 final class PracticeCoverCatalogTests: XCTestCase {
 
-    func testOfficialRoutesCountIs24PublishableEntries() {
-        XCTAssertEqual(PracticeCoverCatalog.officialRoutes.count, 24)
+    func testOfficialRoutesIncludeBothAccuracyModes() {
+        XCTAssertEqual(PracticeCoverCatalog.officialRoutes.count, 26)
+        for route in [AngleRoute.accuracy2D, .accuracy3D] {
+            XCTAssertTrue(PracticeCoverCatalog.officialRoutes.contains(route))
+            let layout = PracticeCoverCatalog.visual(for: route).layout
+            XCTAssertTrue(layout.ghosts.isEmpty)
+            XCTAssertEqual(layout.segments.count, 1)
+            XCTAssertEqual(layout.segments.first?.style, .aim)
+        }
     }
 
     func testEveryOfficialRouteHasExplicitVisualWithoutFallback() {

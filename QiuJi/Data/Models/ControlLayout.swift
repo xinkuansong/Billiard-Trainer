@@ -62,6 +62,9 @@ enum FreeControlCatalog {
         case .aimPointScene2D, .aimPointScene3D:
             guard (page == .aimPointScene2D) == (mode == .twoD) else { return [] }
             ids = ["shot.aim", "aimPoint.hint", "aimPoint.submit", "aimPoint.next"]
+        case .accuracy2D, .accuracy3D:
+            guard (page == .accuracy2D) == (mode == .twoD) else { return [] }
+            ids = ["shot.aim", "shot.spin", "shot.power", "shot.strike", "shot.replay"]
         case .customFormationPractice:
             ids = ["shot.undo", "shot.aim", "shot.spin", "shot.power", "shot.strike", "formation.restart"]
         case .customFormationEditor:
@@ -182,14 +185,14 @@ extension TablePreferencePage {
     }
     var fixedControlLayoutMode: ControlLayoutLayer? {
         switch self {
-        case .sceneAiming2D, .aimPointScene2D, .customFormationEditor: return .twoD
-        case .sceneAiming3D, .aimPointScene3D: return .threeD
+        case .sceneAiming2D, .aimPointScene2D, .accuracy2D, .customFormationEditor: return .twoD
+        case .sceneAiming3D, .aimPointScene3D, .accuracy3D: return .threeD
         default: return nil
         }
     }
     var controlLayoutFamily: ControlLayoutFamily? {
         switch self {
-        case .dailyClearance, .freePlay, .shotSimulation, .snakePractice, .composer, .drillTryout: return .shot
+        case .dailyClearance, .freePlay, .shotSimulation, .snakePractice, .composer, .drillTryout, .accuracy2D, .accuracy3D: return .shot
         case .silu, .planThree, .snookerTactics, .bankShot, .diamondSystem: return .planning
         case .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas: return .teaching
         case .sceneAiming2D, .sceneAiming3D: return .angleQuiz

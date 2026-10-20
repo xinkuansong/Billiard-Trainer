@@ -67,6 +67,20 @@ final class AngleUsageLimiter: ObservableObject {
         defaults.set(storedDay, forKey: PracticeStorageKey.angleUsageDate)
     }
 
+    /// Restoring or receiving a repeated result callback must not consume twice.
+    /// Old-day attempts never consume today's allowance.
+    func recordQuestion(attemptID: UUID, submittedAt: Date) {
+        refreshDay()
+        guard Self.todayString(now: submittedAt, calendar: calendar()) == storedDay else { return }
+        let key = "accuracyPractice.usageLedger.v1"
+        let saved = defaults.dictionary(forKey: key)
+        var ids = (saved?["day"] as? String) == storedDay ? (saved?["ids"] as? [String] ?? []) : []
+        guard !ids.contains(attemptID.uuidString) else { return }
+        ids.append(attemptID.uuidString)
+        defaults.set(["day": storedDay, "ids": ids], forKey: key)
+        recordQuestion()
+    }
+
     private func dayKey() -> String { Self.todayString(now: now(), calendar: calendar()) }
 
     private static func todayString(now: Date = Date(), calendar: Calendar = .autoupdatingCurrent) -> String {

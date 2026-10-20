@@ -39,12 +39,93 @@ final class SceneTrainingRulesTests: XCTestCase {
                 if index > 0 { XCTAssertNotEqual(Int(batch[index-1].geometry.actualAngle.rounded()), Int(measured.rounded())) }
             }
             if range == .mixed {
-                XCTAssertEqual(batch.filter { $0.geometry.actualAngle.rounded() <= 10 }.count, 2)
-                for band in [SceneTrainingConfiguration.AngleRange.small, .medium, .large] {
-                    XCTAssertEqual(batch.filter { band.degrees.contains(Int($0.geometry.actualAngle.rounded())) }.count, 6)
+                XCTAssertEqual(batch.filter { $0.geometry.actualAngle.rounded() <= 10 }.count, 4)
+                for band in [SceneTrainingConfiguration.AngleRange.small, .medium, .large, .thin] {
+                    XCTAssertEqual(batch.filter { band.degrees.contains(Int($0.geometry.actualAngle.rounded())) }.count, 4)
                 }
             }
         }
+    }
+
+    func testMultiSelectionAndLegacyConfigurationMigration() throws {
+        let legacy = Data(#"{"freePractice":true,"angles":"thin","cueDistance":"long","pocketDistance":"mixed","pockets":"side"}"#.utf8)
+        var config = try JSONDecoder().decode(SceneTrainingConfiguration.self, from: legacy)
+        XCTAssertEqual(config.angleSelection, [.thin])
+        XCTAssertEqual(config.cueDistanceSelection, [.long])
+        XCTAssertEqual(config.railDistanceSelection, [.mixed])
+        XCTAssertTrue(config.freePractice)
+        XCTAssertTrue(SceneTrainingConfiguration.toggle(.small, random: .mixed, in: &config.angleSelection))
+        XCTAssertEqual(config.angleSelection, [.thin, .small])
+        XCTAssertTrue(SceneTrainingConfiguration.toggle(.mixed, random: .mixed, in: &config.angleSelection))
+        XCTAssertEqual(config.angleSelection, [.mixed])
+        XCTAssertFalse(SceneTrainingConfiguration.toggle(.mixed, random: .mixed, in: &config.angleSelection))
+        XCTAssertEqual(try JSONDecoder().decode(SceneTrainingConfiguration.self, from: JSONEncoder().encode(config)), config)
+        let invalid = Data(#"{"angleSelection":["mixed","small"]}"#.utf8)
+        XCTAssertThrowsError(try JSONDecoder().decode(SceneTrainingConfiguration.self, from: invalid))
+    }
+
+    func testMultipleFiltersAreConsumedAsUnionsWithinIntersection() throws {
+        var config = SceneTrainingConfiguration()
+        config.angleSelection = [.small, .large]
+        config.cueDistanceSelection = [.short, .middle]
+        config.pocketDistanceSelection = [.short]
+        config.pocketSelection = [.corner]
+        config.railDistanceSelection = [.near, .frozen]
+        var generator = SceneTrainingGenerator(seed: 81020)
+        let batch = try generator.batch(config)
+        XCTAssertEqual(batch.count, 20)
+        XCTAssertEqual(batch.filter { (11...30).contains(Int($0.geometry.actualAngle)) }.count, 10)
+        XCTAssertEqual(batch.filter { (51...70).contains(Int($0.geometry.actualAngle)) }.count, 10)
+        for item in batch {
+            XCTAssertEqual(item.geometry.pocketType, .corner)
+            XCTAssertTrue([SceneTrainingConfiguration.Distance.short, .middle].contains(item.cueBand))
+            XCTAssertEqual(item.pocketBand, .short)
+            let target = AngleSceneCalculator.normalizedToScene(point: item.geometry.targetBall, surfaceY: 0)
+            XCTAssertTrue(SceneTrainingRailGeometry.matches(target, selection: [.near, .frozen]))
+        }
+    }
+
+    func testRailFiltersUseSurfaceGapAndFrozenCandidatesAreGenerated() throws {
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+        let rail = geometry.linearCushions[0]
+        let mid = (rail.start + rail.end) * 0.5
+        let touching = mid + rail.normal * BallPhysics.radius
+        let near = mid + rail.normal * (BallPhysics.radius + 0.05)
+        let boundary = mid + rail.normal * (BallPhysics.radius + 0.10)
+        let far = mid + rail.normal * (BallPhysics.radius + 0.101)
+        XCTAssertTrue(SceneTrainingRailGeometry.matches(touching, selection: [.frozen]))
+        XCTAssertFalse(SceneTrainingRailGeometry.matches(touching, selection: [.near]))
+        XCTAssertTrue(SceneTrainingRailGeometry.matches(near, selection: [.near]))
+        XCTAssertTrue(SceneTrainingRailGeometry.matches(boundary, selection: [.near]), "10cm is inclusive")
+        XCTAssertFalse(SceneTrainingRailGeometry.matches(near, selection: [.frozen]))
+        XCTAssertFalse(SceneTrainingRailGeometry.matches(far, selection: [.near, .frozen]))
+        XCTAssertTrue(SceneTrainingRailGeometry.matches(far, selection: [.mixed]))
+        var generator = SceneTrainingGenerator(seed: 81021)
+        var count = 0
+        for pocket in 0..<6 {
+            if let item = generator.question(angle: 30, side: 1, pocket: pocket, cueBand: .short, pocketBand: .short, railSelection: [.frozen]) {
+                count += 1
+                let target = AngleSceneCalculator.normalizedToScene(point: item.geometry.targetBall, surfaceY: 0)
+                XCTAssertTrue(SceneTrainingRailGeometry.matches(target, selection: [.frozen]))
+                XCTAssertLessThanOrEqual(abs(SceneTrainingRailGeometry.clearance(target)), SceneTrainingRailGeometry.contactRoundoff)
+            }
+        }
+        XCTAssertGreaterThan(count, 0, "Frozen generation cannot rely on a continuous random sample hitting zero")
+    }
+
+    func testRailClearanceIncludesFiniteEndpointsBesideMiddlePocket() {
+        for sign: Float in [-1, 1] {
+            let nearOpening = SCNVector3(0, 0, sign * 0.55)
+            let expected = hypot(TablePhysics.sidePocketRadius + TablePhysics.sidePocketFilletRadius,
+                                 TablePhysics.innerWidth / 2 - 0.55) - BallPhysics.radius
+            XCTAssertEqual(SceneTrainingRailGeometry.clearance(nearOpening), expected, accuracy: 0.000001)
+            XCTAssertTrue(SceneTrainingRailGeometry.matches(nearOpening, selection: [.near]))
+            XCTAssertFalse(SceneTrainingRailGeometry.matches(nearOpening, selection: [.frozen]))
+        }
+        XCTAssertEqual(SceneTrainingRailGeometry.clearance(SCNVector3(-0.050163984, 0, -0.40629935)),
+                       0.2012629, accuracy: 0.000001)
+        XCTAssertEqual(SceneTrainingRailGeometry.clearance(SCNVector3(-0.06391573, 0, 0.013841867)),
+                       0.5926496, accuracy: 0.000001)
     }
 
     func testLongDistanceHasNoNearestPocketFallback() throws {

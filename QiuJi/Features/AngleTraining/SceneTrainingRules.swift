@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import SceneKit
 
 /// Four scene quizzes share metre-based conditions. Legacy abstract quizzes keep their own rules.
@@ -13,7 +14,7 @@ struct SceneTrainingConfiguration: Codable, Equatable {
             case .medium: 31...50
             case .large: 51...70
             case .thin: 71...85
-            case .mixed: 0...70
+            case .mixed: 0...85
             }
         }
         var label: String {
@@ -23,7 +24,7 @@ struct SceneTrainingConfiguration: Codable, Equatable {
             case .medium: "中角度 · 31–50°"
             case .large: "大角度 · 51–70°"
             case .thin: "极薄球 · 71–85°"
-            case .mixed: "综合 · 0–70°"
+            case .mixed: "随机 · 0–85°"
             }
         }
     }
@@ -43,32 +44,127 @@ struct SceneTrainingConfiguration: Codable, Equatable {
             case .short: "短 · \(cue ? "0.30" : "0.25")–0.60m"
             case .middle: "中 · >0.60–1.20m"
             case .long: "长 · >1.20–1.80m"
-            case .mixed: "混合（可行档位）"
+            case .mixed: "随机"
             }
         }
         var bands: [Self] { self == .mixed ? [.short, .middle, .long] : [self] }
+        var shortLabel: String {
+            switch self { case .short: "短"; case .middle: "中"; case .long: "长"; case .mixed: "随机" }
+        }
     }
     enum Pockets: String, Codable, CaseIterable, Identifiable {
         case mixed, corner, side
         var id: String { rawValue }
-        var label: String { switch self { case .mixed: "混合"; case .corner: "角袋"; case .side: "中袋" } }
+        var label: String { switch self { case .mixed: "随机"; case .corner: "角袋"; case .side: "中袋" } }
     }
-    var freePractice = false
-    var angles: AngleRange = .mixed
-    var cueDistance: Distance = .mixed
-    var pocketDistance: Distance = .mixed
-    var pockets: Pockets = .mixed
-    // Start the revised defaults once for every route, then retain new user choices.
-    static func load(for route: String) -> Self {
-        guard let data = UserDefaults.standard.data(forKey: "sceneTraining.rules2.mixedDefaults." + route),
-              let value = try? JSONDecoder().decode(Self.self, from: data) else { return Self() }
-        return value
-    }
-    func save(for route: String) {
-        if let data = try? JSONEncoder().encode(self) {
-            UserDefaults.standard.set(data, forKey: "sceneTraining.rules2.mixedDefaults." + route)
+    enum RailDistance: String, Codable, CaseIterable, Identifiable {
+        case mixed, near, frozen
+        var id: String { rawValue }
+        var label: String {
+            switch self { case .mixed: "随机"; case .near: "半贴库"; case .frozen: "贴库" }
         }
     }
+
+    var freePractice = false
+    var angleSelection: Set<AngleRange> = [.mixed]
+    var cueDistanceSelection: Set<Distance> = [.mixed]
+    var pocketDistanceSelection: Set<Distance> = [.mixed]
+    var pocketSelection: Set<Pockets> = [.mixed]
+    var railDistanceSelection: Set<RailDistance> = [.mixed]
+    var allowsVerticalSpin = false
+    var allowsSideSpin = false
+
+    // Legacy single-choice callers remain source compatible. New consumers use the sets.
+    var angles: AngleRange {
+        get { angleSelection.count == 1 ? angleSelection.first! : .mixed }
+        set { angleSelection = [newValue] }
+    }
+    var cueDistance: Distance {
+        get { cueDistanceSelection.count == 1 ? cueDistanceSelection.first! : .mixed }
+        set { cueDistanceSelection = [newValue] }
+    }
+    var pocketDistance: Distance {
+        get { pocketDistanceSelection.count == 1 ? pocketDistanceSelection.first! : .mixed }
+        set { pocketDistanceSelection = [newValue] }
+    }
+    var pockets: Pockets {
+        get { pocketSelection.count == 1 ? pocketSelection.first! : .mixed }
+        set { pocketSelection = [newValue] }
+    }
+    var angleBands: [AngleRange] { AngleRange.allCases.filter { $0 != .mixed && (angleSelection.contains(.mixed) || angleSelection.contains($0)) } }
+    var cueBands: [Distance] { Distance.allCases.filter { $0 != .mixed && (cueDistanceSelection.contains(.mixed) || cueDistanceSelection.contains($0)) } }
+    var pocketBands: [Distance] { Distance.allCases.filter { $0 != .mixed && (pocketDistanceSelection.contains(.mixed) || pocketDistanceSelection.contains($0)) } }
+    var pocketTypes: [Pockets] { Pockets.allCases.filter { $0 != .mixed && (pocketSelection.contains(.mixed) || pocketSelection.contains($0)) } }
+
+    /// Returns false when removing the last selected choice would make the filter empty.
+    @discardableResult
+    static func toggle<T: Hashable>(_ value: T, random: T, in selection: inout Set<T>) -> Bool {
+        if selection.contains(value) {
+            guard selection.count > 1 else { return false }
+            selection.remove(value)
+        } else if value == random {
+            selection = [random]
+        } else {
+            selection.remove(random); selection.insert(value)
+        }
+        return true
+    }
+
+    init() {}
+    private enum CodingKeys: String, CodingKey {
+        case freePractice, angles, cueDistance, pocketDistance, pockets
+        case angleSelection, cueDistanceSelection, pocketDistanceSelection, pocketSelection, railDistanceSelection
+        case allowsVerticalSpin, allowsSideSpin
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        freePractice = try c.decodeIfPresent(Bool.self, forKey: .freePractice) ?? false
+        func selection<T: Decodable & Hashable>(_ key: CodingKeys, legacy: CodingKeys?, random: T) throws -> Set<T> {
+            let values: Set<T>
+            if let stored = try c.decodeIfPresent(Set<T>.self, forKey: key) { values = stored }
+            else if let legacy { values = [try c.decodeIfPresent(T.self, forKey: legacy) ?? random] }
+            else { values = [random] }
+            guard !values.isEmpty, !values.contains(random) || values.count == 1 else {
+                throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "Empty or conflicting training selection")
+            }
+            return values
+        }
+        angleSelection = try selection(.angleSelection, legacy: .angles, random: AngleRange.mixed)
+        cueDistanceSelection = try selection(.cueDistanceSelection, legacy: .cueDistance, random: Distance.mixed)
+        pocketDistanceSelection = try selection(.pocketDistanceSelection, legacy: .pocketDistance, random: Distance.mixed)
+        pocketSelection = try selection(.pocketSelection, legacy: .pockets, random: Pockets.mixed)
+        railDistanceSelection = try selection(.railDistanceSelection, legacy: nil, random: RailDistance.mixed)
+        allowsVerticalSpin = try c.decodeIfPresent(Bool.self, forKey: .allowsVerticalSpin) ?? false
+        allowsSideSpin = try c.decodeIfPresent(Bool.self, forKey: .allowsSideSpin) ?? false
+    }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(freePractice, forKey: .freePractice)
+        try c.encode(angleSelection, forKey: .angleSelection)
+        try c.encode(cueDistanceSelection, forKey: .cueDistanceSelection)
+        try c.encode(pocketDistanceSelection, forKey: .pocketDistanceSelection)
+        try c.encode(pocketSelection, forKey: .pocketSelection)
+        try c.encode(railDistanceSelection, forKey: .railDistanceSelection)
+        try c.encode(allowsVerticalSpin, forKey: .allowsVerticalSpin)
+        try c.encode(allowsSideSpin, forKey: .allowsSideSpin)
+    }
+    static func load(for route: String) -> Self {
+        guard let data = UserDefaults.standard.data(forKey: "sceneTraining.rules2.mixedDefaults." + route) else { return Self() }
+        do { return try JSONDecoder().decode(Self.self, from: data) }
+        catch {
+            Logger(subsystem: "com.xinkuan.qiuji", category: "SceneTraining").error("Settings decode failed for \(route, privacy: .public): \(String(describing: error), privacy: .public)")
+            return Self()
+        }
+    }
+    func save(for route: String) {
+        do {
+            let data = try JSONEncoder().encode(self)
+            UserDefaults.standard.set(data, forKey: "sceneTraining.rules2.mixedDefaults." + route)
+        } catch {
+            Logger(subsystem: "com.xinkuan.qiuji", category: "SceneTraining").error("Settings encode failed: \(String(describing: error), privacy: .public)")
+        }
+    }
+
 }
 
 struct SceneTrainingQuestion {
@@ -77,6 +173,36 @@ struct SceneTrainingQuestion {
     let side: Int
     let cueBand: SceneTrainingConfiguration.Distance
     let pocketBand: SceneTrainingConfiguration.Distance
+    var sourceBoardID: String? = nil
+}
+
+/// Clearance to finite main cushions, in world X–Z metres. Pocket gaps are not rails.
+enum SceneTrainingRailGeometry {
+    // Same Float comparison budget used by the production pocket corridor.
+    static let contactRoundoff: Float = 4 * Float.ulpOfOne
+    static let nearLimit: Float = 0.10
+
+    static func clearance(_ point: SCNVector3) -> Float {
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+        return geometry.linearCushions.prefix(6).compactMap { rail -> Float? in
+            let delta = rail.end - rail.start
+            let length2 = delta.x * delta.x + delta.z * delta.z
+            guard length2 > 0 else { return nil }
+            let t = ((point.x - rail.start.x) * delta.x + (point.z - rail.start.z) * delta.z) / length2
+            // A pocket opening is not an infinite cushion, but the adjacent
+            // finite cushion endpoints still participate in nearest distance.
+            let closest = rail.start + delta * min(1, max(0, t))
+            return hypot(point.x - closest.x, point.z - closest.z) - BallPhysics.radius
+        }.min() ?? .infinity
+    }
+
+    static func matches(_ point: SCNVector3, selection: Set<SceneTrainingConfiguration.RailDistance>) -> Bool {
+        let gap = clearance(point)
+        guard gap.isFinite, gap >= -contactRoundoff else { return false }
+        if selection.contains(.mixed) { return true }
+        if abs(gap) <= contactRoundoff { return selection.contains(.frozen) }
+        return gap <= nearLimit + contactRoundoff && selection.contains(.near)
+    }
 }
 
 /// Bounded, reproducible generation. Never clamps a ball or substitutes another requested condition.
@@ -98,9 +224,12 @@ struct SceneTrainingGenerator {
     init(seed: UInt64 = UInt64.random(in: 0...UInt64.max)) { random = .init(state: seed) }
 
     mutating func batch(_ config: SceneTrainingConfiguration, previousAngle: Int? = nil) throws -> [SceneTrainingQuestion] {
+        try Task.checkCancellation()
         var angles: [Int] = []
-        let allocations: [(SceneTrainingConfiguration.AngleRange, Int)] = config.angles == .mixed
-            ? [(.straight, 2), (.small, 6), (.medium, 6), (.large, 6)] : [(config.angles, 20)]
+        let bands = config.angleBands
+        guard !bands.isEmpty, !config.cueBands.isEmpty, !config.pocketBands.isEmpty,
+              !config.pocketTypes.isEmpty else { throw GenerationError() }
+        let allocations = bands.enumerated().map { ($0.element, 20 / bands.count + ($0.offset < 20 % bands.count ? 1 : 0)) }
         for (range, count) in allocations {
             var pool: [Int] = []
             while pool.count < count { pool += Array(range.degrees).shuffled(using: &random) }
@@ -115,7 +244,7 @@ struct SceneTrainingGenerator {
         }
         var corners = [0, 1, 2, 3].shuffled(using: &random)
         var sides = [4, 5].shuffled(using: &random)
-        let cornerCount = config.pockets == .side ? 0 : (config.pockets == .mixed ? 10 : 20)
+        let cornerCount = !config.pocketTypes.contains(.corner) ? 0 : (config.pocketTypes.contains(.side) ? 10 : 20)
         while corners.count < cornerCount { corners += [0, 1, 2, 3].shuffled(using: &random) }
         while sides.count < 20 - cornerCount { sides += [4, 5].shuffled(using: &random) }
         var pockets = Array(corners.prefix(cornerCount)) + Array(sides.prefix(20 - cornerCount))
@@ -126,13 +255,15 @@ struct SceneTrainingGenerator {
         var used: Set<String> = []
         var bandUse: [String: Int] = [:]
         for index in 0..<20 {
+            try Task.checkCancellation()
             let side = angles[index] == 0 ? 0 : cuts.removeLast()
             // Mixed only searches explicitly selected bands; least-used feasible pairs go first.
-            let pairs = config.cueDistance.bands.flatMap { cue in config.pocketDistance.bands.map { (cue, $0) } }
+            let pairs = config.cueBands.flatMap { cue in config.pocketBands.map { (cue, $0) } }
                 .shuffled(using: &random).sorted { bandUse[$0.0.rawValue + $0.1.rawValue, default: 0] < bandUse[$1.0.rawValue + $1.1.rawValue, default: 0] }
             var generated: SceneTrainingQuestion?
             for (cueBand, pocketBand) in pairs {
-                if let question = question(angle: angles[index], side: side, pocket: pockets[index], cueBand: cueBand, pocketBand: pocketBand) {
+                if let question = question(angle: angles[index], side: side, pocket: pockets[index], cueBand: cueBand, pocketBand: pocketBand,
+                                           railSelection: config.railDistanceSelection) {
                     let q = question.geometry
                     let key = "\(q.pocketIndex):\(q.cueBall):\(q.targetBall)"
                     guard used.insert(key).inserted else { continue }
@@ -149,36 +280,60 @@ struct SceneTrainingGenerator {
 
     mutating func question(angle: Int, side: Int, pocket: Int,
                           cueBand: SceneTrainingConfiguration.Distance,
-                          pocketBand: SceneTrainingConfiguration.Distance) -> SceneTrainingQuestion? {
+                          pocketBand: SceneTrainingConfiguration.Distance,
+                          railSelection: Set<SceneTrainingConfiguration.RailDistance> = [.mixed],
+                          allowsTargetJawContact: Bool = false) -> SceneTrainingQuestion? {
         let r = Double(AngleSceneCalculator.ballRadius)
         let length = Double(AngleSceneCalculator.innerLength)
         let width = Double(AngleSceneCalculator.innerWidth)
         let cueRange = cueBand.metres(cue: true), pocketRange = pocketBand.metres(cue: false)
         let nominal = AngleSceneCalculator.pocketPositions(surfaceY: 0)[pocket]
         let theta = Double(angle) * .pi / 180
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+        let rails = Array(geometry.linearCushions.prefix(6))
         for _ in 0..<600 {
+            if Task.isCancelled { return nil }
             // Polar sampling places targets in the requested distance annulus before expensive jaw checks.
             let bearing = Double.random(in: 0...(2 * .pi), using: &random)
             let radius = Double.random(in: pocketRange, using: &random)
-            let target = SCNVector3(nominal.x + Float(radius * cos(bearing)), 0,
+            var target = SCNVector3(nominal.x + Float(radius * cos(bearing)), 0,
                                     nominal.z + Float(radius * sin(bearing)))
+            // Random includes, rather than silently excluding, exact frozen-rail boards.
+            let candidates: [SceneTrainingConfiguration.RailDistance] = railSelection.contains(.mixed)
+                ? [.mixed, .near, .frozen] : [.near, .frozen].filter { railSelection.contains($0) }
+            guard let category = candidates.randomElement(using: &random) else { return nil }
+            if category != .mixed, let rail = rails.randomElement(using: &random) {
+                let gap: Float = category == .frozen ? 0 : Float.random(in: 0.001...SceneTrainingRailGeometry.nearLimit, using: &random)
+                let t = Float.random(in: 0...1, using: &random)
+                target = rail.start + (rail.end - rail.start) * t + rail.normal * (Float(r) + gap)
+            }
             func inside(_ p: SCNVector3) -> Bool {
                 abs(Double(p.x)) < length / 2 - r - 0.015 && abs(Double(p.z)) < width / 2 - r - 0.015
             }
-            guard inside(target) else { continue }
+            let epsilon = Double(SceneTrainingRailGeometry.contactRoundoff)
+            guard abs(Double(target.x)) <= length / 2 - r + epsilon,
+                  abs(Double(target.z)) <= width / 2 - r + epsilon,
+                  !geometry.pockets.contains(where: { $0.containsCapture(target) }),
+                  EngineNumerics.planarIntrusions(position: target, geometry: geometry).allSatisfy({ $0.depth <= Float(epsilon) }),
+                  SceneTrainingRailGeometry.matches(target, selection: railSelection) else { continue }
             let aim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: target, pocketIndex: pocket, surfaceY: 0)
             let targetDistance = Double(AngleSceneCalculator.horizontalDistance(target, aim))
             guard pocketRange.contains(targetDistance) else { continue }
             let heading = atan2(Double(aim.z - target.z), Double(aim.x - target.x))
             let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target, pocket: aim, ballRadius: Float(r))
-            guard inside(ghost) else { continue }
+            // A frozen object may have a ghost centre at the same rail clearance.
+            // The extra placement margin is for the cue, not this geometric contact.
+            guard abs(Double(ghost.x)) <= length / 2 - r + epsilon,
+                  abs(Double(ghost.z)) <= width / 2 - r + epsilon,
+                  EngineNumerics.planarIntrusions(position: ghost, geometry: geometry)
+                    .allSatisfy({ $0.depth <= Float(epsilon) }) else { continue }
             let centerDistance = Double.random(in: cueRange, using: &random)
             // |T-C|² = s² + 4R cos(theta)s + 4R²; s is cue-to-ghost distance.
             let s = sqrt(centerDistance * centerDistance - 4 * r * r * sin(theta) * sin(theta)) - 2 * r * cos(theta)
             let approach = heading + Double(side) * theta
             let cue = SCNVector3(ghost.x - Float(s * cos(approach)), 0, ghost.z - Float(s * sin(approach)))
             guard inside(cue), s > 0,
-                  AngleSceneCalculator.trainingHasCleanPocketPath(target: target, aim: aim, pocketIndex: pocket) else { continue }
+                  allowsTargetJawContact || AngleSceneCalculator.trainingHasCleanPocketPath(target: target, aim: aim, pocketIndex: pocket) else { continue }
             let measured = AngleSceneCalculator.cutAngle(cueBall: cue, targetBall: target, pocket: aim)
             let measuredDistance = Double(AngleSceneCalculator.horizontalDistance(cue, target))
             guard abs(measured - Double(angle)) <= 0.05, cueRange.contains(measuredDistance) else { continue }
@@ -266,16 +421,24 @@ struct SceneTrainingRun {
     var current: SceneTrainingQuestion?
     var assistance: Set<String> = []
     var firstAnswers: [SceneTrainingSample] = []
+    var usedBoardIDs: Set<String> = []
+    var reusedBankPool = false
     var submitted = false
     var canFinish: Bool { !configuration.freePractice && firstAnswers.count >= 20 }
     mutating func next() throws -> AngleQuestion {
         if queue.isEmpty {
-            var generator = SceneTrainingGenerator()
-            queue = try generator.batch(configuration, previousAngle: current.map { Int($0.geometry.actualAngle.rounded()) })
+            let bank = try TrainingBankStore.load()
+            let seed = UInt64.random(in: 0...UInt64.max)
+            do { queue = try bank.baseBatch(configuration, seed: seed, excluding: usedBoardIDs).map(\.question) }
+            catch TrainingQuestionBank.Failure.coverage where !usedBoardIDs.isEmpty {
+                queue = try bank.baseBatch(configuration, seed: seed).map(\.question)
+                reusedBankPool = true
+            }
         }
         coveredCueBands.formUnion(queue.map(\.cueBand))
         coveredPocketBands.formUnion(queue.map(\.pocketBand))
         current = queue.removeFirst()
+        if let id = current?.sourceBoardID { usedBoardIDs.insert(id) }
         assistance = []; submitted = false
         return current!.geometry
     }
@@ -305,6 +468,7 @@ struct SceneTrainingRun {
                 .map { $0 == .short ? "短" : $0 == .middle ? "中" : "长" }.joined(separator: "/")
         }
         return "本轮母球：" + names(coveredCueBands) + "；距袋：" + names(coveredPocketBands)
+            + (reusedBankPool ? "；已重新抽取合格球形" : "")
     }
 }
 

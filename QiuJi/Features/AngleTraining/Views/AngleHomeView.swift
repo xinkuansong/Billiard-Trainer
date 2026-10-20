@@ -34,6 +34,7 @@ enum AngleRoute: Hashable {
     case aimPointScene2D
     /// 3D 瞄准点训练（条 10）：站位相机版。
     case aimPointScene3D
+    case accuracy2D, accuracy3D
     case ballFeel
     case bankShot
     case diamondSystem
@@ -53,13 +54,13 @@ enum AngleRoute: Hashable {
     var requiresPremium: Bool {
         switch self {
         case .separationAngleAtlas, .cushionEnglishAtlas, .sceneAiming3D,
-             .aimPointScene3D, .snakePractice, .positionPlayComposer,
+             .aimPointScene3D, .accuracy3D, .snakePractice, .positionPlayComposer,
              .ballExtraction, .planThree, .snookerTactics, .bankShot, .diamondSystem:
             return true
         case .theoryIndex, .theoryPage, .contactPointTable, .aimingPrinciple,
              .aimingMethods, .aimingCorrection, .spinAndEnglish, .angleDynamic,
              .geometricQuiz, .customFormationPractice, .sceneAiming2D,
-             .aimPointTraining, .aimPointScene2D, .ballFeel, .shotSimulation, .freePlay, .positionPlaySolver,
+             .aimPointTraining, .aimPointScene2D, .accuracy2D, .ballFeel, .shotSimulation, .freePlay, .positionPlaySolver,
              .batchDrillStudio, .drillDetail:
             return false
         }
@@ -237,6 +238,8 @@ struct AngleHomeView: View {
         .init(route: .aimPointTraining, title: "瞄准点训练", subtitle: "拖假想球看毫米差", contentKind: .quiz, topics: [.accuracy]),
         .init(route: .aimPointScene2D, title: "2D瞄准点", subtitle: "俯视调线几何对照", contentKind: .quiz, topics: [.accuracy]),
         .init(route: .aimPointScene3D, title: "3D瞄准点", subtitle: "站位调线几何对照", contentKind: .quiz, isPremium: true, topics: [.accuracy]),
+        .init(route: .accuracy2D, title: "2D准度", subtitle: "指定打点，瞄准进袋", contentKind: .striking, topics: [.accuracy]),
+        .init(route: .accuracy3D, title: "3D准度", subtitle: "站位瞄准，真实出杆", contentKind: .striking, isPremium: true, topics: [.accuracy]),
         .init(route: .snakePractice, title: "蛇彩练习", subtitle: "连续进球与走位", contentKind: .striking, isPremium: true, topics: [.position, .accuracy]),
         .init(route: .customFormationPractice, title: "自定义球形", subtitle: "自由摆球与练习", contentKind: .striking, topics: [.position, .accuracy]),
     ]

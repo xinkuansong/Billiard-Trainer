@@ -11,6 +11,8 @@ enum TrainingSessionKind {
     static let cognitive = "cognitive"
     /// 工具使用活跃度 —— 「打/解」分区与动作库试打。⛔ 只记日期与时长，不记任何成败（契约 §5.3）。
     static let tool = "tool"
+    /// Specified-pocket simulation attempts; separate from real-table accuracy and goals.
+    static let simulatedAccuracy = "simulatedAccuracy"
 
     /// 计入训练量与周目标的会话类型（契约 §5.3 表：`tool` 两列均为 ❌）。
     static let goalCounting: Set<String> = [drill, cognitive]

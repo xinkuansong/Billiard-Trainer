@@ -1,10 +1,12 @@
 import SwiftUI
 
 /// Cancel discards this form's draft; a validated batch is required before starting.
-struct SceneTrainingSettings: View {
+struct SceneTrainingSettings<Batch>: View {
     let route: String
     let restarting: Bool
-    let onStart: (SceneTrainingConfiguration, [SceneTrainingQuestion]) -> Void
+    let prepareBatch: (SceneTrainingConfiguration) throws -> Batch
+    let showsSpinOptions: Bool
+    let onStart: (SceneTrainingConfiguration, Batch) -> Void
     let onCancel: () -> Void
     @State private var draft: SceneTrainingConfiguration
     @State private var preparing = false
@@ -12,9 +14,12 @@ struct SceneTrainingSettings: View {
     @State private var error: String?
     @State private var generation: Task<Void, Never>?
     init(route: String, configuration: SceneTrainingConfiguration, restarting: Bool,
-         onStart: @escaping (SceneTrainingConfiguration, [SceneTrainingQuestion]) -> Void,
+         showsSpinOptions: Bool = false,
+         prepareBatch: @escaping (SceneTrainingConfiguration) throws -> Batch,
+         onStart: @escaping (SceneTrainingConfiguration, Batch) -> Void,
          onCancel: @escaping () -> Void) {
         self.route = route; self.restarting = restarting; self.onStart = onStart; self.onCancel = onCancel
+        self.prepareBatch = prepareBatch; self.showsSpinOptions = showsSpinOptions
         _draft = State(initialValue: configuration)
     }
     var body: some View {
@@ -26,31 +31,44 @@ struct SceneTrainingSettings: View {
             }
             Section("角度范围") {
                 ForEach(SceneTrainingConfiguration.AngleRange.allCases) { range in
-                    Button { draft.angles = range } label: {
+                    Button { SceneTrainingConfiguration.toggle(range, random: .mixed, in: &draft.angleSelection) } label: {
                         HStack {
                             Text(range.label).foregroundStyle(.btText)
                             Spacer()
-                            BTSelectionIndicator(isSelected: draft.angles == range)
+                            BTSelectionIndicator(isSelected: draft.angleSelection.contains(range))
                         }
                     }.accessibilityIdentifier("training.range." + range.rawValue)
-                        .accessibilityValue(draft.angles == range ? "已选" : "未选")
-                        .accessibilityAddTraits(draft.angles == range ? .isSelected : [])
+                        .accessibilityValue(draft.angleSelection.contains(range) ? "已选" : "未选")
+                        .accessibilityAddTraits(draft.angleSelection.contains(range) ? .isSelected : [])
                 }
             }
             Section {
                 DisclosureGroup("球形条件", isExpanded: $conditionsExpanded) {
-                    Picker("母球距离", selection: $draft.cueDistance) {
-                        ForEach(SceneTrainingConfiguration.Distance.allCases) { Text($0.label(cue: true)).tag($0) }
-                    }.accessibilityIdentifier("training.cueDistance")
-                    Picker("目标球距袋", selection: $draft.pocketDistance) {
-                        ForEach(SceneTrainingConfiguration.Distance.allCases) { Text($0.label(cue: false)).tag($0) }
-                    }.accessibilityIdentifier("training.pocketDistance")
-                    Picker("袋口类型", selection: $draft.pockets) {
-                        ForEach(SceneTrainingConfiguration.Pockets.allCases) { Text($0.label).tag($0) }
-                    }.accessibilityIdentifier("training.pockets")
+                    TrainingMultiSelectRow(title: "母球距离", identifier: "training.cueDistance",
+                        selection: $draft.cueDistanceSelection, choices: SceneTrainingConfiguration.Distance.allCases,
+                        random: .mixed, label: { $0.label(cue: true) }, summaryLabel: { $0.shortLabel })
+                    TrainingMultiSelectRow(title: "目标球距袋", identifier: "training.pocketDistance",
+                        selection: $draft.pocketDistanceSelection, choices: SceneTrainingConfiguration.Distance.allCases,
+                        random: .mixed, label: { $0.label(cue: false) }, summaryLabel: { $0.shortLabel })
+                    TrainingMultiSelectRow(title: "袋口类型", identifier: "training.pockets",
+                        selection: $draft.pocketSelection, choices: SceneTrainingConfiguration.Pockets.allCases,
+                        random: .mixed, label: { $0.label })
+                    TrainingMultiSelectRow(title: "库边距离", identifier: "training.railDistance",
+                        selection: $draft.railDistanceSelection, choices: SceneTrainingConfiguration.RailDistance.allCases,
+                        random: .mixed, label: { $0.label })
                 }
-                Text("母球距离按两球中心计算；距袋按目标球到有效进袋瞄点计算。混合只安排可行档位，开始后可在更多菜单查看本轮覆盖。")
+                Text("母球距离按两球中心计算；距袋按目标球到有效进袋瞄点计算。半贴库指目标球表面离库不超过10厘米，贴库单独选择。")
                     .font(.btCaption).foregroundStyle(.btTextSecondary)
+            }
+            if showsSpinOptions {
+                Section {
+                    Toggle("允许高低杆", isOn: $draft.allowsVerticalSpin)
+                        .accessibilityIdentifier("training.verticalSpin")
+                    Toggle("允许左右塞", isOn: $draft.allowsSideSpin)
+                        .accessibilityIdentifier("training.sideSpin")
+                } header: { Text("出题杆法") } footer: {
+                    Text("开启后，题目会指定相应打点。练习中只调整方向和力度，打点不可更改。")
+                }
             }
             if let error {
                 Section {
@@ -66,7 +84,7 @@ struct SceneTrainingSettings: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button(restarting ? "重新开始" : "开始训练", action: prepare)
-                    .disabled(preparing).accessibilityIdentifier(route.hasPrefix("aimPoint") ? "aimPointTraining.start" : "angleTraining.start")
+                    .disabled(preparing).accessibilityIdentifier(route.hasPrefix("accuracy") ? "accuracy.start" : (route.hasPrefix("aimPoint") ? "aimPointTraining.start" : "angleTraining.start"))
             }
             ToolbarItem(placement: .cancellationAction) {
                 Button(restarting ? "取消" : "返回") { generation?.cancel(); onCancel() }
@@ -80,12 +98,14 @@ struct SceneTrainingSettings: View {
         preparing = true; error = nil
         let configuration = draft
         generation = Task {
-            let outcome = await Task.detached(priority: .userInitiated) { () -> Result<[SceneTrainingQuestion], Error> in
-                Result {
-                    var generator = SceneTrainingGenerator()
-                    return try generator.batch(configuration)
-                }
-            }.value
+            let worker = Task.detached(priority: .userInitiated) { () -> Result<Batch, Error> in
+                Result { try prepareBatch(configuration) }
+            }
+            let outcome = await withTaskCancellationHandler {
+                await worker.value
+            } onCancel: {
+                worker.cancel()
+            }
             guard !Task.isCancelled else { return }
             preparing = false
             switch outcome {
@@ -94,6 +114,64 @@ struct SceneTrainingSettings: View {
                 onStart(configuration, questions)
             case .failure(let failure): error = failure.localizedDescription
             }
+        }
+    }
+}
+
+extension SceneTrainingSettings where Batch == [SceneTrainingQuestion] {
+    init(route: String, configuration: SceneTrainingConfiguration, restarting: Bool,
+         onStart: @escaping (SceneTrainingConfiguration, [SceneTrainingQuestion]) -> Void,
+         onCancel: @escaping () -> Void) {
+        self.init(route: route, configuration: configuration, restarting: restarting,
+            prepareBatch: { configuration in
+                let bank = try TrainingBankStore.load()
+                return try bank.baseBatch(configuration, seed: UInt64.random(in: 0...UInt64.max)).map(\.question)
+            }, onStart: onStart, onCancel: onCancel)
+    }
+}
+
+/// Native popover captures outside taps and keeps the draft when dismissed.
+/// Choice buttons deliberately leave it open for repeated selection.
+struct TrainingMultiSelectRow<Choice: Hashable & Identifiable>: View {
+    let title: String
+    let identifier: String
+    @Binding var selection: Set<Choice>
+    let choices: [Choice]
+    let random: Choice
+    let label: (Choice) -> String
+    var summaryLabel: ((Choice) -> String)? = nil
+    @State private var expanded = false
+    private var summary: String {
+        choices.filter { selection.contains($0) }.map { summaryLabel?($0) ?? label($0) }.joined(separator: "、")
+    }
+    var body: some View {
+        Button { expanded = true } label: {
+            HStack {
+                Text(title).foregroundStyle(.btText)
+                Spacer(minLength: Spacing.md)
+                Text(summary).foregroundStyle(.btPrimary).multilineTextAlignment(.trailing)
+                Image(systemName: "chevron.up.chevron.down").foregroundStyle(.btPrimary)
+            }.frame(minHeight: 44).contentShape(Rectangle())
+        }
+        .accessibilityIdentifier(identifier).accessibilityValue(summary)
+        .popover(isPresented: $expanded) {
+            VStack(spacing: 0) {
+                ForEach(choices) { choice in
+                    Button {
+                        SceneTrainingConfiguration.toggle(choice, random: random, in: &selection)
+                    } label: {
+                        HStack(spacing: Spacing.md) {
+                            BTSelectionIndicator(isSelected: selection.contains(choice))
+                            Text(label(choice)).foregroundStyle(.btText)
+                            Spacer(minLength: 0)
+                        }.padding(.horizontal, Spacing.lg).frame(minHeight: 44).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                        .accessibilityIdentifier(identifier + "." + String(describing: choice.id))
+                        .accessibilityValue(selection.contains(choice) ? "已选" : "未选")
+                        .accessibilityAddTraits(selection.contains(choice) ? .isSelected : [])
+                }
+            }.padding(.vertical, Spacing.sm).frame(minWidth: 250, maxWidth: 340)
+                .presentationCompactAdaptation(.popover)
         }
     }
 }

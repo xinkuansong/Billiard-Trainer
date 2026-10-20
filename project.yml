@@ -45,6 +45,15 @@ targets:
     type: application
     platform: iOS
     deploymentTarget: "17.0"
+    preBuildScripts:
+      - name: Verify training question bank
+        basedOnDependencyAnalysis: false
+        script: |
+          if [ "$CONFIGURATION" = "Debug" ] && [ "${TRAINING_BANK_REVALIDATION:-NO}" = "YES" ]; then
+            echo "Offline training-bank revalidation build; not a release validation."
+          else
+            /usr/bin/python3 "$SRCROOT/scripts/training-question-bank/verify_grid_bank.py"
+          fi
     sources:
       - path: QiuJi
         excludes:

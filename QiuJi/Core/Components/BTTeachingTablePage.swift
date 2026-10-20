@@ -10,6 +10,8 @@ struct BTTablePlanningControls {
     var velocityRange: ClosedRange<Double> = ShotTuning.velocityRange
     var instrumentsEnabled: Bool
     var showsSpinSlot: Bool = true
+    /// Assessment pages expose a fixed contact point and no answer assists.
+    var assessmentMode = false
     var isAnimating: Bool
     var paletteEnabled: Bool
     var allowsPocketSelection: Bool = true
@@ -27,6 +29,7 @@ struct BTTablePlanningControls {
     var layoutEditingBlocked = false
     var onAimNudged: ((Float) -> Void)? = nil
     var onAimDragActiveChanged: ((Bool) -> Void)? = nil
+    var onObservation: ((String) -> Void)? = nil
     var closeupSnapshot: AimCloseupSnapshot? = nil
     var closeupUnavailableReason: String? = nil
     /// One physical contact point must reach the host as one complete intent.
@@ -41,6 +44,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     let titleLabel: String
     let identifier: String
     let preferencePage: TablePreferencePage
+    /// Entry identity can fix the presentation independently of general preferences.
+    var fixedView3D: Bool? = nil
     var velocity: Binding<Double>? = nil
     /// Optional vertical-only spin control for the side-spin atlas.
     var spinHeight: Binding<Double>? = nil
@@ -106,7 +111,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         vm.scene.tablePreferencePage = preferencePage
         vm.scene.tablePreferences = next
         if previous?.enabled(.view3D) != next.enabled(.view3D) {
-            vm.setCameraMode(next.enabled(.view3D) ? .perspective3D : (portrait ? .topDown2DRotated : .topDown2D))
+            vm.setCameraMode((fixedView3D ?? next.enabled(.view3D)) ? .perspective3D : (portrait ? .topDown2DRotated : .topDown2D))
         }
         vm.scene.setTableGridVisible(next.enabled(.grid))
         planning?.applyPreferences(next)
@@ -173,7 +178,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             vm.scene.tablePreferences = pagePreferences
             vm.setupScene()
             planning?.onSetup()
-            vm.setCameraMode(pagePreferences.enabled(.view3D) ? .perspective3D : (portrait ? .topDown2DRotated : .topDown2D))
+            vm.setCameraMode((fixedView3D ?? pagePreferences.enabled(.view3D)) ? .perspective3D : (portrait ? .topDown2DRotated : .topDown2D))
             applyPagePreferences()
             updateProjection()
         }
@@ -248,7 +253,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                         Image(systemName: BTIcon.menuCircle).font(.system(size: 22, weight: .medium))
                             .frame(width: 44, height: 44)
                             .background { BTHUDControlBackground(shape: Circle()) }
-                    }.overlay(Circle().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth).allowsHitTesting(false))
+                    }.overlay(Circle().strokeBorder(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth).allowsHitTesting(false))
                     .accessibilityLabel("更多").accessibilityIdentifier("\(identifier).more")
                     .accessibilityFocused($moreFocused)
                 }, ball: { key, diameter, height in ballToken(key, diameter: diameter, slotHeight: height) },
@@ -307,7 +312,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 .position(x: f.stage.midX, y: f.stage.midY)
             // A solved contact supplies geometry, not permission to keep the loupe visible.
             // Only the direction ruler's live gesture may reveal it; spin/power and idle must not.
-            if aimTouchActive, !showSpinPad, menu == nil,
+            if planning?.assessmentMode != true, aimTouchActive, !showSpinPad, menu == nil,
                let snapshot = planning?.closeupSnapshot, !vm.temporaryTopDownActive {
                 GeometryReader { proxy in
                     let inner = CGSize(
@@ -415,12 +420,12 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             var items: [DailyHUDMenuItem] = []
             if is3D, let hidden = planning.hides3DAssists {
                 items.append(.init(id: identifier + ".trajectory.off", title: "关闭", selected: hidden.wrappedValue,
-                    action: { setPagePreference(.shows3DTrajectory, 0); menu = nil }))
+                    action: { setPagePreference(.shows3DTrajectory, 0) }))
             }
             items += TrajectoryDetail.allCases.map { detail in
                 DailyHUDMenuItem(id: identifier + ".trajectory.\(detail.rawValue)", title: detail.label,
                     selected: pagePreferences.trajectoryDetail == detail && !(is3D && planning.hides3DAssists?.wrappedValue == true), action: {
-                        setPagePreference(.trajectory, Double(detail.rawValue)); menu = nil
+                        setPagePreference(.trajectory, Double(detail.rawValue))
                     })
             }
             return items
@@ -429,31 +434,38 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
          .init(id: "\(identifier).cameraMode", title: "视图", detail: is3D ? "3D" : "2D",
                segments: ["2D", "3D"], disabled: vm.temporaryTopDownActive, action: toggleCamera),
          .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
-             setPagePreference(.grid, pagePreferences.enabled(.grid) ? 0 : 1); menu = nil
+             setPagePreference(.grid, pagePreferences.enabled(.grid) ? 0 : 1)
          })]
+        if fixedView3D != nil { items.removeAll { $0.id == "\(identifier).cameraMode" } }
         if let planning {
+            if !planning.assessmentMode {
             items.insert(.init(id: identifier + ".transparency", title: "打点盘透明度",
                 detail: "\(Int((planning.transparency.wrappedValue * 100).rounded()))%", disclosure: true, action: { showSpinPad = true; menu = .transparency }), at: 2)
             items.append(.init(id: "menu.aimCloseup", title: "瞄准特写", detail: planning.closeupUnavailableReason, selected: pagePreferences.enabled(.closeup),
                 disabled: planning.closeupUnavailableReason != nil,
-                action: { setPagePreference(.closeup, pagePreferences.enabled(.closeup) ? 0 : 1); menu = nil }))
+                action: { setPagePreference(.closeup, pagePreferences.enabled(.closeup) ? 0 : 1) }))
             items.append(.init(id: identifier + ".trajectory", title: "轨迹显示 · " + (is3D && planning.hides3DAssists?.wrappedValue == true ? "关闭" : pagePreferences.trajectoryDetail.label),
                 disclosure: true, action: { menu = .trajectory }))
             items += [TablePreferenceField.separation, .rehearsal].map { field in
                 DailyHUDMenuItem(id: identifier + "." + field.rawValue, title: field.title,
                     selected: pagePreferences.enabled(field), action: {
-                        setPagePreference(field, pagePreferences.enabled(field) ? 0 : 1); menu = nil
+                        setPagePreference(field, pagePreferences.enabled(field) ? 0 : 1)
                     })
+            }
             }
             items += planning.menuItems.map { item in
                 var closingItem = item
-                if let action = item.action { closingItem.action = { menu = nil; action() } }
+                if item.selected == nil, item.segments.isEmpty, let action = item.action {
+                    closingItem.action = { menu = nil; action() }
+                }
                 return closingItem
             }
         }
         items += displayMenuItems.map { item in
             var closingItem = item
-            if let action = item.action { closingItem.action = { menu = nil; action() } }
+            if item.selected == nil, item.segments.isEmpty, let action = item.action {
+                closingItem.action = { menu = nil; action() }
+            }
             return closingItem
         }
         if preferencePage.usesFreeControlLayout && !FreeControlCatalog.ids(page: preferencePage, mode: is3D ? .threeD : .twoD).isEmpty {
@@ -521,7 +533,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         if let rig = vm.scene.cameraRig {
             ShotPlayerCameraButtons(controlSpacing: 4, rig: rig,
                 isEnabled: vm.temporaryTopDownActive || (planning.map { !$0.isAnimating } ?? (vm.currentPlayerAim != nil)),
-                onWholeTable: { vm.requestSurfaceOverview() }, usesTwoViewControls: rig.usesTwoViewCameraControls,
+                onWholeTable: { planning?.onObservation?("wholeTable"); vm.requestSurfaceOverview() }, usesTwoViewControls: rig.usesTwoViewCameraControls,
                 temporaryTopDownActive: vm.temporaryTopDownActive,
                 onTemporaryTopDownBegan: { vm.beginTemporaryTopDown() },
                 onTemporaryTopDownEnded: { vm.endTemporaryTopDown() },
@@ -580,6 +592,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             tableWidth: inner.width, bottomPadding: (f.stage.height - layout.extent) / 2,
             fixedCardExtent: layout.extent, discOpacity: planning.map { 1 - $0.transparency.wrappedValue } ?? 1,
             locksSideSpin: planning == nil,
+            isReadOnly: planning?.assessmentMode == true,
             onSpinChange: planning?.onSpinChange,
             onClose: { showSpinPad = false })
             .simultaneousGesture(DragGesture(minimumDistance: 0).updating($spinTouchActive) { _, active, _ in active = true })
@@ -619,7 +632,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             }, including: allowsPaletteDrag && (!is3D || planning != nil) && !onTable ? .all : .subviews)
         .accessibilityLabel("\(PositionPlayBall.shortLabel(for: key))号球")
         .accessibilityValue(onTable ? "在桌上" : "未在桌上")
-        .accessibilityHint(onTable ? (planning == nil ? "点按撤回球库" : "点按定位桌上球，拖回球库可移除") : "点按摆到桌面")
+        .accessibilityHint(planning?.assessmentMode == true ? "题目指定，不可更改" :
+            (onTable ? (planning == nil ? "点按撤回球库" : "点按定位桌上球，拖回球库可移除") : "点按摆到桌面"))
         .accessibilityIdentifier("paletteBall_\(key)")
     }
 

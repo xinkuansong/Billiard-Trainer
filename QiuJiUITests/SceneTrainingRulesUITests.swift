@@ -67,6 +67,7 @@ final class SceneTrainingRulesUITests: XCTestCase {
         XCTAssertTrue(submit.waitForExistence(timeout:5))
         app.buttons["aimPointTraining.settings"].tap(); app.buttons["aimPointTraining.trainingSettings"].tap()
         app.buttons["20题"].tap()
+        app.buttons["training.range.mixed"].tap()
         app.buttons["training.range.small"].tap()
         app.buttons["aimPointTraining.start"].tap()
         XCTAssertTrue(submit.waitForExistence(timeout:20))
@@ -83,14 +84,16 @@ final class SceneTrainingRulesUITests: XCTestCase {
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: prefix + ".scene").firstMatch.exists)
         XCTAssertTrue(app.staticTexts["练习模式"].exists)
         for mode in ["自由练习", "20题"] {
+            for _ in 0..<3 where !app.buttons[mode].isHittable { app.swipeDown() }
             app.buttons[mode].tap()
             capture(name + "-settings-" + mode)
             for id in ["training.cueDistance", "training.pocketDistance", "training.pockets"] {
-                let condition = app.descendants(matching: .any).matching(identifier: id).firstMatch
-                XCTAssertTrue(condition.exists, "球形条件默认展开")
+                let condition = app.buttons[id]
+                for _ in 0..<3 where !condition.isHittable { app.swipeUp() }
+                XCTAssertTrue(condition.exists, "球形条件默认展开，可滚动到达")
                 let content = ([condition] + condition.descendants(matching: .any).allElementsBoundByIndex)
                     .map { $0.label + " " + ($0.value as? String ?? "") }.joined(separator: " ")
-                XCTAssertTrue(content.contains("混合"), condition.debugDescription)
+                XCTAssertTrue(content.contains("随机"), condition.debugDescription)
             }
         }
         capture(name + "-settings")

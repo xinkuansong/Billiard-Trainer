@@ -8,4 +8,5 @@ enum TablePreferencePage: String, CaseIterable, Codable {
     case angleDynamic, separationAngleAtlas, cushionEnglishAtlas
     case drillDetailPreview, drillRecordPreview
     case sceneAiming2D, sceneAiming3D, aimPointScene2D, aimPointScene3D
+    case accuracy2D, accuracy3D
 }

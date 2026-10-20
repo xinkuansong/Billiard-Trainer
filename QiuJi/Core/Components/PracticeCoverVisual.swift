@@ -89,11 +89,12 @@ struct PracticeCoverLayout: Equatable, Hashable {
 
 /// Exhaustive route → visual map for official Practice IA entries (v28 W1).
 enum PracticeCoverCatalog {
-    /// 25 official publishable routes (excludes SIM-only batch studio + drillDetail deep links).
+    /// Official publishable routes (excludes SIM-only batch studio + drillDetail deep links).
     static let officialRoutes: [AngleRoute] = [
         .aimingPrinciple, .aimingMethods, .aimingCorrection, .spinAndEnglish,
         .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas, .ballFeel, .contactPointTable,
         .geometricQuiz, .sceneAiming2D, .sceneAiming3D, .aimPointTraining, .aimPointScene2D, .aimPointScene3D,
+        .accuracy2D, .accuracy3D,
         .shotSimulation, .positionPlayComposer, .freePlay, .ballExtraction,
         .positionPlaySolver, .planThree, .snookerTactics, .bankShot, .diamondSystem,
     ]
@@ -143,6 +144,13 @@ enum PracticeCoverCatalog {
             return .tablePreview(aimingLane(tint: "aimPointScene2D", objectNumber: 2, zShift: -0.16))
         case .aimPointScene3D:
             return .tablePreview(aimingLane(tint: "aimPointScene3D", objectNumber: 6, zShift: 0.18))
+        case .accuracy2D, .accuracy3D:
+            let is3D = route == .accuracy3D
+            var layout = aimingLane(tint: is3D ? "aimPointScene3D" : "aimPointScene2D",
+                                    objectNumber: is3D ? 9 : 7, zShift: is3D ? 0.06 : -0.04)
+            layout.ghosts = []
+            layout.segments.removeAll { $0.style != .aim }
+            return .tablePreview(layout)
 
         case .shotSimulation:
             return .tablePreview(collisionPreview(tint: "shotSimulation"))
