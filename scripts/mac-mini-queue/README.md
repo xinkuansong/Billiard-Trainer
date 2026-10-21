@@ -54,7 +54,40 @@ python3 scripts/mac_mini_queue.py fetch --job task-a-v1 \
 - 每个 job 有独立源码副本（不共享可写硬链接）、build/DerivedData、`.xcresult`、日志和截图；首版优先保证隔离，没有跨任务构建缓存共享。每次新快照首次上传完整所需文件；同一内容可在远端去重存储，但尚未实现差量上传。
 - 构建使用原 Makefile，限定 arm64、4 jobs。测试通过原生命周期管理器取得全新临时设备，数据不跨任务复用。成功且证据导出后管理器释放并回收本任务设备；失败保留现场并按既有规则处理。其他任务、评审或未知设备保持原有保护。
 - 所有客户端必须通过此队列提交；文件锁不能约束绕过入口直接执行的外部 xcodebuild。切勿在队列 UI 测试期间手动操作远端 Simulator 的共享键盘/焦点。
-- 不自动合并、提交或推送开发代码；不自动清理快照、任务源码、构建缓存及历史证据。大项目多轮执行会占用磁盘，按任务结束及保留要求另行清理。
+- 不自动合并、提交或推送开发代码。任务结束后的回收按下面的完成／复验协议执行；不能把测试退出直接当作任务关闭。
+
+## 任务完成与自动回收（2026-10-20）
+
+执行者在交付前必须完成资源收尾，不需要再次向用户请求删除临时构建文件的许可：
+
+```bash
+# 本轮已完成，不再依赖远端产品做复验：回传校验后自动回收。
+python3 scripts/mac_mini_queue.py fetch --job JOB_ID --out output/JOB_ID \
+  --complete --reason '本轮诊断/验证已结束，必要证据回传，无待复验或产品复用' \
+  --ssh-option ControlPath=/tmp/macmini-queue.sock
+
+# 已经 fetch 过：复核本地原始证据后关闭并自动回收，无需重复下载。
+python3 scripts/mac_mini_queue.py complete --out output/JOB_ID \
+  --reason '复验已结束，临时构建不再需要' \
+  --ssh-option ControlPath=/tmp/macmini-queue.sock
+
+# 仍需用户试用/人工复验：普通 fetch 保留文件，并登记具体原因。
+python3 scripts/mac_mini_queue.py remote-protect --job JOB_ID --reason '等待手机复验'
+# 复验结束后明确 release，再执行 complete；release 本身不删除。
+python3 scripts/mac_mini_queue.py remote-release --job JOB_ID --reason '复验已结束'
+
+# 历史任务可先 complete --defer-cleanup，然后预览精确范围。
+python3 scripts/mac_mini_queue.py remote-cleanup --job JOB_ID
+python3 scripts/mac_mini_queue.py remote-cleanup --job JOB_ID --apply
+```
+
+回收删除 `jobs/JOB_ID/build` 和 `source`，保留 job 元数据、worker 日志、全部 evidence、回传收据及清理记录。所有引用任务都回收后才删除共享快照，并把小型源码清单保存到各 job。失败任务只有诊断结束并执行相同关闭流程才回收，失败状态不会改成通过。普通 fetch、缺少关闭标记的历史任务以及明确 hold 的任务不回收。
+
+回传收据同时绑定 job 状态、snapshot ID、所有 evidence 文件和 worker 日志。删除前再次核对内容、队列状态、完整进程命令、打开文件与模拟器登记表；源码与冻结快照有差异、活动租约、未退役诊断设备、符号链接边界、挂载点、检查失败均保留。`queue.lock` 协调入队、保护与回收；不停止正在执行的任务，不回收模拟器。绕过队列直接复用旧目录前应先 protect，文件锁不能约束不遵循协议的外部进程。
+
+回收随 `fetch --complete` / `complete` 自动执行；新版 worker 启动时重试已关闭但此前被占用的任务。不安装定时服务、不改写已有任务固定执行器。低于 12 GiB 时拒绝新的上传/构建，待执行项仍为 queued；清理后用 remote-start 恢复。新 ingest 成功或失败都会移除本次上传暂存，失败保留错误记录；历史 incoming 中无法归属的文件不按年龄批量删除。
+
+证据保存与临时工作目录是两回事：长期只需一份可核验原件和必要报告/图像，不应在两台机器无限复制完整工作区。旧候选或已被替代版本的产物可以回收；复验只保留实际需要的版本。涉及证据压缩/去重时记录恢复路径及验证结果，不修改原测试结论。
 
 ## 失败、取消与恢复
 

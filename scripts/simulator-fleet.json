@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "host": "local",
+  "baseline_count": 14,
+  "temporary_limit": 1,
+  "core": [
+    {
+      "udid": "AE86244C-EE61-4585-882F-E39B892214DB",
+      "name": "iPhone 17 Pro",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro",
+      "matrix_id": "A3",
+      "role": "standard-phone"
+    },
+    {
+      "udid": "16D968CB-FA14-4E00-B79F-0D675D80179E",
+      "name": "QiuJi-Preview-03-16ProMax",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro-Max",
+      "matrix_id": "A4",
+      "role": "large-phone"
+    },
+    {
+      "udid": "DF09A8D3-2574-43D7-85D8-369CFDB2C36D",
+      "name": "E04-Profile-small-20261009",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation",
+      "matrix_id": "B2",
+      "role": "compact-phone"
+    },
+    {
+      "udid": "0D3AE337-488E-49D0-8AFF-E711249046EC",
+      "name": "QiuJi-Preview-04-iPhone13",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-13",
+      "matrix_id": "B4",
+      "role": "notch-phone"
+    },
+    {
+      "udid": "47AE5F33-3D60-4102-BBC7-E29D05114E6E",
+      "name": "E04-Profile-pad-20261009",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-11-inch-M4-8GB",
+      "matrix_id": "A7",
+      "role": "standard-pad"
+    },
+    {
+      "udid": "4F00E012-1FA4-4F08-97E0-1B41160A63CC",
+      "name": "QiuJi-Preview-09-Pad13-P",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M4-8GB",
+      "matrix_id": "A8",
+      "role": "large-pad"
+    },
+    {
+      "udid": "F80E0C5B-2B47-44DD-A460-5CE19CD5259A",
+      "name": "QiuJi-Preview-07-PadMini-P",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-mini-6th-generation",
+      "matrix_id": "A5",
+      "role": "compact-pad"
+    },
+    {
+      "udid": "16365EE2-0C42-4EE1-B707-09AC55A0ABA7",
+      "name": "QiuJi-Remaining-SE-20261013",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-17-0",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation",
+      "matrix_id": "A1",
+      "role": "compact-phone-floor"
+    }
+  ],
+  "retained": [
+    {
+      "udid": "6873B8B5-226A-4C33-BAA6-3516CF26D1F8",
+      "name": "QiuJi-Managed-Pool-c832f804",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro",
+      "reason": "每日清台浮动工具条独立试玩App仍待用户试用；会话最新交付确认，短期保留。"
+    },
+    {
+      "udid": "BF2700E9-FF9F-4603-8A69-EF6289A9090C",
+      "name": "QiuJi-Managed-Pool-e1e6b772",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro",
+      "reason": "登记为用户编排重录数据，尚未核验完整应用容器与外置内容一致。"
+    },
+    {
+      "udid": "018353F8-D36D-4120-9F16-2563597FB2E0",
+      "name": "Snooker-R2-Cloth",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro",
+      "reason": "Snooker R8最终Release试玩实例；Documents存在文件，先比较和导出应用数据。"
+    },
+    {
+      "udid": "5F48A5C2-CC3F-43C1-91EF-906B8D577D74",
+      "name": "SnookerStudio-20261010",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro",
+      "reason": "Snooker主试玩及原对局；Documents与另一实例文件大小不同，不能假定重复。"
+    },
+    {
+      "udid": "FC1D1E55-98B0-4129-BE34-9890D9CA12EE",
+      "name": "QiuJi-Managed-Pool-6f47d1cd",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Air-13-inch-M3",
+      "reason": "新版重录/落点标记交付机；任务记录有旧编辑/未保存现场约定，先核验数据归档。"
+    },
+    {
+      "udid": "E3329A7F-4FD3-47A0-83DD-2B163AD14796",
+      "name": "QiuJi-Managed-Pool-b5f070e3",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-3",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Air-13-inch-M3",
+      "reason": "编排重录主交付机，记录明确待用户重录c039；不当普通池设备回收。"
+    }
+  ],
+  "remote_plan": {
+    "host": "mac-mini",
+    "observed_count": 8,
+    "status": "plan-only",
+    "max_concurrent_jobs": 1,
+    "target_manual_devices": 2,
+    "temporary_per_job": true,
+    "notes": "保留正在运行和待诊断设备；历史失败设备逐任务关闭后回收，不复制本地八台。"
+  }
+}

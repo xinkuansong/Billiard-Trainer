@@ -17,6 +17,11 @@ PROJECT_ROOT := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))/..
 BUILD_DIR    := $(PROJECT_ROOT)/build
 DERIVED_DATA := $(BUILD_DIR)/DerivedData
 TEST_LOG     := $(BUILD_DIR)/test-results.log
+TEST_JUNIT   ?= $(BUILD_DIR)/test-results.xml
+TEST_RESULT_BUNDLE ?=
+TEST_TASK ?= local-test
+TEST_KEEP_REASON ?=
+LOCAL_TEST_LIFECYCLE := python3 "$(PROJECT_ROOT)/scripts/local_test_lifecycle.py"
 SIM_LIFECYCLE := python3 "$(PROJECT_ROOT)/scripts/simulator_lifecycle.py"
 SIM_TEST_GUARD = $(if $(filter test test-without-building,$(TEST_ACTION)),$(SIM_LIFECYCLE) run --task make-test --destination "$(TEST_DESTINATION)" --,)
 TEST_SELECTOR := $(if $(strip $(ONLY_TESTING)),-only-testing:$(strip $(ONLY_TESTING)),)
@@ -42,6 +47,10 @@ BAKE_GATE_ENV  := TEST_RUNNER_QIUJI_RUN_BAKE_RUNNERS=1
 BAKE_GATE_FLAG := $(BUILD_DIR)/.run-bake-runners
 
 .DEFAULT_GOAL := help
+
+.PHONY: verify-training-bank
+verify-training-bank:
+	@python3 "$(PROJECT_ROOT)/scripts/training-question-bank/bank.py" verify
 
 # ────────────────────────────────────────────
 # 帮助
@@ -75,6 +84,7 @@ help:
 	@echo "  make open         用 Xcode 打开项目"
 	@echo "  make clean        清理 build/ 目录"
 	@echo "  make sim-test     从有上限的设备池独占借用模拟器并测试"
+	@echo "  make test-work-status / test-work-clean  查看本地测试保留项 / 重试完成项清理"
 	@echo "  make sim-inventory / sim-clean / sim-clean-apply  设备清单 / 回收预览 / 回收已释放临时设备"
 	@echo "  make dsym         从 Archive 提取 dSYM"
 	@echo "────────────────────────────────────"
@@ -167,8 +177,20 @@ _sim-run:
 # ────────────────────────────────────────────
 # 单元测试
 # ────────────────────────────────────────────
-.PHONY: test
+.PHONY: test _test
 test:
+ifeq ($(TEST_ACTION),test)
+	@$(LOCAL_TEST_LIFECYCLE) run --task "$(TEST_TASK)" $(if $(strip $(TEST_KEEP_REASON)),--hold "$(TEST_KEEP_REASON)",) -- \
+	  make -f "$(PROJECT_ROOT)/scripts/Makefile" _test \
+	  BUILD_DIR='{work}' DERIVED_DATA='{work}/DerivedData' TEST_LOG='{evidence}/test-results.log' \
+	  TEST_JUNIT='{evidence}/test-results.xml' TEST_RESULT_BUNDLE='{evidence}/tests.xcresult'
+else
+	@$(MAKE) -f "$(PROJECT_ROOT)/scripts/Makefile" _test
+endif
+
+# Internal execution target; build-for-testing/test-without-building are a multi-step
+# workflow, so their owner (queue or local lifecycle run) closes the whole workspace.
+_test:
 	@echo "→ 运行 XCTest..."
 	@mkdir -p $(DERIVED_DATA)
 	@status=0; pretty_status=0; \
@@ -181,10 +203,11 @@ test:
 	    $(if $(filter test test-without-building,$(TEST_ACTION)),-parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1,) \
 	    $(if $(filter test test-without-building build-for-testing,$(TEST_ACTION)),-enableCodeCoverage $(TEST_CODE_COVERAGE),) \
 	    $(TEST_BUILD_SETTINGS) \
+	    $(if $(findstring -resultBundlePath,$(TEST_BUILD_SETTINGS)),,$(if $(strip $(TEST_RESULT_BUNDLE)),-resultBundlePath '$(TEST_RESULT_BUNDLE)',)) \
 	    $(TEST_SELECTOR) \
 	    $(TEST_ACTION) >$(TEST_LOG) 2>&1 || status=$$?; \
 	  if command -v xcpretty >/dev/null 2>&1; then \
-	    xcpretty --report junit --output $(BUILD_DIR)/test-results.xml <$(TEST_LOG) || pretty_status=$$?; \
+	    xcpretty --report junit --output "$(TEST_JUNIT)" <$(TEST_LOG) || pretty_status=$$?; \
 	  else \
 	    echo "⚠️ 未安装 xcpretty，直出 xcodebuild 原始日志"; \
 	    sed -n '1,$$p' $(TEST_LOG); \
@@ -198,7 +221,7 @@ test:
 	    printf '❌ xcpretty 报告生成失败 (exit=%s)，原始日志: %s\n' "$$pretty_status" "$(TEST_LOG)"; \
 	    exit $$pretty_status; \
 	  fi
-	@echo "✅ 测试完成，原始日志: $(TEST_LOG)；若安装 xcpretty，JUnit: $(BUILD_DIR)/test-results.xml"
+	@echo "✅ 测试完成，原始日志: $(TEST_LOG)；若安装 xcpretty，JUnit: $(TEST_JUNIT)"
 
 # ────────────────────────────────────────────
 # 走位序列离线复现（#11，ADR-P11-04 / ADR-P11-10）
@@ -516,7 +539,17 @@ sim-clean:
 sim-clean-apply:
 	@$(SIM_LIFECYCLE) cleanup --apply
 sim-test:
-	@$(SIM_LIFECYCLE) run --task "$(SIM_TASK)" --type "$(SIM_TYPE)" --runtime "$(SIM_RUNTIME)" -- \
-	  make -f "$(PROJECT_ROOT)/scripts/Makefile" test TEST_DESTINATION='platform=iOS Simulator,id={udid}'
+	@python3 "$(PROJECT_ROOT)/scripts/simulator_fleet.py" run --task "$(SIM_TASK)" --type "$(SIM_TYPE)" --runtime "$(SIM_RUNTIME)" -- \
+	  make -f "$(PROJECT_ROOT)/scripts/Makefile" test TEST_TASK="$(SIM_TASK)" TEST_DESTINATION='platform=iOS Simulator,id={udid}'
 sim-lifecycle-check:
 	@python3 -m unittest discover -s "$(PROJECT_ROOT)/scripts/simulator-lifecycle" -v
+
+.PHONY: test-work-status test-work-clean test-work-complete test-work-check
+test-work-status:
+	@$(LOCAL_TEST_LIFECYCLE) status
+test-work-clean:
+	@$(LOCAL_TEST_LIFECYCLE) cleanup
+test-work-complete:
+	@$(LOCAL_TEST_LIFECYCLE) complete --id "$(TEST_RUN_ID)" --reason "$(TEST_COMPLETE_REASON)"
+test-work-check:
+	@python3 -m unittest discover -s "$(PROJECT_ROOT)/scripts/local-test-lifecycle" -v

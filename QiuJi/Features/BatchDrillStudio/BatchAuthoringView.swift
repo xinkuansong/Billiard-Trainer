@@ -1153,7 +1153,7 @@ struct BatchAuthoringView: View {
             return TrajectoryDetail.allCases.map { detail in
                 DailyHUDMenuItem(id: "batch.trajectory." + String(detail.rawValue), title: detail.label,
                     selected: preferences.trajectoryDetail == detail, disabled: editingBusy,
-                    action: { preferences.trajectoryDetail = detail; composer.recompute(); menu = nil })
+                    action: { preferences.trajectoryDetail = detail; composer.recompute() })
             }
         }
         let items: [DailyHUDMenuItem] = [
@@ -1161,7 +1161,7 @@ struct BatchAuthoringView: View {
             .init(id: "batch.trajectory", title: "轨迹显示", detail: preferences.trajectoryDetail.label, disclosure: true,
                   action: { menu = .trajectory }),
             .init(id: "menu.aimCloseup", title: "瞄准特写", selected: preferences.showAimCloseup,
-                  action: { preferences.showAimCloseup.toggle(); menu = nil }),
+                  action: { preferences.showAimCloseup.toggle() }),
             .init(id: "batch.transparency", title: "打点盘透明度", detail: "\(Int((spinTransparency * 100).rounded()))%", disclosure: true,
                   disabled: editingBusy, action: { showSpinPad = true; menu = .transparency }),
             .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: preferences.showTableGrid,

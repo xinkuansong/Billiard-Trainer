@@ -43,6 +43,12 @@ final class AngleDynamicViewModel: TeachingTableHost {
     @Published var showsPotLine: Bool {
         didSet { displayDefaults.set(showsPotLine, forKey: "angleDynamic.showsPotLine"); refreshLineVisibility() }
     }
+    @Published var showsAngle: Bool {
+        didSet { displayDefaults.set(showsAngle, forKey: "angleDynamic.showsAngle"); refreshLineVisibility() }
+    }
+    @Published var showsGhost: Bool {
+        didSet { displayDefaults.set(showsGhost, forKey: "angleDynamic.showsGhost"); refreshLineVisibility() }
+    }
     @Published var showsGhost3D: Bool {
         didSet { displayDefaults.set(showsGhost3D, forKey: "angleDynamic.showsGhost3D"); refreshDisplayAssists() }
     }
@@ -57,6 +63,8 @@ final class AngleDynamicViewModel: TeachingTableHost {
         self.displayDefaults = displayDefaults
         showsAimLine = displayDefaults.object(forKey: "angleDynamic.showsAimLine") as? Bool ?? true
         showsPotLine = displayDefaults.object(forKey: "angleDynamic.showsPotLine") as? Bool ?? true
+        showsAngle = displayDefaults.object(forKey: "angleDynamic.showsAngle") as? Bool ?? true
+        showsGhost = displayDefaults.object(forKey: "angleDynamic.showsGhost") as? Bool ?? true
         showsGhost3D = displayDefaults.bool(forKey: "angleDynamic.showsGhost3D")
         showsAimPipe = displayDefaults.bool(forKey: "angleDynamic.showsAimPipe")
         showsPotPipe = displayDefaults.bool(forKey: "angleDynamic.showsPotPipe")
@@ -70,7 +78,8 @@ final class AngleDynamicViewModel: TeachingTableHost {
     private func refreshLineVisibility() {
         guard !isRandomizing, let geometry = scene.diagramLabelGeometry else { return }
         scene.updateVisualization(cueBall: geometry.cue, targetBall: geometry.target, pocket: geometry.pocket,
-                                  showStrikeLine: showsAimLine, showPocketLine: showsPotLine)
+                                  showStrikeLine: showsAimLine, showPocketLine: showsPotLine,
+                                  showDiagramAngle: showsAngle, showGhostBall: showsGhost)
         if temporaryTopDownActive { topDownContentRevision &+= 1 }
     }
 
@@ -494,7 +503,8 @@ final class AngleDynamicViewModel: TeachingTableHost {
         if result.feasible {
             scene.updateVisualization(
                 cueBall: cue.position, targetBall: target.position, pocket: aim,
-                showStrikeLine: showsAimLine, showPocketLine: showsPotLine
+                showStrikeLine: showsAimLine, showPocketLine: showsPotLine,
+                showDiagramAngle: showsAngle, showGhostBall: showsGhost
             )
             if !isRandomizing {
                 assistOverlay.update(cue: cue.position, ghost: ghost, pocket: aim)

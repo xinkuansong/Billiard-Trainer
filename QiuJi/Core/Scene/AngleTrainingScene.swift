@@ -67,7 +67,8 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     }
 
     /// Compatibility entry point: daily keeps both existing policies and diagnostics.
-    func configureDailyClearanceRendering() {
+    func configureDailyClearanceRendering(asynchronousReflection: Bool = false) {
+        preparesRoomReflectionAsynchronously = asynchronousReflection
         configureReferenceTableRendering()
         configureShotAwareCamera()
         #if DEBUG
@@ -235,9 +236,10 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     private(set) var diagramShowsLineLabels = true
     private var diagramShowsStrikeLine = true
     private var diagramShowsPocketLine = true
+    private var diagramShowsAngle = true
     /// Stable semantic indices used by the adaptive labels (angle, aim, pot).
     var diagramVisibleLabelIndices: [Int] {
-        [0] + (diagramShowsLineLabels && diagramShowsStrikeLine ? [1] : [])
+        (diagramShowsAngle ? [0] : []) + (diagramShowsLineLabels && diagramShowsStrikeLine ? [1] : [])
             + (diagramShowsLineLabels && diagramShowsPocketLine ? [2] : [])
     }
     private(set) var diagramLabelGeometry: (cue: SCNVector3, target: SCNVector3,
@@ -313,6 +315,8 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         if tableNode != nil { reusableTable = nil }
         reusedPreparedTable = false
         isSettingUpScene = true
+        probeRequestGeneration &+= 1
+        pendingProbeInputs = nil
         roomReflectionProbe = nil
         installedProbeInputs = nil
         defer {
@@ -1184,17 +1188,41 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     /// (`RoomReflectionProbe`). The cache includes the installed static appearance.
     private(set) var roomReflectionProbe: RoomReflectionProbe?
     private var installedProbeInputs: RoomReflectionProbe.Inputs?
+    private var pendingProbeInputs: RoomReflectionProbe.Inputs?
+    private var probeRequestGeneration: UInt64 = 0
+    private var preparesRoomReflectionAsynchronously = false
 
     private func refreshRoomReflectionProbe() {
         guard !isSettingUpScene, mobileRendering, MobileReferenceLighting.requested,
               let style = installedReferenceRoomStyle else { return }
         let inputs = RoomReflectionProbe.Inputs(style: style, scene: self)
         guard inputs != installedProbeInputs else { return }
-        roomReflectionProbe = RoomReflectionProbe.probe(for: style, scene: self)
-        guard let probe = roomReflectionProbe else { return }
+        if preparesRoomReflectionAsynchronously, Thread.isMainThread {
+            guard inputs != pendingProbeInputs else { return }
+            probeRequestGeneration &+= 1
+            let generation = probeRequestGeneration
+            pendingProbeInputs = inputs
+            RoomReflectionProbe.prepareAsync(inputs: inputs, scene: self,
+                usesPrefilteredReflection: renderingProfile.usesReflection) { [weak self] probe in
+                guard let self, self.probeRequestGeneration == generation else { return }
+                self.pendingProbeInputs = nil
+                guard let currentStyle = self.installedReferenceRoomStyle,
+                      inputs == RoomReflectionProbe.Inputs(style: currentStyle, scene: self),
+                      let probe else { return }
+                self.installRoomReflectionProbe(probe, inputs: inputs)
+                self.objectWillChange.send()
+            }
+        } else if let probe = RoomReflectionProbe.probe(for: style, scene: self) {
+            installRoomReflectionProbe(probe, inputs: inputs)
+        }
+    }
+
+    private func installRoomReflectionProbe(_ probe: RoomReflectionProbe, inputs: RoomReflectionProbe.Inputs) {
+        roomReflectionProbe = probe
         // A neutral fallback is not a successful room bake; allow a later retry.
-        installedProbeInputs = probe.style == style ? inputs : nil
+        installedProbeInputs = probe.style == inputs.room ? inputs : nil
         for node in allBallNodes.values { probe.install(on: node, usesPrefilteredReflection: renderingProfile.usesReflection) }
+        DailyLayoutProbe.record("reflection.ready", ["scene": String(describing: ObjectIdentifier(self))])
     }
 
     private func setupGround() {
@@ -2611,6 +2639,11 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     ///   the perspective view makes the flat-on-table text unreadable.
     /// - Parameter extendStrikeLineToRail: continue the cue-to-ghost ray to
     ///   the cloth edge in angle-training assist mode (both camera modes).
+    /// - Parameter showDiagramAngle: independently hide the diagram's angle mark
+    ///   while retaining its geometry for adaptive line labels and display updates.
+    ///   The quiz's `showAngleAnnotations` contract remains unchanged.
+    /// - Parameter showGhostBall: visibility of the flat ghost ring, independent
+    ///   of any page-owned solid 3D ghost overlay.
     func updateVisualization(
         cueBall: SCNVector3,
         targetBall: SCNVector3,
@@ -2620,7 +2653,9 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         showLineLabels: Bool = true,
         extendStrikeLineToRail: Bool = false,
         showStrikeLine: Bool = true,
-        showPocketLine: Bool = true
+        showPocketLine: Bool = true,
+        showDiagramAngle: Bool = true,
+        showGhostBall: Bool = true
     ) {
         let r = AngleSceneCalculator.ballRadius
 
@@ -2628,7 +2663,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             targetBall: targetBall, pocket: pocket, ballRadius: r
         )
         ghostBallNode?.position = ghostPos
-        ghostBallNode?.isHidden = false
+        ghostBallNode?.isHidden = !showGhostBall
 
         // Pocket line: from aim point (`pocket`) through target ball, extending
         // beyond the ghost ball so the red line and white strike line visibly form
@@ -2663,6 +2698,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         diagramShowsLineLabels = showLineLabels
         diagramShowsStrikeLine = showStrikeLine
         diagramShowsPocketLine = showPocketLine
+        diagramShowsAngle = showDiagramAngle
         diagramLabelGeometry = usesAdaptiveDiagramLabels && showAngleAnnotations
             ? (cueBall, targetBall, ghostPos, pocket, strikeEnd,
                AngleSceneCalculator.cutAngle(cueBall: cueBall, targetBall: targetBall, pocket: pocket)) : nil
@@ -2683,7 +2719,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             updateAngleArc(cueBall: cueBall, targetBall: targetBall, pocket: pocket, ghost: ghostPos,
                            showLineLabels: showLineLabels,
                            showStrikeLine: showStrikeLine, showPocketLine: showPocketLine)
-            angleArcNode?.isHidden = false
+            angleArcNode?.isHidden = !showDiagramAngle
         } else {
             angleArcNode?.isHidden = true
         }

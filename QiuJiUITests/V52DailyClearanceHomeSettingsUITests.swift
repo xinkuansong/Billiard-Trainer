@@ -6,13 +6,131 @@ final class V52DailyClearanceHomeSettingsUITests: XCTestCase {
         let environment = ProcessInfo.processInfo.environment
         let path = environment["V52_SHOT_DIR"]
             ?? environment["TEST_RUNNER_V52_SHOT_DIR"]
-            ?? "/Users/song/projects/13.billiard_trainer/build/v52-screenshots/after-home-settings"
+            ?? FileManager.default.temporaryDirectory.appendingPathComponent("daily-home-settings").path
         return URL(fileURLWithPath: path, isDirectory: true)
     }
 
     override func setUpWithError() throws {
         continueAfterFailure = false
         try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
+    }
+
+    /// Real home pushes with the normal manual rack, including a cold scene,
+    /// retained resources and a saved daily draft in both app appearances.
+    func testEntryRotationLightAndDarkWithRealRack() {
+        defer { XCUIDevice.shared.orientation = .portrait }
+        for theme in ["Light", "Dark"] {
+            XCUIDevice.shared.orientation = .portrait
+            let app = launch(["-v50.inMemoryStore", "-v54.force\(theme)",
+                              "-dailyClearance.resetHomeState", "-dailyLayout.probe", "-forcePremium"])
+            defer { app.terminate() }
+            let entry = app.buttons["trainingHome.dailyClearance"]
+            XCTAssertTrue(entry.waitForExistence(timeout: 20))
+            let homeFrame = entry.frame
+            for visit in 1...3 {
+                XCTAssertTrue(entry.isHittable)
+                let started = Date()
+                entry.tap()
+                waitForLandscape(app)
+                let elapsed = Date().timeIntervalSince(started)
+                print("DAILY_ENTRY \(theme) visit=\(visit) seconds=\(elapsed)")
+                let stage = app.descendants(matching: .any)["table.scene"].firstMatch
+                XCTAssertTrue(stage.waitForExistence(timeout: 10))
+                let window = app.windows.firstMatch.frame
+                XCTAssertGreaterThan(stage.frame.width, window.width * 0.6, "Renderer must use the full landscape stage")
+                XCTAssertGreaterThan(stage.frame.height, window.height * 0.65)
+                XCTAssertTrue(app.buttons["freeplay.moreMenu"].isHittable)
+                snap(app, "entry-\(theme)-\(visit)-landscape")
+                let probe = app.descendants(matching: .any)["dailyLayout.entryProbe"].firstMatch
+                if let value = probe.value as? String {
+                    let attachment = XCTAttachment(string: value)
+                    attachment.name = "entry-\(theme)-\(visit)-geometry"
+                    attachment.lifetime = .keepAlways
+                    add(attachment)
+                }
+                // The last visit returns immediately after geometry settles.
+                app.buttons["dailyClearance.back"].tap()
+                let restored = NSPredicate { _, _ in
+                    app.frame.height > app.frame.width && entry.isHittable
+                        && abs(entry.frame.minY - homeFrame.minY) < 1
+                }
+                expectation(for: restored, evaluatedWith: app)
+                waitForExpectations(timeout: 10)
+                snap(app, "entry-\(theme)-\(visit)-returned")
+            }
+        }
+    }
+
+    func testTabletEntryRotationPreservesRendererAndReturns() throws {
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = launch(["-v50.inMemoryStore", "-v54.forceLight", "-dailyClearance.resetHomeState",
+                          "-dailyClearance.fixtureSettled", "-3dDrag.probe", "-forcePremium"])
+        defer { app.terminate() }
+        let entry = app.buttons["trainingHome.dailyClearance"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 20))
+        entry.tap()
+        let back = app.buttons["dailyClearance.back"]
+        XCTAssertTrue(back.waitForExistence(timeout: 15))
+        let stage = app.descendants(matching: .any)["table.scene"].firstMatch
+        func state() throws -> [String: Any] {
+            let text = try XCTUnwrap(stage.value as? String)
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any])
+        }
+        let renderer = try XCTUnwrap(try state()["rendererID"] as? String)
+        for mode in ["2D", "3D"] {
+            if mode == "3D" {
+                app.buttons["freeplay.moreMenu"].tap()
+                let toggle = app.buttons["freeplay.cameraMode"]
+                XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+                if toggle.value as? String != "3D" { toggle.tap() }
+                XCTAssertEqual(toggle.value as? String, "3D")
+                closeDailyMenu(app)
+            }
+            for (orientation, name) in [(UIDeviceOrientation.portrait, "portrait"), (.landscapeLeft, "landscape"), (.portrait, "portrait-restored")] {
+                XCUIDevice.shared.orientation = orientation
+                let ready = NSPredicate { _, _ in
+                    let f = app.windows.firstMatch.frame
+                    let matches = orientation == .landscapeLeft ? f.width > f.height : f.height > f.width
+                    return matches && back.isHittable && f.contains(back.frame)
+                }
+                expectation(for: ready, evaluatedWith: app)
+                waitForExpectations(timeout: 10)
+                XCTAssertEqual(try state()["rendererID"] as? String, renderer)
+                XCTAssertTrue(app.buttons["freeplay.moreMenu"].isHittable)
+                snap(app, "entry-pad-\(mode)-\(name)")
+            }
+        }
+        back.tap()
+        XCTAssertTrue(entry.waitForExistence(timeout: 10))
+        XCTAssertTrue(entry.isHittable)
+        XCTAssertGreaterThan(app.frame.height, app.frame.width)
+        snap(app, "entry-pad-returned")
+    }
+
+    private func closeDailyMenu(_ app: XCUIApplication) {
+        // Wait for the actual modal layer to disappear after dismissal. A screen
+        // capture alone does not establish that the next control can receive a tap.
+        let close = app.buttons["关闭菜单"].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        close.tap()
+        let closed = NSPredicate(format: "exists == false")
+        expectation(for: closed, evaluatedWith: app.scrollViews["dailyClearance.menuScroll"])
+        waitForExpectations(timeout: 5)
+        XCTAssertFalse(app.buttons["freeplay.cameraMode"].exists)
+        XCTAssertTrue(app.buttons["dailyClearance.back"].isHittable)
+    }
+
+    private func waitForLandscape(_ app: XCUIApplication) {
+        let back = app.buttons["dailyClearance.back"]
+        XCTAssertTrue(back.waitForExistence(timeout: 20))
+        let ready = NSPredicate { _, _ in
+            let frame = app.windows.firstMatch.frame
+            return frame.width > frame.height && back.isHittable
+                && !back.frame.isEmpty && frame.contains(back.frame)
+        }
+        expectation(for: ready, evaluatedWith: app)
+        waitForExpectations(timeout: 10)
     }
 
     func testPortraitHomeEntryAndRepeatedReturn() {
@@ -37,12 +155,15 @@ final class V52DailyClearanceHomeSettingsUITests: XCTestCase {
             snap(app, "entry-\(visit)-home")
             entry.tap()
             XCTAssertTrue(hud.waitForExistence(timeout: 15))
-            XCTAssertGreaterThan(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height)
+            waitForLandscape(app)
             XCTAssertTrue(app.buttons["dailyClearance.back"].isHittable)
             snap(app, "entry-\(visit)-landscape")
+            app.buttons["freeplay.moreMenu"].tap()
             let mode = app.buttons["freeplay.cameraMode"]
-            mode.tap()
+            XCTAssertTrue(mode.waitForExistence(timeout: 5))
+            if mode.value as? String != "3D" { mode.tap() }
             XCTAssertEqual(mode.value as? String, "3D")
+            closeDailyMenu(app)
             XCTAssertGreaterThan(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height)
             snap(app, "entry-\(visit)-3d")
             app.buttons["dailyClearance.back"].tap()
@@ -64,7 +185,8 @@ final class V52DailyClearanceHomeSettingsUITests: XCTestCase {
             "-dailyClearance.resetHomeState", "-forcePremium",
         ])
         XCTAssertTrue(app.buttons["dailyClearance.back"].waitForExistence(timeout: 15))
-        XCTAssertGreaterThan(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height)
+        waitForLandscape(app)
+        app.buttons["freeplay.moreMenu"].tap()
         let mode = app.buttons["freeplay.cameraMode"]
         let hittable = expectation(for: NSPredicate(format: "hittable == true"), evaluatedWith: mode)
         XCTAssertEqual(XCTWaiter.wait(for: [hittable], timeout: 8), .completed, app.debugDescription)

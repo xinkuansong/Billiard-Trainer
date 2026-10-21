@@ -1,0 +1,17 @@
+test_all_methods_match_javascript (__main__.GeometryTests.test_all_methods_match_javascript) ... ok
+test_collision_primitives (__main__.GeometryTests.test_collision_primitives) ... ok
+test_constructed_angles_and_first_contact (__main__.GeometryTests.test_constructed_angles_and_first_contact) ... ok
+test_diameter_error_bound (__main__.GeometryTests.test_diameter_error_bound) ... ok
+test_indistinguishable_positions (__main__.GeometryTests.test_indistinguishable_positions) ... ok
+test_invalid_and_degenerate (__main__.GeometryTests.test_invalid_and_degenerate) ... ok
+test_locus_and_front_projection (__main__.GeometryTests.test_locus_and_front_projection) ... ok
+test_production_pocket_entry_and_rail_rejection (__main__.GeometryTests.test_production_pocket_entry_and_rail_rejection) ... ok
+test_quarter_correction_bound (__main__.GeometryTests.test_quarter_correction_bound) ... ok
+test_reflection_rotation_translation (__main__.GeometryTests.test_reflection_rotation_translation) ... ok
+test_signed_angle_not_triangle_angle (__main__.GeometryTests.test_signed_angle_not_triangle_angle) ... ok
+test_source_dimensions (__main__.GeometryTests.test_source_dimensions) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.268s
+
+OK

@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from simulator_lifecycle import device_lease
+from local_test_lifecycle import execute as run_local_workspace, DEFAULT_ROOT as LOCAL_WORK_ROOT
 
 
 REPO = Path(__file__).resolve().parents[1]
@@ -180,6 +181,7 @@ def resolve_devices(config: dict[str, Any]) -> list[ResolvedDevice]:
             for item in inventory["devices"].get(runtime["identifier"], [])
             if item.get("isAvailable", True)
             and item.get("name") == requested["name"]
+            and (not requested.get("udid") or item["udid"] == requested["udid"])
             and item.get("deviceTypeIdentifier") == requested["type"]
         ]
         if len(candidates) != 1:
@@ -511,7 +513,7 @@ def run_unit(
         summary["simulator_setup"] = set_simulator_state(
             device, appearance, resolved_content_size, state, leaf
         )
-        derived_data = root / "DerivedData" / device.matrix_id
+        derived_data = Path(os.environ.get("QIUJI_TEST_WORK", str(root))) / "DerivedData" / device.matrix_id
         base_command = [
             "xcodebuild",
             "-project", str(REPO / config["project"]),
@@ -683,6 +685,7 @@ def main() -> int:
     run_parser.add_argument("--resume", action="store_true")
     run_parser.add_argument("--fail-fast", action="store_true")
     run_parser.add_argument("--content-size")
+    run_parser.add_argument("--keep-build-reason", default="", help="Keep the temporary build for a pending review")
     run_parser.add_argument(
         "--project",
         help="override config project path (for example QiuJiV50.xcodeproj)",
@@ -694,6 +697,12 @@ def main() -> int:
         help="run units concurrently; each worker must target a distinct simulator UDID",
     )
     args = parser.parse_args()
+
+    if args.command == "run" and not os.environ.get("QIUJI_TEST_RUN_ID"):
+        return run_local_workspace(
+            LOCAL_WORK_ROOT, "simulator-matrix", [sys.executable, str(Path(__file__).resolve()), *sys.argv[1:]],
+            hold=args.keep_build_reason,
+        )
 
     config = load_config(args.config.resolve())
     if args.command == "run" and args.project:

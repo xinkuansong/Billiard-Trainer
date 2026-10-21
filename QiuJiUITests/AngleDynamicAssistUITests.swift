@@ -1,6 +1,55 @@
 import XCTest
 
 final class AngleDynamicAssistUITests: XCTestCase {
+    func testAngleAndGhostSettingsOrderAndCameraRoundTrip() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium",
+            "-dailyInteraction.sharedPage=angleDynamic", "-v54.forceDark",
+            "-angleDynamic.showsAngle", "YES", "-angleDynamic.showsGhost", "YES",
+            "-angleDynamic.showsAimLine", "YES", "-angleDynamic.showsPotLine", "YES",
+            "-angleDynamic.showsGhost3D", "NO"])
+        let more = app.buttons["angleDynamic.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 25))
+        let metrics = app.descendants(matching: .any).matching(identifier: "angleDynamic.metrics").firstMatch
+        let original = metrics.label
+        func openMenu() { more.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap() }
+        func closeMenu() { app.buttons["angleDynamic.dismissMenu"].coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.5)).tap() }
+        func snap(_ name: String) {
+            let a = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            a.name = name; a.lifetime = .keepAlways; self.add(a)
+        }
+        // Diagram UILabels intentionally stay out of the accessibility tree.
+        // Their visibility is covered by SceneKit/UIKit tests and screenshot review.
+        func checkMetrics() {
+            XCTAssertFalse(app.buttons["angleDynamic.dismissMenu"].exists)
+            XCTAssertEqual(metrics.label, original)
+        }
+        snap("after-table-default")
+        openMenu()
+        let ordered = ["aimLine", "potLine", "angle", "ghost", "ghost3D"].map { "angleDynamic." + $0 }
+        XCTAssertEqual(app.buttons.allElementsBoundByIndex.map(\.identifier).filter { ordered.contains($0) }, ordered)
+        snap("after-settings-top")
+        menuItem("angle", in: app).tap()
+        XCTAssertTrue(app.buttons["angleDynamic.dismissMenu"].exists, "Display toggles keep settings open")
+        XCTAssertEqual(menuItem("angle", in: app).value as? String, "未选")
+        menuItem("ghost", in: app).tap()
+        menuItem("ghost3D", in: app).tap()
+        XCTAssertEqual(menuItem("ghost", in: app).value as? String, "未选")
+        XCTAssertEqual(menuItem("ghost3D", in: app).value as? String, "已选")
+        snap("after-settings-ghosts")
+        closeMenu(); snap("after-2d-angle-ring-off-solid-on"); checkMetrics()
+        openMenu(); app.buttons["angleDynamic.cameraMode"].tap(); closeMenu()
+        snap("after-3d-angle-ring-off-solid-on"); checkMetrics()
+        openMenu(); menuItem("angle", in: app).tap()
+        XCTAssertEqual(menuItem("angle", in: app).value as? String, "已选"); closeMenu()
+        snap("after-3d-angle-on"); checkMetrics()
+        openMenu(); menuItem("ghost", in: app).tap(); closeMenu()
+        openMenu(); app.buttons["angleDynamic.cameraMode"].tap(); closeMenu()
+        snap("after-2d-return"); checkMetrics()
+        app.terminate()
+    }
+
     private func menuItem(_ key: String, in app: XCUIApplication) -> XCUIElement {
         let item = app.buttons["angleDynamic." + key]
         let scroll = app.scrollViews["dailyClearance.menuScroll"]

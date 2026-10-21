@@ -147,7 +147,7 @@ def require_live_review_capability(app, page='theory'):
 def parse_options(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument('action', choices=['status', 'start', 'restart', 'theme', 'install', 'shutdown', 'open-page'])
-    parser.add_argument('--only', help='Comma-separated numbers (01–10), full labels or UDIDs; default all ten')
+    parser.add_argument('--only', help='Comma-separated configured labels/numbers or UDIDs; default all eight core devices')
     parser.add_argument('--appearance', choices=['light', 'dark'])
     parser.add_argument('--app', type=Path, help='Simulator .app; required for install')
     parser.add_argument('--page', choices=['home', 'settings', 'drill-detail', 'theory'])
@@ -260,7 +260,8 @@ def main(argv=None):
             log_dir = base / datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f')
             log_dir.mkdir()
             (log_dir / 'run.json').write_text(json.dumps({
-                'request': vars(options), 'runtime': config['runtime'],
+                'request': vars(options), 'defaultRuntime': config['runtime'],
+                'runtimes': {d['udid']: d.get('runtime', config['runtime']) for d in devices},
                 'bundleIdentifier': config['bundleIdentifier'], 'launchArguments': launch_args,
                 'devices': devices, 'pageVerification': 'Required separately by the review controller'
             }, default=str, ensure_ascii=False, indent=2))
@@ -294,8 +295,9 @@ def main(argv=None):
             current = row
             try:
                 runtime, actual = lookup.get(device['udid'], (None, {}))
-                if runtime != config['runtime'] or actual.get('deviceTypeIdentifier') != device['deviceTypeIdentifier']:
+                if runtime != device.get('runtime', config['runtime']) or actual.get('deviceTypeIdentifier') != device['deviceTypeIdentifier']:
                     raise ValueError(f"Missing or changed environment: {device['label']}")
+                row['runtime'] = runtime
                 row['simulatorState'] = actual['state']
                 if options.action in KEYBOARD_CHECK_ACTIONS:
                     row['keyboard'] = hardware_keyboard_policy(keyboard_preferences, device['udid'])

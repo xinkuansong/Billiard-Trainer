@@ -227,14 +227,38 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
         private let owner = UUID()
         private weak var ownedScene: UIWindowScene?
         private var appliedLandscape: Bool?
+        private var visible = false
+        private var waitingForTransition = false
+        private var requestInFlight = false
+        private var requestAttempts = 0
+        private var requestGeneration = 0
 
         override func viewDidAppear(_ animated: Bool) {
             super.viewDidAppear(animated)
+            visible = true
+            requestAttempts = 0
             applyOrientation()
+        }
+
+        override func viewWillDisappear(_ animated: Bool) {
+            super.viewWillDisappear(animated)
+            visible = false
+        }
+
+        override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+            super.viewWillTransition(to: size, with: coordinator)
+            coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+                guard let self else { return }
+                self.requestInFlight = false
+                self.view.window?.rootViewController?.view.setNeedsLayout()
+                self.view.window?.rootViewController?.view.layoutIfNeeded()
+                self.applyOrientation()
+            }
         }
 
         override func viewDidLayoutSubviews() {
             super.viewDidLayoutSubviews()
+            applyOrientation()
             guard DailyLayoutProbe.enabled else { return }
             var fields = DailyLayoutProbe.windowFields(view)
             fields["owner"] = owner.uuidString
@@ -247,20 +271,47 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
         }
 
         func applyOrientation() {
-            guard let scene = view.window?.windowScene,
-                  appliedLandscape != landscape || ownedScene !== scene else { return }
-            if ownedScene !== scene, restoresPreviousOwner {
-                previousMask = QiuJiOrientationDelegate.masks[ObjectIdentifier(scene)]
-                previousOwner = QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)]
+            // SwiftUI updates this representable during the navigation push. A
+            // geometry request at that point races the portrait navigation snapshot.
+            guard visible, let scene = view.window?.windowScene else { return }
+            if let transition = transitionCoordinator ?? navigationController?.transitionCoordinator {
+                guard !waitingForTransition else { return }
+                waitingForTransition = true
+                let registered = transition.animate(alongsideTransition: nil) { [weak self] _ in
+                    guard let self else { return }
+                    self.waitingForTransition = false
+                    DispatchQueue.main.async { [weak self] in self?.applyOrientation() }
+                }
+                if registered { return }
+                waitingForTransition = false
             }
-            ownedScene = scene
-            appliedLandscape = landscape
-            QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] = owner
+            let changed = appliedLandscape != landscape || ownedScene !== scene
+            if changed {
+                if ownedScene !== scene, restoresPreviousOwner {
+                    previousMask = QiuJiOrientationDelegate.masks[ObjectIdentifier(scene)]
+                    previousOwner = QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)]
+                }
+                requestAttempts = 0
+                requestInFlight = false
+                ownedScene = scene
+                appliedLandscape = landscape
+            }
             let tablet = allowsTabletRotation && view.traitCollection.userInterfaceIdiom == .pad
-            request(tablet ? .all : (landscape ? .landscapeRight : .portrait), in: scene)
+            let mask: UIInterfaceOrientationMask = tablet ? .all : (landscape ? .landscapeRight : .portrait)
+            let matches = tablet || (landscape ? scene.interfaceOrientation == .landscapeRight
+                                              : scene.interfaceOrientation == .portrait)
+            if !changed && matches { return }
+            guard !requestInFlight, requestAttempts < 2 else { return }
+            QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] = owner
+            requestAttempts += 1
+            requestInFlight = !matches
+            request(mask, in: scene)
         }
 
         func restorePortrait() {
+            visible = false
+            requestGeneration += 1
+            requestInFlight = false
             guard let scene = ownedScene else { return }
             if QiuJiOrientationDelegate.owners[ObjectIdentifier(scene)] == owner {
                 request(restoresPreviousOwner ? (previousMask ?? .portrait) : .portrait, in: scene)
@@ -284,7 +335,14 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
             let root = scene.windows.first(where: \.isKeyWindow)?.rootViewController
             root?.setNeedsUpdateOfSupportedInterfaceOrientations()
             root?.presentedViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+            requestGeneration += 1
+            let generation = requestGeneration
             scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { [weak self] error in
+                if let self, self.requestGeneration == generation {
+                    self.requestInFlight = false
+                    // Retry on the next real layout/appearance, never by a delay loop.
+                    self.view.setNeedsLayout()
+                }
                 DailyLayoutProbe.record("orientation.failure", ["owner": self?.owner.uuidString ?? "nil", "error": String(describing: error)])
                 NSLog("[DailyTableOrientation] %@", error.localizedDescription)
             }

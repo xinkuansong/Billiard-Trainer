@@ -6024,13 +6024,46 @@ DR-410 v3验收补记：20入口/34适用模式定向UI通过，47项存储测�
 - 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` DR-412、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
 - 验证与范围：`tasks/ui-reviews/UR-20261019-aim-closeup-cloth.md`；构建、4项单测及1项UI通过；6色/3球房采样组合、绿/蓝2D/3D四张原图已核。尚未用户验收或真机验证。
 
+## DR-413 — 首页每日清台图标动效（2026-10-19）
+用户确认22pt球堆及散开归位。训练首页使用一次性1.4秒装饰动画，淡出三角框、六球错开散开再归位；首页持有播放标记，返回不重播，减少动态效果时静态显示。BreakRackGlyph的animationProgress默认0、rackOpacity默认1，其余消费者维持静态原样。首页外框70%不透明度，44pt胶囊及导航保留，按压复用BTPressableStyle.capsule。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` DR-413、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+- 构建、原生前后截图和真实录屏已完成；功能回归与验收边界见`tasks/ui-reviews/UR-20261019-daily-clearance-icon.md`。
+
+
+## DR-410 v4 — 球桌设置选项原位连续调整（2026-10-19）
+用户要求选中/取消后保留菜单。FreePlay共用壳、教学页、两类场景答题和批量编排去除普通设置回调的主动关闭；包装外部项目时只给普通动作/导航追加关闭。训练设置、布局编辑、确认与回台面工具保留原流程。旧版目标失败已复现；Mac mini原生构建、iPhone 17 Pro/iOS 26.2的8项UI回归与截图审查通过。验证状态与快照边界见[报告](ui-reviews/UR-20261019-menu-retention.md)。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` DR-410 v4、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog、`docs/05-信息架构与交互设计.md`。
+
+
+## DR-414 — 角度与瞄准独立显示开关（2026-10-19）
+按用户指定，页内设置顺序为瞄准线、进球线、角度、假想球、3D假想球，原两管道项续后。角度控制台面数字/角弧，假想球控制平面球圈，左侧教学读数保留；两项默认开启并页内独立持久化。AngleTrainingScene.updateVisualization新增默认true的showDiagramAngle/showGhostBall，仅该页传入用户选择；角度隐藏仍保留线标签几何与缓存失效，不改变答题页showAngleAnnotations约定。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` DR-414、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog、`docs/05-信息架构与交互设计.md`。
+- 验证与边界：`tasks/ui-reviews/UR-20261019-angle-settings.md`；本机磁盘失败保留；Mac mini构建、11项单测及标准屏/SE共3次UI验证、原生截图审查通过，真机/用户验收与发布未执行。
+
+
+## DR-413 r2 — 每日清台胶囊内循环碰撞（2026-10-19）
+用户将一次性动效改为“提框→散开碰撞→停球→归位→落框→静置”循环，球堆22→28pt。独立DailyClearanceAnimatedLabel用真实文字/箭头布局框作障碍，DailyClearanceButtonMotion提供胶囊内6球轨迹；CAKeyframeAnimation局部播放，活动状态/Reduce Motion控制启停。循环12秒，原44pt命中和导航保持。回收沿已校验轨迹反向播放，防止直线穿字；此为装饰视觉，不替换球桌物理。Mac mini构建、2个模型单测、两尺寸各2项UI通过，浅深原生录屏已审；旧往返测试错误安全区限制已修正并复验。验证与限制见UR-20261019-daily-clearance-icon.md r2。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` DR-413 r2、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+
+## DR-413 r3 — 六球从文字前方穿过（2026-10-19）
+用户最新要求取消避字，球需在文字上层。DailyClearanceAnimatedLabel将背景动画改为overlay，不接收点击；移除文字/箭头Anchor与运动模型中的文字障碍。保留28pt球堆、12秒阶段、球球碰撞、胶囊边界和生命周期。原避字测试按新契约改为穿越文字区，保留完整球体边界及球间距校验。10-20凌晨Mac mini原生构建、iPhone17Pro/iOS26.2四项专项及浅深整页视觉复验通过；新版小屏/真机与用户接受未验。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` DR-413 r3、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；原生验证见UR-20261019-daily-clearance-icon.md r3。
+
+
+### FL-164 r7 — 模态关闭与后续返回分开验收（2026-10-20）
+每日清台SE/iOS17的3D返回测试，固定坐标点菜单外后立即点返回，连续两轮未回首页；原失败保留。改为点击实际关闭控件、等待menuScroll消失并断言视图菜单项不存在及返回可命中，再执行原返回/首页/方向断言。相同App源码下两次3D往返通过；不得以截图完成或XCTest tap返回当作模态已退出，也不加重试吞掉导航失败。证据见tasks/ui-reviews/UR-20261019-daily-entry-stall.md。
+
+
 ## DR-415 — 准度考核壳与六入口多选（2026-10-20）
 按已授权方案增加2D／3D准度，2D共享每日20题免费额度、3D Pro。共用教学壳新增默认关闭的assessmentMode、可选onObservation与fixedView3D，固定题目打点／维度并收起答题辅助；原页面默认行为保留。共享设置改为五组非空集合与原位连续多选，随机独占，外部关闭不穿透。最初SE更多按钮描边扩出屏幕导致命中失败，改strokeBorder；回放图标改用有效BTIcon.playCircle。原生测试证据与有限覆盖见实施报告，不把测试通过等同于用户验收。
 - **已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md` § DR-415 与Changelog（组件API真源）；数据边界另见ADR-P18-09。
 
+
 ## FL-185 — 有限库段最近距离漏掉端点（2026-10-20）
 准度球形图册第6/15题正对中袋开口，旧clearance仅接受垂足在线段内的库，得到119.1／117.8cm；实际有限主库最近净距约20.13／59.26cm。根因是把“袋口开口不是库”错误实现为丢弃整个相邻有限库段。修正为夹取线段参数后计算球心到最近点的距离再减球半径，新增两侧中袋、原题和贴库／半贴库回归；完整验证状态见扩库任务。半贴库排除贴库的现有边界保持。
 规则改进：有限线段距离必须覆盖内部垂足、两端点和镜像；球面／球心距离分开，不能把缺少投影误认为没有近邻。已应用至 `.cursor/skills/geometry-spatial-reasoning/SKILL.md` FL-185（2026-10-20）。
+
 
 ## FL-186 — 指定袋事件不能替代直进路线资格（2026-10-21）
 - **现象/根因**：中袋存在性初筛只看目标袋事件，将图册05的5次库碰、11的3次库碰和二次球碰当作通过；scratch优先返回也掩盖了一部分间接路线。组合ID/坐标一致不证明直进资格。

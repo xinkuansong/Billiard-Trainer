@@ -2204,6 +2204,7 @@ final class DiagramLabelOverlay {
         let key: [Float] = [matrix.m11, matrix.m12, matrix.m13, matrix.m21, matrix.m22, matrix.m23,
             matrix.m31, matrix.m32, matrix.m33, matrix.m41, matrix.m42, matrix.m43,
             Float(view.bounds.width), Float(view.bounds.height), scene.diagramShowsLineLabels ? 1 : 0,
+            labelIndices.contains(0) ? 1 : 0,
             labelIndices.contains(1) ? 1 : 0, labelIndices.contains(2) ? 1 : 0,
             displayMode == .perspective3D ? 1 : 0,
             Float(scene.cameraNode?.camera?.orthographicScale ?? 0),
@@ -2430,7 +2431,7 @@ final class DiagramLabelOverlay {
         let aimAngle = atan2(ghost.y - cue.y, ghost.x - cue.x)
         let potAngle = atan2(pocket.y - target.y, pocket.x - target.x)
         let sweep = atan2(sin(potAngle - aimAngle), cos(potAngle - aimAngle))
-        if abs(sweep) > 0.001 {
+        if labelIndices.contains(0), abs(sweep) > 0.001 {
             let arcRadius = Self.angleArcRadius
             let path = UIBezierPath()
             if displayMode == .perspective3D {

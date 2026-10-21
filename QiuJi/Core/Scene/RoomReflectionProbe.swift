@@ -351,6 +351,49 @@ final class RoomReflectionProbe {
         return baked
     }
 
+    private static let bakeQueue = DispatchQueue(label: "qiuji.room-reflection", qos: .userInitiated)
+
+    static func cached(for inputs: Inputs) -> RoomReflectionProbe? {
+        cacheLock.lock(); defer { cacheLock.unlock() }
+        guard let probe = cache[inputs] else { return nil }
+        recentlyUsed.removeAll { $0 == inputs }
+        recentlyUsed.append(inputs)
+        return probe
+    }
+
+    /// The synchronous API remains available to offline renderers. Interactive
+    /// entry renders immutable copies off-main and publishes only the finished probe.
+    static func prepareAsync(inputs: Inputs, scene: AngleTrainingScene,
+                             usesPrefilteredReflection: Bool,
+                             completion: @escaping (RoomReflectionProbe?) -> Void) {
+        precondition(Thread.isMainThread)
+        if let probe = cached(for: inputs) { completion(probe); return }
+        guard let input = prepareBake(scene: scene, style: inputs.room) else { completion(nil); return }
+        cacheLock.lock()
+        let generation = cacheGeneration
+        cacheLock.unlock()
+        bakeQueue.async {
+            let probe = autoreleasepool { cached(for: inputs) ?? bake(input: input) }
+            if usesPrefilteredReflection { _ = probe?.prefiltered() }
+            cacheLock.lock()
+            let valid = generation == cacheGeneration
+            if valid, let probe, cache[inputs] == nil {
+                cache[inputs] = probe
+                recentlyUsed.append(inputs)
+                while recentlyUsed.count > cacheCapacity {
+                    cache.removeValue(forKey: recentlyUsed.removeFirst())
+                }
+            }
+            cacheLock.unlock()
+            DispatchQueue.main.async {
+                cacheLock.lock()
+                let stillValid = generation == cacheGeneration
+                cacheLock.unlock()
+                completion(valid && stillValid ? probe : nil)
+            }
+        }
+    }
+
     static func trimToMostRecent() {
         cacheLock.lock(); defer { cacheLock.unlock() }
         cacheGeneration &+= 1
@@ -368,13 +411,16 @@ final class RoomReflectionProbe {
 
     /// Render only static room/table/light copies from table centre at ball height.
     /// Live visibility, materials, cameras and contact-shadow uniforms stay untouched.
-    static func bake(scene: AngleTrainingScene, style: RoomStyle,
-                     device: MTLDevice? = MTLCreateSystemDefaultDevice()) -> RoomReflectionProbe? {
-        guard let device,
-              let room = scene.rootNode.childNode(withName: "reference_room", recursively: false) else { return nil }
-        #if DEBUG
-        let started = CACurrentMediaTime()
-        #endif
+    struct BakeInput {
+        let scene: SCNScene
+        let table: SCNNode?
+        let centre: SCNVector3
+        let style: RoomStyle
+    }
+
+    /// Capture on the live scene's owning thread. The worker only sees these copies.
+    static func prepareBake(scene: AngleTrainingScene, style: RoomStyle) -> BakeInput? {
+        guard let room = scene.rootNode.childNode(withName: "reference_room", recursively: false) else { return nil }
         let centre = SCNVector3(0, scene.surfaceY + AngleSceneCalculator.ballRadius, 0)
 
         let bakeScene = SCNScene()
@@ -428,6 +474,22 @@ final class RoomReflectionProbe {
             bakeScene.rootNode.addChildNode(copyStaticNode(light))
         }
 
+        return BakeInput(scene: bakeScene, table: tableCopy, centre: centre, style: style)
+    }
+
+    static func bake(scene: AngleTrainingScene, style: RoomStyle,
+                     device: MTLDevice? = MTLCreateSystemDefaultDevice()) -> RoomReflectionProbe? {
+        guard let input = prepareBake(scene: scene, style: style) else { return nil }
+        return bake(input: input, device: device)
+    }
+
+    private static func bake(input: BakeInput,
+                             device: MTLDevice? = MTLCreateSystemDefaultDevice()) -> RoomReflectionProbe? {
+        guard let device else { return nil }
+        #if DEBUG
+        let started = CACurrentMediaTime()
+        #endif
+        let (bakeScene, tableCopy, centre, style) = (input.scene, input.table, input.centre, input.style)
         let camera = SCNCamera()
         camera.fieldOfView = 90
         camera.projectionDirection = .vertical

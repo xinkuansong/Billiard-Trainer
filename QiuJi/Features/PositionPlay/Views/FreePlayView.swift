@@ -410,6 +410,9 @@ struct FreePlayView: View {
             .btToast($toast)
             }
         }
+        // The carpet and renderer have measured sizes; this opaque page layer
+        // also covers the safe area while UIKit is changing those sizes.
+        .background(Color.black.ignoresSafeArea())
         .background {
             if usesCoreTemplate { DailyTableOrientation(landscape: true, allowsTabletRotation: true) }
         }
@@ -490,7 +493,7 @@ struct FreePlayView: View {
             }
             if !hasAppeared {
                 hasAppeared = true
-                if isDailyClearance { vm.scene.configureDailyClearanceRendering() }
+                if isDailyClearance { vm.scene.configureDailyClearanceRendering(asynchronousReflection: true) }
                 if !isDailyClearance {
                     if isShotSimulation { vm.maxTargetBalls = 2 }
                     vm.scene.configureReferenceTableRendering()
@@ -1320,10 +1323,10 @@ struct FreePlayView: View {
                         closeDailyPresentation(); editingControlLayout = true
                     }),
                 .init(id: "menu.tableGrid", title: "台面网格", selected: pagePreferences.enabled(.grid), action: {
-                    setPagePreference(.grid, pagePreferences.enabled(.grid) ? 0 : 1); closeDailyPresentation()
+                    setPagePreference(.grid, pagePreferences.enabled(.grid) ? 0 : 1)
                 }),
                 .init(id: "formation.snap", title: "自动吸附", selected: formation.snapEnabled, action: {
-                    formation.snapEnabled.toggle(); closeDailyPresentation()
+                    formation.snapEnabled.toggle()
                 }),
                 .init(id: "formation.fit", title: "恢复全桌", action: {
                     vm.scene.cameraRig?.resetTopDownZoom(); closeDailyPresentation()
@@ -1347,7 +1350,6 @@ struct FreePlayView: View {
                     selected: vm.aimMode == mode, disabled: disabled, action: {
                         if editablePalette { vm.setPreferredAimMode(mode) }
                         else if mode != vm.aimMode { vm.toggleAimMode() }
-                        closeDailyPresentation()
                     })
             }
         case .trajectory:
@@ -1363,7 +1365,6 @@ struct FreePlayView: View {
                         }
                         vm.hides3DShotAssists = page3DHidden
                         vm.refreshShotAssistVisibility()
-                        closeDailyPresentation()
                     })
             }
         case .games:
@@ -1384,11 +1385,9 @@ struct FreePlayView: View {
                       detail: "\(Int((pageSpinTransparency.wrappedValue * 100).rounded()))%", disclosure: true, action: { presentDaily(.transparency) }),
                 .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
                     setPagePreference(.grid, pagePreferences.enabled(.grid) ? 0 : 1)
-                    closeDailyPresentation()
                 }),
                 .init(id: "menu.aimCloseup", title: "瞄准特写", selected: pagePreferences.enabled(.closeup), action: {
                     setPagePreference(.closeup, pagePreferences.enabled(.closeup) ? 0 : 1)
-                    closeDailyPresentation()
                 }),
                 .init(id: "dailyClearance.shotSettings", title: "击球设置"),
                 .init(id: "dailyClearance.aimModeMenu", title: "瞄准模式 · \(aimModeLabel)", disclosure: true,
@@ -1400,7 +1399,6 @@ struct FreePlayView: View {
                 DailyHUDMenuItem(id: "freeplay." + field.rawValue, title: field.title,
                     selected: pagePreferences.enabled(field), action: {
                         setPagePreference(field, pagePreferences.enabled(field) ? 0 : 1)
-                        closeDailyPresentation()
                     })
             }
             if preferencePage.usesFreeControlLayout {
@@ -1459,7 +1457,9 @@ struct FreePlayView: View {
     private func closingEditorMenuItems(_ items: [DailyHUDMenuItem]) -> [DailyHUDMenuItem] {
         items.map { item in
             var result = item
-            if let action = item.action { result.action = { showSpinPad = false; closeDailyPresentation(); action() } }
+            if item.selected == nil, item.segments.isEmpty, let action = item.action {
+                result.action = { showSpinPad = false; closeDailyPresentation(); action() }
+            }
             return result
         }
     }

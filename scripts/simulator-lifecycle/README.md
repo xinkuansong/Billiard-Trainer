@@ -10,13 +10,15 @@ make -f scripts/Makefile sim-inventory
 make -f scripts/Makefile sim-clean
 make -f scripts/Makefile sim-clean-apply
 
-# 从固定池独占借用设备，测试结束关机并归还；继续使用相同的 UDID。
+# 从统一核心设备独占借用，结束归还租约；继续使用相同的 UDID。
 make -f scripts/Makefile sim-test ONLY_TESTING=QiuJiTests/SomeTests
 # 按本机已安装的 Runtime/设备类型覆盖，不会下载 Runtime。
 make -f scripts/Makefile sim-test SIM_RUNTIME=com.apple.CoreSimulator.SimRuntime.iOS-17-0 SIM_TYPE=com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation
 ```
 
-`sim-test` 默认 iPhone 17 Pro / iOS 26.3。池按设备类型和 Runtime 复用，最多 8 台，每个组合最多 2 台；没有空闲槽位时明确报错，不无限创建。池内 App 数据保留，测试仍负责自己的数据初始化；需要全新设备时使用下面的临时模式。
+`sim-test` 默认 iPhone 17 Pro / iOS 26.3，复用[统一8台核心设备](../simulator-fleet/README.md)，与评审/矩阵共用；不再另建8台池。本地核心设备忙或Booted时退出，额外6台数据/待复验设备不自动选用；需要全新覆盖时最多额外1台临时设备。异地主机仍遵守其独立队列与容量限制。App数据保留，测试负责自己的数据初始化。
+
+本地 `make test` / `sim-test` 及矩阵 `run` 已默认接入[测试目录自动收尾](../local-test-lifecycle/README.md)：成功后删除本轮独占工作目录，证据另存；需继续复验时设置 `TEST_KEEP_REASON='具体原因'`（矩阵用 `--keep-build-reason`）。失败和受保护的目录保留，诊断/复验结束执行 `test-work-complete` 即自动回收。设备生命周期与磁盘工作目录分别登记。
 
 `make run`、走位导出/静帧导出和缩略图烘焙也在设备操作期间持有同一租约。普通 `make test` 保持调用者的目标设备，新增占用锁并把实际目标固定为 UDID；`build-for-testing` 和真机目标不借用模拟器。进程保护同样排除单一generic模拟器目标的纯`build-for-testing`编译；真实test、指定UDID、多目标或未知命令仍阻止冲突使用。`run_simulator_matrix.py`、`native-atlas/run.py`、`simulator-preview/preview.py` 的修改操作均接入同一占用锁。借用已有设备不自动擦除数据或改变它原有的收尾策略。人工评审设备始终保留。测试/导出入口关闭Xcode并行测试克隆（`-parallel-testing-enabled NO`），并行任务通过管理器借用不同设备；自定义xcodebuild任务也须关闭自动克隆，避免产生登记表以外的设备。
 

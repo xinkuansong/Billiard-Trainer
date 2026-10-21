@@ -5,6 +5,27 @@ import AVFoundation
 
 @MainActor
 final class ShotAudioTests: XCTestCase {
+    func testPrepareRecoversLostSessionWhileEngineRemainsRunningWithoutMusic() throws {
+        let engine = AVAudioEngine()
+        var sessionAvailable = false
+        let bank = ShotSoundBank(engine: engine, activateSession: {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.ambient, options: [.mixWithOthers])
+            try session.setActive(true)
+            sessionAvailable = true
+        })
+        defer { bank.stopAll(); engine.stop() }
+        bank.prepare()
+        XCTAssertTrue(engine.isRunning)
+        XCTAssertTrue(sessionAvailable)
+        // The shared session can be relinquished independently of the engine.
+        // Model that state without relying on simulator-specific interruption behavior.
+        sessionAvailable = false
+        bank.prepare()
+        XCTAssertTrue(engine.isRunning)
+        XCTAssertTrue(sessionAvailable, "Shot playback must recover its own session; music must not be required")
+    }
+
     func testInstalledShotSamplesDecodeWithoutPreviewAndMissingPreviewFallsBack() throws {
         let missing = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         for kind in ShotSoundKind.allCases {

@@ -707,6 +707,7 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
         for key in ["_1", "_2", "_8"] { app.buttons["paletteBall_" + key].tap() }
         XCTAssertTrue(metrics.label.contains("—")); app.buttons["paletteBall__8"].tap(); XCTAssertFalse(metrics.label.contains("—"))
         menu(); app.buttons["menu.tableGrid"].tap()
+        app.buttons[prefix + ".dismissMenu"].tap()
         let beforeRotation = metrics.label
         XCUIDevice.shared.orientation = .portrait; sleep(2)
         XCTAssertEqual(metrics.label, beforeRotation); snap(shotPrefix + "-portrait-2d")
@@ -813,7 +814,6 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
         let grid = app.buttons["menu.tableGrid"]
         let initialGrid = grid.value as? String
         grid.tap()
-        app.buttons["angleDynamic.more"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertNotEqual(grid.value as? String, initialGrid)
         snap("ad01-settings-dark")
         app.buttons["angleDynamic.cameraMode"].tap()
@@ -827,6 +827,7 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
         app.buttons["angleDynamic.more"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         app.buttons["angleDynamic.cameraMode"].tap()
         grid.tap()
+        app.buttons["angleDynamic.dismissMenu"].tap()
         XCTAssertEqual(metrics.label, initial)
         XCTAssertTrue(app.buttons["paletteBall__15"].isHittable)
         snap("ad01-portrait-2d")
@@ -860,12 +861,12 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
             openMenu()
             let grid = app.buttons["menu.tableGrid"]
             let initial = grid.value as? String
-            grid.tap(); openMenu()
+            grid.tap()
             XCTAssertNotEqual(grid.value as? String, initial)
             app.buttons[prefix + ".cameraMode"].tap()
             app.buttons[prefix + ".dismissMenu"].tap()
             snap("v63-" + prefix + "-grid-3d")
-            openMenu(); grid.tap(); openMenu()
+            openMenu(); grid.tap()
             XCTAssertEqual(grid.value as? String, initial)
         }
     }

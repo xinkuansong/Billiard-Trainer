@@ -36,6 +36,12 @@ make clean      # 清理 build/
 
 所有新模拟器统一由 `scripts/simulator_lifecycle.py run` 创建/复用，先读 `scripts/simulator-lifecycle/README.md`。日常测试优先 `make sim-test`；`make test`、矩阵、原生图册与预览工具共用主机租约。临时任务成功导出后回收、失败保留7天；固定池复用且设上限。旧设备未知归属默认保护，人工评审/其他任务设备不得自动擦除。禁止直接 `simctl create/clone/delete` 绕过生命周期（管理器自身除外）。新增构建/视频/诊断入口也需沿用这一层；所有worktree共用主机状态，不能建立各自独立的竞争租约表。
 
+## 测试产物收尾（2026-10-20）
+
+本地自动收尾已在 `make test`、`sim-test` 和矩阵 `run` 中实现，见 `scripts/local-test-lifecycle/README.md`。自定义多步构建/测试任务使用 `local_test_lifecycle.py run` 包住整轮，临时构建/源码副本写 work，证据写 evidence；成功后入口自动删除 work。待复验显式 hold，结束后 complete；不得再在 output 下另建无生命周期的测试副本。失败诊断结束也须 complete，原失败状态保留。
+
+Mac mini 队列任务交付时按 `scripts/mac-mini-queue/README.md` 执行 `fetch --complete` 或 `complete --out`，让工具在证据校验后回收临时源码/构建；待复验显式 protect，结束后 release/complete。失败轮次诊断闭合后同样回收，不把“保留证据”扩大为永久保留整个工作目录。本地已结束或被新版替代的测试同样清理可再生产品，旧原始测试包可在导出并核对摘要、日志和必要失败附件后精简；独有源码先归档，重复资源复用存储。正在运行/明确待复验的版本、原始素材、用户设备数据及未归档改动保留。每次报告真实可用空间增量，APFS 共享块的目录大小不能当作释放量。
+
 ## 证书与 Provisioning Profile
 
 **开发阶段（本机）**：

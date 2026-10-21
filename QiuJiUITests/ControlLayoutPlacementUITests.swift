@@ -162,18 +162,19 @@ final class ControlLayoutPlacementUITests: XCTestCase {
             setCoreMode(mode)
             func menu() { ready("freeplay.moreMenu").tap() }
             menu()
-            if ready("menu.tableGrid").value as? String == "已选" { ready("menu.tableGrid").tap(); menu() }
+            if ready("menu.tableGrid").value as? String == "已选" { ready("menu.tableGrid").tap() }
             XCTAssertEqual(ready("menu.tableGrid").value as? String, "未选")
             try capture(mode + "-menu-off")
-            ready("menu.tableGrid").tap(); menu()
+            ready("menu.tableGrid").tap()
             XCTAssertEqual(ready("menu.tableGrid").value as? String, "已选")
             try capture(mode + "-menu-on")
             ready("dailyClearance.aimModeMenu").tap()
             XCTAssertTrue(ready("dailyClearance.aim.free").isEnabled)
             try capture(mode + "-aim-options")
-            ready("dailyClearance.aim.free").tap(); menu()
+            ready("dailyClearance.aim.free").tap(); ready("dailyClearance.menuBack").tap()
             XCTAssertTrue(ready("dailyClearance.aimModeMenu").label.contains("自由"))
             ready("dailyClearance.aimModeMenu").tap(); ready("dailyClearance.aim.pocket").tap()
+            ready("dailyClearance.menuClose").tap()
             openFreeEditor()
             let key = ready("freeLayout.select.shot.undo")
             key.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
@@ -1430,7 +1431,7 @@ final class ControlLayoutPlacementUITests: XCTestCase {
             launchQuiz(page); resetLayoutPage()
             ready("aimPointTraining.settings").coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
             if ready("menu.aimCloseup").value as? String != "已选" { ready("menu.aimCloseup").tap() }
-            else { ready("aimPointTraining.dismissMenu").coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.5)).tap() }
+            ready("aimPointTraining.dismissMenu").coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.5)).tap()
             let state = try businessSnapshot(), y = ready("aimPointTraining.aimWheel").frame.minY
             openLayoutEditor(); ready("layoutEditor.group.direction").coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
             revealEditor("layoutEditor.down").tap()

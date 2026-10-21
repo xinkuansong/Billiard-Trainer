@@ -61,6 +61,7 @@ final class S1_FreePlayLayoutUITests: XCTestCase {
         menu(); app.buttons["dailyClearance.aimModeMenu"].tap()
         let free = app.buttons["dailyClearance.aim.free"]
         XCTAssertTrue(free.waitForExistence(timeout: 3)); free.tap()
+        app.buttons["dailyClearance.menuClose"].tap()
     }
 
     func testFreePlayLayoutAndTableSizeLock() throws {
@@ -81,6 +82,7 @@ final class S1_FreePlayLayoutUITests: XCTestCase {
         XCTAssertTrue(app.buttons["freeplay.clearTable"].exists)
         XCTAssertFalse(app.buttons["dailyClearance.changeGame"].exists)
         app.buttons["menu.tableGrid"].tap()
+        app.buttons["关闭菜单"].tap()
         toggleView("3D")
         for name in ["firstPerson", "thirdPerson", "wholeTable"] {
             let button = app.buttons[name == "wholeTable" ? "dailyClearance.observeTable" : "shotCamera." + name]

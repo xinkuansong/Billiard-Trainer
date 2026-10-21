@@ -250,7 +250,6 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
             try capture("more")
             app.buttons["menu.tableGrid"].tap()
             XCTAssertTrue(app.staticTexts["2/20"].exists)
-            app.buttons["angleTraining.settings"].tap()
             trainingSettings.tap()
             XCTAssertTrue(app.buttons["angleTraining.start"].waitForExistence(timeout: 3))
             try capture("training-settings")
@@ -485,6 +484,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         XCTAssertTrue(app.buttons["menu.aimCloseup"].exists)
         try capture("settings")
         app.buttons["menu.tableGrid"].tap()
+        app.buttons["aimPointTraining.dismissMenu"].coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.5)).tap()
         XCTAssertTrue(submit.isHittable)
         if mode == "3D" {
             for name in ["firstPerson", "thirdPerson"] {

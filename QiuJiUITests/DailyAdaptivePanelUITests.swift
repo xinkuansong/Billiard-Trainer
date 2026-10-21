@@ -1024,7 +1024,8 @@ final class DailyAdaptivePanelUITests: XCTestCase {
             mode(app, dimension)
             let before = try state(app)
             func open(_ id: String) {
-                app.buttons["freeplay.moreMenu"].tap()
+                if app.buttons["dailyClearance.menuBack"].exists { app.buttons["dailyClearance.menuBack"].tap() }
+                if !element(app, "dailyClearance.menuPanel").exists { app.buttons["freeplay.moreMenu"].tap() }
                 customItem(app, id).tap()
             }
             open("dailyClearance.aimModeMenu")
@@ -1047,17 +1048,13 @@ final class DailyAdaptivePanelUITests: XCTestCase {
             let original = try aimCloseup(app)
             customItem(app, "menu.aimCloseup").tap()
             XCTAssertEqual(try aimCloseup(app), !original)
-            app.buttons["freeplay.moreMenu"].tap()
             customItem(app, "menu.aimCloseup").tap()
             XCTAssertEqual(try aimCloseup(app), original)
-            app.buttons["freeplay.moreMenu"].tap()
             let grid = customItem(app, "menu.tableGrid")
             let originalGrid = grid.value as? String
             grid.tap()
-            app.buttons["freeplay.moreMenu"].tap()
             XCTAssertNotEqual(customItem(app, "menu.tableGrid").value as? String, originalGrid)
             customItem(app, "menu.tableGrid").tap()
-            app.buttons["freeplay.moreMenu"].tap()
             XCTAssertEqual(customItem(app, "menu.tableGrid").value as? String, originalGrid)
             try capture(app, "v4-menu-\(dimension)-last-options")
             let stage = element(app, "freeplay.stage").frame

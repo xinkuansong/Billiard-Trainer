@@ -23,9 +23,9 @@
       "orientation": "portrait"
     },
     {
-      "label": "02-16Pro",
-      "udid": "F2BE90C4-370D-46AB-B3E8-8F0060424B2D",
-      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro",
+      "label": "02-17Pro",
+      "udid": "AE86244C-EE61-4585-882F-E39B892214DB",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro",
       "orientation": "portrait"
     },
     {
@@ -44,37 +44,38 @@
       "label": "05-Pad11-P",
       "udid": "47AE5F33-3D60-4102-BBC7-E29D05114E6E",
       "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-11-inch-M4-8GB",
-      "orientation": "portrait"
-    },
-    {
-      "label": "06-Pad11-L",
-      "udid": "FB9B9FE0-F820-4E04-A4AD-DCF8E916C504",
-      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-11-inch-M4-8GB",
-      "orientation": "landscape"
+      "orientation": "portrait",
+      "orientations": [
+        "portrait",
+        "landscape"
+      ]
     },
     {
       "label": "07-PadMini-P",
       "udid": "F80E0C5B-2B47-44DD-A460-5CE19CD5259A",
       "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-mini-6th-generation",
-      "orientation": "portrait"
-    },
-    {
-      "label": "08-PadMini-L",
-      "udid": "AF60E8C0-A1C9-4D5B-A27D-AEA07EF1602D",
-      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-mini-6th-generation",
-      "orientation": "landscape"
+      "orientation": "portrait",
+      "orientations": [
+        "portrait",
+        "landscape"
+      ]
     },
     {
       "label": "09-Pad13-P",
       "udid": "4F00E012-1FA4-4F08-97E0-1B41160A63CC",
       "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M4-8GB",
-      "orientation": "portrait"
+      "orientation": "portrait",
+      "orientations": [
+        "portrait",
+        "landscape"
+      ]
     },
     {
-      "label": "10-Pad13-L",
-      "udid": "2351AE54-8DC8-49A7-812A-BBA56596DAE1",
-      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M4-8GB",
-      "orientation": "landscape"
+      "label": "11-SE17",
+      "udid": "16365EE2-0C42-4EE1-B707-09AC55A0ABA7",
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-17-0",
+      "orientation": "portrait"
     }
   ]
 }

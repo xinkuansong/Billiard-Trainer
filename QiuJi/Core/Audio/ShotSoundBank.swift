@@ -10,8 +10,7 @@
 //     单个 SystemSound / 单 player 做不到重叠。
 //  2. 已选音效随 Bundle 打包；本地试听覆盖缺失时回退到包内样本。
 //  3. AVAudioSession 用 `.ambient + .mixWithOthers`：尊重硬件静音键、
-//     永不打断其他音频，与休息计时器的后台保活（`.playback`，仅组间休息阶段）
-//     时段不重叠，安全共存。
+//     永不打断其他音频。共享会话可能被休息计时器释放，每次准备击球时重新激活。
 //  4. 真实感：仅按力度调音量，**不做变调**（避免单样本拉伸的游戏味），
 //     当前试听采用每类一个底样，力度连续控制音量。
 //
@@ -25,6 +24,7 @@ final class ShotSoundBank {
     static let shared = ShotSoundBank()
 
     private let engine: AVAudioEngine
+    private let activateSession: () throws -> Void
     private var players: [AVAudioPlayerNode] = []
     private var voiceEnds = Array(repeating: 0.0, count: 12)
     private var voiceWeights = Array(repeating: Float(0), count: 12)
@@ -43,16 +43,22 @@ final class ShotSoundBank {
     private var controlBuffers: [Control: AVAudioPCMBuffer] = [:]
     private var lastControlTickTime: TimeInterval?
 
-    init(engine: AVAudioEngine = AVAudioEngine()) {
+    init(engine: AVAudioEngine = AVAudioEngine(),
+         activateSession: @escaping () throws -> Void = {
+             let session = AVAudioSession.sharedInstance()
+             try session.setCategory(.ambient, options: [.mixWithOthers])
+             try session.setActive(true)
+         }) {
         self.engine = engine
+        self.activateSession = activateSession
     }
 
     // MARK: - Lifecycle
 
-    /// 懒加载：装载样本、搭建引擎、启动 player 池。重复调用安全（仅首次生效）。
+    /// 样本与节点仅初始化一次；每次准备都恢复共享音频会话。
     /// 任意环节失败都降级为「无声」，不抛出。
     func prepare() {
-        guard !isPrepared else { startEngineIfNeeded(); return }
+        guard !isPrepared else { startEngineIfNeeded(reactivateSession: true); return }
         isPrepared = true   // 资源和节点只建一次；音频会话失败可在回前台时重试
 
         loadBuffers()
@@ -73,16 +79,18 @@ final class ShotSoundBank {
             players.append(node)
         }
 
-        startEngineIfNeeded()
+        startEngineIfNeeded(reactivateSession: true)
     }
 
-    private func startEngineIfNeeded() {
-        guard !engine.isRunning, UIApplication.shared.applicationState == .active else { return }
+    private func startEngineIfNeeded(reactivateSession: Bool = false) {
+        // A running graph does not guarantee that the shared audio session is still active.
+        // Restore at shot/foreground boundaries, keeping individual collision playback cheap.
+        guard UIApplication.shared.applicationState == .active,
+              reactivateSession || !engine.isRunning else { return }
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.ambient, options: [.mixWithOthers])
-            try session.setActive(true)
-            try engine.start()
+            try activateSession()
+            if !engine.isRunning { try engine.start() }
             #if DEBUG
             if UserDefaults.standard.bool(forKey: "shotAudioPreviewEnabled") {
                 NSLog("[ShotSoundBank] engine ready volume=%.2f route=%@", session.outputVolume, session.currentRoute.outputs.map { $0.portType.rawValue }.joined(separator: ","))

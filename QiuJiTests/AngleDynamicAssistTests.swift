@@ -9,6 +9,72 @@ final class AngleDynamicAssistTests: XCTestCase {
         try XCTUnwrap(UserDefaults(suiteName: "AngleDynamicAssistTests.\(UUID().uuidString)"))
     }
 
+    func testAngleAndGhostOptionsStayIndependentAcrossViewsAndRestore() throws {
+        let store = try defaults()
+        let vm = AngleDynamicViewModel(displayDefaults: store)
+        vm.setupScene()
+        XCTAssertTrue(vm.showsAngle && vm.showsGhost)
+        let angle = vm.cutAngleDegrees
+        let balls = vm.scene.allBallNodes.mapValues { $0.simdPosition }
+        vm.showsGhost3D = true
+        let solidGhost = try XCTUnwrap(vm.scene.rootNode.childNode(withName: "angleDynamic.ghost3D", recursively: true))
+        for mode in [AngleTrainingScene.CameraMode.topDown2D, .perspective3D] {
+            vm.setCameraMode(mode)
+            for mask in [3, 2, 0, 1, 3] {
+                vm.showsAngle = mask & 1 != 0
+                vm.showsGhost = mask & 2 != 0
+                for refresh in [false, true] {
+                    if refresh { vm.updateCalculations() }
+                    XCTAssertEqual(vm.scene.angleArcNode?.isHidden, !vm.showsAngle)
+                    XCTAssertEqual(vm.scene.ghostBallNode?.isHidden, !vm.showsGhost)
+                    XCTAssertEqual(vm.scene.diagramVisibleLabelIndices, (vm.showsAngle ? [0] : []) + [1, 2])
+                    XCTAssertEqual(vm.scene.strikeLineNode?.isHidden, false)
+                    XCTAssertEqual(vm.scene.pocketLineNode?.isHidden, false)
+                    XCTAssertFalse(solidGhost.isHidden)
+                    XCTAssertEqual(vm.cutAngleDegrees, angle)
+                    XCTAssertEqual(vm.scene.allBallNodes.mapValues { $0.simdPosition }, balls)
+                }
+            }
+        }
+        vm.showsAngle = false; vm.showsGhost = false
+        vm.showsAimLine = false; vm.showsAimLine = true
+        XCTAssertEqual(vm.scene.angleArcNode?.isHidden, true)
+        XCTAssertEqual(vm.scene.ghostBallNode?.isHidden, true)
+        let restored = AngleDynamicViewModel(displayDefaults: store)
+        restored.setupScene()
+        XCTAssertFalse(restored.showsAngle || restored.showsGhost)
+        XCTAssertTrue(restored.showsGhost3D)
+        XCTAssertEqual(restored.scene.angleArcNode?.isHidden, true)
+        XCTAssertEqual(restored.scene.ghostBallNode?.isHidden, true)
+        vm.selectedPocketIndex = -1; vm.updateCalculations()
+        vm.showsAngle = true; vm.showsGhost = true
+        XCTAssertEqual(vm.scene.angleArcNode?.isHidden, true, "No stale diagram after losing the pocket")
+        XCTAssertEqual(vm.scene.ghostBallNode?.isHidden, true)
+    }
+
+    func testAngleToggleInvalidatesAdaptiveLabelAndArcWithoutHidingLineLabels() throws {
+        let vm = AngleDynamicViewModel(displayDefaults: try defaults()); vm.setupScene()
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 874, height: 402))
+        view.scene = vm.scene; view.pointOfView = vm.scene.cameraNode
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = view.bounds.size
+        vm.scene.setCameraMode(.topDown2D, animated: false)
+        rig.snapToTarget(); SCNTransaction.flush()
+        let overlay = DiagramLabelOverlay()
+        for enabled in [true, false, true] {
+            vm.showsAngle = enabled
+            overlay.update(scene: vm.scene, in: view)
+            for index in 0..<3 {
+                let label = try XCTUnwrap(view.subviews.compactMap { $0 as? UILabel }.first {
+                    $0.accessibilityIdentifier == "angleDiagram.label.\(index)"
+                })
+                XCTAssertEqual(label.isHidden, index == 0 && !enabled)
+            }
+            let arc = try XCTUnwrap(view.layer.sublayers?.first { $0.name == "angleDiagram.arc" })
+            XCTAssertEqual(arc.isHidden, !enabled)
+        }
+    }
+
     func testAllCombinationsPreserveRingBallsAndMetricsInBothViews() throws {
         let vm = AngleDynamicViewModel(displayDefaults: try defaults())
         vm.setupScene()

@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-21",
+  "kind": "geometry-sketch-review",
+  "samples": 9,
+  "groups": {
+    "default": [
+      20,
+      60
+    ],
+    "near": [
+      12,
+      60
+    ],
+    "far": [
+      20,
+      90
+    ]
+  },
+  "distanceUnit": "cm; cue-to-second-object centre distance",
+  "angle": "continuous -20 to +20 degrees around ghost-ball approach axis",
+  "checks": {
+    "boundary_samples": 738,
+    "script_syntax": "passed",
+    "browser_selection": "all nine passed",
+    "visual_inspection": [
+      "D1 desktop",
+      "N1 736px",
+      "F3 736px",
+      "F3 360px"
+    ]
+  },
+  "limitations": [
+    "nominal pocket centre axis, not production effectivePocketAimPoint",
+    "no full physics solve",
+    "probe positions are illustrative, not predicted",
+    "no cue-clearance or second-shot difficulty certification"
+  ],
+  "visualization": "/Users/song/.codex/visualizations/2026/10/20/01a15a37-52c5-71f0-a9df-50f659f0cad5/two-ball-receiving-zones.html"
+}

@@ -183,8 +183,8 @@ enum AtmosphereCatalog {
         case .sceneAiming2D: return .coverPracticeSceneAiming2D
         case .sceneAiming3D: return .coverPracticeSceneAiming3D
         case .aimPointTraining: return .coverPracticeAimPoint
-        case .aimPointScene2D: return .coverPracticeAimPoint2D
-        case .aimPointScene3D: return .coverPracticeAimPoint3D
+        case .aimPointScene2D, .accuracy2D: return .coverPracticeAimPoint2D
+        case .aimPointScene3D, .accuracy3D: return .coverPracticeAimPoint3D
         case .shotSimulation: return .coverPracticeShotSim
         case .positionPlayComposer, .customFormationPractice: return .coverPracticeComposer
         case .freePlay, .snakePractice: return .coverPracticeFreePlay
@@ -220,8 +220,8 @@ enum AtmosphereCatalog {
         case .sceneAiming2D: multicolor.sceneAiming2D
         case .sceneAiming3D: multicolor.sceneAiming3D
         case .aimPointTraining: multicolor.aimPointTraining
-        case .aimPointScene2D: multicolor.aimPointScene2D
-        case .aimPointScene3D: multicolor.aimPointScene3D
+        case .aimPointScene2D, .accuracy2D: multicolor.aimPointScene2D
+        case .aimPointScene3D, .accuracy3D: multicolor.aimPointScene3D
         case .ballFeel: multicolor.ballFeel
         case .contactPointTable: multicolor.contactPointTable
         case .shotSimulation: multicolor.shotSimulation

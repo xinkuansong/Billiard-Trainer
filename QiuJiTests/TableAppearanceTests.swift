@@ -276,3 +276,115 @@ final class TableAppearanceTests: XCTestCase {
         XCTAssertEqual(scene.installedTableStyle, .charcoal)
     }
 }
+
+// Rail sights must divide the cushion-nose playing rectangle, independently of
+// the imported rail furniture's outer dimensions or the selected camera.
+extension TableAppearanceTests {
+    private func railSightCenters(in table: SCNNode) throws -> [SIMD3<Float>] {
+        var groups: [[SIMD3<Float>]] = []
+        var failure: Error?
+        table.enumerateChildNodes { node, _ in
+            guard failure == nil, let geometry = node.geometry,
+                  let sourceIndex = geometry.sources.firstIndex(where: { $0.semantic == .vertex }) else { return }
+            let source = geometry.sources[sourceIndex]
+            let channel = geometry.geometrySourceChannels?[sourceIndex].intValue ?? 0
+            do {
+                var indices = Set<Int>()
+                for (index, element) in geometry.elements.enumerated()
+                    where geometry.materials[index % geometry.materials.count].name == "White" {
+                    for face in try PocketLeatherMesh.decode(element) {
+                        for slot in stride(from: channel, to: face.count, by: element.indicesChannelCount) {
+                            indices.insert(Int(face[slot]))
+                        }
+                    }
+                }
+                for index in indices.sorted() {
+                    let offset = source.dataOffset + index * source.dataStride
+                    let local = source.data.withUnsafeBytes { bytes in
+                        SCNVector3(bytes.loadUnaligned(fromByteOffset: offset, as: Float.self),
+                                   bytes.loadUnaligned(fromByteOffset: offset + 4, as: Float.self),
+                                   bytes.loadUnaligned(fromByteOffset: offset + 8, as: Float.self))
+                    }
+                    let position = node.convertPosition(local, to: nil)
+                    let world = SIMD3<Float>(position.x, position.y, position.z)
+                    // Isolate rail inlays from the same material's cloth spots and basket nets.
+                    guard world.y > BTTablePhysics.surfaceY + 0.02,
+                          abs(world.x) > TablePhysics.innerLength / 2 || abs(world.z) > TablePhysics.innerWidth / 2 else { continue }
+                    if let group = groups.firstIndex(where: { simd_distance($0[0], world) < 0.06 }) {
+                        groups[group].append(world)
+                    } else { groups.append([world]) }
+                }
+            } catch { failure = error }
+        }
+        if let failure { throw failure }
+        return groups.map { points in
+            var low = points[0], high = points[0]
+            for point in points { low = simd_min(low, point); high = simd_max(high, point) }
+            return (low + high) / 2
+        }
+    }
+
+    func testRailSightsDividePlayingSurfaceInBothAssetVariantsAndCameraModes() throws {
+        let preference = "modelAssetTrialUseOriginal"
+        let previous = UserDefaults.standard.object(forKey: preference)
+        defer {
+            if let previous { UserDefaults.standard.set(previous, forKey: preference) }
+            else { UserDefaults.standard.removeObject(forKey: preference) }
+            TableModelLoader.resetCache()
+        }
+        for original in [false, true] {
+            UserDefaults.standard.set(original, forKey: preference)
+            TableModelLoader.resetCache()
+            let scene = AngleTrainingScene()
+            scene.setupScene(mobileRendering: true)
+            let table = try XCTUnwrap(scene.tableNode)
+            for mode: AngleTrainingScene.CameraMode in [.topDown2D, .perspective3D] {
+                scene.setCameraMode(mode, animated: false)
+                let centers = try railSightCenters(in: table)
+                XCTAssertEqual(centers.count, 18, "Both packaged assets must retain all rail sights")
+                for sign: Float in [-1, 1] {
+                    let long = centers.filter { $0.z * sign > TablePhysics.innerWidth / 2 && abs($0.x) < TablePhysics.innerLength / 2 }.sorted { $0.x < $1.x }
+                    let short = centers.filter { $0.x * sign > TablePhysics.innerLength / 2 }.sorted { $0.z < $1.z }
+                    XCTAssertEqual(long.count, 6); XCTAssertEqual(short.count, 3)
+                    for (center, station) in zip(long, [-3, -2, -1, 1, 2, 3]) {
+                        XCTAssertEqual(center.x, Float(station) * TablePhysics.innerLength / 8, accuracy: 0.00001)
+                        XCTAssertEqual(abs(center.z), 0.72657125, accuracy: 0.00001, "Perpendicular rail inset stays unchanged")
+                    }
+                    for (center, station) in zip(short, [-1, 0, 1]) {
+                        XCTAssertEqual(center.z, Float(station) * TablePhysics.innerWidth / 4, accuracy: 0.00001)
+                        XCTAssertEqual(abs(center.x), 1.36185843, accuracy: 0.00001, "Perpendicular rail inset stays unchanged")
+                    }
+                }
+            }
+        }
+    }
+
+    func testCorrectedRailSightsRenderIn2DAnd3D() throws {
+        for mobile in [false, true] {
+            let scene = AngleTrainingScene()
+            scene.setupScene(mobileRendering: mobile)
+            XCTAssertTrue(scene.applyTableStyle(.charcoal, showsSights: true))
+            scene.rootNode.childNode(withName: "reference_room", recursively: false)?.isHidden = true
+            let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+            renderer.scene = scene; renderer.pointOfView = scene.cameraNode
+            renderer.delegate = scene.contactOcclusion
+            for (name, mode) in [("2d", AngleTrainingScene.CameraMode.topDown2D), ("3d", AngleTrainingScene.CameraMode.perspective3D)] {
+                scene.setCameraMode(mode, animated: false)
+                // Mode switching restores room visibility; isolate the table after switching.
+                scene.rootNode.childNode(withName: "reference_room", recursively: false)?.isHidden = true
+                scene.cameraNode.position = name == "2d" ? SCNVector3(0, 4, 0) : SCNVector3(2.9, 3.5, 3.5)
+                scene.cameraNode.look(at: SCNVector3(0, scene.surfaceY, 0), up: name == "2d" ? SCNVector3(0, 0, -1) : SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))
+                scene.cameraNode.camera?.usesOrthographicProjection = true
+                scene.cameraNode.camera?.orthographicScale = name == "2d" ? 1.05 : 1.3
+                SCNTransaction.flush()
+                let size = CGSize(width: 1600, height: 1000)
+                _ = renderer.snapshot(atTime: 0, with: size, antialiasingMode: .multisampling4X)
+                let image = renderer.snapshot(atTime: 0, with: size, antialiasingMode: .multisampling4X)
+                XCTAssertEqual(image.cgImage?.width, 1600)
+                let attachment = XCTAttachment(image: image)
+                attachment.name = "corrected-sights-\(mobile ? "mobile" : "plain")-\(name)"
+                attachment.lifetime = .keepAlways; add(attachment)
+            }
+        }
+    }
+}

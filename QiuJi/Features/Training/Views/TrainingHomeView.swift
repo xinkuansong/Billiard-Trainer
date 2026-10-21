@@ -1265,20 +1265,11 @@ struct TrainingHomeView: View {
                 Button {
                     router.trainingPath.append(TrainingRoute.dailyClearance)
                 } label: {
-                    HStack(spacing: 6) {
-                        BreakRackGlyph(color: TrainingPhotoStyle.ink, size: 14)
-                            .accessibilityHidden(true)
-                        Text(dailyClearanceState.title)
-                            .font(.btSubheadlineSemibold)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                        Image(systemName: "chevron.right")
-                            .font(.btCaption2.weight(.bold))
-                            .accessibilityHidden(true)
-                    }
+                    DailyClearanceAnimatedLabel(
+                        title: dailyClearanceState.title,
+                        isActive: router.selectedTab == .training && router.trainingPath.isEmpty
+                    )
                     .foregroundStyle(TrainingPhotoStyle.ink)
-                    .padding(.horizontal, Spacing.sm)
-                    .frame(minHeight: 44)
                     .background(
                         TrainingPhotoStyle.foreground,
                         in: Capsule()
@@ -1286,7 +1277,7 @@ struct TrainingHomeView: View {
                     .shadow(color: TrainingPhotoStyle.ink.opacity(0.12), radius: 3, x: 0, y: 2)
                     .contentShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(BTPressableStyle.capsule)
                 .accessibilityIdentifier("trainingHome.dailyClearance")
                 .accessibilityLabel("每日清台，\(dailyClearanceState.accessibilityState)，\(dailyClearanceGame.displayName)")
                 .accessibilityHint("打开单人清台挑战")

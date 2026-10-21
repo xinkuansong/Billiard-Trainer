@@ -1,5 +1,140 @@
 import XCTest
 
+final class TableMenuRetentionUITests: XCTestCase {
+    private var app: XCUIApplication!
+
+    override func setUpWithError() throws { continueAfterFailure = false }
+    override func tearDownWithError() throws { app?.terminate() }
+
+    private func launch(_ route: String, more: String, start: String? = nil) {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore",
+            "-v53.authenticatedProfileFixture", "-dailyClearance.resetState", "-dailyClearance.fixture=selection",
+            "-dailyLayout.probe", route])
+        if let start {
+            XCTAssertTrue(app.buttons[start].waitForExistence(timeout: 15))
+            app.buttons[start].tap()
+        }
+        let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let frame = self.app.windows.firstMatch.frame
+            return frame.width > frame.height
+        }, object: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 15), .completed)
+        let button = app.buttons[more]
+        XCTAssertTrue(button.waitForExistence(timeout: 25))
+        button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(app.scrollViews["dailyClearance.menuScroll"].waitForExistence(timeout: 5))
+    }
+
+    private func capture(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
+    private func reveal(_ id: String) -> XCUIElement {
+        let item = app.buttons[id]
+        let scroll = app.scrollViews["dailyClearance.menuScroll"]
+        for _ in 0..<8 {
+            if item.isHittable && scroll.frame.contains(item.frame) { break }
+            if item.exists && item.frame.minY < scroll.frame.minY { scroll.swipeDown() }
+            else { scroll.swipeUp() }
+        }
+        XCTAssertTrue(item.isHittable, id)
+        return item
+    }
+
+    private func toggleTwice(_ id: String) {
+        let item = reveal(id)
+        let original = item.value as? String
+        XCTAssertTrue(original == "已选" || original == "未选")
+        capture(id + "-before")
+        item.tap()
+        capture(id + "-after-toggle")
+        XCTAssertTrue(app.scrollViews["dailyClearance.menuScroll"].exists, "Changing a setting must keep its menu open")
+        XCTAssertEqual(item.value as? String, original == "已选" ? "未选" : "已选")
+        item.tap()
+        XCTAssertEqual(item.value as? String, original)
+        XCTAssertTrue(item.isHittable)
+    }
+
+    private func selectTrajectory(entry: String, prefix: String) {
+        reveal(entry).tap()
+        let first = reveal(prefix + ".2")
+        first.tap()
+        XCTAssertTrue(app.buttons["dailyClearance.menuBack"].exists)
+        XCTAssertEqual(first.value as? String, "已选")
+        let full = reveal(prefix + ".0")
+        full.tap()
+        XCTAssertEqual(full.value as? String, "已选")
+        XCTAssertEqual(first.value as? String, "未选")
+        capture(prefix + "-selected")
+        app.buttons["dailyClearance.menuBack"].tap()
+        XCTAssertTrue(app.scrollViews["dailyClearance.menuScroll"].exists)
+    }
+
+    func testDailySettingsStayOpenAcrossSelections() {
+        launch("-deeplink.dailyClearance", more: "freeplay.moreMenu")
+        toggleTwice("menu.aimCloseup")
+        toggleTwice("menu.tableGrid")
+        selectTrajectory(entry: "dailyClearance.trajectoryMenu", prefix: "dailyClearance.trajectory")
+        reveal("dailyClearance.aimModeMenu").tap()
+        let free = reveal("dailyClearance.aim.free")
+        free.tap(); XCTAssertEqual(free.value as? String, "已选")
+        XCTAssertTrue(app.buttons["dailyClearance.menuClose"].exists)
+        app.buttons["dailyClearance.menuClose"].tap()
+        XCTAssertFalse(app.scrollViews["dailyClearance.menuScroll"].exists)
+    }
+
+    func testFreePlaySettingsStayOpenAndLayoutActionClosesMenu() {
+        launch("-deeplink.freePlay", more: "freeplay.moreMenu")
+        toggleTwice("menu.aimCloseup")
+        toggleTwice("menu.tableGrid")
+        reveal("controlLayout.open").tap()
+        XCTAssertFalse(app.scrollViews["dailyClearance.menuScroll"].exists)
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "freeLayout.editor").firstMatch.waitForExistence(timeout: 5))
+        capture("freeplay-layout-action")
+    }
+
+    func testTeachingDisplayChoicesStayOpen() {
+        launch("-dailyInteraction.sharedPage=angleDynamic", more: "angleDynamic.more")
+        toggleTwice("menu.tableGrid")
+        toggleTwice("angleDynamic.aimLine")
+        toggleTwice("angleDynamic.potLine")
+        let window = app.windows.firstMatch.frame
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: window.midX, dy: window.midY)).tap()
+        XCTAssertFalse(app.scrollViews["dailyClearance.menuScroll"].exists)
+    }
+
+    func testPlanningOptionsStayOpen() {
+        launch("-deeplink.silu", more: "silu.more")
+        XCTAssertFalse(reveal("menu.aimCloseup").isEnabled, "An unsolved board must retain its closeup availability restriction")
+        toggleTwice("menu.tableGrid")
+        toggleTwice("silu.sideSpin")
+        toggleTwice("silu.basicOnly")
+        selectTrajectory(entry: "silu.trajectory", prefix: "silu.trajectory")
+    }
+
+    func testQuizSettingsStayOpen() {
+        for (route, prefix) in [("aimpoint2d", "aimPointTraining"), ("anglequiz2d", "angleTraining")] {
+            app?.terminate()
+            launch("-dailyInteraction.sharedPage=" + route, more: prefix + ".settings", start: prefix + ".start")
+            toggleTwice("menu.tableGrid")
+            if prefix == "aimPointTraining" { toggleTwice("menu.aimCloseup") }
+            reveal(prefix + ".trainingSettings").tap()
+            XCTAssertFalse(app.scrollViews["dailyClearance.menuScroll"].exists)
+            XCTAssertTrue(app.buttons[prefix + ".start"].waitForExistence(timeout: 5))
+            capture(route + "-training-settings")
+        }
+    }
+
+    func testBatchSettingsStayOpen() {
+        launch("-dailyInteraction.sharedPage=batch", more: "batch.more")
+        toggleTwice("menu.aimCloseup")
+        toggleTwice("menu.tableGrid")
+        selectTrajectory(entry: "batch.trajectory", prefix: "batch.trajectory")
+    }
+}
+
 /// Renderer placement must follow the visible stage across the real detail navigation route.
 /// The baseline failure is retained in fixes-20261009/before-p1; no production delay is used.
 final class DailyStandardFreePlayUITests: XCTestCase {
@@ -95,6 +230,7 @@ final class DailyStandardFreePlayUITests: XCTestCase {
         XCTAssertFalse(app.buttons["tryoutMode_序列"].exists)
         try capture("tryout-aim-options")
         app.buttons["tryoutAim_自由"].tap()
+        closeMenu()
         step(1); mainLabel("击球")
         next.tap(); step(2); mainLabel("击球")
         next.tap(); step(3); previous.tap(); step(2); previous.tap(); step(1)
@@ -302,6 +438,10 @@ final class TablePreferencesUITests: XCTestCase {
             route.hasPrefix("shared:") ? "-dailyInteraction.sharedPage=" + route.dropFirst(7) : "-deeplink." + route])
     }
     private func openMenu() {
+        if app.buttons["dailyClearance.menuBack"].exists {
+            app.buttons["dailyClearance.menuBack"].tap()
+        }
+        if app.scrollViews["dailyClearance.menuScroll"].exists { return }
         let more = app.buttons["freeplay.moreMenu"]
         XCTAssertTrue(more.waitForExistence(timeout: 15)); more.tap()
         XCTAssertTrue(app.buttons["freeplay.cameraMode"].waitForExistence(timeout: 5))

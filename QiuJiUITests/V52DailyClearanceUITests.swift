@@ -2540,3 +2540,42 @@ extension V52DailyClearanceUITests {
         XCTAssertTrue((hud.value as? String ?? "").contains("dailyShotCount=0"), "Adjusting spin must never shoot")
     }
 }
+
+extension V52DailyClearanceUITests {
+    func testCorrectedRailSightsAcross2DAnd3D() throws {
+        XCUIDevice.shared.orientation = .landscapeRight
+        let app = launch(["-forcePremium", "-dailyClearance.fixture=selection", "-dailyClearance.fixtureSettled",
+                          "-showsTableSights.v1", "YES", "-tableStyle.v1", "charcoal"])
+        let more = app.buttons["freeplay.moreMenu"]
+        XCTAssertTrue(more.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["paletteBall__1"].exists)
+        func selectMode(_ expected: String) {
+            more.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+            let mode = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 5))
+            if mode.value as? String != expected { mode.tap() }
+            XCTAssertEqual(mode.value as? String, expected)
+            let dismiss = app.buttons["关闭菜单"].firstMatch
+            XCTAssertTrue(dismiss.exists)
+            dismiss.coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.5)).tap()
+            XCTAssertFalse(mode.exists)
+        }
+        selectMode("2D")
+        Thread.sleep(forTimeInterval: 2)
+        snap(app, "corrected-sights-app-2d")
+        selectMode("3D")
+        let overview = app.buttons["dailyClearance.observeTable"]
+        XCTAssertTrue(overview.waitForExistence(timeout: 10)); overview.tap()
+        Thread.sleep(forTimeInterval: 2)
+        snap(app, "corrected-sights-app-3d-overview")
+        let alongCue = app.buttons["shotCamera.thirdPerson"]
+        XCTAssertTrue(alongCue.exists); alongCue.tap()
+        Thread.sleep(forTimeInterval: 2)
+        snap(app, "corrected-sights-app-3d-along-cue")
+        selectMode("2D")
+        Thread.sleep(forTimeInterval: 2)
+        XCTAssertTrue(app.buttons["paletteBall__1"].exists)
+        snap(app, "corrected-sights-app-return-2d")
+        app.terminate()
+    }
+}

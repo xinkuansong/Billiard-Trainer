@@ -304,6 +304,11 @@ def worker(root, executor=None):
         guard.close()
         return 'already-running'
     try:
+        if executor is None:
+            try:
+                cleanup(root, apply=True)
+            except (RuntimeError, OSError, ValueError) as exc:
+                print('Cleanup deferred: ' + str(exc), file=sys.stderr, flush=True)
         while True:
             with lock(root / 'queue.lock'):
                 current = jobs(root)
@@ -314,6 +319,8 @@ def worker(root, executor=None):
                     # Release under queue.lock: enqueue + kick cannot lose the wake-up.
                     fcntl.flock(guard, fcntl.LOCK_UN)
                     return 'drained'
+                if executor is None and shutil.disk_usage(root).free < 12 * 1024 ** 3:
+                    raise RuntimeError('Less than 12 GiB free; queued jobs remain queued. Complete/clean old tasks before remote-start')
                 j = pending[0]
                 p = root / 'jobs' / j['job_id']
                 j.update(state='running', started_at=time.time(), worker_pid=os.getpid())
@@ -530,6 +537,10 @@ def submit(args):
     jid = valid_id(args.job_id or (args.task + '-' + uuid.uuid4().hex[:12]))
     print(json.dumps({'job_id': jid, 'snapshot_id': m['snapshot_id'], 'phase': 'uploading'}), flush=True)
     engine = deploy(args)
+    # Fail before creating/uploading a large temporary tar, leaving the local snapshot intact.
+    remote(args, ['python3', '-c',
+                  'import shutil,sys; free=shutil.disk_usage(sys.argv[1]).free; '
+                  'assert free >= 12*1024**3, "Less than 12 GiB free; clean completed tasks before upload"', args.root])
     with tempfile.TemporaryDirectory(prefix='mac-mini-upload-') as td:
         tarpath = Path(td) / 'bundle.tar'
         with tarfile.open(tarpath, 'w') as tar:
@@ -567,7 +578,242 @@ def fetch(args):
             raise ValueError('Returned evidence hash mismatch')
     write_json(dest / 'fetch-verification.json', {'job_id': jid, 'snapshot_id': status['spec']['snapshot_id'], 'verified': True,
                                                 'evidence_available': (dest / 'evidence/evidence-sha256.json').exists()})
+    acknowledge_fetch(args, dest, engine)
     print(json.dumps({'out': str(dest), 'state': status['state']}))
+
+
+def owned_path(root, path):
+    """Reject symlinked parents as well as a symlink at the deletion boundary."""
+    path = Path(path)
+    if path.resolve() != path or root not in path.parents:
+        raise ValueError('Unsafe queue path: ' + str(path))
+    return path
+
+
+def retained_evidence(path):
+    """Fingerprint every evidence file, including additions absent from the old manifest."""
+    ev = path / 'evidence'
+    if ev.is_symlink() or (path / 'worker.log').is_symlink():
+        raise ValueError('Symlink evidence')
+    files = tree_files(ev) if ev.exists() else {}
+    manifest = ev / 'evidence-sha256.json'
+    if manifest.exists():
+        for name, sha in read_json(manifest).items():
+            if files.get(str(safe_path(name)), {}).get('sha256') != sha:
+                raise ValueError('Evidence manifest mismatch: ' + name)
+    return {'files': files, 'worker_log': digest(path / 'worker.log') if (path / 'worker.log').exists() else None}
+
+
+def make_receipt(path):
+    j = read_json(path / 'job.json')
+    if j['state'] not in TERMINAL or j.get('blocked'):
+        raise ValueError('Only unblocked terminal jobs can be acknowledged')
+    evidence = retained_evidence(path)
+    if j['state'] != 'cancelled' and not evidence['files']:
+        raise ValueError('Missing execution evidence; retain for inspection')
+    return {'job_id': j['job_id'], 'snapshot_id': j['spec']['snapshot_id'],
+            'job_sha256': digest(path / 'job.json'),
+            'evidence_sha256': hashlib.sha256(canonical(evidence)).hexdigest(),
+            'file_count': len(evidence['files'])}
+
+
+def acknowledge_fetch(args, dest, engine=None):
+    complete = getattr(args, 'complete', False)
+    try:
+        receipt = make_receipt(dest)
+    except ValueError as exc:
+        if complete:
+            raise
+        # Diagnostic fetches (including blocked/early failed jobs) must still work.
+        response = {'acknowledged': False, 'retained': str(exc)}
+        write_json(dest / 'cleanup-response.json', response)
+        return response
+    if getattr(args, 'job', receipt['job_id']) != receipt['job_id']:
+        raise ValueError('Output belongs to another job')
+    reason = getattr(args, 'reason', '') or ''
+    if complete and not reason.strip():
+        raise ValueError('--complete requires --reason confirming no remaining remote review')
+    engine = engine or deploy(args)
+    prepared = json.loads(remote(args, ['python3', engine, '_receipt', '--root', args.root, '--job', receipt['job_id']]))
+    local_evidence = retained_evidence(dest)
+    if (any(receipt[k] != prepared['receipt'][k] for k in ['job_id', 'snapshot_id', 'job_sha256'])
+            or local_evidence['worker_log'] != prepared['evidence']['worker_log']
+            or any(local_evidence['files'].get(k) != v for k, v in prepared['evidence']['files'].items())):
+        raise ValueError('Local archive does not contain every current remote evidence file unchanged')
+    # xcresulttool may add a local database.sqlite3 index after fetch. Additional local
+    # derivatives are harmless; every remote original (including later additions) is required.
+    receipt = prepared['receipt']
+    receipt.update(verified_at=time.time(), archive_host=os.uname().nodename, archive_path=str(dest))
+    write_json(dest / 'cleanup-receipt.json', receipt)
+    cmd = ['python3', engine, '_ack', '--root', args.root, '--receipt', json.dumps(receipt), '--reason', reason]
+    if complete:
+        cmd.append('--complete')
+    if getattr(args, 'defer_cleanup', False):
+        cmd.append('--defer-cleanup')
+    response = json.loads(remote(args, cmd))
+    write_json(dest / 'cleanup-response.json', response)
+    return response
+
+
+def acknowledge(root, receipt, complete=False, reason='', defer_cleanup=False):
+    root = checked_root(root)
+    jid = valid_id(receipt['job_id'])
+    with lock(root / 'queue.lock'):
+        p = owned_path(root, root / 'jobs' / jid)
+        for name in ['job.json', 'retention.json', 'fetch-receipt.json']:
+            owned_path(root, p / name)
+        expected = make_receipt(p)
+        if any(receipt.get(k) != v for k, v in expected.items()):
+            raise ValueError('Archive receipt does not match current remote evidence/status')
+        if complete and not reason.strip():
+            raise ValueError('Completion needs an inspection reason')
+        retention = read_json(p / 'retention.json') if (p / 'retention.json').exists() else {}
+        if complete and retention.get('state') == 'hold':
+            raise ValueError('Review hold remains; explicitly release it before completing')
+        write_json(p / 'fetch-receipt.json', receipt)
+        if complete:
+            write_json(p / 'retention.json', {'state': 'complete', 'reason': reason, 'at': time.time(),
+                                            'receipt_sha256': digest(p / 'fetch-receipt.json')})
+    return cleanup(root, [jid], apply=True) if complete and not defer_cleanup else {
+        'job_id': jid, 'acknowledged': True, 'retained': True, 'complete': complete}
+
+
+def retention(root, jid, reason, release=False):
+    root = checked_root(root)
+    if not reason.strip():
+        raise ValueError('Retention change requires a reason')
+    with lock(root / 'queue.lock'):
+        p = owned_path(root, root / 'jobs' / valid_id(jid))
+        owned_path(root, p / 'retention.json')
+        read_json(p / 'job.json')
+        if (p / 'cleanup.json').exists():
+            raise ValueError('Temporary files already reclaimed; cannot promise a review hold')
+        value = {'state': 'open' if release else 'hold', 'reason': reason, 'at': time.time()}
+        write_json(p / 'retention.json', value)
+        return value
+
+
+def host_activity():
+    """Full command fields plus open files/cwds; failure must block reclamation."""
+    ps = subprocess.check_output(['ps', '-axo', 'pid=,args=', '-ww'], text=True)
+    opened = subprocess.run(['/usr/sbin/lsof', '-nP', '-a', '-u', str(os.getuid()), '-Fpn'],
+                            capture_output=True, text=True)
+    if opened.returncode != 0 or not opened.stdout.strip() or opened.stderr.strip():
+        raise RuntimeError('Cannot reliably inspect open files; cleanup deferred: ' + opened.stderr.strip())
+    registry = Path.home() / 'Library/Application Support/QiuJi/simulator-lifecycle/registry.json'
+    devices = read_json(registry)['devices']
+    return ps + '\n' + opened.stdout, devices
+
+
+def cleanup_reason(root, j, activity, devices):
+    p = owned_path(root, root / 'jobs' / valid_id(j['job_id']))
+    if j['state'] not in TERMINAL or j.get('blocked'):
+        return 'active, queued, or blocked'
+    for name in ['retention.json', 'fetch-receipt.json', 'cleanup.json', 'job.json', 'source', 'build', 'evidence']:
+        owned_path(root, p / name)
+    r = read_json(p / 'retention.json') if (p / 'retention.json').exists() else {}
+    if r.get('state') != 'complete':
+        return 'review hold' if r.get('state') == 'hold' else 'task closure not recorded'
+    if not (p / 'fetch-receipt.json').exists() or r.get('receipt_sha256') != digest(p / 'fetch-receipt.json'):
+        return 'verified archive receipt missing or changed'
+    receipt = read_json(p / 'fetch-receipt.json')
+    if any(receipt.get(k) != v for k, v in make_receipt(p).items()):
+        return 'evidence/status changed since archive verification'
+    if (p / 'source').exists():
+        sid = j['spec']['snapshot_id']
+        if not re.fullmatch(r'[a-f0-9]{64}', sid):
+            return 'invalid snapshot identity'
+        manifest = owned_path(root, root / 'snapshots' / sid / 'manifest.json')
+        if not manifest.exists() or tree_files(p / 'source') != read_json(manifest).get('files'):
+            return 'source differs from frozen snapshot; preserve unarchived changes'
+    # Match the entire job boundary, not a prefix that could collide with another job ID.
+    if re.search(re.escape(str(p)) + r'(?=/|\s|$)', activity):
+        return 'process or open file references this job'
+    for d in devices.values():
+        lease = d.get('lease') or {}
+        if lease.get('task') in [j['job_id'], j['spec']['task']]:
+            return 'active simulator lease'
+        if d.get('reason') in [j['job_id'], j['spec']['task']] and d.get('status') != 'deleted':
+            return 'simulator diagnostic/review state retained'
+    return None
+
+
+def remove_temporary(root, path):
+    """Only caller-selected boundaries; never follow build product symlinks or mounts."""
+    owned_path(root, path)
+    if not path.exists():
+        return
+    if not path.is_dir() or path.stat().st_dev != root.stat().st_dev:
+        raise ValueError('Unexpected temporary directory or mounted volume')
+    directories = []
+    for base, dirs, files in os.walk(path, followlinks=False):
+        b = Path(base)
+        if b.stat().st_dev != root.stat().st_dev or os.path.ismount(b):
+            raise ValueError('Mounted directory in cleanup target')
+        directories.append(b)
+    for b in directories:
+        b.chmod(b.stat().st_mode | 0o700)
+    shutil.rmtree(path)
+
+
+def cleanup(root, job_ids=None, apply=False):
+    root = checked_root(root)
+    selected_ids = {valid_id(j) for j in job_ids} if job_ids else None
+    report = {'apply': apply, 'at': time.time(), 'jobs': [], 'snapshots': []}
+    # Serializes acknowledgement/protection, admission and worker state changes. A running
+    # executor keeps running; its paths are never selected. No worker process is stopped.
+    with lock(root / 'queue.lock'):
+        current = jobs(root)
+        if selected_ids and not selected_ids.issubset({j['job_id'] for j in current}):
+            raise ValueError('Unknown job in cleanup selection')
+        activity, devices = host_activity()
+        eligible_snapshots = set()
+        for j in current:
+            if selected_ids is not None and j['job_id'] not in selected_ids:
+                continue
+            p = root / 'jobs' / valid_id(j['job_id'])
+            try:
+                reason = cleanup_reason(root, j, activity, devices)
+                if reason:
+                    report['jobs'].append({'job_id': j['job_id'], 'retained': reason})
+                    continue
+                targets = [name for name in ['build', 'source'] if (p / name).exists()]
+                row = {'job_id': j['job_id'], 'remove': targets}
+                report['jobs'].append(row)
+                if apply:
+                    # Write intent first so an interrupted removal is visible and retryable.
+                    write_json(p / 'cleanup-intent.json', {'at': time.time(), 'targets': targets})
+                    for name in targets:
+                        remove_temporary(root, p / name)
+                    write_json(p / 'cleanup.json', {'at': time.time(), 'state': 'reclaimed',
+                                                   'preserved': ['job.json', 'worker.log', 'evidence'],
+                                                   'receipt_sha256': digest(p / 'fetch-receipt.json')})
+                eligible_snapshots.add(j['spec']['snapshot_id'])
+            except (ValueError, OSError, KeyError) as exc:
+                report['jobs'].append({'job_id': j['job_id'], 'retained': str(exc)})
+        for sid in sorted(eligible_snapshots):
+            if not re.fullmatch(r'[a-f0-9]{64}', sid):
+                raise ValueError('Invalid snapshot ID')
+            refs = [j for j in current if j['spec']['snapshot_id'] == sid]
+            # Every reference must have been reclaimed, even a cancelled or failed job.
+            if not all(j['state'] in TERMINAL and not j.get('blocked')
+                       and (root / 'jobs' / j['job_id'] / 'cleanup.json').exists()
+                       and read_json(root / 'jobs' / j['job_id'] / 'retention.json').get('state') == 'complete'
+                       for j in refs):
+                continue
+            p = owned_path(root, root / 'snapshots' / sid)
+            if not p.exists() or str(p) in activity:
+                continue
+            if apply:
+                # Save the small origin/file manifest with each job before deleting source.
+                manifest = read_json(p / 'manifest.json')
+                for j in refs:
+                    write_json(root / 'jobs' / j['job_id'] / 'snapshot-manifest.json', manifest)
+                remove_temporary(root, p)
+            report['snapshots'].append(sid)
+        if apply:
+            write_json(root / 'cleanup-audits' / (str(time.time_ns()) + '.json'), report)
+    return report
 
 
 def main():
@@ -580,7 +826,8 @@ def main():
     s.add_argument('--include-dirty', action='store_true')
     s.add_argument('--quiescent', action='store_true')
     v = sub.add_parser('verify'); v.add_argument('--bundle', required=True)
-    for name in ['submit', 'fetch', 'remote-status', 'remote-start', 'remote-cancel']:
+    for name in ['submit', 'fetch', 'complete', 'remote-status', 'remote-start', 'remote-cancel',
+                 'remote-cleanup', 'remote-protect', 'remote-release']:
         p = sub.add_parser(name)
         p.add_argument('--host', default=DEFAULT_HOST)
         p.add_argument('--root', default=DEFAULT_ROOT)
@@ -593,21 +840,41 @@ def main():
             p.add_argument('--test', action='append')
             p.add_argument('--runtime', default='com.apple.CoreSimulator.SimRuntime.iOS-26-2')
             p.add_argument('--device', default='com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro')
-        if name in ['fetch', 'remote-cancel']:
+        if name in ['fetch', 'remote-cancel', 'remote-protect', 'remote-release']:
             p.add_argument('--job', required=True)
         if name == 'remote-status':
             p.add_argument('--job')
-        if name == 'fetch':
+        if name in ['fetch', 'complete']:
             p.add_argument('--out', required=True)
-    for name in ['status', 'start', 'worker', 'cancel', 'recover', '_execute', '_device', '_ingest']:
+            p.add_argument('--reason', default='')
+            p.add_argument('--defer-cleanup', action='store_true', help='Record closure, then preview cleanup separately')
+            if name == 'fetch':
+                p.add_argument('--complete', action='store_true', help='Task finished; no remaining remote review/reuse')
+            else:
+                p.set_defaults(complete=True)
+        if name == 'remote-cleanup':
+            p.add_argument('--job', action='append')
+            p.add_argument('--apply', action='store_true')
+        if name in ['remote-protect', 'remote-release']:
+            p.add_argument('--reason', required=True)
+    for name in ['status', 'start', 'worker', 'cancel', 'recover', '_execute', '_device', '_ingest',
+                 '_ack', '_receipt', 'cleanup', 'protect', 'release']:
         p = sub.add_parser(name)
         p.add_argument('--root', default=DEFAULT_ROOT)
-        if name in ['cancel', 'recover', '_execute', '_device']:
+        if name in ['cancel', 'recover', '_execute', '_device', 'protect', 'release', '_receipt']:
             p.add_argument('--job', required=True)
         if name == 'status':
             p.add_argument('--job')
-        if name == 'recover':
+        if name in ['recover', 'protect', 'release']:
             p.add_argument('--reason', required=True)
+        if name == '_ack':
+            p.add_argument('--receipt', required=True)
+            p.add_argument('--complete', action='store_true')
+            p.add_argument('--reason', default='')
+            p.add_argument('--defer-cleanup', action='store_true')
+        if name == 'cleanup':
+            p.add_argument('--job', action='append')
+            p.add_argument('--apply', action='store_true')
         if name == '_device':
             p.add_argument('--udid', required=True)
         if name == '_ingest':
@@ -627,22 +894,47 @@ def main():
         submit(a)
     elif a.command == 'fetch':
         fetch(a)
+    elif a.command == 'complete':
+        print(json.dumps(acknowledge_fetch(a, Path(a.out).resolve())))
     elif a.command.startswith('remote-'):
         engine = deploy(a)
         cmd = ['python3', engine, a.command.removeprefix('remote-'), '--root', a.root]
         if getattr(a, 'job', None):
-            cmd += ['--job', a.job]
+            for jid in a.job if isinstance(a.job, list) else [a.job]:
+                cmd += ['--job', jid]
+        if getattr(a, 'apply', False):
+            cmd.append('--apply')
+        if getattr(a, 'reason', None):
+            cmd += ['--reason', a.reason]
         print(remote(a, cmd).strip())
+    elif a.command == '_ack':
+        print(json.dumps(acknowledge(a.root, json.loads(a.receipt), a.complete, a.reason, a.defer_cleanup)))
+    elif a.command == '_receipt':
+        root = checked_root(a.root)
+        with lock(root / 'queue.lock'):
+            path = owned_path(root, root / 'jobs' / valid_id(a.job))
+            print(json.dumps({'receipt': make_receipt(path), 'evidence': retained_evidence(path)}))
+    elif a.command == 'cleanup':
+        print(json.dumps(cleanup(a.root, a.job, a.apply)))
+    elif a.command in ['protect', 'release']:
+        print(json.dumps(retention(a.root, a.job, a.reason, release=a.command == 'release')))
     elif a.command == '_ingest':
         root = checked_root(a.root)
         archive = Path(a.archive)
         if archive.parent != root / 'incoming' or archive.is_symlink():
             raise ValueError('Archive must be in this queue incoming directory')
         stage = Path(tempfile.mkdtemp(prefix='unpack-', dir=root / 'incoming'))
-        unpack(archive, stage)
-        print(json.dumps(enqueue(root, stage, a.task, a.test, a.runtime, a.device, a.job_id)))
-        shutil.rmtree(stage)
-        archive.unlink()
+        try:
+            unpack(archive, stage)
+            print(json.dumps(enqueue(root, stage, a.task, a.test, a.runtime, a.device, a.job_id)))
+        except Exception as exc:
+            write_json(root / 'ingest-failures' / (str(time.time_ns()) + '.json'),
+                       {'job_id': a.job_id, 'archive': str(archive), 'error': str(exc), 'at': time.time()})
+            raise
+        finally:
+            # Only this invocation's uploaded tar/unpack directory, never historical incoming files.
+            shutil.rmtree(stage)
+            archive.unlink()
     elif a.command == 'worker':
         print(worker(a.root))
     elif a.command == 'start':

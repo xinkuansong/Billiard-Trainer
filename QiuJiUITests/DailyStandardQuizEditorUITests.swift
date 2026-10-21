@@ -663,7 +663,8 @@ final class DailyStandardQuizEditorUITests: XCTestCase {
         // Exercise the adopted preview and the recorded-sequence lifecycle without writing an archive.
         app.buttons["batch.more"].tap()
         let closeup = revealMenuItem("menu.aimCloseup")
-        if closeup.value as? String != "已选" { closeup.tap() } else { closeRootMenu() }
+        if closeup.value as? String != "已选" { closeup.tap() }
+        closeRootMenu()
         let target = element("batch.ball._1")
         XCTAssertTrue(target.exists)
         target.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()

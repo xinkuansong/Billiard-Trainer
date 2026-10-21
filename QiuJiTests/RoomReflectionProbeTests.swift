@@ -7,6 +7,44 @@ import Metal
 /// optional evidence renders (`TEST_RUNNER_V62_SHOT_DIR`).
 @MainActor
 final class RoomReflectionProbeTests: XCTestCase {
+    func testDailyAsyncProbeDoesNotBlockEntryAndRejectsOldAppearance() async throws {
+        RoomReflectionProbe.resetCache()
+        defer { RoomReflectionProbe.resetCache() }
+        let subject = AngleTrainingScene()
+        subject.configureDailyClearanceRendering(asynchronousReflection: true)
+        subject.setupScene(mobileRendering: true, roomStyle: .walnut)
+        XCTAssertNil(subject.roomReflectionProbe, "Cold setup returns before the main-thread completion")
+        let rootIDs = subject.rootNode.childNodes.map(ObjectIdentifier.init)
+        subject.applyClothColor(.burgundy)
+        let finalInputs = RoomReflectionProbe.Inputs(style: .walnut, scene: subject)
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            guard let installed = subject.roomReflectionProbe else { return false }
+            return installed === RoomReflectionProbe.cached(for: finalInputs)
+        }, object: nil)
+        await fulfillment(of: [ready], timeout: 30)
+        XCTAssertEqual(rootIDs, subject.rootNode.childNodes.map(ObjectIdentifier.init))
+        XCTAssertEqual(subject.installedClothColor, .burgundy)
+        XCTAssertEqual(subject.roomReflectionProbe?.style, .walnut)
+        XCTAssertNotNil(subject.roomReflectionProbe?.prefiltered())
+    }
+
+    func testAsyncProbeCacheResetInvalidatesPendingCompletion() async throws {
+        let subject = try scene(style: .walnut)
+        RoomReflectionProbe.resetCache()
+        let inputs = RoomReflectionProbe.Inputs(style: .walnut, scene: subject)
+        let finished = expectation(description: "cancelled bake returns without repopulating cache")
+        RoomReflectionProbe.prepareAsync(inputs: inputs, scene: subject,
+                                         usesPrefilteredReflection: true) { probe in
+            XCTAssertTrue(Thread.isMainThread)
+            XCTAssertNil(probe)
+            finished.fulfill()
+        }
+        // Even if the GPU finishes early, delivery must recheck the purge generation.
+        RoomReflectionProbe.resetCache()
+        await fulfillment(of: [finished], timeout: 30)
+        XCTAssertNil(RoomReflectionProbe.cached(for: inputs))
+    }
+
     /// Measures first-consumer dependence without claiming a visual defect from cache identity alone.
     func testP01ProbeFirstConsumerOrderAudit() throws {
         defer { RoomReflectionProbe.resetCache() }

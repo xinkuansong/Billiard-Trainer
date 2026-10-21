@@ -370,10 +370,23 @@ struct BTSlotL1Button: View {
 
 /// 开球按钮/胶囊统一图标：等边三角形描边 + 内部六颗球（三行 1/2/3）。
 /// 单点定义，`BTBreakSideButton` 与 `breakModePill` 共用（改一处全局生效）。
-struct BreakRackGlyph: View {
+struct BreakRackGlyph: View, Animatable {
     var color: Color
     var size: CGFloat = 15
     var hollowBalls = false
+    /// Opt-in, one-shot decorative motion. Both endpoints show the original rack.
+    var animationProgress: CGFloat = 0
+    var rackOpacity: Double = 1
+
+    var animatableData: CGFloat {
+        get { animationProgress }
+        set { animationProgress = newValue }
+    }
+
+    private func eased(_ time: CGFloat, from start: CGFloat, to end: CGFloat) -> CGFloat {
+        let value = min(1, max(0, (time - start) / (end - start)))
+        return value * value * (3 - 2 * value)
+    }
 
     var body: some View {
         Canvas { ctx, canvas in
@@ -392,7 +405,10 @@ struct BreakRackGlyph: View {
                              y: center.y + pathRadius / 2)
             var tri = Path()
             tri.move(to: apex); tri.addLine(to: bl); tri.addLine(to: br); tri.closeSubpath()
-            ctx.stroke(tri, with: .color(color),
+            let time = animationProgress * 1.4
+            let frameVisibility = 1 - eased(time, from: 0, to: 0.18)
+                + eased(time, from: 1.18, to: 1.4)
+            ctx.stroke(tri, with: .color(color.opacity(rackOpacity * Double(frameVisibility))),
                        style: StrokeStyle(lineWidth: lineWidth, lineJoin: .miter))
             // Six equal circles in rows 1/2/3. For three rows the inner
             // inradius is r + 2r/sqrt(3); adjacent centres are 2r apart.
@@ -404,7 +420,13 @@ struct BreakRackGlyph: View {
                             y: center.y - 4 * r / rootThree + CGFloat(row) * rootThree * r)
                 }
             }
-            for c in centers {
+            for (index, origin) in centers.enumerated() {
+                // Local icon points (x right, y down), independent of table physics.
+                let delay = CGFloat(index) * 0.035
+                let spread = eased(time, from: 0.12 + delay, to: 0.44 + delay)
+                    * (1 - eased(time, from: 0.66 + delay, to: 1.12 + delay))
+                let c = CGPoint(x: center.x + (origin.x - center.x) * (1 + 0.32 * spread),
+                                y: center.y + (origin.y - center.y) * (1 + 0.32 * spread))
                 let rect = CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)
                 if hollowBalls {
                     let stroke = diameter * 1.8 / 47

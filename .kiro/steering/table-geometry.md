@@ -234,3 +234,7 @@ PocketCaptureBoundary保持整球低于硬质面与袋口的centerPlaneY；该�
 ## 2026-10-01 库鼻接触校准版本
 
 用户授权后按标准平面规格校准正式TaiQiuZhuo.usdz的六段库体。当前资源SHA256：`0e011ae72889d56a97255d8d69f2a7c0615ad779340ab64b938c2947817b48d1`。台面2540×1270mm、R=28.575mm、台面Y=0.8m及中袋当前实测中心保持。床面顶点/捕获口沿不变，原图688mm不直接覆盖现有实测中心。模型与球的三维接触包络786个有效点最大误差0.084420mm；正式资产更新须通过`testCalibratedCushionWholeSphereContactEnvelope`及捕获口沿回归。袋角线面CCD/冲量使用实际接触侧，不再依赖1mm后退代理。详ADR-P10-17与`tasks/RAIL-PENETRATION-FIX-20261001.md`；真机视觉/性能待验。
+
+## 2026-10-19 颗星等分校准
+
+18颗星沿有效台面等分：长库X=±0.3175、±0.635、±0.9525m；短库Z=−0.3175、0、0.3175m。原有离库鼻距离、高度与大小保持。默认`ModelTrial20261010_TaiQiuZhuo.usdz`和备用`TaiQiuZhuo.usdz`均已替换，当前SHA与验证范围见`tasks/RAIL-SIGHTS-FIX-20261019.md`。上述10月1日SHA是当时库体校准版的历史值；本轮仅颗星顶点平移，库体/台呢/袋口、碰撞规格均保持。不得把模型外框等分当作有效台面颗星位置。

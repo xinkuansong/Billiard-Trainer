@@ -1,0 +1,7 @@
+ideal noise 0 n 120000
+ideal noise 0.1 n 120000
+ideal noise 0.25 n 120000
+production noise 0 n 120000
+production noise 0.1 n 120000
+production noise 0.25 n 120000
+wrote 1914 metric rows

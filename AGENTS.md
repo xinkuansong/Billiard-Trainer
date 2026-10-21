@@ -8,6 +8,10 @@
 
 在 Codex 中处理本仓库的任何请求时，先完整读取并遵循 [`.agents/skills/cursor-project-adapter/SKILL.md`](.agents/skills/cursor-project-adapter/SKILL.md)。该技能负责把现有 `.cursor/rules/`、`.cursor/agents/`、`.cursor/skills/` 与 `.kiro/steering/` 按当前任务路由到 Codex；专项文件仍为真源，禁止仅凭本页摘要替代读取。
 
+## 球桌页面统一规范（2026-10-21）
+
+新增、修改或验收任何带球桌的页面，先读 [`docs/design/table-pages/球桌页面统一规范.md`](docs/design/table-pages/球桌页面统一规范.md)，按配套[检查表](docs/design/table-pages/球桌页面检查表模板.md)逐项记录“继承／按业务调整／不适用及理由”。新页/整页迁移/首次接手完整判定TP01–TP36；局部修改复核影响项与依赖，不机械重跑全部设备。适用项复用组件与行为，不适用项按页面任务省略或提供合理替代；未实现/未测试不能当不适用。共用决定必须回填现行规范和来源表，页面例外留在页面卡；不能仅凭C56旧稿或默认截图交付。详细执行由球桌适配技能与开发/测试/审查角色规则接入。
+
 ## 快速开始
 
 1. **先读** [`tasks/PROGRESS.md`](tasks/PROGRESS.md)、[`tasks/HUMAN-REQUIRED.md`](tasks/HUMAN-REQUIRED.md) 与（若存在返工）[`tasks/FAILURE-LOG.md`](tasks/FAILURE-LOG.md)。
@@ -97,7 +101,7 @@ cd scripts && make help
 
 ## 模拟器生命周期（所有会话）
 
-新建、复用、测试及录制模拟器前，读取 [`scripts/simulator-lifecycle/README.md`](scripts/simulator-lifecycle/README.md)。优先 `make -f scripts/Makefile sim-test` 或 `scripts/simulator_lifecycle.py run`，禁止按每个任务随意裸建模拟器。已有设备需显式借用；固定评审设备、其他任务占用和未知归属均保留。回收只走登记表与证据检查，禁止按名称/日期批量删除。任务完成后由入口释放租约，需保留现场时 `protect`；只启动过任务或进程已退出不能视为允许清理。
+先按 `scripts/simulator-fleet/README.md` 与 `scripts/simulator-fleet.json` 选择本地/远端和覆盖角色（通用入口技能：`/Users/song/.codex/skills/simulator-use/SKILL.md`），本地评审与测试共用核心设备，不叠加独立池。新建、复用、测试及录制模拟器前，读取 [`scripts/simulator-lifecycle/README.md`](scripts/simulator-lifecycle/README.md)。优先 `make -f scripts/Makefile sim-test` 或 `scripts/simulator_lifecycle.py run`，禁止按每个任务随意裸建模拟器。已有设备需显式借用；固定评审设备、其他任务占用和未知归属均保留。回收只走登记表与证据检查，禁止按名称/日期批量删除。任务完成后由入口释放租约，需保留现场时 `protect`；只启动过任务或进程已退出不能视为允许清理。
 
 ## Steering（`.kiro/steering/`）
 

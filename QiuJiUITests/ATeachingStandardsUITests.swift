@@ -191,11 +191,12 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
             XCTAssertEqual(camera.value as? String, expectedCamera)
             let closeup = revealMenuItem("menu.aimCloseup"); ready(closeup)
             if closeup.value as? String == "已选" { closeup.tap() }
-            else { app.buttons[page + ".dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap() }
+            app.buttons[page + ".dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
             let hud = element("aimCloseup.hud")
             XCTAssertFalse(hud.exists, "Disabled closeup must not appear at rest")
             capture(page + "-closeup-off")
             openMore(page); revealMenuItem("menu.aimCloseup").tap()
+            app.buttons[page + ".dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
             XCTAssertFalse(hud.exists, "Enabling the preference must not show a persistent loupe")
             capture(page + "-enabled-idle")
             XCTAssertFalse(element("shotStage.aimWheel").exists,
@@ -260,12 +261,13 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
                 if camera.value as? String != mode { camera.tap() }
                 let toggle = revealMenuItem("menu.aimCloseup")
                 if toggle.value as? String == "已选" { toggle.tap() }
-                else { app.buttons[page + ".dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap() }
+                app.buttons[page + ".dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
                 let hud = element("aimCloseup.hud")
                 XCTAssertFalse(hud.exists)
                 holdAimRulerForNativeCapture(page + "-disabled-drag")
                 XCTAssertFalse(hud.exists)
                 openMore(page); revealMenuItem("menu.aimCloseup").tap()
+                app.buttons[page + ".dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
                 XCTAssertFalse(hud.exists, "Preference alone must not show the loupe")
                 capture(page + "-free-enabled-idle")
                 holdAimRulerForNativeCapture(page + "-enabled-drag")

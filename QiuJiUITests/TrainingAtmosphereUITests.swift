@@ -1,6 +1,78 @@
 import XCTest
 
 final class TrainingAtmosphereUITests: XCTestCase {
+    func testDailyClearanceLoopKeepsLabelStableAndSurvivesBackground() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        for (theme, state) in [("Light", "fresh"), ("Dark", "progress")] {
+            let app = XCUIApplication.launchClean(extraArgs: [
+                "-v50.inMemoryStore", "-v54.force\(theme)", "-v54.todayState=freeCompleted",
+                "-dailyClearance.resetHomeState", "-dailyClearance.seedHomeState=\(state)",
+            ])
+            defer { app.terminate() }
+            let entry = app.buttons["trainingHome.dailyClearance"]
+            XCTAssertTrue(entry.waitForExistence(timeout: 20))
+            XCTAssertTrue(entry.isHittable)
+            let frame = entry.frame
+            XCTAssertGreaterThanOrEqual(frame.height, 44)
+            let start = Date()
+            for time in [0.0, 1.5, 3.0, 5.5, 6.5, 7.5, 9.0, 11.0, 13.5] {
+                Thread.sleep(forTimeInterval: max(0, time - Date().timeIntervalSince(start)))
+                try capture("daily-loop-\(theme)-\(time)")
+            }
+            XCTAssertEqual(entry.frame, frame)
+            XCTAssertFalse(entry.frame.intersects(app.staticTexts["本周训练"].frame))
+            XCUIDevice.shared.press(.home)
+            app.activate()
+            XCTAssertTrue(entry.waitForExistence(timeout: 10))
+            XCTAssertTrue(entry.isHittable)
+            XCTAssertEqual(entry.frame, frame)
+            try capture("daily-loop-\(theme)-foreground")
+        }
+    }
+
+    func testDailyClearanceEntryRoundTripKeepsLayout() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication.launchClean(extraArgs: [
+            "-v50.inMemoryStore", "-v54.forceLight", "-v54.todayState=freeCompleted",
+            "-dailyClearance.resetHomeState", "-dailyClearance.fixtureSettled", "-forcePremium",
+        ])
+        defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
+        let entry = app.buttons["trainingHome.dailyClearance"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 15))
+        XCTAssertTrue(entry.label.contains("未开始"))
+        let originalFrame = entry.frame
+        XCTAssertGreaterThanOrEqual(originalFrame.height, 44)
+        for visit in 1...2 {
+            XCTAssertTrue(entry.isHittable)
+            entry.tap()
+            let back = app.buttons["dailyClearance.back"]
+            XCTAssertTrue(back.waitForExistence(timeout: 15))
+            XCTAssertTrue(app.descendants(matching: .any)["dailyClearance.landscape"].exists)
+            // The destination appears before its forced landscape transition completes.
+            let landscapeReady = NSPredicate { _, _ in
+                app.frame.width > app.frame.height && back.isHittable
+                    && !back.frame.isEmpty && app.frame.contains(back.frame)
+            }
+            expectation(for: landscapeReady, evaluatedWith: app)
+            waitForExpectations(timeout: 10)
+            back.tap()
+            XCTAssertTrue(entry.waitForExistence(timeout: 15))
+            let restored = NSPredicate { _, _ in
+                app.frame.height > app.frame.width
+                    && abs(entry.frame.minY - originalFrame.minY) < 1
+            }
+            expectation(for: restored, evaluatedWith: app)
+            waitForExpectations(timeout: 10)
+            XCTAssertTrue(entry.label.contains("进行中"))
+            XCTAssertEqual(entry.frame.height, originalFrame.height, accuracy: 0.5)
+            XCTAssertEqual(entry.frame.maxX, originalFrame.maxX, accuracy: 0.5)
+            XCTAssertFalse(entry.frame.intersects(app.staticTexts["本周训练"].frame))
+            try capture("daily-icon-return-\(visit)")
+        }
+    }
+
     func testWeeklyCardResponsiveBackground() throws {
         continueAfterFailure = false
         let app = XCUIApplication()

@@ -17,21 +17,14 @@
     ["onboarding-completed.png", "onboarding-relaunch-persisted.png"]
   ],
   "devices": [
-    {"id": "A1", "tier": "A", "runtime": "17.0", "name": "iPhone SE (3rd generation)", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation", "role": "compact-phone-floor"},
-    {"id": "A2", "tier": "A", "runtime": "17.0", "name": "iPhone 15 Pro", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-15-Pro", "role": "standard-phone-floor"},
-    {"id": "A3", "tier": "A", "runtime": "26.2", "name": "iPhone 17 Pro", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro", "role": "standard-phone-latest"},
-    {"id": "A4", "tier": "A", "runtime": "26.2", "name": "iPhone 17 Pro Max", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max", "role": "large-phone-latest"},
-    {"id": "A5", "tier": "A", "runtime": "17.0", "name": "iPad mini (6th generation)", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-mini-6th-generation", "role": "compact-pad-floor"},
-    {"id": "A6", "tier": "A", "runtime": "17.0", "name": "iPad (10th generation)", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-10th-generation", "role": "standard-pad-floor"},
-    {"id": "A7", "tier": "A", "runtime": "26.2", "name": "iPad Pro 11-inch (M5)", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-11-inch-M5-12GB", "role": "pro-pad-latest"},
-    {"id": "A8", "tier": "A", "runtime": "26.2", "name": "iPad Pro 13-inch (M5)", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB", "role": "large-pad-latest"},
-    {"id": "B1", "tier": "B", "runtime": "17.0", "name": "iPhone 15 Pro Max", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-15-Pro-Max", "role": "large-phone-floor"},
-    {"id": "B2", "tier": "B", "runtime": "26.2", "name": "QiuJi-v49-iPhone-SE-iOS26", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation", "role": "compact-phone-latest"},
-    {"id": "B3", "tier": "B", "runtime": "26.2", "name": "iPhone Air", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-Air", "role": "thin-phone-latest"},
-    {"id": "B4", "tier": "B", "runtime": "26.2", "name": "iPhone 16e", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-16e", "role": "notch-phone-latest"},
-    {"id": "B5", "tier": "B", "runtime": "17.0", "name": "iPad Pro (12.9-inch) (6th generation)", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-12-9-inch-6th-generation-8GB", "role": "large-pad-floor"},
-    {"id": "B6", "tier": "B", "runtime": "26.2", "name": "iPad mini (A17 Pro)", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-mini-A17-Pro", "role": "compact-pad-latest"},
-    {"id": "C2R", "tier": "B", "runtime": "26.2", "name": "QiuJi-v51-iPhone-SE-iOS26-AX", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation", "role": "compact-phone-latest-ax-recovery"}
+    {"id": "A3", "tier": "A", "runtime": "26.3.1", "name": "iPhone 17 Pro", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro", "role": "standard-phone", "udid": "AE86244C-EE61-4585-882F-E39B892214DB"},
+    {"id": "A4", "tier": "A", "runtime": "26.3.1", "name": "QiuJi-Preview-03-16ProMax", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro-Max", "role": "large-phone", "udid": "16D968CB-FA14-4E00-B79F-0D675D80179E"},
+    {"id": "B2", "tier": "B", "runtime": "26.3.1", "name": "E04-Profile-small-20261009", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation", "role": "compact-phone", "udid": "DF09A8D3-2574-43D7-85D8-369CFDB2C36D"},
+    {"id": "B4", "tier": "B", "runtime": "26.3.1", "name": "QiuJi-Preview-04-iPhone13", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-13", "role": "notch-phone", "udid": "0D3AE337-488E-49D0-8AFF-E711249046EC"},
+    {"id": "A7", "tier": "A", "runtime": "26.3.1", "name": "E04-Profile-pad-20261009", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-11-inch-M4-8GB", "role": "standard-pad", "udid": "47AE5F33-3D60-4102-BBC7-E29D05114E6E"},
+    {"id": "A8", "tier": "A", "runtime": "26.3.1", "name": "QiuJi-Preview-09-Pad13-P", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M4-8GB", "role": "large-pad", "udid": "4F00E012-1FA4-4F08-97E0-1B41160A63CC"},
+    {"id": "A5", "tier": "A", "runtime": "26.3.1", "name": "QiuJi-Preview-07-PadMini-P", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-mini-6th-generation", "role": "compact-pad", "udid": "F80E0C5B-2B47-44DD-A460-5CE19CD5259A"},
+    {"id": "A1", "tier": "A", "runtime": "17.0", "name": "QiuJi-Remaining-SE-20261013", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation", "role": "compact-phone-floor", "udid": "16365EE2-0C42-4EE1-B707-09AC55A0ABA7"}
   ],
   "suites": {
     "tour": ["QiuJiUITests/ScreenshotTourUITests/testDesignerPageDump"],

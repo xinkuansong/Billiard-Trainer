@@ -343,7 +343,6 @@ final class SnakePracticeUITests: XCTestCase {
         for index in 0..<4 {
             app.buttons["menu.tableGrid"].tap()
             try snap("54-grid-\(index)")
-            menu()
         }
         app.buttons["freeplay.cameraMode"].tap()
         app.buttons["关闭菜单"].tap()
@@ -363,6 +362,7 @@ final class SnakePracticeUITests: XCTestCase {
         for index in 0..<3 {
             menu(); app.buttons["menu.tableGrid"].tap()
             try snap("57-grid-3d-\(index)")
+            app.buttons["关闭菜单"].tap()
         }
         ready(app.buttons["snake.restart"])
         app.buttons["snake.restart"].tap()

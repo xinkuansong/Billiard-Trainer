@@ -7,6 +7,8 @@ metadata:
 
 ## 全 App 通用自适应入口
 
+**球桌页现行入口（2026-10-21）**：设计、开发或审查带球桌页面时，同时加载 `table-page-adaptation` 并读取[球桌页面统一规范](../../../docs/design/table-pages/球桌页面统一规范.md)及配套检查表。新页/整页迁移/首次接手完整判定TP01–TP36，局部修改复核影响项；适用则复用，不适用按能力合理省略或替代，未实现/未验不可豁免。下文DC/DR/FL与旧Canvas样例按来源追溯，不能覆盖统一规范中的现行决定或页面明确差异。
+
 设计、实现或复核页面布局、字号适配、底栏避让与跨尺寸问题时，读取 [通用自适应准则](references/adaptive-layout.md)。它规定决策与验证方法，不给所有页面套用同一个宽度或球桌模板。
 
 具体宽度、内容优先级和例外以当前页面方案及用户最新决定为准；下文历史 DR/FL 仅在其适用页面内使用。设计 token 的实现以 `QiuJi/Core/DesignSystem/` 为准；技能更新不代表存量页面已迁移或通过验收。
@@ -820,6 +822,8 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 
 ## Changelog
 
+- 2026-10-21 / 球桌统一规范 v1.0：接入TP01–TP36及适用性/能力接线/状态证据检查；现行共用正文统一维护，历史DR仅用于追溯，未改App实现。
+
 - 2026-10-12 / 通用自适应 v1.0：新增按需参考，覆盖窗口容量、分区宽度、重排、真实字号、底栏键盘与验证边界；保留页面专属决定，未迁移生产字体或底栏。
 
 - 2026-10-04 / DR-326 r2：每日击球按钮常态中性背景，仅按下时浅绿高亮。
@@ -1630,3 +1634,24 @@ DR-411 r2 / FL-184（2026-10-19）：用户否定r1宽绿底与勾号。两图�
 ### DR-412 — 瞄准特写同源台呢（2026-10-19）
 BTAimCloseupHUD.feltImage可选底图由共享Overlay预取；台呢/球房变化或重新开启时更新，60Hz定位循环不渲染底图。TableFigureRenderer.closeupFelt使用当前liveReference材质和曝光、当前台呢/球房；纯台呢取样不包含球位、置球点或库边。教学卡backdrop默认plainLegacy保持，缓存key包含recipe/clothColor/roomStyle。不得再以历史RGB/albedo直接填色宣称与当前台呢一致；分别对拍真实材质与最终HUD，并看2D/3D实页。
 Changelog：DR-412 / v1 / 特写背景由旧纯色改为新版材质缓存；证据见tasks/ui-reviews/UR-20261019-aim-closeup-cloth.md。
+
+### DR-413 — 首页每日清台一次性球堆动效（2026-10-19）
+首页入口球堆22pt、原深绿、三角框70%不透明度；首次显示播放1.4秒框淡出/六球散开/归位/框恢复，之后静止。播放标记由首页持有，导航返回不重播；任务随消失/后台取消，Reduce Motion使用静态端点。共享BreakRackGlyph.animationProgress默认0、rackOpacity默认1，其他开球入口保持原样。按钮44pt高度及导航保持，按压复用BTPressableStyle.capsule。
+Changelog：DR-413 / v1；用户确认的首页装饰动效，证据与边界见`tasks/ui-reviews/UR-20261019-daily-clearance-icon.md`。
+
+
+### DR-410 v4 — 设置选择后保留菜单（2026-10-19）
+球桌自定义设置菜单中的开关/选档应原位更新并保持展开，允许连续选择与取消；`DailyHUDMenuItem.selected`非nil或`segments`非空的选择行不得被宿主统一追加关闭。动作/导航仍按用途关闭，需在台面交互的工具和换玩法确认不当作普通偏好。返回/关闭/面板外点击保留。回归同时验证连续切换、状态即时更新、偏好重入与明确退出；旧测试应显式关闭后操作球桌，不保留自动消失假设。Changelog：DR-410 v4；证据见tasks/ui-reviews/UR-20261019-menu-retention.md。
+
+
+### DR-414 — 角度与瞄准显示设置（2026-10-19）
+仅角度与瞄准页按“瞄准线→进球线→角度→假想球→3D假想球”排列，管道选项续后。普通球圈与实体假想球互相独立，角度开关仅控制台面数字和角弧，左侧指标保留。showDiagramAngle/showGhostBall共享参数默认true；关闭角度不得清掉两条线的自适应标签输入，缓存须包含角度显示状态。答题页showAngleAnnotations继续原语义。沿用原菜单样式、滚动和选项原位调整，不增加球桌占位。
+Changelog：DR-414 / v1；验证与边界见`tasks/ui-reviews/UR-20261019-angle-settings.md`。
+
+
+### DR-413 r2 — 首页胶囊内循环六球（2026-10-19）
+用户最新要求覆盖v1一次性22pt：首页每日/继续清台使用DailyClearanceAnimatedLabel，球堆28pt、原深绿、最小44pt按钮；提框→碰撞减速→停球→沿安全路径归位→落框→静置，12秒循环。文字/箭头使用真实Anchor布局矩形，完整球体与胶囊边界/信息区留1.5pt间隔，所有阶段（含回收和插值）均核避让。Core Animation局部图层播放，不刷新整页；切Tab/离页/后台/Reduce Motion停止并静态码球。共享BreakRackGlyph其余消费者不启用循环。Changelog：DR-413 r2；验证真源UR-20261019-daily-clearance-icon.md r2，未验项目不得沿用v1结论。
+
+
+### DR-413 r3 — 每日清台球在文字前景（2026-10-19）
+用户最新要求覆盖r2避字约束：六球可穿过文字/箭头区域，只与彼此和胶囊边界碰撞。DailyClearanceAnimatedLabel用非交互overlay将球渲染在文字前方；移除文字障碍测量，不改变标题排版/AX与按钮命中。保留28pt球堆、12秒循环和离页/后台/Reduce Motion处理。Changelog：DR-413 r3；验收需看实际穿字前景及点击回归，不能沿用旧避字录像。

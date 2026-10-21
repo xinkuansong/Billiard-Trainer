@@ -132,6 +132,7 @@
 		251E4A52F44A8C39B4A12D15 /* TrajectoryPlaybackSpinTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CD634A60E24EA661254D4E5 /* TrajectoryPlaybackSpinTests.swift */; };
 		259333F573F7D480A2EA628E /* BankShotCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D755BFF207236BF0DE3B8D8 /* BankShotCalculator.swift */; };
 		25EF3F328D6D5BE47ECD13F0 /* S8_SnookerV8UITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A3891EB8E65E3672680B4E3 /* S8_SnookerV8UITests.swift */; };
+		265DB92C2E2358D6C60C7CB3 /* DailyClearanceButtonMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = E024613EB4FF96D51825E18A /* DailyClearanceButtonMotion.swift */; };
 		267F33C52AFB836CF954870D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CAE6DAF8FA7B4879DC39DB3B /* Assets.xcassets */; };
 		26CF93B10F2D871F4A9C5E87 /* QiuJiSchemaV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = E778364DBED570144E479D1B /* QiuJiSchemaV2.swift */; };
 		272890620F7F0A261F34F6FB /* DrillStaticPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FD5785A21174FEA7516020B /* DrillStaticPreview.swift */; };
@@ -185,6 +186,7 @@
 		3B8D245EB2FF0048809D111F /* W1_AimPointFilterUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 616C48BE158BF4654E4552DA /* W1_AimPointFilterUITests.swift */; };
 		3BA65C71DFDA92115000CF99 /* DailyClearanceRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FAF4DB597F3A8F8E1FF9138 /* DailyClearanceRulesTests.swift */; };
 		3BBE2F73BFD77DDA9A146B21 /* V54ScheduleDomainTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D081BE4B5BD912B2CF218EEB /* V54ScheduleDomainTests.swift */; };
+		3BD32303C3E6800258EAE5B0 /* DailyClearanceButtonMotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60B38DF3FA70DC99015608DC /* DailyClearanceButtonMotionTests.swift */; };
 		3BD98FB4FE29AAE85ABE7A6C /* ProfileContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C6CC60C4F250DCBBE1D3A5 /* ProfileContractTests.swift */; };
 		3BEA99CC50BDCD8BFFA08092 /* TrainingUtilityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D45C489590E3233012FC7DA8 /* TrainingUtilityStore.swift */; };
 		3C041458B963F1F7002C25B6 /* CoverPaletteContrastTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 908597837665BDE0EFCD64E0 /* CoverPaletteContrastTests.swift */; };
@@ -460,6 +462,7 @@
 		8210CB1F685791611E2B5B3F /* ShotAudioPreviewUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E20BC83B44C405238D00AC0 /* ShotAudioPreviewUITests.swift */; };
 		82284E3269F576B0368FAA5C /* PlanThreeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95AABFDBCA6EBEEBFE1C9881 /* PlanThreeViewModel.swift */; };
 		82872D6EC08777170995EFB7 /* SolverPerformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44A671D23AD7A6ABFD34EFB5 /* SolverPerformanceTests.swift */; };
+		8296FD9F72E2AE0AA807FFD2 /* DailyClearanceAnimatedLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56FF58F631E1C8F14076A9E9 /* DailyClearanceAnimatedLabel.swift */; };
 		83F2A1C8678822420101CCD0 /* V22W4PlanSeparationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5954825D89A0F919B4DF3282 /* V22W4PlanSeparationTests.swift */; };
 		846C5BA98D93C9EF885D7354 /* ReachabilityVizTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A00C38A3C292B1E764FD8E /* ReachabilityVizTests.swift */; };
 		84DD2455DEC0B9133ACFE588 /* BTBallPaletteBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD2EF54AC2F5B12846EFE6FB /* BTBallPaletteBar.swift */; };
@@ -1199,6 +1202,7 @@
 		56E6724FF707D1979AB43322 /* V29W6StoreSeedRunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V29W6StoreSeedRunnerTests.swift; sourceTree = "<group>"; };
 		56F28FF2B1E3F7B953170BB8 /* CueClearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CueClearance.swift; sourceTree = "<group>"; };
 		56FDDA2B510A022D461F2FD0 /* PhysicsRestTransitionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhysicsRestTransitionTests.swift; sourceTree = "<group>"; };
+		56FF58F631E1C8F14076A9E9 /* DailyClearanceAnimatedLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyClearanceAnimatedLabel.swift; sourceTree = "<group>"; };
 		5701DB4A2342526BA093B69C /* V49W10CopyEvidenceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V49W10CopyEvidenceUITests.swift; sourceTree = "<group>"; };
 		5705440790311CDEC60DA7DC /* ClothPreview_blueGray.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ClothPreview_blueGray.png; sourceTree = "<group>"; };
 		5744ECCE17A177B77E664309 /* BTDrillCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTDrillCard.swift; sourceTree = "<group>"; };
@@ -1235,6 +1239,7 @@
 		5FD025F10CB60DC91C5D1795 /* ClothAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClothAppearance.swift; sourceTree = "<group>"; };
 		5FD5785A21174FEA7516020B /* DrillStaticPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillStaticPreview.swift; sourceTree = "<group>"; };
 		609599A84CCA0C7F90336770 /* RoomStyleSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomStyleSelectionView.swift; sourceTree = "<group>"; };
+		60B38DF3FA70DC99015608DC /* DailyClearanceButtonMotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyClearanceButtonMotionTests.swift; sourceTree = "<group>"; };
 		60CBD257EEF07685D8C3BCA5 /* DiamondSystemViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiamondSystemViewModel.swift; sourceTree = "<group>"; };
 		6117029720C891CD04C0151C /* TheoryFigureGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheoryFigureGeometryTests.swift; sourceTree = "<group>"; };
 		6122BC3D57E055599BD7F7CE /* DailyAdaptivityAuditUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyAdaptivityAuditUITests.swift; sourceTree = "<group>"; };
@@ -1642,6 +1647,7 @@
 		DF9F960285A8C3AA08FC1BF9 /* TheoryFlowContentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheoryFlowContentTests.swift; sourceTree = "<group>"; };
 		DFBA38BEA1943CE80093175F /* V54DataMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V54DataMigration.swift; sourceTree = "<group>"; };
 		DFEFBA29882E0A4A85120F1C /* V51ResponsiveLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V51ResponsiveLayoutTests.swift; sourceTree = "<group>"; };
+		E024613EB4FF96D51825E18A /* DailyClearanceButtonMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyClearanceButtonMotion.swift; sourceTree = "<group>"; };
 		E02A9061344DF8835F43CB2F /* StatisticsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsViewModelTests.swift; sourceTree = "<group>"; };
 		E081F149C998CE0797AFA7A2 /* ClothAppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClothAppearanceTests.swift; sourceTree = "<group>"; };
 		E0E2E203E9CB35400E4FA6CF /* ShareCardImageRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardImageRenderer.swift; sourceTree = "<group>"; };
@@ -1850,6 +1856,8 @@
 				8E3E0424233A7BC1D77B6580 /* Utilities */,
 				81AB5354BAEB34B9D2DBE975 /* ActiveTrainingView.swift */,
 				152AFA7E00371290237260DA /* CustomPlanBuilderView.swift */,
+				56FF58F631E1C8F14076A9E9 /* DailyClearanceAnimatedLabel.swift */,
+				E024613EB4FF96D51825E18A /* DailyClearanceButtonMotion.swift */,
 				929F84E569020CF7ED75B674 /* DrillRecordView.swift */,
 				8D6E1BFB1BF757905A34BD59 /* PlanDetailView.swift */,
 				62D3BE09F76688E348854888 /* PlanListView.swift */,
@@ -2260,6 +2268,7 @@
 				410C962E9AC981907033DC09 /* Daily3DCameraPerformanceTests.swift */,
 				14D6745A96B28195F8D32A03 /* Daily3DClothPerformanceTests.swift */,
 				5C9A9F162652ED489ED45DB0 /* Daily3DRenderDiagnosticsTests.swift */,
+				60B38DF3FA70DC99015608DC /* DailyClearanceButtonMotionTests.swift */,
 				E94BD76B3459D704B2449B73 /* DailyClearanceControllerTests.swift */,
 				0FAF4DB597F3A8F8E1FF9138 /* DailyClearanceRulesTests.swift */,
 				FDF3BEBDD007AB98B061C3DC /* DailyClearanceStoreTests.swift */,
@@ -3601,6 +3610,8 @@
 				4A1AF3AF407CBA6556F90F0F /* CustomPlanBuilderView.swift in Sources */,
 				EFE9BDBDCE62A09BB94F059C /* CustomPlanBuilderViewModel.swift in Sources */,
 				DD7D7B497EFCE1795A90D1F0 /* Daily3DRenderDiagnostics.swift in Sources */,
+				8296FD9F72E2AE0AA807FFD2 /* DailyClearanceAnimatedLabel.swift in Sources */,
+				265DB92C2E2358D6C60C7CB3 /* DailyClearanceButtonMotion.swift in Sources */,
 				1E04E026E37F926BB25623CF /* DailyClearanceController.swift in Sources */,
 				20317EEDA936520AE6D8CABB /* DailyClearanceRulesEngine.swift in Sources */,
 				4C431E2031D17499457171CD /* DailyClearanceStore.swift in Sources */,
@@ -4056,6 +4067,7 @@
 				1E5EDC507F60B1F176BF0489 /* Daily3DCameraPerformanceTests.swift in Sources */,
 				9BBDAF2A2CE707256BCE805F /* Daily3DClothPerformanceTests.swift in Sources */,
 				32E228C2B7351F07674C5B5C /* Daily3DRenderDiagnosticsTests.swift in Sources */,
+				3BD32303C3E6800258EAE5B0 /* DailyClearanceButtonMotionTests.swift in Sources */,
 				554592D4DCFEA57461CBEE17 /* DailyClearanceControllerTests.swift in Sources */,
 				3BA65C71DFDA92115000CF99 /* DailyClearanceRulesTests.swift in Sources */,
 				2F245AD10DCE5505DE1CE09F /* DailyClearanceStoreTests.swift in Sources */,

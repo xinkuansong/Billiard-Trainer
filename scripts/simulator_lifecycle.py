@@ -113,7 +113,7 @@ class Manager:
 
     def pins(self, live):
         config = json.loads((ROOT / 'scripts/simulator-preview/devices.json').read_text())
-        result = {d['udid']: '人工十设备评审配置' for d in config['devices']}
+        result = {d['udid']: '常驻评审与测试配置' for d in config['devices']}
         for uid, d in live.items():
             if d['name'] == 'iPhone 17 Pro':
                 result[uid] = 'Makefile 默认开发设备'
@@ -242,6 +242,24 @@ class Manager:
             records = state['devices']
             pins = self.pins(live)
             owned = uid is None
+            # This host reuses the same eight core devices as preview/matrix.
+            # Remote snapshot workers have different UDIDs and keep their queue policy.
+            fleet_path = ROOT / 'scripts/simulator-fleet.json'
+            fleet = json.loads(fleet_path.read_text()) if fleet_path.exists() else None
+            local_fleet = fleet and any(d['udid'] in live for d in fleet['core'])
+            if local_fleet and owned and not temporary:
+                if not device_type or not runtime:
+                    raise ValueError('--type and --runtime required for managed devices')
+                from simulator_fleet import select
+                uid = select(fleet, live, device_type=device_type, runtime=runtime)
+                if live[uid]['state'] != 'Shutdown':
+                    raise RuntimeError('Core device is running; preserve interactive review')
+                owned = False
+            if local_fleet and owned and temporary:
+                temporary_count = sum(u in live and r['kind'] == 'temporary' for u, r in records.items())
+                if (temporary_count >= fleet['temporary_limit']
+                        or len(live) >= fleet['baseline_count'] + fleet['temporary_limit']):
+                    raise RuntimeError('Local temporary capacity reached; finish the existing task first')
             if owned:
                 if not device_type or not runtime:
                     raise ValueError('--type and --runtime required for managed devices')
@@ -253,7 +271,7 @@ class Manager:
                 else:
                     managed = [r for u, r in records.items() if u in live and r['kind'] in ('pool', 'temporary')]
                     same = [r for r in managed if r['identity']['runtime'] == runtime and r['identity']['deviceTypeIdentifier'] == device_type]
-                    if len(managed) >= 8 or len(same) >= 2:
+                    if not local_fleet and (len(managed) >= 8 or len(same) >= 2):
                         raise RuntimeError('Managed capacity reached (8 total / 2 per type+runtime); release or retire a device first')
                     if '*' in busy:
                         raise RuntimeError('Unresolved external simulator command is active')

@@ -51,7 +51,10 @@ class PreviewTests(unittest.TestCase):
             devices = [{**d, 'state': 'Booted'} for d in CONFIG['devices']]
             if self.preflight_failure:
                 devices[0]['state'] = 'Shutdown'
-            output = json.dumps({'devices': {CONFIG['runtime']: devices}})
+            grouped = {}
+            for device in devices:
+                grouped.setdefault(device.get('runtime', CONFIG['runtime']), []).append(device)
+            output = json.dumps({'devices': grouped})
         elif args[2] == 'get_app_container':
             output = str(self.artifacts[args[3]])
         elif args[2] == 'ui':
@@ -93,6 +96,15 @@ class PreviewTests(unittest.TestCase):
         self.enable_theory_capability(device)
         app = self.artifacts[device['udid']]
         (app / 'App').write_bytes((app / 'App').read_bytes() + preview.DRILL_DETAIL_CAPABILITY + b'\0')
+
+    def test_floor_runtime_is_validated_and_recorded_per_device(self):
+        code, folder = self.invoke('--only', '11')
+        self.assertEqual(code, 0)
+        rows = json.loads((folder / 'results.json').read_text())
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['runtime'], 'com.apple.CoreSimulator.SimRuntime.iOS-17-0')
+        run = json.loads((folder / 'run.json').read_text())
+        self.assertIn('com.apple.CoreSimulator.SimRuntime.iOS-17-0', run['runtimes'].values())
 
     def test_theory_cli_rejects_missing_conflicting_unknown_and_duplicate_identity(self):
         invalid = [
