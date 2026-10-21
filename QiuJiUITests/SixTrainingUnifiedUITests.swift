@@ -1,6 +1,44 @@
 import XCTest
 
 final class SixTrainingUnifiedUITests: XCTestCase {
+    func testAccuracyStandardRetryAndRecordedPlayback() {
+        continueAfterFailure = false
+        for title in ["2D准度", "3D准度"] {
+            let app = open(title)
+            defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
+            app.buttons["accuracy.start"].tap()
+            let strike = app.buttons["accuracy.strike"], retry = app.buttons["accuracy.retry"]
+            let playback = app.buttons["accuracy.playback"]
+            ready(strike)
+            XCTAssertTrue(retry.exists); XCTAssertEqual(retry.label, "重打"); XCTAssertFalse(retry.isEnabled)
+            XCTAssertTrue(playback.exists); XCTAssertEqual(playback.label, "回放"); XCTAssertFalse(playback.isEnabled)
+            capture(title + "-standard-retry-replay-initial")
+            strike.tap(); ready(playback, timeout: 60); ready(retry)
+            let info = app.descendants(matching: .any).matching(identifier: "accuracy.questionInfo").firstMatch
+            let metrics = info.label
+            capture(title + "-standard-retry-replay-ready")
+            playback.tap()
+            XCTAssertEqual(strike.label, "停止回放")
+            XCTAssertFalse(retry.isEnabled)
+            capture(title + "-recorded-playback")
+            ready(playback, timeout: 60) // Natural completion restores the result phase.
+            XCTAssertEqual(info.label, metrics)
+            retry.tap(); ready(strike)
+            XCTAssertEqual(strike.label, "击球")
+            XCTAssertEqual(info.label, metrics)
+            ready(playback); playback.tap(); ready(strike); strike.tap()
+            ready(playback)
+            XCTAssertEqual(strike.label, "击球")
+            XCTAssertEqual(info.label, metrics)
+            capture(title + "-replay-stopped-retry-preserved")
+            strike.tap(); ready(retry, timeout: 60)
+            XCTAssertEqual(info.label, metrics)
+            app.buttons["accuracy.more"].tap(); app.buttons["accuracy.finish"].tap()
+            ready(app.buttons["training.restart"])
+            capture(title + "-replay-first-attempt-summary")
+        }
+    }
+
     func testStandardAngle2D() throws { try standardContract("2D角度") }
     func testStandardAngle3D() throws { try standardContract("3D角度") }
     func testStandardAimPoint2D() throws { try standardContract("2D瞄准点") }

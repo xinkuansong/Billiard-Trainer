@@ -5,6 +5,62 @@ import SwiftData
 
 @MainActor
 final class SixTrainingUnifiedTests: XCTestCase {
+    func testAccuracyReplayRestoresTableAndNeverChangesFirstAttempt() async throws {
+        for is3D in [false, true] {
+            let container = ModelContainerFactory.makeInMemoryContainer()
+            let vm = AccuracyPracticeViewModel(is3D: is3D)
+            let wasPremium = vm.limiter.isPremium
+            vm.limiter.isPremium = true
+            defer { vm.suspendTeachingActivity(); vm.limiter.isPremium = wasPremium }
+            vm.attach(context: ModelContext(container))
+            vm.start(.init(), prepared: try AccuracyPreparedRound.prepare(.init(), excluding: [], seed: 20261021))
+            vm.setupScene(); vm.setCameraMode(vm.cameraMode); vm.cameraTransitionBusy = false
+            XCTAssertFalse(vm.canPlayback); XCTAssertFalse(vm.canRetry)
+            vm.strike()
+            let deadline = Date().addingTimeInterval(20)
+            while vm.phase == .computing && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+            XCTAssertEqual(vm.phase, .playing)
+            vm.suspendTeachingActivity(); vm.resumeTeachingActivity()
+            XCTAssertTrue(vm.canPlayback); XCTAssertTrue(vm.canRetry)
+            let first = try XCTUnwrap(vm.record)
+            let encoder = JSONEncoder(); encoder.outputFormatting = .sortedKeys
+            let encoded = try encoder.encode(first)
+            let quota = vm.limiter.remainingToday
+            let cue = try XCTUnwrap(vm.scene.cueBallNode), target = try XCTUnwrap(vm.targetNode)
+            let cuePosition = cue.simdPosition, targetPosition = target.simdPosition
+            let cueHidden = cue.isHidden, targetHidden = target.isHidden
+            cue.opacity = 0.6
+            let opacity = cue.opacity
+            cue.eulerAngles = SCNVector3(0.3, 0.6, 0.2)
+            let pose = cue.simdOrientation.vector
+            let camera = vm.scene.cameraNode.simdTransform
+            vm.replayLastShot()
+            XCTAssertTrue(vm.isReplaying); XCTAssertFalse(vm.canRetry); XCTAssertFalse(vm.canPlayback)
+            XCTAssertEqual(vm.primaryTitle, "停止回放")
+            XCTAssertEqual(vm.scene.currentCameraMode, is3D ? .perspective3D : .topDown2D)
+            vm.stopPlayback()
+            XCTAssertFalse(vm.isReplaying); XCTAssertEqual(vm.phase, .result)
+            XCTAssertEqual(cue.simdPosition, cuePosition); XCTAssertEqual(target.simdPosition, targetPosition)
+            XCTAssertEqual(cue.isHidden, cueHidden); XCTAssertEqual(target.isHidden, targetHidden)
+            XCTAssertEqual(cue.opacity, opacity); XCTAssertEqual(cue.simdOrientation.vector, pose)
+            XCTAssertEqual(vm.scene.cameraNode.simdTransform, camera)
+            XCTAssertEqual(try encoder.encode(vm.record), encoded)
+            XCTAssertEqual(vm.limiter.remainingToday, quota)
+
+            vm.retry(); vm.nudgeAim(2); vm.velocity = 2.25
+            let draft = vm.record?.draftDirection, retryPosition = cue.simdPosition
+            vm.replayLastShot(); vm.suspendTeachingActivity(); vm.resumeTeachingActivity()
+            XCTAssertFalse(vm.isReplaying); XCTAssertEqual(vm.phase, .aiming)
+            XCTAssertTrue(vm.isRetrying); XCTAssertEqual(vm.record?.draftDirection, draft)
+            XCTAssertEqual(vm.velocity, 2.25); XCTAssertEqual(cue.simdPosition, retryPosition)
+            XCTAssertEqual(vm.record?.currentAttempt?.id, first.currentAttempt?.id)
+            XCTAssertEqual(vm.record?.validAttempts.count, 1); XCTAssertEqual(vm.limiter.remainingToday, quota)
+            XCTAssertNotNil(vm.scene.rootNode.childNode(withName: "accuracy.aimLine", recursively: true))
+            vm.ownerChanged(); XCTAssertFalse(vm.canPlayback)
+            withExtendedLifetime(container) {}
+        }
+    }
+
     private func withAccuracyScene(is3D: Bool, _ check: (AccuracyPracticeViewModel) throws -> Void) throws {
         let container = ModelContainerFactory.makeInMemoryContainer()
         let context = ModelContext(container)

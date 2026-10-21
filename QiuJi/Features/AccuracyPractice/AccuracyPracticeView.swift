@@ -66,9 +66,10 @@ struct AccuracyPracticeView: View {
                 set: { tablePreferences.apply(.transparency, value: $0, to: vm.preferencePage) }), instrumentsEnabled: vm.canAim, assessmentMode: true,
             isAnimating: vm.phase == .playing || vm.phase == .computing, paletteEnabled: false,
             allowsPocketSelection: false, primaryTitle: vm.primaryTitle,
-            primaryEnabled: vm.phase != .computing && vm.phase != .playing && !vm.cameraTransitionBusy,
+            primaryEnabled: (vm.isReplaying || (vm.phase != .computing && vm.phase != .playing)) && !vm.cameraTransitionBusy,
             onPrimary: {
-                if vm.phase == .saveFailed { vm.retrySave() }
+                if vm.isReplaying { vm.stopPlayback() }
+                else if vm.phase == .saveFailed { vm.retrySave() }
                 else if vm.phase == .result && vm.record?.currentAttempt?.result?.countsAsAttempt == true { vm.next() }
                 else if !vm.isRetrying && !vm.is3D && limiter.isLimitReached { showSubscription = true }
                 else { vm.strike() }
@@ -101,14 +102,18 @@ struct AccuracyPracticeView: View {
                     BTTeachingAimRuler(layout: layout, enabled: vm.canAim, onNudge: { vm.nudgeAim($0) },
                         degreesPerPoint: AimWheelGain.degreesPerPoint(distanceMeters: cueDistance))
                         .accessibilityIdentifier("accuracy.aimWheel")
-                    Button { vm.retry() } label: {
-                        Image(systemName: BTIcon.replay).font(.btTitle2).frame(width: 44, height: 44)
-                    }.disabled(vm.phase != .result || vm.record?.currentAttempt?.result?.countsAsAttempt != true)
-                        .accessibilityLabel("重打").accessibilityIdentifier("accuracy.retry")
-                        .freeControlItem("shot.replay", name: "重打")
-                    if !vm.is3D && !limiter.isPremium {
-                        Text("剩余 \(limiter.remainingToday)").font(.btCaption)
-                            .accessibilityIdentifier("accuracy.remaining")
+                    let actions = layout.horizontalActions
+                        ? AnyLayout(HStackLayout(spacing: layout.groupSpacing))
+                        : AnyLayout(VStackLayout(spacing: layout.groupSpacing))
+                    actions {
+                        BTHUDCompactAction(title: "重打", symbol: "arrow.uturn.backward", size: layout.auxiliarySize) { vm.retry() }
+                            .disabled(!vm.canRetry)
+                            .accessibilityIdentifier("accuracy.retry")
+                            .freeControlItem("shot.undo", name: "重打")
+                        BTHUDCompactAction(title: "回放", symbol: "play.rectangle", size: layout.auxiliarySize) { vm.replayLastShot() }
+                            .disabled(!vm.canPlayback)
+                            .accessibilityIdentifier("accuracy.playback")
+                            .freeControlItem("shot.replay", name: "回放")
                     }
                 }.frame(width: layout.columnWidth))
             },

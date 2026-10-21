@@ -65,6 +65,32 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     private var cancellation: PredictionCancellation?
     private var draftSave: Task<Void, Never>?
     private var lastPrediction: ShotPrediction?
+    private struct RecordedShot {
+        let questionID: UUID
+        let attempt: AccuracyPracticeAttempt
+        let prediction: ShotPrediction
+        let poses: BallPoseSnapshot
+        let camera: CameraRig.PerspectiveState?
+    }
+    private struct BallDisplay {
+        let position: SCNVector3
+        let orientation: simd_quatf
+        let hidden: Bool
+        let opacity: CGFloat
+        init(_ node: SCNNode) {
+            position = node.position; orientation = node.simdOrientation
+            hidden = node.isHidden; opacity = node.opacity
+        }
+        func restore(_ node: SCNNode?) {
+            node?.position = position
+            if let node { BallSpinIntegrator.applyPose(node, orientation) }
+            node?.isHidden = hidden; node?.opacity = opacity
+        }
+    }
+    private var recordedShot: RecordedShot?
+    private var replayReturn: (phase: Phase, cue: BallDisplay, target: BallDisplay, rails: PocketRailSnapshot)?
+    private var replayCamera = ShotReplayCamera()
+    @Published private(set) var isReplaying = false
     @Published private(set) var isRetrying = false
     private var practiceAttempt: AccuracyPracticeAttempt?
     private var aimLine: SCNNode?
@@ -99,12 +125,21 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     }
     var isBusy: Bool { phase == .computing || phase == .playing || phase == .saveFailed }
     var canAim: Bool { phase == .aiming && !temporaryTopDownActive && !cameraTransitionBusy }
+    var canRetry: Bool {
+        phase == .result && record?.currentAttempt?.result?.countsAsAttempt == true
+            && !temporaryTopDownActive && !cameraTransitionBusy
+    }
+    var canPlayback: Bool {
+        (phase == .aiming || phase == .result) && recordedShot?.questionID == record?.current?.id
+            && recordedShot != nil && !temporaryTopDownActive && !cameraTransitionBusy
+    }
     var shouldFinish: Bool {
         record.map { $0.status != .active || (!$0.configuration.freePractice && $0.validAttempts.count >= 20) } == true
             || (!is3D && limiter.isLimitReached)
     }
     var primaryTitle: String {
-        switch phase {
+        if isReplaying { return "停止回放" }
+        return switch phase {
         case .computing: "计算中"; case .playing: "击球中"; case .saveFailed: "重试保存"
         case .result: record?.currentAttempt?.result?.countsAsAttempt == true ? (shouldFinish ? "查看总结" : "下一题") : "重试"
         default: !isRetrying && !is3D && limiter.isLimitReached ? "解锁Pro" : "击球"
@@ -150,7 +185,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
                 configuration: configuration, bankFingerprint: prepared.fingerprint, questions: prepared.questions)
             try repository.save(next)
             invalidate()
-            record = next; lastPrediction = nil; isRetrying = false; practiceAttempt = nil; phase = .aiming; message = prepared.samplingNotice
+            record = next; lastPrediction = nil; recordedShot = nil; isRetrying = false; practiceAttempt = nil; phase = .aiming; message = prepared.samplingNotice
             if builtScene { installQuestion() }
         } catch { message = error.localizedDescription }
     }
@@ -243,17 +278,18 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
             if isRetrying {
                 let attempt = try next.practiceAttempt()
                 practiceAttempt = attempt
-                calculate(question: question, attempt: attempt, replay: true)
+                calculate(question: question, attempt: attempt, isPractice: true)
                 return
             }
             let attempt = try next.freezeAttempt()
             try repository.save(next) // Input is durable before calculation starts.
             record = next
-            calculate(question: question, attempt: attempt, replay: false)
+            calculate(question: question, attempt: attempt, isPractice: false)
         } catch { message = error.localizedDescription }
     }
-    private func calculate(question: AccuracyPracticeQuestion, attempt: AccuracyPracticeAttempt, replay: Bool) {
+    private func calculate(question: AccuracyPracticeQuestion, attempt: AccuracyPracticeAttempt, isPractice: Bool) {
         invalidate()
+        let poses = scene.captureBallPoses(), camera = ShotReplayCamera.capture(in: scene)
         let token = generation, cancel = PredictionCancellation()
         cancellation = cancel; phase = .computing; message = nil
         calculation = Task {
@@ -267,7 +303,10 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
             calculation = nil; cancellation = nil
             lastPrediction = result
             let judged = AccuracyPracticeAttempt.Result(prediction: result, pocketIndex: question.board.pocketIndex)
-            if replay { practiceAttempt?.result = judged }
+            if result.hasFinalTableState, result.recorder != nil {
+                recordedShot = .init(questionID: question.id, attempt: attempt, prediction: result, poses: poses, camera: camera)
+            }
+            if isPractice { practiceAttempt?.result = judged }
             else {
                 _ = record?.accept(judged, attemptID: attempt.id)
                 guard save() else { phase = .saveFailed; return }
@@ -277,10 +316,10 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
             play(result)
         }
     }
-    private func play(_ prediction: ShotPrediction) {
-        guard let question = record?.current, let attempt = practiceAttempt ?? record?.currentAttempt,
+    private func play(_ prediction: ShotPrediction, replaying shot: RecordedShot? = nil) {
+        guard let question = record?.current, let attempt = shot?.attempt ?? practiceAttempt ?? record?.currentAttempt,
               let recorder = prediction.recorder else { phase = .result; return }
-        installQuestion()
+        if shot == nil { installQuestion() }
         phase = .playing
         aimLine?.removeFromParentNode()
         let token = generation
@@ -288,6 +327,10 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         let y = scene.surfaceY + BallPhysics.radius
         scene.applyBallLayout(cueBallPosition: SCNVector3(question.board.cue.x, y, question.board.cue.z),
             targetBallNumber: question.ballNumber, targetPosition: SCNVector3(question.board.target.x, y, question.board.target.z))
+        scene.railInventory.clear()
+        if let context = shot ?? recordedShot { scene.restoreBallPoses(context.poses) }
+        if let shot { replayCamera.showShot(shot.camera, in: scene, aim: attempt.direction.vector) }
+        else if let camera = recordedShot?.camera { scene.restorePerspectiveView(camera) }
         guard let cue = scene.cueBallNode else { phase = .result; return }
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: y, railInventory: scene.railInventory)
         let strike = CueStroke.strikePosition(cue: cue.position, aim: attempt.direction.vector,
@@ -306,6 +349,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
             self.scene.rootNode.runAction(.sequence([.wait(duration: duration + 0.2), .run { [weak self] _ in
                 Task { @MainActor in
                     guard let self, self.generation == token else { return }
+                    if self.isReplaying { self.stopPlayback(); return }
                     self.phase = .result; self.scene.hideCueStick()
                     if self.shouldFinish && !self.isRetrying { self.finish() }
                 }
@@ -314,13 +358,36 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     }
     /// Restore the original layout; the persisted first attempt is never replaced.
     func retry() {
-        guard phase == .result, record?.currentAttempt?.result?.countsAsAttempt == true else { return }
+        guard canRetry else { return }
         invalidate(); isRetrying = true; practiceAttempt = nil; lastPrediction = nil
         if let attempt = record?.currentAttempt {
             record?.draftDirection = attempt.direction
             record?.draftVelocity = Double(attempt.velocity)
         }
         installQuestion()
+    }
+    /// Replay the recorded trajectory without submitting, judging or saving another attempt.
+    func replayLastShot() {
+        guard canPlayback, let shot = recordedShot,
+              let cue = scene.cueBallNode, let target = targetNode else { return }
+        let state = (phase: phase, cue: BallDisplay(cue), target: BallDisplay(target), rails: scene.railInventory.snapshot())
+        invalidate()
+        replayReturn = state
+        replayCamera.begin(in: scene)
+        isReplaying = true
+        play(shot.prediction, replaying: shot)
+    }
+    func stopPlayback() {
+        guard isReplaying else { return }
+        invalidate()
+        if phase == .aiming { redrawAim() }
+    }
+    private func restoreReplay() {
+        guard let state = replayReturn else { return }
+        state.cue.restore(scene.cueBallNode); state.target.restore(targetNode)
+        scene.railInventory.restore(state.rails)
+        replayCamera.finish(in: scene)
+        replayReturn = nil; isReplaying = false; phase = state.phase
     }
     func retrySave() {
         guard phase == .saveFailed, save() else { return }
@@ -344,7 +411,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
             }
             try next.advance()
             try repository?.save(next)
-            invalidate(); record = next; lastPrediction = nil; isRetrying = false; practiceAttempt = nil
+            invalidate(); record = next; lastPrediction = nil; recordedShot = nil; isRetrying = false; practiceAttempt = nil
             message = reusedPool ? "当前条件下未练过的球形不足20题，已从当前题库重新抽取下一组。" : samplingNotice
             installQuestion()
         } catch { message = error.localizedDescription }
@@ -409,6 +476,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         scene.cueBallNode?.removeAction(forKey: "accuracy.play")
         targetNode?.removeAction(forKey: "accuracy.play")
         scene.hideCueStick(); ShotAudioScheduler.shared.cancel()
+        restoreReplay()
     }
     func suspendTeachingActivity() {
         invalidate(); _ = save()
@@ -422,7 +490,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         if phase == .aiming { redrawAim() }
     }
     func ownerChanged() {
-        invalidate(); draftSave?.cancel(); record = nil; lastPrediction = nil; isRetrying = false; practiceAttempt = nil; phase = .settings
+        invalidate(); draftSave?.cancel(); record = nil; lastPrediction = nil; recordedShot = nil; isRetrying = false; practiceAttempt = nil; phase = .settings
         message = "账号已切换，请重新开始练习。"
     }
     // Question ownership excludes all editor operations.
