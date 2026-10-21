@@ -582,18 +582,22 @@ final class ATeachingStandardsUITests: XCTestCase {
         app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
         let card = app.buttons["2D瞄准点"]
         XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
-        XCTAssertTrue(app.buttons["aimPointTraining.submit"].waitForExistence(timeout: 15))
-        let remaining = app.staticTexts["aimPointTraining.remaining"]
-        XCTAssertTrue(remaining.exists)
-        XCTAssertTrue(app.windows.firstMatch.frame.contains(remaining.frame))
+        XCTAssertTrue(app.buttons["aimPointTraining.start"].waitForExistence(timeout: 15))
+        app.buttons["aimPointTraining.start"].tap()
+        XCTAssertTrue(app.buttons["aimPointTraining.submit"].waitForExistence(timeout: 40))
+        XCTAssertFalse(app.staticTexts["aimPointTraining.remaining"].exists)
+        let answer = app.descendants(matching: .any).matching(identifier: "aimPointTraining.answerInfo").firstMatch
+        XCTAssertTrue(answer.exists)
+        XCTAssertTrue(answer.label.contains("作答")); XCTAssertTrue(answer.label.contains("均差"))
+        XCTAssertTrue(app.windows.firstMatch.frame.contains(answer.frame))
         let question = app.descendants(matching: .any).matching(identifier: "aimPointTraining.questionInfo").firstMatch
         let track = app.descendants(matching: .any).matching(identifier: "aimPointTraining.aimWheel").firstMatch
         XCTAssertTrue(track.exists)
         XCTAssertEqual(track.frame.width, 44, accuracy: 1)
         XCTAssertLessThanOrEqual(question.frame.maxY, track.frame.minY)
-        XCTAssertLessThanOrEqual(track.frame.maxY, remaining.frame.minY)
-        try geometry(["aimPointTraining.questionInfo", "aimPointTraining.remaining", "aimPointTraining.aimWheel"], name: "2D-free-capacity-44-hit")
-        capture("2D-free-remaining-and-ruler")
+        XCTAssertLessThanOrEqual(track.frame.maxY, answer.frame.minY)
+        try geometry(["aimPointTraining.questionInfo", "aimPointTraining.answerInfo", "aimPointTraining.aimWheel"], name: "2D-free-capacity-44-hit")
+        capture("2D-free-answer-status-and-ruler")
     }
 
 }
