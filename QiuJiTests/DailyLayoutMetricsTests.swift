@@ -551,4 +551,25 @@ extension DailyLayoutMetricsTests {
         XCTAssertEqual(compact.fontSize, 12)
         XCTAssertEqual(BTTablePageTitleLayout("防守", compact: true).fontSize, 13)
     }
+
+    func testTableTitlesCountModeAsOneIndivisibleUnit() {
+        for mode in ["2D", "3D"] {
+            for compact in [false, true] {
+                let title = BTTablePageTitleLayout(mode + "瞄准点", width: 50, compact: compact)
+                XCTAssertEqual(title.upper, mode + "瞄")
+                XCTAssertEqual(title.lower, "准点")
+                XCTAssertNil(title.middle, "The mode is one unit; 瞄 must not become a side column")
+                for suffix in ["角度", "准度"] {
+                    let short = BTTablePageTitleLayout(mode + suffix, compact: compact)
+                    XCTAssertEqual(short.upper, mode + suffix)
+                    XCTAssertNil(short.lower)
+                    XCTAssertNil(short.middle)
+                }
+            }
+        }
+        let atlas = BTTablePageTitleLayout("分离角图谱")
+        XCTAssertEqual(atlas.upper, "分离")
+        XCTAssertEqual(atlas.lower, "图谱")
+        XCTAssertEqual(atlas.middle, "角", "Keep the approved odd-count Chinese title design")
+    }
 }

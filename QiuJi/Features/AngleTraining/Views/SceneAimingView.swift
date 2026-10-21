@@ -215,6 +215,12 @@ struct SceneAimingView: View {
                 observationColumn.controlLayoutGroup(.camera, enabled: vm.phase != .inputting).position(x: f.right.midX - f.right.width / 2 - 26, y: f.table.midY)
             }
             questionInformation.frame(width: f.left.width).controlLayoutGroup(.information).position(x: f.left.midX, y: f.table.midY)
+            BTTeachingInformationLayer(items: trainingInformation)
+                .environment(\.teachingTableLayout, BTTeachingPageLayout(stageSize: f.stage.size,
+                    rotated: f.rotated, pointsPerMetre: ppm,
+                    instruments: BTTeachingInstrumentLayout(foundation: f), spinPadPresented: false))
+                .frame(width: f.stage.width, height: f.stage.height)
+                .position(x: f.stage.midX, y: f.stage.midY)
             actionColumn.frame(height: min(200, f.stage.height)).controlLayoutGroup(.primary, enabled: vm.phase != .inputting).position(x: f.right.midX, y: f.table.midY)
             if vm.phase == .inputting, !vm.testFinished {
                 keypadOverlay.frame(width: min(280, f.stage.width)).controlLayoutGroup(.keyboard)
@@ -304,9 +310,16 @@ struct SceneAimingView: View {
 
     private var questionInformation: some View {
         Group {
-            if vm.phase == .showingResult, let record = vm.lastRecord { resultHUD(record: record) }
-            else if vm.currentQuestion != nil { progressPill }
+            if vm.currentQuestion != nil { progressPill }
         }.accessibilityElement(children: .contain).accessibilityIdentifier("angleTraining.questionInfo")
+    }
+
+    private var trainingInformation: [BTTeachingInformation] {
+        if vm.phase == .showingResult, let record = vm.lastRecord {
+            return [.init(text: "作答 \(Int(record.userAngle))° · 答案 \(Int(record.question.actualAngle.rounded()))° · 误差 "
+                + String(format: "%.1f°", record.error), kind: .readout, identifier: "angleTraining.result")]
+        }
+        return [.init(text: "目标袋：\(targetPocketText)", kind: .readout, identifier: "angleTraining.targetPocket")]
     }
 
     // MARK: - 答题键盘浮层（G10：不改变 scene 高度）
@@ -397,18 +410,14 @@ struct SceneAimingView: View {
             if vm.phase == .observing, !vm.testFinished, vm.currentQuestion != nil,
                !vm.limiter.isLimitReached {
                 Button { vm.toggleAimingAssist() } label: {
-                    Text(vm.showAimingAssist ? "隐藏" : "辅助")
+                    Text("辅助")
                         .font(.btSubheadlineSemibold)
-                        .foregroundStyle(vm.showAimingAssist ? HUDStyle.accent : .white)
                         .frame(width: 52, height: 52)
-                        .background { BTHUDControlBackground(shape: Circle()) }
-                        .overlay(Circle()
-                            .stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
                 }
-                .buttonStyle(BTHUDPressStyle())
+                .buttonStyle(DailyStrikeButtonStyle())
                 .accessibilityIdentifier("angleTraining.assist")
                 .accessibilityValue(vm.showAimingAssist ? "已开启" : "已关闭")
-                .freeControlItem("angle.assist", name: "瞄准辅助")
+                .freeControlItem("angle.assist", name: "辅助")
                 primaryAction("答题") { vm.openAnswerInput() }
                     .freeControlItem("angle.answer", name: "答题")
             } else if vm.phase == .showingResult, !vm.testFinished {
@@ -432,27 +441,17 @@ struct SceneAimingView: View {
 
     // MARK: - Top progress pill (observing / inputting)
 
-    /// 统计 chip 前缀（题/袋/差/剩余，T-P18-49 / D9）：与几何角度训练同一 `BTReadout` 语法。
+    /// Angle prediction has no direction ruler; retain the same question/statistics ordering.
     private var progressPill: some View {
         VStack(spacing: Spacing.sm) {
             sideMetric("题目", value: progressText)
-            sideMetric("目标袋", value: targetPocketText)
-            sideMetric("作答", value: vm.run.assistance.isEmpty ? "独立" : "用过辅助")
-            liveMetrics
-            if !vm.limiter.isPremium {
-                sideMetric("剩余", value: "\(vm.limiter.remainingToday)")
-            }
+            let metrics = SceneTrainingMetrics(samples: vm.run.firstAnswers, unit: "°")
+            sideMetric("正确率", value: metrics.rate)
+            sideMetric("作答", value: vm.run.assistance.isEmpty ? "独立" : "辅助")
+            sideMetric("均差", value: metrics.mean)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Spacing.xs)
-    }
-
-    private var liveMetrics: some View {
-        let metrics = SceneTrainingMetrics(samples: vm.run.firstAnswers, unit: "°")
-        return VStack(spacing: 4) {
-            sideMetric("正确率", value: metrics.rate)
-            sideMetric("均差", value: metrics.mean)
-        }
     }
 
     private func sideMetric(_ label: String, value: String, color: Color = .white) -> some View {
@@ -476,23 +475,6 @@ struct SceneAimingView: View {
     private var targetPocketText: String {
         guard let question = vm.currentQuestion else { return "—" }
         return PocketDisplay.name(index: question.pocketIndex, orientation: .init(portrait: portrait))
-    }
-
-    // MARK: - Top result HUD
-
-    private func resultHUD(record: AimingQuizViewModel.AnswerRecord) -> some View {
-        VStack(spacing: Spacing.sm) {
-            Text(vm.errorRating.label).font(.btCaption.weight(.semibold))
-                .foregroundStyle(vm.errorRating.color)
-            sideMetric("作答", value: "\(Int(record.userAngle))°")
-            sideMetric("答案", value: "\(Int(record.question.actualAngle.rounded()))°", color: HUDStyle.accent)
-            sideMetric("误差", value: String(format: "%.1f°", record.error), color: vm.errorRating.color)
-            Text(record.error < 0.05 ? "一致" : (record.userAngle > record.question.actualAngle ? "估大" : "估小")).font(.btCaption)
-            Text(vm.run.assistance.isEmpty ? "独立作答" : "辅助作答").font(.btCaption2)
-            liveMetrics
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, Spacing.xs)
     }
 
     private var nextButtonTitle: String {

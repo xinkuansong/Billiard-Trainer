@@ -1,6 +1,77 @@
 import XCTest
 
 final class SixTrainingUnifiedUITests: XCTestCase {
+    func testSixPagesTrainingInformationAndStableRuler() {
+        continueAfterFailure = false
+        var rulerFrames: [String: CGRect] = [:]
+        for title in ["2D角度", "3D角度", "2D瞄准点", "3D瞄准点", "2D准度", "3D准度"] {
+            let app = open(title)
+            defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
+            let accuracy = title.contains("准度"), aimPoint = title.contains("瞄准点")
+            let prefix = accuracy ? "accuracy" : aimPoint ? "aimPointTraining" : "angleTraining"
+            func node(_ id: String) -> XCUIElement {
+                app.descendants(matching: .any).matching(identifier: id).firstMatch
+            }
+            app.buttons[prefix + ".start"].tap()
+            let primary = app.buttons[accuracy ? "accuracy.strike" : aimPoint ? "aimPointTraining.submit" : "angleTraining.primaryAction"]
+            ready(primary)
+            let header = accuracy
+                ? app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", title)).firstMatch
+                : node("training.pageTitle")
+            XCTAssertTrue(header.exists); XCTAssertEqual(header.label, title)
+            XCTAssertFalse(node(prefix + ".remaining").exists)
+            XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "剩余 ")).firstMatch.exists)
+            capture(title + "-information-initial")
+            if accuracy {
+                rulerFrames[title] = node("accuracy.aimWheel").frame
+                continue
+            }
+            let assist = app.buttons[aimPoint ? "aimPointTraining.angleHint" : "angleTraining.assist"]
+            ready(assist); XCTAssertEqual(assist.label, "辅助")
+            let ruler = node("aimPointTraining.aimWheel")
+            let initialFrame = aimPoint ? ruler.frame : .zero
+            if aimPoint {
+                rulerFrames[title] = initialFrame
+                let top = node(prefix + ".questionInfo"), bottom = node(prefix + ".answerInfo")
+                XCTAssertTrue(top.label.contains("1/20")); XCTAssertTrue(top.label.contains("正确率"))
+                XCTAssertFalse(top.label.contains("均差")); XCTAssertFalse(top.label.contains("作答"))
+                XCTAssertTrue(bottom.label.contains("独立")); XCTAssertTrue(bottom.label.contains("均差"))
+                XCTAssertLessThanOrEqual(top.frame.maxY, initialFrame.minY)
+                XCTAssertGreaterThanOrEqual(bottom.frame.minY, initialFrame.maxY)
+            }
+            assist.tap(); XCTAssertEqual(assist.label, "辅助"); XCTAssertEqual(assist.value as? String, "已开启")
+            if aimPoint {
+                XCTAssertTrue(node(prefix + ".answerInfo").label.contains("辅助"))
+                XCTAssertEqual(ruler.frame.minY, initialFrame.minY, accuracy: 1)
+            }
+            capture(title + "-assisted")
+            assist.tap(); XCTAssertEqual(assist.value as? String, "已关闭")
+            primary.tap()
+            if !aimPoint {
+                ready(app.buttons["0"].firstMatch); app.buttons["0"].firstMatch.tap()
+                app.buttons["提交"].tap()
+            }
+            let next = app.buttons[aimPoint ? "aimPointTraining.next" : "angleTraining.primaryAction"]
+            ready(next)
+            XCTAssertTrue(node(prefix + ".result").exists)
+            if aimPoint {
+                XCTAssertTrue(node(prefix + ".questionInfo").label.contains("1/20"))
+                XCTAssertEqual(ruler.frame.minY, initialFrame.minY, accuracy: 1)
+            }
+            capture(title + "-submitted")
+            next.tap(); ready(assist)
+            if aimPoint {
+                XCTAssertTrue(node(prefix + ".questionInfo").label.contains("2/20"))
+                XCTAssertTrue(node(prefix + ".answerInfo").label.contains("独立"))
+                XCTAssertEqual(ruler.frame.minY, initialFrame.minY, accuracy: 1)
+            }
+        }
+        for mode in ["2D", "3D"] {
+            XCTAssertEqual(rulerFrames[mode + "瞄准点"]!.minY, rulerFrames[mode + "准度"]!.minY, accuracy: 1)
+            XCTAssertEqual(rulerFrames[mode + "瞄准点"]!.height, rulerFrames[mode + "准度"]!.height, accuracy: 1)
+        }
+    }
+
     func testAccuracyStandardRetryAndRecordedPlayback() {
         continueAfterFailure = false
         for title in ["2D准度", "3D准度"] {

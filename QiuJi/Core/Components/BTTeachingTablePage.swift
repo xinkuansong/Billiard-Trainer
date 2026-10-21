@@ -938,8 +938,8 @@ private struct BTTeachingInformationWideHeightKey: PreferenceKey {
 }
 
 /// Uses the actual font's advance to choose a line, without expanding the header
-/// or shrinking the palette. For an odd count, the middle character occupies a
-/// separate right-hand column centred vertically between the two equal rows.
+/// or shrinking the palette. 2D/3D are indivisible display units. For an odd count,
+/// the middle unit occupies a right-hand column centred between the two equal rows.
 struct BTTablePageTitleLayout: Equatable {
     let upper: String
     let lower: String?
@@ -950,16 +950,28 @@ struct BTTablePageTitleLayout: Equatable {
     init(_ text: String, width: CGFloat = 60, compact: Bool = false) {
         let characters = Array(text.filter { !$0.isNewline })
         let clean = String(characters)
+        var units: [String] = []
+        var index = 0
+        while index < characters.count {
+            if (characters[index] == "2" || characters[index] == "3"),
+               index + 1 < characters.count, characters[index + 1] == "D" {
+                units.append(String(characters[index...index + 1]))
+                index += 2
+            } else {
+                units.append(String(characters[index]))
+                index += 1
+            }
+        }
         let singleSize: CGFloat = compact ? 13 : 15
         let font = UIFont.systemFont(ofSize: singleSize, weight: .semibold)
         self.width = max(0, width)
         if (clean as NSString).size(withAttributes: [.font: font]).width <= self.width {
             upper = clean; lower = nil; middle = nil; fontSize = singleSize
         } else {
-            let count = characters.count / 2
-            upper = String(characters.prefix(count))
-            lower = String(characters.suffix(count))
-            middle = characters.count.isMultiple(of: 2) ? nil : String(characters[count])
+            let count = units.count / 2
+            upper = units.prefix(count).joined()
+            lower = units.suffix(count).joined()
+            middle = units.count.isMultiple(of: 2) ? nil : units[count]
             fontSize = compact ? 12 : 13
         }
     }

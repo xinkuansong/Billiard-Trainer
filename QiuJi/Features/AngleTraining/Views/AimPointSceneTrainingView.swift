@@ -635,18 +635,17 @@ struct AimPointSceneTrainingView: View {
                 })
                 .position(x: f.stage.midX, y: f.stage.midY).allowsHitTesting(false)
             VStack(spacing: instruments.groupSpacing) {
-                questionInformation.frame(height: instruments.topDiameter + 76)
+                // Match the shared instrument entry. Statistics must not move the ruler.
+                Color.clear.frame(height: instruments.topDiameter + 14)
+                    .overlay { questionInformation }
                 BTTeachingAimRuler(layout: instruments,
                     enabled: canAim && !vm.temporaryTopDownActive,
                     onNudge: { vm.nudgeAim(byDegrees: $0) }, degreesPerPoint: vm.aimWheelDegreesPerPoint,
                     onDragActiveChanged: { draggingAimWheel = $0; vm.setAimWheelDragging($0) })
                     .accessibilityIdentifier("aimPointTraining.aimWheel")
-                if !vm.limiter.isPremium {
-                    Text("剩余 \(vm.limiter.remainingToday)").font(.btCaption)
-                        .foregroundStyle(HUDStyle.labelColor)
-                        .accessibilityIdentifier("aimPointTraining.remaining")
-                }
-            }.frame(width: f.left.width)
+                answerInformation
+            }.fixedSize(horizontal: false, vertical: true)
+                .frame(width: f.left.width)
                 .controlLayoutGroup(.direction)
                 .frame(width: f.left.width, height: f.left.height, alignment: .top)
                 .position(x: f.left.midX, y: f.left.midY)
@@ -661,12 +660,12 @@ struct AimPointSceneTrainingView: View {
                 Spacer(minLength: 0)
                 if vm.phase == .aiming {
                     Button { vm.toggleAngleHint() } label: {
-                        Text(vm.showAngleHint ? "收起提示" : "角度提示").font(.btCaption)
-                            .foregroundStyle(vm.showAngleHint ? HUDStyle.accent : .white)
+                        Text("辅助").font(.btSubheadlineSemibold)
                             .frame(width: 52, height: 52)
-                            .background { BTHUDControlBackground(shape: Circle()) }
-                    }.buttonStyle(BTHUDPressStyle()).disabled(!canAim).accessibilityIdentifier("aimPointTraining.angleHint")
-                    .freeControlItem("aimPoint.hint", name: "角度提示")
+                    }.buttonStyle(DailyStrikeButtonStyle()).disabled(!canAim)
+                        .accessibilityIdentifier("aimPointTraining.angleHint")
+                        .accessibilityValue(vm.showAngleHint ? "已开启" : "已关闭")
+                    .freeControlItem("aimPoint.hint", name: "辅助")
                     Button { vm.submit() } label: {
                         Text("提交").font(.btSubheadlineSemibold).frame(width: 52, height: 52)
                     }.buttonStyle(DailyStrikeButtonStyle()).disabled(!canAim)
@@ -803,6 +802,10 @@ struct AimPointSceneTrainingView: View {
     }
 
     private var trainingInformation: [BTTeachingInformation] {
+        if vm.phase == .showingResult, let score = vm.lastScore {
+            let error = score.millimetres.map { String(format: " · 误差 %.1fmm", abs($0)) } ?? ""
+            return [.init(text: score.label + error, kind: .readout, identifier: "aimPointTraining.result")]
+        }
         if vm.phase == .aiming, vm.showAngleHint, let question = vm.question {
             return [.init(text: "本题瞄准角：\(Int(question.actualAngle.rounded()))°", identifier: "aimPointTraining.angleHintText")]
         }
@@ -810,28 +813,26 @@ struct AimPointSceneTrainingView: View {
     }
 
     private var questionInformation: some View {
-        VStack(spacing: 2) {
-            if vm.phase == .showingResult, let score = vm.lastScore {
-                Text(score.label).foregroundStyle(HUDStyle.labelColor)
-                if let error = score.millimetres {
-                    Text(String(format: "%.1fmm", abs(error)))
-                        .foregroundStyle(abs(error) <= 2 ? Color.btSuccess : abs(error) <= 6 ? .btWarning : .btDestructive)
-                    Text(abs(error) <= 2 ? "接近标准" : abs(error) <= 6 ? "有偏差" : "偏差较大")
-                        .foregroundStyle(HUDStyle.labelColor)
-                }
-            } else {
-                Text("题目").foregroundStyle(HUDStyle.labelColor)
-                Text("\(vm.run.firstAnswers.count + 1)" + (vm.run.configuration.freePractice ? "" : "/20"))
-            }
-            Text("作答").foregroundStyle(HUDStyle.labelColor)
-            Text(vm.run.assistance.isEmpty ? "独立" : "辅助")
-            let metrics = SceneTrainingMetrics(samples: vm.run.firstAnswers, unit: "mm")
+        let metrics = SceneTrainingMetrics(samples: vm.run.firstAnswers, unit: "mm")
+        let number = vm.run.firstAnswers.count + (vm.run.submitted ? 0 : 1)
+        return VStack(spacing: 0) {
+            Text("题目").foregroundStyle(HUDStyle.labelColor)
+            Text("\(max(1, number))" + (vm.run.configuration.freePractice ? "" : "/20"))
             Text("正确率").foregroundStyle(HUDStyle.labelColor)
             Text(metrics.rate)
+        }.font(.btCaption2).monospacedDigit().foregroundStyle(.white)
+            .accessibilityElement(children: .combine).accessibilityIdentifier("aimPointTraining.questionInfo")
+    }
+
+    private var answerInformation: some View {
+        let metrics = SceneTrainingMetrics(samples: vm.run.firstAnswers, unit: "mm")
+        return VStack(spacing: 0) {
+            Text("作答").foregroundStyle(HUDStyle.labelColor)
+            Text(vm.run.assistance.isEmpty ? "独立" : "辅助")
             Text("均差").foregroundStyle(HUDStyle.labelColor)
             Text(metrics.mean)
-        }.font(.btCaption).monospacedDigit().foregroundStyle(.white)
-            .accessibilityElement(children: .combine).accessibilityIdentifier("aimPointTraining.questionInfo")
+        }.font(.btCaption2).monospacedDigit().foregroundStyle(.white)
+            .accessibilityElement(children: .combine).accessibilityIdentifier("aimPointTraining.answerInfo")
     }
 
     private func playingRect(size: CGSize, halfL: Double, halfW: Double, rotated: Bool) -> CGRect {
