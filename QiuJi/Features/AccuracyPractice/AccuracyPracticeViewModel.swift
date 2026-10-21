@@ -155,7 +155,9 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         } catch { message = error.localizedDescription }
     }
     func setupScene() {
-        guard !builtScene else { installQuestion(); return }
+        // A new SwiftUI host (for example after cancelling settings) must not
+        // reinstall the question or replace the restored business phase.
+        guard !builtScene else { resumeTeachingActivity(); return }
         builtScene = true
         scene.configureReferenceTableRendering()
         if is3D { scene.configureShotAwareCamera() }
@@ -218,6 +220,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         aimLine = scene.addLine(from: SCNVector3(cue.position.x, y, cue.position.z),
             to: SCNVector3(Float(resolution.lineEnd.x), y, Float(resolution.lineEnd.y)),
             color: TrajectoryStyle.TrainingAssist.aimLine, placement: .table)
+        aimLine?.name = "accuracy.aimLine"
         scene.updateCueStick(cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: aim,
             spinX: Double(tip.x), spinY: Double(tip.y)), aimDirection: aim)
     }
@@ -412,7 +415,11 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         if phase == .playing || phase == .computing { phase = .result; showSavedFinalPositions() }
     }
     func resumeTeachingActivity() {
-        if builtScene { scene.isPaused = false }
+        guard builtScene else { return }
+        scene.isPaused = false
+        // Suspension removes transient aim visuals, not the question/draft.
+        // Results and summaries retain their displayed table and business phase.
+        if phase == .aiming { redrawAim() }
     }
     func ownerChanged() {
         invalidate(); draftSave?.cancel(); record = nil; lastPrediction = nil; isRetrying = false; practiceAttempt = nil; phase = .settings

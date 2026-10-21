@@ -1935,6 +1935,7 @@ struct AngleSceneView: UIViewRepresentable {
                 return ["index": index, "screen": [p.x, p.y]]
             }
             data["cueVisible"] = scene.cueStick?.rootNode.isHidden == false
+            data["accuracyAimVisible"] = scene.rootNode.childNode(withName: "accuracy.aimLine", recursively: true) != nil
             data["standardTemporaryTable"] = mergedOverlay != nil && usesStandardTemporaryTable
             let renderedFrame = displayed.convert(displayed.bounds, to: nil)
             data["displayedViewport"] = [renderedFrame.minX, renderedFrame.minY, renderedFrame.width, renderedFrame.height]

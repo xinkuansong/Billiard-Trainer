@@ -380,7 +380,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         .onChange(of: size) { _, _ in menu = nil; showSpinPad = false }
         .onChange(of: vm.temporaryTopDownActive) { _, active in if active { showSpinPad = false } }
         .onPreferenceChange(TeachingCameraFrame.self) { cameraReadableFrame = $0 }
-        .background(Color.clear.accessibilityElement().accessibilityIdentifier("\(identifier).template"))
+        .background(Color.clear.accessibilityElement().accessibilityLabel(titleLabel).accessibilityIdentifier("\(identifier).template"))
     }
 
     private func navigationTitle(compact: Bool) -> some View {

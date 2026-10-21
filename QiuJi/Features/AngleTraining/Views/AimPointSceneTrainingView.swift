@@ -542,7 +542,7 @@ struct AimPointSceneTrainingView: View {
             if editingControlLayout { vm.scene.isPaused = scenePausedBeforeLayout }
             endLayoutTouches(); vm.stopTraining()
         }
-        .onChange(of: scenePhase) { _, phase in if phase != .active { endLayoutTouches() } }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { endLayoutTouches(); vm.endTemporaryTopDown() } }
         .onReceive(subscriptionManager.$isPremium) { vm.limiter.isPremium = $0 }
         .sheet(isPresented: $showSubscription) { SubscriptionView().environmentObject(subscriptionManager) }
         .sheet(isPresented: $vm.showSettings) { NavigationStack { settingsContent } }
@@ -608,7 +608,8 @@ struct AimPointSceneTrainingView: View {
                             Image(systemName: "chevron.left").font(.btTitle2)
                                 .frame(width: 44, height: 44).contentShape(Rectangle())
                         }.accessibilityLabel("返回").accessibilityIdentifier("aimPointTraining.back")
-                        BTTrainingPageTitle(text: title)
+                        BTTablePageTitle(title, fitsLongText: true)
+                            .accessibilityIdentifier("training.pageTitle")
                     }.fixedSize(horizontal: true, vertical: false)
                 }, actions: {
                     Button { showMenu = true } label: {
@@ -623,11 +624,11 @@ struct AimPointSceneTrainingView: View {
                         .accessibilityLabel("\(PositionPlayBall.shortLabel(for: key))号球")
                         .accessibilityValue(selected ? "当前目标球" : "参考球")
                         .accessibilityIdentifier("aimPointTraining.ball." + key)
-                }, paletteMarker: { Color.clear.accessibilityElement().accessibilityIdentifier("aimPointTraining.palette") })
+                }, paletteMarker: { Color.clear.accessibilityElement().accessibilityLabel("题目球库").accessibilityIdentifier("aimPointTraining.palette") })
                 .background(DailyWindowControlInsets { controls, window, visible in
                     windowControls = controls; windowSafeArea = window; systemStatusVisible = visible
                 }.allowsHitTesting(false))
-            Color.clear.accessibilityElement().accessibilityIdentifier("aimPointTraining.stage")
+            Color.clear.accessibilityElement().accessibilityLabel("瞄准点训练球桌区域").accessibilityIdentifier("aimPointTraining.stage")
                 .frame(width: f.stage.width, height: f.stage.height)
                 .background(GeometryReader { g in
                     Color.clear.preference(key: AimPointReadableFrame.self, value: g.frame(in: .global))
@@ -697,7 +698,7 @@ struct AimPointSceneTrainingView: View {
                 SceneTrainingSummary(samples: vm.run.firstAnswers, unit: "mm", onClose: { dismiss() }, onRestart: {
                     vm.limiter.refreshDay()
                     if vm.limiter.isLimitReached { showSubscription = true }
-                    else { hasStarted = false; vm.finished = false }
+                    else { vm.showSettings = true }
                 }).frame(width: min(520, size.width - 16))
                     .position(x: size.width / 2, y: size.height / 2)
             }
@@ -721,7 +722,8 @@ struct AimPointSceneTrainingView: View {
                     .opacity(is3D || cameraReadableFrame != nil ? 1 : 0).allowsHitTesting(!showMenu)
             }.ignoresSafeArea()
         }
-        .background { DailyCarpetBackground(style: preferences.roomStyle, pointsPerMetre: ppm).ignoresSafeArea() }
+        .background { DailyCarpetBackground(style: preferences.roomStyle, pointsPerMetre: ppm).ignoresSafeArea()
+                .accessibilityRepresentation { EmptyView() } }
         .environment(\.colorScheme, .dark).environment(\.dailyHUDControls, true)
         .controlLayoutHost(page: preferencePage, mode: is3D ? .threeD : .twoD, size: size,
             leading: f.left, trailing: f.right, defaultFits: f.fits && plan.fits,
@@ -732,7 +734,7 @@ struct AimPointSceneTrainingView: View {
         #if DEBUG
         .background {
             if DailyLayoutProbe.enabled {
-                Color.clear.accessibilityElement().accessibilityIdentifier("aimPointTraining.layoutState")
+                Color.clear.accessibilityElement().accessibilityLabel("瞄准点训练状态").accessibilityIdentifier("aimPointTraining.layoutState")
                     .accessibilityValue("run=\(vm.run.id);question=\(String(describing: vm.question));phase=\(vm.phase);aim=\(String(describing: vm.currentPlayerAim));submitted=\(vm.run.submitted);answers=\(vm.run.firstAnswers.count);quiz=\(vm.quizTypeLabel);finished=\(vm.finished);error=\(String(describing: vm.lastErrorMM));assistance=\(vm.run.assistance)")
             }
         }

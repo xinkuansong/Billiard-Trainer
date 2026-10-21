@@ -5,9 +5,16 @@ import CryptoKit
 /// v2 owns a separate file. The legacy archive remains untouched for explicit migration.
 @MainActor
 final class FreeControlLayoutStore: ObservableObject {
-    static let shared = FreeControlLayoutStore(storage: ControlLayoutFileStorage(
-        url: ControlLayoutFileStorage.application.url.deletingLastPathComponent().appendingPathComponent("layouts-v2.json")),
-        legacyStorage: ControlLayoutFileStorage.application)
+    static let shared: FreeControlLayoutStore = {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-freeLayout.ephemeral") {
+            return FreeControlLayoutStore(storage: EphemeralControlLayoutStorage())
+        }
+        #endif
+        return FreeControlLayoutStore(storage: ControlLayoutFileStorage(
+            url: ControlLayoutFileStorage.application.url.deletingLastPathComponent().appendingPathComponent("layouts-v2.json")),
+            legacyStorage: ControlLayoutFileStorage.application)
+    }()
     @Published private(set) var archive = FreeControlArchive()
     @Published private(set) var loadError: String?
     @Published private(set) var legacyArchive: ControlLayoutArchive?
@@ -363,6 +370,18 @@ protocol ControlLayoutStorage {
     func writeAtomically(_ data: Data) throws
     func preserve(_ data: Data) throws
 }
+
+#if DEBUG
+/// UI tests can exercise a pristine default without deleting saved device layouts
+/// or converting that default into a fixed, user-created template.
+@MainActor
+private final class EphemeralControlLayoutStorage: ControlLayoutStorage {
+    private var data: Data?
+    func read() throws -> Data? { data }
+    func writeAtomically(_ data: Data) throws { self.data = data }
+    func preserve(_ data: Data) throws {}
+}
+#endif
 
 @MainActor
 struct ControlLayoutFileStorage: ControlLayoutStorage {

@@ -1,9 +1,114 @@
 import XCTest
 import SceneKit
+import SwiftData
 @testable import QiuJi
 
 @MainActor
 final class SixTrainingUnifiedTests: XCTestCase {
+    private func withAccuracyScene(is3D: Bool, _ check: (AccuracyPracticeViewModel) throws -> Void) throws {
+        let container = ModelContainerFactory.makeInMemoryContainer()
+        let context = ModelContext(container)
+        let vm = AccuracyPracticeViewModel(is3D: is3D)
+        let wasPremium = vm.limiter.isPremium
+        vm.limiter.isPremium = true
+        defer { vm.suspendTeachingActivity(); vm.limiter.isPremium = wasPremium }
+        vm.attach(context: context)
+        vm.start(.init(), prepared: try AccuracyPreparedRound.prepare(.init(), excluding: [], seed: 20261021))
+        vm.setupScene()
+        vm.cameraTransitionBusy = false
+        try check(vm)
+        withExtendedLifetime(container) {}
+    }
+
+    func testBackgroundRestoresAimWithoutChangingQuestionDraftOrPoses() throws {
+        for is3D in [false, true] {
+            try withAccuracyScene(is3D: is3D) { vm in
+                vm.nudgeAim(1.5); vm.velocity = 2.25
+                let record = try XCTUnwrap(vm.record)
+                let cue = try XCTUnwrap(vm.scene.cueBallNode)
+                let target = try XCTUnwrap(vm.targetNode)
+                let cuePosition = cue.simdPosition, targetPosition = target.simdPosition
+                let cuePose = cue.simdOrientation, targetPose = target.simdOrientation
+                for _ in 0..<3 {
+                    XCTAssertNotNil(vm.scene.rootNode.childNode(withName: "accuracy.aimLine", recursively: true))
+                    vm.suspendTeachingActivity()
+                    XCTAssertNil(vm.scene.rootNode.childNode(withName: "accuracy.aimLine", recursively: true))
+                    vm.resumeTeachingActivity()
+                    XCTAssertEqual(vm.phase, .aiming)
+                    XCTAssertNotNil(vm.scene.rootNode.childNode(withName: "accuracy.aimLine", recursively: true))
+                    XCTAssertFalse(try XCTUnwrap(vm.scene.cueStick).rootNode.isHidden)
+                    XCTAssertEqual(vm.record?.id, record.id)
+                    XCTAssertEqual(vm.record?.cursor, record.cursor)
+                    XCTAssertEqual(vm.record?.draftDirection, record.draftDirection)
+                    XCTAssertEqual(vm.velocity, 2.25)
+                    XCTAssertEqual(vm.tip.x, record.current?.fixedTip.x)
+                    XCTAssertEqual(vm.tip.y, record.current?.fixedTip.y)
+                    XCTAssertEqual(vm.record?.validAttempts.count, 0)
+                    XCTAssertEqual(cue.simdPosition, cuePosition); XCTAssertEqual(target.simdPosition, targetPosition)
+                    XCTAssertEqual(cue.simdOrientation.vector, cuePose.vector)
+                    XCTAssertEqual(target.simdOrientation.vector, targetPose.vector)
+                }
+            }
+        }
+    }
+
+    func testInterruptedCalculationRetainsFrozenAttemptWithoutScoringIt() throws {
+        for is3D in [false, true] {
+            try withAccuracyScene(is3D: is3D) { vm in
+                vm.strike()
+                XCTAssertEqual(vm.phase, .computing)
+                let record = try XCTUnwrap(vm.record)
+                let attempt = try XCTUnwrap(record.currentAttempt)
+                vm.suspendTeachingActivity()
+                vm.setupScene(); vm.resumeTeachingActivity()
+                XCTAssertEqual(vm.phase, .result)
+                XCTAssertEqual(vm.primaryTitle, "重试")
+                XCTAssertEqual(vm.record?.currentAttempt?.id, attempt.id)
+                XCTAssertEqual(vm.record?.cursor, record.cursor)
+                XCTAssertEqual(vm.record?.draftDirection, record.draftDirection)
+                XCTAssertNil(vm.record?.currentAttempt?.result)
+                XCTAssertEqual(vm.record?.validAttempts.count, 0)
+                XCTAssertNil(vm.scene.rootNode.action(forKey: "accuracy.clock"))
+            }
+        }
+    }
+
+    func testCancellingRestartPreservesSummaryAcrossHostRecreation() throws {
+        for is3D in [false, true] {
+            try withAccuracyScene(is3D: is3D) { vm in
+                vm.finish()
+                let record = try XCTUnwrap(vm.record)
+                XCTAssertEqual(vm.phase, .summary)
+                vm.openSettings(); vm.suspendTeachingActivity()
+                XCTAssertTrue(vm.cancelSettings())
+                vm.setupScene()
+                vm.resumeTeachingActivity()
+                XCTAssertEqual(vm.phase, .summary)
+                XCTAssertEqual(vm.record?.id, record.id)
+                XCTAssertEqual(vm.record?.status, .ended)
+                XCTAssertEqual(vm.record?.validAttempts.count, 0)
+                XCTAssertNil(vm.scene.rootNode.childNode(withName: "accuracy.aimLine", recursively: true))
+            }
+        }
+    }
+
+    func testCancellingSettingsDuringAimingPreservesDraftAcrossHostRecreation() throws {
+        for is3D in [false, true] {
+            try withAccuracyScene(is3D: is3D) { vm in
+                vm.nudgeAim(-2); vm.velocity = 3
+                let direction = vm.record?.draftDirection
+                let question = vm.record?.current?.id
+                vm.openSettings(); vm.suspendTeachingActivity()
+                XCTAssertTrue(vm.cancelSettings())
+                vm.setupScene()
+                XCTAssertEqual(vm.phase, .aiming)
+                XCTAssertEqual(vm.record?.draftDirection, direction)
+                XCTAssertEqual(vm.record?.current?.id, question)
+                XCTAssertEqual(vm.velocity, 3)
+                XCTAssertNotNil(vm.scene.rootNode.childNode(withName: "accuracy.aimLine", recursively: true))
+            }
+        }
+    }
     func testIndependentAllowancesPersistAndRollOverWithoutChangingPredictionQuota() throws {
         let name = "six-training-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))

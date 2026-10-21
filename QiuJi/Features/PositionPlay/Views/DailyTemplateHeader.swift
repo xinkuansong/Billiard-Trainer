@@ -66,10 +66,10 @@ struct DailyTemplateHeader<Title: View, Actions: View, Ball: View, Marker: View>
                         targetRow(Array(grid.prefix(split)), plan: plan)
                         targetRow(Array(grid.dropFirst(split)), plan: plan)
                     }
-                    .background(Color.clear.accessibilityElement().accessibilityIdentifier("dailyClearance.twoRowPalette"))
+                    .background(Color.clear.accessibilityElement().accessibilityLabel("球库区域").accessibilityIdentifier("dailyClearance.twoRowPalette"))
                 } else {
                     targetRow(targets, plan: plan)
-                        .background(Color.clear.accessibilityElement().accessibilityIdentifier("dailyClearance.singleRowPalette"))
+                        .background(Color.clear.accessibilityElement().accessibilityLabel("球库区域").accessibilityIdentifier("dailyClearance.singleRowPalette"))
                 }
             }
             .frame(width: paletteWidth, height: paletteHeight)

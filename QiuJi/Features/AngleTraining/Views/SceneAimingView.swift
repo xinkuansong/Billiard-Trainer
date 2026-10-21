@@ -113,7 +113,7 @@ struct SceneAimingView: View {
             if editingControlLayout { vm.scene.isPaused = scenePausedBeforeLayout }
             observingCamera = false; vm.endTemporaryTopDown()
         }
-        .onChange(of: scenePhase) { _, phase in if phase != .active { observingCamera = false } }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { observingCamera = false; vm.endTemporaryTopDown() } }
         .onReceive(subscriptionManager.$isPremium) { premium in
             vm.limiter.isPremium = premium
         }
@@ -180,7 +180,8 @@ struct SceneAimingView: View {
                             Image(systemName: "chevron.left").font(.btTitle2)
                                 .frame(width: 44, height: 44).contentShape(Rectangle())
                         }.accessibilityLabel("返回").accessibilityIdentifier("angleTraining.back")
-                        BTTrainingPageTitle(text: is3D ? "3D角度" : "2D角度")
+                        BTTablePageTitle(is3D ? "3D角度" : "2D角度", fitsLongText: true)
+                            .accessibilityIdentifier("training.pageTitle")
                             .background(GeometryReader { g in
                                 Color.clear.preference(key: AngleQuizTitleSize.self, value: g.size)
                             })
@@ -200,11 +201,11 @@ struct SceneAimingView: View {
                         .accessibilityLabel("\(PositionPlayBall.shortLabel(for: key))号球")
                         .accessibilityValue(selected ? "当前目标球" : "参考球")
                         .accessibilityIdentifier("angleTraining.ball." + key)
-                }, paletteMarker: { Color.clear.accessibilityElement().accessibilityIdentifier("angleTraining.palette") })
+                }, paletteMarker: { Color.clear.accessibilityElement().accessibilityLabel("题目球库").accessibilityIdentifier("angleTraining.palette") })
                 .background(DailyWindowControlInsets { controls, window, visible in
                     windowControls = controls; windowSafeArea = window; systemStatusVisible = visible
                 }.allowsHitTesting(false))
-            Color.clear.accessibilityElement().accessibilityIdentifier("angleTraining.stage")
+            Color.clear.accessibilityElement().accessibilityLabel("角度训练球桌区域").accessibilityIdentifier("angleTraining.stage")
                 .frame(width: f.stage.width, height: f.stage.height)
                 .background(GeometryReader { g in
                     Color.clear.preference(key: AngleQuizReadableFrame.self, value: g.frame(in: .global))
@@ -256,6 +257,7 @@ struct SceneAimingView: View {
         }
         .background {
             DailyCarpetBackground(style: preferences.roomStyle, pointsPerMetre: ppm).ignoresSafeArea()
+                .accessibilityRepresentation { EmptyView() }
         }
         .environment(\.colorScheme, .dark).environment(\.dailyHUDControls, true)
         .controlLayoutHost(page: preferencePage, mode: is3D ? .threeD : .twoD, size: size,
@@ -268,7 +270,7 @@ struct SceneAimingView: View {
         #if DEBUG
         .background {
             if DailyLayoutProbe.enabled {
-                Color.clear.accessibilityElement().accessibilityIdentifier("angleTraining.layoutState")
+                Color.clear.accessibilityElement().accessibilityLabel("角度训练状态").accessibilityIdentifier("angleTraining.layoutState")
                     .accessibilityValue("run=\(vm.run.id);question=\(String(describing: vm.currentQuestion));index=\(vm.questionIndex);phase=\(vm.phase);input=\(vm.userInput);submitted=\(vm.run.submitted);answers=\(vm.run.firstAnswers.count);quiz=\(vm.quizTypeLabel);finished=\(vm.testFinished)")
             }
         }
@@ -525,7 +527,7 @@ struct SceneAimingView: View {
         SceneTrainingSummary(samples: vm.run.firstAnswers, unit: "°", onClose: { dismiss() }, onRestart: {
             vm.limiter.refreshDay()
             if vm.limiter.isLimitReached { showSubscription = true }
-            else { hasStarted = false; vm.testFinished = false }
+            else { vm.showSettings = true }
         })
     }
 
@@ -593,15 +595,4 @@ private struct AngleQuizTitleSize: PreferenceKey {
 private struct AngleQuizReadableFrame: PreferenceKey {
     static let defaultValue: CGRect? = nil
     static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) { value = nextValue() ?? value }
-}
-
-/// The four training routes share the existing title reservation; renaming must
-/// not feed a wider budget back into the palette/table layout.
-struct BTTrainingPageTitle: View {
-    let text: String
-    var body: some View {
-        Text(text).font(.btFootnote.weight(.semibold)).lineLimit(1)
-            .frame(width: 60, height: 34, alignment: .leading)
-            .accessibilityIdentifier("training.pageTitle")
-    }
 }

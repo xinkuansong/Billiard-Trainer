@@ -529,9 +529,9 @@ extension DailyLayoutMetricsTests {
         }
     }
 
-    func testTeachingTitleKeepsFourCharactersOnOneLineAndSplitsEvenly() {
-        let four = BTTablePageTitleLayout("思路\n训练")
-        XCTAssertEqual(four.upper, "思路训练")
+    func testTeachingTitleKeepsShortTrainingNameOnOneLineAndSplitsLongTextEvenly() {
+        let four = BTTablePageTitleLayout("2D\n角度")
+        XCTAssertEqual(four.upper, "2D角度")
         XCTAssertNil(four.lower)
         XCTAssertEqual(four.fontSize, 15)
         let six = BTTablePageTitleLayout("打一走二想三")
