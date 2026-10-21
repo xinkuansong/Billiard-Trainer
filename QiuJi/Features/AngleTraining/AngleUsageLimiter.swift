@@ -2,7 +2,8 @@ import Foundation
 import Combine
 
 /// Tracks daily free-tier question count. Premium users bypass the limit.
-/// App pages share `AngleUsageLimiter.shared`; tests may construct isolated instances
+/// Prediction pages share `shared`; the three 2D scene trainings each own an allowance.
+/// Tests may construct isolated instances
 /// (optionally with a custom `UserDefaults` suite).
 final class AngleUsageLimiter: ObservableObject {
 
@@ -13,6 +14,19 @@ final class AngleUsageLimiter: ObservableObject {
         applyUITestLaunchHooksIfNeeded()
         return AngleUsageLimiter()
     }()
+
+    // Scene training has independent daily allowances; prediction tools retain shared.
+    static let angleTraining = AngleUsageLimiter(namespace: "scene2D")
+    static let aimPointTraining = AngleUsageLimiter(namespace: "aimPoint2D")
+    static let accuracyTraining = AngleUsageLimiter(namespace: "accuracy2D")
+    static func training(route: String) -> AngleUsageLimiter {
+        if route.hasPrefix("accuracy") { return accuracyTraining }
+        if route.hasPrefix("aimPoint") { return aimPointTraining }
+        return angleTraining
+    }
+    private let countKey: String
+    private let dateKey: String
+    private let ledgerKey: String
 
     @Published private var storedCount: Int
     private var storedDay: String
@@ -30,19 +44,31 @@ final class AngleUsageLimiter: ObservableObject {
     // MARK: - Init
 
     init(defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init,
-         calendar: @escaping () -> Calendar = { .autoupdatingCurrent }) {
+         calendar: @escaping () -> Calendar = { .autoupdatingCurrent }, namespace: String? = nil) {
+        countKey = namespace.map { "sceneTraining.usage.\($0).count" } ?? PracticeStorageKey.angleUsageCount
+        dateKey = namespace.map { "sceneTraining.usage.\($0).day" } ?? PracticeStorageKey.angleUsageDate
+        ledgerKey = namespace.map { "sceneTraining.usage.\($0).ledger" } ?? "accuracyPractice.usageLedger.v1"
+        #if DEBUG
+        if namespace != nil {
+            let args = ProcessInfo.processInfo.arguments
+            if args.contains("-w7.forceDailyLimit") || args.contains("-w7.forceDailyLimitNear") {
+                defaults.set(Self.todayString(now: now(), calendar: calendar()), forKey: dateKey)
+                defaults.set(args.contains("-w7.forceDailyLimit") ? Self.dailyLimit : Self.dailyLimit - 1, forKey: countKey)
+            }
+        }
+        #endif
         self.defaults = defaults
         self.now = now
         self.calendar = calendar
-        let saved = defaults.string(forKey: PracticeStorageKey.angleUsageDate) ?? ""
+        let saved = defaults.string(forKey: dateKey) ?? ""
         let today = Self.todayString(now: now(), calendar: calendar())
         storedDay = today
         if saved == today {
-            storedCount = max(0, defaults.integer(forKey: PracticeStorageKey.angleUsageCount))
+            storedCount = max(0, defaults.integer(forKey: countKey))
         } else {
             storedCount = 0
-            defaults.set(today, forKey: PracticeStorageKey.angleUsageDate)
-            defaults.set(0, forKey: PracticeStorageKey.angleUsageCount)
+            defaults.set(today, forKey: dateKey)
+            defaults.set(0, forKey: countKey)
         }
         dayObservation = NotificationCenter.default.publisher(for: .NSCalendarDayChanged)
             .merge(with: NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange))
@@ -56,15 +82,15 @@ final class AngleUsageLimiter: ObservableObject {
         guard storedDay != today else { return }
         storedDay = today
         storedCount = 0
-        defaults.set(today, forKey: PracticeStorageKey.angleUsageDate)
-        defaults.set(0, forKey: PracticeStorageKey.angleUsageCount)
+        defaults.set(today, forKey: dateKey)
+        defaults.set(0, forKey: countKey)
     }
 
     func recordQuestion() {
         refreshDay()
         storedCount += 1
-        defaults.set(storedCount, forKey: PracticeStorageKey.angleUsageCount)
-        defaults.set(storedDay, forKey: PracticeStorageKey.angleUsageDate)
+        defaults.set(storedCount, forKey: countKey)
+        defaults.set(storedDay, forKey: dateKey)
     }
 
     /// Restoring or receiving a repeated result callback must not consume twice.
@@ -72,7 +98,7 @@ final class AngleUsageLimiter: ObservableObject {
     func recordQuestion(attemptID: UUID, submittedAt: Date) {
         refreshDay()
         guard Self.todayString(now: submittedAt, calendar: calendar()) == storedDay else { return }
-        let key = "accuracyPractice.usageLedger.v1"
+        let key = ledgerKey
         let saved = defaults.dictionary(forKey: key)
         var ids = (saved?["day"] as? String) == storedDay ? (saved?["ids"] as? [String] ?? []) : []
         guard !ids.contains(attemptID.uuidString) else { return }

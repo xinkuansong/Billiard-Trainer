@@ -12,7 +12,7 @@ enum ProBenefits {
     static let premium: [Item] = [
         .init(id: "drills", number: "01", title: "进阶动作与精讲", subtitle: "解锁 Pro 动作与配套精讲，理解练习要点与走位思路。"),
         .init(id: "plans", number: "02", title: "官方进阶计划", subtitle: "围绕准度、杆法与走位，按计划安排专项练习。"),
-        .init(id: "aiming", number: "03", title: "3D 角度与瞄准训练", subtitle: "从立体视角判断角度与瞄准点，相关判断训练不限次数。"),
+        .init(id: "aiming", number: "03", title: "角度、瞄准点与准度训练", subtitle: "解锁3D训练与自由练习，三种2D训练不限题数。"),
         .init(id: "atlases", number: "04", title: "分离角与加塞吃库图谱", subtitle: "对比不同打点下的球路变化，帮助理解母球路线。"),
         .init(id: "snake", number: "05", title: "蛇彩练习", subtitle: "在连续击球中练习力度控制与走位衔接。"),
         .init(id: "position", number: "06", title: "自由走位推演", subtitle: "调整球形与击球参数，观察、比较走位路线。"),

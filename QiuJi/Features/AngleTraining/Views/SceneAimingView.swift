@@ -51,7 +51,7 @@ struct SceneAimingView: View {
 
     init(initialCameraMode: AngleTrainingScene.CameraMode) {
         self.routeCameraMode = initialCameraMode == .perspective3D ? .perspective3D : .topDown2D
-        _vm = StateObject(wrappedValue: AimingQuizViewModel(limiter: .shared))
+        _vm = StateObject(wrappedValue: AimingQuizViewModel(limiter: .angleTraining))
     }
 
     private var controlLayoutBusy: Bool {
@@ -222,7 +222,7 @@ struct SceneAimingView: View {
             }
             if vm.testFinished {
                 Color.black.opacity(0.32)
-                ScrollView { summaryOverlay }.frame(width: min(520, size.width - 16), height: size.height - 32)
+                summaryOverlay.frame(width: min(520, size.width - 16))
                     .position(x: size.width / 2, y: size.height / 2)
             } else if vm.limiter.isLimitReached && vm.phase != .showingResult {
                 BTDailyLimitGate(compact: vm.phase == .showingResult) { showSubscription = true }
@@ -286,7 +286,6 @@ struct SceneAimingView: View {
         let items: [DailyHUDMenuItem] = [.init(id: "angleTraining.display", title: "显示"),
          .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
             togglePreference(.grid)
-            showMenu = false
          }),
          .init(id: "controlLayout.open", title: "操作布局", detail: controlLayoutBusy ? "请先完成当前操作" : nil, disclosure: true,
             disabled: controlLayoutBusy, action: {
@@ -437,12 +436,21 @@ struct SceneAimingView: View {
             sideMetric("题目", value: progressText)
             sideMetric("目标袋", value: targetPocketText)
             sideMetric("作答", value: vm.run.assistance.isEmpty ? "独立" : "用过辅助")
+            liveMetrics
             if !vm.limiter.isPremium {
                 sideMetric("剩余", value: "\(vm.limiter.remainingToday)")
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Spacing.xs)
+    }
+
+    private var liveMetrics: some View {
+        let metrics = SceneTrainingMetrics(samples: vm.run.firstAnswers, unit: "°")
+        return VStack(spacing: 4) {
+            sideMetric("正确率", value: metrics.rate)
+            sideMetric("均差", value: metrics.mean)
+        }
     }
 
     private func sideMetric(_ label: String, value: String, color: Color = .white) -> some View {
@@ -479,6 +487,7 @@ struct SceneAimingView: View {
             sideMetric("误差", value: String(format: "%.1f°", record.error), color: vm.errorRating.color)
             Text(record.error < 0.05 ? "一致" : (record.userAngle > record.question.actualAngle ? "估大" : "估小")).font(.btCaption)
             Text(vm.run.assistance.isEmpty ? "独立作答" : "辅助作答").font(.btCaption2)
+            liveMetrics
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Spacing.xs)
@@ -513,9 +522,11 @@ struct SceneAimingView: View {
     }
 
     private var summaryOverlay: some View {
-        SceneTrainingSummary(samples: vm.run.firstAnswers, unit: "°") {
-            hasStarted = false; vm.testFinished = false
-        }
+        SceneTrainingSummary(samples: vm.run.firstAnswers, unit: "°", onClose: { dismiss() }, onRestart: {
+            vm.limiter.refreshDay()
+            if vm.limiter.isLimitReached { showSubscription = true }
+            else { hasStarted = false; vm.testFinished = false }
+        })
     }
 
     // MARK: - Camera framing helpers

@@ -181,6 +181,7 @@
 		38DD94E622D8FC48F702096E /* AngleTrainingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A8BC2C5C758B9C9098D9E35 /* AngleTrainingTests.swift */; };
 		39E6B64C572EC61CCEC590B7 /* V49W19TheoryCardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CDB571AE9A91AC95353EDEC /* V49W19TheoryCardUITests.swift */; };
 		3B00D18720D2551C2313384C /* TheoryCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D56F1F1AC028FD726233F37 /* TheoryCatalog.swift */; };
+		3B1E472FB1C2DB65D166BCA3 /* SixTrainingUnifiedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D31DE92A13926DDF78B9BB7 /* SixTrainingUnifiedTests.swift */; };
 		3B8D245EB2FF0048809D111F /* W1_AimPointFilterUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 616C48BE158BF4654E4552DA /* W1_AimPointFilterUITests.swift */; };
 		3BA65C71DFDA92115000CF99 /* DailyClearanceRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FAF4DB597F3A8F8E1FF9138 /* DailyClearanceRulesTests.swift */; };
 		3BBE2F73BFD77DDA9A146B21 /* V54ScheduleDomainTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D081BE4B5BD912B2CF218EEB /* V54ScheduleDomainTests.swift */; };
@@ -833,6 +834,7 @@
 		F885F42FFB481422AACFC819 /* BTLogoMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31B5F0C872617B9168B021DA /* BTLogoMark.swift */; };
 		F9138A12B9FC3A2758E20D70 /* V49W12CopyContentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1664640B03380A8447BBAEFB /* V49W12CopyContentTests.swift */; };
 		F9292DE3DB0D25F8E6DA75A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3F9502353B85739CC2CE34FC /* Assets.xcassets */; };
+		F95127E07BC82AB5C94A6004 /* SixTrainingUnifiedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 224A33E83A70CF4A27C74399 /* SixTrainingUnifiedUITests.swift */; };
 		F96D8A0FEC94A8F9A0E53A29 /* CueBallStrike.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29C0BEB682F897B503CE1D0E /* CueBallStrike.swift */; };
 		F98F29735C569A2C8F0F12AA /* V21W2BakeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA8EB03D49D0E45F0840B8F /* V21W2BakeTests.swift */; };
 		F9BA53DFAD269BFCC013F124 /* TableStylePreview_ivory.png in Resources */ = {isa = PBXBuildFile; fileRef = 6A30173E2C296C5878739D9B /* TableStylePreview_ivory.png */; };
@@ -994,6 +996,7 @@
 		21CA57220608D7596255B73B /* SolverStageChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolverStageChrome.swift; sourceTree = "<group>"; };
 		21D81EFA3A749ED51C450D3F /* HUDStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDStyle.swift; sourceTree = "<group>"; };
 		2237EC815E6A55EF5B10C9E4 /* W7_DailyLimitUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = W7_DailyLimitUITests.swift; sourceTree = "<group>"; };
+		224A33E83A70CF4A27C74399 /* SixTrainingUnifiedUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SixTrainingUnifiedUITests.swift; sourceTree = "<group>"; };
 		22BDB6E09808D32207DDD173 /* TutorialFigures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TutorialFigures; path = QiuJi/Resources/TutorialFigures; sourceTree = SOURCE_ROOT; };
 		22C95BCD58F9A30654759B3B /* ClothPreview_mistGray.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ClothPreview_mistGray.png; sourceTree = "<group>"; };
 		22F46AA832F95CE29AA8972A /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
@@ -1093,6 +1096,7 @@
 		3CFDEC4B9C43C017025827D8 /* V34W4ScreenshotUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V34W4ScreenshotUITests.swift; sourceTree = "<group>"; };
 		3D1A96B8FEBC3EAC07609890 /* V19_CueAimLineUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V19_CueAimLineUITests.swift; sourceTree = "<group>"; };
 		3D2202651D153D4C86CBEA04 /* AngleSceneCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleSceneCalculator.swift; sourceTree = "<group>"; };
+		3D31DE92A13926DDF78B9BB7 /* SixTrainingUnifiedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SixTrainingUnifiedTests.swift; sourceTree = "<group>"; };
 		3D56F1F1AC028FD726233F37 /* TheoryCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheoryCatalog.swift; sourceTree = "<group>"; };
 		3D8365FD1E5E52DA1FCF9CAD /* TodayTrainingSchedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayTrainingSchedule.swift; sourceTree = "<group>"; };
 		3DA6AD01F208A975979DDB62 /* TrainingQuestionBank.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingQuestionBank.swift; sourceTree = "<group>"; };
@@ -2035,6 +2039,7 @@
 				F012825355D1B4B0FCFA4910 /* SceneTrainingRulesUITests.swift */,
 				59556D5EF0242F770CF7BC3C /* ScreenshotTourUITests.swift */,
 				5E20BC83B44C405238D00AC0 /* ShotAudioPreviewUITests.swift */,
+				224A33E83A70CF4A27C74399 /* SixTrainingUnifiedUITests.swift */,
 				4FCAEC29098F938CCB3117A5 /* SnakePracticeUITests.swift */,
 				1F4CDA6D17D9F372927C1B81 /* SpinAndEnglishZ4UITests.swift */,
 				6BA134C14C2C1A983754055E /* TableStyleUITests.swift */,
@@ -2327,6 +2332,7 @@
 				407A5563F02C5BDDEF0922B3 /* SixPocketV4RefineTests.swift */,
 				3EC2CF25B355FFF14709B65A /* SixPocketV4Round2ProbeTests.swift */,
 				A2D187F8907CD057BC2DE4DA /* SixPocketV5VideoTests.swift */,
+				3D31DE92A13926DDF78B9BB7 /* SixTrainingUnifiedTests.swift */,
 				302B212CB1DF0C0DEBFCC25A /* SnakePracticeTests.swift */,
 				8ECA9C8A2F8BB2433A59CF5E /* SnookerSolverTests.swift */,
 				44A671D23AD7A6ABFD34EFB5 /* SolverPerformanceTests.swift */,
@@ -3886,6 +3892,7 @@
 				D0A62A198E24D9335AC4BB05 /* SceneTrainingRulesUITests.swift in Sources */,
 				819EBDACF716AD00FB40A970 /* ScreenshotTourUITests.swift in Sources */,
 				8210CB1F685791611E2B5B3F /* ShotAudioPreviewUITests.swift in Sources */,
+				F95127E07BC82AB5C94A6004 /* SixTrainingUnifiedUITests.swift in Sources */,
 				1FC8B37468094D592BF0BBCF /* SnakePracticeUITests.swift in Sources */,
 				927CAA7381DABC88FA2FBF79 /* SpinAndEnglishZ4UITests.swift in Sources */,
 				3DBD93C9094D80C46DBE681E /* TableStyleUITests.swift in Sources */,
@@ -4122,6 +4129,7 @@
 				154B4511344A5B2B66D0FBDB /* SixPocketV4RefineTests.swift in Sources */,
 				6243E2C293133D2ECA16BE42 /* SixPocketV4Round2ProbeTests.swift in Sources */,
 				9D4F0C923C9648B5FC4F7187 /* SixPocketV5VideoTests.swift in Sources */,
+				3B1E472FB1C2DB65D166BCA3 /* SixTrainingUnifiedTests.swift in Sources */,
 				D9F412A08FDD14771462D662 /* SnakePracticeTests.swift in Sources */,
 				17CE95ED7AB7347F0A9C3A01 /* SnookerSolverTests.swift in Sources */,
 				82872D6EC08777170995EFB7 /* SolverPerformanceTests.swift in Sources */,

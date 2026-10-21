@@ -172,7 +172,8 @@ final class AimingQuizViewModel: TeachingCameraHost {
         let record = AnswerRecord(question: q, userAngle: userAngle, error: err)
         lastRecord = record
         let metadata = run.metadata(unit: "degrees")
-        sessionResults.append(record); limiter.recordQuestion()
+        sessionResults.append(record)
+        if quizTypeLabel == "scene2D" { limiter.recordQuestion() }
         run.record(error: err, signedError: userAngle - q.actualAngle, angle: q.actualAngle)
         BTFeedback.quiz(errorDegrees: err)
         let result = AngleTestResult(actualAngle: q.actualAngle, userAngle: userAngle,
@@ -183,6 +184,7 @@ final class AimingQuizViewModel: TeachingCameraHost {
         showResultVisualization()
         showResult = true
         phase = .showingResult
+        if run.canFinish || limiter.isLimitReached { finish() }
     }
 
     /// 重试此前失败的落库；失败仍会重新置错误态。

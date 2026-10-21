@@ -144,6 +144,12 @@ final class SceneTrainingRulesUITests: XCTestCase {
             top.tap(); capture("3D-point-temporary"); top.tap()
         }
         submit.tap()
+        if nearLimit {
+            XCTAssertTrue(app.buttons["training.restart"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["training.complete"].exists)
+            capture("2D-point-quota-summary")
+            return
+        }
         let next = app.buttons["aimPointTraining.next"]
         XCTAssertTrue(next.waitForExistence(timeout:5))
         XCTAssertGreaterThanOrEqual(next.frame.width,44)

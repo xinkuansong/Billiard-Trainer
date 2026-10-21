@@ -110,6 +110,17 @@ struct AccuracyPracticeRecord: Codable, Identifiable {
         let length = hypot(target.x - cue.x, target.z - cue.z)
         return .init(SCNVector3((target.x - cue.x) / length, 0, (target.z - cue.z) / length))
     }
+    /// Ephemeral retry input. It has no ledger entry and cannot replace the first score.
+    func practiceAttempt(now: Date = Date()) throws -> AccuracyPracticeAttempt {
+        guard currentAttempt?.result?.countsAsAttempt == true, let current,
+              draftDirection.isFinite, abs(hypot(draftDirection.x, draftDirection.z) - 1) < 0.0001,
+              ShotTuning.velocityRange.contains(draftVelocity) else {
+            throw TrainingQuestionBank.Failure.invalid("Invalid practice input")
+        }
+        return AccuracyPracticeAttempt(id: UUID(), questionID: current.id, submittedAt: now,
+            direction: draftDirection, velocity: Float(draftVelocity), tip: current.tip,
+            observations: observations, exactTip: current.exactTip)
+    }
     mutating func freezeAttempt(now: Date = Date()) throws -> AccuracyPracticeAttempt {
         if let currentAttempt { return currentAttempt }
         guard status == .active, let current, draftDirection.isFinite,

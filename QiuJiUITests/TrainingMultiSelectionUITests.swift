@@ -40,9 +40,9 @@ final class TrainingMultiSelectionUITests: XCTestCase {
             XCTAssertTrue(app.staticTexts["accuracy.question"].label.contains("第2题"))
             app.buttons["accuracy.more"].tap()
             app.buttons["accuracy.finish"].tap()
-            // ProAccessGate owns the root AX identifier; assert the visible summary.
-            XCTAssertTrue(app.navigationBars[title + "总结"].waitForExistence(timeout: 5))
-            XCTAssertTrue(app.staticTexts[title + " · 模拟练习"].exists)
+            XCTAssertTrue(app.buttons["training.complete"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts["题数"].exists)
+            XCTAssertTrue(app.staticTexts["进球数量"].exists)
             let summary = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
             summary.name = title + "-persisted-summary"; summary.lifetime = .keepAlways; add(summary)
             app.terminate(); app.launch()
@@ -126,7 +126,7 @@ final class TrainingMultiSelectionUITests: XCTestCase {
             XCTAssertTrue(strike.waitForExistence(timeout: 20), app.debugDescription)
             let ready = NSPredicate { _, _ in strike.isHittable && strike.isEnabled }
             expectation(for: ready, evaluatedWith: app); waitForExpectations(timeout: 10)
-            XCTAssertTrue(app.staticTexts["accuracy.question"].label.contains("中杆"))
+            XCTAssertTrue(app.staticTexts["accuracy.question"].label.contains("指定"))
             app.buttons["shotStage.spinEntry"].tap()
             let disc = app.otherElements["打点盘"]
             XCTAssertTrue(disc.waitForExistence(timeout: 5))
@@ -151,7 +151,7 @@ final class TrainingMultiSelectionUITests: XCTestCase {
             }
             app.buttons["accuracy.more"].tap()
             XCTAssertFalse(app.buttons["menu.aimCloseup"].exists)
-            XCTAssertFalse(app.buttons["透明度"].exists)
+            XCTAssertTrue(app.buttons["accuracy.transparency"].exists)
             app.buttons["accuracy.dismissMenu"].tap()
             strike.tap()
             let result = app.staticTexts["accuracy.result"]
@@ -159,10 +159,13 @@ final class TrainingMultiSelectionUITests: XCTestCase {
             let outcome = result.label
             let completed = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
             completed.name = title + "-result"; completed.lifetime = .keepAlways; add(completed)
-            app.buttons["accuracy.replay"].tap()
+            let info = app.descendants(matching: .any).matching(identifier: "accuracy.questionInfo").firstMatch
+            let firstMetrics = info.label
+            app.buttons["accuracy.retry"].tap()
             XCTAssertTrue(result.waitForNonExistence(timeout: 5))
+            strike.tap()
             XCTAssertTrue(result.waitForExistence(timeout: 40))
-            XCTAssertEqual(result.label, outcome)
+            XCTAssertEqual(info.label, firstMetrics)
             app.buttons["accuracy.back"].tap()
             if !card.isHittable { app.swipeUp() }
             XCTAssertTrue(card.waitForExistence(timeout: 10)); card.tap()
@@ -191,11 +194,10 @@ final class TrainingMultiSelectionUITests: XCTestCase {
         free.tap()
         XCTAssertTrue(app.buttons["accuracy.start"].waitForExistence(timeout: 5))
         app.buttons["accuracy.start"].tap()
-        let strike = app.buttons["accuracy.strike"]
-        XCTAssertTrue(strike.waitForExistence(timeout: 20))
-        XCTAssertEqual(strike.label, "解锁Pro")
-        strike.tap()
         XCTAssertTrue(app.buttons["subscription.close"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["accuracy.strike"].exists)
+        app.buttons["subscription.close"].tap()
+        XCTAssertTrue(app.buttons["training.settingsCancel"].exists)
     }
 
 }

@@ -8,6 +8,8 @@ struct SceneTrainingSettings<Batch>: View {
     let showsSpinOptions: Bool
     let onStart: (SceneTrainingConfiguration, Batch) -> Void
     let onCancel: () -> Void
+    @EnvironmentObject private var subscription: SubscriptionManager
+    @State private var showSubscription = false
     @State private var draft: SceneTrainingConfiguration
     @State private var preparing = false
     @State private var conditionsExpanded = true
@@ -25,9 +27,18 @@ struct SceneTrainingSettings<Batch>: View {
     var body: some View {
         Form {
             Section("练习模式") {
-                Picker("练习模式", selection: $draft.freePractice) {
+                Picker("练习模式", selection: Binding(get: { draft.freePractice }, set: { requested in
+                    if requested && !subscription.isPremium { showSubscription = true }
+                    else { draft.freePractice = requested }
+                })) {
                     Text("20题").tag(false); Text("自由练习").tag(true)
                 }.pickerStyle(.segmented).accessibilityIdentifier("training.length")
+            }
+            if !subscription.isPremium {
+                Section {
+                    Text("今天剩余 \(AngleUsageLimiter.training(route: route).remainingToday) 题 · 每个2D训练每天20题")
+                        .font(.btCaption).foregroundStyle(.btTextSecondary)
+                }
             }
             Section("角度范围") {
                 ForEach(SceneTrainingConfiguration.AngleRange.allCases) { range in
@@ -91,10 +102,20 @@ struct SceneTrainingSettings<Batch>: View {
                     .accessibilityIdentifier("training.settingsCancel")
             }
         }
-        .onAppear { if !restarting { draft = .load(for: route) } }
+        .onAppear {
+            if !restarting { draft = .load(for: route) }
+            if !subscription.isPremium { draft.freePractice = false }
+        }
+        .onChange(of: subscription.isPremium) { _, premium in if !premium { draft.freePractice = false } }
+        .sheet(isPresented: $showSubscription) { SubscriptionView() }
         .onDisappear { generation?.cancel() }
     }
     private func prepare() {
+        let limiter = AngleUsageLimiter.training(route: route)
+        limiter.refreshDay(); limiter.isPremium = subscription.isPremium
+        guard subscription.isPremium || (!draft.freePractice && !limiter.isLimitReached && !route.hasSuffix("3D")) else {
+            showSubscription = true; return
+        }
         preparing = true; error = nil
         let configuration = draft
         generation = Task {
@@ -150,7 +171,7 @@ struct TrainingMultiSelectRow<Choice: Hashable & Identifiable>: View {
                 Text(title).foregroundStyle(.btText)
                 Spacer(minLength: Spacing.md)
                 Text(summary).foregroundStyle(.btPrimary).multilineTextAlignment(.trailing)
-                Image(systemName: "chevron.up.chevron.down").foregroundStyle(.btPrimary)
+                Image(systemName: BTIcon.chevronRight).foregroundStyle(.btPrimary)
             }.frame(minHeight: 44).contentShape(Rectangle())
         }
         .accessibilityIdentifier(identifier).accessibilityValue(summary)
@@ -176,48 +197,59 @@ struct TrainingMultiSelectRow<Choice: Hashable & Identifiable>: View {
     }
 }
 
+/// One metric contract for the live readouts and finish panel. Invalid answers
+/// count in the denominator, but never contribute an invented numeric error.
+struct SceneTrainingMetrics {
+    let samples: [SceneTrainingSample]
+    let unit: String
+    var errors: [Double] { samples.compactMap(\.error).filter { $0.isFinite }.map(abs) }
+    var correct: Int { errors.filter { $0 <= (unit == "mm" ? 2 : 3) }.count }
+    var rate: String { Self.percentage(correct, of: samples.count) }
+    var mean: String { errors.isEmpty ? "—" : String(format: "%.1f%@", errors.reduce(0,+)/Double(errors.count), unit) }
+    static func percentage(_ numerator: Int, of total: Int) -> String {
+        total == 0 ? "—" : String(format: "%.1f%%", Double(numerator)*100/Double(total))
+    }
+}
+
 struct SceneTrainingSummary: View {
     let samples: [SceneTrainingSample]
     let unit: String
     let onClose: (() -> Void)?
-    private var threshold: Double { unit == "mm" ? 2 : 3 }
+    var onRestart: (() -> Void)? = nil
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("本轮总结").font(.btTitle2)
-            Text("已答 \(samples.count) 题")
-            groupSummary(assisted: false)
-            groupSummary(assisted: true)
-            Text("分项观察（独立作答）").font(.btHeadline)
-            ForEach(SceneTrainingConfiguration.AngleRange.allCases.filter { $0 != .mixed }) { range in
-                let group = samples.filter { !$0.assisted && range.degrees.contains(Int($0.angle.rounded())) }
-                Text("\(range.label)：\(group.count)题" + (group.count < 5 ? "，样本不足5题" : "，达标\(group.filter { ($0.error ?? .infinity) <= threshold }.count)题"))
-                    .font(.btCaption)
-            }
-            let independent = samples.filter { !$0.assisted }.compactMap(\.signedError)
-            Text("\(unit == "mm" ? "偏薄" : "估大") \(independent.filter { $0 > 0.05 }.count) · \(unit == "mm" ? "偏厚" : "估小") \(independent.filter { $0 < -0.05 }.count)")
-                .font(.btCaption)
-            if let onClose {
-                Button("返回训练设置", action: onClose).buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("training.summaryClose")
-            }
-        }.padding(Spacing.lg).frame(maxWidth: .infinity, alignment: .leading)
-            .foregroundStyle(.primary)
-            .background {
-                if onClose == nil {
-                    RoundedRectangle(cornerRadius: BTRadius.lg).fill(Color.btBGSecondary)
-                } else {
-                    Color.clear.btHudGlass(in: RoundedRectangle(cornerRadius: BTRadius.lg))
+        let metrics = SceneTrainingMetrics(samples: samples, unit: unit)
+        TrainingFinishContent(metrics: [("题数", "\(samples.count)"), ("正确率", metrics.rate), ("均差", metrics.mean)],
+                              onRestart: onRestart, onComplete: onClose)
+    }
+}
+
+/// Same centered scene-decision buttons used by the table pages.
+struct TrainingFinishContent: View {
+    let metrics: [(String, String)]
+    let onRestart: (() -> Void)?
+    let onComplete: (() -> Void)?
+    var body: some View {
+        VStack(spacing: Spacing.lg) {
+            HStack(spacing: Spacing.xl) {
+                ForEach(metrics.indices, id: \.self) { index in
+                    VStack(spacing: Spacing.xs) {
+                        Text(metrics[index].0).font(.btCaption).foregroundStyle(HUDStyle.labelColor)
+                        Text(metrics[index].1).font(.btHeadline).monospacedDigit().foregroundStyle(.white)
+                    }
                 }
             }
+            HStack(spacing: Spacing.md) {
+                if let onRestart {
+                    Button("重新开始", action: onRestart).buttonStyle(BTSceneDecisionActionStyle())
+                        .accessibilityIdentifier("training.restart")
+                }
+                if let onComplete {
+                    Button("完成", action: onComplete).buttonStyle(BTSceneDecisionActionStyle(isPrimary: true))
+                        .accessibilityIdentifier("training.complete")
+                }
+            }
+        }.padding(Spacing.lg).environment(\.colorScheme, .dark)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("training.summary")
-    }
-    private func groupSummary(assisted: Bool) -> some View {
-        let group = samples.filter { $0.assisted == assisted }
-        let valid = group.compactMap(\.error)
-        return VStack(alignment: .leading, spacing: Spacing.xs) {
-            Text("\(assisted ? "辅助" : "独立")作答 · \(group.count)题").font(.btHeadline)
-            Text("达标 \(valid.filter { $0 <= threshold }.count)/\(group.count) · 异常 \(group.count - valid.count)")
-            Text(valid.isEmpty ? "平均误差 —（0个有效数值）" : String(format: "平均误差 %.1f%@（%d个有效数值）", valid.reduce(0,+) / Double(valid.count), unit, valid.count))
-        }
     }
 }

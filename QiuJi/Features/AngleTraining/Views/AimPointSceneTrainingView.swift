@@ -189,7 +189,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         lastErrorMM = score.millimetres
         let metadata = run.metadata(unit: "mm", direction: aimDir, score: score)
         sessionResults.append(RoundResult(errorMM: score.millimetres))
-        limiter.recordQuestion()
+        if quizTypeLabel == "aimPoint2D" { limiter.recordQuestion() }
         run.record(error: score.millimetres.map(abs), signedError: score.straight ? nil : score.millimetres, angle: q.actualAngle)
         BTFeedback.quiz(errorMM: score.millimetres ?? 100)
         phase = .showingResult
@@ -200,6 +200,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
             pocketType: q.pocketType.rawValue, quizType: quizTypeLabel, errorMM: score.millimetres ?? 0)
         result.trainingMetadataJSON = metadata?.json
         Task { await persist(result) }
+        if run.canFinish || limiter.isLimitReached { finish() }
     }
 
     func toggleAngleHint() {
@@ -466,7 +467,7 @@ struct AimPointSceneTrainingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
-    @StateObject private var vm = AimPointSceneQuizViewModel(limiter: .shared)
+    @StateObject private var vm = AimPointSceneQuizViewModel(limiter: .aimPointTraining)
     @StateObject private var fps = TableFPSReadoutState()
     @ObservedObject private var preferences = UserPreferences.shared
     @ObservedObject private var tablePreferences = TablePreferencesStore.shared
@@ -633,7 +634,7 @@ struct AimPointSceneTrainingView: View {
                 })
                 .position(x: f.stage.midX, y: f.stage.midY).allowsHitTesting(false)
             VStack(spacing: instruments.groupSpacing) {
-                questionInformation.frame(height: instruments.topDiameter + 14)
+                questionInformation.frame(height: instruments.topDiameter + 76)
                 BTTeachingAimRuler(layout: instruments,
                     enabled: canAim && !vm.temporaryTopDownActive,
                     onNudge: { vm.nudgeAim(byDegrees: $0) }, degreesPerPoint: vm.aimWheelDegreesPerPoint,
@@ -693,11 +694,11 @@ struct AimPointSceneTrainingView: View {
             }
             if vm.finished {
                 Color.black.opacity(0.32)
-                ScrollView {
-                    SceneTrainingSummary(samples: vm.run.firstAnswers, unit: "mm") {
-                        hasStarted = false; vm.finished = false
-                    }
-                }.frame(width: min(520, size.width - 16), height: size.height - 32)
+                SceneTrainingSummary(samples: vm.run.firstAnswers, unit: "mm", onClose: { dismiss() }, onRestart: {
+                    vm.limiter.refreshDay()
+                    if vm.limiter.isLimitReached { showSubscription = true }
+                    else { hasStarted = false; vm.finished = false }
+                }).frame(width: min(520, size.width - 16))
                     .position(x: size.width / 2, y: size.height / 2)
             }
             if showMenu {
@@ -783,10 +784,10 @@ struct AimPointSceneTrainingView: View {
     private var settingsItems: [DailyHUDMenuItem] {
         let items: [DailyHUDMenuItem] = [.init(id: "aimPointTraining.display", title: "显示"),
          .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
-             togglePreference(.grid); showMenu = false
+             togglePreference(.grid)
          }),
          .init(id: "menu.aimCloseup", title: "瞄准特写", selected: pagePreferences.enabled(.closeup), action: {
-             togglePreference(.closeup); showMenu = false
+             togglePreference(.closeup)
          }),
          .init(id: "controlLayout.open", title: "操作布局", detail: controlLayoutBusy ? "请先完成当前操作" : nil, disclosure: true,
             disabled: controlLayoutBusy, action: {
@@ -820,8 +821,13 @@ struct AimPointSceneTrainingView: View {
                 Text("题目").foregroundStyle(HUDStyle.labelColor)
                 Text("\(vm.run.firstAnswers.count + 1)" + (vm.run.configuration.freePractice ? "" : "/20"))
             }
-            Text(vm.run.assistance.isEmpty ? "独立作答" : "用过辅助")
-                .foregroundStyle(HUDStyle.labelColor)
+            Text("作答").foregroundStyle(HUDStyle.labelColor)
+            Text(vm.run.assistance.isEmpty ? "独立" : "辅助")
+            let metrics = SceneTrainingMetrics(samples: vm.run.firstAnswers, unit: "mm")
+            Text("正确率").foregroundStyle(HUDStyle.labelColor)
+            Text(metrics.rate)
+            Text("均差").foregroundStyle(HUDStyle.labelColor)
+            Text(metrics.mean)
         }.font(.btCaption).monospacedDigit().foregroundStyle(.white)
             .accessibilityElement(children: .combine).accessibilityIdentifier("aimPointTraining.questionInfo")
     }

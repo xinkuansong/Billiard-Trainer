@@ -337,6 +337,7 @@ struct BTSpinPadCard: View {
     /// 只读展示（序列演示暂停时「点开看本杆打点」）：隐藏四向微调键与「回中」，
     /// 白盘不接受拖动——演示的是录制真值，不允许改。
     var isReadOnly = false
+    var editingDisabled = false
     /// 只选高低杆：隐藏左右微调键，白盘拖动锁竖轴。
     var locksSideSpin = false
     var strikeAccess: CueStrikeAccess? = nil
@@ -389,6 +390,7 @@ struct BTSpinPadCard: View {
             .strokeBorder(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spinPad.card")
+        .disabled(editingDisabled)
         .environment(\.colorScheme, .dark)
     }
 
@@ -406,6 +408,7 @@ struct BTSpinPadCard: View {
                           strikeAccess: strikeAccess, discOpacity: discOpacity, onSpinChange: onSpinChange)
                     .frame(width: padDiameter, height: padDiameter)
                     .accessibilityIdentifier("spinPad.disc")
+                    .allowsHitTesting(!editingDisabled)
                 if locksSideSpin {
                     Color.clear.frame(width: SpinPadLayout.keyHit, height: SpinPadLayout.keyHit)
                         .accessibilityHidden(true)
@@ -495,6 +498,7 @@ struct BTSpinPadCard: View {
     }
 
     private func commitSpin(_ x: Double, _ y: Double) {
+        guard !editingDisabled else { return }
         if let onSpinChange { onSpinChange(x, y) }
         else { spinX = x; spinY = y }
     }
@@ -508,6 +512,7 @@ struct BTSpinPadCard: View {
 
     /// Returns whether the constrained point actually moved.
     private func nudge(_ dir: SpinNudgeDirection) -> Bool {
+        guard !editingDisabled else { return false }
         if locksSideSpin, dir == .left || dir == .right { return false }
         let r = SpinPadMath.nudge(spinX: locksSideSpin ? 0 : spinX, spinY: spinY, dir)
         let point: (x: Double, y: Double)
@@ -533,6 +538,7 @@ struct BTSpinPadOverlay: View {
     var bottomPadding: CGFloat = 0
     /// 只读展示（序列演示）：卡片不可改值，仅供查看本杆打点。
     var isReadOnly = false
+    var editingDisabled = false
     /// 只选高低杆：隐藏左右微调键，白盘拖动锁竖轴。
     var locksSideSpin = false
     var strikeAccess: CueStrikeAccess? = nil
@@ -563,7 +569,7 @@ struct BTSpinPadOverlay: View {
                 .accessibilityAction { onClose() }
 
             BTSpinPadCard(spinX: $spinX, spinY: $spinY,
-                          tableWidth: tableWidth, isReadOnly: isReadOnly,
+                          tableWidth: tableWidth, isReadOnly: isReadOnly, editingDisabled: editingDisabled,
                           locksSideSpin: locksSideSpin, strikeAccess: strikeAccess,
                           usesCompactLayout: usesCompactLayout,
                           availableHeight: availableHeight,
@@ -787,12 +793,13 @@ struct BTSceneSpinPadOverlay: View {
     var locksSideSpin = false
     var cardHorizontalOffset: CGFloat = 0
     var isReadOnly = false
+    var editingDisabled = false
     /// A host can submit both axes as one intent; nil preserves the binding behavior.
     var onSpinChange: ((Double, Double) -> Void)? = nil
     var onClose: () -> Void
     var body: some View {
         BTSpinPadOverlay(spinX:$spinX,spinY:$spinY,tableWidth:tableWidth,
-            bottomPadding:bottomPadding,isReadOnly:isReadOnly,locksSideSpin:locksSideSpin,strikeAccess:scene.cueAccessSnapshot,
+            bottomPadding:bottomPadding,isReadOnly:isReadOnly,editingDisabled:editingDisabled,locksSideSpin:locksSideSpin,strikeAccess:scene.cueAccessSnapshot,
             usesCompactLayout:true,usesFixedLayout:true,fixedCardExtent:fixedCardExtent,discOpacity:discOpacity,
             cardHorizontalOffset:cardHorizontalOffset,
             onSpinChange:onSpinChange,onClose:onClose)

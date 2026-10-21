@@ -67,6 +67,7 @@ final class AngleHistoryViewModel: ObservableObject {
         let label: String
         let accurateRate: Double
         var sampleCount: Int? = nil
+        var meanError: Double? = nil
     }
 
     // MARK: - Computed stats
@@ -174,24 +175,31 @@ final class AngleHistoryViewModel: ObservableObject {
         ("75° - 90°", 75, 90),
     ]
 
+    private func meanError(_ results: [AngleTestResult]) -> Double? {
+        let errors = results.compactMap(\.measurementError).filter { $0.isFinite }.map(abs)
+        return errors.isEmpty ? nil : errors.reduce(0,+) / Double(errors.count)
+    }
+
     private func buildRangeStats(from results: [AngleTestResult]) {
         if results.first?.trainingMetadata != nil {
             rangeStats = SceneTrainingConfiguration.AngleRange.allCases.filter { $0 != .mixed }.enumerated().map { idx, range in
-                let samples = results.filter { range.degrees.contains(Int(($0.trainingMetadata?.angle ?? $0.actualAngle).rounded())) }
+                // Formal cut angles can exceed the construction grid's 85° ceiling.
+                let degrees = range == .thin ? 71...90 : range.degrees
+                let samples = results.filter { degrees.contains(Int(($0.trainingMetadata?.angle ?? $0.actualAngle).rounded())) }
                 let rate = samples.isEmpty ? 0 : Double(samples.filter { ($0.measurementError ?? .infinity) <= $0.measurementThreshold }.count) / Double(samples.count)
-                return RangeStat(id:idx,label:range.label,accurateRate:rate,sampleCount:samples.count)
+                return RangeStat(id:idx,label:range == .thin ? "极薄球 · 71–90°" : range.label,accurateRate:rate,sampleCount:samples.count,meanError:meanError(samples))
             }
             return
         }
         rangeStats = Self.ranges.enumerated().map { idx, range in
-            let inRange = results.filter { ($0.trainingMetadata?.angle ?? $0.actualAngle) >= range.low && ($0.trainingMetadata?.angle ?? $0.actualAngle) < range.high }
+            let inRange = results.filter { ($0.trainingMetadata?.angle ?? $0.actualAngle) >= range.low && (($0.trainingMetadata?.angle ?? $0.actualAngle) < range.high || (range.high == 90 && ($0.trainingMetadata?.angle ?? $0.actualAngle) == 90)) }
             let rate: Double
             if inRange.isEmpty {
                 rate = 0
             } else {
                 rate = Double(inRange.filter { ($0.measurementError ?? .infinity) <= $0.measurementThreshold }.count) / Double(inRange.count)
             }
-            return RangeStat(id: idx, label: range.label, accurateRate: rate)
+            return RangeStat(id: idx, label: range.label, accurateRate: rate, sampleCount: inRange.count, meanError: meanError(inRange))
         }
     }
 }

@@ -4,7 +4,8 @@ import Combine
 extension TablePreferencePage {
     var fields: Set<TablePreferenceField> {
         switch self {
-        case .sceneAiming2D, .sceneAiming3D, .accuracy2D, .accuracy3D: return [.grid]
+        case .sceneAiming2D, .sceneAiming3D: return [.grid]
+        case .accuracy2D, .accuracy3D: return [.grid, .transparency]
         case .aimPointScene2D, .aimPointScene3D: return [.grid, .closeup]
         case .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas,
              .drillDetailPreview, .drillRecordPreview: return [.view3D, .grid]

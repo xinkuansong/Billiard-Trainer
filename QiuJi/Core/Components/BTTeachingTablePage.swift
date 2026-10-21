@@ -438,9 +438,9 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
          })]
         if fixedView3D != nil { items.removeAll { $0.id == "\(identifier).cameraMode" } }
         if let planning {
-            if !planning.assessmentMode {
             items.insert(.init(id: identifier + ".transparency", title: "打点盘透明度",
                 detail: "\(Int((planning.transparency.wrappedValue * 100).rounded()))%", disclosure: true, action: { showSpinPad = true; menu = .transparency }), at: 2)
+            if !planning.assessmentMode {
             items.append(.init(id: "menu.aimCloseup", title: "瞄准特写", detail: planning.closeupUnavailableReason, selected: pagePreferences.enabled(.closeup),
                 disabled: planning.closeupUnavailableReason != nil,
                 action: { setPagePreference(.closeup, pagePreferences.enabled(.closeup) ? 0 : 1) }))
@@ -592,7 +592,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             tableWidth: inner.width, bottomPadding: (f.stage.height - layout.extent) / 2,
             fixedCardExtent: layout.extent, discOpacity: planning.map { 1 - $0.transparency.wrappedValue } ?? 1,
             locksSideSpin: planning == nil,
-            isReadOnly: planning?.assessmentMode == true,
+            editingDisabled: planning?.assessmentMode == true,
             onSpinChange: planning?.onSpinChange,
             onClose: { showSpinPad = false })
             .simultaneousGesture(DragGesture(minimumDistance: 0).updating($spinTouchActive) { _, active, _ in active = true })

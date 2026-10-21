@@ -25,7 +25,7 @@ struct AngleHistorySection: View {
             if vm.allResults.isEmpty {
                 BTEmptyState(icon: "chart.line.uptrend.xyaxis",
                              title: "还没有训练记录",
-                             subtitle: "完成角度训练后，误差趋势将在这里显示")
+                             subtitle: "完成训练后，分角度的均差将在这里显示")
             } else {
                 quizTypeFilter
                 Picker("成绩口径", selection: $vm.cohortSelection) {
@@ -35,7 +35,6 @@ struct AngleHistorySection: View {
                 .accessibilityIdentifier("history.trainingCohort")
                 Text("同一来源、评分版本及辅助状态分开统计。有效数值 \(vm.validSampleCount)，异常 \(vm.invalidCount)。")
                     .font(.btCaption).foregroundStyle(.btTextSecondary)
-                statsGrid
                 BTSegmentedTab(tabs: AngleTimeRange.allCases,
                                selected: $vm.timeRange) { $0.rawValue }
 
@@ -44,7 +43,6 @@ struct AngleHistorySection: View {
                                  title: "该类型暂无数据",
                                  subtitle: "尝试切换类型筛选或时间范围")
                 } else {
-                    trendSection
                     rangeAnalysis
                 }
             }
@@ -189,7 +187,7 @@ struct AngleHistorySection: View {
                 Text("角度区间分析")
                     .font(.btHeadline)
                     .foregroundStyle(.btPrimary)
-                Text("各角度范围正确率分布")
+                Text("各角度范围均差")
                     .font(.btCaption)
                     .foregroundStyle(.btTextSecondary)
             }
@@ -208,28 +206,14 @@ struct AngleHistorySection: View {
     }
 
     private func rangeRow(range: AngleHistoryViewModel.RangeStat) -> some View {
-        VStack(spacing: Spacing.xs) {
-            HStack {
-                Text(range.label)
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
-                Spacer()
-                Text(range.sampleCount.map { $0 < 5 ? "\($0)题 · 样本不足5题" : String(format:"%d题 · 达标%.0f%%",$0,range.accurateRate * 100) } ?? String(format: "%.0f%%", range.accurateRate * 100))
-                    .font(.btCaption)
-                    .fontWeight(.semibold)
-                    .foregroundStyle((range.sampleCount ?? 5) < 5 ? Color.btTextSecondary : barColor(for: range.accurateRate))
-            }
-            if (range.sampleCount ?? 5) >= 5 {
-            GeometryReader { geo in
-                RoundedRectangle(cornerRadius: BTRadius.full)
-                    .fill(Color.btBGTertiary)
-                    .overlay(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: BTRadius.full)
-                            .fill(barColor(for: range.accurateRate))
-                            .frame(width: geo.size.width * max(0, min(range.accurateRate, 1)))
-                    }
-            }
-            .frame(height: 8)
+        HStack {
+            Text(range.label).font(.btCaption).foregroundStyle(.btTextSecondary)
+            Spacer()
+            VStack(alignment: .trailing, spacing: Spacing.xs) {
+                Text(range.meanError.map { String(format: "均差 %.1f%@", $0, vm.unit) } ?? "均差 —")
+                    .font(.btCaption).fontWeight(.semibold)
+                Text("\(range.sampleCount ?? 0)题")
+                    .font(.btCaption2).foregroundStyle(.btTextSecondary)
             }
         }
     }
