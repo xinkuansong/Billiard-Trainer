@@ -477,6 +477,8 @@ BTPracticeCover(visual: PracticeCoverCatalog.visual(for: route), chip: "2D")
 - **DR-054**：练习首页大字水印按 `CoverPalette.Glyph.gridAbsoluteSize * 0.06` 下移；类型标签固定在彩色封面右下角，Pro 徽标继续位于右上角。
 - **DR-065（v32 / v32.2）**：练习侧栏 **学 / 理 / 练 / 打 / 解**。理区 = `TheoryCatalog` 已上线篇各一张卡直达详情（无「球理」总卡）；学区不得放定理卡。UITest：`TheoryIndexNavigation.openPage(cardTitle:)`。
 
+- **DR-416（2026-10-21）**：`BTContentGridCard.reservesTitleSpace` 默认 `false`；练习首页显式开启，通过 `lineLimit(_:reservesSpace:)` 按实际字体预留两行标题，避免短标题卡片变矮。训练/动作库默认行为保持，不能按具体卡名添加高度特例。
+
 ---
 
 ## 十、导航与 Tab Bar
@@ -821,6 +823,8 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 `BTBlueprintBackground(style:)` 是五个 Tab 的共享静态底层。`training` 保留原训练构图，`library` / `practice` 使用边缘瞄准圈、虚线和刻度（练习另有圆弧），`history` 无虚线路径，`profile` 仅瞄准圈和圆弧。统一 `btBG` + `btPrimary`（Dark 13%、Light 8%），线宽 1pt；这是低对比度线稿，不是大面积品牌色铺底。放在根页 `.background` 或 ZStack 内容下方并忽略安全区，不放进 ScrollView 内容；不改卡片底色，不向详情页自动传播。组件内部关闭命中、无障碍朗读并裁剪越界线稿。图案使用页面 point 坐标，不表达真实球桌几何或统计数据。扩展时检查手机及 iPad、Light/Dark 原图，禁止用提高透明度掩盖被卡片遮住的正常层级。
 
 ## Changelog
+
+- 2026-10-21 / DR-416：练习首页网格统一预留两行标题，组件新增默认关闭的 `reservesTitleSpace`。
 
 - 2026-10-21 / 球桌统一规范 v1.0：接入TP01–TP36及适用性/能力接线/状态证据检查；现行共用正文统一维护，历史DR仅用于追溯，未改App实现。
 
@@ -1655,3 +1659,18 @@ Changelog：DR-414 / v1；验证与边界见`tasks/ui-reviews/UR-20261019-angle-
 
 ### DR-413 r3 — 每日清台球在文字前景（2026-10-19）
 用户最新要求覆盖r2避字约束：六球可穿过文字/箭头区域，只与彼此和胶囊边界碰撞。DailyClearanceAnimatedLabel用非交互overlay将球渲染在文字前方；移除文字障碍测量，不改变标题排版/AX与按钮命中。保留28pt球堆、12秒循环和离页/后台/Reduce Motion处理。Changelog：DR-413 r3；验收需看实际穿字前景及点击回归，不能沿用旧避字录像。
+
+
+### DR-413 r4 — 首页六球等速回程（2026-10-21）
+用户反馈回程过快，要求按散开速度回去。散开与沿原路径回收均为5.2秒，取消回程额外smoothstep时间扭曲；提框0.65秒、停球0.65秒、落框0.6秒和静置2.9秒保持，总循环15.2秒。仅作用于首页每日/继续清台装饰按钮，不涉及正式球桌物理与其他开球图标。Changelog：DR-413 r4，覆盖r2/r3的12秒循环；验证边界见`tasks/ui-reviews/UR-20261019-daily-clearance-icon.md` r4。
+
+### DR-417 — 准度仅放大当前瞄准（2026-10-22）
+BTTablePlanningControls.allowsAssessmentAimCloseup默认false，仅准度显式开启；assessmentMode仍禁用其他答案辅助。准度由AimCloseupBuilder.currentAim构造只含原球位与方向线的快照，BTAimCloseupOverlay.includesSceneIdealLine设false，不能复用freeAim把假想球/理想出球方向带入考核。沿用近区、方向尺持触、完整避让及页面独立偏好。Changelog：DR-417 / v1，用户授权修改TP33；证据见ACCURACY-POCKET-CLOSEUP-20261022。
+
+### DR-418 · 准度两球中心参考线
+
+准度台面/特写允许实际母球—目标球中心的浅灰细线，独立于当前白色瞄准线与答案图层。AimCloseupSnapshot.centerReferenceLine默认nil，仅准度currentAim填写，投影/避让必须同步消费；不复用理想线路或答案辅助字段。与主瞄准状态一起清理/恢复。[页面合同](../../../tasks/table-page-adaptation/ACCURACY-POCKET-CLOSEUP-20261022.md)。
+
+### DR-419 · 准度特写2R参考圆及i提示
+
+准度特写的targetReferenceRadius=2×ballRadius，只是灰色空心几何基准，不在台面画圆、不填充或按碰撞变色。其他消费者默认nil。准度结果readout显式info.circle；设置说明使用同类图标，保留信息/错误/统计/进度语义。[合同](../../../tasks/table-page-adaptation/ACCURACY-POCKET-CLOSEUP-20261022.md)。

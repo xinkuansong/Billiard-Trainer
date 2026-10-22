@@ -42,6 +42,9 @@ final class ShotAudioScheduler {
         cancel()
         guard UserPreferences.shared.soundEffectsEnabled else { return }
         let bank = ShotSoundBank.shared
+        #if DEBUG
+        bank.resetDiagnosticOutput()
+        #endif
         bank.prepare()
         for cue in Self.timeline(recorder: recorder, cueSpeed: cueSpeed, legacyEvents: legacyEvents) {
             schedule(kind: cue.kind, speed: cue.speed, delay: TimeInterval(cue.time), bank: bank)

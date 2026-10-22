@@ -2118,6 +2118,9 @@ private struct FPSReadout: View {
 /// SceneKit invokes delegates off the main thread; the counter and forwarding
 /// target are protected together. UI updates remain on the coordinator's main loop.
 class FrameDelegate: NSObject, SCNSceneRendererDelegate {
+    func renderer(_ renderer: SCNSceneRenderer, willRenderScene scene: SCNScene, atTime time: TimeInterval) {
+        (scene as? AngleTrainingScene)?.frameReceipt.willRender()
+    }
     private let lock = NSLock()
     private var frames = 0
     private var watchesIdle = false
@@ -2144,6 +2147,7 @@ class FrameDelegate: NSObject, SCNSceneRendererDelegate {
         contact?.renderer(renderer, didApplyAnimationsAtTime: time)
     }
     func renderer(_ renderer: SCNSceneRenderer, didRenderScene scene: SCNScene, atTime time: TimeInterval) {
+        (scene as? AngleTrainingScene)?.frameReceipt.didRender()
         lock.lock()
         frames += 1
         let notify = watchesIdle && !invalidationPending && idleCallback != nil

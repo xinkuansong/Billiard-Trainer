@@ -1196,14 +1196,16 @@ final class DailyAdaptivePanelUITests: XCTestCase {
 }
 
 extension DailyAdaptivePanelUITests {
-    private func launchP01(requiresLandscape: Bool = true, extraArgs: [String] = []) throws -> XCUIApplication {
+    private func launchP01(requiresLandscape: Bool = true, extraArgs: [String] = [], normalizeView: Bool = true) throws -> XCUIApplication {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-dailyLayout.probe", "-3dDrag.probe", "-v63.cameraDiagnostics"] + extraArgs)
         app.switchTab(.angle)
         let tab = app.buttons["angleHomeTab_打"]
         XCTAssertTrue(tab.waitForExistence(timeout: 5)); tab.tap()
         let card = app.buttons["分离角与走位"]
-        XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        if UIDevice.current.userInterfaceIdiom == .phone { XCUIDevice.shared.orientation = .landscapeLeft }
+        card.tap()
         XCTAssertTrue(element(app, "shotSimulation.landscape").waitForExistence(timeout: 15))
         if requiresLandscape {
             let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
@@ -1212,6 +1214,12 @@ extension DailyAdaptivePanelUITests {
             XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 8), .completed)
         }
         _ = try state(app)
+        if normalizeView {
+            p01More(app)
+            if app.buttons["freeplay.cameraMode"].value as? String != "2D" { app.buttons["freeplay.cameraMode"].tap() }
+            p01CloseMenu(app)
+            _ = try state(app)
+        }
         return app
     }
 
@@ -1227,17 +1235,33 @@ extension DailyAdaptivePanelUITests {
         })
     }
 
+    private func p01CloseMenu(_ app: XCUIApplication) {
+        let close = app.buttons["dailyClearance.menuClose"]
+        if close.exists { close.tap() }
+        else if element(app, "dailyClearance.menuPanel").exists {
+            app.buttons["关闭菜单"].firstMatch.coordinate(withNormalizedOffset: .init(dx: 0.2, dy: 0.5)).tap()
+        }
+        XCTAssertTrue(app.scrollViews["dailyClearance.menuScroll"].waitForNonExistence(timeout: 3))
+    }
+
     private func p01More(_ app: XCUIApplication) {
+        p01CloseMenu(app)
         app.buttons["freeplay.moreMenu"].tap()
         XCTAssertTrue(element(app, "dailyClearance.menuPanel").waitForExistence(timeout: 3))
     }
 
+    private func p01ScrollMenu(_ app: XCUIApplication) {
+        let rect = app.scrollViews["dailyClearance.menuScroll"].frame
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        origin.withOffset(.init(dx: rect.midX, dy: rect.maxY - 18)).press(forDuration: 0.1,
+            thenDragTo: origin.withOffset(.init(dx: rect.midX, dy: rect.minY + 18)))
+    }
+
     private func p01MenuItem(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         let item = app.buttons[id]
-        let scroll = app.scrollViews["dailyClearance.menuScroll"]
         for _ in 0..<3 {
             if item.exists && item.isHittable { return item }
-            scroll.swipeUp()
+            p01ScrollMenu(app)
         }
         XCTAssertTrue(item.isHittable, id)
         return item
@@ -1269,6 +1293,280 @@ extension DailyAdaptivePanelUITests {
         waitValue(slider, expected)
     }
 
+
+    /// Actual renderer bounds, not the SwiftUI container. Also verifies that
+    /// temporary observation never mutates the board or the formal preference.
+    func testP01TemporaryTableProjection() throws {
+        let app = try launchP01(requiresLandscape: false); defer { app.terminate() }
+        let original = try p01Balls(app)
+        p01More(app)
+        if app.buttons["freeplay.cameraMode"].value as? String != "2D" { app.buttons["freeplay.cameraMode"].tap() }
+        p01CloseMenu(app)
+        _ = try state(app)
+        let normal = try XCTUnwrap(try p01Scene(app)["displayedTable"] as? [Double])
+        try capture(app, "p01-projection-formal2D")
+        p01More(app); app.buttons["freeplay.cameraMode"].tap(); waitValue(app.buttons["freeplay.cameraMode"], "3D")
+        p01CloseMenu(app)
+        let peek = app.buttons["shotCamera.temporaryTopDown"]
+        peek.tap(); waitValue(peek, "已选中")
+        try capture(app, "p01-projection-temporary2D")
+        let temporary = try XCTUnwrap(try p01Scene(app)["displayedTable"] as? [Double])
+        XCTAssertFalse(app.buttons["dailyClearance.strike"].isEnabled)
+        assertP01BallsEqual(try p01Balls(app), original)
+        peek.tap()
+        p01More(app); waitValue(app.buttons["freeplay.cameraMode"], "3D"); p01CloseMenu(app)
+        try capture(app, "p01-projection-restored3D")
+        try JSONSerialization.data(withJSONObject: ["formal": normal, "temporary": temporary], options: [.prettyPrinted])
+            .write(to: output.appendingPathComponent("projection-bounds.json"))
+        // Same outer table under the shared centered projection; orientation may rotate.
+        XCTAssertEqual(temporary.count, normal.count)
+        for (actual, expected) in zip(temporary, normal) { XCTAssertEqual(actual, expected, accuracy: 1) }
+    }
+
+    func testP01UnavailableAndFreeShotRecovery() throws {
+        let app = try launchP01(); defer { app.terminate() }
+        let strike = app.buttons["dailyClearance.strike"]
+        let target = try XCTUnwrap((try p01Scene(app)["balls"] as? [[String: Any]])?.first { $0["key"] as? String == "_8" })
+        let point = try XCTUnwrap(target["screen"] as? [Double])
+        element(app, "table.scene").coordinate(withNormalizedOffset: .zero).withOffset(.init(dx: point[0], dy: point[1]))
+            .press(forDuration: 0.1, thenDragTo: app.buttons["paletteBall__8"].coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)))
+        XCTAssertEqual(Set(try p01Balls(app).keys), Set(["cueBall"]))
+        try capture(app, "p01-unavailable-no-target")
+        XCTAssertFalse(strike.isEnabled)
+        XCTAssertTrue(element(app, "shotSimulation.readout").label.contains("切角 —"))
+        XCTAssertTrue(app.staticTexts["点选一颗目标球"].waitForExistence(timeout: 5))
+        p01More(app); p01MenuItem(app, "dailyClearance.aimModeMenu").tap()
+        app.buttons["dailyClearance.aim.free"].tap(); p01CloseMenu(app)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: strike)], timeout: 20), .completed)
+        XCTAssertFalse(element(app, "shotSimulation.unavailable").exists, "A legal empty free shot is allowed")
+        try capture(app, "p01-free-empty-shot-ready")
+        p01More(app); p01MenuItem(app, "shotSimulation.reset").tap()
+        XCTAssertEqual(Set(try p01Balls(app).keys), Set(["cueBall", "_8"]))
+        XCTAssertFalse(element(app, "shotSimulation.unavailable").exists)
+    }
+
+    func testP01PaletteFinalPositionAndOutsideRelease() throws {
+        let app = try launchP01(requiresLandscape: false); defer { app.terminate() }
+        let table = element(app, "table.scene")
+        let slot = app.buttons["paletteBall__1"]
+        try capture(app, "p01-fast-release-before", extraIDs: ["table.scene", "paletteBall__1"])
+        let end = table.coordinate(withNormalizedOffset: .init(dx: 0.3, dy: 0.55))
+        slot.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).press(forDuration: 0.1,
+            thenDragTo: end, withVelocity: .fast, thenHoldForDuration: 0)
+        let scene = try p01Scene(app)
+        try JSONSerialization.data(withJSONObject: scene, options: [.prettyPrinted, .sortedKeys])
+            .write(to: output.appendingPathComponent("fast-release-scene.json"))
+        try capture(app, "p01-fast-release-result")
+        let placement = try XCTUnwrap(scene["palettePlacement"] as? [String: Any])
+        let legal = try XCTUnwrap(placement["world"] as? [Double])
+        let actual = try XCTUnwrap(try p01Balls(app)["_1"])
+        for (a, b) in zip(actual, legal) { XCTAssertEqual(a, b, accuracy: 0.000001) }
+        let finger = try XCTUnwrap(placement["finger"] as? [Double])
+        XCTAssertEqual(finger[0], table.frame.width * 0.3, accuracy: 1)
+        XCTAssertEqual(finger[1], table.frame.height * 0.55, accuracy: 1)
+        try capture(app, "p01-fast-final-release")
+        p01More(app); p01MenuItem(app, "shotSimulation.reset").tap()
+        let before = try p01Balls(app)
+        // Cross the viewport then release outside its left edge. A stale valid
+        // sample must not add the ball after the touch has left the table.
+        slot.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).press(forDuration: 0.1,
+            thenDragTo: app.coordinate(withNormalizedOffset: .zero).withOffset(.init(dx: 3, dy: app.windows.firstMatch.frame.height - 20)),
+            withVelocity: .fast, thenHoldForDuration: 0)
+        assertP01BallsEqual(try p01Balls(app), before)
+        try capture(app, "p01-outside-release-cancelled")
+    }
+
+    func testP01BackgroundReplayAndExit() throws {
+        let app = try launchP01(); defer { app.terminate() }
+        func ready(_ id: String) -> XCUIElement {
+            let button = app.buttons[id]
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: button)], timeout: 40), .completed)
+            return button
+        }
+        let original = try p01Balls(app)
+        p01More(app); app.buttons["freeplay.cameraMode"].tap(); p01CloseMenu(app)
+        p01More(app); p01MenuItem(app, "controlLayout.open").tap()
+        XCTAssertTrue(app.buttons["freeLayout.cancel"].waitForExistence(timeout: 5))
+        XCUIDevice.shared.press(.home); app.activate()
+        app.buttons["freeLayout.cancel"].tap()
+        assertP01BallsEqual(try p01Balls(app), original)
+        ready("dailyClearance.strike").tap()
+        XCTAssertFalse(app.buttons["freeplay.moreMenu"].isEnabled)
+        XCUIDevice.shared.press(.home); app.activate()
+        _ = ready("dailyClearance.strike")
+        assertP01BallsEqual(try p01Balls(app), original)
+        XCTAssertFalse(app.buttons["dailyClearance.playback"].isEnabled, "An interrupted first shot has no completed replay")
+        try capture(app, "p01-shot-background-return")
+        ready("dailyClearance.strike").tap()
+        _ = ready("dailyClearance.playback")
+        let after = try p01Balls(app)
+        ready("dailyClearance.playback").tap()
+        XCUIDevice.shared.press(.home); app.activate()
+        _ = ready("dailyClearance.playback")
+        assertP01BallsEqual(try p01Balls(app), after)
+        try capture(app, "p01-replay-background-return")
+        ready("dailyClearance.undo").tap()
+        assertP01BallsEqual(try p01Balls(app), original)
+        ready("dailyClearance.strike").tap()
+        app.buttons["dailyClearance.back"].tap()
+        XCTAssertTrue(app.buttons["angleHomeTab_打"].waitForExistence(timeout: 5))
+        app.buttons["分离角与走位"].tap()
+        XCTAssertTrue(element(app, "shotSimulation.landscape").waitForExistence(timeout: 15))
+        _ = ready("dailyClearance.strike")
+        assertP01BallsEqual(try p01Balls(app), original)
+        XCTAssertFalse(app.buttons["dailyClearance.playback"].isEnabled)
+        try capture(app, "p01-exit-during-shot-reentry")
+    }
+
+    func testP01AutomaticFallbackFeedback() throws {
+        let app = try launchP01(); defer { app.terminate() }
+        let root = element(app, "shotSimulation.landscape")
+        p01More(app); p01MenuItem(app, "dailyClearance.aimModeMenu").tap()
+        app.buttons["dailyClearance.aim.pocket"].tap(); p01CloseMenu(app)
+        let pockets = try XCTUnwrap(try p01Scene(app)["pockets"] as? [[String: Any]])
+        for pocket in pockets {
+            let point = try XCTUnwrap(pocket["screen"] as? [Double])
+            element(app, "table.scene").coordinate(withNormalizedOffset: .zero).withOffset(.init(dx: point[0], dy: point[1])).tap()
+            if (root.value as? String ?? "").contains("自由模式") { break }
+        }
+        XCTAssertTrue((root.value as? String ?? "").contains("自由模式"))
+        try capture(app, "p01-automatic-fallback")
+        XCTAssertTrue(app.staticTexts["该袋口无法直进，已切到自由模式"].exists)
+    }
+
+    func testP01DisplayMemoryAndCloseupDismissal() throws {
+        let daily = try launch()
+        p01More(daily)
+        let dailyGrid = daily.buttons["menu.tableGrid"].value as? String
+        p01CloseMenu(daily); daily.terminate()
+        let app = try launchP01()
+        p01More(app)
+        let grid = app.buttons["menu.tableGrid"]
+        if grid.value as? String == dailyGrid { grid.tap() }
+        let localGrid = grid.value as? String
+        let closeup = app.buttons["menu.aimCloseup"]
+        if closeup.value as? String != "已选" { closeup.tap() }
+        p01CloseMenu(app)
+        try capture(app, "p01-grid-local")
+        let wheel = element(app, "shotStage.aimWheel")
+        wheel.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.7)).press(forDuration: 0.1,
+            thenDragTo: wheel.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.3)))
+        p01More(app)
+        XCTAssertTrue(element(app, "aimCloseup.hud").waitForNonExistence(timeout: 3))
+        p01MenuItem(app, "dailyClearance.spinTransparencyMenu").tap()
+        XCTAssertTrue(element(app, "spinPad.card").exists)
+        XCTAssertFalse(element(app, "aimCloseup.hud").exists)
+        app.buttons["dailyClearance.spinTransparencyDone"].tap()
+        XCUIDevice.shared.press(.home); app.activate()
+        XCTAssertFalse(element(app, "aimCloseup.hud").exists)
+        app.buttons["shotStage.spinEntry"].tap()
+        p01More(app); app.buttons["freeplay.cameraMode"].tap(); p01CloseMenu(app)
+        app.terminate()
+        let warm = try launchP01(normalizeView: false)
+        p01More(warm)
+        waitValue(warm.buttons["freeplay.cameraMode"], "3D")
+        XCTAssertEqual(warm.buttons["menu.tableGrid"].value as? String, localGrid)
+        try capture(warm, "p01-reentered-preferences")
+        p01CloseMenu(warm); warm.terminate()
+        let dailyAgain = try launch(); defer { dailyAgain.terminate() }
+        p01More(dailyAgain)
+        XCTAssertEqual(dailyAgain.buttons["menu.tableGrid"].value as? String, dailyGrid)
+        try capture(dailyAgain, "daily-grid-unaffected-by-p01")
+    }
+
+    func testP01ActualPadWindowResize() throws {
+        let app = try launchP01(requiresLandscape: false); defer { app.terminate() }
+        try verifyActualPadWindowResize(app, prefix: "p01")
+    }
+
+    func testDailySharedCapacityPanelActualWindowResize() throws {
+        let app = try launch(extra: ["-v51.followSystemAppearance", "-3dDrag.probe"]); defer { app.terminate() }
+        p01More(app)
+        if app.buttons["freeplay.cameraMode"].value as? String != "2D" { app.buttons["freeplay.cameraMode"].tap() }
+        p01CloseMenu(app)
+        try verifyActualPadWindowResize(app, prefix: "daily")
+    }
+
+    private func verifyActualPadWindowResize(_ app: XCUIApplication, prefix: String) throws {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        _ = try state(app)
+        func maximizeWindow() {
+            let window = app.windows.firstMatch
+            let before = window.frame
+            window.coordinate(withNormalizedOffset: .zero).withOffset(.init(dx: 52, dy: 32)).tap()
+            if abs(window.frame.width - before.width) < 1 {
+                window.coordinate(withNormalizedOffset: .zero).withOffset(.init(dx: 104, dy: 32)).tap()
+            }
+        }
+        func waitForStableGeometry() {
+            var last: [CGRect] = []
+            var consecutive = 0
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                let current = [app.windows.firstMatch.frame, app.buttons["dailyClearance.strike"].frame,
+                               self.element(app, "table.scene").frame]
+                consecutive = current == last ? consecutive + 1 : 0
+                last = current
+                return consecutive >= 2
+            }, object: nil)], timeout: 10), .completed, "Window, safe-area and renderer layout must settle")
+        }
+        if app.windows.firstMatch.frame.minX > 1 || app.windows.firstMatch.frame.minY > 40 {
+            maximizeWindow()
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                app.windows.firstMatch.frame.minX < 1
+            }, object: nil)], timeout: 8), .completed)
+        }
+        waitForStableGeometry()
+        let original = app.windows.firstMatch.frame
+        defer {
+            if app.windows.firstMatch.exists && abs(app.windows.firstMatch.frame.width - original.width) > 1 { maximizeWindow() }
+        }
+        let board = try p01Balls(app)
+        let renderer = try p01Scene(app)["rendererID"] as? String
+        let originalStrike = app.buttons["dailyClearance.strike"].frame
+        let originalStage = element(app, "table.scene").frame
+        try capture(app, prefix + "-window-full")
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        origin.withOffset(.init(dx: original.width - 7, dy: original.height - 7)).press(forDuration: 0.5,
+            thenDragTo: origin.withOffset(.init(dx: original.width * 0.7, dy: original.height * 0.78)))
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            app.windows.firstMatch.frame.width < original.width - 80
+        }, object: nil)], timeout: 8), .completed, "Real system window must resize")
+        _ = try state(app)
+        assertP01BallsEqual(try p01Balls(app), board)
+        try capture(app, prefix + "-window-small", extraIDs: ["dailyLayout.limited", "dailyLayout.limitedBack"])
+        if element(app, "dailyLayout.limited").exists {
+            XCTAssertTrue(app.buttons["dailyLayout.limitedBack"].isHittable)
+            let strike = app.buttons["dailyClearance.strike"]
+            XCTAssertFalse(strike.exists && strike.isEnabled && strike.isHittable, "Capacity-limited controls must not be actionable")
+        } else {
+            // A saved personal layout may extend beyond a small window by design.
+            // Navigation stays reachable and resizing back must restore its positions.
+            for id in ["dailyClearance.back", "freeplay.moreMenu"] { contain(app, element(app, id)); XCTAssertTrue(element(app, id).isHittable) }
+        }
+        maximizeWindow()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            abs(app.windows.firstMatch.frame.width - original.width) < 1
+        }, object: nil)], timeout: 8), .completed)
+        _ = try state(app)
+        waitForStableGeometry()
+        try capture(app, prefix + "-window-restored")
+        XCTAssertFalse(element(app, "dailyLayout.limited").exists)
+        XCTAssertTrue(app.buttons["dailyClearance.strike"].isHittable)
+        XCTAssertEqual(app.buttons["dailyClearance.strike"].frame.minX, originalStrike.minX, accuracy: 1)
+        if prefix == "daily" {
+            // Full-screen entry and a maximized floating window have different
+            // system chrome/insets. Default controls track the actual stage;
+            // equal window bounds do not imply equal content bounds.
+            XCTAssertEqual(app.buttons["dailyClearance.strike"].frame.midY - element(app, "table.scene").frame.midY,
+                           originalStrike.midY - originalStage.midY, accuracy: 1)
+            for id in ["dailyClearance.back", "freeplay.moreMenu", "shotStage.aimWheel", "shotStage.powerBar", "dailyClearance.strike"] { contain(app, element(app, id)); XCTAssertTrue(element(app, id).isHittable) }
+        } else {
+            XCTAssertEqual(app.buttons["dailyClearance.strike"].frame.minY, originalStrike.minY, accuracy: 1)
+        }
+        XCTAssertEqual(try p01Scene(app)["rendererID"] as? String, renderer)
+        assertP01BallsEqual(try p01Balls(app), board)
+    }
+
     func testP01C56TemplateMenusAndCameras() throws {
         let app = try launchP01(); defer { app.terminate() }
         let root = element(app, "shotSimulation.landscape")
@@ -1292,7 +1590,7 @@ extension DailyAdaptivePanelUITests {
             if dimension == "3D" {
                 p01More(app); app.buttons["freeplay.cameraMode"].tap()
                 waitValue(app.buttons["freeplay.cameraMode"], "3D")
-                app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+                p01CloseMenu(app)
                 _ = try state(app)
             }
             try capture(app, "p01-" + dimension + "-base-ready", extraIDs: ["shotSimulation.landscape", "shotSimulation.readout"])
@@ -1301,7 +1599,7 @@ extension DailyAdaptivePanelUITests {
             XCTAssertEqual(element(app, "freeplay.stage").frame, stage)
             p01More(app)
             try capture(app, "p01-" + dimension + "-more-top")
-            app.scrollViews["dailyClearance.menuScroll"].swipeUp()
+            p01ScrollMenu(app)
             XCTAssertTrue(p01MenuItem(app, "shotSimulation.reset").isHittable)
             XCTAssertFalse(app.buttons["dailyClearance.changeGame"].exists)
             try capture(app, "p01-" + dimension + "-more-bottom")
@@ -1324,6 +1622,15 @@ extension DailyAdaptivePanelUITests {
                 XCTAssertEqual(element(app, "dailyClearance.spinTransparencyPercent").label, initial)
                 try capture(app, "p01-2D-transparency-initial-" + initial)
             }
+            let transparencyScroll = element(app, "dailyClearance.spinTransparencyScroll")
+            if transparencyScroll.exists {
+                let panel = element(app, "dailyClearance.spinTransparencyPanel")
+                _ = try revealScrollItem(app, id: "dailyClearance.spinTransparencySlider",
+                    scroll: transparencyScroll, clip: transparencyScroll.frame.intersection(panel.frame).intersection(app.windows.firstMatch.frame),
+                    state: "p01-" + dimension + "-transparency-slider-reveal")
+            }
+            contain(app, slider)
+            XCTAssertTrue(slider.isHittable)
             for value in [CGFloat(0), 1] {
                 p01SetTransparencyEndpoint(slider, to: value)
                 try capture(app, "p01-" + dimension + "-transparency-\(Int(value * 100))")
@@ -1352,7 +1659,7 @@ extension DailyAdaptivePanelUITests {
         app.buttons["paletteBall__1"].tap()
         assertP01BallsEqual(try p01Balls(app), originalBalls)
         p01More(app); app.buttons["freeplay.cameraMode"].tap()
-        waitValue(app.buttons["freeplay.cameraMode"], "2D"); app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+        waitValue(app.buttons["freeplay.cameraMode"], "2D"); p01CloseMenu(app)
         assertP01BallsEqual(try p01Balls(app), originalBalls)
         try capture(app, "p01-2D-restored")
         app.buttons["dailyClearance.back"].tap()
@@ -1378,7 +1685,7 @@ extension DailyAdaptivePanelUITests {
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: undo)], timeout: 40), .completed)
         }
         p01More(app); p01MenuItem(app, "dailyClearance.aimModeMenu").tap()
-        app.buttons["dailyClearance.aim.pocket"].tap(); waitMode("进袋")
+        app.buttons["dailyClearance.aim.pocket"].tap(); waitMode("进袋"); p01CloseMenu(app)
         let wheel = element(app, "shotStage.aimWheel")
         wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7)).press(forDuration: 0.1,
             thenDragTo: wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)))
@@ -1387,7 +1694,7 @@ extension DailyAdaptivePanelUITests {
         shootAndSettle(); waitMode("进袋")
         try capture(app, "p01-next-shot-pocket")
         p01More(app); p01MenuItem(app, "dailyClearance.aimModeMenu").tap()
-        app.buttons["dailyClearance.aim.free"].tap(); waitMode("自由")
+        app.buttons["dailyClearance.aim.free"].tap(); waitMode("自由"); p01CloseMenu(app)
         shootAndSettle(); waitMode("自由")
         try capture(app, "p01-preferred-free-persists")
     }
@@ -1400,7 +1707,7 @@ extension DailyAdaptivePanelUITests {
             if dimension == "3D" {
                 p01More(app); app.buttons["freeplay.cameraMode"].tap()
                 waitValue(app.buttons["freeplay.cameraMode"], "3D")
-                app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+                p01CloseMenu(app)
             }
             for (orientation, name) in [(UIDeviceOrientation.portrait, "portrait"), (.landscapeLeft, "landscape"), (.portrait, "portrait-restored")] {
                 XCUIDevice.shared.orientation = orientation
@@ -1469,7 +1776,7 @@ extension DailyAdaptivePanelUITests {
                 if dimension == "3D" {
                     p01More(app); app.buttons["freeplay.cameraMode"].tap()
                     waitValue(app.buttons["freeplay.cameraMode"], "3D")
-                    app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+                    p01CloseMenu(app)
                 }
                 assertTemplateStatusVisible(app)
                 try capture(app, page + "-" + dimension + "-status", extraIDs: ["dailyClearance.statusCluster", "dailyClearance.deviceStatus", "dailyClearance.renderFPS"])
@@ -1484,7 +1791,7 @@ extension DailyAdaptivePanelUITests {
                 try capture(app, page + "-" + dimension + "-transparency")
                 app.buttons["dailyClearance.spinTransparencyDone"].tap()
                 // Transparency closes independently of the aiming disc.
-                app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+                p01CloseMenu(app)
             }
             app.terminate()
         }
@@ -1506,7 +1813,7 @@ extension DailyAdaptivePanelUITests {
             if dimension == "3D" {
                 p01More(app); app.buttons["freeplay.cameraMode"].tap()
                 waitValue(app.buttons["freeplay.cameraMode"], "3D")
-                app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+                p01CloseMenu(app)
             }
             waitEnabled(strike)
             assertTemplateStatusVisible(app)

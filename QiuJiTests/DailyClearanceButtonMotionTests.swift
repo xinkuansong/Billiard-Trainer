@@ -6,7 +6,7 @@ final class DailyClearanceButtonMotionTests: XCTestCase {
         for width in [118.0, 124, 132, 148, 180, 240] {
             for height in [44.0, 48, 56] {
                 let motion = DailyClearanceButtonMotion(size: CGSize(width: width, height: height))
-                for tick in 0...1440 {
+                for tick in 0...Int(ceil(DailyClearanceButtonMotion.duration * 120)) {
                     let points = motion.frame(at: Double(tick) / 120).balls
                     XCTAssertEqual(points.count, 6)
                     for (index, p) in points.enumerated() {
@@ -33,11 +33,26 @@ final class DailyClearanceButtonMotionTests: XCTestCase {
         XCTAssertTrue(motion.rolling.contains { $0.contains { titleRect.contains($0) } },
                       "Balls must travel through the title area rather than treating it as an obstacle")
         XCTAssertEqual(motion.frame(at: 6).balls, motion.frame(at: 6.4).balls)
-        XCTAssertEqual(motion.frame(at: 9.5).balls, motion.home)
-        XCTAssertEqual(motion.frame(at: 9.5).rackOpacity, 0.7)
-        XCTAssertEqual(motion.frame(at: 11.99).balls, motion.frame(at: 12).balls)
-        for t in stride(from: 0.0, through: 12, by: 0.125) {
-            XCTAssertEqual(motion.frame(at: t).balls, motion.frame(at: t + 12).balls)
+        let settled = DailyClearanceButtonMotion.gatherEnd + 1
+        let duration = DailyClearanceButtonMotion.duration
+        XCTAssertEqual(motion.frame(at: settled).balls, motion.home)
+        XCTAssertEqual(motion.frame(at: settled).rackOpacity, 0.7)
+        XCTAssertEqual(motion.frame(at: duration - 0.01).balls, motion.frame(at: duration).balls)
+        for t in stride(from: 0.0, through: duration, by: 0.125) {
+            for (a, b) in zip(motion.frame(at: t).balls, motion.frame(at: t + duration).balls) {
+                XCTAssertEqual(a.x, b.x, accuracy: 1e-9)
+                XCTAssertEqual(a.y, b.y, accuracy: 1e-9)
+            }
+        }
+        // Equal intervals in either direction must cover the same path at the same speed.
+        for tick in 0...624 {
+            let t = Double(tick) / 120
+            let outward = motion.frame(at: 0.65 + t).balls
+            let returning = motion.frame(at: DailyClearanceButtonMotion.gatherEnd - t).balls
+            for (a, b) in zip(outward, returning) {
+                XCTAssertEqual(a.x, b.x, accuracy: 1e-9)
+                XCTAssertEqual(a.y, b.y, accuracy: 1e-9)
+            }
         }
     }
 }

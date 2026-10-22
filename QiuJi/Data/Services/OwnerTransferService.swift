@@ -59,6 +59,8 @@ final class OwnerTransferService {
         defer { context.autosaveEnabled = autosaveEnabled }
 
         let sourceSessions = try sessions(sourceOwner)
+        let separationPayloads = sourceSessions.filter { $0.kind == TrainingSessionKind.separationPractice }
+            .map { ($0, $0.sourcePayloadSnapshot) }
         let sourceAngles = try angleTests(sourceOwner)
         let sourceFavorites = try favorites(sourceOwner)
         let sourceActivePlans = try activePlans(sourceOwner)
@@ -81,6 +83,15 @@ final class OwnerTransferService {
                 if destinationSessionIDs.contains(session.id) {
                     context.delete(session)
                 } else {
+                    if session.kind == TrainingSessionKind.separationPractice,
+                       let payload = session.sourcePayloadSnapshot {
+                        var record = try SeparationPracticeRecord.decodePayload(payload)
+                        guard record.ownerKey == sourceOwner, record.id == session.id, record.isCompatible else {
+                            throw LocalSeparationPracticeRepository.Failure.invalidRecord
+                        }
+                        record.ownerKey = destinationOwner
+                        session.sourcePayloadSnapshot = try record.encodedPayload()
+                    }
                     session.ownerKey = destinationOwner
                     destinationSessionIDs.insert(session.id)
                     result.sessions += 1
@@ -185,6 +196,7 @@ final class OwnerTransferService {
             // retain their last in-memory owner until refreshed. Restore them explicitly so callers
             // cannot observe a half-transferred graph after a failed save.
             sourceSessions.forEach { $0.ownerKey = sourceOwner }
+            separationPayloads.forEach { $0.0.sourcePayloadSnapshot = $0.1 }
             sourceAngles.forEach { $0.ownerKey = sourceOwner }
             sourceFavorites.forEach { $0.ownerKey = sourceOwner }
             sourceActivePlans.forEach { $0.ownerKey = sourceOwner }

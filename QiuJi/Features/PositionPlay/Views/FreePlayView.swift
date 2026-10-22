@@ -223,7 +223,8 @@ struct FreePlayView: View {
     }
 
     private var simulationReadout: some View {
-        let angle = vm.aimMode == .free ? vm.freeAimContact?.cutAngleDeg : vm.cutAngleDeg
+        let angle = vm.aimMode == .free ? vm.freeAimContact?.cutAngleDeg
+            : (vm.selectedTargetKey == nil ? nil : vm.cutAngleDeg)
         return VStack(spacing: 2) {
             Text(angle.map { "切角 \(Int($0.rounded()))°" } ?? "切角 —")
             ThicknessOverlapIcon(cutAngle: angle ?? 0)
@@ -247,6 +248,7 @@ struct FreePlayView: View {
     private func cancelPaletteDrag() {
         draggingKey = nil
         dragOverTable = false
+        projector.palettePreview = nil
     }
 
     private func placeSimulationBall(_ key: String, world: SCNVector3?) {
@@ -271,7 +273,12 @@ struct FreePlayView: View {
             }
             .onEnded { value in
                 defer { cancelPaletteDrag() }
-                guard draggingKey == key, let world = projector.palettePreview?.requestedWorld else { return }
+                guard draggingKey == key, editablePalette, !is3D, !dailyControlsDisabled else { return }
+                // A release can carry a newer touch than the last changed event.
+                let final = BTPalettePlacement.sample(key: key, finger: value.location,
+                    sourceDiameter: diameter, sceneFrame: sceneFrame,
+                    projector: projector, constrain: vm.palettePlacement)
+                guard let world = final.requestedWorld else { return }
                 placeSimulationBall(key, world: world)
             }
     }
@@ -294,6 +301,7 @@ struct FreePlayView: View {
             } else {
                 vm.scene.isPaused = scenePausedBeforeLayout
                 dailyMoreFocused = true
+                if isShotSimulation && scenePhase == .active { vm.resumeAuthoringActivity() }
                 if isDailyClearance && scenePhase == .active { dailyController.resumeActivity() }
                 if scenePhase == .active { applyPagePreferences() }
             }
@@ -562,6 +570,7 @@ struct FreePlayView: View {
                 }
             }
             applyPagePreferences()
+            if isShotSimulation { vm.resumeAuthoringActivity() }
             daily3DDiagnostics?.setPage(visible: true, foreground: scenePhase == .active, perspective: is3D)
             updateDaily3DPlaybackDiagnostics()
         }
@@ -580,6 +589,7 @@ struct FreePlayView: View {
             dailyAimWheelIsDragging = false
             cancelPaletteDrag()
             if usesCoreTemplate { vm.cancelInteractiveTrajectoryPreview() }
+            if isShotSimulation { vm.suspendAuthoringActivity() }
             if isDailyClearance {
                 dailyController.stop()
             }
@@ -589,10 +599,12 @@ struct FreePlayView: View {
             guard usesCoreTemplate else { return }
             if phase == .active {
                 guard !editingControlLayout else { return }
+                if isShotSimulation { vm.resumeAuthoringActivity() }
                 if isDailyClearance { dailyController.resumeActivity() }
                 if !vm.isPlaying && !vm.isBreakMode { vm.recompute() }
             }
             else {
+                if isShotSimulation { vm.suspendAuthoringActivity() }
                 layoutBallDragging = false
                 layoutAimDragging = false
                 vm.suspendGuidedSequence()
@@ -879,7 +891,7 @@ struct FreePlayView: View {
             onThirdPersonAimNudged: usesDailyTwoViewControls && !sequenceReadOnly ? { vm.nudgeThirdPersonAim(byDegrees: $0) } : nil,
             onTemporaryTopDownDismiss: { vm.endTemporaryTopDown() },
             topDownContentRevision: vm.topDownContentRevision,
-            usesStandardTemporaryTable: isStandard || isEditor || isSnake
+            usesStandardTemporaryTable: isStandard || isEditor || isSnake || isShotSimulation
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay {
@@ -1735,6 +1747,7 @@ private extension FreePlayView {
                     .frame(width: space.left.width, height: space.left.height, alignment: .top)
                     .position(x: space.left.midX, y: space.left.midY)
                     .opacity(isLimited ? 0 : 1)
+                    .disabled(isLimited)
                     .allowsHitTesting(!isLimited)
                     .accessibilityHidden(isLimited)
                 GeometryReader { stage in
@@ -1799,6 +1812,7 @@ private extension FreePlayView {
                     .frame(width: space.right.width, height: space.right.height, alignment: .top)
                     .position(x: space.right.midX, y: space.right.midY)
                     .opacity(isLimited ? 0 : 1)
+                    .disabled(isLimited)
                     .allowsHitTesting(!isLimited)
                     .accessibilityHidden(isLimited)
         }
@@ -1850,6 +1864,7 @@ private extension FreePlayView {
                 }
                 .padding(Spacing.md)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: BTRadius.md))
+                .environment(\.colorScheme, .dark)
             }
         }
         .overlay(alignment: .topLeading) {
@@ -2017,6 +2032,10 @@ private extension FreePlayView {
                 dailyInformation(dailyResultSummary)
             } else if dailyController.phase == .failed {
                 dailyInformation(dailyController.statusText)
+            } else if isShotSimulation, !showSpinPad, !isTemporaryTopDown,
+                      !vm.isPlaying, !vm.isComputing, !vm.cameraTransitionBusy, !vm.isFeasible {
+                dailyInformation(vm.statusText)
+                    .accessibilityIdentifier("shotSimulation.unavailable")
             } else if !showSpinPad, let message = ruleNotices.message {
                 BTNoticeContent(message: message, compact: true, textOnly: true)
                     .accessibilityIdentifier("dailyClearance.notice")
@@ -3082,6 +3101,9 @@ final class FreePlayRulesSession: ObservableObject {
                 notices?.show(message, tone: .info, priority: .mode)
             }
         }
+        vm.onAutomaticPocketFallback = mode == .shotSimulation ? { [weak notices] message in
+            notices?.show(message, tone: .info, priority: .mode)
+        } : nil
         vm.onAimSelectionNotice = { [weak notices] in notices?.show($0, tone: .warning, priority: .selection) }
         vm.onShotWillStart = mode == .dailyClearance ? { [weak daily] in daily?.prepareShot() } : nil
         vm.onShotSettled = { [weak vm, weak rules, weak daily, weak notices] facts in

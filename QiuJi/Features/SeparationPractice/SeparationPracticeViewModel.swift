@@ -1,0 +1,699 @@
+import SwiftUI
+import SceneKit
+import SwiftData
+
+/// Shared by the scene routes and the sidebar legend.
+enum SeparationRouteStyle {
+    static let target = UIColor.systemOrange
+    static let actual = UIColor.white
+    static let reference = TrajectoryStyle.TrainingAssist.centerReference
+    static let legendDash = [CGFloat(TrajectoryStyle.mainDash * 200), CGFloat(TrajectoryStyle.mainGap * 200)]
+}
+
+@MainActor
+final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
+    enum Phase { case loading, settings, aiming, preparing, revealing, playing, result, saveFailed, summary }
+    let is3D: Bool
+    let scene = AngleTrainingScene()
+    let limiter: AngleUsageLimiter
+    @Published private(set) var record: SeparationPracticeRecord?
+    @Published private(set) var phase: Phase = .loading
+    @Published var message: String?
+    @Published var cameraMode: AngleTrainingScene.CameraMode
+    @Published var cameraTransitionBusy = false
+    @Published var temporaryTopDownActive = false
+    @Published var topDownContentRevision = 0
+    @Published var topDownSelectionChanged = false
+    @Published private(set) var isReplaying = false
+    @Published var needsSubscription = false
+    @Published private(set) var playsStroke: Bool
+    @Published private(set) var showsReference: Bool
+    private let defaults: UserDefaults
+    private var strokePreferenceKey: String { "separationPractice.\(is3D ? "3D" : "2D").playsStroke" }
+    func setPlaysStroke(_ enabled: Bool) {
+        guard !isBusy else { return }
+        playsStroke = enabled
+        defaults.set(enabled, forKey: strokePreferenceKey)
+    }
+    func setShowsReference(_ enabled: Bool) {
+        guard !isBusy else { return }
+        showsReference = enabled
+        defaults.set(enabled, forKey: "separationPractice.\(is3D ? "3D" : "2D").showsReference")
+        if !enabled { clearReference(); topDownContentRevision += 1 }
+        else if phase != .settings { prepareReference() }
+    }
+    private var repository: (any SeparationPracticeRepository)?
+    private var generation = UUID()
+    private var work: Task<Void, Never>?
+    private var draftSave: Task<Void, Never>?
+    private var builtScene = false
+    private var targetNodes: [SCNNode] = []
+    private var actualNodes: [SCNNode] = []
+    private var referenceNodes: [SCNNode] = []
+    private var referenceWork: Task<Void, Never>?
+    private var referenceQuestionID: UUID?
+    private(set) var referenceTrajectory: [SeparationTrajectory.Point]?
+    private var objectNodes: [SCNNode] = []
+    private var markers: [SCNNode] = []
+    private var solvedAim: SCNVector3?
+    private var shotPoses: BallPoseSnapshot?
+    private var shotCamera: CameraRig.PerspectiveState?
+    private var pendingShot: SeparationShot?
+    private var settingsReturnPhase: Phase?
+    private var activeSince: Date?
+    private enum UpgradeIntent { case strike, next, restart }
+    private var upgradeIntent: UpgradeIntent?
+    #if DEBUG
+    @Published private(set) var revealedAt: TimeInterval?
+    @Published private(set) var strokeStartedAt: TimeInterval?
+    private var cueVisibleAtReveal = false
+    private var cueVisibleAtStroke = false
+    var diagnostic: String {
+        let payload: [String: Any] = ["phase": String(describing: phase), "question": record?.current?.id.uuidString ?? "",
+            "input": [input.spinX, input.spinY, input.velocity], "attempts": record?.attempts.count ?? 0,
+            "playsStroke": playsStroke, "isReplaying": isReplaying,
+            "cuePosition": scene.cueBallNode.map { [$0.position.x, $0.position.y, $0.position.z] } ?? [],
+            "targetPosition": targetNode.map { [$0.position.x, $0.position.y, $0.position.z] } ?? [],
+            "objectRouteVisible": !objectNodes.isEmpty,
+            "idealPocketLineVisible": scene.pocketLineNode?.isHidden == false,
+            "cutAngle": cutAngleDegrees ?? -1,
+            "showsReference": showsReference, "referenceReady": referenceTrajectory != nil, "referenceVisible": !referenceNodes.isEmpty,
+            "referencePointCount": referenceTrajectory?.count ?? 0,
+            "actualVisible": !actualNodes.isEmpty, "targetVisible": !targetNodes.isEmpty,
+            "guidesVisible": ["strikeLine", "ghostBall", "pocketLine"].allSatisfy {
+                scene.rootNode.childNode(withName: $0, recursively: false)?.isHidden == false
+            },
+            "revealedAt": revealedAt ?? 0, "strokeStartedAt": strokeStartedAt ?? 0,
+            "cueVisible": scene.cueStick?.rootNode.isHidden == false,
+            "cueVisibleAtReveal": cueVisibleAtReveal, "cueVisibleAtStroke": cueVisibleAtStroke,
+            "averageScore": record?.averageScore ?? -1,
+            "questionAverageScore": record?.currentQuestionAverage() ?? -1,
+            "latestScore": record?.latestShot?.score?.value ?? -1,
+            "spin": [record?.latestShot?.input.spinX ?? 0, record?.latestShot?.input.spinY ?? 0],
+            "quota": limiter.questionsUsedToday, "audio": ShotSoundBank.shared.diagnostic]
+        return (try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+    }
+    #endif
+    private var replayCamera = ShotReplayCamera()
+    private struct BallDisplay {
+        let position: SCNVector3, scale: SCNVector3
+        let orientation: simd_quatf
+        let hidden: Bool
+        let opacity: CGFloat
+        init(_ node: SCNNode) {
+            position = node.position; scale = node.scale; orientation = node.simdOrientation
+            hidden = node.isHidden; opacity = node.opacity
+        }
+        func restore(_ node: SCNNode?) {
+            guard let node else { return }
+            node.position = position; node.scale = scale; node.isHidden = hidden; node.opacity = opacity
+            BallSpinIntegrator.applyPose(node, orientation)
+        }
+    }
+    private var replayReturn: (Phase, BallDisplay, BallDisplay, PocketRailSnapshot)?
+    init(is3D: Bool, limiter: AngleUsageLimiter = .separationTraining, defaults: UserDefaults = .standard) {
+        self.is3D = is3D; self.limiter = limiter; self.defaults = defaults
+        playsStroke = defaults.object(forKey: "separationPractice.\(is3D ? "3D" : "2D").playsStroke") as? Bool ?? true
+        showsReference = defaults.object(forKey: "separationPractice.\(is3D ? "3D" : "2D").showsReference") as? Bool ?? true
+        cameraMode = is3D ? .perspective3D : .topDown2D
+    }
+    var route: String { is3D ? "separationPractice3D" : "separationPractice2D" }
+    var title: String { is3D ? "3D分离角练习" : "2D分离角练习" }
+    var preferencePage: TablePreferencePage { is3D ? .separationPractice3D : .separationPractice2D }
+    var targetNode: SCNNode? { scene.targetBallNodes.first }
+    var selectedPocketIndex: Int { record?.current?.board.pocketIndex ?? 0 }
+    var selectedTargetKey: String? { record?.current.map { "_\($0.ballNumber)" } }
+    var onTableKeys: [String] { [PositionPlayBall.cueKey] + [selectedTargetKey].compactMap { $0 } }
+    var draggableBalls: [SCNNode] { [] }
+    var selectableBalls: [SCNNode] { [] }
+    var isDragging: Bool { false }
+    var currentPlayerAim: SCNVector3? { solvedAim ?? record?.current.map { AccuracyTipSelector.referenceDirection($0.board) } }
+    var input: SeparationInput { record?.draftInput ?? .init() }
+    var velocity: Double {
+        get { Double(input.velocity) }
+        set {
+            guard canAdjust, newValue.isFinite else { return }
+            record?.draftInput.velocity = Float(min(ShotTuning.velocityRange.upperBound,
+                max(ShotTuning.velocityRange.lowerBound, newValue)))
+            scheduleSave()
+        }
+    }
+    func setSpin(_ x: Double, _ y: Double) {
+        guard canAdjust else { return }
+        var next = input; next.spinX = Float(x); next.spinY = Float(y)
+        guard next.isValid else { return }
+        record?.draftInput = next; redrawCue(); scheduleSave()
+    }
+    var isBusy: Bool { [.preparing, .revealing, .playing, .saveFailed].contains(phase) }
+    var canAdjust: Bool { phase == .aiming && !temporaryTopDownActive && !cameraTransitionBusy }
+    var canRetry: Bool { phase == .result && record?.latestShot != nil && !temporaryTopDownActive && !cameraTransitionBusy }
+    var canPlayback: Bool { (phase == .result || phase == .aiming) && record?.latestShot != nil && !temporaryTopDownActive && !cameraTransitionBusy }
+    var shouldFinish: Bool {
+        record.map { $0.status != .active || (!$0.configuration.freePractice && $0.attempts.count >= 20) } == true
+            || (!is3D && limiter.isLimitReached)
+    }
+    var primaryTitle: String {
+        if isReplaying { return playsStroke ? "停止回放" : "停止击球" }
+        switch phase {
+        case .saveFailed: return "重试保存"
+        case .result: return shouldFinish ? "查看总结" : "下一题"
+        case .playing: return "击球中"
+        default: return playsStroke ? "击球" : "提交"
+        }
+    }
+    var outcomeText: String { record?.latestShot?.resultText ?? "" }
+    private func permitted(newQuestion: Bool = false) -> Bool {
+        limiter.refreshDay()
+        if !limiter.isPremium && (is3D || record?.configuration.freePractice == true
+            || (!is3D && limiter.isLimitReached && (newQuestion || record?.currentAttempt == nil))) {
+            upgradeIntent = newQuestion ? .next : .strike
+            needsSubscription = true; return false
+        }
+        return true
+    }
+    func attach(context: ModelContext) {
+        attach(repository: LocalSeparationPracticeRepository(context: context))
+    }
+    func attach(repository: any SeparationPracticeRepository) {
+        guard self.repository == nil else { return }
+        self.repository = repository
+        do {
+            record = try repository.resumable(is3D: is3D)
+            shotPoses = record.map { decodePoses($0.initialPoses) }
+            let fingerprint = try TrainingBankStore.load().sourceFingerprint
+            if let record, !record.isCompatible || record.bankFingerprint != fingerprint {
+                throw SeparationQuestionGenerator.Failure.incompatible
+            }
+            phase = record == nil ? .settings : (record?.showingResult == true ? .result : .aiming)
+            accountForSavedAttempts(); activeSince = Date()
+        } catch { message = error.localizedDescription; phase = .settings }
+    }
+    func start(_ configuration: SceneTrainingConfiguration, prepared: SeparationQuestionGenerator.Prepared) {
+        guard let repository else { return }
+        guard limiter.isPremium || (!is3D && !configuration.freePractice && !limiter.isLimitReached) else {
+            needsSubscription = true; return
+        }
+        do {
+            checkpointTime()
+            if var old = record, old.status == .active { old.status = .ended; try repository.save(old) }
+            let next = SeparationPracticeRecord(ownerKey: repository.ownerKey, is3D: is3D,
+                configuration: configuration, prepared: prepared)
+            try repository.save(next)
+            invalidate(); record = next; phase = .aiming; solvedAim = nil
+            shotPoses = nil; shotCamera = nil; activeSince = Date(); settingsReturnPhase = nil
+            if builtScene { installQuestion() }
+        } catch { message = error.localizedDescription }
+    }
+    func setupScene() {
+        guard !builtScene else { resumeTeachingActivity(); return }
+        builtScene = true; scene.configureReferenceTableRendering()
+        if is3D { scene.configureShotAwareCamera() }
+        scene.setupScene(enhancedRendering: false); scene.setupVisualizationNodes()
+        markers = scene.addPocketMarkers(); configureTeachingCamera(); installQuestion()
+    }
+    private func seatBalls() {
+        guard let question = record?.current else { return }
+        let y = scene.surfaceY + BallPhysics.radius
+        scene.applyBallLayout(cueBallPosition: .init(question.board.cue.x, y, question.board.cue.z),
+            targetBallNumber: question.ballNumber, targetPosition: .init(question.board.target.x, y, question.board.target.z))
+        scene.railInventory.clear()
+        if let shotPoses { scene.restoreBallPoses(shotPoses) }
+    }
+    private func installQuestion() {
+        guard let question = record?.current else { return }
+        scene.hideAllVisualization(); scene.setIdealObjectLine(nil); scene.setFreeAimPreviewLine(nil)
+        seatBalls(); drawAimingGuides()
+        if shotPoses == nil { shotPoses = scene.captureBallPoses() }
+        record?.initialPoses = encodePoses(shotPoses ?? [:])
+        _ = save()
+        for (index, node) in markers.enumerated() { scene.highlightPocket(node, highlighted: index == question.board.pocketIndex) }
+        scene.confirmPocketSelection(at: question.board.pocketIndex)
+        topDownContentRevision += 1
+        drawTarget(); clearActual(); prepareReference()
+        if record?.showingResult == true { showFinal(); drawActual(); phase = .result }
+        else { phase = .aiming; redrawCue() }
+        refreshObservationCameraContext()
+        if is3D {
+            requestPlayerView(.thirdPerson, animated: false)
+            if let saved = record?.viewBookmark, let cue = scene.cueBallNode?.position, let aim = currentPlayerAim {
+                scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: aim)
+            }
+        }
+    }
+    /// Fixed geometric references belong to the question, like its target route.
+    /// They do not predict a new shot or reveal the answer's tip / speed.
+    var cutAngleDegrees: Double? {
+        guard let board = record?.current?.board else { return nil }
+        let y = scene.surfaceY + BallPhysics.radius
+        let cue = SCNVector3(board.cue.x, y, board.cue.z)
+        let target = SCNVector3(board.target.x, y, board.target.z)
+        let pocket = AngleSceneCalculator.effectivePocketAimPoint(
+            targetBall: target, pocketIndex: board.pocketIndex, surfaceY: scene.surfaceY)
+        return AngleSceneCalculator.cutAngle(cueBall: cue, targetBall: target, pocket: pocket)
+    }
+    var latestScoreTitle: String {
+        record?.latestShot != nil && record?.showingResult == false && !isBusy ? "上杆得分" : "本杆得分"
+    }
+    private func drawAimingGuides() {
+        guard let question = record?.current else { scene.hideAllVisualization(); return }
+        let y = scene.surfaceY + BallPhysics.radius
+        let cue = SCNVector3(question.board.cue.x, y, question.board.cue.z)
+        let target = SCNVector3(question.board.target.x, y, question.board.target.z)
+        let pocket = AngleSceneCalculator.effectivePocketAimPoint(
+            targetBall: target, pocketIndex: question.board.pocketIndex, surfaceY: scene.surfaceY)
+        scene.updateVisualization(cueBall: cue, targetBall: target, pocket: pocket,
+            showAngleAnnotations: false, showOverlapMarkers: false, showLineLabels: false,
+            showStrikeLine: true, showPocketLine: true, showDiagramAngle: false, showGhostBall: true)
+    }
+    private func points(_ line: [SeparationTrajectory.Point]) -> [SCNVector3] {
+        line.map { .init($0.position.x, scene.surfaceY + BallPhysics.radius, $0.position.z) }
+    }
+    private func drawTarget() {
+        targetNodes.forEach { $0.removeFromParentNode() }; targetNodes = []
+        scene.addDashedPolyline(points(record?.current?.target ?? []), color: SeparationRouteStyle.target,
+            placement: .table, into: &targetNodes)
+        targetNodes.forEach { $0.name = "separation.target" }
+    }
+    /// A question-scoped baseline; never consumes player input, a submission, or an attempt.
+    private func prepareReference() {
+        guard showsReference, builtScene, let question = record?.current else { return }
+        if referenceQuestionID != question.id {
+            clearReference()
+            referenceQuestionID = question.id
+        }
+        guard referenceTrajectory == nil, referenceWork == nil else { return }
+        let surface = scene.surfaceY, profile = AccuracyTipSelector.renderedProfile()
+        referenceWork = Task { [weak self] in
+            let worker = Task.detached(priority: .userInitiated) {
+                let prediction = try SeparationQuestionGenerator.solve(board: question.board,
+                    input: SeparationInput(), surfaceY: surface, profile: profile)
+                // Keep the real route even when this fixed speed cannot pot the object ball.
+                return try SeparationTrajectory.extract(prediction)
+            }
+            do {
+                let line = try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
+                guard let self, !Task.isCancelled, self.record?.current?.id == question.id,
+                      self.showsReference, self.referenceQuestionID == question.id else { return }
+                self.referenceTrajectory = line
+                self.scene.addDashedPolyline(self.points(line), color: SeparationRouteStyle.reference,
+                    placement: .table, into: &self.referenceNodes)
+                self.referenceNodes.forEach {
+                    $0.name = "separation.reference"
+                    // Actual / target paths stay legible when they coincide with the baseline.
+                    $0.renderingOrder -= 1
+                }
+                self.topDownContentRevision += 1
+                self.referenceWork = nil
+            } catch is CancellationError {
+                // The owner of cancellation resets referenceWork; no stale callback may replace it.
+            } catch {
+                guard let self, !Task.isCancelled, self.record?.current?.id == question.id,
+                      self.showsReference, self.referenceQuestionID == question.id else { return }
+                self.referenceWork = nil
+                self.message = "中杆参考轨迹未能生成：" + error.localizedDescription
+            }
+        }
+    }
+    private func clearReference() {
+        referenceWork?.cancel(); referenceWork = nil
+        referenceNodes.forEach { $0.removeFromParentNode() }; referenceNodes = []
+        referenceTrajectory = nil; referenceQuestionID = nil
+    }
+    private func clearActual() {
+        actualNodes.forEach { $0.removeFromParentNode() }; actualNodes = []
+        objectNodes.forEach { $0.removeFromParentNode() }; objectNodes = []
+        drawAimingGuides()
+    }
+    private func drawActual() {
+        clearActual()
+        scene.addDashedPolyline(points(record?.latestShot?.trajectory ?? []), color: SeparationRouteStyle.actual,
+            placement: .table, into: &actualNodes)
+        actualNodes.forEach { $0.name = "separation.actual" }
+        scene.pocketLineNode?.isHidden = true
+        scene.addDashedPolyline(points(record?.latestShot?.objectTrajectory ?? []),
+            color: TrajectoryStyle.potColor(forNumber: record?.current?.ballNumber ?? 1),
+            placement: .table, into: &objectNodes)
+        objectNodes.forEach { $0.name = "separation.objectActual" }
+    }
+    private func redrawCue() {
+        guard phase == .aiming, let cue = scene.cueBallNode, let aim = currentPlayerAim else { return }
+        scene.updateCueStick(cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: aim,
+            spinX: Double(input.spinX), spinY: Double(input.spinY)), aimDirection: aim)
+    }
+    func strike() {
+        guard canAdjust, permitted(), let question = record?.current else { return }
+        invalidate(preservingCue: true)
+        let token = generation, frozen = input, surface = scene.surfaceY, animate = playsStroke
+        shotPoses = scene.captureBallPoses(); shotCamera = ShotReplayCamera.capture(in: scene)
+        record?.initialPoses = encodePoses(shotPoses ?? [:])
+        #if DEBUG
+        revealedAt = nil; strokeStartedAt = nil; cueVisibleAtReveal = false; cueVisibleAtStroke = false
+        #endif
+        phase = .preparing; message = nil
+        work = Task {
+            let worker = Task.detached(priority: .userInitiated) { () throws -> SeparationShot in
+                let prediction = try SeparationQuestionGenerator.solve(board: question.board, input: frozen,
+                    surfaceY: surface, profile: AccuracyTipSelector.renderedProfile())
+                return try SeparationShot(question: question, input: frozen, prediction: prediction, surfaceY: surface)
+            }
+            do {
+                let shot = try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
+                guard !Task.isCancelled, token == generation, question.id == record?.current?.id else { return }
+                var submission = shot
+                submission.playsStroke = animate
+                pendingShot = submission
+                commitAndReveal()
+            } catch {
+                guard token == generation, !Task.isCancelled else { return }
+                phase = .aiming; message = error.localizedDescription; redrawCue()
+            }
+        }
+    }
+    private func commitAndReveal() {
+        guard let pendingShot, var next = record, let repository else { return }
+        checkpointTime(); next.activeSeconds = record?.activeSeconds ?? next.activeSeconds
+        next.accept(pendingShot); next.showingResult = pendingShot.isTrajectoryOnly
+        next.finalPoses = [:]
+        solvedAim = pendingShot.direction.vector
+        if is3D, scene.cameraRig?.overviewControlSelected != true {
+            // Keep the selected first/third-person mode; preparation precedes the reveal receipt.
+            requestPlayerView(scene.cameraRig?.twoViewMode ?? .thirdPerson, animated: false)
+        }
+        shotCamera = ShotReplayCamera.capture(in: scene)
+        if is3D { next.shotBookmark = scene.cameraRig?.trainingBookmark() }
+        do { try repository.save(next) }
+        catch LocalSeparationPracticeRepository.Failure.oversizedRecord {
+            self.pendingShot = nil; phase = .aiming
+            message = "本题的轨迹记录过大，请调整打点或力度后重试；尚未扣除题数。"; return
+        }
+        catch { phase = .saveFailed; message = "未能保存本杆，请重试保存；尚未扣除题数。"; return }
+        record = next; self.pendingShot = nil; accountForSavedAttempts()
+        if pendingShot.isTrajectoryOnly {
+            scene.hideCueStick(); drawActual(); phase = .result
+            refreshObservationCameraContext()
+            return
+        }
+        // Establish the compensated address before the first revealed frame, then
+        // retain it through the reveal and directly into the ordinary cue stroke.
+        if let cue = scene.cueBallNode {
+            scene.updateCueStick(cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: pendingShot.direction.vector,
+                spinX: Double(pendingShot.input.spinX), spinY: Double(pendingShot.input.spinY)),
+                aimDirection: pendingShot.direction.vector)
+        }
+        phase = .revealing; drawActual(); scene.isPaused = false
+        let token = generation
+        scene.frameReceipt.arm { [weak self] in
+            guard let self, self.generation == token, self.phase == .revealing else { return }
+            #if DEBUG
+            self.revealedAt = ProcessInfo.processInfo.systemUptime
+            self.cueVisibleAtReveal = self.scene.cueStick?.rootNode.isHidden == false
+            #endif
+            self.work = Task {
+                do { try await Task.sleep(for: .milliseconds(1500)) } catch { return }
+                guard !Task.isCancelled, self.generation == token, self.phase == .revealing else { return }
+                self.play(pendingShot)
+            }
+        }
+    }
+    func retrySave() { guard phase == .saveFailed else { return }; commitAndReveal() }
+    private func play(_ shot: SeparationShot) {
+        phase = .playing
+        if !isReplaying { record?.showingResult = true; _ = save() }
+        #if DEBUG
+        strokeStartedAt = ProcessInfo.processInfo.systemUptime
+        cueVisibleAtStroke = scene.cueStick?.rootNode.isHidden == false
+        #endif
+        if isReplaying { seatBalls() }
+        solvedAim = shot.direction.vector
+        if isReplaying {
+            if shotCamera == nil, let saved = record?.shotBookmark, let cue = scene.cueBallNode?.position {
+                scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: shot.direction.vector)
+            } else { replayCamera.showShot(shotCamera, in: scene, aim: shot.direction.vector) }
+        }
+        guard let cue = scene.cueBallNode else { phase = .result; return }
+        let prediction = shot.prediction()
+        guard let recorder = prediction.recorder else { phase = .result; return }
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: scene.surfaceY + BallPhysics.radius,
+                                          railInventory: scene.railInventory)
+        if !isReplaying {
+            var terminal = shotPoses ?? [:]
+            for (key, name) in [(PositionPlayBall.cueKey, ShotInput.cueBallName), (selectedTargetKey ?? "", ShotInput.targetBallName)] {
+                let node = SCNNode()
+                node.simdOrientation = terminal[key] ?? BallSpinIntegrator.identityOrientation
+                let end = shot.captures.first { $0.name == name }?.frame.time ?? shot.duration
+                let steps = max(1, Int(ceil(end * 240)))
+                var previous = playback.stateAt(ballName: name, time: 0)?.angularVelocity ?? SCNVector3Zero
+                for index in 1...steps {
+                    let now = Float(index)*end/Float(steps)
+                    let omega = playback.stateAt(ballName: name, time: now)?.angularVelocity ?? SCNVector3Zero
+                    BallSpinIntegrator.advance(node: node, from: previous, to: omega, dt: end/Float(steps))
+                    previous = omega
+                }
+                terminal[key] = node.simdOrientation
+            }
+            record?.finalPoses = encodePoses(terminal); _ = save()
+        }
+        let strike = CueStroke.strikePosition(cue: cue.position, aim: shot.direction.vector,
+            spinX: Double(shot.input.spinX), spinY: Double(shot.input.spinY))
+        scene.updateCueStick(cueBallPosition: strike, aimDirection: shot.direction.vector)
+        let token = generation
+        scene.runCueStroke(strikePosition: strike, aim: shot.direction.vector, velocity: shot.input.velocity,
+            rehearsalEnabled: scene.tablePreferences?.enabled(.rehearsal) ?? false,
+            clearanceProbe: { playback.allBallCentersByName(at: Float($0)) }) { [weak self] in
+            guard let self, self.generation == token, self.phase == .playing else { return }
+            var actions: [(SCNNode, SCNAction)] = []
+            for (node, name) in [(self.scene.cueBallNode, ShotInput.cueBallName), (self.targetNode, ShotInput.targetBallName)] {
+                if let node, let action = playback.action(for: node, ballName: name, removeOnPocket: false,
+                                                          maxSimTime: playback.duration) { actions.append((node, action)) }
+            }
+            guard !actions.isEmpty else { self.completedPlayback(token); return }
+            var remaining = actions.count
+            for (node, action) in actions {
+                node.runAction(action, forKey: "separation.play") { [weak self] in
+                    Task { @MainActor in
+                        guard let self, self.generation == token else { return }
+                        remaining -= 1
+                        if remaining == 0 { self.completedPlayback(token) }
+                    }
+                }
+            }
+            ShotAudioScheduler.shared.play(prediction: prediction)
+        }
+    }
+    private func completedPlayback(_ token: UUID) {
+        guard token == generation else { return }
+        if isReplaying { stopPlayback(); return }
+        scene.railInventory.finishPlayback()
+        scene.hideCueStick(); phase = .result; refreshObservationCameraContext()
+        record?.finalPoses = encodePoses(scene.captureBallPoses())
+        _ = save()
+    }
+    func retry() {
+        guard canRetry, permitted(), let shot = record?.latestShot else { return }
+        invalidate(); record?.draftInput = shot.input; record?.showingResult = false
+        solvedAim = shot.direction.vector; phase = .aiming
+        seatBalls(); clearActual()
+        if let shotCamera { scene.restorePerspectiveView(shotCamera) }
+        else if let saved = record?.shotBookmark, let cue = scene.cueBallNode?.position {
+            scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: shot.direction.vector)
+        }
+        redrawCue(); _ = save()
+    }
+    func replayLastShot() {
+        guard canPlayback, let shot = record?.latestShot, let cue = scene.cueBallNode, let target = targetNode else { return }
+        let state = (phase, BallDisplay(cue), BallDisplay(target), scene.railInventory.snapshot())
+        invalidate(); replayReturn = state; replayCamera.begin(in: scene); isReplaying = true
+        drawActual(); play(shot)
+    }
+    func stopPlayback() {
+        guard isReplaying else { return }
+        invalidate()
+        if phase == .aiming { clearActual(); redrawCue() }
+    }
+    private func restoreReplay() {
+        guard let state = replayReturn else { return }
+        state.1.restore(scene.cueBallNode); state.2.restore(targetNode)
+        replayCamera.finish(in: scene); phase = state.0; record?.showingResult = state.0 == .result
+        replayReturn = nil; isReplaying = false
+        if phase == .aiming { clearActual() }
+    }
+    func next() {
+        guard phase == .result else { return }
+        if shouldFinish { finish(); return }
+        guard permitted(newQuestion: true), let old = record else { return }
+        invalidate(); let token = generation; phase = .preparing
+        work = Task {
+            let worker = Task.detached(priority: .userInitiated) {
+                try SeparationQuestionGenerator.prepare(old.configuration, excluding: Set(old.questions.map { $0.board.id }))
+            }
+            do {
+                let prepared = try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
+                guard !Task.isCancelled, generation == token, var next = record else { return }
+                guard prepared.fingerprint == next.bankFingerprint else { throw SeparationQuestionGenerator.Failure.incompatible }
+                checkpointTime(); next.activeSeconds = record?.activeSeconds ?? next.activeSeconds
+                let payloadSize = try next.encodedPayload().count
+                let segmentFull = next.configuration.freePractice &&
+                    (next.attempts.count >= 10 || payloadSize >= 512_000)
+                var archived: SeparationPracticeRecord?
+                if segmentFull {
+                    archived = next; archived?.status = .completed; archived?.updatedAt = Date()
+                    next = next.continuation(prepared: prepared)
+                } else { next.questions.append(prepared.question); next.cursor += 1 }
+                next.draftInput = .init()
+                next.latestShot = nil; next.showingResult = false; next.updatedAt = Date()
+                next.initialPoses = [:]; next.finalPoses = [:]
+                next.viewBookmark = nil; next.shotBookmark = nil
+                try repository?.saveAtomically(archived.map { [$0, next] } ?? [next])
+                record = next; shotPoses = nil; shotCamera = nil; solvedAim = nil; installQuestion()
+            } catch {
+                guard generation == token, !Task.isCancelled else { return }
+                phase = .result; message = error.localizedDescription
+            }
+        }
+    }
+    func finish() {
+        guard !isBusy else { return }
+        checkpointTime()
+        guard var next = record else { return }
+        next.status = !next.configuration.freePractice && next.attempts.count >= 20 ? .completed : .ended
+        next.updatedAt = Date()
+        do { try repository?.save(next); record = next; invalidate(); phase = .summary; activeSince = nil }
+        catch { message = error.localizedDescription }
+    }
+    func reviewLastQuestion() {
+        if phase == .summary, record?.latestShot != nil { phase = .result; activeSince = Date() }
+    }
+    func restart() {
+        limiter.refreshDay()
+        guard limiter.isPremium || (!is3D && !limiter.isLimitReached) else {
+            upgradeIntent = .restart; needsSubscription = true; return
+        }
+        openSettings()
+    }
+    func subscriptionDismissed() {
+        let intent = upgradeIntent; upgradeIntent = nil
+        guard limiter.isPremium else { return }
+        switch intent {
+        case .strike: strike()
+        case .next: next()
+        case .restart: openSettings()
+        case nil: break
+        }
+    }
+    func openSettings() {
+        guard !isBusy else { return }
+        settingsReturnPhase = record == nil ? nil : phase; phase = .settings
+    }
+    func cancelSettings() -> Bool {
+        guard let previous = settingsReturnPhase else { return false }
+        phase = previous; settingsReturnPhase = nil; return true
+    }
+    private func showFinal() {
+        guard let shot = record?.latestShot else { return }
+        if shot.isTrajectoryOnly {
+            seatBalls(); scene.hideCueStick()
+            return
+        }
+        for (node, name) in [(scene.cueBallNode, ShotInput.cueBallName), (targetNode, ShotInput.targetBallName)] {
+            if let position = shot.finalPositions[name] { node?.position = position.value }
+            node?.isHidden = shot.pocketedBalls.contains(name)
+        }
+        scene.hideCueStick()
+        if let record, !record.finalPoses.isEmpty { scene.restoreBallPoses(decodePoses(record.finalPoses)) }
+        // Rebuild the presentation-only pocket rails from the same capture facts.
+        // A restored result must not lose the potted ball's visible return-rail resident.
+        scene.railInventory.clear()
+        if let recorder = shot.prediction().recorder, let railShot = scene.railInventory.beginShot(recorder: recorder) {
+            for (node, name) in [(scene.cueBallNode, ShotInput.cueBallName), (targetNode, ShotInput.targetBallName)] {
+                if let node, shot.pocketedBalls.contains(name) {
+                    scene.railInventory.bind(node, alias: name, to: railShot)
+                    scene.railInventory.beginTail(alias: name, source: node, shot: railShot)
+                }
+            }
+            scene.railInventory.finishPlayback()
+        }
+    }
+    private func encodePoses(_ poses: BallPoseSnapshot) -> [String: [Float]] {
+        poses.mapValues { [$0.vector.x, $0.vector.y, $0.vector.z, $0.vector.w] }
+    }
+    private func decodePoses(_ poses: [String: [Float]]) -> BallPoseSnapshot {
+        poses.compactMapValues { value in
+            guard value.count == 4, value.allSatisfy(\.isFinite) else { return nil }
+            return simd_quatf(vector: .init(value[0], value[1], value[2], value[3]))
+        }
+    }
+    private func checkpointTime() {
+        if let activeSince { record?.activeSeconds += max(0, Date().timeIntervalSince(activeSince)); self.activeSince = Date() }
+    }
+    @discardableResult private func save() -> Bool {
+        draftSave?.cancel(); checkpointTime()
+        guard let record, let repository else { return false }
+        do { try repository.save(record); return true }
+        catch { message = "未能保存练习，请稍后重试。"; return false }
+    }
+    private func scheduleSave() {
+        draftSave?.cancel()
+        draftSave = Task { try? await Task.sleep(for: .milliseconds(300)); if !Task.isCancelled { save() } }
+    }
+    private func accountForSavedAttempts() {
+        guard !is3D else { return }
+        for attempt in record?.attempts ?? [] { limiter.recordQuestion(attemptID: attempt.id, submittedAt: attempt.submittedAt) }
+    }
+    private func invalidate(preservingCue: Bool = false) {
+        generation = UUID(); work?.cancel(); work = nil; scene.frameReceipt.cancel()
+        // Finish rail cancellation before taking SceneKit's lock: rail callbacks
+        // hold their own state lock while updating nodes.
+        if let state = replayReturn { scene.railInventory.restore(state.3) }
+        // SceneKit can evaluate actions on its render thread. Cancel and restore
+        // under the same transaction lock, without implicit position animations.
+        SCNTransaction.lock()
+        defer { SCNTransaction.unlock() }
+        SCNTransaction.begin(); SCNTransaction.disableActions = true
+        defer { SCNTransaction.commit() }
+        scene.cueBallNode?.removeAllActions(); targetNode?.removeAllActions()
+        if preservingCue { scene.cueStick?.cancelAnimations() }
+        else { scene.hideCueStick() }
+        ShotAudioScheduler.shared.cancel(); restoreReplay()
+    }
+    func suspendTeachingActivity() {
+        referenceWork?.cancel(); referenceWork = nil
+        if is3D, !isReplaying, !temporaryTopDownActive { record?.viewBookmark = scene.cameraRig?.trainingBookmark() }
+        let wasPlaying = phase == .playing && !isReplaying
+        invalidate()
+        if wasPlaying { phase = .result; record?.showingResult = true; showFinal() }
+        else if phase == .preparing || phase == .revealing {
+            phase = record?.showingResult == true ? .result : .aiming
+            if phase == .aiming { seatBalls(); clearActual(); record?.showingResult = false }
+        }
+        _ = save(); activeSince = nil
+    }
+    func resumeTeachingActivity() {
+        if phase != .summary { activeSince = Date() }
+        limiter.refreshDay()
+        guard builtScene else { return }
+        scene.isPaused = false
+        prepareReference()
+        if phase == .aiming { redrawCue() }
+    }
+    func layoutEditingChanged(_ editing: Bool) {
+        if editing { _ = save(); activeSince = nil }
+        else { activeSince = Date() }
+    }
+    func ownerChanged() {
+        clearReference()
+        invalidate(); draftSave?.cancel(); record = nil; pendingShot = nil; phase = .settings
+        upgradeIntent = nil; shotPoses = nil; shotCamera = nil; solvedAim = nil
+        targetNodes.forEach { $0.removeFromParentNode() }; targetNodes = []; clearActual()
+        scene.hideAllVisualization()
+        message = "账号已切换，请重新开始练习。"
+    }
+    func selectPocket(at index: Int) {}
+    func selectTarget(key: String) {}
+    func placeFromPalette(_ key: String) {}
+    func palettePlacement(_ key: String, atWorld world: SCNVector3) -> SCNVector3? { nil }
+    func removeFromTable(_ key: String) {}
+    func dragBegan(node: SCNNode) {}
+    func dragMoved(node: SCNNode, worldPosition: SCNVector3) {}
+    func dragEnded(node: SCNNode) {}
+}

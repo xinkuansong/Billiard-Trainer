@@ -4,9 +4,11 @@ import CoreGraphics
 /// Decorative dynamics in button-local points: x right, y down. No table physics state.
 struct DailyClearanceButtonMotion {
     static let rackSize: CGFloat = 28
-    static let duration: Double = 12
     static let sampleRate = 120
     static let rollDuration = 5.2
+    static let gatherStart = 0.65 + rollDuration + 0.65
+    static let gatherEnd = gatherStart + rollDuration
+    static let duration = gatherEnd + 3.5
     let size: CGSize
     let radius: CGFloat
     let home: [CGPoint]
@@ -39,14 +41,14 @@ struct DailyClearanceButtonMotion {
             let lift = Self.ease(t / 0.65)
             return Frame(balls: home, rackOpacity: 0.7 * (1 - lift), rackLift: -5 * lift)
         }
-        if t < 5.85 { return Frame(balls: positions(at: t - 0.65), rackOpacity: 0, rackLift: -5) }
-        if t < 6.5 { return Frame(balls: rolling.last ?? home, rackOpacity: 0, rackLift: -5) }
-        if t < 8.5 {
-            // Retrace the simulated path to gather without balls passing through one another.
-            let time = Self.rollDuration * Double(1 - Self.ease((t - 6.5) / 2))
+        if t < 0.65 + Self.rollDuration { return Frame(balls: positions(at: t - 0.65), rackOpacity: 0, rackLift: -5) }
+        if t < Self.gatherStart { return Frame(balls: rolling.last ?? home, rackOpacity: 0, rackLift: -5) }
+        if t < Self.gatherEnd {
+            // Retrace the simulated path at the same playback speed as the outward roll.
+            let time = Self.rollDuration - (t - Self.gatherStart)
             return Frame(balls: positions(at: time), rackOpacity: 0, rackLift: -5)
         }
-        let placed = Self.ease((t - 8.5) / 0.6)
+        let placed = Self.ease((t - Self.gatherEnd) / 0.6)
         return Frame(balls: home, rackOpacity: 0.7 * placed, rackLift: -5 * (1 - placed))
     }
 

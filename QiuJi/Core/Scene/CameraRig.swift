@@ -1173,6 +1173,55 @@ final class CameraRig: ObservableObject {
         fileprivate let twoView: TwoViewCamera.Snapshot?
     }
 
+    /// A durable, settled observation pose. Runtime transition/profile caches remain scene-owned.
+    struct TrainingBookmark: Codable {
+        let pose: [Float] // eye xyz, quaternion xyzw, vertical FOV
+        let mode: String
+        let global: Bool
+        let overview: Bool
+        let orbit: [Float] // pivot xyz, yaw, radius, height above table, pitch, FOV
+        let viewing: [Float] // yaw, travel, head yaw
+    }
+    func trainingBookmark() -> TrainingBookmark {
+        let position = cameraNode.simdPosition, rotation = cameraNode.simdOrientation.vector
+        let p = captureCurrentPose(), view = twoViewCamera?.snapshot()
+        return .init(pose: [position.x, position.y, position.z, rotation.x, rotation.y, rotation.z, rotation.w,
+                            Float(cameraNode.camera?.fieldOfView ?? config.standFov)],
+            mode: twoViewMode.rawValue, global: mergedGlobalActive, overview: surfaceOverviewActive,
+            orbit: [p.pivot.x, p.pivot.y, p.pivot.z, p.yaw, p.radius, p.height, p.pitch, p.fov],
+            viewing: [view?.yaw ?? 0, view?.progress ?? 0.5, view?.headYaw ?? 0])
+    }
+    func restoreTrainingBookmark(_ saved: TrainingBookmark, cue: SCNVector3, aim: SCNVector3) {
+        guard saved.pose.count == 8, saved.orbit.count == 8, saved.viewing.count == 3,
+              (saved.pose + saved.orbit + saved.viewing).allSatisfy(\.isFinite),
+              let mode = PlayerView(rawValue: saved.mode) else { return }
+        _ = enterPlayerView(mode, cue: cue, aim: aim, duration: 0)
+        pendingTwoViewEntry = nil
+        if saved.global {
+            let p = saved.orbit
+            mergedGlobalActive = true; surfaceOverviewActive = false
+            currentPivot = .init(p[0], p[1], p[2]); targetPivot = currentPivot
+            currentYaw = p[3]; targetYaw = p[3]
+            let height = p[5] - (currentPivot.y - tableSurfaceY)
+            let elevation = atan2(height, p[4])
+            currentOrbit = .init(distance: hypot(p[4], height), elevation: elevation, pitchOffset: p[6]+elevation, fov: p[7])
+            targetOrbit = currentOrbit; overviewYawSpeed = nil; framesTableDuringOverviewTurn = false
+            keepsWholeTableFramed = false; playerView = nil; playerReference = nil
+            disableSmoothPoseControl(); currentViewMode = .observation; applyCameraTransform()
+        } else {
+            let camera = activeTwoViewCamera(), base = camera.snapshot(), p = saved.pose
+            let pose = TwoViewCamera.Pose(eye: .init(p[0], p[1], p[2]),
+                orientation: simd_quatf(vector: .init(p[3], p[4], p[5], p[6])), fov: p[7])
+            camera.restore(.init(mode: mode, owner: .manual, pose: pose, profile: base.profile,
+                shotProfile: base.shotProfile, simpleShot: base.simpleShot, defaultPose: base.defaultPose,
+                temporaryObserving: false, yaw: saved.viewing[0], progress: saved.viewing[1], headYaw: saved.viewing[2],
+                firstPersonBase: base.firstPersonBase, context: base.context, entryContext: base.entryContext,
+                firstPersonMemory: nil, thirdPersonMemory: nil))
+            surfaceOverviewActive = saved.overview; applyTwoViewPose()
+        }
+        onPlayerTransitionEnded?()
+    }
+
     func capturePerspectiveState() -> PerspectiveState {
         PerspectiveState(currentPivot: currentPivot, targetPivot: targetPivot,
                          currentYaw: currentYaw, targetYaw: targetYaw,

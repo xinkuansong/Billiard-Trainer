@@ -308,7 +308,9 @@ final class CustomFormationUITests: XCTestCase {
         try coordinate(movedBall).press(forDuration: 0.15, thenDragTo: palette.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
         count(2)
         XCTAssertNil(try board()[key])
-        palette.tap(); count(3)
+        palette.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).press(forDuration: 0.1,
+            thenDragTo: table.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.35)))
+        count(3)
         XCTAssertNotNil(try board()[key], "Retrieval must restore the same repeated-ball identity")
         XCTAssertEqual(Set(try board().keys), Set(initial.keys))
         try snap("42-practice-retrieved")

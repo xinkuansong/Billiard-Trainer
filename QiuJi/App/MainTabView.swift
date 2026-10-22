@@ -192,7 +192,8 @@ struct MainTabView: View {
 
     @ViewBuilder
     private func angleDestination(for route: AngleRoute) -> some View {
-        ProAccessGate(requiresPremium: route.requiresPremium) {
+        // Separation owns its gate so an already committed stroke can finish before an entitlement change gates the next action.
+        ProAccessGate(requiresPremium: route.requiresPremium && route != .separationPractice3D) {
             authorizedAngleDestination(for: route)
         }
     }
@@ -237,6 +238,10 @@ struct MainTabView: View {
             AimPointSceneTrainingView(initialCameraMode: .topDown2DRotated)
         case .aimPointScene3D:
             AimPointSceneTrainingView(initialCameraMode: .perspective3D)
+        case .separationPractice2D:
+            SeparationPracticeView(is3D: false)
+        case .separationPractice3D:
+            SeparationPracticeView(is3D: true)
         case .accuracy2D:
             AccuracyPracticeView(is3D: false)
         case .accuracy3D:

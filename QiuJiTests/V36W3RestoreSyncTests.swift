@@ -76,6 +76,29 @@ final class V36W3RestoreSyncTests: XCTestCase {
 
     // MARK: - Fixture
 
+    func test_separationCompressedRecordRoundtripLocalWinsAndPendingDelete() async throws {
+        let prepared = try SeparationQuestionGenerator.prepare(.init(), seed: 20261022)
+        var record = SeparationPracticeRecord(ownerKey: OwnerKey.account(userId), is3D: false,
+            configuration: .init(), prepared: prepared)
+        record.draftInput = .init(spinX: 0.12, spinY: -0.13, velocity: 2.2)
+        let repository = LocalSeparationPracticeRepository(context: context, enqueue: { _, _ in })
+        try repository.save(record)
+        let original = try XCTUnwrap(localSessions().first)
+        let dto = TrainingSessionDTO(from: original)
+        context.delete(original); try context.save()
+        SyncRestoreService.shared.backend = MockRestoreBackend(sessions: try serverRecords([dto], updatedAt: [Date()]))
+        let restored = await SyncRestoreService.shared.restore(userId: userId, mode: .full)
+        XCTAssertEqual(restored.insertedSessions, 1)
+        XCTAssertEqual(try repository.resumable(is3D: false)?.draftInput, record.draftInput)
+        record.draftInput.velocity = 3.1; try repository.save(record)
+        let merged = await SyncRestoreService.shared.restore(userId: userId, mode: .full)
+        XCTAssertEqual(merged.insertedSessions, 0)
+        XCTAssertEqual(try repository.resumable(is3D: false)?.draftInput.velocity, 3.1)
+        try await LocalTrainingSessionRepository(context: context).delete(try XCTUnwrap(localSessions().first))
+        let deleted = await SyncRestoreService.shared.restore(userId: userId, mode: .full)
+        XCTAssertEqual(deleted.insertedSessions, 0); XCTAssertTrue(try localSessions().isEmpty)
+    }
+
     /// 一条字段全非默认值的本地训练：9 个 v36 W1 新字段都要有可辨识的取值，
     /// 否则「往返无损」可能只是默认值恰好相等。
     private func makeLocalSession(

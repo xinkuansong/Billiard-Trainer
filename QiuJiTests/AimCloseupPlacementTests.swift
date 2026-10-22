@@ -378,7 +378,9 @@ final class AimCloseupProjectionTests: XCTestCase {
         let point = CGPoint(x: 0.34, y: 0.16)
         let y = scene.surfaceY + AngleSceneCalculator.ballRadius
         let snap = AimCloseupSnapshot(band: .contact, focus: focus, ballRadius: 0.028575,
-                                      halfWorld: 0.09144, aimPointMarker: point)
+                                      halfWorld: 0.09144,
+                                      centerReferenceLine: .init(start: point, end: focus),
+                                      targetReferenceRadius: 2 * 0.028575, aimPointMarker: point)
         for mode in [AngleTrainingScene.CameraMode.topDown2DRotated, .perspective3D] {
             scene.setCameraMode(mode, animated: false)
             for yaw in [-0.8, 0.0, 0.7] {
@@ -395,6 +397,9 @@ final class AimCloseupProjectionTests: XCTestCase {
                     let f = view.projectPoint(SCNVector3(Float(focus.x), y, Float(focus.y)))
                     let p = view.projectPoint(SCNVector3(Float(point.x), y, Float(point.y)))
                     let marker = try XCTUnwrap(projected.aimPointMarker)
+                    XCTAssertEqual(projected.centerReferenceLine?.start, marker)
+                    XCTAssertEqual(projected.centerReferenceLine?.end, projected.focus)
+                    XCTAssertEqual(projected.targetReferenceRadius, 2 * projected.ballRadius)
                     let mapped = AimCloseupCoords.mapRotated(world: marker, focus: projected.focus,
                                                            origin: .zero, scale: 1)
                     let dx = CGFloat(p.x - f.x), dy = CGFloat(p.y - f.y)

@@ -279,6 +279,15 @@ private struct FreeControlHost: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var values: FreeControlValues { editing ? (draft ?? store.values(page: page, mode: mode)) : store.values(page: page, mode: mode) }
+    /// Only the new separation pages opt in: resizing may temporarily use native slots,
+    /// while saved placements and the editor retain the user's original intent.
+    private var renderedValues: FreeControlValues {
+        guard !editing, page == .separationPractice2D || page == .separationPractice3D else { return values }
+        let sourceID = store.archive.pageSources?[FreeControlArchive.key(page: page, mode: mode)]
+        let source = store.archive.templates.first(where: { $0.id == sourceID })?.sourceWindow
+        return FreeControlResizeSafety.needsNativeSlots(values: values,
+            frames: frames.mapValues(\.frame), window: windowSize, source: source) ? [:] : values
+    }
     private var canMeasure: Bool { windowSize.width > 0 && windowSize.height > 0 }
     private func placement(_ id: String) -> FreeControlPlacement {
         if let value = values[id] { return value }
@@ -295,7 +304,7 @@ private struct FreeControlHost: ViewModifier {
         content
             .allowsHitTesting(!editing)
             .accessibilityHidden(editing)
-            .environment(\.freeControlContext, .init(values: values, defaults: frames,
+            .environment(\.freeControlContext, .init(values: renderedValues, defaults: frames,
                 windowSize: windowSize, hostOrigin: hostFrame.origin))
             // Identity context measures the legacy groups without applying their constraints to v2.
             .environment(\.controlLayoutContext, ControlLayoutContext())

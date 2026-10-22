@@ -5,6 +5,122 @@ import SwiftData
 
 @MainActor
 final class SixTrainingUnifiedTests: XCTestCase {
+    func testAccuracyPocketHeightContinuityFromBothPageModesAcrossSixPockets() async throws {
+        let bank = try TrainingBankStore.load()
+        let prepared = try AccuracyPreparedRound.prepare(.init(), excluding: [], seed: 20261021)
+        for is3D in [false, true] {
+            let container = ModelContainerFactory.makeInMemoryContainer()
+            let vm = AccuracyPracticeViewModel(is3D: is3D)
+            let wasPremium = vm.limiter.isPremium
+            vm.limiter.isPremium = true
+            defer { vm.suspendTeachingActivity(); vm.limiter.isPremium = wasPremium }
+            vm.attach(context: ModelContext(container))
+            vm.setupScene()
+            for pocket in TableGeometry.chineseEightBallQiuJi(surfaceY: vm.scene.surfaceY).pockets {
+                let index = try XCTUnwrap(Int(pocket.id.replacingOccurrences(of: "pocket_", with: "")))
+                let direction = SCNVector3(pocket.isCorner ? (pocket.center.x > 0 ? Float(1) : -1) : 0,
+                                           0, pocket.center.z > 0 ? 1 : -1).normalized()
+                let target = pocket.center - direction * 0.30
+                let cue = target - direction * 0.40
+                let board = TrainingBankBoard(gridID: "height-fixture-\(index)", seed: UInt64(index),
+                    cue: cue, target: target, aim: pocket.center, pocket: index, angle: 0, side: 1,
+                    cueBand: .short, pocketBand: .short, combinationID: "height-fixture",
+                    qualification: "test-only", generationAngle: 0)
+                var questions = prepared.questions
+                questions[0] = .init(board: board, selectedTip: .center)
+                vm.start(.init(), prepared: .init(fingerprint: bank.sourceFingerprint, questions: questions))
+                vm.cameraTransitionBusy = false
+                vm.velocity = 1.5
+                vm.strike()
+                let deadline = Date().addingTimeInterval(20)
+                while vm.phase == .computing && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+                XCTAssertEqual(vm.phase, .playing)
+                let prediction = try XCTUnwrap(vm.lastPrediction)
+                let recorder = try XCTUnwrap(prediction.recorder)
+                let name = ShotInput.targetBallName
+                let entry = try XCTUnwrap(recorder.pocketEntries.first { $0.ball.name == name })
+                XCTAssertEqual(entry.pocketID, pocket.id)
+                let tail = try XCTUnwrap(recorder.collectionTailsByBallName[name])
+                let ballY = vm.scene.surfaceY + BallPhysics.radius
+                XCTAssertEqual(tail.start.position.y, Double(ballY), accuracy: 1e-6)
+                XCTAssertEqual(entry.ball.position.y, ballY, accuracy: 1e-6)
+                let playback = TrajectoryPlayback(recorder: recorder, surfaceY: ballY, railInventory: vm.scene.railInventory)
+                let before = try XCTUnwrap(playback.stateAt(ballName: name, time: Float(tail.start.time) - 0.0001))
+                let after = try XCTUnwrap(playback.stateAt(ballName: name, time: Float(tail.start.time) + 0.0001))
+                XCTAssertLessThan((after.position - before.position).length(), 0.001, "No height jump: \(is3D), \(pocket.id)")
+                let railShot = try XCTUnwrap(playback.railShot)
+                let track = try XCTUnwrap(railShot.timeline.incoming[name])
+                XCTAssertEqual(try XCTUnwrap(track.frame(at: tail.start.time)).position.y, Double(ballY), accuracy: 1e-6)
+                XCTAssertLessThan(tail.end.position.y, Double(vm.scene.surfaceY))
+                XCTAssertGreaterThan(tail.end.position.y, 0)
+
+                // Height correction must not change planar verdicts or contact times.
+                let old = ShotPredictor.simulateFree(cueBall: cue, aimDir: direction, velocity: 1.5,
+                    spinX: 0, spinY: 0, surfaceY: 0, balls: [.init(name: name, position: target)])
+                XCTAssertEqual(Set(prediction.pocketedBalls), Set(old.pocketedBalls))
+                XCTAssertEqual(AccuracyShotJudgement.evaluate(prediction, pocketIndex: index),
+                               AccuracyShotJudgement.evaluate(old, pocketIndex: index))
+                XCTAssertEqual(entry.time, try XCTUnwrap(old.recorder?.pocketEntries.first { $0.ball.name == name }).time, accuracy: 1e-5)
+                let wrongTail = try XCTUnwrap(old.recorder?.collectionTailsByBallName[name])
+                XCTAssertGreaterThan(abs(wrongTail.start.position.y - Double(ballY)), 0.79,
+                                     "The old zero-height input must fail the same continuity criterion")
+                vm.suspendTeachingActivity()
+            }
+            withExtendedLifetime(container) {}
+        }
+    }
+
+    func testAccuracyCloseupOnlyMagnifiesCurrentAimAndClearsOnSuspension() throws {
+        for is3D in [false, true] {
+            try withAccuracyScene(is3D: is3D) { vm in
+                @MainActor func verify() throws -> AimCloseupSnapshot {
+                    let snapshot = try XCTUnwrap(vm.closeupSnapshot)
+                    let cue = try XCTUnwrap(vm.scene.cueBallNode).position
+                    let target = try XCTUnwrap(vm.targetNode).position
+                    let direction = try XCTUnwrap(vm.currentPlayerAim)
+                    func point(_ p: SCNVector3) -> CGPoint { .init(x: CGFloat(p.x), y: CGFloat(p.z)) }
+                    let line = AimLineGeometry.resolve(cue: point(cue), dir: point(direction), target: point(target),
+                        ballRadius: CGFloat(BallPhysics.radius), railEnd: point(AngleSceneCalculator.rayToInnerRail(from: cue, dir: direction)))
+                    XCTAssertEqual(snapshot.aimLine?.end, line.lineEnd)
+                    XCTAssertEqual(snapshot.centerReferenceLine, .init(start: point(cue), end: point(target)))
+                    XCTAssertEqual(snapshot.targetReferenceRadius, 2 * snapshot.ballRadius)
+                    XCTAssertNotNil(vm.scene.rootNode.childNode(withName: "accuracy.centerReferenceLine", recursively: true))
+                    XCTAssertNil(snapshot.ghost); XCTAssertNil(snapshot.idealLine)
+                    XCTAssertNil(snapshot.potLine); XCTAssertNil(snapshot.auxLine)
+                    XCTAssertNil(snapshot.aimPointMarker); XCTAssertNil(snapshot.contactMarker)
+                    XCTAssertFalse(snapshot.showMissCaption)
+                    return snapshot
+                }
+                let initial = try verify()
+                vm.nudgeAim(0.25)
+                let moved = try verify()
+                XCTAssertNotEqual(moved.aimLine, initial.aimLine)
+                XCTAssertEqual(moved.centerReferenceLine, initial.centerReferenceLine)
+                let draft = vm.record?.draftDirection
+                vm.suspendTeachingActivity(); XCTAssertNil(vm.closeupSnapshot)
+                XCTAssertNil(vm.scene.rootNode.childNode(withName: "accuracy.centerReferenceLine", recursively: true))
+                vm.resumeTeachingActivity(); XCTAssertEqual(try verify(), moved)
+                XCTAssertEqual(vm.record?.draftDirection, draft)
+                vm.nudgeAim(180); XCTAssertNil(vm.closeupSnapshot)
+            }
+        }
+    }
+
+    func testAccuracyCloseupPreferencePersistsIndependently() throws {
+        let name = "accuracy-closeup-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let store = TablePreferencesStore(defaults: defaults)
+        store.apply(.closeup, value: 1, to: .accuracy2D)
+        let restored = TablePreferencesStore(defaults: defaults)
+        XCTAssertTrue(restored.snapshot(for: .accuracy2D).enabled(.closeup))
+        XCTAssertFalse(restored.snapshot(for: .accuracy3D).enabled(.closeup))
+        XCTAssertFalse(restored.snapshot(for: .freePlay).enabled(.closeup))
+        restored.apply(.closeup, value: 1, to: .accuracy3D)
+        restored.apply(.closeup, value: 0, to: .accuracy2D)
+        XCTAssertTrue(TablePreferencesStore(defaults: defaults).snapshot(for: .accuracy3D).enabled(.closeup))
+    }
+
     func testAccuracyReplayRestoresTableAndNeverChangesFirstAttempt() async throws {
         for is3D in [false, true] {
             let container = ModelContainerFactory.makeInMemoryContainer()
@@ -20,6 +136,7 @@ final class SixTrainingUnifiedTests: XCTestCase {
             let deadline = Date().addingTimeInterval(20)
             while vm.phase == .computing && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
             XCTAssertEqual(vm.phase, .playing)
+            XCTAssertNil(vm.scene.rootNode.childNode(withName: "accuracy.centerReferenceLine", recursively: true))
             vm.suspendTeachingActivity(); vm.resumeTeachingActivity()
             XCTAssertTrue(vm.canPlayback); XCTAssertTrue(vm.canRetry)
             let first = try XCTUnwrap(vm.record)
@@ -56,6 +173,34 @@ final class SixTrainingUnifiedTests: XCTestCase {
             XCTAssertEqual(vm.record?.currentAttempt?.id, first.currentAttempt?.id)
             XCTAssertEqual(vm.record?.validAttempts.count, 1); XCTAssertEqual(vm.limiter.remainingToday, quota)
             XCTAssertNotNil(vm.scene.rootNode.childNode(withName: "accuracy.aimLine", recursively: true))
+
+            // Consecutive retries follow the immediately preceding strike, not the scored first shot.
+            let firstAttemptData = try encoder.encode(first.currentAttempt)
+            for adjustment: Float in [0.5, -0.75, 1.25] {
+                vm.cameraTransitionBusy = false
+                vm.nudgeAim(adjustment)
+                vm.velocity += 0.1
+                let previousDirection = try XCTUnwrap(vm.record?.draftDirection)
+                let previousVelocity = Float(vm.velocity)
+                XCTAssertNotEqual(previousDirection, first.currentAttempt?.direction)
+                vm.strike()
+                let retryDeadline = Date().addingTimeInterval(20)
+                while vm.phase == .computing && Date() < retryDeadline {
+                    try await Task.sleep(for: .milliseconds(20))
+                }
+                XCTAssertEqual(vm.phase, .playing)
+                vm.suspendTeachingActivity(); vm.resumeTeachingActivity()
+                vm.cameraTransitionBusy = false
+                XCTAssertTrue(vm.canRetry)
+                vm.retry()
+                XCTAssertEqual(vm.phase, .aiming)
+                XCTAssertEqual(vm.record?.draftDirection, previousDirection)
+                XCTAssertEqual(vm.velocity, Double(previousVelocity), accuracy: 1e-6)
+                XCTAssertNotNil(vm.scene.rootNode.childNode(withName: "accuracy.aimLine", recursively: true))
+                XCTAssertEqual(try encoder.encode(vm.record?.currentAttempt), firstAttemptData)
+                XCTAssertEqual(vm.record?.validAttempts.count, 1)
+                XCTAssertEqual(vm.limiter.remainingToday, quota)
+            }
             vm.ownerChanged(); XCTAssertFalse(vm.canPlayback)
             withExtendedLifetime(container) {}
         }

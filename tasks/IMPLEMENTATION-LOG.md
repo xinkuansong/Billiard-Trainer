@@ -1,5 +1,11 @@
 # 实施日志（IMPLEMENTATION LOG）
 
+## DR-416 — 练习卡片标题统一占高（2026-10-21）
+- 用户反馈清台速查手册卡片过小；根因是短标题未占满两行，导致卡片高度不同。
+- `BTContentGridCard` 新增默认关闭的 `reservesTitleSpace`，`AngleGridCard` 显式启用；字体/封面比例/其他消费者默认行为保持。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` §九-d及Changelog、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+- 验证与边界：[理区卡片报告](ui-reviews/UR-20261021-theory-card-height.md)。
+
 > Orchestrator / 各专项角色在发生返工、设计调整或模式发现时维护本文件。
 > **目的**：捕获实施轨迹（失败、设计调整、可复用模式），便于规则改进与跨会话知识累积。
 > **编号**：三种条目类型，各自独立递增：
@@ -6083,6 +6089,87 @@ DR-410 v3验收补记：20入口/34适用模式定向UI通过，47项存储测�
 - 修复：正式方向计算可行域；开启轴内随机，默认中杆不可行向上避让，无可用点先同组合换球形，有限搜索仍未命中则本轮暂排该组合、在所选条件内重校准并提示；精确坐标贯穿保存／显示／击球／回放。专项复验见`tasks/table-page-adaptation/ACCURACY-FEASIBLE-TIP-20261021.md`。
 - 已应用至：`.cursor/skills/geometry-spatial-reasoning/SKILL.md` § FL-188（2026-10-21）。
 
+## 2026-10-21 — 标题计数与提示生命周期反馈
+- 任务：准度提示自动消失、2D/3D混排标题，见`table-page-adaptation/TITLE-NOTICE-FEEDBACK-20261021.md`。
+- 原始规范：标题实际容量内单行，超容按奇偶分行，中间字右侧居中；自动短提示按事件计时。
+- 调整后：补明2D/3D各算一个完整单位；中文奇数排法保持，不限连接词。准度题目提示接入现有BTRuleNoticeCenter默认3秒。
+- 原因：原组件按字符拆分2D/3D，准度提示常驻；用户明确纠正将“分离／角／图谱”误判为缺陷的扩大改动，该改动已撤回。
+- 回写目标：球桌统一规范TP04/24、来源表、UI实施规范；既有技能及开发流程继续从TP读取，不另复制一套标题规则。模拟器结果以专项记录为准。
+
+
+### DR-413 r4 — 首页六球等速回程（2026-10-21）
+用户反馈回程过快，要求按散开速度回去。散开与沿原路径回收均为5.2秒，取消回程额外smoothstep时间扭曲；提框0.65秒、停球0.65秒、落框0.6秒和静置2.9秒保持，总循环15.2秒。仅作用于首页每日/继续清台装饰按钮，不涉及正式球桌物理与其他开球图标。Changelog：DR-413 r4，覆盖r2/r3的12秒循环；验证边界见`tasks/ui-reviews/UR-20261019-daily-clearance-icon.md` r4。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` DR-413 r4、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
 ## FL-190 — 训练统计挤偏方向尺（2026-10-21）
 
 用户在 iPhone17Pro 发现瞄准点左栏统计堆在方向尺上方、下方重复剩余额度；源码头部采用 topDiameter+76，偏离标准 topDiameter+14。修正为固定标准头部占位，上方题目/正确率，下方作答状态/均差，保留右侧辅助按钮；提交后的单题反馈进入台面共享信息层。验收必须比对标准尺区并覆盖辅助/提交/下一题，不以元素存在替代位置稳定。已应用至球桌统一规范TP07/33与本轮页面卡。验证状态见`tasks/table-page-adaptation/TRAINING-RULER-FEEDBACK-20261021.md`，不恢复用户暂缓的最大字号工作。
+
+## DR-417 — 准度落袋高度及只放大当前瞄准（2026-10-22）
+
+用户授权2D/3D修复：模拟从surfaceY=0改为冻结实际scene.surfaceY，沿用分离角与走位的同一世界高度链；共享壳增加默认关闭的allowsAssessmentAimCloseup，准度显式开启，仅构造原方向线和球位。Overlay的includesSceneIdealLine隔离场景理想线路。其余答案辅助、题库、物理参数与首杆计分不变。
+- 已应用至：球桌统一规范TP33及来源表；swiftui-design-system § DR-417；geometry-spatial-reasoning § DR-417；UI-IMPLEMENTATION-SPEC Changelog。
+- 验证与边界：[本轮记录](table-page-adaptation/ACCURACY-POCKET-CLOSEUP-20261022.md)。
+
+## DR-418 — 准度两球中心参考线（2026-10-22）
+
+按用户反馈，2D/3D准度台面与特写增加细浅灰两球中心线。共享快照新增默认nil的centerReferenceLine，独立于答案/理想线路，接入投影与避让；只由准度消费。已应用至TP23/33来源及准度页面合同。验证见[页面记录](table-page-adaptation/ACCURACY-POCKET-CLOSEUP-20261022.md)。
+
+## DR-419 — 准度特写2R参考圆与提示i（2026-10-22）
+
+新增默认nil的targetReferenceRadius，只由准度填2R，HUD灰色1pt空心圆，不接入台面场景。准度结果显式info.circle，设置说明/额度/生成错误同样补i，其他页面不扩散默认。已应用至TP23/24/33与准度合同、设计系统技能。[验证](table-page-adaptation/ACCURACY-POCKET-CLOSEUP-20261022.md)。
+
+
+## 2026-10-22 · 分离角练习2D/3D与Pro（评分暂缓）
+
+按用户已批准v0.2实现独立双入口、准度球形/设置复用、中心最低速数值搜索、围绕(0,0,2.5)联合抽样及逐组合物理指定袋验证。调参只存草稿，点击冻结后同一记录完成首帧1.5秒揭示与标准出杆；补重打/回放/后台取消/原始记录续练/无评分历史。免费2D独立20题/日，3D与自由练习Pro，同题重打不重复额度，购买返回沿原操作。
+
+新增SeparationQuestionGenerator、SeparationPracticeRecord/ViewModel/View、LocalSeparationPracticeRepository、TableFrameReceipt。共享接线：教学壳可编辑考核打点/延后可达验证、CameraRig持久机位、偏好/控件目录、路由/封面/权益、TrainingSessionKind/History/OwnerTransfer。无新模型Schema、商品或SPM依赖；无物理系数调整。记录SP01无损压缩，自由练习原子分段，不裁掉物理事实。缩窗重叠仅在分离角页面临时使用原生控件槽位，不写回用户模板（FL-194）。
+
+验证与分层结论以[本轮报告](ui-reviews/UR-20261022-separation-practice.md)及[TP完整表](table-page-adaptation/SEPARATION-PRACTICE-PLAN-20261022.md)为准。失败/修正：FL-192最低速漏检、FL-193传输体积、FL-194缩窗视觉遗漏。共享工作区其他任务改动保留，未提交/推送/发布。
+
+
+## 2026-10-23 分离角评分追加
+
+按用户指定会话最终确认，2D/3D接入平均DTW70%＋Fréchet30%加权厘米距离、20cm半分指数映射；512等弧长加事件锚点。版本化评分随原物理录制保存，首杆均分与本杆重打分开、自由续段累计、旧记录不补算。结果/结束/历史共用现有组件。36对研究管线对拍、27单元/集成、三设备六原生流程通过；首轮UI查询错误及跨日历史断言保留，修正复验。详情UR-20261023-separation-score.md。无物理/权益改动，未提交发布。
+
+
+## DR-420 — 分离角三种得分及共享轨迹样式（2026-10-23）
+
+用户明确：题号下均分x.x仍为各题首杆均值（随后明确取消/100）；本杆均分统计本题有效多次尝试；本杆得分为最新尝试。轻量可选QuestionScores保存当前题shotID→分数，回放/重复保存不重计，旧记录只恢复已有首/末杆事实。目标橙色全不透明、实际白色，两条路线复用TrajectoryStyle主线节奏/宽度。操作0.5–8、答案仍至4.5。页面专属合同见SEPARATION-PRACTICE-PLAN-20261022 §13，UI-IMPLEMENTATION-SPEC已回填；不改共用样式默认值。
+
+## FL-197 — 分离角输入范围与揭示连续性纠正（2026-10-23）
+
+详FAILURE-LOG同号：分离生成/玩家量程，移除提交清理对球杆的强制隐藏，复用每日轨迹样式；真实紧凑原图发现/100折行后补排版。55-test-engineer已回填范围分层、跨阶段可见性及原图验证要求。
+
+
+## DR-421 — 分离角可关闭击球演示（2026-10-23）
+- 用户要求：设置首项“击球”默认开启，关闭改“提交”并直接展示实际路线。
+- 实施：BTTeachingTablePage新增默认空leadingSettingsItems，仅分离角传入；本地页面专属偏好；SeparationShot可选playsStroke用于结果恢复，旧载荷nil沿正常击球。提交链共用求解/评分/保存/权益；主动回放不受自动演示偏好限制。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md 顶部Changelog/API说明与分离角页面合同§14。共享默认行为不变。
+- 验证：tasks/ui-reviews/UR-20261023-separation-submit-mode.md；构建、18单测/集成、4原生UI及本轮原图检查通过。
+
+
+### DR-421 r2 / FL-198（2026-10-23）
+用户纠正设置入口并指定辅助按钮文案。撤销共享壳leadingSettingsItems，SceneTrainingSettings.strokePlayback可选Binding默认nil，只分离角传入；独立表单草稿开始时提交、取消丢弃。不击球模式重试/击球保留原图标、ID与布局，主动播放不改模式或计分。已应用至UI-IMPLEMENTATION-SPEC顶部API说明、页面卡§14与20规则FL-198。r2构建、1集成与SE/Pad双模式4UI及原图通过，r1入口判断被替代。
+
+
+## DR-422 — 分离角侧栏及真实进球线路（2026-10-23）
+
+用户指定复用“分离角与走位”的切角/厚薄显示；本题均分、重试后上杆得分；入口击球开关下灰色右对齐补偿说明。原15pt题号/分数改为2D角度同源12pt半粗体。结果目标球线从冻结物理帧重建、截到停止/捕获，不修改评分/权益/答案分布。容量与停止恢复问题按FL-199修订；契约、验证和资源收尾见[页面卡§15](table-page-adaptation/SEPARATION-PRACTICE-PLAN-20261022.md)和[报告](ui-reviews/UR-20261023-separation-angle-object-route.md)。
+
+
+### DR-422 / FL-199 r2 — 分离角侧栏弹性留白（2026-10-23）
+用户要求缩字后放松左栏；仅本页六组信息间用2–16pt弹性间距，标题/数值常规2pt、紧凑0pt，图例4/2pt，底部8pt；组间距不再跟随整栏宽松/紧凑跳档，容量不足保留局部滚动。字体、标准动作槽及共享组件不变。已应用至页面卡§16、UI-IMPLEMENTATION-SPEC Changelog及55-test-engineer FL-199补充；证据run e21a4a8221d24dc8a6731f808bb755b0，复验记录见侧栏留白报告。
+
+
+### DR-422 r3 — 分离角成功提示去冗余（2026-10-23）
+正常进指定袋仅显示本杆得分；未进袋、未碰球/无法评分、母球落袋继续显示异常提示。仅修改共享结果文案，2D/3D一致，无物理或评分调整。已应用至UI-IMPLEMENTATION-SPEC Changelog及分离角页面卡§17。
+
+
+## DR-423 — 分离角默认中杆中力参考轨迹（2026-10-23）
+新增每题无旋转、2.5杆速经补偿的完整碰后母球路线，灰色引用准度特写同源token，虚线共享每日20/12mm节奏。独立异步展示缓存，不计分/扣题/调整默认力度；图例目标/默认/实际，切角下厚薄文字行移除。已应用至UI-IMPLEMENTATION-SPEC Changelog及分离角页面卡§18；状态与证据以页面卡为准。
+
+
+### DR-423 r2 — 中杆参考入口开关（2026-10-23）
+用户最终要求初始训练设置顺序：练习模式、击球设置（击球、中杆参考）、右对齐灰色补偿备注。中杆参考默认开启，图例改“参考”。共享设置通过可选Binding接入本页；草稿确认/取消、2D/3D独立持久偏好，关闭清理节点及异步任务，恢复只计算已开启的参考。已应用至UI-IMPLEMENTATION-SPEC及页面卡§19，验证见默认参考报告r2。

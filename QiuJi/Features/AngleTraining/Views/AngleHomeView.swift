@@ -35,6 +35,7 @@ enum AngleRoute: Hashable {
     /// 3D 瞄准点训练（条 10）：站位相机版。
     case aimPointScene3D
     case accuracy2D, accuracy3D
+    case separationPractice2D, separationPractice3D
     case ballFeel
     case bankShot
     case diamondSystem
@@ -54,13 +55,13 @@ enum AngleRoute: Hashable {
     var requiresPremium: Bool {
         switch self {
         case .separationAngleAtlas, .cushionEnglishAtlas, .sceneAiming3D,
-             .aimPointScene3D, .accuracy3D, .snakePractice, .positionPlayComposer,
+             .aimPointScene3D, .accuracy3D, .separationPractice3D, .snakePractice, .positionPlayComposer,
              .ballExtraction, .planThree, .snookerTactics, .bankShot, .diamondSystem:
             return true
         case .theoryIndex, .theoryPage, .contactPointTable, .aimingPrinciple,
              .aimingMethods, .aimingCorrection, .spinAndEnglish, .angleDynamic,
              .geometricQuiz, .customFormationPractice, .sceneAiming2D,
-             .aimPointTraining, .aimPointScene2D, .accuracy2D, .ballFeel, .shotSimulation, .freePlay, .positionPlaySolver,
+             .aimPointTraining, .aimPointScene2D, .accuracy2D, .separationPractice2D, .ballFeel, .shotSimulation, .freePlay, .positionPlaySolver,
              .batchDrillStudio, .drillDetail:
             return false
         }
@@ -181,6 +182,7 @@ struct AngleHomeView: View {
     /// nil = 不按主题筛选（v34：与动作库搜索栏同款筛选 Menu）。
     @State private var selectedTopic: PracticeTopic? = nil
     @State private var showSubscription = false
+    @State private var pendingSeparationRoute: AngleRoute?
     @EnvironmentObject private var router: AppRouter
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
 
@@ -261,6 +263,8 @@ struct AngleHomeView: View {
 
     /// P11.1：入口顺序 = 分离角与走位、自由走位、自由击球、拍照建球形（、批量出片台）。
     private let basePlayEntries: [AngleEntry] = [
+        .init(route: .separationPractice2D, title: "2D分离角练习", subtitle: "调打点力度，复现目标轨迹", contentKind: .striking, topics: [.position, .english]),
+        .init(route: .separationPractice3D, title: "3D分离角练习", subtitle: "站位出杆，对照完整轨迹", contentKind: .striking, isPremium: true, topics: [.position, .english]),
         .init(route: .shotSimulation, title: "分离角与走位", subtitle: "调打点力度看走位", contentKind: .striking, topics: [.position, .english]),
         .init(route: .positionPlayComposer, title: "自由走位", subtitle: "逐杆摆打推演走位", contentKind: .striking, isPremium: true, topics: [.position, .english]),
         .init(route: .freePlay, title: "自由击球", subtitle: "从开球打一整局", contentKind: .striking),
@@ -316,7 +320,13 @@ struct AngleHomeView: View {
             mainContent
         }
         .background { BTBlueprintBackground(style: .practice).ignoresSafeArea() }
-        .sheet(isPresented: $showSubscription) {
+        .sheet(isPresented: $showSubscription, onDismiss: {
+            defer { pendingSeparationRoute = nil }
+            if let route = pendingSeparationRoute,
+               subscriptionManager.accessDecision(requiresPremium: true) == .allowed {
+                router.anglePath.append(route)
+            }
+        }) {
             SubscriptionView()
                 .environmentObject(subscriptionManager)
         }
@@ -515,6 +525,7 @@ struct AngleHomeView: View {
     private func open(_ entry: AngleEntry) {
         let decision = subscriptionManager.accessDecision(requiresPremium: entry.route.requiresPremium)
         guard decision != .requiresLogin && decision != .requiresPro else {
+            pendingSeparationRoute = entry.route == .separationPractice3D ? entry.route : nil
             showSubscription = true
             return
         }
@@ -555,7 +566,8 @@ private struct AngleGridCard: View {
         BTContentGridCard(
             title: entry.title,
             subtitle: entry.subtitle,
-            coverAspectRatio: 4.0 / 3.0
+            coverAspectRatio: 4.0 / 3.0,
+            reservesTitleSpace: true
         ) {
             coverArea
         }

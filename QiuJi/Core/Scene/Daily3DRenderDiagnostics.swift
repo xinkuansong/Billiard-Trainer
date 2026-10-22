@@ -283,7 +283,8 @@ final class Daily3DFrameDelegate: FrameDelegate {
         targetDiagnostics = diagnostics
     }
 
-    func renderer(_ renderer: SCNSceneRenderer, willRenderScene scene: SCNScene, atTime time: TimeInterval) {
+    override func renderer(_ renderer: SCNSceneRenderer, willRenderScene scene: SCNScene, atTime time: TimeInterval) {
+        super.renderer(renderer, willRenderScene: scene, atTime: time)
         diagnosticsLock.lock()
         let diagnostics = targetDiagnostics
         diagnosticsLock.unlock()

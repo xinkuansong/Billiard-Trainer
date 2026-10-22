@@ -13,6 +13,7 @@ enum TableRenderRecipe: String {
 /// SceneKit scene for angle training: loads the USDZ table model,
 /// manages camera (2D/3D), lighting, USDZ ball nodes, and cue stick.
 final class AngleTrainingScene: SCNScene, ObservableObject {
+    let frameReceipt = TableFrameReceipt()
     /// Nil for authoring/export scenes, which retain their explicit configuration.
     var tablePreferencePage: TablePreferencePage?
     var tablePreferences: TablePreferenceSnapshot?

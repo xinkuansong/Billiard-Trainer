@@ -64,7 +64,9 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     private var calculation: Task<Void, Never>?
     private var cancellation: PredictionCancellation?
     private var draftSave: Task<Void, Never>?
-    private var lastPrediction: ShotPrediction?
+    private(set) var lastPrediction: ShotPrediction?
+    @Published private(set) var closeupSnapshot: AimCloseupSnapshot?
+    private var closeupWasNear = false
     private struct RecordedShot {
         let questionID: UUID
         let attempt: AccuracyPracticeAttempt
@@ -94,6 +96,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     @Published private(set) var isRetrying = false
     private var practiceAttempt: AccuracyPracticeAttempt?
     private var aimLine: SCNNode?
+    private var centerReferenceLine: SCNNode?
     var potRate: String {
         SceneTrainingMetrics.percentage(record?.successCount ?? 0, of: record?.validAttempts.count ?? 0)
     }
@@ -245,13 +248,23 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         guard phase == .aiming, let cue = scene.cueBallNode, let aim = currentPlayerAim else { return }
         scene.hideAllVisualization(); scene.setIdealObjectLine(nil)
         aimLine?.removeFromParentNode()
+        centerReferenceLine?.removeFromParentNode()
         scene.setFreeAimPreviewLine(nil)
         guard let target = targetNode else { return }
         let rail = AngleSceneCalculator.rayToInnerRail(from: cue.position, dir: aim)
         func point(_ v: SCNVector3) -> CGPoint { CGPoint(x: CGFloat(v.x), y: CGFloat(v.z)) }
         let resolution = AimLineGeometry.resolve(cue: point(cue.position), dir: point(aim),
             target: point(target.position), ballRadius: CGFloat(AngleSceneCalculator.ballRadius), railEnd: point(rail))
+        let closeup = AimCloseupBuilder.currentAim(cue: point(cue.position), direction: point(aim),
+            target: point(target.position), number: record?.current?.ballNumber,
+            ballRadius: CGFloat(BallPhysics.radius), railEnd: point(rail), previouslyNear: closeupWasNear)
+        closeupWasNear = closeup.isNear
+        closeupSnapshot = closeup.snapshot
         let y = scene.surfaceY + BallPhysics.radius
+        centerReferenceLine = scene.addLine(from: SCNVector3(cue.position.x, y, cue.position.z),
+            to: SCNVector3(target.position.x, y, target.position.z),
+            color: TrajectoryStyle.TrainingAssist.centerReference, radius: 0.001, placement: .table, layer: .reference)
+        centerReferenceLine?.name = "accuracy.centerReferenceLine"
         aimLine = scene.addLine(from: SCNVector3(cue.position.x, y, cue.position.z),
             to: SCNVector3(Float(resolution.lineEnd.x), y, Float(resolution.lineEnd.y)),
             color: TrajectoryStyle.TrainingAssist.aimLine, placement: .table)
@@ -290,12 +303,14 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     private func calculate(question: AccuracyPracticeQuestion, attempt: AccuracyPracticeAttempt, isPractice: Bool) {
         invalidate()
         let poses = scene.captureBallPoses(), camera = ShotReplayCamera.capture(in: scene)
+        // Both planar motion and pocket descent use the displayed table's world height.
+        let surfaceY = scene.surfaceY
         let token = generation, cancel = PredictionCancellation()
         cancellation = cancel; phase = .computing; message = nil
         calculation = Task {
             let result = await Task.detached(priority: .userInitiated) {
                 ShotPredictor.simulateFree(cueBall: question.board.cue.vector, aimDir: attempt.direction.vector,
-                    velocity: attempt.velocity, spinX: attempt.fixedTip.x, spinY: attempt.fixedTip.y, surfaceY: 0,
+                    velocity: attempt.velocity, spinX: attempt.fixedTip.x, spinY: attempt.fixedTip.y, surfaceY: surfaceY,
                     balls: [.init(name: ShotInput.targetBallName, position: question.board.target.vector)],
                     cancellation: cancel, recordedStrikeDirection: attempt.direction.vector)
             }.value
@@ -322,6 +337,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         if shot == nil { installQuestion() }
         phase = .playing
         aimLine?.removeFromParentNode()
+        centerReferenceLine?.removeFromParentNode()
         let token = generation
         scene.setFreeAimPreviewLine(nil); scene.hideAllVisualization()
         let y = scene.surfaceY + BallPhysics.radius
@@ -356,11 +372,13 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
             }]), forKey: "accuracy.clock")
         }
     }
-    /// Restore the original layout; the persisted first attempt is never replaced.
+    /// Restore the original layout with the most recent strike's aim and power.
+    /// The persisted first attempt remains the scoring source.
     func retry() {
         guard canRetry else { return }
+        let previousAttempt = practiceAttempt ?? record?.currentAttempt
         invalidate(); isRetrying = true; practiceAttempt = nil; lastPrediction = nil
-        if let attempt = record?.currentAttempt {
+        if let attempt = previousAttempt {
             record?.draftDirection = attempt.direction
             record?.draftVelocity = Double(attempt.velocity)
         }
@@ -471,7 +489,9 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     }
     private func invalidate() {
         generation = UUID(); cancellation?.cancel(); calculation?.cancel(); calculation = nil
+        closeupSnapshot = nil; closeupWasNear = false
         aimLine?.removeFromParentNode()
+        centerReferenceLine?.removeFromParentNode()
         scene.rootNode.removeAction(forKey: "accuracy.clock")
         scene.cueBallNode?.removeAction(forKey: "accuracy.play")
         targetNode?.removeAction(forKey: "accuracy.play")

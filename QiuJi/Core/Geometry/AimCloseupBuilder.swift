@@ -34,6 +34,24 @@ enum AimCloseupBuilder {
         var isNear: Bool
     }
 
+    /// Assessment-safe magnification of the existing direction line and balls only.
+    /// No pocket/answer/solver input is accepted, and no predicted contact layers are built.
+    static func currentAim(cue: CGPoint, direction: CGPoint, target: CGPoint, number: Int?,
+                           ballRadius r: CGFloat, railEnd: CGPoint, previouslyNear: Bool) -> Result {
+        let sample = AimProximityMath.advance(cue: cue, direction: direction, target: target,
+            ballRadius: r, previouslyNear: previouslyNear)
+        guard sample.isNear else { return Result(snapshot: nil, isNear: false) }
+        let line = AimLineGeometry.resolve(cue: cue, dir: direction, target: target,
+            ballRadius: r, railEnd: railEnd)
+        let halfWorld = r * halfWorldMultiple
+        return Result(snapshot: AimCloseupSnapshot(band: sample.band, focus: target,
+            ballRadius: r, halfWorld: halfWorld, targetBallNumber: number,
+            cue: hypot(cue.x - target.x, cue.y - target.y) < halfWorld * 1.35 ? cue : nil,
+            aimLine: .init(start: cue, end: line.lineEnd),
+            centerReferenceLine: .init(start: cue, end: target), targetReferenceRadius: 2 * r,
+            usesTrainingAssistStyle: true), isNear: true)
+    }
+
     /// A solved contact already drawn by the main scene. XZ metres, no new
     /// pocket or ideal-direction layer; reject non-tangent/stale scene data.
     static func solvedContact(cue: CGPoint, target: CGPoint, ghost: CGPoint,

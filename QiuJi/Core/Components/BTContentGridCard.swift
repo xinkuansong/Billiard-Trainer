@@ -8,6 +8,7 @@ struct BTContentGridCard<Cover: View, Meta: View>: View {
     let title: String
     var coverAspectRatio: CGFloat = 4.0 / 3.0
     var titleLineLimit: Int = 2
+    var reservesTitleSpace: Bool = false
     var titleMinHeight: CGFloat? = nil
     var titleColor: Color = .btText
     @ViewBuilder var cover: () -> Cover
@@ -26,7 +27,7 @@ struct BTContentGridCard<Cover: View, Meta: View>: View {
                 Text(title)
                     .font(.btHeadline)
                     .foregroundStyle(titleColor)
-                    .lineLimit(titleLineLimit)
+                    .lineLimit(titleLineLimit, reservesSpace: reservesTitleSpace)
                     .truncationMode(.tail)
                     .frame(
                         maxWidth: .infinity,
@@ -58,6 +59,7 @@ extension BTContentGridCard where Meta == EmptyView {
         title: String,
         coverAspectRatio: CGFloat = 4.0 / 3.0,
         titleLineLimit: Int = 2,
+        reservesTitleSpace: Bool = false,
         titleMinHeight: CGFloat? = nil,
         titleColor: Color = .btText,
         @ViewBuilder cover: @escaping () -> Cover
@@ -65,6 +67,7 @@ extension BTContentGridCard where Meta == EmptyView {
         self.title = title
         self.coverAspectRatio = coverAspectRatio
         self.titleLineLimit = titleLineLimit
+        self.reservesTitleSpace = reservesTitleSpace
         self.titleMinHeight = titleMinHeight
         self.titleColor = titleColor
         self.cover = cover
@@ -79,6 +82,7 @@ extension BTContentGridCard where Meta == BTContentGridCardCaption {
         subtitle: String,
         coverAspectRatio: CGFloat = 4.0 / 3.0,
         titleLineLimit: Int = 2,
+        reservesTitleSpace: Bool = false,
         titleMinHeight: CGFloat? = nil,
         titleColor: Color = .btText,
         @ViewBuilder cover: @escaping () -> Cover
@@ -86,6 +90,7 @@ extension BTContentGridCard where Meta == BTContentGridCardCaption {
         self.title = title
         self.coverAspectRatio = coverAspectRatio
         self.titleLineLimit = titleLineLimit
+        self.reservesTitleSpace = reservesTitleSpace
         self.titleMinHeight = titleMinHeight
         self.titleColor = titleColor
         self.cover = cover

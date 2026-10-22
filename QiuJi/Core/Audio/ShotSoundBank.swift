@@ -43,6 +43,18 @@ final class ShotSoundBank {
     private var controlBuffers: [Control: AVAudioPCMBuffer] = [:]
     private var lastControlTickTime: TimeInterval?
 
+    #if DEBUG
+    private let outputProbe = ShotAudioOutputProbe()
+    private var probingOutput = false
+    private var playedKinds: [String: Int] = [:]
+    var diagnostic: [String: Any] {
+        let output = outputProbe.snapshot()
+        return ["enabled": UserPreferences.shared.soundEffectsEnabled, "engineRunning": engine.isRunning,
+                "frames": output.frames, "peak": output.peak, "played": playedKinds]
+    }
+    func resetDiagnosticOutput() { outputProbe.reset(); playedKinds = [:] }
+    #endif
+
     init(engine: AVAudioEngine = AVAudioEngine(),
          activateSession: @escaping () throws -> Void = {
              let session = AVAudioSession.sharedInstance()
@@ -80,6 +92,13 @@ final class ShotSoundBank {
         }
 
         startEngineIfNeeded(reactivateSession: true)
+        #if DEBUG
+        if !probingOutput, ProcessInfo.processInfo.arguments.contains("-shotAudio.probe") {
+            probingOutput = true
+            let capture = outputProbe
+            engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, _ in capture.append(buffer) }
+        }
+        #endif
     }
 
     private func startEngineIfNeeded(reactivateSession: Bool = false) {
@@ -168,6 +187,9 @@ final class ShotSoundBank {
         // `.interrupts`：复用到同一 node 时立即替换上一段，保持低延迟、不堆积。
         node.scheduleBuffer(buffer, at: nil, options: .interrupts, completionHandler: nil)
         if !node.isPlaying { node.play() }
+        #if DEBUG
+        if probingOutput { playedKinds[kind.rawValue, default: 0] += 1 }
+        #endif
     }
 
     // MARK: - Sample selection & gain
@@ -307,3 +329,24 @@ final class ShotSoundBank {
         return status == .error || outBuffer.frameLength == 0 ? nil : outBuffer
     }
 }
+
+#if DEBUG
+/// Test-only observation of the actual shared mixer. No tap in normal or release runs.
+private final class ShotAudioOutputProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var frames = 0
+    private var peak: Float = 0
+    func append(_ buffer: AVAudioPCMBuffer) {
+        guard let channels = buffer.floatChannelData else { return }
+        var maximum: Float = 0
+        for channel in 0..<Int(buffer.format.channelCount) {
+            for frame in 0..<Int(buffer.frameLength) { maximum = max(maximum, abs(channels[channel][frame])) }
+        }
+        lock.lock(); frames += Int(buffer.frameLength); peak = max(peak, maximum); lock.unlock()
+    }
+    func reset() { lock.lock(); frames = 0; peak = 0; lock.unlock() }
+    func snapshot() -> (frames: Int, peak: Float) {
+        lock.lock(); defer { lock.unlock() }; return (frames, peak)
+    }
+}
+#endif

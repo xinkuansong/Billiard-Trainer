@@ -202,6 +202,7 @@ enum HistoryDayItem: Identifiable {
     /// `kind="tool"` 的工具使用活跃度，⛔ 无成绩。
     case tool(ToolSessionItem)
     case accuracy(AccuracyPracticeRecord)
+    case separation(SeparationPracticeRecord)
 
     var id: String {
         switch self {
@@ -209,6 +210,7 @@ enum HistoryDayItem: Identifiable {
         case .cognitive(let c): return "cognitive_\(c.id.uuidString)"
         case .tool(let t):      return "tool_\(t.id.uuidString)"
         case .accuracy(let a):  return "accuracy_\(a.id.uuidString)"
+        case .separation(let a): return "separation_\(a.id.uuidString)"
         }
     }
 
@@ -218,6 +220,7 @@ enum HistoryDayItem: Identifiable {
         case .cognitive(let c): return c.endDate
         case .tool(let t):      return t.date
         case .accuracy(let a):  return a.startedAt
+        case .separation(let a): return a.startedAt
         }
     }
 }
@@ -280,6 +283,8 @@ final class HistoryViewModel: ObservableObject {
     @Published var cognitiveSessions: [CognitiveSessionItem] = []
     /// `kind="tool"` 的真会话，只有日期与时长。
     @Published var toolSessions: [ToolSessionItem] = []
+    @Published var separationSessions: [SeparationPracticeRecord] = []
+    @Published var unreadableSeparationCount = 0
     @Published var accuracySessions: [AccuracyPracticeRecord] = []
     @Published var unreadableAccuracyCount = 0
     @Published var selectedDate: Date = Date()
@@ -315,6 +320,9 @@ final class HistoryViewModel: ObservableObject {
         for t in toolSessions {
             comps.insert(cal.dateComponents([.year, .month, .day], from: t.date))
         }
+        for a in separationSessions {
+            comps.insert(cal.dateComponents([.year, .month, .day], from: a.startedAt))
+        }
         for a in accuracySessions {
             comps.insert(cal.dateComponents([.year, .month, .day], from: a.startedAt))
         }
@@ -338,6 +346,7 @@ final class HistoryViewModel: ObservableObject {
         items.append(contentsOf: accuracySessions
             .filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }
             .map(HistoryDayItem.accuracy))
+        items.append(contentsOf: separationSessions.filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }.map(HistoryDayItem.separation))
         return items.sorted { $0.date > $1.date }
     }
 
@@ -350,7 +359,7 @@ final class HistoryViewModel: ObservableObject {
     }
 
     var hasAnySessions: Bool {
-        !drillSessions.isEmpty || !cognitiveSessions.isEmpty || !toolSessions.isEmpty || !accuracySessions.isEmpty
+        !drillSessions.isEmpty || !cognitiveSessions.isEmpty || !toolSessions.isEmpty || !accuracySessions.isEmpty || !separationSessions.isEmpty
     }
 
     // MARK: - Category Helpers
@@ -409,6 +418,7 @@ final class HistoryViewModel: ObservableObject {
         if cognitiveSessions.contains(where: { cal.isDate($0.startDate, inSameDayAs: date) }) {
             return .training("角度")
         }
+        if separationSessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) { return .toolActivity("分离角") }
         if accuracySessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) {
             return .training("模拟")
         }
@@ -534,6 +544,8 @@ final class HistoryViewModel: ObservableObject {
         toolSessions = allSessions
             .filter { $0.kind == TrainingSessionKind.tool }
             .map(ToolSessionItem.make)
+        let separation = Self.assembleSeparationSessions(sessions: allSessions)
+        separationSessions = separation.records; unreadableSeparationCount = separation.unreadableCount
         let accuracy = Self.assembleAccuracySessions(sessions: allSessions)
         accuracySessions = accuracy.records
         unreadableAccuracyCount = accuracy.unreadableCount
@@ -561,6 +573,22 @@ final class HistoryViewModel: ObservableObject {
     /// ⛔ 不做任何时间间隔推断：归属完全来自 `AngleTestResult.sessionId`（W5 落库 +
     /// 一次性回填）。仍无归属的成绩不在此显示——它们由 `CognitiveSessionBackfill`
     /// 在启动时补建会话，条数记在 `unassignedCognitiveResultCount` 里。
+    static func assembleSeparationSessions(sessions: [TrainingSession]) -> (records: [SeparationPracticeRecord], unreadableCount: Int) {
+        var records: [SeparationPracticeRecord] = []
+        var unreadable = 0
+        for session in sessions where session.kind == TrainingSessionKind.separationPractice {
+            guard let data = session.sourcePayloadSnapshot,
+                  let record = try? SeparationPracticeRecord.decodePayload(data),
+                  record.version == SeparationPracticeRecord.payloadVersion,
+                  record.id == session.id, record.ownerKey == session.ownerKey else {
+                unreadable += 1
+                continue
+            }
+            if !record.attempts.isEmpty { records.append(record) }
+        }
+        return (records.sorted { $0.startedAt > $1.startedAt }, unreadable)
+    }
+
     static func assembleAccuracySessions(sessions: [TrainingSession]) -> (records: [AccuracyPracticeRecord], unreadableCount: Int) {
         var records: [AccuracyPracticeRecord] = []
         var unreadable = 0

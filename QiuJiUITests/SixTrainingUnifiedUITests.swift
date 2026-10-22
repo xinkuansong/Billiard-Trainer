@@ -1,6 +1,79 @@
 import XCTest
 
 final class SixTrainingUnifiedUITests: XCTestCase {
+    func testAccuracyCurrentAimCloseupInBothModes() {
+        continueAfterFailure = false
+        for title in ["2D准度", "3D准度"] {
+            let app = open(title)
+            defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
+            app.swipeUp()
+            capture(title + "-settings-info")
+            app.buttons["accuracy.start"].tap()
+            ready(app.buttons["accuracy.strike"])
+            capture(title + "-question-info")
+            func node(_ id: String) -> XCUIElement {
+                app.descendants(matching: .any).matching(identifier: id).firstMatch
+            }
+            func menu() { app.buttons["accuracy.more"].tap(); ready(app.buttons["menu.aimCloseup"]) }
+            menu()
+            let toggle = app.buttons["menu.aimCloseup"]
+            if toggle.value as? String != "已选" { toggle.tap() }
+            XCTAssertEqual(toggle.value as? String, "已选")
+            XCTAssertFalse(app.buttons["accuracy.trajectory"].exists)
+            XCTAssertFalse(app.buttons["accuracy.separation"].exists)
+            XCTAssertFalse(app.buttons["accuracy.rehearsal"].exists)
+            capture(title + "-current-aim-menu")
+            app.buttons["accuracy.dismissMenu"].tap()
+            XCTAssertFalse(node("aimCloseup.hud").exists)
+            let ruler = node("accuracy.aimWheel")
+            ready(ruler)
+            let start = ruler.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5))
+            // The teaching page can rotate inside a portrait host. Follow the
+            // ruler's actual screen axis rather than assuming global vertical.
+            let travel = ruler.frame.width > ruler.frame.height
+                ? CGVector(dx: -50, dy: 0) : CGVector(dx: 0, dy: -50)
+            let preparationTravel = CGVector(dx: travel.dx * 1.6, dy: travel.dy * 1.6)
+            // Establish a visible offset even at the ruler's 0.1 fine gain.
+            // At full gain the total travel remains inside the 3.5R near band.
+            for _ in 0..<2 {
+                start.press(forDuration: 0.1, thenDragTo: start.withOffset(preparationTravel),
+                            withVelocity: XCUIGestureVelocity(rawValue: 200), thenHoldForDuration: 0.1)
+            }
+            // An external simctl screenshot captures this real held gesture without
+            // asking XCTest to wait for the app to become idle during the touch.
+            print("ACCURACY_CLOSEUP_CAPTURE \(title) ruler=\(ruler.frame)")
+            start.press(forDuration: 0.1, thenDragTo: start.withOffset(travel),
+                        withVelocity: XCUIGestureVelocity(rawValue: 200), thenHoldForDuration: 10)
+            XCTAssertTrue(node("aimCloseup.hud").waitForNonExistence(timeout: 3))
+            capture(title + "-current-aim-released")
+            menu(); XCTAssertEqual(toggle.value as? String, "已选")
+            toggle.tap(); XCTAssertEqual(toggle.value as? String, "未选")
+            app.buttons["accuracy.dismissMenu"].tap()
+            start.press(forDuration: 0.1, thenDragTo: start.withOffset(.init(dx: 0, dy: 3)))
+            XCTAssertFalse(node("aimCloseup.hud").exists)
+            menu(); toggle.tap(); app.buttons["accuracy.dismissMenu"].tap()
+            XCUIDevice.shared.press(.home); app.activate()
+            ready(app.buttons["accuracy.strike"])
+            XCTAssertFalse(node("aimCloseup.hud").exists)
+            menu(); XCTAssertEqual(toggle.value as? String, "已选")
+            app.buttons["accuracy.dismissMenu"].tap()
+            if title.hasPrefix("3D") {
+                let top = app.buttons["shotCamera.temporaryTopDown"]
+                ready(top); top.tap()
+                XCTAssertFalse(node("aimCloseup.hud").exists)
+                XCTAssertFalse(app.buttons["accuracy.strike"].isEnabled)
+                top.tap(); ready(app.buttons["accuracy.strike"])
+            }
+            app.buttons["accuracy.strike"].tap()
+            XCTAssertFalse(node("aimCloseup.hud").exists)
+            ready(app.buttons["accuracy.retry"], timeout: 60)
+            XCTAssertFalse(node("aimCloseup.hud").exists)
+            capture(title + "-result-info")
+            app.buttons["accuracy.retry"].tap(); ready(app.buttons["accuracy.strike"])
+            menu(); XCTAssertEqual(toggle.value as? String, "已选")
+        }
+    }
+
     func testSixPagesTrainingInformationAndStableRuler() {
         continueAfterFailure = false
         var rulerFrames: [String: CGRect] = [:]
@@ -110,6 +183,39 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         }
     }
 
+    func testAccuracyQuestionNoticeExpiresAndNextQuestionShowsAgain() {
+        continueAfterFailure = false
+        for title in ["2D准度", "3D准度"] {
+            let app = open(title)
+            defer { app.terminate() }
+            app.buttons["accuracy.start"].tap()
+            let notice = app.staticTexts["accuracy.question"]
+            XCTAssertTrue(notice.waitForExistence(timeout: 40))
+            XCTAssertTrue(notice.label.contains("第1题"))
+            capture(title + "-notice-visible")
+            XCTAssertTrue(notice.waitForNonExistence(timeout: 5))
+            let strike = app.buttons["accuracy.strike"]
+            ready(strike)
+            capture(title + "-notice-expired")
+            let info = app.descendants(matching: .any).matching(identifier: "accuracy.questionInfo").firstMatch
+            XCTAssertTrue(info.label.contains("1/20"))
+            strike.tap()
+            ready(app.buttons["accuracy.retry"], timeout: 60)
+            let result = app.staticTexts["accuracy.result"]
+            XCTAssertTrue(result.exists)
+            XCTAssertFalse(result.waitForNonExistence(timeout: 4), "Results must remain after notice expiry")
+            capture(title + "-persistent-result")
+            strike.tap()
+            XCTAssertTrue(notice.waitForExistence(timeout: 5))
+            XCTAssertTrue(notice.label.contains("第2题"))
+            capture(title + "-next-notice")
+            XCTAssertTrue(notice.waitForNonExistence(timeout: 5))
+            XCTAssertTrue(info.label.contains("2/20"))
+            ready(strike)
+            capture(title + "-next-expired")
+        }
+        XCUIDevice.shared.orientation = .portrait
+    }
     func testStandardAngle2D() throws { try standardContract("2D角度") }
     func testStandardAngle3D() throws { try standardContract("3D角度") }
     func testStandardAimPoint2D() throws { try standardContract("2D瞄准点") }
@@ -378,7 +484,6 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             app.buttons["accuracy.start"].tap()
             let strike = app.buttons["accuracy.strike"]
             ready(strike)
-            let question = app.staticTexts["accuracy.question"].label
             app.buttons["accuracy.more"].tap()
             ready(app.buttons["accuracy.transparency"]); app.buttons["accuracy.transparency"].tap()
             let slider = app.sliders["dailyClearance.spinTransparencySlider"]
@@ -428,7 +533,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             XCTAssertTrue(firstMetrics.contains("%"))
             app.buttons["accuracy.retry"].tap()
             ready(strike)
-            XCTAssertEqual(app.staticTexts["accuracy.question"].label, question)
+            XCTAssertFalse(app.staticTexts["accuracy.question"].exists, "Retry keeps the same question without reviving its expired notice")
             XCTAssertEqual(info.label, firstMetrics)
             capture(title + "-retry-aiming")
             strike.tap(); ready(app.buttons["accuracy.retry"], timeout: 60)

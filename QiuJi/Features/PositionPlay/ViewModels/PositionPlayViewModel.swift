@@ -280,6 +280,9 @@ final class PositionPlayViewModel: ObservableObject {
     private var selectionChangeDepth = 0
     private var pendingAutomaticPocketFeedback = false
     var onAimModeNotice: ((String) -> Void)?
+    /// A rejected straight route needs an explanation even on pages that omit
+    /// redundant explicit-mode and manual-adjustment announcements.
+    var onAutomaticPocketFallback: ((String) -> Void)?
     var onAimSelectionNotice: ((String) -> Void)?
     @Published private(set) var preferredAimMode: AimMode = .pocket
     @Published private(set) var temporaryFreeReason: String?
@@ -292,7 +295,7 @@ final class PositionPlayViewModel: ObservableObject {
         recompute()
     }
 
-    private func enterTemporaryFree(_ reason: String, preservesSolvedDirection: Bool = false) {
+    private func enterTemporaryFree(_ reason: String, preservesSolvedDirection: Bool = false, automatic: Bool = true) {
         if preservesSolvedDirection {
             // The visible geometric address may already belong to a newer target
             // while the previous physical prediction is still in flight.
@@ -302,7 +305,10 @@ final class PositionPlayViewModel: ObservableObject {
         let changed = aimMode != .free || temporaryFreeReason != reason
         temporaryFreeReason = reason
         aimMode = .free
-        if changed { onAimModeNotice?(reason) }
+        if changed {
+            onAimModeNotice?(reason)
+            if automatic { onAutomaticPocketFallback?(reason) }
+        }
     }
 
     /// 瞄准模式。切换时重算。
@@ -1406,7 +1412,7 @@ final class PositionPlayViewModel: ObservableObject {
         defer { selectionChangeDepth -= 1; recompute(interactive: true, continuousPreview: usesContinuousTrajectoryPreview) }
         if usesDailyShotRanking { dailyManualSelection = true }
         if usesAutomaticPocketFallback && aimMode == .pocket {
-            enterTemporaryFree("已调整方向，暂用自由模式", preservesSolvedDirection: true)
+            enterTemporaryFree("已调整方向，暂用自由模式", preservesSolvedDirection: true, automatic: false)
         }
         guard aimMode == .free else { return }
         let base = freeAimDir ?? defaultFreeAim() ?? SCNVector3(1, 0, 0)

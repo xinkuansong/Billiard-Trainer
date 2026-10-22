@@ -5,7 +5,7 @@ import XCTest
 final class PracticeCoverCatalogTests: XCTestCase {
 
     func testOfficialRoutesIncludeBothAccuracyModes() {
-        XCTAssertEqual(PracticeCoverCatalog.officialRoutes.count, 26)
+        XCTAssertEqual(PracticeCoverCatalog.officialRoutes.count, 28)
         for route in [AngleRoute.accuracy2D, .accuracy3D] {
             XCTAssertTrue(PracticeCoverCatalog.officialRoutes.contains(route))
             let layout = PracticeCoverCatalog.visual(for: route).layout

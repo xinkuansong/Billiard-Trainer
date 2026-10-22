@@ -13,6 +13,8 @@ enum TrainingSessionKind {
     static let tool = "tool"
     /// Specified-pocket simulation attempts; separate from real-table accuracy and goals.
     static let simulatedAccuracy = "simulatedAccuracy"
+    /// Trajectory practice has no score and never contributes to accuracy or goals.
+    static let separationPractice = "separationPractice"
 
     /// 计入训练量与周目标的会话类型（契约 §5.3 表：`tool` 两列均为 ❌）。
     static let goalCounting: Set<String> = [drill, cognitive]

@@ -32,6 +32,14 @@ struct BTAimCloseupHUD: View {
                 )
 
             Canvas { ctx, size in
+                if snapshot.showsTargetBall, let radius = snapshot.targetReferenceRadius {
+                    let center = map(snapshot.focus, in: size, scale: scale)
+                    let r = radius * scale
+                    ctx.stroke(Path(ellipseIn: CGRect(x: center.x - r, y: center.y - r,
+                                                     width: 2 * r, height: 2 * r)),
+                               with: .color(Color(uiColor: TrajectoryStyle.TrainingAssist.centerReference)),
+                               lineWidth: 1)
+                }
                 drawLines(ctx: &ctx, size: size, scale: scale)
             }
             .clipShape(Circle())
@@ -123,6 +131,10 @@ struct BTAimCloseupHUD: View {
             }
         }
 
+        if let reference = snapshot.centerReferenceLine {
+            stroke(reference.start, reference.end,
+                   color: Color(uiColor: TrajectoryStyle.TrainingAssist.centerReference), width: 1, dashed: false)
+        }
         if let ideal = snapshot.idealLine {
             stroke(ideal.start, ideal.end, color: Color(uiColor: IdealObjectDirection.color), width: 1.6, dashed: true)
         }
@@ -162,6 +174,7 @@ struct BTAimCloseupOverlay: View {
     var frameInWindow: CGRect? = nil
     var placementBounds: CGRect? = nil
     var protectedFramesInWindow: [CGRect] = []
+    var includesSceneIdealLine = true
     @State private var protectedPlacement: AimCloseupPlacement.ProtectedPlacement?
     @State private var feltImage: UIImage?
 
@@ -191,7 +204,7 @@ struct BTAimCloseupOverlay: View {
         guard let scene else { return snapshot } // Standalone 2D figures/tests.
         guard let view = scene.closeupViewport else { return nil }
         var current = snapshot
-        current.idealLine = scene.idealObjectLine
+        current.idealLine = includesSceneIdealLine ? scene.idealObjectLine : nil
         return current.projected(in: view, surfaceY: scene.surfaceY, destinationRect: protectsDailySight
             ? DailyCloseupProjection.destinationRect(in: view, frameInWindow: frameInWindow) : nil,
             preservesPlanarTangency: protectsDailySight)
@@ -268,6 +281,10 @@ struct AimCloseupSnapshot: Equatable {
     var targetBallNumber: Int? = nil
     var cue: CGPoint? = nil
     var aimLine: AimCloseupSegment? = nil
+    /// Actual cue/object centers only; independent of aim, pocket or predicted contact.
+    var centerReferenceLine: AimCloseupSegment? = nil
+    /// Optional loupe-only ring about the target center, in planar meters.
+    var targetReferenceRadius: CGFloat? = nil
     var potLine: AimCloseupSegment? = nil
     var auxLine: AimCloseupSegment? = nil
     var ghost: CGPoint? = nil

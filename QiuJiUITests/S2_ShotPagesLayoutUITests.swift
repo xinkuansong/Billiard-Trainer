@@ -132,8 +132,21 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
         guard card.waitForExistence(timeout: 4) else { return false }
         card.tap()
         sleep(3)   // 等场景装桌 + 自动取景
+        if title == "分离角与走位" {
+            let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                self.app.windows.firstMatch.frame.width > self.app.windows.firstMatch.frame.height
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 8), .completed)
+            XCUIDevice.shared.orientation = .landscapeLeft
+        }
         let table = app.descendants(matching: .any)["table.scene"].firstMatch
-        guard table.waitForExistence(timeout: 10), table.isHittable else {
+        guard table.waitForExistence(timeout: 10) else {
+            XCTFail("Target table was not reached: \(title)"); return false
+        }
+        if title == "分离角与走位" {
+            XCTAssertTrue(app.descendants(matching: .any)["shotSimulation.landscape"].firstMatch.exists)
+            XCTAssertTrue(app.buttons["dailyClearance.strike"].isHittable)
+        } else if !table.isHittable {
             XCTFail("Target table was not reached: \(title)"); return false
         }
         XCTAssertFalse(app.buttons["解锁 Pro"].exists, "Paywall is not a table layout")
@@ -175,101 +188,72 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
         snap("s2-01-shotsim")
     }
 
+    private func simulationMode(_ value: String) {
+        let more = app.buttons["freeplay.moreMenu"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let window = self.app.windows.firstMatch.frame
+            return more.exists && more.isEnabled && more.isHittable && window.width > window.height
+                && window.contains(CGPoint(x: more.frame.midX, y: more.frame.midY))
+        }, object: nil)], timeout: 8), .completed)
+        more.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 3))
+        if mode.value as? String != value { mode.tap() }
+        XCTAssertEqual(mode.value as? String, value)
+        app.buttons["关闭菜单"].firstMatch.coordinate(withNormalizedOffset: .init(dx: 0.2, dy: 0.5)).tap()
+        XCTAssertTrue(app.scrollViews["dailyClearance.menuScroll"].waitForNonExistence(timeout: 3))
+    }
+
+    private func simulationReady(_ id: String, timeout: TimeInterval = 30) -> XCUIElement {
+        let button = app.buttons[id]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == true AND enabled == true"), object: button)], timeout: timeout), .completed)
+        return button
+    }
+
     func testShotSimulation3DPilot() throws {
         continueAfterFailure = false
         XCTAssertTrue(openCard(homeTab: "打", title: "分离角与走位"))
-        let mode = app.buttons["shotSimulation.cameraMode"]
+        XCUIDevice.shared.orientation = .landscapeLeft
+        simulationMode("2D"); snap("p01-pilot-2d")
+        simulationMode("3D"); snap("p01-pilot-3d")
         let table = app.descendants(matching: .any)["table.scene"].firstMatch
-        func capture(_ name: String) throws {
-            Thread.sleep(forTimeInterval: 1) // Capture the settled SwiftUI overlay/camera pose.
-            let shot = XCUIScreen.main.screenshot()
-            let attachment = XCTAttachment(screenshot: shot)
-            attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
-            #if targetEnvironment(simulator)
-            let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-                .appendingPathComponent("output/shot-simulation-3d")
-            #else
-            let root = FileManager.default.temporaryDirectory.appendingPathComponent("v63-shot-pages")
-            #endif
-            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-            try shot.pngRepresentation.write(to: root.appendingPathComponent("\(name)-\(Int(app.windows.firstMatch.frame.width)).png"))
+        // Current shared camera destinations replace the removed observation menu.
+        for id in ["dailyClearance.observeTable", "shotCamera.thirdPerson", "shotCamera.firstPerson", "shotCamera.temporaryTopDown"] {
+            simulationReady(id).tap()
+            XCTAssertEqual(app.buttons[id].value as? String, "已选中")
+            snap("p01-pilot-" + id)
         }
-        XCTAssertTrue(mode.waitForExistence(timeout: 5))
-        XCTAssertEqual(mode.value as? String, "2D")
-        try capture("after-2d")
-        mode.tap()
-        XCTAssertEqual(mode.value as? String, "3D")
-        try capture("after-3d-pocket")
-        for destination in ["table", "cue", "target", "pocket"] {
-            app.buttons["shotSimulation.observation"].tap()
-            let item = app.buttons["shotSimulation.observe.\(destination)"]
-            XCTAssertTrue(item.waitForExistence(timeout: 3))
-            XCTAssertTrue(item.isEnabled)
-            item.tap()
-            try capture("v63-observe-\(destination)")
-        }
-        // The selected corner pocket exercises the closest, lowest permitted
-        // observation pose beside the rail, through production gestures.
-        for _ in 0..<3 {
-            table.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.55))
-                .press(forDuration: 0.1, thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.15)))
-        }
-        table.pinch(withScale: 4, velocity: 2)
-        try capture("v63-pocket-low-close")
-        app.buttons["shotSimulation.focus"].tap()
-        mode.tap()
-        app.buttons["瞄准模式：进袋，点击切换"].tap()
-        mode.tap()
-        XCTAssertEqual(mode.value as? String, "3D")
-        XCTAssertTrue(app.buttons["shotSimulation.focus"].isHittable)
-        Thread.sleep(forTimeInterval: 1)
-        try capture("after-3d")
+        app.buttons["shotCamera.temporaryTopDown"].tap()
+        simulationReady("dailyClearance.observeTable").tap()
         let center = table.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
         center.press(forDuration: 0.1, thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.3)))
         table.pinch(withScale: 1.2, velocity: 1)
-        try capture("after-orbit")
-        XCUIDevice.shared.press(.home)
-        app.activate()
-        XCTAssertEqual(mode.value as? String, "3D")
-        try capture("v63-resumed-orbit")
-        mode.tap()
-        mode.tap()
-        XCTAssertEqual(mode.value as? String, "3D")
-        try capture("v63-restored-orbit")
-        app.buttons["shotSimulation.focus"].tap()
+        snap("p01-pilot-orbit")
+        XCUIDevice.shared.press(.home); app.activate()
+        simulationMode("3D"); snap("p01-pilot-resumed")
+        simulationMode("2D"); simulationMode("3D")
+        simulationReady("shotCamera.firstPerson").tap()
         let wheel = app.descendants(matching: .any)["shotStage.aimWheel"].firstMatch
-        XCTAssertTrue(wheel.isHittable)
-        wheel.swipeUp()
+        XCTAssertTrue(wheel.isHittable); wheel.swipeUp()
         app.buttons["shotStage.spinEntry"].tap()
-        try capture("after-spin")
-        let lowerSpin = app.buttons["低杆增加 1%"]
-        XCTAssertTrue(lowerSpin.isHittable)
-        XCTAssertLessThan(lowerSpin.frame.maxY, app.buttons["shotSimulation.focus"].frame.minY)
-        lowerSpin.tap()
+        XCTAssertTrue(app.buttons["低杆增加 1%"].isHittable)
+        app.buttons["低杆增加 1%"].tap()
         XCTAssertTrue(app.buttons["回中"].isHittable)
-        // View switching closes the overlay while retaining the same shot state.
-        mode.tap()
-        XCTAssertEqual(mode.value as? String, "2D")
-        mode.tap()
-        let strike = app.buttons["击球"]
-        XCTAssertTrue(strike.waitForExistence(timeout: 10))
-        let ready = NSPredicate(format: "enabled == true")
-        expectation(for: ready, evaluatedWith: strike)
-        waitForExpectations(timeout: 20)
-        strike.tap()
-        mode.tap()
-        XCTAssertEqual(mode.value as? String, "2D")
-        let replay = app.buttons["回放"]
-        expectation(for: ready, evaluatedWith: replay)
-        waitForExpectations(timeout: 30)
-        try capture("after-shot-2d")
-        mode.tap()
-        replay.tap()
-        expectation(for: ready, evaluatedWith: replay)
-        waitForExpectations(timeout: 30)
-        app.buttons["重打"].tap()
-        XCTAssertTrue(app.buttons["shotSimulation.focus"].isHittable)
-        try capture("after-replay-3d")
+        snap("p01-pilot-spin")
+        // Switching formal views closes the pad but retains shot inputs.
+        simulationMode("2D"); simulationMode("3D")
+        simulationReady("dailyClearance.strike").tap()
+        // Current contract disables setting changes during execution.
+        XCTAssertFalse(app.buttons["freeplay.moreMenu"].isEnabled)
+        _ = simulationReady("dailyClearance.playback", timeout: 40)
+        simulationMode("2D"); snap("p01-pilot-shot-2d")
+        simulationMode("3D")
+        simulationReady("dailyClearance.playback").tap()
+        _ = simulationReady("dailyClearance.playback", timeout: 40)
+        simulationReady("dailyClearance.undo").tap()
+        XCTAssertTrue(simulationReady("shotCamera.firstPerson").isHittable)
+        snap("p01-pilot-replay-3d")
     }
 
     /// Actual page defaults, including the view's board override. Images verify the
@@ -277,38 +261,37 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
     func testShotSimulationDefaultShotOutcome() throws {
         continueAfterFailure = false
         XCTAssertTrue(openCard(homeTab: "打", title: "分离角与走位"))
-        let mode = app.buttons["shotSimulation.cameraMode"]
-        let strike = app.buttons["击球"]
+        XCUIDevice.shared.orientation = .landscapeLeft
+        simulationMode("2D")
+        let strike = app.buttons["dailyClearance.strike"]
         let enabled = NSPredicate(format: "enabled == true")
         expectation(for: enabled, evaluatedWith: strike)
         waitForExpectations(timeout: 20)
         snap("v63-default-before-2d")
-        mode.tap()
-        XCTAssertEqual(mode.value as? String, "3D")
+        simulationMode("3D")
         strike.tap()
-        let replay = app.buttons["回放"]
+        let replay = app.buttons["dailyClearance.playback"]
         expectation(for: enabled, evaluatedWith: replay)
         waitForExpectations(timeout: 30)
         snap("v63-default-after-3d")
-        mode.tap()
-        XCTAssertEqual(mode.value as? String, "2D")
+        simulationMode("2D")
         snap("v63-default-after-2d")
         // This page has exactly one default object ball. After it leaves the table,
         // production target selection becomes empty and another strike is disabled.
         XCTAssertTrue(app.staticTexts["点选一颗目标球"].exists)
         XCTAssertFalse(strike.isEnabled)
-        mode.tap()
+        simulationMode("3D")
         replay.tap()
         expectation(for: enabled, evaluatedWith: replay)
         waitForExpectations(timeout: 30)
         XCTAssertTrue(app.staticTexts["点选一颗目标球"].exists)
         XCTAssertFalse(strike.isEnabled)
         snap("v63-default-replay-3d")
-        app.buttons["重打"].tap()
+        app.buttons["dailyClearance.undo"].tap()
         expectation(for: enabled, evaluatedWith: strike)
         waitForExpectations(timeout: 20)
         XCTAssertFalse(app.staticTexts["点选一颗目标球"].exists)
-        mode.tap()
+        simulationMode("2D")
         snap("v63-default-reset-2d")
     }
 
@@ -938,7 +921,7 @@ extension S2_ShotPagesLayoutUITests {
         mode.tap()
         XCTAssertEqual(mode.value as? String, "3D")
         try capture("07-3d-free")
-        XCUIDevice.shared.orientation = .landscapeRight
+        XCUIDevice.shared.orientation = .landscapeLeft
         try capture("08-rotation-request")
         XCUIDevice.shared.orientation = .portrait
         mode.tap()

@@ -6,37 +6,70 @@ struct SceneTrainingSettings<Batch>: View {
     let restarting: Bool
     let prepareBatch: (SceneTrainingConfiguration) throws -> Batch
     let showsSpinOptions: Bool
+    private let strokePlayback: Binding<Bool>?
+    private let centerReference: Binding<Bool>?
+    @State private var draftShowsReference: Bool
+    @State private var draftPlaysStroke: Bool
     let onStart: (SceneTrainingConfiguration, Batch) -> Void
     let onCancel: () -> Void
     @EnvironmentObject private var subscription: SubscriptionManager
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showSubscription = false
     @State private var draft: SceneTrainingConfiguration
     @State private var preparing = false
     @State private var conditionsExpanded = true
     @State private var error: String?
     @State private var generation: Task<Void, Never>?
+    @State private var pendingFreePractice = false
+    @State private var pendingStart = false
     init(route: String, configuration: SceneTrainingConfiguration, restarting: Bool,
-         showsSpinOptions: Bool = false,
+         showsSpinOptions: Bool = false, strokePlayback: Binding<Bool>? = nil,
+         centerReference: Binding<Bool>? = nil,
          prepareBatch: @escaping (SceneTrainingConfiguration) throws -> Batch,
          onStart: @escaping (SceneTrainingConfiguration, Batch) -> Void,
          onCancel: @escaping () -> Void) {
         self.route = route; self.restarting = restarting; self.onStart = onStart; self.onCancel = onCancel
         self.prepareBatch = prepareBatch; self.showsSpinOptions = showsSpinOptions
         _draft = State(initialValue: configuration)
+        self.centerReference = centerReference
+        _draftShowsReference = State(initialValue: centerReference?.wrappedValue ?? true)
+        self.strokePlayback = strokePlayback
+        _draftPlaysStroke = State(initialValue: strokePlayback?.wrappedValue ?? true)
     }
     var body: some View {
         Form {
             Section("练习模式") {
                 Picker("练习模式", selection: Binding(get: { draft.freePractice }, set: { requested in
-                    if requested && !subscription.isPremium { showSubscription = true }
+                    if requested && !subscription.isPremium {
+                        pendingFreePractice = route.hasPrefix("separationPractice"); showSubscription = true
+                    }
                     else { draft.freePractice = requested }
                 })) {
                     Text("20题").tag(false); Text("自由练习").tag(true)
                 }.pickerStyle(.segmented).accessibilityIdentifier("training.length")
             }
+            if strokePlayback != nil || centerReference != nil {
+                Section {
+                    if strokePlayback != nil {
+                        Toggle("击球", isOn: $draftPlaysStroke)
+                            .accessibilityIdentifier("separation.playsStroke")
+                    }
+                    if centerReference != nil {
+                        Toggle("中杆参考", isOn: $draftShowsReference)
+                            .accessibilityIdentifier("separation.showsReference")
+                    }
+                } header: {
+                    Text("击球设置").accessibilityIdentifier("separation.shotSettingsHeader")
+                } footer: {
+                    Text("注：已进行瞄准补偿")
+                        .font(.btCaption2).foregroundStyle(.btTextSecondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .accessibilityIdentifier("separation.aimCompensationNote")
+                }
+            }
             if !subscription.isPremium {
                 Section {
-                    Text("今天剩余 \(AngleUsageLimiter.training(route: route).remainingToday) 题 · 每个2D训练每天20题")
+                    explanation("今天剩余 \(AngleUsageLimiter.training(route: route).remainingToday) 题 · 每个2D训练每天20题")
                         .font(.btCaption).foregroundStyle(.btTextSecondary)
                 }
             }
@@ -68,8 +101,9 @@ struct SceneTrainingSettings<Batch>: View {
                         selection: $draft.railDistanceSelection, choices: SceneTrainingConfiguration.RailDistance.allCases,
                         random: .mixed, label: { $0.label })
                 }
-                Text("母球距离按两球中心计算；距袋按目标球到有效进袋瞄点计算。半贴库指目标球表面离库不超过10厘米，贴库单独选择。")
+                explanation("母球距离按两球中心计算；距袋按目标球到有效进袋瞄点计算。半贴库指目标球表面离库不超过10厘米，贴库单独选择。")
                     .font(.btCaption).foregroundStyle(.btTextSecondary)
+                    .accessibilityIdentifier("training.conditionsInfo")
             }
             if showsSpinOptions {
                 Section {
@@ -78,12 +112,13 @@ struct SceneTrainingSettings<Batch>: View {
                     Toggle("允许左右塞", isOn: $draft.allowsSideSpin)
                         .accessibilityIdentifier("training.sideSpin")
                 } header: { Text("出题杆法") } footer: {
-                    Text("开启后，题目会指定相应打点。练习中只调整方向和力度，打点不可更改。")
+                    explanation(route.hasPrefix("separationPractice") ? "影响目标轨迹的出题杆法。练习时可自由调整打点和力度，由系统补偿瞄准。" : "开启后，题目会指定相应打点。练习中只调整方向和力度，打点不可更改。")
+                        .accessibilityIdentifier("training.spinInfo")
                 }
             }
             if let error {
                 Section {
-                    Text(error).foregroundStyle(.btDestructive).accessibilityIdentifier("training.generationError")
+                    explanation(error).foregroundStyle(.btDestructive).accessibilityIdentifier("training.generationError")
                     Button("重新生成", action: prepare)
                 }
             }
@@ -95,7 +130,7 @@ struct SceneTrainingSettings<Batch>: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button(restarting ? "重新开始" : "开始训练", action: prepare)
-                    .disabled(preparing).accessibilityIdentifier(route.hasPrefix("accuracy") ? "accuracy.start" : (route.hasPrefix("aimPoint") ? "aimPointTraining.start" : "angleTraining.start"))
+                    .disabled(preparing).accessibilityIdentifier(route.hasPrefix("separationPractice") ? "separation.start" : route.hasPrefix("accuracy") ? "accuracy.start" : (route.hasPrefix("aimPoint") ? "aimPointTraining.start" : "angleTraining.start"))
             }
             ToolbarItem(placement: .cancellationAction) {
                 Button(restarting ? "取消" : "返回") { generation?.cancel(); onCancel() }
@@ -107,13 +142,34 @@ struct SceneTrainingSettings<Batch>: View {
             if !subscription.isPremium { draft.freePractice = false }
         }
         .onChange(of: subscription.isPremium) { _, premium in if !premium { draft.freePractice = false } }
-        .sheet(isPresented: $showSubscription) { SubscriptionView() }
+        .sheet(isPresented: $showSubscription, onDismiss: {
+            if subscription.isPremium {
+                if pendingFreePractice { draft.freePractice = true }
+                if pendingStart { prepare() }
+            }
+            pendingFreePractice = false; pendingStart = false
+        }) { SubscriptionView() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active, route.hasPrefix("separationPractice") { generation?.cancel(); preparing = false }
+        }
         .onDisappear { generation?.cancel() }
+    }
+    @ViewBuilder
+    private func explanation(_ text: String) -> some View {
+        if route.hasPrefix("accuracy") {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                Image(systemName: "info.circle").accessibilityHidden(true)
+                Text(text).fixedSize(horizontal: false, vertical: true)
+            }.accessibilityElement(children: .combine)
+        } else {
+            Text(text)
+        }
     }
     private func prepare() {
         let limiter = AngleUsageLimiter.training(route: route)
         limiter.refreshDay(); limiter.isPremium = subscription.isPremium
         guard subscription.isPremium || (!draft.freePractice && !limiter.isLimitReached && !route.hasSuffix("3D")) else {
+            pendingStart = route.hasPrefix("separationPractice")
             showSubscription = true; return
         }
         preparing = true; error = nil
@@ -132,6 +188,8 @@ struct SceneTrainingSettings<Batch>: View {
             switch outcome {
             case .success(let questions):
                 configuration.save(for: route)
+                centerReference?.wrappedValue = draftShowsReference
+                strokePlayback?.wrappedValue = draftPlaysStroke
                 onStart(configuration, questions)
             case .failure(let failure): error = failure.localizedDescription
             }

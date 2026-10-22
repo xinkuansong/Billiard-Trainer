@@ -12,6 +12,15 @@ struct BTTablePlanningControls {
     var showsSpinSlot: Bool = true
     /// Assessment pages expose a fixed contact point and no answer assists.
     var assessmentMode = false
+    /// Explicit opt-in for a page supplying only its current aim, never answer layers.
+    var allowsAssessmentAimCloseup = false
+    /// Trajectory practice hides answer assists while retaining the normal editable tip disc.
+    var allowsAssessmentSpinEditing = false
+    var allowsAssessmentRehearsal = false
+    /// An automatic aim is unresolved until submission, so its provisional cue pose
+    /// cannot define the valid input domain. The host must validate the solved pose.
+    var defersStrikeAccessUntilSubmission = false
+    var locksSceneInteraction = false
     var isAnimating: Bool
     var paletteEnabled: Bool
     var allowsPocketSelection: Bool = true
@@ -25,6 +34,7 @@ struct BTTablePlanningControls {
     var applyPreferences: (TablePreferenceSnapshot) -> Void = { _ in }
     var onSetup: () -> Void = {}
     var onDisappear: () -> Void = {}
+    var onLayoutEditingChanged: (Bool) -> Void = { _ in }
     /// Page-owned gestures/confirmation phases outside the scene's drag lifecycle.
     var layoutEditingBlocked = false
     var onAimNudged: ((Float) -> Void)? = nil
@@ -161,6 +171,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         .statusBarHidden(UIDevice.current.userInterfaceIdiom != .pad)
         .preference(key: TrainingActivityPausedKey.self, value: editingControlLayout)
         .onChange(of: editingControlLayout) { _, editing in
+            planning?.onLayoutEditingChanged(editing)
             if editing {
                 scenePausedBeforeLayout = vm.scene.isPaused
                 vm.scene.isPaused = true
@@ -312,7 +323,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 .position(x: f.stage.midX, y: f.stage.midY)
             // A solved contact supplies geometry, not permission to keep the loupe visible.
             // Only the direction ruler's live gesture may reveal it; spin/power and idle must not.
-            if planning?.assessmentMode != true, aimTouchActive, !showSpinPad, menu == nil,
+            if (planning?.assessmentMode != true || planning?.allowsAssessmentAimCloseup == true),
+               aimTouchActive, !showSpinPad, menu == nil,
                let snapshot = planning?.closeupSnapshot, !vm.temporaryTopDownActive {
                 GeometryReader { proxy in
                     let inner = CGSize(
@@ -322,7 +334,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                         safeInsets: .init(top: 0, leading: 0, bottom: 28, trailing: 0),
                         blockedSide: nil, protectsDailySight: true, frameInWindow: proxy.frame(in: .global),
                         placementBounds: CGRect(x: (f.stage.width - inner.width) / 2, y: (f.stage.height - inner.height) / 2,
-                            width: inner.width, height: inner.height), protectedFramesInWindow: protectedCloseupFrames)
+                            width: inner.width, height: inner.height), protectedFramesInWindow: protectedCloseupFrames,
+                        includesSceneIdealLine: planning?.assessmentMode != true)
                 }.frame(width: f.stage.width, height: f.stage.height).position(x: f.stage.midX, y: f.stage.midY)
             }
             if showSpinPad, spinHeight != nil || planning != nil {
@@ -440,10 +453,12 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         if let planning {
             items.insert(.init(id: identifier + ".transparency", title: "打点盘透明度",
                 detail: "\(Int((planning.transparency.wrappedValue * 100).rounded()))%", disclosure: true, action: { showSpinPad = true; menu = .transparency }), at: 2)
-            if !planning.assessmentMode {
+            if !planning.assessmentMode || planning.allowsAssessmentAimCloseup {
             items.append(.init(id: "menu.aimCloseup", title: "瞄准特写", detail: planning.closeupUnavailableReason, selected: pagePreferences.enabled(.closeup),
                 disabled: planning.closeupUnavailableReason != nil,
                 action: { setPagePreference(.closeup, pagePreferences.enabled(.closeup) ? 0 : 1) }))
+            }
+            if !planning.assessmentMode {
             items.append(.init(id: identifier + ".trajectory", title: "轨迹显示 · " + (is3D && planning.hides3DAssists?.wrappedValue == true ? "关闭" : pagePreferences.trajectoryDetail.label),
                 disclosure: true, action: { menu = .trajectory }))
             items += [TablePreferenceField.separation, .rehearsal].map { field in
@@ -452,6 +467,12 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                         setPagePreference(field, pagePreferences.enabled(field) ? 0 : 1)
                     })
             }
+            }
+            if planning.assessmentMode && planning.allowsAssessmentRehearsal {
+                items.append(.init(id: identifier + ".rehearsal", title: TablePreferenceField.rehearsal.title,
+                    selected: pagePreferences.enabled(.rehearsal), action: {
+                        setPagePreference(.rehearsal, pagePreferences.enabled(.rehearsal) ? 0 : 1)
+                    }))
             }
             items += planning.menuItems.map { item in
                 var closingItem = item
@@ -484,7 +505,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
             pocketDisplayOrientation: .init(portrait: portrait),
-            interactionMode: is3D ? .cameraControl : .tapsOnly,
+            interactionMode: planning?.locksSceneInteraction == true ? .none : (is3D ? .cameraControl : .tapsOnly),
             // Core-template fitting also handles rotated 2D; the legacy rotated
             // fitter imposes an extra minimum scale and detaches the palette from the rail.
             autoFitsLandscapeTable: !is3D,
@@ -592,7 +613,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             tableWidth: inner.width, bottomPadding: (f.stage.height - layout.extent) / 2,
             fixedCardExtent: layout.extent, discOpacity: planning.map { 1 - $0.transparency.wrappedValue } ?? 1,
             locksSideSpin: planning == nil,
-            editingDisabled: planning?.assessmentMode == true,
+            editingDisabled: planning.map { ($0.assessmentMode && !$0.allowsAssessmentSpinEditing) || !$0.instrumentsEnabled } ?? false,
+            defersStrikeAccessUntilSubmission: planning?.defersStrikeAccessUntilSubmission ?? false,
             onSpinChange: planning?.onSpinChange,
             onClose: { showSpinPad = false })
             .simultaneousGesture(DragGesture(minimumDistance: 0).updating($spinTouchActive) { _, active, _ in active = true })
@@ -759,6 +781,24 @@ struct BTTeachingAimRuler: View {
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.3)
         .freeControlItem("shot.aim", name: "方向")
+    }
+}
+
+/// Auto-aim pages omit the direction control while retaining the same action slots.
+/// Match the ruler's intrinsic label height, including Dynamic Type, without
+/// registering an invisible editable control in the personal layout editor.
+struct BTTeachingAimRulerSpace: View {
+    let layout: BTTeachingInstrumentLayout
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Color.clear.frame(height: layout.rulerLength)
+            Text("方向").font(.btMicro).hidden()
+        }
+        .padding(.vertical, 6)
+        .frame(width: layout.columnWidth)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 

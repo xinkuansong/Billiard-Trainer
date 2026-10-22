@@ -149,7 +149,11 @@ struct SceneTrainingConfiguration: Codable, Equatable {
         try c.encode(allowsSideSpin, forKey: .allowsSideSpin)
     }
     static func load(for route: String) -> Self {
-        guard let data = UserDefaults.standard.data(forKey: "sceneTraining.rules2.mixedDefaults." + route) else { return Self() }
+        guard let data = UserDefaults.standard.data(forKey: "sceneTraining.rules2.mixedDefaults." + route) else {
+            var defaults = Self()
+            if route.hasPrefix("separationPractice") { defaults.allowsVerticalSpin = true; defaults.allowsSideSpin = true }
+            return defaults
+        }
         do { return try JSONDecoder().decode(Self.self, from: data) }
         catch {
             Logger(subsystem: "com.xinkuan.qiuji", category: "SceneTraining").error("Settings decode failed for \(route, privacy: .public): \(String(describing: error), privacy: .public)")

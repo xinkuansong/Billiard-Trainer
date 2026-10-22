@@ -794,12 +794,14 @@ struct BTSceneSpinPadOverlay: View {
     var cardHorizontalOffset: CGFloat = 0
     var isReadOnly = false
     var editingDisabled = false
+    var defersStrikeAccessUntilSubmission = false
     /// A host can submit both axes as one intent; nil preserves the binding behavior.
     var onSpinChange: ((Double, Double) -> Void)? = nil
     var onClose: () -> Void
     var body: some View {
         BTSpinPadOverlay(spinX:$spinX,spinY:$spinY,tableWidth:tableWidth,
-            bottomPadding:bottomPadding,isReadOnly:isReadOnly,editingDisabled:editingDisabled,locksSideSpin:locksSideSpin,strikeAccess:scene.cueAccessSnapshot,
+            bottomPadding:bottomPadding,isReadOnly:isReadOnly,editingDisabled:editingDisabled,locksSideSpin:locksSideSpin,
+            strikeAccess:defersStrikeAccessUntilSubmission ? nil : scene.cueAccessSnapshot,
             usesCompactLayout:true,usesFixedLayout:true,fixedCardExtent:fixedCardExtent,discOpacity:discOpacity,
             cardHorizontalOffset:cardHorizontalOffset,
             onSpinChange:onSpinChange,onClose:onClose)

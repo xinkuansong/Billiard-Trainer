@@ -25,7 +25,8 @@ final class TrainingMultiSelectionUITests: XCTestCase {
             XCTAssertTrue(strike.waitForExistence(timeout: 20))
             expectation(for: NSPredicate { _, _ in strike.isHittable && strike.isEnabled }, evaluatedWith: app)
             waitForExpectations(timeout: 10)
-            let question = app.staticTexts["accuracy.question"].label
+            let questionInfo = app.descendants(matching: .any).matching(identifier: "accuracy.questionInfo").firstMatch
+            XCTAssertTrue(questionInfo.label.contains("1/20"))
             strike.tap()
             let result = app.staticTexts["accuracy.result"]
             XCTAssertTrue(result.waitForExistence(timeout: 40))
@@ -35,7 +36,7 @@ final class TrainingMultiSelectionUITests: XCTestCase {
             open(title)
             XCTAssertTrue(result.waitForExistence(timeout: 15))
             XCTAssertEqual(result.label, savedResult)
-            XCTAssertEqual(app.staticTexts["accuracy.question"].label, question)
+            XCTAssertTrue(questionInfo.label.contains("1/20"))
             strike.tap()
             XCTAssertTrue(app.staticTexts["accuracy.question"].label.contains("第2题"))
             app.buttons["accuracy.more"].tap()
@@ -142,7 +143,7 @@ final class TrainingMultiSelectionUITests: XCTestCase {
                 XCUIDevice.shared.orientation = .landscapeLeft
                 expectation(for: NSPredicate { _, _ in app.frame.width > app.frame.height && strike.isHittable }, evaluatedWith: app)
                 waitForExpectations(timeout: 10)
-                XCTAssertTrue(app.staticTexts["accuracy.question"].label.contains("第1题"))
+                XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "accuracy.questionInfo").firstMatch.label.contains("1/20"))
                 let landscape = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
                 landscape.name = title + "-landscape"; landscape.lifetime = .keepAlways; add(landscape)
                 XCUIDevice.shared.orientation = .portrait

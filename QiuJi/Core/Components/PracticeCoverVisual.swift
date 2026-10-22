@@ -94,7 +94,7 @@ enum PracticeCoverCatalog {
         .aimingPrinciple, .aimingMethods, .aimingCorrection, .spinAndEnglish,
         .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas, .ballFeel, .contactPointTable,
         .geometricQuiz, .sceneAiming2D, .sceneAiming3D, .aimPointTraining, .aimPointScene2D, .aimPointScene3D,
-        .accuracy2D, .accuracy3D,
+        .accuracy2D, .accuracy3D, .separationPractice2D, .separationPractice3D,
         .shotSimulation, .positionPlayComposer, .freePlay, .ballExtraction,
         .positionPlaySolver, .planThree, .snookerTactics, .bankShot, .diamondSystem,
     ]
@@ -152,6 +152,10 @@ enum PracticeCoverCatalog {
             layout.segments.removeAll { $0.style != .aim }
             return .tablePreview(layout)
 
+        case .separationPractice2D:
+            return .tablePreview(collisionPreview(tint: "aimPointScene2D"))
+        case .separationPractice3D:
+            return .tablePreview(collisionPreview(tint: "aimPointScene3D"))
         case .shotSimulation:
             return .tablePreview(collisionPreview(tint: "shotSimulation"))
         case .positionPlayComposer, .customFormationPractice:

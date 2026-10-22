@@ -1707,6 +1707,30 @@ final class DailyPowerReleaseTests: XCTestCase {
 
 @MainActor
 final class DailyAimSelectionTests: XCTestCase {
+    func testSimulationSuspensionInvalidatesPendingStrokeAndRestoresBoard() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.loadBoard(ShotSimulationView.defaultBoard)
+        defer { vm.suspendAuthoringActivity(); vm.clearTable() }
+        let deadline = Date().addingTimeInterval(15)
+        while vm.isComputing, Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertTrue(vm.isFeasible)
+        let original = vm.currentSnapshot().onTable.mapValues { [$0.x, $0.y] }
+        var settlements = 0
+        vm.onShotSettled = { _ in settlements += 1 }
+        vm.play()
+        XCTAssertTrue(vm.isPlaying)
+        vm.suspendAuthoringActivity()
+        XCTAssertFalse(vm.isPlaying)
+        XCTAssertEqual(vm.currentSnapshot().onTable.mapValues { [$0.x, $0.y] }, original)
+        vm.resumeAuthoringActivity()
+        // The delayed cue-stroke completion must not restart playback after resume.
+        try await Task.sleep(for: .milliseconds(650))
+        XCTAssertFalse(vm.isPlaying)
+        XCTAssertEqual(settlements, 0)
+        XCTAssertEqual(vm.currentSnapshot().onTable.mapValues { [$0.x, $0.y] }, original)
+    }
+
     private func makeVM() -> PositionPlayViewModel {
         let vm = PositionPlayViewModel()
         vm.setupScene()
@@ -1754,6 +1778,29 @@ final class DailyAimSelectionTests: XCTestCase {
         vm.selectTarget(key: "_9")
         XCTAssertEqual(vm.aimMode, .free)
         XCTAssertEqual(vm.selectedTargetKey, "_9")
+    }
+
+    func testSimulationExplainsAutomaticFallbackButNotExplicitOrManualModes() throws {
+        let vm = makeVM()
+        let notices = BTRuleNoticeCenter()
+        let rules = FreePlayRulesSession(), daily = DailyClearanceController()
+        FreePlayRulesSession.connect(vm: vm, rules: rules, daily: daily, notices: notices,
+                                     mode: .shotSimulation, isEditor: false, isTryout: false)
+        vm.selectTarget(key: "_1")
+        notices.clear()
+        vm.setPreferredAimMode(.free)
+        XCTAssertNil(notices.message)
+        vm.setPreferredAimMode(.pocket)
+        vm.nudgeFreeAim(byDegrees: 1)
+        XCTAssertEqual(vm.aimMode, .free)
+        XCTAssertNil(notices.message)
+        vm.setPreferredAimMode(.pocket)
+        let invalid = try XCTUnwrap((0..<6).first { !vm.isStraightPocketAvailable($0) })
+        vm.selectPocket(at: invalid)
+        XCTAssertEqual(notices.message?.text, "该袋口无法直进，已切到自由模式")
+        XCTAssertEqual(vm.preferredAimMode, .pocket)
+        vm.cancelInteractiveTrajectoryPreview()
+        notices.clear()
     }
 
     func testUnavailableExplicitPocketAcceptsIntentAndSwitchesFree() {

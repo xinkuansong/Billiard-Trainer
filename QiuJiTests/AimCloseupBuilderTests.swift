@@ -8,6 +8,24 @@ import SceneKit
 /// 于是「前方」= x 增大方向，横向偏移写在 y 上。
 final class AimCloseupBuilderTests: XCTestCase {
 
+    func testAccuracyReferenceRingMatchesTwoRadiusContactBoundaryWithoutAnswerLayers() throws {
+        for offset in [1.99 * r, 2.01 * r] {
+            let target = CGPoint(x: 0.6, y: offset)
+            let snapshot = try XCTUnwrap(AimCloseupBuilder.currentAim(cue: .zero,
+                direction: .init(x: 1, y: 0), target: target, number: 1,
+                ballRadius: r, railEnd: .init(x: 1.2, y: 0), previouslyNear: false).snapshot)
+            let radius = try XCTUnwrap(snapshot.targetReferenceRadius)
+            XCTAssertEqual(radius, 2 * r)
+            XCTAssertEqual(snapshot.band == .contact, offset < radius)
+            XCTAssertLessThan(radius, snapshot.halfWorld)
+            XCTAssertNil(snapshot.ghost); XCTAssertNil(snapshot.contactMarker)
+            XCTAssertNil(snapshot.aimPointMarker); XCTAssertNil(snapshot.idealLine)
+            XCTAssertNil(snapshot.potLine); XCTAssertFalse(snapshot.showMissCaption)
+        }
+        let ordinary = AimCloseupSnapshot(band: .contact, focus: .zero, ballRadius: r, halfWorld: 3.2 * r)
+        XCTAssertNil(ordinary.targetReferenceRadius)
+    }
+
     func testSolvedContactTangencyAndDefenseLayersAcrossAllDirections() throws {
         let target = CGPoint(x: 0.6, y: -0.2)
         for degrees in stride(from: 0.0, to: 360.0, by: 15) {

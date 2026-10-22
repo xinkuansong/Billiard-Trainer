@@ -11,6 +11,7 @@ struct AccuracyPracticeView: View {
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @State private var showSubscription = false
     @State private var pocketOrientation: PocketDisplay.Orientation = .landscape
+    @StateObject private var questionNotices = BTRuleNoticeCenter()
 
     init(is3D: Bool) { _vm = StateObject(wrappedValue: AccuracyPracticeViewModel(is3D: is3D)) }
     var body: some View {
@@ -48,22 +49,35 @@ struct AccuracyPracticeView: View {
         .onReceive(subscriptionManager.$isPremium) { vm.limiter.isPremium = $0 }
         .onChange(of: owner.ownerKey) { _, _ in vm.ownerChanged() }
         .onChange(of: vm.temporaryTopDownActive) { _, active in if active { vm.markObservation("topDown") } }
+        .onChange(of: vm.record?.current?.id, initial: true) { _, questionID in
+            guard questionID != nil else { questionNotices.clear(); return }
+            questionNotices.show(questionPrompt, tone: .info, priority: .selection)
+        }
+        .onDisappear { questionNotices.clear() }
         .sheet(isPresented: $showSubscription) { SubscriptionView() }
         .alert("练习提示", isPresented: Binding(get: { vm.message != nil }, set: { if !$0 { vm.message = nil } })) {
             Button("知道了") { vm.message = nil }
         } message: { Text(vm.message ?? "") }
     }
+    private var questionPrompt: String {
+        "第\((vm.record?.cursor ?? 0) + 1)题 · 指定\(vm.tip.label) · \(PocketDisplay.name(index: vm.selectedPocketIndex, orientation: pocketOrientation))"
+    }
     private var information: [BTTeachingInformation] {
-        var result = [BTTeachingInformation(
-            text: "第\((vm.record?.cursor ?? 0) + 1)题 · 指定\(vm.tip.label) · \(PocketDisplay.name(index: vm.selectedPocketIndex, orientation: pocketOrientation))",
-            kind: .notice, identifier: "accuracy.question")]
-        if vm.phase == .result { result.append(.init(text: vm.outcomeText, kind: .readout, identifier: "accuracy.result")) }
+        var result: [BTTeachingInformation] = []
+        if questionNotices.message != nil {
+            // Derive the label from the current orientation without restarting its timer.
+            result.append(.init(text: questionPrompt, kind: .notice, identifier: "accuracy.question"))
+        }
+        if vm.phase == .result {
+            result.append(.init(text: vm.outcomeText, kind: .readout, symbol: "info.circle", identifier: "accuracy.result"))
+        }
         return result
     }
     private var controls: BTTablePlanningControls {
         .init(spinX: .constant(Double(vm.tip.x)), spinY: .constant(Double(vm.tip.y)),
             transparency: Binding(get: { tablePreferences.snapshot(for: vm.preferencePage)[.transparency] },
                 set: { tablePreferences.apply(.transparency, value: $0, to: vm.preferencePage) }), instrumentsEnabled: vm.canAim, assessmentMode: true,
+            allowsAssessmentAimCloseup: true,
             isAnimating: vm.phase == .playing || vm.phase == .computing, paletteEnabled: false,
             allowsPocketSelection: false, primaryTitle: vm.primaryTitle,
             primaryEnabled: (vm.isReplaying || (vm.phase != .computing && vm.phase != .playing)) && !vm.cameraTransitionBusy,
@@ -78,9 +92,13 @@ struct AccuracyPracticeView: View {
                 .init(id: "accuracy.trainingSettings", title: "训练设置", disclosure: true, disabled: vm.isBusy, action: { vm.openSettings() }),
                 .init(id: "accuracy.finish", title: "结束练习", disabled: vm.isBusy, action: { vm.finish() })
             ], refreshTrajectory: {},
-            applyPreferences: { preferences in if preferences.enabled(.grid) { vm.markObservation("grid") } },
+            applyPreferences: { preferences in
+                if preferences.enabled(.grid) { vm.markObservation("grid") }
+                if preferences.enabled(.closeup) { vm.markObservation("closeup") }
+            },
             layoutEditingBlocked: vm.isBusy, onAimNudged: { vm.nudgeAim($0) },
-            onObservation: { vm.markObservation($0) })
+            onObservation: { vm.markObservation($0) },
+            closeupSnapshot: vm.canAim ? vm.closeupSnapshot : nil)
     }
     private var tablePage: some View {
         BTTeachingTablePage(vm: vm, titleLabel: vm.title, identifier: "accuracy", preferencePage: vm.preferencePage,

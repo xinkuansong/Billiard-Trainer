@@ -102,6 +102,7 @@ extension AimCloseupSnapshot {
         result.aimPointMarker = aimPointMarker.map(local)
         result.contactMarker = contactMarker.map(local)
         result.aimLine = segment(aimLine)
+        result.centerReferenceLine = segment(centerReferenceLine)
         result.potLine = segment(potLine)
         result.auxLine = segment(auxLine)
         result.idealLine = segment(idealLine)
@@ -196,6 +197,7 @@ enum DailyCloseupProjection {
                  SCNVector3(Float(s.end.x),scene.surfaceY,Float(s.end.y)))
         }
         segment(snapshot.aimLine)
+        segment(snapshot.centerReferenceLine)
         segment(snapshot.potLine)
         segment(scene.idealObjectLine)
         for (a,b) in zip(scene.closeupCuePath,scene.closeupCuePath.dropFirst()) {

@@ -21,6 +21,33 @@ struct FreeControlPlacement: Codable, Equatable {
 
 typealias FreeControlValues = [String: FreeControlPlacement]
 
+/// Capacity fallback for opted-in pages after an actual window size change.
+/// It never writes back or rescales the saved layout.
+enum FreeControlResizeSafety {
+    static func needsNativeSlots(values: FreeControlValues, frames: [String: CGRect],
+                                 window: CGSize, source: FreeControlWindow?) -> Bool {
+        guard !values.isEmpty, window.width > 0, window.height > 0 else { return false }
+        // Applied values survive template deletion, so missing provenance must not
+        // re-enable a known overlapping placement.
+        if let source, abs(window.width-source.width) <= 1 && abs(window.height-source.height) <= 1 { return false }
+        let bounds = CGRect(origin: .zero, size: window)
+        let actual = frames.map { id, base in
+            values[id].map { p in
+                CGRect(x: p.x*window.width-base.width*p.scale/2, y: p.y*window.height-base.height*p.scale/2,
+                       width: base.width*p.scale, height: base.height*p.scale)
+            } ?? base
+        }.filter { $0.width > 0 && $0.height > 0 }
+        if actual.contains(where: { !bounds.insetBy(dx: -1, dy: -1).contains($0) }) { return true }
+        for a in actual.indices {
+            for b in actual.indices where b > a {
+                let overlap = actual[a].intersection(actual[b])
+                if !overlap.isNull && overlap.width > 2 && overlap.height > 2 { return true }
+            }
+        }
+        return false
+    }
+}
+
 struct FreeControlWindow: Codable, Equatable {
     var width: Double
     var height: Double
@@ -62,6 +89,9 @@ enum FreeControlCatalog {
         case .aimPointScene2D, .aimPointScene3D:
             guard (page == .aimPointScene2D) == (mode == .twoD) else { return [] }
             ids = ["shot.aim", "aimPoint.hint", "aimPoint.submit", "aimPoint.next"]
+        case .separationPractice2D, .separationPractice3D:
+            guard (page == .separationPractice2D) == (mode == .twoD) else { return [] }
+            ids = ["shot.spin", "shot.power", "shot.strike", "shot.undo", "shot.replay"]
         case .accuracy2D, .accuracy3D:
             guard (page == .accuracy2D) == (mode == .twoD) else { return [] }
             ids = ["shot.aim", "shot.spin", "shot.power", "shot.strike", "shot.replay"]
@@ -185,14 +215,14 @@ extension TablePreferencePage {
     }
     var fixedControlLayoutMode: ControlLayoutLayer? {
         switch self {
-        case .sceneAiming2D, .aimPointScene2D, .accuracy2D, .customFormationEditor: return .twoD
-        case .sceneAiming3D, .aimPointScene3D, .accuracy3D: return .threeD
+        case .sceneAiming2D, .aimPointScene2D, .accuracy2D, .separationPractice2D, .customFormationEditor: return .twoD
+        case .sceneAiming3D, .aimPointScene3D, .accuracy3D, .separationPractice3D: return .threeD
         default: return nil
         }
     }
     var controlLayoutFamily: ControlLayoutFamily? {
         switch self {
-        case .dailyClearance, .freePlay, .shotSimulation, .snakePractice, .composer, .drillTryout, .accuracy2D, .accuracy3D: return .shot
+        case .dailyClearance, .freePlay, .shotSimulation, .snakePractice, .composer, .drillTryout, .accuracy2D, .accuracy3D, .separationPractice2D, .separationPractice3D: return .shot
         case .silu, .planThree, .snookerTactics, .bankShot, .diamondSystem: return .planning
         case .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas: return .teaching
         case .sceneAiming2D, .sceneAiming3D: return .angleQuiz
