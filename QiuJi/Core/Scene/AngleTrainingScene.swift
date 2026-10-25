@@ -2256,12 +2256,17 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     }
 
     /// Explicit dual-role state; equal indices show both roles on the same leather.
-    func setPocketRoles(first: Int?, second: Int?) {
+    func setPocketRoles(first: Int?, second: Int?, transientFirst: Bool = false) {
         for marker in leatherMarkers {
             let isFirst = first == marker.pocketIndex
             let isSecond = second == marker.pocketIndex
-            marker.show(isFirst && isSecond ? .bothRoles : isFirst ? .firstRole : isSecond ? .secondRole : .original)
+            if transientFirst {
+                marker.show(isSecond ? .secondRole : isFirst ? .target : .original, confirmsSelection: false)
+            } else {
+                marker.show(isFirst && isSecond ? .bothRoles : isFirst ? .firstRole : isSecond ? .secondRole : .original)
+            }
         }
+        if transientFirst, let first { confirmPocketSelection(at: first) }
     }
 
     var pocketSelectionDescription: String {

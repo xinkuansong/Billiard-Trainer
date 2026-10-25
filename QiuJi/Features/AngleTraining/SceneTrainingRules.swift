@@ -71,8 +71,19 @@ struct SceneTrainingConfiguration: Codable, Equatable {
     var pocketDistanceSelection: Set<Distance> = [.mixed]
     var pocketSelection: Set<Pockets> = [.mixed]
     var railDistanceSelection: Set<RailDistance> = [.mixed]
-    var allowsVerticalSpin = false
-    var allowsSideSpin = false
+    var allowsVerticalSpin = false {
+        didSet { if allowsVerticalSpin { allowsManualVerticalSpin = false } }
+    }
+    var allowsSideSpin = false {
+        didSet { if allowsSideSpin { allowsManualSideSpin = false } }
+    }
+    /// Accuracy practice can expose either axis without adding it to question generation.
+    var allowsManualVerticalSpin = true {
+        didSet { if allowsManualVerticalSpin { allowsVerticalSpin = false } }
+    }
+    var allowsManualSideSpin = true {
+        didSet { if allowsManualSideSpin { allowsSideSpin = false } }
+    }
 
     // Legacy single-choice callers remain source compatible. New consumers use the sets.
     var angles: AngleRange {
@@ -115,6 +126,7 @@ struct SceneTrainingConfiguration: Codable, Equatable {
         case freePractice, angles, cueDistance, pocketDistance, pockets
         case angleSelection, cueDistanceSelection, pocketDistanceSelection, pocketSelection, railDistanceSelection
         case allowsVerticalSpin, allowsSideSpin
+        case allowsManualVerticalSpin, allowsManualSideSpin
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -136,6 +148,11 @@ struct SceneTrainingConfiguration: Codable, Equatable {
         railDistanceSelection = try selection(.railDistanceSelection, legacy: nil, random: RailDistance.mixed)
         allowsVerticalSpin = try c.decodeIfPresent(Bool.self, forKey: .allowsVerticalSpin) ?? false
         allowsSideSpin = try c.decodeIfPresent(Bool.self, forKey: .allowsSideSpin) ?? false
+        // Preserve previously selected question axes; new manual controls default on otherwise.
+        allowsManualVerticalSpin = try c.decodeIfPresent(Bool.self, forKey: .allowsManualVerticalSpin) ?? !allowsVerticalSpin
+        allowsManualSideSpin = try c.decodeIfPresent(Bool.self, forKey: .allowsManualSideSpin) ?? !allowsSideSpin
+        if allowsVerticalSpin { allowsManualVerticalSpin = false }
+        if allowsSideSpin { allowsManualSideSpin = false }
     }
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
@@ -147,17 +164,22 @@ struct SceneTrainingConfiguration: Codable, Equatable {
         try c.encode(railDistanceSelection, forKey: .railDistanceSelection)
         try c.encode(allowsVerticalSpin, forKey: .allowsVerticalSpin)
         try c.encode(allowsSideSpin, forKey: .allowsSideSpin)
+        try c.encode(allowsManualVerticalSpin, forKey: .allowsManualVerticalSpin)
+        try c.encode(allowsManualSideSpin, forKey: .allowsManualSideSpin)
     }
     static func load(for route: String) -> Self {
+        var defaults = Self()
+        if (route.hasPrefix("separationPractice") || route.hasPrefix("twoBallPractice")) {
+            defaults.angleSelection = [.straight, .small, .medium]
+            defaults.allowsVerticalSpin = true; defaults.allowsSideSpin = true
+        }
         guard let data = UserDefaults.standard.data(forKey: "sceneTraining.rules2.mixedDefaults." + route) else {
-            var defaults = Self()
-            if route.hasPrefix("separationPractice") { defaults.allowsVerticalSpin = true; defaults.allowsSideSpin = true }
             return defaults
         }
         do { return try JSONDecoder().decode(Self.self, from: data) }
         catch {
             Logger(subsystem: "com.xinkuan.qiuji", category: "SceneTraining").error("Settings decode failed for \(route, privacy: .public): \(String(describing: error), privacy: .public)")
-            return Self()
+            return defaults
         }
     }
     func save(for route: String) {

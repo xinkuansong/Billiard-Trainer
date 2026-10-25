@@ -338,6 +338,9 @@ struct BTSpinPadCard: View {
     /// 白盘不接受拖动——演示的是录制真值，不允许改。
     var isReadOnly = false
     var editingDisabled = false
+    /// Keep the standard control layout while the host enforces its per-axis policy.
+    var allowsVerticalAdjustment = true
+    var allowsSideAdjustment = true
     /// 只选高低杆：隐藏左右微调键，白盘拖动锁竖轴。
     var locksSideSpin = false
     var strikeAccess: CueStrikeAccess? = nil
@@ -397,12 +400,14 @@ struct BTSpinPadCard: View {
     private var fixedContent: some View {
         VStack(spacing: 0) {
             BTHoldRepeatButton(icon: "chevron.up", accessibility: "高杆增加 1%") { nudge(.up) }
+                .disabled(!allowsVerticalAdjustment)
             HStack(spacing: 0) {
                 if locksSideSpin {
                     Color.clear.frame(width: SpinPadLayout.keyHit, height: SpinPadLayout.keyHit)
                         .accessibilityHidden(true)
                 } else {
                     BTHoldRepeatButton(icon: "chevron.left", accessibility: "左塞增加 1%") { nudge(.left) }
+                        .disabled(!allowsSideAdjustment)
                 }
                 BTSpinPad(spinX: $spinX, spinY: $spinY, locksSideSpin: locksSideSpin,
                           strikeAccess: strikeAccess, discOpacity: discOpacity, onSpinChange: onSpinChange)
@@ -414,6 +419,7 @@ struct BTSpinPadCard: View {
                         .accessibilityHidden(true)
                 } else {
                     BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") { nudge(.right) }
+                        .disabled(!allowsSideAdjustment)
                 }
             }
             HStack(spacing: 0) {
@@ -424,6 +430,7 @@ struct BTSpinPadCard: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                 BTHoldRepeatButton(icon: "chevron.down", accessibility: "低杆增加 1%") { nudge(.down) }
+                    .disabled(!allowsVerticalAdjustment)
                 Button {
                     resetSpin()
                 } label: {
@@ -450,13 +457,13 @@ struct BTSpinPadCard: View {
                 VStack(spacing: SpinPadLayout.crossGap) {
                     BTHoldRepeatButton(icon: "chevron.up", accessibility: "高杆增加 1%") {
                         nudge(.up)
-                    }
+                    }.disabled(!allowsVerticalAdjustment)
                     HStack(spacing: SpinPadLayout.crossGap) {
                         Spacer(minLength: 0)
                         if !locksSideSpin {
                             BTHoldRepeatButton(icon: "chevron.left", accessibility: "左塞增加 1%") {
                                 nudge(.left)
-                            }
+                            }.disabled(!allowsSideAdjustment)
                         }
                         BTSpinPad(spinX: $spinX, spinY: $spinY, locksSideSpin: locksSideSpin,
                                   strikeAccess: strikeAccess, discOpacity: discOpacity, onSpinChange: onSpinChange)
@@ -464,13 +471,13 @@ struct BTSpinPadCard: View {
                         if !locksSideSpin {
                             BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") {
                                 nudge(.right)
-                            }
+                            }.disabled(!allowsSideAdjustment)
                         }
                         Spacer(minLength: 0)
                     }
                     BTHoldRepeatButton(icon: "chevron.down", accessibility: "低杆增加 1%") {
                         nudge(.down)
-                    }
+                    }.disabled(!allowsVerticalAdjustment)
                 }
             }
 
@@ -513,6 +520,8 @@ struct BTSpinPadCard: View {
     /// Returns whether the constrained point actually moved.
     private func nudge(_ dir: SpinNudgeDirection) -> Bool {
         guard !editingDisabled else { return false }
+        if !allowsVerticalAdjustment, dir == .up || dir == .down { return false }
+        if !allowsSideAdjustment, dir == .left || dir == .right { return false }
         if locksSideSpin, dir == .left || dir == .right { return false }
         let r = SpinPadMath.nudge(spinX: locksSideSpin ? 0 : spinX, spinY: spinY, dir)
         let point: (x: Double, y: Double)
@@ -539,6 +548,8 @@ struct BTSpinPadOverlay: View {
     /// 只读展示（序列演示）：卡片不可改值，仅供查看本杆打点。
     var isReadOnly = false
     var editingDisabled = false
+    var allowsVerticalAdjustment = true
+    var allowsSideAdjustment = true
     /// 只选高低杆：隐藏左右微调键，白盘拖动锁竖轴。
     var locksSideSpin = false
     var strikeAccess: CueStrikeAccess? = nil
@@ -570,6 +581,7 @@ struct BTSpinPadOverlay: View {
 
             BTSpinPadCard(spinX: $spinX, spinY: $spinY,
                           tableWidth: tableWidth, isReadOnly: isReadOnly, editingDisabled: editingDisabled,
+                          allowsVerticalAdjustment: allowsVerticalAdjustment, allowsSideAdjustment: allowsSideAdjustment,
                           locksSideSpin: locksSideSpin, strikeAccess: strikeAccess,
                           usesCompactLayout: usesCompactLayout,
                           availableHeight: availableHeight,
@@ -794,13 +806,16 @@ struct BTSceneSpinPadOverlay: View {
     var cardHorizontalOffset: CGFloat = 0
     var isReadOnly = false
     var editingDisabled = false
+    var allowsVerticalAdjustment = true
+    var allowsSideAdjustment = true
     var defersStrikeAccessUntilSubmission = false
     /// A host can submit both axes as one intent; nil preserves the binding behavior.
     var onSpinChange: ((Double, Double) -> Void)? = nil
     var onClose: () -> Void
     var body: some View {
         BTSpinPadOverlay(spinX:$spinX,spinY:$spinY,tableWidth:tableWidth,
-            bottomPadding:bottomPadding,isReadOnly:isReadOnly,editingDisabled:editingDisabled,locksSideSpin:locksSideSpin,
+            bottomPadding:bottomPadding,isReadOnly:isReadOnly,editingDisabled:editingDisabled,
+            allowsVerticalAdjustment:allowsVerticalAdjustment,allowsSideAdjustment:allowsSideAdjustment,locksSideSpin:locksSideSpin,
             strikeAccess:defersStrikeAccessUntilSubmission ? nil : scene.cueAccessSnapshot,
             usesCompactLayout:true,usesFixedLayout:true,fixedCardExtent:fixedCardExtent,discOpacity:discOpacity,
             cardHorizontalOffset:cardHorizontalOffset,

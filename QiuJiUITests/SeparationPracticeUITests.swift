@@ -31,7 +31,7 @@ final class SeparationPracticeUITests: XCTestCase {
         if largeText { args += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
         app = XCUIApplication.launchClean(extraArgs: args)
         app.switchTab(.angle); app.buttons["angleHomeTab_打"].tap()
-        let entry = app.buttons[is3D ? "3D分离角练习" : "2D分离角练习"]
+        let entry = app.buttons[is3D ? "3D分离角" : "2D分离角"]
         ready(entry); capture("play-entries"); entry.tap()
     }
     private func start() {
@@ -40,6 +40,166 @@ final class SeparationPracticeUITests: XCTestCase {
         app.buttons["separation.start"].tap()
         ready(app.buttons["separation.strike"], timeout: 180)
         waitPhase("aiming")
+    }
+
+    func test2DResultNoticeExpires() throws { try resultNoticeExpires(is3D: false) }
+    func test3DResultNoticeExpires() throws { try resultNoticeExpires(is3D: true) }
+    private func resultNoticeExpires(is3D: Bool) throws {
+        open(is3D)
+        let toggle = app.switches["separation.playsStroke"]; ready(toggle)
+        if toggle.value as? String == "1" { toggle.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap() }
+        start()
+        app.buttons["separation.strike"].tap(); waitPhase("result")
+        let notice = node("separation.result")
+        XCTAssertTrue(notice.label.contains("本杆"))
+        capture("score-visible-\(is3D)")
+        XCTAssertTrue(notice.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(node("separation.latestScore").label.contains("本杆得分"))
+        capture("score-expired-\(is3D)")
+        app.buttons["separation.retry"].tap(); waitPhase("aiming")
+        XCTAssertTrue(notice.label.contains("上杆"))
+        XCTAssertTrue(notice.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(node("separation.latestScore").label.contains("上杆得分"))
+        capture("previous-expired-\(is3D)")
+        app.buttons["separation.strike"].tap(); waitPhase("result")
+        XCTAssertTrue(notice.label.contains("本杆"))
+        XCTAssertTrue(notice.waitForNonExistence(timeout: 5))
+    }
+    func test2DFeasibleSpinPad() throws { try exerciseFeasibleSpinPad(is3D: false) }
+    func test3DFeasibleSpinPad() throws { try exerciseFeasibleSpinPad(is3D: true) }
+    private func exerciseFeasibleSpinPad(is3D: Bool) throws {
+        open(is3D)
+        let toggle = app.switches["separation.playsStroke"]; ready(toggle)
+        if toggle.value as? String == "1" { toggle.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap() }
+        start()
+        func checkAccess() throws {
+            XCTAssertEqual(try probe()["inputAccessible"] as? Bool, true)
+        }
+        func showPad() {
+            let entry = app.buttons["shotStage.spinEntry"]; ready(entry); entry.tap()
+            ready(node("spinPad.disc"))
+        }
+        func closePad() {
+            app.buttons["关闭打点"].coordinate(withNormalizedOffset: .init(dx: 0.05, dy: 0.5)).tap()
+        }
+        showPad()
+        let disc = node("spinPad.disc")
+        disc.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.97)).tap()
+        try checkAccess()
+        capture("separation-access-low-\(is3D)")
+        for label in ["低杆增加 1%", "左塞增加 1%", "右塞增加 1%", "高杆增加 1%", "回中"] {
+            app.buttons[label].tap(); try checkAccess()
+        }
+        capture("separation-access-reset-\(is3D)"); closePad()
+        app.buttons["separation.strike"].tap(); waitPhase("result")
+        app.buttons["separation.retry"].tap(); waitPhase("aiming"); try checkAccess()
+        let input = try probe()["input"] as? [Double]
+        let question = try probe()["question"] as? String
+        app.buttons["separation.playback"].tap(); waitPhase("playing")
+        app.buttons["separation.strike"].tap(); waitPhase("aiming"); try checkAccess()
+        XCUIDevice.shared.press(.home); app.activate(); waitPhase("aiming")
+        app.buttons["separation.back"].tap()
+        let entry = app.buttons[is3D ? "3D分离角" : "2D分离角"]; ready(entry); entry.tap()
+        ready(app.buttons["separation.strike"]); waitPhase("aiming")
+        XCTAssertEqual(try probe()["question"] as? String, question)
+        XCTAssertEqual(try probe()["input"] as? [Double], input)
+        try checkAccess(); showPad(); capture("separation-access-restored-\(is3D)"); closePad()
+        app.buttons["separation.strike"].tap(); waitPhase("result")
+        app.buttons["separation.strike"].tap(); waitPhase("aiming")
+        XCTAssertNotEqual(try probe()["question"] as? String, question)
+        showPad(); app.buttons["回中"].tap(); try checkAccess()
+        capture("separation-access-next-\(is3D)"); closePad()
+        app.buttons["separation.back"].tap()
+    }
+    func test2DPrefetchedNextAndExitRestoration() throws { try exercisePrefetch(is3D: false) }
+    func test3DPrefetchedNextAndExitRestoration() throws { try exercisePrefetch(is3D: true) }
+    private func exercisePrefetch(is3D: Bool) throws {
+        open(is3D)
+        let toggle = app.switches["separation.playsStroke"]; ready(toggle)
+        if toggle.value as? String == "1" { toggle.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap() }
+        start()
+        func waitReady() {
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                (try? self.probe()["nextQuestionReady"] as? Bool) == true
+            }, object: app)], timeout: 90), .completed)
+        }
+        waitReady()
+        let first = try probe()["question"] as? String
+        XCTAssertEqual(try probe()["attempts"] as? Int, 0)
+        app.buttons["separation.strike"].tap(); waitPhase("result")
+        waitReady()
+        let quota = try probe()["quota"] as? Int
+        app.buttons["separation.strike"].tap(); waitPhase("aiming")
+        let second = try probe()["question"] as? String
+        XCTAssertNotEqual(first, second)
+        XCTAssertEqual(try probe()["attempts"] as? Int, 1)
+        XCTAssertEqual(try probe()["quota"] as? Int, quota)
+        capture("prefetched-next-\(is3D ? "3D" : "2D")")
+        waitReady()
+        app.buttons["separation.back"].tap(); ready(app.buttons["angleHomeTab_打"])
+        app.buttons[is3D ? "3D分离角" : "2D分离角"].tap()
+        ready(app.buttons["separation.strike"]); waitPhase("aiming")
+        XCTAssertEqual(try probe()["question"] as? String, second)
+        XCTAssertEqual(try probe()["attempts"] as? Int, 1)
+        waitReady()
+        capture("prefetch-restored-\(is3D ? "3D" : "2D")")
+        app.buttons["separation.back"].tap()
+    }
+    private func waitReference(_ visible: Bool) {
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            (try? self.probe()["referenceVisible"] as? Bool) == visible
+        }, object: app)], timeout: 30), .completed)
+        XCTAssertEqual(node("separation.referenceLegend").exists, visible)
+    }
+    func test2DReferenceStageVisibility() throws { try exerciseReferenceStages(is3D: false) }
+    func test3DReferenceStageVisibility() throws { try exerciseReferenceStages(is3D: true) }
+    private func exerciseReferenceStages(is3D: Bool) throws {
+        for keep in [false, true] {
+            open(is3D)
+            let reference = app.switches["separation.showsReference"]
+            let stroke = app.switches["separation.playsStroke"]
+            ready(reference); ready(stroke)
+            XCTAssertEqual(reference.label, "中杆参考")
+            if (reference.value as? String == "1") != keep {
+                reference.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap()
+            }
+            if stroke.value as? String == "1" { stroke.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap() }
+            capture("stages-\(is3D)-\(keep)-settings")
+            start(); waitReference(true)
+            XCTAssertEqual(try probe()["actualVisible"] as? Bool, false)
+            capture("stages-\(is3D)-\(keep)-first")
+            let primary = app.buttons["separation.strike"]
+            primary.tap(); waitPhase("result"); waitReference(keep)
+            XCTAssertEqual(try probe()["actualVisible"] as? Bool, true)
+            capture("stages-\(is3D)-\(keep)-result")
+            // Natural replay completion and explicit stop must preserve the same route set.
+            app.buttons["separation.playback"].tap(); waitPhase("playing"); waitPhase("result")
+            waitReference(keep)
+            app.buttons["separation.retry"].tap(); waitPhase("aiming")
+            XCTAssertEqual(try probe()["actualVisible"] as? Bool, true); waitReference(keep)
+            capture("stages-\(is3D)-\(keep)-retry")
+            app.buttons["separation.playback"].tap(); waitPhase("playing"); primary.tap(); waitPhase("aiming")
+            XCTAssertEqual(try probe()["actualVisible"] as? Bool, true); waitReference(keep)
+            XCUIDevice.shared.press(.home); app.activate(); waitPhase("aiming")
+            let id = try probe()["question"] as? String
+            app.buttons["separation.back"].tap()
+            let entry = app.buttons[is3D ? "3D分离角" : "2D分离角"]
+            ready(entry); entry.tap(); ready(primary); waitPhase("aiming"); waitReference(keep)
+            XCTAssertEqual(try probe()["question"] as? String, id)
+            XCTAssertEqual(try probe()["actualVisible"] as? Bool, true)
+            capture("stages-\(is3D)-\(keep)-restored-retry")
+            primary.tap(); waitPhase("result"); waitReference(keep)
+            XCTAssertEqual(try probe()["attempts"] as? Int, 1)
+            app.buttons["separation.back"].tap(); ready(entry); entry.tap(); ready(primary)
+            waitPhase("result"); waitReference(keep)
+            XCTAssertEqual(try probe()["actualVisible"] as? Bool, true)
+            capture("stages-\(is3D)-\(keep)-restored-result")
+            primary.tap(); waitPhase("aiming"); waitReference(true)
+            XCTAssertNotEqual(try probe()["question"] as? String, id)
+            XCTAssertEqual(try probe()["actualVisible"] as? Bool, false)
+            capture("stages-\(is3D)-\(keep)-next")
+            app.buttons["separation.back"].tap(); app.terminate()
+        }
     }
     func test2DCompleteShotRetryReplayAndSummary() throws { try exercise(is3D: false) }
     func test3DCompleteShotRetryReplayAndSummary() throws { try exercise(is3D: true) }
@@ -80,7 +240,8 @@ final class SeparationPracticeUITests: XCTestCase {
         XCTAssertFalse(node("separation.cutAngle").label.contains("球"))
         capture("reference-\(is3D ? "3D" : "2D")-aiming")
         XCTAssertTrue(node("separation.cutAngle").label.contains("切角"))
-        XCTAssertTrue(node("separation.questionAverageScore").label.contains("本题均分"))
+        XCTAssertTrue(node("separation.questionAverageScore").exists)
+        XCTAssertFalse(node("separation.result").exists)
         XCTAssertEqual(initial["playsStroke"] as? Bool, false)
         XCTAssertEqual(app.buttons["separation.retry"].label, "重试")
         XCTAssertEqual(app.buttons["separation.playback"].label, "击球")
@@ -92,13 +253,15 @@ final class SeparationPracticeUITests: XCTestCase {
         XCTAssertEqual(submit.label, "提交")
         submit.tap(); waitPhase("result")
         let result = try probe()
+        XCTAssertEqual(result["scoreVersion"] as? String, "arc1cm-rms-p2-t20-potgate-v3")
         XCTAssertEqual(result["referenceVisible"] as? Bool, true)
         XCTAssertEqual(result["referencePointCount"] as? Int, initial["referencePointCount"] as? Int)
         XCTAssertEqual(result["objectRouteVisible"] as? Bool, true)
         XCTAssertEqual(result["idealPocketLineVisible"] as? Bool, false)
-        XCTAssertTrue(node("separation.latestScore").label.contains("本杆得分"))
-        XCTAssertTrue(node("separation.latestScore").isHittable)
-        XCTAssertLessThanOrEqual(node("separation.latestScore").frame.maxY, app.buttons["separation.retry"].frame.minY)
+        XCTAssertTrue(node("separation.result").label.contains("本杆"))
+        XCTAssertTrue(node("separation.latestScore").exists)
+        XCTAssertFalse(node("separation.result").label.contains("本题均分"))
+        XCTAssertTrue(node("separation.result").isHittable)
         XCTAssertEqual(result["actualVisible"] as? Bool, true)
         XCTAssertEqual(result["targetVisible"] as? Bool, true)
         XCTAssertEqual(result["cuePosition"] as? [Double], initial["cuePosition"] as? [Double])
@@ -106,7 +269,7 @@ final class SeparationPracticeUITests: XCTestCase {
         XCTAssertEqual(result["strokeStartedAt"] as? Double, 0)
         XCTAssertEqual(result["revealedAt"] as? Double, 0)
         XCTAssertEqual(result["attempts"] as? Int, 1)
-        XCTAssertTrue(node("separation.result").label.contains("本杆得分"))
+        XCTAssertTrue(node("separation.latestScore").label.contains("本杆"))
         capture("submit-\(is3D ? "3D" : "2D")-result")
         XCUIDevice.shared.press(.home); app.activate(); waitPhase("result")
         XCTAssertEqual(try probe()["cuePosition"] as? [Double], initial["cuePosition"] as? [Double])
@@ -128,7 +291,7 @@ final class SeparationPracticeUITests: XCTestCase {
         }
         XCTAssertEqual((try probe()["input"] as? [Double])?.last, 0.5)
         submit.tap(); waitPhase("result")
-        XCTAssertTrue(node("separation.latestScore").label.contains("本杆得分"))
+        XCTAssertTrue(node("separation.result").label.contains("本杆"))
         XCTAssertEqual(try probe()["idealPocketLineVisible"] as? Bool, false)
         XCTAssertTrue(node("separation.result").label.contains("目标球未进指定袋") || node("separation.result").label.contains("未碰到目标球"))
         XCTAssertEqual(try probe()["referenceVisible"] as? Bool, true)
@@ -156,8 +319,8 @@ final class SeparationPracticeUITests: XCTestCase {
         reference.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap()
         toggle.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap(); start()
         XCTAssertEqual(try probe()["showsReference"] as? Bool, false)
-        XCTAssertEqual(try probe()["referenceVisible"] as? Bool, false)
-        XCTAssertFalse(node("separation.referenceLegend").exists)
+        waitReference(true)
+        XCTAssertFalse(node("separation.actualLegend").exists)
         capture("reference-off-\(is3D ? "3D" : "2D")")
         XCTAssertEqual(submit.label, "击球")
         XCTAssertEqual(app.buttons["separation.retry"].label, "重打")
@@ -201,7 +364,7 @@ final class SeparationPracticeUITests: XCTestCase {
         app.terminate(); app.launch()
         for is3D in [false, true] {
             app.switchTab(.angle); app.buttons["angleHomeTab_打"].tap()
-            let entry = app.buttons[is3D ? "3D分离角练习" : "2D分离角练习"]
+            let entry = app.buttons[is3D ? "3D分离角" : "2D分离角"]
             ready(entry); entry.tap(); start()
             XCTAssertEqual((try probe()["audio"] as? [String: Any])?["enabled"] as? Bool, true)
             let bar = node("shotStage.powerBar")
@@ -230,15 +393,20 @@ final class SeparationPracticeUITests: XCTestCase {
         if !wasEnabled { soundSetting().tap() }
     }
     private func exercise(is3D: Bool) throws {
-        open(is3D); start()
+        open(is3D)
+        let strokeToggle = app.switches["separation.playsStroke"]; ready(strokeToggle)
+        if strokeToggle.value as? String == "0" {
+            strokeToggle.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap()
+        }
+        start()
         let initial = try probe(), question = try XCTUnwrap(initial["question"] as? String)
         XCTAssertEqual(initial["actualVisible"] as? Bool, false)
         XCTAssertEqual(initial["targetVisible"] as? Bool, true)
         XCTAssertEqual(initial["guidesVisible"] as? Bool, true)
         XCTAssertFalse(node("separation.aimWheel").exists)
         XCTAssertTrue(node("separation.averageScore").isHittable)
-        XCTAssertTrue(node("separation.questionAverageScore").isHittable)
-        XCTAssertTrue(node("separation.latestScore").isHittable)
+        XCTAssertTrue(node("separation.questionAverageScore").exists)
+        XCTAssertTrue(node("separation.latestScore").exists)
         XCTAssertGreaterThan(app.buttons["separation.retry"].frame.minY,
                              node("shotStage.powerBar").frame.maxY)
         capture(is3D ? "3D-target" : "2D-target")
@@ -273,21 +441,28 @@ final class SeparationPracticeUITests: XCTestCase {
         app.buttons["separation.strike"].tap()
         waitPhase("result", timeout: 120)
         let first = try probe()
+        XCTAssertEqual(first["scoreVersion"] as? String, "arc1cm-rms-p2-t20-potgate-v3")
+        if first["scoreZeroReason"] as? String == "" {
+            let distance = try XCTUnwrap(first["rmsDistanceCM"] as? Double)
+            XCTAssertEqual(try XCTUnwrap(first["latestScore"] as? Double), 100 * exp2(-distance / 20), accuracy: 1e-8)
+        }
         XCTAssertEqual(first["attempts"] as? Int, 1)
         XCTAssertEqual(first["actualVisible"] as? Bool, true)
-        XCTAssertEqual(first["guidesVisible"] as? Bool, true)
+        // Result uses the frozen object-ball route in place of the ideal pocket line (page plan §15).
+        XCTAssertEqual(first["objectRouteVisible"] as? Bool, true)
+        XCTAssertEqual(first["idealPocketLineVisible"] as? Bool, false)
         let reveal = try XCTUnwrap(first["revealedAt"] as? Double), stroke = try XCTUnwrap(first["strokeStartedAt"] as? Double)
         XCTAssertGreaterThan(reveal, 0); XCTAssertGreaterThanOrEqual(stroke-reveal, 1.5)
         XCTAssertEqual(first["cueVisibleAtReveal"] as? Bool, true)
         XCTAssertEqual(first["cueVisibleAtStroke"] as? Bool, true)
-        XCTAssertTrue(node("separation.result").label.contains("本杆得分"))
+        XCTAssertTrue(node("separation.result").label.contains("本杆"))
         XCTAssertFalse(node("separation.averageScore").label.contains("/100"))
         XCTAssertLessThanOrEqual(node("separation.averageScore").frame.height,
                                  node("separation.questionInfo").frame.height + 1,
                                  "Average must stay on one value line in the standard sidebar")
-        XCTAssertFalse(node("separation.questionAverageScore").label.contains("—"))
+        XCTAssertFalse(node("separation.result").label.contains("本题均分"))
         XCTAssertFalse(node("separation.averageScore").label.contains("—"))
-        XCTAssertFalse(node("separation.latestScore").label.contains("—"))
+        XCTAssertFalse(node("separation.result").label.contains("—"))
         let audio = try XCTUnwrap(first["audio"] as? [String: Any])
         print("SEPARATION_AUDIO \(is3D ? "3D" : "2D") \(audio)")
         XCTAssertEqual(audio["enabled"] as? Bool, true)
@@ -301,7 +476,7 @@ final class SeparationPracticeUITests: XCTestCase {
         app.buttons["separation.strike"].tap(); waitPhase("result")
         XCTAssertEqual(try probe()["attempts"] as? Int, 1)
         app.buttons["separation.retry"].tap(); waitPhase("aiming")
-        XCTAssertEqual(try probe()["actualVisible"] as? Bool, false)
+        XCTAssertEqual(try probe()["actualVisible"] as? Bool, true)
         XCTAssertEqual(try probe()["question"] as? String, question)
         XCTAssertEqual(try probe()["guidesVisible"] as? Bool, true)
         capture("separation-retry")
@@ -346,8 +521,10 @@ final class SeparationPracticeUITests: XCTestCase {
         XCTAssertFalse(app.buttons["separation.start"].exists)
         capture("3D-free-pro-gate"); app.buttons["subscription.close"].tap(); app.terminate()
         open(false, premium: false, nearLimit: true); start()
+        XCTAssertEqual(try probe()["nextQuestionPending"] as? Bool, false)
         app.buttons["separation.strike"].tap(); waitPhase("result", timeout: 120)
         XCTAssertEqual(try probe()["quota"] as? Int, 20)
+        XCTAssertEqual(try probe()["nextQuestionPending"] as? Bool, false)
         app.buttons["separation.retry"].tap(); waitPhase("aiming")
         app.buttons["separation.strike"].tap(); waitPhase("result", timeout: 120)
         XCTAssertEqual(try probe()["quota"] as? Int, 20)
@@ -361,7 +538,8 @@ final class SeparationPracticeUITests: XCTestCase {
         XCUIDevice.shared.press(.home); app.activate()
         waitPhase("aiming")
         XCTAssertEqual(try probe()["question"] as? String, id)
-        XCTAssertEqual(try probe()["actualVisible"] as? Bool, false)
+        let state = try probe()
+        XCTAssertEqual(state["actualVisible"] as? Bool, (state["attempts"] as? Int ?? 0) > 0)
         capture("background-no-automatic-shot"); app.terminate()
     }
     func test2DExpandedControlsLayoutAndRotation() throws { try expanded(is3D: false) }

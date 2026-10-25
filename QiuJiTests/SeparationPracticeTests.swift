@@ -14,11 +14,12 @@ final class SeparationPracticeTests: XCTestCase {
         let same = try XCTUnwrap(SeparationTrajectoryScore.evaluate(target: straight, actual: straight))
         XCTAssertEqual(same.value, 100, accuracy: 1e-10)
         let offset = try XCTUnwrap(SeparationTrajectoryScore.evaluate(target: straight, actual: line([(0, 0.2), (1, 0.2)])))
-        XCTAssertEqual(offset.meanDTWCM, 20, accuracy: 1e-5)
-        XCTAssertEqual(offset.frechetCM, 20, accuracy: 1e-5)
+        XCTAssertEqual(try XCTUnwrap(offset.rmsDistanceCM), 20, accuracy: 1e-5)
+        XCTAssertNil(offset.meanDTWCM); XCTAssertNil(offset.frechetCM)
+        XCTAssertEqual(offset.version, "arc1cm-rms-p2-t20-potgate-v3")
         XCTAssertEqual(offset.value, 50, accuracy: 1e-5)
         let reverse = try XCTUnwrap(SeparationTrajectoryScore.evaluate(target: straight, actual: line([(1, 0), (0, 0)])))
-        XCTAssertEqual(reverse.frechetCM, 100, accuracy: 1e-8)
+        XCTAssertGreaterThan(reverse.distanceCM, 50)
         XCTAssertLessThan(reverse.value, 30)
         let longer = try XCTUnwrap(SeparationTrajectoryScore.evaluate(target: straight, actual: line([(0, 0), (1.6, 0)])))
         XCTAssertGreaterThan(longer.distanceCM, 0)
@@ -32,6 +33,51 @@ final class SeparationPracticeTests: XCTestCase {
         XCTAssertTrue(sampled.contains(corners[1])); XCTAssertEqual(sampled.first, corners.first)
         XCTAssertEqual(sampled.last, corners.last)
     }
+    func testRMSFullPathAnalyticCasesAndPolylineDensity() throws {
+        func distance(_ a: [SIMD2<Double>], _ b: [SIMD2<Double>]) throws -> Double {
+            try SeparationArcRMSMetric.distance(SeparationArcRMSMetric.sample(a), SeparationArcRMSMetric.sample(b))
+        }
+        let full: [SIMD2<Double>] = [.init(0, 0), .init(200, 0)]
+        let half: [SIMD2<Double>] = [.init(0, 0), .init(100, 0)]
+        // Analytic integral: integral(0...100) x² dx / (200+100).
+        XCTAssertEqual(try distance(full, half), 100.0 / 3, accuracy: 0.001)
+        XCTAssertEqual(try distance(full, half), try distance(half, full), accuracy: 1e-10)
+        let shortTail = try distance(full, [.init(0, 0), .init(220, 0)])
+        XCTAssertEqual(shortTail, sqrt(pow(20, 3) / (3 * 420)), accuracy: 0.002)
+        XCTAssertGreaterThan(100 * exp2(-shortTail / 20), 90)
+        XCTAssertEqual(try distance([.zero], full), 200 / sqrt(3), accuracy: 0.001)
+        let corners: [SIMD2<Double>] = [.zero, .init(100, 0), .init(100, 100)]
+        let dense: [SIMD2<Double>] = [.zero, .zero, .init(50, 0), .init(100, 0), .init(100, 40), .init(100, 100)]
+        XCTAssertEqual(try distance(corners, dense), 0, accuracy: 1e-10)
+        // Equivalent polylines can differ by Double interpolation roundoff (~1e-15 cm).
+        XCTAssertEqual(try distance(corners.map { $0 + .init(20, -30) }, dense.map { $0 + .init(20, -30) }), 0, accuracy: 1e-10)
+        let detour: [SIMD2<Double>] = [.zero, .init(100, 0), .init(100, 50), .init(100, 0), .init(200, 0)]
+        XCTAssertLessThan(100 * exp2(-(try distance(full, detour)) / 20), 65)
+    }
+    func testRMSAndLegacyScoresRoundTripWithoutRegrading() throws {
+        let legacyJSON = Data(#"{"version":"arc512-dtw70-frechet30-t20-potgate-v2","meanDTWCM":10,"frechetCM":30,"matchingLength":520,"targetSampleCount":512,"actualSampleCount":514}"#.utf8)
+        let legacy = try JSONDecoder().decode(SeparationTrajectoryScore.self, from: legacyJSON)
+        XCTAssertNil(legacy.rmsDistanceCM)
+        XCTAssertEqual(legacy.distanceCM, 16)
+        XCTAssertEqual(legacy.value, 100 * exp2(-16.0 / 20), accuracy: 1e-10)
+        let current = SeparationTrajectoryScore(rmsDistanceCM: 20, targetSampleCount: 200, actualSampleCount: 200)
+        for score in [legacy, current] {
+            XCTAssertEqual(try JSONDecoder().decode(SeparationTrajectoryScore.self, from: JSONEncoder().encode(score)), score)
+        }
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(current)) as? [String: Any])
+        XCTAssertNil(json["meanDTWCM"]); XCTAssertNil(json["frechetCM"])
+        var corrupt = json; corrupt.removeValue(forKey: "rmsDistanceCM")
+        XCTAssertThrowsError(try JSONDecoder().decode(SeparationTrajectoryScore.self,
+            from: JSONSerialization.data(withJSONObject: corrupt)))
+    }
+    func testRMSCalculationHonorsCancellation() async throws {
+        let task = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try SeparationArcRMSMetric.sample([.zero, .init(400, 0)])
+        }
+        do { _ = try await task.value; XCTFail("Cancelled score computation must stop") }
+        catch is CancellationError {} // Expected cancellation, not a grading failure.
+    }
     func testScoreSnapshotsFirstAttemptRetryLegacyAndFreeContinuation() throws {
         let prepared = try SeparationQuestionGenerator.prepare(.init(), seed: 20261022)
         let q = prepared.question
@@ -39,11 +85,11 @@ final class SeparationPracticeTests: XCTestCase {
             surfaceY: BTTablePhysics.surfaceY, profile: AccuracyTipSelector.renderedProfile())
         let first = try SeparationShot(question: q, input: q.answer, prediction: prediction, surfaceY: BTTablePhysics.surfaceY)
         XCTAssertEqual(try XCTUnwrap(first.score).value, 100, accuracy: 0.0001)
+        XCTAssertEqual(first.score?.version, SeparationTrajectoryScore.algorithm)
         var record = SeparationPracticeRecord(ownerKey: "score-fixture", is3D: true, configuration: .init(), prepared: prepared)
         record.accept(first)
         var retry = first
-        retry.score = .init(version: SeparationTrajectoryScore.algorithm, meanDTWCM: 10, frechetCM: 30,
-            matchingLength: 512, targetSampleCount: 512, actualSampleCount: 512)
+        retry.score = .init(rmsDistanceCM: 16, targetSampleCount: 200, actualSampleCount: 200)
         record.accept(retry)
         XCTAssertEqual(record.averageScore, first.score?.value)
         XCTAssertEqual(record.latestShot?.score, retry.score)
@@ -60,6 +106,87 @@ final class SeparationPracticeTests: XCTestCase {
         XCTAssertNil(legacy.score); XCTAssertEqual(legacy.scoreText, "未评分")
         XCTAssertEqual(legacy.trajectory.count, first.trajectory.count)
         XCTAssertTrue(q.target.contains { $0.isEvent == true })
+    }
+    func testCueBallPocketedScoresZeroIncludingNoContactAndCountsInAverages() throws {
+        let prepared = try SeparationQuestionGenerator.prepare(.init(), seed: 20261022)
+        let q = prepared.question
+        let prediction = try SeparationQuestionGenerator.solve(board: q.board, input: q.answer,
+            surfaceY: BTTablePhysics.surfaceY, profile: AccuracyTipSelector.renderedProfile())
+        let good = try SeparationShot(question: q, input: q.answer, prediction: prediction, surfaceY: BTTablePhysics.surfaceY)
+        XCTAssertEqual(try XCTUnwrap(good.score).value, 100, accuracy: 0.0001)
+        // Isolate the scoring policy from the physical solver: even a matching route loses on a scratch.
+        var scratched = prediction
+        scratched.cuePocketed = true
+        scratched.pocketedBalls.append(ShotInput.cueBallName)
+        let foul = try SeparationShot(question: q, input: q.answer, prediction: scratched, surfaceY: BTTablePhysics.surfaceY)
+        XCTAssertEqual(foul.score?.value, 0)
+        XCTAssertEqual(foul.score?.zeroReason, .cuePocketed)
+        XCTAssertEqual(foul.resultText, "本杆得分 0.0分 · 母球落袋")
+        for is3D in [false, true] {
+            var record = SeparationPracticeRecord(ownerKey: "scratch-zero", is3D: is3D,
+                configuration: .init(), prepared: prepared)
+            var first = foul; first.playsStroke = is3D
+            record.accept(first); record.accept(good); record.accept(good)
+            XCTAssertEqual(record.averageScore, 0)
+            XCTAssertEqual(record.totalScoredCount, 1)
+            XCTAssertEqual(try XCTUnwrap(record.currentQuestionAverage()), 50, accuracy: 0.0001)
+            let restored = try SeparationPracticeRecord.decodePayload(record.encodedPayload())
+            XCTAssertEqual(restored.attempts.first?.score?.value, 0)
+            XCTAssertEqual(restored.currentQuestionAverage(), record.currentQuestionAverage())
+            XCTAssertEqual(restored.continuation(prepared: prepared).averageScore, 0)
+            XCTAssertTrue(restored.historyDetail.contains("首杆均分 0.0"))
+            var retryRecord = SeparationPracticeRecord(ownerKey: "scratch-retry", is3D: is3D,
+                configuration: .init(), prepared: prepared)
+            retryRecord.accept(good); retryRecord.accept(foul)
+            XCTAssertEqual(retryRecord.latestShot?.score?.value, 0)
+            XCTAssertEqual(try XCTUnwrap(retryRecord.currentQuestionAverage()), 50, accuracy: 0.0001)
+            XCTAssertEqual(try XCTUnwrap(retryRecord.averageScore), 100, accuracy: 0.0001)
+        }
+        scratched.recorder = TrajectoryRecorder() // no ball-ball contact, but a settled scratch
+        let noContact = try SeparationShot(question: q, input: q.answer, prediction: scratched, surfaceY: BTTablePhysics.surfaceY)
+        XCTAssertTrue(noContact.trajectory.isEmpty)
+        XCTAssertEqual(noContact.score?.value, 0)
+        XCTAssertEqual(noContact.resultText, "本杆得分 0.0分 · 母球落袋")
+        // Old immutable snapshots keep their recorded grading policy.
+        let oldScore = SeparationTrajectoryScore(version: SeparationTrajectoryScore.legacyAlgorithm,
+            meanDTWCM: 0, frechetCM: 0, matchingLength: 512, targetSampleCount: 512, actualSampleCount: 512)
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(oldScore)) as? [String: Any])
+        legacy.removeValue(forKey: "zeroReason"); legacy["version"] = "arc512-dtw70-frechet30-t20-v1"
+        XCTAssertEqual(try JSONDecoder().decode(SeparationTrajectoryScore.self,
+            from: JSONSerialization.data(withJSONObject: legacy)).value, 100, accuracy: 0.0001)
+    }
+    func testMissedTargetScoresZeroWithRealLowPowerAndNoContact() throws {
+        let prepared = try SeparationQuestionGenerator.prepare(.init(), seed: 20261022)
+        let q = prepared.question
+        let input = SeparationInput(velocity: 0.5)
+        var weak = try SeparationQuestionGenerator.solve(board: q.board, input: input,
+            surfaceY: BTTablePhysics.surfaceY, profile: AccuracyTipSelector.renderedProfile())
+        XCTAssertFalse(SeparationQuestionGenerator.potsSpecifiedPocket(weak, pocket: q.board.pocketIndex))
+        XCTAssertFalse(weak.cuePocketed)
+        let missed = try SeparationShot(question: q, input: input, prediction: weak, surfaceY: BTTablePhysics.surfaceY)
+        XCTAssertEqual(missed.score?.value, 0)
+        XCTAssertEqual(missed.score?.zeroReason, .targetNotPotted)
+        XCTAssertEqual(missed.resultText, "本杆得分 0.0分 · 目标球未进指定袋")
+        for is3D in [false, true] {
+            var record = SeparationPracticeRecord(ownerKey: "missed-target", is3D: is3D,
+                configuration: .init(), prepared: prepared)
+            record.accept(missed); record.accept(missed)
+            let restored = try SeparationPracticeRecord.decodePayload(record.encodedPayload())
+            XCTAssertEqual(restored.averageScore, 0)
+            XCTAssertEqual(restored.currentQuestionAverage(), 0)
+            XCTAssertEqual(restored.totalScoredCount, 1)
+            XCTAssertEqual(restored.latestShot?.resultText, missed.resultText)
+            XCTAssertEqual(restored.continuation(prepared: prepared).averageScore, 0)
+        }
+        weak.recorder = TrajectoryRecorder(); weak.events = []
+        let noContact = try SeparationShot(question: q, input: input, prediction: weak, surfaceY: BTTablePhysics.surfaceY)
+        XCTAssertTrue(noContact.trajectory.isEmpty)
+        XCTAssertEqual(noContact.score?.value, 0)
+        XCTAssertEqual(noContact.resultText, missed.resultText)
+        // A scratch takes priority when both conditions fail.
+        weak.cuePocketed = true
+        XCTAssertEqual(try SeparationShot(question: q, input: input, prediction: weak,
+            surfaceY: BTTablePhysics.surfaceY).score?.zeroReason, .cuePocketed)
     }
     func testResizedCustomControlsUseNativeSlotsWithoutChangingSavedIntent() {
         let values: FreeControlValues = ["power": .init(x: 0.9, y: 0.55), "strike": .init(x: 0.9, y: 0.8)]
@@ -82,8 +209,7 @@ final class SeparationPracticeTests: XCTestCase {
         func shot(distance: Double?) throws -> SeparationShot {
             var shot = try SeparationShot(question: question, input: question.answer, prediction: prediction,
                 surfaceY: BTTablePhysics.surfaceY)
-            shot.score = distance.map { .init(version: SeparationTrajectoryScore.algorithm, meanDTWCM: $0,
-                frechetCM: $0, matchingLength: 512, targetSampleCount: 512, actualSampleCount: 512) }
+            shot.score = distance.map { .init(rmsDistanceCM: $0, targetSampleCount: 200, actualSampleCount: 200) }
             return shot
         }
         let first = try shot(distance: 0), retry = try shot(distance: 20), third = try shot(distance: 40)
@@ -176,15 +302,177 @@ final class SeparationPracticeTests: XCTestCase {
         let ownerKey = "separation-test-owner"
         var saved: SeparationPracticeRecord?
         var failSubmissions = false
+        var failAtomic = false
         var lastBatch: [SeparationPracticeRecord] = []
         func save(_ record: SeparationPracticeRecord) throws {
             if failSubmissions && !record.attempts.isEmpty { throw CocoaError(.fileWriteOutOfSpace) }
             saved = record
         }
         func saveAtomically(_ records: [SeparationPracticeRecord]) throws {
+            if failAtomic { throw CocoaError(.fileWriteOutOfSpace) }
             if let last = records.last { try save(last) }; lastBatch = records
         }
         func resumable(is3D: Bool) throws -> SeparationPracticeRecord? { saved?.is3D == is3D ? saved : nil }
+    }
+    private struct PrefetchFixture {
+        let vm: SeparationPracticeViewModel, repo: MemoryRepository, probe: SeparationPrefetchProbe
+        let first: SeparationQuestionGenerator.Prepared, next: SeparationQuestionGenerator.Prepared
+        let suite: String, defaults: UserDefaults
+        @MainActor func close() { probe.releaseAll(); vm.suspendTeachingActivity(); defaults.removePersistentDomain(forName: suite) }
+    }
+    private func prefetchFixture(count: Int = 1, answered: Bool = true, free: Bool = false,
+                                 premium: Bool = true, is3D: Bool = false, used: Int? = nil) throws -> PrefetchFixture {
+        let suite = "prefetch-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        let limiter = AngleUsageLimiter(defaults: defaults, namespace: suite); limiter.isPremium = premium
+        var configuration = SceneTrainingConfiguration(); configuration.freePractice = free
+        let first = try SeparationQuestionGenerator.prepare(configuration, seed: 20261022)
+        let next = try SeparationQuestionGenerator.prepare(configuration, excluding: [first.question.board.id], seed: 20261023)
+        let prediction = try SeparationQuestionGenerator.solve(board: first.question.board, input: first.question.answer,
+            surfaceY: BTTablePhysics.surfaceY, profile: AccuracyTipSelector.renderedProfile())
+        let repo = MemoryRepository(), probe = SeparationPrefetchProbe(prepared: next)
+        var record = SeparationPracticeRecord(ownerKey: repo.ownerKey, is3D: is3D, configuration: configuration, prepared: first)
+        for i in 0..<count {
+            if i > 0 {
+                let q = first.question
+                record.questions.append(.init(id: UUID(), board: q.board, minimumCenterSpeed: q.minimumCenterSpeed,
+                    answer: q.answer, answerDirection: q.answerDirection, target: q.target, audit: q.audit))
+                record.cursor += 1
+            }
+            if i < count - 1 || answered {
+                record.accept(try SeparationShot(question: record.current!, input: first.question.answer,
+                    prediction: prediction, surfaceY: BTTablePhysics.surfaceY))
+            }
+        }
+        if !answered { record.latestShot = nil }
+        record.showingResult = answered; repo.saved = record
+        if let used { for _ in 0..<max(0, used - (is3D ? 0 : record.attempts.count)) { limiter.recordQuestion() } }
+        let vm = SeparationPracticeViewModel(is3D: is3D, limiter: limiter, defaults: defaults,
+            prepareQuestion: { configuration, excluded in try probe.generate(configuration, excluded) })
+        vm.setShowsReference(false); vm.setPlaysStroke(false)
+        vm.attach(repository: repo); vm.setupScene()
+        return .init(vm: vm, repo: repo, probe: probe, first: first, next: next, suite: suite, defaults: defaults)
+    }
+    private func waitForPrefetch(_ condition: () -> Bool) async throws {
+        for _ in 0..<500 where !condition() { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertTrue(condition())
+    }
+    func testPrefetchedNextIsImmediateSingleSlotAndSaveRetryKeepsIt() async throws {
+        let f = try prefetchFixture(); defer { f.close() }
+        try await waitForPrefetch { f.probe.count == 1 }
+        XCTAssertEqual(f.vm.record?.questions.count, 1); XCTAssertEqual(f.vm.limiter.questionsUsedToday, 1)
+        XCTAssertEqual(f.probe.excluded(at: 0), [f.first.question.board.id])
+        f.probe.release(0); try await waitForPrefetch { f.vm.nextQuestionReady }
+        let oldID = f.vm.record?.current?.id
+        f.repo.failAtomic = true; f.vm.next()
+        XCTAssertEqual(f.vm.phase, .result); XCTAssertEqual(f.vm.record?.current?.id, oldID)
+        XCTAssertTrue(f.vm.nextQuestionReady); XCTAssertEqual(f.probe.count, 1)
+        f.repo.failAtomic = false
+        let start = ProcessInfo.processInfo.systemUptime
+        f.vm.next()
+        XCTAssertEqual(f.vm.phase, .aiming, "A ready slot is installed in this call, without awaiting generation")
+        print("PREFETCH_CACHED_NEXT_MS=\((ProcessInfo.processInfo.systemUptime - start) * 1000)")
+        XCTAssertEqual(f.vm.record?.current?.id, f.next.question.id)
+        XCTAssertEqual(f.vm.record?.attempts.count, 1); XCTAssertEqual(f.vm.limiter.questionsUsedToday, 1)
+        f.vm.next() // Double tap cannot skip an unanswered question.
+        try await waitForPrefetch { f.probe.count == 2 }
+        XCTAssertEqual(f.vm.record?.questionNumber, 2)
+        XCTAssertEqual(f.probe.excluded(at: 1), [f.first.question.board.id, f.next.question.board.id])
+        f.vm.finish(); XCTAssertFalse(f.vm.nextQuestionReady)
+    }
+    func testNextAwaitsExistingPrefetchAndGenerationFailureCanRetry() async throws {
+        let f = try prefetchFixture(); defer { f.close() }
+        try await waitForPrefetch { f.probe.count == 1 }
+        f.probe.fail(0); f.vm.next(); f.vm.next()
+        XCTAssertEqual(f.vm.phase, .preparing); XCTAssertEqual(f.probe.count, 1)
+        f.probe.release(0); try await waitForPrefetch { f.vm.phase == .result }
+        XCTAssertEqual(f.vm.record?.questionNumber, 1); XCTAssertNotNil(f.vm.message)
+        f.vm.next(); try await waitForPrefetch { f.probe.count == 2 }
+        f.probe.release(1); try await waitForPrefetch { f.vm.phase == .aiming }
+        XCTAssertEqual(f.vm.record?.current?.id, f.next.question.id)
+        XCTAssertEqual(f.vm.limiter.questionsUsedToday, 1)
+    }
+    func testPrefetchDiscardedBySettingsRestartExitAndOwnerChange() async throws {
+        let f = try prefetchFixture(); defer { f.close() }
+        f.probe.ignoreCancellation = true
+        try await waitForPrefetch { f.probe.count == 1 }
+        f.vm.openSettings(); f.probe.release(0)
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertFalse(f.vm.nextQuestionReady); XCTAssertEqual(f.vm.phase, .settings)
+        XCTAssertTrue(f.vm.cancelSettings())
+        try await waitForPrefetch { f.probe.count == 2 }
+        var configuration = SceneTrainingConfiguration(); configuration.angleSelection = [.large]
+        f.vm.start(configuration, prepared: f.first)
+        try await waitForPrefetch { f.probe.count == 3 }
+        XCTAssertEqual(f.probe.configuration(at: 2).angleSelection, [.large])
+        f.probe.release(1); try await Task.sleep(for: .milliseconds(50))
+        XCTAssertFalse(f.vm.nextQuestionReady, "Old session result cannot fill a restarted session's slot")
+        f.vm.suspendTeachingActivity(); f.probe.release(2)
+        try await Task.sleep(for: .milliseconds(50)); XCTAssertFalse(f.vm.nextQuestionReady)
+        f.vm.resumeTeachingActivity(); try await waitForPrefetch { f.probe.count == 4 }
+        f.vm.ownerChanged(); f.probe.release(3)
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertNil(f.vm.record); XCTAssertFalse(f.vm.nextQuestionReady)
+        XCTAssertEqual(f.vm.phase, .settings)
+    }
+    func testPrefetchStopsBeforeQuestion21AndReservesLastFreeAllowance() async throws {
+        for (count, answered, premium, used) in [(20, false, true, 0), (20, true, true, 0),
+                                                (1, false, false, 19), (1, true, false, 20)] {
+            let f = try prefetchFixture(count: count, answered: answered, premium: premium, used: used)
+            defer { f.close() }
+            try await Task.sleep(for: .milliseconds(50))
+            XCTAssertEqual(f.probe.count, 0); XCTAssertFalse(f.vm.nextQuestionReady)
+            if answered { f.vm.next(); XCTAssertEqual(f.vm.phase, .summary) }
+        }
+        // Question 19 may prepare question 20; installing it must not prepare 21.
+        let f = try prefetchFixture(count: 19, premium: false, used: 19); defer { f.close() }
+        try await waitForPrefetch { f.probe.count == 1 }
+        f.probe.release(0); try await waitForPrefetch { f.vm.nextQuestionReady }
+        f.vm.next(); XCTAssertEqual(f.vm.record?.questionNumber, 20)
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(f.probe.count, 1); XCTAssertEqual(f.vm.limiter.questionsUsedToday, 19)
+        XCTAssertFalse(f.vm.nextQuestionReady)
+    }
+    func testCooperativeCancellationForRightsAndQuotaHasNoTechnicalError() async throws {
+        let f = try prefetchFixture(is3D: true); defer { f.close() }
+        try await waitForPrefetch { f.probe.count == 1 }; f.vm.next()
+        f.vm.limiter.isPremium = false; f.vm.refreshNextQuestion()
+        try await waitForPrefetch { f.vm.phase == .result }
+        XCTAssertTrue(f.vm.needsSubscription); XCTAssertNil(f.vm.message)
+        XCTAssertEqual(f.vm.record?.questionNumber, 1)
+        let free = try prefetchFixture(premium: false, used: 18); defer { free.close() }
+        try await waitForPrefetch { free.probe.count == 1 }; free.vm.next()
+        free.vm.limiter.recordQuestion(); free.vm.limiter.recordQuestion(); free.vm.refreshNextQuestion()
+        try await waitForPrefetch { free.vm.phase == .summary }
+        XCTAssertNil(free.vm.message); XCTAssertEqual(free.vm.record?.questionNumber, 1)
+    }
+    func testRestoredRightsDoNotResurrectCancelledRequestWithSameQuestionKey() async throws {
+        let f = try prefetchFixture(is3D: true); defer { f.close() }
+        f.probe.ignoreCancellation = true
+        try await waitForPrefetch { f.probe.count == 1 }; f.vm.next()
+        f.vm.limiter.isPremium = false; f.vm.refreshNextQuestion()
+        f.vm.limiter.isPremium = true; f.vm.refreshNextQuestion()
+        try await waitForPrefetch { f.probe.count == 2 }
+        f.probe.release(0); try await waitForPrefetch { f.vm.phase == .result }
+        XCTAssertEqual(f.vm.record?.questionNumber, 1); XCTAssertFalse(f.vm.nextQuestionReady)
+        f.probe.release(1); try await waitForPrefetch { f.vm.nextQuestionReady }
+        f.vm.next(); XCTAssertEqual(f.vm.record?.questionNumber, 2)
+    }
+    func testRightsOrQuotaChangeWhileNextIsPendingCannotConsumeCache() async throws {
+        let f = try prefetchFixture(is3D: true); defer { f.close() }
+        f.probe.ignoreCancellation = true
+        try await waitForPrefetch { f.probe.count == 1 }; f.vm.next()
+        f.vm.limiter.isPremium = false; f.vm.refreshNextQuestion(); f.probe.release(0)
+        try await waitForPrefetch { f.vm.phase == .result }
+        XCTAssertEqual(f.vm.record?.questionNumber, 1); XCTAssertTrue(f.vm.needsSubscription)
+        XCTAssertFalse(f.vm.nextQuestionReady)
+        let free = try prefetchFixture(premium: false, used: 18); defer { free.close() }
+        free.probe.ignoreCancellation = true
+        try await waitForPrefetch { free.probe.count == 1 }; free.vm.next()
+        free.vm.limiter.recordQuestion(); free.vm.limiter.recordQuestion(); free.vm.refreshNextQuestion()
+        free.probe.release(0); try await waitForPrefetch { free.vm.phase == .summary }
+        XCTAssertEqual(free.vm.record?.questionNumber, 1); XCTAssertEqual(free.vm.limiter.questionsUsedToday, 20)
+        XCTAssertFalse(free.vm.nextQuestionReady)
     }
     func testDefaultReferenceIsFixedPhysicalRouteWithoutAttemptsAndClearsOnOwnerChange() async throws {
         let suite = "separation-reference-" + UUID().uuidString
@@ -193,19 +481,16 @@ final class SeparationPracticeTests: XCTestCase {
         let limiter = AngleUsageLimiter(defaults: defaults, namespace: suite); limiter.isPremium = true
         let repo = MemoryRepository()
         let vm = SeparationPracticeViewModel(is3D: false, limiter: limiter, defaults: defaults)
-        XCTAssertTrue(vm.showsReference)
+        XCTAssertFalse(vm.showsReference)
         vm.setShowsReference(false)
         XCTAssertFalse(SeparationPracticeViewModel(is3D: false, defaults: defaults).showsReference)
-        XCTAssertTrue(SeparationPracticeViewModel(is3D: true, defaults: defaults).showsReference)
+        XCTAssertFalse(SeparationPracticeViewModel(is3D: true, defaults: defaults).showsReference)
         vm.attach(repository: repo)
         let prepared = try SeparationQuestionGenerator.prepare(.init(), seed: 20261022)
         vm.start(.init(), prepared: prepared); vm.setupScene()
         defer { vm.suspendTeachingActivity() }
         vm.resumeTeachingActivity()
-        try await Task.sleep(for: .milliseconds(100))
-        XCTAssertNil(vm.referenceTrajectory)
-        XCTAssertNil(vm.scene.rootNode.childNode(withName: "separation.reference", recursively: false))
-        vm.setShowsReference(true)
+        XCTAssertTrue(vm.shouldShowReference, "The first-shot baseline does not depend on the retention switch")
         for _ in 0..<1000 where vm.referenceTrajectory == nil { try await Task.sleep(for: .milliseconds(10)) }
         let line = try XCTUnwrap(vm.referenceTrajectory)
         XCTAssertGreaterThan(line.count, 2)
@@ -230,14 +515,9 @@ final class SeparationPracticeTests: XCTestCase {
         XCTAssertTrue(vm.scene.rootNode.childNode(withName: "separation.reference", recursively: false) === node)
         XCTAssertEqual(vm.record?.attempts.count, 0); XCTAssertNil(vm.record?.latestShot)
         XCTAssertEqual(limiter.questionsUsedToday, 0)
-        vm.setShowsReference(false)
-        XCTAssertNil(vm.referenceTrajectory)
-        XCTAssertNil(vm.scene.rootNode.childNode(withName: "separation.reference", recursively: false))
         vm.setShowsReference(true); vm.setShowsReference(false)
-        try await Task.sleep(for: .milliseconds(100))
-        XCTAssertNil(vm.referenceTrajectory, "Cancelled reference must not reappear")
-        XCTAssertNil(vm.scene.rootNode.childNode(withName: "separation.reference", recursively: false))
-        vm.setShowsReference(true)
+        XCTAssertEqual(try encoder.encode(XCTUnwrap(vm.referenceTrajectory)), frozen)
+        XCTAssertTrue(vm.scene.rootNode.childNode(withName: "separation.reference", recursively: false) === node)
         vm.ownerChanged()
         XCTAssertNil(vm.referenceTrajectory)
         XCTAssertNil(vm.scene.rootNode.childNode(withName: "separation.reference", recursively: false))
@@ -247,6 +527,84 @@ final class SeparationPracticeTests: XCTestCase {
         XCTAssertNil(vm.referenceTrajectory)
         XCTAssertNil(vm.scene.rootNode.childNode(withName: "separation.reference", recursively: false))
     }
+    func testReferenceStagesAcrossRetryReplayRestorationAndNextQuestion() async throws {
+        let prepared = try SeparationQuestionGenerator.prepare(.init(), seed: 20261022)
+        let nextPrepared = try SeparationQuestionGenerator.prepare(.init(),
+            excluding: [prepared.question.board.id], seed: 20261023)
+        // Keep this lifecycle test independent of random generation latency/failure.
+        let prepareNext: SeparationPracticeViewModel.QuestionPreparer = { _, excluded in
+            try Task.checkCancellation()
+            guard !excluded.contains(nextPrepared.question.board.id) else {
+                throw SeparationQuestionGenerator.Failure.incompatible
+            }
+            return nextPrepared
+        }
+        for is3D in [false, true] {
+            for keepReference in [false, true] {
+                let suite = "reference-stages-" + UUID().uuidString
+                let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+                defer { defaults.removePersistentDomain(forName: suite) }
+                // Old visibility preference has a different meaning and must not defeat the new default.
+                defaults.set(true, forKey: "separationPractice.\(is3D ? "3D" : "2D").showsReference")
+                let limiter = AngleUsageLimiter(defaults: defaults, namespace: suite); limiter.isPremium = true
+                let repo = MemoryRepository()
+                let vm = SeparationPracticeViewModel(is3D: is3D, limiter: limiter, defaults: defaults, prepareQuestion: prepareNext)
+                defer { vm.suspendTeachingActivity() }
+                XCTAssertFalse(vm.showsReference)
+                vm.setShowsReference(keepReference); vm.setPlaysStroke(false)
+                vm.attach(repository: repo); vm.start(.init(), prepared: prepared); vm.setupScene()
+                try await waitForPrefetch { vm.referenceTrajectory != nil }
+                XCTAssertTrue(vm.shouldShowReference)
+                func visible(_ vm: SeparationPracticeViewModel, _ name: String) -> Bool {
+                    vm.scene.rootNode.childNode(withName: "separation." + name, recursively: false) != nil
+                }
+                XCTAssertTrue(visible(vm, "reference")); XCTAssertFalse(visible(vm, "actual"))
+                repo.failSubmissions = true; vm.strike()
+                try await waitForPrefetch { vm.phase == .saveFailed }
+                XCTAssertTrue(visible(vm, "reference")); XCTAssertFalse(visible(vm, "actual"))
+                repo.failSubmissions = false; vm.retrySave()
+                XCTAssertEqual(vm.phase, .result)
+                XCTAssertEqual(visible(vm, "reference"), keepReference); XCTAssertTrue(visible(vm, "actual"))
+                let firstShot = vm.record?.latestShot?.id
+                vm.retry(); XCTAssertEqual(vm.phase, .aiming)
+                XCTAssertTrue(visible(vm, "actual")); XCTAssertEqual(visible(vm, "reference"), keepReference)
+                vm.replayLastShot(); vm.stopPlayback()
+                XCTAssertEqual(vm.phase, .aiming); XCTAssertTrue(visible(vm, "actual"))
+                XCTAssertEqual(visible(vm, "reference"), keepReference)
+                vm.replayLastShot(); vm.suspendTeachingActivity(); vm.resumeTeachingActivity()
+                XCTAssertEqual(vm.phase, .aiming); XCTAssertEqual(vm.record?.latestShot?.id, firstShot)
+                XCTAssertTrue(visible(vm, "actual")); XCTAssertEqual(vm.record?.attempts.count, 1)
+                vm.suspendTeachingActivity()
+                let restored = SeparationPracticeViewModel(is3D: is3D, limiter: limiter, defaults: defaults, prepareQuestion: prepareNext)
+                defer { restored.suspendTeachingActivity() }
+                restored.attach(repository: repo); restored.setupScene()
+                if keepReference { try await waitForPrefetch { restored.referenceTrajectory != nil } }
+                XCTAssertEqual(restored.phase, .aiming); XCTAssertTrue(visible(restored, "actual"))
+                XCTAssertEqual(visible(restored, "reference"), keepReference)
+                // A replacement appears only after a successful save; its route replaces the previous one.
+                restored.velocity = 2.8; restored.strike()
+                try await waitForPrefetch { restored.phase == .result }
+                XCTAssertNotEqual(restored.record?.latestShot?.id, firstShot)
+                XCTAssertEqual(restored.record?.attempts.count, 1)
+                XCTAssertEqual(limiter.questionsUsedToday, is3D ? 0 : 1, "3D uses Pro access, not the 2D daily counter")
+                restored.suspendTeachingActivity()
+                let result = SeparationPracticeViewModel(is3D: is3D, limiter: limiter, defaults: defaults, prepareQuestion: prepareNext)
+                defer { result.suspendTeachingActivity() }
+                result.attach(repository: repo); result.setupScene()
+                if keepReference { try await waitForPrefetch { result.referenceTrajectory != nil } }
+                XCTAssertEqual(result.phase, .result); XCTAssertTrue(visible(result, "actual"))
+                XCTAssertEqual(visible(result, "reference"), keepReference)
+                result.replayLastShot(); result.stopPlayback()
+                XCTAssertEqual(result.phase, .result); XCTAssertTrue(visible(result, "actual"))
+                try await waitForPrefetch { result.nextQuestionReady }
+                result.next(); XCTAssertEqual(result.phase, .aiming)
+                try await waitForPrefetch { result.referenceTrajectory != nil }
+                XCTAssertNil(result.record?.latestShot); XCTAssertTrue(visible(result, "reference"))
+                XCTAssertFalse(visible(result, "actual"))
+            }
+        }
+    }
+
     func testTrajectoryOnlySubmissionPersistsWithoutStrokeAndReplayRestoresBoard() async throws {
         let suite = "separation-submit-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -420,6 +778,90 @@ final class SeparationPracticeTests: XCTestCase {
         }
     }
 
+    func testTargetJawFilterDistinguishesCueObjectAndMainRails() throws {
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        var prediction = ShotPrediction()
+        func collision(_ ball: String, _ index: Int?) -> ShotEvent {
+            .init(time: 1, kind: .ballCushion(ball: ball), cushionIndex: index)
+        }
+        for index in geometry.linearCushions.indices {
+            prediction.events = [collision(ShotInput.cueBallName, index)]
+            XCTAssertEqual(SeparationQuestionGenerator.hasCueJawContact(prediction),
+                geometry.linearCushions[index].soundSurface == .jaw, "linear \(index)")
+        }
+        for arc in geometry.circularCushions.indices {
+            let index = geometry.linearCushions.count + arc
+            prediction.events = [collision(ShotInput.cueBallName, index)]
+            XCTAssertTrue(SeparationQuestionGenerator.hasCueJawContact(prediction), "arc \(arc)")
+            prediction.events = [collision(ShotInput.targetBallName, index)]
+            XCTAssertFalse(SeparationQuestionGenerator.hasCueJawContact(prediction))
+        }
+        prediction.events = [collision(ShotInput.cueBallName, nil)]
+        XCTAssertTrue(SeparationQuestionGenerator.hasCueJawContact(prediction))
+        prediction.events = []
+        XCTAssertFalse(SeparationQuestionGenerator.hasCueJawContact(prediction))
+    }
+
+    func testPhysicalCornerAndMiddlePocketFilletsAreRejected() throws {
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        XCTAssertEqual(geometry.circularCushions.count, 12) // 8 corner and 4 middle-pocket noses.
+        for (index, arc) in geometry.circularCushions.enumerated() {
+            var span = arc.endAngle - arc.startAngle
+            if span < 0 { span += 2 * .pi }
+            let angle = arc.startAngle + span / 2
+            let normal = SCNVector3(cos(angle), 0, sin(angle))
+            let origin = arc.center + normal * (arc.radius + BallPhysics.radius + 0.05)
+            let prediction = ShotPredictor.simulateFree(cueBall: origin, aimDir: normal * -1,
+                velocity: 0.8, spinX: 0, spinY: 0, surfaceY: BTTablePhysics.surfaceY,
+                balls: [], maxEvents: 1500, maxTime: 60)
+            XCTAssertTrue(prediction.events.contains {
+                if case .ballCushion(let ball) = $0.kind {
+                    return ball == ShotInput.cueBallName && $0.cushionIndex == geometry.linearCushions.count + index
+                }
+                return false
+            }, "Missing physical contact with arc \(index)")
+            XCTAssertTrue(SeparationQuestionGenerator.hasCueJawContact(prediction), "arc \(index)")
+        }
+        print("PHYSICAL_JAW_FILTER cornerArcs=8 middleArcs=4")
+    }
+
+    func testGeneratedTargetsHaveNoPhysicalCueJawContacts() throws {
+        var config = SceneTrainingConfiguration()
+        config.allowsVerticalSpin = true; config.allowsSideSpin = true
+        let profile = AccuracyTipSelector.renderedProfile()
+        var excluded = Set<String>(), rejectedJaws = 0
+        for seed: UInt64 in 20261022...20261029 {
+            let prepared = try SeparationQuestionGenerator.prepare(config, excluding: excluded, seed: seed)
+            let q = prepared.question
+            excluded.insert(q.board.id)
+            let answer = try SeparationQuestionGenerator.solve(board: q.board, input: q.answer,
+                surfaceY: BTTablePhysics.surfaceY, profile: profile)
+            XCTAssertEqual(AccuracyShotJudgement.evaluate(answer, pocketIndex: q.board.pocketIndex), .success)
+            // Independent witness: the engine records the impacted material when impulse is applied.
+            let recorder = try XCTUnwrap(answer.recorder)
+            XCTAssertFalse(recorder.contactSounds.contains { $0.ball == ShotInput.cueBallName && $0.surface == .jaw })
+            XCTAssertFalse(SeparationQuestionGenerator.hasCueJawContact(answer))
+            for input in q.audit.sampledInputs.dropLast() {
+                let candidate: ShotPrediction
+                do { candidate = try SeparationQuestionGenerator.solve(board: q.board, input: input,
+                    surfaceY: BTTablePhysics.surfaceY, profile: profile) }
+                catch { continue } // Some rejected inputs have no physically accessible strike.
+                if AccuracyShotJudgement.evaluate(candidate, pocketIndex: q.board.pocketIndex) == .success,
+                   candidate.recorder?.contactSounds.contains(where: { $0.ball == ShotInput.cueBallName && $0.surface == .jaw }) == true {
+                    rejectedJaws += 1
+                    XCTAssertTrue(SeparationQuestionGenerator.hasCueJawContact(candidate))
+                    // The player's real shot still records its route and receives the unchanged score.
+                    let actual = try SeparationShot(question: q, input: input, prediction: candidate,
+                        surfaceY: BTTablePhysics.surfaceY)
+                    XCTAssertFalse(actual.trajectory.isEmpty)
+                    XCTAssertNotNil(actual.score)
+                    print("REJECTED_CUE_JAW seed=\(seed) board=\(q.board.id) input=\(input)")
+                }
+            }
+        }
+        print("JAW_FREE_TARGETS=8 rejectedPottedJawCandidates=\(rejectedJaws)")
+    }
+
     func testGeneratedAnswerHasIndependentPhysicalProofAndReplaySurvivesSerialization() throws {
         var config = SceneTrainingConfiguration(); config.allowsVerticalSpin = true; config.allowsSideSpin = true
         let start = Date()
@@ -559,7 +1001,10 @@ final class SeparationPracticeTests: XCTestCase {
         old.showingResult = true; repo.saved = old
         let vm = SeparationPracticeViewModel(is3D: false, limiter: limiter)
         vm.attach(repository: repo); vm.setupScene(); XCTAssertEqual(vm.phase, .result)
+        for _ in 0..<3000 where !vm.nextQuestionReady { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertTrue(vm.nextQuestionReady)
         vm.next()
+        XCTAssertEqual(vm.phase, .aiming, "Free-practice segment rollover also consumes the ready slot")
         for _ in 0..<3000 where vm.phase == .preparing { try await Task.sleep(for: .milliseconds(10)) }
         XCTAssertEqual(vm.phase, .aiming); XCTAssertEqual(vm.record?.questionNumber, 11)
         XCTAssertEqual(vm.record?.totalAttemptCount, 10); XCTAssertEqual(limiter.questionsUsedToday, 10)
@@ -625,5 +1070,35 @@ final class SeparationPracticeTests: XCTestCase {
         let transferred = try XCTUnwrap(repo.resumable(is3D: true))
         XCTAssertEqual(transferred.ownerKey, destination)
         XCTAssertEqual(transferred.current?.id, record.current?.id); XCTAssertEqual(transferred.draftInput, record.draftInput)
+    }
+}
+
+/// Deterministic worker gates exercise cancellation races without timing the production solver.
+private final class SeparationPrefetchProbe: @unchecked Sendable {
+    private let condition = NSCondition()
+    private let prepared: SeparationQuestionGenerator.Prepared
+    private var calls: [(SceneTrainingConfiguration, Set<String>)] = []
+    private var released: Set<Int> = [], failures: Set<Int> = []
+    private var allReleased = false, ignoresCancellation = false
+    init(prepared: SeparationQuestionGenerator.Prepared) { self.prepared = prepared }
+    var count: Int { condition.lock(); defer { condition.unlock() }; return calls.count }
+    var ignoreCancellation: Bool {
+        get { condition.lock(); defer { condition.unlock() }; return ignoresCancellation }
+        set { condition.lock(); ignoresCancellation = newValue; condition.unlock() }
+    }
+    func excluded(at i: Int) -> Set<String> { condition.lock(); defer { condition.unlock() }; return calls[i].1 }
+    func configuration(at i: Int) -> SceneTrainingConfiguration { condition.lock(); defer { condition.unlock() }; return calls[i].0 }
+    func release(_ i: Int) { condition.lock(); released.insert(i); condition.broadcast(); condition.unlock() }
+    func releaseAll() { condition.lock(); allReleased = true; condition.broadcast(); condition.unlock() }
+    func fail(_ i: Int) { condition.lock(); failures.insert(i); condition.unlock() }
+    func generate(_ configuration: SceneTrainingConfiguration, _ excluded: Set<String>) throws -> SeparationQuestionGenerator.Prepared {
+        condition.lock(); defer { condition.unlock() }
+        let i = calls.count; calls.append((configuration, excluded))
+        while !allReleased && !released.contains(i) {
+            if Task.isCancelled && !ignoresCancellation { throw CancellationError() }
+            _ = condition.wait(until: Date().addingTimeInterval(0.02))
+        }
+        if failures.contains(i) { throw SeparationQuestionGenerator.Failure.unavailable }
+        return prepared
     }
 }

@@ -59,6 +59,7 @@ targets:
         excludes:
           - "**/.DS_Store"
           - "Resources/Drills/**"
+          - "Resources/TwoBallBank/**"
           - "Resources/BallStickers/**"
           - "Resources/CueStyles/**"
           - "Resources/Plans/**"
@@ -75,6 +76,9 @@ targets:
           # 保留代码与磁盘资源，随时可恢复 folder reference）。
           - "Resources/Previews/**"
       # Folder references（蓝色文件夹）：保留子目录结构供 Bundle.main 解析。
+      - path: QiuJi/Resources/TwoBallBank
+        type: folder
+        buildPhase: resources
       - path: QiuJi/Resources/Drills
         type: folder
         buildPhase: resources

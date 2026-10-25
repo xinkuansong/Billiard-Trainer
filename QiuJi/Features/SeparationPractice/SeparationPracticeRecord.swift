@@ -59,7 +59,10 @@ struct SeparationShot: Codable, Identifiable {
         id = UUID(); questionID = question.id; submittedAt = now; self.input = input
         self.direction = .init(direction); self.surfaceY = surfaceY
         trajectory = try SeparationTrajectory.extract(prediction)
-        score = try SeparationTrajectoryScore.evaluate(target: question.target, actual: trajectory)
+        specifiedPocket = SeparationQuestionGenerator.potsSpecifiedPocket(prediction, pocket: question.board.pocketIndex)
+        score = try SeparationTrajectoryScore.evaluate(target: question.target, actual: trajectory,
+            cuePocketed: prediction.cuePocketed || prediction.pocketedBalls.contains(ShotInput.cueBallName),
+            targetPotted: specifiedPocket)
         frames = recorder.framesByBallName.mapValues { $0.map(Frame.init) }
         captures = recorder.pocketEntries.map {
             .init(name: $0.ball.name, pocket: $0.pocketID,
@@ -72,7 +75,6 @@ struct SeparationShot: Codable, Identifiable {
         events = prediction.events.map(TrainingProofEvent.init)
         finalPositions = prediction.finalPositions.mapValues(Vector.init)
         pocketedBalls = prediction.pocketedBalls; duration = prediction.duration
-        specifiedPocket = SeparationQuestionGenerator.potsSpecifiedPocket(prediction, pocket: question.board.pocketIndex)
     }
     /// Derived from the durable raw recording, including legacy shots without a stored object path.
     var objectTrajectory: [SeparationTrajectory.Point] {
@@ -119,13 +121,18 @@ struct SeparationShot: Codable, Identifiable {
         return trajectory.isEmpty ? "未碰到目标球 · 无法评分" : "未评分"
     }
     var resultText: String {
+        if pocketedBalls.contains(ShotInput.cueBallName) || score?.zeroReason == .cuePocketed {
+            return scoreText + " · 母球落袋"
+        }
+        if score?.zeroReason == .targetNotPotted { return scoreText + " · 目标球未进指定袋" }
         guard !trajectory.isEmpty else { return scoreText }
-        if pocketedBalls.contains(ShotInput.cueBallName) { return scoreText + " · 母球落袋" }
         return specifiedPocket ? scoreText : scoreText + " · 目标球未进指定袋"
     }
     var outcomeText: String {
+        if pocketedBalls.contains(ShotInput.cueBallName) || score?.zeroReason == .cuePocketed {
+            return "母球落袋 · 可重打比较轨迹"
+        }
         if trajectory.isEmpty { return "未碰到目标球，没有分离后轨迹" }
-        if pocketedBalls.contains(ShotInput.cueBallName) { return "母球落袋 · 可重打比较轨迹" }
         return specifiedPocket ? "目标球进指定袋 · 对照两条完整轨迹" : "目标球未进指定袋 · 可调整打点和力度重打"
     }
 }
@@ -203,7 +210,7 @@ struct SeparationPracticeRecord: Codable, Identifiable {
     var shotBookmark: CameraRig.TrainingBookmark?
     var current: SeparationQuestion? { questions.indices.contains(cursor) ? questions[cursor] : nil }
     var currentAttempt: SeparationShot? { attempts.first { $0.questionID == current?.id } }
-    var displayName: String { is3D ? "3D分离角练习" : "2D分离角练习" }
+    var displayName: String { is3D ? "3D分离角" : "2D分离角" }
     init(ownerKey: String, is3D: Bool, configuration: SceneTrainingConfiguration,
          prepared: SeparationQuestionGenerator.Prepared, now: Date = Date()) {
         id = UUID(); self.ownerKey = ownerKey; self.is3D = is3D; self.configuration = configuration

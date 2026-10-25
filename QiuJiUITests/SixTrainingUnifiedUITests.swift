@@ -1,6 +1,108 @@
 import XCTest
 
 final class SixTrainingUnifiedUITests: XCTestCase {
+
+    func testAccuracySpinMutualExclusionAndShotControls() {
+        continueAfterFailure = false
+        XCUIDevice.shared.press(.home)
+        for title in ["2D准度", "3D准度"] {
+            let app = open(title)
+            defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
+            func top() { for _ in 0..<3 { app.collectionViews.firstMatch.swipeDown() } }
+            func bottom() { for _ in 0..<3 { app.collectionViews.firstMatch.swipeUp() } }
+            func set(_ id: String, _ on: Bool) {
+                let toggle = app.switches[id].firstMatch
+                ready(toggle)
+                if (toggle.value as? String == "1") != on {
+                    toggle.coordinate(withNormalizedOffset: .init(dx: 0.93, dy: 0.5)).tap()
+                }
+                XCTAssertEqual(toggle.value as? String, on ? "1" : "0")
+            }
+            func startRound() {
+                app.buttons["accuracy.start"].tap()
+                ready(app.buttons["accuracy.strike"])
+                XCTAssertFalse(app.alerts["练习提示"].exists,
+                    "自动调整所选条件的出题比例不应打断练习")
+            }
+            func check(_ id: String, _ on: Bool) {
+                XCTAssertEqual(app.switches[id].firstMatch.value as? String, on ? "1" : "0")
+            }
+            top(); set("accuracy.manualVerticalSpin", true); set("accuracy.manualSideSpin", true)
+            capture(title + "-manual-settings-on")
+            bottom(); check("training.verticalSpin", false); check("training.sideSpin", false)
+            XCTAssertEqual(app.switches["training.verticalSpin"].firstMatch.label, "高低杆")
+            XCTAssertEqual(app.switches["training.sideSpin"].firstMatch.label, "左右塞")
+            set("training.verticalSpin", true)
+            top(); check("accuracy.manualVerticalSpin", false); check("accuracy.manualSideSpin", true)
+            bottom(); set("training.sideSpin", true)
+            top(); check("accuracy.manualVerticalSpin", false); check("accuracy.manualSideSpin", false)
+            set("accuracy.manualVerticalSpin", true)
+            bottom(); check("training.verticalSpin", false); check("training.sideSpin", true)
+            top(); set("accuracy.manualSideSpin", true)
+            bottom(); check("training.sideSpin", false)
+            capture(title + "-generation-settings-off")
+            top(); set("accuracy.manualVerticalSpin", false)
+            bottom(); check("training.verticalSpin", false)
+            top(); set("accuracy.manualVerticalSpin", true)
+            startRound()
+            ready(app.buttons["accuracy.strike"])
+            XCUIDevice.shared.orientation = .landscapeLeft
+            let entry = app.buttons["shotStage.spinEntry"]
+            ready(entry); entry.tap()
+            let up = app.buttons["高杆增加 1%"], left = app.buttons["左塞增加 1%"]
+            ready(up); ready(left)
+            let disc = app.descendants(matching: .any).matching(identifier: "spinPad.disc").firstMatch
+            func closePad() {
+                // Dismissal covers the whole stage: its center overlaps the editable disc.
+                // Tap actual backdrop space, then verify dismissal before striking.
+                app.buttons["关闭打点"].coordinate(withNormalizedOffset: .init(dx: 0.05, dy: 0.5)).tap()
+                XCTAssertTrue(disc.waitForNonExistence(timeout: 3))
+            }
+            let original = disc.value as? String
+            up.tap(); left.tap()
+            XCTAssertNotEqual(disc.value as? String, original)
+            capture(title + "-manual-spin-adjusted")
+            app.buttons["回中"].tap()
+            let centered = disc.value as? String
+            up.tap(); XCTAssertNotEqual(disc.value as? String, centered)
+            let played = disc.value as? String
+            closePad()
+            app.buttons["accuracy.strike"].tap()
+            ready(app.buttons["accuracy.retry"], timeout: 60)
+            app.buttons["accuracy.retry"].tap(); ready(entry); entry.tap()
+            XCTAssertEqual(disc.value as? String, played)
+            closePad()
+            app.buttons["accuracy.more"].tap(); ready(app.buttons["accuracy.trainingSettings"])
+            app.buttons["accuracy.trainingSettings"].tap()
+            top(); check("accuracy.manualVerticalSpin", true); check("accuracy.manualSideSpin", true)
+            bottom(); set("training.sideSpin", true)
+            top(); check("accuracy.manualVerticalSpin", true); check("accuracy.manualSideSpin", false)
+            capture(title + "-mixed-spin-settings")
+            startRound()
+            ready(entry); entry.tap(); ready(up)
+            XCTAssertFalse(left.isEnabled)
+            let mixed = disc.value as? String
+            up.tap(); XCTAssertNotEqual(disc.value as? String, mixed)
+            capture(title + "-mixed-spin-controls")
+            closePad()
+            // Restore normal defaults for independent UI tests on this managed device.
+            app.buttons["accuracy.more"].tap(); ready(app.buttons["accuracy.trainingSettings"])
+            app.buttons["accuracy.trainingSettings"].tap()
+            top(); set("accuracy.manualSideSpin", true)
+            startRound(); ready(app.buttons["accuracy.strike"])
+        }
+    }
+    func testAccuracySettingsScreenshots() {
+        continueAfterFailure = false
+        for title in ["2D准度", "3D准度"] {
+            let app = open(title)
+            capture(title + "-settings-top")
+            app.swipeUp()
+            capture(title + "-settings-bottom")
+            app.terminate()
+        }
+    }
+
     func testAccuracyCurrentAimCloseupInBothModes() {
         continueAfterFailure = false
         for title in ["2D准度", "3D准度"] {
@@ -203,8 +305,9 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             ready(app.buttons["accuracy.retry"], timeout: 60)
             let result = app.staticTexts["accuracy.result"]
             XCTAssertTrue(result.exists)
-            XCTAssertFalse(result.waitForNonExistence(timeout: 4), "Results must remain after notice expiry")
-            capture(title + "-persistent-result")
+            XCTAssertTrue(result.waitForNonExistence(timeout: 5), "Result feedback must expire while statistics remain")
+            XCTAssertTrue(info.exists)
+            capture(title + "-result-expired")
             strike.tap()
             XCTAssertTrue(notice.waitForExistence(timeout: 5))
             XCTAssertTrue(notice.label.contains("第2题"))

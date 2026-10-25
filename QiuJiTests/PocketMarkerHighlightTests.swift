@@ -7,7 +7,7 @@ import XCTest
 final class PocketMarkerHighlightTests: XCTestCase {
     func testAutomaticAndManualTimingIn2DAnd3D() throws {
         let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("output/table-page-adaptation/P09a/r06/rendered")
+            .appendingPathComponent("output/training-hud-feedback-20261025/pocket-rendered")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         for source: AngleTrainingScene.PocketSelectionSource in [.automatic, .manual] {
             for mobile in [false, true] {
@@ -36,8 +36,8 @@ final class PocketMarkerHighlightTests: XCTestCase {
                     let delay = source == .manual ? 0.5 : 0.0
                     let waiting = frame(source == .manual ? 1.49 : 1.01)
                     let peak = frame(1 + delay + 0.12)
-                    let stillRed = frame(1 + delay + 0.99)
-                    let restored = frame(1 + delay + 1.01)
+                    let stillRed = frame(1 + delay + 2.99)
+                    let restored = frame(1 + delay + 3.01)
                     let prefix = "\(source)-" + "\(mobile ? "mobile" : "plain")-\(mode == .perspective3D ? "3d" : "2d")"
                     for (name, image) in [("before", before), ("waiting", waiting), ("peak", peak), ("restored", restored)] {
                         try XCTUnwrap(image.pngData()).write(to: directory.appendingPathComponent("\(prefix)-\(name).png"))
@@ -72,9 +72,36 @@ final class PocketMarkerHighlightTests: XCTestCase {
         }
     }
 
+    func testTwoBallFirstPocketExpiresAndSecondRemainsIncludingSamePocket() throws {
+        let scene = AngleTrainingScene(); scene.setupScene(enhancedRendering: false)
+        let markers = scene.addPocketMarkers().compactMap { $0 as? PocketLeatherMarker }
+        let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        renderer.scene = scene; renderer.pointOfView = scene.cameraNode
+        func frame(_ time: Double) {
+            _ = renderer.snapshot(atTime: time, with: CGSize(width: 600, height: 400), antialiasingMode: .none)
+        }
+        for (iteration, second) in [1, 0].enumerated() {
+            let start = Double(iteration) * 10
+            frame(start)
+            scene.setPocketRoles(first: 0, second: second, transientFirst: true)
+            let pulse = try XCTUnwrap(markers[0].childNode(withName: "leather_selectionPulse", recursively: true))
+            XCTAssertFalse(pulse.isHidden)
+            frame(start + 0.01); frame(start + 2.9)
+            XCTAssertFalse(pulse.isHidden, "First pocket remains lit until three seconds")
+            frame(start + 3.1)
+            XCTAssertTrue(pulse.isHidden)
+            XCTAssertEqual(markers[second].style, .secondRole)
+            XCTAssertFalse(try XCTUnwrap(markers[second].childNode(withName: "leather_secondRole", recursively: true)).isHidden)
+            if second != 0 { XCTAssertEqual(markers[0].style, .target) }
+            scene.setPocketRoles(first: 0, second: second, transientFirst: true)
+            scene.clearPocketHighlights()
+            XCTAssertTrue(pulse.isHidden); XCTAssertFalse(pulse.hasActions)
+        }
+    }
+
     func testS6ImmediateFeedbackRendersInSourceAndResidentOverlay() throws {
         let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("output/table-page-adaptation/P09a/r06/feedback")
+            .appendingPathComponent("output/training-hud-feedback-20261025/pocket-overlay")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: true)
         scene.setCameraMode(.perspective3D, animated: false)
@@ -116,7 +143,7 @@ final class PocketMarkerHighlightTests: XCTestCase {
         XCTAssertEqual(ballCopy.scale.x, ball.presentation.scale.x, accuracy:0.001)
         XCTAssertEqual(pulseCopy.opacity, 1)
         XCTAssertFalse(pulseCopy.isHidden)
-        let restored = frame(2.01)
+        let restored = frame(4.01)
         XCTAssertEqual(ballCopy.scale.x, base, accuracy:0.001)
         XCTAssertEqual(pulseCopy.opacity, 0)
         for (id, node) in resident { XCTAssertTrue(copies[id] === node, "Feedback must preserve resident table nodes") }

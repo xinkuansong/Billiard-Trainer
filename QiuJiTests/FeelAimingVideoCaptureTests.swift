@@ -18,6 +18,7 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
     private let mainCropTop: CGFloat = 280
     private let radius = AngleSceneCalculator.ballRadius
     private var centerDistance: Float { shortRail ? 0.65 : (halfRail ? 0.90 : (middlePocket ? 0.60 : 0.75)) }
+    private var reverseCorner: Bool { env("FEEL_LAYOUT") == "reverse-corner" }
     private var middlePocket: Bool { env("FEEL_LAYOUT") == "middle" }
     private var middleClockwise: Bool { middlePocket && env("FEEL_MIDDLE_CLOCKWISE") == "1" }
     private var shortRail: Bool { env("FEEL_LAYOUT") == "short-half" || env("FEEL_LAYOUT") == "short-frozen" }
@@ -25,7 +26,7 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
     private var halfRail: Bool { env("FEEL_LAYOUT") == "half-rail" || frozenRail || shortRail }
     private var railCenterDistance: Float { frozenRail ? radius : (shortRail ? 3*radius : 2*radius) }
     private var targetNumber: Int { halfRail || middlePocket ? 1 : 8 }
-    private var pocketIndex: Int { halfRail ? 0 : (middlePocket ? 4 : 3) }
+    private var pocketIndex: Int { reverseCorner ? 2 : halfRail ? 0 : (middlePocket ? 4 : 3) }
     private var frameCount: Int { halfRail || middleClockwise ? 1020 : (middlePocket ? 1920 : 1440) }
 
     private func env(_ key: String) -> String? {
@@ -91,7 +92,7 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
         XCTAssertTrue(scene.applyTableStyle(.charcoal, showsSights: true))
         XCTAssertTrue(scene.applyClothColor(.green))
         // Preserve the original table markings in both rail episodes.
-        if !halfRail {
+        if !halfRail && !reverseCorner {
             // Suppress the USDZ's printed
             // cloth marks, preserving the rail sights and lower pocket basket nets.
             var printedMarkMaterials = 0
@@ -124,6 +125,9 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
         let target: SCNVector3
         if let targetXZ {
             target = SCNVector3(targetXZ.x, scene.surfaceY+radius, targetXZ.y)
+        } else if reverseCorner {
+            // Red-circle reference calibrated against nine table sight centers.
+            target = SCNVector3(-0.612291309, scene.surfaceY+radius, 0.322556354)
         } else if shortRail {
             target = SCNVector3(-AngleSceneCalculator.innerLength/2+railCenterDistance, scene.surfaceY+radius, -6*radius)
         } else if halfRail {
@@ -240,10 +244,15 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
         pocketCamera.position = SCNVector3(pocketFocus.x, clothY+1, pocketFocus.z)
         pocketCamera.look(at:pocketFocus, up:shortRail ? SCNVector3(0,0,-1) : SCNVector3(potDirection.x,0,potDirection.y), localFront:SCNVector3(0,0,-1))
         scene.rootNode.addChildNode(pocketCamera)
-        return Capture(scene: scene, target: target, aim: aim, ghost: ghost, clothY: clothY, clothSurface: surface,
+        let capture = Capture(scene: scene, target: target, aim: aim, ghost: ghost, clothY: clothY, clothSurface: surface,
                        mainCamera: mainCamera, eyeCamera: eyeCamera, main: renderer(mainCamera), eye: renderer(eyeCamera),
                        overheadCamera: overheadCamera, overhead: renderer(overheadCamera),
                        pocketCamera:pocketCamera, pocketRenderer:renderer(pocketCamera), dot: dot)
+        if reverseCorner {
+            try installOverlapGhost(capture)
+            setReverseGhost(capture, visible:false)
+        }
+        return capture
     }
 
     private func position(angle: Double, target: SCNVector3, aim: SCNVector3, distance: Float, side: Float = -1) -> SCNVector3 {
@@ -293,7 +302,7 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
 
     private func setState(_ angle: Double, _ c: inout Capture, distance: Float? = nil) throws -> [String: Any] {
         let d = distance ?? centerDistance
-        let cue = position(angle: angle, target: c.target, aim: c.aim, distance: d, side: halfRail && !shortRail ? 1 : -1)
+        let cue = position(angle: angle, target: c.target, aim: c.aim, distance: d, side: reverseCorner || (halfRail && !shortRail) ? 1 : -1)
         if shortRail {
             XCTAssertEqual(AngleSceneCalculator.innerLength/2 + c.target.x, railCenterDistance, accuracy: 0.000001)
             XCTAssertEqual(c.target.z, -6*radius, accuracy: 0.000001)
@@ -350,7 +359,30 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
                 c.guides.append(c.scene.addLine(from:point(a+delta*Float(k)/40,0.14),to:point(a+delta*Float(k+1)/40,0.14),color:.yellow,radius:0.0012,placement:.table,layer:.aiming))
             }
         }
-        c.scene.updateCueStick(cueBallPosition: cue, aimDirection: u)
+        var spinY: Double = 0
+        var cueContact: SCNVector3? = nil
+        if reverseCorner {
+            let access = try XCTUnwrap(c.scene.cueStrikeAccess(aim:u))
+            let elevation = CueStick.minElevationRadians
+            let limit = Double(min(CuePhysics.miscueLimitFraction,CuePhysics.tipContactRadius/CuePhysics.tipCurvatureRadius))-0.00001
+            func clear(_ y: Double) -> Bool { access.clears(access.pose(spinX:0,spinY:y,elevation:elevation)) }
+            if !clear(0) {
+                guard clear(limit) else { throw NSError(domain:"ReverseHighHit",code:1,userInfo:[NSLocalizedDescriptionKey:"No legal high hit clears the rail at the normal cue elevation"]) }
+                var low: Double = 0, high = limit
+                for _ in 0..<20 {
+                    let mid = (low+high)/2
+                    if clear(mid) { high=mid } else { low=mid }
+                }
+                spinY = min(limit,high+0.005)
+            }
+            XCTAssertTrue(access.isAvailable(spinX:0,spinY:spinY))
+            XCTAssertTrue(clear(spinY))
+            cueContact = access.pose(spinX:0,spinY:spinY,elevation:elevation).contact
+            c.scene.updateCueStick(cueBallPosition:SCNVector3(cue.x,cue.y+radius*Float(spinY),cue.z),aimDirection:u)
+            XCTAssertEqual(-(c.scene.cueStick?.rootNode.eulerAngles.x ?? 0),elevation,accuracy:0.00001)
+        } else {
+            c.scene.updateCueStick(cueBallPosition:cue,aimDirection:u)
+        }
         let measured = AngleSceneCalculator.cutAngle(cueBall: cue, targetBall: c.target, pocket: c.aim)
         XCTAssertEqual(measured, abs(angle), accuracy: 0.01)
         XCTAssertEqual(AngleSceneCalculator.horizontalDistance(cue, c.target), d, accuracy: 0.00001)
@@ -366,9 +398,10 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
         if abs(angle) < 29.9 { XCTAssertNotNil(hit) }
         if abs(angle) > 30.1 { XCTAssertNil(hit) }
         SCNTransaction.flush()
-        return ["layout": shortRail ? (frozenRail ? "short-frozen" : "short-half") : frozenRail ? "frozen-rail" : (halfRail ? "half-rail" : (middlePocket ? "middle" : "corner")), "pocketIndex": pocketIndex,
+        return ["layout": reverseCorner ? "reverse-corner-mirrored" : shortRail ? (frozenRail ? "short-frozen" : "short-half") : frozenRail ? "frozen-rail" : (halfRail ? "half-rail" : (middlePocket ? "middle" : "corner")), "pocketIndex": pocketIndex,
                 "targetNumber": targetNumber, "railPointMarked": halfRail,
                 "targetContactMarked": env("FEEL_TARGET_CONTACT") == "1",
+                "cueSpinY":spinY,"cueContact":cueContact.map(xyz) as Any? ?? NSNull(),
                 "targetContact": [(c.target.x+c.ghost.x)/2,c.target.y,(c.target.z+c.ghost.z)/2],
                 "angle": angle, "measuredAngle": measured, "distance": Double(AngleSceneCalculator.horizontalDistance(cue, c.target)),
                 "cue": xyz(cue), "target": xyz(c.target), "ghost": xyz(c.ghost), "aim": xyz(c.aim),
@@ -382,7 +415,8 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
         let cue = try XCTUnwrap(c.scene.cueBallNode).position
         let u = simd_normalize(SIMD2<Float>(c.ghost.x-cue.x, c.ghost.z-cue.z))
         let side = SIMD2<Float>(-u.y, u.x)
-        node.position = SCNVector3(cue.x-rig.back*u.x+rig.side*side.x, c.scene.surfaceY+rig.height,
+        let height = rig.height
+        node.position = SCNVector3(cue.x-rig.back*u.x+rig.side*side.x, c.scene.surfaceY+height,
                                   cue.z-rig.back*u.y+rig.side*side.y)
         var focus = eye ? SCNVector3((cue.x+c.ghost.x)/2, c.target.y, (cue.z+c.ghost.z)/2)
             : SCNVector3(cue.x, c.clothY, cue.z)
@@ -408,7 +442,7 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
             let forward = node.simdOrientation.act(SIMD3<Float>(0,0,-1))
             XCTAssertEqual(simd_dot(simd_normalize(SIMD2<Float>(forward.x,forward.z)),u), 1, accuracy: 0.00001)
         }
-        XCTAssertEqual(node.position.y-c.scene.surfaceY, rig.height, accuracy: 0.00001)
+        XCTAssertEqual(node.position.y-c.scene.surfaceY, height, accuracy: 0.00001)
         SCNTransaction.flush()
     }
 
@@ -468,7 +502,7 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
             let length=hypot(dx,dy)
             // Right side of each directed floor line; the small aiming label
             // sits left in both insets, keeping the two labels separated.
-            let sign: CGFloat = (size.width < 1000 && !pot) || (halfRail && !shortRail && pot) || (middlePocket && pot && dx < 0) ? -1 : 1
+            let sign: CGFloat = (size.width < 1000 && !pot) || ((reverseCorner || (halfRail && !shortRail)) && pot) || (middlePocket && pot && dx < 0) ? -1 : 1
             let nx = -dy/length*sign, ny = dx/length*sign
             let gap: CGFloat = small ? 55 : (size.width > 1000 ? 90 : 65)
             let clearance=abs(nx)*textSize.width/2+abs(ny)*textSize.height/2+gap
@@ -479,7 +513,7 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
             let ey=min(y+textSize.height,max(y,anchor.y))
             let leaderLength=hypot(ex-anchor.x,ey-anchor.y)
             let endpoint=CGPoint(x:ex-(ex-anchor.x)/leaderLength*6,y:ey-(ey-anchor.y)/leaderLength*6)
-            let opacity: CGFloat = middlePocket && pot ? min(1, CGFloat(AngleSceneCalculator.cutAngle(cueBall: cue, targetBall: c.target, pocket: c.aim)) / 1.5) : 1
+            let opacity: CGFloat = (middlePocket || reverseCorner) && pot ? min(1, CGFloat(AngleSceneCalculator.cutAngle(cueBall: cue, targetBall: c.target, pocket: c.aim)) / 1.5) : 1
             return ["text":title,"pot":pot,"opacity":opacity,"fontSize":fontSize,"anchor":[anchor.x,anchor.y],
                     "rect":[x,y,textSize.width,textSize.height],"leaderEnd":[endpoint.x,endpoint.y],
                     "leaderLengthPixels":leaderLength-6]
@@ -585,13 +619,15 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
         SCNTransaction.flush()
         let shot=c.main.snapshot(atTime:time,with:mainRenderSize,antialiasingMode:.multisampling4X)
         let mainProjection=try projected(c.main,camera:c.mainCamera,size:mainRenderSize,capture:c,cropTop:Float(mainCropTop))
+        if reverseCorner { setReverseGhost(c, visible:true); SCNTransaction.flush() }
         let detail=c.eye.snapshot(atTime:time,with:pipRect.size,antialiasingMode:.multisampling4X)
         let eyeProjection=try projected(c.eye,camera:c.eyeCamera,size:pipRect.size,capture:c)
+        if reverseCorner { setReverseGhost(c, visible:false); SCNTransaction.flush() }
         let overhead=c.overhead.snapshot(atTime:time,with:overheadRect.size,antialiasingMode:.multisampling4X)
         let overheadProjection=try projected(c.overhead,camera:c.overheadCamera,size:overheadRect.size,capture:c)
-        let pocketImage = halfRail ? c.pocketRenderer.snapshot(atTime:time,with:pocketRect.size,antialiasingMode:.multisampling4X) : nil
+        let pocketImage = (halfRail || reverseCorner) ? c.pocketRenderer.snapshot(atTime:time,with:pocketRect.size,antialiasingMode:.multisampling4X) : nil
         var pocketProjection: [String:Any] = [:]
-        if halfRail {
+        if halfRail || reverseCorner {
             // Overlay is the world aim point projected onto the cloth plane, not
             // the pocket leather center or a screen-position approximation.
             let p = c.pocketRenderer.projectPoint(SCNVector3(c.aim.x,c.clothY,c.aim.z))
@@ -614,7 +650,7 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
         // The top and overhead views retain all world guides/markers but no
         // line names or annotation leaders. View badges are separate chrome.
         let emptyLabels:[[String:Any]]=[]
-        let metrics = middlePocket || halfRail ? metricValues(c) : []
+        let metrics = middlePocket || halfRail || reverseCorner ? metricValues(c) : []
         let gold=UIColor(red:0.87,green:0.73,blue:0.42,alpha:1)
         let format=UIGraphicsImageRendererFormat();format.scale=1;format.opaque=true
         let image=UIGraphicsImageRenderer(size:size,format:format).image { ctx in
@@ -650,7 +686,7 @@ final class FeelAimingVideoCaptureTests: XCTestCase {
             let overheadBorder=UIBezierPath(roundedRect:overheadFrame,cornerRadius:20);overheadBorder.lineWidth=2;overheadBorder.stroke()
             viewBadge("第一人称",rect:CGRect(x:32,y:24,width:200,height:62),gold:gold,context:ctx.cgContext)
             viewBadge("第三人称",rect:CGRect(x:32,y:mainRect.minY+24,width:200,height:62),gold:gold,context:ctx.cgContext)
-            if middlePocket || halfRail { drawMetrics(metrics) }
+            if middlePocket || halfRail || reverseCorner { drawMetrics(metrics) }
             if let pocketImage {
                 ctx.cgContext.saveGState()
                 UIBezierPath(roundedRect:pocketFrame,cornerRadius:20).addClip()
@@ -1057,6 +1093,7 @@ extension FeelAimingVideoCaptureTests {
         shadowMaterial.diffuse.contents = shadowImage
         contact.materials = [shadowMaterial]
         let contactNode = SCNNode(geometry:contact)
+        contactNode.name = "videoGhostContactShadow"
         contactNode.eulerAngles.x = -.pi/2
         contactNode.position = SCNVector3(c.ghost.x,c.clothY+0.0002,c.ghost.z)
         c.scene.rootNode.addChildNode(contactNode)
@@ -1659,5 +1696,213 @@ extension FeelAimingVideoCaptureTests {
                                     "overlapLeft":left,"overlapRight":rightEdge],
                    "mainProjection":["cue":[mainCue.x,mainCue.y],"target":[mainTarget.x,mainTarget.y],"ghost":[mainGhost.x,mainGhost.y]]],
                   directory.appendingPathComponent("manifest.json"))
+    }
+}
+
+
+// V014 reverse-corner episode: two fixed center-distance arcs joined on the straight shot.
+extension FeelAimingVideoCaptureTests {
+    private func reverseEndpoint(_ c: Capture, far: Bool) -> SCNVector3 {
+        far ? SCNVector3(0.699856973,c.target.y,0.597780043) : SCNVector3(-0.098809418,c.target.y,0.594044799)
+    }
+
+    private func reverseState(at t: Double, capture c: Capture) -> (angle: Double, distance: Float, phase: String) {
+        let near = reverseEndpoint(c,far:false), far = reverseEndpoint(c,far:true)
+        let nearD = AngleSceneCalculator.horizontalDistance(near,c.target)
+        let farD = AngleSceneCalculator.horizontalDistance(far,c.target)
+        let nearA = AngleSceneCalculator.cutAngle(cueBall:near,targetBall:c.target,pocket:c.aim)
+        let farA = AngleSceneCalculator.cutAngle(cueBall:far,targetBall:c.target,pocket:c.aim)
+        if t < 1 { return (nearA,nearD,"head") }
+        if t < 9 { return (nearA*(9-t)/8,nearD,"near") }
+        if t < 11 {
+            let x = (t-9)/2
+            let smooth = Float(x*x*(3-2*x))
+            return (0,nearD+(farD-nearD)*smooth,"pullback")
+        }
+        if t < 19 { return (farA*(t-11)/8,farD,"far") }
+        return (farA,farD,"tail")
+    }
+
+    private func reverseRecord(at t: Double, capture c: inout Capture) throws -> [String: Any] {
+        let state = reverseState(at:t,capture:c)
+        var result = try setState(state.angle, &c, distance:state.distance)
+        result["time"] = t
+        result["cueElevation"] = -(c.scene.cueStick?.rootNode.eulerAngles.x ?? 0)
+        result["eyeHeight"] = eyeRig.height
+        result["phase"] = state.phase
+        result["requestedDistance"] = state.distance
+        result["revision"] = "reverse-corner-r6-red-circles-20261023"
+        return result
+    }
+
+    func testReverseCornerKeyframes() async throws {
+        guard reverseCorner else { throw XCTSkip("Set FEEL_LAYOUT=reverse-corner") }
+        let directory = try output()
+        var c = try makeCapture()
+        var geometry:[[String:Any]] = []
+        // Independent geometric audit across every eventual encoded timestamp.
+        let n = simd_normalize(SIMD2<Float>(c.aim.x-c.target.x,c.aim.z-c.target.z))
+        for frame in 0..<1200 {
+            let t = Double(frame)/60
+            let state = reverseState(at:t,capture:c)
+            let cue = position(angle:state.angle,target:c.target,aim:c.aim,distance:state.distance,side:1)
+            let u = simd_normalize(SIMD2<Float>(c.ghost.x-cue.x,c.ghost.z-cue.z))
+            let signed = Double(atan2(n.x*u.y-n.y*u.x,simd_dot(n,u)))*180 / .pi
+            XCTAssertEqual(signed,state.angle,accuracy:0.001)
+            XCTAssertEqual(AngleSceneCalculator.horizontalDistance(cue,c.target),state.distance,accuracy:0.000001)
+            XCTAssertEqual(AngleSceneCalculator.horizontalDistance(c.ghost,c.target),2*radius,accuracy:0.000001)
+            XCTAssertLessThanOrEqual(abs(cue.x)+radius,AngleSceneCalculator.innerLength/2)
+            XCTAssertLessThanOrEqual(abs(cue.z)+radius,AngleSceneCalculator.innerWidth/2)
+            // Reflection must preserve this layout and change the shot side.
+            let originalTarget = SCNVector3(-c.target.x,c.target.y,c.target.z)
+            let originalAim = AngleSceneCalculator.effectivePocketAimPoint(targetBall:originalTarget,pocketIndex:3,surfaceY:c.scene.surfaceY)
+            let originalCue = position(angle:state.angle,target:originalTarget,aim:originalAim,distance:state.distance,side:-1)
+            XCTAssertEqual(cue.x,-originalCue.x,accuracy:0.00001)
+            XCTAssertEqual(cue.z,originalCue.z,accuracy:0.00001)
+            geometry.append(["frame":frame,"time":t,"angle":state.angle,"signedMeasured":signed,
+                             "distance":state.distance,"phase":state.phase,"cue":xyz(cue),"target":xyz(c.target),
+                             "ghost":xyz(c.ghost),"aim":xyz(c.aim)])
+        }
+        for (t,isFar) in [(0.0,false),(19.0,true)] {
+            let state = reverseState(at:t,capture:c)
+            let actual = position(angle:state.angle,target:c.target,aim:c.aim,distance:state.distance,side:1)
+            let expected = reverseEndpoint(c,far:isFar)
+            XCTAssertEqual(actual.x,expected.x,accuracy:0.000001)
+            XCTAssertEqual(actual.z,expected.z,accuracy:0.000001)
+        }
+        try write(geometry,directory.appendingPathComponent("geometry.json"))
+        try renderReversePlacement(&c,directory:directory)
+        var records:[[String:Any]] = []
+        for t in [0.0, 4.2, 8.9, 9, 10, 11, 15, 19, 19.9833333333] {
+            try autoreleasepool {
+                var record = try reverseRecord(at:t,capture:&c)
+                _ = try render(c,time:t)
+                let (image,projection) = try render(c,time:t)
+                let name = String(format:"time-%06.2f.png",t)
+                try XCTUnwrap(image.pngData()).write(to:directory.appendingPathComponent("frames/"+name))
+                record["file"] = name
+                record["projection"] = projection
+                records.append(record)
+            }
+            await Task.yield()
+        }
+        try write(records,directory.appendingPathComponent("keyframes.json"))
+        try write(["table":ModelAssetTrial.identity("TaiQiuZhuo"),"cue":ModelAssetTrial.identity("CueUV"),
+                   "surfaceY":c.scene.surfaceY,"clothY":c.clothY,"ballRadius":radius,
+                   "tableStyle":"charcoal","cloth":"green","cueStyle":"inkDragon","targetNumber":8],
+                  directory.appendingPathComponent("runtime-appearance.json"))
+        print("REVERSE_CORNER verified 1200 geometric states and exported 9 keyframes")
+    }
+
+    func testReverseCornerExport() async throws {
+        guard reverseCorner else { throw XCTSkip("Set FEEL_LAYOUT=reverse-corner") }
+        let directory = try output()
+        var c = try makeCapture()
+        _ = try reverseRecord(at:0,capture:&c)
+        _ = try render(c,time:0)
+        _ = try render(c,time:0)
+        let writer = try VideoWriter(url:directory.appendingPathComponent("reverse-angle-native.mp4"),size:size,fps:60,averageBitRate:32_000_000)
+        var records:[[String:Any]] = []
+        for frame in 0..<1200 {
+            try autoreleasepool {
+                let t = Double(frame)/60
+                var record = try reverseRecord(at:t,capture:&c)
+                let (image,projection) = try render(c,time:t)
+                record["frame"] = frame
+                record["projection"] = projection
+                records.append(record)
+                try writer.append(XCTUnwrap(image.cgImage))
+            }
+            if frame % 60 == 0 { print("REVERSE_CORNER export \(frame)/1200") }
+            try await Task.sleep(nanoseconds:1_000_000)
+        }
+        try await writer.finish()
+        try write(records,directory.appendingPathComponent("frames.json"))
+    }
+}
+
+
+extension FeelAimingVideoCaptureTests {
+    private func setReverseGhost(_ c: Capture, visible: Bool) {
+        c.scene.ghostBallNode?.isHidden = !visible
+        for name in ["videoGhostContactShadow", "videoGhostFootprintRing"] {
+            c.scene.rootNode.childNode(withName:name,recursively:true)?.isHidden = !visible
+        }
+    }
+
+    private func renderReversePlacement(_ c: inout Capture, directory: URL) throws {
+        _ = try reverseRecord(at:0,capture:&c)
+        c.guides.forEach { $0.isHidden = true }
+        c.dot.isHidden = true
+        c.scene.cueBallNode?.isHidden = false
+        let farCue = try XCTUnwrap(c.scene.cueBallNode).clone()
+        farCue.name = "videoFarCuePlacementPreview"
+        farCue.position = reverseEndpoint(c,far:true)
+        farCue.isHidden = false
+        c.scene.rootNode.addChildNode(farCue)
+        c.scene.cueStick?.rootNode.isHidden = true
+        c.scene.rootNode.childNode(withName:"feelTargetContact",recursively:true)?.isHidden = true
+        let camera = SCNNode()
+        camera.camera = SCNCamera()
+        camera.camera?.usesOrthographicProjection = true
+        camera.camera?.orthographicScale = 0.88
+        camera.camera?.zNear = 0.01
+        camera.camera?.zFar = 10
+        camera.position = SCNVector3(0,c.clothY+5,0)
+        camera.eulerAngles = SCNVector3(-Float.pi/2,0,0)
+        c.scene.rootNode.addChildNode(camera)
+        let renderer = SCNRenderer(device:nil,options:nil)
+        renderer.scene = c.scene
+        renderer.pointOfView = camera
+        renderer.delegate = c.scene.contactOcclusion
+        let canvas = CGSize(width:1800,height:1060)
+        SCNTransaction.flush()
+        _ = renderer.snapshot(atTime:0,with:canvas,antialiasingMode:.multisampling4X)
+        let base = renderer.snapshot(atTime:0,with:canvas,antialiasingMode:.multisampling4X)
+        func screen(_ p: SCNVector3) -> CGPoint {
+            let q = renderer.projectPoint(p)
+            return CGPoint(x:CGFloat(q.x),y:canvas.height-CGFloat(q.y))
+        }
+        let target = screen(c.target)
+        let pocket = screen(AngleSceneCalculator.pocketPositions(surfaceY:c.scene.surfaceY)[pocketIndex])
+        let rail = screen(SCNVector3(c.target.x,c.clothY,AngleSceneCalculator.innerWidth/2))
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
+        let image = UIGraphicsImageRenderer(size:canvas,format:format).image { ctx in
+            base.draw(at:.zero)
+            let gold = UIColor(red:1,green:0.83,blue:0.35,alpha:1)
+            ctx.cgContext.setStrokeColor(gold.cgColor)
+            ctx.cgContext.setLineWidth(3)
+            ctx.cgContext.setLineDash(phase:0,lengths:[9,7])
+            ctx.cgContext.move(to:target); ctx.cgContext.addLine(to:pocket); ctx.cgContext.strokePath()
+            ctx.cgContext.setLineDash(phase:0,lengths:[])
+            ctx.cgContext.strokeEllipse(in:CGRect(x:target.x-23,y:target.y-23,width:46,height:46))
+            ctx.cgContext.strokeEllipse(in:CGRect(x:pocket.x-28,y:pocket.y-28,width:56,height:56))
+            let attrs:[NSAttributedString.Key:Any] = [.font:UIFont.systemFont(ofSize:26,weight:.semibold),.foregroundColor:gold]
+            ("黑球（按红圈调整）" as NSString).draw(at:CGPoint(x:target.x+36,y:target.y-38),withAttributes:attrs)
+            (String(format:"球边距长库约 %.1f cm",(AngleSceneCalculator.innerWidth/2-c.target.z-radius)*100) as NSString).draw(at:CGPoint(x:target.x+36,y:target.y+2),withAttributes:attrs)
+            ("左下角袋" as NSString).draw(at:CGPoint(x:pocket.x-38,y:pocket.y+43),withAttributes:attrs)
+            (String(format:"目标球心距袋心约 %.1f cm",AngleSceneCalculator.horizontalDistance(c.target,AngleSceneCalculator.pocketPositions(surfaceY:c.scene.surfaceY)[pocketIndex])*100) as NSString).draw(at:CGPoint(x:520,y:945),withAttributes:attrs)
+            for (far,label) in [(false,"近台起点"),(true,"远台终点")] {
+                let point = screen(reverseEndpoint(c,far:far))
+                ctx.cgContext.strokeEllipse(in:CGRect(x:point.x-23,y:point.y-23,width:46,height:46))
+                let distance = AngleSceneCalculator.horizontalDistance(reverseEndpoint(c,far:far),c.target)*100
+                (String(format:"%@ · 球距 %.1f cm",label,distance) as NSString).draw(at:CGPoint(x:point.x-110,y:point.y-70),withAttributes:attrs)
+            }
+            ctx.cgContext.move(to:CGPoint(x:target.x+18,y:target.y+22));ctx.cgContext.addLine(to:CGPoint(x:rail.x+18,y:rail.y));ctx.cgContext.strokePath()
+        }
+        try XCTUnwrap(image.pngData()).write(to:directory.appendingPathComponent("placement-overhead.png"))
+        try write(["target":xyz(c.target),"aim":xyz(c.aim),"pocketIndex":pocketIndex,
+                   "nearCue":xyz(reverseEndpoint(c,far:false)),"farCue":xyz(reverseEndpoint(c,far:true)),
+                   "nearAngle":reverseState(at:0,capture:c).angle,"farAngle":reverseState(at:19,capture:c).angle,
+                   "nearDistance":reverseState(at:0,capture:c).distance,"farDistance":reverseState(at:19,capture:c).distance,
+                   "longRailSurfaceGap":AngleSceneCalculator.innerWidth/2-c.target.z-radius,
+                   "nominalPocketDistance":AngleSceneCalculator.horizontalDistance(c.target,AngleSceneCalculator.pocketPositions(surfaceY:c.scene.surfaceY)[pocketIndex])],directory.appendingPathComponent("placement.json"))
+        camera.removeFromParentNode()
+        farCue.removeFromParentNode()
+        c.guides.forEach { $0.isHidden = false }
+        c.dot.isHidden = false
+        c.scene.cueBallNode?.isHidden = false
+        c.scene.cueStick?.rootNode.isHidden = false
+        c.scene.rootNode.childNode(withName:"feelTargetContact",recursively:true)?.isHidden = false
     }
 }

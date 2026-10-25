@@ -97,6 +97,10 @@ struct HistoryCalendarView: View {
         } else if let error = vm.errorMessage {
             // F-HI-03：失败与空态分流，可读展示 + 重试。
             VStack(spacing: Spacing.lg) {
+                if vm.unreadableTwoBallCount > 0 {
+                    Text("有 \(vm.unreadableTwoBallCount) 条两球走位记录暂时无法读取，原记录已保留。")
+                        .font(.btFootnote).foregroundStyle(.btTextSecondary)
+                }
                 if vm.unreadableSeparationCount > 0 {
                     Text("有 \(vm.unreadableSeparationCount) 条分离角记录暂时无法读取，原记录已保留。")
                 }
@@ -331,6 +335,17 @@ struct HistoryCalendarView: View {
                 Spacer()
             }.padding(Spacing.lg).background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.lg))
                 .accessibilityIdentifier("history.accuracy")
+        case .twoBall(let record):
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "scope").foregroundStyle(.btPrimary)
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text(record.displayName + " · 模拟练习").font(.btHeadline)
+                    Text(record.historyDetail)
+                        .font(.btFootnote).foregroundStyle(.btTextSecondary)
+                }
+                Spacer()
+            }.padding(Spacing.lg).background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.lg))
+                .accessibilityIdentifier("history.twoBall")
         case .separation(let record):
             HStack(spacing: Spacing.md) {
                 Image(systemName: "scope").foregroundStyle(.btPrimary)

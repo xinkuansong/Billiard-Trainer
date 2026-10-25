@@ -5,7 +5,7 @@ extension TablePreferencePage {
     var fields: Set<TablePreferenceField> {
         switch self {
         case .sceneAiming2D, .sceneAiming3D: return [.grid]
-        case .separationPractice2D, .separationPractice3D: return [.grid, .transparency, .rehearsal]
+        case .separationPractice2D, .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D: return [.grid, .transparency, .rehearsal]
         case .accuracy2D, .accuracy3D: return [.grid, .transparency, .closeup]
         case .aimPointScene2D, .aimPointScene3D: return [.grid, .closeup]
         case .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas,

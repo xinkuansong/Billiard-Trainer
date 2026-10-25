@@ -35,13 +35,33 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         playsStroke = enabled
         defaults.set(enabled, forKey: strokePreferenceKey)
     }
+    // The preference now controls retention after a submission; the first-shot baseline is unconditional.
+    private var referencePreferenceKey: String { "separationPractice.\(is3D ? "3D" : "2D").keepsReferenceAfterSubmission" }
+    var shouldShowReference: Bool { record?.current != nil && (showsReference || record?.latestShot == nil) }
     func setShowsReference(_ enabled: Bool) {
         guard !isBusy else { return }
         showsReference = enabled
-        defaults.set(enabled, forKey: "separationPractice.\(is3D ? "3D" : "2D").showsReference")
-        if !enabled { clearReference(); topDownContentRevision += 1 }
-        else if phase != .settings { prepareReference() }
+        defaults.set(enabled, forKey: referencePreferenceKey)
+        if phase != .settings { prepareReference() }
     }
+    typealias QuestionPreparer = @Sendable (SceneTrainingConfiguration, Set<String>) throws -> SeparationQuestionGenerator.Prepared
+    private let prepareQuestion: QuestionPreparer
+    private struct NextQuestionKey: Equatable {
+        let sessionID: UUID, questionID: UUID
+        let ownerKey: String
+    }
+    private final class NextQuestionRequest {
+        let key: NextQuestionKey
+        let task: Task<SeparationQuestionGenerator.Prepared, Error>
+        var prepared: SeparationQuestionGenerator.Prepared?
+        init(key: NextQuestionKey, task: Task<SeparationQuestionGenerator.Prepared, Error>) {
+            self.key = key; self.task = task
+        }
+    }
+    private var nextQuestionRequest: NextQuestionRequest?
+    private var nextQuestionObserver: Task<Void, Never>?
+    @Published private(set) var nextQuestionReady = false
+    private var teachingActive = false
     private var repository: (any SeparationPracticeRepository)?
     private var generation = UUID()
     private var work: Task<Void, Never>?
@@ -71,7 +91,9 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
     var diagnostic: String {
         let payload: [String: Any] = ["phase": String(describing: phase), "question": record?.current?.id.uuidString ?? "",
             "input": [input.spinX, input.spinY, input.velocity], "attempts": record?.attempts.count ?? 0,
+            "inputAccessible": scene.cueAccessSnapshot?.isAvailable(spinX: Double(input.spinX), spinY: Double(input.spinY)) ?? false,
             "playsStroke": playsStroke, "isReplaying": isReplaying,
+            "nextQuestionReady": nextQuestionReady, "nextQuestionPending": nextQuestionRequest != nil,
             "cuePosition": scene.cueBallNode.map { [$0.position.x, $0.position.y, $0.position.z] } ?? [],
             "targetPosition": targetNode.map { [$0.position.x, $0.position.y, $0.position.z] } ?? [],
             "objectRouteVisible": !objectNodes.isEmpty,
@@ -89,6 +111,9 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
             "averageScore": record?.averageScore ?? -1,
             "questionAverageScore": record?.currentQuestionAverage() ?? -1,
             "latestScore": record?.latestShot?.score?.value ?? -1,
+            "scoreVersion": record?.latestShot?.score?.version ?? "",
+            "rmsDistanceCM": record?.latestShot?.score?.rmsDistanceCM ?? -1,
+            "scoreZeroReason": record?.latestShot?.score?.zeroReason?.rawValue ?? "",
             "spin": [record?.latestShot?.input.spinX ?? 0, record?.latestShot?.input.spinY ?? 0],
             "quota": limiter.questionsUsedToday, "audio": ShotSoundBank.shared.diagnostic]
         return (try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]))
@@ -112,14 +137,22 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         }
     }
     private var replayReturn: (Phase, BallDisplay, BallDisplay, PocketRailSnapshot)?
-    init(is3D: Bool, limiter: AngleUsageLimiter = .separationTraining, defaults: UserDefaults = .standard) {
+    init(is3D: Bool, limiter: AngleUsageLimiter = .separationTraining, defaults: UserDefaults = .standard,
+         prepareQuestion: @escaping QuestionPreparer = { configuration, excluding in
+             try SeparationQuestionGenerator.prepare(configuration, excluding: excluding)
+         }) {
         self.is3D = is3D; self.limiter = limiter; self.defaults = defaults
+        self.prepareQuestion = prepareQuestion
         playsStroke = defaults.object(forKey: "separationPractice.\(is3D ? "3D" : "2D").playsStroke") as? Bool ?? true
-        showsReference = defaults.object(forKey: "separationPractice.\(is3D ? "3D" : "2D").showsReference") as? Bool ?? true
+        showsReference = defaults.object(forKey: "separationPractice.\(is3D ? "3D" : "2D").keepsReferenceAfterSubmission") as? Bool ?? false
         cameraMode = is3D ? .perspective3D : .topDown2D
     }
+    deinit {
+        nextQuestionRequest?.task.cancel()
+        nextQuestionObserver?.cancel()
+    }
     var route: String { is3D ? "separationPractice3D" : "separationPractice2D" }
-    var title: String { is3D ? "3D分离角练习" : "2D分离角练习" }
+    var title: String { is3D ? "3D分离角" : "2D分离角" }
     var preferencePage: TablePreferencePage { is3D ? .separationPractice3D : .separationPractice2D }
     var targetNode: SCNNode? { scene.targetBallNodes.first }
     var selectedPocketIndex: Int { record?.current?.board.pocketIndex ?? 0 }
@@ -194,6 +227,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         guard limiter.isPremium || (!is3D && !configuration.freePractice && !limiter.isLimitReached) else {
             needsSubscription = true; return
         }
+        discardNextQuestion()
         do {
             checkpointTime()
             if var old = record, old.status == .active { old.status = .ended; try repository.save(old) }
@@ -207,6 +241,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
     }
     func setupScene() {
         guard !builtScene else { resumeTeachingActivity(); return }
+        teachingActive = true
         builtScene = true; scene.configureReferenceTableRendering()
         if is3D { scene.configureShotAwareCamera() }
         scene.setupScene(enhancedRendering: false); scene.setupVisualizationNodes()
@@ -232,7 +267,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         topDownContentRevision += 1
         drawTarget(); clearActual(); prepareReference()
         if record?.showingResult == true { showFinal(); drawActual(); phase = .result }
-        else { phase = .aiming; redrawCue() }
+        else { phase = .aiming; drawActual(showsObjectRoute: false); redrawCue() }
         refreshObservationCameraContext()
         if is3D {
             requestPlayerView(.thirdPerson, animated: false)
@@ -240,6 +275,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
                 scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: aim)
             }
         }
+        refreshNextQuestion()
     }
     /// Fixed geometric references belong to the question, like its target route.
     /// They do not predict a new shot or reveal the answer's tip / speed.
@@ -277,7 +313,10 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
     }
     /// A question-scoped baseline; never consumes player input, a submission, or an attempt.
     private func prepareReference() {
-        guard showsReference, builtScene, let question = record?.current else { return }
+        guard shouldShowReference else {
+            clearReference(); topDownContentRevision += 1; return
+        }
+        guard builtScene, teachingActive, let question = record?.current else { return }
         if referenceQuestionID != question.id {
             clearReference()
             referenceQuestionID = question.id
@@ -294,7 +333,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
             do {
                 let line = try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
                 guard let self, !Task.isCancelled, self.record?.current?.id == question.id,
-                      self.showsReference, self.referenceQuestionID == question.id else { return }
+                      self.shouldShowReference, self.referenceQuestionID == question.id else { return }
                 self.referenceTrajectory = line
                 self.scene.addDashedPolyline(self.points(line), color: SeparationRouteStyle.reference,
                     placement: .table, into: &self.referenceNodes)
@@ -309,7 +348,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
                 // The owner of cancellation resets referenceWork; no stale callback may replace it.
             } catch {
                 guard let self, !Task.isCancelled, self.record?.current?.id == question.id,
-                      self.showsReference, self.referenceQuestionID == question.id else { return }
+                      self.shouldShowReference, self.referenceQuestionID == question.id else { return }
                 self.referenceWork = nil
                 self.message = "中杆参考轨迹未能生成：" + error.localizedDescription
             }
@@ -325,11 +364,15 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         objectNodes.forEach { $0.removeFromParentNode() }; objectNodes = []
         drawAimingGuides()
     }
-    private func drawActual() {
+    private func drawActual(showsObjectRoute: Bool = true) {
+        prepareReference()
         clearActual()
+        topDownContentRevision += 1
+        guard record?.latestShot != nil else { return }
         scene.addDashedPolyline(points(record?.latestShot?.trajectory ?? []), color: SeparationRouteStyle.actual,
             placement: .table, into: &actualNodes)
         actualNodes.forEach { $0.name = "separation.actual" }
+        guard showsObjectRoute else { return }
         scene.pocketLineNode?.isHidden = true
         scene.addDashedPolyline(points(record?.latestShot?.objectTrajectory ?? []),
             color: TrajectoryStyle.potColor(forNumber: record?.current?.ballNumber ?? 1),
@@ -389,6 +432,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         }
         catch { phase = .saveFailed; message = "未能保存本杆，请重试保存；尚未扣除题数。"; return }
         record = next; self.pendingShot = nil; accountForSavedAttempts()
+        refreshNextQuestion()
         if pendingShot.isTrajectoryOnly {
             scene.hideCueStick(); drawActual(); phase = .result
             refreshObservationCameraContext()
@@ -493,7 +537,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         guard canRetry, permitted(), let shot = record?.latestShot else { return }
         invalidate(); record?.draftInput = shot.input; record?.showingResult = false
         solvedAim = shot.direction.vector; phase = .aiming
-        seatBalls(); clearActual()
+        seatBalls(); drawActual(showsObjectRoute: false)
         if let shotCamera { scene.restorePerspectiveView(shotCamera) }
         else if let saved = record?.shotBookmark, let cue = scene.cueBallNode?.position {
             scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: shot.direction.vector)
@@ -509,51 +553,133 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
     func stopPlayback() {
         guard isReplaying else { return }
         invalidate()
-        if phase == .aiming { clearActual(); redrawCue() }
+        if phase == .aiming { drawActual(showsObjectRoute: false); redrawCue() }
     }
     private func restoreReplay() {
         guard let state = replayReturn else { return }
         state.1.restore(scene.cueBallNode); state.2.restore(targetNode)
         replayCamera.finish(in: scene); phase = state.0; record?.showingResult = state.0 == .result
         replayReturn = nil; isReplaying = false
-        if phase == .aiming { clearActual() }
+        if phase == .aiming { drawActual(showsObjectRoute: false) }
     }
-    func next() {
-        guard phase == .result else { return }
-        if shouldFinish { finish(); return }
-        guard permitted(newQuestion: true), let old = record else { return }
-        invalidate(); let token = generation; phase = .preparing
-        work = Task {
-            let worker = Task.detached(priority: .userInitiated) {
-                try SeparationQuestionGenerator.prepare(old.configuration, excluding: Set(old.questions.map { $0.board.id }))
-            }
+    private var nextQuestionKey: NextQuestionKey? {
+        guard let record, let question = record.current, let repository,
+              repository.ownerKey == record.ownerKey else { return nil }
+        return .init(sessionID: record.id, questionID: question.id, ownerKey: record.ownerKey)
+    }
+    private var canPrepareNextQuestion: Bool {
+        guard teachingActive, phase != .settings, phase != .summary, phase != .loading,
+              let record, record.status == .active, nextQuestionKey != nil else { return false }
+        // Reserve the current unanswered question before speculating on another free question.
+        guard record.configuration.freePractice || (record.questionNumber < 20 && record.attempts.count < 20) else { return false }
+        if !limiter.isPremium {
+            guard !is3D, !record.configuration.freePractice else { return false }
+            return limiter.remainingToday > (record.currentAttempt == nil ? 1 : 0)
+        }
+        return true
+    }
+    private func discardNextQuestion() {
+        nextQuestionObserver?.cancel(); nextQuestionObserver = nil
+        nextQuestionRequest?.task.cancel(); nextQuestionRequest = nil
+        nextQuestionReady = false
+    }
+    /// A single speculative slot, never a recorded/charged question. Also called when rights change.
+    func refreshNextQuestion() {
+        guard canPrepareNextQuestion, let key = nextQuestionKey, let record else {
+            discardNextQuestion(); return
+        }
+        if nextQuestionRequest?.key == key { return }
+        discardNextQuestion()
+        let configuration = record.configuration, excluded = Set(record.questions.map { $0.board.id })
+        let prepare = prepareQuestion
+        let worker = Task.detached(priority: .utility) { try prepare(configuration, excluded) }
+        let request = NextQuestionRequest(key: key, task: worker)
+        nextQuestionRequest = request
+        nextQuestionObserver = Task { [weak self] in
             do {
-                let prepared = try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
-                guard !Task.isCancelled, generation == token, var next = record else { return }
-                guard prepared.fingerprint == next.bankFingerprint else { throw SeparationQuestionGenerator.Failure.incompatible }
-                checkpointTime(); next.activeSeconds = record?.activeSeconds ?? next.activeSeconds
-                let payloadSize = try next.encodedPayload().count
-                let segmentFull = next.configuration.freePractice &&
-                    (next.attempts.count >= 10 || payloadSize >= 512_000)
-                var archived: SeparationPracticeRecord?
-                if segmentFull {
-                    archived = next; archived?.status = .completed; archived?.updatedAt = Date()
-                    next = next.continuation(prepared: prepared)
-                } else { next.questions.append(prepared.question); next.cursor += 1 }
-                next.draftInput = .init()
-                next.latestShot = nil; next.showingResult = false; next.updatedAt = Date()
-                next.initialPoses = [:]; next.finalPoses = [:]
-                next.viewBookmark = nil; next.shotBookmark = nil
-                try repository?.saveAtomically(archived.map { [$0, next] } ?? [next])
-                record = next; shotPoses = nil; shotCamera = nil; solvedAim = nil; installQuestion()
+                let prepared = try await worker.value
+                guard !Task.isCancelled, let self, self.nextQuestionRequest === request else { return }
+                guard self.nextQuestionKey == key, self.canPrepareNextQuestion else {
+                    self.discardNextQuestion(); return
+                }
+                guard prepared.fingerprint == self.record?.bankFingerprint,
+                      !excluded.contains(prepared.question.board.id) else {
+                    self.discardNextQuestion(); return
+                }
+                request.prepared = prepared; self.nextQuestionReady = true
             } catch {
-                guard generation == token, !Task.isCancelled else { return }
-                phase = .result; message = error.localizedDescription
+                // Speculation is silent; a foreground Next may retry and surface its own failure.
+                guard !Task.isCancelled, let self, self.nextQuestionRequest === request else { return }
+                self.discardNextQuestion()
             }
         }
     }
+    func next() {
+        guard phase == .result else { return }
+        limiter.refreshDay()
+        if shouldFinish { finish(); return }
+        guard permitted(newQuestion: true) else { discardNextQuestion(); return }
+        refreshNextQuestion()
+        guard let request = nextQuestionRequest else { return }
+        invalidate(); let token = generation; phase = .preparing; message = nil
+        if let prepared = request.prepared {
+            // Ready questions advance synchronously: no second solver and no loading-frame round trip.
+            do { try installNextQuestion(prepared, request: request, token: token) }
+            catch { phase = .result; message = error.localizedDescription }
+        } else {
+            work = Task { [weak self] in
+                do {
+                    let prepared = try await request.task.value
+                    guard !Task.isCancelled, let self, self.generation == token else { return }
+                    try self.installNextQuestion(prepared, request: request, token: token)
+                } catch {
+                    guard !Task.isCancelled, let self, self.generation == token else { return }
+                    self.phase = .result
+                    if self.shouldFinish { self.finish(); return }
+                    guard self.permitted(newQuestion: true) else { self.discardNextQuestion(); return }
+                    if !(error is CancellationError) { self.message = error.localizedDescription }
+                }
+            }
+        }
+    }
+    private func installNextQuestion(_ prepared: SeparationQuestionGenerator.Prepared,
+                                     request: NextQuestionRequest, token: UUID) throws {
+        guard generation == token, nextQuestionKey == request.key else { return }
+        // Recheck after awaiting: quota, subscription and owner may change while generating.
+        limiter.refreshDay()
+        if shouldFinish { phase = .result; finish(); return }
+        guard permitted(newQuestion: true), teachingActive else {
+            discardNextQuestion(); phase = .result; return
+        }
+        guard var next = record, let repository else { return }
+        guard prepared.fingerprint == next.bankFingerprint,
+              !next.questions.contains(where: { $0.board.id == prepared.question.board.id }) else {
+            discardNextQuestion(); throw SeparationQuestionGenerator.Failure.incompatible
+        }
+        // A revoked and later restored entitlement can create a new request for the same key.
+        // Never resurrect the cancelled request simply because the question still matches.
+        guard nextQuestionRequest === request, !request.task.isCancelled else { phase = .result; return }
+        // Keep a valid result for a save retry; consume the slot only after the atomic save succeeds.
+        request.prepared = prepared; nextQuestionRequest = request; nextQuestionReady = true
+        checkpointTime(); next.activeSeconds = record?.activeSeconds ?? next.activeSeconds
+        let payloadSize = try next.encodedPayload().count
+        let segmentFull = next.configuration.freePractice && (next.attempts.count >= 10 || payloadSize >= 512_000)
+        var archived: SeparationPracticeRecord?
+        if segmentFull {
+            archived = next; archived?.status = .completed; archived?.updatedAt = Date()
+            next = next.continuation(prepared: prepared)
+        } else { next.questions.append(prepared.question); next.cursor += 1 }
+        next.draftInput = .init()
+        next.latestShot = nil; next.showingResult = false; next.updatedAt = Date()
+        next.initialPoses = [:]; next.finalPoses = [:]
+        next.viewBookmark = nil; next.shotBookmark = nil
+        try repository.saveAtomically(archived.map { [$0, next] } ?? [next])
+        discardNextQuestion()
+        record = next; shotPoses = nil; shotCamera = nil; solvedAim = nil; installQuestion()
+    }
     func finish() {
         guard !isBusy else { return }
+        discardNextQuestion()
         checkpointTime()
         guard var next = record else { return }
         next.status = !next.configuration.freePractice && next.attempts.count >= 20 ? .completed : .ended
@@ -583,11 +709,12 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
     }
     func openSettings() {
         guard !isBusy else { return }
+        discardNextQuestion()
         settingsReturnPhase = record == nil ? nil : phase; phase = .settings
     }
     func cancelSettings() -> Bool {
         guard let previous = settingsReturnPhase else { return false }
-        phase = previous; settingsReturnPhase = nil; return true
+        phase = previous; settingsReturnPhase = nil; refreshNextQuestion(); return true
     }
     private func showFinal() {
         guard let shot = record?.latestShot else { return }
@@ -657,6 +784,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         ShotAudioScheduler.shared.cancel(); restoreReplay()
     }
     func suspendTeachingActivity() {
+        teachingActive = false; discardNextQuestion()
         referenceWork?.cancel(); referenceWork = nil
         if is3D, !isReplaying, !temporaryTopDownActive { record?.viewBookmark = scene.cameraRig?.trainingBookmark() }
         let wasPlaying = phase == .playing && !isReplaying
@@ -664,11 +792,13 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         if wasPlaying { phase = .result; record?.showingResult = true; showFinal() }
         else if phase == .preparing || phase == .revealing {
             phase = record?.showingResult == true ? .result : .aiming
-            if phase == .aiming { seatBalls(); clearActual(); record?.showingResult = false }
+            if phase == .aiming { seatBalls(); drawActual(showsObjectRoute: false); record?.showingResult = false }
         }
         _ = save(); activeSince = nil
     }
     func resumeTeachingActivity() {
+        teachingActive = true
+        refreshNextQuestion()
         if phase != .summary { activeSince = Date() }
         limiter.refreshDay()
         guard builtScene else { return }
@@ -681,6 +811,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         else { activeSince = Date() }
     }
     func ownerChanged() {
+        discardNextQuestion()
         clearReference()
         invalidate(); draftSave?.cancel(); record = nil; pendingShot = nil; phase = .settings
         upgradeIntent = nil; shotPoses = nil; shotCamera = nil; solvedAim = nil

@@ -105,6 +105,21 @@ enum SeparationQuestionGenerator {
             return false
         }
     }
+    /// Admission policy for generated answers only; never changes a player's shot or score.
+    /// Resolve recorded collision IDs against the same production geometry used by ShotPredictor.
+    static func hasCueJawContact(_ prediction: ShotPrediction) -> Bool {
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        return prediction.events.contains { event in
+            guard case .ballCushion(let ball) = event.kind, ball == ShotInput.cueBallName else { return false }
+            // An unidentified collision cannot certify a jaw-free answer.
+            guard let index = event.cushionIndex, index >= 0 else { return true }
+            if geometry.linearCushions.indices.contains(index) {
+                return geometry.linearCushions[index].soundSurface == .jaw
+            }
+            // All production circular cushions are corner/side pocket nose fillets.
+            return true
+        }
+    }
     static func generate<R: RandomNumberGenerator>(board: TrainingBankBoard, configuration: SceneTrainingConfiguration,
         profile: [CueSection], random: inout R) throws -> SeparationQuestion? {
         let start = Date()
@@ -144,7 +159,8 @@ enum SeparationQuestionGenerator {
             audit.sampledInputs.append(input)
             do {
                 let prediction = try solve(board: board, input: input, surfaceY: surfaceY, profile: profile)
-                guard AccuracyShotJudgement.evaluate(prediction, pocketIndex: board.pocketIndex) == .success else {
+                guard AccuracyShotJudgement.evaluate(prediction, pocketIndex: board.pocketIndex) == .success,
+                      !hasCueJawContact(prediction) else {
                     audit.rejectedInputs += 1; continue
                 }
                 let line = try SeparationTrajectory.extract(prediction)

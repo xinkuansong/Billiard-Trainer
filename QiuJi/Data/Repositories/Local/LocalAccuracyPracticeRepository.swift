@@ -34,7 +34,12 @@ final class LocalAccuracyPracticeRepository {
               Set(record.attempts.map(\.id)).count == record.attempts.count,
               Set(record.attempts.map(\.questionID)).count == record.attempts.count,
               record.attempts.allSatisfy({ attempt in
-                  record.questions.contains { $0.id == attempt.questionID && $0.tip == attempt.tip }
+                  guard let question = record.questions.first(where: { $0.id == attempt.questionID }) else { return false }
+                  let actual = attempt.fixedTip, prescribed = question.fixedTip
+                  return actual.x.isFinite && actual.y.isFinite && actual.category == attempt.tip
+                      && hypot(actual.x, actual.y) <= CuePhysics.miscueLimitFraction + 1e-6
+                      && (record.configuration.allowsManualSideSpin || actual.x == prescribed.x)
+                      && (record.configuration.allowsManualVerticalSpin || actual.y == prescribed.y)
               }) else { throw Failure.invalidRecord }
         let data = try JSONEncoder().encode(record)
         let id = record.id

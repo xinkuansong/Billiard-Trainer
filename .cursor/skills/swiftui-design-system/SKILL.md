@@ -1674,3 +1674,7 @@ BTTablePlanningControls.allowsAssessmentAimCloseup默认false，仅准度显式�
 ### DR-419 · 准度特写2R参考圆及i提示
 
 准度特写的targetReferenceRadius=2×ballRadius，只是灰色空心几何基准，不在台面画圆、不填充或按碰撞变色。其他消费者默认nil。准度结果readout显式info.circle；设置说明使用同类图标，保留信息/错误/统计/进度语义。[合同](../../../tasks/table-page-adaptation/ACCURACY-POCKET-CLOSEUP-20261022.md)。
+
+### DR-428 · 准度逐轴打点权限
+
+2026-10-23用户确认准度击球设置默认开放两轴，与出题同名项互斥。BTTablePlanningControls.allowsVerticalSpinEditing/allowsSideSpinEditing及BTSpinPadCard/Overlay/SceneOverlay.allowsVerticalAdjustment/allowsSideAdjustment均默认true；准度另显式开启allowsAssessmentSpinEditing。共享默认不改其他页面；盘面与回中由宿主同样限制锁定轴，不能仅禁方向键。逐轴冻结、实际物理与记录合同见tasks/UI-IMPLEMENTATION-SPEC.md的DR-428及ACCURACY-SHOT-SETTINGS-20261023页面卡。

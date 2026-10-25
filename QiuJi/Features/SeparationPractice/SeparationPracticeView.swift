@@ -12,6 +12,7 @@ struct SeparationPracticeView: View {
 
     @State private var pocketOrientation: PocketDisplay.Orientation = .landscape
     @StateObject private var questionNotices = BTRuleNoticeCenter()
+    @StateObject private var resultNotices = BTRuleNoticeCenter()
 
     init(is3D: Bool) { _vm = StateObject(wrappedValue: SeparationPracticeViewModel(is3D: is3D)) }
     var body: some View {
@@ -51,14 +52,20 @@ struct SeparationPracticeView: View {
             }
         }
         .onAppear { vm.limiter.isPremium = subscriptionManager.isPremium; vm.attach(context: context) }
-        .onReceive(subscriptionManager.$isPremium) { vm.limiter.isPremium = $0 }
+        .onReceive(subscriptionManager.$isPremium) { vm.limiter.isPremium = $0; vm.refreshNextQuestion() }
+        .onChange(of: limiter.questionsUsedToday) { _, _ in vm.refreshNextQuestion() }
         .onChange(of: owner.ownerKey) { _, _ in vm.ownerChanged() }
 
         .onChange(of: vm.record?.current?.id, initial: true) { _, questionID in
             guard questionID != nil else { questionNotices.clear(); return }
             questionNotices.show(questionPrompt, tone: .info, priority: .selection)
         }
-        .onDisappear { questionNotices.clear() }
+        // Result feedback is an event, not a persistent copy of the sidebar.
+        .onChange(of: resultNoticeID, initial: true) { _, event in
+            guard event != nil else { resultNotices.clear(); return }
+            resultNotices.show(resultNoticeText, tone: .info, priority: .ruling)
+        }
+        .onDisappear { questionNotices.clear(); resultNotices.clear() }
         .overlay(alignment: .topLeading) {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-separation.probe") {
@@ -76,14 +83,23 @@ struct SeparationPracticeView: View {
     private var questionPrompt: String {
         "第\(vm.record?.questionNumber ?? 1)题 · 调整打点和力度 · \(PocketDisplay.name(index: vm.selectedPocketIndex, orientation: pocketOrientation))"
     }
+    private var resultNoticeID: String? {
+        guard (vm.phase == .result || vm.phase == .aiming || vm.phase == .saveFailed),
+              let shot = vm.record?.latestShot else { return nil }
+        return "\(shot.id.uuidString):\(vm.record?.showingResult == true)"
+    }
+    private var resultNoticeText: String {
+        vm.record?.showingResult == false
+            ? vm.outcomeText.replacingOccurrences(of: "本杆", with: "上杆") : vm.outcomeText
+    }
     private var information: [BTTeachingInformation] {
         var result: [BTTeachingInformation] = []
         if questionNotices.message != nil {
             // Derive the label from the current orientation without restarting its timer.
             result.append(.init(text: questionPrompt, kind: .notice, identifier: "separation.question"))
         }
-        if vm.phase == .result {
-            result.append(.init(text: vm.outcomeText, kind: .readout, symbol: "info.circle", identifier: "separation.result"))
+        if resultNotices.message != nil, !hidesPendingScore, vm.record?.latestShot != nil {
+            result.append(.init(text: resultNoticeText, kind: .readout, symbol: "info.circle", identifier: "separation.result"))
         }
         return result
     }
@@ -94,7 +110,7 @@ struct SeparationPracticeView: View {
                 set: { tablePreferences.apply(.transparency, value: $0, to: vm.preferencePage) }),
             velocityRange: ShotTuning.velocityRange, instrumentsEnabled: vm.canAdjust,
             assessmentMode: true, allowsAssessmentSpinEditing: true, allowsAssessmentRehearsal: true,
-            defersStrikeAccessUntilSubmission: true,
+            defersStrikeAccessUntilSubmission: false,
             locksSceneInteraction: vm.isBusy, isAnimating: vm.isBusy, paletteEnabled: false,
             allowsPocketSelection: false, primaryTitle: vm.primaryTitle,
             primaryEnabled: (vm.isReplaying || !vm.isBusy || vm.phase == .saveFailed)
@@ -172,12 +188,15 @@ struct SeparationPracticeView: View {
             sidebarGroupGap
             VStack(spacing: compact ? 2 : Spacing.xs) {
                 routeLegend("目标", color: Color(SeparationRouteStyle.target), dash: SeparationRouteStyle.legendDash)
-                if vm.showsReference {
+                if vm.shouldShowReference {
                     routeLegend("参考", color: Color(SeparationRouteStyle.reference), dash: SeparationRouteStyle.legendDash)
                         .accessibilityIdentifier("separation.referenceLegend")
                         .accessibilityValue("中杆中力，无高低杆、无左右塞，杆速2.5")
                 }
-                routeLegend("实际", color: Color(SeparationRouteStyle.actual), dash: SeparationRouteStyle.legendDash)
+                if vm.record?.latestShot != nil {
+                    routeLegend("实际", color: Color(SeparationRouteStyle.actual), dash: SeparationRouteStyle.legendDash)
+                        .accessibilityIdentifier("separation.actualLegend")
+                }
             }
             sidebarGroupGap
             sidebarMetric("本题均分", value: vm.record?.currentQuestionAverage(

@@ -5,6 +5,165 @@ import SwiftData
 
 @MainActor
 final class SixTrainingUnifiedTests: XCTestCase {
+
+    func testAccuracySpinSettingsMutualExclusionPersistenceAndLegacyMigration() throws {
+        var settings = SceneTrainingConfiguration()
+        XCTAssertTrue(settings.allowsManualVerticalSpin); XCTAssertTrue(settings.allowsManualSideSpin)
+        XCTAssertFalse(settings.allowsVerticalSpin); XCTAssertFalse(settings.allowsSideSpin)
+        settings.allowsVerticalSpin = true
+        XCTAssertFalse(settings.allowsManualVerticalSpin); XCTAssertTrue(settings.allowsManualSideSpin)
+        settings.allowsSideSpin = true
+        XCTAssertFalse(settings.allowsManualSideSpin); XCTAssertTrue(settings.allowsVerticalSpin)
+        settings.allowsManualVerticalSpin = true
+        XCTAssertFalse(settings.allowsVerticalSpin); XCTAssertTrue(settings.allowsSideSpin)
+        settings.allowsManualSideSpin = true
+        XCTAssertFalse(settings.allowsSideSpin)
+        settings.allowsManualVerticalSpin = false; settings.allowsManualSideSpin = false
+        XCTAssertFalse(settings.allowsVerticalSpin); XCTAssertFalse(settings.allowsSideSpin)
+        let encoder = JSONEncoder(), decoder = JSONDecoder()
+        let restored = try decoder.decode(SceneTrainingConfiguration.self, from: encoder.encode(settings))
+        XCTAssertFalse(restored.allowsManualVerticalSpin); XCTAssertFalse(restored.allowsManualSideSpin)
+        for vertical in [false, true] {
+            for side in [false, true] {
+                var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: encoder.encode(settings)) as? [String: Any])
+                legacy.removeValue(forKey: "allowsManualVerticalSpin")
+                legacy.removeValue(forKey: "allowsManualSideSpin")
+                legacy["allowsVerticalSpin"] = vertical; legacy["allowsSideSpin"] = side
+                let migrated = try decoder.decode(SceneTrainingConfiguration.self, from: JSONSerialization.data(withJSONObject: legacy))
+                XCTAssertEqual(migrated.allowsVerticalSpin, vertical)
+                XCTAssertEqual(migrated.allowsSideSpin, side)
+                XCTAssertEqual(migrated.allowsManualVerticalSpin, !vertical)
+                XCTAssertEqual(migrated.allowsManualSideSpin, !side)
+                legacy["allowsManualVerticalSpin"] = true; legacy["allowsManualSideSpin"] = true
+                let conflicting = try decoder.decode(SceneTrainingConfiguration.self, from: JSONSerialization.data(withJSONObject: legacy))
+                XCTAssertEqual(conflicting.allowsManualVerticalSpin, !vertical)
+                XCTAssertEqual(conflicting.allowsManualSideSpin, !side)
+            }
+        }
+        let route = "accuracy-spin-test-" + UUID().uuidString
+        defer { UserDefaults.standard.removeObject(forKey: "sceneTraining.rules2.mixedDefaults." + route) }
+        settings.allowsSideSpin = true
+        settings.save(for: route)
+        let saved = SceneTrainingConfiguration.load(for: route)
+        XCTAssertTrue(saved.allowsSideSpin); XCTAssertFalse(saved.allowsManualSideSpin)
+        XCTAssertFalse(saved.allowsManualVerticalSpin); XCTAssertFalse(saved.allowsVerticalSpin)
+    }
+
+    func testAccuracySpinAxesPreservePrescribedTipAndRoundTripDraft() throws {
+        let prepared = try AccuracyPreparedRound.prepare(.init(), excluding: [], seed: 20261021)
+        for vertical in [false, true] {
+            for side in [false, true] {
+                var settings = SceneTrainingConfiguration()
+                settings.allowsManualVerticalSpin = vertical; settings.allowsManualSideSpin = side
+                var questions = prepared.questions
+                questions[0].exactTip = .init(x: 0.3, y: 0.2)
+                var record = try AccuracyPracticeRecord(ownerKey: "spin-test", is3D: false,
+                    configuration: settings, bankFingerprint: prepared.fingerprint, questions: questions)
+                let adjusted = try XCTUnwrap(record.constrainedTip(x: -1, y: -1))
+                if !vertical { XCTAssertEqual(adjusted.y, 0.2) }
+                if !side { XCTAssertEqual(adjusted.x, 0.3) }
+                XCTAssertLessThanOrEqual(hypot(adjusted.x, adjusted.y), CuePhysics.miscueLimitFraction + 1e-6)
+                XCTAssertNil(record.constrainedTip(x: .nan, y: 0))
+                record.draftTip = adjusted
+                let restored = try JSONDecoder().decode(AccuracyPracticeRecord.self, from: JSONEncoder().encode(record))
+                XCTAssertEqual(restored.currentTip.x, adjusted.x, accuracy: 1e-6)
+                XCTAssertEqual(restored.currentTip.y, adjusted.y, accuracy: 1e-6)
+                let attempt = try record.freezeAttempt()
+                XCTAssertEqual(attempt.fixedTip.x, adjusted.x, accuracy: 1e-6)
+                XCTAssertEqual(attempt.fixedTip.y, adjusted.y, accuracy: 1e-6)
+                record.draftTip = .center
+                XCTAssertEqual(try record.freezeAttempt().id, attempt.id)
+                XCTAssertEqual(try record.freezeAttempt().fixedTip, attempt.fixedTip)
+                var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(restored)) as? [String: Any])
+                legacy.removeValue(forKey: "draftTip")
+                let oldRecord = try JSONDecoder().decode(AccuracyPracticeRecord.self, from: JSONSerialization.data(withJSONObject: legacy))
+                XCTAssertEqual(oldRecord.currentTip, questions[0].fixedTip)
+            }
+        }
+    }
+
+    func testAccuracyManualSpinReachesPhysicsAndRetryInBothModes() async throws {
+        let prepared = try AccuracyPreparedRound.prepare(.init(), excluding: [], seed: 20261021)
+        for is3D in [false, true] {
+            let container = ModelContainerFactory.makeInMemoryContainer()
+            let vm = AccuracyPracticeViewModel(is3D: is3D)
+            let wasPremium = vm.limiter.isPremium
+            vm.limiter.isPremium = true
+            defer { vm.suspendTeachingActivity(); vm.limiter.isPremium = wasPremium }
+            vm.attach(context: ModelContext(container)); vm.setupScene()
+            let board = TrainingBankBoard(gridID: "manual-spin-fixture", seed: 1,
+                cue: SCNVector3(0, 0, -0.35), target: SCNVector3(0.15, 0, 0.25),
+                aim: SCNVector3(0.6, 0, 1.2), pocket: 0, angle: 20, side: 1,
+                cueBand: .short, pocketBand: .short, combinationID: "spin-fixture",
+                qualification: "test-only", generationAngle: 20)
+            var questions = prepared.questions
+            questions[0] = .init(board: board, selectedTip: .center)
+            // Exercise both mixed modes and both locked, including nonzero prescribed values.
+            for vertical in [false, true] {
+                for side in [false, true] {
+                    var settings = SceneTrainingConfiguration()
+                    settings.allowsManualVerticalSpin = vertical; settings.allowsManualSideSpin = side
+                    questions[0].exactTip = .init(x: 0.1, y: 0.2)
+                    vm.start(settings, prepared: .init(fingerprint: prepared.fingerprint, questions: questions))
+                    vm.cameraTransitionBusy = false
+                    vm.updateSpin(-0.15, -0.1)
+                    XCTAssertEqual(vm.tip.x, side ? -0.15 : 0.1, accuracy: 1e-6)
+                    XCTAssertEqual(vm.tip.y, vertical ? -0.1 : 0.2, accuracy: 1e-6)
+                }
+            }
+            questions[0].exactTip = .center
+            vm.start(.init(), prepared: .init(fingerprint: prepared.fingerprint, questions: questions))
+            vm.cameraTransitionBusy = false
+            vm.updateSpin(0.15, -0.2); vm.velocity = 1.8
+            let tip = vm.tip
+            XCTAssertEqual(tip.x, 0.15, accuracy: 1e-6); XCTAssertEqual(tip.y, -0.2, accuracy: 1e-6)
+            vm.suspendTeachingActivity(); vm.resumeTeachingActivity(); vm.cameraTransitionBusy = false
+            XCTAssertEqual(vm.tip, tip)
+            let direction = try XCTUnwrap(vm.currentPlayerAim)
+            let expected = ShotPredictor.simulateFree(cueBall: board.cue.vector, aimDir: direction,
+                velocity: 1.8, spinX: tip.x, spinY: tip.y, surfaceY: vm.scene.surfaceY,
+                balls: [.init(name: ShotInput.targetBallName, position: board.target.vector)],
+                recordedStrikeDirection: direction)
+            let center = ShotPredictor.simulateFree(cueBall: board.cue.vector, aimDir: direction,
+                velocity: 1.8, spinX: 0, spinY: 0, surfaceY: vm.scene.surfaceY,
+                balls: [.init(name: ShotInput.targetBallName, position: board.target.vector)],
+                recordedStrikeDirection: direction)
+            XCTAssertTrue(vm.scene.permitsCueStrike(aim: direction, spinX: Double(tip.x), spinY: Double(tip.y)), "Spin must remain reachable after suspension")
+            vm.strike()
+            XCTAssertNotEqual(vm.phase, .aiming, vm.message ?? "No strike message")
+            let deadline = Date().addingTimeInterval(20)
+            while vm.phase == .computing && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+            XCTAssertEqual(vm.phase, .playing)
+            XCTAssertEqual(vm.record?.currentAttempt?.fixedTip, tip)
+            let actual = try XCTUnwrap(vm.lastPrediction)
+            XCTAssertEqual(actual.cuePath.count, expected.cuePath.count)
+            for (a, b) in zip(actual.cuePath, expected.cuePath) { XCTAssertLessThan((a - b).length(), 1e-5) }
+            XCTAssertGreaterThan((try XCTUnwrap(actual.cuePath.last) - XCTUnwrap(center.cuePath.last)).length(), 0.01,
+                                 "Manual spin must change actual physical motion")
+            vm.suspendTeachingActivity(); vm.resumeTeachingActivity(); vm.cameraTransitionBusy = false
+            let first = try XCTUnwrap(vm.record?.currentAttempt)
+            vm.retry(); XCTAssertEqual(vm.tip, tip)
+            vm.updateSpin(-0.1, 0.25)
+            let retryTip = vm.tip
+            XCTAssertNotEqual(retryTip, tip)
+            vm.replayLastShot(); XCTAssertEqual(vm.tip, tip)
+            vm.stopPlayback(); XCTAssertEqual(vm.tip, retryTip)
+            vm.strike()
+            let retryDeadline = Date().addingTimeInterval(20)
+            while vm.phase == .computing && Date() < retryDeadline { try await Task.sleep(for: .milliseconds(20)) }
+            XCTAssertEqual(vm.phase, .playing); XCTAssertEqual(vm.tip, retryTip)
+            vm.suspendTeachingActivity(); vm.resumeTeachingActivity(); vm.cameraTransitionBusy = false
+            vm.retry(); XCTAssertEqual(vm.tip, retryTip)
+            XCTAssertEqual(vm.record?.currentAttempt?.id, first.id)
+            XCTAssertEqual(vm.record?.currentAttempt?.fixedTip, tip)
+            XCTAssertEqual(vm.record?.validAttempts.count, 1)
+            var advanced = try XCTUnwrap(vm.record)
+            try advanced.advance()
+            XCTAssertEqual(advanced.cursor, 1); XCTAssertNil(advanced.draftTip)
+            XCTAssertEqual(advanced.currentTip, advanced.current?.fixedTip)
+            withExtendedLifetime(container) {}
+        }
+    }
     func testAccuracyPocketHeightContinuityFromBothPageModesAcrossSixPockets() async throws {
         let bank = try TrainingBankStore.load()
         let prepared = try AccuracyPreparedRound.prepare(.init(), excluding: [], seed: 20261021)

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>走位第一球 · 随机500个球形</title>
+<style>
+:root{color-scheme:light;color:#203b37;background:#f5f6f1;font:16px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}
+*{box-sizing:border-box}body{margin:0}main{max-width:1400px;margin:auto;padding:24px}h1{font-size:25px;margin:0 0 4px}p{margin:6px 0}.muted{color:#5c716d}.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:20px 0}button,input{font:inherit;color:inherit}button,input[type=number]{padding:8px 12px;background:white;border:1px solid #b8c9c2;border-radius:7px;min-height:44px}button{cursor:pointer}button:disabled{opacity:.4;cursor:default}input[type=number]{width:88px}input[type=checkbox]{width:18px;height:18px}label{display:flex;align-items:center;gap:7px;min-height:44px}button:focus-visible,input:focus-visible{outline:3px solid #77a6dc;outline-offset:2px}.space{flex:1}.layout{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:22px;align-items:start}.figure{min-width:0}svg{width:100%;height:auto;display:block;border-radius:10px;background:#eef2eb}.detail{padding:18px;background:white;border-radius:10px}.detail h2{font-size:18px;margin:0 0 12px}.metric{padding:10px 0;border-top:1px solid #e0e6df}.metric span{display:block;color:#5c716d}.metric strong{font-size:25px;font-weight:600;font-variant-numeric:tabular-nums}.heading{font-size:20px;font-weight:600;margin-bottom:12px}.id{font-size:12px;overflow-wrap:anywhere}.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}.orange{color:#b85b0c}.foot{font-size:13px;color:#5c716d;margin-top:18px}a{color:#2865b3}
+@media(max-width:950px){.layout{grid-template-columns:1fr}.detail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 20px}.detail h2{grid-column:1/-1}.space{display:none}}
+@media(max-width:560px){main{padding:14px}h1{font-size:22px}.toolbar{gap:8px}.heading{font-size:18px}.metric strong{font-size:22px}}
+</style></head><body><main>
+<h1>走位第一球 · 随机500个球形</h1>
+<p id="intro" class="muted"></p>
+<div class="toolbar"><button id="previous" type="button">← 上一个</button><label>第 <input id="index" type="number" min="1" max="500" value="1" aria-label="球形序号"> / 500</label><button id="next" type="button">下一个 →</button><span class="space"></span><label><input id="lines" type="checkbox" checked>显示几何线路</label></div>
+<div id="heading" class="heading" aria-live="polite"></div>
+<div class="layout"><section class="figure"><svg id="board" viewBox="0 0 1000 580" role="img" aria-label="球形及目标袋口"></svg>
+<div class="legend"><span>白球＝母球</span><span>黄球＝第一目标球</span><span class="orange">橙圈＝目标袋口</span></div>
+<p id="identity" class="id muted"></p></section>
+<section class="detail"><h2>当前球形</h2><div class="metric"><span>切角</span><strong id="angle"></strong></div><div class="metric"><span>母球 → 目标球（中心距）</span><strong id="cue-distance"></strong></div><div class="metric"><span>目标球 → 下球点</span><strong id="object-distance"></strong></div><div class="metric"><span>指定袋口</span><strong id="pocket" style="font-size:20px"></strong></div></section></div>
+<p class="foot">可用键盘 ← → 翻页，或输入编号跳转。线路及空心假想球用于观察几何，不是模拟轨迹；当前只展示第一球，尚未添加第二目标球。<a href="samples.json" download>下载这500个球形的数据</a></p>
+</main><script>
+const DATA=__PAYLOAD__;
+const el=id=>document.getElementById(id),names=['左上角袋','右上角袋','左下角袋','右下角袋','上中袋','下中袋'];
+let index=0;
+const params=new URLSearchParams(location.hash.slice(1));
+index=Math.max(0,Math.min(DATA.count-1,(Number(params.get('n'))||1)-1));
+index=Math.floor(index);
+el('intro').textContent=`从采样后的 ${DATA.bankTotal.toLocaleString('en-US')} 个球形中等概率、不重复抽取；以下500个保持固定随机顺序。`;
+function draw(s){
+ const svg=el('board');svg.replaceChildren();const scale=335,cx=500,cy=290,r=DATA.geometry.radius*scale;
+ const xy=p=>[cx+p[0]*scale,cy+p[1]*scale];
+ const node=(tag,attrs,text)=>{const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,v);if(text!==undefined)n.textContent=text;svg.append(n);return n};
+ node('title',{},`球形${s.number}，${s.original.cut_degrees.toFixed(0)}度，目标${names[s.original.pocket]}`);
+ const L=DATA.geometry.length*scale,W=DATA.geometry.width*scale;
+ node('rect',{x:cx-L/2-16,y:cy-W/2-16,width:L+32,height:W+32,rx:16,fill:'#345e50'});
+ node('rect',{x:cx-L/2,y:cy-W/2,width:L,height:W,fill:'#c9dfcc'});
+ DATA.anchors.forEach((p,i)=>{const [x,y]=xy(p);node('circle',{cx:x,cy:y,r:12,fill:'#24443a'});node('text',{x,y:i<2||i===4?cy-W/2-31:cy+W/2+44,'text-anchor':'middle','font-size':20,fill:'#203b37'},names[i])});
+ const p=DATA.anchors[s.original.pocket],o=s.target,c=s.cue,dx=p[0]-o[0],dz=p[1]-o[1],d=Math.hypot(dx,dz);
+ const g=[o[0]-2*DATA.geometry.radius*dx/d,o[1]-2*DATA.geometry.radius*dz/d];
+ if(el('lines').checked){
+  for(const [a,b,dash] of [[c,g,'7 5'],[o,p,'none']]){const [x1,y1]=xy(a),[x2,y2]=xy(b);node('line',{x1,y1,x2,y2,stroke:'#b85b0c','stroke-width':2.5,'stroke-dasharray':dash})}
+  const [x,y]=xy(g);node('circle',{cx:x,cy:y,r,fill:'none',stroke:'#b85b0c','stroke-width':1.8});
+ }
+ const [px,py]=xy(p);node('circle',{cx:px,cy:py,r:17,fill:'none',stroke:'#b85b0c','stroke-width':4});
+ for(const [position,fill] of [[o,'#e6ad33'],[c,'#ffffff']]){const [x,y]=xy(position);node('circle',{cx:x,cy:y,r,fill,stroke:'#294039','stroke-width':1.5})}
+}
+function render(){
+ const s=DATA.samples[index];el('index').value=index+1;
+ el('previous').disabled=index===0;el('next').disabled=index===DATA.count-1;
+ el('heading').textContent=`球形 #${String(s.number).padStart(3,'0')} · ${s.original.cut_degrees.toFixed(0)}° · ${names[s.original.pocket]}`;
+ el('identity').textContent=s.id;el('angle').textContent=s.original.cut_degrees.toFixed(0)+'°';
+ el('cue-distance').textContent=(s.cueObjectDistance*100).toFixed(1)+' cm';
+ el('object-distance').textContent=(s.original.object_distance_metres*100).toFixed(1)+' cm';
+ el('pocket').textContent=names[s.original.pocket];draw(s);
+ history.replaceState(null,'','#n='+(index+1));
+}
+el('previous').onclick=()=>{if(index>0){index--;render()}};
+el('next').onclick=()=>{if(index<DATA.count-1){index++;render()}};
+function jump(){index=Math.max(0,Math.min(DATA.count-1,Math.floor(Number(el('index').value)||1)-1));render()}
+el('index').onchange=jump;el('index').onkeydown=e=>{if(e.key==='Enter')jump()};
+el('lines').onchange=()=>draw(DATA.samples[index]);
+document.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName))return;if(e.key==='ArrowLeft'){e.preventDefault();el('previous').click()}if(e.key==='ArrowRight'){e.preventDefault();el('next').click()}});
+render();
+</script></body></html>

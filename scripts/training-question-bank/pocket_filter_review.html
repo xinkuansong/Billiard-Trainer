@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>两球题库 · 1000 球形选袋审阅</title>
+<style>
+:root{color-scheme:light;--ink:#203b37;--original:#b85b0c;--compare:#2865b3;--muted:#5c716d}
+*{box-sizing:border-box}body{margin:0;background:#f5f6f1;color:var(--ink);font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}
+main{max-width:1360px;margin:auto;padding:26px}h1{font-size:25px;margin:0 0 6px}p{margin:6px 0}.sub{color:var(--muted)}
+button,input,select{font:inherit}button,select,input{border:1px solid #b8c9c2;border-radius:7px;background:white;color:var(--ink);padding:8px 12px}button{cursor:pointer}button:disabled{opacity:.4;cursor:default}button[aria-pressed=true]{background:#244b41;color:white;border-color:#244b41}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #77a6dc;outline-offset:2px}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:20px 0}.spacer{flex:1}input{width:78px}.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
+.figure{min-width:0}svg{display:block;width:100%;height:auto;background:#eef2eb;border-radius:10px}.legend{display:flex;gap:20px;flex-wrap:wrap;margin:10px 0}.original{color:var(--original)}.compare{color:var(--compare)}
+.sample-title{font-size:20px;font-weight:600;margin:0 0 12px}.detail{background:white;padding:20px;border-radius:10px}.detail h2{font-size:18px;margin:0 0 8px}.line{border-top:1px solid #dbe2dd;padding-top:12px;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}th,td{padding:8px 4px;border-bottom:1px solid #e2e8e4;text-align:right}th:first-child,td:first-child{text-align:left}td button{border:0;background:none;padding:4px 0;color:var(--compare)}.pass{color:#26734f}.fail{color:#9a4840}.badge{font-size:13px;color:var(--muted)}
+.reason{min-height:52px}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px}.metrics strong{display:block;font-size:22px}.id{overflow-wrap:anywhere;font-size:12px}.foot{margin-top:20px;color:var(--muted);font-size:13px}
+.feedback{background:#fff;border:1px solid #dbe2dd;border-radius:10px;padding:12px 16px;margin:12px 0}.feedback .controls{margin:8px 0;gap:8px}.feedback input{width:min(420px,100%)}.feedback p{font-size:13px}.feedback button{min-height:44px}#disagree[aria-pressed=true]{background:#a1463a;border-color:#a1463a}.feedback a{color:var(--compare)}
+@media(max-width:950px){.layout{grid-template-columns:1fr}.detail{padding:16px}.spacer{display:none}}
+@media(max-width:560px){main{padding:14px}h1{font-size:22px}.controls{gap:7px}.controls button{padding:8px}.sample-title{font-size:17px}}
+</style>
+</head>
+<body><main>
+<h1>第一杆选袋 · 1,000 个球形审阅</h1>
+<p class="sub" id="intro"></p>
+<p>筛选规则：其他袋的切角至少小 <b>15°</b>，距离至少短 <b>30 cm</b>，且缩短至少 <b>25%</b>，三项同时满足才“不通过”。</p>
+<div class="controls">
+<button type="button" id="keep" aria-pressed="true"></button><button type="button" id="drop" aria-pressed="false"></button>
+<span class="spacer"></span><button type="button" id="previous">← 上一个</button>
+<label>组内第 <input id="index" type="number" min="1" value="1" aria-label="组内球形序号"> <span id="total"></span></label>
+<button type="button" id="next">下一个 →</button>
+</div>
+<div class="sample-title" id="heading" aria-live="polite"></div>
+<section class="feedback" aria-label="人工反馈">
+<strong>这个筛选结论符合你的判断吗？</strong>
+<div class="controls"><button id="agree" type="button" aria-pressed="true" disabled>符合</button><button id="disagree" type="button" aria-pressed="false" disabled>不符合</button><button id="confirm-next" type="button" disabled>确认并下一个 →</button><span id="feedback-state" role="status">正在读取反馈…</span></div>
+<label>原因（可选） <input id="feedback-note" maxlength="1000" placeholder="例如：角度改善不够明显" aria-label="反馈原因"></label>
+<p class="sub">符合＝认可当前“通过 / 不通过”结论。默认符合；点击选项或“确认并下一个”才记录。普通翻页不确认。<span id="feedback-count"></span> <a id="feedback-export" download="pocket-review-feedback.json">导出反馈</a></p>
+</section>
+<div class="layout">
+<section class="figure">
+<svg id="board" viewBox="0 0 1000 580" role="img" aria-label="母球、目标球和两个袋口的几何线路"></svg>
+<div class="legend"><span class="original">━ 橙色：原指定袋</span><span class="compare">┄ 蓝色：对比袋</span><span>白球＝母球　黄球＝目标球　空心圈＝假想球</span></div>
+<p class="sub" id="conclusion"></p>
+<p class="id" id="identity"></p>
+</section>
+<section class="detail">
+<h2 id="compare-title">袋口对比</h2>
+<label>对比袋 <select id="candidate" aria-label="选择对比袋"></select></label>
+<p class="badge" id="choice-note"></p>
+<div class="line metrics"><div><span>原袋切角</span><strong id="angle-a"></strong></div><div><span>对比袋切角</span><strong id="angle-b"></strong></div><div><span>原袋距离</span><strong id="distance-a"></strong></div><div><span>对比袋距离</span><strong id="distance-b"></strong></div></div>
+<table class="line"><thead><tr><th>淘汰条件</th><th>实测差值</th><th>满足</th></tr></thead><tbody id="checks"></tbody></table>
+<p class="reason" id="pair-result"></p>
+<h2 class="line">六袋几何指标</h2>
+<table><thead><tr><th>袋口</th><th>切角</th><th>距离</th></tr></thead><tbody id="pockets"></tbody></table>
+</section>
+</div>
+<p class="foot">“通过”仅指未触发这条选袋筛选规则。沿用生成题库的下球点；只比较切角和目标球到下球点距离，图中线条不是物理轨迹。未评价袋角、旋转、力度或下一球走位。原题库未改动。</p>
+</main>
+<script>
+const DATA=__PAYLOAD__;
+const names=['左上角袋','右上角袋','左下角袋','右下角袋','上中袋','下中袋'];
+const el=id=>document.getElementById(id),fmt=(v,d=1)=>v.toFixed(d);
+let group='keep',index=0,candidate=0;const groups={keep:DATA.samples.filter(s=>s.status==='keep'),drop:DATA.samples.filter(s=>s.status==='drop')};
+el('intro').textContent=`从已有 ${DATA.bankTotal.toLocaleString()} 个筛选结果中等概率、不放回抽取；固定种子 ${DATA.seed}。本图册通过 ${DATA.counts.keep} 个，不通过 ${DATA.counts.drop} 个。`;
+for(const key of ['keep','drop']){el(key).textContent=(key==='keep'?'通过':'不通过')+` · ${groups[key].length}`;el(key).onclick=()=>{group=key;index=0;render(true)}}
+const current=()=>groups[group][index];
+const testMode=new URLSearchParams(location.search).get('test')==='1';
+const feedbackAPI='/api/feedback'+(testMode?'?test=1':'');
+const drafts={};let feedback={},feedbackReady=false,saving=false;
+el('feedback-export').href=feedbackAPI;
+function draft(s){return drafts[s.id]??(drafts[s.id]={agrees:feedback[s.id]?.agrees??true,note:feedback[s.id]?.note??''});}
+function renderFeedback(){
+ const s=current(),d=draft(s),saved=feedback[s.id];
+ el('agree').setAttribute('aria-pressed',String(d.agrees));el('disagree').setAttribute('aria-pressed',String(!d.agrees));
+ el('feedback-note').value=d.note;
+ for(const id of ['agree','disagree','confirm-next','feedback-note'])el(id).disabled=!feedbackReady||saving;
+ el('confirm-next').textContent=index===groups[group].length-1?'确认本题':'确认并下一个 →';
+ el('feedback-state').textContent=!feedbackReady?'反馈服务未连接，正在读取…':saving?'保存中…':saved&&saved.agrees===d.agrees&&saved.note===d.note?'已保存 · '+(d.agrees?'符合':'不符合'):saved?'有修改，待确认':'尚未确认';
+ const records=Object.values(feedback);el('feedback-count').textContent=`${testMode?'【测试反馈，不计入正式审阅】 ':''}已确认 ${records.length} / ${DATA.count}，不符合 ${records.filter(r=>!r.agrees).length}。`;
+}
+async function saveFeedback(agrees,advance=false){
+ if(!feedbackReady||saving)return;
+ const s=current(),d=draft(s);d.agrees=agrees;saving=true;renderFeedback();
+ try{
+  const response=await fetch(feedbackAPI,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:s.id,sourceSHA256:DATA.sourceSHA256,agrees:d.agrees,note:d.note,comparedPocket:candidate})});
+  if(!response.ok)throw new Error('save');
+  feedback[s.id]=await response.json();saving=false;
+  if(advance&&current().id===s.id&&index<groups[group].length-1){index++;render(true)}else renderFeedback();
+ }catch{saving=false;renderFeedback();el('feedback-state').textContent='保存失败，请检查本地服务后重试；本题未确认。';}
+}
+el('agree').onclick=()=>saveFeedback(true);el('disagree').onclick=()=>saveFeedback(false);
+el('confirm-next').onclick=()=>saveFeedback(draft(current()).agrees,true);
+el('feedback-note').oninput=()=>{draft(current()).note=el('feedback-note').value;el('feedback-state').textContent='原因待保存，点击选项或确认后保存';};
+async function loadFeedback(){try{const response=await fetch(feedbackAPI,{cache:'no-store'});if(!response.ok)throw new Error('load');const data=await response.json();if(data.sourceSHA256!==DATA.sourceSHA256)throw new Error('dataset');feedback=data.records;for(const key of Object.keys(drafts))delete drafts[key];feedbackReady=true;renderFeedback();}catch{el('feedback-state').textContent='反馈服务未连接，请通过本地审阅服务打开并刷新。';}}
+function render(reset){
+const s=current(),a=s.original;
+if(reset){candidate=s.alternatives.length?s.alternatives[0].pocket:s.metrics.filter(m=>m.pocket!==a.pocket).sort((u,v)=>u.cut_degrees-v.cut_degrees||u.pocket-v.pocket)[0].pocket;}
+const b=s.metrics.find(m=>m.pocket===candidate);
+for(const key of ['keep','drop'])el(key).setAttribute('aria-pressed',key===group?'true':'false');
+el('index').value=index+1;el('index').max=groups[group].length;el('total').textContent=`/ ${groups[group].length}`;
+el('previous').disabled=index===0;el('next').disabled=index===groups[group].length-1;
+el('heading').textContent=`${group==='keep'?'通过':'不通过'} · 样本 #${String(s.number).padStart(4,'0')} · 原指定袋：${names[a.pocket]}`;
+el('identity').textContent=s.id;
+el('candidate').innerHTML=s.metrics.filter(m=>m.pocket!==a.pocket).map(m=>`<option value="${m.pocket}">${names[m.pocket]}${s.alternatives.some(v=>v.pocket===m.pocket)?' · 触发淘汰':''}</option>`).join('');el('candidate').value=candidate;
+el('choice-note').textContent=s.status==='drop'?'默认展示按袋口编号排序的首个淘汰依据，可切换查看其他袋。':'默认对比切角最小的其他袋；这不表示它是最佳袋。';
+el('angle-a').textContent=fmt(a.cut_degrees)+'°';el('angle-b').textContent=fmt(b.cut_degrees)+'°';
+el('distance-a').textContent=fmt(a.object_distance_metres*100)+' cm';el('distance-b').textContent=fmt(b.object_distance_metres*100)+' cm';
+const angle=a.cut_degrees-b.cut_degrees,dist=a.object_distance_metres-b.object_distance_metres,ratio=dist/a.object_distance_metres;
+const conditions=[['切角减少 ≥15°',fmt(angle,2)+'°',angle+1e-9>=15],['距离缩短 ≥30 cm',fmt(dist*100,2)+' cm',dist+1e-12>=.3],['距离缩短 ≥25%',fmt(ratio*100,2)+'%',b.object_distance_metres<=a.object_distance_metres*.75+1e-12]];
+el('checks').innerHTML=conditions.map(([label,value,ok])=>`<tr><td>${label}</td><td>${value}</td><td class="${ok?'pass':'fail'}">${ok?'是':'否'}</td></tr>`).join('');
+el('pair-result').textContent=conditions.every(c=>c[2])?'该对比袋同时满足三项条件，构成原指定袋不通过的依据。':'该对比袋未同时满足三项条件，不能据此淘汰原指定袋。';
+el('conclusion').textContent=s.status==='keep'?'其余五个袋均没有同时满足三项改善条件，保留原指定袋。':`符合淘汰条件的替代袋：${s.alternatives.map(m=>names[m.pocket]).join('、')}。`;
+el('pockets').innerHTML=s.metrics.map(m=>`<tr><td>${m.pocket===a.pocket?names[m.pocket]+'（原）':`<button type="button" data-pocket="${m.pocket}">${names[m.pocket]}${m.pocket===candidate?' ✓':''}</button>`}</td><td>${fmt(m.cut_degrees)}°</td><td>${fmt(m.object_distance_metres*100)} cm</td></tr>`).join('');
+el('pockets').querySelectorAll('button').forEach(btn=>btn.onclick=()=>{candidate=Number(btn.dataset.pocket);render(false)});
+draw(s,b);
+renderFeedback();
+}
+function draw(s,b){
+const svg=el('board');const scale=335,cx=500,cy=290;const xy=p=>[cx+p[0]*scale,cy+p[1]*scale],r=DATA.geometry.radius*scale;
+const node=(tag,attrs,text)=>{const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,v);if(text!==undefined)n.textContent=text;svg.append(n);return n;};svg.replaceChildren();
+node('title',{},`样本${s.number}，原袋${names[s.original.pocket]}，对比${names[b.pocket]}`);
+const L=DATA.geometry.length*scale,W=DATA.geometry.width*scale;
+node('rect',{x:cx-L/2-16,y:cy-W/2-16,width:L+32,height:W+32,rx:16,fill:'#345e50'});
+node('rect',{x:cx-L/2,y:cy-W/2,width:L,height:W,fill:'#c9dfcc'});
+DATA.anchors.forEach((p,i)=>{const [x,y]=xy(p);node('circle',{cx:x,cy:y,r:12,fill:'#24443a'});node('text',{x,y:i<2||i===4?cy-W/2-31:cy+W/2+44,'text-anchor':'middle','font-size':20,fill:'#203b37'},names[i]);});
+for(const [m,color,dash] of [[s.original,'#b85b0c',null],[b,'#2865b3','10 7']]){
+const p=DATA.anchors[m.pocket],o=s.target,c=s.cue,dx=p[0]-o[0],dz=p[1]-o[1],len=Math.hypot(dx,dz),g=[o[0]-2*DATA.geometry.radius*dx/len,o[1]-2*DATA.geometry.radius*dz/len];
+for(const [from,to,width] of [[c,g,2],[o,p,3]]){const [x1,y1]=xy(from),[x2,y2]=xy(to);const attrs={x1,y1,x2,y2,stroke:color,'stroke-width':width};if(dash)attrs['stroke-dasharray']=dash;node('line',attrs);}
+const [gx,gy]=xy(g),[px,py]=xy(p);node('circle',{cx:gx,cy:gy,r,fill:'none',stroke:color,'stroke-width':2});node('circle',{cx:px,cy:py,r:17,fill:'none',stroke:color,'stroke-width':4});
+}
+for(const [p,fill] of [[s.target,'#e6ad33'],[s.cue,'#ffffff']]){const [x,y]=xy(p);node('circle',{cx:x,cy:y,r,fill,stroke:'#294039','stroke-width':1.5});}
+}
+el('previous').onclick=()=>{if(index>0){index--;render(true)}};el('next').onclick=()=>{if(index<groups[group].length-1){index++;render(true)}};
+function jump(){index=Math.max(0,Math.min(groups[group].length-1,Math.floor(Number(el('index').value)||1)-1));render(true)}
+el('index').onchange=jump;el('index').onkeydown=e=>{if(e.key==='Enter')jump()};el('index').onblur=()=>{if(Number(el('index').value)!==index+1)jump()};
+el('candidate').onchange=()=>{candidate=Number(el('candidate').value);render(false)};
+document.addEventListener('keydown',e=>{if(['INPUT','SELECT'].includes(document.activeElement.tagName))return;if(e.key==='ArrowLeft')el('previous').click();if(e.key==='ArrowRight')el('next').click();});
+render(true);
+loadFeedback();
+</script></body></html>

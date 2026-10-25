@@ -1,3 +1,11 @@
+<!-- DR-432 / 2026-10-25：覆盖DR-431；球库保留、分离角旧左栏、两球轨迹在切角下和图例后均分/最新；袋口短提示/亮色3秒，第二袋常亮；首条默认可击球。见UR-20261025-training-hud-feedback。 -->
+<!-- 2026-10-25 六入口可行打点：分离角/两球走位 defersStrikeAccessUntilSubmission=false；准度沿默认false和逐轴权限。复用当前scene快照与最终提交守卫；见SIX-PRACTICE-SPIN-ACCESS-20261025。 -->
+<!-- DR-431 / 2026-10-25：分离角/两球2D3D短标题、进度→均分→切角→图例；结果集中ⓘ，两球目标袋常驻；六入口答题标签，见UR-20261025-training-hud。 -->
+<!-- DR-429 / 2026-10-24：分离角中杆参考名称不变/default关闭；首杆前始终参考，提交后按开关保留；重打/回放/恢复保留最新实际，见页面卡§25。 -->
+<!-- DR-428 / 2026-10-23：准度新增击球设置，逐轴与出题互斥；实际打点贯穿保存/物理/重打/回放，见页面合同。 -->
+<!-- DR-427 / 2026-10-23：分离角新目标答案排除母球袋角碰撞；首题/预缓存共用，用户实际轨迹/评分及已冻结题不变；页面卡§23。 -->
+<!-- DR-426 / 2026-10-23：分离角2D/3D单题预生成缓存；首题不变，末题/免费额度预留、退出取消、消费前权益复核，见页面卡§22。 -->
+<!-- DR-424 / 2026-10-23：分离角新提交母球落袋或目标球未进指定袋0分，结果沿用本杆得分＋失败原因，均分纳入0；未接触也按未进袋0分，原冻结评分不追溯；布局不变，见页面卡§20。 -->
 <!-- DR-423 r2 / 2026-10-23：SceneTrainingSettings.centerReference可选Binding默认nil，仅分离角传入；入口练习模式置顶，随后击球设置分组：击球在上、中杆参考在下，备注位于两项下方，默认开，草稿确认后按2D/3D保存，关闭同时隐藏参考线/图例；图例默认改参考。见分离角页面卡§19。 -->
 <!-- DR-423 / 2026-10-23：分离角默认中杆中力参考轨迹（0/0/2.5经补偿），准度特写灰色token、标准虚线；每题独立异步缓存不随调参变动。图例目标/默认/实际，移除厚薄文字行，保留切角和球图标；见页面卡§18。 -->
 <!-- DR-422 r3 / 2026-10-23：分离角正常进指定袋时结果只显示本杆得分；异常仍附未进袋/母球落袋，未碰球保留无法评分。2D/3D共用，详页面卡§17。 -->
@@ -3355,3 +3363,19 @@ Changelog（2026-10-19）：FL-164 r6，点选球的TableBallPulse结束后再�
 共享`SceneTrainingSettings<Batch>`通过prepareBatch异步准备已验证题库；旧四类便利入口抽基础资格，准度抽固定打点资格。五组选项采用非空集合，随机互斥、具体项可多选；原生popover点选保持、点击外部只关闭不穿透，取消草稿不修改正在进行的轮次。`showsSpinOptions`仅准度开启。
 
 Changelog：2026-10-20 / DR-415 / 新准度共享壳与多选设置API；来源ACCURACY-PRACTICE-PLAN-20261020，证据UR-20261020-training-multiselect.md。
+
+### DR-428 · 准度击球设置与逐轴编辑（2026-10-23）
+
+SceneTrainingConfiguration新增allowsManualVerticalSpin/allowsManualSideSpin，默认true；对应allowsVerticalSpin/allowsSideSpin双向互斥，仅开启触发，关闭不联动。旧配置按原出题轴保留，其余轴开放；确认开始才保存。SceneTrainingSettings仅准度增加击球设置，两组尾注及简化出题文案，沿用原生Section。
+
+BTTablePlanningControls新增allowsVerticalSpinEditing/allowsSideSpinEditing默认true，准度通过既有allowsAssessmentSpinEditing显式授权；BTSpinPadCard/Overlay/SceneOverlay新增allowsVerticalAdjustment/allowsSideAdjustment默认true控制方向键，宿主统一约束盘面、回中及锁定轴。AccuracyPracticeRecord.draftTip为可选兼容字段，实际打点随attempt冻结；保存层验证实际坐标与锁定轴，不再要求实际杆法分类等于题目分类。物理模拟、重打、回放使用冻结输入，首杆成绩不变。
+
+本决定覆盖DR-415的准度只读打点规则，不开放其他答案辅助。验证见[页面合同](table-page-adaptation/ACCURACY-SHOT-SETTINGS-20261023.md)。
+
+2026-10-23 DR-428补充：2D/3D准度出题在所选条件内自动调整比例时静默处理，不弹“练习提示”；保留原有抽题与真实失败处理。
+
+
+2026-10-25 DR-433：用户批准两球左栏参照分离角分组留白，2D/3D统一；自由走位改真实停点的球距v2/空间v3/角度v2等权几何平均百分制，均分统计首答，本题均分含重打，ⓘ点击显示三分项，旧难度字段保留且与新成绩独立。轨迹评分、生成端及原题库不改；当前验证状态以 `tasks/ui-reviews/UR-20261025-two-ball-comfort.md` 为准。
+
+
+DR434（2026-10-25）：三训练双维度结果提示复用BTRuleNoticeCenter，3秒自动消失，按成绩ID/结果-重打状态触发；侧栏不清，TwoBall侧栏成绩提供详情入口。

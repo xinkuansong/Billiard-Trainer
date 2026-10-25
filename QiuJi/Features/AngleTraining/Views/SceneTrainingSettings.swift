@@ -8,6 +8,8 @@ struct SceneTrainingSettings<Batch>: View {
     let showsSpinOptions: Bool
     private let strokePlayback: Binding<Bool>?
     private let centerReference: Binding<Bool>?
+    private let twoBallMode: Binding<TwoBallMode>?
+    @State private var draftMode: TwoBallMode
     @State private var draftShowsReference: Bool
     @State private var draftPlaysStroke: Bool
     let onStart: (SceneTrainingConfiguration, Batch) -> Void
@@ -22,9 +24,10 @@ struct SceneTrainingSettings<Batch>: View {
     @State private var generation: Task<Void, Never>?
     @State private var pendingFreePractice = false
     @State private var pendingStart = false
+    private var showsAccuracyShotSettings: Bool { route.hasPrefix("accuracy") && showsSpinOptions }
     init(route: String, configuration: SceneTrainingConfiguration, restarting: Bool,
          showsSpinOptions: Bool = false, strokePlayback: Binding<Bool>? = nil,
-         centerReference: Binding<Bool>? = nil,
+         centerReference: Binding<Bool>? = nil, twoBallMode: Binding<TwoBallMode>? = nil,
          prepareBatch: @escaping (SceneTrainingConfiguration) throws -> Batch,
          onStart: @escaping (SceneTrainingConfiguration, Batch) -> Void,
          onCancel: @escaping () -> Void) {
@@ -32,21 +35,50 @@ struct SceneTrainingSettings<Batch>: View {
         self.prepareBatch = prepareBatch; self.showsSpinOptions = showsSpinOptions
         _draft = State(initialValue: configuration)
         self.centerReference = centerReference
+        self.twoBallMode = twoBallMode; _draftMode = State(initialValue: twoBallMode?.wrappedValue ?? .trajectory)
         _draftShowsReference = State(initialValue: centerReference?.wrappedValue ?? true)
         self.strokePlayback = strokePlayback
         _draftPlaysStroke = State(initialValue: strokePlayback?.wrappedValue ?? true)
     }
     var body: some View {
         Form {
-            Section("练习模式") {
+            Section {
+                if twoBallMode != nil {
+                    Picker("走位模式", selection: $draftMode) {
+                        ForEach(TwoBallMode.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }.pickerStyle(.segmented).accessibilityIdentifier("twoBall.mode")
+                }
                 Picker("练习模式", selection: Binding(get: { draft.freePractice }, set: { requested in
                     if requested && !subscription.isPremium {
-                        pendingFreePractice = route.hasPrefix("separationPractice"); showSubscription = true
+                        pendingFreePractice = (route.hasPrefix("separationPractice") || route.hasPrefix("twoBallPractice")); showSubscription = true
                     }
                     else { draft.freePractice = requested }
                 })) {
                     Text("20题").tag(false); Text("自由练习").tag(true)
                 }.pickerStyle(.segmented).accessibilityIdentifier("training.length")
+            } header: {
+                Text("练习模式")
+            } footer: {
+                if route.hasPrefix("twoBallPractice") {
+                    explanation(draftMode == .trajectory
+                        ? "均分先汇总每题各轨迹的首答，再按题平均；跳过不计分，重打不覆盖首答。"
+                        : "按实际停点的球距、出杆空间和角度评0–100分，越高越好；均分统计首答，本题均分包含重打。")
+                } else if route.hasPrefix("separationPractice") {
+                    explanation("均分统计各题首答；本题均分统计本题历次出杆。重打不覆盖首答。")
+                }
+            }
+            if showsAccuracyShotSettings {
+                Section {
+                    Toggle("高低杆", isOn: $draft.allowsManualVerticalSpin)
+                        .accessibilityIdentifier("accuracy.manualVerticalSpin")
+                    Toggle("左右塞", isOn: $draft.allowsManualSideSpin)
+                        .accessibilityIdentifier("accuracy.manualSideSpin")
+                } header: {
+                    Text("击球设置")
+                } footer: {
+                    spinNote("注：开启后会自动关闭对应的出题设置。")
+                        .accessibilityIdentifier("accuracy.shotSettingsNote")
+                }
             }
             if strokePlayback != nil || centerReference != nil {
                 Section {
@@ -107,13 +139,18 @@ struct SceneTrainingSettings<Batch>: View {
             }
             if showsSpinOptions {
                 Section {
-                    Toggle("允许高低杆", isOn: $draft.allowsVerticalSpin)
+                    Toggle(showsAccuracyShotSettings ? "高低杆" : "允许高低杆", isOn: $draft.allowsVerticalSpin)
                         .accessibilityIdentifier("training.verticalSpin")
-                    Toggle("允许左右塞", isOn: $draft.allowsSideSpin)
+                    Toggle(showsAccuracyShotSettings ? "左右塞" : "允许左右塞", isOn: $draft.allowsSideSpin)
                         .accessibilityIdentifier("training.sideSpin")
-                } header: { Text("出题杆法") } footer: {
-                    explanation(route.hasPrefix("separationPractice") ? "影响目标轨迹的出题杆法。练习时可自由调整打点和力度，由系统补偿瞄准。" : "开启后，题目会指定相应打点。练习中只调整方向和力度，打点不可更改。")
-                        .accessibilityIdentifier("training.spinInfo")
+                } header: { Text(showsAccuracyShotSettings ? "出题设置" : "出题杆法") } footer: {
+                    if showsAccuracyShotSettings {
+                        spinNote("注：开启后会自动关闭对应的击球设置。")
+                            .accessibilityIdentifier("training.spinInfo")
+                    } else {
+                        explanation("影响目标轨迹的出题杆法。练习时可自由调整打点和力度，由系统补偿瞄准。")
+                            .accessibilityIdentifier("training.spinInfo")
+                    }
                 }
             }
             if let error {
@@ -130,7 +167,7 @@ struct SceneTrainingSettings<Batch>: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button(restarting ? "重新开始" : "开始训练", action: prepare)
-                    .disabled(preparing).accessibilityIdentifier(route.hasPrefix("separationPractice") ? "separation.start" : route.hasPrefix("accuracy") ? "accuracy.start" : (route.hasPrefix("aimPoint") ? "aimPointTraining.start" : "angleTraining.start"))
+                    .disabled(preparing).accessibilityIdentifier(route.hasPrefix("twoBallPractice") ? "twoBall.start" : (route.hasPrefix("separationPractice") || route.hasPrefix("twoBallPractice")) ? "separation.start" : route.hasPrefix("accuracy") ? "accuracy.start" : (route.hasPrefix("aimPoint") ? "aimPointTraining.start" : "angleTraining.start"))
             }
             ToolbarItem(placement: .cancellationAction) {
                 Button(restarting ? "取消" : "返回") { generation?.cancel(); onCancel() }
@@ -150,9 +187,14 @@ struct SceneTrainingSettings<Batch>: View {
             pendingFreePractice = false; pendingStart = false
         }) { SubscriptionView() }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active, route.hasPrefix("separationPractice") { generation?.cancel(); preparing = false }
+            if phase != .active, (route.hasPrefix("separationPractice") || route.hasPrefix("twoBallPractice")) { generation?.cancel(); preparing = false }
         }
         .onDisappear { generation?.cancel() }
+    }
+    private func spinNote(_ text: String) -> some View {
+        explanation(text)
+            .font(.btCaption2).foregroundStyle(.btTextSecondary)
+            .frame(maxWidth: .infinity, alignment: .trailing)
     }
     @ViewBuilder
     private func explanation(_ text: String) -> some View {
@@ -169,7 +211,7 @@ struct SceneTrainingSettings<Batch>: View {
         let limiter = AngleUsageLimiter.training(route: route)
         limiter.refreshDay(); limiter.isPremium = subscription.isPremium
         guard subscription.isPremium || (!draft.freePractice && !limiter.isLimitReached && !route.hasSuffix("3D")) else {
-            pendingStart = route.hasPrefix("separationPractice")
+            pendingStart = (route.hasPrefix("separationPractice") || route.hasPrefix("twoBallPractice"))
             showSubscription = true; return
         }
         preparing = true; error = nil
@@ -188,6 +230,7 @@ struct SceneTrainingSettings<Batch>: View {
             switch outcome {
             case .success(let questions):
                 configuration.save(for: route)
+                twoBallMode?.wrappedValue = draftMode
                 centerReference?.wrappedValue = draftShowsReference
                 strokePlayback?.wrappedValue = draftPlaysStroke
                 onStart(configuration, questions)

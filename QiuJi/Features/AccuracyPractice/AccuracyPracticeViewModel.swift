@@ -6,7 +6,6 @@ struct AccuracyPreparedRound {
     let fingerprint: String
     let questions: [AccuracyPracticeQuestion]
     var reusedPool = false
-    var samplingNotice: String? = nil
     static func prepare(_ configuration: SceneTrainingConfiguration) throws -> Self {
         try prepare(configuration, excluding: [])
     }
@@ -36,10 +35,9 @@ struct AccuracyPreparedRound {
             guard let tip = tips[board.id] else { throw TrainingQuestionBank.Failure.invalid("Missing feasible tip") }
             return .init(board: board, selectedTip: tip)
         }
-        let notice = batch.inaccessibleCombinations.isEmpty ? batch.distribution.notice
-            : "部分组合未找到允许的可用打点，本轮已在所选条件内重新分配比例。"
+        // Coverage is rebalanced within the selected conditions without interrupting practice.
         return .init(fingerprint: bank.sourceFingerprint, questions: questions,
-                     reusedPool: reused, samplingNotice: notice)
+                     reusedPool: reused)
     }
 }
 
@@ -117,7 +115,40 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     var selectableBalls: [SCNNode] { [] }
     var isDragging: Bool { false }
     var currentPlayerAim: SCNVector3? { record?.draftDirection.vector }
-    var tip: AccuracyTip { record?.current?.fixedTip ?? .center }
+    var allowsVerticalSpinEditing: Bool { record?.configuration.allowsManualVerticalSpin == true }
+    var allowsSideSpinEditing: Bool { record?.configuration.allowsManualSideSpin == true }
+    var tip: AccuracyTip {
+        if isReplaying, let shot = recordedShot { return shot.attempt.fixedTip }
+        if phase != .aiming, let attempt = practiceAttempt ?? record?.currentAttempt { return attempt.fixedTip }
+        return record?.currentTip ?? .center
+    }
+    var tipInstruction: String {
+        let base = record?.current?.fixedTip ?? .center
+        if allowsVerticalSpinEditing && allowsSideSpinEditing { return "打点可调" }
+        if allowsVerticalSpinEditing {
+            let fixed = base.x == 0 ? "无侧塞" : SpinDisplay.readout(spinX: Double(base.x), spinY: 0) + "固定"
+            return "高低杆可调 · \(fixed)"
+        }
+        if allowsSideSpinEditing {
+            let fixed = base.y == 0 ? "中杆" : SpinDisplay.readout(spinX: 0, spinY: Double(base.y)) + "固定"
+            return "左右塞可调 · \(fixed)"
+        }
+        return "指定\(base.label)"
+    }
+    func updateSpin(_ x: Double, _ y: Double) {
+        guard canAim, allowsVerticalSpinEditing || allowsSideSpinEditing,
+              let requested = record?.constrainedTip(x: x, y: y),
+              let access = scene.cueAccessSnapshot,
+              let corrected = access.constrained(spinX: Double(requested.x), spinY: Double(requested.y),
+                                                 allowSideAdjustment: allowsSideSpinEditing) else { return }
+        // Clearance correction cannot override a prescribed axis.
+        let base = record?.current?.fixedTip ?? .center
+        guard allowsSideSpinEditing || corrected.x == Double(base.x),
+              allowsVerticalSpinEditing || corrected.y == Double(base.y) else { return }
+        record?.draftTip = .init(x: Float(corrected.x), y: Float(corrected.y),
+                                raisedForClearance: requested.raisedForClearance)
+        redrawAim(); scheduleDraftSave()
+    }
     var velocity: Double {
         get { record?.draftVelocity ?? ShotTuning.defaultVelocity }
         set {
@@ -188,7 +219,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
                 configuration: configuration, bankFingerprint: prepared.fingerprint, questions: prepared.questions)
             try repository.save(next)
             invalidate()
-            record = next; lastPrediction = nil; recordedShot = nil; isRetrying = false; practiceAttempt = nil; phase = .aiming; message = prepared.samplingNotice
+            record = next; lastPrediction = nil; recordedShot = nil; isRetrying = false; practiceAttempt = nil; phase = .aiming; message = nil
             if builtScene { installQuestion() }
         } catch { message = error.localizedDescription }
     }
@@ -372,7 +403,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
             }]), forKey: "accuracy.clock")
         }
     }
-    /// Restore the original layout with the most recent strike's aim and power.
+    /// Restore the original layout with the most recent strike's aim, power and tip.
     /// The persisted first attempt remains the scoring source.
     func retry() {
         guard canRetry else { return }
@@ -381,6 +412,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         if let attempt = previousAttempt {
             record?.draftDirection = attempt.direction
             record?.draftVelocity = Double(attempt.velocity)
+            record?.draftTip = attempt.fixedTip
         }
         installQuestion()
     }
@@ -420,17 +452,15 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         do {
             guard var next = record else { return }
             var reusedPool = false
-            var samplingNotice: String?
             if next.cursor + 1 == next.questions.count {
                 let prepared = try AccuracyPreparedRound.prepare(next.configuration, excluding: Set(next.questions.map { $0.board.id }))
                 next.questions += prepared.questions
                 reusedPool = prepared.reusedPool
-                samplingNotice = prepared.samplingNotice
             }
             try next.advance()
             try repository?.save(next)
             invalidate(); record = next; lastPrediction = nil; recordedShot = nil; isRetrying = false; practiceAttempt = nil
-            message = reusedPool ? "当前条件下未练过的球形不足20题，已从当前题库重新抽取下一组。" : samplingNotice
+            message = reusedPool ? "当前条件下未练过的球形不足20题，已从当前题库重新抽取下一组。" : nil
             installQuestion()
         } catch { message = error.localizedDescription }
     }

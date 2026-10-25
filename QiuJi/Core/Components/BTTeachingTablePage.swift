@@ -16,6 +16,8 @@ struct BTTablePlanningControls {
     var allowsAssessmentAimCloseup = false
     /// Trajectory practice hides answer assists while retaining the normal editable tip disc.
     var allowsAssessmentSpinEditing = false
+    var allowsVerticalSpinEditing = true
+    var allowsSideSpinEditing = true
     var allowsAssessmentRehearsal = false
     /// An automatic aim is unresolved until submission, so its provisional cue pose
     /// cannot define the valid input domain. The host must validate the solved pose.
@@ -68,6 +70,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     /// Opt-in migration: notices and persistent teaching readouts retain distinct lifetimes.
     var information: [BTTeachingInformation]? = nil
     var usesStandardTitle = false
+    var fitsLongTitle = false
+    var showsPalette = true
     var onPocketOrientationChange: (PocketDisplay.Orientation) -> Void = { _ in }
     /// Paired instrument hosts receive the same dimensions and top anchor as the power column.
     var pairedLeftContent: ((BTTeachingInstrumentLayout) -> AnyView)? = nil
@@ -234,7 +238,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         let f = DailyLayoutMetrics.Foundation(size: size, leadingSafeArea: safe, trailingSafeArea: safe,
             halfLength: vm.scene.cameraRig?.tableOuterHalfLength ?? CameraRig.defaultTableOuterHalfLength,
             halfWidth: vm.scene.cameraRig?.tableOuterHalfWidth ?? CameraRig.defaultTableOuterHalfWidth,
-            instrumentHeight: DailyLayoutMetrics.Controls.initialInstrumentHeight, palette: reservation)
+            instrumentHeight: DailyLayoutMetrics.Controls.initialInstrumentHeight, palette: showsPalette ? reservation : nil)
         let plan = DailyLayoutMetrics.Palette(size: size, sideInset: side, table: f.table,
             targetCount: paletteKeys.count, chineseEightBall: true, obstacles: [
                 CGRect(x: side + windowControls.left, y: 0, width: 44, height: 44),
@@ -258,7 +262,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             }
             DailyTemplateHeader(size: size, safe: safe, foundation: f, plan: plan,
                 targets: paletteKeys, chineseEightBall: true, titleWidth: titleWidth, titleHeight: usesStandardTitle ? 34 : titleSize.height,
-                windowControlInsets: windowControls, fps: fps, showsDeviceStatus: !systemStatusVisible, keepsPaletteVisible: preservesPersonalControlLayout,
+                windowControlInsets: windowControls, fps: fps, showsDeviceStatus: !systemStatusVisible,
+                keepsPaletteVisible: preservesPersonalControlLayout, showsPalette: showsPalette,
                 title: { navigationTitle(compact: compactTitle) }, actions: {
                     Button { showSpinPad = false; menu = .settings } label: {
                         Image(systemName: BTIcon.menuCircle).font(.system(size: 22, weight: .medium))
@@ -404,7 +409,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             }.accessibilityLabel("返回").accessibilityIdentifier("\(identifier).back")
             Group {
                 if usesStandardTitle {
-                    BTTablePageTitle(titleLabel, width: 60, compact: compact)
+                    BTTablePageTitle(titleLabel, width: 60, compact: compact, fitsLongText: fitsLongTitle)
                 } else {
                     title()
                 }
@@ -614,6 +619,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             fixedCardExtent: layout.extent, discOpacity: planning.map { 1 - $0.transparency.wrappedValue } ?? 1,
             locksSideSpin: planning == nil,
             editingDisabled: planning.map { ($0.assessmentMode && !$0.allowsAssessmentSpinEditing) || !$0.instrumentsEnabled } ?? false,
+            allowsVerticalAdjustment: planning?.allowsVerticalSpinEditing ?? true,
+            allowsSideAdjustment: planning?.allowsSideSpinEditing ?? true,
             defersStrikeAccessUntilSubmission: planning?.defersStrikeAccessUntilSubmission ?? false,
             onSpinChange: planning?.onSpinChange,
             onClose: { showSpinPad = false })
@@ -859,6 +866,7 @@ struct BTTeachingInformation: Equatable {
     var identifier: String? = nil
     var expandedText: String? = nil
     var showsSymbol = true
+    var detailText: String? = nil
 
     var effectiveSymbol: String? { showsSymbol ? (symbol ?? (kind == .notice ? "info.circle" : nil)) : nil }
     func isVisible(spinPadPresented: Bool) -> Bool {
@@ -871,6 +879,7 @@ struct BTTeachingInformationLayer: View {
     @Environment(\.teachingTableLayout) private var layout
     @State private var naturalHeight: CGFloat = 1
     @State private var wideHeight: CGFloat = 1
+    @State private var selectedDetail: String?
     let items: [BTTeachingInformation]
 
     var body: some View {
@@ -884,11 +893,18 @@ struct BTTeachingInformationLayer: View {
             // beside a scrollable information column. This also leaves a clear
             // vertical region around horizontal aiming and defensive sight lines.
             let sideColumn = !expanded && wideHeight > topCapacity
-            let width = expanded ? lane.width : (sideColumn
+            // A portrait table often has ample room above the editor but only a
+            // few characters beside it. Use that full-width space when the
+            // measured readout fits; retain the side lane on short tables.
+            let aboveEditorHeight = max(0, layout.spinPadFrame.minY - layout.informationTop - Spacing.sm)
+            let aboveEditor = expanded && wideHeight <= aboveEditorHeight
+            let leading = (expanded && !aboveEditor) || sideColumn
+            let width = expanded && !aboveEditor ? lane.width : (sideColumn
                 ? max(44, fullWidth - BTAimCloseupHUD.defaultDiameter - Spacing.sm) : fullWidth)
-            let availableHeight = expanded || sideColumn ? lane.height : topCapacity
+            let availableHeight = aboveEditor ? aboveEditorHeight
+                : (expanded || sideColumn ? lane.height : topCapacity)
             ScrollView(.vertical) {
-                content(expanded: expanded, leading: expanded || sideColumn)
+                content(expanded: expanded, leading: leading)
                     .background(GeometryReader { geometry in
                         Color.clear.preference(key: BTTeachingInformationHeightKey.self, value: geometry.size.height)
                     })
@@ -925,17 +941,20 @@ struct BTTeachingInformationLayer: View {
                 }
             }
             .accessibilityIdentifier("teaching.informationViewport")
-            .allowsHitTesting(naturalHeight > availableHeight)
+            .allowsHitTesting(naturalHeight > availableHeight || items.contains { $0.detailText != nil })
+            .alert("评分详情", isPresented: Binding(get: { selectedDetail != nil }, set: { if !$0 { selectedDetail = nil } })) {
+                Button("知道了") { selectedDetail = nil }
+            } message: { Text(selectedDetail ?? "") }
             .onPreferenceChange(BTTeachingInformationHeightKey.self) { height in
                 if height.isFinite && height >= 0 { naturalHeight = height }
             }
             .onPreferenceChange(BTTeachingInformationWideHeightKey.self) { height in
                 if height.isFinite && height >= 0 { wideHeight = height }
             }
-            .padding(.leading, expanded ? lane.minX : (sideColumn ? layout.innerRect.minX + Spacing.md : 0))
+            .padding(.leading, leading ? lane.minX : 0)
             .padding(.top, layout.informationTop)
             .frame(width: layout.stageSize.width, height: layout.stageSize.height,
-                   alignment: expanded || sideColumn ? .topLeading : .top)
+                   alignment: leading ? .topLeading : .top)
         }
     }
 
@@ -955,6 +974,9 @@ struct BTTeachingInformationLayer: View {
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(item.text)
                     .accessibilityIdentifier(item.identifier ?? "teaching.information")
+                    .contentShape(Rectangle())
+                    .onTapGesture { if let detail = item.detailText { selectedDetail = detail } }
+                    .accessibilityAddTraits(item.detailText == nil ? [] : .isButton)
                 }
             }
         }

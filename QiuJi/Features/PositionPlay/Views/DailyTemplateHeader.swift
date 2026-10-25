@@ -16,6 +16,7 @@ struct DailyTemplateHeader<Title: View, Actions: View, Ball: View, Marker: View>
     let showsDeviceStatus: Bool
     var scrollsTargets = false
     var keepsPaletteVisible = false
+    var showsPalette = true
     @ViewBuilder var title: () -> Title
     @ViewBuilder var actions: () -> Actions
     @ViewBuilder var ball: (String, CGFloat, CGFloat) -> Ball
@@ -23,7 +24,7 @@ struct DailyTemplateHeader<Title: View, Actions: View, Ball: View, Marker: View>
 
     var body: some View {
         let scrollingFallback = keepsPaletteVisible && !plan.fits
-        let visiblePalette = plan.fits || scrollingFallback
+        let visiblePalette = showsPalette && (plan.fits || scrollingFallback)
         let paletteWidth = scrollingFallback ? max(44, min(plan.targetWidth, size.width - 2 * max(4, safe))) : plan.targetWidth
         let paletteHeight = scrollingFallback ? CGFloat(44) : plan.height
         let y = scrollingFallback ? max(66, foundation.table.minY - paletteHeight / 2) : foundation.table.minY - plan.height / 2
@@ -38,7 +39,7 @@ struct DailyTemplateHeader<Title: View, Actions: View, Ball: View, Marker: View>
         let titleRect = CGRect(x: max(4, safe) + windowControlInsets.left, y: 0,
                                width: 32 + titleWidth, height: 44)
         let statusFits = DailyDeviceStatus.fits(statusRect, in: CGRect(origin: .zero, size: size),
-            obstacles: [titleRect] + (plan.fits ? [paletteRect] : []), clearance: 2)
+            obstacles: [titleRect] + (showsPalette && plan.fits ? [paletteRect] : []), clearance: 2)
         return ZStack(alignment: .topLeading) {
             HStack(spacing: 4) {
                 title()
@@ -76,7 +77,7 @@ struct DailyTemplateHeader<Title: View, Actions: View, Ball: View, Marker: View>
             .background(paletteMarker())
             .opacity(visiblePalette ? 1 : 0).allowsHitTesting(visiblePalette).accessibilityHidden(!visiblePalette)
             .position(x: foundation.table.midX, y: y)
-            if plan.fits && plan.twoRows && chineseEightBall {
+            if showsPalette && plan.fits && plan.twoRows && chineseEightBall {
                 wing("_8", plan: plan)
                     .position(x: foundation.table.midX + plan.targetWidth / 2 + 4 + plan.wingWidth / 2, y: y)
             }

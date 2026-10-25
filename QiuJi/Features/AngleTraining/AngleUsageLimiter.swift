@@ -20,7 +20,9 @@ final class AngleUsageLimiter: ObservableObject {
     static let aimPointTraining = AngleUsageLimiter(namespace: "aimPoint2D")
     static let accuracyTraining = AngleUsageLimiter(namespace: "accuracy2D")
     static let separationTraining = AngleUsageLimiter(namespace: "separationPractice2D")
+    static let twoBallTraining = AngleUsageLimiter(namespace: "twoBallPractice2D")
     static func training(route: String) -> AngleUsageLimiter {
+        if route.hasPrefix("twoBallPractice") { return twoBallTraining }
         if route.hasPrefix("separationPractice") { return separationTraining }
         if route.hasPrefix("accuracy") { return accuracyTraining }
         if route.hasPrefix("aimPoint") { return aimPointTraining }

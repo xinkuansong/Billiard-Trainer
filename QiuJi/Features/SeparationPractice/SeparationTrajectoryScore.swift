@@ -67,33 +67,143 @@ enum SeparationTrajectoryMetric {
     }
 }
 
-/// Immutable score snapshot; no input, speed, pocket or cushion-count penalties.
+/// Full, order-preserving arc-length RMS distance. Coordinates are physical X/Z centimetres.
+/// The 1 cm midpoint grid is the same numerical approximation reviewed in the research atlas.
+enum SeparationArcRMSMetric {
+    typealias Point = SIMD2<Double>
+    struct Cell { let midpoint: Point; let end: Point; let length: Double }
+    struct Path { let start: Point; let cells: [Cell]; let length: Double }
+
+    static func sample(_ points: [Point]) throws -> Path {
+        try Task.checkCancellation()
+        try SeparationTrajectoryMetric.validate(points)
+        var lengths = [0.0]
+        for i in 1..<points.count {
+            lengths.append(lengths.last! + SeparationTrajectoryMetric.distance(points[i - 1], points[i]))
+        }
+        let total = lengths.last!
+        guard total.isFinite, ceil(total) < Double(Int.max) else { throw SeparationTrajectoryMetric.Failure.invalidInput }
+        if total == 0 { return .init(start: points[0], cells: [], length: 0) }
+        var cursor = 0
+        func at(_ s: Double) -> Point {
+            while cursor + 1 < points.count && lengths[cursor + 1] <= s { cursor += 1 }
+            if cursor == points.count - 1 { return points[cursor] }
+            let u = (s - lengths[cursor]) / (lengths[cursor + 1] - lengths[cursor])
+            return points[cursor] + (points[cursor + 1] - points[cursor]) * u
+        }
+        var cells: [Cell] = []
+        cells.reserveCapacity(Int(ceil(total)))
+        // Integer-indexed sampling avoids a non-advancing floating-point loop.
+        for i in 0..<Int(ceil(total)) {
+            try Task.checkCancellation()
+            let lo = Double(i), hi = min(lo + 1, total)
+            cells.append(.init(midpoint: at((lo + hi) / 2), end: at(hi), length: hi - lo))
+        }
+        return .init(start: points[0], cells: cells, length: total)
+    }
+
+    static func distance(_ a: Path, _ b: Path) throws -> Double {
+        try Task.checkCancellation()
+        if a.length + b.length == 0 { return SeparationTrajectoryMetric.distance(a.start, b.start) }
+        func squared(_ p: Point, _ q: Point) -> Double {
+            let d = p - q
+            return d.x * d.x + d.y * d.y
+        }
+        var previous = Array(repeating: 0.0, count: b.cells.count + 1), current = previous
+        for j in b.cells.indices {
+            previous[j + 1] = previous[j] + b.cells[j].length * squared(a.start, b.cells[j].midpoint)
+        }
+        for p in a.cells {
+            try Task.checkCancellation()
+            current[0] = previous[0] + p.length * squared(p.midpoint, b.start)
+            for j in b.cells.indices {
+                let q = b.cells[j]
+                current[j + 1] = min(
+                    previous[j + 1] + p.length * squared(p.midpoint, q.end),
+                    current[j] + q.length * squared(p.end, q.midpoint),
+                    previous[j] + (p.length + q.length) * squared(p.midpoint, q.midpoint))
+            }
+            swap(&previous, &current)
+        }
+        return sqrt(previous.last! / (a.length + b.length))
+    }
+}
+
+/// Immutable versioned score; legacy snapshots retain their original distance and grade.
 struct SeparationTrajectoryScore: Codable, Equatable {
-    static let algorithm = "arc512-dtw70-frechet30-t20-v1"
+    static let algorithm = "arc1cm-rms-p2-t20-potgate-v3"
+    static let legacyAlgorithm = "arc512-dtw70-frechet30-t20-potgate-v2"
+    enum ZeroReason: String, Codable { case cuePocketed, targetNotPotted }
+    var zeroReason: ZeroReason? = nil
     let version: String
-    let meanDTWCM: Double
-    let frechetCM: Double
-    let matchingLength: Int
+    let rmsDistanceCM: Double?
+    // Only legacy scores carry DTW/Fréchet diagnostics. New scores do not compute them.
+    let meanDTWCM: Double?
+    let frechetCM: Double?
+    let matchingLength: Int?
     let targetSampleCount: Int
     let actualSampleCount: Int
-    var distanceCM: Double { 0.7 * meanDTWCM + 0.3 * frechetCM }
-    var value: Double { 100 * exp2(-distanceCM / 20) }
+    var distanceCM: Double {
+        version == Self.algorithm ? rmsDistanceCM! : 0.7 * meanDTWCM! + 0.3 * frechetCM!
+    }
+    var value: Double { zeroReason != nil ? 0 : 100 * exp2(-distanceCM / 20) }
     var formatted: String { String(format: "%.1f", value) }
 
-    static func evaluate(target: [SeparationTrajectory.Point], actual: [SeparationTrajectory.Point]) throws -> Self? {
+    init(rmsDistanceCM: Double, targetSampleCount: Int, actualSampleCount: Int, zeroReason: ZeroReason? = nil) {
+        version = Self.algorithm; self.rmsDistanceCM = rmsDistanceCM; self.zeroReason = zeroReason
+        meanDTWCM = nil; frechetCM = nil; matchingLength = nil
+        self.targetSampleCount = targetSampleCount; self.actualSampleCount = actualSampleCount
+    }
+
+    init(version: String, meanDTWCM: Double, frechetCM: Double, matchingLength: Int,
+         targetSampleCount: Int, actualSampleCount: Int) {
+        precondition(version != Self.algorithm, "RMS scores require an RMS distance")
+        self.version = version; self.meanDTWCM = meanDTWCM; self.frechetCM = frechetCM
+        self.matchingLength = matchingLength; rmsDistanceCM = nil
+        self.targetSampleCount = targetSampleCount; self.actualSampleCount = actualSampleCount
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case zeroReason, version, rmsDistanceCM, meanDTWCM, frechetCM, matchingLength, targetSampleCount, actualSampleCount
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decode(String.self, forKey: .version)
+        zeroReason = try c.decodeIfPresent(ZeroReason.self, forKey: .zeroReason)
+        targetSampleCount = try c.decode(Int.self, forKey: .targetSampleCount)
+        actualSampleCount = try c.decode(Int.self, forKey: .actualSampleCount)
+        if version == Self.algorithm {
+            rmsDistanceCM = try c.decode(Double.self, forKey: .rmsDistanceCM)
+            meanDTWCM = nil; frechetCM = nil; matchingLength = nil
+        } else {
+            rmsDistanceCM = nil
+            meanDTWCM = try c.decode(Double.self, forKey: .meanDTWCM)
+            frechetCM = try c.decode(Double.self, forKey: .frechetCM)
+            matchingLength = try c.decode(Int.self, forKey: .matchingLength)
+        }
+        guard distanceCM.isFinite, distanceCM >= 0, targetSampleCount >= 0, actualSampleCount >= 0 else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Invalid trajectory score"))
+        }
+    }
+
+    static func evaluate(target: [SeparationTrajectory.Point], actual: [SeparationTrajectory.Point],
+                         cuePocketed: Bool = false, targetPotted: Bool = true) throws -> Self? {
+        try Task.checkCancellation()
+        if cuePocketed || !targetPotted {
+            // No distance comparison is required for a foul, including a scratch without contact.
+            // Zero sample counts distinguish these unused distance fields from measured similarity.
+            return .init(rmsDistanceCM: 0, targetSampleCount: 0, actualSampleCount: 0,
+                         zeroReason: cuePocketed ? .cuePocketed : .targetNotPotted)
+        }
         // No contact is not a stationary post-contact path.
         guard !target.isEmpty, !actual.isEmpty else { return nil }
-        func sampled(_ line: [SeparationTrajectory.Point]) throws -> [SIMD2<Double>] {
+        func sampled(_ line: [SeparationTrajectory.Point]) throws -> SeparationArcRMSMetric.Path {
             let points = line.map { SIMD2(Double($0.position.x) * 100, Double($0.position.z) * 100) }
-            // Older questions predate event annotations. Preserve their source vertices
-            // rather than silently cutting across an unlabelled cushion corner.
-            let anchors = line.contains { $0.isEvent != nil }
-                ? Set(line.indices.filter { line[$0].isEvent == true }) : Set(line.indices)
-            return try SeparationTrajectoryMetric.resample(points, mandatory: anchors)
+            // Interpolate on the full original polyline, including unannotated legacy corners.
+            return try SeparationArcRMSMetric.sample(points)
         }
         let p = try sampled(target), q = try sampled(actual)
-        let d = try SeparationTrajectoryMetric.compare(p, q)
-        return .init(version: algorithm, meanDTWCM: d.meanDTWCM, frechetCM: d.frechetCM,
-                     matchingLength: d.matchingLength, targetSampleCount: p.count, actualSampleCount: q.count)
+        let distance = try SeparationArcRMSMetric.distance(p, q)
+        return .init(rmsDistanceCM: distance, targetSampleCount: p.cells.count, actualSampleCount: q.cells.count)
     }
 }

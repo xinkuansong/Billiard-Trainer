@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>两球走位练习 · 筛选统计</title>
+<style>
+body{font:16px/1.6 system-ui;margin:32px auto;padding:0 24px;max-width:1100px;color:#203f35;background:#f6f8f4}h1{font-size:30px}section{background:white;border:1px solid #dae2d7;border-radius:12px;padding:20px;margin:18px 0}.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}label{display:block}select{display:block;width:100%;padding:10px;font:inherit;border:1px solid #a7bbae;border-radius:6px;background:white}table{border-collapse:collapse;width:100%}th,td{padding:10px;text-align:right;border-bottom:1px solid #e2e7df}th:first-child,td:first-child{text-align:left}.total{font-size:24px;font-weight:650;color:#087457}small{color:#597065}
+</style>
+<h1>两球走位练习 · 当前题库筛选统计</h1>
+<p>角度、球距、袋距、袋口与库边距离均针对<strong>第一颗目标球</strong>。每道题固定首杆布局和第二球位置，最多有5条推荐路线。</p>
+<section><h2>组合筛选</h2><div id="filters" class="filters"></div><p class="total" id="total" aria-live="polite"></p><small>“随机”包含全部分类；杆法开启表示允许该杆法，仍包含中杆。此处统计库存，App 出题时还会逐题进行物理重放验证。</small></section>
+<section><h2>各单项分布</h2><p>几何分布均以其他条件随机、两项杆法均允许计算；杆法表以全部几何条件随机计算。以下表格不会随上方筛选变化。</p><div id="tables"></div></section>
+<small>角度使用 App 的生成角分类，距离沿用共享题库分类，未重新定义筛选条件。离库 &gt;10cm 为补充分类，App 中没有单独选项。2D/3D、轨迹/自由走位共用题库。首杆布局数、题数与按题引用的路线数是不同口径。</small>
+<script>
+const data=__STATISTICS__;
+const titles=['首杆切角','母球到第一颗目标球','第一颗目标球到袋口','第一颗目标球的袋口','第一颗目标球离库','出题杆法'];
+const keys=Object.keys(data.axes),fmt=n=>n.toLocaleString('zh-CN');
+function sums(rows){return ['layouts','questions','recommendations'].map(k=>rows.reduce((n,r)=>n+r[k],0));}
+keys.forEach((key,i)=>{
+ const label=document.createElement('label');label.textContent=titles[i];const select=document.createElement('select');select.id=key;
+ if(key!=='spin')select.add(new Option('随机 · 全部',-1));
+ data.axes[key].forEach((s,v)=>{if(key!=='rail'||v!==0)select.add(new Option(s,v));});
+ if(key==='spin')select.value='3';label.append(select);document.querySelector('#filters').append(label);select.addEventListener('change',update);
+ const heading=document.createElement('h3');heading.textContent=titles[i];document.querySelector('#tables').append(heading);
+ const table=document.createElement('table');table.innerHTML='<tr><th>条件</th><th>首杆布局</th><th>题数</th><th>推荐路线</th></tr>';
+ data.axes[key].forEach((label,v)=>{const numbers=sums(data.cells.filter(r=>r[key]===v&&(key==='spin'||r.spin===3)));const tr=document.createElement('tr');[label,...numbers.map(fmt)].forEach(value=>{const td=document.createElement('td');td.textContent=value;tr.append(td)});table.append(tr)});document.querySelector('#tables').append(table);
+});
+function update(){const rows=data.cells.filter(r=>keys.every(k=>+document.getElementById(k).value===-1||r[k]===+document.getElementById(k).value));const [l,q,n]=sums(rows);document.querySelector('#total').textContent=`${fmt(q)} 道题 · ${fmt(n)} 条推荐路线 · ${fmt(l)} 个首杆布局`;}
+update();
+</script></html>

@@ -52,6 +52,41 @@ final class AccuracyPracticeRecordTests: XCTestCase {
         XCTAssertEqual(try run.freezeAttempt().velocity, attempt.velocity)
         XCTAssertEqual(try run.freezeAttempt().id, attempt.id)
     }
+    func testRepositoryAcceptsManualTipAndRejectsChangesToLockedAxes() throws {
+        let suite = "accuracy-spin-repository-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let owner = CurrentOwnerContext(defaults: defaults)
+        let container = ModelContainerFactory.makeInMemoryContainer()
+        let context = ModelContext(container)
+        let repo = LocalAccuracyPracticeRepository(context: context, owner: owner, enqueue: { _, _ in })
+        let template = try record(owner: owner.ownerKey)
+        for vertical in [false, true] {
+            for side in [false, true] {
+                var configuration = SceneTrainingConfiguration()
+                configuration.allowsManualVerticalSpin = vertical
+                configuration.allowsManualSideSpin = side
+                var questions = template.questions
+                questions[0].exactTip = .init(x: 0.1, y: 0.2)
+                var run = try AccuracyPracticeRecord(ownerKey: owner.ownerKey, is3D: false,
+                    configuration: configuration, bankFingerprint: "fixture", questions: questions)
+                run.draftTip = run.constrainedTip(x: -0.15, y: -0.1)
+                let frozen = try run.freezeAttempt()
+                try repo.save(run)
+                XCTAssertEqual(try repo.resumable(is3D: false)?.currentAttempt?.fixedTip, frozen.fixedTip)
+                if !side || !vertical {
+                    let x = side ? frozen.fixedTip.x : frozen.fixedTip.x + 0.05
+                    let y = vertical ? frozen.fixedTip.y : frozen.fixedTip.y + 0.05
+                    run.attempts[0].exactTip = .init(x: x, y: y)
+                    XCTAssertThrowsError(try repo.save(run))
+                }
+                run.attempts[0].exactTip = .init(x: 1, y: 1)
+                XCTAssertThrowsError(try repo.save(run))
+            }
+        }
+        withExtendedLifetime(container) {}
+    }
+
     func testRepositoryPreservesOwnerAndTransportWithoutTrainingAggregates() throws {
         let suite = "accuracy-record-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

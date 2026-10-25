@@ -86,6 +86,8 @@ struct AccuracyPracticeRecord: Codable, Identifiable {
     var attempts: [AccuracyPracticeAttempt] = []
     var draftDirection: TrainingBankPoint
     var draftVelocity: Double = ShotTuning.defaultVelocity
+    /// Optional for compatibility with records created before manual spin controls.
+    var draftTip: AccuracyTip? = nil
     var observations: Set<String> = []
 
     var current: AccuracyPracticeQuestion? { questions.indices.contains(cursor) ? questions[cursor] : nil }
@@ -93,6 +95,35 @@ struct AccuracyPracticeRecord: Codable, Identifiable {
     var validAttempts: [AccuracyPracticeAttempt] { attempts.filter { $0.result?.countsAsAttempt == true } }
     var successCount: Int { validAttempts.filter { $0.result?.outcome == .success }.count }
     var displayName: String { is3D ? "3D准度" : "2D准度" }
+    var currentTip: AccuracyTip {
+        let base = current?.fixedTip ?? .center
+        return constrainedTip(x: Double(draftTip?.x ?? base.x), y: Double(draftTip?.y ?? base.y)) ?? base
+    }
+
+    /// Project only editable axes onto the existing contact disc. A prescribed
+    /// axis must never drift when the other axis reaches the circular limit.
+    func constrainedTip(x requestedX: Double, y requestedY: Double) -> AccuracyTip? {
+        guard requestedX.isFinite, requestedY.isFinite else { return nil }
+        let base = current?.fixedTip ?? .center
+        let side = configuration.allowsManualSideSpin
+        let vertical = configuration.allowsManualVerticalSpin
+        if !side && !vertical { return base }
+        let limit = Double(CuePhysics.miscueLimitFraction)
+        var x = side ? requestedX : Double(base.x)
+        var y = vertical ? requestedY : Double(base.y)
+        if side && vertical {
+            let magnitude = hypot(x, y)
+            if magnitude > limit { x *= limit / magnitude; y *= limit / magnitude }
+        } else if side {
+            let edge = sqrt(max(0, limit * limit - y * y))
+            x = min(edge, max(-edge, x))
+        } else {
+            let edge = sqrt(max(0, limit * limit - x * x))
+            y = min(edge, max(-edge, y))
+        }
+        return .init(x: Float(x), y: Float(y),
+                     raisedForClearance: !vertical && base.raisedForClearance)
+    }
 
     init(ownerKey: String, is3D: Bool, configuration: SceneTrainingConfiguration,
          bankFingerprint: String, questions: [AccuracyPracticeQuestion], now: Date = Date()) throws {
@@ -118,8 +149,8 @@ struct AccuracyPracticeRecord: Codable, Identifiable {
             throw TrainingQuestionBank.Failure.invalid("Invalid practice input")
         }
         return AccuracyPracticeAttempt(id: UUID(), questionID: current.id, submittedAt: now,
-            direction: draftDirection, velocity: Float(draftVelocity), tip: current.tip,
-            observations: observations, exactTip: current.exactTip)
+            direction: draftDirection, velocity: Float(draftVelocity), tip: currentTip.category,
+            observations: observations, exactTip: currentTip)
     }
     mutating func freezeAttempt(now: Date = Date()) throws -> AccuracyPracticeAttempt {
         if let currentAttempt { return currentAttempt }
@@ -129,7 +160,7 @@ struct AccuracyPracticeRecord: Codable, Identifiable {
             throw TrainingQuestionBank.Failure.invalid("Invalid frozen input")
         }
         let attempt = AccuracyPracticeAttempt(id: UUID(), questionID: current.id, submittedAt: now,
-            direction: draftDirection, velocity: Float(draftVelocity), tip: current.tip, observations: observations, exactTip: current.exactTip)
+            direction: draftDirection, velocity: Float(draftVelocity), tip: currentTip.category, observations: observations, exactTip: currentTip)
         attempts.append(attempt); updatedAt = now
         return attempt
     }
@@ -151,7 +182,7 @@ struct AccuracyPracticeRecord: Codable, Identifiable {
             guard questions.indices.contains(cursor + 1) else { throw TrainingQuestionBank.Failure.coverage("下一组题目") }
             cursor += 1
             draftDirection = Self.initialDirection(for: questions[cursor])
-            draftVelocity = ShotTuning.defaultVelocity; observations = []
+            draftVelocity = ShotTuning.defaultVelocity; draftTip = nil; observations = []
         }
         updatedAt = now
     }

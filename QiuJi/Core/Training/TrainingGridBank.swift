@@ -88,6 +88,19 @@ final class TrainingGridBank {
     }
     var counts: [Int] { pools.map(\.count) }
 
+    /// Resolve a content identity without sampling or broadening its conditions.
+    func board(id: String) -> TrainingBankBoard? {
+        let parts = id.split(separator: ":")
+        guard parts.count == 4, parts[0] == "grid-v3", let inventory = Int(parts[1]),
+              let ti = targetIndexByInventory[inventory], let mi = Int(parts[2]), (0..<171).contains(mi),
+              let bit = Int(parts[3]), payload.distanceSamples.indices.contains(bit) else { return nil }
+        let target = payload.targets[ti]
+        guard target.masks[mi] & (1 << bit) != 0 else { return nil }
+        let ordinal = target.masks.prefix(mi).reduce(0) { $0 + $1.nonzeroBitCount }
+            + (target.masks[mi] & UInt16((1 << bit)-1)).nonzeroBitCount
+        return board(reference: UInt32(ti << 12 | mi << 4 | bit), combination: Int(target.combinationIndices[ordinal]))
+    }
+
     private func runtimeAim(targetIndex: Int) -> SCNVector3 {
         aimLock.lock()
         defer { aimLock.unlock() }
