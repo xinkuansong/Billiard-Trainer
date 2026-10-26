@@ -1,6 +1,6 @@
 # v47 生产路由与页面覆盖
 
-机器可读真源为 `route-coverage.csv`。当前登记 70 个页面：每行必须具备 View、页面族、批次、状态、截图、测试、可达范围和源码锚点；`verify_v47_ui_baseline.py` 会验证必需页面、源码声明与路由表层签名。
+机器可读真源为 `route-coverage.csv`。截至2026-10-27登记89个页面：每行必须具备 View、页面族、批次、状态、截图、测试、可达范围和源码锚点；`verify_v47_ui_baseline.py` 会验证必需页面、源码声明与路由表层签名。
 
 ## 可达性入口
 
@@ -57,3 +57,15 @@ FreePlay既有玩法/开球sheet保留；每日重开改成同页双操作浮层
 新增练习→打→MultiBallPracticeView，设置完成进入FreePlayView的multiBallPractice模式，生产单入口含正式2D/3D。注册本页与共享入口状态，证据见UR-20261026-multi-ball-practice；仅刷新本轮MainTabView、AngleHomeView、FreePlayView路由签名。新UI测试只向显式V52_SHOT_DIR/TEST_RUNNER_V52_SHOT_DIR写截图，缺环境时仅保存XCTAttachment；每轮独立目录，清理由受管工作区负责，不覆盖v47基线。全局门禁仍有既有ControlLayoutLibrary声明失配及其他页面签名漂移，本轮未重签其他页面。
 
 2026-10-26第二轮覆盖上文单入口约定：两个正式入口固定2D/3D；3D与2D自由训练Pro，2D三题共享每日额度。页面与菜单状态登记更新，证据见tasks/ui-reviews/UR-20261026-multi-ball-access-r2.md。
+
+## 2026-10-27 门禁登记修复
+
+上文保留的声明失配与路由签名漂移在本次集中核对。此次只修改登记资料，未修改App、校验脚本、必需页面集合或检查阈值。
+
+- `ControlLayoutLibrary` / `ControlLayoutEditor` 已在10-19全量替换中退役；同名文件只剩标题/历史迁移元数据扩展，没有同名View或调用入口。依据 [L00–L06实施记录](../../../tasks/table-control-layout/LOCAL-ROLLOUT-20261019.md)移除两条过期独立页面记录。现行编辑器是 `ControlLayoutHost.swift` 内的 `FreeControlHost: ViewModifier`，嵌入各球桌页；不伪造独立页面。覆盖状态及 `testPageLocalFloatingLayout` 登记在共享宿主消费者FreePlayView，其他页面的历史验证范围以L00–L06记录为准。
+- `SettingsView` 已移除通用布局管理入口，保留球贴/球杆等设置导航。删除旧布局库状态，将相关测试指向实际存在的 `testRetiredGlobalEntryAndEmptyMode`，登记入口不存在的预期。
+- `MainTabView` 的 `.accuracy2D/.accuracy3D` 与 `.separationPractice2D/.separationPractice3D` 分别进入 `AccuracyPracticeView` / `SeparationPracticeView`；补上两页漏登记的正式入口、设置/练习/总结和订阅状态。
+- 逐项审阅8份签名变化：准度和分离角新增订阅sheet；角度/瞄准点为订阅关闭后的重开处理；两球为订阅关闭回调及后续上下文；多球设置为待开始/自由训练订阅续接；FreePlay为每日/多球订阅sheet及原开球选择器；Settings为旧管理导航退役后的现行外观导航。设置页自身为阶段内容替换，不误记为新的sheet。更新相关CSV状态后刷新这8份签名，其余签名保持。
+- 补齐15个已有测试写盘入口，详 [写盘审计](write-surface-audit.md#2026-10-27-既有测试写盘入口补登记)。此次仅检查源码，没有执行生成器、同步探针或截图测试。
+
+验证日志：`output/route-gate-repair-20261027/`。UI基线核对为66张截图、89个页面、203个测试写盘文件；`make -f scripts/Makefile verify-gate`退出码0，文档体积及`git diff --check`通过；临时清单构造的错误页面名、错误签名、遗漏写盘入口均被原门禁拒绝（3/3），未修改真实源码或校验规则。历史截图/任务报告仅说明已有证据，不代表本轮重跑App、真机或视觉验收。

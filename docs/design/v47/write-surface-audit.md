@@ -235,3 +235,23 @@ FreePlayView 生产入口维持训练首页每日清台/自由击球；每日页
 CustomFormationSyncTests 仅写每测 UUID 临时目录，tearDown 删除；V53AccountDataCoordinatorTests 注入同样隔离的模板目录。显式 CustomFormationSyncIntegrationTests 从本机隔离后端 fixture 读取测试凭证，仅访问 127.0.0.1；按测试账号 UUID 在各模拟器 Application Support 的 integration owner 存储，跨阶段保留以验证重启恢复，绝不读取正式账号文件。fixture 输出目录为 output/custom-formation-sync-20261019、权限0600，不提交凭证。未提供 fixture 的普通全套执行明确跳过这一个外部集成选择器；本轮显式五阶段均须实际执行，无跳过。UI 图只写显式 V52_SHOT_DIR，失败原件保留，复跑用新轮次目录。
 
 ProfileView 路由签名仅因同步/游客合并说明加入自定义球形而变化，登录/设置/订阅导航目的地保持；已逐项审计。模板同步状态复用现有列表与设置入口，无新增生产路由。
+
+## 2026-10-27 既有测试写盘入口补登记
+
+本轮补齐机器清单遗漏的15个文件，合计203个。只审阅源码，未运行这些测试、消耗请求文件、调用同步服务或生成新截图。下表路径以测试源码副本根目录为基准；已有证据由所属任务保留。
+
+| 文件（省略.swift） | 实际写入与触发条件 | 覆盖与清理 |
+|---|---|---|
+| AccuracyFeasibleTipTests | `output/accuracy-feasible-tip-20261021/samples.json`；选中导出用例时写 | 固定名覆盖；无自动清理 |
+| AccuracyPracticeIntegrationTests | `output/accuracy-runtime-twenty-20261021/native-twenty.json`需request.json；`output/accuracy-weight-integration-20261021/native-sampling.json`为采样用例写入 | 固定名覆盖；无自动清理 |
+| TrainingLayoutDiversityTests | `output/accuracy-dedup-review-20261021/review.json`；选中评阅用例时写 | 固定名覆盖；无自动清理 |
+| TrainingQuestionBankTests、TrainingQuestionBankRefinementTests、TrainingBankProductionTests | `output/accuracy-practice-20261020/`的候选库、checkpoint及统计JSON；对应generator/refinement/production/frozen-probe请求存在才执行 | 读取后删除请求；同名候选覆盖，不自动发布资源 |
+| TrainingBankExpansionTests | `output/accuracy-bank-expansion-20261020/`的checkpoint、bank、coverage JSON；显式request.json | 消耗请求，检查点/同名结果覆盖 |
+| TrainingBankCartesianTests | `output/accuracy-bank-cartesian-20261021/`的shards、candidate-bank、revalidation-history | 显式请求，读取后删除；更新分片前按旧内容hash存重验备份；候选不自动发布 |
+| TrainingGridInventoryTests | `output/accuracy-grid-anchor-v2-20261021/`的inventory、validation-pilot JSON | 显式request/validation-request；读取后删除，结果同名覆盖 |
+| TrainingSpeedScreeningTests | `output/accuracy-{center-five,middle-v3,middle-direct-v4,middle-benchmark,speed-screening}-20261021/`的结果、progress、benchmark及review轨迹 | 对应显式请求；删除或重命名为consumed-request；批次结果及进度可覆盖，无通用自动清理 |
+| SeparationPracticeTests、TwoBallPracticeTests | 系统temporaryDirectory下`separation-disk-UUID` / `two-ball-disk-UUID`独立存储 | defer尝试删除；现有实现用try?清理，不能据此声称删除成功。本轮不修改测试 |
+| SeparationPracticeUITests、SixTrainingUnifiedUITests | 显式`V52_SHOT_DIR` / `TEST_RUNNER_V52_SHOT_DIR`下PNG；未设置不写外部图片 | 截图错误XCTFail；同名覆盖、无自动删除，调用方使用独立轮次目录 |
+| CustomFormationSyncIntegrationTests | 除既有本地fixture分支外，生产探针需`FORMATION_PRODUCTION_FIXTURE`及`FORMATION_PRODUCTION_AUTHORIZATION=authorized`，校验限定地址/测试账号；仅配置`FORMATION_PRODUCTION_REPORT`时另写报告（支持TEST_RUNNER前缀） | 报告同名原子覆盖。探针还会修改测试账号的云端模板和隔离owner本地存档；cleanup删除对应本地文件。凭证不入Git，本轮未授权或执行生产探针 |
+
+固定输出目录的生成/评阅用例可能覆盖旧研究证据；调用方应在运行前保留旧结果或使用独立源码工作区。上述生成器写候选与报告，不写Bundle/正式训练资源/设计截图基线；生产同步探针的云端副作用单独列明，不能归为纯本地测试。登记不等于本轮运行通过。
