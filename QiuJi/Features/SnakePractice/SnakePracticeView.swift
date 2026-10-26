@@ -22,6 +22,7 @@ struct SnakePracticeView: View {
 struct SnakePracticeSettingsView: View {
     @State var configuration: SnakePracticeConfiguration
     @ObservedObject private var history = SnakePracticeHistory.shared
+    @StateObject private var resetNotice = BTRuleNoticeCenter()
     let isRestart: Bool
     let onStart: (SnakePracticeConfiguration) -> Void
     let onCancel: () -> Void
@@ -65,6 +66,13 @@ struct SnakePracticeSettingsView: View {
                     }
                 }
             }
+            BTTrainingSettingsResetSection {
+                configuration = .init()
+                resetNotice.show("已恢复默认设置", tone: .success, priority: .mode)
+            }
+        }
+        .overlay {
+            if let message = resetNotice.message { BTToastBanner(message: message) }
         }
         .navigationTitle("训练设置")
         .navigationBarTitleDisplayMode(.inline)
@@ -83,8 +91,7 @@ struct SnakePracticeSettingsView: View {
                     .fontWeight(.semibold).accessibilityIdentifier("snake.start")
             }
         }
-        .onChange(of: configuration.count) { _, _ in configuration.regenerate(); configuration.save() }
-        .onChange(of: configuration.mode) { _, _ in configuration.regenerate(); configuration.save() }
+        .onDisappear { resetNotice.clear() }
     }
 }
 

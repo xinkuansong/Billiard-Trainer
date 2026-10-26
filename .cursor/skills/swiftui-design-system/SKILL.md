@@ -1678,3 +1678,43 @@ BTTablePlanningControls.allowsAssessmentAimCloseup默认false，仅准度显式�
 ### DR-428 · 准度逐轴打点权限
 
 2026-10-23用户确认准度击球设置默认开放两轴，与出题同名项互斥。BTTablePlanningControls.allowsVerticalSpinEditing/allowsSideSpinEditing及BTSpinPadCard/Overlay/SceneOverlay.allowsVerticalAdjustment/allowsSideAdjustment均默认true；准度另显式开启allowsAssessmentSpinEditing。共享默认不改其他页面；盘面与回中由宿主同样限制锁定轴，不能仅禁方向键。逐轴冻结、实际物理与记录合同见tasks/UI-IMPLEMENTATION-SPEC.md的DR-428及ACCURACY-SHOT-SETTINGS-20261023页面卡。
+
+
+### DR-435 · 训练设置恢复默认
+
+`BTTrainingSettingsResetSection(action:)` 位于训练Form/List末尾，采用原生Section、主题色次级动作和至少44pt整行命中。action仅恢复本页草稿；反馈由页面自己的BTRuleNoticeCenter/BTToastBanner呈现，离页清理。开始/重新开始沿既有确认路径保存，取消不写偏好；生成中禁用。首次加载与恢复共享各页默认值。自定义球形模板管理页不加，不清除记录、额度、球形模板、布局或全局显示偏好。现行真源TP20，验证范围见TRAINING-SETTINGS-RESET-20261026。
+Changelog：2026-10-26 / DR-435 / 统一训练设置恢复入口v1。
+
+### DR-436 · 练习袋口与直接出杆
+
+准度/分离角/两球按新题身份触发一次3秒袋口反馈，同题重打/回放/刷新不续时；两球使用共用targetTint蓝短亮及continuationTarget绿常亮（r3用户指定第二袋绿色；其他教学secondRole青不改）；DR-436 r2按用户纠正，第一目标袋必须与其他选袋场景一致，不能因需要区分第二袋而另换首袋色，同袋3秒后回第二袋色。`setPocketRoles(..., confirmsSelection:)`将角色状态与选袋事件分开；新增色变体必须预制，禁止挂载后改共享材质。分离角/两球与准度固定直接标准出杆，不含1.5秒揭示等待或运杆。`BTTablePlanningControls`不再提供allowsAssessmentRehearsal，页内菜单不显示运杆，只在我的设置保留；rehearsal忽略旧页内覆盖，默认关闭。现行真源TP13/14/19/27；验证见PRACTICE-SHOT-FEEDBACK-20261026。
+Changelog：2026-10-26 / DR-436 / 题目高亮事件与统一运杆设置。
+
+### FL-207 — 内部评分与用户展示分离（2026-10-26）
+
+两球2D/3D自由走位仅展示最终得分，删除侧栏与结果提示的详情入口，不展示分项或计算公式。算法研究、开发记录和诊断字段不自动成为产品说明；评分算法调整不授权新增用户展示。回归实际点击旧入口，确认无详情弹窗与错误按钮语义，最终得分及后续流程仍可用。覆盖DR-433/434原两球详情合同，现行TP24为准。
+
+### DR-437 · 训练设置方向与少球标题
+
+iPhone训练设置含三点菜单重开入口统一为完整竖屏设置页，复用训练前设置样式、实色背景及顶部导航，不显示半屏弹窗、拖动条或底层球桌；关闭恢复球桌横屏；方向由既有宿主控制器按设置状态切换，不重建题目或提交草稿。iPad沿现行适配。已知球数上限较少且球库之外空间足够时允许标题单行；仍保护返回/更多/状态和球库，容量不足回退既有标题适配。现行TP03/04；验证见TRAINING-SETTINGS-ORIENTATION-20261026。
+Changelog：2026-10-26 / DR-437 / 训练设置方向与少球标题允许条件。
+
+
+### FL-209 — 设置选项复用完整行布局（2026-10-26）
+参考已有训练设置时，复用原生Form、Button行、指示符及内边距关系，不能仅复用勾选图标。44pt触点校验以最终可点击行计，不在列表内容上无条件追加44pt最小高，再叠系统留白。保留整行命中和单选/多选语义，用同尺寸原图比较实际行距；纯布局修复不改业务规则。Changelog：FL-209 v1；本次范围与证据见UR-20261026-multi-ball-spacing。
+
+### FL-210 · 参考完整设置页不能只修方向（2026-10-26）
+用户要求“这种效果”时须匹配页面承载形式、背景和导航，方向断言通过不等于视觉通过。DR-437首轮保留sheet导致竖屏球桌透在半屏设置下，用户退回。修复将设置替换桌面显示，模型及生命周期留在稳定容器；验收同时断言竖屏、顶部导航、桌面控件退出显示，并检查原生全屏截图、取消保留当前题、重新开始恢复横屏。Changelog：FL-210 / DR-437 r2。
+
+### DR-438 — 练习 Pro 模式与动作（2026-10-26，r2）
+
+`BTTrainingModePicker(count:isPremium:freePractice:)`提供限题/自由训练选择；非会员自由项使用既有BTProBadge，整项点击由调用方保留购买意图。用户修订：开始、重新开始、再来一局、重新开球保持纯文字，不加PRO胶囊；触及额度限制时点击直接进入会员页，取消保留现场。额度和授权在实际业务入口检查；只对自由训练选择保留锁标。Changelog：DR-438 r2 / 纯文字动作与自由训练锁标。
+
+
+### FL-211 · 既有瞄准特写优先最小扩展（2026-10-26）
+
+用户说“现有特写加一个标注”时，复用原承载大小、位置、图层与交互，只扩展标注数据和绘制。不能只复用球图绘制就新建大弹窗、图例说明和关闭/重看流程。瞄准点提交后的标准点是P10局部差异，不推广到其他训练；当前合同见tasks/table-page-adaptation/AIM-POINT-RESULT-CLOSEUP-20261026.md。
+
+### DR-441 / FL-212 · 少球球库的相对尺度
+
+共享Palette按未缩放桌宽的15球参考选36/34/30/25pt基础档，再用真实球数及障碍求解。少球只缩短整条球库，不能因能放下就取最大球径；保留25pt下限、固定槽位与既有命中，尺寸不回流Foundation。UI验收同时看相对桌宽、真实缩窗/恢复和点击，容量测试不代替视觉比例。现行TP05及UR-20261026-palette-proportion为真源。

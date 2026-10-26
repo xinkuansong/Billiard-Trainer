@@ -117,6 +117,8 @@ enum FreeControlCatalog {
         case .composer:
             ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike",
                    "break.entry", "break.rerack", "break.strike"]
+        case .multiBallPractice, .multiBallPractice3D:
+            ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike", "multiBall.restart", "multiBall.next"]
         case .snakePractice:
             ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike",
                    "snake.restart", "snake.next"]
@@ -218,14 +220,14 @@ extension TablePreferencePage {
     }
     var fixedControlLayoutMode: ControlLayoutLayer? {
         switch self {
-        case .sceneAiming2D, .aimPointScene2D, .accuracy2D, .separationPractice2D, .twoBallPractice2D, .customFormationEditor: return .twoD
-        case .sceneAiming3D, .aimPointScene3D, .accuracy3D, .separationPractice3D, .twoBallPractice3D: return .threeD
+        case .sceneAiming2D, .aimPointScene2D, .accuracy2D, .separationPractice2D, .twoBallPractice2D, .multiBallPractice, .customFormationEditor: return .twoD
+        case .sceneAiming3D, .aimPointScene3D, .accuracy3D, .separationPractice3D, .twoBallPractice3D, .multiBallPractice3D: return .threeD
         default: return nil
         }
     }
     var controlLayoutFamily: ControlLayoutFamily? {
         switch self {
-        case .dailyClearance, .freePlay, .shotSimulation, .snakePractice, .composer, .drillTryout, .accuracy2D, .accuracy3D, .separationPractice2D, .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D: return .shot
+        case .dailyClearance, .freePlay, .shotSimulation, .snakePractice, .multiBallPractice, .multiBallPractice3D, .composer, .drillTryout, .accuracy2D, .accuracy3D, .separationPractice2D, .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D: return .shot
         case .silu, .planThree, .snookerTactics, .bankShot, .diamondSystem: return .planning
         case .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas: return .teaching
         case .sceneAiming2D, .sceneAiming3D: return .angleQuiz

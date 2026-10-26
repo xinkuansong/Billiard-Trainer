@@ -386,7 +386,7 @@ final class CameraSurfaceTests: XCTestCase {
         let vm = PositionPlayViewModel()
         vm.scene.configureDailyClearanceRendering(); vm.setupScene(); vm.enablePlayerCameraControls()
         defer { vm.cancelDailyAttempt() }
-        vm.usesAutomaticPocketFallback = true; vm.usesDailyShotRanking = true
+        vm.usesAutomaticPocketFallback = true; vm.usesShotComfortRanking = true
         vm.legalAimTargets = { $0.intersection(["_1","_2"]) }
         let y = vm.scene.surfaceY + BallPhysics.radius
         var points = [PositionPlayBall.cueKey:SCNVector3(-0.5,y,0),

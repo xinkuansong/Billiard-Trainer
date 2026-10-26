@@ -156,7 +156,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
 
     // MARK: - Published shot params（当前解的只读指示）
 
-    @Published private(set) var velocity: Double = 2.5
+    @Published private(set) var velocity: Double = ShotTuning.defaultVelocity
     @Published private(set) var spinX: Double = 0
     @Published private(set) var spinY: Double = 0
 
@@ -505,7 +505,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
     }
 
     private func resetParamDisplay() {
-        velocity = 2.5; spinX = 0; spinY = 0
+        velocity = ShotTuning.defaultVelocity; spinX = 0; spinY = 0
     }
 
     func solve() {

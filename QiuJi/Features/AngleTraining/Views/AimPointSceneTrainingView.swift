@@ -26,6 +26,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     @Published var generationError: String?
     @Published private(set) var showAngleHint = false
     @Published private(set) var lastScore: SceneAimScore?
+    @Published private(set) var answerCloseupSnapshot: AimCloseupSnapshot?
     /// v23：毫米口径轮增益（°/pt）；默认旧值，redraw 后刷新。
     @Published private(set) var aimWheelDegreesPerPoint: Float = AimWheelGain.defaultDegreesPerPoint
     /// v23：近区 ∧ 正在改瞄准时非 nil → 显示特写 HUD。
@@ -98,6 +99,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     }
 
     func nextQuestion() {
+        answerCloseupSnapshot = nil
         endTemporaryTopDown()
         guard !run.canFinish, !limiter.isLimitReached else { finished = true; return }
         let q: AngleQuestion
@@ -130,6 +132,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         lastErrorMM = nil
         showAngleHint = false
         lastScore = nil
+        answerCloseupSnapshot = nil
         proximityWasNear = false
         closeupGate.reset()
         phase = .aiming
@@ -194,13 +197,15 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         BTFeedback.quiz(errorMM: score.millimetres ?? 100)
         phase = .showingResult
         endTemporaryTopDown()
-        redrawLines(correctDir: correctDir)
+        redrawLines()
+        answerCloseupSnapshot = makeCloseupSnapshot(cue: cue.position, target: target.position,
+            band: .contact, standardDirection: correctDir)
         // Legacy numeric fields remain finite for old clients; metadata is authoritative for invalid answers.
         let result = AngleTestResult(actualAngle: 0, userAngle: score.millimetres ?? 0,
             pocketType: q.pocketType.rawValue, quizType: quizTypeLabel, errorMM: score.millimetres ?? 0)
         result.trainingMetadataJSON = metadata?.json
         Task { await persist(result) }
-        if run.canFinish || limiter.isLimitReached { finish() }
+        // Even the last answer is reviewed before the user opens the summary.
     }
 
     func toggleAngleHint() {
@@ -239,7 +244,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
 
     // MARK: - Line drawing
 
-    private func redrawLines(correctDir: SCNVector3? = nil) {
+    private func redrawLines() {
         defer { topDownContentRevision &+= 1 }
         clearLines()
         guard let q = question,
@@ -286,24 +291,6 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
             }
         }
 
-        // 提交后：正确瞄准线用白色虚线区别于用户实线，瞄准点仍为青蓝。
-        if let correctDir {
-            let correctRes = aimLineResolution(cue: cue.position, target: target.position, dir: correctDir)
-            lineNodes.append(scene.addDashedLine(
-                from: SCNVector3(cue.position.x, y, cue.position.z),
-                to: scenePoint(correctRes.lineEnd, y: y),
-                color: TrajectoryStyle.TrainingAssist.aimLine, placement: .table
-            ))
-            let foot = AimPointGeometry.aimPoint(
-                lineOrigin: xzPoint(cue.position), direction: xzPoint(correctDir),
-                targetCenter: xzPoint(target.position))
-            lineNodes.append(scene.addAimPointMarker(
-                at: scenePoint(foot, y: y),
-                color: TrajectoryStyle.TrainingAssist.aimPoint,
-                radius: TrajectoryStyle.TrainingAssist.aimPointRadius, isOverlay: true
-            ))
-        }
-
         // C5 / D-v19-1：瞄准及结果停留阶段同现球杆；沿用户 aim，spinX:0 与出杆一致。
         if phase == .aiming || phase == .showingResult {
             scene.updateCueStick(
@@ -335,27 +322,24 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         let d = hypotf(target.x - cue.x, target.z - cue.z)
         aimWheelDegreesPerPoint = AimWheelGain.degreesPerPoint(distanceMeters: d)
 
-        guard sample.isNear, let q = question else {
+        guard sample.isNear else {
             closeupGate.update(.init(snapshot: nil, isNear: false))
             return
         }
 
+        closeupGate.update(.init(snapshot: makeCloseupSnapshot(cue: cue, target: target, band: sample.band), isNear: true))
+    }
+
+    private func makeCloseupSnapshot(cue: SCNVector3, target: SCNVector3,
+                                    band: AimProximityMath.Band, standardDirection: SCNVector3? = nil) -> AimCloseupSnapshot? {
+        guard let q = question else { return nil }
+        let cueP = xzPoint(cue), targetP = xzPoint(target)
+        let r = CGFloat(AngleSceneCalculator.ballRadius)
         let userRes = aimLineResolution(cue: cue, target: target, dir: aimDir)
         // AimPoint 场景瞄准态不画假想球圈（仅线 + 垂线 + 触球标记）⇒ HUD 同步不发明 ghost。
         let potEnd = AngleSceneCalculator.effectivePocketAimPoint(
             targetBall: target, pocketIndex: q.pocketIndex, surfaceY: scene.surfaceY)
         let potEndP = xzPoint(potEnd)
-        let n = CGPoint(x: -dirP.y, y: dirP.x) // ⊥ aim in XZ plane (x→X, y→Z)
-        let nLen = hypot(n.x, n.y)
-        let auxHalf = r * 3.2
-        let aux: AimCloseupSegment? = nLen > 1e-9
-            ? AimCloseupSegment(
-                start: CGPoint(x: targetP.x - n.x / nLen * auxHalf,
-                               y: targetP.y - n.y / nLen * auxHalf),
-                end: CGPoint(x: targetP.x + n.x / nLen * auxHalf,
-                             y: targetP.y + n.y / nLen * auxHalf))
-            : nil
-
         let halfL = CGFloat(scene.cameraRig?.tableOuterHalfLength
                             ?? ShotTableLayout.defaultHalfLength)
         let halfW = CGFloat(scene.cameraRig?.tableOuterHalfWidth
@@ -372,21 +356,30 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
             blockedSide: .leading)
 
         let cueInFrame = hypot(cueP.x - targetP.x, cueP.y - targetP.y) < r * 3.2 * 1.35
+        // Both answer rays start at the actual cue center. Extend beyond the loupe,
+        // never translate a parallel copy of the submitted direction to the answer point.
+        let rayLength = hypot(targetP.x - cueP.x, targetP.y - cueP.y) + 2 * r * 3.2
+        func answerRay(_ direction: SCNVector3) -> AimCloseupSegment {
+            let length = hypot(CGFloat(direction.x), CGFloat(direction.z))
+            return AimCloseupSegment(start: cueP, end: CGPoint(
+                x: cueP.x + CGFloat(direction.x) / length * rayLength,
+                y: cueP.y + CGFloat(direction.z) / length * rayLength))
+        }
         let snap = AimCloseupSnapshot(
-            band: sample.band,
+            band: band,
             focus: targetP,
             ballRadius: r,
             halfWorld: r * 3.2,
             showsTargetBall: true,
             targetBallNumber: targetBallNumber,
             cue: cueInFrame ? cueP : nil,
-            aimLine: AimCloseupSegment(start: cueP, end: userRes.lineEnd),
+            aimLine: standardDirection == nil ? AimCloseupSegment(start: cueP, end: userRes.lineEnd) : answerRay(aimDir),
             potLine: AimCloseupSegment(start: targetP, end: potEndP),
-            auxLine: aux,
             ghost: nil,
             aimPointMarker: userRes.touchesBall ? userRes.aimPoint : nil,
             contactMarker: userRes.touchesBall ? userRes.contactPoint : nil,
-            showMissCaption: sample.band == .skim,
+            standardAimLine: standardDirection.map(answerRay),
+            showMissCaption: standardDirection == nil && band == .skim,
             usesTrainingAssistStyle: true,
             focusNorm: focusNorm,
             // D-v23-5.1：进球线/袋口 + 瞄准线避让；方位走空象限。
@@ -395,7 +388,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
                 halfLength: halfL, halfWidth: halfW,
                 cue: cueP, aimEnd: userRes.lineEnd)
         )
-        closeupGate.update(.init(snapshot: snap, isNear: true))
+        return snap.withCenterReferences(cue: cueP)
     }
 
     private func clearLines() {
@@ -486,6 +479,7 @@ struct AimPointSceneTrainingView: View {
     @State private var hasAppeared = false
     @State private var scenePrepared = false
     @State private var showSubscription = false
+    @State private var pendingRestart = false
     @State private var showMenu = false
     @State private var portrait = false
     @State private var cameraReadableFrame: CGRect?
@@ -511,9 +505,11 @@ struct AimPointSceneTrainingView: View {
         vm.setAimWheelDragging(false); vm.setAimTableDragging(false)
     }
 
+    private var showingTable: Bool { hasStarted && !vm.showSettings }
+
     var body: some View {
         ZStack {
-            if hasStarted { tableContent }
+            if showingTable { tableContent }
             else { settingsContent }
         }
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
@@ -523,12 +519,12 @@ struct AimPointSceneTrainingView: View {
             if editing { scenePausedBeforeLayout = vm.scene.isPaused; vm.scene.isPaused = true }
             else { vm.scene.isPaused = scenePausedBeforeLayout }
         }
-        .navigationTitle(hasStarted ? title : "训练设置")
+        .navigationTitle(showingTable ? title : "训练设置")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .toolbar(hasStarted ? .hidden : .visible, for: .navigationBar)
-        .background { if hasStarted { DailyTableOrientation(landscape: true, allowsTabletRotation: true) } }
-        .statusBarHidden(hasStarted && UIDevice.current.userInterfaceIdiom != .pad)
+        .toolbar(showingTable ? .hidden : .visible, for: .navigationBar)
+        .background { if hasStarted { DailyTableOrientation(landscape: !vm.showSettings, allowsTabletRotation: true) } }
+        .statusBarHidden(showingTable && UIDevice.current.userInterfaceIdiom != .pad)
         .onChange(of: tablePreferences.revision) { _, _ in applyPagePreferences() }
         .onAppear {
             applyPagePreferences()
@@ -544,8 +540,10 @@ struct AimPointSceneTrainingView: View {
         }
         .onChange(of: scenePhase) { _, phase in if phase != .active { endLayoutTouches(); vm.endTemporaryTopDown() } }
         .onReceive(subscriptionManager.$isPremium) { vm.limiter.isPremium = $0 }
-        .sheet(isPresented: $showSubscription) { SubscriptionView().environmentObject(subscriptionManager) }
-        .sheet(isPresented: $vm.showSettings) { NavigationStack { settingsContent } }
+        .sheet(isPresented: $showSubscription, onDismiss: {
+            if pendingRestart && subscriptionManager.isPremium { vm.showSettings = true }
+            pendingRestart = false
+        }) { SubscriptionView().environmentObject(subscriptionManager) }
         .alert("出题未完成", isPresented: Binding(get: { vm.generationError != nil }, set: { if !$0 { vm.generationError = nil } })) {
             Button("重新生成") { vm.nextQuestion() }
             Button("调整范围") { vm.showSettings = true }
@@ -657,6 +655,27 @@ struct AimPointSceneTrainingView: View {
                 observationColumn.controlLayoutGroup(.camera).position(x: f.right.minX - 26, y: f.table.midY)
             }
             VStack {
+                if vm.phase == .showingResult {
+                    VStack(alignment: .leading, spacing: 6) {
+                        VStack(spacing: 2) {
+                            Text(vm.question.map { "切角 \(Int($0.actualAngle.rounded()))°" } ?? "切角 —")
+                                .font(.system(size: 12, weight: .medium)).monospacedDigit()
+                                .foregroundStyle(.white).lineLimit(1)
+                            ThicknessOverlapIcon(cutAngle: vm.question?.actualAngle ?? 0)
+                                .opacity(vm.question == nil ? 0.3 : 1)
+                                .accessibilityHidden(true)
+                        }
+                        .frame(maxWidth: .infinity)
+                        answerLegendRow("目标", color: Color(uiColor: TrajectoryStyle.TrainingAssist.standardAimLine))
+                        answerLegendRow("实际", color: Color(uiColor: TrajectoryStyle.TrainingAssist.aimLine))
+                        Text(answerDeviationText)
+                            .font(.system(size: 10, weight: .medium)).monospacedDigit()
+                            .foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.75)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("aimPointTraining.answerLegend")
+                    .padding(.top, Spacing.md)
+                }
                 Spacer(minLength: 0)
                 if vm.phase == .aiming {
                     Button { vm.toggleAngleHint() } label: {
@@ -681,11 +700,13 @@ struct AimPointSceneTrainingView: View {
             }.frame(width: 60, height: min(200, f.stage.height))
                 .padding(.vertical, Spacing.sm).controlLayoutGroup(.primary).position(x: f.right.midX, y: f.table.midY)
             GeometryReader { stage in
-                BTAimCloseupOverlay(snapshot: vm.temporaryTopDownActive ? nil : vm.closeupSnapshot,
+                BTAimCloseupOverlay(snapshot: vm.temporaryTopDownActive || showMenu || editingControlLayout || vm.finished || scenePhase != .active
+                    ? nil : (vm.answerCloseupSnapshot ?? vm.closeupSnapshot),
                     sceneSize: stage.size, scene: vm.scene, blockedSide: nil,
                     protectsDailySight: true, frameInWindow: stage.frame(in: .global),
                     placementBounds: playingRect(size: stage.size, halfL: halfL, halfW: halfW, rotated: f.rotated),
-                    protectedFramesInWindow: protectedCloseupFrames)
+                    protectedFramesInWindow: protectedCloseupFrames,
+                    ignoresPreference: vm.answerCloseupSnapshot != nil)
             }.frame(width: f.stage.width, height: f.stage.height)
                 .position(x: f.stage.midX, y: f.stage.midY).allowsHitTesting(false)
             if vm.limiter.isLimitReached && vm.phase == .aiming && !vm.finished {
@@ -696,7 +717,7 @@ struct AimPointSceneTrainingView: View {
                 Color.black.opacity(0.32)
                 SceneTrainingSummary(samples: vm.run.firstAnswers, unit: "mm", onClose: { dismiss() }, onRestart: {
                     vm.limiter.refreshDay()
-                    if vm.limiter.isLimitReached { showSubscription = true }
+                    if !subscriptionManager.isPremium && (is3D || vm.limiter.isLimitReached) { pendingRestart = true; showSubscription = true }
                     else { vm.showSettings = true }
                 }).frame(width: min(520, size.width - 16))
                     .position(x: size.width / 2, y: size.height / 2)
@@ -744,6 +765,21 @@ struct AimPointSceneTrainingView: View {
             showMenu = false
         }
         .onPreferenceChange(AimPointReadableFrame.self) { cameraReadableFrame = $0 }
+    }
+
+    private var answerDeviationText: String {
+        guard let score = vm.lastScore, score.status == .valid,
+              let millimetres = score.millimetres else { return "—" }
+        let direction = score.label.replacingOccurrences(of: "偏", with: "")
+        if direction == "一致" { return "0.0mm" }
+        return direction + String(format: "%.1fmm", abs(millimetres))
+    }
+
+    private func answerLegendRow(_ title: String, color: Color) -> some View {
+        HStack(spacing: 4) {
+            Rectangle().fill(color).frame(width: 18, height: 2)
+            Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(.white)
+        }
     }
 
     @ViewBuilder private var sceneFullscreen: some View {
@@ -802,10 +838,6 @@ struct AimPointSceneTrainingView: View {
     }
 
     private var trainingInformation: [BTTeachingInformation] {
-        if vm.phase == .showingResult, let score = vm.lastScore {
-            let error = score.millimetres.map { String(format: " · 误差 %.1fmm", abs($0)) } ?? ""
-            return [.init(text: score.label + error, kind: .readout, identifier: "aimPointTraining.result")]
-        }
         if vm.phase == .aiming, vm.showAngleHint, let question = vm.question {
             return [.init(text: "本题瞄准角：\(Int(question.actualAngle.rounded()))°", identifier: "aimPointTraining.angleHintText")]
         }

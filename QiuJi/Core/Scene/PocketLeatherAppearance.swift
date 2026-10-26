@@ -59,6 +59,9 @@ enum PocketLeatherAppearance {
     static let firstRoleTint = UIColor(red: 0.36, green: 0.92, blue: 0.55, alpha: 1)
     static let secondRoleTint = UIColor(red: 0.20, green: 0.85, blue: 0.95, alpha: 1)
 
+    /// Persistent destination of the second ball in two-ball practice.
+    static let continuationTargetTint = firstRoleTint
+
     static var targetTint: UIColor {
         UIColor(red: 50.0 / 255, green: 173.0 / 255, blue: 230.0 / 255, alpha: 1) // #32ADE6
     }

@@ -1940,6 +1940,22 @@ struct AngleSceneView: UIViewRepresentable {
             let renderedFrame = displayed.convert(displayed.bounds, to: nil)
             data["displayedViewport"] = [renderedFrame.minX, renderedFrame.minY, renderedFrame.width, renderedFrame.height]
             data["hasMeasuredStage"] = twoViewReadableFrameInWindow != nil
+            if let cue = scene.allBallNodes["cueBall"], let window = view.window {
+                let projected = view.projectPoint(scene.visualCenter(of: cue))
+                let local = scene.cameraRig?.temporaryTopDownActive == true ? overlayPoint(cue) : CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+                if let local {
+                    let point = view.convert(local, to: window)
+                    var hit = window.hitTest(point, with: nil)
+                    var chain: [String] = []
+                    while let node = hit {
+                        chain.append(String(describing: type(of: node)) + ":" + (node.accessibilityIdentifier ?? "") + ":" + String(describing: node.frame))
+                        hit = node.superview
+                    }
+                    data["cueHitChain"] = chain
+                }
+                data["panEnabled"] = panGesture?.isEnabled ?? false
+                data["gesturesEnabled"] = gesturesEnabled
+            }
             if DailyLayoutProbe.enabled { data["dailyLayout"] = DailyLayoutProbe.snapshot() }
             do {
                 return String(decoding: try JSONSerialization.data(withJSONObject: data), as: UTF8.self)

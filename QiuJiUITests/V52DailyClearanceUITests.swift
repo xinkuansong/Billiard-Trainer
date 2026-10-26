@@ -456,7 +456,7 @@ final class V52DailyClearanceUITests: XCTestCase {
             "-deeplink.dailyClearance",
             "-dailyClearance.resetState",
             "-dailyClearance.preferredGame.v1", game
-        ] + extra)
+        ] + (extra.contains("-forceNonPremium") ? [] : ["-forcePremium"]) + extra)
     }
 
     private func assertCenteredPalette(_ app: XCUIApplication, numbers: [Int]) {
@@ -628,6 +628,23 @@ final class V52DailyClearanceUITests: XCTestCase {
             XCTAssertEqual(app.buttons["paletteBall__\(number)"].exists, number <= 9)
         }
         snap(app, "menu-game-change-confirmed")
+    }
+
+    func testNonProCompletedReplayOpensProAndCancelKeepsResult() {
+        let app = launch(["-forceNonPremium", "-dailyClearance.fixture=completed"])
+        defer { app.terminate() }
+        let replay = app.buttons["dailyClearance.replay"]
+        XCTAssertTrue(replay.waitForExistence(timeout: 15))
+        XCTAssertEqual(replay.label, "再来一局")
+        snap(app, "pro-daily-completed-plain")
+        replay.tap()
+        let close = app.buttons["subscription.close"]
+        XCTAssertTrue(close.waitForExistence(timeout: 10))
+        snap(app, "pro-daily-upgrade")
+        close.tap()
+        XCTAssertTrue(replay.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["dailyClearance.strike"].isEnabled)
+        snap(app, "pro-daily-cancel-keeps-result")
     }
 
     func testCompletedReplayPreservesCompletionAndStartsAnotherBoard() {
@@ -1168,13 +1185,82 @@ extension V52DailyClearanceUITests {
     }
 
     func testRuleAwareSelectionInBothDimensions() {
+        checkRuleAwareSelection(orientation: .landscapeRight, prefix: "landscape")
+    }
+
+    func testRecommendationRefreshesAcrossThreePhysicalShotsAndModeChanges() throws {
+        XCUIDevice.shared.orientation = .landscapeRight
+        let app = launch(["-dailyClearance.fixture=recommendationFullTable", "-3dDrag.probe", "-freeLayout.ephemeral"])
+        defer { app.terminate() }
+        let status = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
+        let table = app.descendants(matching: .any)["table.scene"].firstMatch
+        let strike = app.buttons["dailyClearance.strike"]
+        func ready() {
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(
+                format: "exists == true AND enabled == true AND hittable == true"),
+                evaluatedWith: strike)], timeout: 60), .completed)
+        }
+        func balls() throws -> [[String: Any]] {
+            let raw = try XCTUnwrap(table.value as? String)
+            let probe = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+            return try XCTUnwrap(probe["balls"] as? [[String: Any]])
+        }
+        ready()
+        XCTAssertEqual(try balls().count, 16)
+        for shot in 1...3 {
+            let before = try balls()
+            app.buttons["freeplay.moreMenu"].tap()
+            let mode = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 5))
+            let wanted = shot.isMultiple(of: 2) ? "3D" : "2D"
+            if mode.value as? String != wanted { mode.tap() }
+            XCTAssertEqual(mode.value as? String, wanted)
+            app.buttons["关闭菜单"].tap()
+            ready()
+            let selection = status.value as? String ?? ""
+            let target = selection.components(separatedBy: "，").first { $0.hasPrefix("目标_") }?
+                .replacingOccurrences(of: "目标", with: "")
+            if let target {
+                XCTAssertTrue(before.contains { $0["key"] as? String == target }, "Recommendation must refer to a ball still on the table")
+                XCTAssertTrue((1...7).map { "_\($0)" }.contains(target), "The solid-group fixture must recommend a legal solid")
+            } else {
+                XCTAssertTrue(selection.contains("自由"), "No candidate must explicitly use free mode")
+            }
+            snap(app, "recommendation-shot-\(shot)-\(wanted)-before")
+            strike.tap()
+            let playback = app.buttons["dailyClearance.playback"]
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == false"),
+                evaluatedWith: playback)], timeout: 5), .completed)
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"),
+                evaluatedWith: playback)], timeout: 60), .completed)
+            ready()
+            let after = try balls()
+            let beforePositions = before.map { "\($0["key"] ?? ""):\($0["world"] ?? "")" }.sorted()
+            let afterPositions = after.map { "\($0["key"] ?? ""):\($0["world"] ?? "")" }.sorted()
+            XCTAssertNotEqual(beforePositions, afterPositions, "A real shot must update the board before the next recommendation")
+            print("RECOMMENDATION_CONTINUOUS shot=\(shot) mode=\(wanted) state=\(status.value ?? "")")
+            snap(app, "recommendation-shot-\(shot)-\(wanted)-settled")
+        }
+    }
+
+    func testRuleAwareSelectionInPortraitBothDimensions() {
+        checkRuleAwareSelection(orientation: .portrait, prefix: "portrait")
+    }
+
+    private func checkRuleAwareSelection(orientation: UIDeviceOrientation, prefix: String) {
+        XCUIDevice.shared.orientation = orientation
         let app = launch(["-dailyClearance.fixture=selection", "-v63.cameraDiagnostics"])
-        let mode = app.buttons["freeplay.cameraMode"]
-        XCTAssertTrue(mode.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["freeplay.moreMenu"].waitForExistence(timeout: 15))
         let status = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
         let diagnostics = app.descendants(matching: .any)["v63.cameraDiagnostics"].firstMatch
         for dimension in ["2d", "3d"] {
-            if dimension == "3d" { mode.tap() }
+            app.buttons["freeplay.moreMenu"].tap()
+            let mode = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 5))
+            if mode.value as? String != dimension.uppercased() { mode.tap() }
+            XCTAssertEqual(mode.value as? String, dimension.uppercased())
+            app.buttons["关闭菜单"].tap()
+            settleDailyCamera(app)
             XCTAssertTrue(diagnostics.waitForExistence(timeout: 5))
             func tap(_ key: String) {
                 let values = (diagnostics.value as? String ?? "").components(separatedBy: "window_\(key)=")
@@ -1193,12 +1279,12 @@ extension V52DailyClearanceUITests {
             tap("_9")
             XCTAssertTrue(app.staticTexts["请先击打全色球"].waitForExistence(timeout: 3))
             XCTAssertEqual(status.value as? String, before)
-            snap(app, "selection-rejected-\(dimension)")
+            snap(app, "selection-rejected-\(prefix)-\(dimension)")
             tap("_1")
             XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate { _, _ in
                 (status.value as? String ?? "").contains("目标_1")
             }, evaluatedWith: status)], timeout: 5), .completed)
-            snap(app, "selection-valid-\(dimension)")
+            snap(app, "selection-valid-\(prefix)-\(dimension)")
         }
     }
 

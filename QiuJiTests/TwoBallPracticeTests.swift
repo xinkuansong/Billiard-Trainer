@@ -544,3 +544,142 @@ extension TwoBallPracticeTests {
         XCTAssertNil(result)
     }
 }
+
+// User-approved r4 oracle: the exact 36 shapes reviewed before implementation.
+// Source: output/two-ball-pocket-angle-r4-20261026/weighted-data.json
+extension TwoBallPracticeTests {
+    func testFreeComfortMatchesReviewed36ShapesAndMirrors() throws {
+        let rows: [[Double]] = [
+            [0.3957016227973612, -0.2986068620483201, 0.9595171952689062, -0.5038189480437213, 1, 100.0, 99.70805320042369, 100.0, 99.8053213717019],
+            [0.4350110371720798, -0.21245441671139376, 0.9595171952689062, -0.5038189480437213, 1, 100.0, 99.94856134968124, 100.0, 99.96570609607019],
+            [0.45969128189152825, -0.17189417295685022, 0.9595171952689062, -0.5038189480437213, 1, 100.0, 99.97790852541624, 100.0, 99.98527207911462],
+            [0.5185185173240909, -0.09697725149465203, 0.9595171952689062, -0.5038189480437213, 1, 100.0, 99.99554184581069, 77.8800783071405, 84.94157625823368],
+            [0.5890336012938384, -0.031863540621243414, 0.9595171952689062, -0.5038189480437213, 1, 100.0, 99.99889131456248, 36.787944117144235, 54.220405185467335],
+            [0.6698970850233553, 0.021652451502776227, 0.9595171952689062, -0.5038189480437213, 1, 100.0, 99.99859357861682, 10.539922456186433, 28.888178140221445],
+            [0.1137938365615887, -0.19600081905061953, 0.6776094090331337, -0.4012129050460207, 1, 100.0, 99.96342104687422, 100.0, 99.97561328775403],
+            [0.15310325093630728, -0.10984837371369316, 0.6776094090331337, -0.4012129050460207, 1, 100.0, 99.99411988417967, 100.0, 99.99607990357705],
+            [0.17778349565575574, -0.06928812995914962, 0.6776094090331337, -0.4012129050460207, 1, 100.0, 99.99756966413364, 100.0, 99.99837977280762],
+            [0.23661073108831843, 0.005628791503048569, 0.6776094090331337, -0.4012129050460207, 1, 100.0, 99.99931021367064, 77.8800783071405, 84.94215411244993],
+            [0.30712581505806597, 0.07074250237645718, 0.6776094090331337, -0.4012129050460207, 1, 100.0, 99.99692956053642, 36.787944117144235, 54.22017090583982],
+            [0.3879892987875828, 0.12425849450047682, 0.6776094090331337, -0.4012129050460207, 1, 100.0, 99.98978228954277, 10.539922456186433, 28.887484420300446],
+            [-0.16811394967418392, -0.09339477605291888, 0.3957016227973611, -0.29860686204832004, 1, 100.0, 99.99588419775432, 100.0, 99.99725612242497],
+            [-0.12880453529946523, -0.0072423307159925066, 0.3957016227973611, -0.29860686204832004, 1, 100.0, 99.99938695864434, 100.0, 99.99959130555409],
+            [-0.10412429058001682, 0.03331791303855103, 0.3957016227973611, -0.29860686204832004, 1, 100.0, 99.99878196168669, 91.05103613800341, 93.98698303148433],
+            [-0.04529705514745419, 0.10823483450074922, 0.3957016227973611, -0.29860686204832004, 1, 100.0, 99.99337503045514, 43.00946406400623, 59.24587864815146],
+            [0.025218028822293403, 0.17334854537415784, 0.3957016227973611, -0.29860686204832004, 1, 100.0, 99.97213042755958, 9.596708604499847, 27.687895589901363],
+            [0.10608151255181028, 0.22686453749817748, 0.3957016227973611, -0.29860686204832004, 1, 100.0, 99.91188908511857, 1.011485645260456, 11.315824343948988],
+            [-0.4500217359099563, 0.009211266944781776, 0.1137938365615887, -0.19600081905061945, 1, 100.0, 99.99933195708928, 100.0, 99.99955463781157],
+            [-0.41071232153523773, 0.09536371228170815, 0.1137938365615887, -0.19600081905061945, 1, 100.0, 99.99534529729988, 96.92332344763442, 97.94276391300917],
+            [-0.38603207681578927, 0.13592395603625163, 0.1137938365615887, -0.19600081905061945, 1, 100.0, 99.9885706222559, 75.48396019890073, 83.26576367455974],
+            [-0.3272048413832266, 0.21084087749844982, 0.1137938365615887, -0.19600081905061945, 1, 100.0, 99.94195539426208, 21.62651668298873, 40.81972160478956],
+            [-0.25668975741347905, 0.27595458837185843, 0.1137938365615887, -0.19600081905061945, 1, 100.0, 99.77177503510401, 2.2794180883612354, 15.305708932458904],
+            [-0.17582627368396214, 0.3294705804958782, 0.1137938365615887, -0.19600081905061945, 1, 100.0, 99.32245547365564, 0.08838263069350491, 4.83168405425053],
+            [-0.7319295221457289, 0.11181730994248244, -0.16811394967418392, -0.0933947760529188, 1, 100.0, 99.99218696982743, 100.0, 99.99479127930377],
+            [-0.6926201077710104, 0.1979697552794088, -0.16811394967418392, -0.0933947760529188, 1, 100.0, 99.95812928216542, 90.48374180359595, 93.59592531156228],
+            [-0.6679398630515618, 0.23852999903395228, -0.16811394967418392, -0.0933947760529188, 1, 100.0, 99.90226780374462, 60.275166475009534, 72.35982221180153],
+            [-0.6091126276189992, 0.31344692049615047, -0.16811394967418392, -0.0933947760529188, 1, 100.0, 99.54470959575681, 10.474253370494475, 28.77047687405711],
+            [-0.5385975436492516, 0.3785606313695591, -0.16811394967418392, -0.0933947760529188, 1, 100.0, 98.35632000242396, 0.5214823686591382, 8.883587344126383],
+            [-0.45773405991973476, 0.43207662349357884, -0.16811394967418392, -0.0933947760529188, 1, 100.0, 95.50990467083398, 0.007438546485972924, 2.074570193528848],
+            [-1.0138373083815015, 0.21442335294018297, -0.45002173590995653, 0.009211266944781804, 1, 100.0, 98.23857719006384, 100.0, 98.82397738633755],
+            [-0.9745278940067829, 0.30057579827710934, -0.45002173590995653, 0.009211266944781804, 1, 100.0, 99.11164300560553, 82.90291181804004, 88.28260610834157],
+            [-0.9498476492873345, 0.3411360420316529, -0.45002173590995653, 0.009211266944781804, 1, 100.0, 99.13938531128244, 47.236655274101466, 62.44633689249048],
+            [-0.8910204138547718, 0.41605296349385107, -0.45002173590995653, 0.009211266944781804, 1, 100.0, 96.86593339443701, 4.978706836786392, 20.689122526010483],
+            [-0.8205053298850242, 0.4811666743672597, -0.45002173590995653, 0.009211266944781804, 1, 100.0, 90.05846110459667, 0.11708796207911744, 5.14773705246892],
+            [-0.7396418461555073, 0.5346826664912794, -0.45002173590995653, 0.009211266944781804, 1, 100.0, 76.16217835588978, 0.0006144212353328198, 0.836626016014847]
+        ]
+        for row in rows {
+            let score = try XCTUnwrap(TwoBallComfortScore.evaluateFreePosition(
+                cue: (row[0],row[1]), ball: (row[2],row[3]), pocket: Int(row[4])))
+            let bank = try XCTUnwrap(TwoBallComfortScore.evaluate(
+                cue: (row[0],row[1]), ball: (row[2],row[3]), pocket: Int(row[4])))
+            for (value, expected) in zip([score.distance, score.space, score.angle, score.total], row.suffix(4)) {
+                XCTAssertEqual(value, expected, accuracy: 1e-8)
+            }
+            XCTAssertEqual(score.distance, bank.distance)
+            XCTAssertEqual(score.space, bank.space)
+            XCTAssertLessThanOrEqual(score.total, bank.total + 1e-8)
+            let mirror = try XCTUnwrap(TwoBallComfortScore.evaluateFreePosition(
+                cue: (-row[0],row[1]), ball: (-row[2],row[3]), pocket: [1,0,3,2,4,5][Int(row[4])]))
+            XCTAssertEqual(mirror.total, score.total, accuracy: 1e-8)
+        }
+    }
+    func testFreeComfortPlateauDistanceAndInvalidGeometry() throws {
+        let g = TwoBallDifficultyMetric.Geometry.source
+        let p = try XCTUnwrap(g.anchor(1))
+        // Fixed pocket ray; incoming direction rotates about the geometrical ghost ball.
+        func score(_ distance: Double, _ angle: Double) throws -> Double {
+            let heading = -20.0 * Double.pi/180, theta = heading-angle*Double.pi/180
+            let ball = (p.0-distance*cos(heading), p.1-distance*sin(heading))
+            let cue = (ball.0-2*g.radius*cos(heading)-0.5*cos(theta),
+                       ball.1-2*g.radius*sin(heading)-0.5*sin(theta))
+            return try XCTUnwrap(TwoBallComfortScore.evaluateFreePosition(cue: cue, ball: ball, pocket: 1)).angle
+        }
+        XCTAssertEqual(try score(0.3, 15), 100, accuracy: 1e-8)
+        XCTAssertLessThan(try score(0.3, 25), 100)
+        XCTAssertEqual(try score(1.2, 7.5), 100, accuracy: 1e-8)
+        XCTAssertLessThan(try score(1.2, 10), 100)
+        XCTAssertEqual(try score(0.6-1e-8, 25), try score(0.6+1e-8, 25), accuracy: 1e-4)
+        for angle in [0.0,10,15,25,35,45,60,80] {
+            let values = try [0.3,0.6,0.9,1.2,1.5,1.8].map { try score($0, angle) }
+            for (a,b) in zip(values,values.dropFirst()) { XCTAssertLessThanOrEqual(b, a+1e-8) }
+            if angle == 0 { for value in values { XCTAssertEqual(value,100,accuracy:1e-8) } }
+        }
+        for cue in [(0.0,0.0), (0,-0.4), (Double.nan,0)] {
+            XCTAssertNil(TwoBallComfortScore.evaluateFreePosition(cue: cue,ball: (0,0),pocket: 4))
+        }
+        XCTAssertNil(TwoBallComfortScore.evaluateFreePosition(cue: (0,0.4),ball: (0,0),pocket: 6))
+    }
+    func testFreeMinimumWeightIncludesDistanceAndSpace() throws {
+        // Two independent frozen research cases where angle is 100 but another factor is weakest.
+        let distance = try XCTUnwrap(TwoBallComfortScore.evaluateFreePosition(
+            cue: (1.104933738708496,0.26721468567848206),
+            ball: (-0.7628736318567686,0.5229766145382663),pocket: 2))
+        XCTAssertEqual(distance.angle,100,accuracy:1e-8)
+        XCTAssertEqual(distance.total,30.273368403405197,accuracy:1e-8)
+        let space = try XCTUnwrap(TwoBallComfortScore.evaluateFreePosition(
+            cue: (0.2095216065645218,0.46564364433288574),
+            ball: (0.1436154139184857,-0.1279154582712886),pocket: 4))
+        XCTAssertEqual(space.angle,100,accuracy:1e-8)
+        XCTAssertEqual(space.total,94.39521742561595,accuracy:1e-8)
+    }
+    func testFreeComfortProductionShotAndFrozenVersionRoundTrip() throws {
+        let prepared = try fixture(), q = prepared.question
+        let shot = try realShot(q)
+        XCTAssertNil(shot.failure)
+        XCTAssertEqual(shot.comfortVersion, TwoBallComfortScore.freePositionVersion)
+        let cue = try XCTUnwrap(shot.finalPositions[ShotInput.cueBallName])
+        let expected = try XCTUnwrap(TwoBallComfortScore.evaluateFreePosition(
+            cue: (Double(cue.x),Double(cue.z)),ball: (Double(q.second.x),Double(q.second.z)),pocket: q.secondPocket))
+        XCTAssertEqual(try XCTUnwrap(shot.freeScore), expected.total, accuracy: 1e-8)
+        XCTAssertEqual(try TwoBallBankStore.load().index.comfortVersion, TwoBallComfortScore.version)
+        XCTAssertNotEqual(TwoBallComfortScore.version, TwoBallComfortScore.freePositionVersion)
+        for is3D in [false,true] {
+            var record = TwoBallPracticeRecord(ownerKey: "test", is3D: is3D, configuration: .init(), mode: .free, prepared: prepared)
+            var old = shot
+            old.comfortVersion = TwoBallComfortScore.version
+            old.comfort = .init(distance: 100,space: 100,angle: 100,total: 100)
+            record.accept(old)
+            let restored = try TwoBallPracticeRecord.decodePayload(record.encodedPayload())
+            XCTAssertEqual(restored.latestShot?.freeScore,100)
+            XCTAssertEqual(restored.averageScore,100)
+            XCTAssertTrue(restored.canResumeCurrentTraining)
+            var continued = restored
+            let retry = try realShot(q)
+            continued.accept(retry)
+            XCTAssertEqual(continued.averageScore,100, "A new-model retry never rewrites the old first answer")
+            XCTAssertEqual(try XCTUnwrap(continued.currentRouteAverage()),(100+expected.total)/2,accuracy:1e-8)
+            var fresh = TwoBallPracticeRecord(ownerKey: "test", is3D: is3D, configuration: .init(), mode: .free, prepared: prepared)
+            fresh.accept(shot)
+            let saved = try TwoBallPracticeRecord.decodePayload(fresh.encodedPayload())
+            XCTAssertEqual(saved.attempts.first?.comfortVersion, TwoBallComfortScore.freePositionVersion)
+            XCTAssertEqual(saved.latestShot?.freeScore, shot.freeScore)
+            XCTAssertTrue(saved.latestShot?.comfort?.details.contains("三项最低分") == true)
+            XCTAssertFalse(restored.latestShot?.comfort?.details.contains("三项最低分") == true)
+        }
+        var unknown = shot
+        unknown.comfortVersion = "unknown-future"
+        XCTAssertNil(unknown.freeScore)
+        unknown.comfortVersion = nil
+        XCTAssertNil(unknown.freeScore)
+    }
+}

@@ -259,7 +259,12 @@ struct TwoBallShot: Codable, Identifiable {
     subscript<T>(dynamicMember key: KeyPath<SeparationShot,T>) -> T { physical[keyPath: key] }
     var playsStroke: Bool? { get { physical.playsStroke } set { physical.playsStroke = newValue } }
     var trajectoryScore: Double { failure == nil ? physical.score?.value ?? 0 : 0 }
-    var freeScore: Double? { comfortVersion == TwoBallComfortScore.version ? (failure == nil ? comfort?.total ?? 0 : 0) : nil }
+    var freeScore: Double? {
+        // Historical scores are frozen snapshots, not recomputed with the current curve.
+        guard comfortVersion == TwoBallComfortScore.version
+                || comfortVersion == TwoBallComfortScore.freePositionVersion else { return nil }
+        return failure == nil ? comfort?.total ?? 0 : 0
+    }
     init(question: TwoBallQuestion, input: SeparationInput, prediction: ShotPrediction, surfaceY: Float) throws {
         physical = try .init(question: question.separation, input: input, prediction: prediction, surfaceY: surfaceY)
         comboIndex = question.route.source.comboIndex; secondPocket = question.secondPocket
@@ -268,9 +273,9 @@ struct TwoBallShot: Codable, Identifiable {
             difficulty = TwoBallDifficultyMetric.evaluate(cue: (Double(cue.x),Double(cue.z)),
                 ball: (Double(question.second.x),Double(question.second.z)), pocket: secondPocket)
         } else { difficulty = nil }
-        comfortVersion = TwoBallComfortScore.version
+        comfortVersion = TwoBallComfortScore.freePositionVersion
         if failure == nil, let cue = prediction.finalPositions[ShotInput.cueBallName] {
-            comfort = TwoBallComfortScore.evaluate(cue: (Double(cue.x), Double(cue.z)),
+            comfort = TwoBallComfortScore.evaluateFreePosition(cue: (Double(cue.x), Double(cue.z)),
                 ball: (Double(question.second.x), Double(question.second.z)), pocket: secondPocket)
         }
     }
@@ -284,45 +289,41 @@ struct TwoBallShot: Codable, Identifiable {
     }
 }
 
-/// Approved distance v2 / directional clearance v3 / angle v2, equal geometric mean.
+/// Distance v2 / directional clearance v3. Bank admission keeps angle v2 and geometric mean;
+/// free-position shots use the approved pocket-distance 20-degree curve and 50% minimum weighting.
 /// X/Z metres, Y up. Uses the research's frozen rectangular geometry and pocket anchors,
 /// not a substitute for physical pocket feasibility or a probability of potting.
 enum TwoBallComfortScore {
     static let version = "comfort-d2-s3-a2-v1"
+    static let freePositionVersion = "comfort-d2-s3-pocket-angle20-min50-v1"
     struct Result: Codable {
+        enum Aggregation: String, Codable { case minimumWeighted }
         let distance, space, angle, total: Double
+        // Absent in historical snapshots, which used the geometric mean.
+        var aggregation: Aggregation? = nil
         var details: String {
-            String(format: "球距分 %.1f\n出杆空间分 %.1f\n角度分 %.1f\n\n总分为三项等权几何平均，越高越好。\n评价下一杆的舒适度，不代表进球概率。", distance, space, angle)
+            let formula = aggregation == .minimumWeighted
+                ? "总分 = 0.5 × 三项最低分 + 0.5 × 三项几何平均，越高越好。"
+                : "总分为三项等权几何平均，越高越好。"
+            return String(format: "球距分 %.1f\n出杆空间分 %.1f\n角度分 %.1f\n\n", distance, space, angle)
+                + formula + "\n评价下一杆的舒适度，不代表进球概率。"
         }
     }
     static func evaluate(cue: (Double, Double), ball: (Double, Double), pocket: Int,
                          geometry g: TwoBallDifficultyMetric.Geometry = .source) -> Result? {
+        evaluate(cue: cue, ball: ball, pocket: pocket, geometry: g, pocketDistanceAngle: false)
+    }
+    static func evaluateFreePosition(cue: (Double, Double), ball: (Double, Double), pocket: Int,
+                                     geometry g: TwoBallDifficultyMetric.Geometry = .source) -> Result? {
+        evaluate(cue: cue, ball: ball, pocket: pocket, geometry: g, pocketDistanceAngle: true)
+    }
+    private static func evaluate(cue: (Double, Double), ball: (Double, Double), pocket: Int,
+                                 geometry g: TwoBallDifficultyMetric.Geometry, pocketDistanceAngle: Bool) -> Result? {
         guard let p = g.anchor(pocket),
-              let metric = TwoBallDifficultyMetric.evaluate(cue: cue, ball: ball, pocket: pocket, geometry: g) else { return nil }
-        let length = hypot(p.0-ball.0, p.1-ball.1)
-        let nx = (p.0-ball.0)/length, nz = (p.1-ball.1)/length
-        let hx = g.length/2, hz = g.width/2, r = g.radius
-        let depth = max(0, zip([ball.0, ball.1], zip([-nx, -nz], [hx-r, hz-r])).compactMap { pos, axis -> Double? in
-            let (direction, bound) = axis
-            guard abs(direction) > 1e-12 else { return nil }
-            return ((direction > 0 ? bound : -bound)-pos)/direction
-        }.min() ?? 0)
-        let scale = min(1, max(0.4, depth/0.9)), lo = 0.5*scale, hi = 0.8*scale
-        let near = max(lo-metric.cueDistance, 0)/(0.8*lo), far = max(metric.cueDistance-hi, 0)/0.75
-        let distance = 100*exp(-near*near-far*far)
-        let vx = ball.0-2*r*nx-cue.0, vz = ball.1-2*r*nz-cue.1, norm = hypot(vx, vz)
-        let bx = -vx/norm, bz = -vz/norm
-        let gaps = [hx-cue.0-r, hx+cue.0-r, hz-cue.1-r, hz+cue.1-r]
-        let directions: [Double] = [bx, -bx, bz, -bz]
-        let penalties: [Double] = zip(gaps, directions).map { gap, direction in
-            let t = max(direction, 0.0)
-            let proximity = max(gap, 0.0) * 100.0 / 8.0
-            return (45.0 + 15.0 * t * t) * exp(-pow(proximity, 1.2))
-        }
-        let main = penalties.indices.max(by: { penalties[$0] < penalties[$1] }) ?? 0
-        let adjacent = main < 2 ? max(penalties[2], penalties[3]) : max(penalties[0], penalties[1])
-        let space = 100-penalties[main]-min(8, 0.25*adjacent)
-        let angle = 100*exp(-pow(max(metric.angle-15, 0)/30, 2))
-        return .init(distance: distance, space: space, angle: angle, total: pow(distance*space*angle, 1.0/3))
+              let score = ShotComfortScore.evaluate(cue: cue, ball: ball, aim: p,
+                  geometry: .init(length: g.length, width: g.width, radius: g.radius),
+                  pocketDistanceAngle: pocketDistanceAngle) else { return nil }
+        return .init(distance: score.distance, space: score.space, angle: score.angle, total: score.total,
+                     aggregation: pocketDistanceAngle ? .minimumWeighted : nil)
     }
 }

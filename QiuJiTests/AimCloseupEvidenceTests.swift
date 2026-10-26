@@ -108,7 +108,8 @@ final class AimCloseupEvidenceTests: XCTestCase {
             contactMarker: res.contactPoint)
         let diameter: CGFloat = 128
         let hudRenderer = ImageRenderer(content:
-            BTAimCloseupHUD(snapshot: snapshot, diameter: diameter)
+            BTAimCloseupHUD(snapshot: snapshot.withCenterReferences(cue: xz(cue)), diameter: diameter,
+                feltImage: try XCTUnwrap(TableFigureRenderer.closeupFelt(clothColor: .green, roomStyle: .tournament)))
                 .frame(width: diameter, height: diameter))
         hudRenderer.scale = 1
         let loupe = try XCTUnwrap(hudRenderer.uiImage)

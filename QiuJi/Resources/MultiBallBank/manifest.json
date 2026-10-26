@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "formalBank": true,
+  "total": 50000,
+  "metric": "mean-nearest-finite-table-v1",
+  "threshold": 1.2,
+  "source": "output/multi-ball-full-20261026",
+  "summarySHA256": "837ea2e1e04985280a0e3a7909dbe687999e06459f47d5e1e1c1157a48b919da",
+  "auditSHA256": "9e97240d1ca4939cd5f1f9ad7a11000f7dc5d5b4f4d350c17194e4db7582fb07",
+  "calibrationSHA256": "adb8f5f2db0761fdac666d2f667a198c95c2699b046a1ed5e8bd07baa0777eea",
+  "coordinates": "Canvas u=(X+L/2)/L, v=(Z+W/2)/L; metres XZ, Y up",
+  "files": {
+    "bank-04.json.gz": {
+      "sha256": "54f6acc1e640b41e85f2797580a194d364282c5a0a7f78f17ba7cedeaaeccd77",
+      "count": 10000,
+      "bytes": 2266108,
+      "consumerSHA256": "81907a8c016faa42ba79846264b8954678d81f56e6941f59e28df9e554fcabeb"
+    },
+    "bank-05.json.gz": {
+      "sha256": "92941134c8af64dc266832dd5c424381a29764e06cefce1349f15077d7b9b10f",
+      "count": 10000,
+      "bytes": 2724517,
+      "consumerSHA256": "cfed1118cf9d2da902499a88d26d3508fce8e2e70ad1dce91b60069f81b3933e"
+    },
+    "bank-06.json.gz": {
+      "sha256": "83a09f4cfa371bc56379532dbe736af1b00f7824f6f2b24e73e3cf74d1d70e21",
+      "count": 10000,
+      "bytes": 3181888,
+      "consumerSHA256": "a63de10287968c248a37abec8604f4638d764e5cc4bc6d7a870dcbd1573caf46"
+    },
+    "bank-09.json.gz": {
+      "sha256": "1b65ad235c000a7a166ee7809ebe212d9581fc7b3f5cc3869bb4505920ef80f0",
+      "count": 10000,
+      "bytes": 4565056,
+      "consumerSHA256": "64974dacbdec024fcef56398bcaca261146c466d869dc5dcf38b59fa039488fc"
+    },
+    "bank-15.json.gz": {
+      "sha256": "d4dbb7aa33a10a4d6597d5ee7345af9025ba37f80dc2ee00be6920b27be53807",
+      "count": 10000,
+      "bytes": 7390752,
+      "consumerSHA256": "f6dc2195eda7e8f89b2a00c82530486ad95dfd37f451bce45fdb16e5a181fa9a"
+    }
+  }
+}

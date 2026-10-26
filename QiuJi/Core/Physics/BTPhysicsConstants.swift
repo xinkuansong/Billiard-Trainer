@@ -217,8 +217,8 @@ enum ShotTuning {
     /// 控件瘦身 v2（问题集合条 13.2）：上限 6.0 → 8.0（冲球/大力开球需要 >6 m/s）。
     static let velocityRange: ClosedRange<Double> = 0.5...8.0
 
-    /// 全 App 击打页默认力度 (m/s)（条 13.2：低速走位是常态，默认从 3.3 降至 1.5）。
-    static let defaultVelocity: Double = 1.5
+    /// Shared initial shot speed (m/s); saved inputs and per-page reset timing remain unchanged.
+    static let defaultVelocity: Double = 2.0
 
     /// 瞄准点场景测验「验证击球」杆速 (m/s)（C16 / DR-031）。
     /// 中等力度锚点（对齐 `DrillShotResolver.defaultVelocity`），压低 CIT，使几何接近正确时进袋反馈可信。

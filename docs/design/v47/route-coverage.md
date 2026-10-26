@@ -51,3 +51,9 @@ FreePlay既有玩法/开球sheet保留；每日重开改成同页双操作浮层
 ## 2026-10-14 三规划页信息入口审计
 
 用户批准信息精简第1批，三页新增同一互斥sheet枚举：更多→操作说明、方案按钮长按→当前方案详情（单解亦可轻点进入）；关闭恢复原页，未新增Tab或更换练习入口。PlanThree/Silu原开球sheet继续保留，防守首次具有sheet路由。审计三份View源码及实际手机入口后，只刷新这三份路由签名，CSV补充状态/测试/原图位置。共享PlanningInformationSheet为三页内部面板，不登记成新的独立练习页面。跨尺寸及最终验证见本轮信息精简报告。
+
+## 多球走位增量（2026-10-26）
+
+新增练习→打→MultiBallPracticeView，设置完成进入FreePlayView的multiBallPractice模式，生产单入口含正式2D/3D。注册本页与共享入口状态，证据见UR-20261026-multi-ball-practice；仅刷新本轮MainTabView、AngleHomeView、FreePlayView路由签名。新UI测试只向显式V52_SHOT_DIR/TEST_RUNNER_V52_SHOT_DIR写截图，缺环境时仅保存XCTAttachment；每轮独立目录，清理由受管工作区负责，不覆盖v47基线。全局门禁仍有既有ControlLayoutLibrary声明失配及其他页面签名漂移，本轮未重签其他页面。
+
+2026-10-26第二轮覆盖上文单入口约定：两个正式入口固定2D/3D；3D与2D自由训练Pro，2D三题共享每日额度。页面与菜单状态登记更新，证据见tasks/ui-reviews/UR-20261026-multi-ball-access-r2.md。

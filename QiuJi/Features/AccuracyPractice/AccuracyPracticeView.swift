@@ -10,6 +10,7 @@ struct AccuracyPracticeView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @State private var showSubscription = false
+    @State private var pendingRestart = false
     @State private var pocketOrientation: PocketDisplay.Orientation = .landscape
     @StateObject private var questionNotices = BTRuleNoticeCenter()
     @StateObject private var resultNotices = BTRuleNoticeCenter()
@@ -36,7 +37,7 @@ struct AccuracyPracticeView: View {
                     if let record = vm.record {
                         TrainingFinishContent(metrics: accuracyMetrics(record), onRestart: {
                             limiter.refreshDay()
-                            if limiter.isLimitReached { showSubscription = true }
+                            if !subscriptionManager.isPremium && (vm.is3D || limiter.isLimitReached) { pendingRestart = true; showSubscription = true }
                             else { vm.openSettings() }
                         }, onComplete: { dismiss() })
                         .accessibilityElement(children: .contain)
@@ -60,7 +61,10 @@ struct AccuracyPracticeView: View {
             resultNotices.show(resultNoticeText, tone: .info, priority: .ruling)
         }
         .onDisappear { questionNotices.clear(); resultNotices.clear() }
-        .sheet(isPresented: $showSubscription) { SubscriptionView() }
+        .sheet(isPresented: $showSubscription, onDismiss: {
+            if pendingRestart && subscriptionManager.isPremium { vm.openSettings() }
+            pendingRestart = false
+        }) { SubscriptionView() }
         .alert("练习提示", isPresented: Binding(get: { vm.message != nil }, set: { if !$0 { vm.message = nil } })) {
             Button("知道了") { vm.message = nil }
         } message: { Text(vm.message ?? "") }

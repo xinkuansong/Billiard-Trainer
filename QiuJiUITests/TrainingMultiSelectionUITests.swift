@@ -1,6 +1,27 @@
 import XCTest
 
 final class TrainingMultiSelectionUITests: XCTestCase {
+    func testResetSettingsVisualBaseline() {
+        continueAfterFailure = false
+        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral", "-v54.forceLight"])
+        defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
+        for (category, title) in [("练", "2D准度"), ("打", "2D两球走位"), ("练", "蛇彩练习")] {
+            app.switchTab(.angle)
+            app.buttons["angleHomeTab_" + category].tap()
+            let card = app.buttons[title]
+            for _ in 0..<5 where !card.isHittable { app.swipeUp() }
+            XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
+            let cancel = app.buttons[title == "蛇彩练习" ? "snake.settingsCancel" : "training.settingsCancel"]
+            XCTAssertTrue(cancel.waitForExistence(timeout: 10))
+            for position in ["top", "bottom"] {
+                if position == "bottom" { app.swipeUp(); app.swipeUp(); app.swipeUp() }
+                let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+                shot.name = "settings-\(title)-\(position)"; shot.lifetime = .keepAlways; add(shot)
+            }
+            cancel.tap()
+        }
+    }
+
     func testAccuracyBothModesRestoreSavedResultAfterProcessRelaunch() throws {
         continueAfterFailure = false
         let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])

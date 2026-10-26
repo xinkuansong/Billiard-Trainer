@@ -1,3 +1,13 @@
+<!-- Changelog 2026-10-26 DR439r15：仅2D/3D瞄准点提交后，右侧目标上方增加本题切角与共享ThicknessOverlapIcon，信息组下移12pt；分离角不改。见AIM-POINT-RESULT-CLOSEUP-20261026。 -->
+<!-- Changelog 2026-10-26 PD-031接入：usesShotComfortRanking替代日专用命名；FreePlayRulesSession在setup前安装，自由击球/多球/蛇彩/分离角与走位启用，编辑/试打保留原策略；状态见SHOT-RECOMMENDATION-REUSE-20261026。 -->
+<!-- Changelog 2026-10-26 DR-441/FL-212：共享球库按固定桌宽的15球参考确定基础球径，少球缩短不放大；25pt下限、命中及Foundation保持。TP05及UR-20261026-palette-proportion。 -->
+<!-- Changelog 2026-10-26 DR-440：普通默认杆速统一2.0，SeparationInput共用ShotTuning默认；中杆参考/AX同步，出题均值2.5、旧记录/重打/跟随逻辑保持。已应用至TP10及DEFAULT-SHOT-SPEED-20261026记录。 -->
+<!-- Changelog 2026-10-26 PD-031：初步推荐按区域/当前杆评分/合法球袋策略分层复用，回填球桌TP14/29和检查表C/D；实际aim贯通预测，固定题/手动/规则约束保持。仅记录推广建议，不变更其他宿主默认。 -->
+<!-- Changelog 2026-10-26 DR-439/FL-211：提交后沿用原圆形特写，双线从母球中心出发：用户白线、标准systemOrange线，去掉绿色圈/圆内文字；右侧仅提交后显示用户/标准图例，下一题清理，末题先反馈。详AIM-POINT-RESULT-CLOSEUP-20261026页面合同。 橙线仅特写绘制，去掉主桌标准线与居中结果提示。右侧结果标注依次为橙色目标、白色实际、厚/薄xx.xmm。 -->
+<!-- Changelog 2026-10-26：每日目标推荐采用中袋区域＋线路/遮挡过滤后W全局排序；同一aim贯通推荐与预测，保留手动意图，不增评分UI。PlannedShot新增可缺省pocketAim，历史解码兼容。见tasks/DAILY-TARGET-RECOMMENDATION-IMPLEMENTATION-20261026.md。 -->
+<!-- Changelog 2026-10-26 DR-438 r2：自由训练文字旁BTProBadge，开始/重新开始/再来一局保持纯文字；额度耗尽点击直达订阅，取消保留现场。见PRO-TRAINING-ACCESS-20261026。 -->
+<!-- Changelog 2026-10-26 FL-209：多球选项改用参考训练设置的Form/原生Button行，移除行内重复撑高；证据见UR-20261026-multi-ball-spacing。 -->
+<!-- Changelog 2026-10-26 DR-437：iPhone训练设置完整竖屏页面/实色背景/顶部导航/不透出球桌/关闭恢复球桌（FL-210纠正半屏sheet）；已知少球且容量足够允许标题单行。现行TP03/04，验证见TRAINING-SETTINGS-ORIENTATION-20261026。 -->
 <!-- DR-432 / 2026-10-25：覆盖DR-431；球库保留、分离角旧左栏、两球轨迹在切角下和图例后均分/最新；袋口短提示/亮色3秒，第二袋常亮；首条默认可击球。见UR-20261025-training-hud-feedback。 -->
 <!-- 2026-10-25 六入口可行打点：分离角/两球走位 defersStrikeAccessUntilSubmission=false；准度沿默认false和逐轴权限。复用当前scene快照与最终提交守卫；见SIX-PRACTICE-SPIN-ACCESS-20261025。 -->
 <!-- DR-431 / 2026-10-25：分离角/两球2D3D短标题、进度→均分→切角→图例；结果集中ⓘ，两球目标袋常驻；六入口答题标签，见UR-20261025-training-hud。 -->
@@ -3379,3 +3389,12 @@ BTTablePlanningControls新增allowsVerticalSpinEditing/allowsSideSpinEditing默�
 
 
 DR434（2026-10-25）：三训练双维度结果提示复用BTRuleNoticeCenter，3秒自动消失，按成绩ID/结果-重打状态触发；侧栏不清，TwoBall侧栏成绩提供详情入口。
+<!-- Changelog 2026-10-26 DR-435：训练设置底部共用BTTrainingSettingsResetSection(action:)，草稿恢复/开始应用/取消保留；SceneTrainingConfiguration.defaults(for:)与首次加载同源；蛇彩取消即时保存。TP20与TRAINING-SETTINGS-RESET-20261026为真源，验证状态见任务卡。 -->
+
+<!-- Changelog 2026-10-26 DR-436：准度/分离角/两球按question.id只触发一次3秒袋口反馈；两球targetTint蓝短亮、continuationTarget绿常亮（r3第二袋独立预制样式；其他教学secondRole不改）（r2统一第一袋与共用选袋色，删除usesFirstRoleColor特例）。同题重打/回放/刷新不续时。分离角/两球取消revealing及1.5秒等待，保存成功直接runCueStroke(rehearsalEnabled:false)。运杆仅我的通用设置，默认关，旧页内覆盖不参与读取；其余字段保留原隔离。现行TP13/14/19/27与PRACTICE-SHOT-FEEDBACK-20261026为真源。 -->
+
+Changelog（2026-10-26 / FL-207）：覆盖DR-433/434两球评分详情约定；两球2D/3D自由走位仅展示最终得分，侧栏与短暂结果提示均无分项/公式详情入口。内部最低分加权与冻结成绩保留，现行TP24及TWO-BALL-FREE-SCORE-20261026为准。
+
+### DR-438 · 练习Pro模式与动作（2026-10-26）
+
+共用BTTrainingModePicker限题/自由训练，锁标复用统计BTProBadge；用户修订后开始/重开/再来一局保持纯文字，额度耗尽点击直达订阅，取消保留现场。业务与验证见[执行卡](table-page-adaptation/PRO-TRAINING-ACCESS-20261026.md)。

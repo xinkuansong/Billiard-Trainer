@@ -104,13 +104,16 @@ struct PlannedShot: Codable {
         var temporaryFreeReason: String?
     }
     var selectionContext: SelectionContext?
+    /// Optional committed object-ball aim in normalized table coordinates.
+    /// Nil in historical/non-daily shots; does not change replay's recorded strike direction.
+    var pocketAim: CanvasPoint?
 
     /// 是否自由球（无目标球/袋口语义）。
     var isFree: Bool { freeAim != nil }
 
     init(targetKey: String, pocket: String, velocity: Double,
          spinX: Double = 0, spinY: Double = 0, freeAim: CanvasPoint? = nil,
-         selectionContext: SelectionContext? = nil) {
+         selectionContext: SelectionContext? = nil, pocketAim: CanvasPoint? = nil) {
         self.targetKey = targetKey
         self.pocket = pocket
         self.velocity = velocity
@@ -118,6 +121,7 @@ struct PlannedShot: Codable {
         self.spinY = spinY
         self.freeAim = freeAim
         self.selectionContext = selectionContext
+        self.pocketAim = pocketAim
     }
 }
 

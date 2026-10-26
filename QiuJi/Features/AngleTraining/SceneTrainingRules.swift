@@ -167,12 +167,17 @@ struct SceneTrainingConfiguration: Codable, Equatable {
         try c.encode(allowsManualVerticalSpin, forKey: .allowsManualVerticalSpin)
         try c.encode(allowsManualSideSpin, forKey: .allowsManualSideSpin)
     }
-    static func load(for route: String) -> Self {
+    /// Factory values are independent of saved preferences and shared with the reset action.
+    static func defaults(for route: String) -> Self {
         var defaults = Self()
         if (route.hasPrefix("separationPractice") || route.hasPrefix("twoBallPractice")) {
             defaults.angleSelection = [.straight, .small, .medium]
             defaults.allowsVerticalSpin = true; defaults.allowsSideSpin = true
         }
+        return defaults
+    }
+    static func load(for route: String) -> Self {
+        let defaults = Self.defaults(for: route)
         guard let data = UserDefaults.standard.data(forKey: "sceneTraining.rules2.mixedDefaults." + route) else {
             return defaults
         }
@@ -191,6 +196,13 @@ struct SceneTrainingConfiguration: Codable, Equatable {
         }
     }
 
+}
+
+/// Defaults for the optional settings stored separately from question filters.
+enum SceneTrainingSettingsDefaults {
+    static let playsStroke = true
+    static let showsReference = false
+    static let twoBallMode: TwoBallMode = .trajectory
 }
 
 struct SceneTrainingQuestion {

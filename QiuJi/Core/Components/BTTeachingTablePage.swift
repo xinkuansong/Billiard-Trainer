@@ -18,7 +18,6 @@ struct BTTablePlanningControls {
     var allowsAssessmentSpinEditing = false
     var allowsVerticalSpinEditing = true
     var allowsSideSpinEditing = true
-    var allowsAssessmentRehearsal = false
     /// An automatic aim is unresolved until submission, so its provisional cue pose
     /// cannot define the valid input domain. The host must validate the solved pose.
     var defersStrikeAccessUntilSubmission = false
@@ -466,18 +465,12 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             if !planning.assessmentMode {
             items.append(.init(id: identifier + ".trajectory", title: "轨迹显示 · " + (is3D && planning.hides3DAssists?.wrappedValue == true ? "关闭" : pagePreferences.trajectoryDetail.label),
                 disclosure: true, action: { menu = .trajectory }))
-            items += [TablePreferenceField.separation, .rehearsal].map { field in
+            items += [TablePreferenceField.separation].map { field in
                 DailyHUDMenuItem(id: identifier + "." + field.rawValue, title: field.title,
                     selected: pagePreferences.enabled(field), action: {
                         setPagePreference(field, pagePreferences.enabled(field) ? 0 : 1)
                     })
             }
-            }
-            if planning.assessmentMode && planning.allowsAssessmentRehearsal {
-                items.append(.init(id: identifier + ".rehearsal", title: TablePreferenceField.rehearsal.title,
-                    selected: pagePreferences.enabled(.rehearsal), action: {
-                        setPagePreference(.rehearsal, pagePreferences.enabled(.rehearsal) ? 0 : 1)
-                    }))
             }
             items += planning.menuItems.map { item in
                 var closingItem = item

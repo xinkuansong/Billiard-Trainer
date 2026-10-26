@@ -12,6 +12,7 @@ struct TwoBallPracticeRecord: Codable, Identifiable {
         let difficulty: Double?
         let failure: String?
         var comfortScore: Double? = nil
+        var comfortVersion: String? = nil
     }
     static let payloadVersion = 1
     var version = Self.payloadVersion
@@ -164,7 +165,8 @@ struct TwoBallPracticeRecord: Codable, Identifiable {
             attempts.append(.init(id: shot.id, questionID: shot.questionID, comboIndex: shot.comboIndex,
                 submittedAt: shot.submittedAt, skipped: false, score: mode == .trajectory ? shot.trajectoryScore : nil,
                 difficulty: mode == .free ? shot.difficulty?.value : nil, failure: shot.failure,
-                comfortScore: mode == .free ? shot.freeScore : nil))
+                comfortScore: mode == .free ? shot.freeScore : nil,
+                comfortVersion: mode == .free ? shot.comfortVersion : nil))
         }
         consumed[shot.questionID] = consumed[shot.questionID] ?? shot.submittedAt
         retryCount += 1; currentScoreSum += shot.trajectoryScore; currentScoreCount += 1

@@ -273,6 +273,9 @@ final class SceneTrainingLifecycleTests: XCTestCase {
         let before = try XCTUnwrap(vm.currentPlayerAim)
         let cue = try XCTUnwrap(vm.scene.cueBallNode).position
         vm.submit(); vm.submit()
+        XCTAssertNotNil(vm.answerCloseupSnapshot?.standardAimLine)
+        XCTAssertFalse(vm.finished, "Quota completion must not cover the last answer")
+        let comparison = try XCTUnwrap(vm.answerCloseupSnapshot)
         XCTAssertEqual(limiter.questionsUsedToday,20)
         XCTAssertEqual(vm.currentPlayerAim?.x,before.x); XCTAssertEqual(vm.currentPlayerAim?.z,before.z)
         try await Task.sleep(nanoseconds:2_000_000_000)
@@ -281,7 +284,53 @@ final class SceneTrainingLifecycleTests: XCTestCase {
         XCTAssertEqual(vm.scene.cueBallNode?.position.z,cue.z)
         vm.submit()
         XCTAssertEqual(vm.phase,.showingResult)
+        XCTAssertEqual(vm.answerCloseupSnapshot, comparison)
         XCTAssertEqual(limiter.questionsUsedToday,20); XCTAssertEqual(vm.run.firstAnswers.count,1)
         vm.nextQuestion(); XCTAssertTrue(vm.finished)
     }
+
+    func testAimComparisonFreezesOfficialGeometryAndClearsOnNextQuestion() throws {
+        let suite = "aim-comparison-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let limiter = AngleUsageLimiter(defaults: defaults); limiter.isPremium = true
+        let vm = AimPointSceneQuizViewModel(limiter: limiter)
+        vm.setupScene(cameraMode: .topDown2D, autoStart: false)
+        var generator = SceneTrainingGenerator(seed: 15)
+        vm.startTest(questions: try generator.batch(.init()))
+        XCTAssertNil(vm.answerCloseupSnapshot)
+        let cue = try XCTUnwrap(vm.scene.cueBallNode).position
+        let target = try XCTUnwrap(vm.targetNode).position
+        let q = try XCTUnwrap(vm.question)
+        let pocket = AngleSceneCalculator.effectivePocketAimPoint(targetBall: target, pocketIndex: q.pocketIndex, surfaceY: vm.scene.surfaceY)
+        let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target, pocket: pocket, ballRadius: AngleSceneCalculator.ballRadius)
+        vm.aimToward(worldPoint: ghost)
+        vm.nudgeAim(byDegrees: 1)
+        let submittedDirection = try XCTUnwrap(vm.currentPlayerAim)
+        vm.submit()
+        let answer = try XCTUnwrap(vm.answerCloseupSnapshot)
+        let standard = try XCTUnwrap(answer.standardAimLine)
+        let user = try XCTUnwrap(answer.aimLine)
+        let cuePoint = CGPoint(x: CGFloat(cue.x), y: CGFloat(cue.z))
+        XCTAssertEqual(standard.start, cuePoint)
+        XCTAssertEqual(user.start, cuePoint)
+        // Independently verify official and submitted directions; offset rays must not be parallel.
+        let dx = CGFloat(ghost.x - cue.x), dz = CGFloat(ghost.z - cue.z)
+        let sx = standard.end.x - cuePoint.x, sz = standard.end.y - cuePoint.y
+        let ux = user.end.x - cuePoint.x, uz = user.end.y - cuePoint.y
+        XCTAssertEqual(sx * dz - sz * dx, 0, accuracy: 1e-7)
+        XCTAssertGreaterThan(sx * dx + sz * dz, 0)
+        XCTAssertEqual(ux * CGFloat(submittedDirection.z) - uz * CGFloat(submittedDirection.x), 0, accuracy: 1e-7)
+        XCTAssertGreaterThan(abs(ux * sz - uz * sx), 0.001)
+        XCTAssertGreaterThan(hypot(sx, sz), hypot(CGFloat(target.x - cue.x), CGFloat(target.z - cue.z)))
+        vm.nudgeAim(byDegrees: 20); vm.submit()
+        XCTAssertEqual(vm.answerCloseupSnapshot, answer)
+        XCTAssertEqual(vm.run.firstAnswers.count, 1)
+        XCTAssertEqual(limiter.questionsUsedToday, 1)
+        vm.nextQuestion()
+        XCTAssertNil(vm.answerCloseupSnapshot)
+        XCTAssertEqual(vm.phase, .aiming)
+    }
+
+
 }

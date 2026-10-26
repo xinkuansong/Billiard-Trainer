@@ -8,10 +8,8 @@ import SceneKit
 /// (SceneKit XZ → `CGPoint(x: X, y: Z)`), meters. Same contract as
 /// `AimProximityMath` / `AimCloseupCoords.mapRotated`.
 ///
-/// Layer policy (D-v23-2′): a page only gets the layers its **main scene already
-/// draws**. Free-aim pages (自由击球 / 编排台 / 分离角 / 翻袋·反射 自由模式) draw
-/// aim line + ghost ball + contact dot, so those are the layers built here — no
-/// pot line, no perpendicular helper, nothing the scene does not show.
+/// Pages retain their own shot/answer layers. Every loupe adds the same
+/// answer-independent center line, 2R ring and center-line normal (DR-439 r14).
 enum AimCloseupBuilder {
 
     /// Framing tightness: `halfWorld = 3.2R` ⇒ object ball ≈ 1/3 of the loupe.
@@ -48,8 +46,7 @@ enum AimCloseupBuilder {
             ballRadius: r, halfWorld: halfWorld, targetBallNumber: number,
             cue: hypot(cue.x - target.x, cue.y - target.y) < halfWorld * 1.35 ? cue : nil,
             aimLine: .init(start: cue, end: line.lineEnd),
-            centerReferenceLine: .init(start: cue, end: target), targetReferenceRadius: 2 * r,
-            usesTrainingAssistStyle: true), isNear: true)
+            usesTrainingAssistStyle: true).withCenterReferences(cue: cue), isNear: true)
     }
 
     /// A solved contact already drawn by the main scene. XZ metres, no new
@@ -62,7 +59,7 @@ enum AimCloseupBuilder {
         return AimCloseupSnapshot(band: .contact, focus: target, ballRadius: r,
             halfWorld: r * halfWorldMultiple, targetBallNumber: number,
             aimLine: incoming ?? .init(start: cue, end: ghost), ghost: ghost,
-            ghostShowsAimPoint: false, contactMarker: contact)
+            ghostShowsAimPoint: false, contactMarker: contact).withCenterReferences(cue: cue)
     }
 
     /// Free-aim closeup: focus = first ball the aim corridor hits; if none is hit,
@@ -141,7 +138,24 @@ enum AimCloseupBuilder {
                 worldXZ: focus, halfLength: halfLength, halfWidth: halfWidth)
         )
         snapshot.idealLine = picked.ghost.flatMap { IdealObjectDirection.preview(target: focus, ghost: $0)?.line }
-        return Result(snapshot: snapshot, isNear: true)
+        return Result(snapshot: snapshot.withCenterReferences(cue: cue), isNear: true)
+    }
+}
+
+extension AimCloseupSnapshot {
+    /// XZ metres. Only actual centers enter this reference frame; aim/ghost/pocket do not.
+    func withCenterReferences(cue: CGPoint) -> Self {
+        var result = self
+        let dx = focus.x - cue.x, dz = focus.y - cue.y
+        let distance = hypot(dx, dz)
+        guard showsTargetBall, distance.isFinite, distance > 1e-9 else { return result }
+        let nx = -dz / distance, nz = dx / distance
+        result.centerReferenceLine = .init(start: cue, end: focus)
+        result.targetReferenceRadius = 2 * ballRadius
+        result.auxLine = .init(
+            start: CGPoint(x: focus.x - nx * halfWorld, y: focus.y - nz * halfWorld),
+            end: CGPoint(x: focus.x + nx * halfWorld, y: focus.y + nz * halfWorld))
+        return result
     }
 }
 

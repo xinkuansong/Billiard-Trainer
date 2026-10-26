@@ -154,4 +154,62 @@ final class RackGeneratorTests: XCTestCase {
             XCTAssertEqual(p.y, q.y, accuracy: 1e-4, "\(k) 终位 y 运行间不一致")
         }
     }
+    /// Frozen outputs from the independently executed research, not this implementation.
+    func test_eightBallRack_matchesApprovedResearchFixtures() {
+        do {
+            let rack = RackLayout.make(.chineseEightBall, seed: 7443473811546282135, surfaceY: 0.8)
+            let expected: [(Int, Float, Float)] = [
+                (2, -0.6350056529045105, -6.921568274265155e-05),
+                (11, -0.6846703290939331, 0.02864004857838154),
+                (9, -0.6847057938575745, -0.02870377153158188),
+                (7, -0.7343052625656128, 0.057309724390506744),
+                (8, -0.73433917760849, -7.44843709981069e-05),
+                (4, -0.7344132661819458, -0.05734344944357872),
+                (10, -0.7839657664299011, 0.08601626753807068),
+                (12, -0.7839248776435852, 0.028681112453341484),
+                (5, -0.7840309739112854, -0.02860889583826065),
+                (14, -0.7840214967727661, -0.08600277453660965),
+                (13, -0.8335939049720764, 0.11470590531826019),
+                (15, -0.8336482048034668, 0.05735793337225914),
+                (3, -0.8336601853370667, 7.362633186858147e-05),
+                (6, -0.8336730003356934, -0.057287637144327164),
+                (1, -0.8336732387542725, -0.11468508839607239),
+            ]
+            XCTAssertEqual(rack.balls.count, expected.count)
+            for (ball, frozen) in zip(rack.balls, expected) {
+                XCTAssertEqual(ball.number, frozen.0)
+                XCTAssertEqual(ball.position.x, frozen.1)
+                XCTAssertEqual(ball.position.z, frozen.2)
+                XCTAssertEqual(ball.position.y, Float(0.8) + BallPhysics.radius)
+            }
+        }
+        do {
+            let rack = RackLayout.make(.chineseEightBall, seed: 1703531890087305560, surfaceY: 0.8)
+            let expected: [(Int, Float, Float)] = [
+                (11, -0.6350780129432678, 1.6951566067291424e-05),
+                (15, -0.6847133636474609, 0.02863990142941475),
+                (14, -0.6846928596496582, -0.028626762330532074),
+                (4, -0.7343451976776123, 0.05729435756802559),
+                (8, -0.7343561053276062, 5.003569185646484e-06),
+                (5, -0.734326183795929, -0.05731816589832306),
+                (1, -0.7839878797531128, 0.08600341528654099),
+                (3, -0.7839546203613281, 0.02863403782248497),
+                (2, -0.7839220762252808, -0.02865016646683216),
+                (10, -0.7839305400848389, -0.08597317337989807),
+                (6, -0.8336290121078491, 0.1146661713719368),
+                (13, -0.8336167335510254, 0.057328853756189346),
+                (9, -0.8336001038551331, -1.4368717529578134e-05),
+                (7, -0.8336405158042908, -0.05735061317682266),
+                (12, -0.833581805229187, -0.11467299610376358),
+            ]
+            XCTAssertEqual(rack.balls.count, expected.count)
+            for (ball, frozen) in zip(rack.balls, expected) {
+                XCTAssertEqual(ball.number, frozen.0)
+                XCTAssertEqual(ball.position.x, frozen.1)
+                XCTAssertEqual(ball.position.z, frozen.2)
+                XCTAssertEqual(ball.position.y, Float(0.8) + BallPhysics.radius)
+            }
+        }
+    }
+
 }

@@ -58,6 +58,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     private var repository: LocalAccuracyPracticeRepository?
     private var builtScene = false
     private var pocketMarkers: [SCNNode] = []
+    private var highlightedQuestionID: UUID?
     private var generation = UUID()
     private var calculation: Task<Void, Never>?
     private var cancellation: PredictionCancellation?
@@ -248,8 +249,13 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         let y = scene.surfaceY + BallPhysics.radius
         scene.applyBallLayout(cueBallPosition: SCNVector3(question.board.cue.x, y, question.board.cue.z),
             targetBallNumber: question.ballNumber, targetPosition: SCNVector3(question.board.target.x, y, question.board.target.z))
-        for (index, marker) in pocketMarkers.enumerated() { scene.highlightPocket(marker, highlighted: index == selectedPocketIndex) }
-        scene.confirmPocketSelection(at: selectedPocketIndex)
+        for (index, marker) in pocketMarkers.enumerated() {
+            scene.setPocketHighlight(marker, style: index == selectedPocketIndex ? .selected : .viable, confirmsSelection: false)
+        }
+        if highlightedQuestionID != question.id {
+            highlightedQuestionID = question.id
+            scene.confirmPocketSelection(at: selectedPocketIndex)
+        }
         topDownContentRevision += 1
         if isRetrying { phase = .aiming; redrawAim() }
         else if record?.currentAttempt?.result?.countsAsAttempt == true {
@@ -529,6 +535,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         restoreReplay()
     }
     func suspendTeachingActivity() {
+        scene.cancelPocketSelectionFeedback()
         invalidate(); _ = save()
         if phase == .playing || phase == .computing { phase = .result; showSavedFinalPositions() }
     }

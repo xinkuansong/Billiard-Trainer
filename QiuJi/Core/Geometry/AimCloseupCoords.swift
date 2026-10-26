@@ -101,6 +101,7 @@ extension AimCloseupSnapshot {
         result.ghost = ghost.map(local)
         result.aimPointMarker = aimPointMarker.map(local)
         result.contactMarker = contactMarker.map(local)
+        result.standardAimLine = segment(standardAimLine)
         result.aimLine = segment(aimLine)
         result.centerReferenceLine = segment(centerReferenceLine)
         result.potLine = segment(potLine)

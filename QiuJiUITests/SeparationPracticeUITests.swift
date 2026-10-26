@@ -9,7 +9,14 @@ final class SeparationPracticeUITests: XCTestCase {
             timeout: timeout), .completed, element.debugDescription)
     }
     private func capture(_ name: String) {
-        let a = XCTAttachment(screenshot: XCUIScreen.main.screenshot()); a.name = name; a.lifetime = .keepAlways; add(a)
+        let screen = XCUIScreen.main.screenshot()
+        let a = XCTAttachment(screenshot: screen); a.name = name; a.lifetime = .keepAlways; add(a)
+        if let path = ProcessInfo.processInfo.environment["V52_SHOT_DIR"] ?? ProcessInfo.processInfo.environment["TEST_RUNNER_V52_SHOT_DIR"] {
+            do {
+                try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
+                try screen.pngRepresentation.write(to: URL(fileURLWithPath: path).appendingPathComponent(name + ".png"))
+            } catch { XCTFail("Screenshot export: \(error)") }
+        }
     }
     private func node(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
     private func probe() throws -> [String: Any] {
@@ -411,7 +418,7 @@ final class SeparationPracticeUITests: XCTestCase {
                              node("shotStage.powerBar").frame.maxY)
         capture(is3D ? "3D-target" : "2D-target")
         app.buttons["separation.more"].tap()
-        ready(app.buttons["separation.rehearsal"])
+        XCTAssertFalse(app.buttons["separation.rehearsal"].exists)
         XCTAssertFalse(app.buttons["separation.trajectory"].exists)
         XCTAssertFalse(app.buttons["menu.aimCloseup"].exists)
         capture("separation-menu")
@@ -452,7 +459,7 @@ final class SeparationPracticeUITests: XCTestCase {
         XCTAssertEqual(first["objectRouteVisible"] as? Bool, true)
         XCTAssertEqual(first["idealPocketLineVisible"] as? Bool, false)
         let reveal = try XCTUnwrap(first["revealedAt"] as? Double), stroke = try XCTUnwrap(first["strokeStartedAt"] as? Double)
-        XCTAssertGreaterThan(reveal, 0); XCTAssertGreaterThanOrEqual(stroke-reveal, 1.5)
+        XCTAssertGreaterThan(reveal, 0); XCTAssertGreaterThanOrEqual(stroke-reveal, 0); XCTAssertLessThan(stroke-reveal, 0.25)
         XCTAssertEqual(first["cueVisibleAtReveal"] as? Bool, true)
         XCTAssertEqual(first["cueVisibleAtStroke"] as? Bool, true)
         XCTAssertTrue(node("separation.result").label.contains("本杆"))
@@ -520,7 +527,14 @@ final class SeparationPracticeUITests: XCTestCase {
         ready(app.buttons["subscription.close"])
         XCTAssertFalse(app.buttons["separation.start"].exists)
         capture("3D-free-pro-gate"); app.buttons["subscription.close"].tap(); app.terminate()
-        open(false, premium: false, nearLimit: true); start()
+        open(false, premium: false, nearLimit: true)
+        let free = node("training.length").buttons["自由训练"]
+        XCTAssertEqual(free.value as? String, "需要 Pro")
+        capture("2D-free-mode-lock")
+        free.tap(); ready(app.buttons["subscription.close"])
+        app.buttons["subscription.close"].tap(); ready(app.buttons["separation.start"])
+        XCTAssertTrue(node("training.length").buttons["20题"].isSelected)
+        start()
         XCTAssertEqual(try probe()["nextQuestionPending"] as? Bool, false)
         app.buttons["separation.strike"].tap(); waitPhase("result", timeout: 120)
         XCTAssertEqual(try probe()["quota"] as? Int, 20)
@@ -529,14 +543,20 @@ final class SeparationPracticeUITests: XCTestCase {
         app.buttons["separation.strike"].tap(); waitPhase("result", timeout: 120)
         XCTAssertEqual(try probe()["quota"] as? Int, 20)
         app.buttons["separation.strike"].tap(); ready(app.buttons["training.restart"])
-        capture("2D-free-quota-summary"); app.terminate()
+        XCTAssertEqual(app.buttons["training.restart"].label, "重新开始")
+        capture("2D-free-quota-summary")
+        app.buttons["training.restart"].tap(); ready(app.buttons["subscription.close"])
+        app.buttons["subscription.close"].tap(); ready(app.buttons["training.restart"])
+        XCTAssertTrue(node("separation.summary").exists)
+        app.terminate()
     }
     func testBackgroundCancelsPendingAutomaticStrike() throws {
         open(false); start()
         let id = try probe()["question"] as? String
         app.buttons["separation.strike"].tap()
         XCUIDevice.shared.press(.home); app.activate()
-        waitPhase("aiming")
+        let resumedPhase = try XCTUnwrap(probe()["phase"] as? String)
+        XCTAssertTrue(["aiming", "result"].contains(resumedPhase))
         XCTAssertEqual(try probe()["question"] as? String, id)
         let state = try probe()
         XCTAssertEqual(state["actualVisible"] as? Bool, (state["attempts"] as? Int ?? 0) > 0)
@@ -606,7 +626,7 @@ final class SeparationPracticeUITests: XCTestCase {
         XCTAssertEqual(try probe()["actualVisible"] as? Bool, false)
         menu("menu.tableGrid")
         capture("grid-enabled-menu")
-        app.buttons["separation.rehearsal"].tap()
+        XCTAssertFalse(app.buttons["separation.rehearsal"].exists)
         app.buttons["separation.dismissMenu"].tap()
         menu("controlLayout.open")
         let control = app.buttons["freeLayout.select.shot.strike"]

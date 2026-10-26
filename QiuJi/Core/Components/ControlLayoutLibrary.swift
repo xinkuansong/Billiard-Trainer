@@ -6,6 +6,8 @@ extension TablePreferencePage {
         case .dailyClearance: return "每日清台"
         case .freePlay: return "自由击球"
         case .shotSimulation: return "分离角与走位"
+        case .multiBallPractice: return "2D多球走位"
+        case .multiBallPractice3D: return "3D多球走位"
         case .snakePractice: return "蛇彩"
         case .composer: return "自由走位"
         case .drillTryout: return "动作详情试打"

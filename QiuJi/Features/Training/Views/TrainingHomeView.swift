@@ -1285,6 +1285,13 @@ struct TrainingHomeView: View {
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)
 
+            if !subscriptionManager.isPremium {
+                Text("每日清台每天免费1局，Pro 不限局数")
+                    .font(.btCaption2).foregroundStyle(TrainingPhotoStyle.foreground.opacity(0.75))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.horizontal, Spacing.md)
+                    .accessibilityIdentifier("dailyClearance.allowance")
+            }
             Divider()
                 .hidden()
                 .padding(.horizontal, Spacing.md)
@@ -1479,12 +1486,12 @@ struct TrainingHomeView: View {
 
     private func refreshDailyClearanceState() {
         let store = DailyClearanceStore()
-        if let completion = store.loadTodayCompletion() {
-            dailyClearanceState = .completed
-            dailyClearanceGame = completion.game
-        } else if let draft = store.loadTodayDraft() {
+        if let draft = store.loadTodayDraft() {
             dailyClearanceState = .inProgress
             dailyClearanceGame = draft.game
+        } else if let completion = store.loadTodayCompletion() {
+            dailyClearanceState = .completed
+            dailyClearanceGame = completion.game
         } else {
             dailyClearanceState = .notStarted
             dailyClearanceGame = UserPreferences.shared.dailyClearanceGame

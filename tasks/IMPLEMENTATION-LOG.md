@@ -6227,3 +6227,91 @@ DR-410 v3验收补记：20入口/34适用模式定向UI通过，47项存储测�
 ## 2026-10-26 两球消费库舒适度85及首杆排序
 
 用户批准166443题/677488推荐子集训练接入。新增只读导出/独立审计，更新消费schema与指纹；首杆四项执行E升序、同分保留源序；现有三球准入仅删不乱序。旧训练政策记录归档保留历史/扣额。最终19单测＋2UI通过；代码/资源/截图/收尾见`tasks/TWO-BALL-CONSUMER85-EXECUTION-20261026.md`。研究原库及物理不变，未发布。
+
+
+## DR-435 — 训练设置统一恢复默认（2026-10-26）
+
+用户确认在所有适用练习的训练设置页底部增加次级“恢复默认设置”，自定义球形模板管理页排除。共用 `BTTrainingSettingsResetSection(action:)` 只调用草稿动作，反馈复用 `BTRuleNoticeCenter` 与 `BTToastBanner`；开始/重新开始才保存，取消保留。`SceneTrainingConfiguration.defaults(for:)` 与首次加载共享路由默认，独立开关/两球模式同源。蛇彩移除编辑时即时写偏好，沿现有Controller.start保存，解决取消也改偏好的冲突。
+
+- 已应用至：球桌页面统一规范TP20、变更与来源、docs/05、UI-IMPLEMENTATION-SPEC Changelog、swiftui-design-system的DR-435组件合同（2026-10-26）。
+- 验证与范围：[训练设置恢复默认](table-page-adaptation/TRAINING-SETTINGS-RESET-20261026.md)，完成结果见[UI验收记录](ui-reviews/UR-20261026-training-settings-reset.md)：28项逻辑测试、11入口与3尺寸定向UI及原图复核通过，真机/VoiceOver/发布仍未验收。
+
+## DR-436 — 练习袋口3秒与直接出杆（2026-10-26）
+
+- 用户要求：准度/分离角/两球首袋3秒，两球第二袋异色常亮；分离角/两球直接出杆；页内移除运杆，统一我的且默认关闭。
+- 实现：同题不重复触发袋口反馈，两球预制绿色短亮/青色常驻；移除revealing状态和首帧后1.5秒等待，保持保存成功才出杆，固定rehearsal=false；TablePreferencesStore忽略旧页内运杆覆盖，其他字段隔离不变。
+- 共用规范TP13/14/19/27及来源、交互文档、UI规范和页面卡已同步；测试与证据状态见[任务卡](table-page-adaptation/PRACTICE-SHOT-FEEDBACK-20261026.md)。
+
+### DR-436 r2 — 第一袋回归统一目标色（2026-10-26，FL-206）
+
+用户否定r1首袋绿色特例，要求与其他目标袋统一。两球第一袋改为共用targetTint蓝色#32ADE6，删除绿色pulse和可选色参数；第二袋青色常亮与3秒/直接出杆逻辑保持。现行规范、来源、交互/技能/页面卡已回写；r1颜色图仅为历史，r2验证见任务卡。
+
+### DR-436 r3 — 第二袋绿色常亮（2026-10-26）
+
+按用户指定，两球第二袋增加独立continuationTarget预制样式，使用现有绿色调；第一袋共用蓝色3秒不变，同袋蓝→绿。仅transientFirst分支采用，其他教学secondRole及双角色分区保持。测试断言与当前规范已更新，验证见页面卡r3。
+
+## FL-207 — 两球自由走位只显示最终得分（2026-10-26）
+
+按用户截图纠正移除侧栏和短暂结果提示的评分详情入口；不修改评分算法或存储。开发文档保留公式，用户界面不显示分项和公式。已应用至TP24、来源表、功能规划、页面卡、UI规范与SwiftUI技能；验证见TWO-BALL-FREE-SCORE-20261026.md。
+
+## DR-437 — 训练设置竖屏与少球标题（2026-10-26）
+
+手机三点菜单训练设置统一为完整竖屏页面，实色背景、顶部导航、不透出球桌，关闭恢复球桌；允许球数上限已知且少、容量足够的标题单行，保留多球当前效果。已应用至统一规范TP03/04、来源、docs/05、UI规范及SwiftUI技能；验证见[任务卡](table-page-adaptation/TRAINING-SETTINGS-ORIENTATION-20261026.md)。
+
+
+## FL-209 — 多球设置只复用勾选符号导致行高膨胀（2026-10-26）
+
+用户对比既有训练设置指出球数选项过松。根因：多球在List行内部额外设置minHeight:44，叠加原生行留白；只复用了BTSelectionIndicator，未对齐参考页Form和选项行结构。修复采用Form与原生Button行，移除内部最小高度及plain样式，保留contentShape、单选与AX状态。范围包含2D/3D顺序球数、中八己方球数和对手球；不改变权益或题库。
+
+- 强制检查点：参考既有设置页时同时核容器、自然行高、行内留白和整行命中；44pt触点要求针对最终行，不能机械加到内容后再叠列表留白。以同尺寸原图对比为准。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` FL-209及`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+- 验证：构建、iPhone13三项UI及SE/iOS17中八一项通过，浅深原图已审；见`tasks/ui-reviews/UR-20261026-multi-ball-spacing.md`。
+
+## DR-438 — 每日清台与练习 Pro 提示（2026-10-26）
+
+- 用户授权：分析后“好的，开始吧”。每日非会员每天1个新挑战，首次有效开球提交计次，继续/规则重摆保持本局；普通训练独立20、多球共享3不变。
+- 组件：BTTrainingModePicker复用统计页BTProBadge；用户修订后撤去开始/重开等动作角标，取消/成功意图分开。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` DR-438；TP20/25；docs04/05/08。
+- 实现/测试与待验：[执行卡](table-page-adaptation/PRO-TRAINING-ACCESS-20261026.md)。
+
+
+## DR-439 — 瞄准点提交后特写（2026-10-26）
+
+2D/3D共用冻结的正式答案几何，提交后自动显示用户点和正确点；页面内复用BTAimCloseupHUD与缓存台呢，不修改共享临时特写闸门。最后一题反馈保留，下一题动作决定进入总结。覆盖P10页面例外，未扩大为所有训练弹窗标准。实现/证据见[任务卡](table-page-adaptation/AIM-POINT-RESULT-CLOSEUP-20261026.md)。
+
+
+DR-439/FL-211修订：首轮把“瞄准特写”扩展为独立大弹窗，被用户否决。已撤去该视图和额外动作，直接复用原BTAimCloseupOverlay/HUD；snapshot只加可选standardAimPointMarker，默认nil，沿原相机投影转化；答案结果复用现有快照，仅增加点和“标准”标注。证据见同任务卡r5。
+
+
+## PD-031 — 中袋可行区域、当前杆评分与推荐策略分层复用（2026-10-26）
+
+- 来源：用户要求记录每日推荐实现，检查其他用途并纳入球桌统一规范。
+- 模式：MiddlePocketRegion只判断指定中袋区域；ShotComfortScore评价显式aim；DailyShotRecommendation组合线路筛选与W排序，调用方提供合法目标和状态语义。固定目标可仅选袋，图谱可仅用区域，不能把每日完整策略推给所有消费者。
+- 已应用至：`docs/design/table-pages/球桌页面统一规范.md` TP14/29、来源表与检查表C/D；`.agents/skills/table-page-adaptation/SKILL.md` §PD-031及v1.6 Changelog；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-10-26）。
+- 现状及建议：见[实施记录§复用盘点](DAILY-TARGET-RECOMMENDATION-IMPLEMENTATION-20261026.md)。仅每日完整启用，两球复用数学；优先考虑多球与自由击球。本轮只读代码与文档核验，不改其他页面生产策略，不重跑App测试。
+
+## DR-440 — 普通默认杆速统一2.0（2026-10-26）
+- 用户明确将1.5/2.5默认统一2.0，其他逻辑不变。共享默认、SeparationInput、斯诺克战术初始显示及默认参考AX已接线；题目采样/显式参数/旧记录保持。
+- 规则改进/回写目标：球桌TP10明确默认值作用域与业务例外，避免将出题均值当UI默认。
+- **已应用至**：`docs/design/table-pages/球桌页面统一规范.md` TP10、来源表及`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-10-26）。验证及构建守卫复核见`tasks/table-page-adaptation/DEFAULT-SHOT-SPEED-20261026.md`。
+
+
+## PD-031 · 首批推荐消费者落地（2026-10-26增量）
+
+- 用户确认开始后，FreePlayRulesSession在setupScene/loadBoard前安装推荐；自由击球、多球走位、蛇彩及分离角与走位工具共用合法集合内的W排序。开关更名usesShotComfortRanking，默认关闭；编辑/试打保持原作者语义。
+- 验证与边界：[接入记录](SHOT-RECOMMENDATION-REUSE-20261026.md)，逐项实际结果回填，不沿用每日历史通过。
+- 已应用至：统一规范TP14、来源表；table-page-adaptation的既有PD-031要求已覆盖实际宿主/规则/aim链，本轮无需重复增加技能规则。
+
+### 2026-10-26 DR-439 最新双线反馈（覆盖绿色圈版本）
+
+用户明确两条线均从母球中心出发，并非平行线；白色为提交方向，橙色使用分离角目标轨迹的systemOrange。原圆形特写不放文字/绿色圈，右侧仅结果态显示“用户/标准”图例。答案线取正式cue→ghost方向，沿原投影；主场景同步橙色。当前验证见 `tasks/table-page-adaptation/AIM-POINT-RESULT-CLOSEUP-20261026.md`。
+
+2026-10-26 DR-439 后续收敛：用户要求橙线只在特写内画，并删除截图中的“瞄错侧”居中提示。主球桌取消标准答案线，居中结果说明整体移除（保留作答时角度辅助、左侧成绩及右侧双线图例）；覆盖上文主场景同步橙色的决定。
+
+2026-10-26 DR439r14：瞄准特写统一灰色参考层，移除旧RGB首帧并拒绝过期材质身份；24项定向测试通过，证据与范围见[任务卡](table-page-adaptation/AIM-CLOSEUP-UNIFICATION-20261026.md)。
+
+## 2026-10-26 · DR-441 / FL-212 球库比例修复
+
+`DailyLayoutMetrics.Palette`加入桌宽决定的基础球径上限，少球不放大；新增窄窗单测与原生缩窗/恢复/点击断言。现行TP05，结果以[专项记录](ui-reviews/UR-20261026-palette-proportion.md)为准。
+
+2026-10-26 DR439r15：仅2D/3D瞄准点提交后结果区新增切角与ThicknessOverlapIcon，目标上方、整体下移12pt；4UI与6张原图通过。已应用至UI-IMPLEMENTATION-SPEC.md Changelog及瞄准点页面合同；真机未验。

@@ -165,16 +165,16 @@ final class BreakFlowRunnerV6Tests: XCTestCase {
         XCTAssertTrue(differs, "改变开球瞄准方向应改变散局（瞄准真正参与开球）")
     }
 
-    // MARK: - 默认力度 8 m/s
+    // MARK: - 默认力度 10 m/s
 
     @MainActor
-    func test_defaultBreakVelocity_isEight() {
-        XCTAssertEqual(BreakFlowRunner.defaultBreakVelocity, 8.0, accuracy: 1e-9,
-            "开球默认力度常量应为 8 m/s")
+    func test_defaultBreakVelocity_isTen() {
+        XCTAssertEqual(BreakFlowRunner.defaultBreakVelocity, 10.0, accuracy: 1e-9,
+            "开球默认力度常量应为 10 m/s")
         let scene = AngleTrainingScene()
         let runner = BreakFlowRunner(scene: scene, game: .chineseEightBall, seed: 1)
-        XCTAssertEqual(runner.velocity, 8.0, accuracy: 1e-9,
-            "runner 实例默认力度应为 8 m/s（参与开球速度）")
+        XCTAssertEqual(runner.velocity, 10.0, accuracy: 1e-9,
+            "runner 实例默认力度应为 10 m/s（参与开球速度）")
     }
 
     // MARK: - K6：手动交付状态机

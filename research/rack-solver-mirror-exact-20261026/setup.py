@@ -1,0 +1,8 @@
+from pathlib import Path
+A=Path('research/rack-solver-invariance-20261026');D=Path('research/rack-solver-mirror-exact-20261026')
+s=(A/'EventDrivenEngine.swift').read_text().replace('enum InvarianceTrace {','enum InvarianceTrace {\n static var cueVelocityOverride:SCNVector3?=nil');(D/'EventDrivenEngine.swift').write_text(s)
+s=Path('QiuJi/Core/Rack/BreakSimulator.swift').read_text();old='engine.setBall(BallState(position: cuePos, velocity: strike.velocity,';assert s.count(old)==1;s=s.replace(old,'engine.setBall(BallState(position: cuePos, velocity: InvarianceTrace.cueVelocityOverride ?? strike.velocity,');(D/'BreakSimulator.swift').write_text(s)
+s=(A/'build.py').read_text().replace('output/rack-solver-invariance-20261026','output/rack-solver-mirror-exact-20261026').replace("'EventDrivenEngine.swift'];bindings", "'EventDrivenEngine.swift','BreakSimulator.swift'];bindings").replace("old.name=='EventDrivenEngine.swift'", "old.name in ['EventDrivenEngine.swift','BreakSimulator.swift']").replace("'EventDrivenEngine.o']", "'EventDrivenEngine.o','BreakSimulator.o']");(D/'build.py').write_text(s)
+s=(A/'main.swift').read_text().replace('                InvarianceTrace.reset()', '''                InvarianceTrace.reset()
+                let override = input["exactCueVelocity"] as! [Double]
+                InvarianceTrace.cueVelocityOverride = SCNVector3(Float(override[0]),Float(override[1]),Float(override[2]))''');s=s.replace('                row["pairTrace"]', '                row["initialCueVelocity"] = vec(InvarianceTrace.cueVelocityOverride!)\n                row["pairTrace"]',1);(D/'main.swift').write_text(s)

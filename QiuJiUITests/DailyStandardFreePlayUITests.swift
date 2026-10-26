@@ -345,6 +345,13 @@ final class DailyStandardFreePlayUITests: XCTestCase {
     func testSimulationReadoutAndRenderer() throws {
         continueAfterFailure = false
         openPlayPage("分离角与走位")
+        // The assertions below measure the 2D stage; this page remembers its last view.
+        app.buttons["freeplay.moreMenu"].tap()
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 5))
+        if mode.value as? String != "2D" { mode.tap() }
+        XCTAssertEqual(mode.value as? String, "2D")
+        app.buttons["关闭菜单"].tap()
         let metric = element("shotSimulation.readout")
         XCTAssertTrue(metric.waitForExistence(timeout: 5))
         XCTAssertTrue(metric.label.contains("切角"))

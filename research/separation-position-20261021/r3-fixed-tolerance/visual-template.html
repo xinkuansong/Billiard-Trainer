@@ -1,0 +1,83 @@
+<div id="fixed-route-experiment">
+  <h3>固定瞄准与打点 · 两条线路对照</h3>
+  <table class="table table-sm"><thead><tr><th>原线路</th><th>原库序最大离库</th><th>离库合格杆速</th></tr></thead><tbody data-ui="comparison"></tbody></table>
+  <div class="viz-controls" role="group" aria-label="选择线路">
+    <button class="btn" type="button" data-case="four" aria-pressed="false">图一 · 四库</button>
+    <button class="btn" type="button" data-case="two" aria-pressed="true">图二 · 两库</button>
+    <button class="btn" type="button" data-ui="original">原速度 4.5</button>
+    <button class="btn" type="button" data-ui="nominal">区间中点</button>
+  </div>
+  <div class="viz-controls"><label class="form-label">共同区域的速度范围<select class="form-select" data-ui="band"><option value="local">局部微调 · 最多降低原一档</option><option value="original">原第二球 · 扩展容错范围</option><option value="clearance">全部离库合格范围</option></select></label></div>
+  <div class="text-small" data-ui="fixed"></div>
+  <label class="form-label"><span data-ui="speed-label" class="tabular-nums"></span><input type="range" class="form-range" data-ui="speed" min="2.5" max="4.5" step="0.005" aria-label="杆速采样点"></label>
+  <div class="text-small" data-ui="result" aria-live="polite"></div>
+  <button class="btn" type="button" data-ui="zoom" aria-pressed="false">放大第二球共同区域</button>
+  <svg data-ui="table" role="img" aria-label="原轨迹、微调轨迹、合格停点和第二球共同候选位置"></svg>
+  <div class="viz-row text-small" data-ui="legend"></div>
+  <div class="viz-controls"><label class="form-label">第二球位置<select class="form-select" data-ui="ball2"></select></label></div>
+  <div class="text-small" data-ui="region" aria-live="polite"></div>
+  <div class="plot-grid"><div><svg class="metric-plot" data-ui="clearance" role="img" aria-label="杆速与母球离库距离"></svg></div><div><svg class="metric-plot" data-ui="angle" role="img" aria-label="杆速与第二杆几何角度"></svg></div></div>
+  <div class="text-small">曲线：蓝色＝原库序；灰色＝库序改变，不计原线路容错</div>
+  <div class="text-small" data-ui="proof"></div>
+  <div class="text-small">采样间隔 0.005 m/s · 区域网格 3 cm · 第一杆方向与打点固定 · 第二袋固定为右上袋</div>
+</div>
+<style>
+#fixed-route-experiment{color:var(--foreground)}
+#fixed-route-experiment [data-ui="table"]{display:block;width:100%;overflow:visible;margin-block:10px}
+#fixed-route-experiment .plot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-block:14px}
+#fixed-route-experiment .metric-plot{display:block;width:100%}
+#fixed-route-experiment svg text{fill:var(--foreground);font-size:12px}
+#fixed-route-experiment .swatch{display:inline-block;width:16px;height:3px;vertical-align:middle;margin-right:5px}
+#fixed-route-experiment [data-ui="fixed"],#fixed-route-experiment [data-ui="region"],#fixed-route-experiment [data-ui="proof"]{margin-block:8px}
+@media(max-width:560px){#fixed-route-experiment .plot-grid{grid-template-columns:1fr}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script>
+(()=>{
+const root=document.getElementById('fixed-route-experiment'),D=__DATA__,get=k=>root.querySelector(`[data-ui="${k}"]`),NS='http://www.w3.org/2000/svg';
+let key='two',bandKey='local',speed=0,point=-1,zoom=false;
+function state(s){if(!s)return;if(['four','two'].includes(s.case))key=s.case;if(['local','original','clearance'].includes(s.band))bandKey=s.band;if(Number.isFinite(s.speed))speed=Math.min(4.5,Math.max(2.5,s.speed));if(Number.isInteger(s.point))point=s.point;}
+state(window.openai?.widgetState?.modelContent);
+function current(){let c=D.cases.find(c=>c.key===key);return {...c,...c.bands.find(b=>b.key===bandKey),key:c.key};}
+function save(){window.openai?.setWidgetState({modelContent:{case:key,band:bandKey,speed,point},privateContent:null}).catch(()=>{});}
+function node(svg,tag,a={},t){let n=document.createElementNS(NS,tag);Object.entries(a).forEach(([k,v])=>n.setAttribute(k,v));if(t!==undefined)n.textContent=t;svg.append(n);return n;}
+function label(svg,x,y,t,a={}){return node(svg,'text',{x,y,...a},t)}
+function setup(){let c=current();if(!speed)speed=c.nominal||4.5;get('ball2').replaceChildren();let ids=[c.originalIndex,...c.common.filter(i=>i!==c.originalIndex)];ids.forEach((i,j)=>{let o=document.createElement('option');o.value=i;o.textContent=j===0?'原图第二球':`共同候选 ${j} · ${c.verified.includes(i)?'两杆已验':'几何候选'}`;get('ball2').append(o)});if(!ids.includes(point))point=c.originalIndex;get('ball2').value=point;get('nominal').disabled=!c.interval.length;get('speed').value=speed;}
+function angle(r){let p=D.points[point],a=D.aims[point],l=Math.hypot(a[0]-p[0],a[1]-p[1]),n=[(a[0]-p[0])/l,(a[1]-p[1])/l],u=[p[0]-2*D.radius*n[0]-r.stop[0],p[1]-2*D.radius*n[1]-r.stop[1]];return Math.atan2(n[0]*u[1]-n[1]*u[0],n[0]*u[0]+n[1]*u[1])*180/Math.PI;}
+function chart(name,rows,fn,title,refs,row,c){let svg=get(name),w=svg.parentElement.clientWidth,h=220;svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.replaceChildren();let vals=rows.map(r=>({x:r.v,y:fn(r),same:r.sameRoute&&r.accepted})).filter(p=>Number.isFinite(p.y));let ex=d3.extent(vals,p=>p.x),ey=d3.extent([...vals.map(p=>p.y),...refs]);let pad=Math.max((ey[1]-ey[0])*.08,1);let x=d3.scaleLinear().domain(ex).range([64,w-16]),y=d3.scaleLinear().domain([ey[0]-pad,ey[1]+pad]).range([h-46,27]);
+ node(svg,'rect',{x:64,y:27,width:w-80,height:h-73,fill:'none',stroke:'var(--border)','data-chart-frame':''});
+ if(c.interval.length){node(svg,'rect',{x:x(c.interval[0]),y:27,width:Math.max(0,x(c.interval[1])-x(c.interval[0])),height:h-73,fill:'var(--viz-series-3)',opacity:.08});}
+ d3.select(svg).append('g').attr('transform',`translate(0,${h-46})`).call(d3.axisBottom(x).ticks(w<400?3:4).tickFormat(d3.format('.2f')));d3.select(svg).append('g').attr('transform','translate(64,0)').call(d3.axisLeft(y).ticks(4));d3.select(svg).selectAll('.domain,.tick line').attr('stroke','var(--border)');
+ refs.forEach(v=>{node(svg,'line',{x1:64,x2:w-16,y1:y(v),y2:y(v),stroke:'var(--muted-foreground)','stroke-dasharray':'4 4'});});
+ node(svg,'path',{d:d3.line().x(p=>x(p.x)).y(p=>y(p.y))(vals),fill:'none',stroke:'var(--muted-foreground)','stroke-width':1.5});
+ node(svg,'path',{d:d3.line().defined(p=>p.same).x(p=>x(p.x)).y(p=>y(p.y))(vals),fill:'none',stroke:'var(--viz-series-1)','stroke-width':2});
+ node(svg,'circle',{cx:x(row.v),cy:y(fn(row)),r:4,fill:'var(--viz-series-1)'});
+ label(svg,64,14,title,{class:'axis-title','data-axis':'y'});label(svg,w-16,h-9,'杆速（m/s）',{'text-anchor':'end',class:'axis-title','data-axis':'x'});
+}
+function draw(){let c=current(),row=c.rows.reduce((a,b)=>Math.abs(b.v-speed)<Math.abs(a.v-speed)?b:a),original=c.rows.find(r=>r.v===4.5);speed=row.v;get('speed').value=speed;root.querySelectorAll('[data-case]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.case===key));
+ get('fixed').textContent=`打点：左右 ${c.source.sx.toFixed(2)}R，高低 ${c.source.sy.toFixed(2)}R · 原瞄准方向锁定 · 原库序 ${c.source.rails.map(i=>D.railNames[i]).join('→')}`;
+ get('speed-label').textContent=`杆速 ${speed.toFixed(3)} m/s`;
+ get('result').textContent=`离库 ${(row.clearance*100).toFixed(2)} cm · ${row.rails.length} 库${row.sameRoute?'（原库序）':'（库序已变）'} · ${row.safe?'离库达标':!row.accepted?'第一杆未通过':!row.sameRoute?'不计原线路微调':'离库不足 10 cm'}`;
+ if(!c.common.length)zoom=false;get('zoom').disabled=!c.common.length;get('zoom').setAttribute('aria-pressed',zoom);get('zoom').textContent=zoom?'返回全台':'放大第二球共同区域';
+ let svg=get('table'),w=root.clientWidth,scale=zoom?Math.min((w-46)/.4,260/.35):(w-46)/2.75,h=(zoom?.35:1.49)*scale+52;svg.style.overflow=zoom?'hidden':'visible';svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.replaceChildren();let X=p=>zoom?w/2+(p[0]-1.17)*scale:23+(p[0]+1.375)*scale,Y=p=>26+(p[1]+(zoom?.72:.745))*scale,rad=D.radius*scale;
+ function line(p,color,width=2,dash,opacity=1){node(svg,'polyline',{points:p.map(q=>`${X(q)},${Y(q)}`).join(' '),fill:'none',stroke:color,'stroke-width':width,...(dash?{'stroke-dasharray':dash}:{}),opacity,'stroke-linejoin':'round'});}
+ function ball(p,t,color,solid=false){node(svg,'circle',{cx:X(p),cy:Y(p),r:rad,fill:zoom?'none':solid?color:'var(--background)',stroke:color,'stroke-width':2});if(t)label(svg,X(p),Y(p)-rad-5,t,{'text-anchor':'middle'});}
+ node(svg,'rect',{x:X([-1.27,0]),y:Y([0,-.635]),width:2.54*scale,height:1.27*scale,fill:'var(--muted)',opacity:.35});
+ D.rails.forEach(r=>line(r,'var(--border)',2));
+ c.common.forEach(i=>{let p=D.points[i];node(svg,'rect',{x:X(p)-.015*scale,y:Y(p)-.015*scale,width:.03*scale,height:.03*scale,fill:'var(--viz-series-3)',opacity:c.verified.includes(i)?.55:.22});});
+ D.pockets.forEach((p,i)=>{node(svg,'circle',{cx:X(p),cy:Y(p),r:.042*scale,fill:i===2?'var(--viz-series-2)':i===1?'var(--viz-series-4)':'var(--muted-foreground)'});if(i===1||i===2)label(svg,X(p),Y(p)+(i===1?-13:24),i===1?'②袋':'①袋',{'text-anchor':i===1?'end':'start'});});
+ line(original.cuePath,'var(--muted-foreground)',1.5,'5 4',.65);
+ c.rows.filter(r=>r.safe&&c.interval.length&&r.v>=c.interval[0]&&r.v<=c.interval[1]).forEach(r=>node(svg,'circle',{cx:X(r.stop),cy:Y(r.stop),r:2.5,fill:'var(--viz-series-3)',opacity:.6}));
+ line(row.cuePath,'var(--viz-series-1)',2.3);line(row.objectPath,'var(--viz-series-2)',1.8,'5 4');
+ ball(D.cue,'C','var(--foreground)');ball(D.target,'①','var(--viz-series-2)',true);
+ if(Math.hypot(...original.stop.map((x,i)=>x-row.stop[i]))>.035)ball(original.stop,'','var(--muted-foreground)');
+ let p=D.points[point];line([row.stop,p,D.aims[point]],'var(--viz-series-4)',1.4,'4 4');ball(p,'②','var(--viz-series-4)',true);ball(row.stop,'S','var(--viz-series-1)');
+ let selectedIn=c.common.includes(point);get('region').textContent=c.interval.length?`共同区域：${c.interval.map(v=>v.toFixed(3)).join('–')} m/s · ${c.common.length} 个网格候选，${c.verified.length} 个两杆复验通过 · 当前②${selectedIn?'在交集内':'不在交集内'}`:'共同区域为空：保持原库序时，没有离库 >10 cm 的采样区间。';
+ let ang=angle(row);get('proof').textContent=`当前②几何切角 ${ang.toFixed(1)}° · 原图②的几何合格速度：${c.originalRuns.length?c.originalRuns.map(g=>g.map(x=>x.toFixed(3)).join('–')).join('、')+' m/s':'未找到'} · 连续性仅由离散采样支持`;
+ chart('clearance',c.rows,r=>r.clearance*100,'离库净距（cm）',[10],row,c);chart('angle',c.rows,angle,'第二杆角度（°）',[-20,20],row,c);
+}
+get('comparison').innerHTML=D.cases.map(c=>`<tr><td>${c.key==='four'?'图一 · 四库':'图二 · 两库'}</td><td>${(c.maxClearance.clearance*100).toFixed(2)} cm</td><td>${c.safeRuns.length?c.safeRuns.map(g=>g.map(x=>x.toFixed(3)).join('–')).join('、')+' m/s':'无合格采样'}</td></tr>`).join('');
+get('legend').innerHTML=[['var(--muted-foreground)','灰圈 / 虚线：原停点与轨迹'],['var(--viz-series-1)','实线：选定速度'],['var(--viz-series-3)','停点带 / 共同网格候选']].map(([col,t])=>`<span><span class="swatch" style="background:${col}"></span>${t}</span>`).join('');
+root.querySelectorAll('[data-case]').forEach(b=>b.onclick=()=>{key=b.dataset.case;speed=current().nominal||4.5;point=-1;setup();draw();save()});get('zoom').onclick=()=>{zoom=!zoom;draw()};get('band').onchange=()=>{bandKey=get('band').value;speed=current().nominal||4.5;setup();draw();save()};get('speed').oninput=()=>{speed=+get('speed').value;draw()};get('speed').onchange=save;get('ball2').onchange=()=>{point=+get('ball2').value;draw();save()};get('original').onclick=()=>{speed=4.5;draw();save()};get('nominal').onclick=()=>{speed=current().nominal;draw();save()};new ResizeObserver(draw).observe(root);window.addEventListener('openai:set_globals',e=>{state(e.detail?.globals?.widgetState?.modelContent);get('band').value=bandKey;setup();draw()});get('band').value=bandKey;setup();draw();
+})();
+</script>

@@ -1,0 +1,79 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>轨迹相似度 · 五种评分审阅</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:#233e34;background:#f6f7f3;font-size:15px;--line:#dce2d8;--blue:#146b9a;--orange:#bf5928}*{box-sizing:border-box}body{margin:0}main{max-width:1180px;padding:26px 24px 70px;margin:auto}h1{font-size:29px;letter-spacing:-1px;margin:5px 0 10px}h2{font-size:19px;margin:0}p{line-height:1.7;margin:8px 0}.eyebrow{font-size:12px;letter-spacing:2px;color:#64796d}.muted{color:#64746b;font-size:13px}.topline{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.tabs,.toolbar,.actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.tabs{margin:22px 0 14px}button,select,input,textarea{font:inherit}button,select{border:1px solid #cad5c7;background:#fff;color:#244438;border-radius:8px;min-height:42px;padding:8px 12px}button{cursor:pointer}button:hover{background:#edf2e8}button:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #3c7b93;outline-offset:2px}button[aria-pressed=true],button.active{background:#254c3b;color:white;border-color:#254c3b}button:disabled{opacity:.4;cursor:default}select{max-width:100%;min-width:165px}.selector{flex:1}.toolbar{margin-bottom:16px}.panel{background:white;border:1px solid var(--line);border-radius:14px;padding:20px;margin-top:16px}.casehead{display:flex;justify-content:space-between;gap:20px;align-items:center}.legend{display:flex;gap:20px;flex-wrap:wrap;font-size:13px;margin:12px 0}.one{color:var(--blue)}.two{color:var(--orange)}.scores{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:16px 0}.score{border:1px solid var(--line);border-radius:10px;padding:14px 12px;background:#fbfcf9}.score:first-child{background:#edf1e8}.score strong{display:block;font-size:31px;font-variant-numeric:tabular-nums;margin-top:6px;font-weight:600}.score small{font-size:11px;color:#6d7a70;display:block;margin-top:3px}.blind .score strong{filter:blur(11px);user-select:none}.blind .score small{visibility:hidden}.plot{width:100%;display:block;max-height:520px;aspect-ratio:1.788/1}.duo{display:grid;grid-template-columns:1fr 1fr;gap:16px}.duo article{min-width:0}.duo .plot{max-height:none}.route-meta{line-height:1.65;font-size:13px;min-height:48px}.route-meta strong{font-size:15px}.labelrow{display:flex;justify-content:space-between;align-items:center;margin:10px 0}.note{background:#f2f4ef;border-radius:8px;padding:11px 14px;font-size:12px;color:#596e60}.details{margin-top:14px;font-size:13px;color:#5a6c60}summary{cursor:pointer;padding:5px 0;font-weight:600}label{display:flex;gap:8px;align-items:center}textarea{width:100%;min-height:82px;padding:12px;border:1px solid #cbd5c7;border-radius:8px;background:#fcfdfb;resize:vertical}.notesline{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.footer{margin-top:26px;font-size:12px;color:#748276;line-height:1.7}a{color:#255e73;text-underline-offset:3px}.coords{font-size:12px;line-height:1.6;overflow-wrap:anywhere;color:#64746b}.hidden{display:none!important}@media(max-width:700px){main{padding:18px 12px 40px}h1{font-size:24px}.topline{display:block}.panel{padding:13px}.scores{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}.score{padding:10px 5px}.score span{font-size:12px}.score strong{font-size:24px}.score small{display:none}.duo{grid-template-columns:1fr}.casehead{align-items:flex-start;flex-direction:column;gap:6px}.actions{gap:6px}.selector{flex-basis:65%}.plot{max-height:400px}.notesline{align-items:flex-start}.topline .muted{text-align:left!important}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+<main>
+<header class="topline"><div><div class="eyebrow">球迹 · 评分研究 · 2026.10.24</div><h1>同一组轨迹，五种评分</h1><p class="muted">先看路线，再判断哪一种分数更符合你的直觉。评分越高，表示越相似。</p></div><div class="muted" style="text-align:right">93 条真实轨迹 · 4,278 对比较<br>另有 12 组几何对照</div></header>
+<div class="tabs"><button id="real" class="active" aria-pressed="true">真实轨迹</button><button id="synthetic" aria-pressed="false">构造对照</button></div>
+<div class="toolbar"><button id="prev" aria-label="上一组">← 上一组</button><select id="preset" class="selector" aria-label="选择审阅案例"></select><button id="next" aria-label="下一组">下一组 →</button><button id="blind" aria-pressed="false">隐藏分数</button></div>
+<p class="muted" id="case-count" aria-live="polite"></p>
+<section class="panel" id="case">
+<div class="casehead"><div><h2 id="title"></h2><p id="description" class="muted"></p></div><div class="actions"><button id="zoom" aria-pressed="false">局部放大</button><button id="swap">交换两条轨迹</button></div></div>
+<div class="scores" id="scores"></div>
+<div class="labelrow"><strong>叠加查看</strong><span class="muted" id="viewmode">完整球桌 · 等比例</span></div>
+<div class="legend"><span class="one">━━ ① 蓝色实线 · 圆形终点</span><span class="two">┅┅ ② 橙色虚线 · 方形终点</span><span class="muted">小实心点为起点，箭头表示行进方向</span></div>
+<div id="overlay"></div>
+<div class="duo"><article><div id="meta1" class="route-meta one"></div><div id="plot1"></div></article><article><div id="meta2" class="route-meta two"></div><div id="plot2"></div></article></div>
+<div class="note" id="scope"></div>
+<details class="details"><summary>评分口径与原始距离</summary><p>原评分：70% 平均 DTW + 30% Fréchet，再映射为分数。纯 DTW：只用同一平均 DTW 距离。p=1 / 1.5 / 2：完整保序匹配，按真实行程加权的 p 阶平均偏差。</p><p>五种方法统一采用 20 cm 评分尺度。真实候选使用 1 cm 参数网格，构造候选使用 0.25 cm 网格；均为离线数值结果。没有按尾段长度、库数或参数接近程度加条件。</p><p id="distances"></p><p>这些分数衡量轨迹相似性，不表示第二杆难度或进球概率；App 正式评分未修改。</p></details>
+</section>
+<section class="panel" id="explorer"><h2>从 93 条轨迹中自由挑选</h2><p class="muted">任意两条都有完整的五种分值。选择相同组合时为自身对照。</p><div class="toolbar"><label>①<select id="a" aria-label="选择轨迹一"></select></label><label>②<select id="b" aria-label="选择轨迹二"></select></label><button id="apply">查看所选组合</button></div></section>
+<section class="panel"><div class="notesline"><h2>这组的审阅笔记</h2><button id="export">导出全部笔记</button></div><textarea id="note" aria-label="当前案例审阅笔记" placeholder="例如：我觉得这两条应该很相似；p=2 的分数偏低……"></textarea><p class="muted" id="savehint">笔记只保存在此浏览器，可导出文件保留。</p></section>
+<footer class="footer"><a href="focus-237-235.png" target="_blank">原问题单组大图</a> · <a href="five-pairs.png" target="_blank">五组真实轨迹总览</a> · <a href="data.json" download>完整图册数据</a><br>真实路径来自已保存的原生物理记录，只展示碰第一球后的母球轨迹。构造对照单独标示，不冒充物理仿真。</footer>
+</main>
+<script id="payload" type="application/json">__DATA__</script>
+<script>
+'use strict';
+const D=JSON.parse(document.getElementById('payload').textContent),$=id=>document.getElementById(id),COL=['#146b9a','#bf5928'];
+let state={mode:'real',index:0,a:237,b:235,zoom:false,swapped:false,blind:false};
+let notes={};try{notes=JSON.parse(localStorage.getItem('qiuji-score-review-20261024')||'{}')}catch(e){$('savehint').textContent='浏览器存储不可用，请导出笔记保留。'}
+const key=(a,b)=>[a,b].sort((x,y)=>x-y).join('-');
+const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const f=n=>Number(n).toFixed(1),round=n=>Number(n).toFixed(3);
+function current(){if(state.mode==='synthetic'){const c=D.synthetic[state.index];return {title:c.title,description:c.description,first:c.first,second:c.second,scores:c.scores,id:'synthetic:'+c.id,synthetic:true}}
+ const first=D.rows[state.a],second=D.rows[state.b],same=state.a===state.b;
+ const scores=same?Object.fromEntries([...D.methods.map(x=>[x[0],100]),['dtwCM',0],['frechetCM',0]]):D.pairs[key(state.a,state.b)];
+ const preset=D.presets.find(x=>key(x.a,x.b)===key(state.a,state.b));return {title:`组合 ${state.a} / ${state.b}`,description:preset?preset.title:'自由选择的真实轨迹',first,second,scores,id:'real:'+key(state.a,state.b),synthetic:false};}
+function bounds(c){if(!c.synthetic&&!state.zoom)return [-143,-80,286,160];
+ const pts=[...c.first.points,...c.second.points],xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);let xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys);
+ let w=Math.max(xmax-xmin+16,35),h=Math.max(ymax-ymin+16,25);if(w/h<1.788)w=h*1.788;else h=w/1.788;return [(xmin+xmax-w)/2,(ymin+ymax-h)/2,w,h];}
+function svg(c,which){const box=bounds(c),scale=box[2]/286,sw=.85*scale,font=5.1*scale;
+ let s=`<svg class="plot" role="img" aria-label="${escape(c.title)} ${which===-1?'叠加轨迹':'独立轨迹'+(which+1)}" viewBox="${box.join(' ')}" xmlns="http://www.w3.org/2000/svg">`;
+ const circle=(p,r,fill,stroke,width=sw)=>`<circle cx="${p[0]}" cy="${p[1]}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"/>`;
+ if(!c.synthetic){const g=D.geometry,hx=g.length/2,hz=g.width/2;s+=`<rect x="${-hx-6}" y="${-hz-6}" width="${g.length+12}" height="${g.width+12}" rx="2" fill="#375f50"/><rect x="${-hx}" y="${-hz}" width="${g.length}" height="${g.width}" fill="#dfebd9"/>`;
+ for(const p of g.pockets)s+=`<polygon points="${p.lip.map(q=>q.join(',')).join(' ')}" fill="#173e33"/>`+circle(p.center,p.radius,'#173e33','#173e33',0);
+ s+=circle(g.pockets[D.board.pocket].center,6.5,'none','#b07c20',.7);
+ for(const [p,t,fill] of [[D.board.cue,'C','#fff'],[D.board.object,'A','#e9c166'],[D.secondBall,'B','#fff6df']])s+=circle(p,g.radius,fill,'#78846a',.4)+`<text x="${p[0]}" y="${p[1]+1.4}" font-size="4" fill="#67745d" text-anchor="middle">${t}</text>`;
+ }else{s+=`<rect x="${box[0]}" y="${box[1]}" width="${box[2]}" height="${box[3]}" fill="#f3f5ef"/>`;const step=box[2]>300?50:20;for(let x=Math.ceil(box[0]/step)*step;x<box[0]+box[2];x+=step)s+=`<path d="M${x},${box[1]}v${box[3]}" stroke="#e2e7dc" stroke-width="${.3*scale}"/>`;for(let y=Math.ceil(box[1]/step)*step;y<box[1]+box[3];y+=step)s+=`<path d="M${box[0]},${y}h${box[2]}" stroke="#e2e7dc" stroke-width="${.3*scale}"/>`;s+=`<text x="${box[0]+5*scale}" y="${box[1]+8*scale}" font-size="${font}" fill="#788575">几何构造 · 网格 ${step} cm</text>`;}
+ const rows=state.swapped?[c.second,c.first]:[c.first,c.second];
+ rows.forEach((r,i)=>{if(which!==-1&&which!==i)return;const points=r.points,col=COL[i];s+=`<polyline points="${points.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${col}" stroke-width="${sw}" ${i?'stroke-dasharray="'+(3*scale)+' '+(1.8*scale)+'"':''} stroke-linejoin="round"/>`;
+ const lengths=[0];for(let j=1;j<points.length;j++)lengths.push(lengths[j-1]+Math.hypot(points[j][0]-points[j-1][0],points[j][1]-points[j-1][1]));
+ const at=t=>{let j=1;while(j<lengths.length&&lengths[j]<t)j++;if(j>=points.length)return points.at(-1);const u=(t-lengths[j-1])/(lengths[j]-lengths[j-1]||1);return points[j].map((v,k)=>points[j-1][k]+u*(v-points[j-1][k]));};
+ if(lengths.at(-1)>0)for(const frac of [.23,.52,.80]){const p=at(lengths.at(-1)*frac),q=at(Math.min(lengths.at(-1),lengths.at(-1)*frac+1*scale)),dx=q[0]-p[0],dy=q[1]-p[1],l=Math.hypot(dx,dy);if(l>0){const ux=dx/l,uy=dy/l,bx=p[0]-2.3*scale*ux,by=p[1]-2.3*scale*uy;s+=`<path d="M${bx-1.25*scale*uy},${by+1.25*scale*ux}L${p[0]},${p[1]}L${bx+1.25*scale*uy},${by-1.25*scale*ux}" fill="none" stroke="${col}" stroke-width="${.65*scale}"/>`;}}
+ s+=circle(points[0],1.4*scale,col,col,.3*scale);const end=points.at(-1),rmark=2.5*scale;
+ s+=i?`<rect x="${end[0]-rmark}" y="${end[1]-rmark}" width="${2*rmark}" height="${2*rmark}" fill="white" stroke="${col}" stroke-width="${.85*scale}"/>`:circle(end,rmark,'white',col,.85*scale);
+ });return s+'</svg>';}
+function meta(r,i,synthetic){let t=`<strong>${i?'②':'①'} ${synthetic?'路线':'组合 '+r.id} · 行程 ${(r.length/100).toFixed(2)} m</strong>`;
+ if(!synthetic)t+=`<br>杆速 ${r.speed.toFixed(3)} m/s · 打点 (${r.spinX.toFixed(3)}, ${r.spinY.toFixed(3)}) · ${r.rails} 库`;
+ else t+=`<div class="coords">路径顺序（cm）：${r.points.map(p=>'('+p.map(v=>f(v)).join(', ')+')').join(' → ')}</div>`;return t;}
+function render(){const c=current(),rows=state.swapped?[c.second,c.first]:[c.first,c.second];$('title').textContent=c.title;$('description').textContent=c.description;
+ $('scores').innerHTML=D.methods.map(([k,label,desc])=>`<div class="score"><span>${label}</span><strong aria-label="${state.blind?'分数已隐藏':label+' '+f(c.scores[k])+'分'}">${state.blind?'—':f(c.scores[k])}</strong><small>${desc}</small></div>`).join('');$('case').classList.toggle('blind',state.blind);
+ $('overlay').innerHTML=svg(c,-1);$('plot1').innerHTML=svg(c,0);$('plot2').innerHTML=svg(c,1);$('meta1').innerHTML=meta(rows[0],0,c.synthetic);$('meta2').innerHTML=meta(rows[1],1,c.synthetic);
+ $('scope').textContent=c.synthetic?'这是几何构造对照，不是物理击球记录。往返路径可能完全重叠，请结合箭头和路径顺序阅读。':'只画首次碰第一球后的母球轨迹；C 为击球前母球，A 为第一球，B 为第二球位置参考。第二球未参与这次物理模拟。';
+ $('distances').textContent=state.blind?'分数与距离已隐藏。':`原平均 DTW：${c.scores.dtwCM.toFixed(3)} cm；原 Fréchet：${c.scores.frechetCM.toFixed(3)} cm。`;
+ $('viewmode').textContent=c.synthetic?'两图同坐标、同尺度 · 单位 cm':(state.zoom?'局部放大 · 两图同尺度':'完整球桌 · 等比例');$('zoom').disabled=c.synthetic;$('zoom').textContent=state.zoom?'恢复完整球桌':'局部放大';$('zoom').setAttribute('aria-pressed',String(state.zoom));
+ $('note').value=notes[c.id]?.text||'';$('explorer').classList.toggle('hidden',c.synthetic);$('a').value=state.a;$('b').value=state.b;
+ const total=c.synthetic?D.synthetic.length:D.presets.length;$('prev').disabled=state.index<=0;$('next').disabled=state.index<0||state.index>=total-1;$('preset').value=state.index>=0?String(state.index):'custom';
+ $('case-count').textContent=(state.index>=0?`第 ${state.index+1} / ${total} 组`:'自选组合')+(c.synthetic?' · 几何构造对照':` · ${D.presets.length} 组真实轨迹组合，可用上方菜单直接跳转`);
+ window.reviewState={caseId:c.id,title:c.title,scores:c.scores,mode:state.mode,zoom:state.zoom,swapped:state.swapped,hidden:state.blind};}
+function choose(index){state.index=index;state.swapped=false;if(state.mode==='real'){state.a=D.presets[index].a;state.b=D.presets[index].b}render();}
+function mode(value){state.mode=value;state.zoom=false;state.index=0;for(const v of ['real','synthetic']){$(v).classList.toggle('active',v===value);$(v).setAttribute('aria-pressed',String(v===value));}
+ $('preset').innerHTML=(value==='real'?D.presets:D.synthetic).map((p,i)=>`<option value="${i}">${String(i+1).padStart(2,'0')} · ${value==='real'?p.a+' / '+p.b+' · ':''}${escape(p.title)}</option>`).join('')+(value==='real'?'<option value="custom" disabled>自选组合</option>':'');choose(0);}
+for(const id of Object.keys(D.rows).sort((a,b)=>+a-+b)){for(const select of ['a','b']){$(select).add(new Option('组合 '+id+' · '+(D.rows[id].length/100).toFixed(2)+' m',id));}}
+$('real').onclick=()=>mode('real');$('synthetic').onclick=()=>mode('synthetic');$('preset').onchange=e=>choose(+e.target.value);$('prev').onclick=()=>choose(state.index-1);$('next').onclick=()=>choose(state.index+1);
+$('zoom').onclick=()=>{state.zoom=!state.zoom;render()};$('swap').onclick=()=>{state.swapped=!state.swapped;render()};$('blind').onclick=()=>{state.blind=!state.blind;$('blind').textContent=state.blind?'显示分数':'隐藏分数';$('blind').setAttribute('aria-pressed',String(state.blind));render()};
+$('apply').onclick=()=>{state.a=+$('a').value;state.b=+$('b').value;state.index=D.presets.findIndex(p=>key(p.a,p.b)===key(state.a,state.b));state.swapped=false;render();$('case').scrollIntoView({block:'start',behavior:'auto'})};
+$('note').oninput=()=>{const c=current();notes[c.id]={text:$('note').value,title:c.title,scores:c.scores,updated:new Date().toISOString()};try{localStorage.setItem('qiuji-score-review-20261024',JSON.stringify(notes));$('savehint').textContent='已保存在此浏览器，可导出文件保留。'}catch(e){$('savehint').textContent='浏览器存储不可用，请导出笔记保留。'}};
+$('export').onclick=()=>{const blob=new Blob([JSON.stringify({sourceHash:D.sourceHash,notes},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='轨迹评分审阅笔记.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+mode('real');
+</script></html>

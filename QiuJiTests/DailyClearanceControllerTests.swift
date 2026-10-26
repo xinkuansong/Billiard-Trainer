@@ -87,12 +87,118 @@ final class DailyClearanceControllerTests: XCTestCase {
         super.tearDown()
     }
 
-    private func makeController(seed: UInt64 = 100) -> DailyClearanceController {
-        DailyClearanceController(
+    private func makeController(seed: UInt64 = 100, premium: Bool = true) -> DailyClearanceController {
+        let controller = DailyClearanceController(
             store: store,
             now: { self.clock },
             seedGenerator: { seed }
         )
+        controller.premiumProvider = { premium }
+        return controller
+    }
+
+    func testFreeAllowanceStartsOnlyOnFirstAcceptedBreakAndSurvivesRelaunch() {
+        let controller = makeController(premium: false)
+        controller.start(host: host, defaultGame: .nineBall)
+        XCTAssertFalse(store.hasUsedChallengeToday)
+        controller.changeGame(.fiveBall)
+        XCTAssertFalse(store.hasUsedChallengeToday)
+        XCTAssertTrue(controller.authorizeFirstBreak())
+        XCTAssertTrue(store.hasUsedChallengeToday)
+        XCTAssertTrue(controller.authorizeFirstBreak(), "Repeated callbacks belong to this same challenge")
+        let restored = makeController(premium: false)
+        restored.start(host: host, defaultGame: .nineBall)
+        XCTAssertEqual(restored.game, .fiveBall)
+        XCTAssertTrue(restored.authorizeFirstBreak())
+        let seed = restored.draft?.seed
+        restored.changeGame(.nineBall)
+        XCTAssertTrue(restored.showUpgrade)
+        XCTAssertEqual(restored.game, .fiveBall)
+        XCTAssertEqual(restored.draft?.seed, seed)
+    }
+
+    func testCancellingUpgradePreservesResultAndPurchaseResumesRequestedGame() {
+        store.complete(store.makeDraft(game: .nineBall, seed: 9))
+        let controller = makeController(premium: false)
+        controller.start(host: host, defaultGame: .nineBall)
+        controller.replay()
+        XCTAssertTrue(controller.showUpgrade)
+        XCTAssertTrue(controller.isCompleted)
+        controller.showUpgrade = false
+        controller.subscriptionDismissed()
+        XCTAssertTrue(controller.isCompleted)
+        XCTAssertEqual(host.requests.count, 0)
+        controller.changeGame(.fiveBall)
+        controller.premiumProvider = { true }
+        controller.showUpgrade = false
+        controller.subscriptionDismissed()
+        XCTAssertEqual(controller.game, .fiveBall)
+        XCTAssertEqual(controller.phase, .manualRacked)
+        XCTAssertNotNil(store.loadTodayCompletion())
+        XCTAssertEqual(host.requests.count, 1)
+    }
+
+    func testFreeQuotaSurvivesAbandoningDraftAndResetsNextDay() {
+        let controller = makeController(premium: false)
+        controller.start(host: host, defaultGame: .nineBall)
+        XCTAssertTrue(controller.authorizeFirstBreak())
+        store.clearDraft()
+        let fresh = makeController(premium: false)
+        fresh.start(host: host, defaultGame: .nineBall)
+        XCTAssertTrue(fresh.firstBreakRequiresPro)
+        XCTAssertFalse(fresh.authorizeFirstBreak())
+        clock = clock.addingTimeInterval(86400)
+        XCTAssertFalse(fresh.firstBreakRequiresPro)
+        XCTAssertTrue(fresh.authorizeFirstBreak())
+        XCTAssertTrue(store.isToday(fresh.draft!.challengeDay))
+    }
+
+    func testRulesRequiredRerackKeepsChallengeAllowance() {
+        let controller = makeController(premium: false)
+        controller.start(host: host, defaultGame: .chineseEightBall)
+        XCTAssertTrue(controller.authorizeFirstBreak())
+        let request = host.requests.last!
+        request.callback(BreakOutcome(board: host.board, game: request.game, seed: request.seed,
+            pocketedKeys: [], cueScratched: false, terminalBallPocketed: false, settled: true,
+            facts: ShotFacts(firstContactKey: "_1", pocketedKeys: [], cuePocketed: false,
+                railOrPocketAfterContact: false, tableKeysBefore: ["_1", "_8"], railContactKeys: [])))
+        XCTAssertTrue(controller.breakChoices.contains(.rerackByBreaker))
+        controller.resolveBreakChoice(.rerackByBreaker)
+        XCTAssertEqual(controller.phase, .manualRacked)
+        XCTAssertTrue(controller.authorizeFirstBreak())
+        XCTAssertFalse(controller.showUpgrade)
+        controller.confirmRerack()
+        XCTAssertTrue(controller.showUpgrade, "Voluntary rerack starts a new challenge")
+    }
+
+    func testProExpiryDoesNotInterruptAlreadyStartedChallenge() {
+        let controller = makeController(premium: true)
+        controller.start(host: host, defaultGame: .nineBall)
+        XCTAssertTrue(controller.authorizeFirstBreak())
+        controller.premiumProvider = { false }
+        XCTAssertTrue(controller.authorizeFirstBreak())
+        controller.confirmRerack()
+        XCTAssertTrue(controller.showUpgrade)
+    }
+
+    func testProductionBreakRunnerRejectsBeforeSimulationWithoutPermission() throws {
+        store.recordChallengeStarted(at: clock)
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        let controller = makeController(premium: false)
+        controller.start(host: vm, defaultGame: .nineBall)
+        let runner = try XCTUnwrap(vm.breakRunner)
+        runner.breakNow()
+        XCTAssertEqual(runner.phase, .racked)
+        XCTAssertNil(runner.lastBreakSpin)
+        XCTAssertTrue(controller.showUpgrade)
+        XCTAssertNil(controller.draft?.firstBreakAt)
+        controller.premiumProvider = { true }
+        controller.showUpgrade = false
+        runner.breakNow()
+        XCTAssertEqual(runner.phase, .computing)
+        XCTAssertNotNil(controller.draft?.firstBreakAt, "Production break entry commits the allowance")
     }
 
     func test_firstEntryWaitsForManualBreakWithoutCountingShot() {
@@ -115,7 +221,7 @@ final class DailyClearanceControllerTests: XCTestCase {
         let runner = try XCTUnwrap(vm.breakRunner)
         XCTAssertEqual(runner.phase, .racked)
         XCTAssertTrue(runner.autoDeliverOnSettle, "停稳后直接交付，无需点击完成")
-        XCTAssertEqual(runner.velocity, 8)
+        XCTAssertEqual(runner.velocity, 10)
         XCTAssertEqual(runner.draggableCue.count, 1, "开球前母球必须可拖动")
         XCTAssertNil(runner.lastBreakSpin, "进入页面不得发起击球")
         runner.velocity = 7.5

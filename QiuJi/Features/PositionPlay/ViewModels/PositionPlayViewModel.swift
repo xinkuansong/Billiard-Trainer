@@ -265,7 +265,8 @@ final class PositionPlayViewModel: ObservableObject {
     /// Hosts opt in to rule-aware selection; nil keeps unrestricted editor behavior.
     var legalAimTargets: ((Set<String>) -> Set<String>)?
     var usesAutomaticPocketFallback = false
-    var usesDailyShotRanking = false
+    /// Opt-in initial direct-shot ranking; legalAimTargets owns game/sequence restrictions.
+    var usesShotComfortRanking = false
     /// Daily-clearance trial: continuous full-physics previews for power/aim input.
     var usesContinuousTrajectoryPreview = false
     private var isAimWheelDragging = false
@@ -370,7 +371,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     // MARK: - Published shot params
 
-    /// 连续杆头速度 (m/s)。默认 1.5（条 13.2：低速走位是常态）。
+    /// Continuous cue speed (m/s), initialized from the shared default.
     @Published var velocity: Double = ShotTuning.defaultVelocity { didSet { if oldValue != velocity { onParamEdited() } } }
     /// 打点（接触点偏移/R）：spinX +左/−右、spinY +高/−低。
     @Published var spinX: Double = 0 { didSet { if oldValue != spinX { onParamEdited() } } }
@@ -1410,7 +1411,7 @@ final class PositionPlayViewModel: ObservableObject {
         scene.cancelPocketSelectionFeedback()
         selectionChangeDepth += 1
         defer { selectionChangeDepth -= 1; recompute(interactive: true, continuousPreview: usesContinuousTrajectoryPreview) }
-        if usesDailyShotRanking { dailyManualSelection = true }
+        if usesShotComfortRanking { dailyManualSelection = true }
         if usesAutomaticPocketFallback && aimMode == .pocket {
             enterTemporaryFree("已调整方向，暂用自由模式", preservesSolvedDirection: true, automatic: false)
         }
@@ -1524,7 +1525,7 @@ final class PositionPlayViewModel: ObservableObject {
         closeupGate.update(result)
     }
 
-    /// 自动选目标（#6）：距母球最近的在桌目标球。
+    /// Select within the host’s legal set; opted-in pages rank the complete ball/pocket pair.
     private func autoSelectTarget() {
         let previousSelection = selectionSnapshot
         selectionChangeDepth += 1
@@ -1550,16 +1551,14 @@ final class PositionPlayViewModel: ObservableObject {
             selectedPocketIndex = -1
             return
         }
-        if usesDailyShotRanking {
-            let ordered = candidates.sorted().sorted {
+        if usesShotComfortRanking {
+            let preferred = previousSelection.target.map { (target: $0, pocket: previousSelection.pocket) }
+            let best = DailyShotRecommendation.best(dailyCandidates(keys: candidates), preferred: preferred)
+            selectedTargetKey = best?.targetKey ?? candidates.sorted().min {
                 distanceToCue($0, cue: cue.position) < distanceToCue($1, cue: cue.position)
             }
-            if let best = AngleSceneCalculator.recommendDailyTarget(orderedKeys: ordered,
-                    candidates: { dailyCandidates(keys: [$0]) }) {
-                selectedTargetKey = best.targetKey
-                applyDailyPocket(best.pocketIndex, available: true)
-                return
-            }
+            applyDailyPocket(best?.pocketIndex ?? -1, available: best != nil)
+            return
         }
         selectedTargetKey = candidates.sorted().min { a, b in
             distanceToCue(a, cue: cue.position) < distanceToCue(b, cue: cue.position)
@@ -1569,10 +1568,11 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     private var recommendationBoard: [String: SIMD3<Float>] = [:]
-    private var recommendationCache: [String: [AngleSceneCalculator.DailyPocketCandidate]] = [:]
+    private var recommendationUsesComfort = false
+    private var recommendationCache: [String: [DailyShotRecommendation.Candidate]] = [:]
 
     // Recommendation reads only stable ball positions and bounded direct geometry.
-    private func dailyCandidates(keys: Set<String>) -> [AngleSceneCalculator.DailyPocketCandidate] {
+    private func dailyCandidates(keys: Set<String>) -> [DailyShotRecommendation.Candidate] {
         guard let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else { return [] }
         let balls = onTableKeys.compactMap { key -> (String, SCNVector3)? in
             guard !PositionPlayBall.isCue(key), let node = scene.allBallNodes[key], !node.isHidden else { return nil }
@@ -1580,13 +1580,21 @@ final class PositionPlayViewModel: ObservableObject {
         }
         var board = Dictionary(uniqueKeysWithValues: balls.map { ($0.0, SIMD3($0.1.x, $0.1.y, $0.1.z)) })
         board[PositionPlayBall.cueKey] = SIMD3(cue.position.x, cue.position.y, cue.position.z)
-        if board != recommendationBoard { recommendationBoard = board; recommendationCache.removeAll() }
+        if board != recommendationBoard || recommendationUsesComfort != usesShotComfortRanking {
+            recommendationBoard = board; recommendationUsesComfort = usesShotComfortRanking
+            recommendationCache.removeAll()
+        }
         return balls.filter { keys.contains($0.0) }.flatMap { key, target in
             if let cached = recommendationCache[key] { return cached }
-            let candidates = (0..<6).compactMap { index in
-                AngleSceneCalculator.dailyPocketCandidate(cue: cue.position, target: target,
-                    targetKey: key, pocketIndex: index,
-                    obstacles: balls.filter { $0.0 != key }.map { $0.1 }, surfaceY: surfaceY)
+            let candidates: [DailyShotRecommendation.Candidate] = (0..<6).compactMap { index in
+                let obstacles = balls.filter { $0.0 != key }.map { $0.1 }
+                if usesShotComfortRanking {
+                    return DailyShotRecommendation.candidate(cue: cue.position, target: target,
+                        targetKey: key, pocketIndex: index, obstacles: obstacles, surfaceY: surfaceY)
+                }
+                return AngleSceneCalculator.dailyPocketCandidate(cue: cue.position, target: target,
+                    targetKey: key, pocketIndex: index, obstacles: obstacles, surfaceY: surfaceY)
+                    .map { DailyShotRecommendation.Candidate(legacy: $0) }
             }
             recommendationCache[key] = candidates
             #if DEBUG
@@ -1641,7 +1649,7 @@ final class PositionPlayViewModel: ObservableObject {
             targetKey: key, pocketIndex: index, obstacles: obstacles, surfaceY: surfaceY)
     }
 
-    /// Choose the nearest feasible straight pocket, with optional temporary free-aim fallback.
+    /// Rank this target’s feasible pockets using the host policy, with optional free-aim fallback.
     private func selectBestPocket() {
         guard !isFormationEditing else { return }
         guard let targetKey = selectedTargetKey,
@@ -1649,9 +1657,10 @@ final class PositionPlayViewModel: ObservableObject {
         selectionChangeDepth += 1
         defer { selectionChangeDepth -= 1 }
         let candidates = dailyCandidates(keys: [targetKey])
-        let best: AngleSceneCalculator.DailyPocketCandidate?
-        if usesDailyShotRanking {
-            best = AngleSceneCalculator.easiestDailyPocket(candidates)
+        let best: DailyShotRecommendation.Candidate?
+        if usesShotComfortRanking {
+            best = DailyShotRecommendation.best(candidates,
+                preferred: (target: targetKey, pocket: selectedPocketIndex))
         } else {
             best = candidates.min { $0.targetPocketDistance < $1.targetPocketDistance }
         }
@@ -2038,8 +2047,12 @@ final class PositionPlayViewModel: ObservableObject {
                   let targetNode = scene.allBallNodes[targetKey], !targetNode.isHidden,
                   selectedPocketIndex >= 0,
                   let pocketId = ShotIntent.pocketId(for: selectedPocketIndex) else { return nil }
+            let candidate = usesShotComfortRanking ? dailyCandidates(keys: [targetKey])
+                .first(where: { $0.pocketIndex == selectedPocketIndex }) : nil
             return PlannedShot(targetKey: targetKey, pocket: pocketId,
-                               velocity: velocity, spinX: spinX, spinY: spinY, selectionContext: context)
+                               velocity: velocity, spinX: spinX, spinY: spinY, selectionContext: context,
+                               pocketAim: candidate.map { AngleSceneCalculator.sceneToNormalized(position: $0.aim) }
+                                   .map { CanvasPoint(x: Double($0.x), y: Double($0.y)) })
         case .free:
             guard let dir = freeAimDir else { return nil }
             return PlannedShot(targetKey: "", pocket: "",
@@ -2161,7 +2174,7 @@ final class PositionPlayViewModel: ObservableObject {
             return DirectPotBankFallback.statusSummary(
                 bankCatalog[bankIndex], index: bankIndex, total: bankCatalog.count)
         }
-        if usesDailyShotRanking, p.hasCombinationRoute { return "传球路线 · 轨迹已就绪" }
+        if usesShotComfortRanking, p.hasCombinationRoute { return "传球路线 · 轨迹已就绪" }
         if p.objectPocketed { return "进袋 · 母球走位已就绪" }
         if let hint = obstacleBlockHint() { return hint }
         return "未进袋（试试加大力度或换角度更小的袋口）"
@@ -2488,7 +2501,7 @@ final class PositionPlayViewModel: ObservableObject {
             return
         }
 
-        // 自动选下一杆（#6）：距母球最近的目标球 + 距目标球最近的可进袋袋口。
+        // Recommend only after the host has judged the shot and updated its legal target set.
         selectedTargetKey = nil
         autoSelectTarget()
         recompute()

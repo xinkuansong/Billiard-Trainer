@@ -159,6 +159,8 @@ enum TrajectoryStyle {
         static let aimPoint = UIColor(red: 0.20, green: 0.80, blue: 1.0, alpha: 1)
         static let contactPoint = UIColor(red: 1.0, green: 0.66, blue: 0.20, alpha: 1)
         static let aimLine = UIColor.white
+        /// Matches the separation practice target trajectory.
+        static let standardAimLine = UIColor.systemOrange
         static let centerReference = UIColor(white: 0.75, alpha: 0.65)
 
         /// Green object-ball guides blend into the felt in single-target training.

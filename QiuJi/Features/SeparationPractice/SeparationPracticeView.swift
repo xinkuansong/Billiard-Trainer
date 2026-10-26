@@ -109,7 +109,7 @@ struct SeparationPracticeView: View {
             transparency: Binding(get: { tablePreferences.snapshot(for: vm.preferencePage)[.transparency] },
                 set: { tablePreferences.apply(.transparency, value: $0, to: vm.preferencePage) }),
             velocityRange: ShotTuning.velocityRange, instrumentsEnabled: vm.canAdjust,
-            assessmentMode: true, allowsAssessmentSpinEditing: true, allowsAssessmentRehearsal: true,
+            assessmentMode: true, allowsAssessmentSpinEditing: true,
             defersStrikeAccessUntilSubmission: false,
             locksSceneInteraction: vm.isBusy, isAnimating: vm.isBusy, paletteEnabled: false,
             allowsPocketSelection: false, primaryTitle: vm.primaryTitle,
@@ -191,7 +191,7 @@ struct SeparationPracticeView: View {
                 if vm.shouldShowReference {
                     routeLegend("参考", color: Color(SeparationRouteStyle.reference), dash: SeparationRouteStyle.legendDash)
                         .accessibilityIdentifier("separation.referenceLegend")
-                        .accessibilityValue("中杆中力，无高低杆、无左右塞，杆速2.5")
+                        .accessibilityValue("中杆中力，无高低杆、无左右塞，杆速2.0")
                 }
                 if vm.record?.latestShot != nil {
                     routeLegend("实际", color: Color(SeparationRouteStyle.actual), dash: SeparationRouteStyle.legendDash)
@@ -215,7 +215,7 @@ struct SeparationPracticeView: View {
     }
 
 
-    private var hidesPendingScore: Bool { !vm.isReplaying && (vm.phase == .revealing || vm.phase == .playing) }
+    private var hidesPendingScore: Bool { !vm.isReplaying && vm.phase == .playing }
     private var displayedAverage: Double? {
         guard let record = vm.record else { return nil }
         // The submitted first attempt is persisted before animation. Reveal its grade only after playback.

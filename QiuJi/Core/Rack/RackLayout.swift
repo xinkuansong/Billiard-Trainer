@@ -76,7 +76,8 @@ enum RackLayout {
     /// Nominal surface gap in meters (0.20 mm).
     static let gap: Float = 0.00020
 
-    /// Seeded uniform-disk offsets on the world X–Z plane; Y is unchanged.
+    /// Seeded disk offsets on the world X–Z plane; Y is unchanged.
+    /// The 15-ball rack preserves sampled lengths and correlates offset directions.
     /// Radius 0.09 mm keeps nearest-neighbor gaps within 0.02–0.38 mm:
     /// distance >= 2R + gap - 2*jitterRadius, so balls cannot overlap.
     static let jitterRadius: Float = 0.00009
@@ -105,6 +106,9 @@ enum RackLayout {
             balls.append(RackBall(key: "_\(num)", number: num,
                                   position: jittered(pos, y: y, rng: &rng)))
         }
+        if game == .chineseEightBall {
+            balls = coordinatedEightBallOffsets(balls, slots: slots)
+        }
         return Rack(game: game, cue: SCNVector3(headX, y, 0), balls: balls, surfaceY: surfaceY)
     }
 
@@ -117,6 +121,57 @@ enum RackLayout {
         let angle = Float.random(in: 0 ..< (2 * .pi), using: &rng)
         let r = jitterRadius * sqrtf(Float.random(in: 0 ... 1, using: &rng))
         return SCNVector3(p.x + r * cosf(angle), y, p.z + r * sinf(angle))
+    }
+
+    /// Validated `radial_sideM60` policy (RACK-REGIONAL-PHASE-20261026).
+    /// Use the original Float-rounded offsets so the seeded lengths and number
+    /// assignments match the research replay. In the local radial/tangent frame,
+    /// rotate +Z by -30° and -Z by +30°, then fold radially inward. These are
+    /// pre-fold angles, not a fixed angle between the final world-space offsets.
+    private static func coordinatedEightBallOffsets(_ balls: [RackBall],
+                                                     slots: [SCNVector3]) -> [RackBall] {
+        let count = Double(slots.count)
+        let centerX = slots.map { Double($0.x) }.reduce(0, +) / count
+        let centerZ = slots.map { Double($0.z) }.reduce(0, +) / count
+        var magnitudes: [Double] = []
+        var frames: [(Double, Double)] = []
+        var canonical: [(Double, Double)] = []
+        for (ball, slot) in zip(balls, slots) {
+            let dx = Double(ball.position.x) - Double(slot.x)
+            let dz = Double(ball.position.z) - Double(slot.z)
+            let radius = hypot(dx, dz)
+            let ux = radius > 0 ? dx / radius : 1
+            let uz = radius > 0 ? dz / radius : 0
+            let x = Double(slot.x) - centerX, z = Double(slot.z) - centerZ
+            let distance = hypot(x, z)
+            let cs = x / distance, sn = z / distance
+            magnitudes.append(radius)
+            frames.append((cs, sn))
+            canonical.append((cs * ux + sn * uz, -sn * ux + cs * uz))
+        }
+        let averageX = canonical.map { $0.0 }.reduce(0, +) / count
+        let averageZ = canonical.map { $0.1 }.reduce(0, +) / count
+        return balls.indices.map { i in
+            var x = averageX, z = averageZ
+            if hypot(x, z) < 1e-12 {
+                x = canonical[i].0
+                z = canonical[i].1
+            }
+            let weight = slots[i].z > 0 ? 0.5 : (slots[i].z < 0 ? -0.5 : 0)
+            let angle = -60.0 * weight * Double.pi / 180
+            let rotatedX = cos(angle) * x - sin(angle) * z
+            let rotatedZ = sin(angle) * x + cos(angle) * z
+            x = -abs(rotatedX)
+            z = rotatedZ
+            let norm = hypot(x, z)
+            let (cs, sn) = frames[i]
+            let dx = (cs * x - sn * z) / norm * magnitudes[i]
+            let dz = (sn * x + cs * z) / norm * magnitudes[i]
+            var position = balls[i].position
+            position.x = Float(Double(slots[i].x) + dx)
+            position.z = Float(Double(slots[i].z) + dz)
+            return RackBall(key: balls[i].key, number: balls[i].number, position: position)
+        }
     }
 
     // MARK: - Slot geometry

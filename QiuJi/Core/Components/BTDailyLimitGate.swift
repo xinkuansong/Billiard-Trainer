@@ -126,3 +126,40 @@ struct BTProBadge: View {
         .accessibilityIdentifier("proBadge")
     }
 }
+
+
+/// A segmented choice with a real, readable Pro capsule. The whole segment is
+/// tappable, including its badge; the caller owns purchase/cancellation intent.
+struct BTTrainingModePicker: View {
+    let count: Int
+    let isPremium: Bool
+    @Binding var freePractice: Bool
+    @Environment(\.colorScheme) private var colorScheme
+    var body: some View {
+        HStack(spacing: 2) {
+            segment("\(count)题", free: false)
+            segment("自由训练", free: true)
+        }
+        .padding(3)
+        .background(Color(uiColor: .tertiarySystemFill), in: RoundedRectangle(cornerRadius: 18))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("练习模式")
+    }
+    private func segment(_ title: String, free: Bool) -> some View {
+        Button { freePractice = free } label: {
+            HStack(spacing: Spacing.xs) {
+                Text(title).font(.btFootnote.weight(.medium))
+                if free && !isPremium { BTProBadge(isUnlocked: false).accessibilityHidden(true) }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .background(freePractice == free ? (colorScheme == .dark ? Color(uiColor: .systemGray2) : Color(uiColor: .systemBackground)) : .clear,
+                        in: RoundedRectangle(cornerRadius: 15))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).foregroundStyle(.btText)
+        .accessibilityLabel(title)
+        .accessibilityValue(free && !isPremium ? "需要 Pro" : (freePractice == free ? "已选" : "未选"))
+        .accessibilityAddTraits(freePractice == free ? .isSelected : [])
+    }
+}

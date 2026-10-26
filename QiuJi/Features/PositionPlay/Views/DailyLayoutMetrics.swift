@@ -300,7 +300,12 @@ enum DailyLayoutMetrics {
                 return bounds.minX >= sideInset && bounds.maxX <= size.width - sideInset
                     && bounds.minY >= 0 && !obstacles.contains { $0.insetBy(dx: -2, dy: 0).intersects(bounds) }
             }
-            let tiers: [CGFloat] = [Self.maximumDiameter, 34, 30, 25]
+            // TP05: size the faces against a full 15-ball reference on the
+            // unzoomed table. Fewer slots shorten the palette, not enlarge it.
+            // Keep the readable 25pt floor and existing capacity/wrapping rules.
+            let allTiers: [CGFloat] = [Self.maximumDiameter, 34, 30, 25]
+            let tableDiameter = allTiers.first { 15 * ($0 + 2) + 18 <= table.width } ?? 25
+            let tiers = allTiers.filter { $0 <= tableDiameter }
             let single = tiers.first { fits($0, rows: false) }
             // Orientation is a product constraint, not a device-name breakpoint.
             let double = single == nil && size.height > size.width

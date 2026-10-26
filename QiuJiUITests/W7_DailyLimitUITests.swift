@@ -55,7 +55,7 @@ final class W7_DailyLimitUITests: XCTestCase {
     /// 满额 + 自由练习 → SceneAiming 展示 full 主卡（非总结 compact）。
     @discardableResult
     private func startSceneAimingFreePracticeAtLimit() -> Bool {
-        let free = app.buttons["自由练习"]
+        let free = app.buttons["自由训练"]
         if free.waitForExistence(timeout: 3) {
             free.tap()
             usleep(400_000)

@@ -37,10 +37,35 @@ final class AimCloseupBuilderTests: XCTestCase {
             XCTAssertEqual(hypot(contact.x - target.x, contact.y - target.y), r, accuracy: 1e-7)
             XCTAssertEqual(hypot(contact.x - ghost.x, contact.y - ghost.y), r, accuracy: 1e-7)
             XCTAssertNil(snap.potLine)
-            XCTAssertNil(snap.auxLine)
+            XCTAssertNotNil(snap.auxLine)
         }
         XCTAssertNil(AimCloseupBuilder.solvedContact(cue: cue, target: target,
             ghost: target, number: 8, ballRadius: r))
+    }
+
+    func testSharedReferencesArePerpendicularAndIndependentOfAimAcrossRotations() throws {
+        let cue = CGPoint(x: -0.2, y: 0.1)
+        for degrees in stride(from: 0.0, to: 360.0, by: 15) {
+            let angle = degrees * .pi / 180
+            let target = CGPoint(x: cue.x + 0.7 * cos(angle), y: cue.y + 0.7 * sin(angle))
+            let base = AimCloseupSnapshot(band: .contact, focus: target, ballRadius: r, halfWorld: 3.2 * r)
+                .withCenterReferences(cue: cue)
+            let line = try XCTUnwrap(base.centerReferenceLine)
+            let normal = try XCTUnwrap(base.auxLine)
+            XCTAssertEqual(line.start, cue); XCTAssertEqual(line.end, target)
+            XCTAssertEqual(base.targetReferenceRadius, 2 * r)
+            XCTAssertEqual((normal.start.x + normal.end.x) / 2, target.x, accuracy: 1e-10)
+            XCTAssertEqual((normal.start.y + normal.end.y) / 2, target.y, accuracy: 1e-10)
+            let dx = line.end.x - line.start.x, dz = line.end.y - line.start.y
+            XCTAssertEqual(dx * (normal.end.x - normal.start.x) + dz * (normal.end.y - normal.start.y), 0, accuracy: 1e-10)
+            for offset in [-0.04, 0, 0.04] {
+                let direction = CGPoint(x: cos(angle + offset), y: sin(angle + offset))
+                let snap = try XCTUnwrap(AimCloseupBuilder.currentAim(cue: cue, direction: direction,
+                    target: target, number: 1, ballRadius: r, railEnd: .init(x: 1.2, y: 0), previouslyNear: false).snapshot)
+                XCTAssertEqual(snap.auxLine, base.auxLine)
+                XCTAssertEqual(snap.centerReferenceLine, base.centerReferenceLine)
+            }
+        }
     }
 
     private let r: CGFloat = 0.028575
@@ -60,7 +85,7 @@ final class AimCloseupBuilderTests: XCTestCase {
 
     // MARK: - 层集（只画主场景有的层）
 
-    func test_contact_buildsAimLineGhostAndContactDot_noPotOrAuxLine() throws {
+    func test_contact_buildsShotLayersAndSharedCenterReferences() throws {
         let target = CGPoint(x: 0.6, y: 0)
         let result = build([AimCloseupBuilder.Ball(pos: target, number: 8)])
         let snap = try XCTUnwrap(result.snapshot)
@@ -82,9 +107,9 @@ final class AimCloseupBuilderTests: XCTestCase {
         XCTAssertEqual(hypot(contact.x - ghost.x, contact.y - ghost.y), r, accuracy: 1e-6)
         XCTAssertEqual(hypot(contact.x - target.x, contact.y - target.y), r, accuracy: 1e-6)
 
-        // 本页场景无进球线/垂线 ⇒ HUD 不得发明。
+        // 不添加进球答案；灰色参考垂线仅由球位生成。
         XCTAssertNil(snap.potLine)
-        XCTAssertNil(snap.auxLine)
+        XCTAssertNotNil(snap.auxLine)
         XCTAssertNil(snap.aimPointMarker)
         XCTAssertFalse(snap.ghostShowsAimPoint, "场景的假想球圈不带瞄准点十字")
     }
@@ -188,6 +213,31 @@ final class AimCloseupBuilderTests: XCTestCase {
 /// v23 W3：特写显隐门（近区 ∧ 正在改瞄准）。
 @MainActor
 final class AimCloseupGateTests: XCTestCase {
+
+    func testSharedReferencesArePerpendicularAndIndependentOfAimAcrossRotations() throws {
+        let cue = CGPoint(x: -0.2, y: 0.1)
+        for degrees in stride(from: 0.0, to: 360.0, by: 15) {
+            let angle = degrees * .pi / 180
+            let target = CGPoint(x: cue.x + 0.7 * cos(angle), y: cue.y + 0.7 * sin(angle))
+            let base = AimCloseupSnapshot(band: .contact, focus: target, ballRadius: r, halfWorld: 3.2 * r)
+                .withCenterReferences(cue: cue)
+            let line = try XCTUnwrap(base.centerReferenceLine)
+            let normal = try XCTUnwrap(base.auxLine)
+            XCTAssertEqual(line.start, cue); XCTAssertEqual(line.end, target)
+            XCTAssertEqual(base.targetReferenceRadius, 2 * r)
+            XCTAssertEqual((normal.start.x + normal.end.x) / 2, target.x, accuracy: 1e-10)
+            XCTAssertEqual((normal.start.y + normal.end.y) / 2, target.y, accuracy: 1e-10)
+            let dx = line.end.x - line.start.x, dz = line.end.y - line.start.y
+            XCTAssertEqual(dx * (normal.end.x - normal.start.x) + dz * (normal.end.y - normal.start.y), 0, accuracy: 1e-10)
+            for offset in [-0.04, 0, 0.04] {
+                let direction = CGPoint(x: cos(angle + offset), y: sin(angle + offset))
+                let snap = try XCTUnwrap(AimCloseupBuilder.currentAim(cue: cue, direction: direction,
+                    target: target, number: 1, ballRadius: r, railEnd: .init(x: 1.2, y: 0), previouslyNear: false).snapshot)
+                XCTAssertEqual(snap.auxLine, base.auxLine)
+                XCTAssertEqual(snap.centerReferenceLine, base.centerReferenceLine)
+            }
+        }
+    }
 
     private let r: CGFloat = 0.028575
 

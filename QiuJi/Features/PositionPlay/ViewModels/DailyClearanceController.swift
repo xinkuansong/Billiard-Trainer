@@ -8,12 +8,14 @@ protocol DailyClearancePlayingHost: AnyObject {
     func captureDailyUndo() -> () -> Void
     func respotDailyBalls(_ keys: Set<String>)
     func restoreDailyClearanceCueBall()
+    func setDailyBreakAuthorization(_ authorize: @escaping () -> Bool)
     func beginDailyClearanceBreak(game: RackGame,
                                   seed: UInt64,
                                   onOutcome: @escaping (BreakOutcome) -> Void)
 }
 
 extension DailyClearancePlayingHost {
+    func setDailyBreakAuthorization(_ authorize: @escaping () -> Bool) {}
     func captureDailyUndo() -> () -> Void {
         let board = currentDailyClearanceBoard()
         return { [weak self] in self?.loadDailyClearanceBoard(board) }
@@ -35,6 +37,9 @@ extension PositionPlayViewModel: DailyClearancePlayingHost {
         placeFromPalette(PositionPlayBall.cueKey)
     }
 
+    func setDailyBreakAuthorization(_ authorize: @escaping () -> Bool) {
+        breakRunner?.authorizeStrike = authorize
+    }
     func beginDailyClearanceBreak(game: RackGame,
                                   seed: UInt64,
                                   onOutcome: @escaping (BreakOutcome) -> Void) {
@@ -46,8 +51,8 @@ extension PositionPlayViewModel: DailyClearancePlayingHost {
             seed: seed,
             onOutcome: onOutcome
         )
-        // Start at 8 m/s; the player can adjust every input before striking.
-        breakRunner?.velocity = 8.0
+        // Keep the shared break default; every input remains editable before striking.
+        breakRunner?.velocity = BreakFlowRunner.defaultBreakVelocity
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-dailyClearance.fixtureSettled") {
             let objectKeys: [String]
@@ -81,6 +86,40 @@ final class DailyClearanceController: ObservableObject {
     @Published private(set) var draft: DailyClearanceDraft?
     @Published private(set) var completion: DailyClearanceCompletion?
     @Published private(set) var statusText = "准备每日清台"
+    @Published var showUpgrade = false
+    var premiumProvider: () -> Bool = { false }
+    private var pendingGame: DailyClearanceGame?
+    var newChallengeRequiresPro: Bool { !premiumProvider() && store.hasUsedChallengeToday }
+    var firstBreakRequiresPro: Bool { draft?.hasStartedChallenge != true && newChallengeRequiresPro }
+
+    func refreshAccess() { objectWillChange.send() }
+
+    /// A cancelled purchase leaves the board/result intact. Unlocking a new game
+    /// prepares its rack; it never fires the cue automatically.
+    func subscriptionDismissed() {
+        let game = pendingGame
+        pendingGame = nil
+        if premiumProvider(), let game { resetAndBeginManualRack(game: game) }
+        refreshAccess()
+    }
+
+    @discardableResult
+    func authorizeFirstBreak() -> Bool {
+        guard var current = draft else { return false }
+        if current.hasStartedChallenge { return true }
+        guard !newChallengeRequiresPro else { pendingGame = nil; showUpgrade = true; return false }
+        current.firstBreakAt = now()
+        // A rack opened before midnight starts on the day it is actually struck.
+        current.challengeDay = store.day(containing: now())
+        store.recordChallengeStarted(at: now())
+        draft = current; store.saveDraft(current)
+        return true
+    }
+
+    private func requestNewChallenge(game: DailyClearanceGame) {
+        guard !newChallengeRequiresPro else { pendingGame = game; showUpgrade = true; return }
+        resetAndBeginManualRack(game: game)
+    }
 
     private let store: DailyClearanceStore
     private let now: () -> Date
@@ -216,6 +255,7 @@ final class DailyClearanceController: ObservableObject {
         completion = store.loadTodayCompletion()
 
         if let restored = store.loadTodayDraft() {
+            if restored.hasStartedChallenge { store.recordChallengeStarted(at: restored.firstBreakAt ?? restored.startedAt) }
             draft = restored
             rulesEngine = DailyClearanceRulesEngine(game: restored.game, state: restored.ruleState)
             restore(restored)
@@ -291,16 +331,16 @@ final class DailyClearanceController: ObservableObject {
 
     func confirmRerack() {
         guard let current = draft else { return }
-        resetAndBeginManualRack(game: current.game)
+        requestNewChallenge(game: current.game)
     }
 
     func changeGame(_ game: DailyClearanceGame) {
-        resetAndBeginManualRack(game: game)
+        requestNewChallenge(game: game)
     }
 
     func replay() {
         let replayGame = game ?? .chineseEightBall
-        resetAndBeginManualRack(game: replayGame)
+        requestNewChallenge(game: replayGame)
         resumeActivity()
     }
 
@@ -353,11 +393,16 @@ final class DailyClearanceController: ObservableObject {
                 self.handleBreakOutcome(outcome)
             }
         )
+        host?.setDailyBreakAuthorization { [weak self] in self?.authorizeFirstBreak() ?? false }
     }
 
     private func handleBreakOutcome(_ outcome: BreakOutcome) {
         guard var current = draft, current.seed == outcome.seed else { return }
 
+        if current.firstBreakAt == nil {
+            current.firstBreakAt = now()
+            store.recordChallengeStarted(at: now())
+        }
         if !outcome.settled {
             current.phase = .failed
             current.board = nil
@@ -453,6 +498,7 @@ final class DailyClearanceController: ObservableObject {
         if args.contains("-dailyClearance.resetState") {
             store.clearDraft()
             store.clearCompletion()
+            UserDefaults.standard.removeObject(forKey: DailyClearanceStoreKey.usedChallengeDay)
         }
         guard let fixture = args.first(where: { $0.hasPrefix("-dailyClearance.fixture=") })?
             .replacingOccurrences(of: "-dailyClearance.fixture=", with: "") else { return }
@@ -535,6 +581,17 @@ final class DailyClearanceController: ObservableObject {
                 "_15": CanvasPoint(x: 0.7, y: 0.12),
                 "_8": CanvasPoint(x: 0.4, y: 0.38)
             ])
+        case "recommendationFullTable":
+            // DEBUG-only UI fixture: fifteen separated targets; ordinary recommendations
+            // and the real shot/settlement pipeline remain unchanged.
+            fixtureDraft.phase = .playing
+            fixtureDraft.ruleState.assignedGroup = .solid
+            var positions = [PositionPlayBall.cueKey: CanvasPoint(x: 0.90, y: 0.30)]
+            for index in 0..<15 {
+                positions["_\(index + 1)"] = CanvasPoint(
+                    x: 0.15 + 0.15 * Double(index % 5), y: 0.10 + 0.15 * Double(index / 5))
+            }
+            fixtureDraft.board = BoardSnapshot(onTable: positions)
         case "selection", "selectionStripe", "selectionOpen", "selectionBlack", "selectionNine":
             fixtureDraft.phase = .playing
             fixtureDraft.ruleState.assignedGroup = .solid

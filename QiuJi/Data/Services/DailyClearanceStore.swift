@@ -20,6 +20,9 @@ struct DailyClearanceDraft: Codable {
     var activeDurationSeconds: TimeInterval
     var startedAt: Date
     var updatedAt: Date
+    /// Optional for drafts saved before the daily allowance existed.
+    var firstBreakAt: Date? = nil
+    var hasStartedChallenge: Bool { firstBreakAt != nil || phase != .manualRacked || shotCount > 0 }
 }
 
 struct DailyClearanceCompletion: Codable {
@@ -38,6 +41,7 @@ struct DailyClearanceCompletion: Codable {
 enum DailyClearanceStoreKey {
     static let activeDraft = "dailyClearance.activeDraft.v1"
     static let latestCompletion = "dailyClearance.latestCompletion.v1"
+    static let usedChallengeDay = "dailyClearance.usedChallengeDay.v1"
     static let preferredGame = "dailyClearance.preferredGame.v1"
 }
 
@@ -53,7 +57,7 @@ final class DailyClearanceStore {
     private let decoder = JSONDecoder()
 
     init(defaults: UserDefaults = .standard,
-         calendar: Calendar = .current,
+         calendar: Calendar = .autoupdatingCurrent,
          now: @escaping () -> Date = Date.init,
          log: @escaping LogHandler = { print("[DailyClearanceStore] \($0)") }) {
         self.defaults = defaults
@@ -110,6 +114,20 @@ final class DailyClearanceStore {
             return nil
         }
         return draft
+    }
+
+    /// Independent of the draft/result, so abandoning or replacing a rack cannot
+    /// restore today's allowance. Legacy playing/completed games count as used.
+    var hasUsedChallengeToday: Bool {
+        if let used = defaults.object(forKey: DailyClearanceStoreKey.usedChallengeDay) as? Date, isToday(used) { return true }
+        if let current: DailyClearanceDraft = decode(DailyClearanceDraft.self, key: DailyClearanceStoreKey.activeDraft, label: "草稿"),
+           isToday(current.challengeDay), current.hasStartedChallenge { return true }
+        return loadTodayCompletion() != nil
+    }
+
+    func recordChallengeStarted(at date: Date) {
+        guard isToday(date) else { return }
+        defaults.set(day(containing: date), forKey: DailyClearanceStoreKey.usedChallengeDay)
     }
 
     func clearDraft() {

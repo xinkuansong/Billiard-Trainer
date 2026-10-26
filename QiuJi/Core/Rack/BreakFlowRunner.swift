@@ -54,7 +54,7 @@ final class BreakFlowRunner: ObservableObject {
     }
 
     /// Shared break-shot tuning, in m/s, across all break hosts.
-    static let defaultBreakVelocity: Double = 8.0
+    static let defaultBreakVelocity: Double = 10.0
     static let breakVelocityRange: ClosedRange<Double> = ShotTuning.velocityRange.lowerBound...10.0
 
     let game: RackGame
@@ -73,7 +73,7 @@ final class BreakFlowRunner: ObservableObject {
         return statusText
     }
 
-    /// 开球杆头速度 (m/s)：右侧力度柱绑定（G18）。默认 8.0，量程使用 `breakVelocityRange`。
+    /// 开球杆头速度 (m/s)：右侧力度柱绑定（G18）。默认 10.0，量程使用 `breakVelocityRange`。
     @Published var velocity: Double = BreakFlowRunner.defaultBreakVelocity
 
     /// 开球打点（接触点偏移/R，K7）：右侧迷你图 + `BTSpinPadOverlay` 绑定；`breakNow` 传入物理。
@@ -305,6 +305,10 @@ final class BreakFlowRunner: ObservableObject {
         if phase == .racked { drawAimLine() }
     }
 
+    /// Called only after physical strike eligibility is established, before any
+    /// simulation or shot state mutates. Other break consumers need no gate.
+    var authorizeStrike: (() -> Bool)?
+
     func breakNow() {
         guard !lifecycleSuspended, phase == .racked,
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden else { return }
@@ -320,6 +324,7 @@ final class BreakFlowRunner: ObservableObject {
             statusText = CueStrikeAccess.unavailableMessage
             return
         }
+        guard authorizeStrike?() ?? true else { return }
         let sx = Float(spinX), sy = Float(spinY)
         lastBreakSpin = (sx, sy)
         breakGeneration += 1
@@ -613,7 +618,7 @@ struct BreakControlBar: View {
 
 // MARK: - 开球模式贴边仪表（四宿主共享，G18/V6）
 //
-// 左侧瞄准刻度轮（`BTAimWheel`，G13 相对调瞄）+ 右侧力度柱（`BTShotInstrumentColumn`，默认 8 m/s）。
+// 左侧瞄准刻度轮（`BTAimWheel`，G13 相对调瞄）+ 右侧力度柱（`BTShotInstrumentColumn`，默认 10 m/s）。
 // 遵循既有 `ShotStageProxy` 贴边标准（G4/G5/G7：右缘/左缘贴球桌、同底）。宿主开球模式统一叠加，
 // 避免逐页复制开球控件逻辑（单一真源）。
 

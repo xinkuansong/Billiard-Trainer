@@ -1,0 +1,124 @@
+<div id="separation-score-lab">
+  <style>
+    #separation-score-lab .plots {display:grid;gap:12px}
+    #separation-score-lab .table-map {display:block;width:100%;overflow:visible}
+    #separation-score-lab .legend {display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin:10px 0}
+    #separation-score-lab .key {display:inline-block;width:28px;vertical-align:middle;border-top:3px solid var(--viz-series-2);margin-right:6px}
+    #separation-score-lab .key.target {border-color:var(--viz-series-1);border-top-style:dashed}
+    #separation-score-lab .readouts {display:flex;gap:16px;flex-wrap:wrap;margin:10px 0}
+    #separation-score-lab .inputs {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    #separation-score-lab .comparison {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:10px 0}
+    #separation-score-lab .chart-label {fill:var(--foreground);font-size:12px}
+    #separation-score-lab .case-name {text-align:left}
+    @media(max-width:450px){#separation-score-lab .inputs,#separation-score-lab .comparison{grid-template-columns:1fr}}
+  </style>
+  <h3>分离路线评分 · 真实轨迹对照</h3>
+  <div class="text-small text-muted">同一真实球形 · 三条目标路线 · 每组重新补偿瞄准 · 评分试案 r1</div>
+  <div class="inputs">
+    <label class="form-label">目标路线<select class="form-select" data-role="scenario"><option value="0">不吃库</option><option value="1" selected>一库</option><option value="2">两库</option></select></label>
+    <label class="form-label">对照击球<select class="form-select" data-role="case"></select></label>
+  </div>
+  <div class="readouts tabular-nums" aria-live="polite" data-role="score"></div>
+  <div class="text-small" data-role="status"></div>
+  <div class="legend"><span><span class="key target"></span>目标：虚线／空心停点</span><span><span class="key"></span>实际：实线／实心停点</span></div>
+  <div class="plots"><svg class="table-map" data-role="table" role="img" aria-label="完整目标轨迹与实际轨迹叠加，细线为目标球轨迹"></svg></div>
+  <div class="text-small text-muted">细线为目标球；箭头为运动方向，停点连线表示距离误差。球桌254 × 127厘米，横图右为＋X、下为＋Z。</div>
+  <div class="comparison tabular-nums"><div data-role="target-input"></div><div data-role="actual-input"></div></div>
+  <label class="form-check"><input class="form-check-input" type="checkbox" data-role="zoom-toggle" checked><span class="form-check-label">放大分离处</span></label>
+  <div data-role="zoom-wrap"><svg class="table-map" data-role="zoom" role="img" aria-label="碰球后前30厘米局部放大，目标和实际轨迹等比例叠加"></svg><div class="text-small text-muted">局部取两杆碰球后前30厘米；全桌图始终保留完整路线。</div></div>
+  <div class="table-responsive"><table class="table table-sm"><thead><tr><th>对照</th><th class="text-end">试算分</th><th class="text-end">停点差</th><th>库序</th></tr></thead><tbody data-role="rows"></tbody></table></div>
+  <script type="application/json" data-role="data">__DATA__</script>
+  <script>
+  (()=>{
+    const root=document.getElementById('separation-score-lab');
+    const q=x=>root.querySelector(`[data-role="${x}"]`);
+    const data=JSON.parse(q('data').textContent);
+    let scenario=1, selected=1;
+    const validIndex=(v,n)=>Number.isInteger(v)&&v>=0&&v<n;
+    function restore(state){const s=state?.modelContent?.scenario,c=state?.modelContent?.case;if(validIndex(s,3))scenario=s;if(validIndex(c,8))selected=c;}
+    restore(window.openai?.widgetState);
+    const fmt=(n,d=1)=>Number(n).toFixed(d);
+    const signed=n=>(n>0?'+':'')+Number(n).toFixed(3);
+    const railNames=['下左长库','下右长库','上左长库','上右长库','左短库','右短库'];
+    const railText=r=>r.length?r.map(i=>railNames[i]??'袋嘴').join('→'):'不吃库';
+    const svgNS='http://www.w3.org/2000/svg';
+    const node=(name,attrs,parent)=>{const e=document.createElementNS(svgNS,name);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,v);parent.append(e);return e;};
+    function label(svg,text,x,y,anchor='start'){const t=node('text',{x,y,'text-anchor':anchor,class:'chart-label'},svg);t.textContent=text;return t;}
+    function prefix(points,max=.30){let total=0,result=[points[0]];for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i],d=Math.hypot(b[0]-a[0],b[1]-a[1]);if(total+d>max){const f=(max-total)/d;result.push([a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f]);break;}result.push(b);total+=d;}return result;}
+    function draw(svg,t,a,zoom){
+      const width=Math.max(280,svg.parentElement.clientWidth);let bounds,paths;
+      if(zoom){paths=[prefix(t.postPath),prefix(a.postPath)];const pts=paths.flat().concat([[data.sample.target.x,data.sample.target.z]]);bounds=[Math.min(...pts.map(p=>p[0]))-.07,Math.max(...pts.map(p=>p[0]))+.07,Math.min(...pts.map(p=>p[1]))-.07,Math.max(...pts.map(p=>p[1]))+.07];}
+      else bounds=[-1.43,1.43,-.79,.79];
+      const height=zoom?Math.min(320,width*.63):width*.56+24;
+      const margin=zoom?24:20,scale=Math.min((width-2*margin)/(bounds[1]-bounds[0]),(height-2*margin)/(bounds[3]-bounds[2]));
+      const ox=(width-scale*(bounds[1]-bounds[0]))/2,oy=(height-scale*(bounds[3]-bounds[2]))/2;
+      const project=p=>[ox+(p[0]-bounds[0])*scale,oy+(p[1]-bounds[2])*scale];
+      svg.setAttribute('viewBox',`0 0 ${width} ${height}`);svg.setAttribute('height',height);svg.replaceChildren();
+      const title=node('title',{},svg);title.textContent=zoom?'分离处放大：前30厘米':'完整轨迹：目标虚线，实际实线';
+      const line=(points,attrs)=>node('polyline',{points:points.map(project).map(p=>p.join(',')).join(' '),fill:'none','stroke-linejoin':'round','stroke-linecap':'round',...attrs},svg);
+      const circle=(p,r,attrs)=>{const [cx,cy]=project(p);return node('circle',{cx,cy,r,...attrs},svg);};
+      function arrows(shot,color,fraction){
+        const points=shot.postPath;let cursor=0;const indexes=[0];
+        for(const event of shot.railEvents){let best=cursor;for(let j=cursor;j<points.length;j++)if(Math.hypot(points[j][0]-event.position[0],points[j][1]-event.position[1])<Math.hypot(points[best][0]-event.position[0],points[best][1]-event.position[1]))best=j;indexes.push(best);cursor=best;}indexes.push(points.length-1);
+        for(let k=0;k<indexes.length-1;k++){
+          const p=points.slice(indexes[k],indexes[k+1]+1);if(p.length<2)continue;
+          const lengths=[0];for(let i=1;i<p.length;i++)lengths.push(lengths[i-1]+Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]));
+          const total=lengths.at(-1);if(total*scale<20)continue;const wanted=total*fraction;let i=1;while(i<lengths.length-1&&lengths[i]<wanted)i++;
+          const ratio=(wanted-lengths[i-1])/(lengths[i]-lengths[i-1]);const pos=project([p[i-1][0]+(p[i][0]-p[i-1][0])*ratio,p[i-1][1]+(p[i][1]-p[i-1][1])*ratio]);
+          const angle=Math.atan2(p[i][1]-p[i-1][1],p[i][0]-p[i-1][0]),u=[Math.cos(angle),Math.sin(angle)],v=[-u[1],u[0]],size=5;
+          const arrow=[[pos[0]-u[0]*size+v[0]*size*.6,pos[1]-u[1]*size+v[1]*size*.6],pos,[pos[0]-u[0]*size-v[0]*size*.6,pos[1]-u[1]*size-v[1]*size*.6]];
+          node('polyline',{points:arrow.map(p=>p.join(',')).join(' '),fill:'none',stroke:color,'stroke-width':1.8},svg);
+        }
+      }
+      if(!zoom){
+        const geom=data.sample.geometry;
+        const p=project([-geom.length/2,-geom.width/2]);
+        // Geometry width is validated when packing; all outlines come from the archived table.
+        node('rect',{x:p[0],y:p[1],width:geom.length*scale,height:geom.width*scale,fill:'var(--muted)',opacity:'.35'},svg);
+        for(const e of geom.lines)line([[e.start.x,e.start.z],[e.end.x,e.end.z]],{stroke:'var(--muted-foreground)','stroke-width':1});
+        for(const arc of geom.arcs){let end=arc.end;while(end<arc.start)end+=2*Math.PI;const pp=Array.from({length:25},(_,i)=>{const v=arc.start+(end-arc.start)*i/24;return [arc.center.x+arc.radius*Math.cos(v),arc.center.z+arc.radius*Math.sin(v)];});line(pp,{stroke:'var(--muted-foreground)','stroke-width':1});}
+        for(const [i,pocket] of geom.pockets.entries())circle([pocket.center.x,pocket.center.z],pocket.radius*scale,{fill:'var(--background)',stroke:i===data.sample.pocket?'var(--foreground)':'var(--muted-foreground)','stroke-width':i===data.sample.pocket?2:1});
+        line(t.objectPath,{stroke:'var(--viz-series-1)','stroke-width':1,'stroke-dasharray':'3 5',opacity:'.65'});
+        line(a.objectPath,{stroke:'var(--viz-series-2)','stroke-width':1,opacity:'.65'});
+        line(t.cuePath,{stroke:'var(--viz-series-1)','stroke-width':3.2,'stroke-dasharray':'8 6'});
+        line(a.cuePath,{stroke:'var(--viz-series-2)','stroke-width':2.2});
+        arrows(t,'var(--viz-series-1)',.45);arrows(a,'var(--viz-series-2)',.70);
+        line([t.stop,a.stop],{stroke:'var(--foreground)','stroke-width':1,'stroke-dasharray':'2 4'});
+        circle(t.stop,6,{fill:'var(--background)',stroke:'var(--viz-series-1)','stroke-width':2.2});
+        circle(a.stop,3.5,{fill:'var(--viz-series-2)'});
+        circle([data.sample.cue.x,data.sample.cue.z],data.ballDiameter/2*scale,{fill:'var(--background)',stroke:'var(--foreground)','stroke-width':1.2});
+        label(svg,'254 cm',width/2,height-3,'middle');
+      } else {
+        node('rect',{x:8,y:8,width:width-16,height:height-16,fill:'none',stroke:'var(--border)'},svg);
+        line(paths[0],{stroke:'var(--viz-series-1)','stroke-width':3.2,'stroke-dasharray':'8 6'});
+        line(paths[1],{stroke:'var(--viz-series-2)','stroke-width':2.2});
+        circle(t.contact,data.ballDiameter/2*scale,{fill:'none',stroke:'var(--viz-series-1)','stroke-width':1,'stroke-dasharray':'3 4'});
+        circle(a.contact,3,{fill:'var(--viz-series-2)'});
+        const bar=.10*scale;
+        node('line',{x1:width-24-bar,x2:width-24,y1:height-27,y2:height-27,stroke:'var(--foreground)','stroke-width':2},svg);
+        label(svg,'10 cm',width-24,height-12,'end');
+      }
+      circle([data.sample.target.x,data.sample.target.z],data.ballDiameter/2*scale,{fill:'var(--foreground)',stroke:'var(--background)','stroke-width':1});
+    }
+    function persist(){window.openai?.setWidgetState?.({modelContent:{scenario,case:selected,target:data.scenarios[scenario].title,example:data.scenarios[scenario].cases[selected].label},privateContent:{zoom:q('zoom-toggle').checked}}).catch(()=>{});}
+    function render(save=false){
+      const s=data.scenarios[scenario],c=s.cases[selected],t=s.target,a=c.shot,m=c.score;
+      q('scenario').value=String(scenario);q('case').replaceChildren();
+      s.cases.forEach((v,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${v.label} · ${fmt(v.score.total)}分`;q('case').append(o);});q('case').value=String(selected);
+      q('score').innerHTML=`<strong>试算 ${fmt(m.total)} / 100</strong><span>路线 ${fmt(m.route)} / 70</span><span>停点 ${fmt(m.endpoint)} / 30</span><span>停点差 ${fmt(m.stopCm)} cm</span>`;
+      q('status').textContent=`${m.status} · 目标球${a.pot?'进指定袋':'未进指定袋'} · 母球${a.scratch?'落袋':'未落袋'}`;
+      const inputText=(name,v)=>`${name}：${fmt(v.v,4)} m/s；横 ${signed(v.sx)}R，纵 ${signed(v.sy)}R`;
+      q('target-input').textContent=inputText('目标参数',t);q('actual-input').textContent=inputText('实际参数',a);
+      q('rows').replaceChildren();s.cases.forEach((v,i)=>{const tr=document.createElement('tr');const td=document.createElement('td');const b=document.createElement('button');b.type='button';b.className='btn btn-ghost case-name';b.textContent=v.label;b.setAttribute('aria-pressed',String(i===selected));b.addEventListener('click',()=>{selected=i;render(true)});td.append(b);tr.append(td);for(const [text,cls] of [[fmt(v.score.total),'text-end'],[fmt(v.score.stopCm)+' cm','text-end'],[railText(v.shot.rails),'']]){const cell=document.createElement('td');cell.textContent=text;cell.className=cls;tr.append(cell);}q('rows').append(tr);});
+      draw(q('table'),t,a,false);q('zoom-wrap').hidden=!q('zoom-toggle').checked;if(q('zoom-toggle').checked)draw(q('zoom'),t,a,true);
+      if(save)persist();
+    }
+    q('scenario').addEventListener('change',()=>{scenario=Number(q('scenario').value);selected=1;render(true)});
+    q('case').addEventListener('change',()=>{selected=Number(q('case').value);render(true)});
+    q('zoom-toggle').addEventListener('change',()=>render(true));
+    window.addEventListener('openai:set_globals',e=>{restore(e.detail?.globals?.widgetState);render()});
+    new ResizeObserver(()=>{const s=data.scenarios[scenario];draw(q('table'),s.target,s.cases[selected].shot,false);if(q('zoom-toggle').checked)draw(q('zoom'),s.target,s.cases[selected].shot,true)}).observe(root);
+    render();
+  })();
+  </script>
+</div>

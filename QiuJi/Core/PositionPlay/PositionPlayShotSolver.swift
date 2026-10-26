@@ -93,11 +93,15 @@ enum PositionPlayShotSolver {
             guard key != PositionPlayBall.cueKey, key != shot.targetKey else { return nil }
             return ObstacleBall(name: key, position: scenePoint(pt, surfaceY: surfaceY))
         }
-        let input = ShotInput(
+        var input = ShotInput(
             cueBall: cue, targetBall: target, pocketIndex: pocketIndex,
             velocity: Float(shot.velocity), spinX: Float(shot.spinX), spinY: Float(shot.spinY),
             surfaceY: surfaceY, obstacles: obstacles
         )
+        if let aim = shot.pocketAim {
+            guard aim.x.isFinite, aim.y.isFinite else { return nil }
+            input.pocketAimOverride = scenePoint(aim, surfaceY: surfaceY)
+        }
         // 快路径（瞄准预测性能优化 P1）：黄金分割 + 解析瞄准评分（~15 次闭式评估）+ 1 次全保真模拟，
         // 替代 `predict` 的三级网格 75 次模拟。对拍保证：`AnalyticAimParityTests`（Δoffset 全量 0°、零丢解）
         // + `PositionPlaySolverTests.test_fastPath_matchesPredict_potOutcome`（进袋判定一致）

@@ -12,7 +12,6 @@ struct TwoBallPracticeView: View {
 
     @StateObject private var questionNotices = BTRuleNoticeCenter()
     @StateObject private var resultNotices = BTRuleNoticeCenter()
-    @State private var showingScoreDetail = false
     @State private var pocketOrientation: PocketDisplay.Orientation = .landscape
 
     init(is3D: Bool) { _vm = StateObject(wrappedValue: TwoBallPracticeViewModel(is3D: is3D)) }
@@ -113,18 +112,13 @@ struct TwoBallPracticeView: View {
         } else { text = "\(prefix)无正向直击线路" }
         return text
     }
-    private var resultDetail: String? {
-        guard !hidesPendingScore, vm.mode == .free,
-              let shot = vm.record?.latestShot, shot.freeScore != nil else { return nil }
-        return shot.comfort?.details ?? (shot.failure ?? "无正向直击线路，本杆计0分。")
-    }
     private var information: [BTTeachingInformation] {
         var result: [BTTeachingInformation] = []
         if questionNotices.message != nil {
             result.append(.init(text: questionPrompt, kind: .notice, symbol: "info.circle", identifier: "twoBall.question"))
         }
         if resultNotices.message != nil, !hidesPendingScore, vm.record?.latestShot != nil {
-            result.append(.init(text: resultNoticeText, kind: .readout, symbol: "info.circle", identifier: "twoBall.result", detailText: resultDetail))
+            result.append(.init(text: resultNoticeText, kind: .readout, symbol: "info.circle", identifier: "twoBall.result"))
         }
         return result
     }
@@ -134,7 +128,7 @@ struct TwoBallPracticeView: View {
             transparency: Binding(get: { tablePreferences.snapshot(for: vm.preferencePage)[.transparency] },
                 set: { tablePreferences.apply(.transparency, value: $0, to: vm.preferencePage) }),
             velocityRange: ShotTuning.velocityRange, instrumentsEnabled: vm.canAdjust,
-            assessmentMode: true, allowsAssessmentSpinEditing: true, allowsAssessmentRehearsal: true,
+            assessmentMode: true, allowsAssessmentSpinEditing: true,
             defersStrikeAccessUntilSubmission: false,
             locksSceneInteraction: vm.isBusy, isAnimating: vm.isBusy, paletteEnabled: false,
             allowsPocketSelection: false, primaryTitle: vm.primaryTitle,
@@ -220,7 +214,7 @@ struct TwoBallPracticeView: View {
                 if vm.shouldShowReference {
                     routeLegend("参考", color: Color(SeparationRouteStyle.reference), dash: SeparationRouteStyle.legendDash)
                         .accessibilityIdentifier("twoBall.referenceLegend")
-                        .accessibilityValue("中杆中力，无高低杆、无左右塞，杆速2.5")
+                        .accessibilityValue("中杆中力，无高低杆、无左右塞，杆速2.0")
                 }
                 if vm.record?.latestShot != nil {
                     routeLegend("实际", color: Color(SeparationRouteStyle.actual), dash: SeparationRouteStyle.legendDash)
@@ -231,12 +225,6 @@ struct TwoBallPracticeView: View {
                 excluding: hidesPendingScore ? vm.record?.latestShot?.id : nil).map { String(format: "%.1f", $0) } ?? "—",
                 identifier: "twoBall.routeAverageScore", compact: false)
             sidebarMetric(vm.latestScoreTitle, value: latestValue, identifier: "twoBall.latestScore", compact: false)
-                .contentShape(Rectangle())
-                .onTapGesture { if resultDetail != nil { showingScoreDetail = true } }
-                .accessibilityAddTraits(resultDetail == nil ? [] : .isButton)
-                .alert("评分详情", isPresented: $showingScoreDetail) {
-                    Button("知道了", role: .cancel) {}
-                } message: { Text(resultDetail ?? "") }
         }
     }
 
@@ -246,7 +234,7 @@ struct TwoBallPracticeView: View {
         return shot.freeScore.map { String(format: "%.1f", $0) } ?? "—"
     }
 
-    private var hidesPendingScore: Bool { !vm.isReplaying && (vm.phase == .revealing || vm.phase == .playing) }
+    private var hidesPendingScore: Bool { !vm.isReplaying && vm.phase == .playing }
     private var displayedAverage: Double? {
         guard !hidesPendingScore else { return nil }
         return vm.record?.averageScore

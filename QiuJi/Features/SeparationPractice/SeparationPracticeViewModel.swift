@@ -12,7 +12,7 @@ enum SeparationRouteStyle {
 
 @MainActor
 final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
-    enum Phase { case loading, settings, aiming, preparing, revealing, playing, result, saveFailed, summary }
+    enum Phase { case loading, settings, aiming, preparing, playing, result, saveFailed, summary }
     let is3D: Bool
     let scene = AngleTrainingScene()
     let limiter: AngleUsageLimiter
@@ -75,6 +75,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
     private(set) var referenceTrajectory: [SeparationTrajectory.Point]?
     private var objectNodes: [SCNNode] = []
     private var markers: [SCNNode] = []
+    private var highlightedQuestionID: UUID?
     private var solvedAim: SCNVector3?
     private var shotPoses: BallPoseSnapshot?
     private var shotCamera: CameraRig.PerspectiveState?
@@ -143,8 +144,8 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
          }) {
         self.is3D = is3D; self.limiter = limiter; self.defaults = defaults
         self.prepareQuestion = prepareQuestion
-        playsStroke = defaults.object(forKey: "separationPractice.\(is3D ? "3D" : "2D").playsStroke") as? Bool ?? true
-        showsReference = defaults.object(forKey: "separationPractice.\(is3D ? "3D" : "2D").keepsReferenceAfterSubmission") as? Bool ?? false
+        playsStroke = defaults.object(forKey: "separationPractice.\(is3D ? "3D" : "2D").playsStroke") as? Bool ?? SceneTrainingSettingsDefaults.playsStroke
+        showsReference = defaults.object(forKey: "separationPractice.\(is3D ? "3D" : "2D").keepsReferenceAfterSubmission") as? Bool ?? SceneTrainingSettingsDefaults.showsReference
         cameraMode = is3D ? .perspective3D : .topDown2D
     }
     deinit {
@@ -178,7 +179,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         guard next.isValid else { return }
         record?.draftInput = next; redrawCue(); scheduleSave()
     }
-    var isBusy: Bool { [.preparing, .revealing, .playing, .saveFailed].contains(phase) }
+    var isBusy: Bool { [.preparing, .playing, .saveFailed].contains(phase) }
     var canAdjust: Bool { phase == .aiming && !temporaryTopDownActive && !cameraTransitionBusy }
     var canRetry: Bool { phase == .result && record?.latestShot != nil && !temporaryTopDownActive && !cameraTransitionBusy }
     var canPlayback: Bool { (phase == .result || phase == .aiming) && record?.latestShot != nil && !temporaryTopDownActive && !cameraTransitionBusy }
@@ -262,8 +263,13 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         if shotPoses == nil { shotPoses = scene.captureBallPoses() }
         record?.initialPoses = encodePoses(shotPoses ?? [:])
         _ = save()
-        for (index, node) in markers.enumerated() { scene.highlightPocket(node, highlighted: index == question.board.pocketIndex) }
-        scene.confirmPocketSelection(at: question.board.pocketIndex)
+        for (index, node) in markers.enumerated() {
+            scene.setPocketHighlight(node, style: index == question.board.pocketIndex ? .selected : .viable, confirmsSelection: false)
+        }
+        if highlightedQuestionID != question.id {
+            highlightedQuestionID = question.id
+            scene.confirmPocketSelection(at: question.board.pocketIndex)
+        }
         topDownContentRevision += 1
         drawTarget(); clearActual(); prepareReference()
         if record?.showingResult == true { showFinal(); drawActual(); phase = .result }
@@ -406,21 +412,21 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
                 var submission = shot
                 submission.playsStroke = animate
                 pendingShot = submission
-                commitAndReveal()
+                commitAndPlay()
             } catch {
                 guard token == generation, !Task.isCancelled else { return }
                 phase = .aiming; message = error.localizedDescription; redrawCue()
             }
         }
     }
-    private func commitAndReveal() {
+    private func commitAndPlay() {
         guard let pendingShot, var next = record, let repository else { return }
         checkpointTime(); next.activeSeconds = record?.activeSeconds ?? next.activeSeconds
         next.accept(pendingShot); next.showingResult = pendingShot.isTrajectoryOnly
         next.finalPoses = [:]
         solvedAim = pendingShot.direction.vector
         if is3D, scene.cameraRig?.overviewControlSelected != true {
-            // Keep the selected first/third-person mode; preparation precedes the reveal receipt.
+            // Keep the selected first/third-person mode; prepare the selected camera before the stroke.
             requestPlayerView(scene.cameraRig?.twoViewMode ?? .thirdPerson, animated: false)
         }
         shotCamera = ShotReplayCamera.capture(in: scene)
@@ -438,29 +444,20 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
             refreshObservationCameraContext()
             return
         }
-        // Establish the compensated address before the first revealed frame, then
-        // retain it through the reveal and directly into the ordinary cue stroke.
+        // Establish the compensated address and directly start the ordinary cue stroke.
         if let cue = scene.cueBallNode {
             scene.updateCueStick(cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: pendingShot.direction.vector,
                 spinX: Double(pendingShot.input.spinX), spinY: Double(pendingShot.input.spinY)),
                 aimDirection: pendingShot.direction.vector)
         }
-        phase = .revealing; drawActual(); scene.isPaused = false
-        let token = generation
-        scene.frameReceipt.arm { [weak self] in
-            guard let self, self.generation == token, self.phase == .revealing else { return }
-            #if DEBUG
-            self.revealedAt = ProcessInfo.processInfo.systemUptime
-            self.cueVisibleAtReveal = self.scene.cueStick?.rootNode.isHidden == false
-            #endif
-            self.work = Task {
-                do { try await Task.sleep(for: .milliseconds(1500)) } catch { return }
-                guard !Task.isCancelled, self.generation == token, self.phase == .revealing else { return }
-                self.play(pendingShot)
-            }
-        }
+        drawActual(); scene.isPaused = false
+        #if DEBUG
+        revealedAt = ProcessInfo.processInfo.systemUptime
+        cueVisibleAtReveal = scene.cueStick?.rootNode.isHidden == false
+        #endif
+        play(pendingShot)
     }
-    func retrySave() { guard phase == .saveFailed else { return }; commitAndReveal() }
+    func retrySave() { guard phase == .saveFailed else { return }; commitAndPlay() }
     private func play(_ shot: SeparationShot) {
         phase = .playing
         if !isReplaying { record?.showingResult = true; _ = save() }
@@ -503,7 +500,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         scene.updateCueStick(cueBallPosition: strike, aimDirection: shot.direction.vector)
         let token = generation
         scene.runCueStroke(strikePosition: strike, aim: shot.direction.vector, velocity: shot.input.velocity,
-            rehearsalEnabled: scene.tablePreferences?.enabled(.rehearsal) ?? false,
+            rehearsalEnabled: false,
             clearanceProbe: { playback.allBallCentersByName(at: Float($0)) }) { [weak self] in
             guard let self, self.generation == token, self.phase == .playing else { return }
             var actions: [(SCNNode, SCNAction)] = []
@@ -784,13 +781,14 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         ShotAudioScheduler.shared.cancel(); restoreReplay()
     }
     func suspendTeachingActivity() {
+        scene.cancelPocketSelectionFeedback()
         teachingActive = false; discardNextQuestion()
         referenceWork?.cancel(); referenceWork = nil
         if is3D, !isReplaying, !temporaryTopDownActive { record?.viewBookmark = scene.cameraRig?.trainingBookmark() }
         let wasPlaying = phase == .playing && !isReplaying
         invalidate()
         if wasPlaying { phase = .result; record?.showingResult = true; showFinal() }
-        else if phase == .preparing || phase == .revealing {
+        else if phase == .preparing {
             phase = record?.showingResult == true ? .result : .aiming
             if phase == .aiming { seatBalls(); drawActual(showsObjectRoute: false); record?.showingResult = false }
         }

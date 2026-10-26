@@ -24,6 +24,8 @@ struct SceneTrainingSettings<Batch>: View {
     @State private var generation: Task<Void, Never>?
     @State private var pendingFreePractice = false
     @State private var pendingStart = false
+    @ObservedObject private var limiter: AngleUsageLimiter
+    @StateObject private var resetNotice = BTRuleNoticeCenter()
     private var showsAccuracyShotSettings: Bool { route.hasPrefix("accuracy") && showsSpinOptions }
     init(route: String, configuration: SceneTrainingConfiguration, restarting: Bool,
          showsSpinOptions: Bool = false, strokePlayback: Binding<Bool>? = nil,
@@ -31,14 +33,15 @@ struct SceneTrainingSettings<Batch>: View {
          prepareBatch: @escaping (SceneTrainingConfiguration) throws -> Batch,
          onStart: @escaping (SceneTrainingConfiguration, Batch) -> Void,
          onCancel: @escaping () -> Void) {
+        _limiter = ObservedObject(wrappedValue: AngleUsageLimiter.training(route: route))
         self.route = route; self.restarting = restarting; self.onStart = onStart; self.onCancel = onCancel
         self.prepareBatch = prepareBatch; self.showsSpinOptions = showsSpinOptions
         _draft = State(initialValue: configuration)
         self.centerReference = centerReference
-        self.twoBallMode = twoBallMode; _draftMode = State(initialValue: twoBallMode?.wrappedValue ?? .trajectory)
-        _draftShowsReference = State(initialValue: centerReference?.wrappedValue ?? true)
+        self.twoBallMode = twoBallMode; _draftMode = State(initialValue: twoBallMode?.wrappedValue ?? SceneTrainingSettingsDefaults.twoBallMode)
+        _draftShowsReference = State(initialValue: centerReference?.wrappedValue ?? SceneTrainingSettingsDefaults.showsReference)
         self.strokePlayback = strokePlayback
-        _draftPlaysStroke = State(initialValue: strokePlayback?.wrappedValue ?? true)
+        _draftPlaysStroke = State(initialValue: strokePlayback?.wrappedValue ?? SceneTrainingSettingsDefaults.playsStroke)
     }
     var body: some View {
         Form {
@@ -48,14 +51,12 @@ struct SceneTrainingSettings<Batch>: View {
                         ForEach(TwoBallMode.allCases, id: \.self) { Text($0.title).tag($0) }
                     }.pickerStyle(.segmented).accessibilityIdentifier("twoBall.mode")
                 }
-                Picker("练习模式", selection: Binding(get: { draft.freePractice }, set: { requested in
+                BTTrainingModePicker(count: 20, isPremium: subscription.isPremium, freePractice: Binding(get: { draft.freePractice }, set: { requested in
                     if requested && !subscription.isPremium {
-                        pendingFreePractice = (route.hasPrefix("separationPractice") || route.hasPrefix("twoBallPractice")); showSubscription = true
+                        pendingFreePractice = true; showSubscription = true
                     }
                     else { draft.freePractice = requested }
-                })) {
-                    Text("20题").tag(false); Text("自由练习").tag(true)
-                }.pickerStyle(.segmented).accessibilityIdentifier("training.length")
+                })).accessibilityIdentifier("training.length")
             } header: {
                 Text("练习模式")
             } footer: {
@@ -101,7 +102,7 @@ struct SceneTrainingSettings<Batch>: View {
             }
             if !subscription.isPremium {
                 Section {
-                    explanation("今天剩余 \(AngleUsageLimiter.training(route: route).remainingToday) 题 · 每个2D训练每天20题")
+                    explanation("今天剩余 \(limiter.remainingToday) 题 · 每个2D训练每天20题")
                         .font(.btCaption).foregroundStyle(.btTextSecondary)
                 }
             }
@@ -160,8 +161,20 @@ struct SceneTrainingSettings<Batch>: View {
                 }
             }
             if preparing { ProgressView("正在检查球形条件…") }
+            BTTrainingSettingsResetSection {
+                draft = .defaults(for: route)
+                draftMode = SceneTrainingSettingsDefaults.twoBallMode
+                draftShowsReference = SceneTrainingSettingsDefaults.showsReference
+                draftPlaysStroke = SceneTrainingSettingsDefaults.playsStroke
+                error = nil
+                pendingFreePractice = false; pendingStart = false
+                resetNotice.show("已恢复默认设置", tone: .success, priority: .mode)
+            }
         }
         .disabled(preparing)
+        .overlay {
+            if let message = resetNotice.message { BTToastBanner(message: message) }
+        }
         .navigationTitle("训练设置").navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden()
         .toolbar {
@@ -175,6 +188,7 @@ struct SceneTrainingSettings<Batch>: View {
             }
         }
         .onAppear {
+            limiter.refreshDay()
             if !restarting { draft = .load(for: route) }
             if !subscription.isPremium { draft.freePractice = false }
         }
@@ -187,9 +201,10 @@ struct SceneTrainingSettings<Batch>: View {
             pendingFreePractice = false; pendingStart = false
         }) { SubscriptionView() }
         .onChange(of: scenePhase) { _, phase in
+            if phase == .active { limiter.refreshDay() }
             if phase != .active, (route.hasPrefix("separationPractice") || route.hasPrefix("twoBallPractice")) { generation?.cancel(); preparing = false }
         }
-        .onDisappear { generation?.cancel() }
+        .onDisappear { generation?.cancel(); resetNotice.clear() }
     }
     private func spinNote(_ text: String) -> some View {
         explanation(text)
@@ -211,7 +226,7 @@ struct SceneTrainingSettings<Batch>: View {
         let limiter = AngleUsageLimiter.training(route: route)
         limiter.refreshDay(); limiter.isPremium = subscription.isPremium
         guard subscription.isPremium || (!draft.freePractice && !limiter.isLimitReached && !route.hasSuffix("3D")) else {
-            pendingStart = (route.hasPrefix("separationPractice") || route.hasPrefix("twoBallPractice"))
+            pendingStart = true
             showSubscription = true; return
         }
         preparing = true; error = nil

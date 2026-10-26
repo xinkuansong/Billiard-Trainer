@@ -380,7 +380,8 @@ final class AimCloseupProjectionTests: XCTestCase {
         let snap = AimCloseupSnapshot(band: .contact, focus: focus, ballRadius: 0.028575,
                                       halfWorld: 0.09144,
                                       centerReferenceLine: .init(start: point, end: focus),
-                                      targetReferenceRadius: 2 * 0.028575, aimPointMarker: point)
+                                      targetReferenceRadius: 2 * 0.028575, aimPointMarker: point,
+                                      standardAimLine: .init(start: point, end: focus))
         for mode in [AngleTrainingScene.CameraMode.topDown2DRotated, .perspective3D] {
             scene.setCameraMode(mode, animated: false)
             for yaw in [-0.8, 0.0, 0.7] {
@@ -397,6 +398,9 @@ final class AimCloseupProjectionTests: XCTestCase {
                     let f = view.projectPoint(SCNVector3(Float(focus.x), y, Float(focus.y)))
                     let p = view.projectPoint(SCNVector3(Float(point.x), y, Float(point.y)))
                     let marker = try XCTUnwrap(projected.aimPointMarker)
+                    XCTAssertEqual(projected.standardAimLine, projected.centerReferenceLine, "标准线与现有几何必须采用同一相机投影")
+                    let planar = try XCTUnwrap(snap.projected(in: view, surfaceY: scene.surfaceY, preservesPlanarTangency: true))
+                    XCTAssertEqual(planar.standardAimLine, planar.centerReferenceLine)
                     XCTAssertEqual(projected.centerReferenceLine?.start, marker)
                     XCTAssertEqual(projected.centerReferenceLine?.end, projected.focus)
                     XCTAssertEqual(projected.targetReferenceRadius, 2 * projected.ballRadius)

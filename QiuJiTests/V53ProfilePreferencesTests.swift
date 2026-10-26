@@ -841,6 +841,27 @@ final class TablePreferencesStoreTests: XCTestCase {
         addTeardownBlock { result.removePersistentDomain(forName: name) }
         return result
     }
+    func testRehearsalDefaultsOffAndOnlyUsesGlobalSetting() throws {
+        let d = defaults()
+        XCTAssertFalse(TablePreferencesStore(defaults: d).general.enabled(.rehearsal))
+        // Legacy page overrides must not become hidden settings after the UI is removed.
+        let archive: [String: Any] = ["version": 1, "general": ["rehearsal": 0],
+            "pages": [TablePreferencePage.freePlay.rawValue: ["rehearsal": 1, "grid": 1]]]
+        d.set(try JSONSerialization.data(withJSONObject: archive), forKey: TablePreferencesStore.storageKey)
+        let store = TablePreferencesStore(defaults: d)
+        XCTAssertFalse(store.snapshot(for: .freePlay).enabled(.rehearsal))
+        XCTAssertTrue(store.snapshot(for: .freePlay).enabled(.grid))
+        store.apply(.rehearsal, value: 1, to: .freePlay)
+        XCTAssertFalse(store.snapshot(for: .freePlay).enabled(.rehearsal))
+        store.apply(.rehearsal, value: 1)
+        let restarted = TablePreferencesStore(defaults: d)
+        XCTAssertTrue(restarted.general.enabled(.rehearsal))
+        XCTAssertTrue(restarted.snapshot(for: .freePlay).enabled(.rehearsal))
+        for page: TablePreferencePage in [.accuracy2D, .accuracy3D, .separationPractice2D,
+            .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D] {
+            XCTAssertFalse(restarted.snapshot(for: page).enabled(.rehearsal), "Assessment always strokes directly")
+        }
+    }
     func testLocalIsolationRestartAndSameValueGlobalOverride() {
         let d = defaults(), s = TablePreferencesStore(defaults: defaults())
         XCTAssertFalse(s.snapshot(for: .freePlay).enabled(.view3D))

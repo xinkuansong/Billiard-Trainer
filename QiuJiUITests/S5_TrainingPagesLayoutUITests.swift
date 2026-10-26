@@ -257,7 +257,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
             XCTAssertTrue(app.staticTexts["2/20"].waitForExistence(timeout: 3), "关闭设置保留当前轮次")
             app.buttons["angleTraining.settings"].tap()
             trainingSettings.tap()
-            app.buttons["自由练习"].tap()
+            app.buttons["自由训练"].tap()
             app.buttons["training.range.straight"].tap()
             app.buttons["angleTraining.start"].tap()
             XCTAssertTrue(answer.waitForExistence(timeout: 5))

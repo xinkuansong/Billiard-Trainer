@@ -92,6 +92,7 @@ QiuJiUITests/DeviceMatrixUITests.swift
 QiuJiUITests/DrillSceneThreeBeatUITests.swift
 QiuJiUITests/DrillTryoutUITests.swift
 QiuJiUITests/Helpers/TheoryFigureEvidence.swift
+QiuJiUITests/MultiBallPracticeUITests.swift
 QiuJiUITests/OnboardingProUITests.swift
 QiuJiUITests/P2_DataLayerUITests.swift
 QiuJiUITests/P5_AngleTrainingUITests.swift

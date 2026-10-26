@@ -4,8 +4,9 @@ import Combine
 extension TablePreferencePage {
     var fields: Set<TablePreferenceField> {
         switch self {
+        case .multiBallPractice, .multiBallPractice3D: return Set(TablePreferenceField.allCases).subtracting([.view3D])
         case .sceneAiming2D, .sceneAiming3D: return [.grid]
-        case .separationPractice2D, .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D: return [.grid, .transparency, .rehearsal]
+        case .separationPractice2D, .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D: return [.grid, .transparency]
         case .accuracy2D, .accuracy3D: return [.grid, .transparency, .closeup]
         case .aimPointScene2D, .aimPointScene3D: return [.grid, .closeup]
         case .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas,
@@ -77,7 +78,8 @@ final class TablePreferencesStore: ObservableObject {
         var result = TablePreferenceSnapshot()
         for field in TablePreferenceField.allCases {
             guard page == nil || page!.fields.contains(field) else { continue }
-            let local = page.flatMap { archive.pages[$0.rawValue]?[field.rawValue] }
+            // Rehearsal is controlled only by My → Settings; ignore legacy page overrides.
+            let local = field == .rehearsal ? nil : page.flatMap { archive.pages[$0.rawValue]?[field.rawValue] }
             result.values[field] = field.validated(local ?? archive.general[field.rawValue] ?? field.initialValue)
         }
         return result
@@ -85,7 +87,7 @@ final class TablePreferencesStore: ObservableObject {
 
     /// Explicit user action: same-value applications intentionally publish too.
     func apply(_ field: TablePreferenceField, value: Double, to page: TablePreferencePage? = nil) {
-        guard page == nil || page!.fields.contains(field) else { return }
+        guard page == nil || (field != .rehearsal && page!.fields.contains(field)) else { return }
         write(field, value: field.validated(value), page: page)
         if field == .trajectory { write(.shows3DTrajectory, value: 1, page: page) }
         persist()

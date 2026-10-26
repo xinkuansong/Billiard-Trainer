@@ -21,7 +21,10 @@ final class AngleUsageLimiter: ObservableObject {
     static let accuracyTraining = AngleUsageLimiter(namespace: "accuracy2D")
     static let separationTraining = AngleUsageLimiter(namespace: "separationPractice2D")
     static let twoBallTraining = AngleUsageLimiter(namespace: "twoBallPractice2D")
+    static let multiBallTraining = AngleUsageLimiter(namespace: "multiBallPractice2D", limit: 3)
+    let limit: Int
     static func training(route: String) -> AngleUsageLimiter {
+        if route.hasPrefix("multiBall") { return multiBallTraining }
         if route.hasPrefix("twoBallPractice") { return twoBallTraining }
         if route.hasPrefix("separationPractice") { return separationTraining }
         if route.hasPrefix("accuracy") { return accuracyTraining }
@@ -37,8 +40,8 @@ final class AngleUsageLimiter: ObservableObject {
     var questionsUsedToday: Int { storedDay == dayKey() ? storedCount : 0 }
     @Published var isPremium: Bool = false
 
-    var remainingToday: Int { max(0, Self.dailyLimit - questionsUsedToday) }
-    var isLimitReached: Bool { !isPremium && questionsUsedToday >= Self.dailyLimit }
+    var remainingToday: Int { max(0, limit - questionsUsedToday) }
+    var isLimitReached: Bool { !isPremium && questionsUsedToday >= limit }
 
     private let defaults: UserDefaults
     private let now: () -> Date
@@ -48,7 +51,8 @@ final class AngleUsageLimiter: ObservableObject {
     // MARK: - Init
 
     init(defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init,
-         calendar: @escaping () -> Calendar = { .autoupdatingCurrent }, namespace: String? = nil) {
+         calendar: @escaping () -> Calendar = { .autoupdatingCurrent }, namespace: String? = nil, limit: Int = AngleUsageLimiter.dailyLimit) {
+        self.limit = limit
         countKey = namespace.map { "sceneTraining.usage.\($0).count" } ?? PracticeStorageKey.angleUsageCount
         dateKey = namespace.map { "sceneTraining.usage.\($0).day" } ?? PracticeStorageKey.angleUsageDate
         ledgerKey = namespace.map { "sceneTraining.usage.\($0).ledger" } ?? "accuracyPractice.usageLedger.v1"
@@ -57,7 +61,7 @@ final class AngleUsageLimiter: ObservableObject {
             let args = ProcessInfo.processInfo.arguments
             if args.contains("-w7.forceDailyLimit") || args.contains("-w7.forceDailyLimitNear") {
                 defaults.set(Self.todayString(now: now(), calendar: calendar()), forKey: dateKey)
-                defaults.set(args.contains("-w7.forceDailyLimit") ? Self.dailyLimit : Self.dailyLimit - 1, forKey: countKey)
+                defaults.set(args.contains("-w7.forceDailyLimit") ? limit : limit - 1, forKey: countKey)
             }
         }
         #endif

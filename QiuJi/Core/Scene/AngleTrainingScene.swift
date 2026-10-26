@@ -2256,17 +2256,17 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     }
 
     /// Explicit dual-role state; equal indices show both roles on the same leather.
-    func setPocketRoles(first: Int?, second: Int?, transientFirst: Bool = false) {
+    func setPocketRoles(first: Int?, second: Int?, transientFirst: Bool = false, confirmsSelection: Bool = true) {
         for marker in leatherMarkers {
             let isFirst = first == marker.pocketIndex
             let isSecond = second == marker.pocketIndex
             if transientFirst {
-                marker.show(isSecond ? .secondRole : isFirst ? .target : .original, confirmsSelection: false)
+                marker.show(isSecond ? .continuationTarget : isFirst ? .target : .original, confirmsSelection: false)
             } else {
                 marker.show(isFirst && isSecond ? .bothRoles : isFirst ? .firstRole : isSecond ? .secondRole : .original)
             }
         }
-        if transientFirst, let first { confirmPocketSelection(at: first) }
+        if transientFirst, confirmsSelection, let first { confirmPocketSelection(at: first) }
     }
 
     var pocketSelectionDescription: String {
@@ -2276,7 +2276,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             case .original: role = ""
             case .target: role = "目标"
             case .firstRole: role = "第1杆目标"
-            case .secondRole: role = "第2杆目标"
+            case .secondRole, .continuationTarget: role = "第2杆目标"
             case .bothRoles: role = "第1、2杆共同目标"
             }
             return "\(PocketDisplay.name(index: marker.pocketIndex, orientation: pocketDisplayOrientation))：\(role)"

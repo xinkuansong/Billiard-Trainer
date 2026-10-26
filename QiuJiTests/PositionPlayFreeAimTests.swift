@@ -1987,7 +1987,7 @@ final class DailyCombinationRecommendationTests: XCTestCase {
         let vm = PositionPlayViewModel()
         vm.setupScene()
         defer { vm.cancelDailyAttempt() }
-        vm.usesDailyShotRanking = true
+        vm.usesShotComfortRanking = true
         vm.usesAutomaticPocketFallback = true
         vm.legalAimTargets = { $0.intersection(["_9","_10","_11","_13","_15"]) }
         vm.velocity = 3.37
@@ -2110,7 +2110,7 @@ final class DailyShotRankingTests: XCTestCase {
     func test_dailyBlockedPocketSwitchesFreeWithoutChangingTargetOrPower() async throws {
         let vm = PositionPlayViewModel(); vm.setupScene()
         defer { vm.cancelDailyAttempt() }
-        vm.usesDailyShotRanking = true; vm.usesAutomaticPocketFallback = true
+        vm.usesShotComfortRanking = true; vm.usesAutomaticPocketFallback = true
         let nominal = AngleSceneCalculator.pocketPositions(surfaceY: y)[1]
         let positions = [PositionPlayBall.cueKey: p(-0.4, 0), "_1": p(0, 0),
                          "_9": p(nominal.x / 2, nominal.z / 2)]
@@ -2177,7 +2177,7 @@ final class DailyShotRankingTests: XCTestCase {
         let vm = PositionPlayViewModel()
         vm.setupScene()
         defer { vm.cancelDailyAttempt() }
-        vm.usesDailyShotRanking = true
+        vm.usesShotComfortRanking = true
         vm.usesAutomaticPocketFallback = true
         vm.clearTable()
         let positions = [PositionPlayBall.cueKey: p(-0.4, 0.05), "_1": p(0, 0.25)]
@@ -2204,7 +2204,7 @@ extension DailyShotRankingTests {
         let vm = PositionPlayViewModel()
         vm.setupScene()
         defer { vm.cancelDailyAttempt() }
-        vm.usesDailyShotRanking = true
+        vm.usesShotComfortRanking = true
         vm.usesAutomaticPocketFallback = true
         vm.legalAimTargets = { $0.intersection(["_1", "_2"]) }
         vm.clearTable()
@@ -2269,7 +2269,7 @@ extension DailyShotRankingTests {
             let vm = PositionPlayViewModel()
             vm.setupScene()
             defer { vm.cancelDailyAttempt() }
-            vm.usesDailyShotRanking = true
+            vm.usesShotComfortRanking = true
             vm.usesAutomaticPocketFallback = true
             vm.refreshLegalAimSelection()
             let target = try XCTUnwrap(vm.selectedTargetKey)
@@ -2363,7 +2363,7 @@ extension DailyShotRankingTests {
         let vm = PositionPlayViewModel()
         vm.setupScene()
         defer { vm.cancelDailyAttempt() }
-        vm.usesDailyShotRanking = true
+        vm.usesShotComfortRanking = true
         vm.usesAutomaticPocketFallback = true
         vm.clearTable()
         let positions = [PositionPlayBall.cueKey: p(0.067, -0.313), "_13": p(0.516, -0.594)]
@@ -2464,7 +2464,7 @@ extension DailyShotRankingTests {
 final class PocketSelectionUXTests: XCTestCase {
     private func makeVM(daily: Bool = false) -> PositionPlayViewModel {
         let vm = PositionPlayViewModel(); vm.setupScene()
-        vm.usesAutomaticPocketFallback = true; vm.usesDailyShotRanking = daily
+        vm.usesAutomaticPocketFallback = true; vm.usesShotComfortRanking = daily
         let y = vm.scene.surfaceY + AngleSceneCalculator.ballRadius
         let points = [PositionPlayBall.cueKey: SCNVector3(-0.5, y, 0), "_1": SCNVector3(0, y, 0)]
         vm.loadBoard(.init(onTable: points.mapValues {

@@ -5,6 +5,7 @@ import SceneKit
 enum SeparationQuestionGenerator {
     static let version = "separation-planar-v1"
     static let speedRange = ShotTuning.velocityRange.lowerBound...4.5
+    // Question sampling stays independent of the player's initial shot speed.
     static let defaultSpeed = 2.5
     static let scanStep: Float = 0.01
     static let fineStep: Float = 0.0025
@@ -178,7 +179,7 @@ enum SeparationQuestionGenerator {
 struct SeparationInput: Codable, Equatable {
     var spinX: Float = 0
     var spinY: Float = 0
-    var velocity: Float = Float(SeparationQuestionGenerator.defaultSpeed)
+    var velocity: Float = Float(ShotTuning.defaultVelocity)
     var isValid: Bool {
         let limit = min(CuePhysics.miscueLimitFraction, CuePhysics.tipContactRadius / CuePhysics.tipCurvatureRadius)
         return spinX.isFinite && spinY.isFinite && velocity.isFinite

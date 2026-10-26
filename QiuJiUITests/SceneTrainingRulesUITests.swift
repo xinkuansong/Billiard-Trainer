@@ -52,7 +52,7 @@ final class SceneTrainingRulesUITests: XCTestCase {
     func testFreePracticeRestartAppliesDraftOnConfirmation() {
         open("2D瞄准点")
         XCTAssertTrue(app.buttons["aimPointTraining.start"].waitForExistence(timeout:10))
-        app.buttons["自由练习"].tap()
+        app.buttons["自由训练"].tap()
         app.buttons["training.range.straight"].tap()
         app.buttons["aimPointTraining.start"].tap()
         let submit = app.buttons["aimPointTraining.submit"]
@@ -83,7 +83,7 @@ final class SceneTrainingRulesUITests: XCTestCase {
         XCTAssertTrue(button.waitForExistence(timeout: 10))
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: prefix + ".scene").firstMatch.exists)
         XCTAssertTrue(app.staticTexts["练习模式"].exists)
-        for mode in ["自由练习", "20题"] {
+        for mode in ["自由训练", "20题"] {
             for _ in 0..<3 where !app.buttons[mode].isHittable { app.swipeDown() }
             app.buttons[mode].tap()
             capture(name + "-settings-" + mode)
@@ -124,7 +124,13 @@ final class SceneTrainingRulesUITests: XCTestCase {
         capture(mode + "-angle-summary")
     }
     private func checkAimPoint(_ mode: String, nearLimit: Bool = false) {
-        open(mode + "瞄准点", nearLimit: nearLimit); start("aimPointTraining", name: mode + "-point")
+        open(mode + "瞄准点", nearLimit: nearLimit)
+        if nearLimit {
+            // The free-tier fixture must stay in 20-question mode; free practice opens Pro.
+            let start = app.buttons["aimPointTraining.start"]
+            XCTAssertTrue(start.waitForExistence(timeout: 10)); start.tap()
+            if UIDevice.current.userInterfaceIdiom == .pad { XCUIDevice.shared.orientation = .landscapeLeft }
+        } else { start("aimPointTraining", name: mode + "-point") }
         let submit = app.buttons["aimPointTraining.submit"]
         XCTAssertTrue(submit.waitForExistence(timeout: 40))
         let hint = app.buttons["aimPointTraining.angleHint"]
@@ -143,8 +149,29 @@ final class SceneTrainingRulesUITests: XCTestCase {
             let top = app.buttons["shotCamera.temporaryTopDown"]
             top.tap(); capture("3D-point-temporary"); top.tap()
         }
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "aimPointTraining.answerLegend").firstMatch.exists)
         submit.tap()
+        let comparison = app.descendants(matching: .any).matching(identifier: "aimCloseup.hud").firstMatch
+        XCTAssertTrue(comparison.waitForExistence(timeout: 5))
+        XCTAssertTrue(comparison.label.contains("橙线为目标方向"))
+        let legend = app.descendants(matching: .any).matching(identifier: "aimPointTraining.answerLegend").firstMatch
+        XCTAssertTrue(legend.exists)
+        XCTAssertTrue(legend.label.contains("切角"))
+        XCTAssertTrue(legend.label.contains("实际"))
+        XCTAssertTrue(legend.label.contains("目标"))
+        XCTAssertLessThanOrEqual(comparison.frame.width, 130, "沿用128pt圆形特写，AX边框允许像素取整")
+        XCTAssertTrue(app.windows.firstMatch.frame.contains(comparison.frame))
+        XCTAssertFalse(app.buttons["aimPointTraining.closeResultCloseup"].exists)
+        capture(mode + "-point-answer-closeup")
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            XCUIDevice.shared.orientation = .portrait
+            XCTAssertTrue(comparison.waitForExistence(timeout: 5))
+            capture(mode + "-point-answer-closeup-portrait")
+            XCUIDevice.shared.orientation = .landscapeLeft
+        }
         if nearLimit {
+            XCTAssertFalse(app.buttons["training.restart"].exists, "末题先查看答案，不被总结覆盖")
+            app.buttons["aimPointTraining.next"].coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
             XCTAssertTrue(app.buttons["training.restart"].waitForExistence(timeout: 5))
             XCTAssertTrue(app.buttons["training.complete"].exists)
             capture("2D-point-quota-summary")
@@ -164,6 +191,7 @@ final class SceneTrainingRulesUITests: XCTestCase {
         sleep(2)
         capture(mode + "-point-resumed")
         XCTAssertEqual(info.label,result)
+        XCTAssertTrue(comparison.exists, "后台返回保留本题标准点")
         XCTAssertTrue(next.exists); XCTAssertFalse(submit.exists, "结果不得定时切题或出杆")
         XCTAssertFalse(app.staticTexts["验证中"].exists)
         XCTAssertFalse(app.buttons["aimPointTraining.retry"].exists)
@@ -176,12 +204,19 @@ final class SceneTrainingRulesUITests: XCTestCase {
         }
         XCTAssertTrue(submit.waitForExistence(timeout:5))
         XCTAssertTrue(info.label.contains("2/20"))
+        submit.tap()
+        XCTAssertTrue(comparison.waitForExistence(timeout: 5))
+        next.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(submit.waitForExistence(timeout: 5))
+        XCTAssertTrue(info.label.contains("3/20"))
+        XCTAssertFalse(comparison.exists, "下一题清理本题对照")
         checkSettingsCancel(prefix:"aimPointTraining",action:submit)
         checkRotations(prefix:"aimPointTraining",action:submit,name:mode + "-point")
         app.buttons["aimPointTraining.settings"].tap(); app.buttons["aimPointTraining.finish"].tap()
         XCTAssertTrue(app.descendants(matching:.any).matching(identifier:"training.summary").firstMatch.waitForExistence(timeout:5))
         capture(mode + "-point-summary")
     }
+
     private func checkSettingsCancel(prefix: String, action: XCUIElement) {
         app.buttons[prefix + ".settings"].tap()
         app.buttons[prefix + ".trainingSettings"].tap()

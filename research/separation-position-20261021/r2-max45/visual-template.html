@@ -1,0 +1,104 @@
+<div id="separation-position-example">
+  <div class="viz-controls" role="group" aria-label="生成步骤">
+    <button type="button" class="btn" data-stage="0" aria-pressed="false">① 固定 15° 球形</button>
+    <button type="button" class="btn" data-stage="1" aria-pressed="false">② 按吃库数分组</button>
+    <button type="button" class="btn" data-stage="2" aria-pressed="true">③ 反推第二球位置</button>
+  </div>
+  <div class="viz-controls" data-role="choices">
+    <label class="form-label">母球吃库数<select class="form-select" data-role="count"></select></label>
+    <label class="form-label">实际解<select class="form-select" data-role="route"></select></label>
+    <label class="form-label" data-role="pocket-field">第二球目标袋<select class="form-select" data-role="pocket"></select></label>
+  </div>
+  <div data-role="route-navigation">
+    <div class="viz-row">
+    <button type="button" class="btn" data-role="next-route">下一条轨迹</button>
+    <span class="text-small" data-role="route-position" aria-live="polite"></span>
+    </div>
+  </div>
+  <div data-role="detail" aria-live="polite" class="text-small" style="margin-block:12px"></div>
+  <svg data-role="table" role="img" aria-label="底袋十五度第一杆的实际轨迹、停点和第二球候选区域" style="display:block;width:100%;overflow:visible"></svg>
+  <div class="viz-row text-small" data-role="legend" style="margin-block:10px"></div>
+  <div class="text-small text-muted" data-role="summary"></div>
+</div>
+<style>
+#separation-position-example [data-role="table"] text { fill:var(--foreground);font-family:inherit; }
+#separation-position-example [data-role="table"] .table-line { fill:none;stroke:var(--border);stroke-width:1.5; }
+#separation-position-example .mark-key { display:inline-block;width:12px;height:3px;vertical-align:middle;margin-inline-end:4px; }
+</style>
+<script>
+(() => {
+const root=document.getElementById('separation-position-example');
+const D=__DATA__;
+if(D.indexEncoding==='runs'){
+ const expand=runs=>{const ids=[];for(let i=0;i<runs.length;i+=2)for(let j=0;j<runs[i+1];j++)ids.push(runs[i]+j);return ids;};
+ for(const row of D.rows)for(const region of row.regions)if(region){region.raw=expand(region.raw);region.valid=expand(region.valid);}
+}
+const names=['左上角袋','右上角袋','左下角袋','右下角袋','上中袋','下中袋'];
+const selectCount=root.querySelector('[data-role="count"]'),selectRoute=root.querySelector('[data-role="route"]'),selectPocket=root.querySelector('[data-role="pocket"]'),svg=root.querySelector('[data-role="table"]');
+let stage=2, count=1, route=0, pocket=1, width=736;
+const saved=window.openai?.widgetState?.modelContent;
+function validState(s){ if(!s)return; if([0,1,2].includes(s.stage))stage=s.stage;if(D.rows.some(r=>r.id===s.routeID)){route=D.rows.findIndex(r=>r.id===s.routeID);count=Math.min(5,D.rows[route].rails.length);}if(Number.isInteger(s.pocket)&&s.pocket!==D.pocket&&s.pocket>=0&&s.pocket<D.pockets.length&&D.rows[route].regions[s.pocket])pocket=s.pocket; }
+validState(saved);
+function option(value,text){const o=document.createElement('option');o.value=value;o.textContent=text;return o;}
+for(let c=0;c<=5;c++){ const n=Object.entries(D.counts).filter(([k])=>Math.min(5,+k)===c).reduce((s,[k,v])=>s+v,0);const o=option(c,`${c===0?'不吃库':c===5?'5 库及以上':c+' 库'} · ${n} 条`);o.disabled=!n;selectCount.append(o);}
+if(!D.rows.some(r=>Math.min(5,r.rails.length)===count))count=Math.min(5,D.rows[0].rails.length);
+for(let k=0;k<6;k++)if(k!==D.pocket)selectPocket.append(option(k,names[k]));
+function spin(r){return `${r.sy>0?'高':r.sy<0?'低':'中'}杆${r.sx>0?'·左塞':r.sx<0?'·右塞':''}`;}
+function setRoutes(){selectCount.value=count;selectRoute.replaceChildren();const pool=D.rows.map((r,i)=>[r,i]).filter(([r])=>Math.min(5,r.rails.length)===count);for(const [r,i]of pool)selectRoute.append(option(i,`${spin(r)} · ${Number(r.v.toFixed(4))} m/s`));if(!pool.some(([,i])=>i===route))route=pool[0][1];selectRoute.value=route;}
+setRoutes();selectPocket.value=pocket;
+function save(){
+ const api=window.openai;
+ if(typeof api?.setWidgetState!=='function')return;
+ try { Promise.resolve(api.setWidgetState({modelContent:{stage,routeID:D.rows[route].id,pocket},privateContent:null})).catch(error=>console.warn('Selection state could not be saved',error)); }
+ catch(error){console.warn('Selection state could not be saved',error);}
+}
+const ns='http://www.w3.org/2000/svg';
+function node(tag,attrs={},text){const n=document.createElementNS(ns,tag);for(const [k,v]of Object.entries(attrs))n.setAttribute(k,v);if(text!==undefined)n.textContent=text;svg.append(n);return n;}
+function draw(){
+const row=D.rows[route],reg=row.regions[pocket];
+root.querySelector('[data-role="choices"]').hidden=stage===0;
+root.querySelector('[data-role="route-navigation"]').hidden=stage===0;
+const routeTotal=selectRoute.options.length;
+root.querySelector('[data-role="next-route"]').disabled=routeTotal<=1;
+root.querySelector('[data-role="route-position"]').textContent=`本类轨迹 ${selectRoute.selectedIndex+1} / ${routeTotal}`;
+root.querySelector('[data-role="pocket-field"]').hidden=stage!==2;
+root.querySelectorAll('[data-stage]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.stage===stage));
+const m=width<450?30:40,s=(width-2*m)/2.75,h=s*1.44+2*m;
+svg.setAttribute('viewBox',`0 0 ${width} ${h}`);svg.style.height=h+'px';svg.replaceChildren();
+node('title',{},`第一球进入左下角袋；${row.rails.length} 次碰主库；第二球区域对应${names[pocket]}`);
+const X=p=>m+(p[0]+1.375)*s,Y=p=>m+(p[1]+.72)*s,rad=D.radius*s;
+function line(path,color,thick=2,dash,opacity=1){if(!path?.length)return;return node('path',{d:path.map((p,i)=>`${i?'L':'M'}${X(p)},${Y(p)}`).join(' '),fill:'none',stroke:color,'stroke-width':thick,'stroke-linecap':'round','stroke-linejoin':'round',...(dash?{'stroke-dasharray':dash}:{}),opacity});}
+function label(p,t,dx=0,dy=-12,anchor='middle'){return node('text',{x:X(p)+dx,y:Y(p)+dy,'text-anchor':anchor,'font-size':12},t);}
+function ball(p,text,color,solid=false){node('circle',{cx:X(p),cy:Y(p),r:Math.max(rad,4.5),fill:solid?color:'var(--background)',stroke:color,'stroke-width':2});label(p,text,0,-Math.max(rad+6,14));}
+node('rect',{x:X([-1.27,-.635]),y:Y([-1.27,-.635]),width:2.54*s,height:1.27*s,fill:'var(--muted)','fill-opacity':.32,stroke:'var(--border)','stroke-width':2});
+if(stage===2&&reg){
+ for(const j of reg.raw){const p=D.points[j];node('rect',{x:X(p)-.015*s,y:Y(p)-.015*s,width:.03*s,height:.03*s,fill:'var(--muted-foreground)',opacity:.16});}
+ for(const j of reg.valid){const p=D.points[j];node('rect',{x:X(p)-.015*s,y:Y(p)-.015*s,width:.03*s,height:.03*s,fill:'var(--viz-series-3)',opacity:.38});}
+}
+D.pockets.forEach((p,k)=>{node('circle',{cx:X(p),cy:Y(p),r:Math.max(5,.042*s),fill:k===D.pocket?'var(--viz-series-2)':stage===2&&k===pocket?'var(--viz-series-3)':'var(--muted-foreground)'});const edge=k<4?(p[0]<0?'start':'end'):'middle';label(p,k===D.pocket?'①袋':stage===2&&k===pocket?'②袋':names[k].replace('角袋','').replace('袋',''),0,p[1]<0?-12:24,edge);});
+if(stage===0){line([D.cue,D.target],'var(--muted-foreground)',1,'4 4');const n=[D.effectiveAim[0]-D.target[0],D.effectiveAim[1]-D.target[1]],len=Math.hypot(...n);const ghost=[D.target[0]-2*D.radius*n[0]/len,D.target[1]-2*D.radius*n[1]/len];line([D.cue,ghost],'var(--viz-series-1)',2.5);line([D.target,D.effectiveAim],'var(--viz-series-2)',2.5);node('circle',{cx:X(ghost),cy:Y(ghost),r:rad,fill:'none',stroke:'var(--muted-foreground)','stroke-dasharray':'3 3'});ball(D.cue,'C','var(--foreground)');ball(D.target,'①','var(--viz-series-2)',true);label([.3,.1],`实际切角 ${D.actualAngle.toFixed(2)}°`);}
+else {
+ if(stage===1){D.rows.filter(r=>Math.min(5,r.rails.length)===count&&r.id!==row.id).forEach(r=>{line(r.cuePath,'var(--viz-series-1)',1.4,undefined,.23);node('circle',{cx:X(r.stop),cy:Y(r.stop),r:4,fill:'var(--viz-series-1)',opacity:.4});});}
+ line(row.cuePath,'var(--viz-series-1)',2.5);line(row.objectPath,'var(--viz-series-2)',2,'5 4');
+ ball(D.cue,'C','var(--foreground)');ball(D.target,'①','var(--viz-series-2)',true);ball(row.stop,'S','var(--viz-series-1)');
+ if(stage===2&&reg&&reg.pick!==null){const p=D.points[reg.pick];line([row.stop,p,D.pockets[pocket]],'var(--viz-series-3)',1.7,'4 4');ball(p,'②','var(--viz-series-3)',true);}
+}
+const detail=root.querySelector('[data-role="detail"]');
+if(stage===0)detail.textContent=`现有题库：底袋 15° 档 · 母球到假想球 60 cm · 原球形未移动`;
+else detail.textContent=`${row.rails.length} 库 · 杆速 ${Number(row.v.toFixed(4))} m/s · 打点（左＋／右− ${row.sx.toFixed(2)}R，高＋／低− ${row.sy.toFixed(2)}R）`;
+const legend=root.querySelector('[data-role="legend"]');legend.replaceChildren();
+const keys=stage===0?[['var(--viz-series-1)','瞄准线'],['var(--viz-series-2)','进①袋方向']]:stage===1?[['var(--viz-series-1)','母球实际轨迹 → S'],['var(--viz-series-2)','①球实际轨迹']]:[['var(--viz-series-1)','母球实际轨迹 → S'],['var(--muted-foreground)','切角≤20°，但挡第一杆'],['var(--viz-series-3)','②球候选位置']];
+keys.forEach(([c,t])=>{const span=document.createElement('span');const key=document.createElement('span');key.className='mark-key';key.style.background=c;span.append(key,document.createTextNode(t));legend.append(span);});
+root.querySelector('[data-role="summary"]').textContent=stage===2?`${reg.valid.length} 个 3 cm 网格候选 · ②示例切角 ${reg.angle===null?'—':Math.abs(reg.angle).toFixed(1)+'°'} · 第二杆尚未做物理复验`:stage===1?`0.75–4.5 m/s · 13 档速度 × 13 打点 → ${D.accepted} 条合格第一杆；当前分类全部 ${routeTotal} 条均可逐条查看`:'C＝初始母球；①＝第一目标球；虚线圆＝假想球。';
+}
+selectCount.onchange=()=>{count=+selectCount.value;setRoutes();draw();save();};selectRoute.onchange=()=>{route=+selectRoute.value;draw();save();};selectPocket.onchange=()=>{pocket=+selectPocket.value;draw();save();};root.querySelectorAll('[data-stage]').forEach(b=>b.onclick=()=>{stage=+b.dataset.stage;draw();save();});
+root.querySelector('[data-role="next-route"]').onclick=()=>{
+ if(selectRoute.options.length<=1)return;
+ selectRoute.selectedIndex=(selectRoute.selectedIndex+1)%selectRoute.options.length;
+ selectRoute.onchange();
+};
+new ResizeObserver(entries=>{const next=entries[0].contentRect.width;if(next>0&&next!==width){width=next;draw();}}).observe(root);
+window.addEventListener('openai:set_globals',e=>{validState(e.detail?.globals?.widgetState?.modelContent);setRoutes();selectPocket.value=pocket;draw();});
+draw();
+})();
+</script>

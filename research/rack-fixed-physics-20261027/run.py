@@ -1,0 +1,40 @@
+import json,gzip,sys,subprocess,importlib.util,random,math
+import build
+ROOT=build.ROOT;OUT=build.OUT/sys.argv[2];OUT.mkdir(parents=True,exist_ok=True);build.OUT=OUT
+sys.path.insert(0,str(ROOT/'research/multi-ball-full-20261026'))
+spec=importlib.util.spec_from_file_location('worker',ROOT/'research/multi-ball-full-20261026/run.py');mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod)
+def write(n,v):(OUT/n).write_text(json.dumps(v,indent=2))
+variants=[('production',0),('baseline',2),('coulomb',2),('joint',2),('support',2),('combined',2)]
+def main(uid):
+ refs=[]
+ for phase in ['pilot-r2','holdout']:
+  for l in gzip.open(ROOT/'output/rack-solver-repair-20261026'/phase/'raw.jsonl.gz','rt'):
+   r=json.loads(l)
+   if r['input']['condition']=='original' and r['input']['mode'] in [0,2]:refs.append(r)
+ oldmap={(r['input']['rackID'],r['input']['mode']):r for r in refs}
+ ids=list(range(11300,11310))+[11331,11399] if sys.argv[2]=='pilot' else list(range(11300,11500))
+ write('design.json',dict(ids=ids,variants=variants,scoreThreshold=1.2,selection='All fixed IDs; no rejection of bad scores or failures'))
+ binary=build.build();success=False;boot=False;n=0
+ try:
+  subprocess.run(['xcrun','simctl','boot',uid],capture_output=True,check=True);boot=True;subprocess.run(['xcrun','simctl','bootstatus',uid,'-b'],capture_output=True,check=True)
+  folder=OUT/'worker';folder.mkdir();w=mod.Worker(uid,binary,folder)
+  try:
+   write('metadata.json',w.ready)
+   with gzip.open(OUT/'raw.jsonl.gz','wt') as out:
+    for rid in ids:
+     old=oldmap[rid,0]
+     for label,mode in variants:
+      inp=dict(old['input'],mode=mode,mirror=False,reverse=False,condition='original',experiment=label,exactCueVelocity=old['initialCueVelocity'])
+      r=w.run(inp)
+      if label in ['production','baseline']:
+       prev=oldmap[rid,mode]
+       for field in ['board','samples','contacts','spinTail','duration','status']:assert r[field]==prev[field],(rid,label,field)
+      out.write(json.dumps(r)+'\n');out.flush();n+=1
+     print('finished rack',rid,'runs',n,flush=True)
+  finally:code=w.close();write('worker-closure.json',dict(exitCode=code));assert code==0
+  binding=json.loads((OUT/'source-binding.json').read_text());assert all(build.sha(ROOT/r['path'])==r['sha256'] for r in binding['production'])
+  success=True
+ finally:
+  shut=subprocess.run(['xcrun','simctl','shutdown',uid],capture_output=True) if boot else None
+  write('closure.json',dict(success=success,total=n,shutdownExitCode=None if shut is None else shut.returncode))
+if __name__=='__main__':main(sys.argv[1])

@@ -12,9 +12,9 @@ enum ProBenefits {
     static let premium: [Item] = [
         .init(id: "drills", number: "01", title: "进阶动作与精讲", subtitle: "解锁 Pro 动作与配套精讲，理解练习要点与走位思路。"),
         .init(id: "plans", number: "02", title: "官方进阶计划", subtitle: "围绕准度、杆法与走位，按计划安排专项练习。"),
-        .init(id: "aiming", number: "03", title: "瞄准与分离角练习", subtitle: "解锁3D训练与自由练习，角度、瞄准点、准度及分离角练习的2D训练不限题数。"),
+        .init(id: "aiming", number: "03", title: "专项练习不限题数", subtitle: "解锁3D训练与自由训练；角度、瞄准点、准度、分离角、两球及多球走位不限题数。"),
         .init(id: "atlases", number: "04", title: "分离角与加塞吃库图谱", subtitle: "对比不同打点下的球路变化，帮助理解母球路线。"),
-        .init(id: "snake", number: "05", title: "蛇彩练习", subtitle: "在连续击球中练习力度控制与走位衔接。"),
+        .init(id: "snake", number: "05", title: "每日清台与蛇彩练习", subtitle: "每日清台不限局数，蛇彩练习解锁连续击球与走位衔接。"),
         .init(id: "position", number: "06", title: "自由走位推演", subtitle: "调整球形与击球参数，观察、比较走位路线。"),
         .init(id: "three", number: "07", title: "打一走二想三", subtitle: "把当前进球与后续走位连起来，练习多杆规划。"),
         .init(id: "safety", number: "08", title: "防守推演", subtitle: "结合球形观察防守线路，练习进攻之外的选择。"),

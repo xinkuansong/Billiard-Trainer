@@ -5,6 +5,37 @@ import CoreGraphics
 /// Capacity tests protect visible content and interaction slots. They do not
 /// substitute for Menu hit testing, glyph rendering, or system window resizing.
 final class DailyLayoutMetricsTests: XCTestCase {
+    func testFewerPaletteBallsDoNotGrowOnTheSameTable() {
+        let size = CGSize(width: 1180, height: 820)
+        for (width, expected): (CGFloat, CGFloat) in [(274, 25), (531, 30), (900, 36)] {
+            let table = CGRect(x: (size.width - width) / 2, y: 100, width: width, height: 600)
+            let plans = [3, 4, 9, 15].map {
+                DailyLayoutMetrics.Palette(size: size, sideInset: 4, table: table,
+                    targetCount: $0, chineseEightBall: false, obstacles: [])
+            }
+            for plan in plans {
+                XCTAssertEqual(plan.diameter, expected)
+                XCTAssertTrue(plan.fits)
+                XCTAssertFalse(plan.twoRows)
+            }
+            XCTAssertLessThan(plans[0].targetWidth, plans[2].targetWidth)
+            XCTAssertLessThan(plans[2].targetWidth, plans[3].targetWidth)
+        }
+    }
+
+    func testNarrowWindowNineBallPaletteStaysWithinTableWidth() {
+        // Reproduces the reported floating iPad window: 36pt faces made the
+        // nine-ball strip wider than the actual table despite fitting the window.
+        let table = CGRect(x: 130, y: 110, width: 274, height: 490)
+        let plan = DailyLayoutMetrics.Palette(size: CGSize(width: 534, height: 640),
+            sideInset: 4, table: table, targetCount: 9, chineseEightBall: false, obstacles: [])
+        XCTAssertEqual(plan.diameter, 25)
+        XCTAssertLessThan(plan.targetWidth, table.width)
+        XCTAssertTrue(plan.fits)
+        XCTAssertFalse(plan.twoRows)
+        XCTAssertGreaterThanOrEqual(plan.rowHeight, 29)
+    }
+
     func testThreeRowStatusFitsCompactPaletteCornerWithoutShrinking() {
         let status = CGRect(x: 582, y: 1.5, width: 32, height: 41)
         let palette = CGRect(x: 84.5, y: 45, width: 498, height: 34)

@@ -13,6 +13,7 @@ struct SceneAimingView: View {
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @StateObject private var vm: AimingQuizViewModel
     @State private var showSubscription = false
+    @State private var pendingRestart = false
     @State private var isScenePrepared = false
     @State private var preferredPlayerView: CameraRig.PlayerView = .thirdPerson
 
@@ -60,9 +61,11 @@ struct SceneAimingView: View {
     }
     private var is3D: Bool { routeCameraMode == .perspective3D }
 
+    private var showingTable: Bool { hasStarted && !vm.showSettings }
+
     var body: some View {
-        Group {
-            if !hasStarted { settingsContent }
+        ZStack {
+            if !showingTable { settingsContent }
             else { quizTable }
         }
         .alert("出题未完成", isPresented: Binding(get: { vm.generationError != nil }, set: { if !$0 { vm.generationError = nil } })) {
@@ -81,21 +84,16 @@ struct SceneAimingView: View {
                 vm.scene.isPaused = scenePausedBeforeLayout
             }
         }
-        .navigationTitle(hasStarted ? (is3D ? "3D角度" : "2D角度") : "训练设置")
+        .navigationTitle(showingTable ? (is3D ? "3D角度" : "2D角度") : "训练设置")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .background {
             if hasStarted {
-                DailyTableOrientation(landscape: true, allowsTabletRotation: true)
+                DailyTableOrientation(landscape: !vm.showSettings, allowsTabletRotation: true)
             }
         }
-        .toolbar(!hasStarted ? .visible : .hidden, for: .navigationBar)
-        .statusBarHidden(hasStarted && UIDevice.current.userInterfaceIdiom != .pad)
-        .sheet(isPresented: $vm.showSettings) {
-            settingsSheet
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-        }
+        .toolbar(!showingTable ? .visible : .hidden, for: .navigationBar)
+        .statusBarHidden(showingTable && UIDevice.current.userInterfaceIdiom != .pad)
         .onChange(of: tablePreferences.revision) { _, _ in applyPagePreferences() }
         .onAppear {
             applyPagePreferences()
@@ -287,7 +285,10 @@ struct SceneAimingView: View {
             showMenu = false
         }
         .onPreferenceChange(AngleQuizReadableFrame.self) { cameraReadableFrame = $0 }
-        .sheet(isPresented: $showSubscription) { SubscriptionView().environmentObject(subscriptionManager) }
+        .sheet(isPresented: $showSubscription, onDismiss: {
+            if pendingRestart && subscriptionManager.isPremium { vm.showSettings = true }
+            pendingRestart = false
+        }) { SubscriptionView().environmentObject(subscriptionManager) }
     }
 
     private var quizSettingsItems: [DailyHUDMenuItem] {
@@ -486,12 +487,9 @@ struct SceneAimingView: View {
         return "总结"
     }
 
-    // MARK: - Settings Sheet
+    // MARK: - Settings page
 
-    /// 同一份训练设置：两个入口首次由外层导航承载，训练中从共用菜单打开。
-    private var settingsSheet: some View {
-        NavigationStack { settingsContent }
-    }
+    // Keep the training model alive while the settings replace the table.
 
     private var settingsContent: some View {
         SceneTrainingSettings(route: is3D ? "scene3D" : "scene2D", configuration: vm.run.configuration,
@@ -508,7 +506,7 @@ struct SceneAimingView: View {
     private var summaryOverlay: some View {
         SceneTrainingSummary(samples: vm.run.firstAnswers, unit: "°", onClose: { dismiss() }, onRestart: {
             vm.limiter.refreshDay()
-            if vm.limiter.isLimitReached { showSubscription = true }
+            if !subscriptionManager.isPremium && (is3D || vm.limiter.isLimitReached) { pendingRestart = true; showSubscription = true }
             else { vm.showSettings = true }
         })
     }

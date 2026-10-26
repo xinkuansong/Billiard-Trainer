@@ -500,7 +500,14 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         app.buttons["training.complete"].tap(); ready(app.buttons["angleHomeTab_练"])
     }
     private func capture(_ name: String) {
-        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        let screen = XCUIScreen.main.screenshot()
+        if let path = ProcessInfo.processInfo.environment["V52_SHOT_DIR"] ?? ProcessInfo.processInfo.environment["TEST_RUNNER_V52_SHOT_DIR"] {
+            do {
+                try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
+                try screen.pngRepresentation.write(to: URL(fileURLWithPath: path).appendingPathComponent(name + ".png"))
+            } catch { XCTFail("Screenshot export: \(error)") }
+        }
+        let shot = XCTAttachment(screenshot: screen)
         shot.name = name; shot.lifetime = .keepAlways; add(shot)
     }
     func testSixPagesVisualBaseline() {
@@ -555,22 +562,24 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         for title in ["2D角度", "2D瞄准点", "2D准度"] {
             let app = open(title, free: true)
             let prefix = title.contains("准度") ? "accuracy" : title.contains("瞄准点") ? "aimPointTraining" : "angleTraining"
-            let free = app.segmentedControls["training.length"].buttons["自由练习"]
-            ready(free); free.tap()
+            let free = app.otherElements["training.length"].buttons["自由训练"]
+            ready(free); XCTAssertEqual(free.value as? String, "需要 Pro"); capture(title + "-mode-lock"); free.tap()
             ready(app.buttons["subscription.close"]); capture(title + "-free-mode-paywall")
             app.buttons["subscription.close"].tap()
-            XCTAssertTrue(app.segmentedControls["training.length"].buttons["20题"].isSelected)
+            XCTAssertTrue(app.otherElements["training.length"].buttons["20题"].isSelected)
             app.buttons[prefix + ".start"].tap()
             if title.contains("准度") {
                 let strike = app.buttons["accuracy.strike"]; ready(strike); strike.tap()
             } else if title.contains("瞄准点") {
                 ready(app.buttons["aimPointTraining.submit"]); app.buttons["aimPointTraining.submit"].tap()
+                ready(app.buttons["aimPointTraining.next"]); app.buttons["aimPointTraining.next"].tap()
             } else {
                 ready(app.buttons["答题"]); app.buttons["答题"].tap()
                 ready(app.buttons["0"].firstMatch); app.buttons["0"].firstMatch.tap(); app.buttons["提交"].tap()
             }
             ready(app.buttons["training.restart"], timeout: 60)
             XCTAssertTrue(app.staticTexts["题数"].exists)
+            XCTAssertEqual(app.buttons["training.restart"].label, "重新开始")
             capture(title + "-quota-finish")
             app.buttons["training.restart"].tap()
             ready(app.buttons["subscription.close"]); app.buttons["subscription.close"].tap()
@@ -663,6 +672,29 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
     }
 
+    func testFreeModeUpgradeSelectsModeWithoutStarting() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-v53.authenticatedProfileFixture"])
+        defer { app.terminate() }
+        app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
+        app.buttons["2D角度"].tap()
+        let mode = app.otherElements["training.length"]
+        ready(mode.buttons["自由训练"]); mode.buttons["自由训练"].tap()
+        ready(app.buttons["subscription.close"])
+        let unlock = app.buttons["simulatorUnlockProButton"]
+        let scroll = app.scrollViews["subscription.scroll"]
+        for _ in 0..<18 where !unlock.isHittable {
+            scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.60))
+                .press(forDuration: 0.1, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.10)))
+        }
+        ready(unlock); unlock.tap()
+        ready(app.buttons["angleTraining.start"])
+        XCTAssertTrue(mode.buttons["自由训练"].isSelected)
+        XCTAssertFalse(app.buttons["答题"].exists)
+        capture("free-mode-upgrade-stays-settings")
+    }
+
     func testThree3DRoutesRequirePro() {
         continueAfterFailure = false
         for title in ["3D角度", "3D瞄准点", "3D准度"] {
@@ -682,6 +714,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         app.buttons["2D瞄准点"].tap()
         ready(app.buttons["aimPointTraining.start"]); app.buttons["aimPointTraining.start"].tap()
         ready(app.buttons["aimPointTraining.submit"]); app.buttons["aimPointTraining.submit"].tap()
+        ready(app.buttons["aimPointTraining.next"]); app.buttons["aimPointTraining.next"].tap()
         ready(app.buttons["training.restart"]); app.buttons["training.restart"].tap()
         ready(app.buttons["subscription.close"])
         let unlock = app.buttons["simulatorUnlockProButton"]
@@ -691,7 +724,6 @@ final class SixTrainingUnifiedUITests: XCTestCase {
                 .press(forDuration: 0.1, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.10)))
         }
         ready(unlock); unlock.tap()
-        ready(app.buttons["training.restart"]); app.buttons["training.restart"].tap()
         ready(app.buttons["aimPointTraining.start"]); app.buttons["aimPointTraining.start"].tap()
         ready(app.buttons["aimPointTraining.submit"])
         capture("upgrade-restarted-round")

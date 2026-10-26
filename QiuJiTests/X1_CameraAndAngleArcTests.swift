@@ -4718,7 +4718,7 @@ final class RecommendedShotCameraTests: XCTestCase {
         let vm = PositionPlayViewModel()
         vm.scene.configureDailyClearanceRendering()
         vm.usesAutomaticPocketFallback = true
-        vm.usesDailyShotRanking = true
+        vm.usesShotComfortRanking = true
         vm.setupScene()
         vm.legalAimTargets = { _ in ["_2"] }
         vm.loadBoard(BoardSnapshot(onTable: [

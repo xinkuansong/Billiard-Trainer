@@ -12,18 +12,22 @@ struct BTAimCloseupHUD: View {
     var diameter: CGFloat = BTAimCloseupHUD.defaultDiameter
     var feltImage: UIImage? = nil
 
-    @ObservedObject private var prefs = UserPreferences.shared
-
     var body: some View {
+        Group {
+            if let feltImage {
+                renderedContent(feltImage: feltImage)
+            } else {
+                // No legacy RGB placeholder while the current material is loading.
+                Color.clear.frame(width: diameter, height: diameter)
+            }
+        }
+    }
+
+    private func renderedContent(feltImage: UIImage) -> some View {
         let half = snapshot.halfWorld
         let scale = diameter / (2 * half)
-        ZStack {
-            ZStack {
-                Color(uiColor: prefs.clothColor.swatch)
-                if let feltImage {
-                    Image(uiImage: feltImage).resizable().scaledToFill()
-                }
-            }
+        return ZStack {
+            Image(uiImage: feltImage).resizable().scaledToFill()
                 .frame(width: diameter, height: diameter)
                 .clipShape(Circle())
                 .overlay(
@@ -78,6 +82,7 @@ struct BTAimCloseupHUD: View {
                         .position(map(p, in: CGSize(width: diameter, height: diameter),
                                       scale: scale))
                 }
+
             }
             .frame(width: diameter, height: diameter)
             .clipShape(Circle())
@@ -146,7 +151,11 @@ struct BTAimCloseupHUD: View {
                    width: 2.0, dashed: true)
         }
         if let aux = snapshot.auxLine {
-            stroke(aux.start, aux.end, color: FigureLine.hint, width: 1.2, dashed: true)
+            stroke(aux.start, aux.end, color: Color(uiColor: TrajectoryStyle.TrainingAssist.centerReference), width: 1, dashed: true)
+        }
+        if let standard = snapshot.standardAimLine {
+            stroke(standard.start, standard.end,
+                   color: Color(uiColor: TrajectoryStyle.TrainingAssist.standardAimLine), width: 2.2, dashed: false)
         }
         if let aim = snapshot.aimLine {
             stroke(aim.start, aim.end, color: snapshot.usesTrainingAssistStyle
@@ -175,15 +184,17 @@ struct BTAimCloseupOverlay: View {
     var placementBounds: CGRect? = nil
     var protectedFramesInWindow: [CGRect] = []
     var includesSceneIdealLine = true
+    /// Submitted answers can reveal their loupe even when the live aiming aid is disabled.
+    var ignoresPreference = false
     @State private var protectedPlacement: AimCloseupPlacement.ProtectedPlacement?
-    @State private var feltImage: UIImage?
+    @State private var feltFrame: AimCloseupFeltFrame?
 
     @ObservedObject private var prefs = UserPreferences.shared
     /// Placement hysteresis (scene pts); cleared when the loupe hides.
     @State private var center: CGPoint?
 
     @ObservedObject private var tablePreferences = TablePreferencesStore.shared
-    private var closeupEnabled: Bool { scene?.tablePreferences?.enabled(.closeup) ?? prefs.showAimCloseup }
+    private var closeupEnabled: Bool { ignoresPreference || (scene?.tablePreferences?.enabled(.closeup) ?? prefs.showAimCloseup) }
     private var isVisible: Bool { closeupEnabled && snapshot != nil }
 
     var body: some View {
@@ -193,9 +204,11 @@ struct BTAimCloseupOverlay: View {
         // Prepare on preference changes, outside the 60 Hz placement loop and
         // before the first aiming gesture. No extra live SCNView is retained.
         .task(id: "\(closeupEnabled)-\(prefs.clothColor.rawValue)-\(prefs.roomStyle.rawValue)") {
-            guard closeupEnabled else { feltImage = nil; return }
-            feltImage = TableFigureRenderer.closeupFelt(clothColor: prefs.clothColor,
-                                                       roomStyle: prefs.roomStyle)
+            guard closeupEnabled, !Task.isCancelled else { return }
+            let cloth = prefs.clothColor, room = prefs.roomStyle
+            let image = TableFigureRenderer.closeupFelt(clothColor: cloth, roomStyle: room)
+            guard !Task.isCancelled else { return }
+            feltFrame = image.map { AimCloseupFeltFrame(clothColor: cloth, roomStyle: room, image: $0) }
         }
     }
 
@@ -212,12 +225,14 @@ struct BTAimCloseupOverlay: View {
 
     private var content: some View {
         ZStack(alignment: .topLeading) {
-            if closeupEnabled, let snap = displaySnapshot, sceneSize.height > 1 {
+            if closeupEnabled, let feltImage = feltFrame?.image(matching: prefs.clothColor, room: prefs.roomStyle),
+               let snap = displaySnapshot, sceneSize.height > 1 {
                 if protectsDailySight {
                     if let placement = dailyPlacement(snap) {
                         BTAimCloseupHUD(snapshot: snap, diameter: placement.diameter, feltImage: feltImage)
                             .accessibilityElement(children: .ignore)
-                            .accessibilityLabel("瞄准特写").accessibilityIdentifier("aimCloseup.hud")
+                            .accessibilityLabel(snap.standardAimLine == nil ? "瞄准特写" : "瞄准特写，白线为实际方向，橙线为目标方向，两线从母球中心出发")
+                            .accessibilityIdentifier("aimCloseup.hud")
                             .position(placement.center)
                             .onAppear { protectedPlacement = placement }
                             .onChange(of: placement) { _, value in protectedPlacement = value }
@@ -291,6 +306,8 @@ struct AimCloseupSnapshot: Equatable {
     var ghostShowsAimPoint: Bool = true
     var aimPointMarker: CGPoint? = nil
     var contactMarker: CGPoint? = nil
+    /// Optional official answer, revealed only after submission by the owning page.
+    var standardAimLine: AimCloseupSegment? = nil
     var showMissCaption: Bool = false
     var usesTrainingAssistStyle: Bool = false
 
@@ -313,4 +330,15 @@ struct AimCloseupSegment: Equatable {
 struct BTCloseupProtectedFramesKey: PreferenceKey {
     static var defaultValue: [CGRect] = []
     static func reduce(value: inout [CGRect], nextValue: () -> [CGRect]) { value += nextValue() }
+}
+
+/// Material and its identity travel together: a preference change must never show an old frame.
+struct AimCloseupFeltFrame {
+    let clothColor: ClothColor
+    let roomStyle: RoomStyle
+    let image: UIImage
+
+    func image(matching cloth: ClothColor, room: RoomStyle) -> UIImage? {
+        cloth == clothColor && room == roomStyle ? image : nil
+    }
 }

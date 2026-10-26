@@ -312,7 +312,11 @@ private struct FreeControlHost: ViewModifier {
             .background(FreeControlWindowProbe { size, frame in
                 if windowSize != size { windowSize = size }
                 if hostFrame != frame { hostFrame = frame }
-            })
+            }
+            // iOS 17 can hit the SwiftUI PlatformViewHost even though the
+            // measuring UIView itself has user interaction disabled.
+            .allowsHitTesting(false)
+            .accessibilityHidden(true))
             .onPreferenceChange(FreeControlFramesKey.self) { if frames != $0 { frames = $0 } }
             .onPreferenceChange(FreeControlLegacyMeasurementsKey.self) { legacyMeasurements = $0 }
             .task(id: FreeControlMigrationPass(measurements: legacyMeasurements, window: windowSize,

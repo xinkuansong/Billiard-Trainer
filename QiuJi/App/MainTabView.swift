@@ -100,7 +100,7 @@ struct MainTabView: View {
             if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-pro.route=") }) {
                 let routes: [String: AngleRoute] = [
                     "separation": .separationAngleAtlas, "cushion": .cushionEnglishAtlas,
-                    "scene3d": .sceneAiming3D, "aim3d": .aimPointScene3D, "snake": .snakePractice,
+                    "scene3d": .sceneAiming3D, "aim3d": .aimPointScene3D, "snake": .snakePractice, "multiBall": .multiBallPractice, "multiBall3D": .multiBallPractice3D,
                     "composer": .positionPlayComposer, "photo": .ballExtraction,
                     "three": .planThree, "snooker": .snookerTactics,
                     "bank": .bankShot, "diamond": .diamondSystem]
@@ -193,7 +193,7 @@ struct MainTabView: View {
     @ViewBuilder
     private func angleDestination(for route: AngleRoute) -> some View {
         // Separation owns its gate so an already committed stroke can finish before an entitlement change gates the next action.
-        ProAccessGate(requiresPremium: route.requiresPremium && route != .separationPractice3D && route != .twoBallPractice3D) {
+        ProAccessGate(requiresPremium: route.requiresPremium && route != .separationPractice3D && route != .twoBallPractice3D && route != .multiBallPractice3D) {
             authorizedAngleDestination(for: route)
         }
     }
@@ -223,6 +223,10 @@ struct MainTabView: View {
             AngleDynamicView()
         case .geometricQuiz:
             GeometricAngleQuizView()
+        case .multiBallPractice:
+            MultiBallPracticeView()
+        case .multiBallPractice3D:
+            MultiBallPracticeView(is3D: true)
         case .snakePractice:
             SnakePracticeView()
         case .customFormationPractice:

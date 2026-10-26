@@ -57,6 +57,28 @@ final class AimCloseupFeltParityTests: XCTestCase {
         XCTAssertFalse(legacy.image === green, "Historical teaching images must retain a separate cache entry")
     }
 
+    func testMissingMaterialNeverShowsLegacySwatchDuringMount() throws {
+        let snapshot = AimCloseupSnapshot(band: .contact, focus: .zero, ballRadius: 0.028575,
+                                          halfWorld: 0.09144, showsTargetBall: false)
+        let renderer = ImageRenderer(content: BTAimCloseupHUD(snapshot: snapshot)
+            .frame(width: 128, height: 128).background(Color(uiColor: .magenta)))
+        let color = try medianColor(of: XCTUnwrap(renderer.uiImage), patch: CGRect(x: 44, y: 44, width: 12, height: 12))
+        XCTAssertEqual(color.0, 1, accuracy: 0.01)
+        XCTAssertEqual(color.1, 0, accuracy: 0.01, "No green/RGB fallback may be drawn before the texture arrives")
+        XCTAssertEqual(color.2, 1, accuracy: 0.01)
+    }
+
+    func testMaterialIdentityRejectsPreviousClothAndRoomBeforeReplacementArrives() {
+        let image = UIImage()
+        let old = AimCloseupFeltFrame(clothColor: .green, roomStyle: .tournament, image: image)
+        XCTAssertTrue(old.image(matching: .green, room: .tournament) === image)
+        XCTAssertNil(old.image(matching: .tournamentBlue, room: .tournament))
+        XCTAssertNil(old.image(matching: .green, room: .walnut))
+        let replacement = AimCloseupFeltFrame(clothColor: .tournamentBlue, roomStyle: .walnut, image: UIImage())
+        XCTAssertNotNil(replacement.image(matching: .tournamentBlue, room: .walnut))
+        XCTAssertNil(replacement.image(matching: .green, room: .tournament))
+    }
+
     // MARK: - Renderers
 
     /// Independent production scene, sampled away from the centre spot.
