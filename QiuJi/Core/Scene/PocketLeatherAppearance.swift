@@ -19,7 +19,7 @@ enum PocketLeatherAppearance {
             float leatherLuma=dot(_surface.diffuse.rgb,float3(0.2126,0.7152,0.0722));
             float leatherVariation=clamp(pow(max(leatherLuma,0.0001)/0.03437944,0.05),0.97,1.03);
             float3 leatherTint=float3(\(components[0]),\(components[1]),\(components[2]));
-            _surface.diffuse.rgb=(leatherTint*0.65+float3(0.02515516,0.00877277,0.00568603))*leatherVariation;
+            _surface.diffuse.rgb=leatherTint*leatherVariation;
             """
             modifiers[.surface] = previous.replacingOccurrences(of: "#pragma body", with: "#pragma body\n" + operation)
             material.shaderModifiers = modifiers
@@ -33,19 +33,13 @@ enum PocketLeatherAppearance {
         _surface.diffuse.rgb = mix(_surface.diffuse.rgb, pocketLeatherTint, 0.65);
         """ : previous + "\n_surface.diffuse.rgb = mix(_surface.diffuse.rgb, float3(\(components[0]), \(components[1]), \(components[2])), 0.65);"
         if preservesTexture && original.name == "Leather" {
-            // S236: bounded gains fitted to the bundled Leather albedo histogram.
-            let gain: String?
-            if color == firstRoleTint {
-                gain = "1.3135267863911544,21.81101806224492,10.883660841251789"
-            } else if color == secondRoleTint {
-                gain = "0.6493951726466205,18.2971481216344,35.96047560473092"
-
-            } else { gain = nil }
-            if let gain {
-                modifiers[.surface] = (previous.isEmpty ? "#pragma body" : previous)
-                    + "\n_surface.diffuse.rgb = clamp(_surface.diffuse.rgb * float3(\(gain)), 0.0, 1.0);"
-            }
+            // Preserve leather grain through luminance, independent of the old
+            // brown texture's RGB channels; all roles use the same tint transfer.
+            modifiers[.surface] = (previous.isEmpty ? "#pragma body" : previous)
+                + "\nfloat roleGrain=clamp(pow(max(dot(_surface.diffuse.rgb,float3(0.2126,0.7152,0.0722)),0.0001)/0.03437944,0.12),0.8,1.2);"
+                + "\n_surface.diffuse.rgb = float3(\(components[0]),\(components[1]),\(components[2])) * roleGrain;"
         }
+
         if previous.contains("// v62SatinFinish"), let composed = modifiers[.surface], composed.hasPrefix(previous) {
             // Selection is an albedo change, before lighting; never tint/clamp
             // the already-lit satin response as if it were the source texture.
@@ -56,13 +50,9 @@ enum PocketLeatherAppearance {
         return material
     }
 
-    static let firstRoleTint = UIColor(red: 0.36, green: 0.92, blue: 0.55, alpha: 1)
-    static let secondRoleTint = UIColor(red: 0.20, green: 0.85, blue: 0.95, alpha: 1)
-
-    /// Persistent destination of the second ball in two-ball practice.
-    static let continuationTargetTint = firstRoleTint
-
-    static var targetTint: UIColor {
-        UIColor(red: 50.0 / 255, green: 173.0 / 255, blue: 230.0 / 255, alpha: 1) // #32ADE6
-    }
+    // Compatibility adapters for existing marker styles; semantics live in Core.
+    static var firstRoleTint: UIColor { BallRoleStyle.current.uiColor }
+    static var secondRoleTint: UIColor { BallRoleStyle.next.uiColor }
+    static var continuationTargetTint: UIColor { BallRoleStyle.next.uiColor }
+    static var targetTint: UIColor { BallRoleStyle.current.uiColor }
 }

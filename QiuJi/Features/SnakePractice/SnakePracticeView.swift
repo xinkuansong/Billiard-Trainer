@@ -23,6 +23,7 @@ struct SnakePracticeSettingsView: View {
     @State var configuration: SnakePracticeConfiguration
     @ObservedObject private var history = SnakePracticeHistory.shared
     @StateObject private var resetNotice = BTRuleNoticeCenter()
+    @State private var historyExpanded = false
     let isRestart: Bool
     let onStart: (SnakePracticeConfiguration) -> Void
     let onCancel: () -> Void
@@ -43,11 +44,12 @@ struct SnakePracticeSettingsView: View {
                 .pickerStyle(.segmented)
                 .accessibilityIdentifier("snake.mode")
             }
-            Section("最近练习 · 10次") {
+            Section {
+                DisclosureGroup("最近练习 · 10次", isExpanded: $historyExpanded) {
                 if history.records.isEmpty {
                     Text("暂无训练记录").foregroundStyle(.secondary)
                 } else {
-                    ForEach(history.records) { record in
+                    ForEach(history.records.prefix(10)) { record in
                         VStack(alignment: .leading, spacing: Spacing.xs) {
                             HStack(alignment: .firstTextBaseline) {
                                 Text("\(record.count)颗 · \(record.mode.title)")
@@ -65,6 +67,7 @@ struct SnakePracticeSettingsView: View {
                         .accessibilityIdentifier("snake.record.\(record.id.uuidString)")
                     }
                 }
+                }.accessibilityIdentifier("snake.recentPractice")
             }
             BTTrainingSettingsResetSection {
                 configuration = .init()
@@ -77,12 +80,17 @@ struct SnakePracticeSettingsView: View {
         .navigationTitle("训练设置")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
+            ToolbarItem(placement: .principal) {
+                Text("训练设置").font(.btHeadline).foregroundStyle(.btPrimary)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            ToolbarItem(placement: .topBarLeading) {
                 Button(isRestart ? "取消" : "返回", action: onCancel)
                     .accessibilityIdentifier("snake.settingsCancel")
             }
-            ToolbarItem(placement: .confirmationAction) {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button(isRestart ? "开始新练习" : "开始练习") {
                     var next = configuration
                     next.regenerate()

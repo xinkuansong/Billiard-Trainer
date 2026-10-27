@@ -3,7 +3,7 @@ import SceneKit
 /// One physical leather region; exactly one material variant is visible at a time.
 /// Prepare before attachment to SCNView: iOS 17 must not mutate live materials.
 final class PocketLeatherMarker: SCNNode {
-    enum Style: Int, CaseIterable { case original, target, firstRole, secondRole, bothRoles, continuationTarget }
+    enum Style: Int, CaseIterable { case original, target, firstRole, secondRole, bothRoles, continuationTarget, practiceCurrent, practiceBoth }
     let pocketIndex: Int
     private(set) var style: Style = .original
     private var originalMaterials: [SCNMaterial] = []
@@ -31,10 +31,13 @@ final class PocketLeatherMarker: SCNNode {
             case .firstRole: g.materials = geometry.materials.map { PocketLeatherAppearance.material(from: $0, tint: PocketLeatherAppearance.firstRoleTint, preservesTexture: preservesTexture) }
             case .secondRole: g.materials = geometry.materials.map { PocketLeatherAppearance.material(from: $0, tint: PocketLeatherAppearance.secondRoleTint, preservesTexture: preservesTexture) }
             case .continuationTarget: g.materials = geometry.materials.map { PocketLeatherAppearance.material(from: $0, tint: PocketLeatherAppearance.continuationTargetTint, preservesTexture: preservesTexture) }
-            case .bothRoles:
-                let halves = try PocketLeatherMesh.splitRoleGeometry(geometry, preservesTexture: preservesTexture)
+            case .practiceCurrent: g.materials = geometry.materials.map { PocketLeatherAppearance.material(from: $0, tint: PocketLeatherAppearance.targetTint, preservesTexture: preservesTexture) }
+            case .bothRoles, .practiceBoth:
+                let halves = try PocketLeatherMesh.splitRoleGeometry(geometry, preservesTexture: preservesTexture,
+                    firstTint: style == .practiceBoth ? PocketLeatherAppearance.targetTint : PocketLeatherAppearance.firstRoleTint,
+                    secondTint: style == .practiceBoth ? PocketLeatherAppearance.continuationTargetTint : PocketLeatherAppearance.secondRoleTint)
                 let node = SCNNode(geometry: halves)
-                node.name = "leather_bothRoles"
+                node.name = style == .practiceBoth ? "leather_practiceBoth" : "leather_bothRoles"
                 node.isHidden = true
                 variants[style] = node
                 addChildNode(node)

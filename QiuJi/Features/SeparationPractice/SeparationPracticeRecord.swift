@@ -53,16 +53,16 @@ struct SeparationShot: Codable, Identifiable {
     var isTrajectoryOnly: Bool { playsStroke == false }
 
     init(question: SeparationQuestion, input: SeparationInput, prediction: ShotPrediction,
-         surfaceY: Float, now: Date = Date()) throws {
+         surfaceY: Float, now: Date = Date(), scoresTrajectory: Bool = true) throws {
         guard prediction.hasFinalTableState, let recorder = prediction.recorder,
               let direction = prediction.strikeDirection else { throw SeparationQuestionGenerator.Failure.incomplete }
         id = UUID(); questionID = question.id; submittedAt = now; self.input = input
         self.direction = .init(direction); self.surfaceY = surfaceY
         trajectory = try SeparationTrajectory.extract(prediction)
         specifiedPocket = SeparationQuestionGenerator.potsSpecifiedPocket(prediction, pocket: question.board.pocketIndex)
-        score = try SeparationTrajectoryScore.evaluate(target: question.target, actual: trajectory,
+        score = scoresTrajectory ? try SeparationTrajectoryScore.evaluate(target: question.target, actual: trajectory,
             cuePocketed: prediction.cuePocketed || prediction.pocketedBalls.contains(ShotInput.cueBallName),
-            targetPotted: specifiedPocket)
+            targetPotted: specifiedPocket) : nil
         frames = recorder.framesByBallName.mapValues { $0.map(Frame.init) }
         captures = recorder.pocketEntries.map {
             .init(name: $0.ball.name, pocket: $0.pocketID,
@@ -124,7 +124,7 @@ struct SeparationShot: Codable, Identifiable {
         if pocketedBalls.contains(ShotInput.cueBallName) || score?.zeroReason == .cuePocketed {
             return scoreText + " · 母球落袋"
         }
-        if score?.zeroReason == .targetNotPotted { return scoreText + " · 目标球未进指定袋" }
+        if score?.zeroReason == .targetNotPotted { return TrainingPracticeNotice.cannotPot }
         guard !trajectory.isEmpty else { return scoreText }
         return specifiedPocket ? scoreText : scoreText + " · 目标球未进指定袋"
     }

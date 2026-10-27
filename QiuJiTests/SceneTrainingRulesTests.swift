@@ -4,6 +4,52 @@ import SceneKit
 @testable import QiuJi
 
 final class SceneTrainingRulesTests: XCTestCase {
+    func testTwoBallSettingsMigrateWithoutWritingAndKeepModesAndViewsIndependent() throws {
+        let suite = "training-settings-review." + UUID().uuidString
+        let store = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { store.removePersistentDomain(forName: suite) }
+        var legacy = SceneTrainingConfiguration.defaults(for: "twoBallPractice2D")
+        legacy.angleSelection = [.small]
+        legacy.allowsVerticalSpin = false
+        store.set(try JSONEncoder().encode(legacy), forKey: "sceneTraining.rules2.mixedDefaults.twoBallPractice2D")
+        store.set(false, forKey: "twoBallPractice.2D.playsStroke")
+        let originalKeys = Set(store.dictionaryRepresentation().keys)
+        var trajectory = TwoBallSettingsPreference.load(for: "twoBallPractice2D", mode: .trajectory, defaults: store)
+        var free = TwoBallSettingsPreference.load(for: "twoBallPractice2D", mode: .free, defaults: store)
+        XCTAssertEqual(trajectory.configuration, legacy)
+        XCTAssertEqual(free, trajectory)
+        XCTAssertFalse(free.playsStroke)
+        XCTAssertEqual(Set(store.dictionaryRepresentation().keys), originalKeys, "Opening and Cancel must not migrate preferences by writing")
+        trajectory.configuration.cueDistanceSelection = [.long]
+        free.configuration.cueDistanceSelection = [.short]
+        free.playsStroke = true
+        free.showsReference = true
+        trajectory.save(for: "twoBallPractice2D", mode: .trajectory, defaults: store)
+        free.save(for: "twoBallPractice2D", mode: .free, defaults: store)
+        XCTAssertEqual(TwoBallSettingsPreference.load(for: "twoBallPractice2D", mode: .trajectory, defaults: store), trajectory)
+        XCTAssertEqual(TwoBallSettingsPreference.load(for: "twoBallPractice2D", mode: .free, defaults: store), free)
+        XCTAssertEqual(TwoBallSettingsPreference.load(for: "twoBallPractice3D", mode: .free, defaults: store), .defaults(for: "twoBallPractice3D"))
+        // A reset remains an uncommitted value until the user starts again.
+        free = .defaults(for: "twoBallPractice2D")
+        XCTAssertNotEqual(TwoBallSettingsPreference.load(for: "twoBallPractice2D", mode: .free, defaults: store), free)
+    }
+
+    func testFreeTwoBallGenerationIgnoresHiddenSpinFiltersButPreservesBoardConditions() {
+        var trajectory = SceneTrainingConfiguration.defaults(for: "twoBallPractice2D")
+        trajectory.allowsVerticalSpin = false; trajectory.allowsSideSpin = false
+        trajectory.cueDistanceSelection = [.short, .long]
+        trajectory.pocketSelection = [.side]
+        let free = trajectory.forTwoBallMode(.free)
+        XCTAssertTrue(free.allowsVerticalSpin)
+        XCTAssertTrue(free.allowsSideSpin)
+        XCTAssertEqual(free.angleSelection, trajectory.angleSelection)
+        XCTAssertEqual(free.cueDistanceSelection, trajectory.cueDistanceSelection)
+        XCTAssertEqual(free.pocketSelection, trajectory.pocketSelection)
+        XCTAssertEqual(trajectory.forTwoBallMode(.trajectory), trajectory)
+        XCTAssertFalse(trajectory.allowsVerticalSpin)
+        XCTAssertFalse(trajectory.allowsSideSpin)
+    }
+
     func testEveryRangeUsesMeasuredGeometryAndRequestedDistances() throws {
         for range in SceneTrainingConfiguration.AngleRange.allCases {
             var config = SceneTrainingConfiguration(); config.angles = range

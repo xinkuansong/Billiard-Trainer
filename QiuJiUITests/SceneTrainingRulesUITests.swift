@@ -52,7 +52,7 @@ final class SceneTrainingRulesUITests: XCTestCase {
     func testFreePracticeRestartAppliesDraftOnConfirmation() {
         open("2D瞄准点")
         XCTAssertTrue(app.buttons["aimPointTraining.start"].waitForExistence(timeout:10))
-        app.buttons["自由训练"].tap()
+        app.buttons["持续练习"].tap()
         app.buttons["training.range.straight"].tap()
         app.buttons["aimPointTraining.start"].tap()
         let submit = app.buttons["aimPointTraining.submit"]
@@ -82,8 +82,8 @@ final class SceneTrainingRulesUITests: XCTestCase {
         let button = app.buttons[prefix + ".start"]
         XCTAssertTrue(button.waitForExistence(timeout: 10))
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: prefix + ".scene").firstMatch.exists)
-        XCTAssertTrue(app.staticTexts["练习模式"].exists)
-        for mode in ["自由训练", "20题"] {
+        XCTAssertTrue(app.staticTexts["训练量"].exists)
+        for mode in ["持续练习", "20题"] {
             for _ in 0..<3 where !app.buttons[mode].isHittable { app.swipeDown() }
             app.buttons[mode].tap()
             capture(name + "-settings-" + mode)
@@ -93,7 +93,7 @@ final class SceneTrainingRulesUITests: XCTestCase {
                 XCTAssertTrue(condition.exists, "球形条件默认展开，可滚动到达")
                 let content = ([condition] + condition.descendants(matching: .any).allElementsBoundByIndex)
                     .map { $0.label + " " + ($0.value as? String ?? "") }.joined(separator: " ")
-                XCTAssertTrue(content.contains("随机"), condition.debugDescription)
+                XCTAssertTrue(content.contains("综合"), condition.debugDescription)
             }
         }
         capture(name + "-settings")

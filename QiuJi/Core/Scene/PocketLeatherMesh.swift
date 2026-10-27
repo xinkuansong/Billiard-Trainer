@@ -316,7 +316,9 @@ extension PocketLeatherMesh {
         return result
     }
 
-    static func splitRoleGeometry(_ geometry: SCNGeometry, preservesTexture: Bool = false) throws -> SCNGeometry {
+    static func splitRoleGeometry(_ geometry: SCNGeometry, preservesTexture: Bool = false,
+                                  firstTint: UIColor = PocketLeatherAppearance.firstRoleTint,
+                                  secondTint: UIColor = PocketLeatherAppearance.secondRoleTint) throws -> SCNGeometry {
         guard let sourceIndex = geometry.sources.firstIndex(where: { $0.semantic == .vertex }),
               let element = geometry.elements.first, let material = geometry.materials.first else {
             throw Failure.invalidMesh("Missing role geometry")
@@ -336,7 +338,7 @@ extension PocketLeatherMesh {
         let result = SCNGeometry(sources: geometry.sources,
             elements: halves.map { makeElement(faces: $0, channelCount: element.indicesChannelCount) },
             sourceChannels: geometry.geometrySourceChannels)
-        result.materials = [PocketLeatherAppearance.firstRoleTint, PocketLeatherAppearance.secondRoleTint].map {
+        result.materials = [firstTint, secondTint].map {
             PocketLeatherAppearance.material(from: material, tint: $0, preservesTexture: preservesTexture)
         }
         return result

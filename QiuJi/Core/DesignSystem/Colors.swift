@@ -52,9 +52,9 @@ extension Color {
     static let btChartSeries = Color.btAccent
 
     // MARK: PlanThree ①②③ 角色 chrome（F-PP-09；就地命名，勿扩信号色语义）
-    static let btPlanRole1 = Color(red: 0.36, green: 0.92, blue: 0.55)
-    static let btPlanRole2 = Color(red: 0.20, green: 0.85, blue: 0.95)
-    static let btPlanRole3 = Color(red: 1.0, green: 0.78, blue: 0.28)
+    static var btPlanRole1: Color { BallRoleStyle.current.color }
+    static var btPlanRole2: Color { BallRoleStyle.next.color }
+    static var btPlanRole3: Color { BallRoleStyle.upcoming.color }
 }
 
 // MARK: - ShapeStyle extensions（使 .btXxx 在 foregroundStyle / background 上下文中可用）
@@ -245,4 +245,17 @@ private struct TokenSwatchSection: View {
     }
     .background(Color.btBG)
     .preferredColorScheme(.dark)
+}
+
+
+/// Relative shot roles. Physical ball colors and trajectory semantics are separate.
+/// Fixed sRGB assets keep the same roles on the always-dark table in either app theme.
+enum BallRoleStyle: Int, CaseIterable {
+    case current, next, upcoming
+    var assetName: String { ["btBallRoleCurrent", "btBallRoleNext", "btBallRoleUpcoming"][rawValue] }
+    var color: Color { Color(assetName) }
+    var uiColor: UIColor { UIColor(named: assetName)! }
+    var label: String { ["当前球", "下一球", "后续球"][rawValue] }
+    var symbol: String { ["①", "②", "③"][rawValue] }
+    var dash: [CGFloat] { self == .upcoming ? [3, 3] : [] }
 }

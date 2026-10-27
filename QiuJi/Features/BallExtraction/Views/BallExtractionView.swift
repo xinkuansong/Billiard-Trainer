@@ -305,7 +305,7 @@ struct BallExtractionView: View {
         let isActive = vm.activePaletteKey == mark.key
         // 标记球做小，密集球区也能逐个点到；✕ 只在选中（active）时出现，减少互相遮挡。
         return PoolBallFace(key: mark.key, diameter: isActive ? 18 : 14)
-            .overlay(Circle().stroke(isActive ? Color.btPrimary : .white.opacity(0.7),
+            .overlay(Circle().stroke(isActive ? BallRoleStyle.current.color : .white.opacity(0.7),
                                      lineWidth: isActive ? 2 : 1))
             .overlay(alignment: .topTrailing) {
                 if isActive {
@@ -365,7 +365,7 @@ struct BallExtractionView: View {
         let d = BTBallPaletteMetrics.compactDiameter
         return PoolBallFace(key: key, diameter: d)
             .opacity(marked ? 0.28 : 1)
-            .overlay(Circle().stroke(vm.activePaletteKey == key ? Color.btPrimary : .clear,
+            .overlay(Circle().stroke(vm.activePaletteKey == key ? BallRoleStyle.current.color : .clear,
                                      lineWidth: 2.5))
             .frame(width: BTBallPaletteMetrics.minimumHitSize,
                    height: BTBallPaletteMetrics.minimumHitSize)

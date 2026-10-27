@@ -1086,9 +1086,8 @@ struct BatchAuthoringView: View {
             if onTable { composer.pulseTableBall(key) } else { composer.placeFromPalette(key); redistributeGuideBalls() }
         } label: {
             PoolBallFace(key: key, diameter: diameter).opacity(onTable ? 0.3 : 1)
-                .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 1).padding(-1).opacity(selected ? 1 : 0))
+                .overlay(Circle().stroke(BallRoleStyle.current.color, lineWidth: 2).padding(-1).opacity(selected ? 1 : 0))
                 .frame(width: diameter + 2, height: min(max(32, diameter), slotHeight))
-                .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 4), selected: selected, normal: .clear) }
                 .frame(height: slotHeight).contentShape(Rectangle())
         }.buttonStyle(BTHUDPressStyle()).disabled(editingBusy)
             .simultaneousGesture(DragGesture(minimumDistance: BTBallPaletteMetrics.dragMinimumDistance, coordinateSpace: .named("batchAuthor"))

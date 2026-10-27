@@ -251,6 +251,7 @@ final class AngleDynamicViewModel: TeachingTableHost {
         selectBestPocket()
         updateCalculations()
         selectionCameraChanged()
+        if let node = scene.allBallNodes[key], !node.isHidden { TableBallPulse.pulse(node) }
     }
 
     private func overlapsExisting(_ pos: SCNVector3) -> Bool {

@@ -6275,6 +6275,9 @@ DR-410 v3验收补记：20入口/34适用模式定向UI通过，47项存储测�
 - 实现/测试与待验：[执行卡](table-page-adaptation/PRO-TRAINING-ACCESS-20261026.md)。
 
 
+2026-10-27 DR-438 r3：首页每日／继续清台入口删除免费额度与 Pro 说明行；每日2D/3D结束动作复用 DailyConfirmationCard 的实色浅深底板和淡绿主按钮，单操作可省略标题与第二动作。既有双按钮确认布局、结果信息位置、额度及回调不变。
+- 已应用至：`swiftui-design-system/SKILL.md` DR-438 r3、`UI-IMPLEMENTATION-SPEC.md`；页内修订，不推广为其他页面默认。验证见 [本轮记录](ui-reviews/UR-20261027-daily-result-style.md)。
+
 ## DR-439 — 瞄准点提交后特写（2026-10-26）
 
 2D/3D共用冻结的正式答案几何，提交后自动显示用户点和正确点；页面内复用BTAimCloseupHUD与缓存台呢，不修改共享临时特写闸门。最后一题反馈保留，下一题动作决定进入总结。覆盖P10页面例外，未扩大为所有训练弹窗标准。实现/证据见[任务卡](table-page-adaptation/AIM-POINT-RESULT-CLOSEUP-20261026.md)。
@@ -6315,3 +6318,85 @@ DR-439/FL-211修订：首轮把“瞄准特写”扩展为独立大弹窗，被�
 `DailyLayoutMetrics.Palette`加入桌宽决定的基础球径上限，少球不放大；新增窄窗单测与原生缩窗/恢复/点击断言。现行TP05，结果以[专项记录](ui-reviews/UR-20261026-palette-proportion.md)为准。
 
 2026-10-26 DR439r15：仅2D/3D瞄准点提交后结果区新增切角与ThicknessOverlapIcon，目标上方、整体下移12pt；4UI与6张原图通过。已应用至UI-IMPLEMENTATION-SPEC.md Changelog及瞄准点页面合同；真机未验。
+
+## DR-442 — 多球规划走位与自主走位（2026-10-27）
+
+用户确认两名称、默认规划、2D/3D、顺序仅选下颗球袋与遮挡0分。共享控制器冻结下一球袋，停稳复用两球自由走位评分并先检查两段直击遮挡；当前瞄准与下一袋标记分离，末杆排除均分，重打回滚、回放幂等。自主保留既有规则与权益。已回填docs/05、UI规范及多球页面合同；本页业务例外不改变共用TP规则。验证以[任务卡](table-page-adaptation/MULTI-BALL-PLANNING-20261027.md)为准。
+
+DR-442交付：2D/3D规划/自主已实现；最终16逻辑及6次原生UI通过（iPhone13、iPad横竖屏保持、SE/iOS17），36张最终原图已审。DEBUG自动化袋沿探针补像素取整/内部余量，不改生产命中规则；早期失败保留。完整门禁、文档体积、diff检查通过，测试资源收尾；未提交、未发布、未真机/用户验收。详任务卡及UR-20261027-multi-ball-planning。
+
+## DR-443 — 三球按需选袋与两球/三球常亮角色（2026-10-27）
+
+- 用户反馈首屏提示和禁用击球打断练习，批准本轮实施。三球固定3球槽，当前蓝/下一绿，常亮袋口同色，同袋蓝绿分半；仅点击缺袋击球时短提示。第一杆自动推进，重试恢复击打前快照并可改袋，首答与扣额冻结。全量111025球形替换365开发包。
+- API：`BTTablePlanningControls.paletteKeys: [String]? = nil`与`paletteRoles: [String: BTTeachingBallRole] = [:]`；默认消费者保持原15球列表/角色。`AngleTrainingScene.setPracticePocketRoles(current:next:)`显式持久蓝/绿，供两球/三球使用，其他页面原短亮入口保持。
+- 已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md`组件/API增量与Changelog、现行TP05/06/14/24及来源表、docs/05、内容数据契约、三球页面卡（2026-10-27）。验证和首次失败以[r2报告](ui-reviews/UR-20261027-three-ball-free-practice-r2.md)为准。
+
+### DR-442补充 — 多球滚动三球（2026-10-27）
+
+用户授权将三球页的常亮角色、双色共袋、点击时短提醒与袋口继承用于多球。当前/第二/第三球滚动承接，第三无袋；顺序自动排球，中八合法顺序，下一杆当前袋锁定；真实出杆事务前校验，重打完整回滚，评分仍用第二球。新增宿主可选锁球/锁袋与规划呈现回调，默认不影响其他消费者。
+- 已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md`现行组件合同；[页面卡](table-page-adaptation/MULTI-BALL-ROLLING-20261027.md)。
+
+
+## DR-444 — 全局球角色配色与打一走二想三流程（2026-10-27，实施）
+
+- 用户后续授权完成实现与验证，明确排除动作库静态图及生成链路。
+- API：BallRoleStyle current/next/upcoming与三份颜色资源同源；最后截图反馈移除P05/多球桌内角色按钮及台面角色圈，角色选择整合顶部球库；两球提供paletteRoles。旧颜色别名转接，普通短亮时序不变。
+- P05：直接角色/袋选择、冲突拒绝、改选失效旧解、停稳一次顺延、承接锁、最近一杆完整重打；回放恢复进入前当前草稿。保留求解/约束/开球/编辑能力，不新增评分。
+- 构建与定向状态/原生证据、独立历史两球精确数值回归失败和人工边界见[完整方案§11](table-page-adaptation/BALL-ROLE-COLOR-AND-PLAN-THREE-20261027.md#11-实施结果与活动交接)及[UI报告](ui-reviews/UR-20261027-ball-role-plan-three.md)。静态保护76项一致；未提交发布。
+- 已回填球桌规范TP06/14/25/34、来源表、UI实施规范、P05卡和产品交互；原有DR-442/443工程结果不代为重置。
+
+
+DR-442滚动三球交付：18逻辑、8次原生UI（手机13/SE17/iPad）通过，45张原图已审，全仓gate/文档/diff通过。最终两处瞄准/编辑焦点收口在iPad重建验证，未外推真机或用户认可；未提交、未发布。详MULTI-BALL-ROLLING-20261027及对应UI报告。
+
+## FL-213 — 三球把同组误解为同色全花配对（2026-10-27）
+
+- 根因：ThreeBallBallIdentity生成n与n+8，原文档与测试共同固化了错误解释。用户明确两球同为全色或花色。
+- 修复：同组无放回抽两个号码，第三固定8；身份指纹升级，旧历史保持号码。
+- 已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md`现行三球合同；`THREE-BALL-FREE-PRACTICE-20261027.md`。
+- 检查点：验球身份时分别校验球组、不同号码、黑八及题内冻结，不能以球面颜色相同替代规则分组；真实随机入口/全量消费题和原生2D/3D同时核验。
+
+FL-213验证闭环：10逻辑＋SE3 2D/3D完整原生2UI通过；同组全色/花色两种实际画面已核，22图留存，全仓gate/文档/diff通过。详UR-20261027-three-ball-same-group。
+
+## DR-209 r2 / FL-064补充 — 现房间下的外观预览机位（2026-10-27）
+
+- 用户反馈球桌风格镜头太远、左下角穿模感。旧图像平面最大Z=3.748m按旧10×8m房间核验，现房间8×6m已越近墙。
+- 仅AppearanceCombinationPreview全桌分支沿视线推进30%、尺度1.35→1.10，保留桌体及原材质；共用台呢页同步。房间全景及训练机位保持。
+- 回归使用真实SwiftUI宿主的SCNView及当前房间常量验证完整视口，原生同场景旧机位/新机位及三房风格对比、跨页持久化回归。过程与最终结果见tasks/SETTINGS-APPEARANCE-20260913.md本轮节，不以历史通过替代本轮。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` §DR-209 r2 / FL-064补充，`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。页面专属取景，不变更统一TP条款。
+
+
+### 2026-10-27 DR-445 · 四类练习短提示
+
+用户确认两球/三球/分离角/准度普通提示改为ⓘ默认3秒，走位指定袋失败统一“0分，无法进指定袋，请重打”；真实模拟与保存错误保留弹窗。三球无可执行下一杆时留在0分结果，重打和首答冻结保持；两球轨迹评分及准度计数不改。已应用至`docs/design/table-pages/球桌页面统一规范.md` TP24及`tasks/table-page-adaptation/PRACTICE-NOTICES-20261027.md`；实现/测试状态与原始证据以执行卡为准。Changelog：DR-445，普通反馈与真实错误分流。
+
+## DR-446 / FL-214 — 规划步骤与球库标记（2026-10-27）
+
+用户指出顺延后跳过第二袋，首杆前重打禁用无法退步；根因是多球只存角色而未区分球/袋步骤。改为显式业务游标，返回保留草稿，不以点击历史实现；P05复用既有五步枚举，锁定承接目标不可跨越。固定球权统一三个阶段计算，右下角角色角标和去绿底复用共享消费者。验证进行中，不沿用旧测试作新合同证据。
+
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` DR-446/FL-214、UI规范Changelog、TP05/06/14/25/34与本轮合同。
+
+DR-446 / FL-214验证回填：57项单元、跨设备15次UI通过；78张原生图导出并按代表状态核验，静态76项SHA不变。iPad多球扩展设置整例因XCTest动画等待中断，不计通过；详`tasks/ui-reviews/UR-20261027-planning-previous-palette.md`。受管构建已回收，未提交发布。
+
+## FL-215 — 手动选择反馈恢复（2026-10-28）
+
+用户复验多球手选球／袋无触感、球不放大。根因是角色状态分支未接既有反馈；恢复多球／P05／三球及适用交互页的显式事件反馈，球库样式和静态图不回退。`confirmBallSelection`复用TableBallPulse，`confirmRolePocketSelection`只发触感；普通选球取消伴随配袋的重复触感。固定题不新增权限。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` FL-215、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog、球桌规范TP14及来源表。
+- 任务／验证真源：`tasks/table-page-adaptation/SELECTION-FEEDBACK-20261028.md`、`tasks/ui-reviews/UR-20261028-selection-feedback.md`。
+
+
+## DR-447 — 几何吃库参考独立于中杆参考（2026-10-28）
+
+按用户收敛范围接入两球自由／轨迹、三球、多球及分离角2D／3D。几何求解与按杆草稿分离，复用世界坐标、实际主库段和场景拖动；起点为碰撞假想球心，第一库裁剪到瞄准直线目标袋异侧。独立灰虚线不改物理参考／评分，结束隐藏、重打恢复、下一杆关闭。菜单共用BTChoiceMenuItem并修PlanThree/Silu/Snooker/SolverStageChrome同类选择标记。
+
+已应用至：docs/04、docs/05、讨论DR-447、球桌TP22与来源表、UI-IMPLEMENTATION-SPEC及四类页面卡。测试与视觉证据见GEOMETRIC-REFERENCE-20261028；首轮生命周期单测使用错误袋号（2号左下相对母球为反向），修为3号右下后通过；三球UI设置测试按整行90%点击落在开关外，改为行尾实际开关中心，保留原失败证据。两者均为测试前提错误，不修改生产判断放宽通过条件。
+
+DR-447 追加验证：最终几何专测6单元＋8UI通过（final.xcresult）；同包2项分离角旧文案断言因并行设置重命名失败，已同步新文案并单独重跑，不改生产行为。开关前置值均显式断言；手选第一点提示也纳入重打快照。Mac mini 旧编译器对复杂测试表达式类型推导超时，拆成具名 railSamples 循环，未改算法。小屏采用独立冻结提交；首个排队快照在执行前取消并关闭，以纳入当前设置页滚动定位助手。
+
+DR-447 收尾：physical.xcresult 的2D／3D原参考显示链均通过；累计本轮6单元＋10定向UI通过，原失败证据保留。UI原图已复核、gate通过。手机补测因本地受保护现场／远端队列占用未执行，已取消自身排队项并按工具回收；不宣称手机或真机验收。
+
+### DR-447 r2 — 测量入口与紧凑弹层（2026-10-28）
+用户指出原生Menu遮挡左栏且过宽。改来源按钮右侧popover，112pt基准宽、44pt触点，选后关闭；工具更名测量。参考灰色与假想球提亮。已应用至UI-IMPLEMENTATION-SPEC、球桌TP21/22来源与GEOMETRIC-REFERENCE页面卡；验证进行中，旧轮截图不作本轮通过证据。
+
+FL-216 / DR-447 r2：测量面板必须以来源按钮真实frame验右侧与宽度、左侧内容可见，并验证外点不会穿透。首轮移除传播至按钮的容器AX标识；旧失败保留。已应用至UI-IMPLEMENTATION-SPEC与球桌TP21，完整证据留页面卡。
+
+DR-447 r2 / FL-216收尾：3项UI全部通过，原生2D/3D横屏图已审，gate通过，最终源码SHA一致。手机核心设备仍保留其他现场未复测；本轮受管构建已关闭回收，原失败证据保留。

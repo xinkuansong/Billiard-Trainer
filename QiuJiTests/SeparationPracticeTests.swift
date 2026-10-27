@@ -5,6 +5,37 @@ import SceneKit
 
 @MainActor
 final class SeparationPracticeTests: XCTestCase {
+    func testReferenceRouteRejectionIsTransientAndNeverRecordsZero() async throws {
+        let suite = "reference-notice-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let limiter = AngleUsageLimiter(defaults: defaults, namespace: suite); limiter.isPremium = true
+        let repository = MemoryRepository()
+        let vm = SeparationPracticeViewModel(is3D: false, limiter: limiter, defaults: defaults)
+        defer { vm.suspendTeachingActivity() }
+        vm.attach(repository: repository)
+        let source = try SeparationQuestionGenerator.prepare(.init(), seed: 20261022)
+        let q = source.question, target = q.board.target.vector, aim = q.board.effectiveAim.vector
+        let cue = SCNVector3(target.x+(aim.x-target.x)*0.4, target.y, target.z+(aim.z-target.z)*0.4)
+        let board = ThreeBallQuestionPreparer.board(id: "reference-rejected", cue: cue, target: target, pocket: q.board.pocketIndex)
+        let question = SeparationQuestion(id: UUID(), board: board, minimumCenterSpeed: 0,
+            answer: .init(), answerDirection: .init(AccuracyTipSelector.referenceDirection(board)), target: q.target, audit: q.audit)
+        vm.start(.init(), prepared: .init(fingerprint: source.fingerprint, question: question)); vm.setupScene()
+        for _ in 0..<300 where vm.notice == nil { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertEqual(vm.notice?.text, "中杆参考线路不可用")
+        XCTAssertNil(vm.message)
+        XCTAssertNil(vm.record?.latestShot)
+        XCTAssertEqual(vm.record?.attempts.count, 0)
+        let event = vm.notice?.id
+        vm.strike()
+        for _ in 0..<300 where vm.phase == .preparing { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertEqual(vm.phase, .aiming)
+        XCTAssertNotEqual(vm.notice?.id, event)
+        XCTAssertNil(vm.message)
+        XCTAssertEqual(limiter.questionsUsedToday, 0)
+        XCTAssertEqual(vm.record?.attempts.count, 0)
+    }
+
     func testTrajectoryScoreGeometryAndInvalidInputs() throws {
         func line(_ p: [(Float, Float)], timeScale: Float = 1) -> [SeparationTrajectory.Point] {
             p.enumerated().map { .init(time: Float($0.offset) * timeScale,

@@ -255,6 +255,8 @@ struct TwoBallShot: Codable, Identifiable {
     // Optional for records written before comfort scoring; never reinterpret legacy difficulty.
     var comfort: TwoBallComfortScore.Result?
     var comfortVersion: String?
+    // Absent in old records: their saved score remains unchanged.
+    var continuationUnavailable: Bool?
     var id: UUID { physical.id }
     subscript<T>(dynamicMember key: KeyPath<SeparationShot,T>) -> T { physical[keyPath: key] }
     var playsStroke: Bool? { get { physical.playsStroke } set { physical.playsStroke = newValue } }
@@ -263,7 +265,7 @@ struct TwoBallShot: Codable, Identifiable {
         // Historical scores are frozen snapshots, not recomputed with the current curve.
         guard comfortVersion == TwoBallComfortScore.version
                 || comfortVersion == TwoBallComfortScore.freePositionVersion else { return nil }
-        return failure == nil ? comfort?.total ?? 0 : 0
+        return failure == nil && continuationUnavailable != true ? comfort?.total ?? 0 : 0
     }
     init(question: TwoBallQuestion, input: SeparationInput, prediction: ShotPrediction, surfaceY: Float) throws {
         physical = try .init(question: question.separation, input: input, prediction: prediction, surfaceY: surfaceY)
@@ -277,10 +279,16 @@ struct TwoBallShot: Codable, Identifiable {
         if failure == nil, let cue = prediction.finalPositions[ShotInput.cueBallName] {
             comfort = TwoBallComfortScore.evaluateFreePosition(cue: (Double(cue.x), Double(cue.z)),
                 ball: (Double(question.second.x), Double(question.second.z)), pocket: secondPocket)
+            let target = question.second.vector
+            let aim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: target, pocketIndex: secondPocket, surfaceY: surfaceY)
+            continuationUnavailable = comfort == nil || !AngleSceneCalculator.isFeasible(cueBall: cue, targetBall: target, pocket: aim)
         }
     }
     func prediction() -> ShotPrediction { physical.prediction() }
     func resultText(mode: TwoBallMode) -> String {
+        if failure == "第一球未进指定袋" || (mode == .free && continuationUnavailable == true) {
+            return TrainingPracticeNotice.cannotPot
+        }
         if let failure { return "本杆0分 · \(failure)" }
         if mode == .trajectory { return String(format: "本杆%.1f分 · 第一球进指定袋", trajectoryScore) }
         if let freeScore { return String(format: "本杆得分 %.1f 分", freeScore) }

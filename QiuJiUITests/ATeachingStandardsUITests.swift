@@ -217,7 +217,7 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
             }
             XCTAssertFalse(element("planthree.rolesSummary").exists)
             if page == "planthree" {
-                XCTAssertFalse((app.buttons["planthree.roles"].value as? String ?? "").isEmpty)
+                XCTAssertFalse((app.buttons["paletteBall__1"].value as? String ?? "").isEmpty)
             }
             capture(page + "-closeup-on")
             XCUIDevice.shared.press(.home); app.activate()
@@ -681,7 +681,7 @@ final class PlanningInformationUITests: XCTestCase {
             launch(page); try snap(page + "-initial")
             solve(page); try snap(page + "-solved")
             if page == "planthree" {
-                app.buttons["planthree.roles"].tap(); try snap(page + "-plan")
+                try snap(page + "-plan")
                 app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.85)).tap()
             }
             if phase == "after" {
@@ -734,8 +734,8 @@ final class PlanningInformationUITests: XCTestCase {
             app.buttons["planning.close"].tap()
             XCTAssertTrue(item(page + ".template").exists)
             if page == "planthree" {
-                app.buttons["planthree.roles"].tap(); app.buttons["planthree.role.0"].tap()
-                XCTAssertTrue(item("planthree.status").label.contains("选择第1球"))
+                app.buttons["paletteBall__1"].tap()
+                XCTAssertTrue((app.buttons["paletteBall__1"].value as? String ?? "").contains("当前击打球"))
                 try snap("planthree-select-step")
             }
             mode(page, "3D")
@@ -857,10 +857,10 @@ final class InformationConsistencyUITests: XCTestCase {
         for page in ["planthree", "silu", "snooker", "bankshot", "reflection"] {
             launch(page); solve(page); try snap(page + "-solved")
             if page == "planthree" {
-                app.buttons["planthree.roles"].tap(); ready(app.buttons["planthree.role.0"]); try snap(page + "-roles")
+                ready(app.buttons["paletteBall__1"]); try snap(page + "-roles")
                 if phase == "after" {
-                    XCTAssertTrue((app.buttons["planthree.role.0"].value as? String ?? "").contains("已选"))
-                    XCTAssertTrue((app.buttons["planthree.role.4"].value as? String ?? "").contains("未选择"))
+                    XCTAssertTrue((app.buttons["paletteBall__1"].value as? String ?? "").contains("当前击打球"))
+                    XCTAssertFalse(app.buttons["planthree.role.4"].exists, "One/two-ball fixtures have no third slot")
                 }
                 app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.85)).tap()
             }
@@ -891,7 +891,7 @@ final class InformationConsistencyUITests: XCTestCase {
     func testRolePromptExpiresAndMenuRemainsReadable() throws {
         phase = "after"
         launch("planthree"); solve("planthree")
-        app.buttons["planthree.roles"].tap(); ready(app.buttons["planthree.role.0"]); try snap("planthree-roles")
+        ready(app.buttons["paletteBall__1"]); try snap("planthree-roles")
         launch("planthree", maximum: true)
         XCTAssertEqual(app.buttons["solver.nextSolution"].label, "解")
         XCTAssertFalse(app.buttons["solver.nextSolution"].isEnabled)
@@ -901,19 +901,21 @@ final class InformationConsistencyUITests: XCTestCase {
                 self.app.windows.firstMatch.frame.height > self.app.windows.firstMatch.frame.width
             }, object: nil)], timeout: 10), .completed)
         }
-        app.buttons["planthree.roles"].tap(); ready(app.buttons["planthree.role.0"]); try snap("planthree-roles-maximum")
+        ready(app.buttons["paletteBall__1"]); try snap("planthree-roles-maximum")
         let menuScroll = app.popovers.firstMatch.scrollViews.firstMatch
         if menuScroll.exists {
             menuScroll.swipeUp(); try snap("planthree-roles-maximum-bottom")
             menuScroll.swipeDown()
         }
-        app.buttons["planthree.role.0"].tap()
+        app.buttons["paletteBall__1"].press(forDuration: 1)
+        app.buttons["清除此项"].tap()
+        app.buttons["solver.solve"].tap()
         let status = item("planthree.status")
-        XCTAssertTrue(status.waitForExistence(timeout: 2)); XCTAssertTrue(status.label.contains("选择第1球"))
+        XCTAssertTrue(status.waitForExistence(timeout: 2)); XCTAssertTrue(status.label.contains("当前球"))
         try snap("planthree-prompt")
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: status)], timeout: 6), .completed)
         try snap("planthree-prompt-expired")
-        app.buttons["planthree.roles"].tap(); app.buttons["planthree.role.0"].tap()
+        app.buttons["solver.solve"].tap()
         XCTAssertTrue(status.waitForExistence(timeout: 2))
         mode("planthree", "3D"); app.buttons["shotCamera.temporaryTopDown"].tap(); try snap("planthree-temporary")
         launch("planthree", scenario: "twoBallDimmed"); try snap("planthree-user-region")
@@ -1084,7 +1086,7 @@ final class PalettePlacementUITests: XCTestCase {
     private func prompts() throws {
         for maximum in [false, true] {
             launch("planthree", maximum: maximum)
-            app.buttons["planthree.roles"].tap(); ready(app.buttons["planthree.role.0"]); app.buttons["planthree.role.0"].tap()
+            ready(app.buttons["paletteBall__1"]); app.buttons["paletteBall__1"].tap()
             XCTAssertTrue(item("planthree.status").waitForExistence(timeout: 2))
             if phase == "after" { XCTAssertFalse(item("planning.dismissNotice").exists) }
             try snap(maximum ? "prompt-maximum" : "prompt")

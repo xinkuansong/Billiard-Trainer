@@ -50,6 +50,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     @Published private(set) var record: AccuracyPracticeRecord?
     @Published private(set) var phase: Phase = .loading
     @Published var message: String?
+    @Published private(set) var notice: TrainingPracticeNotice?
     @Published var cameraMode: AngleTrainingScene.CameraMode
     @Published var cameraTransitionBusy = false
     @Published var temporaryTopDownActive = false
@@ -320,7 +321,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         if isRetrying || record?.currentAttempt == nil {
             guard isRetrying || is3D || !limiter.isLimitReached else { return }
             guard let aim = currentPlayerAim, scene.permitsCueStrike(aim: aim, spinX: Double(tip.x), spinY: Double(tip.y)) else {
-                message = "当前方向受库边或球遮挡，请调整瞄准方向。"; return
+                notice = .init(text: "当前方向受库边或球遮挡，请调整瞄准方向。"); return
             }
         }
         do {
@@ -466,7 +467,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
             try next.advance()
             try repository?.save(next)
             invalidate(); record = next; lastPrediction = nil; recordedShot = nil; isRetrying = false; practiceAttempt = nil
-            message = reusedPool ? "当前条件下未练过的球形不足20题，已从当前题库重新抽取下一组。" : nil
+            notice = reusedPool ? .init(text: "已从当前题库重新抽取下一组") : nil
             installQuestion()
         } catch { message = error.localizedDescription }
     }
@@ -524,6 +525,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         } catch { message = error.localizedDescription; return false }
     }
     private func invalidate() {
+        notice = nil
         generation = UUID(); cancellation?.cancel(); calculation?.cancel(); calculation = nil
         closeupSnapshot = nil; closeupWasNear = false
         aimLine?.removeFromParentNode()

@@ -5,6 +5,15 @@ final class TwoBallPracticeUITests: XCTestCase {
     override func setUp() { continueAfterFailure = false }
     private func node(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier:id).firstMatch }
     private func ready(_ e: XCUIElement, timeout: TimeInterval = 90) {
+        if app.buttons["twoBall.start"].exists {
+            for _ in 0..<16 {
+                let top = app.navigationBars.firstMatch.frame.maxY + 4
+                if e.exists && e.isHittable && (e.frame.minY >= top || app.navigationBars.firstMatch.frame.contains(e.frame)) { break }
+                let up = !e.exists || e.frame.minY >= top
+                app.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: up ? 0.72 : 0.42))
+                    .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: up ? 0.42 : 0.72)))
+            }
+        }
         XCTAssertEqual(XCTWaiter.wait(for:[XCTNSPredicateExpectation(predicate:NSPredicate(format:"exists == true AND enabled == true AND hittable == true"),object:e)],timeout:timeout),.completed,e.debugDescription)
     }
     private func capture(_ name: String) {
@@ -25,7 +34,7 @@ final class TwoBallPracticeUITests: XCTestCase {
     }
     private func open(is3D: Bool, free: Bool, animated: Bool, largeText: Bool = false, pocketFeedback: Bool = false) {
         XCUIDevice.shared.orientation = .portrait
-        app = XCUIApplication.launchClean(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium","-twoBall.probe","-twoBall.fixedSeed","-AppleInterfaceStyle",largeText ? "Light":"Dark"] + (pocketFeedback ? ["-pocketSelection.probe"] : []) + (largeText ? ["-UIPreferredContentSizeCategoryName","UICTContentSizeCategoryAccessibilityXXXL"]:[]))
+        app = XCUIApplication.launchClean(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium","-twoBall.probe","-3dDrag.probe","-twoBall.fixedSeed","-AppleInterfaceStyle",largeText ? "Light":"Dark"] + (pocketFeedback ? ["-pocketSelection.probe"] : []) + (largeText ? ["-UIPreferredContentSizeCategoryName","UICTContentSizeCategoryAccessibilityXXXL"]:[]))
         app.switchTab(.angle);app.buttons["angleHomeTab_打"].tap()
         let entry = app.buttons[is3D ? "3D两球走位" : "2D两球走位"]
         for _ in 0..<4 where !entry.isHittable { app.swipeUp() }
@@ -33,11 +42,103 @@ final class TwoBallPracticeUITests: XCTestCase {
         ready(app.buttons["twoBall.start"])
         app.segmentedControls["twoBall.mode"].buttons[free ? "自由走位" : "轨迹走位"].tap()
         let toggle = app.switches["separation.playsStroke"];ready(toggle)
-        if (toggle.value as? String == "1") != animated { toggle.coordinate(withNormalizedOffset:.init(dx:0.9,dy:0.5)).tap() }
+        if (toggle.value as? String == "1") != animated { toggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap() }
         capture("twoBall-settings-\(is3D)-\(free)")
         app.buttons["twoBall.start"].tap();ready(app.buttons["twoBall.strike"],timeout:180);waitPhase("aiming")
     }
 
+    func testMeasurementMenuLayout() throws {
+        for is3D in [false, true] {
+            open(is3D: is3D, free: true, animated: false)
+            XCUIDevice.shared.orientation = .landscapeLeft
+            let button = app.buttons["twoBall.geometry"]
+            ready(button); XCTAssertEqual(button.label, "测量")
+            let anchor = button.frame
+            button.tap()
+            let first = app.buttons["twoBall.geometry.1"]
+            let last = app.buttons["twoBall.geometry.5"]
+            ready(first); ready(last)
+            XCTAssertGreaterThanOrEqual(first.frame.minX, anchor.maxX)
+            XCTAssertLessThanOrEqual(first.frame.width, 140)
+            XCTAssertGreaterThanOrEqual(first.frame.height, 44)
+            capture("measurement-right-compact-\(is3D)")
+            first.tap()
+            XCTAssertEqual(button.value as? String, "1库")
+            button.tap(); ready(last)
+            // An outside tap dismisses the panel without striking the cue ball.
+            let phase = try probe()["phase"] as? String
+            app.buttons["twoBall.strike"].coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+            XCTAssertFalse(last.exists)
+            XCTAssertEqual(try probe()["phase"] as? String, phase)
+            capture("measurement-brighter-\(is3D)")
+            app.terminate()
+        }
+    }
+
+    func testGeometryReference2D() throws { try geometryReference(false) }
+    func testGeometryReference3D() throws { try geometryReference(true) }
+    private func geometryReference(_ is3D: Bool) throws {
+        open(is3D: is3D, free: true, animated: false)
+        if is3D, app.buttons["dailyClearance.observeTable"].exists {
+            ready(app.buttons["dailyClearance.observeTable"]); app.buttons["dailyClearance.observeTable"].tap()
+        }
+        func geometry() throws -> [String: Any] { try XCTUnwrap(probe()["geometry"] as? [String: Any]) }
+        func choose(_ n: Int) {
+            ready(app.buttons["twoBall.geometry"]); app.buttons["twoBall.geometry"].tap()
+            let option = app.buttons["twoBall.geometry.\(n)"]; ready(option, timeout: 8)
+            if n == 3 { capture("geometry-menu-\(is3D)") }
+            option.tap()
+        }
+        XCTAssertEqual(try geometry()["count"] as? Int, 0)
+        let referenceBefore = try probe()["referenceVisible"] as? Bool
+        for n in [1,2,3,4,5] {
+            choose(n)
+            XCTAssertEqual(try geometry()["count"] as? Int, n)
+            XCTAssertEqual(try geometry()["visible"] as? Bool, true)
+            XCTAssertEqual(try geometry()["allowed"] as? Bool, true)
+        }
+        XCTAssertEqual(try probe()["referenceVisible"] as? Bool, referenceBefore)
+        func handle() throws -> [String: Any] {
+            let value = try XCTUnwrap(node("table.scene").value as? String)
+            let json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(value.utf8)) as? [String: Any])
+            return try XCTUnwrap(json["geometryHandle"] as? [String: Any])
+        }
+        let before = try XCTUnwrap(geometry()["first"] as? [Double])
+        let screen = try XCTUnwrap(handle()["screen"] as? [Double])
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        let start = origin.withOffset(.init(dx: screen[0], dy: screen[1]))
+        start.press(forDuration: 0.15, thenDragTo: start.withOffset(.init(dx: 50, dy: -60)))
+        let dragged = try XCTUnwrap(geometry()["first"] as? [Double])
+        XCTAssertNotEqual(dragged, before)
+        XCTAssertEqual(try geometry()["allowed"] as? Bool, true)
+        capture("geometry-dragged-\(is3D)")
+        app.buttons["twoBall.strike"].tap(); waitPhase("result")
+        XCTAssertEqual(try geometry()["visible"] as? Bool, false)
+        app.buttons["twoBall.retry"].tap(); waitPhase("aiming")
+        XCTAssertEqual(try geometry()["first"] as? [Double], dragged)
+        XCTAssertEqual(try geometry()["visible"] as? Bool, true)
+        capture("geometry-restored-\(is3D)")
+        app.buttons["twoBall.strike"].tap(); waitPhase("result")
+        app.buttons["twoBall.strike"].tap(); waitPhase("aiming")
+        XCTAssertEqual(try geometry()["count"] as? Int, 0)
+        XCTAssertEqual(try geometry()["visible"] as? Bool, false)
+        app.terminate()
+    }
+
+    func testPersistentPocketRoles2D() throws { try persistentPocketRoles(false) }
+    func testPersistentPocketRoles3D() throws { try persistentPocketRoles(true) }
+    private func persistentPocketRoles(_ is3D: Bool) throws {
+        open(is3D: is3D, free: true, animated: false)
+        let before = try XCTUnwrap(probe()["pocketStyles"] as? [String: String])
+        XCTAssertTrue(before.values.contains("practiceCurrent") || before.values.contains("practiceBoth"))
+        Thread.sleep(forTimeInterval: 3.3)
+        XCTAssertEqual(try probe()["pocketStyles"] as? [String:String], before)
+        capture("twoBall-persistent-pockets-\(is3D)")
+        app.buttons["twoBall.strike"].tap(); waitPhase("result")
+        app.buttons["twoBall.retry"].tap(); waitPhase("aiming")
+        XCTAssertEqual(try probe()["pocketStyles"] as? [String:String], before)
+        app.terminate()
+    }
     func test2DFeasibleSpinPad() throws { try exerciseFeasibleSpinPad(is3D: false) }
     func testComfort85ExecutionOrder2D() throws { try verifyExecutionOrder(is3D: false) }
     func testComfort85ExecutionOrder3D() throws { try verifyExecutionOrder(is3D: true) }
@@ -108,6 +209,25 @@ final class TwoBallPracticeUITests: XCTestCase {
     func test3DTrajectoryResultNoticeExpires() throws { try resultNoticeExpires(is3D: true, free: false) }
     func test2DFreeResultNoticeExpires() throws { try resultNoticeExpires(is3D: false, free: true) }
     func test3DFreeResultNoticeExpires() throws { try resultNoticeExpires(is3D: true, free: true) }
+    func test2DQuietFeedback() throws { try quietFeedback(false) }
+    func test3DQuietFeedback() throws { try quietFeedback(true) }
+    private func quietFeedback(_ is3D: Bool) throws {
+        open(is3D: is3D, free: true, animated: false)
+        app.buttons["twoBall.strike"].tap(); waitPhase("result")
+        let notice = node("twoBall.result")
+        XCTAssertTrue(notice.exists)
+        XCTAssertFalse(app.alerts.firstMatch.exists)
+        capture("two-ball-quiet-visible-\(is3D)")
+        XCTAssertTrue(notice.waitForNonExistence(timeout: 4))
+        XCTAssertTrue(node("twoBall.latestScore").exists)
+        node("twoBall.latestScore").tap()
+        XCTAssertFalse(app.alerts.firstMatch.exists)
+        app.buttons["twoBall.retry"].tap(); waitPhase("aiming")
+        XCTAssertTrue(notice.exists)
+        XCTAssertTrue(notice.waitForNonExistence(timeout: 4))
+        XCTAssertFalse(app.alerts.firstMatch.exists)
+        capture("two-ball-quiet-expired-\(is3D)")
+    }
     private func resultNoticeExpires(is3D: Bool, free: Bool) throws {
         open(is3D: is3D, free: free, animated: !free)
         app.buttons["twoBall.strike"].tap(); waitPhase("result")
@@ -248,8 +368,8 @@ final class TwoBallPracticeUITests: XCTestCase {
         }
         try assertOnlySecondPocketLit()
         XCTAssertEqual(try probe()["primary"] as? String,animated ? "击球":"提交")
-        app.buttons["twoBall.playback"].tap();waitPhase("playing");capture("twoBall-replay-\(is3D)-\(free)")
-        app.buttons["twoBall.strike"].tap();waitPhase("aiming")
+        XCTAssertFalse(app.buttons["twoBall.playback"].exists)
+        XCTAssertTrue(app.buttons["twoBall.geometry"].exists)
         XCTAssertEqual(try probe()["attempts"] as? Int,attempts)
         if free { XCTAssertEqual(try probe()["secondPocket"] as? Int,pocket) }
         app.buttons["twoBall.strike"].tap();waitPhase("result")

@@ -13,6 +13,7 @@ struct SeparationPracticeView: View {
     @State private var pocketOrientation: PocketDisplay.Orientation = .landscape
     @StateObject private var questionNotices = BTRuleNoticeCenter()
     @StateObject private var resultNotices = BTRuleNoticeCenter()
+    @StateObject private var operationNotices = BTRuleNoticeCenter()
 
     init(is3D: Bool) { _vm = StateObject(wrappedValue: SeparationPracticeViewModel(is3D: is3D)) }
     var body: some View {
@@ -65,7 +66,11 @@ struct SeparationPracticeView: View {
             guard event != nil else { resultNotices.clear(); return }
             resultNotices.show(resultNoticeText, tone: .info, priority: .ruling)
         }
-        .onDisappear { questionNotices.clear(); resultNotices.clear() }
+        .onChange(of: vm.notice) { _, event in
+            guard let event else { operationNotices.clear(); return }
+            operationNotices.show(event.text, tone: .info, priority: .ruling)
+        }
+        .onDisappear { questionNotices.clear(); resultNotices.clear(); operationNotices.clear() }
         .overlay(alignment: .topLeading) {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-separation.probe") {
@@ -94,6 +99,9 @@ struct SeparationPracticeView: View {
     }
     private var information: [BTTeachingInformation] {
         var result: [BTTeachingInformation] = []
+        if let notice = operationNotices.message {
+            return [.init(text: notice.text, kind: .notice, symbol: "info.circle", identifier: "separation.notice")]
+        }
         if questionNotices.message != nil {
             // Derive the label from the current orientation without restarting its timer.
             result.append(.init(text: questionPrompt, kind: .notice, identifier: "separation.question"))
@@ -157,10 +165,11 @@ struct SeparationPracticeView: View {
                             .disabled(!vm.canRetry)
                             .accessibilityIdentifier("separation.retry")
                             .freeControlItem("shot.undo", name: vm.playsStroke ? "重打" : "重试")
-                        BTHUDCompactAction(title: vm.playsStroke ? "回放" : "击球", symbol: "play.rectangle", size: layout.auxiliarySize) { vm.replayLastShot() }
-                            .disabled(!vm.canPlayback)
-                            .accessibilityIdentifier("separation.playback")
-                            .freeControlItem("shot.replay", name: vm.playsStroke ? "回放" : "击球")
+                        BTGeometricReferenceButton(tool: vm.geometryReference,
+                            enabled: vm.canAdjust && !vm.cameraTransitionBusy,
+                            size: layout.auxiliarySize, identifier: "separation.geometry",
+                            prepare: { vm.prepareGeometryReference() })
+                            .freeControlItem("shot.replay", name: "测量")
                     }
                 }.frame(width: layout.columnWidth))
             },

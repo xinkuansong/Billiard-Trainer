@@ -1,4 +1,8 @@
+最新流程补充（2026-10-27 DR-446）：[上一步/固定球权/右下角标合同](PLANNING-PREVIOUS-AND-PALETTE-20261027.md)覆盖旧返回步骤及绿底约定；[本轮验证](../ui-reviews/UR-20261027-planning-previous-palette.md)。
+
 # P05 · 打一走二想三 · r01
+
+**2026-10-27最新合同（DR-444，已实施）**：[完整修改方案与本轮状态](BALL-ROLE-COLOR-AND-PLAN-THREE-20261027.md)。三角色直接选择、天蓝/金黄/淡紫、停稳承接锁、最近一杆重打及回放草稿恢复已接线；求解/约束/开球保留，动作库静态图排除。本轮构建、状态回归、原生截图与边界见[审查报告](../ui-reviews/UR-20261027-ball-role-plan-three.md)；下文旧五项菜单/旧颜色仅为历史记录。
 
 连续授权批次；改前SE实际页面和源码在`output/table-page-adaptation/P05/r01/`。旧S2 testPlanThreeLayout通过，原图已审。P04最后定向复验期间已开始本页实现，构建串行。
 

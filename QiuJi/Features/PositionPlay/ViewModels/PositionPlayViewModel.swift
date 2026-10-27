@@ -27,6 +27,15 @@ final class PositionPlayViewModel: ObservableObject {
     // MARK: - Scene
 
     let scene = AngleTrainingScene()
+    // Activated only by the multi-ball practice host.
+    lazy var geometryReference = GeometricReferenceTool(scene: scene) { [weak self] in self?.objectWillChange.send() }
+    func prepareGeometryReference() {
+        guard !isPlaying, let cue = scene.cueBallNode, !cue.isHidden,
+              let key = selectedTargetKey, let target = scene.allBallNodes[key], !target.isHidden,
+              (0..<6).contains(selectedPocketIndex) else { return }
+        geometryReference.update(identity: "multiBall", cue: cue.position, target: target.position,
+                                 pocketIndex: selectedPocketIndex)
+    }
     private var pocketMarkers: [SCNNode] = []
     private var trajectoryNodes: [SCNNode] = []
     /// 选中目标球的常驻选中环（独立于轨迹，feasible/computing 都显示）。
@@ -606,6 +615,13 @@ final class PositionPlayViewModel: ObservableObject {
     var onShotSettled: ((ShotFacts) -> Void)?
     var onShotWillStart: (() -> Void)?
     /// Optional practice consumer receives only the committed, fully played stroke.
+    /// Optional practice-owned planning gate and next-shot intent. Ordinary hosts keep automatic selection.
+    var practiceLockedTarget: String?
+    var practiceLockedPocket: Int?
+    var practiceUsesPlanningRoles = false
+    var practiceCanStartShot: (() -> Bool)?
+    var onPracticeReadyForNextShot: (() -> Bool)?
+    var continuationPocketIndex: Int? { didSet { updatePocketHighlights(); topDownContentRevision &+= 1 } }
     var onCommittedPracticeShot: ((SolvedShot) -> Void)?
     private var strokeGeneration = UUID() {
         didSet { scene.cameraRig?.setTwoViewViewingContext(strokeGeneration) }
@@ -1236,6 +1252,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     @discardableResult
     func selectTarget(key: String) -> Bool {
+        guard practiceLockedTarget == nil || practiceLockedTarget == key else { return false }
         defer { if temporaryTopDownActive { topDownContentRevision &+= 1 } }
         guard !isPlaying, !PositionPlayBall.isCue(key), onTableKeys.contains(key),
               !(usesAutomaticPocketFallback && (isBreakMode || isSequenceMode)) else { return false }
@@ -1257,7 +1274,7 @@ final class PositionPlayViewModel: ObservableObject {
         defer {
             selectionChangeDepth -= 1
             recompute()
-            if aimMode == .pocket { scene.confirmPocketSelection(at: selectedPocketIndex) }
+            if aimMode == .pocket { scene.confirmPocketSelection(at: selectedPocketIndex, emitsHaptic: false) }
         }
         if usesAutomaticPocketFallback {
             selectedTargetKey = key
@@ -1270,11 +1287,12 @@ final class PositionPlayViewModel: ObservableObject {
             selectBestPocket()
         }
         recompute()
-        pulseTableBall(key)
+        scene.confirmBallSelection(key: key)
         return true
     }
 
     func selectPocket(at index: Int) {
+        guard practiceLockedPocket == nil || practiceLockedPocket == index else { return }
         defer { if temporaryTopDownActive { topDownContentRevision &+= 1 } }
         guard !isPlaying, !isBreakMode, !isSequenceMode, (0..<6).contains(index),
               let cue = scene.cueBallNode, !cue.isHidden else { return }
@@ -1545,6 +1563,11 @@ final class PositionPlayViewModel: ObservableObject {
         }
         let tableTargets = Set(onTableKeys.filter { !PositionPlayBall.isCue($0) })
         let candidates = (legalAimTargets?(tableTargets) ?? tableTargets).intersection(tableTargets)
+        if let target = practiceLockedTarget, candidates.contains(target), let pocket = practiceLockedPocket {
+            selectedTargetKey = target
+            applyDailyPocket(pocket, available: directPocketAssessment(pocket) != .unavailable)
+            return
+        }
         dailyManualSelection = false
         if preferredAimMode == .free {
             selectedTargetKey = candidates.sorted().min { distanceToCue($0, cue: cue.position) < distanceToCue($1, cue: cue.position) }
@@ -1652,6 +1675,10 @@ final class PositionPlayViewModel: ObservableObject {
     /// Rank this target’s feasible pockets using the host policy, with optional free-aim fallback.
     private func selectBestPocket() {
         guard !isFormationEditing else { return }
+        if let pocket = practiceLockedPocket {
+            applyDailyPocket(pocket, available: directPocketAssessment(pocket) != .unavailable)
+            return
+        }
         guard let targetKey = selectedTargetKey,
               let target = scene.allBallNodes[targetKey], !target.isHidden else { return }
         selectionChangeDepth += 1
@@ -1667,7 +1694,18 @@ final class PositionPlayViewModel: ObservableObject {
         applyDailyPocket(best?.pocketIndex ?? -1, available: best != nil)
     }
 
+    func refreshPracticePresentation() { updatePocketHighlights(); topDownContentRevision &+= 1 }
+
     private func updatePocketHighlights() {
+        if practiceUsesPlanningRoles {
+            scene.setPracticePocketRoles(current: practiceLockedPocket ?? selectedPocketIndex, next: continuationPocketIndex)
+            return
+        }
+        if let continuationPocketIndex {
+            scene.setPocketRoles(first: aimMode == .pocket ? selectedPocketIndex : nil,
+                second: continuationPocketIndex, transientFirst: true, confirmsSelection: false)
+            return
+        }
         for (i, marker) in pocketMarkers.enumerated() {
             let targetVisible = selectedTargetKey.flatMap { scene.allBallNodes[$0] }.map { !$0.isHidden } ?? false
             let selected = aimMode == .pocket && !isBreakMode && targetVisible && i == selectedPocketIndex
@@ -2317,6 +2355,7 @@ final class PositionPlayViewModel: ObservableObject {
         }
 
 
+        guard practiceCanStartShot?() != false else { return }
         onShotWillStart?()
         let generation = UUID()
         strokeGeneration = generation
@@ -2500,6 +2539,9 @@ final class PositionPlayViewModel: ObservableObject {
             recompute()
             return
         }
+
+        // A planned continuation has priority over the ordinary automatic recommendation.
+        if onPracticeReadyForNextShot?() == true { return }
 
         // Recommend only after the host has judged the shot and updated its legal target set.
         selectedTargetKey = nil

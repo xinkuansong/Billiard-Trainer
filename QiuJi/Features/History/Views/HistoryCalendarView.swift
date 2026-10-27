@@ -127,6 +127,10 @@ struct HistoryCalendarView: View {
     private var historyContent: some View {
         ScrollView {
             VStack(spacing: Spacing.lg) {
+                if vm.unreadableThreeBallCount > 0 {
+                    Text("有 \(vm.unreadableThreeBallCount) 条三球走位记录暂时无法读取，原记录已保留。")
+                        .font(.btFootnote).foregroundStyle(.btTextSecondary)
+                }
                 monthNavigator
                 calendarCard
                 dailySessionList
@@ -335,6 +339,17 @@ struct HistoryCalendarView: View {
                 Spacer()
             }.padding(Spacing.lg).background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.lg))
                 .accessibilityIdentifier("history.accuracy")
+        case .threeBall(let record):
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "scope").foregroundStyle(.btPrimary)
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text(record.displayName + " · 模拟练习").font(.btHeadline)
+                    Text(record.historyDetail)
+                        .font(.btFootnote).foregroundStyle(.btTextSecondary)
+                }
+                Spacer()
+            }.padding(Spacing.lg).background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.lg))
+                .accessibilityIdentifier("history.threeBall")
         case .twoBall(let record):
             HStack(spacing: Spacing.md) {
                 Image(systemName: "scope").foregroundStyle(.btPrimary)

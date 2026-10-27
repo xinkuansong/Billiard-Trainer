@@ -63,12 +63,17 @@ struct CustomFormationPracticeView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .formationStoreChanged)) { _ in library.reload() }
         .onAppear { library.reload() }
-        .navigationTitle("训练设置")
+        .navigationTitle("选择球形")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) { Button("返回") { dismiss() } }
-            ToolbarItem(placement: .confirmationAction) {
+            ToolbarItem(placement: .principal) {
+                Text("选择球形").font(.btHeadline).foregroundStyle(.btPrimary)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            ToolbarItem(placement: .topBarLeading) { Button("返回") { dismiss() } }
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("开始练习") {
                     if let template = library.selected { active = .init(template: template, editing: false) }
                 }

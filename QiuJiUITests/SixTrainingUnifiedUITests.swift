@@ -30,8 +30,8 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             top(); set("accuracy.manualVerticalSpin", true); set("accuracy.manualSideSpin", true)
             capture(title + "-manual-settings-on")
             bottom(); check("training.verticalSpin", false); check("training.sideSpin", false)
-            XCTAssertEqual(app.switches["training.verticalSpin"].firstMatch.label, "高低杆")
-            XCTAssertEqual(app.switches["training.sideSpin"].firstMatch.label, "左右塞")
+            XCTAssertEqual(app.switches["training.verticalSpin"].firstMatch.label, "系统指定高低杆")
+            XCTAssertEqual(app.switches["training.sideSpin"].firstMatch.label, "系统指定左右塞")
             set("training.verticalSpin", true)
             top(); check("accuracy.manualVerticalSpin", false); check("accuracy.manualSideSpin", true)
             bottom(); set("training.sideSpin", true)
@@ -562,7 +562,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         for title in ["2D角度", "2D瞄准点", "2D准度"] {
             let app = open(title, free: true)
             let prefix = title.contains("准度") ? "accuracy" : title.contains("瞄准点") ? "aimPointTraining" : "angleTraining"
-            let free = app.otherElements["training.length"].buttons["自由训练"]
+            let free = app.otherElements["training.length"].buttons["持续练习"]
             ready(free); XCTAssertEqual(free.value as? String, "需要 Pro"); capture(title + "-mode-lock"); free.tap()
             ready(app.buttons["subscription.close"]); capture(title + "-free-mode-paywall")
             app.buttons["subscription.close"].tap()
@@ -680,7 +680,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
         app.buttons["2D角度"].tap()
         let mode = app.otherElements["training.length"]
-        ready(mode.buttons["自由训练"]); mode.buttons["自由训练"].tap()
+        ready(mode.buttons["持续练习"]); mode.buttons["持续练习"].tap()
         ready(app.buttons["subscription.close"])
         let unlock = app.buttons["simulatorUnlockProButton"]
         let scroll = app.scrollViews["subscription.scroll"]
@@ -690,7 +690,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         }
         ready(unlock); unlock.tap()
         ready(app.buttons["angleTraining.start"])
-        XCTAssertTrue(mode.buttons["自由训练"].isSelected)
+        XCTAssertTrue(mode.buttons["持续练习"].isSelected)
         XCTAssertFalse(app.buttons["答题"].exists)
         capture("free-mode-upgrade-stays-settings")
     }

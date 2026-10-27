@@ -92,8 +92,12 @@ final class TableStyleUITests: XCTestCase {
             let row = app.buttons[id]
             XCTAssertTrue(row.waitForExistence(timeout: 15), id)
             for _ in 0..<6 where !row.isHittable || row.frame.maxY > app.windows.firstMatch.frame.maxY - 35 {
-                if row.frame.minY < app.navigationBars.firstMatch.frame.maxY { app.swipeDown() }
-                else { app.swipeUp() }
+                // Full-screen swipes overshoot the appearance group on SE/iOS 17
+                // and alternate past the same row. Scroll within the visible body.
+                let movingDown = row.frame.minY < app.navigationBars.firstMatch.frame.maxY
+                let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: movingDown ? 0.4 : 0.7))
+                let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: movingDown ? 0.65 : 0.45))
+                start.press(forDuration: 0.05, thenDragTo: end)
             }
             XCTAssertTrue(row.isHittable, id)
             row.tap()

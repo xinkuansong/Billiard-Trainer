@@ -194,7 +194,7 @@ struct SceneAimingView: View {
                 }, ball: { key, diameter, height in
                     let selected = PositionPlayBall.number(for: key) == vm.targetBallNumber
                     PoolBallFace(key: key, diameter: diameter).opacity(selected ? 1 : 0.25)
-                        .overlay(Circle().stroke(selected ? HUDStyle.accent : .clear, lineWidth: 1))
+                        .overlay(Circle().stroke(selected ? BallRoleStyle.current.color : .clear, lineWidth: 2))
                         .frame(width: diameter + 2, height: height)
                         .accessibilityLabel("\(PositionPlayBall.shortLabel(for: key))号球")
                         .accessibilityValue(selected ? "当前目标球" : "参考球")

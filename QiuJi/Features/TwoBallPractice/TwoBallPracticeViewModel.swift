@@ -9,8 +9,15 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
     let scene = AngleTrainingScene()
     let limiter: AngleUsageLimiter
     @Published private(set) var record: TwoBallPracticeRecord?
-    @Published private(set) var phase: Phase = .loading
+    @Published private(set) var phase: Phase = .loading {
+        didSet {
+            if phase == .result || phase == .summary || phase == .settings { geometryReference.complete() }
+            else if phase == .aiming { geometryReference.cancelFreeze() }
+        }
+    }
+    lazy var geometryReference = GeometricReferenceTool(scene: scene) { [weak self] in self?.objectWillChange.send() }
     @Published var message: String?
+    @Published private(set) var notice: TrainingPracticeNotice?
     @Published var cameraMode: AngleTrainingScene.CameraMode
     @Published var cameraTransitionBusy = false
     @Published var temporaryTopDownActive = false
@@ -66,6 +73,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
     private var referenceNodes: [SCNNode] = []
     private var referenceWork: Task<Void, Never>?
     private var referenceQuestionID: UUID?
+    private var referenceFailed = false
     private(set) var referenceTrajectory: [SeparationTrajectory.Point]?
     private var objectNodes: [SCNNode] = []
     private var markers: [SCNNode] = []
@@ -84,7 +92,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
     private var cueVisibleAtReveal = false
     private var cueVisibleAtStroke = false
     var diagnostic: String {
-        let payload: [String: Any] = ["phase": String(describing: phase), "question": record?.current?.id.uuidString ?? "",
+        let payload: [String: Any] = ["pocketStyles": Dictionary(uniqueKeysWithValues: markers.compactMap { $0 as? PocketLeatherMarker }.map { (String($0.pocketIndex), String(describing: $0.style)) }), "phase": String(describing: phase), "question": record?.current?.id.uuidString ?? "",
             "input": [input.spinX, input.spinY, input.velocity], "mode": mode.rawValue,
             "routeIndex": record?.current?.routeIndex ?? -1, "routeCount": record?.current?.routes.count ?? 0,
             "executionDifficulties": record?.current?.routes.compactMap { $0.source.executionDifficulty?.difficulty } ?? [],
@@ -97,7 +105,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
             "comfortVersion": record?.latestShot?.comfortVersion ?? "legacy",
             "difficulty": record?.latestShot?.difficulty?.value ?? -1, "failure": record?.latestShot?.failure ?? "", "attempts": record?.attempts.count ?? 0,
             "inputAccessible": scene.cueAccessSnapshot?.isAvailable(spinX: Double(input.spinX), spinY: Double(input.spinY)) ?? false,
-            "playsStroke": playsStroke, "isReplaying": isReplaying,
+            "playsStroke": playsStroke, "isReplaying": isReplaying, "geometry": geometryReference.diagnostic,
             "nextQuestionReady": nextQuestionReady, "nextQuestionPending": nextQuestionRequest != nil,
             "cuePosition": scene.cueBallNode.map { [$0.position.x, $0.position.y, $0.position.z] } ?? [],
             "secondPosition": secondNode.map { [$0.position.x, $0.position.y, $0.position.z] } ?? [],
@@ -163,12 +171,17 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
     var preferencePage: TablePreferencePage { is3D ? .twoBallPractice3D : .twoBallPractice2D }
     var targetNode: SCNNode? { scene.targetBallNodes.first }
     var secondNode: SCNNode? { scene.allBallNodes["_8"] }
+    var paletteRoles: [String: BTTeachingBallRole] {
+        guard let question = record?.current else { return [:] }
+        return ["_\(question.ballNumber)": .current, "_\(question.secondBallNumber)": .next]
+    }
+
     var selectedPocketIndex: Int { record?.current?.board.pocketIndex ?? 0 }
     var selectedTargetKey: String? { record?.current.map { "_\($0.ballNumber)" } }
     var onTableKeys: [String] { [PositionPlayBall.cueKey] + [selectedTargetKey, "_8"].compactMap { $0 } }
-    var draggableBalls: [SCNNode] { [] }
+    var draggableBalls: [SCNNode] { canAdjust ? geometryReference.draggableNodes : [] }
     var selectableBalls: [SCNNode] { [] }
-    var isDragging: Bool { false }
+    var isDragging: Bool { geometryReference.dragging }
     var currentPlayerAim: SCNVector3? { solvedAim ?? record?.current.map { AccuracyTipSelector.referenceDirection($0.board) } }
     var input: SeparationInput { record?.draftInput ?? .init() }
     var velocity: Double {
@@ -295,8 +308,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
         if shotPoses == nil { shotPoses = scene.captureBallPoses() }
         record?.initialPoses = encodePoses(shotPoses ?? [:])
         _ = save()
-        scene.setPocketRoles(first: question.board.pocketIndex, second: question.secondPocket, transientFirst: true,
-                             confirmsSelection: highlightedQuestionID != question.id)
+        scene.setPracticePocketRoles(current: question.board.pocketIndex, next: question.secondPocket)
         highlightedQuestionID = question.id
         topDownContentRevision += 1
         drawTarget(); clearActual(); prepareReference()
@@ -356,7 +368,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
             clearReference()
             referenceQuestionID = question.id
         }
-        guard referenceTrajectory == nil, referenceWork == nil else { return }
+        guard referenceTrajectory == nil, referenceWork == nil, !referenceFailed else { return }
         let surface = scene.surfaceY, profile = AccuracyTipSelector.renderedProfile()
         referenceWork = Task { [weak self] in
             let worker = Task.detached(priority: .userInitiated) {
@@ -385,14 +397,19 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
                 guard let self, !Task.isCancelled, self.record?.current?.id == question.id,
                       self.shouldShowReference, self.referenceQuestionID == question.id else { return }
                 self.referenceWork = nil
-                self.message = "中杆参考轨迹未能生成：" + error.localizedDescription
+                self.referenceFailed = true
+                if let feedback = TrainingPracticeNotice.recoverable(error, reference: true) {
+                    self.notice = feedback
+                } else {
+                    self.message = "中杆参考轨迹未能生成：" + error.localizedDescription
+                }
             }
         }
     }
     private func clearReference() {
         referenceWork?.cancel(); referenceWork = nil
         referenceNodes.forEach { $0.removeFromParentNode() }; referenceNodes = []
-        referenceTrajectory = nil; referenceQuestionID = nil
+        referenceTrajectory = nil; referenceQuestionID = nil; referenceFailed = false
     }
     private func clearActual() {
         actualNodes.forEach { $0.removeFromParentNode() }; actualNodes = []
@@ -414,7 +431,16 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
             placement: .table, into: &objectNodes)
         objectNodes.forEach { $0.name = "twoBall.objectActual" }
     }
+    func prepareGeometryReference() {
+        guard canAdjust, let question = record?.current else { return }
+        let y = scene.surfaceY + BallPhysics.radius
+        geometryReference.update(identity: "\(question.id):\(question.routeIndex)",
+            cue: .init(question.board.cue.x, y, question.board.cue.z),
+            target: .init(question.board.target.x, y, question.board.target.z),
+            pocketIndex: selectedPocketIndex)
+    }
     private func redrawCue() {
+        prepareGeometryReference()
         guard phase == .aiming, let cue = scene.cueBallNode, let aim = currentPlayerAim else { return }
         scene.updateCueStick(cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: aim,
             spinX: Double(input.spinX), spinY: Double(input.spinY)), aimDirection: aim)
@@ -422,6 +448,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
     func strike() {
         guard canAdjust, permitted(), let question = record?.current else { return }
         if record?.shouldSkip == true { skipRoute(); return }
+        prepareGeometryReference(); geometryReference.freeze()
         invalidate(preservingCue: true)
         let token = generation, frozen = input, surface = scene.surfaceY, animate = playsStroke
         shotPoses = scene.captureBallPoses(); shotCamera = ShotReplayCamera.capture(in: scene)
@@ -446,7 +473,10 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
                 commitAndPlay()
             } catch {
                 guard token == generation, !Task.isCancelled else { return }
-                phase = .aiming; activeSince = Date(); message = error.localizedDescription; redrawCue()
+                phase = .aiming; activeSince = Date()
+                if let feedback = TrainingPracticeNotice.recoverable(error) { notice = feedback }
+                else { message = error.localizedDescription }
+                redrawCue()
             }
         }
     }
@@ -571,7 +601,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
         else if let saved = record?.shotBookmark, let cue = scene.cueBallNode?.position {
             scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: shot.direction.vector)
         }
-        redrawCue(); _ = save()
+        redrawCue(); geometryReference.restore(); _ = save()
     }
     func replayLastShot() {
         guard canPlayback, let shot = record?.latestShot, let cue = scene.cueBallNode, let target = targetNode, let second = secondNode else { return }
@@ -619,7 +649,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
         }
         if nextQuestionRequest?.key == key { return }
         discardNextQuestion()
-        let configuration = record.configuration, excluded = record.seenContentIDs
+        let configuration = record.configuration.forTwoBallMode(record.mode), excluded = record.seenContentIDs
         let prepare = prepareQuestion
         let worker = Task.detached(priority: .utility) { try prepare(configuration, excluded) }
         let request = NextQuestionRequest(key: key, task: worker)
@@ -819,6 +849,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
         for (id, date) in record?.consumed ?? [:] { limiter.recordQuestion(attemptID: id, submittedAt: date) }
     }
     private func invalidate(preservingCue: Bool = false) {
+        notice = nil
         generation = UUID(); work?.cancel(); work = nil; scene.frameReceipt.cancel()
         // Finish rail cancellation before taking SceneKit's lock: rail callbacks
         // hold their own state lock while updating nodes.
@@ -877,7 +908,9 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
     func placeFromPalette(_ key: String) {}
     func palettePlacement(_ key: String, atWorld world: SCNVector3) -> SCNVector3? { nil }
     func removeFromTable(_ key: String) {}
-    func dragBegan(node: SCNNode) {}
-    func dragMoved(node: SCNNode, worldPosition: SCNVector3) {}
-    func dragEnded(node: SCNNode) {}
+    func dragBegan(node: SCNNode) { if node === geometryReference.handle { geometryReference.beginDrag() } }
+    func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
+        if canAdjust, node === geometryReference.handle { geometryReference.drag(to: worldPosition) }
+    }
+    func dragEnded(node: SCNNode) { if node === geometryReference.handle { geometryReference.endDrag() } }
 }

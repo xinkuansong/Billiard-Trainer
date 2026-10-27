@@ -1,10 +1,75 @@
 import XCTest
 import SceneKit
 import Metal
+import SwiftUI
 @testable import QiuJi
 
 @MainActor
 final class TableAppearanceTests: XCTestCase {
+    func testCombinationPreviewFrustumStaysInsideRoom() async throws {
+        let host = UIHostingController(rootView:
+            AppearanceCombinationPreview(label: "预览", identifier: "appearance.preview"))
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
+        host.view.frame = CGRect(x: 0, y: 0, width: 370, height: 236.8)
+        window.addSubview(host.view)
+        defer { host.view.removeFromSuperview() }
+        host.view.layoutIfNeeded()
+        try await Task.sleep(nanoseconds: 200_000_000)
+        func findSceneView(_ view: UIView) -> SCNView? {
+            if let sceneView = view as? SCNView { return sceneView }
+            return view.subviews.lazy.compactMap { findSceneView($0) }.first
+        }
+        let view = try XCTUnwrap(findSceneView(host.view))
+        let scene = try XCTUnwrap(view.scene as? AngleTrainingScene)
+        let camera = try XCTUnwrap(scene.cameraNode)
+        let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        renderer.scene = scene
+        renderer.pointOfView = camera
+        func capture(_ name: String) {
+            SCNTransaction.flush()
+            let size = CGSize(width: 1000, height: 640)
+            _ = renderer.snapshot(atTime: 0, with: size, antialiasingMode: .multisampling4X)
+            let image = renderer.snapshot(atTime: 0, with: size, antialiasingMode: .multisampling4X)
+            let attachment = XCTAttachment(image: image)
+            attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+        }
+        scene.applyTableStyle(.charcoal, showsSights: true)
+        scene.applyClothColor(.green)
+        scene.installReferenceRoom(style: .tournament)
+        let fixedTransform = camera.transform
+        let fixedScale = try XCTUnwrap(camera.camera).orthographicScale
+        camera.position = SCNVector3(1.595, 1.8425, 1.925)
+        camera.look(at: SCNVector3(0, 0.55, 0))
+        camera.camera?.orthographicScale = 1.35
+        capture("appearance-camera-before")
+        camera.transform = fixedTransform
+        camera.camera?.orthographicScale = fixedScale
+        for style in RoomStyle.allCases {
+            scene.installReferenceRoom(style: style)
+            capture("appearance-camera-after-" + style.rawValue)
+        }
+        // Exercise the actual SCNView projection at compact, standard and capped
+        // tablet widths. A centre-inside-room check missed the original defect.
+        for width: CGFloat in [343, 370, 608] {
+            view.frame = CGRect(x: 0, y: 0, width: width, height: width * 0.64)
+            view.layoutIfNeeded()
+            SCNTransaction.flush()
+            _ = view.snapshot()
+            for x in [Float(0), Float(view.bounds.width)] {
+                for y in [Float(0), Float(view.bounds.height)] {
+                    let corner = view.unprojectPoint(SCNVector3(x, y, 0))
+                    XCTAssertLessThan(abs(corner.x), BakedTrainingRoom.roomLength / 2 - 0.1)
+                    XCTAssertLessThan(abs(corner.z), BakedTrainingRoom.roomWidth / 2 - 0.1)
+                    XCTAssertGreaterThan(corner.y, 0)
+                    XCTAssertLessThan(corner.y, BakedTrainingRoom.ceilingHeight)
+                }
+            }
+        }
+        view.scene = nil
+        view.pointOfView = nil
+    }
+
     func testPackagedPreviewsAndTexturesDecode() throws {
         for style in TableStyle.allCases {
             for suffix in ["", "_noSights"] {

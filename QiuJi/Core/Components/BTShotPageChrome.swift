@@ -414,10 +414,11 @@ struct BreakRackGlyph: View, Animatable {
             // inradius is r + 2r/sqrt(3); adjacent centres are 2r apart.
             let innerInradius = outerRadius / 2 - lineWidth
             let r = innerInradius / (1 + 2 / rootThree)
-            let centers = (0..<3).flatMap { row in
-                (0...row).map { column in
-                    CGPoint(x: center.x + CGFloat(2 * column - row) * r,
-                            y: center.y - 4 * r / rootThree + CGFloat(row) * rootThree * r)
+            let centers: [CGPoint] = (0..<3).flatMap { (row: Int) -> [CGPoint] in
+                (0...row).map { (column: Int) -> CGPoint in
+                    let x: CGFloat = center.x + CGFloat(2 * column - row) * r
+                    let y: CGFloat = center.y - 4 * r / rootThree + CGFloat(row) * rootThree * r
+                    return CGPoint(x: x, y: y)
                 }
             }
             for (index, origin) in centers.enumerated() {

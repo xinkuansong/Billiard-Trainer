@@ -11,4 +11,5 @@ enum TablePreferencePage: String, CaseIterable, Codable {
     case accuracy2D, accuracy3D
     case separationPractice2D, separationPractice3D
     case twoBallPractice2D, twoBallPractice3D
+    case threeBallPractice2D, threeBallPractice3D
 }

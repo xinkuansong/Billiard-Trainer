@@ -83,7 +83,7 @@ final class TrainingMultiSelectionUITests: XCTestCase {
             XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
             let random = app.buttons["training.range.mixed"]
             XCTAssertTrue(random.waitForExistence(timeout: 5))
-            XCTAssertTrue(random.label.contains("随机"))
+            XCTAssertTrue(random.label.contains("综合"))
             XCTAssertTrue(random.label.contains("85"))
             random.tap()
             let small = app.buttons["training.range.small"], thin = app.buttons["training.range.thin"]

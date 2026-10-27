@@ -38,6 +38,7 @@ enum AngleRoute: Hashable {
     case accuracy2D, accuracy3D
     case separationPractice2D, separationPractice3D
     case twoBallPractice2D, twoBallPractice3D
+    case threeBallPractice2D, threeBallPractice3D
     case ballFeel
     case bankShot
     case diamondSystem
@@ -57,13 +58,13 @@ enum AngleRoute: Hashable {
     var requiresPremium: Bool {
         switch self {
         case .separationAngleAtlas, .cushionEnglishAtlas, .sceneAiming3D,
-             .aimPointScene3D, .accuracy3D, .separationPractice3D, .twoBallPractice3D, .multiBallPractice3D, .snakePractice, .positionPlayComposer,
+             .aimPointScene3D, .accuracy3D, .separationPractice3D, .twoBallPractice3D, .threeBallPractice3D, .multiBallPractice3D, .snakePractice, .positionPlayComposer,
              .ballExtraction, .planThree, .snookerTactics, .bankShot, .diamondSystem:
             return true
         case .theoryIndex, .theoryPage, .contactPointTable, .aimingPrinciple,
              .aimingMethods, .aimingCorrection, .spinAndEnglish, .angleDynamic,
              .geometricQuiz, .multiBallPractice, .customFormationPractice, .sceneAiming2D,
-             .aimPointTraining, .aimPointScene2D, .accuracy2D, .separationPractice2D, .twoBallPractice2D, .ballFeel, .shotSimulation, .freePlay, .positionPlaySolver,
+             .aimPointTraining, .aimPointScene2D, .accuracy2D, .separationPractice2D, .twoBallPractice2D, .threeBallPractice2D, .ballFeel, .shotSimulation, .freePlay, .positionPlaySolver,
              .batchDrillStudio, .drillDetail:
             return false
         }
@@ -271,6 +272,8 @@ struct AngleHomeView: View {
         .init(route: .separationPractice3D, title: "3D分离角", subtitle: "站位出杆，对照完整轨迹", contentKind: .quiz, isPremium: true, topics: [.position, .english]),
         .init(route: .twoBallPractice2D, title: "2D两球走位", subtitle: "练目标轨迹，或走下一球", contentKind: .quiz, topics: [.position, .english]),
         .init(route: .twoBallPractice3D, title: "3D两球走位", subtitle: "站位出杆，练两球衔接", contentKind: .quiz, isPremium: true, topics: [.position, .english]),
+        .init(route: .threeBallPractice2D, title: "2D三球走位", subtitle: "提前选袋，练两杆连续走位", contentKind: .quiz, topics: [.position, .english]),
+        .init(route: .threeBallPractice3D, title: "3D三球走位", subtitle: "站位出杆，练提前规划", contentKind: .quiz, isPremium: true, topics: [.position, .english]),
         .init(route: .shotSimulation, title: "分离角与走位", subtitle: "调打点力度看走位", contentKind: .striking, topics: [.position, .english]),
         .init(route: .positionPlayComposer, title: "自由走位", subtitle: "逐杆摆打推演走位", contentKind: .striking, isPremium: true, topics: [.position, .english]),
         .init(route: .freePlay, title: "自由击球", subtitle: "从开球打一整局", contentKind: .striking),
@@ -531,7 +534,7 @@ struct AngleHomeView: View {
     private func open(_ entry: AngleEntry) {
         let decision = subscriptionManager.accessDecision(requiresPremium: entry.route.requiresPremium)
         guard decision != .requiresLogin && decision != .requiresPro else {
-            pendingSeparationRoute = (entry.route == .separationPractice3D || entry.route == .twoBallPractice3D || entry.route == .multiBallPractice3D) ? entry.route : nil
+            pendingSeparationRoute = (entry.route == .separationPractice3D || entry.route == .twoBallPractice3D || entry.route == .threeBallPractice3D || entry.route == .multiBallPractice3D) ? entry.route : nil
             showSubscription = true
             return
         }

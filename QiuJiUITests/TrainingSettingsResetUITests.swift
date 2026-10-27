@@ -17,6 +17,73 @@ final class TrainingSettingsResetUITests: XCTestCase {
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
 
+    /// Captures the native header through real entry points, including both tablet orientations.
+    func testSettingsHeaderBaseline() {
+        reviewHeaders(assertPlacement: false)
+    }
+
+    func testSettingsHeaderPlacement() {
+        reviewHeaders(assertPlacement: true)
+    }
+
+    func testSettingsLightAndLargeText() {
+        app.terminate()
+        app = .launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral",
+            "-v54.forceLight", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        for title in ["2D准度", "2D两球走位"] {
+            open(title)
+            capture("large-light-\(title)-top")
+            let heading = app.navigationBars.staticTexts["训练设置"].firstMatch
+            XCTAssertTrue(heading.isHittable)
+            XCTAssertFalse(app.tabBars.firstMatch.isHittable)
+            let reset = app.buttons["training.resetDefaults"]
+            reveal(reset)
+            capture("large-light-\(title)-bottom")
+            XCTAssertGreaterThanOrEqual(reset.frame.height, 44)
+            app.buttons["training.settingsCancel"].tap()
+        }
+    }
+
+    private func reviewHeaders(assertPlacement: Bool) {
+        let entries = ["2D角度", "3D角度", "2D瞄准点", "3D瞄准点", "2D准度", "3D准度",
+                       "2D分离角", "3D分离角", "2D两球走位", "3D两球走位", "2D三球走位", "3D三球走位",
+                       "2D多球走位", "3D多球走位", "蛇彩练习", "自定义球形"]
+        let tablet = UIDevice.current.userInterfaceIdiom == .pad
+        for title in entries {
+            app.switchTab(.angle)
+            let play = ["分离角", "两球", "三球", "多球"].contains { title.contains($0) }
+            app.buttons["angleHomeTab_" + (play ? "打" : "练")].tap()
+            let card = app.buttons[title]; reveal(card); card.tap()
+            let startID = title.contains("多球") ? "multiBall.start" : title.contains("三球") ? "threeBall.start" : title.contains("两球") ? "twoBall.start" : title.contains("分离角") ? "separation.start" : title.contains("准度") ? "accuracy.start" : title.contains("瞄准点") ? "aimPointTraining.start" : title.contains("角度") ? "angleTraining.start" : title == "蛇彩练习" ? "snake.start" : "formation.start"
+            let start = app.buttons[startID]
+            XCTAssertTrue(start.waitForExistence(timeout: 15))
+            for orientation in tablet ? [UIDeviceOrientation.portrait, .landscapeLeft] : [.portrait] {
+                XCUIDevice.shared.orientation = orientation
+                if tablet {
+                    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                        (self.app.frame.width > self.app.frame.height) == (orientation == .landscapeLeft)
+                    }, object: nil)], timeout: 8), .completed)
+                }
+                let expectedTitle = assertPlacement && title == "自定义球形" ? "选择球形" : "训练设置"
+                let heading = app.navigationBars.staticTexts[expectedTitle].firstMatch
+                XCTAssertTrue(heading.waitForExistence(timeout: 5))
+                capture("header-\(title)-\(orientation.rawValue)")
+                let report = XCTAttachment(string: "window=\(app.frame) title=\(heading.frame) start=\(start.frame)")
+                report.name = "header-frames-\(title)-\(orientation.rawValue)"; report.lifetime = .keepAlways; add(report)
+                if assertPlacement {
+                    XCTAssertTrue(heading.isHittable, "The title must be visible, not covered by the iPad tab bar")
+                    XCTAssertFalse(app.tabBars.firstMatch.isHittable, "Training settings owns the entire navigation bar")
+                    XCTAssertEqual(heading.frame.midX, app.frame.midX, accuracy: 4, title)
+                    XCTAssertEqual(heading.frame.midY, start.frame.midY, accuracy: 4, title)
+                    XCTAssertGreaterThan(start.frame.minX, heading.frame.maxX, title)
+                    XCTAssertLessThanOrEqual(start.frame.maxX, app.frame.maxX, title)
+                }
+            }
+            app.navigationBars.buttons.matching(NSPredicate(format: "label == '返回'")).firstMatch.tap()
+            XCUIDevice.shared.orientation = .portrait
+        }
+    }
+
     private func ready(_ element: XCUIElement, timeout: TimeInterval = 10) {
         if element.exists && element.isHittable && element.isEnabled { return }
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
@@ -31,7 +98,9 @@ final class TrainingSettingsResetUITests: XCTestCase {
                 let frame = element.frame
                 let window = app.frame
                 let top = app.navigationBars.firstMatch.exists ? app.navigationBars.firstMatch.frame.maxY + 4 : window.minY + 70
-                let bottom = window.maxY - (window.width > window.height ? 30 : 90)
+                let tabs = app.tabBars.firstMatch
+                let bottom = tabs.exists && tabs.frame.minY > window.midY
+                    ? tabs.frame.minY - 4 : window.maxY - 20
                 if element.isHittable && frame.minY >= top && frame.maxY <= bottom { break }
                 if !frame.isEmpty { scrollDown = frame.maxY > bottom }
             }
@@ -91,11 +160,17 @@ final class TrainingSettingsResetUITests: XCTestCase {
         for title in titles {
             open(title)
             let trajectory = title.contains("分离角") || title.contains("两球")
-            app.otherElements["training.length"].buttons["自由训练"].tap()
-            if title.contains("两球") { app.segmentedControls["twoBall.mode"].buttons["自由走位"].tap() }
+            app.otherElements["training.length"].buttons["持续练习"].tap()
+            if title.contains("两球") {
+                app.segmentedControls["twoBall.mode"].buttons["自由走位"].tap()
+                XCTAssertFalse(app.switches["training.verticalSpin"].exists)
+                XCTAssertFalse(app.switches["training.sideSpin"].exists)
+                app.segmentedControls["twoBall.mode"].buttons["轨迹走位"].tap()
+            }
             if trajectory {
                 setSwitch("separation.playsStroke", false)
                 setSwitch("separation.showsReference", true)
+                top()
             }
             let thin = app.buttons["training.range.thin"]
             reveal(thin); thin.tap()
@@ -111,30 +186,37 @@ final class TrainingSettingsResetUITests: XCTestCase {
                 }
             }
             if title.contains("准度") || trajectory {
+                if trajectory { top() }
                 setSwitch("training.verticalSpin", !trajectory)
                 setSwitch("training.sideSpin", !trajectory)
             }
             reset(title + "-reset-bottom")
             if title.contains("准度") || trajectory {
+                reveal(app.switches["training.verticalSpin"], down: false)
                 XCTAssertEqual(app.switches["training.verticalSpin"].value as? String, trajectory ? "1" : "0")
                 XCTAssertEqual(app.switches["training.sideSpin"].value as? String, trajectory ? "1" : "0")
             }
+            // iOS 17 lazily removes offscreen rows from AX; start above the conditions.
+            top()
             for field in ["cueDistance", "pocketDistance", "pockets", "railDistance"] {
                 let row = app.buttons["training." + field]
-                reveal(row, down: false)
-                XCTAssertEqual(row.value as? String, "随机")
+                reveal(row)
+                XCTAssertEqual(row.value as? String, "综合")
             }
             top()
             XCTAssertTrue(app.otherElements["training.length"].buttons["20题"].isSelected)
             if title.contains("两球") { XCTAssertTrue(app.segmentedControls["twoBall.mode"].buttons["轨迹走位"].isSelected) }
             if trajectory {
+                reveal(app.switches["separation.playsStroke"])
                 XCTAssertEqual(app.switches["separation.playsStroke"].value as? String, "1")
                 XCTAssertEqual(app.switches["separation.showsReference"].value as? String, "0")
             }
             if title.contains("准度") {
+                reveal(app.switches["accuracy.manualVerticalSpin"], down: false)
                 XCTAssertEqual(app.switches["accuracy.manualVerticalSpin"].value as? String, "1")
                 XCTAssertEqual(app.switches["accuracy.manualSideSpin"].value as? String, "1")
             }
+            top()
             for range in ["straight", "small", "medium", "large", "thin", "mixed"] {
                 let row = app.buttons["training.range." + range]
                 reveal(row)
@@ -149,6 +231,11 @@ final class TrainingSettingsResetUITests: XCTestCase {
         ready(app.buttons["twoBall.more"], timeout: 120); app.buttons["twoBall.more"].tap()
         ready(app.buttons["twoBall.trainingSettings"]); app.buttons["twoBall.trainingSettings"].tap()
         ready(app.buttons["twoBall.start"])
+        let heading = app.navigationBars.staticTexts["训练设置"].firstMatch
+        XCTAssertTrue(heading.isHittable)
+        XCTAssertFalse(app.tabBars.firstMatch.isHittable)
+        XCTAssertEqual(heading.frame.midX, app.frame.midX, accuracy: 4)
+        XCTAssertGreaterThan(app.buttons["twoBall.start"].frame.minX, heading.frame.maxX)
         if UIDevice.current.userInterfaceIdiom != .pad { XCUIDevice.shared.orientation = .landscapeLeft }
     }
 
@@ -162,7 +249,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
         open("2D两球走位")
         reset("transaction-initial-defaults"); top()
         app.segmentedControls["twoBall.mode"].buttons["自由走位"].tap()
-        app.otherElements["training.length"].buttons["自由训练"].tap()
+        app.otherElements["training.length"].buttons["持续练习"].tap()
         setSwitch("separation.playsStroke", false); setSwitch("separation.showsReference", true)
         app.buttons["twoBall.start"].tap()
         ready(app.buttons["twoBall.strike"], timeout: 180)
@@ -177,7 +264,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
         XCTAssertEqual(cancelled["showsReference"] as? Bool, true)
         twoBallSettings(); top()
         XCTAssertTrue(app.segmentedControls["twoBall.mode"].buttons["自由走位"].isSelected)
-        XCTAssertTrue(app.otherElements["training.length"].buttons["自由训练"].isSelected)
+        XCTAssertTrue(app.otherElements["training.length"].buttons["持续练习"].isSelected)
         reset("transaction-reset-before-start")
         app.buttons["twoBall.start"].tap()
         ready(app.buttons["twoBall.strike"], timeout: 180)
@@ -186,6 +273,48 @@ final class TrainingSettingsResetUITests: XCTestCase {
         twoBallSettings(); top()
         XCTAssertTrue(app.segmentedControls["twoBall.mode"].buttons["轨迹走位"].isSelected)
         XCTAssertTrue(app.otherElements["training.length"].buttons["20题"].isSelected)
+        app.buttons["training.settingsCancel"].tap()
+    }
+
+    func testTwoBallModesKeepIndependentDraftsAndConfirmedPreferences() throws {
+        open("2D两球走位")
+        reset("modes-reset"); top()
+        setSwitch("training.verticalSpin", false)
+        let small = app.buttons["training.range.small"]
+        reveal(small); small.tap()
+        setSwitch("separation.playsStroke", false)
+        top()
+        app.segmentedControls["twoBall.mode"].buttons["自由走位"].tap()
+        XCTAssertFalse(app.switches["training.verticalSpin"].exists)
+        XCTAssertFalse(app.switches["training.sideSpin"].exists)
+        reveal(small); XCTAssertEqual(small.value as? String, "已选")
+        setSwitch("separation.showsReference", true)
+        capture("two-ball-free-settings")
+        top(); app.segmentedControls["twoBall.mode"].buttons["轨迹走位"].tap()
+        reveal(app.switches["training.verticalSpin"])
+        XCTAssertEqual(app.switches["training.verticalSpin"].value as? String, "0")
+        reveal(small); XCTAssertEqual(small.value as? String, "未选")
+        setSwitch("separation.playsStroke", false)
+        top(); app.segmentedControls["twoBall.mode"].buttons["自由走位"].tap()
+        app.buttons["twoBall.start"].tap()
+        ready(app.buttons["twoBall.strike"], timeout: 180)
+        let initial = try twoBallProbe()
+        XCTAssertEqual(initial["playsStroke"] as? Bool, true)
+        XCTAssertEqual(initial["showsReference"] as? Bool, true)
+        twoBallSettings(); top()
+        app.segmentedControls["twoBall.mode"].buttons["轨迹走位"].tap()
+        setSwitch("training.verticalSpin", true)
+        app.buttons["training.settingsCancel"].tap()
+        ready(app.buttons["twoBall.strike"])
+        XCTAssertEqual(try twoBallProbe()["question"] as? String, initial["question"] as? String)
+        twoBallSettings(); top()
+        app.segmentedControls["twoBall.mode"].buttons["轨迹走位"].tap()
+        reveal(app.switches["training.verticalSpin"])
+        XCTAssertEqual(app.switches["training.verticalSpin"].value as? String, "0")
+        reveal(small); XCTAssertEqual(small.value as? String, "未选")
+        reveal(app.switches["separation.playsStroke"])
+        XCTAssertEqual(app.switches["separation.playsStroke"].value as? String, "0")
+        capture("two-ball-trajectory-settings-restored")
         app.buttons["training.settingsCancel"].tap()
     }
 

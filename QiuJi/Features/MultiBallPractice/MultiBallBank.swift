@@ -4,6 +4,11 @@ struct MultiBallConfiguration: Codable, Equatable {
     enum Game: String, Codable, CaseIterable { case rotation, chineseEight
         var title: String { self == .rotation ? "顺序清台" : "中八残局" }
     }
+    enum PositionMode: String, Codable, CaseIterable {
+        case planned, independent
+        var title: String { self == .planned ? "规划走位" : "自主走位" }
+    }
+    var positionMode: PositionMode = .planned
     static let rotationCounts = [4, 5, 6, 9]
     var game: Game = .rotation
     var rotationCount = 4
@@ -28,6 +33,7 @@ extension MultiBallConfiguration {
     // Existing preferences predate training length; preserve their ball choices.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        positionMode = try c.decodeIfPresent(PositionMode.self, forKey: .positionMode) ?? .planned
         game = try c.decode(Game.self, forKey: .game)
         rotationCount = try c.decode(Int.self, forKey: .rotationCount)
         ownCount = try c.decode(Int.self, forKey: .ownCount)

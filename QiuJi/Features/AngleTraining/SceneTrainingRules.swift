@@ -170,7 +170,7 @@ struct SceneTrainingConfiguration: Codable, Equatable {
     /// Factory values are independent of saved preferences and shared with the reset action.
     static func defaults(for route: String) -> Self {
         var defaults = Self()
-        if (route.hasPrefix("separationPractice") || route.hasPrefix("twoBallPractice")) {
+        if (route.hasPrefix("separationPractice") || route.hasPrefix("twoBallPractice") || route.hasPrefix("threeBallPractice")) {
             defaults.angleSelection = [.straight, .small, .medium]
             defaults.allowsVerticalSpin = true; defaults.allowsSideSpin = true
         }
@@ -196,6 +196,50 @@ struct SceneTrainingConfiguration: Codable, Equatable {
         }
     }
 
+}
+
+extension SceneTrainingConfiguration {
+    /// Free placement uses board conditions, never the trajectory mode's reference-spin filters.
+    func forTwoBallMode(_ mode: TwoBallMode) -> Self {
+        guard mode == .free else { return self }
+        var value = self
+        value.allowsVerticalSpin = true
+        value.allowsSideSpin = true
+        return value
+    }
+}
+
+/// Saved only after Start succeeds. Switching modes in a form only changes its local drafts.
+struct TwoBallSettingsPreference: Codable, Equatable {
+    var configuration: SceneTrainingConfiguration
+    var playsStroke: Bool
+    var showsReference: Bool
+
+    static func defaults(for route: String) -> Self {
+        .init(configuration: .defaults(for: route), playsStroke: true, showsReference: false)
+    }
+
+    static func load(for route: String, mode: TwoBallMode, defaults: UserDefaults = .standard) -> Self {
+        if let data = defaults.data(forKey: key(route, mode)),
+           let value = try? JSONDecoder().decode(Self.self, from: data) { return value }
+        // Copy existing confirmed choices on first use without writing during Cancel.
+        let configuration = defaults.data(forKey: "sceneTraining.rules2.mixedDefaults." + route)
+            .flatMap { try? JSONDecoder().decode(SceneTrainingConfiguration.self, from: $0) }
+            ?? .defaults(for: route)
+        let legacyPrefix = "twoBallPractice." + (route.hasSuffix("3D") ? "3D" : "2D")
+        return .init(configuration: configuration,
+                     playsStroke: defaults.object(forKey: legacyPrefix + ".playsStroke") as? Bool ?? true,
+                     showsReference: defaults.object(forKey: legacyPrefix + ".keepsReferenceAfterSubmission") as? Bool ?? false)
+    }
+
+    func save(for route: String, mode: TwoBallMode, defaults: UserDefaults = .standard) {
+        guard let data = try? JSONEncoder().encode(self) else { return }
+        defaults.set(data, forKey: Self.key(route, mode))
+    }
+
+    private static func key(_ route: String, _ mode: TwoBallMode) -> String {
+        "twoBallPractice.settings.v1." + route + "." + mode.rawValue
+    }
 }
 
 /// Defaults for the optional settings stored separately from question filters.

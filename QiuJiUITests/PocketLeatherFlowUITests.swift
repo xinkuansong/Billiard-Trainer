@@ -84,11 +84,11 @@ final class PocketLeatherFlowUITests: XCTestCase {
 
         let plan = launch(["-planThree.twoBall"])
         assertTable(plan)
-        plan.buttons["planthree.roles"].tap()
-        let firstPocket = plan.buttons["planthree.role.1"]
+        let firstPocket = plan.buttons["paletteBall__1"]
         XCTAssertTrue(firstPocket.waitForExistence(timeout: 5), plan.debugDescription)
-        XCTAssertTrue(firstPocket.label.contains("第1杆目标袋"))
-        XCTAssertTrue(firstPocket.label.contains("角袋") || firstPocket.label.contains("中袋"))
+        XCTAssertTrue((firstPocket.value as? String ?? "").contains("当前击打球"))
+        let pocketValue = firstPocket.value as? String ?? ""
+        XCTAssertTrue(pocketValue.contains("角袋") || pocketValue.contains("中袋"))
         try snap(plan, pad ? "names-plan-pad-menu" : "names-plan-phone-menu")
         firstPocket.tap()
         try snap(plan, pad ? "names-plan-pad-active" : "names-plan-phone-active")

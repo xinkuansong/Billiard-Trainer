@@ -14,6 +14,7 @@ struct AccuracyPracticeView: View {
     @State private var pocketOrientation: PocketDisplay.Orientation = .landscape
     @StateObject private var questionNotices = BTRuleNoticeCenter()
     @StateObject private var resultNotices = BTRuleNoticeCenter()
+    @StateObject private var operationNotices = BTRuleNoticeCenter()
 
     init(is3D: Bool) { _vm = StateObject(wrappedValue: AccuracyPracticeViewModel(is3D: is3D)) }
     var body: some View {
@@ -60,7 +61,11 @@ struct AccuracyPracticeView: View {
             guard event != nil else { resultNotices.clear(); return }
             resultNotices.show(resultNoticeText, tone: .info, priority: .ruling)
         }
-        .onDisappear { questionNotices.clear(); resultNotices.clear() }
+        .onChange(of: vm.notice) { _, event in
+            guard let event else { operationNotices.clear(); return }
+            operationNotices.show(event.text, tone: .info, priority: .ruling)
+        }
+        .onDisappear { questionNotices.clear(); resultNotices.clear(); operationNotices.clear() }
         .sheet(isPresented: $showSubscription, onDismiss: {
             if pendingRestart && subscriptionManager.isPremium { vm.openSettings() }
             pendingRestart = false
@@ -79,6 +84,9 @@ struct AccuracyPracticeView: View {
     private var resultNoticeText: String { vm.outcomeText }
     private var information: [BTTeachingInformation] {
         var result: [BTTeachingInformation] = []
+        if let notice = operationNotices.message {
+            return [.init(text: notice.text, kind: .notice, symbol: "info.circle", identifier: "accuracy.notice")]
+        }
         if questionNotices.message != nil {
             // Derive the label from the current orientation without restarting its timer.
             result.append(.init(text: questionPrompt, kind: .notice, identifier: "accuracy.question"))

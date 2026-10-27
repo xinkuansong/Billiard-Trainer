@@ -1,4 +1,24 @@
 import SwiftUI
+
+enum BTTeachingBallRole: String {
+    case current, next, completed, upcoming
+    var tint: Color {
+        switch self {
+        case .current: Color(PocketLeatherAppearance.targetTint)
+        case .next: Color(PocketLeatherAppearance.continuationTargetTint)
+        case .upcoming: BallRoleStyle.upcoming.color
+        case .completed: .clear
+        }
+    }
+    var label: String {
+        switch self {
+        case .current: "当前击打球"
+        case .next: "下一颗目标球"
+        case .completed: "已完成"
+        case .upcoming: "后续目标球"
+        }
+    }
+}
 import SceneKit
 
 /// Business actions supplied by solver/planning pages; the table layout and camera remain shared.
@@ -46,6 +66,11 @@ struct BTTablePlanningControls {
     /// One physical contact point must reach the host as one complete intent.
     var onSpinChange: ((Double, Double) -> Void)? = nil
     var overlay: (TableProjector, CGRect) -> AnyView = { _, _ in AnyView(EmptyView()) }
+    var paletteKeys: [String]? = nil
+    var paletteRoles: [String: BTTeachingBallRole] = [:]
+    var showsPaletteRoleNumbers = false
+    var paletteRoleDescription: ((String) -> String?)? = nil
+    var onPaletteClearRole: ((String) -> Void)? = nil
 }
 
 /// Common daily-template shell for editable teaching tables. Hosts provide only
@@ -55,6 +80,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     let titleLabel: String
     let identifier: String
     let preferencePage: TablePreferencePage
+    /// Hosts with fixed question layouts can describe the small-window state without suggesting ball editing.
+    var insufficientSpaceMessage = "扩大窗口后继续摆球"
     /// Entry identity can fix the presentation independently of general preferences.
     var fixedView3D: Bool? = nil
     var velocity: Binding<Double>? = nil
@@ -142,7 +169,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     @State private var titleSize = CGSize(width: 60, height: 34)
     private enum MenuPage { case settings, transparency, trajectory }
     @State private var cameraReadableFrame: CGRect?
-    private let paletteKeys = PositionPlayBall.allKeys.filter { !PositionPlayBall.isCue($0) }
+    private var paletteKeys: [String] { planning?.paletteKeys ?? PositionPlayBall.allKeys.filter { !PositionPlayBall.isCue($0) } }
+    private var groupsEightBallPalette: Bool { planning?.paletteKeys == nil }
 
     var body: some View {
         GeometryReader { geo in
@@ -230,7 +258,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         let side = max(4, safe)
         let titleWidth: CGFloat = usesStandardTitle ? 60 : max(60, titleSize.width)
         let reservation = DailyLayoutMetrics.FoundationReservation(width: size.width - 2 * side,
-            targetCount: paletteKeys.count, chineseEightBall: true,
+            targetCount: paletteKeys.count, chineseEightBall: groupsEightBallPalette,
             titleWidth: 32 + titleWidth, actionWidth: 138,
             prefersSeparateRow: size.height > size.width || size.height >= 600,
             separateWidth: size.width > size.height && size.height < 600 ? size.width - 2 * (side + 60 + 8) : nil)
@@ -239,7 +267,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             halfWidth: vm.scene.cameraRig?.tableOuterHalfWidth ?? CameraRig.defaultTableOuterHalfWidth,
             instrumentHeight: DailyLayoutMetrics.Controls.initialInstrumentHeight, palette: showsPalette ? reservation : nil)
         let plan = DailyLayoutMetrics.Palette(size: size, sideInset: side, table: f.table,
-            targetCount: paletteKeys.count, chineseEightBall: true, obstacles: [
+            targetCount: paletteKeys.count, chineseEightBall: groupsEightBallPalette, obstacles: [
                 CGRect(x: side + windowControls.left, y: 0, width: 44, height: 44),
                 CGRect(x: side + windowControls.left + 32, y: (44 - titleSize.height) / 2, width: titleWidth, height: titleSize.height),
                 CGRect(x: size.width - side - windowControls.right - 44, y: 0, width: 44, height: 44), f.left, f.right])
@@ -260,7 +288,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                     .position(x: f.stage.midX, y: f.stage.midY)
             }
             DailyTemplateHeader(size: size, safe: safe, foundation: f, plan: plan,
-                targets: paletteKeys, chineseEightBall: true, titleWidth: titleWidth, titleHeight: usesStandardTitle ? 34 : titleSize.height,
+                targets: paletteKeys, chineseEightBall: groupsEightBallPalette, titleWidth: titleWidth, titleHeight: usesStandardTitle ? 34 : titleSize.height,
                 windowControlInsets: windowControls, fps: fps, showsDeviceStatus: !systemStatusVisible,
                 keepsPaletteVisible: preservesPersonalControlLayout, showsPalette: showsPalette,
                 title: { navigationTitle(compact: compactTitle) }, actions: {
@@ -346,7 +374,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 teachingSpinPad(spinHeight ?? planning!.spinY, foundation: f, pointsPerMetre: pointsPerMetre)
             }
             if !plan.fits && !preservesPersonalControlLayout {
-                Text("扩大窗口后继续摆球").font(.btFootnote).padding()
+                Text(insufficientSpaceMessage).font(.btFootnote).padding()
                     .background(.regularMaterial, in: Capsule())
                     .position(x: size.width / 2, y: size.height / 2)
             }
@@ -627,14 +655,20 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     private func ballToken(_ key: String, diameter: CGFloat, slotHeight: CGFloat) -> some View {
         let onTable = vm.onTableKeys.contains(key)
         let selected = vm.selectedTargetKey == key
+        let role = planning?.paletteRoles[key]
         return Button {
             if let planning { planning.onPaletteTap(key) }
             else if onTable { vm.removeFromTable(key) } else { vm.placeFromPalette(key) }
         } label: {
-            PoolBallFace(key: key, diameter: diameter).opacity(onTable ? 0.3 : 1)
-                .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 1).padding(-1).opacity(selected ? 1 : 0))
+            PoolBallFace(key: key, diameter: diameter).opacity(role == .completed ? 0.3 : role != nil ? 1 : onTable ? 0.3 : 1)
+                .overlay(Circle().stroke(role?.tint ?? BallRoleStyle.current.color, style: StrokeStyle(lineWidth: 2, dash: role == .upcoming ? [3, 3] : []))
+                    .padding(-1).opacity(role != nil ? (role == .completed ? 0 : 1) : (selected ? 1 : 0)))
+                .overlay(alignment: .bottomTrailing) {
+                    if planning?.showsPaletteRoleNumbers == true, let role {
+                        BTPaletteRoleNumber(role: role)
+                    }
+                }
                 .frame(width: diameter + 2, height: min(max(32, diameter), slotHeight))
-                .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: key == paletteKeys.first || key == paletteKeys.last ? 16 : 4), selected: selected, normal: .clear) }
                 .frame(height: slotHeight).contentShape(Rectangle())
         }
         .buttonStyle(BTHUDPressStyle()).disabled((is3D && planning == nil) || planning?.paletteEnabled == false)
@@ -653,9 +687,19 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 onPalettePlace?(key, world)
             }, including: allowsPaletteDrag && (!is3D || planning != nil) && !onTable ? .all : .subviews)
         .accessibilityLabel("\(PositionPlayBall.shortLabel(for: key))号球")
-        .accessibilityValue(onTable ? "在桌上" : "未在桌上")
+        .contextMenu {
+            if let clear = planning?.onPaletteClearRole, role != nil {
+                Button("清除此项") { clear(key) }
+            }
+        }
+        .accessibilityActions {
+            if let clear = planning?.onPaletteClearRole, role != nil {
+                Button("清除此项") { clear(key) }
+            }
+        }
+        .accessibilityValue(planning?.paletteRoleDescription?(key) ?? role?.label ?? (onTable ? "在桌上" : "未在桌上"))
         .accessibilityHint(planning?.assessmentMode == true ? "题目指定，不可更改" :
-            (onTable ? (planning == nil ? "点按撤回球库" : "点按定位桌上球，拖回球库可移除") : "点按摆到桌面"))
+            (onTable ? (planning == nil ? "点按撤回球库" : planning?.onPaletteClearRole != nil ? "点按选择或切换角色，长按清除角色" : "点按定位桌上球，拖回球库可移除") : "点按摆到桌面"))
         .accessibilityIdentifier("paletteBall_\(key)")
     }
 
@@ -1083,4 +1127,17 @@ struct BTTablePageTitle: View {
 private struct TablePageTitleNaturalWidth: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// Overlay-only annotation; it never participates in palette sizing or hit testing.
+struct BTPaletteRoleNumber: View {
+    let role: BTTeachingBallRole
+    var body: some View {
+        if role != .completed {
+            Text(role == .current ? "①" : role == .next ? "②" : "③")
+                .font(.btMicro).foregroundStyle(role.tint)
+                .offset(x: 5, y: 5)
+                .allowsHitTesting(false).accessibilityHidden(true)
+        }
+    }
 }

@@ -248,3 +248,181 @@ final class PlanThreeSectorSolverTests: XCTestCase {
         XCTAssertTrue(vm.sectorIsDefaultRegion, "删除自选约束后扇形应恢复为默认落区")
     }
 }
+
+@MainActor
+final class BallRolePlanFlowTests: XCTestCase {
+
+    func testSelectionFeedbackIsAnEventAndDoesNotReplayWhenNavigating() throws {
+        let vm = configured(); defer { vm.stopForDismissal() }
+        var balls = 0, pockets = 0
+        vm.scene.ballSelectionHaptic = { balls += 1 }
+        vm.scene.pocketSelectionHaptic = { pockets += 1 }
+        vm.selectPaletteBall("_2")
+        XCTAssertEqual(balls, 1)
+        XCTAssertNotNil(vm.scene.allBallNodes["_2"]?.action(forKey: TableBallPulse.actionKey))
+        vm.selectPocket(at: 2); vm.selectPocket(at: 2)
+        XCTAssertEqual(pockets, 2)
+        vm.goToPreviousStep(); XCTAssertEqual(pockets, 2); XCTAssertEqual(balls, 1)
+        vm.armRole(.ball2); vm.selectTarget(key: "_1")
+        XCTAssertEqual(balls, 1, "A duplicate role cannot acknowledge successful assignment")
+        vm.selectPocket(at: 99); XCTAssertEqual(pockets, 2)
+        vm.clearRole(.ball3); vm.armRole(.ball2); vm.selectTarget(key: "_3")
+        XCTAssertEqual(balls, 2)
+    }
+
+    private func configured() -> PlanThreeViewModel {
+        let vm = PlanThreeViewModel(); vm.setupScene(); vm.uiTestConfigure("threeBallDimmed")
+        vm.activeTool = .none
+        return vm
+    }
+    private func completion(_ vm: PlanThreeViewModel, potted: Bool = true, extra: [String] = []) -> PositionPlaySolution {
+        let shot = PlannedShot(targetKey: vm.ball1Key!, pocket: ShotIntent.pocketId(for: vm.pocket1Index)!, velocity: 2.4, spinX: 0.1, spinY: -0.2)
+        var prediction = ShotPrediction(); prediction.objectPocketed = potted
+        prediction.pocketedBalls = (potted ? [ShotInput.targetBallName] : []) + extra
+        return PositionPlaySolution(shot: shot, prediction: prediction, cushionCount: 0, potted: potted,
+            margin: 0.1, summary: "settlement fixture", satisfiesConstraint: true,
+            beyondCushionBudget: false, difficultyScore: 0, difficultyTier: .center, beyondSpinBudget: false, robustness: nil)
+    }
+    func testDirectBallAndPocketSelectionRejectsDuplicatesWithoutErasingBindings() throws {
+        let vm = configured()
+        vm.armRole(.ball2); vm.selectTarget(key: "_1")
+        XCTAssertEqual(vm.ball1Key, "_1"); XCTAssertEqual(vm.pocket1Index, 1)
+        XCTAssertEqual(vm.ball2Key, "_2"); XCTAssertEqual(vm.pocket2Index, 3)
+        XCTAssertTrue(vm.statusText.contains("已用于当前"))
+        vm.clearRole(.ball3)
+        vm.armRole(.ball2); vm.selectTarget(key: "_3")
+        XCTAssertEqual(vm.ball2Key, "_3"); XCTAssertEqual(vm.pocket2Index, -1)
+        XCTAssertEqual(vm.ball1Key, "_1"); XCTAssertEqual(vm.pocket1Index, 1)
+        vm.selectPocket(at: 4)
+        XCTAssertEqual(vm.pocket2Index, 4)
+        vm.selectPocket(at: 99)
+        XCTAssertEqual(vm.pocket2Index, 4)
+        vm.armRole(.ball1); vm.selectTarget(key: "_2")
+        XCTAssertEqual(vm.pocket1Index, -1)
+        vm.selectPocket(at: 0)
+        XCTAssertEqual(vm.pocket1Index, 0)
+        XCTAssertEqual(vm.pocket2Index, 4)
+    }
+    func testPaletteFocusAndReplacementPreserveOtherRoles() {
+        let vm = configured()
+        vm.selectPaletteBall("_1")
+        XCTAssertEqual(vm.editingRole, 0)
+        vm.selectPocket(at: 5)
+        XCTAssertEqual(vm.pocket1Index, 5)
+        XCTAssertEqual(vm.pocket2Index, 3)
+        vm.clearPaletteRole("_3")
+        vm.selectPaletteBall("_2")
+        XCTAssertEqual(vm.editingRole, 1)
+        vm.selectPaletteBall("_3")
+        XCTAssertEqual(vm.ball2Key, "_3")
+        XCTAssertEqual(vm.pocket2Index, -1)
+        XCTAssertEqual(vm.ball1Key, "_1")
+        XCTAssertEqual(vm.pocket1Index, 5)
+        vm.selectPocket(at: 2)
+        vm.selectPaletteBall("_2")
+        XCTAssertEqual(vm.ball3Key, "_2")
+        XCTAssertTrue(vm.paletteRoleDescription("_3")?.contains("下一颗目标球") == true)
+    }
+    func testMissingNextBallNeverChangesCurrentPocketAndRequestsDoNotStrike() {
+        let vm = configured(); vm.clearRole(.ball2); vm.armRole(.ball3)
+        vm.selectPocket(at: 5)
+        XCTAssertEqual(vm.pocket1Index, 1); XCTAssertEqual(vm.pocket2Index, -1)
+        XCTAssertTrue(vm.statusText.contains("先选择下一颗球"))
+        vm.requestStrike(); XCTAssertFalse(vm.isPlaying)
+        vm.solve(); XCTAssertFalse(vm.isComputing)
+        XCTAssertFalse(vm.canUndoShot)
+    }
+    func testSuccessfulSettleRollsOnceAndLocksInheritedBallAndPocket() {
+        let vm = configured(); let solution = completion(vm)
+        vm.finishStrike(sol: solution)
+        XCTAssertEqual(vm.ball1Key, "_2"); XCTAssertEqual(vm.pocket1Index, 3)
+        XCTAssertEqual(vm.ball2Key, "_3"); XCTAssertEqual(vm.pocket2Index, -1)
+        XCTAssertNil(vm.ball3Key); XCTAssertTrue(vm.currentRoleLocked)
+        vm.finishStrike(sol: solution)
+        XCTAssertEqual(vm.ball1Key, "_2", "Duplicate completion cannot advance twice")
+        vm.armRole(.ball1); vm.selectPocket(at: 5); vm.selectTarget(key: "_3"); vm.clearRole(.ball1)
+        XCTAssertEqual(vm.ball1Key, "_2"); XCTAssertEqual(vm.pocket1Index, 3)
+        vm.removeFromTable("_2")
+        XCTAssertTrue(vm.onTableKeys.contains("_2"))
+        vm.clearPlan()
+        XCTAssertEqual(vm.ball1Key, "_2"); XCTAssertEqual(vm.pocket1Index, 3)
+        XCTAssertNil(vm.ball2Key); XCTAssertTrue(vm.currentRoleLocked)
+    }
+    func testRetrySnapshotRestoresRolesParametersConstraintsAndEarlierLock() {
+        let vm = configured(); let solution = completion(vm)
+        let before = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
+        vm.finishStrike(sol: solution)
+        let inherited = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
+        vm.restore(from: before)
+        XCTAssertFalse(vm.currentRoleLocked)
+        XCTAssertEqual(vm.ball1Key, "_1"); XCTAssertEqual(vm.ball2Key, "_2"); XCTAssertEqual(vm.ball3Key, "_3")
+        XCTAssertEqual(vm.pocket1Index, 1); XCTAssertEqual(vm.pocket2Index, 3)
+        XCTAssertEqual(vm.velocity, before.snapshot.velocity); XCTAssertEqual(vm.spinX, before.snapshot.spinX)
+        XCTAssertEqual(vm.hasConstraint, before.snapshot.draft != nil)
+        vm.armRole(.ball2); vm.selectPocket(at: 0)
+        XCTAssertEqual(vm.pocket2Index, 0, "Previous next pocket becomes editable after retry")
+        vm.restore(from: inherited)
+        XCTAssertTrue(vm.currentRoleLocked)
+        vm.armRole(.ball1); vm.selectPocket(at: 0)
+        XCTAssertEqual(vm.pocket1Index, 3, "A lock from an earlier stroke survives snapshot restoration")
+    }
+    func testFailureAndUnexpectedFuturePocketUseActualRemainingBalls() {
+        let vm = configured()
+        vm.finishStrike(sol: completion(vm, potted: false, extra: ["_3"]))
+        XCTAssertEqual(vm.ball1Key, "_1"); XCTAssertEqual(vm.ball2Key, "_2")
+        XCTAssertNil(vm.ball3Key); XCTAssertFalse(vm.currentRoleLocked)
+        let next = configured()
+        next.finishStrike(sol: completion(next, extra: ["_2"]))
+        XCTAssertNil(next.ball1Key); XCTAssertEqual(next.pocket1Index, -1)
+        XCTAssertEqual(next.ball2Key, "_3"); XCTAssertFalse(next.currentRoleLocked)
+    }
+    func testNewBoardClearsOldBindingsLockAndHistory() {
+        let vm = configured(); vm.finishStrike(sol: completion(vm))
+        XCTAssertTrue(vm.currentRoleLocked)
+        vm.resetAll()
+        XCTAssertNil(vm.ball1Key); XCTAssertNil(vm.ball2Key); XCTAssertNil(vm.ball3Key)
+        XCTAssertFalse(vm.currentRoleLocked); XCTAssertFalse(vm.canUndoShot); XCTAssertFalse(vm.canPlayback)
+        vm.uiTestConfigure("oneBall")
+        XCTAssertTrue(vm.canSolve); XCTAssertTrue(vm.canPotOnly)
+        vm.clearTable(); XCTAssertFalse(vm.canSolve)
+        XCTAssertNil(vm.ball1Key); XCTAssertEqual(vm.pocket1Index, -1)
+    }
+    func testPreviousStepRetainsDraftAndDoesNotReplayPocketChanges() {
+        let vm = configured()
+        vm.armRole(.pocket2)
+        for pocket in [0, 4, 2] { vm.selectPocket(at: pocket) }
+        vm.selectPaletteBall("_3")
+        let generation = vm.solveGeneration
+        for expected in [PlanThreeRole.pocket2, .ball2, .pocket1, .ball1] {
+            XCTAssertTrue(vm.canGoToPreviousStep)
+            vm.goToPreviousStep()
+            XCTAssertEqual(vm.armedRole, expected)
+            XCTAssertEqual(vm.pocket2Index, 2)
+            XCTAssertEqual(vm.ball3Key, "_3")
+            XCTAssertEqual(vm.solveGeneration, generation)
+        }
+        XCTAssertFalse(vm.canGoToPreviousStep)
+    }
+    func testRolledDraftStartsAtSecondPocketAndPreviousStopsAtLock() {
+        let vm = configured(); vm.finishStrike(sol: completion(vm))
+        XCTAssertEqual(vm.armedRole, .pocket2)
+        vm.goToPreviousStep(); XCTAssertEqual(vm.armedRole, .ball2)
+        XCTAssertFalse(vm.canGoToPreviousStep)
+        XCTAssertEqual(vm.ball2Key, "_3")
+        XCTAssertEqual(vm.pocket1Index, 3)
+        vm.goToPreviousStep(); XCTAssertEqual(vm.armedRole, .ball2)
+    }
+
+    func testRoleChangesInvalidateSolvedCatalogAndLateGeneration() async throws {
+        let vm = PlanThreeViewModel(); vm.setupScene(); vm.uiTestConfigure("oneBall")
+        vm.solve()
+        let deadline = Date().addingTimeInterval(30)
+        while vm.isComputing && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertTrue(vm.hasSolutions)
+        let generation = vm.solveGeneration
+        vm.armRole(.ball1); vm.selectPocket(at: 3)
+        XCTAssertGreaterThan(vm.solveGeneration, generation)
+        XCTAssertFalse(vm.hasSolutions); XCTAssertFalse(vm.canStrike)
+        vm.requestStrike(); XCTAssertFalse(vm.isPlaying); XCTAssertEqual(vm.statusText, "请先求解")
+    }
+}

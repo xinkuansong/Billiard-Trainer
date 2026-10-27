@@ -292,8 +292,10 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                     .freeControlItem("solver.mode", name: "求解或自由")
                 if !free {
                     Menu {
-                        Button("自动") { vm.selectCushions(nil) }
-                        ForEach(vm.cushionOptions, id: \.self) { n in Button("\(n)库") { vm.selectCushions(n) } }
+                        BTChoiceMenuItem(title: "自动", selected: vm.selectedCushions == nil) { vm.selectCushions(nil) }
+                        ForEach(vm.cushionOptions, id: \.self) { n in
+                            BTChoiceMenuItem(title: "\(n)库", selected: vm.selectedCushions == n) { vm.selectCushions(n) }
+                        }
                     } label: {
                         Text(vm.selectedCushions.map { "\($0)库" } ?? "自动").font(.btCaption).foregroundStyle(.white)
                             .frame(width: 44, height: 44)

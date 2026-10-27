@@ -1783,6 +1783,13 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
+            #if DEBUG
+            if pocketProbeEnabled, let view = scnView {
+                let point = gesture.location(in: view)
+                pocketProbeLastTap = "\(point) enabled=\(gesturesEnabled) callback=\(onPocketTapped != nil)"
+                updatePocketAccessibility()
+            }
+            #endif
             if scene.cameraRig?.temporaryTopDownActive == true {
                 if let view = scnView { handleOverlayTap(gesture.location(in: view)) }
                 return
@@ -1890,6 +1897,7 @@ struct AngleSceneView: UIViewRepresentable {
         private var dragProbeMoveCount = 0
         private var overlayDragProbe: [String: Any] = [:]
         private let dragProbeEnabled = ProcessInfo.processInfo.arguments.contains("-3dDrag.probe")
+        private var pocketProbeLastTap = "none"
         private let pocketProbeEnabled = ProcessInfo.processInfo.arguments.contains("-pocketSelection.probe")
         private func dragProbeValue(in view: SCNView) -> String {
             let balls: [[String: Any]] = scene.allBallNodes.sorted { $0.key < $1.key }.compactMap { key, node in
@@ -1907,6 +1915,14 @@ struct AngleSceneView: UIViewRepresentable {
             var data: [String: Any] = ["rendererID": dragProbeRendererID, "panCount": dragProbePanCount, "grabCount": dragProbeGrabCount, "moveCount": dragProbeMoveCount, "balls": balls, "camera": [transform.m11, transform.m12, transform.m13,
                 transform.m21, transform.m22, transform.m23, transform.m31, transform.m32, transform.m33,
                 transform.m41, transform.m42, transform.m43]]
+            if let handle = scene.rootNode.childNode(withName: "geometryReference.handle", recursively: false) {
+                let p = view.projectPoint(handle.position)
+                let w = view.convert(CGPoint(x: CGFloat(p.x), y: CGFloat(p.y)), to: nil)
+                data["geometryHandle"] = ["visible": !handle.isHidden, "screen": [w.x, w.y],
+                    "world": [handle.position.x, handle.position.z],
+                    "draggable": draggableBallNodes.contains(handle)]
+            }
+            data["selectionFeedback"] = ["balls": scene.manualBallFeedbackCount, "rolePockets": scene.rolePocketFeedbackCount]
             data["overlayDrag"] = overlayDragProbe
             data["formationHandles"] = scene.rootNode.childNodes.filter { $0.name?.hasPrefix("formation.vertex.") == true || $0.name?.hasPrefix("formation.measure.") == true }.map { node -> [String:Any] in
                 let p = view.projectPoint(node.position)
@@ -1994,12 +2010,48 @@ struct AngleSceneView: UIViewRepresentable {
                     let points = AngleSceneCalculator.pocketMarkerPositions(surfaceY: scene.surfaceY)
                     let p = scnView.projectPoint(points[marker.pocketIndex])
                     let pulse = marker.childNode(withName: "leather_selectionPulse", recursively: true)
-                    return ["index": marker.pocketIndex, "screen": [p.x, p.y, p.z],
+                    // A pocket's mathematical centre can be inside the hole or
+                    // behind its rail in perspective. Expose a measured visible
+                    // leather hit for native tests; do not alter production picking.
+                    var tap: [Float] = []
+                    var receiver = "none"
+                    if p.z >= 0, p.z <= 1 {
+                        search: for radius in [CGFloat(0), 4, 8, 12, 16, 20, 24] {
+                            for offset in [CGPoint(x: -radius, y: 0), CGPoint(x: radius, y: 0),
+                                           CGPoint(x: 0, y: -radius), CGPoint(x: 0, y: radius),
+                                           CGPoint(x: -radius, y: -radius), CGPoint(x: radius, y: -radius)] {
+                                let scale = scnView.window?.screen.scale ?? 1
+                                let point = CGPoint(x: ((CGFloat(p.x) + offset.x) * scale).rounded() / scale,
+                                                    y: ((CGFloat(p.y) + offset.y) * scale).rounded() / scale)
+                                // XCTest quantizes touches to device pixels. Keep
+                                // a 1pt interior margin so a rim-edge hit cannot
+                                // disappear after touch quantization or rounding.
+                                let interior = [CGPoint.zero, CGPoint(x: 1, y: 0), CGPoint(x: -1, y: 0),
+                                                CGPoint(x: 0, y: 1), CGPoint(x: 0, y: -1)].allSatisfy { delta in
+                                    let sample = CGPoint(x: point.x + delta.x, y: point.y + delta.y)
+                                    guard scnView.bounds.contains(sample), let hit = scnView.hitTest(sample,
+                                        options: [.searchMode: SCNHitTestSearchMode.closest.rawValue]).first else { return false }
+                                    return PocketLeatherMarker.index(of: hit.node) == marker.pocketIndex
+                                }
+                                guard interior else { continue }
+                                let windowPoint = scnView.convert(point, to: nil)
+                                tap = [Float(windowPoint.x), Float(windowPoint.y), p.z]
+                                if let hitView = scnView.window?.hitTest(windowPoint, with: nil) { receiver = String(describing: type(of: hitView)) }
+                                break search
+                            }
+                        }
+                    }
+                    return ["index": marker.pocketIndex, "screen": [p.x, p.y, p.z], "tapWindow": tap, "receiver": receiver,
                         "style": marker.style.rawValue, "yellow": pulse?.opacity ?? 0,
                         "pending": pulse?.hasActions ?? false]
                 }
-                let data: [String: Any] = ["selection": scene.pocketSelectionDescription, "pockets": pockets,
-                    "viewport": [scnView.bounds.width, scnView.bounds.height]]
+                let balls: [[String: Any]] = scene.allBallNodes.filter { !$0.value.isHidden }.map { key, node in
+                    let p = scnView.projectPoint(node.position)
+                    return ["key": key, "world": [node.position.x, node.position.y, node.position.z], "screen": [p.x, p.y, p.z]]
+                }
+                let data: [String: Any] = ["selection": scene.pocketSelectionDescription, "pockets": pockets, "balls": balls,
+                    "selectionFeedback": ["balls": scene.manualBallFeedbackCount, "rolePockets": scene.rolePocketFeedbackCount],
+                    "viewport": [scnView.bounds.width, scnView.bounds.height], "lastTap": pocketProbeLastTap]
                 if let encoded = try? JSONSerialization.data(withJSONObject: data) {
                     scnView.accessibilityValue = String(decoding: encoded, as: UTF8.self)
                 }

@@ -204,6 +204,7 @@ enum HistoryDayItem: Identifiable {
     case accuracy(AccuracyPracticeRecord)
     case separation(SeparationPracticeRecord)
     case twoBall(TwoBallPracticeRecord)
+    case threeBall(ThreeBallPracticeRecord)
 
     var id: String {
         switch self {
@@ -213,6 +214,7 @@ enum HistoryDayItem: Identifiable {
         case .accuracy(let a):  return "accuracy_\(a.id.uuidString)"
         case .separation(let a): return "separation_\(a.id.uuidString)"
         case .twoBall(let a): return "twoBall_\(a.id.uuidString)"
+        case .threeBall(let a): return "threeBall_\(a.id.uuidString)"
         }
     }
 
@@ -224,6 +226,7 @@ enum HistoryDayItem: Identifiable {
         case .accuracy(let a):  return a.startedAt
         case .separation(let a): return a.startedAt
         case .twoBall(let a): return a.startedAt
+        case .threeBall(let a): return a.startedAt
         }
     }
 }
@@ -287,6 +290,8 @@ final class HistoryViewModel: ObservableObject {
     /// `kind="tool"` 的真会话，只有日期与时长。
     @Published var toolSessions: [ToolSessionItem] = []
     @Published var twoBallSessions: [TwoBallPracticeRecord] = []
+    @Published var unreadableThreeBallCount = 0
+    @Published var threeBallSessions: [ThreeBallPracticeRecord] = []
     @Published var unreadableTwoBallCount = 0
     @Published var separationSessions: [SeparationPracticeRecord] = []
     @Published var unreadableSeparationCount = 0
@@ -328,6 +333,9 @@ final class HistoryViewModel: ObservableObject {
         for a in twoBallSessions {
             comps.insert(cal.dateComponents([.year, .month, .day], from: a.startedAt))
         }
+        for a in threeBallSessions {
+            comps.insert(cal.dateComponents([.year, .month, .day], from: a.startedAt))
+        }
         for a in separationSessions {
             comps.insert(cal.dateComponents([.year, .month, .day], from: a.startedAt))
         }
@@ -356,6 +364,7 @@ final class HistoryViewModel: ObservableObject {
             .map(HistoryDayItem.accuracy))
         items.append(contentsOf: separationSessions.filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }.map(HistoryDayItem.separation))
         items.append(contentsOf: twoBallSessions.filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }.map(HistoryDayItem.twoBall))
+        items.append(contentsOf: threeBallSessions.filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }.map(HistoryDayItem.threeBall))
         return items.sorted { $0.date > $1.date }
     }
 
@@ -368,7 +377,7 @@ final class HistoryViewModel: ObservableObject {
     }
 
     var hasAnySessions: Bool {
-        !drillSessions.isEmpty || !cognitiveSessions.isEmpty || !toolSessions.isEmpty || !accuracySessions.isEmpty || !separationSessions.isEmpty || !twoBallSessions.isEmpty
+        !drillSessions.isEmpty || !cognitiveSessions.isEmpty || !toolSessions.isEmpty || !accuracySessions.isEmpty || !separationSessions.isEmpty || !twoBallSessions.isEmpty || !threeBallSessions.isEmpty
     }
 
     // MARK: - Category Helpers
@@ -428,6 +437,7 @@ final class HistoryViewModel: ObservableObject {
             return .training("角度")
         }
         if twoBallSessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) { return .toolActivity("两球走位") }
+        if threeBallSessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) { return .toolActivity("三球走位") }
         if separationSessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) { return .toolActivity("分离角") }
         if accuracySessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) {
             return .training("模拟")
@@ -554,6 +564,8 @@ final class HistoryViewModel: ObservableObject {
         toolSessions = allSessions
             .filter { $0.kind == TrainingSessionKind.tool }
             .map(ToolSessionItem.make)
+        let threeBall = Self.assembleThreeBallSessions(sessions: allSessions)
+        threeBallSessions = threeBall.records; unreadableThreeBallCount = threeBall.unreadableCount
         let twoBall = Self.assembleTwoBallSessions(sessions: allSessions)
         twoBallSessions = twoBall.records; unreadableTwoBallCount = twoBall.unreadableCount
         let separation = Self.assembleSeparationSessions(sessions: allSessions)
@@ -585,6 +597,22 @@ final class HistoryViewModel: ObservableObject {
     /// ⛔ 不做任何时间间隔推断：归属完全来自 `AngleTestResult.sessionId`（W5 落库 +
     /// 一次性回填）。仍无归属的成绩不在此显示——它们由 `CognitiveSessionBackfill`
     /// 在启动时补建会话，条数记在 `unassignedCognitiveResultCount` 里。
+    static func assembleThreeBallSessions(sessions: [TrainingSession]) -> (records: [ThreeBallPracticeRecord], unreadableCount: Int) {
+        var records: [ThreeBallPracticeRecord] = []
+        var unreadable = 0
+        for session in sessions where session.kind == TrainingSessionKind.threeBallPractice {
+            do {
+                guard let data = session.sourcePayloadSnapshot else { throw ThreeBallBank.Failure.invalid }
+                let record = try ThreeBallPracticeRecord.decodePayload(data)
+                guard record.isCompatible, record.id == session.id, record.ownerKey == session.ownerKey else {
+                    throw ThreeBallBank.Failure.invalid
+                }
+                if !record.attempts.isEmpty { records.append(record) }
+            } catch { unreadable += 1 }
+        }
+        return (records.sorted { $0.startedAt > $1.startedAt }, unreadable)
+    }
+
     static func assembleTwoBallSessions(sessions: [TrainingSession]) -> (records: [TwoBallPracticeRecord], unreadableCount: Int) {
         var records: [TwoBallPracticeRecord] = []
         var unreadable = 0

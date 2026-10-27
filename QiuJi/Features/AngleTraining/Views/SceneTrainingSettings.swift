@@ -12,6 +12,8 @@ struct SceneTrainingSettings<Batch>: View {
     @State private var draftMode: TwoBallMode
     @State private var draftShowsReference: Bool
     @State private var draftPlaysStroke: Bool
+    @State private var modeDrafts: [TwoBallMode: TwoBallSettingsPreference] = [:]
+    @State private var loadedDraft = false
     let onStart: (SceneTrainingConfiguration, Batch) -> Void
     let onCancel: () -> Void
     @EnvironmentObject private var subscription: SubscriptionManager
@@ -27,6 +29,8 @@ struct SceneTrainingSettings<Batch>: View {
     @ObservedObject private var limiter: AngleUsageLimiter
     @StateObject private var resetNotice = BTRuleNoticeCenter()
     private var showsAccuracyShotSettings: Bool { route.hasPrefix("accuracy") && showsSpinOptions }
+    private var usesFirstShotConditions: Bool { twoBallMode != nil || route.hasPrefix("threeBallPractice") }
+    private var showsReferenceSpin: Bool { showsSpinOptions && !showsAccuracyShotSettings && (twoBallMode == nil || draftMode == .trajectory) }
     init(route: String, configuration: SceneTrainingConfiguration, restarting: Bool,
          showsSpinOptions: Bool = false, strokePlayback: Binding<Bool>? = nil,
          centerReference: Binding<Bool>? = nil, twoBallMode: Binding<TwoBallMode>? = nil,
@@ -45,12 +49,19 @@ struct SceneTrainingSettings<Batch>: View {
     }
     var body: some View {
         Form {
-            Section {
-                if twoBallMode != nil {
-                    Picker("走位模式", selection: $draftMode) {
+            if route.hasPrefix("threeBallPractice") {
+                Section {
+                    explanation("提前选下一球袋口，完成两次连续走位。")
+                }
+            }
+            if twoBallMode != nil {
+                Section("走位模式") {
+                    Picker("走位模式", selection: modeSelection) {
                         ForEach(TwoBallMode.allCases, id: \.self) { Text($0.title).tag($0) }
                     }.pickerStyle(.segmented).accessibilityIdentifier("twoBall.mode")
                 }
+            }
+            Section {
                 BTTrainingModePicker(count: 20, isPremium: subscription.isPremium, freePractice: Binding(get: { draft.freePractice }, set: { requested in
                     if requested && !subscription.isPremium {
                         pendingFreePractice = true; showSubscription = true
@@ -58,9 +69,11 @@ struct SceneTrainingSettings<Batch>: View {
                     else { draft.freePractice = requested }
                 })).accessibilityIdentifier("training.length")
             } header: {
-                Text("练习模式")
+                Text("训练量")
             } footer: {
-                if route.hasPrefix("twoBallPractice") {
+                if route.hasPrefix("threeBallPractice") {
+                    explanation("前两球为同组的两颗不同号码球，最后一球为黑八。第一杆前选第二球袋口，第二杆前选黑八袋口；两次走位得分取平均，重打不覆盖首答。")
+                } else if route.hasPrefix("twoBallPractice") {
                     explanation(draftMode == .trajectory
                         ? "均分先汇总每题各轨迹的首答，再按题平均；跳过不计分，重打不覆盖首答。"
                         : "按实际停点的球距、出杆空间和角度评0–100分，越高越好；均分统计首答，本题均分包含重打。")
@@ -70,9 +83,9 @@ struct SceneTrainingSettings<Batch>: View {
             }
             if showsAccuracyShotSettings {
                 Section {
-                    Toggle("高低杆", isOn: $draft.allowsManualVerticalSpin)
+                    Toggle("自行调整高低杆", isOn: $draft.allowsManualVerticalSpin)
                         .accessibilityIdentifier("accuracy.manualVerticalSpin")
-                    Toggle("左右塞", isOn: $draft.allowsManualSideSpin)
+                    Toggle("自行调整左右塞", isOn: $draft.allowsManualSideSpin)
                         .accessibilityIdentifier("accuracy.manualSideSpin")
                 } header: {
                     Text("击球设置")
@@ -81,36 +94,18 @@ struct SceneTrainingSettings<Batch>: View {
                         .accessibilityIdentifier("accuracy.shotSettingsNote")
                 }
             }
-            if strokePlayback != nil || centerReference != nil {
-                Section {
-                    if strokePlayback != nil {
-                        Toggle("击球", isOn: $draftPlaysStroke)
-                            .accessibilityIdentifier("separation.playsStroke")
-                    }
-                    if centerReference != nil {
-                        Toggle("中杆参考", isOn: $draftShowsReference)
-                            .accessibilityIdentifier("separation.showsReference")
-                    }
-                } header: {
-                    Text("击球设置").accessibilityIdentifier("separation.shotSettingsHeader")
-                } footer: {
-                    Text("注：已进行瞄准补偿")
-                        .font(.btCaption2).foregroundStyle(.btTextSecondary)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .accessibilityIdentifier("separation.aimCompensationNote")
-                }
-            }
+            if showsReferenceSpin { spinSection }
             if !subscription.isPremium {
                 Section {
                     explanation("今天剩余 \(limiter.remainingToday) 题 · 每个2D训练每天20题")
                         .font(.btCaption).foregroundStyle(.btTextSecondary)
                 }
             }
-            Section("角度范围") {
+            Section(usesFirstShotConditions ? "第一杆角度范围" : "角度范围") {
                 ForEach(SceneTrainingConfiguration.AngleRange.allCases) { range in
                     Button { SceneTrainingConfiguration.toggle(range, random: .mixed, in: &draft.angleSelection) } label: {
                         HStack {
-                            Text(range.label).foregroundStyle(.btText)
+                            Text(range == .mixed ? "综合 · 0–85°" : range.label).foregroundStyle(.btText)
                             Spacer()
                             BTSelectionIndicator(isSelected: draft.angleSelection.contains(range))
                         }
@@ -120,17 +115,17 @@ struct SceneTrainingSettings<Batch>: View {
                 }
             }
             Section {
-                DisclosureGroup("球形条件", isExpanded: $conditionsExpanded) {
-                    TrainingMultiSelectRow(title: "母球距离", identifier: "training.cueDistance",
+                DisclosureGroup(usesFirstShotConditions ? "第一杆球形条件" : "球形条件", isExpanded: $conditionsExpanded) {
+                    TrainingMultiSelectRow(title: "母球到目标球", identifier: "training.cueDistance",
                         selection: $draft.cueDistanceSelection, choices: SceneTrainingConfiguration.Distance.allCases,
                         random: .mixed, label: { $0.label(cue: true) }, summaryLabel: { $0.shortLabel })
-                    TrainingMultiSelectRow(title: "目标球距袋", identifier: "training.pocketDistance",
+                    TrainingMultiSelectRow(title: "目标球到袋口", identifier: "training.pocketDistance",
                         selection: $draft.pocketDistanceSelection, choices: SceneTrainingConfiguration.Distance.allCases,
                         random: .mixed, label: { $0.label(cue: false) }, summaryLabel: { $0.shortLabel })
-                    TrainingMultiSelectRow(title: "袋口类型", identifier: "training.pockets",
+                    TrainingMultiSelectRow(title: "目标袋类型", identifier: "training.pockets",
                         selection: $draft.pocketSelection, choices: SceneTrainingConfiguration.Pockets.allCases,
                         random: .mixed, label: { $0.label })
-                    TrainingMultiSelectRow(title: "库边距离", identifier: "training.railDistance",
+                    TrainingMultiSelectRow(title: "目标球离库", identifier: "training.railDistance",
                         selection: $draft.railDistanceSelection, choices: SceneTrainingConfiguration.RailDistance.allCases,
                         random: .mixed, label: { $0.label })
                 }
@@ -138,22 +133,8 @@ struct SceneTrainingSettings<Batch>: View {
                     .font(.btCaption).foregroundStyle(.btTextSecondary)
                     .accessibilityIdentifier("training.conditionsInfo")
             }
-            if showsSpinOptions {
-                Section {
-                    Toggle(showsAccuracyShotSettings ? "高低杆" : "允许高低杆", isOn: $draft.allowsVerticalSpin)
-                        .accessibilityIdentifier("training.verticalSpin")
-                    Toggle(showsAccuracyShotSettings ? "左右塞" : "允许左右塞", isOn: $draft.allowsSideSpin)
-                        .accessibilityIdentifier("training.sideSpin")
-                } header: { Text(showsAccuracyShotSettings ? "出题设置" : "出题杆法") } footer: {
-                    if showsAccuracyShotSettings {
-                        spinNote("注：开启后会自动关闭对应的击球设置。")
-                            .accessibilityIdentifier("training.spinInfo")
-                    } else {
-                        explanation("影响目标轨迹的出题杆法。练习时可自由调整打点和力度，由系统补偿瞄准。")
-                            .accessibilityIdentifier("training.spinInfo")
-                    }
-                }
-            }
+            if showsAccuracyShotSettings { spinSection }
+            if strokePlayback != nil || centerReference != nil { demonstrationSection }
             if let error {
                 Section {
                     explanation(error).foregroundStyle(.btDestructive).accessibilityIdentifier("training.generationError")
@@ -163,6 +144,9 @@ struct SceneTrainingSettings<Batch>: View {
             if preparing { ProgressView("正在检查球形条件…") }
             BTTrainingSettingsResetSection {
                 draft = .defaults(for: route)
+                if twoBallMode != nil {
+                    modeDrafts = Dictionary(uniqueKeysWithValues: TwoBallMode.allCases.map { ($0, .defaults(for: route)) })
+                }
                 draftMode = SceneTrainingSettingsDefaults.twoBallMode
                 draftShowsReference = SceneTrainingSettingsDefaults.showsReference
                 draftPlaysStroke = SceneTrainingSettingsDefaults.playsStroke
@@ -177,19 +161,31 @@ struct SceneTrainingSettings<Batch>: View {
         }
         .navigationTitle("训练设置").navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden()
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button(restarting ? "重新开始" : "开始训练", action: prepare)
-                    .disabled(preparing).accessibilityIdentifier(route.hasPrefix("twoBallPractice") ? "twoBall.start" : (route.hasPrefix("separationPractice") || route.hasPrefix("twoBallPractice")) ? "separation.start" : route.hasPrefix("accuracy") ? "accuracy.start" : (route.hasPrefix("aimPoint") ? "aimPointTraining.start" : "angleTraining.start"))
+            ToolbarItem(placement: .principal) {
+                Text("训练设置").font(.btHeadline).foregroundStyle(.btPrimary)
+                    .accessibilityAddTraits(.isHeader)
             }
-            ToolbarItem(placement: .cancellationAction) {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(restarting ? "重新开始" : "开始训练", action: prepare)
+                    .disabled(preparing).accessibilityIdentifier(route.hasPrefix("threeBallPractice") ? "threeBall.start" : route.hasPrefix("twoBallPractice") ? "twoBall.start" : (route.hasPrefix("separationPractice") || route.hasPrefix("twoBallPractice") || route.hasPrefix("threeBallPractice")) ? "separation.start" : route.hasPrefix("accuracy") ? "accuracy.start" : (route.hasPrefix("aimPoint") ? "aimPointTraining.start" : "angleTraining.start"))
+            }
+            ToolbarItem(placement: .topBarLeading) {
                 Button(restarting ? "取消" : "返回") { generation?.cancel(); onCancel() }
                     .accessibilityIdentifier("training.settingsCancel")
             }
         }
         .onAppear {
             limiter.refreshDay()
-            if !restarting { draft = .load(for: route) }
+            if !loadedDraft {
+                if twoBallMode != nil {
+                    modeDrafts = Dictionary(uniqueKeysWithValues: TwoBallMode.allCases.map { ($0, .load(for: route, mode: $0)) })
+                    if restarting { modeDrafts[draftMode] = currentModeDraft }
+                    else { applyModeDraft(modeDrafts[draftMode]!) }
+                } else if !restarting { draft = .load(for: route) }
+                loadedDraft = true
+            }
             if !subscription.isPremium { draft.freePractice = false }
         }
         .onChange(of: subscription.isPremium) { _, premium in if !premium { draft.freePractice = false } }
@@ -202,9 +198,61 @@ struct SceneTrainingSettings<Batch>: View {
         }) { SubscriptionView() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { limiter.refreshDay() }
-            if phase != .active, (route.hasPrefix("separationPractice") || route.hasPrefix("twoBallPractice")) { generation?.cancel(); preparing = false }
+            if phase != .active, (route.hasPrefix("separationPractice") || route.hasPrefix("twoBallPractice") || route.hasPrefix("threeBallPractice")) { generation?.cancel(); preparing = false }
         }
         .onDisappear { generation?.cancel(); resetNotice.clear() }
+    }
+    private var currentModeDraft: TwoBallSettingsPreference {
+        .init(configuration: draft, playsStroke: draftPlaysStroke, showsReference: draftShowsReference)
+    }
+    private func applyModeDraft(_ value: TwoBallSettingsPreference) {
+        draft = value.configuration
+        if !subscription.isPremium { draft.freePractice = false }
+        draftPlaysStroke = value.playsStroke
+        draftShowsReference = value.showsReference
+    }
+    private var modeSelection: Binding<TwoBallMode> {
+        Binding(get: { draftMode }, set: { mode in
+            guard mode != draftMode else { return }
+            modeDrafts[draftMode] = currentModeDraft
+            draftMode = mode
+            applyModeDraft(modeDrafts[mode] ?? .load(for: route, mode: mode))
+            error = nil
+        })
+    }
+    private var spinSection: some View {
+        Section {
+            Toggle(showsAccuracyShotSettings ? "系统指定高低杆" : "包含高低杆", isOn: $draft.allowsVerticalSpin)
+                .accessibilityIdentifier("training.verticalSpin")
+            Toggle(showsAccuracyShotSettings ? "系统指定左右塞" : "包含左右塞", isOn: $draft.allowsSideSpin)
+                .accessibilityIdentifier("training.sideSpin")
+        } header: { Text(showsAccuracyShotSettings ? "出题设置" : "参考路线杆法") } footer: {
+            if showsAccuracyShotSettings {
+                spinNote("开启后会自动关闭对应的自行调整选项。")
+                    .accessibilityIdentifier("training.spinInfo")
+            } else {
+                explanation("仅筛选参考路线的杆法。练习时仍可自由调整打点和力度。")
+                    .accessibilityIdentifier("training.spinInfo")
+            }
+        }
+    }
+    private var demonstrationSection: some View {
+        Section {
+            if strokePlayback != nil {
+                Toggle("播放击球过程", isOn: $draftPlaysStroke)
+                    .accessibilityIdentifier("separation.playsStroke")
+            }
+            if centerReference != nil {
+                Toggle("提交后保留中杆参考", isOn: $draftShowsReference)
+                    .accessibilityIdentifier("separation.showsReference")
+            }
+        } header: {
+            Text("演示与参考").accessibilityIdentifier("separation.shotSettingsHeader")
+        } footer: {
+            explanation("首次提交前始终显示中杆参考。关闭播放会直接显示击球结果；已进行瞄准补偿。")
+                .font(.btCaption).foregroundStyle(.btTextSecondary)
+                .accessibilityIdentifier("separation.aimCompensationNote")
+        }
     }
     private func spinNote(_ text: String) -> some View {
         explanation(text)
@@ -230,7 +278,7 @@ struct SceneTrainingSettings<Batch>: View {
             showSubscription = true; return
         }
         preparing = true; error = nil
-        let configuration = draft
+        let configuration = twoBallMode == nil ? draft : draft.forTwoBallMode(draftMode)
         generation = Task {
             let worker = Task.detached(priority: .userInitiated) { () -> Result<Batch, Error> in
                 Result { try prepareBatch(configuration) }
@@ -244,6 +292,10 @@ struct SceneTrainingSettings<Batch>: View {
             preparing = false
             switch outcome {
             case .success(let questions):
+                if twoBallMode != nil {
+                    modeDrafts[draftMode] = currentModeDraft
+                    for (mode, value) in modeDrafts { value.save(for: route, mode: mode) }
+                }
                 configuration.save(for: route)
                 twoBallMode?.wrappedValue = draftMode
                 centerReference?.wrappedValue = draftShowsReference
@@ -279,7 +331,7 @@ struct TrainingMultiSelectRow<Choice: Hashable & Identifiable>: View {
     var summaryLabel: ((Choice) -> String)? = nil
     @State private var expanded = false
     private var summary: String {
-        choices.filter { selection.contains($0) }.map { summaryLabel?($0) ?? label($0) }.joined(separator: "、")
+        choices.filter { selection.contains($0) }.map { $0 == random ? "综合" : (summaryLabel?($0) ?? label($0)) }.joined(separator: "、")
     }
     var body: some View {
         Button { expanded = true } label: {
@@ -299,7 +351,7 @@ struct TrainingMultiSelectRow<Choice: Hashable & Identifiable>: View {
                     } label: {
                         HStack(spacing: Spacing.md) {
                             BTSelectionIndicator(isSelected: selection.contains(choice))
-                            Text(label(choice)).foregroundStyle(.btText)
+                            Text(choice == random ? "综合" : label(choice)).foregroundStyle(.btText)
                             Spacer(minLength: 0)
                         }.padding(.horizontal, Spacing.lg).frame(minHeight: 44).contentShape(Rectangle())
                     }.buttonStyle(.plain)

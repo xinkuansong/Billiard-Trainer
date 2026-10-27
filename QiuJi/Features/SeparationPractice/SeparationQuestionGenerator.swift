@@ -1,6 +1,26 @@
 import Foundation
 import SceneKit
 
+/// A new identity represents a user action, even when its short text repeats.
+struct TrainingPracticeNotice: Equatable {
+    let id = UUID()
+    let text: String
+    static let cannotPot = "0分，无法进指定袋，请重打"
+    static let noDirectRoute = "无法进指定袋"
+
+    static func recoverable(_ error: Error, reference: Bool = false) -> Self? {
+        guard let failure = error as? SeparationQuestionGenerator.Failure else { return nil }
+        switch failure {
+        case .inaccessible:
+            return .init(text: reference ? "中杆参考不可用，可调整打点后击球" : failure.localizedDescription)
+        case .noDirectRoute:
+            return .init(text: reference ? "中杆参考线路不可用" : "当前线路无法进指定袋，请重打")
+        case .unavailable, .incomplete, .incompatible:
+            return nil
+        }
+    }
+}
+
 /// All positions are SceneKit X/Z metres. Y comes from the live table, never a screen projection.
 enum SeparationQuestionGenerator {
     static let version = "separation-planar-v1"
@@ -10,13 +30,14 @@ enum SeparationQuestionGenerator {
     static let scanStep: Float = 0.01
     static let fineStep: Float = 0.0025
     enum Failure: LocalizedError {
-        case unavailable, inaccessible, incomplete, incompatible
+        case unavailable, inaccessible, incomplete, incompatible, noDirectRoute
         var errorDescription: String? {
             switch self {
             case .unavailable: "当前条件下未找到可用的目标轨迹，请重试或调整训练条件。"
             case .inaccessible: "当前打点受库边或球遮挡，请调整打点后击球。"
             case .incomplete: "本杆未能完成模拟，请重试；本次没有计入题数。"
             case .incompatible: "练习规则已更新，原记录已保留，请重新开始练习。"
+            case .noDirectRoute: "当前线路无法进指定袋，请重打"
             }
         }
     }
@@ -84,6 +105,8 @@ enum SeparationQuestionGenerator {
             pocketIndex: board.pocketIndex, velocity: input.velocity, spinX: input.spinX, spinY: input.spinY,
             surfaceY: surfaceY, pocketAimOverride: board.effectiveAim.vector), maxEvents: 1500, maxTime: 60)
         try Task.checkCancellation()
+        // Geometry rejection is an ordinary unavailable route, not a failed simulation.
+        if !prediction.feasible { throw Failure.noDirectRoute }
         guard let direction = prediction.strikeDirection, direction.x.isFinite, direction.z.isFinite else {
             throw Failure.incomplete
         }

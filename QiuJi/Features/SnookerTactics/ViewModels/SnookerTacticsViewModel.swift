@@ -480,6 +480,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         selectedTargetKey = key
         refreshOverlays()
         invalidateSolutions()
+        scene.confirmBallSelection(key: key)
     }
 
     func clearSelection() {

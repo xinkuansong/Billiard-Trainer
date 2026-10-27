@@ -1,3 +1,14 @@
+<!-- DR-447 r2（2026-10-28）：几何工具命名“测量”，右侧锚定紧凑popover，112pt基准宽／44pt行；中杆参考与测量灰线提亮。状态见GEOMETRIC-REFERENCE-20261028 r2。 -->
+<!-- Changelog 2026-10-28 DR-448：训练设置逐类字段、顺序与默认；持续练习/综合文案，两球按模式隔离及自由走位免路线杆法筛选，iPad原生导航位置审核。实现/验证状态以TRAINING-SETTINGS-REVIEW-20261028为准。 -->
+<!-- Changelog 2026-10-28 DR-447：指定四类练习2D/3D回放槽换几何参考，第一库限制在瞄准线目标袋异侧，保留中杆中力线；✓/□菜单，重打快照。详GEOMETRIC-REFERENCE-20261028。 -->
+<!-- Changelog 2026-10-27 DR-446/FL-214 v1：业务步骤上一步/承接后第二袋优先，固定中八资格；球库右下角标showsPaletteRoleNumbers默认false，两/三球启用，多球共用BTPaletteRoleNumber；动态球库去持续绿底。验证见PLANNING-PREVIOUS-AND-PALETTE-20261027。 -->
+<!-- Changelog 2026-10-27 DR-209 r2 / FL-064：球桌及台呢外观预览按现8×6m房间重新核完整正交图像平面，机位推进30%、尺度1.35→1.10，球房全景保持；验证见SETTINGS-APPEARANCE-20260913本轮节。 -->
+<!-- Changelog 2026-10-27 FL-213：三球前两球必须同为全色1–7或花色9–15，从同组取两个不同号码，第三固定8；覆盖旧同色全花配对误解。验证球组/不同号码/黑八/题内冻结，旧身份保持历史解码，v2指纹阻止旧活跃混组题继续。 -->
+<!-- Changelog 2026-10-27 DR-444（已接线）：全局球角色天蓝#56BFF5、金黄#F6C65B、淡紫#C3A4F4；覆盖旧蓝绿/绿青/白选中标记，物理/答案色保持。P05三角色直接操作、停稳顺延、完整重打；求解/约束保留，无新增计分或自主瞄准。共用BallRoleStyle，旧角色别名转接同源；按最后截图反馈，去掉P05/多球桌内三角色按钮与实体球角色圈，选择整合顶部球库；动作库静态图及生成链路排除。验证与未验项见方案tasks/table-page-adaptation/BALL-ROLE-COLOR-AND-PLAN-THREE-20261027.md，现行规范TP06/14/25/34。 -->
+<!-- Changelog 2026-10-27 DR-442滚动三球：①蓝当前/②绿下一/③白虚线后续无袋，双色共袋复用三球组件；缺计划点击短提醒；成功滚动且锁当前袋，重打恢复全部角色与成绩。PositionPlayViewModel可选practiceLockedTarget/practiceLockedPocket/practiceUsesPlanningRoles和refreshPracticePresentation；其他调用方默认nil/false。现行合同MULTI-BALL-ROLLING-20261027。 -->
+<!-- Changelog 2026-10-27 DR-443 v1：三球按需选袋、固定3球槽与自动衔接；两球/三球蓝绿袋口常亮。API及证据见本文末尾。 -->
+<!-- Changelog 2026-10-27 DR-442：多球2D/3D新增规划走位（默认）/自主走位，顺序只选下一袋，中八选下一球袋；绿色常亮、停稳评分、遮挡零分、ⓘ单杆/清台均分、重打撤销与回放幂等。详MULTI-BALL-PLANNING-20261027。 -->
+<!-- 2026-10-27 DR-438 r3：首页每日／继续清台入口删除免费额度与 Pro 说明行；每日2D/3D结束动作复用 DailyConfirmationCard 的实色浅深底板和淡绿主按钮，单操作可省略标题与第二动作。既有双按钮确认布局、结果信息位置、额度及回调不变。 验证见 UR-20261027-daily-result-style。 -->
 <!-- Changelog 2026-10-26 DR439r15：仅2D/3D瞄准点提交后，右侧目标上方增加本题切角与共享ThicknessOverlapIcon，信息组下移12pt；分离角不改。见AIM-POINT-RESULT-CLOSEUP-20261026。 -->
 <!-- Changelog 2026-10-26 PD-031接入：usesShotComfortRanking替代日专用命名；FreePlayRulesSession在setup前安装，自由击球/多球/蛇彩/分离角与走位启用，编辑/试打保留原策略；状态见SHOT-RECOMMENDATION-REUSE-20261026。 -->
 <!-- Changelog 2026-10-26 DR-441/FL-212：共享球库按固定桌宽的15球参考确定基础球径，少球缩短不放大；25pt下限、命中及Foundation保持。TP05及UR-20261026-palette-proportion。 -->
@@ -3398,3 +3409,20 @@ Changelog（2026-10-26 / FL-207）：覆盖DR-433/434两球评分详情约定；
 ### DR-438 · 练习Pro模式与动作（2026-10-26）
 
 共用BTTrainingModePicker限题/自由训练，锁标复用统计BTProBadge；用户修订后开始/重开/再来一局保持纯文字，额度耗尽点击直达订阅，取消保留现场。业务与验证见[执行卡](table-page-adaptation/PRO-TRAINING-ACCESS-20261026.md)。
+
+## DR-443 · 练习球库与袋口角色 API（2026-10-27，v1）
+
+`BTTablePlanningControls`新增可选`paletteKeys`（默认nil，沿原列表）及`paletteRoles`（默认空，沿原外观）。实际球数同时用于预留和绘制；`BTTeachingBallRole`的current/next使用PocketLeatherAppearance同源蓝/绿圈，completed淡化，upcoming无角色圈，配套无障碍值。三球传固定三球数组，不因进袋删槽。
+
+`AngleTrainingScene.setPracticePocketRoles(current:next:)`取消旧短亮任务并选择预建practiceCurrent、continuationTarget或practiceBoth材质；同袋蓝绿分半，不修改运行中材质。两球及三球显式使用，原自动/手动选袋短亮调用方保持。三球缺袋时按钮保持正常，点击显示BTRuleNoticeCenter短提示；角色推进及重试合同见三球页面卡。
+
+
+### 2026-10-27 DR-445 · 四类练习短提示
+
+用户确认两球/三球/分离角/准度普通提示改为ⓘ默认3秒，走位指定袋失败统一“0分，无法进指定袋，请重打”；真实模拟与保存错误保留弹窗。三球无可执行下一杆时留在0分结果，重打和首答冻结保持；两球轨迹评分及准度计数不改。已应用至`docs/design/table-pages/球桌页面统一规范.md` TP24及`tasks/table-page-adaptation/PRACTICE-NOTICES-20261027.md`；实现/测试状态与原始证据以执行卡为准。Changelog：DR-445，普通反馈与真实错误分流。
+
+Changelog（2026-10-28 / FL-215）：合法手动选球复用Scene.confirmBallSelection短暂放大及触感；持久角色袋使用confirmRolePocketSelection只确认事件，不覆盖角色颜色。普通当前球选择的自动配袋不重复触感。适用多球/P05/三球及手动目标交互页；固定题权限、球库布局和动作库静态图保持。验证以SELECTION-FEEDBACK-20261028为准。
+
+### DR-447 r2 / FL-216 测量面板验收
+
+默认112pt基准宽、每行44pt触点，贴实际来源按钮右侧；按钮常驻“测量”、开启时副行库数。以原生选项frame和整页截图同时核宽度／位置／左栏，点外仅关闭。AX逐项标识不得被父容器标识覆盖。选项复用BTSelectionIndicator。

@@ -446,6 +446,8 @@ final class SiluTrainerViewModel: TeachingTableHost {
         selectedTargetKey = key
         selectBestPocket()
         invalidateSolutions()
+        // Pocket recommendation already acknowledges this accepted selection.
+        pulseTableBall(key)
     }
 
     func selectPocket(at index: Int) {

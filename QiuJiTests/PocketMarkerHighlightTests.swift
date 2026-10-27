@@ -5,9 +5,73 @@ import XCTest
 
 @MainActor
 final class PocketMarkerHighlightTests: XCTestCase {
+    func testOtherManualTargetConsumersPulseAndAcknowledgeSelection() throws {
+        func verify(_ vm: any TeachingTableHost) throws {
+            vm.setupScene()
+            defer { vm.suspendTeachingActivity() }
+            let key = try XCTUnwrap(vm.onTableKeys.first { !PositionPlayBall.isCue($0) })
+            var acknowledgements = 0
+            vm.scene.pocketSelectionHaptic = { acknowledgements += 1 }
+            vm.selectTarget(key: key)
+            XCTAssertNotNil(vm.scene.allBallNodes[key]?.action(forKey: TableBallPulse.actionKey), "\(type(of: vm))")
+            XCTAssertEqual(acknowledgements, 1, "\(type(of: vm))")
+        }
+        try verify(AngleDynamicViewModel())
+        try verify(SeparationAngleAtlasViewModel())
+        try verify(CushionEnglishAtlasViewModel())
+        try verify(SiluTrainerViewModel())
+        let snooker = SnookerTacticsViewModel(); snooker.setupScene()
+        defer { snooker.stopForDismissal() }
+        snooker.activeTool = .selectTarget
+        var acknowledgements = 0; snooker.scene.ballSelectionHaptic = { acknowledgements += 1 }
+        let key = try XCTUnwrap(snooker.onTableKeys.first { !PositionPlayBall.isCue($0) && $0 != "_8" })
+        snooker.selectTarget(key: key)
+        XCTAssertEqual(acknowledgements, 1)
+        XCTAssertNotNil(snooker.scene.allBallNodes[key]?.action(forKey: TableBallPulse.actionKey))
+    }
+
+
+    func testManualSelectionRendersPulseWithoutChangingPhysicalBallOrRoleColours() throws {
+        let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("output/selection-feedback-20261027/rendered")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        for mode: AngleTrainingScene.CameraMode in [.topDown2DRotated, .perspective3D] {
+            let vm = PlanThreeViewModel(); vm.setupScene(); vm.uiTestConfigure("threeBallDimmed"); vm.activeTool = .none
+            defer { vm.stopForDismissal() }
+            let scene = vm.scene; scene.setCameraMode(mode, animated: false)
+            if mode == .perspective3D {
+                scene.cameraNode.position = SCNVector3(0, 6, 3)
+                scene.cameraNode.look(at: SCNVector3(0, scene.surfaceY, 0))
+            }
+            let ball = try XCTUnwrap(scene.allBallNodes["_2"])
+            TableBallPulse.restore(ball)
+            let baseline = ball.scale, position = ball.position, pivot = ball.simdPivot
+            let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+            renderer.scene = scene; renderer.pointOfView = scene.cameraNode
+            func frame(_ t: TimeInterval, _ name: String) throws {
+                let image = renderer.snapshot(atTime: t, with: CGSize(width: 1000, height: 700), antialiasingMode: .multisampling4X)
+                try XCTUnwrap(image.pngData()).write(to: directory.appendingPathComponent("\(mode)-\(name).png"))
+            }
+            try frame(0, "before")
+            vm.selectPaletteBall("_2")
+            try frame(1, "start"); try frame(1.18, "peak")
+            XCTAssertGreaterThan(ball.presentation.scale.x, baseline.x * 1.5)
+            XCTAssertEqual(ball.position.x, position.x); XCTAssertEqual(ball.position.z, position.z)
+            try frame(1.7, "restored")
+            XCTAssertEqual(ball.scale.x, baseline.x, accuracy: 0.00001)
+            XCTAssertEqual(ball.simdPivot, pivot)
+            var count = 0; scene.pocketSelectionHaptic = { count += 1 }
+            vm.selectPocket(at: 2)
+            let markers = scene.addPocketMarkers().compactMap { $0 as? PocketLeatherMarker }
+            XCTAssertEqual(count, 1)
+            XCTAssertEqual(markers[2].style, .secondRole)
+            XCTAssertFalse(markers[2].childNode(withName: "leather_selectionPulse", recursively: true)!.hasActions)
+        }
+    }
+
     func testAutomaticAndManualTimingIn2DAnd3D() throws {
         let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("output/practice-shot-feedback-20261026/r3/pocket-rendered")
+            .appendingPathComponent("output/ball-role-plan-three-20261027/rendered/pocket-rendered")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         for source: AngleTrainingScene.PocketSelectionSource in [.automatic, .manual] {
             for mobile in [false, true] {
@@ -99,8 +163,8 @@ final class PocketMarkerHighlightTests: XCTestCase {
             XCTAssertTrue(pulse.isHidden)
             XCTAssertEqual(markers[second].style, .continuationTarget)
             let secondMaterial = try XCTUnwrap(markers[second].childNode(withName: "leather_continuationTarget", recursively: false)?.geometry?.firstMaterial)
-            let green = PocketLeatherAppearance.material(from: SCNMaterial(), tint: PocketLeatherAppearance.firstRoleTint)
-            XCTAssertEqual(secondMaterial.value(forKey: "pocketLeatherTint") as? NSValue, green.value(forKey: "pocketLeatherTint") as? NSValue)
+            let next = PocketLeatherAppearance.material(from: SCNMaterial(), tint: BallRoleStyle.next.uiColor)
+            XCTAssertEqual(secondMaterial.value(forKey: "pocketLeatherTint") as? NSValue, next.value(forKey: "pocketLeatherTint") as? NSValue)
             XCTAssertFalse(try XCTUnwrap(markers[second].childNode(withName: "leather_continuationTarget", recursively: true)).isHidden)
             if second != 0 { XCTAssertEqual(markers[0].style, .target) }
             scene.setPocketRoles(first: 0, second: second, transientFirst: true, confirmsSelection: false)
@@ -114,7 +178,7 @@ final class PocketMarkerHighlightTests: XCTestCase {
 
     func testTwoBallRoleColorsRenderIn2DAnd3D() throws {
         let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("output/practice-shot-feedback-20261026/r3/two-ball-colors")
+            .appendingPathComponent("output/ball-role-plan-three-20261027/rendered/two-ball-colors")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         for is3D in [false, true] {
             let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: true)
@@ -338,6 +402,7 @@ final class PocketMarkerHighlightTests: XCTestCase {
         let marker = try XCTUnwrap(scene.addPocketMarkers().first as? PocketLeatherMarker)
         let selectedNode = try XCTUnwrap(marker.childNodes.first { $0.name == "leather_target" })
         let material = try XCTUnwrap(selectedNode.geometry?.materials.first)
+        let pulse = try XCTUnwrap(marker.childNode(withName: "leather_selectionPulse", recursively: false))
         let initialDiffuse = try XCTUnwrap(material.diffuse.contents as AnyObject?)
         let initialEmission = try XCTUnwrap(material.emission.contents as AnyObject?)
         // v60: original leather stays visible. Only the selected variant hides.
@@ -345,9 +410,52 @@ final class PocketMarkerHighlightTests: XCTestCase {
         for style: AngleTrainingScene.PocketHighlight in [.selected, .viable, .infeasible, .selected] {
             scene.setPocketHighlight(marker, style: style)
             XCTAssertEqual(selectedNode.isHidden, style != .selected)
-            XCTAssertEqual(marker.childNodes.filter { !$0.isHidden }.count, 1)
+            // The one persistent material variant and its transient confirmation
+            // overlay are separate layers; selection intentionally shows both.
+            XCTAssertEqual(marker.childNodes.filter { $0 !== pulse && !$0.isHidden }.count, 1)
+            XCTAssertEqual(pulse.isHidden, style != .selected)
             XCTAssertTrue(initialDiffuse === material.diffuse.contents as AnyObject)
             XCTAssertTrue(initialEmission === material.emission.contents as AnyObject)
+        }
+    }
+}
+
+extension PocketMarkerHighlightTests {
+    func testUnifiedRoleMaterialAcrossEveryTableAndClothTheme() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("output/ball-role-plan-three-20261027/theme-matrix-final")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let scene = AngleTrainingScene(); scene.configureReferenceTableRendering(); scene.setupScene()
+        let markers = scene.addPocketMarkers().compactMap { $0 as? PocketLeatherMarker }
+        let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        renderer.scene = scene; renderer.pointOfView = scene.cameraNode
+        scene.setCameraMode(.topDown2DRotated, animated: false)
+        for table in TableStyle.allCases {
+            XCTAssertTrue(scene.applyTableStyle(table))
+            for cloth in ClothColor.allCases {
+                XCTAssertTrue(scene.applyClothColor(cloth))
+                scene.setPracticePocketRoles(current: 1, next: 3)
+                XCTAssertEqual(markers[1].style, .practiceCurrent)
+                XCTAssertEqual(markers[3].style, .continuationTarget)
+                let image = renderer.snapshot(atTime: 1, with: CGSize(width: 1200, height: 700), antialiasingMode: .multisampling4X)
+                try XCTUnwrap(image.pngData()).write(to: root.appendingPathComponent(table.rawValue + "-" + cloth.rawValue + ".png"))
+                scene.setPracticePocketRoles(current: 1, next: 1)
+                XCTAssertEqual(markers[1].style, .practiceBoth)
+                let geometry = try XCTUnwrap(markers[1].childNode(withName: "leather_practiceBoth", recursively: false)?.geometry)
+                XCTAssertEqual(geometry.materials.count, 2)
+                XCTAssertNotEqual(geometry.materials[0].value(forKey: "pocketLeatherTint") as? NSValue,
+                    geometry.materials[1].value(forKey: "pocketLeatherTint") as? NSValue)
+                if cloth == .green {
+                    scene.setCameraMode(.perspective3D, animated: false)
+                    scene.cameraNode.position = SCNVector3(0, 6, 3)
+                    scene.cameraNode.look(at: SCNVector3(0, scene.surfaceY, 0))
+                    let same = renderer.snapshot(atTime: 2, with: CGSize(width: 1200, height: 800), antialiasingMode: .multisampling4X)
+                    try XCTUnwrap(same.pngData()).write(to: root.appendingPathComponent(table.rawValue + "-same-pocket-3d.png"))
+                    scene.setCameraMode(.topDown2DRotated, animated: false)
+                }
+                scene.clearPocketHighlights()
+                XCTAssertTrue(markers.allSatisfy { $0.style == .original })
+            }
         }
     }
 }

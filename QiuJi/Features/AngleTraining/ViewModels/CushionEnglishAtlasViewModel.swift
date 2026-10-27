@@ -182,6 +182,7 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
         updateAimVisualization()
         scheduleRecompute(interactive: false)
         selectionCameraChanged()
+        if let node = scene.allBallNodes[key], !node.isHidden { TableBallPulse.pulse(node) }
     }
 
     /// 点在桌球的球库槽位 → 脉冲提示位置。

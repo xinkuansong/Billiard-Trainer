@@ -23,6 +23,8 @@ extension TablePreferencePage {
         case .sceneAiming3D: return "3D角度训练"
         case .aimPointScene2D: return "2D瞄准点训练"
         case .aimPointScene3D: return "3D瞄准点训练"
+        case .threeBallPractice2D: return "2D三球走位"
+        case .threeBallPractice3D: return "3D三球走位"
         case .twoBallPractice2D: return "2D两球走位"
         case .twoBallPractice3D: return "3D两球走位"
         case .separationPractice2D: return "2D分离角"

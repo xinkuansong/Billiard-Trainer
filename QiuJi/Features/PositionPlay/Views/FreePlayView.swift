@@ -230,7 +230,7 @@ struct FreePlayView: View {
     private var templateStateDescription: String {
         let pocket = PocketDisplay.name(index: vm.selectedPocketIndex, orientation: pocketOrientation)
         let selection = "\(is3D ? "3D" : "2D")，\(aimModeLabel)模式，目标\(vm.selectedTargetKey ?? "无")，目标袋\(pocket)"
-        if isRackPractice { return "\(is3D ? "3D" : "2D")，\(aimModeLabel)，目标袋\(pocket)，目标\(vm.selectedTargetKey ?? "无")，母球可摆\(rackController.canPlaceCue)，\(rackController.notice)，在桌\(vm.onTableKeys.joined(separator: ","))" }
+        if isRackPractice { return "\(is3D ? "3D" : "2D")，\(aimModeLabel)，目标袋\(pocket)，目标\(vm.selectedTargetKey ?? "无")，规划\(isMultiBall ? multiBallController.plan.map { "\($0.next):\($0.pocket)" } ?? "无" : "无")，步骤\(isMultiBall ? multiBallController.planningStep.rawValue : -1)，第三球\(isMultiBall ? multiBallController.thirdKey ?? "无" : "无")，锁袋\(isMultiBall ? multiBallController.lockedCurrentPocket.map(String.init) ?? "无" : "无")，评分杆数\(isMultiBall ? multiBallController.scores.count : 0)，母球可摆\(rackController.canPlaceCue)，\(rackController.notice)，在桌\(vm.onTableKeys.joined(separator: ","))" }
         if isShotSimulation {
             return selection + "，目标球\(vm.onTableKeys.filter { !PositionPlayBall.isCue($0) }.count)/2，在桌\(vm.onTableKeys.joined(separator: ","))"
         }
@@ -362,7 +362,14 @@ struct FreePlayView: View {
         .onChange(of: vm.breakRunner?.isBusy) { _, busy in if busy != true { applyPagePreferences() } }
         .onChange(of: vm.isComputing) { _, busy in if !busy { applyPagePreferences() } }
         .onChange(of: isTemporaryTopDown) { _, active in if !active { applyPagePreferences() } }
+        .onChange(of: vm.selectedTargetKey) { _, _ in
+            if isMultiBall { multiBallController.currentTargetChanged(); vm.prepareGeometryReference() }
+        }
+        .onChange(of: vm.selectedPocketIndex) { _, _ in
+            if isMultiBall { vm.prepareGeometryReference() }
+        }
         .onChange(of: vm.isPlaying) { _, _ in
+            if isMultiBall { multiBallController.refreshPresentation() }
             updateDaily3DPlaybackDiagnostics()
             applyPagePreferences()
         }
@@ -847,17 +854,21 @@ struct FreePlayView: View {
             autoFitsLandscapeTable: isDaily2D,
             backgroundColor: isDaily2D ? .clear : .black,
             onPocketTapped: isFormationEditor || sequenceReadOnly || vm.isBreakMode || vm.isPlaying || isDailyResult || formation?.isPicking == true || (isTemporaryTopDown && !usesMergedCamera) ? nil : {
-                vm.selectPocket(at: $0)
+                if isMultiBall && multiBallController.isPlanning {
+                    multiBallController.selectPlanningPocket($0)
+                } else { vm.selectPocket(at: $0) }
             },
             // P10.1 禁止摆球：非开球模式仅母球可拖（自由球/走位微调）；开球模式拖开球区母球。
-            draggableBallNodes: isFormationEditor ? (formation?.editingDragNodes ?? []) : sequenceReadOnly || vm.isPlaying || isDailyResult || formation?.isPicking == true || (isTemporaryTopDown && !usesMergedCamera)
+            draggableBallNodes: (isFormationEditor ? (formation?.editingDragNodes ?? []) : sequenceReadOnly || vm.isPlaying || isDailyResult || formation?.isPicking == true || (isTemporaryTopDown && !usesMergedCamera)
                 || (isRackPractice && !rackController.canPlaceCue)
                 || (isDailyClearance && !vm.isBreakMode && dailyController.cuePlacement == .none)
-                ? [] : (vm.breakRunner?.draggableCue ?? (editablePalette ? vm.draggableBalls : vm.draggableCueOnly)),
+                ? [] : (vm.breakRunner?.draggableCue ?? (editablePalette ? vm.draggableBalls : vm.draggableCueOnly)))
+                + (isMultiBall && !vm.isPlaying && !isTemporaryTopDown ? vm.geometryReference.draggableNodes : []),
             precisionDragNodes: isFormationEditor ? (formation?.precisionHandles ?? []) : [],
             prioritizesTableTaps: isFormationEditor,
             onDragBegan: { node in
                 layoutBallDragging = true
+                if isMultiBall, node === vm.geometryReference.handle { vm.geometryReference.beginDrag(); return }
                 if isFormationEditor { formation?.editorDragBegan(node); return }
                 editor?.onInteraction()
                 if let key = vm.scene.ballKey(for: node) { formation?.focusKey = key }
@@ -867,6 +878,7 @@ struct FreePlayView: View {
                 } else { vm.dragBegan(node: node) }
             },
             onDragMoved: { node, world in
+                if isMultiBall, node === vm.geometryReference.handle { vm.geometryReference.drag(to: world); return }
                 if isFormationEditor { formation?.editorDragMoved(node, world: world); return }
                 if let runner = vm.breakRunner {
                     runner.dragMoved(node: node, worldPosition: world)
@@ -891,6 +903,8 @@ struct FreePlayView: View {
             },
             onDragEnded: { node in
                 layoutBallDragging = false
+                if isMultiBall, node === vm.geometryReference.handle { vm.geometryReference.endDrag(); return }
+                if isMultiBall { vm.prepareGeometryReference() }
                 if isFormationEditor { formation?.editorDragEnded(node); return }
                 if let runner = vm.breakRunner { runner.dragEnded(node: node) }
                 else if !isDailyClearance || dailyController.cuePlacement != .none {
@@ -956,8 +970,14 @@ struct FreePlayView: View {
         editor?.onInteraction()
         if isSnake { vm.pulseTableBall(key); return }
         if isMultiBall {
+            if multiBallController.isPlanning {
+                if !multiBallController.selectPlanningBall(key), !PositionPlayBall.isCue(key) {
+                    flash("请选择当前顺序中可用的己方球", tone: .info)
+                }
+                return
+            }
             guard multiBallController.legalKeys.contains(key) else {
-                if !PositionPlayBall.isCue(key) { flash("请选择高亮的己方目标球", tone: .warning) }
+                if !PositionPlayBall.isCue(key) { flash("请选择己方目标球，黑八最后击打", tone: .warning) }
                 return
             }
             if vm.selectTarget(key: key) { ruleNotices.clearSelectionNotice() }
@@ -1505,6 +1525,10 @@ struct FreePlayView: View {
                 ]
             }
             if isMultiBall {
+                if multiBallController.isPlanning {
+                    items.append(.init(id: "multiBall.retryShot", title: "重打上一杆", disabled: disabled || !vm.canReplay,
+                        action: { closeDailyPresentation(); multiBallController.undo() }))
+                }
                 items.append(.init(id: "multiBall.next", title: "换一局", disabled: disabled, action: {
                     closeDailyPresentation(); multiBallController.nextRack()
                 }))
@@ -1936,7 +1960,9 @@ private extension FreePlayView {
             if dailyPresentation == nil, manualBreakNeedsConfirmation || !dailyController.breakChoices.isEmpty || isDailyResult {
                 Group {
                     if manualBreakNeedsConfirmation { manualBreakConfirmationActions }
-                    else if isDailyResult { dailyResultActions }
+                    else if isDailyResult {
+                        dailyResultActions(availableHeight: space.stage.height, availableWidth: space.stage.width - 16)
+                    }
                     else { dailyRuleChoice }
                 }
                 .frame(width: min(460, max(148, space.stage.width - 16)))
@@ -2064,6 +2090,25 @@ private extension FreePlayView {
             .accessibilityValue(templateStateDescription))
     }
 
+    private func multiBallRoleTint(_ role: Int) -> Color {
+        role == 0 ? Color(PocketLeatherAppearance.targetTint)
+            : role == 1 ? Color(PocketLeatherAppearance.continuationTargetTint) : BallRoleStyle.upcoming.color
+    }
+
+    @ViewBuilder private var multiBallPlanningFeedback: some View {
+        if multiBallController.isComplete {
+            dailyInformation(multiBallController.completionSummary).accessibilityIdentifier("multiBall.average")
+        } else {
+            VStack(spacing: Spacing.xs) {
+                if let result = multiBallController.resultNotice {
+                    dailyInformation(result).accessibilityIdentifier("multiBall.scoreNotice")
+                } else if let message = ruleNotices.message {
+                    BTNoticeContent(message: message, compact: true, textOnly: true).accessibilityIdentifier("multiBall.selectionNotice")
+                }
+            }
+        }
+    }
+
     /// Both modes use the unzoomed 2D playfield in stage-local points, independent of camera motion.
     func dailyFeedbackTop(in size: CGSize) -> CGFloat {
         max(Spacing.sm, min(dailySpinPadRect(in: size).minY + Spacing.md, size.height / 3))
@@ -2072,7 +2117,9 @@ private extension FreePlayView {
     @ViewBuilder var dailyFeedbackOverlay: some View {
         Group {
             if isRackPractice {
-                if isMultiBall, !dailyDecisionActive, !showSpinPad, let message = ruleNotices.message {
+                if isMultiBall, multiBallController.isPlanning, !dailyDecisionActive, !showSpinPad, !vm.isPlaying {
+                    multiBallPlanningFeedback
+                } else if isMultiBall, !dailyDecisionActive, !showSpinPad, let message = ruleNotices.message {
                     BTNoticeContent(message: message, compact: true, textOnly: true)
                         .accessibilityIdentifier("multiBall.selectionNotice")
                 } else if rackController.canPlaceCue && !dailyDecisionActive && !showSpinPad {
@@ -2232,18 +2279,24 @@ private extension FreePlayView {
             let actionHeight = horizontalActions || isFormationPractice ? auxiliary : auxiliary * 2 + Spacing.xs
             dailyActionSlot(height: actionHeight, originalTopFraction: space.docked ? 1 : (horizontalActions ? 0.5 : 1), natural: space.foundation != nil) {
                 actionLayout {
-                    dailyCompactAction(isTryoutPage || sequenceReadOnly ? "上一杆" : "重打", symbol: isTryoutPage ? "backward.end" : "arrow.uturn.backward", id: "dailyClearance.undo", size: auxiliary) {
+                    dailyCompactAction(isTryoutPage || sequenceReadOnly ? "上一杆" : planningBackTitle, symbol: isTryoutPage ? "backward.end" : "arrow.uturn.backward", id: "dailyClearance.undo", size: auxiliary) {
                         daily3DDiagnostics?.input(.undo, intent: .aim)
                         vm.cancelPowerRelease()
                         if isTryoutPage { vm.moveTryoutStep(by: -1) }
                         else if sequenceReadOnly { vm.replayPreviousSequenceStep() }
                         else if isDailyClearance { dailyController.undoShot() }
+                        else if isMultiBall && multiBallController.canGoToPreviousStep { multiBallController.goToPreviousStep() }
                         else if isRackPractice { rackController.undo() } else { vm.replayCurrent() }
                     }
-                    .disabled(vm.isPlaying || !(isTryoutPage ? vm.canGoToPreviousTryoutStep : (sequenceReadOnly ? vm.canReplayPreviousStep : (isDailyClearance ? dailyController.canUndo : vm.canReplay))) || isDailyResult || isTemporaryTopDown)
+                    .disabled(vm.isPlaying || !(isTryoutPage ? vm.canGoToPreviousTryoutStep : (sequenceReadOnly ? vm.canReplayPreviousStep : (isDailyClearance ? dailyController.canUndo : (vm.canReplay || isMultiBall && multiBallController.canGoToPreviousStep)))) || isDailyResult || isTemporaryTopDown)
                     .freeControlItem(isTryoutPage ? "tryout.previous" : (sequenceReadOnly ? "sequence.previous" : "shot.undo"),
-                                     name: isTryoutPage || sequenceReadOnly ? "上一杆" : "重打")
-                    if !isFormationPractice {
+                                     name: isTryoutPage || sequenceReadOnly ? "上一杆" : planningBackTitle)
+                    if isMultiBall {
+                        BTGeometricReferenceButton(tool: vm.geometryReference,
+                            enabled: !vm.isPlaying && !vm.isComputing && !isTemporaryTopDown && multiBallController.canStrike,
+                            size: auxiliary, identifier: "multiBall.geometry", prepare: { vm.prepareGeometryReference() })
+                            .freeControlItem("shot.replay", name: "测量")
+                    } else if !isFormationPractice {
                     dailyCompactAction(isTryoutPage ? "下一杆" : (sequenceReadOnly ? "重播" : "回放"), symbol: isTryoutPage ? "forward.end" : "play.rectangle", id: "dailyClearance.playback", size: auxiliary) {
                         daily3DDiagnostics?.input(.replay)
                         vm.cancelPowerRelease()
@@ -2529,15 +2582,15 @@ private extension FreePlayView {
         }
     }
 
-    @ViewBuilder private var dailyResultActions: some View {
+    @ViewBuilder private func dailyResultActions(availableHeight: CGFloat, availableWidth: CGFloat) -> some View {
         if dailyController.isCompleted {
-            Button("再来一局") { dailyController.replay() }
-                .buttonStyle(BTSceneDecisionActionStyle(isPrimary: true))
-                .accessibilityIdentifier("dailyClearance.replay")
+            DailyConfirmationCard(title: "", availableHeight: availableHeight, availableWidth: availableWidth,
+                firstTitle: "再来一局", firstID: "dailyClearance.replay",
+                first: { dailyController.replay() }, firstIsPrimary: true)
         } else if dailyController.phase == .failed {
-            Button("重新开球") { requestDailyRerack() }
-                .buttonStyle(BTSceneDecisionActionStyle(isPrimary: true))
-                .accessibilityIdentifier("dailyClearance.rerack")
+            DailyConfirmationCard(title: "", availableHeight: availableHeight, availableWidth: availableWidth,
+                firstTitle: "重新开球", firstID: "dailyClearance.rerack",
+                first: { requestDailyRerack() }, firstIsPrimary: true)
         }
     }
 
@@ -2879,6 +2932,11 @@ private extension FreePlayView {
         .offset(y: 3)
     }
 
+    private var planningBackTitle: String {
+        if isMultiBall && multiBallController.isPlanning && (multiBallController.canGoToPreviousStep || !vm.canReplay) { return "上一步" }
+        return "重打"
+    }
+
     func dailyCompactAction(_ title: String, symbol: String, id: String, size: CGFloat = 44,
                             action: @escaping () -> Void) -> some View {
         BTHUDCompactAction(title: title, symbol: symbol, size: size, action: action)
@@ -2897,6 +2955,11 @@ private extension FreePlayView {
     var templatePaletteKeys: [String] { dailyPaletteKeys.filter { !PositionPlayBall.isCue($0) } }
 
     func dailyPaletteActive(_ key: String) -> Bool {
+        if isMultiBall && multiBallController.isPlanning {
+            let candidates = multiBallController.editingRole == 2 ? multiBallController.thirdKeys
+                : multiBallController.editingRole == 1 ? multiBallController.continuationKeys : multiBallController.legalKeys
+            return candidates.contains(key) && vm.onTableKeys.contains(key)
+        }
         if isRackPractice { return rackController.legalKeys.contains(key) && vm.onTableKeys.contains(key) }
         if editablePalette { return !PositionPlayBall.isCue(key) && vm.onTableKeys.contains(key) }
         if isStandard {
@@ -2960,20 +3023,25 @@ private extension FreePlayView {
                 else { placeSimulationBall(actionKey, world: nil) }
             } else if onTable {
                 if PositionPlayBall.isCue(key) { vm.pulseTableBall(actionKey) }
-                if let node = vm.scene.allBallNodes[actionKey] { handleTargetTap(node) }
+                if isMultiBall && multiBallController.isPlanning { multiBallController.selectPaletteBall(actionKey) }
+                else if let node = vm.scene.allBallNodes[actionKey] { handleTargetTap(node) }
             } else if !isRackPractice { flash("这颗球已进袋", tone: .warning) }
         } label: {
             PoolBallFace(key: key, diameter: diameter)
                 .opacity(formation != nil ? (formation?.toolsActive == true || onTable ? 1 : 0.25) : (editablePalette ? (onTable ? 0.3 : 1) : (onTable ? 1 : 0.25)))
-                .overlay(Circle().stroke(Color.white.opacity(0.9), lineWidth: 1)
-                    .padding(-1).opacity(onTable && (isSnake ? snakeController.targetKey == key : vm.selectedTargetKey == actionKey) ? 1 : 0))
-                .frame(width: slotWidth ?? diameter + 2, height: min(max(32, diameter), slotHeight))
-                .background {
-                    let targets = templatePaletteKeys
-                    let isEnd = key == targets.first || key == targets.last
-                    BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: isEnd ? 16 : 4),
-                        selected: onTable && dailyPaletteActive(actionKey), normal: .clear)
+                .overlay(Circle().stroke(BallRoleStyle.current.color, lineWidth: 2)
+                    .padding(-1).opacity(!(isMultiBall && multiBallController.isPlanning) && onTable && (isSnake ? snakeController.targetKey == key : vm.selectedTargetKey == actionKey) ? 1 : 0))
+                .overlay {
+                    if isMultiBall, multiBallController.isPlanning, onTable,
+                       let role = (0..<3).first(where: { multiBallController.roleKey($0) == actionKey }) {
+                        Circle().stroke(multiBallRoleTint(role), style: StrokeStyle(lineWidth: 2, dash: role == 2 ? [3, 3] : []))
+                            .padding(-2)
+                            .overlay(alignment: .bottomTrailing) {
+                                BTPaletteRoleNumber(role: role == 0 ? .current : role == 1 ? .next : .upcoming)
+                            }
+                    }
                 }
+                .frame(width: slotWidth ?? diameter + 2, height: min(max(32, diameter), slotHeight))
                 .overlay(alignment: .bottomTrailing) {
                     if quantity > 1 {
                         Text("\(quantity)").font(.btMicro).fontWeight(.semibold).monospacedDigit()
@@ -2990,7 +3058,7 @@ private extension FreePlayView {
         .buttonStyle(BTHUDPressStyle())
         .disabled(sequenceReadOnly || vm.isPlaying || vm.isBreakMode || dailyDecisionActive || !dailyController.breakChoices.isEmpty || isTemporaryTopDown)
         .accessibilityLabel(PositionPlayBall.isCue(key) ? "母球" : "\(PositionPlayBall.shortLabel(for: key))号球")
-        .accessibilityValue(quantity > 0 ? "\(quantity)颗" : vm.isBreakMode ? "开球准备，不可选" : (onTable ? (dailyPaletteActive(actionKey) ? "本轮可击打" : "在桌上") : (editablePalette ? "未在桌上" : "已进袋")))
+        .accessibilityValue((isMultiBall && onTable ? multiBallController.paletteDescription(actionKey) : nil) ?? (quantity > 0 ? "\(quantity)颗" : vm.isBreakMode ? "开球准备，不可选" : (onTable ? (dailyPaletteActive(actionKey) ? "本轮可击打" : "在桌上") : (editablePalette ? "未在桌上" : "已进袋"))))
         .accessibilityIdentifier("paletteBall_\(key)")
         .accessibilityHint(editablePalette ? (is3D ? (formation == nil ? "切到2D摆球" : "点按放到台面，切到2D可拖动摆球") : "点按或拖到台面摆球，拖回球库移除") : "")
         .simultaneousGesture(simulationPaletteDrag(actionKey, diameter: diameter), including: editablePalette && !is3D && !onTable ? .all : .subviews)

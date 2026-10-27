@@ -262,7 +262,7 @@ struct ContactPointTableView: View {
         let dot = v1.x * v2.x + v1.y * v2.y
         let mag = hypot(v1.x, v1.y) * hypot(v2.x, v2.y)
         guard mag > 0 else { return 0 }
-        return acos(min(max(dot / mag, -1), 1)) * 180 / .pi
+        return acos(Double(min(max(dot / mag, -1), 1))) * 180 / .pi
     }
 
     private var estimationFigure: some View {

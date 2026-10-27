@@ -5,6 +5,63 @@ import SwiftData
 
 @MainActor
 final class TwoBallPracticeTests: XCTestCase {
+    func testResumedFreeModePrefetchIgnoresLegacyReferenceSpinFilters() async throws {
+        let prepared = try fixture()
+        let suite = "two-ball-free-prefetch-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let limiter = AngleUsageLimiter(defaults: defaults, namespace: suite)
+        limiter.isPremium = true
+        let repository = MemoryRepository()
+        var configuration = SceneTrainingConfiguration.defaults(for: "twoBallPractice2D")
+        configuration.allowsVerticalSpin = false; configuration.allowsSideSpin = false
+        repository.saved = .init(ownerKey: repository.ownerKey, is3D: false,
+            configuration: configuration, mode: .free, prepared: prepared)
+        let received = expectation(description: "Resumed free session requests an unrestricted reference route pool")
+        let vm = TwoBallPracticeViewModel(is3D: false, limiter: limiter, defaults: defaults,
+            prepareQuestion: { next, excluded in
+                XCTAssertTrue(next.allowsVerticalSpin)
+                XCTAssertTrue(next.allowsSideSpin)
+                XCTAssertEqual(next.angleSelection, [.straight, .small, .medium])
+                XCTAssertTrue(excluded.contains(prepared.question.contentID))
+                received.fulfill()
+                throw CancellationError()
+            })
+        defer { vm.suspendTeachingActivity() }
+        vm.attach(repository: repository); vm.setupScene()
+        await fulfillment(of: [received], timeout: 15)
+        XCTAssertEqual(vm.record?.configuration, configuration, "Do not rewrite the frozen historical configuration")
+    }
+
+    func testImpossibleStopFeedbackLeavesTrajectoryAndLegacyScoresIntact() throws {
+        let q = try fixture().question
+        let original = try realShot(q)
+        // Replay snapshots omit collision events; use the solver's complete event stream.
+        var prediction = try TwoBallQuestionPreparer.solve(board: q.board, second: q.second,
+            input: q.route.source.input, surfaceY: BTTablePhysics.surfaceY,
+            profile: AccuracyTipSelector.renderedProfile(), direction: q.route.source.direction)
+        let aim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: q.second.vector,
+            pocketIndex: q.secondPocket, surfaceY: BTTablePhysics.surfaceY)
+        // A synthetic settled stop on the pocket side of the next ball: no forward contact.
+        prediction.finalPositions[ShotInput.cueBallName] = .init(
+            q.second.x + (aim.x-q.second.x)*0.4, BTTablePhysics.surfaceY + BallPhysics.radius,
+            q.second.z + (aim.z-q.second.z)*0.4)
+        let shot = try TwoBallShot(question: q, input: original.input, prediction: prediction, surfaceY: BTTablePhysics.surfaceY)
+        XCTAssertNil(shot.failure, "The first pot still succeeded")
+        XCTAssertEqual(shot.continuationUnavailable, true)
+        XCTAssertEqual(shot.freeScore, 0)
+        XCTAssertEqual(shot.resultText(mode: .free), "0分，无法进指定袋，请重打")
+        XCTAssertEqual(shot.trajectoryScore, original.trajectoryScore)
+        XCTAssertFalse(shot.resultText(mode: .trajectory).contains("请重打"))
+        let decoded = try JSONDecoder().decode(TwoBallShot.self, from: JSONEncoder().encode(shot))
+        XCTAssertEqual(decoded.freeScore, 0)
+        var legacy = original
+        legacy.continuationUnavailable = nil
+        let saved = try JSONDecoder().decode(TwoBallShot.self, from: JSONEncoder().encode(legacy))
+        XCTAssertNil(saved.continuationUnavailable)
+        XCTAssertEqual(saved.freeScore, original.freeScore)
+    }
+
     func testFirstShotExecutionFormula() throws {
         let score = try XCTUnwrap(TwoBallExecutionDifficulty.evaluate(velocity: 2.25, spinX: -0.2,
             spinY: -0.3, cushions: 2, lengthMeters: 1.5))

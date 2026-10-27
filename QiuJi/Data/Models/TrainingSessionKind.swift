@@ -15,6 +15,7 @@ enum TrainingSessionKind {
     static let simulatedAccuracy = "simulatedAccuracy"
     /// Trajectory practice has no score and never contributes to accuracy or goals.
     static let separationPractice = "separationPractice"
+    static let threeBallPractice = "threeBallPractice"
     static let twoBallPractice = "twoBallPractice"
 
     /// 计入训练量与周目标的会话类型（契约 §5.3 表：`tool` 两列均为 ❌）。

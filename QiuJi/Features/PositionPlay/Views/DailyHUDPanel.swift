@@ -235,11 +235,11 @@ struct DailyConfirmationCard: View {
     var availableHeight: CGFloat
     var availableWidth: CGFloat
     let firstTitle: String
-    let secondTitle: String
+    var secondTitle: String? = nil
     let firstID: String
-    let secondID: String
+    var secondID: String = ""
     let first: () -> Void
-    let second: () -> Void
+    var second: (() -> Void)? = nil
     var firstIsPrimary = false
     @Environment(\.dynamicTypeSize) private var typeSize
     @AccessibilityFocusState private var titleFocused: Bool
@@ -259,27 +259,31 @@ struct DailyConfirmationCard: View {
 
     var body: some View {
         VStack(spacing: contentSpacing) {
-            ScrollView(.vertical) {
-                heading.background(GeometryReader { geometry in
-                    Color.clear.preference(key: DailyConfirmationTitleHeightKey.self, value: geometry.size.height)
-                })
+            if !title.isEmpty {
+                ScrollView(.vertical) {
+                    heading.background(GeometryReader { geometry in
+                        Color.clear.preference(key: DailyConfirmationTitleHeightKey.self, value: geometry.size.height)
+                    })
+                }
+                    .scrollBounceBehavior(.basedOnSize)
+                    .scrollDisabled(titleHeight <= titleCapacity)
+                    .frame(height: min(titleHeight, titleCapacity))
+                    .accessibilityIdentifier("dailyClearance.confirmationTitleScroll")
             }
-                .scrollBounceBehavior(.basedOnSize)
-                .scrollDisabled(titleHeight <= titleCapacity)
-                .frame(height: min(titleHeight, titleCapacity))
-                .accessibilityIdentifier("dailyClearance.confirmationTitleScroll")
             let layout = typeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
             layout {
                 action(firstTitle, id: firstID, primary: firstIsPrimary, perform: first)
-                action(secondTitle, id: secondID, primary: !firstIsPrimary, perform: second)
+                if let secondTitle, let second {
+                    action(secondTitle, id: secondID, primary: !firstIsPrimary, perform: second)
+                }
             }
             .fixedSize(horizontal: false, vertical: true)
             .background(GeometryReader { geometry in
                 Color.clear.preference(key: DailyConfirmationActionsHeightKey.self, value: geometry.size.height)
             })
         }
-        .padding(12).frame(width: min(typeSize.isAccessibilitySize ? 360 : 252, availableWidth))
+        .padding(12).frame(width: min(typeSize.isAccessibilitySize ? 360 : (second == nil ? 148 : 252), availableWidth))
         .foregroundStyle(Color.btText)
         .background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.md))
         .overlay(RoundedRectangle(cornerRadius: BTRadius.md).stroke(Color.btSeparator, lineWidth: 0.75))
@@ -288,7 +292,7 @@ struct DailyConfirmationCard: View {
         .accessibilityIdentifier("dailyClearance.confirmation")
         .onPreferenceChange(DailyConfirmationTitleHeightKey.self) { if $0 > 0 { titleHeight = $0 } }
         .onPreferenceChange(DailyConfirmationActionsHeightKey.self) { if $0 > 0 { actionsHeight = $0 } }
-        .onAppear { titleFocused = true }
+        .onAppear { titleFocused = !title.isEmpty }
     }
 
     private func action(_ text: String, id: String, primary: Bool, perform: @escaping () -> Void) -> some View {

@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "count": 111025,
+  "source": "audited-full-39842",
+  "completionSHA256": "69fc2a883d0bbfc8d66c7e73c2c1042d17e204cf479afd8f16da4a42619d8d27",
+  "shards": [
+    {
+      "file": "bank-000.json.gz",
+      "sha256": "8c9e117f957a5cad68cfabd0ffbe298aacd5cf19b721a1c1b99f967651f662b9",
+      "count": 5000
+    },
+    {
+      "file": "bank-001.json.gz",
+      "sha256": "c25dcbd053d9307e0089f09730328142abbb7e16aadc0048a2f673ab3f98b476",
+      "count": 5000
+    },
+    {
+      "file": "bank-002.json.gz",
+      "sha256": "a54522f213ba852be7788724b82d3ae4af7d7e3664e5d0855c4f14a56061de56",
+      "count": 5000
+    },
+    {
+      "file": "bank-003.json.gz",
+      "sha256": "9bb8b9f8c602830a5cbbffd349dda0b2b856fcefdf7ac3c477024672a511779f",
+      "count": 5000
+    },
+    {
+      "file": "bank-004.json.gz",
+      "sha256": "24c605de28cb67278955f1408c55306a10cc24072d9092ed309fcd469b9f6845",
+      "count": 5000
+    },
+    {
+      "file": "bank-005.json.gz",
+      "sha256": "07fa3e1f6abf585dd9bffe290ad8f7de89c4e953ada464a225374143c67dc06c",
+      "count": 5000
+    },
+    {
+      "file": "bank-006.json.gz",
+      "sha256": "939732875a943365f3dcf92525c6ffdc51a5f74a815f03569cbafa9395f51978",
+      "count": 5000
+    },
+    {
+      "file": "bank-007.json.gz",
+      "sha256": "27013b962112476db635211eeb12680006c1fb3ffc5be6d62814fc771de3703e",
+      "count": 5000
+    },
+    {
+      "file": "bank-008.json.gz",
+      "sha256": "e43248e227575d5a9002d4f14e2cf0316f432795984e7ac87b80b4e433bf564f",
+      "count": 5000
+    },
+    {
+      "file": "bank-009.json.gz",
+      "sha256": "e96459ab7b16cc18cfcc1cbc31860d11ec5269e3ab1bd068ba8fb5df49a2504d",
+      "count": 5000
+    },
+    {
+      "file": "bank-010.json.gz",
+      "sha256": "898497a24aa1852d02dad940c89908b9c28b52d8280a5a2ffd8fd8906367a6dc",
+      "count": 5000
+    },
+    {
+      "file": "bank-011.json.gz",
+      "sha256": "e22723727aef3f6a60f40a34220ba44c5b0ccd6ff2d4f585d9b8d9925d4f039a",
+      "count": 5000
+    },
+    {
+      "file": "bank-012.json.gz",
+      "sha256": "ee729bc4773ad3ede827e4884f4885ae5e546f9527ab1613f28edeeff8fd2336",
+      "count": 5000
+    },
+    {
+      "file": "bank-013.json.gz",
+      "sha256": "819feb29a0fee0546f5cf9aff1f0165c1fac65527c276d1bd65d5baf1fb08b1d",
+      "count": 5000
+    },
+    {
+      "file": "bank-014.json.gz",
+      "sha256": "b7cb305f08952a134ebf9e8ca77fd9c95b46c216402f80629a91a1428f4b4c7d",
+      "count": 5000
+    },
+    {
+      "file": "bank-015.json.gz",
+      "sha256": "1f4e8ccb7d75b6b60209c928c86367a2a5a3acebd3e441c6276f32efc791bd21",
+      "count": 5000
+    },
+    {
+      "file": "bank-016.json.gz",
+      "sha256": "be4d81322b9b207acd6eb8bfb29f0b4e52aab5107fe28ee9b3f3bc7185963a0f",
+      "count": 5000
+    },
+    {
+      "file": "bank-017.json.gz",
+      "sha256": "b79b5236649e3cc06ff4b28d68a00d0713b9e9254e3f6f0f551466af9eb42192",
+      "count": 5000
+    },
+    {
+      "file": "bank-018.json.gz",
+      "sha256": "4ea07bf3886defcbee2d6609b4bb1f330e21d647856decb35f0be497126c35fb",
+      "count": 5000
+    },
+    {
+      "file": "bank-019.json.gz",
+      "sha256": "8e6644737409deb3fa05c5979b8af22b633ae5713deb6d9120c8e46597c9a14c",
+      "count": 5000
+    },
+    {
+      "file": "bank-020.json.gz",
+      "sha256": "53ac930fe17eadb38d49960acbddc3a11a0c7841de8e489c6e7a6da7e60e0298",
+      "count": 5000
+    },
+    {
+      "file": "bank-021.json.gz",
+      "sha256": "10c1fdbc66241cb44a33d3d4884cdd3b348f8492c029b98a12e007230b4d0b41",
+      "count": 5000
+    },
+    {
+      "file": "bank-022.json.gz",
+      "sha256": "3ad91f54620a94212b47b1184912c22056d318e4f7d632728d4877f7d0a881db",
+      "count": 1025
+    }
+  ]
+}

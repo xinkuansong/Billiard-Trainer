@@ -16,12 +16,14 @@ struct AppearanceCombinationPreview: UIViewRepresentable {
         scene.setupScene(recipe: .liveReference)
         scene.hideAllBalls()
         scene.setCameraMode(.perspective3D, animated: false)
-        // Keep the material-preview direction and scale, but move the orthographic
-        // ray origins inside the room so the near wall cannot occlude the table.
-        scene.cameraNode.position = SCNVector3(1.595, 1.8425, 1.925)
+        // The 1:0.64 viewport needs its whole orthographic image plane inside
+        // the room, not just the camera centre. Move 30% toward the same target
+        // and tighten the scale: the nearest corner now stays below Z = 2.84 m
+        // (the near wall is at Z = 3 m), while keeping the complete table in view.
+        scene.cameraNode.position = SCNVector3(1.1165, 1.45475, 1.3475)
         scene.cameraNode.look(at: SCNVector3(0, 0.55, 0), up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))
         scene.cameraNode.camera?.usesOrthographicProjection = true
-        scene.cameraNode.camera?.orthographicScale = 1.35
+        scene.cameraNode.camera?.orthographicScale = 1.10
         if showsRoomOverview {
             scene.cameraNode.position = SCNVector3(3.2, 1.8, 1.2)
             scene.cameraNode.look(at: SCNVector3(0, 1.15, 0), up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))

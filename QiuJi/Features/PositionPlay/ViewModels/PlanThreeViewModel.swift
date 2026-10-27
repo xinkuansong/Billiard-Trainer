@@ -257,6 +257,8 @@ final class PlanThreeViewModel: TeachingTableHost {
     @Published private(set) var pocket1Index: Int = -1
     @Published private(set) var pocket2Index: Int = -1
     @Published private(set) var armedRole: PlanThreeRole? = .ball1
+    @Published private(set) var currentRoleLocked = false
+    private var settlementConsumed = false
 
     // MARK: - Published tool state
 
@@ -302,7 +304,7 @@ final class PlanThreeViewModel: TeachingTableHost {
     @Published private(set) var isComputing = false
     @Published private(set) var solutions: [PositionPlaySolution] = []
     @Published private(set) var currentIndex = 0
-    @Published private(set) var statusText = "在桌面上点①，再选球设为一号球"
+    @Published private(set) var statusText = "从球库选择当前球，再选择袋口"
 
     // MARK: - Adjustment draft (K13 / X6 — same contract as SiluTrainerViewModel; X5 transplant source)
     //
@@ -369,6 +371,7 @@ final class PlanThreeViewModel: TeachingTableHost {
         var pocket1Index: Int
         var pocket2Index: Int
         var armedRole: PlanThreeRole?
+        var currentRoleLocked = false
         var perspectiveView: CameraRig.PerspectiveState? = nil
         /// 击打前球体姿态（与 `snapshot.before` 配对）；退回 / 回放起点连同位置一起恢复。
         var ballPoses: BallPoseSnapshot = [:]
@@ -386,7 +389,7 @@ final class PlanThreeViewModel: TeachingTableHost {
 
     static let color1 = PocketLeatherAppearance.firstRoleTint
     static let color2 = PocketLeatherAppearance.secondRoleTint
-    static let color3 = UIColor(red: 1.0, green: 0.78, blue: 0.28, alpha: 1)
+    static let color3 = BallRoleStyle.upcoming.uiColor
 
     // MARK: - Setup
 
@@ -405,6 +408,10 @@ final class PlanThreeViewModel: TeachingTableHost {
     }
 
     private func applyDefaultLayout() {
+        ball1Key = nil; ball2Key = nil; ball3Key = nil
+        pocket1Index = -1; pocket2Index = -1
+        invalidateShotHistory()
+        currentRoleLocked = false
         place(key: PositionPlayBall.cueKey, normalized: CanvasPoint(x: 0.24, y: 0.30),
               cuePose: .reseat)
         place(key: "_1", normalized: CanvasPoint(x: 0.52, y: 0.16))
@@ -419,6 +426,8 @@ final class PlanThreeViewModel: TeachingTableHost {
     /// 导入外部球形（球形生成器 / 拍照建球形交付的散开快照）。清空角色与约束，回到「选①」起点。
     func loadBoard(_ snapshot: BoardSnapshot) {
         guard !isPlaying, !snapshot.onTable.isEmpty else { return }
+        invalidateShotHistory()
+        currentRoleLocked = false
         scene.hideAllBalls()
         clearConstraint()
         for (key, pt) in snapshot.onTable { place(key: key, normalized: pt) }
@@ -462,6 +471,7 @@ final class PlanThreeViewModel: TeachingTableHost {
 
     func placeFromPalette(_ key: String) {
         guard !isPlaying else { return }
+        invalidateShotHistory()
         place(key: key, normalized: freeNormalizedSlot(), cuePose: .reseat)
         activeTool = .none
         refreshOnTableKeys()
@@ -470,6 +480,7 @@ final class PlanThreeViewModel: TeachingTableHost {
 
     func placeFromPalette(_ key: String, atWorld world: SCNVector3) {
         guard !isPlaying, let node = scene.allBallNodes[key] else { return }
+        invalidateShotHistory()
         let clamped = clampMultiBall(world, movingNode: node)
         let n = AngleSceneCalculator.sceneToNormalized(position: clamped)
         place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)),
@@ -481,6 +492,8 @@ final class PlanThreeViewModel: TeachingTableHost {
 
     func removeFromTable(_ key: String) {
         guard !isPlaying, !PositionPlayBall.isCue(key) else { return }
+        guard !(currentRoleLocked && ball1Key == key) else { setStatus(lockedRoleMessage, kind: .feedback); return }
+        invalidateShotHistory()
         scene.hideBall(key: key)
         clearRolesReferencing(key)
         refreshOnTableKeys()
@@ -535,6 +548,7 @@ final class PlanThreeViewModel: TeachingTableHost {
         if let runner = breakRunner { runner.dragEnded(node: node); return }
         guard !isPlaying else { return }
         TableBallPulse.endDrag(node)
+        invalidateShotHistory()
         invalidateSolutions()
     }
 
@@ -588,55 +602,174 @@ final class PlanThreeViewModel: TeachingTableHost {
 
 extension PlanThreeViewModel {
 
-    /// 装填某角色（点芯片）。自动切回「摆球」态以便点桌面赋值。
+    var editingRole: Int {
+        switch armedRole {
+        case .ball1, .pocket1: 0
+        case .ball2, .pocket2: 1
+        case .ball3: 2
+        case nil: ball1Key != nil && pocket1Index >= 0 && objectBallCount > 1 ? 1 : 0
+        }
+    }
+    var paletteRoles: [String: BTTeachingBallRole] {
+        var result: [String: BTTeachingBallRole] = [:]
+        if let ball1Key { result[ball1Key] = .current }
+        if let ball2Key { result[ball2Key] = .next }
+        if let ball3Key { result[ball3Key] = .upcoming }
+        return result
+    }
+    private var canEditPlan: Bool { !activitySuspended && !isPlaying && !isComputing && !isBreakMode }
+    private var lockedRoleMessage: String { "当前球和袋承接上一杆；点击重打后调整" }
+
+    private var editablePlanningSteps: [PlanThreeRole] {
+        Array(PlanThreeRole.order.prefix(objectBallCount > 2 ? 5 : objectBallCount > 1 ? 4 : 2))
+            .filter { !currentRoleLocked || ($0 != .ball1 && $0 != .pocket1) }
+    }
+    var canGoToPreviousStep: Bool {
+        guard canEditPlan, objectBallCount > 0, let step = armedRole ?? editablePlanningSteps.last,
+              let index = editablePlanningSteps.firstIndex(of: step) else { return false }
+        return index > 0
+    }
+    func goToPreviousStep() {
+        guard canGoToPreviousStep, let step = armedRole ?? editablePlanningSteps.last,
+              let index = editablePlanningSteps.firstIndex(of: step) else { return }
+        // Focus navigation preserves the draft and solved result until an actual edit.
+        let previous = editablePlanningSteps[index - 1]
+        armRole(previous)
+        setStatus(hint(for: previous), kind: .feedback)
+    }
+
     func armRole(_ role: PlanThreeRole) {
-        guard !isPlaying else { return }
+        guard canEditPlan else { return }
         activeTool = .none
         armedRole = role
-        setStatus(hint(for: role))
+        if currentRoleLocked && editingRole == 0 {
+            setStatus(lockedRoleMessage, kind: .feedback)
+        } else if !isFilled(role) {
+            setStatus(hint(for: role), kind: .feedback)
+        } else { setStatus("") }
     }
 
-    /// 点桌上球（场景回调，仅 .none 工具态生效）：赋给当前装填的球角色。
+    /// The palette owns role focus; no duplicate controls float above the cloth.
+    func selectPaletteBall(_ key: String) {
+        guard canEditPlan, onTableKeys.contains(key), !PositionPlayBall.isCue(key) else { return }
+        if let role = roleForBall(key) {
+            armRole(role)
+            scene.confirmBallSelection(key: key)
+            return
+        }
+        activeTool = .none
+        assignBall(key, to: [.ball1, .ball2, .ball3][editingRole])
+    }
+
+    private func roleForBall(_ key: String) -> PlanThreeRole? {
+        if ball1Key == key { return .ball1 }
+        if ball2Key == key { return .ball2 }
+        if ball3Key == key { return .ball3 }
+        return nil
+    }
+
+    func clearPaletteRole(_ key: String) {
+        if let role = roleForBall(key) { clearRole(role) }
+    }
+
+    func paletteRoleDescription(_ key: String, orientation: PocketDisplay.Orientation = .landscape) -> String? {
+        guard let role = roleForBall(key), let label = paletteRoles[key]?.label else { return nil }
+        let pocket = role == .ball1 ? pocket1Index : role == .ball2 ? pocket2Index : -1
+        let detail = role == .ball3 ? "" : "，" + (pocket < 0 ? "袋口未选择" : PocketDisplay.name(index: pocket, orientation: orientation))
+        return label + detail + (role == .ball1 && currentRoleLocked ? "，已锁定，重打后可调整" : "")
+    }
+
     func selectBall(node: SCNNode) {
-        guard !isPlaying, let key = scene.ballKey(for: node), !PositionPlayBall.isCue(key) else { return }
-        guard let role = armedRole, role.isBall else {
-            setStatus("请先在左侧选择球项", kind: .failure)
-            return
-        }
-        assignBall(key, to: role)
+        guard canEditPlan, activeTool == .none, !node.isHidden,
+              let key = scene.ballKey(for: node), !PositionPlayBall.isCue(key) else { return }
+        assignBall(key, to: [.ball1, .ball2, .ball3][editingRole])
     }
 
-    /// 点袋口（场景回调）：赋给当前装填的袋角色。
+    /// The focused current slot owns its pocket; all later slots edit the next pocket.
     func selectPocket(at index: Int) {
-        guard !isPlaying, !isComputing, !isBreakMode else { return }
-        guard let role = armedRole, role.isPocket else {
-            setStatus("请先在左侧选择袋口项", kind: .failure)
-            return
+        guard canEditPlan, activeTool == .none, (0..<6).contains(index) else { return }
+        if editingRole == 0 {
+            guard !currentRoleLocked else { setStatus(lockedRoleMessage, kind: .feedback); return }
+            guard ball1Key != nil else { setStatus("先选择当前球", kind: .feedback); return }
+            pocket1Index = index
+        } else {
+            guard ball2Key != nil else { setStatus("先选择下一颗球", kind: .feedback); return }
+            pocket2Index = index
         }
-        if role == .pocket1 { pocket1Index = index } else { pocket2Index = index }
         advanceAndArm()
+        scene.confirmRolePocketSelection(at: index)
     }
 
     private func assignBall(_ key: String, to role: PlanThreeRole) {
-        if ball1Key == key, role != .ball1 { ball1Key = nil }
-        if ball2Key == key, role != .ball2 { ball2Key = nil }
-        if ball3Key == key, role != .ball3 { ball3Key = nil }
+        if role == .ball1 && currentRoleLocked { setStatus(lockedRoleMessage, kind: .feedback); return }
+        let entries: [(PlanThreeRole, String?, String)] = [(.ball1, ball1Key, "当前球"), (.ball2, ball2Key, "下一球"), (.ball3, ball3Key, "后续球")]
+        if let occupied = entries.first(where: { $0.0 != role && $0.1 == key }) {
+            setStatus("这颗球已用于" + occupied.2, kind: .feedback); return
+        }
         switch role {
-        case .ball1: ball1Key = key
-        case .ball2: ball2Key = key
-        case .ball3: ball3Key = key
+        case .ball1:
+            if ball1Key != key { pocket1Index = -1 }; ball1Key = key
+            armedRole = .pocket1
+        case .ball2:
+            if ball2Key != key { pocket2Index = -1 }; ball2Key = key
+            armedRole = .pocket2
+        case .ball3: ball3Key = key; armedRole = .ball3
         default: return
         }
-        advanceAndArm()
+        invalidateSolutions()
+        setStatus("")
+        scene.confirmBallSelection(key: key)
+    }
+
+    func clearRole(_ role: PlanThreeRole) {
+        guard canEditPlan else { return }
+        if (role == .ball1 || role == .pocket1) && currentRoleLocked {
+            setStatus(lockedRoleMessage, kind: .feedback); return
+        }
+        switch role {
+        case .ball1: ball1Key = nil; pocket1Index = -1
+        case .ball2: ball2Key = nil; pocket2Index = -1
+        case .ball3: ball3Key = nil
+        case .pocket1: pocket1Index = -1
+        case .pocket2: pocket2Index = -1
+        }
+        armedRole = role
+        invalidateSolutions()
+        setStatus("")
     }
 
     private func advanceAndArm() {
-        armedRole = nextEmptyRole()
+        if editingRole == 0 { armedRole = objectBallCount > 1 ? .ball2 : .pocket1 }
+        else { armedRole = objectBallCount > 2 ? .ball3 : .pocket2 }
         invalidateSolutions()
-        if canSolve { setStatus("已选齐", kind: .feedback) } else { setStatus(hintForState()) }
+        setStatus("")
     }
 
-    private func nextEmptyRole() -> PlanThreeRole? { PlanThreeRole.order.first { !isFilled($0) } }
+    private func nextEmptyRole() -> PlanThreeRole? {
+        let required = Array(PlanThreeRole.order.prefix(objectBallCount > 2 ? 5 : objectBallCount > 1 ? 4 : 2))
+        return required.first { !isFilled($0) }
+    }
+
+    var missingSelection: String? {
+        if !onTableKeys.contains(PositionPlayBall.cueKey) { return "请摆上母球" }
+        if objectBallCount == 0 { return "清台完成" }
+        if ball1Key == nil { return "先选择当前球" }
+        if pocket1Index < 0 { return "请选择当前球的袋口" }
+        if objectBallCount > 1 {
+            if ball2Key == nil { return "先选择下一颗球" }
+            if pocket2Index < 0 { return "请选择下一球的袋口" }
+        }
+        return nil
+    }
+
+    func requestStrike() {
+        guard !temporaryTopDownActive, !cameraTransitionBusy, canEditPlan else { return }
+        if let missingSelection { setStatus(missingSelection, kind: .feedback); return }
+        guard canStrike else {
+            setStatus(hasSolutions ? "当前方案无法出杆，请调整或切换下一解" : "请先求解", kind: .feedback); return
+        }
+        play()
+    }
 
     func isFilled(_ role: PlanThreeRole) -> Bool {
         switch role {
@@ -662,20 +795,26 @@ extension PlanThreeViewModel {
     }
 
     func clearPlan() {
-        guard !isPlaying else { return }
-        ball1Key = nil; ball2Key = nil; ball3Key = nil
-        pocket1Index = -1; pocket2Index = -1
-        armedRole = .ball1
+        guard canEditPlan else { return }
+        if !currentRoleLocked { ball1Key = nil; pocket1Index = -1 }
+        ball2Key = nil; ball3Key = nil; pocket2Index = -1
+        armedRole = currentRoleLocked ? .ball2 : .ball1
         activeTool = .none
-        setStatus(hint(for: .ball1))
         invalidateSolutions()
+        setStatus(currentRoleLocked ? "已清除后续选择，当前球承接上一杆" : "已清除选择", kind: .feedback)
     }
 
     private func clearRolesReferencing(_ key: String) {
-        if ball1Key == key { ball1Key = nil }
-        if ball2Key == key { ball2Key = nil }
+        if ball1Key == key { ball1Key = nil; pocket1Index = -1; currentRoleLocked = false }
+        if ball2Key == key { ball2Key = nil; pocket2Index = -1 }
         if ball3Key == key { ball3Key = nil }
         if armedRole == nil { armedRole = nextEmptyRole() }
+    }
+
+    private func invalidateShotHistory() {
+        playbackGeneration += 1
+        lastShotContext = nil; canUndoShot = false; canPlayback = false
+        settlementConsumed = false
     }
 
     /// 点击球库中已在桌的球 → 桌上对应球放大脉冲提示位置。
@@ -748,7 +887,7 @@ extension PlanThreeViewModel {
     }
 
     /// 当前是否可求解（工具/角色/球数任一路径就绪）。驱动「求解」按钮启用。
-    var canSolve: Bool { currentConstraint() != nil }
+    var canSolve: Bool { missingSelection == nil && currentConstraint() != nil }
 
     /// 扇形当前是否作为默认落区生效（未画自选约束且② 就绪）。用于视觉：默认=高亮、被自选降级=灰。
     var sectorIsDefaultRegion: Bool { draft == nil && sectorRegion != nil }
@@ -782,7 +921,8 @@ extension PlanThreeViewModel {
     }
 
     func solve() {
-        guard !isPlaying else { return }
+        guard !temporaryTopDownActive, canEditPlan else { return }
+        if let missingSelection { setStatus(missingSelection, kind: .feedback); return }
         guard let targetKey = ball1Key, pocket1Index >= 0,
               let pocketId = ShotIntent.pocketId(for: pocket1Index),
               let constraint = currentConstraint() else {
@@ -955,19 +1095,10 @@ extension PlanThreeViewModel {
                              second: ball2Key == nil ? nil : pocket2Index)
         let showingSolution = currentSolution != nil && !isComputing
 
-        drawRoleRing(ball1Key, color: Self.color1)
-        drawRoleRing(ball2Key, color: Self.color2)
-        drawRoleRing(ball3Key, color: Self.color3)
         drawSector()
 
-        if showingSolution || !showsShotAssists { return }   // Role rings and sectors remain visible.
+        if showingSolution || !showsShotAssists { return }   // Pocket roles and sectors remain visible.
         drawBall1Preview()
-    }
-
-    private func drawRoleRing(_ key: String?, color: UIColor) {
-        guard let key, let n = scene.allBallNodes[key], !n.isHidden else { return }
-        SceneStroke.strokeCircle(center: n.position, radius: AngleSceneCalculator.ballRadius * 1.75,
-                                 color: color.withAlphaComponent(0.95), scene: scene, into: &selectionNodes)
     }
 
     /// ② 停球扇形引导（无③ → 两侧；有③ → 收缩到朝③那侧）。
@@ -1224,6 +1355,7 @@ extension PlanThreeViewModel {
         }
 
         // 记录上一杆上下文（条 21.3 + G17）：击打前完整求解快照 + ①②③ 角色指派，供上一杆完整恢复/回放。
+        settlementConsumed = false
         lastShotContext = makeUndoContext(shot: sol.shot, prediction: sol.prediction)
         canUndoShot = false
         canPlayback = false
@@ -1315,7 +1447,7 @@ extension PlanThreeViewModel {
     /// 上一杆（条 21.3 + G17）：回到上次击打前的**完整状态**——球形、①②③ 角色指派、约束、
     /// 已求出的解（缓存回填，无需重画重求解）、打点/力度/瞄准，均逐字段还原。
     func undoLastShot() {
-        guard !temporaryTopDownActive, !isPlaying, canUndoShot, let ctx = lastShotContext else { return }
+        guard !isComputing, !temporaryTopDownActive, !isPlaying, canUndoShot, let ctx = lastShotContext else { return }
         restore(from: ctx)
         canUndoShot = false
         canPlayback = false
@@ -1332,13 +1464,14 @@ extension PlanThreeViewModel {
                 velocity: velocity, spinX: spinX, spinY: spinY,
                 allowSideSpin: allowSideSpin, basicPositionOnly: basicPositionOnly),
             ball1Key: ball1Key, ball2Key: ball2Key, ball3Key: ball3Key,
-            pocket1Index: pocket1Index, pocket2Index: pocket2Index, armedRole: armedRole,
+            pocket1Index: pocket1Index, pocket2Index: pocket2Index, armedRole: armedRole, currentRoleLocked: currentRoleLocked,
             perspectiveView: ShotReplayCamera.capture(in: scene),
             ballPoses: scene.captureBallPoses(), rails: scene.railInventory.snapshot())
     }
 
     /// 把击打前完整快照原样恢复到场景与状态（不重解）。
     func restore(from ctx: UndoContext) {
+        playbackGeneration += 1
         defer {
             if let view = ctx.perspectiveView { scene.restorePerspectiveView(view) }
         }
@@ -1365,6 +1498,9 @@ extension PlanThreeViewModel {
         pocket1Index = ctx.pocket1Index
         pocket2Index = ctx.pocket2Index
         armedRole = ctx.armedRole
+        currentRoleLocked = ctx.currentRoleLocked
+        settlementConsumed = false
+        adjustmentIsValid = true
 
         // 约束草稿（保留落点/落区/过点的视觉与语义分叉）。
         draft = snap.draft
@@ -1417,14 +1553,17 @@ extension PlanThreeViewModel {
 
     /// 回放上一杆击打过程：退回击打前重播动画，播完回到击打后局面。
     func replayLastShot() {
-        guard !temporaryTopDownActive, !isPlaying, canPlayback, let ctx = lastShotContext else { return }
+        guard !isComputing, !temporaryTopDownActive, !isPlaying, canPlayback, let ctx = lastShotContext else { return }
         let snap = ctx.snapshot
         guard acceptCompletePrediction(snap.prediction),
               let recorder = snap.prediction.recorder, snap.prediction.duration > 0.05 else { return }
         let after = currentSnapshot()
         replayAfterBoard = after
         replayCamera.begin(in: scene)
-        replayAfterContext = makeUndoContext(shot: snap.shot, prediction: snap.prediction)
+        replayAfterContext = makeUndoContext(shot: currentSolution?.shot ?? snap.shot, prediction: currentSolution?.prediction ?? snap.prediction)
+        ball1Key = ctx.ball1Key; ball2Key = ctx.ball2Key; ball3Key = ctx.ball3Key
+        pocket1Index = ctx.pocket1Index; pocket2Index = ctx.pocket2Index
+        currentRoleLocked = ctx.currentRoleLocked; armedRole = ctx.armedRole
         replayAfterRails = scene.railInventory.snapshot()
         replayAfterPoses = scene.captureBallPoses()   // 回放不改变桌面真相，姿态也原样带回
         playbackGeneration += 1
@@ -1516,7 +1655,7 @@ extension PlanThreeViewModel {
         lastShotContext = ctx
         canUndoShot = ctx != nil
         canPlayback = ctx != nil
-        setStatus("回放结束 · 球停在击打后局面", kind: .feedback)
+        setStatus("回放结束", kind: .feedback)
     }
 
     private func launchBalls(sol: PositionPlaySolution, recorder: TrajectoryRecorder) {
@@ -1554,6 +1693,8 @@ extension PlanThreeViewModel {
     /// 否则保留原计划。解/约束随旧布局失效。
     // Internal completion boundary also exercised by deterministic role/undo regression tests.
     func finishStrike(sol: PositionPlaySolution) {
+        guard !settlementConsumed else { return }
+        settlementConsumed = true
         scene.railInventory.finishPlayback()
         ShotAudioScheduler.shared.cancel()
         for key in onTableKeys { scene.allBallNodes[key]?.removeAllActions() }
@@ -1606,19 +1747,20 @@ extension PlanThreeViewModel {
         let nb2 = ball3Key.flatMap { onTable.contains($0) ? $0 : nil }
         ball1Key = nb1
         pocket1Index = nb1 != nil ? pocket2Index : -1
+        currentRoleLocked = nb1 != nil && pocket1Index >= 0
         ball2Key = nb2
         pocket2Index = -1
         ball3Key = nil
-        armedRole = PlanThreeRole.order.first { !isFilled($0) }
+        armedRole = nextEmptyRole()
     }
 
     /// ①未进袋：仅清掉已离场的角色引用。
     private func dropMissingRoles() {
         let onTable = Set(onTableKeys)
-        if let k = ball1Key, !onTable.contains(k) { ball1Key = nil }
-        if let k = ball2Key, !onTable.contains(k) { ball2Key = nil }
-        if let k = ball3Key, !onTable.contains(k) { ball3Key = nil }
-        if armedRole == nil { armedRole = PlanThreeRole.order.first { !isFilled($0) } }
+        if let k = ball1Key, !onTable.contains(k) { clearRolesReferencing(k) }
+        if let k = ball2Key, !onTable.contains(k) { clearRolesReferencing(k) }
+        if let k = ball3Key, !onTable.contains(k) { clearRolesReferencing(k) }
+        if armedRole == nil { armedRole = nextEmptyRole() }
     }
 
     private func boardKey(forPredName name: String, shot: PlannedShot) -> String {
@@ -1631,6 +1773,8 @@ extension PlanThreeViewModel {
 
     func clearTable() {
         guard !isPlaying else { return }
+        invalidateShotHistory()
+        currentRoleLocked = false
         scene.hideAllBalls()
         place(key: PositionPlayBall.cueKey, normalized: CanvasPoint(x: 0.3, y: 0.3), cuePose: .reseat)
         ball1Key = nil; ball2Key = nil; ball3Key = nil

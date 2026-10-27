@@ -138,12 +138,12 @@ struct BTTrainingModePicker: View {
     var body: some View {
         HStack(spacing: 2) {
             segment("\(count)题", free: false)
-            segment("自由训练", free: true)
+            segment("持续练习", free: true)
         }
         .padding(3)
         .background(Color(uiColor: .tertiarySystemFill), in: RoundedRectangle(cornerRadius: 18))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("练习模式")
+        .accessibilityLabel("训练量")
     }
     private func segment(_ title: String, free: Bool) -> some View {
         Button { freePractice = free } label: {

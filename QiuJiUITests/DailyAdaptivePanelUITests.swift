@@ -861,25 +861,27 @@ final class DailyAdaptivePanelUITests: XCTestCase {
     }
 
     func testDailyResultLastActionsRemainReadableAndReachable() throws {
-        for dimension in ["2D", "3D"] {
-            for fixture in ["completed", "failed"] {
-                let app = try launch(fixture: fixture); defer { app.terminate() }
-                mode(app, dimension)
-                let prefix = "result-\(dimension)-\(fixture)"
-                let id = fixture == "completed" ? "dailyClearance.replay" : "dailyClearance.rerack"
-                let last = try decision(app, id, state: prefix + "-last-readable")
-                XCTAssertEqual(try modelField(app, "game"), "chineseEightBall")
-                if fixture == "failed" { XCTAssertEqual(try modelField(app, "phase"), "failed") }
-                last.tap()
-                if fixture == "failed" {
-                    let restart = try decision(app, "dailyClearance.rerackAfterBreak", state: prefix + "-confirm")
-                    restart.tap()
+        for appearance in ["Light", "Dark"] {
+            for dimension in ["2D", "3D"] {
+                for fixture in ["completed", "failed"] {
+                    let app = try launch(fixture: fixture, extra: ["-v54.force\(appearance)"]); defer { app.terminate() }
+                    mode(app, dimension)
+                    let prefix = "result-\(appearance)-\(dimension)-\(fixture)"
+                    let id = fixture == "completed" ? "dailyClearance.replay" : "dailyClearance.rerack"
+                    let last = try decision(app, id, state: prefix + "-last-readable")
+                    XCTAssertEqual(try modelField(app, "game"), "chineseEightBall")
+                    if fixture == "failed" { XCTAssertEqual(try modelField(app, "phase"), "failed") }
+                    last.tap()
+                    if fixture == "failed" {
+                        let restart = try decision(app, "dailyClearance.rerackAfterBreak", state: prefix + "-confirm")
+                        restart.tap()
+                    }
+                    // Both actual actions use resetAndBeginManualRack, without a synthetic strike.
+                    try waitModel(app, "phase", "manualRacked", state: prefix + "-new-rack")
+                    XCTAssertEqual(try modelField(app, "dailyShotCount"), "0")
+                    XCTAssertFalse(element(app, id).exists)
+                    app.terminate()
                 }
-                // Both actual actions use resetAndBeginManualRack, without a synthetic strike.
-                try waitModel(app, "phase", "manualRacked", state: prefix + "-new-rack")
-                XCTAssertEqual(try modelField(app, "dailyShotCount"), "0")
-                XCTAssertFalse(element(app, id).exists)
-                app.terminate()
             }
         }
     }

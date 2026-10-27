@@ -12,6 +12,7 @@ struct TwoBallPracticeView: View {
 
     @StateObject private var questionNotices = BTRuleNoticeCenter()
     @StateObject private var resultNotices = BTRuleNoticeCenter()
+    @StateObject private var operationNotices = BTRuleNoticeCenter()
     @State private var pocketOrientation: PocketDisplay.Orientation = .landscape
 
     init(is3D: Bool) { _vm = StateObject(wrappedValue: TwoBallPracticeViewModel(is3D: is3D)) }
@@ -73,7 +74,11 @@ struct TwoBallPracticeView: View {
             guard event != nil else { resultNotices.clear(); return }
             resultNotices.show(resultNoticeText, tone: .info, priority: .ruling)
         }
-        .onDisappear { questionNotices.clear(); resultNotices.clear() }
+        .onChange(of: vm.notice) { _, event in
+            guard let event else { operationNotices.clear(); return }
+            operationNotices.show(event.text, tone: .info, priority: .ruling)
+        }
+        .onDisappear { questionNotices.clear(); resultNotices.clear(); operationNotices.clear() }
         .overlay(alignment: .topLeading) {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-twoBall.probe") {
@@ -98,6 +103,9 @@ struct TwoBallPracticeView: View {
     }
     private var resultNoticeText: String {
         guard let shot = vm.record?.latestShot else { return "" }
+        if shot.failure == "第一球未进指定袋" || (vm.mode == .free && shot.continuationUnavailable == true) {
+            return TrainingPracticeNotice.cannotPot
+        }
         let previous = vm.record?.showingResult == false && !vm.isReplaying
         let prefix = previous ? "上杆" : "本杆"
         let text: String
@@ -114,6 +122,9 @@ struct TwoBallPracticeView: View {
     }
     private var information: [BTTeachingInformation] {
         var result: [BTTeachingInformation] = []
+        if let notice = operationNotices.message {
+            return [.init(text: notice.text, kind: .notice, symbol: "info.circle", identifier: "twoBall.notice")]
+        }
         if questionNotices.message != nil {
             result.append(.init(text: questionPrompt, kind: .notice, symbol: "info.circle", identifier: "twoBall.question"))
         }
@@ -146,7 +157,7 @@ struct TwoBallPracticeView: View {
                 .init(id: "twoBall.finish", title: "结束练习", disabled: vm.isBusy, action: { vm.finish() })
             ], refreshTrajectory: {}, onLayoutEditingChanged: vm.layoutEditingChanged,
             layoutEditingBlocked: vm.isBusy,
-            onSpinChange: { vm.setSpin($0, $1) })
+            onSpinChange: { vm.setSpin($0, $1) }, paletteRoles: vm.paletteRoles, showsPaletteRoleNumbers: true)
     }
     private var tablePage: some View {
         BTTeachingTablePage(vm: vm, titleLabel: vm.title, identifier: "twoBall", preferencePage: vm.preferencePage,
@@ -176,10 +187,11 @@ struct TwoBallPracticeView: View {
                             .disabled(!vm.canRetry)
                             .accessibilityIdentifier("twoBall.retry")
                             .freeControlItem("shot.undo", name: vm.playsStroke ? "重打" : "重试")
-                        BTHUDCompactAction(title: vm.playsStroke ? "回放" : "击球", symbol: "play.rectangle", size: layout.auxiliarySize) { vm.replayLastShot() }
-                            .disabled(!vm.canPlayback)
-                            .accessibilityIdentifier("twoBall.playback")
-                            .freeControlItem("shot.replay", name: vm.playsStroke ? "回放" : "击球")
+                        BTGeometricReferenceButton(tool: vm.geometryReference,
+                            enabled: vm.canAdjust && !vm.cameraTransitionBusy,
+                            size: layout.auxiliarySize, identifier: "twoBall.geometry",
+                            prepare: { vm.prepareGeometryReference() })
+                            .freeControlItem("shot.replay", name: "测量")
                     }
                 }.frame(width: layout.columnWidth))
             },

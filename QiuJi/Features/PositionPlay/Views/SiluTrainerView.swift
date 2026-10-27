@@ -131,10 +131,10 @@ struct SiluTrainerView: View {
             VStack(spacing: 4) {
                 if !vm.isBreakMode {
                     Menu {
-                        Button("落区") { vm.activeTool = .region }
-                        Button("落点") { vm.activeTool = .restPoint }
-                        Button("过点") { vm.activeTool = .passPoint }
-                        Button("摆球") { vm.activeTool = .none }
+                        BTChoiceMenuItem(title: "落区", selected: vm.activeTool == .region) { vm.activeTool = .region }
+                        BTChoiceMenuItem(title: "落点", selected: vm.activeTool == .restPoint) { vm.activeTool = .restPoint }
+                        BTChoiceMenuItem(title: "过点", selected: vm.activeTool == .passPoint) { vm.activeTool = .passPoint }
+                        BTChoiceMenuItem(title: "摆球", selected: vm.activeTool == .none) { vm.activeTool = .none }
                     } label: {
                         Text(toolName).font(.btCaption).foregroundStyle(.white).frame(width: 44, height: 44)
                             .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }

@@ -4,6 +4,15 @@ final class SeparationPracticeUITests: XCTestCase {
     private var app: XCUIApplication!
     override func setUp() { continueAfterFailure = false }
     private func ready(_ element: XCUIElement, timeout: TimeInterval = 90) {
+        if app.buttons["separation.start"].exists {
+            for _ in 0..<16 {
+                let top = app.navigationBars.firstMatch.frame.maxY + 4
+                if element.exists && element.isHittable && (element.frame.minY >= top || app.navigationBars.firstMatch.frame.contains(element.frame)) { break }
+                let up = !element.exists || element.frame.minY >= top
+                app.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: up ? 0.72 : 0.42))
+                    .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: up ? 0.42 : 0.72)))
+            }
+        }
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == true AND enabled == true AND hittable == true"), object: element)],
             timeout: timeout), .completed, element.debugDescription)
@@ -49,27 +58,52 @@ final class SeparationPracticeUITests: XCTestCase {
         waitPhase("aiming")
     }
 
+    func testGeometryReference2D() throws { try geometryReference(false) }
+    func testGeometryReference3D() throws { try geometryReference(true) }
+    private func geometryReference(_ is3D: Bool) throws {
+        open(is3D)
+        let toggle = app.switches["separation.playsStroke"]; ready(toggle)
+        if toggle.value as? String == "1" { toggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap() }
+        start()
+        func geometry() throws -> [String: Any] { try XCTUnwrap(probe()["geometry"] as? [String: Any]) }
+        let menu = app.buttons["separation.geometry"]; ready(menu); menu.tap()
+        let option = app.buttons["separation.geometry.3"]; ready(option); option.tap()
+        XCTAssertEqual(try geometry()["visible"] as? Bool, true)
+        let first = try XCTUnwrap(geometry()["first"] as? [Double])
+        capture("separation-geometry-\(is3D)")
+        app.buttons["separation.strike"].tap(); waitPhase("result")
+        XCTAssertEqual(try geometry()["visible"] as? Bool, false)
+        app.buttons["separation.retry"].tap(); waitPhase("aiming")
+        XCTAssertEqual(try geometry()["first"] as? [Double], first)
+        XCTAssertEqual(try geometry()["visible"] as? Bool, true)
+        app.buttons["separation.strike"].tap(); waitPhase("result")
+        app.buttons["separation.strike"].tap(); waitPhase("aiming")
+        XCTAssertEqual(try geometry()["count"] as? Int, 0)
+        app.terminate()
+    }
+
     func test2DResultNoticeExpires() throws { try resultNoticeExpires(is3D: false) }
     func test3DResultNoticeExpires() throws { try resultNoticeExpires(is3D: true) }
     private func resultNoticeExpires(is3D: Bool) throws {
         open(is3D)
         let toggle = app.switches["separation.playsStroke"]; ready(toggle)
-        if toggle.value as? String == "1" { toggle.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap() }
+        if toggle.value as? String == "1" { toggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap() }
         start()
         app.buttons["separation.strike"].tap(); waitPhase("result")
         let notice = node("separation.result")
-        XCTAssertTrue(notice.label.contains("本杆"))
+        XCTAssertTrue(notice.label.contains("本杆") || notice.label == "0分，无法进指定袋，请重打")
+        XCTAssertFalse(app.alerts.firstMatch.exists)
         capture("score-visible-\(is3D)")
         XCTAssertTrue(notice.waitForNonExistence(timeout: 5))
         XCTAssertTrue(node("separation.latestScore").label.contains("本杆得分"))
         capture("score-expired-\(is3D)")
         app.buttons["separation.retry"].tap(); waitPhase("aiming")
-        XCTAssertTrue(notice.label.contains("上杆"))
+        XCTAssertTrue(notice.label.contains("上杆") || notice.label == "0分，无法进指定袋，请重打")
         XCTAssertTrue(notice.waitForNonExistence(timeout: 5))
         XCTAssertTrue(node("separation.latestScore").label.contains("上杆得分"))
         capture("previous-expired-\(is3D)")
         app.buttons["separation.strike"].tap(); waitPhase("result")
-        XCTAssertTrue(notice.label.contains("本杆"))
+        XCTAssertTrue(notice.label.contains("本杆") || notice.label == "0分，无法进指定袋，请重打")
         XCTAssertTrue(notice.waitForNonExistence(timeout: 5))
     }
     func test2DFeasibleSpinPad() throws { try exerciseFeasibleSpinPad(is3D: false) }
@@ -77,7 +111,7 @@ final class SeparationPracticeUITests: XCTestCase {
     private func exerciseFeasibleSpinPad(is3D: Bool) throws {
         open(is3D)
         let toggle = app.switches["separation.playsStroke"]; ready(toggle)
-        if toggle.value as? String == "1" { toggle.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap() }
+        if toggle.value as? String == "1" { toggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap() }
         start()
         func checkAccess() throws {
             XCTAssertEqual(try probe()["inputAccessible"] as? Bool, true)
@@ -102,8 +136,8 @@ final class SeparationPracticeUITests: XCTestCase {
         app.buttons["separation.retry"].tap(); waitPhase("aiming"); try checkAccess()
         let input = try probe()["input"] as? [Double]
         let question = try probe()["question"] as? String
-        app.buttons["separation.playback"].tap(); waitPhase("playing")
-        app.buttons["separation.strike"].tap(); waitPhase("aiming"); try checkAccess()
+        app.buttons["separation.geometry"].tap()
+        app.buttons["separation.geometry.1"].tap(); try checkAccess()
         XCUIDevice.shared.press(.home); app.activate(); waitPhase("aiming")
         app.buttons["separation.back"].tap()
         let entry = app.buttons[is3D ? "3D分离角" : "2D分离角"]; ready(entry); entry.tap()
@@ -123,7 +157,7 @@ final class SeparationPracticeUITests: XCTestCase {
     private func exercisePrefetch(is3D: Bool) throws {
         open(is3D)
         let toggle = app.switches["separation.playsStroke"]; ready(toggle)
-        if toggle.value as? String == "1" { toggle.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap() }
+        if toggle.value as? String == "1" { toggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap() }
         start()
         func waitReady() {
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
@@ -166,11 +200,13 @@ final class SeparationPracticeUITests: XCTestCase {
             let reference = app.switches["separation.showsReference"]
             let stroke = app.switches["separation.playsStroke"]
             ready(reference); ready(stroke)
-            XCTAssertEqual(reference.label, "中杆参考")
+            XCTAssertEqual(reference.label, "提交后保留中杆参考")
             if (reference.value as? String == "1") != keep {
-                reference.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap()
+                reference.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap()
             }
-            if stroke.value as? String == "1" { stroke.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap() }
+            if stroke.value as? String == "1" { stroke.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap() }
+            XCTAssertEqual(reference.value as? String, keep ? "1" : "0")
+            XCTAssertEqual(stroke.value as? String, "0")
             capture("stages-\(is3D)-\(keep)-settings")
             start(); waitReference(true)
             XCTAssertEqual(try probe()["actualVisible"] as? Bool, false)
@@ -179,13 +215,13 @@ final class SeparationPracticeUITests: XCTestCase {
             primary.tap(); waitPhase("result"); waitReference(keep)
             XCTAssertEqual(try probe()["actualVisible"] as? Bool, true)
             capture("stages-\(is3D)-\(keep)-result")
-            // Natural replay completion and explicit stop must preserve the same route set.
-            app.buttons["separation.playback"].tap(); waitPhase("playing"); waitPhase("result")
+            // The independent geometry tool must preserve the physical reference policy.
+            XCTAssertFalse(app.buttons["separation.geometry"].isEnabled)
             waitReference(keep)
             app.buttons["separation.retry"].tap(); waitPhase("aiming")
             XCTAssertEqual(try probe()["actualVisible"] as? Bool, true); waitReference(keep)
             capture("stages-\(is3D)-\(keep)-retry")
-            app.buttons["separation.playback"].tap(); waitPhase("playing"); primary.tap(); waitPhase("aiming")
+            app.buttons["separation.geometry"].tap(); app.buttons["separation.geometry.1"].tap()
             XCTAssertEqual(try probe()["actualVisible"] as? Bool, true); waitReference(keep)
             XCUIDevice.shared.press(.home); app.activate(); waitPhase("aiming")
             let id = try probe()["question"] as? String
@@ -219,14 +255,14 @@ final class SeparationPracticeUITests: XCTestCase {
         let reference = app.switches["separation.showsReference"]
         ready(reference)
         if reference.value as? String == "0" {
-            reference.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap()
+            reference.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap()
         }
-        XCTAssertEqual(reference.label, "中杆参考")
+        XCTAssertEqual(reference.label, "提交后保留中杆参考")
         XCTAssertLessThan(toggle.frame.minY, reference.frame.minY)
         // Shared simulator preferences survive launchClean and a failed previous run.
         // Fresh-install default is covered with an isolated UserDefaults suite in the unit test.
         if toggle.value as? String == "0" {
-            toggle.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap()
+            toggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap()
         }
         XCTAssertEqual(toggle.value as? String, "1")
         XCTAssertLessThan(node("training.length").frame.minY, node("separation.shotSettingsHeader").frame.minY)
@@ -234,7 +270,7 @@ final class SeparationPracticeUITests: XCTestCase {
         XCTAssertTrue(node("separation.aimCompensationNote").exists)
         XCTAssertGreaterThanOrEqual(node("separation.aimCompensationNote").frame.minY, reference.frame.maxY)
         capture("submit-\(is3D ? "3D" : "2D")-entry-setting-default")
-        toggle.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap()
+        toggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap()
         XCTAssertEqual(toggle.value as? String, "0")
         capture("submit-\(is3D ? "3D" : "2D")-entry-setting-off")
         start()
@@ -251,7 +287,7 @@ final class SeparationPracticeUITests: XCTestCase {
         XCTAssertFalse(node("separation.result").exists)
         XCTAssertEqual(initial["playsStroke"] as? Bool, false)
         XCTAssertEqual(app.buttons["separation.retry"].label, "重试")
-        XCTAssertEqual(app.buttons["separation.playback"].label, "击球")
+        XCTAssertEqual(app.buttons["separation.geometry"].label, "几何参考")
         app.buttons["separation.more"].tap()
         XCTAssertFalse(node("separation.playsStroke").exists)
         capture("submit-menu-without-stroke-option")
@@ -280,8 +316,7 @@ final class SeparationPracticeUITests: XCTestCase {
         capture("submit-\(is3D ? "3D" : "2D")-result")
         XCUIDevice.shared.press(.home); app.activate(); waitPhase("result")
         XCTAssertEqual(try probe()["cuePosition"] as? [Double], initial["cuePosition"] as? [Double])
-        app.buttons["separation.playback"].tap(); waitPhase("playing")
-        submit.tap(); waitPhase("result")
+        XCTAssertFalse(app.buttons["separation.geometry"].isEnabled)
         XCTAssertEqual(try probe()["cuePosition"] as? [Double], initial["cuePosition"] as? [Double])
         app.buttons["separation.retry"].tap(); waitPhase("aiming")
         XCTAssertEqual(submit.label, "提交")
@@ -312,8 +347,8 @@ final class SeparationPracticeUITests: XCTestCase {
         for _ in 0..<5 where !settings.isHittable { app.scrollViews["dailyClearance.menuScroll"].swipeUp() }
         ready(settings); settings.tap(); ready(toggle)
         XCTAssertEqual(toggle.value as? String, "0")
-        reference.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap()
-        toggle.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap(); app.buttons["training.settingsCancel"].tap(); waitPhase("result")
+        reference.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap()
+        toggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap(); app.buttons["training.settingsCancel"].tap(); waitPhase("result")
         XCTAssertEqual(try probe()["referenceVisible"] as? Bool, true)
         XCTAssertTrue(node("separation.referenceLegend").exists)
         XCTAssertEqual(try probe()["playsStroke"] as? Bool, false)
@@ -323,15 +358,15 @@ final class SeparationPracticeUITests: XCTestCase {
         ready(settings); settings.tap(); ready(toggle)
         XCTAssertEqual(toggle.value as? String, "0")
         XCTAssertEqual(reference.value as? String, "1", "Cancel discards the reference draft")
-        reference.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap()
-        toggle.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap(); start()
+        reference.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap()
+        toggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap(); start()
         XCTAssertEqual(try probe()["showsReference"] as? Bool, false)
         waitReference(true)
         XCTAssertFalse(node("separation.actualLegend").exists)
         capture("reference-off-\(is3D ? "3D" : "2D")")
         XCTAssertEqual(submit.label, "击球")
         XCTAssertEqual(app.buttons["separation.retry"].label, "重打")
-        XCTAssertEqual(app.buttons["separation.playback"].label, "回放")
+        XCTAssertEqual(app.buttons["separation.geometry"].label, "几何参考")
         submit.tap(); waitPhase("result", timeout: 120)
         XCTAssertGreaterThan(try XCTUnwrap(probe()["strokeStartedAt"] as? Double), 0)
         capture("submit-\(is3D ? "3D" : "2D")-stroke-restored")
@@ -340,7 +375,7 @@ final class SeparationPracticeUITests: XCTestCase {
         for _ in 0..<5 where !settings.isHittable { app.scrollViews["dailyClearance.menuScroll"].swipeUp() }
         ready(settings); settings.tap(); ready(reference)
         XCTAssertEqual(reference.value as? String, "0")
-        reference.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap(); start()
+        reference.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap(); start()
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             (try? self.probe()["referenceVisible"] as? Bool) == true
         }, object: app)], timeout: 30), .completed)
@@ -391,9 +426,9 @@ final class SeparationPracticeUITests: XCTestCase {
             }
             try checkOutput("shot")
             XCUIDevice.shared.press(.home); app.activate(); waitPhase("result")
-            ready(app.buttons["separation.playback"]); app.buttons["separation.playback"].tap()
-            waitPhase("playing"); waitPhase("result", timeout: 120)
-            try checkOutput("replay")
+            app.buttons["separation.retry"].tap(); waitPhase("aiming")
+            app.buttons["separation.strike"].tap(); waitPhase("result", timeout: 120)
+            try checkOutput("retry-shot")
             capture("persisted-audio-\(is3D ? "3D" : "2D")")
             app.buttons["separation.back"].tap()
         }
@@ -403,7 +438,7 @@ final class SeparationPracticeUITests: XCTestCase {
         open(is3D)
         let strokeToggle = app.switches["separation.playsStroke"]; ready(strokeToggle)
         if strokeToggle.value as? String == "0" {
-            strokeToggle.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap()
+            strokeToggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap()
         }
         start()
         let initial = try probe(), question = try XCTUnwrap(initial["question"] as? String)
@@ -478,9 +513,8 @@ final class SeparationPracticeUITests: XCTestCase {
         XCTAssertGreaterThan(sounds["cueStrike"] ?? 0, 0)
         XCTAssertGreaterThan(sounds["ballHit"] ?? 0, 0)
         capture("separation-result")
-        ready(app.buttons["separation.playback"]); app.buttons["separation.playback"].tap()
-        ready(app.buttons["separation.strike"]); XCTAssertEqual(app.buttons["separation.strike"].label, "停止回放")
-        app.buttons["separation.strike"].tap(); waitPhase("result")
+        XCTAssertFalse(app.buttons["separation.playback"].exists)
+        XCTAssertTrue(app.buttons["separation.geometry"].exists)
         XCTAssertEqual(try probe()["attempts"] as? Int, 1)
         app.buttons["separation.retry"].tap(); waitPhase("aiming")
         XCTAssertEqual(try probe()["actualVisible"] as? Bool, true)
@@ -528,7 +562,7 @@ final class SeparationPracticeUITests: XCTestCase {
         XCTAssertFalse(app.buttons["separation.start"].exists)
         capture("3D-free-pro-gate"); app.buttons["subscription.close"].tap(); app.terminate()
         open(false, premium: false, nearLimit: true)
-        let free = node("training.length").buttons["自由训练"]
+        let free = node("training.length").buttons["持续练习"]
         XCTAssertEqual(free.value as? String, "需要 Pro")
         capture("2D-free-mode-lock")
         free.tap(); ready(app.buttons["subscription.close"])
@@ -687,7 +721,7 @@ final class SeparationPracticeUITests: XCTestCase {
             }, object: nil)], timeout: 10), .completed, "Real system window resizing")
             ready(primary); XCTAssertEqual(try probe()["question"] as? String, question)
             XCTAssertFalse(primary.frame.intersects(bar.frame), "Resized strike must not overlap the power control")
-            XCTAssertFalse(app.buttons["separation.retry"].frame.intersects(app.buttons["separation.playback"].frame))
+            XCTAssertFalse(app.buttons["separation.retry"].frame.intersects(app.buttons["separation.geometry"].frame))
             if is3D {
                 for id in ["shotCamera.firstPerson", "shotCamera.thirdPerson", "shotCamera.temporaryTopDown", "dailyClearance.observeTable"] {
                     XCTAssertFalse(app.buttons[id].frame.intersects(bar.frame), "Camera must not overlap power after resize")

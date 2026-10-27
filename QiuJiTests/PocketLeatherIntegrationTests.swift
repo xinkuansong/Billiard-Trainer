@@ -51,7 +51,12 @@ final class PocketLeatherIntegrationTests: XCTestCase {
             for (j, marker) in a.enumerated() { plain.setPocketHighlight(marker, style: i == j ? .selected : .viable) }
             XCTAssertEqual(a.filter { $0.style == .target }.map(\.pocketIndex), [i])
             XCTAssertTrue(b.allSatisfy { $0.style == .original })
-            XCTAssertTrue(a.allSatisfy { $0.childNodes.filter { !$0.isHidden }.count == 1 })
+            // The target keeps original leather plus a transient confirmation layer.
+            XCTAssertTrue(a.allSatisfy { $0.childNodes.filter { !$0.isHidden && $0.name != "leather_selectionPulse" }.count == 1 })
+            XCTAssertFalse(try XCTUnwrap(a[i].childNode(withName: "leather_selectionPulse", recursively: false)).isHidden)
+            XCTAssertTrue(a.enumerated().filter { $0.offset != i }.allSatisfy {
+                $0.element.childNode(withName: "leather_selectionPulse", recursively: false)?.isHidden == true
+            })
             let original = try XCTUnwrap(a[i].childNodes.first?.geometry)
             let other = try XCTUnwrap(b[i].childNodes.first?.geometry)
             XCTAssertFalse(original.materials[0] === other.materials[0])

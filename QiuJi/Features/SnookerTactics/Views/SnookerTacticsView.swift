@@ -73,8 +73,8 @@ struct SnookerTacticsView: View {
                     Section("当前选择") {
                         ForEach(targetSummary, id: \.self) { Text($0) }
                     }
-                    Button("目标球") { vm.activeTool = .selectTarget }
-                    Button("摆球") { vm.activeTool = .none }
+                    BTChoiceMenuItem(title: "目标球", selected: vm.activeTool == .selectTarget) { vm.activeTool = .selectTarget }
+                    BTChoiceMenuItem(title: "摆球", selected: vm.activeTool == .none) { vm.activeTool = .none }
                 } label: {
                     Text(vm.activeTool == .selectTarget ? "目标球" : "摆球").font(.btCaption).foregroundStyle(.white)
                         .frame(width: 44, height: 44)

@@ -37,24 +37,21 @@ struct MultiBallSettingsView: View {
     let onCancel: () -> Void
     var body: some View {
         Form {
-            if !is3D {
-                Section("练习模式") {
-                    BTTrainingModePicker(count: 3, isPremium: subscription.isPremium, freePractice: Binding(get: { configuration.freePractice }, set: { free in
-                        if free && !subscription.isPremium { pendingFreePractice = true; showSubscription = true }
-                        else { configuration.freePractice = free }
-                    })).accessibilityIdentifier("multiBall.length")
-                    if !subscription.isPremium {
-                        Text("今日剩余 \(limiter.remainingToday) 题，所有多球玩法共用")
-                            .font(.btCaption).foregroundStyle(.btTextSecondary)
-                            .accessibilityIdentifier("multiBall.remaining")
-                    }
-                }
-            }
             Section("玩法") {
                 Picker("玩法", selection: $configuration.game) {
                     ForEach(MultiBallConfiguration.Game.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented).accessibilityIdentifier("multiBall.game")
+            }
+            Section {
+                Picker("走位模式", selection: $configuration.positionMode) {
+                    ForEach(MultiBallConfiguration.PositionMode.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented).accessibilityIdentifier("multiBall.positionMode")
+            } header: { Text("走位模式") } footer: {
+                Text(configuration.positionMode == .planned
+                     ? "提前规划三颗球，指定第二球袋口；顺序清台自动排球，每杆评价走位质量。"
+                     : "不必提前指定下一球，按清台规则自主击球。")
             }
             Section(configuration.game == .rotation ? "目标球数" : "己方球数（含黑八）") {
                 ForEach(configuration.game == .rotation ? MultiBallConfiguration.rotationCounts : Array(4...8), id: \.self) { count in
@@ -71,6 +68,19 @@ struct MultiBallSettingsView: View {
                     choice("随机 1–7 颗", selected: configuration.randomOpponents, id: "multiBall.opponents.random") { configuration.randomOpponents = true }
                 }
             }
+            if !is3D {
+                Section("训练量") {
+                    BTTrainingModePicker(count: 3, isPremium: subscription.isPremium, freePractice: Binding(get: { configuration.freePractice }, set: { free in
+                        if free && !subscription.isPremium { pendingFreePractice = true; showSubscription = true }
+                        else { configuration.freePractice = free }
+                    })).accessibilityIdentifier("multiBall.length")
+                    if !subscription.isPremium {
+                        Text("今日剩余 \(limiter.remainingToday) 题，所有多球玩法共用")
+                            .font(.btCaption).foregroundStyle(.btTextSecondary)
+                            .accessibilityIdentifier("multiBall.remaining")
+                    }
+                }
+            }
             Section("练习方式") {
                 Text(configuration.game == .rotation ? "母球自由球上手。按号码从小到大逐颗打进，练习连续走位。" : "母球自由球上手。己方全色或花色随机分配，打完己方球后再打黑八。")
             }
@@ -83,11 +93,16 @@ struct MultiBallSettingsView: View {
         .overlay { if let message = resetNotice.message { BTToastBanner(message: message) } }
         .navigationTitle("训练设置")
         .navigationBarTitleDisplayMode(.inline).navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
+            ToolbarItem(placement: .principal) {
+                Text("训练设置").font(.btHeadline).foregroundStyle(.btPrimary)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            ToolbarItem(placement: .topBarLeading) {
                 Button(isRestart ? "取消" : "返回", action: onCancel).accessibilityIdentifier("multiBall.settingsCancel")
             }
-            ToolbarItem(placement: .confirmationAction) {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button(isRestart ? "重新开始" : "开始练习", action: start)
                 .fontWeight(.semibold).accessibilityIdentifier("multiBall.start")
             }

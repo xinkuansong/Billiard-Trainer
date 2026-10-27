@@ -2139,8 +2139,8 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
 
     // MARK: - Shared selection ring & teaching overlays
 
-    /// 选中环颜色（亮绿，统一全 App 点选球反馈）。
-    static let selectionRingColor = UIColor(red: 0.36, green: 0.92, blue: 0.55, alpha: 0.95)
+    /// 编辑/当前目标选中环；与物理轨迹颜色分离。
+    static var selectionRingColor: UIColor { BallRoleStyle.current.uiColor }
     /// 90° 分离角辅助线颜色 = 线语言统一品牌绿短虚线（DR-021，弃白免与母球轨迹混淆）。
     static let separationLineColor = TrajectoryStyle.separationColor
 
@@ -2233,6 +2233,36 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         generator.selectionChanged()
     }
 
+    /// Ball feedback is owned by accepted user input, never by role redraws.
+    var ballSelectionHaptic: () -> Void = {
+        let generator = UISelectionFeedbackGenerator()
+        generator.prepare()
+        generator.selectionChanged()
+    }
+
+    #if DEBUG
+    private(set) var manualBallFeedbackCount = 0
+    private(set) var rolePocketFeedbackCount = 0
+    #endif
+
+    func confirmBallSelection(key: String) {
+        guard let node = allBallNodes[key], !node.isHidden else { return }
+        TableBallPulse.pulse(node)
+        #if DEBUG
+        manualBallFeedbackCount += 1
+        #endif
+        ballSelectionHaptic()
+    }
+
+    /// Persistent planning colours stay untouched by a manual pocket acknowledgement.
+    func confirmRolePocketSelection(at index: Int) {
+        guard (0..<6).contains(index) else { return }
+        #if DEBUG
+        rolePocketFeedbackCount += 1
+        #endif
+        pocketSelectionHaptic()
+    }
+
     func highlightPocket(_ node: SCNNode, highlighted: Bool) {
         setPocketHighlight(node, style: highlighted ? .selected : .viable)
     }
@@ -2248,10 +2278,10 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         for marker in leatherMarkers { marker.cancelSelectionFeedback() }
     }
 
-    func confirmPocketSelection(at index: Int, source: PocketSelectionSource = .automatic) {
+    func confirmPocketSelection(at index: Int, source: PocketSelectionSource = .automatic, emitsHaptic: Bool = true) {
         guard let marker = leatherMarkers.first(where: { $0.pocketIndex == index }) else { return }
         cancelPocketSelectionFeedback()
-        pocketSelectionHaptic()
+        if emitsHaptic { pocketSelectionHaptic() }
         marker.confirmSelection(delay: source == .manual ? PocketLeatherMarker.manualSelectionPulseDelay : 0)
     }
 
@@ -2269,15 +2299,25 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         if transientFirst, confirmsSelection, let first { confirmPocketSelection(at: first) }
     }
 
+    /// Free-position practice: current blue, planned continuation green, both persistent.
+    func setPracticePocketRoles(current: Int?, next: Int?) {
+        cancelPocketSelectionFeedback()
+        for marker in leatherMarkers {
+            let first = current == marker.pocketIndex, second = next == marker.pocketIndex
+            marker.show(first && second ? .practiceBoth : first ? .practiceCurrent : second ? .continuationTarget : .original,
+                        confirmsSelection: false)
+        }
+    }
+
     var pocketSelectionDescription: String {
         let selected = leatherMarkers.filter { $0.style != .original }.map { marker in
             let role: String
             switch marker.style {
             case .original: role = ""
             case .target: role = "目标"
-            case .firstRole: role = "第1杆目标"
+            case .firstRole, .practiceCurrent: role = "第1杆目标"
             case .secondRole, .continuationTarget: role = "第2杆目标"
-            case .bothRoles: role = "第1、2杆共同目标"
+            case .bothRoles, .practiceBoth: role = "第1、2杆共同目标"
             }
             return "\(PocketDisplay.name(index: marker.pocketIndex, orientation: pocketDisplayOrientation))：\(role)"
         }
