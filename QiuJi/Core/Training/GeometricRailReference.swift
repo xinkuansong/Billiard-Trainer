@@ -20,7 +20,7 @@ enum GeometricRailReference {
             return start + t * d
         }
     }
-    struct Context: Equatable {
+    struct Context: Equatable, Codable {
         let cue, ghost, pocket, potDirection, incoming: Point
         init?(cue: SCNVector3, target: SCNVector3, pocket: SCNVector3) {
             let c = point(cue), t = point(target), p = point(pocket)

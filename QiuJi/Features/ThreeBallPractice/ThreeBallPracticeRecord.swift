@@ -24,6 +24,8 @@ struct ThreeBallPracticeRecord: Codable, Identifiable {
     var logicalSessionID: UUID
     var ownerKey: String
     let is3D: Bool
+    var presentation: TrainingPresentation?
+    var geometricReference: GeometricReferenceTool.Snapshot?
     let configuration: SceneTrainingConfiguration
     let bankFingerprint: String
     let startedAt: Date
@@ -73,13 +75,15 @@ struct ThreeBallPracticeRecord: Codable, Identifiable {
     var finishMetrics: [(String,String)] {
         [("已练题数", "\(totalProcessed)"), ("首答均分", averageScore.map { String(format: "%.1f", $0) } ?? "—")]
     }
-    var displayName: String { "\(is3D ? "3D" : "2D")三球走位" }
+    var displayName: String { presentation == nil ? ("\(is3D ? "3D" : "2D")三球走位") : "三球走位 · " + (presentation?.summary ?? "") }
     var historyDetail: String {
         "已练\(consumed.count)题 · 首答均分 " + (averageScore.map { String(format: "%.1f", $0) } ?? "—")
     }
     init(ownerKey: String, is3D: Bool, configuration: SceneTrainingConfiguration,
          prepared: ThreeBallQuestionPreparer.Prepared, now: Date = Date()) {
         id = UUID(); logicalSessionID = id; self.ownerKey = ownerKey; self.is3D = is3D
+        presentation = .init(is3D: is3D)
+        presentation?.observe(.init(is3D: is3D), questionID: prepared.question.id)
         self.configuration = configuration; bankFingerprint = prepared.fingerprint
         startedAt = now; updatedAt = now; questions = [prepared.question]; seenContentIDs = [prepared.question.contentID]
     }
@@ -131,6 +135,7 @@ struct ThreeBallPracticeRecord: Codable, Identifiable {
     }
     func continuation(prepared: ThreeBallQuestionPreparer.Prepared) -> Self {
         var next = Self(ownerKey: ownerKey, is3D: is3D, configuration: configuration, prepared: prepared)
+        next.presentation = presentation
         next.logicalSessionID = logicalSessionID; next.completedQuestionOffset = totalProcessed
         next.previousScoreSum = previousScoreSum + firstAnswerScores.reduce(0,+)
         next.previousScoreCount = previousScoreCount + firstAnswerScores.count

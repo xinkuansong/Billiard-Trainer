@@ -1,6 +1,7 @@
 import XCTest
 
 final class TrainingMultiSelectionUITests: XCTestCase {
+    private var trainingTitle = ""
     func testResetSettingsVisualBaseline() {
         continueAfterFailure = false
         let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral", "-v54.forceLight"])
@@ -8,7 +9,8 @@ final class TrainingMultiSelectionUITests: XCTestCase {
         for (category, title) in [("练", "2D准度"), ("打", "2D两球走位"), ("练", "蛇彩练习")] {
             app.switchTab(.angle)
             app.buttons["angleHomeTab_" + category].tap()
-            let card = app.buttons[title]
+            trainingTitle = title
+            let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
             for _ in 0..<5 where !card.isHittable { app.swipeUp() }
             XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
             let cancel = app.buttons[title == "蛇彩练习" ? "snake.settingsCancel" : "training.settingsCancel"]
@@ -29,7 +31,8 @@ final class TrainingMultiSelectionUITests: XCTestCase {
         func open(_ title: String) {
             app.switchTab(.angle)
             app.buttons["angleHomeTab_练"].tap()
-            let card = app.buttons[title]
+            trainingTitle = title
+            let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
             if !card.isHittable { app.swipeUp() }
             XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
         }
@@ -41,13 +44,13 @@ final class TrainingMultiSelectionUITests: XCTestCase {
                 app.buttons["accuracy.more"].tap()
                 app.buttons["accuracy.trainingSettings"].tap()
             }
-            XCTAssertTrue(start.waitForExistence(timeout: 5)); start.tap()
+            XCTAssertTrue(start.waitForExistence(timeout: 5)); start.tap(); app.selectTrainingView(trainingTitle)
             let strike = app.buttons["accuracy.strike"]
             XCTAssertTrue(strike.waitForExistence(timeout: 20))
             expectation(for: NSPredicate { _, _ in strike.isHittable && strike.isEnabled }, evaluatedWith: app)
             waitForExpectations(timeout: 10)
             let questionInfo = app.descendants(matching: .any).matching(identifier: "accuracy.questionInfo").firstMatch
-            XCTAssertTrue(questionInfo.label.contains("1/20"))
+            XCTAssertTrue(questionInfo.label.contains("1/15"))
             strike.tap()
             let result = app.staticTexts["accuracy.result"]
             XCTAssertTrue(result.waitForExistence(timeout: 40))
@@ -57,9 +60,9 @@ final class TrainingMultiSelectionUITests: XCTestCase {
             open(title)
             XCTAssertTrue(result.waitForExistence(timeout: 15))
             XCTAssertEqual(result.label, savedResult)
-            XCTAssertTrue(questionInfo.label.contains("1/20"))
+            XCTAssertTrue(questionInfo.label.contains("1/15"))
             strike.tap()
-            XCTAssertTrue(app.staticTexts["accuracy.question"].label.contains("第2题"))
+            XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "accuracy.questionInfo").firstMatch.label.contains("2/15"))
             app.buttons["accuracy.more"].tap()
             app.buttons["accuracy.finish"].tap()
             XCTAssertTrue(app.buttons["training.complete"].waitForExistence(timeout: 5))
@@ -78,7 +81,8 @@ final class TrainingMultiSelectionUITests: XCTestCase {
             app.switchTab(.angle)
             let category = app.buttons["angleHomeTab_练"]
             XCTAssertTrue(category.waitForExistence(timeout: 5)); category.tap()
-            let card = app.buttons[title]
+            trainingTitle = title
+            let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
             if !card.isHittable { app.swipeUp() }
             XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
             let random = app.buttons["training.range.mixed"]
@@ -132,23 +136,36 @@ final class TrainingMultiSelectionUITests: XCTestCase {
     }
     func testAccuracyBothModesFreezeTipAndPreserveResultAcrossReturn() throws {
         continueAfterFailure = false
-        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
-        defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
         for title in ["2D准度", "3D准度"] {
+            // Each projection gets a fresh round. Returning within this case
+            // must restore its result; the two modes now share one project.
+            let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
+            defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
             app.switchTab(.angle)
             app.buttons["angleHomeTab_练"].tap()
-            let card = app.buttons[title]
+            trainingTitle = title
+            let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
             if !card.isHittable { app.swipeUp() }
             XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
             let start = app.buttons["accuracy.start"]
             XCTAssertTrue(start.waitForExistence(timeout: 5))
+            // Explicitly choose locked spin; manual control is the current default.
+            for id in ["accuracy.manualVerticalSpin", "accuracy.manualSideSpin"] {
+                let toggle = app.switches[id]
+                for _ in 0..<10 where !toggle.isHittable { app.swipeUp() }
+                XCTAssertTrue(toggle.isHittable)
+                if toggle.value as? String == "1" {
+                    toggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap()
+                }
+                XCTAssertEqual(toggle.value as? String, "0")
+            }
             if !start.isHittable { app.swipeUp() }
-            start.tap()
+            start.tap(); app.selectTrainingView(trainingTitle)
             let strike = app.buttons["accuracy.strike"]
             XCTAssertTrue(strike.waitForExistence(timeout: 20), app.debugDescription)
             let ready = NSPredicate { _, _ in strike.isHittable && strike.isEnabled }
             expectation(for: ready, evaluatedWith: app); waitForExpectations(timeout: 10)
-            XCTAssertTrue(app.staticTexts["accuracy.question"].label.contains("指定"))
+            XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "accuracy.questionInfo").firstMatch.label.contains("1/15"))
             app.buttons["shotStage.spinEntry"].tap()
             let disc = app.otherElements["打点盘"]
             XCTAssertTrue(disc.waitForExistence(timeout: 5))
@@ -164,7 +181,7 @@ final class TrainingMultiSelectionUITests: XCTestCase {
                 XCUIDevice.shared.orientation = .landscapeLeft
                 expectation(for: NSPredicate { _, _ in app.frame.width > app.frame.height && strike.isHittable }, evaluatedWith: app)
                 waitForExpectations(timeout: 10)
-                XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "accuracy.questionInfo").firstMatch.label.contains("1/20"))
+                XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "accuracy.questionInfo").firstMatch.label.contains("1/15"))
                 let landscape = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
                 landscape.name = title + "-landscape"; landscape.lifetime = .keepAlways; add(landscape)
                 XCUIDevice.shared.orientation = .portrait
@@ -172,7 +189,7 @@ final class TrainingMultiSelectionUITests: XCTestCase {
                 waitForExpectations(timeout: 10)
             }
             app.buttons["accuracy.more"].tap()
-            XCTAssertFalse(app.buttons["menu.aimCloseup"].exists)
+            XCTAssertTrue(app.buttons["menu.aimCloseup"].exists, "Current contract allows magnifying the existing aiming information")
             XCTAssertTrue(app.buttons["accuracy.transparency"].exists)
             app.buttons["accuracy.dismissMenu"].tap()
             strike.tap()
@@ -194,27 +211,22 @@ final class TrainingMultiSelectionUITests: XCTestCase {
             XCTAssertTrue(result.waitForExistence(timeout: 15))
             XCTAssertEqual(result.label, outcome)
             app.buttons["accuracy.strike"].tap()
-            XCTAssertTrue(app.staticTexts["accuracy.question"].waitForExistence(timeout: 10))
-            XCTAssertTrue(app.staticTexts["accuracy.question"].label.contains("第2题"))
+            XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "accuracy.questionInfo").firstMatch.label.contains("2/15"))
             app.buttons["accuracy.back"].tap()
         }
     }
 
-    func testAccuracyFreeAllowanceAnd3DProGate() throws {
+    func testAccuracyExhaustedQuotaGatesStartingNotOpeningProject() throws {
         continueAfterFailure = false
         let app = XCUIApplication.launchClean(extraArgs: ["-forceNonPremium", "-w7.forceDailyLimit", "-v50.inMemoryStore"])
         defer { app.terminate() }
         app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
-        let pro = app.buttons["3D准度"]
-        if !pro.isHittable { app.swipeUp() }
-        XCTAssertTrue(pro.waitForExistence(timeout: 5)); pro.tap()
-        XCTAssertTrue(app.buttons["subscription.close"].waitForExistence(timeout: 10))
-        XCTAssertFalse(app.buttons["accuracy.start"].exists)
-        app.buttons["subscription.close"].tap()
-        let free = app.buttons["2D准度"]
-        if !free.isHittable { app.swipeUp() }
-        free.tap()
+        XCTAssertFalse(app.buttons["2D准度"].exists); XCTAssertFalse(app.buttons["3D准度"].exists)
+        let card = app.buttons["准度"]
+        if !card.isHittable { app.swipeUp() }
+        XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
         XCTAssertTrue(app.buttons["accuracy.start"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["subscription.close"].exists)
         app.buttons["accuracy.start"].tap()
         XCTAssertTrue(app.buttons["subscription.close"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["accuracy.strike"].exists)

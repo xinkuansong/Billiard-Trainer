@@ -15,7 +15,7 @@ final class MultiBallPracticeUITests: XCTestCase {
         app = .launchClean(extraArgs: args)
         if !direct {
             app.switchTab(.angle); app.buttons["angleHomeTab_打"].tap()
-            let entry = app.buttons[is3D ? "3D多球走位" : "2D多球走位"]
+            let entry = app.buttons["多球走位"]
             for _ in 0..<5 { if entry.exists && entry.isHittable { break }; app.swipeUp() }
             ready(entry); entry.tap()
         }
@@ -35,7 +35,10 @@ final class MultiBallPracticeUITests: XCTestCase {
     func testGeometryReference2D() throws { try geometryReference(false) }
     func testGeometryReference3D() throws { try geometryReference(true) }
     private func geometryReference(_ is3D: Bool) throws {
-        launch(is3D: is3D); start()
+        launch(is3D: is3D); start(rotatesToLandscape: false)
+        // Geometry is valid in either iPad window shape; orientation is covered
+        // by the dedicated matrix, not a prerequisite for this interaction test.
+        app.maximizeTrainingTestWindow(); mode(is3D)
         if is3D, app.buttons["dailyClearance.observeTable"].exists {
             ready(app.buttons["dailyClearance.observeTable"]); app.buttons["dailyClearance.observeTable"].tap()
         }
@@ -75,9 +78,9 @@ final class MultiBallPracticeUITests: XCTestCase {
         let actual = try positions(); XCTAssertEqual(Set(actual.keys), Set(expected.keys))
         for (key, p) in expected { let q = try XCTUnwrap(actual[key]); XCTAssertEqual(p[0], q[0], accuracy: 0.0001); XCTAssertEqual(p[2], q[2], accuracy: 0.0001) }
     }
-    private func start() {
+    private func start(rotatesToLandscape: Bool = true) {
         app.buttons["multiBall.start"].tap(); XCTAssertTrue(state.waitForExistence(timeout: 30))
-        rotate(.landscapeLeft)
+        if rotatesToLandscape { rotate(.landscapeLeft) }
         ready(app.buttons["freeplay.moreMenu"])
     }
     private func rotate(_ orientation: UIDeviceOrientation) {
@@ -109,7 +112,11 @@ final class MultiBallPracticeUITests: XCTestCase {
         XCTAssertTrue(app.scrollViews["dailyClearance.menuScroll"].waitForNonExistence(timeout: 5))
     }
     private func mode(_ is3D: Bool) {
-        menu(); XCTAssertFalse(app.buttons["freeplay.cameraMode"].exists)
+        let was3D = app.buttons["shotCamera.temporaryTopDown"].exists
+        menu()
+        let choice = app.descendants(matching: .any).matching(identifier: "freeplay.cameraMode").firstMatch
+        ready(choice)
+        if was3D != is3D { choice.tap() }
         closeMenu(); ready(app.buttons["freeplay.moreMenu"])
         XCTAssertEqual(app.buttons["shotCamera.temporaryTopDown"].exists, is3D)
     }
@@ -368,9 +375,11 @@ final class MultiBallPracticeUITests: XCTestCase {
     }
 
     func testNonProQuotaAndFreeTrainingGate() throws {
-        app = .launchClean(extraArgs: ["-forceNonPremium", "-v54.forceLight", "-v50.inMemoryStore", "-freeLayout.ephemeral", "-w7.forceDailyLimitNear", "-3dDrag.probe", "-pro.route=multiBall"])
+        let quotaDomain = "-trainingQuota.testNamespace=" + UUID().uuidString
+        app = .launchClean(extraArgs: [quotaDomain, "-forceNonPremium", "-v54.forceLight", "-v50.inMemoryStore", "-freeLayout.ephemeral", "-w7.forceDailyLimitNear", "-3dDrag.probe", "-pro.route=multiBall"])
         ready(app.buttons["multiBall.start"])
-        XCTAssertTrue(app.staticTexts["今日剩余 1 题，所有多球玩法共用"].exists)
+        revealInSettings(app.staticTexts["multiBall.remaining"])
+        XCTAssertEqual(app.staticTexts["multiBall.remaining"].label, "今日剩余 1 题，2D与3D及所有多球玩法共用")
         revealInSettings(app.otherElements["multiBall.length"])
         XCTAssertEqual(app.otherElements["multiBall.length"].buttons["持续练习"].value as? String, "需要 Pro")
         try capture("39-free-mode-lock")
@@ -378,6 +387,7 @@ final class MultiBallPracticeUITests: XCTestCase {
         ready(app.buttons["subscription.close"]); try capture("40-free-training-pro")
         app.buttons["subscription.close"].tap()
         XCTAssertTrue(app.otherElements["multiBall.length"].buttons["3题"].isSelected)
+        revealInSettings(app.segmentedControls["multiBall.game"], down: false)
         app.segmentedControls["multiBall.game"].buttons["中八残局"].tap()
         choose("multiBall.ownCount", "4 颗")
         start(); mode(false)
@@ -388,21 +398,27 @@ final class MultiBallPracticeUITests: XCTestCase {
         XCTAssertTrue(app.alerts["今日免费次数已用完"].waitForExistence(timeout: 5)); try capture("41-quota-exhausted")
         app.buttons["继续当前局"].tap(); try same(before)
         menu(); app.buttons["multiBall.settings"].tap()
-        XCTAssertTrue(app.staticTexts["今日剩余 0 题，所有多球玩法共用"].waitForExistence(timeout: 5))
+        revealInSettings(app.staticTexts["multiBall.remaining"])
+        XCTAssertEqual(app.staticTexts["multiBall.remaining"].label, "今日剩余 0 题，2D与3D及所有多球玩法共用")
+        revealInSettings(app.segmentedControls["multiBall.game"], down: false)
         app.segmentedControls["multiBall.game"].buttons["顺序清台"].tap()
         XCTAssertFalse(app.buttons["multiBall.start"].label.contains("Pro"))
         try capture("42-exhausted-start-plain")
         app.buttons["multiBall.start"].tap(); ready(app.buttons["subscription.close"])
         app.terminate()
-        app = .launchClean(extraArgs: ["-forceNonPremium", "-v50.inMemoryStore", "-pro.route=multiBall"])
+        app = .launchClean(extraArgs: [quotaDomain, "-forceNonPremium", "-v50.inMemoryStore", "-pro.route=multiBall"])
         ready(app.buttons["multiBall.start"])
-        XCTAssertTrue(app.staticTexts["今日剩余 0 题，所有多球玩法共用"].exists)
+        revealInSettings(app.staticTexts["multiBall.remaining"])
+        XCTAssertEqual(app.staticTexts["multiBall.remaining"].label, "今日剩余 0 题，2D与3D及所有多球玩法共用")
     }
-    func testNonProCannotOpen3DDirectRoute() throws {
+    func testNonProCanOpen3DDirectRoute() throws {
         app = .launchClean(extraArgs: ["-forceNonPremium", "-v50.inMemoryStore", "-pro.route=multiBall3D"])
-        XCTAssertTrue(app.descendants(matching: .any)["pro.locked"].firstMatch.waitForExistence(timeout: 15))
-        XCTAssertFalse(app.buttons["multiBall.start"].exists); XCTAssertFalse(table.exists)
-        try capture("42-3d-pro-locked")
+        ready(app.buttons["multiBall.start"])
+        XCTAssertFalse(app.descendants(matching: .any)["pro.locked"].firstMatch.exists)
+        start(); mode(true)
+        XCTAssertTrue(table.exists)
+        XCTAssertFalse(app.buttons["subscription.close"].exists)
+        try capture("42-3d-free")
     }
 
     func testPlanningFlow2D() throws { try planningFlow(is3D: false) }
@@ -417,7 +433,7 @@ final class MultiBallPracticeUITests: XCTestCase {
         revealInSettings(picker, down: false)
         XCTAssertTrue(picker.buttons["规划走位"].isSelected)
         try capture(is3D ? "planning-3d-settings" : "planning-2d-settings")
-        start()
+        start(); mode(is3D)
         let plan = app.buttons["paletteBall__2"]
         ready(plan)
         XCTAssertEqual(plan.value as? String, "下一球")

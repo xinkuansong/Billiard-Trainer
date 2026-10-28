@@ -2,6 +2,7 @@ import XCTest
 
 final class ThreeBallPracticeUITests: XCTestCase {
     private var app: XCUIApplication!
+    private var requestedView = "2D三球走位"
     override func setUp() { continueAfterFailure = false }
     private func node(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
     private func ready(_ e: XCUIElement, timeout: TimeInterval = 100) {
@@ -35,14 +36,18 @@ final class ThreeBallPracticeUITests: XCTestCase {
         }
     }
     private func open(_ is3D: Bool, animated: Bool = false, largeText: Bool = false) throws {
+        requestedView = (is3D ? "3D" : "2D") + "三球走位"
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-freeLayout.ephemeral", "-forcePremium",
             "-threeBall.probe", "-threeBall.fixedSeed", "-3dDrag.probe", "-AppleInterfaceStyle", is3D ? "Dark" : "Light"]
-            + (largeText ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : []))
+            + (largeText ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : []) + (is3D ? ["-pro.route=mergeThree3D"] : []))
+        if !is3D {
         app.switchTab(.angle); app.buttons["angleHomeTab_打"].tap()
-        let entry = app.buttons[is3D ? "3D三球走位" : "2D三球走位"]
+        let entry = app.buttons["三球走位"]
         revealEntry(entry)
-        ready(entry); entry.tap(); ready(app.buttons["threeBall.start"])
+        ready(entry); entry.tap()
+        }
+        ready(app.buttons["threeBall.start"])
         XCTAssertFalse(app.switches["training.verticalSpin"].exists)
         XCTAssertFalse(app.segmentedControls["twoBall.mode"].exists)
         let toggle = app.switches["separation.playsStroke"]
@@ -64,6 +69,7 @@ final class ThreeBallPracticeUITests: XCTestCase {
         capture("threeBall-settings-\(is3D)")
         app.buttons["threeBall.start"].tap(); phase("aiming")
         ready(app.buttons["threeBall.strike"])
+        app.selectTrainingView(requestedView)
         XCTAssertFalse(node("threeBall.question").exists)
         let initial = try probe()
         let firstNumber = try XCTUnwrap(initial["ballNumber"] as? Int)
@@ -77,6 +83,13 @@ final class ThreeBallPracticeUITests: XCTestCase {
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "paletteBall_")).count, 3)
         XCTAssertEqual(node("paletteBall__\(firstNumber)").value as? String, "当前击打球")
         XCTAssertEqual(node("paletteBall__\(secondNumber)").value as? String, "下一颗目标球")
+        let expectedView = is3D ? "3D" : "2D"
+        if (try probe()["view"] as? String) != expectedView {
+            app.buttons["threeBall.more"].tap()
+            let mode = node("threeBall.cameraMode"); ready(mode); mode.tap()
+            node("threeBall.dismissMenu").tap()
+        }
+        XCTAssertEqual(try probe()["view"] as? String, expectedView)
         if is3D { ready(app.buttons["dailyClearance.observeTable"]); app.buttons["dailyClearance.observeTable"].tap() }
         capture("threeBall-await-pocket-\(is3D)")
     }
@@ -200,11 +213,13 @@ final class ThreeBallPracticeUITests: XCTestCase {
         capture("threeBall-auto-second-stage-\(is3D)")
         // Persist the checkpoint, then return to the first stroke through the actual retry button.
         app.buttons["threeBall.back"].tap()
-        let entry = app.buttons[is3D ? "3D三球走位" : "2D三球走位"]; revealEntry(entry); ready(entry); entry.tap(); phase("aiming")
+        ready(app.buttons["angleHomeTab_打"]); app.buttons["angleHomeTab_打"].tap()
+        let entry = app.buttons["三球走位"]; revealEntry(entry); ready(entry); entry.tap(); phase("aiming")
         ready(app.buttons["threeBall.retry"]); app.buttons["threeBall.retry"].tap(); phase("aiming")
         XCTAssertEqual(try probe()["stage"] as? Int, 0)
         XCTAssertEqual(try probe()["onTableKeys"] as? [String], originalKeys)
         XCTAssertEqual(try probe()["plannedPocket"] as? Int, 5)
+
         if is3D { app.buttons["dailyClearance.observeTable"].tap() }
         try selectPocket(4); XCTAssertEqual(try probe()["plannedPocket"] as? Int, 4)
         try selectPocket(5)

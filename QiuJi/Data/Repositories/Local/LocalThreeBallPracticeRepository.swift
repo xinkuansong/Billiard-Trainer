@@ -7,6 +7,13 @@ protocol ThreeBallPracticeRepository {
     func save(_ record: ThreeBallPracticeRecord) throws
     func saveAtomically(_ records: [ThreeBallPracticeRecord]) throws
     func resumable(is3D: Bool) throws -> ThreeBallPracticeRecord?
+    func resumable(is3D: Bool, compatible: (ThreeBallPracticeRecord) -> Bool) throws -> ThreeBallPracticeRecord?
+}
+
+extension ThreeBallPracticeRepository {
+    func resumable(is3D: Bool, compatible: (ThreeBallPracticeRecord) -> Bool) throws -> ThreeBallPracticeRecord? {
+        try resumable(is3D: is3D).flatMap { compatible($0) ? $0 : nil }
+    }
 }
 
 /// Versioned physical recordings use the existing session transport and frozen ownership.
@@ -78,17 +85,21 @@ final class LocalThreeBallPracticeRepository: ThreeBallPracticeRepository {
     }
 
     func resumable(is3D: Bool) throws -> ThreeBallPracticeRecord? {
+        try resumable(is3D: is3D, compatible: { _ in true })
+    }
+    func resumable(is3D: Bool, compatible: (ThreeBallPracticeRecord) -> Bool) throws -> ThreeBallPracticeRecord? {
         let key = owner.ownerKey, kind = Self.kind
         let sessions = try context.fetch(FetchDescriptor<TrainingSession>(
             predicate: #Predicate { $0.ownerKey == key && $0.kind == kind },
             sortBy: [SortDescriptor(\.date, order: .reverse)]))
-        for session in sessions where session.sourceId == (is3D ? "threeBallPractice3D" : "threeBallPractice2D") {
+        var candidates: [ThreeBallPracticeRecord] = []
+        for session in sessions where ["threeBallPractice2D", "threeBallPractice3D"].contains(session.sourceId ?? "") {
             guard let data = session.sourcePayloadSnapshot else { throw Failure.invalidRecord }
             let record = try ThreeBallPracticeRecord.decodePayload(data)
             guard record.isCompatible, record.ownerKey == key,
                   record.id == session.id else { throw Failure.invalidRecord }
-            if record.status == .active { return record }
+            if record.status == .active, compatible(record) { candidates.append(record) }
         }
-        return nil
+        return candidates.max { $0.updatedAt < $1.updatedAt }
     }
 }

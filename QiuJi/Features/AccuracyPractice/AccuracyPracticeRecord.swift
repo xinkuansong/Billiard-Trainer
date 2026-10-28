@@ -65,6 +65,8 @@ struct AccuracyPracticeAttempt: Codable, Identifiable {
     let observations: Set<String>
     var result: Result?
     var exactTip: AccuracyTip? = nil
+    var wasPremium: Bool? = nil
+    var presentation: TrainingShotPresentation?
     var fixedTip: AccuracyTip { exactTip ?? AccuracyTip(legacy: tip) }
 }
 
@@ -75,6 +77,8 @@ struct AccuracyPracticeRecord: Codable, Identifiable {
     let id: UUID
     let ownerKey: String
     let is3D: Bool
+    var presentation: TrainingPresentation?
+    var viewBookmark: CameraRig.TrainingBookmark?
     let configuration: SceneTrainingConfiguration
     let bankFingerprint: String
     let startedAt: Date
@@ -94,7 +98,7 @@ struct AccuracyPracticeRecord: Codable, Identifiable {
     var currentAttempt: AccuracyPracticeAttempt? { attempts.first { $0.questionID == current?.id } }
     var validAttempts: [AccuracyPracticeAttempt] { attempts.filter { $0.result?.countsAsAttempt == true } }
     var successCount: Int { validAttempts.filter { $0.result?.outcome == .success }.count }
-    var displayName: String { is3D ? "3D准度" : "2D准度" }
+    var displayName: String { presentation == nil ? (is3D ? "3D准度" : "2D准度") : "准度 · " + (presentation?.summary ?? "") }
     var currentTip: AccuracyTip {
         let base = current?.fixedTip ?? .center
         return constrainedTip(x: Double(draftTip?.x ?? base.x), y: Double(draftTip?.y ?? base.y)) ?? base
@@ -127,10 +131,11 @@ struct AccuracyPracticeRecord: Codable, Identifiable {
 
     init(ownerKey: String, is3D: Bool, configuration: SceneTrainingConfiguration,
          bankFingerprint: String, questions: [AccuracyPracticeQuestion], now: Date = Date()) throws {
-        guard let first = questions.first, questions.count == 20,
-              Set(questions.map { $0.board.id }).count == 20 else {
-            throw TrainingQuestionBank.Failure.invalid("A round requires twenty distinct boards")
+        guard let first = questions.first, questions.count == TrainingProject.ordinaryRoundCount,
+              Set(questions.map { $0.board.id }).count == TrainingProject.ordinaryRoundCount else {
+            throw TrainingQuestionBank.Failure.invalid("A round requires fifteen distinct boards")
         }
+        presentation = .init(is3D: is3D)
         id = UUID(); self.ownerKey = ownerKey; self.is3D = is3D
         self.configuration = configuration; self.bankFingerprint = bankFingerprint
         startedAt = now; updatedAt = now; self.questions = questions
@@ -176,11 +181,12 @@ struct AccuracyPracticeRecord: Codable, Identifiable {
         guard currentAttempt?.result?.countsAsAttempt == true else {
             throw TrainingQuestionBank.Failure.invalid("Current attempt is not complete")
         }
-        if !configuration.freePractice && validAttempts.count == 20 {
+        if !configuration.freePractice && validAttempts.count >= TrainingProject.ordinaryRoundCount {
             status = .completed; endedAt = now
         } else {
             guard questions.indices.contains(cursor + 1) else { throw TrainingQuestionBank.Failure.coverage("下一组题目") }
             cursor += 1
+            viewBookmark = nil
             draftDirection = Self.initialDirection(for: questions[cursor])
             draftVelocity = ShotTuning.defaultVelocity; draftTip = nil; observations = []
         }

@@ -255,3 +255,7 @@ ProfileView 路由签名仅因同步/游客合并说明加入自定义球形而�
 | CustomFormationSyncIntegrationTests | 除既有本地fixture分支外，生产探针需`FORMATION_PRODUCTION_FIXTURE`及`FORMATION_PRODUCTION_AUTHORIZATION=authorized`，校验限定地址/测试账号；仅配置`FORMATION_PRODUCTION_REPORT`时另写报告（支持TEST_RUNNER前缀） | 报告同名原子覆盖。探针还会修改测试账号的云端模板和隔离owner本地存档；cleanup删除对应本地文件。凭证不入Git，本轮未授权或执行生产探针 |
 
 固定输出目录的生成/评阅用例可能覆盖旧研究证据；调用方应在运行前保留旧结果或使用独立源码工作区。上述生成器写候选与报告，不写Bundle/正式训练资源/设计截图基线；生产同步探针的云端副作用单独列明，不能归为纯本地测试。登记不等于本轮运行通过。
+
+### 2026-10-28 练习视图合并
+
+`TrainingQuotaLedgerTests` 在系统 temporaryDirectory/UUID 下创建额度 JSON，模拟原子恢复和损坏；defer 仅移除自己创建的目录。`TrainingViewMergeStateTests` 经生产 checkpoint API 在独立临时 owner/project 目录写入并清理，多球测试使用独立 UserDefaults suite 和随机 checkpoint 目录；不写 Bundle、内容资产、用户真实存档或设计基线。新 UI 测试的截图只写 XCTAttachment/本轮 xcresult，启动使用内存 SwiftData 和进程隔离额度/checkpoint。生产新写盘面为 Application Support/QiuJi/TrainingQuota 及 TrainingCheckpoints，按项目和 owner 隔离；额度是设备项目桶，不按账号重置。

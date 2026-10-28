@@ -62,8 +62,8 @@ extension SCNVector3 {
 
     /// 绕 Y 轴旋转
     func rotatedY(_ angle: Float) -> SCNVector3 {
-        let cosA = cosf(angle)
-        let sinA = sinf(angle)
+        let cosA = PhysicsTrigonometry.cos(angle)
+        let sinA = PhysicsTrigonometry.sin(angle)
         return SCNVector3(x * cosA - z * sinA, y, x * sinA + z * cosA)
     }
 

@@ -1,6 +1,7 @@
 import XCTest
 
 final class SceneTrainingRulesUITests: XCTestCase {
+    private var trainingTitle = ""
     private var app: XCUIApplication!
     override func setUpWithError() throws { continueAfterFailure = false }
     private func capture(_ name: String) {
@@ -13,7 +14,8 @@ final class SceneTrainingRulesUITests: XCTestCase {
         app.switchTab(.angle)
         let training = app.buttons["angleHomeTab_练"]
         XCTAssertTrue(training.waitForExistence(timeout: 10)); training.tap()
-        let card = app.buttons[title]
+        trainingTitle = title
+        let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
         XCTAssertTrue(card.waitForExistence(timeout: 10)); card.tap()
     }
     func testAngle2D() { checkAngle("2D") }
@@ -27,19 +29,25 @@ final class SceneTrainingRulesUITests: XCTestCase {
         let submit = app.buttons["aimPointTraining.submit"]
         XCTAssertTrue(submit.waitForExistence(timeout:40)); submit.tap()
         XCTAssertTrue(app.buttons["aimPointTraining.next"].waitForExistence(timeout:5))
-        app.buttons["aimPointTraining.back"].tap()
-        XCUIDevice.shared.orientation = .portrait
-        app.switchTab(.history)
-        let row = app.buttons["history.cognitive.aimPoint2D"]
-        for _ in 0..<4 where !row.isHittable { app.swipeUp() }
-        XCTAssertTrue(row.waitForExistence(timeout:10))
-        XCTAssertTrue(row.label.contains("mm"))
-        capture("point-history-list-mm")
-        row.tap()
+        app.buttons["aimPointTraining.settings"].tap(); app.buttons["aimPointTraining.finish"].tap()
         let summary = app.descendants(matching:.any).matching(identifier:"training.summary").firstMatch
         XCTAssertTrue(summary.waitForExistence(timeout:5))
-        capture("point-history-summary")
-        app.buttons["完成"].tap()
+        capture("point-current-round-summary")
+        app.buttons["training.complete"].tap()
+        XCUIDevice.shared.orientation = .portrait
+        app.switchTab(.history)
+        let row = app.descendants(matching: .any).matching(identifier: "history.cognitive.aimPoint2D").firstMatch
+        for _ in 0..<4 where !row.isHittable { app.swipeUp() }
+        XCTAssertTrue(row.waitForExistence(timeout:10))
+        // SwiftUI propagates the row identifier to its static children; collect
+        // every matching field instead of treating the title as a container.
+        let fields = app.descendants(matching: .any).matching(identifier: "history.cognitive.aimPoint2D")
+        let rowText = fields.allElementsBoundByIndex.map(\.label).joined(separator: " ")
+        XCTAssertTrue(rowText.contains("mm"), rowText)
+        capture("point-history-list-mm")
+        // Scene-training history is a read-only aggregate. The current round owns
+        // its summary; merging views does not grant historical question browsing.
+        XCTAssertFalse(app.buttons["history.cognitive.aimPoint2D"].exists)
         let stats = app.descendants(matching:.any).matching(NSPredicate(format:"label == '统计'")).firstMatch
         stats.tap()
         let cohort = app.descendants(matching:.any).matching(identifier:"history.trainingCohort").firstMatch
@@ -54,11 +62,11 @@ final class SceneTrainingRulesUITests: XCTestCase {
         XCTAssertTrue(app.buttons["aimPointTraining.start"].waitForExistence(timeout:10))
         app.buttons["持续练习"].tap()
         app.buttons["training.range.straight"].tap()
-        app.buttons["aimPointTraining.start"].tap()
+        app.buttons["aimPointTraining.start"].tap(); app.selectTrainingView(trainingTitle)
         let submit = app.buttons["aimPointTraining.submit"]
         XCTAssertTrue(submit.waitForExistence(timeout:40))
         let info = app.descendants(matching:.any).matching(identifier:"aimPointTraining.questionInfo").firstMatch
-        XCTAssertFalse(info.label.contains("/20"))
+        XCTAssertFalse(info.label.contains("/15"))
         app.buttons["aimPointTraining.angleHint"].tap()
         let hint = app.descendants(matching:.any).matching(identifier:"aimPointTraining.angleHintText").firstMatch
         let degrees = hint.label.components(separatedBy: CharacterSet.decimalDigits.inverted).compactMap(Int.init)
@@ -66,12 +74,12 @@ final class SceneTrainingRulesUITests: XCTestCase {
         submit.tap(); app.buttons["aimPointTraining.next"].tap()
         XCTAssertTrue(submit.waitForExistence(timeout:5))
         app.buttons["aimPointTraining.settings"].tap(); app.buttons["aimPointTraining.trainingSettings"].tap()
-        app.buttons["20题"].tap()
+        app.buttons["15题"].tap()
         app.buttons["training.range.mixed"].tap()
         app.buttons["training.range.small"].tap()
-        app.buttons["aimPointTraining.start"].tap()
+        app.buttons["aimPointTraining.start"].tap(); app.selectTrainingView(trainingTitle)
         XCTAssertTrue(submit.waitForExistence(timeout:20))
-        XCTAssertTrue(info.label.contains("1/20"))
+        XCTAssertTrue(info.label.contains("1/15"))
         app.buttons["aimPointTraining.angleHint"].tap()
         let changed = hint.label.components(separatedBy: CharacterSet.decimalDigits.inverted).compactMap(Int.init)
         XCTAssertTrue((11...30).contains(changed.first ?? -1))
@@ -83,7 +91,7 @@ final class SceneTrainingRulesUITests: XCTestCase {
         XCTAssertTrue(button.waitForExistence(timeout: 10))
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: prefix + ".scene").firstMatch.exists)
         XCTAssertTrue(app.staticTexts["训练量"].exists)
-        for mode in ["持续练习", "20题"] {
+        for mode in ["持续练习", "15题"] {
             for _ in 0..<3 where !app.buttons[mode].isHittable { app.swipeDown() }
             app.buttons[mode].tap()
             capture(name + "-settings-" + mode)
@@ -97,7 +105,7 @@ final class SceneTrainingRulesUITests: XCTestCase {
             }
         }
         capture(name + "-settings")
-        button.tap()
+        button.tap(); app.selectTrainingView(trainingTitle)
         if UIDevice.current.userInterfaceIdiom == .pad { XCUIDevice.shared.orientation = .landscapeLeft }
     }
     private func checkAngle(_ mode: String) {
@@ -116,7 +124,7 @@ final class SceneTrainingRulesUITests: XCTestCase {
         XCTAssertFalse(answer.exists)
         capture(mode + "-angle-result")
         app.buttons["angleTraining.primaryAction"].tap()
-        XCTAssertTrue(app.staticTexts["2/20"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["2/15"].waitForExistence(timeout: 5))
         checkSettingsCancel(prefix: "angleTraining", action: answer)
         checkRotations(prefix: "angleTraining", action: answer, name: mode + "-angle")
         app.buttons["angleTraining.settings"].tap(); app.buttons["angleTraining.finish"].tap()
@@ -126,9 +134,9 @@ final class SceneTrainingRulesUITests: XCTestCase {
     private func checkAimPoint(_ mode: String, nearLimit: Bool = false) {
         open(mode + "瞄准点", nearLimit: nearLimit)
         if nearLimit {
-            // The free-tier fixture must stay in 20-question mode; free practice opens Pro.
+            // The free-tier fixture must stay in 15-question mode; free practice opens Pro.
             let start = app.buttons["aimPointTraining.start"]
-            XCTAssertTrue(start.waitForExistence(timeout: 10)); start.tap()
+            XCTAssertTrue(start.waitForExistence(timeout: 10)); start.tap(); app.selectTrainingView(trainingTitle)
             if UIDevice.current.userInterfaceIdiom == .pad { XCUIDevice.shared.orientation = .landscapeLeft }
         } else { start("aimPointTraining", name: mode + "-point") }
         let submit = app.buttons["aimPointTraining.submit"]
@@ -203,12 +211,12 @@ final class SceneTrainingRulesUITests: XCTestCase {
             return
         }
         XCTAssertTrue(submit.waitForExistence(timeout:5))
-        XCTAssertTrue(info.label.contains("2/20"))
+        XCTAssertTrue(info.label.contains("2/15"))
         submit.tap()
         XCTAssertTrue(comparison.waitForExistence(timeout: 5))
         next.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
         XCTAssertTrue(submit.waitForExistence(timeout: 5))
-        XCTAssertTrue(info.label.contains("3/20"))
+        XCTAssertTrue(info.label.contains("3/15"))
         XCTAssertFalse(comparison.exists, "下一题清理本题对照")
         checkSettingsCancel(prefix:"aimPointTraining",action:submit)
         checkRotations(prefix:"aimPointTraining",action:submit,name:mode + "-point")

@@ -57,11 +57,12 @@ enum AngleRoute: Hashable {
 
     var requiresPremium: Bool {
         switch self {
-        case .separationAngleAtlas, .cushionEnglishAtlas, .sceneAiming3D,
-             .aimPointScene3D, .accuracy3D, .separationPractice3D, .twoBallPractice3D, .threeBallPractice3D, .multiBallPractice3D, .snakePractice, .positionPlayComposer,
+        case .separationAngleAtlas, .cushionEnglishAtlas,
+             .snakePractice, .positionPlayComposer,
              .ballExtraction, .planThree, .snookerTactics, .bankShot, .diamondSystem:
             return true
-        case .theoryIndex, .theoryPage, .contactPointTable, .aimingPrinciple,
+        case .sceneAiming3D, .aimPointScene3D, .accuracy3D, .separationPractice3D, .twoBallPractice3D, .threeBallPractice3D, .multiBallPractice3D,
+             .theoryIndex, .theoryPage, .contactPointTable, .aimingPrinciple,
              .aimingMethods, .aimingCorrection, .spinAndEnglish, .angleDynamic,
              .geometricQuiz, .multiBallPractice, .customFormationPractice, .sceneAiming2D,
              .aimPointTraining, .aimPointScene2D, .accuracy2D, .separationPractice2D, .twoBallPractice2D, .threeBallPractice2D, .ballFeel, .shotSimulation, .freePlay, .positionPlaySolver,
@@ -238,13 +239,10 @@ struct AngleHomeView: View {
     /// 「练」——准度测验与有规则的连续击球练习。
     private let trainEntries: [AngleEntry] = [
         .init(route: .geometricQuiz, title: "角度预测", subtitle: "估切角看误差", contentKind: .quiz, topics: [.accuracy]),
-        .init(route: .sceneAiming2D, title: "2D角度", subtitle: "俯视瞄准看误差", contentKind: .quiz, topics: [.accuracy]),
-        .init(route: .sceneAiming3D, title: "3D角度", subtitle: "站位瞄准看误差", contentKind: .quiz, isPremium: true, topics: [.accuracy]),
+        .init(route: .sceneAiming2D, title: "角度", subtitle: "切换视角，练切角判断", contentKind: .quiz, topics: [.accuracy]),
         .init(route: .aimPointTraining, title: "瞄准点训练", subtitle: "拖假想球看毫米差", contentKind: .quiz, topics: [.accuracy]),
-        .init(route: .aimPointScene2D, title: "2D瞄准点", subtitle: "俯视调线几何对照", contentKind: .quiz, topics: [.accuracy]),
-        .init(route: .aimPointScene3D, title: "3D瞄准点", subtitle: "站位调线几何对照", contentKind: .quiz, isPremium: true, topics: [.accuracy]),
-        .init(route: .accuracy2D, title: "2D准度", subtitle: "指定打点，瞄准进袋", contentKind: .quiz, topics: [.accuracy]),
-        .init(route: .accuracy3D, title: "3D准度", subtitle: "站位瞄准，真实出杆", contentKind: .quiz, isPremium: true, topics: [.accuracy]),
+        .init(route: .aimPointScene2D, title: "瞄准点", subtitle: "切换视角，练瞄准判断", contentKind: .quiz, topics: [.accuracy]),
+        .init(route: .accuracy2D, title: "准度", subtitle: "指定打点，瞄准进袋", contentKind: .quiz, topics: [.accuracy]),
         .init(route: .snakePractice, title: "蛇彩练习", subtitle: "连续进球与走位", contentKind: .striking, isPremium: true, topics: [.position, .accuracy]),
         .init(route: .customFormationPractice, title: "自定义球形", subtitle: "自由摆球与练习", contentKind: .striking, topics: [.position, .accuracy]),
     ]
@@ -266,14 +264,10 @@ struct AngleHomeView: View {
 
     /// P11.1：入口顺序 = 分离角与走位、自由走位、自由击球、拍照建球形（、批量出片台）。
     private let basePlayEntries: [AngleEntry] = [
-        .init(route: .multiBallPractice, title: "2D多球走位", subtitle: "顺序清台与中八残局", contentKind: .striking, topics: [.position]),
-        .init(route: .multiBallPractice3D, title: "3D多球走位", subtitle: "站位出杆，练连续走位", contentKind: .striking, isPremium: true, topics: [.position]),
-        .init(route: .separationPractice2D, title: "2D分离角", subtitle: "调打点力度，复现目标轨迹", contentKind: .quiz, topics: [.position, .english]),
-        .init(route: .separationPractice3D, title: "3D分离角", subtitle: "站位出杆，对照完整轨迹", contentKind: .quiz, isPremium: true, topics: [.position, .english]),
-        .init(route: .twoBallPractice2D, title: "2D两球走位", subtitle: "练目标轨迹，或走下一球", contentKind: .quiz, topics: [.position, .english]),
-        .init(route: .twoBallPractice3D, title: "3D两球走位", subtitle: "站位出杆，练两球衔接", contentKind: .quiz, isPremium: true, topics: [.position, .english]),
-        .init(route: .threeBallPractice2D, title: "2D三球走位", subtitle: "提前选袋，练两杆连续走位", contentKind: .quiz, topics: [.position, .english]),
-        .init(route: .threeBallPractice3D, title: "3D三球走位", subtitle: "站位出杆，练提前规划", contentKind: .quiz, isPremium: true, topics: [.position, .english]),
+        .init(route: .multiBallPractice, title: "多球走位", subtitle: "顺序清台与中八残局", contentKind: .striking, topics: [.position]),
+        .init(route: .separationPractice2D, title: "分离角", subtitle: "调打点力度，复现目标轨迹", contentKind: .quiz, topics: [.position, .english]),
+        .init(route: .twoBallPractice2D, title: "两球走位", subtitle: "练目标轨迹，或走下一球", contentKind: .quiz, topics: [.position, .english]),
+        .init(route: .threeBallPractice2D, title: "三球走位", subtitle: "提前选袋，练两杆连续走位", contentKind: .quiz, topics: [.position, .english]),
         .init(route: .shotSimulation, title: "分离角与走位", subtitle: "调打点力度看走位", contentKind: .striking, topics: [.position, .english]),
         .init(route: .positionPlayComposer, title: "自由走位", subtitle: "逐杆摆打推演走位", contentKind: .striking, isPremium: true, topics: [.position, .english]),
         .init(route: .freePlay, title: "自由击球", subtitle: "从开球打一整局", contentKind: .striking),

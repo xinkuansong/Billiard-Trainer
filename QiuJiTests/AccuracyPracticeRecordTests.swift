@@ -7,7 +7,7 @@ import SceneKit
 final class AccuracyPracticeRecordTests: XCTestCase {
     private func record(owner: String = "guest:test") throws -> AccuracyPracticeRecord {
         var generator = SceneTrainingGenerator(seed: 20261021)
-        let questions = try generator.batch(.init()).enumerated().map { index, question in
+        let questions = try generator.batch(.init()).prefix(15).enumerated().map { index, question in
             let board = TrainingBankBoard(question: question, seed: UInt64(index))
             return AccuracyPracticeQuestion(board: board,
                 variant: .init(boardID: board.id, proofID: "record-fixture", tip: .center))
@@ -24,7 +24,7 @@ final class AccuracyPracticeRecordTests: XCTestCase {
     }
     func testFreezeAndCompletionAreIdempotentAcrossEncodingAndLastQuestion() throws {
         var run = try record()
-        for index in 0..<20 {
+        for index in 0..<15 {
             XCTAssertEqual(run.cursor, index)
             let frozen = try run.freezeAttempt()
             XCTAssertEqual(try run.freezeAttempt().id, frozen.id)
@@ -37,8 +37,8 @@ final class AccuracyPracticeRecordTests: XCTestCase {
             XCTAssertEqual(run.status, .active, "Even the last question presents its result before the summary")
             try run.advance()
         }
-        XCTAssertEqual(run.validAttempts.count, 20)
-        XCTAssertEqual(run.successCount, 20)
+        XCTAssertEqual(run.validAttempts.count, 15)
+        XCTAssertEqual(run.successCount, 15)
         XCTAssertEqual(run.status, .completed)
     }
     func testTechnicalFailureDoesNotCountOrReplaceFrozenInput() throws {

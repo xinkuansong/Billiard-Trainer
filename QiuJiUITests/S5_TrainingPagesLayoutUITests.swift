@@ -6,6 +6,7 @@ import XCTest
 /// - P5.1 角度预测：紧凑键盘不遮挡「换题 / 显示参考」；
 /// - G2 台面网格提亮为灰白（0.55 alpha）。
 final class S5_TrainingPagesLayoutUITests: XCTestCase {
+    private var trainingTitle = ""
 
     var app: XCUIApplication!
 
@@ -26,7 +27,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
     func testAngleTrial2D() throws { try checkAngleTrial(mode: "2D") }
     func testAngleTrial3D() throws { try checkAngleTrial(mode: "3D") }
 
-    func testAngleTrial3DRequiresPro() throws { try checkAngleTrial(mode: "3D", nearLimit: true) }
+    func testAngleTrialFreeLimit3D() throws { try checkAngleTrial(mode: "3D", nearLimit: true) }
 
     func testAngleTrialFreeLimit2D() throws { try checkAngleTrial(mode: "2D", nearLimit: true) }
 
@@ -46,12 +47,6 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
             }
         }
         XCTAssertTrue(openCard(homeTab: "练", title: "\(mode)角度"))
-        if nearLimit, mode == "3D" {
-            XCTAssertTrue(app.staticTexts["解锁球迹 Pro"].waitForExistence(timeout: 5))
-            XCTAssertFalse(app.buttons["答题"].exists)
-            try capture("pro-gate")
-            return
-        }
         do {
             XCTAssertTrue(app.buttons["angleTraining.start"].waitForExistence(timeout: 5))
             let initial = app.windows.firstMatch.frame
@@ -92,8 +87,8 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         XCTAssertTrue(stage.exists)
         let stageFrame = stage.frame
         let referenceBallFrame = mode == "2D" ? app.descendants(matching: .any).matching(identifier: "angleTraining.ball._1").firstMatch.frame : .zero
-        XCTAssertTrue(app.staticTexts["目标袋"].exists)
-        XCTAssertTrue(app.staticTexts["1/20"].exists)
+        XCTAssertTrue(app.staticTexts["angleTraining.targetPocket"].label.contains("目标袋"))
+        XCTAssertTrue(app.staticTexts["1/15"].exists)
         let palette = app.otherElements["angleTraining.palette"]
         XCTAssertTrue(palette.exists)
         let info = app.otherElements["angleTraining.questionInfo"]
@@ -126,22 +121,22 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         let assist = app.buttons["辅助"].firstMatch
         XCTAssertTrue(assist.exists)
         assist.tap()
-        XCTAssertTrue(app.buttons["隐藏"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.buttons["angleTraining.assist"].value as? String, "已开启")
         try capture("assist")
         if mode == "3D" {
             let topDown = app.buttons["shotCamera.temporaryTopDown"]
             topDown.tap()
             try capture("temporary-assist")
             XCTAssertEqual(try sceneProbe()["cueVisible"] as? Bool, true)
-            XCTAssertTrue(app.buttons["隐藏"].exists)
-            app.buttons["隐藏"].tap()
+            XCTAssertEqual(app.buttons["angleTraining.assist"].value as? String, "已开启")
+            app.buttons["angleTraining.assist"].tap()
             try capture("temporary-assist-hidden")
             XCTAssertEqual(try sceneProbe()["cueVisible"] as? Bool, false)
             app.buttons["辅助"].tap()
             try capture("temporary-assist-restored")
             XCTAssertEqual(try sceneProbe()["cueVisible"] as? Bool, true)
             topDown.tap()
-            XCTAssertTrue(app.buttons["隐藏"].exists)
+            XCTAssertEqual(app.buttons["angleTraining.assist"].value as? String, "已开启")
         }
         answer.tap()
         XCTAssertTrue(app.buttons["提交"].waitForExistence(timeout: 4))
@@ -167,7 +162,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         if nearLimit {
             XCTAssertTrue(app.buttons["总结"].waitForExistence(timeout: 5))
             XCTAssertFalse(next.exists)
-            XCTAssertTrue(app.staticTexts["答案"].exists)
+            XCTAssertTrue(app.staticTexts["angleTraining.result"].label.contains("答案"))
             try capture("limit-result")
             verifyAngleTrialExit()
             return
@@ -194,7 +189,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
             temporaryTable = try XCTUnwrap(probe["displayedTable"] as? [Double])
             topDown.tap()
             try capture("result-return")
-            XCTAssertTrue(app.staticTexts["答案"].exists)
+            XCTAssertTrue(app.staticTexts["angleTraining.result"].label.contains("答案"))
             XCTAssertEqual(try sceneProbe()["cueVisible"] as? Bool, true)
         }
         if mode == "2D" {
@@ -212,12 +207,12 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         }
         XCTAssertEqual(stage.frame, stageFrame, "反馈不得缩桌")
         XCTAssertEqual(next.frame, actionFrame, "下一题与答题共用位置及命中尺寸")
-        XCTAssertTrue(app.staticTexts["答案"].exists)
+        XCTAssertTrue(app.staticTexts["angleTraining.result"].label.contains("答案"))
         next.tap()
         XCTAssertTrue(answer.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["辅助"].exists)
         try capture("next")
-        XCTAssertTrue(app.staticTexts["2/20"].exists)
+        XCTAssertTrue(app.staticTexts["2/15"].exists)
         XCTAssertEqual(answer.frame, actionFrame)
         if mode == "3D" {
             XCTAssertEqual(app.buttons["shotCamera.thirdPerson"].value as? String, "已选中", "下一题沿用观察视角")
@@ -249,20 +244,20 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
             XCTAssertFalse(app.buttons["freeplay.cameraMode"].exists)
             try capture("more")
             app.buttons["menu.tableGrid"].tap()
-            XCTAssertTrue(app.staticTexts["2/20"].exists)
+            XCTAssertTrue(app.staticTexts["2/15"].exists)
             trainingSettings.tap()
             XCTAssertTrue(app.buttons["angleTraining.start"].waitForExistence(timeout: 3))
             try capture("training-settings")
             app.buttons["training.settingsCancel"].tap()
-            XCTAssertTrue(app.staticTexts["2/20"].waitForExistence(timeout: 3), "关闭设置保留当前轮次")
+            XCTAssertTrue(app.staticTexts["2/15"].waitForExistence(timeout: 3), "关闭设置保留当前轮次")
             app.buttons["angleTraining.settings"].tap()
             trainingSettings.tap()
             app.buttons["持续练习"].tap()
             app.buttons["training.range.straight"].tap()
-            app.buttons["angleTraining.start"].tap()
+            app.buttons["angleTraining.start"].tap(); app.selectTrainingView(trainingTitle)
             XCTAssertTrue(answer.waitForExistence(timeout: 5))
             XCTAssertTrue(app.staticTexts["1"].exists)
-            XCTAssertFalse(app.staticTexts["2/20"].exists)
+            XCTAssertFalse(app.staticTexts["2/15"].exists)
             try capture("restarted-free")
             if isTablet {
                 XCUIDevice.shared.orientation = .portrait
@@ -328,74 +323,61 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
     }
 
     private func checkObservationMenu(prefix: String) {
-        let menu = app.buttons["\(prefix).observation"]
-        XCTAssertTrue(menu.waitForExistence(timeout: 5))
-        XCTAssertGreaterThanOrEqual(menu.frame.height, 44)
-        for target in ["table", "cue", "target", "pocket", "aim"] {
-            if target == "table" {
-                menu.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)).tap()
-            } else {
-                menu.tap()
-            }
-            let option = app.buttons["\(prefix).observe.\(target)"]
-            XCTAssertTrue(option.waitForExistence(timeout: 5))
-            if target == "table" { snap("v63-\(prefix)-observation-menu") }
-            option.tap()
-            sleep(1)
-            snap("v63-\(prefix)-observe-\(target)")
+        for id in ["dailyClearance.observeTable", "shotCamera.thirdPerson", "shotCamera.firstPerson"] {
+            let button = app.buttons[id]
+            XCTAssertTrue(button.waitForExistence(timeout: 5))
+            XCTAssertGreaterThanOrEqual(button.frame.height, 44)
+            button.tap()
+            XCTAssertEqual(button.value as? String, "已选中")
+            snap("camera-\(prefix)-\(id)")
         }
     }
 
     func testComposerPerspectiveRoundTrip() throws {
         app.terminate()
-        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral"])
         XCTAssertTrue(openCard(homeTab: "打", title: "自由走位"))
-        XCTAssertTrue(app.buttons["击球"].waitForExistence(timeout: 10))
-        snap("v63-composer-editing-baseline")
-        let aimMode = app.buttons.matching(NSPredicate(format: "label CONTAINS '瞄准模式'")).firstMatch
-        XCTAssertTrue(aimMode.waitForExistence(timeout: 5))
-        if aimMode.label.contains("进袋") { aimMode.tap() }
-        app.buttons["composer.more"].tap()
-        app.buttons["重命名"].tap()
+        let strike = app.buttons["dailyClearance.strike"]
+        XCTAssertTrue(strike.waitForExistence(timeout: 15))
+        func node(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
+        func openMenu() { app.buttons["freeplay.moreMenu"].tap() }
+        func closeMenu() {
+            let close = app.buttons["dailyClearance.menuClose"]
+            if close.exists { close.tap() }
+            else if app.buttons["关闭菜单"].firstMatch.exists {
+                app.buttons["关闭菜单"].firstMatch.coordinate(withNormalizedOffset: .init(dx: 0.03, dy: 0.7)).tap()
+            }
+            XCTAssertTrue(app.buttons["freeplay.moreMenu"].isHittable)
+        }
+        openMenu(); app.buttons["dailyClearance.aimModeMenu"].tap()
+        app.buttons["dailyClearance.aim.free"].tap(); closeMenu()
+        openMenu(); app.buttons["composer.rename"].tap()
         let field = app.alerts.textFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        field.tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5)); field.tap()
         field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (field.value as? String ?? "").count))
-        field.typeText("v63 往返")
-        app.alerts.buttons["保存"].tap()
-        let camera = app.buttons["composer.cameraMode"]
-        XCTAssertTrue(camera.waitForExistence(timeout: 5))
-        camera.tap()
-        XCTAssertEqual(camera.value as? String, "3D")
-        XCTAssertTrue(app.staticTexts["摆球请切回2D"].waitForExistence(timeout: 5))
-        sleep(1)
-        snap("v63-composer-3d")
+        field.typeText("v63 往返"); app.alerts.buttons["保存"].tap()
+        func setView(_ value: String) {
+            openMenu()
+            let camera = node("freeplay.cameraMode")
+            XCTAssertTrue(camera.waitForExistence(timeout: 5))
+            if camera.value as? String != value { camera.tap() }
+            XCTAssertEqual(camera.value as? String, value); closeMenu()
+        }
+        setView("3D"); snap("composer-current-3d")
         let window = app.windows.firstMatch
         window.coordinate(withNormalizedOffset: CGVector(dx: 0.45, dy: 0.5))
             .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.5)))
-        snap("v63-composer-observed")
-        let strike = app.buttons["击球"]
-        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: strike)
-        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 30), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: strike)], timeout: 30), .completed)
         strike.tap()
-        let undo = app.buttons["重打"]
-        let settled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: undo)
-        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 45), .completed)
-        snap("v63-composer-shot-settled")
-        undo.tap()
-        let restored = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: strike)
-        XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 30), .completed)
-        sleep(1)
-        snap("v63-composer-shot-restored")
-        camera.tap()
-        XCTAssertEqual(camera.value as? String, "2D")
-        XCTAssertTrue(aimMode.label.contains("自由"))
-        sleep(1)
-        snap("v63-composer-returned-2d")
-        app.buttons["composer.more"].tap()
-        app.buttons["重命名"].tap()
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        XCTAssertEqual(field.value as? String, "v63 往返")
+        let undo = app.buttons["dailyClearance.undo"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: undo)], timeout: 45), .completed)
+        snap("composer-current-settled"); undo.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: strike)], timeout: 30), .completed)
+        setView("2D"); snap("composer-current-returned")
+        openMenu(); app.buttons["dailyClearance.aimModeMenu"].tap()
+        XCTAssertEqual(app.buttons["dailyClearance.aim.free"].value as? String, "已选"); closeMenu()
+        openMenu(); app.buttons["composer.rename"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5)); XCTAssertEqual(field.value as? String, "v63 往返")
         app.alerts.buttons["取消"].tap()
     }
 
@@ -408,8 +390,8 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
             let assist = app.buttons["辅助"].firstMatch
             XCTAssertTrue(assist.waitForExistence(timeout: 5))
             assist.tap()
-            let hide = app.buttons["隐藏"].firstMatch
-            XCTAssertTrue(hide.waitForExistence(timeout: 5))
+            let hide = app.buttons["angleTraining.assist"]
+            XCTAssertEqual(hide.value as? String, "已开启")
             snap("rail-\(mode)-assist")
             hide.tap()
             XCTAssertTrue(assist.waitForExistence(timeout: 5))
@@ -426,8 +408,8 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         XCTAssertTrue(assist.waitForExistence(timeout: 5))
         snap("training-3D-off")
         assist.tap()
-        let hide = app.buttons["隐藏"].firstMatch
-        XCTAssertTrue(hide.waitForExistence(timeout: 5))
+        let hide = app.buttons["angleTraining.assist"]
+        XCTAssertEqual(hide.value as? String, "已开启")
         snap("training-3D-on")
         let window = app.windows.firstMatch
         window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.55))
@@ -463,13 +445,13 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         XCTAssertTrue(openCard(homeTab: "练", title: "\(mode)瞄准点"))
         let tablet = UIDevice.current.userInterfaceIdiom == .pad
         if tablet { XCUIDevice.shared.orientation = .landscapeLeft; sleep(2) }
-        app.buttons["aimPointTraining.start"].tap()
+        app.buttons["aimPointTraining.start"].tap(); app.selectTrainingView(trainingTitle)
         let submit = app.buttons["aimPointTraining.submit"]
         XCTAssertTrue(submit.waitForExistence(timeout: 40))
         let title = app.staticTexts["training.pageTitle"]
-        XCTAssertEqual(title.label, "\(mode)瞄准点")
-        // AX exposes the rendered glyph bounds, not the enclosing 60 × 34 reservation.
-        XCTAssertLessThanOrEqual(title.frame.width, 60)
+        XCTAssertEqual(title.label, "瞄准点练习")
+        // The merged title reserves 80 × 34 points; AX reports glyph bounds.
+        XCTAssertLessThanOrEqual(title.frame.width, 80)
         XCTAssertGreaterThan(title.frame.width, 50)
         XCTAssertLessThanOrEqual(title.frame.height, 18)
         let stage = app.descendants(matching: .any).matching(identifier: "aimPointTraining.stage").firstMatch
@@ -509,9 +491,17 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         } else {
             let info = try probe()
             let viewport = try XCTUnwrap(info["displayedViewport"] as? [Double])
-            for (a,b) in zip(viewport, [stageFrame.minX,stageFrame.minY,stageFrame.width,stageFrame.height]) {
+            // Formal 2D renders the same room floor across the window; the table
+            // remains fitted to its original reserved stage inside that renderer.
+            let window = app.windows.firstMatch.frame
+            XCTAssertEqual(viewport.count, 4)
+            for (a,b) in zip(viewport, [window.minX,window.minY,window.width,window.height]) {
                 XCTAssertEqual(a,b,accuracy:1)
             }
+            let table = try XCTUnwrap(info["displayedTable"] as? [Double])
+            XCTAssertEqual(table.count, 4)
+            XCTAssertTrue(stageFrame.insetBy(dx: -1, dy: -1).contains(CGRect(
+                x: table[0], y: table[1], width: table[2] - table[0], height: table[3] - table[1])))
         }
         let wheel = app.descendants(matching: .any).matching(identifier: "aimPointTraining.aimWheel").firstMatch
         wheel.coordinate(withNormalizedOffset: CGVector(dx:0.5,dy:0.4))
@@ -555,11 +545,12 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         }
         sleep(1)
         guard switchAngleHomeTab(homeTab) else { return false }
-        let card = app.buttons[title]
+        trainingTitle = title
+        let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
         if card.waitForExistence(timeout: 4) {
             card.tap()
-        } else if app.staticTexts[title].waitForExistence(timeout: 2) {
-            app.staticTexts[title].tap()
+        } else if app.staticTexts[XCUIApplication.trainingCardTitle(title)].waitForExistence(timeout: 2) {
+            app.staticTexts[XCUIApplication.trainingCardTitle(title)].tap()
         } else {
             return false
         }
@@ -572,8 +563,16 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
     private func startAimingTrainingFromSheet() -> Bool {
         let start = app.buttons["开始训练"]
         if start.waitForExistence(timeout: 4) {
-            start.tap()
+            // Each independent standard trial explicitly selects its round length.
+            let standard = app.otherElements["training.length"].buttons["15题"]
+            if standard.exists { standard.tap() }
+            start.tap(); app.selectTrainingView(trainingTitle)
             sleep(2)
+            return true
+        }
+        // Reopening the merged project restores its active round.
+        if app.buttons["angleTraining.settings"].exists {
+            app.selectTrainingView(trainingTitle)
             return true
         }
         return false
@@ -646,7 +645,10 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
             snap("v57-framed-q\(question)")
             answer.tap()
             XCTAssertTrue(app.buttons["提交"].waitForExistence(timeout: 4))
-            XCTAssertFalse(app.buttons["angleTraining.observation"].isEnabled)
+            for id in ["dailyClearance.observeTable", "shotCamera.thirdPerson", "shotCamera.firstPerson"] {
+                XCTAssertTrue(app.buttons[id].exists)
+                XCTAssertFalse(app.buttons[id].isEnabled)
+            }
             snap("v57-framed-keypad-q\(question)")
             app.buttons["4"].firstMatch.tap()
             app.buttons["5"].firstMatch.tap()
@@ -690,34 +692,14 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
 
     /// G2：台面网格提亮——齿轮菜单开启「台面网格 4×8」后截图核验灰白网格。
     func testTableGridBrightness() throws {
-        guard openCard(homeTab: "学", title: "角度与瞄准") else {
-            XCTFail("未能进入角度与瞄准"); return
-        }
-        sleep(2)
-
-        // 齿轮菜单是导航栏最后一个按钮（第一个是返回）。
-        let navButtons = app.navigationBars.firstMatch.buttons
-        func gridMenuItem() -> XCUIElement? {
-            navButtons.element(boundBy: navButtons.count - 1).tap()
-            usleep(800_000)
-            let item = app.buttons["台面网格 4×8"]
-            return item.waitForExistence(timeout: 3) ? item : nil
-        }
-        /// 目标状态未达成才 tap（菜单 Toggle 用 isSelected 暴露勾选态）。
-        func setGrid(on: Bool) {
-            guard let item = gridMenuItem() else { XCTFail("未找到台面网格开关"); return }
-            if item.isSelected != on {
-                item.tap()
-            } else {
-                // 已是目标状态：点空白处收起菜单。
-                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)).tap()
-            }
-            sleep(1)
-        }
-
-        setGrid(on: true)
-        sleep(1)
-        snap("s5-08-table-grid-brightened")
-        setGrid(on: false)   // 复原偏好，避免污染其他用例。
+        XCTAssertTrue(openCard(homeTab: "学", title: "角度与瞄准"))
+        app.buttons["angleDynamic.more"].tap()
+        let grid = app.buttons["menu.tableGrid"]
+        XCTAssertTrue(grid.waitForExistence(timeout: 5))
+        let original = grid.value as? String
+        grid.tap(); XCTAssertNotEqual(grid.value as? String, original)
+        snap("table-grid-current-toggled")
+        grid.tap(); XCTAssertEqual(grid.value as? String, original)
+        app.buttons["angleDynamic.dismissMenu"].tap()
     }
 }

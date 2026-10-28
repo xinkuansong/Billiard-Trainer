@@ -16,6 +16,8 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     let frameReceipt = TableFrameReceipt()
     /// Nil for authoring/export scenes, which retain their explicit configuration.
     var tablePreferencePage: TablePreferencePage?
+    /// Merged practice views render the same room floor in either projection.
+    var usesSceneFloorInTopDown: Bool { tablePreferencePage?.trainingProject != nil }
     var tablePreferences: TablePreferenceSnapshot?
     @MainActor var effectiveTrajectoryDetail: TrajectoryDetail {
         tablePreferences?.trajectoryDetail ?? UserPreferences.shared.trajectoryDetail
@@ -1179,7 +1181,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         groundVisualNode?.geometry = nil
         tableContactShadowNode?.geometry = nil
         let room = BakedTrainingRoom.make(style: style)
-        room.isHidden = currentCameraMode != .perspective3D
+        room.isHidden = currentCameraMode != .perspective3D && !usesSceneFloorInTopDown
         rootNode.addChildNode(room)
         installedReferenceRoomStyle = style
         refreshRoomReflectionProbe()
@@ -1492,7 +1494,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
             cameraRig?.endTemporaryTopDown()
         }
         if mobileRendering {
-            rootNode.childNode(withName: "reference_room", recursively: false)?.isHidden = mode != .perspective3D
+            rootNode.childNode(withName: "reference_room", recursively: false)?.isHidden = mode != .perspective3D && !usesSceneFloorInTopDown
             groundVisualNode?.isHidden = mode != .perspective3D
             tableContactShadowNode?.isHidden = mode != .perspective3D
         }

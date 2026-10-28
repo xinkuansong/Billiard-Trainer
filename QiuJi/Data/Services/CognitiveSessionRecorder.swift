@@ -45,6 +45,19 @@ final class CognitiveSessionRecorder {
 
     /// 解析 `result` 应归属的 cognitive 会话，必要时新建并插入 `context`（不 `save`，由调用方一并提交）。
     func resolveSession(for result: AngleTestResult) throws -> Resolution {
+        if let metadata = result.trainingMetadata, let project = metadata.project {
+            let id = metadata.runID, owner = ownerContext.ownerKey
+            if let session = try context.fetch(FetchDescriptor<TrainingSession>(predicate: #Predicate { $0.id == id })).first {
+                guard session.ownerKey == owner, session.kind == TrainingSessionKind.cognitive else { throw TrainingQuotaLedger.Failure.unreadable }
+                let duration = Self.durationMinutes(from: session.date, to: result.date)
+                let changed = duration != session.totalDurationMinutes
+                session.totalDurationMinutes = duration
+                return .init(session: session, isNew: false, durationChanged: changed)
+            }
+            let session = Self.makeSession(quizType: result.quizType, start: result.date, end: result.date, ownerKey: owner)
+            session.id = id; session.note = project.title; context.insert(session)
+            return .init(session: session, isNew: true, durationChanged: false)
+        }
         if let active = try activeSession(quizType: result.quizType, at: result.date, runID: result.trainingMetadata?.runID) {
             let updated = Self.durationMinutes(from: active.date, to: result.date)
             let changed = updated != active.totalDurationMinutes

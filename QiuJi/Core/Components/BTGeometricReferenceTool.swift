@@ -4,10 +4,25 @@ import SceneKit
 /// A per-shot draft. Never writes the physical shot, reference prediction or score.
 @MainActor
 final class GeometricReferenceTool: ObservableObject {
-    struct Draft: Equatable {
+    struct Draft: Equatable, Codable {
         var context: GeometricRailReference.Context?
         var reflections = 0
         var first: GeometricRailReference.Point?
+    }
+    struct Snapshot: Codable {
+        let draft: Draft
+        let previous: Draft?
+        let identity, previousIdentity: String?
+        let visible, needsFirstPoint, previousNeedsFirstPoint: Bool
+    }
+    var snapshot: Snapshot { .init(draft: draft, previous: previous, identity: identity,
+        previousIdentity: previousIdentity, visible: visible, needsFirstPoint: needsFirstPoint,
+        previousNeedsFirstPoint: previousNeedsFirstPoint) }
+    func restore(_ value: Snapshot) {
+        draft = value.draft; previous = value.previous; identity = value.identity
+        previousIdentity = value.previousIdentity; needsFirstPoint = value.needsFirstPoint
+        previousNeedsFirstPoint = value.previousNeedsFirstPoint; frozen = false; dragging = false
+        if value.visible { render() } else { hide() }
     }
     @Published private(set) var draft = Draft()
     @Published private(set) var visible = false

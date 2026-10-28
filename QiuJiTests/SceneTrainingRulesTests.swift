@@ -4,7 +4,7 @@ import SceneKit
 @testable import QiuJi
 
 final class SceneTrainingRulesTests: XCTestCase {
-    func testTwoBallSettingsMigrateWithoutWritingAndKeepModesAndViewsIndependent() throws {
+    func testTwoBallSettingsMigrateWithoutWritingAndShareViewsButKeepModesIndependent() throws {
         let suite = "training-settings-review." + UUID().uuidString
         let store = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { store.removePersistentDomain(forName: suite) }
@@ -28,7 +28,7 @@ final class SceneTrainingRulesTests: XCTestCase {
         free.save(for: "twoBallPractice2D", mode: .free, defaults: store)
         XCTAssertEqual(TwoBallSettingsPreference.load(for: "twoBallPractice2D", mode: .trajectory, defaults: store), trajectory)
         XCTAssertEqual(TwoBallSettingsPreference.load(for: "twoBallPractice2D", mode: .free, defaults: store), free)
-        XCTAssertEqual(TwoBallSettingsPreference.load(for: "twoBallPractice3D", mode: .free, defaults: store), .defaults(for: "twoBallPractice3D"))
+        XCTAssertEqual(TwoBallSettingsPreference.load(for: "twoBallPractice3D", mode: .free, defaults: store), free)
         // A reset remains an uncommitted value until the user starts again.
         free = .defaults(for: "twoBallPractice2D")
         XCTAssertNotEqual(TwoBallSettingsPreference.load(for: "twoBallPractice2D", mode: .free, defaults: store), free)
@@ -280,26 +280,36 @@ final class SceneTrainingPersistenceTests: XCTestCase {
 
 @MainActor
 final class SceneTrainingLifecycleTests: XCTestCase {
-    func testTwentyFirstAnswersKeepLastResultBeforeSummary() throws {
+    @MainActor private func waitForSave(_ busy: () -> Bool) async throws {
+        for _ in 0..<200 {
+            if !busy() { return }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        XCTFail("Answer persistence did not finish")
+    }
+
+    func testFifteenFirstAnswersKeepLastResultAndPremiumDoesNotConsumeQuota() async throws {
         let suite = "scene-lifecycle-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName:suite))
         defer { defaults.removePersistentDomain(forName:suite) }
         let limiter = AngleUsageLimiter(defaults:defaults); limiter.isPremium = true
         let vm = AimingQuizViewModel(limiter:limiter)
+        vm.configure(repository: TrainingAnswerRepositoryStub())
         vm.setupScene(initialCameraMode:.topDown2D,autoStart:false)
         var generator = SceneTrainingGenerator(seed:15)
         vm.startTest(questions:try generator.batch(.init()))
-        for index in 0..<20 {
+        for index in 0..<15 {
             vm.openAnswerInput(); vm.userInput = "20"; vm.submitAnswer(); vm.submitAnswer()
+            try await waitForSave { vm.isSaving }
             XCTAssertEqual(vm.phase,.showingResult)
             XCTAssertFalse(vm.testFinished)
             XCTAssertEqual(vm.run.firstAnswers.count,index+1)
-            XCTAssertEqual(limiter.questionsUsedToday,index+1)
-            if index < 19 { vm.advanceToNext() }
+            XCTAssertEqual(limiter.questionsUsedToday,0)
+            if index < 14 { vm.advanceToNext() }
         }
         vm.openAnswerInput(); vm.userInput = "20"; vm.submitAnswer()
         XCTAssertEqual(vm.phase,.showingResult)
-        XCTAssertEqual(vm.run.firstAnswers.count,20); XCTAssertEqual(limiter.questionsUsedToday,20)
+        XCTAssertEqual(vm.run.firstAnswers.count,15); XCTAssertEqual(limiter.questionsUsedToday,0)
         vm.advanceToNext(); XCTAssertTrue(vm.testFinished)
     }
 
@@ -307,9 +317,10 @@ final class SceneTrainingLifecycleTests: XCTestCase {
         let suite = "scene-quota-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName:suite))
         defer { defaults.removePersistentDomain(forName:suite) }
-        let limiter = AngleUsageLimiter(defaults:defaults)
-        for _ in 0..<19 { limiter.recordQuestion() }
+        let limiter = AngleUsageLimiter(defaults: defaults, namespace: "aimPoint2D", limit: 15)
+        for _ in 0..<14 { limiter.recordQuestion() }
         let vm = AimPointSceneQuizViewModel(limiter:limiter)
+        vm.configure(repository: TrainingAnswerRepositoryStub())
         vm.setupScene(cameraMode:.topDown2D,autoStart:false)
         var generator = SceneTrainingGenerator(seed:15)
         vm.startTest(questions:try generator.batch(.init()))
@@ -319,10 +330,11 @@ final class SceneTrainingLifecycleTests: XCTestCase {
         let before = try XCTUnwrap(vm.currentPlayerAim)
         let cue = try XCTUnwrap(vm.scene.cueBallNode).position
         vm.submit(); vm.submit()
+        try await waitForSave { vm.isSaving }
         XCTAssertNotNil(vm.answerCloseupSnapshot?.standardAimLine)
         XCTAssertFalse(vm.finished, "Quota completion must not cover the last answer")
         let comparison = try XCTUnwrap(vm.answerCloseupSnapshot)
-        XCTAssertEqual(limiter.questionsUsedToday,20)
+        XCTAssertEqual(limiter.questionsUsedToday,15)
         XCTAssertEqual(vm.currentPlayerAim?.x,before.x); XCTAssertEqual(vm.currentPlayerAim?.z,before.z)
         try await Task.sleep(nanoseconds:2_000_000_000)
         XCTAssertEqual(vm.phase,.showingResult)
@@ -331,16 +343,17 @@ final class SceneTrainingLifecycleTests: XCTestCase {
         vm.submit()
         XCTAssertEqual(vm.phase,.showingResult)
         XCTAssertEqual(vm.answerCloseupSnapshot, comparison)
-        XCTAssertEqual(limiter.questionsUsedToday,20); XCTAssertEqual(vm.run.firstAnswers.count,1)
+        XCTAssertEqual(limiter.questionsUsedToday,15); XCTAssertEqual(vm.run.firstAnswers.count,1)
         vm.nextQuestion(); XCTAssertTrue(vm.finished)
     }
 
-    func testAimComparisonFreezesOfficialGeometryAndClearsOnNextQuestion() throws {
+    func testAimComparisonFreezesOfficialGeometryAndClearsOnNextQuestion() async throws {
         let suite = "aim-comparison-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let limiter = AngleUsageLimiter(defaults: defaults); limiter.isPremium = true
         let vm = AimPointSceneQuizViewModel(limiter: limiter)
+        vm.configure(repository: TrainingAnswerRepositoryStub())
         vm.setupScene(cameraMode: .topDown2D, autoStart: false)
         var generator = SceneTrainingGenerator(seed: 15)
         vm.startTest(questions: try generator.batch(.init()))
@@ -354,6 +367,7 @@ final class SceneTrainingLifecycleTests: XCTestCase {
         vm.nudgeAim(byDegrees: 1)
         let submittedDirection = try XCTUnwrap(vm.currentPlayerAim)
         vm.submit()
+        try await waitForSave { vm.isSaving }
         let answer = try XCTUnwrap(vm.answerCloseupSnapshot)
         let standard = try XCTUnwrap(answer.standardAimLine)
         let user = try XCTUnwrap(answer.aimLine)
@@ -372,7 +386,7 @@ final class SceneTrainingLifecycleTests: XCTestCase {
         vm.nudgeAim(byDegrees: 20); vm.submit()
         XCTAssertEqual(vm.answerCloseupSnapshot, answer)
         XCTAssertEqual(vm.run.firstAnswers.count, 1)
-        XCTAssertEqual(limiter.questionsUsedToday, 1)
+        XCTAssertEqual(limiter.questionsUsedToday, 0)
         vm.nextQuestion()
         XCTAssertNil(vm.answerCloseupSnapshot)
         XCTAssertEqual(vm.phase, .aiming)

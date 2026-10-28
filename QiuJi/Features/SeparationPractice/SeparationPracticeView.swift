@@ -17,7 +17,7 @@ struct SeparationPracticeView: View {
 
     init(is3D: Bool) { _vm = StateObject(wrappedValue: SeparationPracticeViewModel(is3D: is3D)) }
     var body: some View {
-        ProAccessGate(requiresPremium: !vm.isBusy && (vm.is3D || (vm.phase != .settings && vm.record?.configuration.freePractice == true))) {
+        ProAccessGate(requiresPremium: !vm.isBusy && (vm.phase != .settings && vm.record?.configuration.freePractice == true)) {
             content
         }
     }
@@ -139,7 +139,7 @@ struct SeparationPracticeView: View {
     }
     private var tablePage: some View {
         BTTeachingTablePage(vm: vm, titleLabel: vm.title, identifier: "separation", preferencePage: vm.preferencePage,
-            fixedView3D: vm.is3D, velocity: Binding(get: { vm.velocity }, set: { vm.velocity = $0 }),
+            onTrainingViewChange: { vm.switchTrainingView(to: $0) }, velocity: Binding(get: { vm.velocity }, set: { vm.velocity = $0 }),
             planning: controls, information: information, usesStandardTitle: true,
             onPocketOrientationChange: { pocketOrientation = $0 },
             pairedLeftContent: { layout in
@@ -179,7 +179,7 @@ struct SeparationPracticeView: View {
     private func sidebarInformation(compact: Bool) -> some View {
         VStack(spacing: 0) {
             sidebarMetric("题目", value: vm.record?.configuration.freePractice == true
-                ? "\(vm.record?.questionNumber ?? 1)" : "\(vm.record?.questionNumber ?? 1)/20",
+                ? "\(vm.record?.questionNumber ?? 1)" : "\(vm.record?.questionNumber ?? 1)/15",
                 identifier: "separation.questionInfo", compact: compact)
             sidebarGroupGap
             sidebarMetric("均分", value: displayedAverage.map { String(format: "%.1f", $0) } ?? "—",
@@ -216,6 +216,7 @@ struct SeparationPracticeView: View {
                           identifier: "separation.latestScore", compact: compact)
         }
         .frame(maxHeight: .infinity, alignment: .top)
+
     }
 
     // Spend spare lane height between groups, while keeping each label/value pair together.

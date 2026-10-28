@@ -11,7 +11,7 @@ enum PocketType: String, CaseIterable, Codable {
 
 // MARK: - Pocket Position
 
-struct PocketPosition: Equatable {
+struct PocketPosition: Equatable, Codable {
     let x: Double
     let y: Double
     let type: PocketType
@@ -20,7 +20,7 @@ struct PocketPosition: Equatable {
 
 // MARK: - Angle Question
 
-struct AngleQuestion {
+struct AngleQuestion: Codable {
     let targetBall: CGPoint
     let cueBall: CGPoint
     let pocket: PocketPosition

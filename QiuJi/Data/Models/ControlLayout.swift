@@ -191,7 +191,10 @@ struct FreeControlArchive: Codable, Equatable {
     }
 
     static func key(page: TablePreferencePage, mode: FreeControlLayoutMode) -> String {
-        "\(page.rawValue):\(mode.rawValue)"
+        // Existing slots already encode the two formal modes. Keep their bytes and
+        // template IDs; either route resolves to the same project/mode slot.
+        let resolved = page.trainingProject.map { mode == .threeD ? $0.page3D : $0.page2D } ?? page
+        return "\(resolved.rawValue):\(mode.rawValue)"
     }
     func validate() throws {
         guard schemaVersion == 2 else { throw ControlLayoutError.unsupportedVersion(schemaVersion) }

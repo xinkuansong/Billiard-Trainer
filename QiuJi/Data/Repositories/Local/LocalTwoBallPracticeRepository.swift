@@ -7,6 +7,13 @@ protocol TwoBallPracticeRepository {
     func save(_ record: TwoBallPracticeRecord) throws
     func saveAtomically(_ records: [TwoBallPracticeRecord]) throws
     func resumable(is3D: Bool) throws -> TwoBallPracticeRecord?
+    func resumable(is3D: Bool, compatible: (TwoBallPracticeRecord) -> Bool) throws -> TwoBallPracticeRecord?
+}
+
+extension TwoBallPracticeRepository {
+    func resumable(is3D: Bool, compatible: (TwoBallPracticeRecord) -> Bool) throws -> TwoBallPracticeRecord? {
+        try resumable(is3D: is3D).flatMap { compatible($0) ? $0 : nil }
+    }
 }
 
 /// Versioned physical recordings use the existing session transport and frozen ownership.
@@ -86,17 +93,21 @@ final class LocalTwoBallPracticeRepository: TwoBallPracticeRepository {
     }
 
     func resumable(is3D: Bool) throws -> TwoBallPracticeRecord? {
+        try resumable(is3D: is3D, compatible: { _ in true })
+    }
+    func resumable(is3D: Bool, compatible: (TwoBallPracticeRecord) -> Bool) throws -> TwoBallPracticeRecord? {
         let key = owner.ownerKey, kind = Self.kind
         let sessions = try context.fetch(FetchDescriptor<TrainingSession>(
             predicate: #Predicate { $0.ownerKey == key && $0.kind == kind },
             sortBy: [SortDescriptor(\.date, order: .reverse)]))
-        for session in sessions where session.sourceId == (is3D ? "twoBallPractice3D" : "twoBallPractice2D") {
+        var candidates: [TwoBallPracticeRecord] = []
+        for session in sessions where ["twoBallPractice2D", "twoBallPractice3D"].contains(session.sourceId ?? "") {
             guard let data = session.sourcePayloadSnapshot else { throw Failure.invalidRecord }
             let record = try TwoBallPracticeRecord.decodePayload(data)
             guard record.isCompatible, record.ownerKey == key,
                   record.id == session.id else { throw Failure.invalidRecord }
-            if record.status == .active { return record }
+            if record.status == .active, compatible(record) { candidates.append(record) }
         }
-        return nil
+        return candidates.max { $0.updatedAt < $1.updatedAt }
     }
 }

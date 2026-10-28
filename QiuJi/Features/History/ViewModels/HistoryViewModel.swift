@@ -89,9 +89,14 @@ struct CognitiveSessionItem: Identifiable, Hashable {
         let quizType = sorted.first?.quizType ?? ""
         // 快照优先；W5 之前不存在 cognitive 会话，故 note 为空只可能是异常数据，
         // 此时退回题目自带的 quizType 文案（仍不回查内容库）。
-        let name = session.note.isEmpty
+        var name = session.note.isEmpty
             ? AngleQuizType(rawValue: quizType).displayNameZh
             : session.note
+        if let project = sorted.first?.trainingMetadata?.project {
+            let modes = Set(sorted.flatMap { Array($0.trainingMetadata?.observedViews ?? []) })
+            let label = modes.count > 1 ? "混合视图" : (modes.first?.rawValue ?? "")
+            name = project.title + (label.isEmpty ? "" : " · " + label)
+        }
         return CognitiveSessionItem(
             id: session.id,
             displayNameZh: name,

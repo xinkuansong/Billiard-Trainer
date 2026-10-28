@@ -38,7 +38,7 @@ struct AccuracyPracticeView: View {
                     if let record = vm.record {
                         TrainingFinishContent(metrics: accuracyMetrics(record), onRestart: {
                             limiter.refreshDay()
-                            if !subscriptionManager.isPremium && (vm.is3D || limiter.isLimitReached) { pendingRestart = true; showSubscription = true }
+                            if !subscriptionManager.isPremium && limiter.isLimitReached { pendingRestart = true; showSubscription = true }
                             else { vm.openSettings() }
                         }, onComplete: { dismiss() })
                         .accessibilityElement(children: .contain)
@@ -48,6 +48,15 @@ struct AccuracyPracticeView: View {
                 }
             }
         }
+        #if DEBUG
+        .overlay(alignment: .topLeading) {
+            if ProcessInfo.processInfo.arguments.contains("-trainingMerge.probe") {
+                Color.clear.frame(width: 1, height: 1).accessibilityElement()
+                    .accessibilityIdentifier("accuracy.mergeState").accessibilityValue(mergeState)
+                    .allowsHitTesting(false)
+            }
+        }
+        #endif
         .onAppear { vm.attach(context: context) }
         .onReceive(subscriptionManager.$isPremium) { vm.limiter.isPremium = $0 }
         .onChange(of: owner.ownerKey) { _, _ in vm.ownerChanged() }
@@ -74,6 +83,17 @@ struct AccuracyPracticeView: View {
             Button("知道了") { vm.message = nil }
         } message: { Text(vm.message ?? "") }
     }
+    #if DEBUG
+    private var mergeState: String {
+        let values: [String: Any] = ["session": vm.record?.id.uuidString ?? "", "question": vm.record?.current?.id.uuidString ?? "",
+            "phase": String(describing: vm.phase), "view": vm.is3D ? "3D" : "2D", "used": limiter.questionsUsedToday,
+            "attempts": vm.record?.attempts.count ?? 0, "velocity": vm.velocity,
+            "aimX": vm.record?.draftDirection.x ?? 0, "aimZ": vm.record?.draftDirection.z ?? 0,
+            "spinX": vm.tip.x, "spinY": vm.tip.y, "pocket": vm.selectedPocketIndex]
+        guard let data = try? JSONSerialization.data(withJSONObject: values, options: .sortedKeys) else { return "" }
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+    #endif
     private var questionPrompt: String {
         "第\((vm.record?.cursor ?? 0) + 1)题 · \(vm.tipInstruction) · \(PocketDisplay.name(index: vm.selectedPocketIndex, orientation: pocketOrientation))"
     }
@@ -112,7 +132,6 @@ struct AccuracyPracticeView: View {
                 if vm.isReplaying { vm.stopPlayback() }
                 else if vm.phase == .saveFailed { vm.retrySave() }
                 else if vm.phase == .result && vm.record?.currentAttempt?.result?.countsAsAttempt == true { vm.next() }
-                else if !vm.isRetrying && !vm.is3D && limiter.isLimitReached { showSubscription = true }
                 else { vm.strike() }
             }, onPaletteTap: { _ in },
             menuItems: [
@@ -130,7 +149,7 @@ struct AccuracyPracticeView: View {
     }
     private var tablePage: some View {
         BTTeachingTablePage(vm: vm, titleLabel: vm.title, identifier: "accuracy", preferencePage: vm.preferencePage,
-            fixedView3D: vm.is3D, velocity: Binding(get: { vm.velocity }, set: { vm.velocity = $0 }),
+            onTrainingViewChange: { vm.switchTrainingView(to: $0) }, velocity: Binding(get: { vm.velocity }, set: { vm.velocity = $0 }),
             planning: controls, information: information, usesStandardTitle: true,
             onPocketOrientationChange: { pocketOrientation = $0 },
             pairedLeftContent: { layout in
@@ -138,7 +157,7 @@ struct AccuracyPracticeView: View {
                     VStack(spacing: 0) {
                         Text("题目").foregroundStyle(HUDStyle.labelColor)
                         Text(vm.record?.configuration.freePractice == true
-                             ? "\((vm.record?.cursor ?? 0) + 1)" : "\((vm.record?.cursor ?? 0) + 1)/20")
+                             ? "\((vm.record?.cursor ?? 0) + 1)" : "\((vm.record?.cursor ?? 0) + 1)/15")
                         Text("进球率").foregroundStyle(HUDStyle.labelColor)
                         Text(vm.potRate)
                     }.font(.btCaption2).monospacedDigit().foregroundStyle(.white)

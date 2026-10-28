@@ -34,7 +34,9 @@ final class AngleTestResult {
     var cohort: String {
         let version = trainingMetadata?.scoringVersion ?? "legacy"
         let mode = trainingMetadata.map { $0.firstAttempt ? ($0.independent ? "独立" : "辅助") : "复练" } ?? "辅助状态未知"
-        return quizType + " · " + version + " · " + mode
+        let source = trainingMetadata?.project?.title ?? quizType
+        let view = trainingMetadata?.viewLabel.map { " · " + $0 } ?? ""
+        return source + view + " · " + version + " · " + mode
     }
     var error: Double { abs(actualAngle - userAngle) }
 

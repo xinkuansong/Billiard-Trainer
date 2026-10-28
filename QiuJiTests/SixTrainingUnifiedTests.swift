@@ -245,7 +245,13 @@ final class SixTrainingUnifiedTests: XCTestCase {
                     XCTAssertEqual(snapshot.targetReferenceRadius, 2 * snapshot.ballRadius)
                     XCTAssertNotNil(vm.scene.rootNode.childNode(withName: "accuracy.centerReferenceLine", recursively: true))
                     XCTAssertNil(snapshot.ghost); XCTAssertNil(snapshot.idealLine)
-                    XCTAssertNil(snapshot.potLine); XCTAssertNil(snapshot.auxLine)
+                    XCTAssertNil(snapshot.potLine)
+                    let auxiliary = try XCTUnwrap(snapshot.auxLine)
+                    XCTAssertEqual((auxiliary.start.x + auxiliary.end.x) / 2, CGFloat(target.x), accuracy: 1e-9)
+                    XCTAssertEqual((auxiliary.start.y + auxiliary.end.y) / 2, CGFloat(target.z), accuracy: 1e-9)
+                    let dot = (auxiliary.end.x - auxiliary.start.x) * CGFloat(target.x - cue.x)
+                        + (auxiliary.end.y - auxiliary.start.y) * CGFloat(target.z - cue.z)
+                    XCTAssertEqual(dot, 0, accuracy: 1e-7, "Center reference is perpendicular to the actual center line, not an answer")
                     XCTAssertNil(snapshot.aimPointMarker); XCTAssertNil(snapshot.contactMarker)
                     XCTAssertFalse(snapshot.showMissCaption)
                     return snapshot
@@ -255,6 +261,7 @@ final class SixTrainingUnifiedTests: XCTestCase {
                 let moved = try verify()
                 XCTAssertNotEqual(moved.aimLine, initial.aimLine)
                 XCTAssertEqual(moved.centerReferenceLine, initial.centerReferenceLine)
+                XCTAssertEqual(moved.auxLine, initial.auxLine)
                 let draft = vm.record?.draftDirection
                 vm.suspendTeachingActivity(); XCTAssertNil(vm.closeupSnapshot)
                 XCTAssertNil(vm.scene.rootNode.childNode(withName: "accuracy.centerReferenceLine", recursively: true))
@@ -290,6 +297,8 @@ final class SixTrainingUnifiedTests: XCTestCase {
             vm.attach(context: ModelContext(container))
             vm.start(.init(), prepared: try AccuracyPreparedRound.prepare(.init(), excluding: [], seed: 20261021))
             vm.setupScene(); vm.setCameraMode(vm.cameraMode); vm.cameraTransitionBusy = false
+            XCTAssertTrue(vm.switchTrainingView(to: is3D))
+            vm.cameraTransitionBusy = false
             XCTAssertFalse(vm.canPlayback); XCTAssertFalse(vm.canRetry)
             vm.strike()
             let deadline = Date().addingTimeInterval(20)
@@ -376,8 +385,37 @@ final class SixTrainingUnifiedTests: XCTestCase {
         vm.start(.init(), prepared: try AccuracyPreparedRound.prepare(.init(), excluding: [], seed: 20261021))
         vm.setupScene()
         vm.cameraTransitionBusy = false
+        XCTAssertTrue(vm.switchTrainingView(to: is3D))
+        vm.cameraTransitionBusy = false
+        XCTAssertEqual(vm.is3D, is3D)
         try check(vm)
         withExtendedLifetime(container) {}
+    }
+
+    func testAccuracyContinuousAimKeepsInputEnabledInBothPlayerViews() throws {
+        try withAccuracyScene(is3D: true) { vm in
+            let rig = try XCTUnwrap(vm.scene.cameraRig)
+            rig.viewportSize = CGSize(width: 874, height: 402)
+            rig.setTwoViewReadableInsets(UIEdgeInsets(top: 44, left: 116, bottom: 24, right: 116))
+            let question = vm.record?.current?.id
+            for view: CameraRig.PlayerView in [.thirdPerson, .firstPerson] {
+                XCTAssertTrue(vm.requestPlayerView(view, animated: false))
+                XCTAssertTrue(vm.canAim)
+                let initial = try XCTUnwrap(vm.record?.draftDirection)
+                for delta: Float in Array(repeating: 0.2, count: 20) + Array(repeating: -0.2, count: 20) {
+                    let previous = try XCTUnwrap(vm.record?.draftDirection)
+                    vm.nudgeAim(delta)
+                    XCTAssertTrue(vm.canAim, "\(view): a direction sample must not cancel the wheel gesture")
+                    XCTAssertFalse(vm.cameraTransitionBusy)
+                    XCTAssertNotEqual(vm.record?.draftDirection, previous)
+                    rig.update(deltaTime: 1 / 60)
+                }
+                XCTAssertEqual(try XCTUnwrap(vm.record?.draftDirection.x), initial.x, accuracy: 0.00001)
+                XCTAssertEqual(try XCTUnwrap(vm.record?.draftDirection.z), initial.z, accuracy: 0.00001)
+                XCTAssertEqual(vm.record?.current?.id, question)
+                XCTAssertEqual(rig.twoViewMode, view)
+            }
+        }
     }
 
     func testBackgroundRestoresAimWithoutChangingQuestionDraftOrPoses() throws {
@@ -556,12 +594,12 @@ final class SixTrainingUnifiedTests: XCTestCase {
     func testRetryKeepsFirstMissAndExactTipIncludingLastQuestion() throws {
         var generator = SceneTrainingGenerator(seed: 20261021)
         let tip = AccuracyTip(x: 0, y: 0.4)
-        let questions = try generator.batch(.init()).enumerated().map {
+        let questions = try generator.batch(.init()).prefix(15).enumerated().map {
             AccuracyPracticeQuestion(board: TrainingBankBoard(question: $0.element, seed: UInt64($0.offset)), selectedTip: tip)
         }
         var record = try AccuracyPracticeRecord(ownerKey: "guest:test", is3D: false,
             configuration: .init(), bankFingerprint: "fixture", questions: questions)
-        for _ in 0..<20 {
+        for _ in 0..<15 {
             let first = try record.freezeAttempt()
             var missed = ShotPrediction(); missed.termination = .settled
             let pocket = try XCTUnwrap(record.current).board.pocketIndex
@@ -583,8 +621,8 @@ final class SixTrainingUnifiedTests: XCTestCase {
             try record.advance()
         }
         XCTAssertEqual(record.status, .completed)
-        XCTAssertNoThrow(try record.practiceAttempt(), "The twentieth question can still be retried")
+        XCTAssertNoThrow(try record.practiceAttempt(), "The fifteenth question can still be retried")
         let restored = try JSONDecoder().decode(AccuracyPracticeRecord.self, from: JSONEncoder().encode(record))
-        XCTAssertEqual(restored.validAttempts.count, 20); XCTAssertEqual(restored.successCount, 0)
+        XCTAssertEqual(restored.validAttempts.count, 15); XCTAssertEqual(restored.successCount, 0)
     }
 }

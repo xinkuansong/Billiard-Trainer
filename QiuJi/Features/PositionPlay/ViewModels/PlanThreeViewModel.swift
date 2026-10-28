@@ -6,7 +6,7 @@ import Combine
 // MARK: - Roles
 
 /// 「打一走二想三」计划的五个角色，按引导填充顺序排列。
-enum PlanThreeRole: Int, CaseIterable {
+enum PlanThreeRole: Int, CaseIterable, Codable {
     case ball1, pocket1, ball2, pocket2, ball3
 
     var isBall: Bool { self == .ball1 || self == .ball2 || self == .ball3 }

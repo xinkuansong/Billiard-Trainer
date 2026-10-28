@@ -205,7 +205,7 @@ private struct CornerJawGeometry {
         
         /// Point on the arc at the given angle
         func point(at angle: Float) -> (x: Float, z: Float) {
-            (centerX + radius * cosf(angle), centerZ + radius * sinf(angle))
+            (centerX + radius * PhysicsTrigonometry.cos(angle), centerZ + radius * PhysicsTrigonometry.sin(angle))
         }
         
         /// Point where this arc connects to the main rail

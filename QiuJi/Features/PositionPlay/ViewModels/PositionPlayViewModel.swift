@@ -642,6 +642,26 @@ final class PositionPlayViewModel: ObservableObject {
 
     // MARK: - Internals
 
+    struct TrainingInput: Codable {
+        let preference, mode: String
+        let target: String?
+        let pocket: Int
+        let direction: [Float]?
+        let velocity, spinX, spinY: Double
+    }
+    var trainingInput: TrainingInput {
+        .init(preference: preferredAimMode.rawValue, mode: aimMode.rawValue, target: selectedTargetKey,
+              pocket: selectedPocketIndex, direction: freeAimDir.map { [$0.x, $0.y, $0.z] },
+              velocity: velocity, spinX: spinX, spinY: spinY)
+    }
+    func restoreTrainingInput(_ value: TrainingInput) {
+        let direction = value.direction.flatMap { $0.count == 3 ? SCNVector3($0[0], $0[1], $0[2]) : nil }
+        restoreSelection(.init(preference: AimMode(rawValue: value.preference) ?? .pocket,
+            mode: AimMode(rawValue: value.mode) ?? .pocket, reason: nil, target: value.target,
+            pocket: value.pocket, direction: direction, manual: true))
+        velocity = value.velocity; spinX = value.spinX; spinY = value.spinY
+        recompute()
+    }
     private struct AimSelectionSnapshot {
         let preference: AimMode
         let mode: AimMode

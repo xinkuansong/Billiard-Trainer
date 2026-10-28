@@ -5,6 +5,7 @@ struct MultiBallPracticeView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var configuration: MultiBallConfiguration
     @State private var started = false
+    @State private var restoreError: String?
     init(is3D: Bool = false) {
         self.is3D = is3D
         _configuration = State(initialValue: .load(is3D: is3D))
@@ -13,12 +14,19 @@ struct MultiBallPracticeView: View {
         Group {
             if started { FreePlayView(multiBallConfiguration: configuration, is3D: is3D) }
             else {
-                ProAccessGate(requiresPremium: is3D) {
+                ProAccessGate(requiresPremium: false) {
                     MultiBallSettingsView(configuration: configuration, isRestart: false, is3D: is3D,
                         onStart: { configuration = $0; started = true }, onCancel: { dismiss() })
                 }
             }
         }
+        .onAppear {
+            do { if try MultiBallPracticeController.hasCheckpoint() { started = true } }
+            catch { restoreError = error.localizedDescription }
+        }
+        .alert("未能恢复练习", isPresented: Binding(get: { restoreError != nil }, set: { if !$0 { restoreError = nil } })) {
+            Button("返回") { dismiss() }
+        } message: { Text(restoreError ?? "") }
     }
 }
 
@@ -68,14 +76,14 @@ struct MultiBallSettingsView: View {
                     choice("随机 1–7 颗", selected: configuration.randomOpponents, id: "multiBall.opponents.random") { configuration.randomOpponents = true }
                 }
             }
-            if !is3D {
+            Group {
                 Section("训练量") {
                     BTTrainingModePicker(count: 3, isPremium: subscription.isPremium, freePractice: Binding(get: { configuration.freePractice }, set: { free in
                         if free && !subscription.isPremium { pendingFreePractice = true; showSubscription = true }
                         else { configuration.freePractice = free }
                     })).accessibilityIdentifier("multiBall.length")
                     if !subscription.isPremium {
-                        Text("今日剩余 \(limiter.remainingToday) 题，所有多球玩法共用")
+                        Text("今日剩余 \(limiter.remainingToday) 题，2D与3D及所有多球玩法共用")
                             .font(.btCaption).foregroundStyle(.btTextSecondary)
                             .accessibilityIdentifier("multiBall.remaining")
                     }
@@ -119,7 +127,7 @@ struct MultiBallSettingsView: View {
     }
     private func start() {
         limiter.refreshDay()
-        guard subscription.isPremium || (!is3D && !configuration.freePractice && limiter.remainingToday > 0) else {
+        guard subscription.isPremium || (!configuration.freePractice && limiter.remainingToday > 0) else {
             pendingStart = true; showSubscription = true; return
         }
         onStart(configuration)

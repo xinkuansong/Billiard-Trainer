@@ -4,11 +4,11 @@ import Combine
 extension TablePreferencePage {
     var fields: Set<TablePreferenceField> {
         switch self {
-        case .multiBallPractice, .multiBallPractice3D: return Set(TablePreferenceField.allCases).subtracting([.view3D])
-        case .sceneAiming2D, .sceneAiming3D: return [.grid]
-        case .separationPractice2D, .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return [.grid, .transparency]
-        case .accuracy2D, .accuracy3D: return [.grid, .transparency, .closeup]
-        case .aimPointScene2D, .aimPointScene3D: return [.grid, .closeup]
+        case .multiBallPractice, .multiBallPractice3D: return Set(TablePreferenceField.allCases)
+        case .sceneAiming2D, .sceneAiming3D: return [.view3D, .grid]
+        case .separationPractice2D, .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return [.view3D, .grid, .transparency]
+        case .accuracy2D, .accuracy3D: return [.view3D, .grid, .transparency, .closeup]
+        case .aimPointScene2D, .aimPointScene3D: return [.view3D, .grid, .closeup]
         case .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas,
              .drillDetailPreview, .drillRecordPreview: return [.view3D, .grid]
         default: return Set(TablePreferenceField.allCases)
@@ -56,6 +56,7 @@ final class TablePreferencesStore: ObservableObject {
         var version = 1
         var general: [String: Double] = [:]
         var pages: [String: [String: Double]] = [:]
+        var mergedTraining: [String: [String: Double]]?
     }
     private let defaults: UserDefaults
     private var archive: Archive
@@ -72,6 +73,19 @@ final class TablePreferencesStore: ObservableObject {
         }
     }
 
+    /// Choose a source once; keep both legacy dictionaries as a reversible backup.
+    func beginTraining(_ project: TrainingProject, source3D: Bool) -> Bool {
+        if archive.mergedTraining?[project.rawValue] == nil {
+            let source = source3D ? project.page3D : project.page2D
+            var values = archive.pages[source.rawValue] ?? [:]
+            values[TablePreferenceField.view3D.rawValue] = source3D ? 1 : (archive.general[TablePreferenceField.view3D.rawValue] ?? 0)
+            if archive.mergedTraining == nil { archive.mergedTraining = [:] }
+            archive.mergedTraining?[project.rawValue] = values
+            persist()
+        }
+        return snapshot(for: project.page2D).enabled(.view3D)
+    }
+
     var general: TablePreferenceSnapshot { snapshot(page: nil) }
     func snapshot(for page: TablePreferencePage) -> TablePreferenceSnapshot { snapshot(page: page) }
     private func snapshot(page: TablePreferencePage?) -> TablePreferenceSnapshot {
@@ -79,7 +93,12 @@ final class TablePreferencesStore: ObservableObject {
         for field in TablePreferenceField.allCases {
             guard page == nil || page!.fields.contains(field) else { continue }
             // Rehearsal is controlled only by My → Settings; ignore legacy page overrides.
-            let local = field == .rehearsal ? nil : page.flatMap { archive.pages[$0.rawValue]?[field.rawValue] }
+            let local = field == .rehearsal ? nil : page.flatMap { page in
+                if let project = page.trainingProject, let values = archive.mergedTraining?[project.rawValue] {
+                    return values[field.rawValue]
+                }
+                return archive.pages[page.rawValue]?[field.rawValue]
+            }
             result.values[field] = field.validated(local ?? archive.general[field.rawValue] ?? field.initialValue)
         }
         return result
@@ -96,9 +115,12 @@ final class TablePreferencesStore: ObservableObject {
     func reapply(_ field: TablePreferenceField) { apply(field, value: general[field]) }
     private func write(_ field: TablePreferenceField, value: Double, page: TablePreferencePage?) {
         if let page {
-            archive.pages[page.rawValue, default: [:]][field.rawValue] = value
+            if let project = page.trainingProject, archive.mergedTraining?[project.rawValue] != nil {
+                archive.mergedTraining?[project.rawValue]?[field.rawValue] = value
+            } else { archive.pages[page.rawValue, default: [:]][field.rawValue] = value }
         } else {
             archive.general[field.rawValue] = value
+            for project in TrainingProject.allCases { archive.mergedTraining?[project.rawValue]?[field.rawValue] = nil }
             for page in TablePreferencePage.allCases where page.fields.contains(field) {
                 archive.pages[page.rawValue]?[field.rawValue] = nil
             }

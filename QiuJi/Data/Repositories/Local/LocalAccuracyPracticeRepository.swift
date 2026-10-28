@@ -28,47 +28,51 @@ final class LocalAccuracyPracticeRepository {
     }
     var ownerKey: String { owner.ownerKey }
 
-    func save(_ record: AccuracyPracticeRecord) throws {
-        guard record.ownerKey == owner.ownerKey else { throw Failure.ownerChanged }
-        guard record.version == AccuracyPracticeRecord.payloadVersion,
-              Set(record.attempts.map(\.id)).count == record.attempts.count,
-              Set(record.attempts.map(\.questionID)).count == record.attempts.count,
-              record.attempts.allSatisfy({ attempt in
-                  guard let question = record.questions.first(where: { $0.id == attempt.questionID }) else { return false }
-                  let actual = attempt.fixedTip, prescribed = question.fixedTip
-                  return actual.x.isFinite && actual.y.isFinite && actual.category == attempt.tip
-                      && hypot(actual.x, actual.y) <= CuePhysics.miscueLimitFraction + 1e-6
-                      && (record.configuration.allowsManualSideSpin || actual.x == prescribed.x)
-                      && (record.configuration.allowsManualVerticalSpin || actual.y == prescribed.y)
-              }) else { throw Failure.invalidRecord }
-        let data = try JSONEncoder().encode(record)
-        let id = record.id
-        let existing = try context.fetch(FetchDescriptor<TrainingSession>(predicate: #Predicate { $0.id == id })).first
-        guard existing == nil || existing?.ownerKey == record.ownerKey else { throw Failure.ownerChanged }
-        guard existing == nil || existing?.kind == Self.kind else { throw Failure.invalidRecord }
-        let session = existing ?? TrainingSession(kind: Self.kind, ownerKey: record.ownerKey)
-        let previousPayload = session.sourcePayloadSnapshot
-        let previousDuration = session.totalDurationMinutes
-        if existing == nil {
-            session.id = record.id; session.date = record.startedAt
-            session.note = record.displayName; session.sourceTitleSnapshot = record.displayName
-            session.sourceKind = Self.kind; session.sourceId = record.is3D ? "accuracy3D" : "accuracy2D"
-            session.sourcePayloadVersion = AccuracyPracticeRecord.payloadVersion
-            context.insert(session)
-        }
-        session.sourcePayloadSnapshot = data
-        session.totalDurationMinutes = max(0, Int(record.updatedAt.timeIntervalSince(record.startedAt) / 60))
-        do { try context.save() }
-        catch {
-            // Do not roll back unrelated changes in the shared ModelContext.
-            if existing == nil { context.delete(session) }
-            else { session.sourcePayloadSnapshot = previousPayload; session.totalDurationMinutes = previousDuration }
+    func save(_ record: AccuracyPracticeRecord) throws { try saveAtomically([record]) }
+    func saveAtomically(_ records: [AccuracyPracticeRecord]) throws {
+        var undo: [() -> Void] = []
+        do {
+            for record in records {
+                guard record.ownerKey == owner.ownerKey else { throw Failure.ownerChanged }
+                guard record.version == AccuracyPracticeRecord.payloadVersion,
+                      Set(record.attempts.map(\.id)).count == record.attempts.count,
+                      Set(record.attempts.map(\.questionID)).count == record.attempts.count,
+                      record.attempts.allSatisfy({ attempt in
+                          guard let question = record.questions.first(where: { $0.id == attempt.questionID }) else { return false }
+                          let actual = attempt.fixedTip, prescribed = question.fixedTip
+                          return actual.x.isFinite && actual.y.isFinite && actual.category == attempt.tip
+                              && hypot(actual.x, actual.y) <= CuePhysics.miscueLimitFraction + 1e-6
+                              && (record.configuration.allowsManualSideSpin || actual.x == prescribed.x)
+                              && (record.configuration.allowsManualVerticalSpin || actual.y == prescribed.y)
+                      }) else { throw Failure.invalidRecord }
+                let data = try JSONEncoder().encode(record)
+                let id = record.id
+                let existing = try context.fetch(FetchDescriptor<TrainingSession>(predicate: #Predicate { $0.id == id })).first
+                guard existing == nil || existing?.ownerKey == record.ownerKey else { throw Failure.ownerChanged }
+                guard existing == nil || existing?.kind == Self.kind else { throw Failure.invalidRecord }
+                let session = existing ?? TrainingSession(kind: Self.kind, ownerKey: record.ownerKey)
+                let previousPayload = session.sourcePayloadSnapshot
+                let previousDuration = session.totalDurationMinutes
+                undo.append {
+                    if existing == nil { self.context.delete(session) }
+                    else { session.sourcePayloadSnapshot = previousPayload; session.totalDurationMinutes = previousDuration }
+                }
+                if existing == nil {
+                    session.id = record.id; session.date = record.startedAt
+                    session.note = record.displayName; session.sourceTitleSnapshot = record.displayName
+                    session.sourceKind = Self.kind; session.sourceId = record.is3D ? "accuracy3D" : "accuracy2D"
+                    session.sourcePayloadVersion = AccuracyPracticeRecord.payloadVersion
+                    context.insert(session)
+                }
+                session.sourcePayloadSnapshot = data
+                session.totalDurationMinutes = max(0, Int(record.updatedAt.timeIntervalSince(record.startedAt) / 60))
+            }
+            try context.save()
+        } catch {
+            for restore in undo.reversed() { restore() }
             throw error
         }
-        // An untouched draft stays local and never creates an empty history entry.
-        if !record.attempts.isEmpty {
-            enqueue(record.id, record.ownerKey)
-        }
+        for record in records where !record.attempts.isEmpty { enqueue(record.id, record.ownerKey) }
     }
 
     func resumable(is3D: Bool) throws -> AccuracyPracticeRecord? {
@@ -76,13 +80,14 @@ final class LocalAccuracyPracticeRepository {
         let sessions = try context.fetch(FetchDescriptor<TrainingSession>(
             predicate: #Predicate { $0.ownerKey == key && $0.kind == kind },
             sortBy: [SortDescriptor(\.date, order: .reverse)]))
-        for session in sessions where session.sourceId == (is3D ? "accuracy3D" : "accuracy2D") {
+        var candidates: [AccuracyPracticeRecord] = []
+        for session in sessions where ["accuracy2D", "accuracy3D"].contains(session.sourceId ?? "") {
             guard let data = session.sourcePayloadSnapshot else { throw Failure.invalidRecord }
             let record = try JSONDecoder().decode(AccuracyPracticeRecord.self, from: data)
             guard record.version == AccuracyPracticeRecord.payloadVersion, record.ownerKey == key,
                   record.id == session.id else { throw Failure.invalidRecord }
-            if record.status == .active { return record }
+            if record.status == .active { candidates.append(record) }
         }
-        return nil
+        return candidates.max { $0.updatedAt < $1.updatedAt }
     }
 }

@@ -2,13 +2,31 @@ import Foundation
 import Combine
 
 struct CustomFormationTemplate: Codable, Identifiable {
-    static let maximumTargetBalls = 25
+    static let maximumTargetBalls = 15
     var id = UUID()
     var name: String
     var updatedAt = Date()
     var ballKeys: [String]
     var board: BoardSnapshot
     var drawing: FormationDrawing? = nil
+
+    /// Keep archive decoding compatible; apply current ball rules at edit/save/start boundaries.
+    static func ballRuleIssue(for keys: [String]) -> String? {
+        guard keys.count <= maximumTargetBalls else { return "最多15颗目标球（母球另计）" }
+        let numbers = keys.compactMap(PositionPlayBall.number)
+        guard numbers.count == keys.count, numbers.allSatisfy({ (1...15).contains($0) }) else {
+            return "目标球只能使用1至15号球"
+        }
+        guard Set(numbers).count == numbers.count else { return "每个球号只能有一颗" }
+        return nil
+    }
+
+    var practiceIssue: String? { Self.ballRuleIssue(for: ballKeys) }
+
+    func validateForPractice() throws {
+        _ = try validated()
+        if let issue = practiceIssue { throw CustomFormationError.invalid(issue) }
+    }
 
 
     func validated() throws -> Self {
@@ -62,14 +80,55 @@ enum CustomFormationError: LocalizedError {
     var errorDescription: String? { switch self { case let .invalid(message): return message } }
 }
 
+/// Bundled layouts stay outside the user's archive. Coordinates are normalized by table length.
+/// Source diagrams and the local spacing/numbering adaptation are recorded in
+/// docs/research/20261028-自定义球形内置模板图文调研.md.
+enum BuiltInCustomFormations {
+    static let fourFourFourThreeID = UUID(uuidString: "B4443000-0000-4000-8000-000000000001")!
+    static let lShapeID = UUID(uuidString: "B1115000-0000-4000-8000-000000000002")!
+
+    static let templates: [CustomFormationTemplate] = {
+        // Four short rows in the four quarters, parallel to the short cushions.
+        let upper = [0.06, 0.105, 0.15, 0.195]
+        let lower = [0.305, 0.35, 0.395, 0.44]
+        let fourFourFourThree = (upper + lower).map { CanvasPoint(x: 0.75, y: $0) }
+            + (upper + [0.325, 0.37, 0.415]).map { CanvasPoint(x: 0.25, y: $0) }
+        // Two eight-ball arms share the 8 ball at the corner: 8 + 8 - 1 = 15.
+        let radius = Double(AngleSceneCalculator.ballRadius) / Double(AngleSceneCalculator.innerLength)
+        let spacing = (0.25 - radius) / 7
+        // The two outer balls touch the cushion with their surfaces, not their centers.
+        let lShape = (0..<8).map { CanvasPoint(x: 0.25, y: 0.5 - radius - Double($0) * spacing) }
+            + (1...7).map { CanvasPoint(x: 0.25 - Double($0) * spacing, y: 0.25) }
+        return [
+            make(id: fourFourFourThreeID, name: "4443球形", points: fourFourFourThree, cue: .init(x: 0.5, y: 0.25)),
+            make(id: lShapeID, name: "L型球形", points: lShape, cue: .init(x: 0.5, y: 0.25))
+        ]
+    }()
+
+    static func contains(_ id: UUID) -> Bool { templates.contains { $0.id == id } }
+
+    private static func make(id: UUID, name: String, points: [CanvasPoint], cue: CanvasPoint) -> CustomFormationTemplate {
+        let keys = points.indices.map { PositionPlayBall.instanceKey(number: $0 + 1, id: id) }
+        var positions = Dictionary(uniqueKeysWithValues: zip(keys, points))
+        positions[PositionPlayBall.cueKey] = cue
+        return .init(id: id, name: name, updatedAt: Date(timeIntervalSince1970: 0),
+                     ballKeys: keys, board: .init(onTable: positions))
+    }
+}
+
 @MainActor
 final class CustomFormationLibrary: ObservableObject {
     @Published private(set) var archive = CustomFormationRepository.Archive()
     @Published var error: String?
     @Published private(set) var failedToLoad = false
+    @Published private(set) var selectedBuiltInID: UUID?
     private let repository: CustomFormationRepository
     var templates: [CustomFormationTemplate] { archive.templates.sorted { $0.updatedAt > $1.updatedAt } }
-    var selected: CustomFormationTemplate? { templates.first { $0.id == archive.selectedID } }
+    var selectedID: UUID? { selectedBuiltInID ?? archive.selectedID }
+    var selected: CustomFormationTemplate? {
+        if let selectedBuiltInID { return BuiltInCustomFormations.templates.first { $0.id == selectedBuiltInID } }
+        return templates.first { $0.id == archive.selectedID }
+    }
 
     init(ownerKey: String, directory: URL? = nil) {
         repository = .init(ownerKey: ownerKey, directory: directory)
@@ -93,12 +152,21 @@ final class CustomFormationLibrary: ObservableObject {
 
     @discardableResult
     func save(_ template: CustomFormationTemplate, basedOn original: CustomFormationTemplate? = nil) -> Bool {
-        change { try repository.put(template, basedOn: original) }
+        guard !BuiltInCustomFormations.contains(template.id) else {
+            error = "请先复制内置球形再修改"; return false
+        }
+        let saved = change { try repository.put(template, basedOn: original) }
+        if saved { selectedBuiltInID = nil }
+        return saved
     }
     func select(_ id: UUID) {
-        _ = change { try repository.transaction { $0.selectedID = id } }
+        if BuiltInCustomFormations.contains(id) { selectedBuiltInID = id; return }
+        if change({ try repository.transaction { $0.selectedID = id } }) { selectedBuiltInID = nil }
     }
-    func delete(_ id: UUID) { _ = change { try repository.remove(id) } }
+    func delete(_ id: UUID) {
+        guard !BuiltInCustomFormations.contains(id) else { return }
+        _ = change { try repository.remove(id) }
+    }
     func rename(_ template: CustomFormationTemplate, name: String) {
         var updated = template; updated.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         updated.updatedAt = Date(); _ = save(updated, basedOn: template)

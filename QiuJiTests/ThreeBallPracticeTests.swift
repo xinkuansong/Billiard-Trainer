@@ -191,7 +191,7 @@ final class ThreeBallPracticeTests: XCTestCase {
         record.showingResult = true
         try repository.save(record)
         XCTAssertEqual(try repository.resumable(is3D: false)?.current?.plannedPocket, 5)
-        XCTAssertNil(try repository.resumable(is3D: true))
+        XCTAssertEqual(try repository.resumable(is3D: true)?.current?.plannedPocket, 5)
         let sessions = try container.mainContext.fetch(FetchDescriptor<TrainingSession>())
         XCTAssertEqual(sessions.first?.kind, TrainingSessionKind.threeBallPractice)
         XCTAssertEqual(HistoryViewModel.assembleThreeBallSessions(sessions: sessions).records.count, 1)

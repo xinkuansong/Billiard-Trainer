@@ -21,14 +21,13 @@
 import SceneKit
 
 struct CueBallStrike {
-
     /// Shared contact frame for physics and cue placement. a/b are measured
     /// perpendicular to the cue axis; the returned back/up components are in
     /// the horizontal aim / world-up plane, normalized by ball radius.
     static func contactCoordinates(spinX: Float, spinY: Float, elevation: Float) -> (side: Float, back: Float, up: Float) {
         let c=sqrtf(max(0,1-spinX*spinX-spinY*spinY))
-        return (spinX,cosf(elevation)*c-sinf(elevation)*spinY,
-            sinf(elevation)*c+cosf(elevation)*spinY)
+        return (spinX,PhysicsTrigonometry.cos(elevation)*c-PhysicsTrigonometry.sin(elevation)*spinY,
+            PhysicsTrigonometry.sin(elevation)*c+PhysicsTrigonometry.cos(elevation)*spinY)
     }
 
     // MARK: - pooltool cue_strike（z-up 坐标系，所有角度用弧度）
@@ -48,8 +47,8 @@ struct CueBallStrike {
         let M = CuePhysics.mass
         let I_m: Float = (2.0 / 5.0) * R * R
 
-        let cosT = cosf(theta)
-        let sinT = sinf(theta)
+        let cosT = PhysicsTrigonometry.cos(theta)
+        let sinT = PhysicsTrigonometry.sin(theta)
 
         // 接触点从杆坐标系变换到球坐标系（pooltool instantaneous_point.solve）
         let point=contactCoordinates(spinX:a,spinY:b,elevation:theta)
@@ -89,7 +88,7 @@ struct CueBallStrike {
 
     /// 绕 pooltool z 轴（上）旋转——等价于 pooltool `coordinate_rotation`。
     private static func rotateZ(_ v: (Float, Float, Float), _ phi: Float) -> (Float, Float, Float) {
-        let c = cosf(phi), s = sinf(phi)
+        let c = PhysicsTrigonometry.cos(phi), s = PhysicsTrigonometry.sin(phi)
         return (v.0 * c - v.1 * s, v.0 * s + v.1 * c, v.2)
     }
 
@@ -177,5 +176,69 @@ struct CueBallStrike {
         // squirt 绕 scene 上轴(+y)旋转方向；pooltool 的 z 正向旋转对应 scene 绕 +y 的反向，
         // 故取 -squirt 保持与 executeStrike 一致。
         return aimDirection.rotatedY(-squirt)
+    }
+}
+
+// Swift adaptation of Arm optimized-routines math/{sinf.c,cosf.c,sincosf.h,sincosf_data.c}.
+// Copyright (c) 2018-2024, Arm Limited. SPDX-License-Identifier: MIT
+// See Resources/ArmOptimizedRoutines-LICENSE.txt for the license and source attribution.
+// Fixed polynomial/order and integer reduction avoid OS libm and LLVM sincosf fusion.
+// Double intermediate operations deliberately remain separate (no addingProduct/FMA).
+// The algorithm covers all finite Float arguments; NaN/infinity return NaN.
+enum PhysicsTrigonometry {
+    static func sin(_ x: Float) -> Float { evaluate(x, cosine: false) }
+    static func cos(_ x: Float) -> Float { evaluate(x, cosine: true) }
+    private static func evaluate(_ input: Float, cosine: Bool) -> Float {
+        let top = (input.bitPattern >> 20) & 0x7ff
+        guard input.isFinite else { return .nan }
+        if top < 0x398 { return cosine ? 1 : input } // 2^-12
+        var x = Double(input)
+        var n = 0
+        var sign = 0
+        if top >= 0x3f4 { // top 12 bits of Float(pi / 4)
+            if top < 0x42f { // 120
+                let r = x * 0x1.45F306DC9C883p-1
+                n = Int(r.rounded(.toNearestOrEven))
+                x = x - Double(n) * 0x1.921FB54442D18p0
+            } else {
+                sign = Int(input.bitPattern >> 31)
+                (x, n) = reduceLarge(input.bitPattern)
+            }
+        }
+        let quadrant = (n + sign) & 3
+        if quadrant == 1 || quadrant == 2 { x = -x }
+        let x2 = x * x
+        if (n ^ (cosine ? 1 : 0)) & 1 == 0 {
+            let x3 = x * x2
+            let s1 = 0x1.1107605230bc4p-7 + x2 * -0x1.994eb3774cf24p-13
+            let x5 = x3 * x2
+            let s = x + x3 * -0x1.555545995a603p-3
+            return Float(s + x5 * s1)
+        }
+        let flip: Double = quadrant & 2 == 0 ? 1 : -1
+        let x4 = x2 * x2
+        let c2 = flip * -0x1.6c087e89a359dp-10 + x2 * (flip * 0x1.99343027bf8c3p-16)
+        let c1 = flip + x2 * (flip * -0x1.ffffffd0c621cp-2)
+        let x6 = x4 * x2
+        let c = c1 + x4 * (flip * 0x1.55553e1068f19p-5)
+        return Float(c + x6 * c2)
+    }
+    private static let inversePi: [UInt32] = [
+        0xa2,0xa2f9,0xa2f983,0xa2f9836e,0xf9836e4e,0x836e4e44,
+        0x6e4e4415,0x4e441529,0x441529fc,0x1529fc27,0x29fc2757,0xfc2757d1,
+        0x2757d1f5,0x57d1f534,0xd1f534dd,0xf534ddc0,0x34ddc0db,0xddc0db62,
+        0xc0db6295,0xdb629599,0x6295993c,0x95993c43,0x993c4390,0x3c439041]
+    private static func reduceLarge(_ bits: UInt32) -> (Double, Int) {
+        let offset = Int((bits >> 26) & 15)
+        let shift = (bits >> 23) & 7
+        let xi = ((bits & 0xffffff) | 0x800000) << shift
+        var low = UInt64(xi &* inversePi[offset])
+        let middle = UInt64(xi) * UInt64(inversePi[offset + 4])
+        let high = UInt64(xi) * UInt64(inversePi[offset + 8])
+        low = (high >> 32) | (low << 32)
+        low = low &+ middle
+        let n = (low &+ (1 << 61)) >> 62
+        low = low &- (n << 62)
+        return (Double(Int64(bitPattern: low)) * 0x1.921FB54442D18p-62, Int(n))
     }
 }

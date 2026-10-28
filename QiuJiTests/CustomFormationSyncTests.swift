@@ -10,8 +10,8 @@ final class CustomFormationSyncTests: XCTestCase {
     }
     override func tearDownWithError() throws { try FileManager.default.removeItem(at: directory) }
     func store(_ owner: String = "account:a") -> CustomFormationRepository { .init(ownerKey: owner, directory: directory) }
-    func template(_ name: String = "重复球") -> CustomFormationTemplate {
-        let keys = [PositionPlayBall.instanceKey(number: 1), PositionPlayBall.instanceKey(number: 1)]
+    func template(_ name: String = "两颗球") -> CustomFormationTemplate {
+        let keys = [PositionPlayBall.instanceKey(number: 1), PositionPlayBall.instanceKey(number: 2)]
         let a = FormationVertex(x: -0.5, z: 0), b = FormationVertex(x: 0.5, z: 0)
         return .init(name: name, ballKeys: keys, board: .init(onTable: ["cueBall": .init(x: 0.2, y: 0.4), keys[0]: .init(x: 0.3, y: 0.25), keys[1]: .init(x: 0.7, y: 0.25)]),
                      drawing: .init(vertices: [a,b], lines: [.init(start: a.id, end: b.id, balls: keys)]))

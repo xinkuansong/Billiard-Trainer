@@ -1,6 +1,7 @@
 import XCTest
 
 final class TrainingSettingsResetUITests: XCTestCase {
+    private var trainingTitle = ""
     private var app: XCUIApplication!
 
     override func setUp() {
@@ -8,6 +9,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         app = .launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral",
                                       "-twoBall.probe", "-twoBall.fixedSeed", "-v54.forceDark"])
+        app.maximizeTrainingTestWindow()
     }
 
     override func tearDown() { app.terminate(); XCUIDevice.shared.orientation = .portrait }
@@ -45,15 +47,16 @@ final class TrainingSettingsResetUITests: XCTestCase {
     }
 
     private func reviewHeaders(assertPlacement: Bool) {
-        let entries = ["2D角度", "3D角度", "2D瞄准点", "3D瞄准点", "2D准度", "3D准度",
-                       "2D分离角", "3D分离角", "2D两球走位", "3D两球走位", "2D三球走位", "3D三球走位",
-                       "2D多球走位", "3D多球走位", "蛇彩练习", "自定义球形"]
+        // One settings page per merged project; projection switching is covered on the table.
+        let entries = ["2D角度", "2D瞄准点", "2D准度", "2D分离角", "2D两球走位", "2D三球走位",
+                       "2D多球走位", "蛇彩练习", "自定义球形"]
         let tablet = UIDevice.current.userInterfaceIdiom == .pad
         for title in entries {
             app.switchTab(.angle)
             let play = ["分离角", "两球", "三球", "多球"].contains { title.contains($0) }
             app.buttons["angleHomeTab_" + (play ? "打" : "练")].tap()
-            let card = app.buttons[title]; reveal(card); card.tap()
+            trainingTitle = title
+            let card = app.buttons[XCUIApplication.trainingCardTitle(title)]; reveal(card); card.tap()
             let startID = title.contains("多球") ? "multiBall.start" : title.contains("三球") ? "threeBall.start" : title.contains("两球") ? "twoBall.start" : title.contains("分离角") ? "separation.start" : title.contains("准度") ? "accuracy.start" : title.contains("瞄准点") ? "aimPointTraining.start" : title.contains("角度") ? "angleTraining.start" : title == "蛇彩练习" ? "snake.start" : "formation.start"
             let start = app.buttons[startID]
             XCTAssertTrue(start.waitForExistence(timeout: 15))
@@ -61,22 +64,22 @@ final class TrainingSettingsResetUITests: XCTestCase {
                 XCUIDevice.shared.orientation = orientation
                 if tablet {
                     XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-                        (self.app.frame.width > self.app.frame.height) == (orientation == .landscapeLeft)
+                        (self.app.windows.firstMatch.frame.width > self.app.windows.firstMatch.frame.height) == (orientation == .landscapeLeft)
                     }, object: nil)], timeout: 8), .completed)
                 }
-                let expectedTitle = assertPlacement && title == "自定义球形" ? "选择球形" : "训练设置"
+                let expectedTitle = title == "自定义球形" ? "选择球形" : "训练设置"
                 let heading = app.navigationBars.staticTexts[expectedTitle].firstMatch
                 XCTAssertTrue(heading.waitForExistence(timeout: 5))
                 capture("header-\(title)-\(orientation.rawValue)")
-                let report = XCTAttachment(string: "window=\(app.frame) title=\(heading.frame) start=\(start.frame)")
+                let report = XCTAttachment(string: "window=\(app.windows.firstMatch.frame) title=\(heading.frame) start=\(start.frame)")
                 report.name = "header-frames-\(title)-\(orientation.rawValue)"; report.lifetime = .keepAlways; add(report)
                 if assertPlacement {
                     XCTAssertTrue(heading.isHittable, "The title must be visible, not covered by the iPad tab bar")
                     XCTAssertFalse(app.tabBars.firstMatch.isHittable, "Training settings owns the entire navigation bar")
-                    XCTAssertEqual(heading.frame.midX, app.frame.midX, accuracy: 4, title)
+                    XCTAssertEqual(heading.frame.midX, app.windows.firstMatch.frame.midX, accuracy: 4, title)
                     XCTAssertEqual(heading.frame.midY, start.frame.midY, accuracy: 4, title)
                     XCTAssertGreaterThan(start.frame.minX, heading.frame.maxX, title)
-                    XCTAssertLessThanOrEqual(start.frame.maxX, app.frame.maxX, title)
+                    XCTAssertLessThanOrEqual(start.frame.maxX, app.windows.firstMatch.frame.maxX, title)
                 }
             }
             app.navigationBars.buttons.matching(NSPredicate(format: "label == '返回'")).firstMatch.tap()
@@ -96,7 +99,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
             var scrollDown = down
             if element.exists {
                 let frame = element.frame
-                let window = app.frame
+                let window = app.windows.firstMatch.frame
                 let top = app.navigationBars.firstMatch.exists ? app.navigationBars.firstMatch.frame.maxY + 4 : window.minY + 70
                 let tabs = app.tabBars.firstMatch
                 let bottom = tabs.exists && tabs.frame.minY > window.midY
@@ -119,7 +122,8 @@ final class TrainingSettingsResetUITests: XCTestCase {
     private func open(_ title: String) {
         app.switchTab(.angle)
         app.buttons["angleHomeTab_" + ((title.contains("分离角") || title.contains("两球")) ? "打" : "练")].tap()
-        let card = app.buttons[title]
+        trainingTitle = title
+        let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
         reveal(card); card.tap()
         ready(app.buttons[title == "蛇彩练习" ? "snake.settingsCancel" : "training.settingsCancel"])
     }
@@ -128,7 +132,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
         let toggle = app.switches[id]
         reveal(toggle, down: down)
         if (toggle.value as? String == "1") != value {
-            toggle.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5)).tap()
+            toggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap()
         }
         XCTAssertEqual(toggle.value as? String, value ? "1" : "0")
     }
@@ -204,7 +208,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
                 XCTAssertEqual(row.value as? String, "综合")
             }
             top()
-            XCTAssertTrue(app.otherElements["training.length"].buttons["20题"].isSelected)
+            XCTAssertTrue(app.otherElements["training.length"].buttons["15题"].isSelected)
             if title.contains("两球") { XCTAssertTrue(app.segmentedControls["twoBall.mode"].buttons["轨迹走位"].isSelected) }
             if trajectory {
                 reveal(app.switches["separation.playsStroke"])
@@ -234,7 +238,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
         let heading = app.navigationBars.staticTexts["训练设置"].firstMatch
         XCTAssertTrue(heading.isHittable)
         XCTAssertFalse(app.tabBars.firstMatch.isHittable)
-        XCTAssertEqual(heading.frame.midX, app.frame.midX, accuracy: 4)
+        XCTAssertEqual(heading.frame.midX, app.windows.firstMatch.frame.midX, accuracy: 4)
         XCTAssertGreaterThan(app.buttons["twoBall.start"].frame.minX, heading.frame.maxX)
         if UIDevice.current.userInterfaceIdiom != .pad { XCUIDevice.shared.orientation = .landscapeLeft }
     }
@@ -251,7 +255,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
         app.segmentedControls["twoBall.mode"].buttons["自由走位"].tap()
         app.otherElements["training.length"].buttons["持续练习"].tap()
         setSwitch("separation.playsStroke", false); setSwitch("separation.showsReference", true)
-        app.buttons["twoBall.start"].tap()
+        app.buttons["twoBall.start"].tap(); app.selectTrainingView(trainingTitle)
         ready(app.buttons["twoBall.strike"], timeout: 180)
         let initial = try twoBallProbe()
         twoBallSettings()
@@ -266,13 +270,13 @@ final class TrainingSettingsResetUITests: XCTestCase {
         XCTAssertTrue(app.segmentedControls["twoBall.mode"].buttons["自由走位"].isSelected)
         XCTAssertTrue(app.otherElements["training.length"].buttons["持续练习"].isSelected)
         reset("transaction-reset-before-start")
-        app.buttons["twoBall.start"].tap()
+        app.buttons["twoBall.start"].tap(); app.selectTrainingView(trainingTitle)
         ready(app.buttons["twoBall.strike"], timeout: 180)
         XCTAssertEqual(try twoBallProbe()["playsStroke"] as? Bool, true)
         XCTAssertEqual(try twoBallProbe()["showsReference"] as? Bool, false)
         twoBallSettings(); top()
         XCTAssertTrue(app.segmentedControls["twoBall.mode"].buttons["轨迹走位"].isSelected)
-        XCTAssertTrue(app.otherElements["training.length"].buttons["20题"].isSelected)
+        XCTAssertTrue(app.otherElements["training.length"].buttons["15题"].isSelected)
         app.buttons["training.settingsCancel"].tap()
     }
 
@@ -296,7 +300,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
         reveal(small); XCTAssertEqual(small.value as? String, "未选")
         setSwitch("separation.playsStroke", false)
         top(); app.segmentedControls["twoBall.mode"].buttons["自由走位"].tap()
-        app.buttons["twoBall.start"].tap()
+        app.buttons["twoBall.start"].tap(); app.selectTrainingView(trainingTitle)
         ready(app.buttons["twoBall.strike"], timeout: 180)
         let initial = try twoBallProbe()
         XCTAssertEqual(initial["playsStroke"] as? Bool, true)
@@ -367,7 +371,11 @@ final class TrainingSettingsResetUITests: XCTestCase {
     private func assertPortrait(_ portrait: Bool) {
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             let frame = self.app.windows.firstMatch.frame
-            return portrait ? frame.height > frame.width : frame.width > frame.height
+            // iPad follows the physical orientation in both settings and table;
+            // the phone alone forces portrait settings / landscape practice.
+            let expectsPortrait = UIDevice.current.userInterfaceIdiom == .pad
+                ? !XCUIDevice.shared.orientation.isLandscape : portrait
+            return expectsPortrait ? frame.height > frame.width : frame.width > frame.height
         }, object: nil)], timeout: 10), .completed)
     }
 
@@ -376,6 +384,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
         app.launchArguments.removeAll { $0 == "-v54.forceDark" }
         app.launchArguments.append("-v54.forceLight")
         app.launch()
+        app.maximizeTrainingTestWindow()
     }
 
     private func assertFullSettingsPage(cancel: String, tableMenu: String) {
@@ -383,7 +392,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
         ready(app.buttons[cancel])
         let bar = app.navigationBars.firstMatch
         XCTAssertTrue(bar.exists)
-        XCTAssertLessThan(bar.frame.maxY, app.frame.height * 0.2, "Settings must use the top navigation bar, not a bottom sheet")
+        XCTAssertLessThan(bar.frame.maxY, app.windows.firstMatch.frame.height * 0.2, "Settings must use the top navigation bar, not a bottom sheet")
         XCTAssertFalse(app.buttons[tableMenu].exists, "The table must be replaced by the full settings page")
     }
 
@@ -392,10 +401,11 @@ final class TrainingSettingsResetUITests: XCTestCase {
             launchSettingsReference()
             app.switchTab(.angle)
             app.buttons["angleHomeTab_" + (title == "蛇彩练习" ? "练" : "打")].tap()
-            let card = app.buttons[title]; reveal(card); card.tap()
+            trainingTitle = title
+            let card = app.buttons[XCUIApplication.trainingCardTitle(title)]; reveal(card); card.tap()
             let prefix = title == "蛇彩练习" ? "snake" : "multiBall"
             ready(app.buttons[prefix + ".start"])
-            app.buttons[prefix + ".start"].tap()
+            app.buttons[prefix + ".start"].tap(); app.selectTrainingView(trainingTitle)
             assertPortrait(false)
             ready(app.buttons["freeplay.moreMenu"], timeout: 120)
             let state = app.descendants(matching: .any).matching(identifier: prefix + ".landscape").firstMatch
@@ -407,8 +417,8 @@ final class TrainingSettingsResetUITests: XCTestCase {
                 XCTAssertTrue(menu.waitForExistence(timeout: 5))
                 for _ in 0..<8 {
                     let item = app.buttons[prefix + ".settings"]
-                    if item.exists && item.isHittable && item.frame.maxY < app.frame.maxY - 20 { break }
-                    let x = item.exists && !item.frame.isEmpty ? item.frame.midX / app.frame.width : 0.8
+                    if item.exists && item.isHittable && item.frame.maxY < app.windows.firstMatch.frame.maxY - 20 { break }
+                    let x = item.exists && !item.frame.isEmpty ? item.frame.midX / app.windows.firstMatch.frame.width : 0.8
                     app.coordinate(withNormalizedOffset: .init(dx: x, dy: 0.75))
                         .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: .init(dx: x, dy: 0.3)))
                 }
@@ -420,7 +430,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
             assertPortrait(false); ready(app.buttons["freeplay.moreMenu"])
             XCTAssertEqual(state.value as? String, initialState)
             settings()
-            app.buttons[prefix + ".start"].tap()
+            app.buttons[prefix + ".start"].tap(); app.selectTrainingView(trainingTitle)
             assertPortrait(false); ready(app.buttons["freeplay.moreMenu"])
             capture(title + "-table-after-settings")
         }
@@ -431,7 +441,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
             launchSettingsReference()
             open(title)
             let prefix = title.contains("瞄准点") ? "aimPointTraining" : "angleTraining"
-            app.buttons[prefix + ".start"].tap()
+            app.buttons[prefix + ".start"].tap(); app.selectTrainingView(trainingTitle)
             assertPortrait(false); ready(app.buttons[prefix + ".settings"], timeout: 120)
             app.buttons[prefix + ".settings"].tap()
             ready(app.buttons[prefix + ".trainingSettings"]); app.buttons[prefix + ".trainingSettings"].tap()
@@ -442,7 +452,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
             app.buttons[prefix + ".settings"].tap()
             ready(app.buttons[prefix + ".trainingSettings"]); app.buttons[prefix + ".trainingSettings"].tap()
             assertFullSettingsPage(cancel: "training.settingsCancel", tableMenu: prefix + ".settings")
-            app.buttons[prefix + ".start"].tap()
+            app.buttons[prefix + ".start"].tap(); app.selectTrainingView(trainingTitle)
             assertPortrait(false); ready(app.buttons[prefix + ".settings"])
             capture(title + "-table-after-settings")
         }

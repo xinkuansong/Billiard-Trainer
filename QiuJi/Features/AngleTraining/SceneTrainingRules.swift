@@ -178,7 +178,10 @@ struct SceneTrainingConfiguration: Codable, Equatable {
     }
     static func load(for route: String) -> Self {
         let defaults = Self.defaults(for: route)
-        guard let data = UserDefaults.standard.data(forKey: "sceneTraining.rules2.mixedDefaults." + route) else {
+        let mergedKey = TrainingProject.from(route: route).map { "sceneTraining.rules3.project." + $0.rawValue }
+        let data = mergedKey.flatMap { UserDefaults.standard.data(forKey: $0) }
+            ?? UserDefaults.standard.data(forKey: "sceneTraining.rules2.mixedDefaults." + route)
+        guard let data else {
             return defaults
         }
         do { return try JSONDecoder().decode(Self.self, from: data) }
@@ -190,7 +193,9 @@ struct SceneTrainingConfiguration: Codable, Equatable {
     func save(for route: String) {
         do {
             let data = try JSONEncoder().encode(self)
-            UserDefaults.standard.set(data, forKey: "sceneTraining.rules2.mixedDefaults." + route)
+            let key = TrainingProject.from(route: route).map { "sceneTraining.rules3.project." + $0.rawValue }
+                ?? "sceneTraining.rules2.mixedDefaults." + route
+            UserDefaults.standard.set(data, forKey: key)
         } catch {
             Logger(subsystem: "com.xinkuan.qiuji", category: "SceneTraining").error("Settings encode failed: \(String(describing: error), privacy: .public)")
         }
@@ -220,7 +225,7 @@ struct TwoBallSettingsPreference: Codable, Equatable {
     }
 
     static func load(for route: String, mode: TwoBallMode, defaults: UserDefaults = .standard) -> Self {
-        if let data = defaults.data(forKey: key(route, mode)),
+        if let data = defaults.data(forKey: "twoBallPractice.settings.project.v2." + mode.rawValue) ?? defaults.data(forKey: key(route, mode)),
            let value = try? JSONDecoder().decode(Self.self, from: data) { return value }
         // Copy existing confirmed choices on first use without writing during Cancel.
         let configuration = defaults.data(forKey: "sceneTraining.rules2.mixedDefaults." + route)
@@ -234,7 +239,7 @@ struct TwoBallSettingsPreference: Codable, Equatable {
 
     func save(for route: String, mode: TwoBallMode, defaults: UserDefaults = .standard) {
         guard let data = try? JSONEncoder().encode(self) else { return }
-        defaults.set(data, forKey: Self.key(route, mode))
+        defaults.set(data, forKey: "twoBallPractice.settings.project.v2." + mode.rawValue)
     }
 
     private static func key(_ route: String, _ mode: TwoBallMode) -> String {
@@ -249,7 +254,7 @@ enum SceneTrainingSettingsDefaults {
     static let twoBallMode: TwoBallMode = .trajectory
 }
 
-struct SceneTrainingQuestion {
+struct SceneTrainingQuestion: Codable {
     let id: UUID
     let geometry: AngleQuestion
     let side: Int
@@ -490,11 +495,16 @@ struct SceneTrainingMetadata: Codable {
     let assistance: [String]
     let userDirection: [Double]?
     let score: SceneAimScore?
+    var project: TrainingProject? = nil
+    var view: TrainingViewMode? = nil
+    var observedViews: Set<TrainingViewMode>? = nil
+    var receipt: TrainingConsumptionReceipt? = nil
+    var viewLabel: String? { (observedViews?.count ?? 0) > 1 ? "混合视图" : view?.rawValue }
     var independent: Bool { firstAttempt && assistance.isEmpty }
     var json: String? { (try? JSONEncoder().encode(self)).flatMap { String(data: $0, encoding: .utf8) } }
 }
 
-struct SceneTrainingRun {
+struct SceneTrainingRun: Codable {
     var id = UUID()
     var configuration = SceneTrainingConfiguration()
     var queue: [SceneTrainingQuestion] = []
@@ -506,14 +516,14 @@ struct SceneTrainingRun {
     var usedBoardIDs: Set<String> = []
     var reusedBankPool = false
     var submitted = false
-    var canFinish: Bool { !configuration.freePractice && firstAnswers.count >= 20 }
+    var canFinish: Bool { !configuration.freePractice && firstAnswers.count >= TrainingProject.ordinaryRoundCount }
     mutating func next() throws -> AngleQuestion {
         if queue.isEmpty {
             let bank = try TrainingBankStore.load()
             let seed = UInt64.random(in: 0...UInt64.max)
-            do { queue = try bank.baseBatch(configuration, seed: seed, excluding: usedBoardIDs).map(\.question) }
+            do { queue = try bank.baseBatch(configuration, seed: seed, excluding: usedBoardIDs, count: TrainingProject.ordinaryRoundCount).map(\.question) }
             catch TrainingQuestionBank.Failure.coverage where !usedBoardIDs.isEmpty {
-                queue = try bank.baseBatch(configuration, seed: seed).map(\.question)
+                queue = try bank.baseBatch(configuration, seed: seed, count: TrainingProject.ordinaryRoundCount).map(\.question)
                 reusedBankPool = true
             }
         }
@@ -554,7 +564,7 @@ struct SceneTrainingRun {
     }
 }
 
-struct SceneTrainingSample {
+struct SceneTrainingSample: Codable {
     let angle: Double
     let error: Double?
     let signedError: Double?

@@ -64,7 +64,7 @@ enum MultiBallRuling: Equatable {
 
 /// Scores the actual settled board. Pocket identity is frozen before the stroke.
 enum MultiBallPositionScore {
-    struct Result: Equatable {
+    struct Result: Equatable, Codable {
         let value: Double
         let reason: String?
         var text: String {
@@ -110,11 +110,20 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
     @Published var showUpgrade = false
     @Published var showSessionEnd = false
     @Published private(set) var questionNumber = 0
-    let is3D: Bool
+    var is3D: Bool { presentation.current.is3D }
+    @Published private(set) var presentation: TrainingPresentation
+    @Published private(set) var checkpointError: String?
+    private var runID = UUID()
+    private var rackID = UUID()
+    private var ownerKey = CurrentOwnerContext.shared.ownerKey
+    private var checkpointObserver: AnyCancellable?
+    private var perspectiveBookmark: CameraRig.TrainingBookmark?
+    private var restoring = false
+    private var sessionEnded = false
     private let limiter: AngleUsageLimiter
     var premiumProvider: () -> Bool = { false }
     private var pendingNewSession = false
-    var newSessionRequiresPro: Bool { !premiumProvider() && (is3D || configuration.freePractice || limiter.remainingToday == 0) }
+    var newSessionRequiresPro: Bool { !premiumProvider() && (configuration.freePractice || limiter.remainingToday == 0) }
     func requestNewSession() {
         limiter.refreshDay()
         if newSessionRequiresPro { pendingNewSession = true; showUpgrade = true }
@@ -124,20 +133,23 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         if pendingNewSession && premiumProvider() { showSettings = true }
         pendingNewSession = false
     }
-    private var requiresPremium: Bool { is3D || configuration.freePractice }
+    private var requiresPremium: Bool { configuration.freePractice }
     private var authorized: Bool { !requiresPremium || premiumProvider() }
-    var progressTitle: String { is3D || configuration.freePractice ? "" : "第 \(questionNumber)/3 题 · " }
+    var progressTitle: String { configuration.freePractice ? "" : "第 \(questionNumber)/3 题 · " }
 
     private weak var host: PositionPlayViewModel?
     private let defaults: UserDefaults
+    private let checkpointRoot: URL?
     private var awaiting = false
-    struct Plan: Equatable {
+    struct Plan: Equatable, Codable {
         let current: String
         let next: String
         let pocket: Int
         var third: String? = nil
     }
-    private struct Previous {
+    fileprivate struct Previous: Codable {
+        var board: BoardSnapshot? = nil
+        var input: PositionPlayViewModel.TrainingInput? = nil
         let remaining: Set<String>
         let hasStruck: Bool
         let plan: Plan?
@@ -201,7 +213,14 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
     init(configuration: MultiBallConfiguration = .load(), defaults: UserDefaults = .standard,
          is3D: Bool = false, limiter: AngleUsageLimiter = .multiBallTraining) {
         self.configuration = configuration; self.defaults = defaults
-        self.is3D = is3D; self.limiter = limiter
+        if defaults === UserDefaults.standard { checkpointRoot = nil }
+        else {
+            let key = "multiBall.testCheckpointID"
+            let id = defaults.string(forKey: key) ?? UUID().uuidString
+            defaults.set(id, forKey: key)
+            checkpointRoot = FileManager.default.temporaryDirectory.appendingPathComponent("multiBall-tests-" + id)
+        }
+        self.presentation = .init(is3D: is3D); self.limiter = limiter
     }
     var paletteKeys: [String] { rack?.paletteKeys ?? [] }
     private func eligibleKeys(excluding excluded: Set<String>) -> Set<String> {
@@ -242,7 +261,7 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         return plan.current == currentTarget && continuationKeys.contains(plan.next)
             && (remaining.count < 3 || (thirdKey.map { thirdKeys.contains($0) } == true))
     }
-    var canStrike: Bool { authorized && rack != nil && failure == nil && !isComplete }
+    var canStrike: Bool { checkpointError == nil && authorized && rack != nil && failure == nil && !isComplete }
     var averageScore: Double? { scores.isEmpty ? nil : scores.map(\.value).reduce(0, +) / Double(scores.count) }
     var completionSummary: String {
         guard isPlanning, let averageScore else { return "已清台" }
@@ -388,6 +407,7 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         return true
     }
     var notice: String {
+        if let checkpointError { return "未能保存练习：" + checkpointError }
         if let failure { return isPlanning && previous?.plan != nil ? "本杆走位 0 分 · " + failure : failure }
         return completionVisible ? completionSummary : ""
     }
@@ -403,7 +423,15 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         vm.onPracticeReadyForNextShot = { [weak self] in self?.advancePlannedAim() == true }
         vm.onShotWillStart = { [weak self] in self?.prepareShot() }
         vm.onCommittedPracticeShot = { [weak self] in self?.settle($0) }
-        start(configuration)
+        let preferred = (defaults === UserDefaults.standard ? TablePreferencesStore.shared : TablePreferencesStore(defaults: defaults)).beginTraining(.multiBall, source3D: is3D)
+        presentation.current = .init(is3D: preferred)
+        do {
+            if let saved = try checkpointStore.latest(where: { $0.configuration.isValid }) { restore(saved) }
+            else { start(configuration) }
+        } catch { checkpointError = error.localizedDescription; showSettings = false }
+        checkpointObserver = vm.objectWillChange.debounce(for: .milliseconds(250), scheduler: RunLoop.main).sink { [weak self] in
+            MainActor.assumeIsolated { self?.saveCheckpoint() }
+        }
     }
     func start(_ value: MultiBallConfiguration) { loadRack(value, resettingSession: true) }
     private func loadRack(_ value: MultiBallConfiguration, resettingSession: Bool) {
@@ -411,14 +439,27 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         let premium = premiumProvider()
         limiter.refreshDay()
         if !premium {
-            guard !is3D && !value.freePractice else { showUpgrade = true; return }
+            guard !value.freePractice else { showUpgrade = true; return }
             guard limiter.questionsUsedToday < limiter.limit else { showDailyLimit = true; return }
         }
         do {
             let next = try MultiBallBank.shared.draw(configuration: value, excluding: rack?.sourceID)
-            if !premium { limiter.recordQuestion() }
+            let id = UUID(), nextRun = resettingSession ? UUID() : runID
+            limiter.isPremium = premium
+            guard limiter.reserve(questionID: id) else { showDailyLimit = true; return }
+            var views = resettingSession ? TrainingPresentation(is3D: is3D) : presentation
+            let formalView = views.current
+            views.observe(formalView, questionID: id)
+            views.accept(questionID: id, at: Date(), premium: premium)
+            let candidate = Checkpoint(runID: nextRun, rackID: id, configuration: value, rack: next,
+                initialBoard: next.board, board: next.board, presentation: views,
+                questionNumber: resettingSession ? 1 : questionNumber + 1, remaining: next.ownKeys)
+            do { try checkpointStore.save(candidate, id: nextRun) }
+            catch { limiter.release(questionID: id); throw error }
+            runID = nextRun; rackID = id; presentation = views
+            if let receipt = views.receipts[id], !limiter.reconcile(receipt) { checkpointError = limiter.quotaError }
             questionNumber = resettingSession ? 1 : questionNumber + 1
-            showSessionEnd = false; showDailyLimit = false
+            sessionEnded = false; showSessionEnd = false; showDailyLimit = false
             configuration = value; value.save(defaults: defaults, is3D: is3D); rack = next; initialBoard = next.board
             restart(); showSettings = false
         } catch { failure = MultiBallBank.BankError.unavailable.localizedDescription; showFailureChoice = false }
@@ -433,26 +474,28 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         host?.practiceLockedTarget = nil; host?.practiceLockedPocket = nil
         resultTask?.cancel(); resultNotice = nil; host?.continuationPocketIndex = nil
         host?.geometryReference.reset()
-        host?.loadBoard(initialBoard); host?.refreshLegalAimSelection(); currentTargetChanged()
+        host?.loadBoard(initialBoard); host?.refreshLegalAimSelection(); currentTargetChanged(); saveCheckpoint()
     }
     func nextRack() {
         guard host?.isPlaying != true else { return }
-        if !is3D && !configuration.freePractice && questionNumber >= 3 {
-            showSessionEnd = true; return
+        if !configuration.freePractice && questionNumber >= 3 {
+            sessionEnded = true; showSessionEnd = true; saveCheckpoint(); return
         }
         loadRack(configuration, resettingSession: false)
     }
     func prepareShot() {
         guard requestStrike(), !awaiting else { return }
         host?.prepareGeometryReference(); host?.geometryReference.freeze()
-        previous = Previous(remaining: remaining, hasStruck: hasStruck, plan: plan, scores: scores, next: draftNextKey, third: thirdKey, lockedPocket: lockedCurrentPocket, step: planningStep)
+        previous = Previous(board: host?.currentSnapshot(), input: host?.trainingInput, remaining: remaining, hasStruck: hasStruck, plan: plan, scores: scores, next: draftNextKey, third: thirdKey, lockedPocket: lockedCurrentPocket, step: planningStep)
         resultTask?.cancel(); resultNotice = nil
         if !hasStruck, let board = host?.currentSnapshot() { initialBoard = board }
+        saveCheckpoint()
         hasStruck = true; awaiting = true
         roleNodes.forEach { $0.removeFromParentNode() }; roleNodes = []
     }
     func settle(_ solved: PositionPlayViewModel.SolvedShot) {
         guard awaiting else { return }; awaiting = false
+        defer { saveCheckpoint() }
         host?.geometryReference.nextShot()
         let ruling = MultiBallRuling.judge(game: configuration.game, remaining: remaining, solved: solved)
         if isPlanning, let plan = previous?.plan {
@@ -487,7 +530,7 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         if host == nil { _ = advancePlannedAim(); currentTargetChanged() }
     }
     func undo() {
-        guard authorized, host?.isPlaying != true, host?.canReplay == true, let previous else { return }
+        guard authorized, host?.isPlaying != true, let previous else { return }
         completionTask?.cancel(); completionVisible = false
         remaining = previous.remaining; hasStruck = previous.hasStruck
         failure = nil; isComplete = false; showFailureChoice = false; awaiting = false
@@ -495,16 +538,145 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         resultTask?.cancel(); resultNotice = nil
         draftNextKey = previous.next; thirdKey = previous.third; lockedCurrentPocket = previous.lockedPocket
         host?.practiceLockedTarget = nil; host?.practiceLockedPocket = nil
-        self.previous = nil; host?.replayCurrent()
+        self.previous = nil
+        if host?.canReplay == true { host?.replayCurrent() }
+        else if let board = previous.board {
+            host?.loadBoard(board)
+            if let input = previous.input { host?.restoreTrainingInput(input) }
+        }
         host?.practiceLockedTarget = lockedCurrentPocket == nil ? nil : currentTarget
         host?.practiceLockedPocket = lockedCurrentPocket
         planningStep = previous.step; refreshPresentation()
-        host?.geometryReference.restore()
+        host?.geometryReference.restore(); saveCheckpoint()
     }
     func finishAttempt(reason: String) {
+        saveCheckpoint()
         host?.geometryReference.reset()
         awaiting = false; completionTask?.cancel(); showFailureChoice = false
         resultTask?.cancel(); resultNotice = nil; cancelPlanning()
         roleNodes.forEach { $0.removeFromParentNode() }; roleNodes = []
     }
+    #if DEBUG
+    var mergeDiagnostic: String {
+        let data: [String: Any] = ["session": runID.uuidString, "question": rackID.uuidString,
+            "view": is3D ? "3D" : "2D", "used": limiter.questionsUsedToday,
+            "number": questionNumber, "remaining": remaining.sorted(), "scoreCount": scores.count,
+            "geometry": host?.geometryReference.diagnostic ?? [:]]
+        return (try? JSONSerialization.data(withJSONObject: data, options: [.sortedKeys]))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+    }
+    #endif
+    struct Checkpoint: Codable {
+        let runID, rackID: UUID
+        let configuration: MultiBallConfiguration
+        let rack: MultiBallRack
+        let initialBoard, board: BoardSnapshot
+        var presentation: TrainingPresentation
+        let questionNumber: Int
+        var remaining: Set<String>
+        var hasStruck = false
+        var failure: String? = nil
+        var complete = false
+        var ended = false
+        var plan: Plan? = nil
+        var nextAim: Plan? = nil
+        var scores: [MultiBallPositionScore.Result] = []
+        var next, third: String?
+        var lockedPocket: Int?
+        var step: PlanThreeRole = .ball2
+        var target: String?
+        var pocket = -1
+        var velocity = ShotTuning.defaultVelocity
+        var spinX = 0.0, spinY = 0.0
+        var geometry: GeometricReferenceTool.Snapshot?
+        var input: PositionPlayViewModel.TrainingInput?
+        fileprivate var previous: Previous?
+        var bookmark: CameraRig.TrainingBookmark?
+    }
+    private var checkpointStore: TrainingCheckpointStore<Checkpoint> {
+        .init(project: .multiBall, owner: ownerKey, root: checkpointRoot)
+    }
+    static func hasCheckpoint() throws -> Bool {
+        try TrainingCheckpointStore<Checkpoint>(project: .multiBall, owner: CurrentOwnerContext.shared.ownerKey)
+            .latest(where: { $0.configuration.isValid }) != nil
+    }
+    var canUndo: Bool { previous != nil && host?.isPlaying != true && host?.isComputing != true }
+    func saveCheckpoint() {
+        guard !restoring, !awaiting, let host, !host.isPlaying, !host.isComputing,
+              ownerKey == CurrentOwnerContext.shared.ownerKey, let rack, let initialBoard else { return }
+        var value = Checkpoint(runID: runID, rackID: rackID, configuration: configuration, rack: rack,
+            initialBoard: initialBoard, board: host.currentSnapshot(), presentation: presentation,
+            questionNumber: questionNumber, remaining: remaining)
+        value.hasStruck = hasStruck; value.failure = failure; value.complete = isComplete
+        value.ended = sessionEnded
+        value.nextAim = nextAim
+        value.plan = plan; value.scores = scores; value.next = draftNextKey; value.third = thirdKey
+        value.lockedPocket = lockedCurrentPocket; value.step = planningStep
+        value.target = host.selectedTargetKey; value.pocket = host.selectedPocketIndex
+        value.velocity = host.velocity; value.spinX = host.spinX; value.spinY = host.spinY
+        value.input = host.trainingInput
+        value.geometry = host.geometryReference.snapshot; value.previous = previous
+        if host.cameraMode == .perspective3D, !host.temporaryTopDownActive {
+            perspectiveBookmark = host.scene.cameraRig?.trainingBookmark()
+        }
+        value.bookmark = perspectiveBookmark
+        do {
+            try checkpointStore.save(value, id: runID)
+            checkpointError = nil
+            for receipt in presentation.receipts.values where !limiter.reconcile(receipt) { checkpointError = limiter.quotaError }
+        }
+        catch { checkpointError = error.localizedDescription }
+    }
+    private func restore(_ value: Checkpoint) {
+        restoring = true; defer { restoring = false }
+        perspectiveBookmark = value.bookmark
+        runID = value.runID; rackID = value.rackID; configuration = value.configuration
+        rack = value.rack; initialBoard = value.initialBoard; presentation = value.presentation
+        questionNumber = value.questionNumber; remaining = value.remaining; hasStruck = value.hasStruck
+        sessionEnded = value.ended; showSessionEnd = value.ended
+        failure = value.failure; isComplete = value.complete; showFailureChoice = value.failure != nil
+        nextAim = value.nextAim
+        plan = value.plan; scores = value.scores; draftNextKey = value.next; thirdKey = value.third
+        lockedCurrentPocket = value.lockedPocket; planningStep = value.step; previous = value.previous
+        host?.loadBoard(value.board)
+        if let key = value.target { _ = host?.selectTarget(key: key) }
+        if value.pocket >= 0 { host?.selectPocket(at: value.pocket) }
+        if let input = value.input { host?.restoreTrainingInput(input) }
+        host?.velocity = value.velocity; host?.spinX = value.spinX; host?.spinY = value.spinY
+        host?.practiceLockedTarget = value.lockedPocket == nil ? nil : value.target
+        host?.practiceLockedPocket = value.lockedPocket
+        if let host {
+            _ = ShotPlayCamera.setMode(is3D ? .perspective3D : .topDown2D, on: host)
+            if let bookmark = value.bookmark, let cue = host.scene.cueBallNode?.position, let aim = host.currentPlayerAim {
+                host.scene.cameraRig?.restoreTrainingBookmark(bookmark, cue: cue, aim: aim)
+            }
+            if let geometry = value.geometry { host.geometryReference.restore(geometry) }
+        }
+        for receipt in presentation.receipts.values where !limiter.reconcile(receipt) { checkpointError = limiter.quotaError }
+        if nextAim != nil { _ = advancePlannedAim() }
+        refreshPresentation()
+    }
+    @discardableResult func switchTrainingView(to is3D: Bool) -> Bool {
+        guard let host, !host.isPlaying, !host.isComputing, !host.cameraTransitionBusy,
+              !host.temporaryTopDownActive else { return false }
+        host.geometryReference.endDrag()
+        let old = presentation
+        presentation.current = .init(is3D: is3D)
+        // Rack quota is accepted at activation; observations remain a per-rack union.
+        presentation.observed[rackID, default: []].insert(.init(is3D: is3D))
+        saveCheckpoint()
+        guard checkpointError == nil else { presentation = old; return false }
+        return true
+    }
+    func observeTemporaryTopDown() {
+        presentation.observed[rackID, default: []].insert(.twoD); saveCheckpoint()
+    }
+    func ownerChanged() {
+        checkpointObserver?.cancel(); host?.cancelPowerRelease()
+        rack = nil; initialBoard = nil; previous = nil; remaining = []; plan = nil; scores = []
+        ownerKey = CurrentOwnerContext.shared.ownerKey; host?.clearTable(); showSettings = true
+        sessionEnded = false; showSessionEnd = false
+        runID = UUID(); rackID = UUID(); presentation = .init(is3D: is3D)
+    }
+
 }

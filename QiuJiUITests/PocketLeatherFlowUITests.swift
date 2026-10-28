@@ -1,6 +1,7 @@
 import XCTest
 
 final class PocketLeatherFlowUITests: XCTestCase {
+    private var trainingTitle = ""
     private var evidence: URL {
         URL(fileURLWithPath: ProcessInfo.processInfo.environment["POCKET_UI_EVIDENCE"] ?? ProcessInfo.processInfo.environment["TEST_RUNNER_POCKET_UI_EVIDENCE"] ?? URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("output/pocket-leather/W4/standard").path)
     }
@@ -11,8 +12,9 @@ final class PocketLeatherFlowUITests: XCTestCase {
     private func open(_ title: String, in app: XCUIApplication) {
         app.switchTab(.angle)
         let search=app.textFields["librarySearchField"]
-        XCTAssertTrue(search.waitForExistence(timeout:15));search.tap();search.typeText(title)
-        let card=app.buttons[title];XCTAssertTrue(card.waitForExistence(timeout:10));card.tap()
+        XCTAssertTrue(search.waitForExistence(timeout:15));search.tap();search.typeText(XCUIApplication.trainingCardTitle(title))
+        trainingTitle = title
+        let card = app.buttons[XCUIApplication.trainingCardTitle(title)];XCTAssertTrue(card.waitForExistence(timeout:10));card.tap()
     }
     private func snap(_ app: XCUIApplication,_ name: String, requiresTable: Bool = true) throws {
         try FileManager.default.createDirectory(at:evidence,withIntermediateDirectories:true)
@@ -101,7 +103,7 @@ final class PocketLeatherFlowUITests: XCTestCase {
             open(title, in: app)
             let start = app.buttons["开始训练"]
             XCTAssertTrue(start.waitForExistence(timeout: 10))
-            start.tap()
+            start.tap(); app.selectTrainingView(trainingTitle)
             let name = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "(左上|右上|左下|右下)角袋|(上|下|左|右)中袋")).firstMatch
             XCTAssertTrue(name.waitForExistence(timeout: 10), app.debugDescription)
             XCTAssertFalse(app.staticTexts["高亮角袋"].exists)
@@ -117,7 +119,7 @@ final class PocketLeatherFlowUITests: XCTestCase {
             let app=launch();open(title,in:app)
             if title.contains("角度训练") {
                 let start=app.buttons["开始训练"]
-                XCTAssertTrue(start.waitForExistence(timeout:15));start.tap()
+                XCTAssertTrue(start.waitForExistence(timeout:15));start.tap(); app.selectTrainingView(trainingTitle)
             }
             assertTable(app)
             Thread.sleep(forTimeInterval:1)

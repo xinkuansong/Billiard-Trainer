@@ -12,20 +12,110 @@ final class CustomFormationTests: XCTestCase {
     override func tearDownWithError() throws { try FileManager.default.removeItem(at: directory) }
 
     private func template() -> CustomFormationTemplate {
-        let keys = (0..<3).map { _ in PositionPlayBall.instanceKey(number: 1) }
+        let keys = (1...3).map { PositionPlayBall.instanceKey(number: $0) }
         var board = [PositionPlayBall.cueKey: CanvasPoint(x: 0.25, y: 0.35)]
         for (i, key) in keys.enumerated() { board[key] = CanvasPoint(x: 0.35 + Double(i) * 0.12, y: 0.25) }
-        return .init(name: "三颗同号球", ballKeys: keys, board: .init(onTable: board))
+        return .init(name: "三颗不同号球", ballKeys: keys, board: .init(onTable: board))
     }
 
-    func testRepeatedNumbersSurviveAtomicSaveReloadAndCopy() throws {
+    func testBuiltInLayoutsHaveUniqueBallsClearanceAndExpectedShapes() throws {
+        for template in BuiltInCustomFormations.templates {
+            try template.validateForPractice()
+            XCTAssertEqual(template.ballKeys.compactMap(PositionPlayBall.number), Array(1...15))
+            let cue = try XCTUnwrap(template.board.onTable[PositionPlayBall.cueKey])
+            XCTAssertEqual(cue.x, 0.5)
+            XCTAssertEqual(cue.y, 0.25)
+            let points = Array(template.board.onTable.values)
+            let radius = Double(AngleSceneCalculator.ballRadius / AngleSceneCalculator.innerLength)
+            for (i, p) in points.enumerated() {
+                XCTAssertGreaterThanOrEqual(min(p.x, 1 - p.x, p.y, 0.5 - p.y), radius - 1e-8)
+                for q in points.dropFirst(i + 1) {
+                    XCTAssertGreaterThan(hypot(p.x - q.x, p.y - q.y), 2 * radius)
+                }
+            }
+        }
+        let four = BuiltInCustomFormations.templates[0]
+        let groups = Dictionary(grouping: four.ballKeys.map { four.board.onTable[$0]! }) {
+            "\($0.x > 0.5)-\($0.y > 0.25)"
+        }
+        XCTAssertEqual(groups.values.map(\.count).sorted(), [3, 4, 4, 4])
+        let lShape = BuiltInCustomFormations.templates[1]
+        let points = lShape.ballKeys.map { lShape.board.onTable[$0]! }
+        XCTAssertEqual(points.filter { abs($0.x - 0.25) < 1e-8 }.count, 8)
+        XCTAssertEqual(points.filter { abs($0.y - 0.25) < 1e-8 }.count, 8)
+        let radius = Double(AngleSceneCalculator.ballRadius) / Double(AngleSceneCalculator.innerLength)
+        XCTAssertEqual(0.5 - points[0].y, radius, accuracy: 1e-8)
+        XCTAssertEqual(points[14].x, radius, accuracy: 1e-8)
+    }
+
+    func testBuiltInStartAndRestartAimAtOneFromTableCenter() throws {
+        for template in BuiltInCustomFormations.templates {
+            let session = CustomFormationSession(template: template, editing: false)
+            session.vm.setupScene(loadsDefaultLayout: false)
+            session.vm.usesAutomaticPocketFallback = true // Same host contract as FreePlayView.
+            defer { session.vm.cancelDailyAttempt() }
+            session.setup()
+            for restart in [false, true] {
+                if restart { session.vm.nudgeFreeAim(byDegrees: 30); session.reset() }
+                let one = try XCTUnwrap(session.vm.scene.allBallNodes[template.ballKeys[0]])
+                let cue = try XCTUnwrap(session.vm.scene.cueBallNode)
+                let aim = try XCTUnwrap(session.vm.freeAimDir)
+                XCTAssertEqual(cue.position.x, 0, accuracy: 1e-6)
+                XCTAssertEqual(cue.position.z, 0, accuracy: 1e-6)
+                let dx = one.position.x - cue.position.x, dz = one.position.z - cue.position.z
+                let length = hypotf(dx, dz)
+                XCTAssertEqual(aim.x, dx / length, accuracy: 1e-6)
+                XCTAssertEqual(aim.z, dz / length, accuracy: 1e-6)
+                XCTAssertEqual(session.vm.selectedTargetKey, template.ballKeys[0])
+            }
+        }
+    }
+
+    func testBuiltInsStayReadOnlyAndCopiesUsePersonalArchive() throws {
+        let library = CustomFormationLibrary(ownerKey: "guest:builtins", directory: directory)
+        let personal = template()
+        XCTAssertTrue(library.save(personal))
+        for builtIn in BuiltInCustomFormations.templates {
+            library.select(builtIn.id)
+            library.reload()
+            XCTAssertEqual(library.selected?.id, builtIn.id)
+            XCTAssertEqual(library.archive.selectedID, personal.id)
+            XCTAssertEqual(library.templates.count, 1)
+            XCTAssertFalse(library.save(builtIn))
+            library.delete(builtIn.id)
+            XCTAssertEqual(library.selected?.name, builtIn.name)
+
+            let session = CustomFormationSession(template: builtIn, editing: false)
+            session.vm.setupScene(loadsDefaultLayout: false)
+            defer { session.vm.cancelDailyAttempt() }
+            session.setup()
+            let saved = try session.templateForSaving()
+            XCTAssertNotEqual(saved.id, builtIn.id)
+            session.remove(builtIn.ballKeys[0], permanently: true)
+            session.reset()
+            XCTAssertEqual(session.vm.currentSnapshot().onTable.count, 16)
+            XCTAssertEqual(builtIn.board.onTable.count, 16)
+        }
+        let builtIn = BuiltInCustomFormations.templates[1]
+        library.duplicate(builtIn)
+        let copy = try XCTUnwrap(library.selected)
+        XCTAssertFalse(BuiltInCustomFormations.contains(copy.id))
+        XCTAssertTrue(Set(copy.ballKeys).isDisjoint(with: builtIn.ballKeys))
+        library.rename(copy, name: "我的L型")
+        let reopened = CustomFormationLibrary(ownerKey: "guest:builtins", directory: directory)
+        XCTAssertEqual(reopened.selected?.name, "我的L型")
+        XCTAssertEqual(reopened.templates.count, 2)
+        XCTAssertEqual(BuiltInCustomFormations.templates[1].name, "L型球形")
+    }
+
+    func testDistinctNumbersSurviveAtomicSaveReloadAndCopy() throws {
         let library = CustomFormationLibrary(ownerKey: "guest:test", directory: directory)
         let original = template()
         XCTAssertTrue(library.save(original))
         let reopened = CustomFormationLibrary(ownerKey: "guest:test", directory: directory)
         let loaded = try XCTUnwrap(reopened.selected)
         XCTAssertEqual(loaded.ballKeys, original.ballKeys)
-        XCTAssertEqual(loaded.ballKeys.compactMap(PositionPlayBall.number), [1, 1, 1])
+        XCTAssertEqual(loaded.ballKeys.compactMap(PositionPlayBall.number), [1, 2, 3])
         XCTAssertEqual(loaded.board.onTable.count, 4)
         reopened.duplicate(loaded)
         let copy = try XCTUnwrap(reopened.selected)
@@ -128,7 +218,7 @@ final class CustomFormationTests: XCTestCase {
         s.beginTool(.line)
         s.editorTableTapped(SCNVector3(-0.5,0,-0.3)); s.editorTableTapped(SCNVector3(0.5,0,-0.3))
         XCTAssertEqual(s.keys.count,0)
-        for _ in 0..<3 { s.place("_1",world:nil) }
+        for n in 1...3 { s.place("_\(n)",world:nil) }
         XCTAssertEqual(s.lineBallCount,3)
         XCTAssertEqual(s.lineSpacingCM!,50,accuracy:0.0001)
         let sharedID = s.drawing.lines[0].end
@@ -137,7 +227,7 @@ final class CustomFormationTests: XCTestCase {
         s.editorTableTapped(SCNVector3(0.5,0,-0.3)); s.editorTableTapped(SCNVector3(0.5,0,0.4))
         XCTAssertEqual(s.drawing.vertices.count,3)
         XCTAssertEqual(s.drawing.lines[1].start,sharedID)
-        s.place("_2",world:nil); s.place("_2",world:nil)
+        s.place("_4",world:nil); s.place("_5",world:nil)
         XCTAssertEqual(s.keys.count,5)
         XCTAssertEqual(s.lineBallCount,3)
         XCTAssertEqual(s.drawing.lines[1].balls.first,sharedBall)
@@ -198,19 +288,19 @@ final class CustomFormationTests: XCTestCase {
         XCTAssertNil(s.lineSorts[first.id])
         XCTAssertNoThrow(try s.templateForSaving().validated())
     }
-    func testReverseDrawnLineSortDuplicateIdentityAndMembershipReset() throws {
+    func testReverseDrawnLineSortIdentityAndMembershipReset() throws {
         let s = editor(); defer { s.vm.cancelDailyAttempt() }
         s.beginTool(.line)
         s.editorTableTapped(SCNVector3(0.6,0,-0.3)); s.editorTableTapped(SCNVector3(-0.6,0,-0.3))
-        for (number,x) in [(2,Float(0.6)),(1,Float(0)),(1,Float(-0.6))] {
+        for (number,x) in [(2,Float(0.6)),(1,Float(0)),(3,Float(-0.6))] {
             s.place("_\(number)",world:SCNVector3(x,0,-0.3))
         }
         let original = s.selectedLine!.balls, id = s.selectedLine!.id
         s.sortSelectedLine(startPrecedesEnd:false)
-        XCTAssertEqual(s.selectedLine!.balls.compactMap(PositionPlayBall.number),[2,1,1])
+        XCTAssertEqual(s.selectedLine!.balls.compactMap(PositionPlayBall.number),[3,2,1])
         XCTAssertEqual(Set(s.selectedLine!.balls),Set(original))
         s.sortSelectedLine(startPrecedesEnd:false)
-        XCTAssertEqual(s.selectedLine!.balls.compactMap(PositionPlayBall.number),[1,1,2])
+        XCTAssertEqual(s.selectedLine!.balls.compactMap(PositionPlayBall.number),[1,2,3])
         s.sortSelectedLine(startPrecedesEnd:false)
         XCTAssertEqual(s.selectedLine!.balls,original)
         s.sortSelectedLine(startPrecedesEnd:false)
@@ -232,7 +322,7 @@ final class CustomFormationTests: XCTestCase {
         s.editorTableTapped(SCNVector3(-0.6,0,-0.3)); s.editorTableTapped(SCNVector3(0.6,0,-0.28))
         s.cancelTool()
         XCTAssertEqual(s.drawing.vertices[0].z,s.drawing.vertices[1].z)
-        for _ in 0..<5 { s.place("_1",world:nil) }
+        for n in 1...5 { s.place("_\(n)",world:nil) }
         let line = s.drawing.lines[0], old = s.drawing
         s.moveVertex(line.end,to:SCNVector3(-0.58,0,-0.3))
         XCTAssertEqual(s.drawing,old)
@@ -252,40 +342,76 @@ final class CustomFormationTests: XCTestCase {
         s.clearDrawing(); XCTAssertTrue(s.drawing.lines.isEmpty); XCTAssertEqual(s.keys.count,5)
     }
 
-    func testTwentyFiveTargetLimitSaveReloadAndRender() throws {
-        let session = CustomFormationSession(template:nil,editing:true)
-        session.vm.setupScene(loadsDefaultLayout:false); session.setup()
+    func testFifteenUniqueTargetLimitSaveReloadAndRender() throws {
+        let session = editor()
         defer { session.vm.cancelDailyAttempt() }
-        for _ in 0..<25 { session.place("_1",world:nil) }
-        XCTAssertEqual(session.keys.count,25)
-        XCTAssertEqual(session.vm.onTableKeys.count,26)
+        for n in 1...15 { session.place("_\(n)",world:nil) }
+        XCTAssertEqual(session.keys.count,15)
+        XCTAssertEqual(session.vm.onTableKeys.count,16)
         let keys = session.keys
         session.place("_2",world:nil)
         session.place("_2",world:SCNVector3(0,session.vm.scene.surfaceY,0.3))
         XCTAssertEqual(session.keys,keys)
-        XCTAssertEqual(session.notice,"最多添加25颗目标球（母球另计）")
-        XCTAssertTrue(session.vm.onTableKeys.contains(PositionPlayBall.cueKey))
+        XCTAssertEqual(session.notice,"每个球号只能有一颗")
+        XCTAssertTrue(session.canSave)
         let template = try session.templateForSaving()
         let library = CustomFormationLibrary(ownerKey:"large",directory:directory)
         XCTAssertTrue(library.save(template))
         let reloaded = try XCTUnwrap(CustomFormationLibrary(ownerKey:"large",directory:directory).selected)
-        XCTAssertEqual(reloaded.ballKeys.count,25)
-        XCTAssertEqual(Set(reloaded.ballKeys).count,25)
-        XCTAssertEqual(session.vm.scene.targetBallNodes.filter { !$0.isHidden }.count,25)
+        XCTAssertEqual(reloaded.ballKeys.compactMap(PositionPlayBall.number),Array(1...15))
+        XCTAssertEqual(session.vm.scene.targetBallNodes.filter { !$0.isHidden }.count,15)
     }
 
-    func testGroupedPaletteResolvesMissingInstancesWithoutDuplicatingBalls() throws {
+    func testPaletteResolvesExistingBallAndReturnsSameIdentity() throws {
         let original = template()
-        let s = CustomFormationSession(template:original,editing:false)
-        s.vm.setupScene(loadsDefaultLayout:false); s.setup(); defer { s.vm.cancelDailyAttempt() }
-        XCTAssertEqual(s.paletteKeys,["_1"]); XCTAssertEqual(s.paletteCount("_1"),3)
-        let removed = original.ballKeys[1]
-        s.remove(removed)
-        XCTAssertEqual(s.paletteActionKey("_1"),removed)
-        s.place(s.paletteActionKey("_1"),world:nil)
-        XCTAssertEqual(s.keys,original.ballKeys); XCTAssertTrue(s.vm.onTableKeys.contains(removed))
-        XCTAssertEqual(s.paletteCount("_2"),0)
+        for editing in [true, false] {
+            let s = CustomFormationSession(template:original,editing:editing)
+            s.vm.setupScene(loadsDefaultLayout:false); s.setup()
+            defer { s.vm.cancelDailyAttempt() }
+            XCTAssertEqual(s.paletteCount("_1"),1)
+            XCTAssertEqual(s.paletteActionKey("_1"),original.ballKeys[0])
+            s.place("_1",world:nil)
+            XCTAssertEqual(s.keys,original.ballKeys)
+            s.remove(original.ballKeys[0])
+            s.place(s.paletteActionKey("_1"),world:nil)
+            XCTAssertEqual(s.keys.count,3)
+            XCTAssertEqual(s.paletteCount("_1"),1)
+            if !editing { XCTAssertTrue(s.vm.onTableKeys.contains(original.ballKeys[0])) }
+        }
     }
+
+    func testLegacyDuplicateTemplateCanBeReadAndRepairedWithoutOverwritingOnFailure() throws {
+        var old = template()
+        let duplicate = PositionPlayBall.instanceKey(number:1)
+        let replaced = old.ballKeys[1]
+        old.board.onTable[duplicate] = old.board.onTable.removeValue(forKey:replaced)
+        old.ballKeys[1] = duplicate
+        let repository = CustomFormationRepository(ownerKey:"legacy-duplicate",directory:directory)
+        var archive = CustomFormationRepository.Archive(templates:[old],selectedID:old.id)
+        archive.metadata[old.id.uuidString]?.pending = FormationMutation(clientId:old.id,generation:1,baseRevision:0,template:old)
+        try repository.save(archive)
+        let bytes = try Data(contentsOf:repository.url)
+        let library = CustomFormationLibrary(ownerKey:"legacy-duplicate",directory:directory)
+        XCTAssertFalse(library.failedToLoad)
+        XCTAssertNotNil(library.selected?.practiceIssue)
+        XCTAssertNoThrow(try old.validateForSync(), "Pending legacy sync must remain readable")
+        XCTAssertFalse(library.save(old))
+        XCTAssertFalse(library.save(old.copied()))
+        XCTAssertEqual(try Data(contentsOf:repository.url),bytes)
+        let s = CustomFormationSession(template:old,editing:true)
+        s.vm.setupScene(loadsDefaultLayout:false); s.setup()
+        defer { s.vm.cancelDailyAttempt() }
+        XCTAssertFalse(s.canSave)
+        XCTAssertThrowsError(try s.templateForSaving())
+        s.remove(duplicate)
+        XCTAssertTrue(s.canSave)
+        let repaired = try s.templateForSaving()
+        XCTAssertEqual(repaired.id,old.id)
+        XCTAssertTrue(library.save(repaired,basedOn:old))
+        XCTAssertNil(library.selected?.practiceIssue)
+        XCTAssertEqual(library.selected?.ballKeys.count,2)
+    }
+
     func testLegacyOversizeTemplateIsPreservedButCannotBeSavedAsNew() throws {
         var old = template()
         for i in 3..<26 {

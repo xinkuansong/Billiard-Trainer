@@ -351,6 +351,7 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
 /// W1-A native evidence. The audit case intentionally records the baseline
 /// before a repair; acceptance assertions live in separate cases.
 final class ATeachingStandardsUITests: XCTestCase {
+    private var trainingTitle = ""
     private var app: XCUIApplication!
     override func setUpWithError() throws { continueAfterFailure = false }
     override func tearDownWithError() throws { app?.terminate() }
@@ -412,9 +413,10 @@ final class ATeachingStandardsUITests: XCTestCase {
         app.switchTab(.angle)
         let practice = app.buttons["angleHomeTab_练"]
         XCTAssertTrue(practice.waitForExistence(timeout: 8)); practice.tap()
-        let card = app.buttons[title]
+        trainingTitle = title
+        let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
         if card.waitForExistence(timeout: 5) { card.tap() }
-        else { app.staticTexts[title].tap() }
+        else { app.staticTexts[XCUIApplication.trainingCardTitle(title)].tap() }
     }
 
     func testAngleTrainingBothModes() throws {
@@ -423,7 +425,7 @@ final class ATeachingStandardsUITests: XCTestCase {
             let start = app.buttons["angleTraining.start"]
             XCTAssertTrue(start.waitForExistence(timeout: 10))
             capture(mode + "-settings-system")
-            start.tap()
+            start.tap(); app.selectTrainingView(trainingTitle)
             let action = app.buttons["angleTraining.primaryAction"]
             XCTAssertTrue(action.waitForExistence(timeout: 10))
             let assist = app.buttons["angleTraining.assist"]
@@ -461,7 +463,7 @@ final class ATeachingStandardsUITests: XCTestCase {
     func testAimPointBothModes() throws {
         for mode in ["2D", "3D"] {
             openTraining(mode + "瞄准点")
-            app.buttons["aimPointTraining.start"].tap()
+            app.buttons["aimPointTraining.start"].tap(); app.selectTrainingView(trainingTitle)
             let submit = app.buttons["aimPointTraining.submit"]
             XCTAssertTrue(submit.waitForExistence(timeout: 15))
             let ruler = app.descendants(matching: .any).matching(identifier: "aimPointTraining.aimWheel").firstMatch
@@ -580,10 +582,11 @@ final class ATeachingStandardsUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication.launchClean(extraArgs: ["-w7.forceDailyLimitNear", "-v50.inMemoryStore", "-v62.fixture", "-appearanceMode", "system"])
         app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
-        let card = app.buttons["2D瞄准点"]
+        trainingTitle = "2D瞄准点"
+        let card = app.buttons["瞄准点"]
         XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
         XCTAssertTrue(app.buttons["aimPointTraining.start"].waitForExistence(timeout: 15))
-        app.buttons["aimPointTraining.start"].tap()
+        app.buttons["aimPointTraining.start"].tap(); app.selectTrainingView(trainingTitle)
         XCTAssertTrue(app.buttons["aimPointTraining.submit"].waitForExistence(timeout: 40))
         XCTAssertFalse(app.staticTexts["aimPointTraining.remaining"].exists)
         let answer = app.descendants(matching: .any).matching(identifier: "aimPointTraining.answerInfo").firstMatch

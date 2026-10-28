@@ -54,6 +54,23 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     private var pocketMarkers: [SCNNode] = []
     private var lineNodes: [SCNNode] = []
     private var repository: AngleTestRepositoryProtocol?
+    #if DEBUG
+    var mergeDiagnostic: String {
+        let payload: [String: Any] = ["session": run.id.uuidString, "question": run.current?.id.uuidString ?? "",
+            "phase": String(describing: phase), "view": cameraMode == .perspective3D ? "3D" : "2D",
+            "used": limiter.questionsUsedToday, "answers": run.firstAnswers.count,
+            "input": [aimDir.x, aimDir.z]]
+        return (try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+    }
+    #endif
+    private var persistence: SceneTrainingPersistence?
+    private var restoringCheckpoint = false
+    @Published private(set) var presentation = TrainingPresentation(is3D: false)
+    @Published private(set) var isSaving = false
+    var hasSavedSession: Bool { persistence?.current?.run.current != nil }
+    var canAdvance: Bool { !isSaving && unsavedResults.isEmpty }
+
     /// 用户瞄准方向（XZ 单位向量）。
     private var aimDir = SCNVector3(1, 0, 0)
     private var proximityWasNear = false
@@ -63,12 +80,17 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         return gate
     }()
 
-    init(limiter: AngleUsageLimiter) {
+    init(limiter: AngleUsageLimiter, initial3D: Bool? = nil) {
         self.limiter = limiter
+        if let initial3D {
+            cameraMode = TablePreferencesStore.shared.beginTraining(.aimPoint, source3D: initial3D) ? .perspective3D : .topDown2D
+        }
     }
 
     func configure(context: ModelContext) {
         repository = LocalAngleTestRepository(context: context)
+        do { persistence = try SceneTrainingPersistence(project: .aimPoint, owner: CurrentOwnerContext.shared.ownerKey) }
+        catch { saveErrorMessage = error.localizedDescription }
     }
 
     /// 直接注入仓储（测试用失败仓储覆盖保存失败路径）。
@@ -81,11 +103,11 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     func setupScene(cameraMode: AngleTrainingScene.CameraMode, autoStart: Bool = true) {
         self.cameraMode = cameraMode
         scene.configureReferenceTableRendering()
-        if cameraMode == .perspective3D { scene.configureShotAwareCamera() }
+        scene.configureShotAwareCamera()
         scene.setupScene(enhancedRendering: false)
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
-        if cameraMode == .perspective3D { configureTeachingCamera() }
+        configureTeachingCamera()
         scene.setCameraMode(cameraMode, animated: false)
         if autoStart { startTest() }
     }
@@ -93,27 +115,44 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     // MARK: - Question lifecycle
 
     func startTest(configuration: SceneTrainingConfiguration = .init(), questions: [SceneTrainingQuestion] = []) {
-        run = SceneTrainingRun(configuration: configuration, queue: questions)
-        sessionResults = []; finished = false; generationError = nil
-        nextQuestion()
+        guard canAdvance, limiter.isPremium || !configuration.freePractice else { return }
+        nextQuestion(starting: SceneTrainingRun(configuration: configuration, queue: questions))
     }
 
-    func nextQuestion() {
-        answerCloseupSnapshot = nil
-        endTemporaryTopDown()
-        guard !run.canFinish, !limiter.isLimitReached else { finished = true; return }
-        let q: AngleQuestion
-        do { q = try run.next(); generationError = nil }
-        catch { generationError = error.localizedDescription; return }
-        applyQuestion(q)
+    func nextQuestion(starting newRun: SceneTrainingRun? = nil) {
+        guard canAdvance else { return }
+        var next = newRun ?? run
+        guard !next.canFinish, !limiter.isLimitReached, limiter.isPremium || !next.configuration.freePractice else {
+            if newRun == nil { finish() }; return
+        }
+        do {
+            let q = try next.next(), number = Int.random(in: 1...15)
+            guard let id = next.current?.id, limiter.reserve(questionID: id, replacing: newRun == nil ? nil : run.current?.id) else { generationError = limiter.quotaError ?? "今日题量已用完"; return }
+            var installed = false
+            defer {
+                if !installed {
+                    limiter.release(questionID: id)
+                    if newRun != nil, let oldID = run.current?.id { _ = limiter.reserve(questionID: oldID, admitted: true) }
+                }
+            }
+            var views = newRun == nil ? presentation : TrainingPresentation(is3D: cameraMode == .perspective3D)
+            let mode = views.current; views.observe(mode, questionID: id)
+            let cue = AngleSceneCalculator.normalizedToScene(point: q.cueBall, surfaceY: 0)
+            let target = AngleSceneCalculator.normalizedToScene(point: q.targetBall, surfaceY: 0)
+            try persistence?.save(run: next, presentation: views, targetNumber: number, direction: .init(normalizedXZ(from: cue, to: target)))
+            if newRun != nil { sessionResults = [] }
+            installed = true
+            run = next; presentation = views; finished = false; generationError = nil
+            endTemporaryTopDown(); applyQuestion(q, number: number)
+        } catch { generationError = error.localizedDescription }
     }
 
-    private func applyQuestion(_ q: AngleQuestion) {
+    private func applyQuestion(_ q: AngleQuestion, number: Int) {
         clearLines()
         scene.hideCueStick()
         scene.hideAllVisualization()
         question = q
-        targetBallNumber = Int.random(in: 1...15)
+        targetBallNumber = number
 
         let surfaceY = scene.surfaceY
         let cuePos = AngleSceneCalculator.normalizedToScene(point: q.cueBall, surfaceY: surfaceY)
@@ -149,7 +188,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         guard dir.x != 0 || dir.z != 0 else { return }
         aimDir = dir
         closeupGate.noteAimChanged()
-        redrawLines()
+        redrawLines(); saveDraft()
     }
 
     /// 刻度轮微调（度）。
@@ -159,7 +198,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         let cosD = cosf(rad), sinD = sinf(rad)
         aimDir = SCNVector3(aimDir.x * cosD - aimDir.z * sinD, 0,
                             aimDir.x * sinD + aimDir.z * cosD)
-        redrawLines()
+        redrawLines(); saveDraft()
     }
 
     func setAimWheelDragging(_ active: Bool) {
@@ -173,7 +212,8 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     // MARK: - Submit（条 9.6/9.7，G1 口径）
 
     func submit() {
-        guard phase == .aiming, !run.submitted, !limiter.isLimitReached, let q = question,
+        guard phase == .aiming, !run.submitted, !isSaving, let q = question,
+              let questionID = run.current?.id, limiter.reserve(questionID: questionID, admitted: true),
               let cue = scene.cueBallNode, let target = scene.targetBallNodes.first else { return }
         let surfaceY = scene.surfaceY
 
@@ -188,58 +228,121 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
         let correctDir = normalizedXZ(from: cue.position, to: ghost)
 
         let score = SceneAimScore.measure(cue: cue.position, target: target.position, ghost: ghost, direction: aimDir)
-        lastScore = score
-        lastErrorMM = score.millimetres
-        let metadata = run.metadata(unit: "mm", direction: aimDir, score: score)
-        sessionResults.append(RoundResult(errorMM: score.millimetres))
-        if quizTypeLabel == "aimPoint2D" { limiter.recordQuestion() }
-        run.record(error: score.millimetres.map(abs), signedError: score.straight ? nil : score.millimetres, angle: q.actualAngle)
-        BTFeedback.quiz(errorMM: score.millimetres ?? 100)
-        phase = .showingResult
-        endTemporaryTopDown()
-        redrawLines()
-        answerCloseupSnapshot = makeCloseupSnapshot(cue: cue.position, target: target.position,
-            band: .contact, standardDirection: correctDir)
-        // Legacy numeric fields remain finite for old clients; metadata is authoritative for invalid answers.
+        var nextRun = run, nextPresentation = presentation
+        nextPresentation.current = .init(is3D: cameraMode == .perspective3D)
+        nextPresentation.accept(questionID: questionID, at: Date(), premium: limiter.isPremium)
+        var metadata = run.metadata(unit: "mm", direction: aimDir, score: score)
+        metadata?.project = .aimPoint; metadata?.view = nextPresentation.current
+        metadata?.observedViews = nextPresentation.observed[questionID]; metadata?.receipt = nextPresentation.receipts[questionID]
+        nextRun.record(error: score.millimetres.map(abs), signedError: score.straight ? nil : score.millimetres, angle: q.actualAngle)
         let result = AngleTestResult(actualAngle: 0, userAngle: score.millimetres ?? 0,
-            pocketType: q.pocketType.rawValue, quizType: quizTypeLabel, errorMM: score.millimetres ?? 0)
+            pocketType: q.pocketType.rawValue, quizType: cameraMode == .perspective3D ? "aimPoint3D" : "aimPoint2D",
+            errorMM: score.millimetres ?? 0, ownerKey: CurrentOwnerContext.shared.ownerKey)
         result.trainingMetadataJSON = metadata?.json
+        do { try persistence?.save(run: nextRun, presentation: nextPresentation, targetNumber: targetBallNumber,
+            direction: .init(aimDir), accepting: SavedTrainingAnswer(result)) }
+        catch { saveErrorMessage = error.localizedDescription; return }
+        run = nextRun; presentation = nextPresentation; lastScore = score; lastErrorMM = score.millimetres
+        sessionResults.append(.init(errorMM: score.millimetres))
+        if persistence != nil, let receipt = metadata?.receipt { _ = limiter.reconcile(receipt) }
+        BTFeedback.quiz(errorMM: score.millimetres ?? 100)
+        phase = .showingResult; endTemporaryTopDown(); redrawLines()
+        answerCloseupSnapshot = makeCloseupSnapshot(cue: cue.position, target: target.position, band: .contact, standardDirection: correctDir)
+        isSaving = true
         Task { await persist(result) }
-        // Even the last answer is reviewed before the user opens the summary.
     }
 
     func toggleAngleHint() {
         guard phase == .aiming else { return }
         showAngleHint.toggle()
         if showAngleHint { run.assistance.insert("angleHint") }
+        saveDraft()
     }
 
     func markObservation() {
-        if phase == .aiming && cameraMode == .perspective3D { run.assistance.insert("observation") }
+        if phase == .aiming && cameraMode == .perspective3D { run.assistance.insert("observation"); saveDraft() }
     }
 
 
-    func finish() { endTemporaryTopDown(); finished = true }
+    func finish() {
+        guard canAdvance else { return }
+        endTemporaryTopDown(); finished = true; saveDraft()
+        if !run.submitted, let id = run.current?.id { limiter.release(questionID: id) }
+    }
 
     /// 重试此前失败的落库；失败仍会重新置错误态。
     func retryFailedSaves() {
         let pending = unsavedResults
         guard !pending.isEmpty else { return }
         unsavedResults = []
-        saveErrorMessage = nil
+        saveErrorMessage = nil; isSaving = true
         Task {
             for result in pending { await persist(result) }
         }
     }
 
     private func persist(_ result: AngleTestResult) async {
+        defer { isSaving = false }
         guard let repository else { return }
+        let owner = result.ownerKey
         do {
             try await repository.save(result)
+            guard owner == CurrentOwnerContext.shared.ownerKey else { return }
+            if let receipt = result.trainingMetadata?.receipt { _ = limiter.reconcile(receipt) }
+            try persistence?.acknowledge(result.id)
+            unsavedResults.removeAll { $0.id == result.id }; saveErrorMessage = nil
         } catch {
-            unsavedResults.append(result)
+            guard owner == CurrentOwnerContext.shared.ownerKey else { return }
+            if !unsavedResults.contains(where: { $0.id == result.id }) { unsavedResults.append(result) }
             saveErrorMessage = AngleResultSaveFailure.message(error)
         }
+    }
+    func saveDraft() {
+        guard !restoringCheckpoint, run.current != nil, let persistence else { return }
+        do { try persistence.save(run: run, presentation: presentation, targetNumber: targetBallNumber,
+            direction: .init(aimDir), finished: finished, hintVisible: showAngleHint) }
+        catch { saveErrorMessage = error.localizedDescription }
+    }
+    @discardableResult func switchTrainingView(to is3D: Bool) -> Bool {
+        guard !isSaving, !cameraTransitionBusy, !temporaryTopDownActive else { return false }
+        closeupGate.setDragging(false); closeupGate.setDragging(false, source: .table)
+        var next = presentation
+        next.observe(.init(is3D: cameraMode == .perspective3D), questionID: run.current?.id)
+        next.current = .init(is3D: is3D); let mode = next.current; next.observe(mode, questionID: run.current?.id)
+        do { try persistence?.save(run: run, presentation: next, targetNumber: targetBallNumber, direction: .init(aimDir), finished: finished, hintVisible: showAngleHint) }
+        catch { saveErrorMessage = error.localizedDescription; return false }
+        presentation = next; quizTypeLabel = is3D ? "aimPoint3D" : "aimPoint2D"
+        setCameraMode(is3D ? .perspective3D : .topDown2D); redrawLines()
+        return true
+    }
+    func observeTemporaryView() {
+        presentation.observe(.twoD, questionID: run.current?.id); saveDraft()
+    }
+    func restoreSession() {
+        guard let saved = persistence?.current, let question = saved.run.current?.geometry else { return }
+        restoringCheckpoint = true
+        defer { restoringCheckpoint = false }
+        applyQuestion(question, number: saved.targetNumber)
+        run = saved.run; presentation = saved.presentation; aimDir = saved.direction?.vector ?? aimDir
+        sessionResults = saved.answers.map { .init(errorMM: $0.trainingMetadata?.score?.millimetres) }
+        lastScore = saved.lastAnswer?.trainingMetadata?.score; lastErrorMM = lastScore?.millimetres
+        setCameraMode(presentation.current.is3D ? .perspective3D : .topDown2D)
+        quizTypeLabel = presentation.current.is3D ? "aimPoint3D" : "aimPoint2D"
+        showAngleHint = saved.hintVisible ?? false
+        finished = saved.finished; phase = run.submitted ? .showingResult : .aiming; redrawLines()
+        if run.submitted, let cue = scene.cueBallNode, let target = targetNode {
+            let pocket = AngleSceneCalculator.effectivePocketAimPoint(targetBall: target.position, pocketIndex: question.pocketIndex, surfaceY: scene.surfaceY)
+            let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target.position, pocket: pocket, ballRadius: AngleSceneCalculator.ballRadius)
+            answerCloseupSnapshot = makeCloseupSnapshot(cue: cue.position, target: target.position, band: .contact,
+                standardDirection: normalizedXZ(from: cue.position, to: ghost))
+        } else if let id = run.current?.id { _ = limiter.reserve(questionID: id, admitted: true) }
+        for receipt in presentation.receipts.values { _ = limiter.reconcile(receipt) }
+        unsavedResults = saved.pending.map(\.result); retryFailedSaves()
+    }
+    func ownerChanged() {
+        if let id = run.current?.id { limiter.release(questionID: id) }
+        persistence = nil; run = .init(); question = nil; sessionResults = []; lastScore = nil
+        unsavedResults = []; showSettings = true; finished = false; clearLines(); scene.hideAllVisualization()
     }
 
     // MARK: - Line drawing
@@ -434,7 +537,7 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
     }
 
     func stopTraining() {
-        endTemporaryTopDown()
+        saveDraft(); endTemporaryTopDown()
         closeupGate.reset()
     }
 
@@ -460,15 +563,22 @@ struct AimPointSceneTrainingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
-    @StateObject private var vm = AimPointSceneQuizViewModel(limiter: .aimPointTraining)
+    @StateObject private var vm: AimPointSceneQuizViewModel
     @StateObject private var fps = TableFPSReadoutState()
     @ObservedObject private var preferences = UserPreferences.shared
+    @ObservedObject private var owner = CurrentOwnerContext.shared
     @ObservedObject private var tablePreferences = TablePreferencesStore.shared
     private var preferencePage: TablePreferencePage { is3D ? .aimPointScene3D : .aimPointScene2D }
     private var pagePreferences: TablePreferenceSnapshot { tablePreferences.snapshot(for: preferencePage) }
     private func applyPagePreferences() {
+        let next = pagePreferences
+        if let previous = vm.scene.tablePreferences,
+           previous.enabled(.view3D) != next.enabled(.view3D),
+           is3D != next.enabled(.view3D) {
+            guard !editingControlLayout, vm.switchTrainingView(to: next.enabled(.view3D)) else { return }
+        }
         vm.scene.tablePreferencePage = preferencePage
-        vm.scene.tablePreferences = pagePreferences
+        vm.scene.tablePreferences = next
         vm.scene.setTableGridVisible(pagePreferences.enabled(.grid))
     }
     private func togglePreference(_ field: TablePreferenceField) {
@@ -486,19 +596,20 @@ struct AimPointSceneTrainingView: View {
     @State private var windowControls = UIEdgeInsets.zero
     @State private var windowSafeArea = UIEdgeInsets.zero
     @State private var systemStatusVisible = false
-    private let routeCameraMode: AngleTrainingScene.CameraMode
 
-    init(initialCameraMode: AngleTrainingScene.CameraMode) { routeCameraMode = initialCameraMode }
-    private var is3D: Bool { routeCameraMode == .perspective3D }
+    init(initialCameraMode: AngleTrainingScene.CameraMode) {
+        _vm = StateObject(wrappedValue: AimPointSceneQuizViewModel(limiter: .aimPointTraining, initial3D: initialCameraMode == .perspective3D))
+    }
+    private var is3D: Bool { vm.cameraMode == .perspective3D }
     private var cameraMode: AngleTrainingScene.CameraMode {
         is3D ? .perspective3D : (portrait ? .topDown2DRotated : .topDown2D)
     }
-    private var title: String { is3D ? "3D瞄准点" : "2D瞄准点" }
-    private var canAim: Bool { vm.phase == .aiming && !vm.limiter.isLimitReached && !showMenu && !editingControlLayout && !vm.finished && !vm.showSettings }
+    private var title: String { TrainingProject.aimPoint.title }
+    private var canAim: Bool { vm.phase == .aiming && !vm.isSaving && !showMenu && !editingControlLayout && !vm.finished && !vm.showSettings }
 
     private var controlLayoutBusy: Bool {
         observingCamera || draggingAimWheel || draggingAimTable || vm.cameraTransitionBusy || vm.temporaryTopDownActive
-            || vm.showSettings || vm.finished || vm.generationError != nil || vm.question == nil || vm.limiter.isLimitReached
+            || vm.showSettings || vm.finished || vm.generationError != nil || vm.question == nil || vm.isSaving
     }
     private func endLayoutTouches() {
         observingCamera = false; draggingAimWheel = false; draggingAimTable = false
@@ -513,6 +624,15 @@ struct AimPointSceneTrainingView: View {
             else { settingsContent }
         }
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
+        #if DEBUG
+        .overlay(alignment: .topLeading) {
+            if ProcessInfo.processInfo.arguments.contains("-trainingMerge.probe") {
+                Color.clear.frame(width: 1, height: 1).accessibilityElement()
+                    .accessibilityLabel("视图合并测试状态").accessibilityValue(vm.mergeDiagnostic)
+                    .accessibilityIdentifier("aimPoint.mergeState").allowsHitTesting(false)
+            }
+        }
+        #endif
         .trainingBackgroundMusic()
         .preference(key: TrainingActivityPausedKey.self, value: editingControlLayout)
         .onChange(of: editingControlLayout) { _, editing in
@@ -526,19 +646,27 @@ struct AimPointSceneTrainingView: View {
         .background { if hasStarted { DailyTableOrientation(landscape: !vm.showSettings, allowsTabletRotation: true) } }
         .statusBarHidden(showingTable && UIDevice.current.userInterfaceIdiom != .pad)
         .onChange(of: tablePreferences.revision) { _, _ in applyPagePreferences() }
+        .onChange(of: vm.cameraTransitionBusy) { _, busy in if !busy { applyPagePreferences() } }
+        .onChange(of: vm.isSaving) { _, busy in if !busy { applyPagePreferences() } }
         .onAppear {
             applyPagePreferences()
             guard !hasAppeared else { return }
             hasAppeared = true
             vm.quizTypeLabel = is3D ? "aimPoint3D" : "aimPoint2D"
             vm.configure(context: modelContext)
-            vm.run.configuration = .load(for: vm.quizTypeLabel)
+            if vm.hasSavedSession {
+                vm.setupScene(cameraMode: cameraMode, autoStart: false); scenePrepared = true
+                vm.restoreSession(); hasStarted = true
+            } else { vm.run.configuration = .load(for: vm.quizTypeLabel) }
         }
         .onDisappear {
             if editingControlLayout { vm.scene.isPaused = scenePausedBeforeLayout }
             endLayoutTouches(); vm.stopTraining()
         }
-        .onChange(of: scenePhase) { _, phase in if phase != .active { endLayoutTouches(); vm.endTemporaryTopDown() } }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { endLayoutTouches(); vm.endTemporaryTopDown(); vm.saveDraft() } }
+        .onChange(of: owner.ownerKey) { _, _ in
+            vm.ownerChanged(); vm.configure(context: modelContext); hasStarted = false
+        }
         .onReceive(subscriptionManager.$isPremium) { vm.limiter.isPremium = $0 }
         .sheet(isPresented: $showSubscription, onDismiss: {
             if pendingRestart && subscriptionManager.isPremium { vm.showSettings = true }
@@ -581,7 +709,7 @@ struct AimPointSceneTrainingView: View {
         let halfL = vm.scene.cameraRig?.tableOuterHalfLength ?? CameraRig.defaultTableOuterHalfLength
         let halfW = vm.scene.cameraRig?.tableOuterHalfWidth ?? CameraRig.defaultTableOuterHalfWidth
         let reservation = DailyLayoutMetrics.FoundationReservation(width: size.width - 2 * side,
-            targetCount: keys.count, chineseEightBall: true, titleWidth: 92, actionWidth: 138,
+            targetCount: keys.count, chineseEightBall: true, titleWidth: 112, actionWidth: 138,
             prefersSeparateRow: size.height > size.width || size.height >= 600,
             separateWidth: size.width > size.height && size.height < 600 ? size.width - 2 * (side + 68) : nil)
         let f = DailyLayoutMetrics.Foundation(size: size, leadingSafeArea: safe, trailingSafeArea: safe,
@@ -590,7 +718,7 @@ struct AimPointSceneTrainingView: View {
         let plan = DailyLayoutMetrics.Palette(size: size, sideInset: side, table: f.table,
             targetCount: keys.count, chineseEightBall: true, obstacles: [
                 CGRect(x: side + windowControls.left, y: 0, width: 44, height: 44),
-                CGRect(x: side + windowControls.left + 32, y: 5, width: 60, height: 34),
+                CGRect(x: side + windowControls.left + 32, y: 5, width: 80, height: 34),
                 CGRect(x: size.width - side - windowControls.right - 44, y: 0, width: 44, height: 44), f.left, f.right])
         let ppm = f.table.height / CGFloat(2 * (f.rotated ? halfL : halfW))
         let instruments = BTTeachingInstrumentLayout(foundation: f)
@@ -598,7 +726,7 @@ struct AimPointSceneTrainingView: View {
             pointsPerMetre: ppm, instruments: instruments, spinPadPresented: false)
         return ZStack(alignment: .topLeading) {
             DailyTemplateHeader(size: size, safe: safe, foundation: f, plan: plan,
-                targets: keys, chineseEightBall: true, titleWidth: 60, titleHeight: 34,
+                targets: keys, chineseEightBall: true, titleWidth: 80, titleHeight: 34,
                 windowControlInsets: windowControls, fps: fps, showsDeviceStatus: !systemStatusVisible,
                 title: {
                     HStack(spacing: -12) {
@@ -606,7 +734,7 @@ struct AimPointSceneTrainingView: View {
                             Image(systemName: "chevron.left").font(.btTitle2)
                                 .frame(width: 44, height: 44).contentShape(Rectangle())
                         }.accessibilityLabel("返回").accessibilityIdentifier("aimPointTraining.back")
-                        BTTablePageTitle(title, fitsLongText: true)
+                        BTTablePageTitle(title, width: 80, fitsLongText: true)
                             .accessibilityIdentifier("training.pageTitle")
                     }.fixedSize(horizontal: true, vertical: false)
                 }, actions: {
@@ -674,6 +802,7 @@ struct AimPointSceneTrainingView: View {
                     }
                     .accessibilityElement(children: .combine)
                     .accessibilityIdentifier("aimPointTraining.answerLegend")
+
                     .padding(.top, Spacing.md)
                 }
                 Spacer(minLength: 0)
@@ -694,7 +823,7 @@ struct AimPointSceneTrainingView: View {
                     Button { vm.nextQuestion() } label: {
                         Text(vm.run.canFinish || vm.limiter.isLimitReached ? "总结" : "下一题")
                             .font(.btSubheadlineSemibold).frame(width: 52, height: 52)
-                    }.buttonStyle(DailyStrikeButtonStyle()).accessibilityIdentifier("aimPointTraining.next")
+                    }.buttonStyle(DailyStrikeButtonStyle()).accessibilityIdentifier("aimPointTraining.next").disabled(!vm.canAdvance)
                         .freeControlItem("aimPoint.next", name: "下一题")
                 }
             }.frame(width: 60, height: min(200, f.stage.height))
@@ -709,7 +838,7 @@ struct AimPointSceneTrainingView: View {
                     ignoresPreference: vm.answerCloseupSnapshot != nil)
             }.frame(width: f.stage.width, height: f.stage.height)
                 .position(x: f.stage.midX, y: f.stage.midY).allowsHitTesting(false)
-            if vm.limiter.isLimitReached && vm.phase == .aiming && !vm.finished {
+            if vm.limiter.isLimitReached && vm.question == nil && !vm.finished {
                 BTDailyLimitGate(compact: vm.phase != .aiming) { showSubscription = true }
                     .frame(width: min(400, f.stage.width)).position(x: f.stage.midX, y: f.stage.midY)
             }
@@ -717,7 +846,7 @@ struct AimPointSceneTrainingView: View {
                 Color.black.opacity(0.32)
                 SceneTrainingSummary(samples: vm.run.firstAnswers, unit: "mm", onClose: { dismiss() }, onRestart: {
                     vm.limiter.refreshDay()
-                    if !subscriptionManager.isPremium && (is3D || vm.limiter.isLimitReached) { pendingRestart = true; showSubscription = true }
+                    if !subscriptionManager.isPremium && vm.limiter.isLimitReached { pendingRestart = true; showSubscription = true }
                     else { vm.showSettings = true }
                 }).frame(width: min(520, size.width - 16))
                     .position(x: size.width / 2, y: size.height / 2)
@@ -736,14 +865,12 @@ struct AimPointSceneTrainingView: View {
         .background {
             GeometryReader { viewport in
                 let fullFrame = viewport.frame(in: .global)
-                let renderFrame = is3D ? fullFrame : (cameraReadableFrame ?? fullFrame)
+                let renderFrame = fullFrame
                 sceneFullscreen.frame(width: renderFrame.width, height: renderFrame.height)
                     .position(x: renderFrame.midX - fullFrame.minX, y: renderFrame.midY - fullFrame.minY)
                     .opacity(is3D || cameraReadableFrame != nil ? 1 : 0).allowsHitTesting(!showMenu)
             }.ignoresSafeArea()
         }
-        .background { DailyCarpetBackground(style: preferences.roomStyle, pointsPerMetre: ppm).ignoresSafeArea()
-                .accessibilityRepresentation { EmptyView() } }
         .environment(\.colorScheme, .dark).environment(\.dailyHUDControls, true)
         .controlLayoutHost(page: preferencePage, mode: is3D ? .threeD : .twoD, size: size,
             leading: f.left, trailing: f.right, defaultFits: f.fits && plan.fits,
@@ -793,7 +920,7 @@ struct AimPointSceneTrainingView: View {
                 onAimNudged: is3D ? nil : { vm.nudgeAim(byDegrees: $0) },
                 onAimDragActiveChanged: { draggingAimTable = $0; vm.setAimTableDragging($0) },
                 contentIsAnimating: vm.cameraTransitionBusy,
-                fpsReadoutState: fps, twoViewReadableFrameInWindow: is3D ? cameraReadableFrame : nil,
+                fpsReadoutState: fps, twoViewReadableFrameInWindow: cameraReadableFrame,
                 onCameraObservationBegan: {
                     observingCamera = true
                     if vm.scene.cameraRig?.twoViewMode == .thirdPerson { vm.markObservation() }
@@ -812,7 +939,7 @@ struct AimPointSceneTrainingView: View {
                 isEnabled: !showMenu && !editingControlLayout && !vm.finished && !vm.showSettings,
                 onWholeTable: { vm.markObservation(); vm.requestSurfaceOverview() }, usesTwoViewControls: rig.usesTwoViewCameraControls,
                 temporaryTopDownActive: vm.temporaryTopDownActive,
-                onTemporaryTopDownBegan: { vm.markObservation(); vm.beginTemporaryTopDown() },
+                onTemporaryTopDownBegan: { vm.markObservation(); vm.beginTemporaryTopDown(); vm.observeTemporaryView() },
                 onTemporaryTopDownEnded: { vm.endTemporaryTopDown() },
                 onSelect: { if $0 == .thirdPerson { vm.markObservation() }; vm.requestPlayerView($0) })
         }
@@ -820,6 +947,16 @@ struct AimPointSceneTrainingView: View {
 
     private var settingsItems: [DailyHUDMenuItem] {
         let items: [DailyHUDMenuItem] = [.init(id: "aimPointTraining.display", title: "显示"),
+         .init(id: "aimPointTraining.cameraMode", title: "视图", detail: is3D ? "3D" : "2D", segments: ["2D", "3D"],
+            disabled: vm.isSaving || vm.cameraTransitionBusy || vm.temporaryTopDownActive || editingControlLayout || draggingAimTable || draggingAimWheel,
+            action: {
+                endLayoutTouches()
+                let mode = !is3D
+                if vm.switchTrainingView(to: mode) {
+                    tablePreferences.apply(.view3D, value: mode ? 1 : 0, to: preferencePage)
+                    if !mode { vm.setCameraMode(portrait ? .topDown2DRotated : .topDown2D) }
+                }
+            }),
          .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
              togglePreference(.grid)
          }),
@@ -849,7 +986,7 @@ struct AimPointSceneTrainingView: View {
         let number = vm.run.firstAnswers.count + (vm.run.submitted ? 0 : 1)
         return VStack(spacing: 0) {
             Text("题目").foregroundStyle(HUDStyle.labelColor)
-            Text("\(max(1, number))" + (vm.run.configuration.freePractice ? "" : "/20"))
+            Text("\(max(1, number))" + (vm.run.configuration.freePractice ? "" : "/15"))
             Text("正确率").foregroundStyle(HUDStyle.labelColor)
             Text(metrics.rate)
         }.font(.btCaption2).monospacedDigit().foregroundStyle(.white)

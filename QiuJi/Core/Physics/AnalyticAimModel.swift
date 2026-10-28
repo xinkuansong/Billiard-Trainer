@@ -240,7 +240,7 @@ enum AnalyticAim {
         let ux = dx / segLen, uz = dz / segLen
         let twoR = 2 * BallPhysics.radius
         let slack: Float = 0.005   // 5mm：swerve 弯折 + Float 舍入的安全余量
-        let sinFan = sinf(fanHalfAngle)
+        let sinFan = PhysicsTrigonometry.sin(fanHalfAngle)
 
         for ob in obstacles
         where ob.name != ShotInput.cueBallName && ob.name != ShotInput.targetBallName {

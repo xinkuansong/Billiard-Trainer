@@ -224,8 +224,8 @@ struct CollisionResolver {
     }
     
     private static func rotateY(_ v: SCNVector3, angle: Float) -> SCNVector3 {
-        let cosA = cosf(angle)
-        let sinA = sinf(angle)
+        let cosA = PhysicsTrigonometry.cos(angle)
+        let sinA = PhysicsTrigonometry.sin(angle)
         return SCNVector3(v.x * cosA - v.z * sinA, v.y, v.x * sinA + v.z * cosA)
     }
 }

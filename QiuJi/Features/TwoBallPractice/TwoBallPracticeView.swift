@@ -17,7 +17,7 @@ struct TwoBallPracticeView: View {
 
     init(is3D: Bool) { _vm = StateObject(wrappedValue: TwoBallPracticeViewModel(is3D: is3D)) }
     var body: some View {
-        ProAccessGate(requiresPremium: !vm.isBusy && (vm.is3D || (vm.phase != .settings && vm.record?.configuration.freePractice == true))) {
+        ProAccessGate(requiresPremium: !vm.isBusy && (vm.phase != .settings && vm.record?.configuration.freePractice == true)) {
             content
         }
     }
@@ -161,7 +161,7 @@ struct TwoBallPracticeView: View {
     }
     private var tablePage: some View {
         BTTeachingTablePage(vm: vm, titleLabel: vm.title, identifier: "twoBall", preferencePage: vm.preferencePage,
-            fixedView3D: vm.is3D, velocity: Binding(get: { vm.velocity }, set: { vm.velocity = $0 }),
+            onTrainingViewChange: { vm.switchTrainingView(to: $0) }, velocity: Binding(get: { vm.velocity }, set: { vm.velocity = $0 }),
             planning: controls, information: information, usesStandardTitle: true, fitsLongTitle: true, showsPalette: true,
             onPocketOrientationChange: { pocketOrientation = $0 },
             pairedLeftContent: { layout in
@@ -201,7 +201,7 @@ struct TwoBallPracticeView: View {
     private var sidebarInformation: some View {
         TwoBallSidebarLayout {
             sidebarMetric("题目", value: vm.record?.configuration.freePractice == true
-                ? "\(vm.record?.questionNumber ?? 1)" : "\(vm.record?.questionNumber ?? 1)/20",
+                ? "\(vm.record?.questionNumber ?? 1)" : "\(vm.record?.questionNumber ?? 1)/15",
                 identifier: "twoBall.questionInfo", compact: false)
             sidebarMetric("均分", value: displayedAverage.map { String(format: "%.1f", $0) } ?? "—",
                           identifier: "twoBall.averageScore", compact: false)

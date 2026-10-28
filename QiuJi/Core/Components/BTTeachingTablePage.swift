@@ -84,6 +84,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     var insufficientSpaceMessage = "扩大窗口后继续摆球"
     /// Entry identity can fix the presentation independently of general preferences.
     var fixedView3D: Bool? = nil
+    /// Opt-in training host owns durable view state; changing it never rebuilds a question.
+    var onTrainingViewChange: ((Bool) -> Bool)? = nil
     var velocity: Binding<Double>? = nil
     /// Optional vertical-only spin control for the side-spin atlas.
     var spinHeight: Binding<Double>? = nil
@@ -148,9 +150,13 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         guard hasAppeared, !editingControlLayout, planning?.isAnimating != true, !vm.temporaryTopDownActive, !vm.isDragging else { return }
         let next = pagePreferences
         let previous = vm.scene.tablePreferences
+        if let previous, let onTrainingViewChange,
+           previous.enabled(.view3D) != next.enabled(.view3D), is3D != next.enabled(.view3D) {
+            guard !controlLayoutBusy, onTrainingViewChange(next.enabled(.view3D)) else { return }
+        }
         vm.scene.tablePreferencePage = preferencePage
         vm.scene.tablePreferences = next
-        if previous?.enabled(.view3D) != next.enabled(.view3D) {
+        if onTrainingViewChange == nil, previous?.enabled(.view3D) != next.enabled(.view3D) {
             vm.setCameraMode((fixedView3D ?? next.enabled(.view3D)) ? .perspective3D : (portrait ? .topDown2DRotated : .topDown2D))
         }
         vm.scene.setTableGridVisible(next.enabled(.grid))
@@ -220,7 +226,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             vm.scene.tablePreferences = pagePreferences
             vm.setupScene()
             planning?.onSetup()
-            vm.setCameraMode((fixedView3D ?? pagePreferences.enabled(.view3D)) ? .perspective3D : (portrait ? .topDown2DRotated : .topDown2D))
+            if onTrainingViewChange != nil { vm.setCameraMode(vm.cameraMode) }
+            else { vm.setCameraMode((fixedView3D ?? pagePreferences.enabled(.view3D)) ? .perspective3D : (portrait ? .topDown2DRotated : .topDown2D)) }
             applyPagePreferences()
             updateProjection()
         }
@@ -233,6 +240,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             }
         }
         .onChange(of: tablePreferences.revision) { _, _ in applyPagePreferences() }
+        .onChange(of: controlLayoutBusy) { _, busy in if !busy { applyPagePreferences() } }
         .onChange(of: planning?.isAnimating) { _, busy in if busy != true { applyPagePreferences() } }
         .onChange(of: vm.temporaryTopDownActive) { _, active in if !active { applyPagePreferences() } }
         .onChange(of: vm.isDragging) { _, active in if !active { applyPagePreferences() } }
@@ -256,7 +264,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
 
     private func template(size: CGSize, safe: CGFloat) -> some View {
         let side = max(4, safe)
-        let titleWidth: CGFloat = usesStandardTitle ? 60 : max(60, titleSize.width)
+        let titleWidth: CGFloat = usesStandardTitle ? standardTitleWidth : max(60, titleSize.width)
         let reservation = DailyLayoutMetrics.FoundationReservation(width: size.width - 2 * side,
             targetCount: paletteKeys.count, chineseEightBall: groupsEightBallPalette,
             titleWidth: 32 + titleWidth, actionWidth: 138,
@@ -406,7 +414,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         .background {
             GeometryReader { viewport in
                 let fullFrame = viewport.frame(in: .global)
-                let renderFrame = is3D ? fullFrame : (cameraReadableFrame ?? fullFrame)
+                let renderFrame = is3D || vm.scene.usesSceneFloorInTopDown ? fullFrame : (cameraReadableFrame ?? fullFrame)
                 sceneFullscreen.frame(width: renderFrame.width, height: renderFrame.height)
                     .position(x: renderFrame.midX - fullFrame.minX, y: renderFrame.midY - fullFrame.minY)
                     .opacity((preferencePage.usesFreeControlLayout || !editingControlLayout) && (is3D || cameraReadableFrame != nil) ? 1 : 0)
@@ -414,7 +422,9 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                     .accessibilityHidden(editingControlLayout)
             }.ignoresSafeArea()
         }
-        .background { DailyCarpetBackground(style: preferences.roomStyle, pointsPerMetre: pointsPerMetre).ignoresSafeArea() }
+        .background {
+            if !vm.scene.usesSceneFloorInTopDown { DailyCarpetBackground(style: preferences.roomStyle, pointsPerMetre: pointsPerMetre).ignoresSafeArea() }
+        }
         .environment(\.colorScheme, .dark)
         .environment(\.dailyHUDControls, true)
         .environment(\.teachingTableLayout, layout)
@@ -428,6 +438,11 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         .background(Color.clear.accessibilityElement().accessibilityLabel(titleLabel).accessibilityIdentifier("\(identifier).template"))
     }
 
+    private var standardTitleWidth: CGFloat {
+        guard onTrainingViewChange != nil else { return 60 }
+        return max(60, min(90, ceil((titleLabel as NSString).size(withAttributes:
+            [.font: UIFont.systemFont(ofSize: 15, weight: .semibold)]).width)))
+    }
     private func navigationTitle(compact: Bool) -> some View {
         HStack(spacing: -12) {
             Button { dismiss() } label: {
@@ -436,13 +451,14 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             }.accessibilityLabel("返回").accessibilityIdentifier("\(identifier).back")
             Group {
                 if usesStandardTitle {
-                    BTTablePageTitle(titleLabel, width: 60, compact: compact, fitsLongText: fitsLongTitle)
+                    BTTablePageTitle(titleLabel, width: standardTitleWidth, compact: compact, fitsLongText: fitsLongTitle)
                 } else {
                     title()
                 }
             }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(titleLabel)
+                .accessibilityAddTraits([.isHeader, .isStaticText])
                 .background(GeometryReader { g in Color.clear.preference(key: TeachingTitleSize.self, value: g.size) })
         }.fixedSize(horizontal: true, vertical: false)
             .onPreferenceChange(TeachingTitleSize.self) { titleSize = $0 }
@@ -456,8 +472,12 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     }
 
     private func toggleCamera() {
+        guard !controlLayoutBusy, !editingControlLayout else { return }
+        let requested = !is3D
         showSpinPad = false
-        setPagePreference(.view3D, is3D ? 0 : 1)
+        if let onTrainingViewChange, !onTrainingViewChange(requested) { return }
+        setPagePreference(.view3D, requested ? 1 : 0)
+        updateProjection()
     }
 
     private var settingsItems: [DailyHUDMenuItem] {
@@ -477,7 +497,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         }
         var items: [DailyHUDMenuItem] = [.init(id: "\(identifier).display", title: "显示"),
          .init(id: "\(identifier).cameraMode", title: "视图", detail: is3D ? "3D" : "2D",
-               segments: ["2D", "3D"], disabled: vm.temporaryTopDownActive, action: toggleCamera),
+               segments: ["2D", "3D"], disabled: controlLayoutBusy || editingControlLayout, action: toggleCamera),
          .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
              setPagePreference(.grid, pagePreferences.enabled(.grid) ? 0 : 1)
          })]
@@ -836,8 +856,9 @@ struct BTTeachingAimRulerSpace: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            Color.clear.frame(height: layout.rulerLength)
-            Text("方向").font(.btMicro).hidden()
+            Spacer(minLength: 0).frame(height: layout.rulerLength)
+                .accessibilityHidden(true)
+            Text("方向").font(.btMicro).hidden().accessibilityHidden(true)
         }
         .padding(.vertical, 6)
         .frame(width: layout.columnWidth)
@@ -999,25 +1020,35 @@ struct BTTeachingInformationLayer: View {
         VStack(alignment: leading ? .leading : .center, spacing: Spacing.xs) {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 if item.isVisible(spinPadPresented: expanded) {
-                    HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
-                        if let symbol = item.effectiveSymbol {
-                            Image(systemName: symbol).accessibilityHidden(true)
-                        }
-                        Text(expanded ? item.expandedText ?? item.text : item.text)
-                            .fixedSize(horizontal: false, vertical: true)
+                    if let detail = item.detailText {
+                        Button { selectedDetail = detail } label: {
+                            informationLabel(item, expanded: expanded).frame(minHeight: 44)
+                        }.buttonStyle(.plain)
+                    } else {
+                        informationLabel(item, expanded: expanded)
+                            .accessibilityAddTraits(.isStaticText)
                     }
-                    .font(expanded ? .footnote : .subheadline).foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel(item.text)
-                    .accessibilityIdentifier(item.identifier ?? "teaching.information")
-                    .contentShape(Rectangle())
-                    .onTapGesture { if let detail = item.detailText { selectedDetail = detail } }
-                    .accessibilityAddTraits(item.detailText == nil ? [] : .isButton)
                 }
             }
         }
     }
+
+    private func informationLabel(_ item: BTTeachingInformation, expanded: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+            if let symbol = item.effectiveSymbol {
+                Image(systemName: symbol).accessibilityHidden(true)
+            }
+            Text(expanded ? item.expandedText ?? item.text : item.text)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(expanded ? .footnote : .subheadline).foregroundStyle(.white)
+
+        .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(item.text)
+        .accessibilityIdentifier(item.identifier ?? "teaching.information")
+    }
+
 }
 
 private struct BTTeachingInformationBoundsKey: PreferenceKey {
@@ -1046,8 +1077,16 @@ struct BTTablePageTitleLayout: Equatable {
     let fontSize: CGFloat
     let width: CGFloat
 
-    init(_ text: String, width: CGFloat = 60, compact: Bool = false) {
+    init(_ text: String, width: CGFloat = 60, compact: Bool = false, preferredLineBreak: Int? = nil) {
         let characters = Array(text.filter { !$0.isNewline })
+        if let split = preferredLineBreak, split > 0, split < characters.count {
+            upper = String(characters.prefix(split))
+            lower = String(characters.dropFirst(split))
+            middle = nil
+            fontSize = compact ? 12 : 13
+            self.width = max(0, width)
+            return
+        }
         let clean = String(characters)
         var units: [String] = []
         var index = 0
@@ -1081,15 +1120,17 @@ struct BTTablePageTitle: View {
     var width: CGFloat = 60
     var compact = false
     var fitsLongText = false
+    var preferredLineBreak: Int?
     @State private var naturalWidth: CGFloat = 0
 
-    init(_ text: String, width: CGFloat = 60, compact: Bool = false, fitsLongText: Bool = false) {
+    init(_ text: String, width: CGFloat = 60, compact: Bool = false, fitsLongText: Bool = false, preferredLineBreak: Int? = nil) {
         self.text = text; self.width = width; self.compact = compact
         self.fitsLongText = fitsLongText
+        self.preferredLineBreak = preferredLineBreak
     }
 
     var body: some View {
-        let layout = BTTablePageTitleLayout(text, width: width, compact: compact)
+        let layout = BTTablePageTitleLayout(text, width: width, compact: compact, preferredLineBreak: preferredLineBreak)
         Group {
             if fitsLongText {
                 // Measure the actual two-row SwiftUI content, including the odd
@@ -1109,6 +1150,8 @@ struct BTTablePageTitle: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(text.replacingOccurrences(of: "\n", with: ""))
+        .accessibilityAddTraits([.isHeader, .isStaticText])
+
     }
 
     private func titleContent(_ layout: BTTablePageTitleLayout) -> some View {
@@ -1119,7 +1162,7 @@ struct BTTablePageTitle: View {
             }
             if let middle = layout.middle { Text(middle).lineLimit(1) }
         }
-        .font(.system(size: layout.fontSize, weight: .semibold))
+        .font(compact ? .btCaption.weight(.semibold) : .btFootnote.weight(.semibold))
         .foregroundStyle(.white)
     }
 }

@@ -61,8 +61,8 @@ enum Han2005CushionModel {
         // 接触角：取决于库鼻高度相对球半径。pooltool: theta_a = arcsin(h/R - 1)。
         let ratio = max(-1, min(1, h / R - 1))
         let thetaA = asinf(ratio)
-        let sinT = sinf(thetaA)
-        let cosT = cosf(thetaA)
+        let sinT = PhysicsTrigonometry.sin(thetaA)
+        let cosT = PhysicsTrigonometry.cos(thetaA)
 
         // Eqs 14（vz = rvw_R[1,2] = 0）
         let sx = vNormal * sinT + R * wTangent

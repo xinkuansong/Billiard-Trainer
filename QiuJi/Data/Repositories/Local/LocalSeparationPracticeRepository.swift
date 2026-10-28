@@ -7,6 +7,13 @@ protocol SeparationPracticeRepository {
     func save(_ record: SeparationPracticeRecord) throws
     func saveAtomically(_ records: [SeparationPracticeRecord]) throws
     func resumable(is3D: Bool) throws -> SeparationPracticeRecord?
+    func resumable(is3D: Bool, compatible: (SeparationPracticeRecord) -> Bool) throws -> SeparationPracticeRecord?
+}
+
+extension SeparationPracticeRepository {
+    func resumable(is3D: Bool, compatible: (SeparationPracticeRecord) -> Bool) throws -> SeparationPracticeRecord? {
+        try resumable(is3D: is3D).flatMap { compatible($0) ? $0 : nil }
+    }
 }
 
 /// Versioned physical recordings use the existing session transport and frozen ownership.
@@ -83,17 +90,21 @@ final class LocalSeparationPracticeRepository: SeparationPracticeRepository {
     }
 
     func resumable(is3D: Bool) throws -> SeparationPracticeRecord? {
+        try resumable(is3D: is3D, compatible: { _ in true })
+    }
+    func resumable(is3D: Bool, compatible: (SeparationPracticeRecord) -> Bool) throws -> SeparationPracticeRecord? {
         let key = owner.ownerKey, kind = Self.kind
         let sessions = try context.fetch(FetchDescriptor<TrainingSession>(
             predicate: #Predicate { $0.ownerKey == key && $0.kind == kind },
             sortBy: [SortDescriptor(\.date, order: .reverse)]))
-        for session in sessions where session.sourceId == (is3D ? "separationPractice3D" : "separationPractice2D") {
+        var candidates: [SeparationPracticeRecord] = []
+        for session in sessions where ["separationPractice2D", "separationPractice3D"].contains(session.sourceId ?? "") {
             guard let data = session.sourcePayloadSnapshot else { throw Failure.invalidRecord }
             let record = try SeparationPracticeRecord.decodePayload(data)
             guard record.isCompatible, record.ownerKey == key,
                   record.id == session.id else { throw Failure.invalidRecord }
-            if record.status == .active { return record }
+            if record.status == .active, compatible(record) { candidates.append(record) }
         }
-        return nil
+        return candidates.max { $0.updatedAt < $1.updatedAt }
     }
 }

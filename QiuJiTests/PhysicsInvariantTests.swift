@@ -631,3 +631,43 @@ struct SeededRNG {
         return range.lowerBound + unit() * (range.upperBound - range.lowerBound)
     }
 }
+
+extension PhysicsInvariantTests {
+    /// Independent Double libm oracle checks all exponent ranges, quadrant edges,
+    /// underflow and signed zero. Float libm is intentionally not the oracle.
+    // Require one Float ULP: separate (non-FMA) fast range reduction has
+    // cancellation near quadrant boundaries (e.g. Float(41 * pi / 2));
+    // the upstream fused implementation's 0.5607 bound does not apply here.
+    func testPortableTrigonometryAccuracyAndSymmetry() {
+        XCTAssertEqual(PhysicsTrigonometry.sin(-Float.zero).bitPattern, 0x80000000)
+        XCTAssertEqual(PhysicsTrigonometry.cos(-Float.zero), 1)
+        XCTAssertTrue(PhysicsTrigonometry.sin(.infinity).isNaN)
+        XCTAssertTrue(PhysicsTrigonometry.cos(.nan).isNaN)
+        // The actual optimizer/runtime divergence that changed frozen trajectories.
+        XCTAssertEqual(PhysicsTrigonometry.cos(Float(bitPattern: 0x40837bec)).bitPattern, 0xbf114a21)
+        var seed: UInt32 = 0x29471422
+        var inputs: [Float] = [.leastNonzeroMagnitude, .leastNormalMagnitude, .greatestFiniteMagnitude]
+        for quadrant in -80...80 {
+            let x = Float(Double(quadrant) * Double.pi / 2)
+            inputs += [x.nextDown, x, x.nextUp]
+        }
+        for _ in 0..<20_000 {
+            seed = seed &* 1664525 &+ 1013904223
+            let x = Float(bitPattern: seed)
+            if x.isFinite { inputs.append(x) }
+        }
+        var digest: UInt64 = 14695981039346656037
+        for x in inputs {
+            let sine = PhysicsTrigonometry.sin(x), cosine = PhysicsTrigonometry.cos(x)
+            for (actual, reference) in [(sine, Foundation.sin(Double(x))), (cosine, Foundation.cos(Double(x)))] {
+                XCTAssertLessThanOrEqual(abs(Double(actual) - reference), Double(Float(reference).ulp),
+                                         "input bits \(x.bitPattern), actual \(actual), reference \(reference)")
+                digest = (digest ^ UInt64(actual.bitPattern)) &* 1099511628211
+            }
+            XCTAssertEqual(PhysicsTrigonometry.sin(-x).bitPattern, sine.bitPattern ^ 0x80000000)
+            XCTAssertEqual(PhysicsTrigonometry.cos(-x).bitPattern, cosine.bitPattern)
+            XCTAssertEqual(Double(sine) * Double(sine) + Double(cosine) * Double(cosine), 1, accuracy: 1.6e-7)
+        }
+        print("PORTABLE_TRIG inputs=\(inputs.count) digest=\(String(digest, radix: 16))")
+    }
+}

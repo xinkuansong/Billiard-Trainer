@@ -1361,7 +1361,10 @@ final class TwoViewCamera {
         firstPersonBase = base
         headYaw = 0
         targetHeadYaw = 0
-        connector = (pose, 0, max(0.1, duration))
+        // Aim following requests an immediate pose. Creating even a short connector
+        // would lock the host's direction control and cancel its active drag.
+        connector = duration > 0 ? (pose, 0, max(0.1, duration)) : nil
+        if duration <= 0 { pose = base }
     }
 
     /// New shot observation is context-owned; the legacy table rail keeps its table-owned semantics.

@@ -695,3 +695,61 @@ final class TrainingSpeedScreeningTests: XCTestCase {
         }
     }
 }
+
+extension TrainingSpeedScreeningTests {
+    /// Replays every bundled middle-pocket qualification at its original proven
+    /// speed. Does not search for replacements or rewrite the bank/old evidence.
+    @MainActor func testRevalidatePortableTrigonometryGrid() throws {
+        struct Batch: Decodable { let file, sha256: String; let count: Int }
+        struct Request: Decodable {
+            let total, workers: Int; let batches: [Batch]
+            let physicalSourceHashes: [String: String]; let bankSHA256: String
+        }
+        struct Job: Decodable { let sample: Sample; let speed: Float; let originalIndex: Int }
+        struct Result: Codable { let originalIndex: Int; let route: String }
+        let output = root.appendingPathComponent("output/training-accessibility-numerics-20261028/grid-revalidation")
+        let requestURL = output.appendingPathComponent("request.json")
+        guard FileManager.default.fileExists(atPath: requestURL.path) else {
+            throw XCTSkip("Explicit complete-grid revalidation request required")
+        }
+        let request = try JSONDecoder().decode(Request.self, from: Data(contentsOf: requestURL))
+        func digest(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
+        XCTAssertEqual(request.total, 201724)
+        for (path, hash) in request.physicalSourceHashes {
+            XCTAssertEqual(digest(try Data(contentsOf: root.appendingPathComponent(path))), hash, path)
+        }
+        XCTAssertEqual(digest(try Data(contentsOf: root.appendingPathComponent("QiuJi/Resources/training-grid-bank.json"))), request.bankSHA256)
+        let started = ProcessInfo.processInfo.systemUptime
+        var done = 0, failed: [Result] = []
+        for (index, batch) in request.batches.enumerated() {
+            try autoreleasepool {
+                let data = try Data(contentsOf: output.appendingPathComponent(batch.file))
+                XCTAssertEqual(digest(data), batch.sha256)
+                let jobs = try JSONDecoder().decode([Job].self, from: data)
+                XCTAssertEqual(jobs.count, batch.count)
+                let queue = OperationQueue(); queue.maxConcurrentOperationCount = request.workers
+                let lock = NSLock(); var results: [Result] = []
+                for job in jobs {
+                    queue.addOperation {
+                        let result = autoreleasepool {
+                            Result(originalIndex: job.originalIndex,
+                                route: self.directRoute(self.simulateCenter(job.sample, job.speed), pocket: job.sample.pocket))
+                        }
+                        lock.lock(); results.append(result); lock.unlock()
+                    }
+                }
+                queue.waitUntilAllOperationsAreFinished()
+                let ordered = results.sorted { $0.originalIndex < $1.originalIndex }
+                try JSONEncoder().encode(ordered).write(to: output.appendingPathComponent(String(format: "results-%03d.json", index)), options: .atomic)
+                failed += ordered.filter { $0.route != "direct-pot" }; done += ordered.count
+                let status: [String: Any] = ["done": done, "total": request.total, "failed": failed.count,
+                    "complete": done == request.total, "seconds": ProcessInfo.processInfo.systemUptime - started]
+                try JSONSerialization.data(withJSONObject: status, options: [.sortedKeys]).write(to: output.appendingPathComponent("progress.json"), options: .atomic)
+                print("PORTABLE_TRIG_GRID done=\(done)/\(request.total) failures=\(failed.count)")
+            }
+        }
+        try JSONEncoder().encode(failed).write(to: output.appendingPathComponent("failures.json"), options: .atomic)
+        XCTAssertEqual(done, request.total)
+        XCTAssertTrue(failed.isEmpty, "Original direct-pocket proofs changed: \(failed.prefix(20))")
+    }
+}

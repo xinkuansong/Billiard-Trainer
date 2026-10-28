@@ -1005,10 +1005,10 @@ struct AngleSceneView: UIViewRepresentable {
                   draggedNode == nil else { return }
             switch cameraMode {
             case .topDown2D:
-                if autoFitsLandscapeTable { scene.cameraRig?.fitLandscapeTable(viewSize: view.bounds.size) }
+                if autoFitsLandscapeTable { scene.cameraRig?.fitLandscapeTable(viewSize: scene.cameraRig?.topDownPresentationRect?.size ?? view.bounds.size) }
                 scene.cameraRig?.applyTopDown2D()
             case .topDown2DRotated:
-                if autoFitsLandscapeTable { scene.cameraRig?.fitLandscapeTable(viewSize: view.bounds.size, rotated: true) }
+                if autoFitsLandscapeTable { scene.cameraRig?.fitLandscapeTable(viewSize: scene.cameraRig?.topDownPresentationRect?.size ?? view.bounds.size, rotated: true) }
                 else if autoFitsRotatedTable { scene.cameraRig?.fitRotatedTable(viewSize: view.bounds.size) }
                 scene.cameraRig?.applyTopDown2DRotated()
             case .perspective3D:
@@ -1035,6 +1035,14 @@ struct AngleSceneView: UIViewRepresentable {
             }
             // The rig can be installed after makeUIView/first layout.
             scene.cameraRig?.viewportSize = size
+            if let rig = scene.cameraRig {
+                rig.topDownPresentationRect = nil
+                if scene.usesSceneFloorInTopDown, let view = scnView, view.window != nil,
+                   let frame = twoViewReadableFrameInWindow {
+                    let rect = view.convert(frame, from: nil).intersection(view.bounds)
+                    if !rect.isNull, !rect.isEmpty { rig.topDownPresentationRect = rect }
+                }
+            }
             if let rig = scene.cameraRig, rig.usesTwoViewCameraControls,
                let scnView, scnView.window != nil, let frame = twoViewReadableFrameInWindow {
                 let readable = scnView.convert(frame, from: nil).intersection(scnView.bounds)
@@ -1325,12 +1333,12 @@ struct AngleSceneView: UIViewRepresentable {
             switch cameraMode {
             case .topDown2D:
                 if autoFitsLandscapeTable, let scnView {
-                    scene.cameraRig?.fitLandscapeTable(viewSize: scnView.bounds.size)
+                    scene.cameraRig?.fitLandscapeTable(viewSize: scene.cameraRig?.topDownPresentationRect?.size ?? scnView.bounds.size)
                 }
                 scene.cameraRig?.applyTopDown2D()
             case .topDown2DRotated:
                 if autoFitsLandscapeTable, let scnView {
-                    scene.cameraRig?.fitLandscapeTable(viewSize: scnView.bounds.size, rotated: true)
+                    scene.cameraRig?.fitLandscapeTable(viewSize: scene.cameraRig?.topDownPresentationRect?.size ?? scnView.bounds.size, rotated: true)
                 } else if autoFitsRotatedTable, let scnView {
                     scene.cameraRig?.fitRotatedTable(viewSize: scnView.bounds.size)
                 }

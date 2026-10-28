@@ -16,6 +16,33 @@ struct CustomFormationPracticeView: View {
 
     var body: some View {
         List {
+            Section("内置球形") {
+                ForEach(BuiltInCustomFormations.templates) { template in
+                    HStack {
+                        Button { library.select(template.id) } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: Spacing.xs) {
+                                    Text(template.name).foregroundStyle(.primary)
+                                    Text("\(template.ballKeys.count)颗目标球").font(.footnote).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                BTSelectionIndicator(isSelected: library.selectedID == template.id)
+                            }.contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("formation.builtin.\(template.id)")
+                        .accessibilityValue(library.selectedID == template.id ? "已选" : "未选")
+                        Menu {
+                            Button("复制到我的球形", systemImage: "doc.on.doc") { library.duplicate(template) }
+                                .disabled(library.failedToLoad)
+                        } label: {
+                            Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("\(template.name)，模板操作")
+                        .accessibilityIdentifier("formation.templateMenu.\(template.id)")
+                    }
+                }
+            }
             Section("练习模板") {
                 if library.failedToLoad {
                     Button("重新读取模板") { library.reload() }
@@ -28,18 +55,18 @@ struct CustomFormationPracticeView: View {
                             HStack {
                                 VStack(alignment: .leading, spacing: Spacing.xs) {
                                     Text(template.name).foregroundStyle(.primary)
-                                    Text(template.ballKeys.count > CustomFormationTemplate.maximumTargetBalls ? "超过25颗，请编辑后再练习" : "\(template.ballKeys.count)颗目标球").font(.footnote).foregroundStyle(.secondary)
+                                    Text(template.practiceIssue.map { "\($0)，请编辑后再练习" } ?? "\(template.ballKeys.count)颗目标球").font(.footnote).foregroundStyle(.secondary)
                                     Text(library.syncLabel(for: template.id, enabled: authState.cloudSyncEnabled))
                                         .font(.btCaption).foregroundStyle(.btTextSecondary)
                                         .accessibilityIdentifier("formation.sync.\(template.id)")
                                 }
                                 Spacer()
-                                BTSelectionIndicator(isSelected: library.archive.selectedID == template.id)
+                                BTSelectionIndicator(isSelected: library.selectedID == template.id)
                             }.contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("formation.template.\(template.id)")
-                        .accessibilityValue(library.archive.selectedID == template.id ? "已选" : "未选")
+                        .accessibilityValue(library.selectedID == template.id ? "已选" : "未选")
                         Menu {
                             Button("编辑", systemImage: "pencil") { openEditor(template) }
                             Button("复制", systemImage: "doc.on.doc") { library.duplicate(template) }
@@ -75,9 +102,9 @@ struct CustomFormationPracticeView: View {
             ToolbarItem(placement: .topBarLeading) { Button("返回") { dismiss() } }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("开始练习") {
-                    if let template = library.selected { active = .init(template: template, editing: false) }
+                    if let template = library.selected, template.practiceIssue == nil { active = .init(template: template, editing: false) }
                 }
-                .fontWeight(.semibold).disabled(library.selected == nil || (library.selected?.ballKeys.count ?? 0) > CustomFormationTemplate.maximumTargetBalls)
+                .fontWeight(.semibold).disabled(library.selected == nil || library.selected?.practiceIssue != nil)
                 .accessibilityIdentifier("formation.start")
             }
         }

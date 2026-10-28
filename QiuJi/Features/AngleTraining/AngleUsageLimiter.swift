@@ -16,12 +16,12 @@ final class AngleUsageLimiter: ObservableObject {
     }()
 
     // Scene training has independent daily allowances; prediction tools retain shared.
-    static let angleTraining = AngleUsageLimiter(namespace: "scene2D")
-    static let aimPointTraining = AngleUsageLimiter(namespace: "aimPoint2D")
-    static let accuracyTraining = AngleUsageLimiter(namespace: "accuracy2D")
-    static let separationTraining = AngleUsageLimiter(namespace: "separationPractice2D")
-    static let threeBallTraining = AngleUsageLimiter(namespace: "threeBallPractice2D")
-    static let twoBallTraining = AngleUsageLimiter(namespace: "twoBallPractice2D")
+    static let angleTraining = AngleUsageLimiter(namespace: "scene2D", limit: TrainingProject.ordinaryRoundCount)
+    static let aimPointTraining = AngleUsageLimiter(namespace: "aimPoint2D", limit: TrainingProject.ordinaryRoundCount)
+    static let accuracyTraining = AngleUsageLimiter(namespace: "accuracy2D", limit: TrainingProject.ordinaryRoundCount)
+    static let separationTraining = AngleUsageLimiter(namespace: "separationPractice2D", limit: TrainingProject.ordinaryRoundCount)
+    static let threeBallTraining = AngleUsageLimiter(namespace: "threeBallPractice2D", limit: TrainingProject.ordinaryRoundCount)
+    static let twoBallTraining = AngleUsageLimiter(namespace: "twoBallPractice2D", limit: TrainingProject.ordinaryRoundCount)
     static let multiBallTraining = AngleUsageLimiter(namespace: "multiBallPractice2D", limit: 3)
     let limit: Int
     static func training(route: String) -> AngleUsageLimiter {
@@ -36,10 +36,16 @@ final class AngleUsageLimiter: ObservableObject {
     private let countKey: String
     private let dateKey: String
     private let ledgerKey: String
+    private let quota: TrainingQuotaLedger?
+    @Published private(set) var quotaError: String?
+    @Published private var quotaRevision = 0
 
     @Published private var storedCount: Int
     private var storedDay: String
-    var questionsUsedToday: Int { storedDay == dayKey() ? storedCount : 0 }
+    var questionsUsedToday: Int {
+        if let quota { return (try? quota.used()) ?? limit }
+        return storedDay == dayKey() ? storedCount : 0
+    }
     @Published var isPremium: Bool = false
 
     var remainingToday: Int { max(0, limit - questionsUsedToday) }
@@ -70,6 +76,7 @@ final class AngleUsageLimiter: ObservableObject {
         self.defaults = defaults
         self.now = now
         self.calendar = calendar
+        quota = namespace.map { TrainingQuotaLedger(namespace: $0, defaults: defaults, now: now, calendar: calendar) }
         let saved = defaults.string(forKey: dateKey) ?? ""
         let today = Self.todayString(now: now(), calendar: calendar())
         storedDay = today
@@ -77,8 +84,10 @@ final class AngleUsageLimiter: ObservableObject {
             storedCount = max(0, defaults.integer(forKey: countKey))
         } else {
             storedCount = 0
-            defaults.set(today, forKey: dateKey)
-            defaults.set(0, forKey: countKey)
+            if quota == nil {
+                defaults.set(today, forKey: dateKey)
+                defaults.set(0, forKey: countKey)
+            }
         }
         dayObservation = NotificationCenter.default.publisher(for: .NSCalendarDayChanged)
             .merge(with: NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange))
@@ -92,11 +101,17 @@ final class AngleUsageLimiter: ObservableObject {
         guard storedDay != today else { return }
         storedDay = today
         storedCount = 0
-        defaults.set(today, forKey: dateKey)
-        defaults.set(0, forKey: countKey)
+        if quota == nil {
+            defaults.set(today, forKey: dateKey)
+            defaults.set(0, forKey: countKey)
+        }
     }
 
     func recordQuestion() {
+        if quota != nil {
+            reconcile(.init(questionID: UUID(), acceptedAt: now(), charged: !isPremium))
+            return
+        }
         refreshDay()
         storedCount += 1
         defaults.set(storedCount, forKey: countKey)
@@ -106,6 +121,10 @@ final class AngleUsageLimiter: ObservableObject {
     /// Restoring or receiving a repeated result callback must not consume twice.
     /// Old-day attempts never consume today's allowance.
     func recordQuestion(attemptID: UUID, submittedAt: Date) {
+        if quota != nil {
+            reconcile(.init(questionID: attemptID, acceptedAt: submittedAt, charged: !isPremium))
+            return
+        }
         refreshDay()
         guard Self.todayString(now: submittedAt, calendar: calendar()) == storedDay else { return }
         let key = ledgerKey
@@ -115,6 +134,29 @@ final class AngleUsageLimiter: ObservableObject {
         ids.append(attemptID.uuidString)
         defaults.set(["day": storedDay, "ids": ids], forKey: key)
         recordQuestion()
+    }
+
+    /// Reserve before accepting input, then persist the receipt with the result.
+    @discardableResult func reserve(questionID: UUID, admitted: Bool = false, replacing: UUID? = nil) -> Bool {
+        guard let quota else { return !isLimitReached }
+        do {
+            let accepted = try quota.reserve(questionID, limit: limit, premium: isPremium, admitted: admitted, replacing: replacing)
+            quotaError = nil; quotaRevision += 1
+            return accepted
+        } catch { quotaError = error.localizedDescription; return false }
+    }
+    func release(questionID: UUID) {
+        guard let quota else { return }
+        do { try quota.release(questionID); quotaRevision += 1 }
+        catch { quotaError = error.localizedDescription }
+    }
+    @discardableResult func reconcile(_ receipt: TrainingConsumptionReceipt) -> Bool {
+        guard let quota else {
+            if receipt.charged { recordQuestion(attemptID: receipt.questionID, submittedAt: receipt.acceptedAt) }
+            return true
+        }
+        do { try quota.accept(receipt); quotaError = nil; quotaRevision += 1; return true }
+        catch { quotaError = error.localizedDescription; return false }
     }
 
     private func dayKey() -> String { Self.todayString(now: now(), calendar: calendar()) }

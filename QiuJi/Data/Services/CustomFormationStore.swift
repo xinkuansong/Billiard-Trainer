@@ -135,6 +135,7 @@ struct CustomFormationRepository {
     }
     @discardableResult
     func put(_ template: CustomFormationTemplate, basedOn original: CustomFormationTemplate? = nil) throws -> Archive {
+        try template.validateForPractice()
         try template.validateForSync()
         return try transaction { archive in
             var value = template
@@ -269,7 +270,9 @@ extension CustomFormationTemplate {
     func validateForSync() throws {
         _ = try validated()
         guard name.unicodeScalars.count <= 120 else { throw CustomFormationError.invalid("模板名称最多120字") }
-        guard ballKeys.count <= Self.maximumTargetBalls else { throw CustomFormationError.invalid("最多保存25颗目标球（母球另计）") }
+        // The existing wire contract must still accept pending/downloaded legacy templates.
+        // New local saves use validateForPractice() before reaching this compatibility boundary.
+        guard ballKeys.count <= 25 else { throw CustomFormationError.invalid("同步球形超过旧版25颗目标球上限") }
         guard (drawing?.lines.count ?? 0) <= 256, (drawing?.vertices.count ?? 0) <= 512 else { throw CustomFormationError.invalid("最多256条辅助线和512个端点") }
         guard try JSONEncoder().encode(self).count <= 262144 else { throw CustomFormationError.invalid("球形数据超过256KB") }
     }

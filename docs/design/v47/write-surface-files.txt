@@ -68,6 +68,7 @@ QiuJiTests/TrainingGridInventoryTests.swift
 QiuJiTests/TrainingLayoutDiversityTests.swift
 QiuJiTests/TrainingQuestionBankRefinementTests.swift
 QiuJiTests/TrainingQuestionBankTests.swift
+QiuJiTests/TrainingQuotaLedgerTests.swift
 QiuJiTests/TrainingSpeedScreeningTests.swift
 QiuJiTests/TrajectoryRendererTests.swift
 QiuJiTests/TwoBallPracticeTests.swift

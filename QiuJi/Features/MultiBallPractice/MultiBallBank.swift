@@ -20,12 +20,12 @@ struct MultiBallConfiguration: Codable, Equatable {
     var bankCount: Int { game == .rotation ? rotationCount : 15 }
     var isValid: Bool { Self.rotationCounts.contains(rotationCount) && (4...8).contains(ownCount) }
     static func load(defaults: UserDefaults = .standard, is3D: Bool = false) -> Self {
-        guard let data = defaults.data(forKey: is3D ? "multiBall.configuration.3D.v1" : "multiBall.configuration.v1"),
+        guard let data = defaults.data(forKey: "multiBall.configuration.project.v2") ?? defaults.data(forKey: is3D ? "multiBall.configuration.3D.v1" : "multiBall.configuration.v1"),
               let value = try? JSONDecoder().decode(Self.self, from: data), value.isValid else { return .init() }
         return value
     }
     func save(defaults: UserDefaults = .standard, is3D: Bool = false) {
-        if isValid, let data = try? JSONEncoder().encode(self) { defaults.set(data, forKey: is3D ? "multiBall.configuration.3D.v1" : "multiBall.configuration.v1") }
+        if isValid, let data = try? JSONEncoder().encode(self) { defaults.set(data, forKey: "multiBall.configuration.project.v2") }
     }
 }
 

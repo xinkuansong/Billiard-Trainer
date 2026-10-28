@@ -21,7 +21,23 @@ final class LocalAngleTestRepository: AngleTestRepositoryProtocol {
     /// 已带 `sessionId` 的成绩（保存失败后重试）保持原归属不变。
     func save(_ result: AngleTestResult) async throws {
         let ownerKey = ownerContext.ownerKey
-        result.ownerKey = ownerKey
+        if result.trainingMetadata?.project != nil {
+            guard result.ownerKey == ownerKey else { throw TrainingQuotaLedger.Failure.unreadable }
+            let id = result.id
+            if let existing = try context.fetch(FetchDescriptor<AngleTestResult>(predicate: #Predicate { $0.id == id })).first {
+                guard existing.ownerKey == ownerKey else { throw TrainingQuotaLedger.Failure.unreadable }
+                // A failed save can leave an inserted model in this context. Flush it
+                // before acknowledging the durable pending-answer receipt.
+                try context.save()
+                if let sessionID = existing.sessionId {
+                    SyncQueueManager.shared.enqueue(entityType: "TrainingSession", entityId: sessionID,
+                                                    operation: "create", ownerKey: ownerKey)
+                }
+                SyncQueueManager.shared.enqueue(entityType: "AngleTestResult", entityId: id,
+                                                operation: "create", ownerKey: ownerKey)
+                return
+            }
+        } else { result.ownerKey = ownerKey }
         // 会话新建、或复用会话时时长跨过一分钟边界，都要（重新）入队——
         // 否则服务端只会拿到第一题时刻的时长，永远停在 1 分钟。
         // POST /training-sessions 按 clientId upsert，重复入队是幂等的。

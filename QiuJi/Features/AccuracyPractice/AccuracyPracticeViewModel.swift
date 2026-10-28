@@ -17,7 +17,7 @@ struct AccuracyPreparedRound {
         var random = SceneTrainingGenerator.SeededRandom(state: seed ^ 0xa0761d6478bd642f)
         func draw(excluding: Set<String>) throws -> TrainingGridBank.Draw {
             tips.removeAll()
-            return try bank.draw(configuration, seed: seed, excluding: excluding, accepting: { board in
+            return try bank.draw(configuration, seed: seed, excluding: excluding, count: TrainingProject.ordinaryRoundCount, accepting: { board in
                 guard let tip = AccuracyTipSelector.select(board: board, configuration: configuration,
                                                           profile: profile, random: &random) else { return false }
                 tips[board.id] = tip
@@ -44,9 +44,10 @@ struct AccuracyPreparedRound {
 @MainActor
 final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     enum Phase { case loading, settings, aiming, computing, playing, result, saveFailed, summary }
-    let is3D: Bool
+    var is3D: Bool { cameraMode == .perspective3D }
     let scene = AngleTrainingScene()
-    let limiter = AngleUsageLimiter.accuracyTraining
+    let limiter: AngleUsageLimiter
+    private let initialView3D: Bool
     @Published private(set) var record: AccuracyPracticeRecord?
     @Published private(set) var phase: Phase = .loading
     @Published var message: String?
@@ -102,13 +103,28 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     }
     private var settingsReturnPhase: Phase?
 
-    init(is3D: Bool) {
-        self.is3D = is3D
+    init(is3D: Bool, limiter: AngleUsageLimiter = .accuracyTraining) {
+        self.limiter = limiter; initialView3D = is3D
         cameraMode = is3D ? .perspective3D : .topDown2D
     }
     var route: String { is3D ? "accuracy3D" : "accuracy2D" }
     var preferencePage: TablePreferencePage { is3D ? .accuracy3D : .accuracy2D }
-    var title: String { is3D ? "3D准度" : "2D准度" }
+    var title: String { TrainingProject.accuracy.title }
+    @discardableResult func switchTrainingView(to is3D: Bool) -> Bool {
+        guard !isBusy, !temporaryTopDownActive, !cameraTransitionBusy, var next = record else { return false }
+        if self.is3D { next.viewBookmark = scene.cameraRig?.trainingBookmark() }
+        let questionID = next.current?.id
+        if phase == .aiming { next.presentation?.observe(.init(is3D: self.is3D), questionID: questionID) }
+        next.presentation?.current = .init(is3D: is3D)
+        if phase == .aiming { next.presentation?.observe(.init(is3D: is3D), questionID: questionID) }
+        next.updatedAt = Date()
+        do { try repository?.save(next) }
+        catch { message = error.localizedDescription; return false }
+        record = next
+        setCameraMode(is3D ? .perspective3D : .topDown2D)
+        restoreViewBookmark()
+        return true
+    }
     var targetNode: SCNNode? { scene.targetBallNodes.first }
     var selectedPocketIndex: Int { record?.current?.board.pocketIndex ?? 0 }
     var selectedTargetKey: String? { record?.current.map { "_\($0.ballNumber)" } }
@@ -170,15 +186,15 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
             && recordedShot != nil && !temporaryTopDownActive && !cameraTransitionBusy
     }
     var shouldFinish: Bool {
-        record.map { $0.status != .active || (!$0.configuration.freePractice && $0.validAttempts.count >= 20) } == true
-            || (!is3D && limiter.isLimitReached)
+        record.map { $0.status != .active || (!$0.configuration.freePractice && $0.validAttempts.count >= TrainingProject.ordinaryRoundCount) } == true
+            || limiter.isLimitReached
     }
     var primaryTitle: String {
         if isReplaying { return "停止回放" }
         return switch phase {
         case .computing: "计算中"; case .playing: "击球中"; case .saveFailed: "重试保存"
         case .result: record?.currentAttempt?.result?.countsAsAttempt == true ? (shouldFinish ? "查看总结" : "下一题") : "重试"
-        default: !isRetrying && !is3D && limiter.isLimitReached ? "解锁Pro" : "击球"
+        default: "击球"
         }
     }
     var outcomeText: String {
@@ -197,6 +213,18 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         repository = LocalAccuracyPracticeRepository(context: context)
         do {
             record = try repository?.resumable(is3D: is3D)
+            let preferred = TablePreferencesStore.shared.beginTraining(.accuracy, source3D: record?.is3D ?? initialView3D)
+            cameraMode = preferred ? .perspective3D : .topDown2D
+            if var restored = record {
+                if restored.presentation == nil {
+                    restored.presentation = .init(is3D: restored.is3D, legacyConsumed: Set(restored.validAttempts.map(\.questionID)))
+                }
+                record = restored
+                cameraMode = restored.presentation?.current.is3D == true ? .perspective3D : .topDown2D
+                if let id = restored.current?.id, restored.currentAttempt?.result?.countsAsAttempt != true {
+                    guard limiter.reserve(questionID: id, admitted: true) else { phase = .settings; message = limiter.quotaError; return }
+                }
+            }
             phase = record == nil ? .settings : (record?.currentAttempt == nil ? .aiming : .result)
             if let record, record.bankFingerprint != (try TrainingBankStore.load()).sourceFingerprint,
                record.currentAttempt?.result?.countsAsAttempt != true {
@@ -211,15 +239,24 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         } catch { message = error.localizedDescription; phase = .settings }
     }
     func start(_ configuration: SceneTrainingConfiguration, prepared: AccuracyPreparedRound) {
-        guard let repository else { return }
+        guard let repository, let first = prepared.questions.first,
+              limiter.isPremium || !configuration.freePractice,
+              limiter.reserve(questionID: first.id, replacing: record?.current?.id) else { message = limiter.quotaError ?? "今日题量已用完，可查看已完成的练习。"; return }
         do {
-            if var previous = record, previous.status == .active {
-                previous.status = .ended; previous.endedAt = Date(); previous.updatedAt = Date()
-                try repository.save(previous); record = previous; settingsReturnPhase = .summary
-            }
             let next = try AccuracyPracticeRecord(ownerKey: repository.ownerKey, is3D: is3D,
                 configuration: configuration, bankFingerprint: prepared.fingerprint, questions: prepared.questions)
-            try repository.save(next)
+            var records = [next]
+            if var previous = record, previous.status == .active {
+                previous.status = .ended; previous.endedAt = Date(); previous.updatedAt = Date()
+                records.insert(previous, at: 0)
+            }
+            do { try repository.saveAtomically(records) }
+            catch {
+                limiter.release(questionID: first.id)
+                if let id = record?.current?.id { _ = limiter.reserve(questionID: id, admitted: true) }
+                throw error
+            }
+            if let id = record?.current?.id { limiter.release(questionID: id) }
             invalidate()
             record = next; lastPrediction = nil; recordedShot = nil; isRetrying = false; practiceAttempt = nil; phase = .aiming; message = nil
             if builtScene { installQuestion() }
@@ -231,7 +268,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         guard !builtScene else { resumeTeachingActivity(); return }
         builtScene = true
         scene.configureReferenceTableRendering()
-        if is3D { scene.configureShotAwareCamera() }
+        scene.configureShotAwareCamera()
         scene.setupScene(enhancedRendering: false)
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
@@ -273,6 +310,13 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         } else { phase = .aiming; redrawAim() }
         refreshObservationCameraContext()
         if is3D && phase == .aiming { requestPlayerView(.thirdPerson, animated: false) }
+        restoreViewBookmark()
+    }
+    private func restoreViewBookmark() {
+        if is3D, let bookmark = record?.viewBookmark, let cue = scene.cueBallNode?.position,
+           let aim = currentPlayerAim {
+            scene.cameraRig?.restoreTrainingBookmark(bookmark, cue: cue, aim: aim)
+        }
     }
     func nudgeAim(_ degrees: Float) {
         guard canAim, degrees.isFinite, let current = record?.draftDirection else { return }
@@ -310,16 +354,19 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         scene.updateCueStick(cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: aim,
             spinX: Double(tip.x), spinY: Double(tip.y)), aimDirection: aim)
     }
+    func trainingObservedTopDown() { markObservation("topDown") }
     func markObservation(_ name: String) {
         guard phase == .aiming, record?.observations.contains(name) == false else { return }
-        record?.observations.insert(name); scheduleDraftSave()
+        record?.observations.insert(name)
+        if name == "topDown" { let id = record?.current?.id; record?.presentation?.observe(.twoD, questionID: id) }
+        scheduleDraftSave()
     }
     func strike() {
         guard phase == .aiming || (phase == .result && record?.currentAttempt?.result?.countsAsAttempt != true),
               let question = record?.current, let repository else { return }
         guard usesCurrentBank() else { return }
         if isRetrying || record?.currentAttempt == nil {
-            guard isRetrying || is3D || !limiter.isLimitReached else { return }
+            guard isRetrying || limiter.reserve(questionID: question.id, admitted: true) else { message = limiter.quotaError; return }
             guard let aim = currentPlayerAim, scene.permitsCueStrike(aim: aim, spinX: Double(tip.x), spinY: Double(tip.y)) else {
                 notice = .init(text: "当前方向受库边或球遮挡，请调整瞄准方向。"); return
             }
@@ -332,7 +379,14 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
                 calculate(question: question, attempt: attempt, isPractice: true)
                 return
             }
-            let attempt = try next.freezeAttempt()
+            var attempt = try next.freezeAttempt()
+            if attempt.wasPremium == nil {
+                attempt.wasPremium = limiter.isPremium
+                attempt.presentation = .init(view: .init(is3D: is3D), observed: next.presentation?.observed[question.id] ?? [], premium: limiter.isPremium)
+                if let index = next.attempts.firstIndex(where: { $0.id == attempt.id }) { next.attempts[index] = attempt }
+                next.presentation?.observe(.init(is3D: is3D), questionID: question.id)
+                next.presentation?.submitted[question.id] = .init(is3D: is3D)
+            }
             try repository.save(next) // Input is durable before calculation starts.
             record = next
             calculate(question: question, attempt: attempt, isPractice: false)
@@ -362,6 +416,9 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
             if isPractice { practiceAttempt?.result = judged }
             else {
                 _ = record?.accept(judged, attemptID: attempt.id)
+                if judged.countsAsAttempt {
+                    record?.presentation?.accept(questionID: question.id, at: Date(), premium: attempt.wasPremium ?? true)
+                }
                 guard save() else { phase = .saveFailed; return }
                 accountForSavedAttempts()
             }
@@ -404,8 +461,9 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
                 Task { @MainActor in
                     guard let self, self.generation == token else { return }
                     if self.isReplaying { self.stopPlayback(); return }
+                    // Keep the final answer available for review/retry. The
+                    // explicit primary action opens the summary via next().
                     self.phase = .result; self.scene.hideCueStick()
-                    if self.shouldFinish && !self.isRetrying { self.finish() }
                 }
             }]), forKey: "accuracy.clock")
         }
@@ -465,7 +523,10 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
                 reusedPool = prepared.reusedPool
             }
             try next.advance()
-            try repository?.save(next)
+            guard let questionID = next.current?.id, limiter.isPremium || !next.configuration.freePractice,
+                  limiter.reserve(questionID: questionID) else { message = limiter.quotaError ?? "今日题量已用完，请查看本轮总结。"; return }
+            do { try repository?.save(next) }
+            catch { limiter.release(questionID: questionID); throw error }
             invalidate(); record = next; lastPrediction = nil; recordedShot = nil; isRetrying = false; practiceAttempt = nil
             notice = reusedPool ? .init(text: "已从当前题库重新抽取下一组") : nil
             installQuestion()
@@ -473,10 +534,12 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     }
     func finish() {
         guard !isBusy, var next = record else { return }
-        next.status = !next.configuration.freePractice && next.validAttempts.count == 20 ? .completed : .ended
+        next.status = !next.configuration.freePractice && next.validAttempts.count >= TrainingProject.ordinaryRoundCount ? .completed : .ended
         next.endedAt = Date(); next.updatedAt = Date()
         do {
-            try repository?.save(next); invalidate(); record = next; phase = .summary
+            try repository?.save(next)
+            if next.currentAttempt?.result?.countsAsAttempt != true, let id = next.current?.id { limiter.release(questionID: id) }
+            invalidate(); record = next; phase = .summary
         } catch { message = error.localizedDescription }
     }
     func reviewLastQuestion() {
@@ -503,17 +566,22 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
     }
     @discardableResult private func save() -> Bool {
         draftSave?.cancel()
+        if is3D, !temporaryTopDownActive { record?.viewBookmark = scene.cameraRig?.trainingBookmark() }
         guard let record, let repository else { return false }
         do { try repository.save(record); return true }
         catch { message = error.localizedDescription; return false }
     }
     private func scheduleDraftSave() {
         draftSave?.cancel()
-        draftSave = Task { try? await Task.sleep(for: .milliseconds(300)); guard !Task.isCancelled else { return }; save() }
+        draftSave = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
+            self?.save()
+        }
     }
     private func accountForSavedAttempts() {
-        guard !is3D else { return }
-        for attempt in record?.validAttempts ?? [] { limiter.recordQuestion(attemptID: attempt.id, submittedAt: attempt.submittedAt) }
+        for receipt in record?.presentation?.receipts.values ?? Dictionary<UUID, TrainingConsumptionReceipt>().values {
+            if !limiter.reconcile(receipt) { message = limiter.quotaError }
+        }
     }
     private func usesCurrentBank() -> Bool {
         do {
@@ -549,6 +617,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
         if phase == .aiming { redrawAim() }
     }
     func ownerChanged() {
+        if let id = record?.current?.id { limiter.release(questionID: id) }
         invalidate(); draftSave?.cancel(); record = nil; lastPrediction = nil; recordedShot = nil; isRetrying = false; practiceAttempt = nil; phase = .settings
         message = "账号已切换，请重新开始练习。"
     }

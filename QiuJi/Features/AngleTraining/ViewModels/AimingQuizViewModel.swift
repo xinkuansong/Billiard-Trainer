@@ -18,7 +18,7 @@ final class AimingQuizViewModel: TeachingCameraHost {
 
     @Published var phase: QuizPhase = .observing
     @Published var currentQuestion: AngleQuestion?
-    @Published var userInput: String = ""
+    @Published var userInput: String = "" { didSet { saveDraft() } }
     @Published var questionIndex: Int = 0
     @Published var showResult: Bool = false
     @Published var testFinished: Bool = false
@@ -31,7 +31,7 @@ final class AimingQuizViewModel: TeachingCameraHost {
     /// 当前题目标球号（条 6.2：随机球号，避免只会看 8 号）。
     @Published private(set) var targetBallNumber: Int = 8
 
-    var totalQuestions: Int { run.configuration.freePractice ? Int.max : 20 }
+    var totalQuestions: Int { run.configuration.freePractice ? Int.max : TrainingProject.ordinaryRoundCount }
     var isFreePractice: Bool { run.configuration.freePractice }
 
     @Published private(set) var sessionResults: [AnswerRecord] = []
@@ -76,13 +76,35 @@ final class AimingQuizViewModel: TeachingCameraHost {
     let engine = AdaptiveQuestionEngine()
     let limiter: AngleUsageLimiter
     private var repository: AngleTestRepositoryProtocol?
+    #if DEBUG
+    var mergeDiagnostic: String {
+        let payload: [String: Any] = ["session": run.id.uuidString, "question": run.current?.id.uuidString ?? "",
+            "phase": String(describing: phase), "view": cameraMode == .perspective3D ? "3D" : "2D",
+            "used": limiter.questionsUsedToday, "answers": run.firstAnswers.count,
+            "input": userInput]
+        return (try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+    }
+    #endif
+    private var persistence: SceneTrainingPersistence?
+    private var restoringCheckpoint = false
+    @Published private(set) var presentation = TrainingPresentation(is3D: false)
+    @Published private(set) var isSaving = false
+    var hasSavedSession: Bool { persistence?.current?.run.current != nil }
+    var canAdvance: Bool { !isSaving && unsavedResults.isEmpty }
 
-    init(limiter: AngleUsageLimiter) {
+
+    init(limiter: AngleUsageLimiter, initial3D: Bool? = nil) {
         self.limiter = limiter
+        if let initial3D {
+            cameraMode = TablePreferencesStore.shared.beginTraining(.angle, source3D: initial3D) ? .perspective3D : .topDown2D
+        }
     }
 
     func configure(context: ModelContext) {
         repository = LocalAngleTestRepository(context: context)
+        do { persistence = try SceneTrainingPersistence(project: .angle, owner: CurrentOwnerContext.shared.ownerKey) }
+        catch { saveErrorMessage = error.localizedDescription }
     }
 
     /// 直接注入仓储（测试用失败仓储覆盖保存失败路径）。
@@ -110,12 +132,12 @@ final class AimingQuizViewModel: TeachingCameraHost {
         // Projection changes the camera only, never the answer/assist content.
         cameraMode = initialCameraMode
         scene.usesAdaptiveDiagramLabels = true
-        if initialCameraMode == .perspective3D { scene.configureShotAwareCamera() }
+        scene.configureShotAwareCamera()
         scene.setupScene(enhancedRendering: enhanced, mobileRendering: mobileRendering)
         scene.setupVisualizationNodes(usesTrainingAssistStyle: true)
         pocketMarkers = scene.addPocketMarkers()
 
-        if initialCameraMode == .perspective3D { configureTeachingCamera() }
+        configureTeachingCamera()
         scene.setCameraMode(initialCameraMode, animated: false)
         if autoStart { startTest() }
     }
@@ -123,33 +145,25 @@ final class AimingQuizViewModel: TeachingCameraHost {
     // MARK: - Test lifecycle
 
     func startTest(configuration: SceneTrainingConfiguration = .init(), questions: [SceneTrainingQuestion] = []) {
-        run = SceneTrainingRun(configuration: configuration, queue: questions)
-        lastRecord = nil
-        generationError = nil
-        questionIndex = 0
-        sessionResults = []
-        testFinished = false
-        showResult = false
-        userInput = ""
-        phase = .observing
-        nextQuestion()
+        guard canAdvance, limiter.isPremium || !configuration.freePractice else { return }
+        nextQuestion(starting: SceneTrainingRun(configuration: configuration, queue: questions))
     }
 
     /// Transition: observing → inputting (open answer modal).
     func openAnswerInput() {
         guard phase == .observing, currentQuestion != nil else { return }
-        userInput = ""
-        phase = .inputting
+        phase = .inputting; saveDraft()
     }
 
     /// Transition: inputting → observing (cancel modal without submitting).
     func cancelAnswerInput() {
         guard phase == .inputting else { return }
         userInput = ""
-        phase = .observing
+        phase = .observing; saveDraft()
     }
 
     func toggleAimingAssist() {
+        defer { saveDraft() }
         guard phase == .observing, currentQuestion != nil else { return }
         showAimingAssist.toggle()
         if showAimingAssist { run.assistance.insert("graphical") }
@@ -163,28 +177,33 @@ final class AimingQuizViewModel: TeachingCameraHost {
     }
 
     func submitAnswer() {
-        guard phase == .inputting, !run.submitted,
-              !limiter.isLimitReached, let q = currentQuestion,
-              let userAngle = Double(userInput),
-              userAngle >= 0, userAngle <= 90 else { return }
-
+        guard phase == .inputting, !run.submitted, !isSaving,
+              let q = currentQuestion, let questionID = run.current?.id,
+              let userAngle = Double(userInput), (0...90).contains(userAngle),
+              limiter.reserve(questionID: questionID, admitted: true) else { return }
         let err = abs(q.actualAngle - userAngle)
-        let record = AnswerRecord(question: q, userAngle: userAngle, error: err)
-        lastRecord = record
-        let metadata = run.metadata(unit: "degrees")
-        sessionResults.append(record)
-        if quizTypeLabel == "scene2D" { limiter.recordQuestion() }
-        run.record(error: err, signedError: userAngle - q.actualAngle, angle: q.actualAngle)
-        BTFeedback.quiz(errorDegrees: err)
+        let answer = AnswerRecord(question: q, userAngle: userAngle, error: err)
+        var nextRun = run, nextPresentation = presentation
+        nextPresentation.current = .init(is3D: cameraMode == .perspective3D)
+        nextPresentation.accept(questionID: questionID, at: Date(), premium: limiter.isPremium)
+        var metadata = run.metadata(unit: "degrees")
+        metadata?.project = .angle; metadata?.view = nextPresentation.current
+        metadata?.observedViews = nextPresentation.observed[questionID]
+        metadata?.receipt = nextPresentation.receipts[questionID]
+        nextRun.record(error: err, signedError: userAngle - q.actualAngle, angle: q.actualAngle)
         let result = AngleTestResult(actualAngle: q.actualAngle, userAngle: userAngle,
-            pocketType: q.pocketType.rawValue, quizType: quizTypeLabel)
+            pocketType: q.pocketType.rawValue, quizType: cameraMode == .perspective3D ? "scene3D" : "scene2D",
+            ownerKey: CurrentOwnerContext.shared.ownerKey)
         result.trainingMetadataJSON = metadata?.json
+        do { try persistence?.save(run: nextRun, presentation: nextPresentation,
+            targetNumber: targetBallNumber, input: userInput, accepting: SavedTrainingAnswer(result)) }
+        catch { saveErrorMessage = error.localizedDescription; return }
+        run = nextRun; presentation = nextPresentation; lastRecord = answer; sessionResults.append(answer)
+        if persistence != nil, let receipt = metadata?.receipt { _ = limiter.reconcile(receipt) }
+        BTFeedback.quiz(errorDegrees: err)
+        showResultVisualization(); showResult = true; phase = .showingResult
+        isSaving = true
         Task { await persist(result) }
-
-        showResultVisualization()
-        showResult = true
-        phase = .showingResult
-        if run.canFinish || limiter.isLimitReached { finish() }
     }
 
     /// 重试此前失败的落库；失败仍会重新置错误态。
@@ -192,25 +211,32 @@ final class AimingQuizViewModel: TeachingCameraHost {
         let pending = unsavedResults
         guard !pending.isEmpty else { return }
         unsavedResults = []
-        saveErrorMessage = nil
+        saveErrorMessage = nil; isSaving = true
         Task {
             for result in pending { await persist(result) }
         }
     }
 
     private func persist(_ result: AngleTestResult) async {
+        defer { isSaving = false }
         guard let repository else { return }
+        let owner = result.ownerKey
         do {
             try await repository.save(result)
+            guard owner == CurrentOwnerContext.shared.ownerKey else { return }
+            if let receipt = result.trainingMetadata?.receipt { _ = limiter.reconcile(receipt) }
+            try persistence?.acknowledge(result.id)
+            unsavedResults.removeAll { $0.id == result.id }; saveErrorMessage = nil
         } catch {
-            unsavedResults.append(result)
+            guard owner == CurrentOwnerContext.shared.ownerKey else { return }
+            if !unsavedResults.contains(where: { $0.id == result.id }) { unsavedResults.append(result) }
             saveErrorMessage = AngleResultSaveFailure.message(error)
         }
     }
 
     /// Transition: showingResult → observing (close modal, advance to next question).
     func advanceToNext() {
-        guard phase == .showingResult else { return }
+        guard phase == .showingResult, canAdvance else { return }
         questionIndex = run.firstAnswers.count
         phase = .observing
         nextQuestion()
@@ -246,31 +272,43 @@ final class AimingQuizViewModel: TeachingCameraHost {
 
     // MARK: - Private
 
-    func nextQuestion() {
-        let limit = isFreePractice ? Int.max : totalQuestions
-        guard questionIndex < limit, !limiter.isLimitReached else {
-            testFinished = true
-            return
+    func nextQuestion(starting newRun: SceneTrainingRun? = nil) {
+        guard canAdvance else { return }
+        var next = newRun ?? run
+        guard !next.canFinish, !limiter.isLimitReached, limiter.isPremium || !next.configuration.freePractice else {
+            if newRun == nil { finish() }; return
         }
+        do {
+            let question = try next.next(), number = Int.random(in: 1...15)
+            guard let id = next.current?.id, limiter.reserve(questionID: id, replacing: newRun == nil ? nil : run.current?.id) else { generationError = limiter.quotaError ?? "今日题量已用完"; return }
+            var installed = false
+            defer {
+                if !installed {
+                    limiter.release(questionID: id)
+                    if newRun != nil, let oldID = run.current?.id { _ = limiter.reserve(questionID: oldID, admitted: true) }
+                }
+            }
+            var views = newRun == nil ? presentation : TrainingPresentation(is3D: cameraMode == .perspective3D)
+            let mode = views.current; views.observe(mode, questionID: id)
+            try persistence?.save(run: next, presentation: views, targetNumber: number)
+            if newRun != nil { sessionResults = []; lastRecord = nil }
+            installed = true
+            run = next; presentation = views; questionIndex = next.firstAnswers.count
+            generationError = nil; testFinished = false; endTemporaryTopDown()
+            installQuestion(question, number: number)
+        } catch { generationError = error.localizedDescription }
+    }
 
-        endTemporaryTopDown()
-        topDownContentRevision &+= 1
-        clearResult()
-        scene.hideCueStick()
-        showAimingAssist = false
-
-        let question: AngleQuestion
-        do { question = try run.next(); generationError = nil }
-        catch { generationError = error.localizedDescription; currentQuestion = nil; return }
+    private func installQuestion(_ question: AngleQuestion, number: Int) {
+        topDownContentRevision &+= 1; clearResult(); scene.hideCueStick(); showAimingAssist = false
         currentQuestion = question
-
         let surfaceY = scene.surfaceY
         let targetPos = AngleSceneCalculator.normalizedToScene(point: question.targetBall, surfaceY: surfaceY)
         let cuePos = AngleSceneCalculator.normalizedToScene(point: question.cueBall, surfaceY: surfaceY)
 
         // 条 6.2：随机球号；applyBallLayout 同步 currentTargetNumber，
         // 进球线取色随球号绑定（修「进球线成默认色」bug 根因：取色依据未更新）。
-        targetBallNumber = Int.random(in: 1...15)
+        targetBallNumber = number
         #if DEBUG || RENDER_QUALITY_VALIDATION
         if RenderQualityFixture.requested { targetBallNumber = 3 }
         #endif
@@ -300,10 +338,63 @@ final class AimingQuizViewModel: TeachingCameraHost {
 
 
     func markObservation() {
-        if phase == .observing && cameraMode == .perspective3D { run.assistance.insert("observation") }
+        if phase == .observing && cameraMode == .perspective3D { run.assistance.insert("observation"); saveDraft() }
     }
 
-    func finish() { endTemporaryTopDown(); testFinished = true }
+    func finish() {
+        guard canAdvance else { return }
+        endTemporaryTopDown(); testFinished = true; saveDraft()
+        if !run.submitted, let id = run.current?.id { limiter.release(questionID: id) }
+    }
+
+    func saveDraft() {
+        guard !restoringCheckpoint, run.current != nil, let persistence else { return }
+        do { try persistence.save(run: run, presentation: presentation, targetNumber: targetBallNumber,
+            input: userInput, finished: testFinished, inputPhase: String(describing: phase), hintVisible: showAimingAssist) }
+        catch { saveErrorMessage = error.localizedDescription }
+    }
+    @discardableResult func switchTrainingView(to is3D: Bool) -> Bool {
+        guard !isSaving, !cameraTransitionBusy, !temporaryTopDownActive else { return false }
+        if phase == .inputting { phase = .observing }
+        var next = presentation
+        next.observe(.init(is3D: cameraMode == .perspective3D), questionID: run.current?.id)
+        next.current = .init(is3D: is3D); let mode = next.current; next.observe(mode, questionID: run.current?.id)
+        do { try persistence?.save(run: run, presentation: next, targetNumber: targetBallNumber, input: userInput, finished: testFinished, inputPhase: String(describing: phase), hintVisible: showAimingAssist) }
+        catch { saveErrorMessage = error.localizedDescription; return false }
+        presentation = next; quizTypeLabel = is3D ? "scene3D" : "scene2D"
+        setCameraMode(is3D ? .perspective3D : .topDown2D); refreshVisualization()
+        return true
+    }
+    func observeTemporaryView() {
+        presentation.observe(.twoD, questionID: run.current?.id); saveDraft()
+    }
+    func restoreSession() {
+        guard let saved = persistence?.current, let question = saved.run.current?.geometry else { return }
+        restoringCheckpoint = true
+        defer { restoringCheckpoint = false }
+        // installQuestion resets transient controls; restore the durable run afterwards.
+        installQuestion(question, number: saved.targetNumber)
+        run = saved.run; presentation = saved.presentation
+        userInput = saved.input; questionIndex = run.firstAnswers.count - (run.submitted ? 1 : 0)
+        sessionResults = saved.answers.compactMap { value in
+            value.question.map { .init(question: $0, userAngle: value.answer, error: abs(value.actual - value.answer)) }
+        }
+        lastRecord = sessionResults.last
+        setCameraMode(presentation.current.is3D ? .perspective3D : .topDown2D)
+        quizTypeLabel = presentation.current.is3D ? "scene3D" : "scene2D"
+        testFinished = saved.finished; showResult = run.submitted
+        phase = run.submitted ? .showingResult : (saved.inputPhase == "inputting" ? .inputting : .observing)
+        showAimingAssist = saved.hintVisible ?? false
+        if run.submitted { showResultVisualization() }
+        else if let id = run.current?.id { _ = limiter.reserve(questionID: id, admitted: true) }
+        for receipt in presentation.receipts.values { _ = limiter.reconcile(receipt) }
+        unsavedResults = saved.pending.map(\.result); retryFailedSaves()
+    }
+    func ownerChanged() {
+        if let id = run.current?.id { limiter.release(questionID: id) }
+        persistence = nil; run = .init(); currentQuestion = nil; sessionResults = []; lastRecord = nil
+        unsavedResults = []; showSettings = true; testFinished = false; clearResult(); scene.hideAllVisualization()
+    }
 
     private func showAimingAssistVisualization() {
         guard let q = currentQuestion,

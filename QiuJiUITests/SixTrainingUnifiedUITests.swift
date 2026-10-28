@@ -1,6 +1,7 @@
 import XCTest
 
 final class SixTrainingUnifiedUITests: XCTestCase {
+    private var trainingTitle = ""
 
     func testAccuracySpinMutualExclusionAndShotControls() {
         continueAfterFailure = false
@@ -14,12 +15,12 @@ final class SixTrainingUnifiedUITests: XCTestCase {
                 let toggle = app.switches[id].firstMatch
                 ready(toggle)
                 if (toggle.value as? String == "1") != on {
-                    toggle.coordinate(withNormalizedOffset: .init(dx: 0.93, dy: 0.5)).tap()
+                    toggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap()
                 }
                 XCTAssertEqual(toggle.value as? String, on ? "1" : "0")
             }
             func startRound() {
-                app.buttons["accuracy.start"].tap()
+                app.buttons["accuracy.start"].tap(); app.selectTrainingView(trainingTitle)
                 ready(app.buttons["accuracy.strike"])
                 XCTAssertFalse(app.alerts["练习提示"].exists,
                     "自动调整所选条件的出题比例不应打断练习")
@@ -110,7 +111,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
             app.swipeUp()
             capture(title + "-settings-info")
-            app.buttons["accuracy.start"].tap()
+            app.buttons["accuracy.start"].tap(); app.selectTrainingView(trainingTitle)
             ready(app.buttons["accuracy.strike"])
             capture(title + "-question-info")
             func node(_ id: String) -> XCUIElement {
@@ -187,13 +188,14 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             func node(_ id: String) -> XCUIElement {
                 app.descendants(matching: .any).matching(identifier: id).firstMatch
             }
-            app.buttons[prefix + ".start"].tap()
+            app.buttons[prefix + ".start"].tap(); app.selectTrainingView(trainingTitle)
             let primary = app.buttons[accuracy ? "accuracy.strike" : aimPoint ? "aimPointTraining.submit" : "angleTraining.primaryAction"]
             ready(primary)
+            let expectedTitle = XCUIApplication.trainingCardTitle(title) + "练习"
             let header = accuracy
-                ? app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", title)).firstMatch
+                ? app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", expectedTitle)).firstMatch
                 : node("training.pageTitle")
-            XCTAssertTrue(header.exists); XCTAssertEqual(header.label, title)
+            XCTAssertTrue(header.exists); XCTAssertEqual(header.label, expectedTitle)
             XCTAssertFalse(node(prefix + ".remaining").exists)
             XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "剩余 ")).firstMatch.exists)
             capture(title + "-information-initial")
@@ -208,7 +210,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             if aimPoint {
                 rulerFrames[title] = initialFrame
                 let top = node(prefix + ".questionInfo"), bottom = node(prefix + ".answerInfo")
-                XCTAssertTrue(top.label.contains("1/20")); XCTAssertTrue(top.label.contains("正确率"))
+                XCTAssertTrue(top.label.contains("1/15")); XCTAssertTrue(top.label.contains("正确率"))
                 XCTAssertFalse(top.label.contains("均差")); XCTAssertFalse(top.label.contains("作答"))
                 XCTAssertTrue(bottom.label.contains("独立")); XCTAssertTrue(bottom.label.contains("均差"))
                 XCTAssertLessThanOrEqual(top.frame.maxY, initialFrame.minY)
@@ -228,15 +230,20 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             }
             let next = app.buttons[aimPoint ? "aimPointTraining.next" : "angleTraining.primaryAction"]
             ready(next)
-            XCTAssertTrue(node(prefix + ".result").exists)
             if aimPoint {
-                XCTAssertTrue(node(prefix + ".questionInfo").label.contains("1/20"))
+                let comparison = node("aimCloseup.hud")
+                XCTAssertTrue(comparison.waitForExistence(timeout: 5))
+                XCTAssertTrue(comparison.label.contains("橙线为目标方向"))
+                XCTAssertTrue(node("aimPointTraining.answerLegend").exists)
+            } else { XCTAssertTrue(node(prefix + ".result").exists) }
+            if aimPoint {
+                XCTAssertTrue(node(prefix + ".questionInfo").label.contains("1/15"))
                 XCTAssertEqual(ruler.frame.minY, initialFrame.minY, accuracy: 1)
             }
             capture(title + "-submitted")
             next.tap(); ready(assist)
             if aimPoint {
-                XCTAssertTrue(node(prefix + ".questionInfo").label.contains("2/20"))
+                XCTAssertTrue(node(prefix + ".questionInfo").label.contains("2/15"))
                 XCTAssertTrue(node(prefix + ".answerInfo").label.contains("独立"))
                 XCTAssertEqual(ruler.frame.minY, initialFrame.minY, accuracy: 1)
             }
@@ -252,7 +259,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         for title in ["2D准度", "3D准度"] {
             let app = open(title)
             defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
-            app.buttons["accuracy.start"].tap()
+            app.buttons["accuracy.start"].tap(); app.selectTrainingView(trainingTitle)
             let strike = app.buttons["accuracy.strike"], retry = app.buttons["accuracy.retry"]
             let playback = app.buttons["accuracy.playback"]
             ready(strike)
@@ -290,7 +297,11 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         for title in ["2D准度", "3D准度"] {
             let app = open(title)
             defer { app.terminate() }
-            app.buttons["accuracy.start"].tap()
+            app.buttons["accuracy.start"].tap(); app.selectTrainingView(trainingTitle)
+            // Selecting the view takes longer than the short-lived notice. Start a
+            // fresh round in that selected view before observing the notice timer.
+            app.buttons["accuracy.more"].tap(); app.buttons["accuracy.trainingSettings"].tap()
+            ready(app.buttons["accuracy.start"]); app.buttons["accuracy.start"].tap()
             let notice = app.staticTexts["accuracy.question"]
             XCTAssertTrue(notice.waitForExistence(timeout: 40))
             XCTAssertTrue(notice.label.contains("第1题"))
@@ -300,7 +311,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             ready(strike)
             capture(title + "-notice-expired")
             let info = app.descendants(matching: .any).matching(identifier: "accuracy.questionInfo").firstMatch
-            XCTAssertTrue(info.label.contains("1/20"))
+            XCTAssertTrue(info.label.contains("1/15"))
             strike.tap()
             ready(app.buttons["accuracy.retry"], timeout: 60)
             let result = app.staticTexts["accuracy.result"]
@@ -313,7 +324,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             XCTAssertTrue(notice.label.contains("第2题"))
             capture(title + "-next-notice")
             XCTAssertTrue(notice.waitForNonExistence(timeout: 5))
-            XCTAssertTrue(info.label.contains("2/20"))
+            XCTAssertTrue(info.label.contains("2/15"))
             ready(strike)
             capture(title + "-next-expired")
         }
@@ -367,10 +378,11 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             XCTAssertTrue(app.windows.firstMatch.frame.insetBy(dx: -1, dy: -1).contains(element.frame), element.debugDescription)
         }
         app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
-        let card = app.buttons[title]
+        trainingTitle = title
+        let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
         for _ in 0..<4 where !card.isHittable { app.swipeUp() }
         ready(card); card.tap()
-        ready(app.buttons[prefix + ".start"]); app.buttons[prefix + ".start"].tap()
+        ready(app.buttons[prefix + ".start"]); app.buttons[prefix + ".start"].tap(); app.selectTrainingView(trainingTitle)
         let primary = app.buttons[primaryID]
         // The isolated store starts with the actual automatic layout. Saving the
         // default as a template would instead freeze positions for window tests.
@@ -516,13 +528,14 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             XCUIDevice.shared.orientation = .portrait
             let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
             app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
-            let card = app.buttons[title]
+            trainingTitle = title
+            let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
             if !card.isHittable { app.swipeUp() }
             XCTAssertTrue(card.waitForExistence(timeout: 8)); card.tap()
             let prefix = title.contains("准度") ? "accuracy" : title.contains("瞄准点") ? "aimPointTraining" : "angleTraining"
             XCTAssertTrue(app.buttons[prefix + ".start"].waitForExistence(timeout: 10))
             capture(title + "-settings")
-            app.buttons[prefix + ".start"].tap()
+            app.buttons[prefix + ".start"].tap(); app.selectTrainingView(trainingTitle)
             let action = app.buttons[title.contains("准度") ? "accuracy.strike" : title.contains("瞄准点") ? "aimPointTraining.submit" : "答题"]
             XCTAssertTrue(action.waitForExistence(timeout: 40))
             expectation(for: NSPredicate { _, _ in action.isHittable && action.isEnabled }, evaluatedWith: app)
@@ -552,30 +565,37 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication.launchClean(extraArgs: [free ? "-w7.forceDailyLimitNear" : "-forcePremium", "-v50.inMemoryStore"])
         app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
-        let card = app.buttons[title]
+        trainingTitle = title
+        let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
         if !card.isHittable { app.swipeUp() }
         ready(card); card.tap()
         return app
     }
     func testFreeModesPaywallCancelAndCompletion() {
         continueAfterFailure = false
-        for title in ["2D角度", "2D瞄准点", "2D准度"] {
+        for title in ["2D角度", "2D瞄准点", "2D准度", "3D准度"] {
             let app = open(title, free: true)
             let prefix = title.contains("准度") ? "accuracy" : title.contains("瞄准点") ? "aimPointTraining" : "angleTraining"
             let free = app.otherElements["training.length"].buttons["持续练习"]
             ready(free); XCTAssertEqual(free.value as? String, "需要 Pro"); capture(title + "-mode-lock"); free.tap()
             ready(app.buttons["subscription.close"]); capture(title + "-free-mode-paywall")
             app.buttons["subscription.close"].tap()
-            XCTAssertTrue(app.otherElements["training.length"].buttons["20题"].isSelected)
-            app.buttons[prefix + ".start"].tap()
+            XCTAssertTrue(app.otherElements["training.length"].buttons["15题"].isSelected)
+            app.buttons[prefix + ".start"].tap(); app.selectTrainingView(trainingTitle)
             if title.contains("准度") {
                 let strike = app.buttons["accuracy.strike"]; ready(strike); strike.tap()
+                ready(app.buttons["accuracy.retry"], timeout: 60)
+                XCTAssertFalse(app.buttons["training.restart"].exists, "Last free answer remains available for review")
+                strike.tap()
             } else if title.contains("瞄准点") {
                 ready(app.buttons["aimPointTraining.submit"]); app.buttons["aimPointTraining.submit"].tap()
                 ready(app.buttons["aimPointTraining.next"]); app.buttons["aimPointTraining.next"].tap()
             } else {
                 ready(app.buttons["答题"]); app.buttons["答题"].tap()
                 ready(app.buttons["0"].firstMatch); app.buttons["0"].firstMatch.tap(); app.buttons["提交"].tap()
+                ready(app.buttons["angleTraining.primaryAction"])
+                XCTAssertFalse(app.buttons["training.restart"].exists, "Last free answer remains available for review")
+                app.buttons["angleTraining.primaryAction"].tap()
             }
             ready(app.buttons["training.restart"], timeout: 60)
             XCTAssertTrue(app.staticTexts["题数"].exists)
@@ -593,7 +613,18 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         continueAfterFailure = false
         for title in ["2D准度", "3D准度"] {
             let app = open(title)
-            app.buttons["accuracy.start"].tap()
+            // The current default allows manual spin on both axes. This case
+            // explicitly chooses a fully locked pad through the settings UI.
+            for id in ["accuracy.manualVerticalSpin", "accuracy.manualSideSpin"] {
+                let toggle = app.switches[id]
+                for _ in 0..<10 where !toggle.isHittable { app.swipeUp() }
+                ready(toggle)
+                if toggle.value as? String == "1" {
+                    toggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap()
+                }
+                XCTAssertEqual(toggle.value as? String, "0")
+            }
+            app.buttons["accuracy.start"].tap(); app.selectTrainingView(trainingTitle)
             let strike = app.buttons["accuracy.strike"]
             ready(strike)
             app.buttons["accuracy.more"].tap()
@@ -640,7 +671,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             ready(app.buttons["accuracy.retry"], timeout: 60)
             let info = app.descendants(matching: .any).matching(identifier: "accuracy.questionInfo").firstMatch
             let firstMetrics = info.label
-            XCTAssertTrue(firstMetrics.contains("1/20"))
+            XCTAssertTrue(firstMetrics.contains("1/15"))
             XCTAssertTrue(firstMetrics.contains("进球率"))
             XCTAssertTrue(firstMetrics.contains("%"))
             app.buttons["accuracy.retry"].tap()
@@ -661,9 +692,9 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             XCTAssertTrue(app.staticTexts["进球数量"].exists)
             capture(title + "-scored-summary-cancel-restart")
             app.buttons["training.restart"].tap()
-            ready(app.buttons["accuracy.start"]); app.buttons["accuracy.start"].tap()
+            ready(app.buttons["accuracy.start"]); app.buttons["accuracy.start"].tap(); app.selectTrainingView(trainingTitle)
             ready(strike)
-            XCTAssertTrue(info.label.contains("1/20"))
+            XCTAssertTrue(info.label.contains("1/15"))
             app.buttons["accuracy.more"].tap(); app.buttons["accuracy.finish"].tap()
             app.buttons["training.complete"].tap()
             ready(app.buttons["angleHomeTab_练"])
@@ -678,7 +709,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         let app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-v53.authenticatedProfileFixture"])
         defer { app.terminate() }
         app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
-        app.buttons["2D角度"].tap()
+        app.buttons["角度"].tap()
         let mode = app.otherElements["training.length"]
         ready(mode.buttons["持续练习"]); mode.buttons["持续练习"].tap()
         ready(app.buttons["subscription.close"])
@@ -695,13 +726,16 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         capture("free-mode-upgrade-stays-settings")
     }
 
-    func testThree3DRoutesRequirePro() {
+    func testThreeProjectsAllowNonProToSwitchTo3D() {
         continueAfterFailure = false
         for title in ["3D角度", "3D瞄准点", "3D准度"] {
             let app = open(title, free: true)
-            ready(app.buttons["subscription.close"])
-            app.buttons["subscription.close"].tap()
-            ready(app.buttons["angleHomeTab_练"])
+            let prefix = title.contains("准度") ? "accuracy" : title.contains("瞄准点") ? "aimPointTraining" : "angleTraining"
+            ready(app.buttons[prefix + ".start"])
+            XCTAssertFalse(app.buttons["subscription.close"].exists)
+            app.buttons[prefix + ".start"].tap()
+            app.selectTrainingView(title)
+            XCTAssertFalse(app.buttons["subscription.close"].exists)
             app.terminate()
         }
     }
@@ -711,8 +745,9 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         let app = XCUIApplication.launchClean(extraArgs: ["-w7.forceDailyLimitNear", "-v50.inMemoryStore", "-v53.authenticatedProfileFixture"])
         defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
         app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
-        app.buttons["2D瞄准点"].tap()
-        ready(app.buttons["aimPointTraining.start"]); app.buttons["aimPointTraining.start"].tap()
+        trainingTitle = "2D瞄准点"
+        app.buttons["瞄准点"].tap()
+        ready(app.buttons["aimPointTraining.start"]); app.buttons["aimPointTraining.start"].tap(); app.selectTrainingView(trainingTitle)
         ready(app.buttons["aimPointTraining.submit"]); app.buttons["aimPointTraining.submit"].tap()
         ready(app.buttons["aimPointTraining.next"]); app.buttons["aimPointTraining.next"].tap()
         ready(app.buttons["training.restart"]); app.buttons["training.restart"].tap()
@@ -724,7 +759,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
                 .press(forDuration: 0.1, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.10)))
         }
         ready(unlock); unlock.tap()
-        ready(app.buttons["aimPointTraining.start"]); app.buttons["aimPointTraining.start"].tap()
+        ready(app.buttons["aimPointTraining.start"]); app.buttons["aimPointTraining.start"].tap(); app.selectTrainingView(trainingTitle)
         ready(app.buttons["aimPointTraining.submit"])
         capture("upgrade-restarted-round")
         app.buttons["aimPointTraining.settings"].tap(); app.buttons["aimPointTraining.finish"].tap()

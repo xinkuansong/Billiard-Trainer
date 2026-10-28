@@ -529,12 +529,31 @@ final class DailyLayoutLifecycleUITests: XCTestCase {
         try checkPowerRange(manual: true)
     }
 
+    private func selectTableView(_ app: XCUIApplication, _ dimension: String) {
+        app.buttons["freeplay.moreMenu"].tap()
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 5))
+        if mode.value as? String != dimension { mode.tap() }
+        // Some hosts close after a choice; inspect the actual menu row before reopening.
+        if !mode.exists {
+            app.buttons["freeplay.moreMenu"].tap()
+            XCTAssertTrue(mode.waitForExistence(timeout: 5))
+        }
+        XCTAssertEqual(mode.value as? String, dimension)
+        let close = app.buttons["dailyClearance.menuClose"]
+        if close.exists { close.tap() }
+        else {
+            let backdrop = app.buttons["关闭菜单"].firstMatch
+            XCTAssertTrue(backdrop.waitForExistence(timeout: 5))
+            backdrop.coordinate(withNormalizedOffset: .init(dx: 0.03, dy: 0.7)).tap()
+        }
+    }
+
     func testDailyAimChangesWithoutFiringAndControlsStayInsideWindow() throws {
         XCUIDevice.shared.orientation = .landscapeRight
         let app = launch(fixture: "selection")
         defer { app.terminate() }
         guard try requireEntry(app, marker: "freeplay.stage", state: "aim-entry") else { return }
-        let mode = app.buttons["freeplay.cameraMode"]
         let count = try shotCount(app)
         func aim() throws -> [Double] {
             try ["aimX", "aimZ"].map { key in
@@ -542,7 +561,7 @@ final class DailyLayoutLifecycleUITests: XCTestCase {
             }
         }
         for dimension in ["2D", "3D"] {
-            if mode.value as? String != dimension { mode.tap() }
+            selectTableView(app, dimension)
             try waitForControl(app, "dailyClearance.strike", state: "aim-\(dimension)-ready")
             try assertControlsFit(app, dimension: dimension)
             let velocity = try powerValue(app)
@@ -583,8 +602,7 @@ final class DailyLayoutLifecycleUITests: XCTestCase {
             let app = launch(fixture: "selection", extraArgs: extraArgs)
             defer { app.terminate() }
             guard try requireEntry(app, marker: "freeplay.stage", state: "actions-\(dimension)-entry") else { return }
-            let mode = app.buttons["freeplay.cameraMode"]
-            if mode.value as? String != dimension { mode.tap() }
+            selectTableView(app, dimension)
             try waitForControl(app, "dailyClearance.strike", state: "actions-\(dimension)-ready")
             try assertControlsFit(app, dimension: dimension)
             let before = try shotCount(app)

@@ -2,6 +2,72 @@ import XCTest
 
 extension XCUIApplication {
 
+    /// Window tests restore the real iPad window, including across app relaunches.
+    /// A floating window keeps its aspect ratio when the device rotates.
+    func maximizeTrainingTestWindow() {
+        guard UIDevice.current.userInterfaceIdiom == .pad else { return }
+        // UIScreen.main.bounds may follow the app's floating scene on iPadOS 26.
+        // SpringBoard exposes the actual current display frame.
+        let display = XCUIApplication(bundleIdentifier: "com.apple.springboard").frame
+        let window = windows.firstMatch
+        func isFullscreen() -> Bool {
+            let frame = window.frame
+            return abs(frame.minX - display.minX) < 1 && abs(frame.minY - display.minY) < 1
+                && abs(frame.width - display.width) < 1 && abs(frame.height - display.height) < 1
+        }
+        print("TRAINING_WINDOW display=\(display) window=\(window.frame)")
+        guard window.waitForExistence(timeout: 5), !isFullscreen() else { return }
+        window.coordinate(withNormalizedOffset: .zero).withOffset(.init(dx: 52, dy: 32)).tap()
+        let expanded = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in isFullscreen() }, object: window)
+        if XCTWaiter.wait(for: [expanded], timeout: 2) != .completed {
+            window.coordinate(withNormalizedOffset: .zero).withOffset(.init(dx: 104, dy: 32)).tap()
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            isFullscreen()
+        }, object: window)], timeout: 8), .completed, "Restore full display bounds before a new independent trial")
+    }
+
+    /// Historical test names describe the projection, not separate home cards.
+    static func trainingCardTitle(_ title: String) -> String {
+        let names = ["角度", "瞄准点", "准度", "分离角", "两球走位", "三球走位", "多球走位"]
+        for name in names {
+            if ["2D" + name, "3D" + name, "2D " + name + "训练", "3D " + name + "训练"].contains(title) { return name }
+        }
+        return title
+    }
+
+    /// Select the requested view through the real menu after starting a merged project.
+    /// Do not call this when asserting that a previously chosen view survived restore.
+    func selectTrainingView(_ title: String) {
+        guard Self.trainingCardTitle(title) != title else { return }
+        maximizeTrainingTestWindow()
+        let name = Self.trainingCardTitle(title)
+        let prefixes = ["角度": "angleTraining", "瞄准点": "aimPointTraining", "准度": "accuracy",
+                        "分离角": "separation", "两球走位": "twoBall", "三球走位": "threeBall", "多球走位": "multiBall"]
+        guard let prefix = prefixes[name] else { XCTFail("Unknown training project: " + title); return }
+        XCTAssertTrue(buttons[prefix + ".start"].waitForNonExistence(timeout: 180))
+        let moreID = prefix == "multiBall" ? "freeplay.moreMenu" : prefix + (["angleTraining", "aimPointTraining"].contains(prefix) ? ".settings" : ".more")
+        let more = buttons[moreID]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate:
+            NSPredicate(format: "exists == true AND enabled == true AND hittable == true"), object: more)], timeout: 60), .completed)
+        more.tap()
+        let mode = descendants(matching: .any).matching(identifier: (prefix == "multiBall" ? "freeplay" : prefix) + ".cameraMode").firstMatch
+        XCTAssertTrue(mode.waitForExistence(timeout: 5))
+        let expected = title.hasPrefix("3D") ? "3D" : "2D"
+        if mode.value as? String != expected { mode.tap() }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate:
+            NSPredicate(format: "value == %@", expected), object: mode)], timeout: 10), .completed)
+        let close = descendants(matching: .any).matching(identifier: prefix == "multiBall" ? "dailyClearance.menuClose" : prefix + ".dismissMenu").firstMatch
+        if prefix == "multiBall", !close.exists {
+            let backdrop = buttons["关闭菜单"].firstMatch
+            XCTAssertTrue(backdrop.waitForExistence(timeout: 5))
+            backdrop.coordinate(withNormalizedOffset: .init(dx: 0.03, dy: 0.7)).tap()
+        } else {
+            XCTAssertTrue(close.waitForExistence(timeout: 5)); close.tap()
+        }
+        XCTAssertTrue(mode.waitForNonExistence(timeout: 5))
+    }
+
     // MARK: - Tab Navigation
 
     enum Tab: String {

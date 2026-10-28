@@ -169,20 +169,20 @@ final class TrainingGridBank {
         return blocked.map { Array(Set($0)).sorted() }
     }
 
-    func draw(_ config: SceneTrainingConfiguration, seed: UInt64, excluding: Set<String> = [],
+    func draw(_ config: SceneTrainingConfiguration, seed: UInt64, excluding: Set<String> = [], count: Int = 20,
               accepting: ((TrainingBankBoard) -> Bool)? = nil) throws -> Draw {
         try Task.checkCancellation()
         var blocked = excludedRanks(excluding)
         let remaining = pools.indices.map { pools[$0].count - blocked[$0].count }
         var fitted = try distribution(config, counts: remaining)
-        guard pools.indices.reduce(0, { $0 + (fitted.probabilities[$1] > 0 ? remaining[$1] : 0) }) >= 20 else {
-            throw TrainingQuestionBank.Failure.coverage("不足20个不同球形")
+        guard pools.indices.reduce(0, { $0 + (fitted.probabilities[$1] > 0 ? remaining[$1] : 0) }) >= count, count > 0 else {
+            throw TrainingQuestionBank.Failure.coverage("不足\(count)个不同球形")
         }
         var random = SceneTrainingGenerator.SeededRandom(state: seed)
         var probabilities = fitted.probabilities
         var boards: [TrainingBankBoard] = []
         var inaccessible: Set<Int> = []
-        while boards.count < 20 {
+        while boards.count < count {
             try Task.checkCancellation()
             let total = probabilities.reduce(0, +)
             guard total > 0 else { throw TrainingQuestionBank.Failure.coverage("本轮可用组合已耗尽") }
@@ -221,7 +221,7 @@ final class TrainingGridBank {
         return .init(boards: boards, distribution: fitted,
                      inaccessibleCombinations: inaccessible.sorted().map { payload.combinationTable[$0].id })
     }
-    func baseBatch(_ config: SceneTrainingConfiguration, seed: UInt64, excluding: Set<String> = []) throws -> [TrainingBankBoard] {
-        try draw(config, seed: seed, excluding: excluding).boards
+    func baseBatch(_ config: SceneTrainingConfiguration, seed: UInt64, excluding: Set<String> = [], count: Int = 20) throws -> [TrainingBankBoard] {
+        try draw(config, seed: seed, excluding: excluding, count: count).boards
     }
 }

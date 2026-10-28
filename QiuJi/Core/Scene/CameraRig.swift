@@ -2151,6 +2151,23 @@ final class CameraRig: ObservableObject {
         applyCameraTransform()
     }
 
+    /// Optional table reservation inside a full-window renderer (points, top-left origin).
+    /// The scene continues behind HUD lanes; fitting/pan retain the original table viewport.
+    var topDownPresentationRect: CGRect?
+
+    private func applyTopDownPresentationRect() {
+        guard let rect = topDownPresentationRect, rect.width > 0, rect.height > 0,
+              viewportSize.width > 0, viewportSize.height > 0 else { return }
+        let metresPerPoint = Float(2 * topDownOrthographicScale / Double(rect.height))
+        cameraNode.camera?.orthographicScale = topDownOrthographicScale * Double(viewportSize.height / rect.height)
+        let right = cameraNode.simdWorldTransform.columns.0
+        let up = cameraNode.simdWorldTransform.columns.1
+        let dx = Float(viewportSize.width / 2 - rect.midX) * metresPerPoint
+        let dy = Float(rect.midY - viewportSize.height / 2) * metresPerPoint
+        cameraNode.simdPosition += SIMD3(right.x, right.y, right.z) * dx
+            + SIMD3(up.x, up.y, up.z) * dy
+    }
+
     func applyTopDown2D() {
         presentsTopDown = true
         cameraNode.camera?.usesOrthographicProjection = true
@@ -2160,6 +2177,7 @@ final class CameraRig: ObservableObject {
         let panZ = Float(topDownPanOffset.y)
         cameraNode.position = SCNVector3(panX, tableSurfaceY + 5.0, panZ)
         cameraNode.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
+        applyTopDownPresentationRect()
     }
 
     /// Top-down 2D view with the table's long axis (X) appearing vertically on screen,
@@ -2180,6 +2198,7 @@ final class CameraRig: ObservableObject {
             up: SCNVector3(1, 0, 0),
             localFront: SCNVector3(0, 0, -1)
         )
+        applyTopDownPresentationRect()
     }
 
     func snapToTarget() {

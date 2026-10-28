@@ -197,7 +197,7 @@ final class SeparationPracticeTests: XCTestCase {
         let missed = try SeparationShot(question: q, input: input, prediction: weak, surfaceY: BTTablePhysics.surfaceY)
         XCTAssertEqual(missed.score?.value, 0)
         XCTAssertEqual(missed.score?.zeroReason, .targetNotPotted)
-        XCTAssertEqual(missed.resultText, "本杆得分 0.0分 · 目标球未进指定袋")
+        XCTAssertEqual(missed.resultText, TrainingPracticeNotice.cannotPot)
         for is3D in [false, true] {
             var record = SeparationPracticeRecord(ownerKey: "missed-target", is3D: is3D,
                 configuration: .init(), prepared: prepared)
@@ -343,7 +343,7 @@ final class SeparationPracticeTests: XCTestCase {
             if failAtomic { throw CocoaError(.fileWriteOutOfSpace) }
             if let last = records.last { try save(last) }; lastBatch = records
         }
-        func resumable(is3D: Bool) throws -> SeparationPracticeRecord? { saved?.is3D == is3D ? saved : nil }
+        func resumable(is3D: Bool) throws -> SeparationPracticeRecord? { saved }
     }
     private struct PrefetchFixture {
         let vm: SeparationPracticeViewModel, repo: MemoryRepository, probe: SeparationPrefetchProbe
@@ -355,7 +355,7 @@ final class SeparationPracticeTests: XCTestCase {
                                  premium: Bool = true, is3D: Bool = false, used: Int? = nil) throws -> PrefetchFixture {
         let suite = "prefetch-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: suite)!
-        let limiter = AngleUsageLimiter(defaults: defaults, namespace: suite); limiter.isPremium = premium
+        let limiter = AngleUsageLimiter(defaults: defaults, namespace: suite, limit: 15); limiter.isPremium = premium
         var configuration = SceneTrainingConfiguration(); configuration.freePractice = free
         let first = try SeparationQuestionGenerator.prepare(configuration, seed: 20261022)
         let next = try SeparationQuestionGenerator.prepare(configuration, excluding: [first.question.board.id], seed: 20261023)
@@ -375,9 +375,12 @@ final class SeparationPracticeTests: XCTestCase {
                     prediction: prediction, surfaceY: BTTablePhysics.surfaceY))
             }
         }
+        for shot in record.attempts {
+            record.presentation?.accept(questionID: shot.questionID, at: shot.submittedAt, premium: premium)
+        }
         if !answered { record.latestShot = nil }
         record.showingResult = answered; repo.saved = record
-        if let used { for _ in 0..<max(0, used - (is3D ? 0 : record.attempts.count)) { limiter.recordQuestion() } }
+        if let used { for _ in 0..<max(0, used - (premium ? 0 : record.attempts.count)) { limiter.recordQuestion() } }
         let vm = SeparationPracticeViewModel(is3D: is3D, limiter: limiter, defaults: defaults,
             prepareQuestion: { configuration, excluded in try probe.generate(configuration, excluded) })
         vm.setShowsReference(false); vm.setPlaysStroke(false)
@@ -391,7 +394,7 @@ final class SeparationPracticeTests: XCTestCase {
     func testPrefetchedNextIsImmediateSingleSlotAndSaveRetryKeepsIt() async throws {
         let f = try prefetchFixture(); defer { f.close() }
         try await waitForPrefetch { f.probe.count == 1 }
-        XCTAssertEqual(f.vm.record?.questions.count, 1); XCTAssertEqual(f.vm.limiter.questionsUsedToday, 1)
+        XCTAssertEqual(f.vm.record?.questions.count, 1); XCTAssertEqual(f.vm.limiter.questionsUsedToday, 0)
         XCTAssertEqual(f.probe.excluded(at: 0), [f.first.question.board.id])
         f.probe.release(0); try await waitForPrefetch { f.vm.nextQuestionReady }
         let oldID = f.vm.record?.current?.id
@@ -404,7 +407,7 @@ final class SeparationPracticeTests: XCTestCase {
         XCTAssertEqual(f.vm.phase, .aiming, "A ready slot is installed in this call, without awaiting generation")
         print("PREFETCH_CACHED_NEXT_MS=\((ProcessInfo.processInfo.systemUptime - start) * 1000)")
         XCTAssertEqual(f.vm.record?.current?.id, f.next.question.id)
-        XCTAssertEqual(f.vm.record?.attempts.count, 1); XCTAssertEqual(f.vm.limiter.questionsUsedToday, 1)
+        XCTAssertEqual(f.vm.record?.attempts.count, 1); XCTAssertEqual(f.vm.limiter.questionsUsedToday, 0)
         f.vm.next() // Double tap cannot skip an unanswered question.
         try await waitForPrefetch { f.probe.count == 2 }
         XCTAssertEqual(f.vm.record?.questionNumber, 2)
@@ -421,7 +424,7 @@ final class SeparationPracticeTests: XCTestCase {
         f.vm.next(); try await waitForPrefetch { f.probe.count == 2 }
         f.probe.release(1); try await waitForPrefetch { f.vm.phase == .aiming }
         XCTAssertEqual(f.vm.record?.current?.id, f.next.question.id)
-        XCTAssertEqual(f.vm.limiter.questionsUsedToday, 1)
+        XCTAssertEqual(f.vm.limiter.questionsUsedToday, 0)
     }
     func testPrefetchDiscardedBySettingsRestartExitAndOwnerChange() async throws {
         let f = try prefetchFixture(); defer { f.close() }
@@ -446,39 +449,39 @@ final class SeparationPracticeTests: XCTestCase {
         XCTAssertNil(f.vm.record); XCTAssertFalse(f.vm.nextQuestionReady)
         XCTAssertEqual(f.vm.phase, .settings)
     }
-    func testPrefetchStopsBeforeQuestion21AndReservesLastFreeAllowance() async throws {
-        for (count, answered, premium, used) in [(20, false, true, 0), (20, true, true, 0),
-                                                (1, false, false, 19), (1, true, false, 20)] {
+    func testPrefetchStopsBeforeQuestion16AndReservesLastFreeAllowance() async throws {
+        for (count, answered, premium, used) in [(15, false, true, 0), (15, true, true, 0),
+                                                (1, false, false, 14), (1, true, false, 15)] {
             let f = try prefetchFixture(count: count, answered: answered, premium: premium, used: used)
             defer { f.close() }
             try await Task.sleep(for: .milliseconds(50))
             XCTAssertEqual(f.probe.count, 0); XCTAssertFalse(f.vm.nextQuestionReady)
             if answered { f.vm.next(); XCTAssertEqual(f.vm.phase, .summary) }
         }
-        // Question 19 may prepare question 20; installing it must not prepare 21.
-        let f = try prefetchFixture(count: 19, premium: false, used: 19); defer { f.close() }
+        // Question 14 may prepare question 15; installing it must not prepare 16.
+        let f = try prefetchFixture(count: 14, premium: false, used: 14); defer { f.close() }
         try await waitForPrefetch { f.probe.count == 1 }
         f.probe.release(0); try await waitForPrefetch { f.vm.nextQuestionReady }
-        f.vm.next(); XCTAssertEqual(f.vm.record?.questionNumber, 20)
+        f.vm.next(); XCTAssertEqual(f.vm.record?.questionNumber, 15)
         try await Task.sleep(for: .milliseconds(50))
-        XCTAssertEqual(f.probe.count, 1); XCTAssertEqual(f.vm.limiter.questionsUsedToday, 19)
+        XCTAssertEqual(f.probe.count, 1); XCTAssertEqual(f.vm.limiter.questionsUsedToday, 14)
         XCTAssertFalse(f.vm.nextQuestionReady)
     }
     func testCooperativeCancellationForRightsAndQuotaHasNoTechnicalError() async throws {
-        let f = try prefetchFixture(is3D: true); defer { f.close() }
+        let f = try prefetchFixture(free: true, is3D: true); defer { f.close() }
         try await waitForPrefetch { f.probe.count == 1 }; f.vm.next()
         f.vm.limiter.isPremium = false; f.vm.refreshNextQuestion()
         try await waitForPrefetch { f.vm.phase == .result }
         XCTAssertTrue(f.vm.needsSubscription); XCTAssertNil(f.vm.message)
         XCTAssertEqual(f.vm.record?.questionNumber, 1)
-        let free = try prefetchFixture(premium: false, used: 18); defer { free.close() }
+        let free = try prefetchFixture(premium: false, used: 13); defer { free.close() }
         try await waitForPrefetch { free.probe.count == 1 }; free.vm.next()
         free.vm.limiter.recordQuestion(); free.vm.limiter.recordQuestion(); free.vm.refreshNextQuestion()
         try await waitForPrefetch { free.vm.phase == .summary }
         XCTAssertNil(free.vm.message); XCTAssertEqual(free.vm.record?.questionNumber, 1)
     }
     func testRestoredRightsDoNotResurrectCancelledRequestWithSameQuestionKey() async throws {
-        let f = try prefetchFixture(is3D: true); defer { f.close() }
+        let f = try prefetchFixture(free: true, is3D: true); defer { f.close() }
         f.probe.ignoreCancellation = true
         try await waitForPrefetch { f.probe.count == 1 }; f.vm.next()
         f.vm.limiter.isPremium = false; f.vm.refreshNextQuestion()
@@ -490,19 +493,19 @@ final class SeparationPracticeTests: XCTestCase {
         f.vm.next(); XCTAssertEqual(f.vm.record?.questionNumber, 2)
     }
     func testRightsOrQuotaChangeWhileNextIsPendingCannotConsumeCache() async throws {
-        let f = try prefetchFixture(is3D: true); defer { f.close() }
+        let f = try prefetchFixture(free: true, is3D: true); defer { f.close() }
         f.probe.ignoreCancellation = true
         try await waitForPrefetch { f.probe.count == 1 }; f.vm.next()
         f.vm.limiter.isPremium = false; f.vm.refreshNextQuestion(); f.probe.release(0)
         try await waitForPrefetch { f.vm.phase == .result }
         XCTAssertEqual(f.vm.record?.questionNumber, 1); XCTAssertTrue(f.vm.needsSubscription)
         XCTAssertFalse(f.vm.nextQuestionReady)
-        let free = try prefetchFixture(premium: false, used: 18); defer { free.close() }
+        let free = try prefetchFixture(premium: false, used: 13); defer { free.close() }
         free.probe.ignoreCancellation = true
         try await waitForPrefetch { free.probe.count == 1 }; free.vm.next()
         free.vm.limiter.recordQuestion(); free.vm.limiter.recordQuestion(); free.vm.refreshNextQuestion()
         free.probe.release(0); try await waitForPrefetch { free.vm.phase == .summary }
-        XCTAssertEqual(free.vm.record?.questionNumber, 1); XCTAssertEqual(free.vm.limiter.questionsUsedToday, 20)
+        XCTAssertEqual(free.vm.record?.questionNumber, 1); XCTAssertEqual(free.vm.limiter.questionsUsedToday, 15)
         XCTAssertFalse(free.vm.nextQuestionReady)
     }
     func testDefaultReferenceIsFixedPhysicalRouteWithoutAttemptsAndClearsOnOwnerChange() async throws {
@@ -526,7 +529,7 @@ final class SeparationPracticeTests: XCTestCase {
         let line = try XCTUnwrap(vm.referenceTrajectory)
         XCTAssertGreaterThan(line.count, 2)
         let prediction = try SeparationQuestionGenerator.solve(board: prepared.question.board,
-            input: .init(spinX: 0, spinY: 0, velocity: 2.5), surfaceY: vm.scene.surfaceY,
+            input: .init(spinX: 0, spinY: 0, velocity: Float(ShotTuning.defaultVelocity)), surfaceY: vm.scene.surfaceY,
             profile: AccuracyTipSelector.renderedProfile())
         let expected = try SeparationTrajectory.extract(prediction)
         XCTAssertEqual(line.count, expected.count)
@@ -617,7 +620,7 @@ final class SeparationPracticeTests: XCTestCase {
                 try await waitForPrefetch { restored.phase == .result }
                 XCTAssertNotEqual(restored.record?.latestShot?.id, firstShot)
                 XCTAssertEqual(restored.record?.attempts.count, 1)
-                XCTAssertEqual(limiter.questionsUsedToday, is3D ? 0 : 1, "3D uses Pro access, not the 2D daily counter")
+                XCTAssertEqual(limiter.questionsUsedToday, 0, "Pro submissions never consume the free daily counter")
                 restored.suspendTeachingActivity()
                 let result = SeparationPracticeViewModel(is3D: is3D, limiter: limiter, defaults: defaults, prepareQuestion: prepareNext)
                 defer { result.suspendTeachingActivity() }
@@ -646,7 +649,7 @@ final class SeparationPracticeTests: XCTestCase {
         XCTAssertTrue(vm.playsStroke)
         vm.setPlaysStroke(false)
         XCTAssertFalse(SeparationPracticeViewModel(is3D: false, defaults: defaults).playsStroke)
-        XCTAssertTrue(SeparationPracticeViewModel(is3D: true, defaults: defaults).playsStroke)
+        XCTAssertFalse(SeparationPracticeViewModel(is3D: true, defaults: defaults).playsStroke)
         vm.attach(repository: repo)
         let prepared = try SeparationQuestionGenerator.prepare(.init(), seed: 20261022)
         vm.start(.init(), prepared: prepared); vm.setupScene()
@@ -667,7 +670,7 @@ final class SeparationPracticeTests: XCTestCase {
         repo.failSubmissions = false; vm.retrySave()
         XCTAssertEqual(vm.phase, .result)
         XCTAssertNil(vm.strokeStartedAt); XCTAssertNil(vm.revealedAt)
-        XCTAssertEqual(limiter.questionsUsedToday, 1)
+        XCTAssertEqual(limiter.questionsUsedToday, 0)
         XCTAssertEqual(vm.scene.cueBallNode?.position.x, initialCue.x)
         XCTAssertEqual(vm.scene.cueBallNode?.position.z, initialCue.z)
         XCTAssertEqual(vm.targetNode?.position.x, initialTarget.x)
@@ -704,7 +707,7 @@ final class SeparationPracticeTests: XCTestCase {
         for _ in 0..<3000 where restored.phase == .preparing { try await Task.sleep(for: .milliseconds(10)) }
         XCTAssertEqual(restored.phase, .playing)
         XCTAssertEqual(restored.record?.latestShot?.playsStroke, true)
-        XCTAssertEqual(limiter.questionsUsedToday, 1)
+        XCTAssertEqual(limiter.questionsUsedToday, 0)
         restored.suspendTeachingActivity()
         var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(XCTUnwrap(decoded.latestShot))) as? [String: Any])
         legacy.removeValue(forKey: "playsStroke")
@@ -729,7 +732,7 @@ final class SeparationPracticeTests: XCTestCase {
         XCTAssertEqual(vm.phase, .saveFailed); XCTAssertEqual(limiter.questionsUsedToday, 0)
         XCTAssertEqual(repo.saved?.attempts.count, 0)
         repo.failSubmissions = false; vm.retrySave()
-        XCTAssertEqual(vm.phase, .playing); XCTAssertEqual(limiter.questionsUsedToday, 1)
+        XCTAssertEqual(vm.phase, .playing); XCTAssertEqual(limiter.questionsUsedToday, 0)
         XCTAssertEqual(vm.scene.cueStick?.rootNode.isHidden, false)
         XCTAssertEqual(vm.record?.latestShot?.input, .init(spinX: 0.08, spinY: -0.08, velocity: 2.1))
         let shotID = vm.record?.latestShot?.id, questionID = vm.record?.current?.id
@@ -741,10 +744,10 @@ final class SeparationPracticeTests: XCTestCase {
         restored.attach(repository: repo)
         XCTAssertEqual(restored.record?.current?.id, questionID)
         XCTAssertEqual(restored.record?.latestShot?.id, shotID)
-        XCTAssertEqual(limiter.questionsUsedToday, 1)
+        XCTAssertEqual(limiter.questionsUsedToday, 0)
         vm.resumeTeachingActivity(); vm.retry(); vm.strike(); vm.suspendTeachingActivity()
         try await Task.sleep(for: .milliseconds(100))
-        XCTAssertEqual(vm.phase, .aiming); XCTAssertEqual(limiter.questionsUsedToday, 1)
+        XCTAssertEqual(vm.phase, .aiming); XCTAssertEqual(limiter.questionsUsedToday, 0)
         vm.ownerChanged(); XCTAssertNil(vm.record)
     }
     func testContinuousCandidatesConcentrateAtCenterAndRespectDisabledAxes() throws {
@@ -945,7 +948,7 @@ final class SeparationPracticeTests: XCTestCase {
     }
     func testRightsPreferencesAndLayoutsHaveSeparateIdentity() {
         XCTAssertFalse(AngleRoute.separationPractice2D.requiresPremium)
-        XCTAssertTrue(AngleRoute.separationPractice3D.requiresPremium)
+        XCTAssertFalse(AngleRoute.separationPractice3D.requiresPremium)
         XCTAssertTrue(AngleUsageLimiter.training(route: "separationPractice2D") === AngleUsageLimiter.separationTraining)
         XCTAssertFalse(AngleUsageLimiter.separationTraining === AngleUsageLimiter.accuracyTraining)
         XCTAssertFalse(TrainingSessionKind.countsTowardGoal(TrainingSessionKind.separationPractice))
@@ -991,7 +994,7 @@ final class SeparationPracticeTests: XCTestCase {
         record.activeSeconds = 125
         try repo.save(record)
         XCTAssertEqual(uploads, 0); XCTAssertEqual(try repo.resumable(is3D: false)?.id, record.id)
-        XCTAssertNil(try repo.resumable(is3D: true))
+        XCTAssertEqual(try repo.resumable(is3D: true)?.id, record.id)
         var p = ShotPrediction(); p.termination = .settled; p.recorder = TrajectoryRecorder()
         p.strikeDirection = AccuracyTipSelector.referenceDirection(board)
         let shot = try SeparationShot(question: q, input: .init(), prediction: p, surfaceY: BTTablePhysics.surfaceY)
@@ -1038,7 +1041,7 @@ final class SeparationPracticeTests: XCTestCase {
         XCTAssertEqual(vm.phase, .aiming, "Free-practice segment rollover also consumes the ready slot")
         for _ in 0..<3000 where vm.phase == .preparing { try await Task.sleep(for: .milliseconds(10)) }
         XCTAssertEqual(vm.phase, .aiming); XCTAssertEqual(vm.record?.questionNumber, 11)
-        XCTAssertEqual(vm.record?.totalAttemptCount, 10); XCTAssertEqual(limiter.questionsUsedToday, 10)
+        XCTAssertEqual(vm.record?.totalAttemptCount, 10); XCTAssertEqual(limiter.questionsUsedToday, 0)
         XCTAssertNotEqual(vm.record?.id, old.id); XCTAssertNil(vm.record?.latestShot)
         XCTAssertEqual(repo.lastBatch.count, 2); XCTAssertEqual(repo.lastBatch.first?.status, .completed)
         XCTAssertEqual(repo.lastBatch.last?.status, .active)

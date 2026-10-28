@@ -6400,3 +6400,48 @@ DR-447 收尾：physical.xcresult 的2D／3D原参考显示链均通过；累计
 FL-216 / DR-447 r2：测量面板必须以来源按钮真实frame验右侧与宽度、左侧内容可见，并验证外点不会穿透。首轮移除传播至按钮的容器AX标识；旧失败保留。已应用至UI-IMPLEMENTATION-SPEC与球桌TP21，完整证据留页面卡。
 
 DR-447 r2 / FL-216收尾：3项UI全部通过，原生2D/3D横屏图已审，gate通过，最终源码SHA一致。手机核心设备仍保留其他现场未复测；本轮受管构建已关闭回收，原失败证据保留。
+
+## DR-449 / FL-217 — 七类练习项目身份与视图分离（2026-10-28）
+
+用户确认全部7类实施，先合并再复验测量。目录14→7；BTTeachingTablePage新增可选onTrainingViewChange回调，返回Bool接受或拒绝切换，并沿controlLayoutBusy/编辑态安全门，只有接入的训练消费者切换正式投影，其他页保持原合同。TrainingProject统一项目额度与偏好，正式2D/3D布局仍独立；观察维度与旧历史源身份分开。M1–M6普通15/M7普通3，持续练习Pro。四类共享测量增加Codable快照，不重复几何实现。
+
+FL-217：延迟保存任务取消后继续强持有ViewModel，测试ModelContainer释放后写入崩溃；改弱持有、取消立即返回与deinit取消。修复后定向回归通过，原始失败保留。收尾还补多球结束事实持久化，弹窗关闭不抹去业务结束标记。
+
+- **已应用至**：`.cursor/rules/20-swiftui-developer.mdc` v2.5 §经验教训/FL-217；`tasks/UI-IMPLEMENTATION-SPEC.md` §DR-449及Changelog；球桌统一规范TP01/16/26/27/33、规格04/05/06/08、ADR-training-project-view-identity。实现、原生截图与未验项以执行卡为准。
+
+### FL-220 · 2026-10-28 · 撤回未授权的大字号与黑底改造
+- 用户明确球桌不需要大字号适配；此前为追求完整审计通过修改共享视觉越界。
+- 回退原字号/透明度/布局/球号绘制，保留合并与测量、数值修复；七类俯视消费同一3D房间地板。
+- 已应用至：球桌统一规范TP04/08/09/12/16、变更来源、`.cursor/rules/20-swiftui-developer.mdc`与UI-IMPLEMENTATION-SPEC。
+- 验证及资源：`tasks/ui-reviews/UR-20261028-training-visual-rollback.md`；用户未验收不写“已认可”。
+
+### DR-405 v1.8 — 自定义球形最多15颗且球号唯一（2026-10-28）
+
+用户将旧25颗及重复球规则改为真实一副球：1–15号每号一颗，母球另计。添加/保存/开始同源校验，球库已在桌球点击选择；旧档及待同步操作保持可读，修正后才能练习。验证状态以tasks/table-page-adaptation/CUSTOM-FORMATION-UNIQUE-20261028.md为准，不沿用旧25球证据。
+
+- **已应用至**：docs/04、docs/05、docs/00；球桌统一规范TP34及变更来源；tasks/UI-IMPLEMENTATION-SPEC.md；.cursor/skills/swiftui-design-system/SKILL.md DR-405 v1.8；本轮页面卡。
+
+DR-405 v1.8验证：Mac mini固定快照构建、34单元＋2UI及完整gate通过，11张原图已审；源码哈希对应、临时模拟器已释放删除，远端任务按证据收据回收。范围与未验项见CUSTOM-FORMATION-UNIQUE-20261028.md，未提交/推送/发布。
+
+2026-10-28 FL-220完成：回退未经授权的字号/黑底样式，TP09明确球桌无需大字号适配；七练习2D真实复用3D房间地板，正交投影保持原桌框。56/42/39项三环境分批定向回归通过；真实窗口回程校验四维bounds。原审计/失败证据未改写，真机未执行。报告：`tasks/ui-reviews/UR-20261028-training-visual-rollback.md`。
+
+
+### DR-405 v1.9 — 自定义球形内置4443与L型（2026-10-28）
+
+- 用户在图文调研后选定首批两套；每套15颗唯一目标球＋母球，按来源形状适配球迹台面。
+- `BuiltInCustomFormations`提供固定数据，选择页加独立分组；内置只读、临时单选状态不写个人档，复制沿原独立身份及同步机制。
+- 原自由练习宿主、2D/3D与重开复用，无新自动判罚。无新增组件API或全局布局变更。
+- 已应用至：产品docs/04、05，讨论docs/00，调研落地段，UI实施规格及[页面卡](table-page-adaptation/CUSTOM-FORMATION-BUILTINS-20261028.md)。验证与未验范围以页面卡为准。
+
+DR-405 v1.9定向验证：Mac mini固定快照构建、36单元＋2UI和完整gate通过；r1原图7张、r2球形及编辑原图3张已审。首轮测试夹具遗漏及修复保留FL-221，临时模拟器和构建资源已按任务回收。未验真机/iPad/VoiceOver及真实同步，未发布。
+
+
+### DR-405 v1.10 — 内置球形贴库与起杆方向修订（2026-10-28）
+
+根据用户反馈，L型端球按R贴库、两套母球台心、开始/重开瞄准1号中心；4443标题按显式4字符切点两行，其他标题行为不变。当前实现/验收及历史反例见内置页面卡反馈节。
+- 已应用至：UI-IMPLEMENTATION-SPEC组件定义与Changelog、CustomFormationLibrary/Session、FreePlay及BTTablePageTitle；来源说明和页面卡同步。
+
+
+FL-223：用户打回内置L型安全留边与4443标题机械拆分。已回写geometry-spatial-reasoning的端点相切检查，以及swiftui-design-system与UI规格的显式断行API；原始反馈及最终验证以内置页面卡为准。
+
+DR-405 v1.10 / FL-223复验：25项测试与gate通过，两阵2D/3D原图已审，台心与指向1号中心的真实状态、重开恢复及旧标题兼容均验证。任务设备及远端构建已按原件证据回收；真机/iPad/紧凑手机原图未验、未发布。

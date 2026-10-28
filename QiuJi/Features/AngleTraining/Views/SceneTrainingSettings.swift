@@ -62,7 +62,7 @@ struct SceneTrainingSettings<Batch>: View {
                 }
             }
             Section {
-                BTTrainingModePicker(count: 20, isPremium: subscription.isPremium, freePractice: Binding(get: { draft.freePractice }, set: { requested in
+                BTTrainingModePicker(count: TrainingProject.ordinaryRoundCount, isPremium: subscription.isPremium, freePractice: Binding(get: { draft.freePractice }, set: { requested in
                     if requested && !subscription.isPremium {
                         pendingFreePractice = true; showSubscription = true
                     }
@@ -97,7 +97,7 @@ struct SceneTrainingSettings<Batch>: View {
             if showsReferenceSpin { spinSection }
             if !subscription.isPremium {
                 Section {
-                    explanation("今天剩余 \(limiter.remainingToday) 题 · 每个2D训练每天20题")
+                    explanation("今日剩余 \(limiter.remainingToday) 题，2D与3D共用")
                         .font(.btCaption).foregroundStyle(.btTextSecondary)
                 }
             }
@@ -273,7 +273,7 @@ struct SceneTrainingSettings<Batch>: View {
     private func prepare() {
         let limiter = AngleUsageLimiter.training(route: route)
         limiter.refreshDay(); limiter.isPremium = subscription.isPremium
-        guard subscription.isPremium || (!draft.freePractice && !limiter.isLimitReached && !route.hasSuffix("3D")) else {
+        guard subscription.isPremium || (!draft.freePractice && !limiter.isLimitReached) else {
             pendingStart = true
             showSubscription = true; return
         }
@@ -314,7 +314,7 @@ extension SceneTrainingSettings where Batch == [SceneTrainingQuestion] {
         self.init(route: route, configuration: configuration, restarting: restarting,
             prepareBatch: { configuration in
                 let bank = try TrainingBankStore.load()
-                return try bank.baseBatch(configuration, seed: UInt64.random(in: 0...UInt64.max)).map(\.question)
+                return try bank.baseBatch(configuration, seed: UInt64.random(in: 0...UInt64.max), count: TrainingProject.ordinaryRoundCount).map(\.question)
             }, onStart: onStart, onCancel: onCancel)
     }
 }

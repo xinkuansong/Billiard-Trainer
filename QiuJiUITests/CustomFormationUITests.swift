@@ -59,7 +59,7 @@ final class CustomFormationUITests: XCTestCase {
     private func newTemplate(_ n: Int) {
         app.buttons["formation.new"].tap(); ready(app.buttons["paletteBall__1"])
         if UIDevice.current.userInterfaceIdiom != .pad { XCUIDevice.shared.orientation = .landscapeLeft }
-        for i in 0..<n { app.buttons["paletteBall__1"].tap(); count(i + 1) }
+        for i in 0..<n { app.buttons["paletteBall__\(i + 1)"].tap(); count(i + 1) }
     }
     private func setView(_ value: String) {
         app.buttons["freeplay.moreMenu"].tap()
@@ -154,7 +154,7 @@ final class CustomFormationUITests: XCTestCase {
         table.coordinate(withNormalizedOffset:CGVector(dx:0.25,dy:0.70)).tap()
         table.coordinate(withNormalizedOffset:CGVector(dx:0.65,dy:0.70)).tap()
         count(0)
-        for i in 0..<3 { app.buttons["paletteBall__1"].tap(); count(i+1) }
+        for i in 0..<3 { app.buttons["paletteBall__\(i + 1)"].tap(); count(i+1) }
         XCTAssertEqual(try value("count"),3)
         XCTAssertEqual(try value("length"),try value("spacing")*2,accuracy:0.11)
         try assertEqualSpacing(balls())
@@ -168,7 +168,7 @@ final class CustomFormationUITests: XCTestCase {
         let jointScreen = try XCTUnwrap(endpoints[1]["screen"] as? [Double])
         table.coordinate(withNormalizedOffset:.zero).withOffset(CGVector(dx:jointScreen[0],dy:table.frame.height*0.28)).tap()
         XCTAssertEqual(try handles().count,3)
-        for i in 0..<2 { app.buttons["paletteBall__2"].tap(); count(4+i) }
+        for i in 0..<2 { app.buttons["paletteBall__\(i + 4)"].tap(); count(4+i) }
         XCTAssertEqual(try value("count"),3)
         assertLanes(["formation.parameter.count","formation.parameter.spacing","formation.parameter.length","formation.edit.sort","formation.edit.delete","formation.edit.save"])
         try snap("02-connected-lines")
@@ -236,9 +236,9 @@ final class CustomFormationUITests: XCTestCase {
         app.buttons["formation.start"].tap(); ready(app.buttons["dailyClearance.strike"]); count(5)
         XCTAssertTrue(try handles().isEmpty)
         assertTitle("连接线球形")
-        XCTAssertEqual(app.buttons["paletteBall__1"].value as? String,"3颗")
-        XCTAssertEqual(app.buttons["paletteBall__2"].value as? String,"2颗")
-        XCTAssertFalse(app.buttons["paletteBall__3"].exists)
+        XCTAssertEqual(app.buttons["paletteBall__1"].value as? String,"1颗")
+        XCTAssertEqual(app.buttons["paletteBall__2"].value as? String,"1颗")
+        XCTAssertFalse(app.buttons["paletteBall__6"].exists)
         try snap("09-practice")
         app.buttons["dailyClearance.strike"].tap(); ready(app.buttons["dailyClearance.undo"])
     }
@@ -270,7 +270,7 @@ final class CustomFormationUITests: XCTestCase {
         app.buttons["formation.tool.line"].tap()
         table.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.70)).tap()
         table.coordinate(withNormalizedOffset: CGVector(dx: 0.70, dy: 0.70)).tap()
-        for i in 0..<3 { app.buttons["paletteBall__1"].tap(); count(i + 1) }
+        for i in 0..<3 { app.buttons["paletteBall__\(i + 1)"].tap(); count(i + 1) }
         save("自由练习回归")
         app.buttons["formation.start"].tap(); ready(app.buttons["dailyClearance.strike"])
         setView("2D"); count(3)
@@ -304,14 +304,14 @@ final class CustomFormationUITests: XCTestCase {
         try snap("41-practice-dragged")
 
         let movedBall = try XCTUnwrap(balls().first { $0["key"] as? String == key })
-        let palette = app.buttons["paletteBall__1"]
+        let palette = app.buttons["paletteBall_" + String(key.split(separator:"@")[0])]
         try coordinate(movedBall).press(forDuration: 0.15, thenDragTo: palette.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
         count(2)
         XCTAssertNil(try board()[key])
         palette.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).press(forDuration: 0.1,
             thenDragTo: table.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.35)))
         count(3)
-        XCTAssertNotNil(try board()[key], "Retrieval must restore the same repeated-ball identity")
+        XCTAssertNotNil(try board()[key], "Retrieval must restore the same ball identity")
         XCTAssertEqual(Set(try board().keys), Set(initial.keys))
         try snap("42-practice-retrieved")
 
@@ -362,29 +362,81 @@ final class CustomFormationUITests: XCTestCase {
         try assertBoard(initial)
     }
     func testLocalSyncStatusUsesExistingTemplateRow() throws {
-        launch(); newTemplate(3); save("三颗同号球同步模板")
+        launch(); newTemplate(3); save("三颗球同步模板")
         XCUIDevice.shared.orientation = .portrait
         let status = app.staticTexts["已保存到本机"]
         XCTAssertTrue(status.waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["formation.start"].isHittable)
         try snap("30-sync-local-template")
     }
-    func testTwentyFiveLimitGroupedPaletteAndNamedPractice() throws {
-        launch(); newTemplate(25)
-        app.buttons["paletteBall__2"].tap(); count(25)
-        XCTAssertTrue(app.descendants(matching:.any)["formation.notice"].exists)
-        try snap("10-editor-limit-25")
-        assertLanes(["formation.edit.delete","formation.edit.save"])
-        let identities = Set(try balls().compactMap { $0["key"] as? String }); XCTAssertEqual(identities.count,25)
-        save("二十五颗同号球")
-        app.terminate(); app.launch(); ready(app.buttons["formation.start"])
-        app.buttons["formation.start"].tap(); ready(app.buttons["dailyClearance.strike"]); count(25)
+    func testFifteenUniqueBallsAndNamedPractice() throws {
+        launch(); newTemplate(15)
+        let identities = Set(try balls().compactMap { $0["key"] as? String })
+        XCTAssertEqual(identities.count,15)
+        let before = try balls().map { $0["world"] as! [Double] }
+        app.buttons["paletteBall__2"].tap(); count(15)
         XCTAssertEqual(Set(try balls().compactMap { $0["key"] as? String }),identities)
-        assertTitle("二十五颗同号球")
-        XCTAssertEqual(app.buttons["paletteBall__1"].value as? String,"25颗")
-        XCTAssertFalse(app.buttons["paletteBall__2"].exists)
-        XCTAssertEqual(app.buttons.matching(NSPredicate(format:"identifier BEGINSWITH %@", "paletteBall__")).count,1)
-        try snap("11-practice-grouped-25")
+        XCTAssertEqual(try balls().map { $0["world"] as! [Double] },before)
+        try snap("10-editor-unique-15")
+        assertLanes(["formation.edit.delete","formation.edit.save"])
+        save("十五颗不同号球")
+        app.terminate(); app.launch(); ready(app.buttons["formation.start"])
+        try snap("11-template-unique-15")
+        app.buttons["formation.start"].tap(); ready(app.buttons["dailyClearance.strike"]); count(15)
+        XCTAssertEqual(Set(try balls().compactMap { $0["key"] as? String }),identities)
+        assertTitle("十五颗不同号球")
+        for n in 1...15 { XCTAssertEqual(app.buttons["paletteBall__\(n)"].value as? String,"1颗") }
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format:"identifier BEGINSWITH %@", "paletteBall__")).count,15)
+        try snap("12-practice-unique-15")
         app.buttons["dailyClearance.strike"].tap(); ready(app.buttons["dailyClearance.undo"])
+    }
+
+    func testBuiltInFormationsStartAndRestartWithoutPersonalTemplates() throws {
+        let entries = [("B4443000-0000-4000-8000-000000000001", "4443球形"),
+                       ("B1115000-0000-4000-8000-000000000002", "L型球形")]
+        for (index, entry) in entries.enumerated() {
+            launch()
+            let row = app.buttons["formation.builtin.\(entry.0)"]
+            ready(row); row.tap()
+            XCTAssertEqual(row.value as? String, "已选")
+            try snap("builtin-\(index)-list")
+            app.buttons["formation.start"].tap(); ready(app.buttons["dailyClearance.strike"]); count(15)
+            assertTitle(entry.1)
+            setView("2D")
+            let all = try XCTUnwrap(probe()["balls"] as? [[String: Any]])
+            let cue = try XCTUnwrap(all.first { $0["key"] as? String == "cueBall" }?["world"] as? [Double])
+            XCTAssertEqual(cue[0], 0, accuracy: 1e-6)
+            XCTAssertEqual(cue[2], 0, accuracy: 1e-6)
+            let positions = try balls().map { $0["world"] as! [Double] }
+            let keys = Set(try balls().compactMap { $0["key"] as? String })
+            XCTAssertEqual(keys.count, 15)
+            try snap("builtin-\(index)-2d")
+            setView("3D"); count(15); try snap("builtin-\(index)-3d")
+            setView("2D")
+            app.buttons["dailyClearance.strike"].tap(); ready(app.buttons["dailyClearance.undo"])
+            app.buttons["formation.restart"].tap()
+            app.buttons["formation.restart.confirm"].tap(); count(15)
+            XCTAssertEqual(try balls().map { $0["world"] as! [Double] }, positions)
+            XCTAssertEqual(Set(try balls().compactMap { $0["key"] as? String }), keys)
+            app.terminate()
+        }
+    }
+
+    func testCopyBuiltInFormationOpensEditablePersonalTemplate() throws {
+        launch()
+        let id = "B1115000-0000-4000-8000-000000000002"
+        app.buttons["formation.templateMenu.\(id)"].tap()
+        XCTAssertFalse(app.buttons["删除"].exists)
+        app.buttons["复制到我的球形"].tap()
+        ready(app.buttons["formation.start"])
+        let personal = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "formation.template.")).firstMatch
+        ready(personal)
+        XCTAssertTrue(personal.label.contains("L型球形 副本"))
+        XCTAssertEqual(personal.value as? String, "已选")
+        let personalID = String(personal.identifier.dropFirst("formation.template.".count))
+        app.buttons["formation.templateMenu.\(personalID)"].tap()
+        app.buttons["编辑"].tap(); ready(app.buttons["paletteBall__1"]); count(15)
+        XCTAssertTrue(app.buttons["formation.edit.save"].exists)
+        try snap("builtin-copy-editor")
     }
 }

@@ -49,6 +49,7 @@ struct SeparationShot: Codable, Identifiable {
     let specifiedPocket: Bool
     var score: SeparationTrajectoryScore?
     /// Nil preserves animated results from older records.
+    var presentation: TrainingShotPresentation?
     var playsStroke: Bool?
     var isTrajectoryOnly: Bool { playsStroke == false }
 
@@ -145,6 +146,8 @@ struct SeparationPracticeRecord: Codable, Identifiable {
     let id: UUID
     var ownerKey: String
     let is3D: Bool
+    var presentation: TrainingPresentation?
+    var geometricReference: GeometricReferenceTool.Snapshot?
     let configuration: SceneTrainingConfiguration
     let bankFingerprint: String
     let startedAt: Date
@@ -210,10 +213,12 @@ struct SeparationPracticeRecord: Codable, Identifiable {
     var shotBookmark: CameraRig.TrainingBookmark?
     var current: SeparationQuestion? { questions.indices.contains(cursor) ? questions[cursor] : nil }
     var currentAttempt: SeparationShot? { attempts.first { $0.questionID == current?.id } }
-    var displayName: String { is3D ? "3D分离角" : "2D分离角" }
+    var displayName: String { presentation == nil ? (is3D ? "3D分离角" : "2D分离角") : "分离角 · " + (presentation?.summary ?? "") }
     init(ownerKey: String, is3D: Bool, configuration: SceneTrainingConfiguration,
          prepared: SeparationQuestionGenerator.Prepared, now: Date = Date()) {
         id = UUID(); self.ownerKey = ownerKey; self.is3D = is3D; self.configuration = configuration
+        presentation = .init(is3D: is3D)
+        presentation?.observe(.init(is3D: is3D), questionID: prepared.question.id)
         bankFingerprint = prepared.fingerprint; startedAt = now; updatedAt = now; questions = [prepared.question]
     }
     mutating func accept(_ shot: SeparationShot) {
@@ -227,6 +232,7 @@ struct SeparationPracticeRecord: Codable, Identifiable {
     /// Free practice remains continuous; each durable segment has its own history row.
     func continuation(prepared: SeparationQuestionGenerator.Prepared) -> Self {
         var next = Self(ownerKey: ownerKey, is3D: is3D, configuration: configuration, prepared: prepared)
+        next.presentation = presentation
         next.completedQuestionOffset = totalAttemptCount
         next.completedScoreSum = totalScoreSum; next.completedScoreCount = totalScoredCount
         return next

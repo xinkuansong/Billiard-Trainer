@@ -199,7 +199,7 @@ final class MultiBallPracticeTests: XCTestCase {
     func testProAccessAndFixedSessionBoundary() throws {
         let usage = limiter()
         for is3D in [false, true] {
-            var config = MultiBallConfiguration(); config.freePractice = !is3D
+            var config = MultiBallConfiguration(); config.freePractice = true
             let c = MultiBallPracticeController(configuration: config, defaults: defaults, is3D: is3D, limiter: usage)
             c.start(config); XCTAssertTrue(c.showUpgrade); XCTAssertNil(c.rack)
             var premium = true; c.premiumProvider = { premium }
@@ -217,10 +217,10 @@ final class MultiBallPracticeTests: XCTestCase {
         c.start(.init()); XCTAssertEqual(c.questionNumber, 1); XCTAssertFalse(c.showSessionEnd)
         XCTAssertEqual(TablePreferencePage.multiBallPractice.fixedControlLayoutMode, .twoD)
         XCTAssertEqual(TablePreferencePage.multiBallPractice3D.fixedControlLayoutMode, .threeD)
-        XCTAssertFalse(TablePreferencePage.multiBallPractice.fields.contains(.view3D))
+        XCTAssertTrue(TablePreferencePage.multiBallPractice.fields.contains(.view3D))
         XCTAssertTrue(FreeControlCatalog.ids(page: .multiBallPractice3D, mode: .threeD).contains("multiBall.restart"))
         XCTAssertFalse(AngleRoute.multiBallPractice.requiresPremium)
-        XCTAssertTrue(AngleRoute.multiBallPractice3D.requiresPremium)
+        XCTAssertFalse(AngleRoute.multiBallPractice3D.requiresPremium)
     }
     func testDailyRolloverAndLegacyConfigurationIsolation() throws {
         var date = Date(timeIntervalSince1970: 1800000000)
@@ -234,7 +234,7 @@ final class MultiBallPracticeTests: XCTestCase {
         XCTAssertFalse(config.freePractice)
         var other = config; other.rotationCount = 9; other.freePractice = true
         config.save(defaults: defaults); other.save(defaults: defaults, is3D: true)
-        XCTAssertEqual(MultiBallConfiguration.load(defaults: defaults), config)
+        XCTAssertEqual(MultiBallConfiguration.load(defaults: defaults), other)
         XCTAssertEqual(MultiBallConfiguration.load(defaults: defaults, is3D: true), other)
         let preferences = TablePreferencesStore(defaults: defaults)
         preferences.apply(.grid, value: 1, to: .multiBallPractice)
@@ -255,7 +255,7 @@ final class MultiBallPracticeTests: XCTestCase {
         var independent = migrated; independent.positionMode = .independent
         independent.save(defaults: defaults)
         migrated.save(defaults: defaults, is3D: true)
-        XCTAssertEqual(MultiBallConfiguration.load(defaults: defaults).positionMode, .independent)
+        XCTAssertEqual(MultiBallConfiguration.load(defaults: defaults).positionMode, .planned)
         XCTAssertEqual(MultiBallConfiguration.load(defaults: defaults, is3D: true).positionMode, .planned)
     }
 
@@ -468,6 +468,8 @@ final class MultiBallPracticeTests: XCTestCase {
         let vm = PositionPlayViewModel(); vm.usesAutomaticPocketFallback = true; vm.setupScene(loadsDefaultLayout: false)
         let c = MultiBallPracticeController(configuration: .init(), defaults: defaults, limiter: limiter())
         c.attach(to: vm)
+        // This checks marker composition, independent of random rack recommendations.
+        if vm.selectedPocketIndex < 0 { vm.selectPocket(at: 2) }
         let pocket = vm.selectedPocketIndex
         XCTAssertTrue((0..<6).contains(pocket))
         XCTAssertTrue(c.selectContinuationPocket(pocket))

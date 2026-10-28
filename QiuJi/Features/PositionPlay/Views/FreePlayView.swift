@@ -32,12 +32,13 @@ struct FreePlayView: View {
     @StateObject private var multiBallController = MultiBallPracticeController()
     private var rackController: any RackPracticeControlling { isMultiBall ? multiBallController : snakeController }
     private var rackPrefix: String { isMultiBall ? "multiBall" : "snake" }
+    @ObservedObject private var trainingOwner = CurrentOwnerContext.shared
     @ObservedObject private var preferences = UserPreferences.shared
     @ObservedObject private var tablePreferences = TablePreferencesStore.shared
     @ObservedObject private var freeControlLayouts = FreeControlLayoutStore.shared
     private var preferencePage: TablePreferencePage {
         if let formation { return formation.isTemplateEditor ? .customFormationEditor : .customFormationPractice }
-        if isMultiBall { return multiBallIs3D ? .multiBallPractice3D : .multiBallPractice }
+        if isMultiBall { return is3D ? .multiBallPractice3D : .multiBallPractice }
         if isSnake { return .snakePractice }
         if isTryoutPage { return .drillTryout }
         if isEditor { return .composer }
@@ -57,6 +58,11 @@ struct FreePlayView: View {
         guard hasAppeared, !editingControlLayout, !vm.isPlaying, !vm.isSequencePlaying, vm.breakRunner?.isBusy != true, !isTemporaryTopDown, !vm.isComputing else { return }
         let next = pagePreferences
         let previous = vm.scene.tablePreferences
+        if isMultiBall, let previous, previous.enabled(.view3D) != next.enabled(.view3D),
+           is3D != next.enabled(.view3D) {
+            guard !controlLayoutBusy, multiBallController.switchTrainingView(to: next.enabled(.view3D)) else { return }
+            _ = ShotPlayCamera.setMode(next.enabled(.view3D) ? .perspective3D : .topDown2D, on: vm)
+        }
         vm.scene.tablePreferencePage = preferencePage
         vm.scene.tablePreferences = next
         if !isMultiBall, previous?.enabled(.view3D) != next.enabled(.view3D) {
@@ -218,7 +224,7 @@ struct FreePlayView: View {
     }
     private var is3D: Bool { vm.cameraMode == .perspective3D }
     private var isDaily2D: Bool { usesCoreTemplate && !is3D }
-    private var pageTitle: String { if isMultiBall { return multiBallIs3D ? "3D多球走位" : "2D多球走位" }; if isSnake { return "蛇彩练习" }; if let editor { return editor.title }; return isShotSimulation ? "分离角与走位" : (isDailyClearance ? "每日清台" : "自由击球") }
+    private var pageTitle: String { if isMultiBall { return "多球走位" }; if isSnake { return "蛇彩练习" }; if let editor { return editor.title }; return isShotSimulation ? "分离角与走位" : (isDailyClearance ? "每日清台" : "自由击球") }
     private var page3DHidden: Bool {
         get { !pagePreferences.enabled(.shows3DTrajectory) }
         nonmutating set { setPagePreference(.shows3DTrajectory, newValue ? 0 : 1) }
@@ -303,7 +309,7 @@ struct FreePlayView: View {
     var body: some View {
         Group {
             if isMultiBall {
-                ProAccessGate(requiresPremium: !vm.isPlaying && !vm.isComputing && (multiBallIs3D || multiBallController.configuration.freePractice)) { coreBody }
+                ProAccessGate(requiresPremium: !vm.isPlaying && !vm.isComputing && multiBallController.configuration.freePractice) { coreBody }
             }
             else if isShotSimulation || isEditor || isRackPractice { coreBody }
             else { coreBody.toolUsageSession(isDailyClearance ? .dailyClearance : .freePlay) }
@@ -484,7 +490,7 @@ struct FreePlayView: View {
     private var pageBody: some View {
         ZStack {
             if isMultiBall && multiBallController.showSettings {
-                MultiBallSettingsView(configuration: multiBallController.configuration, isRestart: true, is3D: multiBallIs3D,
+                MultiBallSettingsView(configuration: multiBallController.configuration, isRestart: true, is3D: is3D,
                     onStart: { multiBallController.start($0) }, onCancel: { multiBallController.showSettings = false })
                     .toolbar(.visible, for: .navigationBar)
                     .statusBarHidden(false)
@@ -591,7 +597,7 @@ struct FreePlayView: View {
                     if isMultiBall { multiBallController.premiumProvider = { [weak subscription] in subscription?.isPremium == true } }
                     rackController.attach(to: vm)
                 }
-                vm.cameraMode = (isMultiBall ? multiBallIs3D : pagePreferences.enabled(.view3D)) ? .perspective3D : (dailyPortrait ? .topDown2DRotated : .topDown2D)
+                vm.cameraMode = (isMultiBall ? multiBallController.is3D : pagePreferences.enabled(.view3D)) ? .perspective3D : (dailyPortrait ? .topDown2DRotated : .topDown2D)
                 vm.scene.setCameraMode(vm.cameraMode, animated: false)
                 #if DEBUG
                 if !isDailyClearance, ProcessInfo.processInfo.arguments.contains("-v63.freePlayScratch") {
@@ -629,7 +635,9 @@ struct FreePlayView: View {
             updateDaily3DPlaybackDiagnostics()
         }
         .onReceive(ruleNotices.$message) { toast = $0 }
+        .onChange(of: trainingOwner.ownerKey) { _, _ in if isMultiBall { multiBallController.ownerChanged() } }
         .onDisappear {
+            if isMultiBall { multiBallController.saveCheckpoint() }
             if editingControlLayout { vm.scene.isPaused = scenePausedBeforeLayout }
             layoutBallDragging = false
             layoutAimDragging = false
@@ -649,6 +657,7 @@ struct FreePlayView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
+            if isMultiBall, phase != .active { multiBallController.saveCheckpoint() }
             daily3DDiagnostics?.setPage(foreground: phase == .active)
             guard usesCoreTemplate else { return }
             if phase == .active {
@@ -1463,7 +1472,7 @@ struct FreePlayView: View {
             var items: [DailyHUDMenuItem] = [
                 .init(id: "dailyClearance.displaySettings", title: "显示"),
                 .init(id: "freeplay.cameraMode", title: "视图", detail: is3D ? "3D" : "2D",
-                      segments: ["2D", "3D"], disabled: isTemporaryTopDown, action: {
+                      segments: ["2D", "3D"], disabled: isTemporaryTopDown || (isMultiBall && (controlLayoutBusy || editingControlLayout)), action: {
                     vm.cancelPowerRelease()
                     showSpinPad = false
                     toggleDailyCamera()
@@ -1482,7 +1491,7 @@ struct FreePlayView: View {
                 .init(id: "dailyClearance.trajectoryMenu", title: "轨迹显示 · \(dailyTrajectoryLabel)", disclosure: true,
                       disabled: disabled, action: { dailyPresentation = .trajectory }),
             ]
-            if isMultiBall { items.removeAll { $0.id == "freeplay.cameraMode" } }
+
             items += [TablePreferenceField.separation].map { field in
                 DailyHUDMenuItem(id: "freeplay." + field.rawValue, title: field.title,
                     selected: pagePreferences.enabled(field), action: {
@@ -1526,7 +1535,7 @@ struct FreePlayView: View {
             }
             if isMultiBall {
                 if multiBallController.isPlanning {
-                    items.append(.init(id: "multiBall.retryShot", title: "重打上一杆", disabled: disabled || !vm.canReplay,
+                    items.append(.init(id: "multiBall.retryShot", title: "重打上一杆", disabled: disabled || !multiBallController.canUndo,
                         action: { closeDailyPresentation(); multiBallController.undo() }))
                 }
                 items.append(.init(id: "multiBall.next", title: "换一局", disabled: disabled, action: {
@@ -1884,6 +1893,8 @@ private extension FreePlayView {
                                 .padding(.top, dailyFeedbackTop(in: stage.size))
                         }
                         .background(Color.clear.accessibilityElement()
+                            .accessibilityLabel("球桌")
+                            .accessibilityAddTraits(.isImage)
                             .accessibilityIdentifier("freeplay.stage"))
                         // The actual central stage excludes the header, fixed control lanes
                         // and safe-area/padding. Measure in window points, not a guessed ratio.
@@ -1923,7 +1934,7 @@ private extension FreePlayView {
             // This keeps the same renderer alive as its local frame and projection change.
             GeometryReader { viewport in
                 let fullFrame = CGRect(origin: .zero, size: viewport.size)
-                let renderFrame = is3D ? fullFrame : (readableBounds.map { viewport[$0] } ?? fullFrame)
+                let renderFrame = is3D || vm.scene.usesSceneFloorInTopDown ? fullFrame : (readableBounds.map { viewport[$0] } ?? fullFrame)
                 sceneContainer(fpsTrailingInset: is3D ? dailyControlColumnWidth + Spacing.xs + sideInset : nil)
                     .frame(width: renderFrame.width, height: renderFrame.height)
                     .position(x: renderFrame.midX, y: renderFrame.midY)
@@ -1936,7 +1947,7 @@ private extension FreePlayView {
         .background {
             // Keep the underlay alive while SceneKit resizes its surface between modes.
             // Removing it first exposes the hosting view for one frame on device.
-            dailyCarpetUnderlay(sceneSize: sceneSize)
+            if !vm.scene.usesSceneFloorInTopDown { dailyCarpetUnderlay(sceneSize: sceneSize) }
         }
         .environment(\.colorScheme, .dark)
         return sceneContent
@@ -2073,6 +2084,10 @@ private extension FreePlayView {
         }
         #if DEBUG
         .background {
+            if isMultiBall, ProcessInfo.processInfo.arguments.contains("-trainingMerge.probe") {
+                Color.clear.accessibilityElement().accessibilityIdentifier("multiBall.mergeState")
+                    .accessibilityValue(multiBallController.mergeDiagnostic)
+            }
             if ProcessInfo.processInfo.arguments.contains("-dailyLayout.probe") {
                 Color.clear.accessibilityElement()
                     .accessibilityIdentifier("dailyLayout.spaceProbe")
@@ -2174,6 +2189,7 @@ private extension FreePlayView {
             Text(text).fixedSize(horizontal: false, vertical: true)
         }
         .font(.subheadline).foregroundStyle(.white)
+
         .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("dailyClearance.notice")
@@ -2476,7 +2492,7 @@ private extension FreePlayView {
                         else { observeWholeTableForPage() }
                     }, usesTwoViewControls: rig.usesTwoViewCameraControls,
                     temporaryTopDownActive: vm.temporaryTopDownActive,
-                    onTemporaryTopDownBegan: { vm.beginTemporaryTopDown() },
+                    onTemporaryTopDownBegan: { vm.beginTemporaryTopDown(); if isMultiBall { multiBallController.observeTemporaryTopDown() } },
                     onTemporaryTopDownEnded: { vm.endTemporaryTopDown() }) { view in
                     daily3DDiagnostics?.input(.cameraButton, intent: .orbit)
                     showSpinPad = false
@@ -2613,6 +2629,9 @@ private extension FreePlayView {
 
     func toggleDailyCamera() {
         guard !isTemporaryTopDown else { return }
+        if isMultiBall {
+            guard !controlLayoutBusy, !editingControlLayout, multiBallController.switchTrainingView(to: !is3D) else { return }
+        }
         tablePreferences.apply(.view3D, value: is3D ? 0 : 1, to: preferencePage)
         guard !vm.isPlaying, !vm.isSequencePlaying, vm.breakRunner?.isBusy != true, !vm.isComputing else { return }
         // Consume only this camera intent; other pending fields still apply through the safe update path.
@@ -2763,6 +2782,10 @@ private extension FreePlayView {
         }
         #if DEBUG
         .background {
+            if isMultiBall, ProcessInfo.processInfo.arguments.contains("-trainingMerge.probe") {
+                Color.clear.accessibilityElement().accessibilityIdentifier("multiBall.mergeState")
+                    .accessibilityValue(multiBallController.mergeDiagnostic)
+            }
             if ProcessInfo.processInfo.arguments.contains("-dailyLayout.probe") {
                 Color.clear.accessibilityElement()
                     .accessibilityIdentifier("dailyLayout.headerProbe")
@@ -2824,7 +2847,8 @@ private extension FreePlayView {
 
     @ViewBuilder func dailyHeaderTitleText(compact: Bool) -> some View {
         if formation != nil {
-            BTTablePageTitle(pageTitle, width: 60, compact: compact, fitsLongText: true)
+            BTTablePageTitle(pageTitle, width: 60, compact: compact, fitsLongText: true,
+                             preferredLineBreak: formation?.preferredTitleLineBreak)
                 .accessibilityIdentifier("formation.title")
         } else if editor?.isTryout == true {
             BTTablePageTitle(pageTitle, width: dailyHeaderTitleWidth(size: 15), compact: compact, fitsLongText: true)
@@ -3016,7 +3040,10 @@ private extension FreePlayView {
         let quantity = formation?.isTemplateEditor == false ? (formation?.paletteCount(key) ?? 0) : 0
         return Button {
             editor?.onInteraction()
-            if isFormationEditor { formation?.place(key, world: nil) }
+            if isFormationEditor {
+                if onTable { formation?.select(actionKey) }
+                else { formation?.place(actionKey, world: nil) }
+            }
             else if editablePalette {
                 if onTable { vm.pulseTableBall(actionKey) }
                 else if is3D && formation == nil { flash("切到2D摆球", tone: .info) }

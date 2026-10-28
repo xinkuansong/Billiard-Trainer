@@ -26,7 +26,7 @@ final class CustomFormationSyncIntegrationTests: XCTestCase {
         }
         let f = try JSONDecoder().decode(Fixture.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
         guard f.baseURL == "http://106.54.3.210:3000", f.probeName.hasPrefix("formation-two-sim-probe-"),
-              f.ballIDs.count == 25, f.vertexIDs.count == 3, f.lineIDs.count == 2 else {
+              f.ballIDs.count == 15, f.vertexIDs.count == 3, f.lineIDs.count == 2 else {
             XCTFail("Production fixture does not match the allowlisted probe contract"); return
         }
         let phase = try XCTUnwrap(setting("FORMATION_PRODUCTION_PHASE"))
@@ -38,7 +38,7 @@ final class CustomFormationSyncIntegrationTests: XCTestCase {
         }
         let service = CustomFormationSyncService(backend: FormationRESTBackend(client: client))
         let repo = CustomFormationRepository(ownerKey: "production-verification:\(f.userID)")
-        let keys = f.ballIDs.map { "_1@" + $0.uuidString }
+        let keys = f.ballIDs.enumerated().map { "_\($0.offset + 1)@" + $0.element.uuidString }
         func sync(_ repository: CustomFormationRepository, full: Bool = false) async throws {
             let result = await service.sync(userID: f.userID, repository: repository, full: full, shouldContinue: { true })
             XCTAssertFalse(result.failed, "Production phase \(phase) failed")
@@ -46,10 +46,10 @@ final class CustomFormationSyncIntegrationTests: XCTestCase {
         }
         func assertContent(_ t: CustomFormationTemplate, version: Int) throws {
             XCTAssertEqual(t.id, f.templateID)
-            XCTAssertEqual(t.name, version == 1 ? "换机恢复·25颗重复球" : version == 2 ? "设备B修改" : "设备A再次修改")
+            XCTAssertEqual(t.name, version == 1 ? "换机恢复·15颗不同号球" : version == 2 ? "设备B修改" : "设备A再次修改")
             XCTAssertEqual(t.ballKeys, keys)
-            XCTAssertEqual(Set(t.ballKeys).count, 25)
-            XCTAssertEqual(t.board.onTable.count, 26)
+            XCTAssertEqual(Set(t.ballKeys).count, 15)
+            XCTAssertEqual(t.board.onTable.count, 16)
             let cue = try XCTUnwrap(t.board.onTable["cueBall"])
             XCTAssertEqual(cue.x, 0.2, accuracy: 0.00001); XCTAssertEqual(cue.y, 0.4, accuracy: 0.00001)
             for (index, key) in keys.enumerated() {
@@ -62,8 +62,8 @@ final class CustomFormationSyncIntegrationTests: XCTestCase {
             XCTAssertEqual(drawing.vertices.map(\.id), f.vertexIDs)
             XCTAssertEqual(drawing.lines.map(\.id), f.lineIDs)
             XCTAssertEqual(drawing.lines[0].end, drawing.lines[1].start)
-            XCTAssertEqual(drawing.lines[0].balls, version == 1 ? Array(keys.prefix(12)) : Array(keys.prefix(12).reversed()))
-            XCTAssertEqual(drawing.lines[1].balls, Array(keys.suffix(13)))
+            XCTAssertEqual(drawing.lines[0].balls, version == 1 ? Array(keys.prefix(8)) : Array(keys.prefix(8).reversed()))
+            XCTAssertEqual(drawing.lines[1].balls, Array(keys.suffix(7)))
             XCTAssertEqual(Double(drawing.vertices[0].x), version == 1 ? -0.5 : version == 2 ? -0.4 : -0.35, accuracy: 0.00001)
             XCTAssertEqual(Double(drawing.vertices[0].z), version == 1 ? 0 : version == 2 ? -0.2 : -0.15, accuracy: 0.00001)
         }
@@ -75,10 +75,10 @@ final class CustomFormationSyncIntegrationTests: XCTestCase {
             let vertices = [FormationVertex(id: f.vertexIDs[0], x: -0.5, z: 0),
                             FormationVertex(id: f.vertexIDs[1], x: 0, z: 0),
                             FormationVertex(id: f.vertexIDs[2], x: 0.5, z: 0.2)]
-            let t = CustomFormationTemplate(id: f.templateID, name: "换机恢复·25颗重复球", ballKeys: keys,
+            let t = CustomFormationTemplate(id: f.templateID, name: "换机恢复·15颗不同号球", ballKeys: keys,
                 board: .init(onTable: positions), drawing: .init(vertices: vertices, lines: [
-                    .init(id: f.lineIDs[0], start: vertices[0].id, end: vertices[1].id, balls: Array(keys.prefix(12))),
-                    .init(id: f.lineIDs[1], start: vertices[1].id, end: vertices[2].id, balls: Array(keys.suffix(13)))
+                    .init(id: f.lineIDs[0], start: vertices[0].id, end: vertices[1].id, balls: Array(keys.prefix(8))),
+                    .init(id: f.lineIDs[1], start: vertices[1].id, end: vertices[2].id, balls: Array(keys.suffix(7)))
                 ]))
             try repo.put(t); XCTAssertEqual(try repo.load().pendingCount, 1)
             try await sync(repo); XCTAssertEqual(try repo.load().meta(f.templateID).revision, 1)
@@ -165,7 +165,7 @@ final class CustomFormationSyncIntegrationTests: XCTestCase {
         func sync() async throws { let result = await service.sync(userID: f.userID, repository: repo, shouldContinue: { true }); XCTAssertFalse(result.failed, "Phase \(phase) failed"); }
         switch phase {
         case "A-create":
-            let keys = [PositionPlayBall.instanceKey(number: 1), PositionPlayBall.instanceKey(number: 1)]
+            let keys = [PositionPlayBall.instanceKey(number: 1), PositionPlayBall.instanceKey(number: 2)]
             let a = FormationVertex(x: -0.5, z: 0), b = FormationVertex(x: 0.5, z: 0)
             let t = CustomFormationTemplate(id: f.templateID, name: "设备A球形", ballKeys: keys,
                 board: .init(onTable: ["cueBall": .init(x: 0.2, y: 0.4), keys[0]: .init(x: 0.3, y: 0.25), keys[1]: .init(x: 0.7, y: 0.25)]),

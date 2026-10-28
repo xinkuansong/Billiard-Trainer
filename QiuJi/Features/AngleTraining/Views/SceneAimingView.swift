@@ -18,7 +18,6 @@ struct SceneAimingView: View {
     @State private var preferredPlayerView: CameraRig.PlayerView = .thirdPerson
 
     /// Camera mode is fixed per route (2D top-down or 3D perspective).
-    private let routeCameraMode: AngleTrainingScene.CameraMode
     @State private var hasStarted = false
     @State private var cameraReadableFrame: CGRect?
     @State private var configured = false
@@ -34,12 +33,19 @@ struct SceneAimingView: View {
     @State private var titleSize = CGSize(width: 60, height: 34)
     @StateObject private var fps = TableFPSReadoutState()
     @ObservedObject private var preferences = UserPreferences.shared
+    @ObservedObject private var owner = CurrentOwnerContext.shared
     @ObservedObject private var tablePreferences = TablePreferencesStore.shared
     private var preferencePage: TablePreferencePage { is3D ? .sceneAiming3D : .sceneAiming2D }
     private var pagePreferences: TablePreferenceSnapshot { tablePreferences.snapshot(for: preferencePage) }
     private func applyPagePreferences() {
+        let next = pagePreferences
+        if let previous = vm.scene.tablePreferences,
+           previous.enabled(.view3D) != next.enabled(.view3D),
+           is3D != next.enabled(.view3D) {
+            guard !editingControlLayout, vm.switchTrainingView(to: next.enabled(.view3D)) else { return }
+        }
         vm.scene.tablePreferencePage = preferencePage
-        vm.scene.tablePreferences = pagePreferences
+        vm.scene.tablePreferences = next
         vm.scene.setTableGridVisible(pagePreferences.enabled(.grid))
     }
     private func togglePreference(_ field: TablePreferenceField) {
@@ -51,15 +57,14 @@ struct SceneAimingView: View {
     }
 
     init(initialCameraMode: AngleTrainingScene.CameraMode) {
-        self.routeCameraMode = initialCameraMode == .perspective3D ? .perspective3D : .topDown2D
-        _vm = StateObject(wrappedValue: AimingQuizViewModel(limiter: .angleTraining))
+        _vm = StateObject(wrappedValue: AimingQuizViewModel(limiter: .angleTraining, initial3D: initialCameraMode == .perspective3D))
     }
 
     private var controlLayoutBusy: Bool {
         observingCamera || vm.cameraTransitionBusy || vm.temporaryTopDownActive || vm.showSettings || vm.testFinished
-            || vm.generationError != nil || vm.currentQuestion == nil || vm.limiter.isLimitReached
+            || vm.generationError != nil || vm.currentQuestion == nil || vm.isSaving
     }
-    private var is3D: Bool { routeCameraMode == .perspective3D }
+    private var is3D: Bool { vm.cameraMode == .perspective3D }
 
     private var showingTable: Bool { hasStarted && !vm.showSettings }
 
@@ -74,6 +79,15 @@ struct SceneAimingView: View {
             Button("结束练习") { vm.finish() }
         } message: { Text(vm.generationError ?? "") }
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
+        #if DEBUG
+        .overlay(alignment: .topLeading) {
+            if ProcessInfo.processInfo.arguments.contains("-trainingMerge.probe") {
+                Color.clear.frame(width: 1, height: 1).accessibilityElement()
+                    .accessibilityLabel("视图合并测试状态").accessibilityValue(vm.mergeDiagnostic)
+                    .accessibilityIdentifier("angle.mergeState").allowsHitTesting(false)
+            }
+        }
+        #endif
         .trainingBackgroundMusic()
         .preference(key: TrainingActivityPausedKey.self, value: editingControlLayout)
         .onChange(of: editingControlLayout) { _, editing in
@@ -84,7 +98,7 @@ struct SceneAimingView: View {
                 vm.scene.isPaused = scenePausedBeforeLayout
             }
         }
-        .navigationTitle(showingTable ? (is3D ? "3D角度" : "2D角度") : "训练设置")
+        .navigationTitle(showingTable ? TrainingProject.angle.title : "训练设置")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .background {
@@ -95,23 +109,29 @@ struct SceneAimingView: View {
         .toolbar(!showingTable ? .visible : .hidden, for: .navigationBar)
         .statusBarHidden(showingTable && UIDevice.current.userInterfaceIdiom != .pad)
         .onChange(of: tablePreferences.revision) { _, _ in applyPagePreferences() }
+        .onChange(of: vm.cameraTransitionBusy) { _, busy in if !busy { applyPagePreferences() } }
+        .onChange(of: vm.isSaving) { _, busy in if !busy { applyPagePreferences() } }
         .onAppear {
             applyPagePreferences()
             guard !configured else { return }
             configured = true
             vm.quizTypeLabel = is3D ? "scene3D" : "scene2D"
             vm.configure(context: modelContext)
-            vm.run.configuration = .load(for: vm.quizTypeLabel)
-            // Both routes defer renderer and orientation ownership until Start.
+            if vm.hasSavedSession {
+                prepareScene(); vm.restoreSession(); hasStarted = true
+            } else { vm.run.configuration = .load(for: vm.quizTypeLabel) }
         }
         .onChange(of: vm.phase) { _, phase in
             if phase != .observing { vm.endTemporaryTopDown() }
         }
         .onDisappear {
             if editingControlLayout { vm.scene.isPaused = scenePausedBeforeLayout }
-            observingCamera = false; vm.endTemporaryTopDown()
+            observingCamera = false; vm.endTemporaryTopDown(); vm.saveDraft()
         }
-        .onChange(of: scenePhase) { _, phase in if phase != .active { observingCamera = false; vm.endTemporaryTopDown() } }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { observingCamera = false; vm.endTemporaryTopDown(); vm.saveDraft() } }
+        .onChange(of: owner.ownerKey) { _, _ in
+            vm.ownerChanged(); vm.configure(context: modelContext); hasStarted = false
+        }
         .onReceive(subscriptionManager.$isPremium) { premium in
             vm.limiter.isPremium = premium
         }
@@ -178,7 +198,7 @@ struct SceneAimingView: View {
                             Image(systemName: "chevron.left").font(.btTitle2)
                                 .frame(width: 44, height: 44).contentShape(Rectangle())
                         }.accessibilityLabel("返回").accessibilityIdentifier("angleTraining.back")
-                        BTTablePageTitle(is3D ? "3D角度" : "2D角度", fitsLongText: true)
+                        BTTablePageTitle(TrainingProject.angle.title, fitsLongText: true)
                             .accessibilityIdentifier("training.pageTitle")
                             .background(GeometryReader { g in
                                 Color.clear.preference(key: AngleQuizTitleSize.self, value: g.size)
@@ -229,7 +249,7 @@ struct SceneAimingView: View {
                 Color.black.opacity(0.32)
                 summaryOverlay.frame(width: min(520, size.width - 16))
                     .position(x: size.width / 2, y: size.height / 2)
-            } else if vm.limiter.isLimitReached && vm.phase != .showingResult {
+            } else if vm.limiter.isLimitReached && vm.currentQuestion == nil {
                 BTDailyLimitGate(compact: vm.phase == .showingResult) { showSubscription = true }
                     .frame(width: min(400, f.stage.width)).position(x: f.stage.midX, y: f.stage.midY)
             }
@@ -249,7 +269,7 @@ struct SceneAimingView: View {
             // the safe HUD, and keep one SCNView alive as projection/layout changes.
             GeometryReader { viewport in
                 let fullFrame = viewport.frame(in: .global)
-                let renderFrame = is3D ? fullFrame : (cameraReadableFrame ?? fullFrame)
+                let renderFrame = fullFrame
                 sceneFullscreen
                     .frame(width: renderFrame.width, height: renderFrame.height)
                     .position(x: renderFrame.midX - fullFrame.minX,
@@ -258,10 +278,6 @@ struct SceneAimingView: View {
                     .allowsHitTesting(!showMenu)
             }
             .ignoresSafeArea()
-        }
-        .background {
-            DailyCarpetBackground(style: preferences.roomStyle, pointsPerMetre: ppm).ignoresSafeArea()
-                .accessibilityRepresentation { EmptyView() }
         }
         .environment(\.colorScheme, .dark).environment(\.dailyHUDControls, true)
         .controlLayoutHost(page: preferencePage, mode: is3D ? .threeD : .twoD, size: size,
@@ -293,6 +309,15 @@ struct SceneAimingView: View {
 
     private var quizSettingsItems: [DailyHUDMenuItem] {
         let items: [DailyHUDMenuItem] = [.init(id: "angleTraining.display", title: "显示"),
+         .init(id: "angleTraining.cameraMode", title: "视图", detail: is3D ? "3D" : "2D", segments: ["2D", "3D"],
+            disabled: vm.isSaving || vm.cameraTransitionBusy || vm.temporaryTopDownActive || editingControlLayout,
+            action: {
+                let mode = !is3D
+                if vm.switchTrainingView(to: mode) {
+                    tablePreferences.apply(.view3D, value: mode ? 1 : 0, to: preferencePage)
+                    if !mode { vm.setCameraMode(portrait ? .topDown2DRotated : .topDown2D) }
+                }
+            }),
          .init(id: "menu.tableGrid", title: "台面网格 4×8", selected: pagePreferences.enabled(.grid), action: {
             togglePreference(.grid)
          }),
@@ -356,7 +381,7 @@ struct SceneAimingView: View {
                 onPocketTapped: nil, // The question owns the pocket.
                 contentIsAnimating: vm.cameraTransitionBusy,
                 fpsReadoutState: fps,
-                twoViewReadableFrameInWindow: is3D ? cameraReadableFrame : nil,
+                twoViewReadableFrameInWindow: cameraReadableFrame,
                 onCameraObservationBegan: {
                     if vm.scene.cameraRig?.twoViewMode == .thirdPerson { vm.markObservation() }
                     observingCamera = true
@@ -385,7 +410,7 @@ struct SceneAimingView: View {
     /// result HUD aren't fighting touch events.
     private var interactionMode: AngleSceneView.InteractionMode {
         guard vm.phase == .observing, !showMenu, !editingControlLayout, !vm.showSettings, !vm.testFinished,
-              !vm.limiter.isLimitReached else { return .none }
+              !vm.isSaving else { return .none }
         return is3D ? .cameraControl : .tapsOnly
     }
 
@@ -395,11 +420,11 @@ struct SceneAimingView: View {
         if let rig = vm.scene.cameraRig {
             ShotPlayerCameraButtons(controlSpacing: 4, rig: rig,
                 isEnabled: vm.phase != .inputting && !vm.showSettings && !showMenu
-                    && vm.currentQuestion != nil && !vm.testFinished && !vm.limiter.isLimitReached,
+                    && vm.currentQuestion != nil && !vm.testFinished && !vm.isSaving,
                 onWholeTable: { vm.markObservation(); vm.requestSurfaceOverview() },
                 usesTwoViewControls: rig.usesTwoViewCameraControls,
                 temporaryTopDownActive: vm.temporaryTopDownActive,
-                onTemporaryTopDownBegan: { vm.markObservation(); vm.beginTemporaryTopDown() },
+                onTemporaryTopDownBegan: { vm.markObservation(); vm.beginTemporaryTopDown(); vm.observeTemporaryView() },
                 onTemporaryTopDownEnded: { vm.endTemporaryTopDown() },
                 onSelect: { if $0 == .thirdPerson { vm.markObservation() }; requestPlayerView($0) })
         }
@@ -409,7 +434,7 @@ struct SceneAimingView: View {
         VStack(spacing: Spacing.sm) {
             Spacer(minLength: 0)
             if vm.phase == .observing, !vm.testFinished, vm.currentQuestion != nil,
-               !vm.limiter.isLimitReached {
+               !vm.isSaving {
                 Button { vm.toggleAimingAssist() } label: {
                     Text("辅助")
                         .font(.btSubheadlineSemibold)
@@ -438,6 +463,7 @@ struct SceneAimingView: View {
         }
         .buttonStyle(DailyStrikeButtonStyle())
         .accessibilityIdentifier("angleTraining.primaryAction")
+        .disabled(!vm.canAdvance)
     }
 
     // MARK: - Top progress pill (observing / inputting)
@@ -453,6 +479,7 @@ struct SceneAimingView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Spacing.xs)
+
     }
 
     private func sideMetric(_ label: String, value: String, color: Color = .white) -> some View {
@@ -506,7 +533,7 @@ struct SceneAimingView: View {
     private var summaryOverlay: some View {
         SceneTrainingSummary(samples: vm.run.firstAnswers, unit: "°", onClose: { dismiss() }, onRestart: {
             vm.limiter.refreshDay()
-            if !subscriptionManager.isPremium && (is3D || vm.limiter.isLimitReached) { pendingRestart = true; showSubscription = true }
+            if !subscriptionManager.isPremium && vm.limiter.isLimitReached { pendingRestart = true; showSubscription = true }
             else { vm.showSettings = true }
         })
     }

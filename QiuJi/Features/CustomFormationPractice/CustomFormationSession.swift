@@ -41,6 +41,7 @@ final class CustomFormationSession: ObservableObject, Identifiable {
     private var trialKeys: [String] = []
     private var startBoard: BoardSnapshot
     private var startKeys: [String]
+    private var startTemplateID: UUID?
     private var subscriptions = Set<AnyCancellable>()
     var busy: Bool { vm.isPlaying || vm.isSequencePlaying }
     var isPicking: Bool { isTemplateEditor ? editTool != nil : guide.isPicking }
@@ -52,18 +53,28 @@ final class CustomFormationSession: ObservableObject, Identifiable {
     }
     /// A grouped slot returns an off-table instance first, preserving every ball's identity.
     func paletteActionKey(_ source: String) -> String {
-        guard !isTemplateEditor, !PositionPlayBall.isCue(source) else { return source }
+        guard !PositionPlayBall.isCue(source) else { return source }
         let matches = keys.filter { PositionPlayBall.number(for: $0) == PositionPlayBall.number(for: source) }
         return matches.first { !vm.onTableKeys.contains($0) }
             ?? matches.first { $0 == vm.selectedTargetKey } ?? matches.first ?? source
     }
     private var canAddTarget: Bool { keys.count < CustomFormationTemplate.maximumTargetBalls }
-    private func permitNewTarget(_ isNew: Bool) -> Bool {
-        guard !isNew || canAddTarget else { notice = "最多添加25颗目标球（母球另计）"; return false }
+    private func permitTarget(_ source: String) -> Bool {
+        if PositionPlayBall.isCue(source) || keys.contains(source) { return true }
+        guard !PositionPlayBall.isInstance(source), let number = PositionPlayBall.number(for: source) else { return false }
+        guard !keys.contains(where: { PositionPlayBall.number(for: $0) == number }) else {
+            notice = "每个球号只能有一颗"; return false
+        }
+        guard canAddTarget else { notice = "最多15颗目标球（母球另计）"; return false }
         return true
     }
-    var canSave: Bool { !busy && trialBoard == nil && vm.onTableKeys.contains(PositionPlayBall.cueKey) && vm.onTableKeys.count > 1 && vm.onTableKeys.count <= CustomFormationTemplate.maximumTargetBalls + 1 }
+    var canSave: Bool {
+        let active = keys.filter { vm.onTableKeys.contains($0) }
+        return !busy && trialBoard == nil && vm.onTableKeys.contains(PositionPlayBall.cueKey)
+            && !active.isEmpty && CustomFormationTemplate.ballRuleIssue(for: active) == nil
+    }
     var toolTitle: String { isTemplateEditor || toolsActive ? "摆球" : "重新开始" }
+    var preferredTitleLineBreak: Int? { name == "4443球形" ? 4 : nil }
 
     init(template: CustomFormationTemplate?, editing: Bool) {
         original = template; isTemplateEditor = editing; toolsActive = editing
@@ -71,6 +82,7 @@ final class CustomFormationSession: ObservableObject, Identifiable {
         name = template?.name ?? "未命名球形"
         keys = template?.ballKeys ?? []
         startKeys = template?.ballKeys ?? []
+        startTemplateID = template?.id
         startBoard = template?.board ?? BoardSnapshot(onTable: [PositionPlayBall.cueKey: CanvasPoint(x: 0.25, y: 0.25)])
         vm.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &subscriptions)
         guide.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &subscriptions)
@@ -81,6 +93,7 @@ final class CustomFormationSession: ObservableObject, Identifiable {
         vm.loadBoard(startBoard)
         if isTemplateEditor { drawing = original?.drawing ?? .init(); refreshDrawing() }
         vm.setPreferredAimMode(.free)
+        aimAtBuiltInStartingBall()
         vm.onShotWillStart = { [weak self] in self?.willStrike() }
         vm.onShotSettled = { [weak self] facts in
             guard let self else { return }
@@ -111,12 +124,21 @@ final class CustomFormationSession: ObservableObject, Identifiable {
         guard !busy else { return }
         clearTools(); trialBoard = nil
         keys = startKeys; vm.configureCustomBalls(keys); vm.loadBoard(startBoard)
+        aimAtBuiltInStartingBall()
         toolsActive = isTemplateEditor; hasEdits = false
     }
 
     func switchTemplate(_ template: CustomFormationTemplate) {
+        startTemplateID = template.id
         startBoard = template.board; startKeys = template.ballKeys; name = template.name
         reset(); showSettings = false
+    }
+
+    private func aimAtBuiltInStartingBall() {
+        guard !isTemplateEditor, let startTemplateID, BuiltInCustomFormations.contains(startTemplateID),
+              let first = startKeys.first(where: { PositionPlayBall.number(for: $0) == 1 }) else { return }
+        vm.setPreferredAimMode(.free)
+        vm.selectTarget(key: first)
     }
 
     func clearTools() { guide.clear(scene: vm.scene); swapMode = false; focusKey = nil; notice = nil }
@@ -156,7 +178,7 @@ final class CustomFormationSession: ObservableObject, Identifiable {
         guard !busy else { return }
         let addsInstance = !PositionPlayBall.isCue(source) && !PositionPlayBall.isInstance(source)
         if isTemplateEditor { placeForEditing(source,world:world); return }
-        guard permitNewTarget(addsInstance) else { return }
+        guard permitTarget(source) else { return }
         let before = editState
         guard let destination = world ?? emptyPosition(excluding: addsInstance ? nil : source),
               validPlacements([addsInstance ? "new" : source: destination]) else {
@@ -271,10 +293,10 @@ final class CustomFormationSession: ObservableObject, Identifiable {
     func templateForSaving() throws -> CustomFormationTemplate {
         let board = vm.currentSnapshot()
         let active = keys.filter { board.onTable[$0] != nil }
-        guard active.count <= CustomFormationTemplate.maximumTargetBalls else { throw CustomFormationError.invalid("最多保存25颗目标球（母球另计）") }
         var result = CustomFormationTemplate(name: name.trimmingCharacters(in: .whitespacesAndNewlines), ballKeys: active, board: board, drawing: isTemplateEditor ? drawing : nil)
         if isTemplateEditor, !saveAsNew, let original { result.id = original.id }
-        return try result.validated()
+        try result.validateForPractice()
+        return result
     }
 }
 
@@ -629,7 +651,7 @@ extension CustomFormationSession {
         guard editTool == nil || editTool == .line else { return }
         let before = editState
         let isNew = !PositionPlayBall.isCue(source) && !PositionPlayBall.isInstance(source)
-        guard permitNewTarget(isNew) else { return }
+        guard permitTarget(source) else { return }
         let key = isNew ? PositionPlayBall.instanceKey(number:PositionPlayBall.number(for:source) ?? 1) : source
         var graph = drawing
         let target = world.flatMap { snapEnabled ? nearestLine($0) : nil } ?? (world == nil ? selectedLine : nil)

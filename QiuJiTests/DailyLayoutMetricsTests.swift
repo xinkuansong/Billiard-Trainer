@@ -573,6 +573,17 @@ extension DailyLayoutMetricsTests {
         XCTAssertEqual(six.width, four.width, "Wrapping cannot enlarge the title reservation or push the palette")
     }
 
+    func testExplicitFormationTitleBreakPreservesNumberAndWidth() {
+        for compact in [false, true] {
+            let title = BTTablePageTitleLayout("4443球形", compact: compact, preferredLineBreak: 4)
+            XCTAssertEqual(title.upper, "4443")
+            XCTAssertEqual(title.lower, "球形")
+            XCTAssertNil(title.middle)
+            XCTAssertEqual(title.width, 60)
+            XCTAssertEqual(BTTablePageTitleLayout("L型球形", compact: compact).upper, "L型球形")
+        }
+    }
+
     func testTeachingOddTitleHasSeparateVerticallyCentredMiddleCharacter() {
         let five = BTTablePageTitleLayout("旋转与加塞")
         XCTAssertEqual(five.upper, "旋转")

@@ -33,6 +33,8 @@ struct TwoBallPracticeRecord: Codable, Identifiable {
     var logicalSessionID: UUID
     var ownerKey: String
     let is3D: Bool
+    var presentation: TrainingPresentation?
+    var geometricReference: GeometricReferenceTool.Snapshot?
     let configuration: SceneTrainingConfiguration
     let mode: TwoBallMode
     let bankFingerprint: String
@@ -134,7 +136,7 @@ struct TwoBallPracticeRecord: Codable, Identifiable {
         return [("已练题数", "\(totalAttemptCount)"), ("首杆有效率", validRate),
                 ("首杆均难度", averageDifficulty.map { String(format: "%.3f", $0) } ?? "—"), ("有效样本", "\(validCount)")]
     }
-    var displayName: String { "\(is3D ? "3D" : "2D")两球走位" }
+    var displayName: String { presentation == nil ? ("\(is3D ? "3D" : "2D")两球走位") : "两球走位 · " + (presentation?.summary ?? "") }
     var historyDetail: String {
         if mode == .trajectory {
             return "轨迹走位 · 已练\(Set(attempts.filter { !$0.skipped }.map(\.questionID)).count)题 · 首答均分 "
@@ -152,6 +154,8 @@ struct TwoBallPracticeRecord: Codable, Identifiable {
     init(ownerKey: String, is3D: Bool, configuration: SceneTrainingConfiguration, mode: TwoBallMode,
          prepared: TwoBallQuestionPreparer.Prepared, now: Date = Date()) {
         id = UUID(); logicalSessionID = id; self.ownerKey = ownerKey; self.is3D = is3D
+        presentation = .init(is3D: is3D)
+        presentation?.observe(.init(is3D: is3D), questionID: prepared.question.id)
         self.configuration = configuration; self.mode = mode; bankFingerprint = prepared.fingerprint
         startedAt = now; updatedAt = now; questions = [prepared.question]; seenContentIDs = [prepared.question.contentID]
     }
@@ -195,6 +199,7 @@ struct TwoBallPracticeRecord: Codable, Identifiable {
     }
     func continuation(prepared: TwoBallQuestionPreparer.Prepared) -> Self {
         var next = Self(ownerKey: ownerKey, is3D: is3D, configuration: configuration, mode: mode, prepared: prepared)
+        next.presentation = presentation
         next.logicalSessionID = logicalSessionID; next.completedQuestionOffset = totalProcessed
         next.previousPracticed = totalAttemptCount; next.previousScoreCount = totalScoredCount
         next.previousScoreSum = totalScoreSum; next.previousValid = validCount; next.previousDifficultySum = difficultySum

@@ -320,9 +320,9 @@ extension TwoBallPracticeTests {
             saved=record
         }
         func saveAtomically(_ records:[TwoBallPracticeRecord]) throws { if let last=records.last { try save(last) } }
-        func resumable(is3D:Bool) throws -> TwoBallPracticeRecord? { saved?.is3D == is3D ? saved:nil }
+        func resumable(is3D:Bool) throws -> TwoBallPracticeRecord? { saved }
     }
-    func testOpeningOldBankArchivesSessionAndPreservesQuota() throws {
+    func testOpeningOldBankPreservesUnselectedDraftAndQuota() throws {
         let suite = "two-ball-bank-migration-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -330,6 +330,7 @@ extension TwoBallPracticeTests {
         let repository = MemoryRepository()
         var old = TwoBallPracticeRecord(ownerKey: repository.ownerKey, is3D: false, configuration: .init(),
                                          mode: .trajectory, prepared: try fixture())
+        old.presentation = nil
         old.trainingBankPolicyVersion = nil
         old.accept(try realShot(old.current!))
         repository.saved = old
@@ -337,12 +338,12 @@ extension TwoBallPracticeTests {
         defer { vm.suspendTeachingActivity() }
         vm.attach(repository: repository)
         XCTAssertEqual(vm.phase, .settings); XCTAssertNil(vm.record)
-        XCTAssertEqual(repository.saved?.status, .ended)
+        XCTAssertEqual(repository.saved?.status, .active)
         XCTAssertEqual(repository.saved?.id, old.id)
         XCTAssertEqual(repository.saved?.latestShot?.id, old.latestShot?.id)
         XCTAssertEqual(repository.saved?.attempts.count, old.attempts.count)
-        XCTAssertEqual(limiter.questionsUsedToday, 1)
-        XCTAssertTrue(vm.message?.contains("旧练习已保留") == true)
+        XCTAssertEqual(limiter.questionsUsedToday, 0)
+        XCTAssertNil(vm.message)
     }
     func testLegacyBallPosesFollowRolesAfterRestore() throws {
         let prepared = try fixture()
@@ -366,8 +367,8 @@ extension TwoBallPracticeTests {
         let suite="two-ball-state-"+UUID().uuidString
         let defaults=UserDefaults(suiteName:suite)!
         defer { defaults.removePersistentDomain(forName:suite) }
-        let limiter=AngleUsageLimiter(defaults:defaults,namespace:suite)
-        for _ in 0..<19 { limiter.recordQuestion() }
+        let limiter=AngleUsageLimiter(defaults:defaults,namespace:suite,limit:15)
+        for _ in 0..<14 { limiter.recordQuestion() }
         let repo=MemoryRepository(), vm=TwoBallPracticeViewModel(is3D:false,limiter:limiter,defaults:defaults)
         defer { vm.suspendTeachingActivity() }
         vm.attach(repository:repo);vm.start(.init(),prepared:try fixture());vm.setupScene();vm.setPlaysStroke(false)
@@ -379,23 +380,23 @@ extension TwoBallPracticeTests {
         XCTAssertEqual(Set(vm.scene.allBallNodes.filter { !$0.value.isHidden }.keys), Set(vm.onTableKeys))
         vm.velocity=2.6;repo.failSubmissions=true;vm.strike()
         for _ in 0..<1000 where vm.phase == .preparing { try await Task.sleep(for:.milliseconds(10)) }
-        XCTAssertEqual(vm.phase,.saveFailed);XCTAssertEqual(limiter.questionsUsedToday,19)
+        XCTAssertEqual(vm.phase,.saveFailed);XCTAssertEqual(limiter.questionsUsedToday,14)
         repo.failSubmissions=false;vm.retrySave()
-        XCTAssertEqual(vm.phase,.result);XCTAssertEqual(limiter.questionsUsedToday,20)
+        XCTAssertEqual(vm.phase,.result);XCTAssertEqual(limiter.questionsUsedToday,15)
         vm.retry();XCTAssertEqual(vm.phase,.aiming);XCTAssertEqual(vm.primaryTitle,"提交")
         vm.strike()
         for _ in 0..<1000 where vm.phase == .preparing { try await Task.sleep(for:.milliseconds(10)) }
-        XCTAssertEqual(vm.phase,.result);XCTAssertEqual(limiter.questionsUsedToday,20)
+        XCTAssertEqual(vm.phase,.result);XCTAssertEqual(limiter.questionsUsedToday,15)
         XCTAssertEqual(vm.record?.attempts.count,1)
         let restored=TwoBallPracticeViewModel(is3D:false,limiter:limiter,defaults:defaults)
         restored.attach(repository:repo)
         XCTAssertEqual(restored.record?.current?.id,vm.record?.current?.id)
-        XCTAssertEqual(restored.phase,.result);XCTAssertEqual(limiter.questionsUsedToday,20)
+        XCTAssertEqual(restored.phase,.result);XCTAssertEqual(limiter.questionsUsedToday,15)
         while vm.record?.hasNextRoute == true {
             vm.next();XCTAssertEqual(vm.phase,.aiming);vm.strike()
         }
         if vm.phase == .aiming { vm.strike() }
-        vm.next();XCTAssertEqual(vm.phase,.summary);XCTAssertEqual(limiter.questionsUsedToday,20)
+        vm.next();XCTAssertEqual(vm.phase,.summary);XCTAssertEqual(limiter.questionsUsedToday,15)
         vm.ownerChanged();XCTAssertNil(vm.record)
     }
     func testDiskReopenOwnerTransferAndRollback() throws {
@@ -532,6 +533,42 @@ extension TwoBallPracticeTests {
 }
 
 extension TwoBallPracticeTests {
+    /// Diagnostic evidence for cross-runtime floating point replay. World X/Z are
+    /// metres; Y is up, surfaceY is cloth height, positions are ball centres.
+    /// No reference replacement or tolerance change is performed here.
+    func testFrozenRouteRuntimeDiagnostic() throws {
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "TwoBallParameterReplay", withExtension: "json"))
+        let cases = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
+        let reference = try XCTUnwrap(cases.first { ($0["key"] as? String) == "grid-v3:101:102:5#52" })
+        let bank = try TwoBallBankStore.load()
+        let entry = try XCTUnwrap(bank.index.layouts.first { $0.id == reference["layoutID"] as? String })
+        let layout = try bank.layout(entry), board = try bank.board(for: layout)
+        let q = try XCTUnwrap(layout.questions.first { $0.id == reference["cellID"] as? Int })
+        let second = TrainingBankPoint(.init(Float(q.p[0]), 0, Float(q.p[1])))
+        let profile = TwoBallQuestionPreparer.renderedProfile()
+        var rows: [[String: Any]] = []
+        func vector(_ v: SCNVector3) -> [Float] { [v.x, v.y, v.z] }
+        for pair in q.refs {
+            let parameter = try XCTUnwrap(layout.routes.first { $0.id == pair[0] })
+            let prediction = try TwoBallQuestionPreparer.solve(board: board, second: second,
+                input: parameter.input, surfaceY: BTTablePhysics.surfaceY, profile: profile, direction: parameter.direction)
+            let recorder = try XCTUnwrap(prediction.recorder)
+            var frames: [String: [[String: Any]]] = [:]
+            for (name, values) in recorder.framesByBallName {
+                frames[name] = values.map { ["t": $0.time, "p": vector($0.position), "v": vector($0.velocity),
+                    "w": [$0.angularVelocity.x, $0.angularVelocity.y, $0.angularVelocity.z, $0.angularVelocity.w],
+                    "state": String(describing: $0.state)] }
+            }
+            rows.append(["combo": parameter.id, "direction": vector(parameter.direction), "frames": frames,
+                "events": prediction.events.map { ["time": $0.time, "kind": String(describing: $0.kind)] }])
+            XCTAssertTrue(prediction.hasFinalTableState)
+        }
+        let data = try JSONSerialization.data(withJSONObject: ["os": ProcessInfo.processInfo.operatingSystemVersionString,
+            "key": reference["key"]!, "surfaceY": BTTablePhysics.surfaceY, "routes": rows], options: [.sortedKeys])
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "frozen-route-runtime-diagnostic"; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
     func testProductionParametersMatchFrozen578References() throws {
         struct Reference: Decodable {
             struct Route: Decodable {

@@ -120,6 +120,51 @@ final class TwoViewCameraTests: XCTestCase {
         XCTAssertGreaterThan(simd_length(camera.pose.forward - base.forward), 0.5)
     }
 
+    func testImmediateFirstPersonEntryDoesNotAcquireTransitionLock() {
+        let old = TwoViewCamera.Pose.looking(eye: SIMD3(-2, 2, 0), yaw: 0, pitch: -0.4, fov: 45)
+        let target = TwoViewCamera.Pose.looking(eye: SIMD3(-1, 1.15, 0), yaw: 0.2, pitch: -0.2, fov: 32)
+        let camera = TwoViewCamera(pose: old)
+        camera.enterFirstPerson(target, duration: 0)
+        XCTAssertFalse(camera.isTransitioning, "Immediate aim following must not disable the active input gesture")
+        XCTAssertEqual(camera.pose.eye, target.eye)
+        XCTAssertEqual(camera.pose.orientation.vector, target.orientation.vector)
+        XCTAssertEqual(camera.pose.fov, target.fov)
+    }
+
+    func testImmediateFirstPersonAimReplacesOutstandingAnimatedFollow() {
+        let start = TwoViewCamera.Pose.looking(eye: SIMD3(-2, 2, 0), yaw: 0, pitch: -0.4, fov: 45)
+        let camera = TwoViewCamera(pose: start)
+        for index in 1...20 {
+            let target = TwoViewCamera.Pose.looking(eye: SIMD3(-1, 1.15, Float(index) * 0.01),
+                                                  yaw: Float(index) * 0.01, pitch: -0.2, fov: 32)
+            camera.enterFirstPerson(target, duration: 0.18)
+            XCTAssertTrue(camera.isTransitioning)
+            camera.update(deltaTime: 1 / 120)
+            camera.enterFirstPerson(target, duration: 0)
+            XCTAssertFalse(camera.isTransitioning)
+            XCTAssertEqual(camera.pose.eye, target.eye)
+            XCTAssertEqual(camera.pose.orientation.vector, target.orientation.vector)
+            camera.update(deltaTime: 1 / 60)
+            XCTAssertEqual(camera.pose.eye, target.eye, "A stale connector must not pull the camera back")
+        }
+    }
+
+    func testAnimatedFirstPersonEntryRetainsTransitionUntilArrival() {
+        let start = TwoViewCamera.Pose.looking(eye: SIMD3(-2, 2, 0), yaw: 0, pitch: -0.4, fov: 45)
+        let target = TwoViewCamera.Pose.looking(eye: SIMD3(-1, 1.15, 0), yaw: 0.2, pitch: -0.2, fov: 32)
+        let camera = TwoViewCamera(pose: start)
+        camera.enterFirstPerson(target, duration: 0.95)
+        XCTAssertTrue(camera.isTransitioning)
+        XCTAssertEqual(camera.pose.eye, start.eye)
+        camera.update(deltaTime: 0.1)
+        XCTAssertTrue(camera.isTransitioning)
+        XCTAssertNotEqual(camera.pose.eye, start.eye)
+        XCTAssertNotEqual(camera.pose.eye, target.eye)
+        settle(camera)
+        XCTAssertFalse(camera.isTransitioning)
+        XCTAssertEqual(camera.pose.eye, target.eye)
+    }
+
     func testZeroAndInvalidInputsCannotAcquireOwnershipOrCancelTransition() throws {
         let rail = try profile()
         let camera = TwoViewCamera(pose: rail.pose(yaw: .pi, progress: 0.5))

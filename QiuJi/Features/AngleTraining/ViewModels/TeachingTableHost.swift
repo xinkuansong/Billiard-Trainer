@@ -14,6 +14,7 @@ protocol TeachingCameraHost: ObservableObject {
     var currentPlayerAim: SCNVector3? { get }
     var targetNode: SCNNode? { get }
     var selectedPocketIndex: Int { get }
+    func trainingObservedTopDown()
 }
 
 /// Editing is separate from the shared camera contract so read-only quizzes reuse it.
@@ -67,6 +68,7 @@ extension TeachingTableHost {
 }
 
 extension TeachingCameraHost {
+    func trainingObservedTopDown() {}
     func configureTeachingCamera() {
         scene.cameraRig?.configurePlayerCameraControls(daily: true)
         scene.cameraRig?.setTwoViewViewingContext(UUID())
@@ -140,6 +142,7 @@ extension TeachingCameraHost {
               scene.cameraRig?.beginTemporaryTopDown(aim: aim) == true else { return }
         topDownSelectionChanged = false
         temporaryTopDownActive = true
+        trainingObservedTopDown()
     }
 
     func endTemporaryTopDown() {
