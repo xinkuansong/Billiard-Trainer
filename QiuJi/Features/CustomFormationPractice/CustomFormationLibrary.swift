@@ -89,12 +89,15 @@ enum BuiltInCustomFormations {
 
     static let templates: [CustomFormationTemplate] = {
         // Four short rows in the four quarters, parallel to the short cushions.
-        let upper = [0.06, 0.105, 0.15, 0.195]
-        let lower = [0.305, 0.35, 0.395, 0.44]
-        let fourFourFourThree = (upper + lower).map { CanvasPoint(x: 0.75, y: $0) }
-            + (upper + [0.325, 0.37, 0.415]).map { CanvasPoint(x: 0.25, y: $0) }
-        // Two eight-ball arms share the 8 ball at the corner: 8 + 8 - 1 = 15.
         let radius = Double(AngleSceneCalculator.ballRadius) / Double(AngleSceneCalculator.innerLength)
+        // Ball surface to either long cushion = one ball diameter (center margin 3R).
+        let margin = 3 * radius
+        let upper = (0..<4).map { margin + Double($0) * 0.045 }
+        let lower = (0..<4).map { 0.5 - margin - Double(3 - $0) * 0.045 }
+        let lowerThree = (0..<3).map { 0.5 - margin - Double(2 - $0) * 0.045 }
+        let fourFourFourThree = (upper + lower).map { CanvasPoint(x: 0.75, y: $0) }
+            + (upper + lowerThree).map { CanvasPoint(x: 0.25, y: $0) }
+        // Two eight-ball arms share the 8 ball at the corner: 8 + 8 - 1 = 15.
         let spacing = (0.25 - radius) / 7
         // The two outer balls touch the cushion with their surfaces, not their centers.
         let lShape = (0..<8).map { CanvasPoint(x: 0.25, y: 0.5 - radius - Double($0) * spacing) }

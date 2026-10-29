@@ -1101,20 +1101,10 @@ struct AngleSceneView: UIViewRepresentable {
                 || (scene.cameraRig?.isTransitioning ?? false)
                 || (cameraMode == .perspective3D && (scene.cameraRig?.hasPendingDamping ?? false))
                 || CACurrentMediaTime() < interactiveUntil
-            // Preserve SceneKit cue strokes, fades and selection pulses even when
-            // the view model has no physics playback in progress.
-            if !active {
-                // Render-thread action completion may release SceneKit's action storage.
-                // Read the graph and animation state under SceneKit's global transaction lock.
-                SCNTransaction.lock()
-                active = scene.rootNode.hasActions || !scene.rootNode.animationKeys.isEmpty
-                if !active {
-                    scene.rootNode.enumerateChildNodes { node, stop in
-                        if node.hasActions || !node.animationKeys.isEmpty { active = true; stop.pointee = true }
-                    }
-                }
-                SCNTransaction.unlock()
-            }
+            // Read only the renderer's completed-frame snapshot. On iOS 17,
+            // querying hasActions here can race action-storage retirement during
+            // a formation reset, even under SCNTransaction's graph lock.
+            if !active { active = frameDelegate.hasSceneAnimations }
             let wasActive = needsContinuousUpdates
             needsContinuousUpdates = active
             if let daily3DDiagnostics {
@@ -2201,6 +2191,10 @@ class FrameDelegate: NSObject, SCNSceneRendererDelegate {
     private var frames = 0
     private var watchesIdle = false
     private var invalidationPending = false
+    private var sceneAnimations = false
+    var hasSceneAnimations: Bool {
+        lock.lock(); defer { lock.unlock() }; return sceneAnimations
+    }
     private var idleCallback: (@MainActor () -> Void)?
     var watchesIdleInvalidation: Bool {
         get { lock.lock(); defer { lock.unlock() }; return watchesIdle }
@@ -2224,8 +2218,23 @@ class FrameDelegate: NSObject, SCNSceneRendererDelegate {
     }
     func renderer(_ renderer: SCNSceneRenderer, didRenderScene scene: SCNScene, atTime time: TimeInterval) {
         (scene as? AngleTrainingScene)?.frameReceipt.didRender()
+        // This callback runs after this renderer has applied/completed actions.
+        // Keep SceneKit action inspection on that queue; publish only a Bool to
+        // the main display link. Idle invalidation still wakes newly added actions.
+        SCNTransaction.lock()
+        var animated = scene.rootNode.hasActions || !scene.rootNode.animationKeys.isEmpty
+        if !animated {
+            scene.rootNode.enumerateChildNodes { node, stop in
+                if node.hasActions || !node.animationKeys.isEmpty {
+                    animated = true
+                    stop.pointee = true
+                }
+            }
+        }
+        SCNTransaction.unlock()
         lock.lock()
         frames += 1
+        sceneAnimations = animated
         let notify = watchesIdle && !invalidationPending && idleCallback != nil
         if notify { invalidationPending = true }
         lock.unlock()

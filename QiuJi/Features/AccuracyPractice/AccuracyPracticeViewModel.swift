@@ -190,7 +190,7 @@ final class AccuracyPracticeViewModel: ObservableObject, TeachingTableHost {
             || limiter.isLimitReached
     }
     var primaryTitle: String {
-        if isReplaying { return "停止回放" }
+        if isReplaying { return "停止" }
         return switch phase {
         case .computing: "计算中"; case .playing: "击球中"; case .saveFailed: "重试保存"
         case .result: record?.currentAttempt?.result?.countsAsAttempt == true ? (shouldFinish ? "查看总结" : "下一题") : "重试"

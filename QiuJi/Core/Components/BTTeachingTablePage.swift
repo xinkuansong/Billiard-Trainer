@@ -785,6 +785,34 @@ struct BTTeachingInstrumentLayout: Equatable {
     }
 }
 
+/// The same spin/ruler/readout ledger as the standard power column. Quiz pages
+/// reserve it without exposing inactive controls; their primary action shares the
+/// standard strike baseline regardless of whether an auxiliary action is present.
+struct BTTeachingPrimaryActionColumn<Actions: View>: View {
+    let layout: BTTeachingInstrumentLayout
+    @ViewBuilder var actions: () -> Actions
+    var body: some View {
+        VStack(spacing: 4) {
+            VStack(spacing: layout.groupSpacing) {
+                VStack(spacing: 2) {
+                    Color.clear.frame(height: layout.topDiameter)
+                    Text("击球点").font(.btMicro)
+                }
+                VStack(spacing: 6) {
+                    Color.clear.frame(height: layout.rulerLength)
+                    VStack(spacing: 0) {
+                        Text("杆速").font(.btMicro)
+                        Text("2.00").font(HUDStyle.valueFontCompact)
+                    }.fixedSize()
+                }.padding(.vertical, 6)
+            }.hidden().accessibilityHidden(true)
+            Color.clear.frame(height: layout.strikeDiameter).accessibilityHidden(true)
+        }
+        .frame(width: layout.columnWidth)
+        .overlay(alignment: .bottom) { actions() }
+    }
+}
+
 /// A top entry matching the spin button's circle + label ledger. A paired left
 /// host should place this immediately before BTTeachingAimRuler with groupSpacing.
 struct BTTeachingInstrumentEntry<Content: View>: View {
@@ -1103,7 +1131,7 @@ struct BTTablePageTitleLayout: Equatable {
         let singleSize: CGFloat = compact ? 13 : 15
         let font = UIFont.systemFont(ofSize: singleSize, weight: .semibold)
         self.width = max(0, width)
-        if (clean as NSString).size(withAttributes: [.font: font]).width <= self.width {
+        if clean != TrainingProject.aimPoint.title, (clean as NSString).size(withAttributes: [.font: font]).width <= self.width {
             upper = clean; lower = nil; middle = nil; fontSize = singleSize
         } else {
             let count = units.count / 2

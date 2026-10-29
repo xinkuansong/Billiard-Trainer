@@ -75,6 +75,12 @@ struct SavedTrainingAnswer: Codable {
     }
 }
 
+struct AimPracticeCheckpoint: Codable {
+    var isRetrying: Bool
+    var showingResult: Bool
+    var score: SceneAimScore?
+}
+
 struct SceneTrainingCheckpoint: Codable {
     var run: SceneTrainingRun
     var presentation: TrainingPresentation
@@ -82,6 +88,7 @@ struct SceneTrainingCheckpoint: Codable {
     var input = ""
     var inputPhase: String?
     var hintVisible: Bool?
+    var aimPractice: AimPracticeCheckpoint?
     var direction: TrainingBankPoint?
     var finished = false
     var lastAnswer: SavedTrainingAnswer?
@@ -101,12 +108,13 @@ final class SceneTrainingPersistence {
     func save(run: SceneTrainingRun, presentation: TrainingPresentation, targetNumber: Int,
               input: String = "", direction: TrainingBankPoint? = nil, finished: Bool = false,
               inputPhase: String? = nil, hintVisible: Bool? = nil,
-              accepting answer: SavedTrainingAnswer? = nil) throws {
+              aimPractice: AimPracticeCheckpoint? = nil, accepting answer: SavedTrainingAnswer? = nil) throws {
         guard owner == CurrentOwnerContext.shared.ownerKey else { throw TrainingQuotaLedger.Failure.unreadable }
         let previous = current?.run.id == run.id ? current : nil
         var next = SceneTrainingCheckpoint(run: run, presentation: presentation, targetNumber: targetNumber,
             input: input, direction: direction, finished: finished,
             lastAnswer: previous?.lastAnswer, pending: previous?.pending ?? [], answers: previous?.answers ?? [])
+        next.aimPractice = aimPractice ?? (previous?.run.current?.id == run.current?.id ? previous?.aimPractice : nil)
         next.inputPhase = inputPhase ?? previous?.inputPhase
         next.hintVisible = hintVisible ?? previous?.hintVisible
         if let answer, !next.answers.contains(where: { $0.id == answer.id }) {

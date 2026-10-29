@@ -15,6 +15,20 @@ struct CustomFormationPracticeView: View {
     }
 
     var body: some View {
+        Group {
+            if let active {
+                let destination = $active
+                CustomFormationTableView(session: active, library: library,
+                    onDismiss: { destination.wrappedValue = nil }).id(active.id)
+            } else {
+                selectionBody
+            }
+        }
+    }
+
+    // As with the other practice pages, selection and table share one navigation
+    // destination. An extra isPresented push here loops during iOS 17 layout.
+    private var selectionBody: some View {
         List {
             Section("内置球形") {
                 ForEach(BuiltInCustomFormations.templates) { template in
@@ -108,9 +122,6 @@ struct CustomFormationPracticeView: View {
                 .accessibilityIdentifier("formation.start")
             }
         }
-        .navigationDestination(isPresented: Binding(get: { active != nil }, set: { if !$0 { active = nil } })) {
-            if let active { CustomFormationTableView(session: active, library: library).id(active.id) }
-        }
         .alert("重命名模板", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField("模板名称", text: $renameText)
             Button("保存") { if let renaming { library.rename(renaming, name: renameText) }; renaming = nil }
@@ -135,7 +146,9 @@ struct CustomFormationPracticeView: View {
 private struct CustomFormationTableView: View {
     @ObservedObject var session: CustomFormationSession
     @ObservedObject var library: CustomFormationLibrary
-    @Environment(\.dismiss) private var dismiss
+    // The navigation owner clears the destination. Reading DismissAction here
+    // repeatedly invalidates this observed destination during iOS 17 pushes.
+    let onDismiss: () -> Void
     @State private var saveError: String?
 
     var body: some View {
@@ -155,7 +168,7 @@ private struct CustomFormationTableView: View {
         } message: { Text(saveError ?? "") }
         .confirmationDialog("球形尚未保存", isPresented: $session.showExit, titleVisibility: .visible) {
             Button("保存并返回") { session.showSave = true }.disabled(!session.canSave)
-            Button("放弃修改", role: .destructive) { dismiss() }
+            Button("放弃修改", role: .destructive) { onDismiss() }
             Button("继续编辑", role: .cancel) {}
         }
         .confirmationDialog("清空所有目标球？", isPresented: $session.showClear, titleVisibility: .visible) {
@@ -179,14 +192,14 @@ private struct CustomFormationTableView: View {
 
     private func requestBack() {
         if session.isTemplateEditor && (session.hasEdits || session.original == nil) { session.showExit = true }
-        else { dismiss() }
+        else { onDismiss() }
     }
 
     private func save() {
         do {
             let template = try session.templateForSaving()
             if library.save(template, basedOn: template.id == session.original?.id ? session.original : nil) {
-                if session.isTemplateEditor { dismiss() }
+                if session.isTemplateEditor { onDismiss() }
                 else { session.notice = "已另存为模板" }
             } else { saveError = library.error; library.error = nil }
         } catch { saveError = error.localizedDescription }
@@ -223,7 +236,7 @@ private struct CustomFormationTableView: View {
             .init(id: "formation.cue", title: "放回母球", disabled: session.busy, action: { session.place(PositionPlayBall.cueKey, world: nil) }),
             .init(id: "formation.clear", title: "清空目标球", disabled: session.busy, action: { session.showClear = true })]
         if !session.isTemplateEditor {
-            items.append(.init(id: "formation.settings", title: "训练设置", disclosure: true, disabled: session.busy, action: { dismiss() }))
+            items.append(.init(id: "formation.settings", title: "训练设置", disclosure: true, disabled: session.busy, action: { onDismiss() }))
         }
         return items
     }

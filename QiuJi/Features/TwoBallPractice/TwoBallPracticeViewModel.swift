@@ -37,9 +37,9 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
         playsStroke = enabled
         defaults.set(enabled, forKey: strokePreferenceKey)
     }
-    // The preference now controls retention after a submission; the first-shot baseline is unconditional.
+    // Retained for decoding old preferences only; visibility follows the first accepted shot.
     private var referencePreferenceKey: String { "twoBallPractice.project.keepsReferenceAfterSubmission" }
-    var shouldShowReference: Bool { record?.current != nil && (showsReference || record?.latestShot == nil) }
+    var shouldShowReference: Bool { record?.current != nil && !(record?.attempts.contains { $0.questionID == record?.current?.id && !$0.skipped } ?? false) }
     func setShowsReference(_ enabled: Bool) {
         guard !isBusy else { return }
         showsReference = enabled
@@ -211,7 +211,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
             || limiter.isLimitReached
     }
     var primaryTitle: String {
-        if isReplaying { return playsStroke ? "停止回放" : "停止击球" }
+        if isReplaying { return "停止" }
         switch phase {
         case .saveFailed: return "重试保存"
         case .result: return record?.hasNextRoute == true ? "新轨迹" : shouldFinish ? "查看总结" : "下一题"

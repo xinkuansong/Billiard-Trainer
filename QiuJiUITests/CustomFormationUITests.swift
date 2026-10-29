@@ -391,6 +391,36 @@ final class CustomFormationUITests: XCTestCase {
         app.buttons["dailyClearance.strike"].tap(); ready(app.buttons["dailyClearance.undo"])
     }
 
+    func testPracticeReview4443Screenshots() throws {
+        launch()
+        app.buttons["formation.builtin.B4443000-0000-4000-8000-000000000001"].tap()
+        app.buttons["formation.start"].tap(); ready(app.buttons["dailyClearance.strike"]); count(15)
+        // Exercise the retained renderer's 3D → 2D transition as well as entry.
+        // A visible strike button alone does not prove that the camera has fitted.
+        setView("3D")
+        setView("2D")
+        let fitted = NSPredicate { [weak self] _, _ in
+            guard let self, let data = try? self.probe(),
+                  let bounds = data["displayedTable"] as? [Double], bounds.count == 4 else { return false }
+            let element = self.app.descendants(matching: .any).matching(identifier: "freeplay.stage").firstMatch
+            guard element.exists else { return false }
+            let stage = element.frame
+            guard stage.width > 0, stage.height > 0 else { return false }
+            let table = CGRect(x: bounds[0], y: bounds[1], width: bounds[2] - bounds[0], height: bounds[3] - bounds[1])
+            return max(table.width / stage.width, table.height / stage.height) > 0.9
+                && stage.insetBy(dx: -3, dy: -3).contains(table)
+        }
+        let fitResult = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: fitted, object: nil)], timeout: 15)
+        let diagnostic = XCTAttachment(string: table.value as? String ?? "missing table probe")
+        diagnostic.name = "review-4443-projection"; diagnostic.lifetime = .keepAlways; add(diagnostic)
+        try snap("review-4443-2d")
+        XCTAssertEqual(fitResult, .completed, "The 2D table must fill its reserved stage after switching from 3D")
+        setView("3D"); try snap("review-4443-3d")
+        app.buttons["dailyClearance.back"].tap()
+        ready(app.buttons["formation.start"])
+        XCTAssertFalse(app.buttons["dailyClearance.strike"].exists)
+    }
+
     func testBuiltInFormationsStartAndRestartWithoutPersonalTemplates() throws {
         let entries = [("B4443000-0000-4000-8000-000000000001", "4443球形"),
                        ("B1115000-0000-4000-8000-000000000002", "L型球形")]
@@ -413,11 +443,13 @@ final class CustomFormationUITests: XCTestCase {
             try snap("builtin-\(index)-2d")
             setView("3D"); count(15); try snap("builtin-\(index)-3d")
             setView("2D")
-            app.buttons["dailyClearance.strike"].tap(); ready(app.buttons["dailyClearance.undo"])
-            app.buttons["formation.restart"].tap()
-            app.buttons["formation.restart.confirm"].tap(); count(15)
-            XCTAssertEqual(try balls().map { $0["world"] as! [Double] }, positions)
-            XCTAssertEqual(Set(try balls().compactMap { $0["key"] as? String }), keys)
+            for _ in 0..<3 {
+                app.buttons["dailyClearance.strike"].tap(); ready(app.buttons["dailyClearance.undo"])
+                app.buttons["formation.restart"].tap()
+                app.buttons["formation.restart.confirm"].tap(); count(15)
+                XCTAssertEqual(try balls().map { $0["world"] as! [Double] }, positions)
+                XCTAssertEqual(Set(try balls().compactMap { $0["key"] as? String }), keys)
+            }
             app.terminate()
         }
     }
@@ -438,5 +470,8 @@ final class CustomFormationUITests: XCTestCase {
         app.buttons["编辑"].tap(); ready(app.buttons["paletteBall__1"]); count(15)
         XCTAssertTrue(app.buttons["formation.edit.save"].exists)
         try snap("builtin-copy-editor")
+        app.buttons["dailyClearance.back"].tap()
+        ready(app.buttons["formation.start"])
+        XCTAssertFalse(app.buttons["formation.edit.save"].exists)
     }
 }

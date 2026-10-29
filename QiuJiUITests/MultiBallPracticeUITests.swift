@@ -32,6 +32,21 @@ final class MultiBallPracticeUITests: XCTestCase {
             try screenshot.pngRepresentation.write(to: URL(fileURLWithPath: path).appendingPathComponent(name + ".png"))
         }
     }
+    func testPracticeReviewPlanningMarkers() throws {
+        launch()
+        let picker = app.segmentedControls["multiBall.positionMode"]
+        revealInSettings(picker); picker.buttons["规划走位"].tap()
+        app.segmentedControls["multiBall.game"].buttons["追分"].tap()
+        try capture("review-multi-settings")
+        let setting = app.switches["multiBall.planningMarkers"]
+        revealInSettings(setting); XCTAssertEqual(setting.value as? String, "1")
+        try capture("review-multi-marker-setting")
+        start(); mode(false); try capture("review-multi-rings-2d")
+        mode(true); try capture("review-multi-rings-3d")
+        let top = app.buttons["shotCamera.temporaryTopDown"]
+        if top.exists { ready(top); top.tap(); try capture("review-multi-rings-topdown"); top.tap() }
+    }
+
     func testGeometryReference2D() throws { try geometryReference(false) }
     func testGeometryReference3D() throws { try geometryReference(true) }
     private func geometryReference(_ is3D: Bool) throws {
@@ -159,7 +174,7 @@ final class MultiBallPracticeUITests: XCTestCase {
     }
     func testEntryRotationSettingsRestartAndViews() throws {
         launch(direct: false)
-        app.segmentedControls["multiBall.game"].buttons["顺序清台"].tap()
+        app.segmentedControls["multiBall.game"].buttons["追分"].tap()
         choose("multiBall.rotationCount", "9 颗")
         try capture("01-rotation-settings"); start(); mode(false)
         XCTAssertEqual(try balls().count, 10)
@@ -256,7 +271,7 @@ final class MultiBallPracticeUITests: XCTestCase {
         XCTAssertEqual(try balls().count, 5); try capture("14-chinese-no-opponents")
     }
     func testCuePlacementMissRetryAndSettingsReset() throws {
-        launch(); app.segmentedControls["multiBall.game"].buttons["顺序清台"].tap()
+        launch(); app.segmentedControls["multiBall.game"].buttons["追分"].tap()
         choose("multiBall.rotationCount", "4 颗"); start(); mode(false)
         let objects = try positions().filter { $0.key != "cueBall" }
         let cue = try XCTUnwrap(try balls().first { $0["key"] as? String == "cueBall" })
@@ -315,14 +330,14 @@ final class MultiBallPracticeUITests: XCTestCase {
         ready(reset); reset.tap()
         XCTAssertTrue(app.staticTexts["已恢复默认设置"].waitForExistence(timeout: 5))
         revealInSettings(app.segmentedControls["multiBall.game"], down: false)
-        XCTAssertTrue(app.segmentedControls["multiBall.game"].buttons["顺序清台"].isSelected)
+        XCTAssertTrue(app.segmentedControls["multiBall.game"].buttons["追分"].isSelected)
         try capture("23-reset-defaults")
         app.buttons["multiBall.settingsCancel"].tap(); ready(app.buttons["freeplay.moreMenu"]); try same(before)
     }
 
     func testLightTemporaryPlacementSpinAndLayoutCancel() throws {
         launch(dark: false, is3D: true)
-        app.segmentedControls["multiBall.game"].buttons["顺序清台"].tap()
+        app.segmentedControls["multiBall.game"].buttons["追分"].tap()
         choose("multiBall.rotationCount", "6 颗")
         try capture("30-light-settings"); start(); mode(true)
         ready(app.buttons["shotCamera.temporaryTopDown"]); app.buttons["shotCamera.temporaryTopDown"].tap()
@@ -401,7 +416,7 @@ final class MultiBallPracticeUITests: XCTestCase {
         revealInSettings(app.staticTexts["multiBall.remaining"])
         XCTAssertEqual(app.staticTexts["multiBall.remaining"].label, "今日剩余 0 题，2D与3D及所有多球玩法共用")
         revealInSettings(app.segmentedControls["multiBall.game"], down: false)
-        app.segmentedControls["multiBall.game"].buttons["顺序清台"].tap()
+        app.segmentedControls["multiBall.game"].buttons["追分"].tap()
         XCTAssertFalse(app.buttons["multiBall.start"].label.contains("Pro"))
         try capture("42-exhausted-start-plain")
         app.buttons["multiBall.start"].tap(); ready(app.buttons["subscription.close"])

@@ -222,10 +222,10 @@ struct AimPointTrainingView: View {
         .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
         .trainingBackgroundMusic()
-        .btAdaptiveToolChrome("瞄准点训练")
+        .btAdaptiveToolChrome("假想球练习")
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text("瞄准点训练").font(.btHeadline).foregroundStyle(.btPrimary)
+                Text("假想球练习").font(.btHeadline).foregroundStyle(.btPrimary)
             }
             // C31 / G25：本页为 2D 特写图（无 AngleTrainingScene）→ 无可配台面网格，不并三点（留档）。
         }

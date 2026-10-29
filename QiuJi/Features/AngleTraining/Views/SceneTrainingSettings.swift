@@ -49,18 +49,14 @@ struct SceneTrainingSettings<Batch>: View {
     }
     var body: some View {
         Form {
-            if route.hasPrefix("threeBallPractice") {
-                Section {
-                    explanation("提前选下一球袋口，完成两次连续走位。")
-                }
-            }
             if twoBallMode != nil {
-                Section("走位模式") {
-                    Picker("走位模式", selection: modeSelection) {
+                Section("训练模式") {
+                    Picker("训练模式", selection: modeSelection) {
                         ForEach(TwoBallMode.allCases, id: \.self) { Text($0.title).tag($0) }
                     }.pickerStyle(.segmented).accessibilityIdentifier("twoBall.mode")
                 }
             }
+            Section("练习说明") { explanation(practiceInstructions) }
             Section {
                 BTTrainingModePicker(count: TrainingProject.ordinaryRoundCount, isPremium: subscription.isPremium, freePractice: Binding(get: { draft.freePractice }, set: { requested in
                     if requested && !subscription.isPremium {
@@ -71,9 +67,7 @@ struct SceneTrainingSettings<Batch>: View {
             } header: {
                 Text("训练量")
             } footer: {
-                if route.hasPrefix("threeBallPractice") {
-                    explanation("前两球为同组的两颗不同号码球，最后一球为黑八。第一杆前选第二球袋口，第二杆前选黑八袋口；两次走位得分取平均，重打不覆盖首答。")
-                } else if route.hasPrefix("twoBallPractice") {
+                if route.hasPrefix("twoBallPractice") {
                     explanation(draftMode == .trajectory
                         ? "均分先汇总每题各轨迹的首答，再按题平均；跳过不计分，重打不覆盖首答。"
                         : "按实际停点的球距、出杆空间和角度评0–100分，越高越好；均分统计首答，本题均分包含重打。")
@@ -134,7 +128,7 @@ struct SceneTrainingSettings<Batch>: View {
                     .accessibilityIdentifier("training.conditionsInfo")
             }
             if showsAccuracyShotSettings { spinSection }
-            if strokePlayback != nil || centerReference != nil { demonstrationSection }
+            if strokePlayback != nil { demonstrationSection }
             if let error {
                 Section {
                     explanation(error).foregroundStyle(.btDestructive).accessibilityIdentifier("training.generationError")
@@ -202,6 +196,25 @@ struct SceneTrainingSettings<Batch>: View {
         }
         .onDisappear { generation?.cancel(); resetNotice.clear() }
     }
+    private var practiceInstructions: String {
+        switch TrainingProject.from(route: route) {
+        case .angle:
+            return "观察母球、目标球和目标袋口，判断这一杆的切角并作答。提交后对照实际角度，找出自己的判断偏差。"
+        case .aimPoint:
+            return "转动方向尺，让母球瞄向你认为能进球的位置，再提交答案。对照目标瞄准点和实际瞄准线查看误差；不确定时可以先打开辅助，提交后也可以重打。"
+        case .accuracy:
+            return "按题目给出的球形和打点调整瞄准方向，将目标球打进指定袋口。击球后查看进球结果，再继续下一题。"
+        case .separation:
+            return "观察目标路线，调整打点和杆速，让母球击中目标球后走出相近的轨迹。第一杆前可以对照中杆轨迹；击球后比较结果，也可以重打寻找更合适的杆法。"
+        case .twoBall:
+            return draftMode == .trajectory
+                ? "对照目标路线调整打点和杆速，在打进第一颗球的同时让母球走出相近的轨迹。比较击球结果后可以重打，或切换目标路线继续练习。"
+                : "观察第二颗球和它的指定袋口，再调整第一杆的打点和杆速。打进第一颗球的同时，把母球停在方便打第二颗球的位置，击球后查看走位得分。"
+        case .threeBall:
+            return "用前两杆完成两次连续走位。前两颗球同属全色或花色，第三颗为黑八；第一杆前为第二颗球选袋，第二杆前为黑八选袋，再调整打点和杆速，把母球停到适合下一杆的位置。两次走位得分取平均，重打不覆盖首答。"
+        default: return "按照当前球形和目标完成击球，查看结果后继续练习。"
+        }
+    }
     private var currentModeDraft: TwoBallSettingsPreference {
         .init(configuration: draft, playsStroke: draftPlaysStroke, showsReference: draftShowsReference)
     }
@@ -226,12 +239,12 @@ struct SceneTrainingSettings<Batch>: View {
                 .accessibilityIdentifier("training.verticalSpin")
             Toggle(showsAccuracyShotSettings ? "系统指定左右塞" : "包含左右塞", isOn: $draft.allowsSideSpin)
                 .accessibilityIdentifier("training.sideSpin")
-        } header: { Text(showsAccuracyShotSettings ? "出题设置" : "参考路线杆法") } footer: {
+        } header: { Text(showsAccuracyShotSettings ? "出题设置" : "目标路线杆法") } footer: {
             if showsAccuracyShotSettings {
                 spinNote("开启后会自动关闭对应的自行调整选项。")
                     .accessibilityIdentifier("training.spinInfo")
             } else {
-                explanation("仅筛选参考路线的杆法。练习时仍可自由调整打点和力度。")
+                explanation("仅筛选目标路线的杆法。练习时仍可自由调整打点和力度。")
                     .accessibilityIdentifier("training.spinInfo")
             }
         }
@@ -239,15 +252,11 @@ struct SceneTrainingSettings<Batch>: View {
     private var demonstrationSection: some View {
         Section {
             if strokePlayback != nil {
-                Toggle("播放击球过程", isOn: $draftPlaysStroke)
+                Toggle("击球过程", isOn: $draftPlaysStroke)
                     .accessibilityIdentifier("separation.playsStroke")
             }
-            if centerReference != nil {
-                Toggle("提交后保留中杆参考", isOn: $draftShowsReference)
-                    .accessibilityIdentifier("separation.showsReference")
-            }
         } header: {
-            Text("演示与参考").accessibilityIdentifier("separation.shotSettingsHeader")
+            Text("演示").accessibilityIdentifier("separation.shotSettingsHeader")
         } footer: {
             explanation("首次提交前始终显示中杆参考。关闭播放会直接显示击球结果；已进行瞄准补偿。")
                 .font(.btCaption).foregroundStyle(.btTextSecondary)

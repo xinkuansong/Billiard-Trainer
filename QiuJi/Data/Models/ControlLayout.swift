@@ -88,7 +88,7 @@ enum FreeControlCatalog {
             ids.formUnion(["angle.erase", "angle.submit", "angle.cancel", "angle.assist", "angle.answer", "angle.next"])
         case .aimPointScene2D, .aimPointScene3D:
             guard (page == .aimPointScene2D) == (mode == .twoD) else { return [] }
-            ids = ["shot.aim", "aimPoint.hint", "aimPoint.submit", "aimPoint.next"]
+            ids = ["shot.aim", "aimPoint.hint", "aimPoint.submit", "aimPoint.next", "aimPoint.retry"]
         case .threeBallPractice2D, .threeBallPractice3D:
             guard (page == .threeBallPractice2D) == (mode == .twoD) else { return [] }
             ids = ["shot.undo", "shot.replay", "shot.spin", "shot.power", "shot.strike"]

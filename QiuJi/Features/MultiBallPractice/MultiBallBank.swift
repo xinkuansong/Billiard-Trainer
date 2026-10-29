@@ -2,7 +2,7 @@ import Foundation
 
 struct MultiBallConfiguration: Codable, Equatable {
     enum Game: String, Codable, CaseIterable { case rotation, chineseEight
-        var title: String { self == .rotation ? "顺序清台" : "中八残局" }
+        var title: String { self == .rotation ? "追分" : "中八残局" }
     }
     enum PositionMode: String, Codable, CaseIterable {
         case planned, independent
@@ -15,6 +15,7 @@ struct MultiBallConfiguration: Codable, Equatable {
     var ownCount = 4
     var randomOpponents = false
     var freePractice = false
+    var showsPlanningMarkers = true
     static func numbers(_ count: Int) -> [Int] { count == 9 || count == 15 ? Array(1...count) : Array(1..<count) + [9] }
     var count: Int { game == .rotation ? rotationCount : ownCount }
     var bankCount: Int { game == .rotation ? rotationCount : 15 }
@@ -38,6 +39,7 @@ extension MultiBallConfiguration {
         rotationCount = try c.decode(Int.self, forKey: .rotationCount)
         ownCount = try c.decode(Int.self, forKey: .ownCount)
         randomOpponents = try c.decode(Bool.self, forKey: .randomOpponents)
+        showsPlanningMarkers = try c.decodeIfPresent(Bool.self, forKey: .showsPlanningMarkers) ?? true
         freePractice = try c.decodeIfPresent(Bool.self, forKey: .freePractice) ?? false
     }
 }

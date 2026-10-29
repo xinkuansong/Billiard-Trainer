@@ -448,6 +448,22 @@ struct SceneAimScore: Codable, Equatable {
         if straight { return mm > 0 ? "偏左" : "偏右" }
         return mm > 0 ? "偏薄" : "偏厚"
     }
+    var grade: String {
+        guard status == .valid, let mm = millimetres, mm.isFinite else { return "差" }
+        switch abs(mm) {
+        case ...0.5: return "完美"
+        case ...1: return "很好"
+        case ...2: return "好"
+        case ...5: return "一般"
+        default: return "差"
+        }
+    }
+    var explanation: String {
+        let result = status == .valid && millimetres?.isFinite == true
+            ? "本次\(label)，误差 \(String(format: "%.1f", abs(millimetres!))) mm，评级：\(grade)。"
+            : "本次\(label)，评级：差。该方向无法给出有效的毫米误差。"
+        return result + "\n\n按瞄准误差的绝对值评级：完美 ≤ 0.5 mm；很好 ≤ 1 mm；好 ≤ 2 mm；一般 ≤ 5 mm；超过 5 mm 为差。正确率仍按误差不超过 2 mm 统计，均差与正确率只统计首答。"
+    }
     static func measure(cue: SCNVector3, target: SCNVector3, ghost: SCNVector3, direction: SCNVector3) -> Self {
         let cx = Double(cue.x), cz = Double(cue.z)
         let gx = Double(ghost.x), gz = Double(ghost.z)

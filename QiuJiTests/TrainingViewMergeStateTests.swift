@@ -98,6 +98,33 @@ final class TrainingViewMergeStateTests: XCTestCase {
         XCTAssertEqual(acknowledged.current?.answers.map(\.id), [answer.id])
         XCTAssertEqual(acknowledged.current?.presentation.receipts.count, 1)
     }
+    func testAimPracticeCheckpointRestoresWithoutReplacingAcceptedAnswerAndClearsOnNextQuestion() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let owner = CurrentOwnerContext.shared.ownerKey
+        let store = try SceneTrainingPersistence(project: .aimPoint, owner: owner, root: root)
+        var generator = SceneTrainingGenerator(seed: 15)
+        var run = SceneTrainingRun(queue: try generator.batch(.init()))
+        _ = try run.next(); var views = TrainingPresentation(is3D: false)
+        views.accept(questionID: try XCTUnwrap(run.current?.id), at: Date(), premium: false)
+        run.record(error: 2, signedError: 2, angle: 30)
+        let answer = AngleTestResult(actualAngle: 0, userAngle: 2, pocketType: "corner", quizType: "aimPoint2D", ownerKey: owner)
+        try store.save(run: run, presentation: views, targetNumber: 3, accepting: .init(answer))
+        let practice = AimPracticeCheckpoint(isRetrying: true, showingResult: false, score: nil)
+        try store.save(run: run, presentation: views, targetNumber: 3, aimPractice: practice)
+        let reopened = try SceneTrainingPersistence(project: .aimPoint, owner: owner, root: root)
+        XCTAssertEqual(reopened.current?.aimPractice?.isRetrying, true)
+        XCTAssertEqual(reopened.current?.aimPractice?.showingResult, false)
+        XCTAssertEqual(reopened.current?.answers.map(\.id), [answer.id])
+        XCTAssertEqual(reopened.current?.presentation.receipts.count, 1)
+        XCTAssertEqual(reopened.current?.run.firstAnswers.count, 1)
+        _ = try run.next()
+        try reopened.save(run: run, presentation: views, targetNumber: 4)
+        XCTAssertNil(reopened.current?.aimPractice)
+        let legacy = SceneTrainingCheckpoint(run: run, presentation: views, targetNumber: 4)
+        XCTAssertNil(try JSONDecoder().decode(SceneTrainingCheckpoint.self, from: JSONEncoder().encode(legacy)).aimPractice)
+    }
+
     func testProjectPreferenceMigratesOneSourceAndPreservesLegacyDictionaries() throws {
         let suite = "merge-preferences-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

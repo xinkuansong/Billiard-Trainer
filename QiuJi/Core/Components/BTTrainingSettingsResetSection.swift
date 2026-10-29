@@ -7,7 +7,7 @@ struct BTTrainingSettingsResetSection: View {
     var body: some View {
         Section {
             Button(action: action) {
-                Label("恢复默认设置", systemImage: "arrow.counterclockwise")
+                Label("恢复默认", systemImage: "arrow.counterclockwise")
                     .font(.btBody)
                     .foregroundStyle(.btPrimary)
                     .frame(maxWidth: .infinity, minHeight: 44)

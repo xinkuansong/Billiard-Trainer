@@ -29,8 +29,6 @@ struct ThreeBallPracticeView: View {
             case .settings:
                 SceneTrainingSettings(route: vm.route, configuration: vm.record?.configuration ?? .init(),
                     restarting: vm.record != nil, showsSpinOptions: false,
-                    strokePlayback: Binding(get: { vm.playsStroke }, set: { vm.setPlaysStroke($0) }),
-                    centerReference: Binding(get: { vm.showsReference }, set: { vm.setShowsReference($0) }),
                     prepareBatch: ThreeBallQuestionPreparer.Prepared.prepare,
                     onStart: { vm.start($0, prepared: $1) },
                     onCancel: { if !vm.cancelSettings() { dismiss() } })

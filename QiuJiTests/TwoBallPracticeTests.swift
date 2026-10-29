@@ -5,6 +5,30 @@ import SwiftData
 
 @MainActor
 final class TwoBallPracticeTests: XCTestCase {
+    func testFirstShotReferenceStaysHiddenAfterRouteChangeAndRestore() throws {
+        let prepared = try fixture()
+        let suite = "two-reference-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let limiter = AngleUsageLimiter(defaults: defaults, namespace: suite); limiter.isPremium = true
+        let repo = MemoryRepository()
+        var record = TwoBallPracticeRecord(ownerKey: repo.ownerKey, is3D: false,
+            configuration: .init(), mode: .trajectory, prepared: prepared)
+        repo.saved = record
+        let before = TwoBallPracticeViewModel(is3D: false, limiter: limiter, defaults: defaults)
+        before.attach(repository: repo)
+        XCTAssertTrue(before.shouldShowReference)
+        before.suspendTeachingActivity()
+        record.accept(try realShot(prepared.question))
+        record.advanceRoute()
+        repo.saved = record
+        let restored = TwoBallPracticeViewModel(is3D: false, limiter: limiter, defaults: defaults)
+        defer { restored.suspendTeachingActivity() }
+        restored.attach(repository: repo); restored.setShowsReference(true)
+        XCTAssertNotNil(restored.record)
+        XCTAssertFalse(restored.shouldShowReference, "A new route and legacy retention preference cannot restore a baseline after the first accepted stroke")
+    }
+
     func testResumedFreeModePrefetchIgnoresLegacyReferenceSpinFilters() async throws {
         let prepared = try fixture()
         let suite = "two-ball-free-prefetch-" + UUID().uuidString

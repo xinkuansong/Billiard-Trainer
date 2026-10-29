@@ -170,9 +170,9 @@ struct SceneAimingView: View {
 
     private func quizTemplate(size: CGSize, safe: CGFloat) -> some View {
         let side = max(4, safe)
-        let keys = PositionPlayBall.allKeys.filter { !PositionPlayBall.isCue($0) }
+        let keys = vm.currentQuestion == nil ? [] : ["_\(vm.targetBallNumber)"]
         let reservation = DailyLayoutMetrics.FoundationReservation(width: size.width - 2 * side,
-            targetCount: keys.count, chineseEightBall: true, titleWidth: 92, actionWidth: 138,
+            targetCount: keys.count, chineseEightBall: false, titleWidth: 92, actionWidth: 138,
             prefersSeparateRow: size.height > size.width || size.height >= 600,
             separateWidth: size.width > size.height && size.height < 600 ? size.width - 2 * (side + 68) : nil)
         let f = DailyLayoutMetrics.Foundation(size: size, leadingSafeArea: safe, trailingSafeArea: safe,
@@ -180,7 +180,7 @@ struct SceneAimingView: View {
             halfWidth: vm.scene.cameraRig?.tableOuterHalfWidth ?? CameraRig.defaultTableOuterHalfWidth,
             instrumentHeight: DailyLayoutMetrics.Controls.initialInstrumentHeight, palette: reservation)
         let plan = DailyLayoutMetrics.Palette(size: size, sideInset: side, table: f.table,
-            targetCount: keys.count, chineseEightBall: true, obstacles: [
+            targetCount: keys.count, chineseEightBall: false, obstacles: [
                 CGRect(x: side + windowControls.left, y: 0, width: 44, height: 44),
                 CGRect(x: side + windowControls.left + 32, y: (44 - titleSize.height) / 2,
                        width: titleSize.width, height: titleSize.height),
@@ -190,7 +190,7 @@ struct SceneAimingView: View {
             : (vm.scene.cameraRig?.tableOuterHalfWidth ?? CameraRig.defaultTableOuterHalfWidth)))
         return ZStack(alignment: .topLeading) {
             DailyTemplateHeader(size: size, safe: safe, foundation: f, plan: plan,
-                targets: keys, chineseEightBall: true, titleWidth: titleSize.width, titleHeight: titleSize.height,
+                targets: keys, chineseEightBall: false, titleWidth: titleSize.width, titleHeight: titleSize.height,
                 windowControlInsets: windowControls, fps: fps, showsDeviceStatus: !systemStatusVisible,
                 title: {
                     HStack(spacing: -12) {
@@ -239,7 +239,10 @@ struct SceneAimingView: View {
                     instruments: BTTeachingInstrumentLayout(foundation: f), spinPadPresented: false))
                 .frame(width: f.stage.width, height: f.stage.height)
                 .position(x: f.stage.midX, y: f.stage.midY)
-            actionColumn.frame(height: min(200, f.stage.height)).controlLayoutGroup(.primary, enabled: vm.phase != .inputting).position(x: f.right.midX, y: f.table.midY)
+            BTTeachingPrimaryActionColumn(layout: BTTeachingInstrumentLayout(foundation: f)) { actionColumn }
+                .controlLayoutGroup(.primary, enabled: vm.phase != .inputting)
+                .frame(width: f.right.width, height: f.right.height, alignment: .top)
+                .position(x: f.right.midX, y: f.right.midY)
             if vm.phase == .inputting, !vm.testFinished {
                 keypadOverlay.frame(width: min(280, f.stage.width)).controlLayoutGroup(.keyboard)
                     .padding(.bottom, 8).padding(.trailing, size.width - f.stage.maxX)
@@ -432,13 +435,12 @@ struct SceneAimingView: View {
 
     private var actionColumn: some View {
         VStack(spacing: Spacing.sm) {
-            Spacer(minLength: 0)
             if vm.phase == .observing, !vm.testFinished, vm.currentQuestion != nil,
                !vm.isSaving {
                 Button { vm.toggleAimingAssist() } label: {
                     Text("辅助")
                         .font(.btSubheadlineSemibold)
-                        .frame(width: 52, height: 52)
+                        .frame(width: DailyLayoutMetrics.controlColumnWidth, height: DailyLayoutMetrics.controlColumnWidth)
                 }
                 .buttonStyle(DailyStrikeButtonStyle())
                 .accessibilityIdentifier("angleTraining.assist")
@@ -452,14 +454,13 @@ struct SceneAimingView: View {
             }
         }
         .frame(width: 60)
-        .padding(.vertical, Spacing.sm)
         .environment(\.colorScheme, .dark)
     }
 
     private func primaryAction(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title).font(.btSubheadlineSemibold)
-                .frame(width: 52, height: 52)
+                .frame(width: DailyLayoutMetrics.controlColumnWidth, height: DailyLayoutMetrics.controlColumnWidth)
         }
         .buttonStyle(DailyStrikeButtonStyle())
         .accessibilityIdentifier("angleTraining.primaryAction")

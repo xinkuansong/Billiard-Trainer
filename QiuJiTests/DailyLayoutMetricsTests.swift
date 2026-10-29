@@ -584,6 +584,17 @@ extension DailyLayoutMetricsTests {
         }
     }
 
+    func testAimTitleAlwaysUsesTheApprovedFiveCharacterComposition() {
+        for width in [CGFloat(50), 60, 80, 120] {
+            for compact in [false, true] {
+                let title = BTTablePageTitleLayout(TrainingProject.aimPoint.title, width: width, compact: compact)
+                XCTAssertEqual(title.upper, "瞄准")
+                XCTAssertEqual(title.lower, "练习")
+                XCTAssertEqual(title.middle, "点")
+            }
+        }
+    }
+
     func testTeachingOddTitleHasSeparateVerticallyCentredMiddleCharacter() {
         let five = BTTablePageTitleLayout("旋转与加塞")
         XCTAssertEqual(five.upper, "旋转")

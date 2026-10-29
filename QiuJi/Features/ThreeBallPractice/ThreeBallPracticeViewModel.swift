@@ -38,7 +38,7 @@ final class ThreeBallPracticeViewModel: ObservableObject, TeachingTableHost {
     }
     // The preference now controls retention after a submission; the first-shot baseline is unconditional.
     private var referencePreferenceKey: String { "threeBallPractice.project.keepsReferenceAfterSubmission" }
-    var shouldShowReference: Bool { record?.current != nil && (showsReference || record?.latestShot == nil) }
+    var shouldShowReference: Bool { false }
     func setShowsReference(_ enabled: Bool) {
         guard !isBusy else { return }
         showsReference = enabled
@@ -129,8 +129,8 @@ final class ThreeBallPracticeViewModel: ObservableObject, TeachingTableHost {
          }) {
         self.initialView3D = is3D; self.limiter = limiter; self.defaults = defaults
         self.prepareQuestion = prepareQuestion
-        playsStroke = defaults.object(forKey: "threeBallPractice.project.playsStroke") as? Bool ?? defaults.object(forKey: "threeBallPractice.\(is3D ? "3D" : "2D").playsStroke") as? Bool ?? SceneTrainingSettingsDefaults.playsStroke
-        showsReference = defaults.object(forKey: "threeBallPractice.project.keepsReferenceAfterSubmission") as? Bool ?? defaults.object(forKey: "threeBallPractice.\(is3D ? "3D" : "2D").keepsReferenceAfterSubmission") as? Bool ?? SceneTrainingSettingsDefaults.showsReference
+        playsStroke = true
+        showsReference = false
         cameraMode = is3D ? .perspective3D : .topDown2D
     }
     deinit {
@@ -198,7 +198,7 @@ final class ThreeBallPracticeViewModel: ObservableObject, TeachingTableHost {
             || limiter.isLimitReached
     }
     var primaryTitle: String {
-        if isReplaying { return playsStroke ? "停止回放" : "停止击球" }
+        if isReplaying { return "停止" }
         switch phase {
         case .saveFailed: return "重试保存"
         case .result: return record?.canAdvanceStage == true ? "下一杆" : shouldFinish ? "查看总结" : "下一题"

@@ -145,7 +145,7 @@ struct AccuracyPracticeView: View {
             layoutEditingBlocked: vm.isBusy, onAimNudged: { vm.nudgeAim($0) },
             onObservation: { vm.markObservation($0) },
             closeupSnapshot: vm.canAim ? vm.closeupSnapshot : nil,
-            onSpinChange: { vm.updateSpin($0, $1) })
+            onSpinChange: { vm.updateSpin($0, $1) }, paletteKeys: vm.record?.current.map { ["_\($0.ballNumber)"] } ?? [])
     }
     private var tablePage: some View {
         BTTeachingTablePage(vm: vm, titleLabel: vm.title, identifier: "accuracy", preferencePage: vm.preferencePage,

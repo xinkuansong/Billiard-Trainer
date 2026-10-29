@@ -6,6 +6,7 @@ struct PositionPlayEditorConfiguration {
     var title: String
     var isTryout: Bool
     var loadsDefaultLayout: Bool = true
+    var allowsSeparationAssist: Bool = true
     var setup: () -> Void
     var onInteraction: () -> Void
     var onRearrange: () -> Void
@@ -24,70 +25,59 @@ struct PositionPlayComposerView: View {
     let initialMode: PositionPlayViewModel.AimMode?
     let sourceDrill: DrillContent?
     let tryoutFormation: DrillTryoutFormation?
+    var onBack: (() -> Void)?
 
     init(initialBoard: BoardSnapshot? = nil,
          initialMode: PositionPlayViewModel.AimMode? = nil,
          sourceDrill: DrillContent? = nil,
-         tryoutFormation: DrillTryoutFormation? = nil) {
+         tryoutFormation: DrillTryoutFormation? = nil,
+         onBack: (() -> Void)? = nil) {
         self.initialBoard = initialBoard
         self.initialMode = initialMode
         self.sourceDrill = sourceDrill
         self.tryoutFormation = tryoutFormation
+        self.onBack = onBack
     }
 
     @StateObject private var vm = PositionPlayViewModel()
+    @Environment(\.dismiss) private var dismiss
     @State private var tryoutBoard: BoardSnapshot?
     @State private var tryoutAimPreference: PositionPlayViewModel.AimMode = .pocket
     @State private var showBrief = false
-    @State private var showRename = false
-    @State private var renameText = ""
     @State private var showClearTableConfirm = false
-    @State private var showResetConfirm = false
     @AppStorage("drillTryout.hasSeenGestureHint") private var hasSeenGestureHint = false
     private var isTryout: Bool { sourceDrill != nil }
     private var openingBoard: BoardSnapshot? {
         if let sourceDrill { return tryoutFormation?.initial ?? DrillBoardBuilder.board(for: sourceDrill) }
-        return initialBoard
+        return initialBoard ?? Self.defaultBoard
     }
 
     var body: some View {
         FreePlayView(editorModel: vm, editor: .init(
-            title: navTitleText, isTryout: isTryout, loadsDefaultLayout: openingBoard?.onTable.isEmpty != false, setup: setupBoard,
+            title: navTitleText, isTryout: isTryout, loadsDefaultLayout: openingBoard?.onTable.isEmpty != false,
+            allowsSeparationAssist: isTryout, setup: setupBoard,
             onInteraction: dismissBriefOnInteraction, onRearrange: rearrange,
             modeItem: tryoutModeItem, aimItems: tryoutAimItems, menuItems: editorMenuItems, overlay: AnyView(briefOverlay),
-            layoutEditingBlocked: showRename || showClearTableConfirm || showResetConfirm))
-        .alert("命名走位序列", isPresented: $showRename) {
-            TextField("名称", text: $renameText)
-            Button("保存") { vm.renameSequence(renameText) }
-            Button("取消", role: .cancel) {}
-        }
+            layoutEditingBlocked: showClearTableConfirm, onBack: { if let onBack { onBack() } else { dismiss() } }))
         .confirmationDialog(vm.isRecording ? "清空桌面将丢弃录制中的 \(vm.stepCount) 杆。" : "清空桌面上所有球？",
                             isPresented: $showClearTableConfirm, titleVisibility: .visible) {
             Button("取消", role: .cancel) {}
             Button("清空桌面", role: .destructive) { vm.clearTable(); vm.placeFromPalette(PositionPlayBall.cueKey) }
         }
-        .overlay {
-            if showResetConfirm {
-                GeometryReader { geometry in
-                    ZStack {
-                        Color.black.opacity(0.2).contentShape(Rectangle()).onTapGesture { }
-                            .accessibilityHidden(true)
-                        DailyConfirmationCard(title: vm.isRecording ? "清空并重来将丢弃录制中的 \(vm.stepCount) 杆。" : "回到默认球形并重新开始？",
-                            availableHeight: geometry.size.height - 32, availableWidth: geometry.size.width - 32,
-                            firstTitle: "清空并重来", secondTitle: "取消",
-                            firstID: "composer.reset.confirm", secondID: "composer.reset.cancel",
-                            first: { showResetConfirm = false; vm.resetAll() },
-                            second: { showResetConfirm = false })
-                    }
-                }
-            }
-        }
         .toolUsageSession(isTryout ? .drillTryout : .freePosition)
     }
 
+    /// Requested landscape layout: cue below center, 1 at upper right, 8 at lower left.
+    /// Normalized by inner table length; Y grows toward the lower long cushion.
+    static let defaultBoard = BoardSnapshot(onTable: [
+        PositionPlayBall.cueKey: CanvasPoint(x: 0.62, y: 0.395),
+        "_1": CanvasPoint(x: 0.86, y: 0.187),
+        "_8": CanvasPoint(x: 0.285, y: 0.367)
+    ])
+
     private var navTitleText: String {
         if let sourceDrill { return sourceDrill.nameZh }
-        return vm.sequence.name == "未命名走位" ? "自由走位" : vm.sequence.name
+        return "分离角与走位"
     }
 
     private func setupBoard() {
@@ -104,8 +94,12 @@ struct PositionPlayComposerView: View {
             } else { vm.setPreferredAimMode(initialMode ?? .free) }
             withAnimation(.easeInOut(duration: 0.35).delay(0.6)) { showBrief = true }
         } else {
-            if let initialBoard { vm.loadBoard(initialBoard) }
-            if let initialMode { vm.setPreferredAimMode(initialMode) }
+            if let openingBoard { vm.loadBoard(openingBoard) }
+            vm.setPreferredAimMode(initialMode ?? .pocket)
+            if initialBoard == nil {
+                _ = vm.selectTarget(key: "_1")
+                vm.selectPocket(at: 1)
+            }
         }
     }
 
@@ -136,13 +130,7 @@ struct PositionPlayComposerView: View {
             return [.init(id: "tryout.info", title: "试打说明", disclosure: true, action: { showBrief.toggle() })]
         }
         let busy = vm.isPlaying || vm.isBreakMode
-        return [
-            .init(id: "composer.rename", title: "重命名", disabled: busy, action: {
-                renameText = vm.sequence.name; showRename = true
-            }),
-            .init(id: "composer.clear", title: "清空桌面", disabled: busy, action: { showClearTableConfirm = true }),
-            .init(id: "composer.reset", title: "清空并重来", disabled: busy, action: { showResetConfirm = true })
-        ]
+        return [.init(id: "composer.clear", title: "清空桌面", disabled: busy, action: { showClearTableConfirm = true })]
     }
 
     private var currentTryoutFormation: DrillTryoutFormation? {

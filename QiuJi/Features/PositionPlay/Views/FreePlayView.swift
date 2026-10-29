@@ -49,7 +49,11 @@ struct FreePlayView: View {
         preferencePage.usesFreeControlLayout && (editingControlLayout ||
             !freeControlLayouts.values(page: preferencePage, mode: is3D ? .threeD : .twoD).isEmpty)
     }
-    private var pagePreferences: TablePreferenceSnapshot { tablePreferences.snapshot(for: preferencePage) }
+    private var pagePreferences: TablePreferenceSnapshot {
+        var value = tablePreferences.snapshot(for: preferencePage)
+        if editor?.allowsSeparationAssist == false { value.values[.separation] = 0 }
+        return value
+    }
     private func setPagePreference(_ field: TablePreferenceField, _ value: Double) {
         tablePreferences.apply(field, value: value, to: preferencePage)
         applyPagePreferences()
@@ -1492,7 +1496,7 @@ struct FreePlayView: View {
                       disabled: disabled, action: { dailyPresentation = .trajectory }),
             ]
 
-            items += [TablePreferenceField.separation].map { field in
+            items += (editor?.allowsSeparationAssist == false ? [] : [TablePreferenceField.separation]).map { field in
                 DailyHUDMenuItem(id: "freeplay." + field.rawValue, title: field.title,
                     selected: pagePreferences.enabled(field), action: {
                         setPagePreference(field, pagePreferences.enabled(field) ? 0 : 1)
@@ -2830,7 +2834,7 @@ private extension FreePlayView {
         // Drill names must use the same reservation as the reference page.
         // Feeding their unwrapped width back into Foundation moves the palette
         // into another row and shrinks the table.
-        if editor?.isTryout == true || formation != nil { return 60 }
+        if editor != nil || formation != nil { return 60 }
         let width = dailyHeaderTitleWidths[Int(size)] ?? 4 * size
         // Keep the template's four-character title budget for shorter wrapped lines,
         // so the palette does not grow into the shared time/battery/FPS region.
@@ -2850,9 +2854,9 @@ private extension FreePlayView {
             BTTablePageTitle(pageTitle, width: 60, compact: compact, fitsLongText: true,
                              preferredLineBreak: formation?.preferredTitleLineBreak)
                 .accessibilityIdentifier("formation.title")
-        } else if editor?.isTryout == true {
+        } else if editor != nil {
             BTTablePageTitle(pageTitle, width: dailyHeaderTitleWidth(size: 15), compact: compact, fitsLongText: true)
-                .accessibilityIdentifier("tryout.title")
+                .accessibilityIdentifier(editor?.isTryout == true ? "tryout.title" : "composer.title")
         } else {
             // An intentional line break does not trigger minimumScaleFactor.
             // Two-line titles use a smaller token while retaining the width budget.
@@ -2893,6 +2897,7 @@ private extension FreePlayView {
                       preservesBaselineTextFit: Bool = false) -> some View {
         HStack(spacing: -12) {
             Button {
+                DailyLayoutProbe.record("navigation.tableBack", ["title": pageTitle, "editorCallback": editor?.onBack != nil])
                 vm.cancelPowerRelease()
                 if let back = editor?.onBack { back() } else { dismiss() }
             } label: {

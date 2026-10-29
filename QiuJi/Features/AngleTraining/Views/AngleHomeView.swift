@@ -58,14 +58,14 @@ enum AngleRoute: Hashable {
     var requiresPremium: Bool {
         switch self {
         case .separationAngleAtlas, .cushionEnglishAtlas,
-             .snakePractice, .positionPlayComposer,
+             .snakePractice, .positionPlayComposer, .shotSimulation,
              .ballExtraction, .planThree, .snookerTactics, .bankShot, .diamondSystem:
             return true
         case .sceneAiming3D, .aimPointScene3D, .accuracy3D, .separationPractice3D, .twoBallPractice3D, .threeBallPractice3D, .multiBallPractice3D,
              .theoryIndex, .theoryPage, .contactPointTable, .aimingPrinciple,
              .aimingMethods, .aimingCorrection, .spinAndEnglish, .angleDynamic,
              .geometricQuiz, .multiBallPractice, .customFormationPractice, .sceneAiming2D,
-             .aimPointTraining, .aimPointScene2D, .accuracy2D, .separationPractice2D, .twoBallPractice2D, .threeBallPractice2D, .ballFeel, .shotSimulation, .freePlay, .positionPlaySolver,
+             .aimPointTraining, .aimPointScene2D, .accuracy2D, .separationPractice2D, .twoBallPractice2D, .threeBallPractice2D, .ballFeel, .freePlay, .positionPlaySolver,
              .batchDrillStudio, .drillDetail:
             return false
         }
@@ -239,10 +239,10 @@ struct AngleHomeView: View {
     /// 「练」——准度测验与有规则的连续击球练习。
     private let trainEntries: [AngleEntry] = [
         .init(route: .geometricQuiz, title: "角度预测", subtitle: "估切角看误差", contentKind: .quiz, topics: [.accuracy]),
-        .init(route: .sceneAiming2D, title: "角度", subtitle: "切换视角，练切角判断", contentKind: .quiz, topics: [.accuracy]),
-        .init(route: .aimPointTraining, title: "瞄准点训练", subtitle: "拖假想球看毫米差", contentKind: .quiz, topics: [.accuracy]),
-        .init(route: .aimPointScene2D, title: "瞄准点", subtitle: "切换视角，练瞄准判断", contentKind: .quiz, topics: [.accuracy]),
-        .init(route: .accuracy2D, title: "准度", subtitle: "指定打点，瞄准进袋", contentKind: .quiz, topics: [.accuracy]),
+        .init(route: .sceneAiming2D, title: TrainingProject.angle.title, subtitle: "切换视角，练切角判断", contentKind: .quiz, topics: [.accuracy]),
+        .init(route: .aimPointTraining, title: "假想球练习", subtitle: "拖假想球看毫米差", contentKind: .quiz, topics: [.accuracy]),
+        .init(route: .aimPointScene2D, title: TrainingProject.aimPoint.title, subtitle: "切换视角，练瞄准判断", contentKind: .quiz, topics: [.accuracy]),
+        .init(route: .accuracy2D, title: TrainingProject.accuracy.title, subtitle: "指定打点，瞄准进袋", contentKind: .quiz, topics: [.accuracy]),
         .init(route: .snakePractice, title: "蛇彩练习", subtitle: "连续进球与走位", contentKind: .striking, isPremium: true, topics: [.position, .accuracy]),
         .init(route: .customFormationPractice, title: "自定义球形", subtitle: "自由摆球与练习", contentKind: .striking, topics: [.position, .accuracy]),
     ]
@@ -264,21 +264,19 @@ struct AngleHomeView: View {
 
     /// P11.1：入口顺序 = 分离角与走位、自由走位、自由击球、拍照建球形（、批量出片台）。
     private let basePlayEntries: [AngleEntry] = [
-        .init(route: .multiBallPractice, title: "多球走位", subtitle: "顺序清台与中八残局", contentKind: .striking, topics: [.position]),
-        .init(route: .separationPractice2D, title: "分离角", subtitle: "调打点力度，复现目标轨迹", contentKind: .quiz, topics: [.position, .english]),
+        .init(route: .multiBallPractice, title: "多球走位", subtitle: "中八残局与追分", contentKind: .striking, topics: [.position]),
+        .init(route: .separationPractice2D, title: TrainingProject.separation.title, subtitle: "调打点力度，复现目标轨迹", contentKind: .quiz, topics: [.position, .english]),
         .init(route: .twoBallPractice2D, title: "两球走位", subtitle: "练目标轨迹，或走下一球", contentKind: .quiz, topics: [.position, .english]),
         .init(route: .threeBallPractice2D, title: "三球走位", subtitle: "提前选袋，练两杆连续走位", contentKind: .quiz, topics: [.position, .english]),
-        .init(route: .shotSimulation, title: "分离角与走位", subtitle: "调打点力度看走位", contentKind: .striking, topics: [.position, .english]),
-        .init(route: .positionPlayComposer, title: "自由走位", subtitle: "逐杆摆打推演走位", contentKind: .striking, isPremium: true, topics: [.position, .english]),
-        .init(route: .freePlay, title: "自由击球", subtitle: "从开球打一整局", contentKind: .striking),
+        .init(route: .positionPlayComposer, title: "分离角与走位", subtitle: "逐杆摆打推演走位", contentKind: .striking, isPremium: true, topics: [.position, .english]),
         .init(route: .ballExtraction, title: "拍照建球形", subtitle: "拍球局导入沙盘", contentKind: .interactive, isPremium: true),
     ]
 
     /// 「解」——教练类：给定局面，让引擎反解怎么打。
     private let solveEntries: [AngleEntry] = [
-        .init(route: .positionPlaySolver, title: "思路训练", subtitle: "定落点看塞与力度", contentKind: .striking, topics: [.position, .english]),
+        .init(route: .positionPlaySolver, title: "走位求解", subtitle: "定落点看塞与力度", contentKind: .striking, topics: [.position, .english]),
         .init(route: .planThree, title: "打一走二想三", subtitle: "定三颗倒推第一杆", contentKind: .striking, isPremium: true, topics: [.position]),
-        .init(route: .snookerTactics, title: "防守", subtitle: "选目标球求防守线", contentKind: .striking, isPremium: true, topics: [.safety]),
+        .init(route: .snookerTactics, title: "防守求解", subtitle: "选目标球求防守线", contentKind: .striking, isPremium: true, topics: [.safety]),
         .init(route: .bankShot, title: "翻袋解球", subtitle: "选袋求一至三库线", contentKind: .striking, isPremium: true, topics: [.cushion, .accuracy]),
         .init(route: .diamondSystem, title: "颗星解球", subtitle: "摆球求一至三库线", contentKind: .striking, isPremium: true, topics: [.cushion]),
     ]

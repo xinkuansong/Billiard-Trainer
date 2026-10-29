@@ -46,6 +46,41 @@ final class TrainingSettingsResetUITests: XCTestCase {
         }
     }
 
+    func testPracticeReviewSupportingPages() {
+        let entries = [("mergeSeparation", "separation", "分离角", 1),
+                       ("mergeTwo", "twoBall", "两球走位", 2),
+                       ("mergeThree", "threeBall", "三球走位", 3)]
+        for (route, prefix, title, count) in entries {
+            app.terminate()
+            app = .launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral",
+                "-pro.route=" + route, "-twoBall.fixedSeed", "-threeBall.fixedSeed", "-v54.forceLight"])
+            ready(app.buttons[prefix + ".start"], timeout: 30)
+            capture("review-" + prefix + "-settings-top")
+            reveal(app.buttons["training.resetDefaults"])
+            XCTAssertEqual(app.buttons["training.resetDefaults"].label, "恢复默认")
+            XCTAssertFalse(app.switches["separation.showsReference"].exists)
+            if prefix == "threeBall" { XCTAssertFalse(app.switches["separation.playsStroke"].exists) }
+            else { XCTAssertEqual(app.switches["separation.playsStroke"].label, "击球过程") }
+            capture("review-" + prefix + "-settings-bottom")
+            app.buttons[prefix + ".start"].tap()
+            ready(app.buttons[prefix + ".strike"], timeout: 120)
+            for view in ["2D", "3D"] {
+                app.selectTrainingView(view + title)
+                XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "paletteBall_")).count, count)
+                if prefix == "separation" {
+                    XCTAssertEqual(app.otherElements["separation.template"].label, "分离角练习")
+                }
+                capture("review-" + prefix + "-table-" + view)
+            }
+        }
+        app.terminate()
+        app = .launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-pro.route=snake", "-v54.forceLight"])
+        ready(app.buttons["snake.start"])
+        reveal(app.staticTexts["暂无训练记录"])
+        XCTAssertTrue(app.staticTexts["暂无训练记录"].isHittable, "Recent practice is expanded without tapping it")
+        capture("review-snake-expanded-settings")
+    }
+
     private func reviewHeaders(assertPlacement: Bool) {
         // One settings page per merged project; projection switching is covered on the table.
         let entries = ["2D角度", "2D瞄准点", "2D准度", "2D分离角", "2D两球走位", "2D三球走位",
@@ -173,7 +208,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
             }
             if trajectory {
                 setSwitch("separation.playsStroke", false)
-                setSwitch("separation.showsReference", true)
+                XCTAssertFalse(app.switches["separation.showsReference"].exists)
                 top()
             }
             let thin = app.buttons["training.range.thin"]
@@ -213,7 +248,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
             if trajectory {
                 reveal(app.switches["separation.playsStroke"])
                 XCTAssertEqual(app.switches["separation.playsStroke"].value as? String, "1")
-                XCTAssertEqual(app.switches["separation.showsReference"].value as? String, "0")
+                XCTAssertFalse(app.switches["separation.showsReference"].exists)
             }
             if title.contains("准度") {
                 reveal(app.switches["accuracy.manualVerticalSpin"], down: false)
@@ -254,7 +289,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
         reset("transaction-initial-defaults"); top()
         app.segmentedControls["twoBall.mode"].buttons["自由走位"].tap()
         app.otherElements["training.length"].buttons["持续练习"].tap()
-        setSwitch("separation.playsStroke", false); setSwitch("separation.showsReference", true)
+        setSwitch("separation.playsStroke", false); XCTAssertFalse(app.switches["separation.showsReference"].exists)
         app.buttons["twoBall.start"].tap(); app.selectTrainingView(trainingTitle)
         ready(app.buttons["twoBall.strike"], timeout: 180)
         let initial = try twoBallProbe()
@@ -265,7 +300,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
         let cancelled = try twoBallProbe()
         for key in ["question", "mode"] { XCTAssertEqual(cancelled[key] as? String, initial[key] as? String) }
         XCTAssertEqual(cancelled["playsStroke"] as? Bool, false)
-        XCTAssertEqual(cancelled["showsReference"] as? Bool, true)
+        XCTAssertEqual(cancelled["showsReference"] as? Bool, false)
         twoBallSettings(); top()
         XCTAssertTrue(app.segmentedControls["twoBall.mode"].buttons["自由走位"].isSelected)
         XCTAssertTrue(app.otherElements["training.length"].buttons["持续练习"].isSelected)
@@ -292,7 +327,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
         XCTAssertFalse(app.switches["training.verticalSpin"].exists)
         XCTAssertFalse(app.switches["training.sideSpin"].exists)
         reveal(small); XCTAssertEqual(small.value as? String, "已选")
-        setSwitch("separation.showsReference", true)
+        XCTAssertFalse(app.switches["separation.showsReference"].exists)
         capture("two-ball-free-settings")
         top(); app.segmentedControls["twoBall.mode"].buttons["轨迹走位"].tap()
         reveal(app.switches["training.verticalSpin"])
@@ -304,7 +339,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
         ready(app.buttons["twoBall.strike"], timeout: 180)
         let initial = try twoBallProbe()
         XCTAssertEqual(initial["playsStroke"] as? Bool, true)
-        XCTAssertEqual(initial["showsReference"] as? Bool, true)
+        XCTAssertEqual(initial["showsReference"] as? Bool, false)
         twoBallSettings(); top()
         app.segmentedControls["twoBall.mode"].buttons["轨迹走位"].tap()
         setSwitch("training.verticalSpin", true)

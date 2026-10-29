@@ -16,7 +16,7 @@ struct SnookerTacticsView: View {
     }
     private var hides3DAssists: Bool { !tablePreferences.snapshot(for: .snookerTactics).enabled(.shows3DTrajectory) }
     var body: some View {
-        BTTeachingTablePage(vm: vm, titleLabel: "防守", identifier: "snooker", preferencePage: .snookerTactics, velocity: velocity,
+        BTTeachingTablePage(vm: vm, titleLabel: "防守求解", identifier: "snooker", preferencePage: .snookerTactics, velocity: velocity,
             planning: controls,
             usesStandardTitle: true,
             title: { EmptyView() },

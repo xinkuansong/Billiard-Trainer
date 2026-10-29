@@ -1,0 +1,94 @@
+{
+  "date": "2026-10-29 Asia/Shanghai",
+  "head": "6d233c3c4d9d05cf857a5adf2750e78bb443bb46",
+  "basis": "Read-only analysis of current working files; user is committing concurrently. Recheck fingerprints before implementation.",
+  "sources": {
+    "QiuJi/Core/Components/BTTeachingTablePage.swift": "0dd82a7428fe7c8677f71509ab2486ad809513e9bdfe0c7e6bd8e57ec1dd5e05",
+    "QiuJi/Core/Training/TrainingProject.swift": "9a03e29cff65267459c5cb70be91dd7cf732be339f766763f698c218813260b3",
+    "QiuJi/Core/Training/TrainingCheckpointStore.swift": "48bb12c24af51a91bc21e9446ba975cfa38f15c16c215633e4d81ea3d27a891e",
+    "QiuJi/Features/AngleTraining/Views/SceneTrainingSettings.swift": "52b7f1f3ef06e57fa8874dbe02e42012b8f2b304408f372dd04158aed4a0ed93",
+    "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift": "f7d9dca9bcd76a88d04fd0f692932f3ab2af96e508489b2388adcf218d71fa3c",
+    "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift": "fb363617e8aa0b4d0e34d8dfdf696d5c41a484dbd12a71d5ab9b1082bd263ddc",
+    "QiuJi/Features/AngleTraining/Views/AngleHomeView.swift": "0333153c18430eedaad7b17d7e1ea6f8f1d12f77cfb0d033662198b65db248d0",
+    "QiuJi/Features/AngleTraining/SceneTrainingRules.swift": "164534686c19950d9d9d332595fc59469df4c7e03a6dd489d376322752e67d21",
+    "QiuJi/Features/MultiBallPractice/MultiBallBank.swift": "d209ee5fd0ba24e0861ea4ae20e3ce9bf43f6ae185281b3d7552a05868c3ae3a",
+    "QiuJi/Features/MultiBallPractice/MultiBallPracticeController.swift": "635426778d0c36e4ff62995f5d86b06c79b1b552f329a08d8066c6b069610a6b",
+    "QiuJi/Features/MultiBallPractice/MultiBallPracticeView.swift": "c4f7966a102b65f3ed533f0443a2c04d47a0c87e51e600a7abb49dd04fe04794",
+    "QiuJi/Features/PositionPlay/Views/PositionPlayComposerView.swift": "3b3057ba0862ac7a926a3724e4d3a09a5d11c989239ae45700c4712ab9f106bc",
+    "QiuJi/Features/PositionPlay/Views/FreePlayView.swift": "998826ea52f1daef1bea04750a6c7164b6168296e950050a0d5c4a99f3ac19b9",
+    "QiuJi/Features/CustomFormationPractice/CustomFormationLibrary.swift": "0a0494a3eb6453acfda63842ea9be30b8585858f82aad09e1d8882d4c4fac760",
+    "QiuJi/Features/SnakePractice/SnakePracticeView.swift": "b227464a71769f82caa0bc0f5561766d9eaa6d870035459e323987859e28cc2f"
+  },
+  "images": [
+    {
+      "file": "01-angle.png",
+      "sha256": "d5aba9974482d1e1022eba1213a88a7b90574e76d00d2e7d0367aeba7d91a548",
+      "origin": "user screenshot; build identity not supplied"
+    },
+    {
+      "file": "02-aim.png",
+      "sha256": "0021acbccf629c393bf506f65594141b60543d2c6975cbbdfef538166caf2fce",
+      "origin": "user screenshot; build identity not supplied"
+    },
+    {
+      "file": "03-stop.png",
+      "sha256": "addff9294abd435746b5f0ca55cfcf89715244fe6eee2d33b6ff836597ad9a2e",
+      "origin": "user screenshot; build identity not supplied"
+    },
+    {
+      "file": "04-4443.png",
+      "sha256": "640cc402baedb57b564508b67d75641f94557e3a62148c642f23b9f177b92dde",
+      "origin": "user screenshot; build identity not supplied"
+    },
+    {
+      "file": "05-palette.png",
+      "sha256": "d5834fde1330ec3d009aeb193858ae5a9e166ee602070e1300cb5c2cb542cb26",
+      "origin": "user screenshot; build identity not supplied"
+    },
+    {
+      "file": "06-aim-result.png",
+      "sha256": "d6849baae19364f5b170cf0b7e67d3853ed1487de1210be318b21c874444a3cf",
+      "origin": "user screenshot; build identity not supplied"
+    },
+    {
+      "file": "07-aim-input.png",
+      "sha256": "ed2472f68412b326a1ce4b744cc41728ff390f5cb48b0ac4e9563baadbec2709",
+      "origin": "user screenshot; build identity not supplied"
+    },
+    {
+      "file": "08-settings-reference.png",
+      "sha256": "9817ed06547a59e734dacd39a2a30e662d613e60b15e4a09fe738bcadd79b6b7",
+      "origin": "user screenshot; build identity not supplied"
+    },
+    {
+      "file": "09-settings-reset.png",
+      "sha256": "6915d89228cf8eca5e501f07169857f5426ef439b4203a9a34b52d02b980f559",
+      "origin": "user screenshot; build identity not supplied"
+    },
+    {
+      "file": "10-three-settings.png",
+      "sha256": "1d5447320c7a51fb80ce74f1592990f532df0425ff1cc953f860c569b0933573",
+      "origin": "user screenshot; build identity not supplied"
+    },
+    {
+      "file": "11-multi-settings.png",
+      "sha256": "39172d24e33ca09d83f9ffc79eaa61ef30138c2bd3748aed4b0d5635065a2270",
+      "origin": "user screenshot; build identity not supplied"
+    },
+    {
+      "file": "12-two-settings.png",
+      "sha256": "982294cc5d0a55b06da1d83d788cabcdf8f865f3d0bf32598afa4fd303a5e1a2",
+      "origin": "user screenshot; build identity not supplied"
+    },
+    {
+      "file": "13-composer-menu.png",
+      "sha256": "0933c153fc65f4c8e9ae8a941b26bedd4e74709b7b841becca736e34ca7c726b",
+      "origin": "user screenshot; build identity not supplied"
+    },
+    {
+      "file": "14-requested-default.png",
+      "sha256": "91e8df3926b57686583a54cd3c92d195031456f4274194fb28fa06b288ee9cf7",
+      "origin": "user screenshot; build identity not supplied"
+    }
+  ]
+}

@@ -50,22 +50,12 @@ final class ThreeBallPracticeUITests: XCTestCase {
         ready(app.buttons["threeBall.start"])
         XCTAssertFalse(app.switches["training.verticalSpin"].exists)
         XCTAssertFalse(app.segmentedControls["twoBall.mode"].exists)
-        let toggle = app.switches["separation.playsStroke"]
-        for _ in 0..<16 {
-            let window = app.windows.firstMatch.frame
-            let navigationBottom = app.navigationBars.firstMatch.frame.maxY
-            if toggle.exists, toggle.isHittable,
-               toggle.frame.minY > navigationBottom + 8, toggle.frame.maxY < window.maxY - 20 { break }
-            let down = toggle.exists && toggle.frame.minY <= navigationBottom + 8
-            app.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: down ? 0.4 : 0.6))
-                .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: down ? 0.6 : 0.4)))
-        }
-        ready(toggle)
-        print("THREE_BALL_SETTINGS_TOGGLE frame=\(toggle.frame) nav=\(app.navigationBars.firstMatch.frame)")
-        if (toggle.value as? String == "1") != animated {
-            toggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap()
-        }
-        XCTAssertEqual(toggle.value as? String, animated ? "1" : "0")
+        // Three-ball always plays the stroke; the removed demonstration controls
+        // must remain absent even at the bottom of the form.
+        for _ in 0..<8 where !app.buttons["training.resetDefaults"].isHittable { app.swipeUp() }
+        ready(app.buttons["training.resetDefaults"])
+        XCTAssertFalse(app.switches["separation.playsStroke"].exists)
+        XCTAssertFalse(app.switches["separation.showsReference"].exists)
         capture("threeBall-settings-\(is3D)")
         app.buttons["threeBall.start"].tap(); phase("aiming")
         ready(app.buttons["threeBall.strike"])

@@ -24,7 +24,7 @@ struct SiluTrainerView: View {
     }
     private var hides3DAssists: Bool { !tablePreferences.snapshot(for: .silu).enabled(.shows3DTrajectory) }
     var body: some View {
-        BTTeachingTablePage(vm: vm, titleLabel: "思路训练", identifier: "silu", preferencePage: .silu,
+        BTTeachingTablePage(vm: vm, titleLabel: "走位求解", identifier: "silu", preferencePage: .silu,
             velocity: velocity, planning: controls,
             usesStandardTitle: true,
             pairedLeftContent: vm.isBreakMode ? { AnyView(breakControls($0)) } : nil,

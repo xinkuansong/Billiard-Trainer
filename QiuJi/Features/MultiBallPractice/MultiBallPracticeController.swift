@@ -376,6 +376,41 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         host.continuationPocketIndex = plan?.pocket
         guard isPlanning, !awaiting, !host.isPlaying, !isComplete else { return }
         host.refreshPracticePresentation()
+        guard configuration.showsPlanningMarkers else { return }
+        for role in BallRoleStyle.allCases {
+            guard let key = roleKey(role.rawValue), remaining.contains(key),
+                  let ball = host.scene.allBallNodes[key], !ball.isHidden else { continue }
+            let ring = Self.planningRing(role: role)
+            ring.name = "multiBall.planningRing.\(role.rawValue)"
+            ring.position = SCNVector3(ball.position.x, host.scene.surfaceY + 0.0007, ball.position.z)
+            host.scene.rootNode.addChildNode(ring)
+            roleNodes.append(ring)
+        }
+    }
+
+    /// XZ annulus in metres, independent of the spinning/scaling USDZ ball.
+    /// The inner radius is the real unscaled ball radius; third role is dashed.
+    static func planningRing(role: BallRoleStyle) -> SCNNode {
+        let inner = Float(AngleSceneCalculator.ballRadius), outer = inner + 0.004
+        var vertices: [SCNVector3] = []
+        var indices: [Int32] = []
+        for i in 0..<96 where role != .upcoming || i % 12 < 7 {
+            let a = Float(i) * 2 * .pi / 96, b = Float(i + 1) * 2 * .pi / 96
+            let base = Int32(vertices.count)
+            vertices += [SCNVector3(inner * cos(a), 0, inner * sin(a)),
+                         SCNVector3(outer * cos(a), 0, outer * sin(a)),
+                         SCNVector3(inner * cos(b), 0, inner * sin(b)),
+                         SCNVector3(outer * cos(b), 0, outer * sin(b))]
+            indices += [base, base + 2, base + 1, base + 1, base + 2, base + 3]
+        }
+        let geometry = SCNGeometry(sources: [.init(vertices: vertices)],
+            elements: [.init(indices: indices, primitiveType: .triangles)])
+        let material = SCNMaterial()
+        material.lightingModel = .constant; material.diffuse.contents = role.uiColor
+        material.isDoubleSided = true; material.readsFromDepthBuffer = true; material.writesToDepthBuffer = false
+        geometry.materials = [material]
+        let node = SCNNode(geometry: geometry); node.castsShadow = false
+        return node
     }
     private func showResult(_ text: String) {
         resultTask?.cancel(); resultNotice = text

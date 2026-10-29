@@ -30,7 +30,6 @@ struct TwoBallPracticeView: View {
                 SceneTrainingSettings(route: vm.route, configuration: vm.record?.configuration ?? .init(),
                     restarting: vm.record != nil, showsSpinOptions: true,
                     strokePlayback: Binding(get: { vm.playsStroke }, set: { vm.setPlaysStroke($0) }),
-                    centerReference: Binding(get: { vm.showsReference }, set: { vm.setShowsReference($0) }),
                     twoBallMode: $vm.selectedMode,
                     prepareBatch: TwoBallQuestionPreparer.Prepared.prepare,
                     onStart: { vm.start($0, prepared: $1) },
@@ -157,7 +156,7 @@ struct TwoBallPracticeView: View {
                 .init(id: "twoBall.finish", title: "结束练习", disabled: vm.isBusy, action: { vm.finish() })
             ], refreshTrajectory: {}, onLayoutEditingChanged: vm.layoutEditingChanged,
             layoutEditingBlocked: vm.isBusy,
-            onSpinChange: { vm.setSpin($0, $1) }, paletteRoles: vm.paletteRoles, showsPaletteRoleNumbers: true)
+            onSpinChange: { vm.setSpin($0, $1) }, paletteKeys: vm.record?.current.map { ["_\($0.ballNumber)", "_\($0.secondBallNumber)"] } ?? [], paletteRoles: vm.paletteRoles, showsPaletteRoleNumbers: true)
     }
     private var tablePage: some View {
         BTTeachingTablePage(vm: vm, titleLabel: vm.title, identifier: "twoBall", preferencePage: vm.preferencePage,

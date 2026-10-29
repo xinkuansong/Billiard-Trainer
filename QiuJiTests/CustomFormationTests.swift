@@ -48,6 +48,17 @@ final class CustomFormationTests: XCTestCase {
         XCTAssertEqual(points[14].x, radius, accuracy: 1e-8)
     }
 
+    func test4443GroupsPreserveSpacingAndOneBallLongCushionGap() throws {
+        let template = BuiltInCustomFormations.templates[0]
+        let groups = Dictionary(grouping: template.ballKeys.map { template.board.onTable[$0]! }) { "\($0.x > 0.5)-\($0.y > 0.25)" }
+        for group in groups.values {
+            let ys = group.map(\.y).sorted(), upper = ys[0] < 0.25
+            let edgeDistance = (upper ? ys[0] : 0.5 - ys.last!) * 2.54
+            XCTAssertEqual(edgeDistance - 0.028575, 0.05715, accuracy: 1e-7)
+            for (a,b) in zip(ys, ys.dropFirst()) { XCTAssertEqual((b-a)*2.54, 0.1143, accuracy: 1e-7) }
+        }
+    }
+
     func testBuiltInStartAndRestartAimAtOneFromTableCenter() throws {
         for template in BuiltInCustomFormations.templates {
             let session = CustomFormationSession(template: template, editing: false)

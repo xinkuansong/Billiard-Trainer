@@ -31,7 +31,7 @@ extension XCUIApplication {
     static func trainingCardTitle(_ title: String) -> String {
         let names = ["角度", "瞄准点", "准度", "分离角", "两球走位", "三球走位", "多球走位"]
         for name in names {
-            if ["2D" + name, "3D" + name, "2D " + name + "训练", "3D " + name + "训练"].contains(title) { return name }
+            if ["2D" + name, "3D" + name, "2D " + name + "训练", "3D " + name + "训练"].contains(title) { return ["角度", "瞄准点", "准度", "分离角"].contains(name) ? name + "练习" : name }
         }
         return title
     }
@@ -42,8 +42,8 @@ extension XCUIApplication {
         guard Self.trainingCardTitle(title) != title else { return }
         maximizeTrainingTestWindow()
         let name = Self.trainingCardTitle(title)
-        let prefixes = ["角度": "angleTraining", "瞄准点": "aimPointTraining", "准度": "accuracy",
-                        "分离角": "separation", "两球走位": "twoBall", "三球走位": "threeBall", "多球走位": "multiBall"]
+        let prefixes = ["角度练习": "angleTraining", "瞄准点练习": "aimPointTraining", "准度练习": "accuracy",
+                        "分离角练习": "separation", "两球走位": "twoBall", "三球走位": "threeBall", "多球走位": "multiBall"]
         guard let prefix = prefixes[name] else { XCTFail("Unknown training project: " + title); return }
         XCTAssertTrue(buttons[prefix + ".start"].waitForNonExistence(timeout: 180))
         let moreID = prefix == "multiBall" ? "freeplay.moreMenu" : prefix + (["angleTraining", "aimPointTraining"].contains(prefix) ? ".settings" : ".more")

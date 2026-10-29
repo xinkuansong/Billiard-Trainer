@@ -146,14 +146,33 @@ final class DailyStandardFreePlayUITests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let common = ["-forcePremium", "-v50.inMemoryStore", "-v53.authenticatedProfileFixture",
-                      "-dailyLayout.probe", "-drillTryout.hasSeenGestureHint", "YES"]
+                      "-dailyLayout.probe", "-3dDrag.probe", "-drillTryout.hasSeenGestureHint", "YES"]
+        func select2D() {
+            app.buttons["freeplay.moreMenu"].tap()
+            let mode = app.buttons["freeplay.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 5))
+            if mode.value as? String != "2D" { mode.tap() }
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "value == %@", "2D"), object: mode)], timeout: 10), .completed)
+            app.buttons["关闭菜单"].tap()
+        }
         // Match tryout's 15-ball palette; a persisted nine-ball game has a
         // different header height on compact screens even at the same table size.
         app = XCUIApplication.launchClean(extraArgs: common + ["-deeplink.dailyClearance",
             "-dailyClearance.resetState", "-dailyClearance.preferredGame.v1", "chineseEightBall"])
         XCTAssertTrue(element("dailyClearance.landscape").waitForExistence(timeout: 20))
         XCTAssertTrue(element("freeplay.stage").waitForExistence(timeout: 10))
+        select2D()
+        func projectedTable() throws -> [Double] {
+            let value = try XCTUnwrap(element("table.scene").value as? String)
+            let probe = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(value.utf8)) as? [String: Any])
+            let bounds = try XCTUnwrap(probe["displayedTable"] as? [Double])
+            XCTAssertEqual(bounds.count, 4)
+            return bounds
+        }
         let reference = element("freeplay.stage").frame
+        let referenceRenderer = element("table.scene").frame
+        let referenceTable = try projectedTable()
         XCTAssertGreaterThan(reference.width, reference.height)
         try capture("title-daily-reference")
         app.terminate()
@@ -166,6 +185,7 @@ final class DailyStandardFreePlayUITests: XCTestCase {
             let formation = app.buttons["tryoutFormation_0"]
             if formation.waitForExistence(timeout: 2) { formation.tap() }
             XCTAssertTrue(element("composer.landscape").waitForExistence(timeout: 15))
+            select2D() // Relaunch retains the previous case's 3D preference.
             let title = element("tryout.title")
             XCTAssertTrue(title.waitForExistence(timeout: 5))
             XCTAssertEqual(title.label, name)
@@ -174,7 +194,16 @@ final class DailyStandardFreePlayUITests: XCTestCase {
             XCTAssertEqual(stage.width, reference.width, accuracy: 1, name)
             XCTAssertEqual(stage.height, reference.height, accuracy: 1, name)
             XCTAssertEqual(stage.minY, reference.minY, accuracy: 1, name)
+            // Compare the same explicit projection across cases. Camera choice
+            // persists between launches, so a 3D viewport is not a 2D baseline.
             assertRendererMatchesStage()
+            let renderer = element("table.scene").frame
+            XCTAssertEqual(renderer, referenceRenderer)
+            XCTAssertTrue(renderer.contains(stage))
+            let table = try projectedTable()
+            for (actual, expected) in zip(table, referenceTable) {
+                XCTAssertEqual(actual, expected, accuracy: 2, name)
+            }
             try capture("title-" + id + "-2D")
             app.buttons["freeplay.moreMenu"].tap()
             let mode = app.buttons["freeplay.cameraMode"]

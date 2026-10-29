@@ -3453,3 +3453,8 @@ Changelog（2026-10-28 / FL-215）：合法手动选球复用Scene.confirmBallSe
 ### DR-405 v1.10 · 内置球形反馈修订
 
 L型1/15号端球分别贴相邻长/短库，按球心距库R计算；两阵母球台心，开始/重开自由瞄准1号球中心。标题「4443球形」显示为4443／球形两行。BTTablePageTitle及Layout增加可选preferredLineBreak:Int?=nil，调用方显式指定字符切点；nil及无效切点保留原布局，60pt预留、字号及完整AX名称不变。FreePlay只在本球形名称传4；其他页不启用。验证以CUSTOM-FORMATION-BUILTINS-20261028反馈节为准。
+
+
+### DR-450 — 练习页面整理（2026-10-29）
+
+用户批准集中整改，现行合同回填球桌规范TP04–08/20/33/34及来源表。`BTTeachingPrimaryActionColumn`按共享仪表的原生字高/间距预留主槽，角度/瞄准点复用；少球调用方传题目固定`paletteKeys`。`AimPracticeCheckpoint`可选字段保存复练阶段/评分，不新增正式答题或额度；误差详情仅瞄准点使用。`MultiBallConfiguration.showsPlanningMarkers`缺省true，控制器在XZ台面绘制独立三角色圆环，原脉冲/袋口保留；不向P05扩散。`PositionPlayEditorConfiguration.allowsSeparationAssist`默认true，普通composer传false，隔离试打/自定义宿主。当前验证进行中，证据与截图真源为`tasks/table-page-adaptation/PRACTICE-REVIEW-PLAN-20261029.md`。

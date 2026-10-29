@@ -4,6 +4,16 @@ import SceneKit
 @testable import QiuJi
 
 final class SceneTrainingRulesTests: XCTestCase {
+    func testAimGradeBoundariesAndInvalidDirections() {
+        for (mm, grade) in [(0.0,"完美"),(0.5,"完美"),(0.5001,"很好"),(1,"很好"),(1.0001,"好"),(2,"好"),(2.0001,"一般"),(5,"一般"),(5.0001,"差")] {
+            for sign in [-1.0, 1.0] { XCTAssertEqual(SceneAimScore(status: .valid, millimetres: mm * sign, straight: false).grade, grade) }
+        }
+        for status in [SceneAimScore.Status.backwards, .wrongSide, .missesTarget] {
+            let score = SceneAimScore(status: status, millimetres: nil, straight: false)
+            XCTAssertEqual(score.grade, "差"); XCTAssertTrue(score.explanation.contains(score.label))
+        }
+    }
+
     func testTwoBallSettingsMigrateWithoutWritingAndShareViewsButKeepModesIndependent() throws {
         let suite = "training-settings-review." + UUID().uuidString
         let store = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -344,6 +354,36 @@ final class SceneTrainingLifecycleTests: XCTestCase {
         XCTAssertEqual(vm.phase,.showingResult)
         XCTAssertEqual(vm.answerCloseupSnapshot, comparison)
         XCTAssertEqual(limiter.questionsUsedToday,15); XCTAssertEqual(vm.run.firstAnswers.count,1)
+        vm.nextQuestion(); XCTAssertTrue(vm.finished)
+    }
+
+    func testAimRetryKeepsFirstAnswerAndLastQuota() async throws {
+        let suite = "aim-retry-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let limiter = AngleUsageLimiter(defaults: defaults, namespace: "aimPoint2D", limit: 15)
+        for _ in 0..<14 { limiter.recordQuestion() }
+        let vm = AimPointSceneQuizViewModel(limiter: limiter)
+        vm.configure(repository: TrainingAnswerRepositoryStub())
+        vm.setupScene(cameraMode: .topDown2D, autoStart: false)
+        var generator = SceneTrainingGenerator(seed: 15)
+        vm.startTest(questions: try generator.batch(.init()))
+        vm.submit(); try await waitForSave { vm.isSaving }
+        let encoder = JSONEncoder(); encoder.outputFormatting = .sortedKeys
+        let first = try encoder.encode(vm.run.firstAnswers), question = vm.run.current?.id
+        let direction = try XCTUnwrap(vm.currentPlayerAim)
+        for _ in 0..<2 {
+            XCTAssertTrue(vm.canRetry); vm.retry()
+            XCTAssertEqual(vm.phase, .aiming); XCTAssertTrue(vm.run.submitted)
+            XCTAssertNil(vm.answerCloseupSnapshot)
+            XCTAssertEqual(vm.currentPlayerAim?.x, direction.x)
+            vm.submit()
+            XCTAssertEqual(vm.phase, .showingResult)
+            XCTAssertEqual(vm.run.current?.id, question)
+            XCTAssertEqual(try encoder.encode(vm.run.firstAnswers), first)
+            XCTAssertEqual(limiter.questionsUsedToday, 15)
+            XCTAssertFalse(vm.finished)
+        }
         vm.nextQuestion(); XCTAssertTrue(vm.finished)
     }
 

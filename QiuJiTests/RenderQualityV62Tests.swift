@@ -419,6 +419,8 @@ final class RenderQualityV62Tests: XCTestCase {
         window.addSubview(view)
         let coordinator = AngleSceneView.Coordinator(scene: s, cameraMode: .perspective3D, interactionMode: .cameraControl)
         coordinator.scnView = view; coordinator.contentIsAnimating = false
+        view.delegate = coordinator.frameDelegate
+        coordinator.frameDelegate.contact = s.contactOcclusion
         coordinator.eventDrivenIdle = true
         coordinator.startRenderLoop(); coordinator.requestInteractiveFrames()
         defer { AngleSceneView.dismantleUIView(view, coordinator: coordinator); view.removeFromSuperview() }
@@ -5560,6 +5562,8 @@ final class RenderQualityV62Tests: XCTestCase {
         window.addSubview(view)
         let coordinator = AngleSceneView.Coordinator(scene: s, cameraMode: .perspective3D, interactionMode: .cameraControl)
         coordinator.scnView = view; coordinator.contentIsAnimating = false
+        view.delegate = coordinator.frameDelegate
+        coordinator.frameDelegate.contact = s.contactOcclusion
         coordinator.startRenderLoop(); coordinator.requestInteractiveFrames()
         defer { coordinator.stopRenderLoop(); view.removeFromSuperview() }
         try await Task.sleep(for: .seconds(1.5))

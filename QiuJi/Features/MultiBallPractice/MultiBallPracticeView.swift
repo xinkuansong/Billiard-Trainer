@@ -47,19 +47,29 @@ struct MultiBallSettingsView: View {
         Form {
             Section("玩法") {
                 Picker("玩法", selection: $configuration.game) {
-                    ForEach(MultiBallConfiguration.Game.allCases, id: \.self) { Text($0.title).tag($0) }
+                    ForEach([MultiBallConfiguration.Game.chineseEight, .rotation], id: \.self) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented).accessibilityIdentifier("multiBall.game")
             }
             Section {
-                Picker("走位模式", selection: $configuration.positionMode) {
+                Picker("训练模式", selection: $configuration.positionMode) {
                     ForEach(MultiBallConfiguration.PositionMode.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented).accessibilityIdentifier("multiBall.positionMode")
-            } header: { Text("走位模式") } footer: {
-                Text(configuration.positionMode == .planned
-                     ? "提前规划三颗球，指定第二球袋口；顺序清台自动排球，每杆评价走位质量。"
-                     : "不必提前指定下一球，按清台规则自主击球。")
+            } header: { Text("训练模式") }
+            Section("练习说明") { Text(practiceInstructions) }
+            Group {
+                Section("训练量") {
+                    BTTrainingModePicker(count: 3, isPremium: subscription.isPremium, freePractice: Binding(get: { configuration.freePractice }, set: { free in
+                        if free && !subscription.isPremium { pendingFreePractice = true; showSubscription = true }
+                        else { configuration.freePractice = free }
+                    })).accessibilityIdentifier("multiBall.length")
+                    if !subscription.isPremium {
+                        Text("今日剩余 \(limiter.remainingToday) 题，2D与3D及所有多球玩法共用")
+                            .font(.btCaption).foregroundStyle(.btTextSecondary)
+                            .accessibilityIdentifier("multiBall.remaining")
+                    }
+                }
             }
             Section(configuration.game == .rotation ? "目标球数" : "己方球数（含黑八）") {
                 ForEach(configuration.game == .rotation ? MultiBallConfiguration.rotationCounts : Array(4...8), id: \.self) { count in
@@ -76,21 +86,9 @@ struct MultiBallSettingsView: View {
                     choice("随机 1–7 颗", selected: configuration.randomOpponents, id: "multiBall.opponents.random") { configuration.randomOpponents = true }
                 }
             }
-            Group {
-                Section("训练量") {
-                    BTTrainingModePicker(count: 3, isPremium: subscription.isPremium, freePractice: Binding(get: { configuration.freePractice }, set: { free in
-                        if free && !subscription.isPremium { pendingFreePractice = true; showSubscription = true }
-                        else { configuration.freePractice = free }
-                    })).accessibilityIdentifier("multiBall.length")
-                    if !subscription.isPremium {
-                        Text("今日剩余 \(limiter.remainingToday) 题，2D与3D及所有多球玩法共用")
-                            .font(.btCaption).foregroundStyle(.btTextSecondary)
-                            .accessibilityIdentifier("multiBall.remaining")
-                    }
-                }
-            }
-            Section("练习方式") {
-                Text(configuration.game == .rotation ? "母球自由球上手。按号码从小到大逐颗打进，练习连续走位。" : "母球自由球上手。己方全色或花色随机分配，打完己方球后再打黑八。")
+            Section("显示") {
+                Toggle("规划球标记", isOn: $configuration.showsPlanningMarkers)
+                    .accessibilityIdentifier("multiBall.planningMarkers")
             }
             BTTrainingSettingsResetSection {
                 configuration = .init()
@@ -124,6 +122,14 @@ struct MultiBallSettingsView: View {
         }) { SubscriptionView() }
         .onChange(of: scenePhase) { _, phase in if phase == .active { limiter.refreshDay() } }
         .onDisappear { resetNotice.clear() }
+    }
+    private var practiceInstructions: String {
+        let game = configuration.game == .rotation
+            ? "母球自由球上手，按号码从小到大逐颗打进，练习连续走位。"
+            : "母球自由球上手，先打完分配给自己的全色球或花色球，最后打黑八；对手球留在桌上作为障碍。"
+        return game + (configuration.positionMode == .planned
+            ? "提前规划接下来的三颗球，并为第二颗球指定袋口；追分会自动安排球序，每杆结束后查看走位得分。"
+            : "不用提前指定下一颗球，按当前玩法自行选择和完成每一杆。")
     }
     private func start() {
         limiter.refreshDay()

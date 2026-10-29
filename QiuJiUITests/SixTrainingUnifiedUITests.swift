@@ -3,6 +3,103 @@ import XCTest
 final class SixTrainingUnifiedUITests: XCTestCase {
     private var trainingTitle = ""
 
+    func testPracticeReviewCorePagesAndAimRetry() {
+        continueAfterFailure = false
+        for title in ["2D角度", "2D瞄准点", "2D准度", "3D角度", "3D瞄准点", "3D准度"] {
+            let app = open(title)
+            let projection = String(title.prefix(2))
+            let prefix = title.contains("准度") ? "accuracy" : title.contains("瞄准点") ? "aimPointTraining" : "angleTraining"
+            capture("\(projection)-review-\(prefix)-settings")
+            app.buttons[prefix + ".start"].tap(); app.selectTrainingView(trainingTitle)
+            let action = app.buttons[prefix == "accuracy" ? "accuracy.strike" : prefix == "angleTraining" ? "angleTraining.primaryAction" : "aimPointTraining.submit"]
+            ready(action)
+            capture("\(projection)-review-\(prefix)-input")
+            if prefix == "aimPointTraining" {
+                let before = action.frame
+                action.tap(); ready(app.buttons["aimPointTraining.next"])
+                XCTAssertEqual(before.midY, app.buttons["aimPointTraining.next"].frame.midY, accuracy: 1)
+                capture("\(projection)-review-aim-result")
+                app.buttons["aimPointTraining.errorInfo"].tap()
+                XCTAssertTrue(app.alerts["瞄准误差"].waitForExistence(timeout: 5))
+                capture("\(projection)-review-aim-rating-info")
+                app.alerts.buttons["知道了"].tap()
+                let question = app.descendants(matching: .any)["aimPointTraining.questionInfo"].label
+                ready(app.buttons["aimPointTraining.retry"]); app.buttons["aimPointTraining.retry"].tap()
+                ready(action); XCUIDevice.shared.press(.home); app.activate(); ready(action); capture("\(projection)-review-aim-retry")
+                action.tap(); ready(app.buttons["aimPointTraining.next"])
+                XCTAssertEqual(app.descendants(matching: .any)["aimPointTraining.questionInfo"].label, question)
+                capture("\(projection)-review-aim-repeat-result")
+            }
+            if prefix == "accuracy" {
+                action.tap(); ready(app.buttons["accuracy.retry"], timeout: 90)
+                ready(app.buttons["accuracy.playback"]); app.buttons["accuracy.playback"].tap()
+                XCTAssertEqual(action.label, "停止")
+                capture("\(projection)-review-accuracy-stop-replay")
+                action.tap()
+            }
+            app.terminate()
+        }
+        XCUIDevice.shared.orientation = .portrait
+    }
+
+    func testPracticeReviewComposerAndRemovedEntries() {
+        continueAfterFailure = false
+        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral", "-3dDrag.probe", "-dailyLayout.probe"])
+        defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
+        app.switchTab(.angle); app.buttons["angleHomeTab_打"].tap()
+        let card = app.buttons["分离角与走位"]
+        for _ in 0..<5 where !card.isHittable { app.swipeUp() }
+        XCTAssertEqual(app.buttons.matching(identifier: "分离角与走位").count, 1)
+        XCTAssertFalse(app.buttons["自由击球"].exists)
+        capture("review-practice-play-cards")
+        ready(card); card.tap(); ready(app.buttons["freeplay.moreMenu"])
+        let heading = app.descendants(matching: .any).matching(identifier: "composer.title").firstMatch
+        XCTAssertTrue(heading.waitForExistence(timeout: 5))
+        let firstBall = app.buttons["paletteBall__1"]
+        XCTAssertFalse(heading.frame.intersects(firstBall.frame), "Title must not cover the ball palette")
+        XCTAssertTrue(app.frame.contains(heading.frame))
+        XCTAssertTrue(app.frame.contains(firstBall.frame))
+        // Compact phones and portrait windows retain the shared separate-row layout.
+        if app.frame.width >= 800 && app.frame.height < 600 {
+            XCTAssertEqual(heading.frame.midY, firstBall.frame.midY, accuracy: 12,
+                "A long title must not move the regular landscape palette into another row")
+        }
+        capture("review-composer-default")
+        // Verify navigation before opening a modal, then verify it again after
+        // dismissing the menu. This separates a missed backdrop tap from a pop.
+        let initialBack = app.buttons["dailyClearance.back"]
+        ready(initialBack)
+        initialBack.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+        capture("review-composer-first-back")
+        ready(card)
+        XCTAssertFalse(app.buttons["freeplay.moreMenu"].exists)
+        card.tap(); ready(app.buttons["freeplay.moreMenu"])
+        app.buttons["freeplay.moreMenu"].tap()
+        let clear = app.buttons["composer.clear"]
+        for _ in 0..<5 where !clear.isHittable {
+            let menu = app.descendants(matching: .any).matching(identifier: "dailyClearance.menuPanel").firstMatch
+            ready(menu)
+            menu.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.8)).press(forDuration: 0.05,
+                thenDragTo: menu.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.3)))
+        }
+        ready(clear)
+        XCTAssertFalse(app.buttons["composer.rename"].exists)
+        XCTAssertFalse(app.buttons["composer.reset"].exists)
+        XCTAssertFalse(app.buttons["freeplay.separation"].exists)
+        XCTAssertTrue(app.buttons["composer.clear"].exists)
+        capture("review-composer-menu")
+        let backdrop = app.buttons["关闭菜单"]
+        backdrop.coordinate(withNormalizedOffset: .init(dx: 0.03, dy: 0.7)).tap()
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "dailyClearance.menuPanel").firstMatch.waitForNonExistence(timeout: 5))
+        capture("review-composer-menu-closed")
+        let back = app.buttons["dailyClearance.back"]
+        ready(back)
+        back.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
+        capture("review-composer-after-back")
+        ready(app.buttons["分离角与走位"])
+        XCTAssertFalse(app.buttons["freeplay.moreMenu"].exists)
+    }
+
     func testAccuracySpinMutualExclusionAndShotControls() {
         continueAfterFailure = false
         XCUIDevice.shared.press(.home)
@@ -191,7 +288,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             app.buttons[prefix + ".start"].tap(); app.selectTrainingView(trainingTitle)
             let primary = app.buttons[accuracy ? "accuracy.strike" : aimPoint ? "aimPointTraining.submit" : "angleTraining.primaryAction"]
             ready(primary)
-            let expectedTitle = XCUIApplication.trainingCardTitle(title) + "练习"
+            let expectedTitle = XCUIApplication.trainingCardTitle(title)
             let header = accuracy
                 ? app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", expectedTitle)).firstMatch
                 : node("training.pageTitle")
@@ -271,7 +368,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             let metrics = info.label
             capture(title + "-standard-retry-replay-ready")
             playback.tap()
-            XCTAssertEqual(strike.label, "停止回放")
+            XCTAssertEqual(strike.label, "停止")
             XCTAssertFalse(retry.isEnabled)
             capture(title + "-recorded-playback")
             ready(playback, timeout: 60) // Natural completion restores the result phase.
@@ -709,7 +806,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         let app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-v53.authenticatedProfileFixture"])
         defer { app.terminate() }
         app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
-        app.buttons["角度"].tap()
+        app.buttons["角度练习"].tap()
         let mode = app.otherElements["training.length"]
         ready(mode.buttons["持续练习"]); mode.buttons["持续练习"].tap()
         ready(app.buttons["subscription.close"])
@@ -746,7 +843,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
         app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
         trainingTitle = "2D瞄准点"
-        app.buttons["瞄准点"].tap()
+        app.buttons["瞄准点练习"].tap()
         ready(app.buttons["aimPointTraining.start"]); app.buttons["aimPointTraining.start"].tap(); app.selectTrainingView(trainingTitle)
         ready(app.buttons["aimPointTraining.submit"]); app.buttons["aimPointTraining.submit"].tap()
         ready(app.buttons["aimPointTraining.next"]); app.buttons["aimPointTraining.next"].tap()

@@ -5,6 +5,33 @@ import SceneKit
 @MainActor
 final class MultiBallPracticeTests: XCTestCase {
 
+    func testPlanningRingPreferenceMigratesAndRetainsRoleMarkers() throws {
+        let legacy = Data(#"{"positionMode":"planned","game":"rotation","rotationCount":4,"ownCount":4,"randomOpponents":false,"freePractice":false}"#.utf8)
+        var config = try JSONDecoder().decode(MultiBallConfiguration.self, from: legacy)
+        XCTAssertTrue(config.showsPlanningMarkers)
+        config.showsPlanningMarkers = false
+        XCTAssertFalse(try JSONDecoder().decode(MultiBallConfiguration.self, from: JSONEncoder().encode(config)).showsPlanningMarkers)
+        config.showsPlanningMarkers = true
+        let controller = MultiBallPracticeController(configuration: config, defaults: defaults, limiter: limiter())
+        let host = PositionPlayViewModel(); host.setupScene()
+        defer { host.suspendAuthoringActivity() }
+        controller.attach(to: host); controller.start(config)
+        func rings() -> [SCNNode] { host.scene.rootNode.childNodes.filter { $0.name?.hasPrefix("multiBall.planningRing.") == true } }
+        controller.refreshPresentation()
+        XCTAssertEqual(rings().count, 3)
+        let positions = rings().map(\.position)
+        controller.selectPaletteBall(try XCTUnwrap(controller.roleKey(1)))
+        controller.refreshPresentation()
+        XCTAssertEqual(rings().count, 3)
+        for (node, point) in zip(rings(), positions) {
+            XCTAssertEqual(node.position.x, point.x); XCTAssertEqual(node.position.z, point.z)
+            XCTAssertEqual(node.position.y, host.scene.surfaceY + 0.0007, accuracy: 1e-6)
+            XCTAssertTrue(node.parent === host.scene.rootNode)
+        }
+        config.showsPlanningMarkers = false; controller.start(config); controller.refreshPresentation()
+        XCTAssertTrue(rings().isEmpty)
+    }
+
     func testManualPlanningFeedbackAndPersistentPocketColours() throws {
         var config = MultiBallConfiguration(); config.game = .chineseEight
         let controller = MultiBallPracticeController(configuration: config, defaults: defaults, limiter: limiter())

@@ -598,13 +598,13 @@ final class SeparationPracticeTests: XCTestCase {
                 XCTAssertTrue(visible(vm, "reference")); XCTAssertFalse(visible(vm, "actual"))
                 repo.failSubmissions = false; vm.retrySave()
                 XCTAssertEqual(vm.phase, .result)
-                XCTAssertEqual(visible(vm, "reference"), keepReference); XCTAssertTrue(visible(vm, "actual"))
+                XCTAssertFalse(visible(vm, "reference"), "A legacy retention preference must not restore the first-shot baseline"); XCTAssertTrue(visible(vm, "actual"))
                 let firstShot = vm.record?.latestShot?.id
                 vm.retry(); XCTAssertEqual(vm.phase, .aiming)
-                XCTAssertTrue(visible(vm, "actual")); XCTAssertEqual(visible(vm, "reference"), keepReference)
+                XCTAssertTrue(visible(vm, "actual")); XCTAssertFalse(visible(vm, "reference"), "A legacy retention preference must not restore the first-shot baseline")
                 vm.replayLastShot(); vm.stopPlayback()
                 XCTAssertEqual(vm.phase, .aiming); XCTAssertTrue(visible(vm, "actual"))
-                XCTAssertEqual(visible(vm, "reference"), keepReference)
+                XCTAssertFalse(visible(vm, "reference"), "A legacy retention preference must not restore the first-shot baseline")
                 vm.replayLastShot(); vm.suspendTeachingActivity(); vm.resumeTeachingActivity()
                 XCTAssertEqual(vm.phase, .aiming); XCTAssertEqual(vm.record?.latestShot?.id, firstShot)
                 XCTAssertTrue(visible(vm, "actual")); XCTAssertEqual(vm.record?.attempts.count, 1)
@@ -612,9 +612,8 @@ final class SeparationPracticeTests: XCTestCase {
                 let restored = SeparationPracticeViewModel(is3D: is3D, limiter: limiter, defaults: defaults, prepareQuestion: prepareNext)
                 defer { restored.suspendTeachingActivity() }
                 restored.attach(repository: repo); restored.setupScene()
-                if keepReference { try await waitForPrefetch { restored.referenceTrajectory != nil } }
                 XCTAssertEqual(restored.phase, .aiming); XCTAssertTrue(visible(restored, "actual"))
-                XCTAssertEqual(visible(restored, "reference"), keepReference)
+                XCTAssertFalse(visible(restored, "reference"))
                 // A replacement appears only after a successful save; its route replaces the previous one.
                 restored.velocity = 2.8; restored.strike()
                 try await waitForPrefetch { restored.phase == .result }
@@ -625,9 +624,8 @@ final class SeparationPracticeTests: XCTestCase {
                 let result = SeparationPracticeViewModel(is3D: is3D, limiter: limiter, defaults: defaults, prepareQuestion: prepareNext)
                 defer { result.suspendTeachingActivity() }
                 result.attach(repository: repo); result.setupScene()
-                if keepReference { try await waitForPrefetch { result.referenceTrajectory != nil } }
                 XCTAssertEqual(result.phase, .result); XCTAssertTrue(visible(result, "actual"))
-                XCTAssertEqual(visible(result, "reference"), keepReference)
+                XCTAssertFalse(visible(result, "reference"))
                 result.replayLastShot(); result.stopPlayback()
                 XCTAssertEqual(result.phase, .result); XCTAssertTrue(visible(result, "actual"))
                 try await waitForPrefetch { result.nextQuestionReady }

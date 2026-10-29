@@ -43,9 +43,9 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         playsStroke = enabled
         defaults.set(enabled, forKey: strokePreferenceKey)
     }
-    // The preference now controls retention after a submission; the first-shot baseline is unconditional.
+    // Retained for decoding old preferences only; visibility follows the first accepted shot.
     private var referencePreferenceKey: String { "separationPractice.project.keepsReferenceAfterSubmission" }
-    var shouldShowReference: Bool { record?.current != nil && (showsReference || record?.latestShot == nil) }
+    var shouldShowReference: Bool { record?.current != nil && record?.currentAttempt == nil }
     func setShowsReference(_ enabled: Bool) {
         guard !isBusy else { return }
         showsReference = enabled
@@ -164,7 +164,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
         draftSave?.cancel()
     }
     var route: String { is3D ? "separationPractice3D" : "separationPractice2D" }
-    var title: String { "分离角" }
+    var title: String { TrainingProject.separation.title }
     var preferencePage: TablePreferencePage { is3D ? .separationPractice3D : .separationPractice2D }
     var targetNode: SCNNode? { scene.targetBallNodes.first }
     var selectedPocketIndex: Int { record?.current?.board.pocketIndex ?? 0 }
@@ -199,7 +199,7 @@ final class SeparationPracticeViewModel: ObservableObject, TeachingTableHost {
             || limiter.isLimitReached
     }
     var primaryTitle: String {
-        if isReplaying { return playsStroke ? "停止回放" : "停止击球" }
+        if isReplaying { return "停止" }
         switch phase {
         case .saveFailed: return "重试保存"
         case .result: return shouldFinish ? "查看总结" : "下一题"

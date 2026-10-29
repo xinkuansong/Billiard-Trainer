@@ -193,6 +193,12 @@ struct MainTabView: View {
         }
     }
 
+    private func closeComposer() {
+        let before = router.anglePath.count
+        if before > 0 { router.anglePath.removeLast() }
+        DailyLayoutProbe.record("navigation.composerClosed", ["before": before, "after": router.anglePath.count])
+    }
+
     @ViewBuilder
     private func angleDestination(for route: AngleRoute) -> some View {
         // Separation owns its gate so an already committed stroke can finish before an entitlement change gates the next action.
@@ -268,12 +274,12 @@ struct MainTabView: View {
         case .diamondSystem:
             DiamondSystemView()
         case .shotSimulation:
-            ShotSimulationView()
+            PositionPlayComposerView(onBack: closeComposer)
         case .positionPlayComposer:
-            PositionPlayComposerView()
+            PositionPlayComposerView(onBack: closeComposer)
         case .freePlay:
-            // 自由击球（条 15 / ADR-P18-01 拆页）：球库 + 开球 + 对局的独立页面。
-            FreePlayView()
+            ContentUnavailableView("此练习入口已移除", systemImage: "info.circle",
+                description: Text("返回练习页，选择「分离角与走位」继续练习。"))
         case .positionPlaySolver:
             SiluTrainerView()
         case .planThree:

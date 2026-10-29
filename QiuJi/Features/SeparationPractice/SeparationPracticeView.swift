@@ -30,7 +30,6 @@ struct SeparationPracticeView: View {
                 SceneTrainingSettings(route: vm.route, configuration: vm.record?.configuration ?? .init(),
                     restarting: vm.record != nil, showsSpinOptions: true,
                     strokePlayback: Binding(get: { vm.playsStroke }, set: { vm.setPlaysStroke($0) }),
-                    centerReference: Binding(get: { vm.showsReference }, set: { vm.setShowsReference($0) }),
                     prepareBatch: SeparationQuestionGenerator.Prepared.prepare,
                     onStart: { vm.start($0, prepared: $1) },
                     onCancel: { if !vm.cancelSettings() { dismiss() } })
@@ -135,7 +134,7 @@ struct SeparationPracticeView: View {
                 .init(id: "separation.finish", title: "结束练习", disabled: vm.isBusy, action: { vm.finish() })
             ], refreshTrajectory: {}, onLayoutEditingChanged: vm.layoutEditingChanged,
             layoutEditingBlocked: vm.isBusy,
-            onSpinChange: { vm.setSpin($0, $1) })
+            onSpinChange: { vm.setSpin($0, $1) }, paletteKeys: vm.record?.current.map { ["_\($0.ballNumber)"] } ?? [])
     }
     private var tablePage: some View {
         BTTeachingTablePage(vm: vm, titleLabel: vm.title, identifier: "separation", preferencePage: vm.preferencePage,
