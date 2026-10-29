@@ -38,7 +38,7 @@ struct SnakePracticeSettingsView: View {
                 .accessibilityIdentifier("snake.mode")
             }
             Section("练习说明") {
-                Text("沿蛇彩球形连续进球，按所选的\(configuration.mode.title)顺序完成全部目标球。每一杆都要为下一颗球留出合适的位置，练完后可以在最近练习中查看结果。")
+                BTTrainingSettingsNote("沿蛇彩球形连续进球，按所选的\(configuration.mode.title)顺序完成全部目标球。每一杆都要为下一颗球留出合适的位置，练完后可以在最近练习中查看结果。")
             }
             Section("目标球数") {
                 Picker("数量", selection: $configuration.count) {

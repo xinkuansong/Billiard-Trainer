@@ -152,7 +152,7 @@ enum PracticeCoverCatalog {
             layout.segments.removeAll { $0.style != .aim }
             return .tablePreview(layout)
 
-        case .separationPractice2D, .twoBallPractice2D, .threeBallPractice2D:
+        case .kBallPractice2D, .separationPractice2D, .twoBallPractice2D, .threeBallPractice2D:
             return .tablePreview(collisionPreview(tint: "aimPointScene2D"))
         case .separationPractice3D, .twoBallPractice3D, .threeBallPractice3D:
             return .tablePreview(collisionPreview(tint: "aimPointScene3D"))

@@ -57,7 +57,7 @@ struct MultiBallSettingsView: View {
                 }
                 .pickerStyle(.segmented).accessibilityIdentifier("multiBall.positionMode")
             } header: { Text("训练模式") }
-            Section("练习说明") { Text(practiceInstructions) }
+            Section("练习说明") { BTTrainingSettingsNote(practiceInstructions) }
             Group {
                 Section("训练量") {
                     BTTrainingModePicker(count: 3, isPremium: subscription.isPremium, freePractice: Binding(get: { configuration.freePractice }, set: { free in
@@ -65,7 +65,7 @@ struct MultiBallSettingsView: View {
                         else { configuration.freePractice = free }
                     })).accessibilityIdentifier("multiBall.length")
                     if !subscription.isPremium {
-                        Text("今日剩余 \(limiter.remainingToday) 题，2D与3D及所有多球玩法共用")
+                        BTTrainingSettingsNote("今日剩余 \(limiter.remainingToday) 题，2D与3D及所有多球玩法共用")
                             .font(.btCaption).foregroundStyle(.btTextSecondary)
                             .accessibilityIdentifier("multiBall.remaining")
                     }

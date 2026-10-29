@@ -6445,3 +6445,136 @@ DR-405 v1.9定向验证：Mac mini固定快照构建、36单元＋2UI和完整ga
 FL-223：用户打回内置L型安全留边与4443标题机械拆分。已回写geometry-spatial-reasoning的端点相切检查，以及swiftui-design-system与UI规格的显式断行API；原始反馈及最终验证以内置页面卡为准。
 
 DR-405 v1.10 / FL-223复验：25项测试与gate通过，两阵2D/3D原图已审，台心与指向1号中心的真实状态、重开恢复及旧标题兼容均验证。任务设备及远端构建已按原件证据回收；真机/iPad/紧凑手机原图未验、未发布。
+
+
+## DR-450 r2 — 瞄准点评级与设置说明分离（2026-10-29）
+
+- 用户确认结果显示“评级：…”及原紧凑毫米读数（不加“偏”），移除ⓘ/详情弹窗；训练设置在球形条件后直接展示误差说明，分评级标准与统计规则。
+- AimPointSceneTrainingView改用静态结果语义，短提示不再承载详情；SceneTrainingSettings仅aimPoint项目增加说明，评分/额度/复练不改。
+- 已回填球桌规范TP33、来源表、集中整改方案§6、UI-IMPLEMENTATION-SPEC及P10页面卡；原生验证与边界以[P10页面卡](table-page-adaptation/P10-AIM-POINT.md#2026-10-29-误差说明移入设置)为准。
+
+
+## DR-451 — 逐杆走位评分明细（2026-10-29）
+
+- 最新用户授权先接ⓘ；角度、球距、空间、总分顺序，分离方向系数仍未定。覆盖FL-207旧展示边界，算法和历史分数保持。
+- `BTScoreDetailsButton`复用原生评分alert，点击时捕获文本；`DailyConfirmationCard.scoreDetail`可选、默认nil，多球失败可查看。三球/多球Result新增optional comfort，原快照生命周期负责重打与恢复。
+- 已应用至：swiftui-design-system SKILL末尾DR-451，UI-IMPLEMENTATION-SPEC组件定义/Changelog，球桌TP24及来源表，docs/04与docs/00。验证真源[页面卡](table-page-adaptation/POSITION-SCORE-DETAILS-20261029.md)。
+- 定向验收：38逻辑、小屏8条场景及iPhone13三条复验通过，完整gate通过，13张原图已审。小屏本杆优先、首杆滚动回看已修；测试探针/滚动失败证据保留。未提交发布，真机及用户体验待验。
+
+DR-451 v2同日反馈：用户要求评分详情更紧凑，已改共用formatter为连续四行，移除底部公式/舒适度解释；失败与缺项说明精简，评分算法及版本快照不变。复验结果见页面卡反馈节。
+
+## DR-452 — K球简化信息与中杆基准（2026-10-29）
+
+按用户六项反馈，K页去保存解法参数和查看/回放菜单，补首次提交前中杆2m/s基准；库次加“要求”，成功率只改名，去圈出备注。统计与判题不变。基准真实求解不应使用已存解法参数，也不应以是否成功K到B决定可见；继承两球首次有效提交门控。
+
+已应用至：`tasks/table-page-adaptation/K-BALL-20261029.md`反馈节（页面差异真源）、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；本页能力修订不推广共享组件默认。证据与未验项：`tasks/ui-reviews/UR-20261029-k-ball-feedback.md`。
+
+## DR-450 r3 — 瞄准点信息三行对齐（2026-10-29）
+
+用户确认作答单行与毫米读数增加冒号，三个冒号共列；局部Grid保留字号、真实作答与复练状态，零误差/无效原因仍如实显示。回写TP33、来源表、UI实施规范和P10页面卡，验证以页面卡为准。
+
+
+### DR-451 v3 · 窄评分面板（2026-10-29）
+替换两球/三球/多球评分原生alert，统一BTScoreDetailsOverlay与页面级冻结状态；普通宽220pt、分值右对齐，2D上库内沿定位、3D使用稳定HUD参考。保留44pt关闭、模态遮挡、原因滚动和辅助功能退出。测试与截图见POSITION-SCORE-DETAILS-20261029页面卡；无评分算法改动。
+
+## DR-450 r4 / FL-227 — 瞄准点真实信息宽度与颜色角色
+
+用户打回三行贴桌及白标签。Foundation增加可选trailingContentWidth，由瞄准点按字号测量容量启用，左右操作槽保留默认尺寸；标签默认HUD灰色，值白色。回写20-swiftui-developer、UI实施规范、TP33及P10。原生验证与最终状态见P10，旧图不作为本轮通过证据。
+
+### DR-447 r3 / FL-216续修 · 中杆参考近白反馈（2026-10-29）
+
+用户确认长参考虚线过亮，采用独立routeReference（white 0.75 / alpha 0.80），同色图例、测量线及拖动球跟随；centerReference保持0.86/0.85，保留特写与准度细线。原r2同时增加灰度与alpha扩大了主桌长线视觉强度；同色值不能代替不同线宽/渲染宿主的实图核验。已应用至swiftui-design-system §DR-447 r3、UI-IMPLEMENTATION-SPEC、球桌TP22及来源表；验证、原失败与资源收尾见[页面卡](table-page-adaptation/REFERENCE-GRAY-20261029.md)。
+
+
+### DR-451 v4 · 评分详情字号与关闭（2026-10-29）
+按用户反馈缩小标题/分项/关闭字号为15/14/15pt，关闭文案替换“知道了”。FL-228修复将全宽44pt触区移入Button label并声明contentShape，描边不命中；遮罩关闭消费触摸。原两球2D/3D定向用例增加左右边缘单击与重打坐标遮罩防穿透断言，结果见评分明细页面卡。
+
+
+### 2026-10-29 · 标题与球库最大容量分流
+
+按用户授权，Palette新增capacityCount/capacityWidth，与实际targetCount分离；Foundation采用有效上限，标题仅用剩余宽、不反向影响桌框。小于15可用新单行策略（≤6显示单位），15/未知保持旧宽；瞄准点和4443指定分行保持。BTTeachingTablePage固定题、角度/瞄准点独立壳及FreePlay接入；MultiBallConfiguration预算己方＋最大随机对手，CustomFormationSession保留可重打的初始库存。验证真源：`tasks/table-page-adaptation/TITLE-CAPACITY-20261029.md`，未提交/发布。
+
+
+## DR-446 r2 — 球库选中球取消压暗（2026-10-29）
+
+按用户截图修订三个动态球库入口：带选择圈的球优先完整亮度，已完成淡化和球面自身光影保持。已应用至：统一规范TP06、swiftui-design-system §DR-446 r2、UI-IMPLEMENTATION-SPEC Changelog。已同步PLAN与检查表；语法/门禁、App构建及iPhone13上13项截图巡检通过，25张2D/3D原图已审，真机及用户认可未代签，见PALETTE-SELECTION-20261029页面卡。
+
+
+## 2026-10-29 · 瞄准点单行返工
+
+修正首轮误保留瞄准点强制分行（FL-229），生产与真实2D/3D标题布局断言同时更新；测试/原图结果见TITLE-CAPACITY-20261029.md r2。
+
+
+## DR-453 — 2D瞄准手势按球桌起点准入（2026-10-29）
+
+用户确认跨页统一修复桌外滑动误调瞄准。共享AngleSceneView按真实触摸起点反投影至台面，对当前CameraRig桌外框做准入；桌内起手连续滑出，桌外起手整次拒绝。保留可拖球/测量柄近邻抓取、方向尺、3D观察和临时俯视权限。未裁切地板或修改布局/物理/成绩。
+
+- 规则改进目标：20-swiftui-developer手势入口约束；TP17与来源表/检查表。
+- 已应用至：`.cursor/rules/20-swiftui-developer.mdc` §DR-453、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog、球桌统一规范TP17、`docs/05`与`docs/00`。
+- 实现、消费者和实际验证：`tasks/table-page-adaptation/AIM-DRAG-BOUNDARY-20261029.md`。源码接入不等于所有页面/真机已复验。
+
+
+### FL-230 / DR-405 v1.11 · 自定义球形删除确认与续练（2026-10-29）
+
+- 根因：整张列表承载confirmationDialog导致删除确认popover无对应行锚点。修正居中原生alert，presenting绑定具体模板与名称。
+- 用户确认沿用“开始练习”，不增加入口；按owner/模板存本机停稳球位和击球输入，改名保留、初始球形改变/复制重开，删除清进度。模板云同步及编辑隔离保持。
+- 规则改进：列表行菜单触发破坏性确认时，锚点必须绑定实际行，或用明确操作对象的居中alert；验证取消/确认及滚动后目标不变。
+- 已应用至：`.cursor/rules/20-swiftui-developer.mdc` § FL-230；UI-IMPLEMENTATION-SPEC Changelog与设计系统接口说明；本轮验证见`tasks/table-page-adaptation/CUSTOM-FORMATION-PROGRESS-20261029.md`。
+
+
+## DR-451 v5 — 评分详情标题ⓘ与去关闭按钮（2026-10-29）
+
+DR-451 v5（2026-10-29）：用户确认评分详情标题前加小号同色info.circle，移除底部关闭按钮及高度预留。宽220pt、标题15pt、分项14pt和上库定位保持；面板外点击关闭且不穿透，内部文字/留白保持展开，辅助功能escape保留。仅影响两球自由／三球／多球规划共用评分详情，验证见POSITION-SCORE-DETAILS-20261029页面卡。
+
+- 已应用至：`docs/design/table-pages/球桌页面统一规范.md` TP24、来源表、`.cursor/skills/swiftui-design-system/SKILL.md` DR-451 v5、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+
+## DR-451 v6 — 分项与走位总分分隔（2026-10-29）
+
+DR-451 v6（2026-10-29）：用户截图要求分项与总分分开；仅在前三项之后、走位分之前加系统淡色细Divider，沿内容左右边缘对齐。保持标题ⓘ、220pt宽度、15/14pt字号、外点关闭/内点保持及冻结评分；分隔线不参与辅助功能朗读。
+
+已应用至统一规范TP24、来源表、swiftui-design-system及UI-IMPLEMENTATION-SPEC Changelog；本轮验证见评分明细页面卡。
+
+
+## DR-451 v7 — 详情总分统一称“得分”（2026-10-29）
+
+DR-451 v7（2026-10-29）：用户要求详情总分行由“走位分”改为“得分”，与侧栏“本杆得分／上杆得分”保持同一概念，避免被理解为新增指标。共用formatter的正常、直接0分和旧档缺分项三分支统一更新；分隔线、布局、关闭与评分计算保持。
+
+已应用至统一规范TP24、来源表、swiftui-design-system及UI-IMPLEMENTATION-SPEC Changelog；语法及三分支formatter通过，本轮未重跑App/UI。
+
+
+2026-10-29 中袋方向系数v2：三球stage=0与多球滚动三球组合首杆共享几何快照，最终分乘K≥0.6，二球/角袋/失败口径保持；明细系数行及总分分隔。70逻辑＋4UI＋gate通过，过程与未验范围见[MIDDLE-POCKET-DIRECTION-20261029](MIDDLE-POCKET-DIRECTION-20261029.md)。
+
+DR-410 v5（2026-10-29）：用户保留默认名称进入修改草稿，要求三点可直接使用。共享ControlLayoutHost启用默认三点及单行使用，复用页/模式revision保护的restore，成功退出编辑，个人模板保留。替代旧禁用三点决定，未新增存储/API。验证及未验边界见`tasks/table-control-layout/DEFAULT-USE-20261029.md`。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-410、球桌规范TP28、来源表、布局主方案及UI-IMPLEMENTATION-SPEC Changelog（2026-10-29）。
+
+FL-231（2026-10-30）：默认单行使用菜单原生图暴露旧背景CGRect锚点偏移43.33pt；r1功能通过、r2位置断言失败分别保留。改为bounds Anchor在最终覆层解析，禁止用固定偏移补齐。验证见`tasks/table-control-layout/DEFAULT-USE-20261029.md`。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-410 / FL-231，`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-10-30）。
+
+
+## DR-451 v8 / FL-204补充 — 三球得分栏紧凑排列（2026-10-30）
+
+用户指出本题均分、本杆得分、首杆之间留白导致滚动。三球取消分摊剩余高度，改为自然高度/2pt组距；BTScoreDetailsButton新增minimumHeight，默认44保持，三球显式32pt，宽度至少44，整块命中且互不重叠。评分、字号与其他页面不变。复验与边界见三球页面卡2026-10-30节。
+- 规则改进：紧凑侧栏同时核实际文字组距与入口最小高度，末项可见不能仅靠滚动揭露；缩紧后核相邻热区不重叠及各自详情。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` DR-451 v8、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog、本页合同；不推广全局触点尺寸例外。
+
+## FL-232 — K球要求与事件判题脱节（2026-10-30）
+
+补入题库次提示与观察库次验证；按用户确认的入/出库同属该库，依据真实事件及碰B前速度，不匹配存档路线或简单放宽计数。旧规则活动档不续练，历史原分保留。原生及边界证据见K-BALL页面卡本轮节。
+- 规则改进：显示“要求”的约束必须追到提交判题，并用主业务对象验证满足/不满足；题库标签不能代替本杆物理事实。观察库与实际碰库次数须分别定义。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` § FL-232、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-10-30）。
+
+## DR-442 r2 · 多球规划首杆明确选择（2026-10-30）
+
+用户确认自由球上手开局不自动应用首杆推荐。CurrentSelection分开确认球/袋，规划宿主practiceRequiresExplicitAim默认关闭、按模式显式启用；只作用于多球规划。重开/承接/重打/检查点与旧档边界见[页面卡](table-page-adaptation/MULTI-BALL-OPENING-20261030.md)，当前验证进行中。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` DR-442 r2；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；产品规格04/05。
+
+
+## 2026-10-30 · 评分详情仅标题居中（DR-451 v9）
+
+DR-451 v9（2026-10-30）：用户明确“就标题居中，下面的不动”。仅将共用评分详情的ⓘ与标题作为整体水平居中；分项左对齐、分值右对齐、分隔线、15/14pt字号、220pt宽度、定位及关闭行为保持。 已应用至球桌统一规范TP24、设计系统技能DR-451和UI-IMPLEMENTATION-SPEC；状态与证据见`tasks/table-page-adaptation/POSITION-SCORE-DETAILS-20261029.md`本轮节。
+
+
+## DR-451 v8 r4 / FL-204 — 三球侧栏语义分组（2026-10-30）
+
+用户指出r3统一2pt显得拥挤。本轮仅三球侧栏：自然量测各项高度，在实际视口预算内将留白优先分配给进度、击球、当前成绩和首杆记录的边界；目标8pt，当前两项得分4pt，紧凑下界2pt。空轨迹说明组移除；字体、桌框、动作槽、32pt评分入口保持。局部TP和原生结果真源见[页面卡r4](table-page-adaptation/THREE-BALL-FREE-PRACTICE-20261027.md#2026-10-30--r4语义分组留白用户否定r3拥挤效果)。自动化可达性通过与视觉/用户认可独立记录。

@@ -1085,7 +1085,7 @@ struct BatchAuthoringView: View {
         return Button {
             if onTable { composer.pulseTableBall(key) } else { composer.placeFromPalette(key); redistributeGuideBalls() }
         } label: {
-            PoolBallFace(key: key, diameter: diameter).opacity(onTable ? 0.3 : 1)
+            PoolBallFace(key: key, diameter: diameter).opacity(onTable && !selected ? 0.3 : 1)
                 .overlay(Circle().stroke(BallRoleStyle.current.color, lineWidth: 2).padding(-1).opacity(selected ? 1 : 0))
                 .frame(width: diameter + 2, height: min(max(32, diameter), slotHeight))
                 .frame(height: slotHeight).contentShape(Rectangle())

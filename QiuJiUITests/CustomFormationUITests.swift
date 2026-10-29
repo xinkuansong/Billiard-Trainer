@@ -144,6 +144,60 @@ final class CustomFormationUITests: XCTestCase {
         XCTAssertTrue(app.frame.contains(title.frame))
         XCTAssertFalse(title.frame.intersects(app.buttons["paletteBall__1"].frame))
     }
+
+    func testDeleteConfirmationIsCenteredAndCancelPreservesTemplate() throws {
+        launch(); newTemplate(2); save("删除确认测试")
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'formation.template.'")).firstMatch
+        let id = String(row.identifier.dropFirst("formation.template.".count))
+        let operation = app.buttons["formation.templateMenu.\(id)"]
+        operation.tap(); app.buttons["删除"].tap()
+        let alert = app.alerts["删除这个模板？"]
+        ready(alert)
+        XCTAssertEqual(alert.frame.midX, app.frame.midX, accuracy: 3)
+        XCTAssertEqual(alert.frame.midY, app.frame.midY, accuracy: 65)
+        XCTAssertTrue(alert.staticTexts["将删除“删除确认测试”及其练习进度。"].exists)
+        try snap("progress-delete-centered")
+        alert.buttons["取消"].firstMatch.tap()
+        XCTAssertTrue(row.exists)
+        operation.tap(); app.buttons["删除"].tap()
+        ready(alert); alert.buttons["删除模板"].firstMatch.tap()
+        XCTAssertTrue(row.waitForNonExistence(timeout: 5))
+        try snap("progress-delete-finished")
+    }
+
+    func testPracticeRestoresAfterExitRelaunchAndTemplateSwitch() throws {
+        launch()
+        let first = "B4443000-0000-4000-8000-000000000001"
+        let second = "B1115000-0000-4000-8000-000000000002"
+        app.buttons["formation.builtin.\(first)"].tap()
+        app.buttons["formation.start"].tap(); ready(app.buttons["dailyClearance.strike"])
+        setView("2D"); count(15)
+        app.buttons["dailyClearance.strike"].tap(); ready(app.buttons["dailyClearance.undo"])
+        func board() throws -> [String: [Double]] {
+            Dictionary(uniqueKeysWithValues: try balls().map {
+                (try XCTUnwrap($0["key"] as? String), try XCTUnwrap($0["world"] as? [Double]))
+            })
+        }
+        let stopped = try board()
+        try snap("progress-before-exit")
+        app.buttons["dailyClearance.back"].tap(); ready(app.buttons["formation.start"])
+        app.buttons["formation.builtin.\(second)"].tap()
+        app.buttons["formation.start"].tap(); ready(app.buttons["dailyClearance.strike"]); count(15)
+        app.buttons["dailyClearance.back"].tap(); ready(app.buttons["formation.start"])
+        app.terminate(); app.launch(); ready(app.buttons["formation.builtin.\(first)"])
+        app.buttons["formation.builtin.\(first)"].tap()
+        app.buttons["formation.start"].tap(); ready(app.buttons["dailyClearance.strike"])
+        let restored = try board()
+        XCTAssertEqual(Set(restored.keys), Set(stopped.keys))
+        for (key, point) in stopped {
+            let actual = try XCTUnwrap(restored[key])
+            for axis in 0..<3 { XCTAssertEqual(actual[axis], point[axis], accuracy: 0.00001) }
+        }
+        try snap("progress-after-relaunch")
+        setView("3D")
+        XCTAssertEqual(try board(), restored)
+        try snap("progress-after-3d")
+    }
     func testConnectedLinesEqualSpacingMeasurementsAndPractice() throws {
         launch(direct:false); newTemplate(0)
         assertTitle("未命名球形")
@@ -369,6 +423,29 @@ final class CustomFormationUITests: XCTestCase {
         XCTAssertTrue(app.buttons["formation.start"].isHittable)
         try snap("30-sync-local-template")
     }
+    func testSmallInventoryTitleCapacityAndSixUnitLimit() throws {
+        for (name, singleLine) in [("六字球形练习", true), ("七字球形练习页", false)] {
+            launch(); newTemplate(3); save(name)
+            app.buttons["formation.start"].tap(); ready(app.buttons["dailyClearance.strike"]); count(3)
+            for view in ["2D", "3D"] {
+                setView(view)
+                let title = app.descendants(matching: .any)["formation.title"].firstMatch
+                XCTAssertEqual(title.label, name)
+                XCTAssertTrue(app.frame.contains(title.frame))
+                XCTAssertFalse(title.frame.intersects(app.buttons["paletteBall__1"].frame))
+                if singleLine {
+                    XCTAssertGreaterThan(title.frame.width, 60)
+                    XCTAssertLessThan(title.frame.height, 25)
+                } else {
+                    XCTAssertLessThanOrEqual(title.frame.width, 61)
+                    XCTAssertGreaterThan(title.frame.height, 25)
+                }
+                try snap("capacity-\(singleLine ? "six" : "seven")-\(view)")
+            }
+            app.terminate()
+        }
+    }
+
     func testFifteenUniqueBallsAndNamedPractice() throws {
         launch(); newTemplate(15)
         let identities = Set(try balls().compactMap { $0["key"] as? String })

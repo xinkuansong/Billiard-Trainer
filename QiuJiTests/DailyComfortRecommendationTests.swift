@@ -354,7 +354,7 @@ final class ShotRecommendationReuseTests: XCTestCase {
             let daily = DailyClearanceController(), notices = BTRuleNoticeCenter()
             connect(vm, mode: .multiBallPractice, rules: rules, daily: daily, notices: notices)
             defer { vm.cancelDailyAttempt() }
-            var config = MultiBallConfiguration(); config.game = game
+            var config = MultiBallConfiguration(); config.game = game; config.positionMode = .independent
             config.randomOpponents = true
             let controller = MultiBallPracticeController(configuration: config, defaults: defaults)
             controller.premiumProvider = { true }

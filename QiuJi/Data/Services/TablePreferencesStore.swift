@@ -6,7 +6,7 @@ extension TablePreferencePage {
         switch self {
         case .multiBallPractice, .multiBallPractice3D: return Set(TablePreferenceField.allCases)
         case .sceneAiming2D, .sceneAiming3D: return [.view3D, .grid]
-        case .separationPractice2D, .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return [.view3D, .grid, .transparency]
+        case .separationPractice2D, .separationPractice3D, .kBallPractice2D, .kBallPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return [.view3D, .grid, .transparency]
         case .accuracy2D, .accuracy3D: return [.view3D, .grid, .transparency, .closeup]
         case .aimPointScene2D, .aimPointScene3D: return [.view3D, .grid, .closeup]
         case .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas,

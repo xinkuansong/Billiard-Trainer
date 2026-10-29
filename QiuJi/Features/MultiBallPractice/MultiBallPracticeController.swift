@@ -67,12 +67,15 @@ enum MultiBallPositionScore {
     struct Result: Equatable, Codable {
         let value: Double
         let reason: String?
+        var comfort: TwoBallComfortScore.Result? = nil
+        var direction: MiddlePocketDirectionScore.Result? = nil
+        var details: String { TwoBallComfortScore.details(comfort, total: value, reason: reason, direction: direction) }
         var text: String {
             String(format: "本杆走位 %.1f 分", value) + (reason.map { " · " + $0 } ?? "")
         }
     }
     static func evaluate(positions: [String: SCNVector3], target: String, pocket: Int,
-                         failure: String? = nil, surfaceY: Float) -> Result {
+                         third: String? = nil, failure: String? = nil, surfaceY: Float) -> Result {
         if let failure { return .init(value: 0, reason: failure) }
         guard (0..<6).contains(pocket), let cue = positions[PositionPlayBall.cueKey],
               let ball = positions[target] else { return .init(value: 0, reason: "下一球已不在桌上") }
@@ -92,7 +95,11 @@ enum MultiBallPositionScore {
             ball: (Double(ball.x), Double(ball.z)), pocket: pocket) else {
             return .init(value: 0, reason: "下一球无正向直击线路")
         }
-        return .init(value: score.total, reason: nil)
+        let direction = third.flatMap { positions[$0] }.flatMap { thirdBall in
+            MiddlePocketDirectionScore.evaluate(cue: (Double(cue.x), Double(cue.z)),
+                ball: (Double(ball.x), Double(ball.z)), third: (Double(thirdBall.x), Double(thirdBall.z)), pocket: pocket)
+        }
+        return .init(value: score.total * (direction?.coefficient ?? 1), reason: nil, comfort: score, direction: direction)
     }
 }
 
@@ -147,6 +154,11 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         let pocket: Int
         var third: String? = nil
     }
+    struct CurrentSelection: Equatable, Codable {
+        var target: String?
+        var pocket: Int?
+    }
+    @Published private(set) var currentSelection = CurrentSelection()
     fileprivate struct Previous: Codable {
         var board: BoardSnapshot? = nil
         var input: PositionPlayViewModel.TrainingInput? = nil
@@ -158,6 +170,7 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         let third: String?
         let lockedPocket: Int?
         let step: PlanThreeRole
+        var currentSelection: CurrentSelection? = nil
     }
     @Published private(set) var plan: Plan?
     @Published private(set) var selectingContinuation = false
@@ -246,7 +259,10 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
     var targetKey: String? { legalKeys.sorted().first }
     var canPlaceCue: Bool { authorized && rack != nil && !hasStruck && failure == nil && !isComplete }
     var isPlanning: Bool { configuration.positionMode == .planned }
-    var currentTarget: String? { host?.selectedTargetKey ?? targetKey }
+    var currentTarget: String? { isPlanning ? currentSelection.target : (host?.selectedTargetKey ?? targetKey) }
+    private var hasCurrentSelection: Bool {
+        currentTarget != nil && currentSelection.pocket.map { (0..<6).contains($0) } == true
+    }
     var needsContinuation: Bool { isPlanning && remaining.count > 1 && !isComplete }
     var continuationKeys: Set<String> {
         guard let currentTarget else { return [] }
@@ -270,6 +286,12 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
     /// The action stays available; an incomplete plan never reaches the shot transaction.
     func requestStrike() -> Bool {
         guard canStrike else { return false }
+        if isPlanning && !hasCurrentSelection {
+            planningStep = currentTarget == nil ? .ball1 : .pocket1
+            selectingContinuation = false
+            showResult(planningStepPrompt)
+            return false
+        }
         guard !needsContinuation || hasValidPlan else {
             if draftNextKey == nil { planningStep = .ball2; showResult("请选择第二颗球") }
             else if plan == nil { planningStep = .pocket2; showResult("请选择第二颗球的袋口") }
@@ -282,6 +304,12 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
     func cancelPlanning() { selectingContinuation = false }
     func selectRole(_ role: Int) {
         guard isPlanning, canStrike, host?.isPlaying != true, role >= 0, role < min(3, remaining.count) else { return }
+        if role > 0 && !hasCurrentSelection {
+            planningStep = currentTarget == nil ? .ball1 : .pocket1
+            selectingContinuation = false
+            showResult(planningStepPrompt)
+            return
+        }
         if role == 0 && lockedCurrentPocket != nil {
             showResult("当前球和袋口沿用上一杆规划，点击重打后调整"); return
         }
@@ -318,8 +346,11 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
             guard lockedCurrentPocket == nil, legalKeys.contains(key) else { return false }
             let changed = currentTarget != key
             guard host?.selectTarget(key: key) ?? true else { return false }
-            if changed { plan = nil; draftNextKey = nil; thirdKey = nil }
-            currentTargetChanged(); planningStep = .pocket1; selectingContinuation = false; return true
+            currentSelection.target = key
+            if changed { currentSelection.pocket = nil; plan = nil; draftNextKey = nil; thirdKey = nil }
+            currentTargetChanged(); planningStep = .pocket1; selectingContinuation = false
+            showResult(planningStepPrompt)
+            return true
         }
         if editingRole == 1 { return selectContinuationBall(key) }
         guard plan != nil, thirdKeys.contains(key) else { return false }
@@ -331,7 +362,7 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         return true
     }
     @discardableResult func selectContinuationBall(_ key: String) -> Bool {
-        guard isPlanning, configuration.game == .chineseEight, continuationKeys.contains(key),
+        guard isPlanning, hasCurrentSelection, configuration.game == .chineseEight, continuationKeys.contains(key),
               host?.isPlaying != true, !awaiting else { return false }
         if draftNextKey != key { plan = nil; draftNextKey = key; thirdKey = nil }
         planningStep = .pocket2
@@ -341,7 +372,7 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         return true
     }
     @discardableResult func selectContinuationPocket(_ pocket: Int) -> Bool {
-        guard isPlanning, needsContinuation, (0..<6).contains(pocket), let currentTarget,
+        guard isPlanning, hasCurrentSelection, needsContinuation, (0..<6).contains(pocket), let currentTarget,
               let next = draftNextKey, continuationKeys.contains(next), host?.isPlaying != true, !awaiting else { return false }
         plan = Plan(current: currentTarget, next: next, pocket: pocket, third: thirdKey)
         planningStep = configuration.game == .chineseEight && remaining.count >= 3 ? .ball3 : .pocket2
@@ -353,7 +384,10 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         guard isPlanning, canStrike, !awaiting, host?.isPlaying != true, (0..<6).contains(pocket) else { return }
         if editingRole == 0 {
             guard lockedCurrentPocket == nil else { showResult("当前球和袋口沿用上一杆规划，点击重打后调整"); return }
+            guard currentTarget != nil else { showResult("请先选择第一颗球"); return }
             host?.selectPocket(at: pocket)
+            guard host == nil || host?.selectedPocketIndex == pocket else { return }
+            currentSelection.pocket = pocket
             planningStep = needsContinuation ? (draftNextKey == nil ? .ball2 : .pocket2) : .pocket1
             selectingContinuation = needsContinuation; refreshPresentation()
         } else if !selectContinuationPocket(pocket) && needsContinuation {
@@ -424,8 +458,18 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         guard let nextAim else { return false }
         self.nextAim = nil
         guard remaining.contains(nextAim.next), failure == nil else {
-            lockedCurrentPocket = nil; draftNextKey = nil; thirdKey = nil; planningStep = .ball2
-            currentTargetChanged(); return false
+            lockedCurrentPocket = nil; draftNextKey = nil; thirdKey = nil
+            guard failure == nil, !isComplete else { currentTargetChanged(); return false }
+            // A legal multi-pot can remove the promised next ball. Start a new explicit
+            // choice instead of keeping a potted target or silently inserting a recommendation.
+            currentSelection = .init(target: configuration.game == .rotation ? targetKey : nil)
+            host?.practiceLockedTarget = nil; host?.practiceLockedPocket = nil
+            host?.clearPracticeAimSelection()
+            if let target = currentSelection.target { _ = host?.selectTarget(key: target) }
+            planningStep = currentTarget == nil ? .ball1 : .pocket1
+            selectingContinuation = false
+            currentTargetChanged(); showResult(planningStepPrompt)
+            return true
         }
         host?.practiceLockedTarget = nil; host?.practiceLockedPocket = nil
         if let host {
@@ -433,6 +477,7 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
             host.selectPocket(at: nextAim.pocket)
         }
         lockedCurrentPocket = nextAim.pocket
+        currentSelection = .init(target: nextAim.next, pocket: nextAim.pocket)
         host?.practiceLockedTarget = nextAim.next; host?.practiceLockedPocket = nextAim.pocket
         draftNextKey = nextAim.third.flatMap { remaining.contains($0) ? $0 : nil }
         thirdKey = nil
@@ -505,11 +550,18 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         remaining = rack.ownKeys; hasStruck = false; failure = nil; isComplete = false
         previous = nil; awaiting = false; showFailureChoice = false
         plan = nil; nextAim = nil; cancelPlanning(); scores = []
-        draftNextKey = nil; thirdKey = nil; lockedCurrentPocket = nil; planningStep = configuration.game == .rotation ? .pocket2 : .ball2
+        draftNextKey = nil; thirdKey = nil; lockedCurrentPocket = nil
+        currentSelection = .init(target: configuration.game == .rotation ? targetKey : nil)
+        planningStep = configuration.game == .rotation ? .pocket1 : .ball1
+        host?.practiceRequiresExplicitAim = isPlanning
         host?.practiceLockedTarget = nil; host?.practiceLockedPocket = nil
         resultTask?.cancel(); resultNotice = nil; host?.continuationPocketIndex = nil
         host?.geometryReference.reset()
-        host?.loadBoard(initialBoard); host?.refreshLegalAimSelection(); currentTargetChanged(); saveCheckpoint()
+        host?.loadBoard(initialBoard)
+        if isPlanning, let target = currentSelection.target { _ = host?.selectTarget(key: target) }
+        else if !isPlanning { host?.refreshLegalAimSelection() }
+        currentTargetChanged(); saveCheckpoint()
+        if isPlanning { showResult(planningStepPrompt) }
     }
     func nextRack() {
         guard host?.isPlaying != true else { return }
@@ -522,6 +574,7 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         guard requestStrike(), !awaiting else { return }
         host?.prepareGeometryReference(); host?.geometryReference.freeze()
         previous = Previous(board: host?.currentSnapshot(), input: host?.trainingInput, remaining: remaining, hasStruck: hasStruck, plan: plan, scores: scores, next: draftNextKey, third: thirdKey, lockedPocket: lockedCurrentPocket, step: planningStep)
+        previous?.currentSelection = currentSelection
         resultTask?.cancel(); resultNotice = nil
         if !hasStruck, let board = host?.currentSnapshot() { initialBoard = board }
         saveCheckpoint()
@@ -544,7 +597,7 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
                 positions[key] = position
             }
             let score = MultiBallPositionScore.evaluate(positions: positions, target: plan.next,
-                pocket: plan.pocket, failure: failureReason, surfaceY: host?.scene.surfaceY ?? 0)
+                pocket: plan.pocket, third: plan.third, failure: failureReason, surfaceY: host?.scene.surfaceY ?? 0)
             scores.append(score); showResult(score.text)
             nextAim = plan
         }
@@ -572,6 +625,8 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         scores = previous.scores; plan = previous.plan; nextAim = nil; cancelPlanning()
         resultTask?.cancel(); resultNotice = nil
         draftNextKey = previous.next; thirdKey = previous.third; lockedCurrentPocket = previous.lockedPocket
+        currentSelection = previous.currentSelection ?? .init(target: previous.input?.target ?? previous.plan?.current,
+            pocket: previous.lockedPocket ?? previous.input?.pocket)
         host?.practiceLockedTarget = nil; host?.practiceLockedPocket = nil
         self.previous = nil
         if host?.canReplay == true { host?.replayCurrent() }
@@ -619,6 +674,7 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         var next, third: String?
         var lockedPocket: Int?
         var step: PlanThreeRole = .ball2
+        var currentSelection: CurrentSelection? = nil
         var target: String?
         var pocket = -1
         var velocity = ShotTuning.defaultVelocity
@@ -647,6 +703,7 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         value.nextAim = nextAim
         value.plan = plan; value.scores = scores; value.next = draftNextKey; value.third = thirdKey
         value.lockedPocket = lockedCurrentPocket; value.step = planningStep
+        value.currentSelection = currentSelection
         value.target = host.selectedTargetKey; value.pocket = host.selectedPocketIndex
         value.velocity = host.velocity; value.spinX = host.spinX; value.spinY = host.spinY
         value.input = host.trainingInput
@@ -673,10 +730,17 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         nextAim = value.nextAim
         plan = value.plan; scores = value.scores; draftNextKey = value.next; thirdKey = value.third
         lockedCurrentPocket = value.lockedPocket; planningStep = value.step; previous = value.previous
+        // Keep existing deliberate plans/played racks; an untouched legacy opening starts unselected.
+        currentSelection = value.currentSelection ?? ((value.hasStruck || value.plan != nil)
+            ? .init(target: value.target, pocket: value.pocket >= 0 ? value.pocket : nil)
+            : .init(target: configuration.game == .rotation ? targetKey : nil))
+        host?.practiceRequiresExplicitAim = isPlanning
         host?.loadBoard(value.board)
-        if let key = value.target { _ = host?.selectTarget(key: key) }
-        if value.pocket >= 0 { host?.selectPocket(at: value.pocket) }
-        if let input = value.input { host?.restoreTrainingInput(input) }
+        if let key = isPlanning ? currentSelection.target : value.target { _ = host?.selectTarget(key: key) }
+        if let pocket = isPlanning ? currentSelection.pocket : (value.pocket >= 0 ? value.pocket : nil) { host?.selectPocket(at: pocket) }
+        if value.currentSelection != nil || !isPlanning || hasCurrentSelection,
+           let input = value.input { host?.restoreTrainingInput(input) }
+        if isPlanning && !hasCurrentSelection { planningStep = currentTarget == nil ? .ball1 : .pocket1 }
         host?.velocity = value.velocity; host?.spinX = value.spinX; host?.spinY = value.spinY
         host?.practiceLockedTarget = value.lockedPocket == nil ? nil : value.target
         host?.practiceLockedPocket = value.lockedPocket
@@ -689,7 +753,7 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         }
         for receipt in presentation.receipts.values where !limiter.reconcile(receipt) { checkpointError = limiter.quotaError }
         if nextAim != nil { _ = advancePlannedAim() }
-        refreshPresentation()
+        currentTargetChanged()
     }
     @discardableResult func switchTrainingView(to is3D: Bool) -> Bool {
         guard let host, !host.isPlaying, !host.isComputing, !host.cameraTransitionBusy,

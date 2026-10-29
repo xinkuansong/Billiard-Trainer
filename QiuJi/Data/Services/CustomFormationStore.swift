@@ -1,6 +1,65 @@
 import Foundation
 import CryptoKit
 
+/// Local practice state is separate from the explicitly saved/synced template.
+struct CustomFormationProgress: Codable {
+    var version = 1
+    let templateID: UUID
+    let initialBoard: BoardSnapshot
+    let initialKeys: [String]
+    let board: BoardSnapshot
+    let keys: [String]
+    let input: PositionPlayViewModel.TrainingInput
+
+    func matches(_ template: CustomFormationTemplate) -> Bool {
+        templateID == template.id && initialKeys == template.ballKeys
+            && initialBoard.onTable.count == template.board.onTable.count
+            && initialBoard.onTable.allSatisfy { key, point in
+                template.board.onTable[key].map { $0.x == point.x && $0.y == point.y } ?? false
+            }
+    }
+
+    func validate() throws {
+        guard version == 1, Set(keys).count == keys.count,
+              CustomFormationTemplate.ballRuleIssue(for: keys) == nil,
+              Set(board.onTable.keys).isSubset(of: Set(keys + [PositionPlayBall.cueKey])),
+              board.onTable.values.allSatisfy({
+                  $0.x.isFinite && $0.y.isFinite && (0...1).contains($0.x) && (0...0.5).contains($0.y)
+              }), input.velocity.isFinite, input.spinX.isFinite, input.spinY.isFinite,
+              input.direction.map({ $0.count == 3 && $0.allSatisfy(\.isFinite) }) ?? true else {
+            throw CustomFormationError.invalid("练习进度无法读取，原文件已保留")
+        }
+    }
+}
+
+@MainActor
+struct CustomFormationProgressStore {
+    let directory: URL
+    init(repository: CustomFormationRepository) {
+        directory = repository.url.deletingPathExtension().appendingPathExtension("progress")
+    }
+    func url(for id: UUID) -> URL { directory.appendingPathComponent(id.uuidString + ".json") }
+    func load(for template: CustomFormationTemplate) throws -> CustomFormationProgress? {
+        let file = url(for: template.id)
+        guard FileManager.default.fileExists(atPath: file.path) else { return nil }
+        let value = try JSONDecoder().decode(CustomFormationProgress.self, from: Data(contentsOf: file))
+        try value.validate()
+        guard value.templateID == template.id else { throw CustomFormationError.invalid("练习进度与球形不符") }
+        // Renames keep progress; a different initial layout starts a fresh practice.
+        guard value.matches(template), value.board.onTable.keys.contains(where: { !PositionPlayBall.isCue($0) }) else { return nil }
+        return value
+    }
+    func save(_ value: CustomFormationProgress) throws {
+        try value.validate()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try JSONEncoder().encode(value).write(to: url(for: value.templateID), options: .atomic)
+    }
+    func remove(_ id: UUID) throws {
+        let file = url(for: id)
+        if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
+    }
+}
+
 struct FormationRemoteRecord: Codable {
     let clientId: UUID
     let revision: Int

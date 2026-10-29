@@ -59,6 +59,9 @@ struct ThreeBallShot: Codable, Identifiable {
     let failure: String?
     let freeScore: Double
     let comfortVersion: String
+    var comfort: TwoBallComfortScore.Result? = nil
+    var directionAdjustment: MiddlePocketDirectionScore.Result? = nil
+    var scoreDetails: String { TwoBallComfortScore.details(comfort, total: freeScore, reason: failure, direction: directionAdjustment) }
     var id: UUID { physical.id }
     subscript<T>(dynamicMember key: KeyPath<SeparationShot, T>) -> T { physical[keyPath: key] }
     var playsStroke: Bool? {
@@ -80,8 +83,13 @@ struct ThreeBallShot: Codable, Identifiable {
             let available = ThreeBallQuestionPreparer.canContinue(cue: cue, target: next, pocket: pocket,
                 obstacle: blocked, surfaceY: surfaceY)
             failure = available ? nil : TrainingPracticeNotice.noDirectRoute
-            freeScore = available ? ThreeBallQuestionPreparer.score(cue: cue, target: next, pocket: pocket,
-                                                        obstacle: blocked, surfaceY: surfaceY) : 0
+            comfort = available ? TwoBallComfortScore.evaluateFreePosition(
+                cue: (Double(cue.x), Double(cue.z)), ball: (Double(next.x), Double(next.z)), pocket: pocket) : nil
+            if available, comfort != nil, question.stage == 0, let third = blocked {
+                directionAdjustment = MiddlePocketDirectionScore.evaluate(cue: (Double(cue.x), Double(cue.z)),
+                    ball: (Double(next.x), Double(next.z)), third: (Double(third.x), Double(third.z)), pocket: pocket)
+            }
+            freeScore = (comfort?.total ?? 0) * (directionAdjustment?.coefficient ?? 1)
         } else { failure = shotFailure; freeScore = 0 }
     }
     func prediction() -> ShotPrediction { physical.prediction() }

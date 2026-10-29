@@ -208,6 +208,7 @@ enum HistoryDayItem: Identifiable {
     case tool(ToolSessionItem)
     case accuracy(AccuracyPracticeRecord)
     case separation(SeparationPracticeRecord)
+    case kBall(KBallPracticeRecord)
     case twoBall(TwoBallPracticeRecord)
     case threeBall(ThreeBallPracticeRecord)
 
@@ -218,6 +219,7 @@ enum HistoryDayItem: Identifiable {
         case .tool(let t):      return "tool_\(t.id.uuidString)"
         case .accuracy(let a):  return "accuracy_\(a.id.uuidString)"
         case .separation(let a): return "separation_\(a.id.uuidString)"
+        case .kBall(let a): return "kBall_\(a.id.uuidString)"
         case .twoBall(let a): return "twoBall_\(a.id.uuidString)"
         case .threeBall(let a): return "threeBall_\(a.id.uuidString)"
         }
@@ -230,6 +232,7 @@ enum HistoryDayItem: Identifiable {
         case .tool(let t):      return t.date
         case .accuracy(let a):  return a.startedAt
         case .separation(let a): return a.startedAt
+        case .kBall(let a): return a.startedAt
         case .twoBall(let a): return a.startedAt
         case .threeBall(let a): return a.startedAt
         }
@@ -294,9 +297,11 @@ final class HistoryViewModel: ObservableObject {
     @Published var cognitiveSessions: [CognitiveSessionItem] = []
     /// `kind="tool"` 的真会话，只有日期与时长。
     @Published var toolSessions: [ToolSessionItem] = []
+    @Published var kBallSessions: [KBallPracticeRecord] = []
     @Published var twoBallSessions: [TwoBallPracticeRecord] = []
     @Published var unreadableThreeBallCount = 0
     @Published var threeBallSessions: [ThreeBallPracticeRecord] = []
+    @Published var unreadableKBallCount = 0
     @Published var unreadableTwoBallCount = 0
     @Published var separationSessions: [SeparationPracticeRecord] = []
     @Published var unreadableSeparationCount = 0
@@ -335,6 +340,9 @@ final class HistoryViewModel: ObservableObject {
         for t in toolSessions {
             comps.insert(cal.dateComponents([.year, .month, .day], from: t.date))
         }
+        for a in kBallSessions {
+            comps.insert(cal.dateComponents([.year, .month, .day], from: a.startedAt))
+        }
         for a in twoBallSessions {
             comps.insert(cal.dateComponents([.year, .month, .day], from: a.startedAt))
         }
@@ -368,6 +376,7 @@ final class HistoryViewModel: ObservableObject {
             .filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }
             .map(HistoryDayItem.accuracy))
         items.append(contentsOf: separationSessions.filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }.map(HistoryDayItem.separation))
+        items.append(contentsOf: kBallSessions.filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }.map(HistoryDayItem.kBall))
         items.append(contentsOf: twoBallSessions.filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }.map(HistoryDayItem.twoBall))
         items.append(contentsOf: threeBallSessions.filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }.map(HistoryDayItem.threeBall))
         return items.sorted { $0.date > $1.date }
@@ -382,7 +391,7 @@ final class HistoryViewModel: ObservableObject {
     }
 
     var hasAnySessions: Bool {
-        !drillSessions.isEmpty || !cognitiveSessions.isEmpty || !toolSessions.isEmpty || !accuracySessions.isEmpty || !separationSessions.isEmpty || !twoBallSessions.isEmpty || !threeBallSessions.isEmpty
+        !drillSessions.isEmpty || !cognitiveSessions.isEmpty || !toolSessions.isEmpty || !accuracySessions.isEmpty || !separationSessions.isEmpty || !kBallSessions.isEmpty || !twoBallSessions.isEmpty || !threeBallSessions.isEmpty
     }
 
     // MARK: - Category Helpers
@@ -441,6 +450,7 @@ final class HistoryViewModel: ObservableObject {
         if cognitiveSessions.contains(where: { cal.isDate($0.startDate, inSameDayAs: date) }) {
             return .training("角度")
         }
+        if kBallSessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) { return .toolActivity("K球练习") }
         if twoBallSessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) { return .toolActivity("两球走位") }
         if threeBallSessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) { return .toolActivity("三球走位") }
         if separationSessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) { return .toolActivity("分离角") }
@@ -571,6 +581,8 @@ final class HistoryViewModel: ObservableObject {
             .map(ToolSessionItem.make)
         let threeBall = Self.assembleThreeBallSessions(sessions: allSessions)
         threeBallSessions = threeBall.records; unreadableThreeBallCount = threeBall.unreadableCount
+        let kBall = Self.assembleKBallSessions(sessions: allSessions)
+        kBallSessions = kBall.records; unreadableKBallCount = kBall.unreadableCount
         let twoBall = Self.assembleTwoBallSessions(sessions: allSessions)
         twoBallSessions = twoBall.records; unreadableTwoBallCount = twoBall.unreadableCount
         let separation = Self.assembleSeparationSessions(sessions: allSessions)
@@ -614,6 +626,22 @@ final class HistoryViewModel: ObservableObject {
                 }
                 if !record.attempts.isEmpty { records.append(record) }
             } catch { unreadable += 1 }
+        }
+        return (records.sorted { $0.startedAt > $1.startedAt }, unreadable)
+    }
+
+    static func assembleKBallSessions(sessions: [TrainingSession]) -> (records: [KBallPracticeRecord], unreadableCount: Int) {
+        var records: [KBallPracticeRecord] = []
+        var unreadable = 0
+        for session in sessions where session.kind == TrainingSessionKind.kBallPractice {
+            guard let data = session.sourcePayloadSnapshot,
+                  let record = try? KBallPracticeRecord.decodePayload(data),
+                  record.version == KBallPracticeRecord.payloadVersion,
+                  record.id == session.id, record.ownerKey == session.ownerKey else {
+                unreadable += 1
+                continue
+            }
+            if !record.attempts.isEmpty { records.append(record) }
         }
         return (records.sorted { $0.startedAt > $1.startedAt }, unreadable)
     }

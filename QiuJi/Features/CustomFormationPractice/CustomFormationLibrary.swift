@@ -168,7 +168,18 @@ final class CustomFormationLibrary: ObservableObject {
     }
     func delete(_ id: UUID) {
         guard !BuiltInCustomFormations.contains(id) else { return }
-        _ = change { try repository.remove(id) }
+        if change({ try repository.remove(id) }) {
+            do { try CustomFormationProgressStore(repository: repository).remove(id) }
+            catch { self.error = "模板已删除，但清理练习进度失败：\(error.localizedDescription)" }
+        }
+    }
+    func practiceSession(for template: CustomFormationTemplate) -> CustomFormationSession? {
+        do {
+            try template.validateForPractice()
+            let store = CustomFormationProgressStore(repository: repository)
+            let progress = try store.load(for: template)
+            return .init(template: template, editing: false, progress: progress, progressStore: store)
+        } catch { self.error = "无法开始练习：\(error.localizedDescription)"; return nil }
     }
     func rename(_ template: CustomFormationTemplate, name: String) {
         var updated = template; updated.name = name.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -769,6 +769,14 @@ extension TwoBallPracticeTests {
         let expected = try XCTUnwrap(TwoBallComfortScore.evaluateFreePosition(
             cue: (Double(cue.x),Double(cue.z)),ball: (Double(q.second.x),Double(q.second.z)),pocket: q.secondPocket))
         XCTAssertEqual(try XCTUnwrap(shot.freeScore), expected.total, accuracy: 1e-8)
+        let detail = try XCTUnwrap(shot.scoreDetails)
+        XCTAssertEqual(detail.components(separatedBy: "\n").count, 4)
+        let labels = detail.split(separator: "\n").prefix(4).map(String.init)
+        XCTAssertTrue(labels[0].hasPrefix("角度分"))
+        XCTAssertTrue(labels[1].hasPrefix("球距分"))
+        XCTAssertTrue(labels[2].hasPrefix("出杆空间分"))
+        XCTAssertTrue(labels[3].hasPrefix("得分"))
+        XCTAssertFalse(detail.contains("分离方向"))
         XCTAssertEqual(try TwoBallBankStore.load().index.comfortVersion, TwoBallComfortScore.version)
         XCTAssertNotEqual(TwoBallComfortScore.version, TwoBallComfortScore.freePositionVersion)
         for is3D in [false,true] {
@@ -791,8 +799,9 @@ extension TwoBallPracticeTests {
             let saved = try TwoBallPracticeRecord.decodePayload(fresh.encodedPayload())
             XCTAssertEqual(saved.attempts.first?.comfortVersion, TwoBallComfortScore.freePositionVersion)
             XCTAssertEqual(saved.latestShot?.freeScore, shot.freeScore)
-            XCTAssertTrue(saved.latestShot?.comfort?.details.contains("三项最低分") == true)
-            XCTAssertFalse(restored.latestShot?.comfort?.details.contains("三项最低分") == true)
+            XCTAssertEqual(saved.latestShot?.scoreDetails, shot.scoreDetails)
+            XCTAssertEqual(saved.latestShot?.comfort?.aggregation, .minimumWeighted)
+            XCTAssertNil(restored.latestShot?.comfort?.aggregation)
         }
         var unknown = shot
         unknown.comfortVersion = "unknown-future"

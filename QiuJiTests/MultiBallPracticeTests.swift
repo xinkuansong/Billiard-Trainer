@@ -5,6 +5,23 @@ import SceneKit
 @MainActor
 final class MultiBallPracticeTests: XCTestCase {
 
+    func testPaletteCapacityUsesConfigurationAndMaximumRandomOpponents() {
+        var config = MultiBallConfiguration()
+        config.game = .rotation
+        for count in MultiBallConfiguration.rotationCounts {
+            config.rotationCount = count
+            XCTAssertEqual(config.maximumPaletteCount, count)
+        }
+        config.game = .chineseEight
+        for own in 4...8 {
+            config.ownCount = own
+            config.randomOpponents = false
+            XCTAssertEqual(config.maximumPaletteCount, own)
+            config.randomOpponents = true
+            XCTAssertEqual(config.maximumPaletteCount, own + 7)
+        }
+    }
+
     func testPlanningRingPreferenceMigratesAndRetainsRoleMarkers() throws {
         let legacy = Data(#"{"positionMode":"planned","game":"rotation","rotationCount":4,"ownCount":4,"randomOpponents":false,"freePractice":false}"#.utf8)
         var config = try JSONDecoder().decode(MultiBallConfiguration.self, from: legacy)
@@ -38,6 +55,7 @@ final class MultiBallPracticeTests: XCTestCase {
         let host = PositionPlayViewModel(); host.setupScene()
         defer { host.suspendAuthoringActivity() }
         controller.attach(to: host); controller.start(config)
+        try chooseOpening(controller)
         var balls = 0, pockets = 0
         host.scene.ballSelectionHaptic = { balls += 1 }
         host.scene.pocketSelectionHaptic = { pockets += 1 }
@@ -79,6 +97,152 @@ final class MultiBallPracticeTests: XCTestCase {
         XCTAssertEqual(pockets, 1)
         XCTAssertFalse(host.selectTarget(key: "missing"))
         XCTAssertEqual(balls, 2)
+    }
+
+
+    private func chooseOpening(_ controller: MultiBallPracticeController, pocket: Int = 2) throws {
+        if controller.configuration.game == .chineseEight {
+            XCTAssertTrue(controller.selectPlanningBall(try XCTUnwrap(controller.legalKeys.sorted().first)))
+        }
+        controller.selectPlanningPocket(pocket)
+        XCTAssertEqual(controller.currentSelection.pocket, pocket)
+    }
+
+    func testOpeningSelectionIsExplicitAndSurvivesHostRefreshAndRelaunch() async throws {
+        var config = MultiBallConfiguration(); config.game = .chineseEight
+        let host = PositionPlayViewModel(); host.usesAutomaticPocketFallback = true
+        host.usesShotComfortRanking = true; host.setupScene(loadsDefaultLayout: false)
+        defer { host.suspendAuthoringActivity() }
+        let c = MultiBallPracticeController(configuration: config, defaults: defaults, limiter: limiter())
+        c.attach(to: host)
+        XCTAssertNil(c.currentTarget); XCTAssertNil(host.selectedTargetKey)
+        XCTAssertEqual(host.selectedPocketIndex, -1); XCTAssertEqual(c.planningStep, .ball1)
+        XCTAssertTrue(c.canPlaceCue); XCTAssertFalse(c.requestStrike())
+        c.selectPlanningPocket(2)
+        XCTAssertNil(c.currentSelection.pocket); XCTAssertNil(c.plan)
+        c.beginPlanning(); XCTAssertEqual(c.planningStep, .ball1)
+        host.refreshLegalAimSelection()
+        XCTAssertNil(host.selectedTargetKey)
+        let first = try XCTUnwrap(c.legalKeys.sorted().first)
+        c.selectPaletteBall(first)
+        XCTAssertEqual(c.currentTarget, first); XCTAssertEqual(host.selectedTargetKey, first)
+        XCTAssertEqual(host.selectedPocketIndex, -1); XCTAssertEqual(c.planningStep, .pocket1)
+        XCTAssertFalse(c.requestStrike())
+        XCTAssertFalse(c.selectContinuationBall(try XCTUnwrap(c.continuationKeys.first)))
+        c.saveCheckpoint()
+        let restoredHost = PositionPlayViewModel(); restoredHost.setupScene(loadsDefaultLayout: false)
+        defer { restoredHost.suspendAuthoringActivity() }
+        let restored = MultiBallPracticeController(defaults: defaults, limiter: limiter())
+        restored.attach(to: restoredHost)
+        XCTAssertEqual(restored.currentTarget, first); XCTAssertEqual(restoredHost.selectedPocketIndex, -1)
+        XCTAssertEqual(restored.planningStep, .pocket1)
+        restored.selectPlanningPocket(4)
+        XCTAssertEqual(restored.planningStep, .ball2)
+        let chosen = restored.currentSelection
+        restoredHost.refreshLegalAimSelection()
+        restoredHost.setPreferredAimMode(.free); restoredHost.setPreferredAimMode(.pocket)
+        XCTAssertEqual(restoredHost.selectedPocketIndex, 4); XCTAssertEqual(restored.currentSelection, chosen)
+        for _ in 0..<200 where restoredHost.isComputing { try await Task.sleep(for: .milliseconds(100)) }
+        XCTAssertFalse(restoredHost.isComputing)
+        restored.saveCheckpoint()
+        XCTAssertNil(restored.checkpointError)
+        let finalHost = PositionPlayViewModel(); finalHost.setupScene(loadsDefaultLayout: false)
+        defer { finalHost.suspendAuthoringActivity() }
+        let final = MultiBallPracticeController(defaults: defaults, limiter: limiter())
+        final.attach(to: finalHost)
+        XCTAssertEqual(final.currentSelection, chosen); XCTAssertEqual(finalHost.selectedPocketIndex, 4)
+        final.restart()
+        XCTAssertNil(final.currentTarget); XCTAssertNil(finalHost.selectedTargetKey)
+        XCTAssertEqual(finalHost.selectedPocketIndex, -1); XCTAssertEqual(final.planningStep, .ball1)
+        XCTAssertTrue(final.canPlaceCue)
+    }
+
+    func testLegalMultiPotRemovingPlannedNextBallReopensSelection() throws {
+        var config = MultiBallConfiguration(); config.game = .chineseEight
+        let host = PositionPlayViewModel(); host.setupScene(loadsDefaultLayout: false)
+        defer { host.suspendAuthoringActivity() }
+        let c = MultiBallPracticeController(configuration: config, defaults: defaults, limiter: limiter())
+        c.attach(to: host); try chooseOpening(c)
+        let first = try XCTUnwrap(c.currentTarget), second = try XCTUnwrap(c.continuationKeys.first)
+        XCTAssertTrue(c.selectContinuationBall(second)); XCTAssertTrue(c.selectContinuationPocket(4))
+        XCTAssertTrue(c.selectPlanningBall(try XCTUnwrap(c.thirdKeys.first)))
+        c.prepareShot()
+        var prediction = ShotPrediction(); prediction.termination = .settled
+        prediction.events = [.init(time: 0, kind: .ballBall(ballA: ShotInput.cueBallName, ballB: ShotInput.targetBallName))]
+        prediction.pocketedBalls = [ShotInput.targetBallName, second]
+        c.settle(.init(before: try XCTUnwrap(c.rack?.board), shot: .init(targetKey: first, pocket: "topLeft", velocity: 2), prediction: prediction))
+        XCTAssertNil(c.failure); XCTAssertTrue(c.advancePlannedAim())
+        XCTAssertNil(c.currentTarget); XCTAssertNil(host.selectedTargetKey)
+        XCTAssertEqual(host.selectedPocketIndex, -1); XCTAssertNil(c.lockedCurrentPocket)
+        XCTAssertEqual(c.planningStep, .ball1); XCTAssertFalse(c.requestStrike())
+        XCTAssertFalse(c.canPlaceCue)
+        XCTAssertTrue(c.selectPlanningBall(try XCTUnwrap(c.legalKeys.first)))
+        c.selectPlanningPocket(2)
+        XCTAssertEqual(c.planningStep, .ball2)
+    }
+
+    func testLegacyOpeningDropsRecommendationButKeepsExistingPlan() throws {
+        var config = MultiBallConfiguration(); config.game = .chineseEight
+        let c = MultiBallPracticeController(configuration: config, defaults: defaults, limiter: limiter())
+        c.start(config)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("multiBall-tests-" + (try XCTUnwrap(defaults.string(forKey: "multiBall.testCheckpointID"))))
+        let store = TrainingCheckpointStore<MultiBallPracticeController.Checkpoint>(project: .multiBall,
+            owner: CurrentOwnerContext.shared.ownerKey, root: root)
+        var legacy = try XCTUnwrap(store.latest(where: { _ in true }))
+        let colors = c.legalKeys.sorted()
+        legacy.target = colors[0]; legacy.pocket = 2; legacy.step = .ball2
+        legacy.currentSelection = nil
+        legacy.input = .init(preference: "pocket", mode: "pocket", target: colors[0], pocket: 2,
+            direction: nil, velocity: 2, spinX: 0, spinY: 0)
+        try store.save(legacy, id: legacy.runID)
+        let host = PositionPlayViewModel(); host.setupScene(loadsDefaultLayout: false)
+        defer { host.suspendAuthoringActivity() }
+        let reopened = MultiBallPracticeController(defaults: defaults, limiter: limiter())
+        reopened.attach(to: host)
+        XCTAssertNil(reopened.currentTarget); XCTAssertNil(host.selectedTargetKey)
+        XCTAssertEqual(host.selectedPocketIndex, -1); XCTAssertEqual(reopened.planningStep, .ball1)
+        legacy.plan = .init(current: colors[0], next: colors[1], pocket: 4, third: colors[2])
+        legacy.next = colors[1]; legacy.third = colors[2]; legacy.step = .ball3
+        try store.save(legacy, id: legacy.runID)
+        let plannedHost = PositionPlayViewModel(); plannedHost.setupScene(loadsDefaultLayout: false)
+        defer { plannedHost.suspendAuthoringActivity() }
+        let planned = MultiBallPracticeController(defaults: defaults, limiter: limiter())
+        planned.attach(to: plannedHost)
+        XCTAssertEqual(planned.currentTarget, colors[0]); XCTAssertEqual(plannedHost.selectedPocketIndex, 2)
+        XCTAssertEqual(planned.plan, legacy.plan); XCTAssertTrue(planned.requestStrike())
+    }
+
+    func testChangingOpeningBallClearsItsPocketAndLaterPlan() throws {
+        var config = MultiBallConfiguration(); config.game = .chineseEight
+        let host = PositionPlayViewModel(); host.setupScene(loadsDefaultLayout: false)
+        defer { host.suspendAuthoringActivity() }
+        let c = MultiBallPracticeController(configuration: config, defaults: defaults, limiter: limiter())
+        c.attach(to: host); try chooseOpening(c)
+        let second = try XCTUnwrap(c.continuationKeys.first)
+        XCTAssertTrue(c.selectContinuationBall(second)); XCTAssertTrue(c.selectContinuationPocket(4))
+        XCTAssertTrue(c.selectPlanningBall(try XCTUnwrap(c.thirdKeys.first)))
+        XCTAssertTrue(c.requestStrike())
+        c.selectRole(0); XCTAssertTrue(c.selectPlanningBall(second))
+        XCTAssertEqual(c.currentTarget, second); XCTAssertNil(c.currentSelection.pocket)
+        XCTAssertEqual(host.selectedPocketIndex, -1); XCTAssertNil(c.plan)
+        XCTAssertNil(c.draftNextKey); XCTAssertNil(c.thirdKey); XCTAssertFalse(c.requestStrike())
+    }
+
+    func testRotationOpeningFixesOnlyBallAndKeepsIndependentRecommendations() throws {
+        let host = PositionPlayViewModel(); host.setupScene(loadsDefaultLayout: false)
+        defer { host.suspendAuthoringActivity() }
+        let c = MultiBallPracticeController(defaults: defaults, limiter: limiter())
+        c.attach(to: host)
+        XCTAssertEqual(c.currentTarget, "_1"); XCTAssertEqual(host.selectedTargetKey, "_1")
+        XCTAssertEqual(host.selectedPocketIndex, -1); XCTAssertEqual(c.planningStep, .pocket1)
+        XCTAssertEqual(c.draftNextKey, "_2"); XCTAssertFalse(c.requestStrike())
+        XCTAssertFalse(c.selectContinuationPocket(4))
+        c.selectPlanningPocket(2)
+        XCTAssertEqual(c.planningStep, .pocket2); XCTAssertTrue(c.selectContinuationPocket(4))
+        XCTAssertTrue(c.requestStrike())
+        var config = MultiBallConfiguration(); config.positionMode = .independent
+        c.start(config)
+        XCTAssertFalse(host.practiceRequiresExplicitAim); XCTAssertNotNil(host.selectedTargetKey)
     }
 
     private let suite = "MultiBallPracticeTests.\(UUID())"
@@ -286,9 +450,10 @@ final class MultiBallPracticeTests: XCTestCase {
         XCTAssertEqual(MultiBallConfiguration.load(defaults: defaults, is3D: true).positionMode, .planned)
     }
 
-    func testPlanningRotationOnlyRequiresNextPocketAndScoresNMinusOneStrokes() throws {
+    func testPlanningRotationRequiresOpeningPocketThenScoresNMinusOneStrokes() throws {
         let c = MultiBallPracticeController(configuration: .init(), defaults: defaults, limiter: limiter())
         c.start(.init())
+        try chooseOpening(c)
         let board = try XCTUnwrap(c.rack?.board)
         for (index, number) in [1, 2, 3, 9].enumerated() {
             if index < 3 {
@@ -307,13 +472,34 @@ final class MultiBallPracticeTests: XCTestCase {
             var prediction = ShotPrediction(); prediction.termination = .settled
             prediction.events = [.init(time: 0, kind: .ballBall(ballA: ShotInput.cueBallName, ballB: ShotInput.targetBallName))]
             prediction.pocketedBalls = [ShotInput.targetBallName]
-            prediction.finalPositions = [ShotInput.cueBallName: SCNVector3(0, 0, 0.35)]
-            if let plan = c.plan { prediction.finalPositions[plan.next] = SCNVector3(0, 0, -0.1) }
+            prediction.finalPositions = [ShotInput.cueBallName: SCNVector3(0.013719136,0,0.32729938)]
+            if let plan = c.plan {
+                prediction.finalPositions[plan.next] = SCNVector3(0.070555556,0,-0.30966049)
+                if let third = plan.third { prediction.finalPositions[third] = SCNVector3(-1.13280864,0,0.2841821) }
+            }
             let solved = PositionPlayViewModel.SolvedShot(before: board,
                 shot: .init(targetKey: "_\(number)", pocket: "topLeft", velocity: 2), prediction: prediction)
             c.settle(solved); c.settle(solved)
+            if index == 0 {
+                let frozen = c.scores
+                c.undo()
+                XCTAssertTrue(c.scores.isEmpty)
+                XCTAssertEqual(c.plan?.pocket, 4)
+                XCTAssertEqual(c.plan?.third, "_3")
+                c.prepareShot(); c.settle(solved)
+                XCTAssertEqual(c.scores, frozen)
+            }
             XCTAssertEqual(c.scores.count, min(index + 1, 3))
-            if index < 3 { XCTAssertGreaterThan(c.scores.last!.value, 0) }
+            if index < 3 {
+                let score = try XCTUnwrap(c.scores.last)
+                XCTAssertGreaterThan(score.value, 0)
+                if index < 2 {
+                    XCTAssertLessThan(try XCTUnwrap(score.direction).coefficient, 0.8)
+                } else {
+                    XCTAssertNil(score.direction)
+                    XCTAssertEqual(score.value, try XCTUnwrap(score.comfort).total)
+                }
+            }
         }
         XCTAssertTrue(c.isComplete)
         XCTAssertEqual(c.scores.count, 3)
@@ -325,7 +511,7 @@ final class MultiBallPracticeTests: XCTestCase {
     func testChinesePlanningExcludesCurrentOpponentsAndEarlyBlack() throws {
         var config = MultiBallConfiguration(); config.game = .chineseEight; config.randomOpponents = true
         let c = MultiBallPracticeController(configuration: config, defaults: defaults, limiter: limiter())
-        c.start(config); c.beginPlanning()
+        c.start(config); try chooseOpening(c); c.beginPlanning()
         XCTAssertNil(c.draftNextKey)
         XCTAssertFalse(c.selectContinuationPocket(0))
         XCTAssertFalse(c.selectContinuationBall(try XCTUnwrap(c.currentTarget)))
@@ -346,6 +532,7 @@ final class MultiBallPracticeTests: XCTestCase {
         var config = MultiBallConfiguration(); config.game = .chineseEight
         let c = MultiBallPracticeController(configuration: config, defaults: defaults, limiter: limiter())
         c.start(config)
+        try chooseOpening(c)
         let second = try XCTUnwrap(c.continuationKeys.first)
         XCTAssertTrue(c.selectContinuationBall(second))
         XCTAssertEqual(c.planningStep, .pocket2)
@@ -392,6 +579,30 @@ final class MultiBallPracticeTests: XCTestCase {
         }
     }
 
+    func testPlannedThirdDirectionUsesSettledBoardAndKeepsTwoBallScore() throws {
+        var positions = [PositionPlayBall.cueKey: SCNVector3(0.013719136,0,0.32729938),
+                         "_2": SCNVector3(0.070555556,0,-0.30966049), "_3": SCNVector3(-1.13280864,0,0.2841821)]
+        let base = MultiBallPositionScore.evaluate(positions: positions, target: "_2", pocket: 4, surfaceY: 0)
+        let scored = MultiBallPositionScore.evaluate(positions: positions, target: "_2", pocket: 4, third: "_3", surfaceY: 0)
+        XCTAssertNil(base.direction); XCTAssertNil(scored.reason)
+        let direction = try XCTUnwrap(scored.direction)
+        XCTAssertLessThan(direction.coefficient, 0.8)
+        XCTAssertEqual(scored.comfort, base.comfort)
+        XCTAssertEqual(scored.value, base.value * direction.coefficient, accuracy: 1e-10)
+        XCTAssertEqual(try JSONDecoder().decode(MultiBallPositionScore.Result.self, from: JSONEncoder().encode(scored)), scored)
+        XCTAssertTrue(scored.details.contains("分离方向系数　×"))
+        XCTAssertTrue(scored.details.hasSuffix(String(format: "得分　%.1f", scored.value)))
+        for pocket in 0..<4 {
+            XCTAssertNil(MultiBallPositionScore.evaluate(positions: positions, target: "_2", pocket: pocket, third: "_3", surfaceY: 0).direction)
+        }
+        positions["_3"] = SCNVector3(1,0,0.3)
+        XCTAssertEqual(MultiBallPositionScore.evaluate(positions: positions, target: "_2", pocket: 4, third: "_3", surfaceY: 0).direction?.coefficient, 1)
+        positions.removeValue(forKey: "_3")
+        XCTAssertEqual(MultiBallPositionScore.evaluate(positions: positions, target: "_2", pocket: 4, third: "_3", surfaceY: 0), base)
+        let failed = MultiBallPositionScore.evaluate(positions: positions, target: "_2", pocket: 4, third: "_3", failure: "母球落袋", surfaceY: 0)
+        XCTAssertEqual(failed.value, 0); XCTAssertNil(failed.direction)
+    }
+
     func testActualBoardObstructionBothLegsAndMovedBallScoring() throws {
         let cue = SCNVector3(0, 0, 0.35), ball = SCNVector3(0, 0, -0.1)
         var positions = [PositionPlayBall.cueKey: cue, "_2": ball]
@@ -400,12 +611,22 @@ final class MultiBallPracticeTests: XCTestCase {
         }
         let clear = score(positions)
         XCTAssertNil(clear.reason)
+        XCTAssertNotNil(clear.comfort)
+        XCTAssertEqual(try JSONDecoder().decode(MultiBallPositionScore.Result.self, from: JSONEncoder().encode(clear)), clear)
+        let legacy = try JSONDecoder().decode(MultiBallPositionScore.Result.self,
+            from: Data(#"{"value":72.5}"#.utf8))
+        XCTAssertEqual(legacy.value, 72.5)
+        XCTAssertNil(legacy.comfort)
+        XCTAssertNil(legacy.direction)
+        XCTAssertTrue(legacy.details.contains("未保存评分分项"))
         XCTAssertEqual(clear.value, try XCTUnwrap(TwoBallComfortScore.evaluateFreePosition(
             cue: (Double(cue.x), Double(cue.z)), ball: (Double(ball.x), Double(ball.z)), pocket: 4)).total, accuracy: 1e-10)
         for blocker in [SCNVector3(0,0,0.15), SCNVector3(0,0,-0.4)] {
             positions["_12"] = blocker
             XCTAssertEqual(score(positions).value, 0)
             XCTAssertEqual(score(positions).reason, "下一球线路被遮挡")
+            XCTAssertNil(score(positions).comfort)
+            XCTAssertTrue(score(positions).details.contains("本杆直接记0分"))
         }
         positions["_12"] = SCNVector3(0.2,0,0.15)
         XCTAssertEqual(score(positions), clear)
@@ -421,6 +642,7 @@ final class MultiBallPracticeTests: XCTestCase {
         let vm = PositionPlayViewModel(); vm.usesAutomaticPocketFallback = true; vm.setupScene(loadsDefaultLayout: false)
         let c = MultiBallPracticeController(configuration: .init(), defaults: defaults, limiter: limiter())
         c.attach(to: vm)
+        try chooseOpening(c)
         let target = vm.selectedTargetKey, pocket = vm.selectedPocketIndex
         c.beginPlanning(); XCTAssertTrue(c.selectContinuationPocket(4))
         XCTAssertEqual(vm.selectedTargetKey, target); XCTAssertEqual(vm.selectedPocketIndex, pocket)
@@ -452,6 +674,7 @@ final class MultiBallPracticeTests: XCTestCase {
         let vm = PositionPlayViewModel(); vm.usesAutomaticPocketFallback = true; vm.setupScene(loadsDefaultLayout: false)
         let c = MultiBallPracticeController(configuration: config, defaults: defaults, limiter: limiter())
         c.attach(to: vm)
+        try chooseOpening(c)
         let current = try XCTUnwrap(c.currentTarget)
         let second = try XCTUnwrap(c.continuationKeys.sorted().first)
         XCTAssertTrue(c.selectContinuationBall(second))
@@ -495,6 +718,7 @@ final class MultiBallPracticeTests: XCTestCase {
         let vm = PositionPlayViewModel(); vm.usesAutomaticPocketFallback = true; vm.setupScene(loadsDefaultLayout: false)
         let c = MultiBallPracticeController(configuration: .init(), defaults: defaults, limiter: limiter())
         c.attach(to: vm)
+        try chooseOpening(c)
         // This checks marker composition, independent of random rack recommendations.
         if vm.selectedPocketIndex < 0 { vm.selectPocket(at: 2) }
         let pocket = vm.selectedPocketIndex

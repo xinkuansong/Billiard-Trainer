@@ -57,7 +57,7 @@ struct ThreeBallPracticeView: View {
         .onChange(of: vm.pocketRequestID) { _, event in
             guard event != nil else { questionNotices.clear(); return }
             resultNotices.clear()
-            questionNotices.show("请先选择绿圈的\(vm.record?.current?.secondBallNumber ?? 8)号球目标袋口", tone: .info, priority: .selection)
+            questionNotices.show("请先选择下一球（\(vm.record?.current?.secondBallNumber ?? 8)号）的目标袋口", tone: .info, priority: .selection)
         }
         .onChange(of: vm.record?.current?.id) { _, _ in questionNotices.clear() }
         .onChange(of: vm.record?.current?.stage) { _, _ in questionNotices.clear() }
@@ -97,7 +97,8 @@ struct ThreeBallPracticeView: View {
             result.append(.init(text: notice.text, kind: .notice, symbol: "info.circle", identifier: "threeBall.question"))
         }
         if resultNotices.message != nil, !hidesPendingScore, vm.feedbackShot != nil {
-            result.append(.init(text: resultNoticeText, kind: .readout, symbol: "info.circle", identifier: "threeBall.result"))
+            result.append(.init(text: resultNoticeText, kind: .readout, symbol: "info.circle", identifier: "threeBall.result",
+                detailText: vm.feedbackShot?.scoreDetails))
         }
         return result
     }
@@ -126,7 +127,7 @@ struct ThreeBallPracticeView: View {
             ], refreshTrajectory: {}, onLayoutEditingChanged: vm.layoutEditingChanged,
             layoutEditingBlocked: vm.isBusy,
             onSpinChange: { vm.setSpin($0, $1) },
-            paletteKeys: vm.paletteKeys, paletteRoles: vm.paletteRoles, showsPaletteRoleNumbers: true)
+            paletteKeys: vm.paletteKeys, maximumPaletteCount: 3, paletteRoles: vm.paletteRoles, showsPaletteRoleNumbers: true)
     }
     private var tablePage: some View {
         BTTeachingTablePage(vm: vm, titleLabel: vm.title, identifier: "threeBall", preferencePage: vm.preferencePage,
@@ -142,11 +143,11 @@ struct ThreeBallPracticeView: View {
                     }.overlay(alignment: .top) {
                         GeometryReader { geometry in
                             ScrollView(.vertical) {
-                                sidebarInformation
+                                sidebarInformation(availableHeight: geometry.size.height)
                                     .frame(minHeight: geometry.size.height, alignment: .top)
                             }.scrollBounceBehavior(.basedOnSize)
-                        }.padding(.bottom, Spacing.sm)
-                        .frame(width: layout.columnWidth)
+                                .accessibilityIdentifier("threeBall.sidebarScroll")
+                        }.frame(width: layout.columnWidth)
                     }
                     let actions = layout.horizontalActions
                         ? AnyLayout(HStackLayout(spacing: layout.groupSpacing))
@@ -167,11 +168,15 @@ struct ThreeBallPracticeView: View {
             title: { Text(vm.title) }, leftContent: { _ in EmptyView() }, status: { EmptyView() })
     }
 
-    private var sidebarInformation: some View {
-        ThreeBallSidebarLayout {
-            sidebarMetric("题目", value: vm.record?.configuration.freePractice == true
-                ? "\(vm.record?.questionNumber ?? 1)" : "\(vm.record?.questionNumber ?? 1)/15",
-                identifier: "threeBall.questionInfo", compact: false)
+    private func sidebarInformation(availableHeight: CGFloat) -> some View {
+        ThreeBallSidebarLayout(availableHeight: availableHeight) {
+            Text(vm.record?.configuration.freePractice == true
+                ? "\(vm.record?.questionNumber ?? 1)" : "\(vm.record?.questionNumber ?? 1)/15")
+                .font(.btCaption.weight(.semibold)).monospacedDigit().foregroundStyle(.white)
+                .accessibilityLabel("题目")
+                .accessibilityValue(vm.record?.configuration.freePractice == true
+                    ? "第\(vm.record?.questionNumber ?? 1)题" : "\(vm.record?.questionNumber ?? 1)/15")
+                .accessibilityIdentifier("threeBall.questionInfo")
             sidebarMetric("均分", value: displayedAverage.map { String(format: "%.1f", $0) } ?? "—",
                           identifier: "threeBall.averageScore", compact: false)
             VStack(spacing: Spacing.xs) {
@@ -186,25 +191,40 @@ struct ThreeBallPracticeView: View {
                     .font(.btCaption2).foregroundStyle(HUDStyle.valueMeasured)
                     .accessibilityIdentifier("threeBall.stage")
             }
-            VStack(spacing: Spacing.xs) {
-                if vm.shouldShowReference {
-                    routeLegend("参考", color: Color(SeparationRouteStyle.reference), dash: SeparationRouteStyle.legendDash)
-                        .accessibilityIdentifier("threeBall.referenceLegend")
-                        .accessibilityValue("中杆中力，无高低杆、无左右塞，杆速2.0")
-                }
-                if vm.record?.latestShot != nil {
-                    routeLegend("实际", color: Color(SeparationRouteStyle.actual), dash: SeparationRouteStyle.legendDash)
-                        .accessibilityIdentifier("threeBall.actualLegend")
+            .layoutValue(key: ThreeBallSidebarGap.self, value: Spacing.sm)
+            if vm.shouldShowReference || vm.record?.latestShot != nil {
+                VStack(spacing: Spacing.xs) {
+                    if vm.shouldShowReference {
+                        routeLegend("参考", color: Color(SeparationRouteStyle.reference), dash: SeparationRouteStyle.legendDash)
+                            .accessibilityIdentifier("threeBall.referenceLegend")
+                            .accessibilityValue("中杆中力，无高低杆、无左右塞，杆速2.0")
+                    }
+                    if vm.record?.latestShot != nil {
+                        routeLegend("实际", color: Color(SeparationRouteStyle.actual), dash: SeparationRouteStyle.legendDash)
+                            .accessibilityIdentifier("threeBall.actualLegend")
+                    }
                 }
             }
             sidebarMetric("本题均分", value: (hidesPendingScore ? nil : vm.record?.questionAverage).map { String(format: "%.1f", $0) } ?? "—",
                 identifier: "threeBall.questionAverage", compact: false)
-            if vm.record?.current?.stage == 1 {
-                Text("首杆 " + (vm.record?.firstStageScore.map { String(format: "%.1f", $0) } ?? "—"))
-                    .font(.btCaption2).monospacedDigit().foregroundStyle(HUDStyle.valueMeasured)
-                    .accessibilityIdentifier("threeBall.firstScore")
+                .layoutValue(key: ThreeBallSidebarGap.self, value: Spacing.sm)
+            if !hidesPendingScore, let shot = vm.record?.latestShot {
+                BTScoreDetailsButton(detail: shot.scoreDetails, identifier: "threeBall.latestScore", minimumHeight: Spacing.xxxl) {
+                    sidebarMetric(vm.latestScoreTitle, value: latestValue, identifier: "threeBall.scoreValue", compact: false, showsInfo: true)
+                }
+                .layoutValue(key: ThreeBallSidebarGap.self, value: Spacing.xs)
+            } else if vm.record?.current?.stage != 1 {
+                sidebarMetric(vm.latestScoreTitle, value: latestValue, identifier: "threeBall.latestScore", compact: false)
+                    .layoutValue(key: ThreeBallSidebarGap.self, value: Spacing.xs)
             }
-            sidebarMetric(vm.latestScoreTitle, value: latestValue, identifier: "threeBall.latestScore", compact: false)
+            if vm.record?.current?.stage == 1, !hidesPendingScore,
+               let first = vm.record?.firstStageCheckpoint?.shot {
+                BTScoreDetailsButton(detail: first.scoreDetails, identifier: "threeBall.firstScore", minimumHeight: Spacing.xxxl) {
+                    sidebarMetric("首杆", value: String(format: "%.1f", first.freeScore),
+                        identifier: "threeBall.firstScoreValue", compact: false, showsInfo: true)
+                }
+                .layoutValue(key: ThreeBallSidebarGap.self, value: Spacing.sm)
+            }
         }
     }
 
@@ -219,9 +239,12 @@ struct ThreeBallPracticeView: View {
         return vm.record?.averageScore
     }
 
-    private func sidebarMetric(_ title: String, value: String, identifier: String, compact: Bool) -> some View {
+    private func sidebarMetric(_ title: String, value: String, identifier: String, compact: Bool, showsInfo: Bool = false) -> some View {
         VStack(spacing: compact ? 0 : 2) {
-            Text(title).font(.btCaption2).foregroundStyle(HUDStyle.labelColor)
+            HStack(spacing: 2) {
+                Text(title)
+                if showsInfo { Image(systemName: "info.circle").accessibilityHidden(true) }
+            }.font(.btCaption2).foregroundStyle(HUDStyle.labelColor)
             Text(value).font(.btCaption.weight(.semibold)).monospacedDigit().foregroundStyle(.white).lineLimit(1)
         }
         .accessibilityElement(children: .combine)
@@ -238,27 +261,39 @@ struct ThreeBallPracticeView: View {
     }
 }
 
-/// Measures uncompressed groups first, then spends spare lane height between them.
-/// A short window scrolls the information without moving or obscuring the action slots.
+// Spend spare height at semantic boundaries; never spread every metric equally.
+private struct ThreeBallSidebarGap: LayoutValueKey {
+    static let defaultValue: CGFloat = 2
+}
+
 private struct ThreeBallSidebarLayout: Layout {
-    private func sizes(_ subviews: Subviews, width: CGFloat?) -> [CGSize] {
-        subviews.map { $0.sizeThatFits(.init(width: width, height: nil)) }
+    let availableHeight: CGFloat
+
+    private func measurements(width: CGFloat?, subviews: Subviews) -> (sizes: [CGSize], gaps: [CGFloat]) {
+        let sizes = subviews.map { $0.sizeThatFits(.init(width: width, height: nil)) }
+        let desiredGaps = subviews.indices.map { $0 == 0 ? 0 : subviews[$0][ThreeBallSidebarGap.self] }
+        let minimumGaps = desiredGaps.map { min(2, $0) }
+        let naturalHeight = sizes.reduce(0) { $0 + $1.height } + minimumGaps.reduce(0, +)
+        let extra = zip(desiredGaps, minimumGaps).map { $0 - $1 }
+        let budget = extra.reduce(0, +)
+        let fraction = budget > 0 ? min(1, max(0, availableHeight - naturalHeight) / budget) : 0
+        return (sizes, zip(minimumGaps, extra).map { $0 + $1 * fraction })
     }
+
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let sizes = sizes(subviews, width: proposal.width)
-        let minimum = sizes.reduce(CGFloat.zero) { $0 + $1.height } + CGFloat(max(0, sizes.count-1))*2
-        return .init(width: proposal.width ?? sizes.map(\.width).max() ?? 0,
-                     height: max(minimum, proposal.height ?? minimum))
+        let measured = measurements(width: proposal.width, subviews: subviews)
+        return CGSize(width: proposal.width ?? measured.sizes.map(\.width).max() ?? 0,
+                      height: measured.sizes.reduce(0) { $0 + $1.height } + measured.gaps.reduce(0, +))
     }
+
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let sizes = sizes(subviews, width: bounds.width)
-        let extra = bounds.height-sizes.reduce(CGFloat.zero) { $0+$1.height }
-        let gap = min(Spacing.md, max(2, extra/CGFloat(max(1, sizes.count-1))))
+        let measured = measurements(width: bounds.width, subviews: subviews)
         var y = bounds.minY
-        for (index, view) in subviews.enumerated() {
-            view.place(at: .init(x: bounds.midX, y: y), anchor: .top,
-                       proposal: .init(width: bounds.width, height: sizes[index].height))
-            y += sizes[index].height+gap
+        for index in subviews.indices {
+            y += measured.gaps[index]
+            subviews[index].place(at: CGPoint(x: bounds.midX, y: y), anchor: .top,
+                                 proposal: .init(width: bounds.width, height: measured.sizes[index].height))
+            y += measured.sizes[index].height
         }
     }
 }

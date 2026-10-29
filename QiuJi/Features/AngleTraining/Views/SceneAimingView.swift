@@ -172,7 +172,7 @@ struct SceneAimingView: View {
         let side = max(4, safe)
         let keys = vm.currentQuestion == nil ? [] : ["_\(vm.targetBallNumber)"]
         let reservation = DailyLayoutMetrics.FoundationReservation(width: size.width - 2 * side,
-            targetCount: keys.count, chineseEightBall: false, titleWidth: 92, actionWidth: 138,
+            targetCount: 1, chineseEightBall: false, titleWidth: 92, actionWidth: 138,
             prefersSeparateRow: size.height > size.width || size.height >= 600,
             separateWidth: size.width > size.height && size.height < 600 ? size.width - 2 * (side + 68) : nil)
         let f = DailyLayoutMetrics.Foundation(size: size, leadingSafeArea: safe, trailingSafeArea: safe,
@@ -183,14 +183,18 @@ struct SceneAimingView: View {
             targetCount: keys.count, chineseEightBall: false, obstacles: [
                 CGRect(x: side + windowControls.left, y: 0, width: 44, height: 44),
                 CGRect(x: side + windowControls.left + 32, y: (44 - titleSize.height) / 2,
-                       width: titleSize.width, height: titleSize.height),
-                CGRect(x: size.width - side - windowControls.right - 44, y: 0, width: 44, height: 44), f.left, f.right])
+                       width: 60, height: titleSize.height),
+                CGRect(x: size.width - side - windowControls.right - 44, y: 0, width: 44, height: 44), f.left, f.right], capacityCount: 1)
+        let titleWidth = BTTablePageTitleLayout.capacityWidth(TrainingProject.angle.title,
+            maximumBallCount: 1, legacyWidth: 60,
+            availableWidth: DailyLayoutMetrics.titleAvailableWidth(size: size, side: side,
+                windowInsets: windowControls, table: f.table, palette: plan))
         let ppm = f.table.height / CGFloat(2 * (f.rotated
             ? (vm.scene.cameraRig?.tableOuterHalfLength ?? CameraRig.defaultTableOuterHalfLength)
             : (vm.scene.cameraRig?.tableOuterHalfWidth ?? CameraRig.defaultTableOuterHalfWidth)))
         return ZStack(alignment: .topLeading) {
             DailyTemplateHeader(size: size, safe: safe, foundation: f, plan: plan,
-                targets: keys, chineseEightBall: false, titleWidth: titleSize.width, titleHeight: titleSize.height,
+                targets: keys, chineseEightBall: false, titleWidth: titleWidth, titleHeight: titleSize.height,
                 windowControlInsets: windowControls, fps: fps, showsDeviceStatus: !systemStatusVisible,
                 title: {
                     HStack(spacing: -12) {
@@ -198,7 +202,7 @@ struct SceneAimingView: View {
                             Image(systemName: "chevron.left").font(.btTitle2)
                                 .frame(width: 44, height: 44).contentShape(Rectangle())
                         }.accessibilityLabel("返回").accessibilityIdentifier("angleTraining.back")
-                        BTTablePageTitle(TrainingProject.angle.title, fitsLongText: true)
+                        BTTablePageTitle(TrainingProject.angle.title, width: titleWidth, fitsLongText: true, maximumSingleLineUnits: 6)
                             .accessibilityIdentifier("training.pageTitle")
                             .background(GeometryReader { g in
                                 Color.clear.preference(key: AngleQuizTitleSize.self, value: g.size)

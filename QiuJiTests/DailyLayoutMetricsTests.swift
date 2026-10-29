@@ -5,6 +5,30 @@ import CoreGraphics
 /// Capacity tests protect visible content and interaction slots. They do not
 /// substitute for Menu hit testing, glyph rendering, or system window resizing.
 final class DailyLayoutMetricsTests: XCTestCase {
+    func testTrailingReadoutReservationKeepsTableGapAndPhoneActionPositions() {
+        for (width, height, safe) in [(667.0, 375.0, 0.0), (844.0, 390.0, 47.0), (1024.0, 375.0, 0.0)] {
+            let size = CGSize(width: width, height: height)
+            let original = DailyLayoutMetrics.Foundation(size: size,
+                leadingSafeArea: safe, trailingSafeArea: safe, halfLength: 1.405481,
+                halfWidth: 0.7775, instrumentHeight: 258)
+            for readoutWidth in [70.0, 80.0, 100.0] {
+                let layout = DailyLayoutMetrics.Foundation(size: size,
+                    leadingSafeArea: safe, trailingSafeArea: safe, halfLength: 1.405481,
+                    halfWidth: 0.7775, instrumentHeight: 258, trailingContentWidth: readoutWidth)
+                let readoutLeft = layout.right.maxX - readoutWidth
+                XCTAssertGreaterThanOrEqual(readoutLeft - layout.table.maxX, 8 - 1e-8,
+                    "The actual readout, not a narrower wrapper, must clear the table")
+                XCTAssertLessThanOrEqual(layout.right.maxX, width - max(safe, 4) + 1e-8)
+                XCTAssertEqual(layout.left.midX, original.left.midX, accuracy: 1e-8)
+                XCTAssertEqual(layout.right.midX, original.right.midX, accuracy: 1e-8)
+                XCTAssertEqual(layout.right.midY, original.right.midY, accuracy: 1e-8)
+                XCTAssertEqual(layout.table.width / layout.table.height,
+                    original.table.width / original.table.height, accuracy: 1e-8)
+                XCTAssertTrue(layout.fits)
+            }
+        }
+    }
+
     func testFewerPaletteBallsDoNotGrowOnTheSameTable() {
         let size = CGSize(width: 1180, height: 820)
         for (width, expected): (CGFloat, CGFloat) in [(274, 25), (531, 30), (900, 36)] {
@@ -560,6 +584,61 @@ extension DailyLayoutMetricsTests {
         }
     }
 
+    func testTitleCapacityPolicyKeepsFullOrUnknownInventoryOnLegacyLayout() {
+        for maximum in [nil, 15, 16] as [Int?] {
+            XCTAssertNil(BTTablePageTitleLayout.singleLineLimit(maximumBallCount: maximum))
+            XCTAssertEqual(BTTablePageTitleLayout.capacityWidth("六字球形练习", maximumBallCount: maximum,
+                legacyWidth: 60, availableWidth: 200), 60)
+        }
+        for maximum in [1, 3, 9, 14] {
+            XCTAssertEqual(BTTablePageTitleLayout.singleLineLimit(maximumBallCount: maximum), 6)
+            let width = BTTablePageTitleLayout.capacityWidth("六字球形练习", maximumBallCount: maximum,
+                legacyWidth: 60, availableWidth: 200)
+            XCTAssertGreaterThan(width, 60)
+            XCTAssertNil(BTTablePageTitleLayout("六字球形练习", width: width, maximumSingleLineUnits: 6).lower)
+        }
+    }
+
+    func testCapacityTitlesRespectSixUnitsAndAvailableWidth() {
+        for text in ["六字球形练习", "2D五字球形练"] {
+            XCTAssertEqual(BTTablePageTitleLayout.displayUnits(text).count, 6)
+            let width = BTTablePageTitleLayout.capacityWidth(text, maximumBallCount: 3,
+                legacyWidth: 60, availableWidth: 200)
+            XCTAssertNil(BTTablePageTitleLayout(text, width: width, maximumSingleLineUnits: 6).lower)
+            XCTAssertNotNil(BTTablePageTitleLayout(text, width: 40, maximumSingleLineUnits: 6).lower)
+            XCTAssertEqual(BTTablePageTitleLayout.capacityWidth(text, maximumBallCount: 3,
+                legacyWidth: 60, availableWidth: 40), 40)
+        }
+        let seven = BTTablePageTitleLayout("七字球形练习页", width: 300, maximumSingleLineUnits: 6)
+        XCTAssertNotNil(seven.lower)
+        XCTAssertEqual(seven.middle, "形")
+        XCTAssertNil(BTTablePageTitleLayout(TrainingProject.aimPoint.title, width: 80, maximumSingleLineUnits: 6).lower)
+        XCTAssertNotNil(BTTablePageTitleLayout(TrainingProject.aimPoint.title, width: 40, maximumSingleLineUnits: 6).lower)
+        XCTAssertEqual(BTTablePageTitleLayout.capacityWidth(TrainingProject.aimPoint.title, maximumBallCount: 1,
+            legacyWidth: 80, availableWidth: 40), 40)
+        XCTAssertEqual(BTTablePageTitleLayout("4443球形", width: 300, preferredLineBreak: 4,
+            maximumSingleLineUnits: 6).lower, "球形")
+    }
+
+    func testPaletteCapacityReservesReachableInventoryWithoutRenderingEmptySlots() {
+        for size in [CGSize(width: 667, height: 375), CGSize(width: 844, height: 390), CGSize(width: 820, height: 1180)] {
+            let table = CGRect(x: 100, y: 30, width: size.width - 200, height: size.height - 80)
+            let full = DailyLayoutMetrics.Palette(size: size, sideInset: 4, table: table,
+                targetCount: 11, chineseEightBall: false, obstacles: [], capacityCount: 11)
+            for actual in [0, 4, 8, 11] {
+                let plan = DailyLayoutMetrics.Palette(size: size, sideInset: 4, table: table,
+                    targetCount: actual, chineseEightBall: false, obstacles: [], capacityCount: 11)
+                XCTAssertEqual(plan.diameter, full.diameter)
+                XCTAssertEqual(plan.twoRows, full.twoRows)
+                XCTAssertEqual(plan.capacityWidth, full.capacityWidth)
+                XCTAssertLessThanOrEqual(plan.targetWidth, plan.capacityWidth)
+                XCTAssertEqual(DailyLayoutMetrics.titleAvailableWidth(size: size, side: 4, windowInsets: .zero,
+                    table: table, palette: plan), DailyLayoutMetrics.titleAvailableWidth(size: size, side: 4,
+                    windowInsets: .zero, table: table, palette: full))
+            }
+        }
+    }
+
     func testTeachingTitleKeepsShortTrainingNameOnOneLineAndSplitsLongTextEvenly() {
         let four = BTTablePageTitleLayout("2D\n角度")
         XCTAssertEqual(four.upper, "2D角度")
@@ -584,7 +663,7 @@ extension DailyLayoutMetricsTests {
         }
     }
 
-    func testAimTitleAlwaysUsesTheApprovedFiveCharacterComposition() {
+    func testLegacyAimTitleKeepsItsCompositionWithoutCapacityPolicy() {
         for width in [CGFloat(50), 60, 80, 120] {
             for compact in [false, true] {
                 let title = BTTablePageTitleLayout(TrainingProject.aimPoint.title, width: width, compact: compact)

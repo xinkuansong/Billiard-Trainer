@@ -18,6 +18,8 @@ struct MultiBallConfiguration: Codable, Equatable {
     var showsPlanningMarkers = true
     static func numbers(_ count: Int) -> [Int] { count == 9 || count == 15 ? Array(1...count) : Array(1..<count) + [9] }
     var count: Int { game == .rotation ? rotationCount : ownCount }
+    /// Stable capacity across every rack reachable with the committed settings.
+    var maximumPaletteCount: Int { game == .rotation ? rotationCount : ownCount + (randomOpponents ? 7 : 0) }
     var bankCount: Int { game == .rotation ? rotationCount : 15 }
     var isValid: Bool { Self.rotationCounts.contains(rotationCount) && (4...8).contains(ownCount) }
     static func load(defaults: UserDefaults = .standard, is3D: Bool = false) -> Self {

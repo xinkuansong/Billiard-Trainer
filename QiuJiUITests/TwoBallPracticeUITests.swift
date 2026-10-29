@@ -237,7 +237,7 @@ final class TwoBallPracticeUITests: XCTestCase {
         XCTAssertTrue(notice.waitForNonExistence(timeout: 4))
         XCTAssertTrue(node("twoBall.latestScore").exists)
         node("twoBall.latestScore").tap()
-        XCTAssertFalse(app.alerts.firstMatch.exists)
+        _ = verifyScoreDetails("quiet-details-\(is3D)")
         app.buttons["twoBall.retry"].tap(); waitPhase("aiming")
         XCTAssertTrue(notice.exists)
         XCTAssertTrue(notice.waitForNonExistence(timeout: 4))
@@ -256,10 +256,22 @@ final class TwoBallPracticeUITests: XCTestCase {
         if free {
             let scoreLabel = node("twoBall.latestScore").label
             node("twoBall.latestScore").tap()
-            XCTAssertFalse(app.alerts.firstMatch.exists)
-            XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "球距分")).firstMatch.exists)
+            let detail = verifyScoreDetails("score-details-\(is3D)")
             XCTAssertEqual(node("twoBall.latestScore").label, scoreLabel)
-            capture("score-sidebar-final-only-\(is3D)")
+            node("twoBall.latestScore").tap()
+            XCTAssertEqual(verifyScoreDetails("score-details-reopened-\(is3D)"), detail)
+            let retryFrame = node("twoBall.retry").frame
+            let window = app.windows.firstMatch
+            let outside = window.coordinate(withNormalizedOffset: .zero)
+                .withOffset(.init(dx: retryFrame.midX - window.frame.minX, dy: retryFrame.midY - window.frame.minY))
+            node("twoBall.latestScore").tap()
+            let panel = app.descendants(matching: .any)["scoreDetails.panel"].firstMatch
+            XCTAssertTrue(panel.waitForExistence(timeout: 3))
+            outside.tap()
+            XCTAssertTrue(panel.waitForNonExistence(timeout: 3))
+            waitPhase("result") // The same tap must not reach the retry control behind the scrim.
+            XCTAssertEqual(node("twoBall.latestScore").label, scoreLabel)
+            capture("score-sidebar-with-info-\(is3D)")
             XCTAssertFalse(notice.exists)
         }
         app.buttons["twoBall.retry"].tap(); waitPhase("aiming")
@@ -377,11 +389,8 @@ final class TwoBallPracticeUITests: XCTestCase {
             XCTAssertTrue(node("twoBall.latestScore").label.contains(String(format: "%.1f", score)))
             XCTAssertFalse(node("twoBall.latestScore").label.contains("难度"))
             node("twoBall.latestScore").tap()
-            XCTAssertFalse(app.alerts["评分详情"].waitForExistence(timeout: 1))
-            XCTAssertFalse(app.buttons["twoBall.latestScore"].exists)
-            for text in ["球距分", "出杆空间分", "角度分", "三项最低分", "几何平均"] {
-                XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch.exists)
-            }
+            _ = verifyScoreDetails("comfort-details-\(is3D)")
+            XCTAssertTrue(app.buttons["twoBall.latestScore"].exists)
             XCTAssertTrue(node("twoBall.latestScore").label.contains(String(format: "%.1f", score)))
             capture("comfort-final-only-\(is3D)")
         }
@@ -393,7 +402,7 @@ final class TwoBallPracticeUITests: XCTestCase {
         capture("twoBall-retry-\(is3D)-\(free)")
         if free {
             node("twoBall.result").tap()
-            XCTAssertFalse(app.alerts["评分详情"].waitForExistence(timeout: 1))
+            _ = verifyScoreDetails("previous-result-details-\(is3D)")
         }
         try assertPersistentPocketRoles()
         XCTAssertEqual(try probe()["primary"] as? String,animated ? "击球":"提交")
@@ -431,6 +440,34 @@ final class TwoBallPracticeUITests: XCTestCase {
         capture("twoBall-summary-\(is3D)-\(free)")
         app.buttons["training.complete"].tap();ready(app.buttons["angleHomeTab_打"])
     }
+    @discardableResult private func verifyScoreDetails(_ name: String) -> String {
+        let alert = app.descendants(matching: .any)["scoreDetails.panel"].firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 3))
+        let text = alert.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: "\n")
+        var cursor = text.startIndex
+        for label in ["角度分", "球距分", "出杆空间分", "得分"] {
+            guard let range = text.range(of: label, range: cursor..<text.endIndex) else {
+                XCTFail("Missing ordered score: \(label): \(text)"); return text
+            }
+            cursor = range.upperBound
+        }
+        XCTAssertFalse(text.contains("分离方向"))
+        capture(name)
+        XCTAssertFalse(alert.buttons["scoreDetails.close"].exists)
+        // Reading the title or tapping the panel's bottom padding must not dismiss it.
+        alert.staticTexts["评分详情"].tap()
+        XCTAssertTrue(alert.exists)
+        alert.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.98)).tap()
+        XCTAssertTrue(alert.exists)
+        // Tap a physical point just outside the panel; the scrim is outside the AX modal.
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: .zero)
+            .withOffset(.init(dx: alert.frame.minX - 16 - window.frame.minX,
+                              dy: alert.frame.midY - window.frame.minY)).tap()
+        XCTAssertTrue(alert.waitForNonExistence(timeout: 3))
+        return text
+    }
+
     func test2DControlsAndAdaptation() throws { try expanded(is3D:false) }
     func test3DControlsAndAdaptation() throws { try expanded(is3D:true) }
     private func expanded(is3D: Bool) throws {

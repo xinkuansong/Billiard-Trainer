@@ -134,7 +134,7 @@ struct SeparationPracticeView: View {
                 .init(id: "separation.finish", title: "结束练习", disabled: vm.isBusy, action: { vm.finish() })
             ], refreshTrajectory: {}, onLayoutEditingChanged: vm.layoutEditingChanged,
             layoutEditingBlocked: vm.isBusy,
-            onSpinChange: { vm.setSpin($0, $1) }, paletteKeys: vm.record?.current.map { ["_\($0.ballNumber)"] } ?? [])
+            onSpinChange: { vm.setSpin($0, $1) }, paletteKeys: vm.record?.current.map { ["_\($0.ballNumber)"] } ?? [], maximumPaletteCount: 1)
     }
     private var tablePage: some View {
         BTTeachingTablePage(vm: vm, titleLabel: vm.title, identifier: "separation", preferencePage: vm.preferencePage,

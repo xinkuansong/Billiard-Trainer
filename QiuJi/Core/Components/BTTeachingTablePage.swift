@@ -1,5 +1,113 @@
 import SwiftUI
 
+private struct BTScoreDetailsPresenterKey: EnvironmentKey {
+    static let defaultValue: (String) -> Void = { _ in }
+}
+
+extension EnvironmentValues {
+    var presentScoreDetails: (String) -> Void {
+        get { self[BTScoreDetailsPresenterKey.self] }
+        set { self[BTScoreDetailsPresenterKey.self] = newValue }
+    }
+}
+
+/// The page owns the frozen explanation so transient result notices can expire safely.
+struct BTScoreDetailsButton<Label: View>: View {
+    let detail: String
+    let identifier: String
+    var minimumHeight: CGFloat = 44
+    @ViewBuilder var label: () -> Label
+    @Environment(\.presentScoreDetails) private var present
+
+    var body: some View {
+        Button { present(detail) } label: {
+            label().frame(minWidth: 44, minHeight: minimumHeight).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("查看本杆评分明细")
+        .accessibilityIdentifier(identifier)
+    }
+}
+
+/// Page-local points, x right / y down. The anchor is the shared unzoomed
+/// playfield rect; 3D keeps the same stable HUD reference as the other controls.
+struct BTScoreDetailsOverlay: View {
+    let detail: String
+    let tableRect: CGRect
+    let size: CGSize
+    let dismiss: () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @AccessibilityFocusState private var titleFocused: Bool
+    @State private var contentHeight: CGFloat = 100
+
+    var body: some View {
+        let top = max(8, min(tableRect.minY, size.height - 100))
+        let width = min(dynamicTypeSize.isAccessibilitySize ? 300 : 220, max(1, size.width - 32))
+        let lines = detail.components(separatedBy: "\n").filter { !$0.isEmpty }
+        ZStack(alignment: .topLeading) {
+            Button(action: dismiss) {
+                Color.black.opacity(0.2).frame(width: size.width, height: size.height)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("关闭评分详情")
+            .accessibilityIdentifier("scoreDetails.dismissOutside")
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "info.circle").font(.btFootnote).accessibilityHidden(true)
+                    Text("评分详情").font(.btSubheadlineSemibold)
+                        .accessibilityAddTraits(.isHeader).accessibilityFocused($titleFocused)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
+                            let parts = line.components(separatedBy: "　")
+                            if parts.count == 2 {
+                                if parts[0] == "得分" {
+                                    Divider().accessibilityHidden(true)
+                                }
+                                HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                                    Text(parts[0])
+                                    Spacer(minLength: Spacing.sm)
+                                    Text(parts[1]).monospacedDigit()
+                                }
+                                .accessibilityElement(children: .combine)
+                            } else {
+                                Text(line).font(.btFootnote)
+                            }
+                        }
+                    }.font(.btFootnote14).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(GeometryReader { geometry in
+                            Color.clear.onChange(of: geometry.size.height, initial: true) { _, height in
+                                contentHeight = height
+                            }
+                        })
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(height: min(contentHeight, max(32, size.height - top - 8 - 32 - 21 - 8)))
+            }
+            .padding(Spacing.md)
+            .frame(width: width)
+            .background {
+                RoundedRectangle(cornerRadius: BTRadius.md).fill(.regularMaterial)
+                    .contentShape(Rectangle()).onTapGesture { }
+            }
+            .overlay(RoundedRectangle(cornerRadius: BTRadius.md).strokeBorder(.white.opacity(0.3)).allowsHitTesting(false))
+            .foregroundStyle(.primary)
+            .environment(\.colorScheme, .light)
+            .accessibilityElement(children: .contain)
+            .accessibilityAddTraits(.isModal)
+            .accessibilityIdentifier("scoreDetails.panel")
+            .accessibilityAction(.escape, dismiss)
+            .offset(x: min(max(16, tableRect.midX - width / 2), size.width - width - 16), y: top)
+        }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+        .onAppear { titleFocused = true }
+    }
+}
+
 enum BTTeachingBallRole: String {
     case current, next, completed, upcoming
     var tint: Color {
@@ -67,6 +175,8 @@ struct BTTablePlanningControls {
     var onSpinChange: ((Double, Double) -> Void)? = nil
     var overlay: (TableProjector, CGRect) -> AnyView = { _, _ in AnyView(EmptyView()) }
     var paletteKeys: [String]? = nil
+    /// Nil keeps the full-inventory header contract. Fixed questions supply their maximum even while loading.
+    var maximumPaletteCount: Int? = nil
     var paletteRoles: [String: BTTeachingBallRole] = [:]
     var showsPaletteRoleNumbers = false
     var paletteRoleDescription: ((String) -> String?)? = nil
@@ -175,6 +285,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     @State private var titleSize = CGSize(width: 60, height: 34)
     private enum MenuPage { case settings, transparency, trajectory }
     @State private var cameraReadableFrame: CGRect?
+    @State private var selectedScoreDetail: String?
     private var paletteKeys: [String] { planning?.paletteKeys ?? PositionPlayBall.allKeys.filter { !PositionPlayBall.isCue($0) } }
     private var groupsEightBallPalette: Bool { planning?.paletteKeys == nil }
 
@@ -266,7 +377,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         let side = max(4, safe)
         let titleWidth: CGFloat = usesStandardTitle ? standardTitleWidth : max(60, titleSize.width)
         let reservation = DailyLayoutMetrics.FoundationReservation(width: size.width - 2 * side,
-            targetCount: paletteKeys.count, chineseEightBall: groupsEightBallPalette,
+            targetCount: max(paletteKeys.count, planning?.maximumPaletteCount ?? paletteKeys.count), chineseEightBall: groupsEightBallPalette,
             titleWidth: 32 + titleWidth, actionWidth: 138,
             prefersSeparateRow: size.height > size.width || size.height >= 600,
             separateWidth: size.width > size.height && size.height < 600 ? size.width - 2 * (side + 60 + 8) : nil)
@@ -278,7 +389,13 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             targetCount: paletteKeys.count, chineseEightBall: groupsEightBallPalette, obstacles: [
                 CGRect(x: side + windowControls.left, y: 0, width: 44, height: 44),
                 CGRect(x: side + windowControls.left + 32, y: (44 - titleSize.height) / 2, width: titleWidth, height: titleSize.height),
-                CGRect(x: size.width - side - windowControls.right - 44, y: 0, width: 44, height: 44), f.left, f.right])
+                CGRect(x: size.width - side - windowControls.right - 44, y: 0, width: 44, height: 44), f.left, f.right],
+            capacityCount: planning?.maximumPaletteCount)
+        let resolvedTitleWidth = BTTablePageTitleLayout.capacityWidth(titleLabel,
+            maximumBallCount: planning?.maximumPaletteCount, legacyWidth: titleWidth,
+            availableWidth: DailyLayoutMetrics.titleAvailableWidth(size: size, side: side,
+                windowInsets: windowControls, table: f.table, palette: plan),
+            compact: plan.diameter < DailyLayoutMetrics.regularBallDiameter)
         let pointsPerMetre = f.table.height / CGFloat(2 * (f.rotated
             ? (vm.scene.cameraRig?.tableOuterHalfLength ?? CameraRig.defaultTableOuterHalfLength)
             : (vm.scene.cameraRig?.tableOuterHalfWidth ?? CameraRig.defaultTableOuterHalfWidth)))
@@ -296,10 +413,10 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                     .position(x: f.stage.midX, y: f.stage.midY)
             }
             DailyTemplateHeader(size: size, safe: safe, foundation: f, plan: plan,
-                targets: paletteKeys, chineseEightBall: groupsEightBallPalette, titleWidth: titleWidth, titleHeight: usesStandardTitle ? 34 : titleSize.height,
+                targets: paletteKeys, chineseEightBall: groupsEightBallPalette, titleWidth: resolvedTitleWidth, titleHeight: usesStandardTitle ? 34 : titleSize.height,
                 windowControlInsets: windowControls, fps: fps, showsDeviceStatus: !systemStatusVisible,
                 keepsPaletteVisible: preservesPersonalControlLayout, showsPalette: showsPalette,
-                title: { navigationTitle(compact: compactTitle) }, actions: {
+                title: { navigationTitle(compact: compactTitle, width: resolvedTitleWidth) }, actions: {
                     Button { showSpinPad = false; menu = .settings } label: {
                         Image(systemName: BTIcon.menuCircle).font(.system(size: 22, weight: .medium))
                             .frame(width: 44, height: 44)
@@ -428,6 +545,14 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         .environment(\.colorScheme, .dark)
         .environment(\.dailyHUDControls, true)
         .environment(\.teachingTableLayout, layout)
+        .environment(\.presentScoreDetails, { selectedScoreDetail = $0 })
+        .overlay {
+            if let detail = selectedScoreDetail {
+                BTScoreDetailsOverlay(detail: detail,
+                    tableRect: layout.innerRect.offsetBy(dx: f.stage.minX, dy: f.stage.minY), size: size,
+                    dismiss: { selectedScoreDetail = nil })
+            }
+        }
         .onChange(of: size.height > size.width, initial: true) { _, value in
             portrait = value; updateProjection()
             onPocketOrientationChange(.init(portrait: value))
@@ -443,7 +568,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         return max(60, min(90, ceil((titleLabel as NSString).size(withAttributes:
             [.font: UIFont.systemFont(ofSize: 15, weight: .semibold)]).width)))
     }
-    private func navigationTitle(compact: Bool) -> some View {
+    private func navigationTitle(compact: Bool, width: CGFloat) -> some View {
         HStack(spacing: -12) {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left").font(.system(size: 20, weight: .semibold))
@@ -451,7 +576,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             }.accessibilityLabel("返回").accessibilityIdentifier("\(identifier).back")
             Group {
                 if usesStandardTitle {
-                    BTTablePageTitle(titleLabel, width: standardTitleWidth, compact: compact, fitsLongText: fitsLongTitle)
+                    BTTablePageTitle(titleLabel, width: width, compact: compact, fitsLongText: fitsLongTitle,
+                        maximumSingleLineUnits: BTTablePageTitleLayout.singleLineLimit(maximumBallCount: planning?.maximumPaletteCount))
                 } else {
                     title()
                 }
@@ -680,7 +806,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             if let planning { planning.onPaletteTap(key) }
             else if onTable { vm.removeFromTable(key) } else { vm.placeFromPalette(key) }
         } label: {
-            PoolBallFace(key: key, diameter: diameter).opacity(role == .completed ? 0.3 : role != nil ? 1 : onTable ? 0.3 : 1)
+            PoolBallFace(key: key, diameter: diameter).opacity(role == .completed ? 0.3 : role != nil || selected ? 1 : onTable ? 0.3 : 1)
                 .overlay(Circle().stroke(role?.tint ?? BallRoleStyle.current.color, style: StrokeStyle(lineWidth: 2, dash: role == .upcoming ? [3, 3] : []))
                     .padding(-1).opacity(role != nil ? (role == .completed ? 0 : 1) : (selected ? 1 : 0)))
                 .overlay(alignment: .bottomTrailing) {
@@ -965,7 +1091,7 @@ struct BTTeachingInformationLayer: View {
     @Environment(\.teachingTableLayout) private var layout
     @State private var naturalHeight: CGFloat = 1
     @State private var wideHeight: CGFloat = 1
-    @State private var selectedDetail: String?
+    @Environment(\.presentScoreDetails) private var presentScoreDetails
     let items: [BTTeachingInformation]
 
     var body: some View {
@@ -1028,9 +1154,6 @@ struct BTTeachingInformationLayer: View {
             }
             .accessibilityIdentifier("teaching.informationViewport")
             .allowsHitTesting(naturalHeight > availableHeight || items.contains { $0.detailText != nil })
-            .alert("评分详情", isPresented: Binding(get: { selectedDetail != nil }, set: { if !$0 { selectedDetail = nil } })) {
-                Button("知道了") { selectedDetail = nil }
-            } message: { Text(selectedDetail ?? "") }
             .onPreferenceChange(BTTeachingInformationHeightKey.self) { height in
                 if height.isFinite && height >= 0 { naturalHeight = height }
             }
@@ -1049,7 +1172,7 @@ struct BTTeachingInformationLayer: View {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 if item.isVisible(spinPadPresented: expanded) {
                     if let detail = item.detailText {
-                        Button { selectedDetail = detail } label: {
+                        Button { presentScoreDetails(detail) } label: {
                             informationLabel(item, expanded: expanded).frame(minHeight: 44)
                         }.buttonStyle(.plain)
                     } else {
@@ -1105,7 +1228,38 @@ struct BTTablePageTitleLayout: Equatable {
     let fontSize: CGFloat
     let width: CGFloat
 
-    init(_ text: String, width: CGFloat = 60, compact: Bool = false, preferredLineBreak: Int? = nil) {
+    static func singleLineLimit(maximumBallCount: Int?) -> Int? {
+        guard let count = maximumBallCount, (0..<15).contains(count) else { return nil }
+        return 6
+    }
+
+    static func displayUnits(_ text: String) -> [String] {
+        let characters = Array(text.filter { !$0.isNewline })
+        var units: [String] = []
+        var index = 0
+        while index < characters.count {
+            if (characters[index] == "2" || characters[index] == "3"),
+               index + 1 < characters.count, characters[index + 1] == "D" {
+                units.append(String(characters[index...index + 1])); index += 2
+            } else {
+                units.append(String(characters[index])); index += 1
+            }
+        }
+        return units
+    }
+
+    static func capacityWidth(_ text: String, maximumBallCount: Int?, legacyWidth: CGFloat,
+                              availableWidth: CGFloat, compact: Bool = false,
+                              preferredLineBreak: Int? = nil) -> CGFloat {
+        guard let limit = singleLineLimit(maximumBallCount: maximumBallCount),
+              displayUnits(text).count <= limit, preferredLineBreak == nil else { return legacyWidth }
+        let font = UIFont.systemFont(ofSize: compact ? 12 : 13, weight: .semibold)
+        let natural = ceil((text.filter { !$0.isNewline } as NSString).size(withAttributes: [.font: font]).width)
+        return min(max(0, availableWidth), max(legacyWidth, natural))
+    }
+
+    init(_ text: String, width: CGFloat = 60, compact: Bool = false, preferredLineBreak: Int? = nil,
+         maximumSingleLineUnits: Int? = nil) {
         let characters = Array(text.filter { !$0.isNewline })
         if let split = preferredLineBreak, split > 0, split < characters.count {
             upper = String(characters.prefix(split))
@@ -1116,22 +1270,14 @@ struct BTTablePageTitleLayout: Equatable {
             return
         }
         let clean = String(characters)
-        var units: [String] = []
-        var index = 0
-        while index < characters.count {
-            if (characters[index] == "2" || characters[index] == "3"),
-               index + 1 < characters.count, characters[index + 1] == "D" {
-                units.append(String(characters[index...index + 1]))
-                index += 2
-            } else {
-                units.append(String(characters[index]))
-                index += 1
-            }
-        }
+        let units = Self.displayUnits(text)
         let singleSize: CGFloat = compact ? 13 : 15
-        let font = UIFont.systemFont(ofSize: singleSize, weight: .semibold)
+        let measuredSize: CGFloat = maximumSingleLineUnits == nil ? singleSize : (compact ? 12 : 13)
+        let font = UIFont.systemFont(ofSize: measuredSize, weight: .semibold)
         self.width = max(0, width)
-        if clean != TrainingProject.aimPoint.title, (clean as NSString).size(withAttributes: [.font: font]).width <= self.width {
+        if (maximumSingleLineUnits != nil || clean != TrainingProject.aimPoint.title),
+           units.count <= (maximumSingleLineUnits ?? Int.max),
+           (clean as NSString).size(withAttributes: [.font: font]).width <= self.width {
             upper = clean; lower = nil; middle = nil; fontSize = singleSize
         } else {
             let count = units.count / 2
@@ -1149,16 +1295,20 @@ struct BTTablePageTitle: View {
     var compact = false
     var fitsLongText = false
     var preferredLineBreak: Int?
+    var maximumSingleLineUnits: Int?
     @State private var naturalWidth: CGFloat = 0
 
-    init(_ text: String, width: CGFloat = 60, compact: Bool = false, fitsLongText: Bool = false, preferredLineBreak: Int? = nil) {
+    init(_ text: String, width: CGFloat = 60, compact: Bool = false, fitsLongText: Bool = false, preferredLineBreak: Int? = nil,
+         maximumSingleLineUnits: Int? = nil) {
         self.text = text; self.width = width; self.compact = compact
         self.fitsLongText = fitsLongText
         self.preferredLineBreak = preferredLineBreak
+        self.maximumSingleLineUnits = maximumSingleLineUnits
     }
 
     var body: some View {
-        let layout = BTTablePageTitleLayout(text, width: width, compact: compact, preferredLineBreak: preferredLineBreak)
+        let layout = BTTablePageTitleLayout(text, width: width, compact: compact, preferredLineBreak: preferredLineBreak,
+            maximumSingleLineUnits: maximumSingleLineUnits)
         Group {
             if fitsLongText {
                 // Measure the actual two-row SwiftUI content, including the odd

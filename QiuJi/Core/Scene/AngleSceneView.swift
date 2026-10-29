@@ -80,7 +80,8 @@ struct AngleSceneView: UIViewRepresentable {
     /// 点击未命中球/袋口时，反投影到台面平面的世界坐标回调（走位编排器自由瞄准用）。
     var onTableTapped: ((SCNVector3) -> Void)?
 
-    /// 自由瞄准拖动（G13 语义重做，问题集合 v5）：pan 起手**未命中球**即进入「瞄准调整」分支
+    /// 自由瞄准拖动：2D pan 必须从桌外框内起手，未命中可拖球才进入「瞄准调整」。
+    /// 桌内起手后可连续滑出；桌外起手整次拒绝，渲染房间地板不扩大瞄准热区（TP17）。
     /// （球命中优先移球）。**第一落点只选中当前瞄准线、不改变方向**；随后每帧回调一个相对角位移
     /// （度，屏幕顺时针为正），由消费方按 `rotatedAim` 做增量旋转（绕母球公转模型，见
     /// `AngleSceneCalculator.aimNudgeDegrees`）。取代旧的「逐帧回调手指台面点、指哪打哪」绝对语义。
@@ -1437,6 +1438,24 @@ struct AngleSceneView: UIViewRepresentable {
             return CGPoint(x: CGFloat(p.x), y: CGFloat(p.y))
         }
 
+        /// UIKit points in the current SCNView; table extents are world X/Z metres.
+        /// Restrict only ordinary 2D aim pans. Ball/handle grabs retain their existing
+        /// proximity allowance; perspective observation and temporary overlays keep
+        /// their own policies. Evaluate once at touch-down, never on moved samples.
+        func allowsPanStart(at point: CGPoint) -> Bool {
+            guard cameraMode != .perspective3D, onAimNudged != nil,
+                  scene.cameraRig?.temporaryTopDownActive != true else { return true }
+            if hitTestBall(at: point) != nil { return true }
+            guard point.x.isFinite, point.y.isFinite, let view = scnView,
+                  view.bounds.contains(point), let rig = scene.cameraRig,
+                  let world = unprojectToTablePlane(screenPoint: point, in: view, planeY: scene.surfaceY),
+                  world.x.isFinite, world.z.isFinite else { return false }
+            return abs(Double(world.x)) <= rig.tableOuterHalfLength
+                && abs(Double(world.z)) <= rig.tableOuterHalfWidth
+        }
+
+        var panTouchOrigin: CGPoint?
+
         /// Project a screen point onto the table surface plane (y = planeY).
         private func unprojectToTablePlane(screenPoint: CGPoint, in view: SCNView, planeY: Float) -> SCNVector3? {
             let nearPoint = view.unprojectPoint(SCNVector3(Float(screenPoint.x), Float(screenPoint.y), 0))
@@ -1473,6 +1492,9 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
+            defer {
+                if [.ended, .cancelled, .failed].contains(gesture.state) { panTouchOrigin = nil }
+            }
             if scene.cameraRig?.temporaryTopDownActive == true { handleOverlayPan(gesture); return }
             let surfacePan = scene.cameraRig?.usesSurfaceCamera == true
             if [.ended, .cancelled, .failed].contains(gesture.state), !surfacePan { finishCameraObservation() }
@@ -1510,7 +1532,8 @@ struct AngleSceneView: UIViewRepresentable {
                 panCumY = 0
                 let current = gesture.location(in: scnView)
                 let translation = gesture.translation(in: scnView)
-                let location = surfacePan ? (surfaceTouchOrigin ?? current) : CGPoint(x: current.x - translation.x, y: current.y - translation.y)
+                let location = panTouchOrigin ?? (surfacePan ? (surfaceTouchOrigin ?? current) : CGPoint(x: current.x - translation.x, y: current.y - translation.y))
+                guard allowsPanStart(at: location) else { return }
                 if let ball = hitTestBall(at: location) {
                     daily3DDiagnostics?.setInteraction(.tablePan, stage: .aim, active: true)
                     #if DEBUG
@@ -1529,7 +1552,7 @@ struct AngleSceneView: UIViewRepresentable {
                 }
                 draggedNode = nil
                 selectedDragBall = nil
-                // 瞄准调整（G13）：起手未命中球即进入。**第一落点只选中瞄准线、不改变方向**，
+                // 瞄准调整：已通过起点边界检查，未命中球才进入。**第一落点不改变方向**，
                 // 故此处不回调；轴心 = 母球屏幕投影，记下起手点，后续 .changed 逐帧求相对角位移。
                 if onAimNudged != nil {
                     daily3DDiagnostics?.setInteraction(.tablePan, stage: .aim, active: true)
@@ -1921,6 +1944,7 @@ struct AngleSceneView: UIViewRepresentable {
                     "draggable": draggableBallNodes.contains(handle)]
             }
             data["selectionFeedback"] = ["balls": scene.manualBallFeedbackCount, "rolePockets": scene.rolePocketFeedbackCount]
+            data["ordinary2DAimSamples"] = ordinary2DAimSamples
             data["overlayDrag"] = overlayDragProbe
             data["formationHandles"] = scene.rootNode.childNodes.filter { $0.name?.hasPrefix("formation.vertex.") == true || $0.name?.hasPrefix("formation.measure.") == true }.map { node -> [String:Any] in
                 let p = view.projectPoint(node.position)
@@ -2107,6 +2131,11 @@ extension AngleSceneView.Coordinator: UIGestureRecognizerDelegate {
         // Called at touch-down, before pan recognition or tap release. A new hand
         // interaction invalidates the previous delayed acknowledgement immediately.
         scene.cancelPocketSelectionFeedback()
+        if gestureRecognizer === panGesture, let scnView {
+            let origin = touch.location(in: scnView)
+            panTouchOrigin = origin
+            guard allowsPanStart(at: origin) else { return false }
+        }
         if gestureRecognizer === panGesture, scene.cameraRig?.usesSurfaceCamera == true, let scnView {
             surfaceTouchOrigin = touch.location(in: scnView)
             surfacePanLastLocation = nil
@@ -2138,7 +2167,10 @@ extension AngleSceneView.Coordinator: UIGestureRecognizerDelegate {
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         guard gestureRecognizer === panGesture else { return true }
-        return Self.panClaimsSingleFingerTouch(gesturesEnabled: gesturesEnabled, interactionMode: interactionMode)
+        guard Self.panClaimsSingleFingerTouch(gesturesEnabled: gesturesEnabled, interactionMode: interactionMode) else { return false }
+        guard let pan = panGesture, let scnView else { return true }
+        let current = pan.location(in: scnView), translation = pan.translation(in: scnView)
+        return allowsPanStart(at: panTouchOrigin ?? CGPoint(x: current.x - translation.x, y: current.y - translation.y))
     }
 
     /// 3D camera orbit (and ball drag / aim nudge on `tapsOnly` pages) owns a swipe that starts on

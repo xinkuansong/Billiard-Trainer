@@ -301,7 +301,7 @@ enum BallFeelPerspectiveRenderer {
 // MARK: - Top-down real-table figure
 
 /// 真台俯视对比图（T-P18-46）：真实 USDZ 台底图 + §1.2 线语言
-/// （瞄准线白实线 / 进球线绑球色 / 假想球绿圈），几何按真实球径与 30° 切角解算。
+/// （瞄准线白实线 / 进球线绑球色 / 假想球白色虚线圈），几何按真实球径与 30° 切角解算。
 private struct BallFeelTopDownFigure: View {
     private struct Layout {
         let target: CGPoint

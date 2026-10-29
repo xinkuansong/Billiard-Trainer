@@ -179,7 +179,7 @@ enum DailyLayoutMetrics {
 
         init(size: CGSize, leadingSafeArea: CGFloat, trailingSafeArea: CGFloat,
              halfLength: Double, halfWidth: Double, instrumentHeight: CGFloat,
-             palette: FoundationReservation? = nil) {
+             palette: FoundationReservation? = nil, trailingContentWidth: CGFloat? = nil) {
             let width = size.width.isFinite ? max(0, size.width) : 0
             let height = size.height.isFinite ? max(0, size.height) : 0
             rotated = height > width
@@ -198,6 +198,11 @@ enum DailyLayoutMetrics {
                 - (144 - rulerLength) - 2 + 4 + 60
             let groupHeight = max(leftHeight, rightHeight)
             let side = max(Spacing.xs, leadingSafeArea, trailingSafeArea)
+            // A wider readout needs real space beside the table. Controls keep
+            // their original 60 pt footprint; callers opt in to this reservation.
+            let trailingWidth = max(controlColumnWidth, trailingContentWidth ?? controlColumnWidth)
+            let trailingGap = trailingContentWidth == nil ? gap : max(gap, Spacing.sm)
+            let extraTrailing = trailingWidth + trailingGap - controlColumnWidth - gap
             let usableWidth = max(1, width - 2 * (side + controlColumnWidth + gap))
             let horizontalHalf = CGFloat(rotated ? halfWidth : halfLength)
             let verticalHalf = CGFloat(rotated ? halfLength : halfWidth)
@@ -208,9 +213,13 @@ enum DailyLayoutMetrics {
             let top = palette.map { $0.sharesNavigation ? headerHeight : headerHeight + 4 + $0.height }
                 ?? (rotated ? 2 * headerHeight + 38 : headerHeight)
             let availableHeight = max(1, height - top)
-            let tableWidth = min(usableWidth, availableHeight * ratio)
+            let originalTableWidth = min(usableWidth, availableHeight * ratio)
+            // Take the readout's extra room from the table's trailing side,
+            // including when height (not width) limits the original table.
+            // This keeps both control columns at their existing anchors.
+            let tableWidth = max(1, originalTableWidth - extraTrailing)
             let tableHeight = tableWidth / ratio
-            table = CGRect(x: (width - tableWidth) / 2,
+            table = CGRect(x: (width - originalTableWidth) / 2,
                 y: top + (availableHeight - tableHeight) / 2, width: tableWidth, height: tableHeight)
             let margin = CGFloat(CameraRig.rotatedFitMargin)
             stage = CGRect(x: table.midX - tableWidth * margin / 2,
@@ -222,7 +231,8 @@ enum DailyLayoutMetrics {
             let y = max(headerHeight, min(preferredTop, height - groupHeight))
             let axisDistance = controlColumnWidth / 2 + gap
             left = CGRect(x: table.minX - axisDistance - 30, y: y, width: 60, height: groupHeight)
-            right = CGRect(x: table.maxX + axisDistance - 30, y: y, width: 60, height: groupHeight)
+            right = CGRect(x: table.maxX + trailingGap + trailingWidth - 60,
+                y: y, width: 60, height: groupHeight)
             fits = (palette?.fits ?? true) && groupHeight + headerHeight <= height
                 && min(tableWidth, tableHeight) >= SpinPad.minimumExtent
                 && left.minX >= side - 0.01 && right.maxX <= width - side + 0.01
@@ -274,21 +284,24 @@ enum DailyLayoutMetrics {
         let diameter: CGFloat
         let twoRows: Bool
         let targetWidth: CGFloat
+        /// Maximum reachable inventory, independent of the currently rendered slots.
+        let capacityWidth: CGFloat
         let wingWidth: CGFloat
         let fits: Bool
         var rowHeight: CGFloat { diameter + 4 }
         var height: CGFloat { twoRows ? 2 * rowHeight + 4 : rowHeight }
 
         init(size: CGSize, sideInset: CGFloat, table: CGRect, targetCount: Int,
-             chineseEightBall: Bool, obstacles: [CGRect]) {
+             chineseEightBall: Bool, obstacles: [CGRect], capacityCount: Int? = nil) {
             let count = max(0, targetCount)
+            let capacity = max(count, capacityCount ?? count)
             let separators: CGFloat = chineseEightBall ? 10 : 0
-            func targetWidth(_ d: CGFloat, rows: Bool) -> CGFloat {
+            func targetWidth(_ d: CGFloat, rows: Bool, count: Int) -> CGFloat {
                 rows ? CGFloat((max(0, count - (chineseEightBall ? 1 : 0)) + 1) / 2) * (d + 2) + 8
                     : CGFloat(count) * (d + 2) + separators + 8
             }
             func fits(_ d: CGFloat, rows: Bool) -> Bool {
-                let w = targetWidth(d, rows: rows)
+                let w = targetWidth(d, rows: rows, count: capacity)
                 let h = rows ? 2 * (d + 4) + 4 : d + 4
                 // Include actual vertical hit area; neighbouring slots stay disjoint.
                 let hitHeight = rows ? h : max(44, h)
@@ -312,10 +325,27 @@ enum DailyLayoutMetrics {
                 ? tiers.first { fits($0, rows: true) } : nil
             twoRows = double != nil
             diameter = single ?? double ?? 25
-            self.targetWidth = targetWidth(diameter, rows: twoRows)
+            self.targetWidth = targetWidth(diameter, rows: twoRows, count: count)
+            capacityWidth = targetWidth(diameter, rows: twoRows, count: capacity)
             wingWidth = twoRows && chineseEightBall ? diameter + 10 : 0
             self.fits = single != nil || double != nil
         }
+    }
+
+    /// Header-only capacity. This result must never feed back into Foundation
+    /// or Palette: a longer title may use spare space, never buy it by shrinking the table.
+    static func titleAvailableWidth(size: CGSize, side: CGFloat, windowInsets: UIEdgeInsets,
+                                    table: CGRect, palette: Palette) -> CGFloat {
+        let start = side + windowInsets.left + 32
+        let gap = Spacing.xs
+        // Reserve the existing more button and time/battery/FPS cluster.
+        var end = size.width - side - windowInsets.right - 44 - 5 - 32 - gap
+        let hitHeight = max(44, palette.height)
+        let paletteTop = table.minY - palette.height / 2 - hitHeight / 2
+        if paletteTop < 44 && table.minY > 0 {
+            end = min(end, table.midX - palette.capacityWidth / 2 - gap)
+        }
+        return max(0, end - start)
     }
 
     /// Four camera actions stay left of the power column and use its measured full shell centre.

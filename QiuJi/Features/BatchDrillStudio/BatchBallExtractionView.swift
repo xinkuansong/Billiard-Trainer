@@ -427,7 +427,7 @@ struct BatchBallExtractionView: View {
 
     private func calibrateStep(_ image: UIImage) -> some View {
         VStack(spacing: 0) {
-            stepHeader("拖动四个角点，贴住台面内沿四角（绿色台呢的角）")
+            stepHeader("拖动四个角点，贴住台面内沿四角（台呢与库边的交界处）")
             GeometryReader { geo in
                 let fitted = fittedRect(image.size, in: geo.size)
                 ZStack(alignment: .topLeading) {

@@ -116,9 +116,10 @@ final class ControlLayoutPlacementUITests: XCTestCase {
                 XCTAssertEqual(ready(id).frame.width, saved.width, accuracy: 1)
                 ready("freeLayout.templates").tap()
                 let dots = ready("freeLayout.defaultActions")
-                XCTAssertFalse(dots.isEnabled)
+                XCTAssertTrue(dots.isEnabled)
                 dots.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
                 XCTAssertTrue(element("freeLayout.dropdown").exists)
+                XCTAssertTrue(ready("freeLayout.useDefault").isHittable)
                 XCTAssertEqual(ready(id).frame, saved)
                 let actions = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "freeLayout.templateActions.", name)).firstMatch
                 XCTAssertTrue(actions.waitForExistence(timeout: 5))
@@ -156,8 +157,8 @@ final class ControlLayoutPlacementUITests: XCTestCase {
         ready(prefix + ".dismissMenu").coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.5)).tap()
     }
 
-    func testSettingsAffordanceAndDisabledDefaultActions() throws {
-        launchMatrixPage("dailyClearance")
+    func testSettingsAffordanceAndDefaultLayoutUse() throws {
+        launchMatrixPage("dailyClearance", ephemeralLayout: true)
         for mode in ["2D", "3D"] {
             setCoreMode(mode)
             func menu() { ready("freeplay.moreMenu").tap() }
@@ -175,21 +176,58 @@ final class ControlLayoutPlacementUITests: XCTestCase {
             XCTAssertTrue(ready("dailyClearance.aimModeMenu").label.contains("自由"))
             ready("dailyClearance.aimModeMenu").tap(); ready("dailyClearance.aim.pocket").tap()
             ready("dailyClearance.menuClose").tap()
+            let state = try businessSnapshot(includeCamera: false)
             openFreeEditor()
             let key = ready("freeLayout.select.shot.undo")
+            let defaultFrame = key.frame
             key.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
             ready("freeLayout.larger").tap()
             let editedFrame = key.frame
+            let name = "切换验证 " + mode
+            saveFreeLayout(name)
+            openFreeEditor()
             ready("freeLayout.templates").tap()
             let dots = ready("freeLayout.defaultActions")
-            XCTAssertFalse(dots.isEnabled)
+            XCTAssertTrue(dots.isEnabled)
             XCTAssertTrue(ready("freeLayout.default").isEnabled)
             try capture(mode + "-default-template")
             dots.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
             XCTAssertTrue(element("freeLayout.dropdown").exists)
+            XCTAssertTrue(ready("freeLayout.useDefault").isHittable)
+            XCTAssertFalse(element("freeLayout.deleteTemplate").exists)
+            XCTAssertEqual(ready("freeLayout.useDefault").frame.midY, dots.frame.midY, accuracy: 1,
+                           "Default action must align with its own template row")
+            XCTAssertEqual(key.frame, editedFrame, "Opening default actions must not change the draft")
+            try capture(mode + "-default-actions")
+            dots.tap()
             XCTAssertFalse(element("freeLayout.templateSubmenu").exists)
-            XCTAssertEqual(key.frame, editedFrame, "Disabled dots must not trigger the default row")
-            ready("freeLayout.closeTemplates").tap(); ready("freeLayout.cancel").tap()
+
+            // The name still opens an editable draft; cancelling preserves the applied template.
+            ready("freeLayout.default").tap()
+            XCTAssertTrue(element("freeLayout.editor").exists)
+            XCTAssertEqual(key.frame.width, defaultFrame.width, accuracy: 1)
+            ready("freeLayout.cancel").tap()
+            openFreeEditor()
+            XCTAssertEqual(key.frame.width, editedFrame.width, accuracy: 1)
+            ready("freeLayout.templates").tap(); ready("freeLayout.defaultActions").tap()
+            ready("freeLayout.useDefault").tap()
+            waitUntil("default applied and editor dismissed") { !self.element("freeLayout.editor").exists }
+            XCTAssertEqual(try businessSnapshot(includeCamera: false), state)
+            try capture(mode + "-default-applied")
+
+            // Re-entry reads the persisted default; the personal template can still be used.
+            openFreeEditor()
+            XCTAssertEqual(key.frame.width, defaultFrame.width, accuracy: 1)
+            XCTAssertEqual(key.frame.midX, defaultFrame.midX, accuracy: 1)
+            ready("freeLayout.templates").tap()
+            let actions = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "freeLayout.templateActions.", name)).firstMatch
+            XCTAssertTrue(actions.waitForExistence(timeout: 5))
+            actions.tap(); ready("freeLayout.useTemplate").tap()
+            waitUntil("personal template reapplied") { !self.element("freeLayout.editor").exists }
+            openFreeEditor()
+            XCTAssertEqual(key.frame.width, editedFrame.width, accuracy: 1)
+            ready("freeLayout.cancel").tap()
+            XCTAssertEqual(try businessSnapshot(includeCamera: false), state)
         }
     }
 
@@ -1303,7 +1341,7 @@ final class ControlLayoutPlacementUITests: XCTestCase {
         }
     }
 
-    private func launchMatrixPage(_ page: String) {
+    private func launchMatrixPage(_ page: String, ephemeralLayout: Bool = false) {
         if page == "formationEditor" || page == "formationPractice" { launchFormationLayout(page); return }
         if page.hasPrefix("anglequiz") || page.hasPrefix("aimpoint") { launchQuiz(page); return }
         if ["angleDynamic", "separation", "cushion"].contains(page) { launchTeaching(page); teachingMode(page, "2D"); return }
@@ -1326,6 +1364,7 @@ final class ControlLayoutPlacementUITests: XCTestCase {
         case "bank": prefix = "bankshot"; app.launchArguments += ["-dailyInteraction.sharedPage=bank"]
         default: prefix = "reflection"; app.launchArguments += ["-dailyInteraction.sharedPage=diamond"]
         }
+        if ephemeralLayout { app.launchArguments.append("-freeLayout.ephemeral") }
         app.launch()
         let more = prefix == "freeplay" ? "freeplay.moreMenu" : prefix + ".more"
         _ = ready(more)

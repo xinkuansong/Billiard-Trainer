@@ -51,7 +51,7 @@ final class SeparationPracticeUITests: XCTestCase {
         app = XCUIApplication.launchClean(extraArgs: args)
         if is3D { return }
         app.switchTab(.angle); app.buttons["angleHomeTab_打"].tap()
-        let entry = app.buttons["分离角"]
+        let entry = app.buttons["分离角练习"]
         ready(entry); capture("play-entries"); entry.tap()
     }
     private func start() {
@@ -153,7 +153,7 @@ final class SeparationPracticeUITests: XCTestCase {
         XCUIDevice.shared.press(.home); app.activate(); waitPhase("aiming")
         app.buttons["separation.back"].tap()
         ready(app.buttons["angleHomeTab_打"]); app.buttons["angleHomeTab_打"].tap()
-        let entry = app.buttons["分离角"]; ready(entry); entry.tap()
+        let entry = app.buttons["分离角练习"]; ready(entry); entry.tap()
         ready(app.buttons["separation.strike"]); waitPhase("aiming")
         XCTAssertEqual(try probe()["question"] as? String, question)
         XCTAssertEqual(try probe()["input"] as? [Double], input)
@@ -191,7 +191,7 @@ final class SeparationPracticeUITests: XCTestCase {
         capture("prefetched-next-\(is3D ? "3D" : "2D")")
         waitReady()
         app.buttons["separation.back"].tap(); ready(app.buttons["angleHomeTab_打"]); app.buttons["angleHomeTab_打"].tap()
-        app.buttons["分离角"].tap()
+        app.buttons["分离角练习"].tap()
         ready(app.buttons["separation.strike"]); waitPhase("aiming")
         XCTAssertEqual(try probe()["question"] as? String, second)
         XCTAssertEqual(try probe()["attempts"] as? Int, 1)
@@ -240,7 +240,7 @@ final class SeparationPracticeUITests: XCTestCase {
             let id = try probe()["question"] as? String
             app.buttons["separation.back"].tap()
             ready(app.buttons["angleHomeTab_打"]); app.buttons["angleHomeTab_打"].tap()
-            let entry = app.buttons["分离角"]
+            let entry = app.buttons["分离角练习"]
             ready(entry); entry.tap(); ready(primary); waitPhase("aiming"); waitReference(keep)
             XCTAssertEqual(try probe()["question"] as? String, id)
             XCTAssertEqual(try probe()["actualVisible"] as? Bool, true)
@@ -426,7 +426,7 @@ final class SeparationPracticeUITests: XCTestCase {
         app.terminate(); app.launch()
         for is3D in [false, true] {
             app.switchTab(.angle); app.buttons["angleHomeTab_打"].tap()
-            let entry = app.buttons["分离角"]
+            let entry = app.buttons["分离角练习"]
             ready(entry); entry.tap()
             requestedView = (is3D ? "3D" : "2D") + "分离角"
             if !app.buttons["separation.start"].waitForExistence(timeout: 2) {

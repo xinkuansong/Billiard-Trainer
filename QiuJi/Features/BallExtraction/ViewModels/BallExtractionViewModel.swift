@@ -274,7 +274,7 @@ final class BallExtractionViewModel: ObservableObject {
         TableBallPulse.pulse(node)
     }
 
-    /// 选中球的绿色选中环，跟随球位。
+    /// 选中球的共用当前角色色选中环，跟随球位。
     func refreshSelectionRing() {
         scene.clearResultNodes(nodes: &selectionNodes)
         guard let key = selectedKey,

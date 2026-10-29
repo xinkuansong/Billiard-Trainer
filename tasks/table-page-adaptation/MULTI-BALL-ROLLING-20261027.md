@@ -1,3 +1,5 @@
+最新首杆补充（2026-10-30 DR-442 r2）：[首杆自主选择](MULTI-BALL-OPENING-20261030.md)覆盖下文自动初始化①及只选第二袋的开局约定。
+
 最新流程补充（2026-10-27 DR-446）：[上一步/固定球权/右下角标合同](PLANNING-PREVIOUS-AND-PALETTE-20261027.md)覆盖旧返回步骤及绿底约定；[本轮验证](../ui-reviews/UR-20261027-planning-previous-palette.md)。
 
 # 多球滚动三球规划（2026-10-27）

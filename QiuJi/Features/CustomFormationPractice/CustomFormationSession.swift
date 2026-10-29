@@ -43,10 +43,17 @@ final class CustomFormationSession: ObservableObject, Identifiable {
     private var startKeys: [String]
     private var startTemplateID: UUID?
     private var subscriptions = Set<AnyCancellable>()
+    private let progressStore: CustomFormationProgressStore?
+    private let restoredProgress: CustomFormationProgress?
+    private var progressActive = false
     var busy: Bool { vm.isPlaying || vm.isSequencePlaying }
     var isPicking: Bool { isTemplateEditor ? editTool != nil : guide.isPicking }
     var paletteKeys: [String] {
         isTemplateEditor ? PositionPlayBall.objectKeys : PositionPlayBall.objectKeys.filter { paletteCount($0) > 0 }
+    }
+    /// Restart can restore the original inventory after an in-session removal.
+    var maximumPaletteCount: Int {
+        isTemplateEditor ? 15 : Set((startKeys + keys).map { PositionPlayBall.number(for: $0) }).count
     }
     func paletteCount(_ source: String) -> Int {
         keys.filter { PositionPlayBall.number(for: $0) == PositionPlayBall.number(for: source) }.count
@@ -76,7 +83,9 @@ final class CustomFormationSession: ObservableObject, Identifiable {
     var toolTitle: String { isTemplateEditor || toolsActive ? "摆球" : "重新开始" }
     var preferredTitleLineBreak: Int? { name == "4443球形" ? 4 : nil }
 
-    init(template: CustomFormationTemplate?, editing: Bool) {
+    init(template: CustomFormationTemplate?, editing: Bool, progress: CustomFormationProgress? = nil,
+         progressStore: CustomFormationProgressStore? = nil) {
+        self.progressStore = progressStore; restoredProgress = progress
         original = template; isTemplateEditor = editing; toolsActive = editing
         vm.isFormationEditing = editing
         name = template?.name ?? "未命名球形"
@@ -86,23 +95,49 @@ final class CustomFormationSession: ObservableObject, Identifiable {
         startBoard = template?.board ?? BoardSnapshot(onTable: [PositionPlayBall.cueKey: CanvasPoint(x: 0.25, y: 0.25)])
         vm.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &subscriptions)
         guide.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &subscriptions)
+        // Read after published mutations have committed; never serialize animation frames.
+        vm.objectWillChange.debounce(for: .milliseconds(300), scheduler: RunLoop.main)
+            .sink { [weak self] _ in self?.saveProgress() }.store(in: &subscriptions)
     }
 
     func setup() {
+        guard !progressActive else { return }
+        if !isTemplateEditor, let restoredProgress { keys = restoredProgress.keys }
         vm.configureCustomBalls(keys)
-        vm.loadBoard(startBoard)
+        vm.loadBoard(!isTemplateEditor ? (restoredProgress?.board ?? startBoard) : startBoard)
         if isTemplateEditor { drawing = original?.drawing ?? .init(); refreshDrawing() }
         vm.setPreferredAimMode(.free)
-        aimAtBuiltInStartingBall()
+        if !isTemplateEditor, let restoredProgress { vm.restoreTrainingInput(restoredProgress.input) }
+        else { aimAtBuiltInStartingBall() }
+        progressActive = true
         vm.onShotWillStart = { [weak self] in self?.willStrike() }
         vm.onShotSettled = { [weak self] facts in
             guard let self else { return }
             if facts.cuePocketed { self.vm.placeFromPalette(PositionPlayBall.cueKey) }
+            self.saveProgress()
         }
+    }
+
+    func saveProgress() {
+        guard progressActive, !isTemplateEditor, !busy, let progressStore, let startTemplateID else { return }
+        let value = CustomFormationProgress(templateID: startTemplateID, initialBoard: startBoard,
+            initialKeys: startKeys, board: vm.currentSnapshot(), keys: keys, input: vm.trainingInput)
+        do { try progressStore.save(value) }
+        catch {
+            let message = "练习进度未能保存：\(error.localizedDescription)"
+            if notice != message { notice = message }
+        }
+    }
+
+    func finishPractice() {
+        saveProgress()
+        progressActive = false
+        vm.cancelDailyAttempt()
     }
 
     func willStrike() {
         guard !isTemplateEditor else { return }
+        saveProgress()
         guide.clear(scene: vm.scene); swapMode = false; toolsActive = false; notice = nil
     }
 
@@ -126,6 +161,7 @@ final class CustomFormationSession: ObservableObject, Identifiable {
         keys = startKeys; vm.configureCustomBalls(keys); vm.loadBoard(startBoard)
         aimAtBuiltInStartingBall()
         toolsActive = isTemplateEditor; hasEdits = false
+        saveProgress()
     }
 
     func switchTemplate(_ template: CustomFormationTemplate) {

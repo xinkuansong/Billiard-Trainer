@@ -241,13 +241,24 @@ struct DailyConfirmationCard: View {
     let first: () -> Void
     var second: (() -> Void)? = nil
     var firstIsPrimary = false
+    var scoreDetail: String? = nil
     @Environment(\.dynamicTypeSize) private var typeSize
     @AccessibilityFocusState private var titleFocused: Bool
     @State private var titleHeight: CGFloat = 21
     @State private var actionsHeight: CGFloat = 44
     private var contentSpacing: CGFloat { typeSize.isAccessibilitySize ? 8 : 19 }
 
-    private var heading: some View {
+    @ViewBuilder private var heading: some View {
+        if let scoreDetail {
+            BTScoreDetailsButton(detail: scoreDetail, identifier: "multiBall.failure.scoreDetails") {
+                HStack(spacing: Spacing.xs) {
+                    headingText
+                    Image(systemName: "info.circle").font(.btSubheadline).accessibilityHidden(true)
+                }
+            }
+        } else { headingText }
+    }
+    private var headingText: some View {
         Text(title).font(.subheadline).multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, minHeight: 21)

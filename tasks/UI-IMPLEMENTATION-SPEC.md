@@ -1,3 +1,19 @@
+<!-- Changelog 2026-10-30 DR-442 r2：多球规划首杆显式确认球袋，CurrentSelection与可选practiceRequiresExplicitAim；自主走位默认推荐保持，验证见MULTI-BALL-OPENING-20261030。 -->
+<!-- Changelog 2026-10-30 FL-232：K球入题提示包含要求库次，真实观察库次参与判题；入/出库同属该库，首答冻结/旧历史保留，验证见K-BALL页面卡。 -->
+<!-- Changelog 2026-10-30 DR-451 v8 / FL-204补充：三球得分栏自然高度；r4语义组边界按实际容量2–8pt、本题均分至本杆2–4pt、组内2pt，进度仅显示1/15并保留AX语义，去重复bottom padding；BTScoreDetailsButton.minimumHeight默认44、三球显式32pt；保持完整命中且不重叠，其他页面不变。证据见三球页面卡2026-10-30节。 -->
+<!-- Changelog 2026-10-30 FL-231 / DR-410 v5.1：默认/个人布局三点以bounds Anchor在最终覆层解析位置；单行使用与来源行对齐，保留失败证据，见table-control-layout/DEFAULT-USE-20261029。 -->
+<!-- Changelog 2026-10-29 DR-410 v5：默认布局名称仍进草稿，三点提供“使用”并持久恢复本页/模式默认、成功退出编辑；个人模板保留，覆盖旧禁用三点。见table-control-layout/DEFAULT-USE-20261029。 -->
+<!-- Changelog 2026-10-29 DR-451 v7：评分详情总分标签统一“得分”，对应本杆得分；布局及公式不变。 -->
+<!-- Changelog 2026-10-29 DR-451 v6：评分详情在分项与走位总分之间加淡色细分隔线；其余v5合同保持。 -->
+<!-- Changelog 2026-10-29 DR-451 v5：评分详情标题ⓘ、去关闭按钮；外点关闭不穿透及escape保持，验证见评分明细页面卡。 -->
+<!-- Changelog 2026-10-29 DR-405 v1.11 / FL-230：自定义球形删除改居中原生alert并显示模板名；开始练习自动续接逐owner/模板本机进度，不增入口。合同与证据见CUSTOM-FORMATION-PROGRESS-20261029。 -->
+<!-- Changelog 2026-10-29 DR-453：共享2D瞄准拖动起点限当前投影桌外框，桌外滑入拒绝、桌内滑出连续；独立方向尺及合法抓球保留。见AIM-DRAG-BOUNDARY-20261029与TP17。 -->
+<!-- Changelog 2026-10-29 DR-446 r2：带选中圈/有效角色圈的球面保持正常亮度，不叠加在桌淡化；完成状态及自身光影保留。见PALETTE-SELECTION-20261029。 -->
+<!-- Changelog 2026-10-29 DR-447 r3：TrainingAssist.routeReference用于中杆路线／图例／测量；centerReference保留特写及准度细基准，参数与验证见REFERENCE-GRAY-20261029。 -->
+<!-- Changelog 2026-10-29 DR-450 r4 / FL-227：瞄准点真实信息宽度+8pt桌边净距；灰标签白数值。Foundation新增可选trailingContentWidth，默认消费者不变。 -->
+<!-- Changelog 2026-10-29 DR-450 r3：瞄准点作答/复练、评级、厚薄毫米使用Grid三行冒号对齐；原字号/仪表预算保留，详P10页面卡。 -->
+<!-- Changelog 2026-10-29 DR-452：K球去参考参数/查看参考打法/回放本杆，补首次提交前中杆2m/s基准；要求：两库、成功率文案，去说明备注；只改本页，合同见K-BALL-20261029反馈节。 -->
+<!-- Changelog 2026-10-29 DR-451：走位逐杆ⓘ明细，角度/球距/空间/总分；结算快照与旧档缺项兼容，分离系数暂不启用。 -->
 <!-- Changelog 2026-10-28 DR-405 v1.10：内置L端球贴库、两阵台心起杆瞄准1号；4443标题显式分行。BTTablePageTitle新增可选preferredLineBreak，默认不变。 -->
 <!-- Changelog 2026-10-28 DR-405 v1.9：自定义球形新增只读内置4443与L型，可直接练习或复制到个人模板。见CUSTOM-FORMATION-BUILTINS-20261028。 -->
 <!-- Changelog 2026-10-28 DR-405 v1.8：自定义球形最多15目标球、球号唯一；已摆球点击只选择；旧档读取/同步兼容，修正后再练习。见CUSTOM-FORMATION-UNIQUE-20261028。 -->
@@ -3457,4 +3473,36 @@ L型1/15号端球分别贴相邻长/短库，按球心距库R计算；两阵母�
 
 ### DR-450 — 练习页面整理（2026-10-29）
 
-用户批准集中整改，现行合同回填球桌规范TP04–08/20/33/34及来源表。`BTTeachingPrimaryActionColumn`按共享仪表的原生字高/间距预留主槽，角度/瞄准点复用；少球调用方传题目固定`paletteKeys`。`AimPracticeCheckpoint`可选字段保存复练阶段/评分，不新增正式答题或额度；误差详情仅瞄准点使用。`MultiBallConfiguration.showsPlanningMarkers`缺省true，控制器在XZ台面绘制独立三角色圆环，原脉冲/袋口保留；不向P05扩散。`PositionPlayEditorConfiguration.allowsSeparationAssist`默认true，普通composer传false，隔离试打/自定义宿主。当前验证进行中，证据与截图真源为`tasks/table-page-adaptation/PRACTICE-REVIEW-PLAN-20261029.md`。
+用户批准集中整改，现行合同回填球桌规范TP04–08/20/33/34及来源表。`BTTeachingPrimaryActionColumn`按共享仪表的原生字高/间距预留主槽，角度/瞄准点复用；少球调用方传题目固定`paletteKeys`。`AimPracticeCheckpoint`可选字段保存复练阶段/评分，不新增正式答题或额度；10-29后续反馈：瞄准点结果改为只读“评级：…”及偏差，去掉ⓘ；误差分档及统计说明直接放在SceneTrainingSettings球形条件之后，仅aimPoint项目显示，详P10页面卡。`MultiBallConfiguration.showsPlanningMarkers`缺省true，控制器在XZ台面绘制独立三角色圆环，原脉冲/袋口保留；不向P05扩散。`PositionPlayEditorConfiguration.allowsSeparationAssist`默认true，普通composer传false，隔离试打/自定义宿主。当前验证进行中，证据与截图真源为`tasks/table-page-adaptation/PRACTICE-REVIEW-PLAN-20261029.md`。
+
+
+## DR-451 · 评分详情组件
+
+`BTScoreDetailsButton(detail: String, identifier: String, label:)`为真实44pt按钮，点击时冻结文本并显示共用“评分详情／关闭”紧凑面板。两球自由与三球成绩侧栏使用；原`BTTeachingInformation.detailText`承载短提示详情。`DailyConfirmationCard.scoreDetail: String? = nil`仅多球失败显式启用，其他消费者不变。多球更多菜单可重看上杆。分项顺序为角度、球距、出杆空间、走位总分，四行连续排列；按同日DR-451 v2反馈移除底部公式和舒适度说明，旧档缺分项与直接0分仅补短说明。基础合成算法不变；同日授权v2在三球首杆/多球滚动三球组合首杆且第二球打中袋时乘方向系数，明细在空间分后、得分前增加适用的系数行，分隔线仍在得分前。两球残局沿用基础评分。见[MIDDLE-POCKET-DIRECTION-20261029](MIDDLE-POCKET-DIRECTION-20261029.md)。[状态与证据](table-page-adaptation/POSITION-SCORE-DETAILS-20261029.md)。
+
+
+DR-451 v3（2026-10-29）：用户反馈宽度与上库内沿对齐。评分详情改用BTScoreDetailsOverlay，普通宽220pt、标签/数值两列、内容自适应高度；2D基于未缩放playfield的上内沿定位，3D沿用稳定HUD基准；原因长时内容可滚动、关闭按钮保留44pt。页面持有冻结详情，短提示过期不关闭。仅替换本次评分详情alert，不推广其他弹窗。验证见POSITION-SCORE-DETAILS-20261029页面卡。
+
+DR-451 v4（2026-10-29）：评分详情标题15pt、分项14pt、关闭15pt；关闭Button的frame/background/contentShape位于label内，实际触区全宽且至少44pt。遮罩点击关闭并消费触摸，面板内空白不触发遮罩；描边不参与命中。宽220pt与上库定位不变。用户反馈及测试见评分明细页面卡。
+
+
+### 2026-10-29 · 标题容量分流
+
+球桌标题/球库遵循现行TP04/05：可能达到15球保留默认；明确小于15按最大可能目标球数预留，最多6显示单位单行且按实际13/12pt字形容纳；字体未变。母球/额外控件独立计障碍；进袋不改变预算，不补空球槽。指定分行优先。实施与验证：`tasks/table-page-adaptation/TITLE-CAPACITY-20261029.md`。
+
+
+## 2026-10-29 · 标题容量r2
+
+瞄准点独立壳显式使用maximumSingleLineUnits=6与1球容量可用宽；新策略不排除瞄准点名称。满球/未知保留兼容布局，4443显式切点保持，字体/HUD不变。
+
+
+DR-451 v5（2026-10-29）：用户确认评分详情标题前加小号同色info.circle，移除底部关闭按钮及高度预留。宽220pt、标题15pt、分项14pt和上库定位保持；面板外点击关闭且不穿透，内部文字/留白保持展开，辅助功能escape保留。仅影响两球自由／三球／多球规划共用评分详情，验证见POSITION-SCORE-DETAILS-20261029页面卡。
+
+
+DR-451 v6（2026-10-29）：用户截图要求分项与总分分开；仅在前三项之后、走位分之前加系统淡色细Divider，沿内容左右边缘对齐。保持标题ⓘ、220pt宽度、15/14pt字号、外点关闭/内点保持及冻结评分；分隔线不参与辅助功能朗读。 验证见POSITION-SCORE-DETAILS-20261029页面卡。
+
+
+DR-451 v7（2026-10-29）：用户要求详情总分行由“走位分”改为“得分”，与侧栏“本杆得分／上杆得分”保持同一概念，避免被理解为新增指标。共用formatter的正常、直接0分和旧档缺分项三分支统一更新；分隔线、布局、关闭与评分计算保持。 仅文案，验证见评分明细页面卡。
+
+
+DR-451 v9（2026-10-30）：用户明确“就标题居中，下面的不动”。仅将共用评分详情的ⓘ与标题作为整体水平居中；分项左对齐、分值右对齐、分隔线、15/14pt字号、220pt宽度、定位及关闭行为保持。 Changelog：DR-451 v9；证据见评分明细页面卡本轮节。

@@ -1,5 +1,20 @@
 import SwiftUI
 
+/// Shared explanatory copy in training forms; inherits the caller's font and color.
+struct BTTrainingSettingsNote: View {
+    let text: String
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+            Image(systemName: "info.circle").accessibilityHidden(true)
+            Text(text).fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// A secondary action at the end of a training settings form. The caller owns the draft.
 struct BTTrainingSettingsResetSection: View {
     let action: () -> Void

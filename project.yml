@@ -60,6 +60,7 @@ targets:
           - "**/.DS_Store"
           - "Resources/Drills/**"
           - "Resources/TwoBallBank/**"
+          - "Resources/KBallBank/**"
           - "Resources/ThreeBallBank/**"
           - "Resources/MultiBallBank/**"
           - "Resources/BallStickers/**"
@@ -78,6 +79,9 @@ targets:
           # 保留代码与磁盘资源，随时可恢复 folder reference）。
           - "Resources/Previews/**"
       # Folder references（蓝色文件夹）：保留子目录结构供 Bundle.main 解析。
+      - path: QiuJi/Resources/KBallBank
+        type: folder
+        buildPhase: resources
       - path: QiuJi/Resources/MultiBallBank
         type: folder
         buildPhase: resources

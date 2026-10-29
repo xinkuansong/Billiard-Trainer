@@ -157,6 +157,9 @@ final class ThreeBallPracticeUITests: XCTestCase {
                 XCTAssertFalse(app.alerts.firstMatch.exists)
                 let quota = try probe()["quota"] as? Int
                 capture("unplayable-expired-\(is3D)")
+                let detail = scoreDetails("threeBall.latestScore", name: "unplayable-details-\(is3D)")
+                XCTAssertTrue(detail.contains("本杆直接记0分"))
+                XCTAssertTrue(detail.contains("角度分　—"))
                 app.buttons["threeBall.retry"].tap(); phase("aiming")
                 let restored = try probe()
                 XCTAssertEqual(restored["question"] as? String, initial["question"] as? String)
@@ -201,10 +204,12 @@ final class ThreeBallPracticeUITests: XCTestCase {
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "paletteBall_")).count, 3)
         let quota = try probe()["quota"] as? Int
         capture("threeBall-auto-second-stage-\(is3D)")
+        let firstDetail = scoreDetails("threeBall.firstScore", name: "threeBall-first-details-\(is3D)")
         // Persist the checkpoint, then return to the first stroke through the actual retry button.
         app.buttons["threeBall.back"].tap()
         ready(app.buttons["angleHomeTab_打"]); app.buttons["angleHomeTab_打"].tap()
         let entry = app.buttons["三球走位"]; revealEntry(entry); ready(entry); entry.tap(); phase("aiming")
+        XCTAssertEqual(scoreDetails("threeBall.firstScore", name: "threeBall-restored-details-\(is3D)"), firstDetail)
         ready(app.buttons["threeBall.retry"]); app.buttons["threeBall.retry"].tap(); phase("aiming")
         XCTAssertEqual(try probe()["stage"] as? Int, 0)
         XCTAssertEqual(try probe()["onTableKeys"] as? [String], originalKeys)
@@ -237,6 +242,25 @@ final class ThreeBallPracticeUITests: XCTestCase {
         XCTAssertEqual(try probe()["quota"] as? Int, quota)
         XCTAssertEqual(try probe()["attempts"] as? Int, 2)
         capture("threeBall-final-\(is3D)")
+        XCTAssertTrue(app.scrollViews["threeBall.sidebarScroll"].frame.contains(app.buttons["threeBall.latestScore"].frame),
+            "本杆分数应完整显示在侧栏当前视口内")
+        let viewport = app.scrollViews["threeBall.sidebarScroll"].frame
+        XCTAssertTrue(viewport.contains(node("threeBall.questionInfo").frame), "题目进度不应被结果栏挤出视口")
+        XCTAssertTrue(viewport.contains(app.buttons["threeBall.firstScore"].frame),
+            "首杆分数应无需滚动即可查看：viewport=\(viewport), button=\(app.buttons["threeBall.firstScore"].frame)")
+        XCTAssertFalse(app.buttons["threeBall.latestScore"].frame.intersects(app.buttons["threeBall.firstScore"].frame),
+            "收紧间距不能让两杆详情的点击区域重叠")
+        if !is3D {
+            app.selectTrainingView("3D三球走位")
+            phase("result")
+            XCTAssertEqual(try probe()["question"] as? String, question)
+            XCTAssertTrue(app.scrollViews["threeBall.sidebarScroll"].frame.contains(app.buttons["threeBall.firstScore"].frame))
+            capture("threeBall-final-switched-3D")
+            app.selectTrainingView("2D三球走位")
+            phase("result")
+        }
+        _ = scoreDetails("threeBall.latestScore", name: "threeBall-second-details-\(is3D)")
+        XCTAssertEqual(scoreDetails("threeBall.firstScore", name: "threeBall-first-frozen-\(is3D)"), firstDetail)
         app.buttons["threeBall.retry"].tap(); phase("aiming")
         XCTAssertEqual(try probe()["stage"] as? Int, 1)
         if is3D { app.buttons["dailyClearance.observeTable"].tap() }
@@ -247,6 +271,38 @@ final class ThreeBallPracticeUITests: XCTestCase {
         XCTAssertEqual(try probe()["stage"] as? Int, 0); XCTAssertEqual(try probe()["plannedPocket"] as? Int, -1)
         app.terminate()
     }
+    @discardableResult private func scoreDetails(_ id: String, name: String) -> String {
+        let button = app.buttons[id]
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        let scroll = app.scrollViews["threeBall.sidebarScroll"]
+        for _ in 0..<4 {
+            let viewport = scroll.frame.intersection(app.windows.firstMatch.frame)
+            if viewport.contains(button.frame) { break }
+            let down = button.frame.midY > viewport.midY
+            let origin = app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
+            let x = viewport.midX - app.windows.firstMatch.frame.minX
+            let top = viewport.minY - app.windows.firstMatch.frame.minY + 10
+            let bottom = viewport.maxY - app.windows.firstMatch.frame.minY - 10
+            origin.withOffset(.init(dx: x, dy: down ? bottom : top)).press(forDuration: 0.15,
+                thenDragTo: origin.withOffset(.init(dx: x, dy: down ? top : bottom)))
+        }
+        ready(button); button.tap()
+        let alert = app.descendants(matching: .any)["scoreDetails.panel"].firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 3))
+        let text = alert.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: "\n")
+        for label in ["角度分", "球距分", "出杆空间分", "得分"] { XCTAssertTrue(text.contains(label)) }
+        XCTAssertEqual(text.contains("分离方向系数"), id == "threeBall.firstScore")
+        capture(name)
+        XCTAssertFalse(alert.buttons["scoreDetails.close"].exists)
+        // Tap a physical point just outside the panel; the scrim is outside the AX modal.
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: .zero)
+            .withOffset(.init(dx: alert.frame.minX - 16 - window.frame.minX,
+                              dy: alert.frame.midY - window.frame.minY)).tap()
+        XCTAssertTrue(alert.waitForNonExistence(timeout: 3))
+        return text
+    }
+
     func testSettingsCancelAndAdaptiveStates() throws {
         try open(false, animated: true, largeText: true)
         try selectPocket(5)

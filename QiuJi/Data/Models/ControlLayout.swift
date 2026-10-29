@@ -92,8 +92,8 @@ enum FreeControlCatalog {
         case .threeBallPractice2D, .threeBallPractice3D:
             guard (page == .threeBallPractice2D) == (mode == .twoD) else { return [] }
             ids = ["shot.undo", "shot.replay", "shot.spin", "shot.power", "shot.strike"]
-        case .twoBallPractice2D, .twoBallPractice3D:
-            guard (page == .twoBallPractice2D) == (mode == .twoD) else { return [] }
+        case .kBallPractice2D, .kBallPractice3D, .twoBallPractice2D, .twoBallPractice3D:
+            guard ([TablePreferencePage.twoBallPractice2D, .kBallPractice2D].contains(page)) == (mode == .twoD) else { return [] }
             ids = ["shot.spin", "shot.power", "shot.strike", "shot.undo", "shot.replay"]
         case .separationPractice2D, .separationPractice3D:
             guard (page == .separationPractice2D) == (mode == .twoD) else { return [] }
@@ -226,14 +226,14 @@ extension TablePreferencePage {
     }
     var fixedControlLayoutMode: ControlLayoutLayer? {
         switch self {
-        case .sceneAiming2D, .aimPointScene2D, .accuracy2D, .separationPractice2D, .twoBallPractice2D, .threeBallPractice2D, .multiBallPractice, .customFormationEditor: return .twoD
-        case .sceneAiming3D, .aimPointScene3D, .accuracy3D, .separationPractice3D, .twoBallPractice3D, .threeBallPractice3D, .multiBallPractice3D: return .threeD
+        case .sceneAiming2D, .aimPointScene2D, .accuracy2D, .separationPractice2D, .kBallPractice2D, .twoBallPractice2D, .threeBallPractice2D, .multiBallPractice, .customFormationEditor: return .twoD
+        case .sceneAiming3D, .aimPointScene3D, .accuracy3D, .separationPractice3D, .kBallPractice3D, .twoBallPractice3D, .threeBallPractice3D, .multiBallPractice3D: return .threeD
         default: return nil
         }
     }
     var controlLayoutFamily: ControlLayoutFamily? {
         switch self {
-        case .dailyClearance, .freePlay, .shotSimulation, .snakePractice, .multiBallPractice, .multiBallPractice3D, .composer, .drillTryout, .accuracy2D, .accuracy3D, .separationPractice2D, .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return .shot
+        case .dailyClearance, .freePlay, .shotSimulation, .snakePractice, .multiBallPractice, .multiBallPractice3D, .composer, .drillTryout, .accuracy2D, .accuracy3D, .separationPractice2D, .separationPractice3D, .kBallPractice2D, .kBallPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return .shot
         case .silu, .planThree, .snookerTactics, .bankShot, .diamondSystem: return .planning
         case .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas: return .teaching
         case .sceneAiming2D, .sceneAiming3D: return .angleQuiz

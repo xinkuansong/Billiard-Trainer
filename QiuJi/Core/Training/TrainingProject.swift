@@ -2,7 +2,7 @@ import Foundation
 
 /// Business identity is independent of the camera. Legacy routes remain readable.
 enum TrainingProject: String, Codable, CaseIterable {
-    case angle, aimPoint, accuracy, separation, twoBall, threeBall, multiBall
+    case angle, aimPoint, accuracy, separation, twoBall, threeBall, multiBall, kBall
     static let ordinaryRoundCount = 15
     var roundCount: Int { self == .multiBall ? 3 : Self.ordinaryRoundCount }
     var title: String {
@@ -11,6 +11,7 @@ enum TrainingProject: String, Codable, CaseIterable {
         case .aimPoint: "瞄准点练习"
         case .accuracy: "准度练习"
         case .separation: "分离角练习"
+        case .kBall: "K球练习"
         case .twoBall: "两球走位"
         case .threeBall: "三球走位"
         case .multiBall: "多球走位"
@@ -22,6 +23,7 @@ enum TrainingProject: String, Codable, CaseIterable {
         case .aimPoint: .aimPointScene2D
         case .accuracy: .accuracy2D
         case .separation: .separationPractice2D
+        case .kBall: .kBallPractice2D
         case .twoBall: .twoBallPractice2D
         case .threeBall: .threeBallPractice2D
         case .multiBall: .multiBallPractice
@@ -33,6 +35,7 @@ enum TrainingProject: String, Codable, CaseIterable {
         case .aimPoint: .aimPointScene3D
         case .accuracy: .accuracy3D
         case .separation: .separationPractice3D
+        case .kBall: .kBallPractice3D
         case .twoBall: .twoBallPractice3D
         case .threeBall: .threeBallPractice3D
         case .multiBall: .multiBallPractice3D
@@ -43,6 +46,7 @@ enum TrainingProject: String, Codable, CaseIterable {
         if route.hasPrefix("aimPointScene") || ["aimPoint2D", "aimPoint3D"].contains(route) { return .aimPoint }
         if route.hasPrefix("accuracy") { return .accuracy }
         if route.hasPrefix("separationPractice") { return .separation }
+        if route.hasPrefix("kBallPractice") { return .kBall }
         if route.hasPrefix("twoBallPractice") { return .twoBall }
         if route.hasPrefix("threeBallPractice") { return .threeBall }
         if route.hasPrefix("multiBallPractice") { return .multiBall }

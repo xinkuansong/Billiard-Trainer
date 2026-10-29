@@ -6,7 +6,7 @@ import SwiftData
 enum SeparationRouteStyle {
     static let target = UIColor.systemOrange
     static let actual = UIColor.white
-    static let reference = TrajectoryStyle.TrainingAssist.centerReference
+    static let reference = TrajectoryStyle.TrainingAssist.routeReference
     static let legendDash = [CGFloat(TrajectoryStyle.mainDash * 200), CGFloat(TrajectoryStyle.mainGap * 200)]
 }
 

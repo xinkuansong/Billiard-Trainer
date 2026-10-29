@@ -37,6 +37,7 @@ enum AngleRoute: Hashable {
     case aimPointScene3D
     case accuracy2D, accuracy3D
     case separationPractice2D, separationPractice3D
+    case kBallPractice2D
     case twoBallPractice2D, twoBallPractice3D
     case threeBallPractice2D, threeBallPractice3D
     case ballFeel
@@ -65,7 +66,7 @@ enum AngleRoute: Hashable {
              .theoryIndex, .theoryPage, .contactPointTable, .aimingPrinciple,
              .aimingMethods, .aimingCorrection, .spinAndEnglish, .angleDynamic,
              .geometricQuiz, .multiBallPractice, .customFormationPractice, .sceneAiming2D,
-             .aimPointTraining, .aimPointScene2D, .accuracy2D, .separationPractice2D, .twoBallPractice2D, .threeBallPractice2D, .ballFeel, .freePlay, .positionPlaySolver,
+             .kBallPractice2D, .aimPointTraining, .aimPointScene2D, .accuracy2D, .separationPractice2D, .twoBallPractice2D, .threeBallPractice2D, .ballFeel, .freePlay, .positionPlaySolver,
              .batchDrillStudio, .drillDetail:
             return false
         }
@@ -266,6 +267,7 @@ struct AngleHomeView: View {
     private let basePlayEntries: [AngleEntry] = [
         .init(route: .multiBallPractice, title: "多球走位", subtitle: "中八残局与追分", contentKind: .striking, topics: [.position]),
         .init(route: .separationPractice2D, title: TrainingProject.separation.title, subtitle: "调打点力度，复现目标轨迹", contentKind: .quiz, topics: [.position, .english]),
+        .init(route: .kBallPractice2D, title: "K球练习", subtitle: "进第一球，让母球K到第二球", contentKind: .quiz, topics: [.position, .english, .cushion]),
         .init(route: .twoBallPractice2D, title: "两球走位", subtitle: "练目标轨迹，或走下一球", contentKind: .quiz, topics: [.position, .english]),
         .init(route: .threeBallPractice2D, title: "三球走位", subtitle: "提前选袋，练两杆连续走位", contentKind: .quiz, topics: [.position, .english]),
         .init(route: .positionPlayComposer, title: "分离角与走位", subtitle: "逐杆摆打推演走位", contentKind: .striking, isPremium: true, topics: [.position, .english]),

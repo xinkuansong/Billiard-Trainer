@@ -95,7 +95,7 @@ struct CustomFormationPracticeView: View {
                 }
             }
             if let notice = library.archive.notice {
-                Section { Label(notice, systemImage: "info.circle").font(.btFootnote).foregroundStyle(.btTextSecondary) }
+                Section { BTTrainingSettingsNote(notice).font(.btFootnote).foregroundStyle(.btTextSecondary) }
             }
             Section("模板管理") {
                 Button("新建模板", systemImage: "plus") { openEditor(nil) }
@@ -116,7 +116,7 @@ struct CustomFormationPracticeView: View {
             ToolbarItem(placement: .topBarLeading) { Button("返回") { dismiss() } }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("开始练习") {
-                    if let template = library.selected, template.practiceIssue == nil { active = .init(template: template, editing: false) }
+                    if let template = library.selected, template.practiceIssue == nil { active = library.practiceSession(for: template) }
                 }
                 .fontWeight(.semibold).disabled(library.selected == nil || library.selected?.practiceIssue != nil)
                 .accessibilityIdentifier("formation.start")
@@ -128,11 +128,13 @@ struct CustomFormationPracticeView: View {
                 .disabled(renameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             Button("取消", role: .cancel) { renaming = nil }
         }
-        .confirmationDialog("删除这个模板？", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
-            Button("删除模板", role: .destructive) { if let deleting { library.delete(deleting.id) }; deleting = nil }
+        .alert("删除这个模板？", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), presenting: deleting) { template in
+            Button("删除模板", role: .destructive) { library.delete(template.id); deleting = nil }
             Button("取消", role: .cancel) { deleting = nil }
+        } message: { template in
+            Text("将删除“\(template.name)”及其练习进度。")
         }
-        .alert("模板未保存", isPresented: Binding(get: { library.error != nil }, set: { if !$0 { library.error = nil } })) {
+        .alert("操作未完成", isPresented: Binding(get: { library.error != nil }, set: { if !$0 { library.error = nil } })) {
             Button("知道了", role: .cancel) { library.error = nil }
         } message: { Text(library.error ?? "") }
     }
@@ -144,6 +146,7 @@ struct CustomFormationPracticeView: View {
 }
 
 private struct CustomFormationTableView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject var session: CustomFormationSession
     @ObservedObject var library: CustomFormationLibrary
     // The navigation owner clears the destination. Reading DismissAction here
@@ -157,6 +160,8 @@ private struct CustomFormationTableView: View {
             loadsDefaultLayout: false, setup: session.setup, onInteraction: {}, onRearrange: session.reset,
             menuItems: menuItems, overlay: AnyView(CustomFormationNotice(session: session)),
             formation: session, onBack: requestBack))
+        .onChange(of: scenePhase) { _, phase in if phase != .active { session.saveProgress() } }
+        .onDisappear { session.finishPractice() }
         .alert("保存模板", isPresented: $session.showSave) {
             TextField("模板名称", text: $session.name).accessibilityIdentifier("formation.name")
             Button("保存") { save() }.disabled(session.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -192,7 +197,7 @@ private struct CustomFormationTableView: View {
 
     private func requestBack() {
         if session.isTemplateEditor && (session.hasEdits || session.original == nil) { session.showExit = true }
-        else { onDismiss() }
+        else { session.finishPractice(); onDismiss() }
     }
 
     private func save() {

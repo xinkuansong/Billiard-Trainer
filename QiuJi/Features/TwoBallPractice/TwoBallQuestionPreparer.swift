@@ -267,6 +267,10 @@ struct TwoBallShot: Codable, Identifiable {
                 || comfortVersion == TwoBallComfortScore.freePositionVersion else { return nil }
         return failure == nil && continuationUnavailable != true ? comfort?.total ?? 0 : 0
     }
+    var scoreDetails: String? {
+        freeScore.map { TwoBallComfortScore.details(comfort, total: $0,
+            reason: failure ?? (continuationUnavailable == true ? "下一球无法直进指定袋" : nil)) }
+    }
     init(question: TwoBallQuestion, input: SeparationInput, prediction: ShotPrediction, surfaceY: Float) throws {
         physical = try .init(question: question.separation, input: input, prediction: prediction, surfaceY: surfaceY)
         comboIndex = question.route.source.comboIndex; secondPocket = question.secondPocket
@@ -304,18 +308,30 @@ struct TwoBallShot: Codable, Identifiable {
 enum TwoBallComfortScore {
     static let version = "comfort-d2-s3-a2-v1"
     static let freePositionVersion = "comfort-d2-s3-pocket-angle20-min50-v1"
-    struct Result: Codable {
+    struct Result: Codable, Equatable {
         enum Aggregation: String, Codable { case minimumWeighted }
         let distance, space, angle, total: Double
         // Absent in historical snapshots, which used the geometric mean.
         var aggregation: Aggregation? = nil
         var details: String {
-            let formula = aggregation == .minimumWeighted
-                ? "总分 = 0.5 × 三项最低分 + 0.5 × 三项几何平均，越高越好。"
-                : "总分为三项等权几何平均，越高越好。"
-            return String(format: "球距分 %.1f\n出杆空间分 %.1f\n角度分 %.1f\n\n", distance, space, angle)
-                + formula + "\n评价下一杆的舒适度，不代表进球概率。"
+            String(format: "角度分　%.1f\n球距分　%.1f\n出杆空间分　%.1f\n得分　%.1f", angle, distance, space, total)
         }
+    }
+    /// Explain the settled result only; never reconstruct missing historical components.
+    static func details(_ score: Result?, total: Double, reason: String?,
+                        direction: MiddlePocketDirectionScore.Result? = nil) -> String {
+        if let reason {
+            return "角度分　—\n球距分　—\n出杆空间分　—\n"
+                + String(format: "得分　%.1f\n\n", total) + reason + "，本杆直接记0分。"
+        }
+        guard let score else {
+            return "角度分　—\n球距分　—\n出杆空间分　—\n"
+                + String(format: "得分　%.1f\n\n", total) + "未保存评分分项。"
+        }
+        let components = String(format: "角度分　%.1f\n球距分　%.1f\n出杆空间分　%.1f\n",
+                                score.angle, score.distance, score.space)
+        let adjustment = direction.map { String(format: "分离方向系数　×%.2f\n", $0.coefficient) } ?? ""
+        return components + adjustment + String(format: "得分　%.1f", total)
     }
     static func evaluate(cue: (Double, Double), ball: (Double, Double), pocket: Int,
                          geometry g: TwoBallDifficultyMetric.Geometry = .source) -> Result? {
@@ -333,5 +349,73 @@ enum TwoBallComfortScore {
                   pocketDistanceAngle: pocketDistanceAngle) else { return nil }
         return .init(distance: score.distance, space: score.space, angle: score.angle, total: score.total,
                      aggregation: pocketDistanceAngle ? .minimumWeighted : nil)
+    }
+}
+
+/// Accepted candidate v2. World X/Z metres, Y up; inner rectangle centred at zero.
+/// This geometric adjustment uses the physical middle-pocket centre, as in the reviewed
+/// examples. It does not replace effective-aim obstruction checks or the base comfort score.
+enum MiddlePocketDirectionScore {
+    static let version = "middle-pocket-direction-v2"
+    struct Result: Codable, Equatable {
+        let coefficient, cutAngle, reverseDepth, thirdSideArea, cueDistance: Double
+        var version: String = MiddlePocketDirectionScore.version
+    }
+
+    static func evaluate(cue: (Double, Double), ball: (Double, Double), third: (Double, Double),
+                         pocket: Int, geometry g: TwoBallDifficultyMetric.Geometry = .source) -> Result? {
+        guard pocket == 4 || pocket == 5,
+              [cue.0, cue.1, ball.0, ball.1, third.0, third.1, g.length, g.width, g.radius].allSatisfy(\.isFinite),
+              g.length > 0, g.width > 0, g.radius > 0 else { return nil }
+        let c = SIMD2(cue.0, cue.1), b = SIMD2(ball.0, ball.1), z = SIMD2(third.0, third.1)
+        let centre = AngleSceneCalculator.pocketPositions(surfaceY: 0)[pocket]
+        let p = SIMD2(Double(centre.x), Double(centre.z))
+        let pocketDistance = length(p - b), cueDistance = length(c - b)
+        guard pocketDistance > 1e-9, cueDistance >= 2 * g.radius else { return nil }
+        let n = (p - b) / pocketDistance
+        let ghost = b - 2 * g.radius * n
+        let aimDistance = length(ghost - c)
+        guard aimDistance > 1e-9 else { return nil }
+        let u = (ghost - c) / aimDistance, cosine = dot(u, n)
+        guard cosine > 0 else { return nil }
+        let tangent = u - cosine * n
+        var q = SIMD2(-u.y, u.x)
+        if dot(q, tangent) < 0 { q = -q }
+        let signedDepth = dot(z - ghost, q)
+        let angle = acos(min(1, cosine)) * 180 / .pi
+        let reverse = length(tangent) > 1e-10 && signedDepth < 0
+        let depth = reverse ? -signedDepth : 0
+        let area = sideArea(origin: ghost, normal: signedDepth < 0 ? -q : q,
+                            length: g.length, width: g.width)
+        let d = clamp(depth / (0.35 * g.length))
+        let a = 0.75 + 0.25 * area
+        let distance = 0.60 + 0.40 * clamp(cueDistance / (0.35 * g.length))
+        let angleOffset = (angle - 30) / 25
+        let m = 0.70 + 0.30 * clamp(angleOffset * angleOffset)
+        let k = reverse ? max(0.60, 1 - 0.40 * d * a * distance * m) : 1
+        return .init(coefficient: k, cutAngle: angle, reverseDepth: depth,
+                     thirdSideArea: area, cueDistance: cueDistance)
+    }
+
+    private static func dot(_ a: SIMD2<Double>, _ b: SIMD2<Double>) -> Double { a.x * b.x + a.y * b.y }
+    private static func length(_ a: SIMD2<Double>) -> Double { hypot(a.x, a.y) }
+    private static func clamp(_ value: Double) -> Double { min(1, max(0, value)) }
+    /// Clip the inner playfield by the extended cue-to-ghost line; shoelace area / full area.
+    private static func sideArea(origin: SIMD2<Double>, normal: SIMD2<Double>, length: Double, width: Double) -> Double {
+        let corners = [SIMD2(-length/2, -width/2), SIMD2(length/2, -width/2),
+                       SIMD2(length/2, width/2), SIMD2(-length/2, width/2)]
+        var polygon: [SIMD2<Double>] = []
+        for index in corners.indices {
+            let a = corners[index], b = corners[(index + 1) % corners.count]
+            let sa = dot(a - origin, normal), sb = dot(b - origin, normal)
+            if sa >= 0 { polygon.append(a) }
+            if (sa < 0) != (sb < 0) { polygon.append(a + (b - a) * (sa / (sa - sb))) }
+        }
+        guard polygon.count >= 3 else { return 0 }
+        let twiceArea = polygon.indices.reduce(0.0) { sum, i in
+            let a = polygon[i], b = polygon[(i + 1) % polygon.count]
+            return sum + a.x * b.y - a.y * b.x
+        }
+        return clamp(abs(twiceArea) / (2 * length * width))
     }
 }

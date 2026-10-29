@@ -18,6 +18,100 @@ final class CustomFormationTests: XCTestCase {
         return .init(name: "三颗不同号球", ballKeys: keys, board: .init(onTable: board))
     }
 
+    private func practice(_ template: CustomFormationTemplate, owner: String = "guest:progress") throws -> CustomFormationSession {
+        let library = CustomFormationLibrary(ownerKey: owner, directory: directory)
+        let session = try XCTUnwrap(library.practiceSession(for: template), library.error ?? "")
+        session.vm.setupScene(loadsDefaultLayout: false)
+        session.setup()
+        return session
+    }
+
+    func testPracticeProgressRestoresBoardAndInputAcrossLibraryInstances() throws {
+        let value = template()
+        let session = try practice(value)
+        session.vm.removeFromTable(value.ballKeys[0])
+        session.vm.velocity = 2.7
+        session.vm.spinX = 0.15
+        session.vm.nudgeFreeAim(byDegrees: 27)
+        let before = session.vm.currentSnapshot()
+        let input = session.vm.trainingInput
+        session.finishPractice()
+        let restored = try practice(value)
+        defer { restored.finishPractice() }
+        XCTAssertEqual(Set(restored.vm.onTableKeys), Set(before.onTable.keys))
+        for (key, point) in before.onTable {
+            XCTAssertEqual(try XCTUnwrap(restored.vm.currentSnapshot().onTable[key]).x, point.x, accuracy: 1e-6)
+            XCTAssertEqual(try XCTUnwrap(restored.vm.currentSnapshot().onTable[key]).y, point.y, accuracy: 1e-6)
+        }
+        XCTAssertEqual(restored.vm.velocity, input.velocity)
+        XCTAssertEqual(restored.vm.spinX, input.spinX)
+        XCTAssertEqual(restored.vm.trainingInput.direction, input.direction)
+        XCTAssertEqual(value.board.onTable.count, 4)
+    }
+
+    func testProgressIsIndependentPerTemplateAndOwnerAndSurvivesRename() throws {
+        let value = template(), second = template()
+        let session = try practice(value)
+        session.vm.removeFromTable(value.ballKeys[0]); session.finishPractice()
+        for (layout, owner) in [(second, "guest:progress"), (value, "account:other")] {
+            let fresh = try practice(layout, owner: owner)
+            XCTAssertEqual(fresh.vm.onTableKeys.count, 4); fresh.finishPractice()
+        }
+        var renamed = value; renamed.name = "新名字"; renamed.updatedAt = Date()
+        let restored = try practice(renamed)
+        XCTAssertEqual(restored.vm.onTableKeys.count, 3); restored.finishPractice()
+    }
+
+    func testChangedLayoutAndCopiedTemplateDoNotRestoreStaleProgress() throws {
+        let value = template()
+        let session = try practice(value)
+        session.vm.removeFromTable(value.ballKeys[0]); session.finishPractice()
+        var edited = value
+        edited.board.onTable[PositionPlayBall.cueKey] = .init(x: 0.2, y: 0.3)
+        for layout in [value.copied(), edited] {
+            let fresh = try practice(layout)
+            XCTAssertEqual(fresh.vm.onTableKeys.count, 4); fresh.finishPractice()
+        }
+    }
+
+    func testExistingRestartReplacesProgressAndCompletedPracticeStartsFresh() throws {
+        let value = BuiltInCustomFormations.templates[0]
+        let session = try practice(value)
+        session.vm.removeFromTable(value.ballKeys[0]); session.saveProgress()
+        session.reset(); session.finishPractice()
+        let restored = try practice(value)
+        XCTAssertEqual(restored.vm.onTableKeys.count, 16)
+        for key in value.ballKeys { restored.vm.removeFromTable(key) }
+        restored.finishPractice()
+        let completed = try practice(value)
+        XCTAssertEqual(completed.vm.onTableKeys.count, 16); completed.finishPractice()
+    }
+
+    func testDeleteClearsOnlyItsProgressAndEditorDoesNotOverwritePractice() throws {
+        let value = template()
+        let library = CustomFormationLibrary(ownerKey: "guest:progress", directory: directory)
+        XCTAssertTrue(library.save(value))
+        let session = try practice(value)
+        session.vm.removeFromTable(value.ballKeys[0]); session.finishPractice()
+        let editor = CustomFormationSession(template: value, editing: true)
+        editor.vm.setupScene(loadsDefaultLayout: false); editor.setup(); editor.finishPractice()
+        let store = CustomFormationProgressStore(repository: .init(ownerKey: "guest:progress", directory: directory))
+        XCTAssertEqual(try store.load(for: value)?.board.onTable.count, 3)
+        library.delete(value.id)
+        XCTAssertNil(try store.load(for: value))
+    }
+
+    func testCorruptProgressIsReportedAndPreserved() throws {
+        let value = template()
+        let store = CustomFormationProgressStore(repository: .init(ownerKey: "guest:progress", directory: directory))
+        try FileManager.default.createDirectory(at: store.directory, withIntermediateDirectories: true)
+        let corrupt = Data("broken progress".utf8)
+        try corrupt.write(to: store.url(for: value.id))
+        let library = CustomFormationLibrary(ownerKey: "guest:progress", directory: directory)
+        XCTAssertNil(library.practiceSession(for: value)); XCTAssertNotNil(library.error)
+        XCTAssertEqual(try Data(contentsOf: store.url(for: value.id)), corrupt)
+    }
+
     func testBuiltInLayoutsHaveUniqueBallsClearanceAndExpectedShapes() throws {
         for template in BuiltInCustomFormations.templates {
             try template.validateForPractice()

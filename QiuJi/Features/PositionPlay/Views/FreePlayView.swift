@@ -18,6 +18,7 @@ enum FreePlayEntryMode {
 /// 布局（问题集合 v3 §S1 基准页）：控件相对**屏幕内实际球桌矩形**贴边定位
 /// （`ShotStageProxy`，G3–G11），顶栏/底栏高度固定 ⇒ 球桌尺寸严格锁定不抖动（G10）。
 struct FreePlayView: View {
+    @State private var positionScoreDetail: String?
     let entryMode: FreePlayEntryMode
     private var multiBallIs3D = false
     @EnvironmentObject private var subscription: SubscriptionManager
@@ -1539,6 +1540,10 @@ struct FreePlayView: View {
             }
             if isMultiBall {
                 if multiBallController.isPlanning {
+                    if let score = multiBallController.scores.last {
+                        items.append(.init(id: "multiBall.scoreDetails", title: "上杆走位评分", disclosure: true,
+                            disabled: disabled, action: { closeDailyPresentation(); positionScoreDetail = score.details }))
+                    }
                     items.append(.init(id: "multiBall.retryShot", title: "重打上一杆", disabled: disabled || !multiBallController.canUndo,
                         action: { closeDailyPresentation(); multiBallController.undo() }))
                 }
@@ -2056,7 +2061,8 @@ private extension FreePlayView {
                         secondID: failed ? "\(rackPrefix).failure.restart" : "\(rackPrefix).restart.cancel",
                         first: { if failed { rackController.undo() } else { showSnakeRestartConfirm = false; rackController.restart() } },
                         second: { if failed { rackController.restart() } else { showSnakeRestartConfirm = false } },
-                        firstIsPrimary: failed)
+                        firstIsPrimary: failed,
+                        scoreDetail: failed && isMultiBall && multiBallController.isPlanning ? multiBallController.scores.last?.details : nil)
                         .position(x: foundation?.table.midX ?? size.width / 2, y: centerY)
                 }
             }
@@ -2065,6 +2071,14 @@ private extension FreePlayView {
         .overlay {
             if let key = draggingKey {
                 BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable, placement: projector.palettePreview, projector: projector)
+            }
+        }
+        .environment(\.presentScoreDetails, { positionScoreDetail = $0 })
+        .overlay {
+            if let detail = positionScoreDetail {
+                BTScoreDetailsOverlay(detail: detail,
+                    tableRect: spinBounds.offsetBy(dx: space.stage.minX, dy: space.stage.minY), size: size,
+                    dismiss: { positionScoreDetail = nil })
             }
         }
         .onChange(of: size) { _, _ in cancelPaletteDrag() }
@@ -2120,7 +2134,15 @@ private extension FreePlayView {
         } else {
             VStack(spacing: Spacing.xs) {
                 if let result = multiBallController.resultNotice {
-                    dailyInformation(result).accessibilityIdentifier("multiBall.scoreNotice")
+                    if let score = multiBallController.scores.last, result == score.text {
+                        Button { positionScoreDetail = score.details } label: {
+                            dailyInformation(result).frame(minHeight: 44).contentShape(Rectangle())
+                        }.buttonStyle(.plain).accessibilityIdentifier("multiBall.scoreNotice")
+                            .accessibilityHint("查看本杆评分明细")
+                    } else {
+                        dailyInformation(result).accessibilityIdentifier("multiBall.scoreNotice")
+                            .allowsHitTesting(false)
+                    }
                 } else if let message = ruleNotices.message {
                     BTNoticeContent(message: message, compact: true, textOnly: true).accessibilityIdentifier("multiBall.selectionNotice")
                 }
@@ -2684,7 +2706,7 @@ private extension FreePlayView {
     /// positions. Target slots remain centred even for a short ruleset.
     func dailyFoundationReservation(size: CGSize, safe: CGFloat) -> DailyLayoutMetrics.FoundationReservation {
         .init(width: size.width - 2 * max(4, safe),
-              targetCount: formation != nil ? min(15, templatePaletteKeys.count) : templatePaletteKeys.count,
+              targetCount: maximumPaletteCount,
               chineseEightBall: !isRackPractice && formation == nil && dailyPaletteGame == .chineseEightBall,
               titleWidth: 32 + dailyHeaderTitleWidth(size: 15), actionWidth: 138,
               prefersSeparateRow: size.height > size.width || size.height >= 600,
@@ -2704,18 +2726,23 @@ private extension FreePlayView {
                        width: dailyHeaderTitleWidth(size: 15), height: dailyHeaderTitleHeight),
                 CGRect(x: size.width - side - dailyWindowControlInsets.right - 44, y: 0, width: 44, height: 44),
                 foundation.left, foundation.right
-            ])
+            ], capacityCount: maximumPaletteCount)
     }
 
     func dailyFoundationHeader(size: CGSize, safe: CGFloat, foundation: DailyLayoutMetrics.Foundation) -> some View {
         let plan = dailyPalettePlan(size: size, safe: safe, foundation: foundation)
+        let titleWidth = BTTablePageTitleLayout.capacityWidth(pageTitle,
+            maximumBallCount: maximumPaletteCount, legacyWidth: dailyHeaderTitleWidth(size: 15),
+            availableWidth: DailyLayoutMetrics.titleAvailableWidth(size: size, side: max(4, safe),
+                windowInsets: dailyWindowControlInsets, table: foundation.table, palette: plan),
+            preferredLineBreak: formation?.preferredTitleLineBreak)
         return DailyTemplateHeader(size: size, safe: safe, foundation: foundation, plan: plan,
             targets: templatePaletteKeys, chineseEightBall: !isRackPractice && formation == nil && dailyPaletteGame == .chineseEightBall,
-            titleWidth: dailyHeaderTitleWidth(size: 15), titleHeight: dailyHeaderTitleHeight,
+            titleWidth: titleWidth, titleHeight: dailyHeaderTitleHeight,
             windowControlInsets: dailyWindowControlInsets, fps: dailyFPSReadout,
             showsDeviceStatus: !dailySystemStatusVisible, scrollsTargets: formation != nil && templatePaletteKeys.count > 15,
             keepsPaletteVisible: preservesPersonalControlLayout,
-            title: { dailyHeaderTitle(compact: false) },
+            title: { dailyHeaderTitle(compact: false, capacityWidth: titleWidth) },
             actions: { dailyHeaderActions(compact: false).disabled(isTemporaryTopDown) },
             ball: { key, diameter, height in dailyPaletteBall(key, diameter: diameter, slotHeight: height) },
             paletteMarker: { templateFrameReader("palette") })
@@ -2849,13 +2876,15 @@ private extension FreePlayView {
         dailyHeaderTitleLabel.contains("\n")
     }
 
-    @ViewBuilder func dailyHeaderTitleText(compact: Bool) -> some View {
+    @ViewBuilder func dailyHeaderTitleText(compact: Bool, capacityWidth: CGFloat? = nil) -> some View {
         if formation != nil {
-            BTTablePageTitle(pageTitle, width: 60, compact: compact, fitsLongText: true,
-                             preferredLineBreak: formation?.preferredTitleLineBreak)
+            BTTablePageTitle(pageTitle, width: capacityWidth ?? 60, compact: compact, fitsLongText: true,
+                             preferredLineBreak: formation?.preferredTitleLineBreak,
+                             maximumSingleLineUnits: capacityWidth == nil ? nil : BTTablePageTitleLayout.singleLineLimit(maximumBallCount: maximumPaletteCount))
                 .accessibilityIdentifier("formation.title")
         } else if editor != nil {
-            BTTablePageTitle(pageTitle, width: dailyHeaderTitleWidth(size: 15), compact: compact, fitsLongText: true)
+            BTTablePageTitle(pageTitle, width: capacityWidth ?? dailyHeaderTitleWidth(size: 15), compact: compact, fitsLongText: true,
+                maximumSingleLineUnits: capacityWidth == nil ? nil : BTTablePageTitleLayout.singleLineLimit(maximumBallCount: maximumPaletteCount))
                 .accessibilityIdentifier(editor?.isTryout == true ? "tryout.title" : "composer.title")
         } else {
             // An intentional line break does not trigger minimumScaleFactor.
@@ -2894,7 +2923,7 @@ private extension FreePlayView {
     }
 
     func dailyHeaderTitle(compact: Bool, showsTitle: Bool = true,
-                      preservesBaselineTextFit: Bool = false) -> some View {
+                      preservesBaselineTextFit: Bool = false, capacityWidth: CGFloat? = nil) -> some View {
         HStack(spacing: -12) {
             Button {
                 DailyLayoutProbe.record("navigation.tableBack", ["title": pageTitle, "editorCallback": editor?.onBack != nil])
@@ -2909,7 +2938,7 @@ private extension FreePlayView {
             .accessibilityLabel("返回")
             .accessibilityIdentifier("dailyClearance.back")
             if showsTitle {
-                dailyHeaderTitleText(compact: compact)
+                dailyHeaderTitleText(compact: compact, capacityWidth: capacityWidth)
                     .lineLimit(dailyHeaderTitleIsMultiline ? 2 : 1)
                     // Capacity limits fitting to the baseline's existing 2pt.
                     // Keep the original Text rasterization/fitting behavior.
@@ -2981,6 +3010,12 @@ private extension FreePlayView {
         if isRackPractice { return rackController.paletteKeys }
         return !isDailyClearance ? PositionPlayBall.allKeys : dailyPaletteGame.paletteKeys
     }
+    var maximumPaletteCount: Int {
+        if let formation { return min(15, formation.maximumPaletteCount) }
+        if isMultiBall { return multiBallController.configuration.maximumPaletteCount }
+        if isSnake { return snakeController.configuration.count }
+        return templatePaletteKeys.count
+    }
     var templatePaletteKeys: [String] { dailyPaletteKeys.filter { !PositionPlayBall.isCue($0) } }
 
     func dailyPaletteActive(_ key: String) -> Bool {
@@ -3042,6 +3077,8 @@ private extension FreePlayView {
     func dailyPaletteBall(_ key: String, diameter: CGFloat, slotWidth: CGFloat? = nil, slotHeight: CGFloat = 44) -> some View {
         let actionKey = formation?.paletteActionKey(key) ?? key
         let onTable = vm.onTableKeys.contains(actionKey)
+        let selected = !(isMultiBall && multiBallController.isPlanning) && onTable
+            && (isSnake ? snakeController.targetKey == key : vm.selectedTargetKey == actionKey)
         let quantity = formation?.isTemplateEditor == false ? (formation?.paletteCount(key) ?? 0) : 0
         return Button {
             editor?.onInteraction()
@@ -3060,9 +3097,9 @@ private extension FreePlayView {
             } else if !isRackPractice { flash("这颗球已进袋", tone: .warning) }
         } label: {
             PoolBallFace(key: key, diameter: diameter)
-                .opacity(formation != nil ? (formation?.toolsActive == true || onTable ? 1 : 0.25) : (editablePalette ? (onTable ? 0.3 : 1) : (onTable ? 1 : 0.25)))
+                .opacity(selected ? 1 : formation != nil ? (formation?.toolsActive == true || onTable ? 1 : 0.25) : (editablePalette ? (onTable ? 0.3 : 1) : (onTable ? 1 : 0.25)))
                 .overlay(Circle().stroke(BallRoleStyle.current.color, lineWidth: 2)
-                    .padding(-1).opacity(!(isMultiBall && multiBallController.isPlanning) && onTable && (isSnake ? snakeController.targetKey == key : vm.selectedTargetKey == actionKey) ? 1 : 0))
+                    .padding(-1).opacity(selected ? 1 : 0))
                 .overlay {
                     if isMultiBall, multiBallController.isPlanning, onTable,
                        let role = (0..<3).first(where: { multiBallController.roleKey($0) == actionKey }) {

@@ -583,7 +583,6 @@ final class AimPointSceneQuizViewModel: TeachingCameraHost {
 
 struct AimPointSceneTrainingView: View {
     @Environment(\.scenePhase) private var scenePhase
-    @State private var showErrorInfo = false
     @State private var editingControlLayout = false
     @State private var scenePausedBeforeLayout = false
     @State private var observingCamera = false
@@ -678,8 +677,8 @@ struct AimPointSceneTrainingView: View {
         .statusBarHidden(showingTable && UIDevice.current.userInterfaceIdiom != .pad)
         .onChange(of: vm.phase) { _, phase in
             if phase == .showingResult, let score = vm.lastScore {
-                resultNotices.show(score.grade + " · " + answerDeviationText, tone: .info, priority: .ruling)
-            } else { resultNotices.clear(); showErrorInfo = false }
+                resultNotices.show("评级：" + score.grade + " · " + answerDeviationText, tone: .info, priority: .ruling)
+            } else { resultNotices.clear() }
         }
         .onChange(of: vm.showSettings) { _, showing in if showing { resultNotices.clear() } }
         .onDisappear { resultNotices.clear() }
@@ -743,28 +742,36 @@ struct AimPointSceneTrainingView: View {
 
     private func tableTemplate(size: CGSize, safe: CGFloat) -> some View {
         let side = max(4, safe)
+        let informationWidth = Self.informationWidth
         let keys = vm.question == nil ? [] : ["_\(vm.targetBallNumber)"]
         let halfL = vm.scene.cameraRig?.tableOuterHalfLength ?? CameraRig.defaultTableOuterHalfLength
         let halfW = vm.scene.cameraRig?.tableOuterHalfWidth ?? CameraRig.defaultTableOuterHalfWidth
         let reservation = DailyLayoutMetrics.FoundationReservation(width: size.width - 2 * side,
-            targetCount: keys.count, chineseEightBall: false, titleWidth: 112, actionWidth: 138,
+            targetCount: 1, chineseEightBall: false, titleWidth: 112, actionWidth: 138,
             prefersSeparateRow: size.height > size.width || size.height >= 600,
             separateWidth: size.width > size.height && size.height < 600 ? size.width - 2 * (side + 68) : nil)
         let f = DailyLayoutMetrics.Foundation(size: size, leadingSafeArea: safe, trailingSafeArea: safe,
             halfLength: halfL, halfWidth: halfW,
-            instrumentHeight: DailyLayoutMetrics.Controls.initialInstrumentHeight, palette: reservation)
+            instrumentHeight: DailyLayoutMetrics.Controls.initialInstrumentHeight, palette: reservation,
+            trailingContentWidth: informationWidth)
+        let informationFrame = CGRect(x: f.right.maxX - informationWidth, y: f.right.minY,
+            width: informationWidth, height: f.right.height)
         let plan = DailyLayoutMetrics.Palette(size: size, sideInset: side, table: f.table,
             targetCount: keys.count, chineseEightBall: false, obstacles: [
                 CGRect(x: side + windowControls.left, y: 0, width: 44, height: 44),
                 CGRect(x: side + windowControls.left + 32, y: 5, width: 80, height: 34),
-                CGRect(x: size.width - side - windowControls.right - 44, y: 0, width: 44, height: 44), f.left, f.right])
+                CGRect(x: size.width - side - windowControls.right - 44, y: 0, width: 44, height: 44), f.left, informationFrame], capacityCount: 1)
+        let titleWidth = BTTablePageTitleLayout.capacityWidth(title,
+            maximumBallCount: 1, legacyWidth: 80,
+            availableWidth: DailyLayoutMetrics.titleAvailableWidth(size: size, side: side,
+                windowInsets: windowControls, table: f.table, palette: plan))
         let ppm = f.table.height / CGFloat(2 * (f.rotated ? halfL : halfW))
         let instruments = BTTeachingInstrumentLayout(foundation: f)
         let teachingLayout = BTTeachingPageLayout(stageSize: f.stage.size, rotated: f.rotated,
             pointsPerMetre: ppm, instruments: instruments, spinPadPresented: false)
         return ZStack(alignment: .topLeading) {
             DailyTemplateHeader(size: size, safe: safe, foundation: f, plan: plan,
-                targets: keys, chineseEightBall: false, titleWidth: 80, titleHeight: 34,
+                targets: keys, chineseEightBall: false, titleWidth: titleWidth, titleHeight: 34,
                 windowControlInsets: windowControls, fps: fps, showsDeviceStatus: !systemStatusVisible,
                 title: {
                     HStack(spacing: -12) {
@@ -772,7 +779,7 @@ struct AimPointSceneTrainingView: View {
                             Image(systemName: "chevron.left").font(.btTitle2)
                                 .frame(width: 44, height: 44).contentShape(Rectangle())
                         }.accessibilityLabel("返回").accessibilityIdentifier("aimPointTraining.back")
-                        BTTablePageTitle(title, width: 80, fitsLongText: true)
+                        BTTablePageTitle(title, width: titleWidth, fitsLongText: true, maximumSingleLineUnits: 6)
                             .accessibilityIdentifier("training.pageTitle")
                     }.fixedSize(horizontal: true, vertical: false)
                 }, actions: {
@@ -821,7 +828,7 @@ struct AimPointSceneTrainingView: View {
                 .frame(width: f.stage.width, height: f.stage.height)
                 .position(x: f.stage.midX, y: f.stage.midY)
             if is3D {
-                observationColumn.controlLayoutGroup(.camera).position(x: f.right.minX - 26, y: f.table.midY)
+                observationColumn.controlLayoutGroup(.camera).position(x: informationFrame.minX - 26, y: f.table.midY)
             }
             VStack(spacing: Spacing.xs) {
                 Text("均差").foregroundStyle(HUDStyle.labelColor)
@@ -831,23 +838,12 @@ struct AimPointSceneTrainingView: View {
                     answerLegendRow("目标", color: Color(uiColor: TrajectoryStyle.TrainingAssist.standardAimLine))
                     answerLegendRow("实际", color: Color(uiColor: TrajectoryStyle.TrainingAssist.aimLine))
                 }
-                answerInformation
-                if vm.phase == .showingResult, let score = vm.lastScore {
-                    Button { showErrorInfo = true } label: {
-                        VStack(spacing: 2) {
-                            HStack(spacing: 2) { Text(score.grade); Image(systemName: "info.circle") }
-                            Text(answerDeviationText).font(.btMicro).monospacedDigit()
-                        }.frame(minHeight: 44).contentShape(Rectangle())
-                    }.buttonStyle(.plain).accessibilityIdentifier("aimPointTraining.errorInfo")
-                    .alert("瞄准误差", isPresented: $showErrorInfo) {
-                        Button("知道了", role: .cancel) {}
-                    } message: { Text(score.explanation) }
-                }
+                answerInformation(width: informationWidth)
             }.font(.btCaption2).foregroundStyle(.white)
-                .frame(width: f.right.width)
+                .frame(width: informationWidth)
                 .controlLayoutGroup(.information)
-                .frame(width: f.right.width, height: f.right.height, alignment: .top)
-                .position(x: f.right.midX, y: f.right.midY)
+                .frame(width: informationWidth, height: f.right.height, alignment: .top)
+                .position(x: informationFrame.midX, y: informationFrame.midY)
             BTTeachingPrimaryActionColumn(layout: instruments) {
                 VStack(spacing: Spacing.sm) {
                 if vm.phase == .aiming {
@@ -941,11 +937,17 @@ struct AimPointSceneTrainingView: View {
     }
 
     private var answerDeviationText: String {
-        guard let score = vm.lastScore, score.status == .valid,
-              let millimetres = score.millimetres else { return "—" }
+        guard let deviation = answerDeviation else { return vm.lastScore?.label ?? "—" }
+        return "\(deviation.label)：\(deviation.value)"
+    }
+
+    private var answerDeviation: (label: String, value: String)? {
+        guard let score = vm.lastScore else { return nil }
+        guard score.status == .valid, let millimetres = score.millimetres,
+              millimetres.isFinite else { return nil }
         let direction = score.label.replacingOccurrences(of: "偏", with: "")
-        if direction == "一致" { return "0.0mm" }
-        return direction + String(format: "%.1fmm", abs(millimetres))
+        if direction == "一致" { return ("误差", "0.0mm") }
+        return (direction, String(format: "%.1fmm", abs(millimetres)))
     }
 
     private func answerLegendRow(_ title: String, color: Color) -> some View {
@@ -1022,7 +1024,7 @@ struct AimPointSceneTrainingView: View {
 
     private var trainingInformation: [BTTeachingInformation] {
         if let notice = resultNotices.message, vm.phase == .showingResult {
-            return [.init(text: notice.text, identifier: "aimPointTraining.resultNotice", detailText: vm.lastScore?.explanation)]
+            return [.init(text: notice.text, identifier: "aimPointTraining.resultNotice", showsSymbol: false)]
         }
         if vm.phase == .aiming, vm.showAngleHint, let question = vm.question {
             return [.init(text: "本题瞄准角：\(Int(question.actualAngle.rounded()))°", identifier: "aimPointTraining.angleHintText")]
@@ -1042,12 +1044,52 @@ struct AimPointSceneTrainingView: View {
             .accessibilityElement(children: .combine).accessibilityIdentifier("aimPointTraining.questionInfo")
     }
 
-    private var answerInformation: some View {
-        return VStack(spacing: 0) {
-            Text(vm.isRetrying ? "复练" : "作答").foregroundStyle(HUDStyle.labelColor)
-            Text(vm.isRetrying ? (vm.showAngleHint ? "辅助" : "独立") : (vm.run.assistance.isEmpty ? "独立" : "辅助"))
-        }.font(.btCaption2).monospacedDigit().foregroundStyle(.white)
-            .accessibilityElement(children: .combine).accessibilityIdentifier("aimPointTraining.answerInfo")
+    // Reserve the same columns before and after submission, so a result does
+    // not resize the table. Three integer digits + one decimal is the readout
+    // capacity template, not a fabricated score or a change to its formatter.
+    private static let informationWidth: CGFloat = {
+        let labelFont = UIFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        let numberFont = UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium)
+        let label = ["作答：", "复练：", "评级：", "误差："].map {
+            ($0 as NSString).size(withAttributes: [.font: labelFont]).width
+        }.max() ?? 0
+        let number = ("000.0mm" as NSString).size(withAttributes: [.font: numberFont]).width
+        return max(DailyLayoutMetrics.controlColumnWidth, ceil(label + number))
+    }()
+
+    private func answerInformation(width: CGFloat) -> some View {
+        let title = vm.isRetrying ? "复练" : "作答"
+        let mode = vm.isRetrying ? (vm.showAngleHint ? "辅助" : "独立") : (vm.run.assistance.isEmpty ? "独立" : "辅助")
+        return Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: Spacing.xs) {
+            answerInformationRow(title, value: mode)
+                .accessibilityIdentifier("aimPointTraining.answerInfo")
+            if vm.phase == .showingResult, let score = vm.lastScore {
+                answerInformationRow("评级", value: score.grade)
+                    .accessibilityLabel("评级：\(score.grade)，\(answerDeviationText)")
+                    .accessibilityIdentifier("aimPointTraining.result")
+                if let deviation = answerDeviation {
+                    answerInformationRow(deviation.label, value: deviation.value, valueFont: .btMicro)
+                        .accessibilityIdentifier("aimPointTraining.deviation")
+                } else {
+                    Text(score.label).font(.btMicro)
+                        .gridCellColumns(2)
+                        .accessibilityIdentifier("aimPointTraining.deviation")
+                }
+            }
+        }
+        .font(.btCaption2).monospacedDigit().foregroundStyle(.white)
+        .fixedSize(horizontal: true, vertical: true)
+        .frame(width: width, alignment: .center)
+    }
+
+    private func answerInformationRow(_ title: String, value: String,
+                                      valueFont: Font = .btCaption2) -> some View {
+        GridRow(alignment: .firstTextBaseline) {
+            Text("\(title)：").foregroundStyle(HUDStyle.labelColor).gridColumnAlignment(.trailing)
+            Text(value).font(valueFont).gridColumnAlignment(.leading)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title)：\(value)")
     }
 
     private func playingRect(size: CGSize, halfL: Double, halfW: Double, rotated: Bool) -> CGRect {

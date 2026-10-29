@@ -436,8 +436,76 @@ final class MultiBallPracticeUITests: XCTestCase {
         try capture("42-3d-free")
     }
 
+
+    func testExplicitOpening2D() throws { try explicitOpening(is3D: false) }
+    func testExplicitOpening3D() throws { try explicitOpening(is3D: true) }
+    private func explicitOpening(is3D: Bool) throws {
+        app = .launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral", "-multiBall.fixedSeed", "-pocketSelection.probe", "-v54.forceLight", is3D ? "-pro.route=multiBall3D" : "-pro.route=multiBall"])
+        ready(app.buttons["multiBall.start"])
+        let reset = app.buttons["training.resetDefaults"]; revealInSettings(reset); reset.tap()
+        let game = app.segmentedControls["multiBall.game"]
+        revealInSettings(game, down: false); game.buttons["中八残局"].tap()
+        start(); mode(is3D)
+        XCTAssertTrue((state.value as? String ?? "").contains("目标无"))
+        XCTAssertTrue((state.value as? String ?? "").contains("目标袋—"))
+        XCTAssertTrue((state.value as? String ?? "").contains("步骤0"))
+        XCTAssertFalse(try pocketProbe().contains { [5,6,7].contains($0["style"] as? Int ?? -1) })
+        try capture("opening-empty-\(is3D)")
+        let first = try XCTUnwrap(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "paletteBall__")).allElementsBoundByIndex.first { ($0.value as? String ?? "").contains("己方球") && $0.identifier != "paletteBall__8" })
+        ready(first); first.tap()
+        let key = first.identifier.replacingOccurrences(of: "paletteBall_", with: "")
+        XCTAssertTrue((state.value as? String ?? "").contains("目标\(key)，"))
+        XCTAssertTrue((state.value as? String ?? "").contains("目标袋—"))
+        XCTAssertTrue((state.value as? String ?? "").contains("步骤1"))
+        try capture("opening-ball-only-\(is3D)")
+        let chosen = try tapVisiblePlanningPocket()
+        XCTAssertFalse((state.value as? String ?? "").contains("目标袋—"))
+        XCTAssertTrue([6,7].contains(try pocketProbe().first { $0["index"] as? Int == chosen }?["style"] as? Int ?? -1))
+        XCTAssertTrue((state.value as? String ?? "").contains("步骤2"))
+        XCTAssertTrue((state.value as? String ?? "").contains("规划无"))
+        XCTAssertTrue((state.value as? String ?? "").contains("母球可摆true"))
+        try capture("opening-confirmed-\(is3D)")
+        app.buttons["multiBall.restart"].tap(); ready(app.buttons["multiBall.restart.confirm"])
+        app.buttons["multiBall.restart.confirm"].tap(); ready(app.buttons["freeplay.moreMenu"])
+        XCTAssertTrue((state.value as? String ?? "").contains("目标无"))
+        XCTAssertTrue((state.value as? String ?? "").contains("目标袋—"))
+        try capture("opening-restarted-\(is3D)")
+    }
+
     func testPlanningFlow2D() throws { try planningFlow(is3D: false) }
     func testPlanningFlow3D() throws { try planningFlow(is3D: true) }
+
+    func testPlanningFailureScoreDetails() throws {
+        app = .launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral", "-multiBall.fixedSeed", "-pocketSelection.probe", "-v54.forceLight", "-pro.route=multiBall"])
+        ready(app.buttons["multiBall.start"])
+        let reset = app.buttons["training.resetDefaults"]
+        revealInSettings(reset); reset.tap()
+        start(); mode(false)
+        _ = try tapVisiblePlanningPocket()
+        // Follow the normal missing-plan prompt before selecting the next pocket.
+        ready(app.buttons["dailyClearance.strike"]); app.buttons["dailyClearance.strike"].tap()
+        XCTAssertTrue((state.value as? String ?? "").contains("评分杆数0"))
+        _ = try tapVisiblePlanningPocket()
+        let power = app.descendants(matching: .any)["shotStage.powerBar"]
+        for _ in 0..<6 {
+            if power.value as? String == "0.50" { break }
+            power.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.1)).press(forDuration: 0.15,
+                thenDragTo: power.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.95)))
+        }
+        XCTAssertEqual(power.value as? String, "0.50")
+        ready(app.buttons["dailyClearance.strike"]); app.buttons["dailyClearance.strike"].tap()
+        let detail = app.buttons["multiBall.failure.scoreDetails"]
+        ready(detail, timeout: 60)
+        try capture("planning-failure-with-info")
+        detail.tap()
+        let alert = app.descendants(matching: .any)["scoreDetails.panel"].firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 3))
+        XCTAssertTrue(alert.staticTexts.allElementsBoundByIndex.map(\.label).joined().contains("本杆直接记0分"))
+        try verifyScoreDetails(false)
+        ready(app.buttons["multiBall.failure.retry"]); app.buttons["multiBall.failure.retry"].tap()
+        ready(app.buttons["dailyClearance.strike"])
+        XCTAssertTrue((state.value as? String ?? "").contains("评分杆数0"))
+    }
 
     private func planningFlow(is3D: Bool) throws {
         app = .launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral", "-multiBall.fixedSeed", "-pocketSelection.probe", is3D ? "-v54.forceDark" : "-v54.forceLight", is3D ? "-pro.route=multiBall3D" : "-pro.route=multiBall"])
@@ -449,6 +517,8 @@ final class MultiBallPracticeUITests: XCTestCase {
         XCTAssertTrue(picker.buttons["规划走位"].isSelected)
         try capture(is3D ? "planning-3d-settings" : "planning-2d-settings")
         start(); mode(is3D)
+        XCTAssertTrue((state.value as? String ?? "").contains("目标袋—"))
+        _ = try tapVisiblePlanningPocket()
         let plan = app.buttons["paletteBall__2"]
         ready(plan)
         XCTAssertEqual(plan.value as? String, "下一球")
@@ -491,9 +561,29 @@ final class MultiBallPracticeUITests: XCTestCase {
         try capture(is3D ? "planning-3d-result" : "planning-2d-result")
         let retry = app.buttons["multiBall.failure.retry"]
         if retry.exists {
+            ready(app.buttons["multiBall.failure.scoreDetails"]); app.buttons["multiBall.failure.scoreDetails"].tap()
+            try verifyScoreDetails(is3D)
             XCTAssertTrue((state.value as? String ?? "").contains("本杆走位 0 分"))
             retry.tap()
         } else {
+            menu()
+            let info = app.buttons["multiBall.scoreDetails"]
+            try capture(is3D ? "score-menu-top-3d" : "score-menu-top-2d")
+            for _ in 0..<5 where !info.isHittable {
+                // The modal menu's ScrollView has a valid viewport, but iOS 26
+                // reports an empty synthesized swipe hit region. Drag inside
+                // its measured visible frame, retaining the real hit-test check.
+                let viewport = app.scrollViews["dailyClearance.menuScroll"].frame.intersection(app.windows.firstMatch.frame)
+                XCTAssertGreaterThan(viewport.height, 44)
+                XCTAssertGreaterThan(viewport.width, 44)
+                let origin = app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
+                let x = viewport.midX - app.windows.firstMatch.frame.minX
+                origin.withOffset(.init(dx: x, dy: viewport.maxY - app.windows.firstMatch.frame.minY - 20))
+                    .press(forDuration: 0.15, thenDragTo: origin.withOffset(.init(dx: x,
+                        dy: viewport.minY - app.windows.firstMatch.frame.minY + 20)))
+            }
+            try capture(is3D ? "score-menu-revealed-3d" : "score-menu-revealed-2d")
+            ready(info); info.tap(); try verifyScoreDetails(is3D, expectsDirection: chosen == 4 || chosen == 5)
             XCTAssertTrue((state.value as? String ?? "").contains("目标_2，"))
             XCTAssertEqual(app.buttons["paletteBall__3"].value as? String, "下一球")
             XCTAssertEqual(app.buttons["paletteBall__9"].value as? String, "后续球")
@@ -527,11 +617,36 @@ final class MultiBallPracticeUITests: XCTestCase {
         menu(); app.buttons["multiBall.settings"].tap()
         revealInSettings(picker, down: false); picker.buttons["规划走位"].tap()
         start(); ready(plan)
+        _ = try tapVisiblePlanningPocket()
         XCTAssertEqual(plan.value as? String, "下一球")
         let newPocket = try tapVisiblePlanningPocket()
         XCTAssertTrue((state.value as? String ?? "").contains("规划_2:\(newPocket)"))
         ready(app.buttons["dailyClearance.strike"])
         try capture(is3D ? "planning-restored-3d" : "planning-restored-2d")
+    }
+
+    private func verifyScoreDetails(_ is3D: Bool, expectsDirection: Bool = false) throws {
+        let alert = app.descendants(matching: .any)["scoreDetails.panel"].firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 3))
+        let text = alert.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: "\n")
+        for label in ["角度分", "球距分", "出杆空间分", "得分"] { XCTAssertTrue(text.contains(label)) }
+        if text.contains("本杆直接记0分") {
+            // A legal pot can still leave no direct continuation to the selected pocket.
+            // Zero-score admission runs before the direction adjustment.
+            XCTAssertFalse(text.contains("分离方向系数"))
+            XCTAssertTrue(text.contains("—"))
+            XCTAssertTrue(text.contains("0.0"))
+        } else {
+            XCTAssertEqual(text.contains("分离方向系数"), expectsDirection)
+        }
+        try capture("multiBall-score-details-\(is3D)")
+        XCTAssertFalse(alert.buttons["scoreDetails.close"].exists)
+        // Tap a physical point just outside the panel; the scrim is outside the AX modal.
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: .zero)
+            .withOffset(.init(dx: alert.frame.minX - 16 - window.frame.minX,
+                              dy: alert.frame.midY - window.frame.minY)).tap()
+        XCTAssertTrue(alert.waitForNonExistence(timeout: 3))
     }
 
     private func selectionFeedback() throws -> [String: Int] {
@@ -575,6 +690,11 @@ final class MultiBallPracticeUITests: XCTestCase {
         revealInSettings(app.segmentedControls["multiBall.game"], down: false)
         app.segmentedControls["multiBall.game"].buttons["中八残局"].tap()
         choose("multiBall.ownCount", "4 颗"); start()
+        XCTAssertTrue((state.value as? String ?? "").contains("目标无"))
+        let first = try XCTUnwrap(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "paletteBall__")).allElementsBoundByIndex.first { ($0.value as? String ?? "").contains("己方球") && $0.identifier != "paletteBall__8" })
+        first.tap()
+        XCTAssertTrue((state.value as? String ?? "").contains("步骤1"))
+        _ = try tapVisiblePlanningPocket()
         let current = try XCTUnwrap((state.value as? String)?.components(separatedBy: "，目标").last?.components(separatedBy: "，").first)
         let candidates = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "paletteBall__")).allElementsBoundByIndex
         let next = try XCTUnwrap(candidates.first { ($0.value as? String ?? "").contains("己方球") && $0.identifier != "paletteBall_" + current && $0.identifier != "paletteBall__8" })

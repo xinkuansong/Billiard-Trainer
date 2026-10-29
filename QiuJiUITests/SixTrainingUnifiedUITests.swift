@@ -3,6 +3,60 @@ import XCTest
 final class SixTrainingUnifiedUITests: XCTestCase {
     private var trainingTitle = ""
 
+    func testAimTitleUsesSingleLineForOneBallCapacity() {
+        continueAfterFailure = false
+        defer { XCUIDevice.shared.orientation = .portrait }
+        for mode in ["2D瞄准点", "3D瞄准点"] {
+            let app = open(mode)
+            app.buttons["aimPointTraining.start"].tap(); app.selectTrainingView(trainingTitle)
+            ready(app.buttons["aimPointTraining.submit"])
+            let title = app.descendants(matching: .any).matching(identifier: "training.pageTitle").firstMatch
+            XCTAssertEqual(title.label, "瞄准点练习")
+            XCTAssertLessThan(title.frame.height, 25, "One-ball capacity must use the new single-line policy")
+            XCTAssertGreaterThan(title.frame.width, 60)
+            XCTAssertTrue(app.frame.contains(title.frame))
+            let palette = app.descendants(matching: .any).matching(identifier: "aimPointTraining.palette").firstMatch
+            XCTAssertFalse(title.frame.intersects(palette.frame))
+            capture("title-capacity-r2-" + mode)
+            app.terminate()
+        }
+    }
+
+    func testAimInformationAlignedRows() {
+        continueAfterFailure = false
+        defer { XCUIDevice.shared.orientation = .portrait }
+        for title in ["2D瞄准点", "3D瞄准点"] {
+            let app = open(title)
+            app.buttons["aimPointTraining.start"].tap(); app.selectTrainingView(trainingTitle)
+            let submit = app.buttons["aimPointTraining.submit"]
+            ready(submit)
+            let mode = app.descendants(matching: .any).matching(identifier: "aimPointTraining.answerInfo").firstMatch
+            XCTAssertEqual(mode.label, "作答：独立")
+            capture("\(title)-independent")
+            let hint = app.buttons["aimPointTraining.angleHint"]
+            ready(hint); hint.tap()
+            XCTAssertEqual(mode.label, "作答：辅助")
+            submit.tap(); ready(app.buttons["aimPointTraining.next"])
+            let result = app.descendants(matching: .any).matching(identifier: "aimPointTraining.result").firstMatch
+            let deviation = app.descendants(matching: .any).matching(identifier: "aimPointTraining.deviation").firstMatch
+            XCTAssertTrue(result.label.hasPrefix("评级："))
+            XCTAssertFalse(deviation.label.contains("偏"))
+            if deviation.label.contains("mm") { XCTAssertTrue(deviation.label.contains("：")) }
+            XCTAssertTrue(app.frame.contains(mode.frame))
+            XCTAssertTrue(app.frame.contains(result.frame))
+            XCTAssertTrue(app.frame.contains(deviation.frame))
+            // Preserve one-line rows at the original 11/10 pt HUD sizes.
+            XCTAssertLessThan(mode.frame.height, 20)
+            XCTAssertLessThan(result.frame.height, 20)
+            XCTAssertLessThan(deviation.frame.height, 20)
+            capture("\(title)-aligned-result")
+            app.buttons["aimPointTraining.retry"].tap(); ready(submit)
+            XCTAssertTrue(mode.label.hasPrefix("复练："))
+            capture("\(title)-retry")
+            app.terminate()
+        }
+    }
+
     func testPracticeReviewCorePagesAndAimRetry() {
         continueAfterFailure = false
         for title in ["2D角度", "2D瞄准点", "2D准度", "3D角度", "3D瞄准点", "3D准度"] {
@@ -19,10 +73,27 @@ final class SixTrainingUnifiedUITests: XCTestCase {
                 action.tap(); ready(app.buttons["aimPointTraining.next"])
                 XCTAssertEqual(before.midY, app.buttons["aimPointTraining.next"].frame.midY, accuracy: 1)
                 capture("\(projection)-review-aim-result")
-                app.buttons["aimPointTraining.errorInfo"].tap()
-                XCTAssertTrue(app.alerts["瞄准误差"].waitForExistence(timeout: 5))
-                capture("\(projection)-review-aim-rating-info")
-                app.alerts.buttons["知道了"].tap()
+                let result = app.descendants(matching: .any).matching(identifier: "aimPointTraining.result").firstMatch
+                XCTAssertTrue(result.label.contains("评级："))
+                XCTAssertFalse(app.buttons["aimPointTraining.errorInfo"].exists)
+                let resultLabel = result.label
+                app.buttons["aimPointTraining.settings"].tap()
+                ready(app.buttons["aimPointTraining.trainingSettings"])
+                app.buttons["aimPointTraining.trainingSettings"].tap()
+                let explanation = app.staticTexts["aimPointTraining.errorExplanation"]
+                for _ in 0..<6 where !app.staticTexts["统计规则"].isHittable { app.swipeUp() }
+                ready(explanation)
+                XCTAssertTrue(app.staticTexts["评级标准"].exists)
+                XCTAssertTrue(app.staticTexts["统计规则"].exists)
+                XCTAssertFalse(app.buttons["aimPointTraining.submit"].exists)
+                capture("\(projection)-review-aim-rating-settings")
+                app.swipeUp()
+                XCTAssertTrue(app.staticTexts["误差 ≤ 2 mm 计为答对。\n正确率和平均误差仅统计每题首次作答。"].isHittable)
+                capture("\(projection)-review-aim-rating-statistics")
+                app.buttons["training.settingsCancel"].tap()
+                ready(app.buttons["aimPointTraining.next"])
+                XCTAssertEqual(result.label, resultLabel, "取消设置保留本题结果")
+                capture("\(projection)-review-aim-result-after-settings")
                 let question = app.descendants(matching: .any)["aimPointTraining.questionInfo"].label
                 ready(app.buttons["aimPointTraining.retry"]); app.buttons["aimPointTraining.retry"].tap()
                 ready(action); XCUIDevice.shared.press(.home); app.activate(); ready(action); capture("\(projection)-review-aim-retry")
@@ -864,4 +935,116 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         ready(app.buttons["angleHomeTab_练"])
     }
 
+}
+
+final class TableAimBoundaryUITests: XCTestCase {
+    func testAccuracyBoundaryAndDirectionWheel() throws { try exercise(route: "mergeAccuracy", prefix: "accuracy", primary: "accuracy.strike", tableID: "table.scene", wheel: "accuracy.aimWheel") }
+    func testAimPointBoundaryAndDirectionWheel() throws { try exercise(route: "mergeAim", prefix: "aimPointTraining", primary: "aimPointTraining.submit", tableID: "aimPointTraining.scene", wheel: "aimPointTraining.aimWheel") }
+    func testMultiBallBoundary() throws { try exercise(route: "multiBall", prefix: "multiBall", primary: "dailyClearance.strike", tableID: "table.scene") }
+    func testDailyBoundary() throws { try exercise(route: nil, prefix: "", primary: "dailyClearance.strike", tableID: "table.scene") }
+    func testAimPointPortraitBoundary() throws { try exercise(route: "mergeAim", prefix: "aimPointTraining", primary: "aimPointTraining.submit", tableID: "aimPointTraining.scene", wheel: "aimPointTraining.aimWheel", portrait: true) }
+
+    private func exercise(route: String?, prefix: String, primary: String, tableID: String, wheel: String? = nil, portrait: Bool = false) throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        var args = ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral", "-3dDrag.probe", "-dailyLayout.probe", "-trainingMerge.probe", "-multiBall.fixedSeed"]
+        if let route { args.append("-pro.route=" + route) }
+        else { args += ["-deeplink.dailyClearance", "-dailyClearance.fixture=selection", "-dailyClearance.fixtureSettled"] }
+        let app = XCUIApplication.launchClean(extraArgs: args)
+        defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
+        func node(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
+        if route != nil {
+            XCTAssertTrue(app.buttons[prefix + ".start"].waitForExistence(timeout: 30))
+            app.buttons[prefix + ".start"].tap()
+        }
+        XCUIDevice.shared.orientation = .landscapeLeft
+        // SpringBoard can retain its portrait AX frame while this app is landscape.
+        // Wait on the tested app's actual window rather than tapping window controls
+        // based on that stale orientation (which can hit the page's Back button).
+        func waitForWindow(portrait: Bool) {
+            let display = XCUIApplication(bundleIdentifier: "com.apple.springboard").frame
+            let short = min(display.width, display.height), long = max(display.width, display.height)
+            let expected = CGSize(width: portrait ? short : long, height: portrait ? long : short)
+            let window = app.windows.firstMatch
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                let frame = window.frame
+                return abs(frame.minX) < 1 && abs(frame.minY) < 1
+                    && abs(frame.width - expected.width) < 1 && abs(frame.height - expected.height) < 1
+            }, object: window)], timeout: 10), .completed, "Require the actual full-screen window in the requested orientation")
+        }
+        waitForWindow(portrait: false)
+        if route != nil {
+            let moreID = prefix == "multiBall" ? "freeplay.moreMenu" : prefix + (prefix == "aimPointTraining" ? ".settings" : ".more")
+            let more = app.buttons[moreID]
+            XCTAssertTrue(more.waitForExistence(timeout: 30)); more.tap()
+            let mode = node((prefix == "multiBall" ? "freeplay" : prefix) + ".cameraMode")
+            XCTAssertTrue(mode.waitForExistence(timeout: 5))
+            if mode.value as? String != "2D" { mode.tap() }
+            XCTAssertEqual(mode.value as? String, "2D")
+            let close = node(prefix == "multiBall" ? "dailyClearance.menuClose" : prefix + ".dismissMenu")
+            if prefix == "multiBall", !close.exists {
+                app.buttons["关闭菜单"].firstMatch.coordinate(withNormalizedOffset: .init(dx: 0.03, dy: 0.7)).tap()
+            } else { XCTAssertTrue(close.waitForExistence(timeout: 5)); close.tap() }
+            XCTAssertTrue(mode.waitForNonExistence(timeout: 5))
+        }
+        if portrait { XCUIDevice.shared.orientation = .portrait; waitForWindow(portrait: true) }
+        XCTAssertTrue(app.buttons[primary].waitForExistence(timeout: 40))
+        let table = node(tableID)
+        XCTAssertTrue(table.waitForExistence(timeout: 20))
+        func probe() throws -> [String: Any] {
+            let value = try XCTUnwrap(table.value as? String)
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(value.utf8)) as? [String: Any])
+        }
+        func samples() throws -> Int { try XCTUnwrap(probe()["ordinary2DAimSamples"] as? Int) }
+        func coordinate(_ point: CGPoint) -> XCUICoordinate {
+            let window = app.windows.firstMatch
+            return window.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x - window.frame.minX, dy: point.y - window.frame.minY))
+        }
+        func drag(_ a: CGPoint, _ b: CGPoint) { coordinate(a).press(forDuration: 0.1, thenDragTo: coordinate(b), withVelocity: .slow, thenHoldForDuration: 0.1) }
+        let bounds = try XCTUnwrap(probe()["displayedTable"] as? [Double])
+        let viewport = try XCTUnwrap(probe()["displayedViewport"] as? [Double])
+        let rect = CGRect(x: bounds[0], y: bounds[1], width: bounds[2] - bounds[0], height: bounds[3] - bounds[1])
+        let gap = viewport[0] + viewport[2] - rect.maxX
+        XCTAssertGreaterThan(gap, 1)
+        let outside = CGPoint(x: rect.maxX + min(6, gap / 2), y: rect.minY + rect.height * 0.34)
+        // A pan near a movable cue ball is a ball drag, not an aim gesture.
+        // Choose a genuinely empty start from the current production projection.
+        let balls = try XCTUnwrap(probe()["balls"] as? [[String: Any]])
+        let draggablePoints: [CGPoint] = balls.compactMap { ball in
+            guard ball["draggable"] as? Bool == true, let p = ball["screen"] as? [Double] else { return nil }
+            return CGPoint(x: viewport[0] + p[0], y: viewport[1] + p[1])
+        }
+        let candidates = [0.35, 0.55, 0.75].flatMap { y in [0.3, 0.5, 0.7].map { x in
+            CGPoint(x: rect.minX + rect.width * x, y: rect.minY + rect.height * y)
+        }}
+        let inside = try XCTUnwrap(candidates.first { p in
+            draggablePoints.allSatisfy { hypot(p.x - $0.x, p.y - $0.y) > 60 }
+        })
+        let before = try samples()
+        print("AIM_BOUNDARY_BEFORE \(route ?? "daily") \(try probe())")
+        let accuracyBefore = prefix == "accuracy" ? node("accuracy.mergeState").value as? String : nil
+        drag(outside, CGPoint(x: outside.x, y: outside.y + 30))
+        XCTAssertEqual(try samples(), before, "Floor-only drag must not nudge aim")
+        drag(outside, inside)
+        XCTAssertEqual(try samples(), before, "An outside-origin drag cannot activate after entering the table")
+        if let accuracyBefore { XCTAssertEqual(node("accuracy.mergeState").value as? String, accuracyBefore) }
+        drag(inside, CGPoint(x: outside.x, y: outside.y + 45))
+        print("AIM_BOUNDARY_AFTER \(route ?? "daily") \(try probe())")
+        XCTAssertGreaterThan(try samples(), before, "Table-origin drag remains active past the edge")
+        if let accuracyBefore { XCTAssertNotEqual(node("accuracy.mergeState").value as? String, accuracyBefore) }
+        let afterInside = try samples()
+        drag(outside, CGPoint(x: outside.x, y: outside.y + 30))
+        XCTAssertEqual(try samples(), afterInside, "A new gesture must recheck the origin")
+        if let wheel {
+            let control = node(wheel)
+            XCTAssertTrue(control.isHittable)
+            let old = prefix == "accuracy" ? node("accuracy.mergeState").value as? String : node("aimPointTraining.layoutState").value as? String
+            control.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.65)).press(forDuration: 0.1,
+                thenDragTo: control.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.35)))
+            let new = prefix == "accuracy" ? node("accuracy.mergeState").value as? String : node("aimPointTraining.layoutState").value as? String
+            XCTAssertNotNil(old); XCTAssertNotEqual(old, new, "The dedicated direction wheel remains editable")
+        }
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "aim-boundary-" + (route ?? "daily"); shot.lifetime = .keepAlways; add(shot)
+    }
 }

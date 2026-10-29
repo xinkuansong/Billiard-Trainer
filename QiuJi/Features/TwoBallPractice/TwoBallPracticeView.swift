@@ -128,7 +128,8 @@ struct TwoBallPracticeView: View {
             result.append(.init(text: questionPrompt, kind: .notice, symbol: "info.circle", identifier: "twoBall.question"))
         }
         if resultNotices.message != nil, !hidesPendingScore, vm.record?.latestShot != nil {
-            result.append(.init(text: resultNoticeText, kind: .readout, symbol: "info.circle", identifier: "twoBall.result"))
+            result.append(.init(text: resultNoticeText, kind: .readout, symbol: "info.circle", identifier: "twoBall.result",
+                detailText: vm.mode == .free ? vm.record?.latestShot?.scoreDetails : nil))
         }
         return result
     }
@@ -156,7 +157,7 @@ struct TwoBallPracticeView: View {
                 .init(id: "twoBall.finish", title: "结束练习", disabled: vm.isBusy, action: { vm.finish() })
             ], refreshTrajectory: {}, onLayoutEditingChanged: vm.layoutEditingChanged,
             layoutEditingBlocked: vm.isBusy,
-            onSpinChange: { vm.setSpin($0, $1) }, paletteKeys: vm.record?.current.map { ["_\($0.ballNumber)", "_\($0.secondBallNumber)"] } ?? [], paletteRoles: vm.paletteRoles, showsPaletteRoleNumbers: true)
+            onSpinChange: { vm.setSpin($0, $1) }, paletteKeys: vm.record?.current.map { ["_\($0.ballNumber)", "_\($0.secondBallNumber)"] } ?? [], maximumPaletteCount: 2, paletteRoles: vm.paletteRoles, showsPaletteRoleNumbers: true)
     }
     private var tablePage: some View {
         BTTeachingTablePage(vm: vm, titleLabel: vm.title, identifier: "twoBall", preferencePage: vm.preferencePage,
@@ -235,7 +236,13 @@ struct TwoBallPracticeView: View {
             sidebarMetric(vm.mode == .trajectory ? "轨迹均分" : "本题均分", value: vm.record?.currentRouteAverage(
                 excluding: hidesPendingScore ? vm.record?.latestShot?.id : nil).map { String(format: "%.1f", $0) } ?? "—",
                 identifier: "twoBall.routeAverageScore", compact: false)
-            sidebarMetric(vm.latestScoreTitle, value: latestValue, identifier: "twoBall.latestScore", compact: false)
+            if vm.mode == .free, !hidesPendingScore, let detail = vm.record?.latestShot?.scoreDetails {
+                BTScoreDetailsButton(detail: detail, identifier: "twoBall.latestScore") {
+                    sidebarMetric(vm.latestScoreTitle, value: latestValue, identifier: "twoBall.scoreValue", compact: false, showsInfo: true)
+                }
+            } else {
+                sidebarMetric(vm.latestScoreTitle, value: latestValue, identifier: "twoBall.latestScore", compact: false)
+            }
         }
     }
 
@@ -251,9 +258,12 @@ struct TwoBallPracticeView: View {
         return vm.record?.averageScore
     }
 
-    private func sidebarMetric(_ title: String, value: String, identifier: String, compact: Bool) -> some View {
+    private func sidebarMetric(_ title: String, value: String, identifier: String, compact: Bool, showsInfo: Bool = false) -> some View {
         VStack(spacing: compact ? 0 : 2) {
-            Text(title).font(.btCaption2).foregroundStyle(HUDStyle.labelColor)
+            HStack(spacing: 2) {
+                Text(title)
+                if showsInfo { Image(systemName: "info.circle").accessibilityHidden(true) }
+            }.font(.btCaption2).foregroundStyle(HUDStyle.labelColor)
             Text(value).font(.btCaption.weight(.semibold)).monospacedDigit().foregroundStyle(.white).lineLimit(1)
         }
         .accessibilityElement(children: .combine)

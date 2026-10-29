@@ -275,7 +275,18 @@ private struct FreeControlHost: ViewModifier {
     @State private var showReset = false
     @State private var deletingTemplate: FreeControlTemplate?
     @State private var menuAnchors: [String: CGRect] = [:]
-    @State private var actionTemplateID: UUID?
+    private enum TemplateActionTarget: Equatable {
+        case pageDefault
+        case personal(UUID)
+
+        var anchorID: String {
+            switch self {
+            case .pageDefault: return "default"
+            case .personal(let id): return id.uuidString
+            }
+        }
+    }
+    @State private var actionTarget: TemplateActionTarget?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var values: FreeControlValues { editing ? (draft ?? store.values(page: page, mode: mode)) : store.values(page: page, mode: mode) }
@@ -436,7 +447,7 @@ private struct FreeControlHost: ViewModifier {
                                                          y: editorToolbarTop ?? 64))
     }
     private var hasDropdown: Bool { showTemplates || showReset }
-    private func closeDropdown() { showTemplates = false; showLegacyTemplates = false; showReset = false; actionTemplateID = nil }
+    private func closeDropdown() { showTemplates = false; showLegacyTemplates = false; showReset = false; actionTarget = nil }
     private var dropdownAnchor: CGRect {
         menuAnchors[showReset ? "reset" : "templates"] ?? CGRect(origin: toolbarPoint, size: toolbarSize)
     }
@@ -452,8 +463,8 @@ private struct FreeControlHost: ViewModifier {
                       y: dropdownBelow ? dropdownAnchor.maxY + 6 : dropdownAnchor.minY - 6 - templatePanelSize.height,
                       width: width, height: templatePanelSize.height)
     }
-    private func actionMenuFrame(_ anchor: CGRect) -> CGRect {
-        let width: CGFloat = 176, height: CGFloat = 184
+    private func actionMenuFrame(_ anchor: CGRect, rowCount: Int) -> CGRect {
+        let width: CGFloat = 176, height = CGFloat(rowCount) * 44 + 8
         let right = dropdownFrame.maxX + 6
         let x = right + width <= hostFrame.width - 8 ? right : dropdownFrame.minX - 6 - width
         return CGRect(x: max(8, x), y: min(max(8, anchor.minY - 4), max(8, hostFrame.height - height - 8)),
@@ -495,26 +506,40 @@ private struct FreeControlHost: ViewModifier {
                     .frame(width: min(288, hostFrame.width - 16))
                     .onGeometryChange(for: CGSize.self) { $0.size } action: { templatePanelSize = $0 }
                     .position(x: dropdownFrame.midX, y: dropdownFrame.midY)
+                    .overlayPreferenceValue(DailyLayoutActionAnchorsKey.self) { anchors in
+                        GeometryReader { geometry in
+                            if let target = actionTarget, let anchor = anchors[target.anchorID] {
+                                templateActionMenu(target, anchor: geometry[anchor])
+                            }
+                        }
+                    }
                     .transition(.opacity)
                     .zIndex(1)
-                if let id = actionTemplateID,
-                   let template = personalTemplates.first(where: { $0.id == id }),
-                   let anchor = menuAnchors[id.uuidString] {
-                    let rect = actionMenuFrame(anchor)
-                    VStack(spacing: 0) { templateActions(template) }
-                        .buttonStyle(DailyLayoutMenuButtonStyle())
-                        .font(.btSubheadline).foregroundStyle(Color.btText).tint(.btPrimary)
-                        .padding(.vertical, 4).frame(width: rect.width, height: rect.height)
-                        .modifier(DailyLayoutEditorSurface())
-                        .position(x: rect.midX, y: rect.midY)
-                        .accessibilityElement(children: .contain)
-                        .accessibilityIdentifier("freeLayout.templateSubmenu")
-                        .zIndex(2)
-                }
             }
         }
         .coordinateSpace(name: "dailyLayoutTools")
         .onPreferenceChange(DailyLayoutMenuAnchorsKey.self) { menuAnchors = $0 }
+    }
+    private func templateActionMenu(_ target: TemplateActionTarget, anchor: CGRect) -> some View {
+        let rect = actionMenuFrame(anchor, rowCount: target == .pageDefault ? 1 : 4)
+        return VStack(spacing: 0) {
+            switch target {
+            case .pageDefault:
+                Button { useDefault() } label: { Label("使用", systemImage: "checkmark") }
+                    .accessibilityIdentifier("freeLayout.useDefault")
+            case .personal(let id):
+                if let template = personalTemplates.first(where: { $0.id == id }) {
+                    templateActions(template)
+                }
+            }
+        }
+        .buttonStyle(DailyLayoutMenuButtonStyle())
+        .font(.btSubheadline).foregroundStyle(Color.btText).tint(.btPrimary)
+        .padding(.vertical, 4).frame(width: rect.width, height: rect.height)
+        .modifier(DailyLayoutEditorSurface())
+        .position(x: rect.midX, y: rect.midY)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("freeLayout.templateSubmenu")
     }
     private func toggleToolbar() {
         toolbarOrigin = toolbarPoint
@@ -558,14 +583,18 @@ private struct FreeControlHost: ViewModifier {
                         .contentShape(Rectangle())
                 }
                 .accessibilityIdentifier("freeLayout.default")
-                Button {} label: {
-                    Image(systemName: "ellipsis").foregroundStyle(Color.btTextSecondary)
+                Button {
+                    actionTarget = actionTarget == .pageDefault ? nil : .pageDefault
+                } label: {
+                    Image(systemName: "ellipsis")
                         .frame(width: 44, height: 44).contentShape(Rectangle())
                 }
-                .buttonStyle(.plain).disabled(true)
-                .accessibilityLabel("本页默认布局，不可管理")
+                .anchorPreference(key: DailyLayoutActionAnchorsKey.self, value: .bounds) { ["default": $0] }
+                .buttonStyle(.plain)
+                .accessibilityLabel("本页默认布局，设置")
                 .accessibilityIdentifier("freeLayout.defaultActions")
             }.padding(.trailing, 4)
+                .background(actionTarget == .pageDefault ? Color.btPrimaryMuted : .clear)
             ForEach(personalTemplates) { template in
                 Divider().padding(.horizontal, 12)
                 HStack(spacing: 8) {
@@ -574,22 +603,22 @@ private struct FreeControlHost: ViewModifier {
                         Image(systemName: "pin.fill").font(.btCaption).foregroundStyle(Color.btTextSecondary)
                     }
                     Button {
-                        actionTemplateID = actionTemplateID == template.id ? nil : template.id
+                        actionTarget = actionTarget == .personal(template.id) ? nil : .personal(template.id)
                     } label: {
                         Image(systemName: "ellipsis").frame(width: 44, height: 44).contentShape(Rectangle())
                     }
-                    .modifier(DailyLayoutMenuAnchor(id: template.id.uuidString))
+                    .anchorPreference(key: DailyLayoutActionAnchorsKey.self, value: .bounds) { [template.id.uuidString: $0] }
                     .buttonStyle(.plain)
                     .accessibilityLabel(template.displayName + "，设置")
                     .accessibilityIdentifier("freeLayout.templateActions." + template.id.uuidString)
                 }
                 .padding(.leading, 12).padding(.trailing, 4).frame(minHeight: 44)
-                .background(actionTemplateID == template.id ? Color.btPrimaryMuted : .clear)
+                .background(actionTarget == .personal(template.id) ? Color.btPrimaryMuted : .clear)
                 .accessibilityElement(children: .contain).accessibilityIdentifier("freeLayout.template." + template.id.uuidString)
             }
             if store.legacyArchive?.templates.isEmpty == false || store.legacyError != nil || !unassignedTemplates.isEmpty {
                 Divider().padding(.horizontal, 12)
-                Button { showLegacyTemplates = true; actionTemplateID = nil } label: {
+                Button { showLegacyTemplates = true; actionTarget = nil } label: {
                     HStack { Text("恢复旧版模板"); Spacer(); Image(systemName: "chevron.right") }
                 }.accessibilityIdentifier("freeLayout.legacyRecovery")
             }
@@ -630,11 +659,11 @@ private struct FreeControlHost: ViewModifier {
             do {
                 try store.setPinnedLocal(template, pinned: template.pinnedAt == nil, page: page, mode: mode)
                 if sourceTemplate?.id == template.id { sourceTemplate = store.archive.templates.first { $0.id == template.id } }
-                actionTemplateID = nil
+                actionTarget = nil
             } catch { self.error = error.localizedDescription }
         } label: { Label(template.pinnedAt == nil ? "置顶" : "取消置顶", systemImage: "pin") }
             .accessibilityIdentifier("freeLayout.pinTemplate")
-        Button(role: .destructive) { actionTemplateID = nil; deletingTemplate = template } label: {
+        Button(role: .destructive) { actionTarget = nil; deletingTemplate = template } label: {
             Label("删除", systemImage: "trash").foregroundStyle(Color.red)
         }.accessibilityIdentifier("freeLayout.deleteTemplate")
     }
@@ -714,6 +743,13 @@ private struct FreeControlHost: ViewModifier {
     }
 
     private var personalTemplates: [FreeControlTemplate] { store.localTemplates(page: page, mode: mode) }
+    private func useDefault() {
+        do {
+            try store.restore(page: page, mode: mode, expectedPageRevision: revision)
+            editing = false
+        } catch { self.error = error.localizedDescription }
+    }
+
     private func use(_ template: FreeControlTemplate) {
         do {
             try store.applyLocal(template.id, page: page, mode: mode, expectedPageRevision: revision)
@@ -723,7 +759,7 @@ private struct FreeControlHost: ViewModifier {
 
     private func begin(values: FreeControlValues) {
         draft = values; selected = nil; undo = []; redo = []; templateID = UUID(); name = ""; sourceTemplate = nil
-        saveOnly = false; conflict = false; draftCreatedAt = Date(); showTemplates = false; showLegacyTemplates = false
+        saveOnly = false; conflict = false; draftCreatedAt = Date(); closeDropdown()
     }
     private func setScaleValue() {
         guard let id = selected,
@@ -826,6 +862,14 @@ private struct DailyLayoutMenuButtonStyle: ButtonStyle {
 private struct DailyLayoutMenuAnchorsKey: PreferenceKey {
     static var defaultValue: [String: CGRect] = [:]
     static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
+/// Resolve row anchors at placement time, including the dropdown transform and scroll offset.
+private struct DailyLayoutActionAnchorsKey: PreferenceKey {
+    static var defaultValue: [String: Anchor<CGRect>] = [:]
+    static func reduce(value: inout [String: Anchor<CGRect>], nextValue: () -> [String: Anchor<CGRect>]) {
         value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }

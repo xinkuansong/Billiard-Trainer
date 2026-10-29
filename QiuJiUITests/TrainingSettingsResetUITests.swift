@@ -84,15 +84,15 @@ final class TrainingSettingsResetUITests: XCTestCase {
     private func reviewHeaders(assertPlacement: Bool) {
         // One settings page per merged project; projection switching is covered on the table.
         let entries = ["2D角度", "2D瞄准点", "2D准度", "2D分离角", "2D两球走位", "2D三球走位",
-                       "2D多球走位", "蛇彩练习", "自定义球形"]
+                       "2D多球走位", "蛇彩练习", "K球练习", "自定义球形"]
         let tablet = UIDevice.current.userInterfaceIdiom == .pad
         for title in entries {
             app.switchTab(.angle)
-            let play = ["分离角", "两球", "三球", "多球"].contains { title.contains($0) }
+            let play = ["分离角", "两球", "三球", "多球", "K球"].contains { title.contains($0) }
             app.buttons["angleHomeTab_" + (play ? "打" : "练")].tap()
             trainingTitle = title
             let card = app.buttons[XCUIApplication.trainingCardTitle(title)]; reveal(card); card.tap()
-            let startID = title.contains("多球") ? "multiBall.start" : title.contains("三球") ? "threeBall.start" : title.contains("两球") ? "twoBall.start" : title.contains("分离角") ? "separation.start" : title.contains("准度") ? "accuracy.start" : title.contains("瞄准点") ? "aimPointTraining.start" : title.contains("角度") ? "angleTraining.start" : title == "蛇彩练习" ? "snake.start" : "formation.start"
+            let startID = title == "K球练习" ? "kBall.start" : title.contains("多球") ? "multiBall.start" : title.contains("三球") ? "threeBall.start" : title.contains("两球") ? "twoBall.start" : title.contains("分离角") ? "separation.start" : title.contains("准度") ? "accuracy.start" : title.contains("瞄准点") ? "aimPointTraining.start" : title.contains("角度") ? "angleTraining.start" : title == "蛇彩练习" ? "snake.start" : "formation.start"
             let start = app.buttons[startID]
             XCTAssertTrue(start.waitForExistence(timeout: 15))
             for orientation in tablet ? [UIDeviceOrientation.portrait, .landscapeLeft] : [.portrait] {
@@ -116,6 +116,38 @@ final class TrainingSettingsResetUITests: XCTestCase {
                     XCTAssertGreaterThan(start.frame.minX, heading.frame.maxX, title)
                     XCTAssertLessThanOrEqual(start.frame.maxX, app.windows.firstMatch.frame.maxX, title)
                 }
+            }
+            if assertPlacement && ["角度", "瞄准点", "准度", "分离角", "两球", "三球"].contains(where: { title.contains($0) }) {
+                let mixed = app.buttons["training.range.mixed"]
+                reveal(mixed)
+                let leading = mixed.frame.minX
+                let rowHeight = mixed.frame.height
+                let mixedY = mixed.frame.minY
+                let straight = app.buttons["training.range.straight"]
+                XCTAssertLessThan(mixedY, straight.frame.minY, "综合 precedes specific angle bands")
+                capture("aligned-\(title)-angles")
+                for field in ["cueDistance", "pocketDistance", "pockets", "railDistance"] {
+                    let row = app.buttons["training." + field]
+                    reveal(row)
+                    XCTAssertEqual(row.frame.minX, leading, accuracy: 1, "\(title): \(field)")
+                    XCTAssertEqual(row.frame.height, rowHeight, accuracy: 1, "\(title): \(field) matches angle row density")
+                    XCTAssertGreaterThanOrEqual(row.frame.height, 44)
+                }
+                capture("aligned-\(title)-conditions")
+                let conditions = app.staticTexts["training.conditions"]
+                reveal(conditions, down: false)
+                let firstCondition = app.buttons["training.cueDistance"]
+                XCTAssertLessThanOrEqual(conditions.frame.maxY, firstCondition.frame.minY + 1)
+                XCTAssertFalse(app.buttons["training.conditions"].exists)
+                let summary = firstCondition.value as? String
+                reveal(firstCondition)
+                firstCondition.coordinate(withNormalizedOffset: .init(dx: 0.65, dy: 0.5)).tap()
+                let mixedChoice = app.buttons["training.cueDistance.mixed"]
+                ready(mixedChoice)
+                // A popover above this row can cover the navigation title on iOS 26.
+                app.coordinate(withNormalizedOffset: .init(dx: 0.01, dy: 0.5)).tap()
+                XCTAssertTrue(mixedChoice.waitForNonExistence(timeout: 3))
+                XCTAssertEqual(firstCondition.value as? String, summary)
             }
             app.navigationBars.buttons.matching(NSPredicate(format: "label == '返回'")).firstMatch.tap()
             XCUIDevice.shared.orientation = .portrait

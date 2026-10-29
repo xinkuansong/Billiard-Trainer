@@ -10,7 +10,9 @@ final class SceneTrainingRulesTests: XCTestCase {
         }
         for status in [SceneAimScore.Status.backwards, .wrongSide, .missesTarget] {
             let score = SceneAimScore(status: status, millimetres: nil, straight: false)
-            XCTAssertEqual(score.grade, "差"); XCTAssertTrue(score.explanation.contains(score.label))
+            XCTAssertEqual(score.grade, "差")
+            XCTAssertNil(score.millimetres)
+            XCTAssertTrue(["方向反了", "瞄错侧", "未对准目标球"].contains(score.label))
         }
     }
 

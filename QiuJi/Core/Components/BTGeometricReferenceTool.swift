@@ -43,7 +43,7 @@ final class GeometricReferenceTool: ObservableObject {
         let sphere = SCNSphere(radius: CGFloat(BallPhysics.radius))
         sphere.segmentCount = 24
         let material = SCNMaterial()
-        material.diffuse.contents = TrajectoryStyle.TrainingAssist.centerReference.withAlphaComponent(0.65)
+        material.diffuse.contents = TrajectoryStyle.TrainingAssist.routeReference.withAlphaComponent(0.65)
         material.lightingModel = .constant
         material.writesToDepthBuffer = false
         sphere.materials = [material]
@@ -116,7 +116,7 @@ final class GeometricReferenceTool: ObservableObject {
         // Short dashes distinguish this ideal construction from centre-ball physics.
         for (a, b) in zip(route, route.dropFirst()) {
             let node = scene.addDashedLine(from: world(a), to: world(b),
-                color: TrajectoryStyle.TrainingAssist.centerReference, radius: 0.002,
+                color: TrajectoryStyle.TrainingAssist.routeReference, radius: 0.002,
                 dash: TrajectoryStyle.hintDash, gap: TrajectoryStyle.hintGap,
                 placement: .table, layer: .reference)
             node.name = "geometryReference.route"; lines.append(node)

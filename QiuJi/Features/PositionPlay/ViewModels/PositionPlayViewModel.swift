@@ -618,6 +618,8 @@ final class PositionPlayViewModel: ObservableObject {
     /// Optional practice-owned planning gate and next-shot intent. Ordinary hosts keep automatic selection.
     var practiceLockedTarget: String?
     var practiceLockedPocket: Int?
+    /// A planning host confirms its ball and pocket explicitly, independently of recommendations.
+    var practiceRequiresExplicitAim = false
     var practiceUsesPlanningRoles = false
     var practiceCanStartShot: (() -> Bool)?
     var onPracticeReadyForNextShot: (() -> Bool)?
@@ -1296,7 +1298,10 @@ final class PositionPlayViewModel: ObservableObject {
             recompute()
             if aimMode == .pocket { scene.confirmPocketSelection(at: selectedPocketIndex, emitsHaptic: false) }
         }
-        if usesAutomaticPocketFallback {
+        if practiceRequiresExplicitAim {
+            if selectedTargetKey != key { selectedPocketIndex = -1 }
+            selectedTargetKey = key
+        } else if usesAutomaticPocketFallback {
             selectedTargetKey = key
             if preferredAimMode == .pocket { selectBestPocket() }
             else if let node = scene.allBallNodes[key] { setFreeAim(toward: node.position) }
@@ -1565,6 +1570,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// Select within the host’s legal set; opted-in pages rank the complete ball/pocket pair.
     private func autoSelectTarget() {
+        guard !practiceRequiresExplicitAim else { return }
         let previousSelection = selectionSnapshot
         selectionChangeDepth += 1
         defer {
@@ -1699,6 +1705,7 @@ final class PositionPlayViewModel: ObservableObject {
             applyDailyPocket(pocket, available: directPocketAssessment(pocket) != .unavailable)
             return
         }
+        guard !practiceRequiresExplicitAim else { return }
         guard let targetKey = selectedTargetKey,
               let target = scene.allBallNodes[targetKey], !target.isHidden else { return }
         selectionChangeDepth += 1
@@ -1715,6 +1722,16 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     func refreshPracticePresentation() { updatePocketHighlights(); topDownContentRevision &+= 1 }
+
+    func clearPracticeAimSelection() {
+        guard practiceRequiresExplicitAim, !isPlaying else { return }
+        invalidatePendingPredict()
+        scene.cancelPocketSelectionFeedback()
+        selectedTargetKey = nil
+        selectedPocketIndex = -1
+        recompute()
+        refreshPracticePresentation()
+    }
 
     private func updatePocketHighlights() {
         if practiceUsesPlanningRoles {

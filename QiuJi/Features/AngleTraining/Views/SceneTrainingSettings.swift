@@ -21,7 +21,6 @@ struct SceneTrainingSettings<Batch>: View {
     @State private var showSubscription = false
     @State private var draft: SceneTrainingConfiguration
     @State private var preparing = false
-    @State private var conditionsExpanded = true
     @State private var error: String?
     @State private var generation: Task<Void, Never>?
     @State private var pendingFreePractice = false
@@ -30,6 +29,9 @@ struct SceneTrainingSettings<Batch>: View {
     @StateObject private var resetNotice = BTRuleNoticeCenter()
     private var showsAccuracyShotSettings: Bool { route.hasPrefix("accuracy") && showsSpinOptions }
     private var usesFirstShotConditions: Bool { twoBallMode != nil || route.hasPrefix("threeBallPractice") }
+    private var angleRangeDisplayOrder: [SceneTrainingConfiguration.AngleRange] {
+        [.mixed] + SceneTrainingConfiguration.AngleRange.allCases.filter { $0 != .mixed }
+    }
     private var showsReferenceSpin: Bool { showsSpinOptions && !showsAccuracyShotSettings && (twoBallMode == nil || draftMode == .trajectory) }
     init(route: String, configuration: SceneTrainingConfiguration, restarting: Bool,
          showsSpinOptions: Bool = false, strokePlayback: Binding<Bool>? = nil,
@@ -96,7 +98,7 @@ struct SceneTrainingSettings<Batch>: View {
                 }
             }
             Section(usesFirstShotConditions ? "第一杆角度范围" : "角度范围") {
-                ForEach(SceneTrainingConfiguration.AngleRange.allCases) { range in
+                ForEach(angleRangeDisplayOrder) { range in
                     Button { SceneTrainingConfiguration.toggle(range, random: .mixed, in: &draft.angleSelection) } label: {
                         HStack {
                             Text(range == .mixed ? "综合 · 0–85°" : range.label).foregroundStyle(.btText)
@@ -109,24 +111,26 @@ struct SceneTrainingSettings<Batch>: View {
                 }
             }
             Section {
-                DisclosureGroup(usesFirstShotConditions ? "第一杆球形条件" : "球形条件", isExpanded: $conditionsExpanded) {
-                    TrainingMultiSelectRow(title: "母球到目标球", identifier: "training.cueDistance",
-                        selection: $draft.cueDistanceSelection, choices: SceneTrainingConfiguration.Distance.allCases,
-                        random: .mixed, label: { $0.label(cue: true) }, summaryLabel: { $0.shortLabel })
-                    TrainingMultiSelectRow(title: "目标球到袋口", identifier: "training.pocketDistance",
-                        selection: $draft.pocketDistanceSelection, choices: SceneTrainingConfiguration.Distance.allCases,
-                        random: .mixed, label: { $0.label(cue: false) }, summaryLabel: { $0.shortLabel })
-                    TrainingMultiSelectRow(title: "目标袋类型", identifier: "training.pockets",
-                        selection: $draft.pocketSelection, choices: SceneTrainingConfiguration.Pockets.allCases,
-                        random: .mixed, label: { $0.label })
-                    TrainingMultiSelectRow(title: "目标球离库", identifier: "training.railDistance",
-                        selection: $draft.railDistanceSelection, choices: SceneTrainingConfiguration.RailDistance.allCases,
-                        random: .mixed, label: { $0.label })
-                }
+                TrainingMultiSelectRow(title: "母球到目标球", identifier: "training.cueDistance",
+                    selection: $draft.cueDistanceSelection, choices: SceneTrainingConfiguration.Distance.allCases,
+                    random: .mixed, label: { $0.label(cue: true) }, summaryLabel: { $0.shortLabel })
+                TrainingMultiSelectRow(title: "目标球到袋口", identifier: "training.pocketDistance",
+                    selection: $draft.pocketDistanceSelection, choices: SceneTrainingConfiguration.Distance.allCases,
+                    random: .mixed, label: { $0.label(cue: false) }, summaryLabel: { $0.shortLabel })
+                TrainingMultiSelectRow(title: "目标袋类型", identifier: "training.pockets",
+                    selection: $draft.pocketSelection, choices: SceneTrainingConfiguration.Pockets.allCases,
+                    random: .mixed, label: { $0.label })
+                TrainingMultiSelectRow(title: "目标球离库", identifier: "training.railDistance",
+                    selection: $draft.railDistanceSelection, choices: SceneTrainingConfiguration.RailDistance.allCases,
+                    random: .mixed, label: { $0.label })
                 explanation("母球距离按两球中心计算；距袋按目标球到有效进袋瞄点计算。半贴库指目标球表面离库不超过10厘米，贴库单独选择。")
                     .font(.btCaption).foregroundStyle(.btTextSecondary)
                     .accessibilityIdentifier("training.conditionsInfo")
+            } header: {
+                Text(usesFirstShotConditions ? "第一杆球形条件" : "球形条件")
+                    .accessibilityIdentifier("training.conditions")
             }
+            if TrainingProject.from(route: route) == .aimPoint { aimErrorExplanation }
             if showsAccuracyShotSettings { spinSection }
             if strokePlayback != nil { demonstrationSection }
             if let error {
@@ -196,6 +200,44 @@ struct SceneTrainingSettings<Batch>: View {
         }
         .onDisappear { generation?.cancel(); resetNotice.clear() }
     }
+    private var aimErrorExplanation: some View {
+        Section {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                Text("评级标准").font(.btSubheadlineSemibold)
+                VStack(spacing: Spacing.sm) {
+                    aimErrorGrade("完美", range: "≤ 0.5 mm")
+                    aimErrorGrade("很好", range: "> 0.5 且 ≤ 1 mm")
+                    aimErrorGrade("好", range: "> 1 且 ≤ 2 mm")
+                    aimErrorGrade("一般", range: "> 2 且 ≤ 5 mm")
+                    aimErrorGrade("差", range: "> 5 mm")
+                }
+                explanation("厚、薄均按误差大小评级；直球显示左或右。")
+                    .font(.btFootnote14).foregroundStyle(.btTextSecondary)
+                Divider()
+                Text("统计规则").font(.btSubheadlineSemibold)
+                explanation("误差 ≤ 2 mm 计为答对。\n正确率和平均误差仅统计每题首次作答。")
+                    .font(.btCallout)
+                explanation("方向反了、瞄错侧或未对准目标球时评为差，计为答错，不计入平均误差。")
+                    .font(.btFootnote14).foregroundStyle(.btTextSecondary)
+            }
+            .foregroundStyle(.btText)
+            .fixedSize(horizontal: false, vertical: true)
+        } header: {
+            Text("瞄准误差说明")
+                .accessibilityIdentifier("aimPointTraining.errorExplanation")
+        }
+    }
+
+    private func aimErrorGrade(_ grade: String, range: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(grade)
+            Spacer(minLength: Spacing.md)
+            Text(range).monospacedDigit().fixedSize()
+        }
+        .font(.btCallout)
+        .accessibilityElement(children: .combine)
+    }
+
     private var practiceInstructions: String {
         switch TrainingProject.from(route: route) {
         case .angle:
@@ -268,16 +310,8 @@ struct SceneTrainingSettings<Batch>: View {
             .font(.btCaption2).foregroundStyle(.btTextSecondary)
             .frame(maxWidth: .infinity, alignment: .trailing)
     }
-    @ViewBuilder
     private func explanation(_ text: String) -> some View {
-        if route.hasPrefix("accuracy") {
-            HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
-                Image(systemName: "info.circle").accessibilityHidden(true)
-                Text(text).fixedSize(horizontal: false, vertical: true)
-            }.accessibilityElement(children: .combine)
-        } else {
-            Text(text)
-        }
+        BTTrainingSettingsNote(text)
     }
     private func prepare() {
         let limiter = AngleUsageLimiter.training(route: route)
@@ -349,7 +383,7 @@ struct TrainingMultiSelectRow<Choice: Hashable & Identifiable>: View {
                 Spacer(minLength: Spacing.md)
                 Text(summary).foregroundStyle(.btPrimary).multilineTextAlignment(.trailing)
                 Image(systemName: BTIcon.chevronRight).foregroundStyle(.btPrimary)
-            }.frame(minHeight: 44).contentShape(Rectangle())
+            }.contentShape(Rectangle())
         }
         .accessibilityIdentifier(identifier).accessibilityValue(summary)
         .popover(isPresented: $expanded) {
