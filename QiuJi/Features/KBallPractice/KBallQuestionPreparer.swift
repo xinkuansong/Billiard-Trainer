@@ -8,6 +8,7 @@ enum KBallJudgement {
         case pocket = "第一球未进指定袋"
         case missingK = "未K到第二球"
         case rail = "K球库次不符"
+        case railOrder = "碰库顺序不符"
         case railFacts = "无法确认K球库次"
     }
 
@@ -69,8 +70,27 @@ enum KBallJudgement {
         if let failure = failure(events: prediction.events, complete: prediction.hasFinalTableState, pocket: pocket) {
             return failure
         }
-        guard let rail = observedRail(prediction, railID: question.railID) else { return .railFacts }
-        return rail == question.rail ? nil : .rail
+        let cue = ShotInput.cueBallName, a = ShotInput.targetBallName
+        let b = TwoBallQuestionPreparer.secondBallName
+        var afterA = false
+        var actual: [Int] = []
+        for event in prediction.events {
+            switch event.kind {
+            case .ballBall(let x, let y) where x == cue || y == cue:
+                let other = x == cue ? y : x
+                if !afterA, other == a { afterA = true }
+                else if afterA, other == b {
+                    let expected = question.railHintSegments
+                    guard expected.count == question.rail, !expected.isEmpty else { return .railFacts }
+                    return actual == expected || actual == Array(expected.dropLast()) ? nil : .railOrder
+                }
+            case .ballCushion(let ball) where afterA && ball == cue:
+                guard let index = event.cushionIndex, index >= 0 else { return .railFacts }
+                if index < 6 { actual.append(index) } // As before, pocket jaws are not main rails.
+            default: break
+            }
+        }
+        return .missingK
     }
 }
 

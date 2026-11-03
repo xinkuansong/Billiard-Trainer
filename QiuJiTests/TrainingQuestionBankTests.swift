@@ -64,6 +64,20 @@ final class TrainingQuestionBankTests: XCTestCase {
         XCTAssertEqual(AccuracyShotJudgement.evaluate(shot, pocketIndex: 0), .technicalFailure)
     }
 
+    func testResolvedSearchRouteDoesNotRelaxFinalScoringOrAllowReturnBanks() {
+        let cue = ShotInput.cueBallName, object = ShotInput.targetBallName
+        var shot = ShotPrediction(); shot.termination = .interestResolved
+        let contact = ShotEvent(time: 1, kind: .ballBall(ballA: cue, ballB: object))
+        let pot = ShotEvent(time: 3, kind: .pocket(ball: object, pocketId: "pocket_0"))
+        shot.events = [contact, .init(time: 1.8, kind: .ballCushion(ball: object), cushionIndex: 6), pot]
+        XCTAssertEqual(AccuracyShotJudgement.evaluateResolvedSearch(shot, pocketIndex: 0), .success)
+        XCTAssertEqual(AccuracyShotJudgement.evaluate(shot, pocketIndex: 0), .technicalFailure)
+        shot.events.insert(.init(time: 2, kind: .ballCushion(ball: object), cushionIndex: 0), at: 2)
+        XCTAssertEqual(AccuracyShotJudgement.evaluateResolvedSearch(shot, pocketIndex: 0), .indirect)
+        shot.termination = .timeLimit
+        XCTAssertEqual(AccuracyShotJudgement.evaluateResolvedSearch(shot, pocketIndex: 0), .technicalFailure)
+    }
+
     func testBaseProofCannotAuthorizeADifferentFixedTip() throws {
         var generator = SceneTrainingGenerator(seed: 20261020)
         let q = try XCTUnwrap(generator.question(angle: 30, side: 1, pocket: 0, cueBand: .short, pocketBand: .short))

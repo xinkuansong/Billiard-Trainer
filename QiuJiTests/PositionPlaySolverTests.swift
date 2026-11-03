@@ -90,6 +90,35 @@ final class PositionPlaySolverTests: XCTestCase {
 
     // MARK: - 情形 A：落区
 
+    func testPotRequiredRejectsMissWithoutChangingValidCatalog() {
+        let before = BoardSnapshot(onTable: [
+            PositionPlayBall.cueKey: CanvasPoint(x: 0.5, y: 0.35),
+            "_1": CanvasPoint(x: 0.5, y: 0.15)
+        ])
+        let constraint = SolveConstraint.restRegion(.circle(center: .init(x: 0.5, y: 0.25), radius: 0.4))
+        var weak = coarse
+        weak.spinXValues = [0]; weak.spinYValues = [0]
+        weak.velocityMin = 0.1; weak.velocityMax = 0.1; weak.refineEnabled = false
+        let diagnostic = PositionPlaySolver.solve(before: before, targetKey: "_1", pocket: "topCenter",
+            constraint: constraint, surfaceY: sY, params: weak)
+        XCTAssertFalse(diagnostic.isEmpty, "Exercise the actual legacy missed-pot fallback")
+        XCTAssertTrue(diagnostic.allSatisfy { !$0.potted && !$0.prediction.objectPocketed })
+        weak.allowsMissedPotFallback = false
+        XCTAssertTrue(PositionPlaySolver.solve(before: before, targetKey: "_1", pocket: "topCenter",
+            constraint: constraint, surfaceY: sY, params: weak).isEmpty)
+
+        let baseline = PositionPlaySolver.solve(before: before, targetKey: "_1", pocket: "topCenter",
+            constraint: constraint, surfaceY: sY, params: coarse)
+        var strict = coarse; strict.allowsMissedPotFallback = false
+        let actual = PositionPlaySolver.solve(before: before, targetKey: "_1", pocket: "topCenter",
+            constraint: constraint, surfaceY: sY, params: strict)
+        XCTAssertFalse(actual.isEmpty)
+        XCTAssertEqual(actual.map { [$0.shot.velocity, $0.shot.spinX, $0.shot.spinY] },
+                       baseline.filter(\.potted).map { [$0.shot.velocity, $0.shot.spinX, $0.shot.spinY] })
+        XCTAssertEqual(actual.map(\.cushionCount), baseline.filter(\.potted).map(\.cushionCount))
+        XCTAssertTrue(actual.allSatisfy { $0.prediction.hasFinalTableState && $0.prediction.simObjectPotted })
+    }
+
     func test_restRegion_pottable_landsInRegion_andSorted() {
         // 直球：cue 下、target 上、上中袋，沿 -Z 直线进袋。落区 = 覆盖大半台面的大圆。
         let before = BoardSnapshot(onTable: [
@@ -148,14 +177,18 @@ final class PositionPlaySolverTests: XCTestCase {
         // 中等大小落区：粗网格能进、但有抛光空间。
         let region = SolveRegion.circle(center: CanvasPoint(x: 0.45, y: 0.30), radius: 0.12)
 
-        var noRefine = coarse
+        // This test isolates the existing velocity polish. Separate A/B tests cover
+        // the new bounded spin reduction, where a valid easier shot may trade margin.
+        var refinement = coarse
+        refinement.preferNoSideSpin = false
+        var noRefine = refinement
         noRefine.refineEnabled = false
         let baseSol = PositionPlaySolver.solve(
             before: before, targetKey: "_1", pocket: "topCenter",
             constraint: .restRegion(region), surfaceY: sY, params: noRefine)
         let refinedSol = PositionPlaySolver.solve(
             before: before, targetKey: "_1", pocket: "topCenter",
-            constraint: .restRegion(region), surfaceY: sY, params: coarse)
+            constraint: .restRegion(region), surfaceY: sY, params: refinement)
         XCTAssertFalse(refinedSol.isEmpty, "应有解")
 
         func byCushion(_ s: [PositionPlaySolution]) -> [Int: PositionPlaySolution] {
@@ -172,7 +205,7 @@ final class PositionPlaySolverTests: XCTestCase {
         // 确定性：再跑一次，解数与最优解 margin/summary 一致。
         let again = PositionPlaySolver.solve(
             before: before, targetKey: "_1", pocket: "topCenter",
-            constraint: .restRegion(region), surfaceY: sY, params: coarse)
+            constraint: .restRegion(region), surfaceY: sY, params: refinement)
         XCTAssertEqual(again.count, refinedSol.count, "精修求解应确定性（解数一致）")
         if let a = again.first, let r = refinedSol.first {
             XCTAssertEqual(a.margin, r.margin, accuracy: 1e-4, "精修最优解 margin 应确定性")
@@ -196,10 +229,13 @@ final class PositionPlaySolverTests: XCTestCase {
             constraint: .restRegion(point), surfaceY: sY, params: coarse)
 
         XCTAssertFalse(solutions.isEmpty, "落点应至少返回最近代表解")
-        // 库少优先。
-        for i in 1..<max(1, solutions.count) {
-            XCTAssertLessThanOrEqual(solutions[i - 1].cushionCount, solutions[i].cushionCount,
-                                     "落点解列表应按吃库数升序")
+        // 命中优先；同命中状态与横塞幅度内仍按库数排序。
+        for (a, b) in zip(solutions, solutions.dropFirst()) {
+            XCTAssertFalse(!a.satisfiesConstraint && b.satisfiesConstraint, "未命中不得压过命中")
+            if a.satisfiesConstraint == b.satisfiesConstraint,
+               abs(a.shot.spinX) == abs(b.shot.spinX) {
+                XCTAssertLessThanOrEqual(a.cushionCount, b.cushionCount)
+            }
         }
         // 每桶仅一个代表。
         let cushions = solutions.map { $0.cushionCount }

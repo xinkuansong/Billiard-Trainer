@@ -103,16 +103,14 @@ enum TablePhysics {
     /// 同样的耗能体口径只保留 `pocketLinerRetention` 同量级的 0.4。呈现参数，不进裁定。
     static let railLandingRetention: Float = 0.4
 
-    /// 袋口鼻尖圆角（角袋 jaw fillet 弧）恢复系数：比整条库边橡皮"死"。
-    /// 物理依据：鼻尖是皮革/橡胶包头 + 斜面剪切接触，吸能远大于库边正撞；单冲量刚体
-    /// 反射无法表达真实球「贴着圆角卷进袋喉」的连续接触，用低恢复近似其净效果。
-    /// 标定基准（DIAG-R，`PocketBehaviorDiagTests.test_R_railFrozenCornerEntry`）：
-    /// 贴库球沿库滚向角袋应「低中力度进、大力 rattle 弹出」。扫值结果（2026-07-07，问题集合条 14）：
-    ///   0.60 → 0.6–4.0 全进、5.0+ 弹出（用户反馈：不该进的大力球也进，太松）；
-    ///   0.70 → 0.6–1.8 进、2.4+ rattle 弹出；
-    ///   0.75 → 仅 ≤1.0 进（中低力也弹，太弹）。
-    /// 取 0.70：低中力沿库球稳定进袋，中大力（≥2.4 m/s）冲袋如实被鼻尖拒绝。
-    static let pocketNoseRestitution: Float = 0.70
+    /// Production restitution for the eight corner-pocket fillet arcs.
+    /// The user adopted 0.75 on 2026-11-02 after requesting a firmer-jaw trial
+    /// from the previous 0.70 baseline. Shared by Debug and Release.
+    /// Straight jaw faces, side-pocket arcs, geometry and capture are unchanged.
+    /// This is an approved model setting, not a measured material coefficient.
+    /// Historical entry-speed windows predate capture changes; see
+    /// tasks/JAW-RESTITUTION-TRIAL-20261102.md for the decision and validation scope.
+    static let pocketNoseRestitution: Float = 0.75
 
     // MARK: 物理系数
     static let clothFriction: Float = 0.2

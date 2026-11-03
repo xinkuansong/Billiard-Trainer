@@ -218,7 +218,7 @@ final class BatchShotSolver: ObservableObject {
                 SceneStroke.strokeCircle(center: scenePoint(center, y: y),
                                          radius: Float(tol) * SolveRegion.sceneScale,
                                          color: cyan, scene: scene, into: &constraintNodes)
-            case .sector:
+            case .sector, .sampled:
                 // 批量台 draft 不进 sector；穷尽分支。
                 break
             }

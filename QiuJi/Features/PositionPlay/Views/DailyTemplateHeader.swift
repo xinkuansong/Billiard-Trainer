@@ -17,6 +17,7 @@ struct DailyTemplateHeader<Title: View, Actions: View, Ball: View, Marker: View>
     var scrollsTargets = false
     var keepsPaletteVisible = false
     var showsPalette = true
+    var trailingContent: AnyView? = nil
     @ViewBuilder var title: () -> Title
     @ViewBuilder var actions: () -> Actions
     @ViewBuilder var ball: (String, CGFloat, CGFloat) -> Ball
@@ -77,6 +78,14 @@ struct DailyTemplateHeader<Title: View, Actions: View, Ball: View, Marker: View>
             .background(paletteMarker())
             .opacity(visiblePalette ? 1 : 0).allowsHitTesting(visiblePalette).accessibilityHidden(!visiblePalette)
             .position(x: foundation.table.midX, y: y)
+            if let trailingContent, visiblePalette {
+                let start = paletteRect.maxX + Spacing.sm
+                let end = min(foundation.table.maxX, statusRect.minX - Spacing.sm)
+                // Match the palette's bottom row rather than centering in the empty header area.
+                trailingContent.frame(width: max(1, end - start), height: plan.rowHeight)
+                    .position(x: (start + end) / 2, y: y + (paletteHeight - plan.rowHeight) / 2)
+                    .allowsHitTesting(false)
+            }
             if showsPalette && plan.fits && plan.twoRows && chineseEightBall {
                 wing("_8", plan: plan)
                     .position(x: foundation.table.midX + plan.targetWidth / 2 + 4 + plan.wingWidth / 2, y: y)

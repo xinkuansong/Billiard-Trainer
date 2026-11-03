@@ -53,6 +53,19 @@ final class BreakFlowRunner: ObservableObject {
         gameOptions.first(where: { $0.game == game })?.title ?? "\(game.ballCount) 球"
     }
 
+    /// A page remembers the next rack independently of the active board.
+    static func game(forBallCount count: Int) -> RackGame {
+        gameOptions.first(where: { $0.game.ballCount == count })?.game ?? .chineseEightBall
+    }
+
+    static func gameSettingItems(selection: Binding<Int>, disabled: Bool = false) -> [DailyHUDMenuItem] {
+        gameOptions.map { option in
+            DailyHUDMenuItem(id: "break.game.\(option.game.ballCount)", title: option.title,
+                selected: game(forBallCount: selection.wrappedValue) == option.game, disabled: disabled,
+                action: { selection.wrappedValue = option.game.ballCount })
+        }
+    }
+
     /// Shared break-shot tuning, in m/s, across all break hosts.
     static let defaultBreakVelocity: Double = 10.0
     static let breakVelocityRange: ClosedRange<Double> = ShotTuning.velocityRange.lowerBound...10.0
@@ -71,6 +84,12 @@ final class BreakFlowRunner: ObservableObject {
             return "瞄准轮调方向 · 2D摆开球点 · 点「开球」散局"
         }
         return statusText
+    }
+
+    /// Quiet hosts show actionable failures, not narration of the visible animation.
+    var actionRequiredMessage: String? {
+        if simulationFailure != nil || statusText == CueStrikeAccess.unavailableMessage { return statusText }
+        return nil
     }
 
     /// 开球杆头速度 (m/s)：右侧力度柱绑定（G18）。默认 10.0，量程使用 `breakVelocityRange`。

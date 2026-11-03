@@ -241,6 +241,7 @@ final class BankKickSpinSearchEvidenceTests: XCTestCase {
             objNode.position = obj
         }
         vm.selectPocket(pocket)
+        vm.requestPrimaryAction()
         let exp2 = expectation(description: "recompute idle")
         func poll2() {
             if !vm.isSolving { exp2.fulfill(); return }

@@ -1,20 +1,37 @@
 # 多球首杆自主选择复核
 
-状态：首杆逻辑与2D流程通过；3D提示挡点击已修，最终补验及截图待回传；未提交发布。
+状态：实施、定向测试与原图复核完成；用户体验待反馈。本会话未执行Git提交或发布，未更新真机。
 
-合同见[页面卡](../table-page-adaptation/MULTI-BALL-OPENING-20261030.md)。本轮仅修改多球规划首杆的确认状态及入口；球桌尺寸、字体、HUD、角色色和评分沿用原页面。
+合同见[页面卡](../table-page-adaptation/MULTI-BALL-OPENING-20261030.md)。多球规划开局以手选球袋确认①，首袋确认后立即进入下一步；球桌尺寸、字体、HUD、角色色和评分沿用原页面。
 
-## 验证范围
+## 功能验证
 
-Mac mini、Xcode 26.2、iPhone SE 3、iOS 26.2，固定快照 `d2b26cf6c11cc53735132d6a985e2a812b1995b5a67d323e627697ade27f34ee`。最终运行 job：`multi-ball-opening-verified-r3-20261030`。
+Mac mini、Xcode 26.2、iPhone SE 3、iOS 26.2。最终job `multi-ball-opening-delivery-20261030`，源码snapshot `8058508b0f71053d6d092d7da133781a147ca94df412a08b89317c0f5a4444a9`。
 
-- 逻辑：空选择、仅球、球袋确认、改球清草稿、推荐刷新与瞄准模式切换、重开、重打、滚动承接、旧档与新档恢复、规则球序、自主模式推荐、合法多进导致计划下一球消失。
-- UI：2D/3D开局→手选球→手选袋→重开；中八完整规划选择；追分击球、重打与设置返回。
-- 图片：待核对最终2D/3D的空选择、仅球、确认、重开原图。
+- 最终30项多球逻辑、3项UI均通过：33 passed／0 failed／0 skipped。
+- 覆盖空选择、仅球、球袋确认、改球清草稿、推荐刷新、瞄准切换、重开、重打、滚动承接、旧新档恢复、规则球序、自主推荐、合法多进后的手动重选与首袋后提示切换。
+- UI覆盖2D/3D开局→选球→选袋→重开，以及失败评分明细打开/关闭/重打。
+- 之前同业务逻辑的5项推荐复用、1项合并检查点，以及中八完整规划与追分击球/重打流程通过。最后改动仅纯提示命中与步骤文案，未以旧截图替代最终原图。
+- 本地verify-gate、verify-doc-size、Swift语法及git diff --check通过；六份改动源码与最终冻结源码哈希一致。
 
-## 过程记录
+## 原图审查
 
-前两轮测试分别暴露测试筛选误含黑八、两种诊断探针覆盖的问题，已修正测试条件，保留原点击与状态断言。第三轮编译通过但临时设备容量已满，未执行测试；仅退役本任务前两轮设备后，使用相同源码重跑。r3确认36逻辑＋3UI通过，3D首袋点在提示文字上时未进入球桌回调；纯提示分支补触摸穿透，评分Button不变，同位置复验。原始失败记录均保留于 `output/multi-ball-opening-20261030/`，不把构建通过当作功能通过。
+9张最终原生图均已实际打开核对；用户截图作为改前问题基线。空选择无①角色/角色袋，选球后袋仍为空，选袋后正确显示①与目标袋并提示第二球，重开清空。纯提示不会挡住3D袋口点击，有明细的评分按钮保持可点。未发现本轮新增的文字截断、控件错位或视觉样式变化。
+
+|状态|2D|3D|
+|---|---|---|
+|开局未选择|[原图](../../output/multi-ball-opening-20261030/final-screens/opening-empty-false.png)|[原图](../../output/multi-ball-opening-20261030/final-screens/opening-empty-true.png)|
+|仅选第一球|[原图](../../output/multi-ball-opening-20261030/final-screens/opening-ball-only-false.png)|[原图](../../output/multi-ball-opening-20261030/final-screens/opening-ball-only-true.png)|
+|首球首袋已确认|[原图](../../output/multi-ball-opening-20261030/final-screens/opening-confirmed-false.png)|[原图](../../output/multi-ball-opening-20261030/final-screens/opening-confirmed-true.png)|
+|重新开始|[原图](../../output/multi-ball-opening-20261030/final-screens/opening-restarted-false.png)|[原图](../../output/multi-ball-opening-20261030/final-screens/opening-restarted-true.png)|
+
+[失败反馈与明细入口](../../output/multi-ball-opening-20261030/final-screens/planning-failure-with-info.png)。
+
+## 失败闭环与证据
+
+前两轮测试分别暴露测试筛选误含黑八、两种诊断探针覆盖的问题；修正测试条件，保留真实点击和状态断言。一次构建通过后因本任务遗留失败设备达到容量上限而未执行测试，按登记表退役后重跑。r3的3D首袋被短提示挡住，修正纯提示触摸穿透后同位置通过（FL-233）；截图审查再修旧提示短暂残留，最终33项及原图闭环。失败记录全部保留，不把构建通过当作功能通过。
+
+最终证据：`output/multi-ball-opening-20261030/delivery/`、`delivery-summary.json`、`final-source-match.json`。完整源码在`delivery-source.tar.gz`，4271文件哈希已核；原始xcresult保留，分析使用副本，导出的截图与summary单独保存。临时设备及远端构建按登记流程收尾，其他任务设备不动。
 
 ## 边界
 

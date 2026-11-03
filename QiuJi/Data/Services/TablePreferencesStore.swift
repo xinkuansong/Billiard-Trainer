@@ -4,10 +4,11 @@ import Combine
 extension TablePreferencePage {
     var fields: Set<TablePreferenceField> {
         switch self {
+        case .diamondSystem: return Set(TablePreferenceField.allCases).subtracting([.closeup, .separation])
         case .multiBallPractice, .multiBallPractice3D: return Set(TablePreferenceField.allCases)
         case .sceneAiming2D, .sceneAiming3D: return [.view3D, .grid]
-        case .separationPractice2D, .separationPractice3D, .kBallPractice2D, .kBallPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return [.view3D, .grid, .transparency]
-        case .accuracy2D, .accuracy3D: return [.view3D, .grid, .transparency, .closeup]
+        case .separationPractice2D, .separationPractice3D, .kickPractice2D, .kickPractice3D, .kBallPractice2D, .kBallPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return [.view3D, .grid, .transparency]
+        case .accuracy2D, .accuracy3D, .bankPractice2D, .bankPractice3D: return [.view3D, .grid, .transparency, .closeup]
         case .aimPointScene2D, .aimPointScene3D: return [.view3D, .grid, .closeup]
         case .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas,
              .drillDetailPreview, .drillRecordPreview: return [.view3D, .grid]

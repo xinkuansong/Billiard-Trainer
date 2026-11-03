@@ -125,7 +125,9 @@ struct KBallPracticeView: View {
                 .init(id: "kBall.finish", title: "结束练习", disabled: vm.isBusy, action: { vm.finish() })
             ], refreshTrajectory: {}, onLayoutEditingChanged: vm.layoutEditingChanged,
             layoutEditingBlocked: vm.isBusy,
-            onSpinChange: { vm.setSpin($0, $1) }, paletteKeys: vm.record?.current.map { ["_\($0.ballNumber)", "_\($0.secondBallNumber)"] } ?? [], maximumPaletteCount: 2, paletteRoles: vm.paletteRoles, showsPaletteRoleNumbers: true)
+            onSpinChange: { vm.setSpin($0, $1) }, paletteKeys: vm.record?.current.map { ["_\($0.ballNumber)", "_\($0.secondBallNumber)"] } ?? [], maximumPaletteCount: 2, paletteRoles: vm.paletteRoles, showsPaletteRoleNumbers: true,
+            headerTrailing: vm.record?.configuration.showsRailColors == true
+                ? { diameter in AnyView(PracticeRailSequence(segments: vm.record?.current?.railHintSegments ?? [], cueDiameter: diameter, identifier: "kBall.railSequence", lastRailOptional: true)) } : nil)
     }
     private var tablePage: some View {
         BTTeachingTablePage(vm: vm, titleLabel: vm.title, identifier: "kBall", preferencePage: vm.preferencePage,

@@ -1810,3 +1810,54 @@ DR-451 v8 r2补充：三球进度仅显示原字号1/15或自由题号，“题�
 DR-451 v9（2026-10-30）：用户明确“就标题居中，下面的不动”。仅将共用评分详情的ⓘ与标题作为整体水平居中；分项左对齐、分值右对齐、分隔线、15/14pt字号、220pt宽度、定位及关闭行为保持。 Changelog：DR-451 v9；证据见评分明细页面卡本轮节。
 
 FL-204三球r4补充（2026-10-30）：用户否定整列统一2pt的拥挤效果。无溢出、热区不重叠只证明可达性；原图还须核对信息分组与视觉层次，不以自动化通过代替用户体验。
+
+
+### DR-442 r3 · 多球返回选择权限（2026-10-30）
+多球当前球袋承接不再锁定，上一步可到第一袋/第一球（追分跳过球步骤）；首球编辑时点击旧后续角色按重新指定①处理，清除依赖。已完成评分/球位不变，旧lockedPocket字段仅解码兼容，不恢复宿主锁。P05锁定规则保持。Changelog：DR-442 r3；验证见MULTI-BALL-BACK-20261030。
+
+### DR-454 · K球／解球顶部库序母球
+
+Changelog：2026-11-01 v1。`BTTablePlanningControls.headerTrailing`改为可选`(CGFloat) -> AnyView`，宿主传当前`plan.diameter`；仅K球／解球使用，默认nil不变。`PracticeRailSequence.cueDiameter`与旁侧球库同径；色块下方无可见数字，完整库序AX标签保留，紧凑候选只收紧色块／间距。现行合同及验证见KICK-KBALL-FEEDBACK-20261031第三轮。
+
+DR-454 r2（2026-11-01，覆盖v1色块合同）：`PracticeRailSequence`的方块边长与`cueDiameter`相同，BTRadius.xs圆角、btSubheadlineSemibold深色居中序号；ViewThatFits仅收紧间距及块间箭头，保留母球后的箭头，不再缩小色块。API不变。验证见集中反馈卡第四轮。
+
+### FL-236／DR-454 r3 · 相邻等大提示的下沿
+2026-11-01 Changelog：K球／解球的母球及方块与球库球面下沿对齐，DailyTemplateHeader复用球库末行位置而非顶部空白中心；原生审查同时核下沿及无重叠，角色角标不作为球径尺寸基准。仅两个显式trailingContent消费者。
+
+### DR-456 · 可选末库（2026-11-01）
+PracticeRailSequence.lastRailOptional默认false；启用时仅末块四边白虚线、不加文字，保持同径／数字及下沿，AX加可选。解球N>1、K球启用；不可将解球一库标为可选。业务判题与版本见集中反馈卡第六轮。
+
+FL-238：固定宽度球桌侧栏的短要求不可直接拼入解释性括号，优先用已确认图形语义及AX；必须原图核对省略号，AX含完整文本不证明可见文本完整。
+
+
+### DR-457 · 解球首答参考与重打实际线（2026-11-01，参考部分已被r2覆盖）
+解球新题以当前杆向、中杆、默认2m/s计算完整母球灰虚线；方向变化更新，力度/打点不改变基准。首次有效保存提交后不恢复基准，重打显示最近一杆实际母球白虚线，下一题重建。2D/3D与恢复共用首答事实。K球要求文字不含“末库可选”，虚线框及AX语义保留。页面专属合同／验证见`tasks/table-page-adaptation/KICK-KBALL-FEEDBACK-20261031.md`第七轮；共享组件默认不变。
+Changelog：DR-457 v1；已应用至swiftui-design-system本条、UI-IMPLEMENTATION-SPEC及解球页面卡。
+
+
+### DR-458 · 翻袋练习与默认兼容的共享扩展（2026-11-01）
+
+`PracticeRailSequence.observedBallKey/observedBallLabel`默认母球，翻袋显式目标球；保留同球库球径、色块及下沿基准。`GeometricReferenceTool.updateForBank(identity:target:firstSegment:)`以目标球为起点、第一指定主库段中点为初值，共用1–5库拖动与快照。`BTTeachingTablePage.supplementalDetail/supplementalDetailTitle`默认nil／本题要求，显式绑定时使用`BTScoreDetailsOverlay.heading`；原评分详情默认标题和行为保持。翻袋其余功能复用双尺、打点、指定袋、短提示、设置及球桌适配。业务差异、当前原生验证和未验范围见`tasks/table-page-adaptation/BANK-PRACTICE-PLAN-20261101.md`，不以API注册代表跨页验收。
+
+### DR-452 r2 — 历史K球答案保护（2026-11-01，已被r3覆盖）
+K球所有阶段关闭中杆中力参考生成与图例，不能沿用两球／解球首答前参考规则；重打仅显示上一杆实际线路。测量与末库虚线框保留。此条替代DR-452初版的自动基准展示，不影响解球DR-457。Changelog：DR-452 r2，现行合同见K-BALL-20261029。
+
+
+## DR-459 · P05推荐落区、球下角色圈与底部动作（2026-11-01）
+
+用户确认2cm采样、同侧、切角≥5°并同时要求选中球下加圈、上一步/回放下移。P05使用`PlanThreeComfortRegion`采样ShotComfortScore（85分轮廓），有效袋口瞄准点统一用于舒适度、切角、方向和遮挡；第三球同侧及5°使用半平面裁剪。此为简化几何推荐，不承诺下一杆物理可达，也不修改三球走位原评分。`SolveRegion.sampled(SampledSolveRegion)`以世界XZ米存储裁剪网格，填充/外边界/求解SDF共用；支持不连通区域，空区域不退回旧扇形，自绘约束仍优先。
+
+`SceneStroke.roleRing(role:)`复用原多球环的几何/材质，P05与多球共用；其他页不自动开启。P05下部两动作使用`BTTeachingInstrumentLayout`和`BTHUDCompactAction`，保留原自由布局ID/动作/权限，个人布局不重置。现行范围与证据见`tasks/table-page-adaptation/P05-PLAN-THREE.md`及`tasks/ui-reviews/UR-20261101-plan-three-region.md`。
+
+### DR-452 r3／DR-457 r2 — K球保留、解球取消中杆参考（2026-11-01）
+
+用户纠正指代：K球恢复首次有效提交前中杆2m/s基准与图例；提交后及同题重打不恢复，换题重新生成。解球所有阶段关闭中杆预测，在异步计算入口前退出；调向、切视图、后台恢复及保存失败不得重新显示。两页重打实际线路、测量、判题保持。此条覆盖上文DR-452 r2与DR-457 v1的预测范围，不改共享组件默认。Changelog：DR-452 r3／DR-457 r2，合同及验证见KICK-KBALL-REFERENCE-CORRECTION-20261101。
+
+
+### DR-458 r2 · 翻袋关闭中杆中力预测（2026-11-02）
+
+按用户纠正，翻袋与解球关闭中杆中力预测，K球继续保留。翻袋主动测量、球心细线、瞄准特写、提交后真实轨迹和重打目标球路线保持；新题、换题、视角切换和关闭测量都不恢复预测。详见`tasks/table-page-adaptation/BANK-REFERENCE-REMOVAL-20261102.md`。
+
+
+### DR-460 · 两页开球玩法与静默呈现（2026-11-02）
+BTTablePlanningControls.breakGameSelection可选Binding<Int>、默认nil；显式接入才加入同款玩法子页。BreakFlowRunner.gameSettingItems只提交下一局偏好，不触发开球；actionRequiredMessage仅返回需处理错误。P05开球与解/方向尺由真实breakRunner阶段决定；正式composer与P05同左上重开/右下开球、实际停稳自动结束，其他宿主默认行为保持。Changelog：DR-460 v1，范围/验证见BREAK-UNIFICATION-20261102。

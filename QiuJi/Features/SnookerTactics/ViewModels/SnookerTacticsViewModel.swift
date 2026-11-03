@@ -8,8 +8,8 @@ import SwiftUI
 /// **目标球**（我方将合法首触的球），系统按**中八规则**推断防守对象——击打目标球后让**对方球组**
 /// （目标全色 1–7 则对方=花色 9–15，反之；对方组清空只剩 8 号则防 8 号）全部/尽量不可见。
 /// 由 `PositionPlaySolver.solveSnooker` 反解出塞/力度/瞄准，使击球后母球合法碰到目标球、不进袋、
-/// 并停在「对方球组视线被其它球挡死（完全斯诺克）或只剩长台/大切角（高难度可行解）」的位置。
-/// 结果默认显示最优解、可「下一解」翻档；塞/力度控件为只读指示器。
+/// 优先完全遮挡；否则尽量增加对手最易球的进攻难度，明确标为未完全斯诺克。
+/// 结果默认显示最优解、可「下一解」翻档；微调塞/力度后重新评估实际轨迹。
 ///
 /// 规则：台面同时存在全色与花色时**不得以 8 号为目标球**（选球拦截 + 提示，对齐
 /// `BilliardRulesEngine.legalTargetKeys` 中八首触语义）。
@@ -141,7 +141,10 @@ final class SnookerTacticsViewModel: TeachingTableHost {
     }
 
     /// 目标球已选、且推断出至少一颗对方球，方可求解。
-    var canSolve: Bool { selectedTargetKey != nil && !opponentKeys.isEmpty }
+    var canSolve: Bool {
+        guard let target = selectedTargetKey else { return false }
+        return Self.canTarget(target, onTable: onTableKeys) && !opponentKeys.isEmpty
+    }
 
     // MARK: - Published solve options (K12: UI removed; snapshot-compat only; solve always full)
 
@@ -353,6 +356,9 @@ final class SnookerTacticsViewModel: TeachingTableHost {
 
     /// 新摆上的球：若尚无目标球且该球可作合法目标（非母球、非双组在桌的 8 号），自动补为目标球。
     private func assignTargetIfNeeded(_ key: String) {
+        if let target = selectedTargetKey, !Self.canTarget(target, onTable: onTableKeys) {
+            selectedTargetKey = nil
+        }
         guard selectedTargetKey == nil, Self.canTarget(key, onTable: onTableKeys) else { return }
         selectedTargetKey = key
     }
@@ -511,7 +517,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
 
     func solve() {
         guard !isPlaying else { return }
-        guard let targetKey = selectedTargetKey else {
+        guard let targetKey = selectedTargetKey, Self.canTarget(targetKey, onTable: onTableKeys) else {
             setStatus(needsSetupHint(), kind: .failure)
             return
         }
@@ -542,7 +548,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
                 self.currentIndex = 0
                 self.adjustmentDraft = nil
                 if result.isEmpty {
-                    self.setStatus("未找到可行防守解（母球难以合法碰目标球并停稳；试着移动母球/目标球）", kind: .failure,
+                    self.setStatus("当前搜索范围未找到合法防守解，试着移动母球或目标球", kind: .failure,
                         displayText: "未找到防守解，试着移动母球或目标球")
                     self.resetParamDisplay()
                     self.refreshOverlays()
@@ -590,12 +596,14 @@ final class SnookerTacticsViewModel: TeachingTableHost {
     }
 
     private func presentDisplayedSolution(_ sol: PositionPlaySolution) {
-        adjustmentIsValid = sol.prediction.hasFinalTableState
+        let failure = PositionPlaySolver.snookerFailureReason(sol.prediction, targetKey: sol.shot.targetKey)
+        adjustmentIsValid = sol.prediction.hasFinalTableState && failure == nil
         guard acceptCompletePrediction(sol.prediction) else { return }
         velocity = sol.shot.velocity
         spinX = sol.shot.spinX
         spinY = sol.shot.spinY
-        setStatus(solutionStatus(sol), kind: .solution)
+        if let failure { setStatus(failure, kind: .failure) }
+        else { setStatus(solutionStatus(sol), kind: .solution) }
         drawTrajectory(sol.prediction, shot: sol.shot)
         updateCueStickAiming(sol.prediction)
         refreshOverlays()
@@ -787,10 +795,6 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         let before = currentSnapshot()
         let y = surfaceY
         let idx = currentIndex
-        let margin = catalog.margin
-        let satisfies = catalog.satisfiesConstraint
-        let beyondCushion = catalog.beyondCushionBudget
-        let beyondSpin = catalog.beyondSpinBudget
         let gen = solveGeneration
         isComputing = true
         isAdjustingSolution = true
@@ -815,24 +819,22 @@ final class SnookerTacticsViewModel: TeachingTableHost {
                     self.setStatus("当前参数无完整预测，请调整后重试", kind: .failure)
                     return
                 }
-                let drafted = PositionPlaySolution(
-                    shot: shot, prediction: pred,
-                    cushionCount: pred.cueCushionCount,
-                    potted: pred.simObjectPotted,
-                    margin: margin,
-                    summary: "微调 · " + ShotSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
-                        + String(format: " · %.1f m/s", shot.velocity),
-                    satisfiesConstraint: satisfies,
-                    beyondCushionBudget: beyondCushion,
-                    difficultyScore: DifficultyModel.score(
-                        spinX: shot.spinX, spinY: shot.spinY, velocity: shot.velocity),
-                    difficultyTier: DifficultyModel.tier(spinX: shot.spinX, spinY: shot.spinY),
-                    beyondSpinBudget: beyondSpin, isBankFallback: catalog.isBankFallback
-                )
-                self.adjustmentIsValid = pred.hasFinalTableState
+                let drafted = self.makeAdjustedSolution(shot: shot, prediction: pred)
                 self.adjustmentDraft = drafted
                 self.presentDisplayedSolution(drafted)
         })
+    }
+
+    private func makeAdjustedSolution(shot: PlannedShot, prediction: ShotPrediction) -> PositionPlaySolution {
+        let assessed = PositionPlaySolver.reassessSnooker(prediction, shot: shot,
+            opponentKeys: opponentKeys, surfaceY: surfaceY)
+        return PositionPlaySolution(
+            shot: shot, prediction: prediction, cushionCount: prediction.cueCushionCount,
+            potted: false, margin: assessed?.margin ?? 0,
+            summary: "微调 · " + (assessed?.summary ?? "未形成合法防守"),
+            satisfiesConstraint: assessed?.satisfiesConstraint ?? false,
+            difficultyScore: DifficultyModel.score(spinX: shot.spinX, spinY: shot.spinY, velocity: shot.velocity),
+            difficultyTier: DifficultyModel.tier(spinX: shot.spinX, spinY: shot.spinY))
     }
 
     /// 组装当前状态为「上一杆」完整上下文（击打前调用；`play()` 与单测共用同一处捕获逻辑）。
@@ -881,20 +883,7 @@ final class SnookerTacticsViewModel: TeachingTableHost {
         if solutions.indices.contains(currentIndex) {
             let catalog = solutions[currentIndex]
             if Self.shotParamsDiffer(catalog.shot, snap.shot) {
-                adjustmentDraft = PositionPlaySolution(
-                    shot: snap.shot, prediction: snap.prediction,
-                    cushionCount: snap.prediction.cueCushionCount,
-                    potted: snap.prediction.simObjectPotted,
-                    margin: catalog.margin,
-                    summary: "微调 · " + ShotSpinLabel.text(spinX: snap.shot.spinX, spinY: snap.shot.spinY)
-                        + String(format: " · %.1f m/s", snap.shot.velocity),
-                    satisfiesConstraint: catalog.satisfiesConstraint,
-                    beyondCushionBudget: catalog.beyondCushionBudget,
-                    difficultyScore: DifficultyModel.score(
-                        spinX: snap.shot.spinX, spinY: snap.shot.spinY, velocity: snap.shot.velocity),
-                    difficultyTier: DifficultyModel.tier(spinX: snap.shot.spinX, spinY: snap.shot.spinY),
-                    beyondSpinBudget: catalog.beyondSpinBudget, isBankFallback: catalog.isBankFallback
-                )
+                adjustmentDraft = makeAdjustedSolution(shot: snap.shot, prediction: snap.prediction)
                 presentDisplayedSolution(adjustmentDraft!)
             } else {
                 showSolution(at: currentIndex)

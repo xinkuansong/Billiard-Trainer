@@ -24,7 +24,6 @@ struct FreePlayView: View {
     @EnvironmentObject private var subscription: SubscriptionManager
     private let editor: PositionPlayEditorConfiguration?
     private var isFormationEditor: Bool { formation?.isTemplateEditor == true }
-    private var isFormationPractice: Bool { formation?.isTemplateEditor == false }
     private var formation: CustomFormationSession? { editor?.formation }
 
     @StateObject private var vm: PositionPlayViewModel
@@ -116,6 +115,7 @@ struct FreePlayView: View {
     private var snakeDecisionActive: Bool { isRackPractice && (showSnakeRestartConfirm || rackController.showFailureChoice) }
     private var dailyDecisionActive: Bool { dailyPresentation?.isDecision == true || snakeDecisionActive }
     @State private var showBreakPicker = false
+    @AppStorage("composer.breakGameBallCount") private var breakGameBallCount = 15
 
     #if DEBUG
     @State private var dailyHeaderAuditStep = 0
@@ -220,6 +220,7 @@ struct FreePlayView: View {
     private var isStandard: Bool { entryMode == .standard && editor == nil }
     private var isEditor: Bool { editor != nil }
     private var isManualBreakPage: Bool { isStandard || (isEditor && formation == nil) }
+    private var usesUnifiedBreakControls: Bool { isEditor && !isTryoutPage && formation == nil }
     private var editablePalette: Bool { isShotSimulation || isEditor }
     private var isTryoutPage: Bool { editor?.isTryout == true }
     private var sequenceReadOnly: Bool { isEditor && vm.isSequenceMode }
@@ -241,7 +242,7 @@ struct FreePlayView: View {
     private var templateStateDescription: String {
         let pocket = PocketDisplay.name(index: vm.selectedPocketIndex, orientation: pocketOrientation)
         let selection = "\(is3D ? "3D" : "2D")，\(aimModeLabel)模式，目标\(vm.selectedTargetKey ?? "无")，目标袋\(pocket)"
-        if isRackPractice { return "\(is3D ? "3D" : "2D")，\(aimModeLabel)，目标袋\(pocket)，目标\(vm.selectedTargetKey ?? "无")，规划\(isMultiBall ? multiBallController.plan.map { "\($0.next):\($0.pocket)" } ?? "无" : "无")，步骤\(isMultiBall ? multiBallController.planningStep.rawValue : -1)，第三球\(isMultiBall ? multiBallController.thirdKey ?? "无" : "无")，锁袋\(isMultiBall ? multiBallController.lockedCurrentPocket.map(String.init) ?? "无" : "无")，评分杆数\(isMultiBall ? multiBallController.scores.count : 0)，母球可摆\(rackController.canPlaceCue)，\(rackController.notice)，在桌\(vm.onTableKeys.joined(separator: ","))" }
+        if isRackPractice { return "\(is3D ? "3D" : "2D")，\(aimModeLabel)，目标袋\(pocket)，目标\(vm.selectedTargetKey ?? "无")，规划\(isMultiBall ? multiBallController.plan.map { "\($0.next):\($0.pocket)" } ?? "无" : "无")，步骤\(isMultiBall ? multiBallController.planningStep.rawValue : -1)，第三球\(isMultiBall ? multiBallController.thirdKey ?? "无" : "无")，评分杆数\(isMultiBall ? multiBallController.scores.count : 0)，母球可摆\(rackController.canPlaceCue)，\(rackController.notice)，在桌\(vm.onTableKeys.joined(separator: ","))" }
         if isShotSimulation {
             return selection + "，目标球\(vm.onTableKeys.filter { !PositionPlayBall.isCue($0) }.count)/2，在桌\(vm.onTableKeys.joined(separator: ","))"
         }
@@ -1410,7 +1411,7 @@ struct FreePlayView: View {
         switch dailyPresentation {
         case .aim: return "瞄准模式"
         case .trajectory: return "轨迹显示"
-        case .games: return "本局玩法"
+        case .games: return "开球玩法"
         default: return nil
         }
     }
@@ -1469,6 +1470,10 @@ struct FreePlayView: View {
                     })
             }
         case .games:
+            if usesUnifiedBreakControls {
+                return BreakFlowRunner.gameSettingItems(selection: $breakGameBallCount,
+                    disabled: vm.isPlaying || vm.isComputing || vm.breakRunner?.isBusy == true)
+            }
             return DailyClearanceGame.allCases.map { game in
                 DailyHUDMenuItem(id: "dailyClearance.game.\(game.rawValue)", title: game.displayName,
                     selected: game == dailyController.game, action: { selectDailyGame(game) })
@@ -1526,7 +1531,7 @@ struct FreePlayView: View {
                     closeDailyPresentation(); ruleNotices.clear(); vm.loadBoard(ShotSimulationView.defaultBoard)
                 }))
             } else if isDailyClearance {
-                items.append(.init(id: "dailyClearance.changeGame", title: "临时换玩法", disclosure: true, action: { dailyPresentation = .games }))
+                items.append(.init(id: "dailyClearance.changeGame", title: "开球玩法", disclosure: true, action: { dailyPresentation = .games }))
             } else if isStandard {
                 items.append(.init(id: "freeplay.clearTable", title: "清空桌面", disabled: disabled, action: {
                     closeDailyPresentation(); showClearTableConfirm = true
@@ -1551,8 +1556,14 @@ struct FreePlayView: View {
                     closeDailyPresentation(); multiBallController.nextRack()
                 }))
             }
+            if usesUnifiedBreakControls {
+                items.append(.init(id: "break.settings", title: "开球玩法",
+                    detail: BreakFlowRunner.title(for: BreakFlowRunner.game(forBallCount: breakGameBallCount)),
+                    disclosure: true, disabled: vm.isPlaying || vm.isComputing || vm.breakRunner?.isBusy == true,
+                    action: { dailyPresentation = .games }))
+            }
             items += closingEditorMenuItems(editor?.menuItems ?? [])
-            if isEditor && vm.canCycleBankAlternatives {
+            if isEditor && !vm.isBreakMode && vm.canCycleBankAlternatives {
                 items.append(.init(id: "composer.nextBankAlternative", title: "下一解", disabled: disabled, action: { closeDailyPresentation(); vm.nextBankAlternative() }))
             }
             if isStandard && rules != nil {
@@ -1580,6 +1591,7 @@ struct FreePlayView: View {
     }
 
     private var navigationStatusText: String? {
+        if usesUnifiedBreakControls, let runner = vm.breakRunner { return runner.actionRequiredMessage }
         if isDailyClearance { return dailyController.statusText }
         if is3D, vm.breakRunner?.phase == .racked, vm.breakRunner?.simulationFailure == nil {
             return "刻度轮调方向 · 拖动母球摆位"
@@ -2173,9 +2185,13 @@ private extension FreePlayView {
             }
             else if dailyDecisionActive { EmptyView() }
             else if isManualBreakPage, let runner = vm.breakRunner {
+                if usesUnifiedBreakControls {
+                    if let message = runner.actionRequiredMessage { dailyInformation(message) }
+                } else {
                 dailyInformation(isDailyClearance && !subscription.isPremium && dailyController.draft?.hasStartedChallenge != true
                     ? (dailyController.firstBreakRequiresPro ? "今日免费1局已用完 · 解锁 Pro 可继续开新局" : "每日免费1局 · 首次击球后计次")
                     : runner.statusText(isPerspective: is3D))
+                }
             } else if isStandard, rules != nil, ruleNotices.message == nil, !showSpinPad {
                 VStack(spacing: 4) {
                     gamePill
@@ -2265,7 +2281,9 @@ private extension FreePlayView {
                     else {
                         vm.cancelPowerRelease(); showSpinPad = false
                         if let runner = vm.breakRunner { runner.reRack() }
-                        else { showBreakPicker = true }
+                        else if usesUnifiedBreakControls {
+                            vm.startBreakFlow(game: BreakFlowRunner.game(forBallCount: breakGameBallCount), manualDeliver: false)
+                        } else { showBreakPicker = true }
                     }
                 }) {
                     VStack(spacing: 2) {
@@ -2282,6 +2300,7 @@ private extension FreePlayView {
                 .buttonStyle(BTHUDPressStyle())
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(editor?.isTryout == true ? "重摆" : (isManualBreakPage && vm.isBreakMode ? "重开" : "开球"))
+                .accessibilityValue(usesUnifiedBreakControls ? BreakFlowRunner.title(for: vm.breakRunner?.game ?? BreakFlowRunner.game(forBallCount: breakGameBallCount)) : "")
                 .accessibilityIdentifier(editor?.isTryout == true ? "tryout.rearrange" : (isManualBreakPage && vm.isBreakMode ? "break.rerack" : "break.entry"))
                 .disabled(templateRerackDisabled)
                 .freeControlItem(editor?.isTryout == true ? "tryout.rearrange" : (isManualBreakPage && vm.isBreakMode ? "break.rerack" : "break.entry"), name: editor?.isTryout == true ? "重摆" : "开球")
@@ -2318,7 +2337,7 @@ private extension FreePlayView {
             let actionLayout = horizontalActions
                 ? AnyLayout(HStackLayout(spacing: Spacing.xs))
                 : AnyLayout(VStackLayout(spacing: Spacing.xs))
-            let actionHeight = horizontalActions || isFormationPractice ? auxiliary : auxiliary * 2 + Spacing.xs
+            let actionHeight = horizontalActions ? auxiliary : auxiliary * 2 + Spacing.xs
             dailyActionSlot(height: actionHeight, originalTopFraction: space.docked ? 1 : (horizontalActions ? 0.5 : 1), natural: space.foundation != nil) {
                 actionLayout {
                     dailyCompactAction(isTryoutPage || sequenceReadOnly ? "上一杆" : planningBackTitle, symbol: isTryoutPage ? "backward.end" : "arrow.uturn.backward", id: "dailyClearance.undo", size: auxiliary) {
@@ -2330,7 +2349,7 @@ private extension FreePlayView {
                         else if isMultiBall && multiBallController.canGoToPreviousStep { multiBallController.goToPreviousStep() }
                         else if isRackPractice { rackController.undo() } else { vm.replayCurrent() }
                     }
-                    .disabled(vm.isPlaying || !(isTryoutPage ? vm.canGoToPreviousTryoutStep : (sequenceReadOnly ? vm.canReplayPreviousStep : (isDailyClearance ? dailyController.canUndo : (vm.canReplay || isMultiBall && multiBallController.canGoToPreviousStep)))) || isDailyResult || isTemporaryTopDown)
+                    .disabled(vm.isBreakMode || vm.isPlaying || !(isTryoutPage ? vm.canGoToPreviousTryoutStep : (sequenceReadOnly ? vm.canReplayPreviousStep : (isDailyClearance ? dailyController.canUndo : (vm.canReplay || isMultiBall && multiBallController.canGoToPreviousStep)))) || isDailyResult || isTemporaryTopDown)
                     .freeControlItem(isTryoutPage ? "tryout.previous" : (sequenceReadOnly ? "sequence.previous" : "shot.undo"),
                                      name: isTryoutPage || sequenceReadOnly ? "上一杆" : planningBackTitle)
                     if isMultiBall {
@@ -2338,19 +2357,19 @@ private extension FreePlayView {
                             enabled: !vm.isPlaying && !vm.isComputing && !isTemporaryTopDown && multiBallController.canStrike,
                             size: auxiliary, identifier: "multiBall.geometry", prepare: { vm.prepareGeometryReference() })
                             .freeControlItem("shot.replay", name: "测量")
-                    } else if !isFormationPractice {
+                    } else {
                     dailyCompactAction(isTryoutPage ? "下一杆" : (sequenceReadOnly ? "重播" : "回放"), symbol: isTryoutPage ? "forward.end" : "play.rectangle", id: "dailyClearance.playback", size: auxiliary) {
                         daily3DDiagnostics?.input(.replay)
                         vm.cancelPowerRelease()
                         if isTryoutPage { vm.moveTryoutStep(by: 1) }
                         else if sequenceReadOnly { vm.replayCurrentSequenceStep() } else { vm.replayLastShot() }
                     }
-                    .disabled(vm.isPlaying || !(isTryoutPage ? vm.canGoToNextTryoutStep : (sequenceReadOnly ? vm.canReplayCurrentStep : vm.canPlayback)) || isTemporaryTopDown)
+                    .disabled(vm.isBreakMode || vm.isPlaying || !(isTryoutPage ? vm.canGoToNextTryoutStep : (sequenceReadOnly ? vm.canReplayCurrentStep : vm.canPlayback)) || isTemporaryTopDown)
                     .freeControlItem(isTryoutPage ? "tryout.next" : (sequenceReadOnly ? "sequence.replay" : "shot.replay"),
                                      name: isTryoutPage ? "下一杆" : (sequenceReadOnly ? "重播" : "回放"))
                     }
                 }
-                .frame(width: horizontalActions && !isFormationPractice ? auxiliary * 2 + Spacing.xs : auxiliary)
+                .frame(width: horizontalActions ? auxiliary * 2 + Spacing.xs : auxiliary)
                 .controlLayoutGroup(.replay)
                 .frame(width: space.docked ? auxiliary : dailyControlColumnWidth, alignment: horizontalActions ? .trailing : .center)
             }
@@ -2391,7 +2410,7 @@ private extension FreePlayView {
             }
         }
         if isManualBreakPage, let runner = vm.breakRunner {
-            return runner.showsConfirm ? "完成" : (runner.isBusy ? "开球中" : "开球")
+            return runner.showsConfirm ? "完成" : (runner.isBusy && !usesUnifiedBreakControls ? "开球中" : "开球")
         }
         if isTryoutPage, vm.canReplay { return "重打" }
         return dailyController.isAutomaticallyBreaking ? "开球中" : (vm.isComputing ? "计算中" : "击球")
@@ -2566,11 +2585,11 @@ private extension FreePlayView {
 
     private var templateRerackDisabled: Bool {
         isDailyResult || isTemporaryTopDown || (isManualBreakPage &&
-            (vm.isPlaying || vm.isSequencePlaying || vm.isRecording || vm.breakRunner?.isBusy == true))
+            (vm.isPlaying || vm.isComputing || vm.cameraTransitionBusy || vm.isSequencePlaying || vm.isRecording || vm.breakRunner?.isBusy == true))
     }
 
     private var manualBreakNeedsConfirmation: Bool {
-        isManualBreakPage && vm.breakRunner?.showsConfirm == true
+        isManualBreakPage && !usesUnifiedBreakControls && vm.breakRunner?.showsConfirm == true
     }
 
     private var manualBreakConfirmationActions: some View {
@@ -3079,6 +3098,10 @@ private extension FreePlayView {
         let onTable = vm.onTableKeys.contains(actionKey)
         let selected = !(isMultiBall && multiBallController.isPlanning) && onTable
             && (isSnake ? snakeController.targetKey == key : vm.selectedTargetKey == actionKey)
+        // Capture the value while this view updates; reading a controller reference
+        // only inside the button label can retain an old role after reassignment.
+        let planningRole = isMultiBall && multiBallController.isPlanning && onTable
+            ? (0..<3).first(where: { multiBallController.roleKey($0) == actionKey }) : nil
         let quantity = formation?.isTemplateEditor == false ? (formation?.paletteCount(key) ?? 0) : 0
         return Button {
             editor?.onInteraction()
@@ -3101,8 +3124,7 @@ private extension FreePlayView {
                 .overlay(Circle().stroke(BallRoleStyle.current.color, lineWidth: 2)
                     .padding(-1).opacity(selected ? 1 : 0))
                 .overlay {
-                    if isMultiBall, multiBallController.isPlanning, onTable,
-                       let role = (0..<3).first(where: { multiBallController.roleKey($0) == actionKey }) {
+                    if let role = planningRole {
                         Circle().stroke(multiBallRoleTint(role), style: StrokeStyle(lineWidth: 2, dash: role == 2 ? [3, 3] : []))
                             .padding(-2)
                             .overlay(alignment: .bottomTrailing) {

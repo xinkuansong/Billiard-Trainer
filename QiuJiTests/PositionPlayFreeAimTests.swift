@@ -3960,12 +3960,12 @@ final class SharedShotReplayCameraTests: XCTestCase {
     }
 
     func testBankSolveReplayLifecycle() async throws {
-        let vm = BankShotViewModel(); vm.setupScene()
+        let vm = BankShotViewModel(); vm.setupScene(); vm.requestPrimaryAction()
         defer { vm.stopForDismissal() }
         try await waitUntil({ !vm.isSolving }, scene: vm.scene, timeout: 120)
         if !vm.hasSolution {
             for pocket in 0..<6 {
-                vm.selectPocket(pocket)
+                vm.selectPocket(pocket); vm.requestPrimaryAction()
                 try await waitUntil({ !vm.isSolving }, scene: vm.scene, timeout: 120)
                 if vm.hasSolution { break }
             }
@@ -3989,8 +3989,41 @@ final class SharedShotReplayCameraTests: XCTestCase {
             }, dismiss: vm.stopForDismissal)
     }
 
+    func testBankReplayRestoresDifferentCurrentTarget() async throws {
+        let vm = BankShotViewModel(); vm.setupScene()
+        let power = CushionReflectionSettings.power
+        defer { vm.stopForDismissal(); CushionReflectionSettings.power = power }
+        vm.toggleMode()
+        let position = try XCTUnwrap(vm.scene.targetBallNodes.first).position
+        vm.placeObstacle("_1", atWorld: nil)
+        vm.selectTarget(key: "_1")
+        vm.removeFromTable("_8")
+        let target = try XCTUnwrap(vm.scene.targetBallNodes.first)
+        vm.dragBegan(node: target); vm.handleDrag(node: target, to: position); vm.dragEnded(node: target)
+        vm.reflectionPower = 3.6
+        vm.toggleMode()
+        try await waitUntil({ !vm.isSolving }, scene: vm.scene, timeout: 120)
+        XCTAssertTrue(vm.canStrike)
+        XCTAssertEqual(vm.selectedTargetKey, "_1")
+        try await exercise(host: vm, play: vm.strike,
+            replay: {
+                vm.replaySolveShot()
+                XCTAssertEqual(vm.selectedTargetKey, "_1", "Replay uses the struck target")
+                XCTAssertTrue(vm.scene.targetBallNodes.first === target)
+            }, isPlaying: { vm.isPlaying }, stop: vm.stopStrike,
+            prepareObservation: {
+                vm.placeObstacle("_8", atWorld: nil)
+                vm.selectTarget(key: "_8")
+                XCTAssertEqual(vm.selectedTargetKey, "_8")
+            }, verifyReturned: {
+                XCTAssertEqual(vm.selectedTargetKey, "_8", "Replay returns to the current target")
+                XCTAssertTrue(vm.scene.targetBallNodes.first === vm.scene.allBallNodes["_8"])
+                XCTAssertEqual(vm.onTableObstacleKeys, ["_1"])
+            }, dismiss: vm.stopForDismissal)
+    }
+
     func testDiamondSolveReplayLifecycle() async throws {
-        let vm = DiamondSystemViewModel(); vm.setupScene()
+        let vm = DiamondSystemViewModel(); vm.setupScene(); vm.requestPrimaryAction()
         defer { vm.stopForDismissal() }
         try await waitUntil({ !vm.isSolving }, scene: vm.scene, timeout: 120)
         XCTAssertTrue(vm.canStrike)

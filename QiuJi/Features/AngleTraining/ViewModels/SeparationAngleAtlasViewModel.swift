@@ -39,7 +39,8 @@ final class SeparationAngleAtlasViewModel: TeachingTableHost {
 
     /// 左缘 8 档开关；默认全开，至少留 1 档。只挡画线，不挡并行计算。
     @Published private(set) var enabledTracks: Set<Int> = AtlasSpinTrackSelection.allEnabled
-    private var lastPaths: [[SCNVector3]] = []
+    private var lastTracks: [AtlasCushionTrack?] = []
+    @Published private(set) var cushionSelection = AtlasCushionSelection()
 
     private let solveScheduler = SolveDebounceScheduler(
         idleInterval: SolveDebounceScheduler.defaultFastInterval,
@@ -329,6 +330,12 @@ final class SeparationAngleAtlasViewModel: TeachingTableHost {
         redrawEnabledTrajectories()
     }
 
+    func selectCushionCount(_ count: Int) {
+        guard !isComputing else { return }
+        cushionSelection.select(count)
+        redrawEnabledTrajectories()
+    }
+
     // MARK: - Recompute (debounce + single-flight + last bus)
 
     private var activitySuspended = false
@@ -365,7 +372,8 @@ final class SeparationAngleAtlasViewModel: TeachingTableHost {
         guard let intent = currentIntent() else {
             isComputing = false
             statusText = "请摆好母球与目标球"
-            lastPaths = []
+            lastTracks = []
+            cushionSelection.update(maximum: 0)
             clearTrajectories()
             return
         }
@@ -381,17 +389,17 @@ final class SeparationAngleAtlasViewModel: TeachingTableHost {
 
         predictQueue.async { [weak self] in
             let t0 = CFAbsoluteTimeGetCurrent()
-            var paths = Array(repeating: [SCNVector3](), count: spins.count)
-            var incomplete = Array(repeating: false, count: spins.count)
+            var tracks = [AtlasCushionTrack?](repeating: nil, count: spins.count)
+            let resultLock = NSLock()
             DispatchQueue.concurrentPerform(iterations: spins.count) { i in
-                let pred = ShotPredictor.simulateFree(
+                let track = AtlasCushionTrack.predict(
                     cueBall: cue, aimDir: aim, velocity: v,
                     spinX: 0, spinY: spins[i],
                     surfaceY: y, balls: balls
                 )
-                incomplete[i] = !SeparationAngleAtlasGeometry.hasCompleteSlice(pred)
-                guard !incomplete[i] else { return }
-                paths[i] = SeparationAngleAtlasGeometry.pathAfterContactToFirstCueCushion(pred)
+                resultLock.lock()
+                tracks[i] = track
+                resultLock.unlock()
             }
             let ms = (CFAbsoluteTimeGetCurrent() - t0) * 1000
 #if DEBUG
@@ -407,9 +415,9 @@ final class SeparationAngleAtlasViewModel: TeachingTableHost {
                 }
                 guard self.predictGeneration == gen else { return }
                 self.isComputing = false
-                self.statusText = incomplete.contains(true)
+                self.statusText = tracks.contains(where: { $0 == nil })
                     ? "部分轨迹模拟未完成，请调整击球参数后重试" : nil
-                self.drawTrajectories(paths)
+                self.drawTrajectories(tracks)
             }
         }
     }
@@ -486,20 +494,21 @@ final class SeparationAngleAtlasViewModel: TeachingTableHost {
         scene.clearResultNodes(nodes: &trajectoryNodes)
     }
 
-    /// 仅画已勾选档的碰后轨迹；端点文字标注已退役（v15 A1），改由左缘色盘图例表达。
-    private func drawTrajectories(_ paths: [[SCNVector3]]) {
-        lastPaths = paths
+    private func drawTrajectories(_ tracks: [AtlasCushionTrack?]) {
+        lastTracks = tracks
+        cushionSelection.update(maximum: tracks.compactMap { $0?.cushionCount }.max() ?? 0)
         redrawEnabledTrajectories()
     }
 
     private func redrawEnabledTrajectories() {
         if temporaryTopDownActive { topDownContentRevision &+= 1 }
         clearTrajectories()
-        for (i, path) in lastPaths.enumerated()
-            where path.count >= 2 && enabledTracks.contains(i) {
-            scene.addDashedPolyline(
-                path,
-                color: SeparationAngleAtlasGeometry.trackColor(at: i),
+        for (index, track) in lastTracks.enumerated() where enabledTracks.contains(index) {
+            guard let track else { continue }
+            let path = track.afterContact(limit: cushionSelection.selected)
+            guard path.count >= 2 else { continue }
+            scene.addDashedPolyline(path,
+                color: SeparationAngleAtlasGeometry.trackColor(at: index),
                 radius: TrajectoryStyle.lineMain,
                 placement: .table, into: &trajectoryNodes)
         }

@@ -29,6 +29,7 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
 
     private func checkSolverCamera<VM: SolverStageHosting>(_ vm: VM) throws {
         vm.setupScene()
+        vm.requestPrimaryAction()
         waitForSolveIdle({ vm.isSolving })
         XCTAssertTrue(vm.hasSolution)
         vm.nextSolution()
@@ -482,7 +483,8 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
     /// 反射解球器：真实反解 → 捕获求解快照 → 抹除 → 恢复，逐字段一致且不重解。
     func test_reflection_solveUndo_restoresEveryField() {
         let vm = DiamondSystemViewModel()
-        vm.setupScene()   // 默认摆球即自动反解
+        vm.setupScene()
+        vm.requestPrimaryAction()   // 默认摆球后显式求解
         waitForSolveIdle({ vm.isSolving })
 
         guard vm.hasSolution, let ctx = vm.makeSolveUndo() else {
@@ -494,7 +496,7 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
         let powerBefore = ctx.struckPower
         let boardBefore = ctx.board
 
-        // 抹除当前求解状态（重置回默认，触发再求解），再恢复。
+        // 抹除当前求解状态（重置回默认，等待显式求解），再恢复。
         vm.reset()
         waitForSolveIdle({ vm.isSolving })
         vm.restoreSolve(from: ctx)
@@ -513,11 +515,13 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
     func test_bankShot_solveUndo_restoresEveryField() {
         let vm = BankShotViewModel()
         vm.setupScene()
+        vm.requestPrimaryAction()
         waitForSolveIdle({ vm.isSolving })
         // 默认袋口可能无解：逐个袋口找有解的那个。
         if !vm.hasSolution {
             for p in 0..<6 {
                 vm.selectPocket(p)
+                vm.requestPrimaryAction()
                 waitForSolveIdle({ vm.isSolving })
                 if vm.hasSolution { break }
             }
@@ -531,7 +535,7 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
         let powerBefore = ctx.struckPower
         let boardBefore = ctx.board
 
-        vm.reset()   // 复位到默认（袋口 0，触发再求解）
+        vm.reset()   // 复位到默认（袋口 0，等待显式求解）
         waitForSolveIdle({ vm.isSolving })
         vm.restoreSolve(from: ctx)
 
@@ -543,6 +547,7 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
         XCTAssertEqual(ctx2.solutions.count, solCountBefore, "解集计数应往返一致")
         XCTAssertEqual(ctx2.currentIndex, idxBefore, "当前解档位应还原")
         XCTAssertEqual(ctx2.pocket, pocketBefore, "袋口应还原（快照）")
-        assertSceneBoardEqual(ctx2.board, boardBefore, "翻袋球形")
+        XCTAssertEqual(ctx2.board.targetKey, boardBefore.targetKey)
+        assertSceneBoardEqual(ctx2.board.poses, boardBefore.poses, "翻袋球形")
     }
 }

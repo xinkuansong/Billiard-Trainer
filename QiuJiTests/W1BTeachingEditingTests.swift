@@ -187,8 +187,17 @@ final class W1BTeachingEditingTests: XCTestCase {
     }
 
     func testBankAndDiamondCatalogSelectionIsRealAndInvalidSelectionIsIgnored() {
-        let bank = BankShotViewModel(); bank.setupScene(); idle { bank.isSolving }
-        for pocket in 0..<6 where bank.solutionCount < 2 { bank.selectPocket(pocket); idle { bank.isSolving } }
+        let savedPower = CushionReflectionSettings.power
+        defer { CushionReflectionSettings.power = savedPower }
+        // A fixed real three-route fixture; selection coverage must not depend on
+        // the speed persisted by a preceding replay test or on a default board.
+        let bank = BankShotViewModel(); bank.setupScene()
+        let y = bank.scene.surfaceY + BallPhysics.radius
+        bank.scene.cueBallNode?.position = SCNVector3(-0.5, y, -0.2)
+        bank.scene.targetBallNodes.first?.position = SCNVector3(0.1, y, 0.1)
+        bank.reflectionPower = 3.6
+        bank.selectPocket(1)
+        bank.requestPrimaryAction(); idle { bank.isSolving }
         XCTAssertGreaterThan(bank.solutionCount, 1)
         let lastBank = bank.solutionCount - 1
         bank.selectSolution(at: lastBank); XCTAssertEqual(bank.currentIndex, lastBank)
@@ -196,7 +205,7 @@ final class W1BTeachingEditingTests: XCTestCase {
         XCTAssertTrue(bank.statusText.hasPrefix("解 \(lastBank + 1)/"))
         XCTAssertFalse(bank.statusText.contains("容错"))
         bank.stopForDismissal()
-        let diamond = DiamondSystemViewModel(); diamond.setupScene(); idle { diamond.isSolving }
+        let diamond = DiamondSystemViewModel(); diamond.setupScene(); diamond.reflectionPower = 3.6; diamond.requestPrimaryAction(); idle { diamond.isSolving }
         XCTAssertGreaterThan(diamond.solutionCount, 1)
         let lastDiamond = diamond.solutionCount - 1
         diamond.selectSolution(at: lastDiamond); XCTAssertEqual(diamond.currentIndex, lastDiamond)
@@ -207,7 +216,7 @@ final class W1BTeachingEditingTests: XCTestCase {
     }
 
     func testTemporaryViewBlocksReplayEvenWhenSolveReplayExists() {
-        let vm = BankShotViewModel(); vm.setupScene(); idle { vm.isSolving }
+        let vm = BankShotViewModel(); vm.setupScene(); vm.requestPrimaryAction(); idle { vm.isSolving }
         XCTAssertTrue(vm.canStrike)
         vm.strike(); XCTAssertTrue(vm.isPlaying)
         vm.stopStrike(); XCTAssertTrue(vm.canReplaySolve)

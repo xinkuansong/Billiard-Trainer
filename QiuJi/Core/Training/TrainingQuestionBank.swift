@@ -298,6 +298,13 @@ enum AccuracyShotJudgement {
     enum Outcome: String, Codable { case success, missed, wrongPocket, scratch, indirect, technicalFailure }
     static func evaluate(_ prediction: ShotPrediction, pocketIndex: Int) -> Outcome {
         guard prediction.hasFinalTableState else { return .technicalFailure }
+        return evaluateResolvedSearch(prediction, pocketIndex: pocketIndex)
+    }
+
+    /// Search may stop after the selected pot and cue rest are resolved. Its
+    /// recorded route is sufficient here; this does not certify a final table.
+    static func evaluateResolvedSearch(_ prediction: ShotPrediction, pocketIndex: Int) -> Outcome {
+        guard prediction.hasResolvedSearchState else { return .technicalFailure }
         let cue = ShotInput.cueBallName, target = ShotInput.targetBallName
         if prediction.pocketedBalls.contains(cue) || prediction.cuePocketed { return .scratch }
         var contact = false

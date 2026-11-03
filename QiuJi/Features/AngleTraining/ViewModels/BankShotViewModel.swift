@@ -37,7 +37,7 @@ final class BankShotViewModel: ObservableObject {
         activitySuspended = true
         resumeAdjustment = isAdjustingSolution
         resumeSolve = isSolving && !isAdjustingSolution
-        solveTask?.cancel()
+        cancelSolve()
         playbackFinishTask?.cancel()
         adjustGeneration += 1
         endTemporaryTopDown()
@@ -67,6 +67,15 @@ final class BankShotViewModel: ObservableObject {
 
     // MARK: - Published state
 
+    @Published private(set) var selectedTargetKey: String? = "_8"
+
+    /// Current target identity travels with every board restoration.
+    struct BoardSnapshot {
+        var targetKey: String = "_8"
+        var poses: [String: BallRestState] = [:]
+        var isEmpty: Bool { poses.isEmpty }
+    }
+
     /// 当前选定的袋口（与 `AngleSceneCalculator.pocketPositions` 索引一致）。
     @Published private(set) var selectedPocket: Int = 0
     /// nil = 自动（好打优先全库数）；否则为用户指定库数。
@@ -81,7 +90,7 @@ final class BankShotViewModel: ObservableObject {
     /// 扰动容错（E5 同款「容错 N%」；nil = 该解未测出容错）。
     @Published private(set) var currentRobustnessPercent: Int? = nil
     @Published private(set) var hasSolution: Bool = false
-    /// 拖动中：只清线不重算（求解在拖球结束触发），pill 隐藏。
+    /// 拖动中：只清线不重算（松手后自动求解），pill 隐藏。
     @Published private(set) var isDragging: Bool = false
     /// 击打演示 / 自由击球回放中（W5/W6）：拖球/chips/力度柱/球库锁定。
     @Published private(set) var isPlaying: Bool = false
@@ -112,11 +121,11 @@ final class BankShotViewModel: ObservableObject {
     /// 选中解暗虚线参考（自由模式 hint token，照着练）。
     private var referenceNodes: [SCNNode] = []
     /// 最近求解快照（方案 §4.1）：每次求解成功存球位 + 袋口，供「恢复球形」。
-    private var lastSolveSnapshot: (board: [String: BallRestState], pocket: Int)?
+    private var lastSolveSnapshot: (board: BoardSnapshot, pocket: Int)?
     /// 上一杆（自由击球）：击打前球形 + 引擎预测（供上一杆 / 回放）。
-    private var lastShot: (before: [String: BallRestState], prediction: ShotPrediction, perspectiveView: CameraRig.PerspectiveState?)?
-    /// 自由模拟中目标球（黑 8）的引擎名（球名沿用 USDZ 键约定）。
-    private static let freeTargetName = "_8"
+    private var lastShot: (before: BoardSnapshot, prediction: ShotPrediction, perspectiveView: CameraRig.PerspectiveState?)?
+    /// Free simulation uses the actual ball key, including after a target change.
+    private var freeTargetName: String { selectedTargetKey ?? "_8" }
 
     /// 求解模式「上一杆」完整上下文（G17，条 17.5）：击打（演示）前的**完整求解状态**——
     /// 球形 + 袋口 + 库数 + 已求出的全部解（缓存回填，免重解）+ 当前解档位 + 力度。页面特有
@@ -126,7 +135,7 @@ final class BankShotViewModel: ObservableObject {
     struct SolveUndoContext {
         var perspectiveView: CameraRig.PerspectiveState? = nil
         var rails = PocketRailSnapshot()
-        var board: [String: BallRestState]
+        var board: BoardSnapshot
         var pocket: Int
         var cushions: Int?
         var solutions: [BankEngineSolution]
@@ -138,6 +147,8 @@ final class BankShotViewModel: ObservableObject {
         var struckSpinX: Double
         var struckSpinY: Double
         var struckPrediction: ShotPrediction
+        var attemptedSolve = true
+        var struckSolution: BankEngineSolution? = nil
     }
     private var lastSolveUndo: SolveUndoContext?
     /// 恢复期抑制 `reflectionPower.didSet` 触发重求解（「上一杆」= 免重解，G17）。
@@ -158,10 +169,11 @@ final class BankShotViewModel: ObservableObject {
     private var adjustmentDraft: BankEngineSolution?
     /// Fine-tune re-predict generation (discard stale async results).
     private let adjustmentScheduler = LatestPredictionScheduler<ShotPrediction>()
+    private let solutionAdjustmentScheduler = LatestPredictionScheduler<BankEngineSolution>()
     private var adjustmentIsValid = true
     @Published private(set) var isAdjustingSolution = false
     private var adjustGeneration = 0 {
-        didSet { adjustmentScheduler.invalidate(); isAdjustingSolution = false }
+        didSet { adjustmentScheduler.invalidate(); solutionAdjustmentScheduler.invalidate(); isAdjustingSolution = false }
     }
 
     var canRestoreSnapshot: Bool { lastSolveSnapshot != nil }
@@ -176,7 +188,7 @@ final class BankShotViewModel: ObservableObject {
         didSet {
             CushionReflectionSettings.power = Float(reflectionPower)
             if isRestoringSolve || isPresentingSolution { return }
-            if mode == .solve { recompute() } else { refreshFreeAim() }
+            if mode == .solve { invalidateSolve() } else { refreshFreeAim() }
         }
     }
 
@@ -185,8 +197,8 @@ final class BankShotViewModel: ObservableObject {
 
     // MARK: - Obstacles（W4 球库带：拖入 = 真实碰撞体，方案 §4.3）
 
-    /// 球库可拖入的障碍球键（目标球固定黑 8，`_8` 不进球库）。
-    static let paletteKeys: [String] = PositionPlayBall.objectKeys.filter { $0 != "_8" }
+    /// Every numbered ball may be placed; the current target cannot be duplicated.
+    static let paletteKeys: [String] = PositionPlayBall.objectKeys
 
     /// 在桌障碍球（名序稳定，供求解装配与球库变暗）。
     @Published private(set) var onTableObstacleKeys: [String] = []
@@ -201,8 +213,66 @@ final class BankShotViewModel: ObservableObject {
     private var displayed: [BankEngineSolution] = []
     /// 引擎反解后台求解任务（并行全枚举较重，需离开主线程并去抖）。
     private var solveTask: Task<Void, Never>?
+    private var automaticSolveTask: Task<Void, Never>?
+    private(set) var solveCancellation: PredictionCancellation?
+    private func cancelSolve() {
+        automaticSolveTask?.cancel()
+        automaticSolveTask = nil
+        solveCancellation?.cancel()
+        solveTask?.cancel()
+    }
+
     /// 正在后台求解（供 UI 显示加载态）。
     @Published private(set) var isSolving = false
+    @Published private(set) var hasAttemptedSolve = false
+
+    var canSolve: Bool {
+        !activitySuspended && !temporaryTopDownActive && !cameraTransitionBusy
+            && mode == .solve && !isPlaying && !isSolving && !isDragging
+            && scene.cueBallNode?.isHidden == false && scene.targetBallNodes.first?.isHidden == false
+    }
+    var primaryActionTitle: String {
+        isPlaying ? "击球中" : isSolving ? "计算中" : "击球"
+    }
+    func requestPrimaryAction() {
+        if canStrike { strike() }
+    }
+
+    /// Revoke stale results immediately; coalesce completed edits before searching.
+    func invalidateSolve(automatically: Bool = true) {
+        cancelSolve()
+        adjustGeneration += 1
+        isSolving = false
+        hasAttemptedSolve = false
+        adjustmentDraft = nil
+        adjustmentIsValid = true
+        solutions = []
+        displayed = []
+        solutionCount = 0
+        currentIndex = 0
+        currentCushions = 0
+        currentRailText = ""
+        currentRobustnessPercent = nil
+        hasSolution = false
+        simulationNotice = nil
+        clearPath()
+        scene.hideCueStick()
+        if automatically { scheduleAutomaticSolve() }
+    }
+
+    private func scheduleAutomaticSolve() {
+        guard !activitySuspended, mode == .solve, !isPlaying, !isDragging,
+              scene.cueBallNode?.isHidden == false,
+              scene.targetBallNodes.first?.isHidden == false else { return }
+        isSolving = true
+        automaticSolveTask = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(150)) } catch { return }
+            guard let self, !Task.isCancelled, !self.activitySuspended,
+                  self.mode == .solve, !self.isPlaying, !self.isDragging else { return }
+            self.isSolving = false
+            self.recompute()
+        }
+    }
     /// 解缓存（方案 §4.1）：key = 全部球位毫米 + 袋口 + 力度步进；LRU 8 条，页面退出释放。
     private var solveCache = BankKickSolveCache<BankKickSolveKey, [BankEngineSolution]>()
 
@@ -226,7 +296,8 @@ final class BankShotViewModel: ObservableObject {
         pocketMarkers = scene.addPocketMarkers()
         scene.setCameraMode(cameraMode, animated: false)
         placeBalls()
-        recompute()
+        updatePocketHighlights(confirmsSelection: false)
+        invalidateSolve()
     }
 
     /// 长库钻石刻度点（无数字）。数字标注已去掉——翻袋页不依赖钻石计数。
@@ -234,18 +305,53 @@ final class BankShotViewModel: ObservableObject {
         let y = scene.surfaceY + AngleSceneCalculator.ballRadius
         let cuePos = SCNVector3(BankShotCalculator.halfL * 0.35, y, -BankShotCalculator.halfW * 0.3)
         let objPos = SCNVector3(-BankShotCalculator.halfL * 0.05, y, BankShotCalculator.halfW * 0.4)
+        selectedTargetKey = "_8"
         scene.applyBallLayout(cueBallPosition: cuePos, targetBallNumber: 8, targetPosition: objPos)
     }
 
     // MARK: - Dragging (both balls free)
 
-    /// 拖动中只清线不重算（引擎反解重于旧追迹，拖动中连续重算无意义）；求解在拖球结束触发。
+    var selectableBalls: [SCNNode] {
+        guard !activitySuspended, !isPlaying, !isDragging else { return [] }
+        return PositionPlayBall.objectKeys.compactMap { key in
+            guard let node = scene.allBallNodes[key], !node.isHidden else { return nil }
+            return node
+        }
+    }
+
+    func selectTarget(key: String) {
+        guard !activitySuspended, !isPlaying, !isDragging,
+              PositionPlayBall.objectKeys.contains(key),
+              let node = scene.allBallNodes[key], !node.isHidden else { return }
+        guard key != selectedTargetKey else { pulseTableBall(key); return }
+        guard scene.setPrimaryTarget(key: key) else { return }
+        selectedTargetKey = key
+        onTableObstacleKeys = PositionPlayBall.objectKeys.filter {
+            $0 != key && scene.allBallNodes[$0]?.isHidden == false
+        }.sorted()
+        topDownSelectionChanged = true
+        invalidateSolve(automatically: mode == .solve)
+        scene.clearResultNodes(nodes: &referenceNodes)
+        freePreviewKey = nil
+        if mode == .free {
+            freeAimDir = defaultFreeAim()
+            refreshFreeAim()
+        } else {
+            finishGuideRefresh()
+        }
+        scene.confirmBallSelection(key: key)
+    }
+
+    func removeFromTable(_ key: String) {
+        guard key != selectedTargetKey, !PositionPlayBall.isCue(key) else { return }
+        removeObstacle(key)
+    }
+
+    /// 拖动中只清线不重算（引擎反解重于旧追迹，拖动中连续重算无意义）；松手后自动求解。
     func dragBegan(node: SCNNode) {
         TableBallPulse.beginDrag(node)
-        solveTask?.cancel()
-        isSolving = false
+        invalidateSolve(automatically: false)
         isDragging = true
-        clearPath()
     }
 
     func dragEnded(node: SCNNode) {
@@ -254,7 +360,7 @@ final class BankShotViewModel: ObservableObject {
         if mode == .free {
             refreshFreeAim()   // 自由模式拖球只刷新瞄准预览，不触发反解。
         } else {
-            recompute()
+            invalidateSolve()
         }
     }
 
@@ -304,13 +410,13 @@ final class BankShotViewModel: ObservableObject {
     /// 从球库放一颗障碍球到指定世界坐标（nil = 自动找空位）。
     func placeObstacle(_ key: String, atWorld world: SCNVector3? = nil) {
         guard !isPlaying else { return }
-        guard Self.paletteKeys.contains(key), !onTableObstacleKeys.contains(key),
+        guard Self.paletteKeys.contains(key), key != selectedTargetKey, !onTableObstacleKeys.contains(key),
               let node = scene.allBallNodes[key] else { return }
         let target = world ?? freeObstacleSlot()
         scene.showBall(key: key, scenePosition: target)
         node.position = clampMultiBall(node.position, movingNode: node)
         onTableObstacleKeys = (onTableObstacleKeys + [key]).sorted()
-        if mode == .free { refreshFreeAim() } else { recompute() }
+        if mode == .free { refreshFreeAim() } else { invalidateSolve() }
     }
 
     /// 把一颗在桌障碍球撤下回库。
@@ -318,7 +424,7 @@ final class BankShotViewModel: ObservableObject {
         guard !isPlaying, onTableObstacleKeys.contains(key) else { return }
         scene.hideBall(key: key)
         onTableObstacleKeys.removeAll { $0 == key }
-        if mode == .free { refreshFreeAim() } else { recompute() }
+        if mode == .free { refreshFreeAim() } else { invalidateSolve() }
     }
 
     /// 点在桌球的球库槽位 → 桌上对应球放大脉冲提示位置（编排台同款）。
@@ -360,7 +466,7 @@ final class BankShotViewModel: ObservableObject {
     /// Previous-shot replay returns to the current board; normal strikes keep their own settlement.
     private var replayCamera = ShotReplayCamera()
     private var freeShotPerspectiveView: CameraRig.PerspectiveState?
-    private var replayReturnBoard: [String: BallRestState]?
+    private var replayReturnBoard: BoardSnapshot?
     private var replayReturnRails = PocketRailSnapshot()
     private var replayReturnSolve: SolveUndoContext?
     private var replayReturnNeedsSolve = false
@@ -399,14 +505,14 @@ final class BankShotViewModel: ObservableObject {
         scene.targetBallNodes.first?.isHidden = true
         applyBoard(board)
         scene.railInventory.restore(replayReturnRails)
-        strikeSnapshot = [:]
+        strikeSnapshot = BoardSnapshot()
         if mode == .free {
             freePreviewKey = nil
             refreshFreeAim()
             drawReferenceSolution()
         } else if replayReturnNeedsSolve {
             if activitySuspended { resumeSolve = true }
-            else { recompute() }
+            else { invalidateSolve() }
         } else { drawCurrent() }
         replayReturnNeedsSolve = false
         replayCamera.finish(in: scene)
@@ -418,7 +524,7 @@ final class BankShotViewModel: ObservableObject {
     private var freeBeforeRails = PocketRailSnapshot()
     private var lastShotRails = PocketRailSnapshot()
     private var solveSnapshotRails = PocketRailSnapshot()
-    private var strikeSnapshot: [String: BallRestState] = [:]
+    private var strikeSnapshot = BoardSnapshot()
     private var playbackFinishTask: Task<Void, Never>?
     private static let snapshotCueKey = "__cue"
     private static let snapshotTargetKey = "__target"
@@ -445,7 +551,7 @@ final class BankShotViewModel: ObservableObject {
     private func runSolveDemo(_ sol: BankEngineSolution, switchesPlayerCamera: Bool = false) {
         guard let cueNode = scene.cueBallNode,
               sol.prediction.hasFinalTableState, sol.prediction.recorder != nil, sol.prediction.duration > 0.05 else { return }
-        solveTask?.cancel()
+        cancelSolve()
         isSolving = false
         adjustGeneration += 1
         isPlaying = true
@@ -491,16 +597,17 @@ final class BankShotViewModel: ObservableObject {
             catalogPower: catalogSolvePower,
             struckPower: reflectionPower,
             struckSpinX: Double(shown?.spinX ?? Float(spinX)), struckSpinY: Double(shown?.spinY ?? Float(spinY)),
-            struckPrediction: shown?.prediction ?? fallback)
+            struckPrediction: shown?.prediction ?? fallback, attemptedSolve: hasAttemptedSolve, struckSolution: shown)
     }
 
-    /// 把击打前完整状态原样恢复（G17，免重解）。catalog 原样回填；若击打用了微调则重建草稿层。
+    /// 把击打前完整状态原样恢复（G17，免重解）。catalog 原样回填；原样恢复击打时草稿及其评分。
     func restoreSolve(from ctx: SolveUndoContext) {
         guard mode == .solve, !isPlaying else { return }
-        solveTask?.cancel()
+        cancelSolve()
         isSolving = false
         adjustGeneration += 1
         catalogSolvePower = ctx.catalogPower
+        hasAttemptedSolve = ctx.attemptedSolve
         isRestoringSolve = true
         reflectionPower = ctx.catalogPower
         isRestoringSolve = false
@@ -510,7 +617,8 @@ final class BankShotViewModel: ObservableObject {
         selectedCushions = ctx.cushions
         solutions = ctx.solutions
         adjustmentDraft = nil
-        displayed = ctx.cushions.map { n in solutions.filter { $0.cushions == n } } ?? solutions
+        displayed = Array((ctx.cushions.map { n in solutions.filter { $0.cushions == n } } ?? solutions)
+            .prefix(BankKickSolvePipeline.bankSolutionLimit))
         solutionCount = displayed.count
         updatePocketHighlights()
         if displayed.isEmpty {
@@ -524,23 +632,9 @@ final class BankShotViewModel: ObservableObject {
             scene.hideCueStick()
         } else {
             currentIndex = min(max(ctx.currentIndex, 0), displayed.count - 1)
-            let catalog = displayed[currentIndex]
-            let paramsDiffer =
-                abs(catalog.spinX - Float(ctx.struckSpinX)) > 1e-6
-                || abs(catalog.spinY - Float(ctx.struckSpinY)) > 1e-6
-                || abs(ctx.struckPower - ctx.catalogPower) > 1e-9
-            if paramsDiffer {
-                adjustmentDraft = BankEngineSolution(
-                    rails: catalog.rails, seedRails: catalog.seedRails,
-                    prediction: ctx.struckPrediction,
-                    cushions: catalog.cushions,
-                    difficultyScore: catalog.difficultyScore,
-                    difficultyTier: catalog.difficultyTier,
-                    robustness: catalog.robustness, pathLength: catalog.pathLength,
-                    spinX: Float(ctx.struckSpinX), spinY: Float(ctx.struckSpinY),
-                    usedFrozenRailSeed: catalog.usedFrozenRailSeed
-                )
-                presentDisplayedSolution(adjustmentDraft!, power: ctx.struckPower)
+            if let struck = ctx.struckSolution {
+                adjustmentDraft = struck
+                presentDisplayedSolution(struck, power: ctx.struckPower)
             } else {
                 showSolution(at: currentIndex)
             }
@@ -586,7 +680,10 @@ final class BankShotViewModel: ObservableObject {
             finishStrike()
             return
         }
-        clearPath()   // 触球清线：演示期间不叠预告线（编排台/导出器同口径）。
+        // Keep the selected prediction visible throughout its strike and replay.
+        // Only contact markers retire at impact; both ball paths remain as reference.
+        scene.ghostBallNode?.isHidden = true
+        scene.contactDotNode?.isHidden = true
         ShotAudioScheduler.shared.play(prediction: sol.prediction)
 
         let playback = TrajectoryPlayback(
@@ -629,7 +726,7 @@ final class BankShotViewModel: ObservableObject {
         scene.hideCueStick()
         applyBoard(strikeSnapshot)
         scene.railInventory.restore(strikeRails)
-        strikeSnapshot = [:]
+        strikeSnapshot = BoardSnapshot()
         isPlaying = false
         canUndoSolve = lastSolveUndo != nil
         canReplaySolve = lastSolveUndo != nil
@@ -647,7 +744,7 @@ final class BankShotViewModel: ObservableObject {
 
     // MARK: - Board snapshot（W5/W6 共用：快照 = 复位 / 上一杆 / 恢复球形的真源）
 
-    private func captureBoard() -> [String: BallRestState] {
+    private func captureBoard() -> BoardSnapshot {
         var board: [String: BallRestState] = [:]
         if let cue = scene.cueBallNode, !cue.isHidden { board[Self.snapshotCueKey] = BallRestState(node: cue) }
         if let target = scene.targetBallNodes.first, !target.isHidden {
@@ -656,12 +753,17 @@ final class BankShotViewModel: ObservableObject {
         for key in onTableObstacleKeys {
             if let node = scene.allBallNodes[key], !node.isHidden { board[key] = BallRestState(node: node) }
         }
-        return board
+        return BoardSnapshot(targetKey: freeTargetName, poses: board)
     }
 
     /// 按快照恢复球形：cue/target 归位重显，障碍球增删同步 `onTableObstacleKeys`。
-    private func applyBoard(_ board: [String: BallRestState]) {
+    private func applyBoard(_ snapshot: BoardSnapshot) {
         scene.railInventory.cancelPlayback()
+        guard scene.setPrimaryTarget(key: snapshot.targetKey) else { return }
+        selectedTargetKey = snapshot.targetKey
+        let board = snapshot.poses
+        scene.cueBallNode?.isHidden = board[Self.snapshotCueKey] == nil
+        scene.targetBallNodes.first?.isHidden = board[Self.snapshotTargetKey] == nil
         if let cue = scene.cueBallNode, let p = board[Self.snapshotCueKey] {
             restoreBall(cue, to: p)
         }
@@ -669,11 +771,11 @@ final class BankShotViewModel: ObservableObject {
             restoreBall(target, to: p)
         }
         var keys: [String] = []
-        for key in Self.paletteKeys {
+        for key in Self.paletteKeys where key != selectedTargetKey {
             if let p = board[key], let node = scene.allBallNodes[key] {
                 restoreBall(node, to: p)
                 keys.append(key)
-            } else if onTableObstacleKeys.contains(key) {
+            } else {
                 scene.hideBall(key: key)
             }
         }
@@ -683,12 +785,12 @@ final class BankShotViewModel: ObservableObject {
     // MARK: - Free mode（W6：模式切换 / 瞄准 / simulateFree 试手 / 上一杆 / 恢复球形）
 
     /// 求解 ⇄ 自由切换。进自由默认沿用选中解瞄准方向（照着练，方案 §1.1）；
-    /// 回求解触发 recompute——球形未变则命中解缓存直显（§4.1）。
+    /// 回求解自动更新目录，未变化的输入可命中缓存。
     func toggleMode() {
         guard !isPlaying else { return }
         adjustGeneration += 1
         if mode == .solve {
-            solveTask?.cancel()
+            cancelSolve()
             isSolving = false
             if let aim = currentSolution?.prediction.aimDirection {
                 freeAimDir = aim
@@ -696,14 +798,16 @@ final class BankShotViewModel: ObservableObject {
                 freeAimDir = defaultFreeAim()
             }
             mode = .free
+            updatePocketHighlights(confirmsSelection: false)
             clearPath()
             drawReferenceSolution()
             refreshFreeAim()
         } else {
             mode = .solve
+            updatePocketHighlights(confirmsSelection: false)
             clearFreeOverlays()
             scene.hideCueStick()
-            recompute()
+            invalidateSolve()
         }
     }
 
@@ -731,7 +835,7 @@ final class BankShotViewModel: ObservableObject {
     private func freeContactBalls() -> [(key: String, pos: SCNVector3)] {
         var balls: [(String, SCNVector3)] = []
         if let target = scene.targetBallNodes.first, !target.isHidden {
-            balls.append((Self.freeTargetName, target.position))
+            balls.append((freeTargetName, target.position))
         }
         for key in onTableObstacleKeys {
             if let node = scene.allBallNodes[key], !node.isHidden { balls.append((key, node.position)) }
@@ -794,7 +898,7 @@ final class BankShotViewModel: ObservableObject {
     private var freePreviewBoard: [Float] = []
     private var freePreviewNames: [String] = []
     private var freePreviewNodes: [SCNNode] = []
-    private var interruptedFreeBoard: [String: BallRestState]?
+    private var interruptedFreeBoard: BoardSnapshot?
     private var interruptedFreeRails = PocketRailSnapshot()
     private var resumeAdjustment = false
     private var resumeSolve = false
@@ -811,7 +915,7 @@ final class BankShotViewModel: ObservableObject {
         activitySuspended = false
         if mode == .free { refreshFreeAim() }
         else if resumeAdjustment { resumeAdjustment = false; adjustCurrentSolution() }
-        else if resumeSolve { resumeSolve = false; recompute() }
+        else if resumeSolve { resumeSolve = false; invalidateSolve() }
         else { drawCurrent() }
     }
 
@@ -878,6 +982,7 @@ final class BankShotViewModel: ObservableObject {
             freePreviewKey = nil
             freePreviewPrediction = nil
             adjustmentScheduler.invalidate()
+            solutionAdjustmentScheduler.invalidate()
             scene.clearResultNodes(nodes: &freePreviewNodes)
             freeAimContact = nil
             closeupGate.reset()
@@ -931,7 +1036,7 @@ final class BankShotViewModel: ObservableObject {
     }
 
     private func freeBallNode(for key: String) -> SCNNode? {
-        key == Self.freeTargetName ? scene.targetBallNodes.first : scene.allBallNodes[key]
+        key == freeTargetName ? scene.targetBallNodes.first : scene.allBallNodes[key]
     }
 
     /// 空杆瞄准线终点：射线与库内边界（缩一颗球半径）的首个交点（几何单一真源）。
@@ -963,6 +1068,7 @@ final class BankShotViewModel: ObservableObject {
 
     private func clearFreeOverlays() {
         adjustmentScheduler.invalidate()
+        solutionAdjustmentScheduler.invalidate()
         freePreviewKey = nil
         freePreviewPrediction = nil
         scene.clearResultNodes(nodes: &freePreviewNodes)
@@ -988,6 +1094,7 @@ final class BankShotViewModel: ObservableObject {
         interruptedFreeBoard = captureBoard()
         interruptedFreeRails = scene.railInventory.snapshot()
         adjustmentScheduler.invalidate()
+        solutionAdjustmentScheduler.invalidate()
         scene.clearResultNodes(nodes: &freePreviewNodes)
         let before = captureBoard()
         freeBeforeRails = scene.railInventory.snapshot()
@@ -1049,7 +1156,7 @@ final class BankShotViewModel: ObservableObject {
 
     /// Validate before cue stroke and again when replaying a stored shot.
     @discardableResult
-    func acceptFreePrediction(_ pred:ShotPrediction,before:[String: BallRestState])->Bool {
+    func acceptFreePrediction(_ pred:ShotPrediction,before:BoardSnapshot)->Bool {
         guard pred.hasFinalTableState,pred.recorder != nil else {
             isPlaying=false
             applyBoard(before)
@@ -1063,7 +1170,7 @@ final class BankShotViewModel: ObservableObject {
         return true
     }
 
-    private func launchFreePlayback(_ pred: ShotPrediction, before: [String: BallRestState]) {
+    private func launchFreePlayback(_ pred: ShotPrediction, before: BoardSnapshot) {
         guard acceptFreePrediction(pred,before:before),let recorder=pred.recorder else { return }
         ShotAudioScheduler.shared.play(prediction: pred)
         let playback = TrajectoryPlayback(
@@ -1075,7 +1182,7 @@ final class BankShotViewModel: ObservableObject {
         var pairs: [(SCNNode, String)] = []
         if let cue = scene.cueBallNode { pairs.append((cue, ShotInput.cueBallName)) }
         if let target = scene.targetBallNodes.first, !target.isHidden {
-            pairs.append((target, Self.freeTargetName))
+            pairs.append((target, freeTargetName))
         }
         for key in onTableObstacleKeys {
             if let node = scene.allBallNodes[key] { pairs.append((node, key)) }
@@ -1099,7 +1206,7 @@ final class BankShotViewModel: ObservableObject {
 
     /// 自由击打收尾：终态取引擎 `finalPositions`（球停在哪是哪）；进袋球离场
     ///（母球自动回台；目标球进袋保留试手事实，靠上一杆 / 恢复球形找回）。
-    private func settleFreeShot(_ pred: ShotPrediction, before: [String: BallRestState]) {
+    private func settleFreeShot(_ pred: ShotPrediction, before: BoardSnapshot) {
         if finishReplay() { return }
         scene.railInventory.finishPlayback()
         playbackFinishTask = nil
@@ -1115,7 +1222,7 @@ final class BankShotViewModel: ObservableObject {
             }
         }
         if let cue = scene.cueBallNode { settle(cue, name: ShotInput.cueBallName) }
-        if let target = scene.targetBallNodes.first { settle(target, name: Self.freeTargetName) }
+        if let target = scene.targetBallNodes.first { settle(target, name: freeTargetName) }
         for key in onTableObstacleKeys {
             if let node = scene.allBallNodes[key] { settle(node, name: key) }
         }
@@ -1139,8 +1246,8 @@ final class BankShotViewModel: ObservableObject {
         selectedPocket = index
         currentIndex = 0
         updatePocketHighlights(confirmsSelection: false)
-        scene.confirmPocketSelection(at: index, source: .manual)
-        recompute()
+        scene.confirmRolePocketSelection(at: index)
+        invalidateSolve()
     }
 
     // MARK: - Cushion selection
@@ -1149,20 +1256,24 @@ final class BankShotViewModel: ObservableObject {
         guard !isPlaying, mode == .solve else { return }
         selectedCushions = n
         currentIndex = 0
-        recompute()
+        if hasAttemptedSolve && (!isSolving || isAdjustingSolution) {
+            isSolving = false
+            applySolutions(solutions, prevCushions: 0, isNewCatalog: false)
+        }
     }
 
     // MARK: - Solving
 
-    /// 引擎反解（全枚举并行 + 好打排序 + 容错）较重：先查解缓存（球位/袋口/力度量化 key，
-    /// 命中直显），miss 才离开主线程求解（120ms 去抖合并连续触发，如力度滑块）。
+    /// 引擎反解（全枚举并行 + 好打排序 + 容错）较重：先查解缓存（球位/袋口/力度精确 key，
+    /// 命中直显），miss 才离开主线程求解；由完整编辑操作自动触发。
     func recompute() {
         simulationNotice=nil
-        guard !isPlaying, mode == .solve,
+        guard !activitySuspended, mode == .solve, !isPlaying, !isDragging, !isSolving,
               let cue = scene.cueBallNode?.position,
               let object = scene.targetBallNodes.first?.position else { return }
 
-        solveTask?.cancel()
+        invalidateSolve(automatically: false)
+        hasAttemptedSolve = true
         let prevCushions = currentCushions
 
         let obstacles = currentObstacles()
@@ -1183,16 +1294,15 @@ final class BankShotViewModel: ObservableObject {
         let power = Float(reflectionPower)
         // 球位 y 必须是真实球心高度：管线的 ghost/瞄准几何直接沿用输入 y（画线用）。
         let ballY = surfaceY + AngleSceneCalculator.ballRadius
+        let cancellation = PredictionCancellation()
+        solveCancellation = cancellation
         solveTask = Task { [weak self] in
-            // G14：求解模式拖球/连续调节期间不求解——每次触发取消上一 task 并重排，
-            // 停 0.5s（无新输入）后才离开主线程反解（缓存命中直显，不受此延时影响）。
-            try? await Task.sleep(nanoseconds: UInt64(SolveDebounceScheduler.defaultIdleInterval * 1_000_000_000))
             if Task.isCancelled { return }
             let sols = await Task.detached(priority: .userInitiated) {
                 BankKickSolvePipeline.solveBank(
                     cue: SCNVector3(cx, ballY, cz), object: SCNVector3(ox, ballY, oz),
                     pocketIndex: pocket, surfaceY: surfaceY, power: power,
-                    obstacles: obstacles)
+                    obstacles: obstacles, cancellation: cancellation, limit: nil)
             }.value
             if Task.isCancelled { return }
             guard let self else { return }
@@ -1203,12 +1313,13 @@ final class BankShotViewModel: ObservableObject {
     }
 
     /// 应用求解结果（过滤、选路、绘制）。在主线程执行。
-    private func applySolutions(_ sols: [BankEngineSolution], prevCushions: Int) {
+    private func applySolutions(_ sols: [BankEngineSolution], prevCushions: Int, isNewCatalog: Bool = true) {
+        simulationNotice = nil
         adjustGeneration += 1
         adjustmentDraft = nil
         solutions = sols.filter { $0.prediction.hasFinalTableState }
         if !sols.isEmpty && solutions.isEmpty { simulationNotice="本次模拟未完成，请调整击球参数后重试" }
-        catalogSolvePower = reflectionPower
+        if isNewCatalog { catalogSolvePower = reflectionPower }
         // 最近求解快照（方案 §4.1）：求解成功即存球位 + 袋口，供自由模式「恢复球形」。
         if !solutions.isEmpty {
             solveSnapshotRails = scene.railInventory.snapshot()
@@ -1217,9 +1328,9 @@ final class BankShotViewModel: ObservableObject {
 
         // 库数过滤 = 展示层后处理（分桶，不进缓存 key）。
         if let n = selectedCushions {
-            displayed = solutions.filter { $0.cushions == n }
+            displayed = Array(solutions.filter { $0.cushions == n }.prefix(BankKickSolvePipeline.bankSolutionLimit))
         } else {
-            displayed = solutions
+            displayed = Array(solutions.prefix(BankKickSolvePipeline.bankSolutionLimit))
         }
         solutionCount = displayed.count
         updatePocketHighlights()
@@ -1288,38 +1399,23 @@ final class BankShotViewModel: ObservableObject {
         spinY = Double(newSY)
         isPresentingSolution = false
 
-        adjustmentScheduler.submit(compute: {
+        solutionAdjustmentScheduler.submit(compute: {
             var input = ShotInput(
                 cueBall: cue, targetBall: object, pocketIndex: pocket,
                 velocity: Float(newPower), spinX: newSX, spinY: newSY,
                 surfaceY: surfaceY, bankRails: rails
             )
             input.obstacles = obstacles
-            return ShotPredictor.predict(input)
-        }, receive: { [weak self] pred, isLatest in
+            return BankKickSolvePipeline.bankDraft(input: input, seedRails: rails,
+                prediction: ShotPredictor.predict(input))
+        }, receive: { [weak self] drafted, isLatest in
+                let pred = drafted.prediction
                 guard let self, self.adjustGeneration == gen, !self.isPlaying else { return }
                 guard isLatest else { return }
                 self.isSolving = false
                 self.isAdjustingSolution = false
                 self.adjustmentIsValid = pred.hasFinalTableState
                 guard self.displayed.indices.contains(idx), self.currentIndex == idx else { return }
-                // 草稿库序同解集口径：实测主库序重标（重算轨迹可能已换拓扑/脱靶，
-                // 脱靶时保留原解标签避免 chip 闪变）。
-                let actualRails = BankShotCalculator.reconstructedRailContacts(
-                    object: object, departure: pred.objectDepartureDir,
-                    engineRails: pred.objectRailContacts
-                )
-                let frozenSet = BankShotCalculator.frozenRails(for: object)
-                let drafted = BankEngineSolution(
-                    rails: actualRails.isEmpty ? catalog.rails : actualRails,
-                    seedRails: rails, prediction: pred,
-                    cushions: actualRails.isEmpty ? catalog.cushions : actualRails.count,
-                    difficultyScore: catalog.difficultyScore,
-                    difficultyTier: catalog.difficultyTier,
-                    robustness: catalog.robustness, pathLength: catalog.pathLength,
-                    spinX: newSX, spinY: newSY,
-                    usedFrozenRailSeed: actualRails.first.map(frozenSet.contains) ?? false
-                )
                 self.adjustmentDraft = drafted
                 self.presentDisplayedSolution(drafted, power: newPower)
         })
@@ -1335,7 +1431,7 @@ final class BankShotViewModel: ObservableObject {
         selectedCushions = nil
         currentCushions = 0
         currentIndex = 0
-        recompute()
+        invalidateSolve()
     }
 
     /// Display / strike path: draft overrides catalog at `currentIndex` (X6 same contract).
@@ -1362,13 +1458,18 @@ final class BankShotViewModel: ObservableObject {
     private func presentDisplayedSolution(_ sol: BankEngineSolution, power: Double) {
         adjustmentIsValid = sol.prediction.hasFinalTableState
         guard sol.prediction.hasFinalTableState else {
+            currentRobustnessPercent = nil
+            currentCushions = sol.cushions
+            currentRailText = sol.railSequenceText
             hasSolution=false
             clearPath()
             scene.hideCueStick()
             simulationNotice="本次模拟未完成，请调整击球参数后重试"
             return
         }
-        simulationNotice=nil
+        simulationNotice = BankKickValidity.bank(sol.prediction) ? nil
+            : (sol.prediction.cuePocketed ? "母球落袋 · 可试打或重新调整"
+                : "未完成翻袋 · 可试打或重新调整")
         isPresentingSolution = true
         reflectionPower = power
         spinX = Double(sol.spinX)
@@ -1408,7 +1509,7 @@ final class BankShotViewModel: ObservableObject {
         if let simulationNotice { return simulationNotice }
         if isPlaying || isDragging || isSolving { return nil }
         if mode == .free { return statusText }
-        return hasSolution ? nil : noSolutionText
+        return hasSolution || !hasAttemptedSolve ? nil : noSolutionText
     }
 
     var statusText: String {
@@ -1425,8 +1526,9 @@ final class BankShotViewModel: ObservableObject {
             return thick == "—" ? "首碰 \(name) · 切角 \(deg)°" : "首碰 \(name) · 切角 \(deg)° · \(thick)"
         }
         if isPlaying { return "演示中…" }
-        if isDragging { return "拖动中 · 松手后求解" }
+        if isDragging { return "拖动中" }
         if isSolving { return "真实物理求解中…" }
+        guard hasAttemptedSolve else { return "摆好球后自动求解" }
         guard hasSolution, let sol = currentSolution else { return noSolutionText }
         var parts = ["解 \(currentIndex + 1)/\(solutionCount)", "\(currentCushions) 库"]
         if !currentRailText.isEmpty { parts.append(currentRailText) }
@@ -1439,7 +1541,7 @@ final class BankShotViewModel: ObservableObject {
     func pulsePaletteBall(_ key: String) {
         let node: SCNNode? = key == PositionPlayBall.cueKey
             ? scene.cueBallNode
-            : (key == Self.freeTargetName ? scene.targetBallNodes.first : scene.allBallNodes[key])
+            : (key == freeTargetName ? scene.targetBallNodes.first : scene.allBallNodes[key])
         guard let node, !node.isHidden else { return }
         node.removeAction(forKey: "palettePulse")
         node.runAction(SCNAction.sequence([
@@ -1460,15 +1562,7 @@ final class BankShotViewModel: ObservableObject {
     // MARK: - Pocket highlight
 
     private func updatePocketHighlights(confirmsSelection: Bool = true) {
-        // 单次求解只针对选定袋（引擎全枚举按袋进行）；其余袋口维持中性可选高亮。
-        let feasiblePockets: Set<Int> = solutions.isEmpty ? [] : [selectedPocket]
-        for (i, marker) in pocketMarkers.enumerated() {
-            if i == selectedPocket {
-                scene.setPocketHighlight(marker, style: .selected, confirmsSelection: confirmsSelection)
-            } else {
-                scene.setPocketHighlight(marker, style: feasiblePockets.contains(i) ? .viable : .infeasible)
-            }
-        }
+        scene.setPracticePocketRoles(current: mode == .solve ? selectedPocket : nil, next: nil)
     }
 
     // MARK: - Drawing
@@ -1493,7 +1587,7 @@ final class BankShotViewModel: ObservableObject {
             options: .positionPlay,
             context: .init(
                 prediction: pred,
-                targetKey: Self.freeTargetName,
+                targetKey: freeTargetName,
                 pocket: ShotIntent.pocketId(for: selectedPocket),
                 surfaceY: scene.surfaceY,
                 showGhost: true

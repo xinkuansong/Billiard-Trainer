@@ -124,7 +124,10 @@ final class BankKickDifficultyTests: XCTestCase {
         XCTAssertFalse(sols.isEmpty, "典型盘面应有翻袋解")
         XCTAssertLessThanOrEqual(sols.count, BankKickSolvePipeline.bankSolutionLimit)
         for (a, b) in zip(sols, sols.dropFirst()) {
-            XCTAssertLessThanOrEqual(a.goodness, b.goodness, "解列表应按好打分升序")
+            XCTAssertLessThanOrEqual(a.pocketContacts, b.pocketContacts, "入袋质量优先")
+            if a.pocketContacts == b.pocketContacts {
+                XCTAssertLessThanOrEqual(a.goodness, b.goodness, "相同入袋质量按好打分升序")
+            }
         }
         for sol in sols {
             XCTAssertTrue(sol.prediction.simObjectPotted, "上屏解必经引擎终验真实进袋")
@@ -547,6 +550,7 @@ final class BankKickRouteSelectionTests: XCTestCase {
         var cushions: Int { route?.rails.count ?? 0 }
         var pathLength: Double { Double(BankKickSolvePipeline.polylineLengthXZ(route?.path ?? [])) }
         var prediction = ShotPrediction()
+        var pocketContacts: Int = 0
     }
     private func route(_ x: Float = 0, rail: BankShotCalculator.Rail = .left) -> BankKickRoute {
         let p = SCNVector3(x, 0.828575, -0.60)
@@ -554,14 +558,14 @@ final class BankKickRouteSelectionTests: XCTestCase {
             path: [SCNVector3(-0.5, p.y, 0), p, SCNVector3(0.4, p.y, 0.25)], pocketID: nil)
     }
 
-    func test_routeIdentity_usesRailOrderContactsAndWholePath() {
+    func test_routeIdentity_usesMeasuredRailOrderRegardlessOfContactThickness() {
         let a = route()
         XCTAssertTrue(a.matches(route(0.01)))
-        XCTAssertFalse(a.matches(route(0.15)), "Same rail with a different bounce region is a different route")
+        XCTAssertTrue(a.matches(route(0.15)), "Bounce points do not split the same rail sequence")
         XCTAssertFalse(a.matches(route(rail: .right)))
         let detour = BankKickRoute(rails: a.rails, contacts: a.contacts,
             path: [a.path[0], SCNVector3(1, 0.8, 0), a.path[1], a.path[2]], pocketID: nil)
-        XCTAssertFalse(a.matches(detour), "Identical rail points alone cannot hide a different traversal")
+        XCTAssertTrue(a.matches(detour), "Measured rail sequence defines route identity")
         let otherPocket = BankKickRoute(rails: a.rails, contacts: a.contacts, path: a.path, pocketID: "pocket_1")
         XCTAssertFalse(a.matches(otherPocket))
     }
@@ -569,11 +573,53 @@ final class BankKickRouteSelectionTests: XCTestCase {
     func test_rank_zeroSpinWinsWithinRouteBeforeGoodnessAndLimit() {
         let zero = Candidate(spinX: 0, goodness: 1, route: route())
         let spun = Candidate(spinX: 0.3, goodness: -1, route: route(0.01))
-        let different = Candidate(spinX: 0.1, goodness: 0, route: route(0.3))
+        let different = Candidate(spinX: 0.1, goodness: 0, route: route(0.3, rail: .right))
         let ranked = BankKickSolvePipeline.rank([spun, zero, different], limit: 2)
         XCTAssertEqual(ranked.count, 2)
         XCTAssertEqual(ranked.last?.spinX, 0)
         XCTAssertEqual(ranked.first?.spinX, 0.1)
+    }
+
+    func test_bankIdentityIsPocketAndMainRailOrderRegardlessOfPath() {
+        let a = BankKickRoute(rails: [.left, .near], contacts: [], path: [], pocketID: "pocket_0")
+        let b = BankKickRoute(rails: [.left, .near], contacts: [SCNVector3(1,0,1)],
+                              path: [SCNVector3Zero, SCNVector3(1,0,0)], pocketID: "pocket_0")
+        XCTAssertTrue(a.matches(b))
+        XCTAssertTrue(b.matches(a))
+        XCTAssertFalse(a.matches(.init(rails: [.near, .left], contacts: [], path: [], pocketID: "pocket_0")))
+        XCTAssertFalse(a.matches(.init(rails: [.left, .near, .left], contacts: [], path: [], pocketID: "pocket_0")))
+        XCTAssertFalse(a.matches(.init(rails: a.rails, contacts: [], path: [], pocketID: "pocket_1")))
+        let zero = Candidate(spinX: 0, goodness: 0, route: a, pocketContacts: 3)
+        let clean = Candidate(spinX: 0.3, goodness: 1, route: b, pocketContacts: 0)
+        let ranked = BankKickSolvePipeline.rank([zero, clean], limit: 12)
+        XCTAssertEqual(ranked.count, 1)
+        XCTAssertEqual(ranked.first?.pocketContacts, 0)
+        XCTAssertEqual(ranked.first?.spinX, 0.3)
+    }
+
+    func test_reduceSpinCannotReplaceCleanPotWithJawRattle() {
+        let original = Candidate(spinX: 0.3, goodness: 0, route: route(), pocketContacts: 0)
+        let reduced = BankKickSolvePipeline.minimumSpinRepresentatives([original], spinXValues: [0,0.3]) { seed, spin in
+            var trial = seed
+            trial.spinX = spin
+            trial.pocketContacts = spin < 5 * BankKickSolvePipeline.minimumSpinStep ? 3 : 0
+            return trial
+        }
+        XCTAssertEqual(reduced.count, 1)
+        XCTAssertEqual(reduced[0].spinX, 0.1, accuracy: 0.0001)
+        XCTAssertEqual(reduced[0].pocketContacts, 0)
+    }
+
+    func test_minimumSpinDoesNotRepeatFailedInitialSeed() {
+        let original = Candidate(spinX: 0.3, goodness: 0, route: route())
+        var tried: [Float] = []
+        let reduced = BankKickSolvePipeline.minimumSpinRepresentatives([original], spinXValues: [0, 0.3],
+            previouslyAttempted: [.init(rails: original.searchKey, spin: 0)]) { _, spin in
+                tried.append(spin); return nil
+            }
+        XCTAssertEqual(reduced.first?.spinX, 0.3)
+        XCTAssertFalse(tried.contains(0), "Initial failure was already evaluated")
+        XCTAssertEqual(Set(tried).count, tried.count)
     }
 
     func test_minimumSpin_checksBothSignsAndDisconnectedWindows() {
@@ -615,7 +661,7 @@ final class BankKickRouteSelectionTests: XCTestCase {
             [original], spinXValues: [0, 0.3]) { seed, spin in
                 var candidate = seed
                 candidate.spinX = spin
-                candidate.route = self.route(0.3)
+                candidate.route = self.route(0.3, rail: .right)
                 return candidate
             }
         XCTAssertEqual(reduced[0].spinX, 0.3)
@@ -663,6 +709,10 @@ final class BankKickRouteSelectionTests: XCTestCase {
         pred.termination = .settled
         let input = ShotInput(cueBall: points[0], targetBall: points[3], pocketIndex: 0,
                               velocity: 3.6, spinX: 0, spinY: 0, surfaceY: 0.80)
+        XCTAssertNil(BankKickSolvePipeline.kickSolution(input: input, seedRails: [.near, .right], prediction: pred),
+                     "A measured main-rail sequence does not license a pre-contact jaw route")
+        // Preserve the original seed-versus-measurement regression on an admissible route.
+        pred.events.remove(at: 1)
         let solution = try XCTUnwrap(BankKickSolvePipeline.kickSolution(
             input: input, seedRails: [.near, .right], prediction: pred))
         XCTAssertEqual(solution.rails, [.left], "Never relabel the route with the search seed")
@@ -690,7 +740,7 @@ final class BankKickRouteSelectionTests: XCTestCase {
                 for b in all.dropFirst(i + 1) {
                     XCTAssertFalse(a.route!.matches(b.route!), "Near-duplicate full routes survived")
                 }
-                if zero.contains(where: { $0.route!.matches(a.route!) }) {
+                if zero.contains(where: { $0.route!.matches(a.route!) && $0.pocketContacts <= a.pocketContacts }) {
                     XCTAssertEqual(a.spinX, 0, "A zero-spin route was replaced by a spun variant")
                 }
             }
@@ -729,10 +779,43 @@ final class BankKickRouteSelectionTests: XCTestCase {
                     let pred = ShotPredictor.predict(input)
                     if pred.simObjectPotted && pred.hasFinalTableState && pred.cueCushionsBeforeContact == 0,
                        let route = BankKickRoute.measured(pred, kick: false) {
-                        XCTAssertFalse(sol.route!.matches(route), "Smaller spin still solves the same bank route: \(spin)")
+                        XCTAssertFalse(sol.route!.matches(route) && ShotPredictor.bankPocketContactCount(events: pred.events) <= sol.pocketContacts, "Smaller spin of equal or better entry quality still solves the same bank route: \(spin)")
                     }
                 }
             }
         }
+    }
+}
+
+extension BankKickRouteSelectionTests {
+    func test_minimumSpin_parallelRoutesShareOneTrialIncludingFailures() {
+        let candidates = (0..<4).map { Candidate(spinX:0.3,goodness:Double($0),route:route(Float($0)*0.3)) }
+        let lock=NSLock()
+        var counts:[Float:Int]=[:]
+        let parallel=BankKickSolvePipeline.minimumSpinRepresentatives(candidates,spinXValues:[-0.3,0,0.3],
+            parallelTrials:true) { _,spin in
+                lock.lock();counts[spin,default:0] += 1;lock.unlock()
+                // Keep an identical trial in flight while other route workers request it.
+                Thread.sleep(forTimeInterval:0.001)
+                return nil
+            }
+        let serial=BankKickSolvePipeline.minimumSpinRepresentatives(candidates,spinXValues:[-0.3,0,0.3]) { _,_ in nil }
+        XCTAssertEqual(parallel.map(\.goodness),serial.map(\.goodness))
+        XCTAssertEqual(parallel.map(\.spinX),serial.map(\.spinX))
+        XCTAssertEqual(parallel.count,4)
+        XCTAssertEqual(counts.count,29)
+        XCTAssertTrue(counts.values.allSatisfy { $0 == 1 },"Concurrent routes must share failed trials too")
+    }
+
+    func test_minimumSpin_cancelledSharedTrialReleasesAllWaiters() {
+        let candidates = (0..<4).map { Candidate(spinX:0.3,goodness:Double($0),route:route(Float($0)*0.3)) }
+        let token=PredictionCancellation()
+        let result=BankKickSolvePipeline.minimumSpinRepresentatives(candidates,spinXValues:[-0.3,0,0.3],
+            cancellation:token,parallelTrials:true) { _,_ in
+                Thread.sleep(forTimeInterval:0.001)
+                token.cancel()
+                return nil
+            }
+        XCTAssertTrue(result.isEmpty)
     }
 }

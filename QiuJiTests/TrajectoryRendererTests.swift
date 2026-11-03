@@ -4613,7 +4613,7 @@ extension PocketGeometryInjectionV63Tests {
             XCTAssertTrue(accept(complete,before))
             XCTAssertNil(notice())
         }
-        try verify(scene:bank.scene,accept:bank.acceptFreePrediction,notice:{bank.simulationNotice},playing:{bank.isPlaying})
+        try verify(scene:bank.scene,accept:{ bank.acceptFreePrediction($0, before: .init(poses: $1)) },notice:{bank.simulationNotice},playing:{bank.isPlaying})
         try verify(scene:kick.scene,accept:kick.acceptFreePrediction,notice:{kick.simulationNotice},playing:{kick.isPlaying})
     }
 }

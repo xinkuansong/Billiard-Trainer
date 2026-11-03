@@ -6566,7 +6566,7 @@ FL-231（2026-10-30）：默认单行使用菜单原生图暴露旧背景CGRect�
 
 ## DR-442 r2 · 多球规划首杆明确选择（2026-10-30）
 
-用户确认自由球上手开局不自动应用首杆推荐。CurrentSelection分开确认球/袋，规划宿主practiceRequiresExplicitAim默认关闭、按模式显式启用；只作用于多球规划。重开/承接/重打/检查点与旧档边界见[页面卡](table-page-adaptation/MULTI-BALL-OPENING-20261030.md)，当前验证进行中。
+用户确认自由球上手开局不自动应用首杆推荐。CurrentSelection分开确认球/袋，规划宿主practiceRequiresExplicitAim默认关闭、按模式显式启用；只作用于多球规划。重开/承接/重打/检查点与旧档边界见[页面卡](table-page-adaptation/MULTI-BALL-OPENING-20261030.md)。最终30逻辑＋3UI与9原图通过；纯提示穿透及首袋后提示同步已修，评分明细保持。
 - **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` DR-442 r2；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；产品规格04/05。
 
 
@@ -6578,3 +6578,129 @@ DR-451 v9（2026-10-30）：用户明确“就标题居中，下面的不动”�
 ## DR-451 v8 r4 / FL-204 — 三球侧栏语义分组（2026-10-30）
 
 用户指出r3统一2pt显得拥挤。本轮仅三球侧栏：自然量测各项高度，在实际视口预算内将留白优先分配给进度、击球、当前成绩和首杆记录的边界；目标8pt，当前两项得分4pt，紧凑下界2pt。空轨迹说明组移除；字体、桌框、动作槽、32pt评分入口保持。局部TP和原生结果真源见[页面卡r4](table-page-adaptation/THREE-BALL-FREE-PRACTICE-20261027.md#2026-10-30--r4语义分组留白用户否定r3拥挤效果)。自动化可达性通过与视觉/用户认可独立记录。
+
+
+2026-10-30 DR-442 r3：用户明确“两个都要支持，相当于所有的选择权都在用户手里”。多球首杆前与击球停稳后均可逐步返回第一袋/第一球，承接球袋可改；追分合法顺序、已完成杆得分和球位保持。退到选①后可把原②③改为①并清后续草稿。旧承接锁约定由本条覆盖，仅多球。实施/验证真源：`tasks/table-page-adaptation/MULTI-BALL-BACK-20261030.md`。
+
+FL-234：多球返回链补验；**已应用至** `.cursor/rules/55-test-engineer.mdc` § 返回链须到最早可编辑步骤并实际改选（2026-10-30）。
+
+
+### DR-405 v1.12 — L型端点球心距库一个直径（2026-10-31）
+
+按用户最新明确要求覆盖v1.10的L型贴库决定：端点从R改为2R，固定8号转角并重算等距。生产表达式Swift核验及语法检查通过，未运行App/XCTest或真机。
+- **已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog及`tasks/table-page-adaptation/CUSTOM-FORMATION-BUILTINS-20261028.md`现行摆位（2026-10-31）。
+
+
+### DR-405 v1.13 — 自定义球形重打下方回放（2026-10-31）
+
+按用户要求恢复共享回放按钮与双动作槽，补`FreeControlCatalog`的`shot.replay`注册，复用原回放逻辑/禁用条件。验证与范围见`tasks/table-page-adaptation/CUSTOM-FORMATION-PLAYBACK-20261031.md`。
+- **已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog、球桌统一规范TP34与来源表（2026-10-31）。
+
+
+## 2026-10-31 · 解球／K球集中反馈
+
+用户授权统一修改，后续明确色条放木边、不改台呢，题库不按新增规则筛题。共用木边材质及球库右侧序列、两页默认开设置；解球库数展开、提示整体消失、测量替代回放、用户实际先库后球及碰后吃库。28项最终逻辑与SE／iPad定向UI通过，原图已审、gate通过。资源SHA不变，140题保持。见[合同](table-page-adaptation/KICK-KBALL-FEEDBACK-20261031.md)及[报告](ui-reviews/UR-20261031-kick-kball-feedback.md)。
+
+2026-10-31同任务追加视觉修订：库色由固定六段改为本题吃库顺序色，仅覆盖木边颗星内切线以内窄条，边界读取真实White颗星网格；未涉及库段保持。顶部去K时机字样并复用PoolBallFace母球。当前共享工作区题库已有其它任务更新，本任务未修改或回退；第二轮验证独立记录。
+
+## DR-454 — K球／解球顶部母球与球库同径、移除库序数字（2026-11-01）
+
+用户截图要求。根因及实施见`table-page-adaptation/KICK-KBALL-FEEDBACK-20261031.md`第三轮；顶部扩展由宿主传实际球库球径，组件删除可见数字并居中排列。球库角色角标、颜色规则、题库和判题保持。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` DR-454、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog、球桌规范及来源表（2026-11-01）。
+
+## DR-454 r2 — 等大色块内部序号（2026-11-01）
+- 用户确认第四轮设计，覆盖v1无数字方案；仅共用PracticeRailSequence视图，API／题库／判题不变。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` DR-454 r2、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog及球桌规范／来源表。
+- 验证与证据：`tasks/table-page-adaptation/KICK-KBALL-FEEDBACK-20261031.md`第四轮。
+
+## FL-236／DR-454 r3 — 等大元素遗漏共同下沿（2026-11-01）
+- 用户指出顶部提示高于球库；根因是两组使用不同纵向锚点，原审图只验证了完整与无重叠。
+- 改用DailyTemplateHeader球库最后一行位置；检查真实球面／方块底边，角色角标不作为球径基准。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` FL-236、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog及球桌规范／来源表。
+- 证据／复验边界：集中反馈卡第四轮追加。
+
+## 解球初始瞄准／直击提示（2026-11-01）
+- 用户图片确认第一主库段中点方向，按此前要求沿外法线偏移R；新题入口共用initialDirection，续练不覆盖存档杆向。
+- 出杆前以生产CCD拒绝先碰目标球的杆向，复用ⓘ自动消失提示，不计题／不写首答。K球保持。
+- 页面例外与TP依赖已应用至`tasks/table-page-adaptation/KICK-KBALL-FEEDBACK-20261031.md`第五轮；验证证据`output/kick-initial-aim-20261101/`。
+
+## DR-456 — 末库可选与四边虚线（2026-11-01）
+- 用户确认前N−1严格、末库可省；解球一库例外，K球一库可直接K。判题版本3，历史不回算。
+- 已应用至：球桌规范／来源、docs/04、UI-IMPLEMENTATION-SPEC及集中反馈卡第六轮；PracticeRailSequence新增显式可选参数，现有默认消费者不变。
+- 组件约定回填swiftui-design-system；验证见output/optional-last-rail-20261101。
+
+FL-238：K球末库解释文案导致SE侧栏截断，原图审查发现后恢复短标题。已应用至swiftui-design-system及第六轮页面卡；四边虚线承担可选表达，原图复验后收口。
+
+
+### DR-457 · 解球首答参考与重打实际线（2026-11-01）
+解球新题以当前杆向、中杆、默认2m/s计算完整母球灰虚线；方向变化更新，力度/打点不改变基准。首次有效保存提交后不恢复基准，重打显示最近一杆实际母球白虚线，下一题重建。2D/3D与恢复共用首答事实。K球要求文字不含“末库可选”，虚线框及AX语义保留。页面专属合同／验证见`tasks/table-page-adaptation/KICK-KBALL-FEEDBACK-20261031.md`第七轮；共享组件默认不变。
+Changelog：DR-457 v1；已应用至swiftui-design-system本条、UI-IMPLEMENTATION-SPEC及解球页面卡。
+
+## DR-452 r2 — K球撤回中杆中力参考（2026-11-01）
+用户纠正：中杆中力线路等同泄露求解。K球统一关闭参考生成及图例，保留上一杆实际线、测量和末库虚线；解球DR-457不变。已应用至swiftui-design-system、UI-IMPLEMENTATION-SPEC、docs/05及K-BALL-20261029现行TP22；定向验证见页面卡。
+
+## DR-458 · 翻袋练习及结果简化（2026-11-01）
+已接入独立入口、设置、2D／3D、目标球库序／指定袋、真实判题、首答冻结、测量／重打／回放及记录。48题为初步输入，普通15题／自由持续按大题库设计。48题生产重放、22项定向逻辑、三尺寸UI已通过；用户随后要求简化结果，已去掉结果说明弹窗及菜单，沿解球／K球一行结果提示。r6 SE定向UI 1/1及原图、verify-gate、verify-doc-size通过。源码快照、原图、误判纠正与未验范围见BANK-PRACTICE-PLAN-20261101及UR-20261101-bank-practice；真机／用户体验／发布仍待验。
+
+## FL-239 — 研究评分精确重放误用动态JSON数值桥接（2026-11-01）
+翻袋完整评分首轮58组尝试生成12题，但评分逐位复核失败：原始JSON角度分0.013664911915379285经JSONSerialization/NSNumber读回变为0.013664911915379279。诊断记录差5.20e-18；不据此放宽精确断言。修为从原始JSON字节直接JSONDecoder解码[String:Double]，再完整重跑。失败源/数据/诊断保留，见BANK-COMFORT12-20261101。规则回写55-test-engineer：严格浮点重放须验证序列化链与真实原字节，分离物理与解码误差。
+已应用至：.cursor/rules/55-test-engineer.mdc §FL-239；UI-IMPLEMENTATION-SPEC Changelog。
+
+FL-239 r2闭合：原始JSONDecoder读取后，24杆事件和完整评分逐位一致、独立公式及9种反例通过。首轮失败证据保留；两次工作目录按管理器回收。详BANK-COMFORT12-20261101最终结果。
+
+
+## DR-459 · P05推荐落区、球下角色圈与底部动作（2026-11-01）
+
+用户确认2cm采样、同侧、切角≥5°并同时要求选中球下加圈、上一步/回放下移。P05使用`PlanThreeComfortRegion`采样ShotComfortScore（85分轮廓），有效袋口瞄准点统一用于舒适度、切角、方向和遮挡；第三球同侧及5°使用半平面裁剪。此为简化几何推荐，不承诺下一杆物理可达，也不修改三球走位原评分。`SolveRegion.sampled(SampledSolveRegion)`以世界XZ米存储裁剪网格，填充/外边界/求解SDF共用；支持不连通区域，空区域不退回旧扇形，自绘约束仍优先。
+
+`SceneStroke.roleRing(role:)`复用原多球环的几何/材质，P05与多球共用；其他页不自动开启。P05下部两动作使用`BTTeachingInstrumentLayout`和`BTHUDCompactAction`，保留原自由布局ID/动作/权限，个人布局不重置。现行范围与证据见`tasks/table-page-adaptation/P05-PLAN-THREE.md`及`tasks/ui-reviews/UR-20261101-plan-three-region.md`。
+
+### DR-458补充 · 翻袋21569题接入（2026-11-01）
+按用户选择只用新库，一至三库设置，旧四库草稿归一为综合，历史兼容及首答不改。App保留原始输入和事件派生库序，研究轨迹与来源索引离线保存。全量转换、360题App重放、14逻辑＋4UI、原图与门禁通过。已应用至UI-IMPLEMENTATION-SPEC、docs/04／05、content-data-contract及BANK-APP-IMPORT-20261101；无共享组件API变化。
+
+## 2026-11-01 DR-452 r3／DR-457 r2 · K球保留，解球取消
+
+K球shouldShowReference恢复本题首次有效提交门控；解球恒false并在生成入口退出，重打实际线保持。已应用至swiftui-design-system、UI-IMPLEMENTATION-SPEC、docs/05及两页现行TP22；验证见本轮卡。
+
+
+## 2026-11-02 · 翻袋关闭中杆中力预测（DR-458 r2）
+
+用户追加翻袋也不得出现中杆中力预测路线；与解球一致关闭预测入口，K球继续保留。翻袋球心细线、主动测量、提交后的实际路线及重打对照保持。实现与验证见[专项卡](table-page-adaptation/BANK-REFERENCE-REMOVAL-20261102.md)。
+
+## DR-442 r4／FL-234补充 · 多球回退撤销第三球（2026-11-02）
+用户要求返回第二袋时第三球恢复未选，重选袋后仍须手选第三球。原返回只改业务游标，保留thirdKey/plan.third造成提示与状态不一致。中八返回pocket2同步清两处绑定并刷新呈现、保存检查点；追分不变。已应用至统一规范TP25与来源表、docs/05、UI-IMPLEMENTATION-SPEC及MULTI-BALL-BACK页面卡；验证见页面卡。
+规则回写：.cursor/rules/55-test-engineer.mdc §FL-234补充，回退后的同袋重选与角色撤销须完整验证。
+
+2026-11-02多球回退补充闭合：31项逻辑及显式2D/3D两项UI通过；8张核心状态原图已审，第三球撤销/同袋重选后待选/再选恢复均正确。r2启动路由重复键故障和r3实际2D覆盖分别留痕，r4完成真实3D补验；真机及用户体验待验，详MULTI-BALL-BACK页面卡。
+
+
+### FL-234 / P05（2026-11-02）完整回退与解资格返工
+- 用户原图确认前序返回残留后续意图；P05现在逐步撤销所有后续球/袋。未进球诊断兜底不得显示成该页可推荐解；最后一球后静默。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` § FL-234 P05补充。r4正常构建、42逻辑＋4UI零失败零跳过；2D/3D原图核对，功能、失败轮次与验证边界见P05页面卡及UR-20261102-plan-three-feedback。
+
+DR-442 r5／FL-234（2026-11-02）：多球逐步返回撤销全部后续意图；实体球/成绩/重打不变。clearPracticeAimSelection(preservingTarget:)默认false保持原调用；仅多球退首球时true清袋保留首球。已应用至球桌规范TP25/来源表、55-test-engineer返回残留覆盖v2、UI-IMPLEMENTATION-SPEC及MULTI-BALL-BACK本轮节，定向验证进行中。
+
+
+## DR-460 · 两页开球与玩法分离（2026-11-02）
+用户确认左上开球、设置选玩法、P05解/方向尺阶段互斥、过程静默，每日菜单改名。追加明确两页实际停稳自动结束，无需点完成；复用现有autoDeliverOnSettle能力。新增可选BTTablePlanningControls.breakGameSelection（默认nil），仅P05消费；composer通过现有DailyHUD子页消费同源玩法选项。BreakFlowRunner.actionRequiredMessage只供两个宿主显示，其他宿主statusText合同不变。
+- 已应用至：球桌统一规范TP19补充、UI-IMPLEMENTATION-SPEC Changelog及swiftui-design-system DR-460（2026-11-02）。
+- 验证与边界：tasks/table-page-adaptation/BREAK-UNIFICATION-20261102.md，7逻辑＋7定向UI及门禁通过；真机/全量未验。
+
+
+## FL-243 — 翻袋目录把参数变体当多解、首个进袋掩盖入袋质量（2026-11-02）
+
+用户四图反馈主路线近似、袋角反复晃动。旧全弧长归一化去重受袋口末段影响，旧搜索把进袋作为近乎同分并在首个完整成功后返回；此前190条逐位不变只证明性能改造等价，不能证明旧解推荐质量。用户本轮明确同袋同主库顺序为一个解、jaw不计，覆盖旧按碰点/路径拆分的Bank合同；Kick保持。修复和实证见BANK-KICK-SOLVER-20261102质量节，当前验证中，原现场丢失不得冒称精确复现。
+
+规则回写：求解器性能等价、物理可行性、推荐质量分别验收；质量反馈必须补同输入候选竞争、用户定义的路线身份及减塞不退化质量。旧摘要若包含被否决行为只可作诊断，替换为明确新合同的断言，不无归因删断言。已应用至`.cursor/rules/55-test-engineer.mdc` § FL-243（2026-11-02）。
+
+DR-442 r5最终：r4正常构建、32逻辑＋2UI零失败零跳过；2D/3D首袋回退/同袋重选四张原图已审，真机及全App未验。见UR-20261102-multi-ball-residue。
+
+FL-243定向闭合：r12同0.75物理下59项测试零失败，8张两页2D/3D草稿/撤回原图已审；同袋同主库序只留一个代表，入袋质量优先且减塞不退化。旧失败/容错下降样例保留；题库按用户最新指令不处理，Debug验证不代替发布门禁，真机未验。证据及并行直进源码变化边界见`output/bank-jaw-quality-20261102/REPORT.md`。
+
+
+## DR-461 · 翻袋目标角色与球形快照（2026-11-03）
+
+BankShotViewModel提供selectedTargetKey/selectableBalls/selectTarget，覆盖共享固定8号默认。AngleTrainingScene.setPrimaryTarget(key:)仅更换targetBallNodes/currentTargetNumber，保持原实体位置与姿态。Bank BoardSnapshot以targetKey和poses一起恢复角色，不能只恢复语义目标位置。球库已上桌非目标球调用宿主selectTarget，Diamond默认仍只闪动。已应用至UI-IMPLEMENTATION-SPEC及F18／P07；本轮测试与范围见BANK-TARGET-SELECTION-20261103页面卡。
+
+
+DR-461定向闭合：r3构建、27测试零失败零跳过、六张2D/3D原图已审；角色／姿态保持、自动取消、号码快照与不同目标真实回放恢复通过。r2测试前容量拦截单列，真机／iPad／全App未验，见BANK-TARGET-SELECTION-20261103。

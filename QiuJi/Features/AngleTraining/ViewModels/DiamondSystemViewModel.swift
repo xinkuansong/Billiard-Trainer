@@ -38,7 +38,7 @@ final class DiamondSystemViewModel: ObservableObject {
         activitySuspended = true
         resumeAdjustment = isAdjustingSolution
         resumeSolve = isSolving && !isAdjustingSolution
-        solveTask?.cancel()
+        cancelSolve()
         playbackFinishTask?.cancel()
         adjustGeneration += 1
         endTemporaryTopDown()
@@ -79,7 +79,7 @@ final class DiamondSystemViewModel: ObservableObject {
     /// 扰动容错（E5 同款「容错 N%」；nil = 该解未测出容错）。
     @Published private(set) var currentRobustnessPercent: Int? = nil
     @Published private(set) var hasSolution: Bool = false
-    /// 拖动中：只清线不重算（求解在拖球结束触发），pill 隐藏。
+    /// 拖动中：只清线不重算（松手后自动求解），pill 隐藏。
     @Published private(set) var isDragging: Bool = false
     /// 击打演示 / 自由击球回放中（W5/W6）：拖球/chips/力度柱/球库锁定。
     @Published private(set) var isPlaying: Bool = false
@@ -132,6 +132,8 @@ final class DiamondSystemViewModel: ObservableObject {
         var struckSpinX: Double
         var struckSpinY: Double
         var struckPrediction: ShotPrediction
+        var attemptedSolve = true
+        var struckSolution: KickEngineSolution? = nil
     }
     private var lastSolveUndo: SolveUndoContext?
     /// 恢复期抑制 `reflectionPower.didSet` 触发重求解（「上一杆」= 免重解，G17）。
@@ -142,10 +144,11 @@ final class DiamondSystemViewModel: ObservableObject {
     // MARK: - Adjustment draft (K11 / X5 — transplant of X6 K13 semantics)
     private var adjustmentDraft: KickEngineSolution?
     private let adjustmentScheduler = LatestPredictionScheduler<ShotPrediction>()
+    private let solutionAdjustmentScheduler = LatestPredictionScheduler<KickEngineSolution>()
     private var adjustmentIsValid = true
     @Published private(set) var isAdjustingSolution = false
     private var adjustGeneration = 0 {
-        didSet { adjustmentScheduler.invalidate(); isAdjustingSolution = false }
+        didSet { adjustmentScheduler.invalidate(); solutionAdjustmentScheduler.invalidate(); isAdjustingSolution = false }
     }
 
     var canRestoreSnapshot: Bool { lastSolveSnapshot != nil }
@@ -159,7 +162,7 @@ final class DiamondSystemViewModel: ObservableObject {
         didSet {
             CushionReflectionSettings.power = Float(reflectionPower)
             if isRestoringSolve || isPresentingSolution { return }
-            if mode == .solve { recompute() } else { refreshFreeAim() }
+            if mode == .solve { invalidateSolve() } else { refreshFreeAim() }
         }
     }
 
@@ -187,8 +190,66 @@ final class DiamondSystemViewModel: ObservableObject {
     private var displayed: [KickEngineSolution] = []
     /// 引擎反解后台求解任务（并行全枚举较重，需离开主线程并去抖）。
     private var solveTask: Task<Void, Never>?
+    private var automaticSolveTask: Task<Void, Never>?
+    private(set) var solveCancellation: PredictionCancellation?
+    private func cancelSolve() {
+        automaticSolveTask?.cancel()
+        automaticSolveTask = nil
+        solveCancellation?.cancel()
+        solveTask?.cancel()
+    }
+
     /// 正在后台求解（供 UI 显示加载态）。
     @Published private(set) var isSolving = false
+    @Published private(set) var hasAttemptedSolve = false
+
+    var canSolve: Bool {
+        !activitySuspended && !temporaryTopDownActive && !cameraTransitionBusy
+            && mode == .solve && !isPlaying && !isSolving && !isDragging
+            && scene.cueBallNode?.isHidden == false && scene.targetBallNodes.first?.isHidden == false
+    }
+    var primaryActionTitle: String {
+        isPlaying ? "击球中" : isSolving ? "计算中" : "击球"
+    }
+    func requestPrimaryAction() {
+        if canStrike { strike() }
+    }
+
+    /// Revoke stale results immediately; coalesce completed edits before searching.
+    func invalidateSolve(automatically: Bool = true) {
+        cancelSolve()
+        adjustGeneration += 1
+        isSolving = false
+        hasAttemptedSolve = false
+        adjustmentDraft = nil
+        adjustmentIsValid = true
+        solutions = []
+        displayed = []
+        solutionCount = 0
+        currentIndex = 0
+        currentCushions = 0
+        currentRailText = ""
+        currentRobustnessPercent = nil
+        hasSolution = false
+        simulationNotice = nil
+        clearPath()
+        scene.hideCueStick()
+        if automatically { scheduleAutomaticSolve() }
+    }
+
+    private func scheduleAutomaticSolve() {
+        guard !activitySuspended, mode == .solve, !isPlaying, !isDragging,
+              scene.cueBallNode?.isHidden == false,
+              scene.targetBallNodes.first?.isHidden == false else { return }
+        isSolving = true
+        automaticSolveTask = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(150)) } catch { return }
+            guard let self, !Task.isCancelled, !self.activitySuspended,
+                  self.mode == .solve, !self.isPlaying, !self.isDragging else { return }
+            self.isSolving = false
+            self.recompute()
+        }
+    }
     /// 解缓存（方案 §4.1）：key = 全部球位毫米 + 力度步进；LRU 8 条，页面退出释放。
     private var solveCache = BankKickSolveCache<BankKickSolveKey, [KickEngineSolution]>()
 
@@ -212,7 +273,7 @@ final class DiamondSystemViewModel: ObservableObject {
         pocketMarkers = scene.addPocketMarkers()
         scene.setCameraMode(cameraMode, animated: false)
         placeBalls()
-        recompute()
+        invalidateSolve()
     }
 
     /// 钻石刻度点（无数字）。库边 1…7 数字已去掉——反射页靠路线与假想球读解，不靠计数。
@@ -225,13 +286,11 @@ final class DiamondSystemViewModel: ObservableObject {
 
     // MARK: - Dragging (both balls free)
 
-    /// 拖动中只清线不重算（引擎反解重于旧追迹，拖动中连续重算无意义）；求解在拖球结束触发。
+    /// 拖动中只清线不重算（引擎反解重于旧追迹，拖动中连续重算无意义）；松手后自动求解。
     func dragBegan(node: SCNNode) {
         TableBallPulse.beginDrag(node)
-        solveTask?.cancel()
-        isSolving = false
+        invalidateSolve(automatically: false)
         isDragging = true
-        clearPath()
     }
 
     func dragEnded(node: SCNNode) {
@@ -240,7 +299,7 @@ final class DiamondSystemViewModel: ObservableObject {
         if mode == .free {
             refreshFreeAim()   // 自由模式拖球只刷新瞄准预览，不触发反解。
         } else {
-            recompute()
+            invalidateSolve()
         }
     }
 
@@ -296,7 +355,7 @@ final class DiamondSystemViewModel: ObservableObject {
         scene.showBall(key: key, scenePosition: target)
         node.position = clampMultiBall(node.position, movingNode: node)
         onTableObstacleKeys = (onTableObstacleKeys + [key]).sorted()
-        if mode == .free { refreshFreeAim() } else { recompute() }
+        if mode == .free { refreshFreeAim() } else { invalidateSolve() }
     }
 
     /// 把一颗在桌障碍球撤下回库。
@@ -304,7 +363,7 @@ final class DiamondSystemViewModel: ObservableObject {
         guard !isPlaying, onTableObstacleKeys.contains(key) else { return }
         scene.hideBall(key: key)
         onTableObstacleKeys.removeAll { $0 == key }
-        if mode == .free { refreshFreeAim() } else { recompute() }
+        if mode == .free { refreshFreeAim() } else { invalidateSolve() }
     }
 
     /// 点在桌球的球库槽位 → 桌上对应球放大脉冲提示位置（编排台同款）。
@@ -392,7 +451,7 @@ final class DiamondSystemViewModel: ObservableObject {
             drawReferenceSolution()
         } else if replayReturnNeedsSolve {
             if activitySuspended { resumeSolve = true }
-            else { recompute() }
+            else { invalidateSolve() }
         } else { drawCurrent() }
         replayReturnNeedsSolve = false
         replayCamera.finish(in: scene)
@@ -431,7 +490,7 @@ final class DiamondSystemViewModel: ObservableObject {
     private func runSolveDemo(_ sol: KickEngineSolution, switchesPlayerCamera: Bool = false) {
         guard let cueNode = scene.cueBallNode,
               sol.prediction.hasFinalTableState, sol.prediction.recorder != nil, sol.prediction.duration > 0.05 else { return }
-        solveTask?.cancel()
+        cancelSolve()
         isSolving = false
         adjustGeneration += 1
         isPlaying = true
@@ -477,16 +536,17 @@ final class DiamondSystemViewModel: ObservableObject {
             catalogPower: catalogSolvePower,
             struckPower: reflectionPower,
             struckSpinX: Double(shown?.spinX ?? Float(spinX)), struckSpinY: Double(shown?.spinY ?? Float(spinY)),
-            struckPrediction: shown?.prediction ?? fallback)
+            struckPrediction: shown?.prediction ?? fallback, attemptedSolve: hasAttemptedSolve, struckSolution: shown)
     }
 
-    /// 把击打前完整状态原样恢复（G17，免重解）。catalog 原样回填；若击打用了微调则重建草稿层。
+    /// 把击打前完整状态原样恢复（G17，免重解）。catalog 原样回填；原样恢复击打时草稿及其评分。
     func restoreSolve(from ctx: SolveUndoContext) {
         guard mode == .solve, !isPlaying else { return }
-        solveTask?.cancel()
+        cancelSolve()
         isSolving = false
         adjustGeneration += 1
         catalogSolvePower = ctx.catalogPower
+        hasAttemptedSolve = ctx.attemptedSolve
         isRestoringSolve = true
         reflectionPower = ctx.catalogPower
         isRestoringSolve = false
@@ -495,7 +555,8 @@ final class DiamondSystemViewModel: ObservableObject {
         selectedCushions = ctx.cushions
         solutions = ctx.solutions
         adjustmentDraft = nil
-        displayed = ctx.cushions.map { n in solutions.filter { $0.cushions == n } } ?? solutions
+        displayed = Array((ctx.cushions.map { n in solutions.filter { $0.cushions == n } } ?? solutions)
+            .prefix(BankKickSolvePipeline.kickSolutionLimit))
         solutionCount = displayed.count
         if displayed.isEmpty {
             hasSolution = false
@@ -507,22 +568,9 @@ final class DiamondSystemViewModel: ObservableObject {
             scene.hideCueStick()
         } else {
             currentIndex = min(max(ctx.currentIndex, 0), displayed.count - 1)
-            let catalog = displayed[currentIndex]
-            let paramsDiffer =
-                abs(catalog.spinX - Float(ctx.struckSpinX)) > 1e-6
-                || abs(catalog.spinY - Float(ctx.struckSpinY)) > 1e-6
-                || abs(ctx.struckPower - ctx.catalogPower) > 1e-9
-            if paramsDiffer {
-                let actualRails = BankKickRoute.measured(ctx.struckPrediction, kick: true)?.kickRails ?? []
-                adjustmentDraft = KickEngineSolution(
-                    rails: actualRails, seedRails: catalog.seedRails, prediction: ctx.struckPrediction,
-                    cushions: actualRails.count,
-                    difficultyScore: catalog.difficultyScore,
-                    difficultyTier: catalog.difficultyTier,
-                    robustness: catalog.robustness, pathLength: catalog.pathLength,
-                    spinX: Float(ctx.struckSpinX), spinY: Float(ctx.struckSpinY)
-                )
-                presentDisplayedSolution(adjustmentDraft!, power: ctx.struckPower)
+            if let struck = ctx.struckSolution {
+                adjustmentDraft = struck
+                presentDisplayedSolution(struck, power: ctx.struckPower)
             } else {
                 showSolution(at: currentIndex)
             }
@@ -665,12 +713,12 @@ final class DiamondSystemViewModel: ObservableObject {
     // MARK: - Free mode（W6：模式切换 / 瞄准 / simulateFree 试手 / 上一杆 / 恢复球形）
 
     /// 求解 ⇄ 自由切换。进自由默认沿用选中解瞄准方向（照着练，方案 §1.1）；
-    /// 回求解触发 recompute——球形未变则命中解缓存直显（§4.1）。
+    /// 回求解自动更新目录，未变化的输入可命中缓存。
     func toggleMode() {
         guard !isPlaying else { return }
         adjustGeneration += 1
         if mode == .solve {
-            solveTask?.cancel()
+            cancelSolve()
             isSolving = false
             if let aim = currentSolution?.prediction.aimDirection {
                 freeAimDir = aim
@@ -685,7 +733,7 @@ final class DiamondSystemViewModel: ObservableObject {
             mode = .solve
             clearFreeOverlays()
             scene.hideCueStick()
-            recompute()
+            invalidateSolve()
         }
     }
 
@@ -740,22 +788,8 @@ final class DiamondSystemViewModel: ObservableObject {
     /// v23 W3：与场景假想球/接触点同源的近区特写（层集 = 瞄准线 + 假想球 + 接触点）。
     private func updateCloseup(cue: SCNVector3, dir: SCNVector3,
                                balls: [(key: String, pos: SCNVector3)]) {
-        let railEnd = rayToRail(from: cue, dir: dir)
-        closeupGate.update(AimCloseupBuilder.freeAim(
-            cue: CGPoint(x: CGFloat(cue.x), y: CGFloat(cue.z)),
-            direction: CGPoint(x: CGFloat(dir.x), y: CGFloat(dir.z)),
-            balls: balls.map {
-                AimCloseupBuilder.Ball(
-                    pos: CGPoint(x: CGFloat($0.pos.x), y: CGFloat($0.pos.z)),
-                    number: PositionPlayBall.number(for: $0.key))
-            },
-            ballRadius: CGFloat(AngleSceneCalculator.ballRadius),
-            railEnd: CGPoint(x: CGFloat(railEnd.x), y: CGFloat(railEnd.z)),
-            halfLength: CGFloat(scene.cameraRig?.tableOuterHalfLength
-                                ?? ShotTableLayout.defaultHalfLength),
-            halfWidth: CGFloat(scene.cameraRig?.tableOuterHalfWidth
-                               ?? ShotTableLayout.defaultHalfWidth),
-            previouslyNear: closeupGate.isNear))
+        // Kick solving has no direct-contact closeup, including legacy enabled preferences.
+        closeupGate.reset()
     }
 
     /// v23 W2：瞄准轮毫米口径增益（°/pt）——杠杆臂 = 母球→首碰球（空杆取前方最近球）。
@@ -793,7 +827,7 @@ final class DiamondSystemViewModel: ObservableObject {
         activitySuspended = false
         if mode == .free { refreshFreeAim() }
         else if resumeAdjustment { resumeAdjustment = false; adjustCurrentSolution() }
-        else if resumeSolve { resumeSolve = false; recompute() }
+        else if resumeSolve { resumeSolve = false; invalidateSolve() }
         else { drawCurrent() }
     }
 
@@ -860,6 +894,7 @@ final class DiamondSystemViewModel: ObservableObject {
             freePreviewKey = nil
             freePreviewPrediction = nil
             adjustmentScheduler.invalidate()
+            solutionAdjustmentScheduler.invalidate()
             scene.clearResultNodes(nodes: &freePreviewNodes)
             freeAimContact = nil
             closeupGate.reset()
@@ -941,6 +976,7 @@ final class DiamondSystemViewModel: ObservableObject {
 
     private func clearFreeOverlays() {
         adjustmentScheduler.invalidate()
+        solutionAdjustmentScheduler.invalidate()
         freePreviewKey = nil
         freePreviewPrediction = nil
         scene.clearResultNodes(nodes: &freePreviewNodes)
@@ -966,6 +1002,7 @@ final class DiamondSystemViewModel: ObservableObject {
         interruptedFreeBoard = captureBoard()
         interruptedFreeRails = scene.railInventory.snapshot()
         adjustmentScheduler.invalidate()
+        solutionAdjustmentScheduler.invalidate()
         scene.clearResultNodes(nodes: &freePreviewNodes)
         let before = captureBoard()
         freeBeforeRails = scene.railInventory.snapshot()
@@ -1113,20 +1150,24 @@ final class DiamondSystemViewModel: ObservableObject {
         guard !isPlaying, mode == .solve else { return }
         selectedCushions = n
         currentIndex = 0
-        recompute()
+        if hasAttemptedSolve && (!isSolving || isAdjustingSolution) {
+            isSolving = false
+            applySolutions(solutions, prevCushions: 0, isNewCatalog: false)
+        }
     }
 
     // MARK: - Solving
 
     /// 引擎反解（`predictKickAll` 并行全枚举 + 好打排序 + 容错）较重：先查解缓存
-    /// （球位/力度量化 key，命中直显），miss 才离开主线程求解（120ms 去抖）。
+    /// （球位/力度精确 key，命中直显），miss 才离开主线程求解；由完整编辑操作自动触发。
     func recompute() {
         simulationNotice=nil
-        guard !isPlaying, mode == .solve,
+        guard !activitySuspended, mode == .solve, !isPlaying, !isDragging, !isSolving,
               let cue = scene.cueBallNode?.position,
               let target = scene.targetBallNodes.first?.position else { return }
 
-        solveTask?.cancel()
+        invalidateSolve(automatically: false)
+        hasAttemptedSolve = true
         let prevCushions = currentCushions
 
         let obstacles = currentObstacles()
@@ -1146,15 +1187,14 @@ final class DiamondSystemViewModel: ObservableObject {
         let power = Float(reflectionPower)
         // 球位 y 必须是真实球心高度：管线的接触锚点/瞄准几何直接沿用输入 y。
         let ballY = surfaceY + AngleSceneCalculator.ballRadius
+        let cancellation = PredictionCancellation()
+        solveCancellation = cancellation
         solveTask = Task { [weak self] in
-            // G14：求解模式拖球/连续调节期间不求解——每次触发取消上一 task 并重排，
-            // 停 0.5s（无新输入）后才离开主线程反解（缓存命中直显，不受此延时影响）。
-            try? await Task.sleep(nanoseconds: UInt64(SolveDebounceScheduler.defaultIdleInterval * 1_000_000_000))
             if Task.isCancelled { return }
             let sols = await Task.detached(priority: .userInitiated) {
                 BankKickSolvePipeline.solveKick(
                     cue: SCNVector3(cx, ballY, cz), target: SCNVector3(tx, ballY, tz),
-                    surfaceY: surfaceY, power: power, obstacles: obstacles)
+                    surfaceY: surfaceY, power: power, obstacles: obstacles, cancellation: cancellation, limit: nil)
             }.value
             if Task.isCancelled { return }
             guard let self else { return }
@@ -1165,12 +1205,13 @@ final class DiamondSystemViewModel: ObservableObject {
     }
 
     /// 应用求解结果（过滤、选路、绘制）。在主线程执行。
-    private func applySolutions(_ sols: [KickEngineSolution], prevCushions: Int) {
+    private func applySolutions(_ sols: [KickEngineSolution], prevCushions: Int, isNewCatalog: Bool = true) {
+        simulationNotice = nil
         adjustGeneration += 1
         adjustmentDraft = nil
         solutions = sols.filter { $0.prediction.hasFinalTableState }
         if !sols.isEmpty && solutions.isEmpty { simulationNotice="本次模拟未完成，请调整击球参数后重试" }
-        catalogSolvePower = reflectionPower
+        if isNewCatalog { catalogSolvePower = reflectionPower }
         // 最近求解快照（方案 §4.1）：求解成功即存球位，供自由模式「恢复球形」。
         if !solutions.isEmpty {
             solveSnapshotRails = scene.railInventory.snapshot()
@@ -1179,9 +1220,9 @@ final class DiamondSystemViewModel: ObservableObject {
 
         // 库数过滤 = 展示层后处理（分桶，不进缓存 key）。
         if let n = selectedCushions {
-            displayed = solutions.filter { $0.cushions == n }
+            displayed = Array(solutions.filter { $0.cushions == n }.prefix(BankKickSolvePipeline.kickSolutionLimit))
         } else {
-            displayed = solutions
+            displayed = Array(solutions.prefix(BankKickSolvePipeline.kickSolutionLimit))
         }
         solutionCount = displayed.count
 
@@ -1246,29 +1287,23 @@ final class DiamondSystemViewModel: ObservableObject {
         spinY = Double(newSY)
         isPresentingSolution = false
 
-        adjustmentScheduler.submit(compute: {
+        solutionAdjustmentScheduler.submit(compute: {
             var input = ShotInput(
                 cueBall: cue, targetBall: target, pocketIndex: 0,
                 velocity: Float(newPower), spinX: newSX, spinY: newSY,
                 surfaceY: surfaceY, kickRails: rails
             )
             input.obstacles = obstacles
-            return ShotPredictor.predict(input)
-        }, receive: { [weak self] pred, isLatest in
+            return BankKickSolvePipeline.kickDraft(input: input, seedRails: rails,
+                prediction: ShotPredictor.predict(input))
+        }, receive: { [weak self] drafted, isLatest in
+                let pred = drafted.prediction
                 guard let self, self.adjustGeneration == gen, !self.isPlaying else { return }
                 guard isLatest else { return }
                 self.isSolving = false
                 self.isAdjustingSolution = false
                 self.adjustmentIsValid = pred.hasFinalTableState
                 guard self.displayed.indices.contains(idx), self.currentIndex == idx else { return }
-                let actualRails = BankKickRoute.measured(pred, kick: true)?.kickRails ?? []
-                let drafted = KickEngineSolution(
-                    rails: actualRails, seedRails: rails, prediction: pred, cushions: actualRails.count,
-                    difficultyScore: catalog.difficultyScore,
-                    difficultyTier: catalog.difficultyTier,
-                    robustness: catalog.robustness, pathLength: catalog.pathLength,
-                    spinX: newSX, spinY: newSY
-                )
                 self.adjustmentDraft = drafted
                 self.presentDisplayedSolution(drafted, power: newPower)
         })
@@ -1281,7 +1316,7 @@ final class DiamondSystemViewModel: ObservableObject {
         placeBalls()
         onTableObstacleKeys = []
         currentCushions = 0
-        recompute()
+        invalidateSolve()
     }
 
     /// Display / strike path: draft overrides catalog at `currentIndex` (X6 same contract).
@@ -1305,13 +1340,18 @@ final class DiamondSystemViewModel: ObservableObject {
     private func presentDisplayedSolution(_ sol: KickEngineSolution, power: Double) {
         adjustmentIsValid = sol.prediction.hasFinalTableState
         guard sol.prediction.hasFinalTableState else {
+            currentRobustnessPercent = nil
+            currentCushions = sol.cushions
+            currentRailText = sol.railSequenceText
             hasSolution=false
             clearPath()
             scene.hideCueStick()
             simulationNotice="本次模拟未完成，请调整击球参数后重试"
             return
         }
-        simulationNotice=nil
+        simulationNotice = BankKickValidity.kick(sol.prediction) ? nil
+            : (sol.prediction.cuePocketed ? "母球落袋 · 可试打或重新调整"
+                : "未完成解球 · 可试打或重新调整")
         isPresentingSolution = true
         reflectionPower = power
         spinX = Double(sol.spinX)
@@ -1340,7 +1380,7 @@ final class DiamondSystemViewModel: ObservableObject {
         if let simulationNotice { return simulationNotice }
         if isPlaying || isDragging || isSolving { return nil }
         if mode == .free { return statusText }
-        return hasSolution ? nil : noSolutionText
+        return hasSolution || !hasAttemptedSolve ? nil : noSolutionText
     }
 
     var statusText: String {
@@ -1357,8 +1397,9 @@ final class DiamondSystemViewModel: ObservableObject {
             return thick == "—" ? "首碰 \(name) · 切角 \(deg)°" : "首碰 \(name) · 切角 \(deg)° · \(thick)"
         }
         if isPlaying { return "演示中…" }
-        if isDragging { return "拖动中 · 松手后求解" }
+        if isDragging { return "拖动中" }
         if isSolving { return "真实物理求解中…" }
+        guard hasAttemptedSolve else { return "摆好球后自动求解" }
         guard hasSolution, let sol = currentSolution else { return noSolutionText }
         var parts = ["解 \(currentIndex + 1)/\(solutionCount)", "\(currentCushions) 库"]
         if !currentRailText.isEmpty { parts.append(currentRailText) }

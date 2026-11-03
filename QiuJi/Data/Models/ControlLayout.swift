@@ -71,11 +71,13 @@ enum FreeControlCatalog {
         case .dailyClearance, .freePlay:
             ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike",
                    "break.entry", "break.rerack", "break.strike"]
-        case .silu, .planThree:
+        case .silu:
             ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike",
                    "break.rerack", "break.strike", "break.confirm", "planning.constraintTool",
                    "planning.clearConstraint", "planning.solve", "planning.nextSolution"]
-            if page == .planThree { ids.insert("planning.roles") }
+        case .planThree:
+            ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike",
+                   "break.entry", "break.rerack", "break.strike", "break.confirm", "planning.nextSolution"]
         case .snookerTactics:
             ids = ["shot.undo", "shot.replay", "shot.spin", "shot.power", "shot.strike",
                    "defense.targetTool", "defense.clearSelection", "planning.solve", "planning.nextSolution"]
@@ -92,6 +94,12 @@ enum FreeControlCatalog {
         case .threeBallPractice2D, .threeBallPractice3D:
             guard (page == .threeBallPractice2D) == (mode == .twoD) else { return [] }
             ids = ["shot.undo", "shot.replay", "shot.spin", "shot.power", "shot.strike"]
+        case .bankPractice2D, .bankPractice3D:
+            guard (page == .bankPractice2D) == (mode == .twoD) else { return [] }
+            ids = ["shot.aim", "shot.spin", "shot.power", "shot.strike", "shot.undo", "shot.replay"]
+        case .kickPractice2D, .kickPractice3D:
+            guard (page == .kickPractice2D) == (mode == .twoD) else { return [] }
+            ids = ["shot.aim", "shot.spin", "shot.power", "shot.strike", "shot.undo", "shot.replay"]
         case .kBallPractice2D, .kBallPractice3D, .twoBallPractice2D, .twoBallPractice3D:
             guard ([TablePreferencePage.twoBallPractice2D, .kBallPractice2D].contains(page)) == (mode == .twoD) else { return [] }
             ids = ["shot.spin", "shot.power", "shot.strike", "shot.undo", "shot.replay"]
@@ -102,7 +110,7 @@ enum FreeControlCatalog {
             guard (page == .accuracy2D) == (mode == .twoD) else { return [] }
             ids = ["shot.aim", "shot.spin", "shot.power", "shot.strike", "shot.replay"]
         case .customFormationPractice:
-            ids = ["shot.undo", "shot.aim", "shot.spin", "shot.power", "shot.strike", "formation.restart"]
+            ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike", "formation.restart"]
         case .customFormationEditor:
             guard mode == .twoD else { return [] }
             ids = ["formation.tool.line", "formation.tool.distance", "formation.tool.angle",
@@ -114,12 +122,12 @@ enum FreeControlCatalog {
         case .separationAngleAtlas, .cushionEnglishAtlas:
             let legend = page == .separationAngleAtlas ? "separation.legend." : "cushion.legend."
             ids = Set((0..<8).map { legend + String($0) })
-            ids.formUnion(["shot.spin", "shot.power"])
+            ids.formUnion(["shot.spin", "shot.power", "atlas.cushionCount"])
         case .shotSimulation:
             ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike"]
         case .composer:
             ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike",
-                   "break.entry", "break.rerack", "break.strike"]
+                   "break.entry", "break.rerack", "break.strike", "break.confirm"]
         case .multiBallPractice, .multiBallPractice3D:
             ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike", "multiBall.restart", "multiBall.next"]
         case .snakePractice:
@@ -226,14 +234,14 @@ extension TablePreferencePage {
     }
     var fixedControlLayoutMode: ControlLayoutLayer? {
         switch self {
-        case .sceneAiming2D, .aimPointScene2D, .accuracy2D, .separationPractice2D, .kBallPractice2D, .twoBallPractice2D, .threeBallPractice2D, .multiBallPractice, .customFormationEditor: return .twoD
-        case .sceneAiming3D, .aimPointScene3D, .accuracy3D, .separationPractice3D, .kBallPractice3D, .twoBallPractice3D, .threeBallPractice3D, .multiBallPractice3D: return .threeD
+        case .sceneAiming2D, .aimPointScene2D, .accuracy2D, .separationPractice2D, .bankPractice2D, .kickPractice2D, .kBallPractice2D, .twoBallPractice2D, .threeBallPractice2D, .multiBallPractice, .customFormationEditor: return .twoD
+        case .sceneAiming3D, .aimPointScene3D, .accuracy3D, .separationPractice3D, .bankPractice3D, .kickPractice3D, .kBallPractice3D, .twoBallPractice3D, .threeBallPractice3D, .multiBallPractice3D: return .threeD
         default: return nil
         }
     }
     var controlLayoutFamily: ControlLayoutFamily? {
         switch self {
-        case .dailyClearance, .freePlay, .shotSimulation, .snakePractice, .multiBallPractice, .multiBallPractice3D, .composer, .drillTryout, .accuracy2D, .accuracy3D, .separationPractice2D, .separationPractice3D, .kBallPractice2D, .kBallPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return .shot
+        case .dailyClearance, .freePlay, .shotSimulation, .snakePractice, .multiBallPractice, .multiBallPractice3D, .composer, .drillTryout, .accuracy2D, .accuracy3D, .separationPractice2D, .separationPractice3D, .bankPractice2D, .bankPractice3D, .kickPractice2D, .kickPractice3D, .kBallPractice2D, .kBallPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return .shot
         case .silu, .planThree, .snookerTactics, .bankShot, .diamondSystem: return .planning
         case .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas: return .teaching
         case .sceneAiming2D, .sceneAiming3D: return .angleQuiz

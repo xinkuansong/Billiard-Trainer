@@ -138,6 +138,7 @@ final class MultiBallPracticeTests: XCTestCase {
         XCTAssertEqual(restored.planningStep, .pocket1)
         restored.selectPlanningPocket(4)
         XCTAssertEqual(restored.planningStep, .ball2)
+        XCTAssertEqual(restored.resultNotice, restored.planningStepPrompt)
         let chosen = restored.currentSelection
         restoredHost.refreshLegalAimSelection()
         restoredHost.setPreferredAimMode(.free); restoredHost.setPreferredAimMode(.pocket)
@@ -173,7 +174,7 @@ final class MultiBallPracticeTests: XCTestCase {
         c.settle(.init(before: try XCTUnwrap(c.rack?.board), shot: .init(targetKey: first, pocket: "topLeft", velocity: 2), prediction: prediction))
         XCTAssertNil(c.failure); XCTAssertTrue(c.advancePlannedAim())
         XCTAssertNil(c.currentTarget); XCTAssertNil(host.selectedTargetKey)
-        XCTAssertEqual(host.selectedPocketIndex, -1); XCTAssertNil(c.lockedCurrentPocket)
+        XCTAssertEqual(host.selectedPocketIndex, -1); XCTAssertNil(host.practiceLockedPocket)
         XCTAssertEqual(c.planningStep, .ball1); XCTAssertFalse(c.requestStrike())
         XCTAssertFalse(c.canPlaceCue)
         XCTAssertTrue(c.selectPlanningBall(try XCTUnwrap(c.legalKeys.first)))
@@ -203,6 +204,7 @@ final class MultiBallPracticeTests: XCTestCase {
         XCTAssertEqual(host.selectedPocketIndex, -1); XCTAssertEqual(reopened.planningStep, .ball1)
         legacy.plan = .init(current: colors[0], next: colors[1], pocket: 4, third: colors[2])
         legacy.next = colors[1]; legacy.third = colors[2]; legacy.step = .ball3
+        legacy.hasStruck = true; legacy.lockedPocket = 2
         try store.save(legacy, id: legacy.runID)
         let plannedHost = PositionPlayViewModel(); plannedHost.setupScene(loadsDefaultLayout: false)
         defer { plannedHost.suspendAuthoringActivity() }
@@ -210,6 +212,27 @@ final class MultiBallPracticeTests: XCTestCase {
         planned.attach(to: plannedHost)
         XCTAssertEqual(planned.currentTarget, colors[0]); XCTAssertEqual(plannedHost.selectedPocketIndex, 2)
         XCTAssertEqual(planned.plan, legacy.plan); XCTAssertTrue(planned.requestStrike())
+        XCTAssertNil(plannedHost.practiceLockedTarget); XCTAssertNil(plannedHost.practiceLockedPocket)
+        for step in [PlanThreeRole.pocket2, .ball2, .pocket1, .ball1] {
+            planned.goToPreviousStep(); XCTAssertEqual(planned.planningStep, step)
+        }
+        planned.selectPaletteBall(colors[1])
+        XCTAssertEqual(planned.currentTarget, colors[1]); XCTAssertNil(planned.plan)
+        XCTAssertEqual(plannedHost.selectedPocketIndex, -1)
+        // Old final-ball saves could point at a now nonexistent second-ball step.
+        legacy.remaining = ["_8"]; legacy.target = "_8"; legacy.pocket = 2
+        legacy.plan = nil; legacy.next = nil; legacy.third = nil; legacy.input = nil
+        legacy.step = .ball2
+        try store.save(legacy, id: legacy.runID)
+        let finalHost = PositionPlayViewModel(); finalHost.setupScene(loadsDefaultLayout: false)
+        defer { finalHost.suspendAuthoringActivity() }
+        let finalBall = MultiBallPracticeController(defaults: defaults, limiter: limiter())
+        finalBall.attach(to: finalHost)
+        XCTAssertEqual(finalBall.planningStep, .pocket1)
+        finalBall.goToPreviousStep(); XCTAssertEqual(finalBall.planningStep, .ball1)
+        finalBall.selectPaletteBall("_8"); XCTAssertEqual(finalBall.planningStep, .pocket1)
+        finalBall.selectPlanningPocket(4)
+        XCTAssertEqual(finalHost.selectedPocketIndex, 4)
     }
 
     func testChangingOpeningBallClearsItsPocketAndLaterPlan() throws {
@@ -466,7 +489,14 @@ final class MultiBallPracticeTests: XCTestCase {
                 XCTAssertFalse(c.selectContinuationBall("_9"))
                 XCTAssertFalse(c.selectContinuationPocket(6))
                 XCTAssertTrue(c.selectContinuationPocket(4))
-            } else { XCTAssertFalse(c.needsContinuation) }
+            } else {
+                XCTAssertFalse(c.needsContinuation)
+                XCTAssertEqual(c.planningStep, .pocket1)
+                XCTAssertFalse(c.canGoToPreviousStep)
+                c.selectPlanningPocket(2)
+                XCTAssertEqual(c.currentSelection.pocket, 2)
+                XCTAssertEqual(c.scores.count, 3)
+            }
             XCTAssertTrue(c.canStrike)
             c.prepareShot()
             var prediction = ShotPrediction(); prediction.termination = .settled
@@ -539,16 +569,113 @@ final class MultiBallPracticeTests: XCTestCase {
         for pocket in [0, 2, 4] { XCTAssertTrue(c.selectContinuationPocket(pocket)) }
         let third = try XCTUnwrap(c.thirdKeys.first)
         XCTAssertTrue(c.selectPlanningBall(third))
-        let plan = c.plan
+        var plan = c.plan
+        plan?.third = nil
         for expected in [PlanThreeRole.pocket2, .ball2, .pocket1, .ball1] {
             XCTAssertTrue(c.canGoToPreviousStep)
             c.goToPreviousStep()
             XCTAssertEqual(c.planningStep, expected)
-            XCTAssertEqual(c.plan, plan)
-            XCTAssertEqual(c.draftNextKey, second); XCTAssertEqual(c.thirdKey, third)
+            XCTAssertEqual(c.plan, expected == .pocket2 ? plan : nil)
+            XCTAssertEqual(c.draftNextKey, expected.rawValue >= PlanThreeRole.ball2.rawValue ? second : nil)
+            XCTAssertNil(c.thirdKey)
+            if expected == .ball1 { XCTAssertNil(c.currentSelection.pocket) }
         }
         XCTAssertFalse(c.canGoToPreviousStep)
         c.goToPreviousStep(); XCTAssertEqual(c.planningStep, .ball1)
+    }
+
+    func testPreviousSecondPocketRequiresThirdBallSelectionAgain() throws {
+        var config = MultiBallConfiguration(); config.game = .chineseEight
+        let c = MultiBallPracticeController(configuration: config, defaults: defaults, limiter: limiter())
+        c.start(config)
+        try chooseOpening(c)
+        let current = c.currentSelection
+        let second = try XCTUnwrap(c.continuationKeys.first)
+        XCTAssertTrue(c.selectContinuationBall(second))
+        XCTAssertTrue(c.selectContinuationPocket(2))
+        let third = try XCTUnwrap(c.thirdKeys.first)
+        XCTAssertTrue(c.selectPlanningBall(third))
+        XCTAssertTrue(c.requestStrike())
+
+        c.goToPreviousStep()
+        XCTAssertEqual(c.planningStep, .pocket2)
+        XCTAssertEqual(c.currentSelection, current)
+        XCTAssertEqual(c.draftNextKey, second)
+        XCTAssertNil(c.thirdKey); XCTAssertNil(c.plan?.third)
+        XCTAssertNil(c.paletteRoleDescription(third))
+        XCTAssertFalse(c.hasValidPlan)
+
+        // Even choosing the same pocket must not restore the old third ball.
+        XCTAssertTrue(c.selectContinuationPocket(2))
+        XCTAssertEqual(c.planningStep, .ball3)
+        XCTAssertNil(c.thirdKey); XCTAssertNil(c.plan?.third)
+        XCTAssertFalse(c.requestStrike())
+        XCTAssertEqual(c.resultNotice, "请选择第三颗球")
+        c.selectPaletteBall(third)
+        XCTAssertEqual(c.thirdKey, third); XCTAssertEqual(c.plan?.third, third)
+        XCTAssertTrue(c.requestStrike())
+    }
+
+    func testBackToFirstPocketClearsLaterRolesAndPersistsWithoutMovingBalls() async throws {
+        for game in [MultiBallConfiguration.Game.chineseEight, .rotation] {
+            var config = MultiBallConfiguration(); config.game = game
+            let host = PositionPlayViewModel(); host.setupScene(loadsDefaultLayout: false)
+            defer { host.suspendAuthoringActivity() }
+            let c = MultiBallPracticeController(configuration: config, defaults: defaults, limiter: limiter())
+            c.attach(to: host); c.start(config)
+            try chooseOpening(c)
+            let current = c.currentSelection
+            if game == .chineseEight {
+                XCTAssertTrue(c.selectContinuationBall(try XCTUnwrap(c.continuationKeys.first)))
+            }
+            XCTAssertTrue(c.selectContinuationPocket(2))
+            if game == .chineseEight {
+                XCTAssertTrue(c.selectPlanningBall(try XCTUnwrap(c.thirdKeys.first)))
+            }
+            XCTAssertTrue(c.hasValidPlan)
+            let positions = host.scene.allBallNodes.mapValues(\.position)
+            let remaining = c.remaining
+            while c.planningStep != .pocket1 { c.goToPreviousStep() }
+            XCTAssertEqual(c.currentSelection, current)
+            XCTAssertNil(c.plan); XCTAssertNil(c.draftNextKey); XCTAssertNil(c.thirdKey)
+            XCTAssertNil(host.continuationPocketIndex)
+            XCTAssertFalse(c.hasValidPlan)
+            if game == .rotation {
+                XCTAssertFalse(c.requestStrike())
+                XCTAssertEqual(c.planningStep, .pocket1, "Fixed ball order cannot enter a manual ball-selection step")
+            }
+            let rings = host.scene.rootNode.childNodes.filter { $0.name?.hasPrefix("multiBall.planningRing.") == true }
+            XCTAssertEqual(rings.map(\.name), ["multiBall.planningRing.0"])
+            XCTAssertFalse(host.scene.addPocketMarkers().compactMap { $0 as? PocketLeatherMarker }
+                .contains { [.continuationTarget, .practiceBoth].contains($0.style) })
+            XCTAssertEqual(c.remaining, remaining)
+            for (key, point) in positions {
+                let node = try XCTUnwrap(host.scene.allBallNodes[key])
+                XCTAssertEqual(node.position.x, point.x); XCTAssertEqual(node.position.z, point.z)
+            }
+            for _ in 0..<200 where host.isComputing { try await Task.sleep(for: .milliseconds(100)) }
+            XCTAssertFalse(host.isComputing)
+            c.saveCheckpoint(); XCTAssertNil(c.checkpointError)
+            let restoredHost = PositionPlayViewModel(); restoredHost.setupScene(loadsDefaultLayout: false)
+            defer { restoredHost.suspendAuthoringActivity() }
+            let restored = MultiBallPracticeController(defaults: defaults, limiter: limiter())
+            restored.attach(to: restoredHost)
+            XCTAssertEqual(restored.planningStep, .pocket1)
+            XCTAssertEqual(restored.currentSelection, current)
+            XCTAssertNil(restored.plan); XCTAssertNil(restored.draftNextKey); XCTAssertNil(restored.thirdKey)
+            restored.selectPlanningPocket(try XCTUnwrap(current.pocket))
+            XCTAssertNil(restored.plan, "Reconfirming the same first pocket cannot restore the second pocket")
+            if game == .chineseEight {
+                XCTAssertNil(restored.draftNextKey); XCTAssertNil(restored.thirdKey)
+                XCTAssertEqual(restored.planningStep, .ball2)
+            } else {
+                XCTAssertEqual(restored.draftNextKey, restored.continuationKeys.first)
+                XCTAssertEqual(restored.thirdKey, restored.thirdKeys.first)
+                XCTAssertEqual(restored.planningStep, .pocket2)
+            }
+            XCTAssertFalse(restored.requestStrike())
+            c.finishAttempt(reason: "test")
+        }
     }
 
     func testChineseOwnershipStaysFixedWithNoOpponentsAndAfterClearingOwnColors() throws {
@@ -659,9 +786,14 @@ final class MultiBallPracticeTests: XCTestCase {
         XCTAssertTrue(c.advancePlannedAim())
         XCTAssertEqual(vm.selectedTargetKey, plan.next); XCTAssertEqual(vm.selectedPocketIndex, plan.pocket)
         XCTAssertEqual(c.draftNextKey, plan.third)
-        XCTAssertEqual(c.lockedCurrentPocket, plan.pocket)
-        vm.selectPocket(at: (plan.pocket + 1) % 6)
-        XCTAssertEqual(vm.selectedPocketIndex, plan.pocket)
+        XCTAssertNil(vm.practiceLockedTarget); XCTAssertNil(vm.practiceLockedPocket)
+        XCTAssertEqual(c.editingRole, 1)
+        c.goToPreviousStep()
+        XCTAssertEqual(c.planningStep, .pocket1)
+        XCTAssertFalse(c.canGoToPreviousStep, "Rotation keeps the legal first ball fixed")
+        c.selectPlanningPocket((plan.pocket + 1) % 6)
+        XCTAssertEqual(vm.selectedPocketIndex, (plan.pocket + 1) % 6)
+        XCTAssertEqual(c.currentSelection.pocket, vm.selectedPocketIndex)
         XCTAssertFalse(vm.selectTarget(key: "_9"))
         XCTAssertEqual(c.thirdKey, "_9")
         XCTAssertEqual(c.editingRole, 1)
@@ -669,9 +801,10 @@ final class MultiBallPracticeTests: XCTestCase {
         c.finishAttempt(reason: "test")
     }
 
-    func testChineseRollingKeepsThirdAndDefersBlackUntilAllColors() throws {
+    func testChineseRollingKeepsThirdAndDefersBlackUntilAllColors() async throws {
         var config = MultiBallConfiguration(); config.game = .chineseEight; config.ownCount = 4
         let vm = PositionPlayViewModel(); vm.usesAutomaticPocketFallback = true; vm.setupScene(loadsDefaultLayout: false)
+        defer { vm.suspendAuthoringActivity() }
         let c = MultiBallPracticeController(configuration: config, defaults: defaults, limiter: limiter())
         c.attach(to: vm)
         try chooseOpening(c)
@@ -702,7 +835,14 @@ final class MultiBallPracticeTests: XCTestCase {
         c.goToPreviousStep()
         XCTAssertEqual(c.planningStep, .ball2)
         XCTAssertEqual(c.draftNextKey, third)
-        XCTAssertFalse(c.canGoToPreviousStep, "The inherited current ball and pocket are a boundary")
+        XCTAssertTrue(c.canGoToPreviousStep)
+        c.goToPreviousStep(); XCTAssertEqual(c.planningStep, .pocket1)
+        c.goToPreviousStep(); XCTAssertEqual(c.planningStep, .ball1)
+        XCTAssertFalse(c.canGoToPreviousStep)
+        XCTAssertNil(c.currentSelection.pocket); XCTAssertEqual(vm.selectedPocketIndex, -1)
+        c.selectPaletteBall(second)
+        c.selectPlanningPocket(4)
+        c.selectRole(1)
         XCTAssertTrue(c.selectContinuationBall(third))
         XCTAssertTrue(c.selectContinuationPocket(2))
         XCTAssertEqual(c.planningStep, .ball3)
@@ -711,6 +851,38 @@ final class MultiBallPracticeTests: XCTestCase {
         vm.setPreferredAimMode(.free); vm.setPreferredAimMode(.pocket)
         XCTAssertEqual(vm.selectedTargetKey, second); XCTAssertEqual(vm.selectedPocketIndex, 4)
         XCTAssertTrue(c.requestStrike())
+        let scoreEncoder = JSONEncoder(); scoreEncoder.outputFormatting = .sortedKeys
+        let scoreData = try scoreEncoder.encode(c.scores)
+        let cue = try XCTUnwrap(vm.scene.cueBallNode?.position)
+        c.goToPreviousStep(); c.goToPreviousStep(); c.goToPreviousStep()
+        XCTAssertEqual(c.planningStep, .pocket1)
+        c.selectPlanningPocket(0)
+        XCTAssertEqual(c.currentSelection.pocket, 0); XCTAssertEqual(vm.selectedPocketIndex, 0)
+        c.goToPreviousStep(); c.goToPreviousStep(); c.goToPreviousStep()
+        XCTAssertEqual(c.planningStep, .ball1)
+        c.selectPaletteBall(third)
+        XCTAssertEqual(c.currentTarget, third); XCTAssertEqual(vm.selectedTargetKey, third)
+        XCTAssertNil(c.currentSelection.pocket); XCTAssertEqual(vm.selectedPocketIndex, -1)
+        XCTAssertNil(c.plan); XCTAssertNil(c.draftNextKey); XCTAssertNil(c.thirdKey)
+        XCTAssertFalse(c.canPlaceCue)
+        XCTAssertEqual(try scoreEncoder.encode(c.scores), scoreData)
+        XCTAssertEqual(vm.scene.cueBallNode?.position.x, cue.x)
+        XCTAssertEqual(vm.scene.cueBallNode?.position.z, cue.z)
+        for _ in 0..<200 where vm.isComputing { try await Task.sleep(for: .milliseconds(100)) }
+        XCTAssertFalse(vm.isComputing)
+        c.saveCheckpoint()
+        XCTAssertNil(c.checkpointError)
+        let resumedHost = PositionPlayViewModel(); resumedHost.setupScene(loadsDefaultLayout: false)
+        defer { resumedHost.suspendAuthoringActivity() }
+        let resumed = MultiBallPracticeController(defaults: defaults, limiter: limiter())
+        resumed.attach(to: resumedHost)
+        XCTAssertEqual(resumed.currentTarget, third); XCTAssertEqual(resumedHost.selectedPocketIndex, -1)
+        XCTAssertNil(resumedHost.practiceLockedTarget); XCTAssertNil(resumedHost.practiceLockedPocket)
+        XCTAssertEqual(try scoreEncoder.encode(resumed.scores), scoreData)
+        resumed.goToPreviousStep(); XCTAssertEqual(resumed.planningStep, .ball1)
+        c.undo()
+        XCTAssertEqual(c.currentTarget, current); XCTAssertEqual(c.scores.count, 0)
+        XCTAssertEqual(c.plan, frozen)
         c.finishAttempt(reason: "test")
     }
 
@@ -730,7 +902,7 @@ final class MultiBallPracticeTests: XCTestCase {
         let rings = vm.scene.rootNode.childNodes.filter { $0.name?.hasPrefix("multiBall.role.") == true }
         XCTAssertTrue(rings.isEmpty)
         c.restart()
-        XCTAssertNil(c.plan); XCTAssertNil(c.lockedCurrentPocket)
+        XCTAssertNil(c.plan); XCTAssertNil(vm.practiceLockedPocket)
         XCTAssertEqual(vm.scene.rootNode.childNodes.filter { $0.name?.hasPrefix("multiBall.role.") == true }.count, 0)
         c.finishAttempt(reason: "test")
     }

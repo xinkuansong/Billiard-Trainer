@@ -173,6 +173,7 @@ final class BreakFlowRunnerV6Tests: XCTestCase {
             "开球默认力度常量应为 10 m/s")
         let scene = AngleTrainingScene()
         let runner = BreakFlowRunner(scene: scene, game: .chineseEightBall, seed: 1)
+        XCTAssertNil(runner.actionRequiredMessage)
         XCTAssertEqual(runner.velocity, 10.0, accuracy: 1e-9,
             "runner 实例默认力度应为 10 m/s（参与开球速度）")
     }
@@ -369,6 +370,27 @@ final class BreakFlowRunnerV6Tests: XCTestCase {
 
 @MainActor
 final class FreePlayPerspectiveBreakTests: XCTestCase {
+    func testUnifiedHostsDeliverOnNaturalSettleWithoutConfirmation() throws {
+        let board = BoardSnapshot(onTable: [PositionPlayBall.cueKey: CanvasPoint(x: 0.4, y: 0.2), "_9": CanvasPoint(x: 0.7, y: 0.2)])
+        let composer = PositionPlayViewModel()
+        composer.setupScene()
+        composer.startBreakFlow(game: .nineBall, manualDeliver: false, seed: 61)
+        let composerRunner = try XCTUnwrap(composer.breakRunner)
+        XCTAssertTrue(composerRunner.autoDeliverOnSettle)
+        composerRunner.applySettledBoardForTesting(board)
+        XCTAssertFalse(composer.isBreakMode)
+        XCTAssertEqual(Set(composer.onTableKeys), Set(board.onTable.keys))
+
+        let planning = PlanThreeViewModel()
+        planning.setupScene()
+        planning.startBreakFlow(game: .nineBall)
+        let planningRunner = try XCTUnwrap(planning.breakRunner)
+        XCTAssertTrue(planningRunner.autoDeliverOnSettle)
+        planningRunner.applySettledBoardForTesting(board)
+        XCTAssertFalse(planning.isBreakMode)
+        XCTAssertEqual(Set(planning.onTableKeys), Set(board.onTable.keys))
+    }
+
     func testAllRacksKeepBreakIntentWhenChangingViewsAndCancel() throws {
         let vm = PositionPlayViewModel()
         vm.setupScene()
@@ -564,6 +586,7 @@ extension BreakFlowRunnerV6Tests {
             XCTAssertEqual(scene.allBallNodes[key]?.position.z, position.z)
         }
         XCTAssertTrue(runner.statusText.contains("未完成"))
+        XCTAssertEqual(runner.actionRequiredMessage, runner.statusText)
         XCTAssertEqual(runner.statusText(isPerspective: true), runner.statusText)
         XCTAssertEqual(runner.statusText(isPerspective: false), runner.statusText)
         let complete = BreakSimulator.breakShot(rack: rack, power: 4)

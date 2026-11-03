@@ -100,7 +100,7 @@ struct MainTabView: View {
             if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-pro.route=") }) {
                 let routes: [String: AngleRoute] = [
                     "mergeAngle": .sceneAiming2D, "mergeAim": .aimPointScene2D, "mergeAccuracy": .accuracy2D,
-                    "mergeSeparation": .separationPractice2D, "kBall": .kBallPractice2D, "mergeTwo": .twoBallPractice2D, "mergeThree": .threeBallPractice2D,
+                    "mergeSeparation": .separationPractice2D, "kBall": .kBallPractice2D, "kick": .kickPractice2D, "bankPractice": .bankPractice2D, "mergeTwo": .twoBallPractice2D, "mergeThree": .threeBallPractice2D,
                     "mergeSeparation3D": .separationPractice3D, "mergeTwo3D": .twoBallPractice3D, "mergeThree3D": .threeBallPractice3D,
                     "separation": .separationAngleAtlas, "cushion": .cushionEnglishAtlas,
                     "scene3d": .sceneAiming3D, "aim3d": .aimPointScene3D, "snake": .snakePractice, "multiBall": .multiBallPractice, "multiBall3D": .multiBallPractice3D,
@@ -256,6 +256,8 @@ struct MainTabView: View {
         case .threeBallPractice3D:
             ThreeBallPracticeView(is3D: true)
         case .kBallPractice2D: KBallPracticeView(is3D: false)
+        case .kickPractice2D: KickPracticeView(is3D: false)
+        case .bankPractice2D: BankPracticeView(is3D: false)
         case .twoBallPractice2D:
             TwoBallPracticeView(is3D: false)
         case .twoBallPractice3D:

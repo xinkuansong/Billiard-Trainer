@@ -68,6 +68,26 @@ final class GeometricReferenceTool: ObservableObject {
             render()
         }
     }
+    func updateForKick(identity: String, cue: SCNVector3, direction: SCNVector3) {
+        guard !frozen else { return }
+        if self.identity != identity { nextShot(); self.identity = identity }
+        let context = GeometricRailReference.Context(cue: cue, direction: direction)
+        guard context != draft.context else { return }
+        draft.context = context
+        if draft.reflections > 0 {
+            draft.first = draft.first.flatMap { context?.constrain($0) } ?? context?.defaultFirst
+            render()
+        }
+    }
+    /// Bank practice measures the object ball from its centre toward the middle
+    /// of the specified first main cushion, never the stored solution contact.
+    func updateForBank(identity: String, target: SCNVector3, firstSegment: Int) {
+        guard !frozen, GeometricRailReference.rails.indices.contains(firstSegment) else { return }
+        let rail = GeometricRailReference.rails[firstSegment]
+        let middle = (rail.start + rail.end) * 0.5
+        let direction = SCNVector3(Float(middle.x) - target.x, 0, Float(middle.y) - target.z)
+        updateForKick(identity: identity, cue: target, direction: direction)
+    }
     func select(_ count: Int) {
         guard !frozen, (0...5).contains(count) else { return }
         draft.reflections = count

@@ -138,8 +138,14 @@ final class CustomFormationTests: XCTestCase {
         XCTAssertEqual(points.filter { abs($0.x - 0.25) < 1e-8 }.count, 8)
         XCTAssertEqual(points.filter { abs($0.y - 0.25) < 1e-8 }.count, 8)
         let radius = Double(AngleSceneCalculator.ballRadius) / Double(AngleSceneCalculator.innerLength)
-        XCTAssertEqual(0.5 - points[0].y, radius, accuracy: 1e-8)
-        XCTAssertEqual(points[14].x, radius, accuracy: 1e-8)
+        XCTAssertEqual(0.5 - points[0].y, 2 * radius, accuracy: 1e-8)
+        XCTAssertEqual(points[14].x, 2 * radius, accuracy: 1e-8)
+        XCTAssertEqual(points[7].x, 0.25, accuracy: 1e-8)
+        XCTAssertEqual(points[7].y, 0.25, accuracy: 1e-8)
+        let spacing = hypot(points[1].x - points[0].x, points[1].y - points[0].y)
+        for (a, b) in zip(points, points.dropFirst()) {
+            XCTAssertEqual(hypot(b.x - a.x, b.y - a.y), spacing, accuracy: 1e-8)
+        }
     }
 
     func test4443GroupsPreserveSpacingAndOneBallLongCushionGap() throws {

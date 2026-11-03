@@ -154,6 +154,77 @@ enum PlanThreeSectorSolver {
     }
 }
 
+// MARK: - Coarse recommended region (world XZ metres)
+
+/// A 2 cm comfort contour filtered by the actual cue-to-ghost line.
+/// This is a planning preference, not a proof of a subsequent physical route.
+enum PlanThreeComfortRegion {
+    static let gridSpacing = 0.02
+    static let minimumComfort = 85.0
+    static let minimumCutDegrees = 5.0
+    typealias Point = SIMD2<Double>
+    private static func cross(_ a: Point, _ b: Point) -> Double { a.x*b.y-a.y*b.x }
+    private static func dot(_ a: Point, _ b: Point) -> Double { a.x*b.x+a.y*b.y }
+    private static func length(_ a: Point) -> Double { hypot(a.x,a.y) }
+
+    static func compute(ball: SCNVector3, aim: SCNVector3, third: SCNVector3?) -> SampledSolveRegion? {
+        let g = ShotComfortScore.Geometry.qiuJi
+        let b = Point(Double(ball.x),Double(ball.z)), p = Point(Double(aim.x),Double(aim.z))
+        guard [b.x,b.y,p.x,p.y].allSatisfy(\.isFinite), length(p-b)>1e-8 else { return nil }
+        let n = (p-b)/length(p-b), ghost = b-2*g.radius*n
+        let z = third.map { Point(Double($0.x),Double($0.z)) }
+        if let z, ![z.x, z.y].allSatisfy(\.isFinite) { return nil }
+        if let third, AngleSceneCalculator.isPathBlocked(from: ball, to: aim, obstacles: [third]) { return nil }
+        let nx = Int(ceil((g.length-2*g.radius)/gridSpacing))
+        let nz = Int(ceil((g.width-2*g.radius)/gridSpacing))
+        let dx = (g.length-2*g.radius)/Double(nx), dz = (g.width-2*g.radius)/Double(nz)
+        var points: [Point] = [], scores: [Double] = [], clearance: [Double] = []
+        for j in 0...nz { for i in 0...nx {
+            let c = Point(-g.length/2+g.radius+Double(i)*dx, -g.width/2+g.radius+Double(j)*dz)
+            points.append(c)
+            scores.append((ShotComfortScore.evaluate(cue: (c.x,c.y), ball: (b.x,b.y), aim: (p.x,p.y))?.total ?? 0)-minimumComfort)
+            clearance.append(z.map { SampledSolveRegion.segmentDistance($0, c, ghost)-2*g.radius } ?? 1)
+        }}
+        struct Vertex { var p: Point; var score: Double; var clearance: Double }
+        func clip(_ polygon: [Vertex], by value: (Vertex)->Double) -> [Vertex] {
+            guard polygon.count>=3 else { return [] }
+            var output: [Vertex] = []
+            for i in polygon.indices {
+                let a=polygon[i], b=polygon[(i+1)%polygon.count], fa=value(a), fb=value(b)
+                if fa>=0 { output.append(a) }
+                if (fa<0) != (fb<0) {
+                    let t=fa/(fa-fb)
+                    output.append(Vertex(p:a.p+(b.p-a.p)*t,score:a.score+(b.score-a.score)*t,
+                                         clearance:a.clearance+(b.clearance-a.clearance)*t))
+                }
+            }
+            return output
+        }
+        let tangent = tan(minimumCutDegrees * .pi/180)
+        var polygons: [[Point]] = []
+        for j in 0..<nz { for i in 0..<nx {
+            let a=j*(nx+1)+i, b=a+1, c=a+nx+1, d=c+1
+            for ids in [[a,b,d],[a,d,c]] {
+                let tri=ids.map { Vertex(p:points[$0],score:scores[$0],clearance:clearance[$0]) }
+                let comfortable=clip(clip(tri,by:{$0.score}),by:{$0.clearance})
+                for side in [-1.0,1.0] {
+                    // Both filters are half planes within each cut side. They are
+                    // exact between grid points; only comfort/clearance are sampled.
+                    var poly=clip(comfortable,by:{ dot(ghost-$0.p,n) })
+                    poly=clip(poly,by:{ side*cross(n,ghost-$0.p)-dot(ghost-$0.p,n)*tangent })
+                    // Preserve both sides. Middle-pocket direction is a soft score
+                    // on the actual first-shot rest position, not a feasibility cut.
+                    let pp=poly.map(\.p)
+                    if pp.count>=3 && abs(pp.indices.reduce(0.0) { $0+cross(pp[$1],pp[($1+1)%pp.count]) })>1e-12 {
+                        polygons.append(pp)
+                    }
+                }
+            }
+        }}
+        return SampledSolveRegion(polygons:polygons)
+    }
+}
+
 // MARK: - ViewModel
 
 /// 「打一走二想三」走位规划卡（增强版走位训练）。
@@ -164,6 +235,9 @@ enum PlanThreeSectorSolver {
 /// 打进①后白球停下、窗口前滑（老②→新①、老②袋→新①袋、老③→新②）续打；角色随时可改派。
 @MainActor
 final class PlanThreeViewModel: TeachingTableHost {
+    private var regionCacheKey: [Float] = []
+    private var regionCache: SolveRegion?
+
     @Published var cameraTransitionBusy = false
     @Published var temporaryTopDownActive = false
     @Published var topDownContentRevision = 0
@@ -212,6 +286,7 @@ final class PlanThreeViewModel: TeachingTableHost {
     func stopForDismissal() {
         guard !activitySuspended else { return }
         activitySuspended = true
+        isDrawingConstraint = false
         playbackGeneration += 1
         resumeAdjustment = isAdjustingSolution
         resumeSolve = isComputing && !isAdjustingSolution
@@ -257,6 +332,7 @@ final class PlanThreeViewModel: TeachingTableHost {
     @Published private(set) var pocket1Index: Int = -1
     @Published private(set) var pocket2Index: Int = -1
     @Published private(set) var armedRole: PlanThreeRole? = .ball1
+    // Kept for old undo-context compatibility; inherited choices remain editable.
     @Published private(set) var currentRoleLocked = false
     private var settlementConsumed = false
 
@@ -299,7 +375,13 @@ final class PlanThreeViewModel: TeachingTableHost {
         refreshOverlays()
     }
     @Published private(set) var isPlaying = false {
-        didSet { if isPlaying { scene.clearPocketHighlights() } }
+        didSet {
+            if isPlaying {
+                scene.clearPocketHighlights()
+                scene.clearResultNodes(nodes: &selectionNodes)
+                topDownContentRevision &+= 1
+            }
+        }
     }
     @Published private(set) var isComputing = false
     @Published private(set) var solutions: [PositionPlaySolution] = []
@@ -350,11 +432,13 @@ final class PlanThreeViewModel: TeachingTableHost {
     }
     let solveQueue = DispatchQueue(label: "com.qiuji.planthree-solve", qos: .userInitiated)
     private var solveWork: DispatchWorkItem?
+    private var automaticSolveTask: Task<Void, Never>?
+    private var isDrawingConstraint = false
     private let adjustmentScheduler = LatestPredictionScheduler<ShotPrediction?>()
     @Published private(set) var isAdjustingSolution = false
     private var adjustmentIsValid = true
     var solveGeneration = 0 {
-        didSet { solveWork?.cancel(); solveWork = nil; adjustmentScheduler.invalidate(); isAdjustingSolution = false }
+        didSet { automaticSolveTask?.cancel(); automaticSolveTask = nil; solveWork?.cancel(); solveWork = nil; adjustmentScheduler.invalidate(); isAdjustingSolution = false }
     }
     var surfaceY: Float { scene.surfaceY }
 
@@ -534,6 +618,7 @@ final class PlanThreeViewModel: TeachingTableHost {
         isDragging = true
         if let runner = breakRunner { runner.dragBegan(node: node); return }
         TableBallPulse.beginDrag(node)
+        invalidateSolutions(automatically: false)
     }
 
     func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
@@ -617,12 +702,12 @@ extension PlanThreeViewModel {
         if let ball3Key { result[ball3Key] = .upcoming }
         return result
     }
-    private var canEditPlan: Bool { !activitySuspended && !isPlaying && !isComputing && !isBreakMode }
+    private var canEditPlan: Bool { !activitySuspended && !isPlaying && !isBreakMode }
     private var lockedRoleMessage: String { "当前球和袋承接上一杆；点击重打后调整" }
 
     private var editablePlanningSteps: [PlanThreeRole] {
         Array(PlanThreeRole.order.prefix(objectBallCount > 2 ? 5 : objectBallCount > 1 ? 4 : 2))
-            .filter { !currentRoleLocked || ($0 != .ball1 && $0 != .pocket1) }
+
     }
     var canGoToPreviousStep: Bool {
         guard canEditPlan, objectBallCount > 0, let step = armedRole ?? editablePlanningSteps.last,
@@ -632,9 +717,20 @@ extension PlanThreeViewModel {
     func goToPreviousStep() {
         guard canGoToPreviousStep, let step = armedRole ?? editablePlanningSteps.last,
               let index = editablePlanningSteps.firstIndex(of: step) else { return }
-        // Focus navigation preserves the draft and solved result until an actual edit.
         let previous = editablePlanningSteps[index - 1]
+        // Returning to a step revokes everything planned after it, including
+        // inherited choices. Physical balls and the previous-shot snapshot stay.
+        for later in editablePlanningSteps.dropFirst(index) {
+            switch later {
+            case .ball1: ball1Key = nil
+            case .pocket1: pocket1Index = -1
+            case .ball2: ball2Key = nil
+            case .pocket2: pocket2Index = -1
+            case .ball3: ball3Key = nil
+            }
+        }
         armRole(previous)
+        invalidateSolutions()
         setStatus(hint(for: previous), kind: .feedback)
     }
 
@@ -652,6 +748,10 @@ extension PlanThreeViewModel {
     /// The palette owns role focus; no duplicate controls float above the cloth.
     func selectPaletteBall(_ key: String) {
         guard canEditPlan, onTableKeys.contains(key), !PositionPlayBall.isCue(key) else { return }
+        if editingRole == 0 {
+            assignBall(key, to: .ball1)
+            return
+        }
         if let role = roleForBall(key) {
             armRole(role)
             scene.confirmBallSelection(key: key)
@@ -702,6 +802,9 @@ extension PlanThreeViewModel {
 
     private func assignBall(_ key: String, to role: PlanThreeRole) {
         if role == .ball1 && currentRoleLocked { setStatus(lockedRoleMessage, kind: .feedback); return }
+        if role == .ball1, ball1Key != key {
+            ball2Key = nil; pocket2Index = -1; ball3Key = nil
+        }
         let entries: [(PlanThreeRole, String?, String)] = [(.ball1, ball1Key, "当前球"), (.ball2, ball2Key, "下一球"), (.ball3, ball3Key, "后续球")]
         if let occupied = entries.first(where: { $0.0 != role && $0.1 == key }) {
             setStatus("这颗球已用于" + occupied.2, kind: .feedback); return
@@ -711,7 +814,7 @@ extension PlanThreeViewModel {
             if ball1Key != key { pocket1Index = -1 }; ball1Key = key
             armedRole = .pocket1
         case .ball2:
-            if ball2Key != key { pocket2Index = -1 }; ball2Key = key
+            if ball2Key != key { pocket2Index = -1; ball3Key = nil }; ball2Key = key
             armedRole = .pocket2
         case .ball3: ball3Key = key; armedRole = .ball3
         default: return
@@ -752,21 +855,39 @@ extension PlanThreeViewModel {
 
     var missingSelection: String? {
         if !onTableKeys.contains(PositionPlayBall.cueKey) { return "请摆上母球" }
-        if objectBallCount == 0 { return "清台完成" }
-        if ball1Key == nil { return "先选择当前球" }
-        if pocket1Index < 0 { return "请选择当前球的袋口" }
+        if objectBallCount == 0 { return nil }
+        if ball1Key == nil { return hint(for: .ball1) }
+        if pocket1Index < 0 { return hint(for: .pocket1) }
         if objectBallCount > 1 {
-            if ball2Key == nil { return "先选择下一颗球" }
-            if pocket2Index < 0 { return "请选择下一球的袋口" }
+            if ball2Key == nil { return hint(for: .ball2) }
+            if pocket2Index < 0 { return hint(for: .pocket2) }
         }
+        if objectBallCount > 2 && ball3Key == nil { return hint(for: .ball3) }
         return nil
+    }
+
+    var primaryActionTitle: String {
+        isComputing ? "计算中" : "击球"
+    }
+
+    func requestPrimaryAction() {
+        guard !temporaryTopDownActive, !cameraTransitionBusy, canEditPlan else { return }
+        requestStrike()
+    }
+
+    private func reportMissingSelection() -> Bool {
+        guard objectBallCount > 0 else { setStatus(""); return true }
+        guard let missingSelection else { return false }
+        armedRole = nextEmptyRole()
+        setStatus(missingSelection, kind: .feedback)
+        return true
     }
 
     func requestStrike() {
         guard !temporaryTopDownActive, !cameraTransitionBusy, canEditPlan else { return }
-        if let missingSelection { setStatus(missingSelection, kind: .feedback); return }
+        if reportMissingSelection() { return }
         guard canStrike else {
-            setStatus(hasSolutions ? "当前方案无法出杆，请调整或切换下一解" : "请先求解", kind: .feedback); return
+            setStatus(hasSolutions ? "当前方案无法出杆，请调整或切换下一解" : "未找到可用方案，请调整球形或计划", kind: .feedback); return
         }
         play()
     }
@@ -826,7 +947,9 @@ extension PlanThreeViewModel {
     // MARK: Constraint drawing
 
     func toolDrag(startNormalized start: CanvasPoint, currentNormalized cur: CanvasPoint, ended: Bool) {
-        guard !isPlaying else { return }
+        guard !isPlaying, activeTool != .none else { return }
+        isDrawingConstraint = !ended
+        invalidateSolutions(automatically: false)
         switch activeTool {
         case .none: return
         case .passPoint: draft = .passPoint(cur)
@@ -846,7 +969,7 @@ extension PlanThreeViewModel {
         }
         hasConstraint = draft != nil
         renderConstraint()
-        if ended, currentConstraint() != nil { setStatus("约束就绪，点「求解」反解打一杆法")}
+        if ended { scheduleAutomaticSolve() }
     }
 
     func clearConstraint() {
@@ -862,17 +985,19 @@ extension PlanThreeViewModel {
         onTableKeys.filter { !PositionPlayBall.isCue($0) }.count
     }
 
-    /// ②号球+②号袋就绪时的**默认落区扇形**（Q15.1，真实几何）。nil = ② 未就绪。
-    var sectorRegion: SolveRegion? {
-        guard let b2 = ball2Key, let n2 = scene.allBallNodes[b2], !n2.isHidden, pocket2Index >= 0 else {
-            return nil
+    /// Cached 2 cm comfort contour, filtered by cut angle and the third ball.
+    var recommendedRegion: SolveRegion? {
+        guard let b2 = ball2Key, let n2 = scene.allBallNodes[b2], !n2.isHidden,
+              (0..<6).contains(pocket2Index) else { return nil }
+        let third = ball3Key.flatMap { scene.allBallNodes[$0] }.flatMap { $0.isHidden ? nil : $0.position }
+        let key = [n2.position.x, n2.position.z, Float(pocket2Index)] + (third.map { [$0.x, $0.z] } ?? [])
+        if key != regionCacheKey {
+            regionCacheKey = key
+            let aim = AngleSceneCalculator.effectivePocketAimPoint(
+                targetBall: n2.position, pocketIndex: pocket2Index, surfaceY: surfaceY)
+            regionCache = PlanThreeComfortRegion.compute(ball: n2.position, aim: aim, third: third).map(SolveRegion.sampled)
         }
-        let aim2 = AngleSceneCalculator.effectivePocketAimPoint(
-            targetBall: n2.position, pocketIndex: pocket2Index, surfaceY: surfaceY)
-        var b3pos: SCNVector3?
-        if let b3 = ball3Key, let n3 = scene.allBallNodes[b3], !n3.isHidden { b3pos = n3.position }
-        return PlanThreeSectorSolver.defaultRegion(
-            ball2: n2.position, aim2: aim2, ball3: b3pos, surfaceY: surfaceY)
+        return regionCache
     }
 
     /// <3 球终局降级（Q15.2）：台面仅剩 ① 一颗目标球时，无②可走位 ⇒ 只求「打进①」，
@@ -887,10 +1012,10 @@ extension PlanThreeViewModel {
     }
 
     /// 当前是否可求解（工具/角色/球数任一路径就绪）。驱动「求解」按钮启用。
-    var canSolve: Bool { missingSelection == nil && currentConstraint() != nil }
+    var canSolve: Bool { objectBallCount > 0 && missingSelection == nil && currentConstraint() != nil }
 
-    /// 扇形当前是否作为默认落区生效（未画自选约束且② 就绪）。用于视觉：默认=高亮、被自选降级=灰。
-    var sectorIsDefaultRegion: Bool { draft == nil && sectorRegion != nil }
+    /// 推荐区域当前是否作为默认落区生效（未画自选约束且② 就绪）。用于视觉：默认=高亮、被自选降级=灰。
+    var recommendedRegionIsDefault: Bool { draft == nil && recommendedRegion != nil }
 
     func currentConstraint() -> SolveConstraint? {
         switch draft {
@@ -898,8 +1023,8 @@ extension PlanThreeViewModel {
         case .restPoint(let p): return .restRegion(.point(center: p, tolerance: pointTolerance))
         case .passPoint(let p): return .passThrough(point: p, vMin: passVMin)
         case nil:
-            // 未画自选约束：② 就绪 ⇒ 扇形默认落区；否则 <3 球 pot-only 兜底。
-            if let sector = sectorRegion { return .restRegion(sector) }
+            // 未画自选约束：② 就绪 ⇒ 推荐落区；否则 <3 球 pot-only 兜底。
+            if let sector = recommendedRegion { return .restRegion(sector) }
             if canPotOnly { return .restRegion(potOnlyRegion) }
             return nil
         }
@@ -907,7 +1032,7 @@ extension PlanThreeViewModel {
 
     // MARK: Solve
 
-    func invalidateSolutions() {
+    func invalidateSolutions(automatically: Bool = true) {
         solveGeneration += 1
         isComputing = false
         solutions = []
@@ -918,15 +1043,31 @@ extension PlanThreeViewModel {
         velocity = 3.0; spinX = 0; spinY = 0
         refreshOverlays()
         setStatus(hintForState())
+        if automatically { scheduleAutomaticSolve() }
+    }
+
+    private func scheduleAutomaticSolve() {
+        guard !activitySuspended, !isBreakMode, !isPlaying, !isDragging, !isDrawingConstraint,
+              objectBallCount > 0, missingSelection == nil, currentConstraint() != nil else { return }
+        let generation = solveGeneration
+        isComputing = true
+        automaticSolveTask = Task { [weak self] in
+            await Task.yield()
+            guard let self, !Task.isCancelled, self.solveGeneration == generation,
+                  !self.activitySuspended, !self.isPlaying, !self.isBreakMode,
+                  !self.isDragging, !self.isDrawingConstraint else { return }
+            self.isComputing = false
+            self.solve()
+        }
     }
 
     func solve() {
         guard !temporaryTopDownActive, canEditPlan else { return }
-        if let missingSelection { setStatus(missingSelection, kind: .feedback); return }
+        if reportMissingSelection() { return }
         guard let targetKey = ball1Key, pocket1Index >= 0,
               let pocketId = ShotIntent.pocketId(for: pocket1Index),
               let constraint = currentConstraint() else {
-            setStatus(hintForState())
+            setStatus(hintForState(), kind: .feedback)
             return
         }
         let before = currentSnapshot()
@@ -993,8 +1134,23 @@ extension PlanThreeViewModel {
     /// K12: always full capability (`allowSideSpin` / `basicPositionOnly` ignored; snapshot-compat only).
     private func searchParams(for constraint: SolveConstraint) -> PositionPlaySolver.SearchParams {
         switch constraint {
-        case .restRegion: return .standard
-        case .passThrough: return .passThrough
+        case .restRegion:
+            var params = PositionPlaySolver.SearchParams.standard
+            params.allowsMissedPotFallback = false
+            params.requiresDirectPot = true
+            if let second = ball2Key, (0..<6).contains(pocket2Index) {
+                let pocket = pocket2Index, third = ball3Key, y = surfaceY
+                params.continuation = { positions in
+                    MultiBallPositionScore.evaluate(positions: positions, target: second,
+                        pocket: pocket, third: third, surfaceY: y).value
+                }
+            }
+            return params
+        case .passThrough:
+            var params = PositionPlaySolver.SearchParams.passThrough
+            params.allowsMissedPotFallback = false
+            params.requiresDirectPot = true
+            return params
         }
     }
 
@@ -1057,28 +1213,29 @@ extension PlanThreeViewModel {
     // MARK: Hints
 
     func hintForState() -> String {
+        if objectBallCount == 0 { return "" }
         if scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true { return "请在桌面上把母球摆上桌" }
-        if objectBallCount == 0 { return "清台完成 · 用「恢复默认」重开一局" }
         if ball1Key == nil { return hint(for: .ball1) }
         if pocket1Index < 0 { return hint(for: .pocket1) }
-        // ①+①袋 就绪：优先扇形/自选约束，其次 <3 球 pot-only。
-        if draft != nil { return "约束就绪，点「求解」反解打一杆法" }
-        if sectorRegion != nil {
-            return "扇形为默认落区 · 点「求解」（或在桌面上自定义落区/落点/过点）"
+        // ①+①袋 就绪：优先推荐区域/自选约束，其次 <3 球 pot-only。
+        if draft != nil { return "约束已就绪" }
+        if recommendedRegion != nil {
+            return "推荐区域为默认落区"
         }
-        if canPotOnly { return "台面仅剩此球 · 点「求解」直接打进" }
+        if canPotOnly { return "台面仅剩此球，自动求解进袋" }
+        if ball2Key != nil && pocket2Index >= 0 { return "暂无推荐区域，请调整球形或袋口" }
         // ≥2 球但②未就绪：引导设②走位，或自画约束。
         if let role = nextEmptyRole() { return hint(for: role) }
-        return "在桌面上画落区/落点/过点，再「求解」"
+        return "请选齐计划"
     }
 
     func hint(for role: PlanThreeRole) -> String {
         switch role {
-        case .ball1: return "在桌面上选球，设为①一号球"
-        case .pocket1: return "在桌面上选袋，设为第1杆目标袋"
-        case .ball2: return "在桌面上选球，设为②二号球"
-        case .pocket2: return "在桌面上选袋，设为第2杆目标袋"
-        case .ball3: return "在桌面上选球，设为③三号球（决定扇形朝向）"
+        case .ball1: return "请选择第一颗球"
+        case .pocket1: return "请选择第一颗球的袋口"
+        case .ball2: return "请选择第二颗球"
+        case .pocket2: return "请选择第二颗球的袋口"
+        case .ball3: return "请选择第三颗球"
         }
     }
 }
@@ -1095,49 +1252,39 @@ extension PlanThreeViewModel {
                              second: ball2Key == nil ? nil : pocket2Index)
         let showingSolution = currentSolution != nil && !isComputing
 
-        drawSector()
+        drawRecommendedRegion()
+        drawRoleRings()
 
         if showingSolution || !showsShotAssists { return }   // Pocket roles and sectors remain visible.
         drawBall1Preview()
     }
 
-    /// ② 停球扇形引导（无③ → 两侧；有③ → 收缩到朝③那侧）。
-    private func drawSector() {
-        guard let b2 = ball2Key, let n2 = scene.allBallNodes[b2], !n2.isHidden, pocket2Index >= 0 else { return }
-        let aim2 = AngleSceneCalculator.effectivePocketAimPoint(
-            targetBall: n2.position, pocketIndex: pocket2Index, surfaceY: surfaceY)
-        var b3pos: SCNVector3?
-        if let b3 = ball3Key, let n3 = scene.allBallNodes[b3], !n3.isHidden { b3pos = n3.position }
-        let sectors = PlanThreeSectorSolver.compute(
-            ball2: n2.position, aim2: aim2, ball3: b3pos, surfaceY: surfaceY)
-        // Q15.1：无自选约束 ⇒ 扇形为**默认落区**（亮琥珀虚线）；用户自画约束 ⇒ 降级为参考（灰）。
+    private func drawRoleRings() {
+        for (key, role) in [(ball1Key, BallRoleStyle.current), (ball2Key, .next), (ball3Key, .upcoming)] {
+            guard let key, let ball = scene.allBallNodes[key], !ball.isHidden else { continue }
+            let ring = SceneStroke.roleRing(role: role)
+            ring.name = "planthree.roleRing.\(role.rawValue)"
+            ring.position = SCNVector3(ball.position.x, surfaceY + 0.0007, ball.position.z)
+            scene.rootNode.addChildNode(ring); selectionNodes.append(ring)
+        }
+    }
+
+    private func drawRecommendedRegion() {
+        guard case .sampled(let mesh) = recommendedRegion else { return }
         let dimmed = draft != nil
         let color = dimmed ? UIColor(white: 0.62, alpha: 1) : BTScenePalette.recommendedRegionAmber
-        for s in sectors { addSector(s, color: color, dimmed: dimmed) }
-    }
-
-    private func addSector(_ s: PlanThreeSector, color: UIColor, dimmed: Bool) {
-        guard s.isValid else { return }
-        let fillAlpha: CGFloat = dimmed ? 0.06 : 0.16
-        if let fill = makeSectorFill(s, color: color.withAlphaComponent(fillAlpha)) {
-            scene.rootNode.addChildNode(fill)
-            selectionNodes.append(fill)
+        func point(_ p: SampledSolveRegion.Point) -> SCNVector3 { SCNVector3(Float(p.x), surfaceY, Float(p.y)) }
+        let triangles = mesh.polygons.flatMap { p in
+            (1..<(p.count - 1)).map { [point(p[0]), point(p[$0]), point(p[$0 + 1])] }
         }
-        let edge = color.withAlphaComponent(dimmed ? 0.45 : 0.9)
-        // Reuse the established world-space polyline; only its stroke style changes.
-        let boundary = s.outer + Array(s.inner.reversed()) + [s.outer[0]]
-        scene.addDashedPolyline(boundary, color: edge, radius: 0.0024,
-                                placement: .table, into: &selectionNodes)
-    }
-
-    private func makeSectorFill(_ s: PlanThreeSector, color: UIColor) -> SCNNode? {
-        guard s.isValid else { return nil }
-        var triangles: [[SCNVector3]] = []
-        for i in 0..<(s.inner.count - 1) {
-            triangles.append([s.inner[i], s.outer[i], s.inner[i + 1]])
-            triangles.append([s.outer[i], s.outer[i + 1], s.inner[i + 1]])
+        if let fill = scene.makeTableFill(triangles: triangles, color: color.withAlphaComponent(dimmed ? 0.06 : 0.16)) {
+            fill.name = "planthree.recommendedRegion"
+            scene.rootNode.addChildNode(fill); selectionNodes.append(fill)
         }
-        return scene.makeTableFill(triangles: triangles, color: color)
+        for loop in mesh.boundaryLoops {
+            scene.addDashedPolyline(loop.map(point), color: color.withAlphaComponent(dimmed ? 0.45 : 0.9),
+                                    radius: 0.0024, placement: .table, into: &selectionNodes)
+        }
     }
 
     private func drawBall1Preview() {
@@ -1179,10 +1326,11 @@ extension PlanThreeViewModel {
         clearTrajectory()
         guard p.feasible else { scene.hideCueStick(); return }
         guard showsShotAssists else { return }
-        // 全量口径（C3 / D2）：与 Composer/Silu 同 options。
+        var options = TrajectoryRenderer.Options.positionPlay
+        options.includesSeparationLine = false
         TrajectoryRenderer.draw(
             prediction: p,
-            options: .positionPlay,
+            options: options,
             context: .init(
                 prediction: p,
                 targetKey: shot.targetKey,
@@ -1223,7 +1371,7 @@ extension PlanThreeViewModel {
                 let c = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: center.x, y: center.y), surfaceY: y)
                 SceneStroke.strokeCircle(center: c, radius: Float(tol) * SolveRegion.sceneScale,
                                          color: color, scene: scene, into: &constraintNodes)
-            case .sector:
+            case .sector, .sampled:
                 // 扇形默认落区由 `renderSelection`/`addSector` 画，不进 draft；此处仅穷尽分支。
                 break
             }
@@ -1269,8 +1417,8 @@ extension PlanThreeViewModel {
         scene.hideCueStick()
         let runner = BreakFlowRunner(scene: scene, game: game)
         runner.showsAimAssist = showsShotAssists
-        // K6 / D-v8-3a：与 FreePlay 对齐——停稳后取消/重开/完成三态，不自动落座。
-        runner.autoDeliverOnSettle = false
+        // 两页统一开球：实际回放停稳后直接交付散局，恢复规划控件。
+        runner.autoDeliverOnSettle = true
         breakChangeForwarder = runner.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
         runner.onSettled = { [weak self] board in
@@ -1395,8 +1543,8 @@ extension PlanThreeViewModel {
         let before = currentSnapshot()
         let y = surfaceY
         let idx = currentIndex
-        let margin = catalog.margin
-        let satisfies = catalog.satisfiesConstraint
+        let constraint = currentConstraint()
+        let assessmentParams = constraint.map { searchParams(for: $0) }
         let beyondCushion = catalog.beyondCushionBudget
         let beyondSpin = catalog.beyondSpinBudget
         let gen = solveGeneration
@@ -1423,20 +1571,24 @@ extension PlanThreeViewModel {
                     self.setStatus("当前参数无完整预测，请调整后重试", kind: .failure)
                     return
                 }
+                let assessment = constraint.map {
+                    PositionPlaySolver.assess(prediction: pred, constraint: $0, surfaceY: y, params: assessmentParams)
+                }
                 let drafted = PositionPlaySolution(
                     shot: shot, prediction: pred,
-                    cushionCount: pred.cueCushionCount,
+                    cushionCount: assessment?.cushionCount ?? pred.cueCushionCount,
                     potted: pred.simObjectPotted,
-                    margin: margin,
+                    margin: assessment?.margin ?? 0,
                     summary: "微调 · " + ShotSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
                         + String(format: " · %.1f m/s", shot.velocity),
-                    satisfiesConstraint: satisfies,
+                    satisfiesConstraint: assessment?.satisfied == true && !catalog.isBankFallback,
                     beyondCushionBudget: beyondCushion,
                     difficultyScore: DifficultyModel.score(
                         spinX: shot.spinX, spinY: shot.spinY, velocity: shot.velocity,
                         cutAngleDeg: pred.cutAngleDeg),
                     difficultyTier: DifficultyModel.tier(spinX: shot.spinX, spinY: shot.spinY),
-                    beyondSpinBudget: beyondSpin, isBankFallback: catalog.isBankFallback
+                    beyondSpinBudget: beyondSpin, isBankFallback: catalog.isBankFallback,
+                    continuationScore: assessment?.continuationScore
                 )
                 self.adjustmentIsValid = pred.hasFinalTableState
                 self.adjustmentDraft = drafted
@@ -1452,7 +1604,7 @@ extension PlanThreeViewModel {
         canUndoShot = false
         canPlayback = false
         lastShotContext = nil
-        setStatus("已退回上一杆击打前", kind: .feedback)
+        setStatus("")
     }
 
     /// 组装当前状态为「上一杆」完整上下文（击打前调用；`play()` 与单测共用同一处捕获逻辑）。
@@ -1498,7 +1650,7 @@ extension PlanThreeViewModel {
         pocket1Index = ctx.pocket1Index
         pocket2Index = ctx.pocket2Index
         armedRole = ctx.armedRole
-        currentRoleLocked = ctx.currentRoleLocked
+        currentRoleLocked = false
         settlementConsumed = false
         adjustmentIsValid = true
 
@@ -1517,20 +1669,25 @@ extension PlanThreeViewModel {
         if solutions.indices.contains(currentIndex) {
             let catalog = solutions[currentIndex]
             if Self.shotParamsDiffer(catalog.shot, snap.shot) {
+                let assessment = currentConstraint().map {
+                    PositionPlaySolver.assess(prediction: snap.prediction, constraint: $0, surfaceY: surfaceY,
+                                            params: searchParams(for: $0))
+                }
                 adjustmentDraft = PositionPlaySolution(
                     shot: snap.shot, prediction: snap.prediction,
-                    cushionCount: snap.prediction.cueCushionCount,
+                    cushionCount: assessment?.cushionCount ?? snap.prediction.cueCushionCount,
                     potted: snap.prediction.simObjectPotted,
-                    margin: catalog.margin,
+                    margin: assessment?.margin ?? 0,
                     summary: "微调 · " + ShotSpinLabel.text(spinX: snap.shot.spinX, spinY: snap.shot.spinY)
                         + String(format: " · %.1f m/s", snap.shot.velocity),
-                    satisfiesConstraint: catalog.satisfiesConstraint,
+                    satisfiesConstraint: assessment?.satisfied == true && !catalog.isBankFallback,
                     beyondCushionBudget: catalog.beyondCushionBudget,
                     difficultyScore: DifficultyModel.score(
                         spinX: snap.shot.spinX, spinY: snap.shot.spinY, velocity: snap.shot.velocity,
                         cutAngleDeg: snap.prediction.cutAngleDeg),
                     difficultyTier: DifficultyModel.tier(spinX: snap.shot.spinX, spinY: snap.shot.spinY),
-                    beyondSpinBudget: catalog.beyondSpinBudget, isBankFallback: catalog.isBankFallback
+                    beyondSpinBudget: catalog.beyondSpinBudget, isBankFallback: catalog.isBankFallback,
+                    continuationScore: assessment?.continuationScore
                 )
                 presentDisplayedSolution(adjustmentDraft!)
             } else {
@@ -1563,7 +1720,7 @@ extension PlanThreeViewModel {
         replayAfterContext = makeUndoContext(shot: currentSolution?.shot ?? snap.shot, prediction: currentSolution?.prediction ?? snap.prediction)
         ball1Key = ctx.ball1Key; ball2Key = ctx.ball2Key; ball3Key = ctx.ball3Key
         pocket1Index = ctx.pocket1Index; pocket2Index = ctx.pocket2Index
-        currentRoleLocked = ctx.currentRoleLocked; armedRole = ctx.armedRole
+        currentRoleLocked = false; armedRole = ctx.armedRole
         replayAfterRails = scene.railInventory.snapshot()
         replayAfterPoses = scene.captureBallPoses()   // 回放不改变桌面真相，姿态也原样带回
         playbackGeneration += 1
@@ -1713,6 +1870,7 @@ extension PlanThreeViewModel {
         if ball1Potted { rollWindow() } else { dropMissingRoles() }
 
         solveGeneration += 1
+        isComputing = false
         solutions = []
         currentIndex = 0
         draft = nil
@@ -1727,17 +1885,15 @@ extension PlanThreeViewModel {
         canUndoShot = lastShotContext != nil
         canPlayback = lastShotContext?.snapshot.prediction.recorder != nil
 
-        let cueGone = cueScratched
-        // Q15.2 清台终局：台面无目标球 ⇒ 终局提示（清空后重开）。
+        // An empty table is quiet, including a last-shot scratch with cue reset.
         if objectBallCount == 0 {
-            setStatus(cueGone ? "清台完成，母球已回台" : "清台完成", kind: .completion)
-        } else if cueGone {
-            setStatus("母球进袋，已自动回台", kind: .feedback)
-        } else if ball1Potted {
-            setStatus("已进袋，计划已顺延", kind: .feedback)
+            setStatus("")
         } else {
-            setStatus("未进袋，计划保留", kind: .feedback)
+            let prompt = objectBallCount > 2 ? "请选择第二颗球袋口和第三颗球"
+                : objectBallCount > 1 ? "请选择第二颗球的袋口" : "请选择第一颗球的袋口"
+            setStatus(prompt, kind: .feedback)
         }
+        scheduleAutomaticSolve()
     }
 
     /// 窗口前滑：老②→新①、老②袋→新①袋、老③→新②；新②袋/新③清空待选。
@@ -1747,7 +1903,7 @@ extension PlanThreeViewModel {
         let nb2 = ball3Key.flatMap { onTable.contains($0) ? $0 : nil }
         ball1Key = nb1
         pocket1Index = nb1 != nil ? pocket2Index : -1
-        currentRoleLocked = nb1 != nil && pocket1Index >= 0
+        currentRoleLocked = false
         ball2Key = nb2
         pocket2Index = -1
         ball3Key = nil
@@ -1813,13 +1969,21 @@ extension PlanThreeViewModel {
         let b1 = CanvasPoint(x: 0.52, y: 0.16)
         let b2 = CanvasPoint(x: 0.70, y: 0.34)
         switch scenario {
-        case "threeBallDimmed":
+        case "cornerReturn":
+            // Approximate landscape screenshot regression, not an exact user save.
+            loadBoard(BoardSnapshot(onTable: [PositionPlayBall.cueKey: .init(x: 0.2056, y: 0.2387),
+                "_12": .init(x: 0.5447, y: 0.1580), "_11": .init(x: 0.7038, y: 0.2370),
+                "_13": .init(x: 0.8873, y: 0.2683)]))
+            setPlanDirect(ball1: "_12", pocket1: 1, ball2: "_11", pocket2: 1, ball3: "_13")
+        case "threeBall", "threeBallDimmed":
             loadBoard(BoardSnapshot(onTable: [PositionPlayBall.cueKey: cue, "_1": b1, "_2": b2,
                                              "_3": CanvasPoint(x: 0.86, y: 0.16)]))
             setPlanDirect(ball1: "_1", pocket1: 1, ball2: "_2", pocket2: 3, ball3: "_3")
-            activeTool = .region
-            toolDrag(startNormalized: CanvasPoint(x: 0.40, y: 0.24),
-                     currentNormalized: CanvasPoint(x: 0.58, y: 0.40), ended: true)
+            if scenario == "threeBallDimmed" {
+                activeTool = .region
+                toolDrag(startNormalized: CanvasPoint(x: 0.40, y: 0.24),
+                         currentNormalized: CanvasPoint(x: 0.58, y: 0.40), ended: true)
+            }
         case "twoBall", "twoBallDimmed":
             loadBoard(BoardSnapshot(onTable: [PositionPlayBall.cueKey: cue, "_1": b1, "_2": b2]))
             setPlanDirect(ball1: "_1", pocket1: 1, ball2: "_2", pocket2: 3, ball3: nil)

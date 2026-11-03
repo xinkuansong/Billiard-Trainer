@@ -16,6 +16,8 @@ enum TrainingSessionKind {
     /// Trajectory practice has no score and never contributes to accuracy or goals.
     static let separationPractice = "separationPractice"
     static let threeBallPractice = "threeBallPractice"
+    static let kickPractice = "kickPractice"
+    static let bankPractice = "bankPractice"
     static let kBallPractice = "kBallPractice"
     static let twoBallPractice = "twoBallPractice"
 

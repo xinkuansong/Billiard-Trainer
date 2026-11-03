@@ -20,6 +20,8 @@ struct KBallBankQuestion: Codable, Identifiable, Equatable {
     let trajectoryAngle, centerRailDistance: Double
     let railID: Int
     let railsBeforeK: [Int]
+    /// Displayed route: N-1 required segments followed by the optional final segment.
+    var railHintSegments: [Int] { railsBeforeK + (timing == .before ? [railID] : []) }
     var gradeTitle: String { [1: "敏感", 2: "常规", 3: "宽容"][grade] ?? "未知" }
 }
 

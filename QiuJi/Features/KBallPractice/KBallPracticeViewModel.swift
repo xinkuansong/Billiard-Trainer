@@ -34,8 +34,7 @@ final class KBallPracticeViewModel: ObservableObject, TeachingTableHost {
         playsStroke = enabled
         defaults.set(enabled, forKey: strokePreferenceKey)
     }
-    // Like two-ball practice, the neutral baseline is visible only before the first answer.
-    // It is not the saved solution and is independent of the learner's current input.
+    // Neutral baseline only until the first accepted answer for this question.
     var shouldShowReference: Bool { record?.current != nil && record?.currentAttempt == nil }
     typealias QuestionPreparer = @Sendable (KBallConfiguration, Set<String>) throws -> KBallQuestionPreparer.Prepared
     private let prepareQuestion: QuestionPreparer
@@ -260,6 +259,7 @@ final class KBallPracticeViewModel: ObservableObject, TeachingTableHost {
         if let shotPoses { scene.restoreBallPoses(shotPoses) }
     }
     private func installQuestion() {
+        scene.setPracticeRailColors(record?.configuration.showsRailColors == true, segments: record?.current?.railHintSegments ?? [])
         guard let question = record?.current else { return }
         let referenceDraft = record?.geometricReference
         defer { if let referenceDraft { geometryReference.restore(referenceDraft); if phase == .result { geometryReference.complete() } } }

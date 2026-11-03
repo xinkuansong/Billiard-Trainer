@@ -5,6 +5,12 @@ struct KBallConfiguration: Codable, Equatable {
     var filter = KBallBankFilter()
     var freePractice = false
     var playsStroke = true
+    // Optional storage preserves configurations saved before color hints existed.
+    var railColorHints: Bool? = nil
+    var showsRailColors: Bool {
+        get { railColorHints ?? true }
+        set { railColorHints = newValue }
+    }
 }
 
 struct KBallQuestion: Codable, Identifiable {
@@ -12,6 +18,9 @@ struct KBallQuestion: Codable, Identifiable {
     let layout: KBallBankLayout
     let source: KBallBankQuestion
     let board: TrainingBankBoard
+    var railHintSegments: [Int] {
+        source.railHintSegments
+    }
     var contentID: String { source.id }
     var second: TrainingBankPoint { .init(.init(Float(source.b[0]), 0, Float(source.b[1]))) }
     var ballNumber: Int { 1 }
@@ -41,8 +50,9 @@ struct KBallShot: Codable, Identifiable {
     }
     func prediction() -> ShotPrediction { physical.prediction() }
     var resultText: String {
-        if failure == .rail, let observedRail { return "K球库次不符（本杆：\(observedRail)库）" }
-        return failure?.rawValue ?? "进A并按要求K到B · 成功"
+        if failure == .rail, let observedRail { return "K球库次不符（本杆：\(observedRail)库） · 失败" }
+        if let failure { return failure.rawValue + " · 失败" }
+        return "进A并按要求K到B · 成功"
     }
 }
 
@@ -56,7 +66,7 @@ struct KBallPracticeRecord: Codable, Identifiable {
     }
     static let payloadVersion = 1
     var version = Self.payloadVersion
-    var judgementVersion: Int? = 2
+    var judgementVersion: Int? = 3
     let id: UUID
     var logicalSessionID: UUID
     var ownerKey: String
@@ -123,7 +133,7 @@ struct KBallPracticeRecord: Codable, Identifiable {
         next.seenContentIDs.formUnion(seenContentIDs)
         return next
     }
-    var canResumeCurrentTraining: Bool { isCompatible && judgementVersion == 2 }
+    var canResumeCurrentTraining: Bool { isCompatible && judgementVersion == 3 }
     var isCompatible: Bool {
         version == Self.payloadVersion && questions.indices.contains(cursor) && draftInput.isValid
             && Set(questions.map(\.id)).count == questions.count

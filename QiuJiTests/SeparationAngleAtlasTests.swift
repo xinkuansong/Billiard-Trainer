@@ -1096,3 +1096,113 @@ extension PocketThicknessPreviewTests {
         print("POCKET_POSITION COMPLETE preview=\(preview), \(samples.count) positions, \(samples.count*8) verified tracks")
     }
 }
+
+final class AtlasCushionTrajectoryTests: XCTestCase {
+    @MainActor
+    func testActualCushionPageAimCompletesEveryHighSpeedTrack() throws {
+        let vm = CushionEnglishAtlasViewModel()
+        vm.setupScene()
+        vm.suspendTeachingActivity()
+        let cue = try XCTUnwrap(vm.scene.cueBallNode).position
+        let target = try XCTUnwrap(vm.targetNode).position
+        let aim = try XCTUnwrap(vm.currentPlayerAim)
+        let surface = vm.scene.surfaceY
+        let spinY = Float(vm.spinY)
+        for velocity: Float in [5.5, 8] {
+            for spinX in CushionEnglishAtlasGeometry.spinXLevels(spinY: spinY) {
+                let compensated = CushionEnglishAtlasGeometry.aimDirCompensatingSquirt(geometric: aim, spinX: spinX)
+                let balls = [ObstacleBall(name: ShotInput.targetBallName, position: target)]
+                let initial = ShotPredictor.simulateFree(cueBall: cue, aimDir: compensated, velocity: velocity,
+                    spinX: spinX, spinY: spinY, surfaceY: surface, balls: balls)
+                let initialTrack = AtlasCushionTrack(initial, surfaceY: surface)
+                if initialTrack == nil {
+                    print("[AtlasCushions] page requires completion v=\(velocity) spinX=\(spinX) termination=\(String(describing: initial.termination)) duration=\(initial.duration) events=\(initial.events.count)")
+                }
+                let track = try XCTUnwrap(AtlasCushionTrack.predict(cueBall: cue, aimDir: compensated, velocity: velocity,
+                    spinX: spinX, spinY: spinY, surfaceY: surface, balls: balls), "v=\(velocity), spinX=\(spinX)")
+                XCTAssertFalse(track.beforeFirstCushion.isEmpty)
+            }
+        }
+    }
+
+    func testProductionTracksEndAtRequestedEventOrTheirOwnStop() throws {
+        let surface = BTTablePhysics.surfaceY
+        let y = surface + BallPhysics.radius
+        var observedCounts = Set<Int>()
+        for velocity: Float in [0.3, 1.5, 3.5, 5.5] {
+            let samples = SeparationAngleAtlasGeometry.spinYLevels().map { (Float(0), $0, SeparationAngleAtlasGeometry.defaultTeachingScene()) }
+                + CushionEnglishAtlasGeometry.spinXLevels().map { ($0, Float(0), CushionEnglishAtlasGeometry.defaultTeachingScene()) }
+            for (spinX, spinY, scene) in samples {
+                let aim = SCNVector3(Float(scene.aimDir.x), 0, Float(scene.aimDir.y))
+                let prediction = ShotPredictor.simulateFree(
+                    cueBall: .init(Float(scene.cue.x), y, Float(scene.cue.y)),
+                    aimDir: CushionEnglishAtlasGeometry.aimDirCompensatingSquirt(geometric: aim, spinX: spinX),
+                    velocity: velocity, spinX: spinX, spinY: spinY, surfaceY: surface,
+                    balls: [.init(name: ShotInput.targetBallName,
+                        position: .init(Float(scene.target.x), y, Float(scene.target.y)))])
+                let track = try XCTUnwrap(AtlasCushionTrack(prediction, surfaceY: surface))
+                let cue = ShotInput.cueBallName
+                let contactTime = prediction.events.first {
+                    if case let .ballBall(a, b) = $0.kind { return a == cue || b == cue }
+                    return false
+                }?.time ?? 0
+                let rails = prediction.events.filter {
+                    if case .ballCushion(let ball) = $0.kind { return ball == cue && $0.time > contactTime }
+                    return false
+                }
+                XCTAssertEqual(track.cushionCount, rails.count)
+                observedCounts.insert(min(4, rails.count))
+                let playback = TrajectoryPlayback(recorder: try XCTUnwrap(prediction.recorder), surfaceY: y)
+                let end = prediction.events.first {
+                    if case .pocket(let ball, _) = $0.kind { return ball == cue }
+                    return false
+                }?.time ?? prediction.duration
+                for count in 1...4 {
+                    let path = track.afterContact(limit: count)
+                    let stopTime = count <= rails.count ? rails[count - 1].time : end
+                    let expected = try XCTUnwrap(playback.stateAt(ballName: cue, time: stopTime)).position
+                    let actual = try XCTUnwrap(path.last)
+                    XCTAssertEqual(actual.x, expected.x, accuracy: 0.00001)
+                    XCTAssertEqual(actual.z, expected.z, accuracy: 0.00001)
+                    if rails.isEmpty {
+                        XCTAssertEqual(track.beforeFirstCushion.last?.x, actual.x)
+                        XCTAssertTrue(track.afterFirstCushion(limit: count).isEmpty)
+                    } else if count == 1 {
+                        XCTAssertTrue(track.afterFirstCushion(limit: count).isEmpty)
+                    }
+                }
+            }
+        }
+        XCTAssertTrue(observedCounts.contains(0))
+        XCTAssertTrue(observedCounts.contains(1))
+        XCTAssertTrue(observedCounts.contains(4), "High-speed production sample must exercise the fourth limit")
+        print("[AtlasCushions] observed counts: \(observedCounts.sorted())")
+    }
+
+    func testTimeOrderedSlicesRetainRepeatedCushionLocations() throws {
+        let recorder = TrajectoryRecorder()
+        let positions: [SCNVector3] = [.init(0, 0.83, 0), .init(0.2, 0.83, 0),
+            .init(1, 0.83, 0), .init(0, 0.83, 0.5), .init(1, 0.83, 0), .init(0.5, 0.83, 0)]
+        for (index, position) in positions.enumerated() {
+            recorder.recordFrame(ballName: ShotInput.cueBallName,
+                frame: .init(time: Float(index), position: position, velocity: SCNVector3Zero,
+                    angularVelocity: SCNVector4Zero, state: .stationary))
+        }
+        var prediction = ShotPrediction()
+        prediction.recorder = recorder; prediction.duration = 5; prediction.termination = .settled
+        prediction.events = [.init(time: 1, kind: .ballBall(ballA: ShotInput.cueBallName, ballB: "object")),
+            .init(time: 2, kind: .ballCushion(ball: ShotInput.cueBallName)),
+            .init(time: 3, kind: .ballCushion(ball: ShotInput.cueBallName)),
+            .init(time: 4, kind: .ballCushion(ball: ShotInput.cueBallName))]
+        let track = try XCTUnwrap(AtlasCushionTrack(prediction, surfaceY: 0.8))
+        XCTAssertEqual(track.cushionCount, 3)
+        XCTAssertGreaterThan(track.afterContact(limit: 3).count, track.afterContact(limit: 1).count)
+        XCTAssertTrue(track.afterContact(limit: 3).contains { $0.z == 0.5 })
+        XCTAssertEqual(track.afterContact(limit: 3).last?.x, 1)
+        XCTAssertEqual(track.afterContact(limit: 4).last?.x, 0.5)
+        prediction.termination = .timeLimit
+        XCTAssertNil(AtlasCushionTrack(prediction, surfaceY: 0.8), "Do not treat an incomplete three-rail run as its maximum")
+        prediction.events.append(.init(time: 4.5, kind: .pocket(ball: ShotInput.cueBallName, pocketId: "test")))
+        XCTAssertNotNil(AtlasCushionTrack(prediction, surfaceY: 0.8), "A pocketed cue is complete even while another ball is unresolved")
+    }
+}

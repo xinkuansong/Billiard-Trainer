@@ -84,6 +84,7 @@ final class BallRoleFlowUITests: XCTestCase {
             + (scenario.map { ["-planThree." + $0] } ?? [])
             + (large ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : []))
         ready(app.buttons["paletteBall__1"])
+        mode("2D")
     }
     private func snap(_ name: String) {
         let image = XCUIScreen.main.screenshot()
@@ -103,11 +104,87 @@ final class BallRoleFlowUITests: XCTestCase {
         if button.value as? String != target { button.tap() }
         app.buttons["planthree.dismissMenu"].coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.8)).tap()
     }
+    func testRecommendedRegionRingsAndBottomActions() throws {
+        launch("threeBall")
+        let state = node("planthree.layoutState")
+        XCTAssertTrue((state.value as? String ?? "").contains("rings=3"))
+        XCTAssertTrue((state.value as? String ?? "").contains("recommended=true"))
+        func checkFrames() {
+            let back = app.buttons["planthree.undo"].frame, replay = app.buttons["planthree.replay"].frame
+            let next = app.buttons["solver.nextSolution"].frame, strike = app.buttons["planthree.strike"].frame
+            let window = app.windows.firstMatch.frame
+            XCTAssertGreaterThanOrEqual(min(back.minY, replay.minY), next.maxY)
+            XCTAssertLessThanOrEqual(max(back.maxY, replay.maxY), window.maxY)
+            // The standard left stack ends below the strike circle (16 pt on SE).
+            // Both actions belong in its bottom lane; their edges need not coincide.
+            XCTAssertGreaterThanOrEqual(max(back.maxY, replay.maxY), strike.midY)
+            XCTAssertTrue(app.buttons["planthree.undo"].isHittable)
+        }
+        checkFrames(); snap("region-rings-bottom-actions-2d")
+        app.buttons["planthree.undo"].tap()
+        XCTAssertTrue((state.value as? String ?? "").contains("armed=3"))
+        try pocket(4)
+        XCTAssertTrue((state.value as? String ?? "").contains("secondPocket=4"))
+        snap("region-after-edit-second-pocket")
+        mode("3D"); snap("region-rings-3d")
+        mode("2D")
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            XCUIDevice.shared.orientation = .portrait
+            ready(app.buttons["planthree.undo"]); checkFrames(); snap("region-rings-pad-portrait")
+            XCUIDevice.shared.orientation = .landscapeLeft
+            ready(app.buttons["planthree.undo"]); checkFrames(); snap("region-rings-pad-landscape-return")
+        }
+    }
+
+    func testUnifiedSolvePromptsAndSimplifiedMenu() throws {
+        launch()
+        let primary = app.buttons["planthree.strike"]
+        XCTAssertEqual(primary.label, "求解")
+        for removed in ["planthree.tool", "planthree.clearConstraint", "solver.solve"] {
+            XCTAssertFalse(app.buttons[removed].exists)
+        }
+        primary.tap(); XCTAssertTrue(node("planthree.status").label.contains("请选择第一颗球"))
+        app.buttons["paletteBall__1"].tap()
+        primary.tap(); XCTAssertTrue(node("planthree.status").label.contains("请选择第一颗球的袋口"))
+        try pocket(1)
+        primary.tap(); XCTAssertTrue(node("planthree.status").label.contains("请选择第二颗球"))
+        app.buttons["paletteBall__2"].tap()
+        primary.tap(); XCTAssertTrue(node("planthree.status").label.contains("请选择第二颗球的袋口"))
+        try pocket(3)
+        primary.tap(); XCTAssertTrue(node("planthree.status").label.contains("请选择第三颗球"))
+        snap("controls-missing-third")
+        app.buttons["paletteBall__3"].tap()
+        XCTAssertEqual(primary.label, "求解")
+        app.buttons["planthree.more"].tap()
+        for removed in ["menu.aimCloseup", "planthree.separation", "planthree.trajectory", "planthree.clearPlan",
+                        "planthree.retryShot", "planthree.clear", "planthree.reset"] {
+            XCTAssertFalse(app.buttons[removed].exists)
+        }
+        let entry = app.buttons["break.settings"], help = app.buttons["planthree.help"]
+        for _ in 0..<4 where !help.isHittable { app.scrollViews["dailyClearance.menuScroll"].swipeUp() }
+        ready(help)
+        XCTAssertGreaterThan(help.frame.minY, entry.frame.minY)
+        snap("controls-settings")
+        app.buttons["planthree.dismissMenu"].coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.8)).tap()
+        primary.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@ AND enabled == true", "击球"), object: primary)], timeout: 90), .completed)
+        snap("controls-solved-2d")
+        mode("3D"); snap("controls-solved-3d"); mode("2D")
+        app.buttons["planthree.undo"].tap()
+        XCTAssertEqual(app.buttons["paletteBall__3"].value as? String, "在桌上")
+        XCTAssertEqual(primary.label, "求解")
+        for _ in 0..<3 { app.buttons["planthree.undo"].tap() }
+        app.buttons["paletteBall__2"].tap()
+        XCTAssertTrue((app.buttons["paletteBall__2"].value as? String ?? "").hasPrefix("当前击打球"))
+        XCTAssertEqual(app.buttons["paletteBall__1"].value as? String, "在桌上")
+        snap("controls-previous-second-becomes-first")
+    }
+
     func testDirectThreeRoleSelectionAndSamePocketAcrossViews() throws {
         launch()
         XCTAssertFalse(app.buttons["planthree.roles"].exists)
         app.buttons["planthree.strike"].tap()
-        XCTAssertTrue(node("planthree.status").label.contains("当前球"))
+        XCTAssertTrue(node("planthree.status").label.contains("第一颗球"))
         app.buttons["paletteBall__1"].tap(); try pocket(1)
         app.buttons["paletteBall__2"].tap(); try pocket(1)
         app.buttons["paletteBall__3"].tap()
@@ -136,17 +213,18 @@ final class BallRoleFlowUITests: XCTestCase {
         app.buttons["paletteBall__1"].tap(); try pocket(1)
         app.buttons["paletteBall__2"].tap(); try pocket(3)
         app.buttons["paletteBall__3"].tap()
-        app.buttons["solver.solve"].tap()
+        app.buttons["planthree.strike"].tap()
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label BEGINSWITH %@", "解1/"), object: app.buttons["solver.nextSolution"])], timeout: 60), .completed)
         ready(app.buttons["planthree.strike"])
         snap("after-solved")
         app.buttons["planthree.strike"].tap()
         ready(app.buttons["planthree.undo"], timeout: 120)
         XCTAssertTrue((node("paletteBall__2").value as? String ?? "").hasPrefix("当前击打球"))
-        XCTAssertTrue((app.buttons["paletteBall__2"].value as? String ?? "").contains("已锁定"))
-        snap("after-advance-lock")
+        XCTAssertFalse((app.buttons["paletteBall__2"].value as? String ?? "").contains("已锁定"))
+        XCTAssertEqual(app.buttons["planthree.strike"].label, "求解")
+        snap("after-advance-editable")
         app.buttons["paletteBall__2"].tap(); try pocket(0)
-        XCTAssertTrue(node("planthree.status").label.contains("重打"))
+        XCTAssertTrue((node("planthree.layoutState").value as? String ?? "").contains("pocket=0"))
         app.buttons["paletteBall__3"].tap(); try pocket(0)
         app.buttons["paletteBall__4"].tap()
         let value = app.buttons["paletteBall__2"].value as? String
@@ -160,10 +238,12 @@ final class BallRoleFlowUITests: XCTestCase {
         XCTAssertEqual(app.buttons["paletteBall__3"].value as? String, nextValue)
         XCTAssertEqual(app.buttons["paletteBall__4"].value as? String, thirdValue)
         snap("after-replay-preserves-edited-next-draft")
-        app.buttons["planthree.more"].tap()
-        let retry = app.buttons["planthree.retryShot"]
-        for _ in 0..<6 where !retry.isHittable { app.scrollViews["dailyClearance.menuScroll"].swipeUp() }
-        ready(retry); retry.tap()
+        let back = app.buttons["planthree.undo"]
+        for _ in 0..<5 where back.label == "上一步" { back.tap() }
+        XCTAssertEqual(back.label, "重打")
+        back.tap()
+        XCTAssertFalse(node("planthree.status").exists, "Retry must not emit an information notice")
+        XCTAssertEqual(app.buttons["planthree.strike"].label, "击球")
         XCTAssertTrue((node("paletteBall__1").value as? String ?? "").hasPrefix("当前击打球"))
         XCTAssertTrue((node("paletteBall__2").value as? String ?? "").hasPrefix("下一颗目标球"))
         XCTAssertTrue(app.buttons["planthree.undo"].isEnabled)
@@ -189,14 +269,61 @@ final class BallRoleFlowUITests: XCTestCase {
         back.tap(); back.tap()
         app.buttons["paletteBall__4"].tap()
         XCTAssertTrue((app.buttons["paletteBall__4"].value as? String ?? "").hasPrefix("下一颗目标球"))
-        XCTAssertTrue((app.buttons["paletteBall__3"].value as? String ?? "").hasPrefix("后续目标球"))
+        XCTAssertEqual(app.buttons["paletteBall__3"].value as? String, "在桌上")
         snap("previous-second-pocket-and-ball")
+    }
+
+    func testBackToFirstPocketRemovesLaterRolesAndRegionInBothViews() throws {
+        launch("threeBall")
+        mode("2D")
+        snap("feedback-planned-before-back")
+        let back = app.buttons["planthree.undo"]
+        for _ in 0..<3 { back.tap() }
+        let state = node("planthree.layoutState")
+        for expected in ["armed=1", "second=none", "third=none", "secondPocket=-1", "rings=1", "recommended=false"] {
+            XCTAssertTrue((state.value as? String ?? "").contains(expected), expected)
+        }
+        XCTAssertEqual(app.buttons["paletteBall__2"].value as? String, "在桌上")
+        XCTAssertEqual(app.buttons["paletteBall__3"].value as? String, "在桌上")
+        snap("feedback-first-pocket-cleared-2d")
+        mode("3D"); snap("feedback-first-pocket-cleared-3d")
+        mode("2D")
+        try pocket(1)
+        app.buttons["planthree.strike"].tap()
+        XCTAssertTrue(node("planthree.status").label.contains("请选择第二颗球"))
+        XCTAssertTrue((state.value as? String ?? "").contains("second=none"))
+    }
+
+    func testLastRealPotLeavesNoInformationNotice() throws {
+        launch("oneBall")
+        mode("2D")
+        let primary = app.buttons["planthree.strike"]
+        primary.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@ AND enabled == true", "击球"), object: primary)], timeout: 90), .completed)
+        primary.tap()
+        ready(app.buttons["planthree.replay"], timeout: 120)
+        XCTAssertTrue((node("planthree.layoutState").value as? String ?? "").contains("target=none"))
+        XCTAssertFalse(node("planthree.status").exists)
+        snap("feedback-cleared-quiet-2d")
+        primary.tap()
+        XCTAssertFalse(node("planthree.status").exists)
+        mode("3D"); snap("feedback-cleared-quiet-3d")
+    }
+
+    func testScreenshotLikeSolveUsesDirectPotRoute() throws {
+        launch("cornerReturn")
+        snap("feedback-corner-return-before-solve")
+        let primary = app.buttons["planthree.strike"]
+        primary.tap(); ready(primary)
+        XCTAssertNotEqual(primary.label, "计算中")
+        snap("feedback-corner-return-solved-2d")
+        mode("3D"); snap("feedback-corner-return-solved-3d")
     }
 
     func testLargeTextAndPadRotation() throws {
         launch("threeBallDimmed", large: true)
         snap("after-large-text-roles")
-        for id in ["paletteBall__1", "paletteBall__2", "paletteBall__3", "solver.solve", "planthree.strike"] { ready(app.buttons[id]) }
+        for id in ["paletteBall__1", "paletteBall__2", "paletteBall__3", "planthree.strike"] { ready(app.buttons[id]) }
         if UIDevice.current.userInterfaceIdiom == .pad {
             XCUIDevice.shared.orientation = .portrait
             ready(app.buttons["paletteBall__3"]); snap("after-pad-portrait")

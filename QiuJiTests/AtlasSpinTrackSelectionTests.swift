@@ -56,3 +56,25 @@ final class AtlasSpinTrackSelectionTests: XCTestCase {
         XCTAssertEqual(vm.enabledTracks, [0])
     }
 }
+
+extension AtlasSpinTrackSelectionTests {
+    func testCushionSelectionClampsAndNeverOffersZeroOrFive() {
+        var selection = AtlasCushionSelection()
+        XCTAssertEqual(selection.selected, 1)
+        selection.update(maximum: 8)
+        XCTAssertEqual(selection.maximum, 4)
+        selection.select(4)
+        selection.update(maximum: 3)
+        XCTAssertEqual(selection.selected, 3)
+        selection.select(4)
+        XCTAssertEqual(selection.selected, 3)
+        selection.update(maximum: 1)
+        XCTAssertEqual(selection.selected, 1)
+        selection.update(maximum: 0)
+        XCTAssertEqual(selection.maximum, 0)
+        selection.select(0); selection.select(5)
+        XCTAssertEqual(selection.selected, 1)
+        selection.update(maximum: 4)
+        XCTAssertEqual(selection.selected, 1)
+    }
+}

@@ -57,6 +57,11 @@ enum AnalyticShotRollout {
         var pocketEntry: PocketEntrySnapshot?
         /// 吃库次数（冲量真正施加的库边碰撞，与引擎 resolvedEvents 同口径）。
         var cushionCount: Int = 0
+        /// Diagnostic only: non-main-rail contacts (jaws / pocket walls).
+        /// Same segment convention as ShotPredictor.mainRail: main rails are 0..<6.
+        var pocketCushionCount: Int = 0
+        /// Actual physical walls in chronological order, never the requested seed sequence.
+        var mainRailSequence: [BankShotCalculator.Rail] = []
         /// 各次吃库的绝对时刻。
         var cushionTimes: [Float] = []
         /// rollout 球撞上的第一颗静止球（碰后进入多球级联，本层就此打住）。
@@ -220,6 +225,9 @@ enum AnalyticShotRollout {
                 )
                 if applied {
                     out.cushionCount += 1
+                    if ce.cushionIndex >= 6 { out.pocketCushionCount += 1 }
+                    if let rail = ShotPredictor.mainRail(cushionIndex: ce.cushionIndex, normal: ce.normal),
+                       out.mainRailSequence.last != rail { out.mainRailSequence.append(rail) }
                     out.cushionTimes.append(t)
                 }
                 continue
@@ -341,6 +349,8 @@ enum AnalyticShotRollout {
         var firstHitFinalPos: SCNVector3?
         /// 母球全程吃库数（碰前 + 碰后，与引擎 ballCushion 事件计数同口径）。
         var cueCushionCount = 0
+        /// Post-contact rails only; pre-contact cushions cannot legalize a safety.
+        var railOrPocketAfterContact = false
     }
 
     /// 快速评估一杆自由球：击杆 → 母球单球 rollout 至首触/停稳/落袋 → 碰撞解算（引擎同源）
@@ -435,6 +445,8 @@ enum AnalyticShotRollout {
         out.cueFinalPos = cueRoll.finalState.position
         out.firstHitPocketed = objRoll.pocketId != nil
         out.firstHitFinalPos = objRoll.finalState.position
+        out.railOrPocketAfterContact = cueRoll.cushionCount > 0 || objRoll.cushionCount > 0
+            || out.firstHitPocketed
         return out
     }
 

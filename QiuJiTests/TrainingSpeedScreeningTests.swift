@@ -707,8 +707,13 @@ extension TrainingSpeedScreeningTests {
         }
         struct Job: Decodable { let sample: Sample; let speed: Float; let originalIndex: Int }
         struct Result: Codable { let originalIndex: Int; let route: String }
-        let output = root.appendingPathComponent("output/training-accessibility-numerics-20261028/grid-revalidation")
-        let requestURL = output.appendingPathComponent("request.json")
+        let fixture = root.appendingPathComponent("QiuJiTests/GridRevalidationInput")
+        let input = FileManager.default.fileExists(atPath: fixture.appendingPathComponent("request.json").path)
+            ? fixture : root.appendingPathComponent("output/training-accessibility-numerics-20261028/grid-revalidation")
+        let output = FileManager.default.temporaryDirectory.appendingPathComponent("grid-revalidation-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: output) }
+        let requestURL = input.appendingPathComponent("request.json")
         guard FileManager.default.fileExists(atPath: requestURL.path) else {
             throw XCTSkip("Explicit complete-grid revalidation request required")
         }
@@ -723,7 +728,7 @@ extension TrainingSpeedScreeningTests {
         var done = 0, failed: [Result] = []
         for (index, batch) in request.batches.enumerated() {
             try autoreleasepool {
-                let data = try Data(contentsOf: output.appendingPathComponent(batch.file))
+                let data = try Data(contentsOf: input.appendingPathComponent(batch.file))
                 XCTAssertEqual(digest(data), batch.sha256)
                 let jobs = try JSONDecoder().decode([Job].self, from: data)
                 XCTAssertEqual(jobs.count, batch.count)
@@ -749,6 +754,12 @@ extension TrainingSpeedScreeningTests {
             }
         }
         try JSONEncoder().encode(failed).write(to: output.appendingPathComponent("failures.json"), options: .atomic)
+        let report: [String: Any] = ["done": done, "total": request.total, "failed": failed.count,
+            "seconds": ProcessInfo.processInfo.systemUptime - started,
+            "physicalSourceHashes": request.physicalSourceHashes, "bankSHA256": request.bankSHA256]
+        let attachment = XCTAttachment(data: try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]),
+                                       uniformTypeIdentifier: "public.json")
+        attachment.name = "grid-revalidation.json"; attachment.lifetime = .keepAlways; add(attachment)
         XCTAssertEqual(done, request.total)
         XCTAssertTrue(failed.isEmpty, "Original direct-pocket proofs changed: \(failed.prefix(20))")
     }

@@ -95,6 +95,14 @@ struct HistoryCalendarView: View {
             Text("有 \(vm.unreadableKBallCount) 条K球练习记录暂时无法读取，原记录已保留。")
                 .font(.btFootnote).foregroundStyle(.btTextSecondary)
         }
+        if !vm.isLoading, vm.unreadableKickCount > 0 {
+            Text("有 \(vm.unreadableKickCount) 条解球练习记录暂时无法读取，原记录已保留。")
+                .font(.btFootnote).foregroundStyle(.btTextSecondary)
+        }
+        if !vm.isLoading, vm.unreadableBankCount > 0 {
+            Text("有 \(vm.unreadableBankCount) 条翻袋练习记录暂时无法读取，原记录已保留。")
+                .font(.btFootnote).foregroundStyle(.btTextSecondary)
+        }
         if vm.isLoading && !vm.hasLoadedSessions {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -365,6 +373,28 @@ struct HistoryCalendarView: View {
                 Spacer()
             }.padding(Spacing.lg).background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.lg))
                 .accessibilityIdentifier("history.kBall")
+        case .kick(let record):
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "scope").foregroundStyle(.btPrimary)
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text(record.displayName + " · 模拟练习").font(.btHeadline)
+                    Text(record.historyDetail)
+                        .font(.btFootnote).foregroundStyle(.btTextSecondary)
+                }
+                Spacer()
+            }.padding(Spacing.lg).background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.lg))
+                .accessibilityIdentifier("history.kick")
+        case .bank(let record):
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "scope").foregroundStyle(.btPrimary)
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text(record.displayName + " · 模拟练习").font(.btHeadline)
+                    Text(record.historyDetail)
+                        .font(.btFootnote).foregroundStyle(.btTextSecondary)
+                }
+                Spacer()
+            }.padding(Spacing.lg).background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.lg))
+                .accessibilityIdentifier("history.bank")
         case .twoBall(let record):
             HStack(spacing: Spacing.md) {
                 Image(systemName: "scope").foregroundStyle(.btPrimary)

@@ -151,7 +151,7 @@ final class ControlLayoutStoreTests: XCTestCase {
         XCTAssertTrue(FreeControlCatalog.ids(page: .angleDynamic, mode: .twoD).isEmpty)
         XCTAssertEqual(FreeControlCatalog.ids(page: .angleDynamic, mode: .threeD),
             ["camera.overview", "camera.thirdPerson", "camera.firstPerson", "camera.temporaryTopDown"])
-        XCTAssertEqual(FreeControlCatalog.ids(page: .separationAngleAtlas, mode: .twoD).count, 10)
+        XCTAssertEqual(FreeControlCatalog.ids(page: .separationAngleAtlas, mode: .twoD).count, 11)
         XCTAssertTrue(store.values(page: .cushionEnglishAtlas, mode: .threeD).isEmpty)
     }
 
@@ -180,7 +180,7 @@ final class ControlLayoutStoreTests: XCTestCase {
             XCTAssertEqual($0 as? ControlLayoutError, .noCommonControls)
         }
         XCTAssertTrue(FreeControlCatalog.ids(page: .planThree, mode: .twoD).contains("break.confirm"))
-        XCTAssertFalse(FreeControlCatalog.ids(page: .planThree, mode: .twoD).contains("break.entry"))
+        XCTAssertTrue(FreeControlCatalog.ids(page: .planThree, mode: .twoD).contains("break.entry"))
         XCTAssertFalse(FreeControlCatalog.ids(page: .snookerTactics, mode: .twoD).contains("shot.aim"))
         XCTAssertTrue(store.values(page: .planThree, mode: .threeD).isEmpty)
     }
@@ -734,7 +734,7 @@ final class ControlLayoutStoreTests: XCTestCase {
         XCTAssertEqual(active[.keyboard, .lane], .lane(.leading))
         XCTAssertEqual(reloaded.archive.revision, revision)
         XCTAssertTrue(resolve(reloaded.archive, .sceneAiming2D, .twoD, .padPortrait, [.keyboard]).values.isEmpty)
-        XCTAssertEqual(TablePreferencePage.allCases.filter(\.supportsControlLayoutEditing).count, 24)
+        XCTAssertEqual(TablePreferencePage.allCases.filter(\.supportsControlLayoutEditing).count, 36)
         XCTAssertTrue(TablePreferencePage.separationPractice2D.supportsControlLayoutEditing)
         XCTAssertTrue(TablePreferencePage.separationPractice3D.supportsControlLayoutEditing)
         XCTAssertFalse(TablePreferencePage.drillRecordPreview.supportsControlLayoutEditing)

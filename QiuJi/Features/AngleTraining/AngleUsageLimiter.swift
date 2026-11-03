@@ -21,6 +21,8 @@ final class AngleUsageLimiter: ObservableObject {
     static let accuracyTraining = AngleUsageLimiter(namespace: "accuracy2D", limit: TrainingProject.ordinaryRoundCount)
     static let separationTraining = AngleUsageLimiter(namespace: "separationPractice2D", limit: TrainingProject.ordinaryRoundCount)
     static let threeBallTraining = AngleUsageLimiter(namespace: "threeBallPractice2D", limit: TrainingProject.ordinaryRoundCount)
+    static let bankTraining = AngleUsageLimiter(namespace: "bankPractice2D", limit: 15)
+    static let kickTraining = AngleUsageLimiter(namespace: "kickPractice2D", limit: 15)
     static let kBallTraining = AngleUsageLimiter(namespace: "kBallPractice2D", limit: 15)
     static let twoBallTraining = AngleUsageLimiter(namespace: "twoBallPractice2D", limit: TrainingProject.ordinaryRoundCount)
     static let multiBallTraining = AngleUsageLimiter(namespace: "multiBallPractice2D", limit: 3)
@@ -28,6 +30,8 @@ final class AngleUsageLimiter: ObservableObject {
     static func training(route: String) -> AngleUsageLimiter {
         if route.hasPrefix("multiBall") { return multiBallTraining }
         if route.hasPrefix("threeBallPractice") { return threeBallTraining }
+        if route.hasPrefix("bankPractice") { return bankTraining }
+        if route.hasPrefix("kickPractice") { return kickTraining }
         if route.hasPrefix("kBallPractice") { return kBallTraining }
         if route.hasPrefix("twoBallPractice") { return twoBallTraining }
         if route.hasPrefix("separationPractice") { return separationTraining }

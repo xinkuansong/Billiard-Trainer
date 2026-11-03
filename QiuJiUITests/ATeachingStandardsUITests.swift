@@ -21,7 +21,7 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
         image.name = (pageOrientation == .portrait ? "portrait-" : "") + (closeupIn3D ? "3D-" : "") + name
         image.lifetime = .keepAlways; add(image)
     }
-    private func launch(_ page: String) {
+    private func launch(_ page: String, extraArgs: [String] = []) {
         app?.terminate()
         XCUIDevice.shared.orientation = pageOrientation
         let deep = ["silu": "silu", "planthree": "planThree", "snooker": "snooker"]
@@ -29,7 +29,7 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
         if let route = deep[page] { args += ["-deeplink." + route] }
         if page == "planthree" { args += ["-planThree.twoBall"] }
         if page == "snooker" { args += ["-snooker.full"] }
-        app = XCUIApplication.launchClean(extraArgs: args)
+        app = XCUIApplication.launchClean(extraArgs: args + extraArgs)
         if deep[page] == nil {
             app.switchTab(.angle)
             ready(app.buttons["angleHomeTab_解"]); app.buttons["angleHomeTab_解"].tap()
@@ -148,9 +148,6 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
                 dx: (clear.maxX - clear.width * 0.15 - frame.minX) / frame.width,
                 dy: (clear.maxY - clear.height * 0.15 - frame.minY) / frame.height))
             start.press(forDuration: 0.1, thenDragTo: end)
-        }
-        if page == "silu" || page == "planthree" {
-            ready(app.buttons["solver.solve"]); app.buttons["solver.solve"].tap()
         }
     }
     private func openMore(_ page: String) {
@@ -303,6 +300,173 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
         }
     }
 
+    func testAutomaticSolverLayoutAndToolChoices() {
+        for page in ["silu", "planthree", "bankshot", "reflection"] {
+            launch(page)
+            for mode in ["2D", "3D"] {
+                openMore(page)
+                let camera = app.buttons[page + ".cameraMode"]; ready(camera)
+                if camera.value as? String != mode { camera.tap() }
+                app.buttons[page + ".dismissMenu"].tap()
+                let undo = app.buttons[page == "silu" ? "silu.undo" : page == "planthree" ? "planthree.undo" : "solver.undo"]
+                let replay = app.buttons[page == "silu" ? "silu.replay" : page == "planthree" ? "planthree.replay" : "solver.replay"]
+                let next = app.buttons["solver.nextSolution"]
+                XCTAssertTrue(next.exists)
+                XCTAssertLessThanOrEqual(next.frame.maxY, undo.frame.minY + 1)
+                XCTAssertLessThanOrEqual(undo.frame.minY - next.frame.maxY, 8)
+                XCTAssertEqual(next.frame.midX, undo.frame.midX, accuracy: 1)
+                XCTAssertTrue(app.windows.firstMatch.frame.contains(replay.frame), "Window \(app.windows.firstMatch.frame), replay \(replay.frame)")
+                XCTAssertFalse(app.buttons["solver.solve"].exists)
+                if page == "silu" {
+                    XCTAssertLessThan(app.buttons["silu.tool"].frame.maxY, app.buttons["silu.clearConstraint"].frame.minY)
+                    XCTAssertLessThan(app.buttons["silu.clearConstraint"].frame.maxY, next.frame.minY)
+                    ready(app.buttons["silu.tool"]); app.buttons["silu.tool"].tap()
+                    let ids = ["place", "region", "restPoint", "passPoint"]
+                    for i in ids.indices {
+                        let option = app.buttons["silu.tool." + ids[i]]
+                        XCTAssertTrue(option.isHittable)
+                        XCTAssertLessThan(option.frame.width, 180)
+                        if i > 0 { XCTAssertLessThan(app.buttons["silu.tool." + ids[i-1]].frame.minY, option.frame.minY) }
+                    }
+                    XCTAssertGreaterThan(app.buttons["silu.tool.place"].frame.minY, app.buttons["paletteBall__1"].frame.maxY, "Tool choices must open below the ball palette")
+                    capture(page + "-auto-tools-" + mode)
+                    app.buttons["silu.tool.place"].tap()
+                } else {
+                    ready(app.buttons[page + ".strike"])
+                    XCTAssertEqual(app.buttons[page + ".strike"].label, "击球")
+                }
+                capture(page + "-auto-layout-" + mode)
+            }
+            if UIDevice.current.userInterfaceIdiom == .pad {
+                XCUIDevice.shared.orientation = .portrait
+                XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    self.app.windows.firstMatch.frame.height > self.app.windows.firstMatch.frame.width
+                }, object: nil)], timeout: 10), .completed)
+                capture(page + "-auto-portrait")
+                XCUIDevice.shared.orientation = .landscapeLeft
+            }
+        }
+    }
+
+    func testPlanningAutomaticSolveAndMissingSelectionFeedback() {
+        launch("silu")
+        openMore("silu")
+        let camera = app.buttons["silu.cameraMode"]; ready(camera)
+        if camera.value as? String != "2D" { camera.tap() }
+        app.buttons["silu.dismissMenu"].tap()
+        XCTAssertFalse(app.buttons["silu.strike"].isEnabled)
+        prepareSolution("silu")
+        ready(app.buttons["silu.strike"])
+        XCTAssertEqual(app.buttons["silu.strike"].label, "击球")
+        capture("silu-auto-drawn-solved")
+        app.buttons["silu.clearConstraint"].tap()
+        XCTAssertFalse(app.buttons["silu.strike"].isEnabled)
+        XCTAssertEqual(app.buttons["solver.nextSolution"].label, "解")
+        capture("silu-auto-cleared")
+        launch("planthree")
+        ready(app.buttons["planthree.strike"])
+        XCTAssertEqual(app.buttons["planthree.strike"].label, "击球")
+        ready(app.buttons["planthree.undo"]); app.buttons["planthree.undo"].tap()
+        ready(app.buttons["planthree.strike"])
+        XCTAssertEqual(app.buttons["solver.nextSolution"].label, "解")
+        app.buttons["planthree.strike"].tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            self.app.staticTexts.allElementsBoundByIndex.contains { $0.label.contains("请选择") }
+        }, object: nil)], timeout: 5), .completed)
+        capture("planthree-auto-incomplete-feedback")
+    }
+
+    func testBankTargetSelectionIn2DAnd3D() throws {
+        launch("bankshot", extraArgs: ["-dailyLayout.probe"])
+        ready(app.buttons["solver.mode"]); app.buttons["solver.mode"].tap()
+        func targetIs(_ key: String) {
+            let state = element("bankshot.layoutState")
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "value CONTAINS %@", "target=" + key + " "), object: state)], timeout: 5), .completed)
+        }
+        func tapTableBall(_ key: String) throws {
+            let table = element("table.scene")
+            let raw = try XCTUnwrap(table.value as? String)
+            let data = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+            let balls = try XCTUnwrap(data["balls"] as? [[String: Any]])
+            let ball = try XCTUnwrap(balls.first { $0["key"] as? String == key })
+            let point = try XCTUnwrap(ball["screen"] as? [Double])
+            table.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point[0], dy: point[1])).tap()
+        }
+        targetIs("_8")
+        ready(app.buttons["paletteBall__1"]); app.buttons["paletteBall__1"].tap()
+        targetIs("_8")
+        capture("bank-target-before-selection")
+        for mode in ["2D", "3D"] {
+            openMore("bankshot")
+            let camera = app.buttons["bankshot.cameraMode"]; ready(camera)
+            if camera.value as? String != mode { camera.tap() }
+            app.buttons["bankshot.dismissMenu"].tap()
+            if mode == "3D" {
+                ready(app.buttons["dailyClearance.observeTable"])
+                app.buttons["dailyClearance.observeTable"].tap()
+            }
+            Thread.sleep(forTimeInterval: 1)
+            try tapTableBall("_1"); targetIs("_1")
+            capture("bank-target-" + mode + "-table-1")
+            app.buttons["paletteBall__8"].tap(); targetIs("_8")
+            app.buttons["paletteBall__1"].tap(); targetIs("_1")
+            capture("bank-target-" + mode + "-palette-1")
+            app.buttons["paletteBall__8"].tap(); targetIs("_8")
+        }
+        app.buttons["paletteBall__1"].tap(); targetIs("_1")
+        app.buttons["solver.mode"].tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label != %@", "计算中"), object: app.buttons["bankshot.strike"])], timeout: 90), .completed)
+        targetIs("_1")
+        capture("bank-target-auto-solved-or-no-solution")
+    }
+
+    func testBankKickSolverDraftStrikeRestoreIn2DAnd3D() {
+        func dismissSpinPad() {
+            // The dismissal layer spans the stage; its center is covered by the disc.
+            // Tap the exposed left edge, then prove the pad actually closed.
+            app.buttons["关闭打点"].coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
+            XCTAssertTrue(element("spinPad.disc").waitForNonExistence(timeout: 5))
+        }
+        for page in ["bankshot", "reflection"] {
+            launch(page)
+            let primary = app.buttons[page + ".strike"]
+            ready(primary)
+            XCTAssertEqual(primary.label, "击球")
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "label == %@ AND enabled == true", "击球"), object: primary)], timeout: 90), .completed)
+            for mode in ["2D", "3D"] {
+                ready(app.buttons[page + ".strike"])
+                openMore(page)
+                let camera = app.buttons[page + ".cameraMode"]; ready(camera)
+                if camera.value as? String != mode { camera.tap() }
+                app.buttons[page + ".dismissMenu"].tap()
+                ready(app.buttons["shotStage.spinEntry"]); app.buttons["shotStage.spinEntry"].tap()
+                let disc = element("spinPad.disc"); ready(disc)
+                app.buttons["回中"].tap()
+                ready(app.buttons[page + ".strike"])
+                dismissSpinPad()
+                // Open a fresh disc and use the documented one-point selection.
+                app.buttons["shotStage.spinEntry"].tap(); ready(disc)
+                disc.coordinate(withNormalizedOffset: CGVector(dx: 0.44, dy: 0.44)).tap()
+                ready(app.buttons[page + ".strike"])
+                let value = disc.value as? String
+                XCTAssertNotEqual(value, "中心球")
+                dismissSpinPad()
+                capture(page + "-solver-" + mode + "-draft")
+                app.buttons[page + ".strike"].tap()
+                ready(app.buttons["solver.undo"], timeout: 90)
+                app.buttons["solver.undo"].tap()
+                ready(app.buttons[page + ".strike"])
+                app.buttons["shotStage.spinEntry"].tap(); ready(disc)
+                XCTAssertEqual(disc.value as? String, value, "Undo must restore the struck draft")
+                dismissSpinPad()
+                capture(page + "-solver-" + mode + "-restored")
+            }
+        }
+    }
+
     func testPairedSpinOnPlanningAndSolverPages() throws {
         for page in ["silu", "planthree", "snooker", "bankshot", "reflection"] {
             launch(page)
@@ -377,6 +541,105 @@ final class ATeachingStandardsUITests: XCTestCase {
         let a = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
         a.name = name; a.lifetime = .keepAlways; add(a)
     }
+    func testAtlasCushionLimits() throws {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        for (page, prefix, hook) in [("separation", "separationAngleAtlas", "y3"), ("cushion", "cushionEnglishAtlas", "w2")] {
+            launch(["-dailyInteraction.sharedPage=\(page)", "-dailyLayout.probe"])
+            var entry: XCUIElement { app.buttons[prefix + ".cushions"] }
+            XCTAssertTrue(entry.waitForExistence(timeout: 30))
+            func state() -> String {
+                app.descendants(matching: .any).matching(identifier: prefix + ".layoutState").firstMatch.value as? String ?? ""
+            }
+            func waitForResult(_ expected: String? = nil) {
+                let ready = NSPredicate { _, _ in
+                    state().contains("computing=false") && (expected == nil || state().contains(expected!))
+                }
+                XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: ready, object: nil)], timeout: 20), .completed, state())
+            }
+            func maxRails() throws -> Int {
+                let token = try XCTUnwrap(state().split(separator: " ").first { $0.hasPrefix("maxRails=") })
+                return try XCTUnwrap(Int(token.dropFirst("maxRails=".count)))
+            }
+            func inspectMenu(_ name: String, alignToTable: Bool = true) throws {
+                entry.tap()
+                let panel = app.descendants(matching: .any).matching(identifier: prefix + ".cushions.menu").firstMatch
+                XCTAssertTrue(panel.waitForExistence(timeout: 3))
+                let maximum = try maxRails()
+                for count in 1...4 {
+                    let option = app.buttons[prefix + ".cushions.\(count)"]
+                    XCTAssertTrue(option.exists)
+                    XCTAssertEqual(option.isEnabled, count <= maximum)
+                }
+                XCTAssertFalse(app.buttons[prefix + ".cushions.0"].exists)
+                XCTAssertFalse(app.buttons[prefix + ".cushions.5"].exists)
+                XCTAssertTrue(app.windows.firstMatch.frame.contains(panel.frame))
+                if alignToTable {
+                    let scene = app.descendants(matching: .any).matching(identifier: "table.scene").firstMatch
+                    let data = Data(try XCTUnwrap(scene.value as? String).utf8)
+                    let probe = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+                    let table = try XCTUnwrap(probe["displayedTable"] as? [Double])
+                    XCTAssertEqual(panel.frame.maxX, table[2], accuracy: 2, "Menu must align with the actual table right edge")
+                }
+                try geometry([prefix + ".cushions", prefix + ".cushions.menu", "shotStage.powerShell"], name: page + "-" + name + "-frames")
+                capture(page + "-" + name)
+            }
+            waitForResult("rails=1 ")
+            let power = app.descendants(matching: .any).matching(identifier: "shotStage.powerShell").firstMatch
+            XCTAssertGreaterThanOrEqual(entry.frame.minY, power.frame.maxY)
+            capture(page + "-cushions-default")
+            try inspectMenu("cushions-default-menu")
+            app.buttons[prefix + ".cushions.dismissOutside"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap()
+            XCTAssertFalse(app.buttons[prefix + ".cushions.1"].exists)
+
+            if UIDevice.current.userInterfaceIdiom == .pad {
+                XCUIDevice.shared.orientation = .portrait
+                usleep(600_000)
+                XCTAssertGreaterThan(app.windows.firstMatch.frame.height, app.windows.firstMatch.frame.width)
+                try inspectMenu("cushions-portrait-menu")
+                app.buttons[prefix + ".cushions.1"].tap()
+                XCUIDevice.shared.orientation = .landscapeLeft
+                usleep(600_000)
+            }
+
+            // Existing parameter hooks exercise the same public bindings/onChange
+            // as the ruler; final uninstrumented screenshots are captured above.
+            launch(["-dailyInteraction.sharedPage=\(page)", "-dailyLayout.probe", "-\(hook).uiHooks"])
+            XCTAssertTrue(app.buttons[hook + ".bumpPower"].waitForExistence(timeout: 30))
+            app.buttons[hook + ".bumpPower"].tap()
+            waitForResult("velocity=5.5")
+            XCTAssertFalse(app.staticTexts["部分轨迹模拟未完成，请调整击球参数后重试"].exists)
+            let maximum = try maxRails()
+            XCTAssertGreaterThan(maximum, 1)
+            try inspectMenu("cushions-high-menu")
+            app.buttons[prefix + ".cushions.\(maximum)"].tap()
+            XCTAssertEqual(entry.value as? String, "\(maximum)库")
+            for index in 0..<7 { app.buttons[prefix + ".spinLegend.\(index)"].tap() }
+            XCTAssertEqual(try maxRails(), maximum, "Hidden tracks still determine the maximum")
+            capture(page + "-cushions-maximum-one-track")
+            for index in 0..<7 { app.buttons[prefix + ".spinLegend.\(index)"].tap() }
+            app.buttons[hook + ".minimumPower"].tap()
+            waitForResult("maxRails=0 ")
+            XCTAssertTrue(state().contains("rails=1 "))
+            try inspectMenu("cushions-zero-menu")
+            app.buttons[prefix + ".cushions.dismissOutside"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap()
+            app.buttons[hook + ".bumpPower"].tap()
+            waitForResult("velocity=5.5")
+            XCTAssertEqual(entry.value as? String, "1库")
+            entry.tap(); app.buttons[prefix + ".cushions.2"].tap()
+            app.buttons[prefix + ".more"].tap()
+            app.buttons[prefix + ".cameraMode"].tap()
+            app.buttons[prefix + ".dismissMenu"].tap()
+            XCTAssertEqual(entry.value as? String, "2库")
+            try inspectMenu("cushions-3D-menu", alignToTable: false)
+            app.buttons[prefix + ".cushions.2"].tap()
+            let top = app.buttons["shotCamera.temporaryTopDown"]
+            XCTAssertTrue(top.waitForExistence(timeout: 5)); top.tap()
+            capture(page + "-cushions-temporary")
+            XCTAssertEqual(entry.value as? String, "2库")
+            top.tap()
+        }
+    }
+
     func testAuditAtlasTargetsAndTeachingNotice() throws {
         XCUIDevice.shared.orientation = .landscapeLeft
         for (page,prefix) in [("separation","separationAngleAtlas"),("cushion","cushionEnglishAtlas")] {
@@ -674,7 +937,6 @@ final class PlanningInformationUITests: XCTestCase {
             table.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.4)).press(forDuration: 0.1,
                 thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.78, dy: 0.77)))
         }
-        if page != "snooker" { ready(app.buttons["solver.solve"]); app.buttons["solver.solve"].tap() }
         ready(app.buttons[page + ".strike"])
     }
     func testBefore() throws { try capturePages() }
@@ -851,7 +1113,6 @@ final class InformationConsistencyUITests: XCTestCase {
             table.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.4)).press(forDuration: 0.1,
                 thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.78, dy: 0.77)))
         }
-        if ["planthree", "silu"].contains(page) { ready(app.buttons["solver.solve"]); app.buttons["solver.solve"].tap() }
         ready(app.buttons[page + ".strike"])
     }
     func testBefore() throws { try capturePages() }
@@ -912,13 +1173,13 @@ final class InformationConsistencyUITests: XCTestCase {
         }
         app.buttons["paletteBall__1"].press(forDuration: 1)
         app.buttons["清除此项"].tap()
-        app.buttons["solver.solve"].tap()
+        app.buttons["planthree.strike"].tap()
         let status = item("planthree.status")
         XCTAssertTrue(status.waitForExistence(timeout: 2)); XCTAssertTrue(status.label.contains("当前球"))
         try snap("planthree-prompt")
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: status)], timeout: 6), .completed)
         try snap("planthree-prompt-expired")
-        app.buttons["solver.solve"].tap()
+        app.buttons["planthree.strike"].tap()
         XCTAssertTrue(status.waitForExistence(timeout: 2))
         mode("planthree", "3D"); app.buttons["shotCamera.temporaryTopDown"].tap(); try snap("planthree-temporary")
         launch("planthree", scenario: "twoBallDimmed"); try snap("planthree-user-region")

@@ -98,9 +98,10 @@ enum BuiltInCustomFormations {
         let fourFourFourThree = (upper + lower).map { CanvasPoint(x: 0.75, y: $0) }
             + (upper + lowerThree).map { CanvasPoint(x: 0.25, y: $0) }
         // Two eight-ball arms share the 8 ball at the corner: 8 + 8 - 1 = 15.
-        let spacing = (0.25 - radius) / 7
-        // The two outer balls touch the cushion with their surfaces, not their centers.
-        let lShape = (0..<8).map { CanvasPoint(x: 0.25, y: 0.5 - radius - Double($0) * spacing) }
+        // Outer ball centers sit one diameter from the cushion; the 8 ball stays fixed.
+        let endMargin = 2 * radius
+        let spacing = (0.25 - endMargin) / 7
+        let lShape = (0..<8).map { CanvasPoint(x: 0.25, y: 0.5 - endMargin - Double($0) * spacing) }
             + (1...7).map { CanvasPoint(x: 0.25 - Double($0) * spacing, y: 0.25) }
         return [
             make(id: fourFourFourThreeID, name: "4443球形", points: fourFourFourThree, cue: .init(x: 0.5, y: 0.25)),

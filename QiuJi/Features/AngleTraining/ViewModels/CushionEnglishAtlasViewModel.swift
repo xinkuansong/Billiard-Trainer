@@ -9,7 +9,7 @@ import SwiftUI
 /// - `spinX` 正 = **左塞**；`spinY` 由右缘打点盘选定（默认 0 = 中杆）
 /// - 8 档 `spinX` = 该 `spinY` 处打滑圆水平弦上均匀采样
 /// - 每档：`aimDir = aimDirCompensatingSquirt(geometric:spinX:)` 后 `simulateFree`；
-///   碰前/库后均按该档实况上色（8 线）；库后切片 = `pathAfterFirstCueCushion`
+///   首库前/后均按该档实况上色（8 线）；按事件时间显示到所选第 N 库
 ///
 /// 性能契约：力度/拖球变更 → `SolveDebounceScheduler` ~20ms 去抖 + 单飞 + 末班车；
 /// 后台 `DispatchQueue.concurrentPerform` 并行 8 次 `simulateFree`。
@@ -48,8 +48,8 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
 
     /// 左缘 8 档开关；默认全开，至少留 1 档。只挡画线，不挡并行计算。
     @Published private(set) var enabledTracks: Set<Int> = AtlasSpinTrackSelection.allEnabled
-    private var lastPostCushionPaths: [[SCNVector3]] = []
-    private var lastPreCushionPaths: [[SCNVector3]] = []
+    private var lastTracks: [AtlasCushionTrack?] = []
+    @Published private(set) var cushionSelection = AtlasCushionSelection()
 
     private let solveScheduler = SolveDebounceScheduler(
         idleInterval: SolveDebounceScheduler.defaultFastInterval,
@@ -344,6 +344,12 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
         redrawEnabledTrajectories()
     }
 
+    func selectCushionCount(_ count: Int) {
+        guard !isComputing else { return }
+        cushionSelection.select(count)
+        redrawEnabledTrajectories()
+    }
+
     // MARK: - Recompute (debounce + single-flight + last bus)
 
     private var activitySuspended = false
@@ -380,8 +386,8 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
         guard let intent = currentIntent() else {
             isComputing = false
             statusText = "请摆好母球与目标球"
-            lastPostCushionPaths = []
-            lastPreCushionPaths = []
+            lastTracks = []
+            cushionSelection.update(maximum: 0)
             clearTrajectories()
             return
         }
@@ -398,23 +404,21 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
 
         predictQueue.async { [weak self] in
             let t0 = CFAbsoluteTimeGetCurrent()
-            var paths = Array(repeating: [SCNVector3](), count: spins.count)
-            var incomplete = Array(repeating: false, count: spins.count)
-            var preCushionPaths = Array(repeating: [SCNVector3](), count: spins.count)
+            var tracks = [AtlasCushionTrack?](repeating: nil, count: spins.count)
+            let resultLock = NSLock()
 
             DispatchQueue.concurrentPerform(iterations: spins.count) { i in
                 let spinX = spins[i]
                 let aim = CushionEnglishAtlasGeometry.aimDirCompensatingSquirt(
                     geometric: geometricAim, spinX: spinX)
-                let pred = ShotPredictor.simulateFree(
+                let track = AtlasCushionTrack.predict(
                     cueBall: cue, aimDir: aim, velocity: v,
                     spinX: spinX, spinY: spinY,
                     surfaceY: y, balls: balls
                 )
-                incomplete[i] = !CushionEnglishAtlasGeometry.hasCompleteSlice(pred)
-                guard !incomplete[i] else { return }
-                paths[i] = CushionEnglishAtlasGeometry.pathAfterFirstCueCushion(pred)
-                preCushionPaths[i] = Self.pathUntilFirstCueCushion(pred)
+                resultLock.lock()
+                tracks[i] = track
+                resultLock.unlock()
             }
             let ms = (CFAbsoluteTimeGetCurrent() - t0) * 1000
 #if DEBUG
@@ -430,9 +434,9 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
                 }
                 guard self.predictGeneration == gen else { return }
                 self.isComputing = false
-                self.statusText = incomplete.contains(true)
+                self.statusText = tracks.contains(where: { $0 == nil })
                     ? "部分轨迹模拟未完成，请调整击球参数后重试" : nil
-                self.drawTrajectories(postCushion: paths, preCushion: preCushionPaths)
+                self.drawTrajectories(tracks)
             }
         }
     }
@@ -516,51 +520,27 @@ final class CushionEnglishAtlasViewModel: TeachingTableHost {
         scene.clearResultNodes(nodes: &trajectoryNodes)
     }
 
-    /// 碰前 / 库后均按该档 `simulateFree` 实况上色（与左缘 8 盘同序）。
-    /// 吃库前后保持同色同不透明度，仅用 `lineHint` / `lineMain` 区分线宽。
-    private func drawTrajectories(postCushion paths: [[SCNVector3]],
-                                  preCushion: [[SCNVector3]]) {
-        lastPostCushionPaths = paths
-        lastPreCushionPaths = preCushion
+    private func drawTrajectories(_ tracks: [AtlasCushionTrack?]) {
+        lastTracks = tracks
+        cushionSelection.update(maximum: tracks.compactMap { $0?.cushionCount }.max() ?? 0)
         redrawEnabledTrajectories()
     }
 
     private func redrawEnabledTrajectories() {
         if temporaryTopDownActive { topDownContentRevision &+= 1 }
         clearTrajectories()
-        let n = max(lastPostCushionPaths.count, lastPreCushionPaths.count)
-        for i in 0..<n where enabledTracks.contains(i) {
-            let color = CushionEnglishAtlasGeometry.trackColor(at: i)
-            if i < lastPreCushionPaths.count, lastPreCushionPaths[i].count >= 2 {
-                scene.addDashedPolyline(
-                    lastPreCushionPaths[i],
-                    color: color,
-                    radius: TrajectoryStyle.lineHint,
-                    placement: .table, into: &trajectoryNodes)
+        for (index, track) in lastTracks.enumerated() where enabledTracks.contains(index) {
+            guard let track else { continue }
+            let color = CushionEnglishAtlasGeometry.trackColor(at: index)
+            if track.beforeFirstCushion.count >= 2 {
+                scene.addDashedPolyline(track.beforeFirstCushion, color: color,
+                    radius: TrajectoryStyle.lineHint, placement: .table, into: &trajectoryNodes)
             }
-            if i < lastPostCushionPaths.count, lastPostCushionPaths[i].count >= 2 {
-                scene.addDashedPolyline(
-                    lastPostCushionPaths[i],
-                    color: color,
-                    radius: TrajectoryStyle.lineMain,
-                    placement: .table, into: &trajectoryNodes)
+            let path = track.afterFirstCushion(limit: cushionSelection.selected)
+            if path.count >= 2 {
+                scene.addDashedPolyline(path, color: color,
+                    radius: TrajectoryStyle.lineMain, placement: .table, into: &trajectoryNodes)
             }
         }
-    }
-
-    /// 碰前段：母球路径自首点 → 碰球后首库触点（含）。
-    private static func pathUntilFirstCueCushion(_ pred: ShotPrediction) -> [SCNVector3] {
-        guard pred.cuePath.count >= 2 else { return [] }
-        guard let cushion = CushionEnglishAtlasGeometry.firstCueCushionAfterBallBall(in: pred.events),
-              let recorder = pred.recorder,
-              let s = recorder.stateAt(ballName: ShotInput.cueBallName, time: cushion.time)
-        else {
-            // No cushion: short stub from start so the gray line still appears.
-            let end = min(pred.cuePath.count - 1, 12)
-            return Array(pred.cuePath[0...end])
-        }
-        let endIdx = CushionEnglishAtlasGeometry.nearestIndex(in: pred.cuePath, to: s.position)
-        guard endIdx > 0 else { return [] }
-        return Array(pred.cuePath[0...endIdx])
     }
 }

@@ -10,7 +10,7 @@ final class CustomFormationUITests: XCTestCase {
     private func launch(direct: Bool = true) {
         let env = ProcessInfo.processInfo.environment
         let dark = env["FORMATION_DARK"] == "1" || env["TEST_RUNNER_FORMATION_DARK"] == "1"
-        var args = ["-forcePremium", dark ? "-v54.forceDark" : "-v54.forceLight", "-3dDrag.probe"]
+        var args = ["-forcePremium", dark ? "-v54.forceDark" : "-v54.forceLight", "-3dDrag.probe", "-freeLayout.ephemeral"]
         if direct { args += ["-deeplink.customFormation", "-customFormation.owner=ui-\(UUID())"] }
         app = .launchClean(extraArgs: args)
         if !direct {
@@ -343,7 +343,8 @@ final class CustomFormationUITests: XCTestCase {
             }
         }
         let initial = try board()
-        XCTAssertFalse(app.buttons["dailyClearance.playback"].exists)
+        XCTAssertTrue(app.buttons["dailyClearance.playback"].exists)
+        XCTAssertFalse(app.buttons["dailyClearance.playback"].isEnabled)
         XCTAssertFalse(app.buttons["formation.tools"].exists)
         XCTAssertFalse(app.buttons["formation.nudge.up"].exists)
         XCTAssertFalse(app.buttons["formation.tool.line"].exists)
@@ -387,7 +388,9 @@ final class CustomFormationUITests: XCTestCase {
         ready(app.buttons["formation.playback"])
         XCTAssertTrue(app.buttons["formation.save"].exists)
         try snap("43-practice-settings")
-        app.buttons["formation.playback"].tap()
+        app.buttons["关闭菜单"].tap()
+        ready(app.buttons["dailyClearance.playback"])
+        app.buttons["dailyClearance.playback"].tap()
         ready(app.buttons["dailyClearance.strike"])
         try assertBoard(afterShot)
         app.buttons["dailyClearance.undo"].tap()
@@ -409,7 +412,8 @@ final class CustomFormationUITests: XCTestCase {
         XCTAssertFalse(app.buttons["dailyClearance.undo"].isEnabled)
         try snap("46-practice-restarted")
         setView("3D")
-        XCTAssertFalse(app.buttons["dailyClearance.playback"].exists)
+        XCTAssertTrue(app.buttons["dailyClearance.playback"].exists)
+        XCTAssertFalse(app.buttons["dailyClearance.playback"].isEnabled)
         try assertBoard(initial)
         try snap("47-practice-3d")
         setView("2D")
@@ -466,6 +470,56 @@ final class CustomFormationUITests: XCTestCase {
         XCTAssertEqual(app.buttons.matching(NSPredicate(format:"identifier BEGINSWITH %@", "paletteBall__")).count,15)
         try snap("12-practice-unique-15")
         app.buttons["dailyClearance.strike"].tap(); ready(app.buttons["dailyClearance.undo"])
+    }
+
+    func testPracticePlaybackButtonBelowUndoInBothViews() throws {
+        launch()
+        app.buttons["formation.builtin.B1115000-0000-4000-8000-000000000002"].tap()
+        app.buttons["formation.start"].tap()
+        ready(app.buttons["dailyClearance.strike"])
+        count(15)
+        func board() throws -> [String: [Double]] {
+            let entries = try XCTUnwrap(probe()["balls"] as? [[String: Any]])
+            return try Dictionary(uniqueKeysWithValues: entries.map {
+                (try XCTUnwrap($0["key"] as? String), try XCTUnwrap($0["world"] as? [Double]))
+            })
+        }
+        func assertBoard(_ expected: [String: [Double]]) throws {
+            let actual = try board()
+            XCTAssertEqual(Set(actual.keys), Set(expected.keys))
+            for (key, position) in expected {
+                let current = try XCTUnwrap(actual[key])
+                for axis in 0..<3 { XCTAssertEqual(current[axis], position[axis], accuracy: 0.0001) }
+            }
+        }
+        for view in ["2D", "3D"] {
+            setView(view)
+            let replay = app.buttons["dailyClearance.playback"]
+            let undo = app.buttons["dailyClearance.undo"]
+            XCTAssertTrue(replay.exists)
+            XCTAssertFalse(replay.isEnabled)
+            XCTAssertEqual(replay.frame.midX, undo.frame.midX, accuracy: 1)
+            XCTAssertGreaterThanOrEqual(replay.frame.minY, undo.frame.maxY)
+            XCTAssertTrue(app.frame.contains(replay.frame))
+            XCTAssertGreaterThanOrEqual(replay.frame.width, 44)
+            XCTAssertGreaterThanOrEqual(replay.frame.height, 44)
+            try snap("playback-\(view)-disabled")
+            let before = try board()
+            app.buttons["dailyClearance.strike"].tap()
+            ready(replay)
+            let after = try board()
+            XCTAssertNotEqual(after, before)
+            XCTAssertTrue(replay.isHittable)
+            try snap("playback-\(view)-ready")
+            replay.tap()
+            XCTAssertFalse(replay.isEnabled, "Replay must enter playback and reject duplicate taps")
+            ready(replay)
+            try assertBoard(after)
+            undo.tap()
+            ready(app.buttons["dailyClearance.strike"])
+            try assertBoard(before)
+            XCTAssertFalse(replay.isEnabled)
+        }
     }
 
     func testPracticeReview4443Screenshots() throws {

@@ -11,6 +11,78 @@ import SceneKit
 /// （SceneKit 水平面 = X–Z，Y 朝上）。归一化→场景两轴缩放均为 `innerLength`(=2×innerWidth)=2.54 m
 /// （均匀缩放），故归一化半径映射为场景半径只需乘单一因子。
 
+/// A union of clipped grid triangles in world XZ metres. Rendering and the solver
+/// share these polygons; internal tessellation edges are not region boundaries.
+struct SampledSolveRegion {
+    typealias Point = SIMD2<Double>
+    let polygons: [[Point]]
+    let boundaryLoops: [[Point]]
+    let center: Point
+
+    private struct Key: Hashable, Comparable {
+        let x: Int64, z: Int64
+        init(_ p: Point) { x = Int64((p.x * 1e8).rounded()); z = Int64((p.y * 1e8).rounded()) }
+        static func < (a: Self, b: Self) -> Bool { a.x == b.x ? a.z < b.z : a.x < b.x }
+    }
+    private struct Edge: Hashable { let a: Key, b: Key }
+
+    init?(polygons input: [[Point]]) {
+        var clean: [[Point]] = []
+        var edges: [Edge: (Point, Point)] = [:]
+        for polygon in input {
+            guard polygon.allSatisfy({ $0.x.isFinite && $0.y.isFinite }) else { continue }
+            var p: [Point] = []
+            for v in polygon where p.last.map({ Key($0) != Key(v) }) ?? true { p.append(v) }
+            if p.count > 1, Key(p[0]) == Key(p[p.count - 1]) { p.removeLast() }
+            guard p.count >= 3 else { continue }
+            clean.append(p)
+            for i in p.indices {
+                let a = p[i], b = p[(i + 1) % p.count], ka = Key(a), kb = Key(b)
+                let key = Edge(a: min(ka, kb), b: max(ka, kb))
+                if edges.removeValue(forKey: key) == nil { edges[key] = (a, b) }
+            }
+        }
+        guard !clean.isEmpty, !edges.isEmpty else { return nil }
+        // Join undirected exterior edges. All clipped triangles share vertex samples.
+        var adjacency: [Key: [Edge]] = [:]
+        for e in edges.keys { adjacency[e.a, default: []].append(e); adjacency[e.b, default: []].append(e) }
+        var loops: [[Point]] = []
+        while let first = edges.keys.min(by: { $0.a == $1.a ? $0.b < $1.b : $0.a < $1.a }) {
+            let pair = edges.removeValue(forKey: first)!
+            var loop = [pair.0, pair.1], current = Key(pair.1)
+            let start = Key(pair.0)
+            while current != start, let next = adjacency[current]?.first(where: { edges[$0] != nil }) {
+                let pair = edges.removeValue(forKey: next)!
+                let point = Key(pair.0) == current ? pair.1 : pair.0
+                loop.append(point); current = Key(point)
+            }
+            loops.append(loop)
+        }
+        polygons = clean; boundaryLoops = loops
+        center = clean[0].reduce(.zero, +) / Double(clean[0].count)
+    }
+
+    static func segmentDistance(_ p: Point, _ a: Point, _ b: Point) -> Double {
+        let v = b - a, w = p - a, ll = v.x * v.x + v.y * v.y
+        let t = ll > 1e-20 ? max(0, min(1, (w.x * v.x + w.y * v.y) / ll)) : 0
+        let d = p - (a + t * v)
+        return hypot(d.x, d.y)
+    }
+
+    func signedDistance(_ p: Point) -> Double {
+        var inside = false, distance = Double.greatestFiniteMagnitude
+        for loop in boundaryLoops {
+            for i in 0..<(loop.count - 1) {
+                let a = loop[i], b = loop[i + 1]
+                distance = min(distance, Self.segmentDistance(p, a, b))
+                if (a.y > p.y) != (b.y > p.y),
+                   p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x { inside.toggle() }
+            }
+        }
+        return inside ? -distance : distance
+    }
+}
+
 // MARK: - Constraint
 
 enum SolveConstraint {
@@ -23,6 +95,8 @@ enum SolveConstraint {
 // MARK: - Region (手画落区，归一化系)
 
 enum SolveRegion {
+    /// Coarse recommended region; coordinates are world XZ metres.
+    case sampled(SampledSolveRegion)
     /// 轴对齐矩形：中心 + 半宽/半高（归一化单位）。
     case rect(center: CanvasPoint, halfWidth: Double, halfHeight: Double)
     /// 圆：中心 + 半径（归一化单位）。
@@ -59,6 +133,9 @@ enum SolveRegion {
             return center
         case let .sector(apex, _, _, _):
             return apex
+        case .sampled(let mesh):
+            return CanvasPoint(x: mesh.center.x / Double(Self.sceneScale) + 0.5,
+                               y: mesh.center.y / Double(Self.sceneScale) + 0.25)
         }
     }
 
@@ -78,6 +155,8 @@ enum SolveRegion {
     func signedDistanceMeters(fromScene p: SCNVector3, surfaceY: Float) -> Float {
         let scale = Self.sceneScale
         switch self {
+        case .sampled(let mesh):
+            return Float(mesh.signedDistance(.init(Double(p.x), Double(p.z))))
         case let .circle(center, radius):
             let c = AngleSceneCalculator.normalizedToScene(
                 point: CGPoint(x: center.x, y: center.y), surfaceY: surfaceY)
@@ -210,6 +289,8 @@ struct PositionPlaySolution: Identifiable {
     var robustness: Double?
     /// Presentation provenance; retained when a catalog solution is adjusted.
     var isBankFallback: Bool = false
+    /// Optional caller-specific next-shot preference, re-evaluated on actual rest positions.
+    var continuationScore: Double? = nil
 }
 
 // MARK: - Constraint draft（跨反解页共享的「用户所画约束」草稿，G17）

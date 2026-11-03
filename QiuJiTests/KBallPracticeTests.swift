@@ -34,29 +34,32 @@ final class KBallPracticeTests: XCTestCase {
         XCTAssertFalse(TrainingSessionKind.countsTowardAccuracy(TrainingSessionKind.kBallPractice))
         XCTAssertFalse(TrainingSessionKind.countsTowardGoal(TrainingSessionKind.kBallPractice))
     }
-    func testShotEnforcesObservedRailAndLegacyHistoryIsPreserved() throws {
+    func testShotUsesOrderedRailsWithoutIncomingDirectionAndPreservesLegacyHistory() throws {
         let prepared = try KBallQuestionPreparer.prepare(.init(), seed: 30)
         let q = prepared.question
-        for approaching in [true, false] {
-            let rails = Array(repeating: q.source.railID, count: q.source.rail - (approaching ? 1 : 0))
-            let prediction = kBallRailPrediction(railID: q.source.railID, priorRails: rails,
-                approaching: approaching, pocket: q.board.pocketIndex)
-            let accepted = try KBallShot(question: q, input: .init(), prediction: prediction, surfaceY: BTTablePhysics.surfaceY)
-            XCTAssertNil(accepted.failure)
-            XCTAssertEqual(accepted.observedRail, q.source.rail)
-            var wrong = prediction
-            wrong.events.insert(.init(time: 1.01, kind: .ballCushion(ball: ShotInput.cueBallName), cushionIndex: q.source.railID), at: 1)
-            let rejected = try KBallShot(question: q, input: .init(), prediction: wrong, surfaceY: BTTablePhysics.surfaceY)
-            XCTAssertEqual(rejected.failure, .rail)
-            XCTAssertEqual(rejected.observedRail, q.source.rail + 1)
-            var noFacts = prediction; noFacts.recorder = TrajectoryRecorder()
-            XCTAssertEqual(try KBallShot(question: q, input: .init(), prediction: noFacts,
-                surfaceY: BTTablePhysics.surfaceY).failure, .railFacts)
+        for rails in [q.railHintSegments, Array(q.railHintSegments.dropLast())] {
+            for approaching in [true, false] {
+                let prediction = kBallRailPrediction(railID: q.source.railID, priorRails: rails,
+                    approaching: approaching, pocket: q.board.pocketIndex)
+                let accepted = try KBallShot(question: q, input: .init(), prediction: prediction, surfaceY: BTTablePhysics.surfaceY)
+                XCTAssertNil(accepted.failure)
+                var wrong = prediction
+                wrong.events.insert(.init(time: 1.01, kind: .ballCushion(ball: ShotInput.cueBallName), cushionIndex: 6), at: 1)
+                // Pocket jaws retain their previous non-main-rail treatment.
+                XCTAssertNil(KBallJudgement.failure(wrong, pocket: q.board.pocketIndex, question: q.source))
+                wrong.events.insert(.init(time: 1.02, kind: .ballCushion(ball: ShotInput.cueBallName), cushionIndex: nil), at: 2)
+                XCTAssertEqual(KBallJudgement.failure(wrong, pocket: q.board.pocketIndex, question: q.source), .railFacts)
+                var noIncomingState = prediction; noIncomingState.recorder = TrajectoryRecorder()
+                XCTAssertNil(KBallJudgement.failure(noIncomingState, pocket: q.board.pocketIndex, question: q.source))
+            }
         }
         var record = KBallPracticeRecord(ownerKey: "test", is3D: false, configuration: .init(), prepared: prepared)
         record.accept(try shot(q, succeeds: true))
         XCTAssertTrue(record.canResumeCurrentTraining)
         var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(record)) as? [String: Any])
+        var versionTwo = record; versionTwo.judgementVersion = 2
+        XCTAssertTrue(versionTwo.isCompatible); XCTAssertFalse(versionTwo.canResumeCurrentTraining)
+        XCTAssertEqual(versionTwo.successCount, 1)
         json.removeValue(forKey: "judgementVersion")
         var oldShot = try XCTUnwrap(json["latestShot"] as? [String: Any]); oldShot.removeValue(forKey: "observedRail")
         json["latestShot"] = oldShot
@@ -65,6 +68,34 @@ final class KBallPracticeTests: XCTestCase {
         XCTAssertFalse(old.canResumeCurrentTraining)
         XCTAssertEqual(old.successCount, 1)
         XCTAssertNil(old.latestShot?.observedRail)
+    }
+    func testOptionalLastRailAndStrictPrefixForEveryKBallCategory() throws {
+        for count in 1...3 {
+            for timing in KBallTiming.allCases {
+                var config = KBallConfiguration(); config.filter.rail = count; config.filter.timing = timing
+                let q = try KBallQuestionPreparer.prepare(config, seed: 31).question
+                let expected = q.railHintSegments, prefix = Array(expected.dropLast())
+                XCTAssertEqual(expected.count, count)
+                func failure(_ rails: [Int], post: Bool = false) -> KBallJudgement.Failure? {
+                    var prediction = kBallRailPrediction(railID: q.source.railID, priorRails: rails,
+                        approaching: false, pocket: q.board.pocketIndex)
+                    if post { prediction.events.append(.init(time: 6, kind: .ballCushion(ball: ShotInput.cueBallName), cushionIndex: q.source.railID)) }
+                    return KBallJudgement.failure(prediction, pocket: q.board.pocketIndex, question: q.source)
+                }
+                XCTAssertNil(failure(prefix)) // includes direct K with no rails for one-rail questions
+                XCTAssertNil(failure(prefix, post: true))
+                XCTAssertNil(failure(expected))
+                XCTAssertEqual(failure(expected + [expected.last!]), .railOrder)
+                XCTAssertEqual(failure(prefix + [(expected.last! + 1) % 6]), .railOrder)
+                if count > 1 { XCTAssertEqual(failure(Array(prefix.dropLast())), .railOrder) }
+                if prefix.count > 1, prefix != Array(prefix.reversed()) {
+                    XCTAssertEqual(failure(Array(prefix.reversed())), .railOrder)
+                }
+                let reference = try KBallQuestionPreparer.solve(layout: q.layout, question: q.source,
+                    input: .init(), surfaceY: BTTablePhysics.surfaceY, profile: AccuracyTipSelector.renderedProfile(), reference: true)
+                XCTAssertNil(KBallJudgement.failure(reference, pocket: q.board.pocketIndex, question: q.source), q.contentID)
+            }
+        }
     }
     @MainActor func testReferenceGateSettingsCancelAndSharedViewKeepQuestion() throws {
         let suite = "KBallPracticeTests.\(UUID())"
@@ -89,7 +120,7 @@ final class KBallPracticeTests: XCTestCase {
         vm.ownerChanged()
         XCTAssertNil(vm.record)
     }
-    @MainActor func testBaselineUsesNeutralInputRatherThanSavedSolutionOrDraft() async throws {
+    @MainActor func testNeutralBaselinePersistsAcrossInputViewAndResume() async throws {
         let suite = "KBallBaselineTests.\(UUID())"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -101,19 +132,25 @@ final class KBallPracticeTests: XCTestCase {
         vm.velocity = 3; vm.setSpin(0.2, -0.2)
         vm.setupScene()
         defer { vm.suspendTeachingActivity() }
-        for _ in 0..<300 where vm.referenceTrajectory == nil && vm.message == nil {
-            try await Task.sleep(for: .milliseconds(100))
+        XCTAssertTrue(vm.shouldShowReference)
+        for _ in 0..<200 where vm.referenceTrajectory == nil { try await Task.sleep(for: .milliseconds(50)) }
+        let baseline = try XCTUnwrap(vm.referenceTrajectory)
+        let neutral = try KBallQuestionPreparer.solve(layout: prepared.question.layout,
+            question: prepared.question.source, input: .init(), surfaceY: vm.scene.surfaceY,
+            profile: AccuracyTipSelector.renderedProfile())
+        let expected = try SeparationTrajectory.extract(neutral)
+        XCTAssertEqual(baseline.count, expected.count)
+        for (actual, point) in zip(baseline, expected) {
+            XCTAssertEqual(actual.time, point.time, accuracy: 0.00001)
+            XCTAssertEqual(actual.position.x, point.position.x, accuracy: 0.00001)
+            XCTAssertEqual(actual.position.z, point.position.z, accuracy: 0.00001)
         }
-        let actual = try XCTUnwrap(vm.referenceTrajectory, vm.message ?? "Missing neutral baseline")
-        let expected = try SeparationTrajectory.extract(KBallQuestionPreparer.solve(
-            layout: prepared.question.layout, question: prepared.question.source, input: .init(),
-            surfaceY: vm.scene.surfaceY, profile: AccuracyTipSelector.renderedProfile()))
-        XCTAssertEqual(actual.count, expected.count)
-        for (a, b) in zip(actual, expected) {
-            XCTAssertEqual(a.time, b.time, accuracy: 0.00001)
-            XCTAssertEqual(a.position.x, b.position.x, accuracy: 0.00001)
-            XCTAssertEqual(a.position.z, b.position.z, accuracy: 0.00001)
-        }
+        XCTAssertTrue(vm.switchTrainingView(to: true))
+        vm.suspendTeachingActivity(); vm.resumeTeachingActivity()
+        for _ in 0..<200 where vm.referenceTrajectory == nil { try await Task.sleep(for: .milliseconds(50)) }
+        XCTAssertTrue(vm.shouldShowReference)
+        XCTAssertEqual(vm.referenceTrajectory?.count, baseline.count)
+        XCTAssertNotNil(vm.scene.rootNode.childNode(withName: "kBall.reference", recursively: true))
         XCTAssertEqual(vm.input.velocity, 3)
         XCTAssertEqual(vm.record?.attempts.count, 0)
         XCTAssertEqual(limiter.questionsUsedToday, 0)
@@ -161,7 +198,7 @@ final class KBallPracticeTests: XCTestCase {
             .init(time: 3, kind: .pocket(ball: ShotInput.targetBallName, pocketId: "pocket_\(question.board.pocketIndex)"))]
         if succeeds {
             prediction = kBallRailPrediction(railID: question.source.railID,
-                priorRails: Array(repeating: question.source.railID, count: question.source.rail),
+                priorRails: question.railHintSegments,
                 approaching: false, pocket: question.board.pocketIndex)
         }
         return try .init(question: question, input: .init(), prediction: prediction, surfaceY: BTTablePhysics.surfaceY)

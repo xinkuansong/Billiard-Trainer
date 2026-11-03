@@ -123,8 +123,9 @@ final class ShotAudioTests: XCTestCase {
                 XCTAssertTrue(samples[frame].isFinite)
                 peak = max(peak, abs(samples[frame]))
             }
-            XCTAssertGreaterThan(peak, 0.1)
-            XCTAssertLessThan(peak, 0.28)
+            // The accepted 0.25-peak samples receive the app-wide +6 dB target gain.
+            XCTAssertGreaterThan(peak, 0.49)
+            XCTAssertLessThan(peak, 0.51)
             XCTAssertEqual(samples[0], 0)
             XCTAssertEqual(samples[frames - 1], 0)
             signatures.append(Array(UnsafeBufferPointer(start: samples, count: 128)))

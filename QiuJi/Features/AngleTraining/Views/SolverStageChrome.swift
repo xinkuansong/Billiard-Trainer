@@ -31,6 +31,9 @@ protocol SolverStageHosting: TeachingTableHost {
     var canUndoShot: Bool { get }
     var canPlaybackShot: Bool { get }
     var canStrike: Bool { get }
+    var canSolve: Bool { get }
+    var primaryActionTitle: String { get }
+    func requestPrimaryAction()
     var canUndoSolve: Bool { get }
     var canReplaySolve: Bool { get }
     var onTableObstacleKeys: [String] { get }
@@ -185,11 +188,11 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
 
     var body: some View {
         BTTeachingTablePage(vm: vm, titleLabel: title, identifier: coordinateSpaceName, preferencePage: preferencePage,
-            velocity: powerBinding, planning: controls,
+            velocity: powerBinding, showsDisabledSpinEntry: true, planning: controls,
             information: vm.tableStatusText.map { [.init(text: $0, kind: .readout, symbol: vm.tableStatusIsReadout ? nil : "info.circle", identifier: "solver.status")] } ?? [], usesStandardTitle: true,
-            pairedLeftContent: free ? { AnyView(freeControls($0)) } : nil,
+            pairedLeftContent: { AnyView(pairedControls($0)) },
             title: { EmptyView() },
-            leftContent: { leftControls($0) }, status: { EmptyView() }, onPalettePlace: { vm.placeObstacle($0, atWorld: $1) })
+            leftContent: { _ in EmptyView() }, status: { EmptyView() }, onPalettePlace: { vm.placeObstacle($0, atWorld: $1) })
             #if DEBUG
             .overlay(alignment: .bottom) {
                 if DailyLayoutProbe.enabled {
@@ -213,12 +216,12 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             instrumentsEnabled: !vm.isPlaying && (!vm.isSolving || vm.isAdjustingSolution), showsSpinSlot: free || vm.solutionCount > 0,
             isAnimating: vm.isPlaying || vm.isSolving, paletteEnabled: !vm.isPlaying,
             allowsPocketSelection: onPocketTapped != nil,
-            primaryTitle: vm.isPlaying ? "击球中" : (free ? "击球" : "击打"),
+            primaryTitle: free ? (vm.isPlaying ? "击球中" : "击球") : vm.primaryActionTitle,
             primaryEnabled: free ? vm.canFreeStrike : vm.canStrike,
-            onPrimary: { if free { vm.freeStrike() } else { vm.strike() } },
+            onPrimary: { if free { vm.freeStrike() } else { vm.requestPrimaryAction() } },
             onPaletteTap: { key in
-                if key == "_8" { vm.pulsePaletteBall(key) }
-                else if vm.onTableKeys.contains(key) { vm.pulseTableBall(key) }
+                if key == vm.selectedTargetKey { vm.pulsePaletteBall(key) }
+                else if vm.onTableKeys.contains(key) { vm.selectTarget(key: key) }
                 else { vm.placeObstacle(key, atWorld: nil) }
             }, menuItems: solverMenuItems, refreshTrajectory: { vm.refreshShotAssistVisibility() },
             applyPreferences: { vm.hides3DShotAssists = !$0.enabled(.shows3DTrajectory) },
@@ -227,7 +230,9 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             layoutEditingBlocked: showInfo,
             onAimNudged: free && !is3D ? { vm.nudgeFreeAim(byDegrees: $0) } : nil,
             onAimDragActiveChanged: { vm.setAimTableDragging($0) },
-            closeupSnapshot: vm.closeupSnapshot,
+            showsAimCloseupSetting: preferencePage != .diamondSystem,
+            showsSeparationSetting: preferencePage != .diamondSystem,
+            closeupSnapshot: preferencePage == .diamondSystem ? nil : vm.closeupSnapshot,
             onSpinChange: { x, y in
                 if !free && vm.solutionCount > 0 { vm.adjustCurrentSolution(velocity: nil, spinX: x, spinY: y) }
                 else { vm.updateFreeSpin(x: x, y: y) }
@@ -239,90 +244,80 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             items.append(.init(id: "solver.restore", title: "恢复球形", disabled: vm.isPlaying || !vm.canRestoreSnapshot,
                 action: { vm.restoreSolveSnapshot() }))
         }
-        items.append(.init(id: "solver.reset", title: "恢复默认", disabled: vm.isPlaying, action: { vm.reset() }))
         return items
     }
 
     private func auxiliaryAction(_ title: String, _ icon: String, _ id: String, size: CGFloat,
                                  enabled: Bool, perform: @escaping () -> Void) -> some View {
-        Button(action: perform) {
-            VStack(spacing: 1) {
-                Image(systemName: icon).font(.system(size: 16))
-                Text(title).font(.system(size: 10))
-            }.frame(width: size, height: size)
-                .background { BTHUDControlBackground(shape: Circle()) }
-        }.buttonStyle(BTHUDPressStyle()).disabled(!enabled).opacity(enabled ? 1 : 0.3)
+        BTHUDCompactAction(title: title, symbol: icon, size: size, action: perform)
+            .disabled(!enabled)
             .accessibilityLabel(title).accessibilityIdentifier(id)
             .freeControlItem(id == "solver.undo" ? "shot.undo" : "shot.replay", name: title)
     }
 
-    private func freeControls(_ metrics: BTTeachingInstrumentLayout) -> some View {
+    private func pairedControls(_ metrics: BTTeachingInstrumentLayout) -> some View {
         VStack(spacing: metrics.groupSpacing) {
-            BTTeachingInstrumentEntry(layout: metrics, label: "自由") {
+            BTTeachingInstrumentEntry(layout: metrics, label: free ? "自由" : "求解") {
                 Button { vm.toggleMode() } label: {
-                    Image(systemName: "scope").font(.system(size: 22)).foregroundStyle(.white)
+                    Image(systemName: free ? "scope" : TeachingSolverSymbols.solve).font(.system(size: 22)).foregroundStyle(.white)
                         .frame(width: metrics.topDiameter, height: metrics.topDiameter)
                         .background { BTHUDControlBackground(shape: Circle()) }
-                }.buttonStyle(BTHUDPressStyle()).disabled(vm.isPlaying).opacity(vm.isPlaying ? 0.3 : 1).accessibilityLabel("切换求解")
-                    .accessibilityIdentifier("solver.mode").accessibilityValue("自由")
+                }.buttonStyle(BTHUDPressStyle()).disabled(vm.isPlaying).opacity(vm.isPlaying ? 0.3 : 1).accessibilityLabel(free ? "切换求解" : "切换自由")
+                    .accessibilityIdentifier("solver.mode").accessibilityValue(free ? "自由" : "求解")
             }
+            .frame(height: metrics.topDiameter + 14)
             .freeControlItem("solver.mode", name: "求解或自由")
-            BTTeachingAimRuler(layout: metrics, enabled: !vm.isPlaying && !vm.temporaryTopDownActive,
-                onNudge: { vm.nudgeFreeAim(byDegrees: $0) }, degreesPerPoint: vm.aimWheelDegreesPerPoint,
-                onDragActiveChanged: { vm.setAimWheelDragging($0) })
+            if free {
+                BTTeachingAimRuler(layout: metrics, enabled: !vm.isPlaying && !vm.temporaryTopDownActive,
+                    onNudge: { vm.nudgeFreeAim(byDegrees: $0) }, degreesPerPoint: vm.aimWheelDegreesPerPoint,
+                    onDragActiveChanged: { vm.setAimWheelDragging($0) })
+            } else {
+                BTTeachingAimRulerSpace(layout: metrics)
+                    .frame(height: metrics.rulerLength + 30)
+                    .overlay(alignment: .top) { cushionControl }
+                    .overlay(alignment: .bottom) {
+                        TeachingSolutionButton(count: vm.solutionCount, currentIndex: vm.currentIndex,
+                            enabled: !vm.isPlaying && !vm.isSolving && !vm.temporaryTopDownActive,
+                            next: { vm.nextSolution() })
+                            .freeControlItem("planning.nextSolution", name: "下一解")
+                            .frame(width: metrics.horizontalActions ? metrics.auxiliarySize * 2 + metrics.groupSpacing : metrics.columnWidth, alignment: metrics.horizontalActions ? .leading : .center)
+                            .frame(width: metrics.columnWidth, alignment: metrics.horizontalActions ? .trailing : .center)
+                    }
+            }
             let actions = metrics.horizontalActions
                 ? AnyLayout(HStackLayout(spacing: metrics.groupSpacing))
                 : AnyLayout(VStackLayout(spacing: metrics.groupSpacing))
             actions {
                 auxiliaryAction("重打", "arrow.uturn.backward", "solver.undo", size: metrics.auxiliarySize,
-                    enabled: !vm.isPlaying && !vm.temporaryTopDownActive && vm.canUndoShot) { vm.undoLastShot() }
+                    enabled: !vm.isPlaying && !vm.temporaryTopDownActive && (free ? vm.canUndoShot : vm.canUndoSolve)) {
+                        if free { vm.undoLastShot() } else { vm.undoSolveShot() }
+                    }
                 auxiliaryAction("回放", "play.rectangle", "solver.replay", size: metrics.auxiliarySize,
-                    enabled: !vm.isPlaying && !vm.temporaryTopDownActive && vm.canPlaybackShot) { vm.replayLastShot() }
+                    enabled: !vm.isPlaying && !vm.temporaryTopDownActive && (free ? vm.canPlaybackShot : vm.canReplaySolve)) {
+                        if free { vm.replayLastShot() } else { vm.replaySolveShot() }
+                    }
             }
             .frame(width: metrics.horizontalActions ? metrics.auxiliarySize * 2 + metrics.groupSpacing : metrics.auxiliarySize)
             .frame(width: metrics.columnWidth, alignment: metrics.horizontalActions ? .trailing : .center)
         }
     }
 
-    private func leftControls(_ size: CGSize) -> some View {
-        FreeControlColumn {
-            VStack(spacing: 4) {
-                action(free ? "自由" : "求解", free ? "scope" : TeachingSolverSymbols.solve, "solver.mode", enabled: !vm.isPlaying) { vm.toggleMode() }
-                    .accessibilityValue(free ? "自由" : "求解")
-                    .freeControlItem("solver.mode", name: "求解或自由")
-                if !free {
-                    Menu {
-                        BTChoiceMenuItem(title: "自动", selected: vm.selectedCushions == nil) { vm.selectCushions(nil) }
-                        ForEach(vm.cushionOptions, id: \.self) { n in
-                            BTChoiceMenuItem(title: "\(n)库", selected: vm.selectedCushions == n) { vm.selectCushions(n) }
-                        }
-                    } label: {
-                        Text(vm.selectedCushions.map { "\($0)库" } ?? "自动").font(.btCaption).foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                            .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
-                    }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }.disabled(vm.isPlaying).accessibilityIdentifier("solver.cushions")
-                        .freeControlItem("solver.cushions", name: "库数")
-                    TeachingSolutionButton(count: vm.solutionCount, currentIndex: vm.currentIndex, enabled: !vm.isPlaying && !vm.isSolving, next: { vm.nextSolution() })
-                        .freeControlItem("planning.nextSolution", name: "下一解")
-                }
-                action("重打", "arrow.uturn.backward", "solver.undo", enabled: !vm.isPlaying && !vm.temporaryTopDownActive && (free ? vm.canUndoShot : vm.canUndoSolve)) {
-                    if free { vm.undoLastShot() } else { vm.undoSolveShot() }
-                }
-                .freeControlItem("shot.undo", name: "重打")
-                action("回放", "play.rectangle", "solver.replay", enabled: !vm.isPlaying && !vm.temporaryTopDownActive && (free ? vm.canPlaybackShot : vm.canReplaySolve)) {
-                    if free { vm.replayLastShot() } else { vm.replaySolveShot() }
-                }
-                .freeControlItem("shot.replay", name: "回放")
-            }.frame(maxWidth: .infinity)
-        }.frame(width: size.width, height: min(size.height, free ? 366 : 236), alignment: .top)
-    }
-    private func action(_ label: String, _ icon: String, _ id: String, enabled: Bool, perform: @escaping () -> Void) -> some View {
-        Button(action: perform) {
-            VStack(spacing: 1) { Image(systemName: icon).font(.system(size: 17)); Text(label).font(.system(size: 10)) }
-                .frame(width: 44, height: 44).background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-        }.buttonStyle(BTHUDPressStyle()).disabled(!enabled)
-            .opacity(enabled ? 1 : 0.4).accessibilityLabel(label).accessibilityIdentifier(id)
+    private var cushionControl: some View {
+        Menu {
+            BTChoiceMenuItem(title: "自动", selected: vm.selectedCushions == nil) { vm.selectCushions(nil) }
+            ForEach(vm.cushionOptions, id: \.self) { n in
+                BTChoiceMenuItem(title: "\(n)库", selected: vm.selectedCushions == n) { vm.selectCushions(n) }
+            }
+        } label: {
+            Text(vm.selectedCushions.map { "\($0)库" } ?? "自动").font(.btCaption).foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
+        }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }
+            .disabled(vm.isPlaying || vm.temporaryTopDownActive)
+            .accessibilityLabel("求解库数")
+            .accessibilityValue(vm.selectedCushions.map { "\($0)库" } ?? "自动，全部库数")
+            .accessibilityIdentifier("solver.cushions")
+            .freeControlItem("solver.cushions", name: "库数")
     }
     private var powerBinding: Binding<Double> {
         Binding(get: { vm.reflectionPower }, set: {

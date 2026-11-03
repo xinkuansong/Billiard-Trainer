@@ -37,6 +37,7 @@ struct BTScoreDetailsOverlay: View {
     let tableRect: CGRect
     let size: CGSize
     let dismiss: () -> Void
+    var heading = "评分详情"
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @AccessibilityFocusState private var titleFocused: Bool
     @State private var contentHeight: CGFloat = 100
@@ -46,17 +47,17 @@ struct BTScoreDetailsOverlay: View {
         let width = min(dynamicTypeSize.isAccessibilitySize ? 300 : 220, max(1, size.width - 32))
         let lines = detail.components(separatedBy: "\n").filter { !$0.isEmpty }
         ZStack(alignment: .topLeading) {
-            Button(action: dismiss) {
+            Button(action: close) {
                 Color.black.opacity(0.2).frame(width: size.width, height: size.height)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("关闭评分详情")
+            .accessibilityLabel("关闭" + heading)
             .accessibilityIdentifier("scoreDetails.dismissOutside")
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 HStack(spacing: Spacing.xs) {
                     Image(systemName: "info.circle").font(.btFootnote).accessibilityHidden(true)
-                    Text("评分详情").font(.btSubheadlineSemibold)
+                    Text(heading).font(.btSubheadlineSemibold)
                         .accessibilityAddTraits(.isHeader).accessibilityFocused($titleFocused)
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -100,11 +101,18 @@ struct BTScoreDetailsOverlay: View {
             .accessibilityElement(children: .contain)
             .accessibilityAddTraits(.isModal)
             .accessibilityIdentifier("scoreDetails.panel")
-            .accessibilityAction(.escape, dismiss)
+            .accessibilityAction(.escape, close)
             .offset(x: min(max(16, tableRect.midX - width / 2), size.width - width - 16), y: top)
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
         .onAppear { titleFocused = true }
+        .onDisappear { titleFocused = false }
+    }
+
+    private func close() {
+        // Release the focused modal before removing its accessibility subtree.
+        titleFocused = false
+        dismiss()
     }
 }
 
@@ -169,6 +177,9 @@ struct BTTablePlanningControls {
     var onAimNudged: ((Float) -> Void)? = nil
     var onAimDragActiveChanged: ((Bool) -> Void)? = nil
     var onObservation: ((String) -> Void)? = nil
+    var showsAimCloseupSetting = true
+    var showsTrajectorySetting = true
+    var showsSeparationSetting = true
     var closeupSnapshot: AimCloseupSnapshot? = nil
     var closeupUnavailableReason: String? = nil
     /// One physical contact point must reach the host as one complete intent.
@@ -181,6 +192,50 @@ struct BTTablePlanningControls {
     var showsPaletteRoleNumbers = false
     var paletteRoleDescription: ((String) -> String?)? = nil
     var onPaletteClearRole: ((String) -> Void)? = nil
+    var headerTrailing: ((CGFloat) -> AnyView)? = nil
+    var breakGameSelection: Binding<Int>? = nil
+}
+
+/// Display-only controls for the two trajectory atlases.
+struct BTAtlasCushionControls {
+    let selection: AtlasCushionSelection
+    let isComputing: Bool
+    let onSelect: (Int) -> Void
+}
+
+private struct BTAtlasCushionMenu: View {
+    let controls: BTAtlasCushionControls
+    let identifier: String
+    let dismiss: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(1...4, id: \.self) { count in
+                let enabled = !controls.isComputing && count <= controls.selection.maximum
+                let selected = count == controls.selection.selected && count <= controls.selection.maximum
+                Button { controls.onSelect(count); dismiss() } label: {
+                    HStack(spacing: Spacing.sm) {
+                        BTSelectionIndicator(isSelected: selected)
+                        Text("\(count)库")
+                        Spacer(minLength: 0)
+                    }
+                    .font(.btBody).padding(.horizontal, Spacing.md)
+                    .frame(height: 44).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).disabled(!enabled).opacity(enabled ? 1 : 0.3)
+                .accessibilityIdentifier(identifier + ".cushions.\(count)")
+                .accessibilityValue(selected ? "已选" : "未选")
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
+        .padding(.vertical, 4).frame(width: 112)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.white.opacity(0.3)).allowsHitTesting(false))
+        .foregroundStyle(.primary).environment(\.colorScheme, .light)
+        .accessibilityElement(children: .contain).accessibilityAddTraits(.isModal)
+        .accessibilityIdentifier(identifier + ".cushions.menu")
+        .accessibilityAction(.escape, dismiss)
+    }
 }
 
 /// Common daily-template shell for editable teaching tables. Hosts provide only
@@ -201,10 +256,14 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     var spinHeight: Binding<Double>? = nil
     var showsDisabledSpinEntry: Bool = false
     var planning: BTTablePlanningControls? = nil
+    var atlasCushions: BTAtlasCushionControls? = nil
     var leftControlGroup: ControlLayoutGroup = .planning
     var layoutEditingBlocked = false
     /// Page-owned display options; empty for all existing consumers.
     var displayMenuItems: [DailyHUDMenuItem] = []
+    /// Optional fixed-question explanation, positioned by the actual shared table layout.
+    var supplementalDetail: Binding<String?>? = nil
+    var supplementalDetailTitle = "本题要求"
     /// Opt-in migration: notices and persistent teaching readouts retain distinct lifetimes.
     var information: [BTTeachingInformation]? = nil
     var usesStandardTitle = false
@@ -219,6 +278,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     @State private var powerTouchActive = false
     @State private var protectedCloseupFrames: [CGRect] = []
     @State private var showSpinPad = false
+    @State private var showAtlasCushions = false
     @ObservedObject private var freeControlLayouts = FreeControlLayoutStore.shared
     private var preservesPersonalControlLayout: Bool {
         preferencePage.usesFreeControlLayout && (editingControlLayout ||
@@ -283,7 +343,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     @State private var systemStatusVisible = false
     @State private var menu: MenuPage?
     @State private var titleSize = CGSize(width: 60, height: 34)
-    private enum MenuPage { case settings, transparency, trajectory }
+    private enum MenuPage { case settings, transparency, trajectory, breakGame }
     @State private var cameraReadableFrame: CGRect?
     @State private var selectedScoreDetail: String?
     private var paletteKeys: [String] { planning?.paletteKeys ?? PositionPlayBall.allKeys.filter { !PositionPlayBall.isCue($0) } }
@@ -363,6 +423,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     }
 
     private func suspendActivity() {
+        showAtlasCushions = false
         aimTouchActive = false
         powerTouchActive = false
         layoutAimDragging = false
@@ -416,8 +477,9 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 targets: paletteKeys, chineseEightBall: groupsEightBallPalette, titleWidth: resolvedTitleWidth, titleHeight: usesStandardTitle ? 34 : titleSize.height,
                 windowControlInsets: windowControls, fps: fps, showsDeviceStatus: !systemStatusVisible,
                 keepsPaletteVisible: preservesPersonalControlLayout, showsPalette: showsPalette,
+                trailingContent: planning?.headerTrailing?(plan.diameter),
                 title: { navigationTitle(compact: compactTitle, width: resolvedTitleWidth) }, actions: {
-                    Button { showSpinPad = false; menu = .settings } label: {
+                    Button { showSpinPad = false; showAtlasCushions = false; menu = .settings } label: {
                         Image(systemName: BTIcon.menuCircle).font(.system(size: 22, weight: .medium))
                             .frame(width: 44, height: 44)
                             .background { BTHUDControlBackground(shape: Circle()) }
@@ -455,6 +517,18 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                             .accessibilityIdentifier(identifier + ".strike")
                             .freeControlItem(planning.primaryControlID, name: planning.primaryTitle)
                             .controlLayoutGroup(.primary)
+                    } else if let atlasCushions {
+                        Button { showSpinPad = false; menu = nil; showAtlasCushions.toggle() } label: {
+                            Text("\(atlasCushions.selection.selected)库").font(.btSubheadlineSemibold)
+                                .frame(width: instruments.strikeDiameter, height: instruments.strikeDiameter)
+                        }
+                        .buttonStyle(DailyStrikeButtonStyle())
+                        .overlay(alignment: .topTrailing) { TeachingMenuIndicator().allowsHitTesting(false) }
+                        .accessibilityLabel("轨迹库数")
+                        .accessibilityValue(atlasCushions.selection.maximum == 0 ? "无碰库，显示完整轨迹" : "\(atlasCushions.selection.selected)库")
+                        .accessibilityIdentifier(identifier + ".cushions")
+                        .freeControlItem("atlas.cushionCount", name: "库数")
+                        .controlLayoutGroup(.primary)
                     }
                 }
                 .frame(width: f.right.width, height: f.right.height, alignment: .top)
@@ -503,6 +577,16 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                     .background(.regularMaterial, in: Capsule())
                     .position(x: size.width / 2, y: size.height / 2)
             }
+            if showAtlasCushions, let atlasCushions {
+                Button { showAtlasCushions = false } label: { Color.clear.contentShape(Rectangle()) }
+                    .buttonStyle(.plain).accessibilityLabel("收起库数菜单")
+                    .accessibilityIdentifier(identifier + ".cushions.dismissOutside")
+                BTAtlasCushionMenu(controls: atlasCushions, identifier: identifier,
+                    dismiss: { showAtlasCushions = false })
+                    // Foundation uses page-local points. The menu's right edge
+                    // shares the stable table/HUD anchor in both camera modes.
+                    .position(x: f.table.maxX - 56, y: max(92, f.table.maxY - 92))
+            }
             if menu != nil {
                 Button { self.menu = nil } label: { Color.clear.contentShape(Rectangle()) }
                     .buttonStyle(.plain).accessibilityLabel("关闭菜单")
@@ -513,7 +597,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                             availableSize: CGSize(width: size.width - 2 * (side + windowControls.right), height: size.height - DailyLayoutMetrics.Panels.top - 8),
                             onClose: { menu = nil })
                     } else {
-                        DailyHUDMenuPanel(title: menu == .trajectory ? "轨迹显示" : nil, items: settingsItems,
+                        DailyHUDMenuPanel(title: menu == .trajectory ? "轨迹显示" : (menu == .breakGame ? "开球玩法" : nil), items: settingsItems,
                             availableSize: CGSize(width: size.width - 2 * (side + windowControls.right), height: size.height - DailyLayoutMetrics.Panels.top - 8),
                             onBack: { self.menu = .settings }, onClose: { self.menu = nil })
                     }
@@ -527,7 +611,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             leading: f.left, trailing: f.right, defaultFits: f.fits && plan.fits,
             obstacles: plan.controlLayoutProtectionFrames(table: f.table),
             busy: controlLayoutBusy, editing: $editingControlLayout, rulerHeight: instruments.rulerLength,
-            primaryTitle: planning?.primaryTitle ?? "击球", editorToolbarTop: f.table.minY)
+            primaryTitle: planning?.primaryTitle ?? (atlasCushions == nil ? "击球" : "库数"), editorToolbarTop: f.table.minY)
         .background {
             GeometryReader { viewport in
                 let fullFrame = viewport.frame(in: .global)
@@ -535,7 +619,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 sceneFullscreen.frame(width: renderFrame.width, height: renderFrame.height)
                     .position(x: renderFrame.midX - fullFrame.minX, y: renderFrame.midY - fullFrame.minY)
                     .opacity((preferencePage.usesFreeControlLayout || !editingControlLayout) && (is3D || cameraReadableFrame != nil) ? 1 : 0)
-                    .allowsHitTesting(menu == nil && !editingControlLayout)
+                    .allowsHitTesting(menu == nil && !showAtlasCushions && !editingControlLayout)
                     .accessibilityHidden(editingControlLayout)
             }.ignoresSafeArea()
         }
@@ -547,7 +631,11 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         .environment(\.teachingTableLayout, layout)
         .environment(\.presentScoreDetails, { selectedScoreDetail = $0 })
         .overlay {
-            if let detail = selectedScoreDetail {
+            if let detail = supplementalDetail?.wrappedValue {
+                BTScoreDetailsOverlay(detail: detail,
+                    tableRect: layout.innerRect.offsetBy(dx: f.stage.minX, dy: f.stage.minY), size: size,
+                    dismiss: { supplementalDetail?.wrappedValue = nil }, heading: supplementalDetailTitle)
+            } else if let detail = selectedScoreDetail {
                 BTScoreDetailsOverlay(detail: detail,
                     tableRect: layout.innerRect.offsetBy(dx: f.stage.minX, dy: f.stage.minY), size: size,
                     dismiss: { selectedScoreDetail = nil })
@@ -557,7 +645,9 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             portrait = value; updateProjection()
             onPocketOrientationChange(.init(portrait: value))
         }
-        .onChange(of: size) { _, _ in menu = nil; showSpinPad = false }
+        .onChange(of: size) { _, _ in menu = nil; showSpinPad = false; showAtlasCushions = false }
+        .onChange(of: editingControlLayout) { _, active in if active { showAtlasCushions = false } }
+        .onChange(of: showSpinPad) { _, active in if active { showAtlasCushions = false } }
         .onChange(of: vm.temporaryTopDownActive) { _, active in if active { showSpinPad = false } }
         .onPreferenceChange(TeachingCameraFrame.self) { cameraReadableFrame = $0 }
         .background(Color.clear.accessibilityElement().accessibilityLabel(titleLabel).accessibilityIdentifier("\(identifier).template"))
@@ -607,6 +697,9 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     }
 
     private var settingsItems: [DailyHUDMenuItem] {
+        if menu == .breakGame, let selection = planning?.breakGameSelection {
+            return BreakFlowRunner.gameSettingItems(selection: selection, disabled: planning?.isAnimating == true)
+        }
         if menu == .trajectory, let planning {
             var items: [DailyHUDMenuItem] = []
             if is3D, let hidden = planning.hides3DAssists {
@@ -631,20 +724,29 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         if let planning {
             items.insert(.init(id: identifier + ".transparency", title: "打点盘透明度",
                 detail: "\(Int((planning.transparency.wrappedValue * 100).rounded()))%", disclosure: true, action: { showSpinPad = true; menu = .transparency }), at: 2)
-            if !planning.assessmentMode || planning.allowsAssessmentAimCloseup {
+            if planning.showsAimCloseupSetting && (!planning.assessmentMode || planning.allowsAssessmentAimCloseup) {
             items.append(.init(id: "menu.aimCloseup", title: "瞄准特写", detail: planning.closeupUnavailableReason, selected: pagePreferences.enabled(.closeup),
                 disabled: planning.closeupUnavailableReason != nil,
                 action: { setPagePreference(.closeup, pagePreferences.enabled(.closeup) ? 0 : 1) }))
             }
             if !planning.assessmentMode {
+            if planning.showsTrajectorySetting {
             items.append(.init(id: identifier + ".trajectory", title: "轨迹显示 · " + (is3D && planning.hides3DAssists?.wrappedValue == true ? "关闭" : pagePreferences.trajectoryDetail.label),
                 disclosure: true, action: { menu = .trajectory }))
+            }
+            if planning.showsSeparationSetting {
             items += [TablePreferenceField.separation].map { field in
                 DailyHUDMenuItem(id: identifier + "." + field.rawValue, title: field.title,
                     selected: pagePreferences.enabled(field), action: {
                         setPagePreference(field, pagePreferences.enabled(field) ? 0 : 1)
                     })
             }
+            }
+            }
+            if let selection = planning.breakGameSelection {
+                items.append(.init(id: "break.settings", title: "开球玩法",
+                    detail: BreakFlowRunner.title(for: BreakFlowRunner.game(forBallCount: selection.wrappedValue)),
+                    disclosure: true, disabled: planning.isAnimating, action: { menu = .breakGame }))
             }
             items += planning.menuItems.map { item in
                 var closingItem = item

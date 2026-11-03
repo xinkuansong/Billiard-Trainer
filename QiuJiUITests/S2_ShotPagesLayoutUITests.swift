@@ -87,12 +87,7 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
         att.lifetime = .keepAlways
         add(att)
         // Layout evidence belongs to this run's output, never a design baseline.
-        #if targetEnvironment(simulator)
-        let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("output/3d-v63/W03/page-layout")
-        #else
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("v63-shot-pages")
-        #endif
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             try shot.pngRepresentation.write(to: dir.appendingPathComponent("\(name)-\(Int(app.windows.firstMatch.frame.width)).png"))
@@ -419,6 +414,37 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
         XCTAssertTrue(app.buttons["清空计划"].isEnabled)
         XCTAssertTrue(app.buttons["求解"].isEnabled)
         snap("v63-planthree-roles-returned")
+    }
+
+    func testPlanThreeSolverContinuationRegion() {
+        continueAfterFailure = false
+        app.terminate()
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral",
+            "-planthree.informationLearned", "YES", "-dailyLayout.probe", "-deeplink.planThree", "-planThree.threeBall"])
+        let anchor = app.descendants(matching: .any).matching(identifier: "planthree.template").firstMatch
+        XCTAssertTrue(anchor.waitForExistence(timeout: 45))
+        func mode(_ expected: String) {
+            app.buttons["planthree.more"].tap()
+            let camera = app.buttons["planthree.cameraMode"]
+            XCTAssertTrue(camera.waitForExistence(timeout: 5))
+            if camera.value as? String != expected { camera.tap() }
+            XCTAssertEqual(camera.value as? String, expected)
+            app.buttons["planthree.dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
+        }
+        mode("2D")
+        let solve = app.buttons["planthree.strike"]
+        XCTAssertEqual(solve.label, "求解")
+        XCTAssertTrue(solve.isEnabled)
+        snap("solver-planthree-both-sides")
+        solve.tap()
+        let state = app.descendants(matching: .any).matching(identifier: "planthree.layoutState").firstMatch
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value MATCHES %@", ".*solutions=[1-9][0-9]* .*"), object: state)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 90), .completed)
+        XCTAssertTrue(app.buttons["planthree.strike"].isEnabled)
+        snap("solver-planthree-recommendation")
+        mode("3D")
+        snap("solver-planthree-recommendation-3d")
     }
 
     func testPlanThreeLayout() throws {
@@ -1866,5 +1892,30 @@ final class AtlasTrackControlsUITests: XCTestCase {
         XCTAssertEqual(count.label, "2/8")
         XCTAssertTrue(app.buttons[prefix + ".spinLegend.0"].isHittable)
         try capture("3d")
+    }
+}
+
+
+extension P06_DefenseTemplateUITests {
+    func testDefenseValidatedSolveAndStrikeIn2DAnd3D() throws {
+        launch()
+        for view in ["2D", "3D"] {
+            mode(view)
+            ready(app.buttons["solver.solve"]); app.buttons["solver.solve"].tap()
+            ready(app.buttons["snooker.strike"], timeout: 90)
+            let catalog = app.buttons["solver.nextSolution"]
+            XCTAssertTrue(catalog.exists)
+            let selected = catalog.label
+            XCTAssertTrue(selected.hasPrefix("解1/"), "The visible solution counter must be populated")
+            XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "高难度可行解")).firstMatch.exists)
+            try capture("defense-validated-" + view + "-solved")
+            app.buttons["snooker.strike"].tap()
+            ready(app.buttons["snooker.undo"], timeout: 60)
+            try capture("defense-validated-" + view + "-settled")
+            app.buttons["snooker.undo"].tap()
+            ready(app.buttons["snooker.strike"])
+            XCTAssertEqual(catalog.label, selected, "Undo must restore the selected solution")
+            try capture("defense-validated-" + view + "-restored")
+        }
     }
 }

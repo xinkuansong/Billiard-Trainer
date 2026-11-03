@@ -27,6 +27,7 @@ enum TrajectoryRenderer {
         var extraBallMode: ExtraBallMode
         /// When true, ghost is hidden unless the target ball node is visible (Snooker).
         var requireVisibleTargetForGhost: Bool
+        var includesSeparationLine = true
 
         /// Full potting semantics: object path + rim extend + ghost from `.ghost`.
         static let positionPlay = Options(
@@ -89,7 +90,7 @@ enum TrajectoryRenderer {
             prediction: p, options: options, context: context, scene: scene
         )
 
-        if scene.tablePreferences?.enabled(.separation) ?? UserPreferences.shared.showSeparationAngle {
+        if options.includesSeparationLine && (scene.tablePreferences?.enabled(.separation) ?? UserPreferences.shared.showSeparationAngle) {
             scene.addSeparationAngleLine(for: p, into: &nodes)
         }
     }

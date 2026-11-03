@@ -249,6 +249,8 @@ final class TrajectoryRecorder {
     private(set) var localHandoffs:[LocalHandoff]=[]
     private(set) var localIntervalsByBallName:[String:[LocalPocketSimulation.Interval]]=[:]
     private(set) var framesByBallName: [String: [BallFrame]] = [:]
+    // Legacy/out-of-order and nonfinite timestamps retain insertion-order query semantics.
+    private var linearQueryBallNames: Set<String> = []
     private(set) var duration: Float = 0
     private(set) var pocketEntries: [PocketEntrySnapshot] = []
 
@@ -264,23 +266,29 @@ final class TrajectoryRecorder {
     }
     
     func recordFrame(ballName: String, frame: BallFrame) {
-        var list = framesByBallName[ballName] ?? []
-        list.append(frame)
-        framesByBallName[ballName] = list
+        if !frame.time.isFinite || framesByBallName[ballName]?.last.map({ frame.time < $0.time }) == true {
+            linearQueryBallNames.insert(ballName)
+        }
+        // Dictionary's modifying accessor keeps the array uniquely owned during append.
+        framesByBallName[ballName, default: []].append(frame)
         duration = max(duration, frame.time)
     }
-    
+
     func stateAt(ballName: String, time: Float) -> BallFrame? {
         guard let frames = framesByBallName[ballName], !frames.isEmpty else { return nil }
-        // 简单线性查找，可后续优化为二分
-        var last: BallFrame = frames[0]
-        for frame in frames {
-            if frame.time >= time { return frame }
-            last = frame
+        if linearQueryBallNames.contains(ballName) {
+            return frames.first(where: { $0.time >= time }) ?? frames.last
         }
-        return last
+        // Lower bound, not interpolation: first inserted frame at or after the query.
+        // Equal timestamps choose their first frame; after-end/NaN queries choose the last.
+        var low = 0, high = frames.count
+        while low < high {
+            let mid = low + (high - low) / 2
+            if frames[mid].time >= time { high = mid } else { low = mid + 1 }
+        }
+        return frames[low < frames.count ? low : frames.count - 1]
     }
-    
+
     /// 检查指定球是否在轨迹中被进袋
     func isBallPocketed(_ ballName: String,at time:Double?=nil) -> Bool {
         if let time,(!time.isFinite || time<0) { return false }

@@ -115,3 +115,140 @@ final class S6_BreakUniversalUITests: XCTestCase {
         popBack(); sleep(1)
     }
 }
+
+/// Real controls: settings do not replace the board; break owns the direction lane
+/// until natural settle/cancellation, then restores the page's planning controls.
+final class UnifiedBreakFlowUITests: XCTestCase {
+    private var app: XCUIApplication!
+    private var planning = false
+    private var moreID: String { planning ? "planthree.more" : "freeplay.moreMenu" }
+    private var breakStrike: XCUIElement { node(planning ? "planthree.strike" : "break.strike") }
+    override func setUpWithError() throws { continueAfterFailure = false }
+    override func tearDownWithError() throws { app?.terminate() }
+    private func node(_ id: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", id)).firstMatch
+    }
+    private func ready(_ element: XCUIElement, timeout: TimeInterval = 40) {
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == true AND enabled == true"), object: element)], timeout: timeout), .completed)
+    }
+    private func capture(_ name: String) {
+        let image = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        image.name = "unified-break-" + name; image.lifetime = .keepAlways; add(image)
+        let tree = XCTAttachment(string: app.debugDescription)
+        tree.name = "unified-break-" + name + "-tree"; tree.lifetime = .keepAlways; add(tree)
+    }
+    private func reveal(_ id: String) -> XCUIElement {
+        let item = app.buttons[id], scroll = app.scrollViews["dailyClearance.menuScroll"]
+        for _ in 0..<8 {
+            if item.isHittable && scroll.frame.contains(item.frame) { break }
+            if item.exists && item.frame.minY < scroll.frame.minY { scroll.swipeDown() }
+            else { scroll.swipeUp() }
+        }
+        XCTAssertTrue(item.isHittable, id)
+        return item
+    }
+    private func closeMenu() {
+        let close = app.buttons["dailyClearance.menuClose"]
+        if close.exists { close.tap() }
+        else {
+            let backdrop = planning ? app.buttons["planthree.dismissMenu"] : app.buttons["关闭菜单"].firstMatch
+            backdrop.coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.8)).tap()
+        }
+    }
+    private func assertQuiet() {
+        for text in ["运杆…", "开球中…", "开球计算中…", "已停稳", "开球中"] {
+            XCTAssertFalse(app.staticTexts[text].exists, text)
+        }
+    }
+    private func launch(planning: Bool, mode: String) {
+        self.planning = planning
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral",
+            "-dailyLayout.probe", "-3dDrag.probe",
+            planning ? "-deeplink.planThree" : "-dailyInteraction.sharedPage=composer"])
+        ready(app.buttons[moreID])
+        app.buttons[moreID].tap()
+        let camera = app.buttons[planning ? "planthree.cameraMode" : "freeplay.cameraMode"]
+        ready(camera)
+        if camera.value as? String != mode { camera.tap() }
+        closeMenu()
+        capture((planning ? "planthree-" : "composer-") + mode + "-launch")
+        ready(node("break.entry"))
+    }
+    private func exercise(planning: Bool, mode: String) {
+        launch(planning: planning, mode: mode)
+        let prefix = (planning ? "planthree-" : "composer-") + mode
+        let entry = node("break.entry")
+        if planning {
+            XCTAssertTrue(app.buttons["solver.nextSolution"].exists)
+            XCTAssertGreaterThanOrEqual(app.buttons["solver.nextSolution"].frame.minY, entry.frame.maxY)
+        }
+        capture(prefix + "-idle")
+        let initialPalette = (1...15).map { node("paletteBall__\($0)").value as? String ?? "" }
+        app.buttons[moreID].tap()
+        let settings = reveal("break.settings")
+        XCTAssertTrue(settings.label.contains("开球玩法"))
+        settings.tap()
+        ready(app.buttons["break.game.4"])
+        app.buttons["break.game.4"].tap()
+        XCTAssertEqual(app.buttons["break.game.4"].value as? String, "已选")
+        capture(prefix + "-settings")
+        closeMenu()
+        XCTAssertEqual((1...15).map { node("paletteBall__\($0)").value as? String ?? "" }, initialPalette)
+        ready(entry); entry.tap()
+        ready(breakStrike)
+        XCTAssertFalse(app.buttons["break.game.4"].exists, "Entry must not show a gameplay picker")
+        XCTAssertFalse(app.buttons["solver.nextSolution"].exists)
+        XCTAssertTrue(app.staticTexts["方向"].exists)
+        assertQuiet(); capture(prefix + "-racked")
+        // Cancel must recover the same initial board and normal controls.
+        app.buttons[moreID].tap()
+        reveal(planning ? "planthree.cancelBreak" : "freeplay.cancelBreak").tap()
+        ready(entry)
+        if planning { XCTAssertTrue(app.buttons["solver.nextSolution"].exists) }
+        XCTAssertEqual((1...15).map { node("paletteBall__\($0)").value as? String ?? "" }, initialPalette)
+        entry.tap(); ready(breakStrike)
+        // The selected rack has four targets (including 9), not a default 15-ball rack.
+        XCTAssertEqual(node("break.rerack").value as? String, "4 球")
+        ready(node("break.rerack")); node("break.rerack").tap()
+        ready(breakStrike); breakStrike.tap()
+        assertQuiet(); capture(prefix + "-moving")
+        // Natural stop must return to normal controls without another tap.
+        ready(entry, timeout: 100)
+        XCTAssertFalse(node("break.confirm").exists)
+        if planning {
+            XCTAssertTrue(app.buttons["solver.nextSolution"].exists)
+            XCTAssertFalse(app.staticTexts["方向"].exists)
+        }
+        assertQuiet(); capture(prefix + "-complete")
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            XCUIDevice.shared.orientation = .portrait
+            let portrait = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                self.app.windows.firstMatch.frame.height > self.app.windows.firstMatch.frame.width
+            }, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [portrait], timeout: 10), .completed)
+            ready(entry); capture(prefix + "-portrait")
+            entry.tap(); ready(breakStrike)
+            XCTAssertFalse(app.buttons["solver.nextSolution"].exists)
+            capture(prefix + "-portrait-racked")
+        }
+    }
+    func testPlanThree2D() { exercise(planning: true, mode: "2D") }
+    func testPlanThree3D() { exercise(planning: true, mode: "3D") }
+    func testComposer2D() { exercise(planning: false, mode: "2D") }
+    func testComposer3D() { exercise(planning: false, mode: "3D") }
+    func testDailyGameplayName() {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore",
+            "-v53.authenticatedProfileFixture", "-dailyClearance.resetState", "-dailyClearance.fixture=selection", "-deeplink.dailyClearance"])
+        ready(app.buttons["freeplay.moreMenu"]); app.buttons["freeplay.moreMenu"].tap()
+        let item = reveal("dailyClearance.changeGame")
+        XCTAssertEqual(item.label, "开球玩法")
+        capture("daily-settings")
+        item.tap()
+        XCTAssertTrue(app.staticTexts["开球玩法"].exists)
+        XCTAssertFalse(app.staticTexts["临时换玩法"].exists)
+        capture("daily-games")
+    }
+}

@@ -8,6 +8,7 @@ struct CushionEnglishAtlasView: View {
     var body: some View {
         BTTeachingTablePage(vm: vm, titleLabel: "加塞吃库图谱", identifier: "cushionEnglishAtlas", preferencePage: .cushionEnglishAtlas,
             velocity: $vm.velocity, spinHeight: $vm.spinY,
+            atlasCushions: .init(selection: vm.cushionSelection, isComputing: vm.isComputing, onSelect: vm.selectCushionCount),
             leftControlGroup: .information, layoutEditingBlocked: vm.isComputing,
             information: teachingInformation, usesStandardTitle: true,
             title: { EmptyView() },
@@ -32,6 +33,7 @@ struct CushionEnglishAtlasView: View {
                     HStack {
                         Button("高杆") { vm.spinY = 0.3 }.accessibilityIdentifier("w2.bumpCueHeight")
                         Button("高力度") { vm.velocity = 5.5 }.accessibilityIdentifier("w2.bumpPower")
+                        Button("最低力度") { vm.velocity = Double(ShotTuning.velocityRange.lowerBound) }.accessibilityIdentifier("w2.minimumPower")
                         Text(String(format: "%.1f", vm.lastParallelSimMs)).accessibilityIdentifier("w2.parallelSimMs")
                     }.font(.btCaption)
                 }
@@ -41,7 +43,7 @@ struct CushionEnglishAtlasView: View {
                 if DailyLayoutProbe.enabled {
                     Color.clear.frame(width: 1, height: 1).allowsHitTesting(false)
                         .accessibilityElement().accessibilityIdentifier("cushionEnglishAtlas.layoutState")
-                        .accessibilityValue("target=\(vm.selectedTargetKey ?? "none") pocket=\(vm.selectedPocketIndex) velocity=\(vm.velocity) tracks=\(vm.enabledTracks.sorted().map(String.init).joined(separator: ",")) spinY=\(vm.spinY)")
+                        .accessibilityValue("rails=\(vm.cushionSelection.selected) maxRails=\(vm.cushionSelection.maximum) computing=\(vm.isComputing) target=\(vm.selectedTargetKey ?? "none") pocket=\(vm.selectedPocketIndex) velocity=\(vm.velocity) tracks=\(vm.enabledTracks.sorted().map(String.init).joined(separator: ",")) spinY=\(vm.spinY)")
                 }
             }
             #endif

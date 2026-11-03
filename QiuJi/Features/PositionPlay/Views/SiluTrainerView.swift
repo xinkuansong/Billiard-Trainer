@@ -9,6 +9,8 @@ struct SiluTrainerView: View {
     @StateObject private var vm = SiluTrainerViewModel()
     @State private var showBreakPicker = false
     @State private var drawingConstraint = false
+    @State private var showsToolChoices = false
+    @ScaledMetric(relativeTo: .body) private var toolChoicesWidth = 112
     @Environment(\.scenePhase) private var scenePhase
     private var busy: Bool { vm.isPlaying || vm.isComputing || vm.breakRunner?.isBusy == true }
     private var toolName: String {
@@ -27,9 +29,9 @@ struct SiluTrainerView: View {
         BTTeachingTablePage(vm: vm, titleLabel: "走位求解", identifier: "silu", preferencePage: .silu,
             velocity: velocity, planning: controls,
             usesStandardTitle: true,
-            pairedLeftContent: vm.isBreakMode ? { AnyView(breakControls($0)) } : nil,
+            pairedLeftContent: { layout in vm.isBreakMode ? AnyView(breakControls(layout)) : AnyView(leftControls(layout)) },
             title: { EmptyView() },
-            leftContent: { size in leftControls(size) },
+            leftContent: { _ in EmptyView() },
             status: { informationOverlay }, onPalettePlace: { vm.placeFromPalette($0, atWorld: $1) })
         .sheet(isPresented: $showBreakPicker) {
             BreakGamePickerSheet { vm.startBreakFlow(game: $0) }
@@ -107,7 +109,7 @@ struct SiluTrainerView: View {
             }, menuItems: menuItems, refreshTrajectory: { vm.redrawTrajectory() },
             applyPreferences: { vm.hides3DShotAssists = !$0.enabled(.shows3DTrajectory) }, onSetup: { vm.allowSideSpin = savedAllowSideSpin; vm.basicPositionOnly = savedBasicPositionOnly; vm.hides3DShotAssists = hides3DAssists; if let initialBoard { vm.loadBoard(initialBoard) } },
             onDisappear: { vm.stopForDismissal() },
-            layoutEditingBlocked: drawingConstraint || vm.breakRunner?.showsConfirm == true,
+            layoutEditingBlocked: showsToolChoices || drawingConstraint || vm.breakRunner?.showsConfirm == true,
             onAimNudged: vm.isBreakMode ? { vm.breakRunner?.nudgeAim(byDegrees: $0) } : nil,
             closeupSnapshot: vm.canStrike ? vm.solvedContactCloseup : nil,
             closeupUnavailableReason: vm.canStrike && vm.solvedContactCloseup != nil ? nil : "当前首碰暂无特写",
@@ -126,45 +128,94 @@ struct SiluTrainerView: View {
             })
     }
 
-    private func leftControls(_ size: CGSize) -> some View {
-        FreeControlColumn {
-            VStack(spacing: 4) {
-                if !vm.isBreakMode {
-                    Menu {
-                        BTChoiceMenuItem(title: "落区", selected: vm.activeTool == .region) { vm.activeTool = .region }
-                        BTChoiceMenuItem(title: "落点", selected: vm.activeTool == .restPoint) { vm.activeTool = .restPoint }
-                        BTChoiceMenuItem(title: "过点", selected: vm.activeTool == .passPoint) { vm.activeTool = .passPoint }
-                        BTChoiceMenuItem(title: "摆球", selected: vm.activeTool == .none) { vm.activeTool = .none }
-                    } label: {
-                        Text(toolName).font(.btCaption).foregroundStyle(.white).frame(width: 44, height: 44)
-                            .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-                    }.overlay(alignment: .topTrailing) { TeachingMenuIndicator() }.disabled(busy)
-                        .opacity(busy ? 0.4 : 1).accessibilityIdentifier("silu.tool")
-                        .freeControlItem("planning.constraintTool", name: "约束工具")
+    private func leftControls(_ layout: BTTeachingInstrumentLayout) -> some View {
+        VStack(spacing: layout.groupSpacing) {
+            VStack(spacing: layout.groupSpacing) {
+                BTTeachingInstrumentEntry(layout: layout, label: "") {
+                    Color.clear.frame(width: layout.topDiameter, height: layout.topDiameter)
+                }.frame(height: layout.topDiameter + 14).accessibilityHidden(true)
+                BTTeachingAimRulerSpace(layout: layout)
+                    .frame(height: layout.rulerLength + 30)
+            }
+            .overlay(alignment: .top) {
+                VStack(spacing: layout.groupSpacing) {
+                    toolChoiceButton
                     action("清除", "eraser", "silu.clearConstraint", enabled: !busy && vm.hasConstraint) { vm.clearConstraint() }
                         .freeControlItem("planning.clearConstraint", name: "清除约束")
-                    action("求解", TeachingSolverSymbols.solve, "solver.solve", enabled: !busy && vm.hasConstraint) { vm.solve() }
-                        .freeControlItem("planning.solve", name: "求解")
-                    TeachingSolutionButton(count: vm.solutions.count, currentIndex: vm.currentIndex,
-                        enabled: !busy, next: { vm.nextSolution() },
-                        isModified: vm.isSolutionAdjusted)
-                        .freeControlItem("planning.nextSolution", name: "下一解")
-                    action("重打", "arrow.uturn.backward", "silu.undo", enabled: !busy && !vm.temporaryTopDownActive && vm.canUndoShot) { vm.undoLastShot() }
-                        .freeControlItem("shot.undo", name: "重打")
-                    action("回放", "play.rectangle", "silu.replay", enabled: !busy && !vm.temporaryTopDownActive && vm.canPlayback) { vm.replayLastShot() }
-                        .freeControlItem("shot.replay", name: "回放")
                 }
-            }.frame(maxWidth: .infinity)
-        }.frame(width: size.width, height: min(size.height, vm.isBreakMode ? 232 : 284), alignment: .top)
+            }
+            .overlay(alignment: .bottom) {
+                TeachingSolutionButton(count: vm.solutions.count, currentIndex: vm.currentIndex,
+                    enabled: !busy && !vm.temporaryTopDownActive, next: { vm.nextSolution() },
+                    isModified: vm.isSolutionAdjusted)
+                    .freeControlItem("planning.nextSolution", name: "下一解")
+                    .frame(width: layout.horizontalActions ? layout.auxiliarySize * 2 + layout.groupSpacing : layout.columnWidth, alignment: layout.horizontalActions ? .leading : .center)
+                    .frame(width: layout.columnWidth, alignment: layout.horizontalActions ? .trailing : .center)
+            }
+            let actions = layout.horizontalActions
+                ? AnyLayout(HStackLayout(spacing: layout.groupSpacing))
+                : AnyLayout(VStackLayout(spacing: layout.groupSpacing))
+            actions {
+                BTHUDCompactAction(title: "重打", symbol: "arrow.uturn.backward", size: layout.auxiliarySize) { vm.undoLastShot() }
+                    .disabled(busy || vm.temporaryTopDownActive || !vm.canUndoShot)
+                    .accessibilityIdentifier("silu.undo").freeControlItem("shot.undo", name: "重打")
+                BTHUDCompactAction(title: "回放", symbol: "play.rectangle", size: layout.auxiliarySize) { vm.replayLastShot() }
+                    .disabled(busy || vm.temporaryTopDownActive || !vm.canPlayback)
+                    .accessibilityIdentifier("silu.replay").freeControlItem("shot.replay", name: "回放")
+            }
+            .frame(width: layout.horizontalActions ? layout.auxiliarySize * 2 + layout.groupSpacing : layout.auxiliarySize)
+            .frame(width: layout.columnWidth, alignment: layout.horizontalActions ? .trailing : .center)
+        }.frame(width: layout.columnWidth)
     }
+    private var toolChoiceButton: some View {
+        Button { showsToolChoices.toggle() } label: {
+            Text(toolName).font(.btCaption).foregroundStyle(.white).frame(width: 44, height: 44)
+                .background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: BTRadius.md)) }
+                .overlay(RoundedRectangle(cornerRadius: BTRadius.md).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
+        }
+        .buttonStyle(.plain)
+        .overlay(alignment: .topTrailing) { TeachingMenuIndicator().allowsHitTesting(false) }
+        .disabled(busy).opacity(busy ? 0.4 : 1)
+        .accessibilityIdentifier("silu.tool")
+        .freeControlItem("planning.constraintTool", name: "约束工具")
+        .popover(isPresented: $showsToolChoices, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+            VStack(spacing: 0) {
+                toolChoice("摆球", tool: .none, id: "place")
+                toolChoice("落区", tool: .region, id: "region")
+                toolChoice("落点", tool: .restPoint, id: "restPoint")
+                toolChoice("过点", tool: .passPoint, id: "passPoint")
+            }
+            .padding(.vertical, Spacing.xs)
+            .frame(width: toolChoicesWidth)
+            .fixedSize(horizontal: false, vertical: true)
+            .presentationCompactAdaptation(.popover)
+        }
+        .onChange(of: busy) { _, active in if active { showsToolChoices = false } }
+    }
+
+    private func toolChoice(_ title: String, tool: SiluTrainerViewModel.Tool, id: String) -> some View {
+        Button { vm.activeTool = tool; showsToolChoices = false } label: {
+            HStack(spacing: Spacing.sm) {
+                BTSelectionIndicator(isSelected: vm.activeTool == tool)
+                Text(title).foregroundStyle(.btText)
+                Spacer(minLength: 0)
+            }
+            .font(.btBody)
+            .padding(.horizontal, Spacing.md)
+            .frame(minHeight: 44).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("silu.tool." + id)
+        .accessibilityValue(vm.activeTool == tool ? "已选" : "未选")
+        .accessibilityAddTraits(vm.activeTool == tool ? .isSelected : [])
+    }
+
     private func action(_ title: String, _ icon: String, _ id: String, enabled: Bool, perform: @escaping () -> Void) -> some View {
         Button(action: perform) {
             VStack(spacing: 1) { Image(systemName: icon).font(.system(size: 17)); Text(title).font(.system(size: 10)) }
                 .frame(width: 44, height: 44).background { BTHUDControlBackground(shape: RoundedRectangle(cornerRadius: 12)) }
                             .overlay(RoundedRectangle(cornerRadius: 12).stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
         }.buttonStyle(BTHUDPressStyle()).disabled(!enabled).opacity(enabled ? 1 : 0.4).accessibilityLabel(title).accessibilityIdentifier(id)
-            .accessibilityHint(id == "solver.solve" && !enabled ? (compactPrompt ?? "请查看更多中的操作说明") : "")
     }
     private var menuItems: [DailyHUDMenuItem] {
         var items: [DailyHUDMenuItem] = [
@@ -207,7 +258,7 @@ struct SiluTrainerView: View {
         if vm.informationEvent.kind == .failure { sections.append(("当前问题", vm.informationEvent.text)) }
         else if let prompt = compactPrompt { sections.append(("当前步骤", prompt)) }
         sections += [
-            ("摆球与选择", "拖动球调整球形；点选目标球和目标袋。完成选择与约束后求解。"),
+            ("摆球与选择", "拖动球调整球形；点选目标球和目标袋。选齐目标球、袋口和落区／落点／过点后自动求解；拖动或绘制松手后更新方案。"),
             ("约束工具", "落区：拖出母球期望停下的区域。\n落点：点选母球期望停下的位置；琥珀十字表示目标，圆环表示容差。\n过点：点选母球需要经过的位置。\n切回“摆球”可继续选择目标球和袋口。"),
             ("方案与微调", "轻点解按钮切换下一解，按钮显示当前序号和总数。调整打点、杆速后，当前方案标记“微调”。不满足约束或超出筛选范围的方案仍保留提示。")
         ]

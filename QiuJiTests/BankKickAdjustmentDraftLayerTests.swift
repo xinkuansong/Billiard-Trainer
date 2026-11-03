@@ -27,6 +27,19 @@ final class BankKickAdjustmentDraftLayerTests: XCTestCase {
         wait(for: [exp], timeout: timeout)
     }
 
+    func test_modeChangeCancelsOwnedSolveInBothPages() async throws {
+        let models: [any SolverStageHosting] = [BankShotViewModel(), DiamondSystemViewModel()]
+        for vm in models {
+            vm.setupScene()
+            XCTAssertTrue(vm.isSolving)
+            vm.toggleMode()
+            try await Task.sleep(for: .milliseconds(250))
+            XCTAssertFalse(vm.isSolving)
+            XCTAssertFalse(vm.hasSolution, "Changing mode cancels even a pending automatic search")
+            vm.stopForDismissal()
+        }
+    }
+
     // MARK: - Bank
 
     func test_bank_adjustDraft_doesNotMutateCatalog_andCycleRestoresOriginal() {
@@ -86,6 +99,12 @@ final class BankKickAdjustmentDraftLayerTests: XCTestCase {
         XCTAssertEqual(strikeCtx.solutions[idx].spinX, catalogSpinX, accuracy: 1e-6,
                        "snapshot catalog intact")
 
+        vm.restoreSolve(from: strikeCtx)
+        XCTAssertEqual(vm.currentSolution?.robustness, draft.robustness)
+        XCTAssertEqual(vm.currentSolution?.cushions, draft.cushions)
+        XCTAssertEqual(vm.currentSolution?.pathLength, draft.pathLength)
+        XCTAssertEqual(vm.currentSolution?.spinX, draft.spinX)
+
         // 2) Cycle back → original catalog (draft discarded).
         let n = max(vm.solutionCount, 1)
         for _ in 0..<n { vm.nextSolution() }
@@ -97,6 +116,19 @@ final class BankKickAdjustmentDraftLayerTests: XCTestCase {
         XCTAssertEqual(shown.spinY, catalogFinal.spinY, accuracy: 1e-6)
         XCTAssertEqual(vm.spinX, Double(catalogSpinX), accuracy: 1e-9)
         XCTAssertEqual(vm.spinY, Double(catalogSpinY), accuracy: 1e-9)
+        var filtered = strikeCtx
+        func copy(count: Int) -> BankEngineSolution {
+            .init(rails: catalog0.rails, seedRails: catalog0.seedRails, prediction: catalog0.prediction,
+                  cushions: count, difficultyScore: catalog0.difficultyScore, difficultyTier: catalog0.difficultyTier,
+                  robustness: catalog0.robustness, pathLength: catalog0.pathLength,
+                  spinX: catalog0.spinX, spinY: catalog0.spinY, usedFrozenRailSeed: catalog0.usedFrozenRailSeed)
+        }
+        let one = copy(count: 1), three = copy(count: 3)
+        filtered.solutions = Array(repeating: one, count: 20) + [three]
+        filtered.cushions = 3; filtered.currentIndex = 0; filtered.struckSolution = nil
+        vm.restoreSolve(from: filtered)
+        XCTAssertEqual(vm.solutionCount, 1, "Filter the full catalog before applying the display limit")
+        XCTAssertEqual(vm.currentCushions, 3)
     }
 
     // MARK: - Diamond / Kick
@@ -144,10 +176,29 @@ final class BankKickAdjustmentDraftLayerTests: XCTestCase {
         XCTAssertEqual(strikeCtx.struckSpinX, Double(Float(tweakSX)), accuracy: 1e-9)
         XCTAssertEqual(strikeCtx.solutions[idx].spinX, catalogSpinX, accuracy: 1e-6)
 
+        vm.restoreSolve(from: strikeCtx)
+        XCTAssertEqual(vm.currentSolution?.robustness, draft.robustness)
+        XCTAssertEqual(vm.currentSolution?.cushions, draft.cushions)
+        XCTAssertEqual(vm.currentSolution?.pathLength, draft.pathLength)
+        XCTAssertEqual(vm.currentSolution?.spinX, draft.spinX)
+
         let n = max(vm.solutionCount, 1)
         for _ in 0..<n { vm.nextSolution() }
         XCTAssertEqual(vm.currentIndex, idx)
         XCTAssertEqual(vm.currentSolution!.spinX, catalogSpinX, accuracy: 1e-6)
         XCTAssertEqual(vm.spinX, Double(catalogSpinX), accuracy: 1e-9)
+        var filtered = strikeCtx
+        func copy(count: Int) -> KickEngineSolution {
+            .init(rails: catalog0.rails, seedRails: catalog0.seedRails, prediction: catalog0.prediction,
+                  cushions: count, difficultyScore: catalog0.difficultyScore, difficultyTier: catalog0.difficultyTier,
+                  robustness: catalog0.robustness, pathLength: catalog0.pathLength,
+                  spinX: catalog0.spinX, spinY: catalog0.spinY)
+        }
+        let one = copy(count: 1), three = copy(count: 3)
+        filtered.solutions = Array(repeating: one, count: 20) + [three]
+        filtered.cushions = 3; filtered.currentIndex = 0; filtered.struckSolution = nil
+        vm.restoreSolve(from: filtered)
+        XCTAssertEqual(vm.solutionCount, 1, "Filter the full catalog before applying the display limit")
+        XCTAssertEqual(vm.currentCushions, 3)
     }
 }

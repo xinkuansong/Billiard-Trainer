@@ -89,3 +89,47 @@ afconvert -f caff -d LEI16@44100 clip.wav sfx_ball_hit_2.caf
 | sfx_rail.caf | 沿用试听包 U02 底样；rail/railStop 原增益为零 | 21a7f3da3423308e876fcce3e92dc73d8b9055d5d48e8479ea6c40fc34685327 |
 
 来源详情仍见 `output/shot-audio-preview-20260930/manifest.json`；击杆、碰球、落袋这三种视频裁切换色素材不因本次接入而被重新标注为自录或 CC0。历史“未进入发行资源”是当时状态，以上本轮接入记录取代该使用状态。总计 144372 字节。
+
+
+## 2026-10-30 App 全部可听音频统一提高 3 dB
+
+用户确认网易云同时播放时击球声被掩盖，要求提高 App 实际声音，并明确包含背景音乐及操作提示。对现有 11 个包内音频统一施加 +3 dB 线性增益（幅度约 ×1.41254），包括击球/碰撞、滑尺、背景音乐、休息倒计时与结束提示。没有重新选音色、变调、EQ、压缩或修改播放力度曲线、偏好默认值、静音/混播策略。rail/railStop 仍受原零增益规则控制；后台静音保活文件不属于可听音频，不变。
+
+以上历史 SHA/峰值为当时版本；当前资源以本表为准。来源和许可保持原记录。Apple AVFoundation 全量解码、逐样本增益/量化误差和格式核验通过；所有资源峰值 <0.85，单资源无削波。参考混音与密集音效池核验见本轮报告，真机最终混音及耳机听感待验。显式启用的 Documents/ShotAudioPreview 仍可覆盖包内击球样本，本次没有改写用户试听覆盖文件。
+
+| 当前文件 | +3 dB 后 SHA-256 |
+|---|---|
+| `Music/quiet_table.caf` | `ed64e83145eb361985c3a4b2bb48066fa42dc218548636ecb4d97b3450f0bd10` |
+| `RestTimer/complete.wav` | `239e84f8d7f292aec68088a42ba8d93ac6ade1a373f5497c97fc35a6efd52975` |
+| `RestTimer/countdown.wav` | `4be8dcdc2b7ee702432b9a6a4d4baf6905f30acc98b6cee9fec1b9fdda9c6f22` |
+| `sfx_ball_hit.caf` | `bda9e5f1cb69bc8cd192851e78fcd4c9ee07654f8370d84c75b6961b7541e333` |
+| `sfx_cue_strike.caf` | `5f1f69049c820ea03e4d2445a357b8d914de7ddf7cb8a70749ee4e369aa7b20b` |
+| `sfx_cushion.caf` | `00f6ac7dbc33ce1430a98f00bf34a9dd4e9ebe24245ba9a17e292a3e75571c6e` |
+| `sfx_jaw.caf` | `00f6ac7dbc33ce1430a98f00bf34a9dd4e9ebe24245ba9a17e292a3e75571c6e` |
+| `sfx_pocket.caf` | `3f65410cb5ad27421df0a91fac4422ab1eed97d211f812cecd3f7204cf4bb6d5` |
+| `sfx_rail.caf` | `00f6ac7dbc33ce1430a98f00bf34a9dd4e9ebe24245ba9a17e292a3e75571c6e` |
+| `ui_aim_metal.wav` | `a2c0d534f428656de881b85dbd329b892cc4c6a2e7eb77f3ee9af97c635b8908` |
+| `ui_power_metal.wav` | `7e079e604665b07ee41915f51ab839e9e7cf0cd0c17d3ec8c24cfd3fca57fb04` |
+
+原件、原/新 SHA、原生逐样本结果及试听对照：`output/app-audio-gain-20261030/`；任务记录：`tasks/APP-AUDIO-GAIN-20261030.md`。
+
+
+## 2026-10-30 r2 · 用户反馈仍偏小，目标提高至 +6 dB（当前）
+
+以最初原件重新制作，避免对上一轮量化结果重复放大。目标 +6 dB；每个资源用同一线性系数放大完整波形，系数上限取原峰值到 0.95 的余量。没有削波、压缩、变调或 EQ。9 个资源达到 +6 dB；背景音乐 +3.9918 dB、进袋 +5.2586 dB。操作声峰值约 0.49881。最终 16 bit 量化使 0.95 附近峰值为 0.950012，仍低于满幅。前节 +3 dB 表作为历史，现行以本表为准。
+
+| 当前文件 | 相对原版实测增益 | SHA-256 |
+|---|---:|---|
+| `Music/quiet_table.caf` | 3.9918 dB | `cffda0e644824c9afec175105f38e5c3bf4ce82d65954312d05c87f05ad34129` |
+| `RestTimer/complete.wav` | 6.0000 dB | `7688176658ca9132db8576004a4470f4d2d2fc89a480cb90d769514e1976516b` |
+| `RestTimer/countdown.wav` | 6.0000 dB | `0ee07e686cc60d92a21c74849e32dd41e1994605e9ae011061f189277cefd96a` |
+| `sfx_ball_hit.caf` | 6.0000 dB | `dfa489b64c921da313fe37520a137a400a235753fdf23950691e702a0e0577f0` |
+| `sfx_cue_strike.caf` | 6.0000 dB | `9f1d2ebc0cd648c075ac9eaeb554ce86373984e52cd3ad006b61fbfb0cae9989` |
+| `sfx_cushion.caf` | 6.0000 dB | `ac7d1ed35f9b3b4e64d53d78a0e308a5e0414ac114ce8087c20bfdd43659011c` |
+| `sfx_jaw.caf` | 6.0000 dB | `ac7d1ed35f9b3b4e64d53d78a0e308a5e0414ac114ce8087c20bfdd43659011c` |
+| `sfx_pocket.caf` | 5.2586 dB | `95587ea22bd85e7db583d7617f06fddb41ee164346e8f1ebadb61a5063e7ec4a` |
+| `sfx_rail.caf` | 6.0000 dB | `ac7d1ed35f9b3b4e64d53d78a0e308a5e0414ac114ce8087c20bfdd43659011c` |
+| `ui_aim_metal.wav` | 5.9999 dB | `e5c5971ec5f23c480c43f8ad8a8533745198903d98c442ed21372caa7a283396` |
+| `ui_power_metal.wav` | 6.0000 dB | `20b65d908f3b15acf262746dbeaceefe5b43dca52f9b456156ab77c521a70a6b` |
+
+原生资产核验、原/+3/r2同段试听及原始验证日志见 `output/app-audio-gain-20261030/r2/` 和任务卡 r2 节。未安装真机；设备混音与听感仍待验。

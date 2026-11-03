@@ -50,6 +50,181 @@ enum BankKickDifficultyTier: Int, Comparable, CaseIterable {
     }
 }
 
+/// Validation facts have no playable/final-table API. A settled probe is still not a playback result.
+struct BankKickValidation {
+    let feasible: Bool
+    let termination: EventDrivenEngine.Termination?
+    let cuePocketed: Bool
+    let simObjectPotted: Bool
+    let cueCushionsBeforeContact: Int
+    let events: [ShotEvent]
+    let objectStart: SCNVector3?
+    let objectDepartureDir: SCNVector3?
+    let objectRailContacts: [BankShotCalculator.Rail]
+}
+
+extension BankKickValidation {
+    init(_ prediction: ShotPrediction) {
+        self.init(feasible: prediction.feasible, termination: prediction.termination,
+            cuePocketed: prediction.cuePocketed, simObjectPotted: prediction.simObjectPotted,
+            cueCushionsBeforeContact: prediction.cueCushionsBeforeContact, events: prediction.events,
+            objectStart: prediction.recorder?.framesByBallName[ShotInput.targetBallName]?.first?.position,
+            objectDepartureDir: prediction.objectDepartureDir, objectRailContacts: prediction.objectRailContacts)
+    }
+}
+
+/// Tool-page success contract. Prescribed practice rail orders stay in practice;
+/// both entry points require a cue/target cushion strictly after first target contact.
+enum BankKickValidity {
+    static func hasPostContactRail(events: [ShotEvent], afterContactAt index: Int) -> Bool {
+        guard events.indices.contains(index) else { return false }
+        let contactTime = events[index].time
+        return events.dropFirst(index + 1).contains { event in
+            guard event.time > contactTime, case let .ballCushion(ball) = event.kind else { return false }
+            return ball == ShotInput.cueBallName || ball == ShotInput.targetBallName
+        }
+    }
+    /// A bank must not rely on the cue hitting the target again before capture.
+    /// Inspect events rather than intersecting paths: crossings at different times are valid.
+    static func hasRepeatedCueTargetContact(events: [ShotEvent]) -> Bool {
+        var contacted = false
+        for event in events {
+            switch event.kind {
+            case .pocket(let ball, _) where ball == ShotInput.targetBallName:
+                return false
+            case .ballBall(let a, let b)
+                where (a == ShotInput.cueBallName && b == ShotInput.targetBallName)
+                    || (b == ShotInput.cueBallName && a == ShotInput.targetBallName):
+                if contacted { return true }
+                contacted = true
+            default: break
+            }
+        }
+        return false
+    }
+
+    static func bank(_ p: ShotPrediction) -> Bool { bank(BankKickValidation(p)) }
+
+    static func bank(_ p: BankKickValidation) -> Bool {
+        guard p.feasible, p.termination == .settled, !p.cuePocketed, p.simObjectPotted,
+              p.cueCushionsBeforeContact == 0,
+              !hasRepeatedCueTargetContact(events: p.events),
+              ShotPredictor.kickContactInfo(events: p.events).contacted else { return false }
+        let object = p.objectStart
+        let rails = object.map {
+            BankShotCalculator.reconstructedRailContacts(object: $0,
+                departure: p.objectDepartureDir, engineRails: p.objectRailContacts)
+        } ?? p.objectRailContacts
+        return !rails.isEmpty
+    }
+
+    static func kick(_ p: ShotPrediction) -> Bool { kick(BankKickValidation(p)) }
+
+    static func kick(_ p: BankKickValidation) -> Bool {
+        guard p.feasible, p.termination == .settled, !p.cuePocketed,
+              ShotPredictor.kickContactInfo(events: p.events).contacted else { return false }
+        var hasPreContactRail = false
+        for (index, event) in p.events.enumerated() {
+            if case .ballBall(let a, let b) = event.kind,
+               a == ShotInput.cueBallName || b == ShotInput.cueBallName {
+                return hasPreContactRail && hasPostContactRail(events: p.events, afterContactAt: index)
+            }
+            if case .ballCushion(let ball) = event.kind, ball == ShotInput.cueBallName,
+               let index = event.cushionIndex, let normal = event.contactNormal,
+               ShotPredictor.mainRail(cushionIndex: index, normal: normal) != nil { hasPreContactRail = true }
+        }
+        return false
+    }
+}
+
+/// Recommendation policy, independent of shot legality and practice question contracts.
+enum BankKickRouteQuality {
+    static func hasConsecutiveParallelRails(_ rails: [BankShotCalculator.Rail]) -> Bool {
+        zip(rails, rails.dropFirst()).contains { first, second in
+            first != second && first.isLong == second.isLong
+        }
+    }
+}
+
+enum BankRouteQuality {
+    /// Only target main cushions between the first cue/target collision and capture.
+    /// Pocket jaws do not introduce a new main wall; cue/obstacle routes are irrelevant.
+    static func hasConsecutiveParallelRails(events: [ShotEvent]) -> Bool {
+        var contacted = false
+        var rails: [BankShotCalculator.Rail] = []
+        for event in events {
+            switch event.kind {
+            case let .ballBall(a, b) where
+                (a == ShotInput.cueBallName && b == ShotInput.targetBallName)
+                || (b == ShotInput.cueBallName && a == ShotInput.targetBallName):
+                contacted = true
+            case .pocket(let ball, _) where ball == ShotInput.targetBallName:
+                return BankKickRouteQuality.hasConsecutiveParallelRails(rails)
+            case .ballCushion(let ball) where contacted && ball == ShotInput.targetBallName:
+                if let index = event.cushionIndex, let normal = event.contactNormal,
+                   let rail = ShotPredictor.mainRail(cushionIndex: index, normal: normal),
+                   rails.last != rail { rails.append(rail) }
+            default: break
+            }
+        }
+        return BankKickRouteQuality.hasConsecutiveParallelRails(rails)
+    }
+
+    static func accepts(_ prediction: ShotPrediction) -> Bool { accepts(BankKickValidation(prediction)) }
+    static func accepts(_ facts: BankKickValidation) -> Bool {
+        BankKickValidity.bank(facts) && !hasConsecutiveParallelRails(events: facts.events)
+    }
+}
+
+/// Recommendation quality is separate from physical feasibility and practice judgement.
+/// Inspect only the cue's route before its first ball contact. Post-contact jaws and
+/// opposite parallel walls are excluded even for two contacts; perpendicular turns remain.
+enum KickRouteQuality {
+    enum Rejection: String { case pocketCushion, consecutiveParallelRails }
+
+    /// Treat residual offsets within 1% of a ball diameter (0.5715 mm) as centered.
+    /// This avoids spending sidespin on insignificant differences in search precision.
+    static let centeredContactTolerance: Float = 0.01
+
+    /// Normalized transverse impact parameter: 0 = full ball, 1 = grazing.
+    /// Use the incoming state, never the deflected post-collision velocity.
+    static func contactOffset(incoming: BallState, target: SCNVector3) -> Float {
+        let dx = target.x - incoming.position.x, dz = target.z - incoming.position.z
+        let vx = incoming.velocity.x, vz = incoming.velocity.z
+        let scale = hypotf(dx, dz) * hypotf(vx, vz)
+        guard scale > 0 else { return 1 }
+        return min(1, abs(dx * vz - dz * vx) / scale)
+    }
+
+    static func contactOffset(_ prediction: ShotPrediction) -> Float {
+        guard let contact = prediction.recorder?.firstBallContacts[ShotInput.cueBallName],
+              contact.other.name == ShotInput.targetBallName else { return 1 }
+        return contactOffset(incoming: contact.incoming, target: contact.other.position)
+    }
+
+    static func rejection(events: [ShotEvent]) -> Rejection? {
+        var rails: [BankShotCalculator.Rail] = []
+        for event in events {
+            if case let .ballBall(a, b) = event.kind,
+               a == ShotInput.cueBallName || b == ShotInput.cueBallName { break }
+            guard case let .ballCushion(ball) = event.kind, ball == ShotInput.cueBallName else { continue }
+            guard let index = event.cushionIndex, let normal = event.contactNormal,
+                  let rail = ShotPredictor.mainRail(cushionIndex: index, normal: normal) else {
+                return .pocketCushion
+            }
+            if rails.last != rail { rails.append(rail) }
+        }
+        return BankKickRouteQuality.hasConsecutiveParallelRails(rails) ? .consecutiveParallelRails : nil
+    }
+
+    static func accepts(_ prediction: ShotPrediction) -> Bool {
+        accepts(BankKickValidation(prediction))
+    }
+    static func accepts(_ facts: BankKickValidation) -> Bool {
+        BankKickValidity.kick(facts) && rejection(events: facts.events) == nil
+    }
+}
+
 // MARK: - Model（常量集中可调，方案 §3「E1 模式：单一真源」）
 
 enum BankKickDifficulty {
@@ -126,12 +301,13 @@ enum BankKickDifficulty {
         difficultyScore - robustnessWeight * (robustness ?? 0)
     }
 
-    // MARK: E5 式扰动容错（瞄准 ±0.5° / 力度 ±8%，解析优先、歧义回退引擎 scoring-only）
+    // MARK: 完整轨迹扰动容错（瞄准 ±0.5° / 力度 ±8% / 横向打点 ±0.02R）
 
     /// Six deterministic probes; this fraction is not a calibrated success probability.
-    /// 评估走 `ShotPredictor.bankAimScore`（解析优先，歧义就地回退引擎——判定不降级）。
+    /// 固定参考方向独立正向模拟；扰动后不重新寻优。
     static func measureBankRobustness(
-        input baseInput: ShotInput, rails: [BankShotCalculator.Rail], aimOffset: Float
+        input baseInput: ShotInput, rails: [BankShotCalculator.Rail], aimOffset: Float,
+        cancellation: PredictionCancellation? = nil
     ) -> Double? {
         var input = baseInput
         input.bankRails = rails
@@ -144,15 +320,18 @@ enum BankKickDifficulty {
                                    aimDelta: aimDelta, vFactor: vFactor) {
             var pInput = input
             pInput.velocity = probe.velocity
-            if ShotPredictor.bankAimScore(offset: probe.offset, input: pInput,
-                                          context: ctx, rails: rails) < 0 {
+            guard cancellation?.isCancelled != true else { return nil }
+            if BankRouteQuality.accepts(ShotPredictor.bankKickValidation(input: pInput, context: ctx,
+                offset: probe.offset, cancellation: cancellation)) {
                 succeeded += 1
             }
         }
         for delta in [-probeSpinDelta, probeSpinDelta] {
             var probe = input
             probe.spinX += delta
-            if ShotPredictor.bankAimScore(offset: aimOffset, input: probe, context: ctx, rails: rails) < 0 {
+            guard cancellation?.isCancelled != true else { return nil }
+            if BankRouteQuality.accepts(ShotPredictor.bankKickValidation(input: probe, context: ctx,
+                offset: aimOffset, cancellation: cancellation)) {
                 succeeded += 1
             }
         }
@@ -161,7 +340,8 @@ enum BankKickDifficulty {
 
     /// Six probes of aim, speed and horizontal contact-point error.
     static func measureKickRobustness(
-        input baseInput: ShotInput, rails: [DiamondSystemCalculator.Rail], aimOffset: Float
+        input baseInput: ShotInput, rails: [DiamondSystemCalculator.Rail], aimOffset: Float,
+        cancellation: PredictionCancellation? = nil
     ) -> Double? {
         var input = baseInput
         input.kickRails = rails
@@ -174,15 +354,18 @@ enum BankKickDifficulty {
                                    aimDelta: aimDelta, vFactor: vFactor) {
             var pInput = input
             pInput.velocity = probe.velocity
-            if ShotPredictor.kickAimScore(offset: probe.offset, input: pInput,
-                                          context: ctx, rails: rails) < 0 {
+            guard cancellation?.isCancelled != true else { return nil }
+            if KickRouteQuality.accepts(ShotPredictor.bankKickValidation(input: pInput, context: ctx,
+                offset: probe.offset, cancellation: cancellation)) {
                 succeeded += 1
             }
         }
         for delta in [-probeSpinDelta, probeSpinDelta] {
             var probe = input
             probe.spinX += delta
-            if ShotPredictor.kickAimScore(offset: aimOffset, input: probe, context: ctx, rails: rails) < 0 {
+            guard cancellation?.isCancelled != true else { return nil }
+            if KickRouteQuality.accepts(ShotPredictor.bankKickValidation(input: probe, context: ctx,
+                offset: aimOffset, cancellation: cancellation)) {
                 succeeded += 1
             }
         }
@@ -224,6 +407,7 @@ struct BankEngineSolution: Identifiable {
     let spinX: Float
     let spinY: Float
     let usedFrozenRailSeed: Bool
+    var measuredRoute: BankKickRoute? = nil
 
     var goodness: Double {
         BankKickDifficulty.goodness(difficultyScore: difficultyScore, robustness: robustness)
@@ -254,6 +438,7 @@ struct KickEngineSolution: Identifiable {
     let pathLength: Double
     let spinX: Float
     let spinY: Float
+    var measuredRoute: BankKickRoute? = nil
 
     var goodness: Double {
         BankKickDifficulty.goodness(difficultyScore: difficultyScore, robustness: robustness)
@@ -264,47 +449,17 @@ struct KickEngineSolution: Identifiable {
     }
 }
 
-/// Route identity in world XZ metres. Excludes the cue's post-contact motion (kick)
-/// and the object's pocket presentation tail (bank). A ball diameter is the catalogue
-/// grouping tolerance, NOT a physics success tolerance. Rail order must also agree.
+/// Banks: one selected pocket + one measured main-rail sequence = one solution.
+/// Jaw motion and different contact points are variants, not additional routes.
+/// Kicks: one target in the solve request + one measured pre-contact rail sequence.
+/// Full/thin contacts, spin and bounce positions are variants of that route.
 struct BankKickRoute {
     let rails: [BankShotCalculator.Rail]
     let contacts: [SCNVector3]
     let path: [SCNVector3]
     let pocketID: String?
-
-    static var tolerance: Float { 2 * BallPhysics.radius }
-
     func matches(_ other: Self) -> Bool {
-        guard rails == other.rails, pocketID == other.pocketID,
-              contacts.count == other.contacts.count,
-              path.count >= 2, other.path.count >= 2 else { return false }
-        func distance(_ a: SCNVector3, _ b: SCNVector3) -> Float {
-            hypotf(a.x - b.x, a.z - b.z)
-        }
-        guard zip(contacts, other.contacts).allSatisfy({ distance($0, $1) <= Self.tolerance }) else {
-            return false
-        }
-        // Ordered arc-length samples distinguish traversals even when their point sets overlap.
-        let a = Self.samples(path), b = Self.samples(other.path)
-        return !a.isEmpty && a.count == b.count && zip(a, b).allSatisfy { distance($0, $1) <= Self.tolerance }
-    }
-
-    private static func samples(_ path: [SCNVector3]) -> [SCNVector3] {
-        var lengths: [Float] = [0]
-        for (a, b) in zip(path, path.dropFirst()) {
-            lengths.append(lengths.last! + hypotf(b.x - a.x, b.z - a.z))
-        }
-        guard let total = lengths.last, total > 0 else { return [] }
-        var segment = 1
-        return (0...32).map { index in
-            let at = total * Float(index) / 32
-            while segment < lengths.count - 1 && lengths[segment] < at { segment += 1 }
-            let length = lengths[segment] - lengths[segment - 1]
-            let t = length > 0 ? (at - lengths[segment - 1]) / length : 0
-            let a = path[segment - 1], b = path[segment]
-            return SCNVector3(a.x + (b.x - a.x) * t, a.y, a.z + (b.z - a.z) * t)
-        }
+        pocketID == other.pocketID && rails == other.rails
     }
 
     static func measured(_ prediction: ShotPrediction, kick: Bool) -> Self? {
@@ -378,7 +533,7 @@ enum BankKickSolvePipeline {
     static let kickSolutionLimit = 16
     /// K10 加塞搜索档（与走位反解 `spinXValues` 同口径）：≈×3 全枚举成本。
     /// 坐标契约：spinX = 接触点偏移/R，+左塞 / −右塞；本档只搜横塞，spinY 恒 0。
-    static let sideSpinSearchValues: [Float] = [-0.3, 0, 0.3]
+    static let sideSpinSearchValues: [Float] = [0, -0.3, 0.3]
     /// Minimum spin is searched on this finite grid, re-solving aim at every step.
     /// No monotonic-feasibility assumption / binary search across disconnected success windows.
     static let minimumSpinStep: Float = 0.02
@@ -392,94 +547,174 @@ enum BankKickSolvePipeline {
         cue: SCNVector3, object: SCNVector3, pocketIndex: Int,
         surfaceY: Float, power: Float, obstacles: [ObstacleBall] = [],
         spinXValues: [Float] = sideSpinSearchValues,
-        cancellation: PredictionCancellation? = nil
+        cancellation: PredictionCancellation? = nil, limit: Int? = bankSolutionLimit,
+        parallelRefinement: Bool = true
     ) -> [BankEngineSolution] {
         var input = ShotInput(cueBall: cue, targetBall: object, pocketIndex: pocketIndex,
                               velocity: power, spinX: 0, spinY: 0, surfaceY: surfaceY)
         input.obstacles = obstacles
+        var phaseStart = MixedLoopPhaseClock.now()
         var solutions: [BankEngineSolution] = []
         for sx in spinXValues {
             guard cancellation?.isCancelled != true else { return [] }
             input.spinX = sx
-            for (seedRails, pred) in ShotPredictor.predictBankAll(input, cancellation: cancellation) {
-                if let solution = bankSolution(input: input, seedRails: seedRails, prediction: pred) {
+            for (seedRails, pred) in ShotPredictor.predictBankAll(input, cancellation: cancellation, includePresentation: false) {
+                if let solution = bankSolution(input: input, seedRails: seedRails, prediction: pred, measureRobustness: false) {
                     solutions.append(solution)
                 }
             }
         }
+        PerformanceProfiler.recordSample("BankKick.wall.initialSearch", ms: (MixedLoopPhaseClock.now() - phaseStart) * 1000)
+        phaseStart = MixedLoopPhaseClock.now()
         let baseInput = input
+        let attempted = Set(spinXValues.flatMap { spin in
+            BankShotCalculator.candidateRailSequences(maxCushions: 3).map { SpinTrialKey(rails: $0, spin: spin) }
+        })
         let reduced = minimumSpinRepresentatives(solutions, spinXValues: spinXValues,
-                                                cancellation: cancellation) { candidate, sx in
+                                                cancellation: cancellation, previouslyAttempted: attempted,
+                                                parallelTrials: parallelRefinement) { candidate, sx in
             var trial = baseInput
             trial.spinX = sx
             trial.bankRails = candidate.seedRails
-            let pred = ShotPredictor.predict(trial, bankCancellation: cancellation)
-            return bankSolution(input: trial, seedRails: candidate.seedRails, prediction: pred)
+            let pred = ShotPredictor.predict(trial, bankCancellation: cancellation, includeBankKickPresentation: false)
+            return bankSolution(input: trial, seedRails: candidate.seedRails, prediction: pred, measureRobustness: false)
         }
-        return cancellation?.isCancelled == true ? [] : rank(reduced, limit: bankSolutionLimit)
+        guard cancellation?.isCancelled != true else { return [] }
+        PerformanceProfiler.recordSample("BankKick.wall.reduceSpin", ms: (MixedLoopPhaseClock.now() - phaseStart) * 1000)
+        phaseStart = MixedLoopPhaseClock.now()
+        let scored = evaluateInOrder(reduced, parallel: parallelRefinement, cancellation: cancellation) { candidate -> BankEngineSolution? in
+            guard cancellation?.isCancelled != true else { return nil }
+            var trial = baseInput; trial.spinX = candidate.spinX; trial.bankRails = candidate.seedRails
+            return bankSolution(input: trial, seedRails: candidate.seedRails,
+                                prediction: ShotPredictor.materializeBankKick(candidate.prediction, input: trial),
+                                cancellation: cancellation)
+        }.compactMap { $0 }
+        PerformanceProfiler.recordSample("BankKick.wall.scoreAndPresentation", ms: (MixedLoopPhaseClock.now() - phaseStart) * 1000)
+        return cancellation?.isCancelled == true ? [] : rank(scored, limit: limit ?? Int.max)
     }
 
     static func bankSolution(input: ShotInput, seedRails: [BankShotCalculator.Rail],
-                             prediction pred: ShotPrediction) -> BankEngineSolution? {
-        guard pred.feasible, pred.simObjectPotted, pred.hasFinalTableState,
-              pred.cueCushionsBeforeContact == 0,
+                             prediction pred: ShotPrediction, measureRobustness: Bool = true,
+                             cancellation: PredictionCancellation? = nil) -> BankEngineSolution? {
+        guard BankRouteQuality.accepts(pred),
               let route = BankKickRoute.measured(pred, kick: false), !route.rails.isEmpty else { return nil }
         let length = Double(polylineLengthXZ(route.path))
         let distance = Double(hypotf(input.cueBall.x - input.targetBall.x,
                                     input.cueBall.z - input.targetBall.z))
         let score = BankKickDifficulty.bankScore(cutAngleDeg: pred.cutAngleDeg,
             cueTargetDistance: distance, cushions: route.rails.count, pathLength: length)
-        let robustness = pred.aimOffsetUsed.flatMap {
-            BankKickDifficulty.measureBankRobustness(input: input, rails: seedRails, aimOffset: $0)
-        }
+        let robustness = measureRobustness ? pred.aimOffsetUsed.flatMap {
+            BankKickDifficulty.measureBankRobustness(input: input, rails: seedRails, aimOffset: $0, cancellation: cancellation)
+        } : nil
         return BankEngineSolution(rails: route.rails, seedRails: seedRails, prediction: pred,
             cushions: route.rails.count, difficultyScore: score, difficultyTier: BankKickDifficulty.tier(score),
             robustness: robustness, pathLength: length, spinX: input.spinX, spinY: input.spinY,
-            usedFrozenRailSeed: BankShotCalculator.frozenRails(for: input.targetBall).contains(route.rails[0]))
+            usedFrozenRailSeed: BankShotCalculator.frozenRails(for: input.targetBall).contains(route.rails[0]), measuredRoute: route)
     }
 
     /// Search seeds are retained only for re-solving; all display metadata uses measured routes.
     static func solveKick(
         cue: SCNVector3, target: SCNVector3, surfaceY: Float, power: Float,
         obstacles: [ObstacleBall] = [],
-        spinXValues: [Float] = sideSpinSearchValues
+        spinXValues: [Float] = sideSpinSearchValues,
+        cancellation: PredictionCancellation? = nil, limit: Int? = kickSolutionLimit,
+        parallelRefinement: Bool = true
     ) -> [KickEngineSolution] {
         var input = ShotInput(cueBall: cue, targetBall: target, pocketIndex: 0,
                               velocity: power, spinX: 0, spinY: 0, surfaceY: surfaceY)
         input.obstacles = obstacles
+        var phaseStart = MixedLoopPhaseClock.now()
         var solutions: [KickEngineSolution] = []
         for sx in spinXValues {
+            guard cancellation?.isCancelled != true else { return [] }
             input.spinX = sx
-            for (seedRails, pred) in ShotPredictor.predictKickAll(input) {
-                if let solution = kickSolution(input: input, seedRails: seedRails, prediction: pred) {
+            for (seedRails, pred) in ShotPredictor.predictKickAll(input, cancellation: cancellation, includePresentation: false) {
+                if let solution = kickSolution(input: input, seedRails: seedRails, prediction: pred, measureRobustness: false) {
                     solutions.append(solution)
                 }
             }
         }
+        PerformanceProfiler.recordSample("BankKick.wall.initialSearch", ms: (MixedLoopPhaseClock.now() - phaseStart) * 1000)
+        phaseStart = MixedLoopPhaseClock.now()
         let baseInput = input
-        let reduced = minimumSpinRepresentatives(solutions, spinXValues: spinXValues) { candidate, sx in
+        let attempted = Set(spinXValues.flatMap { spin in
+            DiamondSystemCalculator.candidateRailSequences(maxCushions: 3).map { rails in
+                SpinTrialKey(rails: rails.map { rail in
+                    switch rail {
+                    case .left: .left
+                    case .right: .right
+                    case .near: .near
+                    case .far: .far
+                    }
+                }, spin: spin)
+            }
+        })
+        let reduced = minimumSpinRepresentatives(solutions, spinXValues: spinXValues,
+                                                cancellation: cancellation, previouslyAttempted: attempted,
+                                                parallelTrials: parallelRefinement) { candidate, sx in
             var trial = baseInput
             trial.spinX = sx
             trial.kickRails = candidate.seedRails
             return kickSolution(input: trial, seedRails: candidate.seedRails,
-                                prediction: ShotPredictor.predict(trial))
+                                prediction: ShotPredictor.predict(trial, bankCancellation: cancellation, includeBankKickPresentation: false), measureRobustness: false)
         }
-        return rank(reduced, limit: kickSolutionLimit)
+        guard cancellation?.isCancelled != true else { return [] }
+        PerformanceProfiler.recordSample("BankKick.wall.reduceSpin", ms: (MixedLoopPhaseClock.now() - phaseStart) * 1000)
+        phaseStart = MixedLoopPhaseClock.now()
+        let scored = evaluateInOrder(reduced, parallel: parallelRefinement, cancellation: cancellation) { candidate -> KickEngineSolution? in
+            guard cancellation?.isCancelled != true else { return nil }
+            var trial = baseInput; trial.spinX = candidate.spinX; trial.kickRails = candidate.seedRails
+            return kickSolution(input: trial, seedRails: candidate.seedRails,
+                                prediction: ShotPredictor.materializeBankKick(candidate.prediction, input: trial),
+                                cancellation: cancellation)
+        }.compactMap { $0 }
+        PerformanceProfiler.recordSample("BankKick.wall.scoreAndPresentation", ms: (MixedLoopPhaseClock.now() - phaseStart) * 1000)
+        return cancellation?.isCancelled == true ? [] : rank(scored, limit: limit ?? Int.max)
     }
 
     static func kickSolution(input: ShotInput, seedRails: [DiamondSystemCalculator.Rail],
-                             prediction pred: ShotPrediction) -> KickEngineSolution? {
-        guard pred.feasible, pred.kickContactMade, pred.hasFinalTableState,
+                             prediction pred: ShotPrediction, measureRobustness: Bool = true,
+                             cancellation: PredictionCancellation? = nil) -> KickEngineSolution? {
+        guard KickRouteQuality.accepts(pred),
               let route = BankKickRoute.measured(pred, kick: true), !route.rails.isEmpty else { return nil }
         let length = Double(polylineLengthXZ(route.path))
         let score = BankKickDifficulty.kickScore(firstRailIncidenceDeg: route.firstRailIncidence,
             cushions: route.rails.count, pathLength: length)
-        let robustness = pred.aimOffsetUsed.flatMap {
-            BankKickDifficulty.measureKickRobustness(input: input, rails: seedRails, aimOffset: $0)
-        }
+        let robustness = measureRobustness ? pred.aimOffsetUsed.flatMap {
+            BankKickDifficulty.measureKickRobustness(input: input, rails: seedRails, aimOffset: $0, cancellation: cancellation)
+        } : nil
         return KickEngineSolution(rails: route.kickRails, seedRails: seedRails, prediction: pred,
             cushions: route.rails.count, difficultyScore: score, difficultyTier: BankKickDifficulty.tier(score),
-            robustness: robustness, pathLength: length, spinX: input.spinX, spinY: input.spinY)
+            robustness: robustness, pathLength: length, spinX: input.spinX, spinY: input.spinY, measuredRoute: route)
+    }
+
+    /// Drafts remain playable even when unsuccessful; metadata never comes from the old catalog.
+    static func bankDraft(input: ShotInput, seedRails: [BankShotCalculator.Rail],
+                          prediction: ShotPrediction) -> BankEngineSolution {
+        if let valid = bankSolution(input: input, seedRails: seedRails, prediction: prediction) { return valid }
+        let route = BankKickRoute.measured(prediction, kick: false)
+        let rails = route?.rails ?? prediction.objectRailContacts
+        let length = Double(polylineLengthXZ(route?.path ?? prediction.objectPath))
+        let score = BankKickDifficulty.bankScore(cutAngleDeg: prediction.cutAngleDeg,
+            cueTargetDistance: Double(hypotf(input.cueBall.x - input.targetBall.x, input.cueBall.z - input.targetBall.z)),
+            cushions: rails.count, pathLength: length)
+        return BankEngineSolution(rails: rails, seedRails: seedRails, prediction: prediction,
+            cushions: rails.count, difficultyScore: score, difficultyTier: BankKickDifficulty.tier(score),
+            robustness: nil, pathLength: length, spinX: input.spinX, spinY: input.spinY,
+            usedFrozenRailSeed: rails.first.map(BankShotCalculator.frozenRails(for: input.targetBall).contains) ?? false,
+            measuredRoute: route)
+    }
+
+    static func kickDraft(input: ShotInput, seedRails: [DiamondSystemCalculator.Rail],
+                          prediction: ShotPrediction) -> KickEngineSolution {
+        if let valid = kickSolution(input: input, seedRails: seedRails, prediction: prediction) { return valid }
+        let route = BankKickRoute.measured(prediction, kick: true)
+        let length = Double(polylineLengthXZ(route?.path ?? pathToFirstContact(prediction)))
+        let score = BankKickDifficulty.kickScore(firstRailIncidenceDeg: route?.firstRailIncidence,
+            cushions: route?.rails.count ?? 0, pathLength: length)
+        return KickEngineSolution(rails: route?.kickRails ?? [], seedRails: seedRails, prediction: prediction,
+            cushions: route?.rails.count ?? 0, difficultyScore: score, difficultyTier: BankKickDifficulty.tier(score),
+            robustness: nil, pathLength: length, spinX: input.spinX, spinY: input.spinY, measuredRoute: route)
     }
 
     // MARK: Route grouping / minimum-spin representatives / ranking
@@ -490,6 +725,8 @@ enum BankKickSolvePipeline {
     }
 
     private static func preferred<S: RankableSolution>(_ a: S, _ b: S) -> Bool {
+        if a.pocketContacts != b.pocketContacts { return a.pocketContacts < b.pocketContacts }
+        if a.contactError != b.contactError { return a.contactError < b.contactError }
         if abs(a.spinX) != abs(b.spinX) { return abs(a.spinX) < abs(b.spinX) }
         if a.goodness != b.goodness { return a.goodness < b.goodness }
         return a.pathLength < b.pathLength
@@ -509,69 +746,133 @@ enum BankKickSolvePipeline {
         return groups
     }
 
+    /// Request-local single-flight cache. Failed trials are cached too; concurrent route
+    /// groups requesting one seed/spin share its completed result, never a partial value.
+    private final class SpinTrialMemo<S> {
+        private enum Entry { case running, completed(S?) }
+        private var entries: [SpinTrialKey: Entry]
+        private let condition = NSCondition()
+
+        init(attempted: Set<SpinTrialKey>, successes: [SpinTrialKey: S]) {
+            entries = Dictionary(uniqueKeysWithValues: attempted.map { ($0, .completed(nil)) })
+            for (key, value) in successes { entries[key] = .completed(value) }
+        }
+
+        func value(for key: SpinTrialKey, resolve: () -> S?) -> S? {
+            condition.lock()
+            while true {
+                switch entries[key] {
+                case .completed(let result): condition.unlock(); return result
+                case .running: condition.wait()
+                case nil:
+                    entries[key] = .running
+                    condition.unlock()
+                    let result = resolve()
+                    condition.lock()
+                    entries[key] = .completed(result)
+                    condition.broadcast()
+                    condition.unlock()
+                    return result
+                }
+            }
+        }
+    }
+
     static func minimumSpinRepresentatives<S: RankableSolution>(
         _ solutions: [S], spinXValues: [Float], cancellation: PredictionCancellation? = nil,
+        previouslyAttempted: Set<SpinTrialKey> = [], parallelTrials: Bool = false,
         resolve: (S, Float) -> S?
     ) -> [S] {
-        var out: [S] = []
         let signs: [Float] = [-1, 1].filter { sign in spinXValues.contains { $0 * sign > 0 } }
-        // Across route groups, the same seed/spin is exactly the same deterministic solve.
-        var attempted: Set<SpinTrialKey> = []
         var successesByKey: [SpinTrialKey: S] = [:]
-        for group in groups(solutions) {
-            guard cancellation?.isCancelled != true else { return [] }
+        for candidate in solutions {
+            successesByKey[SpinTrialKey(rails: candidate.searchKey, spin: candidate.spinX)] = candidate
+        }
+        let memo = SpinTrialMemo(attempted: previouslyAttempted, successes: successesByKey)
+        let routeGroups = groups(solutions)
+        // Spend the bounded worker budget across independent routes, avoiding the per-spin
+        // barrier that often left only two workers active. Small catalogs keep trial parallelism
+        // so a single expensive route does not lose its two-sign concurrency.
+        let refinableGroups = routeGroups.filter { $0.members[0].spinX != 0 }.count
+        let parallelGroups = parallelTrials && refinableGroups >= 4
+        let out = evaluateInOrder(routeGroups, parallel: parallelGroups, cancellation: cancellation) { group -> S? in
+            guard cancellation?.isCancelled != true else { return nil }
             var best = group.members[0]
-            if best.spinX == 0 { out.append(best); continue }
+            if best.spinX == 0 { return best }
             var seeds: [S] = []
             for member in group.members where !seeds.contains(where: { $0.searchKey == member.searchKey }) {
                 seeds.append(member)
             }
-            // Spin reduction moves bounce points. Recheck against the NEW measured route
-            // until no smaller grid value solves it, not just against the initial ±0.3 route.
-            // Every accepted iteration strictly reduces |spin|, so termination is bounded.
+            // Each route retains its original sequential magnitude search, both signs,
+            // disconnected windows and repeated minimization after its measured route moves.
             while best.spinX != 0, let reference = best.route {
                 var chosen: S?
-                // nextDown removes a one-ULP quotient overshoot at grid values such as 0.3.
                 let steps = Int((abs(best.spinX) / minimumSpinStep).nextDown.rounded(.up))
                 for step in 0..<max(0, steps) {
                     let magnitude = Float(step) * minimumSpinStep
                     let spins: [Float] = step == 0 ? [0] : signs.map { $0 * magnitude }
-                    var successes: [S] = []
-                    for sx in spins {
-                        for seed in seeds {
-                            guard cancellation?.isCancelled != true else { return [] }
-                            let key = SpinTrialKey(rails: seed.searchKey, spin: sx)
-                            if attempted.insert(key).inserted, let candidate = resolve(seed, sx) {
-                                successesByKey[key] = candidate
-                            }
-                            if let candidate = successesByKey[key], let route = candidate.route,
-                               reference.matches(route) {
-                                successes.append(candidate)
-                            }
+                    let jobs = spins.flatMap { sx in seeds.map { (seed: $0, spin: sx) } }
+                    let evaluated = evaluateInOrder(jobs, parallel: parallelTrials && !parallelGroups,
+                                                    cancellation: cancellation) { job -> S? in
+                        let key = SpinTrialKey(rails: job.seed.searchKey, spin: job.spin)
+                        return memo.value(for: key) {
+                            guard cancellation?.isCancelled != true else { return nil }
+                            return resolve(job.seed, job.spin)
                         }
                     }
-                    if let winner = successes.sorted(by: preferred).first {
-                        chosen = winner
-                        break
+                    guard cancellation?.isCancelled != true else { return nil }
+                    let successes = evaluated.compactMap { $0 }.filter { candidate in
+                        candidate.pocketContacts <= best.pocketContacts &&
+                            candidate.contactError <= best.contactError &&
+                            (candidate.route.map { reference.matches($0) } ?? false)
                     }
+                    if let winner = successes.sorted(by: preferred).first { chosen = winner; break }
                 }
                 guard let chosen, abs(chosen.spinX) < abs(best.spinX) else { break }
                 best = chosen
             }
-            out.append(best)
-        }
-        return out
+            return best
+        }.compactMap { $0 }
+        return cancellation?.isCancelled == true ? [] : out
     }
 
-    private struct SpinTrialKey: Hashable {
+    /// Independent simulations own their engine/recorder. Only result slots are written
+    /// concurrently; cache mutation, route selection and ranking stay in deterministic order.
+    private static func evaluateInOrder<Input, Output>(
+        _ inputs: [Input], parallel: Bool, cancellation: PredictionCancellation?,
+        evaluate: (Input) -> Output?
+    ) -> [Output?] {
+        var results = [Output?](repeating: nil, count: inputs.count)
+        let workers = parallel ? min(4, min(inputs.count, ProcessInfo.processInfo.activeProcessorCount)) : 1
+        if workers > 1 {
+            results.withUnsafeMutableBufferPointer { buffer in
+                let base = buffer.baseAddress!
+                DispatchQueue.concurrentPerform(iterations: workers) { worker in
+                    for index in stride(from: worker, to: inputs.count, by: workers) {
+                        guard cancellation?.isCancelled != true else { return }
+                        (base + index).pointee = evaluate(inputs[index])
+                    }
+                }
+            }
+        } else {
+            for (index, input) in inputs.enumerated() {
+                guard cancellation?.isCancelled != true else { break }
+                results[index] = evaluate(input)
+            }
+        }
+        return results
+    }
+
+    struct SpinTrialKey: Hashable {
         let rails: [BankShotCalculator.Rail]
         let spin: Float
     }
 
     static func rank<S: RankableSolution>(_ solutions: [S], limit: Int) -> [S] {
-        // Zero/minimal spin wins within a route BEFORE goodness is compared across routes.
+        // Entry quality first; minimal spin within that quality, then goodness.
         let representatives = groups(solutions).map { $0.members[0] }
         return Array(representatives.sorted { lhs, rhs in
+            if lhs.pocketContacts != rhs.pocketContacts { return lhs.pocketContacts < rhs.pocketContacts }
             if lhs.goodness != rhs.goodness { return lhs.goodness < rhs.goodness }
             if lhs.cushions != rhs.cushions { return lhs.cushions < rhs.cushions }
             return lhs.pathLength < rhs.pathLength
@@ -686,6 +987,8 @@ enum BankKickSolvePipeline {
 }
 
 protocol RankableSolution {
+    var pocketContacts: Int { get }
+    var contactError: Float { get }
     var spinX: Float { get }
     var route: BankKickRoute? { get }
     var searchKey: [BankShotCalculator.Rail] { get }
@@ -694,12 +997,20 @@ protocol RankableSolution {
     var pathLength: Double { get }
     var prediction: ShotPrediction { get }
 }
+extension RankableSolution {
+    var pocketContacts: Int { 0 }
+    var contactError: Float { 0 }
+}
 extension BankEngineSolution: RankableSolution {
-    var route: BankKickRoute? { BankKickRoute.measured(prediction, kick: false) }
+    var pocketContacts: Int { ShotPredictor.bankPocketContactCount(events: prediction.events) }
+    var route: BankKickRoute? { measuredRoute ?? BankKickRoute.measured(prediction, kick: false) }
     var searchKey: [BankShotCalculator.Rail] { seedRails }
 }
 extension KickEngineSolution: RankableSolution {
-    var route: BankKickRoute? { BankKickRoute.measured(prediction, kick: true) }
+    var contactError: Float {
+        max(KickRouteQuality.centeredContactTolerance, KickRouteQuality.contactOffset(prediction))
+    }
+    var route: BankKickRoute? { measuredRoute ?? BankKickRoute.measured(prediction, kick: true) }
     var searchKey: [BankShotCalculator.Rail] {
         seedRails.map {
             switch $0 {
@@ -714,7 +1025,7 @@ extension KickEngineSolution: RankableSolution {
 
 // MARK: - 解缓存（LRU，方案 §4.1）
 
-/// 小容量 LRU：key = 全部球位量化毫米 + 袋口 + 力度步进 + 塞档（库数过滤是展示层后处理不进 key）。
+/// 小容量 LRU：精确球位、球名、力度与搜索档位；库数过滤在取出完整目录后执行。
 /// 页面持有、退出释放，不落盘。任何 key 成分变化必 miss——绝不出现球形变了还展示旧解。
 struct BankKickSolveCache<Key: Hashable, Value> {
     let capacity: Int
@@ -738,7 +1049,7 @@ struct BankKickSolveCache<Key: Hashable, Value> {
     var count: Int { entries.count }
 }
 
-/// 两页共用的量化 key。
+/// 两页共用的精确 key；保留量化字段供历史诊断，不能以其替代精确身份。
 struct BankKickSolveKey: Hashable {
     /// 全部球位量化到毫米（顺序固定：母球 x/z、目标球 x/z、障碍球按名序）。
     let ballsMM: [Int32]
@@ -748,6 +1059,9 @@ struct BankKickSolveKey: Hashable {
     let powerStep: Int
     /// K10：塞维度。单档 = `quantizeSpinX(spinX)`；全档搜索（默认）= `multiSpinSearchProfile`。
     let spinXCenti: Int
+    var exactBallBits: [UInt32] = []
+    var exactPowerBits: UInt64 = 0
+    var obstacleNames: [String] = []
 
     /// 全档 `sideSpinSearchValues` 搜索的 key 哨兵（与单档 centi 不撞车）。
     static let multiSpinSearchProfile = 10_000
@@ -756,7 +1070,7 @@ struct BankKickSolveKey: Hashable {
     static func quantizePower(_ p: Double) -> Int { Int((p * 10).rounded()) }
     static func quantizeSpinX(_ s: Float) -> Int { Int((s * 100).rounded()) }
 
-    /// 统一构造：母球/目标球 + 全部障碍球（按名序稳定排列）量化进 key——
+    /// 统一构造：母球/目标球 + 全部障碍球（按名序稳定排列）精确进 key——
     /// 任何球位变化（含障碍球增删挪动）必 miss（§4.1 一致性红线）。
     /// 默认 `spinXCenti = multiSpinSearchProfile`：一页一次求解覆盖全部加塞档。
     static func make(
@@ -772,6 +1086,10 @@ struct BankKickSolveKey: Hashable {
         }
         return BankKickSolveKey(ballsMM: mm, pocketIndex: pocketIndex,
                                 powerStep: quantizePower(power),
-                                spinXCenti: spinXCenti)
+                                spinXCenti: spinXCenti,
+                                exactBallBits: ([cue, object] + obstacles.sorted { $0.name < $1.name }.map(\.position))
+                                    .flatMap { [$0.x.bitPattern, $0.y.bitPattern, $0.z.bitPattern] },
+                                exactPowerBits: power.bitPattern,
+                                obstacleNames: obstacles.map(\.name).sorted())
     }
 }

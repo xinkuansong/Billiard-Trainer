@@ -8,6 +8,7 @@ struct SeparationAngleAtlasView: View {
     var body: some View {
         BTTeachingTablePage(vm: vm, titleLabel: "分离角图谱", identifier: "separationAngleAtlas", preferencePage: .separationAngleAtlas,
             velocity: $vm.velocity, showsDisabledSpinEntry: true,
+            atlasCushions: .init(selection: vm.cushionSelection, isComputing: vm.isComputing, onSelect: vm.selectCushionCount),
             leftControlGroup: .information, layoutEditingBlocked: vm.isComputing,
             information: teachingInformation, usesStandardTitle: true,
             title: { EmptyView() },
@@ -30,6 +31,7 @@ struct SeparationAngleAtlasView: View {
                 if ProcessInfo.processInfo.arguments.contains("-y3.uiHooks") {
                     HStack {
                         Button("高力度") { vm.velocity = 5.5 }.accessibilityIdentifier("y3.bumpPower")
+                        Button("最低力度") { vm.velocity = Double(ShotTuning.velocityRange.lowerBound) }.accessibilityIdentifier("y3.minimumPower")
                         Text(String(format: "%.1f", vm.lastParallelSimMs)).accessibilityIdentifier("y3.parallelSimMs")
                     }.font(.btCaption)
                 }
@@ -39,7 +41,7 @@ struct SeparationAngleAtlasView: View {
                 if DailyLayoutProbe.enabled {
                     Color.clear.frame(width: 1, height: 1).allowsHitTesting(false)
                         .accessibilityElement().accessibilityIdentifier("separationAngleAtlas.layoutState")
-                        .accessibilityValue("target=\(vm.selectedTargetKey ?? "none") pocket=\(vm.selectedPocketIndex) velocity=\(vm.velocity) tracks=\(vm.enabledTracks.sorted().map(String.init).joined(separator: ","))")
+                        .accessibilityValue("rails=\(vm.cushionSelection.selected) maxRails=\(vm.cushionSelection.maximum) computing=\(vm.isComputing) target=\(vm.selectedTargetKey ?? "none") pocket=\(vm.selectedPocketIndex) velocity=\(vm.velocity) tracks=\(vm.enabledTracks.sorted().map(String.init).joined(separator: ","))")
                 }
             }
             #endif

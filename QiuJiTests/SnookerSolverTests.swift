@@ -60,8 +60,18 @@ final class SnookerSolverTests: XCTestCase {
                     guard name != ShotInput.cueBallName, !potted.contains(name) else { return nil }
                     return (name, pos)
                 }
-                let actualOpponents = nonCue.filter { opponents.contains($0.key) }
-                XCTAssertEqual(Set(actualOpponents.map(\.key)), Set(opponents))
+                var remaining = Set(opponents).subtracting(potted)
+                if remaining.isEmpty, nonCue.contains(where: { $0.key == "_8" }) { remaining = ["_8"] }
+                XCTAssertFalse(remaining.isEmpty, "A full defense must have a remaining legal opponent")
+                for removed in Set(opponents).intersection(potted) {
+                    XCTAssertTrue(prediction.events.contains { event in
+                        if case .pocket(let name, _) = event.kind { return name == removed }
+                        return false
+                    }, "Every removed opponent requires a real pocket event")
+                }
+                let actualOpponents = nonCue.filter { remaining.contains($0.key) }
+                XCTAssertEqual(Set(actualOpponents.map(\.key)), remaining)
+                print("[Defense remaining targets] potted=\(potted.sorted()) opponents=\(remaining.sorted())")
                 let coverage = AngleSceneCalculator.defenseCoverage(cueFinal: cueFinal,
                     opponents: actualOpponents, nonCueBalls: nonCue, surfaceY: vm.scene.surfaceY)
                 XCTAssertTrue(coverage.allSatisfy(\.blocked), "Returned full defense must block every opponent")
@@ -291,5 +301,186 @@ final class SnookerSolverTests: XCTestCase {
             XCTAssertFalse(s.prediction.cuePocketed)
             XCTAssertLessThan(s.prediction.cueFinalSpeed, PositionPlaySolver.restSpeedTolerance)
         }
+    }
+}
+
+
+// Safety validity and ranking regressions (2026-11-03).
+extension SnookerSolverTests {
+    private func defensePrediction() -> ShotPrediction {
+        var p = ShotPrediction()
+        p.termination = .settled
+        p.duration = 2
+        p.aimDirection = SCNVector3(1, 0, 0)
+        p.events = [.init(time: 0.2, kind: .ballBall(ballA: ShotInput.cueBallName, ballB: "_1"))]
+        p.finalPositions = [ShotInput.cueBallName: SCNVector3(0, sY, 0),
+                            "_1": SCNVector3(0.4, sY, 0), "_9": SCNVector3(0.9, sY, 0)]
+        return p
+    }
+
+    private var defenseShot: PlannedShot {
+        PlannedShot(targetKey: "_1", pocket: "", velocity: 2, spinX: 0, spinY: 0,
+                    freeAim: CanvasPoint(x: 1, y: 0))
+    }
+
+    func test_eightTargetCannotSurviveAddingBothGroups() {
+        let board = BoardSnapshot(onTable: ["cueBall": .init(x: 0.2, y: 0.25),
+            "_8": .init(x: 0.5, y: 0.25), "_1": .init(x: 0.6, y: 0.1),
+            "_9": .init(x: 0.7, y: 0.4)])
+        XCTAssertTrue(PositionPlaySolver.solveSnooker(before: board, targetKey: "_8",
+            opponentKeys: ["_9"], surfaceY: sY, params: coarse).isEmpty)
+    }
+
+    @MainActor
+    func test_addingOppositeGroupClearsNowIllegalEightSelection() {
+        let vm = SnookerTacticsViewModel(); vm.setupScene(); vm.clearTable()
+        vm.placeFromPalette("_8")
+        XCTAssertEqual(vm.selectedTargetKey, "_8")
+        vm.placeFromPalette("_1")
+        XCTAssertEqual(vm.selectedTargetKey, "_8")
+        vm.placeFromPalette("_9")
+        XCTAssertNotEqual(vm.selectedTargetKey, "_8")
+        XCTAssertTrue(vm.canSolve)
+    }
+
+    func test_safetyRejectsNoRailAndPreContactRail() {
+        var p = defensePrediction()
+        XCTAssertNotNil(PositionPlaySolver.snookerFailureReason(p, targetKey: "_1"))
+        p.events.insert(.init(time: 0.1, kind: .ballCushion(ball: ShotInput.cueBallName)), at: 0)
+        XCTAssertNotNil(PositionPlaySolver.snookerFailureReason(p, targetKey: "_1"),
+                        "A cushion before first contact must not legalize the stroke")
+        XCTAssertNil(PositionPlaySolver.reassessSnooker(p, shot: defenseShot,
+            opponentKeys: ["_9"], surfaceY: sY))
+    }
+
+    func test_safetyAcceptsPostContactRailByEitherBallAndObjectPot() {
+        for ball in [ShotInput.cueBallName, "_1", "_9"] {
+            var p = defensePrediction()
+            p.events.append(.init(time: 0.3, kind: .ballCushion(ball: ball)))
+            XCTAssertNil(PositionPlaySolver.snookerFailureReason(p, targetKey: "_1"))
+        }
+        var p = defensePrediction()
+        p.events.append(.init(time: 0.3, kind: .pocket(ball: "_1", pocketId: "pocket_0")))
+        p.pocketedBalls = ["_1"]
+        XCTAssertNil(PositionPlaySolver.snookerFailureReason(p, targetKey: "_1"))
+    }
+
+    func test_safetyRejectsScratchWrongContactEightPotAndPartialPrediction() {
+        var p = defensePrediction()
+        p.events.append(.init(time: 0.3, kind: .ballCushion(ball: "_1")))
+        var scratch = p; scratch.cuePocketed = true
+        XCTAssertNotNil(PositionPlaySolver.snookerFailureReason(scratch, targetKey: "_1"))
+        XCTAssertNotNil(PositionPlaySolver.snookerFailureReason(p, targetKey: "_2"))
+        var eight = p
+        eight.pocketedBalls = ["_8"]
+        eight.events.append(.init(time: 0.4, kind: .pocket(ball: "_8", pocketId: "pocket_0")))
+        XCTAssertNotNil(PositionPlaySolver.snookerFailureReason(eight, targetKey: "_1"))
+        var partial = p; partial.termination = .timeLimit
+        XCTAssertNotNil(PositionPlaySolver.snookerFailureReason(partial, targetKey: "_1"))
+    }
+
+    func test_rankingProtectsWeakestBallBeforeBlockedCount() {
+        let openEasy = PositionPlaySolver.DefenseScore(blockedCount: 2, opponentCount: 3,
+            minDifficulty: 0.1, sumDifficulty: 2.1, coverageMarginSum: 20)
+        let allHarder = PositionPlaySolver.DefenseScore(blockedCount: 0, opponentCount: 3,
+            minDifficulty: 0.6, sumDifficulty: 1.8, coverageMarginSum: 0)
+        XCTAssertTrue(PositionPlaySolver.prefersDefense(allHarder, over: openEasy))
+        XCTAssertFalse(PositionPlaySolver.prefersDefense(openEasy, over: allHarder))
+        let full = PositionPlaySolver.DefenseScore(blockedCount: 3, opponentCount: 3,
+            minDifficulty: 1, sumDifficulty: 3, coverageMarginSum: 1)
+        XCTAssertTrue(PositionPlaySolver.prefersDefense(full, over: allHarder))
+        XCTAssertFalse(PositionPlaySolver.prefersDefense(full, over: full))
+    }
+
+    func test_reassessmentChangesCoverageAndDoesNotClaimHighDifficulty() throws {
+        var p = defensePrediction()
+        p.events.append(.init(time: 0.3, kind: .ballCushion(ball: "_1")))
+        let full = try XCTUnwrap(PositionPlaySolver.reassessSnooker(p, shot: defenseShot,
+            opponentKeys: ["_9"], surfaceY: sY))
+        XCTAssertTrue(full.satisfiesConstraint)
+        p.finalPositions["_1"] = SCNVector3(0.4, sY, 0.4)
+        let open = try XCTUnwrap(PositionPlaySolver.reassessSnooker(p, shot: defenseShot,
+            opponentKeys: ["_9"], surfaceY: sY))
+        XCTAssertFalse(open.satisfiesConstraint)
+        XCTAssertLessThan(open.margin, full.margin)
+        XCTAssertTrue(open.summary.contains("未完全斯诺克"))
+        XCTAssertFalse(open.summary.contains("高难度可行解"))
+        XCTAssertFalse(open.summary.contains("%"), "Heuristic difficulty is not a probability")
+    }
+
+    func test_pottingLastOpponentColorTransfersDefenseToEight() throws {
+        var p = defensePrediction()
+        p.pocketedBalls = ["_9"]
+        p.events.append(.init(time: 0.3, kind: .pocket(ball: "_9", pocketId: "pocket_0")))
+        p.finalPositions["_8"] = SCNVector3(0.9, sY, 0)
+        let full = try XCTUnwrap(PositionPlaySolver.reassessSnooker(p, shot: defenseShot,
+            opponentKeys: ["_9"], surfaceY: sY))
+        XCTAssertTrue(full.satisfiesConstraint, "Remaining eight is blocked by the one")
+        p.finalPositions["_8"] = SCNVector3(0, sY, 0.4)
+        let open = try XCTUnwrap(PositionPlaySolver.reassessSnooker(p, shot: defenseShot,
+            opponentKeys: ["_9"], surfaceY: sY))
+        XCTAssertFalse(open.satisfiesConstraint, "Must evaluate the now-visible eight")
+        XCTAssertTrue(open.summary.contains("0/1"))
+    }
+
+    func test_freeRolloutPostContactRuleMatchesPhysicalEvents() throws {
+        let cue = SCNVector3(-0.6, sY, 0.15)
+        let balls = [ObstacleBall(name: "_1", position: SCNVector3(-0.4, sY, 0.15))]
+        var evaluated = 0, legal = 0, illegal = 0
+        for speed in [0.5, 1.0, 2.0, 3.0] {
+            let fast = AnalyticShotRollout.evaluateFreeShot(cueBall: cue,
+                aimDir: SCNVector3(1, 0, 0), velocity: Float(speed), spinX: 0, spinY: 0,
+                surfaceY: sY, balls: balls, geometry: .chineseEightBallQiuJi(surfaceY: sY))
+            if fast.needsFullSim { continue }
+            let p = ShotPredictor.simulateFree(cueBall: cue, aimDir: SCNVector3(1, 0, 0),
+                velocity: Float(speed), spinX: 0, spinY: 0, surfaceY: sY, balls: balls)
+            XCTAssertTrue(p.hasFinalTableState)
+            let contact = p.events.first { event in
+                if case .ballBall = event.kind { return true }; return false
+            }
+            let after = p.events.contains { event in
+                guard let contact, event.time >= contact.time else { return false }
+                switch event.kind {
+                case .ballCushion: return true
+                case .pocket(let name, _): return name != ShotInput.cueBallName
+                default: return false
+                }
+            }
+            XCTAssertEqual(fast.railOrPocketAfterContact, after, "speed=\(speed)")
+            evaluated += 1
+            if after { legal += 1 } else { illegal += 1 }
+        }
+        XCTAssertGreaterThan(evaluated, 0)
+        XCTAssertGreaterThan(legal, 0)
+        XCTAssertGreaterThan(illegal, 0)
+    }
+
+    @MainActor
+    func test_adjustmentAndUndoReassessLegalityAndCyclingRestoresCatalog() async throws {
+        let vm = SnookerTacticsViewModel(); vm.setupScene()
+        vm.solve()
+        let deadline = Date().addingTimeInterval(90)
+        while vm.isComputing && Date() < deadline { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertFalse(vm.isComputing)
+        let original = try XCTUnwrap(vm.currentSolution)
+        XCTAssertTrue(vm.canStrike)
+        vm.adjustCurrentSolution(velocity: ShotTuning.velocityRange.lowerBound, spinX: 0, spinY: -0.4)
+        let adjustmentDeadline = Date().addingTimeInterval(30)
+        while vm.isComputing && Date() < adjustmentDeadline { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertFalse(vm.isComputing)
+        let draft = try XCTUnwrap(vm.currentSolution)
+        XCTAssertTrue(vm.isSolutionAdjusted)
+        XCTAssertFalse(vm.canStrike, "Insufficient speed cannot retain the original legal verdict")
+        XCTAssertFalse(draft.satisfiesConstraint)
+        XCTAssertEqual(vm.informationEvent.kind, .failure)
+        XCTAssertEqual(vm.solutions[0].id, original.id)
+        let context = vm.makeUndoContext(shot: draft.shot, prediction: draft.prediction)
+        vm.restore(from: context)
+        XCTAssertFalse(vm.canStrike)
+        XCTAssertFalse(try XCTUnwrap(vm.currentSolution).satisfiesConstraint)
+        for _ in 0..<vm.solutions.count { vm.nextSolution() }
+        XCTAssertTrue(vm.canStrike)
+        XCTAssertFalse(vm.isSolutionAdjusted)
+        XCTAssertEqual(vm.currentSolution?.id, original.id)
     }
 }

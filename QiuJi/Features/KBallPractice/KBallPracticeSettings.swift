@@ -55,6 +55,10 @@ struct KBallPracticeSettings: View {
             } header: { Text("题目条件") } footer: {
                 BTTrainingSettingsNote("库次指观察的那一库，入库前与出库后均归该库。模拟容错用于比较参数敏感程度，不代表真人成功率。")
             }
+            Section("碰库提示") {
+                Toggle("库边颜色提示", isOn: $draft.showsRailColors)
+                    .accessibilityIdentifier("kBall.railColors")
+            }
             Section("击球过程") { Toggle("播放击球过程", isOn: $draft.playsStroke).accessibilityIdentifier("kBall.playsStroke") }
             if let error { Section { BTTrainingSettingsNote(error).foregroundStyle(.btDestructive) } }
             if preparing { ProgressView("正在选题…") }

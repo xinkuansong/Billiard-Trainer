@@ -14,6 +14,7 @@
 
 import XCTest
 import SceneKit
+import simd
 @testable import QiuJi
 
 final class PlanThreeSectorSolverTests: XCTestCase {
@@ -187,7 +188,7 @@ final class PlanThreeSectorSolverTests: XCTestCase {
         vm.armRole(.pocket1)
         vm.selectPocket(at: 5)
 
-        XCTAssertNil(vm.sectorRegion, "无②球 ⇒ 无扇形")
+        XCTAssertNil(vm.recommendedRegion, "无②球 ⇒ 无扇形")
         XCTAssertTrue(vm.canPotOnly, "1 目标球应走 pot-only")
         XCTAssertTrue(vm.canSolve, "pot-only 下应可求解")
         guard let c = vm.currentConstraint(), case .restRegion = c else {
@@ -224,12 +225,12 @@ final class PlanThreeSectorSolverTests: XCTestCase {
         vm.armRole(.ball2); if let n = vm.scene.allBallNodes["_2"] { vm.selectBall(node: n) }
         vm.armRole(.pocket2); vm.selectPocket(at: 1)
 
-        XCTAssertNotNil(vm.sectorRegion, "②就绪应有扇形")
-        XCTAssertTrue(vm.sectorIsDefaultRegion, "无自选约束 ⇒ 扇形为默认落区（高亮）")
+        XCTAssertNotNil(vm.recommendedRegion, "②就绪应有扇形")
+        XCTAssertTrue(vm.recommendedRegionIsDefault, "无自选约束 ⇒ 扇形为默认落区（高亮）")
         XCTAssertTrue(vm.canSolve, "扇形默认落区下应可求解")
         // 扇形默认时 currentConstraint 应为扇形。
         if case .restRegion(let r)? = vm.currentConstraint() {
-            XCTAssertTrue(r.isSector, "默认落区应为扇形")
+            if case .sampled = r {} else { XCTFail("默认落区应为采样轮廓") }
         } else { XCTFail("应为 restRegion(sector)") }
 
         // 用户自画落区 ⇒ 扇形降级（sectorIsDefaultRegion=false），求解用用户约束。
@@ -237,7 +238,7 @@ final class PlanThreeSectorSolverTests: XCTestCase {
         vm.toolDrag(startNormalized: CanvasPoint(x: 0.40, y: 0.26),
                     currentNormalized: CanvasPoint(x: 0.60, y: 0.40), ended: true)
         XCTAssertTrue(vm.hasConstraint)
-        XCTAssertFalse(vm.sectorIsDefaultRegion, "自选约束存在 ⇒ 扇形降级为参考")
+        XCTAssertFalse(vm.recommendedRegionIsDefault, "自选约束存在 ⇒ 扇形降级为参考")
         if case .restRegion(let r)? = vm.currentConstraint() {
             XCTAssertFalse(r.isSector, "有自选约束时求解应用用户落区（非扇形）")
         } else { XCTFail("应为 restRegion(rect)") }
@@ -245,7 +246,7 @@ final class PlanThreeSectorSolverTests: XCTestCase {
         // 删除自选约束 ⇒ 扇形恢复为默认落区。
         vm.clearConstraint()
         XCTAssertFalse(vm.hasConstraint)
-        XCTAssertTrue(vm.sectorIsDefaultRegion, "删除自选约束后扇形应恢复为默认落区")
+        XCTAssertTrue(vm.recommendedRegionIsDefault, "删除自选约束后扇形应恢复为默认落区")
     }
 }
 
@@ -275,9 +276,10 @@ final class BallRolePlanFlowTests: XCTestCase {
         vm.activeTool = .none
         return vm
     }
-    private func completion(_ vm: PlanThreeViewModel, potted: Bool = true, extra: [String] = []) -> PositionPlaySolution {
+    private func completion(_ vm: PlanThreeViewModel, potted: Bool = true, extra: [String] = [], scratch: Bool = false) -> PositionPlaySolution {
         let shot = PlannedShot(targetKey: vm.ball1Key!, pocket: ShotIntent.pocketId(for: vm.pocket1Index)!, velocity: 2.4, spinX: 0.1, spinY: -0.2)
         var prediction = ShotPrediction(); prediction.objectPocketed = potted
+        prediction.cuePocketed = scratch
         prediction.pocketedBalls = (potted ? [ShotInput.targetBallName] : []) + extra
         return PositionPlaySolution(shot: shot, prediction: prediction, cushionCount: 0, potted: potted,
             margin: 0.1, summary: "settlement fixture", satisfiesConstraint: true,
@@ -301,7 +303,8 @@ final class BallRolePlanFlowTests: XCTestCase {
         XCTAssertEqual(vm.pocket1Index, -1)
         vm.selectPocket(at: 0)
         XCTAssertEqual(vm.pocket1Index, 0)
-        XCTAssertEqual(vm.pocket2Index, 4)
+        XCTAssertEqual(vm.pocket2Index, -1)
+        XCTAssertNil(vm.ball2Key); XCTAssertNil(vm.ball3Key)
     }
     func testPaletteFocusAndReplacementPreserveOtherRoles() {
         let vm = configured()
@@ -332,39 +335,34 @@ final class BallRolePlanFlowTests: XCTestCase {
         vm.solve(); XCTAssertFalse(vm.isComputing)
         XCTAssertFalse(vm.canUndoShot)
     }
-    func testSuccessfulSettleRollsOnceAndLocksInheritedBallAndPocket() {
+    func testSuccessfulSettleRollsOnceAndInheritedChoicesRemainEditable() {
         let vm = configured(); let solution = completion(vm)
         vm.finishStrike(sol: solution)
         XCTAssertEqual(vm.ball1Key, "_2"); XCTAssertEqual(vm.pocket1Index, 3)
         XCTAssertEqual(vm.ball2Key, "_3"); XCTAssertEqual(vm.pocket2Index, -1)
-        XCTAssertNil(vm.ball3Key); XCTAssertTrue(vm.currentRoleLocked)
+        XCTAssertNil(vm.ball3Key); XCTAssertFalse(vm.currentRoleLocked)
+        XCTAssertEqual(vm.statusText, "请选择第二颗球的袋口")
         vm.finishStrike(sol: solution)
         XCTAssertEqual(vm.ball1Key, "_2", "Duplicate completion cannot advance twice")
-        vm.armRole(.ball1); vm.selectPocket(at: 5); vm.selectTarget(key: "_3"); vm.clearRole(.ball1)
-        XCTAssertEqual(vm.ball1Key, "_2"); XCTAssertEqual(vm.pocket1Index, 3)
-        vm.removeFromTable("_2")
-        XCTAssertTrue(vm.onTableKeys.contains("_2"))
-        vm.clearPlan()
-        XCTAssertEqual(vm.ball1Key, "_2"); XCTAssertEqual(vm.pocket1Index, 3)
-        XCTAssertNil(vm.ball2Key); XCTAssertTrue(vm.currentRoleLocked)
+        vm.armRole(.ball1); vm.selectPocket(at: 5)
+        XCTAssertEqual(vm.pocket1Index, 5)
+        vm.armRole(.ball1); vm.selectPaletteBall("_3")
+        XCTAssertEqual(vm.ball1Key, "_3"); XCTAssertEqual(vm.pocket1Index, -1)
+        XCTAssertNil(vm.ball2Key); XCTAssertNil(vm.ball3Key)
     }
-    func testRetrySnapshotRestoresRolesParametersConstraintsAndEarlierLock() {
+    func testRetrySnapshotRestoresRolesParametersConstraintsWithoutInheritedLock() {
         let vm = configured(); let solution = completion(vm)
-        let before = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
+        var before = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
+        before.currentRoleLocked = true // Legacy contexts must not reinstate the old lock.
         vm.finishStrike(sol: solution)
-        let inherited = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
         vm.restore(from: before)
         XCTAssertFalse(vm.currentRoleLocked)
         XCTAssertEqual(vm.ball1Key, "_1"); XCTAssertEqual(vm.ball2Key, "_2"); XCTAssertEqual(vm.ball3Key, "_3")
         XCTAssertEqual(vm.pocket1Index, 1); XCTAssertEqual(vm.pocket2Index, 3)
         XCTAssertEqual(vm.velocity, before.snapshot.velocity); XCTAssertEqual(vm.spinX, before.snapshot.spinX)
         XCTAssertEqual(vm.hasConstraint, before.snapshot.draft != nil)
-        vm.armRole(.ball2); vm.selectPocket(at: 0)
-        XCTAssertEqual(vm.pocket2Index, 0, "Previous next pocket becomes editable after retry")
-        vm.restore(from: inherited)
-        XCTAssertTrue(vm.currentRoleLocked)
         vm.armRole(.ball1); vm.selectPocket(at: 0)
-        XCTAssertEqual(vm.pocket1Index, 3, "A lock from an earlier stroke survives snapshot restoration")
+        XCTAssertEqual(vm.pocket1Index, 0)
     }
     func testFailureAndUnexpectedFuturePocketUseActualRemainingBalls() {
         let vm = configured()
@@ -378,7 +376,7 @@ final class BallRolePlanFlowTests: XCTestCase {
     }
     func testNewBoardClearsOldBindingsLockAndHistory() {
         let vm = configured(); vm.finishStrike(sol: completion(vm))
-        XCTAssertTrue(vm.currentRoleLocked)
+        XCTAssertFalse(vm.currentRoleLocked)
         vm.resetAll()
         XCTAssertNil(vm.ball1Key); XCTAssertNil(vm.ball2Key); XCTAssertNil(vm.ball3Key)
         XCTAssertFalse(vm.currentRoleLocked); XCTAssertFalse(vm.canUndoShot); XCTAssertFalse(vm.canPlayback)
@@ -387,7 +385,7 @@ final class BallRolePlanFlowTests: XCTestCase {
         vm.clearTable(); XCTAssertFalse(vm.canSolve)
         XCTAssertNil(vm.ball1Key); XCTAssertEqual(vm.pocket1Index, -1)
     }
-    func testPreviousStepRetainsDraftAndDoesNotReplayPocketChanges() {
+    func testPreviousStepClearsEveryLaterChoiceAndOverlay() {
         let vm = configured()
         vm.armRole(.pocket2)
         for pocket in [0, 4, 2] { vm.selectPocket(at: pocket) }
@@ -397,20 +395,115 @@ final class BallRolePlanFlowTests: XCTestCase {
             XCTAssertTrue(vm.canGoToPreviousStep)
             vm.goToPreviousStep()
             XCTAssertEqual(vm.armedRole, expected)
-            XCTAssertEqual(vm.pocket2Index, 2)
-            XCTAssertEqual(vm.ball3Key, "_3")
-            XCTAssertEqual(vm.solveGeneration, generation)
+            XCTAssertEqual(vm.pocket2Index, expected == .pocket2 ? 2 : -1)
+            XCTAssertNil(vm.ball3Key)
+            XCTAssertGreaterThan(vm.solveGeneration, generation)
+            if expected == .pocket1 || expected == .ball1 {
+                XCTAssertNil(vm.ball2Key)
+                XCTAssertNil(vm.recommendedRegion)
+                XCTAssertEqual(vm.paletteRoles.count, 1)
+                XCTAssertEqual(vm.scene.rootNode.childNodes.filter {
+                    $0.name?.hasPrefix("planthree.roleRing.") == true
+                }.count, 1)
+                XCTAssertNil(vm.scene.rootNode.childNode(withName: "planthree.recommendedRegion", recursively: true))
+                XCTAssertEqual(vm.onTableKeys.count, 4, "Back clears intent, not physical balls")
+            }
         }
+        XCTAssertEqual(vm.pocket1Index, -1)
         XCTAssertFalse(vm.canGoToPreviousStep)
     }
-    func testRolledDraftStartsAtSecondPocketAndPreviousStopsAtLock() {
+    func testRolledDraftCanReturnThroughFirstPocketAndFirstBall() {
         let vm = configured(); vm.finishStrike(sol: completion(vm))
         XCTAssertEqual(vm.armedRole, .pocket2)
-        vm.goToPreviousStep(); XCTAssertEqual(vm.armedRole, .ball2)
+        for expected in [PlanThreeRole.ball2, .pocket1, .ball1] {
+            XCTAssertTrue(vm.canGoToPreviousStep)
+            vm.goToPreviousStep(); XCTAssertEqual(vm.armedRole, expected)
+        }
         XCTAssertFalse(vm.canGoToPreviousStep)
-        XCTAssertEqual(vm.ball2Key, "_3")
-        XCTAssertEqual(vm.pocket1Index, 3)
-        vm.goToPreviousStep(); XCTAssertEqual(vm.armedRole, .ball2)
+        XCTAssertNil(vm.ball2Key); XCTAssertEqual(vm.pocket1Index, -1)
+        vm.selectPaletteBall("_3")
+        XCTAssertEqual(vm.ball1Key, "_3"); XCTAssertEqual(vm.pocket1Index, -1)
+        XCTAssertNil(vm.ball2Key)
+    }
+
+    func testPrimaryRequiresAllThreeRolesAndFocusesMissingStep() {
+        let vm = configured()
+        vm.clearRole(.ball3); vm.armRole(.ball1)
+        XCTAssertEqual(vm.primaryActionTitle, "击球")
+        vm.requestPrimaryAction()
+        XCTAssertFalse(vm.isPlaying); XCTAssertFalse(vm.isComputing)
+        XCTAssertEqual(vm.statusText, "请选择第三颗球"); XCTAssertEqual(vm.armedRole, .ball3)
+        vm.selectPaletteBall("_3")
+        XCTAssertNil(vm.missingSelection)
+        vm.clearRole(.pocket2); vm.requestPrimaryAction()
+        XCTAssertEqual(vm.statusText, "请选择第二颗球的袋口")
+        XCTAssertEqual(vm.armedRole, .pocket2)
+    }
+
+    func testPostShotPromptWithThreeRemainingBalls() {
+        let vm = configured(); vm.placeFromPalette("_4")
+        vm.finishStrike(sol: completion(vm))
+        XCTAssertEqual(vm.statusText, "请选择第二颗球袋口和第三颗球")
+        XCTAssertEqual(vm.primaryActionTitle, "击球")
+    }
+
+    func testLastBallCompletionAndSubsequentActionsStayQuiet() {
+        for scratch in [false, true] {
+            let vm = configured()
+            vm.uiTestConfigure("oneBall")
+            let sol = completion(vm, extra: scratch ? [ShotInput.cueBallName] : [], scratch: scratch)
+            vm.finishStrike(sol: sol)
+            XCTAssertEqual(vm.objectBallCount, 0)
+            XCTAssertEqual(vm.statusText, "")
+            XCTAssertEqual(vm.informationEvent.text, "")
+            XCTAssertEqual(vm.hintForState(), "")
+            XCTAssertFalse(vm.canSolve)
+            vm.requestPrimaryAction()
+            XCTAssertFalse(vm.isComputing)
+            XCTAssertEqual(vm.informationEvent.text, "")
+            vm.invalidateSolutions()
+            XCTAssertEqual(vm.informationEvent.text, "")
+        }
+    }
+
+    func testScreenshotLikeBoardNeverPresentsAnUnpottedSolution() async throws {
+        let vm = PlanThreeViewModel(); vm.setupScene(); defer { vm.stopForDismissal() }
+        // Approximation from the user's landscape image, not an exact saved board.
+        // Canvas x right, y down; both axes use table length (range y: 0...0.5).
+        vm.loadBoard(BoardSnapshot(onTable: [
+            PositionPlayBall.cueKey: .init(x: 0.2056, y: 0.2387),
+            "_12": .init(x: 0.5447, y: 0.1580),
+            "_11": .init(x: 0.7038, y: 0.2370),
+            "_13": .init(x: 0.8873, y: 0.2683)
+        ]))
+        vm.selectPaletteBall("_12"); vm.selectPocket(at: 1)
+        vm.selectPaletteBall("_11"); vm.selectPocket(at: 1)
+        vm.selectPaletteBall("_13")
+        XCTAssertNotNil(vm.recommendedRegion)
+        XCTAssertTrue(vm.canSolve)
+        var legacyParams = PositionPlaySolver.SearchParams.standard
+        let y = vm.surfaceY
+        legacyParams.continuation = { MultiBallPositionScore.evaluate(positions: $0, target: "_11",
+            pocket: 1, third: "_13", surfaceY: y).value }
+        let legacy = PositionPlaySolver.solve(before: vm.currentSnapshot(), targetKey: "_12", pocket: "topRight",
+            constraint: try XCTUnwrap(vm.currentConstraint()), surfaceY: y, params: legacyParams)
+        print("P05 screenshot-like legacy routes=\(legacy.map { AccuracyShotJudgement.evaluate($0.prediction, pocketIndex: 1).rawValue }) shots=\(legacy.map { [$0.shot.velocity, $0.shot.spinX, $0.shot.spinY] })")
+        vm.requestPrimaryAction()
+        let deadline = Date().addingTimeInterval(30)
+        while vm.isComputing && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertFalse(vm.isComputing)
+        for solution in vm.solutions {
+            XCTAssertTrue(solution.potted)
+            XCTAssertTrue(solution.prediction.simObjectPotted)
+            XCTAssertTrue(solution.prediction.hasFinalTableState)
+            XCTAssertEqual(AccuracyShotJudgement.evaluate(solution.prediction, pocketIndex: 1), .success)
+        }
+        if vm.solutions.isEmpty {
+            XCTAssertEqual(vm.primaryActionTitle, "击球")
+            XCTAssertFalse(vm.canStrike)
+            XCTAssertEqual(vm.informationEvent.kind, .failure)
+        }
+        print("P05 screenshot-like solutions=\(vm.solutions.count) potted=\(vm.solutions.map(\.potted))")
     }
 
     func testRoleChangesInvalidateSolvedCatalogAndLateGeneration() async throws {
@@ -419,10 +512,133 @@ final class BallRolePlanFlowTests: XCTestCase {
         let deadline = Date().addingTimeInterval(30)
         while vm.isComputing && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
         XCTAssertTrue(vm.hasSolutions)
+        XCTAssertEqual(vm.primaryActionTitle, "击球")
         let generation = vm.solveGeneration
         vm.armRole(.ball1); vm.selectPocket(at: 3)
         XCTAssertGreaterThan(vm.solveGeneration, generation)
         XCTAssertFalse(vm.hasSolutions); XCTAssertFalse(vm.canStrike)
-        vm.requestStrike(); XCTAssertFalse(vm.isPlaying); XCTAssertEqual(vm.statusText, "请先求解")
+        XCTAssertEqual(vm.primaryActionTitle, "计算中")
+        vm.requestStrike(); XCTAssertFalse(vm.isPlaying)
+        vm.stopForDismissal()
+    }
+}
+
+final class PlanThreeComfortRegionTests: XCTestCase {
+    typealias P = SIMD2<Double>
+    private func scn(_ p: P) -> SCNVector3 { .init(Float(p.x), BTTablePhysics.surfaceY, Float(p.y)) }
+
+    func testContourKeepsBothSidesAndFiveDegreesAcrossMirroredLayouts() throws {
+        // Side is a soft downstream score. Both cut sides remain, while the
+        // five-degree minimum and physical obstruction filters stay hard constraints.
+        for signX in [-1.0, 1.0] { for signZ in [-1.0, 1.0] {
+            let b = P(0.12 * signX, 0.08 * signZ)
+            let aim = P(0, -0.635 * signZ), third = P(0.7 * signX, 0.25 * signZ)
+            let mesh = try XCTUnwrap(PlanThreeComfortRegion.compute(ball: scn(b), aim: scn(aim), third: scn(third)))
+            let actualB = P(Double(scn(b).x), Double(scn(b).z))
+            let actualAim = P(Double(scn(aim).x), Double(scn(aim).z))
+            let n = (actualAim - actualB) / simd_length(actualAim - actualB)
+            let ghost = actualB - 2 * Double(AngleSceneCalculator.ballRadius) * n
+            XCTAssertGreaterThan(mesh.polygons.count, 10)
+            var cutSides = Set<Int>()
+            for polygon in mesh.polygons {
+                let center = polygon.reduce(P.zero, +) / Double(polygon.count)
+                XCTAssertLessThanOrEqual(mesh.signedDistance(center), 1e-7)
+                for c in polygon {
+                    let v = simd_normalize(ghost - c)
+                    let angle = acos(min(1, max(-1, simd_dot(v, n)))) * 180 / .pi
+                    XCTAssertGreaterThanOrEqual(angle, 5 - 1e-7)
+                    cutSides.insert(n.x * v.y - n.y * v.x > 0 ? 1 : -1)
+                }
+            }
+            XCTAssertEqual(cutSides, Set([-1, 1]), "Neither cut side may be discarded merely for direction")
+            for loop in mesh.boundaryLoops {
+                XCTAssertLessThan(simd_distance(try XCTUnwrap(loop.first), try XCTUnwrap(loop.last)), 1e-7)
+            }
+        }}
+    }
+
+    func testThirdBallKeepsBothSidesAndBlockedPotHasNoRegion() throws {
+        let b = scn(.zero), aim = scn(P(0, -0.635))
+        let right = try XCTUnwrap(PlanThreeComfortRegion.compute(ball: b, aim: aim, third: scn(P(0.6, 0.2))))
+        let left = try XCTUnwrap(PlanThreeComfortRegion.compute(ball: b, aim: aim, third: scn(P(-0.6, 0.2))))
+        for mesh in [right, left] {
+            XCTAssertTrue(mesh.polygons.contains { $0.contains { $0.x > 0.01 } })
+            XCTAssertTrue(mesh.polygons.contains { $0.contains { $0.x < -0.01 } })
+        }
+        XCTAssertNil(PlanThreeComfortRegion.compute(ball: b, aim: aim, third: scn(P(0, -0.3))))
+        let both = try XCTUnwrap(PlanThreeComfortRegion.compute(ball: b, aim: aim, third: nil))
+        XCTAssertTrue(both.polygons.contains { $0.contains { $0.x > 0.01 } })
+        XCTAssertTrue(both.polygons.contains { $0.contains { $0.x < -0.01 } })
+        XCTAssertGreaterThan(both.signedDistance(P(0, 0.6)), 0, "Straight shot must be excluded even without B3")
+    }
+
+    func testMeshDistanceIgnoresInternalEdgesAndRetainsHole() throws {
+        // A square frame made from four rectangles, with a 2x2 hole.
+        var cells: [[P]] = []
+        for x in -2..<2 { for y in -2..<2 where x == -2 || x == 1 || y == -2 || y == 1 {
+            let a = P(Double(x),Double(y)), b = a + P(1,0), c = a + P(1,1), d = a + P(0,1)
+            cells += [[a,b,c], [a,c,d]]
+        }}
+        let mesh = try XCTUnwrap(SampledSolveRegion(polygons: cells))
+        XCTAssertEqual(mesh.signedDistance(.zero), 1, accuracy: 1e-8)
+        XCTAssertEqual(mesh.signedDistance(P(1.5,0)), -0.5, accuracy: 1e-8)
+        // Triangulated square: diagonal must not reduce inside margin to zero.
+        let square = try XCTUnwrap(SampledSolveRegion(polygons: [[P(0,0),P(1,0),P(1,1)], [P(0,0),P(1,1),P(0,1)]]))
+        XCTAssertEqual(square.signedDistance(P(0.5,0.5)), -0.5, accuracy: 1e-8)
+        let region = SolveRegion.sampled(square)
+        XCTAssertEqual(region.signedDistanceMeters(fromScene: scn(P(0.5,0.5)), surfaceY: 0), -0.5, accuracy: 1e-6)
+    }
+
+    func testPhysicalSolverUsesSampledBoundaryForSuccessfulRest() throws {
+        let board = BoardSnapshot(onTable: [PositionPlayBall.cueKey: CanvasPoint(x: 0.5, y: 0.36),
+                                           "_1": CanvasPoint(x: 0.5, y: 0.16)])
+        let params = PositionPlaySolver.SearchParams(spinXValues: [0], spinYValues: [-0.3, 0, 0.3],
+            velocityMin: 1, velocityMax: 4, velocityStep: 1, marginBase: 0, marginPerCushion: 0,
+            passTolerance: 2 * AngleSceneCalculator.ballRadius, passMinSpeed: 0.2)
+        let open = PositionPlaySolver.solve(before: board, targetKey: "_1", pocket: "topCenter",
+            constraint: .restRegion(.rect(center: .init(x: 0.5, y: 0.25), halfWidth: 0.5, halfHeight: 0.25)),
+            surfaceY: BTTablePhysics.surfaceY, params: params)
+        let successful = try XCTUnwrap(open.first { $0.satisfiesConstraint && $0.potted })
+        let stop = try XCTUnwrap(successful.prediction.finalPositions[ShotInput.cueBallName])
+        let c = P(Double(stop.x), Double(stop.z)), d = 0.02
+        let mesh = try XCTUnwrap(SampledSolveRegion(polygons: [[c + P(-d,-d), c + P(d,-d), c + P(d,d), c + P(-d,d)]]))
+        let answers = PositionPlaySolver.solve(before: board, targetKey: "_1", pocket: "topCenter",
+            constraint: .restRegion(.sampled(mesh)), surfaceY: BTTablePhysics.surfaceY, params: params)
+        XCTAssertTrue(answers.contains { $0.satisfiesConstraint && $0.potted }, "The previously valid physical shot must still be found")
+        for answer in answers where answer.satisfiesConstraint {
+            let end = try XCTUnwrap(answer.prediction.finalPositions[ShotInput.cueBallName])
+            XCTAssertLessThanOrEqual(mesh.signedDistance(P(Double(end.x), Double(end.z))), 0)
+        }
+    }
+
+    @MainActor func testRoleRingsFollowSelectionsAndRegionCacheTracksMovedThird() throws {
+        let vm = PlanThreeViewModel(); vm.setupScene(); vm.uiTestConfigure("threeBallDimmed")
+        func rings() -> [SCNNode] { vm.scene.rootNode.childNodes.filter { $0.name?.hasPrefix("planthree.roleRing.") == true } }
+        XCTAssertEqual(rings().count, 3)
+        for role in [BallRoleStyle.current, .next, .upcoming] {
+            let ring = try XCTUnwrap(rings().first { $0.name == "planthree.roleRing.\(role.rawValue)" })
+            XCTAssertEqual(ring.position.y, vm.surfaceY + 0.0007, accuracy: 1e-6)
+            XCTAssertEqual(ring.geometry?.firstMaterial?.diffuse.contents as? UIColor, role.uiColor)
+        }
+        vm.clearConstraint()
+        let original = try XCTUnwrap(vm.recommendedRegion)
+        let third = try XCTUnwrap(vm.scene.allBallNodes["_3"])
+        let initialThird = third.position
+        let second = try XCTUnwrap(vm.scene.allBallNodes["_2"])
+        let aim = AngleSceneCalculator.effectivePocketAimPoint(targetBall: second.position,
+            pocketIndex: vm.pocket2Index, surfaceY: vm.surfaceY)
+        third.position = SCNVector3((second.position.x + aim.x) / 2, third.position.y,
+                                    (second.position.z + aim.z) / 2)
+        vm.refreshOverlays()
+        XCTAssertNil(vm.recommendedRegion, "Moved third ball now blocks the second pot; cache must invalidate")
+        third.position = initialThird
+        vm.refreshOverlays()
+        let restored = try XCTUnwrap(vm.recommendedRegion)
+        XCTAssertEqual(original.centerNormalized.x, restored.centerNormalized.x, accuracy: 1e-9)
+        XCTAssertEqual(original.centerNormalized.y, restored.centerNormalized.y, accuracy: 1e-9)
+        vm.clearRole(.ball3)
+        XCTAssertEqual(rings().count, 2)
+        vm.clearPlan()
+        XCTAssertEqual(rings().count, 0)
     }
 }

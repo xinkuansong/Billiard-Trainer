@@ -20,3 +20,10 @@ P12/r01/final-r4/orientation-regression共7项通过，覆盖P02/P03/P04/P05/P06
 ## 2026-10-14 信息精简第1批
 
 用户已确认[信息精简方案](INFORMATION-SIMPLIFICATION-20261014.md)并指定本页先实施。常驻说明、按需入口与提示生命周期以该方案及[本轮报告](../ui-reviews/UR-20261014-planning-information.md)为准；替代此前要求常驻完整信息条的对应展示约定。球形、角色推进、求解与击球数据语义保留。原图对比见[评审页](../../output/information-simplification-20261014/review.html)。模拟器验证与用户最终体验分别记录。
+
+
+## 2026-11-03 · 防守判定与排序
+
+用户授权优化：合法性、对手最易球优先、微调/重打重新判定、对方清彩后防8号与诚实提示。TP01–TP36补全及本轮影响项、源码与验证集中在[本轮任务卡](../DEFENSE-OPTIMIZATION-20261103.md)。当前定向验证中，旧视觉记录不作为本轮通过。
+
+本轮收尾：SE3/iOS17的21逻辑＋1 UI（含2D/3D）零失败零跳过；6张原图逐一审查、重打恢复通过。真机/iPad/VoiceOver/全App未验；详[原生报告](../ui-reviews/UR-20261103-defense-optimization.md)。

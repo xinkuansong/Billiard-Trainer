@@ -1723,11 +1723,11 @@ final class PositionPlayViewModel: ObservableObject {
 
     func refreshPracticePresentation() { updatePocketHighlights(); topDownContentRevision &+= 1 }
 
-    func clearPracticeAimSelection() {
+    func clearPracticeAimSelection(preservingTarget: Bool = false) {
         guard practiceRequiresExplicitAim, !isPlaying else { return }
         invalidatePendingPredict()
         scene.cancelPocketSelectionFeedback()
-        selectedTargetKey = nil
+        if !preservingTarget { selectedTargetKey = nil }
         selectedPocketIndex = -1
         recompute()
         refreshPracticePresentation()

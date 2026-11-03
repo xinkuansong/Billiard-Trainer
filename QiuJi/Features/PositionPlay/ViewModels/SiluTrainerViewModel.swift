@@ -57,6 +57,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
     func stopForDismissal() {
         guard !activitySuspended else { return }
         activitySuspended = true
+        isDrawingConstraint = false
         playbackGeneration += 1
         resumeAdjustment = isAdjustingSolution
         resumeSolve = isComputing && !isAdjustingSolution
@@ -215,11 +216,13 @@ final class SiluTrainerViewModel: TeachingTableHost {
     }
     private let solveQueue = DispatchQueue(label: "com.qiuji.silu-solve", qos: .userInitiated)
     private var solveWork: DispatchWorkItem?
+    private var automaticSolveTask: Task<Void, Never>?
+    private var isDrawingConstraint = false
     private let adjustmentScheduler = LatestPredictionScheduler<ShotPrediction?>()
     @Published private(set) var isAdjustingSolution = false
     private var adjustmentIsValid = true
     private var solveGeneration = 0 {
-        didSet { solveWork?.cancel(); solveWork = nil; adjustmentScheduler.invalidate(); isAdjustingSolution = false }
+        didSet { automaticSolveTask?.cancel(); automaticSolveTask = nil; solveWork?.cancel(); solveWork = nil; adjustmentScheduler.invalidate(); isAdjustingSolution = false }
     }
     private var surfaceY: Float { scene.surfaceY }
 
@@ -389,6 +392,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
         isDragging = true
         if let runner = breakRunner { runner.dragBegan(node: node); return }
         TableBallPulse.beginDrag(node)
+        invalidateSolutions(automatically: false)
     }
 
     func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
@@ -455,7 +459,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
         guard !isPlaying else { return }
         selectedPocketIndex = index
         updatePocketHighlights(confirmsSelection: false)
-        scene.confirmPocketSelection(at: index, source: .manual)
+        scene.confirmRolePocketSelection(at: index)
         invalidateSolutions()
     }
 
@@ -494,21 +498,21 @@ final class SiluTrainerViewModel: TeachingTableHost {
         }
         selectedPocketIndex = bestFeasible?.index ?? bestAny?.index ?? 0
         updatePocketHighlights(confirmsSelection: false)
-        scene.confirmPocketSelection(at: selectedPocketIndex)
+        scene.confirmRolePocketSelection(at: selectedPocketIndex)
     }
 
     private func updatePocketHighlights(confirmsSelection: Bool = true) {
-        for (i, marker) in pocketMarkers.enumerated() {
-            let targetVisible = selectedTargetKey.flatMap { scene.allBallNodes[$0] }.map { !$0.isHidden } ?? false
-            scene.setPocketHighlight(marker, style: !isBreakMode && targetVisible && i == selectedPocketIndex ? .selected : .viable, confirmsSelection: confirmsSelection)
-        }
+        let visible = selectedTargetKey.flatMap { scene.allBallNodes[$0] }.map { !$0.isHidden } ?? false
+        scene.setPracticePocketRoles(current: !isBreakMode && visible ? selectedPocketIndex : nil, next: nil)
     }
 
     // MARK: - Constraint drawing (table-local normalized points from the view)
 
     /// 工具拖拽：起点 → 当前点（归一化系）。落区按 `regionShape` 解释；过点工具取当前点。
     func toolDrag(startNormalized start: CanvasPoint, currentNormalized cur: CanvasPoint, ended: Bool) {
-        guard !isPlaying else { return }
+        guard !isPlaying, activeTool != .none else { return }
+        isDrawingConstraint = !ended
+        invalidateSolutions(automatically: false)
         switch activeTool {
         case .none:
             return
@@ -531,8 +535,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
         }
         hasConstraint = draft != nil
         renderConstraint()
-        // 画完不自动求解（用户拍板）：约束就绪后由「求解」按钮显式触发。
-        if ended, currentConstraint() != nil { setStatus("已就绪，点「求解」反解走位")}
+        if ended { scheduleAutomaticSolve() }
     }
 
     func clearConstraint() {
@@ -554,7 +557,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
 
     // MARK: - Solve (background)
 
-    private func invalidateSolutions() {
+    private func invalidateSolutions(automatically: Bool = true) {
         solveGeneration += 1
         isComputing = false
         solutions = []
@@ -564,15 +567,32 @@ final class SiluTrainerViewModel: TeachingTableHost {
         scene.hideCueStick()
         resetParamDisplay()
         refreshOverlays()
-        if currentConstraint() != nil { setStatus("已就绪，点「求解」反解走位")} else { setStatus(toolHint())}
+        if currentConstraint() != nil { setStatus("条件已齐，自动求解走位")} else { setStatus(toolHint())}
+        if automatically { scheduleAutomaticSolve() }
     }
 
     private func resetParamDisplay() {
         velocity = 3.0; spinX = 0; spinY = 0
     }
 
+    private func scheduleAutomaticSolve() {
+        guard !activitySuspended, !isBreakMode, !isPlaying, !isDragging, !isDrawingConstraint,
+              selectedTargetKey != nil, (0..<6).contains(selectedPocketIndex),
+              scene.cueBallNode?.isHidden == false, currentConstraint() != nil else { return }
+        let generation = solveGeneration
+        isComputing = true
+        automaticSolveTask = Task { [weak self] in
+            await Task.yield()
+            guard let self, !Task.isCancelled, self.solveGeneration == generation,
+                  !self.activitySuspended, !self.isPlaying, !self.isBreakMode,
+                  !self.isDragging, !self.isDrawingConstraint else { return }
+            self.isComputing = false
+            self.solve()
+        }
+    }
+
     func solve() {
-        guard !isPlaying else { return }
+        guard !activitySuspended, !isBreakMode, !isPlaying, !isDragging, !isDrawingConstraint else { return }
         guard let targetKey = selectedTargetKey, selectedPocketIndex >= 0,
               let pocketId = ShotIntent.pocketId(for: selectedPocketIndex),
               let constraint = currentConstraint() else {
@@ -696,8 +716,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
         let before = currentSnapshot()
         let y = surfaceY
         let idx = currentIndex
-        let margin = catalog.margin
-        let satisfies = catalog.satisfiesConstraint
+        let constraint = currentConstraint()
         let beyondCushion = catalog.beyondCushionBudget
         let beyondSpin = catalog.beyondSpinBudget
         let gen = solveGeneration
@@ -724,14 +743,17 @@ final class SiluTrainerViewModel: TeachingTableHost {
                     self.setStatus("当前参数无完整预测，请调整后重试", kind: .failure)
                     return
                 }
+                let assessment = constraint.map {
+                    PositionPlaySolver.assess(prediction: pred, constraint: $0, surfaceY: y)
+                }
                 let drafted = PositionPlaySolution(
                     shot: shot, prediction: pred,
-                    cushionCount: pred.cueCushionCount,
+                    cushionCount: assessment?.cushionCount ?? pred.cueCushionCount,
                     potted: pred.simObjectPotted,
-                    margin: margin,
+                    margin: assessment?.margin ?? 0,
                     summary: "微调 · " + ShotSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
                         + String(format: " · %.1f m/s", shot.velocity),
-                    satisfiesConstraint: satisfies,
+                    satisfiesConstraint: assessment?.satisfied == true && !catalog.isBankFallback,
                     beyondCushionBudget: beyondCushion,
                     difficultyScore: DifficultyModel.score(
                         spinX: shot.spinX, spinY: shot.spinY, velocity: shot.velocity,
@@ -843,7 +865,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
                     point: CGPoint(x: center.x, y: center.y), surfaceY: y)
                 SceneStroke.strokeCircle(center: c, radius: Float(tol) * SolveRegion.sceneScale,
                                          color: color, scene: scene, into: &constraintNodes)
-            case .sector:
+            case .sector, .sampled:
                 // 扇形仅打三页默认落区，由页内独立路径渲染；思路训练 draft 不进 sector。
                 break
             }
@@ -1056,14 +1078,17 @@ final class SiluTrainerViewModel: TeachingTableHost {
         if solutions.indices.contains(currentIndex) {
             let catalog = solutions[currentIndex]
             if Self.shotParamsDiffer(catalog.shot, snap.shot) {
+                let assessment = currentConstraint().map {
+                    PositionPlaySolver.assess(prediction: snap.prediction, constraint: $0, surfaceY: surfaceY)
+                }
                 adjustmentDraft = PositionPlaySolution(
                     shot: snap.shot, prediction: snap.prediction,
-                    cushionCount: snap.prediction.cueCushionCount,
+                    cushionCount: assessment?.cushionCount ?? snap.prediction.cueCushionCount,
                     potted: snap.prediction.simObjectPotted,
-                    margin: catalog.margin,
+                    margin: assessment?.margin ?? 0,
                     summary: "微调 · " + ShotSpinLabel.text(spinX: snap.shot.spinX, spinY: snap.shot.spinY)
                         + String(format: " · %.1f m/s", snap.shot.velocity),
-                    satisfiesConstraint: catalog.satisfiesConstraint,
+                    satisfiesConstraint: assessment?.satisfied == true && !catalog.isBankFallback,
                     beyondCushionBudget: catalog.beyondCushionBudget,
                     difficultyScore: DifficultyModel.score(
                         spinX: snap.shot.spinX, spinY: snap.shot.spinY, velocity: snap.shot.velocity,
@@ -1316,7 +1341,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
         if selectedTargetKey == nil { return "在桌面上点选一颗目标球" }
         if selectedPocketIndex < 0 { return "在桌面上点击袋口选择目标袋" }
         if currentConstraint() == nil { return toolHint() }
-        return "已就绪，点「求解」反解走位"
+        return "条件已齐，自动求解走位"
     }
 
     // MARK: - Break flow（T-P18-47：内置开球，替代球形生成器页）

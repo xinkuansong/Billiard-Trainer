@@ -237,6 +237,16 @@ enum SeparationTrajectory {
             startTime: contact.time, startPosition: contact.incoming.position)
     }
 
+    /// Full cue motion for kick practice, including all pre-contact cushions and misses.
+    static func extractCue(_ prediction: ShotPrediction) throws -> [Point] {
+        guard prediction.hasFinalTableState,
+              let first = prediction.recorder?.framesByBallName[ShotInput.cueBallName]?.first else {
+            throw SeparationQuestionGenerator.Failure.incomplete
+        }
+        return try extract(prediction, ballName: ShotInput.cueBallName,
+                           startTime: first.time, startPosition: first.position)
+    }
+
     /// Full object-ball motion, ending at rest or the physical capture, never a pocket-centre extension.
     static func extractObject(_ prediction: ShotPrediction) throws -> [Point] {
         guard prediction.hasFinalTableState, let recorder = prediction.recorder else {

@@ -1,3 +1,22 @@
+<!-- Changelog 2026-11-03 DR-461：Bank目标可切换；setPrimaryTarget只换角色不改姿态，BoardSnapshot同步targetKey与poses。共享球库通过宿主selectTarget，Diamond保持固定目标。见BANK-TARGET-SELECTION-20261103。 -->
+<!-- Changelog 2026-11-02 FL-243：翻袋解的身份按同袋＋实测主库顺序（jaw不计）；入袋质量先于少塞。UI布局/颗星不变，验证见BANK-KICK-SOLVER-20261102。 -->
+<!-- Changelog 2026-11-02 DR-460：两页开球统一，BTTablePlanningControls.breakGameSelection默认nil，仅P05接入；正式composer同设置子菜单；过程静默，P05解/方向尺互斥，见BREAK-UNIFICATION-20261102。 -->
+<!-- Changelog 2026-11-02 DR-442 r5／FL-234：多球逐步撤销后续意图，首袋清②/袋/③，首球另清首袋；clearPracticeAimSelection(preservingTarget:)默认false兼容，详MULTI-BALL-BACK本轮。 -->
+<!-- Changelog 2026-11-02 FL-234 P05补充：每次回退清空全部后续计划及派生标记；不展示未进球兜底解，清台静默。验证见P05页面卡。 -->
+<!-- Changelog 2026-11-02 DR-442 r4／FL-234：多球中八退回第二袋即撤销第三球，重选原袋后仍须手选第三球；追分与P05不变，见MULTI-BALL-BACK-20261030。 -->
+<!-- Changelog 2026-11-02 DR-458 r2：翻袋关闭中杆中力预测；主动测量／球心细线／实际路线保持，见BANK-REFERENCE-REMOVAL-20261102。 -->
+<!-- Changelog 2026-11-01 DR-452 r3／DR-457 r2：用户纠正，K球首答前中杆参考恢复，解球预测关闭，两页重打实际线保持；覆盖r2及DR-457 v1的相反范围。见KICK-KBALL-REFERENCE-CORRECTION-20261101。 -->
+<!-- Changelog 2026-11-01 FL-239：研究评分精确重放改为原始JSON类型化读取，保持精确断言；无生产UI/API变更，见BANK-COMFORT12-20261101。 -->
+<!-- Changelog 2026-11-01 DR-452 r2：K球中杆参考与图例始终关闭，重打实际线保留；解球DR-457不变。 -->
+<!-- Changelog 2026-11-01 DR-457：解球首答前当前杆向中杆2m/s灰参考，重打最近一杆白线；K球可选仅虚线／AX，见集中反馈卡第七轮。 -->
+<!-- Changelog 2026-11-01 DR-456：PracticeRailSequence.lastRailOptional默认false，仅末块四边白虚线，不加字；K球及N>1解球启用，判题v3，见集中反馈卡第六轮。 -->
+<!-- Changelog 2026-11-01 DR-454 r3／FL-236：顶部提示与球库共用末行位置，母球及色块底边对齐球面；纠正r2偏高，API不变。 -->
+<!-- Changelog 2026-11-01 DR-454 r2：K球／解球色块与母球同径等边，序号在块内；受限宽度收紧间距及块间箭头，API不变。 -->
+<!-- Changelog 2026-11-01 DR-454：K球／解球顶部母球与球库同径、去库序数字；headerTrailing接受宿主plan.diameter，默认nil保持。 -->
+<!-- Changelog 2026-10-31 DR-405 v1.13：自定义球形练习重打下方恢复共享回放按钮，补shot.replay布局注册，保留菜单入口；见CUSTOM-FORMATION-PLAYBACK-20261031。 -->
+<!-- Changelog 2026-10-31 DR-405 v1.12：内置L型1/15号球心距库改为一个球直径57.15mm，8号转角固定，两臂等距；覆盖10-28贴库合同。见CUSTOM-FORMATION-BUILTINS-20261028现行摆位。 -->
+<!-- Changelog 2026-10-30 FL-234：多球首杆及承接后完整返回、同球确认/旧角色改①及冻结成绩必须实测。 -->
+<!-- Changelog 2026-10-30 DR-442 r3：多球取消承接锁，上一步可退至首球首袋；历史成绩冻结、旧锁档迁移，P05不变。见MULTI-BALL-BACK-20261030。 -->
 <!-- Changelog 2026-10-30 DR-442 r2：多球规划首杆显式确认球袋，CurrentSelection与可选practiceRequiresExplicitAim；自主走位默认推荐保持，验证见MULTI-BALL-OPENING-20261030。 -->
 <!-- Changelog 2026-10-30 FL-232：K球入题提示包含要求库次，真实观察库次参与判题；入/出库同属该库，首答冻结/旧历史保留，验证见K-BALL页面卡。 -->
 <!-- Changelog 2026-10-30 DR-451 v8 / FL-204补充：三球得分栏自然高度；r4语义组边界按实际容量2–8pt、本题均分至本杆2–4pt、组内2pt，进度仅显示1/15并保留AX语义，去重复bottom padding；BTScoreDetailsButton.minimumHeight默认44、三球显式32pt；保持完整命中且不重叠，其他页面不变。证据见三球页面卡2026-10-30节。 -->
@@ -1155,7 +1174,7 @@ struct BTShareCard: View {
 - **回放禁尾速截断（G15，V2）**：删除 `TrajectoryPlayback.perceptibleSettleTime()` 方法及全部 14 个消费点，统一 `let settle = playback.duration`（播满引擎自然静止，不做 0.07 m/s 感知截断）；`stateAt` stationary 置零与 `EngineNumerics` 0.001 静止判定保留（物理语义）；`SequenceVideoExporter` 本就同口径无需改。副作用：收尾比旧截断晚 ~0.3–0.5s（被消除的 creep 尾段真实时长），属预期。
 - **打点盘 inset 5→2（G16，V2）**：`BTSpinPad` 内边距收窄（打滑圈/皮头斑随 ballR 等比）；**DR-042 起**卡片宽=`playingRect.width`（库边内侧）、白盘直径由 `SpinPadLayout` 封顶 168pt（取代固定 104/卡片 228）。
 - **设置入口三点统一（G19，V2）**：`ellipsis.circle` 扫替练习 Tab（AngleDynamic/SceneAiming）+ 外围（CustomPlanBuilder/BTExerciseRow）；**ProfileView「偏好设置」行 `BTIcon.gear` 豁免保留**（iOS 设置风格导航行徽标，非图标按钮式入口）。翻袋/反射 i→三点（原理说明 + 网格 Toggle）随 Q17/Q18 落地。**内容层顺序见 G25**（本条只定图标真源）。
-- **防守评分权重（V8）**：对手进球难度 `d = 0.6·(切角/90°) + 0.4·min(1, 球距/2.54m)`，权重集中在 `AngleSceneCalculator` 常量单点可调，**v1 待实测调优**（见遗留项）。
+- **防守评分权重（V8）**：对手进球难度 `d = 0.6·(切角/90°) + 0.4·min(1, 球距/2.54m)`，权重集中在 `AngleSceneCalculator` 常量单点可调，**v1 待实测调优**（见遗留项）。 2026-11-03：该值仍是启发式估算，不是概率；合法性/微调重评及最易球优先按[防守优化卡](DEFENSE-OPTIMIZATION-20261103.md)，无完全解时不保证“高难度”。
 
 **f. 动作列文案字典 + 左下插槽协议（G24，v7 W9a）**
 
@@ -3506,3 +3525,38 @@ DR-451 v7（2026-10-29）：用户要求详情总分行由“走位分”改为�
 
 
 DR-451 v9（2026-10-30）：用户明确“就标题居中，下面的不动”。仅将共用评分详情的ⓘ与标题作为整体水平居中；分项左对齐、分值右对齐、分隔线、15/14pt字号、220pt宽度、定位及关闭行为保持。 Changelog：DR-451 v9；证据见评分明细页面卡本轮节。
+
+## 2026-10-31 · 解球练习
+
+打区新增解球练习，遵循统一球桌规范及[完整页面卡](table-page-adaptation/KICK-PRACTICE-20261031.md)。单颗目标球名单；双尺自由调方向/杆速，支持左右塞与高低杆；桌边编号表明1–4库次序，固定墙锚点不泄露碰库点。左侧题号/成功率及重打、回放；右侧共用打点/杆速/击球。正式2D/3D共享同题与首答，设置普通15题或连续练习，单独筛库数。计算/播放锁定参数，结果后显式下一题或总结；要求和本杆结果常驻，入题提示短显。新页独立偏好与布局，不向K球增加功能。实际验证边界以页面卡和本轮UI报告为准。
+
+
+## 2026-10-31 · 解球／K球反馈修订（覆盖上节旧合同）
+
+六段颜色位于木质库边，台呢和胶边保持；球库右侧居中显示母球→库色及下角序号，两页设置默认开，可整体关闭。解球库数默认展开；入题和结果提示全部定时消失，回放换共用测量，重试不显示旧直连虚线。实际用户杆须先碰指定主库再碰球，碰后至少一球再次碰库。题库不改、不按参考解新规则筛题，仍140题；K球判分不变。详见[现行卡](table-page-adaptation/KICK-KBALL-FEEDBACK-20261031.md)。
+
+
+2026-10-31追加视觉反馈（覆盖本日全六库染色与时机文字说明）：解球／K球只标本题涉及库段，颜色按第1、2、3…次吃库分配；窄条限定木边台内侧，外缘与颗星内缘相切，未涉及库段及颗星外侧木纹不着色。顶部保持单行母球→色块和小角标，去掉“出库后K”等文字，母球复用现有带高光／红点的共用球面。题库和判题不改；现行实施见KICK-KBALL-FEEDBACK-20261031页面卡第二轮。
+
+
+## 2026-11-01 · DR-455 两图谱库数显示
+
+`BTTeachingTablePage.atlasCushions: BTAtlasCushionControls? = nil` 仅由分离角／加塞吃库两页接入；包含selection、isComputing、onSelect。入口复用标准杆速下方主动作槽、DailyStrikeButtonStyle及原字号，注册`atlas.cushionCount`自由布局能力。菜单112pt宽、四行44pt，浅色regularMaterial、灰框／绿勾、只有1–4库；右缘对齐Foundation桌框右缘，点外收起并消费触摸，选后收起。3D保持同一HUD基准。
+
+默认1；上限取当前球形／力度／打点下全部八条真实轨迹最大碰库数并封顶4，隐藏轨迹仍参与。超过上限和计算中禁用；选择超限自动回落。零库时全灰、无选中项、入口保留1库并完整显示路径。N表示显示至碰球后第N次碰库；不足者保留真实结束点。共用`AtlasCushionTrack`按时间截断、保留事件端点，切库数只重绘；保持图谱各自线宽和八色，不改物理引擎。其余宿主nil行为不变。实施与实测边界见[页面卡](table-page-adaptation/ATLAS-CUSHION-LIMIT-20261101.md)。
+
+
+### DR-458 · 翻袋练习与默认兼容的共享扩展（2026-11-01）
+
+`PracticeRailSequence.observedBallKey/observedBallLabel`默认母球，翻袋显式目标球；保留同球库球径、色块及下沿基准。`GeometricReferenceTool.updateForBank(identity:target:firstSegment:)`以目标球为起点、第一指定主库段中点为初值，共用1–5库拖动与快照。`BTTeachingTablePage.supplementalDetail/supplementalDetailTitle`默认nil／本题要求，显式绑定时使用`BTScoreDetailsOverlay.heading`；原评分详情默认标题和行为保持。翻袋其余功能复用双尺、打点、指定袋、短提示、设置及球桌适配。业务差异、当前原生验证和未验范围见`tasks/table-page-adaptation/BANK-PRACTICE-PLAN-20261101.md`，不以API注册代表跨页验收。
+
+DR-458原生复验补充：`BTScoreDetailsOverlay.close()`先清空`titleFocused`再执行宿主dismiss，onDisappear再次清空；外点与辅助escape共用该路径，面板锚点／字号／内点拦截不改。iOS17关闭后主动作可达、提交与重打流程已复验；完整范围见翻袋页面卡。
+
+
+## DR-459 · P05推荐落区、球下角色圈与底部动作（2026-11-01）
+
+用户确认2cm采样、同侧、切角≥5°并同时要求选中球下加圈、上一步/回放下移。P05使用`PlanThreeComfortRegion`采样ShotComfortScore（85分轮廓），有效袋口瞄准点统一用于舒适度、切角、方向和遮挡；第三球同侧及5°使用半平面裁剪。此为简化几何推荐，不承诺下一杆物理可达，也不修改三球走位原评分。`SolveRegion.sampled(SampledSolveRegion)`以世界XZ米存储裁剪网格，填充/外边界/求解SDF共用；支持不连通区域，空区域不退回旧扇形，自绘约束仍优先。
+
+`SceneStroke.roleRing(role:)`复用原多球环的几何/材质，P05与多球共用；其他页不自动开启。P05下部两动作使用`BTTeachingInstrumentLayout`和`BTHUDCompactAction`，保留原自由布局ID/动作/权限，个人布局不重置。现行范围与证据见`tasks/table-page-adaptation/P05-PLAN-THREE.md`及`tasks/ui-reviews/UR-20261101-plan-three-region.md`。
+
+DR-458补充（2026-11-01，正式题库）：按用户选择将翻袋设置碰库次数改为综合／1／2／3库；旧四库草稿归一为综合，历史记录不改写。使用21569题新库，原球桌外观与单行结果保持，范围与证据见BANK-APP-IMPORT-20261101。

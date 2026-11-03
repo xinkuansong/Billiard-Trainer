@@ -22,6 +22,13 @@ enum GeometricRailReference {
     }
     struct Context: Equatable, Codable {
         let cue, ghost, pocket, potDirection, incoming: Point
+        var startsAtCue: Bool? = nil
+        init?(cue: SCNVector3, direction: SCNVector3) {
+            guard let direction = unit(point(direction)) else { return nil }
+            let origin = point(cue)
+            self.cue = origin; ghost = origin; pocket = origin
+            incoming = direction; potDirection = direction; startsAtCue = true
+        }
         init?(cue: SCNVector3, target: SCNVector3, pocket: SCNVector3) {
             let c = point(cue), t = point(target), p = point(pocket)
             guard let pot = unit(p - t) else { return nil }
@@ -57,7 +64,7 @@ enum GeometricRailReference {
                 .min { simd_distance_squared($0, p) < simd_distance_squared($1, p) }
         }
         var defaultFirst: Point? {
-            guard let tangent, let hit = boundaryHit(from: ghost, direction: tangent),
+            guard let direction = startsAtCue == true ? incoming : tangent, let hit = boundaryHit(from: ghost, direction: direction),
                   rail(at: hit.point) != nil, allows(hit.point) else { return nil }
             return hit.point
         }

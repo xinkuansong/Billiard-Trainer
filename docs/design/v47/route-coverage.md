@@ -69,3 +69,10 @@ FreePlay既有玩法/开球sheet保留；每日重开改成同页双操作浮层
 - 补齐15个已有测试写盘入口，详 [写盘审计](write-surface-audit.md#2026-10-27-既有测试写盘入口补登记)。此次仅检查源码，没有执行生成器、同步探针或截图测试。
 
 验证日志：`output/route-gate-repair-20261027/`。UI基线核对为66张截图、89个页面、203个测试写盘文件；`make -f scripts/Makefile verify-gate`退出码0，文档体积及`git diff --check`通过；临时清单构造的错误页面名、错误签名、遗漏写盘入口均被原门禁拒绝（3/3），未修改真实源码或校验规则。历史截图/任务报告仅说明已有证据，不代表本轮重跑App、真机或视觉验收。
+
+2026-10-31：新增KickPracticeView与KickPracticeSettings，生产路径为AngleHomeView打区→AngleRoute.kickPractice2D→MainTabView→解球设置/球桌。CSV登记94页；新增路由与AngleHome签名经源码核对后更新，验证状态以解球页面卡为准。
+
+
+2026-11-01：新增BankPracticeView／BankPracticeSettings，正式入口为练习→打→翻袋练习；源身份bankPractice2D，页内切3D，旧bankShot工具保持。48题重放与三尺寸定向UI已通过，结果按用户反馈简化且SE定向复验通过，最终范围见翻袋页面卡；覆盖登记不代表原生验收。
+
+2026-11-01后续：翻袋替换为21569题，一至三库；全量转换／包内解码、360题App重放及SE的14逻辑＋4UI通过。旧48题证据保留为历史，现行验证见BANK-APP-IMPORT-20261101。路由和公共菜单面未改变。

@@ -124,6 +124,12 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     private var tableAppearance: TableAppearance?
     private var requestedTableStyle: TableStyle = .defaultStyle
     private var requestedTableSights = true
+    private(set) var showsPracticeRailColors = false
+    private var practiceRailSegments: [Int] = []
+    func setPracticeRailColors(_ enabled: Bool, segments: [Int] = []) {
+        showsPracticeRailColors = enabled; practiceRailSegments = enabled ? segments : []
+        if let tableNode { PracticeRailColors.apply(to: tableNode, enabled: enabled, segments: practiceRailSegments, surfaceY: surfaceY) }
+    }
     var showsTableSights: Bool { requestedTableSights }
     var installedTableStyle: TableStyle { tableAppearance?.style ?? .standard }
 
@@ -133,8 +139,10 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         requestedTableSights = showsSights
         guard let tableNode else { return false }
         if tableAppearance == nil { tableAppearance = TableAppearance(table: tableNode, surfaceY: surfaceY) }
+        let appearanceChanged = tableAppearance?.style != style || tableAppearance?.showsSights != showsSights
         guard tableAppearance?.apply(style, showsSights: showsSights) == true else { return false }
         for marker in leatherMarkers { marker.applyTableStyle(style) }
+        if showsPracticeRailColors && appearanceChanged { setPracticeRailColors(true, segments: practiceRailSegments) }
         refreshRoomReflectionProbe()
         return true
     }
@@ -230,6 +238,17 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     func setCurrentTargetNumber(_ number: Int?) {
         currentTargetNumber = number
     }
+
+    /// Change the primary target without moving, hiding, or reseating any ball.
+    @discardableResult
+    func setPrimaryTarget(key: String) -> Bool {
+        guard PositionPlayBall.objectKeys.contains(key),
+              let node = allBallNodes[key] ?? targetBallNodes.first(where: { $0.name == key }),
+              let number = PositionPlayBall.number(for: key) else { return false }
+        targetBallNodes = [node]
+        currentTargetNumber = number
+        return true
+    }
     private(set) var ghostBallNode: SCNNode?
     private(set) var pocketLineNode: SCNNode?
     private(set) var strikeLineNode: SCNNode?
@@ -266,6 +285,7 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         var markers: [PocketLeatherMarker]
         let key: String
         init(scene: AngleTrainingScene, key: String) {
+            scene.setPracticeRailColors(false)
             node = scene.tableNode!
             appearance = scene.tableAppearance
             cloth = scene.clothAppearance

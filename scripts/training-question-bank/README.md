@@ -1,5 +1,17 @@
 # 六入口题库离线生产
 
+## 当前构建合同（2026-11-03，ADR-P18-12）
+
+正式资源是 `training-grid-bank.json`：782528 个练习摆位，不含参考解或轨迹。下文旧 `training-question-bank.json`、九点证明及生产命令是历史研究流程，不是当前日常构建合同。
+
+- Debug／Release 无条件运行 `verify_grid_bank.py`：验证资源 SHA、schema、数量、组合索引、无存解，以及球径、台面、袋口几何的兼容性。`TRAINING_BANK_REVALIDATION=YES` 不再跳过完整性检查。
+- `physicalSourceHashes`、`qualification`、`validationEvidence` 原样保留为历史筛选证据。非几何物理源码漂移输出 note，不再否定练习摆位或阻断 App 构建；不会声称旧筛选已在当前引擎重验。
+- 显式核对历史证据：`python3 scripts/training-question-bank/verify_grid_bank.py --require-current-physics`。源码不一致仍失败；一致也仅表示指纹匹配，命令本身不执行模拟。需要声明当前物理资格时，另行冻结源码、真实重放并保存新证据，不能只更新哈希。
+- 几何仍是硬门禁：TableGeometry、TableGeometry+QiuJi、AngleSceneCalculator、DrillBoardBuilder 绑定原 manifest；混合常量文件仅逐项绑定原几何表达式，允许恢复系数等物理参数独立演进。几何变更需先审计摆位兼容性再更新合同。
+- 回归：`python3 -m unittest discover -s scripts/training-question-bank -p test_verify_grid_bank.py -v`。
+
+## 历史生产流程（以下不覆盖上述现行合同）
+
 六入口共用 `QiuJi/Resources/training-question-bank.json`。旧四类消费“存在实际进球证明”的基础球形，准度消费指定打点、直接进指定袋且不落母球的稳定变体；两种资格不可混用。实际题量与指纹见同目录 manifest；验收记录见 `tasks/table-page-adaptation/ACCURACY-PRACTICE-IMPLEMENTATION-20261020.md`。
 
 ## 生产与复验
