@@ -49,7 +49,9 @@ targets:
       - name: Verify training question bank
         basedOnDependencyAnalysis: false
         script: |
+          set -e
           /usr/bin/python3 "$SRCROOT/scripts/training-question-bank/verify_grid_bank.py"
+          /usr/bin/python3 "$SRCROOT/scripts/verify_pocket_pipe_table.py"
     sources:
       - path: QiuJi
         excludes:
@@ -62,6 +64,7 @@ targets:
           - "Resources/BallStickers/**"
           - "Resources/CueStyles/**"
           - "Resources/Plans/**"
+          - "Resources/PocketPipe/**"
           # v25 W1：引擎渲染视频已下线；历史 MP4 已于 2026-10-11 按用户授权清理，仍不进包。
           - "Resources/Videos/**"
           - "Resources/DrillThumbnails/**"
@@ -75,6 +78,9 @@ targets:
           # 保留代码与磁盘资源，随时可恢复 folder reference）。
           - "Resources/Previews/**"
       # Folder references（蓝色文件夹）：保留子目录结构供 Bundle.main 解析。
+      - path: QiuJi/Resources/PocketPipe
+        type: folder
+        buildPhase: resources
       - path: QiuJi/Resources/KBallBank
         type: folder
         buildPhase: resources

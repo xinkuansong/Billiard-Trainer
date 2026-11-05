@@ -61,7 +61,6 @@ enum CoverArtKey: String, CaseIterable, Equatable, Sendable {
     case coverPracticeBallExtraction
     case coverPracticeSolver
     case coverPracticePlanThree
-    case coverPracticeSnooker
     case coverPracticeBankShot
     case coverPracticeDiamond
 
@@ -173,7 +172,7 @@ enum AtmosphereCatalog {
         case .aimingMethods: return .coverPracticeAimingMethods
         case .aimingCorrection: return .coverPracticeAimingCorrection
         case .spinAndEnglish: return .coverPracticeSpinAndEnglish
-        case .angleDynamic: return .coverPracticeAngleDynamic
+        case .pocketTolerance, .angleDynamic: return .coverPracticeAngleDynamic
         case .separationAngleAtlas: return .coverPracticeSeparationAtlas
         case .cushionEnglishAtlas: return .coverPracticeCushionEnglish
         case .ballFeel: return .coverPracticeBallFeel
@@ -185,13 +184,12 @@ enum AtmosphereCatalog {
         case .aimPointTraining: return .coverPracticeAimPoint
         case .aimPointScene2D, .accuracy2D: return .coverPracticeAimPoint2D
         case .aimPointScene3D, .accuracy3D: return .coverPracticeAimPoint3D
-        case .bankPractice2D, .kickPractice2D, .kBallPractice2D, .shotSimulation, .separationPractice2D, .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return .coverPracticeShotSim
+        case .defensePractice2D, .bankPractice2D, .kickPractice2D, .kBallPractice2D, .shotSimulation, .separationPractice2D, .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return .coverPracticeShotSim
         case .positionPlayComposer, .customFormationPractice: return .coverPracticeComposer
         case .freePlay, .snakePractice, .multiBallPractice, .multiBallPractice3D: return .coverPracticeFreePlay
         case .ballExtraction: return .coverPracticeBallExtraction
         case .positionPlaySolver: return .coverPracticeSolver
         case .planThree: return .coverPracticePlanThree
-        case .snookerTactics: return .coverPracticeSnooker
         case .bankShot: return .coverPracticeBankShot
         case .diamondSystem: return .coverPracticeDiamond
         case .theoryIndex, .batchDrillStudio, .drillDetail:
@@ -215,7 +213,7 @@ enum AtmosphereCatalog {
         case .spinAndEnglish: multicolor.spinAndEnglish
         case .separationAngleAtlas: multicolor.separationAngleAtlas
         case .cushionEnglishAtlas: multicolor.cushionEnglishAtlas
-        case .angleDynamic: multicolor.angleDynamic
+        case .pocketTolerance, .angleDynamic: multicolor.angleDynamic
         case .geometricQuiz: multicolor.geometricQuiz
         case .sceneAiming2D: multicolor.sceneAiming2D
         case .sceneAiming3D: multicolor.sceneAiming3D
@@ -224,14 +222,13 @@ enum AtmosphereCatalog {
         case .aimPointScene3D, .accuracy3D: multicolor.aimPointScene3D
         case .ballFeel: multicolor.ballFeel
         case .contactPointTable: multicolor.contactPointTable
-        case .bankPractice2D, .kickPractice2D, .kBallPractice2D, .shotSimulation, .separationPractice2D, .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: multicolor.shotSimulation
+        case .defensePractice2D, .bankPractice2D, .kickPractice2D, .kBallPractice2D, .shotSimulation, .separationPractice2D, .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: multicolor.shotSimulation
         case .positionPlayComposer, .customFormationPractice: multicolor.positionPlayComposer
         case .freePlay, .snakePractice, .multiBallPractice, .multiBallPractice3D: multicolor.freePlay
         case .ballExtraction: multicolor.ballExtraction
         case .batchDrillStudio: multicolor.batchDrillStudio
         case .positionPlaySolver: multicolor.positionPlaySolver
         case .planThree: multicolor.planThree
-        case .snookerTactics: multicolor.snookerTactics
         case .bankShot: multicolor.bankShot
         case .diamondSystem: multicolor.diamondSystem
         case .drillDetail: multicolor.aimingPrinciple

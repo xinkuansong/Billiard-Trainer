@@ -173,7 +173,7 @@ final class PlanThreeSectorSolverTests: XCTestCase {
     /// 台面仅 1 目标球：VM 无自选约束/无② ⇒ currentConstraint 走 pot-only（全台面落区），
     /// 可求得进袋解；清台后终局提示出现。
     @MainActor
-    func test_potOnly_singleObjectBall_solvableAndEndgamePrompt() {
+    func test_potOnly_singleObjectBall_solvableAndQuietEndgame() {
         let vm = PlanThreeViewModel()
         vm.setupScene()
         // 只留母球 + _1。
@@ -202,11 +202,12 @@ final class PlanThreeSectorSolverTests: XCTestCase {
         XCTAssertFalse(sols.isEmpty, "1 球 pot-only 应求得进袋解")
         XCTAssertTrue(sols.contains { $0.potted }, "应至少一个进袋解")
 
-        // 终局提示：打进最后一颗目标球（母球留台）后台面无目标球 ⇒ hint 给清台文案。
+        // The 2026-11-02 P05 contract keeps an empty table quiet; cue stays on table.
         vm.removeFromTable("_1")
         XCTAssertEqual(vm.objectBallCount, 0)
         XCTAssertFalse(vm.scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true, "母球应仍在台")
-        XCTAssertTrue(vm.hintForState().contains("清台"), "无目标球（母球留台）应出终局提示")
+        XCTAssertEqual(vm.hintForState(), "", "清台后保持静默")
+        vm.stopForDismissal()
     }
 
     // MARK: - 扇形默认 / 自选降级 / 删除恢复 状态机（Q15.1）
@@ -504,6 +505,42 @@ final class BallRolePlanFlowTests: XCTestCase {
             XCTAssertEqual(vm.informationEvent.kind, .failure)
         }
         print("P05 screenshot-like solutions=\(vm.solutions.count) potted=\(vm.solutions.map(\.potted))")
+    }
+
+    func testSelectedFutureRolesWireProtectionIntoActualSolve() async throws {
+        for roles in [("_2", "_3"), ("_5", "_6")] {
+            let vm = PlanThreeViewModel(); vm.setupScene()
+            defer { vm.stopForDismissal() }
+            vm.loadBoard(BoardSnapshot(onTable: [
+                PositionPlayBall.cueKey: .init(x: 0.3, y: 0.36),
+                "_1": .init(x: 0.55, y: 0.17),
+                roles.0: .init(x: 0.7, y: 0.32), roles.1: .init(x: 0.25, y: 0.13)
+            ]))
+            vm.selectPaletteBall("_1"); vm.selectPocket(at: 4)
+            vm.selectPaletteBall(roles.0); vm.selectPocket(at: 5)
+            vm.selectPaletteBall(roles.1)
+            vm.draft = .region(.circle(center: .init(x: 0.5, y: 0.25), radius: 1))
+            let board = vm.currentSnapshot(), constraint = try XCTUnwrap(vm.currentConstraint()), y = vm.surfaceY
+            var params = PositionPlaySolver.SearchParams.standard
+            params.allowsMissedPotFallback = false; params.requiresDirectPot = true
+            params.protectedBallKeys = [roles.0, roles.1]
+            params.continuation = { positions in
+                MultiBallPositionScore.evaluate(positions: positions, target: roles.0,
+                    pocket: 5, third: roles.1, surfaceY: y).value
+            }
+            let expected = PositionPlaySolver.solve(before: board, targetKey: "_1", pocket: "topCenter",
+                constraint: constraint, surfaceY: y, params: params)
+            XCTAssertFalse(expected.isEmpty)
+            vm.solve()
+            let deadline = Date().addingTimeInterval(30)
+            while vm.isComputing && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+            XCTAssertFalse(vm.isComputing)
+            XCTAssertEqual(vm.solutions.map { [$0.shot.velocity, $0.shot.spinX, $0.shot.spinY] },
+                           expected.map { [$0.shot.velocity, $0.shot.spinX, $0.shot.spinY] })
+            let first = try XCTUnwrap(vm.currentSolution)
+            XCTAssertFalse(PositionPlaySolver.contactsProtectedBall(first.prediction, keys: params.protectedBallKeys))
+            XCTAssertTrue(vm.canStrike)
+        }
     }
 
     func testRoleChangesInvalidateSolvedCatalogAndLateGeneration() async throws {

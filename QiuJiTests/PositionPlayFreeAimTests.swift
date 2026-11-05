@@ -3952,12 +3952,6 @@ final class SharedShotReplayCameraTests: XCTestCase {
             replay: vm.replayLastShot, isPlaying: { vm.isPlaying }, dismiss: vm.stopForDismissal)
     }
 
-    func testSnookerReplayLifecycle() async throws {
-        let vm = SnookerTacticsViewModel(); vm.setupScene()
-        vm.restore(from: .init(snapshot: try snapshot(namedBalls: true), selectedTargetKey: "_1"))
-        try await exercise(host: vm, play: vm.play,
-            replay: vm.replayLastShot, isPlaying: { vm.isPlaying }, dismiss: vm.stopForDismissal)
-    }
 
     func testBankSolveReplayLifecycle() async throws {
         let vm = BankShotViewModel(); vm.setupScene(); vm.requestPrimaryAction()

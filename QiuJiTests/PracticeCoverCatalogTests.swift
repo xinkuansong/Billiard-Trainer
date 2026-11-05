@@ -5,7 +5,7 @@ import XCTest
 final class PracticeCoverCatalogTests: XCTestCase {
 
     func testOfficialRoutesIncludeBothAccuracyModes() {
-        XCTAssertEqual(PracticeCoverCatalog.officialRoutes.count, 28)
+        XCTAssertEqual(PracticeCoverCatalog.officialRoutes.count, 32)
         for route in [AngleRoute.accuracy2D, .accuracy3D] {
             XCTAssertTrue(PracticeCoverCatalog.officialRoutes.contains(route))
             let layout = PracticeCoverCatalog.visual(for: route).layout
@@ -29,7 +29,7 @@ final class PracticeCoverCatalogTests: XCTestCase {
     func testLearnRoutesUseGeometricKind() {
         let learn: [AngleRoute] = [
             .aimingPrinciple, .aimingMethods, .aimingCorrection, .spinAndEnglish,
-            .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas, .ballFeel, .contactPointTable,
+            .angleDynamic, .pocketTolerance, .separationAngleAtlas, .cushionEnglishAtlas, .ballFeel, .contactPointTable,
         ]
         for route in learn {
             XCTAssertTrue(
@@ -44,7 +44,7 @@ final class PracticeCoverCatalogTests: XCTestCase {
             .geometricQuiz, .sceneAiming2D, .sceneAiming3D, .aimPointTraining,
             .aimPointScene2D, .aimPointScene3D,
             .shotSimulation, .positionPlayComposer, .freePlay, .ballExtraction,
-            .positionPlaySolver, .planThree, .snookerTactics, .bankShot, .diamondSystem,
+            .positionPlaySolver, .planThree, .bankShot, .diamondSystem,
         ]
         for route in routes {
             XCTAssertFalse(
@@ -68,6 +68,22 @@ final class PracticeCoverCatalogTests: XCTestCase {
             seen.insert(key)
         }
         XCTAssertEqual(seen.count, PracticeCoverCatalog.officialRoutes.count)
+    }
+
+    func testDeferredFeaturesDoNotShipWhileBankToolsRemainAvailable() {
+        let retired = Set(["snookerTactics", "oneCushionBankLesson"])
+        XCTAssertTrue(retired.isDisjoint(with: PracticeCoverCatalog.officialRoutes.map { String(describing: $0) }))
+        XCTAssertNil(TablePreferencePage(rawValue: "snookerTactics"))
+        XCTAssertFalse(ProBenefits.premium.contains { $0.id == "safety" })
+        XCTAssertEqual(ProBenefits.premium.count, 11)
+        XCTAssertEqual(ProBenefits.premium.map(\.number), (1...11).map { String(format: "%02d", $0) })
+        for route in [AngleRoute.bankShot, .diamondSystem, .positionPlaySolver, .planThree] {
+            XCTAssertTrue(PracticeCoverCatalog.officialRoutes.contains(route))
+            _ = PracticeCoverCatalog.visual(for: route)
+        }
+        XCTAssertTrue(AngleRoute.bankShot.requiresPremium)
+        XCTAssertTrue(AngleRoute.diamondSystem.requiresPremium)
+        XCTAssertFalse(AngleRoute.bankPractice2D.requiresPremium)
     }
 
     private func fingerprint(_ layout: PracticeCoverLayout) -> String {

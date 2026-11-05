@@ -75,4 +75,43 @@ final class W3_HomeCoverUITests: XCTestCase {
         let app = XCUIApplication.launchClean()
         snapHomeSeries(app, suffix: "dark")
     }
+    func testDeferredFeaturesAreAbsentAndBankSolverRemainsReachable() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
+        app.switchTab(.angle)
+        let solve = app.buttons["angleHomeTab_解"]
+        XCTAssertTrue(solve.waitForExistence(timeout: 15))
+        solve.tap()
+        XCTAssertTrue(app.buttons["翻袋解球"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["防守求解"].exists)
+        XCTAssertFalse(app.buttons["防守"].exists)
+        let solveShot = XCTAttachment(screenshot: app.screenshot())
+        solveShot.name = "deferred-solve"; solveShot.lifetime = .keepAlways; add(solveShot)
+        let bank = app.buttons["翻袋解球"]
+        bank.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["bankshot.template"].waitForExistence(timeout: 30))
+        let landscape = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in app.frame.width > app.frame.height }, object: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 5), .completed)
+        // The navigation route exists before the system rotation animation completes.
+        Thread.sleep(forTimeInterval: 2)
+        // Capture the display: XCUIApplication may retain the portrait crop after rotation.
+        let bankShot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        bankShot.name = "preserved-bank-solver"; bankShot.lifetime = .keepAlways; add(bankShot)
+        app.terminate()
+        let home = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
+        home.switchTab(.angle)
+        let learn = home.buttons["angleHomeTab_学"]
+        XCTAssertTrue(learn.waitForExistence(timeout: 15)); learn.tap()
+        XCTAssertTrue(home.buttons["瞄准原理"].waitForExistence(timeout: 5))
+        let learnShot = XCTAttachment(screenshot: home.screenshot())
+        learnShot.name = "deferred-learn"; learnShot.lifetime = .keepAlways; add(learnShot)
+        // Search the entire category so a lazily unloaded card cannot masquerade as removed.
+        let search = home.textFields["搜索练习"]
+        XCTAssertTrue(search.exists); search.tap(); search.typeText("一库翻袋")
+        XCTAssertFalse(home.buttons["一库翻袋"].exists)
+        XCTAssertTrue(home.staticTexts["没有找到相关练习"].waitForExistence(timeout: 5))
+    }
+
 }

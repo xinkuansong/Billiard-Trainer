@@ -131,23 +131,6 @@ final class W1BTeachingEditingTests: XCTestCase {
         plan.stopForDismissal()
     }
 
-    func testDefenseSelectionAndDragRemainAvailableInTemporaryView() throws {
-        let vm = SnookerTacticsViewModel(); vm.setupScene(); vm.scene.cameraRig?.viewportSize = CGSize(width: 874, height: 402); vm.setCameraMode(.perspective3D)
-        vm.beginTemporaryTopDown(); XCTAssertTrue(vm.temporaryTopDownActive)
-        vm.activeTool = .selectTarget; vm.placeFromPalette("_3")
-        XCTAssertEqual(vm.activeTool, .none)
-        let node = try XCTUnwrap(vm.scene.allBallNodes["_3"])
-        vm.activeTool = .selectTarget; vm.selectTarget(key: "_3")
-        XCTAssertEqual(vm.selectedTargetKey, "_3")
-        vm.activeTool = .none
-        let before = node.position
-        vm.dragBegan(node: node)
-        vm.dragMoved(node: node, worldPosition: SCNVector3(-0.6, before.y, 0.2))
-        vm.dragEnded(node: node)
-        XCTAssertGreaterThan(AngleSceneCalculator.horizontalDistance(before, node.position), 0.05)
-        XCTAssertFalse(vm.canStrike)
-        vm.stopForDismissal()
-    }
 
     func testUnsolvedEmptyBoardCanEnterTemporaryAndRestoresCameraPoseAfterEditing() throws {
         let vm = SiluTrainerViewModel(); vm.setupScene(); vm.clearTable(); vm.setCameraMode(.perspective3D)

@@ -1,0 +1,2 @@
+view,family,batch,states,screenshot,test,scope,source
+SnookerTacticsView,dark-tool,W14b;信息精简20261014,C56目标/防守求解/回放/临时2D;无常驻提示;关键警告;操作说明sheet;最大字号滚动;短时i提示;点击下一解保留计数;无详情长按,output/table-page-adaptation/P06/r01/;output/information-simplification-20261014/review.html;output/information-simplification-20261014/r2/review.html,P06_DefenseTemplateUITests;PlanningInformationUITests;PlanningInformationStateTests;InformationConsistencyUITests,第二轮三设备模拟器验证通过;用户体验待反馈;生产更多→操作说明;解无长按或详情入口,QiuJi/Features/SnookerTactics/Views/SnookerTacticsView.swift

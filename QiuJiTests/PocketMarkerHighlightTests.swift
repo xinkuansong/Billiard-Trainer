@@ -20,14 +20,7 @@ final class PocketMarkerHighlightTests: XCTestCase {
         try verify(SeparationAngleAtlasViewModel())
         try verify(CushionEnglishAtlasViewModel())
         try verify(SiluTrainerViewModel())
-        let snooker = SnookerTacticsViewModel(); snooker.setupScene()
-        defer { snooker.stopForDismissal() }
-        snooker.activeTool = .selectTarget
-        var acknowledgements = 0; snooker.scene.ballSelectionHaptic = { acknowledgements += 1 }
-        let key = try XCTUnwrap(snooker.onTableKeys.first { !PositionPlayBall.isCue($0) && $0 != "_8" })
-        snooker.selectTarget(key: key)
-        XCTAssertEqual(acknowledgements, 1)
-        XCTAssertNotNil(snooker.scene.allBallNodes[key]?.action(forKey: TableBallPulse.actionKey))
+
     }
 
 

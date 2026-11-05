@@ -128,6 +128,14 @@ final class CameraRig: ObservableObject {
         // Seed the production orbit from the actual shot camera before handing it ownership.
         beginManualOrbit()
         mergedGlobalActive = true
+        // Object-only hosts may restore the 3D preference before their first layout.
+        // Preserve the overview intent until the real viewport arrives; otherwise a
+        // failed fit becomes the saved perspective pose on the next 2D/3D round trip.
+        if viewportSize.width <= 1 || viewportSize.height <= 1 {
+            targetYaw = Self.dailyOverviewYaw(currentYaw: currentYaw, aimDirection: aim)
+            keepsWholeTableFramed = true
+            return true
+        }
         return observeDailyWholeTable(aimDirection: aim)
     }
 
@@ -1132,10 +1140,15 @@ final class CameraRig: ObservableObject {
         let yawPrecision = max(precision, max(abs(currentYaw), abs(targetYaw)) * Float.ulpOfOne * 32)
         let orbitPending: Bool
         if let currentOrbit, let targetOrbit {
+            // FOV is measured in degrees: its Float ulp is much larger than the
+            // metre/radian fields. Damping can stop rounding closer while still
+            // exceeding 1e-5 degrees, keeping an otherwise stationary renderer awake.
+            let fovPrecision = max(precision,
+                max(abs(currentOrbit.fov), abs(targetOrbit.fov)) * Float.ulpOfOne * 32)
             orbitPending = abs(currentOrbit.distance - targetOrbit.distance) > precision
                 || abs(currentOrbit.elevation - targetOrbit.elevation) > precision
                 || abs(currentOrbit.pitchOffset - targetOrbit.pitchOffset) > precision
-                || abs(currentOrbit.fov - targetOrbit.fov) > precision
+                || abs(currentOrbit.fov - targetOrbit.fov) > fovPrecision
         } else { orbitPending = false }
         return orbitPending || abs(shortestAngleDelta(from: currentYaw, to: targetYaw)) > yawPrecision
             || abs(currentZoom - targetZoom) > precision

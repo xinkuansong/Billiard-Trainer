@@ -42,7 +42,9 @@ REQUIRED_VIEWS = {
     "SceneAimingView", "AimPointTrainingView", "AimPointSceneTrainingView",
     "ShotSimulationView", "PositionPlayComposerView", "FreePlayView", "BallExtractionView",
     "BatchDrillStudioView", "BatchBallExtractionView", "BatchAuthoringView", "SiluTrainerView",
-    "PlanThreeView", "SnookerTacticsView", "BankShotView", "DiamondSystemView",
+    # SnookerTacticsView retired on 2026-11-03; see the deferred-features archive.
+    "PlanThreeView", "BankShotView", "DiamondSystemView",
+    "DefensePracticeView", "DefensePracticeSettings", "PocketToleranceView",
 }
 
 

@@ -162,12 +162,6 @@ final class ControlLayoutStoreTests: XCTestCase {
         try store.saveNew(id: source, name: "规划", page: .planThree, mode: .twoD,
             values: ["planning.roles": shared, "planning.constraintTool": shared, "planning.clearConstraint": shared,
                      "planning.solve": shared, "planning.nextSolution": shared, "break.strike": shared], expectedPageRevision: 0)
-        try store.saveNew(id: UUID(), name: "防守", page: .snookerTactics, mode: .twoD,
-            values: ["defense.targetTool": local, "defense.clearSelection": local], expectedPageRevision: 0)
-        try store.apply(source, page: .snookerTactics, mode: .twoD, expectedPageRevision: 1)
-        XCTAssertEqual(store.values(page: .snookerTactics, mode: .twoD),
-            ["defense.targetTool": local, "defense.clearSelection": local,
-             "planning.solve": shared, "planning.nextSolution": shared])
         try store.apply(source, page: .bankShot, mode: .twoD, expectedPageRevision: 0)
         XCTAssertEqual(store.values(page: .bankShot, mode: .twoD), ["planning.nextSolution": shared])
         let solver = UUID()
@@ -176,12 +170,8 @@ final class ControlLayoutStoreTests: XCTestCase {
         try store.apply(solver, page: .diamondSystem, mode: .twoD, expectedPageRevision: 0)
         XCTAssertEqual(store.values(page: .diamondSystem, mode: .twoD),
             ["solver.mode": shared, "solver.cushions": local, "shot.aim": shared])
-        XCTAssertThrowsError(try store.apply(solver, page: .snookerTactics, mode: .twoD, expectedPageRevision: 2)) {
-            XCTAssertEqual($0 as? ControlLayoutError, .noCommonControls)
-        }
         XCTAssertTrue(FreeControlCatalog.ids(page: .planThree, mode: .twoD).contains("break.confirm"))
         XCTAssertTrue(FreeControlCatalog.ids(page: .planThree, mode: .twoD).contains("break.entry"))
-        XCTAssertFalse(FreeControlCatalog.ids(page: .snookerTactics, mode: .twoD).contains("shot.aim"))
         XCTAssertTrue(store.values(page: .planThree, mode: .threeD).isEmpty)
     }
 
@@ -226,7 +216,7 @@ final class ControlLayoutStoreTests: XCTestCase {
         let applied = store.values(page: .silu, mode: .twoD)
         XCTAssertEqual(applied["shot.undo"], a); XCTAssertEqual(applied["shot.power"], a)
         XCTAssertEqual(applied["planning.solve"], b)
-        XCTAssertNil(applied["break.entry"])
+        XCTAssertEqual(applied["break.entry"], a, "Silu now exposes the shared break entry")
         XCTAssertEqual(applied["break.strike"], b, "Legitimate hidden-stage control must survive")
         XCTAssertEqual(store.archive.templates, original)
         XCTAssertEqual(store.values(page: .dailyClearance, mode: .twoD), source)
@@ -251,8 +241,8 @@ final class ControlLayoutStoreTests: XCTestCase {
 
     @MainActor func test_freeDerivedTemplateIsPrivateAndKeepsSourceOnlyRecordsAndNames() throws {
         let disk = MemoryStorage(), store = FreeControlLayoutStore(storage: disk), id = UUID(), derivedID = UUID()
-        let original: FreeControlValues = ["shot.undo": .init(x: 0.1, y: 0.5), "break.entry": .init(x: -0.1, y: 0.2)]
-        try store.saveNew(id: id, name: " 同名 · 2D · 3D ", page: .dailyClearance, mode: .twoD,
+        let original: FreeControlValues = ["shot.power": .init(x: 0.1, y: 0.5), "tryout.rearrange": .init(x: -0.1, y: 0.2)]
+        try store.saveNew(id: id, name: " 同名 · 2D · 3D ", page: .drillTryout, mode: .twoD,
                           values: original, expectedPageRevision: 0)
         let template = try XCTUnwrap(store.archive.templates.first), bytes = disk.data
         var draft = try template.merging(into: [:], page: .silu, mode: .twoD)
@@ -265,10 +255,10 @@ final class ControlLayoutStoreTests: XCTestCase {
         let saved = try XCTUnwrap(store.archive.templates.last)
         XCTAssertEqual(saved.displayName, "同名 · 2D")
         XCTAssertEqual(saved.baseName, template.baseName); XCTAssertNotEqual(saved.id, template.id)
-        XCTAssertEqual(saved.values["break.entry"], original["break.entry"])
-        XCTAssertNil(store.values(page: .silu, mode: .twoD)["break.entry"])
+        XCTAssertEqual(saved.values["tryout.rearrange"], original["tryout.rearrange"])
+        XCTAssertNil(store.values(page: .silu, mode: .twoD)["tryout.rearrange"])
         XCTAssertEqual(store.archive.templates.first, template)
-        XCTAssertEqual(store.values(page: .dailyClearance, mode: .twoD), original)
+        XCTAssertEqual(store.values(page: .drillTryout, mode: .twoD), original)
         XCTAssertEqual(FreeControlLayoutStore(storage: disk).archive, store.archive)
     }
 

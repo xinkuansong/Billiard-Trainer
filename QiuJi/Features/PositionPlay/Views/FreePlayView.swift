@@ -1471,7 +1471,10 @@ struct FreePlayView: View {
             }
         case .games:
             if usesUnifiedBreakControls {
-                return BreakFlowRunner.gameSettingItems(selection: $breakGameBallCount,
+                return BreakFlowRunner.gameSettingItems(selection: Binding(get: { breakGameBallCount }, set: { count in
+                    breakGameBallCount = count
+                    vm.selectBreakGame(BreakFlowRunner.game(forBallCount: count))
+                }),
                     disabled: vm.isPlaying || vm.isComputing || vm.breakRunner?.isBusy == true)
             }
             return DailyClearanceGame.allCases.map { game in
@@ -1571,7 +1574,7 @@ struct FreePlayView: View {
                     closeDailyPresentation(); endGame(); flash("对局已结束")
                 }))
             }
-            if isManualBreakPage && vm.isBreakMode {
+            if isManualBreakPage && !usesUnifiedBreakControls && vm.isBreakMode {
                 items.append(.init(id: "freeplay.cancelBreak", title: "取消开球", disabled: vm.breakRunner?.isBusy == true, action: {
                     closeDailyPresentation(); pendingGame = nil; vm.cancelBreakFlow()
                 }))

@@ -15,14 +15,7 @@ final class TrajectoryRendererTests: XCTestCase {
         XCTAssertFalse(o.requireVisibleTargetForGhost)
     }
 
-    func testSnookerDefenseOptionsExpressDefenseSemantics() {
-        let o = TrajectoryRenderer.Options.snookerDefense
-        XCTAssertFalse(o.includeObjectPath, "D2: snooker defense omits objectPath")
-        XCTAssertFalse(o.extendToPocketRim)
-        XCTAssertEqual(o.ghostSource, .firstContact)
-        XCTAssertEqual(o.extraBallMode, .coreTargetAndFull)
-        XCTAssertTrue(o.requireVisibleTargetForGhost)
-    }
+
 
     func testSceneStrokeConstantsMatchPriorCopies() {
         XCTAssertEqual(SceneStroke.circleSegments, 36)

@@ -210,6 +210,7 @@ enum HistoryDayItem: Identifiable {
     case separation(SeparationPracticeRecord)
     case kBall(KBallPracticeRecord)
     case kick(KickPracticeRecord)
+    case defense(DefensePracticeRecord)
     case bank(BankPracticeRecord)
     case twoBall(TwoBallPracticeRecord)
     case threeBall(ThreeBallPracticeRecord)
@@ -224,6 +225,7 @@ enum HistoryDayItem: Identifiable {
         case .kBall(let a): return "kBall_\(a.id.uuidString)"
         case .kick(let a): return "kick_\(a.id.uuidString)"
         case .bank(let a): return "bank_\(a.id.uuidString)"
+        case .defense(let a): return "defense_\(a.id.uuidString)"
         case .twoBall(let a): return "twoBall_\(a.id.uuidString)"
         case .threeBall(let a): return "threeBall_\(a.id.uuidString)"
         }
@@ -239,6 +241,7 @@ enum HistoryDayItem: Identifiable {
         case .kBall(let a): return a.startedAt
         case .kick(let a): return a.startedAt
         case .bank(let a): return a.startedAt
+        case .defense(let a): return a.startedAt
         case .twoBall(let a): return a.startedAt
         case .threeBall(let a): return a.startedAt
         }
@@ -306,12 +309,14 @@ final class HistoryViewModel: ObservableObject {
     @Published var kBallSessions: [KBallPracticeRecord] = []
     @Published var kickSessions: [KickPracticeRecord] = []
     @Published var bankSessions: [BankPracticeRecord] = []
+    @Published var defenseSessions: [DefensePracticeRecord] = []
     @Published var twoBallSessions: [TwoBallPracticeRecord] = []
     @Published var unreadableThreeBallCount = 0
     @Published var threeBallSessions: [ThreeBallPracticeRecord] = []
     @Published var unreadableKBallCount = 0
     @Published var unreadableKickCount = 0
     @Published var unreadableBankCount = 0
+    @Published var unreadableDefenseCount = 0
     @Published var unreadableTwoBallCount = 0
     @Published var separationSessions: [SeparationPracticeRecord] = []
     @Published var unreadableSeparationCount = 0
@@ -356,6 +361,9 @@ final class HistoryViewModel: ObservableObject {
         for a in kickSessions {
             comps.insert(cal.dateComponents([.year, .month, .day], from: a.startedAt))
         }
+        for a in defenseSessions {
+            comps.insert(cal.dateComponents([.year, .month, .day], from: a.startedAt))
+        }
         for a in bankSessions {
             comps.insert(cal.dateComponents([.year, .month, .day], from: a.startedAt))
         }
@@ -395,6 +403,7 @@ final class HistoryViewModel: ObservableObject {
         items.append(contentsOf: kBallSessions.filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }.map(HistoryDayItem.kBall))
         items.append(contentsOf: kickSessions.filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }.map(HistoryDayItem.kick))
         items.append(contentsOf: bankSessions.filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }.map(HistoryDayItem.bank))
+        items.append(contentsOf: defenseSessions.filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }.map(HistoryDayItem.defense))
         items.append(contentsOf: twoBallSessions.filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }.map(HistoryDayItem.twoBall))
         items.append(contentsOf: threeBallSessions.filter { cal.isDate($0.startedAt, inSameDayAs: selectedDate) }.map(HistoryDayItem.threeBall))
         return items.sorted { $0.date > $1.date }
@@ -409,7 +418,7 @@ final class HistoryViewModel: ObservableObject {
     }
 
     var hasAnySessions: Bool {
-        !drillSessions.isEmpty || !cognitiveSessions.isEmpty || !toolSessions.isEmpty || !accuracySessions.isEmpty || !separationSessions.isEmpty || !bankSessions.isEmpty || !kickSessions.isEmpty || !kBallSessions.isEmpty || !twoBallSessions.isEmpty || !threeBallSessions.isEmpty
+        !drillSessions.isEmpty || !cognitiveSessions.isEmpty || !toolSessions.isEmpty || !accuracySessions.isEmpty || !separationSessions.isEmpty || !defenseSessions.isEmpty || !bankSessions.isEmpty || !kickSessions.isEmpty || !kBallSessions.isEmpty || !twoBallSessions.isEmpty || !threeBallSessions.isEmpty
     }
 
     // MARK: - Category Helpers
@@ -471,6 +480,7 @@ final class HistoryViewModel: ObservableObject {
         if kBallSessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) { return .toolActivity("K球练习") }
         if kickSessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) { return .toolActivity("解球练习") }
         if bankSessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) { return .toolActivity("翻袋练习") }
+        if defenseSessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) { return .toolActivity("防守练习") }
         if twoBallSessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) { return .toolActivity("两球走位") }
         if threeBallSessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) { return .toolActivity("三球走位") }
         if separationSessions.contains(where: { cal.isDate($0.startedAt, inSameDayAs: date) }) { return .toolActivity("分离角") }
@@ -604,9 +614,11 @@ final class HistoryViewModel: ObservableObject {
         let kBall = Self.assembleKBallSessions(sessions: allSessions)
         let kick = Self.assembleKickSessions(sessions: allSessions)
         let bank = Self.assembleBankSessions(sessions: allSessions)
+        let defense = Self.assembleDefenseSessions(sessions: allSessions)
         kBallSessions = kBall.records; unreadableKBallCount = kBall.unreadableCount
         kickSessions = kick.records; unreadableKickCount = kick.unreadableCount
         bankSessions = bank.records; unreadableBankCount = bank.unreadableCount
+        defenseSessions = defense.records; unreadableDefenseCount = defense.unreadableCount
         let twoBall = Self.assembleTwoBallSessions(sessions: allSessions)
         twoBallSessions = twoBall.records; unreadableTwoBallCount = twoBall.unreadableCount
         let separation = Self.assembleSeparationSessions(sessions: allSessions)
@@ -677,6 +689,22 @@ final class HistoryViewModel: ObservableObject {
             guard let data = session.sourcePayloadSnapshot,
                   let record = try? KickPracticeRecord.decodePayload(data),
                   record.version == KickPracticeRecord.payloadVersion,
+                  record.id == session.id, record.ownerKey == session.ownerKey else {
+                unreadable += 1
+                continue
+            }
+            if !record.attempts.isEmpty { records.append(record) }
+        }
+        return (records.sorted { $0.startedAt > $1.startedAt }, unreadable)
+    }
+
+    static func assembleDefenseSessions(sessions: [TrainingSession]) -> (records: [DefensePracticeRecord], unreadableCount: Int) {
+        var records: [DefensePracticeRecord] = []
+        var unreadable = 0
+        for session in sessions where session.kind == TrainingSessionKind.defensePractice {
+            guard let data = session.sourcePayloadSnapshot,
+                  let record = try? DefensePracticeRecord.decodePayload(data),
+                  record.version == DefensePracticeRecord.payloadVersion,
                   record.id == session.id, record.ownerKey == session.ownerKey else {
                 unreadable += 1
                 continue

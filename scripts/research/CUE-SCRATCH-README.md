@@ -2,6 +2,8 @@
 
 主方案：`tasks/CUE-SCRATCH-VIDEO-ANALYSIS-20261004.md` r5。调用生产推荐、解析瞄准、事件驱动物理；Python只负责调度、分析和绘图。
 
+**2026-11-03 旧数据归档**：原 `results.sqlite`、`broad-001` 至 `broad-006.jsonl` 和 `verify-low-speed-23-20261006.jsonl` 已无损压成同目录 `.gz`。运行旧数据查询、审计或重选前，先用 `gzip -dk` 恢复相应文件并核 SHA；不要在旧数据库缺失时让脚本新建空库。原图册/选择结果/成片保持。详见 [恢复说明](../../tasks/DISK-CLEANUP-20261103.md)。
+
 ## 本轮入口
 
 - `cue_scratch_research.swift`：研究XCTest夹具，首选方向探测、原始接触分类、并行对拍、完整求解/固定方向复验。

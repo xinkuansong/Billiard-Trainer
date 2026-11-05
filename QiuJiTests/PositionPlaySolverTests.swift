@@ -463,3 +463,104 @@ extension PositionPlaySolverTests {
         print("[LEGACY-TWO-RAIL] fixed offset valid; returned search representatives remain a separate issue")
     }
 }
+
+/// Contact preference is opt-in; physical validity remains the primary contract.
+final class PositionSolverProtectedBallTests: XCTestCase {
+    private let y = BTTablePhysics.surfaceY
+    private let keys: Set<String> = ["_2", "_3"]
+
+    private func touched(_ p: ShotPrediction) -> Bool {
+        p.events.contains {
+            if case let .ballBall(a, b) = $0.kind { return keys.contains(a) || keys.contains(b) }
+            return false
+        }
+    }
+
+    func testContactsIncludeBothRolesAndIndirectCascadesButNotRailsOrOtherBalls() {
+        for pair in [("cue", "_2"), ("_3", "cue"), ("_8", "_3"), ("_2", "_8")] {
+            var p = ShotPrediction()
+            p.events = [.init(time: 1, kind: .ballBall(ballA: pair.0, ballB: pair.1))]
+            XCTAssertTrue(PositionPlaySolver.contactsProtectedBall(p, keys: keys))
+            XCTAssertFalse(PositionPlaySolver.contactsProtectedBall(p, keys: []))
+        }
+        var p = ShotPrediction()
+        p.events = [.init(time: 1, kind: .ballBall(ballA: "cue", ballB: "_8")),
+                    .init(time: 2, kind: .ballCushion(ball: "_2"))]
+        XCTAssertFalse(PositionPlaySolver.contactsProtectedBall(p, keys: keys))
+    }
+
+    func testSafeRoutePrecedesHigherContinuationAndLessSpinWithoutChangingDefaultOrder() {
+        func solution(hit: Bool, score: Double, side: Double) -> PositionPlaySolution {
+            var p = ShotPrediction()
+            if hit { p.events = [.init(time: 1, kind: .ballBall(ballA: "cue", ballB: "_3"))] }
+            return .init(shot: .init(targetKey: "_1", pocket: "topCenter", velocity: 2, spinX: side, spinY: 0),
+                         prediction: p, cushionCount: 1, potted: true, margin: 0.1,
+                         summary: "fixture", satisfiesConstraint: true, continuationScore: score)
+        }
+        let unsafe = solution(hit: true, score: 100, side: 0)
+        let safe = solution(hit: false, score: 50, side: 0.3)
+        XCTAssertTrue(PositionPlaySolver.preferredSolution(unsafe, safe))
+        let sorted = [unsafe, safe].sorted { PositionPlaySolver.preferredSolution($0, $1, protectedBallKeys: keys) }
+        XCTAssertEqual(sorted.map(\.id), [safe.id, unsafe.id], "Unsafe alternatives remain available at the back")
+    }
+
+    func testPhysicalSearchProtectsBeforeBucketTruncationAndRetainsUnavoidableContact() throws {
+        let base = BoardSnapshot(onTable: [PositionPlayBall.cueKey: .init(x: 0.3, y: 0.36),
+                                           "_1": .init(x: 0.55, y: 0.17)])
+        let constraint = SolveConstraint.restRegion(.circle(center: .init(x: 0.5, y: 0.25), radius: 1))
+        var fixed = PositionPlaySolver.SearchParams.standard
+        fixed.spinXValues = [0]; fixed.spinYValues = [0]
+        fixed.velocityMin = 3; fixed.velocityMax = 3
+        fixed.refineEnabled = false; fixed.allowsMissedPotFallback = false; fixed.requiresDirectPot = true
+        let route = try XCTUnwrap(PositionPlaySolver.solve(before: base, targetKey: "_1", pocket: "topCenter",
+            constraint: constraint, surfaceY: y, params: fixed).first)
+        // Place an actual collider on the computed post-contact route, away from
+        // the starting balls. The engine must confirm the contact independently.
+        let cue = PositionPlaySolver.scenePoint(base.onTable[PositionPlayBall.cueKey]!, surfaceY: y)
+        let target = PositionPlaySolver.scenePoint(base.onTable["_1"]!, surfaceY: y)
+        var fixture: (BoardSnapshot, PositionPlaySolution)?
+        for point in route.prediction.cuePath.reversed() {
+            guard AngleSceneCalculator.horizontalDistance(point, cue) > 0.15,
+                  AngleSceneCalculator.horizontalDistance(point, target) > 0.15 else { continue }
+            let n = AngleSceneCalculator.sceneToNormalized(position: point)
+            guard n.x > 0.04, n.x < 0.96, n.y > 0.04, n.y < 0.46 else { continue }
+            var board = base
+            board.onTable["_2"] = .init(x: Double(n.x), y: Double(n.y))
+            if let s = PositionPlaySolver.solve(before: board, targetKey: "_1", pocket: "topCenter",
+                constraint: constraint, surfaceY: y, params: fixed).first, s.satisfiesConstraint, touched(s.prediction) {
+                fixture = (board, s); break
+            }
+        }
+        let (board, collided) = try XCTUnwrap(fixture, "Must exercise a real selected-ball collision")
+        fixed.protectedBallKeys = keys
+        let fallback = PositionPlaySolver.solve(before: board, targetKey: "_1", pocket: "topCenter",
+            constraint: constraint, surfaceY: y, params: fixed)
+        XCTAssertFalse(fallback.isEmpty)
+        XCTAssertTrue(fallback.allSatisfy { $0.satisfiesConstraint && touched($0.prediction) })
+        XCTAssertEqual(fallback.first?.shot.velocity, collided.shot.velocity)
+
+        var search = PositionPlaySolver.SearchParams.standard
+        search.allowsMissedPotFallback = false; search.requiresDirectPot = true
+        search.protectedBallKeys = keys
+        // Reward displacement to make continuation compete against preservation.
+        let initial = PositionPlaySolver.scenePoint(board.onTable["_2"]!, surfaceY: y)
+        search.continuation = { positions in
+            guard let final = positions["_2"] else { return 100 }
+            return AngleSceneCalculator.horizontalDistance(initial, final) > 0.001 ? 100 : 0
+        }
+        var unprotected = search; unprotected.protectedBallKeys = []
+        let prior = PositionPlaySolver.solve(before: board, targetKey: "_1", pocket: "topCenter",
+            constraint: constraint, surfaceY: y, params: unprotected)
+        XCTAssertTrue(touched(try XCTUnwrap(prior.first).prediction), "The original scoring must actually prefer a collision")
+        let solutions = PositionPlaySolver.solve(before: board, targetKey: "_1", pocket: "topCenter",
+            constraint: constraint, surfaceY: y, params: search)
+        let first = try XCTUnwrap(solutions.first)
+        XCTAssertTrue(first.satisfiesConstraint)
+        XCTAssertFalse(touched(first.prediction), "Preservation wins before continuation and shortlist truncation")
+        XCTAssertEqual(first.continuationScore, 0)
+        let sameBucket = try XCTUnwrap(solutions.first { $0.cushionCount == collided.cushionCount })
+        XCTAssertFalse(touched(sameBucket.prediction), "Safe representative must survive within the same cushion bucket")
+        XCTAssertTrue(solutions.allSatisfy { $0.potted && $0.prediction.hasFinalTableState })
+        print("protected-ball fixture=\(board.onTable) unsafe=\(collided.shot.velocity) safe=\(first.shot.velocity) count=\(solutions.count)")
+    }
+}

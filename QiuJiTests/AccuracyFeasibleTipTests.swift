@@ -44,13 +44,13 @@ final class AccuracyFeasibleTipTests: XCTestCase {
         XCTAssertNil(AccuracyTipSelector.select(access: impossible, vertical: false, lateral: false, random: &random))
     }
 
-    func testReplacementStaysInCombinationAndHasBoundedFailure() throws {
+    func testReplacementUsesRemainingFilteredPoolAndHasBoundedFailure() throws {
         let bank = try TrainingBankStore.load()
         let initial = try bank.draw(.init(), seed: 19)
         let rejected = try XCTUnwrap(initial.boards.first)
         let changed = try bank.draw(.init(), seed: 19, accepting: { $0.id != rejected.id })
         XCTAssertNotEqual(changed.boards[0].id, rejected.id)
-        XCTAssertEqual(changed.boards[0].combinationID, rejected.combinationID)
+        XCTAssertEqual(changed.boards[0].id, initial.boards[1].id, "Rejection continues the same random permutation, without a category quota")
         XCTAssertEqual(Set(changed.boards.map(\.id)).count, 20)
         var calls = 0
         XCTAssertThrowsError(try bank.draw(.init(), seed: 19, accepting: { _ in calls += 1; return false }))
@@ -58,11 +58,11 @@ final class AccuracyFeasibleTipTests: XCTestCase {
         let removed = try bank.draw(.init(), seed: 19, accepting: { $0.combinationID != rejected.combinationID })
         XCTAssertEqual(removed.boards.count, 20)
         XCTAssertFalse(removed.boards.contains { $0.combinationID == rejected.combinationID })
-        XCTAssertTrue(removed.inaccessibleCombinations.contains(try XCTUnwrap(rejected.combinationID)))
+        XCTAssertEqual(Set(removed.boards.map(\.id)).count, 20)
     }
 
     func testExactTipSurvivesFreezeRoundTripAndLegacyDecoding() throws {
-        let bank = try TrainingBankStore.load(), boards = try bank.draw(.init(), seed: 90).boards
+        let bank = try TrainingBankStore.load(), boards = try bank.draw(.init(), seed: 90, count: TrainingProject.ordinaryRoundCount).boards
         let exact = AccuracyTip(x: 0.137, y: 0.318)
         let questions = boards.map { AccuracyPracticeQuestion(board: $0, selectedTip: exact) }
         var record = try AccuracyPracticeRecord(ownerKey: "test", is3D: true, configuration: .init(), bankFingerprint: bank.sourceFingerprint, questions: questions)

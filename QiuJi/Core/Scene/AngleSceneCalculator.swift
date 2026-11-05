@@ -841,156 +841,6 @@ enum AngleSceneCalculator {
         return false
     }
 
-    // MARK: - Snooker coverage (角度张角遮挡判定)
-
-    /// 「做斯诺克」遮挡度量（X–Z 平面，世界系）。
-    ///
-    /// 判的不是「球心连线被挡」（那是 `isPathBlocked` 的保守自动选袋闸），而是**对手能否从母球
-    /// 看到被困球的任意一点**：母球（半径 R）沿直线击出，球心扫过被困球（半径 R）即算「看得见」，
-    /// 故可见方向是一个**张角扇形**，半角 `α = asin(2R / d_被困)`。障碍球同样在母球处张开半角
-    /// `β = asin(2R / d_障碍)`，方向与被困球方向相差 `Δθ`。
-    ///
-    /// **完全斯诺克 ⟺ 障碍的角区间完整包住被困球可见区间，且障碍比被困球近**（先被拦截）。
-    /// 闭式：`coverage = β − α − |Δθ|`（弧度）。`coverage ≥ 0 ∧ d_障碍 < d_被困` ⇒ 完全挡死；
-    /// `coverage` 转度即「覆盖余量」（正 = 还多挡几度、越大越难薄擦解开；负 = 仍露出多少度）。
-    struct SnookerCoverage {
-        /// 覆盖余量（度）：正 = 完全挡死且多挡 N°；负 = 仍露出 N°（半斯诺克）。
-        let marginDegrees: Float
-        /// 障碍是否比被困球更近（更近才会先拦截母球）。
-        let blockerCloser: Bool
-        /// 被困球相对母球的可见半张角（度，仅供文案/调试）。
-        let visibleHalfAngleDegrees: Float
-        /// 是否构成完全斯诺克。
-        var isFullSnooker: Bool { blockerCloser && marginDegrees >= 0 }
-    }
-
-    /// 计算母球终点 `cue` 看向被困球 `snookered`、被 `blocker` 遮挡的覆盖度量（均为世界系球心）。
-    /// 三点退化（距离 ≤ 2R 的接触态）按 asin 定义域钳制（贴球 ⇒ 障碍张角趋近 90°，物理上确实遮挡极大）。
-    static func snookerCoverage(
-        cue: SCNVector3, snookered: SCNVector3, blocker: SCNVector3,
-        ballRadius: Float = ballRadius
-    ) -> SnookerCoverage {
-        let twoR = 2 * ballRadius
-        let dT = horizontalDistance(cue, snookered)
-        let dB = horizontalDistance(cue, blocker)
-        // 角度按 SceneKit 水平角 atan2(z, x)。
-        let aT = atan2f(snookered.z - cue.z, snookered.x - cue.x)
-        let aB = atan2f(blocker.z - cue.z, blocker.x - cue.x)
-        // 最小角差（归一化到 [−π, π]，规避 ±π 环绕）。
-        let dTheta = atan2f(sinf(aB - aT), cosf(aB - aT))
-        let alpha = asinf(min(0.999, twoR / max(twoR, dT)))
-        let beta = asinf(min(0.999, twoR / max(twoR, dB)))
-        let coverage = beta - alpha - abs(dTheta)
-        let toDeg: Float = 180 / .pi
-        return SnookerCoverage(
-            marginDegrees: coverage * toDeg,
-            blockerCloser: dB < dT,
-            visibleHalfAngleDegrees: alpha * toDeg
-        )
-    }
-
-    // MARK: - Defense (V8：多被困球 + 多遮挡球联合可见性 + 对手进球难度)
-
-    /// 单颗被困球被**多颗候选遮挡球**评估：取「最能挡死」的那颗（完全斯诺克优先，
-    /// 都不完全时取覆盖余量最大者 = 最接近全遮）。坐标：世界系 X–Z 球心。
-    /// 注意：只有比被困球**更近**（`blockerCloser`）的遮挡球才可能先拦截母球视线，
-    /// 更远的遮挡球即便张角大也挡不住（其覆盖余量对本颗不成立），排序时按此过滤。
-    static func snookerCoverageMulti(
-        cue: SCNVector3, snookered: SCNVector3, blockers: [(key: String, pos: SCNVector3)],
-        ballRadius: Float = ballRadius
-    ) -> SnookerCoverage {
-        var best: SnookerCoverage?
-        for b in blockers {
-            let cov = snookerCoverage(cue: cue, snookered: snookered, blocker: b.pos,
-                                      ballRadius: ballRadius)
-            if best == nil || defenseRank(cov) > defenseRank(best!) { best = cov }
-        }
-        return best ?? SnookerCoverage(marginDegrees: -180, blockerCloser: false,
-                                       visibleHalfAngleDegrees: 0)
-    }
-
-    /// 遮挡候选排序键：完全斯诺克（更近 + 余量≥0）绝对优先；否则「更近 + 余量」大者更接近全遮，
-    /// 更远的遮挡球给一个显著的负基准（挡不住）。用于 `snookerCoverageMulti` 取最优遮挡。
-    private static func defenseRank(_ c: SnookerCoverage) -> Float {
-        if c.isFullSnooker { return 1000 + c.marginDegrees }        // 完全挡死：余量越大越稳
-        if c.blockerCloser { return c.marginDegrees }               // 更近但未全遮：余量（负）越大越接近
-        return -1000 + c.marginDegrees                              // 更远：挡不住
-    }
-
-    /// 一颗对方球从母球终位看的防守评估（V8）。
-    struct DefenseBallCoverage {
-        let key: String
-        /// 是否被某颗球完全挡死（完全斯诺克）。
-        let blocked: Bool
-        /// 最佳遮挡余量（度）：`blocked` 时 ≥0 且越大越稳；未遮挡时为「最接近全遮」的度量（多为负）。
-        let coverageMarginDeg: Float
-        /// 未遮挡时对手从母球终位把这颗球打进的**难度** [0,1]（长台 + 大切角 + 可行袋越少 → 越难 → 防守越好）；
-        /// `blocked` 记为 1（对手根本看不到，等价最难）。
-        let pottingDifficulty: Double
-    }
-
-    // MARK: 防守难度权重（V8 可跑 v1，待实测调优 —— 回写真源由主控做）
-
-    /// 未遮挡球「进球难度」中切角项权重（切角越大越难瞄准）。
-    static let defenseCutWeight = 0.6
-    /// 未遮挡球「进球难度」中球距项权重（长台越远越难）。
-    static let defenseDistanceWeight = 0.4
-    /// 球距难度归一参考长度（米）：满台长边 ≈ innerLength。
-    static var defenseDistanceReference: Float { innerLength }
-
-    /// 多颗对方球联合防守评估：对每颗对方球，用「除它与母球外的全部非母球」做遮挡候选取最佳遮挡；
-    /// 未被挡死的球计算对手进球难度（长台/大切角/可行袋）。
-    /// - Parameters:
-    ///   - cueFinal: 母球终位（世界系球心）。
-    ///   - opponents: 需要隐藏的对方球（key + 终位）。
-    ///   - nonCueBalls: 全部非母球终位（含对方球本身，可互相遮挡；也含我方球/8 号作遮挡体）。
-    ///   - surfaceY: 台面 Y。
-    static func defenseCoverage(
-        cueFinal: SCNVector3,
-        opponents: [(key: String, pos: SCNVector3)],
-        nonCueBalls: [(key: String, pos: SCNVector3)],
-        surfaceY: Float
-    ) -> [DefenseBallCoverage] {
-        let pockets = pocketPositions(surfaceY: surfaceY)
-        return opponents.map { opp in
-            let blockers = nonCueBalls.filter { $0.key != opp.key }
-            let cov = snookerCoverageMulti(cue: cueFinal, snookered: opp.pos, blockers: blockers)
-            if cov.isFullSnooker {
-                return DefenseBallCoverage(key: opp.key, blocked: true,
-                                           coverageMarginDeg: cov.marginDegrees,
-                                           pottingDifficulty: 1.0)
-            }
-            let diff = opponentPottingDifficulty(
-                cue: cueFinal, ball: opp.pos, pockets: pockets,
-                others: blockers.map { $0.pos })
-            return DefenseBallCoverage(key: opp.key, blocked: false,
-                                       coverageMarginDeg: cov.marginDegrees,
-                                       pottingDifficulty: diff)
-        }
-    }
-
-    /// 对手从母球终位把一颗可见球打进的难度 [0,1]。取「最易袋」（可行袋中切角最小者）：
-    /// 无任何可行袋 ⇒ 1（打不进 = 防守极好）；否则按切角 + 球距加权。`others` 用于袋线遮挡剔除。
-    static func opponentPottingDifficulty(
-        cue: SCNVector3, ball: SCNVector3, pockets: [SCNVector3], others: [SCNVector3]
-    ) -> Double {
-        var bestCutDeg: Double?
-        for pocket in pockets {
-            // 可行：切角 < 上限，且袋线（球→袋）未被其它球挡死。
-            guard isFeasible(cueBall: cue, targetBall: ball, pocket: pocket) else { continue }
-            let aim = SCNVector3(pocket.x, ball.y, pocket.z)
-            if isPathBlocked(from: ball, to: aim, obstacles: others) { continue }
-            let cut = cutAngle(cueBall: cue, targetBall: ball, pocket: pocket)
-            if bestCutDeg == nil || cut < bestCutDeg! { bestCutDeg = cut }
-        }
-        guard let cut = bestCutDeg else { return 1.0 }   // 无可行袋 ⇒ 对手打不进
-        let cutTerm = min(1.0, cut / 90.0)
-        let dist = Double(horizontalDistance(cue, ball))
-        let distTerm = min(1.0, dist / Double(defenseDistanceReference))
-        let d = defenseCutWeight * cutTerm + defenseDistanceWeight * distTerm
-        return min(1.0, max(0.0, d))
-    }
-
     // MARK: - Contact point position
 
     /// Contact point on the target ball surface at the moment of impact.
@@ -1412,5 +1262,88 @@ extension AngleSceneCalculator {
             if fallback == nil || prefersDailyCandidate(best, fallback!) { fallback = best }
         }
         return fallback
+    }
+}
+
+// Defense assessment: clean-pot angular windows, XZ metres. No simulation behavior changes.
+// Research-only extension appended to the frozen production calculator. XZ metres.
+extension AngleSceneCalculator {
+    // Analytic segment-to-arc minimum; retain the production arc domain predicate.
+    private static func defenseWindowArcDistance(_ a: Vector2, _ b: Vector2, _ arc: ArcSeg) -> Float {
+        var best = min(pointToArc(a, arc), pointToArc(b, arc))
+        for angle in [arc.angA, arc.angB] {
+            let p = arc.center + Vector2(cosf(angle), sinf(angle)) * arc.radius
+            best = min(best, pointSegmentDistance(p, Segment2D(a:a,b:b)))
+        }
+        let v=b-a, w=a-arc.center, vv=v.dot(v)
+        if vv <= 1e-12 { return best }
+        let t = -w.dot(v)/vv
+        let q=a+v*t, n=q-arc.center
+        if t >= 0 && t <= 1 && n.length > 1e-9 {
+            for sign: Float in [-1,1] {
+                let p=arc.center+n*(sign*arc.radius/n.length)
+                let angle=atan2f(p.z-arc.center.z,p.x-arc.center.x)
+                if arcContainsAngle(arc,angle) { best=min(best,pointSegmentDistance(p,Segment2D(a:a,b:b))) }
+            }
+        }
+        let wb=w.dot(v), disc=wb*wb-vv*(w.dot(w)-arc.radius*arc.radius)
+        if disc >= 0 {
+            for root in [(-wb-sqrtf(disc))/vv,(-wb+sqrtf(disc))/vv] where root >= 0 && root <= 1 {
+                let p=a+v*root-arc.center
+                if arcContainsAngle(arc,atan2f(p.z,p.x)) { return 0 }
+            }
+        }
+        return best
+    }
+    static func defenseCleanWindow(_ target: SCNVector3, pocketIndex: Int, stepDegrees: Double) -> [String:Any] {
+        let pc=pocketPositions(surfaceY:0)[pocketIndex]
+        let g=buildPipeGeometry(pocketIndex:pocketIndex,pocketCenter:Vector2(pc.x,pc.z))
+        let origin=Vector2(target.x,target.z)
+        let base=atan2(Double(pc.z-target.z),Double(pc.x-target.x))
+        func delta(_ p:Vector2)->Double { let x=atan2(Double(p.z-origin.z),Double(p.x-origin.x))-base;return atan2(sin(x),cos(x))*180/Double.pi }
+        let ends=[delta(g.mouth.mouthA),delta(g.mouth.mouthB)]
+        var lo=ends.min()!-5, hi=ends.max()!+5
+        func detail(_ angle:Double)->(Bool,Vector2,Float,Float) {
+            let a=base+angle*Double.pi/180,dir=Vector2(Float(cos(a)),Float(sin(a)))
+            // Unlike a solver seed, a clean window must actually enter this pocket.
+            guard let d=g.capture.entryTime(position:SCNVector3(origin.x,0,origin.z),velocity:SCNVector3(dir.x,0,dir.z),acceleration:SCNVector3Zero,maxTime:4) else { return (false,origin,0,0) }
+            let end=origin+dir*d
+            let rail=ordinaryClearance(origin:origin,end:end,dir:dir,obstacles:g.ordinaryObstacles,clearance:ballRadius)
+            let exact=g.mouth.compositeJaws.map { min(defenseWindowArcDistance(origin,end,$0.arc),segmentDistance(origin,end,$0.line.a,$0.line.b)) }.min()!
+            let raw=cleanPipeMargin(origin:origin,aim:origin+dir*4,geometry:g,clearance:ballRadius) != nil
+            return (rail.safe && exact+pipeRoundoff>=ballRadius,end,exact,raw ? 1:0)
+        }
+        // Near-mouth capture can precede the throat chord. Expand live endpoints
+        // instead of clipping a valid window to a fixed throat-based search span.
+        while detail(lo).0 && lo > -180 { lo=max(-180,lo-5) }
+        while detail(hi).0 && hi < 180 { hi=min(180,hi+5) }
+        let count=Int(ceil((hi-lo)/stepDegrees)), step=(hi-lo)/Double(count)
+        var ranges=[[Double]](), start:Double?=nil
+        var previous=false
+        func refine(_ a:Double,_ b:Double,_ leftState:Bool)->Double {
+            var l=a,r=b
+            for _ in 0..<24 { let m=(l+r)/2;if detail(m).0==leftState {l=m}else{r=m} }
+            return (l+r)/2
+        }
+        for i in 0...count {
+            let angle=lo+Double(i)*step, state=detail(angle).0
+            if state && !previous {start=i==0 ? angle:refine(angle-step,angle,false)}
+            if !state && previous {ranges.append([start!,refine(angle-step,angle,true)]);start=nil}
+            previous=state
+        }
+        if previous {ranges.append([start!,hi])}
+        // Explicit seed catches an exactly tangent / sub-grid parallel direction.
+        var isolated=[Double]()
+        for a in [0.0,90.0,180.0,-90.0] {
+            let x=a-base*180/Double.pi, d=atan2(sin(x*Double.pi/180),cos(x*Double.pi/180))*180/Double.pi
+            if d>=lo && d<=hi && detail(d).0 && !ranges.contains(where: {d >= $0[0] && d <= $0[1]}) { isolated.append(d) }
+        }
+        func pt(_ p:Vector2)->[Double] {[Double(p.x),Double(p.z)]}
+        let intervals:[[String:Any]]=ranges.map { r in
+            let width=r[1]-r[0], mid=(r[0]+r[1])/2
+            return ["leftDegrees":r[0],"rightDegrees":r[1],"widthDegrees":width,"leftEnd":pt(detail(r[0]+min(0.0001,width/10)).1),"rightEnd":pt(detail(r[1]-min(0.0001,width/10)).1),"midEnd":pt(detail(mid).1),"midDegrees":mid]
+        }
+        let geom:[String:Any]=["mouthA":pt(g.mouth.mouthA),"mouthB":pt(g.mouth.mouthB),"center":pt(g.mouth.center),"jaws":g.mouth.compositeJaws.map { ["center":pt($0.arc.center),"radius":Double($0.arc.radius),"angleA":Double($0.arc.angA),"angleB":Double($0.arc.angB),"lineA":pt($0.line.a),"lineB":pt($0.line.b)] as [String:Any] },"rails":mainCushionSegments.map { ["a":pt($0.a),"b":pt($0.b)] }]
+        return ["pocket":pocketIndex,"target":[Double(target.x),Double(target.z)],"baseRadians":base,"intervals":intervals,"isolatedDirections":isolated,"totalWidthDegrees":ranges.reduce(0){$0+$1[1]-$1[0]},"stepDegrees":step,"scanBounds":[lo,hi],"edgeStates":[detail(lo).0,detail(hi).0],"geometry":geom]
     }
 }

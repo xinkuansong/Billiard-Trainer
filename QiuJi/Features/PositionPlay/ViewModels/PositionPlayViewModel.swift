@@ -3796,6 +3796,17 @@ final class PositionPlayViewModel: ObservableObject {
         if scene.cameraRig?.usesSurfaceCamera == true { requestPlayerView(.thirdPerson) }
     }
 
+    /// Settings commit the selected gameplay directly to the table.
+    func selectBreakGame(_ game: RackGame) {
+        guard !isPlaying, !isComputing, !isRecording, breakRunner?.isBusy != true else { return }
+        if let runner = breakRunner {
+            runner.selectGame(game)
+        } else {
+            startBreakFlow(game: game, manualDeliver: false)
+        }
+        refreshOnTableKeys()
+    }
+
     /// 取消开球模式并恢复进场前桌面。
     func cancelBreakFlow() {
         guard let runner = breakRunner else { return }

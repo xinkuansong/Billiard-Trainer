@@ -114,11 +114,6 @@ final class W9a_ShotPagesLayoutUITests: XCTestCase {
         snap(app, "w9a-05-planthree")
         goBack(app)
 
-        // 6 Snooker（首页卡文案 = 「防守」）
-        XCTAssertTrue(openCard(app, homeTab: "解", title: "防守"), "Snooker")
-        snap(app, "w9a-06-snooker")
-        goBack(app)
-
         // 7 Bank
         XCTAssertTrue(openCard(app, homeTab: "解", title: "翻袋解球"), "Bank")
         snap(app, "w9a-07-bank")

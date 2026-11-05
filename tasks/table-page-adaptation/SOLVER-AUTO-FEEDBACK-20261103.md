@@ -1,6 +1,6 @@
 # 四页自动求解与侧栏反馈 · 2026-11-03
 
-状态：实施完成，r1冻结快照定向验证中。当前入口为本卡；不扩大到练习题库或物理参数。
+状态：实施与定向验收完成，等待用户体验复验。当前入口为本卡；不扩大到练习题库或物理参数。
 
 ## 最新用户决定
 
@@ -36,11 +36,29 @@ Bank/Kick以150ms可取消任务合并连续已提交编辑；拖动中不开始
 ## 证据
 
 - Before：`solver-auto-before-20261103`，快照`d6900414f42c17a3f09b86a5e44cd94eb2178c6f9dbd161ef616132a74d48a1f`；iPhone17Pro/iOS26.2，1项UI通过，采集四页2D/3D；导出在`output/solver-auto-20261103/before`。
-- r1：`solver-auto-r1-phone-20261103`，快照`9648a740eeaedf871c80abe7b996ea837de6cfbe17ed468a36fed8f7249cd1da`；同设备，正在构建/定向回归。
+- r1：`solver-auto-r1-phone-20261103`，快照`9648a740eeaedf871c80abe7b996ea837de6cfbe17ed468a36fed8f7249cd1da`；同设备，3UI通过；逻辑失败及修订见下文。
 - 验证入口：BankKickAutomaticSolveTests、PlanningAutomaticSolveTests、BallRolePlanFlowTests、BankKickAdjustmentDraftLayerTests、PositionPlayUndoSnapshotTests，以及RemainingTeachingAdoptionUITests的自动布局/缺项/2D3D试打恢复。
 
-下一步：处理首轮失败，复验紧凑手机与iPad横竖，审原生截图后收口。未安装真机、未提交、未发布。
+下一步：用户体验复验；本轮自动化与截图验收已完成。未安装真机、未提交、未发布。
 
 
 ### r2/r3与新增反馈
 r2 SE/iOS17的38逻辑全通过，微调试打恢复/规划缺项2UI通过；四页布局测试在首个Silu回放边界失败。真实图确认字体自然高度比Foundation名义占位多约数pt，底部回放略裁切；本轮限定四页左侧名义仪表占位高度，保留触点/字体。r3 iPad两项UI通过（含横竖屏），尚未覆盖新弹层下展。用户查看r1原图后明确“可以往下放，不要遮挡球库”；改弹层箭头在上方，向下展开，新增首项低于球库的原生断言。
+
+### r4/r5快照隔离
+r4两次构建未进入测试：拷贝共享工作区已被另一任务修改的BankShotViewModel/SolverStageChrome时，遗漏该任务AngleTrainingScene.setPrimaryTarget依赖，导致编译失败。生产主工作区不回退、不删并行功能。r5从已通过r3私有快照叠加本轮两项布局变化及测试，仅隔离排除另一任务增量；快照493753ed760244558644436f04fda9090c1a867862a2420a198c27913d016332。主工作区并行目标球切换的集成验证不由此证据覆盖。r5-scope.json记录本轮测试源码，changes.patch为相对本轮before的专属补丁。
+
+r5 SE实际复验：回放边界已过，但iOS17忽略SwiftUI箭头方向，首项Y=34仍高于球库底84。r6使用原生UIPopoverPresentationController限定向上的箭头（弹体向下），菜单内容/样式/顺序不改，继续保持原遮挡断言。
+
+### r6原生弹层复验
+r6-SE编译通过，运行前被本任务两台旧失败设备占满同型号容量阻止，未执行测试。已依据各自导出证据精确退役r2/r5失败设备；同快照d1c5d141da62908afbf3a211fb29b0ab7154397bf2c14eadc31815608b67673c的r6b-SE和r6-phone各1UI通过，20张2D/3D原生图：首项低于顶部球库、四页回放完整、解紧邻重打/上一步。截图在r6b-se-images与r6-phone-images。
+
+SE原图发现UIHostingController默认白底，r7仅设置host.view.backgroundColor为clear，透出系统原生弹层材质；不改大小、锚点、选项或求解。r7快照3220131de2f613f496429b3095a12f8f8931af16e79035a9cd1af7ed7405f13b，源码散列r7-scope.json，最终手机1UI通过、10张原图已审，半透明材质恢复、菜单向下且球库无遮挡。
+
+仓库门禁：verify-doc-size通过；verify-gate的数据/配图/DTO/文案部分通过，路由签名停在并行新增课程修改AngleHomeView.swift。已核对唯一漂移文件，不回写他人尚在开发的路由基线，也不将全门禁记作通过。本轮源码差异保留在changes.patch。
+
+
+### 最终结论与边界
+38项逻辑测试全通过（r2，后续仅布局/弹层改动）；缺项反馈、完整输入自动求解、微调后击球及恢复通过。r3完成iPad横竖/2D3D，r6b完成小屏iOS17最终位置，r7完成标准手机最终材质/位置。最终UIKit弹层未重新跑iPad，r7一行透明背景未重新跑SE；不能把分轮覆盖表述为同一最终快照全设备全回归。最新原图：`output/solver-auto-20261103/r7-phone-images/6EF503E0-1DA6-4D9C-AED7-9A2FA08433ED.png`。真机、VoiceOver、全App及并行新增目标球切换/课程功能集成不在此验收范围。
+
+主工作区13文件身份对照存于final-working-source-audit.json，测试隔离范围与并行差异明确保留；本会话未执行git提交、推送或真机安装。各轮xcresult/日志/图片和失败记录保留；本任务远端工作目录按队列complete收尾，临时快照/私有checkout在散列及补丁留存后清除。

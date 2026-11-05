@@ -92,11 +92,11 @@ enum PracticeCoverCatalog {
     /// Official publishable routes (excludes SIM-only batch studio + drillDetail deep links).
     static let officialRoutes: [AngleRoute] = [
         .aimingPrinciple, .aimingMethods, .aimingCorrection, .spinAndEnglish,
-        .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas, .ballFeel, .contactPointTable,
+        .pocketTolerance, .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas, .ballFeel, .contactPointTable,
         .geometricQuiz, .sceneAiming2D, .sceneAiming3D, .aimPointTraining, .aimPointScene2D, .aimPointScene3D,
         .accuracy2D, .accuracy3D, .separationPractice2D, .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D,
         .shotSimulation, .positionPlayComposer, .freePlay, .ballExtraction,
-        .positionPlaySolver, .planThree, .snookerTactics, .bankShot, .diamondSystem,
+        .positionPlaySolver, .planThree, .bankShot, .diamondSystem,
     ]
 
     static func visual(for route: AngleRoute) -> PracticeCoverVisual {
@@ -113,6 +113,11 @@ enum PracticeCoverCatalog {
             return .geometric(throwGeometry(tint: "aimingCorrection"))
         case .spinAndEnglish:
             return .geometric(spinFanGeometry(tint: "spinAndEnglish"))
+        case .pocketTolerance:
+            return .geometric(PracticeCoverLayout(balls: [.init(number: 3, x: 0, z: 0)],
+                segments: [.init(x0: -0.0285, z0: 0, x1: -0.045, z1: -0.6, style: .pot, potNumber: 3),
+                           .init(x0: 0.0285, z0: 0, x1: 0.045, z1: -0.6, style: .pot, potNumber: 3)],
+                closeup: (0, -0.22, 0.4), tintTopKey: "angleDynamic", tintBottomKey: "angleDynamic"))
         case .angleDynamic:
             return .geometric(cutGeometry(
                 tint: "angleDynamic",
@@ -175,9 +180,7 @@ enum PracticeCoverCatalog {
             return .tablePreview(solverPreview(tint: "positionPlaySolver"))
         case .planThree:
             return .tablePreview(threeShotPreview(tint: "planThree"))
-        case .snookerTactics:
-            return .tablePreview(safetyPreview(tint: "snookerTactics"))
-        case .bankShot, .bankPractice2D:
+        case .defensePractice2D, .bankShot, .bankPractice2D:
             return .tablePreview(bankPreview(tint: "bankShot"))
         case .diamondSystem:
             return .tablePreview(kickPreview(tint: "diamondSystem"))
@@ -213,7 +216,6 @@ enum PracticeCoverCatalog {
         case "batchDrillStudio": return CoverPalette.batchDrillStudio
         case "positionPlaySolver": return CoverPalette.positionPlaySolver
         case "planThree": return CoverPalette.planThree
-        case "snookerTactics": return CoverPalette.snookerTactics
         case "bankShot": return CoverPalette.bankShot
         case "diamondSystem": return CoverPalette.diamondSystem
         default:
@@ -542,23 +544,6 @@ enum PracticeCoverCatalog {
         )
     }
 
-    private static func safetyPreview(tint: String) -> PracticeCoverLayout {
-        PracticeCoverLayout(
-            balls: [
-                .init(number: nil, x: 0.60, z: -0.30),
-                .init(number: 8, x: -0.20, z: 0.25),
-                .init(number: 1, x: -0.55, z: -0.10),
-            ],
-            segments: [
-                .init(x0: 0.60, z0: -0.30, x1: 0.70, z1: 0.40, style: .aim),
-                .init(x0: 0.70, z0: 0.40, x1: -0.10, z1: 0.28, style: .hint),
-            ],
-            ghosts: [],
-            closeup: nil,
-            tintTopKey: tint,
-            tintBottomKey: tint
-        )
-    }
 
     private static func bankPreview(tint: String) -> PracticeCoverLayout {
         PracticeCoverLayout(

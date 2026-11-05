@@ -36,7 +36,10 @@ GEOMETRY_CONSTANTS = {
 
 def verify_geometry(manifest):
     for path in GEOMETRY_SOURCES:
-        assert hashlib.sha256((ROOT / path).read_bytes()).hexdigest() == manifest['physicalSourceHashes'][path], f'Layout geometry changed: {path}; review bank compatibility'
+        # A reviewed code-only extraction may rebind layout compatibility without
+        # rewriting the historical physics evidence fingerprint.
+        expected = manifest.get('layoutSourceHashes', {}).get(path, manifest['physicalSourceHashes'][path])
+        assert hashlib.sha256((ROOT / path).read_bytes()).hexdigest() == expected, f'Layout geometry changed: {path}; review bank compatibility'
     source = (ROOT / 'QiuJi/Core/Physics/BTPhysicsConstants.swift').read_text()
     source = re.sub(r'/\*.*?\*/', '', source, flags=re.S)
     source = re.sub(r'//[^\n]*', '', source)

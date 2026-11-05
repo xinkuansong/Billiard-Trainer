@@ -162,17 +162,12 @@ struct TheoryT10View: View {
                 .font(.btTitle)
                 .foregroundStyle(.btText)
 
+
             PracticeCTA(
                 title: "比较进攻与防守的后果",
                 destination: "风险报酬决策矩阵：进得了吗、走得到位吗、代价扛得住吗",
                 route: .theoryPage(.t08)
             )
-            PracticeCTA(
-                title: "防守怎么藏到什么程度",
-                destination: "防守：反解安全球，看能藏到什么程度",
-                route: .snookerTactics
-            )
-
             LearnDocTextLink(
                 title: "球团管理",
                 subtitle: "进攻时球团是问题，防守时是障碍维资源",

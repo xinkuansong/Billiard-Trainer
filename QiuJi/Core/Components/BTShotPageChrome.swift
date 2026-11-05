@@ -442,8 +442,8 @@ struct BreakRackGlyph: View, Animatable {
 
 // MARK: - 解球器页共享导航件（V9 条 17：翻袋 / 反射两页同构，抽共享避免双真源）
 //
-// 两页（翻袋 `BankShotView` / 反射 `DiamondSystemView`）统一到三解页（防守 `SnookerTacticsView`）
-// 的标题样式：principal 品牌绿 14pt 标题 + 11pt 副标题承载解描述 / 无解说明（条 17.1/17.2/17.7）；
+// 翻袋 `BankShotView` / 反射 `DiamondSystemView` 共用标题样式：
+// principal 品牌绿 14pt 标题 + 11pt 副标题承载解描述 / 无解说明（条 17.1/17.2/17.7）；
 // 右上三点菜单承载原理说明入口 + 台面网格 Toggle + 恢复默认（条 17.9，G19 口径）。
 
 /// principal 标题 + 可选副标题（G20 / SPEC §8.3）。副标题承载状态文案

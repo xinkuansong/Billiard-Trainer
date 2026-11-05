@@ -473,7 +473,6 @@ final class LegalBallMovementUITests: XCTestCase {
         case "snake": prefix = "freeplay"; args += ["-deeplink.snakePractice", "-snakePractice.count", "3"]
         case "silu": args += ["-deeplink.silu"]
         case "planthree": args += ["-deeplink.planThree", "-planThree.twoBall"]
-        case "snooker": args += ["-deeplink.snooker", "-snooker.full"]
         case "tryout": prefix = "freeplay"; args += ["-deeplink.tryout=drill_c042"]
         case "formation": prefix = "freeplay"; args += ["-deeplink.customFormation", "-customFormation.owner=drag-audit-\(UUID())"]
         default:
@@ -612,7 +611,7 @@ final class LegalBallMovementUITests: XCTestCase {
     func testDiamond() throws { try check("diamond") }
     func testSilu() throws { try check("silu") }
     func testPlanThree() throws { try check("planthree") }
-    func testDefense() throws { try check("snooker") }
+
     func testFreePlay() throws { try check("freeplay", cueOnly: true) }
     func testComposer() throws { try check("composer") }
     func testSimulation() throws { try check("shot") }

@@ -59,7 +59,7 @@ final class OwnerTransferService {
         defer { context.autosaveEnabled = autosaveEnabled }
 
         let sourceSessions = try sessions(sourceOwner)
-        let separationPayloads = sourceSessions.filter { $0.kind == TrainingSessionKind.bankPractice || $0.kind == TrainingSessionKind.kickPractice || $0.kind == TrainingSessionKind.separationPractice || $0.kind == TrainingSessionKind.twoBallPractice || $0.kind == TrainingSessionKind.threeBallPractice }
+        let separationPayloads = sourceSessions.filter { $0.kind == TrainingSessionKind.defensePractice || $0.kind == TrainingSessionKind.bankPractice || $0.kind == TrainingSessionKind.kickPractice || $0.kind == TrainingSessionKind.separationPractice || $0.kind == TrainingSessionKind.twoBallPractice || $0.kind == TrainingSessionKind.threeBallPractice }
             .map { ($0, $0.sourcePayloadSnapshot) }
         let sourceAngles = try angleTests(sourceOwner)
         let sourceFavorites = try favorites(sourceOwner)
@@ -99,6 +99,17 @@ final class OwnerTransferService {
                         var record = try KickPracticeRecord.decodePayload(payload)
                         guard record.ownerKey == sourceOwner, record.id == session.id, record.isCompatible else {
                             throw LocalKickPracticeRepository.Failure.invalidRecord
+                        }
+                        record.ownerKey = destinationOwner
+                        session.sourcePayloadSnapshot = try record.encodedPayload()
+                    }
+                    if session.kind == TrainingSessionKind.defensePractice {
+                        guard let payload = session.sourcePayloadSnapshot else {
+                            throw LocalDefensePracticeRepository.Failure.invalidRecord
+                        }
+                        var record = try DefensePracticeRecord.decodePayload(payload)
+                        guard record.ownerKey == sourceOwner, record.id == session.id, record.isCompatible else {
+                            throw LocalDefensePracticeRepository.Failure.invalidRecord
                         }
                         record.ownerKey = destinationOwner
                         session.sourcePayloadSnapshot = try record.encodedPayload()

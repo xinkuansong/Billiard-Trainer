@@ -802,7 +802,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
     }
 
     private func solutionStatus(_ sol: PositionPlaySolution) -> String {
-        TeachingSolutionSummary.text(sol, index: currentIndex, count: solutions.count, defense: false)
+        TeachingSolutionSummary.text(sol, index: currentIndex, count: solutions.count)
     }
 
     // MARK: - Trajectory + constraint rendering
@@ -1365,8 +1365,8 @@ final class SiluTrainerViewModel: TeachingTableHost {
         scene.hideCueStick()
         let runner = BreakFlowRunner(scene: scene, game: game)
         runner.showsAimAssist = showsShotAssists
-        // K6 / D-v8-3a：与 FreePlay 对齐——停稳后取消/重开/完成三态，不自动落座。
-        runner.autoDeliverOnSettle = false
+        // Deliver the settled layout directly, matching composer and PlanThree.
+        runner.autoDeliverOnSettle = true
         breakChangeForwarder = runner.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
         runner.onSettled = { [weak self] board in
@@ -1378,6 +1378,17 @@ final class SiluTrainerViewModel: TeachingTableHost {
         runner.rackUp()
         refreshOnTableKeys()
         if cameraMode == .perspective3D { requestPlayerView(.thirdPerson) }
+    }
+
+    /// Settings commit the selected gameplay directly to the table.
+    func selectBreakGame(_ game: RackGame) {
+        guard !isPlaying, !isComputing, breakRunner?.isBusy != true else { return }
+        if let runner = breakRunner {
+            runner.selectGame(game)
+        } else {
+            startBreakFlow(game: game)
+        }
+        refreshOnTableKeys()
     }
 
     /// 取消开球模式并恢复进场前桌面。

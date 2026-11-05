@@ -24,11 +24,10 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
     private func launch(_ page: String, extraArgs: [String] = []) {
         app?.terminate()
         XCUIDevice.shared.orientation = pageOrientation
-        let deep = ["silu": "silu", "planthree": "planThree", "snooker": "snooker"]
+        let deep = ["silu": "silu", "planthree": "planThree"]
         var args = ["-forcePremium", "-v50.inMemoryStore", "-3dDrag.probe", "-v51.followSystemAppearance", "-appearanceMode", "system"]
         if let route = deep[page] { args += ["-deeplink." + route] }
         if page == "planthree" { args += ["-planThree.twoBall"] }
-        if page == "snooker" { args += ["-snooker.full"] }
         app = XCUIApplication.launchClean(extraArgs: args + extraArgs)
         if deep[page] == nil {
             app.switchTab(.angle)
@@ -48,7 +47,7 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
     }
 
     func testTransparencyShowsDiscAcrossFivePages() {
-        for page in ["silu", "planthree", "snooker", "bankshot", "reflection"] {
+        for page in ["silu", "planthree", "bankshot", "reflection"] {
             launch(page)
             for mode in ["2D", "3D"] {
                 let more = app.buttons[page + ".more"]
@@ -178,7 +177,7 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
     }
 
     func testSolvedCloseupsAndBackgroundRecovery() {
-        for page in ["silu", "planthree", "snooker"] {
+        for page in ["silu", "planthree"] {
             launch(page); prepareSolution(page)
             ready(app.buttons[page + ".strike"])
             openMore(page)
@@ -468,7 +467,7 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
     }
 
     func testPairedSpinOnPlanningAndSolverPages() throws {
-        for page in ["silu", "planthree", "snooker", "bankshot", "reflection"] {
+        for page in ["silu", "planthree", "bankshot", "reflection"] {
             launch(page)
             prepareSolution(page)
             ready(app.buttons["shotStage.spinEntry"])
@@ -918,7 +917,6 @@ final class PlanningInformationUITests: XCTestCase {
                     "-deeplink." + (page == "planthree" ? "planThree" : page)]
         if let learned { args += ["-\(page).informationLearned", learned ? "YES" : "NO"] }
         if page == "planthree" { args += ["-planThree.twoBall"] }
-        if page == "snooker" { args += ["-snooker." + scenario] }
         app = XCUIApplication.launchClean(extraArgs: args + extraArgs)
         XCTAssertTrue(item(page + ".template").waitForExistence(timeout: 45))
         usleep(500_000)
@@ -942,7 +940,7 @@ final class PlanningInformationUITests: XCTestCase {
     func testBefore() throws { try capturePages() }
     func testAfter() throws { phase = "after"; try capturePages() }
     private func capturePages() throws {
-        for page in ["planthree", "silu", "snooker"] {
+        for page in ["planthree", "silu"] {
             launch(page); try snap(page + "-initial")
             solve(page); try snap(page + "-solved")
             if page == "planthree" {
@@ -985,7 +983,7 @@ final class PlanningInformationUITests: XCTestCase {
     }
     func testAdaptiveHelpAndSelection() throws {
         phase = "after"
-        for page in ["planthree", "silu", "snooker"] {
+        for page in ["planthree", "silu"] {
             launch(page, extraArgs: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
             if UIDevice.current.userInterfaceIdiom == .pad {
                 XCUIDevice.shared.orientation = .portrait
@@ -1011,16 +1009,6 @@ final class PlanningInformationUITests: XCTestCase {
     }
     func testFailurePersistsAndFineTuningIsMarked() throws {
         phase = "r2/after"
-        launch("snooker", scenario: "none")
-        let status = item("snooker.status")
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            status.exists && status.label.contains("未找到")
-        }, object: nil)], timeout: 90), .completed)
-        let reason = status.label; usleep(3_500_000)
-        XCTAssertEqual(status.label, reason)
-        try snap("snooker-no-solution-persistent")
-        openHelp("snooker"); XCTAssertTrue(app.staticTexts["当前问题"].exists)
-        try snap("snooker-failure-help"); app.buttons["planning.close"].tap()
         launch("silu"); solve("silu")
         app.buttons["shotStage.spinEntry"].tap()
         item("spinPad.disc").coordinate(withNormalizedOffset: CGVector(dx: 0.58, dy: 0.42)).tap()
@@ -1040,18 +1028,7 @@ final class PlanningInformationUITests: XCTestCase {
         app.buttons["planning.close"].tap()
     }
 
-    func testDefenseTargetMenuKeepsGroupAndCountReadable() throws {
-        phase = "after"
-        launch("snooker"); solve("snooker")
-        app.buttons["snooker.tool"].tap()
-        let summary = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "对方球组")).firstMatch
-        XCTAssertTrue(summary.waitForExistence(timeout: 5))
-        XCTAssertTrue(summary.label.contains("花色"))
-        XCTAssertTrue(summary.label.contains("1颗"))
-        try snap("snooker-targets")
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.85)).tap()
-        XCTAssertTrue(app.buttons["snooker.strike"].isEnabled)
-    }
+
 }
 
 /// User-approved second pass: one visible solution count, no secondary solution menu.
@@ -1067,12 +1044,11 @@ final class InformationConsistencyUITests: XCTestCase {
     private func launch(_ page: String, maximum: Bool = false, scenario: String = "twoBall") {
         app?.terminate(); XCUIDevice.shared.orientation = .landscapeLeft
         var args = ["-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance", "-appearanceMode", "system", "-3dDrag.probe",
-                    "-planthree.informationLearned", "YES", "-silu.informationLearned", "YES", "-snooker.informationLearned", "YES"]
+                    "-planthree.informationLearned", "YES", "-silu.informationLearned", "YES"]
         if maximum { args += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
         switch page {
         case "planthree": args += ["-deeplink.planThree", "-planThree." + scenario]
         case "silu": args += ["-deeplink.silu"]
-        case "snooker": args += ["-deeplink.snooker", "-snooker.full"]
         case "composer": args += ["-dailyInteraction.sharedPage=composer"]
         case "freeplay": args += ["-deeplink.freePlay"]
         case "angleDynamic": args += ["-dailyInteraction.sharedPage=angleDynamic"]
@@ -1118,7 +1094,7 @@ final class InformationConsistencyUITests: XCTestCase {
     func testBefore() throws { try capturePages() }
     func testAfter() throws { phase = "after"; try capturePages() }
     private func capturePages() throws {
-        for page in ["planthree", "silu", "snooker", "bankshot", "reflection"] {
+        for page in ["planthree", "silu", "bankshot", "reflection"] {
             launch(page); solve(page); try snap(page + "-solved")
             if page == "planthree" {
                 ready(app.buttons["paletteBall__1"]); try snap(page + "-roles")
@@ -1216,9 +1192,9 @@ final class PalettePlacementUITests: XCTestCase {
         app?.terminate(); XCUIDevice.shared.orientation = .landscapeLeft
         let prefix = ["bank": "bankshot", "diamond": "reflection", "separation": "separationAngleAtlas", "cushion": "cushionEnglishAtlas", "shot": "shotSimulation", "batch": "batchAuthor"]
         page = prefix[route] ?? route
-        var args = ["-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance", "-appearanceMode", "system", "-3dDrag.probe", "-planthree.informationLearned", "YES", "-silu.informationLearned", "YES", "-snooker.informationLearned", "YES"]
+        var args = ["-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance", "-appearanceMode", "system", "-3dDrag.probe", "-planthree.informationLearned", "YES", "-silu.informationLearned", "YES"]
         if maximum { args += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
-        if ["planthree", "silu", "snooker"].contains(route) {
+        if ["planthree", "silu"].contains(route) {
             args += ["-deeplink." + (route == "planthree" ? "planThree" : route)]
             if route == "planthree" { args += ["-planThree.twoBall"] }
         } else { args += ["-dailyInteraction.sharedPage=" + route] }
@@ -1268,7 +1244,7 @@ final class PalettePlacementUITests: XCTestCase {
     }
     func testAfter() throws {
         phase = "after"
-        for route in ["planthree", "angleDynamic", "composer", "bank", "diamond", "silu", "snooker", "separation", "cushion", "shot", "batch"] { launch(route); try drag() }
+        for route in ["planthree", "angleDynamic", "composer", "bank", "diamond", "silu", "separation", "cushion", "shot", "batch"] { launch(route); try drag() }
         try prompts()
     }
     func testAfterCompact() throws {
@@ -1334,17 +1310,6 @@ final class PalettePlacementUITests: XCTestCase {
         XCTAssertEqual(before["scale"] as? [Double], after["scale"] as? [Double])
         XCTAssertNotEqual(before["world"] as? [Double], after["world"] as? [Double])
         try JSONSerialization.data(withJSONObject: ["start": started, "end": finished, "before": initial, "probe": result], options: [.prettyPrinted, .sortedKeys]).write(to: folder.appendingPathComponent("planthree-table-drag.json"))
-        app.terminate(); page = "snooker"
-        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-deeplink.snooker", "-snooker.none", "-snooker.informationLearned", "YES", "-v51.followSystemAppearance", "-appearanceMode", "system"])
-        let status = item("snooker.status")
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            status.exists && status.label.contains("未找到")
-        }, object: nil)], timeout: 90), .completed)
-        let reason = status.label
-        usleep(3_500_000)
-        XCTAssertEqual(status.label, reason)
-        XCTAssertFalse(item("planning.dismissNotice").exists)
-        try snap("persistent-hint")
     }
 
     private func prompts() throws {

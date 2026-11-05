@@ -380,12 +380,12 @@ struct TeachingSolutionButton: View {
 
 /// Presentation-only summary. Solver order, stored diagnostics and fallback facts are unchanged.
 enum TeachingSolutionSummary {
-    static func text(_ solution: PositionPlaySolution, index: Int, count: Int, defense: Bool) -> String {
+    static func text(_ solution: PositionPlaySolution, index: Int, count: Int) -> String {
         var parts = ["解 \(index + 1)/\(count)"]
         if solution.summary.hasPrefix("微调") { parts.append("微调") }
         if solution.summary.hasPrefix("翻袋备选") { parts.append("翻袋备选") }
         if !solution.satisfiesConstraint {
-            parts.append(defense ? "未完全斯诺克" : "未满足约束")
+            parts.append("未满足约束")
         }
         if solution.beyondCushionBudget { parts.append("进阶") }
         if solution.beyondSpinBudget { parts.append("需横塞") }
@@ -413,7 +413,6 @@ struct PlanningInformationOverlay: View {
     let event: PlanningInformationEvent
     let prompt: String?
     let solution: PositionPlaySolution?
-    let defense: Bool
     let busy: Bool
     let setupComplete: Bool
     let introduction: String
@@ -428,9 +427,9 @@ struct PlanningInformationOverlay: View {
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
 
     init(page: String, event: PlanningInformationEvent, prompt: String?, solution: PositionPlaySolution?,
-         defense: Bool = false, busy: Bool, setupComplete: Bool, introduction: String) {
+         busy: Bool, setupComplete: Bool, introduction: String) {
         self.page = page; self.event = event; self.prompt = prompt; self.solution = solution
-        self.defense = defense; self.busy = busy; self.setupComplete = setupComplete; self.introduction = introduction
+        self.busy = busy; self.setupComplete = setupComplete; self.introduction = introduction
         _learned = AppStorage(wrappedValue: false, page + ".informationLearned")
     }
 
@@ -438,7 +437,7 @@ struct PlanningInformationOverlay: View {
         if event.kind == .failure { return (event.text, true, false) }
         if busy { return nil }
         if event.kind == .completion { return (event.text, true, false) }
-        let caution = PlanningSolutionDetails.cautions(solution, defense: defense)
+        let caution = PlanningSolutionDetails.cautions(solution)
         if !caution.isEmpty { return (caution, true, false) }
         // A completed action owns a brief feedback interval; selecting a tool/role
         // produces a new context event and immediately hands back to that step.
@@ -475,11 +474,11 @@ struct PlanningInformationOverlay: View {
 }
 
 enum PlanningSolutionDetails {
-    static func cautions(_ solution: PositionPlaySolution?, defense: Bool) -> String {
+    static func cautions(_ solution: PositionPlaySolution?) -> String {
         guard let solution else { return "" }
         var tags: [String] = []
         if solution.isBankFallback { tags.append("翻袋备选") }
-        if !solution.satisfiesConstraint { tags.append(defense ? "未完全斯诺克" : "未满足约束") }
+        if !solution.satisfiesConstraint { tags.append("未满足约束") }
         if solution.beyondCushionBudget { tags.append("进阶") }
         if solution.beyondSpinBudget { tags.append("需横塞") }
         return tags.joined(separator: " · ")

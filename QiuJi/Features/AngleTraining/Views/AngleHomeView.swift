@@ -20,6 +20,7 @@ enum AngleRoute: Hashable {
     case separationAngleAtlas
     /// 加塞吃库图谱（v20 W2 / DR-075）：选定高低杆 × 该高度允许加塞弦 × 8 档吃库后出射。
     case cushionEnglishAtlas
+    case pocketTolerance
     case angleDynamic
     case geometricQuiz
     /// 2D 瞄准训练（T-P18-48 拆两卡）：俯视练几何判断。
@@ -38,6 +39,7 @@ enum AngleRoute: Hashable {
     case accuracy2D, accuracy3D
     case separationPractice2D, separationPractice3D
     case kickPractice2D
+    case defensePractice2D
     case bankPractice2D
     case kBallPractice2D
     case twoBallPractice2D, twoBallPractice3D
@@ -51,7 +53,6 @@ enum AngleRoute: Hashable {
     case freePlay
     case positionPlaySolver
     case planThree
-    case snookerTactics
     case ballExtraction
     /// 批量出片台（仅模拟器，内容生产工具）。
     case batchDrillStudio
@@ -62,13 +63,13 @@ enum AngleRoute: Hashable {
         switch self {
         case .separationAngleAtlas, .cushionEnglishAtlas,
              .snakePractice, .positionPlayComposer, .shotSimulation,
-             .ballExtraction, .planThree, .snookerTactics, .bankShot, .diamondSystem:
+             .ballExtraction, .planThree, .bankShot, .diamondSystem:
             return true
         case .sceneAiming3D, .aimPointScene3D, .accuracy3D, .separationPractice3D, .twoBallPractice3D, .threeBallPractice3D, .multiBallPractice3D,
              .theoryIndex, .theoryPage, .contactPointTable, .aimingPrinciple,
-             .aimingMethods, .aimingCorrection, .spinAndEnglish, .angleDynamic,
+             .aimingMethods, .aimingCorrection, .spinAndEnglish, .angleDynamic, .pocketTolerance,
              .geometricQuiz, .multiBallPractice, .customFormationPractice, .sceneAiming2D,
-             .kickPractice2D, .bankPractice2D, .kBallPractice2D, .aimPointTraining, .aimPointScene2D, .accuracy2D, .separationPractice2D, .twoBallPractice2D, .threeBallPractice2D, .ballFeel, .freePlay, .positionPlaySolver,
+             .kickPractice2D, .defensePractice2D, .bankPractice2D, .kBallPractice2D, .aimPointTraining, .aimPointScene2D, .accuracy2D, .separationPractice2D, .twoBallPractice2D, .threeBallPractice2D, .ballFeel, .freePlay, .positionPlaySolver,
              .batchDrillStudio, .drillDetail:
             return false
         }
@@ -205,6 +206,7 @@ struct AngleHomeView: View {
         .init(route: .aimingCorrection, title: "瞄准修正", subtitle: "补偿投掷与加塞", contentKind: .interactive, topics: [.accuracy, .english]),
         .init(route: .spinAndEnglish, title: "旋转与加塞", subtitle: "预判旋转后路线", contentKind: .interactive, topics: [.english, .position]),
         .init(route: .angleDynamic, title: "角度与瞄准", subtitle: "拖球看瞄准点变化", contentKind: .interactive, topics: [.accuracy]),
+        .init(route: .pocketTolerance, title: "进球容错角", subtitle: "拖球看进袋方向范围", contentKind: .interactive, topics: [.accuracy]),
         .init(route: .separationAngleAtlas, title: "分离角图谱", subtitle: "看高低杆碰后方向", contentKind: .interactive, isPremium: true, topics: [.position]),
         .init(route: .cushionEnglishAtlas, title: "加塞吃库图谱", subtitle: "换塞侧看出库方向", contentKind: .interactive, isPremium: true, topics: [.english, .cushion]),
         .init(route: .ballFeel, title: "浅谈凭感觉瞄准", subtitle: "从找参照到凭感觉判断", contentKind: .reading, topics: [.accuracy]),
@@ -271,6 +273,7 @@ struct AngleHomeView: View {
         .init(route: .separationPractice2D, title: TrainingProject.separation.title, subtitle: "调打点力度，复现目标轨迹", contentKind: .quiz, topics: [.position, .english]),
         .init(route: .kBallPractice2D, title: "K球练习", subtitle: "进第一球，让母球K到第二球", contentKind: .quiz, topics: [.position, .english, .cushion]),
         .init(route: .kickPractice2D, title: "解球练习", subtitle: "按指定库序，让母球解到目标球", contentKind: .quiz, topics: [.position, .english, .cushion]),
+        .init(route: .defensePractice2D, title: "防守练习", subtitle: "控制落点，压缩对方的进攻机会", contentKind: .quiz, topics: [.accuracy, .english, .cushion]),
         .init(route: .bankPractice2D, title: "翻袋练习", subtitle: "按指定库序，把目标球翻进指定袋", contentKind: .quiz, topics: [.accuracy, .english, .cushion]),
         .init(route: .twoBallPractice2D, title: "两球走位", subtitle: "练目标轨迹，或走下一球", contentKind: .quiz, topics: [.position, .english]),
         .init(route: .threeBallPractice2D, title: "三球走位", subtitle: "提前选袋，练两杆连续走位", contentKind: .quiz, topics: [.position, .english]),
@@ -282,7 +285,6 @@ struct AngleHomeView: View {
     private let solveEntries: [AngleEntry] = [
         .init(route: .positionPlaySolver, title: "走位求解", subtitle: "定落点看塞与力度", contentKind: .striking, topics: [.position, .english]),
         .init(route: .planThree, title: "打一走二想三", subtitle: "定三颗倒推第一杆", contentKind: .striking, isPremium: true, topics: [.position]),
-        .init(route: .snookerTactics, title: "防守求解", subtitle: "选目标球求防守线", contentKind: .striking, isPremium: true, topics: [.safety]),
         .init(route: .bankShot, title: "翻袋解球", subtitle: "选袋求一至三库线", contentKind: .striking, isPremium: true, topics: [.cushion, .accuracy]),
         .init(route: .diamondSystem, title: "颗星解球", subtitle: "摆球求一至三库线", contentKind: .striking, isPremium: true, topics: [.cushion]),
     ]

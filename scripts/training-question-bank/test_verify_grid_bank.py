@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import textwrap
 import unittest
 from unittest.mock import patch
 
@@ -66,6 +67,12 @@ class GridGateTests(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, 'Layout geometry changed'):
             self.verify()
 
+    def test_reviewed_geometry_binding_still_rejects_drift(self):
+        p = self.root / 'QiuJi/Core/Scene/AngleSceneCalculator.swift'
+        p.write_text(p.read_text() + '\n// drift after reviewed extraction\n')
+        with self.assertRaisesRegex(AssertionError, 'Layout geometry changed'):
+            self.verify()
+
     def test_ball_table_and_pocket_dimension_changes_are_rejected(self):
         p = self.root / 'QiuJi/Core/Physics/BTPhysicsConstants.swift'
         original = p.read_text()
@@ -91,10 +98,12 @@ class GridGateTests(unittest.TestCase):
 
 class BuildWiringTests(unittest.TestCase):
     def test_both_build_configs_always_use_integrity_gate(self):
-        expected = '/usr/bin/python3 "$SRCROOT/scripts/training-question-bank/verify_grid_bank.py"\n'
+        expected = ('set -e\n'
+                    '/usr/bin/python3 "$SRCROOT/scripts/training-question-bank/verify_grid_bank.py"\n'
+                    '/usr/bin/python3 "$SRCROOT/scripts/verify_pocket_pipe_table.py"\n')
         spec = (gate.ROOT / 'project.yml').read_text()
         body = spec.split('name: Verify training question bank', 1)[1].split('    sources:', 1)[0]
-        self.assertIn(expected.strip(), body)
+        self.assertEqual(textwrap.dedent(body.split('script: |\n', 1)[1]), expected)
         self.assertNotIn('TRAINING_BANK_REVALIDATION', body)
         project = json.loads(subprocess.check_output([
             'plutil', '-convert', 'json', '-o', '-',

@@ -922,3 +922,100 @@ private final class DailyBreakGPUSamples: @unchecked Sendable {
         command.present(drawable); command.commit()
     }
 }
+
+
+@MainActor
+final class BreakGameplaySelectionTests: XCTestCase {
+    private func assertRack(_ scene: AngleTrainingScene, game: RackGame, file: StaticString = #filePath, line: UInt = #line) {
+        let visible = Set(PositionPlayBall.objectKeys.filter { scene.allBallNodes[$0]?.isHidden == false })
+        let expected = Set(RackLayout.make(game, seed: 1, surfaceY: scene.surfaceY).balls.map(\.key))
+        XCTAssertEqual(visible, expected, file: file, line: line)
+        XCTAssertFalse(scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true, file: file, line: line)
+    }
+    func testSiluSettingsReplaceRackThenDeliverWithoutConfirmation() throws {
+        let vm = SiluTrainerViewModel(); vm.setupScene()
+        defer { vm.stopForDismissal() }
+        vm.selectBreakGame(.nineBall)
+        let runner = try XCTUnwrap(vm.breakRunner)
+        for game in [RackGame.chineseEightBall, .zhuifen(balls: 6), .zhuifen(balls: 5), .zhuifen(balls: 4)] {
+            vm.selectBreakGame(game)
+            XCTAssertTrue(vm.breakRunner === runner)
+            XCTAssertEqual(runner.game, game)
+            XCTAssertTrue(runner.autoDeliverOnSettle)
+            XCTAssertEqual(runner.phase, .racked)
+            assertRack(vm.scene, game: game)
+            XCTAssertEqual(Set(vm.onTableKeys.filter { $0 != PositionPlayBall.cueKey }),
+                           Set(RackLayout.make(game, seed: 1, surfaceY: vm.scene.surfaceY).balls.map(\.key)))
+        }
+        runner.velocity = 7
+        vm.selectBreakGame(.zhuifen(balls: 4))
+        XCTAssertEqual(runner.velocity, 7, "Selecting the current gameplay must preserve tuning")
+        let board = BoardSnapshot(onTable: [PositionPlayBall.cueKey: CanvasPoint(x: 0.4, y: 0.2), "_9": CanvasPoint(x: 0.7, y: 0.2)])
+        runner.applySettledBoardForTesting(board)
+        XCTAssertFalse(vm.isBreakMode)
+        XCTAssertFalse(runner.showsConfirm)
+        XCTAssertEqual(Set(vm.onTableKeys), Set(board.onTable.keys))
+        XCTAssertFalse(vm.hasConstraint)
+        XCTAssertTrue(vm.solutions.isEmpty)
+        XCTAssertNotNil(vm.selectedTargetKey, "The delivered board must return to the solving workflow")
+    }
+
+    func testSiluBusyBreakRejectsGameplayChangesAndCancelsCleanly() throws {
+        let vm = SiluTrainerViewModel(); vm.setupScene()
+        defer { vm.stopForDismissal() }
+        let original = vm.currentSnapshot()
+        vm.startBreakFlow(game: .nineBall)
+        let runner = try XCTUnwrap(vm.breakRunner)
+        runner.breakNow()
+        XCTAssertTrue(runner.isBusy)
+        vm.selectBreakGame(.chineseEightBall)
+        XCTAssertTrue(vm.breakRunner === runner)
+        XCTAssertEqual(runner.game, .nineBall)
+        vm.cancelBreakFlow()
+        XCTAssertFalse(vm.isBreakMode)
+        XCTAssertEqual(Set(vm.onTableKeys), Set(original.onTable.keys))
+        vm.selectBreakGame(.zhuifen(balls: 4))
+        XCTAssertFalse(vm.breakRunner === runner)
+        assertRack(vm.scene, game: .zhuifen(balls: 4))
+        vm.cancelBreakFlow()
+    }
+
+    func testPlanSettingsImmediatelyReplaceRackAndKeepDelivery() throws {
+        let vm = PlanThreeViewModel(); vm.setupScene()
+        defer { vm.stopForDismissal() }
+        vm.selectBreakGame(.nineBall)
+        let runner = try XCTUnwrap(vm.breakRunner)
+        for game in [RackGame.chineseEightBall, .zhuifen(balls: 4), .zhuifen(balls: 6), .nineBall] {
+            vm.selectBreakGame(game)
+            XCTAssertTrue(vm.breakRunner === runner)
+            XCTAssertEqual(runner.game, game)
+            XCTAssertTrue(runner.autoDeliverOnSettle)
+            XCTAssertEqual(runner.phase, .racked)
+            assertRack(vm.scene, game: game)
+            XCTAssertEqual(Set(vm.onTableKeys.filter { $0 != PositionPlayBall.cueKey }), Set(RackLayout.make(game, seed: 1, surfaceY: vm.scene.surfaceY).balls.map(\.key)))
+        }
+        vm.selectBreakGame(.nineBall)
+        assertRack(vm.scene, game: .nineBall)
+    }
+    func testComposerSettingsImmediatelyReplaceRackAndKeepDelivery() async throws {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        let deadline = Date().addingTimeInterval(15)
+        while vm.isComputing && Date() < deadline { try await Task.sleep(for: .milliseconds(50)) }
+        XCTAssertFalse(vm.isComputing, "Initial preview must finish before gameplay selection is enabled")
+        defer { vm.cancelBreakFlow() }
+        vm.selectBreakGame(.nineBall)
+        let runner = try XCTUnwrap(vm.breakRunner)
+        for game in [RackGame.chineseEightBall, .zhuifen(balls: 4), .zhuifen(balls: 5), .nineBall] {
+            vm.selectBreakGame(game)
+            XCTAssertTrue(vm.breakRunner === runner)
+            XCTAssertEqual(runner.game, game)
+            XCTAssertTrue(runner.autoDeliverOnSettle)
+            XCTAssertEqual(runner.phase, .racked)
+            assertRack(vm.scene, game: game)
+        }
+        runner.breakNow()
+        XCTAssertTrue(runner.isBusy)
+        vm.selectBreakGame(.chineseEightBall)
+        XCTAssertEqual(runner.game, .nineBall, "A busy break cannot be replaced by a settings action")
+    }
+}

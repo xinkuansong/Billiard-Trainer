@@ -1861,3 +1861,11 @@ K球所有阶段关闭中杆中力参考生成与图例，不能沿用两球／�
 
 ### DR-460 · 两页开球玩法与静默呈现（2026-11-02）
 BTTablePlanningControls.breakGameSelection可选Binding<Int>、默认nil；显式接入才加入同款玩法子页。BreakFlowRunner.gameSettingItems只提交下一局偏好，不触发开球；actionRequiredMessage仅返回需处理错误。P05开球与解/方向尺由真实breakRunner阶段决定；正式composer与P05同左上重开/右下开球、实际停稳自动结束，其他宿主默认行为保持。Changelog：DR-460 v1，范围/验证见BREAK-UNIFICATION-20261102。
+
+### DR-460 r2 · 走位求解开球同款接入（2026-11-03）
+
+覆盖v1的“仅提交下一局偏好”：正式composer、P05及本次Silu的breakGameSelection setter调用宿主selectBreakGame，选择即进入／更换待开球球架，忙态禁止；Silu独立保存玩法并开启autoDeliverOnSettle，左上开球／重开，普通约束工具下移至尺区，停稳恢复，无取消／完成菜单。共享Binding与runner默认不改；内部取消保留。Changelog：DR-460 r2；现行TP19及SILU-BREAK-20261103记录范围与证据。
+
+### DR-462 · 无母球教学的显式能力配置
+
+Changelog：2026-11-05。BTTeachingTablePage的objectObservationOnly=false、allows3DPaletteEditing=false、onPaletteTap=nil均保留旧页默认；进球容错角显式开启前两项并提供选球闭包。ShotPlayerCameraButtons.observationOnly=false / observationTargetAvailable=true，开启只提供全局/目标观察。无母球场景不伪造沿杆或第一人称；本页固定控件/两项菜单为用户指定差异，不推广其它教学页。验证见POCKET-TOLERANCE-20261105页面卡。

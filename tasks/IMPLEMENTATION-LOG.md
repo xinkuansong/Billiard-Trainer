@@ -6704,3 +6704,74 @@ BankShotViewModel提供selectedTargetKey/selectableBalls/selectTarget，覆盖�
 
 
 DR-461定向闭合：r3构建、27测试零失败零跳过、六张2D/3D原图已审；角色／姿态保持、自动取消、号码快照与不同目标真实回放恢复通过。r2测试前容量拦截单列，真机／iPad／全App未验，见BANK-TARGET-SELECTION-20261103。
+
+
+## FL-247 — 联合遮挡分类不能用粗采样跨越比例阈值（2026-11-03）
+
+离线防守批量r1的129条射线将11题单球暴露角域高估为>5%；全量4097条独立射线审计拒绝，连续角域计算确认。完整双球遮挡仍成立，错误仅在联合挡分类。原始2500题、11题失败清单及r1源码均保留；剔除后2489题通过全量部分审计。r2改为有深度先后证明的连续区间长度计算，保持5%门槛，沿用冻结生产源码/资源，只补7长库＋4短库并与保留题去重；最终结果见[批量卡](DEFENSE-BANK-2500-20261103.md)。
+
+已应用至：`.cursor/skills/geometry-spatial-reasoning/SKILL.md` § FL-247（2026-11-03）。比例门槛使用连续量或明确误差界，独立细采样不得被降级为原粗采样；失败原件与补题版本分开。
+
+FL-247闭合：r2补11题后，最终2500题通过连续角域＋4097射线全量审计、20000小扰动及四镜像类内去重；两轮物理源码/资源一致，旧失败保留。15张图逐张目视及2500题脚本检查通过；浏览器与实台未验。见DEFENSE-BANK-2500-20261103。
+
+## DR-460 r2 — 走位求解开球对齐（2026-11-03）
+
+- 用户明确要求走位求解参考分离角与走位和打一走二想三，覆盖本页旧sheet／手动完成合同。
+- Silu复用既有breakGameSelection和gameSettingItems，独立偏好、选择即摆架、忙态拒绝、停稳自动交付；普通工具保留，开球期间方向尺替换。FreeControlCatalog增加break.entry，旧档保留。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` §DR-460 r2；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；统一规范TP19与来源表。
+- 验证／未验真源：`tasks/table-page-adaptation/SILU-BREAK-20261103.md`：三设备17次定向执行通过，23张原生图检查完成；不记真机／全量／用户验收通过。
+
+
+## FL-248 — 近袋容错角不能截在固定喉口搜索范围（2026-11-04）
+
+- 场景：16例管道原型扩展为全桌5151点时，44个球袋组合在“喉口端点方向±5°”搜索边缘仍然可行。两档采样一致不代表窗口完整。
+- 根因：近袋捕获入口可早于喉口弦；以喉口方向加固定余量给搜索定界，会截短真实干净窗口。
+- 修正：独立研究扩展按实际可行谓词延伸两端，直到找到不可行界；保留触达±180°仍可行的失败标记。两档不一致的窄窗再以0.005°/0.0025°细查，原输出保留拒绝。
+- 验证：本轮状态与最终结果以tasks/POCKET-HEATMAP-20261104.md及对应audit.json为准；无生产App/API变更。
+- 规则改进建议／已应用至：`.cursor/skills/geometry-spatial-reasoning/SKILL.md` § FL-248（2026-11-04）。
+
+## FL-249 — 干净进袋子集的最优路线不能代表全部进攻选择（2026-11-04）
+
+用户随机看图否定R01-02/03/05/18：较顺手角袋未进入干净窗口，系统挑另一条极薄路线并以低分纳入防守候选。旧几何/评分回归通过只验证受限模型内自洽，未验证选题语义。按用户授权删除整类存疑候选，原阈值不变；以无遮挡且台内接触的替代角袋在切角/袋距/舒适分三项同时更优作为保守排错，未宣称替代路线能进。中袋不可进区域不误当可用替代。删除15187角色候选并替换图册24题，证据与限制见DEFENSE-POCKET-CLEANUP-20261104。
+
+已应用至：`.cursor/skills/geometry-spatial-reasoning/SKILL.md` § FL-249；UI-IMPLEMENTATION-SPEC Changelog（无生产UI/API变更）。
+
+
+## FL-250 — queue.py覆盖标准库导致补搜启动递归（2026-11-04）
+
+第二批853启动脚本命名queue.py且顶层启动受管任务；run.py导入concurrent.futures时加载同目录queue.py，递归启动而未进入编译。上轮只看到受管run登记就声称进入编译，证据不足。已暂停并终止精确所属80037进程树1099个进程，保留startup-failure.json及全部受管日志；改名launch_queue.py并加__main__入口保护，从该目录实测queue.__file__回到Python标准库。新受管run639cac0c538a45358b7eaa360f998ac6已观察到实际swift-frontend，尚待8worker产出，不得冒称已求解。异常目录通过local_test_lifecycle.change完成API逐个收尾，拒绝项保留；结果见startup-cleanup.json。
+
+规则改进：启动脚本不得命名queue.py/concurrent.py/threading.py等标准库名；有副作用的入口使用__main__保护。启动预检须从实际脚本目录导入其依赖并核路径；“正在编译”需编译进程/日志，“开始求解”需worker实际产出。已应用至.cursor/rules/00-orchestrator.mdc §FL-250。
+
+
+## FL-251 — 进球容错角与母球出杆容错角混用（2026-11-04）
+- **任务**：防守效果分修订／目标球管道预计算。
+- **现象**：用户定义的是目标球对袋口的管道夹角，实现却测母球出杆方向的成功区间，并据此修改评分及讨论预计算维度。v3原生测试只验证了误解后的口径，不能作为用户要求已完成的证据。
+- **根因**：未锁定角度的顶点、两条边界、输入依赖；把下球点可达与出杆误差混入目标球进袋指标。
+- **处理**：撤回v3满足目标指标的完成结论，保留历史测试。按用户要求先生成目标位置×六袋的纯管道表；App评分接入与尺度调整仍待后续，不在预计算轮次悄悄修改。
+- **强制检查点**：角度指标明确顶点、边界、单位及输入；目标球管道角不随母球位置改变。管道角、出杆角、切角、可达性分别命名、测试，不能共用未限定的tolerance称呼。
+- **已应用至**：`.cursor/skills/geometry-spatial-reasoning/SKILL.md` § FL-251（2026-11-04）。
+
+- **2026-11-05闭环**：只接查表阶段仍保留旧出杆角评分，用户再次指出后已在v4撤除热路径物理搜索/出杆扰动，改为目标管道角＋同路线舒适分。母球移动不变管道角、历史成绩冻结与15终态精算/查表对照通过；ABC原生中位数9.95/5.85/3.42ms。C由用户明确选择模型另修前未评分，属于独立覆盖待办。证据见`tasks/DEFENSE-PIPE-SCORE-V4-20261105.md`，非App UI/真机验收。
+
+## DR-462 · 进球容错角教学页（2026-11-05）
+
+- 来源：用户批准独立学页、多球仅展示选中球、菜单仅视图/网格。
+- 变更：新增pocketTolerance页面身份；BTTeachingTablePage新增objectObservationOnly=false、allows3DPaletteEditing=false、onPaletteTap=nil；ShotPlayerCameraButtons新增observationOnly=false、observationTargetAvailable=true。只有新页启用，现有消费者默认保持。无母球页使用全局/目标观察，不造沿杆瞄准。
+- 计算：DefensePipeTable原样迁入Core/Scene，评分调用不变；新typed窗口查询与防守共用数据/精算入口，左右外缘真实半径相切。模型缺口另修，零窗不宣称无法进球。
+- 页面范围与验证：[页面卡](table-page-adaptation/POCKET-TOLERANCE-20261105.md)，r7构建通过，新页10逻辑及既有5相机回归、三设备9UI＋旧页1UI通过；68业务状态图目视，83原件留存；无关旧封面重复断言失败保留，详验收报告。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-462（2026-11-05）；UI-IMPLEMENTATION-SPEC同步。
+
+DR-462相机验收补记：非surface全局入口在零视口下保留取景意图，实际viewport到达再fit；FOV阻尼停稳用量级相关Float舍入阈值，插值/镜头比例不变。前者FL-252、后者r6独立复现证据见页面报告；不触发沿杆surface入口改动。
+
+
+## FL-253 — 防守管道兜底必须排除主库穿越
+- **日期**：2026-11-05
+- **任务**：防守评分两类判定／消除未评分，S04-01-53用户复核。
+- **现象**：v7把该例保留为未知；初版v8宽捕获包络给出94.9估分。用户指出8号球应封住目标管道，要求继续核对。
+- **根因**：捕获口宽包络大于有效进球范围。新增连续证明／几何兜底只检查球体、切角及假想球边界，漏掉两段运动通路与有限主库的相交；绕开8号的伪候选实际先穿左主库。不能将这个实现漏检解释成已接受的模型未知。
+- **修复**：使用生产TableGeometry中soundSurface=cushion的六段有限主库，对母球→假想球、目标球→捕获前缀同时检查R净距；球体仍为2R。连续角域使用线段位移界证明，不能把离散无解／两端受阻直接当全封锁。宽包络允许用于保守封锁证明，但不豁免主库几何。
+- **验证**：最终36项XCTest零失败，15真实终态全部评分且查表／精算分类一致，S04-01-53为确认封锁100分，无估算标记；独立10001方向密采无同时避开主库和8号的路线，几何图已审。初次诊断测试对极限capture.entryTime强解包导致测试崩溃，改为明确记录无入口后复跑通过，失败原件保留。
+- **证据**：output/defense-pipe-always-scored-20261105/rails-tests.log、corner-native.json、corner-geometry.json、corner-pipe-explanation.png；首次诊断失败corner-tests.xcresult。
+- **规则改进建议**：候选中心线、球径通道、袋口角域分开；扩大候选域只能增加拒绝检查，不能绕过正式有限主库约束；合成开口与用户真实球形都应覆盖。
+- **已应用至**：.cursor/skills/geometry-spatial-reasoning/SKILL.md § FL-253（2026-11-05）；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。

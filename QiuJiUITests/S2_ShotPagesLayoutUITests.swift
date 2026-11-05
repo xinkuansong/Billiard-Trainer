@@ -454,52 +454,8 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
         snap("s2-04-planthree")
     }
 
-    func testSnooker3DPlanningRoundTrip() throws {
-        // A failed prerequisite must stop the flow before naming a busy screen "solved".
-        continueAfterFailure = false
-        XCTAssertTrue(openCard(homeTab: "解", title: "防守"))
-        let camera = app.buttons["snooker.cameraMode"]
-        XCTAssertTrue(app.buttons["求解"].isEnabled)
-        snap("v63-snooker-before")
-        camera.tap()
-        XCTAssertEqual(camera.value as? String, "3D")
-        XCTAssertFalse(app.buttons["目标球"].isEnabled)
-        app.buttons["snooker.observation"].tap()
-        XCTAssertFalse(app.buttons["snooker.observe.pocket"].exists)
-        XCTAssertFalse(app.buttons["snooker.observe.aim"].isEnabled)
-        app.buttons["snooker.observe.target"].tap()
-        sleep(1)
-        snap("v63-snooker-observe")
-        app.buttons["求解"].tap()
-        let strike = app.buttons["击球"]
-        let solved = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: strike)
-        XCTAssertEqual(XCTWaiter.wait(for: [solved], timeout: 90), .completed)
-        snap("v63-snooker-solved")
-        app.buttons["snooker.observation"].tap()
-        app.buttons["snooker.observe.aim"].tap()
-        sleep(1)
-        snap("v63-snooker-aim")
-        inspectCompactSpinPanel("v63-snooker-compact-spin")
-        strike.tap()
-        let undo = app.buttons["上一杆"]
-        let finished = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: undo)
-        XCTAssertEqual(XCTWaiter.wait(for: [finished], timeout: 60), .completed)
-        snap("v63-snooker-finished")
-        undo.tap()
-        XCTAssertTrue(strike.isEnabled)
-        snap("v63-snooker-restored")
-        camera.tap()
-        XCTAssertEqual(camera.value as? String, "2D")
-        XCTAssertTrue(app.buttons["目标球"].isEnabled)
-        snap("v63-snooker-returned")
-    }
 
-    func testSnookerLayout() throws {
-        guard openCard(homeTab: "解", title: "防守") else {
-            XCTFail("未能进入防守"); return
-        }
-        snap("s2-05-snooker")
-    }
+
     private func runPlanning3DBreak(deeplink: String, prefix: String) {
         continueAfterFailure = false
         app.terminate()
@@ -1117,25 +1073,24 @@ final class P04_SiluTemplateUITests: XCTestCase {
         for _ in 0..<4 where !button.isHittable { app.scrollViews["dailyClearance.menuScroll"].swipeUp() }
         ready(button); button.tap()
     }
-    func testSiluBreakCancelDeliveryAndClear() throws {
+    func testSiluBreakAutoDeliveryAndClear() throws {
         continueAfterFailure = false
-        XCUIDevice.shared.orientation = .portrait
-        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-deeplink.silu"])
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-deeplink.silu", "-freeLayout.ephemeral"])
         XCTAssertTrue(element("silu.template").waitForExistence(timeout: 25))
-        let before = app.buttons["paletteBall__2"].value as? String
-        mode("3D")
-        chooseMenu("break.entry"); ready(app.buttons["break.game.4"]); app.buttons["break.game.4"].tap()
+        // Settings immediately enter the prepared state from the ordinary solver.
+        chooseMenu("break.settings"); ready(app.buttons["break.game.4"]); app.buttons["break.game.4"].tap()
+        XCTAssertEqual(app.buttons["break.rerack"].value as? String, "4 球")
+        app.buttons["silu.dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
         ready(app.buttons["break.rerack"])
         try capture("silu-break-ready")
-        chooseMenu("silu.cancelBreak")
-        XCTAssertEqual(app.buttons["paletteBall__2"].value as? String, before)
-        chooseMenu("break.entry"); app.buttons["break.game.4"].tap()
         ready(app.buttons["silu.strike"]); app.buttons["silu.strike"].tap()
-        let strike = app.buttons["silu.strike"]
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == '完成' AND enabled == true"), object: strike)], timeout: 60), .completed)
-        try capture("silu-break-settled"); strike.tap()
+        ready(app.buttons["break.entry"], timeout: 100)
+        XCTAssertTrue(app.buttons["silu.tool"].exists)
+        XCTAssertFalse(element("break.confirm").exists)
+        try capture("silu-break-settled")
         XCTAssertFalse(app.buttons["break.rerack"].exists)
-        mode("2D"); chooseMenu("silu.clear")
+        chooseMenu("silu.clear")
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'paletteBall_' AND value == '在桌上'")).count, 0)
         XCTAssertFalse(app.buttons["paletteBall_cueBall"].exists)
         try capture("silu-cleared-cue-retained")
@@ -1299,109 +1254,7 @@ final class P05_PlanThreeTemplateUITests: XCTestCase {
     }
 }
 
-final class P06_DefenseTemplateUITests: XCTestCase {
-    private var app: XCUIApplication!
-    private func element(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
-    private func ready(_ value: XCUIElement, timeout: TimeInterval = 45) {
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: value)], timeout: timeout), .completed)
-    }
-    private func capture(_ name: String) throws {
-        let shot = XCUIScreen.main.screenshot(); let att = XCTAttachment(screenshot: shot)
-        att.name = name; att.lifetime = .keepAlways; add(att)
-        let env = ProcessInfo.processInfo.environment
-        if let path = env["V52_SHOT_DIR"] ?? env["TEST_RUNNER_V52_SHOT_DIR"] {
-            let folder = URL(fileURLWithPath: path)
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            try shot.pngRepresentation.write(to: folder.appendingPathComponent(name + ".png"))
-            try app.debugDescription.write(to: folder.appendingPathComponent(name + "-ax.txt"), atomically: true, encoding: .utf8)
-        }
-    }
-    private func menu() { app.buttons["snooker.more"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap(); XCTAssertTrue(app.buttons["snooker.cameraMode"].waitForExistence(timeout: 3)) }
-    private func mode(_ value: String) {
-        menu(); let button = app.buttons["snooker.cameraMode"]
-        if button.value as? String != value { button.tap() }
-        XCTAssertEqual(button.value as? String, value)
-        app.buttons["snooker.dismissMenu"].tap(); sleep(1)
-    }
-    private func chooseMenu(_ id: String) {
-        menu()
-        let button = app.buttons[id]
-        for _ in 0..<4 where !button.isHittable { app.scrollViews["dailyClearance.menuScroll"].swipeUp() }
-        ready(button); button.tap()
-    }
-    private func tapBall(_ key: String) throws {
-        let table = element("table.scene")
-        let raw = try XCTUnwrap(table.value as? String)
-        let dict = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
-        let balls = try XCTUnwrap(dict["balls"] as? [[String: Any]])
-        let ball = try XCTUnwrap(balls.first { $0["key"] as? String == key })
-        let point = try XCTUnwrap(ball["screen"] as? [Double])
-        table.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point[0], dy: point[1])).tap()
-    }
 
-    private func launch() {
-        continueAfterFailure = false
-        XCUIDevice.shared.orientation = .portrait
-        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-deeplink.snooker", "-3dDrag.probe"])
-        XCTAssertTrue(element("snooker.template").waitForExistence(timeout: 25))
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            XCUIDevice.shared.orientation = .landscapeLeft; sleep(2)
-            XCTAssertGreaterThan(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height, "须实际进入横屏，不能只发送旋转指令")
-        }
-    }
-    func testDefenseSolutionCameraAndRestore() throws {
-        launch()
-        let table = element("table.scene"), frame = element("table.scene").frame
-        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'paletteBall_' ")).count, 15)
-        try capture("defense-2d")
-        ready(app.buttons["solver.solve"]); app.buttons["solver.solve"].tap()
-        ready(app.buttons["snooker.strike"], timeout: 90)
-        let solved = app.staticTexts["snooker.status"].label
-        try capture("defense-solved")
-        mode("3D"); ready(app.buttons["shotCamera.firstPerson"])
-        app.buttons["shotCamera.firstPerson"].tap(); sleep(1)
-        app.buttons["shotCamera.thirdPerson"].tap(); sleep(1)
-        XCTAssertGreaterThanOrEqual(table.frame.maxY, app.windows.firstMatch.frame.maxY - 1)
-        try capture("defense-3d")
-        menu(); app.buttons["snooker.trajectory"].tap(); app.buttons["snooker.trajectory.off"].tap()
-        try capture("defense-guides-off")
-        menu(); app.buttons["snooker.trajectory"].tap(); app.buttons["snooker.trajectory.0"].tap()
-        let temp = app.buttons["shotCamera.temporaryTopDown"]
-        ready(temp); temp.tap(); sleep(1); try capture("defense-temporary2d"); temp.tap()
-        app.buttons["snooker.strike"].tap(); ready(app.buttons["snooker.undo"], timeout: 60)
-        try capture("defense-settled")
-        ready(app.buttons["snooker.replay"]); app.buttons["snooker.replay"].tap()
-        ready(app.buttons["snooker.undo"], timeout: 60)
-        app.buttons["snooker.undo"].tap(); ready(app.buttons["snooker.strike"])
-        XCTAssertTrue(app.staticTexts["snooker.status"].label.contains("已退回"))
-        XCTAssertFalse(solved.isEmpty)
-        mode("2D")
-        XCTAssertEqual(table.frame.width, frame.width, accuracy: 1); XCTAssertEqual(table.frame.height, frame.height, accuracy: 1)
-        app.buttons["shotStage.spinEntry"].tap(); try capture("defense-spin"); app.buttons["关闭打点"].firstMatch.tap()
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            XCUIDevice.shared.orientation = .portrait; sleep(2)
-            XCTAssertGreaterThan(app.windows.firstMatch.frame.height, app.windows.firstMatch.frame.width)
-            try capture("defense-ipad-portrait")
-        }
-    }
-    func testDefenseLegalSelectionAndClear() throws {
-        launch()
-        app.buttons["paletteBall__8"].tap()
-        XCTAssertEqual(app.buttons["paletteBall__8"].value as? String, "在桌上")
-        app.buttons["snooker.tool"].tap(); app.buttons["目标球"].tap()
-        try tapBall("_8")
-        XCTAssertTrue(app.staticTexts["snooker.status"].label.contains("不能选 8"))
-        try tapBall("_9")
-        XCTAssertTrue(app.staticTexts["snooker.status"].label.contains("已就绪"))
-        try capture("defense-selected")
-        app.buttons["snooker.clearSelection"].tap()
-        XCTAssertFalse(app.buttons["solver.solve"].isEnabled)
-        chooseMenu("snooker.clear")
-        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'paletteBall_' AND value == '在桌上'")).count, 0)
-        XCTAssertFalse(app.buttons["paletteBall_cueBall"].exists)
-        try capture("defense-cleared")
-    }
-}
 
 final class P07_BankKickTemplateUITests: XCTestCase {
     private var app: XCUIApplication!
@@ -1892,30 +1745,5 @@ final class AtlasTrackControlsUITests: XCTestCase {
         XCTAssertEqual(count.label, "2/8")
         XCTAssertTrue(app.buttons[prefix + ".spinLegend.0"].isHittable)
         try capture("3d")
-    }
-}
-
-
-extension P06_DefenseTemplateUITests {
-    func testDefenseValidatedSolveAndStrikeIn2DAnd3D() throws {
-        launch()
-        for view in ["2D", "3D"] {
-            mode(view)
-            ready(app.buttons["solver.solve"]); app.buttons["solver.solve"].tap()
-            ready(app.buttons["snooker.strike"], timeout: 90)
-            let catalog = app.buttons["solver.nextSolution"]
-            XCTAssertTrue(catalog.exists)
-            let selected = catalog.label
-            XCTAssertTrue(selected.hasPrefix("解1/"), "The visible solution counter must be populated")
-            XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "高难度可行解")).firstMatch.exists)
-            try capture("defense-validated-" + view + "-solved")
-            app.buttons["snooker.strike"].tap()
-            ready(app.buttons["snooker.undo"], timeout: 60)
-            try capture("defense-validated-" + view + "-settled")
-            app.buttons["snooker.undo"].tap()
-            ready(app.buttons["snooker.strike"])
-            XCTAssertEqual(catalog.label, selected, "Undo must restore the selected solution")
-            try capture("defense-validated-" + view + "-restored")
-        }
     }
 }

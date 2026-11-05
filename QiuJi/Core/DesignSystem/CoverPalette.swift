@@ -186,10 +186,6 @@ enum CoverPalette {
             top: Color(red: 0.16, green: 0.46, blue: 0.62),
             bottom: Color(red: 0.08, green: 0.26, blue: 0.38)
         )
-        static let snookerTactics = Pair(
-            top: Color(red: 0.60, green: 0.10, blue: 0.30),
-            bottom: Color(red: 0.34, green: 0.04, blue: 0.16)
-        )
         static let bankShot = Pair(
             top: Color(red: 0.62, green: 0.14, blue: 0.14),
             bottom: Color(red: 0.36, green: 0.06, blue: 0.06)
@@ -207,7 +203,7 @@ enum CoverPalette {
                 separationAngleAtlas, cushionEnglishAtlas, angleDynamic, ballFeel, contactPointTable,
                 geometricQuiz, sceneAiming2D, sceneAiming3D, aimPointTraining, aimPointScene2D, aimPointScene3D,
                 shotSimulation, positionPlayComposer, freePlay, ballExtraction, batchDrillStudio,
-                positionPlaySolver, planThree, snookerTactics, bankShot, diamondSystem
+                positionPlaySolver, planThree, bankShot, diamondSystem
             ]
         }
     }
@@ -313,7 +309,6 @@ enum CoverPalette {
 
     static let positionPlaySolver = pair(ladder: .solve, step: 0, stepCount: 5)
     static let planThree          = pair(ladder: .solve, step: 1, stepCount: 5)
-    static let snookerTactics     = pair(ladder: .solve, step: 2, stepCount: 5)
     static let bankShot           = pair(ladder: .solve, step: 3, stepCount: 5)
     static let diamondSystem      = pair(ladder: .solve, step: 4, stepCount: 5)
 
@@ -324,7 +319,7 @@ enum CoverPalette {
             angleDynamic, separationAngleAtlas, cushionEnglishAtlas, ballFeel, contactPointTable,
             geometricQuiz, sceneAiming2D, sceneAiming3D, aimPointTraining, aimPointScene2D, aimPointScene3D,
             shotSimulation, positionPlayComposer, freePlay, ballExtraction, batchDrillStudio,
-            positionPlaySolver, planThree, snookerTactics, bankShot, diamondSystem
+            positionPlaySolver, planThree, bankShot, diamondSystem
         ]
     }
 

@@ -135,6 +135,7 @@ struct RootView: View {
         #if DEBUG
         if let sharedPage = args.first(where: { $0.hasPrefix("-dailyInteraction.sharedPage=") })?.split(separator: "=").last {
             switch sharedPage {
+            case "pocketTolerance": return AnyView(NavigationStack { PocketToleranceView() })
             case "angleDynamic": return AnyView(NavigationStack { AngleDynamicView() })
             case "shot": return AnyView(NavigationStack { ShotSimulationView() })
             case "bank": return AnyView(NavigationStack { BankShotView() })
@@ -227,11 +228,6 @@ struct RootView: View {
                              "-planThree.twoBall", "-planThree.oneBall", "-planThree.cleared"]
         if planThreeArgs.contains(where: args.contains) {
             return AnyView(NavigationStack { PlanThreeView() })
-        }
-        // V8 防守：具体三态盘面由 `SnookerTacticsView.onAppear` 读同一 arg 注入。
-        let snookerArgs = ["-deeplink.snooker", "-snooker.full", "-snooker.partial", "-snooker.none"]
-        if snookerArgs.contains(where: args.contains) {
-            return AnyView(NavigationStack { SnookerTacticsView() })
         }
         // W2-9 evidence: toast chrome on a dark scene backdrop (UITest launch-arg only).
         if args.contains("-w29.toast.success") {

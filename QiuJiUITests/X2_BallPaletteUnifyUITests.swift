@@ -88,9 +88,5 @@ final class X2_BallPaletteUnifyUITests: XCTestCase {
     }
 
     /// 斯诺克防守：36 球径 + 底栏 94。
-    func testX2SnookerPalette() {
-        let app = XCUIApplication.launchClean(extraArgs: ["-deeplink.snooker"])
-        sleep(3)
-        dragPlacePulseDragBack(app: app, prefix: "x2-snooker")
-    }
+
 }

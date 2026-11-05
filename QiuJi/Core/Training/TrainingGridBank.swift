@@ -2,7 +2,7 @@ import Foundation
 import SceneKit
 
 /// Current solution-free bank. The shared target geometry stays compact; only the
-/// twenty selected boards are restored. Stored combination IDs are authoritative.
+/// selected boards are restored. Stored combination IDs are authoritative.
 final class TrainingGridBank {
     struct Point: Decodable {
         let x: Double
@@ -24,20 +24,16 @@ final class TrainingGridBank {
         let validationSourceFingerprint: String
         let distanceSamples: [Double]
         let counts: [String: Int]
-        let combinationTable: [TrainingCombinationWeights.Cell]
+        let combinationTable: [TrainingCombination]
         let targets: [Target]
     }
     struct Draw {
         let boards: [TrainingBankBoard]
-        let distribution: TrainingCombinationWeights.Distribution
-        var inaccessibleCombinations: [String] = []
     }
     let sourceFingerprint: String // content identity, not a claim of physics qualification
     let payload: Payload
     let pools: [[UInt32]]
     private let targetIndexByInventory: [Int: Int]
-    private let distributionLock = NSLock()
-    private var distributions: [String: TrainingCombinationWeights.Distribution] = [:]
     private let aimLock = NSLock()
     private var runtimeAims: [Int: SCNVector3] = [:]
 
@@ -112,23 +108,6 @@ final class TrainingGridBank {
         return aim
     }
 
-    func distribution(_ config: SceneTrainingConfiguration, counts: [Int]? = nil) throws -> TrainingCombinationWeights.Distribution {
-        let targets = TrainingCombinationWeights.targets(config)
-        let liveCounts = counts ?? self.counts
-        // Probabilities depend on support, not the number of layouts in each cell.
-        let key = targets.description + liveCounts.map { $0 > 0 ? "1" : "0" }.joined()
-        distributionLock.lock()
-        let cached = distributions[key]
-        distributionLock.unlock()
-        if let cached { return cached }
-        let result = try TrainingCombinationWeights.fit(cells: payload.combinationTable, counts: liveCounts, targets: targets)
-        distributionLock.lock()
-        if distributions.count >= 64 { distributions.removeAll(keepingCapacity: true) }
-        distributions[key] = result
-        distributionLock.unlock()
-        return result
-    }
-
     func board(reference: UInt32, combination: Int) -> TrainingBankBoard {
         let ti = Int(reference >> 12), mi = Int((reference >> 4) & 255), bit = Int(reference & 15)
         let t = payload.targets[ti], cell = payload.combinationTable[combination]
@@ -173,54 +152,41 @@ final class TrainingGridBank {
               accepting: ((TrainingBankBoard) -> Bool)? = nil) throws -> Draw {
         try Task.checkCancellation()
         var blocked = excludedRanks(excluding)
-        let remaining = pools.indices.map { pools[$0].count - blocked[$0].count }
-        var fitted = try distribution(config, counts: remaining)
-        guard pools.indices.reduce(0, { $0 + (fitted.probabilities[$1] > 0 ? remaining[$1] : 0) }) >= count, count > 0 else {
+        // Each remaining layout owns one integer rank in the filtered union.
+        // Selecting a rank, rather than a category, makes every layout equally likely.
+        var remaining = pools.indices.map {
+            payload.combinationTable[$0].matches(config) ? pools[$0].count - blocked[$0].count : 0
+        }
+        var total = remaining.reduce(0, +)
+        guard count > 0, total >= count else {
             throw TrainingQuestionBank.Failure.coverage("不足\(count)个不同球形")
         }
+        // Preserve bounded admission work without discarding a whole category
+        // because some of its layouts failed. This is a work limit, not a quota.
+        let rejectionLimit = 256 * remaining.filter { $0 > 0 }.count
+        var rejections = 0
         var random = SceneTrainingGenerator.SeededRandom(state: seed)
-        var probabilities = fitted.probabilities
         var boards: [TrainingBankBoard] = []
-        var inaccessible: Set<Int> = []
         while boards.count < count {
             try Task.checkCancellation()
-            let total = probabilities.reduce(0, +)
-            guard total > 0 else { throw TrainingQuestionBank.Failure.coverage("本轮可用组合已耗尽") }
-            let pick = Double.random(in: 0..<total, using: &random)
-            var cumulative = 0.0
-            guard let code = probabilities.indices.first(where: { cumulative += probabilities[$0]; return pick < cumulative }) else {
-                throw TrainingQuestionBank.Failure.invalid("Invalid combination probabilities")
+            guard total >= count - boards.count else { throw TrainingQuestionBank.Failure.strikeAccess }
+            var rank = Int.random(in: 0..<total, using: &random)
+            var code = 0
+            while rank >= remaining[code] { rank -= remaining[code]; code += 1 }
+            for excluded in blocked[code] { if excluded <= rank { rank += 1 } else { break } }
+            let candidate = board(reference: pools[code][rank], combination: code)
+            blocked[code].append(rank); blocked[code].sort()
+            remaining[code] -= 1; total -= 1
+            if accepting?(candidate) ?? true {
+                boards.append(candidate)
+            } else {
+                rejections += 1
+                guard rejections < rejectionLimit else { throw TrainingQuestionBank.Failure.strikeAccess }
             }
-            // Keep this combination's draw weight while replacing inaccessible layouts.
-            // Exhausted/bounded inaccessible support is reported to the caller;
-            // refitting never broadens the user's selected conditions.
-            var accepted = false
-            for _ in 0..<256 {
-                try Task.checkCancellation()
-                guard blocked[code].count < pools[code].count else { break }
-                var rank = Int.random(in: 0..<(pools[code].count - blocked[code].count), using: &random)
-                for excluded in blocked[code] { if excluded <= rank { rank += 1 } else { break } }
-                let candidate = board(reference: pools[code][rank], combination: code)
-                blocked[code].append(rank); blocked[code].sort()
-                if accepting?(candidate) ?? true {
-                    boards.append(candidate); accepted = true; break
-                }
-            }
-            guard accepted else {
-                inaccessible.insert(code)
-                let live = pools.indices.map { inaccessible.contains($0) ? 0 : pools[$0].count - blocked[$0].count }
-                guard pools.indices.contains(where: { probabilities[$0] > 0 && live[$0] > 0 }) else {
-                    throw TrainingQuestionBank.Failure.strikeAccess
-                }
-                fitted = try distribution(config, counts: live)
-                probabilities = fitted.probabilities
-                continue
-            }
-            if blocked[code].count == pools[code].count { probabilities[code] = 0 }
         }
-        return .init(boards: boards, distribution: fitted,
-                     inaccessibleCombinations: inaccessible.sorted().map { payload.combinationTable[$0].id })
+        return .init(boards: boards)
     }
+
     func baseBatch(_ config: SceneTrainingConfiguration, seed: UInt64, excluding: Set<String> = [], count: Int = 20) throws -> [TrainingBankBoard] {
         try draw(config, seed: seed, excluding: excluding, count: count).boards
     }

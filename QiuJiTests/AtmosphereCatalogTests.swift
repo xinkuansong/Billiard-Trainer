@@ -22,7 +22,7 @@ final class AtmosphereCatalogTests: XCTestCase {
     ]
 
     func testCoverArtKeyCountIsSixtyAndMotifsStaySix() {
-        XCTAssertEqual(CoverArtKey.allCases.count, 60)
+        XCTAssertEqual(CoverArtKey.allCases.count, 59)
         XCTAssertEqual(AtmosphereKey.allCases.count, 6)
         XCTAssertEqual(AtmosphereCatalog.templatePool.count, 12)
         XCTAssertEqual(
@@ -76,9 +76,9 @@ final class AtmosphereCatalogTests: XCTestCase {
             .geometricQuiz, .sceneAiming2D, .sceneAiming3D,
             .aimPointTraining, .aimPointScene2D, .aimPointScene3D,
             .shotSimulation, .positionPlayComposer, .freePlay, .ballExtraction,
-            .positionPlaySolver, .planThree, .snookerTactics, .bankShot, .diamondSystem,
+            .positionPlaySolver, .planThree, .bankShot, .diamondSystem,
         ]
-        XCTAssertEqual(routes.count, 36)
+        XCTAssertEqual(routes.count, 35)
         var seen = Set<CoverArtKey>()
         for route in routes {
             guard let art = AtmosphereCatalog.coverArt(for: route) else {
@@ -87,7 +87,7 @@ final class AtmosphereCatalogTests: XCTestCase {
             }
             XCTAssertTrue(seen.insert(art).inserted, "duplicate art \(art.rawValue)")
         }
-        XCTAssertEqual(seen.count, 36)
+        XCTAssertEqual(seen.count, 35)
     }
 
     func testRepresentativeAngleRoutesHaveArtAndTheoryPalette() {

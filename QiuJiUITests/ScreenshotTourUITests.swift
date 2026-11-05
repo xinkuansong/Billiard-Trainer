@@ -144,7 +144,6 @@ final class ScreenshotTourUITests: XCTestCase {
             "23-batch-drill-studio": "批量出片台",
             "24-silu-trainer": "思路训练",
             "25-plan-three": "打一走二想三",
-            "26-snooker-tactics": "防守",
             "27-bank-shot": "翻袋解球",
             "28-diamond-system": "颗星解球",
             "52-profile-personal-info": "个人信息",
@@ -1628,7 +1627,6 @@ final class ScreenshotTourUITests: XCTestCase {
         sleep(3)
 
         let remainingSolve: [(String, String)] = [
-            ("防守", "26-snooker-tactics"),
             ("翻袋解球", "27-bank-shot"),
             ("颗星解球", "28-diamond-system"),
         ]
@@ -1670,7 +1668,6 @@ final class ScreenshotTourUITests: XCTestCase {
             ("打", "批量出片台", "23-batch-drill-studio"),
             ("解", "思路训练", "24-silu-trainer"),
             ("解", "打一走二想三", "25-plan-three"),
-            ("解", "防守", "26-snooker-tactics"),
             ("解", "翻袋解球", "27-bank-shot"),
             ("解", "颗星解球", "28-diamond-system"),
         ]
@@ -2718,7 +2715,6 @@ final class ScreenshotTourUITests: XCTestCase {
         let solvers: [(String, String, String)] = [
             ("思路训练", "思路训练", "b2-05-silu"),
             ("打一走二想三", "打一走二想三", "b2-06-planthree"),
-            ("防守", "防守", "b2-07-snooker"),
         ]
         for (entry, nav, name) in solvers {
             if openSolverVerified(entry: entry, navTitle: nav, homeTab: "解") {
@@ -3223,7 +3219,6 @@ final class ScreenshotTourUITests: XCTestCase {
             ("打", "批量出片台", "23-batch-drill-studio"),
             ("解", "思路训练", "24-silu-trainer"),
             ("解", "打一走二想三", "25-plan-three"),
-            ("解", "防守", "26-snooker-tactics"),
             ("解", "翻袋解球", "27-bank-shot"),
             ("解", "颗星解球", "28-diamond-system"),
         ]

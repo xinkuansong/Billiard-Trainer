@@ -17,11 +17,10 @@ enum ProBenefits {
         .init(id: "snake", number: "05", title: "每日清台与蛇彩练习", subtitle: "每日清台不限局数，蛇彩练习解锁连续击球与走位衔接。"),
         .init(id: "position", number: "06", title: "自由走位推演", subtitle: "调整球形与击球参数，观察、比较走位路线。"),
         .init(id: "three", number: "07", title: "打一走二想三", subtitle: "把当前进球与后续走位连起来，练习多杆规划。"),
-        .init(id: "safety", number: "08", title: "防守推演", subtitle: "结合球形观察防守线路，练习进攻之外的选择。"),
-        .init(id: "photo", number: "09", title: "拍照建球形", subtitle: "将球桌照片转成可继续编辑和推演的球形。"),
-        .init(id: "history", number: "10", title: "训练统计与长期回顾", subtitle: "查看训练趋势，回看超过最近 60 天的训练记录详情。"),
-        .init(id: "bank", number: "11", title: "翻袋解球", subtitle: "选择目标袋口，推演一至三库线路，练习翻袋与吃库判断。"),
-        .init(id: "diamond", number: "12", title: "颗星公式解球", subtitle: "结合颗星刻度与公式，理解瞄准点和吃库线路的关系。")
+        .init(id: "photo", number: "08", title: "拍照建球形", subtitle: "将球桌照片转成可继续编辑和推演的球形。"),
+        .init(id: "history", number: "09", title: "训练统计与长期回顾", subtitle: "查看训练趋势，回看超过最近 60 天的训练记录详情。"),
+        .init(id: "bank", number: "10", title: "翻袋解球", subtitle: "选择目标袋口，推演一至三库线路，练习翻袋与吃库判断。"),
+        .init(id: "diamond", number: "11", title: "颗星公式解球", subtitle: "结合颗星刻度与公式，理解瞄准点和吃库线路的关系。")
     ]
 }
 

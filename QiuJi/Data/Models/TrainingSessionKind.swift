@@ -17,6 +17,7 @@ enum TrainingSessionKind {
     static let separationPractice = "separationPractice"
     static let threeBallPractice = "threeBallPractice"
     static let kickPractice = "kickPractice"
+    static let defensePractice = "defensePractice"
     static let bankPractice = "bankPractice"
     static let kBallPractice = "kBallPractice"
     static let twoBallPractice = "twoBallPractice"

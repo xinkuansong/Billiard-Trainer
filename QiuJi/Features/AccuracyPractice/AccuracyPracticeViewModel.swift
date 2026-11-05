@@ -35,7 +35,7 @@ struct AccuracyPreparedRound {
             guard let tip = tips[board.id] else { throw TrainingQuestionBank.Failure.invalid("Missing feasible tip") }
             return .init(board: board, selectedTip: tip)
         }
-        // Coverage is rebalanced within the selected conditions without interrupting practice.
+        // Sampling stays within the selected conditions; no category ratios are imposed.
         return .init(fingerprint: bank.sourceFingerprint, questions: questions,
                      reusedPool: reused)
     }

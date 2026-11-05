@@ -1,6 +1,6 @@
 # v47 生产路由与页面覆盖
 
-机器可读真源为 `route-coverage.csv`。截至2026-10-27登记89个页面：每行必须具备 View、页面族、批次、状态、截图、测试、可达范围和源码锚点；`verify_v47_ui_baseline.py` 会验证必需页面、源码声明与路由表层签名。
+机器可读真源为 `route-coverage.csv`。截至2026-11-05登记98个页面：每行必须具备 View、页面族、批次、状态、截图、测试、可达范围和源码锚点；`verify_v47_ui_baseline.py` 会验证必需页面、源码声明与路由表层签名。
 
 ## 可达性入口
 
@@ -76,3 +76,13 @@ FreePlay既有玩法/开球sheet保留；每日重开改成同页双操作浮层
 2026-11-01：新增BankPracticeView／BankPracticeSettings，正式入口为练习→打→翻袋练习；源身份bankPractice2D，页内切3D，旧bankShot工具保持。48题重放与三尺寸定向UI已通过，结果按用户反馈简化且SE定向复验通过，最终范围见翻袋页面卡；覆盖登记不代表原生验收。
 
 2026-11-01后续：翻袋替换为21569题，一至三库；全量转换／包内解码、360题App重放及SE的14逻辑＋4UI通过。旧48题证据保留为历史，现行验证见BANK-APP-IMPORT-20261101。路由和公共菜单面未改变。
+
+
+## 2026-11-05 退役防守求解与新增页面登记
+
+- 按[延期任务卡](../../../tasks/DEFER-DEFENSE-BANK-LESSON-20261103.md)，旧“解→防守求解”`SnookerTacticsView`已移出生产，现行CSV与必需页面集合移除该项。原覆盖行转存[退役覆盖记录](../../../archive/deferred-features/20261103-defense-bank-lesson/route-coverage-retired.csv)，源码与历史证据仍保留于原存档；不恢复功能，也不将存档源码伪装成生产入口。
+- 核对`AngleHomeView`与`MainTabView`：新“打→防守练习”对应`DefensePracticeView`，训练设置对应`DefensePracticeSettings`；“学→进球容错角”对应`PocketToleranceView`。补齐三项现行页面登记及必需页面约束，测试/截图引用各自已完成的原生验证记录；本次只改登记与校验元数据，未重跑App或改写历史验证。
+- 签名差集仅四处：删除SnookerTacticsView、新增DefensePracticeView/Settings、更新AngleHomeView。后者路由枚举已删除snookerTactics并增加defensePractice2D/pocketTolerance，已审阅现有生产入口与目的地；MainTabView和RootView签名已与现状一致，无需重签。其他签名保持。
+- 保留现行源码存在、View声明、必需页面、路由签名与测试写盘面检查；66张历史截图基线及204个写盘面清单不变。证据：`output/route-registration-20261105/`。
+
+验证结果：`make -f scripts/Makefile verify-gate`退出0；v47基线` screenshots=66 routes=98 write-surfaces=204 FAIL=0`。定向CRLF感知diff检查通过。本次未运行App构建/模拟器，未改变生产代码。

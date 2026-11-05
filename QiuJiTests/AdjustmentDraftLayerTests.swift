@@ -219,63 +219,13 @@ final class AdjustmentDraftLayerTests: XCTestCase {
 
     // MARK: - Snooker
 
-    func test_snooker_adjustDraft_doesNotMutateCatalog_andCycleRestoresOriginal() {
-        let vm = SnookerTacticsViewModel()
-        vm.setupScene()
-        XCTAssertTrue(vm.canSolve, "默认盘面应可求解")
 
-        vm.solve()
-        waitForIdle({ vm.isComputing }, timeout: 90)
-        guard !vm.solutions.isEmpty, let catalog0 = vm.currentSolution else {
-            return XCTFail("Snooker 默认盘面应产出防守解")
-        }
-        let idx = vm.currentIndex
-        let catalogShot = catalog0.shot
-        let catalogSummary = catalog0.summary
-
-        let tweakSX = -0.20
-        let tweakSY = 0.15
-        let tweakV = max(catalogShot.velocity - 0.2, 0.8)
-        // Burst while the first real prediction is still in flight. The final
-        // complete intent must win without changing the immutable catalog.
-        for i in 0..<30 {
-            vm.adjustCurrentSolution(velocity: 2 + Double(i) / 100,
-                                     spinX: Double(i) / 200, spinY: -Double(i) / 200)
-        }
-        vm.adjustCurrentSolution(velocity: tweakV, spinX: tweakSX, spinY: tweakSY)
-        vm.adjustCurrentSolution(spinX: tweakSX)
-        vm.adjustCurrentSolution(spinY: tweakSY)
-        vm.adjustCurrentSolution(velocity: tweakV)
-        waitForIdle({ vm.isComputing })
-
-        assertShotEqual(vm.solutions[idx].shot, catalogShot, "Snooker catalog after adjust")
-        XCTAssertEqual(vm.solutions[idx].summary, catalogSummary)
-
-        guard let draft = vm.currentSolution else {
-            return XCTFail("Snooker 微调后应有草稿")
-        }
-        XCTAssertEqual(draft.shot.spinX, tweakSX, accuracy: 1e-9)
-        XCTAssertEqual(draft.shot.spinY, tweakSY, accuracy: 1e-9)
-        XCTAssertEqual(draft.shot.velocity, tweakV, accuracy: 1e-9)
-
-        let strikeCtx = vm.makeUndoContext(shot: draft.shot, prediction: draft.prediction)
-        assertShotEqual(strikeCtx.snapshot.shot, draft.shot, "Snooker strike uses draft")
-        assertShotEqual(strikeCtx.snapshot.solutions[idx].shot, catalogShot, "Snooker snapshot catalog")
-
-        let n = vm.solutions.count
-        for _ in 0..<n { vm.nextSolution() }
-        XCTAssertEqual(vm.currentIndex, idx)
-        assertShotEqual(vm.currentSolution!.shot, catalogShot, "Snooker cycle → catalog")
-        XCTAssertEqual(vm.spinX, catalogShot.spinX, accuracy: 1e-9)
-        XCTAssertEqual(vm.spinY, catalogShot.spinY, accuracy: 1e-9)
-    }
 }
 
 extension AdjustmentDraftLayerTests {
     func testPlanningPagesRejectIncompletePrediction() {
         let silu = SiluTrainerViewModel()
         let plan = PlanThreeViewModel()
-        let snooker = SnookerTacticsViewModel()
         let complete = ShotPredictor.simulateFree(
             cueBall: SCNVector3(0, BTTablePhysics.surfaceY + BallPhysics.radius, 0),
             aimDir: SCNVector3(1, 0, 0), velocity: 0.3, spinX: 0, spinY: 0,
@@ -286,14 +236,11 @@ extension AdjustmentDraftLayerTests {
             partial.termination = termination
             XCTAssertFalse(silu.acceptCompletePrediction(partial))
             XCTAssertFalse(plan.acceptCompletePrediction(partial))
-            XCTAssertFalse(snooker.acceptCompletePrediction(partial))
             XCTAssertTrue(silu.statusText.contains("未完成"))
             XCTAssertTrue(plan.statusText.contains("未完成"))
-            XCTAssertTrue(snooker.statusText.contains("未完成"))
         }
         XCTAssertTrue(silu.acceptCompletePrediction(complete))
         XCTAssertTrue(plan.acceptCompletePrediction(complete))
-        XCTAssertTrue(snooker.acceptCompletePrediction(complete))
     }
 }
 
@@ -586,26 +533,9 @@ final class RemainingPredictionLifecycleTests: XCTestCase {
 
 @MainActor
 final class PlanningInformationStateTests: XCTestCase {
-    func testRejectedTargetPersistsUntilRelevantSelectionChanges() throws {
-        let vm = SnookerTacticsViewModel(); vm.setupScene()
-        defer { vm.stopForDismissal() }
-        vm.placeFromPalette("_8")
-        vm.activeTool = .selectTarget
-        let selected = vm.selectedTargetKey
-        vm.selectBall(node: try XCTUnwrap(vm.scene.allBallNodes["_8"]))
-        XCTAssertEqual(vm.selectedTargetKey, selected)
-        XCTAssertEqual(vm.informationEvent.kind, .failure)
-        let failure = vm.informationEvent.id
-        vm.activeTool = .none
-        XCTAssertEqual(vm.informationEvent.id, failure, "Switching tools does not fix an illegal selection")
-        vm.activeTool = .selectTarget
-        vm.selectBall(node: try XCTUnwrap(vm.scene.allBallNodes["_1"]))
-        XCTAssertEqual(vm.informationEvent.kind, .context)
-        XCTAssertNotEqual(vm.informationEvent.id, failure)
-    }
 
-    func testIncompletePredictionsHavePersistentTypedFailuresOnAllThreePages() {
-        let silu = SiluTrainerViewModel(), plan = PlanThreeViewModel(), defense = SnookerTacticsViewModel()
+    func testIncompletePredictionsHavePersistentTypedFailuresOnPlanningPages() {
+        let silu = SiluTrainerViewModel(), plan = PlanThreeViewModel()
         var prediction = ShotPredictor.simulateFree(
             cueBall: SCNVector3(0, BTTablePhysics.surfaceY + BallPhysics.radius, 0),
             aimDir: SCNVector3(1, 0, 0), velocity: 0.3, spinX: 0, spinY: 0,
@@ -613,8 +543,7 @@ final class PlanningInformationStateTests: XCTestCase {
         prediction.termination = .timeLimit
         XCTAssertFalse(silu.acceptCompletePrediction(prediction))
         XCTAssertFalse(plan.acceptCompletePrediction(prediction))
-        XCTAssertFalse(defense.acceptCompletePrediction(prediction))
-        for event in [silu.informationEvent, plan.informationEvent, defense.informationEvent] {
+        for event in [silu.informationEvent, plan.informationEvent] {
             XCTAssertEqual(event.kind, .failure)
             XCTAssertFalse(event.text.isEmpty)
             let notice = BTTeachingInformation(text: event.text, kind: .readout, symbol: "info.circle")
@@ -633,9 +562,8 @@ final class PlanningInformationStateTests: XCTestCase {
             shot: PlannedShot(targetKey: "_1", pocket: "corner_1", velocity: 1, spinX: 0, spinY: 0),
             prediction: prediction, cushionCount: 2, potted: true, margin: 0, summary: "任意文案",
             satisfiesConstraint: false, beyondCushionBudget: true, beyondSpinBudget: true, isBankFallback: true)
-        XCTAssertEqual(PlanningSolutionDetails.cautions(solution, defense: false), "翻袋备选 · 未满足约束 · 进阶 · 需横塞")
-        XCTAssertTrue(PlanningSolutionDetails.cautions(solution, defense: true).contains("未完全斯诺克"))
-        XCTAssertEqual(PlanningSolutionDetails.cautions(nil, defense: false), "")
+        XCTAssertEqual(PlanningSolutionDetails.cautions(solution), "翻袋备选 · 未满足约束 · 进阶 · 需横塞")
+        XCTAssertEqual(PlanningSolutionDetails.cautions(nil), "")
     }
 }
 
@@ -662,7 +590,6 @@ final class PalettePlacementTests: XCTestCase {
         let angle = AngleDynamicViewModel(); try check(angle, commit: angle.placeFromPalette)
         let plan = PlanThreeViewModel(); try check(plan, commit: plan.placeFromPalette)
         let silu = SiluTrainerViewModel(); try check(silu, commit: silu.placeFromPalette)
-        let defense = SnookerTacticsViewModel(); try check(defense, commit: defense.placeFromPalette)
         let separation = SeparationAngleAtlasViewModel(); try check(separation, commit: separation.placeFromPalette)
         let cushion = CushionEnglishAtlasViewModel(); try check(cushion, commit: cushion.placeFromPalette)
         let bank = BankShotViewModel(); try check(bank, commit: { bank.placeObstacle($0, atWorld: $1) })

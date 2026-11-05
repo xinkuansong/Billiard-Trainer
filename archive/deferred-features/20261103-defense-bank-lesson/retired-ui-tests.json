@@ -1,0 +1,45 @@
+{
+  "QiuJiUITests/BankLessonUITests.swift": [
+    "testLessonFromLearnAndInteractiveSections",
+    "testTabletLandscapeReadingLayout"
+  ],
+  "QiuJiUITests/S8_SnookerV8UITests.swift": [
+    "testV8ClearKeyLayout",
+    "testV8CompleteSnooker",
+    "testV8HighDifficulty",
+    "testV8NoSolution"
+  ],
+  "QiuJiUITests/W1BOperationsUITests.swift": [
+    "testDefenseEditing",
+    "testMatrixDefenseShortSummaryAndPlanRerackCamera"
+  ],
+  "QiuJiUITests/W8_TrajectoryScreenshotUITests.swift": [
+    "testW8SnookerTrajectory"
+  ],
+  "QiuJiUITests/S2_ShotPagesLayoutUITests.swift": [
+    "testDefenseLegalSelectionAndClear",
+    "testDefenseSolutionCameraAndRestore",
+    "testDefenseValidatedSolveAndStrikeIn2DAnd3D",
+    "testSnooker3DPlanningRoundTrip",
+    "testSnookerLayout"
+  ],
+  "QiuJiUITests/ControlLayoutPlacementUITests.swift": [
+    "testFreeLayoutDoesNotExposeLockedProDestination",
+    "testPlanningNoSolutionCanStillEdit"
+  ],
+  "QiuJiUITests/ATeachingStandardsUITests.swift": [
+    "testDefenseTargetMenuKeepsGroupAndCountReadable"
+  ],
+  "QiuJiUITests/SnakePracticeUITests.swift": [
+    "testDefense"
+  ],
+  "QiuJiUITests/W4_BallPaletteUITests.swift": [
+    "testW4SnookerDragPlacePulse"
+  ],
+  "QiuJiUITests/PocketLeatherFlowUITests.swift": [
+    "testDefense"
+  ],
+  "QiuJiUITests/X2_BallPaletteUnifyUITests.swift": [
+    "testX2SnookerPalette"
+  ]
+}

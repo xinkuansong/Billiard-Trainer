@@ -73,14 +73,11 @@ enum FreeControlCatalog {
                    "break.entry", "break.rerack", "break.strike"]
         case .silu:
             ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike",
-                   "break.rerack", "break.strike", "break.confirm", "planning.constraintTool",
+                   "break.entry", "break.rerack", "break.strike", "break.confirm", "planning.constraintTool",
                    "planning.clearConstraint", "planning.solve", "planning.nextSolution"]
         case .planThree:
             ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike",
                    "break.entry", "break.rerack", "break.strike", "break.confirm", "planning.nextSolution"]
-        case .snookerTactics:
-            ids = ["shot.undo", "shot.replay", "shot.spin", "shot.power", "shot.strike",
-                   "defense.targetTool", "defense.clearSelection", "planning.solve", "planning.nextSolution"]
         case .bankShot, .diamondSystem:
             ids = ["shot.undo", "shot.replay", "shot.aim", "shot.spin", "shot.power", "shot.strike",
                    "solver.mode", "solver.cushions", "planning.nextSolution"]
@@ -94,6 +91,9 @@ enum FreeControlCatalog {
         case .threeBallPractice2D, .threeBallPractice3D:
             guard (page == .threeBallPractice2D) == (mode == .twoD) else { return [] }
             ids = ["shot.undo", "shot.replay", "shot.spin", "shot.power", "shot.strike"]
+        case .defensePractice2D, .defensePractice3D:
+            guard (page == .defensePractice2D) == (mode == .twoD) else { return [] }
+            ids = ["shot.aim", "shot.spin", "shot.power", "shot.strike", "shot.undo", "shot.replay"]
         case .bankPractice2D, .bankPractice3D:
             guard (page == .bankPractice2D) == (mode == .twoD) else { return [] }
             ids = ["shot.aim", "shot.spin", "shot.power", "shot.strike", "shot.undo", "shot.replay"]
@@ -230,20 +230,20 @@ extension TablePreferencePage {
     /// One page-local editor for every interactive table page.
     var usesFreeControlLayout: Bool { supportsControlLayoutEditing }
     var supportsControlLayoutEditing: Bool {
-        self != .drillDetailPreview && self != .drillRecordPreview
+        self != .pocketTolerance && self != .drillDetailPreview && self != .drillRecordPreview
     }
     var fixedControlLayoutMode: ControlLayoutLayer? {
         switch self {
-        case .sceneAiming2D, .aimPointScene2D, .accuracy2D, .separationPractice2D, .bankPractice2D, .kickPractice2D, .kBallPractice2D, .twoBallPractice2D, .threeBallPractice2D, .multiBallPractice, .customFormationEditor: return .twoD
-        case .sceneAiming3D, .aimPointScene3D, .accuracy3D, .separationPractice3D, .bankPractice3D, .kickPractice3D, .kBallPractice3D, .twoBallPractice3D, .threeBallPractice3D, .multiBallPractice3D: return .threeD
+        case .defensePractice2D, .sceneAiming2D, .aimPointScene2D, .accuracy2D, .separationPractice2D, .bankPractice2D, .kickPractice2D, .kBallPractice2D, .twoBallPractice2D, .threeBallPractice2D, .multiBallPractice, .customFormationEditor: return .twoD
+        case .defensePractice3D, .sceneAiming3D, .aimPointScene3D, .accuracy3D, .separationPractice3D, .bankPractice3D, .kickPractice3D, .kBallPractice3D, .twoBallPractice3D, .threeBallPractice3D, .multiBallPractice3D: return .threeD
         default: return nil
         }
     }
     var controlLayoutFamily: ControlLayoutFamily? {
         switch self {
-        case .dailyClearance, .freePlay, .shotSimulation, .snakePractice, .multiBallPractice, .multiBallPractice3D, .composer, .drillTryout, .accuracy2D, .accuracy3D, .separationPractice2D, .separationPractice3D, .bankPractice2D, .bankPractice3D, .kickPractice2D, .kickPractice3D, .kBallPractice2D, .kBallPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return .shot
-        case .silu, .planThree, .snookerTactics, .bankShot, .diamondSystem: return .planning
-        case .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas: return .teaching
+        case .defensePractice2D, .defensePractice3D, .dailyClearance, .freePlay, .shotSimulation, .snakePractice, .multiBallPractice, .multiBallPractice3D, .composer, .drillTryout, .accuracy2D, .accuracy3D, .separationPractice2D, .separationPractice3D, .bankPractice2D, .bankPractice3D, .kickPractice2D, .kickPractice3D, .kBallPractice2D, .kBallPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return .shot
+        case .silu, .planThree, .bankShot, .diamondSystem: return .planning
+        case .pocketTolerance, .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas: return .teaching
         case .sceneAiming2D, .sceneAiming3D: return .angleQuiz
         case .aimPointScene2D, .aimPointScene3D: return .aimPointQuiz
         case .customFormationPractice, .customFormationEditor, .drillDetailPreview, .drillRecordPreview: return nil

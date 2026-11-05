@@ -1,3 +1,10 @@
+<!-- Changelog 2026-11-05 FL-253：防守评分补两管道与有限主库连续判定；合法完成均有分，未知转明确估算，S04-01-53实证封锁100；无布局变更。见DEFENSE-PIPE-BLOCKING-20261105。 -->
+<!-- Changelog 2026-11-05 DR-462：进球容错角新增独立学页；共享教学壳/相机仅显式配置无母球观察与3D球库，默认兼容；见POCKET-TOLERANCE-20261105。 -->
+<!-- Changelog 2026-11-04 FL-251：纠正防守容错指标定义；本轮仅目标球管道离线预计算，无UI/API改动。见POCKET-PIPE-PRECOMPUTE-20261104。 -->
+<!-- Changelog 2026-11-04 FL-249：防守候选补角袋漏选保守排错，剔除15187条、图册替换24题；无生产UI/API变更。见DEFENSE-POCKET-CLEANUP-20261104。 -->
+<!-- Changelog 2026-11-04 FL-248：离线进袋容错角热力图补搜索边界闭合，近袋不以喉口固定角域截断；无生产UI/API变更。见POCKET-HEATMAP-20261104。 -->
+<!-- Changelog 2026-11-03 DR-460 r2：Silu复用breakGameSelection，选择即摆架、停稳自动交付、左上开球／重开、过程静默，保留约束工具；验证见SILU-BREAK-20261103。 -->
+<!-- Changelog 2026-11-03 FL-247：离线防守联合挡比例改连续角域判定，原11题保留拒绝并补题；无App/UI/API变更。见DEFENSE-BANK-2500-20261103。 -->
 <!-- Changelog 2026-11-03 DR-461：Bank目标可切换；setPrimaryTarget只换角色不改姿态，BoardSnapshot同步targetKey与poses。共享球库通过宿主selectTarget，Diamond保持固定目标。见BANK-TARGET-SELECTION-20261103。 -->
 <!-- Changelog 2026-11-02 FL-243：翻袋解的身份按同袋＋实测主库顺序（jaw不计）；入袋质量先于少塞。UI布局/颗星不变，验证见BANK-KICK-SOLVER-20261102。 -->
 <!-- Changelog 2026-11-02 DR-460：两页开球统一，BTTablePlanningControls.breakGameSelection默认nil，仅P05接入；正式composer同设置子菜单；过程静默，P05解/方向尺互斥，见BREAK-UNIFICATION-20261102。 -->
@@ -3560,3 +3567,6 @@ DR-458原生复验补充：`BTScoreDetailsOverlay.close()`先清空`titleFocused
 `SceneStroke.roleRing(role:)`复用原多球环的几何/材质，P05与多球共用；其他页不自动开启。P05下部两动作使用`BTTeachingInstrumentLayout`和`BTHUDCompactAction`，保留原自由布局ID/动作/权限，个人布局不重置。现行范围与证据见`tasks/table-page-adaptation/P05-PLAN-THREE.md`及`tasks/ui-reviews/UR-20261101-plan-three-region.md`。
 
 DR-458补充（2026-11-01，正式题库）：按用户选择将翻袋设置碰库次数改为综合／1／2／3库；旧四库草稿归一为综合，历史记录不改写。使用21569题新库，原球桌外观与单行结果保持，范围与证据见BANK-APP-IMPORT-20261101。
+
+
+2026-11-04 FL-250（运行纪律，无组件API变化）：853补搜启动器标准库名称冲突已修，实际编译/求解阶段需证据区分；见IMPLEMENTATION-LOG。

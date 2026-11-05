@@ -151,7 +151,7 @@ final class ControlLayoutPlacementUITests: XCTestCase {
     private func rolloutMode(_ page: String, _ mode: String) {
         if ["angleDynamic", "separation", "cushion"].contains(page) { teachingMode(page, mode); return }
         if ["dailyClearance", "freePlay", "shotSimulation", "snakePractice", "composer", "drillTryout", "formationPractice"].contains(page) { setCoreMode(mode); return }
-        let prefix = ["silu": "silu", "planThree": "planthree", "snooker": "snooker", "bank": "bankshot", "diamond": "reflection"][page]!
+        let prefix = ["silu": "silu", "planThree": "planthree", "bank": "bankshot", "diamond": "reflection"][page]!
         ready(prefix + ".more").coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
         if ready(prefix + ".cameraMode").value as? String != mode { ready(prefix + ".cameraMode").tap() }
         ready(prefix + ".dismissMenu").coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.5)).tap()
@@ -248,7 +248,7 @@ final class ControlLayoutPlacementUITests: XCTestCase {
                 start.tap()
                 _ = ready(page.hasPrefix("aimpoint") ? "aimPointTraining.settings" : "angleTraining.settings")
             } else { launchMatrixPage(page) }
-            let more = ["freeplay.moreMenu", "bankshot.more", "reflection.more", "silu.more", "planthree.more", "snooker.more",
+            let more = ["freeplay.moreMenu", "bankshot.more", "reflection.more", "silu.more", "planthree.more",
                         "separationAngleAtlas.more", "cushionEnglishAtlas.more", "angleDynamic.more", "aimPointTraining.settings", "angleTraining.settings"]
                 .first { element($0).exists }!
             ready(more).coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
@@ -394,16 +394,6 @@ final class ControlLayoutPlacementUITests: XCTestCase {
         ready("freeLayout.cancel").tap()
     }
 
-    func testFreeLayoutDoesNotExposeLockedProDestination() {
-        app = XCUIApplication()
-        app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-hasCompletedOnboarding", "YES",
-            "-forceNonPremium", "-v50.inMemoryStore", "-pro.route=snooker"]
-        app.launch()
-        XCTAssertTrue(element("pro.locked").waitForExistence(timeout: 15))
-        XCTAssertFalse(element("pro.authorized").exists)
-        XCTAssertFalse(element("controlLayout.open").exists)
-        XCTAssertFalse(element("snooker.more").exists)
-    }
 
     func testFreeAdditionalCorePages() throws {
         let pages = (ProcessInfo.processInfo.environment["LAYOUT_PAGES"] ?? "shotSimulation,snakePractice,composer,drillTryout")
@@ -834,7 +824,7 @@ final class ControlLayoutPlacementUITests: XCTestCase {
     }
 
     private func openFreeEditor() {
-        let more = ["freeplay.moreMenu", "silu.more", "planthree.more", "snooker.more", "bankshot.more", "reflection.more", "angleDynamic.more", "separationAngleAtlas.more", "cushionEnglishAtlas.more", "angleTraining.settings", "aimPointTraining.settings"]
+        let more = ["freeplay.moreMenu", "silu.more", "planthree.more", "bankshot.more", "reflection.more", "angleDynamic.more", "separationAngleAtlas.more", "cushionEnglishAtlas.more", "angleTraining.settings", "aimPointTraining.settings"]
             .first { element($0).exists } ?? "freeplay.moreMenu"
         ready(more).coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
         let entry = ready("controlLayout.open")
@@ -1196,23 +1186,6 @@ final class ControlLayoutPlacementUITests: XCTestCase {
         }
     }
 
-    func testPlanningNoSolutionCanStillEdit() throws {
-        app = XCUIApplication(); XCUIDevice.shared.orientation = .landscapeLeft
-        app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN", "-hasCompletedOnboarding", "YES",
-            "-forcePremium", "-v50.inMemoryStore", "-dailyLayout.probe", "-3dDrag.probe", "-deeplink.snooker", "-snooker.none"]
-        app.launch(); _ = ready("snooker.more")
-        openFreeEditor(); ready("freeLayout.cancel").coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
-        waitUntil("no solution editor return") { !self.element("freeLayout.editor").exists }
-        XCTAssertFalse(ready("snooker.strike").isEnabled)
-        XCTAssertTrue((ready("snooker.layoutState").value as? String ?? "").contains("solutions=0"))
-        let before = try businessSnapshot()
-        try capture("snooker-no-solution", probing: ["snooker.layoutState", "snooker.strike"])
-        openFreeEditor(); ready("freeLayout.customize").tap(); chooseFreeControl("shot.strike"); app.buttons["下移"].tap(); saveFreeLayout("R06 无解")
-        XCTAssertEqual(try businessSnapshot(), before)
-        XCTAssertFalse(ready("snooker.strike").isEnabled)
-        try capture("snooker-no-solution-saved", probing: ["snooker.layoutState", "snooker.strike", "controlLayout.geometry"])
-        XCTAssertEqual(rows.count, 2)
-    }
 
     private func launchQuiz(_ page: String, premium: Bool = true) {
         app?.terminate()
@@ -1360,7 +1333,6 @@ final class ControlLayoutPlacementUITests: XCTestCase {
                 "-dailyClearance.fixture=selection", "-dailyClearance.fixtureSettled"]
         case "silu": prefix = "silu"; app.launchArguments += ["-deeplink.silu"]
         case "planThree": prefix = "planthree"; app.launchArguments += ["-deeplink.planThree", "-planThree.twoBall"]
-        case "snooker": prefix = "snooker"; app.launchArguments += ["-deeplink.snooker", "-snooker.full"]
         case "bank": prefix = "bankshot"; app.launchArguments += ["-dailyInteraction.sharedPage=bank"]
         default: prefix = "reflection"; app.launchArguments += ["-dailyInteraction.sharedPage=diamond"]
         }
@@ -1378,7 +1350,7 @@ final class ControlLayoutPlacementUITests: XCTestCase {
     }
 
     func testAllEntryLayoutSmoke() throws {
-        let pages = (ProcessInfo.processInfo.environment["LAYOUT_PAGES"] ?? "dailyClearance,freePlay,shotSimulation,snakePractice,composer,drillTryout,silu,planThree,snooker,bank,diamond,angleDynamic,separation,cushion,anglequiz2d,anglequiz3d,aimpoint2d,aimpoint3d").split(separator: ",").map(String.init)
+        let pages = (ProcessInfo.processInfo.environment["LAYOUT_PAGES"] ?? "dailyClearance,freePlay,shotSimulation,snakePractice,composer,drillTryout,silu,planThree,bank,diamond,angleDynamic,separation,cushion,anglequiz2d,anglequiz3d,aimpoint2d,aimpoint3d").split(separator: ",").map(String.init)
         for page in pages {
             launchMatrixPage(page); resetLayoutPage()
             let teaching = ["angleDynamic", "separation", "cushion"].contains(page)
@@ -1816,16 +1788,15 @@ final class ControlLayoutPlacementUITests: XCTestCase {
 
     func testPlanningPageLayouts() throws {
         let pages = ProcessInfo.processInfo.environment["LAYOUT_PAGES"]?.split(separator: ",").map(String.init)
-            ?? ["planThree", "snooker", "bank", "diamond"]
+            ?? ["planThree", "bank", "diamond"]
         let portrait = ProcessInfo.processInfo.environment["LAYOUT_ORIENTATION"] == "portrait"
         for page in pages {
-            let prefix = ["planThree": "planthree", "snooker": "snooker", "bank": "bankshot", "diamond": "reflection"][page]!
+            let prefix = ["planThree": "planthree", "bank": "bankshot", "diamond": "reflection"][page]!
             app?.terminate(); XCUIDevice.shared.orientation = portrait ? .portrait : .landscapeLeft
             app = XCUIApplication()
             app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN", "-hasCompletedOnboarding", "YES",
                 "-forcePremium", "-v50.inMemoryStore", "-appearanceMode", "dark", "-dailyLayout.probe", "-3dDrag.probe"]
             if page == "planThree" { app.launchArguments += ["-deeplink.planThree", "-planThree.twoBall"] }
-            else if page == "snooker" { app.launchArguments += ["-deeplink.snooker", "-snooker.full"] }
             else { app.launchArguments += ["-dailyInteraction.sharedPage=" + page] }
             app.launch(); _ = ready(prefix + ".more")
             waitUntil("planning orientation") { let f = self.app.windows.firstMatch.frame; return portrait ? f.height > f.width : f.width > f.height }
@@ -1846,7 +1817,6 @@ final class ControlLayoutPlacementUITests: XCTestCase {
                 var controls = ["shot.undo", "shot.replay", "shot.power", "shot.strike", "planning.nextSolution"]
                 if element("freeLayout.select.shot.spin").exists { controls.append("shot.spin") }
                 if page == "bank" || page == "diamond" { controls += ["solver.mode", "solver.cushions"] }
-                else if page == "snooker" { controls += ["defense.targetTool", "defense.clearSelection", "planning.solve"] }
                 else { controls += ["planning.roles", "planning.constraintTool", "planning.clearConstraint", "planning.solve"] }
                 for id in controls { chooseFreeControl(id) }
                 chooseFreeControl("shot.undo"); app.buttons["右移"].tap(); app.buttons["放大"].tap()
@@ -1913,9 +1883,6 @@ final class ControlLayoutPlacementUITests: XCTestCase {
                     openFreeEditor(); ready("freeLayout.cancel").coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
                     ready("planthree.clearConstraint").tap()
                     ready("planthree.tool").tap(); app.buttons["摆球"].tap()
-                } else {
-                    ready("snooker.tool").tap(); app.buttons["目标球"].tap()
-                    try tapScene("balls", key: "key", value: "_1")
                 }
                 let solve = ready("solver.solve")
                 waitUntil("solve enabled", timeout: 90) { solve.isEnabled }; solve.tap()
@@ -2784,7 +2751,7 @@ final class ControlLayoutPlacementUITests: XCTestCase {
     }
 
     private func openLayoutEditor() {
-        let more = ["silu.more", "planthree.more", "snooker.more", "bankshot.more", "reflection.more", "angleDynamic.more", "separationAngleAtlas.more", "cushionEnglishAtlas.more", "angleTraining.settings", "aimPointTraining.settings", "freeplay.moreMenu"].first { element($0).exists } ?? "freeplay.moreMenu"
+        let more = ["silu.more", "planthree.more", "bankshot.more", "reflection.more", "angleDynamic.more", "separationAngleAtlas.more", "cushionEnglishAtlas.more", "angleTraining.settings", "aimPointTraining.settings", "freeplay.moreMenu"].first { element($0).exists } ?? "freeplay.moreMenu"
         ready(more).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         let entry = ready("controlLayout.open")
         for _ in 0..<4 where !entry.isHittable { app.scrollViews["dailyClearance.menuScroll"].swipeUp() }
@@ -2804,7 +2771,7 @@ final class ControlLayoutPlacementUITests: XCTestCase {
         kept["parameters"] = tokens.filter { token in
             ["velocity=", "spinX=", "spinY=", "phase=", "dailyShotCount=", "sequenceMode=", "recording=", "sequenceID=", "sequenceCount=", "sequencePhase=", "sequenceStep=", "snakeCanStrike=", "snakeRecords=", "snakeActive="].contains { token.hasPrefix($0) }
         }.map(String.init)
-        for prefix in ["planthree", "snooker", "bankshot", "reflection", "silu", "angleDynamic", "separationAngleAtlas", "cushionEnglishAtlas", "angleTraining", "aimPointTraining"] {
+        for prefix in ["planthree", "bankshot", "reflection", "silu", "angleDynamic", "separationAngleAtlas", "cushionEnglishAtlas", "angleTraining", "aimPointTraining"] {
             let state = element(prefix + ".layoutState")
             if state.exists { kept[prefix] = state.value as? String }
         }

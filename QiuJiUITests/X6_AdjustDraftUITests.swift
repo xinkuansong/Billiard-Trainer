@@ -45,12 +45,6 @@ final class X6_AdjustDraftUITests: XCTestCase {
         openMoreAndSnap(app, "x6-menu-planthree-no-solve-range")
         app.terminate()
 
-        // Snooker — no solve-range section
-        app = XCUIApplication.launchClean(extraArgs: ["-deeplink.snooker"])
-        _ = app.buttons["摆球"].waitForExistence(timeout: 20)
-        openMoreAndSnap(app, "x6-menu-snooker-no-solve-range")
-        app.terminate()
-
         // Silu — keep solve-range
         app = XCUIApplication.launchClean(extraArgs: ["-deeplink.silu"])
         _ = app.buttons["摆球"].waitForExistence(timeout: 20)

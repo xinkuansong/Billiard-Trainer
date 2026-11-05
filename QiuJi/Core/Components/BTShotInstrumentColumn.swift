@@ -321,11 +321,20 @@ struct ShotPlayerCameraButtons: View {
     var temporaryTopDownActive = false
     var onTemporaryTopDownBegan: (() -> Void)? = nil
     var onTemporaryTopDownEnded: (() -> Void)? = nil
+    var observationOnly = false
+    var observationTargetAvailable = true
     var onSelect: (CameraRig.PlayerView) -> Void
 
     var body: some View {
         VStack(spacing: controlSpacing) {
-            if rig.usesMergedCamera {
+            if observationOnly {
+                cameraButton(label: "全局观察", id: "dailyClearance.observeTable", selected: rig.keepsWholeTableFramed, action: { onWholeTable?() }) {
+                    Image(systemName: "eye").font(.btHeadline)
+                }
+                cameraButton(label: "目标球观察", id: "shotCamera.target", selected: observationTargetAvailable && !rig.keepsWholeTableFramed, action: { onSelect(.thirdPerson) }) {
+                    Image(systemName: "scope").font(.btHeadline)
+                }.disabled(!observationTargetAvailable)
+            } else if rig.usesMergedCamera {
                 cameraButton(label: "全局观察", id: "dailyClearance.observeTable",
                     selected: rig.overviewControlSelected && !temporaryTopDownActive,
                     action: { onWholeTable?() }) {

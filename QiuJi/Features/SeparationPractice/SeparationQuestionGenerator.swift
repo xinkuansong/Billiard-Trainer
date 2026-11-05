@@ -257,6 +257,14 @@ enum SeparationTrajectory {
             startTime: first.time, startPosition: first.position)
     }
 
+    /// Full physical path for an explicitly named ball, including multi-ball defense layouts.
+    static func extractBall(_ prediction: ShotPrediction, name: String) throws -> [Point] {
+        guard prediction.hasFinalTableState, let first = prediction.recorder?.framesByBallName[name]?.first else {
+            throw SeparationQuestionGenerator.Failure.incomplete
+        }
+        return try extract(prediction, ballName: name, startTime: first.time, startPosition: first.position)
+    }
+
     private static func extract(_ prediction: ShotPrediction, ballName: String,
                                 startTime: Float, startPosition: SCNVector3) throws -> [Point] {
         guard let recorder = prediction.recorder else { throw SeparationQuestionGenerator.Failure.incomplete }

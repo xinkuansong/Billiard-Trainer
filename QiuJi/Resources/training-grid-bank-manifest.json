@@ -40,5 +40,13 @@
     "QiuJi/Core/Scene/AngleSceneCalculator.swift": "8adca8de8def901ebaebe37c232ec9c30c3fffdd68e51b1db8137d016c8ac776"
   },
   "validationEvidence": "bank-kick-solver-20261102/r8-analysis/grid-revalidation.json",
-  "note": "No solutions or trajectories; tip assigned at runtime. Corner candidates have not been physics screened."
+  "note": "No solutions or trajectories; tip assigned at runtime. Corner candidates have not been physics screened.",
+  "layoutSourceHashes": {
+    "QiuJi/Core/Scene/AngleSceneCalculator.swift": "44ffd597d68086ec5131b374628771fdb003e71f11af992f319255e6e4553bc3"
+  },
+  "layoutSourceReview": {
+    "date": "2026-11-04",
+    "reason": "Appended defense-only clean-window query extension; byte-for-byte prefix matches prior approved geometry SHA 4235ef4d7a6ca5ddb53dc892e189d11205aa7c26cd40be51057838f52db437e7. Existing geometry and historical physical qualification unchanged.",
+    "record": "tasks/table-page-adaptation/DEFENSE-PRACTICE-PLAN-20261104.md"
+  }
 }

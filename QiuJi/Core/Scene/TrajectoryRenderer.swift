@@ -1,8 +1,7 @@
 import SceneKit
 
 /// Shared prediction trajectory drawing (C3 / D2).
-/// Composer / Silu / PlanThree use `.positionPlay`; Snooker uses `.snookerDefense`
-/// so defense semantics stay intentional but are no longer an implicit fork.
+/// Composer / Silu / PlanThree share the `.positionPlay` preset.
 enum TrajectoryRenderer {
 
     enum GhostSource: Equatable {
@@ -38,14 +37,6 @@ enum TrajectoryRenderer {
             requireVisibleTargetForGhost: false
         )
 
-        /// Defense semantics (D2): no object path, ghost at first contact.
-        static let snookerDefense = Options(
-            includeObjectPath: false,
-            extendToPocketRim: false,
-            ghostSource: .firstContact,
-            extraBallMode: .coreTargetAndFull,
-            requireVisibleTargetForGhost: true
-        )
     }
 
     struct Context {

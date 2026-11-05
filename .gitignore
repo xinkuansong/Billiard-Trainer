@@ -51,6 +51,12 @@ QiuJi/Resources/Videos/
 # can never sweep them into the bundle again (v25 D-v25-1). Kept on disk, not
 # deleted (v25 red line 6). Resources/Videos/ now holds only real-person takes.
 archive/
+# Preserve this deferred feature source archive in Git; keep large media ignored.
+!archive/
+archive/*
+!archive/deferred-features/
+archive/deferred-features/*
+!archive/deferred-features/20261103-defense-bank-lesson/
 
 # Tutorial figure MASTERS: 4.9 GB of lossless PNG (1343 frames incl. orphans).
 # Masters stay on disk only — never in git, never in the bundle (D-v25-10).

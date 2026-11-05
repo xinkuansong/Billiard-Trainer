@@ -110,16 +110,6 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
             vm.resetAll()
             XCTAssertTrue(vm.scene.railInventory.snapshot().balls.isEmpty)
         }
-        do {
-            let vm = SnookerTacticsViewModel(); vm.setupScene()
-            let expected = try seedRail(in: vm.scene)
-            let context = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
-            vm.scene.railInventory.clear()
-            vm.restore(from: context)
-            XCTAssertEqual(vm.scene.railInventory.snapshot(), expected)
-            vm.resetAll()
-            XCTAssertTrue(vm.scene.railInventory.snapshot().balls.isEmpty)
-        }
     }
 
     // MARK: - Helpers
@@ -185,37 +175,6 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
         }
     }
 
-    func test_snooker_undoRestoresObservedCameraFromEitherMode() throws {
-        for restoreIn2D in [false, true] {
-            let vm = SnookerTacticsViewModel()
-            vm.setupScene()
-            let rig = try XCTUnwrap(vm.scene.cameraRig)
-            rig.viewportSize = CGSize(width: 375, height: 480)
-            vm.setCameraMode(.perspective3D)
-            XCTAssertTrue(vm.requestPlayerView(.thirdPerson, animated: false))
-            rig.update(deltaTime: 1)
-            let before = try XCTUnwrap(vm.scene.cameraNode).transform
-            // Physics is irrelevant here: exercise the same context capture used
-            // by play(), then disturb the view before restoring the board.
-            let solution = stubSolution(velocity: 2, spinX: 0, spinY: 0)
-            let context = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
-            XCTAssertNotNil(context.perspectiveView)
-            XCTAssertTrue(vm.requestPlayerView(.firstPerson, animated: false))
-            rig.update(deltaTime: 1)
-            XCTAssertFalse(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
-            if restoreIn2D {
-                vm.setCameraMode(.topDown2DRotated)
-            }
-            vm.restore(from: context)
-            if restoreIn2D {
-                XCTAssertTrue(try XCTUnwrap(vm.scene.cameraNode.camera).usesOrthographicProjection)
-                vm.setCameraMode(.perspective3D)
-            }
-            rig.update(deltaTime: 1)
-            XCTAssertTrue(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
-            XCTAssertEqual(vm.selectedTargetKey, context.selectedTargetKey)
-        }
-    }
 
     func test_planThree_undoRestoresObservedCameraFromEitherMode() throws {
         for restoreIn2D in [false, true] {
@@ -366,57 +325,6 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
 
     // MARK: - Test A · 防守（V8）：确定性快照往返（含目标球选择模型）
 
-    func test_snooker_restore_reproducesEveryField() {
-        let vm = SnookerTacticsViewModel()
-        vm.setupScene()
-
-        // 期望快照：非默认球形 + 目标球 + 2 个解 + 非默认打点/力度/选项。防守页无约束草稿（draft=nil）。
-        let before = BoardSnapshot(onTable: [
-            PositionPlayBall.cueKey: CanvasPoint(x: 0.24, y: 0.30),
-            "_1": CanvasPoint(x: 0.52, y: 0.24),
-            "_2": CanvasPoint(x: 0.44, y: 0.20),
-            "_9": CanvasPoint(x: 0.40, y: 0.16)
-        ])
-        let solutions = [
-            stubSolution(velocity: 2.8, spinX: 0.15, spinY: -0.10),
-            stubSolution(velocity: 1.9, spinX: 0.0, spinY: 0.20)
-        ]
-        let snap = SolveShotSnapshot(
-            before: before, shot: solutions[1].shot, prediction: solutions[1].prediction,
-            solutions: solutions, currentIndex: 1, draft: nil,
-            velocity: 1.9, spinX: 0.0, spinY: 0.20,
-            allowSideSpin: false, basicPositionOnly: true)   // 与默认（true/false）不同 → 验证恢复顺序
-        let ctx = SnookerTacticsViewModel.UndoContext(snapshot: snap, selectedTargetKey: "_1")
-
-        vm.clearTable()
-        vm.restore(from: ctx)
-
-        // 球形逐字段一致。
-        XCTAssertEqual(Set(vm.onTableKeys), Set(before.onTable.keys), "在桌球集合应与快照一致")
-        let restored = vm.currentSnapshot().onTable
-        for (key, pt) in before.onTable {
-            let r = restored[key]
-            XCTAssertNotNil(r, "\(key) 应恢复上桌")
-            XCTAssertEqual(r?.x ?? -9, pt.x, accuracy: 0.01, "\(key).x 应还原")
-            XCTAssertEqual(r?.y ?? -9, pt.y, accuracy: 0.01, "\(key).y 应还原")
-        }
-        // 目标球（本页选择模型）。
-        XCTAssertEqual(vm.selectedTargetKey, "_1")
-        // 对方球组推断随目标球还原（_1 全色 → 对方花色 _9）。
-        XCTAssertEqual(Set(vm.opponentKeys), Set(["_9"]))
-        XCTAssertTrue(vm.canSolve, "目标 + 对方球齐 ⇒ 可求解")
-        // 解还在（免重解）。
-        XCTAssertEqual(vm.solutions.count, 2, "解集应原样还原")
-        XCTAssertEqual(vm.currentIndex, 1, "当前解档位应还原")
-        XCTAssertFalse(vm.isComputing, "恢复后不应触发重新求解")
-        // 打点/力度指示。
-        XCTAssertEqual(vm.velocity, 1.9, accuracy: 1e-9)
-        XCTAssertEqual(vm.spinX, 0.0, accuracy: 1e-9)
-        XCTAssertEqual(vm.spinY, 0.20, accuracy: 1e-9)
-        // 求解选项。
-        XCTAssertFalse(vm.allowSideSpin, "allowSideSpin 应还原为 false")
-        XCTAssertTrue(vm.basicPositionOnly, "basicPositionOnly 应还原为 true")
-    }
 
     // MARK: - Test B · 思路训练：真实反解管线的捕获 → 恢复无损
 

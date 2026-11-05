@@ -84,7 +84,6 @@ final class W9b_ShotPagesMenuUITests: XCTestCase {
             ("打", "自由击球", "w9b-menu-03-freeplay"),
             ("解", "思路训练", "w9b-menu-04-silu"),
             ("解", "打一走二想三", "w9b-menu-05-planthree"),
-            ("解", "防守", "w9b-menu-06-snooker"),
             ("解", "翻袋解球", "w9b-menu-07-bank"),
             ("解", "颗星解球", "w9b-menu-08-diamond"),
         ]

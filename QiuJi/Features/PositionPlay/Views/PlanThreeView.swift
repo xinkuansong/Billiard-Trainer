@@ -124,7 +124,10 @@ struct PlanThreeView: View {
                 else { vm.adjustCurrentSolution(spinX: x, spinY: y) }
             },
             paletteRoles: vm.paletteRoles, paletteRoleDescription: { vm.paletteRoleDescription($0, orientation: pocketOrientation) },
-            onPaletteClearRole: { vm.clearPaletteRole($0) }, breakGameSelection: $breakGameBallCount)
+            onPaletteClearRole: { vm.clearPaletteRole($0) }, breakGameSelection: Binding(get: { breakGameBallCount }, set: { count in
+                breakGameBallCount = count
+                vm.selectBreakGame(BreakFlowRunner.game(forBallCount: count))
+            }))
     }
 
     private func planningControls(_ layout: BTTeachingInstrumentLayout) -> some View {
@@ -162,9 +165,6 @@ struct PlanThreeView: View {
 
     private var menuItems: [DailyHUDMenuItem] {
         var items: [DailyHUDMenuItem] = []
-        if vm.isBreakMode {
-            items.append(.init(id: "planthree.cancelBreak", title: "取消开球", disabled: busy, action: { vm.cancelBreakFlow() }))
-        }
         items.append(.init(id: "planthree.help", title: "操作说明", disclosure: true, disabled: vm.isBreakMode,
                            action: { informationPanel = .help }))
         return items
@@ -185,7 +185,7 @@ struct PlanThreeView: View {
             }
         } else {
             PlanningInformationOverlay(page: "planthree", event: vm.informationEvent, prompt: nil,
-                solution: vm.informationEvent.text.isEmpty ? nil : vm.currentSolution, defense: false, busy: busy,
+                solution: vm.informationEvent.text.isEmpty ? nil : vm.currentSolution, busy: busy,
                 setupComplete: true, introduction: "")
         }
     }

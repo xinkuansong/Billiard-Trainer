@@ -147,11 +147,6 @@ struct TheoryT08View: View {
                 .font(.btTitle)
                 .foregroundStyle(.btText)
 
-            PracticeCTA(
-                title: "把防守也放进选择里",
-                destination: "防守：反解安全球，看能藏到什么程度",
-                route: .snookerTactics
-            )
 
             LearnDocTextLink(
                 title: "安全球三维度模型",

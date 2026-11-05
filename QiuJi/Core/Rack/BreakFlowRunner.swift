@@ -70,7 +70,7 @@ final class BreakFlowRunner: ObservableObject {
     static let defaultBreakVelocity: Double = 10.0
     static let breakVelocityRange: ClosedRange<Double> = ShotTuning.velocityRange.lowerBound...10.0
 
-    let game: RackGame
+    @Published private(set) var game: RackGame
     /// Restored by the host after it restores the pre-break board.
     let railsBeforeBreak: PocketRailSnapshot
     @Published private(set) var phase: Phase = .racked
@@ -150,6 +150,13 @@ final class BreakFlowRunner: ObservableObject {
     }
 
     // MARK: - Rack
+
+    /// Change the prepared rack in place, retaining host callbacks and the original restore snapshot.
+    func selectGame(_ game: RackGame) {
+        guard !isBusy, self.game != game else { return }
+        self.game = game
+        rackUp()
+    }
 
     /// 清台摆架：按玩法 + 当前 seed 摆球架，母球落默认开球点，画锁顶球瞄准线。
     func rackUp() {

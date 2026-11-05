@@ -1,0 +1,48 @@
+{
+  "QiuJiTests/AdjustmentDraftLayerTests.swift": [
+    "testIncompletePredictionsHavePersistentTypedFailuresOnAllThreePages",
+    "testRejectedTargetPersistsUntilRelevantSelectionChanges",
+    "test_snooker_adjustDraft_doesNotMutateCatalog_andCycleRestoresOriginal"
+  ],
+  "QiuJiTests/BankLessonTests.swift": [
+    "testAllPowerStepsUseCompleteCurrentPhysicsAndDistinctPaths",
+    "testLessonAssetsAndPublicRoute",
+    "testMirrorConstructionAndGhostTangencyAcrossSlider"
+  ],
+  "QiuJiTests/PositionPlayUndoSnapshotTests.swift": [
+    "test_snooker_restore_reproducesEveryField",
+    "test_snooker_undoRestoresObservedCameraFromEitherMode"
+  ],
+  "QiuJiTests/SolverPerformanceTests.swift": [
+    "test_perf_snooker_standard"
+  ],
+  "QiuJiTests/W1BTeachingEditingTests.swift": [
+    "testDefenseSelectionAndDragRemainAvailableInTemporaryView"
+  ],
+  "QiuJiTests/SnookerSolverTests.swift": [
+    "test_addingOppositeGroupClearsNowIllegalEightSelection",
+    "test_adjustmentAndUndoReassessLegalityAndCyclingRestoresCatalog",
+    "test_defaultPageStandardSearch_timingAndCompletedResults",
+    "test_defenseCoverage_multiBallSample",
+    "test_defenseRules_opponentInference_and_eightInterception",
+    "test_eightTargetCannotSurviveAddingBothGroups",
+    "test_freeRolloutPostContactRuleMatchesPhysicalEvents",
+    "test_historicalFiveDefenseShotsResolveOnCurrentPhysics",
+    "test_pottingLastOpponentColorTransfersDefenseToEight",
+    "test_rankingProtectsWeakestBallBeforeBlockedCount",
+    "test_reassessmentChangesCoverageAndDoesNotClaimHighDifficulty",
+    "test_safetyAcceptsPostContactRailByEitherBallAndObjectPot",
+    "test_safetyRejectsNoRailAndPreContactRail",
+    "test_safetyRejectsScratchWrongContactEightPotAndPartialPrediction",
+    "test_snookerCoverageMulti_singleBallRegression",
+    "test_solveSnooker_degradesToHighDifficulty_whenNoFullSnooker",
+    "test_solveSnooker_invalidInputs_returnEmpty",
+    "test_solveSnooker_satisfyingSolutions_passReCheck"
+  ],
+  "QiuJiTests/PositionPlayFreeAimTests.swift": [
+    "testSnookerReplayLifecycle"
+  ],
+  "QiuJiTests/TrajectoryRendererTests.swift": [
+    "testSnookerDefenseOptionsExpressDefenseSemantics"
+  ]
+}

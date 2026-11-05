@@ -499,7 +499,7 @@ final class TablePreferencesUITests: XCTestCase {
         continueAfterFailure = false
         launch("settings")
         XCTAssertTrue(app.buttons["3D"].waitForExistence(timeout: 15)); app.buttons["3D"].tap()
-        let routes = [("silu", "silu"), ("planThree", "planthree"), ("snooker", "snooker"),
+        let routes = [("silu", "silu"), ("planThree", "planthree"),
             ("shared:bank", "bankshot"), ("shared:diamond", "reflection"),
             ("shared:angleDynamic", "angleDynamic"), ("shared:separation", "separationAngleAtlas"),
             ("shared:cushion", "cushionEnglishAtlas"), ("shared:composer", "freeplay"), ("shared:shot", "freeplay")]

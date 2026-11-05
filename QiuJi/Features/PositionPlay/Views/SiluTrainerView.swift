@@ -7,7 +7,7 @@ struct SiluTrainerView: View {
     init(initialBoard: BoardSnapshot? = nil) { self.initialBoard = initialBoard }
     @State private var informationPanel: PlanningPanel?
     @StateObject private var vm = SiluTrainerViewModel()
-    @State private var showBreakPicker = false
+    @AppStorage("silu.breakGameBallCount") private var breakGameBallCount = 15
     @State private var drawingConstraint = false
     @State private var showsToolChoices = false
     @ScaledMetric(relativeTo: .body) private var toolChoicesWidth = 112
@@ -33,10 +33,6 @@ struct SiluTrainerView: View {
             title: { EmptyView() },
             leftContent: { _ in EmptyView() },
             status: { informationOverlay }, onPalettePlace: { vm.placeFromPalette($0, atWorld: $1) })
-        .sheet(isPresented: $showBreakPicker) {
-            BreakGamePickerSheet { vm.startBreakFlow(game: $0) }
-                .presentationDetents([.height(360)]).presentationDragIndicator(.visible)
-        }
         .sheet(item: $informationPanel) { panel in
             PlanningInformationSheet(panel: panel, sections: informationSections(panel))
         }
@@ -55,23 +51,37 @@ struct SiluTrainerView: View {
 
     private func breakControls(_ metrics: BTTeachingInstrumentLayout) -> some View {
         VStack(spacing: metrics.groupSpacing) {
-            BTTeachingInstrumentEntry(layout: metrics, label: "开球") {
-                Button {
-                    vm.breakRunner?.reRack()
-                    if vm.cameraMode == .perspective3D { vm.requestPlayerView(.thirdPerson) }
-                } label: {
-                    Image(systemName: "arrow.clockwise").font(.system(size: 22)).foregroundStyle(.white)
-                        .frame(width: metrics.topDiameter, height: metrics.topDiameter)
-                        .background { BTHUDControlBackground(shape: Circle()) }
-                }.buttonStyle(BTHUDPressStyle()).disabled(busy || vm.temporaryTopDownActive)
-                    .opacity(busy || vm.temporaryTopDownActive ? 0.3 : 1)
-                    .accessibilityLabel("重开").accessibilityIdentifier("break.rerack")
-            }
-            .freeControlItem("break.rerack", name: "重开")
+            breakEntry(metrics)
             BTTeachingAimRuler(layout: metrics, enabled: !busy && !vm.temporaryTopDownActive,
                 onNudge: { vm.breakRunner?.nudgeAim(byDegrees: $0) },
                 degreesPerPoint: vm.breakRunner?.aimWheelDegreesPerPoint ?? AimWheelGain.defaultDegreesPerPoint)
         }
+    }
+
+    private func breakEntry(_ layout: BTTeachingInstrumentLayout) -> some View {
+        Button {
+            showsToolChoices = false
+            drawingConstraint = false
+            if let runner = vm.breakRunner { runner.reRack() }
+            else { vm.startBreakFlow(game: BreakFlowRunner.game(forBallCount: breakGameBallCount)) }
+            if vm.cameraMode == .perspective3D { vm.requestPlayerView(.thirdPerson) }
+        } label: {
+            VStack(spacing: 2) {
+                BreakRackGlyph(color: HUDStyle.valueMeasured, size: layout.topDiameter - 1, hollowBalls: true)
+                    .btHUDActionContent()
+                    .frame(width: layout.topDiameter, height: layout.topDiameter)
+                    .background { BTHUDControlBackground(shape: Circle()) }
+                    .overlay(Circle().stroke(HUDStyle.hairline, lineWidth: 1))
+                Text(vm.isBreakMode ? "重开" : "开球").font(.btMicro).btHUDActionContent()
+            }.frame(width: layout.columnWidth).contentShape(Rectangle())
+        }
+        .buttonStyle(BTHUDPressStyle())
+        .disabled(busy || vm.temporaryTopDownActive || vm.cameraTransitionBusy)
+        .opacity(busy || vm.temporaryTopDownActive || vm.cameraTransitionBusy ? 0.3 : 1)
+        .accessibilityLabel(vm.isBreakMode ? "重开" : "开球")
+        .accessibilityValue(BreakFlowRunner.title(for: vm.breakRunner?.game ?? BreakFlowRunner.game(forBallCount: breakGameBallCount)))
+        .accessibilityIdentifier(vm.isBreakMode ? "break.rerack" : "break.entry")
+        .freeControlItem(vm.isBreakMode ? "break.rerack" : "break.entry", name: "开球")
     }
 
     private var velocity: Binding<Double> {
@@ -98,18 +108,18 @@ struct SiluTrainerView: View {
             velocityRange: vm.isBreakMode ? BreakFlowRunner.breakVelocityRange : ShotTuning.velocityRange,
             instrumentsEnabled: (!busy || vm.isAdjustingSolution) && (vm.isBreakMode || vm.hasSolutions), isAnimating: busy,
             paletteEnabled: !busy && !vm.isBreakMode,
-            primaryTitle: vm.breakRunner.map { $0.showsConfirm ? "完成" : "开球" } ?? (vm.isComputing ? "计算中" : "击球"),
+            primaryTitle: vm.isBreakMode ? "开球" : (vm.isComputing ? "计算中" : "击球"),
             primaryEnabled: vm.isBreakMode ? !busy : vm.canStrike,
             onPrimary: {
                 if let runner = vm.breakRunner {
-                    if runner.showsConfirm { runner.confirmSettled() } else { runner.breakNow() }
+                    runner.breakNow()
                 } else { vm.play() }
-            }, primaryControlID: vm.isBreakMode ? (vm.breakRunner?.showsConfirm == true ? "break.confirm" : "break.strike") : "shot.strike", onPaletteTap: { key in
+            }, primaryControlID: vm.isBreakMode ? "break.strike" : "shot.strike", onPaletteTap: { key in
                 if vm.onTableKeys.contains(key) { vm.pulseTableBall(key) } else { vm.placeFromPalette(key) }
             }, menuItems: menuItems, refreshTrajectory: { vm.redrawTrajectory() },
             applyPreferences: { vm.hides3DShotAssists = !$0.enabled(.shows3DTrajectory) }, onSetup: { vm.allowSideSpin = savedAllowSideSpin; vm.basicPositionOnly = savedBasicPositionOnly; vm.hides3DShotAssists = hides3DAssists; if let initialBoard { vm.loadBoard(initialBoard) } },
             onDisappear: { vm.stopForDismissal() },
-            layoutEditingBlocked: showsToolChoices || drawingConstraint || vm.breakRunner?.showsConfirm == true,
+            layoutEditingBlocked: showsToolChoices || drawingConstraint,
             onAimNudged: vm.isBreakMode ? { vm.breakRunner?.nudgeAim(byDegrees: $0) } : nil,
             closeupSnapshot: vm.canStrike ? vm.solvedContactCloseup : nil,
             closeupUnavailableReason: vm.canStrike && vm.solvedContactCloseup != nil ? nil : "当前首碰暂无特写",
@@ -125,24 +135,27 @@ struct SiluTrainerView: View {
                         }, onDragActiveChanged: { drawingConstraint = $0 }))
                 }
                 return AnyView(EmptyView())
-            })
+            }, breakGameSelection: Binding(get: { breakGameBallCount }, set: { count in
+                breakGameBallCount = count
+                showsToolChoices = false
+                drawingConstraint = false
+                vm.selectBreakGame(BreakFlowRunner.game(forBallCount: count))
+            }))
     }
 
     private func leftControls(_ layout: BTTeachingInstrumentLayout) -> some View {
         VStack(spacing: layout.groupSpacing) {
             VStack(spacing: layout.groupSpacing) {
-                BTTeachingInstrumentEntry(layout: layout, label: "") {
-                    Color.clear.frame(width: layout.topDiameter, height: layout.topDiameter)
-                }.frame(height: layout.topDiameter + 14).accessibilityHidden(true)
+                breakEntry(layout).frame(height: layout.topDiameter + 14)
                 BTTeachingAimRulerSpace(layout: layout)
                     .frame(height: layout.rulerLength + 30)
-            }
-            .overlay(alignment: .top) {
-                VStack(spacing: layout.groupSpacing) {
-                    toolChoiceButton
-                    action("清除", "eraser", "silu.clearConstraint", enabled: !busy && vm.hasConstraint) { vm.clearConstraint() }
-                        .freeControlItem("planning.clearConstraint", name: "清除约束")
-                }
+                    .overlay(alignment: .top) {
+                        VStack(spacing: layout.groupSpacing) {
+                            toolChoiceButton
+                            action("清除", "eraser", "silu.clearConstraint", enabled: !busy && vm.hasConstraint) { vm.clearConstraint() }
+                                .freeControlItem("planning.clearConstraint", name: "清除约束")
+                        }
+                    }
             }
             .overlay(alignment: .bottom) {
                 TeachingSolutionButton(count: vm.solutions.count, currentIndex: vm.currentIndex,
@@ -178,19 +191,23 @@ struct SiluTrainerView: View {
         .disabled(busy).opacity(busy ? 0.4 : 1)
         .accessibilityIdentifier("silu.tool")
         .freeControlItem("planning.constraintTool", name: "约束工具")
-        .popover(isPresented: $showsToolChoices, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
-            VStack(spacing: 0) {
-                toolChoice("摆球", tool: .none, id: "place")
-                toolChoice("落区", tool: .region, id: "region")
-                toolChoice("落点", tool: .restPoint, id: "restPoint")
-                toolChoice("过点", tool: .passPoint, id: "passPoint")
-            }
-            .padding(.vertical, Spacing.xs)
-            .frame(width: toolChoicesWidth)
-            .fixedSize(horizontal: false, vertical: true)
-            .presentationCompactAdaptation(.popover)
+        .background {
+            SiluToolPopover(isPresented: $showsToolChoices, width: toolChoicesWidth,
+                            content: AnyView(toolChoices))
         }
         .onChange(of: busy) { _, active in if active { showsToolChoices = false } }
+    }
+
+    private var toolChoices: some View {
+        VStack(spacing: 0) {
+            toolChoice("摆球", tool: .none, id: "place")
+            toolChoice("落区", tool: .region, id: "region")
+            toolChoice("落点", tool: .restPoint, id: "restPoint")
+            toolChoice("过点", tool: .passPoint, id: "passPoint")
+        }
+        .padding(.vertical, Spacing.xs)
+        .frame(width: toolChoicesWidth)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func toolChoice(_ title: String, tool: SiluTrainerViewModel.Tool, id: String) -> some View {
@@ -223,21 +240,20 @@ struct SiluTrainerView: View {
             .init(id: "silu.solveOptions", title: "求解范围"),
             .init(id: "silu.sideSpin", title: "允许左右塞", selected: vm.allowSideSpin, disabled: busy || vm.isBreakMode, action: { vm.allowSideSpin.toggle(); savedAllowSideSpin = vm.allowSideSpin }),
             .init(id: "silu.basicOnly", title: "仅基础走位（≤1库）", selected: vm.basicPositionOnly, disabled: busy || vm.isBreakMode, action: { vm.basicPositionOnly.toggle(); savedBasicPositionOnly = vm.basicPositionOnly })]
-        if vm.isBreakMode {
-            items.append(.init(id: "silu.cancelBreak", title: "取消开球", disabled: busy, action: { vm.cancelBreakFlow() }))
-        } else {
-            items += [.init(id: "break.entry", title: "开球", disclosure: true, disabled: busy, action: { showBreakPicker = true }),
-                .init(id: "silu.clear", title: "清空桌面", disabled: busy, action: { vm.clearTable() }),
+        if !vm.isBreakMode {
+            items += [.init(id: "silu.clear", title: "清空桌面", disabled: busy, action: { vm.clearTable() }),
                 .init(id: "silu.reset", title: "恢复默认球形", disabled: busy, action: { vm.resetAll() })]
         }
         return items
     }
     @ViewBuilder private var informationOverlay: some View {
         if let runner = vm.breakRunner {
-            BTTeachingInformationLayer(items: [.init(text: runner.statusText(isPerspective: vm.cameraMode == .perspective3D))])
+            if let message = runner.actionRequiredMessage {
+                BTTeachingInformationLayer(items: [.init(text: message)])
+            }
         } else {
             PlanningInformationOverlay(page: "silu", event: vm.informationEvent, prompt: compactPrompt,
-                solution: vm.currentSolution, defense: false, busy: busy,
+                solution: vm.currentSolution, busy: busy,
                 setupComplete: vm.hasConstraint && vm.selectedTargetKey != nil && vm.selectedPocketIndex >= 0, introduction: "拖球摆位，选择目标球、目标袋和约束；更多操作可查看说明。")
         }
     }
@@ -263,5 +279,64 @@ struct SiluTrainerView: View {
             ("方案与微调", "轻点解按钮切换下一解，按钮显示当前序号和总数。调整打点、杆速后，当前方案标记“微调”。不满足约束或超出筛选范围的方案仍保留提示。")
         ]
         return sections
+    }
+}
+
+/// SwiftUI on iOS 17 may ignore arrowEdge. Restrict the native popover to an
+/// upward arrow so its body always opens below the tool, clear of the palette.
+private struct SiluToolPopover: UIViewControllerRepresentable {
+    @Binding var isPresented: Bool
+    let width: CGFloat
+    let content: AnyView
+
+    func makeCoordinator() -> Coordinator { Coordinator(isPresented: $isPresented) }
+    func makeUIViewController(context: Context) -> UIViewController {
+        let anchor = UIViewController()
+        anchor.view.backgroundColor = .clear
+        anchor.view.isUserInteractionEnabled = false
+        return anchor
+    }
+    func updateUIViewController(_ anchor: UIViewController, context: Context) {
+        let coordinator = context.coordinator
+        coordinator.isPresented = $isPresented
+        guard isPresented else {
+            coordinator.host?.dismiss(animated: true)
+            coordinator.host = nil
+            return
+        }
+        if let host = coordinator.host {
+            host.rootView = content
+            return
+        }
+        DispatchQueue.main.async {
+            guard coordinator.isPresented.wrappedValue, coordinator.host == nil,
+                  anchor.view.window != nil else { return }
+            let host = UIHostingController(rootView: content)
+            host.modalPresentationStyle = .popover
+            host.view.backgroundColor = .clear
+            host.preferredContentSize = host.sizeThatFits(in: CGSize(width: width, height: 600))
+            if let popover = host.popoverPresentationController {
+                popover.sourceView = anchor.view
+                popover.sourceRect = anchor.view.bounds
+                popover.permittedArrowDirections = .up
+                popover.delegate = coordinator
+            }
+            coordinator.host = host
+            anchor.present(host, animated: true)
+        }
+    }
+    static func dismantleUIViewController(_ uiViewController: UIViewController, coordinator: Coordinator) {
+        coordinator.host?.dismiss(animated: false)
+        coordinator.host = nil
+    }
+    final class Coordinator: NSObject, UIPopoverPresentationControllerDelegate {
+        var isPresented: Binding<Bool>
+        var host: UIHostingController<AnyView>?
+        init(isPresented: Binding<Bool>) { self.isPresented = isPresented }
+        func adaptivePresentationStyle(for controller: UIPresentationController) -> UIModalPresentationStyle { .none }
+        func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+            host = nil
+            isPresented.wrappedValue = false
+        }
     }
 }

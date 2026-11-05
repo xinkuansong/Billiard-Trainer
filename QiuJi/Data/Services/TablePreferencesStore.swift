@@ -8,9 +8,9 @@ extension TablePreferencePage {
         case .multiBallPractice, .multiBallPractice3D: return Set(TablePreferenceField.allCases)
         case .sceneAiming2D, .sceneAiming3D: return [.view3D, .grid]
         case .separationPractice2D, .separationPractice3D, .kickPractice2D, .kickPractice3D, .kBallPractice2D, .kBallPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return [.view3D, .grid, .transparency]
-        case .accuracy2D, .accuracy3D, .bankPractice2D, .bankPractice3D: return [.view3D, .grid, .transparency, .closeup]
+        case .defensePractice2D, .defensePractice3D, .accuracy2D, .accuracy3D, .bankPractice2D, .bankPractice3D: return [.view3D, .grid, .transparency, .closeup]
         case .aimPointScene2D, .aimPointScene3D: return [.view3D, .grid, .closeup]
-        case .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas,
+        case .pocketTolerance, .angleDynamic, .separationAngleAtlas, .cushionEnglishAtlas,
              .drillDetailPreview, .drillRecordPreview: return [.view3D, .grid]
         default: return Set(TablePreferenceField.allCases)
         }
@@ -153,8 +153,7 @@ final class TablePreferencesStore: ObservableObject {
             (.bankShot, "bankKick.spinTransparency", "bankKick.hides3DAssists"),
             (.diamondSystem, "bankKick.spinTransparency", "bankKick.hides3DAssists"),
             (.silu, "silu.spinTransparency", "silu.hides3DAssists"),
-            (.planThree, "planthree.spinTransparency", "planthree.hides3DAssists"),
-            (.snookerTactics, "snooker.spinTransparency", "snooker.hides3DAssists")]
+            (.planThree, "planthree.spinTransparency", "planthree.hides3DAssists")]
         for (page, opacity, hidden) in legacy {
             if let value = defaults.object(forKey: opacity) as? NSNumber {
                 result.pages[page.rawValue, default: [:]][TablePreferenceField.transparency.rawValue] = TablePreferenceField.transparency.validated(value.doubleValue)

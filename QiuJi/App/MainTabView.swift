@@ -100,12 +100,12 @@ struct MainTabView: View {
             if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-pro.route=") }) {
                 let routes: [String: AngleRoute] = [
                     "mergeAngle": .sceneAiming2D, "mergeAim": .aimPointScene2D, "mergeAccuracy": .accuracy2D,
-                    "mergeSeparation": .separationPractice2D, "kBall": .kBallPractice2D, "kick": .kickPractice2D, "bankPractice": .bankPractice2D, "mergeTwo": .twoBallPractice2D, "mergeThree": .threeBallPractice2D,
+                    "mergeSeparation": .separationPractice2D, "kBall": .kBallPractice2D, "kick": .kickPractice2D, "bankPractice": .bankPractice2D, "defensePractice": .defensePractice2D, "mergeTwo": .twoBallPractice2D, "mergeThree": .threeBallPractice2D,
                     "mergeSeparation3D": .separationPractice3D, "mergeTwo3D": .twoBallPractice3D, "mergeThree3D": .threeBallPractice3D,
                     "separation": .separationAngleAtlas, "cushion": .cushionEnglishAtlas,
                     "scene3d": .sceneAiming3D, "aim3d": .aimPointScene3D, "snake": .snakePractice, "multiBall": .multiBallPractice, "multiBall3D": .multiBallPractice3D,
                     "composer": .positionPlayComposer, "photo": .ballExtraction,
-                    "three": .planThree, "snooker": .snookerTactics,
+                    "three": .planThree,
                     "bank": .bankShot, "diamond": .diamondSystem]
                 if let route = routes[String(argument.dropFirst("-pro.route=".count))], router.anglePath.isEmpty {
                     router.selectedTab = .angle
@@ -228,6 +228,8 @@ struct MainTabView: View {
             SeparationAngleAtlasView()
         case .cushionEnglishAtlas:
             CushionEnglishAtlasView()
+        case .pocketTolerance:
+            PocketToleranceView()
         case .angleDynamic:
             AngleDynamicView()
         case .geometricQuiz:
@@ -257,6 +259,7 @@ struct MainTabView: View {
             ThreeBallPracticeView(is3D: true)
         case .kBallPractice2D: KBallPracticeView(is3D: false)
         case .kickPractice2D: KickPracticeView(is3D: false)
+        case .defensePractice2D: DefensePracticeView(is3D: false)
         case .bankPractice2D: BankPracticeView(is3D: false)
         case .twoBallPractice2D:
             TwoBallPracticeView(is3D: false)
@@ -287,8 +290,6 @@ struct MainTabView: View {
             SiluTrainerView()
         case .planThree:
             PlanThreeView()
-        case .snookerTactics:
-            SnookerTacticsView()
         case .ballExtraction:
             BallExtractionView()
         case .batchDrillStudio:

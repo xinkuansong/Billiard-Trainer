@@ -108,24 +108,6 @@ final class SolverPerformanceTests: XCTestCase {
     /// 盘面取 `SnookerSolverTests.test_solveSnooker_satisfyingSolutions_passReCheck` 的
     /// 金标准球形（确证能求出完全斯诺克解），但参数用**生产默认** `SnookerParams.standard`
     /// （21 瞄准 × 15 塞 × 12 力度 ≈ 3780 次全场 simulateFree）。
-    func test_perf_snooker_standard() {
-        let board = BoardSnapshot(onTable: [
-            PositionPlayBall.cueKey: CanvasPoint(x: 0.30, y: 0.25),
-            "_1": CanvasPoint(x: 0.55, y: 0.25),
-            "_2": CanvasPoint(x: 0.50, y: 0.22),
-            "_9": CanvasPoint(x: 0.46, y: 0.19)])
-
-        PerformanceProfiler.reset()
-        let t0 = Date()
-        let sols = PositionPlaySolver.solveSnooker(
-            before: board, targetKey: "_1", opponentKeys: ["_9"], surfaceY: sY, params: .standard)
-        let e = Date().timeIntervalSince(t0)
-        print("⏱️ [PERF-B0] 斯诺克 solveSnooker .standard = \(String(format: "%.2f", e))s，解数=\(sols.count)")
-        printSegments("斯诺克")
-
-        XCTAssertFalse(sols.isEmpty, "金标准球形应有解")
-        XCTAssertLessThan(e, 120, "斯诺克求解不应卡死")
-    }
 
     // MARK: - 批量出片：BatchShotSolver 等价调用（多障碍球盘面）
 

@@ -46,10 +46,6 @@ final class W8_TrajectoryScreenshotUITests: XCTestCase {
     }
 
     /// Snooker 防守解轨迹（无 objectPath，ghost←firstContact）。
-    func testW8SnookerTrajectory() {
-        captureDeepLink(arg: "snooker.full", name: "w8-01-snooker-trajectory",
-                        expectStatus: "完全斯诺克")
-    }
 
     /// PlanThree：自选约束后求解，轨迹 + 约束青环同时可见。
     func testW8PlanThreeTrajectoryWithConstraint() {

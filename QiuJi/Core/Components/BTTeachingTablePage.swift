@@ -269,6 +269,9 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     var usesStandardTitle = false
     var fitsLongTitle = false
     var showsPalette = true
+    var objectObservationOnly = false
+    var allows3DPaletteEditing = false
+    var onPaletteTap: ((String) -> Void)? = nil
     var onPocketOrientationChange: (PocketDisplay.Orientation) -> Void = { _ in }
     /// Paired instrument hosts receive the same dimensions and top anchor as the power column.
     var pairedLeftContent: ((BTTeachingInstrumentLayout) -> AnyView)? = nil
@@ -827,12 +830,18 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     @ViewBuilder private var cameraButtons: some View {
         if let rig = vm.scene.cameraRig {
             ShotPlayerCameraButtons(controlSpacing: 4, rig: rig,
-                isEnabled: vm.temporaryTopDownActive || (planning.map { !$0.isAnimating } ?? (vm.currentPlayerAim != nil)),
+                isEnabled: objectObservationOnly || vm.temporaryTopDownActive || (planning.map { !$0.isAnimating } ?? (vm.currentPlayerAim != nil)),
                 onWholeTable: { planning?.onObservation?("wholeTable"); vm.requestSurfaceOverview() }, usesTwoViewControls: rig.usesTwoViewCameraControls,
                 temporaryTopDownActive: vm.temporaryTopDownActive,
                 onTemporaryTopDownBegan: { vm.beginTemporaryTopDown() },
                 onTemporaryTopDownEnded: { vm.endTemporaryTopDown() },
-                onSelect: { vm.requestPlayerView($0) })
+                observationOnly: objectObservationOnly,
+                observationTargetAvailable: vm.targetNode != nil,
+                onSelect: { view in
+                    if objectObservationOnly, let target = vm.targetNode {
+                        vm.refreshObservationCameraContext(); rig.observe(at: target.position)
+                    } else { vm.requestPlayerView(view) }
+                })
         }
     }
 
@@ -905,7 +914,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         let selected = vm.selectedTargetKey == key
         let role = planning?.paletteRoles[key]
         return Button {
-            if let planning { planning.onPaletteTap(key) }
+            if let onPaletteTap { onPaletteTap(key) }
+            else if let planning { planning.onPaletteTap(key) }
             else if onTable { vm.removeFromTable(key) } else { vm.placeFromPalette(key) }
         } label: {
             PoolBallFace(key: key, diameter: diameter).opacity(role == .completed ? 0.3 : role != nil || selected ? 1 : onTable ? 0.3 : 1)
@@ -919,21 +929,21 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 .frame(width: diameter + 2, height: min(max(32, diameter), slotHeight))
                 .frame(height: slotHeight).contentShape(Rectangle())
         }
-        .buttonStyle(BTHUDPressStyle()).disabled((is3D && planning == nil) || planning?.paletteEnabled == false)
+        .buttonStyle(BTHUDPressStyle()).disabled((is3D && planning == nil && !allows3DPaletteEditing) || planning?.paletteEnabled == false)
         .simultaneousGesture(DragGesture(minimumDistance: BTBallPaletteMetrics.dragMinimumDistance,
                                         coordinateSpace: .named(identifier))
             .onChanged { value in
-                guard allowsPaletteDrag, planning?.paletteEnabled != false, (!is3D || planning != nil), !onTable else { return }
+                guard allowsPaletteDrag, planning?.paletteEnabled != false, (!is3D || planning != nil || allows3DPaletteEditing), !onTable else { return }
                 draggingKey = key
                 let preview = BTPalettePlacement.sample(key: key, finger: value.location, sourceDiameter: diameter,
                     sceneFrame: sceneFrame, projector: projector, constrain: vm.palettePlacement)
                 dragLocation = preview.location; dragOverTable = preview.isValid
             }.onEnded { value in
                 defer { draggingKey = nil; dragOverTable = false }
-                guard allowsPaletteDrag, planning?.paletteEnabled != false, (!is3D || planning != nil), !onTable,
+                guard allowsPaletteDrag, planning?.paletteEnabled != false, (!is3D || planning != nil || allows3DPaletteEditing), !onTable,
                       let world = projector.palettePreview?.requestedWorld else { return }
                 onPalettePlace?(key, world)
-            }, including: allowsPaletteDrag && (!is3D || planning != nil) && !onTable ? .all : .subviews)
+            }, including: allowsPaletteDrag && (!is3D || planning != nil || allows3DPaletteEditing) && !onTable ? .all : .subviews)
         .accessibilityLabel("\(PositionPlayBall.shortLabel(for: key))号球")
         .contextMenu {
             if let clear = planning?.onPaletteClearRole, role != nil {
@@ -947,7 +957,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         }
         .accessibilityValue(planning?.paletteRoleDescription?(key) ?? role?.label ?? (onTable ? "在桌上" : "未在桌上"))
         .accessibilityHint(planning?.assessmentMode == true ? "题目指定，不可更改" :
-            (onTable ? (planning == nil ? "点按撤回球库" : planning?.onPaletteClearRole != nil ? "点按选择或切换角色，长按清除角色" : "点按定位桌上球，拖回球库可移除") : "点按摆到桌面"))
+            (onTable ? (planning == nil && onPaletteTap == nil ? "点按撤回球库" : planning?.onPaletteClearRole != nil ? "点按选择或切换角色，长按清除角色" : "点按定位桌上球，拖回球库可移除") : "点按摆到桌面"))
         .accessibilityIdentifier("paletteBall_\(key)")
     }
 

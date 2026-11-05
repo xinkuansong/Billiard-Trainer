@@ -1109,6 +1109,10 @@ extension PlanThreeViewModel {
                         banks, targetKey: targetKey, pocket: pocketId, velocity: 3.0)
                 }
             }
+            if !params.protectedBallKeys.isEmpty {
+                final.sort { PositionPlaySolver.preferredSolution($0, $1,
+                    protectedBallKeys: params.protectedBallKeys) }
+            }
             DispatchQueue.main.async {
                 guard let self, self.solveGeneration == gen, !self.isPlaying else { return }
                 self.isComputing = false
@@ -1138,6 +1142,7 @@ extension PlanThreeViewModel {
             var params = PositionPlaySolver.SearchParams.standard
             params.allowsMissedPotFallback = false
             params.requiresDirectPot = true
+            params.protectedBallKeys = Set([ball2Key, ball3Key].compactMap { $0 })
             if let second = ball2Key, (0..<6).contains(pocket2Index) {
                 let pocket = pocket2Index, third = ball3Key, y = surfaceY
                 params.continuation = { positions in
@@ -1207,7 +1212,7 @@ extension PlanThreeViewModel {
     }
 
     private func solutionStatus(_ sol: PositionPlaySolution) -> String {
-        TeachingSolutionSummary.text(sol, index: currentIndex, count: solutions.count, defense: false)
+        TeachingSolutionSummary.text(sol, index: currentIndex, count: solutions.count)
     }
 
     // MARK: Hints
@@ -1430,6 +1435,17 @@ extension PlanThreeViewModel {
         runner.rackUp()
         refreshOnTableKeys()
         if cameraMode == .perspective3D { requestPlayerView(.thirdPerson) }
+    }
+
+    /// Settings commit the selected gameplay directly to the table.
+    func selectBreakGame(_ game: RackGame) {
+        guard !isPlaying, !isComputing, breakRunner?.isBusy != true else { return }
+        if let runner = breakRunner {
+            runner.selectGame(game)
+        } else {
+            startBreakFlow(game: game)
+        }
+        refreshOnTableKeys()
     }
 
     /// 取消开球模式并恢复进场前桌面。

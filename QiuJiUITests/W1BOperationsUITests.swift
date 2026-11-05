@@ -10,7 +10,7 @@ final class W1BOperationsUITests: XCTestCase {
     private func launch(_ route: String, args: [String] = []) {
         continueAfterFailure = false; prefix = route == "diamond" ? "reflection" : route
         XCUIDevice.shared.orientation = .portrait
-        let deep = ["silu": "silu", "planthree": "planThree", "snooker": "snooker"]
+        let deep = ["silu": "silu", "planthree": "planThree"]
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-3dDrag.probe", "-v51.followSystemAppearance"] + args + (deep[route].map { ["-deeplink." + $0] } ?? []))
         if deep[route] == nil {
             app.switchTab(.angle); ready(app.buttons["angleHomeTab_解"]); app.buttons["angleHomeTab_解"].tap()
@@ -150,7 +150,7 @@ final class W1BOperationsUITests: XCTestCase {
         snap("legacy-restored")
     }
 
-    func testDefenseEditing() throws { launch("snooker"); snap("2d"); try editTemporary() }
+
     func testBankSelectionAndEditing() throws { try solver("bankshot") }
     func testDiamondSelectionAndEditing() throws { try solver("diamond") }
     private func solver(_ route: String) throws {
@@ -265,13 +265,7 @@ final class W1BOperationsUITests: XCTestCase {
         try captureMatrixBreakAndVerifyRerackCamera()
     }
 
-    func testMatrixDefenseShortSummaryAndPlanRerackCamera() throws {
-        // Existing fixture configures a board and calls the real defensive solver.
-        launch("snooker", args: ["-snooker.full"])
-        ready(app.buttons["snooker.strike"], timeout: 90)
-        assertMatrixShortSummary("snooker.status")
-        snap("matrix-solved-short-summary")
-        app.terminate()
+    func testMatrixPlanRerackCamera() throws {
         launch("planthree")
         try captureMatrixBreakAndVerifyRerackCamera()
     }

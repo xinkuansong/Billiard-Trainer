@@ -22,7 +22,7 @@ final class AccuracyPracticeIntegrationTests: XCTestCase {
             let seed: UInt64
             let bankSHA256: String
             let configuration: SceneTrainingConfiguration
-            let weights: [[Double]]
+            let samplingPolicy: String
             let samples: [Sample]
         }
         let spec = try JSONDecoder().decode(Request.self, from: Data(contentsOf: request))
@@ -31,7 +31,6 @@ final class AccuracyPracticeIntegrationTests: XCTestCase {
         let batch = try bank.draw(config, seed: spec.seed)
         XCTAssertEqual(batch.boards.count, 20)
         XCTAssertEqual(Set(batch.boards.map(\.id)).count, 20)
-        XCTAssertTrue(batch.distribution.calibrated)
         let targets = Dictionary(uniqueKeysWithValues: bank.payload.targets.map { ($0.inventoryTargetIndex, $0) })
         let samples = try batch.boards.enumerated().map { number, board -> Sample in
             let parts = board.id.split(separator: ":")
@@ -44,7 +43,7 @@ final class AccuracyPracticeIntegrationTests: XCTestCase {
                 railGap: SceneTrainingRailGeometry.clearance(board.target.vector))
         }
         let result = Export(seed: spec.seed, bankSHA256: bank.sourceFingerprint, configuration: config,
-                            weights: TrainingCombinationWeights.defaults, samples: samples)
+                            samplingPolicy: "uniform-filtered-inventory-v1", samples: samples)
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try encoder.encode(result).write(to: directory.appendingPathComponent("native-twenty.json"), options: .atomic)
         print("RUNTIME_TWENTY_EXPORTED seed=\(spec.seed) count=\(samples.count)")
@@ -62,25 +61,107 @@ final class AccuracyPracticeIntegrationTests: XCTestCase {
         }.reduce(0) { $0 + bank.counts[$1] }, 0)
     }
 
-    func testNativeProbabilitiesMatchIndependentPythonCalibration() throws {
-        struct Golden: Decodable { let code: Int; let count: Int; let calibratedProbability: Double }
-        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "grid-calibrated-probabilities", withExtension: "json"))
-        let data = try Data(contentsOf: url)
-        let golden = try JSONDecoder().decode([Golden].self, from: data)
-        let bank = try TrainingBankStore.load(), fit = try bank.distribution(.init())
-        XCTAssertTrue(fit.calibrated); XCTAssertFalse(fit.restrictedSupport)
-        XCTAssertLessThan(fit.maxError, 1e-10)
-        for cell in golden {
-            XCTAssertEqual(bank.counts[cell.code], cell.count)
-            XCTAssertEqual(fit.probabilities[cell.code], cell.calibratedProbability, accuracy: 1e-9)
+    private func inventoryFrequencies(_ bank: TrainingGridBank, configuration: SceneTrainingConfiguration) -> [[Double]] {
+        var counts = [5, 2, 3, 3, 3].map { Array(repeating: 0, count: $0) }
+        var total = 0
+        for (code, cell) in bank.payload.combinationTable.enumerated() where cell.matches(configuration) {
+            for (axis, value) in cell.axes.enumerated() { counts[axis][value] += bank.counts[code] }
+            total += bank.counts[code]
         }
-        XCTAssertEqual(fit.probabilities.reduce(0, +), 1, accuracy: 1e-10)
+        return counts.map { $0.map { Double($0) / Double(total) } }
+    }
+
+    /// Eleven real layouts, split 10:1 between two inventory categories.
+    private func unequalInventory() throws -> TrainingGridBank {
+        let source = try TrainingBankStore.load()
+        let codes = source.pools.indices.filter { source.pools[$0].count >= 10 }
+        let first = try XCTUnwrap(codes.first), last = try XCTUnwrap(codes.last)
+        let selected = source.pools[first].prefix(10).map { ($0, first) }
+            + source.pools[last].prefix(1).map { ($0, last) }
+        let groups = Dictionary(grouping: selected, by: { Int($0.0 >> 12) })
+        func point(_ p: TrainingGridBank.Point) -> [String: Double] { ["x": p.x, "z": p.z] }
+        var targets: [[String: Any]] = []
+        var totals = [0, 0]
+        for ti in groups.keys.sorted() {
+            let target = source.payload.targets[ti]
+            let refs = groups[ti]!.sorted { $0.0 < $1.0 }
+            var masks = Array(repeating: 0, count: 171)
+            for (ref, _) in refs { masks[Int((ref >> 4) & 255)] |= 1 << Int(ref & 15) }
+            totals[target.pocket < 4 ? 0 : 1] += refs.count
+            targets.append(["aim": point(target.aim), "ghost": point(target.ghost), "object": point(target.object),
+                "pocket": target.pocket, "inventoryTargetIndex": target.inventoryTargetIndex,
+                "masks": masks, "combinationIndices": refs.map { $0.1 }])
+        }
+        let cells: [[String: Any]] = source.payload.combinationTable.map {
+            ["id": $0.id, "angleIndex": $0.angleIndex, "pocketType": $0.pocketType,
+             "cueIndex": $0.cueIndex, "objectIndex": $0.objectIndex, "railIndex": $0.railIndex]
+        }
+        let payload: [String: Any] = ["schema": source.payload.schema, "validationSourceFingerprint": "test-subset",
+            "distanceSamples": source.payload.distanceSamples, "counts": ["corner": totals[0], "middle": totals[1]],
+            "combinationTable": cells, "targets": targets]
+        return try TrainingGridBank(data: JSONSerialization.data(withJSONObject: payload), fingerprint: "test-subset")
+    }
+
+    func testEveryLayoutHasEqualChanceAcrossUnequalCategories() throws {
+        let bank = try unequalInventory()
+        let all = try bank.draw(.init(), seed: 1, count: 11).boards
+        XCTAssertEqual(Set(all.map(\.id)).count, 11)
+        XCTAssertThrowsError(try bank.draw(.init(), seed: 1, count: 12))
+        XCTAssertThrowsError(try bank.draw(.init(), seed: 1, count: 0))
+        var observations: [String: Int] = [:]
+        for seed in 0..<11_000 {
+            let board = try XCTUnwrap(bank.draw(.init(), seed: UInt64(seed), count: 1).boards.first)
+            observations[board.id, default: 0] += 1
+        }
+        for board in all { XCTAssertEqual(Double(observations[board.id, default: 0])/11_000, 1.0/11, accuracy: 0.012) }
+    }
+
+    func testExclusionAndDepletionLeaveEveryRemainingLayoutReachable() throws {
+        let bank = try unequalInventory()
+        let all = try bank.draw(.init(), seed: 1, count: 11).boards
+        let groups = Dictionary(grouping: all, by: { $0.combinationID! })
+        let large = try XCTUnwrap(groups.values.first { $0.count == 10 })
+        let small = try XCTUnwrap(groups.values.first { $0.count == 1 })
+        let excluded = Set(large.dropFirst().map(\.id))
+        let expected = Set([large[0].id, small[0].id])
+        var observations: [String: Int] = [:]
+        for seed in 0..<2000 {
+            let draw = try bank.draw(.init(), seed: UInt64(seed), excluding: excluded, count: 2)
+            XCTAssertEqual(Set(draw.boards.map(\.id)), expected)
+            observations[draw.boards[0].id, default: 0] += 1
+        }
+        for id in expected { XCTAssertEqual(Double(observations[id, default: 0])/2000, 0.5, accuracy: 0.04) }
+        XCTAssertThrowsError(try bank.draw(.init(), seed: 1, excluding: Set(all.map(\.id)), count: 1))
+    }
+
+    func testRejectedLayoutsDoNotPreserveTheirCategoryShare() throws {
+        let bank = try unequalInventory()
+        let all = try bank.draw(.init(), seed: 1, count: 11).boards
+        let groups = Dictionary(grouping: all, by: { $0.combinationID! })
+        let large = try XCTUnwrap(groups.values.first { $0.count == 10 })
+        let small = try XCTUnwrap(groups.values.first { $0.count == 1 })
+        let allowed = Set([large[0].id, small[0].id])
+        var observations: [String: Int] = [:]
+        for seed in 0..<2000 {
+            var attempted = Set<String>()
+            let draw = try bank.draw(.init(), seed: UInt64(seed), count: 1, accepting: {
+                XCTAssertTrue(attempted.insert($0.id).inserted)
+                return allowed.contains($0.id)
+            })
+            let id = try XCTUnwrap(draw.boards.first?.id)
+            XCTAssertTrue(allowed.contains(id)); observations[id, default: 0] += 1
+        }
+        for id in allowed { XCTAssertEqual(Double(observations[id, default: 0])/2000, 0.5, accuracy: 0.04) }
+        var attempts = 0
+        XCTAssertThrowsError(try bank.draw(.init(), seed: 1, count: 1, accepting: { _ in attempts += 1; return false }))
+        XCTAssertEqual(attempts, 11)
     }
 
     func testTwoHundredThousandActualDrawsAndRoundUniqueness() throws {
         let bank = try TrainingBankStore.load()
         let byID = Dictionary(uniqueKeysWithValues: bank.payload.combinationTable.enumerated().map { ($0.element.id, $0.offset) })
-        var observed = TrainingCombinationWeights.defaults.map { Array(repeating: 0, count: $0.count) }
+        var observed = [5, 2, 3, 3, 3].map { Array(repeating: 0, count: $0) }
+        let expected = inventoryFrequencies(bank, configuration: .init())
         let start = Date()
         for round in 0..<10_000 {
             let draw = try bank.draw(.init(), seed: UInt64(20261021 + round))
@@ -94,16 +175,19 @@ final class AccuracyPracticeIntegrationTests: XCTestCase {
         let frequencies = observed.map { $0.map { Double($0) / 200_000 } }
         for axis in frequencies.indices {
             for value in frequencies[axis].indices {
-                XCTAssertEqual(frequencies[axis][value], TrainingCombinationWeights.defaults[axis][value], accuracy: 0.004)
+                XCTAssertEqual(frequencies[axis][value], expected[axis][value], accuracy: 0.004)
             }
         }
         let report: [String: Any] = ["draws": 200000, "rounds": 10000, "observed": frequencies,
-                                   "weights": TrainingCombinationWeights.defaults, "seconds": Date().timeIntervalSince(start)]
-        let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("output/accuracy-weight-integration-20261021")
+                                   "inventoryFrequencies": expected, "seconds": Date().timeIntervalSince(start)]
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("uniform-training-sampling-20261104")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
             .write(to: directory.appendingPathComponent("native-sampling.json"), options: .atomic)
+        let attachment = XCTAttachment(data: try Data(contentsOf: directory.appendingPathComponent("native-sampling.json")), uniformTypeIdentifier: "public.json")
+        attachment.name = "uniform-inventory-sampling"; attachment.lifetime = .keepAlways
+        add(attachment)
         print("NATIVE_SAMPLING \(report)")
     }
 
@@ -160,26 +244,29 @@ final class AccuracyPracticeIntegrationTests: XCTestCase {
 
     func testRepeatabilityRecentExclusionMultiSelectionAndInfeasibleTargets() throws {
         let bank = try TrainingBankStore.load()
-        var config = SceneTrainingConfiguration(); config.angleSelection = [.small, .large]
+        var config = SceneTrainingConfiguration(); config.angleSelection = [.straight, .large]
         let one = try bank.draw(config, seed: 42), two = try bank.draw(config, seed: 42)
         XCTAssertEqual(one.boards.map(\.id), two.boards.map(\.id))
         XCTAssertTrue(one.boards.allSatisfy { $0.matches(config) })
-        let fit = try bank.distribution(config)
-        XCTAssertTrue(fit.calibrated)
-        for angle in [1, 3] {
-            XCTAssertEqual(bank.payload.combinationTable.indices.filter { bank.payload.combinationTable[$0].angleIndex == angle }
-                .reduce(0) { $0 + fit.probabilities[$1] }, 0.5, accuracy: 1e-9)
+        let expected = inventoryFrequencies(bank, configuration: config)[0]
+        var observed = Array(repeating: 0, count: 5)
+        for seed in 0..<1000 {
+            for board in try bank.draw(config, seed: UInt64(seed)).boards {
+                XCTAssertTrue(board.matches(config))
+                let angle = Int(try XCTUnwrap(board.generationAngle))
+                let band = try XCTUnwrap([10, 30, 50, 70, 85].firstIndex { angle <= $0 })
+                observed[band] += 1
+            }
         }
+        for band in observed.indices {
+            XCTAssertEqual(Double(observed[band])/20_000, expected[band], accuracy: 0.015)
+        }
+        XCTAssertGreaterThan(abs(expected[0] - 0.5), 0.1, "Fixture must distinguish inventory shares from equal category quotas")
         let seen = Set(one.boards.map(\.id)), next = try bank.draw(config, seed: 42, excluding: seen)
         XCTAssertTrue(Set(next.boards.map(\.id)).isDisjoint(with: seen))
         var middleFrozen = SceneTrainingConfiguration(); middleFrozen.pocketSelection = [.side]; middleFrozen.railDistanceSelection = [.frozen]
         XCTAssertThrowsError(try bank.draw(middleFrozen, seed: 42))
-        let cells = [TrainingCombinationWeights.Cell(id: "x", angleIndex: 0, pocketType: 0, cueIndex: 0, objectIndex: 0, railIndex: 0),
-                     .init(id: "y", angleIndex: 1, pocketType: 0, cueIndex: 1, objectIndex: 0, railIndex: 0)]
-        let impossible = try TrainingCombinationWeights.fit(cells: cells, counts: [100,100],
-            targets: [[0.5,0.5,0,0,0], [1,0], [0.9,0.1,0], [1,0,0], [1,0,0]])
-        XCTAssertFalse(impossible.calibrated); XCTAssertNotNil(impossible.notice)
-        XCTAssertEqual(impossible.probabilities, [0.9,0.1])
+
     }
 
     func testPreparedRoundsAssignTipsWithoutSavedSolutionsAndPersistBothModes() throws {

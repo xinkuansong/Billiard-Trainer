@@ -454,7 +454,7 @@ final class OnboardingProUITests: XCTestCase {
     func testAllElevenProDestinationsLockedWithoutPurchase() throws {
         let session = try storeSession()
         defer { session.clearTransactions() }
-        let routes = ["separation", "cushion", "scene3d", "aim3d", "snake", "composer", "photo", "three", "snooker", "bank", "diamond"]
+        let routes = ["separation", "cushion", "scene3d", "aim3d", "snake", "composer", "photo", "three", "bank", "diamond"]
         for route in routes {
             let app = XCUIApplication.launchClean(extraArgs: ["-v53.authenticatedProfileFixture", "-v50.inMemoryStore", "-pro.route=\(route)"])
             XCTAssertTrue(app.descendants(matching: .any)["pro.locked"].firstMatch.waitForExistence(timeout: 12), route)
@@ -468,7 +468,7 @@ final class OnboardingProUITests: XCTestCase {
     func testAllElevenProDestinationsOpenAfterPurchase() throws {
         let session = try storeSession()
         defer { session.clearTransactions() }
-        let routes = ["separation", "cushion", "scene3d", "aim3d", "snake", "composer", "photo", "three", "snooker", "bank", "diamond"]
+        let routes = ["separation", "cushion", "scene3d", "aim3d", "snake", "composer", "photo", "three", "bank", "diamond"]
         _ = try session.buyProduct(productIdentifier: "com.xinkuan.qiuji.premium.monthly")
         XCUIApplication().terminate() // Relaunch with the explicit test route and account fixture.
         for route in routes {

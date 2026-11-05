@@ -1774,7 +1774,6 @@ extension V52DailyClearanceUITests {
             ("-dailyInteraction.sharedPage=separation", "separationAngleAtlas"),
             ("-deeplink.planThree", "planthree"),
             ("-deeplink.silu", "silu"),
-            ("-deeplink.snooker", "snooker"),
             ("-dailyInteraction.sharedPage=composer", "composer")
         ]
         let pageFilter = ProcessInfo.processInfo.environment["SHARED_PAGE"]

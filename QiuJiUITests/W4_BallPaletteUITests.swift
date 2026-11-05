@@ -140,27 +140,6 @@ final class W4_BallPaletteUITests: XCTestCase {
     }
 
     /// Snooker：拖球放置 + pulse。
-    func testW4SnookerDragPlacePulse() {
-        let app = XCUIApplication.launchClean()
-        guard openCard(app: app, homeTab: "解", title: "防守") else {
-            XCTFail("未能进入防守"); return
-        }
-        snap(app, "w4-snooker-01-initial")
-
-        let ball9 = paletteBall(app, "_9")
-        XCTAssertTrue(ball9.waitForExistence(timeout: 8), "球库应有 9 号")
-        let table = app.windows.firstMatch
-            .coordinate(withNormalizedOffset: CGVector(dx: 0.48, dy: 0.40))
-        ball9.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .press(forDuration: 0.35, thenDragTo: table)
-        sleep(2)
-        snap(app, "w4-snooker-02-after-place")
-        if ball9.exists {
-            ball9.tap()
-            usleep(500_000)
-            snap(app, "w4-snooker-03-after-pulse")
-        }
-    }
 
     /// Extraction：经 `-extract.confirmDemo` 直进确认步，拖球放置 + pulse + 拖回删球取证。
     func testW4ExtractionPaletteInteraction() {
