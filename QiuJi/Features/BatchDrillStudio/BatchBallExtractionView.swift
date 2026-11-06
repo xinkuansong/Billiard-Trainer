@@ -52,6 +52,8 @@ struct BatchBallExtractionView: View {
                 BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable, placement: projector.palettePreview, projector: projector)
             }
         }
+        .modifier(BTBallPaletteHint(onTableKeys: vm.onTableKeys, canPresent: vm.step == .confirm && vm.selectedKey == nil,
+                                    isVisible: $showsPlacementHint))
         .btToast(Binding(get: { vm.toast }, set: { vm.toast = $0 }))
         .coordinateSpace(name: "batchExtract")
         .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
@@ -629,6 +631,8 @@ struct BatchBallExtractionView: View {
         )
     }
 
+    @State private var showsPlacementHint = false
+
     private var confirmBottomBar: some View {
         VStack(spacing: 0) {
             // Reserve both status states so selecting a dropped ball cannot resize the table.
@@ -638,7 +642,13 @@ struct BatchBallExtractionView: View {
                         .foregroundStyle(Color.btPrimary)
                         .opacity(vm.selectedKey == nil ? 0 : 1)
                         .accessibilityHidden(vm.selectedKey == nil)
-                    Text("桌上 \(vm.onTableKeys.count) 颗 · 拖动球可移位 · 点选可改号/移除")
+                    Group {
+                        if showsPlacementHint, vm.onTableKeys == [PositionPlayBall.cueKey] {
+                            Label(BTBallPaletteHint.text, systemImage: "info.circle")
+                        } else {
+                            Text("桌上 \(vm.onTableKeys.count) 颗 · 拖动球可移位 · 点选可改号/移除")
+                        }
+                    }
                         .foregroundStyle(.white.opacity(0.6))
                         .opacity(vm.selectedKey == nil ? 1 : 0)
                         .accessibilityHidden(vm.selectedKey != nil)

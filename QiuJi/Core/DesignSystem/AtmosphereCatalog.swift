@@ -63,6 +63,14 @@ enum CoverArtKey: String, CaseIterable, Equatable, Sendable {
     case coverPracticePlanThree
     case coverPracticeBankShot
     case coverPracticeDiamond
+    case coverPracticeAccuracyExercise
+    case coverPracticeThreeBallPosition
+    case coverPracticeSnake
+    case coverPracticeCustomFormation
+    case coverPracticeBankExercise
+    case coverPracticeKickExercise
+    case coverPracticeKBallExercise
+    case coverPracticeDefenseExercise
 
     case coverTemplate01
     case coverTemplate02
@@ -172,7 +180,8 @@ enum AtmosphereCatalog {
         case .aimingMethods: return .coverPracticeAimingMethods
         case .aimingCorrection: return .coverPracticeAimingCorrection
         case .spinAndEnglish: return .coverPracticeSpinAndEnglish
-        case .pocketTolerance, .angleDynamic: return .coverPracticeAngleDynamic
+        case .pocketTolerance: return .coverTemplate11
+        case .angleDynamic: return .coverPracticeAngleDynamic
         case .separationAngleAtlas: return .coverPracticeSeparationAtlas
         case .cushionEnglishAtlas: return .coverPracticeCushionEnglish
         case .ballFeel: return .coverPracticeBallFeel
@@ -182,11 +191,20 @@ enum AtmosphereCatalog {
         case .sceneAiming2D: return .coverPracticeSceneAiming2D
         case .sceneAiming3D: return .coverPracticeSceneAiming3D
         case .aimPointTraining: return .coverPracticeAimPoint
-        case .aimPointScene2D, .accuracy2D: return .coverPracticeAimPoint2D
-        case .aimPointScene3D, .accuracy3D: return .coverPracticeAimPoint3D
-        case .defensePractice2D, .bankPractice2D, .kickPractice2D, .kBallPractice2D, .shotSimulation, .separationPractice2D, .separationPractice3D, .twoBallPractice2D, .twoBallPractice3D, .threeBallPractice2D, .threeBallPractice3D: return .coverPracticeShotSim
-        case .positionPlayComposer, .customFormationPractice: return .coverPracticeComposer
-        case .freePlay, .snakePractice, .multiBallPractice, .multiBallPractice3D: return .coverPracticeFreePlay
+        case .accuracy2D, .accuracy3D: return .coverPracticeAccuracyExercise
+        case .aimPointScene2D: return .coverPracticeAimPoint2D
+        case .aimPointScene3D: return .coverPracticeAimPoint3D
+        case .shotSimulation, .separationPractice2D, .separationPractice3D: return .coverPracticeShotSim
+        case .twoBallPractice2D, .twoBallPractice3D: return .coverPlanPositioning
+        case .threeBallPractice2D, .threeBallPractice3D: return .coverPracticeThreeBallPosition
+        case .bankPractice2D: return .coverPracticeBankExercise
+        case .kickPractice2D: return .coverPracticeKickExercise
+        case .kBallPractice2D: return .coverPracticeKBallExercise
+        case .defensePractice2D: return .coverPracticeDefenseExercise
+        case .positionPlayComposer: return .coverPracticeComposer
+        case .customFormationPractice: return .coverPracticeCustomFormation
+        case .freePlay, .multiBallPractice, .multiBallPractice3D: return .coverPracticeFreePlay
+        case .snakePractice: return .coverPracticeSnake
         case .ballExtraction: return .coverPracticeBallExtraction
         case .positionPlaySolver: return .coverPracticeSolver
         case .planThree: return .coverPracticePlanThree

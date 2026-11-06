@@ -90,32 +90,32 @@ final class W9a_ShotPagesLayoutUITests: XCTestCase {
         let app = XCUIApplication.launchClean()
 
         // 1 ShotSim
-        XCTAssertTrue(openCard(app, homeTab: "打", title: "分离角与走位"), "ShotSim")
+        XCTAssertTrue(openCard(app, homeTab: "走位", title: "分离角与走位"), "ShotSim")
         snap(app, "w9a-01-shotsim")
         goBack(app)
 
         // 2 Composer（自由走位）
-        XCTAssertTrue(openCard(app, homeTab: "打", title: "自由走位"), "Composer")
+        XCTAssertTrue(openCard(app, homeTab: "走位", title: "自由走位"), "Composer")
         snap(app, "w9a-02-composer")
         goBack(app)
 
         // 3 FreePlay
-        XCTAssertTrue(openCard(app, homeTab: "打", title: "自由击球"), "FreePlay")
+        XCTAssertTrue(openCard(app, homeTab: "走位", title: "自由击球"), "FreePlay")
         snap(app, "w9a-03-freeplay")
         goBack(app)
 
         // 4 Silu
-        XCTAssertTrue(openCard(app, homeTab: "解", title: "思路训练"), "Silu")
+        XCTAssertTrue(openCard(app, homeTab: "走位", title: "思路训练"), "Silu")
         snap(app, "w9a-04-silu")
         goBack(app)
 
         // 5 PlanThree
-        XCTAssertTrue(openCard(app, homeTab: "解", title: "打一走二想三"), "PlanThree")
+        XCTAssertTrue(openCard(app, homeTab: "走位", title: "打一走二想三"), "PlanThree")
         snap(app, "w9a-05-planthree")
         goBack(app)
 
         // 7 Bank
-        XCTAssertTrue(openCard(app, homeTab: "解", title: "翻袋解球"), "Bank")
+        XCTAssertTrue(openCard(app, homeTab: "进阶", title: "翻袋解球"), "Bank")
         snap(app, "w9a-07-bank")
         // C28/D15：轨迹 chip 三档位——不只断言文案切换，还断言场景线语言实际变化
         //（同一态三档截图，台面裁剪区像素 diff 必须超阈值）。
@@ -158,7 +158,7 @@ final class W9a_ShotPagesLayoutUITests: XCTestCase {
         goBack(app)
 
         // 8 Diamond
-        XCTAssertTrue(openCard(app, homeTab: "解", title: "颗星解球"), "Diamond")
+        XCTAssertTrue(openCard(app, homeTab: "进阶", title: "颗星解球"), "Diamond")
         snap(app, "w9a-08-diamond")
         let trajD = app.buttons["轨迹标注档位"]
         if trajD.waitForExistence(timeout: 3) {
@@ -188,7 +188,7 @@ final class W9a_ShotPagesLayoutUITests: XCTestCase {
     /// 禁用开球占位清零以代码 grep 为准（见 W9a 汇报）。
     func testW9aBatchAuthoringIfReachable() throws {
         let app = XCUIApplication.launchClean()
-        XCTAssertTrue(openCard(app, homeTab: "打", title: "批量出片台"), "BatchAuthoring")
+        XCTAssertTrue(openCard(app, homeTab: "走位", title: "批量出片台"), "BatchAuthoring")
         snap(app, "w9a-09-batch-authoring")
     }
 }

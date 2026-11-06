@@ -41,7 +41,7 @@ final class V30W1TheoryPageUITests: XCTestCase {
     /// 风格对比基准：现有文档学页「瞄准原理」首屏 + 一屏滚动。
     func testV30W1_ReferenceLearnPageLight() {
         app.switchTab(.angle)
-        let learn = app.descendants(matching: .any)["angleHomeTab_学"]
+        let learn = app.descendants(matching: .any)["angleHomeTab_基础"]
         XCTAssertTrue(learn.waitForExistence(timeout: 10), "练习 Tab「学」侧栏应出现")
         learn.tap()
 

@@ -41,33 +41,62 @@ final class DefensePracticeTests: XCTestCase {
         }
     }
     func testSmoothScoreIsBoundedMonotoneAndContinuousAtThreshold() throws {
-        XCTAssertEqual(try XCTUnwrap(DefenseEffect.value(pipeDegrees:0,comfort:0)),100,accuracy:1e-10)
-        XCTAssertEqual(DefenseEffect.value(pipeDegrees:0,comfort:100),0)
+        XCTAssertEqual(try XCTUnwrap(DefenseEffect.value(pipeDegrees:0,comfort:0,cutDegrees:0)),100,accuracy:1e-10)
+        XCTAssertEqual(DefenseEffect.value(pipeDegrees:0,comfort:100,cutDegrees:0),0)
         var previous = 101.0
         for i in 0...1000 {
-            let value = try XCTUnwrap(DefenseEffect.value(pipeDegrees: Double(i)*0.004, comfort:12))
+            let value = try XCTUnwrap(DefenseEffect.value(pipeDegrees: Double(i)*0.004, comfort:12,cutDegrees:0))
             XCTAssertTrue((0...100).contains(value)); XCTAssertLessThanOrEqual(value, previous); previous=value
         }
-        let below = try XCTUnwrap(DefenseEffect.value(pipeDegrees:1.0-1e-9,comfort:0))
-        let above = try XCTUnwrap(DefenseEffect.value(pipeDegrees:1.0+1e-9,comfort:0))
+        let below = try XCTUnwrap(DefenseEffect.value(pipeDegrees:1.0-1e-9,comfort:0,cutDegrees:0))
+        let above = try XCTUnwrap(DefenseEffect.value(pipeDegrees:1.0+1e-9,comfort:0,cutDegrees:0))
         XCTAssertGreaterThan(above, 20); XCTAssertEqual(below,above,accuracy:0.001)
-        XCTAssertNil(DefenseEffect.value(pipeDegrees:.nan,comfort:0))
-        XCTAssertNil(DefenseEffect.value(pipeDegrees:-1,comfort:0))
-        XCTAssertNil(DefenseEffect.value(pipeDegrees:0,comfort:101))
+        XCTAssertNil(DefenseEffect.value(pipeDegrees:.nan,comfort:0,cutDegrees:0))
+        XCTAssertNil(DefenseEffect.value(pipeDegrees:-1,comfort:0,cutDegrees:0))
+        XCTAssertNil(DefenseEffect.value(pipeDegrees:0,comfort:101,cutDegrees:0))
     }
     func testTargetPipeScoreUsesDegreeScaleAndRetainsPartialCredit() throws {
-        // Product feedback bands for the new, provisional 1-degree target-pipe scale.
-        for (width, band) in [(1.0, 65.0...70.0), (2.0, 50.0...60.0), (5.0, 35.0...45.0)] {
-            XCTAssertTrue(band.contains(try XCTUnwrap(DefenseEffect.value(pipeDegrees:width,comfort:10))))
+        // Lambda 5, straight cut; wide target windows reduce defensive marks.
+        for (width, band) in [(1.0, 38.0...40.0), (2.0, 28.0...30.0), (5.0, 18.0...20.0)] {
+            XCTAssertTrue(band.contains(try XCTUnwrap(DefenseEffect.value(pipeDegrees:width,comfort:10,cutDegrees:0))))
         }
         for width in [0.0, 0.1, 0.5, 1.0, 5.0] {
             var previous = 101.0
             for comfort in stride(from:0.0,through:100.0,by:1) {
-                let score = try XCTUnwrap(DefenseEffect.value(pipeDegrees:width,comfort:comfort))
+                let score = try XCTUnwrap(DefenseEffect.value(pipeDegrees:width,comfort:comfort,cutDegrees:0))
                 XCTAssertLessThanOrEqual(score,previous);previous=score
             }
         }
-        XCTAssertGreaterThan(try XCTUnwrap(DefenseEffect.value(pipeDegrees:Double.greatestFiniteMagnitude,comfort:10)),0)
+        XCTAssertGreaterThan(try XCTUnwrap(DefenseEffect.value(pipeDegrees:Double.greatestFiniteMagnitude,comfort:10,cutDegrees:0)),0)
+    }
+    func testLambdaFiveReducesSmallCutDefenseAndPreservesThinCutLimit() throws {
+        let straight = try XCTUnwrap(DefenseEffect.value(pipeDegrees:1,comfort:10,cutDegrees:0))
+        let thin = try XCTUnwrap(DefenseEffect.value(pipeDegrees:1,comfort:10,cutDegrees:60))
+        let limit = try XCTUnwrap(DefenseEffect.value(pipeDegrees:1,comfort:10,cutDegrees:90))
+        XCTAssertEqual(straight,38.7298334621,accuracy:1e-8)
+        XCTAssertEqual(thin,63.2455532034,accuracy:1e-8)
+        XCTAssertEqual(limit,94.8683298051,accuracy:1e-8)
+        XCTAssertLessThan(straight,thin); XCTAssertLessThan(thin,limit)
+        for invalid in [-1.0,90.01,Double.nan,Double.infinity] {
+            XCTAssertNil(DefenseEffect.value(pipeDegrees:1,comfort:10,cutDegrees:invalid))
+        }
+        let routes = [DefenseAttackAssessment.PipeRoute(pocket:0,leftDegrees:0,rightDegrees:1,comfort:60,aim:[0,0],cutDegrees:85),
+                      .init(pocket:1,leftDegrees:0,rightDegrees:1,comfort:50,aim:[0,0],cutDegrees:0)]
+        // Opponent's best opportunity may have LOWER comfort after cut weighting.
+        XCTAssertEqual(DefenseAttackAssessment.PipeResult(routes:routes).best?.pocket,1)
+    }
+    func testV8StoredRouteAndScoreKeepHistoricalFormula() throws {
+        let raw = Data(#"{"pocket":0,"leftDegrees":0,"rightDegrees":1,"comfort":10,"aim":[0,0]}"#.utf8)
+        let route = try JSONDecoder().decode(DefenseAttackAssessment.PipeRoute.self,from:raw)
+        XCTAssertNil(route.cutDegrees)
+        XCTAssertEqual(route.score,67.08203932499,accuracy:1e-8)
+        var old = DefenseEffect(scoringVersion:"defense-target-pipe-always-scored-v8",failure:nil,
+            fullDirectBlock:false,cueToleranceDegrees:nil,comfort:10,opponentBallNumber:9,score:67.082,unavailableReason:nil)
+        old.pipeRoute=route;old.targetPipeToleranceDegrees=1
+        let restored=try JSONDecoder().decode(DefenseEffect.self,from:JSONEncoder().encode(old))
+        XCTAssertEqual(restored.score,67.082)
+        XCTAssertTrue(restored.detail.contains("(1+管道角/1°)"))
+        XCTAssertFalse(restored.detail.contains("cos²"))
     }
     func testUnscoredResultIsExplainedAndExcludedFromAverage() throws {
         let unscored = DefenseEffect(scoringVersion:DefenseEffect.version,failure:nil,fullDirectBlock:false,
@@ -116,9 +145,9 @@ final class DefensePracticeTests: XCTestCase {
     }
     func testBothBanksAndFreeModeIgnoreReferenceFilters() throws {
         let trajectory = try DefenseBankStore.load(.trajectory)
-        XCTAssertEqual(trajectory.count,3511); XCTAssertEqual(trajectory.flatMap(\.references).count,7928)
+        XCTAssertEqual(trajectory.count,8662); XCTAssertEqual(trajectory.flatMap(\.references).count,17615)
         XCTAssertEqual(Dictionary(grouping:trajectory,by: \.kind).mapValues(\.count),
-                       ["one":709,"three":1038,"two_black":866,"two_own":898])
+                       ["one":606,"three":6905,"two_black":580,"two_own":571])
         let free = try DefenseBankStore.load(.free)
         XCTAssertEqual(free.count,58470)
         XCTAssertEqual(Set(free.map(\.kind)),Set(DefenseKind.allCases.map(\.rawValue)))
@@ -200,6 +229,20 @@ final class DefensePracticeTests: XCTestCase {
         XCTAssertEqual(seen,Set(["one","three"]))
         XCTAssertGreaterThan(three,50,"A 9:1 eligible pool must not become a kind quota or least-seen-kind draw")
     }
+    func testDemonstrationQualificationAndThreeDistinctSubmissions() throws {
+        XCTAssertFalse(PracticeDemonstrationProgress.qualifies(score: 74.9))
+        XCTAssertTrue(PracticeDemonstrationProgress.qualifies(score: 75))
+        var progress = PracticeDemonstrationProgress()
+        let first = UUID()
+        progress.accept(id: first, qualified: false)
+        progress.accept(id: first, qualified: false)
+        progress.accept(id: UUID(), qualified: false)
+        XCTAssertFalse(progress.unlocked)
+        progress = try JSONDecoder().decode(PracticeDemonstrationProgress.self, from: JSONEncoder().encode(progress))
+        progress.accept(id: UUID(), qualified: false)
+        XCTAssertTrue(progress.unlocked)
+    }
+
     func testReferenceAdmissionReplayAndScoreRecording() throws {
         for kind in DefenseKind.allCases {
             var config=DefenseConfiguration();config.kind=kind
@@ -262,7 +305,7 @@ final class DefensePracticeTests: XCTestCase {
         for mode in DefenseMode.allCases {
             configuration.mode = mode
             let repo = MemoryDefenseRepository()
-            var record = DefensePracticeRecord(ownerKey: repo.ownerKey, is3D: false, configuration: configuration, prepared: prepared)
+            var record = DefensePracticeRecord(ownerKey: repo.ownerKey, is3D: false, configuration: configuration, prepared: .init(fingerprint: DefenseBankStore.fingerprint(for: mode), question: q))
             record.accept(shot); record.showingResult = true
             try repo.save(record)
             let vm = DefensePracticeViewModel(is3D: false, limiter: limiter, defaults: defaults)
@@ -283,7 +326,8 @@ final class DefensePracticeTests: XCTestCase {
                 XCTAssertTrue(colors("defense.reference").contains(DefenseRouteStyle.targetObject))
                 XCTAssertNotEqual(DefenseRouteStyle.targetCue, DefenseRouteStyle.targetObject)
                 let geometry = actual.flatMap { $0.geometry?.sources(for: .vertex).map(\.data) ?? [] }
-                vm.replayReference()
+                let alternate = try XCTUnwrap(q.source.references.indices.first { $0 != q.referenceIndex })
+                vm.replayReference(at: alternate)
                 XCTAssertFalse(routes("defense.actual").isEmpty, "Demo preparation must retain user routes")
                 XCTAssertFalse(routes("defense.reference").isEmpty)
                 for _ in 0..<1200 where vm.phase == .preparing { try await Task.sleep(for: .milliseconds(50)) }
@@ -292,6 +336,8 @@ final class DefensePracticeTests: XCTestCase {
                 XCTAssertFalse(routes("defense.reference").isEmpty, "Demo playback must retain target routes")
                 XCTAssertEqual(vm.record?.latestShot?.id, shot.id)
                 XCTAssertEqual(vm.record?.attempts.count, 1)
+                XCTAssertEqual(vm.demonstrationInput?.velocity, Float(q.source.references[alternate].parameters.velocity))
+                XCTAssertEqual(vm.record?.current?.referenceIndex, q.referenceIndex)
                 vm.stopPlayback()
                 XCTAssertEqual(vm.phase, .result)
                 XCTAssertFalse(routes("defense.actual").isEmpty)
@@ -506,7 +552,7 @@ final class DefensePhysicalScoringTests: XCTestCase {
             for z in [-0.5,-0.2,0.2,0.5] {
                 let cue=Point(x,z),bound=DefenseEffect.optimisticAttackBound(cue:cue,ball:ball,table:table)
                 XCTAssertTrue(bound.score.isFinite);XCTAssertTrue((0...100).contains(bound.score))
-                XCTAssertEqual(bound.score,try XCTUnwrap(DefenseEffect.value(pipeDegrees:bound.degrees,comfort:bound.comfort)))
+                XCTAssertEqual(bound.score,try XCTUnwrap(DefenseEffect.value(pipeDegrees:bound.degrees,comfort:bound.comfort,cutDegrees:0)))
                 scores.insert(Int(bound.score*100))
                 for pocket in table.pockets {
                     if let actual=ShotComfortScore.evaluate(cue:(x,z),ball:(ball.x,ball.z),aim:(Double(pocket.center.x),Double(pocket.center.z))) {
@@ -625,15 +671,16 @@ final class DefensePhysicalScoringTests: XCTestCase {
             let attack = try assessment.pipeAttack(ball-n*distance,ball,[])
             let route = try XCTUnwrap(attack.routes.first { $0.pocket == 1 })
             widths.append(route.tolerance); comforts.append(route.comfort)
-            XCTAssertEqual(route.score,try XCTUnwrap(DefenseEffect.value(pipeDegrees:route.tolerance,comfort:route.comfort)))
+            XCTAssertEqual(route.score,try XCTUnwrap(DefenseEffect.value(pipeDegrees:route.tolerance,comfort:route.comfort,cutDegrees:try XCTUnwrap(route.cutDegrees))))
         }
         XCTAssertEqual(widths[0],widths[1],accuracy:1e-12)
         XCTAssertNotEqual(comforts[0],comforts[1])
-        let routes = [DefenseAttackAssessment.PipeRoute(pocket:0,leftDegrees:0,rightDegrees:2,comfort:10,aim:[0,0]),
-                      .init(pocket:1,leftDegrees:0,rightDegrees:0.125,comfort:80,aim:[0,0])]
+        let routes = [DefenseAttackAssessment.PipeRoute(pocket:0,leftDegrees:0,rightDegrees:2,comfort:10,aim:[0,0],cutDegrees:0),
+                      .init(pocket:1,leftDegrees:0,rightDegrees:0.125,comfort:80,aim:[0,0],cutDegrees:0)]
         let result = DefenseAttackAssessment.PipeResult(routes:routes)
-        XCTAssertEqual(result.best?.pocket,1)
-        XCTAssertGreaterThan(result.best!.score,DefenseEffect.value(pipeDegrees:2,comfort:80)!)
+        // At lambda 5 the wider opening wins despite its lower comfort.
+        XCTAssertEqual(result.best?.pocket,0)
+        XCTAssertGreaterThan(result.best!.score,DefenseEffect.value(pipeDegrees:2,comfort:80,cutDegrees:0)!)
     }
 
     func testPreviousReciprocalVersionKeepsItsFormulaAndFrozenScore() throws {

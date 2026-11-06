@@ -198,7 +198,7 @@ struct AimingMethodsView: View {
                         destination: "投掷 · 高低杆 · 加塞对瞄准的修正",
                         route: .aimingCorrection)
 
-            LearnDocTextLink(title: "回看角度瞄准法",
+            LearnDocTextLink(title: "瞄准原理",
                              subtitle: "瞄准原理 · 切角与 d = 2R·sin(θ)",
                              route: .aimingPrinciple)
 

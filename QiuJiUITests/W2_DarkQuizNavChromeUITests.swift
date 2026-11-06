@@ -66,7 +66,7 @@ final class W2_DarkQuizNavChromeUITests: XCTestCase {
 
     func testDarkQuizNavChromeScreenshots() throws {
         // 1) 2D 角度训练（SceneAiming）
-        guard openCard(homeTab: "练", title: "2D 角度训练") else {
+        guard openCard(homeTab: "准度", title: "2D 角度训练") else {
             XCTFail("未能进入 2D 角度训练"); return
         }
         _ = dismissAimingSettingsIfNeeded()
@@ -75,28 +75,28 @@ final class W2_DarkQuizNavChromeUITests: XCTestCase {
         backToHome()
 
         // 2) 角度预测（Geometric）
-        guard openCard(homeTab: "练", title: "角度预测") else {
+        guard openCard(homeTab: "准度", title: "角度预测") else {
             XCTFail("未能进入角度预测"); return
         }
         snap("w2-c7-02-geometric-quiz-nav")
         backToHome()
 
         // 3) 角度与瞄准（AngleDynamic）— 学分段
-        guard openCard(homeTab: "学", title: "角度与瞄准") else {
+        guard openCard(homeTab: "准度", title: "角度与瞄准") else {
             XCTFail("未能进入角度与瞄准"); return
         }
         snap("w2-c7-03-angle-dynamic-nav")
         backToHome()
 
         // 4) 瞄准点训练
-        guard openCard(homeTab: "练", title: "瞄准点训练") else {
+        guard openCard(homeTab: "准度", title: "瞄准点训练") else {
             XCTFail("未能进入瞄准点训练"); return
         }
         snap("w2-c7-04-aimpoint-training-nav")
         backToHome()
 
         // 5) 2D 瞄准点训练（AimPointScene）
-        guard openCard(homeTab: "练", title: "2D 瞄准点训练") else {
+        guard openCard(homeTab: "准度", title: "2D 瞄准点训练") else {
             XCTFail("未能进入 2D 瞄准点训练"); return
         }
         snap("w2-c7-05-aimpoint-scene-2d-nav")

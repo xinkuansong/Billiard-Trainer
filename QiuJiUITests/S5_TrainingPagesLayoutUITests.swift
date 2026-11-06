@@ -46,7 +46,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
                 try XCUIScreen.main.screenshot().pngRepresentation.write(to: folder.appendingPathComponent("\(prefix)-\(state).png"))
             }
         }
-        XCTAssertTrue(openCard(homeTab: "练", title: "\(mode)角度"))
+        XCTAssertTrue(openCard(homeTab: "准度", title: "\(mode)角度"))
         do {
             XCTAssertTrue(app.buttons["angleTraining.start"].waitForExistence(timeout: 5))
             let initial = app.windows.firstMatch.frame
@@ -55,7 +55,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
             try capture("initial-settings")
             XCTAssertGreaterThan(app.windows.firstMatch.frame.height, app.windows.firstMatch.frame.width)
             app.buttons["training.settingsCancel"].tap()
-            XCTAssertTrue(openCard(homeTab: "练", title: "\(mode)角度"))
+            XCTAssertTrue(openCard(homeTab: "准度", title: "\(mode)角度"))
             XCTAssertTrue(app.buttons["angleTraining.start"].waitForExistence(timeout: 5))
             XCTAssertGreaterThan(app.windows.firstMatch.frame.height, app.windows.firstMatch.frame.width)
         }
@@ -276,7 +276,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         }
         verifyAngleTrialExit()
         if mode == "3D", let temporaryTable {
-            XCTAssertTrue(openCard(homeTab: "练", title: "2D角度"))
+            XCTAssertTrue(openCard(homeTab: "准度", title: "2D角度"))
             XCTAssertTrue(startAimingTrainingFromSheet())
             if isTablet { XCUIDevice.shared.orientation = .landscapeLeft }
             try capture("reference-2D-table")
@@ -336,7 +336,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
     func testComposerPerspectiveRoundTrip() throws {
         app.terminate()
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral"])
-        XCTAssertTrue(openCard(homeTab: "打", title: "自由走位"))
+        XCTAssertTrue(openCard(homeTab: "走位", title: "自由走位"))
         let strike = app.buttons["dailyClearance.strike"]
         XCTAssertTrue(strike.waitForExistence(timeout: 15))
         func node(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
@@ -385,7 +385,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         for mode in ["2D", "3D"] {
             app.terminate()
             app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
-            XCTAssertTrue(openCard(homeTab: "练", title: "\(mode)角度"))
+            XCTAssertTrue(openCard(homeTab: "准度", title: "\(mode)角度"))
             XCTAssertTrue(startAimingTrainingFromSheet())
             let assist = app.buttons["辅助"].firstMatch
             XCTAssertTrue(assist.waitForExistence(timeout: 5))
@@ -402,7 +402,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
     func testTrainingAssist3D() throws {
         app.terminate()
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
-        XCTAssertTrue(openCard(homeTab: "练", title: "3D 角度训练"))
+        XCTAssertTrue(openCard(homeTab: "准度", title: "3D 角度训练"))
         XCTAssertTrue(startAimingTrainingFromSheet())
         let assist = app.buttons["辅助"].firstMatch
         XCTAssertTrue(assist.waitForExistence(timeout: 5))
@@ -442,7 +442,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
             let raw = try XCTUnwrap(scene.value as? String)
             return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
         }
-        XCTAssertTrue(openCard(homeTab: "练", title: "\(mode)瞄准点"))
+        XCTAssertTrue(openCard(homeTab: "准度", title: "\(mode)瞄准点"))
         let tablet = UIDevice.current.userInterfaceIdiom == .pad
         if tablet { XCUIDevice.shared.orientation = .landscapeLeft; sleep(2) }
         app.buttons["aimPointTraining.start"].tap(); app.selectTrainingView(trainingTitle)
@@ -526,7 +526,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
             try capture("landscape-return")
         }
         app.buttons["aimPointTraining.back"].tap()
-        XCTAssertTrue(app.buttons["angleHomeTab_练"].waitForExistence(timeout:5))
+        XCTAssertTrue(app.buttons["angleHomeTab_准度"].waitForExistence(timeout:5))
     }
 
     @discardableResult
@@ -580,7 +580,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
 
     /// P4.1–P4.3：角度与瞄准——默认布局（球桌上、球库下、宽度对齐）+ 黑 8 上桌进球线黑色。
     func testAngleDynamicLayout() throws {
-        guard openCard(homeTab: "学", title: "角度与瞄准") else {
+        guard openCard(homeTab: "准度", title: "角度与瞄准") else {
             XCTFail("未能进入角度与瞄准"); return
         }
         sleep(2)
@@ -600,7 +600,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
 
     /// P6.1/P6.2/P6.3：2D 角度训练——布局 + 辅助/答题在球桌右侧 + 假想球心红点 + 键盘悬浮。
     func testSceneAiming2DLayout() throws {
-        guard openCard(homeTab: "练", title: "2D角度") else {
+        guard openCard(homeTab: "准度", title: "2D角度") else {
             XCTFail("未能进入 2D 角度训练"); return
         }
         startAimingTrainingFromSheet()
@@ -628,7 +628,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
     func testV57AimingFramingAndLargerControls() throws {
         app.terminate()
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
-        XCTAssertTrue(openCard(homeTab: "练", title: "3D 角度训练"))
+        XCTAssertTrue(openCard(homeTab: "准度", title: "3D 角度训练"))
         XCTAssertTrue(startAimingTrainingFromSheet())
         checkObservationMenu(prefix: "angleTraining")
         for question in 1...3 {
@@ -660,7 +660,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
     }
 
     func testSceneAiming3DLayout() throws {
-        guard openCard(homeTab: "练", title: "3D 角度训练") else {
+        guard openCard(homeTab: "准度", title: "3D 角度训练") else {
             XCTFail("未能进入 3D 角度训练"); return
         }
         startAimingTrainingFromSheet()
@@ -670,7 +670,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
 
     /// P5.1：角度预测——紧凑键盘弹出时「换题 / 显示参考」仍完整可见可点。
     func testGeometricQuizCompactKeypad() throws {
-        guard openCard(homeTab: "练", title: "角度预测") else {
+        guard openCard(homeTab: "准度", title: "角度预测") else {
             XCTFail("未能进入角度预测"); return
         }
         sleep(1)
@@ -692,7 +692,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
 
     /// G2：台面网格提亮——齿轮菜单开启「台面网格 4×8」后截图核验灰白网格。
     func testTableGridBrightness() throws {
-        XCTAssertTrue(openCard(homeTab: "学", title: "角度与瞄准"))
+        XCTAssertTrue(openCard(homeTab: "准度", title: "角度与瞄准"))
         app.buttons["angleDynamic.more"].tap()
         let grid = app.buttons["menu.tableGrid"]
         XCTAssertTrue(grid.waitForExistence(timeout: 5))

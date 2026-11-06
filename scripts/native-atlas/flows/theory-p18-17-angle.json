@@ -8,7 +8,8 @@
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_学"
+      "id": "angleHomeTab_基础",
+      "scrollTo": 4
     },
     {
       "action": "tap",
@@ -36,7 +37,7 @@
       "name": "P18-17-angle-body",
       "maximumViews": 60,
       "dragX": 0.03,
-      "endText": "打开瞄准方法"
+      "endText": "瞄准方法"
     }
   ]
 }

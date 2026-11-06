@@ -94,7 +94,11 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
     private var cueVisibleAtReveal = false
     private var cueVisibleAtStroke = false
     var diagnostic: String {
-        let payload: [String: Any] = ["view": is3D ? "3D" : "2D", "session": record?.id.uuidString ?? "", "pocketStyles": Dictionary(uniqueKeysWithValues: markers.compactMap { $0 as? PocketLeatherMarker }.map { (String($0.pocketIndex), String(describing: $0.style)) }), "phase": String(describing: phase), "question": record?.current?.id.uuidString ?? "",
+        let payload: [String: Any] = ["instrument": instrumentInput.diagnosticValues,
+            "referenceInput": record?.current?.demonstrationInput.diagnosticValues ?? [],
+            "playerInput": input.diagnosticValues,
+            "demoShowing": demonstrationInput != nil,
+            "view": is3D ? "3D" : "2D", "session": record?.id.uuidString ?? "", "pocketStyles": Dictionary(uniqueKeysWithValues: markers.compactMap { $0 as? PocketLeatherMarker }.map { (String($0.pocketIndex), String(describing: $0.style)) }), "phase": String(describing: phase), "question": record?.current?.id.uuidString ?? "",
             "input": [input.spinX, input.spinY, input.velocity], "mode": mode.rawValue,
             "routeIndex": record?.current?.routeIndex ?? -1, "routeCount": record?.current?.routes.count ?? 0,
             "executionDifficulties": record?.current?.routes.compactMap { $0.source.executionDifficulty?.difficulty } ?? [],
@@ -186,6 +190,8 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
     var selectableBalls: [SCNNode] { [] }
     var isDragging: Bool { geometryReference.dragging }
     var currentPlayerAim: SCNVector3? { solvedAim ?? record?.current.map { AccuracyTipSelector.referenceDirection($0.board) } }
+    @Published private(set) var demonstrationInput: SeparationInput?
+    var instrumentInput: SeparationInput { demonstrationInput ?? input }
     var input: SeparationInput { record?.draftInput ?? .init() }
     var velocity: Double {
         get { Double(input.velocity) }
@@ -560,7 +566,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
         cueVisibleAtStroke = scene.cueStick?.rootNode.isHidden == false
         #endif
         if isReplaying { seatBalls() }
-        solvedAim = shot.direction.vector
+        if demonstrationInput == nil { solvedAim = shot.direction.vector }
         if isReplaying {
             if shotCamera == nil, let saved = record?.shotBookmark, let cue = scene.cueBallNode?.position {
                 scene.cameraRig?.restoreTrainingBookmark(saved, cue: cue, aim: shot.direction.vector)
@@ -635,15 +641,45 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
         }
         redrawCue(); geometryReference.restore(); _ = save()
     }
-    func replayLastShot() {
-        guard canPlayback, let shot = record?.latestShot, let cue = scene.cueBallNode, let target = targetNode, let second = secondNode else { return }
+    private func beginReplay() -> Bool {
+        guard canPlayback, let cue = scene.cueBallNode, let target = targetNode, let second = secondNode else { return false }
         let state = (phase, BallDisplay(cue), BallDisplay(target), scene.railInventory.snapshot(), BallDisplay(second))
         invalidate(); replayReturn = state; replayCamera.begin(in: scene); isReplaying = true
+        return true
+    }
+
+    func replayLastShot() {
+        guard let shot = record?.latestShot, beginReplay() else { return }
         drawActual(); play(shot)
+    }
+
+    var canReplayReference: Bool {
+        phase == .result && mode == .trajectory && canPlayback && record?.demonstrationUnlocked == true
+    }
+
+    func replayReference() {
+        guard canReplayReference, let question = record?.current, beginReplay() else { return }
+        let token = generation
+        demonstrationInput = question.demonstrationInput
+        phase = .preparing
+        work = question.loadDemonstration(surfaceY: scene.surfaceY) { [weak self] result in
+            guard let self, generation == token else { return }
+            switch result {
+            case .success(let shot):
+                drawActual()
+                play(shot)
+            case .failure(let error):
+                demonstrationInput = nil
+                stopPlayback()
+                message = error.localizedDescription
+            }
+        }
     }
     func stopPlayback() {
         guard isReplaying else { return }
+        let displayed = demonstrationInput
         invalidate()
+        demonstrationInput = displayed
         if phase == .aiming { drawActual(showsObjectRoute: false); redrawCue() }
     }
     private func restoreReplay() {
@@ -693,7 +729,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
                 guard self.nextQuestionKey == key, self.canPrepareNextQuestion else {
                     self.discardNextQuestion(); return
                 }
-                guard prepared.fingerprint == self.record?.bankFingerprint,
+                guard prepared.acceptsSession(self.record?.bankFingerprint),
                       !excluded.contains(prepared.question.contentID) else {
                     self.discardNextQuestion(); return
                 }
@@ -763,7 +799,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
             discardNextQuestion(); phase = .result; return
         }
         guard var next = record, let repository else { return }
-        guard prepared.fingerprint == next.bankFingerprint,
+        guard prepared.acceptsSession(next.bankFingerprint),
               !next.seenContentIDs.contains(prepared.question.contentID) else {
             discardNextQuestion(); throw SeparationQuestionGenerator.Failure.incompatible
         }
@@ -917,6 +953,7 @@ final class TwoBallPracticeViewModel: ObservableObject, TeachingTableHost {
         _ = save()
     }
     private func invalidate(preservingCue: Bool = false) {
+        demonstrationInput = nil
         notice = nil
         generation = UUID(); work?.cancel(); work = nil; scene.frameReceipt.cancel()
         // Finish rail cancellation before taking SceneKit's lock: rail callbacks

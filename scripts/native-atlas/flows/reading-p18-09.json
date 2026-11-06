@@ -8,7 +8,8 @@
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_理"
+      "id": "angleHomeTab_策略",
+      "scrollTo": 4
     },
     {
       "action": "tap",
@@ -24,7 +25,7 @@
     {
       "action": "cover",
       "name": "P18-09-default",
-      "entry": "practice/理/风险报酬决策矩阵",
+      "entry": "practice/策略/风险报酬决策矩阵",
       "maximumViews": 40
     }
   ]

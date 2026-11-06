@@ -347,7 +347,7 @@ final class V29W6HistoryStatisticsKindTests: XCTestCase {
         XCTAssertEqual(modern.map(\.questionCount), [2, 3], "新的在前：2 题簇 → 3 题簇")
         XCTAssertEqual(vm.unassignedCognitiveResultCount, 0, "回填后无孤儿成绩")
         // 名称走 `note` 快照，而不是把 quizType 拿去回查文案表。
-        XCTAssertEqual(Set(modern.map(\.displayNameZh)), ["2D 角度训练"])
+        XCTAssertEqual(Set(modern.map(\.displayNameZh)), ["角度练习 · 2D"])
     }
 
     /// 归属由 `sessionId` 决定，不再由时间间隔推断：把两条时间上紧邻的成绩

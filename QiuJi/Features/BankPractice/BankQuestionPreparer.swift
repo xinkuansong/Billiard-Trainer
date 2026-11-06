@@ -75,7 +75,12 @@ enum BankPracticeBankStore {
             switch self { case .invalid(let reason): return "翻袋题目暂不可用：" + reason }
         }
     }
-    static let fingerprint = "64539ad246523f9a09d8b8bd31a056f363216beda005f9d3cf04b72bf498426d"
+    static let fingerprint = "651de30ba245eb26777ac007096fe03e3ea50ec1d6790007c2cdc66d4e4b8f8c"
+    // The reference-input revision preserves layouts, IDs and judgement for active sessions.
+    static let previousReferenceFingerprint = "64539ad246523f9a09d8b8bd31a056f363216beda005f9d3cf04b72bf498426d"
+    static func acceptsSession(_ saved: String?, for current: String = fingerprint) -> Bool {
+        saved == current || (current == fingerprint && saved == previousReferenceFingerprint)
+    }
     // The immutable bundled bank is decoded and validated once, including when
     // selection and prefetch run concurrently. Alternate bundles stay isolated.
     private static let bundledBank: Result<Bank, Error> = Result { try read(bundle: .main) }
@@ -105,7 +110,10 @@ enum BankQuestionPreparer {
                         seed: UInt64 = .random(in: 0...UInt64.max)) throws -> Prepared {
         let bank = try BankPracticeBankStore.load()
         #if DEBUG
-        let seed = ProcessInfo.processInfo.arguments.contains("-bank.fixedSeed") ? UInt64(31) : seed
+        let arguments = ProcessInfo.processInfo.arguments
+        let fixtureSeed = arguments.first { $0.hasPrefix("-bank.fixedSeed=") }
+            .flatMap { UInt64($0.dropFirst("-bank.fixedSeed=".count)) }
+        let seed = fixtureSeed ?? (arguments.contains("-bank.fixedSeed") ? UInt64(31) : seed)
         #endif
         var random = SceneTrainingGenerator.SeededRandom(state: seed)
         let matching = bank.questions.filter {
@@ -143,5 +151,17 @@ enum BankQuestionPreparer {
             spinX: input.spinX, spinY: input.spinY, surfaceY: surfaceY,
             balls: [.init(name: ShotInput.targetBallName, position: target)], maxEvents: 1500, maxTime: 60,
             recordedStrikeDirection: direction)
+    }
+}
+
+extension BankQuestion: PracticeDemonstrationQuestion {
+    var demonstrationInput: SeparationInput { source.input }
+
+    func demonstrationShot(surfaceY: Float) throws -> BankShot {
+        let prediction = try BankQuestionPreparer.solve(question: self, input: demonstrationInput,
+            direction: source.direction.vector, surfaceY: surfaceY, profile: AccuracyTipSelector.renderedProfile())
+        let shot = try BankShot(question: self, input: demonstrationInput, prediction: prediction, surfaceY: surfaceY)
+        if let failure = shot.failure { throw PracticeDemonstrationError.invalidOutcome(failure.rawValue) }
+        return shot
     }
 }

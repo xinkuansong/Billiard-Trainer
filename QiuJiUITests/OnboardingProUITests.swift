@@ -451,10 +451,22 @@ final class OnboardingProUITests: XCTestCase {
     }
 
     @MainActor
-    func testAllElevenProDestinationsLockedWithoutPurchase() throws {
+    func testFreeDestinationsOpenWithoutPurchase() throws {
         let session = try storeSession()
         defer { session.clearTransactions() }
-        let routes = ["separation", "cushion", "scene3d", "aim3d", "snake", "composer", "photo", "three", "bank", "diamond"]
+        for route in ["composer", "scene3d", "aim3d"] {
+            let app = XCUIApplication.launchClean(extraArgs: ["-forceNonPremium", "-v50.inMemoryStore", "-pro.route=\(route)"])
+            XCTAssertTrue(app.descendants(matching: .any)["pro.authorized"].firstMatch.waitForExistence(timeout: 20), route)
+            XCTAssertFalse(app.descendants(matching: .any)["pro.locked"].firstMatch.exists, route)
+            app.terminate()
+        }
+    }
+
+    @MainActor
+    func testAllProDestinationsLockedWithoutPurchase() throws {
+        let session = try storeSession()
+        defer { session.clearTransactions() }
+        let routes = ["separation", "cushion", "snake", "solver", "photo", "three", "bank", "diamond"]
         for route in routes {
             let app = XCUIApplication.launchClean(extraArgs: ["-v53.authenticatedProfileFixture", "-v50.inMemoryStore", "-pro.route=\(route)"])
             XCTAssertTrue(app.descendants(matching: .any)["pro.locked"].firstMatch.waitForExistence(timeout: 12), route)
@@ -465,10 +477,10 @@ final class OnboardingProUITests: XCTestCase {
     }
 
     @MainActor
-    func testAllElevenProDestinationsOpenAfterPurchase() throws {
+    func testAllProDestinationsOpenAfterPurchase() throws {
         let session = try storeSession()
         defer { session.clearTransactions() }
-        let routes = ["separation", "cushion", "scene3d", "aim3d", "snake", "composer", "photo", "three", "bank", "diamond"]
+        let routes = ["separation", "cushion", "snake", "solver", "photo", "three", "bank", "diamond"]
         _ = try session.buyProduct(productIdentifier: "com.xinkuan.qiuji.premium.monthly")
         XCUIApplication().terminate() // Relaunch with the explicit test route and account fixture.
         for route in routes {
@@ -493,7 +505,7 @@ final class OnboardingProUITests: XCTestCase {
                 XCUIDevice.shared.orientation = .portrait
                 let app = XCUIApplication.launchClean(extraArgs: ["-v53.authenticatedProfileFixture", "-v50.inMemoryStore", "-v54.forceLight"])
                 app.switchTab(.angle)
-                app.buttons["angleHomeTab_解"].tap()
+                app.buttons["angleHomeTab_进阶"].tap()
                 let card = app.buttons[title]
                 for _ in 0..<5 {
                     if card.exists && card.isHittable { break }

@@ -59,6 +59,19 @@ struct TwoBallPracticeRecord: Codable, Identifiable {
     }
     var consumed: [UUID: Date] = [:]
     var currentConsumed: Bool { current.map { consumed[$0.id] != nil } ?? false }
+    private var demonstrationProgress: PracticeDemonstrationProgress?
+    private var currentDemonstrationProgress: PracticeDemonstrationProgress {
+        if let demonstrationProgress { return demonstrationProgress }
+        var progress = PracticeDemonstrationProgress(alreadyUnlocked: retryCount >= 3)
+        if let first = currentAttempt, !first.skipped {
+            progress.accept(id: first.id, qualified: PracticeDemonstrationProgress.qualifies(score: first.score))
+        }
+        if let latestShot {
+            progress.accept(id: latestShot.id, qualified: PracticeDemonstrationProgress.qualifies(score: latestShot.trajectoryScore))
+        }
+        return progress
+    }
+    var demonstrationUnlocked: Bool { mode == .trajectory && currentDemonstrationProgress.unlocked }
     var retryCount = 0
     var currentScoreSum: Double = 0
     var currentScoreCount = 0
@@ -136,7 +149,9 @@ struct TwoBallPracticeRecord: Codable, Identifiable {
         return [("已练题数", "\(totalAttemptCount)"), ("首杆有效率", validRate),
                 ("首杆均难度", averageDifficulty.map { String(format: "%.3f", $0) } ?? "—"), ("有效样本", "\(validCount)")]
     }
-    var displayName: String { presentation == nil ? ("\(is3D ? "3D" : "2D")两球走位") : "两球走位 · " + (presentation?.summary ?? "") }
+    var displayName: String {
+        TrainingProject.twoBall.historyTitle(presentation: presentation, is3D: is3D)
+    }
     var historyDetail: String {
         if mode == .trajectory {
             return "轨迹走位 · 已练\(Set(attempts.filter { !$0.skipped }.map(\.questionID)).count)题 · 首答均分 "
@@ -162,6 +177,11 @@ struct TwoBallPracticeRecord: Codable, Identifiable {
     mutating func accept(_ shot: TwoBallShot) {
         guard shot.questionID == current?.id, shot.comboIndex == current?.route.source.comboIndex else { return }
         guard latestShot?.id != shot.id else { return }
+        if mode == .trajectory {
+            var progress = currentDemonstrationProgress
+            progress.accept(id: shot.id, qualified: PracticeDemonstrationProgress.qualifies(score: shot.trajectoryScore))
+            demonstrationProgress = progress
+        }
         let hasFirstScore = mode == .trajectory ? currentAttempt != nil : attempts.contains {
             $0.questionID == shot.questionID && $0.comfortScore != nil
         }
@@ -192,6 +212,7 @@ struct TwoBallPracticeRecord: Codable, Identifiable {
         resetInput()
     }
     mutating func resetInput() {
+        demonstrationProgress = nil
         draftInput = .init(); latestShot = nil; retryOverride = false; showingResult = false
         retryCount = 0; currentScoreSum = 0; currentScoreCount = 0
         currentComfortSum = nil; currentComfortCount = nil

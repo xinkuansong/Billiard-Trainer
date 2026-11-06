@@ -421,7 +421,7 @@ final class DailyLayoutLifecycleUITests: XCTestCase {
         XCTAssertEqual(strike.height, 60, accuracy: 0.5)
         let window = app.windows.firstMatch.frame
         let ids = ["break.entry", "shotStage.spinEntry", "shotStage.aimWheel", "shotStage.powerBar",
-                   "dailyClearance.strike", "dailyClearance.undo", "dailyClearance.playback"]
+                   "dailyClearance.strike", "dailyClearance.playback"]
             + (dimension == "3D" ? ["dailyClearance.observeTable", "shotCamera.thirdPerson", "shotCamera.temporaryTopDown"] : [])
         var frames = [(String, CGRect)]()
         for id in ids {
@@ -621,7 +621,7 @@ final class DailyLayoutLifecycleUITests: XCTestCase {
                 try waitForControl(app, "dailyClearance.strike", state: "camera-returned")
             }
             app.buttons["dailyClearance.strike"].tap()
-            try waitForControl(app, "dailyClearance.undo", state: "actions-\(dimension)-settled", timeout: 35)
+            try waitForControl(app, "dailyClearance.playback", state: "actions-\(dimension)-settled", timeout: 35)
             XCTAssertEqual(try shotCount(app), before + 1)
             try waitForControl(app, "dailyClearance.playback", state: "actions-\(dimension)-playback-ready")
             app.buttons["dailyClearance.playback"].tap()
@@ -631,13 +631,8 @@ final class DailyLayoutLifecycleUITests: XCTestCase {
             try waitForControl(app, "dailyClearance.playback", state: "actions-\(dimension)-replay-returned", timeout: 35)
             XCTAssertEqual(try shotCount(app), before + 1, "Playback must not append a new visit")
             try assertControlsFit(app, dimension: dimension)
-            app.buttons["dailyClearance.undo"].tap()
-            let undone = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-                self.diagnosticField(app, id: "v63.cameraDiagnostics", key: "dailyShotCount").flatMap(Int.init) == before
-            }, object: nil)
-            let restored = XCTWaiter.wait(for: [undone], timeout: 5)
-            try capture(app, "actions-\(dimension)-undone")
-            XCTAssertEqual(restored, .completed)
+            XCTAssertFalse(app.buttons["dailyClearance.undo"].exists)
+            try capture(app, "actions-\(dimension)-after-replay")
             app.terminate()
         }
     }

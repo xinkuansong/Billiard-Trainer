@@ -75,7 +75,9 @@ struct ThreeBallPracticeRecord: Codable, Identifiable {
     var finishMetrics: [(String,String)] {
         [("已练题数", "\(totalProcessed)"), ("首答均分", averageScore.map { String(format: "%.1f", $0) } ?? "—")]
     }
-    var displayName: String { presentation == nil ? ("\(is3D ? "3D" : "2D")三球走位") : "三球走位 · " + (presentation?.summary ?? "") }
+    var displayName: String {
+        TrainingProject.threeBall.historyTitle(presentation: presentation, is3D: is3D)
+    }
     var historyDetail: String {
         "已练\(consumed.count)题 · 首答均分 " + (averageScore.map { String(format: "%.1f", $0) } ?? "—")
     }

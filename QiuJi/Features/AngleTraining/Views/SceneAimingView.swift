@@ -19,6 +19,8 @@ struct SceneAimingView: View {
 
     /// Camera mode is fixed per route (2D top-down or 3D perspective).
     @State private var hasStarted = false
+    private var usesPhone2DEntry: Bool { ScreenAnchoredCarpet.applies && !is3D }
+    @State private var entryRendered = false
     @State private var cameraReadableFrame: CGRect?
     @State private var configured = false
     @State private var portrait = false
@@ -71,7 +73,7 @@ struct SceneAimingView: View {
     var body: some View {
         ZStack {
             if !showingTable { settingsContent }
-            else { quizTable }
+            else { quizTable.modifier(TableEntryRenderObserver(rendered: $entryRendered, enabled: usesPhone2DEntry)).background { if usesPhone2DEntry { Color.black.ignoresSafeArea() } } }
         }
         .alert("出题未完成", isPresented: Binding(get: { vm.generationError != nil }, set: { if !$0 { vm.generationError = nil } })) {
             Button("重新生成") { vm.nextQuestion() }
@@ -103,7 +105,7 @@ struct SceneAimingView: View {
         .toolbar(.hidden, for: .tabBar)
         .background {
             if hasStarted {
-                DailyTableOrientation(landscape: !vm.showSettings, allowsTabletRotation: true)
+                DailyTableOrientation(landscape: !vm.showSettings, allowsTabletRotation: true, tableFrameReady: usesPhone2DEntry ? entryRendered : nil)
             }
         }
         .toolbar(!showingTable ? .visible : .hidden, for: .navigationBar)
@@ -227,7 +229,7 @@ struct SceneAimingView: View {
                 .background(DailyWindowControlInsets { controls, window, visible in
                     windowControls = controls; windowSafeArea = window; systemStatusVisible = visible
                 }.allowsHitTesting(false))
-            Color.clear.accessibilityElement().accessibilityLabel("角度训练球桌区域").accessibilityIdentifier("angleTraining.stage")
+            Color.clear.accessibilityElement().accessibilityLabel(TrainingProject.angle.title + "球桌区域").accessibilityIdentifier("angleTraining.stage")
                 .frame(width: f.stage.width, height: f.stage.height)
                 .background(GeometryReader { g in
                     Color.clear.preference(key: AngleQuizReadableFrame.self, value: g.frame(in: .global))
@@ -286,6 +288,9 @@ struct SceneAimingView: View {
             }
             .ignoresSafeArea()
         }
+        .background {
+            if usesPhone2DEntry { ScreenAnchoredCarpet(style: preferences.roomStyle, pointsPerMetre: ppm, scene: vm.scene).ignoresSafeArea() }
+        }
         .environment(\.colorScheme, .dark).environment(\.dailyHUDControls, true)
         .controlLayoutHost(page: preferencePage, mode: is3D ? .threeD : .twoD, size: size,
             leading: f.left, trailing: f.right, defaultFits: f.fits && plan.fits,
@@ -297,7 +302,7 @@ struct SceneAimingView: View {
         #if DEBUG
         .background {
             if DailyLayoutProbe.enabled {
-                Color.clear.accessibilityElement().accessibilityLabel("角度训练状态").accessibilityIdentifier("angleTraining.layoutState")
+                Color.clear.accessibilityElement().accessibilityLabel(TrainingProject.angle.title + "状态").accessibilityIdentifier("angleTraining.layoutState")
                     .accessibilityValue("run=\(vm.run.id);question=\(String(describing: vm.currentQuestion));index=\(vm.questionIndex);phase=\(vm.phase);input=\(vm.userInput);submitted=\(vm.run.submitted);answers=\(vm.run.firstAnswers.count);quiz=\(vm.quizTypeLabel);finished=\(vm.testFinished)")
             }
         }

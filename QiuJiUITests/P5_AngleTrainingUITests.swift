@@ -35,36 +35,23 @@ final class P5_AngleTrainingUITests: XCTestCase {
         saveW2Shot("practice-home-all-Light")
     }
 
-    func testFiveSegmentTabs() {
-        for name in ["学", "理", "练", "打", "解"] {
+    func testSixSegmentTabs() {
+        for name in ["基础", "准度", "控球", "走位", "进阶", "策略"] {
             XCTAssertTrue(app.buttons["angleHomeTab_\(name)"].waitForExistence(timeout: 3),
                           "Segment tab '\(name)' should exist")
         }
     }
 
     func testSegmentCards() {
-        // 学（默认「全部」可见；显式切学后应有学卡、无球理）
-        XCTAssertTrue(switchHomeTab("学"), "Should switch to 学 segment")
-        XCTAssertTrue(app.buttons["瞄准原理"].waitForExistence(timeout: 3), "瞄准原理 card should exist in 学")
-        XCTAssertTrue(app.buttons["瞄准点对照表"].waitForExistence(timeout: 3), "瞄准点对照表 card should exist in 学")
-        XCTAssertFalse(app.descendants(matching: .any)["球理"].exists, "学区不应再有球理入口卡（v32）")
-        saveW2Shot("practice-home-learn-Light")
-        // 理（v32.2：每篇一卡，无「球理」总卡）
-        XCTAssertTrue(switchHomeTab("理"), "Should switch to 理 segment")
-        XCTAssertTrue(app.buttons["切线法则"].waitForExistence(timeout: 3), "切线法则 card should exist in 理")
-        XCTAssertFalse(app.descendants(matching: .any)["球理"].exists, "理区不应再有球理索引总卡")
-        // 练
-        XCTAssertTrue(switchHomeTab("练"), "Should switch to 练 segment")
-        XCTAssertTrue(app.buttons["角度预测"].waitForExistence(timeout: 3), "角度预测 card should exist in 练")
-        saveW2Shot("practice-home-train-Light")
-        // 打
-        XCTAssertTrue(switchHomeTab("打"), "Should switch to 打 segment")
-        XCTAssertTrue(app.buttons["自由击球"].waitForExistence(timeout: 3), "自由击球 card should exist in 打")
-        XCTAssertTrue(app.buttons["自由走位"].waitForExistence(timeout: 3), "自由走位 card should exist in 打")
-        // 解
-        XCTAssertTrue(switchHomeTab("解"), "Should switch to 解 segment")
-        XCTAssertTrue(app.buttons["翻袋解球"].waitForExistence(timeout: 3), "翻袋解球 card should exist in 解")
-        XCTAssertTrue(app.buttons["颗星解球"].waitForExistence(timeout: 3), "颗星解球 card should exist in 解")
+        let firstCards = [("基础", "瞄准原理"), ("准度", "角度与瞄准"),
+                          ("控球", "分离角图谱"), ("走位", "分离角与走位"),
+                          ("进阶", "翻袋解球"), ("策略", "反向规划")]
+        for (section, title) in firstCards {
+            PracticeHomeNavigation.select(section, in: app)
+            XCTAssertTrue(app.buttons[title].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.buttons["球理"].exists)
+            snap("practice-six-" + section)
+        }
     }
 
     // MARK: - Search
@@ -157,7 +144,7 @@ final class P5_AngleTrainingUITests: XCTestCase {
     // MARK: - Geometric Quiz（练）
 
     func testNavigateToGeometricQuiz() {
-        guard switchHomeTab("练") else { return }
+        guard switchHomeTab("准度") else { return }
         let quizCard = app.buttons["角度预测"]
         guard quizCard.waitForExistence(timeout: 3) else { return }
         quizCard.tap()
@@ -170,7 +157,7 @@ final class P5_AngleTrainingUITests: XCTestCase {
     // MARK: - Free Play（打，ADR-P18-01 拆页后为独立 FreePlayView）
 
     func testNavigateToFreePlay() {
-        guard switchHomeTab("打") else { return }
+        guard switchHomeTab("走位") else { return }
         let freePlayCard = app.buttons["自由击球"]
         guard freePlayCard.waitForExistence(timeout: 3) else { return }
         freePlayCard.tap()
@@ -199,7 +186,7 @@ final class GroupFilterLayoutUITests: XCTestCase {
                 if let cardPrefix {
                     card = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", cardPrefix)).firstMatch
                 } else {
-                    let first = ["学": "瞄准原理", "理": "30° 法则", "练": "角度预测", "打": "分离角与走位", "解": "思路训练"]
+                    let first = ["基础": "瞄准原理", "准度": "角度与瞄准", "控球": "分离角图谱", "走位": "分离角与走位", "进阶": "翻袋解球", "策略": "反向规划"]
                     card = app.buttons[first[group]!]
                 }
                 XCTAssertTrue(card.waitForExistence(timeout: 5))
@@ -228,10 +215,10 @@ final class GroupFilterLayoutUITests: XCTestCase {
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.72))
             let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.3))
             for _ in 0..<3 { start.press(forDuration: 0.05, thenDragTo: end) }
-            app.buttons["angleHomeTab_练"].tap()
+            app.buttons["angleHomeTab_准度"].tap()
             Thread.sleep(forTimeInterval: 0.7)
-            let header = app.descendants(matching: .any).matching(identifier: "librarySectionHeader_练").firstMatch
-            let card = app.buttons["角度预测"]
+            let header = app.descendants(matching: .any).matching(identifier: "librarySectionHeader_准度").firstMatch
+            let card = app.buttons["角度与瞄准"]
             let gap = card.frame.minY - header.frame.maxY
             print("ALL_SINGLE_GAP round=\(round) gap=\(gap)")
             let shot = XCTAttachment(screenshot: app.screenshot())
@@ -262,10 +249,10 @@ final class GroupFilterLayoutUITests: XCTestCase {
     func testSearchTopicsAndRapidGroups() {
         let app = XCUIApplication.launchClean()
         app.switchTab(.angle)
-        for name in ["理", "打", "学", "解", "全部", "练"] {
+        for name in ["控球", "走位", "基础", "进阶", "策略", "全部", "准度"] {
             app.buttons["angleHomeTab_" + name].tap()
         }
-        assertTop(app, card: app.buttons["角度预测"], name: "practice-rapid")
+        assertTop(app, card: app.buttons["角度与瞄准"], name: "practice-rapid")
         app.buttons["angleHomeTab_全部"].tap()
         app.buttons["practiceTopicFilterMenu"].tap()
         app.buttons["practiceTopicMenu_防守"].tap()
@@ -315,7 +302,7 @@ final class GroupFilterLayoutUITests: XCTestCase {
     func testPracticeRepeatedGroups() {
         let app = XCUIApplication.launchClean()
         app.switchTab(.angle)
-        check(app, sidebar: "angleHomeTab_", groups: ["学", "理", "练", "打", "解"], cardPrefix: nil)
+        check(app, sidebar: "angleHomeTab_", groups: ["基础", "准度", "控球", "走位", "进阶", "策略"], cardPrefix: nil)
     }
 
     func testLibraryRepeatedGroups() {
@@ -444,5 +431,224 @@ final class AimCloseupHoldUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+}
+
+
+/// Product-contract coverage for the six groups and the approved card copy.
+final class PracticeSixGroupsUITests: XCTestCase {
+    private let cards: [(group: String, title: String, subtitle: String, difficulty: String, destination: String)] = [
+        ("基础", "瞄准原理", "理解切角、厚薄与瞄准点的关系", "学习难度三星，入门", "瞄准原理"),
+        ("基础", "瞄准方法", "对比同一球形的三种瞄准方法", "学习难度三星，入门", "瞄准方法"),
+        ("基础", "旋转与加塞", "认识打点、旋转与母球走向", "学习难度四星，应用", "旋转与加塞"),
+        ("基础", "瞄准修正", "观察力度与旋转造成的瞄准偏差", "学习难度四星，应用", "瞄准修正"),
+        ("基础", "瞄准点对照表", "按切角查瞄准点与接触点", "学习难度三星，入门", "瞄准点对照表"),
+        ("基础", "浅谈凭感觉瞄准", "用参照和练习建立瞄准感觉", "学习难度三星，入门", "浅谈凭感觉瞄准"),
+        ("基础", "进球容错角", "摆球查看可进袋的方向范围", "学习难度三星，入门", "pocketTolerance.more"),
+        ("准度", "角度与瞄准", "拖动球形观察切角与瞄准方向", "学习难度三星，入门", "angleDynamic.more"),
+        ("准度", "角度预测", "看简图估切角，对照答案与误差", "学习难度三星，入门", "geometric.figure"),
+        ("准度", "角度练习", "在球桌场景中练习切角判断", "学习难度四星，应用", "angleTraining.start"),
+        ("准度", "假想球练习", "根据切角摆准假想球位置", "学习难度三星，入门", "aimPointDiagram.figure"),
+        ("准度", "瞄准点练习", "在球桌上选准瞄准方向", "学习难度四星，应用", "aimPointTraining.start"),
+        ("准度", "准度练习", "调整瞄准与杆速，击球检验进袋", "学习难度四星，应用", "accuracy.start"),
+        ("控球", "分离角图谱", "对比不同高低杆的母球路线", "学习难度四星，应用", "separationAngleAtlas.more"),
+        ("控球", "加塞吃库图谱", "对比不同左右塞的母球吃库路线", "学习难度四星，应用", "cushionEnglishAtlas.more"),
+        ("控球", "30° 法则", "理解自然滚动的碰后方向与条件", "学习难度四星，应用", "30° 法则"),
+        ("控球", "90° 法则", "理解斯登击球的直角分离条件", "学习难度四星，应用", "90° 法则"),
+        ("控球", "切线法则", "用切线建立母球碰后路线参照", "学习难度四星，应用", "切线法则"),
+        ("控球", "母球速度分级", "建立力度参照，按球形校准", "学习难度三星，入门", "母球速度分级"),
+        ("控球", "最少加塞原则", "按路线需要选择合适塞量", "学习难度四星，应用", "最少加塞原则"),
+        ("走位", "分离角与走位", "自由摆球试打，观察母球走位", "学习难度四星，应用", "freeplay.moreMenu"),
+        ("走位", "走位求解", "指定落位要求，求解击球方案", "学习难度四星，应用", "silu.more"),
+        ("走位", "打一走二想三", "根据后两颗球倒推当前走位", "学习难度五星，综合", "planthree.more"),
+        ("走位", "分离角练习", "调整打点与力度，复现母球路线", "学习难度四星，应用", "separation.start"),
+        ("走位", "两球走位", "打进第一球，为第二球留下位置", "学习难度四星，应用", "twoBall.start"),
+        ("走位", "三球走位", "提前选袋，完成两杆走位衔接", "学习难度五星，综合", "threeBall.start"),
+        ("走位", "多球走位", "规划球序，练习残局连续走位", "学习难度五星，综合", "multiBall.start"),
+        ("走位", "蛇彩练习", "按指定顺序连续进球与走位", "学习难度五星，综合", "snake.start"),
+        ("走位", "自定义球形", "编辑保存球形，随时重复练习", "工具，不评级", "formation.new"),
+        ("走位", "拍照建球形", "从照片还原球形，校准后推演", "工具，不评级", "选择照片"),
+        ("进阶", "翻袋解球", "摆球求解目标球翻库入袋", "学习难度四星，应用", "bankshot.more"),
+        ("进阶", "颗星解球", "摆球求解母球绕库碰球", "学习难度四星，应用", "reflection.more"),
+        ("进阶", "翻袋练习", "按指定库序将目标球翻进袋", "学习难度五星，综合", "bank.start"),
+        ("进阶", "解球练习", "按指定库序让母球解到目标球", "学习难度五星，综合", "kick.start"),
+        ("进阶", "K球练习", "进球同时让母球碰到第二球", "学习难度五星，综合", "kBall.start"),
+        ("进阶", "防守练习", "控制双方球位，限制对手进攻", "学习难度五星，综合", "defense.start"),
+        ("策略", "反向规划", "从收尾球倒推球序与落位", "学习难度四星，应用", "反向规划"),
+        ("策略", "关键球原理", "识别关键球，安排收尾衔接", "学习难度四星，应用", "关键球原理"),
+        ("策略", "球团管理", "判断球团处理时机与后续衔接", "学习难度五星，综合", "球团管理"),
+        ("策略", "风险报酬决策矩阵", "权衡成功收益与失败代价", "学习难度五星，综合", "风险报酬决策矩阵"),
+        ("策略", "安全球三维度模型", "从距离、库位与障碍分析防守", "学习难度四星，应用", "安全球三维度模型"),
+        ("策略", "清台 5 步决策流程", "串起观察、规划、执行与复盘", "学习难度五星，综合", "清台 5 步决策流程"),
+        ("策略", "清台速查手册", "快速查阅控球与清台判断要点", "速查，不评级", "清台速查手册"),
+    ]
+
+    override func setUpWithError() throws { continueAfterFailure = false }
+
+    private func launch() -> XCUIApplication {
+        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance",
+                                                         "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"])
+        app.switchTab(.angle)
+        return app
+    }
+
+    private func find(_ title: String, in app: XCUIApplication) -> XCUIElement {
+        let card = app.buttons[title]
+        let scroll = app.scrollViews.allElementsBoundByIndex.max { $0.frame.width < $1.frame.width } ?? app
+        for _ in 0..<14 {
+            if card.exists && card.isHittable { return card }
+            scroll.swipeUp(velocity: .slow)
+        }
+        XCTFail("Missing or unreachable card: \(title)")
+        return card
+    }
+
+    private func capture(_ app: XCUIApplication, _ name: String, fullScreen: Bool = false) throws {
+        let screenshot = fullScreen ? XCUIScreen.main.screenshot() : app.screenshot()
+        let shot = XCTAttachment(screenshot: screenshot)
+        shot.name = name; shot.lifetime = .keepAlways; add(shot)
+        if let directory = ProcessInfo.processInfo.environment["V50_SHOT_DIR"] {
+            let url = URL(fileURLWithPath: directory)
+            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            try screenshot.pngRepresentation.write(to: url.appendingPathComponent(name + ".png"))
+            try app.debugDescription.write(to: url.appendingPathComponent(name + ".txt"), atomically: true, encoding: .utf8)
+        }
+    }
+
+    func testCatalogCopyDifficultyAndTailReachability() throws {
+        let app = launch()
+        for group in ["基础", "准度", "控球", "走位", "进阶", "策略"] {
+            PracticeHomeNavigation.select(group, in: app)
+            let expected = cards.filter { $0.group == group }
+            for (index, card) in expected.enumerated() {
+                if index == 0 {
+                    XCTAssertTrue(app.buttons[card.title].waitForExistence(timeout: 4), "Group must open at its first card: \(group)")
+                    XCTAssertTrue(app.buttons[card.title].isHittable)
+                }
+                let button = find(card.title, in: app)
+                XCTAssertTrue(button.label.contains(card.subtitle), card.title)
+                XCTAssertTrue(button.label.contains(card.difficulty), card.title)
+                if index == 0 || index == expected.count - 1 { try capture(app, "six-\(group)-\(index)") }
+            }
+        }
+        XCTAssertFalse(app.buttons["practiceDifficultyInfo"].exists)
+    }
+
+    func testPracticeCardWindowNarrowAndRestore() throws {
+        let app = launch()
+        XCUIDevice.shared.orientation = .landscapeLeft
+        PracticeHomeNavigation.select("基础", in: app)
+        let window = app.windows.firstMatch
+        let card = find("瞄准原理", in: app)
+        let title = card.staticTexts["瞄准原理"]
+        let stars = card.staticTexts["★★★"]
+        func checkCard() {
+            XCTAssertTrue(card.isHittable)
+            XCTAssertFalse(app.buttons["practiceDifficultyInfo"].exists)
+            XCTAssertFalse(card.staticTexts["学习难度"].exists)
+            XCTAssertTrue(title.exists && stars.exists)
+            let gap = stars.frame.minY - title.frame.maxY
+            XCTAssertGreaterThanOrEqual(gap, -1)
+            XCTAssertLessThanOrEqual(gap, 8, "A one-line title should not reserve a second line")
+            XCTAssertTrue(app.buttons["angleHomeTab_基础"].isSelected)
+        }
+        func waitFor(_ predicate: @escaping () -> Bool) -> Bool {
+            XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in predicate() }, object: nil)], timeout: 8) == .completed
+        }
+        checkCard()
+        let original = window.frame
+        let originalCard = card.frame
+        try capture(app, "wide", fullScreen: true)
+        let origin = window.coordinate(withNormalizedOffset: .zero)
+        origin.withOffset(.init(dx: original.width - 7, dy: original.height - 7))
+            .press(forDuration: 0.5, thenDragTo: origin.withOffset(.init(dx: original.width * 0.65, dy: original.height * 0.78)))
+        func maximize() {
+            let corner = window.coordinate(withNormalizedOffset: .zero)
+            corner.withOffset(.init(dx: 52, dy: 32)).tap()
+            if abs(window.frame.width - original.width) > 2 {
+                corner.withOffset(.init(dx: 104, dy: 32)).tap()
+            }
+        }
+        defer { if window.frame.width < original.width - 50 { maximize() } }
+        XCTAssertTrue(waitFor { window.frame.width < original.width - 80 && card.frame.width < originalCard.width - 20 })
+        checkCard()
+        print("PRACTICE_WINDOW wide=\(original) narrow=\(window.frame) card=\(originalCard.width)->\(card.frame.width)")
+        try capture(app, "narrow", fullScreen: true)
+        maximize()
+        XCTAssertTrue(waitFor { abs(window.frame.width - original.width) <= 2 && abs(window.frame.height - original.height) <= 2 && abs(card.frame.width - originalCard.width) <= 2 })
+        checkCard()
+        try capture(app, "restored", fullScreen: true)
+    }
+
+    func testPersonalTemplateReappearsFromPracticeHome() throws {
+        let app = launch()
+        func openManager() {
+            PracticeHomeNavigation.select("走位", in: app)
+            find("自定义球形", in: app).tap()
+            XCTAssertTrue(app.buttons["formation.new"].waitForExistence(timeout: 8))
+        }
+        openManager()
+        app.buttons["formation.templateMenu.B1115000-0000-4000-8000-000000000002"].tap()
+        app.buttons["复制到我的球形"].tap()
+        let personal = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND value == %@", "formation.template.", "已选")).firstMatch
+        XCTAssertTrue(personal.waitForExistence(timeout: 5))
+        let id = personal.identifier
+        let expected = personal.label
+        XCTAssertTrue(expected.contains("L型球形") && expected.contains("15颗目标球"))
+        app.buttons["返回"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["angleHomeTab_走位"].waitForExistence(timeout: 5))
+        app.terminate()
+        app.launch()
+        app.switchTab(.angle)
+        openManager()
+        let restored = app.buttons[id]
+        XCTAssertTrue(restored.waitForExistence(timeout: 5))
+        XCTAssertTrue(restored.label.contains("L型球形") && restored.label.contains("15颗目标球"))
+        restored.tap()
+        XCTAssertEqual(restored.value as? String, "已选")
+        try capture(app, "reopened-personal-template")
+        let uuid = String(id.dropFirst("formation.template.".count))
+        app.buttons["formation.templateMenu." + uuid].tap()
+        app.buttons["删除"].firstMatch.tap()
+        app.alerts.buttons["删除模板"].tap()
+        XCTAssertTrue(restored.waitForNonExistence(timeout: 5))
+        app.buttons["返回"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["angleHomeTab_走位"].waitForExistence(timeout: 5))
+        find("拍照建球形", in: app).tap()
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "选择照片").firstMatch.waitForExistence(timeout: 8))
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.buttons["angleHomeTab_走位"].waitForExistence(timeout: 8))
+    }
+
+    func testFoundationAndAccuracyRoutes() throws { try verifyRoutes(["基础", "准度"]) }
+    func testControlAndPositionRoutes() throws { try verifyRoutes(["控球", "走位"]) }
+    func testAdvancedAndStrategyRoutes() throws { try verifyRoutes(["进阶", "策略"]) }
+
+    private func verifyRoutes(_ groups: Set<String>) throws {
+        for card in cards where groups.contains(card.group) {
+            let app = launch()
+            PracticeHomeNavigation.select(card.group, in: app)
+            find(card.title, in: app).tap()
+            let destination = app.descendants(matching: .any).matching(identifier: card.destination).firstMatch
+            XCTAssertTrue(destination.waitForExistence(timeout: 20), "Wrong destination: \(card.title) → \(card.destination)")
+            XCTAssertFalse(app.buttons["angleHomeTab_全部"].isHittable, "Home must be left")
+            try capture(app, "route-" + card.title)
+            app.terminate()
+        }
+    }
+
+    func testSubtitleSearchAndEmptyStateRetainsGroup() {
+        let app = launch()
+        PracticeHomeNavigation.select("进阶", in: app)
+        let search = app.textFields["librarySearchField"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("绕库碰球")
+        XCTAssertTrue(app.buttons["颗星解球"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["翻袋解球"].exists)
+        app.buttons["清除搜索"].tap(); search.typeText("不存在的内容")
+        let clearResults = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "浏览全部练习", "magnifyingglass")).firstMatch
+        XCTAssertTrue(clearResults.waitForExistence(timeout: 5)); clearResults.tap()
+        XCTAssertTrue(app.buttons["angleHomeTab_进阶"].isSelected)
+        XCTAssertTrue(app.buttons["翻袋解球"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["瞄准原理"].exists)
     }
 }

@@ -7,11 +7,12 @@
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_打"
+      "id": "angleHomeTab_走位",
+      "scrollTo": 4
     },
     {
       "action": "tap",
-      "id": "自由走位",
+      "id": "分离角与走位",
       "scrollTo": 6
     },
     {

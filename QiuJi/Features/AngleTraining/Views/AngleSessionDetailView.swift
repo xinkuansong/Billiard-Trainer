@@ -251,7 +251,7 @@ private extension CognitiveSessionItem {
         }
         return CognitiveSessionItem(
             id: UUID(),
-            displayNameZh: "2D 角度训练",
+            displayNameZh: "角度练习 · 2D",
             quizType: "scene2D",
             startDate: results.first?.date ?? now,
             endDate: results.last?.date ?? now,

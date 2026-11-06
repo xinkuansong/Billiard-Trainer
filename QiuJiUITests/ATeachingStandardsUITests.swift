@@ -31,7 +31,7 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
         app = XCUIApplication.launchClean(extraArgs: args + extraArgs)
         if deep[page] == nil {
             app.switchTab(.angle)
-            ready(app.buttons["angleHomeTab_解"]); app.buttons["angleHomeTab_解"].tap()
+            ready(app.buttons["angleHomeTab_进阶"]); app.buttons["angleHomeTab_进阶"].tap()
             let card = app.buttons[page == "bankshot" ? "翻袋解球" : "颗星解球"]
             ready(card); card.tap()
         }
@@ -125,7 +125,7 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
 
     private func prepareSolution(_ page: String) {
         if page == "silu" {
-            app.buttons["silu.tool"].tap(); app.buttons["落区"].tap()
+            app.buttons["silu.tool"].tap(); app.buttons["silu.tool.region"].tap()
             let table = element("table.scene")
             let information = app.scrollViews.containing(.any, identifier: "silu.status").firstMatch
             let frame = table.frame
@@ -320,16 +320,17 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
                     XCTAssertLessThan(app.buttons["silu.tool"].frame.maxY, app.buttons["silu.clearConstraint"].frame.minY)
                     XCTAssertLessThan(app.buttons["silu.clearConstraint"].frame.maxY, next.frame.minY)
                     ready(app.buttons["silu.tool"]); app.buttons["silu.tool"].tap()
-                    let ids = ["place", "region", "restPoint", "passPoint"]
+                    XCTAssertFalse(app.buttons["silu.tool.place"].exists)
+                    let ids = ["region", "restPoint", "passPoint"]
                     for i in ids.indices {
                         let option = app.buttons["silu.tool." + ids[i]]
                         XCTAssertTrue(option.isHittable)
                         XCTAssertLessThan(option.frame.width, 180)
                         if i > 0 { XCTAssertLessThan(app.buttons["silu.tool." + ids[i-1]].frame.minY, option.frame.minY) }
                     }
-                    XCTAssertGreaterThan(app.buttons["silu.tool.place"].frame.minY, app.buttons["paletteBall__1"].frame.maxY, "Tool choices must open below the ball palette")
+                    XCTAssertGreaterThan(app.buttons["silu.tool.region"].frame.minY, app.buttons["paletteBall__1"].frame.maxY, "Tool choices must open below the ball palette")
                     capture(page + "-auto-tools-" + mode)
-                    app.buttons["silu.tool.place"].tap()
+                    app.buttons["silu.tool.region"].tap()
                 } else {
                     ready(app.buttons[page + ".strike"])
                     XCTAssertEqual(app.buttons[page + ".strike"].label, "击球")
@@ -673,7 +674,7 @@ final class ATeachingStandardsUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         launch()
         app.switchTab(.angle)
-        let practice = app.buttons["angleHomeTab_练"]
+        let practice = app.buttons["angleHomeTab_准度"]
         XCTAssertTrue(practice.waitForExistence(timeout: 8)); practice.tap()
         trainingTitle = title
         let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
@@ -811,6 +812,58 @@ final class ATeachingStandardsUITests: XCTestCase {
         }
     }
 
+    func testCueOnlyPaletteHintFollowsTableContents() throws {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        launch(["-dailyInteraction.sharedPage=angleDynamic"])
+        let ball = app.buttons["paletteBall__8"]
+        XCTAssertTrue(ball.waitForExistence(timeout: 25))
+        let hint = app.descendants(matching: .any).matching(identifier: "palette.placementHint").firstMatch
+        XCTAssertFalse(hint.exists)
+        ball.tap()
+        XCTAssertTrue(hint.waitForExistence(timeout: 5))
+        XCTAssertTrue(hint.label.contains("点击球库中的球，或将球拖到桌上。"))
+        capture("cue-only-palette-hint")
+        let retired = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: hint)
+        XCTAssertEqual(XCTWaiter.wait(for: [retired], timeout: 4), .completed)
+        XCTAssertEqual(ball.value as? String, "未在桌上")
+        ball.tap()
+        XCTAssertFalse(hint.exists)
+        ball.tap()
+        XCTAssertTrue(hint.waitForExistence(timeout: 5))
+
+        let table = app.descendants(matching: .any).matching(identifier: "table.scene").firstMatch
+        let value = try XCTUnwrap(table.value as? String)
+        let probe = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(value.utf8)) as? [String: Any])
+        let rect = try XCTUnwrap(probe["displayedTable"] as? [Double])
+        XCTAssertEqual(rect.count, 4)
+        let destination = app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: (rect[0] + rect[2]) / 2, dy: (rect[1] + rect[3]) / 2))
+        ball.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.2, thenDragTo: destination, withVelocity: 150, thenHoldForDuration: 0.3)
+        XCTAssertEqual(ball.value as? String, "在桌上")
+        XCTAssertFalse(hint.exists)
+    }
+
+    func testComposerClearShowsPaletteHintUntilFirstBallIsAdded() {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        launch(["-dailyInteraction.sharedPage=composer"])
+        let more = app.buttons["freeplay.moreMenu"]
+        XCTAssertTrue(more.waitForExistence(timeout: 25))
+        more.tap()
+        let clear = app.buttons["composer.clear"]
+        let menu = app.descendants(matching: .any).matching(identifier: "dailyClearance.menuPanel").firstMatch
+        for _ in 0..<5 where !clear.isHittable {
+            menu.swipeUp()
+        }
+        clear.tap()
+        app.buttons["清空桌面"].tap()
+        let hint = app.descendants(matching: .any).matching(identifier: "palette.placementHint").firstMatch
+        XCTAssertTrue(hint.waitForExistence(timeout: 5))
+        capture("composer-cue-only-palette-hint")
+        app.buttons["paletteBall__1"].tap()
+        XCTAssertFalse(hint.exists)
+    }
+
     func testAngleDynamicNoticeAtTop() throws {
         XCUIDevice.shared.orientation = .landscapeLeft
         launch(["-dailyInteraction.sharedPage=angleDynamic", "-angleDynamic.hasDraggedOnce", "NO"])
@@ -843,7 +896,7 @@ final class ATeachingStandardsUITests: XCTestCase {
     func testAimPointFreeReadoutCapacity() throws {
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication.launchClean(extraArgs: ["-w7.forceDailyLimitNear", "-v50.inMemoryStore", "-v62.fixture", "-appearanceMode", "system"])
-        app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
+        app.switchTab(.angle); app.buttons["angleHomeTab_准度"].tap()
         trainingTitle = "2D瞄准点"
         let card = app.buttons["瞄准点"]
         XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
@@ -930,7 +983,7 @@ final class PlanningInformationUITests: XCTestCase {
     }
     private func solve(_ page: String) {
         if page == "silu" {
-            app.buttons["silu.tool"].tap(); app.buttons["落区"].tap()
+            app.buttons["silu.tool"].tap(); app.buttons["silu.tool.region"].tap()
             let table = item("table.scene")
             table.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.4)).press(forDuration: 0.1,
                 thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.78, dy: 0.77)))
@@ -1056,7 +1109,7 @@ final class InformationConsistencyUITests: XCTestCase {
         }
         app = XCUIApplication.launchClean(extraArgs: args)
         if ["bankshot", "reflection"].contains(page) {
-            app.switchTab(.angle); ready(app.buttons["angleHomeTab_解"]); app.buttons["angleHomeTab_解"].tap()
+            app.switchTab(.angle); ready(app.buttons["angleHomeTab_进阶"]); app.buttons["angleHomeTab_进阶"].tap()
             let card = app.buttons[page == "bankshot" ? "翻袋解球" : "颗星解球"]; ready(card); card.tap()
         }
         let anchor = ["composer", "freeplay"].contains(page) ? page + ".landscape" : page + ".template"
@@ -1084,7 +1137,7 @@ final class InformationConsistencyUITests: XCTestCase {
     }
     private func solve(_ page: String) {
         if page == "silu" {
-            app.buttons["silu.tool"].tap(); app.buttons["落区"].tap()
+            app.buttons["silu.tool"].tap(); app.buttons["silu.tool.region"].tap()
             let table = item("table.scene")
             table.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.4)).press(forDuration: 0.1,
                 thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.78, dy: 0.77)))
@@ -1277,7 +1330,7 @@ final class PalettePlacementUITests: XCTestCase {
         }
         app.terminate(); page = "extract"
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-extract.confirmDemo", "-3dDrag.probe", "-v51.followSystemAppearance", "-appearanceMode", "system"])
-        app.switchTab(.angle); ready(app.buttons["angleHomeTab_打"]); app.buttons["angleHomeTab_打"].tap()
+        app.switchTab(.angle); ready(app.buttons["angleHomeTab_走位"]); app.buttons["angleHomeTab_走位"].tap()
         let card = app.buttons["拍照建球形"]; ready(card); card.tap()
         XCTAssertTrue(item("table.scene").waitForExistence(timeout: 30))
         try drag("confirm")

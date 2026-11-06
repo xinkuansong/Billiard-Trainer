@@ -117,7 +117,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral", "-3dDrag.probe", "-dailyLayout.probe"])
         defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
-        app.switchTab(.angle); app.buttons["angleHomeTab_打"].tap()
+        app.switchTab(.angle); app.buttons["angleHomeTab_走位"].tap()
         let card = app.buttons["分离角与走位"]
         for _ in 0..<5 where !card.isHittable { app.swipeUp() }
         XCTAssertEqual(app.buttons.matching(identifier: "分离角与走位").count, 1)
@@ -545,7 +545,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             ready(element)
             XCTAssertTrue(app.windows.firstMatch.frame.insetBy(dx: -1, dy: -1).contains(element.frame), element.debugDescription)
         }
-        app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
+        app.switchTab(.angle); app.buttons["angleHomeTab_准度"].tap()
         trainingTitle = title
         let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
         for _ in 0..<4 where !card.isHittable { app.swipeUp() }
@@ -677,7 +677,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         ready(app.buttons["training.settingsCancel"]); app.buttons["training.settingsCancel"].tap()
         ready(app.buttons["training.complete"])
         capture(title + "-cancel-restart-summary")
-        app.buttons["training.complete"].tap(); ready(app.buttons["angleHomeTab_练"])
+        app.buttons["training.complete"].tap(); ready(app.buttons["angleHomeTab_准度"])
     }
     private func capture(_ name: String) {
         let screen = XCUIScreen.main.screenshot()
@@ -695,7 +695,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         for title in ["2D角度", "3D角度", "2D瞄准点", "3D瞄准点", "2D准度", "3D准度"] {
             XCUIDevice.shared.orientation = .portrait
             let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
-            app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
+            app.switchTab(.angle); app.buttons["angleHomeTab_准度"].tap()
             trainingTitle = title
             let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
             if !card.isHittable { app.swipeUp() }
@@ -732,7 +732,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
     private func open(_ title: String, free: Bool = false) -> XCUIApplication {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication.launchClean(extraArgs: [free ? "-w7.forceDailyLimitNear" : "-forcePremium", "-v50.inMemoryStore"])
-        app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
+        app.switchTab(.angle); app.buttons["angleHomeTab_准度"].tap()
         trainingTitle = title
         let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
         if !card.isHittable { app.swipeUp() }
@@ -772,7 +772,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             app.buttons["training.restart"].tap()
             ready(app.buttons["subscription.close"]); app.buttons["subscription.close"].tap()
             ready(app.buttons["training.complete"]); app.buttons["training.complete"].tap()
-            ready(app.buttons["angleHomeTab_练"])
+            ready(app.buttons["angleHomeTab_准度"])
             app.terminate()
         }
         XCUIDevice.shared.orientation = .portrait
@@ -865,7 +865,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
             XCTAssertTrue(info.label.contains("1/15"))
             app.buttons["accuracy.more"].tap(); app.buttons["accuracy.finish"].tap()
             app.buttons["training.complete"].tap()
-            ready(app.buttons["angleHomeTab_练"])
+            ready(app.buttons["angleHomeTab_准度"])
             app.terminate()
         }
         XCUIDevice.shared.orientation = .portrait
@@ -876,7 +876,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-v53.authenticatedProfileFixture"])
         defer { app.terminate() }
-        app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
+        app.switchTab(.angle); app.buttons["angleHomeTab_准度"].tap()
         app.buttons["角度练习"].tap()
         let mode = app.otherElements["training.length"]
         ready(mode.buttons["持续练习"]); mode.buttons["持续练习"].tap()
@@ -912,7 +912,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication.launchClean(extraArgs: ["-w7.forceDailyLimitNear", "-v50.inMemoryStore", "-v53.authenticatedProfileFixture"])
         defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
-        app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
+        app.switchTab(.angle); app.buttons["angleHomeTab_准度"].tap()
         trainingTitle = "2D瞄准点"
         app.buttons["瞄准点练习"].tap()
         ready(app.buttons["aimPointTraining.start"]); app.buttons["aimPointTraining.start"].tap(); app.selectTrainingView(trainingTitle)
@@ -932,7 +932,7 @@ final class SixTrainingUnifiedUITests: XCTestCase {
         capture("upgrade-restarted-round")
         app.buttons["aimPointTraining.settings"].tap(); app.buttons["aimPointTraining.finish"].tap()
         ready(app.buttons["training.complete"]); app.buttons["training.complete"].tap()
-        ready(app.buttons["angleHomeTab_练"])
+        ready(app.buttons["angleHomeTab_准度"])
     }
 
 }

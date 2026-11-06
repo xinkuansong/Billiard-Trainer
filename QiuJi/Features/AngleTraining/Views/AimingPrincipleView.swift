@@ -19,8 +19,8 @@ struct AimingPrincipleView: View {
                 ghostBallSection
                 thicknessSection
                 // 学→练导流（T-P18-51）：原理学完 → 抽象估角第 1 步。大卡 ≤2（本页 1）。
-                PracticeCTA(title: "去练一练",
-                            destination: "角度预测 · 检验你的估角直觉",
+                PracticeCTA(title: "角度预测",
+                            destination: "检验你的估角直觉",
                             route: .geometricQuiz)
             }
             .padding(.horizontal, Spacing.lg)
@@ -88,8 +88,8 @@ struct AimingPrincipleView: View {
 
             // D-v14-6：同「学」互链用轻量文字行，不占 PracticeCTA 大卡配额。
             LearnDocTextLink(
-                title: "还有其他瞄准法",
-                subtitle: "管道 · 接触点 · 平行线 → 瞄准方法",
+                title: "瞄准方法",
+                subtitle: "管道 · 接触点 · 平行线",
                 route: .aimingMethods
             )
         }

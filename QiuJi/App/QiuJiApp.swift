@@ -197,11 +197,13 @@ final class QiuJiOrientationDelegate: NSObject, UIApplicationDelegate {
 struct DailyTableOrientation: UIViewControllerRepresentable {
     var landscape: Bool
     var allowsTabletRotation = false
+    var tableFrameReady: Bool?
     var restoresPreviousOwner = false
 
     func makeUIViewController(context: Context) -> Controller {
         let controller = Controller()
         controller.landscape = landscape
+        controller.tableFrameReady = tableFrameReady
         controller.allowsTabletRotation = allowsTabletRotation
         controller.restoresPreviousOwner = restoresPreviousOwner
         return controller
@@ -209,6 +211,7 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: Controller, context: Context) {
         controller.landscape = landscape
+        controller.tableFrameReady = tableFrameReady
         controller.allowsTabletRotation = allowsTabletRotation
         controller.restoresPreviousOwner = restoresPreviousOwner
         controller.applyOrientation()
@@ -220,6 +223,7 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
 
     final class Controller: UIViewController {
         var landscape = false
+        var tableFrameReady: Bool?
         var allowsTabletRotation = false
         var restoresPreviousOwner = false
         private var previousMask: UIInterfaceOrientationMask?
@@ -274,6 +278,8 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
             // SwiftUI updates this representable during the navigation push. A
             // geometry request at that point races the portrait navigation snapshot.
             guard visible, let scene = view.window?.windowScene else { return }
+            if landscape, tableFrameReady == false, view.traitCollection.userInterfaceIdiom == .phone,
+               !scene.interfaceOrientation.isLandscape { return }
             if let transition = transitionCoordinator ?? navigationController?.transitionCoordinator {
                 guard !waitingForTransition else { return }
                 waitingForTransition = true
@@ -325,6 +331,19 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
         }
 
         private func request(_ mask: UIInterfaceOrientationMask, in scene: UIWindowScene) {
+            if tableFrameReady == true, mask == .landscapeRight, let window = view.window,
+               let floor = ScreenAnchoredCarpet.Controller.owner(in: window),
+               floor.prepareTurn(in: window, onPortraitPresented: { [weak self, weak floor] in
+                   guard let self, self.visible, self.ownedScene === scene, self.landscape else {
+                       floor?.endTurn()
+                       return
+                   }
+                   UIView.performWithoutAnimation { self.applyMask(mask, in: scene) }
+               }) { return }
+            applyMask(mask, in: scene)
+        }
+
+        private func applyMask(_ mask: UIInterfaceOrientationMask, in scene: UIWindowScene) {
             if DailyLayoutProbe.enabled {
                 var fields = DailyLayoutProbe.windowFields(view)
                 fields["owner"] = owner.uuidString
@@ -340,6 +359,7 @@ struct DailyTableOrientation: UIViewControllerRepresentable {
             scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { [weak self] error in
                 if let self, self.requestGeneration == generation {
                     self.requestInFlight = false
+                    ScreenAnchoredCarpet.Controller.owner(in: self.view.window)?.endTurn()
                     // Retry on the next real layout/appearance, never by a delay loop.
                     self.view.setNeedsLayout()
                 }

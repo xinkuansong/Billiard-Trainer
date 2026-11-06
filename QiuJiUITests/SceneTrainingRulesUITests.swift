@@ -12,7 +12,7 @@ final class SceneTrainingRulesUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication.launchClean(extraArgs: [nearLimit ? "-w7.forceDailyLimitNear" : "-forcePremium", "-v50.inMemoryStore", "-dailyLayout.probe"] + (light ? ["-v54.forceLight"] : []))
         app.switchTab(.angle)
-        let training = app.buttons["angleHomeTab_练"]
+        let training = app.buttons["angleHomeTab_准度"]
         XCTAssertTrue(training.waitForExistence(timeout: 10)); training.tap()
         trainingTitle = title
         let card = app.buttons[XCUIApplication.trainingCardTitle(title)]

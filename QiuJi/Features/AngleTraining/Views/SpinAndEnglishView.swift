@@ -233,11 +233,11 @@ struct SpinAndEnglishView: View {
                              subtitle: "8 档高低杆 · 碰后轨迹对比",
                              route: .separationAngleAtlas)
 
-            LearnDocTextLink(title: "回看瞄准原理",
+            LearnDocTextLink(title: "瞄准原理",
                              subtitle: "切角 · 假想球 · 接触点",
                              route: .aimingPrinciple)
 
-            LearnDocTextLink(title: "打开瞄准方法",
+            LearnDocTextLink(title: "瞄准方法",
                              subtitle: "管道 · 接触点 · 平行线",
                              route: .aimingMethods)
         }

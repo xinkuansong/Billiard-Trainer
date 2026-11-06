@@ -8,6 +8,9 @@ import math
 from pathlib import Path
 
 
+from jaw_revision import load_patch, reference_fields
+
+
 def require(condition, reason):
     if not condition:
         raise ValueError(reason)
@@ -54,6 +57,8 @@ def audit(source, destination):
                 routes.add(key); lookup[q['id']] = (row['id'], row['board'], q)
     require(locations == index['layouts'], 'index locations')
     require(len(set(x['id'] for x in locations)) == len(locations), 'duplicate layout')
+    pending = dict(load_patch()['changes']) if 'jawRevision' in index else {}
+    changed_count = len(pending)
     seen, timing, grades, rails, pockets = set(), collections.Counter(), collections.Counter(), collections.Counter(), collections.Counter()
     with (source / 'selected.jsonl').open() as stream:
         for line in stream:
@@ -64,8 +69,12 @@ def audit(source, destination):
             for k in ('cue', 'object', 'pocket'):
                 require(board[k] == seed[k], 'source board ' + k)
             require(board['angle'] == old['sourceGenerationAngle'], 'source angle')
+            adjustment = pending.pop(q['id'], None)
+            expected = dict(seed)
+            if adjustment is not None:
+                expected.update(reference_fields(adjustment))
             for k in ('route', 'v', 'sx', 'sy', 'dir'):
-                require(q[k] == seed[k], 'source parameter ' + k)
+                require(q[k] == expected[k], 'reference parameter ' + k)
             for new, original in [('b','B'), ('rail','railOrdinal'), ('railID','railID'),
                                   ('trajectoryAngle','sourceAngle'), ('centerRailDistance','centerRailDistance')]:
                 require(q[new] == candidate[original], 'source candidate ' + new)
@@ -93,11 +102,11 @@ def audit(source, destination):
             require(any(e['kind'] == 'pocket' and e['ball'] == 'object' and e['pocket'] == f'pocket_{board["pocket"]}' for e in events), 'A pocket event')
             seen.add(old['id']); timing[candidate['axis']]+=1; grades[['','敏感','常规','宽容'][q['grade']]]+=1
             rails[str(q['rail'])]+=1; pockets['middle' if board['pocket'] >= 4 else 'corner']+=1
-    require(seen == set(lookup), 'complete source coverage')
+    require(not pending and seen == set(lookup), 'complete source and adjustment coverage')
     require(index['counts'] == dict(questions=len(seen), routes=len(routes), layouts=len(locations)), 'counts')
     require(index['distribution'] == dict(byTiming=timing, grades=grades, byObservedRail=rails, byPocket=pockets), 'distribution')
     return dict(passed=True, counts=index['counts'], fingerprint=fingerprint,
-                allFieldsExact=True, archivedEventsChecked=True, newSimulations=0,
+                originalOrAdjustedFieldsExact=True, jawAdjusted=changed_count, archivedEventsChecked=True, newSimulations=0,
                 bytes=sum(p.stat().st_size for p in destination.iterdir()), sourceSHA256=index['sourceSHA256'])
 
 

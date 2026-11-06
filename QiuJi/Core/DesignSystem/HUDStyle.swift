@@ -206,3 +206,18 @@ struct BTHUDCompactAction: View {
         .accessibilityLabel(title)
     }
 }
+
+/// Shares the measuring tool's saved position when a reference shot is available.
+struct BTPracticeDemonstrationButton: View {
+    let enabled: Bool
+    let size: CGFloat
+    let identifier: String
+    let action: () -> Void
+
+    var body: some View {
+        BTHUDCompactAction(title: "示范", symbol: "play.rectangle", size: size, action: action)
+            .disabled(!enabled)
+            .accessibilityIdentifier(identifier)
+            .freeControlItem("shot.replay", name: "示范")
+    }
+}

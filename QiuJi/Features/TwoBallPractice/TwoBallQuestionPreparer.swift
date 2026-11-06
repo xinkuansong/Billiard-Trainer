@@ -37,6 +37,11 @@ enum TwoBallQuestionPreparer {
     struct Prepared {
         let fingerprint: String
         let question: TwoBallQuestion
+        var previousReferenceFingerprint: String? = nil
+        func acceptsSession(_ saved: String?) -> Bool {
+            guard let saved else { return false }
+            return saved == fingerprint || saved == previousReferenceFingerprint
+        }
         static func prepare(_ configuration: SceneTrainingConfiguration) throws -> Self {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-twoBall.fixedSeed") {
@@ -65,7 +70,8 @@ enum TwoBallQuestionPreparer {
                 var routes: [TwoBallQuestion.Route] = []
                 // The consumer bank is validated in ascending unrounded first-shot effort.
                 // Physics/access admission only removes routes, retaining this order.
-                for (rank, pair) in candidate.refs.enumerated() {
+                let references = candidate.references(for: configuration)
+                for (rank, pair) in references.enumerated() {
                     try Task.checkCancellation()
                     guard Date().timeIntervalSince(start) < 30 else { break search }
                     guard let route = lookup[pair[0]],
@@ -83,7 +89,8 @@ enum TwoBallQuestionPreparer {
                     $0.source.executionDifficulty!.effort <= $1.source.executionDifficulty!.effort + 1e-12
                 }) {
                     return .init(fingerprint: bank.index.fingerprint,
-                        question: .init(id: UUID(), board: board, cellID: candidate.id, second: second, routes: routes))
+                        question: .init(id: UUID(), board: board, cellID: candidate.id, second: second, routes: routes),
+                        previousReferenceFingerprint: bank.index.jawRevision?.sourceFingerprint)
                 }
             }
         }
@@ -417,5 +424,20 @@ enum MiddlePocketDirectionScore {
             return sum + a.x * b.y - a.y * b.x
         }
         return clamp(abs(twiceArea) / (2 * length * width))
+    }
+}
+
+extension TwoBallQuestion: PracticeDemonstrationQuestion {
+    var demonstrationInput: SeparationInput { route.source.input }
+
+    func demonstrationShot(surfaceY: Float) throws -> TwoBallShot {
+        let prediction = try TwoBallQuestionPreparer.solve(board: board, second: second, input: demonstrationInput,
+            surfaceY: surfaceY, profile: TwoBallQuestionPreparer.renderedProfile(), direction: route.source.direction)
+        let shot = try TwoBallShot(question: self, input: demonstrationInput, prediction: prediction, surfaceY: surfaceY)
+        guard shot.failure == nil, shot.continuationUnavailable == false,
+              let score = shot.physical.score, score.distanceCM <= TwoBallQuestionPreparer.maximumReplayRMSCM else {
+            throw PracticeDemonstrationError.referenceMismatch
+        }
+        return shot
     }
 }

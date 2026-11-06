@@ -85,7 +85,7 @@ enum TheoryCatalog {
             id: .t01,
             title: "30° 法则",
             subtitle: "到球时自然滚动，约 1/4–3/4 球厚度（切角约 14°–49°），母球碰后稳定方向相对入射方向偏约 30°",
-            cardSubtitle: "自然滚动约偏30°",
+            cardSubtitle: "理解自然滚动的碰后方向与条件",
             group: .collision,
             isPublished: true
         ),
@@ -93,7 +93,7 @@ enum TheoryCatalog {
             id: .t02,
             title: "90° 法则",
             subtitle: "到球时没有前后旋的斯登击球，理想模型中两球分离角为 90°",
-            cardSubtitle: "认清斯登的90°",
+            cardSubtitle: "理解斯登击球的直角分离条件",
             group: .collision,
             isPublished: true
         ),
@@ -101,7 +101,7 @@ enum TheoryCatalog {
             id: .t03,
             title: "切线法则",
             subtitle: "切线垂直于碰撞时的两球连心线，是理想斯登出射方向的参照；前后旋转会改变后续路线",
-            cardSubtitle: "用切线判断碰后路线",
+            cardSubtitle: "用切线建立母球碰后路线参照",
             group: .collision,
             isPublished: true
         ),
@@ -110,7 +110,7 @@ enum TheoryCatalog {
             id: .t04,
             title: "母球速度分级",
             subtitle: "用 9 档建立力度参照，配合稳定的运杆幅度与节奏，再按球形和台况校准",
-            cardSubtitle: "练出可重复的力度",
+            cardSubtitle: "建立力度参照，按球形校准",
             group: .spin,
             isPublished: true
         ),
@@ -118,7 +118,7 @@ enum TheoryCatalog {
             id: .t09,
             title: "最少加塞原则",
             subtitle: "加塞先有明确用途，再综合考虑挤偏、弧线和投掷，用足够完成任务的塞量",
-            cardSubtitle: "先想清加塞的用途",
+            cardSubtitle: "按路线需要选择合适塞量",
             group: .spin,
             isPublished: true
         ),
@@ -127,7 +127,7 @@ enum TheoryCatalog {
             id: .t05,
             title: "反向规划",
             subtitle: "从最后一颗球需要的落位区倒推，寻找当前路线与收尾的衔接",
-            cardSubtitle: "从最后一颗倒推",
+            cardSubtitle: "从收尾球倒推球序与落位",
             group: .tactics,
             isPublished: true
         ),
@@ -135,7 +135,7 @@ enum TheoryCatalog {
             id: .t06,
             title: "关键球原理",
             subtitle: "关键球为最后一颗安排母球位置，前一颗还要为关键球留出合适角度",
-            cardSubtitle: "先找收尾关键球",
+            cardSubtitle: "识别关键球，安排收尾衔接",
             group: .tactics,
             isPublished: true
         ),
@@ -143,7 +143,7 @@ enum TheoryCatalog {
             id: .t07,
             title: "球团管理",
             subtitle: "尽早识别妨碍计划的球团，结合碰球机会、保险球和后续路线选择处理时机",
-            cardSubtitle: "选好球团处理时机",
+            cardSubtitle: "判断球团处理时机与后续衔接",
             group: .tactics,
             isPublished: true
         ),
@@ -151,7 +151,7 @@ enum TheoryCatalog {
             id: .t08,
             title: "风险报酬决策矩阵",
             subtitle: "用三问一起看进球把握、走位把握和失败代价，再比较进攻与防守",
-            cardSubtitle: "打前问把握与代价",
+            cardSubtitle: "权衡成功收益与失败代价",
             group: .tactics,
             isPublished: true
         ),
@@ -159,7 +159,7 @@ enum TheoryCatalog {
             id: .t10,
             title: "安全球三维度模型",
             subtitle: "从距离、库位和障碍球检查防守，再看执行把握与对手的应对，不能只按维度数量评质量",
-            cardSubtitle: "看距离库位和障碍",
+            cardSubtitle: "从距离、库位与障碍分析防守",
             group: .tactics,
             isPublished: true
         ),
@@ -168,7 +168,7 @@ enum TheoryCatalog {
             id: .flow,
             title: "清台 5 步决策流程",
             subtitle: "从上台观察到打完复盘，按顺序检查，并随实际球形调整计划",
-            cardSubtitle: "按五步想完这一杆",
+            cardSubtitle: "串起观察、规划、执行与复盘",
             group: .flow,
             isPublished: true
         ),
@@ -176,7 +176,7 @@ enum TheoryCatalog {
             id: .quickRef,
             title: "清台速查手册",
             subtitle: "快速回看碰撞、控制与战术要点，带着适用条件使用",
-            cardSubtitle: "上场前回看判断要点",
+            cardSubtitle: "快速查阅控球与清台判断要点",
             group: .flow,
             isPublished: true
         ),

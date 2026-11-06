@@ -254,10 +254,37 @@ final class PocketLeatherFlowUITests: XCTestCase {
         }
     }
 
+    func testSavePhotoFormationStaysOnConfirmPage() throws {
+        let app = launch(["-extract.confirmDemo", "-pro.route=photo"])
+        let use = app.buttons["使用球形"]
+        XCTAssertTrue(use.waitForExistence(timeout: 15))
+        use.tap()
+        app.buttons["保存为自定义球形"].tap()
+        let prompt = app.alerts["保存为自定义球形"]
+        XCTAssertFalse(prompt.buttons["保存"].isEnabled)
+        prompt.buttons["取消"].tap()
+        use.tap()
+        app.buttons["保存为自定义球形"].tap()
+        let name = "Photo-" + UUID().uuidString.prefix(8)
+        prompt.textFields.firstMatch.tap()
+        prompt.textFields.firstMatch.typeText(name)
+        prompt.buttons["保存"].tap()
+        XCTAssertTrue(app.staticTexts["已保存到自定义球形"].waitForExistence(timeout: 5))
+        XCTAssertTrue(use.isHittable)
+        open("自定义球形", in: launch())
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "formation.template.", name)).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.label.contains("1颗目标球"))
+        app.buttons[name + "，模板操作"].tap()
+        app.buttons["删除"].tap()
+        app.alerts.buttons["删除模板"].tap()
+        XCTAssertFalse(row.exists)
+    }
+
     func testExternalFormationDestinations() throws {
-        for (index,title) in ["自由走位","思路训练","打一走二想三"].enumerated() {
+        for (index,title) in ["分离角与走位","走位求解","打一走二想三"].enumerated() {
             let app=launch(["-extract.confirmDemo"]);open("拍照建球形",in:app)
-            let send=app.buttons["送入…"];XCTAssertTrue(send.waitForExistence(timeout:20));send.tap()
+            let send=app.buttons["使用球形"];XCTAssertTrue(send.waitForExistence(timeout:20));send.tap()
             let action=app.buttons[title];XCTAssertTrue(action.waitForExistence(timeout:5));action.tap()
             assertTable(app);try snap(app,"external-\(index)");app.terminate()
         }

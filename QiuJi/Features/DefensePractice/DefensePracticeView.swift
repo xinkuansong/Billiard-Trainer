@@ -13,6 +13,7 @@ struct DefensePracticeView: View {
 
     @StateObject private var questionNotices = BTRuleNoticeCenter()
     @StateObject private var resultNotices = BTRuleNoticeCenter()
+    @State private var choosingDemonstration = false
     @StateObject private var operationNotices = BTRuleNoticeCenter()
 
     init(is3D: Bool) { _vm = StateObject(wrappedValue: DefensePracticeViewModel(is3D: is3D)) }
@@ -102,11 +103,11 @@ struct DefensePracticeView: View {
         return result
     }
     private var controls: BTTablePlanningControls {
-        .init(spinX: Binding(get: { Double(vm.input.spinX) }, set: { vm.setSpin($0, Double(vm.input.spinY)) }),
-            spinY: Binding(get: { Double(vm.input.spinY) }, set: { vm.setSpin(Double(vm.input.spinX), $0) }),
+        .init(spinX: Binding(get: { Double(vm.instrumentInput.spinX) }, set: { vm.setSpin($0, Double(vm.input.spinY)) }),
+            spinY: Binding(get: { Double(vm.instrumentInput.spinY) }, set: { vm.setSpin(Double(vm.input.spinX), $0) }),
             transparency: Binding(get: { tablePreferences.snapshot(for: vm.preferencePage)[.transparency] },
                 set: { tablePreferences.apply(.transparency, value: $0, to: vm.preferencePage) }),
-            velocityRange: ShotTuning.velocityRange, instrumentsEnabled: vm.canAdjust,
+            velocityRange: ShotTuning.velocityRange, instrumentsEnabled: vm.canAdjust, showsReadOnlyDemonstration: vm.demonstrationInput != nil,
             assessmentMode: true, allowsAssessmentAimCloseup: true, allowsAssessmentSpinEditing: true,
             defersStrikeAccessUntilSubmission: false,
             locksSceneInteraction: vm.isBusy, isAnimating: vm.isBusy, paletteEnabled: false,
@@ -122,7 +123,10 @@ struct DefensePracticeView: View {
             menuItems: [
                 .init(id: "defense.trainingSettings", title: "训练设置", disclosure: true, disabled: vm.isBusy,
                       action: { vm.openSettings() })
-            ], refreshTrajectory: {}, onLayoutEditingChanged: vm.layoutEditingChanged,
+            ] + (vm.canReplayReference && (vm.record?.current?.source.references.count ?? 0) > 1 ? [
+                .init(id: "defense.moreRoutes", title: "本题其他防守线路", disclosure: true,
+                      action: { choosingDemonstration = true })
+            ] : []), refreshTrajectory: {}, onLayoutEditingChanged: vm.layoutEditingChanged,
             layoutEditingBlocked: !vm.canAdjust, onAimNudged: { vm.nudgeAim($0) },
             closeupSnapshot: vm.canAdjust ? vm.closeupSnapshot : nil,
             onSpinChange: { vm.setSpin($0, $1) },
@@ -138,7 +142,7 @@ struct DefensePracticeView: View {
     private var tablePage: some View {
         BTTeachingTablePage(vm: vm, titleLabel: vm.title, identifier: "defense", preferencePage: vm.preferencePage,
             insufficientSpaceMessage: "扩大窗口后继续防守练习",
-            onTrainingViewChange: { vm.switchTrainingView(to: $0) }, velocity: Binding(get: { vm.velocity }, set: { vm.velocity = $0 }),
+            onTrainingViewChange: { vm.switchTrainingView(to: $0) }, velocity: Binding(get: { Double(vm.instrumentInput.velocity) }, set: { vm.velocity = $0 }),
             planning: controls, information: information, usesStandardTitle: true, fitsLongTitle: true, showsPalette: true,
             pairedLeftContent: { layout in
                 AnyView(VStack(spacing: layout.groupSpacing) {
@@ -172,10 +176,6 @@ struct DefensePracticeView: View {
                             }
                             .scrollIndicators(.hidden)
                             .frame(minHeight: 0, maxHeight: .infinity)
-                            if vm.canReplayReference {
-                                BTHUDCompactAction(title: "示范", symbol: "play.rectangle", size: layout.auxiliarySize) { vm.replayReference() }
-                                    .accessibilityIdentifier("defense.referenceReplay")
-                            }
                         }.font(.btCaption2).monospacedDigit().frame(maxHeight: .infinity)
                             .accessibilityElement(children: .contain).accessibilityIdentifier("defense.scores")
                     } else {
@@ -191,7 +191,19 @@ struct DefensePracticeView: View {
                             .disabled(!vm.canRetry)
                             .accessibilityIdentifier("defense.retry")
                             .freeControlItem("shot.undo", name: vm.playsStroke ? "重打" : "重试")
-                        if vm.phase == .result {
+                        if vm.canReplayReference || vm.demonstrationInput != nil {
+                            BTPracticeDemonstrationButton(enabled: vm.canReplayReference, size: layout.auxiliarySize,
+                                identifier: "defense.referenceReplay", action: vm.replayReference)
+                                .accessibilityHint("播放本题目标线路；可在更多菜单查看其他防守线路")
+                                .confirmationDialog("选择防守线路", isPresented: $choosingDemonstration, titleVisibility: .visible) {
+                                    if let question = vm.record?.current {
+                                        ForEach(question.source.references.indices, id: \.self) { i in
+                                            Button(question.demoTitle(at: i)) { vm.replayReference(at: i) }
+                                        }
+                                    }
+                                    Button("取消", role: .cancel) {}
+                                }
+                        } else if vm.phase == .result, vm.record?.configuration.mode == .free {
                             BTHUDCompactAction(title: "回放", symbol: "play.fill", size: layout.auxiliarySize) { vm.replayLastShot() }
                                 .disabled(!vm.canPlayback).accessibilityIdentifier("defense.replay")
                                 .freeControlItem("shot.replay", name: "回放")

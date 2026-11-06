@@ -26,7 +26,7 @@ final class ClothColorUITests: XCTestCase {
         XCTAssertEqual(app.buttons["settings.clothColor.camel"].value as? String, "已选择")
         app.terminate(); app.launchArguments.removeAll { $0 == "-deeplink.settings" }; app.launch()
         app.switchTab(.angle)
-        app.buttons["angleHomeTab_打"].tap()
+        app.buttons["angleHomeTab_走位"].tap()
         for (title, prefix) in [("自由击球", "freeplay"), ("分离角与走位", "shotSimulation")] {
             let card = app.buttons[title]
             XCTAssertTrue(card.waitForExistence(timeout: 10)); card.tap()

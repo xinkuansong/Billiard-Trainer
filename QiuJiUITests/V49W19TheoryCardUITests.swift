@@ -5,18 +5,18 @@ final class V49W19TheoryCardUITests: XCTestCase {
     private let outDir = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v49-screenshots")
 
     private let cards: [(title: String, subtitle: String)] = [
-        ("30° 法则", "自然滚动约偏30°"),
-        ("90° 法则", "认清斯登的90°"),
-        ("切线法则", "用切线判断碰后路线"),
-        ("母球速度分级", "练出可重复的力度"),
-        ("最少加塞原则", "先想清加塞的用途"),
-        ("反向规划", "从最后一颗倒推"),
-        ("关键球原理", "先找收尾关键球"),
-        ("球团管理", "选好球团处理时机"),
-        ("风险报酬决策矩阵", "打前问把握与代价"),
-        ("安全球三维度模型", "看距离库位和障碍"),
-        ("清台 5 步决策流程", "按五步想完这一杆"),
-        ("清台速查手册", "上场前回看判断要点"),
+        ("30° 法则", "理解自然滚动的碰后方向与条件"),
+        ("90° 法则", "理解斯登击球的直角分离条件"),
+        ("切线法则", "用切线建立母球碰后路线参照"),
+        ("母球速度分级", "建立力度参照，按球形校准"),
+        ("最少加塞原则", "按路线需要选择合适塞量"),
+        ("反向规划", "从收尾球倒推球序与落位"),
+        ("关键球原理", "识别关键球，安排收尾衔接"),
+        ("球团管理", "判断球团处理时机与后续衔接"),
+        ("风险报酬决策矩阵", "权衡成功收益与失败代价"),
+        ("安全球三维度模型", "从距离、库位与障碍分析防守"),
+        ("清台 5 步决策流程", "串起观察、规划、执行与复盘"),
+        ("清台速查手册", "快速查阅控球与清台判断要点"),
     ]
 
     override func setUpWithError() throws {
@@ -35,15 +35,16 @@ final class V49W19TheoryCardUITests: XCTestCase {
             button.tap()
             XCTAssertTrue(app.navigationBars[card.title].waitForExistence(timeout: 8), "\(card.title) 路由错误")
             app.navigationBars.buttons.element(boundBy: 0).tap()
-            XCTAssertTrue(app.buttons["angleHomeTab_理"].waitForExistence(timeout: 8))
+            XCTAssertTrue(app.buttons["angleHomeTab_控球"].waitForExistence(timeout: 8))
         }
     }
 
     private func captureGrid(_ scheme: String) {
         let app = launch(scheme)
         for card in cards {
-            XCTAssertTrue(find(card.title, type: .button, in: app).exists, "缺少卡片：\(card.title)")
-            XCTAssertTrue(find(card.subtitle, type: .staticText, in: app).exists, "卡片短提示缺失：\(card.title)")
+            let button = find(card.title, type: .button, in: app)
+            XCTAssertTrue(button.exists, "缺少卡片：\(card.title)")
+            XCTAssertTrue(button.label.contains(card.subtitle), "卡片短提示缺失：\(card.title)")
         }
         scrollToTop(in: app)
         save(app, "w19-theory-grid-top-\(scheme)")
@@ -58,12 +59,13 @@ final class V49W19TheoryCardUITests: XCTestCase {
         if scheme == "Light" { args.append("-v49.forceLight") }
         let app = XCUIApplication.launchClean(extraArgs: args)
         app.switchTab(.angle)
-        XCTAssertTrue(app.buttons["angleHomeTab_理"].waitForExistence(timeout: 8))
-        app.buttons["angleHomeTab_理"].tap()
+        XCTAssertTrue(app.buttons["angleHomeTab_控球"].waitForExistence(timeout: 8))
+        app.buttons["angleHomeTab_控球"].tap()
         return app
     }
 
     private func find(_ value: String, type: XCUIElement.ElementType, in app: XCUIApplication) -> XCUIElement {
+        if type == .button { PracticeHomeNavigation.select(PracticeHomeNavigation.section(for: value), in: app) }
         let element = app.descendants(matching: type)[value]
         if element.waitForExistence(timeout: 2) { return element }
         for _ in 0..<8 where !element.exists { app.swipeUp(); usleep(150_000) }

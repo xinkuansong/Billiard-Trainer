@@ -35,7 +35,7 @@ final class V29W5ToolUsageUITests: XCTestCase {
         sleep(1)
         snap("01-practice-home")
 
-        let playTab = app.buttons["angleHomeTab_打"]
+        let playTab = app.buttons["angleHomeTab_走位"]
         XCTAssertTrue(playTab.waitForExistence(timeout: 6), "「打」分区分段控件应存在")
         playTab.tap()
         sleep(1)
@@ -67,7 +67,7 @@ final class V29W5ToolUsageUITests: XCTestCase {
         app.switchTab(.angle)
         sleep(1)
 
-        let practiceTab = app.buttons["angleHomeTab_练"]
+        let practiceTab = app.buttons["angleHomeTab_准度"]
         XCTAssertTrue(practiceTab.waitForExistence(timeout: 6), "「练」分区分段控件应存在")
         practiceTab.tap()
         sleep(1)

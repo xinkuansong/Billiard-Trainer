@@ -9,7 +9,7 @@ final class AimingCorrectionZ1UITests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = true
-        app = XCUIApplication.launchClean()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
     }
 
     private var shotDirURL: URL? {
@@ -49,19 +49,19 @@ final class AimingCorrectionZ1UITests: XCTestCase {
         app.switchTab(.angle)
         sleep(2)
 
-        let seg = app.buttons["angleHomeTab_学"]
+        let seg = app.buttons["angleHomeTab_基础"]
         if seg.waitForExistence(timeout: 5) { seg.tap() }
         usleep(700_000)
         snap("z1-00-learn-cards")
 
-        let card = app.staticTexts["瞄准修正"]
+        let card = app.buttons["瞄准修正"]
         XCTAssertTrue(card.waitForExistence(timeout: 5), "瞄准修正卡不可达")
         if card.isHittable {
             card.tap()
         } else {
             app.swipeUp()
             usleep(400_000)
-            app.staticTexts["瞄准修正"].tap()
+            card.tap()
         }
         sleep(5)
 
@@ -79,8 +79,14 @@ final class AimingCorrectionZ1UITests: XCTestCase {
         snap("z1-03-section6-cta")
 
         let hasSection6 = app.staticTexts["实战启示"].exists
-            || app.staticTexts["去思路训练看实况"].exists
-            || app.buttons["去思路训练看实况"].exists
+            || app.staticTexts["走位求解"].exists
+            || app.buttons["走位求解"].exists
         XCTAssertTrue(hasSection6, "⑥ 节内容应在末帧可见")
+        let solver = app.buttons["走位求解"]
+        for _ in 0..<8 where !solver.isHittable { dragScrollUp() }
+        XCTAssertTrue(solver.isHittable)
+        solver.tap()
+        XCTAssertTrue(app.buttons["silu.replay"].waitForExistence(timeout: 20))
+
     }
 }

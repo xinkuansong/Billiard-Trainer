@@ -149,7 +149,9 @@ struct BTTrainingModePicker: View {
         Button { freePractice = free } label: {
             HStack(spacing: Spacing.xs) {
                 Text(title).font(.btFootnote.weight(.medium))
-                if free && !isPremium { BTProBadge(isUnlocked: false).accessibilityHidden(true) }
+                if free {
+                    BTProBadge(isUnlocked: isPremium).accessibilityHidden(true)
+                }
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 6)
@@ -159,7 +161,7 @@ struct BTTrainingModePicker: View {
         }
         .buttonStyle(.plain).foregroundStyle(.btText)
         .accessibilityLabel(title)
-        .accessibilityValue(free && !isPremium ? "需要 Pro" : (freePractice == free ? "已选" : "未选"))
+        .accessibilityValue(free ? (isPremium ? "Pro 已解锁" : "需要 Pro") : (freePractice == free ? "已选" : "未选"))
         .accessibilityAddTraits(freePractice == free ? .isSelected : [])
     }
 }

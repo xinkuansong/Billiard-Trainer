@@ -31,7 +31,7 @@ final class TableStyleUITests: XCTestCase {
         app.launchArguments.removeAll { $0 == "-deeplink.settings" }
         app.launch()
         app.switchTab(.angle)
-        let category = app.buttons["angleHomeTab_打"]
+        let category = app.buttons["angleHomeTab_走位"]
         XCTAssertTrue(category.waitForExistence(timeout: 10)); category.tap()
         for (title, prefix) in [("自由击球","freeplay"), ("分离角与走位","shotSimulation")] {
             let card = app.buttons[title]
@@ -69,7 +69,7 @@ final class TableStyleUITests: XCTestCase {
         XCTAssertEqual(toggle.value as? String, "0")
         app.terminate(); app.launchArguments.removeAll { $0 == "-deeplink.settings" }; app.launch()
         app.switchTab(.angle)
-        app.buttons["angleHomeTab_打"].tap()
+        app.buttons["angleHomeTab_走位"].tap()
         app.buttons["自由击球"].tap()
         let mode = app.buttons["freeplay.cameraMode"]
         XCTAssertTrue(mode.waitForExistence(timeout: 25))

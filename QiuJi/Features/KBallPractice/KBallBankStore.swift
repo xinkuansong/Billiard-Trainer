@@ -55,6 +55,8 @@ struct KBallBankFilter: Codable, Equatable {
 /// Read off the main actor, like TwoBallBankStore. At most two decoded gzip shards survive.
 final class KBallBankStore {
     struct Index: Decodable {
+        struct JawRevision: Decodable { let sourceFingerprint: String }
+        let jawRevision: JawRevision?
         struct Geometry: Decodable { let length, width, radius: Double }
         struct Counts: Decodable { let layouts, questions, routes: Int }
         struct Shard: Decodable { let name, sha256: String; let bytes, rows: Int }

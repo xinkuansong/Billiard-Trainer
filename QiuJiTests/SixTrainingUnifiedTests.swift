@@ -277,14 +277,15 @@ final class SixTrainingUnifiedTests: XCTestCase {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let store = TablePreferencesStore(defaults: defaults)
-        store.apply(.closeup, value: 1, to: .accuracy2D)
+        XCTAssertTrue(store.snapshot(for: .accuracy2D).enabled(.closeup))
+        store.apply(.closeup, value: 0, to: .accuracy2D)
         let restored = TablePreferencesStore(defaults: defaults)
-        XCTAssertTrue(restored.snapshot(for: .accuracy2D).enabled(.closeup))
-        XCTAssertFalse(restored.snapshot(for: .accuracy3D).enabled(.closeup))
+        XCTAssertFalse(restored.snapshot(for: .accuracy2D).enabled(.closeup))
+        XCTAssertTrue(restored.snapshot(for: .accuracy3D).enabled(.closeup))
         XCTAssertFalse(restored.snapshot(for: .freePlay).enabled(.closeup))
-        restored.apply(.closeup, value: 1, to: .accuracy3D)
-        restored.apply(.closeup, value: 0, to: .accuracy2D)
-        XCTAssertTrue(TablePreferencesStore(defaults: defaults).snapshot(for: .accuracy3D).enabled(.closeup))
+        restored.apply(.closeup, value: 0, to: .accuracy3D)
+        restored.apply(.closeup, value: 1, to: .accuracy2D)
+        XCTAssertFalse(TablePreferencesStore(defaults: defaults).snapshot(for: .accuracy3D).enabled(.closeup))
     }
 
     func testAccuracyReplayRestoresTableAndNeverChangesFirstAttempt() async throws {

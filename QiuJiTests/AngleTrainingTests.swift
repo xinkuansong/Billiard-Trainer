@@ -1013,12 +1013,11 @@ final class ProQuotaSubmissionTests: XCTestCase {
     }
 
     func testAllPaidRoutesAndRepresentativeFreeRoutes() {
-        let paid: [AngleRoute] = [.separationAngleAtlas, .cushionEnglishAtlas, .sceneAiming3D,
-            .aimPointScene3D, .snakePractice, .positionPlayComposer, .ballExtraction, .planThree, .bankShot, .diamondSystem]
-        XCTAssertEqual(paid.count, 10)
+        let paid: [AngleRoute] = [.separationAngleAtlas, .cushionEnglishAtlas, .snakePractice, .positionPlaySolver, .ballExtraction, .planThree, .bankShot, .diamondSystem]
         for route in paid { XCTAssertTrue(route.requiresPremium) }
         let free: [AngleRoute] = [.theoryIndex, .angleDynamic, .geometricQuiz, .sceneAiming2D,
-            .aimPointTraining, .aimPointScene2D, .freePlay, .customFormationPractice]
+            .aimPointTraining, .aimPointScene2D, .freePlay, .customFormationPractice, .sceneAiming3D,
+            .aimPointScene3D, .positionPlayComposer, .shotSimulation]
         for route in free { XCTAssertFalse(route.requiresPremium) }
     }
 }

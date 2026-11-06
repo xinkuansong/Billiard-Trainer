@@ -66,7 +66,8 @@ enum KBallJudgement {
         return rails.count
     }
 
-    static func failure(_ prediction: ShotPrediction, pocket: Int, question: KBallBankQuestion) -> Failure? {
+    static func failure(_ prediction: ShotPrediction, pocket: Int, question: KBallBankQuestion,
+                        requiresReferenceTiming: Bool = false) -> Failure? {
         if let failure = failure(events: prediction.events, complete: prediction.hasFinalTableState, pocket: pocket) {
             return failure
         }
@@ -80,6 +81,10 @@ enum KBallJudgement {
                 let other = x == cue ? y : x
                 if !afterA, other == a { afterA = true }
                 else if afterA, other == b {
+                    if requiresReferenceTiming {
+                        guard actual == question.railsBeforeK else { return .railOrder }
+                        guard observedRail(prediction, railID: question.railID) == question.rail else { return .rail }
+                    }
                     let expected = question.railHintSegments
                     guard expected.count == question.rail, !expected.isEmpty else { return .railFacts }
                     return actual == expected || actual == Array(expected.dropLast()) ? nil : .railOrder
@@ -136,6 +141,11 @@ extension KBallQuestionPreparer {
     struct Prepared {
         let fingerprint: String
         let question: KBallQuestion
+        var previousReferenceFingerprint: String? = nil
+        func acceptsSession(_ saved: String?) -> Bool {
+            guard let saved else { return false }
+            return saved == fingerprint || saved == previousReferenceFingerprint
+        }
     }
     /// Randomize formations and their saved routes, without storing or solving a reference on admission.
     static func prepare(_ configuration: KBallConfiguration, excluding: Set<String> = [],
@@ -155,8 +165,25 @@ extension KBallQuestionPreparer {
             // Persist just the selected route, not the other questions from this formation.
             let selected = KBallBankLayout(id: layout.id, board: layout.board, questions: [source])
             return .init(fingerprint: bank.index.fingerprint,
-                         question: .init(id: UUID(), layout: selected, source: source, board: try board(selected)))
+                         question: .init(id: UUID(), layout: selected, source: source, board: try board(selected)),
+                         previousReferenceFingerprint: bank.index.jawRevision?.sourceFingerprint)
         }
         throw KBallBankStore.Failure.invalid("这些条件下暂无未练题目，请调整筛选条件")
+    }
+}
+
+extension KBallQuestion: PracticeDemonstrationQuestion {
+    var demonstrationInput: SeparationInput {
+        .init(spinX: Float(source.sx), spinY: Float(source.sy), velocity: Float(source.v))
+    }
+
+    func demonstrationShot(surfaceY: Float) throws -> KBallShot {
+        let prediction = try KBallQuestionPreparer.solve(layout: layout, question: source, input: demonstrationInput,
+            surfaceY: surfaceY, profile: TwoBallQuestionPreparer.renderedProfile(), reference: true)
+        guard KBallJudgement.failure(prediction, pocket: board.pocketIndex, question: source,
+                                     requiresReferenceTiming: true) == nil else {
+            throw PracticeDemonstrationError.referenceMismatch
+        }
+        return try KBallShot(question: self, input: demonstrationInput, prediction: prediction, surfaceY: surfaceY)
     }
 }

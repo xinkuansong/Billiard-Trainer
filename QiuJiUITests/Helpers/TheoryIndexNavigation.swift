@@ -1,12 +1,13 @@
 import XCTest
 
-/// 练习 Tab →「理」→ 单篇理论卡（v32.2：首页每篇一卡，不再经「球理」索引总卡）。
+/// 练习 Tab → 控球／策略 → 单篇理论卡（v32.2：首页每篇一卡，不再经「球理」索引总卡）。
 enum TheoryIndexNavigation {
 
-    /// 切到练习 Tab 并点侧栏「理」。
+    /// 切到练习 Tab 并点侧栏理论。
     @discardableResult
     static func openTheorySection(
         in app: XCUIApplication,
+        section: String = "控球",
         file: StaticString = #filePath,
         line: UInt = #line
     ) -> Bool {
@@ -19,14 +20,14 @@ enum TheoryIndexNavigation {
                 Thread.sleep(forTimeInterval: 0.8)
             }
             app.switchTab(.angle)
-            let theory = app.descendants(matching: .any)["angleHomeTab_理"]
+            let theory = app.descendants(matching: .any)["angleHomeTab_" + section]
             if theory.waitForExistence(timeout: 5) {
-                theory.tap()
+                PracticeHomeNavigation.select(section, in: app)
                 Thread.sleep(forTimeInterval: 0.8)
                 return true
             }
         }
-        XCTFail("练习 Tab「理」侧栏应出现（3 次激活/切换重试后仍失败）", file: file, line: line)
+        XCTFail("练习 Tab理论侧栏应出现（3 次激活/切换重试后仍失败）", file: file, line: line)
         return false
     }
 
@@ -39,7 +40,7 @@ enum TheoryIndexNavigation {
         file: StaticString = #filePath,
         line: UInt = #line
     ) -> Bool {
-        guard openTheorySection(in: app, file: file, line: line) else { return false }
+        guard openTheorySection(in: app, section: PracticeHomeNavigation.section(for: cardTitle), file: file, line: line) else { return false }
 
         let card = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@", cardTitle))
@@ -68,7 +69,7 @@ enum TheoryIndexNavigation {
             }
         }
         guard card.waitForExistence(timeout: 6) else {
-            XCTFail("「理」分组应有卡片「\(cardTitle)」", file: file, line: line)
+            XCTFail("理论分组应有卡片「\(cardTitle)」", file: file, line: line)
             return false
         }
         let nav = navigationTitle ?? cardTitle
@@ -117,5 +118,36 @@ enum TheoryIndexNavigation {
             file: file,
             line: line
         )
+    }
+}
+
+
+/// Current practice-home navigation; titles select a single approved section.
+enum PracticeHomeNavigation {
+    static func section(for title: String) -> String {
+        switch title {
+        case "瞄准原理", "瞄准方法", "旋转与加塞", "瞄准修正", "瞄准点对照表", "浅谈凭感觉瞄准", "进球容错角", "浅谈球感": return "基础"
+        case "角度与瞄准", "角度预测", "角度练习", "假想球练习", "瞄准点练习", "准度练习", "2D角度", "3D角度", "2D 角度训练", "3D 角度训练", "2D瞄准点", "3D瞄准点", "2D 瞄准点训练", "3D 瞄准点训练", "瞄准点训练", "2D准度", "3D准度": return "准度"
+        case "分离角图谱", "加塞吃库图谱", "30° 法则", "90° 法则", "切线法则", "母球速度分级", "最少加塞原则": return "控球"
+        case "分离角与走位", "走位求解", "打一走二想三", "分离角练习", "两球走位", "三球走位", "多球走位", "蛇彩练习", "自定义球形", "拍照建球形", "自由走位", "自由击球", "思路训练", "批量出片台", "2D分离角", "3D分离角", "2D两球走位", "3D两球走位", "2D三球走位", "3D三球走位": return "走位"
+        case "翻袋解球", "颗星解球", "翻袋练习", "解球练习", "K球练习", "防守练习", "防守": return "进阶"
+        case "反向规划", "关键球原理", "球团管理", "风险报酬决策矩阵", "安全球三维度模型", "清台 5 步决策流程", "清台速查手册": return "策略"
+        default:
+            XCTFail("Unknown practice card: \(title)")
+            return "全部"
+        }
+    }
+
+    static func select(_ section: String, in app: XCUIApplication) {
+        let button = app.buttons["angleHomeTab_" + section]
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        let sidebar = app.scrollViews.allElementsBoundByIndex
+            .filter { $0.exists }.min { $0.frame.width < $1.frame.width } ?? app
+        for _ in 0..<4 where !button.isHittable {
+            if section == "全部" || section == "基础" { sidebar.swipeDown() }
+            else { sidebar.swipeUp() }
+        }
+        XCTAssertTrue(button.isHittable, "Section must be reachable: \(section)")
+        button.tap()
     }
 }

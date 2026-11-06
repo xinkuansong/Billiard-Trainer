@@ -365,7 +365,7 @@ final class DailyStandardFreePlayUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-dailyLayout.probe"])
         app.switchTab(.angle)
-        let tab = app.buttons["angleHomeTab_打"]
+        let tab = app.buttons["angleHomeTab_走位"]
         XCTAssertTrue(tab.waitForExistence(timeout: 5)); tab.tap()
         let card = app.buttons[title]
         XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()

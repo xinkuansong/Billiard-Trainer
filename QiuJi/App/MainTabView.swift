@@ -104,7 +104,7 @@ struct MainTabView: View {
                     "mergeSeparation3D": .separationPractice3D, "mergeTwo3D": .twoBallPractice3D, "mergeThree3D": .threeBallPractice3D,
                     "separation": .separationAngleAtlas, "cushion": .cushionEnglishAtlas,
                     "scene3d": .sceneAiming3D, "aim3d": .aimPointScene3D, "snake": .snakePractice, "multiBall": .multiBallPractice, "multiBall3D": .multiBallPractice3D,
-                    "composer": .positionPlayComposer, "photo": .ballExtraction,
+                    "composer": .positionPlayComposer, "solver": .positionPlaySolver, "photo": .ballExtraction,
                     "three": .planThree,
                     "bank": .bankShot, "diamond": .diamondSystem]
                 if let route = routes[String(argument.dropFirst("-pro.route=".count))], router.anglePath.isEmpty {
@@ -291,7 +291,7 @@ struct MainTabView: View {
         case .planThree:
             PlanThreeView()
         case .ballExtraction:
-            BallExtractionView()
+            BallExtractionView(ownerKey: ownerKey)
         case .batchDrillStudio:
             #if targetEnvironment(simulator)
             BatchDrillStudioView()

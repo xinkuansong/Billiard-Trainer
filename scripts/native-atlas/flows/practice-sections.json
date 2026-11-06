@@ -7,52 +7,68 @@
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_学"
+      "id": "angleHomeTab_基础",
+      "scrollTo": 4
     },
     {
       "action": "cover",
-      "name": "P17-section-学",
-      "entry": "practice/学",
+      "name": "P17-section-基础",
+      "entry": "practice/基础",
       "maximumViews": 40
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_理"
+      "id": "angleHomeTab_准度",
+      "scrollTo": 4
     },
     {
       "action": "cover",
-      "name": "P17-section-理",
-      "entry": "practice/理",
+      "name": "P17-section-准度",
+      "entry": "practice/准度",
       "maximumViews": 40
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_练"
+      "id": "angleHomeTab_控球",
+      "scrollTo": 4
     },
     {
       "action": "cover",
-      "name": "P17-section-练",
-      "entry": "practice/练",
+      "name": "P17-section-控球",
+      "entry": "practice/控球",
       "maximumViews": 40
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_打"
+      "id": "angleHomeTab_走位",
+      "scrollTo": 4
     },
     {
       "action": "cover",
-      "name": "P17-section-打",
-      "entry": "practice/打",
+      "name": "P17-section-走位",
+      "entry": "practice/走位",
       "maximumViews": 40
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_解"
+      "id": "angleHomeTab_进阶",
+      "scrollTo": 4
     },
     {
       "action": "cover",
-      "name": "P17-section-解",
-      "entry": "practice/解",
+      "name": "P17-section-进阶",
+      "entry": "practice/进阶",
+      "maximumViews": 40
+    },
+    {
+      "action": "tap",
+      "id": "angleHomeTab_策略",
+      "scrollTo": 4
+    },
+    {
+      "action": "cover",
+      "name": "P17-section-策略",
+      "entry": "practice/策略",
       "maximumViews": 40
     }
   ]

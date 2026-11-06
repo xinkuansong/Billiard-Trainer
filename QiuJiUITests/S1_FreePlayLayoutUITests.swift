@@ -32,7 +32,7 @@ final class S1_FreePlayLayoutUITests: XCTestCase {
     private func open() {
         if UIDevice.current.userInterfaceIdiom == .pad {
             app.switchTab(.angle)
-            let tab = app.buttons["angleHomeTab_打"]
+            let tab = app.buttons["angleHomeTab_走位"]
             XCTAssertTrue(tab.waitForExistence(timeout: 10)); tab.tap()
             let card = app.buttons["自由击球"]
             XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()

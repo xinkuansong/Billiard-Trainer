@@ -510,11 +510,15 @@ final class PlanThreeViewModel: TeachingTableHost {
     /// 导入外部球形（球形生成器 / 拍照建球形交付的散开快照）。清空角色与约束，回到「选①」起点。
     func loadBoard(_ snapshot: BoardSnapshot) {
         guard !isPlaying, !snapshot.onTable.isEmpty else { return }
+        scene.hideAllBalls()
+        for (key, pt) in snapshot.onTable { place(key: key, normalized: pt) }
+        prepareForPlanning()
+    }
+
+    private func prepareForPlanning() {
         invalidateShotHistory()
         currentRoleLocked = false
-        scene.hideAllBalls()
         clearConstraint()
-        for (key, pt) in snapshot.onTable { place(key: key, normalized: pt) }
         refreshOnTableKeys()
         ball1Key = nil; ball2Key = nil; ball3Key = nil
         pocket1Index = -1; pocket2Index = -1
@@ -1426,10 +1430,10 @@ extension PlanThreeViewModel {
         runner.autoDeliverOnSettle = true
         breakChangeForwarder = runner.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
-        runner.onSettled = { [weak self] board in
+        runner.onSettled = { [weak self] _ in
             guard let self else { return }
             self.teardownBreakFlow()
-            self.loadBoard(board)
+            self.prepareForPlanning()
         }
         breakRunner = runner
         runner.rackUp()

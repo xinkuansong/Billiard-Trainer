@@ -610,10 +610,10 @@ final class ControlLayoutPlacementUITests: XCTestCase {
         // in window coordinates while its visible label remains screen-relative.
         // Measure the rendered label independently, and prove the physical hit
         // below; keep the unmodified parent AX tree in every capture.
-        let label = ready("dailyClearance.undo").staticTexts["重打"].frame
+        let label = ready("dailyClearance.undo").staticTexts["上一步"].frame
         let labelOffset = CGPoint(x: label.midX - control.midX, y: label.midY - control.midY)
         func visibleUndoFrame() -> CGRect {
-            let label = ready("dailyClearance.undo").staticTexts["重打"].frame
+            let label = ready("dailyClearance.undo").staticTexts["上一步"].frame
             return CGRect(x: label.midX - labelOffset.x - control.width / 2,
                           y: label.midY - labelOffset.y - control.height / 2,
                           width: control.width, height: control.height)
@@ -645,16 +645,17 @@ final class ControlLayoutPlacementUITests: XCTestCase {
         XCTAssertEqual((moved.midY - smaller.minY) / smaller.height, y, accuracy: 0.005)
         XCTAssertEqual(try businessSnapshot(includeCamera: false), state)
         try capture("02-real-window-smaller", probing: ["dailyClearance.undo", "table.scene"])
-        app.windows.firstMatch.coordinate(withNormalizedOffset: .init(dx: strikeX, dy: strikeY)).tap()
-        waitUntil("window shot settled", timeout: 90) { self.element("dailyClearance.undo").isEnabled }
-        XCTAssertTrue((ready("dailyLayout.controlsProbe").value as? String ?? "").contains("dailyShotCount=1"))
+        let strike = ready("dailyClearance.strike").frame
+        XCTAssertEqual((strike.midX - smaller.minX) / smaller.width, strikeX, accuracy: 0.01)
+        XCTAssertEqual((strike.midY - smaller.minY) / smaller.height, strikeY, accuracy: 0.01)
+        ready("paletteBall__1").tap()
+        XCTAssertTrue(ready("dailyClearance.undo").isEnabled)
         app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
             .withOffset(.init(dx: moved.midX - smaller.minX, dy: moved.midY - smaller.minY)).tap()
-        waitUntil("relocated undo receives physical touch in floating window") {
-            (self.element("dailyLayout.controlsProbe").value as? String ?? "").contains("dailyShotCount=0")
+        waitUntil("relocated step back returns to the start of this shot") {
+            !self.element("dailyClearance.undo").isEnabled && (self.element("dailyLayout.controlsProbe").value as? String ?? "").contains("dailyShotCount=0")
         }
-        // Undo legitimately creates a new sequence draft identity. Layout edits
-        // and subsequent window changes must preserve this post-action state.
+        // Planning does not change the board or the number of shots played.
         let afterUndo = try businessSnapshot(includeCamera: false)
         openFreeEditor(); ready("freeLayout.current").tap(); chooseFreeControl("shot.undo")
         let preview = ready("freeLayout.select.shot.undo").frame
@@ -811,14 +812,13 @@ final class ControlLayoutPlacementUITests: XCTestCase {
         setCoreMode("2D")
         XCTAssertEqual(ready("dailyClearance.undo").frame.midX, saved.midX, accuracy: 2)
         try capture("06-mode-return", probing: ["dailyClearance.undo", "dailyClearance.playback"])
-        ready("dailyClearance.strike").tap()
-        waitUntil("real shot settled", timeout: 90) { self.element("dailyClearance.undo").isEnabled }
-        XCTAssertTrue((ready("dailyLayout.controlsProbe").value as? String ?? "").contains("dailyShotCount=1"))
+        ready("paletteBall__1").tap()
+        XCTAssertTrue(ready("dailyClearance.undo").isEnabled)
         let relocatedUndo = ready("dailyClearance.undo")
         XCTAssertTrue(relocatedUndo.isHittable, "Scaled control outside safe area must receive touches")
         relocatedUndo.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
-        waitUntil("relocated original action executed", timeout: 30) {
-            (self.element("dailyLayout.controlsProbe").value as? String ?? "").contains("dailyShotCount=0")
+        waitUntil("relocated planning step executed", timeout: 30) {
+            !self.element("dailyClearance.undo").isEnabled && (self.element("dailyLayout.controlsProbe").value as? String ?? "").contains("dailyShotCount=0")
         }
         try capture("07-real-hit", probing: ["dailyClearance.undo", "dailyClearance.playback", "dailyLayout.controlsProbe"])
     }
@@ -861,7 +861,7 @@ final class ControlLayoutPlacementUITests: XCTestCase {
         for page in (ProcessInfo.processInfo.environment["LAYOUT_PAGES"] ?? "dailyClearance,freePlay,silu").split(separator: ",").map(String.init) {
             launchMatrixPage(page)
             if page == "silu" {
-                ready("silu.tool").tap(); app.buttons["落区"].tap()
+                ready("silu.tool").tap(); app.buttons["silu.tool.region"].tap()
                 let table = ready("table.scene")
                 table.coordinate(withNormalizedOffset: .init(dx: 0.37, dy: 0.48)).press(forDuration: 0.1,
                     thenDragTo: table.coordinate(withNormalizedOffset: .init(dx: 0.58, dy: 0.76)))
@@ -937,8 +937,8 @@ final class ControlLayoutPlacementUITests: XCTestCase {
                     thenDragTo: power.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.4)))
                 XCTAssertNotEqual(power.value as? String, speed, "Relocated real ruler must adjust power")
                 if page == "silu" {
-                    ready("silu.tool").tap(); app.cells.buttons["摆球"].tap()
-                    XCTAssertTrue((ready("silu.layoutState").value as? String ?? "").contains("tool=none"))
+                    ready("silu.tool").tap(); app.buttons["silu.tool.region"].tap()
+                    XCTAssertTrue((ready("silu.layoutState").value as? String ?? "").contains("tool=region"))
                 }
                 if mode == "3D" {
                     for (semantic, actual) in [("overview", "dailyClearance.observeTable"), ("thirdPerson", "shotCamera.thirdPerson"), ("firstPerson", "shotCamera.firstPerson")] where controlIDs.contains("freeLayout.select.camera." + semantic) {
@@ -1147,7 +1147,9 @@ final class ControlLayoutPlacementUITests: XCTestCase {
         if selector.value as? String != mode { selector.tap() }
         XCTAssertEqual(selector.value as? String, mode)
         app.buttons["关闭菜单"].firstMatch.coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.5)).tap()
-        waitUntil("camera and solver settled", timeout: 45) { self.element("dailyClearance.strike").isEnabled }
+        waitUntil("camera and controls available", timeout: 45) {
+            self.element("dailyClearance.strike").isEnabled || (self.element("dailyClearance.undo").exists && self.element("dailyClearance.undo").label == "上一步")
+        }
     }
     private func launchCore(_ page: String, fixture: String? = nil) {
         app?.terminate()
@@ -1178,6 +1180,12 @@ final class ControlLayoutPlacementUITests: XCTestCase {
             return portrait ? frame.height > frame.width : frame.width > frame.height
         }
         waitUntil("ready to operate", timeout: 45) { self.element("dailyClearance.strike").isEnabled }
+        if page == "dailyClearance", fixture == "selection" {
+            ready("freeplay.moreMenu").tap()
+            let scoring = ready("dailyClearance.scoringMode")
+            if scoring.value as? String != "是" { scoring.tap() }
+            ready("关闭菜单").tap()
+        }
         if page == "drillTryout" {
             XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "pro.authorized").count, 1,
                            "Authorization belongs to its container, not every descendant control")
@@ -1345,6 +1353,10 @@ final class ControlLayoutPlacementUITests: XCTestCase {
         ready(more).coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap()
         let camera = ready(prefix + ".cameraMode")
         if camera.value as? String != "2D" { camera.tap() }
+        if page == "dailyClearance" {
+            let scoring = ready("dailyClearance.scoringMode")
+            if scoring.value as? String != "是" { scoring.tap() }
+        }
         if prefix == "freeplay" { app.buttons["关闭菜单"].firstMatch.coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.5)).tap() }
         else { ready(prefix + ".dismissMenu").coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.5)).tap() }
     }
@@ -2645,9 +2657,8 @@ final class ControlLayoutPlacementUITests: XCTestCase {
                 "-appearanceMode", "dark", "-dailyLayout.probe", "-3dDrag.probe",
                 "-v53.authenticatedProfileFixture"]
             app.launch(); app.switchTab(.angle)
-            let title = page == "silu" ? "思路训练" : "自由击球"
-            let tab = page == "silu" ? "解" : "打"
-            ready("angleHomeTab_" + tab).tap(); app.buttons[title].firstMatch.tap()
+            let title = page == "silu" ? "走位求解" : "自由击球"
+            ready("angleHomeTab_走位").tap(); app.buttons[title].firstMatch.tap()
             let more = page == "silu" ? "silu.more" : "freeplay.moreMenu"
             let camera = page == "silu" ? "silu.cameraMode" : "freeplay.cameraMode"
             let primary = page == "silu" ? "silu.strike" : "dailyClearance.strike"
@@ -2668,7 +2679,7 @@ final class ControlLayoutPlacementUITests: XCTestCase {
                 try capture(page + "-business-" + mode + "-base")
             }
             if page == "silu" {
-                ready("silu.tool").tap(); app.buttons["落区"].tap()
+                ready("silu.tool").tap(); app.buttons["silu.tool.region"].tap()
                 let table = ready("table.scene")
                 table.coordinate(withNormalizedOffset: CGVector(dx: 0.37, dy: 0.48)).press(forDuration: 0.1,
                     thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.58, dy: 0.76)))

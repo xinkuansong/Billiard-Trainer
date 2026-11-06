@@ -102,24 +102,24 @@ final class TheoryCatalogTests: XCTestCase {
 
     func testCardSubtitlesAreShortDistinctAndDoNotReplaceFullClaims() {
         let expected: [TheoryPageID: String] = [
-            .t01: "自然滚动约偏30°",
-            .t02: "认清斯登的90°",
-            .t03: "用切线判断碰后路线",
-            .t04: "练出可重复的力度",
-            .t05: "从最后一颗倒推",
-            .t06: "先找收尾关键球",
-            .t07: "选好球团处理时机",
-            .t08: "打前问把握与代价",
-            .t09: "先想清加塞的用途",
-            .t10: "看距离库位和障碍",
-            .flow: "按五步想完这一杆",
-            .quickRef: "上场前回看判断要点",
+            .t01: "理解自然滚动的碰后方向与条件",
+            .t02: "理解斯登击球的直角分离条件",
+            .t03: "用切线建立母球碰后路线参照",
+            .t04: "建立力度参照，按球形校准",
+            .t05: "从收尾球倒推球序与落位",
+            .t06: "识别关键球，安排收尾衔接",
+            .t07: "判断球团处理时机与后续衔接",
+            .t08: "权衡成功收益与失败代价",
+            .t09: "按路线需要选择合适塞量",
+            .t10: "从距离、库位与障碍分析防守",
+            .flow: "串起观察、规划、执行与复盘",
+            .quickRef: "快速查阅控球与清台判断要点",
         ]
         XCTAssertEqual(expected.count, TheoryCatalog.entries.count)
         XCTAssertEqual(Set(TheoryCatalog.entries.map(\.cardSubtitle)).count, TheoryCatalog.entries.count)
         for entry in TheoryCatalog.entries {
             XCTAssertEqual(entry.cardSubtitle, expected[entry.id])
-            XCTAssertLessThanOrEqual(entry.cardSubtitle.count, 10, "\(entry.id.rawValue) 卡片副标题超过小屏预算")
+            XCTAssertLessThanOrEqual(entry.cardSubtitle.count, 16, "\(entry.id.rawValue) 卡片副标题超过六组方案的两行文案预算")
             XCTAssertFalse(entry.cardSubtitle.contains("\n"))
             XCTAssertNotEqual(entry.cardSubtitle, entry.subtitle, "卡片提示不应复制完整理论断言")
         }

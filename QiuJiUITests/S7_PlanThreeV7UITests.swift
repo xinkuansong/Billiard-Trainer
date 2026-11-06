@@ -26,10 +26,8 @@ final class S7_PlanThreeV7UITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN", "-\(arg)"]
         app.launch()
-        // 求解页顶栏「摆球」chip 为常驻 Button（BTChipRow）。等它出现即证明顶栏/球桌
-        // 已完成布局与淡入，避免截到启动或页面过渡的泛白/发灰帧。
-        let placeChip = app.buttons["摆球"]
-        XCTAssertTrue(placeChip.waitForExistence(timeout: 20), "求解页顶栏「摆球」chip 应出现")
+        let tool = arg == "deeplink.silu" ? app.buttons["silu.tool"] : app.buttons["摆球"]
+        XCTAssertTrue(tool.waitForExistence(timeout: 20))
         if let s = expectStatus {
             let match = app.staticTexts.matching(
                 NSPredicate(format: "label CONTAINS %@", s)).firstMatch

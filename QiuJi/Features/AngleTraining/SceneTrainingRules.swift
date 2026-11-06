@@ -65,6 +65,8 @@ struct SceneTrainingConfiguration: Codable, Equatable {
         }
     }
 
+    // Derived for the preparation request. Two-ball records persist their own mode.
+    var twoBallRouteMode: TwoBallMode = .trajectory
     var freePractice = false
     var angleSelection: Set<AngleRange> = [.mixed]
     var cueDistanceSelection: Set<Distance> = [.mixed]
@@ -206,8 +208,9 @@ struct SceneTrainingConfiguration: Codable, Equatable {
 extension SceneTrainingConfiguration {
     /// Free placement uses board conditions, never the trajectory mode's reference-spin filters.
     func forTwoBallMode(_ mode: TwoBallMode) -> Self {
-        guard mode == .free else { return self }
         var value = self
+        value.twoBallRouteMode = mode
+        guard mode == .free else { return value }
         value.allowsVerticalSpin = true
         value.allowsSideSpin = true
         return value

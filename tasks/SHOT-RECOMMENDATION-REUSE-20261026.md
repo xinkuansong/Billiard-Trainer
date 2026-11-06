@@ -2,6 +2,8 @@
 
 状态：首批实施、定向自动化与原生截图复核完成；用户已反馈“确实好用”，其已测场景体验认可。补充模拟器功能22/22通过；窄窗球库比例已修，另轮38项定向测试及原生图复核通过，真机专项未验。用户在复用盘点后确认“好的，开始吧”；本轮完成共享宿主的首批接入。
 
+> 2026-11-06 更新：自定义球形的内置与个人练习已纳入推荐范围，模板编辑仍按原策略。见[当前页面卡](table-page-adaptation/CUSTOM-FORMATION-BUILTINS-20261028.md)。
+
 ## 范围与实现
 
 承接[复用盘点](DAILY-TARGET-RECOMMENDATION-IMPLEMENTATION-20261026.md#其他入口复用盘点2026-10-26)与统一规范TP14/29。采用既有MiddlePocketRegion、ShotComfortScore、DailyShotRecommendation，不改数学、标定、物理或冻结题库。

@@ -8,7 +8,8 @@
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_学"
+      "id": "angleHomeTab_基础",
+      "scrollTo": 4
     },
     {
       "action": "tap",

@@ -69,7 +69,21 @@ def converted(source=SOURCE):
         raise ValueError('Audited coverage or unique identities changed')
     payload = json.dumps(dict(version=1, revision=REVISION, questions=questions),
                          ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode()
-    report = dict(revision=REVISION, sourceSHA256=digest, rows=len(questions), counts=dict(counts),
+    patch_path = ROOT / 'content/practice-jaw-audit/bank.json.gz'
+    patch = json.loads(gzip.decompress(patch_path.read_bytes()))
+    if hashlib.sha256(payload).hexdigest() != patch['source']:
+        raise ValueError('Pocket-jaw adjustment requires its audited original')
+    changes = dict(patch['changes'])
+    for question in questions:
+        adjustment = changes.pop(question['id'], None)
+        if adjustment is not None:
+            question['input'] = adjustment['input']
+            question['direction'] = adjustment['direction']
+    payload = json.dumps(dict(version=1, revision=REVISION, questions=questions),
+                         ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode()
+    if changes or hashlib.sha256(payload).hexdigest() != patch['result']:
+        raise ValueError('Unmatched adjustment or adjusted bank digest')
+    report = dict(jawAdjusted=len(patch['changes']), revision=REVISION, sourceSHA256=digest, rows=len(questions), counts=dict(counts),
                   bytes=len(payload), sha256=hashlib.sha256(payload).hexdigest(), lineage=lineage)
     return payload, report
 

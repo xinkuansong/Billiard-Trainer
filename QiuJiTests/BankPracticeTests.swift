@@ -4,6 +4,60 @@ import SwiftData
 @testable import QiuJi
 
 final class BankPracticeTests: XCTestCase {
+    func testSelectedBankDemonstrationRebuildsRealShot() throws {
+        var accepted = 0
+        for pocket: BankPocketType? in [nil, .middle, .corner] {
+            for rails in 1...3 {
+                var configuration = BankConfiguration()
+                configuration.railCount = rails
+                configuration.pocketType = pocket
+                let question = try BankQuestionPreparer.prepare(configuration, seed: 31).question
+                let reference = try BankQuestionPreparer.solve(question: question, input: question.source.input,
+                    direction: question.source.direction.vector, surfaceY: BTTablePhysics.surfaceY,
+                    profile: AccuracyTipSelector.renderedProfile())
+                let expected = try BankShot(question: question, input: question.source.input, prediction: reference, surfaceY: BTTablePhysics.surfaceY)
+                if let failure = expected.failure {
+                    XCTAssertThrowsError(try question.demonstrationShot(surfaceY: BTTablePhysics.surfaceY)) { error in
+                        XCTAssertTrue(error.localizedDescription.contains(failure.rawValue))
+                    }
+                } else {
+                    let demo = try question.demonstrationShot(surfaceY: BTTablePhysics.surfaceY)
+                    XCTAssertEqual(demo.input, question.source.input)
+                    XCTAssertNil(demo.failure)
+                    accepted += 1
+                    print("BANK_DEMONSTRATION_ACCEPTED", rails, pocket?.rawValue ?? "all", question.source.id)
+                }
+            }
+        }
+        XCTAssertGreaterThan(accepted, 0)
+    }
+
+    func testBankReferenceWithMidRouteJawIsRejected() throws {
+        let bank = try BankPracticeBankStore.load()
+        let source = try XCTUnwrap(bank.questions.first { $0.id == "bank-v1-C-W3-R43-3-T1-C24-S3" })
+        let question = BankQuestion(id: UUID(), source: source)
+        XCTAssertThrowsError(try question.demonstrationShot(surfaceY: BTTablePhysics.surfaceY)) { error in
+            XCTAssertTrue(error.localizedDescription.contains(BankJudgement.Failure.jaw.rawValue))
+        }
+    }
+
+    func testDemonstrationUnlockUsesDistinctCompletedShotsAndSurvivesResume() throws {
+        let prepared = try BankQuestionPreparer.prepare(.init(), seed: 31)
+        var record = BankPracticeRecord(ownerKey: "test", is3D: false, configuration: .init(), prepared: prepared)
+        let first = try syntheticShot(prepared.question, success: false)
+        record.accept(first); record.accept(first)
+        XCTAssertFalse(record.demonstrationUnlocked)
+        record.accept(try syntheticShot(prepared.question, success: false))
+        record = try BankPracticeRecord.decodePayload(record.encodedPayload())
+        XCTAssertFalse(record.demonstrationUnlocked)
+        var early = BankPracticeRecord(ownerKey: "test", is3D: false, configuration: .init(), prepared: prepared)
+        early.accept(try syntheticShot(prepared.question, success: true))
+        XCTAssertTrue(early.demonstrationUnlocked)
+        record.accept(try syntheticShot(prepared.question, success: false))
+        XCTAssertTrue(record.demonstrationUnlocked)
+        XCTAssertEqual(record.attempts.count, 1)
+    }
+
     func testFullBankCoverageAndStratifiedReferencesPassProductionConsumer() throws {
         let started = Date()
         let bank = try BankPracticeBankStore.load()
@@ -298,15 +352,15 @@ final class BankPracticeTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suite) }
         let store = TablePreferencesStore(defaults: defaults)
         _ = store.beginTraining(.bank, source3D: false)
-        store.apply(.closeup, value: 1, to: .bankPractice2D)
         XCTAssertTrue(store.snapshot(for: .bankPractice2D).enabled(.closeup))
-        XCTAssertTrue(store.snapshot(for: .bankPractice3D).enabled(.closeup))
+        store.apply(.closeup, value: 0, to: .bankPractice2D)
+        XCTAssertFalse(store.snapshot(for: .bankPractice3D).enabled(.closeup))
         let restored = TablePreferencesStore(defaults: defaults)
-        XCTAssertTrue(restored.snapshot(for: .bankPractice3D).enabled(.closeup))
-        XCTAssertFalse(restored.snapshot(for: .accuracy2D).enabled(.closeup))
+        XCTAssertFalse(restored.snapshot(for: .bankPractice3D).enabled(.closeup))
+        XCTAssertTrue(restored.snapshot(for: .accuracy2D).enabled(.closeup))
         XCTAssertFalse(restored.snapshot(for: .kickPractice2D).enabled(.closeup))
-        restored.apply(.closeup, value: 0, to: .bankPractice3D)
-        XCTAssertFalse(restored.snapshot(for: .bankPractice2D).enabled(.closeup))
+        restored.apply(.closeup, value: 1, to: .bankPractice3D)
+        XCTAssertTrue(restored.snapshot(for: .bankPractice2D).enabled(.closeup))
     }
 
     @MainActor func testCloseupTracksUserAimWithFixedCenterReferencesAndLifecycle() async throws {

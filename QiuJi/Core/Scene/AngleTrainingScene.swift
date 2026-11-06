@@ -16,8 +16,15 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     let frameReceipt = TableFrameReceipt()
     /// Nil for authoring/export scenes, which retain their explicit configuration.
     var tablePreferencePage: TablePreferencePage?
-    /// Merged practice views render the same room floor in either projection.
-    var usesSceneFloorInTopDown: Bool { tablePreferencePage?.trainingProject != nil }
+    /// Only the full-screen 2D phone view supplies its own carpet.
+    var usesScreenCarpet = false {
+        didSet {
+            guard oldValue != usesScreenCarpet, currentCameraMode != .perspective3D else { return }
+            rootNode.childNode(withName: "reference_room", recursively: false)?.isHidden = !usesSceneFloorInTopDown
+        }
+    }
+    var usesFullWindowTableViewport: Bool { tablePreferencePage?.trainingProject != nil }
+    var usesSceneFloorInTopDown: Bool { usesFullWindowTableViewport && !usesScreenCarpet }
     var tablePreferences: TablePreferenceSnapshot?
     @MainActor var effectiveTrajectoryDetail: TrajectoryDetail {
         tablePreferences?.trajectoryDetail ?? UserPreferences.shared.trajectoryDetail

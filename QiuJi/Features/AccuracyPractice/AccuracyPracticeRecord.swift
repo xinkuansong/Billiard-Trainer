@@ -98,7 +98,9 @@ struct AccuracyPracticeRecord: Codable, Identifiable {
     var currentAttempt: AccuracyPracticeAttempt? { attempts.first { $0.questionID == current?.id } }
     var validAttempts: [AccuracyPracticeAttempt] { attempts.filter { $0.result?.countsAsAttempt == true } }
     var successCount: Int { validAttempts.filter { $0.result?.outcome == .success }.count }
-    var displayName: String { presentation == nil ? (is3D ? "3D准度" : "2D准度") : "准度 · " + (presentation?.summary ?? "") }
+    var displayName: String {
+        TrainingProject.accuracy.historyTitle(presentation: presentation, is3D: is3D)
+    }
     var currentTip: AccuracyTip {
         let base = current?.fixedTip ?? .center
         return constrainedTip(x: Double(draftTip?.x ?? base.x), y: Double(draftTip?.y ?? base.y)) ?? base

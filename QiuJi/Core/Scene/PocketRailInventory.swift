@@ -101,6 +101,7 @@ struct PocketRailTimeline {
     let incoming: [String: Track]
     let chains: [String: [SIMD3<Double>]]
     let duration: Double
+    let railMotionEnd: Double
 
     init(before: PocketRailSnapshot, recorder: TrajectoryRecorder) {
         self.before = before
@@ -144,9 +145,10 @@ struct PocketRailTimeline {
         }
         self.previous = previous.mapValues { $0.prepared() }
         self.incoming = incoming.mapValues { $0.prepared() }
-        self.duration = (Array(previous.values) + Array(incoming.values)).reduce(Double(recorder.duration)) {
+        self.railMotionEnd = (Array(previous.values) + Array(incoming.values)).reduce(0.0) {
             max($0, $1.samples.last?.time ?? 0, ($1.fadeStart ?? 0) + ($1.fadeStart == nil ? 0 : TrajectoryPlayback.pocketFadeDuration))
         }
+        self.duration = max(Double(recorder.duration), railMotionEnd)
     }
 }
 

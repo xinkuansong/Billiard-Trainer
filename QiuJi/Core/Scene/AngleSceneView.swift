@@ -1,6 +1,13 @@
 import SwiftUI
 import SceneKit
 
+/// Optional input for editors. The normalized coordinates belong to the playable cloth.
+struct TableConstraintInput {
+    let tap: (CanvasPoint) -> Void
+    let drag: (CanvasPoint, CanvasPoint, Bool) -> Void
+    let cancel: () -> Void
+}
+
 /// 跨 SwiftUI / SceneKit 的坐标桥接（走位编排器用）。
 /// `AngleSceneView` 在 `makeUIView`/`updateUIView` 用捕获 `SCNView` 的闭包填充，
 /// 供上层把球库拖拽落点反投影到台面（`unproject`），或把球节点世界坐标正投影到屏幕（`project`）。
@@ -31,6 +38,30 @@ final class TableProjector {
 
 }
 
+private struct TableEntryFrameAction: EnvironmentKey {
+    static let defaultValue: (() -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    fileprivate var tableEntryFrameAction: (() -> Void)? {
+        get { self[TableEntryFrameAction.self] }
+        set { self[TableEntryFrameAction.self] = newValue }
+    }
+}
+
+/// Signals the orientation owner once this table has rendered in the incoming
+/// orientation. The renderer and controls remain visible throughout the rotation.
+struct TableEntryRenderObserver: ViewModifier {
+    @Binding var rendered: Bool
+    var enabled = true
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.tableEntryFrameAction, enabled && !rendered ? { rendered = true } : nil)
+            .onDisappear { rendered = false }
+    }
+}
+
 /// UIViewRepresentable wrapper for SceneKit angle training.
 /// Manages gesture recognition and CADisplayLink render loop.
 /// Shares ball dragging, camera gestures and pocket tapping across table editors.
@@ -46,6 +77,7 @@ struct AngleSceneView: UIViewRepresentable {
         case none
     }
 
+    @Environment(\.tableEntryFrameAction) private var entryFrameAction
     let scene: AngleTrainingScene
     @Binding var cameraMode: AngleTrainingScene.CameraMode
     /// Adaptive hosts supply the same 2D reference in both camera modes.
@@ -79,6 +111,7 @@ struct AngleSceneView: UIViewRepresentable {
 
     /// 点击未命中球/袋口时，反投影到台面平面的世界坐标回调（走位编排器自由瞄准用）。
     var onTableTapped: ((SCNVector3) -> Void)?
+    var constraintInput: TableConstraintInput?
 
     /// 自由瞄准拖动：2D pan 必须从桌外框内起手，未命中可拖球才进入「瞄准调整」。
     /// 桌内起手后可连续滑出；桌外起手整次拒绝，渲染房间地板不扩大瞄准热区（TP17）。
@@ -187,6 +220,7 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.updatePocketAccessibility()
         context.coordinator.contentIsAnimating = contentIsAnimating
         context.coordinator.setDaily3DDiagnostics(daily3DDiagnostics)
+        context.coordinator.entryFrameAction = entryFrameAction
         context.coordinator.startRenderLoop()
         context.coordinator.requestInteractiveFrames()
         bindProjector(to: scnView, coordinator: context.coordinator)
@@ -248,6 +282,7 @@ struct AngleSceneView: UIViewRepresentable {
             context.coordinator.requestInteractiveFrames()
         }
         context.coordinator.setDaily3DDiagnostics(daily3DDiagnostics)
+        context.coordinator.entryFrameAction = entryFrameAction
         context.coordinator.updateContentActivity(contentIsAnimating, cameraMode: cameraMode)
         if scene.usesAdaptiveDiagramLabels,
            context.coordinator.diagramLabelVisibility != scene.diagramVisibleLabelIndices {
@@ -275,6 +310,7 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.onDragEndedAt = onDragEndedAt
         context.coordinator.selectableBallNodes = selectableBallNodes
         context.coordinator.onBallTapped = onBallTapped
+        context.coordinator.constraintInput = constraintInput
         context.coordinator.onTableTapped = onTableTapped
         context.coordinator.onAimNudged = onAimNudged
         context.coordinator.onAimDragActiveChanged = onAimDragActiveChanged
@@ -311,6 +347,7 @@ struct AngleSceneView: UIViewRepresentable {
         coordinator.scene.cancelPocketSelectionFeedback()
         coordinator.endBallDrag()
         coordinator.endAimDrag()
+        coordinator.cancelClothDrag()
         coordinator.stopRenderLoop()
         // 2D/3D layouts replace this child view while FreePlayView stays visible.
         // The page owns visibility; teardown only detaches this renderer's target.
@@ -564,6 +601,8 @@ struct AngleSceneView: UIViewRepresentable {
             guard let world = overlayWorld(point) else { return }
             if abs(world.x) > Float(rig.tableOuterHalfLength) || abs(world.z) > Float(rig.tableOuterHalfWidth) {
                 onTemporaryTopDownDismiss?()
+            } else {
+                tapEmptyCloth(at: point)
             }
         }
 
@@ -584,6 +623,7 @@ struct AngleSceneView: UIViewRepresentable {
                 let start = mergedTouchOrigin ?? CGPoint(x: point.x-delta.x,y: point.y-delta.y)
                 guard let node = overlayDragBall(at: start), let world = overlayWorld(start) else {
                     selectedDragBall = nil
+                    _ = beginClothDrag(at: start, current: point)
                     return
                 }
                 selectedDragBall = node
@@ -1017,6 +1057,57 @@ struct AngleSceneView: UIViewRepresentable {
             }
         }
 
+        var entryFrameAction: (() -> Void)? {
+            didSet {
+                if oldValue == nil, entryFrameAction != nil {
+                    entryViewport = nil
+                    requestInteractiveFrames()
+                }
+            }
+        }
+        private weak var entryCarpet: ScreenAnchoredCarpet.Controller?
+        private var entryViewport: CGRect?
+        private var entryScale: Double?
+        private var entryFrameNumber = 0
+
+        private func presentEntryIfReady() {
+            guard cameraMode != .perspective3D, entryFrameAction != nil || entryCarpet?.needsLandscapeFrame == true,
+                  let view = scnView, let window = view.window else { return }
+            let floor = entryCarpet ?? ScreenAnchoredCarpet.Controller.owner(in: window)
+            let landscapeHandoff = window.bounds.width > window.bounds.height && floor?.needsLandscapeFrame == true
+            guard entryFrameAction != nil || landscapeHandoff,
+                  let camera = scene.cameraNode, view.pointOfView === camera,
+                  let lens = camera.presentation.camera,
+                  cameraMode == scene.currentCameraMode, !scene.isCameraModeTransitioning,
+                  let rig = scene.cameraRig, !rig.isTransitioning, !view.bounds.isEmpty else { return }
+            let landscape = window.bounds.width > window.bounds.height
+            guard (cameraMode == .topDown2D) == landscape, let readable = twoViewReadableFrameInWindow else { return }
+            let frame = view.convert(readable, from: nil).intersection(view.bounds)
+            guard !frame.isEmpty, !frame.isNull else { return }
+            let scale = lens.usesOrthographicProjection ? lens.orthographicScale : 0
+            let completed = frameDelegate.completedFrameNumber
+            if frame.integral != entryViewport || scale != entryScale {
+                entryViewport = frame.integral
+                entryScale = scale
+                entryFrameNumber = completed
+                return
+            }
+            // A frame already in flight at the geometry change may still use the old camera.
+            guard completed - entryFrameNumber >= 2 else { return }
+            let action = entryFrameAction
+            entryFrameAction = nil
+            if let floor {
+                entryCarpet = floor
+                let half = Float(AngleSceneCalculator.innerLength / 2)
+                let left = view.projectPoint(SCNVector3(-half, scene.surfaceY, 0))
+                let right = view.projectPoint(SCNVector3(half, scene.surfaceY, 0))
+                let length = CGFloat(hypot(right.x - left.x, right.y - left.y))
+                if landscapeHandoff { floor.finishTurn(tableLength: length) }
+                else if !landscape { floor.notePortraitTable(length: length) }
+            }
+            action?()
+        }
+
         private var dailyProbeDeliveredFirstViewport = false
 
         func updateViewport(_ size: CGSize) {
@@ -1038,7 +1129,7 @@ struct AngleSceneView: UIViewRepresentable {
             scene.cameraRig?.viewportSize = size
             if let rig = scene.cameraRig {
                 rig.topDownPresentationRect = nil
-                if scene.usesSceneFloorInTopDown, let view = scnView, view.window != nil,
+                if scene.usesFullWindowTableViewport, let view = scnView, view.window != nil,
                    let frame = twoViewReadableFrameInWindow {
                     let rect = view.convert(frame, from: nil).intersection(view.bounds)
                     if !rect.isNull, !rect.isEmpty { rig.topDownPresentationRect = rect }
@@ -1097,7 +1188,7 @@ struct AngleSceneView: UIViewRepresentable {
                 return
             }
             let gestureActive = scnView.gestureRecognizers?.contains { $0.state == .began || $0.state == .changed } ?? false
-            var active = (contentIsAnimating ?? true) || gestureActive || scene.isCameraModeTransitioning
+            var active = entryFrameAction != nil || entryCarpet?.needsLandscapeFrame == true || (contentIsAnimating ?? true) || gestureActive || scene.isCameraModeTransitioning
                 || (scene.cameraRig?.temporaryTopDownActive == true && scene.cameraRig?.usesMergedCamera != true)
                 || (scene.cameraRig?.isTransitioning ?? false)
                 || (cameraMode == .perspective3D && (scene.cameraRig?.hasPendingDamping ?? false))
@@ -1154,6 +1245,8 @@ struct AngleSceneView: UIViewRepresentable {
         var onDragEndedAt: ((SCNNode, CGPoint) -> Void)?
         var selectableBallNodes: [SCNNode] = []
         var onBallTapped: ((SCNNode) -> Void)?
+        var constraintInput: TableConstraintInput?
+        private var clothDrag: (start: CanvasPoint, last: CanvasPoint, input: TableConstraintInput)?
         var onTableTapped: ((SCNVector3) -> Void)?
         var onAimNudged: ((Float) -> Void)?
         var onAimDragActiveChanged: ((Bool) -> Void)?
@@ -1282,6 +1375,7 @@ struct AngleSceneView: UIViewRepresentable {
             displayLinkCallbackCount += 1
             daily3DDiagnostics?.displayLinkCallback()
             defer {
+                presentEntryIfReady()
                 updateDiagramAnnotations()
                 #if DEBUG
                 if dragProbeEnabled || pocketProbeEnabled { updatePocketAccessibility() }
@@ -1491,10 +1585,53 @@ struct AngleSceneView: UIViewRepresentable {
             if let location { onDragEndedAt?(ball, location) }
         }
 
+        private func clothPoint(at point: CGPoint, clamp: Bool = false) -> CanvasPoint? {
+            guard let world = editingWorld(at: point) else { return nil }
+            let n = AngleSceneCalculator.sceneToNormalized(position: world)
+            guard n.x.isFinite, n.y.isFinite,
+                  clamp || ((0...1).contains(n.x) && (0...0.5).contains(n.y)) else { return nil }
+            return CanvasPoint(x: Double(min(max(n.x, 0), 1)), y: Double(min(max(n.y, 0), 0.5)))
+        }
+
+        private func beginClothDrag(at origin: CGPoint, current: CGPoint) -> Bool {
+            guard let input = constraintInput, let start = clothPoint(at: origin) else { return false }
+            let point = clothPoint(at: current, clamp: true) ?? start
+            clothDrag = (start, point, input)
+            input.drag(start, point, false)
+            return true
+        }
+
+        /// Only the began sample arbitrates with ball dragging, including in temporary top-down.
+        private func continueClothDrag(_ gesture: UIPanGestureRecognizer) -> Bool {
+            guard let drag = clothDrag else { return false }
+            if constraintInput == nil || gesture.state == .cancelled || gesture.state == .failed {
+                cancelClothDrag()
+            } else {
+                let point = clothPoint(at: gesture.location(in: scnView), clamp: true) ?? drag.last
+                let ended = gesture.state == .ended
+                clothDrag = ended ? nil : (drag.start, point, drag.input)
+                drag.input.drag(drag.start, point, ended)
+            }
+            return true
+        }
+
+        func cancelClothDrag() {
+            let input = clothDrag?.input
+            clothDrag = nil
+            input?.cancel()
+        }
+
+        private func tapEmptyCloth(at point: CGPoint) {
+            if let constraintInput, let normalized = clothPoint(at: point) {
+                constraintInput.tap(normalized)
+            }
+        }
+
         @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
             defer {
                 if [.ended, .cancelled, .failed].contains(gesture.state) { panTouchOrigin = nil }
             }
+            if continueClothDrag(gesture) { return }
             if scene.cameraRig?.temporaryTopDownActive == true { handleOverlayPan(gesture); return }
             let surfacePan = scene.cameraRig?.usesSurfaceCamera == true
             if [.ended, .cancelled, .failed].contains(gesture.state), !surfacePan { finishCameraObservation() }
@@ -1552,6 +1689,7 @@ struct AngleSceneView: UIViewRepresentable {
                 }
                 draggedNode = nil
                 selectedDragBall = nil
+                if beginClothDrag(at: location, current: current) { return }
                 // 瞄准调整：已通过起点边界检查，未命中球才进入。**第一落点不改变方向**，
                 // 故此处不回调；轴心 = 母球屏幕投影，记下起手点，后续 .changed 逐帧求相对角位移。
                 if onAimNudged != nil {
@@ -1902,6 +2040,8 @@ struct AngleSceneView: UIViewRepresentable {
                 return
             }
 
+            tapEmptyCloth(at: location)
+
             // 未命中球/袋口：反投影到台面平面回调（自由瞄准设定方向）。
             if let onTableTapped {
                 let planeY = scene.surfaceY + AngleSceneCalculator.ballRadius
@@ -2220,6 +2360,12 @@ class FrameDelegate: NSObject, SCNSceneRendererDelegate {
         (scene as? AngleTrainingScene)?.frameReceipt.willRender()
     }
     private let lock = NSLock()
+    private var completedFrames = 0
+    var completedFrameNumber: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return completedFrames
+    }
     private var frames = 0
     private var watchesIdle = false
     private var invalidationPending = false
@@ -2266,6 +2412,7 @@ class FrameDelegate: NSObject, SCNSceneRendererDelegate {
         SCNTransaction.unlock()
         lock.lock()
         frames += 1
+        completedFrames += 1
         sceneAnimations = animated
         let notify = watchesIdle && !invalidationPending && idleCallback != nil
         if notify { invalidationPending = true }

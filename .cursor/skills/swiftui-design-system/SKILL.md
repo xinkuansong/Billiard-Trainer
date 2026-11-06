@@ -475,7 +475,8 @@ BTPracticeCover(visual: PracticeCoverCatalog.visual(for: route), chip: "2D")
 - **DR-052**：练习首页单字水印改用 pre-v27 逐卡独立多彩渐变，通过 `CoverPalette.PracticeMulticolor` 消费历史色值；禁止退回学/练/打/解四分区同色阶或在 View 内硬编码 RGB。
 - **DR-053**：练习首页水印尽量用两字语义词；每个分组从 01 独立编号；高级入口的 `BTProBadge` 必须与真实订阅门控成对出现，非 Pro 点击统一弹 `SubscriptionView`。
 - **DR-054**：练习首页大字水印按 `CoverPalette.Glyph.gridAbsoluteSize * 0.06` 下移；类型标签固定在彩色封面右下角，Pro 徽标继续位于右上角。
-- **DR-065（v32 / v32.2）**：练习侧栏 **学 / 理 / 练 / 打 / 解**。理区 = `TheoryCatalog` 已上线篇各一张卡直达详情（无「球理」总卡）；学区不得放定理卡。UITest：`TheoryIndexNavigation.openPage(cardTitle:)`。
+- **DR-463（2026-11-06，现行）**：练习侧栏为全部、基础、准度、控球、走位、进阶、策略；标题下独立显示学习难度（三至五星）或工具／速查，再显示功能副标题。沿用双列和原卡壳字体，副标题最多两行。
+- **DR-065（历史，分类由DR-463覆盖）**：练习侧栏 **学 / 理 / 练 / 打 / 解**。理区 = `TheoryCatalog` 已上线篇各一张卡直达详情（无「球理」总卡）；学区不得放定理卡。UITest：`TheoryIndexNavigation.openPage(cardTitle:)`。
 
 - **DR-416（2026-10-21）**：`BTContentGridCard.reservesTitleSpace` 默认 `false`；练习首页显式开启，通过 `lineLimit(_:reservesSpace:)` 按实际字体预留两行标题，避免短标题卡片变矮。训练/动作库默认行为保持，不能按具体卡名添加高度特例。
 
@@ -1716,7 +1717,7 @@ Changelog：2026-10-26 / DR-437 / 训练设置方向与少球标题允许条件�
 
 ### DR-438 — 练习 Pro 模式与动作（2026-10-26，r2）
 
-`BTTrainingModePicker(count:isPremium:freePractice:)`提供限题/自由训练选择；非会员自由项使用既有BTProBadge，整项点击由调用方保留购买意图。用户修订：开始、重新开始、再来一局、重新开球保持纯文字，不加PRO胶囊；触及额度限制时点击直接进入会员页，取消保留现场。额度和授权在实际业务入口检查；只对自由训练选择保留锁标。Changelog：DR-438 r2 / 纯文字动作与自由训练锁标。
+`BTTrainingModePicker(count:isPremium:freePractice:)`提供限题/自由训练选择；「持续练习」常驻 BTProBadge，非会员闭锁，会员开锁，选择状态由分段高亮表示。整项点击由调用方处理选择或购买意图。用户修订：开始、重新开始、再来一局、重新开球保持纯文字，不加PRO胶囊；触及额度限制时点击直接进入会员页，取消保留现场。额度和授权在实际业务入口检查；只对自由训练选择保留锁标。Changelog：DR-438 r2 / 纯文字动作与自由训练锁标。
 
 
 2026-10-27 DR-438 r3：首页每日／继续清台入口删除免费额度与 Pro 说明行；每日2D/3D结束动作复用 DailyConfirmationCard 的实色浅深底板和淡绿主按钮，单操作可省略标题与第二动作。既有双按钮确认布局、结果信息位置、额度及回调不变。

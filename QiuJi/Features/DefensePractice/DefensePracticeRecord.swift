@@ -45,6 +45,17 @@ struct DefenseQuestion: Codable, Identifiable {
               angle: 0, side: 0, cueBand: .middle, pocketBand: .middle, combinationID: source.id,
               qualification: "defense-parameters-v1", generationAngle: 0)
     }
+    func demoTitle(at index: Int) -> String {
+        let events = source.references[index].expected.events
+        let rails = ["下左长", "下右长", "上左长", "上右长", "左短", "右短"]
+        func sequence(_ number: Int) -> String {
+            let hits = events.filter { $0.kind == "cushion" && $0.ballNumbers == [number] }
+                .compactMap(\.railIndex).compactMap { rails.indices.contains($0) ? rails[$0] : nil }
+            return hits.isEmpty ? "不吃库" : hits.joined(separator: "→")
+        }
+        let title = index == referenceIndex ? "本题目标" : "线路 \(index+1)"
+        return "\(title) · 母球\(sequence(0)) · \(ballNumber)号\(sequence(ballNumber))"
+    }
     var contentID: String { source.id }
     var ballNumber: Int { source.ownBallNumber }
     var requirementText: String { "先碰\(ballNumber)号，合法防守 · 对方打\(source.opponentBallNumber)号" }
@@ -134,6 +145,18 @@ struct DefensePracticeRecord: Codable, Identifiable {
     var questions: [DefenseQuestion]
     var cursor = 0
     var attempts: [Attempt] = []
+    private var demonstrationProgress: PracticeDemonstrationProgress?
+    var currentDemonstrationProgress: PracticeDemonstrationProgress {
+        if let demonstrationProgress { return demonstrationProgress }
+        var progress = PracticeDemonstrationProgress()
+        if let first = currentAttempt {
+            progress.accept(id: first.id, qualified: PracticeDemonstrationProgress.qualifies(score: first.trajectoryScore))
+        }
+        if let last = latestShot, last.questionID == current?.id {
+            progress.accept(id: last.id, qualified: PracticeDemonstrationProgress.qualifies(score: last.trajectoryScore))
+        }
+        return progress
+    }
     var latestShot: DefenseShot?
     var draftInput = SeparationInput()
     var draftDirection: TrainingBankPoint
@@ -159,7 +182,9 @@ struct DefensePracticeRecord: Codable, Identifiable {
     var average: String { scoredCount == 0 ? "—" : String(format: "%.1f", scoreSum / Double(scoredCount)) }
     var successRate: String { SceneTrainingMetrics.percentage(successCount, of: totalProcessed) }
     var finishMetrics: [(String, String)] { [("已练题数", "\(totalProcessed)"), ("防守均分", average)] }
-    var displayName: String { "防守练习 · " + (presentation?.summary ?? (is3D ? "3D" : "2D")) }
+    var displayName: String {
+        TrainingProject.defense.historyTitle(presentation: presentation, is3D: is3D)
+    }
     var historyDetail: String {
         "已练\(totalProcessed)题 · 防守均分 " + average
     }
@@ -175,12 +200,18 @@ struct DefensePracticeRecord: Codable, Identifiable {
     }
     mutating func accept(_ shot: DefenseShot) {
         guard shot.questionID == current?.id, latestShot?.id != shot.id else { return }
+        if configuration.mode == .trajectory {
+            var progress = currentDemonstrationProgress
+            progress.accept(id: shot.id, qualified: PracticeDemonstrationProgress.qualifies(score: shot.trajectoryScore))
+            demonstrationProgress = progress
+        }
         if currentAttempt == nil {
             attempts.append(.init(id: shot.id, questionID: shot.questionID, submittedAt: shot.submittedAt, failure: shot.failure, effectScore: shot.effect.score, trajectoryScore: shot.trajectoryScore))
         }
         latestShot = shot; draftInput = shot.input; draftDirection = shot.direction; updatedAt = Date()
     }
     mutating func resetInput() {
+        demonstrationProgress = nil
         draftInput = .init(); latestShot = nil; showingResult = false; geometricReference = nil
         if let current { draftDirection = current.initialDirection }
         initialPoses = [:]; finalPoses = [:]; viewBookmark = nil; shotBookmark = nil
@@ -194,7 +225,7 @@ struct DefensePracticeRecord: Codable, Identifiable {
         return next
     }
     var canResumeCurrentTraining: Bool {
-        isCompatible && judgementVersion == 1 && physicsVersion == "planarReference-20261104" && scoringVersion == DefenseEffect.version && bankFingerprint == DefenseBankStore.fingerprint
+        isCompatible && judgementVersion == 1 && physicsVersion == "planarReference-20261104" && scoringVersion == DefenseEffect.version && bankFingerprint == DefenseBankStore.fingerprint(for: configuration.mode)
     }
     var isCompatible: Bool {
         version == Self.payloadVersion && questions.indices.contains(cursor) && draftInput.isValid

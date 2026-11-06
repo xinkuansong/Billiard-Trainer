@@ -373,7 +373,7 @@ struct GeometricAngleQuizView: View {
             HStack(spacing: Spacing.lg) {
                 if vm.lastErrorRating == .off {
                     NavigationLink(value: AngleRoute.aimingPrinciple) {
-                        Label("回看原理", systemImage: "book")
+                        Label("瞄准原理", systemImage: "book")
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
                             .foregroundStyle(.btText)
                             .padding(.horizontal, Spacing.md)
@@ -383,7 +383,7 @@ struct GeometricAngleQuizView: View {
                     .buttonStyle(BTPressableStyle.capsule)
                 }
                 NavigationLink(value: AngleRoute.sceneAiming2D) {
-                    Label("去真台练", systemImage: "target")
+                    Label(TrainingProject.angle.title, systemImage: "target")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(.btText)
                         .padding(.horizontal, Spacing.md)

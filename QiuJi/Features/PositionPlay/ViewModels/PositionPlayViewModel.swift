@@ -768,31 +768,6 @@ final class PositionPlayViewModel: ObservableObject {
         recompute()
     }
 
-    func captureDailyUndo() -> () -> Void {
-        let board = currentSnapshot(), poses = scene.captureBallPoses(), rails = scene.railInventory.snapshot()
-        let view = scene.capturePerspectiveView()
-        let power = velocity, x = spinX, y = spinY, mode = aimMode, preference = preferredAimMode
-        let manualSelection = dailyManualSelection
-        let reason = temporaryFreeReason, target = selectedTargetKey, pocket = selectedPocketIndex, direction = freeAimDir
-        return { [weak self] in
-            guard let self else { return }
-            self.cancelDailyAttempt()
-            self.selectionChangeDepth += 1
-            defer { self.selectionChangeDepth -= 1; self.recompute() }
-            self.loadBoard(board)
-            self.velocity = power; self.spinX = x; self.spinY = y
-            self.preferredAimMode = preference; self.temporaryFreeReason = reason
-            self.aimMode = mode; self.selectedTargetKey = target; self.selectedPocketIndex = pocket
-            self.freeAimDir = direction
-            self.dailyManualSelection = manualSelection
-            self.pendingAutomaticPocketFeedback = false
-            self.scene.cancelPocketSelectionFeedback()
-            self.scene.restoreBallPoses(poses); self.scene.railInventory.restore(rails)
-            if let view { self.scene.restorePerspectiveView(view) }
-            self.recompute()
-        }
-    }
-
     @discardableResult
     func moveDailyCue(node: SCNNode, world: SCNVector3, placement: DailyCuePlacement) -> Bool {
         guard placement != .none else { return false }
@@ -846,6 +821,10 @@ final class PositionPlayViewModel: ObservableObject {
     /// 以外部球形（如拍照建球形产出的快照）替换当前桌面，并恢复编排求解。
     /// 空快照不改动默认球形（保持开箱可用）。
     func loadBoard(_ snapshot: BoardSnapshot) {
+        loadBoard(snapshot, alreadyOnTable: false)
+    }
+
+    private func loadBoard(_ snapshot: BoardSnapshot, alreadyOnTable: Bool) {
         guard !isPlaying, !snapshot.onTable.isEmpty else { return }
         authoringInitialReturn = nil
         isViewingAuthoringInitial = false
@@ -855,7 +834,7 @@ final class PositionPlayViewModel: ObservableObject {
         dailyManualSelection = false
         selectedTargetKey = nil
         selectedPocketIndex = -1
-        scene.railInventory.clear()
+        if !alreadyOnTable { scene.railInventory.clear() }
         recordedRailsBefore.removeAll()
         lastShotBeforeRails = PocketRailSnapshot()
         rerecordingStepIndex = nil
@@ -869,7 +848,13 @@ final class PositionPlayViewModel: ObservableObject {
         canReplay = false
         canPlayback = false
         lastPlaybackContext = nil
-        applyBoard(snapshot, cuePose: .reseat)
+        if alreadyOnTable {
+            scene.invalidatePerspectiveView()
+            scene.cameraRig?.setTwoViewViewingContext(UUID())
+            refreshBoardSelection(snapshot)
+        } else {
+            applyBoard(snapshot, cuePose: .reseat)
+        }
     }
 
     /// 载入一条已存序列并进入「续接编辑」态（存档 + 在原有基础上修改）。
@@ -2591,6 +2576,17 @@ final class PositionPlayViewModel: ObservableObject {
         var facts = ShotFacts.extract(events: solved.prediction.events, cueName: ShotInput.cueBallName,
             tableKeys: Set(solved.before.onTable.keys), pocketed: potted,
             key: { boardKey(forPredName: $0, shot: solved.shot) })
+        if practiceRequiresExplicitAim, onShotSettled != nil {
+            let expected = Set(solved.before.onTable.keys).subtracting(potted)
+            var rest: [String: SIMD2<Float>] = [:]
+            for (name, position) in solved.prediction.finalPositions {
+                let key = boardKey(forPredName: name, shot: solved.shot)
+                if expected.contains(key), position.x.isFinite, position.z.isFinite {
+                    rest[key] = SIMD2(position.x, position.z)
+                }
+            }
+            if solved.prediction.hasFinalTableState, Set(rest.keys) == expected { facts.scoringRest = rest }
+        }
         facts.cueStartedBehindHeadString = (solved.before.onTable[PositionPlayBall.cueKey]?.x ?? 0) > 0.75
         let firstTime = solved.prediction.events.first { event in
             if case .ballBall(let a, let b) = event.kind { return a == ShotInput.cueBallName || b == ShotInput.cueBallName }
@@ -2990,6 +2986,10 @@ final class PositionPlayViewModel: ObservableObject {
             place(key: key, normalized: pt,
                   cuePose: PositionPlayBall.isCue(key) ? cuePose : .home)
         }
+        refreshBoardSelection(snapshot)
+    }
+
+    private func refreshBoardSelection(_ snapshot: BoardSnapshot) {
         refreshOnTableKeys()
         if let t = selectedTargetKey, snapshot.onTable[t] == nil { selectedTargetKey = nil }
         if selectedTargetKey == nil { autoSelectTarget() }
@@ -3778,10 +3778,8 @@ final class PositionPlayViewModel: ObservableObject {
             .sink { [weak self] _ in self?.objectWillChange.send() }
         runner.onSettled = { [weak self] board in
             guard let self else { return }
-            let rails = self.scene.railInventory.snapshot()
             self.teardownBreakFlow()
-            self.loadBoard(board)
-            self.scene.railInventory.restore(rails)
+            self.loadBoard(board, alreadyOnTable: true)
             self.statusText = "开球散局已落座 · 可直接编排击打"
         }
         runner.onOutcomeSettled = { [weak self] outcome in

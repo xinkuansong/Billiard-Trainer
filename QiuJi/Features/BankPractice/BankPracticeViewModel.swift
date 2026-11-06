@@ -80,7 +80,11 @@ final class BankPracticeViewModel: ObservableObject, TeachingTableHost {
     private var upgradeIntent: UpgradeIntent?
     #if DEBUG
     var diagnostic: String {
-        let value: [String: Any] = ["phase": String(describing: phase), "question": record?.current?.id.uuidString ?? "",
+        let value: [String: Any] = ["instrument": instrumentInput.diagnosticValues,
+            "referenceInput": record?.current?.demonstrationInput.diagnosticValues ?? [],
+            "playerInput": input.diagnosticValues,
+            "demoShowing": demonstrationInput != nil,
+            "phase": String(describing: phase), "question": record?.current?.id.uuidString ?? "",
             "attempts": record?.attempts.count ?? 0, "successes": record?.successCount ?? 0,
             "railColors": record?.configuration.showsRailColors ?? false, "geometry": geometryReference.diagnostic, "segments": record?.current?.railSegments ?? [],
             "referenceVisible": !referenceNodes.isEmpty, "actualVisible": !actualNodes.isEmpty, "objectActualVisible": !objectNodes.isEmpty,
@@ -152,6 +156,8 @@ final class BankPracticeViewModel: ObservableObject, TeachingTableHost {
     var selectableBalls: [SCNNode] { [] }
     var isDragging: Bool { geometryReference.dragging }
     var currentPlayerAim: SCNVector3? { record?.draftDirection.vector }
+    @Published private(set) var demonstrationInput: SeparationInput?
+    var instrumentInput: SeparationInput { demonstrationInput ?? input }
     var input: SeparationInput { record?.draftInput ?? .init() }
     var velocity: Double {
         get { Double(input.velocity) }
@@ -572,15 +578,45 @@ final class BankPracticeViewModel: ObservableObject, TeachingTableHost {
         }
         redrawCue(); geometryReference.restore(); _ = save()
     }
-    func replayLastShot() {
-        guard canPlayback, let shot = record?.latestShot, let cue = scene.cueBallNode, let target = targetNode else { return }
+    private func beginReplay() -> Bool {
+        guard canPlayback, let cue = scene.cueBallNode, let target = targetNode else { return false }
         let state = (phase, BallDisplay(cue), BallDisplay(target), scene.railInventory.snapshot())
         invalidate(); replayReturn = state; replayCamera.begin(in: scene); isReplaying = true
+        return true
+    }
+
+    func replayLastShot() {
+        guard let shot = record?.latestShot, beginReplay() else { return }
         drawActual(); play(shot)
+    }
+
+    var canReplayReference: Bool {
+        phase == .result && canPlayback && record?.demonstrationUnlocked == true
+    }
+
+    func replayReference() {
+        guard canReplayReference, let question = record?.current, beginReplay() else { return }
+        let token = generation
+        demonstrationInput = question.demonstrationInput
+        phase = .preparing
+        work = question.loadDemonstration(surfaceY: scene.surfaceY) { [weak self] result in
+            guard let self, generation == token else { return }
+            switch result {
+            case .success(let shot):
+                drawActual()
+                play(shot)
+            case .failure(let error):
+                demonstrationInput = nil
+                stopPlayback()
+                message = error.localizedDescription
+            }
+        }
     }
     func stopPlayback() {
         guard isReplaying else { return }
+        let displayed = demonstrationInput
         invalidate()
+        demonstrationInput = displayed
         if phase == .aiming { drawActual(showsObjectRoute: false); redrawCue() }
         else if phase == .result { drawActual() }
     }
@@ -632,7 +668,7 @@ final class BankPracticeViewModel: ObservableObject, TeachingTableHost {
                 guard self.nextQuestionKey == key, self.canPrepareNextQuestion else {
                     self.discardNextQuestion(); return
                 }
-                guard prepared.fingerprint == self.record?.bankFingerprint else {
+                guard BankPracticeBankStore.acceptsSession(self.record?.bankFingerprint, for: prepared.fingerprint) else {
                     self.discardNextQuestion(); return
                 }
                 request.prepared = prepared; self.nextQuestionReady = true
@@ -682,7 +718,7 @@ final class BankPracticeViewModel: ObservableObject, TeachingTableHost {
             discardNextQuestion(); phase = .result; return
         }
         guard var next = record, let repository else { return }
-        guard prepared.fingerprint == next.bankFingerprint else {
+        guard BankPracticeBankStore.acceptsSession(next.bankFingerprint, for: prepared.fingerprint) else {
             discardNextQuestion(); throw SeparationQuestionGenerator.Failure.incompatible
         }
         // A revoked and later restored entitlement can create a new request for the same key.
@@ -834,6 +870,7 @@ final class BankPracticeViewModel: ObservableObject, TeachingTableHost {
         _ = save()
     }
     private func invalidate(preservingCue: Bool = false) {
+        demonstrationInput = nil
         closeupSnapshot = nil; closeupWasNear = false
         centerReferenceLine?.removeFromParentNode(); centerReferenceLine = nil
         clearReference()

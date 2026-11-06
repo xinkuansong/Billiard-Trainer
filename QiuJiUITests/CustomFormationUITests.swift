@@ -14,7 +14,7 @@ final class CustomFormationUITests: XCTestCase {
         if direct { args += ["-deeplink.customFormation", "-customFormation.owner=ui-\(UUID())"] }
         app = .launchClean(extraArgs: args)
         if !direct {
-            app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
+            app.switchTab(.angle); app.buttons["angleHomeTab_走位"].tap()
             let card = app.buttons["自定义球形"]
             for _ in 0..<5 { if card.exists && card.isHittable { break }; app.swipeUp() }
             XCTAssertTrue(card.waitForExistence(timeout: 10)); card.tap()

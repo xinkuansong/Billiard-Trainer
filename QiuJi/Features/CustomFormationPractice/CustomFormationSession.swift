@@ -103,12 +103,16 @@ final class CustomFormationSession: ObservableObject, Identifiable {
     func setup() {
         guard !progressActive else { return }
         if !isTemplateEditor, let restoredProgress { keys = restoredProgress.keys }
+        vm.usesShotComfortRanking = !isTemplateEditor
         vm.configureCustomBalls(keys)
         vm.loadBoard(!isTemplateEditor ? (restoredProgress?.board ?? startBoard) : startBoard)
-        if isTemplateEditor { drawing = original?.drawing ?? .init(); refreshDrawing() }
-        vm.setPreferredAimMode(.free)
-        if !isTemplateEditor, let restoredProgress { vm.restoreTrainingInput(restoredProgress.input) }
-        else { aimAtBuiltInStartingBall() }
+        if isTemplateEditor {
+            drawing = original?.drawing ?? .init()
+            refreshDrawing()
+            vm.setPreferredAimMode(.free)
+        } else if let restoredProgress {
+            vm.restoreTrainingInput(restoredProgress.input)
+        }
         progressActive = true
         vm.onShotWillStart = { [weak self] in self?.willStrike() }
         vm.onShotSettled = { [weak self] facts in
@@ -159,7 +163,6 @@ final class CustomFormationSession: ObservableObject, Identifiable {
         guard !busy else { return }
         clearTools(); trialBoard = nil
         keys = startKeys; vm.configureCustomBalls(keys); vm.loadBoard(startBoard)
-        aimAtBuiltInStartingBall()
         toolsActive = isTemplateEditor; hasEdits = false
         saveProgress()
     }
@@ -168,13 +171,6 @@ final class CustomFormationSession: ObservableObject, Identifiable {
         startTemplateID = template.id
         startBoard = template.board; startKeys = template.ballKeys; name = template.name
         reset(); showSettings = false
-    }
-
-    private func aimAtBuiltInStartingBall() {
-        guard !isTemplateEditor, let startTemplateID, BuiltInCustomFormations.contains(startTemplateID),
-              let first = startKeys.first(where: { PositionPlayBall.number(for: $0) == 1 }) else { return }
-        vm.setPreferredAimMode(.free)
-        vm.selectTarget(key: first)
     }
 
     func clearTools() { guide.clear(scene: vm.scene); swapMode = false; focusKey = nil; notice = nil }

@@ -34,7 +34,7 @@ final class PocketToleranceUITests: XCTestCase {
     private func open() {
         XCUIDevice.shared.orientation = .landscapeLeft
         app = XCUIApplication.launchClean(extraArgs:["-v50.inMemoryStore","-3dDrag.probe","-pocketTolerance.probe","-v63.cameraDiagnostics","-freeLayout.ephemeral"])
-        app.switchTab(.angle); app.buttons["angleHomeTab_学"].tap()
+        app.switchTab(.angle); app.buttons["angleHomeTab_基础"].tap()
         let card = app.buttons["进球容错角"]
         for _ in 0..<7 { if card.isHittable { break }; app.swipeUp() }
         ready(card); card.tap(); ready(app.buttons["pocketTolerance.more"])

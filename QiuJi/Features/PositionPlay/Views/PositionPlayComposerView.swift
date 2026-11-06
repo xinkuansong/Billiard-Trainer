@@ -77,7 +77,7 @@ struct PositionPlayComposerView: View {
 
     private var navTitleText: String {
         if let sourceDrill { return sourceDrill.nameZh }
-        return "分离角与走位"
+        return TablePreferencePage.composer.layoutTitle
     }
 
     private func setupBoard() {

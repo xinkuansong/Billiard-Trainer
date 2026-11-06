@@ -15,6 +15,7 @@ import PhotosUI
 import SceneKit
 
 struct BallExtractionView: View {
+    let ownerKey: String
     @StateObject private var vm = BallExtractionViewModel()
 
     @State private var photoItem: PhotosPickerItem?
@@ -35,7 +36,8 @@ struct BallExtractionView: View {
     @State private var sceneFrame: CGRect = .zero
     @State private var paletteFrame: CGRect = .zero
 
-    // 送编排台 / 思路训练器 / 打一走二想三（T-P18-51 三目的地）
+    @State private var showingFormationName = false
+    @State private var formationName = ""
     @State private var goComposer = false
     @State private var goSilu = false
     @State private var goPlanThree = false
@@ -52,6 +54,8 @@ struct BallExtractionView: View {
             }
         }
         .animation(BTMotion.springPanel, value: vm.step)
+        .modifier(BTBallPaletteHint(onTableKeys: vm.onTableKeys, canPresent: vm.step == .confirm && vm.selectedKey == nil,
+                                    isVisible: $showsPlacementHint))
         .btToast(Binding(get: { vm.toast }, set: { vm.toast = $0 }))
         .coordinateSpace(name: "extract")
         .background { DailyTableOrientation(landscape: false, allowsTabletRotation: true) }
@@ -73,6 +77,12 @@ struct BallExtractionView: View {
         }
         .navigationDestination(isPresented: $goPlanThree) {
             PlanThreeView(initialBoard: confirmedBoard)
+        }
+        .alert("保存为自定义球形", isPresented: $showingFormationName) {
+            TextField("球形名称", text: $formationName)
+            Button("取消", role: .cancel) {}
+            Button("保存") { saveFormation() }
+                .disabled(formationName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .onChange(of: photoItem) { _, item in loadPhoto(item) }
         .onAppear {
@@ -406,6 +416,8 @@ struct BallExtractionView: View {
         )
     }
 
+    @State private var showsPlacementHint = false
+
     private var confirmBottomBar: some View {
         VStack(spacing: 0) {
             // Reserve both status states so selecting a dropped ball cannot resize the table.
@@ -415,7 +427,13 @@ struct BallExtractionView: View {
                         .foregroundStyle(Color.btPrimary)
                         .opacity(vm.selectedKey == nil ? 0 : 1)
                         .accessibilityHidden(vm.selectedKey == nil)
-                    Text("桌上 \(vm.onTableKeys.count) 颗 · 拖动球可移位 · 点选可改号/移除")
+                    Group {
+                        if showsPlacementHint, vm.onTableKeys == [PositionPlayBall.cueKey] {
+                            Label(BTBallPaletteHint.text, systemImage: "info.circle")
+                        } else {
+                            Text("桌上 \(vm.onTableKeys.count) 颗 · 拖动球可移位 · 点选可改号/移除")
+                        }
+                    }
                         .foregroundStyle(.white.opacity(0.6))
                         .opacity(vm.selectedKey == nil ? 1 : 0)
                         .accessibilityHidden(vm.selectedKey != nil)
@@ -438,23 +456,26 @@ struct BallExtractionView: View {
                 paletteTwoRows(PositionPlayBall.allKeys) { key in confirmCell(key) }
                     .frame(maxWidth: .infinity)
 
-                // 送入三目的地（T-P18-51）收进一个菜单，按钮列不撑高底栏。
                 VStack(spacing: 6) {
                     Menu {
+                        Button(action: requestFormationName) {
+                            Label("保存为自定义球形", systemImage: "square.and.arrow.down")
+                        }
+                        Divider()
                         Button {
                             confirmedBoard = vm.currentSnapshot()
                             goComposer = true
-                        } label: { Label("自由走位", systemImage: "scope") }
+                        } label: { Label(TablePreferencePage.composer.layoutTitle, systemImage: "scope") }
                         Button {
                             confirmedBoard = vm.currentSnapshot()
                             goSilu = true
-                        } label: { Label("思路训练", systemImage: "lightbulb") }
+                        } label: { Label(TablePreferencePage.silu.layoutTitle, systemImage: "lightbulb") }
                         Button {
                             confirmedBoard = vm.currentSnapshot()
                             goPlanThree = true
-                        } label: { Label("打一走二想三", systemImage: "3.circle") }
+                        } label: { Label(TablePreferencePage.planThree.layoutTitle, systemImage: "3.circle") }
                     } label: {
-                        Text("送入…")
+                        Text("使用球形")
                             .font(.system(size: 13, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
                             .frame(width: 96, height: 42)
@@ -463,6 +484,7 @@ struct BallExtractionView: View {
                                         in: Capsule())
                     }
                     .buttonStyle(BTPressableStyle.capsule)
+                    .menuOrder(.fixed)
                     .disabled(vm.onTableKeys.isEmpty)
                     columnSecondary("重新标记", height: 36) { vm.enterMarkBalls() }
                 }
@@ -473,6 +495,33 @@ struct BallExtractionView: View {
         .background(HUDStyle.panelBackground)
         .background(frameReader(id: "palette"))
         .environment(\.colorScheme, .dark)
+    }
+
+    private func requestFormationName() {
+        guard vm.onTableKeys.contains(PositionPlayBall.cueKey) else {
+            vm.flash("请先添加母球", tone: .warning)
+            return
+        }
+        guard vm.onTableKeys.count > 1 else {
+            vm.flash("请先添加至少一颗目标球", tone: .warning)
+            return
+        }
+        formationName = ""
+        showingFormationName = true
+    }
+
+    private func saveFormation() {
+        do {
+            let template = try CustomFormationTemplate.fromPhoto(vm.currentSnapshot(), name: formationName)
+            let library = CustomFormationLibrary(ownerKey: ownerKey)
+            guard library.save(template) else {
+                vm.flash(library.error ?? "保存球形失败", tone: .error)
+                return
+            }
+            vm.flash("已保存到自定义球形")
+        } catch {
+            vm.flash(error.localizedDescription, tone: .error)
+        }
     }
 
     private func confirmCell(_ key: String) -> some View {
@@ -742,6 +791,6 @@ struct BallExtractionView: View {
 
 
 #Preview("Dark") {
-    NavigationStack { BallExtractionView() }
+    NavigationStack { BallExtractionView(ownerKey: "preview-owner") }
         .preferredColorScheme(.dark)
 }

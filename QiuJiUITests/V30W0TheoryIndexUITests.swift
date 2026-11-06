@@ -46,7 +46,7 @@ final class V30W0TheoryIndexUITests: XCTestCase {
         app.switchTab(.angle)
 
         // 学区不应有球理总卡，也不应有定理卡（定理只在理区）。
-        let learn = app.descendants(matching: .any)["angleHomeTab_学"]
+        let learn = app.descendants(matching: .any)["angleHomeTab_基础"]
         XCTAssertTrue(learn.waitForExistence(timeout: 10), "练习 Tab「学」侧栏应出现")
         learn.tap()
         sleep(1)
@@ -77,6 +77,7 @@ final class V30W0TheoryIndexUITests: XCTestCase {
 
         // 12 张已上线卡均可定位（必要时滚动）。
         for title in publishedCardTitles {
+            PracticeHomeNavigation.select(PracticeHomeNavigation.section(for: title), in: app)
             let card = app.descendants(matching: .any)
                 .matching(NSPredicate(format: "identifier == %@", title))
                 .firstMatch
@@ -106,6 +107,7 @@ final class V30W0TheoryIndexUITests: XCTestCase {
         XCTAssertEqual(publishedCardTitles.count, 12, "v30 W4 起应有 12 张理区卡")
         XCTAssertTrue(TheoryIndexNavigation.openTheorySection(in: app))
         for title in publishedCardTitles {
+            PracticeHomeNavigation.select(PracticeHomeNavigation.section(for: title), in: app)
             let card = app.descendants(matching: .any)
                 .matching(NSPredicate(format: "identifier == %@", title))
                 .firstMatch

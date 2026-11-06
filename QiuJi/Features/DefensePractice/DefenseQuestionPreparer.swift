@@ -36,21 +36,45 @@ enum DefenseBankStore {
         case invalid(String)
         var errorDescription: String? { switch self { case .invalid(let text): "防守练习暂不可用：" + text } }
     }
-    static let fingerprint = "defense-no-object-contact-v5-3511-58470-0439ec02-786c3a90"
-    private static let trajectory: Result<[DefenseBankQuestion], Error> = Result {
-        let raw = try data("defense-practice-bank.json", "gz", sha: "0439ec02ee2dbe53c4556073dab35093df865b5eda8487f6831ec270dfc97876")
-        let bank = try JSONDecoder().decode(Bank.self, from: gunzip(raw))
-        guard bank.schema == "defense-parameters-v1",
-              bank.sourceFingerprint == "18a4093858979a39ed9473cb9c072019f548593af5a046351b9b09ee98ccc40c" else { throw Failure.invalid("题库版本不符") }
-        return try validate(bank.questions)
+    static let trajectoryDigest = "3e536a50dfbd1ef7ff1563b42d836f2f7cc6aba625acc0775aece55c9765af15"
+    static func fingerprint(for mode: DefenseMode) -> String {
+        mode == .trajectory ? "defense-trajectories-v2:" + trajectoryDigest : "defense-no-object-contact-v5-3511-58470-0439ec02-786c3a90"
     }
+    struct Entry: Decodable { let id, kind: String; let offset, size: Int }
+    private struct Archive {
+        let bytes: Data
+        let entries: [Entry]
+        let start: Int
+        init() throws {
+            bytes = try DefenseBankStore.data("defense-trajectories", "bank", sha: trajectoryDigest)
+            guard bytes.count >= 8, bytes.prefix(4) == Data("DFT2".utf8) else { throw Failure.invalid("轨迹题库格式有误") }
+            start = 8 + bytes[4..<8].reduce(0) { $0 * 256 + Int($1) }
+            guard start <= bytes.count else { throw Failure.invalid("轨迹索引损坏") }
+            entries = try JSONDecoder().decode([Entry].self, from: bytes[8..<start])
+            var offset = 0
+            for e in entries {
+                guard e.offset == offset, e.size > 0, e.size <= bytes.count-start-offset,
+                      DefenseKind(rawValue: e.kind) != nil else { throw Failure.invalid("轨迹索引损坏") }
+                offset += e.size
+            }
+            guard offset == bytes.count-start, !entries.isEmpty, Set(entries.map(\.id)).count == entries.count else { throw Failure.invalid("轨迹索引不完整") }
+        }
+        func question(_ entry: Entry) throws -> DefenseBankQuestion {
+            let offset = start + entry.offset
+            let data = try DefenseBankStore.gunzip(bytes.subdata(in: offset..<offset+entry.size))
+            let q = try JSONDecoder().decode(DefenseBankQuestion.self, from: data)
+            guard q.isValid, q.id == entry.id, q.kind == entry.kind, q.references.count >= 2 else { throw Failure.invalid("轨迹题损坏") }
+            return q
+        }
+    }
+    private static let trajectory = Result { try Archive() }
     private static let free: Result<[DefenseBankQuestion], Error> = Result {
         let raw = try data("defense-free-bank.json", "gz", sha: "786c3a909b70a22c749ded7757bda2ab7f5f8a6122745e7553074923a38df7c1")
         return try validate(JSONDecoder().decode([DefenseBankQuestion].self, from: gunzip(raw)))
     }
     private static func data(_ name: String, _ ext: String, sha: String) throws -> Data {
         guard let url = Bundle.main.url(forResource: name, withExtension: ext) else { throw Failure.invalid("未找到题库") }
-        let data = try Data(contentsOf: url)
+        let data = try Data(contentsOf: url, options: .mappedIfSafe)
         guard SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() == sha else { throw Failure.invalid("题库校验失败") }
         return data
     }
@@ -82,78 +106,71 @@ enum DefenseBankStore {
         guard !rows.isEmpty, rows.allSatisfy(\.isValid), Set(rows.map(\.id)).count == rows.count else { throw Failure.invalid("题库格式有误") }
         return rows
     }
-    static func load(_ mode: DefenseMode) throws -> [DefenseBankQuestion] { try (mode == .trajectory ? trajectory : free).get() }
+    static func entries(_ mode: DefenseMode) throws -> [Entry] {
+        if mode == .trajectory { return try trajectory.get().entries }
+        return try freeEntries.get()
+    }
+    private static let freeEntries = Result { try free.get().enumerated().map { Entry(id: $1.id, kind: $1.kind, offset: $0, size: 0) } }
+    static func question(_ entry: Entry, mode: DefenseMode) throws -> DefenseBankQuestion {
+        if mode == .trajectory { return try trajectory.get().question(entry) }
+        return try free.get()[entry.offset]
+    }
+    static func load(_ mode: DefenseMode) throws -> [DefenseBankQuestion] {
+        if mode == .free { return try free.get() }
+        return try entries(mode).map { try question($0, mode: mode) }
+    }
 }
 enum DefenseQuestionPreparer {
     struct Prepared { let fingerprint: String; let question: DefenseQuestion }
     static func prepare(_ configuration: DefenseConfiguration, excluding: Set<String> = [], lastContentID: String? = nil,
                         seed: UInt64 = .random(in: 0...UInt64.max)) throws -> Prepared {
-        let bank = try DefenseBankStore.load(configuration.mode)
+        let bank = try DefenseBankStore.entries(configuration.mode)
         #if DEBUG
         let seed = ProcessInfo.processInfo.arguments.contains("-defense.fixedSeed") ? UInt64(7) : seed
         #endif
         var random = SceneTrainingGenerator.SeededRandom(state: seed)
-        func references(_ q: DefenseBankQuestion) -> [Int] {
-            q.references.indices.filter { i in
-                let r = q.references[i]
-                return DefenseReferenceRoute.allows(r.expected.events)
-            }
-        }
-        let matching = bank.filter { q in
-            return (configuration.kind == nil || q.kind == configuration.kind?.rawValue)
-                && (configuration.mode == .free || !references(q).isEmpty)
-        }
+        let matching = bank.filter { configuration.kind == nil || $0.kind == configuration.kind?.rawValue }
         let unseen = matching.filter { !excluding.contains($0.id) }
         var candidates = unseen.isEmpty ? matching.filter { $0.id != lastContentID } : unseen
         // All practice banks follow the confirmed filter-then-random contract.
         // Each eligible unseen question has equal weight; no kind quotas.
         candidates.shuffle(using: &random)
-        for source in candidates.prefix(32) {
+        for entry in candidates.prefix(32) {
+            let source = try DefenseBankStore.question(entry, mode: configuration.mode)
             try Task.checkCancellation()
             if configuration.mode == .free {
-                return .init(fingerprint: DefenseBankStore.fingerprint, question: .init(id: UUID(), source: source, referenceIndex: nil, referencePaths: [:]))
+                return .init(fingerprint: DefenseBankStore.fingerprint(for: configuration.mode), question: .init(id: UUID(), source: source, referenceIndex: nil, referencePaths: [:]))
             }
-            for index in references(source) {
-                let r = source.references[index], p = r.parameters
-                guard p.direction.count == 2 else { continue }
+            for index in source.references.indices {
                 do {
-                    let prediction = try simulate(source: source, input: .init(spinX: Float(p.spinX), spinY: Float(p.spinY), velocity: Float(p.velocity)),
-                        direction: .init(Float(p.direction[0]), 0, Float(p.direction[1])), surfaceY: 0.8, profile: AccuracyTipSelector.renderedProfile())
-                    guard prediction.hasFinalTableState, DefenseEffect.failure(source, prediction) == nil, eventsMatch(prediction, r.expected.events) else { continue }
-                    let potted = Set(prediction.pocketedBalls.map { $0 == ShotInput.cueBallName ? 0 : Int($0.dropFirst()) ?? -1 })
-                    guard potted == Set(r.expected.pocketedBallNumbers), r.expected.finalBalls.allSatisfy({ b in
-                        guard b.position.count == 2, let actual = prediction.finalPositions[b.number == 0 ? ShotInput.cueBallName : "_\(b.number)"] else { return false }
-                        return potted.contains(b.number) || hypot(Double(actual.x)-b.position[0], Double(actual.z)-b.position[1]) <= 0.002
-                    }) else { continue }
-                    let effect = try DefenseEffect.evaluate(question: source, prediction: prediction)
-                    guard effect.score != nil, referenceGeometryQualifies(effect: effect, source: source, prediction: prediction) else { continue }
+                    let prediction = try verified(source: source, reference: source.references[index], surfaceY: 0.8, profile: AccuracyTipSelector.renderedProfile())
                     var paths = [String: [SeparationTrajectory.Point]]()
                     for name in [ShotInput.cueBallName] + source.keys { paths[name] = try SeparationTrajectory.extractBall(prediction, name: name) }
-                    return .init(fingerprint: DefenseBankStore.fingerprint, question: .init(id: UUID(), source: source, referenceIndex: index, referencePaths: paths))
+                    return .init(fingerprint: DefenseBankStore.fingerprint(for: configuration.mode), question: .init(id: UUID(), source: source, referenceIndex: index, referencePaths: paths))
                 } catch is CancellationError { throw CancellationError() }
                 catch { continue }
             }
         }
         throw DefenseBankStore.Failure.invalid("当前筛选暂无可用题目，请放宽条件后重试。")
     }
-    /// Reference admission retains the bank's existing clean-window contract.
-    /// The new measured physical window is a different metric; applying the old
-    /// 0.008° admission cutoff to it silently empties otherwise valid tactic pools.
-    /// Actual displayed scores always come from DefenseEffect's current model.
-    static func referenceGeometryQualifies(effect: DefenseEffect, source: DefenseBankQuestion,
-                                           prediction: ShotPrediction) -> Bool {
-        if effect.fullDirectBlock || effect.potContactsBlocked == true { return true }
-        let key = "_\(effect.opponentBallNumber)"
-        guard let cue = prediction.finalPositions[ShotInput.cueBallName],
-              let target = prediction.finalPositions[key] else { return false }
-        typealias P = DefenseAttackAssessment.P
-        func point(_ v: SCNVector3) -> P { P(Double(v.x), Double(v.z)) }
-        let others = source.keys.filter { $0 != key && !prediction.pocketedBalls.contains($0) }
-            .compactMap { prediction.finalPositions[$0].map(point) }
-        var assessment = DefenseAttackAssessment()
-        let c = point(cue), t = point(target), attack = assessment.attack(c, t, others, step: 0.01)
-        return assessment.qualifies(attack) && assessment.edges == 0 && assessment.windowDiff <= 0.001
-            && !assessment.incompleteComfort && assessment.cornerWitnesses(c, t, others, attack).isEmpty
+    /// Both first draw and every alternate demonstration use this same physical replay contract.
+    static func verified(source: DefenseBankQuestion, reference r: DefenseBankQuestion.Reference,
+                         surfaceY: Float, profile: [CueSection]) throws -> ShotPrediction {
+        let p = r.parameters
+        guard p.direction.count == 2, r.quality != nil else { throw DefenseBankStore.Failure.invalid("参考杆缺少参数") }
+        let prediction = try simulate(source: source, input: .init(spinX: Float(p.spinX), spinY: Float(p.spinY), velocity: Float(p.velocity)),
+            direction: .init(Float(p.direction[0]), 0, Float(p.direction[1])), surfaceY: surfaceY, profile: profile)
+        guard prediction.hasFinalTableState, DefenseEffect.failure(source, prediction) == nil,
+              eventsMatch(prediction, r.expected.events), prediction.pocketedBalls.isEmpty,
+              r.expected.pocketedBallNumbers.isEmpty,
+              Set(r.expected.finalBalls.map(\.number)) == Set([0] + source.balls.map(\.number)),
+              r.expected.finalBalls.allSatisfy({ b in
+                  guard b.position.count == 2, let v = prediction.finalPositions[b.number == 0 ? ShotInput.cueBallName : "_\(b.number)"] else { return false }
+                  return hypot(Double(v.x)-b.position[0], Double(v.z)-b.position[1]) <= 0.002
+              }) else { throw DefenseBankStore.Failure.invalid("参考杆的碰撞或落点未能重现") }
+        let effect = try DefenseEffect.evaluate(question: source, prediction: prediction)
+        guard let score = effect.score, score >= 80 else { throw DefenseBankStore.Failure.invalid("参考杆未达到防守分门槛") }
+        return prediction
     }
 
     static func eventsMatch(_ prediction: ShotPrediction, _ expected: [DefenseBankQuestion.Reference.Expected.Event]) -> Bool {

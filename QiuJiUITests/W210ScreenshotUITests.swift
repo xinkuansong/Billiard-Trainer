@@ -51,7 +51,7 @@ final class W210ScreenshotUITests: XCTestCase {
         snap("after-angle-home")
 
         // SceneAiming 2D
-        switchAngleHomeTab("练")
+        switchAngleHomeTab("准度")
         sleep(1)
         if tapLabel("2D 角度训练", timeout: 4) {
             sleep(1)
@@ -78,7 +78,7 @@ final class W210ScreenshotUITests: XCTestCase {
         // 拍照建球形（批量台 simulator-only；用生产建球形页作 chrome 代表）
         _ = tapLabel("练习")
         sleep(1)
-        switchAngleHomeTab("打")
+        switchAngleHomeTab("走位")
         sleep(1)
         if tapLabel("拍照建球形", timeout: 4) {
             sleep(2)

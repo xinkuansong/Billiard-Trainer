@@ -28,7 +28,7 @@ final class KBallPracticeUITests: XCTestCase {
     }
     private func open(animated: Bool, lastFree: Bool = false) {
         app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-freeLayout.ephemeral", lastFree ? "-w7.forceDailyLimitNear" : "-forcePremium", "-kBall.probe", "-kBall.fixedSeed", "-showsTableSights.v1", "YES", "-tableStyle.v1", "charcoal", "-clothColor.v1", "green"])
-        app.switchTab(.angle); app.buttons["angleHomeTab_打"].tap()
+        app.switchTab(.angle); app.buttons["angleHomeTab_进阶"].tap()
         let entry = app.buttons["K球练习"]
         for _ in 0..<4 where !entry.isHittable { app.swipeUp() }
         ready(entry); entry.tap()
@@ -57,6 +57,11 @@ final class KBallPracticeUITests: XCTestCase {
         phase("aiming")
         ready(app.buttons["kBall.strike"])
     }
+    func testReferenceDemonstrationInMeasurementSlot() throws {
+        open(animated: false)
+        try verifyPracticeDemonstration(in: app, page: "kBall", phase: { phase($0) }, probe: probe)
+    }
+
     func testRailColorHintsCanBeDisabled() throws {
         open(animated: false)
         XCTAssertTrue(node("kBall.railSequence").exists)

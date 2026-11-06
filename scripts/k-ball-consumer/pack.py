@@ -11,6 +11,9 @@ import json
 from pathlib import Path
 
 
+from jaw_revision import apply as apply_jaw_revision
+
+
 def encode(value):
     return json.dumps(value, ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode()
 
@@ -80,6 +83,8 @@ def pack(source, destination):
                  shards=shards, layouts=entries)
     index['fingerprint'] = sha(encode(index))
     (destination / 'index.json').write_bytes(encode(index))
+    apply_jaw_revision(destination)
+    index = json.loads((destination/'index.json').read_bytes())
     print(json.dumps(dict(counts=index['counts'], files=len(shards)+1,
                          bytes=sum(p.stat().st_size for p in destination.iterdir())), ensure_ascii=False))
 

@@ -18,6 +18,27 @@ final class CustomFormationTests: XCTestCase {
         return .init(name: "三颗不同号球", ballKeys: keys, board: .init(onTable: board))
     }
 
+    func testPhotoFormationPreservesNumbersAndPositionsAfterReopening() throws {
+        let board = BoardSnapshot(onTable: [
+            "cueBall": CanvasPoint(x: 0.2, y: 0.3),
+            "_12": CanvasPoint(x: 0.84, y: 0.42),
+            "_3": CanvasPoint(x: 0.51, y: 0.11)
+        ])
+        let template = try CustomFormationTemplate.fromPhoto(board, name: "  照片复盘  ")
+        let library = CustomFormationLibrary(ownerKey: "guest:photo", directory: directory)
+        XCTAssertTrue(library.save(template), library.error ?? "")
+        let reopened = try XCTUnwrap(CustomFormationLibrary(ownerKey: "guest:photo", directory: directory).selected)
+        XCTAssertEqual(reopened.name, "照片复盘")
+        XCTAssertEqual(reopened.ballKeys.compactMap(PositionPlayBall.number), [3, 12])
+        XCTAssertTrue(reopened.ballKeys.allSatisfy(PositionPlayBall.isInstance))
+        XCTAssertEqual(reopened.board.onTable.count, 3)
+        for (key, point) in reopened.board.onTable {
+            let source = PositionPlayBall.number(for: key).map { "_\($0)" } ?? PositionPlayBall.cueKey
+            XCTAssertEqual(board.onTable[source]?.x, point.x)
+            XCTAssertEqual(board.onTable[source]?.y, point.y)
+        }
+    }
+
     private func practice(_ template: CustomFormationTemplate, owner: String = "guest:progress") throws -> CustomFormationSession {
         let library = CustomFormationLibrary(ownerKey: owner, directory: directory)
         let session = try XCTUnwrap(library.practiceSession(for: template), library.error ?? "")
@@ -32,6 +53,7 @@ final class CustomFormationTests: XCTestCase {
         session.vm.removeFromTable(value.ballKeys[0])
         session.vm.velocity = 2.7
         session.vm.spinX = 0.15
+        session.vm.setPreferredAimMode(.free)
         session.vm.nudgeFreeAim(byDegrees: 27)
         let before = session.vm.currentSnapshot()
         let input = session.vm.trainingInput
@@ -45,6 +67,10 @@ final class CustomFormationTests: XCTestCase {
         }
         XCTAssertEqual(restored.vm.velocity, input.velocity)
         XCTAssertEqual(restored.vm.spinX, input.spinX)
+        XCTAssertEqual(restored.vm.preferredAimMode, .free)
+        XCTAssertEqual(restored.vm.aimMode, .free)
+        XCTAssertEqual(restored.vm.selectedTargetKey, input.target)
+        XCTAssertEqual(restored.vm.selectedPocketIndex, input.pocket)
         XCTAssertEqual(restored.vm.trainingInput.direction, input.direction)
         XCTAssertEqual(value.board.onTable.count, 4)
     }
@@ -159,26 +185,43 @@ final class CustomFormationTests: XCTestCase {
         }
     }
 
-    func testBuiltInStartAndRestartAimAtOneFromTableCenter() throws {
-        for template in BuiltInCustomFormations.templates {
-            let session = CustomFormationSession(template: template, editing: false)
-            session.vm.setupScene(loadsDefaultLayout: false)
-            session.vm.usesAutomaticPocketFallback = true // Same host contract as FreePlayView.
-            defer { session.vm.cancelDailyAttempt() }
+    func testNewPracticesAndRestartUseDailyBallAndPocketRecommendation() throws {
+        for layout in BuiltInCustomFormations.templates + [template()] {
+            let session = CustomFormationSession(template: layout, editing: false)
+            let vm = session.vm
+            vm.setupScene(loadsDefaultLayout: false)
+            vm.usesAutomaticPocketFallback = true
+            defer { session.finishPractice() }
             session.setup()
-            for restart in [false, true] {
-                if restart { session.vm.nudgeFreeAim(byDegrees: 30); session.reset() }
-                let one = try XCTUnwrap(session.vm.scene.allBallNodes[template.ballKeys[0]])
-                let cue = try XCTUnwrap(session.vm.scene.cueBallNode)
-                let aim = try XCTUnwrap(session.vm.freeAimDir)
-                XCTAssertEqual(cue.position.x, 0, accuracy: 1e-6)
-                XCTAssertEqual(cue.position.z, 0, accuracy: 1e-6)
-                let dx = one.position.x - cue.position.x, dz = one.position.z - cue.position.z
-                let length = hypotf(dx, dz)
-                XCTAssertEqual(aim.x, dx / length, accuracy: 1e-6)
-                XCTAssertEqual(aim.z, dz / length, accuracy: 1e-6)
-                XCTAssertEqual(session.vm.selectedTargetKey, template.ballKeys[0])
+
+            let cue = try XCTUnwrap(vm.scene.cueBallNode).position
+            if BuiltInCustomFormations.contains(layout.id) {
+                XCTAssertEqual(cue.x, 0, accuracy: 1e-6)
+                XCTAssertEqual(cue.z, 0, accuracy: 1e-6)
             }
+            let balls = try layout.ballKeys.map { key in
+                (key: key, position: try XCTUnwrap(vm.scene.allBallNodes[key]).position)
+            }
+            let candidates = balls.flatMap { ball in
+                (0..<6).compactMap { pocket in
+                    DailyShotRecommendation.candidate(cue: cue, target: ball.position,
+                        targetKey: ball.key, pocketIndex: pocket,
+                        obstacles: balls.filter { $0.key != ball.key }.map(\.position),
+                        surfaceY: vm.scene.surfaceY)
+                }
+            }
+            let best = try XCTUnwrap(DailyShotRecommendation.best(candidates), layout.name)
+            for restart in [false, true] {
+                if restart { vm.nudgeFreeAim(byDegrees: 30); session.reset() }
+                XCTAssertEqual(vm.preferredAimMode, .pocket, layout.name)
+                XCTAssertEqual(vm.aimMode, .pocket, layout.name)
+                XCTAssertEqual(vm.selectedTargetKey, best.targetKey, layout.name)
+                XCTAssertEqual(vm.selectedPocketIndex, best.pocketIndex, layout.name)
+            }
+            vm.setPreferredAimMode(.free)
+            session.reset()
+            XCTAssertEqual(vm.preferredAimMode, .free)
+            XCTAssertEqual(vm.aimMode, .free)
         }
     }
 

@@ -182,6 +182,23 @@ struct SeparationPracticeRecord: Codable, Identifiable {
     var questions: [SeparationQuestion]
     var cursor = 0
     var attempts: [SeparationShot] = []
+    var demonstrationProgress: PracticeDemonstrationProgress?
+    var demonstrationUnlocked: Bool { currentDemonstrationProgress.unlocked }
+
+    private var currentDemonstrationProgress: PracticeDemonstrationProgress {
+        if let demonstrationProgress { return demonstrationProgress }
+        var progress = PracticeDemonstrationProgress()
+        for (id, score) in currentQuestionScoreValues {
+            progress.accept(id: id, qualified: PracticeDemonstrationProgress.qualifies(score: score))
+        }
+        if let first = currentAttempt {
+            progress.accept(id: first.id, qualified: PracticeDemonstrationProgress.qualifies(score: first.score?.value))
+        }
+        if let last = latestShot, last.questionID == current?.id {
+            progress.accept(id: last.id, qualified: PracticeDemonstrationProgress.qualifies(score: last.score?.value))
+        }
+        return progress
+    }
     var latestShot: SeparationShot?
     /// Only scores are needed for repeat-practice statistics; retain no duplicate
     /// physical recordings. Optional so older payloads remain readable.
@@ -213,7 +230,9 @@ struct SeparationPracticeRecord: Codable, Identifiable {
     var shotBookmark: CameraRig.TrainingBookmark?
     var current: SeparationQuestion? { questions.indices.contains(cursor) ? questions[cursor] : nil }
     var currentAttempt: SeparationShot? { attempts.first { $0.questionID == current?.id } }
-    var displayName: String { presentation == nil ? (is3D ? "3D分离角" : "2D分离角") : "分离角 · " + (presentation?.summary ?? "") }
+    var displayName: String {
+        TrainingProject.separation.historyTitle(presentation: presentation, is3D: is3D)
+    }
     init(ownerKey: String, is3D: Bool, configuration: SceneTrainingConfiguration,
          prepared: SeparationQuestionGenerator.Prepared, now: Date = Date()) {
         id = UUID(); self.ownerKey = ownerKey; self.is3D = is3D; self.configuration = configuration
@@ -223,6 +242,9 @@ struct SeparationPracticeRecord: Codable, Identifiable {
     }
     mutating func accept(_ shot: SeparationShot) {
         guard shot.questionID == current?.id else { return }
+        var progress = currentDemonstrationProgress
+        progress.accept(id: shot.id, qualified: PracticeDemonstrationProgress.qualifies(score: shot.score?.value))
+        demonstrationProgress = progress
         var values = currentQuestionScoreValues
         if let score = shot.score, values[shot.id] == nil { values[shot.id] = score.value }
         currentQuestionScores = .init(questionID: shot.questionID, values: values)

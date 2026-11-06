@@ -67,7 +67,7 @@ final class X2_BallPaletteUnifyUITests: XCTestCase {
     /// Composer 基准帧（regular 36 + 底栏 94）。
     func testX2ComposerBaseline() {
         let app = XCUIApplication.launchClean()
-        guard openCard(app: app, homeTab: "打", title: "自由走位") else {
+        guard openCard(app: app, homeTab: "走位", title: "自由走位") else {
             XCTFail("未能进入自由走位"); return
         }
         dragPlacePulseDragBack(app: app, prefix: "x2-composer")

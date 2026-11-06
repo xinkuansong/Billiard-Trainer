@@ -18,8 +18,8 @@ struct BallFeelView: View {
                 trainingAdviceSection
                     .padding(.horizontal, Spacing.lg).learnDocumentWidth()
                 // 学→练导流（T-P18-51）：厚度锚点学完 → 真台俯视练几何判断。大卡 1≤2。
-                PracticeCTA(title: "用真台验证",
-                            destination: "2D 角度训练 · 在真实台面上练厚度锚点",
+                PracticeCTA(title: TrainingProject.angle.title,
+                            destination: "在球桌上练习判断厚度",
                             route: .sceneAiming2D)
                     .padding(.horizontal, Spacing.lg).learnDocumentWidth()
             }

@@ -13,16 +13,26 @@ for a,b in zip(s['shards'],d['shards']):
  old=list(map(json.loads,gzip.decompress(aa).splitlines()));new=list(map(json.loads,gzip.decompress(bb).splitlines()));assert len(old)==len(new)
  for x,y in zip(old,new):
   assert set(y)=={'id','board','routes','questions'} and x['id']==y['id'] and x['board']==y['board']
-  assert len(x['routes'])==len(y['routes']) and len(x['candidates'])==len(y['questions'])
+  assert len(x['routes'])<=len(y['routes']) and len(x['candidates'])==len(y['questions'])
   for r,p in zip(x['routes'],y['routes']):
    assert set(p)=={'id','v','sx','sy','dir','rails'}
    for oldkey,newkey in [('comboIndex','id'),('velocity','v'),('spinX','sx'),('spinY','sy'),('strikeDirection','dir')]:assert r[oldkey]==p[newkey]
    assert p['rails']==[c['cushionID'] for c in r['trajectory2mm']['cushions']]
   for c,q in zip(x['candidates'],y['questions']):
-   assert set(q)=={'id','p','refs'} and c['cellID']==q['id'] and c['position']==q['p']
+   assert {'id','p','refs'}<=set(q)<={'id','p','refs','trajectoryRefs','trajectoryRefsByAxes'} and c['cellID']==q['id'] and c['position']==q['p']
    assert q['refs']==[[t['comboIndex'],t['pocket']] for t in c['top5']]
    counts['recommendations']+=len(q['refs'])
   counts['layouts']+=1;counts['questions']+=len(y['questions']);counts['routes']+=len(y['routes'])
-assert counts==d['counts']=={k:s['counts'][k] for k in counts}
+assert counts==d['counts']
+assert all(counts[k]==s['counts'][k] for k in ('layouts','questions','recommendations'))
+if 'jawRevision' in d:
+ from jaw_revision import PATCH,encode
+ patch=json.loads(gzip.decompress(PATCH.read_bytes()))
+ canonical=dict(d);fingerprint=canonical.pop('fingerprint')
+ assert hashlib.sha256(encode(canonical)).hexdigest()==fingerprint==patch['finalFingerprint']
+ assert d['jawRevision']['sourceFingerprint']==patch['sourceFingerprint']
+ assert d['jawRevision']['changedReferences']==patch['changedReferences']
+else:
+ assert counts['routes']==s['counts']['routes']
 assert len(set(e['id'] for e in d['layouts']))==counts['layouts']
 report.write_text(json.dumps(dict(state='complete',auditPassed=True,counts=counts,allFieldsExact=True,allReferencesAndOrderExact=True,allSourceAndDestinationSHAPassed=True,sourceIndexSHA256=d['sourceIndexSHA256'],indexSHA256=hashlib.sha256((dest/'index.json').read_bytes()).hexdigest()),indent=2)+'\n');print(report.read_text())

@@ -51,7 +51,7 @@ final class V30W3TheoryPageUITests: XCTestCase {
     // MARK: - Steps
 
     private func openIndex() {
-        XCTAssertTrue(TheoryIndexNavigation.openTheorySection(in: app))
+        XCTAssertTrue(TheoryIndexNavigation.openTheorySection(in: app, section: "策略"))
     }
 
     private func capturePage(pageID: String, title: String, suffix: String,
@@ -89,7 +89,7 @@ final class V30W3TheoryPageUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["相关页面"].exists, "\(pageID) 页尾应有「相关页面」")
 
         app.navigationBars[title].buttons.firstMatch.tap()
-        XCTAssertTrue(TheoryIndexNavigation.openTheorySection(in: app))
+        XCTAssertTrue(TheoryIndexNavigation.openTheorySection(in: app, section: "策略"))
         XCTAssertTrue(
             app.descendants(matching: .any)
                 .matching(NSPredicate(format: "identifier == %@", title))

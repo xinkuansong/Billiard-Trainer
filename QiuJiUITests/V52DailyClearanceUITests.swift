@@ -901,13 +901,13 @@ final class V52DailyClearanceUITests: XCTestCase {
         let prefix = arguments.contains("-daily3D.diagnostics") ? "daily3D-diagnostics-" :
             (arguments.firstIndex(of: "-dailyClearance.rendering").map { "daily-\(arguments[$0 + 1])-" } ?? "normal-")
         snap(app, "\(prefix)\(mode.lowercased())-idle-before")
-        let undo = app.buttons["dailyClearance.undo"]
-        XCTAssertFalse(undo.isEnabled, "The automatic opening break does not create a player-shot undo")
+        let playback = app.buttons["dailyClearance.playback"]
+        XCTAssertFalse(playback.isEnabled)
         let strike = app.buttons["dailyClearance.strike"]
         XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 20), .completed)
         strike.tap()
-        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: undo)], timeout: 60), .completed,
-                       "A completed player shot must produce an undo snapshot")
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: playback)], timeout: 60), .completed,
+                       "A completed player shot must produce a replay")
         XCTAssertTrue((hud.value as? String ?? "").components(separatedBy: "，").contains("1杆"))
         expectIdle()
         Thread.sleep(forTimeInterval: 3)
@@ -981,6 +981,127 @@ final class V52DailyClearanceUITests: XCTestCase {
             camera.tap()
             XCTAssertTrue(action.isHittable)
             app.terminate()
+        }
+    }
+
+    private func tapScoringPocket(_ index: Int, in app: XCUIApplication) throws {
+        let window = app.windows.firstMatch
+        let table = app.descendants(matching: .any)["table.scene"].firstMatch
+        let raw = try XCTUnwrap(table.value as? String)
+        let probe = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+        let pockets = try XCTUnwrap(probe["pockets"] as? [[String: Any]])
+        let point = try XCTUnwrap(pockets.first { ($0["index"] as? Int) == index }?["tapWindow"] as? [Double])
+        window.coordinate(withNormalizedOffset: .zero).withOffset(.init(dx: point[0], dy: point[1])).tap()
+    }
+
+    func testChineseDailyPlanningAndLayoutStepBack() throws {
+        let app = launch(["-dailyClearance.fixture=selection", "-pocketSelection.probe", "-freeLayout.ephemeral"])
+        let menu = app.buttons["freeplay.moreMenu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 20))
+        menu.tap()
+        let view = app.buttons["freeplay.cameraMode"]
+        if view.value as? String != "2D" { view.tap() }
+        app.buttons["dailyClearance.scoringMode"].tap()
+        let layout = app.buttons["controlLayout.open"]
+        for _ in 0..<4 where !layout.isHittable { app.alerts["dailyClearance.menuPanel"].swipeUp() }
+        layout.tap()
+        let editorKey = app.buttons["freeLayout.select.shot.undo"]
+        XCTAssertTrue(editorKey.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["freeLayout.select.shot.replay"].exists)
+        editorKey.tap()
+        let previousWidth = editorKey.frame.width
+        app.buttons["freeLayout.larger"].tap()
+        XCTAssertGreaterThan(editorKey.frame.width, previousWidth)
+        app.buttons["freeLayout.cancel"].tap()
+        let back = app.buttons["dailyClearance.undo"], strike = app.buttons["dailyClearance.strike"]
+        XCTAssertFalse(back.isEnabled)
+        app.buttons["paletteBall__1"].tap()
+        try tapScoringPocket(4, in: app)
+        app.buttons["paletteBall__2"].tap()
+        try tapScoringPocket(1, in: app)
+        app.buttons["paletteBall__8"].tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: strike)], timeout: 20), .completed)
+        back.tap(); strike.tap()
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "请选择第三颗球")).firstMatch.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["dailyClearance.playback"].isEnabled)
+        menu.tap()
+        app.buttons["dailyClearance.scoringMode"].tap()
+        app.buttons["关闭菜单"].tap()
+        XCTAssertFalse(back.exists)
+        XCTAssertTrue(app.buttons["dailyClearance.playback"].exists)
+    }
+
+    func testDailyScoringFromPhysicalStrokeThroughCompletion() throws {
+        XCUIDevice.shared.orientation = .landscapeRight
+        let app = launch(["-dailyClearance.fixture=scoringPair", "-pocketSelection.probe",
+                          "-freeLayout.ephemeral"], game: "nineBall")
+        let menu = app.buttons["freeplay.moreMenu"]
+        let stepBack = app.buttons["dailyClearance.undo"]
+        let playback = app.buttons["dailyClearance.playback"]
+        let strike = app.buttons["dailyClearance.strike"]
+        func ready(_ button: XCUIElement) {
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(
+                format: "exists == true AND enabled == true AND hittable == true"), evaluatedWith: button)], timeout: 45), .completed)
+        }
+        ready(menu)
+        XCTAssertFalse(stepBack.exists)
+        XCTAssertTrue(playback.exists)
+        menu.tap()
+        let scoring = app.buttons["dailyClearance.scoringMode"]
+        ready(scoring)
+        XCTAssertEqual(scoring.value as? String, "否")
+        let view = app.buttons["freeplay.cameraMode"]
+        if view.value as? String == "3D" { view.tap() }
+        XCTAssertGreaterThan(scoring.frame.midY, view.frame.midY)
+        scoring.tap()
+        XCTAssertEqual(scoring.value as? String, "是")
+        snap(app, "daily-scoring-menu")
+        app.buttons["关闭菜单"].tap()
+        try tapScoringPocket(4, in: app)
+        ready(stepBack); stepBack.tap()
+        XCTAssertFalse(stepBack.isEnabled)
+        try tapScoringPocket(4, in: app); try tapScoringPocket(1, in: app)
+        ready(strike); strike.tap()
+        ready(playback)
+        let notice = app.buttons["dailyClearance.scoreNotice"]
+        XCTAssertTrue(notice.exists, "Show the settled stroke score")
+        let label = notice.label
+        let number = try XCTUnwrap(label.range(of: #"[0-9]+\.[0-9]"#, options: .regularExpression))
+        let score = String(label[number])
+        XCTAssertGreaterThan(try XCTUnwrap(Double(score)), 0)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "daily-scoring-physical-stroke"; shot.lifetime = .keepAlways; add(shot)
+        menu.tap()
+        let details = app.buttons["dailyClearance.scoreDetails"]
+        if !details.isHittable { app.alerts["dailyClearance.menuPanel"].swipeUp() }
+        ready(details); details.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["scoreDetails.panel"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "出杆空间分")).firstMatch.exists)
+        snap(app, "daily-scoring-details")
+        app.buttons["scoreDetails.dismissOutside"].coordinate(withNormalizedOffset: .init(dx: 0.1, dy: 0.8)).tap()
+        playback.tap()
+        ready(strike)
+        menu.tap(); view.tap()
+        XCTAssertEqual(view.value as? String, "3D")
+        app.buttons["关闭菜单"].tap()
+        ready(strike); strike.tap()
+        let again = app.buttons["dailyClearance.replay"]
+        ready(again)
+        let summary = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@",
+            "平均走位 " + score + " 分 · 计分 1 杆")).firstMatch
+        XCTAssertTrue(summary.exists, "Final score must equal the actual first stroke; replay and final ball add no samples")
+        snap(app, "daily-scoring-physical-completion")
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            XCUIDevice.shared.orientation = .portrait
+            defer { XCUIDevice.shared.orientation = .landscapeRight }
+            XCTAssertTrue(summary.waitForExistence(timeout: 8))
+            XCTAssertTrue(again.isHittable)
+            snap(app, "daily-scoring-portrait-completion")
+            menu.tap(); view.tap()
+            XCTAssertEqual(view.value as? String, "2D")
+            app.buttons["关闭菜单"].tap()
+            XCTAssertTrue(summary.exists)
+            snap(app, "daily-scoring-2d-portrait-completion")
         }
     }
 
@@ -1092,7 +1213,7 @@ extension V52DailyClearanceUITests {
             stage.frame.width > stage.frame.height * 1.5
         }, evaluatedWith: stage)], timeout: 8), .completed)
         XCTAssertFalse(app.descendants(matching: .any)["dailyClearance.hud"].exists)
-        for id in ["break.entry", "dailyClearance.undo", "dailyClearance.playback", "dailyClearance.strike"] {
+        for id in ["break.entry", "dailyClearance.playback", "dailyClearance.strike"] {
             XCTAssertTrue(app.buttons[id].exists, "Common action must stay visible: \(id)")
         }
         let balls = PositionPlayPaletteIDs.all.map { app.buttons[$0] }
@@ -1644,13 +1765,13 @@ extension V52DailyClearanceUITests {
             XCTAssertTrue(again.isHittable)
             XCTAssertEqual(again.frame.midY, app.frame.midY, accuracy: 65, "带操作的清台结果与确认选项统一在屏幕正中")
             XCTAssertGreaterThan(again.frame.width, 44)
-            XCTAssertFalse(app.buttons["dailyClearance.undo"].isEnabled)
+            XCTAssertFalse(app.buttons["dailyClearance.undo"].exists)
             snap(app, "rules-\(game)-complete")
             app.terminate()
         }
     }
 
-    func testUndoAndRerackDuringStrokeAreTransactional() {
+    func testReplayAndRerackDuringStrokeAreTransactional() {
         let app = launch(["-dailyClearance.fixture=selection"])
         let strike = app.buttons["dailyClearance.strike"]
         XCTAssertTrue(strike.waitForExistence(timeout: 15))
@@ -1660,11 +1781,11 @@ extension V52DailyClearanceUITests {
         }
         ready()
         strike.tap()
-        let undo = app.buttons["dailyClearance.undo"]
-        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: undo)], timeout: 60), .completed)
+        let playback = app.buttons["dailyClearance.playback"]
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: playback)], timeout: 60), .completed)
+        playback.tap()
+        ready()
         XCTAssertTrue((hud.value as? String ?? "").contains("1 杆"))
-        undo.tap()
-        XCTAssertTrue((hud.value as? String ?? "").contains("0 杆"))
         ready()
         strike.tap()
         app.buttons["break.entry"].tap()
@@ -2262,9 +2383,9 @@ extension V52DailyClearanceUITests {
         XCTAssertLessThan(cameraDiagnosticNumber("fov", app: app), normalFOV - 0.5)
         try captureDailyCamera(app, name: "observation-post-shot-manual-before-strike")
         app.buttons["dailyClearance.strike"].tap()
-        let undo = app.buttons["dailyClearance.undo"]
+        let playback = app.buttons["dailyClearance.playback"]
         XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"),
-            evaluatedWith: undo)], timeout: 60), .completed)
+            evaluatedWith: playback)], timeout: 60), .completed)
         let hud = app.descendants(matching: .any)["dailyClearance.landscape"].firstMatch
         XCTAssertNotNil((hud.value as? String ?? "").range(of: #"1\s*杆"#, options: .regularExpression))
         XCTAssertTrue(observation.isEnabled, "The selection fixture must leave another legal shot after settlement")

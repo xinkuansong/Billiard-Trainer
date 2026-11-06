@@ -8,7 +8,8 @@
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_理"
+      "id": "angleHomeTab_策略",
+      "scrollTo": 4
     },
     {
       "action": "tap",
@@ -24,7 +25,7 @@
     {
       "action": "cover",
       "name": "P18-12-default",
-      "entry": "practice/理/清台 5 步决策流程",
+      "entry": "practice/策略/清台 5 步决策流程",
       "maximumViews": 40
     }
   ]

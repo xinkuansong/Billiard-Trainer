@@ -93,10 +93,12 @@ final class V27W2ScreenshotUITests: XCTestCase {
 
         // Section sidebars for clearer per-zone evidence
         for (id, name) in [
-            ("angleHomeTab_学", "learn"),
-            ("angleHomeTab_练", "train"),
-            ("angleHomeTab_打", "play"),
-            ("angleHomeTab_解", "solve"),
+            ("angleHomeTab_基础", "learn"),
+            ("angleHomeTab_准度", "train"),
+            ("angleHomeTab_控球", "control"),
+            ("angleHomeTab_走位", "play"),
+            ("angleHomeTab_进阶", "solve"),
+            ("angleHomeTab_策略", "strategy"),
         ] {
             let chip = app.descendants(matching: .any)[id]
             if chip.waitForExistence(timeout: 2) {

@@ -7,11 +7,12 @@
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_练"
+      "id": "angleHomeTab_准度",
+      "scrollTo": 4
     },
     {
       "action": "tap",
-      "id": "瞄准点训练",
+      "id": "假想球练习",
       "scrollTo": 6
     },
     {

@@ -157,3 +157,15 @@ enum KickQuestionPreparer {
             recordedStrikeDirection: direction)
     }
 }
+
+extension KickQuestion: PracticeDemonstrationQuestion {
+    var demonstrationInput: SeparationInput { source.input }
+
+    func demonstrationShot(surfaceY: Float) throws -> KickShot {
+        let prediction = try KickQuestionPreparer.solve(question: self, input: demonstrationInput,
+            direction: source.direction.vector, surfaceY: surfaceY, profile: AccuracyTipSelector.renderedProfile())
+        let shot = try KickShot(question: self, input: demonstrationInput, prediction: prediction, surfaceY: surfaceY)
+        if let failure = shot.failure { throw PracticeDemonstrationError.invalidOutcome(failure.rawValue) }
+        return shot
+    }
+}

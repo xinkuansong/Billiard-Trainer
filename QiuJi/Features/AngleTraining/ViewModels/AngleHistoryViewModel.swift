@@ -8,28 +8,13 @@ enum AngleTimeRange: String, CaseIterable, Hashable {
 }
 
 enum AngleQuizTypeFilter: String, CaseIterable, Hashable {
-    case all = "全部"
-    case geometric = "几何"
-    case table2D = "球台 2D"
-    // T-P18-48 拆两卡后与入口卡命名对齐：2D / 3D 角度训练分记（条 6.5/7.3 改名）。
-    case scene2D = "2D 角度"
-    case scene3D = "3D 角度"
-    // v7 W1/C2：瞄准点成绩已写入 SwiftData，筛选项对齐 HistoryViewModel.AngleQuizType。
-    case aimPoint = "瞄准点训练"
-    case aimPoint2D = "2D 瞄准点训练"
-    case aimPoint3D = "3D 瞄准点训练"
+    case all, geometric, table2D, scene2D, scene3D, aimPoint, aimPoint2D, aimPoint3D
 
-    var queryValue: String? {
-        switch self {
-        case .all: return nil
-        case .geometric: return "geometric"
-        case .table2D: return "table2D"
-        case .scene2D: return "scene2D"
-        case .scene3D: return "scene3D"
-        case .aimPoint: return "aimPoint"
-        case .aimPoint2D: return "aimPoint2D"
-        case .aimPoint3D: return "aimPoint3D"
-        }
+    var queryValue: String? { self == .all ? nil : rawValue }
+
+    var title: String {
+        guard let queryValue else { return "全部" }
+        return AngleQuizType(rawValue: queryValue).displayNameZh
     }
 }
 

@@ -73,7 +73,7 @@ final class V30W4TheoryPageUITests: XCTestCase {
             )
             app.navigationBars[page.title].buttons.firstMatch.tap()
             XCTAssertTrue(
-                TheoryIndexNavigation.openTheorySection(in: app),
+                TheoryIndexNavigation.openTheorySection(in: app, section: "策略"),
                 "从 \(page.id) 返回后应回到理区"
             )
         }
@@ -116,7 +116,7 @@ final class V30W4TheoryPageUITests: XCTestCase {
     // MARK: - Steps
 
     private func openIndex() {
-        XCTAssertTrue(TheoryIndexNavigation.openTheorySection(in: app))
+        XCTAssertTrue(TheoryIndexNavigation.openTheorySection(in: app, section: "策略"))
     }
 
     private func openPage(id: String, title: String) {
@@ -164,7 +164,7 @@ final class V30W4TheoryPageUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["相关页面"].exists, "\(pageID) 页尾应有「相关页面」")
 
         app.navigationBars[title].buttons.firstMatch.tap()
-        XCTAssertTrue(TheoryIndexNavigation.openTheorySection(in: app))
+        XCTAssertTrue(TheoryIndexNavigation.openTheorySection(in: app, section: "策略"))
         XCTAssertTrue(
             app.descendants(matching: .any)
                 .matching(NSPredicate(format: "identifier == %@", title))

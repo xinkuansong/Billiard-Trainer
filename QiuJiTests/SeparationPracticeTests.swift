@@ -5,6 +5,95 @@ import SceneKit
 
 @MainActor
 final class SeparationPracticeTests: XCTestCase {
+
+    /// Final-bundle acceptance for every adjusted board/setting in a frozen grid sweep.
+    func testAdjustedGridAnswersInAppHost() throws {
+        struct Fixture: Decodable {
+            let board: String
+            let seed: UInt64
+            let axes: Int
+            let original, answer: SeparationInput
+        }
+        let env = ProcessInfo.processInfo.environment
+        guard env["QJ_JAW_FAMILY"] == "sep", let path = env["QJ_JAW_AUDIT"] else {
+            throw XCTSkip("Run with the separation grid adjustment manifest")
+        }
+        let folder = URL(fileURLWithPath: path)
+        let fixtures = try JSONDecoder().decode([Fixture].self,
+            from: Data(contentsOf: folder.appendingPathComponent("sep-changed.json")))
+        let grid = try TrainingBankStore.load()
+        let profile = AccuracyTipSelector.renderedProfile()
+        let surface = BTTablePhysics.surfaceY
+        var failures = [String]()
+        var seen = Set<UInt64>()
+        for f in fixtures {
+            let valid = try autoreleasepool {
+                guard seen.insert(f.seed).inserted, let board = grid.board(id: f.board) else { return false }
+                var config = SceneTrainingConfiguration()
+                config.allowsVerticalSpin = f.axes & 1 != 0
+                config.allowsSideSpin = f.axes & 2 != 0
+                var random = SceneTrainingGenerator.SeededRandom(state: f.seed)
+                guard let q = try SeparationQuestionGenerator.generate(board: board, configuration: config,
+                    profile: profile, random: &random), q.answer == f.answer,
+                    q.audit.sampledInputs.last == f.original else { return false }
+                let original = try SeparationQuestionGenerator.solve(board: board, input: f.original,
+                    surfaceY: surface, profile: profile)
+                let oldLine = try SeparationTrajectory.extract(original)
+                guard SeparationQuestionGenerator.jawEntryOrigin(original, pocket: board.pocketIndex) != nil,
+                      oldLine.map({ $0.position }) == q.target.map({ $0.position }) else { return false }
+                let stored = try JSONDecoder().decode(SeparationQuestion.self, from: JSONEncoder().encode(q))
+                let shot = try stored.demonstrationShot(surfaceY: surface)
+                return shot.specifiedPocket && (shot.score?.distanceCM ?? .infinity) <= 0.5
+                    && ShotPredictor.bankPocketContactCount(events: shot.prediction().events) == 0
+            }
+            if !valid { failures.append(f.board + "/" + String(f.axes)) }
+        }
+        XCTAssertFalse(fixtures.isEmpty)
+        XCTAssertEqual(seen.count, fixtures.count)
+        XCTAssertTrue(failures.isEmpty, failures.prefix(10).joined(separator: ", "))
+        let report: [String: Any] = ["family": "sep", "expected": fixtures.count,
+            "seen": seen.count, "failed": failures]
+        try JSONSerialization.data(withJSONObject: report)
+            .write(to: folder.appendingPathComponent("sep-app-replay.json"), options: .atomic)
+    }
+
+    func testKnownAvoidableObjectPocketJawsReplayCleanlyOnOriginalTargetLine() throws {
+        let fixtures: [(String, UInt64)] = [
+            ("grid-v3:392:138:2", 109),
+            ("grid-v3:356:10:4", 131),
+            ("grid-v3:1156:71:2", 136),
+            ("grid-v3:790:76:1", 140),
+            ("grid-v3:1281:77:5", 142),
+            ("grid-v3:1281:27:1", 151),
+            ("grid-v3:122:0:5", 159),
+            ("grid-v3:1334:77:2", 162),
+            ("grid-v3:697:114:1", 181),
+            ("grid-v3:810:153:8", 189)
+        ]
+        let grid = try TrainingBankStore.load()
+        var configuration = SceneTrainingConfiguration()
+        configuration.allowsSideSpin = true
+        configuration.allowsVerticalSpin = true
+        let profile = AccuracyTipSelector.renderedProfile()
+        for (id, seed) in fixtures {
+            var random = SceneTrainingGenerator.SeededRandom(state: seed)
+            let board = try XCTUnwrap(grid.board(id: id))
+            let question = try XCTUnwrap(SeparationQuestionGenerator.generate(board: board,
+                configuration: configuration, profile: profile, random: &random), id)
+            let originalInput = try XCTUnwrap(question.audit.sampledInputs.last)
+            let original = try SeparationQuestionGenerator.solve(board: board, input: originalInput,
+                surfaceY: BTTablePhysics.surfaceY, profile: profile)
+            XCTAssertGreaterThan(ShotPredictor.bankPocketContactCount(events: original.events), 0, id)
+            let originalLine = try SeparationTrajectory.extract(original)
+            XCTAssertEqual(originalLine.map { $0.position }, question.target.map { $0.position }, id)
+            let restored = try JSONDecoder().decode(SeparationQuestion.self, from: JSONEncoder().encode(question))
+            let shot = try restored.demonstrationShot(surfaceY: BTTablePhysics.surfaceY)
+            XCTAssertTrue(shot.specifiedPocket, id)
+            XCTAssertEqual(ShotPredictor.bankPocketContactCount(events: shot.prediction().events), 0, id)
+            XCTAssertLessThanOrEqual(try XCTUnwrap(shot.score?.distanceCM), 0.5, id)
+        }
+    }
+
     func testReferenceRouteRejectionIsTransientAndNeverRecordsZero() async throws {
         let suite = "reference-notice-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -243,9 +332,11 @@ final class SeparationPracticeTests: XCTestCase {
             shot.score = distance.map { .init(rmsDistanceCM: $0, targetSampleCount: 200, actualSampleCount: 200) }
             return shot
         }
+        XCTAssertEqual(try question.demonstrationShot(surfaceY: BTTablePhysics.surfaceY).input, question.answer)
         let first = try shot(distance: 0), retry = try shot(distance: 20), third = try shot(distance: 40)
         var record = SeparationPracticeRecord(ownerKey: "repeat-scores", is3D: false, configuration: .init(), prepared: prepared)
         record.accept(first); record.accept(retry); record.accept(third); record.accept(third)
+        XCTAssertTrue(record.demonstrationUnlocked)
         XCTAssertEqual(try XCTUnwrap(record.currentQuestionAverage()), 175.0 / 3, accuracy: 1e-9)
         XCTAssertEqual(record.currentQuestionAverage(excluding: third.id), 75)
         XCTAssertEqual(record.averageScore, 100)

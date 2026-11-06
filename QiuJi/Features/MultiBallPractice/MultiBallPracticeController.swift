@@ -219,15 +219,7 @@ final class MultiBallPracticeController: ObservableObject, RackPracticeControlli
         showResult(planningStepPrompt)
         saveCheckpoint()
     }
-    var planningStepPrompt: String {
-        switch planningStep {
-        case .ball1: "请选择第一颗球"
-        case .pocket1: "请选择第一颗球的袋口"
-        case .ball2: "请选择第二颗球"
-        case .pocket2: "请选择第二颗球的袋口"
-        case .ball3: "请选择第三颗球"
-        }
-    }
+    var planningStepPrompt: String { planningStep.selectionPrompt }
     private var roleNodes: [SCNNode] = []
     @Published private(set) var scores: [MultiBallPositionScore.Result] = []
     @Published private(set) var resultNotice: String?

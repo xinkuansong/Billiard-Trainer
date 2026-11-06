@@ -43,7 +43,7 @@ final class W4_BallPaletteUITests: XCTestCase {
     /// Composer：拖 9 号上桌 → 截图 → 点库内 9 号 pulse → 再拖回球库删球。
     func testV63ComposerPlacementSurvivesObservation() {
         let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
-        XCTAssertTrue(openCard(app: app, homeTab: "打", title: "自由走位"))
+        XCTAssertTrue(openCard(app: app, homeTab: "走位", title: "自由走位"))
         let ball9 = paletteBall(app, "_9")
         XCTAssertTrue(ball9.waitForExistence(timeout: 8))
         // Keep the placed ball clear of the default 1-ball. The previous point
@@ -108,7 +108,7 @@ final class W4_BallPaletteUITests: XCTestCase {
 
     func testW4ComposerDragPlacePulseRemove() {
         let app = XCUIApplication.launchClean()
-        guard openCard(app: app, homeTab: "打", title: "自由走位") else {
+        guard openCard(app: app, homeTab: "走位", title: "自由走位") else {
             XCTFail("未能进入自由走位"); return
         }
         snap(app, "w4-composer-01-initial")
@@ -144,7 +144,7 @@ final class W4_BallPaletteUITests: XCTestCase {
     /// Extraction：经 `-extract.confirmDemo` 直进确认步，拖球放置 + pulse + 拖回删球取证。
     func testW4ExtractionPaletteInteraction() {
         let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-extract.confirmDemo"])
-        guard openCard(app: app, homeTab: "打", title: "拍照建球形") else {
+        guard openCard(app: app, homeTab: "走位", title: "拍照建球形") else {
             XCTFail("未能进入拍照建球形"); return
         }
         snap(app, "w4-extraction-01-entry")

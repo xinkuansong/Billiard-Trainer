@@ -83,7 +83,7 @@ final class V50StateMatrixUITests: XCTestCase {
         try capture("ax-root-library")
 
         app.switchTab(.angle)
-        let learn = app.descendants(matching: .any)["angleHomeTab_理"]
+        let learn = app.descendants(matching: .any)["angleHomeTab_策略"]
         XCTAssertTrue(learn.waitForExistence(timeout: 8))
         assertInWindow(learn)
         try capture("ax-root-practice")

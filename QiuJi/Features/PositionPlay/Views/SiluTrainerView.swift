@@ -8,13 +8,11 @@ struct SiluTrainerView: View {
     @State private var informationPanel: PlanningPanel?
     @StateObject private var vm = SiluTrainerViewModel()
     @AppStorage("silu.breakGameBallCount") private var breakGameBallCount = 15
-    @State private var drawingConstraint = false
     @State private var showsToolChoices = false
     @ScaledMetric(relativeTo: .body) private var toolChoicesWidth = 112
-    @Environment(\.scenePhase) private var scenePhase
     private var busy: Bool { vm.isPlaying || vm.isComputing || vm.breakRunner?.isBusy == true }
     private var toolName: String {
-        switch vm.activeTool { case .none: return "摆球"; case .region: return "落区"; case .restPoint: return "落点"; case .passPoint: return "过点" }
+        switch vm.activeTool { case .region: return "落区"; case .restPoint: return "落点"; case .passPoint: return "过点" }
     }
 
     @AppStorage("silu.allowSideSpin") private var savedAllowSideSpin = true
@@ -26,7 +24,7 @@ struct SiluTrainerView: View {
     }
     private var hides3DAssists: Bool { !tablePreferences.snapshot(for: .silu).enabled(.shows3DTrajectory) }
     var body: some View {
-        BTTeachingTablePage(vm: vm, titleLabel: "走位求解", identifier: "silu", preferencePage: .silu,
+        BTTeachingTablePage(vm: vm, titleLabel: TablePreferencePage.silu.layoutTitle, identifier: "silu", preferencePage: .silu,
             velocity: velocity, planning: controls,
             usesStandardTitle: true,
             pairedLeftContent: { layout in vm.isBreakMode ? AnyView(breakControls(layout)) : AnyView(leftControls(layout)) },
@@ -36,8 +34,6 @@ struct SiluTrainerView: View {
         .sheet(item: $informationPanel) { panel in
             PlanningInformationSheet(panel: panel, sections: informationSections(panel))
         }
-        .onChange(of: scenePhase) { _, phase in if phase != .active { drawingConstraint = false } }
-        .onDisappear { drawingConstraint = false }
         #if DEBUG
         .overlay(alignment: .bottom) {
             if DailyLayoutProbe.enabled {
@@ -61,7 +57,6 @@ struct SiluTrainerView: View {
     private func breakEntry(_ layout: BTTeachingInstrumentLayout) -> some View {
         Button {
             showsToolChoices = false
-            drawingConstraint = false
             if let runner = vm.breakRunner { runner.reRack() }
             else { vm.startBreakFlow(game: BreakFlowRunner.game(forBallCount: breakGameBallCount)) }
             if vm.cameraMode == .perspective3D { vm.requestPlayerView(.thirdPerson) }
@@ -108,6 +103,7 @@ struct SiluTrainerView: View {
             velocityRange: vm.isBreakMode ? BreakFlowRunner.breakVelocityRange : ShotTuning.velocityRange,
             instrumentsEnabled: (!busy || vm.isAdjustingSolution) && (vm.isBreakMode || vm.hasSolutions), isAnimating: busy,
             paletteEnabled: !busy && !vm.isBreakMode,
+            showsPlacementHint: vm.informationEvent.kind != .failure,
             primaryTitle: vm.isBreakMode ? "开球" : (vm.isComputing ? "计算中" : "击球"),
             primaryEnabled: vm.isBreakMode ? !busy : vm.canStrike,
             onPrimary: {
@@ -119,7 +115,7 @@ struct SiluTrainerView: View {
             }, menuItems: menuItems, refreshTrajectory: { vm.redrawTrajectory() },
             applyPreferences: { vm.hides3DShotAssists = !$0.enabled(.shows3DTrajectory) }, onSetup: { vm.allowSideSpin = savedAllowSideSpin; vm.basicPositionOnly = savedBasicPositionOnly; vm.hides3DShotAssists = hides3DAssists; if let initialBoard { vm.loadBoard(initialBoard) } },
             onDisappear: { vm.stopForDismissal() },
-            layoutEditingBlocked: showsToolChoices || drawingConstraint,
+            layoutEditingBlocked: showsToolChoices || vm.isDrawingConstraint,
             onAimNudged: vm.isBreakMode ? { vm.breakRunner?.nudgeAim(byDegrees: $0) } : nil,
             closeupSnapshot: vm.canStrike ? vm.solvedContactCloseup : nil,
             closeupUnavailableReason: vm.canStrike && vm.solvedContactCloseup != nil ? nil : "当前首碰暂无特写",
@@ -127,18 +123,14 @@ struct SiluTrainerView: View {
                 if let runner = vm.breakRunner { runner.spinX = x; runner.spinY = y }
                 else { vm.adjustCurrentSolution(spinX: x, spinY: y) }
             },
-            overlay: { projector, frame in
-                if !vm.isBreakMode && !busy && vm.activeTool != .none {
-                    return AnyView(SolveConstraintDrawingOverlay(coordinateSpaceName: "silu", sceneFrame: frame,
-                        unproject: { projector.unproject?($0) }, onDrag: {
-                            vm.toolDrag(startNormalized: $0, currentNormalized: $1, ended: $2)
-                        }, onDragActiveChanged: { drawingConstraint = $0 }))
-                }
-                return AnyView(EmptyView())
-            }, breakGameSelection: Binding(get: { breakGameBallCount }, set: { count in
+            constraintInput: busy || vm.isBreakMode ? nil : TableConstraintInput(
+                tap: { point in
+                    if vm.activeTool != .region { vm.toolDrag(startNormalized: point, currentNormalized: point, ended: true) }
+                },
+                drag: vm.toolDrag, cancel: vm.cancelConstraintDrag),
+            breakGameSelection: Binding(get: { breakGameBallCount }, set: { count in
                 breakGameBallCount = count
                 showsToolChoices = false
-                drawingConstraint = false
                 vm.selectBreakGame(BreakFlowRunner.game(forBallCount: count))
             }))
     }
@@ -200,7 +192,6 @@ struct SiluTrainerView: View {
 
     private var toolChoices: some View {
         VStack(spacing: 0) {
-            toolChoice("摆球", tool: .none, id: "place")
             toolChoice("落区", tool: .region, id: "region")
             toolChoice("落点", tool: .restPoint, id: "restPoint")
             toolChoice("过点", tool: .passPoint, id: "passPoint")
@@ -263,7 +254,6 @@ struct SiluTrainerView: View {
         if vm.selectedPocketIndex < 0 { return "选择目标袋" }
         guard !vm.hasConstraint else { return nil }
         switch vm.activeTool {
-        case .none: return nil
         case .region: return "拖出落区"
         case .restPoint: return "点选落点"
         case .passPoint: return "点选过点"
@@ -275,7 +265,7 @@ struct SiluTrainerView: View {
         else if let prompt = compactPrompt { sections.append(("当前步骤", prompt)) }
         sections += [
             ("摆球与选择", "拖动球调整球形；点选目标球和目标袋。选齐目标球、袋口和落区／落点／过点后自动求解；拖动或绘制松手后更新方案。"),
-            ("约束工具", "落区：拖出母球期望停下的区域。\n落点：点选母球期望停下的位置；琥珀十字表示目标，圆环表示容差。\n过点：点选母球需要经过的位置。\n切回“摆球”可继续选择目标球和袋口。"),
+            ("约束工具", "落区：从空白台面起拖，画出母球期望停下的区域。\n落点：点选母球期望停下的位置；琥珀十字表示目标，圆环表示容差。\n过点：点选母球需要经过的位置。\n任一工具下均可从球旁起拖移球，轻点目标球和袋口进行选择。"),
             ("方案与微调", "轻点解按钮切换下一解，按钮显示当前序号和总数。调整打点、杆速后，当前方案标记“微调”。不满足约束或超出筛选范围的方案仍保留提示。")
         ]
         return sections

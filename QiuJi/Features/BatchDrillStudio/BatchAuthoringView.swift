@@ -275,6 +275,8 @@ struct BatchAuthoringView: View {
     @State private var dragLocation: CGPoint = .zero
     @State private var dragOverTable = false
     @State private var sceneFrame: CGRect = .zero
+    private var usesPhone2DEntry: Bool { ScreenAnchoredCarpet.applies && composer.cameraMode != .perspective3D }
+    @State private var entryRendered = false
     @State private var sceneFrameInWindow: CGRect?
     @State private var paletteFrame: CGRect = .zero
     @State private var toast: BTToastMessage?
@@ -326,13 +328,16 @@ struct BatchAuthoringView: View {
             }.frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
         .animation(BTMotion.springPanel, value: showSpinPad)
+        .modifier(BTBallPaletteHint(onTableKeys: composer.onTableKeys, canPresent: canPresentPlacementHint,
+                                    isVisible: $showsPlacementHint))
         .coordinateSpace(name: "batchAuthor")
         .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
             if let s = frames["scene.window"] { sceneFrameInWindow = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
-        .background { DailyTableOrientation(landscape: true, allowsTabletRotation: true) }
+        .modifier(TableEntryRenderObserver(rendered: $entryRendered, enabled: usesPhone2DEntry))
+        .background { DailyTableOrientation(landscape: true, allowsTabletRotation: true, tableFrameReady: usesPhone2DEntry ? entryRendered : nil) }
         .environment(\.colorScheme, .dark)
         .environment(\.dailyHUDControls, true)
         .btDarkToolChrome("编排求解")
@@ -531,8 +536,8 @@ struct BatchAuthoringView: View {
             }.frame(width: f.right.width, height: usesPortraitWorkbench ? max(1, f.table.height - 32) : f.right.height, alignment: .top)
                 .position(x: f.right.midX, y: usesPortraitWorkbench ? f.table.midY : f.right.midY)
                 .accessibilityHidden(menu != nil)
-            if !showSpinPad {
-                BTNoticeContent(message: toast ?? BTToastMessage(composer.isViewingAuthoringInitial ? "初始球形 · 仅查看，回到当前可继续编辑" : composer.authoringLandingHint ?? composer.authoringTemplateHint ?? composer.rerecordingStepIndex.map { rerecordingHint($0, scope: composer.rerecordingScope) } ?? guide.hint ?? (solver.isSolvingTool ? solver.statusText : composer.statusText), tone: .info), textOnly: true)
+            if !showSpinPad, let message = toast ?? recordingHint.map({ BTToastMessage($0, tone: .info) }) {
+                BTNoticeContent(message: message, textOnly: true)
                     .accessibilityIdentifier("batch.recordingHint")
                     .frame(width: max(1, inner.width - 16))
                     .fixedSize(horizontal: false, vertical: true)
@@ -624,7 +629,11 @@ struct BatchAuthoringView: View {
             }
         }
         .foregroundStyle(.white).frame(width: size.width, height: size.height)
-        .background { DailyCarpetBackground(style: preferences.roomStyle, pointsPerMetre: scale).ignoresSafeArea() }
+        .background {
+            if usesPhone2DEntry {
+                ScreenAnchoredCarpet(style: preferences.roomStyle, pointsPerMetre: scale, scene: composer.scene).ignoresSafeArea()
+            } else { DailyCarpetBackground(style: preferences.roomStyle, pointsPerMetre: scale).ignoresSafeArea() }
+        }
         .onChange(of: f.rotated, initial: true) { _, value in portrait = value; updateProjection() }
         .onChange(of: size) { _, _ in menu = nil }
     }
@@ -642,6 +651,27 @@ struct BatchAuthoringView: View {
 
     private var usesPortraitWorkbench: Bool { UIDevice.current.userInterfaceIdiom == .pad && portrait }
     private var navigationBusy: Bool { sequenceBusy || solver.isComputing }
+    @State private var showsPlacementHint = false
+
+    private var authoringInstruction: String? {
+        if composer.isViewingAuthoringInitial { return "初始球形 · 仅查看，回到当前可继续编辑" }
+        if let hint = composer.authoringLandingHint ?? composer.authoringTemplateHint { return hint }
+        if let index = composer.rerecordingStepIndex { return rerecordingHint(index, scope: composer.rerecordingScope) }
+        return guide.hint
+    }
+
+    private var canPresentPlacementHint: Bool {
+        !editingBusy && !showSpinPad && toast == nil && authoringInstruction == nil
+    }
+
+    private var recordingHint: String? {
+        if let authoringInstruction { return authoringInstruction }
+        if canPresentPlacementHint, composer.onTableKeys == [PositionPlayBall.cueKey] {
+            return showsPlacementHint ? BTBallPaletteHint.text : nil
+        }
+        return solver.isSolvingTool ? solver.statusText : composer.statusText
+    }
+
     private var editingBusy: Bool { navigationBusy || composer.isViewingAuthoringInitial }
     private var toolTitle: String {
         switch solver.activeTool {

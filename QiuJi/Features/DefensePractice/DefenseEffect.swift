@@ -2,7 +2,7 @@ import Foundation
 import SceneKit
 
 struct DefenseEffect: Codable {
-    static let version = "defense-target-pipe-always-scored-v8"
+    static let version = "defense-target-pipe-cut-lambda5-v9"
     static let blockedPotScore = 100.0 // User-confirmed: blocked pot contacts earn full marks.
     static let pipeReferenceDegrees = 1.0 // User-confirmed target-pipe scoring scale.
     let scoringVersion: String
@@ -20,14 +20,24 @@ struct DefenseEffect: Codable {
     var pipeRoute: DefenseAttackAssessment.PipeRoute? = nil
     var estimateReason: String? = nil
 
-    /// Slow reciprocal decay in target-pipe degrees; comfort belongs to the same route.
-    static func angleFactor(_ degrees: Double) -> Double? {
-        guard degrees.isFinite, degrees >= 0 else { return nil }
-        return pipeReferenceDegrees / (pipeReferenceDegrees + degrees)
+    static let pipeAngleWeight = 5.0
+
+    /// Target-pipe width is moderated by the actual cut of the SAME reachable aim.
+    static func angleFactor(_ degrees: Double, cutDegrees: Double) -> Double? {
+        guard degrees.isFinite, degrees >= 0, cutDegrees.isFinite,
+              (0...90).contains(cutDegrees) else { return nil }
+        let weight = cutDegrees == 90 ? 0 : pipeAngleWeight * pow(cos(cutDegrees * .pi / 180), 2)
+        // Reciprocal form avoids overflow for finite, very large pipe widths.
+        if degrees > pipeReferenceDegrees {
+            let inverseWidth = pipeReferenceDegrees / degrees
+            return inverseWidth / (inverseWidth + weight)
+        }
+        return 1 / (1 + degrees / pipeReferenceDegrees * weight)
     }
-    static func value(pipeDegrees: Double, comfort: Double) -> Double? {
-        guard let factor = angleFactor(pipeDegrees), comfort.isFinite, (0...100).contains(comfort) else { return nil }
-        return sqrt(100 * factor * (100 - comfort))
+    static func value(pipeDegrees: Double, comfort: Double, cutDegrees: Double) -> Double? {
+        guard let factor = angleFactor(pipeDegrees, cutDegrees: cutDegrees),
+              comfort.isFinite, (0...100).contains(comfort) else { return nil }
+        return 100 * sqrt(factor * (1 - comfort / 100))
     }
     static func failure(_ q: DefenseBankQuestion, _ p: ShotPrediction) -> String? {
         if p.cuePocketed || p.pocketedBalls.contains(ShotInput.cueBallName) { return "母球落袋" }
@@ -120,8 +130,8 @@ struct DefenseEffect: Codable {
 
     /// Upper bounds for the existing comfort model: allow the best distance
     /// scale, omit directional/adjacent rail penalties, and allow a straight pot.
-    /// The capture envelope upper-bounds the target-pipe angle. The unchanged
-    /// monotone formula then yields a lower defensive estimate, not a fixed score.
+    /// The capture envelope upper-bounds the target-pipe angle. The
+    /// monotone formula at cut 0 (maximum width factor) yields a lower defensive estimate.
     static func optimisticAttackBound(cue:DefenseAttackAssessment.P,ball:DefenseAttackAssessment.P,
                                       table:TableGeometry) -> (degrees:Double,comfort:Double,score:Double) {
         let distance=(ball-cue).length,r=Double(AngleSceneCalculator.ballRadius)
@@ -137,7 +147,7 @@ struct DefenseEffect: Codable {
             guard let envelope=reach.captureEnvelope else { return 360 }
             return (envelope.upperBound-envelope.lowerBound)*180/Double.pi
         }.max()!
-        return (angleUpper,comfortUpper,value(pipeDegrees:angleUpper,comfort:comfortUpper)!)
+        return (angleUpper,comfortUpper,value(pipeDegrees:angleUpper,comfort:comfortUpper,cutDegrees:0)!)
     }
 
     /// Continuous angular coverage, same conservative proof as the source bank.
@@ -169,16 +179,26 @@ struct DefenseEffect: Codable {
         if fullDirectBlock { return "规则判定：合法\n对方目标：\(opponentBallNumber)号\n直线通路：完整遮挡\n防守得分：100" }
         if let unavailableReason { return "规则判定：合法\n\(unavailableReason)" }
         if potContactsBlocked == true {
-            if [Self.version,"defense-target-pipe-continuous-block-v7"].contains(scoringVersion) {
+            if [Self.version,"defense-target-pipe-always-scored-v8","defense-target-pipe-continuous-block-v7"].contains(scoringVersion) {
                 return "规则判定：合法\n对方目标：\(opponentBallNumber)号\n进攻机会：直接进球线路全部受阻\n进球管道或对应瞄准管道不可通过\n防守得分：\(scoreText)"
             }
             return "规则判定：合法\n对方目标：\(opponentBallNumber)号\n进攻机会：进袋下球点受阻\n防守得分：\(scoreText)\n仍可碰到目标球；区别于完整遮挡。"
+        }
+        if scoringVersion == Self.version {
+            let estimated = estimateReason != nil || pipeRoute?.zeroWidthEstimate == true
+            let pipeLabel = pipeRoute == nil ? "管道角估计上界" : "目标球管道容错角"
+            let comfortLabel = pipeRoute == nil ? "进攻舒适分估计上界" : "同路线进攻舒适分"
+            let angle = pipeRoute?.cutDegrees.map { String(format:"%.2f°", $0) }
+                ?? "0°（保守估分假设）"
+            let note = estimateReason ?? (pipeRoute?.zeroWidthEstimate == true
+                ? "正宽进球窗口未确认，管道角按0°估算。" : "")
+            return String(format:"规则判定：合法\n对方目标：%d号\n%@：%.6f°\n同路线切角：%@\n%@：%.2f\n防守得分：%.1f%@\n评分：100 × √[(1−舒适分/100) / (1+5×管道角/1°×cos²切角)]", opponentBallNumber, pipeLabel, targetPipeToleranceDegrees ?? 0, angle, comfortLabel, comfort ?? 0, score ?? 0, estimated ? "（估算）" : "") + (note.isEmpty ? "" : "\n" + note)
         }
         if let estimateReason {
             let labels=pipeRoute == nil ? ("管道角估计上界","进攻舒适分估计上界"):("目标球管道容错角","同路线进攻舒适分")
             return String(format:"规则判定：合法\n对方目标：%d号\n防守得分：%.1f（估算）\n%@：%.6f°\n%@：%.2f\n%@\n仍使用1°参考尺度与原评分公式。",opponentBallNumber,score ?? 0,labels.0,targetPipeToleranceDegrees ?? 0,labels.1,comfort ?? 0,estimateReason)
         }
-        if [Self.version, "defense-target-pipe-continuous-block-v7", "defense-target-pipe-angle1-block100-v6", "defense-target-pipe-angle1-zero-comfort-v5", "defense-target-pipe-angle1-comfort-v4"].contains(scoringVersion) {
+        if ["defense-target-pipe-always-scored-v8", "defense-target-pipe-continuous-block-v7", "defense-target-pipe-angle1-block100-v6", "defense-target-pipe-angle1-zero-comfort-v5", "defense-target-pipe-angle1-comfort-v4"].contains(scoringVersion) {
             let note = pipeRoute?.zeroWidthEstimate == true ? "\n几何路线可达；无正宽管道，按0°计分。" : ""
             return String(format: "规则判定：合法\n对方目标：%d号\n目标球管道容错角：%.6f°\n参考尺度：1°\n同路线进攻舒适分：%.2f\n防守得分：%.1f\n评分：100 × √[(1−舒适分/100) / (1+管道角/1°)]", opponentBallNumber, targetPipeToleranceDegrees ?? 0, comfort ?? 0, score ?? 0) + note
         }

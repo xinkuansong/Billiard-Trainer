@@ -110,11 +110,11 @@ final class W1BTeachingEditingTests: XCTestCase {
         let silu = SiluTrainerViewModel(); silu.setupScene(); silu.scene.cameraRig?.viewportSize = CGSize(width: 874, height: 402)
         silu.setCameraMode(.perspective3D); silu.activeTool = .region
         silu.placeFromPalette("_3")
-        XCTAssertEqual(silu.activeTool, .none)
+        XCTAssertEqual(silu.activeTool, .region)
         XCTAssertTrue(silu.selectableBalls.contains { $0 === silu.scene.allBallNodes["_3"] })
         silu.beginTemporaryTopDown(); XCTAssertTrue(silu.temporaryTopDownActive)
         silu.activeTool = .restPoint; silu.placeFromPalette("_4")
-        XCTAssertEqual(silu.activeTool, .none)
+        XCTAssertEqual(silu.activeTool, .restPoint)
         XCTAssertFalse(silu.draggableBalls.isEmpty); XCTAssertFalse(silu.canStrike)
         silu.stopForDismissal()
 

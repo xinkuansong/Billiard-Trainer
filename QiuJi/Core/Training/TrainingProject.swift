@@ -20,6 +20,11 @@ enum TrainingProject: String, Codable, CaseIterable {
         case .multiBall: "多球走位"
         }
     }
+    func historyTitle(presentation: TrainingPresentation?, is3D: Bool) -> String {
+        let view = presentation?.summary ?? TrainingViewMode(is3D: is3D).rawValue
+        return title + " · " + view
+    }
+
     var page2D: TablePreferencePage {
         switch self {
         case .angle: .sceneAiming2D

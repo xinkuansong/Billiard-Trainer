@@ -71,10 +71,16 @@ struct DefenseBankQuestion: Codable {
         }
         let id: String
         let parameters: Parameters
-        let tactics: [String]
-        let effect: Effect
-        let execution: Execution
-        let selectionProbes: [Probe]
+        // Legacy metadata remains decodable in saved v1 sessions.
+        let tactics: [String]?
+        let effect: Effect?
+        let execution: Execution?
+        let selectionProbes: [Probe]?
+        struct Quality: Codable {
+            let estimatedCount, sameRails: Int
+            let minimumScore, score: Double
+        }
+        var quality: Quality? = nil
         let expected: Expected
     }
     let id, sourceFormationID, sampleID, kind: String

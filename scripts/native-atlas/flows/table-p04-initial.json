@@ -7,11 +7,12 @@
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_解"
+      "id": "angleHomeTab_走位",
+      "scrollTo": 4
     },
     {
       "action": "tap",
-      "id": "思路训练",
+      "id": "走位求解",
       "scrollTo": 6
     },
     {

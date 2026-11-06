@@ -50,7 +50,7 @@ final class B1_ManualFormationUITests: XCTestCase {
         dismissOnboardingIfNeeded(app)
         app.switchTab(.angle)
         sleep(1)
-        let seg = app.buttons["angleHomeTab_打"]
+        let seg = app.buttons["angleHomeTab_走位"]
         XCTAssertTrue(seg.waitForExistence(timeout: 6), "角度首页「打」分段")
         seg.tap()
         usleep(600_000)

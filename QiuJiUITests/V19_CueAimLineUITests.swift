@@ -56,7 +56,7 @@ final class V19_CueAimLineUITests: XCTestCase {
     /// C2：翻袋求解有解 → 应见瞄准相关线 + 球杆。
     func testV19_bankSolve_hasCue() {
         let app = XCUIApplication.launchClean()
-        XCTAssertTrue(openCard(app, homeTab: "解", title: "翻袋解球"), "打开翻袋解球")
+        XCTAssertTrue(openCard(app, homeTab: "进阶", title: "翻袋解球"), "打开翻袋解球")
         sleep(5) // 求解去抖 + 引擎
         snap(app, "v19-01-bank-solve-cue")
     }
@@ -64,7 +64,7 @@ final class V19_CueAimLineUITests: XCTestCase {
     /// C3：Composer 开球瞄准期有瞄准线 + 杆。
     func testV19_composerBreak_aimHasCue() {
         let app = XCUIApplication.launchClean()
-        XCTAssertTrue(openCard(app, homeTab: "打", title: "自由走位"), "打开自由走位")
+        XCTAssertTrue(openCard(app, homeTab: "走位", title: "自由走位"), "打开自由走位")
         let entry = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == 'break.entry'")).firstMatch
         XCTAssertTrue(entry.waitForExistence(timeout: 6), "开球入口")
@@ -82,7 +82,7 @@ final class V19_CueAimLineUITests: XCTestCase {
     /// C4：Composer 自由模式拖瞄准预览期有杆。
     func testV19_composerFreeAimDrag_hasCue() {
         let app = XCUIApplication.launchClean()
-        XCTAssertTrue(openCard(app, homeTab: "打", title: "自由走位"), "打开自由走位")
+        XCTAssertTrue(openCard(app, homeTab: "走位", title: "自由走位"), "打开自由走位")
         sleep(2)
         // BTAimModeToggleButton：accessibilityLabel = "瞄准模式：进袋/自由，点击切换"
         let modeToggle = app.buttons.matching(
@@ -108,7 +108,7 @@ final class V19_CueAimLineUITests: XCTestCase {
     /// C5：AimPointScene 瞄准期有杆（沿用户白线）。
     func testV19_aimPointScene_aimingHasCue() {
         let app = XCUIApplication.launchClean()
-        XCTAssertTrue(openCard(app, homeTab: "练", title: "2D 瞄准点训练"), "打开 2D 瞄准点训练")
+        XCTAssertTrue(openCard(app, homeTab: "准度", title: "2D 瞄准点训练"), "打开 2D 瞄准点训练")
         sleep(2)
         snap(app, "v19-04-aimpoint-aiming-cue")
     }
@@ -116,7 +116,7 @@ final class V19_CueAimLineUITests: XCTestCase {
     /// C6：SceneAiming 辅助开仍无瞄准杆（回归）。
     func testV19_sceneAiming_assistStillNoCue() {
         let app = XCUIApplication.launchClean()
-        XCTAssertTrue(openCard(app, homeTab: "练", title: "2D 角度训练"), "打开 2D 角度训练")
+        XCTAssertTrue(openCard(app, homeTab: "准度", title: "2D 角度训练"), "打开 2D 角度训练")
         // 设置 sheet：开始
         let start = app.buttons["开始训练"]
         if start.waitForExistence(timeout: 4) {
@@ -135,7 +135,7 @@ final class V19_CueAimLineUITests: XCTestCase {
     /// C7：击球后点回放/上一杆路径——抓取运杆前静止瞄准帧（无闪藏需目视）。
     func testV19_composerPlayback_restAim() {
         let app = XCUIApplication.launchClean()
-        XCTAssertTrue(openCard(app, homeTab: "打", title: "自由走位"), "打开自由走位")
+        XCTAssertTrue(openCard(app, homeTab: "走位", title: "自由走位"), "打开自由走位")
         sleep(3)
         if app.buttons["击球"].waitForExistence(timeout: 4) {
             app.buttons["击球"].tap()

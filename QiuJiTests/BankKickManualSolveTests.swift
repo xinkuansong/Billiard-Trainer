@@ -337,7 +337,7 @@ final class PlanningAutomaticSolveTests: XCTestCase {
         vm.selectPocket(at: 4)
         XCTAssertFalse(vm.isComputing)
         XCTAssertFalse(vm.hasSolutions)
-        vm.activeTool = .region
+        XCTAssertEqual(vm.activeTool, .region)
         let start = CanvasPoint(x: 0.02, y: 0.02), end = CanvasPoint(x: 0.98, y: 0.48)
         vm.toolDrag(startNormalized: start, currentNormalized: end, ended: false)
         XCTAssertFalse(vm.isComputing)
@@ -350,7 +350,7 @@ final class PlanningAutomaticSolveTests: XCTestCase {
         let marker = try XCTUnwrap(vm.scene.rootNode.childNode(withName: "pocketMarker_4", recursively: true) as? PocketLeatherMarker)
         try await Task.sleep(for: .seconds(4))
         XCTAssertEqual(marker.style, .practiceCurrent)
-        vm.activeTool = .none
+        XCTAssertFalse(vm.draggableBalls.isEmpty)
         let cue = try XCTUnwrap(vm.scene.cueBallNode)
         vm.dragBegan(node: cue)
         XCTAssertFalse(vm.canStrike)

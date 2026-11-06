@@ -144,10 +144,95 @@ enum SeparationQuestionGenerator {
             return true
         }
     }
+    /// A hit on the intended pocket face is eligible only on the final entry segment.
+    /// Use the recorded ball center at the collision, including the outgoing main rail on banks.
+    static func jawEntryOrigin(_ prediction: ShotPrediction, pocket: Int, bank: Bool = false) -> SCNVector3? {
+        let target = ShotInput.targetBallName
+        guard ShotPredictor.bankPocketContactCount(events: prediction.events) > 0,
+              let recorder = prediction.recorder, let frames = recorder.framesByBallName[target],
+              let first = recorder.firstBallContacts[target] else { return nil }
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        var lastRail: Float?
+        var firstJaw: Float?
+        for event in prediction.events {
+            if case let .pocket(ball, _) = event.kind, ball == target { break }
+            guard case let .ballCushion(ball) = event.kind, ball == target else { continue }
+            guard let index = event.cushionIndex, index >= 0 else { return nil }
+            if index < 6 {
+                guard bank, firstJaw == nil else { return nil }
+                lastRail = event.time
+            } else {
+                guard let frame = frames.last(where: { abs($0.time - event.time) < 0.00001 }),
+                      frame.position.distanceXZ(to: geometry.pockets[pocket].center) < 0.18 else { return nil }
+                if firstJaw == nil { firstJaw = event.time }
+            }
+        }
+        guard firstJaw != nil, !bank || lastRail != nil else { return nil }
+        let time = lastRail ?? first.time
+        return frames.last(where: { abs($0.time - time) < 0.00001 })?.position
+    }
+
+    static func hasCleanEntryWindow(from origin: SCNVector3, pocket: Int) -> Bool {
+        let result = AngleSceneCalculator.defenseCleanWindow(origin, pocketIndex: pocket, stepDegrees: 0.025)
+        let intervals = result["intervals"] as? [[String: Any]] ?? []
+        return intervals.contains { interval in
+            guard let low = interval["leftDegrees"] as? Double,
+                  let high = interval["rightDegrees"] as? Double else { return false }
+            return high > low
+        }
+    }
+
+    static func nearbyInputs(_ input: SeparationInput, vertical: Bool, lateral: Bool) -> [SeparationInput] {
+        var inputs = [SeparationInput]()
+        for delta: Float in [0.01, 0.02, 0.04, 0.08, 0.15, 0.25, 0.4] {
+            for signed in [delta, -delta] {
+                var next = input
+                next.velocity += signed
+                if next.isValid { inputs.append(next) }
+                guard delta <= 0.15 else { continue }
+                if vertical {
+                    next = input
+                    next.spinY += signed
+                    if next.isValid { inputs.append(next) }
+                }
+                if lateral {
+                    next = input
+                    next.spinX += signed
+                    if next.isValid { inputs.append(next) }
+                }
+            }
+        }
+        return inputs
+    }
+
+    private static func cleanAnswer(board: TrainingBankBoard, input: SeparationInput,
+        original: ShotPrediction, target: [SeparationTrajectory.Point], minimum: Float,
+        configuration: SceneTrainingConfiguration, profile: [CueSection]) throws -> (SeparationInput, ShotPrediction)? {
+        guard let origin = jawEntryOrigin(original, pocket: board.pocketIndex),
+              hasCleanEntryWindow(from: origin, pocket: board.pocketIndex) else { return nil }
+        let candidates = nearbyInputs(input, vertical: configuration.allowsVerticalSpin, lateral: configuration.allowsSideSpin)
+        for candidate in candidates where candidate.velocity >= minimum && speedRange.contains(Double(candidate.velocity)) {
+            try Task.checkCancellation()
+            guard let shot = try? solve(board: board, input: candidate, surfaceY: BTTablePhysics.surfaceY, profile: profile),
+                  AccuracyShotJudgement.evaluate(shot, pocketIndex: board.pocketIndex) == .success,
+                  !hasCueJawContact(shot), ShotPredictor.bankPocketContactCount(events: shot.events) == 0,
+                  let score = try SeparationTrajectoryScore.evaluate(target: target, actual: SeparationTrajectory.extract(shot)),
+                  score.distanceCM <= 0.5 else { continue }
+            return (candidate, shot)
+        }
+        try Task.checkCancellation()
+        return nil
+    }
     static func generate<R: RandomNumberGenerator>(board: TrainingBankBoard, configuration: SceneTrainingConfiguration,
         profile: [CueSection], random: inout R) throws -> SeparationQuestion? {
         let start = Date()
         var audit = Audit()
+        guard let minimum = try minimumCenterSpeed(board: board, profile: profile, audit: &audit) else { return nil }
+        return try generateAnswer(board: board, configuration: configuration, profile: profile, random: &random,
+                                  minimum: minimum, audit: audit, started: start)
+    }
+
+    static func minimumCenterSpeed(board: TrainingBankBoard, profile: [CueSection], audit: inout Audit) throws -> Float? {
         let surfaceY = BTTablePhysics.surfaceY
         var minimum: Float?
         func center(_ speed: Float) throws -> Bool {
@@ -175,7 +260,13 @@ enum SeparationQuestionGenerator {
                 break
             }
         }
-        guard let minimum else { return nil }
+        return minimum
+    }
+
+    static func generateAnswer<R: RandomNumberGenerator>(board: TrainingBankBoard, configuration: SceneTrainingConfiguration,
+        profile: [CueSection], random: inout R, minimum: Float, audit initialAudit: Audit, started start: Date) throws -> SeparationQuestion? {
+        let surfaceY = BTTablePhysics.surfaceY
+        var audit = initialAudit
         for _ in 0..<48 {
             try Task.checkCancellation()
             guard let input = sample(minimum: minimum, vertical: configuration.allowsVerticalSpin,
@@ -189,9 +280,11 @@ enum SeparationQuestionGenerator {
                 }
                 let line = try SeparationTrajectory.extract(prediction)
                 guard !line.isEmpty else { audit.rejectedInputs += 1; continue }
+                let (answer, reference) = try cleanAnswer(board: board, input: input, original: prediction,
+                    target: line, minimum: minimum, configuration: configuration, profile: profile) ?? (input, prediction)
                 audit.elapsedSeconds = Date().timeIntervalSince(start)
-                return .init(id: UUID(), board: board, minimumCenterSpeed: minimum, answer: input,
-                    answerDirection: .init(prediction.strikeDirection!), target: line, audit: audit)
+                return .init(id: UUID(), board: board, minimumCenterSpeed: minimum, answer: answer,
+                    answerDirection: .init(reference.strikeDirection!), target: line, audit: audit)
             } catch is CancellationError { throw CancellationError() }
             catch { audit.rejectedInputs += 1 }
         }
@@ -199,7 +292,61 @@ enum SeparationQuestionGenerator {
     }
 }
 
+/// Only the first three distinct completed player strokes matter for this route.
+struct PracticeDemonstrationProgress: Codable {
+    private var shotIDs: Set<UUID> = []
+    private(set) var unlocked = false
+
+    init(alreadyUnlocked: Bool = false) { unlocked = alreadyUnlocked }
+
+    mutating func accept(id: UUID, qualified: Bool) {
+        guard !unlocked else { return }
+        shotIDs.insert(id)
+        unlocked = qualified || shotIDs.count >= 3
+    }
+
+    static func qualifies(score: Double?) -> Bool { score.map { $0 >= 75 } ?? false }
+}
+
+/// Rebuild the selected answer without submitting a player attempt.
+protocol PracticeDemonstrationQuestion {
+    associatedtype DemonstrationShot
+    var demonstrationInput: SeparationInput { get }
+    func demonstrationShot(surfaceY: Float) throws -> DemonstrationShot
+}
+
+enum PracticeDemonstrationError: LocalizedError {
+    case referenceMismatch
+    case invalidOutcome(String)
+    var errorDescription: String? {
+        switch self {
+        case .referenceMismatch: "本题参考杆未能重现，请重打或继续下一题。"
+        case .invalidOutcome(let reason): "本题参考杆" + reason + "，可重打或继续下一题。"
+        }
+    }
+}
+
+extension PracticeDemonstrationQuestion {
+    @MainActor
+    func loadDemonstration(surfaceY: Float,
+                           completed: @escaping (Result<DemonstrationShot, Error>) -> Void) -> Task<Void, Never> {
+        Task {
+            let computation = Task.detached(priority: .userInitiated) {
+                try self.demonstrationShot(surfaceY: surfaceY)
+            }
+            let result = await withTaskCancellationHandler {
+                await computation.result
+            } onCancel: { computation.cancel() }
+            if !Task.isCancelled { completed(result) }
+        }
+    }
+}
+
 struct SeparationInput: Codable, Equatable {
+    #if DEBUG
+    var diagnosticValues: [Float] { [spinX, spinY, velocity] }
+    #endif
+
     var spinX: Float = 0
     var spinY: Float = 0
     var velocity: Float = Float(ShotTuning.defaultVelocity)
@@ -316,5 +463,20 @@ enum SeparationTrajectory {
             result.append(.init(time: time, position: .init(capture.ball.position), isEvent: true))
         }
         return result
+    }
+}
+
+extension SeparationQuestion: PracticeDemonstrationQuestion {
+    var demonstrationInput: SeparationInput { answer }
+
+    func demonstrationShot(surfaceY: Float) throws -> SeparationShot {
+        let prediction = try SeparationQuestionGenerator.solve(board: board, input: answer, surfaceY: surfaceY,
+            profile: AccuracyTipSelector.renderedProfile())
+        guard let direction = prediction.strikeDirection,
+              TrainingBankPoint(direction) == answerDirection,
+              AccuracyShotJudgement.evaluate(prediction, pocketIndex: board.pocketIndex) == .success else {
+            throw PracticeDemonstrationError.referenceMismatch
+        }
+        return try SeparationShot(question: self, input: answer, prediction: prediction, surfaceY: surfaceY)
     }
 }

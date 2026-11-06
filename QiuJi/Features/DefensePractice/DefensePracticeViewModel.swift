@@ -72,6 +72,7 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
     private var builtScene = false
     private(set) var referenceRouteKeys: [String] = []
     private(set) var actualRouteKeys: [String] = []
+    private var demonstrationPaths: [String: [SeparationTrajectory.Point]]?
     private var referenceNodes: [SCNNode] = []
     private var referenceWork: Task<Void, Never>?
     private var referenceQuestionID: UUID?
@@ -92,6 +93,9 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
     var diagnostic: String {
         let value: [String: Any] = ["phase": String(describing: phase), "question": record?.current?.contentID ?? "", "attempts": record?.attempts.count ?? 0,
             "referenceVisible": referenceNodes.contains { $0.parent === scene.rootNode && !$0.isHidden }, "mode": record?.configuration.mode.rawValue ?? "", "ballCount": record?.current?.source.balls.count ?? 0,
+            "instrument": [instrumentInput.spinX, instrumentInput.spinY, instrumentInput.velocity],
+            "playerInput": [input.spinX, input.spinY, input.velocity],
+            "referenceInput": record?.current?.reference.map { [$0.parameters.spinX, $0.parameters.spinY, $0.parameters.velocity] } ?? [],
             "actualVisible": actualNodes.contains { $0.parent === scene.rootNode && !$0.isHidden }, "quota": limiter.questionsUsedToday, "primary": primaryTitle, "score": record?.latestShot?.effect.score ?? -1]
         return (try? JSONSerialization.data(withJSONObject: value)).flatMap { String(data:$0,encoding:.utf8) } ?? "{}"
     }
@@ -159,6 +163,8 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
     var selectableBalls: [SCNNode] { [] }
     var isDragging: Bool { geometryReference.dragging }
     var currentPlayerAim: SCNVector3? { record?.draftDirection.vector }
+    @Published private(set) var demonstrationInput: SeparationInput?
+    var instrumentInput: SeparationInput { demonstrationInput ?? input }
     var input: SeparationInput { record?.draftInput ?? .init() }
     var velocity: Double {
         get { Double(input.velocity) }
@@ -366,7 +372,7 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
         guard referenceQuestionID != question.id else { return }
         clearReference(); referenceQuestionID = question.id
         for (_, name) in physicalKeys {
-            guard let line = question.referencePaths[name] else { continue }
+            guard let line = (demonstrationPaths ?? question.referencePaths)[name] else { continue }
             let count = referenceNodes.count
             scene.addDashedPolyline(points(line), color: DefenseRouteStyle.target(for: name), placement: .table, into: &referenceNodes)
             if referenceNodes.count > count { referenceRouteKeys.append(name) }
@@ -589,34 +595,56 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
         invalidate(); replayReturn = state; replayCamera.begin(in: scene); isReplaying = true
         drawActual(); play(shot)
     }
-    var canReplayReference: Bool { canPlayback && record?.current?.reference != nil }
+    var canReplayReference: Bool { phase == .result && canPlayback && record?.configuration.mode == .trajectory && record?.current?.reference != nil && record?.currentDemonstrationProgress.unlocked == true }
     func replayReference() {
-        guard canReplayReference, let q = record?.current, let reference = q.reference else { return }
+        guard let index = record?.current?.referenceIndex else { return }
+        replayReference(at: index)
+    }
+    func replayReference(at index: Int) {
+        guard canReplayReference, let q = record?.current, q.source.references.indices.contains(index) else { return }
+        let reference = q.source.references[index]
+        guard reference.parameters.direction.count == 2 else {
+            message = "本题参考杆缺少击球方向"
+            return
+        }
         let state = (phase, Dictionary(uniqueKeysWithValues: physicalNodes.compactMap { node, name in node.map { (name, BallDisplay($0)) } }), scene.railInventory.snapshot())
         invalidate(); replayReturn = state; replayCamera.begin(in: scene); isReplaying = true
         let token = generation, surface = scene.surfaceY, parameters = reference.parameters
+        let input = SeparationInput(spinX: Float(parameters.spinX), spinY: Float(parameters.spinY), velocity: Float(parameters.velocity))
+        demonstrationInput = input
         phase = .preparing
         drawActual()
         work = Task {
             let worker = Task.detached(priority: .userInitiated) {
-                let input = SeparationInput(spinX: Float(parameters.spinX), spinY: Float(parameters.spinY), velocity: Float(parameters.velocity))
-                let prediction = try DefenseQuestionPreparer.solve(question: q, input: input,
-                    direction: .init(Float(parameters.direction[0]),0,Float(parameters.direction[1])), surfaceY: surface, profile: AccuracyTipSelector.renderedProfile())
-                return try DefenseShot(question:q,input:input,prediction:prediction,surfaceY:surface)
+                let prediction = try DefenseQuestionPreparer.verified(source: q.source, reference: reference, surfaceY: surface,
+                    profile: AccuracyTipSelector.renderedProfile())
+                return try DefenseShot(question: q, input: input, prediction: prediction, surfaceY: surface)
             }
             do {
                 let shot = try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
                 guard !Task.isCancelled, generation == token else { return }
+                if index != q.referenceIndex {
+                    let prediction = shot.prediction()
+                    var paths = [String:[SeparationTrajectory.Point]]()
+                    for name in [ShotInput.cueBallName] + q.source.keys {
+                        paths[name] = try SeparationTrajectory.extractBall(prediction, name: name)
+                    }
+                    clearReference()
+                    demonstrationPaths = paths
+                }
                 play(shot)
             } catch {
                 guard generation == token else { return }
+                demonstrationInput = nil
                 stopPlayback(); message = error.localizedDescription
             }
         }
     }
     func stopPlayback() {
         guard isReplaying else { return }
+        let displayed = demonstrationInput
         invalidate()
+        demonstrationInput = displayed
         if phase == .aiming { drawActual(visible: false); redrawCue() }
         else if phase == .result { drawActual() }
     }
@@ -866,6 +894,8 @@ final class DefensePracticeViewModel: ObservableObject, TeachingTableHost {
         _ = save()
     }
     private func invalidate(preservingCue: Bool = false) {
+        demonstrationPaths = nil
+        demonstrationInput = nil
         closeupSnapshot = nil; closeupWasNear = false
         centerReferenceLine?.removeFromParentNode(); centerReferenceLine = nil
         clearReference()

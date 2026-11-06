@@ -54,6 +54,55 @@ final class TrajectoryPlaybackSettleTests: XCTestCase {
         return (rec, name, stopTime, restX)
     }
 
+    func testBreakCompressesOnlyTheLastSpinnerAfterAllOtherMotion() throws {
+        let rec = TrajectoryRecorder()
+        func add(_ name: String, _ time: Float, _ state: BallMotionState) {
+            rec.recordFrame(ballName: name, frame: BallFrame(time: time, position: SCNVector3Zero,
+                velocity: SCNVector3Zero, angularVelocity: SCNVector4(0, 1, 0, 10), state: state))
+        }
+        add("cue", 0, .spinning)
+        add("cue", 12, .stationary)
+        add("other", 0, .spinning)
+        add("other", 4, .stationary)
+        add("other", 5, .rolling)
+        add("other", 7, .stationary)
+        add("pot", 0, .rolling)
+        add("pot", 7, .pocketed)
+
+        let playback = TrajectoryPlayback(recorder: rec, surfaceY: 0)
+        let tail = try XCTUnwrap(playback.finalBreakSpinTail())
+        XCTAssertEqual(tail.ballName, "cue")
+        XCTAssertEqual(tail.start, 7 + Float(TrajectoryPlayback.pocketSettleDuration), accuracy: 0.001)
+        XCTAssertEqual(tail.displayEnd - tail.start, 2, accuracy: 0.001)
+        XCTAssertEqual(tail.simulationTime(at: 7), 7)
+        XCTAssertEqual(tail.simulationTime(at: tail.start + 1), (tail.start + 12) / 2, accuracy: 0.001)
+        XCTAssertEqual(tail.simulationTime(at: tail.displayEnd), 12)
+        let action = try XCTUnwrap(playback.action(for: SCNNode(), ballName: "cue", breakSpinTail: tail))
+        XCTAssertEqual(action.duration, Double(tail.displayEnd), accuracy: 0.001)
+
+        add("secondSpinner", 0, .spinning)
+        add("secondSpinner", 10.5, .stationary)
+        XCTAssertNil(TrajectoryPlayback(recorder: rec, surfaceY: 0).finalBreakSpinTail())
+        add("secondSpinner", 11, .spinning)
+        add("secondSpinner", 12, .stationary)
+        XCTAssertNil(TrajectoryPlayback(recorder: rec, surfaceY: 0).finalBreakSpinTail())
+    }
+
+    func testBreakSpinTailOnPreviouslyDiagnosedRack() throws {
+        let rack = RackLayout.make(.chineseEightBall, seed: 1972274182705165791)
+        let result = BreakSimulator.breakShot(rack: rack, power: 10)
+        XCTAssertTrue(result.settled)
+        let playback = TrajectoryPlayback(recorder: result.recorder, surfaceY: result.surfaceY)
+        let tail = try XCTUnwrap(playback.finalBreakSpinTail())
+        let atStart = try XCTUnwrap(playback.stateAt(ballName: tail.ballName, time: tail.start))
+        let atEnd = try XCTUnwrap(playback.stateAt(ballName: tail.ballName, time: tail.end))
+        XCTAssertEqual(atStart.motionState, .spinning)
+        XCTAssertEqual(atEnd.motionState, .stationary)
+        XCTAssertLessThan((atStart.position - atEnd.position).length(), 0.00001)
+        XCTAssertEqual(tail.displayEnd - tail.start, 2, accuracy: 0.001)
+        print("Break spin tail: ball=\(tail.ballName) start=\(tail.start) natural=\(tail.end) displayed=\(tail.displayEnd)")
+    }
+
     /// 复刻已删除的旧「感知静止」算法（0.07 m/s 阈值），仅用于在测试内演示旧截断会造成的间隔。
     private func legacyPerceptibleCut(_ pb: TrajectoryPlayback, name: String,
                                       threshold: Float = 0.07) -> Float {

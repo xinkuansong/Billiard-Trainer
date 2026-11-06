@@ -6,17 +6,17 @@ final class V49W21PlaySolveCardUITests: XCTestCase {
 
     private let playCards: [(title: String, subtitle: String)] = [
         ("分离角与走位", "调打点力度看走位"),
-        ("自由走位", "逐杆摆打推演走位"),
+        ("自由走位", "自由摆球试打，观察母球走位"),
         ("自由击球", "从开球打一整局"),
-        ("拍照建球形", "拍球局导入沙盘"),
+        ("拍照建球形", "从照片还原球形，校准后推演"),
     ]
 
     private let solveCards: [(title: String, subtitle: String)] = [
-        ("思路训练", "定落点看塞与力度"),
-        ("打一走二想三", "定三颗倒推第一杆"),
+        ("思路训练", "指定落位要求，求解击球方案"),
+        ("打一走二想三", "根据后两颗球倒推当前走位"),
         ("防守", "选目标球求防守线"),
-        ("翻袋解球", "选袋求一至三库线"),
-        ("颗星解球", "摆球求一至三库线"),
+        ("翻袋解球", "摆球求解目标球翻库入袋"),
+        ("颗星解球", "摆球求解母球绕库碰球"),
     ]
 
     override func setUpWithError() throws {
@@ -24,13 +24,13 @@ final class V49W21PlaySolveCardUITests: XCTestCase {
         try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
     }
 
-    func testW21_Light_PlayGridCopy() { captureGrid(tab: "打", cards: playCards, scheme: "Light", stem: "play") }
-    func testW21_Dark_PlayGridCopy() { captureGrid(tab: "打", cards: playCards, scheme: "Dark", stem: "play") }
-    func testW21_Light_SolveGridCopy() { captureGrid(tab: "解", cards: solveCards, scheme: "Light", stem: "solve") }
-    func testW21_Dark_SolveGridCopy() { captureGrid(tab: "解", cards: solveCards, scheme: "Dark", stem: "solve") }
+    func testW21_Light_PlayGridCopy() { captureGrid(tab: "走位", cards: playCards, scheme: "Light", stem: "play") }
+    func testW21_Dark_PlayGridCopy() { captureGrid(tab: "走位", cards: playCards, scheme: "Dark", stem: "play") }
+    func testW21_Light_SolveGridCopy() { captureGrid(tab: "进阶", cards: solveCards, scheme: "Light", stem: "solve") }
+    func testW21_Dark_SolveGridCopy() { captureGrid(tab: "进阶", cards: solveCards, scheme: "Dark", stem: "solve") }
 
     func testW21_AllProductionCardsOpenPromisedPage() {
-        for (tab, cards) in [("打", playCards), ("解", solveCards)] {
+        for (tab, cards) in [("走位", playCards), ("进阶", solveCards)] {
             for card in cards {
                 let app = launch(tab: tab, scheme: "Light")
                 let button = findCard(card.title, in: app)
@@ -45,8 +45,9 @@ final class V49W21PlaySolveCardUITests: XCTestCase {
     private func captureGrid(tab: String, cards: [(title: String, subtitle: String)], scheme: String, stem: String) {
         let app = launch(tab: tab, scheme: scheme)
         for card in cards {
-            XCTAssertTrue(findCard(card.title, in: app).exists, "缺少卡片：\(card.title)")
-            XCTAssertTrue(findText(card.subtitle, in: app).exists, "副标题缺失或被截断：\(card.title)")
+            let button = findCard(card.title, in: app)
+            XCTAssertTrue(button.exists, "缺少卡片：\(card.title)")
+            XCTAssertTrue(button.label.contains(card.subtitle), "卡片缺少已批准的副标题：\(card.title)")
         }
         scrollToTop(in: app)
         save(app, "w21-\(stem)-grid-top-\(scheme)")
@@ -66,18 +67,13 @@ final class V49W21PlaySolveCardUITests: XCTestCase {
     }
 
     private func findCard(_ title: String, in app: XCUIApplication) -> XCUIElement {
+        PracticeHomeNavigation.select(PracticeHomeNavigation.section(for: title), in: app)
         let card = app.buttons[title]
         if card.waitForExistence(timeout: 2) { return card }
         for _ in 0..<6 where !card.exists { app.swipeUp(); usleep(160_000) }
         return card
     }
 
-    private func findText(_ value: String, in app: XCUIApplication) -> XCUIElement {
-        let text = app.staticTexts[value]
-        if text.waitForExistence(timeout: 2) { return text }
-        for _ in 0..<6 where !text.exists { app.swipeUp(); usleep(160_000) }
-        return text
-    }
 
     private func scrollToTop(in app: XCUIApplication) {
         for _ in 0..<10 { app.swipeDown(); usleep(100_000) }

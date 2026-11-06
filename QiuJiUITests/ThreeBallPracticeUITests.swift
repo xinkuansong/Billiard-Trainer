@@ -42,7 +42,7 @@ final class ThreeBallPracticeUITests: XCTestCase {
             "-threeBall.probe", "-threeBall.fixedSeed", "-3dDrag.probe", "-AppleInterfaceStyle", is3D ? "Dark" : "Light"]
             + (largeText ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : []) + (is3D ? ["-pro.route=mergeThree3D"] : []))
         if !is3D {
-        app.switchTab(.angle); app.buttons["angleHomeTab_打"].tap()
+        app.switchTab(.angle); app.buttons["angleHomeTab_走位"].tap()
         let entry = app.buttons["三球走位"]
         revealEntry(entry)
         ready(entry); entry.tap()
@@ -207,7 +207,7 @@ final class ThreeBallPracticeUITests: XCTestCase {
         let firstDetail = scoreDetails("threeBall.firstScore", name: "threeBall-first-details-\(is3D)")
         // Persist the checkpoint, then return to the first stroke through the actual retry button.
         app.buttons["threeBall.back"].tap()
-        ready(app.buttons["angleHomeTab_打"]); app.buttons["angleHomeTab_打"].tap()
+        ready(app.buttons["angleHomeTab_走位"]); app.buttons["angleHomeTab_走位"].tap()
         let entry = app.buttons["三球走位"]; revealEntry(entry); ready(entry); entry.tap(); phase("aiming")
         XCTAssertEqual(scoreDetails("threeBall.firstScore", name: "threeBall-restored-details-\(is3D)"), firstDetail)
         ready(app.buttons["threeBall.retry"]); app.buttons["threeBall.retry"].tap(); phase("aiming")

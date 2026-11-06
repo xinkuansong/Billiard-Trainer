@@ -368,8 +368,74 @@ final class BreakFlowRunnerV6Tests: XCTestCase {
     }
 }
 
+/// Observe the same SceneKit nodes on either side of the production host callback.
+@MainActor
+private func checkSettledBalls(_ scene: AngleTrainingScene, across delivery: () -> Void) {
+    let before = scene.visibleBalls().mapValues(BallRestState.init(node:))
+    XCTAssertFalse(before.isEmpty)
+    delivery()
+    let after = scene.visibleBalls()
+    XCTAssertEqual(Set(after.keys), Set(before.keys))
+    for (key, rest) in before {
+        guard let node = after[key] else { continue }
+        XCTAssertEqual(node.position.x, rest.position.x, accuracy: 1e-6, key)
+        XCTAssertEqual(node.position.y, rest.position.y, accuracy: 1e-6, key)
+        XCTAssertEqual(node.position.z, rest.position.z, accuracy: 1e-6, key)
+        // q and -q describe the same rotation.
+        XCTAssertEqual(abs(simd_dot(node.simdOrientation.vector, rest.orientation.vector)),
+                       1, accuracy: 1e-6, key)
+    }
+}
+
 @MainActor
 final class FreePlayPerspectiveBreakTests: XCTestCase {
+    func testEveryBreakHostKeepsSettledBallPoses() throws {
+        func deliver(_ scene: AngleTrainingScene, _ runner: BreakFlowRunner?) throws {
+            let runner = try XCTUnwrap(runner)
+            let host = try XCTUnwrap(runner.onSettled)
+            var didDeliver = false
+            runner.onSettled = { board in
+                checkSettledBalls(scene) { host(board) }
+                didDeliver = true
+            }
+            // Give every survivor a recognisable orientation, including the cue ball.
+            var points: [String: CanvasPoint] = [:]
+            for (index, key) in scene.visibleBalls().keys.sorted().enumerated() where key != "_1" {
+                let node = try XCTUnwrap(scene.allBallNodes[key])
+                node.simdOrientation = simd_quatf(angle: Float(index + 1) * 0.3,
+                                                   axis: simd_normalize(SIMD3<Float>(1, 2, 3)))
+                let point = AngleSceneCalculator.sceneToNormalized(position: node.position)
+                points[key] = CanvasPoint(x: Double(point.x), y: Double(point.y))
+            }
+            runner.applySettledBoardForTesting(BoardSnapshot(onTable: points), pocketedKeys: ["_1"])
+            if !runner.autoDeliverOnSettle { runner.confirmSettled() }
+            XCTAssertTrue(didDeliver)
+            XCTAssertEqual(Set(scene.visibleBalls().keys), Set(points.keys))
+        }
+
+        let composer = PositionPlayViewModel()
+        composer.setupScene()
+        composer.startBreakFlow(game: .chineseEightBall, manualDeliver: false)
+        try deliver(composer.scene, composer.breakRunner)
+        composer.startBreakFlow(game: .nineBall, manualDeliver: true)
+        try deliver(composer.scene, composer.breakRunner)
+
+        let daily = PositionPlayViewModel()
+        daily.setupScene()
+        daily.beginDailyClearanceBreak(game: .nineBall, seed: 42) { _ in }
+        try deliver(daily.scene, daily.breakRunner)
+
+        let solver = SiluTrainerViewModel()
+        solver.setupScene()
+        solver.startBreakFlow(game: .zhuifen(balls: 5))
+        try deliver(solver.scene, solver.breakRunner)
+
+        let planner = PlanThreeViewModel()
+        planner.setupScene()
+        planner.startBreakFlow(game: .zhuifen(balls: 6))
+        try deliver(planner.scene, planner.breakRunner)
+    }
+
     func testUnifiedHostsDeliverOnNaturalSettleWithoutConfirmation() throws {
         let board = BoardSnapshot(onTable: [PositionPlayBall.cueKey: CanvasPoint(x: 0.4, y: 0.2), "_9": CanvasPoint(x: 0.7, y: 0.2)])
         let composer = PositionPlayViewModel()
@@ -753,12 +819,62 @@ extension BreakFlowRunnerV6Tests {
     }
 
     @MainActor
+    func testRealBreakHandsBackControlWhenCompressedSpinFinishes() async throws {
+        let seed: UInt64 = 1972274182705165791
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        var delivery: BreakOutcome?
+        vm.startBreakFlow(game: .chineseEightBall, manualDeliver: false, seed: seed) { delivery = $0 }
+        let runner = try XCTUnwrap(vm.breakRunner)
+        let host = try XCTUnwrap(runner.onSettled)
+        runner.onSettled = { board in
+            checkSettledBalls(vm.scene) { host(board) }
+        }
+        runner.velocity = 10
+        let renderer = SCNRenderer(device: MTLCreateSystemDefaultDevice(), options: nil)
+        renderer.scene = vm.scene
+        renderer.pointOfView = vm.scene.cameraNode
+        let rack = RackLayout.make(.chineseEightBall, seed: seed, surfaceY: vm.scene.surfaceY)
+        let expected = BreakSimulator.breakShot(rack: rack, power: 10)
+        let tail = try XCTUnwrap(TrajectoryPlayback(recorder: expected.recorder,
+                                                    surfaceY: expected.surfaceY).finalBreakSpinTail())
+        runner.breakNow()
+        var playbackStart: Double?
+        let origin = CACurrentMediaTime()
+        var elapsed = 0.0
+        while delivery == nil && CACurrentMediaTime() - origin < 35 {
+            let now = CACurrentMediaTime()
+            _ = renderer.snapshot(atTime: now, with: CGSize(width: 64, height: 64), antialiasingMode: .none)
+            if playbackStart == nil && runner.statusText == "开球中…" { playbackStart = now }
+            if let playbackStart { elapsed = now - playbackStart }
+            try await Task.sleep(for: .milliseconds(16))
+        }
+        XCTAssertNotNil(playbackStart)
+        let outcome = try XCTUnwrap(delivery)
+        XCTAssertNil(vm.breakRunner)
+        XCTAssertEqual(outcome.pocketedKeys, expected.pocketed)
+        XCTAssertEqual(Set(outcome.board.onTable.keys), Set(expected.board.onTable.keys))
+        for (name, position) in expected.board.onTable {
+            let delivered = try XCTUnwrap(outcome.board.onTable[name])
+            XCTAssertEqual(delivered.x, position.x, accuracy: 0.00001)
+            XCTAssertEqual(delivered.y, position.y, accuracy: 0.00001)
+        }
+        XCTAssertEqual(elapsed, Double(tail.displayEnd), accuracy: 0.75, "Renderer handoff uses the displayed end")
+        print("Break spin handoff: displayed=\(elapsed)s expected=\(tail.displayEnd)s natural=\(tail.end)s")
+    }
+
+    @MainActor
     func testRealBreakKeepsRailsThroughDeliveryAndCancelledRerack() async throws {
         let vm = PositionPlayViewModel()
         vm.setupScene()
-        vm.startBreakFlow(game: .chineseEightBall, seed: 844924979980821639)
+        // Rack 11303 exercises rail delivery with the current production physics.
+        let seed: UInt64 = 1180286254055038828
+        let rack = RackLayout.make(.chineseEightBall, seed: seed, surfaceY: vm.scene.surfaceY)
+        let expected = BreakSimulator.breakShot(rack: rack, power: 10)
+        XCTAssertFalse(expected.pocketed.isEmpty)
+        vm.startBreakFlow(game: .chineseEightBall, seed: seed)
         let runner = try XCTUnwrap(vm.breakRunner)
-        runner.velocity = 6
+        runner.velocity = 10
         let renderer = SCNRenderer(device: MTLCreateSystemDefaultDevice(), options: nil)
         renderer.scene = vm.scene
         renderer.pointOfView = vm.scene.cameraNode
@@ -771,11 +887,11 @@ extension BreakFlowRunnerV6Tests {
         }
         XCTAssertEqual(runner.phase, .settled)
         let rails = vm.scene.railInventory.snapshot()
-        XCTAssertFalse(rails.balls.isEmpty, "Known potted break balls must remain on their rails")
+        XCTAssertEqual(Set(rails.balls.map(\.key)), Set(expected.pocketed))
         for ball in rails.balls {
             XCTAssertTrue(try XCTUnwrap(vm.scene.allBallNodes[ball.key]).isHidden)
         }
-        runner.confirmSettled()
+        checkSettledBalls(vm.scene) { runner.confirmSettled() }
         XCTAssertNil(vm.breakRunner)
         XCTAssertEqual(vm.scene.railInventory.snapshot(), rails, "Delivery is the same game")
         let board = vm.currentSnapshot()

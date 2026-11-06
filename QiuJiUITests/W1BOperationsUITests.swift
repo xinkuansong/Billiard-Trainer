@@ -13,7 +13,7 @@ final class W1BOperationsUITests: XCTestCase {
         let deep = ["silu": "silu", "planthree": "planThree"]
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-3dDrag.probe", "-v51.followSystemAppearance"] + args + (deep[route].map { ["-deeplink." + $0] } ?? []))
         if deep[route] == nil {
-            app.switchTab(.angle); ready(app.buttons["angleHomeTab_解"]); app.buttons["angleHomeTab_解"].tap()
+            app.switchTab(.angle); ready(app.buttons["angleHomeTab_进阶"]); app.buttons["angleHomeTab_进阶"].tap()
             let card = app.buttons[route == "bankshot" ? "翻袋解球" : "颗星解球"]
             ready(card); card.tap()
         }
@@ -71,10 +71,52 @@ final class W1BOperationsUITests: XCTestCase {
         for (a,b) in zip(restored,cameraBefore) { XCTAssertEqual(a,b,accuracy:0.001) }
         snap("restored")
     }
+    func testSiluRoutesDragsByStartingPoint() throws {
+        launch("silu", args: ["-dailyLayout.probe"])
+        mode("2D")
+        let tool = app.buttons["silu.tool"]
+        XCTAssertEqual(tool.label, "落区")
+        let clear = app.buttons["silu.clearConstraint"]
+        let key = "_1"
+        let before = try XCTUnwrap(try ball(key)["world"] as? [Double])
+        let center = try point(key)
+        let near = center.withOffset(CGVector(dx: 0, dy: 18))
+        near.press(forDuration: 0.1, thenDragTo: near.withOffset(CGVector(dx: -100, dy: 0)))
+        let moved = try XCTUnwrap(try ball(key)["world"] as? [Double])
+        XCTAssertGreaterThan(hypot(moved[0] - before[0], moved[2] - before[2]), 0.01)
+        XCTAssertFalse(clear.isEnabled)
+
+        let target = try point(key)
+        let blank = target.withOffset(CGVector(dx: 84, dy: 0))
+        blank.tap()
+        XCTAssertFalse(clear.isEnabled)
+        blank.press(forDuration: 0.1, thenDragTo: target.withOffset(CGVector(dx: -24, dy: 10)))
+        ready(clear)
+        XCTAssertEqual(try ball(key)["world"] as? [Double], moved)
+        snap("region-across-ball")
+        clear.tap()
+        tool.tap()
+        XCTAssertFalse(app.buttons["silu.tool.place"].exists)
+        app.buttons["silu.tool.restPoint"].tap()
+        app.buttons["paletteBall__2"].tap()
+        try point("_2").tap()
+        let state = element("silu.layoutState")
+        XCTAssertTrue((state.value as? String ?? "").contains("target=_2 "))
+        let pockets = try XCTUnwrap(try probe()["pockets"] as? [[String: Any]])
+        let pocket = try XCTUnwrap(pockets.first { $0["index"] as? Int == 1 })
+        let screen = try XCTUnwrap(pocket["screen"] as? [Double])
+        element("table.scene").coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: screen[0], dy: screen[1])).tap()
+        XCTAssertTrue((state.value as? String ?? "").contains("pocket=1 "))
+        XCTAssertFalse(clear.isEnabled)
+        blank.tap()
+        ready(clear)
+    }
+
     func testSiluEditingAndConstraintInTemporary2D() throws {
         launch("silu"); snap("2d")
         mode("3D")
-        app.buttons["silu.tool"].tap(); app.buttons["落区"].tap()
+        app.buttons["silu.tool"].tap(); app.buttons["silu.tool.region"].tap()
         let pose = try XCTUnwrap(try probe()["camera"] as? [Double])
         let scene = element("table.scene")
         scene.coordinate(withNormalizedOffset: CGVector(dx: 0.46, dy: 0.46)).press(forDuration: 0.1,
@@ -83,17 +125,16 @@ final class W1BOperationsUITests: XCTestCase {
         let afterDraw = try XCTUnwrap(try probe()["camera"] as? [Double])
         for (a,b) in zip(pose,afterDraw) { XCTAssertEqual(a,b,accuracy:0.001) }
         snap("3d-constraint")
-        app.buttons["silu.tool"].tap(); app.buttons["摆球"].tap()
         try editTemporary()
         app.buttons["shotCamera.temporaryTopDown"].tap()
-        app.buttons["silu.tool"].tap(); app.buttons["落区"].tap()
+        app.buttons["silu.tool"].tap(); app.buttons["silu.tool.region"].tap()
         let table = element("table.scene")
         table.coordinate(withNormalizedOffset: CGVector(dx: 0.43, dy: 0.45)).press(forDuration: 0.1,
             thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.62, dy: 0.65)))
         ready(app.buttons["silu.clearConstraint"])
         snap("temporary-constraint")
         app.buttons["paletteBall__4"].tap()
-        XCTAssertTrue(app.buttons["silu.tool"].label.contains("摆球"))
+        XCTAssertTrue(app.buttons["silu.tool"].label.contains("落区"))
         snap("new-ball-placement")
     }
     func testPlanRolesAndCompletion() throws {
@@ -202,7 +243,7 @@ final class W1BOperationsUITests: XCTestCase {
 
     func testMatrixSiluReplayReachableInCompactToolColumn() throws {
         launch("silu")
-        app.buttons["silu.tool"].tap(); app.buttons["落区"].tap()
+        app.buttons["silu.tool"].tap(); app.buttons["silu.tool.region"].tap()
         let table = element("table.scene")
         table.coordinate(withNormalizedOffset: CGVector(dx: 0.37, dy: 0.48)).press(forDuration: 0.1,
             thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.58, dy: 0.76)))
@@ -254,7 +295,7 @@ final class W1BOperationsUITests: XCTestCase {
     // Final unified-build evidence gaps. These use existing real solver/fixture paths.
     func testMatrixSiluShortSummaryAndBreakRerackCamera() throws {
         launch("silu")
-        app.buttons["silu.tool"].tap(); app.buttons["落区"].tap()
+        app.buttons["silu.tool"].tap(); app.buttons["silu.tool.region"].tap()
         let table = element("table.scene")
         table.coordinate(withNormalizedOffset: CGVector(dx: 0.37, dy: 0.48)).press(forDuration: 0.1,
             thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.58, dy: 0.76)))

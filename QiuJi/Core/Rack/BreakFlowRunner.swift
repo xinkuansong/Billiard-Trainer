@@ -292,7 +292,7 @@ final class BreakFlowRunner: ObservableObject {
             forward = railEnd
         }
         aimNodes.append(scene.addLine(from: cue.position, to: forward,
-                                      color: TrajectoryStyle.hintColor.withAlphaComponent(0.5),
+                                      color: TrajectoryStyle.TrainingAssist.aimLine,
                                       radius: TrajectoryStyle.lineHint, placement: .table))
         let tail = SCNVector3(cue.position.x - dir.x * AngleSceneCalculator.ballRadius * 2,
                               cue.position.y,
@@ -423,13 +423,28 @@ final class BreakFlowRunner: ObservableObject {
         let playback = TrajectoryPlayback(recorder: result.recorder,
                                           surfaceY: surfaceY + AngleSceneCalculator.ballRadius,
                                           railInventory: scene.railInventory)
+        let spinTail = playback.finalBreakSpinTail()
+        let generation = breakGeneration
+        var finishesWithSpin = false
         for key in allKeys {
             guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
-            if let action = playback.action(for: node, ballName: key, speed: 1.0, removeOnPocket: false) {
-                node.runAction(action)
+            let tail = key == spinTail?.ballName ? spinTail : nil
+            if let action = playback.action(for: node, ballName: key, removeOnPocket: false, breakSpinTail: tail) {
+                if tail != nil {
+                    finishesWithSpin = true
+                    node.runAction(action) { [weak self] in
+                        Task { @MainActor in
+                            guard let self, self.breakGeneration == generation else { return }
+                            self.finishBreak(result)
+                        }
+                    }
+                } else {
+                    node.runAction(action)
+                }
             }
         }
         ShotAudioScheduler.shared.play(recorder: result.recorder, cueSpeed: Float(velocity))
+        if finishesWithSpin { return }
         // G15：开球收尾等到引擎自然静止（不做 0.07 感知截断），球停止前无最后一跳/瞬移。
         let settle = playback.duration
         let tail: TimeInterval = result.pocketed.isEmpty ? 0.15
@@ -507,6 +522,15 @@ final class BreakFlowRunner: ObservableObject {
                                      pocketedKeys: [String] = [],
                                      cueScratched: Bool = false,
                                      settled: Bool = true) {
+        // finishBreak normally leaves this exact board visible before calling the host.
+        for key in scene.visibleBalls().keys where board.onTable[key] == nil {
+            scene.hideBall(key: key)
+        }
+        for (key, pt) in board.onTable {
+            let pos = AngleSceneCalculator.normalizedToScene(
+                point: CGPoint(x: pt.x, y: pt.y), surfaceY: surfaceY)
+            scene.showBall(key: key, scenePosition: pos, cuePose: .unchanged)
+        }
         let terminalKey = game == .chineseEightBall ? "_8" : "_9"
         let outcome = BreakOutcome(
             board: board,

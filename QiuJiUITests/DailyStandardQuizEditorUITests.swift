@@ -707,7 +707,7 @@ final class DailyStandardQuizEditorUITests: XCTestCase {
     func testAimPointRadiusRemainsThroughAnswer() throws {
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
         app.switchTab(.angle)
-        let section = app.buttons["angleHomeTab_练"]
+        let section = app.buttons["angleHomeTab_准度"]
         XCTAssertTrue(section.waitForExistence(timeout: 5)); section.tap()
         let card = app.buttons["瞄准点训练"]
         for _ in 0..<5 where !card.isHittable { app.swipeUp() }

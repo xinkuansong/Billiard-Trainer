@@ -67,7 +67,7 @@ final class RenderQualityV62UITests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-v53.authenticatedProfileFixture", "-forcePremium", "-v62.s267Lighting"])
         app.switchTab(.angle)
-        let tab = app.buttons["angleHomeTab_打"]
+        let tab = app.buttons["angleHomeTab_走位"]
         XCTAssertTrue(tab.waitForExistence(timeout: 10)); tab.tap()
         let card = app.buttons[title]
         XCTAssertTrue(card.waitForExistence(timeout: 10)); card.tap()

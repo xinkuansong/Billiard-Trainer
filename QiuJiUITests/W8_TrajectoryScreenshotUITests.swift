@@ -59,12 +59,9 @@ final class W8_TrajectoryScreenshotUITests: XCTestCase {
         app.launchArguments += ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN",
                                 "-deeplink.silu"]
         app.launch()
-        let placeChip = app.buttons["摆球"]
-        XCTAssertTrue(placeChip.waitForExistence(timeout: 20), "Silu 顶栏「摆球」应出现")
-
-        // 选「落区」工具拖一笔约束（coordinateSpace 经共享 overlay）。
-        let region = app.buttons["落区"]
-        if region.waitForExistence(timeout: 5) { region.tap(); usleep(400_000) }
+        let tool = app.buttons["silu.tool"]
+        XCTAssertTrue(tool.waitForExistence(timeout: 20))
+        XCTAssertEqual(tool.label, "落区")
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.42, dy: 0.42))
         let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.58, dy: 0.55))
         start.press(forDuration: 0.15, thenDragTo: end)
@@ -87,7 +84,7 @@ final class W8_TrajectoryScreenshotUITests: XCTestCase {
         app.launch()
         app.switchTab(.angle)
         sleep(1)
-        let playSeg = app.buttons["angleHomeTab_打"]
+        let playSeg = app.buttons["angleHomeTab_走位"]
         XCTAssertTrue(playSeg.waitForExistence(timeout: 5), "应找到「打」分段")
         playSeg.tap(); usleep(600_000)
         let card = app.buttons["自由走位"]

@@ -34,6 +34,8 @@ struct ShotFacts {
     /// 击球前台面上的目标球（桌面球键，不含母球）。
     let tableKeysBefore: Set<String>
     /// Same-time cue contacts from the event timeline; legal contact wins a genuine tie.
+    var pocketIDs: [String: String] = [:]
+    var scoringRest: [String: SIMD2<Float>]?
     var simultaneousFirstContacts: Set<String> = []
     var railContactKeys: Set<String> = []
     var offTableKeys: Set<String> = []
@@ -51,6 +53,7 @@ extension ShotFacts {
         var contacts: [String] = []
         var rails: Set<String> = []
         var pots: [String] = []
+        var pocketIDs: [String: String] = [:]
         var after = false
         for event in ordered {
             switch event.kind {
@@ -62,7 +65,8 @@ extension ShotFacts {
             case .ballCushion(let ball):
                 rails.insert(key(ball))
                 if let firstTime, event.time >= firstTime { after = true }
-            case .pocket(let ball, _):
+            case .pocket(let ball, let pocketID):
+                pocketIDs[key(ball)] = pocketID
                 if ball != cueName, !pots.contains(key(ball)) { pots.append(key(ball)) }
                 if let firstTime, event.time >= firstTime { after = true }
             }
@@ -71,7 +75,7 @@ extension ShotFacts {
         return ShotFacts(firstContactKey: contacts.first, pocketedKeys: pots,
             cuePocketed: pocketed.contains(PositionPlayBall.cueKey), railOrPocketAfterContact: after,
             tableKeysBefore: tableKeys.subtracting([PositionPlayBall.cueKey]),
-            simultaneousFirstContacts: Set(contacts), railContactKeys: rails)
+            pocketIDs: pocketIDs, simultaneousFirstContacts: Set(contacts), railContactKeys: rails)
     }
 }
 

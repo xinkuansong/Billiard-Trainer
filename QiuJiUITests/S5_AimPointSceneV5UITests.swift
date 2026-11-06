@@ -41,7 +41,7 @@ final class S5_AimPointSceneV5UITests: XCTestCase {
 
     /// Q7.2 布局 + Q7.4 出杆动画（2D 瞄准点训练）。
     func testAimPointScene2D_LayoutAndCueStroke() throws {
-        guard openCard(homeTab: "练", title: "2D 瞄准点训练") else {
+        guard openCard(homeTab: "准度", title: "2D 瞄准点训练") else {
             XCTFail("未能进入 2D 瞄准点训练"); return
         }
         sleep(2)
@@ -71,7 +71,7 @@ final class S5_AimPointSceneV5UITests: XCTestCase {
 
     /// Q5/Q9 3D：进场机位=最高 + 滑屏控制相机。
     func testAimPointScene3D_CameraDefaultsHighestAndSwipe() throws {
-        guard openCard(homeTab: "练", title: "3D 瞄准点训练") else {
+        guard openCard(homeTab: "准度", title: "3D 瞄准点训练") else {
             XCTFail("未能进入 3D 瞄准点训练"); return
         }
         sleep(2)

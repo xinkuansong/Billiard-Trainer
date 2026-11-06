@@ -110,6 +110,15 @@ struct TwoBallParameterQuestion: Decodable {
     let id: Int
     let p: [Double]
     let refs: [[Int]]
+    var trajectoryRefs: [[Int]]? = nil
+    var trajectoryRefsByAxes: [String: [[Int]]]? = nil
+    var trajectoryReferences: [[Int]] { trajectoryRefs ?? refs }
+
+    func references(for configuration: SceneTrainingConfiguration) -> [[Int]] {
+        guard configuration.twoBallRouteMode == .trajectory else { return refs }
+        let mask = (configuration.allowsVerticalSpin ? 1 : 0) | (configuration.allowsSideSpin ? 2 : 0)
+        return trajectoryRefsByAxes?[String(mask)] ?? trajectoryReferences
+    }
 }
 struct TwoBallLayout: Decodable {
     let id: String
@@ -123,6 +132,8 @@ final class TwoBallBankStore {
     static let policyVersion = "comfort85-parameters-v1"
     static let sourceSchema = "two-ball-consumer-parameters-v1"
     struct Index: Decodable {
+        struct JawRevision: Decodable { let sourceFingerprint: String }
+        let jawRevision: JawRevision?
         struct Counts: Decodable { let layouts, questions, recommendations, routes: Int }
         struct Shard: Decodable { let name, sha256: String; let bytes: Int }
         struct Entry: Decodable { let id, shard: String; let line: Int }
@@ -233,9 +244,15 @@ final class TwoBallBankStore {
               positions.allSatisfy({ $0.count == 2 && $0.allSatisfy(\.isFinite) }),
               Set(row.questions.map(\.id)).count == row.questions.count else { throw Failure.invalid("球形或重复标识") }
         for q in row.questions {
-            guard (1...5).contains(q.refs.count),
-                  q.refs.allSatisfy({ $0.count == 2 && ids.contains($0[0]) && (0..<6).contains($0[1]) }),
-                  Set(q.refs.map { $0[0] }).count == q.refs.count else { throw Failure.invalid("第二球或路线引用") }
+            let byAxes = q.trajectoryRefsByAxes ?? [:]
+            guard byAxes.keys.allSatisfy({ ["1","2","3"].contains($0) }) else {
+                throw Failure.invalid("打点权限与路线引用")
+            }
+            for refs in [q.refs, q.trajectoryReferences] + Array(byAxes.values) {
+                guard (1...5).contains(refs.count), refs.count == q.refs.count,
+                      refs.allSatisfy({ $0.count == 2 && ids.contains($0[0]) && (0..<6).contains($0[1]) }),
+                      Set(refs.map { $0[0] }).count == refs.count else { throw Failure.invalid("第二球或路线引用") }
+            }
         }
         for r in row.routes {
             guard r.input.isValid, [r.v,r.sx,r.sy].allSatisfy(\.isFinite),

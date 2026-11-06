@@ -8,7 +8,8 @@
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_学"
+      "id": "angleHomeTab_基础",
+      "scrollTo": 4
     },
     {
       "action": "tap",
@@ -24,7 +25,7 @@
     {
       "action": "cover",
       "name": "P18-14-default",
-      "entry": "practice/学/瞄准原理",
+      "entry": "practice/基础/瞄准原理",
       "maximumViews": 40
     }
   ]

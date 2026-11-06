@@ -263,6 +263,67 @@ final class TrajectoryPlayback {
         return max(recorder.duration, Float(railShot?.timeline.duration ?? 0), Float(recorder.collectionTailsByBallName.values.map(\.end.time).max() ?? 0))
     }
 
+    /// Only the final, event-free interval with one spinning ball may run faster.
+    struct BreakSpinTail {
+        static let displayLength: Float = 2
+        let ballName: String
+        let start: Float
+        let end: Float
+
+        var displayEnd: Float { start + Self.displayLength }
+
+        func simulationTime(at elapsed: Float) -> Float {
+            guard elapsed > start else { return elapsed }
+            if elapsed >= displayEnd { return end }
+            return start + (elapsed - start) / Self.displayLength * (end - start)
+        }
+    }
+
+    func finalBreakSpinTail() -> BreakSpinTail? {
+        // Local 3D motion has its own intervals, outside the planar frame states.
+        guard recorder.localIntervalsByBallName.isEmpty else { return nil }
+        let end = recorder.duration
+        var start = Float(railShot?.timeline.railMotionEnd ?? 0)
+        var lastSpinner: String?
+        for (name, frames) in sortedFrames {
+            guard let last = frames.last, last.state == .stationary || last.state == .pocketed
+            else { return nil }
+            if last.state == .pocketed {
+                if let tail = recorder.collectionTailsByBallName[name] {
+                    start = max(start, Float(tail.end.time))
+                    if let fade = Self.fadeStart(of: tail) {
+                        start = max(start, Float(fade + Self.pocketFadeDuration))
+                    }
+                } else if let capture = frames.first(where: { $0.state == .pocketed }) {
+                    start = max(start, capture.time + Float(Self.pocketSettleDuration))
+                }
+            }
+            // Work backwards over positive-duration intervals. Equal-time event
+            // snapshots are boundaries, not extra motion to show.
+            let intervals = zip(frames.dropLast().reversed(), frames.dropFirst().reversed())
+            var finalSpin = false
+            for (frame, next) in intervals where next.time > frame.time {
+                if next.time == end && frame.state == .spinning {
+                    guard lastSpinner == nil else { return nil }
+                    lastSpinner = name
+                    finalSpin = true
+                }
+                if finalSpin && frame.state == .spinning { continue }
+                if finalSpin || frame.state == .rolling || frame.state == .sliding || frame.state == .spinning {
+                    start = max(start, next.time)
+                    break
+                }
+            }
+        }
+        guard let spinner = lastSpinner else { return nil }
+        for contact in recorder.contactSounds { start = max(start, contact.time) }
+        for contacts in recorder.pocketContactSounds.values {
+            for contact in contacts { start = max(start, contact.time) }
+        }
+        guard end - start > BreakSpinTail.displayLength else { return nil }
+        return BreakSpinTail(ballName: spinner, start: start, end: end)
+    }
+
     var collectionPresentationEnd:Float {
         return Float((recorder.collectionTailsByBallName.values.map(\.end.time).max() ?? 0)+Self.pocketPauseDuration+Self.pocketFadeDuration)
     }
@@ -470,12 +531,13 @@ final class TrajectoryPlayback {
     ///   收尾快照瞬移到真实落点（肉眼「最后一跳」）；播满自然静止后落点已一致，无瞬移。
     ///   各调用方均传 `duration`（等价 `nil`）；此参数保留作通用截断能力。
     func action(for node: SCNNode, ballName: String, speed: Float = 1.0,
-                removeOnPocket: Bool = true, maxSimTime: Float? = nil) -> SCNAction? {
+                removeOnPocket: Bool = true, maxSimTime: Float? = nil,
+                breakSpinTail: BreakSpinTail? = nil) -> SCNAction? {
         guard let frames = sortedFrames[ballName], frames.count > 1, duration > 1e-4 else { return nil }
 
         let cap = min(duration, maxSimTime ?? duration)
         let spd = max(0.05, speed)
-        let realDuration = TimeInterval(cap / spd)
+        let realDuration = TimeInterval((breakSpinTail?.displayEnd ?? cap) / spd)
         let willPocket = willBePocketed(ballName)
 
         // 逐帧回放需要跨帧的可变状态（上一帧模拟时刻与角速度 / 是否已触发淡出）。
@@ -509,7 +571,8 @@ final class TrajectoryPlayback {
             // 进袋后位置/透明度由「沉入 → 停顿 → 淡出」子动作接管，逐帧求值不再覆盖。
             if cursor.didFade { return }
 
-            let tSim = min(Float(elapsed) * spd, cap)
+            let played = Float(elapsed) * spd
+            let tSim = min(breakSpinTail?.simulationTime(at: played) ?? played, cap)
             guard let s = self.stateAt(ballName: ballName, time: tSim) else { return }
 
             if s.motionState == .pocketed {

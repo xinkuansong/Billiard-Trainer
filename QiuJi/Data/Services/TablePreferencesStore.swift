@@ -32,6 +32,18 @@ enum TablePreferenceField: String, CaseIterable, Codable {
         }
     }
     var initialValue: Double { self == .transparency ? 0.5 : (self == .shows3DTrajectory ? 1 : 0) }
+    func initialValue(for page: TablePreferencePage?) -> Double {
+        guard self == .closeup else { return initialValue }
+        switch page {
+        case .aimPointScene2D, .aimPointScene3D, .accuracy2D, .accuracy3D,
+             .bankPractice2D, .bankPractice3D, .defensePractice2D, .defensePractice3D,
+             .multiBallPractice, .multiBallPractice3D, .snakePractice, .composer,
+             .customFormationPractice, .silu, .bankShot:
+            return 1
+        default:
+            return initialValue
+        }
+    }
     func validated(_ value: Double) -> Double {
         guard value.isFinite else { return initialValue }
         if self == .transparency { return min(1, max(0, value)) }
@@ -100,7 +112,7 @@ final class TablePreferencesStore: ObservableObject {
                 }
                 return archive.pages[page.rawValue]?[field.rawValue]
             }
-            result.values[field] = field.validated(local ?? archive.general[field.rawValue] ?? field.initialValue)
+            result.values[field] = field.validated(local ?? archive.general[field.rawValue] ?? field.initialValue(for: page))
         }
         return result
     }

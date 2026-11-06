@@ -80,7 +80,11 @@ final class KickPracticeViewModel: ObservableObject, TeachingTableHost {
     private var upgradeIntent: UpgradeIntent?
     #if DEBUG
     var diagnostic: String {
-        let value: [String: Any] = ["phase": String(describing: phase), "question": record?.current?.id.uuidString ?? "",
+        let value: [String: Any] = ["instrument": instrumentInput.diagnosticValues,
+            "referenceInput": record?.current?.demonstrationInput.diagnosticValues ?? [],
+            "playerInput": input.diagnosticValues,
+            "demoShowing": demonstrationInput != nil,
+            "phase": String(describing: phase), "question": record?.current?.id.uuidString ?? "",
             "attempts": record?.attempts.count ?? 0, "successes": record?.successCount ?? 0,
             "railColors": record?.configuration.showsRailColors ?? false, "geometry": geometryReference.diagnostic, "segments": record?.current?.railSegments ?? [],
             "referenceVisible": !referenceNodes.isEmpty, "actualVisible": !actualNodes.isEmpty,
@@ -142,6 +146,8 @@ final class KickPracticeViewModel: ObservableObject, TeachingTableHost {
     var selectableBalls: [SCNNode] { [] }
     var isDragging: Bool { geometryReference.dragging }
     var currentPlayerAim: SCNVector3? { record?.draftDirection.vector }
+    @Published private(set) var demonstrationInput: SeparationInput?
+    var instrumentInput: SeparationInput { demonstrationInput ?? input }
     var input: SeparationInput { record?.draftInput ?? .init() }
     var velocity: Double {
         get { Double(input.velocity) }
@@ -546,15 +552,45 @@ final class KickPracticeViewModel: ObservableObject, TeachingTableHost {
         }
         redrawCue(); geometryReference.restore(); _ = save()
     }
-    func replayLastShot() {
-        guard canPlayback, let shot = record?.latestShot, let cue = scene.cueBallNode, let target = targetNode else { return }
+    private func beginReplay() -> Bool {
+        guard canPlayback, let cue = scene.cueBallNode, let target = targetNode else { return false }
         let state = (phase, BallDisplay(cue), BallDisplay(target), scene.railInventory.snapshot())
         invalidate(); replayReturn = state; replayCamera.begin(in: scene); isReplaying = true
+        return true
+    }
+
+    func replayLastShot() {
+        guard let shot = record?.latestShot, beginReplay() else { return }
         drawActual(); play(shot)
+    }
+
+    var canReplayReference: Bool {
+        phase == .result && canPlayback && record?.demonstrationUnlocked == true
+    }
+
+    func replayReference() {
+        guard canReplayReference, let question = record?.current, beginReplay() else { return }
+        let token = generation
+        demonstrationInput = question.demonstrationInput
+        phase = .preparing
+        work = question.loadDemonstration(surfaceY: scene.surfaceY) { [weak self] result in
+            guard let self, generation == token else { return }
+            switch result {
+            case .success(let shot):
+                drawActual()
+                play(shot)
+            case .failure(let error):
+                demonstrationInput = nil
+                stopPlayback()
+                message = error.localizedDescription
+            }
+        }
     }
     func stopPlayback() {
         guard isReplaying else { return }
+        let displayed = demonstrationInput
         invalidate()
+        demonstrationInput = displayed
         if phase == .aiming { drawActual(showsObjectRoute: false); redrawCue() }
     }
     private func restoreReplay() {
@@ -808,6 +844,7 @@ final class KickPracticeViewModel: ObservableObject, TeachingTableHost {
         _ = save()
     }
     private func invalidate(preservingCue: Bool = false) {
+        demonstrationInput = nil
         clearReference()
         notice = nil
         generation = UUID(); work?.cancel(); work = nil; scene.frameReceipt.cancel()

@@ -1,6 +1,41 @@
 import SwiftUI
 import SceneKit
 
+struct BTBallPaletteHint: ViewModifier {
+    static let text = "点击球库中的球，或将球拖到桌上。"
+
+    private enum Phase { case otherBoard, unavailable, ready }
+    let onTableKeys: [String]
+    let canPresent: Bool
+    @Binding var isVisible: Bool
+    @State private var hasShown = false
+
+    private var phase: Phase {
+        guard onTableKeys == [PositionPlayBall.cueKey] else { return .otherBoard }
+        return canPresent ? .ready : .unavailable
+    }
+
+    func body(content: Content) -> some View {
+        content.task(id: phase) {
+            guard !Task.isCancelled else { return }
+            switch phase {
+            case .otherBoard:
+                hasShown = false
+                isVisible = false
+            case .unavailable:
+                isVisible = false
+            case .ready:
+                guard !hasShown else { return }
+                hasShown = true
+                isVisible = true
+                do { try await Task.sleep(for: .seconds(3)) } catch { return }
+                isVisible = false
+            }
+        }
+        .onDisappear { isVisible = false }
+    }
+}
+
 // MARK: - Metrics (G21 / D7)
 
 /// Shared ball-palette metrics. Diameters are the only two tiers (D7):

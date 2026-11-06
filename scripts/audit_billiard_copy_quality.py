@@ -33,7 +33,7 @@ THEORY_CATALOG_PATH = REPO / "QiuJi" / "Features" / "AngleTraining" / "Theory" /
 ATMOSPHERE_PATH = REPO / "QiuJi" / "Core" / "DesignSystem" / "AtmosphereCatalog.swift"
 
 EXPECTED_DRILLS = 74
-EXPECTED_CARDS = 36
+EXPECTED_CARDS = 43
 RULESET_IDS = {"c065", "c068", "c070"}
 PILOT_PROPOSITIONS = {
     "c001": "换方向后仍保持直线出杆",
@@ -347,16 +347,28 @@ def extract_declared_array(source: str, declaration: str) -> str:
 
 
 def parse_angle_entries(block: str) -> list[tuple[str, str, str]]:
+    project_source = read_text(REPO / "QiuJi/Core/Training/TrainingProject.swift")
+    title_block = project_source.split("var title: String {", 1)[1].split("var page2D:", 1)[0]
+    project_titles = dict(re.findall(r'case \.(\w+): "([^"]+)"', title_block))
+    layout_source = read_text(REPO / "QiuJi/Core/Components/ControlLayoutLibrary.swift")
+    layout_block = layout_source.split("var layoutTitle: String {", 1)[1].split("\n    }", 1)[0]
+    layout_titles = dict(re.findall(r'case \.(\w+): return "([^"]+)"', layout_block))
     pattern = re.compile(
         r"\.init\(\s*route:\s*\.([A-Za-z0-9_]+),\s*"
-        r'title:\s*"((?:\\.|[^"\\])*)",\s*'
+        r'title:\s*(?:"((?:\\.|[^"\\])*)"|TrainingProject\.(\w+)\.title|TablePreferencePage\.(\w+)\.layoutTitle),\s*'
         r'subtitle:\s*"((?:\\.|[^"\\])*)"',
         re.S,
     )
-    return [
-        (route, swift_string(title), swift_string(subtitle))
-        for route, title, subtitle in pattern.findall(block)
-    ]
+    entries = []
+    for route, title, project, page, subtitle in pattern.findall(block):
+        if project:
+            title = project_titles[project]
+        elif page:
+            title = layout_titles[page]
+        entries.append((route, swift_string(title), swift_string(subtitle)))
+    if len(entries) != len(re.findall(r"\.init\(\s*route:", block)):
+        raise ValueError("Unrecognized practice card title or subtitle")
+    return entries
 
 
 def parse_theory_entries(source: str) -> list[tuple[str, str, str]]:
@@ -368,7 +380,7 @@ def parse_theory_entries(source: str) -> list[tuple[str, str, str]]:
     pattern = re.compile(
         r"\.init\(\s*id:\s*\.([A-Za-z0-9_]+),.*?"
         r'title:\s*"((?:\\.|[^"\\])*)",.*?'
-        r'subtitle:\s*"((?:\\.|[^"\\])*)",.*?'
+        r'cardSubtitle:\s*"((?:\\.|[^"\\])*)",.*?'
         r"isPublished:\s*(true|false)\s*\)",
         re.S,
     )
@@ -406,17 +418,41 @@ def card_audits() -> list[CardAudit]:
     route_covers, theory_covers = parse_cover_maps(atmosphere_source)
 
     section_entries: list[tuple[str, str, str, str, str]] = []
+    # Preserve historical copy-work batches independently of the current IA.
+    historical_learn = {
+        "aimingPrinciple", "aimingMethods", "aimingCorrection", "spinAndEnglish",
+        "angleDynamic", "pocketTolerance", "separationAngleAtlas",
+        "cushionEnglishAtlas", "ballFeel", "contactPointTable",
+    }
+    historical_train = {
+        "geometricQuiz", "sceneAiming2D", "aimPointTraining", "aimPointScene2D",
+        "accuracy2D", "snakePractice", "customFormationPractice",
+    }
+    theory_by_id = {page_id: (title, subtitle) for page_id, title, subtitle in parse_theory_entries(theory_source)}
     declarations = (
-        ("学", "W18", "learnEntries"),
-        ("练", "W20", "trainEntries"),
-        ("打", "W21", "basePlayEntries"),
-        ("解", "W21", "solveEntries"),
+        ("基础", "basicsEntries", None),
+        ("准度", "accuracyEntries", None),
+        ("控球", "cueControlInteractiveEntries", "cueControlEntries"),
+        ("走位", "basePositionEntries", None),
+        ("进阶", "advancedEntries", None),
+        ("策略", None, "strategyEntries"),
     )
-    for section, batch, declaration in declarations:
-        for route, title, subtitle in parse_angle_entries(extract_declared_array(angle_source, declaration)):
-            section_entries.append((section, batch, route, title, subtitle))
-    for page_id, title, subtitle in parse_theory_entries(theory_source):
-        section_entries.append(("理", "W19", f"theoryPage({page_id})", title, subtitle))
+    for section, declaration, theory_declaration in declarations:
+        if declaration:
+            for route, title, subtitle in parse_angle_entries(extract_declared_array(angle_source, declaration)):
+                batch = "W18" if route in historical_learn else "W20" if route in historical_train else "W21"
+                section_entries.append((section, batch, route, title, subtitle))
+        if theory_declaration:
+            match = re.search(
+                rf"private var {theory_declaration}: \[AngleEntry\] \{{.*?theoryEntries\(for: \[(.*?)\]\)",
+                angle_source, re.S,
+            )
+            if not match:
+                raise ValueError(f"missing theory ordering: {theory_declaration}")
+            for page_id in re.findall(r"\.(\w+)", match[1]):
+                # Missing or unpublished IDs must fail inventory, not silently drop a card.
+                title, subtitle = theory_by_id[page_id]
+                section_entries.append((section, "W19", f"theoryPage({page_id})", title, subtitle))
 
     grouped: dict[str, list[tuple[str, str, str, str, str]]] = defaultdict(list)
     for item in section_entries:
@@ -452,8 +488,7 @@ def card_audits() -> list[CardAudit]:
                 status=f"待 {batch}",
             )
         )
-    section_order = {"学": 0, "理": 1, "练": 2, "打": 3, "解": 4}
-    return sorted(audits, key=lambda item: (section_order[item.section], item.route))
+    return audits
 
 
 def similarity_pairs(drills: list[DrillAudit]) -> list[dict[str, Any]]:
@@ -542,6 +577,8 @@ def build_report() -> dict[str, Any]:
         errors.append(f"batch map mismatch: missing={missing}, extra={extra}")
     if len(cards) != EXPECTED_CARDS:
         errors.append(f"expected {EXPECTED_CARDS} production cards, found {len(cards)}")
+    if len({card.route for card in cards}) != len(cards):
+        errors.append("duplicate production card routes")
     if any(card.route == "batchDrillStudio" for card in cards):
         errors.append("simulator-only batchDrillStudio leaked into production card inventory")
     for drill in drills:

@@ -166,7 +166,7 @@ final class DailyAdaptivePanelUITests: XCTestCase {
         buttons[3].tap()
         waitValue(buttons[3], "已选中")
         for button in buttons.prefix(3) { XCTAssertFalse(button.isEnabled) }
-        XCTAssertFalse(app.buttons["dailyClearance.undo"].isEnabled)
+        XCTAssertFalse(app.buttons["dailyClearance.undo"].exists)
         XCTAssertFalse(app.buttons["dailyClearance.playback"].isEnabled)
         try capture(app, "c54-peek-disabled")
         buttons[3].tap()
@@ -179,17 +179,16 @@ final class DailyAdaptivePanelUITests: XCTestCase {
         try capture(app, "c54-restored")
         let replay = app.buttons["dailyClearance.playback"]
         let undo = app.buttons["dailyClearance.undo"]
-        XCTAssertFalse(undo.isEnabled); XCTAssertFalse(replay.isEnabled)
+        XCTAssertFalse(undo.exists); XCTAssertFalse(replay.isEnabled)
         app.buttons["dailyClearance.strike"].tap()
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: replay)
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 25), .completed)
-        XCTAssertTrue(undo.isEnabled)
+        XCTAssertFalse(undo.exists)
         try capture(app, "c54-history-enabled")
         replay.tap()
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: replay)], timeout: 25), .completed)
-        undo.tap()
-        XCTAssertFalse(undo.isEnabled)
-        try capture(app, "c54-history-undone")
+        XCTAssertFalse(undo.exists)
+        try capture(app, "c54-history-replayed")
     }
 
     func testC51PaletteAndMenuRoundTrip() throws {
@@ -1202,7 +1201,7 @@ extension DailyAdaptivePanelUITests {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-dailyLayout.probe", "-3dDrag.probe", "-v63.cameraDiagnostics"] + extraArgs)
         app.switchTab(.angle)
-        let tab = app.buttons["angleHomeTab_打"]
+        let tab = app.buttons["angleHomeTab_走位"]
         XCTAssertTrue(tab.waitForExistence(timeout: 5)); tab.tap()
         let card = app.buttons["分离角与走位"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
@@ -1411,7 +1410,7 @@ extension DailyAdaptivePanelUITests {
         assertP01BallsEqual(try p01Balls(app), original)
         ready("dailyClearance.strike").tap()
         app.buttons["dailyClearance.back"].tap()
-        XCTAssertTrue(app.buttons["angleHomeTab_打"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["angleHomeTab_走位"].waitForExistence(timeout: 5))
         app.buttons["分离角与走位"].tap()
         XCTAssertTrue(element(app, "shotSimulation.landscape").waitForExistence(timeout: 15))
         _ = ready("dailyClearance.strike")
@@ -1665,7 +1664,7 @@ extension DailyAdaptivePanelUITests {
         assertP01BallsEqual(try p01Balls(app), originalBalls)
         try capture(app, "p01-2D-restored")
         app.buttons["dailyClearance.back"].tap()
-        XCTAssertTrue(app.buttons["angleHomeTab_打"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["angleHomeTab_走位"].waitForExistence(timeout: 5))
         try capture(app, "p01-normal-exit")
     }
 

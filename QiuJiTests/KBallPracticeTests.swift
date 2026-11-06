@@ -4,6 +4,122 @@ import SwiftData
 @testable import QiuJi
 
 final class KBallPracticeTests: XCTestCase {
+    /// Opt-in, final-bundle audit. Normal runs exercise the representative contract tests below.
+    func testPromotedPocketJawReferencesInAppHost() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let folder = env["QJ_JAW_AUDIT"], let family = env["QJ_JAW_FAMILY"] else {
+            throw XCTSkip("Run with the bulk pocket-jaw reference manifest")
+        }
+        let directory = URL(fileURLWithPath: folder)
+        let keys = try JSONDecoder().decode([String].self,
+            from: Data(contentsOf: directory.appendingPathComponent(family + "-changed.json")))
+        let expected = Set(keys)
+        XCTAssertEqual(expected.count, keys.count)
+        XCTAssertFalse(expected.isEmpty)
+        let y = BTTablePhysics.surfaceY
+        var seen = Set<String>(), failed = [String]()
+        func replay(_ id: String, _ operation: () throws -> ShotPrediction) {
+            guard expected.contains(id) else { return }
+            if !seen.insert(id).inserted { failed.append(id + ":duplicate"); return }
+            do {
+                let prediction = try autoreleasepool(invoking: operation)
+                if ShotPredictor.bankPocketContactCount(events: prediction.events) != 0 { failed.append(id + ":jaw") }
+            } catch { failed.append(id + ":" + String(describing: error)) }
+        }
+        switch family {
+        case "bank":
+            for entry in try BankPracticeBankStore.load().questions {
+                replay(entry.id) { try BankQuestion(id: UUID(), source: entry).demonstrationShot(surfaceY: y).prediction() }
+            }
+        case "kball":
+            let store = try KBallBankStore.load()
+            for entry in store.index.layouts {
+                let layout = try store.layout(entry)
+                let board = try KBallQuestionPreparer.board(layout)
+                for source in layout.questions {
+                    replay(source.id) {
+                        let q = KBallQuestion(id: UUID(), layout: layout, source: source, board: board)
+                        let player = try KBallQuestionPreparer.solve(layout: layout, question: source,
+                            input: q.demonstrationInput, surfaceY: y, profile: TwoBallQuestionPreparer.renderedProfile())
+                        XCTAssertNil(KBallJudgement.failure(player, pocket: board.pocketIndex, question: source, requiresReferenceTiming: true), source.id)
+                        XCTAssertEqual(ShotPredictor.bankPocketContactCount(events: player.events), 0, source.id)
+                        return try q.demonstrationShot(surfaceY: y).prediction()
+                    }
+                }
+            }
+        case "two":
+            let store = try TwoBallBankStore.load(), profile = TwoBallQuestionPreparer.renderedProfile()
+            for entry in store.index.layouts {
+                let layout = try store.layout(entry), board = try store.board(for: layout)
+                let routes = Dictionary(uniqueKeysWithValues: layout.routes.map { ($0.id, $0) })
+                for cell in layout.questions {
+                    let second = TrainingBankPoint(SCNVector3(Float(cell.p[0]), 0, Float(cell.p[1])))
+                    var perCell = Set<Int>()
+                    let selected = (0..<4).flatMap { mask -> [(Int, [Int])] in
+                        var config = SceneTrainingConfiguration()
+                        config.allowsVerticalSpin = mask & 1 != 0
+                        config.allowsSideSpin = mask & 2 != 0
+                        return cell.references(for: config).enumerated().filter { _, pair in
+                            guard let p = routes[pair[0]] else { return false }
+                            return (config.allowsVerticalSpin || p.sy == 0) && (config.allowsSideSpin || p.sx == 0)
+                        }
+                    }
+                    for (rank, ref) in selected {
+                        guard perCell.insert(ref[0]).inserted else { continue }
+                        let id = "\(layout.id)#\(cell.id)/\(ref[0])"
+                        replay(id) {
+                            let param = try XCTUnwrap(routes[ref[0]])
+                            let route = try XCTUnwrap(TwoBallQuestionPreparer.materialize(board: board, second: second,
+                                parameter: param, pocket: ref[1], rank: rank, profile: profile))
+                            let q = TwoBallQuestion(id: UUID(), board: board, cellID: cell.id, second: second, routes: [route])
+                            let player = try TwoBallQuestionPreparer.solve(board: board, second: second, input: param.input, surfaceY: y, profile: profile)
+                            let shot = try TwoBallShot(question: q, input: param.input, prediction: player, surfaceY: y)
+                            XCTAssertNil(shot.failure, id)
+                            XCTAssertEqual(shot.continuationUnavailable, false, id)
+                            XCTAssertEqual(ShotPredictor.bankPocketContactCount(events: player.events), 0, id)
+                            return try q.demonstrationShot(surfaceY: y).prediction()
+                        }
+                    }
+                }
+            }
+        default: XCTFail("Unknown family " + family)
+        }
+        XCTAssertEqual(seen, expected)
+        XCTAssertTrue(failed.isEmpty, failed.prefix(10).joined(separator: ", "))
+        let report: [String: Any] = ["family": family, "expected": keys.count, "seen": seen.count, "failed": failed]
+        try JSONSerialization.data(withJSONObject: report).write(
+            to: directory.appendingPathComponent(family + "-app-replay.json"), options: .atomic)
+    }
+
+    func testReferenceDemonstratesBothRequestedContactTimings() throws {
+        for timing in KBallTiming.allCases {
+            var configuration = KBallConfiguration()
+            configuration.filter.timing = timing
+            let question = try KBallQuestionPreparer.prepare(configuration, seed: 31).question
+            let shot = try question.demonstrationShot(surfaceY: BTTablePhysics.surfaceY)
+            XCTAssertEqual(shot.observedRail, question.source.rail)
+            XCTAssertNil(shot.failure)
+            XCTAssertEqual(shot.input, question.demonstrationInput)
+        }
+    }
+
+    func testDemonstrationUnlockUsesDistinctCompletedShotsAndSurvivesResume() throws {
+        let prepared = try KBallQuestionPreparer.prepare(.init(), seed: 31)
+        var record = KBallPracticeRecord(ownerKey: "test", is3D: false, configuration: .init(), prepared: prepared)
+        let first = try shot(prepared.question, succeeds: false)
+        record.accept(first); record.accept(first)
+        XCTAssertFalse(record.demonstrationUnlocked)
+        record.accept(try shot(prepared.question, succeeds: false))
+        record = try KBallPracticeRecord.decodePayload(record.encodedPayload())
+        XCTAssertFalse(record.demonstrationUnlocked)
+        var early = KBallPracticeRecord(ownerKey: "test", is3D: false, configuration: .init(), prepared: prepared)
+        early.accept(try shot(prepared.question, succeeds: true))
+        XCTAssertTrue(early.demonstrationUnlocked)
+        record.accept(try shot(prepared.question, succeeds: false))
+        XCTAssertTrue(record.demonstrationUnlocked)
+        XCTAssertEqual(record.attempts.count, 1)
+    }
+
     func testFilteringUsesObservedRailAndSelectedTiming() throws {
         var config = KBallConfiguration()
         config.filter = .init(rail: 3, timing: .before, grade: nil, pocket: .middle)

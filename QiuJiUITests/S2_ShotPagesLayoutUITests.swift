@@ -16,7 +16,7 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
     }
 
     private func checkBankKickCamera(title: String, prefix: String) {
-        guard openCard(homeTab: "解", title: title) else { XCTFail(title); return }
+        guard openCard(homeTab: PracticeHomeNavigation.section(for: title), title: title) else { XCTFail(title); return }
         let camera = app.buttons[prefix + ".cameraMode"]
         let next = app.buttons["solver.nextSolution"]
         XCTAssertTrue(camera.waitForExistence(timeout: 5))
@@ -157,7 +157,7 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
     func testPlayEntriesOrder() throws {
         app.switchTab(.angle)
         sleep(1)
-        guard switchAngleHomeTab("打") else {
+        guard switchAngleHomeTab("走位") else {
             XCTFail("未能切到「打」分组"); return
         }
         let titles = ["分离角与走位", "自由走位", "自由击球", "拍照建球形"]
@@ -177,7 +177,7 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
     }
 
     func testShotSimulationLayout() throws {
-        guard openCard(homeTab: "打", title: "分离角与走位") else {
+        guard openCard(homeTab: "走位", title: "分离角与走位") else {
             XCTFail("未能进入分离角与走位"); return
         }
         snap("s2-01-shotsim")
@@ -208,7 +208,7 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
 
     func testShotSimulation3DPilot() throws {
         continueAfterFailure = false
-        XCTAssertTrue(openCard(homeTab: "打", title: "分离角与走位"))
+        XCTAssertTrue(openCard(homeTab: "走位", title: "分离角与走位"))
         XCUIDevice.shared.orientation = .landscapeLeft
         simulationMode("2D"); snap("p01-pilot-2d")
         simulationMode("3D"); snap("p01-pilot-3d")
@@ -255,7 +255,7 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
     /// visible outcome; readiness assertions alone do not prove a successful pot.
     func testShotSimulationDefaultShotOutcome() throws {
         continueAfterFailure = false
-        XCTAssertTrue(openCard(homeTab: "打", title: "分离角与走位"))
+        XCTAssertTrue(openCard(homeTab: "走位", title: "分离角与走位"))
         XCUIDevice.shared.orientation = .landscapeLeft
         simulationMode("2D")
         let strike = app.buttons["dailyClearance.strike"]
@@ -291,21 +291,21 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
     }
 
     func testComposerLayout() throws {
-        guard openCard(homeTab: "打", title: "自由走位") else {
+        guard openCard(homeTab: "走位", title: "自由走位") else {
             XCTFail("未能进入自由走位"); return
         }
         snap("s2-02-composer")
     }
 
     func testSiluLayout() throws {
-        guard openCard(homeTab: "解", title: "思路训练") else {
+        guard openCard(homeTab: "走位", title: "思路训练") else {
             XCTFail("未能进入思路训练"); return
         }
         snap("s2-03-silu")
     }
 
     func testSilu3DPlanningRoundTrip() throws {
-        XCTAssertTrue(openCard(homeTab: "解", title: "思路训练"))
+        XCTAssertTrue(openCard(homeTab: "走位", title: "思路训练"))
         app.buttons["落区"].tap()
         let window = app.windows.firstMatch
         window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5))
@@ -448,7 +448,7 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
     }
 
     func testPlanThreeLayout() throws {
-        guard openCard(homeTab: "解", title: "打一走二想三") else {
+        guard openCard(homeTab: "走位", title: "打一走二想三") else {
             XCTFail("未能进入打一走二想三"); return
         }
         snap("s2-04-planthree")
@@ -820,7 +820,7 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
                                 ("加塞吃库图谱", "cushionEnglishAtlas")] {
             app.terminate()
             app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
-            XCTAssertTrue(openCard(homeTab: "学", title: title))
+            XCTAssertTrue(openCard(homeTab: PracticeHomeNavigation.section(for: title), title: title))
             let more = app.buttons[prefix + ".more"]
             func openMenu() { more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
             openMenu()
@@ -874,7 +874,7 @@ extension S2_ShotPagesLayoutUITests {
                 .write(to: evidence.appendingPathComponent(name + "-metrics.json"))
         }
         XCUIDevice.shared.orientation = .portrait
-        XCTAssertTrue(openCard(homeTab: "打", title: "分离角与走位"))
+        XCTAssertTrue(openCard(homeTab: "走位", title: "分离角与走位"))
         let mode = app.buttons["shotSimulation.cameraMode"]
         XCTAssertEqual(mode.value as? String, "2D")
         try capture("01-2d-pocket")
@@ -910,7 +910,7 @@ extension S2_ShotPagesLayoutUITests {
         XCTAssertEqual(mode.value as? String, "2D")
         try capture("09-2d-returned")
         goBack()
-        XCTAssertTrue(app.buttons["angleHomeTab_打"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["angleHomeTab_走位"].waitForExistence(timeout: 5))
         try capture("10-normal-exit")
     }
 }
@@ -1115,7 +1115,7 @@ final class P04_SiluTemplateUITests: XCTestCase {
         menu(); let reset = app.buttons["silu.reset"]
         if !reset.isHittable { app.scrollViews["dailyClearance.menuScroll"].swipeUp() }
         ready(reset); reset.tap()
-        app.buttons["silu.tool"].tap(); app.buttons["落区"].tap()
+        app.buttons["silu.tool"].tap(); app.buttons["silu.tool.region"].tap()
         table.coordinate(withNormalizedOffset: CGVector(dx: 0.37, dy: 0.48)).press(forDuration: 0.1,
             thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.58, dy: 0.76)))
         ready(app.buttons["solver.solve"]); try capture("silu-constraint")
@@ -1302,7 +1302,7 @@ final class P07_BankKickTemplateUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-3dDrag.probe"])
         app.switchTab(.angle)
-        let section = app.buttons["angleHomeTab_解"]
+        let section = app.buttons["angleHomeTab_进阶"]
         XCTAssertTrue(section.waitForExistence(timeout: 5)); section.tap()
         let card = app.buttons[route == "bankshot" ? "翻袋解球" : "颗星解球"]
         XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
@@ -1376,9 +1376,9 @@ final class P07_BankKickTemplateUITests: XCTestCase {
 final class P11_ReadingTableUITests: XCTestCase {
     func testReadingTablesRotateAndScroll() throws {
         continueAfterFailure = false
-        let pages = [("学", "瞄准原理"), ("学", "瞄准方法"), ("学", "瞄准修正"),
-                     ("学", "旋转与加塞"), ("学", "浅谈凭感觉瞄准"), ("学", "瞄准点对照表"),
-                     ("理", "30° 法则"), ("理", "90° 法则"), ("理", "切线法则")]
+        let pages = [("基础", "瞄准原理"), ("基础", "瞄准方法"), ("基础", "瞄准修正"),
+                     ("基础", "旋转与加塞"), ("基础", "浅谈凭感觉瞄准"), ("基础", "瞄准点对照表"),
+                     ("控球", "30° 法则"), ("控球", "90° 法则"), ("控球", "切线法则")]
         let filter = ProcessInfo.processInfo.environment["READING_PAGE_FILTER"]
         for (index, page) in pages.enumerated() {
             if let filter, !filter.split(separator: ",").contains(Substring(String(index))) { continue }
@@ -1435,7 +1435,7 @@ final class P12_StandaloneQuizUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-geometricQuiz.forcedAngle", "45"])
         app.switchTab(.angle)
-        let section = app.buttons["angleHomeTab_练"]
+        let section = app.buttons["angleHomeTab_准度"]
         XCTAssertTrue(section.waitForExistence(timeout: 5)); section.tap()
         let card = app.buttons[title]
         for _ in 0..<5 where !card.isHittable { app.swipeUp() }
@@ -1550,8 +1550,8 @@ final class P13_15_EmbeddedTableUITests: XCTestCase {
         app.buttons["重做"].tap(); XCTAssertEqual(ball.value as? String, "在桌上")
         try landscape("extraction-confirm"); XCTAssertEqual(ball.value as? String, "在桌上")
         try portrait("extraction-confirm"); XCTAssertEqual(ball.value as? String, "在桌上")
-        app.buttons["送入…"].tap()
-        XCTAssertTrue(app.buttons["自由走位"].waitForExistence(timeout: 4)); app.buttons["自由走位"].tap()
+        app.buttons["使用球形"].tap()
+        XCTAssertTrue(app.buttons["分离角与走位"].waitForExistence(timeout: 4)); app.buttons["分离角与走位"].tap()
         XCTAssertTrue(element("composer.landscape").waitForExistence(timeout: 20))
         XCTAssertEqual(app.buttons["paletteBall__1"].value as? String, "本轮可击打")
         XCTAssertEqual(app.buttons["paletteBall__3"].value as? String, "本轮可击打")

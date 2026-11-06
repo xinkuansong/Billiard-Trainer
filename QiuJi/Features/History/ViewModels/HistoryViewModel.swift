@@ -159,12 +159,12 @@ enum AngleQuizType {
         switch self {
         // T-P18-50 页名=卡名：卡与页统一为「角度预测」。
         case .geometric:  return "角度预测"
-        case .scene2D:    return "2D 角度训练"
-        case .scene3D:    return "3D 角度训练"
+        case .scene2D:    return TrainingProject.angle.title + " · 2D"
+        case .scene3D:    return TrainingProject.angle.title + " · 3D"
         case .table2D:    return "球台角度练习"
-        case .aimPoint:   return "瞄准点训练"
-        case .aimPoint2D: return "2D 瞄准点训练"
-        case .aimPoint3D: return "3D 瞄准点训练"
+        case .aimPoint:   return "假想球练习"
+        case .aimPoint2D: return TrainingProject.aimPoint.title + " · 2D"
+        case .aimPoint3D: return TrainingProject.aimPoint.title + " · 3D"
         case .unknown:    return "角度训练"
         }
     }

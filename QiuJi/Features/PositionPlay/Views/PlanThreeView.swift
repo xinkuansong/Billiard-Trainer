@@ -100,6 +100,7 @@ struct PlanThreeView: View {
             velocityRange: vm.isBreakMode ? BreakFlowRunner.breakVelocityRange : ShotTuning.velocityRange,
             instrumentsEnabled: (!busy || vm.isAdjustingSolution) && (vm.isBreakMode || vm.hasSolutions), isAnimating: busy,
             paletteEnabled: !busy && !vm.isBreakMode,
+            showsPlacementHint: !vm.canUndoShot && vm.informationEvent.kind != .failure,
             primaryTitle: vm.isBreakMode ? "开球" : vm.primaryActionTitle,
             primaryEnabled: !busy && !vm.temporaryTopDownActive && !vm.cameraTransitionBusy,
             onPrimary: {

@@ -59,7 +59,7 @@ final class S6_BreakUniversalUITests: XCTestCase {
         sleep(2)
 
         // ── 自由击球（手动交付：racked → strike → settled，核验按钮互换） ──
-        switchAngleHomeTab("打")
+        switchAngleHomeTab("走位")
         if tapIfExists("自由击球", timeout: 5) {
             sleep(3)
             let entry = breakEntry()
@@ -83,7 +83,7 @@ final class S6_BreakUniversalUITests: XCTestCase {
         }
 
         // ── 思路训练（Q14，自动交付：只截 racked） ──
-        captureSolverBreak(entry: "思路训练", name: "v6-silu-break-racked")
+        captureSolverBreak(entry: "走位求解", name: "v6-silu-break-racked")
 
         // ── 打一走二想三（Q15.4，自动交付：只截 racked） ──
         captureSolverBreak(entry: "打一走二想三", name: "v6-planthree-break-racked")
@@ -92,7 +92,7 @@ final class S6_BreakUniversalUITests: XCTestCase {
     private func captureSolverBreak(entry: String, name: String) {
         for _ in 0..<3 {
             app.switchTab(.angle); sleep(1)
-            switchAngleHomeTab("解")
+            PracticeHomeNavigation.select(PracticeHomeNavigation.section(for: entry), in: app)
             let card = app.buttons[entry]
             if card.waitForExistence(timeout: 4) { card.tap(); break }
         }
@@ -241,7 +241,7 @@ final class UnifiedBreakFlowUITests: XCTestCase {
             app.buttons["silu.tool.restPoint"].tap()
             XCTAssertTrue((node("silu.layoutState").value as? String)?.contains("tool=restPoint") == true)
             app.buttons["silu.tool"].tap()
-            app.buttons["silu.tool.place"].tap()
+            app.buttons["silu.tool.region"].tap()
         }
         assertQuiet(); capture(prefix + "-complete")
         if UIDevice.current.userInterfaceIdiom == .pad {

@@ -79,13 +79,13 @@ final class W9b_ShotPagesMenuUITests: XCTestCase {
         let app = XCUIApplication.launchClean()
 
         let sandboxes: [(tab: String, title: String, shot: String)] = [
-            ("打", "分离角与走位", "w9b-menu-01-shotsim"),
-            ("打", "自由走位", "w9b-menu-02-composer"),
-            ("打", "自由击球", "w9b-menu-03-freeplay"),
-            ("解", "思路训练", "w9b-menu-04-silu"),
-            ("解", "打一走二想三", "w9b-menu-05-planthree"),
-            ("解", "翻袋解球", "w9b-menu-07-bank"),
-            ("解", "颗星解球", "w9b-menu-08-diamond"),
+            ("走位", "分离角与走位", "w9b-menu-01-shotsim"),
+            ("走位", "自由走位", "w9b-menu-02-composer"),
+            ("走位", "自由击球", "w9b-menu-03-freeplay"),
+            ("走位", "思路训练", "w9b-menu-04-silu"),
+            ("走位", "打一走二想三", "w9b-menu-05-planthree"),
+            ("进阶", "翻袋解球", "w9b-menu-07-bank"),
+            ("进阶", "颗星解球", "w9b-menu-08-diamond"),
         ]
         for item in sandboxes {
             XCTAssertTrue(openCard(app, homeTab: item.tab, title: item.title), item.title)
@@ -94,11 +94,11 @@ final class W9b_ShotPagesMenuUITests: XCTestCase {
         }
 
         // 测验页：AngleDynamic / AimPointScene(2D) 有三点；Geometric 仅重置（截 trailing）
-        XCTAssertTrue(openCard(app, homeTab: "学", title: "角度与瞄准"), "AngleDynamic")
+        XCTAssertTrue(openCard(app, homeTab: "准度", title: "角度与瞄准"), "AngleDynamic")
         openMoreMenuAndSnap(app, "w9b-menu-09-angledynamic")
         goBack(app)
 
-        XCTAssertTrue(openCard(app, homeTab: "练", title: "2D 瞄准点训练"), "AimPointScene2D")
+        XCTAssertTrue(openCard(app, homeTab: "准度", title: "2D 瞄准点训练"), "AimPointScene2D")
         // 进页可能有设置 sheet——先关掉。
         if app.buttons["开始训练"].waitForExistence(timeout: 2) {
             app.buttons["开始训练"].tap(); sleep(2)
@@ -108,7 +108,7 @@ final class W9b_ShotPagesMenuUITests: XCTestCase {
         openMoreMenuAndSnap(app, "w9b-menu-10-aimpoint-scene")
         goBack(app)
 
-        XCTAssertTrue(openCard(app, homeTab: "练", title: "角度预测"), "Geometric")
+        XCTAssertTrue(openCard(app, homeTab: "准度", title: "角度预测"), "Geometric")
         snap(app, "w9b-menu-11-geometric-reset-trailing")
         let reset = app.buttons["重置统计"]
         XCTAssertTrue(reset.waitForExistence(timeout: 3), "Geometric 应保留重置统计 trailing")
@@ -121,7 +121,7 @@ final class W9b_ShotPagesMenuUITests: XCTestCase {
         }
         goBack(app)
 
-        XCTAssertTrue(openCard(app, homeTab: "练", title: "瞄准点训练"), "AimPointTraining")
+        XCTAssertTrue(openCard(app, homeTab: "准度", title: "瞄准点训练"), "AimPointTraining")
         snap(app, "w9b-menu-12-aimpoint-training-no-more")
         XCTAssertFalse(moreButton(app).waitForExistence(timeout: 1),
                        "AimPointTraining 无 SCN 网格，不并三点（留档）")
@@ -135,7 +135,7 @@ final class W9b_ShotPagesMenuUITests: XCTestCase {
 
     func testW9bComposerBreakFullFlow() throws {
         let app = XCUIApplication.launchClean()
-        XCTAssertTrue(openCard(app, homeTab: "打", title: "自由走位"), "Composer")
+        XCTAssertTrue(openCard(app, homeTab: "走位", title: "自由走位"), "Composer")
 
         let entry = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == 'break.entry'")).firstMatch

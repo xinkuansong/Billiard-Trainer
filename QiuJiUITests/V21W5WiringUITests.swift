@@ -123,7 +123,7 @@ final class V21W5WiringUITests: XCTestCase {
     private func openLearnPage(cardTitle: String, navTitle: String) {
         app.switchTab(.angle)
         sleep(2)
-        let seg = app.buttons["angleHomeTab_学"]
+        let seg = app.buttons["angleHomeTab_基础"]
         if seg.waitForExistence(timeout: 5) { seg.tap() }
         usleep(700_000)
 

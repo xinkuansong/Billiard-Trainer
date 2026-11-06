@@ -11,7 +11,7 @@ final class CueStyleUITests: XCTestCase {
         inkDragon.tap();XCTAssertEqual(inkDragon.value as? String, "已选择")
         app.terminate();app.launchArguments.removeAll { $0 == "-deeplink.settings" };app.launch()
         app.switchTab(.angle)
-        let play = app.buttons["angleHomeTab_打"]
+        let play = app.buttons["angleHomeTab_走位"]
         XCTAssertTrue(play.waitForExistence(timeout: 15));play.tap()
         let entry = app.buttons["自由击球"]
         XCTAssertTrue(entry.waitForExistence(timeout: 10));entry.tap()

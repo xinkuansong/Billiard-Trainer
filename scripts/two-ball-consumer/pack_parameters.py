@@ -25,5 +25,8 @@ def main():
  assert counts=={k:idx['counts'][k] for k in counts}
  result=dict(schema='two-ball-consumer-parameters-v1',policyVersion='comfort85-parameters-v1',sourceIndexSHA256=sha(raw),physicsModel='planarReference',replayVersion='event-order-rdp2mm-v1',comfortVersion='comfort-d2-s3-a2-v1',executionVersion='execution-effort-v1',minimumComfort=85,geometry=idx['geometry'],counts=counts,shards=shards,layouts=entries)
  result['fingerprint']=sha(enc(result));b=enc(result);(dest/'index.json').write_bytes(b)
+ from jaw_revision import PATCH, apply_revision
+ if PATCH.exists():
+  result=apply_revision(dest);counts=result['counts'];shards=result['shards'];b=(dest/'index.json').read_bytes()
  report.write_text(json.dumps(dict(state='packed-needs-independent-audit',counts=counts,indexSHA256=sha(b),indexBytes=len(b),gzipBytes=sum(s['bytes'] for s in shards),totalBytes=len(b)+sum(s['bytes'] for s in shards)),indent=2)+'\n')
 if __name__=='__main__':main()

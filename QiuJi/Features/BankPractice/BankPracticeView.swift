@@ -102,11 +102,12 @@ struct BankPracticeView: View {
         return result
     }
     private var controls: BTTablePlanningControls {
-        .init(spinX: Binding(get: { Double(vm.input.spinX) }, set: { vm.setSpin($0, Double(vm.input.spinY)) }),
-            spinY: Binding(get: { Double(vm.input.spinY) }, set: { vm.setSpin(Double(vm.input.spinX), $0) }),
+        .init(spinX: Binding(get: { Double(vm.instrumentInput.spinX) }, set: { vm.setSpin($0, Double(vm.input.spinY)) }),
+            spinY: Binding(get: { Double(vm.instrumentInput.spinY) }, set: { vm.setSpin(Double(vm.input.spinX), $0) }),
             transparency: Binding(get: { tablePreferences.snapshot(for: vm.preferencePage)[.transparency] },
                 set: { tablePreferences.apply(.transparency, value: $0, to: vm.preferencePage) }),
             velocityRange: ShotTuning.velocityRange, instrumentsEnabled: vm.canAdjust,
+            showsReadOnlyDemonstration: vm.demonstrationInput != nil,
             assessmentMode: true, allowsAssessmentAimCloseup: true, allowsAssessmentSpinEditing: true,
             defersStrikeAccessUntilSubmission: false,
             locksSceneInteraction: vm.isBusy, isAnimating: vm.isBusy, paletteEnabled: false,
@@ -134,7 +135,7 @@ struct BankPracticeView: View {
     private var tablePage: some View {
         BTTeachingTablePage(vm: vm, titleLabel: vm.title, identifier: "bank", preferencePage: vm.preferencePage,
             insufficientSpaceMessage: "扩大窗口后继续翻袋练习",
-            onTrainingViewChange: { vm.switchTrainingView(to: $0) }, velocity: Binding(get: { vm.velocity }, set: { vm.velocity = $0 }),
+            onTrainingViewChange: { vm.switchTrainingView(to: $0) }, velocity: Binding(get: { Double(vm.instrumentInput.velocity) }, set: { vm.velocity = $0 }),
             planning: controls, information: information, usesStandardTitle: true, fitsLongTitle: true, showsPalette: true,
             pairedLeftContent: { layout in
                 AnyView(VStack(spacing: layout.groupSpacing) {
@@ -158,10 +159,15 @@ struct BankPracticeView: View {
                             .disabled(!vm.canRetry)
                             .accessibilityIdentifier("bank.retry")
                             .freeControlItem("shot.undo", name: vm.playsStroke ? "重打" : "重试")
-                        BTGeometricReferenceButton(tool: vm.geometryReference,
-                            enabled: vm.canAdjust && !vm.cameraTransitionBusy, size: layout.auxiliarySize,
-                            identifier: "bank.geometry", prepare: { vm.prepareGeometryReference() })
-                            .freeControlItem("shot.replay", name: "测量")
+                        if vm.canReplayReference || vm.demonstrationInput != nil {
+                            BTPracticeDemonstrationButton(enabled: vm.canReplayReference, size: layout.auxiliarySize,
+                                identifier: "bank.referenceReplay", action: vm.replayReference)
+                        } else {
+                            BTGeometricReferenceButton(tool: vm.geometryReference,
+                                enabled: vm.canAdjust && !vm.cameraTransitionBusy, size: layout.auxiliarySize,
+                                identifier: "bank.geometry", prepare: { vm.prepareGeometryReference() })
+                                .freeControlItem("shot.replay", name: "测量")
+                        }
                     }
                 }.frame(width: layout.columnWidth))
             },

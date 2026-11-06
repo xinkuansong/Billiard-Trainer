@@ -28,7 +28,7 @@ final class KickPracticeUITests: XCTestCase {
     }
     private func open(animated: Bool, lastFree: Bool = false) {
         app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-freeLayout.ephemeral", lastFree ? "-w7.forceDailyLimitNear" : "-forcePremium", "-kick.probe", "-kick.fixedSeed", "-showsTableSights.v1", "YES", "-tableStyle.v1", "charcoal", "-clothColor.v1", "green"])
-        app.switchTab(.angle); app.buttons["angleHomeTab_打"].tap()
+        app.switchTab(.angle); app.buttons["angleHomeTab_进阶"].tap()
         let entry = app.buttons["解球练习"]
         for _ in 0..<5 where !entry.isHittable { app.swipeUp() }
         ready(entry); entry.tap(); ready(app.buttons["kick.start"])
@@ -55,6 +55,11 @@ final class KickPracticeUITests: XCTestCase {
         XCTAssertEqual(try? probe()["view"] as? String, "2D")
 
     }
+    func testReferenceDemonstrationInMeasurementSlot() throws {
+        open(animated: false)
+        try verifyPracticeDemonstration(in: app, page: "kick", phase: { phase($0) }, probe: probe)
+    }
+
     func testOptionalLastRailOutlineAndOneRailException() throws {
         open(animated: false)
         func selectRails(_ count: Int) {

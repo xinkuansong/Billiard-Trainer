@@ -8,7 +8,8 @@
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_理"
+      "id": "angleHomeTab_控球",
+      "scrollTo": 4
     },
     {
       "action": "tap",

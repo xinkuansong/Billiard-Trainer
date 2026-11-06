@@ -13,14 +13,14 @@ enum ProBenefits {
         .init(id: "drills", number: "01", title: "进阶动作与精讲", subtitle: "解锁 Pro 动作与配套精讲，理解练习要点与走位思路。"),
         .init(id: "plans", number: "02", title: "官方进阶计划", subtitle: "围绕准度、杆法与走位，按计划安排专项练习。"),
         .init(id: "aiming", number: "03", title: "专项练习不限题数", subtitle: "解锁持续练习；角度、瞄准点、准度、分离角、两球、三球和多球走位不限每日题数。2D与3D均可免费体验。"),
-        .init(id: "atlases", number: "04", title: "分离角与加塞吃库图谱", subtitle: "对比不同打点下的球路变化，帮助理解母球路线。"),
+        .init(id: "atlases", number: "04", title: "分离角图谱与加塞吃库图谱", subtitle: "对比不同打点下的球路变化，帮助理解母球路线。"),
         .init(id: "snake", number: "05", title: "每日清台与蛇彩练习", subtitle: "每日清台不限局数，蛇彩练习解锁连续击球与走位衔接。"),
-        .init(id: "position", number: "06", title: "自由走位推演", subtitle: "调整球形与击球参数，观察、比较走位路线。"),
+        .init(id: "position", number: "06", title: TablePreferencePage.silu.layoutTitle, subtitle: "指定母球落区、落点或途经点，求解击球方案。"),
         .init(id: "three", number: "07", title: "打一走二想三", subtitle: "把当前进球与后续走位连起来，练习多杆规划。"),
         .init(id: "photo", number: "08", title: "拍照建球形", subtitle: "将球桌照片转成可继续编辑和推演的球形。"),
         .init(id: "history", number: "09", title: "训练统计与长期回顾", subtitle: "查看训练趋势，回看超过最近 60 天的训练记录详情。"),
         .init(id: "bank", number: "10", title: "翻袋解球", subtitle: "选择目标袋口，推演一至三库线路，练习翻袋与吃库判断。"),
-        .init(id: "diamond", number: "11", title: "颗星公式解球", subtitle: "结合颗星刻度与公式，理解瞄准点和吃库线路的关系。")
+        .init(id: "diamond", number: "11", title: TablePreferencePage.diamondSystem.layoutTitle, subtitle: "结合颗星刻度与公式，理解瞄准点和吃库线路的关系。")
     ]
 }
 

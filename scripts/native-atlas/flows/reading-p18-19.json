@@ -8,23 +8,24 @@
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_学"
+      "id": "angleHomeTab_基础",
+      "scrollTo": 4
     },
     {
       "action": "tap",
       "kind": "any",
-      "id": "浅谈球感",
+      "id": "浅谈凭感觉瞄准",
       "scrollTo": 12
     },
     {
       "action": "wait",
       "kind": "navigationBar",
-      "id": "浅谈球感"
+      "id": "浅谈凭感觉瞄准"
     },
     {
       "action": "cover",
       "name": "P18-19-default",
-      "entry": "practice/学/浅谈球感",
+      "entry": "practice/基础/浅谈球感",
       "maximumViews": 40
     }
   ]

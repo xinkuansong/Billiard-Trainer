@@ -2553,25 +2553,17 @@ final class PocketSelectionUXTests: XCTestCase {
         XCTAssertEqual(vm.entryTiming["bankSearchCalls"], 0)
     }
 
-    func testUndoKeepsTemporaryAndExplicitFreePreferencesDistinct() throws {
+    func testEditingPlannedAimPreservesExplicitFreePreference() throws {
         let vm = makeVM(); defer { vm.cancelDailyAttempt() }
-        vm.selectPocket(at: 0)
-        let undo = vm.captureDailyUndo()
+        vm.practiceRequiresExplicitAim = true
+        vm.setPreferredAimMode(.free)
+        vm.clearPracticeAimSelection()
+        XCTAssertTrue(vm.selectTarget(key: "_1"))
         vm.selectPocket(at: 1)
-        vm.toggleAimMode()
-        undo()
-        XCTAssertEqual(vm.preferredAimMode, .pocket)
-        XCTAssertEqual(vm.aimMode, .free)
-        XCTAssertEqual(vm.selectedTargetKey, "_1"); XCTAssertEqual(vm.selectedPocketIndex, 0)
-        XCTAssertNotNil(vm.temporaryFreeReason)
-        vm.selectPocket(at: 1)
-        XCTAssertEqual(vm.aimMode, .pocket)
-        vm.toggleAimMode()
-        let manualUndo = vm.captureDailyUndo()
-        vm.toggleAimMode()
-        manualUndo()
+        vm.clearPracticeAimSelection(preservingTarget: true)
+        XCTAssertEqual(vm.selectedTargetKey, "_1")
+        XCTAssertEqual(vm.selectedPocketIndex, -1)
         XCTAssertEqual(vm.preferredAimMode, .free)
-        vm.selectPocket(at: 1)
         XCTAssertEqual(vm.aimMode, .free)
     }
 

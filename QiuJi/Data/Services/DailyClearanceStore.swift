@@ -22,6 +22,7 @@ struct DailyClearanceDraft: Codable {
     var updatedAt: Date
     /// Optional for drafts saved before the daily allowance existed.
     var firstBreakAt: Date? = nil
+    var scoring: DailyPositionScoring?
     var hasStartedChallenge: Bool { firstBreakAt != nil || phase != .manualRacked || shotCount > 0 }
 }
 
@@ -36,6 +37,7 @@ struct DailyClearanceCompletion: Codable {
     var playedVisitCount: Int? = nil
     var completionKind: DailyClearanceCompletionKind? = nil
     var ruleVersion: Int? = nil
+    var scoringSummary: DailyScoreSummary?
 }
 
 enum DailyClearanceStoreKey {
@@ -157,7 +159,8 @@ final class DailyClearanceStore {
             visitCount: draft.ruleState.visitCount,
             playedVisitCount: draft.ruleState.playedVisitCount,
             completionKind: draft.ruleState.completionKind,
-            ruleVersion: draft.ruleState.ruleVersion
+            ruleVersion: draft.ruleState.ruleVersion,
+            scoringSummary: draft.scoring?.summary
         )
     }
 

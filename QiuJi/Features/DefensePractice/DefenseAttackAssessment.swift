@@ -49,8 +49,18 @@ struct PipeRoute: Codable {
  let leftDegrees, rightDegrees, comfort: Double
  let aim: [Double]
  var zeroWidthEstimate: Bool? = nil
+ // Missing only in historical v4–v8 payloads; never invent a cut for those records.
+ var cutDegrees: Double? = nil
  var tolerance: Double { rightDegrees-leftDegrees }
- var score: Double { DefenseEffect.value(pipeDegrees:tolerance,comfort:comfort)! }
+ var score: Double {
+  if let cutDegrees { return DefenseEffect.value(pipeDegrees:tolerance,comfort:comfort,cutDegrees:cutDegrees)! }
+  return sqrt(100 * (DefenseEffect.pipeReferenceDegrees / (DefenseEffect.pipeReferenceDegrees + tolerance)) * (100-comfort))
+ }
+}
+/// Angle between cue-to-ghost travel and object-to-aim travel, in world XZ metres.
+static func cutDegrees(cue:P, ball:P, aim:P) -> Double {
+ let n=(aim-ball)*(1/(aim-ball).length), incoming=ball-n*Double(2*AngleSceneCalculator.ballRadius)-cue
+ return atan2(abs(incoming.cross(n)),incoming.dot(n))*180/Double.pi
 }
 struct PipeResult {
  var routes = [PipeRoute]()
@@ -74,7 +84,7 @@ mutating func pipeAttack(_ cue:P,_ ball:P,_ others:[P]) throws -> PipeResult {
     incompleteComfort = true; return nil
    }
    return .init(pocket:pocket,leftDegrees:left,rightDegrees:right,comfort:comfort.total,aim:end.json,
-       zeroWidthEstimate:estimated ? true:nil)
+       zeroWidthEstimate:estimated ? true:nil,cutDegrees:Self.cutDegrees(cue:cue,ball:ball,aim:end))
   }
   // A zero-width route still participates in the score. If the clean scan has
   // no positive window, use a reachable geometric opening candidate and label
@@ -88,7 +98,8 @@ mutating func pipeAttack(_ cue:P,_ ball:P,_ others:[P]) throws -> PipeResult {
    let angle = atan2(Double(candidate.aim.z)-ball.z,Double(candidate.aim.x)-ball.x)-base
    let offset = atan2(sin(angle),cos(angle))*180/Double.pi
    var route = PipeRoute(pocket:pocket,leftDegrees:offset,rightDegrees:offset,
-       comfort:comfort.total,aim:[Double(candidate.aim.x),Double(candidate.aim.z)])
+       comfort:comfort.total,aim:[Double(candidate.aim.x),Double(candidate.aim.z)],
+       cutDegrees:Self.cutDegrees(cue:cue,ball:ball,aim:P(Double(candidate.aim.x),Double(candidate.aim.z))))
    route.zeroWidthEstimate = true
    result.routes.append(route)
   }
@@ -105,7 +116,7 @@ mutating func pipeAttack(_ cue:P,_ ball:P,_ others:[P]) throws -> PipeResult {
    var best: PipeRoute?
    for i in 0...count {
     let angle = base+(left+(right-left)*Double(i)/Double(count))*Double.pi/180
-    if let candidate = route(angle,left:left,right:right), best == nil || candidate.comfort>best!.comfort {
+    if let candidate = route(angle,left:left,right:right), best == nil || candidate.score<best!.score {
      best = candidate
     }
    }
@@ -166,7 +177,7 @@ func estimatedAttack(_ cue:P,_ ball:P,_ others:[P]) throws -> PipeRoute? {
    let interval=ranges.first { offset>=($0["leftDegrees"] as! Double) && offset<=($0["rightDegrees"] as! Double) }
    let left=interval?["leftDegrees"] as? Double ?? offset,right=interval?["rightDegrees"] as? Double ?? offset
    let candidate=PipeRoute(pocket:pocket,leftDegrees:left,rightDegrees:right,comfort:comfort.total,aim:end.json,
-       zeroWidthEstimate:interval == nil ? true:nil)
+       zeroWidthEstimate:interval == nil ? true:nil,cutDegrees:Self.cutDegrees(cue:cue,ball:ball,aim:end))
    if best == nil || candidate.score<best!.score { best=candidate }
   }
  }

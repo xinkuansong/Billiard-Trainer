@@ -8,7 +8,8 @@
     },
     {
       "action": "tap",
-      "id": "angleHomeTab_学"
+      "id": "angleHomeTab_基础",
+      "scrollTo": 4
     },
     {
       "action": "tap",
@@ -35,7 +36,7 @@
       "name": "P18-17-follow-body",
       "maximumViews": 60,
       "dragX": 0.97,
-      "entry": "practice/学/P18-17/前旋"
+      "entry": "practice/基础/P18-17/前旋"
     }
   ]
 }

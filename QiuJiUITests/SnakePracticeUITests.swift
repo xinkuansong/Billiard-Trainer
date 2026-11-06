@@ -15,7 +15,7 @@ final class SnakePracticeUITests: XCTestCase {
         app = .launchClean(extraArgs: args)
         if !direct {
             app.switchTab(.angle)
-            app.buttons["angleHomeTab_练"].tap()
+            app.buttons["angleHomeTab_走位"].tap()
             let card = app.buttons["蛇彩练习"]
             for _ in 0..<4 {
                 if card.exists && card.isHittable { break }
@@ -90,7 +90,7 @@ final class SnakePracticeUITests: XCTestCase {
     func testProEntryGatesFreeAndAllowsPremium() throws {
         app = .launchClean(extraArgs: ["-forceNonPremium", "-v54.forceLight"])
         app.switchTab(.angle)
-        app.buttons["angleHomeTab_练"].tap()
+        app.buttons["angleHomeTab_走位"].tap()
         let card = app.buttons["蛇彩练习"]
         for _ in 0..<4 {
             if card.exists && card.isHittable { break }

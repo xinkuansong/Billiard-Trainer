@@ -71,7 +71,7 @@ final class W7_DailyLimitUITests: XCTestCase {
         app = XCUIApplication.launchClean(extraArgs: ["-w7.forceDailyLimit"])
 
         // 1) 角度预测 — full 主卡
-        guard openCard(homeTab: "练", title: "角度预测") else {
+        guard openCard(homeTab: "准度", title: "角度预测") else {
             XCTFail("未能进入角度预测"); return
         }
         XCTAssertTrue(
@@ -82,7 +82,7 @@ final class W7_DailyLimitUITests: XCTestCase {
         backToHome()
 
         // 2) 2D 角度训练 — 自由练习 + 满额 → full 主卡
-        guard openCard(homeTab: "练", title: "2D 角度训练") else {
+        guard openCard(homeTab: "准度", title: "2D 角度训练") else {
             XCTFail("未能进入 2D 角度训练"); return
         }
         XCTAssertTrue(startSceneAimingFreePracticeAtLimit(), "未能开始自由练习")
@@ -94,7 +94,7 @@ final class W7_DailyLimitUITests: XCTestCase {
         backToHome()
 
         // 3) 瞄准点训练 — full 主卡
-        guard openCard(homeTab: "练", title: "瞄准点训练") else {
+        guard openCard(homeTab: "准度", title: "瞄准点训练") else {
             XCTFail("未能进入瞄准点训练"); return
         }
         XCTAssertTrue(
@@ -105,7 +105,7 @@ final class W7_DailyLimitUITests: XCTestCase {
         backToHome()
 
         // 4) 2D 瞄准点训练 — full 主卡（非全屏撑满形态）
-        guard openCard(homeTab: "练", title: "2D 瞄准点训练") else {
+        guard openCard(homeTab: "准度", title: "2D 瞄准点训练") else {
             XCTFail("未能进入 2D 瞄准点训练"); return
         }
         XCTAssertTrue(
@@ -124,7 +124,7 @@ final class W7_DailyLimitUITests: XCTestCase {
     func testW7CompactLimitGateScreenshots() throws {
         // 1) Geometric 结果区 compact
         relaunchNearLimit()
-        guard openCard(homeTab: "练", title: "角度预测") else {
+        guard openCard(homeTab: "准度", title: "角度预测") else {
             XCTFail("未能进入角度预测"); return
         }
         let answer = app.buttons["答题"]
@@ -146,7 +146,7 @@ final class W7_DailyLimitUITests: XCTestCase {
 
         // 2) AimPointTraining 结果区 compact
         relaunchNearLimit()
-        guard openCard(homeTab: "练", title: "瞄准点训练") else {
+        guard openCard(homeTab: "准度", title: "瞄准点训练") else {
             XCTFail("未能进入瞄准点训练"); return
         }
         let submit = app.buttons["提交瞄准点"]
@@ -161,7 +161,7 @@ final class W7_DailyLimitUITests: XCTestCase {
 
         // 3) AimPointScene 结果区 compact（提交后约 1.5s 自动击球）
         relaunchNearLimit()
-        guard openCard(homeTab: "练", title: "2D 瞄准点训练") else {
+        guard openCard(homeTab: "准度", title: "2D 瞄准点训练") else {
             XCTFail("未能进入 2D 瞄准点训练"); return
         }
         let submitScene = app.buttons["提交"]
@@ -177,7 +177,7 @@ final class W7_DailyLimitUITests: XCTestCase {
         // 4) SceneAiming：满额 + 20 题模式 → 总结 compact
         app.terminate()
         app = XCUIApplication.launchClean(extraArgs: ["-w7.forceDailyLimit"])
-        guard openCard(homeTab: "练", title: "2D 角度训练") else {
+        guard openCard(homeTab: "准度", title: "2D 角度训练") else {
             XCTFail("未能进入 2D 角度训练"); return
         }
         let start = app.buttons["开始训练"]

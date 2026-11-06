@@ -1,6 +1,6 @@
 import XCTest
 
-/// v7 W1/C2：完成一题瞄准点训练后，历史·统计页能筛出「瞄准点训练」记录（截图取证）。
+/// v7 W1/C2：完成一题假想球练习后，历史·统计页能筛出「假想球练习」记录（截图取证）。
 final class W1_AimPointFilterUITests: XCTestCase {
 
     var app: XCUIApplication!
@@ -25,26 +25,26 @@ final class W1_AimPointFilterUITests: XCTestCase {
     }
 
     func testAimPointHistoryFilter() throws {
-        // 1) 练一题瞄准点训练，写入 SwiftData（quizType=aimPoint）。
+        // 1) 练一题假想球练习，写入 SwiftData（quizType=aimPoint）。
         app.switchTab(.angle)
         sleep(1)
-        let trainTab = app.buttons["angleHomeTab_练"]
+        let trainTab = app.buttons["angleHomeTab_准度"]
         guard trainTab.waitForExistence(timeout: 5) else {
             XCTFail("练习首页「练」分段不存在"); return
         }
         trainTab.tap()
         usleep(600_000)
 
-        let card = app.buttons["瞄准点训练"]
+        let card = app.buttons["假想球练习"]
         guard card.waitForExistence(timeout: 5) else {
-            XCTFail("未找到瞄准点训练入口"); return
+            XCTFail("未找到假想球练习入口"); return
         }
         card.tap()
         sleep(2)
 
         let submit = app.buttons["提交瞄准点"]
         guard submit.waitForExistence(timeout: 6) else {
-            XCTFail("瞄准点训练无提交按钮"); return
+            XCTFail("假想球练习无提交按钮"); return
         }
         submit.tap()
         sleep(1)
@@ -54,7 +54,7 @@ final class W1_AimPointFilterUITests: XCTestCase {
         let back = app.navigationBars.buttons.firstMatch
         if back.waitForExistence(timeout: 3) { back.tap(); sleep(1) }
 
-        // 2) 记录 → 统计 → 筛「瞄准点训练」
+        // 2) 记录 → 统计 → 筛「假想球练习」
         app.switchTab(.history)
         sleep(1)
         let stats = app.descendants(matching: .any).matching(NSPredicate(format: "label == '统计'")).firstMatch
@@ -64,15 +64,15 @@ final class W1_AimPointFilterUITests: XCTestCase {
         stats.tap()
         sleep(2)
 
-        let filter = app.buttons["瞄准点训练"]
+        let filter = app.buttons["假想球练习"]
         // Filter chips are Buttons with Text label; also try staticTexts in case.
         let filterAny = filter.waitForExistence(timeout: 4)
             ? filter
-            : app.staticTexts["瞄准点训练"]
+            : app.staticTexts["假想球练习"]
         guard filterAny.waitForExistence(timeout: 4) else {
             // Dump visible chips for diagnosis
             snap("w1-02-stats-no-filter-chip")
-            XCTFail("统计页未见「瞄准点训练」筛选项"); return
+            XCTFail("统计页未见「假想球练习」筛选项"); return
         }
         filterAny.tap()
         sleep(1)

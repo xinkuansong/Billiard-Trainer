@@ -40,7 +40,7 @@ final class TwoBallPracticeUITests: XCTestCase {
         // test consumes instead of letting drag diagnostics replace pocket styles.
         app = XCUIApplication.launchClean(extraArgs:["-v50.inMemoryStore","-freeLayout.ephemeral","-forcePremium","-twoBall.probe","-twoBall.fixedSeed","-AppleInterfaceStyle",largeText ? "Light":"Dark"] + (pocketFeedback ? ["-pocketSelection.probe"] : ["-3dDrag.probe"]) + (largeText ? ["-UIPreferredContentSizeCategoryName","UICTContentSizeCategoryAccessibilityXXXL"]:[]) + (is3D ? ["-pro.route=mergeTwo3D"] : []))
         if !is3D {
-        app.switchTab(.angle);app.buttons["angleHomeTab_打"].tap()
+        app.switchTab(.angle);app.buttons["angleHomeTab_走位"].tap()
         let entry = app.buttons["两球走位"]
         for _ in 0..<4 where !entry.isHittable { app.swipeUp() }
         ready(entry);capture("twoBall-entries");entry.tap()
@@ -51,6 +51,11 @@ final class TwoBallPracticeUITests: XCTestCase {
         if (toggle.value as? String == "1") != animated { toggle.coordinate(withNormalizedOffset: .init(dx: 1, dy: 0.5)).withOffset(.init(dx: -30, dy: 0)).tap() }
         capture("twoBall-settings-\(is3D)-\(free)")
         app.buttons["twoBall.start"].tap();ready(app.buttons["twoBall.strike"],timeout:180);waitPhase("aiming"); app.selectTrainingView(requestedView)
+    }
+
+    func testReferenceDemonstrationInMeasurementSlot() throws {
+        open(is3D: false, free: false, animated: false)
+        try verifyPracticeDemonstration(in: app, page: "twoBall", phase: { waitPhase($0) }, probe: probe)
     }
 
     func testMeasurementMenuLayout() throws {
@@ -208,7 +213,7 @@ final class TwoBallPracticeUITests: XCTestCase {
         XCTAssertEqual(try probe()["question"] as? String, question)
         XCUIDevice.shared.press(.home); app.activate(); waitPhase("aiming")
         app.buttons["twoBall.back"].tap()
-        ready(app.buttons["angleHomeTab_打"]); app.buttons["angleHomeTab_打"].tap()
+        ready(app.buttons["angleHomeTab_走位"]); app.buttons["angleHomeTab_走位"].tap()
         let entry = app.buttons["两球走位"]; ready(entry); entry.tap()
         ready(app.buttons["twoBall.strike"]); waitPhase("aiming")
         XCTAssertEqual(try probe()["question"] as? String, question)
@@ -438,7 +443,7 @@ final class TwoBallPracticeUITests: XCTestCase {
         for _ in 0..<5 where !finish.isHittable { app.scrollViews["dailyClearance.menuScroll"].swipeUp() }
         ready(finish);finish.tap();ready(app.buttons["training.complete"])
         capture("twoBall-summary-\(is3D)-\(free)")
-        app.buttons["training.complete"].tap();ready(app.buttons["angleHomeTab_打"])
+        app.buttons["training.complete"].tap();ready(app.buttons["angleHomeTab_走位"])
     }
     @discardableResult private func verifyScoreDetails(_ name: String) -> String {
         let alert = app.descendants(matching: .any)["scoreDetails.panel"].firstMatch

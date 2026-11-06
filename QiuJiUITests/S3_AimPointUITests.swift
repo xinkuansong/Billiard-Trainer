@@ -41,7 +41,7 @@ final class S3_AimPointUITests: XCTestCase {
 
     /// P8：瞄准点训练页——出题态 + 提交后结果态。
     func testAimPointTrainingLayout() throws {
-        guard openCard(homeTab: "练", title: "瞄准点训练") else {
+        guard openCard(homeTab: "准度", title: "瞄准点训练") else {
             XCTFail("未能进入瞄准点训练"); return
         }
         sleep(1)
@@ -68,7 +68,7 @@ final class S3_AimPointUITests: XCTestCase {
 
     /// P9.1：2D 瞄准点训练——瞄准态（G1 垂线）+ 提交后（红线 + 正确瞄准点红点）。
     func testAimPointScene2DLayout() throws {
-        guard openCard(homeTab: "练", title: "2D 瞄准点训练") else {
+        guard openCard(homeTab: "准度", title: "2D 瞄准点训练") else {
             XCTFail("未能进入 2D 瞄准点训练"); return
         }
         sleep(2)
@@ -84,7 +84,7 @@ final class S3_AimPointUITests: XCTestCase {
 
     /// G1 文档：瞄准原理页名词系统配图（垂线 + 垂足红点）。
     func testAimingPrincipleG1Figure() throws {
-        guard openCard(homeTab: "学", title: "瞄准原理") else {
+        guard openCard(homeTab: "基础", title: "瞄准原理") else {
             XCTFail("未能进入瞄准原理"); return
         }
         sleep(2)

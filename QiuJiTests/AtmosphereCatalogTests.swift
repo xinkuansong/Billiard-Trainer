@@ -21,8 +21,8 @@ final class AtmosphereCatalogTests: XCTestCase {
         ("plan_fullskill", .coverPlanFullskill),
     ]
 
-    func testCoverArtKeyCountIsSixtyAndMotifsStaySix() {
-        XCTAssertEqual(CoverArtKey.allCases.count, 59)
+    func testCoverArtInventoryAndMotifPools() {
+        XCTAssertEqual(CoverArtKey.allCases.count, 67)
         XCTAssertEqual(AtmosphereKey.allCases.count, 6)
         XCTAssertEqual(AtmosphereCatalog.templatePool.count, 12)
         XCTAssertEqual(
@@ -73,21 +73,23 @@ final class AtmosphereCatalogTests: XCTestCase {
             .theoryPage(.t01), .theoryPage(.t02), .theoryPage(.t03), .theoryPage(.t04),
             .theoryPage(.t09), .theoryPage(.t05), .theoryPage(.t06), .theoryPage(.t07),
             .theoryPage(.t08), .theoryPage(.t10), .theoryPage(.flow), .theoryPage(.quickRef),
-            .geometricQuiz, .sceneAiming2D, .sceneAiming3D,
-            .aimPointTraining, .aimPointScene2D, .aimPointScene3D,
-            .shotSimulation, .positionPlayComposer, .freePlay, .ballExtraction,
-            .positionPlaySolver, .planThree, .bankShot, .diamondSystem,
+            .pocketTolerance, .geometricQuiz, .sceneAiming2D, .aimPointTraining,
+            .aimPointScene2D, .accuracy2D, .positionPlayComposer, .positionPlaySolver, .planThree,
+            .separationPractice2D, .twoBallPractice2D, .threeBallPractice2D, .multiBallPractice,
+            .snakePractice, .customFormationPractice, .ballExtraction, .bankShot, .diamondSystem,
+            .bankPractice2D, .kickPractice2D, .kBallPractice2D, .defensePractice2D,
         ]
-        XCTAssertEqual(routes.count, 35)
+        XCTAssertEqual(routes.count, 43)
         var seen = Set<CoverArtKey>()
         for route in routes {
             guard let art = AtmosphereCatalog.coverArt(for: route) else {
                 XCTFail("route \(route) must have cover art")
                 continue
             }
+            XCTAssertNotNil(UIImage(named: art.imageName), "Missing bundled cover for \(route)")
             XCTAssertTrue(seen.insert(art).inserted, "duplicate art \(art.rawValue)")
         }
-        XCTAssertEqual(seen.count, 35)
+        XCTAssertEqual(seen.count, 43)
     }
 
     func testRepresentativeAngleRoutesHaveArtAndTheoryPalette() {

@@ -66,9 +66,9 @@ final class X1_PracticePolishUITests: XCTestCase {
         sleep(1)
         _ = switchAngleHomeTab(app, "全部")
         snap(app, "k1-01-home-all-cards")
-        _ = switchAngleHomeTab(app, "练")
+        _ = switchAngleHomeTab(app, "准度")
         snap(app, "k1-02-home-train-cards")
-        _ = switchAngleHomeTab(app, "学")
+        _ = switchAngleHomeTab(app, "基础")
         snap(app, "k1-03-home-learn-cards")
     }
 
@@ -78,7 +78,7 @@ final class X1_PracticePolishUITests: XCTestCase {
         let app = XCUIApplication.launchClean(extraArgs: [
             "-geometricQuiz.forcedAngle", angle
         ])
-        guard openCard(app, homeTab: "练", title: "角度预测") else {
+        guard openCard(app, homeTab: "准度", title: "角度预测") else {
             XCTFail("未能进入角度预测 angle=\(angle)")
             return
         }
@@ -120,7 +120,7 @@ final class X1_PracticePolishUITests: XCTestCase {
             "-forcePremium", "-v50.inMemoryStore", "-appearanceMode", dark ? "dark" : "light",
             "-geometricQuiz.forcedAngle", "34"
         ])
-        XCTAssertTrue(openCard(app, homeTab: "练", title: "角度预测"))
+        XCTAssertTrue(openCard(app, homeTab: "准度", title: "角度预测"))
         let empty = app.staticTexts["geometric.recent.empty"]
         XCTAssertTrue(empty.waitForExistence(timeout: 5))
         recentSnap(app, "01-empty")
@@ -179,7 +179,7 @@ final class X1_PracticePolishUITests: XCTestCase {
 
     func testK3_scene3D_angleArcForward() throws {
         let app = XCUIApplication.launchClean()
-        guard openCard(app, homeTab: "练", title: "3D 角度训练") else {
+        guard openCard(app, homeTab: "准度", title: "3D 角度训练") else {
             XCTFail("未能进入 3D 角度训练"); return
         }
         dismissAimingSettingsIfNeeded(app)
@@ -195,7 +195,7 @@ final class X1_PracticePolishUITests: XCTestCase {
 
     func testK4_scene3D_consistentNearEntry_5questions() throws {
         let app = XCUIApplication.launchClean()
-        guard openCard(app, homeTab: "练", title: "3D 角度训练") else {
+        guard openCard(app, homeTab: "准度", title: "3D 角度训练") else {
             XCTFail("未能进入 3D 角度训练"); return
         }
         dismissAimingSettingsIfNeeded(app)

@@ -6,7 +6,7 @@ final class TrainingMultiSelectionUITests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-freeLayout.ephemeral", "-v54.forceLight"])
         defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
-        for (category, title) in [("练", "2D准度"), ("打", "2D两球走位"), ("练", "蛇彩练习")] {
+        for (category, title) in [("准度", "2D准度"), ("走位", "2D两球走位"), ("走位", "蛇彩练习")] {
             app.switchTab(.angle)
             app.buttons["angleHomeTab_" + category].tap()
             trainingTitle = title
@@ -30,7 +30,7 @@ final class TrainingMultiSelectionUITests: XCTestCase {
         defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
         func open(_ title: String) {
             app.switchTab(.angle)
-            app.buttons["angleHomeTab_练"].tap()
+            app.buttons["angleHomeTab_准度"].tap()
             trainingTitle = title
             let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
             if !card.isHittable { app.swipeUp() }
@@ -79,7 +79,7 @@ final class TrainingMultiSelectionUITests: XCTestCase {
         let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
         for title in ["2D角度", "3D角度", "2D瞄准点", "3D瞄准点", "2D准度", "3D准度"] {
             app.switchTab(.angle)
-            let category = app.buttons["angleHomeTab_练"]
+            let category = app.buttons["angleHomeTab_准度"]
             XCTAssertTrue(category.waitForExistence(timeout: 5)); category.tap()
             trainingTitle = title
             let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
@@ -142,7 +142,7 @@ final class TrainingMultiSelectionUITests: XCTestCase {
             let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
             defer { app.terminate(); XCUIDevice.shared.orientation = .portrait }
             app.switchTab(.angle)
-            app.buttons["angleHomeTab_练"].tap()
+            app.buttons["angleHomeTab_准度"].tap()
             trainingTitle = title
             let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
             if !card.isHittable { app.swipeUp() }
@@ -220,9 +220,9 @@ final class TrainingMultiSelectionUITests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication.launchClean(extraArgs: ["-forceNonPremium", "-w7.forceDailyLimit", "-v50.inMemoryStore"])
         defer { app.terminate() }
-        app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
+        app.switchTab(.angle); app.buttons["angleHomeTab_准度"].tap()
         XCTAssertFalse(app.buttons["2D准度"].exists); XCTAssertFalse(app.buttons["3D准度"].exists)
-        let card = app.buttons["准度"]
+        let card = app.buttons["准度练习"]
         if !card.isHittable { app.swipeUp() }
         XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
         XCTAssertTrue(app.buttons["accuracy.start"].waitForExistence(timeout: 5))

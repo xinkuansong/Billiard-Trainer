@@ -5,6 +5,18 @@ import SwiftData
 
 @MainActor
 final class TwoBallPracticeTests: XCTestCase {
+    func testReferenceSelectionUsesEnabledSpinAxesAndPreservesFreePosition() {
+        let cell = TwoBallParameterQuestion(id: 8, p: [0, 0], refs: [[1, 2]],
+            trajectoryRefs: [[2, 2]], trajectoryRefsByAxes: ["1": [[3, 2]], "3": [[4, 2]]])
+        for (mask, expected) in [2, 3, 2, 4].enumerated() {
+            var configuration = SceneTrainingConfiguration()
+            configuration.allowsVerticalSpin = mask & 1 != 0
+            configuration.allowsSideSpin = mask & 2 != 0
+            XCTAssertEqual(cell.references(for: configuration.forTwoBallMode(.trajectory)), [[expected, 2]])
+            XCTAssertEqual(cell.references(for: configuration.forTwoBallMode(.free)), [[1, 2]])
+        }
+    }
+
     func testFirstShotReferenceStaysHiddenAfterRouteChangeAndRestore() throws {
         let prepared = try fixture()
         let suite = "two-reference-" + UUID().uuidString
@@ -183,6 +195,7 @@ final class TwoBallPracticeTests: XCTestCase {
             let shot = try TwoBallShot(question:current,input:route.source.input,prediction:prediction,surfaceY:BTTablePhysics.surfaceY)
             XCTAssertEqual(Set(shot.frames.keys),Set(["cueBall","object","second"]))
             XCTAssertNotNil(shot.difficulty)
+            XCTAssertEqual(try current.demonstrationShot(surfaceY: BTTablePhysics.surfaceY).input, route.source.input)
             let restored = try JSONDecoder().decode(TwoBallShot.self,from:JSONEncoder().encode(shot))
             XCTAssertEqual(restored.prediction().duration,prediction.duration)
             XCTAssertEqual(restored.finalPositions["second"]?.x, q.second.x)
@@ -197,11 +210,11 @@ final class TwoBallPracticeTests: XCTestCase {
         record.accept(try realShot(prepared.question))
         let count = record.current!.routes.count
         for i in 1..<count {
-            record.advanceRoute(); XCTAssertTrue(record.shouldSkip)
+            record.advanceRoute(); XCTAssertFalse(record.demonstrationUnlocked); XCTAssertTrue(record.shouldSkip)
             record.draftInput.velocity += 0.01; XCTAssertFalse(record.shouldSkip)
             record.draftInput = .init(); XCTAssertTrue(record.shouldSkip)
             record.retryOverride = true; XCTAssertFalse(record.shouldSkip); record.retryOverride = false
-            record.skip(); XCTAssertEqual(record.consumed.count,1)
+            record.skip(); XCTAssertFalse(record.demonstrationUnlocked); XCTAssertEqual(record.consumed.count,1)
             XCTAssertEqual(record.current?.routeIndex,i)
         }
         XCTAssertFalse(record.hasNextRoute)
@@ -220,6 +233,23 @@ extension TwoBallPracticeTests {
             surfaceY:BTTablePhysics.surfaceY,profile:AccuracyTipSelector.renderedProfile(),direction:q.route.source.direction)
         return try TwoBallShot(question:q,input:q.route.source.input,prediction:p,surfaceY:BTTablePhysics.surfaceY)
     }
+    func testDemonstrationCountsDistinctShotsAcrossResume() throws {
+        let prepared = try fixture()
+        var record = TwoBallPracticeRecord(ownerKey: "test", is3D: false, configuration: .init(), mode: .trajectory, prepared: prepared)
+        let shots = try (0..<3).map { _ in
+            var shot = try realShot(prepared.question)
+            shot.physical.score = .init(rmsDistanceCM: 20, targetSampleCount: 100, actualSampleCount: 100)
+            return shot
+        }
+        record.accept(shots[0])
+        record.accept(shots[1])
+        record = try TwoBallPracticeRecord.decodePayload(record.encodedPayload())
+        record.accept(shots[0])
+        XCTAssertFalse(record.demonstrationUnlocked)
+        record.accept(shots[2])
+        XCTAssertTrue(record.demonstrationUnlocked)
+    }
+
     func testFirstScoresRetriesAndQuestionWeightedMean() throws {
         let prepared = try fixture(), q = prepared.question
         var record = TwoBallPracticeRecord(ownerKey:"test",is3D:false,configuration:.init(),mode:.trajectory,prepared:prepared)

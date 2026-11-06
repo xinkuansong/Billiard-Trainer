@@ -67,7 +67,7 @@ struct AngleHistorySection: View {
                     Button {
                         vm.quizTypeFilter = filter
                     } label: {
-                        Text(filter.rawValue)
+                        Text(filter.title)
                             .font(.btCaption)
                             .fontWeight(vm.quizTypeFilter == filter ? .semibold : .regular)
                             .foregroundStyle(vm.quizTypeFilter == filter ? .white : .btTextSecondary)

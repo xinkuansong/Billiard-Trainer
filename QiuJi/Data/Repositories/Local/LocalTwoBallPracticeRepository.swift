@@ -23,7 +23,7 @@ final class LocalTwoBallPracticeRepository: TwoBallPracticeRepository {
         case ownerChanged, invalidRecord, oversizedRecord
         var errorDescription: String? {
             switch self {
-            case .ownerChanged: "账号已切换，请重新进入两球走位练习。"
+            case .ownerChanged: "账号已切换，请重新进入「\(TrainingProject.twoBall.title)」。"
             case .invalidRecord: "这条两球走位记录暂时无法读取，请保留记录后重试。"
             case .oversizedRecord: "本题的轨迹记录过大，请返回训练设置重新出题。"
             }

@@ -17,7 +17,7 @@ enum ToolUsageEntry: String, CaseIterable {
 
     var displayNameZh: String {
         switch self {
-        case .freePosition: return "自由走位"
+        case .freePosition: return TablePreferencePage.composer.layoutTitle
         case .freePlay:     return "自由击球"
         case .dailyClearance: return "每日清台"
         case .planThree:    return "打一走二想三"

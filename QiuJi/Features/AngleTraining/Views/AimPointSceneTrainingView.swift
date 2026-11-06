@@ -622,6 +622,8 @@ struct AimPointSceneTrainingView: View {
     @State private var pendingRestart = false
     @State private var showMenu = false
     @State private var portrait = false
+    private var usesPhone2DEntry: Bool { ScreenAnchoredCarpet.applies && !is3D }
+    @State private var entryRendered = false
     @State private var cameraReadableFrame: CGRect?
     @State private var windowControls = UIEdgeInsets.zero
     @State private var windowSafeArea = UIEdgeInsets.zero
@@ -650,7 +652,7 @@ struct AimPointSceneTrainingView: View {
 
     var body: some View {
         ZStack {
-            if showingTable { tableContent }
+            if showingTable { tableContent.modifier(TableEntryRenderObserver(rendered: $entryRendered, enabled: usesPhone2DEntry)).background { if usesPhone2DEntry { Color.black.ignoresSafeArea() } } }
             else { settingsContent }
         }
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
@@ -673,7 +675,7 @@ struct AimPointSceneTrainingView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbar(showingTable ? .hidden : .visible, for: .navigationBar)
-        .background { if hasStarted { DailyTableOrientation(landscape: !vm.showSettings, allowsTabletRotation: true) } }
+        .background { if hasStarted { DailyTableOrientation(landscape: !vm.showSettings, allowsTabletRotation: true, tableFrameReady: usesPhone2DEntry ? entryRendered : nil) } }
         .statusBarHidden(showingTable && UIDevice.current.userInterfaceIdiom != .pad)
         .onChange(of: vm.phase) { _, phase in
             if phase == .showingResult, let score = vm.lastScore {
@@ -799,7 +801,7 @@ struct AimPointSceneTrainingView: View {
                 .background(DailyWindowControlInsets { controls, window, visible in
                     windowControls = controls; windowSafeArea = window; systemStatusVisible = visible
                 }.allowsHitTesting(false))
-            Color.clear.accessibilityElement().accessibilityLabel("瞄准点训练球桌区域").accessibilityIdentifier("aimPointTraining.stage")
+            Color.clear.accessibilityElement().accessibilityLabel(TrainingProject.aimPoint.title + "球桌区域").accessibilityIdentifier("aimPointTraining.stage")
                 .frame(width: f.stage.width, height: f.stage.height)
                 .background(GeometryReader { g in
                     Color.clear.preference(key: AimPointReadableFrame.self, value: g.frame(in: .global))
@@ -911,7 +913,11 @@ struct AimPointSceneTrainingView: View {
                 sceneFullscreen.frame(width: renderFrame.width, height: renderFrame.height)
                     .position(x: renderFrame.midX - fullFrame.minX, y: renderFrame.midY - fullFrame.minY)
                     .opacity(is3D || cameraReadableFrame != nil ? 1 : 0).allowsHitTesting(!showMenu)
-            }.ignoresSafeArea()
+            }
+            .ignoresSafeArea()
+        }
+        .background {
+            if usesPhone2DEntry { ScreenAnchoredCarpet(style: preferences.roomStyle, pointsPerMetre: ppm, scene: vm.scene).ignoresSafeArea() }
         }
         .environment(\.colorScheme, .dark).environment(\.dailyHUDControls, true)
         .controlLayoutHost(page: preferencePage, mode: is3D ? .threeD : .twoD, size: size,
@@ -923,7 +929,7 @@ struct AimPointSceneTrainingView: View {
         #if DEBUG
         .background {
             if DailyLayoutProbe.enabled {
-                Color.clear.accessibilityElement().accessibilityLabel("瞄准点训练状态").accessibilityIdentifier("aimPointTraining.layoutState")
+                Color.clear.accessibilityElement().accessibilityLabel(TrainingProject.aimPoint.title + "状态").accessibilityIdentifier("aimPointTraining.layoutState")
                     .accessibilityValue("run=\(vm.run.id);question=\(String(describing: vm.question));phase=\(vm.phase);aim=\(String(describing: vm.currentPlayerAim));submitted=\(vm.run.submitted);answers=\(vm.run.firstAnswers.count);quiz=\(vm.quizTypeLabel);finished=\(vm.finished);error=\(String(describing: vm.lastErrorMM));assistance=\(vm.run.assistance)")
             }
         }

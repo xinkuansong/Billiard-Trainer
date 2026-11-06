@@ -89,7 +89,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
         for title in entries {
             app.switchTab(.angle)
             let play = ["分离角", "两球", "三球", "多球", "K球"].contains { title.contains($0) }
-            app.buttons["angleHomeTab_" + (play ? "打" : "练")].tap()
+            app.buttons["angleHomeTab_" + (play ? "走位" : "准度")].tap()
             trainingTitle = title
             let card = app.buttons[XCUIApplication.trainingCardTitle(title)]; reveal(card); card.tap()
             let startID = title == "K球练习" ? "kBall.start" : title.contains("多球") ? "multiBall.start" : title.contains("三球") ? "threeBall.start" : title.contains("两球") ? "twoBall.start" : title.contains("分离角") ? "separation.start" : title.contains("准度") ? "accuracy.start" : title.contains("瞄准点") ? "aimPointTraining.start" : title.contains("角度") ? "angleTraining.start" : title == "蛇彩练习" ? "snake.start" : "formation.start"
@@ -188,7 +188,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
 
     private func open(_ title: String) {
         app.switchTab(.angle)
-        app.buttons["angleHomeTab_" + ((title.contains("分离角") || title.contains("两球")) ? "打" : "练")].tap()
+        app.buttons["angleHomeTab_" + PracticeHomeNavigation.section(for: title)].tap()
         trainingTitle = title
         let card = app.buttons[XCUIApplication.trainingCardTitle(title)]
         reveal(card); card.tap()
@@ -427,7 +427,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
     }
 
     func testCustomFormationManagerHasNoResetAction() {
-        app.switchTab(.angle); app.buttons["angleHomeTab_练"].tap()
+        app.switchTab(.angle); PracticeHomeNavigation.select("走位", in: app)
         let entry = app.buttons["自定义球形"]; reveal(entry); entry.tap()
         ready(app.buttons["formation.new"])
         app.swipeUp(); app.swipeUp()
@@ -467,7 +467,7 @@ final class TrainingSettingsResetUITests: XCTestCase {
         for title in ["2D多球走位", "3D多球走位", "蛇彩练习"] {
             launchSettingsReference()
             app.switchTab(.angle)
-            app.buttons["angleHomeTab_" + (title == "蛇彩练习" ? "练" : "打")].tap()
+            app.buttons["angleHomeTab_" + PracticeHomeNavigation.section(for: title)].tap()
             trainingTitle = title
             let card = app.buttons[XCUIApplication.trainingCardTitle(title)]; reveal(card); card.tap()
             let prefix = title == "蛇彩练习" ? "snake" : "multiBall"

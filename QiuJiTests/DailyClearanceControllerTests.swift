@@ -508,7 +508,7 @@ final class DailyClearanceControllerTests: XCTestCase {
         XCTAssertEqual(controller.game, .chineseEightBall)
         XCTAssertTrue(host.requests.isEmpty, "恢复草稿不应按新默认玩法重新开局")
     }
-    func testUndoRestoresRulesCountsAndIgnoresDuplicateSettlement() throws {
+    func testSettledFoulRemainsRecordedAndIgnoresDuplicateSettlement() throws {
         var draft = store.makeDraft(game: .chineseEightBall, seed: 1)
         draft.phase = .playing; draft.board = host.board
         draft.ruleState.assignedGroup = .solid
@@ -524,14 +524,153 @@ final class DailyClearanceControllerTests: XCTestCase {
         XCTAssertNil(controller.handleShotSettled(shot))
         XCTAssertEqual(controller.shotCount, 1)
         XCTAssertEqual(controller.playedVisitCount, 1)
-        XCTAssertTrue(controller.canUndo)
-        controller.undoShot()
-        XCTAssertEqual(controller.assignedGroup, .solid)
-        XCTAssertEqual(controller.foulCount, 0)
-        XCTAssertEqual(controller.shotCount, 0)
-        XCTAssertEqual(controller.playedVisitCount, 0)
-        XCTAssertFalse(controller.canUndo)
-        XCTAssertEqual(store.loadTodayDraft()?.ruleState.currentPlayer, .a)
+        controller.previousStep()
+        XCTAssertEqual(controller.foulCount, 1)
+        XCTAssertEqual(controller.shotCount, 1)
+        XCTAssertEqual(store.loadTodayDraft()?.ruleState.currentPlayer, .b)
+    }
+
+    func testScoredStrokeUsesCalledPocketAndSettledBoardThenPersistsFinalScore() throws {
+        var draft = store.makeDraft(game: .nineBall, seed: 42)
+        draft.phase = .playing
+        draft.board = host.board
+        store.saveDraft(draft)
+        var controller = makeController()
+        controller.start(host: host, defaultGame: .nineBall)
+        controller.toggleScoring()
+        XCTAssertEqual(controller.shotPlan?.first, "_1")
+        XCTAssertFalse(controller.canStartShot())
+        XCTAssertTrue(controller.editPlan { $0.choose(pocket: 4, in: $1) })
+        XCTAssertTrue(controller.canGoBack)
+        controller.previousStep()
+        XCTAssertEqual(controller.shotPlan?.step, .pocket1)
+        XCTAssertTrue(controller.editPlan { $0.choose(pocket: 4, in: $1) })
+        XCTAssertTrue(controller.editPlan { $0.choose(pocket: 4, in: $1) })
+        controller.prepareShot()
+        let rest: [String: SIMD2<Float>] = ["cueBall": SIMD2(0.02, 0.20), "_9": SIMD2(0, -0.1)]
+        var facts = ShotFacts.extract(events: [.init(time: 1, kind: .ballBall(ballA: "cue", ballB: "obj")),
+            .init(time: 2, kind: .pocket(ball: "obj", pocketId: "pocket_4"))], cueName: "cue",
+            tableKeys: ["cueBall", "_1", "_9"], pocketed: ["_1"], key: { $0 == "obj" ? "_1" : "cueBall" })
+        facts.scoringRest = rest
+        host.board.onTable.removeValue(forKey: "_1")
+        XCTAssertNotNil(controller.handleShotSettled(facts))
+        let result = try XCTUnwrap(controller.scoreSummary?.last)
+        XCTAssertGreaterThan(result.value, 0)
+        XCTAssertNotNil(result.comfort)
+        XCTAssertEqual(controller.scoreNotice, result.text)
+        XCTAssertNil(controller.handleShotSettled(facts))
+        XCTAssertEqual(controller.shotPlan?.first, "_9")
+        XCTAssertEqual(controller.shotPlan?.firstPocket, 4)
+        controller.stop()
+        controller = makeController()
+        controller.start(host: host, defaultGame: .nineBall)
+        XCTAssertEqual(controller.scoreSummary?.count, 1)
+        XCTAssertEqual(controller.scoreSummary?.total, result.value)
+        controller.prepareShot()
+        let final = ShotFacts(firstContactKey: "_9", pocketedKeys: ["_9"], cuePocketed: false,
+            railOrPocketAfterContact: true, tableKeysBefore: ["_9"])
+        XCTAssertTrue(try XCTUnwrap(controller.handleShotSettled(final)).completed)
+        XCTAssertEqual(store.loadTodayCompletion()?.scoringSummary?.total, result.value)
+        XCTAssertEqual(controller.scoreSummary?.text, String(format: "平均走位 %.1f 分 · 计分 1 杆", result.value))
+    }
+
+    func testScoringZeroMissingEvidenceAndEarlyFinish() throws {
+        let draft = store.makeDraft(game: .nineBall, seed: 43)
+        let plan = DailyShotPlan(first: "_1", firstPocket: 4, second: "_2", secondPocket: 0)
+        var state = DailyPositionScoring()
+        var facts = ShotFacts(firstContactKey: "_1", pocketedKeys: ["_1"], cuePocketed: false,
+            railOrPocketAfterContact: true, tableKeysBefore: ["_1", "_2", "_9"])
+        var ruling = DailyClearanceRuling(message: "继续击球")
+        XCTAssertTrue(try XCTUnwrap(state.settle(facts, ruling: ruling, frozen: plan, draft: draft)).contains("未评分"))
+        facts.scoringRest = ["cueBall": .zero, "_2": SIMD2(0.3, 0.1)]
+        XCTAssertTrue(try XCTUnwrap(state.settle(facts, ruling: ruling, frozen: plan, draft: draft)).contains("缺少落袋"))
+        XCTAssertEqual(state.summary.text, "本局无可评分杆")
+        facts.pocketIDs = ["_1": "pocket_0"]
+        XCTAssertEqual(state.settle(facts, ruling: ruling, frozen: plan, draft: draft), "本杆走位 0.0 分 · 第一球未进指定袋")
+        XCTAssertEqual(state.summary.text, "平均走位 0.0 分 · 计分 1 杆")
+        ruling.completed = true
+        XCTAssertNil(state.settle(facts, ruling: ruling, frozen: plan, draft: draft))
+        XCTAssertEqual(state.summary.count, 1)
+        ruling.completed = false
+        ruling.failed = true
+        ruling.message = "黑八提前落袋"
+        _ = state.settle(facts, ruling: ruling, frozen: plan, draft: draft)
+        XCTAssertEqual(state.failureMessage, ruling.message)
+        XCTAssertEqual(state.summary.count, 2)
+    }
+
+    func testOpenTablePlanAndSummaryWithMixedScores() {
+        var draft = store.makeDraft(game: .chineseEightBall, seed: 44)
+        draft.phase = .playing
+        draft.board = BoardSnapshot(onTable: Dictionary(uniqueKeysWithValues: ["cueBall", "_1", "_2", "_8", "_9"].map { ($0, CanvasPoint(x: 0.5, y: 0.25)) }))
+        var plan = DailyShotPlan()
+        XCTAssertTrue(plan.choose(ball: "_1", in: draft))
+        XCTAssertTrue(plan.choose(pocket: 1, in: draft))
+        XCTAssertFalse(plan.choose(ball: "_9", in: draft))
+        XCTAssertTrue(plan.choose(ball: "_2", in: draft))
+        XCTAssertTrue(plan.choose(pocket: 4, in: draft))
+        XCTAssertTrue(plan.choose(ball: "_8", in: draft))
+        XCTAssertNil(plan.missingStep(in: draft))
+        plan.goBack(in: draft)
+        XCTAssertEqual(plan.step, .pocket2)
+        XCTAssertNil(plan.third)
+        plan.goBack(in: draft)
+        XCTAssertEqual(plan.step, .ball2)
+        XCTAssertNil(plan.secondPocket)
+        var summary = DailyScoreSummary()
+        for value in [90.0, 0, 90] { summary.record(.init(value: value, reason: nil)) }
+        XCTAssertEqual(summary.text, "平均走位 60.0 分 · 计分 3 杆")
+    }
+
+    func testScoringOffAndSameDayCompletionOwnership() throws {
+        var earlier = store.makeDraft(game: .nineBall, seed: 1)
+        var scoring = DailyPositionScoring()
+        scoring.summary.record(.init(value: 90, reason: nil))
+        earlier.scoring = scoring
+        _ = store.complete(earlier)
+        var current = store.makeDraft(game: .nineBall, seed: 2)
+        current.phase = .playing
+        current.board = BoardSnapshot(onTable: ["_9": CanvasPoint(x: 0.5, y: 0.08)])
+        store.saveDraft(current)
+        let controller = makeController()
+        controller.start(host: host, defaultGame: .nineBall)
+        XCTAssertFalse(controller.scoringEnabled)
+        XCTAssertNil(controller.scoreSummary)
+        controller.toggleScoring()
+        controller.toggleScoring()
+        XCTAssertEqual(store.loadTodayDraft()?.scoring?.enabled, false)
+        controller.prepareShot()
+        let shot = ShotFacts(firstContactKey: "_9", pocketedKeys: ["_9"], cuePocketed: false,
+            railOrPocketAfterContact: true, tableKeysBefore: ["_9"])
+        XCTAssertTrue(try XCTUnwrap(controller.handleShotSettled(shot)).completed)
+        XCTAssertEqual(controller.scoreSummary?.text, "本局无可评分杆")
+        XCTAssertEqual(store.loadTodayCompletion()?.scoringSummary?.text, "平均走位 90.0 分 · 计分 1 杆")
+    }
+
+    func testFailedGameKeepsZeroInScoreAfterRestore() throws {
+        var draft = store.makeDraft(game: .chineseEightBall, seed: 3)
+        draft.phase = .playing
+        draft.ruleState.assignedGroup = .solid
+        draft.board = BoardSnapshot(onTable: ["cueBall": CanvasPoint(x: 0.5, y: 0.2),
+            "_1": CanvasPoint(x: 0.5, y: 0.08), "_8": CanvasPoint(x: 0.8, y: 0.08)])
+        store.saveDraft(draft)
+        let controller = makeController()
+        controller.start(host: host, defaultGame: draft.game)
+        controller.toggleScoring()
+        XCTAssertTrue(controller.editPlan { $0.choose(ball: "_1", in: $1) })
+        XCTAssertTrue(controller.editPlan { $0.choose(pocket: 4, in: $1) })
+        XCTAssertTrue(controller.editPlan { $0.choose(ball: "_8", in: $1) })
+        XCTAssertTrue(controller.editPlan { $0.choose(pocket: 1, in: $1) })
+        controller.prepareShot()
+        var shot = ShotFacts(firstContactKey: "_1", pocketedKeys: ["_8"], cuePocketed: false,
+            railOrPocketAfterContact: true, tableKeysBefore: ["_1", "_8"])
+        shot.scoringRest = ["cueBall": .zero, "_1": SIMD2(0.1, 0.2)]
+        XCTAssertTrue(try XCTUnwrap(controller.handleShotSettled(shot)).failed)
+        let restored = makeController()
+        restored.start(host: host, defaultGame: draft.game)
+        XCTAssertEqual(restored.phase, .failed)
+        XCTAssertEqual(restored.scoreSummary?.text, "平均走位 0.0 分 · 计分 1 杆")
+        XCTAssertTrue(restored.statusText.contains("黑八提前"))
     }
 
     func testReusedSeedDoesNotAdmitOldBreakCallbackAndNineBreakCompletesOnce() {

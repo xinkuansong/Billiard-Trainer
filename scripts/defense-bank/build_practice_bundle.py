@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build app-consumable defense resources without modifying the source bank.
+"""Reproduce the historical v1 bundle. Use build_trajectory_v2.py for current trajectory content.
 After changing the bank, update DefenseBankStore's SHA constants and run its tests.
 """
 import argparse

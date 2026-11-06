@@ -113,6 +113,20 @@ struct KickPracticeRecord: Codable, Identifiable {
     var questions: [KickQuestion]
     var cursor = 0
     var attempts: [Attempt] = []
+    private var demonstrationProgress: PracticeDemonstrationProgress?
+    var demonstrationUnlocked: Bool { currentDemonstrationProgress.unlocked }
+
+    private var currentDemonstrationProgress: PracticeDemonstrationProgress {
+        if let demonstrationProgress { return demonstrationProgress }
+        var progress = PracticeDemonstrationProgress()
+        if let first = currentAttempt {
+            progress.accept(id: first.id, qualified: first.failure == nil)
+        }
+        if let last = latestShot, last.questionID == current?.id {
+            progress.accept(id: last.id, qualified: last.failure == nil)
+        }
+        return progress
+    }
     var latestShot: KickShot?
     var draftInput = SeparationInput()
     var draftDirection: TrainingBankPoint
@@ -133,7 +147,9 @@ struct KickPracticeRecord: Codable, Identifiable {
     var successCount: Int { previousSuccessCount + attempts.filter { $0.failure == nil }.count }
     var successRate: String { SceneTrainingMetrics.percentage(successCount, of: totalProcessed) }
     var finishMetrics: [(String, String)] { [("已练题数", "\(totalProcessed)"), ("成功率", successRate)] }
-    var displayName: String { "解球练习 · " + (presentation?.summary ?? (is3D ? "3D" : "2D")) }
+    var displayName: String {
+        TrainingProject.kick.historyTitle(presentation: presentation, is3D: is3D)
+    }
     var historyDetail: String {
         "已练\(attempts.count)题 · 成功率 " + SceneTrainingMetrics.percentage(attempts.filter { $0.failure == nil }.count, of: attempts.count)
     }
@@ -149,12 +165,16 @@ struct KickPracticeRecord: Codable, Identifiable {
     }
     mutating func accept(_ shot: KickShot) {
         guard shot.questionID == current?.id, latestShot?.id != shot.id else { return }
+        var progress = currentDemonstrationProgress
+        progress.accept(id: shot.id, qualified: shot.failure == nil)
+        demonstrationProgress = progress
         if currentAttempt == nil {
             attempts.append(.init(id: shot.id, questionID: shot.questionID, submittedAt: shot.submittedAt, failure: shot.failure))
         }
         latestShot = shot; draftInput = shot.input; draftDirection = shot.direction; updatedAt = Date()
     }
     mutating func resetInput() {
+        demonstrationProgress = nil
         draftInput = .init(); latestShot = nil; showingResult = false; geometricReference = nil
         if let current { draftDirection = current.initialDirection }
         initialPoses = [:]; finalPoses = [:]; viewBookmark = nil; shotBookmark = nil

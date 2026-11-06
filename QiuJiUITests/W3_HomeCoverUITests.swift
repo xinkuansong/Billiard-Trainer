@@ -49,17 +49,17 @@ final class W3_HomeCoverUITests: XCTestCase {
     private func snapHomeSeries(_ app: XCUIApplication, suffix: String) {
         openPracticeHome(app)
         snap(app, "w3-c20-01-home-all-\(suffix)")
-        let learn = app.buttons["angleHomeTab_学"]
+        let learn = app.buttons["angleHomeTab_基础"]
         if learn.waitForExistence(timeout: 3) {
             learn.tap(); usleep(600_000)
             snap(app, "w3-c20-02-home-learn-\(suffix)")
         }
-        let train = app.buttons["angleHomeTab_练"]
+        let train = app.buttons["angleHomeTab_准度"]
         if train.waitForExistence(timeout: 3) {
             train.tap(); usleep(600_000)
             snap(app, "w3-c20-03-home-train-\(suffix)")
         }
-        let solve = app.buttons["angleHomeTab_解"]
+        let solve = app.buttons["angleHomeTab_进阶"]
         if solve.waitForExistence(timeout: 3) {
             solve.tap(); usleep(600_000)
             snap(app, "w3-c20-04-home-solve-\(suffix)")
@@ -80,7 +80,7 @@ final class W3_HomeCoverUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
         app.switchTab(.angle)
-        let solve = app.buttons["angleHomeTab_解"]
+        let solve = app.buttons["angleHomeTab_进阶"]
         XCTAssertTrue(solve.waitForExistence(timeout: 15))
         solve.tap()
         XCTAssertTrue(app.buttons["翻袋解球"].waitForExistence(timeout: 5))
@@ -102,7 +102,7 @@ final class W3_HomeCoverUITests: XCTestCase {
         app.terminate()
         let home = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
         home.switchTab(.angle)
-        let learn = home.buttons["angleHomeTab_学"]
+        let learn = home.buttons["angleHomeTab_基础"]
         XCTAssertTrue(learn.waitForExistence(timeout: 15)); learn.tap()
         XCTAssertTrue(home.buttons["瞄准原理"].waitForExistence(timeout: 5))
         let learnShot = XCTAttachment(screenshot: home.screenshot())

@@ -841,6 +841,26 @@ final class TablePreferencesStoreTests: XCTestCase {
         addTeardownBlock { result.removePersistentDomain(forName: name) }
         return result
     }
+    func testPracticeCloseupDefaultsRespectGlobalAndLegacyOptOut() {
+        let d = defaults()
+        let store = TablePreferencesStore(defaults: d)
+        let defaultOn: Set<TablePreferencePage> = [
+            .aimPointScene2D, .aimPointScene3D, .accuracy2D, .accuracy3D,
+            .bankPractice2D, .bankPractice3D, .defensePractice2D, .defensePractice3D,
+            .multiBallPractice, .multiBallPractice3D, .snakePractice, .composer,
+            .customFormationPractice, .silu, .bankShot
+        ]
+        for page in TablePreferencePage.allCases {
+            XCTAssertEqual(store.snapshot(for: page).enabled(.closeup), defaultOn.contains(page), page.rawValue)
+        }
+        store.apply(.closeup, value: 0)
+        let restored = TablePreferencesStore(defaults: d)
+        XCTAssertTrue(defaultOn.allSatisfy { !restored.snapshot(for: $0).enabled(.closeup) })
+
+        let legacy = defaults()
+        legacy.set(false, forKey: PracticeStorageKey.showAimCloseup)
+        XCTAssertFalse(TablePreferencesStore(defaults: legacy).snapshot(for: .composer).enabled(.closeup))
+    }
     func testRehearsalDefaultsOffAndOnlyUsesGlobalSetting() throws {
         let d = defaults()
         XCTAssertFalse(TablePreferencesStore(defaults: d).general.enabled(.rehearsal))

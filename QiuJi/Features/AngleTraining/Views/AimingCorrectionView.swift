@@ -356,13 +356,13 @@ struct AimingCorrectionView: View {
                 .foregroundStyle(.btText)
 
             LearnDocTextLink(
-                title: "回看瞄准原理",
+                title: "瞄准原理",
                 subtitle: "切球角 · 假想球 · d = 2R·sinθ",
                 route: .aimingPrinciple
             )
 
             LearnDocTextLink(
-                title: "打开瞄准方法",
+                title: "瞄准方法",
                 subtitle: "管道 · 接触点 · 平行线",
                 route: .aimingMethods
             )
@@ -386,10 +386,10 @@ struct AimingCorrectionView: View {
                 .foregroundStyle(.btText)
                 .accessibilityIdentifier("aimingCorrection.section6.title")
 
-            LearnDocText.body("练习时，先固定一个容易重摆的球形，用熟悉的力度和打点建立参照。再一次改变一项，观察目标球偏向哪里，并检查出杆是否按原计划完成。把调整后的瞄准与这套打法一起记住；换球距或换球台后，再重新核对。也可以到「思路训练」中比较不同打法的瞄准线，帮助理解变化从哪里来。")
+            LearnDocText.body("练习时，先固定一个容易重摆的球形，用熟悉的力度和打点建立参照。再一次改变一项，观察目标球偏向哪里，并检查出杆是否按原计划完成。把调整后的瞄准与这套打法一起记住；换球距或换球台后，再重新核对。也可以到「\(TablePreferencePage.silu.layoutTitle)」中比较不同打法的瞄准线，帮助理解变化从哪里来。")
 
             PracticeCTA(
-                title: "去思路训练看实况",
+                title: TablePreferencePage.silu.layoutTitle,
                 destination: "自动求解 · 力度与塞如何改瞄准线",
                 route: .positionPlaySolver
             )

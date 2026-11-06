@@ -10,6 +10,37 @@ final class KickPracticeTests: XCTestCase {
         return .init(time: time, kind: .ballCushion(ball: cue), cushionIndex: index)
     }
     private var hit: ShotEvent { .init(time: 5, kind: .ballBall(ballA: cue, ballB: ShotInput.targetBallName)) }
+    func testSelectedBankDemonstrationRebuildsRealShot() throws {
+        var configuration = KickConfiguration()
+        configuration.railCount = 1
+        let question = try KickQuestionPreparer.prepare(configuration, seed: 31).question
+        let reference = try KickQuestionPreparer.solve(question: question, input: question.source.input,
+            direction: question.source.direction.vector, surfaceY: BTTablePhysics.surfaceY,
+            profile: AccuracyTipSelector.renderedProfile())
+        let expected = try KickShot(question: question, input: question.source.input, prediction: reference, surfaceY: BTTablePhysics.surfaceY)
+        XCTAssertNil(expected.failure, question.source.id + " " + expected.resultText)
+        let demo = try question.demonstrationShot(surfaceY: BTTablePhysics.surfaceY)
+        XCTAssertEqual(demo.input, question.source.input)
+        XCTAssertNil(demo.failure)
+    }
+
+    func testDemonstrationUnlockUsesDistinctCompletedShotsAndSurvivesResume() throws {
+        let prepared = try KickQuestionPreparer.prepare(.init(), seed: 31)
+        var record = KickPracticeRecord(ownerKey: "test", is3D: false, configuration: .init(), prepared: prepared)
+        let first = try syntheticShot(prepared.question, success: false)
+        record.accept(first); record.accept(first)
+        XCTAssertFalse(record.demonstrationUnlocked)
+        record.accept(try syntheticShot(prepared.question, success: false))
+        record = try KickPracticeRecord.decodePayload(record.encodedPayload())
+        XCTAssertFalse(record.demonstrationUnlocked)
+        var early = KickPracticeRecord(ownerKey: "test", is3D: false, configuration: .init(), prepared: prepared)
+        early.accept(try syntheticShot(prepared.question, success: true))
+        XCTAssertTrue(early.demonstrationUnlocked)
+        record.accept(try syntheticShot(prepared.question, success: false))
+        XCTAssertTrue(record.demonstrationUnlocked)
+        XCTAssertEqual(record.attempts.count, 1)
+    }
+
     func testInitialAimUsesEachFirstSegmentMidpointOutsideByOneRadius() throws {
         let prepared = try KickQuestionPreparer.prepare(.init(), seed: 31)
         let rails = TableGeometry.chineseEightBallCushions(y: 0).linear
@@ -930,6 +961,7 @@ final class KickPracticeTests: XCTestCase {
         XCTAssertEqual(PracticeRailColors.beforeTarget(prediction.events), q.railSegments)
         let failed = try KickShot(question: q, input: q.source.input, prediction: prediction,
             surfaceY: BTTablePhysics.surfaceY)
+        XCTAssertThrowsError(try q.demonstrationShot(surfaceY: BTTablePhysics.surfaceY))
         XCTAssertEqual(failed.failure, .noRailAfterContact)
         XCTAssertEqual(failed.resultText, "犯规：碰球后无球碰库 · 失败")
         var record = KickPracticeRecord(ownerKey: "post-contact", is3D: false,

@@ -91,22 +91,6 @@ struct HistoryCalendarView: View {
 
     @ViewBuilder
     private var historyPane: some View {
-        if !vm.isLoading, vm.unreadableKBallCount > 0 {
-            Text("有 \(vm.unreadableKBallCount) 条K球练习记录暂时无法读取，原记录已保留。")
-                .font(.btFootnote).foregroundStyle(.btTextSecondary)
-        }
-        if !vm.isLoading, vm.unreadableKickCount > 0 {
-            Text("有 \(vm.unreadableKickCount) 条解球练习记录暂时无法读取，原记录已保留。")
-                .font(.btFootnote).foregroundStyle(.btTextSecondary)
-        }
-        if !vm.isLoading, vm.unreadableDefenseCount > 0 {
-            Text("有 \(vm.unreadableDefenseCount) 条防守练习记录暂时无法读取，原记录已保留。")
-                .font(.btFootnote).foregroundStyle(.btTextSecondary)
-        }
-        if !vm.isLoading, vm.unreadableBankCount > 0 {
-            Text("有 \(vm.unreadableBankCount) 条翻袋练习记录暂时无法读取，原记录已保留。")
-                .font(.btFootnote).foregroundStyle(.btTextSecondary)
-        }
         if vm.isLoading && !vm.hasLoadedSessions {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -313,17 +297,16 @@ struct HistoryCalendarView: View {
     private func dayItemRow(_ item: HistoryDayItem) -> some View {
         switch item {
         case .session(let session):
-            let accessible = HistoryAccessController.isAccessible(
-                session, isPremium: subscriptionManager.isPremium
-            )
+            let requiresPro = !HistoryAccessController.isAccessible(session, isPremium: false)
+            let locked = requiresPro && !subscriptionManager.isPremium
             Button {
-                if accessible {
+                if !locked {
                     selectedSessionId = session.id
                 } else {
                     showSubscription = true
                 }
             } label: {
-                sessionRow(session, locked: !accessible)
+                sessionRow(session, requiresPro: requiresPro, locked: locked)
             }
             .buttonStyle(BTPressableStyle.row)
 
@@ -332,11 +315,12 @@ struct HistoryCalendarView: View {
                 cognitiveRow(cognitiveSession)
                     .accessibilityIdentifier("history.cognitive." + cognitiveSession.quizType)
             } else {
+                let requiresPro = !HistoryAccessController.isAccessible(date: cognitiveSession.startDate, isPremium: false)
                 Button {
-                    if HistoryAccessController.isAccessible(date: cognitiveSession.startDate, isPremium: subscriptionManager.isPremium) {
+                    if !requiresPro || subscriptionManager.isPremium {
                         selectedCognitiveSession = cognitiveSession
                     } else { showSubscription = true }
-                } label: { cognitiveRow(cognitiveSession) }
+                } label: { cognitiveRow(cognitiveSession, requiresPro: requiresPro) }
                 .buttonStyle(BTPressableStyle.row)
                 .accessibilityIdentifier("history.cognitive." + cognitiveSession.quizType)
             }
@@ -480,7 +464,7 @@ struct HistoryCalendarView: View {
         }
     }
 
-    private func sessionRow(_ session: TrainingSession, locked: Bool = false) -> some View {
+    private func sessionRow(_ session: TrainingSession, requiresPro: Bool, locked: Bool) -> some View {
         HStack(spacing: Spacing.md) {
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 HStack(spacing: Spacing.sm) {
@@ -513,7 +497,7 @@ struct HistoryCalendarView: View {
 
             Spacer()
 
-            if locked {
+            if requiresPro {
                 BTProBadge(isUnlocked: subscriptionManager.isPremium)
             }
 
@@ -533,7 +517,7 @@ struct HistoryCalendarView: View {
         ["scene2D", "scene3D", "aimPoint2D", "aimPoint3D"].contains(type)
     }
 
-    private func cognitiveRow(_ session: CognitiveSessionItem) -> some View {
+    private func cognitiveRow(_ session: CognitiveSessionItem, requiresPro: Bool = false) -> some View {
         HStack(spacing: Spacing.md) {
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 HStack(spacing: Spacing.sm) {
@@ -557,6 +541,9 @@ struct HistoryCalendarView: View {
 
             Spacer()
 
+            if requiresPro {
+                BTProBadge(isUnlocked: subscriptionManager.isPremium)
+            }
             if !isSceneTraining(session.quizType) {
                 Image(systemName: BTIcon.chevronRight).font(.btCaption).foregroundStyle(.btTextTertiary)
             }

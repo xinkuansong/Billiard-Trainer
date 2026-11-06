@@ -51,17 +51,25 @@ struct TrainingNotesView: View {
                 .contains { $0.localizedCaseInsensitiveContains(search.trimmingCharacters(in: .whitespacesAndNewlines)) })
         }
     }
+    private var historyAccessSummary: some View {
+        HStack {
+            Text(subscription.isPremium ? "展示全部训练心得" : "展示最近 \(HistoryAccessController.freeDaysLimit) 天的心得")
+                .font(.btFootnote).foregroundStyle(.btTextSecondary)
+            Spacer()
+            BTProBadge(isUnlocked: subscription.isPremium)
+        }
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+    }
+
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: Spacing.xl) {
-                if !subscription.isPremium {
-                    Button { showSubscription = true } label: {
-                        HStack {
-                            Text("展示最近 60 天的心得").font(.btFootnote).foregroundStyle(.btTextSecondary)
-                            Spacer()
-                            BTProBadge(isUnlocked: subscription.isPremium)
-                        }.frame(minHeight: 44).contentShape(Rectangle())
-                    }.buttonStyle(.plain)
+                if subscription.isPremium {
+                    historyAccessSummary
+                } else {
+                    Button { showSubscription = true } label: { historyAccessSummary }
+                        .buttonStyle(.plain)
                 }
                 if visible.isEmpty {
                     BTEmptyState(icon: "book.closed", title: search.isEmpty ? "还没有训练心得" : "没有找到相关心得",

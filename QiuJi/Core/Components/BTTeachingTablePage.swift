@@ -145,6 +145,7 @@ struct BTTablePlanningControls {
     var hides3DAssists: Binding<Bool>? = nil
     var velocityRange: ClosedRange<Double> = ShotTuning.velocityRange
     var instrumentsEnabled: Bool
+    var showsReadOnlyDemonstration = false
     var showsSpinSlot: Bool = true
     /// Assessment pages expose a fixed contact point and no answer assists.
     var assessmentMode = false
@@ -160,6 +161,7 @@ struct BTTablePlanningControls {
     var locksSceneInteraction = false
     var isAnimating: Bool
     var paletteEnabled: Bool
+    var showsPlacementHint = true
     var allowsPocketSelection: Bool = true
     var primaryTitle: String
     var primaryEnabled: Bool
@@ -184,6 +186,7 @@ struct BTTablePlanningControls {
     var closeupUnavailableReason: String? = nil
     /// One physical contact point must reach the host as one complete intent.
     var onSpinChange: ((Double, Double) -> Void)? = nil
+    var constraintInput: TableConstraintInput?
     var overlay: (TableProjector, CGRect) -> AnyView = { _, _ in AnyView(EmptyView()) }
     var paletteKeys: [String]? = nil
     /// Nil keeps the full-inventory header contract. Fixed questions supply their maximum even while loading.
@@ -302,6 +305,16 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     @ViewBuilder var status: () -> Status
     var onPalettePlace: ((String, SCNVector3) -> Void)? = nil
     private var allowsPaletteDrag: Bool { onPalettePlace != nil }
+    private var paletteTokensEnabled: Bool {
+        (!is3D || planning != nil || allows3DPaletteEditing) && planning?.paletteEnabled != false
+    }
+    @State private var showsPlacementHint = false
+    private var canPresentPlacementHint: Bool {
+        guard showsPalette, allowsPaletteDrag, paletteTokensEnabled,
+              !editingControlLayout, !vm.temporaryTopDownActive, !vm.cameraTransitionBusy,
+              planning?.showsPlacementHint != false, planning?.isAnimating != true else { return false }
+        return !showSpinPad
+    }
     @State private var projector = TableProjector()
     @State private var sceneFrame = CGRect.zero
     @State private var paletteFrame = CGRect.zero
@@ -347,6 +360,8 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     @State private var menu: MenuPage?
     @State private var titleSize = CGSize(width: 60, height: 34)
     private enum MenuPage { case settings, transparency, trajectory, breakGame }
+    private var usesPhone2DEntry: Bool { ScreenAnchoredCarpet.applies && !is3D }
+    @State private var entryRendered = false
     @State private var cameraReadableFrame: CGRect?
     @State private var selectedScoreDetail: String?
     private var paletteKeys: [String] { planning?.paletteKeys ?? PositionPlayBall.allKeys.filter { !PositionPlayBall.isCue($0) } }
@@ -370,12 +385,16 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 }
             }.frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
+        .modifier(BTBallPaletteHint(onTableKeys: vm.onTableKeys, canPresent: canPresentPlacementHint,
+                                    isVisible: $showsPlacementHint))
         .coordinateSpace(name: identifier)
         .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let frame = frames["scene"] { sceneFrame = frame }
             if let frame = frames["palette"] { paletteFrame = frame }
         }
-        .background { DailyTableOrientation(landscape: true, allowsTabletRotation: true) }
+        .modifier(TableEntryRenderObserver(rendered: $entryRendered, enabled: usesPhone2DEntry))
+        .background(Color.black.ignoresSafeArea())
+        .background { DailyTableOrientation(landscape: true, allowsTabletRotation: true, tableFrameReady: usesPhone2DEntry ? entryRendered : nil) }
         .trainingBackgroundMusic()
         .btDarkToolChrome(titleLabel)
         .toolbar(.hidden, for: .navigationBar)
@@ -544,7 +563,11 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             // incorrectly hide the 2D scene when the final notice disappears.
             ZStack {
                 Color.clear.allowsHitTesting(false)
-                if let information {
+                if canPresentPlacementHint, vm.onTableKeys == [PositionPlayBall.cueKey] {
+                    if showsPlacementHint {
+                        BTTeachingInformationLayer(items: [.init(text: BTBallPaletteHint.text, identifier: "palette.placementHint")])
+                    }
+                } else if let information {
                     BTTeachingInformationLayer(items: information)
                 } else {
                     status()
@@ -618,16 +641,18 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
         .background {
             GeometryReader { viewport in
                 let fullFrame = viewport.frame(in: .global)
-                let renderFrame = is3D || vm.scene.usesSceneFloorInTopDown ? fullFrame : (cameraReadableFrame ?? fullFrame)
+                let renderFrame = is3D || vm.scene.usesFullWindowTableViewport ? fullFrame : (cameraReadableFrame ?? fullFrame)
                 sceneFullscreen.frame(width: renderFrame.width, height: renderFrame.height)
                     .position(x: renderFrame.midX - fullFrame.minX, y: renderFrame.midY - fullFrame.minY)
                     .opacity((preferencePage.usesFreeControlLayout || !editingControlLayout) && (is3D || cameraReadableFrame != nil) ? 1 : 0)
                     .allowsHitTesting(menu == nil && !showAtlasCushions && !editingControlLayout)
                     .accessibilityHidden(editingControlLayout)
-            }.ignoresSafeArea()
+            }
+            .ignoresSafeArea()
         }
         .background {
-            if !vm.scene.usesSceneFloorInTopDown { DailyCarpetBackground(style: preferences.roomStyle, pointsPerMetre: pointsPerMetre).ignoresSafeArea() }
+            if usesPhone2DEntry { ScreenAnchoredCarpet(style: preferences.roomStyle, pointsPerMetre: pointsPerMetre, scene: vm.scene).ignoresSafeArea() }
+            else if !vm.scene.usesSceneFloorInTopDown { DailyCarpetBackground(style: preferences.roomStyle, pointsPerMetre: pointsPerMetre).ignoresSafeArea() }
         }
         .environment(\.colorScheme, .dark)
         .environment(\.dailyHUDControls, true)
@@ -808,6 +833,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                     else { vm.selectTarget(key: key) }
                 }
             },
+            constraintInput: planning?.constraintInput,
             onAimNudged: planning?.onAimNudged,
             onAimDragActiveChanged: { active in
                 layoutAimDragging = active
@@ -855,8 +881,9 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
             onSpinTap: (spinHeight == nil && planning == nil) || planning?.showsSpinSlot == false ? nil : { showSpinPad = true },
             showsDisabledSpinEntry: showsDisabledSpinEntry, velocity: velocity,
             range: planning?.velocityRange ?? ShotTuning.velocityRange,
-            isDisabled: !BTTeachingInstrumentLayout.effectiveEnabled(planning?.instrumentsEnabled ?? true,
+            isDisabled: !BTTeachingInstrumentLayout.effectiveEnabled((planning?.instrumentsEnabled ?? true) || planning?.showsReadOnlyDemonstration == true,
                 temporaryTopDownActive: vm.temporaryTopDownActive),
+            isReadOnly: planning?.showsReadOnlyDemonstration == true,
             spinTapEnabled: !vm.temporaryTopDownActive,
             onPowerDragBegan: { powerTouchActive = true }, onPowerDragEnded: { _ in powerTouchActive = false },
             fixedPowerBarHeight: f.rulerLength,
@@ -929,18 +956,18 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                 .frame(width: diameter + 2, height: min(max(32, diameter), slotHeight))
                 .frame(height: slotHeight).contentShape(Rectangle())
         }
-        .buttonStyle(BTHUDPressStyle()).disabled((is3D && planning == nil && !allows3DPaletteEditing) || planning?.paletteEnabled == false)
+        .buttonStyle(BTHUDPressStyle()).disabled(!paletteTokensEnabled)
         .simultaneousGesture(DragGesture(minimumDistance: BTBallPaletteMetrics.dragMinimumDistance,
                                         coordinateSpace: .named(identifier))
             .onChanged { value in
-                guard allowsPaletteDrag, planning?.paletteEnabled != false, (!is3D || planning != nil || allows3DPaletteEditing), !onTable else { return }
+                guard allowsPaletteDrag, paletteTokensEnabled, !onTable else { return }
                 draggingKey = key
                 let preview = BTPalettePlacement.sample(key: key, finger: value.location, sourceDiameter: diameter,
                     sceneFrame: sceneFrame, projector: projector, constrain: vm.palettePlacement)
                 dragLocation = preview.location; dragOverTable = preview.isValid
             }.onEnded { value in
                 defer { draggingKey = nil; dragOverTable = false }
-                guard allowsPaletteDrag, planning?.paletteEnabled != false, (!is3D || planning != nil || allows3DPaletteEditing), !onTable,
+                guard allowsPaletteDrag, paletteTokensEnabled, !onTable,
                       let world = projector.palettePreview?.requestedWorld else { return }
                 onPalettePlace?(key, world)
             }, including: allowsPaletteDrag && (!is3D || planning != nil || allows3DPaletteEditing) && !onTable ? .all : .subviews)

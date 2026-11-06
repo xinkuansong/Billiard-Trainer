@@ -30,7 +30,7 @@ final class V28VisualUnificationUITests: XCTestCase {
         app.terminate()
         app = XCUIApplication.launchClean(extraArgs: ["-forceNonPremium"])
         app.switchTab(.angle)
-        let learn = app.descendants(matching: .any)["angleHomeTab_学"]
+        let learn = app.descendants(matching: .any)["angleHomeTab_控球"]
         XCTAssertTrue(learn.waitForExistence(timeout: 8))
         learn.tap()
 
@@ -127,7 +127,7 @@ final class V28VisualUnificationUITests: XCTestCase {
         )
         savePNG("practice-all-\(suffix)")
 
-        for zone in ["学", "理", "练", "打", "解"] {
+        for zone in ["基础", "准度", "控球", "走位", "进阶", "策略"] {
             let tab = app.descendants(matching: .any)["angleHomeTab_\(zone)"]
             if tab.waitForExistence(timeout: 3) {
                 tab.tap()
@@ -137,7 +137,7 @@ final class V28VisualUnificationUITests: XCTestCase {
         }
 
         // Landing samples (system push — no fake mat requirement)
-        let learn = app.descendants(matching: .any)["angleHomeTab_学"]
+        let learn = app.descendants(matching: .any)["angleHomeTab_控球"]
         if learn.waitForExistence(timeout: 2) { learn.tap(); sleep(1) }
         let aiming = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@", "瞄准原理"))
@@ -150,7 +150,7 @@ final class V28VisualUnificationUITests: XCTestCase {
             sleep(1)
         }
 
-        let train = app.descendants(matching: .any)["angleHomeTab_练"]
+        let train = app.descendants(matching: .any)["angleHomeTab_准度"]
         if train.waitForExistence(timeout: 2) {
             train.tap()
             sleep(1)

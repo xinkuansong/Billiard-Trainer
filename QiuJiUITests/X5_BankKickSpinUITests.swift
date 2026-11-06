@@ -36,7 +36,7 @@ final class X5_BankKickSpinUITests: XCTestCase {
         dismissOnboardingIfNeeded(app)
         app.switchTab(.angle)
         sleep(1)
-        let seg = app.buttons["angleHomeTab_解"]
+        let seg = app.buttons["angleHomeTab_进阶"]
         guard seg.waitForExistence(timeout: 6) else { return false }
         seg.tap()
         usleep(600_000)

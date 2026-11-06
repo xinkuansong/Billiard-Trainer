@@ -31,7 +31,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
         return length > 0.0001 ? SCNVector3(dx / length, 0, dz / length) : nil
     }
     func selectTarget(key: String) {
-        guard !isBreakMode, activeTool == .none, let node = scene.allBallNodes[key] else { return }
+        guard !isBreakMode, !isPlaying, !isComputing, let node = scene.allBallNodes[key] else { return }
         selectTarget(node: node)
     }
 
@@ -57,10 +57,11 @@ final class SiluTrainerViewModel: TeachingTableHost {
     func stopForDismissal() {
         guard !activitySuspended else { return }
         activitySuspended = true
-        isDrawingConstraint = false
+        let interruptedDrawing = isDrawingConstraint
+        cancelConstraintDrag()
         playbackGeneration += 1
         resumeAdjustment = isAdjustingSolution
-        resumeSolve = isComputing && !isAdjustingSolution
+        resumeSolve = (isComputing && !isAdjustingSolution) || (interruptedDrawing && hasConstraint)
         let interruptedPlayback = isPlaying
         solveGeneration += 1
         endTemporaryTopDown()
@@ -80,7 +81,6 @@ final class SiluTrainerViewModel: TeachingTableHost {
     // MARK: - Tools
 
     enum Tool: Equatable {
-        case none
         /// 画落区（情形 A，区域约束）。
         case region
         /// 标落点（情形 A，精确点 + 容差，最小化到点距离）。
@@ -114,7 +114,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
 
     // MARK: - Published tool state
 
-    @Published var activeTool: Tool = .none {
+    @Published var activeTool: Tool = .region {
         didSet { if oldValue != activeTool && informationEvent.kind != .failure { setStatus(toolHint())} }
     }
     @Published var regionShape: RegionShape = .rect
@@ -217,7 +217,8 @@ final class SiluTrainerViewModel: TeachingTableHost {
     private let solveQueue = DispatchQueue(label: "com.qiuji.silu-solve", qos: .userInitiated)
     private var solveWork: DispatchWorkItem?
     private var automaticSolveTask: Task<Void, Never>?
-    private var isDrawingConstraint = false
+    @Published private(set) var isDrawingConstraint = false
+    private var draftBeforeDrag: Draft?
     private let adjustmentScheduler = LatestPredictionScheduler<ShotPrediction?>()
     @Published private(set) var isAdjustingSolution = false
     private var adjustmentIsValid = true
@@ -280,10 +281,14 @@ final class SiluTrainerViewModel: TeachingTableHost {
     func loadBoard(_ snapshot: BoardSnapshot) {
         guard !isPlaying, !snapshot.onTable.isEmpty else { return }
         scene.hideAllBalls()
-        clearConstraint()
         for (key, pt) in snapshot.onTable {
             place(key: key, normalized: pt)
         }
+        prepareForPlanning()
+    }
+
+    private func prepareForPlanning() {
+        clearConstraint()
         refreshOnTableKeys()
         selectedTargetKey = nil
         selectedPocketIndex = -1
@@ -298,10 +303,10 @@ final class SiluTrainerViewModel: TeachingTableHost {
     var draggableBalls: [SCNNode] {
         guard !isPlaying, !isComputing else { return [] }
         if let runner = breakRunner { return runner.draggableCue }
-        return activeTool == .none ? onTableKeys.compactMap { scene.allBallNodes[$0] } : []
+        return onTableKeys.compactMap { scene.allBallNodes[$0] }
     }
     var selectableBalls: [SCNNode] {
-        guard !isPlaying, !isComputing, !isBreakMode, activeTool == .none else { return [] }
+        guard !isPlaying, !isComputing, !isBreakMode else { return [] }
         return onTableKeys.filter { !PositionPlayBall.isCue($0) }.compactMap { scene.allBallNodes[$0] }
     }
 
@@ -324,7 +329,6 @@ final class SiluTrainerViewModel: TeachingTableHost {
     func placeFromPalette(_ key: String) {
         guard !isPlaying else { return }
         place(key: key, normalized: freeNormalizedSlot(), cuePose: .reseat)
-        activeTool = .none
         refreshOnTableKeys()
         if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
             selectedTargetKey = key
@@ -340,7 +344,6 @@ final class SiluTrainerViewModel: TeachingTableHost {
         let n = AngleSceneCalculator.sceneToNormalized(position: clamped)
         place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)),
               cuePose: .reseat)
-        activeTool = .none
         refreshOnTableKeys()
         if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
             selectedTargetKey = key
@@ -455,8 +458,7 @@ final class SiluTrainerViewModel: TeachingTableHost {
     }
 
     func selectPocket(at index: Int) {
-        guard !isBreakMode, !isPlaying, !isComputing, activeTool == .none else { return }
-        guard !isPlaying else { return }
+        guard !isBreakMode, !isPlaying, !isComputing else { return }
         selectedPocketIndex = index
         updatePocketHighlights(confirmsSelection: false)
         scene.confirmRolePocketSelection(at: index)
@@ -510,12 +512,11 @@ final class SiluTrainerViewModel: TeachingTableHost {
 
     /// 工具拖拽：起点 → 当前点（归一化系）。落区按 `regionShape` 解释；过点工具取当前点。
     func toolDrag(startNormalized start: CanvasPoint, currentNormalized cur: CanvasPoint, ended: Bool) {
-        guard !isPlaying, activeTool != .none else { return }
+        guard !activitySuspended, !isPlaying, !isComputing, !isBreakMode else { return }
+        if !isDrawingConstraint { draftBeforeDrag = draft }
         isDrawingConstraint = !ended
         invalidateSolutions(automatically: false)
         switch activeTool {
-        case .none:
-            return
         case .passPoint:
             draft = .passPoint(cur)
         case .restPoint:
@@ -535,7 +536,20 @@ final class SiluTrainerViewModel: TeachingTableHost {
         }
         hasConstraint = draft != nil
         renderConstraint()
-        if ended { scheduleAutomaticSolve() }
+        if ended {
+            draftBeforeDrag = nil
+            scheduleAutomaticSolve()
+        }
+    }
+
+    func cancelConstraintDrag() {
+        guard isDrawingConstraint else { return }
+        isDrawingConstraint = false
+        draft = draftBeforeDrag
+        draftBeforeDrag = nil
+        hasConstraint = draft != nil
+        renderConstraint()
+        invalidateSolutions()
     }
 
     func clearConstraint() {
@@ -1065,8 +1079,6 @@ final class SiluTrainerViewModel: TeachingTableHost {
         // 约束草稿（保留落点/落区/过点的视觉与语义分叉）。
         draft = snap.draft
         hasConstraint = snap.draft != nil
-        // 工具复位到可点选态：约束已还原可见，用户可直接再选目标/袋或另画约束。
-        activeTool = .none
 
         // 解回填（「解还在」，免重解）。catalog 原样回填；若击打用的是微调草稿则重建草稿层。
         solveGeneration += 1
@@ -1282,9 +1294,6 @@ final class SiluTrainerViewModel: TeachingTableHost {
         currentIndex = 0
         draft = nil
         hasConstraint = false
-        // 击球后布局已变，回到「摆球/点选」态：用户下一步是重选目标球与目标袋口，
-        // 而点选只在 .none 态可用（工具态下绘制层会吞掉点击）。didSet 的 toolHint 会被下方收尾文案覆盖。
-        activeTool = .none
         clearTrajectory()
         clearConstraintNodes()
         scene.hideCueStick()
@@ -1329,7 +1338,6 @@ final class SiluTrainerViewModel: TeachingTableHost {
 
     private func toolHint() -> String {
         switch activeTool {
-        case .none: return "拖球摆位 · 在桌面上选目标球、袋口及约束"
         case .region: return "在球桌上拖出\(regionShape.rawValue)可行落区"
         case .restPoint: return "在桌面上点按球桌标出母球期望停的落点（琥珀十字为目标，环为命中容差）"
         case .passPoint: return "在桌面上点按球桌标出母球需经过的 K 球点"
@@ -1369,10 +1377,10 @@ final class SiluTrainerViewModel: TeachingTableHost {
         runner.autoDeliverOnSettle = true
         breakChangeForwarder = runner.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
-        runner.onSettled = { [weak self] board in
+        runner.onSettled = { [weak self] _ in
             guard let self else { return }
             self.teardownBreakFlow()
-            self.loadBoard(board)
+            self.prepareForPlanning()
         }
         breakRunner = runner
         runner.rackUp()

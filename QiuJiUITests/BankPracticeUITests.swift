@@ -38,18 +38,18 @@ final class BankPracticeUITests: XCTestCase {
             (try? self.probe()["referenceVisible"] as? Bool) == visible
         }, object: app)], timeout: 30), .completed)
     }
-    private func open(animated: Bool, lastFree: Bool = false) {
-        app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-freeLayout.ephemeral", lastFree ? "-w7.forceDailyLimitNear" : "-forcePremium", "-bank.probe", "-bank.fixedSeed", "-showsTableSights.v1", "YES", "-tableStyle.v1", "charcoal", "-clothColor.v1", "green"])
-        app.switchTab(.angle); app.buttons["angleHomeTab_打"].tap()
+    private func open(animated: Bool, lastFree: Bool = false, rails: Int = 3, seed: UInt64 = 31) {
+        app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-freeLayout.ephemeral", lastFree ? "-w7.forceDailyLimitNear" : "-forcePremium", "-bank.probe", "-bank.fixedSeed=\(seed)", "-showsTableSights.v1", "YES", "-tableStyle.v1", "charcoal", "-clothColor.v1", "green"])
+        app.switchTab(.angle); app.buttons["angleHomeTab_进阶"].tap()
         let entry = app.buttons["翻袋练习"]
         for _ in 0..<5 where !entry.isHittable { app.swipeUp() }
         ready(entry); entry.tap(); ready(app.buttons["bank.start"])
         capture("bank-settings-top")
-        let railChoice = node("bank.railCount.3")
+        let railChoice = node("bank.railCount.\(rails)")
         for _ in 0..<5 where !railChoice.isHittable { app.swipeUp() }
         ready(railChoice); railChoice.tap()
         XCTAssertFalse(node("bank.railCount.4").exists)
-        capture("bank-settings-three-rails")
+        capture("bank-settings-\(rails)-rails")
         let toggle = app.switches["bank.playsStroke"]
         for _ in 0..<4 where !toggle.isHittable { app.swipeUp() }
         ready(toggle)
@@ -73,6 +73,33 @@ final class BankPracticeUITests: XCTestCase {
         XCTAssertEqual(try? probe()["view"] as? String, "2D")
 
     }
+    func testReferenceDemonstrationInMeasurementSlot() throws {
+        open(animated: false, rails: 2)
+        try verifyPracticeDemonstration(in: app, page: "bank", phase: { phase($0) }, probe: probe)
+    }
+
+    func testRejectedDemonstrationRestoresPlayerAndAllowsNext() throws {
+        // Stable three-rail case with a confirmed mid-route jaw collision.
+        open(animated: false, rails: 3, seed: 150)
+        let demo = app.buttons["bank.referenceReplay"]
+        for _ in 0..<3 {
+            app.buttons["bank.strike"].tap(); phase("result")
+            if demo.exists { break }
+            app.buttons["bank.retry"].tap(); phase("aiming")
+        }
+        let before = try probe()
+        demo.tap()
+        let alert = app.alerts["练习提示"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        XCTAssertTrue(alert.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "碰到袋角")).firstMatch.exists)
+        alert.buttons["知道了"].tap(); phase("result")
+        XCTAssertEqual(try probe()["demoShowing"] as? Bool, false)
+        XCTAssertEqual(try probe()["instrument"] as? [Double], before["playerInput"] as? [Double])
+        XCTAssertEqual(try probe()["attempts"] as? Int, before["attempts"] as? Int)
+        app.buttons["bank.strike"].tap(); phase("aiming")
+        XCTAssertNotEqual(try probe()["question"] as? String, before["question"] as? String)
+    }
+
     func testFirstAttemptRetrySimpleResultAndNextQuestion() throws {
         open(animated: false)
         let original = try probe(), id = original["question"] as? String
@@ -268,7 +295,7 @@ final class BankSolverTrajectoryUITests: XCTestCase {
             image.name = name; image.lifetime = .keepAlways; add(image)
         }
         app.switchTab(.angle)
-        ready(app.buttons["angleHomeTab_解"]); app.buttons["angleHomeTab_解"].tap()
+        ready(app.buttons["angleHomeTab_进阶"]); app.buttons["angleHomeTab_进阶"].tap()
         ready(app.buttons["翻袋解球"]); app.buttons["翻袋解球"].tap()
         let strike = app.buttons["bankshot.strike"]
         for mode in ["2D", "3D"] {

@@ -14,7 +14,7 @@ final class MultiBallPracticeUITests: XCTestCase {
         if direct { args.append(is3D ? "-pro.route=multiBall3D" : "-pro.route=multiBall") }
         app = .launchClean(extraArgs: args)
         if !direct {
-            app.switchTab(.angle); app.buttons["angleHomeTab_打"].tap()
+            app.switchTab(.angle); app.buttons["angleHomeTab_走位"].tap()
             let entry = app.buttons["多球走位"]
             for _ in 0..<5 { if entry.exists && entry.isHittable { break }; app.swipeUp() }
             ready(entry); entry.tap()

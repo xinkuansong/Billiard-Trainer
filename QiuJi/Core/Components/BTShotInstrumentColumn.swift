@@ -128,7 +128,7 @@ struct BTShotInstrumentColumn: View {
             Text(compact ? powerLabel : PowerDisplay.name(velocity))
                 .font(compact ? .btMicro : HUDStyle.labelFontCompact)
                 .foregroundStyle(HUDStyle.labelColor)
-            Text(String(format: isReadOnly ? "%.1f" : "%.2f", velocity))
+            Text(String(format: isReadOnly && !compact ? "%.1f" : "%.2f", velocity))
                 .font(HUDStyle.valueFontCompact)
                 .foregroundStyle(HUDStyle.valueAdjustable)
                 .monospacedDigit()
@@ -217,7 +217,7 @@ struct BTShotInstrumentColumn: View {
         .onDisappear { finishPowerDrag(commit: false) }
         .accessibilityElement()
         .accessibilityLabel(powerLabel)
-        .accessibilityValue(String(format: isReadOnly ? "%.1f" : "%.2f", velocity))
+        .accessibilityValue(String(format: isReadOnly && !compact ? "%.1f" : "%.2f", velocity))
         .accessibilityIdentifier("shotStage.powerBar")
         .disabled(isDisabled || isReadOnly)
         .accessibilityAdjustableAction { direction in

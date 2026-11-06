@@ -55,6 +55,23 @@ struct CustomFormationTemplate: Codable, Identifiable {
         return self
     }
 
+    static func fromPhoto(_ snapshot: BoardSnapshot, name: String) throws -> Self {
+        var board = snapshot
+        var keys: [String] = []
+        for source in snapshot.targetCandidates {
+            guard let number = PositionPlayBall.number(for: source) else {
+                throw CustomFormationError.invalid("请检查目标球的球号")
+            }
+            let key = PositionPlayBall.instanceKey(number: number)
+            board.onTable[key] = board.onTable.removeValue(forKey: source)
+            keys.append(key)
+        }
+        let template = Self(name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                            ballKeys: keys, board: board)
+        try template.validateForPractice()
+        return template
+    }
+
     func copied() -> Self {
         var copy = self
         copy.id = UUID(); copy.name += " 副本"; copy.updatedAt = Date()
