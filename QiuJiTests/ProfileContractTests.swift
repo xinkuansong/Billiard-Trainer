@@ -112,6 +112,25 @@ final class InitialProfileImportTests: XCTestCase {
         AuthState(credentials: Credentials(), defaults: defaults,
                   ownerContext: CurrentOwnerContext(defaults: defaults), profileImportBackend: backend)
     }
+    func testVoluntaryAgeAnswerCanOnlyFollowFirstAuthenticatedAccount() async throws {
+        let backend = ImportBackend(), auth = state(backend)
+        let owner = DeviceGuestIdentity.ownerKey(in: defaults)
+        auth.loginAnonymously()
+        let store = OwnerProfileStore(ownerKey: owner, defaults: defaults)
+        XCTAssertTrue(store.saveInitialProfile(InitialProfileDraft(ageBand: .from25to34), authState: auth))
+        XCTAssertTrue(auth.hasEligibleGuestAgeAnswer)
+        await backend.configure(fail: true)
+        auth.login(user: AppUser(id: "A", provider: .apple))
+        await waitForImport(auth)
+        XCTAssertEqual(auth.initialProfileImport?.fields["ageBand"], "25-34")
+        XCTAssertFalse(auth.hasEligibleGuestAgeAnswer)
+        auth.login(user: AppUser(id: "B", provider: .wechat))
+        XCTAssertNil(auth.initialProfileImport)
+        auth.login(user: AppUser(id: "A", provider: .apple))
+        await waitForImport(auth)
+        XCTAssertNil(GuestAgeAnswer.eligibleBand(in: defaults, account: "A"))
+    }
+
     func testNoImplicitDefaultsAndExistingFieldsWin() {
         let user = AppUser(id: "A", provider: .apple, preferredSport: "other")
         XCTAssertNil(InitialProfileImport.proposal(for: user, defaults: defaults))

@@ -1097,6 +1097,7 @@ struct AngleSceneView: UIViewRepresentable {
             let action = entryFrameAction
             entryFrameAction = nil
             if let floor {
+                floor.noteTablePresented()
                 entryCarpet = floor
                 let half = Float(AngleSceneCalculator.innerLength / 2)
                 let left = view.projectPoint(SCNVector3(-half, scene.surfaceY, 0))

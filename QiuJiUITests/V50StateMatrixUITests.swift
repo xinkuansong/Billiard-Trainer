@@ -14,7 +14,7 @@ final class V50StateMatrixUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["看懂球路，再开始练"].waitForExistence(timeout: 8))
         try capture("onboarding-1-route")
 
-        for expected in ["记录每杆，复盘趋势", "球迹"] {
+        for expected in ["记录每杆，复盘趋势", "CuePhys"] {
             let next = app.buttons["继续"]
             XCTAssertTrue(next.waitForExistence(timeout: 5), "引导中途页必须可继续")
             next.tap()
@@ -116,7 +116,7 @@ final class V50StateMatrixUITests: XCTestCase {
         XCTAssertTrue(personalInfo.waitForExistence(timeout: 5))
         personalInfo.tap()
         XCTAssertTrue(app.navigationBars["个人信息"].waitForExistence(timeout: 6))
-        app.buttons["球迹用户"].tap()
+        app.buttons["CuePhys 用户"].tap()
         let name = app.textFields["输入昵称"]
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))

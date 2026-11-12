@@ -13,7 +13,7 @@ extension TablePreferencePage {
         case .drillTryout: return "动作详情试打"
         case .silu: return "走位求解"
         case .planThree: return "打一走二想三"
-        case .bankShot: return "翻袋解球"
+        case .bankShot: return "翻袋"
         case .diamondSystem: return "颗星解球"
         case .pocketTolerance: return "进球容错角"
         case .angleDynamic: return "角度与瞄准"

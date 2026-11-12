@@ -130,3 +130,7 @@ Changelog：2026-09-24 / FL-089 / 增补导出版本一致性检查。
 Changelog：2026-10-14 / FL-155 / 进程占用识别v1。
 
 FL-155补充（2026-10-14）：进程保护须区分构建与设备工作负载；只排除单一generic/platform=iOS Simulator、无UDID、无test/test-without-building的build-for-testing。缺失目标／多目标／真实测试继续保护。真实命令格式交叉验证与23项生命周期测试见output/sequence-current-engine-audit-20261014/lifecycle-check.log。
+
+
+### FL-257 — 本地包与冻结快照范围（2026-11-12）
+工程新增本地Swift Package时，同时核远端快照白名单及真实制品：包清单、源码和引用的本地二进制归档都须入包；.build/.swiftpm缓存、凭据仍排除。源项目可构建不证明冻结包可构建。依赖解析失败保留原证据，修正后提交新快照/任务，不修改排队或运行中的源副本。

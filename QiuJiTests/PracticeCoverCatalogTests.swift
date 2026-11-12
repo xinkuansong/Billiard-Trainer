@@ -74,9 +74,10 @@ final class PracticeCoverCatalogTests: XCTestCase {
         let retired = Set(["snookerTactics", "oneCushionBankLesson"])
         XCTAssertTrue(retired.isDisjoint(with: PracticeCoverCatalog.officialRoutes.map { String(describing: $0) }))
         XCTAssertNil(TablePreferencePage(rawValue: "snookerTactics"))
-        XCTAssertFalse(ProBenefits.premium.contains { $0.id == "safety" })
-        XCTAssertEqual(ProBenefits.premium.count, 11)
-        XCTAssertEqual(ProBenefits.premium.map(\.number), (1...11).map { String(format: "%02d", $0) })
+        let benefits = ProBenefits.premium
+        XCTAssertFalse(benefits.contains { $0.id == "safety" })
+        XCTAssertEqual(benefits.map(\.number), (1...11).map { String(format: "%02d", $0) })
+        XCTAssertEqual(Set(benefits.map(\.id)).count, benefits.count)
         for route in [AngleRoute.bankShot, .diamondSystem, .positionPlaySolver, .planThree] {
             XCTAssertTrue(PracticeCoverCatalog.officialRoutes.contains(route))
             _ = PracticeCoverCatalog.visual(for: route)

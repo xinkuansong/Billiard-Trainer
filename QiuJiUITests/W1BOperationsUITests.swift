@@ -14,7 +14,7 @@ final class W1BOperationsUITests: XCTestCase {
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-3dDrag.probe", "-v51.followSystemAppearance"] + args + (deep[route].map { ["-deeplink." + $0] } ?? []))
         if deep[route] == nil {
             app.switchTab(.angle); ready(app.buttons["angleHomeTab_进阶"]); app.buttons["angleHomeTab_进阶"].tap()
-            let card = app.buttons[route == "bankshot" ? "翻袋解球" : "颗星解球"]
+            let card = app.buttons[route == "bankshot" ? "翻袋" : "颗星解球"]
             ready(card); card.tap()
         }
         XCTAssertTrue(element(prefix + ".template").waitForExistence(timeout: 25))

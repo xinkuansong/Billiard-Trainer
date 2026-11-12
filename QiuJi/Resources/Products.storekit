@@ -21,7 +21,7 @@
       "localizations" : [
         {
           "description" : "一次购买，终身享用全部 Pro 功能",
-          "displayName" : "球迹 Pro 终身",
+          "displayName" : "CuePhys Pro 永久会员",
           "locale" : "zh_CN"
         }
       ],
@@ -50,7 +50,7 @@
       "localizations" : [
 
       ],
-      "name" : "球迹 Pro",
+      "name" : "CuePhys Pro",
       "subscriptions" : [
         {
           "adHocOffers" : [
@@ -67,7 +67,7 @@
           "localizations" : [
             {
               "description" : "按月订阅，随时取消",
-              "displayName" : "球迹 Pro 月度",
+              "displayName" : "CuePhys Pro 月度",
               "locale" : "zh_CN"
             }
           ],
@@ -92,7 +92,7 @@
           "localizations" : [
             {
               "description" : "按年订阅，节省超 60%",
-              "displayName" : "球迹 Pro 年度",
+              "displayName" : "CuePhys Pro 年度",
               "locale" : "zh_CN"
             }
           ],

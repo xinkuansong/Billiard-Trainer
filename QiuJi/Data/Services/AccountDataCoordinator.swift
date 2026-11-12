@@ -114,7 +114,7 @@ final class AccountDataCoordinator: ObservableObject {
         do {
             let hasGuestRecords = try OwnerTransferService(context: context).hasOwnedData(ownerKey: guestOwner)
             let hasGuestFormations = try !formationRepository(guestOwner).load().templates.isEmpty
-            if offerGuestMigration && (hasGuestRecords || hasGuestFormations) {
+            if offerGuestMigration && authState.canImportGuestData && (hasGuestRecords || hasGuestFormations) {
                 // 硬门禁：这里只展示确认；0 次 transfer，0 次 guest upload。
                 offeredMigrationUserId = userId
                 statusOwnerKey = OwnerKey.account(userId)
@@ -134,7 +134,7 @@ final class AccountDataCoordinator: ObservableObject {
 
     func confirmGuestMigration(userId: String, authState: AuthState) async {
         let operation = beginOperation()
-        guard authState.cloudSyncEnabled, offeredMigrationUserId == userId,
+        guard authState.canImportGuestData, authState.cloudSyncEnabled, offeredMigrationUserId == userId,
               isCurrent(userId: userId, operation: operation, authState: authState),
               let context else { return }
         let guestOwner = ownerContext.guestOwnerKey
@@ -205,31 +205,29 @@ final class AccountDataCoordinator: ObservableObject {
         }
         #endif
         let choiceRevision = authState.syncChoiceRevision
-        let upload = await SyncQueueManager.shared.processQueue(authState: authState) {
-            authState.syncChoiceRevision == choiceRevision && authState.cloudSyncEnabled && self.isCurrent(userId: userId, operation: operation, authState: authState)
+        let session = authState.sessionGeneration
+        let isCurrentSync: @MainActor @Sendable () -> Bool = {
+            authState.sessionGeneration == session && authState.syncChoiceRevision == choiceRevision &&
+                authState.cloudSyncEnabled && self.isCurrent(userId: userId, operation: operation, authState: authState)
         }
-        guard authState.syncChoiceRevision == choiceRevision,
-              isCurrent(userId: userId, operation: operation, authState: authState) else { return }
-        let restore = await pull(userId: userId, mode: mode, operation: operation, authState: authState)
-        guard authState.syncChoiceRevision == choiceRevision, authState.cloudSyncEnabled,
-              isCurrent(userId: userId, operation: operation, authState: authState),
-              let restore else { return }
-        let formations = await formationService.sync(
-            userID: userId, repository: formationRepository(ownerKey), full: mode == .full,
-            shouldContinue: {
-                authState.syncChoiceRevision == choiceRevision && authState.cloudSyncEnabled &&
-                self.isCurrent(userId: userId, operation: operation, authState: authState)
-            })
-        guard authState.syncChoiceRevision == choiceRevision, authState.cloudSyncEnabled,
-              isCurrent(userId: userId, operation: operation, authState: authState) else { return }
-        if upload.failedItems > 0 || restore.hasFailures || formations.failed {
-            statusMessage = "同步未完成，请重试。本机记录已保留。"
-            authState.errorMessage = statusMessage
-            scheduleRetry(authState: authState, seconds: retryDelay)
-            retryDelay = min(retryDelay * 2, 300)
-        } else {
-            retryDelay = 5
-            statusMessage = "同步完成，本次恢复 \(restore.insertedSessions) 条训练记录、\(restore.insertedAngleTests) 条成绩，自定义球形已同步。"
+        await APIClient.$syncIsCurrent.withValue(isCurrentSync) {
+            let upload = await SyncQueueManager.shared.processQueue(authState: authState, shouldContinue: isCurrentSync)
+            guard isCurrentSync() else { return }
+            let restore = await pull(userId: userId, mode: mode, operation: operation, authState: authState)
+            guard isCurrentSync(), let restore else { return }
+            let formations = await formationService.sync(
+                userID: userId, repository: formationRepository(ownerKey), full: mode == .full,
+                shouldContinue: isCurrentSync)
+            guard isCurrentSync() else { return }
+            if upload.failedItems > 0 || restore.hasFailures || formations.failed {
+                statusMessage = "同步未完成，请重试。本机记录已保留。"
+                authState.errorMessage = statusMessage
+                scheduleRetry(authState: authState, seconds: retryDelay)
+                retryDelay = min(retryDelay * 2, 300)
+            } else {
+                retryDelay = 5
+                statusMessage = "同步完成，本次恢复 \(restore.insertedSessions) 条训练记录、\(restore.insertedAngleTests) 条成绩，自定义球形已同步。"
+            }
         }
     }
 

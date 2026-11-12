@@ -552,7 +552,7 @@ final class DrillShotReconstructionTests: XCTestCase {
 
             // 字幕条
             if showParams {
-                let l1 = String(format: "球迹 · drill_c005    第 %d 杆 / 共 4 杆    袋 = %@", s.group, s.pocketId)
+                let l1 = String(format: "CuePhys · drill_c005    第 %d 杆 / 共 4 杆    袋 = %@", s.group, s.pocketId)
                 let l2 = String(format: "力度 v=%.2f m/s (档≈%@)    加塞 左右=%+.2f 高低=%+.2f%@",
                                 s.velocity, forceLabel(s.velocity), s.spinX, s.spinY,
                                 s.prediction.objectPocketed ? "    目标球进袋 ✓" : "")

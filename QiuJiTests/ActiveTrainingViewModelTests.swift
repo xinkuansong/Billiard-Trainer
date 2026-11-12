@@ -1,5 +1,6 @@
 import XCTest
 import SwiftData
+import UserNotifications
 @testable import QiuJi
 
 @MainActor
@@ -109,6 +110,76 @@ final class ActiveTrainingViewModelTests: XCTestCase {
     }
 
     // MARK: - Progress
+
+    func testRestDeadlineReschedulesThenSkipCancelsReminder() throws {
+        let recorder = RestActivityRecorder()
+        let vm = ActiveTrainingViewModel(mode: .free, liveActivityManager: recorder)
+        vm.startRestTimer(requestNotificationPermission: true)
+        let end = try XCTUnwrap(recorder.starts.first?.endDate)
+        XCTAssertEqual(recorder.reminders.map(\.0), [end])
+        XCTAssertTrue(recorder.reminders[0].1)
+        vm.addRestTime(30, now: end.addingTimeInterval(-10))
+        XCTAssertEqual(recorder.reminders.map(\.0), [end, end.addingTimeInterval(30)])
+        let beforeSkip = recorder.reminderCancellations
+        vm.skipRestTimer()
+        vm.refreshTimers(now: end.addingTimeInterval(90))
+        XCTAssertEqual(recorder.reminderCancellations, beforeSkip + 1)
+        XCTAssertFalse(vm.isRestTimerActive)
+    }
+
+    func testRestCompletionNeverReplaysForegroundFeedbackAfterBackgroundExpiry() throws {
+        for expiredInBackground in [false, true] {
+            let recorder = RestActivityRecorder()
+            var cues = 0
+            let vm = ActiveTrainingViewModel(mode: .free, liveActivityManager: recorder,
+                                            playRestCompletionFeedback: { cues += 1 })
+            vm.startRestTimer()
+            let end = try XCTUnwrap(recorder.starts.first?.endDate)
+            let before = recorder.endCalls
+            vm.restAppActivityChanged(active: false)
+            vm.restAppActivityChanged(active: true, now: end.addingTimeInterval(expiredInBackground ? 2 : -7))
+            if !expiredInBackground { XCTAssertEqual(vm.restSecondsRemaining, 7) }
+            vm.refreshTimers(now: end.addingTimeInterval(5))
+            vm.restAppActivityChanged(active: true, now: end.addingTimeInterval(8))
+            XCTAssertEqual(cues, expiredInBackground ? 0 : 1)
+            XCTAssertEqual(recorder.endCalls, before + 1)
+            vm.stopRestTimer()
+        }
+    }
+
+    func testReminderIgnoresDeniedPermissionAndCleansLateAddsAfterReplacementOrSkip() async throws {
+        let center = DelayedRestNotificationCenter()
+        let reminder = RestCompletionReminder(center: center)
+        center.permissionChecked = expectation(description: "permission checked")
+        reminder.schedule(at: Date().addingTimeInterval(60), requestPermission: false)
+        await fulfillment(of: [center.permissionChecked!], timeout: 2)
+        XCTAssertTrue(center.added.isEmpty)
+        center.permissionChecked = nil
+        center.permitted = true
+        for skip in [false, true] {
+            center.didAdd = expectation(description: "add in flight")
+            reminder.schedule(at: Date().addingTimeInterval(60), requestPermission: true)
+            await fulfillment(of: [center.didAdd!], timeout: 2)
+            let original = try XCTUnwrap(center.added.last?.identifier)
+            let oldWrite = try XCTUnwrap(center.pending.removeValue(forKey: original))
+            if skip {
+                reminder.cancel()
+            } else {
+                center.didAdd = expectation(description: "replacement")
+                reminder.schedule(at: Date().addingTimeInterval(90), requestPermission: false)
+                await fulfillment(of: [center.didAdd!], timeout: 2)
+                let replacement = try XCTUnwrap(center.added.last)
+                XCTAssertNotEqual(original, replacement.identifier)
+                XCTAssertEqual((replacement.trigger as? UNTimeIntervalNotificationTrigger)?.timeInterval ?? 0, 90, accuracy: 2)
+                center.pending.removeValue(forKey: replacement.identifier)?.resume()
+            }
+            center.didRemove = expectation(description: "late stale notification removed")
+            oldWrite.resume()
+            await fulfillment(of: [center.didRemove!], timeout: 2)
+            XCTAssertEqual(center.removed.last, original)
+            center.didRemove = nil
+        }
+    }
 
     func test_restActivity_directDurationsMatchAppState() throws {
         for duration in [59, 60, 61, 90, 120, 180] {
@@ -1089,6 +1160,32 @@ final class ActiveTrainingViewModelTests: XCTestCase {
 
 /// Records the actual payload emitted by the ViewModel; does not simulate ActivityKit rendering.
 @MainActor
+private final class DelayedRestNotificationCenter: RestNotificationCenter {
+    var permitted = false
+    var permissionChecked: XCTestExpectation?
+    var didAdd: XCTestExpectation?
+    var didRemove: XCTestExpectation?
+    var added: [UNNotificationRequest] = []
+    var removed: [String] = []
+    var pending: [String: CheckedContinuation<Void, Never>] = [:]
+    func allowed(requestPermission: Bool) async -> Bool {
+        permissionChecked?.fulfill()
+        return permitted
+    }
+    func add(_ request: UNNotificationRequest) async throws {
+        added.append(request)
+        await withCheckedContinuation { continuation in
+            pending[request.identifier] = continuation
+            didAdd?.fulfill()
+        }
+    }
+    func remove(_ identifier: String) {
+        removed.append(identifier)
+        didRemove?.fulfill()
+    }
+}
+
+@MainActor
 private final class RestActivityRecorder: RestTimerLiveActivityManaging {
     var starts: [RestTimerAttributes.ContentState] = []
     var updates: [RestTimerAttributes.ContentState] = []
@@ -1098,8 +1195,13 @@ private final class RestActivityRecorder: RestTimerLiveActivityManaging {
     func startActivity(drillName: String, state: RestTimerAttributes.ContentState) { starts.append(state) }
     func updateActivity(state: RestTimerAttributes.ContentState) { updates.append(state) }
     func endActivity() { endCalls += 1 }
-    func activateBackgroundAudio() { audioActivations += 1 }
-    func deactivateBackgroundAudio() { audioDeactivations += 1 }
+    var reminders: [(Date, Bool)] = []
+    var reminderCancellations = 0
+    func setMusicResting(_ resting: Bool) {
+        if resting { audioActivations += 1 } else { audioDeactivations += 1 }
+    }
+    func scheduleReminder(at end: Date, requestPermission: Bool) { reminders.append((end, requestPermission)) }
+    func cancelReminder() { reminderCancellations += 1 }
 }
 
 final class NoteNumberingTests: XCTestCase {

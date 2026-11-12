@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 import SceneKit
 
-/// 驱动「翻袋解球」页：2D 顶视图，母球与目标球均可自由摆放，用户再选定要翻进的袋口。
+/// 驱动「翻袋」页：2D 顶视图，母球与目标球均可自由摆放，用户再选定要翻进的袋口。
 /// 求解走真实物理引擎反解（W3，`ShotPredictor.predictBankAll` 四层管线）：解 = 引擎全保真
 /// `ShotPrediction`，按「好打优先」（难度 + 扰动容错，`BankKickDifficulty`）排序，配 LRU 解缓存。
 @MainActor

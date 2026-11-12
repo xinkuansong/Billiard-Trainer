@@ -10,17 +10,14 @@ struct FirstRunProfileView: View {
     @State private var step: Step = .sport
     @State private var errorMessage: String?
     @State private var isPagingDrag = false
-    // “开始使用” confirms the visible wheel date; skipping leaves birthday unset.
-    @State private var birthday = Calendar(identifier: .gregorian).date(from: DateComponents(year: 2000, month: 1, day: 1))!
-
     private enum Step: Int, CaseIterable {
-        case sport, years, gender, birthday
+        case sport, years, gender, ageBand
         var question: String {
             switch self {
             case .sport: "你主要打哪种球？"
             case .years: "你打台球多久了？"
             case .gender: "你的性别是？"
-            case .birthday: "你的生日是？"
+            case .ageBand: "你的年龄段是？"
             }
         }
     }
@@ -28,18 +25,21 @@ struct FirstRunProfileView: View {
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                IntroHeader(skipID: "firstRun.skip") { advance(saveBirthday: false) }
+                IntroHeader(skipID: "firstRun.skip") {
+                    if step == .ageBand { draft.ageBand = nil }
+                    advance()
+                }
                 HStack {
                     IntroBackButton(action: back).accessibilityIdentifier("firstRun.back")
                     Spacer()
                 }.padding(.horizontal, 24)
                 IntroPager(selection: step.rawValue, count: Step.allCases.count,
-                           onSwipeForward: { if step != .birthday { advance() } },
+                           onSwipeForward: { if step != .ageBand { advance() } },
                            onSwipeBack: back,
                            onDragActivity: { isPagingDrag = $0 }) { index in
                     let page = Step(rawValue: index)!
                     VStack(spacing: 0) {
-                        Text("认识一下你 · \(page.rawValue + 1) / 4")
+                        Text("认识一下你 · \(page.rawValue + 1) / \(Step.allCases.count)")
                             .font(.btOnboardingChapter).foregroundStyle(.btPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 28)
                             .accessibilityIdentifier("firstRun.profileTitle")
@@ -59,11 +59,12 @@ struct FirstRunProfileView: View {
                         }
                     }
                 }
-                IntroProgress(count: 4, selection: step.rawValue).padding(.vertical, 16)
+                IntroProgress(count: Step.allCases.count, selection: step.rawValue).padding(.vertical, 16)
                 Group {
-                    if step == .birthday {
-                        Button("开始使用") { advance(saveBirthday: true) }
-                            .buttonStyle(IntroPrimaryButtonStyle()).accessibilityIdentifier("firstRun.save")
+                    if step == .ageBand {
+                        Button("开始训练") { advance() }
+                            .buttonStyle(IntroPrimaryButtonStyle())
+                            .accessibilityIdentifier("firstRun.start")
                     } else {
                         Color.clear.frame(height: 56).accessibilityHidden(true)
                     }
@@ -88,25 +89,20 @@ struct FirstRunProfileView: View {
                        title: { $0 == .unspecified ? "不愿透露" : $0.title }) {
                 draft.gender = $0; advance()
             }
-        case .birthday:
-            DatePicker("生日", selection: $birthday,
-                       in: ProfileBirthday.date("1900-01-01")!...Date.now, displayedComponents: .date)
-                .datePickerStyle(.wheel).labelsHidden().environment(\.locale, Locale(identifier: "zh_CN"))
-                .accessibilityIdentifier("firstRun.birthday")
-                .environment(\.calendar, Calendar(identifier: .gregorian))
-            if let age = ProfileBirthday.age(ProfileBirthday.string(birthday)) {
-                Text("\(age) 岁")
-                    .font(.btFootnote).foregroundStyle(.btTextSecondary)
-                    .accessibilityIdentifier("firstRun.age")
+        case .ageBand:
+            optionList(ProfileAgeBand.allCases, selected: draft.ageBand, id: "ageBand",
+                       rowHeight: 48, spacing: 8, title: { $0.title }) {
+                draft.ageBand = $0
             }
         }
     }
 
     private func optionList<Value: RawRepresentable & Hashable>(
-        _ options: [Value], selected: Value?, id: String, title: @escaping (Value) -> String,
+        _ options: [Value], selected: Value?, id: String,
+        rowHeight: CGFloat = 64, spacing: CGFloat = 14, title: @escaping (Value) -> String,
         choose: @escaping (Value) -> Void
     ) -> some View where Value.RawValue == String {
-        VStack(spacing: 14) {
+        VStack(spacing: spacing) {
             ForEach(options, id: \.self) { option in
                 Button {
                     guard !isPagingDrag else { return }
@@ -117,7 +113,7 @@ struct FirstRunProfileView: View {
                         Spacer()
                         BTSelectionIndicator(isSelected: selected == option)
                     }
-                        .padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 64)
+                        .padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: rowHeight)
                         .background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: 12))
                         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(selected == option ? Color.btPrimary : Color.btSeparator))
                         .contentShape(Rectangle())
@@ -128,10 +124,9 @@ struct FirstRunProfileView: View {
         }
     }
 
-    private func advance(saveBirthday: Bool = false) {
+    private func advance() {
         errorMessage = nil
-        if step == .birthday {
-            draft.birthDate = saveBirthday ? ProfileBirthday.string(birthday) : nil
+        if step == .ageBand {
             let profile = OwnerProfileStore(ownerKey: ownerKey)
             if profile.saveInitialProfile(draft, authState: authState) { onFinish() }
             else { errorMessage = profile.errorMessage }

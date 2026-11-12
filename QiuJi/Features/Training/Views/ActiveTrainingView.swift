@@ -175,9 +175,7 @@ struct ActiveTrainingView: View {
             UIApplication.shared.isIdleTimerDisabled = isActive
         }
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active {
-                viewModel.refreshTimers()
-            }
+            viewModel.restAppActivityChanged(active: newPhase == .active)
         }
         .task {
             await viewModel.loadDrills()
@@ -446,7 +444,7 @@ struct ActiveTrainingView: View {
                         )
                         .accessibilityIdentifier("activeTraining.rest")
                     } else {
-                        Button { viewModel.startRestTimer() } label: {
+                        Button { viewModel.startRestTimer(requestNotificationPermission: true) } label: {
                             Image(systemName: BTIcon.timer)
                                 .font(.btHeadline)
                                 .foregroundStyle(.btTextSecondary)

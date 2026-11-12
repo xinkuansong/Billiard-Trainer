@@ -166,15 +166,9 @@ struct PhoneLoginView: View {
                         }
                         .padding(.bottom, Spacing.md)
 
-                        HStack(spacing: Spacing.xs) {
-                            Text("球迹")
-                                .font(.btSubheadlineMedium)
-                            Text("·")
-                                .foregroundStyle(.btTextTertiary)
-                            Text("QIUJI")
-                                .font(.btSubheadlineMedium)
-                        }
-                        .foregroundStyle(.btText)
+                        Text(AppMetadata.displayName)
+                            .font(.btSubheadlineMedium)
+                            .foregroundStyle(.btText)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.bottom, Spacing.xxxl)

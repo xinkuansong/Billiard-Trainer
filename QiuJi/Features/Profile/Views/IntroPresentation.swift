@@ -15,7 +15,7 @@ struct IntroHeader: View {
     var skip: () -> Void
     var body: some View {
         HStack(spacing: 8) {
-            Text("CuePhys：台球训练").font(.btHeadline).foregroundStyle(.btPrimary)
+            Text("\(AppMetadata.displayName)：台球训练").font(.btHeadline).foregroundStyle(.btPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 4)
             Button(skipTitle, action: skip).font(.btFootnote14)
@@ -54,7 +54,7 @@ struct IntroWelcomeView: View {
             Image("BrandLogoMark").resizable().scaledToFit().frame(width: 128, height: 128)
                 .accessibilityHidden(true)
             VStack(spacing: Spacing.md) {
-                Text("CuePhys：台球训练").font(.btChapterNumber).foregroundStyle(.btPrimary)
+                Text("\(AppMetadata.displayName)：台球训练").font(.btChapterNumber).foregroundStyle(.btPrimary)
                     .multilineTextAlignment(.center)
                 Text("让每一杆，都更有把握。").font(.btBody).foregroundStyle(.btText).opacity(0.9)
             }

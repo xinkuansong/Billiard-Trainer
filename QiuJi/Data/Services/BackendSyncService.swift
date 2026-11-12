@@ -221,6 +221,7 @@ struct AngleTestDTO: Codable {
 }
 
 struct UserDTO: Codable {
+    var linkedProviders: [String]? = nil
     let id: String
     let displayName: String?
     let email: String?
@@ -301,29 +302,23 @@ struct BatchResult: Codable {
 
 actor BackendSyncService {
     static let shared = BackendSyncService()
-    private let api = APIClient.shared
+    private let api: APIClient
+
+    init(api: APIClient = .shared) {
+        self.api = api
+    }
 
     // MARK: - Auth
 
-    func loginWithApple(identityToken: String, displayName: String? = nil) async throws -> AuthResponse {
-        struct Req: Encodable {
-            let identityToken: String
-            let displayName: String?
+    func login(_ method: MobileLoginMethod, body: MobileAuthRequest) async throws -> AuthResponse {
+        try await api.request(Endpoint(.post, "/auth/login-\(method.rawValue)", body: body))
+    }
 
-            private enum CodingKeys: String, CodingKey { case identityToken, displayName }
-
-            func encode(to encoder: Encoder) throws {
-                var container = encoder.container(keyedBy: CodingKeys.self)
-                try container.encode(identityToken, forKey: .identityToken)
-                try container.encodeIfPresent(displayName, forKey: .displayName)
-            }
-        }
-        let res: AuthResponse = try await api.request(
-            Endpoint(.post, "/auth/login-apple", body: Req(identityToken: identityToken, displayName: displayName))
-        )
-        KeychainService.save(key: .accessToken, value: res.accessToken)
-        KeychainService.save(key: .refreshToken, value: res.refreshToken)
-        return res
+    func bind(_ method: MobileLoginMethod, body: MobileAuthRequest, accountID: String) async throws -> UserDTO {
+        struct Response: Decodable { let user: UserDTO }
+        let response: Response = try await api.request(Endpoint(.post, "/auth/bind-\(method.rawValue)",
+                                                               body: body, expectedAccountID: accountID))
+        return response.user
     }
 
     func logout() async {
@@ -334,17 +329,17 @@ actor BackendSyncService {
 
     /// 取 DTO 而非 `TrainingSession`：`@Model` 对象绑定在 MainActor 的 ModelContext 上，
     /// 由调用方在自己的 actor 上快照成 DTO 再跨界，避免在本 actor 内读取模型对象。
-    func uploadSession(_ dto: TrainingSessionDTO) async throws {
+    func uploadSession(_ dto: TrainingSessionDTO, accountID: String) async throws {
         let _: TrainingSessionDTO = try await api.request(
-            Endpoint(.post, "/training-sessions", body: dto)
+            Endpoint(.post, "/training-sessions", body: dto, expectedAccountID: accountID)
         )
     }
 
     /// 按客户端 UUID 硬删服务端副本（v36 D-v36-2）。客户端不持有 Mongo `_id`，
     /// 故走 `by-client` 端点；该端点对「本就不存在」也返回 2xx（删除语义幂等）。
-    func deleteSession(clientId: String) async throws {
+    func deleteSession(clientId: String, accountID: String) async throws {
         let _: EmptyResponse = try await api.request(
-            Endpoint(.delete, "/training-sessions/by-client/\(clientId)")
+            Endpoint(.delete, "/training-sessions/by-client/\(clientId)", expectedAccountID: accountID)
         )
     }
 
@@ -355,8 +350,8 @@ actor BackendSyncService {
     /// `after` 用 `ISO8601DateFormatter` 输出（无小数秒），相当于把锚点向下取整到秒：
     /// 边界记录可能被重复返回，而合并按 clientId 幂等，重复不产生重复实体；
     /// 反方向（向上取整）才会漏数据，故这里的取整方向是安全的那一侧。
-    func fetchSessionsAfter(_ date: Date?) async throws -> [SyncedRecord<TrainingSessionDTO>] {
-        try await api.request(Endpoint(.get, "/training-sessions", query: Self.afterQuery(date)))
+    func fetchSessionsAfter(_ date: Date?, accountID: String) async throws -> [SyncedRecord<TrainingSessionDTO>] {
+        try await api.request(Endpoint(.get, "/training-sessions", query: Self.afterQuery(date), expectedAccountID: accountID))
     }
 
     private static func afterQuery(_ date: Date?) -> [URLQueryItem] {
@@ -364,22 +359,23 @@ actor BackendSyncService {
         return [URLQueryItem(name: "after", value: ISO8601DateFormatter().string(from: date))]
     }
 
-    func migrateLocalSessions(_ sessions: [TrainingSession]) async throws -> BatchResult {
+    func migrateLocalSessions(_ sessions: [TrainingSession], accountID: String) async throws -> BatchResult {
+        guard sessions.allSatisfy({ $0.ownerKey == OwnerKey.account(accountID) }) else { throw CancellationError() }
         let dtos = sessions.map { TrainingSessionDTO(from: $0) }
-        return try await api.request(Endpoint(.post, "/training-sessions/batch", body: dtos))
+        return try await api.request(Endpoint(.post, "/training-sessions/batch", body: dtos, expectedAccountID: accountID))
     }
 
     // MARK: - Angle Tests
 
-    func uploadAngleTest(_ dto: AngleTestDTO) async throws {
+    func uploadAngleTest(_ dto: AngleTestDTO, accountID: String) async throws {
         let _: AngleTestDTO = try await api.request(
-            Endpoint(.post, "/angle-tests", body: dto)
+            Endpoint(.post, "/angle-tests", body: dto, expectedAccountID: accountID)
         )
     }
 
     /// 与 `fetchSessionsAfter` 同形状：后端 `GET /angle-tests?after=` 路由已备好。
-    func fetchAngleTestsAfter(_ date: Date?) async throws -> [SyncedRecord<AngleTestDTO>] {
-        try await api.request(Endpoint(.get, "/angle-tests", query: Self.afterQuery(date)))
+    func fetchAngleTestsAfter(_ date: Date?, accountID: String) async throws -> [SyncedRecord<AngleTestDTO>] {
+        try await api.request(Endpoint(.get, "/angle-tests", query: Self.afterQuery(date), expectedAccountID: accountID))
     }
 
     // MARK: - User
@@ -411,13 +407,17 @@ actor BackendSyncService {
         try await api.request(Endpoint(.delete, "/user/avatar"))
     }
 
-    func deleteAccount() async throws {
-        let _: EmptyResponse = try await api.request(Endpoint(.delete, "/user/account"))
+    struct DeletionResult: Decodable {
+        let appleRevocation: String?
+    }
+
+    func deleteAccount(userID: String) async throws -> DeletionResult {
+        try await api.request(Endpoint(.delete, "/user/account", expectedAccountID: userID))
     }
 }
 
 extension BackendSyncService: InitialProfileImportBackend {
     func importInitialProfile(_ proposal: InitialProfileImport) async throws -> UserDTO {
-        try await api.request(Endpoint(.post, "/user/profile/import-initial", body: proposal))
+        try await api.request(Endpoint(.post, "/user/profile/import-initial", body: proposal, expectedAccountID: proposal.accountID))
     }
 }

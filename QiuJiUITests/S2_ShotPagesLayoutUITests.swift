@@ -8,7 +8,7 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
     var app: XCUIApplication!
 
     func testV63BankCameraModes() {
-        checkBankKickCamera(title: "翻袋解球", prefix: "bankshot")
+        checkBankKickCamera(title: "翻袋", prefix: "bankshot")
     }
 
     func testV63ReflectionCameraModes() {
@@ -1304,7 +1304,7 @@ final class P07_BankKickTemplateUITests: XCTestCase {
         app.switchTab(.angle)
         let section = app.buttons["angleHomeTab_进阶"]
         XCTAssertTrue(section.waitForExistence(timeout: 5)); section.tap()
-        let card = app.buttons[route == "bankshot" ? "翻袋解球" : "颗星解球"]
+        let card = app.buttons[route == "bankshot" ? "翻袋" : "颗星解球"]
         XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
         XCTAssertTrue(element("\(route).template").waitForExistence(timeout: 25))
         if UIDevice.current.userInterfaceIdiom == .pad {

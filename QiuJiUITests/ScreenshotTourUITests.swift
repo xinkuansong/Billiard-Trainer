@@ -144,7 +144,7 @@ final class ScreenshotTourUITests: XCTestCase {
             "23-batch-drill-studio": "批量出片台",
             "24-silu-trainer": "思路训练",
             "25-plan-three": "打一走二想三",
-            "27-bank-shot": "翻袋解球",
+            "27-bank-shot": "翻袋",
             "28-diamond-system": "颗星解球",
             "52-profile-personal-info": "个人信息",
             "53-profile-training-goal": "训练目标",
@@ -1631,7 +1631,7 @@ final class ScreenshotTourUITests: XCTestCase {
         sleep(3)
 
         let remainingSolve: [(String, String)] = [
-            ("翻袋解球", "27-bank-shot"),
+            ("翻袋", "27-bank-shot"),
             ("颗星解球", "28-diamond-system"),
         ]
         for (label, name) in remainingSolve {
@@ -1644,7 +1644,7 @@ final class ScreenshotTourUITests: XCTestCase {
             if tapIfExists(label, timeout: 4) {
                 sleep(3)
                 startAimingTrainingFromSheet()
-                if label == "翻袋解球" { ensureBankSolution() }
+                if label == "翻袋" { ensureBankSolution() }
                 snap(name)
             }
         }
@@ -1672,7 +1672,7 @@ final class ScreenshotTourUITests: XCTestCase {
             ("走位", "批量出片台", "23-batch-drill-studio"),
             ("走位", "思路训练", "24-silu-trainer"),
             ("走位", "打一走二想三", "25-plan-three"),
-            ("进阶", "翻袋解球", "27-bank-shot"),
+            ("进阶", "翻袋", "27-bank-shot"),
             ("进阶", "颗星解球", "28-diamond-system"),
         ]
         for (tab, label, name) in pages {
@@ -1685,7 +1685,7 @@ final class ScreenshotTourUITests: XCTestCase {
             if tapIfExists(label, timeout: 4) {
                 sleep(3)
                 startAimingTrainingFromSheet()
-                if label == "翻袋解球" { ensureBankSolution() }
+                if label == "翻袋" { ensureBankSolution() }
                 snap(name)
             }
         }
@@ -2517,7 +2517,7 @@ final class ScreenshotTourUITests: XCTestCase {
         }
     }
 
-    /// 反射 / 翻袋解球专项截图（W4/W5 版面）：默认解 → 下一解（贴边动作列）→
+    /// 反射 / 翻袋专项截图（W4/W5 版面）：默认解 → 下一解（贴边动作列）→
     /// 球库拖入障碍球（真实碰撞体重求解）→ 右缘力度柱拉高（力度 = 求解输入）→ 击打演示。
     func testReflectionRealMode() {
         sleep(3)
@@ -2528,7 +2528,7 @@ final class ScreenshotTourUITests: XCTestCase {
         captureSolverStates(prefix: "r01-reflection")
         popBack(); sleep(1)
 
-        openSolver(entry: "翻袋解球")
+        openSolver(entry: "翻袋")
         // 翻袋页默认袋口（左上）可能无解：逐个袋口找到有解的那个。
         ensureBankSolution()
         captureSolverStates(prefix: "r02-bankshot")
@@ -2538,7 +2538,7 @@ final class ScreenshotTourUITests: XCTestCase {
     /// 仅翻袋页：单独成测，规避与反射页连跑时的模拟器不稳定。
     func testBankShotRealMode() {
         sleep(3)
-        openSolverVerified(entry: "翻袋解球", navTitle: "翻袋解球")
+        openSolverVerified(entry: "翻袋", navTitle: "翻袋")
         ensureBankSolution()
         captureSolverStates(prefix: "r02-bankshot")
     }
@@ -2654,7 +2654,7 @@ final class ScreenshotTourUITests: XCTestCase {
             snap("u05-reflection")
             popBack(); sleep(1)
         }
-        if openSolverVerified(entry: "翻袋解球", navTitle: "翻袋解球", homeTab: "进阶") {
+        if openSolverVerified(entry: "翻袋", navTitle: "翻袋", homeTab: "进阶") {
             sleep(2)
             snap("u06-bankshot")
             popBack(); sleep(1)
@@ -2851,7 +2851,7 @@ final class ScreenshotTourUITests: XCTestCase {
         }
 
         // 翻袋/反射：顶部 1 行库数 chip + 浮层解 pill + 右缘力度柱（W4 版面）。
-        if openSolverVerified(entry: "翻袋解球", navTitle: "翻袋解球", homeTab: "进阶") {
+        if openSolverVerified(entry: "翻袋", navTitle: "翻袋", homeTab: "进阶") {
             sleep(3)
             snap("b3p-07-bankshot")
             popBack(); sleep(1)
@@ -2972,7 +2972,7 @@ final class ScreenshotTourUITests: XCTestCase {
     }
 
     private func openSolver(entry: String) {
-        openSolverVerified(entry: entry, navTitle: entry == "翻袋解球" ? "翻袋解球" : "颗星解球")
+        openSolverVerified(entry: entry, navTitle: entry == "翻袋" ? "翻袋" : "颗星解球")
     }
 
     private var hasNoSolution: Bool {
@@ -3223,7 +3223,7 @@ final class ScreenshotTourUITests: XCTestCase {
             ("走位", "批量出片台", "23-batch-drill-studio"),
             ("走位", "思路训练", "24-silu-trainer"),
             ("走位", "打一走二想三", "25-plan-three"),
-            ("进阶", "翻袋解球", "27-bank-shot"),
+            ("进阶", "翻袋", "27-bank-shot"),
             ("进阶", "颗星解球", "28-diamond-system"),
         ]
     }
@@ -3248,7 +3248,7 @@ final class ScreenshotTourUITests: XCTestCase {
             if tapAngleCard(label, tab: tab) {
                 sleep(3)
                 XCTAssertFalse(
-                    app.staticTexts["解锁球迹 Pro"].exists,
+                    app.staticTexts["解锁 CuePhys Pro"].exists,
                     "Pro 巡游进入 \(label) 时不得把 Paywall 当作目标页"
                 )
                 // 只有瞄准训练会先展示设置 sheet。页面已稳定后先做无等待探测，
@@ -3256,7 +3256,7 @@ final class ScreenshotTourUITests: XCTestCase {
                 if app.buttons["开始训练"].exists {
                     startAimingTrainingFromSheet()
                 }
-                if label == "翻袋解球" { ensureBankSolution() }
+                if label == "翻袋" { ensureBankSolution() }
                 snap(name)
                 popBack()
                 sleep(1)
@@ -3513,7 +3513,7 @@ final class ScreenshotTourUITests: XCTestCase {
         sleep(1)
         app.scrollUp(times: 4)
         sleep(1)
-        if tapIfExists("解锁球迹 Pro", timeout: 2) || tapIfExists("升级 Pro", timeout: 2) || tapIfExists("订阅管理", timeout: 2) {
+        if tapIfExists("解锁 CuePhys Pro", timeout: 2) || tapIfExists("升级 Pro", timeout: 2) || tapIfExists("订阅管理", timeout: 2) {
             sleep(3)
             v47ForcedShotDirURL = supplementalDirectory
             snap("60-subscription-paywall")

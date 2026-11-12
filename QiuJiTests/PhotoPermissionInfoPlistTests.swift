@@ -19,16 +19,12 @@ final class PhotoPermissionInfoPlistTests: XCTestCase {
         XCTAssertFalse(value?.isEmpty ?? true, "权限文案不得为空字符串")
     }
 
-    func test_photoLibraryUsageDescription_present() {
-        let value = hostBundle.object(forInfoDictionaryKey: "NSPhotoLibraryUsageDescription") as? String
-        XCTAssertNotNil(value, "NSPhotoLibraryUsageDescription 缺失")
-        XCTAssertFalse(value?.isEmpty ?? true)
+    func test_systemImagePickerDoesNotDeclarePhotoLibraryReadAccess() {
+        XCTAssertNil(hostBundle.object(forInfoDictionaryKey: "NSPhotoLibraryUsageDescription"))
     }
 
-    func test_cameraUsageDescription_present() {
-        let value = hostBundle.object(forInfoDictionaryKey: "NSCameraUsageDescription") as? String
-        XCTAssertNotNil(value, "NSCameraUsageDescription 缺失")
-        XCTAssertFalse(value?.isEmpty ?? true)
+    func test_noCameraCapturePermissionInCurrentApp() {
+        XCTAssertNil(hostBundle.object(forInfoDictionaryKey: "NSCameraUsageDescription"))
     }
 
     /// v50 多设备巡游发现系统导航按钮显示英文 “Back”。App 的产品语言是

@@ -36,7 +36,7 @@ final class OwnerProfileStore: ObservableObject {
         self.ownerKey = ownerKey
         self.defaults = defaults
         self.backend = backend
-        displayName = defaults.string(forKey: Self.key(ownerKey, "displayName")) ?? "球迹用户"
+        displayName = defaults.string(forKey: Self.key(ownerKey, "displayName")) ?? AppMetadata.defaultUserName
         preferredSport = PreferredSport(rawValue:
             defaults.string(forKey: Self.key(ownerKey, "preferredSport")) ?? "") ?? .chinese8
         skillLevel = SkillLevel(rawValue:
@@ -84,13 +84,18 @@ final class OwnerProfileStore: ObservableObject {
         fill("yearsPlaying", value: draft.yearsPlaying?.rawValue) { yearsPlaying = draft.yearsPlaying! }
         fill("gender", value: draft.gender?.rawValue) { gender = draft.gender! }
         fill("birthDate", value: draft.birthDate) { birthDate = draft.birthDate }
+        if draft.ageBand == .under14 {
+            authState.chooseLocalTrainingForAge()
+        } else if let band = draft.ageBand, authState.canImportGuestData, !authState.localTrainingOnly {
+            GuestAgeAnswer.save(band, in: defaults)
+        }
         errorMessage = nil
         return true
     }
 
     func load(from user: AppUser?) {
         guard let user, OwnerKey.account(user.id) == ownerKey else { return }
-        displayName = user.displayName?.nilIfBlank ?? "球迹用户"
+        displayName = user.displayName?.nilIfBlank ?? AppMetadata.defaultUserName
         preferredSport = user.preferredSport.flatMap(PreferredSport.init(rawValue:)) ?? .chinese8
         skillLevel = user.skillLevel.flatMap(SkillLevel.init(rawValue:)) ?? .beginner
         yearsPlaying = user.yearsPlaying.flatMap(YearsPlaying.init(rawValue:)) ?? .lessThan1
@@ -163,6 +168,14 @@ final class OwnerProfileStore: ObservableObject {
     func setBirthDate(_ value: String?, authState: AuthState) async -> Bool {
         if let value, ProfileBirthday.date(value) == nil {
             errorMessage = "请选择有效生日"; return false
+        }
+        if AuthState.requiresLocalTraining(birthday: value) {
+            authState.keepGuestDataLocal()
+            if authState.hasLocalAccount {
+                authState.chooseLocalTrainingForAge()
+                errorMessage = AuthState.localTrainingMessage
+                return false
+            }
         }
         return await save(update: UserProfileUpdate(birthDate: value, updatesBirthDate: true),
                           authState: authState, guestMutation: { self.birthDate = value })

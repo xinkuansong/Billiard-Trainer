@@ -1,0 +1,57 @@
+{
+  "timezone": "Asia/Shanghai",
+  "serverStop": "2026-11-10T11:51:33+08:00",
+  "serverHealthy": "2026-11-10T11:51:37+08:00",
+  "recoveryPoint": "2026-11-10T11:51:38+08:00",
+  "serverFixtureDeleted": true,
+  "liveOldCredentialHttpStatuses": [
+    401,
+    401,
+    401,
+    401,
+    401,
+    401
+  ],
+  "serverPayloadMatched": true,
+  "mini": {
+    "verifiedAt": "2026-11-10T03:53:51.906Z",
+    "recoveryPoint": "2026-11-10T11:51:38+08:00",
+    "archiveReadbackMatched": true,
+    "comparisonCollections": 6,
+    "otherUsersAndAvatarsMatched": true,
+    "before": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "after": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "oldCredentialResponses": [
+      401,
+      401,
+      401,
+      401,
+      401,
+      401
+    ],
+    "isolatedControlRead": 200,
+    "repeatReplaySafe": true,
+    "archiveRestoreAndInitialCheckMs": 2832,
+    "checksAndReplayMs": 314
+  },
+  "miniTemporaryEncryptedVolumeRemoved": true,
+  "finalHealthVerifiedAt": "2026-11-10T11:54:31+08:00",
+  "publicHealth": "ok",
+  "anonymousProfileHttp": 401,
+  "encryptedArchiveSHA256": "c72599bbfeb14db562ebb5845e469155fa5e3a8b3733b19088a7591bf910c1ef",
+  "oneOffBackup": true
+}

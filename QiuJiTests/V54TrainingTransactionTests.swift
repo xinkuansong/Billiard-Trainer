@@ -10,12 +10,12 @@ final class V54TrainingTransactionTests: XCTestCase {
         private var shouldFail = true
         private(set) var uploaded: [TrainingSessionDTO] = []
         func allowSuccess() { shouldFail = false }
-        func uploadSession(_ dto: TrainingSessionDTO) async throws {
+        func uploadSession(_ dto: TrainingSessionDTO, accountID: String) async throws {
             uploaded.append(dto)
             if shouldFail { throw AppError.networkError("offline") }
         }
-        func uploadAngleTest(_ dto: AngleTestDTO) async throws {}
-        func deleteSession(clientId: String) async throws {}
+        func uploadAngleTest(_ dto: AngleTestDTO, accountID: String) async throws {}
+        func deleteSession(clientId: String, accountID: String) async throws {}
     }
 
     private var container: ModelContainer!

@@ -7,6 +7,21 @@ import subprocess
 import sys
 import time
 
+def compare_group(local, remote):
+    primary=json.loads(local.read_bytes())
+    auxiliary=json.loads(remote.read_bytes())
+    assert len(primary)==len(auxiliary),local.name
+    for a,b in zip(primary,auxiliary):
+        if a==b:
+            continue
+        # Cross-runtime RMS rounding can vary. Require identical inputs, geometry
+        # outcome, pocket-jaw count, result and seed. Keep the primary measurement.
+        assert a['result']==b['result']=='adjusted',local.name
+        assert {k:v for k,v in a.items() if k!='rmsCM'}=={k:v for k,v in b.items() if k!='rmsCM'},local.name
+        assert max(a['rmsCM'],b['rmsCM'])<=0.5 and abs(a['rmsCM']-b['rmsCM'])<=0.000002,local.name
+        print('Cross-runtime RMS (cm)',a['board'],a['axes'],a['rmsCM'],b['rmsCM'],flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('work', type=Path)
@@ -48,12 +63,12 @@ def main():
                     continue
                 if dest.exists():
                     if os.path.samefile(dest,file):continue
-                    assert json.loads(dest.read_bytes()) == json.loads(file.read_bytes())
+                    compare_group(dest,file)
                 else:
                     rows = json.loads(file.read_bytes())
                     assert 0 < len(rows) <= 64 and len({(r['board'],r['axes']) for r in rows}) == len(rows)
                     try: os.link(file,dest)
-                    except FileExistsError: assert json.loads(dest.read_bytes()) == rows
+                    except FileExistsError: compare_group(dest,file)
         return state
     while True:
         try:

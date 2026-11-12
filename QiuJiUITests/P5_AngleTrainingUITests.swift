@@ -45,7 +45,7 @@ final class P5_AngleTrainingUITests: XCTestCase {
     func testSegmentCards() {
         let firstCards = [("基础", "瞄准原理"), ("准度", "角度与瞄准"),
                           ("控球", "分离角图谱"), ("走位", "分离角与走位"),
-                          ("进阶", "翻袋解球"), ("策略", "反向规划")]
+                          ("进阶", "翻袋"), ("策略", "反向规划")]
         for (section, title) in firstCards {
             PracticeHomeNavigation.select(section, in: app)
             XCTAssertTrue(app.buttons[title].waitForExistence(timeout: 5))
@@ -79,8 +79,8 @@ final class P5_AngleTrainingUITests: XCTestCase {
         searchField.typeText("翻袋")
         usleep(600_000)
         snap("search-filtered")
-        XCTAssertTrue(app.buttons["翻袋解球"].waitForExistence(timeout: 3),
-                      "Matching card 翻袋解球 should remain visible")
+        XCTAssertTrue(app.buttons["翻袋"].waitForExistence(timeout: 3),
+                      "Matching card 翻袋 should remain visible")
         XCTAssertFalse(app.buttons["瞄准原理"].exists,
                        "Non-matching card 瞄准原理 should be filtered out")
 
@@ -186,7 +186,7 @@ final class GroupFilterLayoutUITests: XCTestCase {
                 if let cardPrefix {
                     card = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", cardPrefix)).firstMatch
                 } else {
-                    let first = ["基础": "瞄准原理", "准度": "角度与瞄准", "控球": "分离角图谱", "走位": "分离角与走位", "进阶": "翻袋解球", "策略": "反向规划"]
+                    let first = ["基础": "瞄准原理", "准度": "角度与瞄准", "控球": "分离角图谱", "走位": "分离角与走位", "进阶": "翻袋", "策略": "反向规划"]
                     card = app.buttons[first[group]!]
                 }
                 XCTAssertTrue(card.waitForExistence(timeout: 5))
@@ -349,7 +349,7 @@ final class AimCloseupHoldUITests: XCTestCase {
     func testDailyClearance() throws { try exercise(title: "每日清台", key: "daily") }
     func testAimPoint3D() throws { try exercise(title: "3D 瞄准点训练", key: "aimpoint3d") }
 
-    func testBankShot() throws { try exercise(title: "翻袋解球", key: "bankBlank") }
+    func testBankShot() throws { try exercise(title: "翻袋", key: "bankBlank") }
     func testDiamondSystem() throws { try exercise(title: "颗星解球", key: "diamondAimed") }
     func testComposer() throws { try exercise(title: "自由走位", key: "composer") }
 
@@ -468,7 +468,7 @@ final class PracticeSixGroupsUITests: XCTestCase {
         ("走位", "蛇彩练习", "按指定顺序连续进球与走位", "学习难度五星，综合", "snake.start"),
         ("走位", "自定义球形", "编辑保存球形，随时重复练习", "工具，不评级", "formation.new"),
         ("走位", "拍照建球形", "从照片还原球形，校准后推演", "工具，不评级", "选择照片"),
-        ("进阶", "翻袋解球", "摆球求解目标球翻库入袋", "学习难度四星，应用", "bankshot.more"),
+        ("进阶", "翻袋", "摆球求解目标球翻库入袋", "学习难度四星，应用", "bankshot.more"),
         ("进阶", "颗星解球", "摆球求解母球绕库碰球", "学习难度四星，应用", "reflection.more"),
         ("进阶", "翻袋练习", "按指定库序将目标球翻进袋", "学习难度五星，综合", "bank.start"),
         ("进阶", "解球练习", "按指定库序让母球解到目标球", "学习难度五星，综合", "kick.start"),
@@ -643,12 +643,12 @@ final class PracticeSixGroupsUITests: XCTestCase {
         let search = app.textFields["librarySearchField"]
         XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("绕库碰球")
         XCTAssertTrue(app.buttons["颗星解球"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["翻袋解球"].exists)
+        XCTAssertFalse(app.buttons["翻袋"].exists)
         app.buttons["清除搜索"].tap(); search.typeText("不存在的内容")
         let clearResults = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "浏览全部练习", "magnifyingglass")).firstMatch
         XCTAssertTrue(clearResults.waitForExistence(timeout: 5)); clearResults.tap()
         XCTAssertTrue(app.buttons["angleHomeTab_进阶"].isSelected)
-        XCTAssertTrue(app.buttons["翻袋解球"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["翻袋"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["瞄准原理"].exists)
     }
 }

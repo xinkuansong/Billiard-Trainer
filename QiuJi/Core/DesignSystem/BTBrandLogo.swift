@@ -39,7 +39,7 @@ struct BTBrandLogo: View {
             }
         }
         .frame(width: size, height: size)
-        .accessibilityLabel("球迹")
+        .accessibilityLabel(AppMetadata.displayName)
     }
 
     private func tile<S: Shape>(_ shape: S, inset: CGFloat) -> some View {

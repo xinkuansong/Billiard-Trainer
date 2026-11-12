@@ -26,7 +26,7 @@ struct TrainingHelpView: View {
                     questionLabel("在哪里回看训练心得？", systemImage: "book.closed")
                 }
                 DisclosureGroup {
-                    Text("请检查提醒时间和重复日期，并在系统设置中允许球迹发送通知。专注模式或通知摘要可能影响提醒展示。")
+                    Text("请检查提醒时间和重复日期，并在系统设置中允许 \(AppMetadata.displayName) 发送通知。专注模式或通知摘要可能影响提醒展示。")
                     NavigationLink("设置训练提醒") { TrainingReminderView() }
                 } label: {
                     questionLabel("为什么没有收到训练提醒？", systemImage: "bell")

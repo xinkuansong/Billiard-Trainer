@@ -76,8 +76,50 @@ final class FirstRunProfileFlow: ObservableObject {
     }
 }
 
+enum ProfileAgeBand: String, CaseIterable {
+    case under14, from14to17 = "14-17", from18to24 = "18-24", from25to34 = "25-34"
+    case from35to44 = "35-44", from45to54 = "45-54", over55 = "55+"
+
+    var title: String {
+        switch self {
+        case .under14: return "不满 14 岁"
+        case .over55: return "55 岁及以上"
+        default: return rawValue.replacingOccurrences(of: "-", with: "–") + " 岁"
+        }
+    }
+}
+
+enum GuestAgeAnswer {
+    private static func key(_ defaults: UserDefaults) -> String {
+        "ageSurvey." + DeviceGuestIdentity.ownerKey(in: defaults)
+    }
+
+    static func save(_ band: ProfileAgeBand, in defaults: UserDefaults) {
+        defaults.set(["band": band.rawValue], forKey: key(defaults))
+    }
+
+    static func clear(in defaults: UserDefaults) {
+        defaults.removeObject(forKey: key(defaults))
+    }
+
+    static func eligibleBand(in defaults: UserDefaults, account: String? = nil) -> ProfileAgeBand? {
+        guard let answer = defaults.dictionary(forKey: key(defaults)),
+              answer["account"] as? String == account,
+              let raw = answer["band"] as? String, let band = ProfileAgeBand(rawValue: raw),
+              band != .under14 else { return nil }
+        return band
+    }
+
+    static func assign(to account: String, in defaults: UserDefaults) {
+        if let band = eligibleBand(in: defaults) {
+            defaults.set(["band": band.rawValue, "account": account], forKey: key(defaults))
+        }
+    }
+}
+
 /// Nil means no choice was made; Values are submitted only after a choice or explicit confirmation.
 struct InitialProfileDraft {
+    var ageBand: ProfileAgeBand?
     var displayName = ""
     var preferredSport: PreferredSport?
     var skillLevel: SkillLevel?
@@ -115,8 +157,13 @@ struct InitialProfileImport: Encodable, Equatable, Identifiable, Sendable {
             }
             if valid { fields[field] = value }
         }
+        let completionKey = Self(accountID: user.id, guestOwner: guest, fields: [:]).completionKey
+        if defaults.bool(forKey: completionKey) { fields.removeAll() }
+        if let band = GuestAgeAnswer.eligibleBand(in: defaults, account: user.id) {
+            fields["ageBand"] = band.rawValue
+        }
         let proposal = Self(accountID: user.id, guestOwner: guest, fields: fields)
-        guard !fields.isEmpty, !defaults.bool(forKey: proposal.completionKey) else { return nil }
+        guard !fields.isEmpty else { return nil }
         return proposal
     }
 

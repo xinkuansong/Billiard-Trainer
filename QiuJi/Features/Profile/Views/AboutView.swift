@@ -32,7 +32,7 @@ struct AboutView: View {
             BTBrandLogo(size: 128, style: .onTile)
 
             VStack(spacing: Spacing.xs) {
-                Text("球迹")
+                Text(AppMetadata.displayName)
                     .font(.btTitle2)
                     .foregroundStyle(.btText)
 
@@ -142,7 +142,7 @@ struct AboutView: View {
     // MARK: - Footer
 
     private var copyrightFooter: some View {
-        Text("© 2026 球迹")
+        Text("© 2026 \(AppMetadata.displayName)")
             .font(.btCaption)
             .foregroundStyle(.btTextTertiary)
             .frame(maxWidth: .infinity)
@@ -187,11 +187,11 @@ struct AboutView: View {
 
     private func sendFeedback() {
         let device = UIDevice.current
-        let subject = "球迹 \(AppMetadata.versionDisplay) 意见反馈"
+        let subject = "\(AppMetadata.displayName) \(AppMetadata.versionDisplay) 意见反馈"
         let body = "\n\n---\n设备: \(device.model)\n系统: \(device.systemName) \(device.systemVersion)"
         let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        if let url = URL(string: "mailto:feedback@qiuji.app?subject=\(encodedSubject)&body=\(encodedBody)") {
+        if let url = URL(string: "mailto:contact@youbilliards.com?subject=\(encodedSubject)&body=\(encodedBody)") {
             UIApplication.shared.open(url)
         }
     }

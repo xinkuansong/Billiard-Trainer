@@ -39,7 +39,7 @@ final class V28VisualUnificationUITests: XCTestCase {
         premiumEntry.tap()
 
         let paywallTitle = app.staticTexts
-            .matching(NSPredicate(format: "label CONTAINS '解锁球迹'"))
+            .matching(NSPredicate(format: "label CONTAINS '解锁 CuePhys'"))
             .firstMatch
         XCTAssertTrue(paywallTitle.waitForExistence(timeout: 8), "非 Pro 用户点击高级练习入口应展示订阅页")
         XCTAssertFalse(

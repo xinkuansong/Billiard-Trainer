@@ -1,0 +1,10 @@
+[Unit]
+Description=Detect stale CuePhys backup receipts independently of Mac mini
+
+[Timer]
+OnCalendar=*-*-* *:*:30
+AccuracySec=1s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

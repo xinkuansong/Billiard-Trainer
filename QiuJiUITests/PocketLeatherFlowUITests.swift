@@ -114,7 +114,7 @@ final class PocketLeatherFlowUITests: XCTestCase {
     }
 
     func testAllSingleTargetAndNeutralRoutes() throws {
-        let titles=["自由击球","自由走位","分离角与走位","思路训练","2D 角度训练","3D 角度训练","2D 瞄准点训练","3D 瞄准点训练","角度与瞄准","分离角图谱","加塞吃库图谱","翻袋解球","颗星解球"]
+        let titles=["自由击球","自由走位","分离角与走位","思路训练","2D 角度训练","3D 角度训练","2D 瞄准点训练","3D 瞄准点训练","角度与瞄准","分离角图谱","加塞吃库图谱","翻袋","颗星解球"]
         for (index,title) in titles.enumerated() {
             let app=launch();open(title,in:app)
             if title.contains("角度训练") {
@@ -470,6 +470,6 @@ final class Shared3DBallDragUITests: XCTestCase {
     func testSilu() throws { try runRoute("思路训练", prefix: "silu") }
     func testPlanThree() throws { try runRoute("打一走二想三", prefix: "planthree", extra: ["-planThree.twoBall"]) }
 
-    func testBank() throws { try runRoute("翻袋解球", prefix: "bankshot") }
+    func testBank() throws { try runRoute("翻袋", prefix: "bankshot") }
     func testDiamond() throws { try runRoute("颗星解球", prefix: "reflection") }
 }

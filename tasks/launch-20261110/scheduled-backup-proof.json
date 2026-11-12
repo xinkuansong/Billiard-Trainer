@@ -1,0 +1,61 @@
+{
+  "timezone": "Asia/Shanghai",
+  "fullBeforeDeletion": "full-1794283525-2.cms",
+  "proofAfterDeletion": "proof-1794283561-4.cms",
+  "deletedAt": "2026-11-10T12:05:26+08:00",
+  "producerCapturedAt": "2026-11-10T12:06:01+08:00",
+  "verifiedOnMiniAt": "2026-11-10T12:07:00+08:00",
+  "deletionToVerifiedSeconds": 94,
+  "restoration": {
+    "verifiedAt": "2026-11-10T04:07:43.760Z",
+    "recoveryPoint": "2026-11-10T04:06:01+00:00",
+    "archiveReadbackMatched": true,
+    "comparisonCollections": 6,
+    "otherUsersAndAvatarsMatched": true,
+    "before": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "after": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "oldCredentialResponses": [
+      401,
+      401,
+      401,
+      401,
+      401,
+      401
+    ],
+    "isolatedControlRead": 200,
+    "repeatReplaySafe": true,
+    "archiveRestoreAndInitialCheckMs": 3213,
+    "checksAndReplayMs": 391
+  },
+  "firstNextDailyDue": "2026-11-11T03:15:00+08:00",
+  "finalReceiptAt": "2026-11-10T12:12:01+08:00",
+  "fullAndProofAcknowledged": true,
+  "finalCloudIssues": [],
+  "retentionFixturesRemoved": {
+    "server": 2,
+    "mini": 2
+  },
+  "currentPairRetained": true,
+  "integrityFailureKeptPriorCopy": true,
+  "observerShellAndDownloadDenied": true,
+  "notificationDispatcherAccepted": [
+    "主开发 Mac",
+    "Mac mini"
+  ],
+  "bannerSeenByOperator": "unverified",
+  "testsPassed": 6
+}

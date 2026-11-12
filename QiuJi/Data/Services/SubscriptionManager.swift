@@ -21,12 +21,11 @@ final class SubscriptionManager: ObservableObject {
     enum PurchaseOutcome: Equatable { case unlocked, cancelled, pending, confirming, sessionChanged, failed, busy }
     @Published private(set) var purchaseOutcome: PurchaseOutcome?
     @Published private(set) var awaitingProductID: String?
+    @Published private(set) var purchaseOwnershipMessage: String?
     @Published var errorMessage: String?
 
     // MARK: - Sorted products for UI
 
-    var monthlyProduct: Product?  { products.first { $0.id == StoreKitService.monthlyID } }
-    var yearlyProduct: Product?   { products.first { $0.id == StoreKitService.yearlyID } }
     var lifetimeProduct: Product? { products.first { $0.id == StoreKitService.lifetimeID } }
 
     var entitlementStatusLabel: String {
@@ -70,7 +69,7 @@ final class SubscriptionManager: ObservableObject {
     private var hasAuthenticatedSession = false
     private let entitlementLoader: () async -> [StoreEntitlementSnapshot]
     private let useDebugOverrides: Bool
-    private let purchaseOperation: (Product) async throws -> Void
+    private let purchaseOperation: (Product, UUID) async throws -> Void
 
     init(
         entitlementLoader: @escaping () async -> [StoreEntitlementSnapshot] = {
@@ -78,8 +77,8 @@ final class SubscriptionManager: ObservableObject {
         },
         listenForUpdates: Bool = true,
         useDebugOverrides: Bool = true,
-        purchaseOperation: @escaping (Product) async throws -> Void = { product in
-            _ = try await StoreKitService.shared.purchase(product)
+        purchaseOperation: @escaping (Product, UUID) async throws -> Void = { product, token in
+            _ = try await StoreKitService.shared.purchase(product, accountToken: token)
         }
     ) {
         self.entitlementLoader = entitlementLoader
@@ -131,6 +130,8 @@ final class SubscriptionManager: ObservableObject {
         authenticatedUserID = userID
         if userID != nil { hasAuthenticatedSession = true }
         sessionRevision += 1
+        awaitingProductID = nil
+        purchaseOutcome = nil
         clearEntitlements()
         if userID != nil { Task { await checkEntitlements(coalescing: true) } }
     }
@@ -139,6 +140,7 @@ final class SubscriptionManager: ObservableObject {
         invalidateEntitlementRefresh()
         isPremium = false
         purchasedProductIDs = []
+        purchaseOwnershipMessage = nil
         entitlementSnapshots = []
         hasResolvedEntitlements = false
         errorMessage = nil
@@ -165,8 +167,7 @@ final class SubscriptionManager: ObservableObject {
         isLoadingProducts = true
         defer { isLoadingProducts = false }
 
-        let ids = StoreKitService.allProductIDs
-        print("[StoreKit] ⏳ Requesting products for IDs: \(ids)")
+        print("[StoreKit] ⏳ Requesting products for ID: \(StoreKitService.lifetimeID)")
 
         do {
             // 加超时：StoreKit 在模拟器未配置 .storekit / 无网络时 `Product.products`
@@ -324,7 +325,17 @@ final class SubscriptionManager: ObservableObject {
         // Cancellation is cooperative; a superseded loader may still return a result.
         guard revision == sessionRevision, allowsPremiumSession,
               refresh.revision == entitlementRequestRevision else { return }
-        let snapshots = ProAccessPolicy.currentProEntitlements(in: loaded)
+        guard let userID = authenticatedUserID else { return }
+        let token = StoreKitService.accountToken(for: userID)
+        let current = ProAccessPolicy.currentProEntitlements(in: loaded)
+        let snapshots = current.filter { $0.appAccountToken == token }
+        purchaseOwnershipMessage = nil
+        if let lifetime = current.first(where: { $0.productID == StoreKitService.lifetimeID }),
+           !snapshots.contains(where: { $0.productID == StoreKitService.lifetimeID }) {
+            purchaseOwnershipMessage = lifetime.appAccountToken == nil
+                ? "这笔购买没有账号归属信息，请通过支持页联系我们核对。"
+                : "这笔永久会员属于另一个 CuePhys 账号，请用购买时的登录方式登录后恢复。"
+        }
         entitlementSnapshots = snapshots
         purchasedProductIDs = Set(snapshots.map(\.productID))
         isPremium = !snapshots.isEmpty
@@ -332,6 +343,10 @@ final class SubscriptionManager: ObservableObject {
         if let id = awaitingProductID, purchasedProductIDs.contains(id) {
             awaitingProductID = nil
             purchaseOutcome = .unlocked
+        } else if awaitingProductID == StoreKitService.lifetimeID, let message = purchaseOwnershipMessage {
+            awaitingProductID = nil
+            errorMessage = message
+            purchaseOutcome = .failed
         }
         entitlementRefresh = nil
         isRefreshingEntitlements = false
@@ -340,7 +355,7 @@ final class SubscriptionManager: ObservableObject {
     // MARK: - Purchase
 
     func canPurchase(productID: String) -> Bool {
-        guard StoreKitService.allProductIDs.contains(productID), awaitingProductID == nil, !isTransacting else { return false }
+        guard productID == StoreKitService.lifetimeID, purchaseOwnershipMessage == nil, awaitingProductID == nil, !isTransacting else { return false }
         return !isPremium || (productID == StoreKitService.lifetimeID &&
             !purchasedProductIDs.contains(StoreKitService.lifetimeID))
     }
@@ -360,25 +375,33 @@ final class SubscriptionManager: ObservableObject {
 
     func purchaseResult(_ product: Product) async -> PurchaseOutcome {
         guard !isTransacting else { return .busy }
-        guard allowsPremiumSession else {
+        guard let userID = authenticatedUserID else {
             errorMessage = "请先登录后再购买 Pro"
             return .failed
         }
+        let revision = sessionRevision
+        if !hasResolvedEntitlements { await checkEntitlements(coalescing: true) }
+        guard revision == sessionRevision else { return .sessionChanged }
+        guard !isTransacting else { return .busy }
         guard canPurchase(productID: product.id) else {
-            errorMessage = "已有此权益，可在系统订阅设置中管理订阅"
+            errorMessage = purchaseOwnershipMessage ?? "当前无法购买此商品，请检查已有权益"
             return .failed
         }
-        let revision = sessionRevision
         isTransacting = true
         errorMessage = nil
         defer { isTransacting = false }
         let result: PurchaseOutcome
         do {
-            try await purchaseOperation(product)
+            try await purchaseOperation(product, StoreKitService.accountToken(for: userID))
             guard revision == sessionRevision else { return .sessionChanged }
             await checkEntitlements()
             guard revision == sessionRevision else { return .sessionChanged }
-            result = purchasedProductIDs.contains(product.id) ? .unlocked : .confirming
+            if let message = purchaseOwnershipMessage {
+                errorMessage = message
+                result = .failed
+            } else {
+                result = purchasedProductIDs.contains(product.id) ? .unlocked : .confirming
+            }
         } catch is CancellationError {
             result = .cancelled
         } catch StoreError.purchasePending {
@@ -412,7 +435,7 @@ final class SubscriptionManager: ObservableObject {
             await checkEntitlements()
             guard revision == sessionRevision else { return false }
             if isPremium { return true }
-            errorMessage = "未找到可恢复的购买记录"
+            errorMessage = purchaseOwnershipMessage ?? "未找到可恢复的购买记录"
         } catch is CancellationError {
             return false
         } catch {

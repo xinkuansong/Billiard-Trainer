@@ -1,0 +1,10 @@
+[Unit]
+Description=Check CuePhys off-host backup acknowledgements
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/cuephys-backup/exchange.py watchdog
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/cuephys-backup

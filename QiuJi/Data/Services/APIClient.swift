@@ -24,7 +24,7 @@ struct Endpoint {
 }
 
 struct EmptyResponse: Decodable {}
-struct APIErrorBody: Decodable { let message: String }
+struct APIErrorBody: Decodable { let message: String; let code: String? }
 
 protocol APITokenStore: Sendable {
     func load(_ key: KeychainService.Key) -> String?
@@ -76,14 +76,20 @@ enum APIDateCoding {
 
 final class APIClient: Sendable {
     static let shared = APIClient()
+    // A sync operation's opt-in follows child calls, including an automatic 401 retry.
+    @TaskLocal static var syncIsCurrent: (@MainActor @Sendable () -> Bool)?
 
-    private let baseURL: URL
+    private func checkSyncConsent() async throws {
+        if let isCurrent = Self.syncIsCurrent, !(await isCurrent()) { throw CancellationError() }
+    }
+
+    private let baseURL: URL?
     private let session: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let tokenStore: any APITokenStore
 
-    init(baseURL: URL = AppConfig.apiBaseURL,
+    init(baseURL: URL? = AppConfig.apiBaseURL,
          session: URLSession = .shared,
          tokenStore: any APITokenStore = KeychainAPITokenStore()) {
         self.baseURL = baseURL
@@ -124,6 +130,20 @@ final class APIClient: Sendable {
             throw URLError(.notConnectedToInternet)
         }
         #endif
+        if ["/auth/login-apple", "/auth/login-wechat", "/auth/bind-apple", "/auth/bind-wechat"].contains(endpoint.path) {
+            var request = try buildRequest(endpoint)
+            guard request.url?.scheme?.lowercased() == "https" else {
+                throw AppError.networkError("授权需要加密连接，请检查服务器网址")
+            }
+            if endpoint.path.hasPrefix("/auth/bind-") {
+                guard endpoint.expectedAccountID != nil else { throw AppError.authRequired }
+                try authorize(&request, expectedAccountID: endpoint.expectedAccountID)
+            }
+            // A single-use authorization code must not be forwarded by a redirect or retried after a 401.
+            let (data, response) = try await session.data(for: request, delegate: APIRedirectDelegate())
+            return try validatedData(data, response)
+        }
+        try await checkSyncConsent()
         let requestRefreshToken = tokenStore.load(.refreshToken)
         var request = try buildRequest(endpoint, rawBody: rawBody, contentType: contentType)
         try authorize(&request, expectedAccountID: endpoint.expectedAccountID)
@@ -132,6 +152,7 @@ final class APIClient: Sendable {
         if let http = response as? HTTPURLResponse, http.statusCode == 401 {
             // A background request may finish after a new interactive login.
             guard tokenStore.load(.refreshToken) == requestRefreshToken else { throw CancellationError() }
+            try await checkSyncConsent()
             guard try await refreshToken() else {
                 let invalidated = await MainActor.run {
                     guard tokenStore.load(.refreshToken) == requestRefreshToken else { return false }
@@ -141,6 +162,7 @@ final class APIClient: Sendable {
                 guard invalidated else { throw CancellationError() }
                 throw AppError.authRequired
             }
+            try await checkSyncConsent()
             var retry = try buildRequest(endpoint, rawBody: rawBody, contentType: contentType)
             try authorize(&retry, expectedAccountID: endpoint.expectedAccountID)
             let (retryData, retryResponse) = try await perform(retry)
@@ -156,7 +178,10 @@ final class APIClient: Sendable {
         rawBody: Data? = nil,
         contentType: String? = nil
     ) throws -> URLRequest {
-        var components = URLComponents(url: baseURL.appendingPathComponent(endpoint.path), resolvingAgainstBaseURL: false)!
+        guard let baseURL,
+              var components = URLComponents(url: baseURL.appendingPathComponent(endpoint.path), resolvingAgainstBaseURL: false) else {
+            throw AppError.networkError("云服务地址尚未正确配置")
+        }
         if !endpoint.queryItems.isEmpty {
             components.queryItems = endpoint.queryItems
         }
@@ -164,6 +189,7 @@ final class APIClient: Sendable {
             throw AppError.networkError("Invalid URL")
         }
         var req = URLRequest(url: url)
+        if endpoint.expectedAccountID != nil { req.cachePolicy = .reloadIgnoringLocalCacheData }
         req.httpMethod = endpoint.method.rawValue
         req.setValue(contentType ?? "application/json", forHTTPHeaderField: "Content-Type")
         req.timeoutInterval = 30
@@ -190,18 +216,26 @@ final class APIClient: Sendable {
     }
 
     static func subject(of token: String) -> String? {
+        claims(of: token)?["sub"] as? String
+    }
+
+    static func hasAgeDeclaration(_ token: String) -> Bool {
+        claims(of: token)?["age14"] as? Bool == true
+    }
+
+    private static func claims(of token: String) -> [String: Any]? {
         let pieces = token.split(separator: ".")
         guard pieces.count == 3 else { return nil }
         var payload = String(pieces[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
         payload += String(repeating: "=", count: (4 - payload.count % 4) % 4)
         guard let data = Data(base64Encoded: payload) else { return nil }
-        do { return (try JSONSerialization.jsonObject(with: data) as? [String: Any])?["sub"] as? String }
+        do { return try JSONSerialization.jsonObject(with: data) as? [String: Any] }
         catch { return nil }
     }
 
     private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
-            return try await session.data(for: request)
+            return try await session.data(for: request, delegate: APIRedirectDelegate())
         } catch {
             throw AppError.networkError("网络连接失败，请检查网络后重试")
         }
@@ -213,6 +247,10 @@ final class APIClient: Sendable {
         }
         guard (200..<300).contains(http.statusCode) else {
             let errBody = try? decoder.decode(APIErrorBody.self, from: data)
+            if http.statusCode == 409 {
+                if errBody?.code == "IDENTITY_NOT_REGISTERED" { throw AccountIdentityError.unregistered }
+                if errBody?.code == "IDENTITY_CONFLICT" { throw AccountIdentityError.conflict }
+            }
             throw AppError.serverError(
                 statusCode: http.statusCode,
                 message: errBody?.message ?? "服务器错误 (\(http.statusCode))"
@@ -254,5 +292,13 @@ private struct AnyEncodable: Encodable {
     }
     func encode(to encoder: Encoder) throws {
         try _encode(encoder)
+    }
+}
+
+private final class APIRedirectDelegate: NSObject, URLSessionTaskDelegate {
+    func urlSession(_ session: URLSession, task: URLSessionTask,
+                    willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
+                    completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(nil)
     }
 }

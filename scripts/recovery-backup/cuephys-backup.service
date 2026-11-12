@@ -1,0 +1,16 @@
+[Unit]
+Description=CuePhys encrypted backup producer
+After=mongod.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/cuephys-backup/produce.py
+UMask=0077
+Nice=10
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+InaccessiblePaths=/opt/qiuji-backend/.env /etc/mongodb-keyfile
+ReadWritePaths=/var/lib/cuephys-backup
+TimeoutStartSec=10min

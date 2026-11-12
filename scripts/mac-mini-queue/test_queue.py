@@ -110,6 +110,27 @@ class QueueTests(unittest.TestCase):
         self.assertNotIn('Config/Secrets.xcconfig', q.verify(p)['files'])
         self.assertNotIn('QiuJi/Resources/Previews/large.png', q.verify(p)['files'])
 
+    def test_local_package_sources_and_artifacts_survive_snapshot_without_caches(self):
+        files = {
+            'Packages/CuePhysWeChat/Package.swift': b'package manifest',
+            'Packages/CuePhysWeChat/Sources/Bridge.swift': b'bridge source',
+            'Packages/CuePhysWeChat/Artifacts/SDK.xcframework.zip': b'local binary artifact',
+            'Packages/CuePhysWeChat/.build/cache': b'not source',
+            'Packages/CuePhysWeChat/.swiftpm/configuration': b'local settings',
+            'Packages/CuePhysWeChat/.env': b'secret',
+        }
+        for name, data in files.items():
+            path = self.repo / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        bundle = self.snap(dirty=True, quiescent=True)
+        manifest = q.verify(bundle)['files']
+        for name in list(files)[:3]:
+            self.assertIn(name, manifest)
+            self.assertEqual((bundle / 'source' / name).read_bytes(), files[name])
+        for name in list(files)[3:]:
+            self.assertNotIn(name, manifest)
+
     def test_changed_snapshot_is_rejected(self):
         p = self.snap()
         f = p / 'source/QiuJi/value.swift'; f.chmod(0o644); f.write_text('changed')

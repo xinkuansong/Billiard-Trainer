@@ -112,7 +112,7 @@ struct TrainingReminderView: View {
             authorization = .denied
             TrainingReminderScheduler.shared.disable()
             prefs.persistReminder(enabled: false)
-            error = "请在系统设置中允许球迹发送通知，然后返回保存。"
+            error = "请在系统设置中允许 \(AppMetadata.displayName) 发送通知，然后返回保存。"
         case .failed(let message): error = message
         }
     }

@@ -35,6 +35,7 @@ function createApp(overrides = {}) {
   // 503 until every production fact below is configured and publishing is enabled.
   app.get(["/privacy", "/privacy/"], createLegalDocumentHandler("privacy", publicDir, legal));
   app.get(["/terms", "/terms/"], createLegalDocumentHandler("terms", publicDir, legal));
+  app.get(["/support", "/support/"], createLegalDocumentHandler("support", publicDir, legal));
   app.get("/legal.css", (_req, res, next) => {
     if (!legal.published) return res.status(404).end();
     return res.sendFile(path.join(publicDir, "legal.css"), (error) => {
@@ -44,6 +45,11 @@ function createApp(overrides = {}) {
 
   app.use("/auth", authRoutes);
   app.use("/user", userRoutes);
+  // Training histories are account-specific even when different users request the same URL.
+  app.use(["/training-sessions", "/angle-tests", "/custom-formations"], (_req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+  });
   app.use("/training-sessions", trainingSessionRoutes);
   app.use("/angle-tests", angleTestRoutes);
   app.use("/custom-formations", require("./routes/customFormation"));

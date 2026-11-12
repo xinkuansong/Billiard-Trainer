@@ -1,5 +1,7 @@
 # v47 W0 测试写盘盘点
 
+2026-11-11 游客训练同步隔离测试（`TrainingSyncPrivacyIntegrationTests.swift`）使用每次生成的 UUID 命名临时球形目录和独立 UserDefaults 域，SwiftData 使用内存容器。用例退出时清除该域并尝试移除该目录；进程异常退出或移除失败时，临时文件可能残留在测试沙盒。测试读取显式指定的 fixture，仅向本机回环测试服务发送请求。
+
 2026-10-14 特写手势回归：登记 `ATeachingStandardsUITests.swift`，新增 `FileHandle.standardOutput.write` 只向测试进程标准输出发送 `CLOSEUP_HOLD` 时序标记，不直接写文件或素材。XCTest截图仍为附件；B10/run-review.py消费日志标记，在独立设备真实持触期间用simctl截图至本轮B10叶子，叶子mkdir拒绝复用；截图/日志/xcresult均保留，无自动删除，不写正式资源或存档。清理由本任务负责。
 
 2026-10-06 每日面板补充：`DailyAdaptivePanelUITests.swift`只消费调用方显式注入的本批 `DAILY_ADAPTIVITY_DIR`/`TEST_RUNNER_DAILY_ADAPTIVITY_DIR`，缺省失败。方法独立目录，入口截图加入launch序号/fixture避免同方法多次启动覆盖；原PNG、完整AX、状态/目标测量JSON、manifest及xcresult附件为测试证据。调用器新叶子exist_ok=false，失败不覆盖；字号由专用模拟器实际设定并读回，结束恢复large。测试只对该专用设备resetState/fixture与本地偏好做操作，不写内容资源/设计golden/用户真机；不自动删除证据。历史失效采集按原目录保留，不能将旧入口同名覆盖计为多个独立画面。

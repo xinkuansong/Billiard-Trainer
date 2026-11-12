@@ -31,7 +31,7 @@ test("publishing fails closed when a production fact is missing", () => {
   );
 });
 
-test("configured privacy and terms pages are bilingual and contain no template tokens", async () => {
+test("configured privacy, terms and support pages are bilingual and contain no template tokens", async () => {
   const legal = {
     published: validLegal.legalDocumentsPublished,
     operatorName: validLegal.legalOperatorName,
@@ -41,7 +41,7 @@ test("configured privacy and terms pages are bilingual and contain no template t
     dataRegion: validLegal.legalDataRegion,
     backupRetentionDays: validLegal.legalBackupRetentionDays,
   };
-  for (const kind of ["privacy", "terms"]) {
+  for (const kind of ["privacy", "terms", "support"]) {
     const body = await renderLegalDocument(kind, publicDir, legal);
     assert.match(body, /测试运营主体 &amp; Co\./);
     assert.match(body, /中文/);

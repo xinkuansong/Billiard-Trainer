@@ -199,8 +199,12 @@ final class CustomFormationTests: XCTestCase {
                 XCTAssertEqual(cue.x, 0, accuracy: 1e-6)
                 XCTAssertEqual(cue.z, 0, accuracy: 1e-6)
             }
-            let balls = try layout.ballKeys.map { key in
-                (key: key, position: try XCTUnwrap(vm.scene.allBallNodes[key]).position)
+            // Separate throwing node extraction from tuple construction to avoid
+            // an Xcode 26.2 type-checker recursion in the combined map closure.
+            var balls: [(key: String, position: SCNVector3)] = []
+            for key in layout.ballKeys {
+                let node = try XCTUnwrap(vm.scene.allBallNodes[key])
+                balls.append((key: key, position: node.position))
             }
             let candidates = balls.flatMap { ball in
                 (0..<6).compactMap { pocket in

@@ -1,0 +1,161 @@
+{
+  "testedAt": "2026-11-10T06:01:59.914Z",
+  "checkpoints": {
+    "guest": {
+      "requests": [],
+      "cloud": []
+    },
+    "offA": {
+      "requests": [],
+      "cloud": []
+    },
+    "offB": {
+      "requests": [],
+      "cloud": []
+    },
+    "beforeDecline": {
+      "requests": [],
+      "cloud": []
+    },
+    "decline": {
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/training-sessions",
+          "account": "A",
+          "status": 201,
+          "cache": "no-store"
+        },
+        {
+          "method": "GET",
+          "path": "/training-sessions",
+          "account": "A",
+          "status": 200,
+          "cache": "no-store"
+        },
+        {
+          "method": "GET",
+          "path": "/angle-tests",
+          "account": "A",
+          "status": 200,
+          "cache": "no-store"
+        },
+        {
+          "method": "GET",
+          "path": "/custom-formations",
+          "account": "A",
+          "status": 200,
+          "cache": "no-store"
+        }
+      ],
+      "cloud": [
+        "A:account-a"
+      ]
+    },
+    "disabled": {
+      "requests": [],
+      "cloud": [
+        "A:account-a"
+      ]
+    },
+    "beforeAccept": {
+      "requests": [],
+      "cloud": [
+        "A:account-a"
+      ]
+    },
+    "accept": {
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/training-sessions",
+          "account": "A",
+          "status": 201,
+          "cache": "no-store"
+        },
+        {
+          "method": "POST",
+          "path": "/training-sessions",
+          "account": "A",
+          "status": 201,
+          "cache": "no-store"
+        },
+        {
+          "method": "GET",
+          "path": "/training-sessions",
+          "account": "A",
+          "status": 200,
+          "cache": "no-store"
+        },
+        {
+          "method": "GET",
+          "path": "/angle-tests",
+          "account": "A",
+          "status": 200,
+          "cache": "no-store"
+        },
+        {
+          "method": "GET",
+          "path": "/custom-formations",
+          "account": "A",
+          "status": 200,
+          "cache": "no-store"
+        }
+      ],
+      "cloud": [
+        "A:account-a",
+        "A:deferred-a",
+        "A:guest"
+      ]
+    },
+    "syncB": {
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/training-sessions",
+          "account": "B",
+          "status": 201,
+          "cache": "no-store"
+        },
+        {
+          "method": "GET",
+          "path": "/training-sessions",
+          "account": "B",
+          "status": 200,
+          "cache": "no-store"
+        },
+        {
+          "method": "GET",
+          "path": "/angle-tests",
+          "account": "B",
+          "status": 200,
+          "cache": "no-store"
+        },
+        {
+          "method": "GET",
+          "path": "/custom-formations",
+          "account": "B",
+          "status": 200,
+          "cache": "no-store"
+        }
+      ],
+      "cloud": [
+        "A:account-a",
+        "A:deferred-a",
+        "A:guest",
+        "B:account-b",
+        "B:cloud-b"
+      ]
+    },
+    "offAgain": {
+      "requests": [],
+      "cloud": [
+        "A:account-a",
+        "A:deferred-a",
+        "A:guest",
+        "B:account-b",
+        "B:cloud-b"
+      ]
+    }
+  }
+}

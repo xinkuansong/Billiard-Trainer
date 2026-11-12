@@ -15,6 +15,7 @@ test("serializeUser always exposes the public DTO shape and string id", () => {
       displayName: "小王",
       email: null,
       provider: "apple",
+      linkedProviders: [],
       avatarRevision: null,
       preferredSport: null,
       skillLevel: null,
@@ -71,8 +72,8 @@ test("birthday rejects impossible, noncanonical and future dates", () => {
     assert.throws(() => validateProfileUpdate({ birthDate }), /有效生日/);
   }
   assert.throws(() => validateProfileUpdate({ gender: "unspecified" }), /性别/);
-  assert.deepEqual(validateProfileUpdate({ birthDate: new Date(Date.now() + 14 * 3600000).toISOString().slice(0, 10) }),
-    { birthDate: new Date(Date.now() + 14 * 3600000).toISOString().slice(0, 10) });
+  assert.throws(() => validateProfileUpdate({ birthDate: new Date().toISOString().slice(0, 10) }),
+    error => error.status === 403);
 });
 
 

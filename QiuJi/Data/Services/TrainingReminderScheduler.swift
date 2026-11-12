@@ -50,7 +50,7 @@ final class SystemTrainingReminderCenter: TrainingReminderCenter {
         let previous = await center.pendingNotificationRequests().filter { Self.identifiers.contains($0.identifier) }
         let content = UNMutableNotificationContent()
         content.title = "今天练一会儿球吧"
-        content.body = "打开球迹，继续完成你的每周训练目标。"
+        content.body = "打开 \(AppMetadata.displayName)，继续完成你的每周训练目标。"
         content.sound = .default
         do {
             for weekday in weekdays.sorted() {

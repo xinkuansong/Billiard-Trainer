@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 翻袋解球 — 2D 顶视图。把母球、目标球放到任意位置，点选要翻进的袋口，
+/// 翻袋 — 2D 顶视图。把母球、目标球放到任意位置，点选要翻进的袋口，
 /// 真实物理引擎反解目标球经 1/2/3 库翻库进袋的路线，并反推母球瞄准线 / 假想球 / 接触点。
 ///
 /// 版面由 `SolverStageChrome` 装配（W5/C18）：顶行模式+库数 chip；右缘力度柱
@@ -13,10 +13,10 @@ struct BankShotView: View {
     var body: some View {
         SolverStageChrome(
             vm: vm,
-            title: "翻袋解球",
+            title: "翻袋",
             coordinateSpaceName: "bankshot", preferencePage: .bankShot,
             onPocketTapped: { vm.selectPocket($0) },
-            infoTitle: "翻袋解球原理",
+            infoTitle: "翻袋原理",
             infoBlocks: Self.infoBlocks
         )
         .trainingBackgroundMusic()
@@ -25,7 +25,7 @@ struct BankShotView: View {
     private static let infoBlocks: [PrincipleBlock] = [
         PrincipleBlock(
             title: "这是什么",
-            body: "翻袋解球（bank shot）：把母球和目标球放到台面任意位置，再选定一个想翻进的袋口，用真实物理引擎反解目标球经 1 库、2 库、3 库翻库后落袋的路线，并反推母球该如何瞄准。"
+            body: "翻袋（bank shot）：把母球和目标球放到台面任意位置，再选定一个想翻进的袋口，用真实物理引擎反解目标球经 1 库、2 库、3 库翻库后落袋的路线，并反推母球该如何瞄准。"
         ),
         PrincipleBlock(
             title: "进球线与碰库",

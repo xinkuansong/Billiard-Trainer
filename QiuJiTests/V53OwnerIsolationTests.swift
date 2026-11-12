@@ -165,17 +165,17 @@ final class V53OwnerIsolationTests: XCTestCase {
 
 private actor V53RecordingSyncBackend: SyncBackend {
     private(set) var uploadedSessionIDs: [String] = []
-    func uploadSession(_ dto: TrainingSessionDTO) async throws {
+    func uploadSession(_ dto: TrainingSessionDTO, accountID: String) async throws {
         uploadedSessionIDs.append(dto.clientId)
     }
-    func uploadAngleTest(_ dto: AngleTestDTO) async throws {}
-    func deleteSession(clientId: String) async throws {}
+    func uploadAngleTest(_ dto: AngleTestDTO, accountID: String) async throws {}
+    func deleteSession(clientId: String, accountID: String) async throws {}
 }
 
 private struct V53RestoreBackend: SyncRestoreBackend {
     let records: [SyncedRecord<TrainingSessionDTO>]
-    func fetchSessions(after: Date?) async throws -> [SyncedRecord<TrainingSessionDTO>] { records }
-    func fetchAngleTests(after: Date?) async throws -> [SyncedRecord<AngleTestDTO>] { [] }
+    func fetchSessions(after: Date?, accountID: String) async throws -> [SyncedRecord<TrainingSessionDTO>] { records }
+    func fetchAngleTests(after: Date?, accountID: String) async throws -> [SyncedRecord<AngleTestDTO>] { [] }
 }
 
 final class V53OwnerMigrationTests: XCTestCase {

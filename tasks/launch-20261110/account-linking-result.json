@@ -1,0 +1,39 @@
+{
+  "testedAt": "2026-11-10T04:23:16.193Z",
+  "scope": "isolated MongoDB + production HTTP routes + simulated Apple/WeChat responses",
+  "apple-first": {
+    "unchangedAccount": true,
+    "unchangedTrainingAndFormations": true,
+    "editVisibleThroughOriginalLogin": true,
+    "repeatBinding": 200,
+    "loggedOutBinding": 401
+  },
+  "wechat-first": {
+    "unchangedAccount": true,
+    "unchangedTrainingAndFormations": true,
+    "editVisibleThroughOriginalLogin": true,
+    "repeatBinding": 200,
+    "loggedOutBinding": 401
+  },
+  "twoPopulatedAccounts": {
+    "bothDirections": 409,
+    "originalUsersAndRecordsUnchanged": true
+  },
+  "racingBindings": {
+    "oneOwner": true,
+    "statuses": [
+      200,
+      409
+    ]
+  },
+  "invalidEvidence": {
+    "clientOpenID": 400,
+    "wrongAppleAudience": 401,
+    "otherAccountRefresh": 401,
+    "replayedWeChatCode": 401
+  },
+  "deletionPendingBlocked": true,
+  "legacyAppleClientPreserved": true,
+  "logoutDuringExchangeBlocked": true,
+  "wechatOriginDeletionRevokedLinkedAppleAndClearedBothIdentities": true
+}

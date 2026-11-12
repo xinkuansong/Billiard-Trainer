@@ -12,6 +12,7 @@ struct AppUser: Equatable, Sendable {
     let provider: AuthProvider
     var displayName: String?
     var email: String?
+    var linkedProviders: [AuthProvider]
     var phoneNumber: String?
     var avatarRevision: Int?
     var preferredSport: String?
@@ -37,6 +38,7 @@ struct AppUser: Equatable, Sendable {
     ) {
         self.id = id
         self.provider = provider
+        self.linkedProviders = [provider]
         self.displayName = displayName
         self.email = email
         self.phoneNumber = phoneNumber
@@ -63,6 +65,7 @@ struct AppUser: Equatable, Sendable {
             gender: dto.gender,
             birthDate: dto.birthDate
         )
+        if let links = dto.linkedProviders { linkedProviders = links.compactMap(AuthProvider.init(rawValue:)) }
     }
 }
 
@@ -85,6 +88,7 @@ extension BackendSyncService: AuthSessionBackend {}
 
 protocol AuthCredentialStore: Sendable {
     var hasRefreshToken: Bool { get }
+    var hasAgeDeclaration: Bool { get }
     var trustedLocalAccount: LocalAccountIdentity? { get }
     func saveTrustedLocalAccount(_ identity: LocalAccountIdentity)
     func clearAll()
@@ -97,11 +101,13 @@ struct LocalAccountIdentity: Codable, Equatable, Sendable {
 }
 
 extension AuthCredentialStore {
+    var hasAgeDeclaration: Bool { false }
     var trustedLocalAccount: LocalAccountIdentity? { nil }
     func saveTrustedLocalAccount(_ identity: LocalAccountIdentity) {}
 }
 
 struct KeychainAuthCredentialStore: AuthCredentialStore {
+    var hasAgeDeclaration: Bool { KeychainService.load(key: .refreshToken).map(APIClient.hasAgeDeclaration) == true }
     var hasRefreshToken: Bool { KeychainService.load(key: .refreshToken) != nil }
     var trustedLocalAccount: LocalAccountIdentity? {
         guard let value = KeychainService.load(key: .trustedLocalAccount) else { return nil }
@@ -132,8 +138,55 @@ final class AuthState: ObservableObject {
     @Published private(set) var initialProfileImportError: String?
     private var profileImportTask: Task<Void, Never>?
     private let profileImportBackend: any InitialProfileImportBackend
-    private var sessionGeneration: UInt = 0
+    private(set) var sessionGeneration: UInt = 0
     private(set) var syncChoiceRevision: UInt = 0
+
+    static let localTrainingMessage = "你可以继续本机训练。未满 14 周岁暂不开放登录、云同步和购买。"
+    static func localOnlyDayKey(in defaults: UserDefaults) -> String {
+        "profile.localTrainingDay." + DeviceGuestIdentity.ownerKey(in: defaults)
+    }
+
+    // Calendar dates use the same mainland launch timezone as the service.
+    static func beijingDay(_ now: Date = .now) -> String {
+        let calendar = Calendar(identifier: .gregorian)
+        let parts = calendar.dateComponents(in: TimeZone(identifier: "Asia/Shanghai")!, from: now)
+        return String(format: "%04d-%02d-%02d", parts.year!, parts.month!, parts.day!)
+    }
+
+    static func requiresLocalTraining(birthday: String?, now: Date = .now) -> Bool {
+        guard let birthday else { return false }
+        let today = beijingDay(now)
+        let cutoff = String((Int(today.prefix(4)) ?? 0) - 14) + today.dropFirst(4)
+        return birthday > cutoff
+    }
+
+    var localTrainingOnly: Bool {
+        if defaults.string(forKey: Self.localOnlyDayKey(in: defaults)) == Self.beijingDay() { return true }
+        let guest = DeviceGuestIdentity.ownerKey(in: defaults)
+        var owners = [guest]
+        if let account = credentials.trustedLocalAccount { owners.append(OwnerKey.account(account.userID)) }
+        return owners.contains { owner in
+            Self.requiresLocalTraining(birthday: defaults.string(forKey: "ownerProfile.\(owner).birthDate"))
+        }
+    }
+
+    var hasEligibleGuestAgeAnswer: Bool {
+        canImportGuestData && !localTrainingOnly && GuestAgeAnswer.eligibleBand(in: defaults) != nil
+    }
+
+    private var guestLocalOnlyKey: String { "localTrainingOnly." + DeviceGuestIdentity.ownerKey(in: defaults) }
+    var canImportGuestData: Bool { !defaults.bool(forKey: guestLocalOnlyKey) }
+
+    func keepGuestDataLocal() {
+        defaults.set(true, forKey: guestLocalOnlyKey)
+    }
+
+    func chooseLocalTrainingForAge() {
+        keepGuestDataLocal()
+        GuestAgeAnswer.clear(in: defaults)
+        defaults.set(Self.beijingDay(), forKey: Self.localOnlyDayKey(in: defaults))
+        loginAnonymously()
+    }
 
     private func syncPreferenceKey(_ userID: String) -> String { "account.cloudSync.enabled.\(userID)" }
 
@@ -181,7 +234,7 @@ final class AuthState: ObservableObject {
         default: return false
         }
     }
-    var displayNameOrDefault: String { currentUser?.displayName ?? "球迹用户" }
+    var displayNameOrDefault: String { currentUser?.displayName ?? AppMetadata.defaultUserName }
 
     private static let onboardingKey = "hasCompletedOnboarding"
     private let backend: any AuthSessionBackend
@@ -270,16 +323,25 @@ final class AuthState: ObservableObject {
         }
         #endif
 
+        if localTrainingOnly { keepGuestDataLocal() }
         guard credentials.hasRefreshToken else {
             ownerContext.useGuest()
             phase = hasCompletedOnboarding ? .guest(makeGuestUser()) : .signedOut
             return
         }
 
+        guard credentials.hasAgeDeclaration, !localTrainingOnly else {
+            if localTrainingOnly { chooseLocalTrainingForAge() } else { loginAnonymously() }
+            return
+        }
         phase = .restoring
         do {
             let user = AppUser(dto: try await backend.fetchProfile())
             guard operation == sessionGeneration else { return }
+            if Self.requiresLocalTraining(birthday: user.birthDate) || localTrainingOnly {
+                chooseLocalTrainingForAge()
+                return
+            }
             guard user.provider != .anonymous else {
                 credentials.clearAll()
                 ownerContext.useGuest()
@@ -328,6 +390,10 @@ final class AuthState: ObservableObject {
     func login(user: AppUser) {
         sessionGeneration &+= 1
         resetInitialProfileImport()
+        if localTrainingOnly || Self.requiresLocalTraining(birthday: user.birthDate) {
+            chooseLocalTrainingForAge()
+            return
+        }
         guard user.provider != .anonymous else {
             loginAnonymously()
             return
@@ -386,6 +452,9 @@ final class AuthState: ObservableObject {
     /// Account deletion already performed its server mutation; W3 inserts the owner-transfer
     /// transaction immediately before this final local session cleanup.
     func finishAccountDeletion() {
+        if let id = currentUser?.id, GuestAgeAnswer.eligibleBand(in: defaults, account: id) != nil {
+            GuestAgeAnswer.clear(in: defaults)
+        }
         clearLocalSession()
     }
 
@@ -442,6 +511,8 @@ final class AuthState: ObservableObject {
     }
 
     private func prepareInitialProfileImport(for user: AppUser) {
+        guard canImportGuestData else { return }
+        GuestAgeAnswer.assign(to: user.id, in: defaults)
         initialProfileImport = InitialProfileImport.proposal(for: user, defaults: defaults)
         retryPendingInitialProfileImport()
     }
@@ -481,6 +552,7 @@ final class AuthState: ObservableObject {
             if merged.birthDate == original.birthDate { merged.birthDate = dto.birthDate }
             replaceAuthenticatedUser(merged)
             OwnerProfileStore(ownerKey: OwnerKey.account(dto.id), defaults: defaults).load(from: currentUser)
+            if proposal.fields["ageBand"] != nil { GuestAgeAnswer.clear(in: defaults) }
             defaults.set(true, forKey: proposal.completionKey)
             initialProfileImport = nil
         } catch {
@@ -541,15 +613,15 @@ struct SyncRepairUITestBackend: AuthSessionBackend, SyncBackend, SyncRestoreBack
     }
     func fetchProfile() async throws -> UserDTO { throw AppError.authRequired }
     func logout() async {}
-    func uploadSession(_ dto: TrainingSessionDTO) async throws {}
-    func uploadAngleTest(_ dto: AngleTestDTO) async throws {}
-    func deleteSession(clientId: String) async throws {}
-    func fetchSessions(after: Date?) async throws -> [SyncedRecord<TrainingSessionDTO>] {
+    func uploadSession(_ dto: TrainingSessionDTO, accountID: String) async throws {}
+    func uploadAngleTest(_ dto: AngleTestDTO, accountID: String) async throws {}
+    func deleteSession(clientId: String, accountID: String) async throws {}
+    func fetchSessions(after: Date?, accountID: String) async throws -> [SyncedRecord<TrainingSessionDTO>] {
         if ProcessInfo.processInfo.arguments.contains("-syncRepair.restoreFailure") {
             throw AppError.networkError("UI fixture offline")
         }
         return sessions
     }
-    func fetchAngleTests(after: Date?) async throws -> [SyncedRecord<AngleTestDTO>] { [] }
+    func fetchAngleTests(after: Date?, accountID: String) async throws -> [SyncedRecord<AngleTestDTO>] { [] }
 }
 #endif

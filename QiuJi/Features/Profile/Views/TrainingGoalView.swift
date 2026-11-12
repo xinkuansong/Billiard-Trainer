@@ -114,7 +114,7 @@ struct TrainingGoalView: View {
         )) {
             Button("知道了", role: .cancel) { reminderError = nil }
         } message: {
-            Text(reminderError ?? "请在系统设置中允许球迹发送通知。")
+            Text(reminderError ?? "请在系统设置中允许 \(AppMetadata.displayName) 发送通知。")
         }
     }
 

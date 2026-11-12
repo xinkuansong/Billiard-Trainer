@@ -6,7 +6,12 @@ struct LoginView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var authState: AuthState
-    @State private var isAppleSignInLoading = false
+    @State private var activeMethod: MobileLoginMethod?
+    @State private var confirmingAge = false
+    @State private var requestedMethod: MobileLoginMethod?
+    @State private var age14Confirmed = false
+    @State private var newIdentity: MobileLoginMethod?
+    @State private var operation: Task<Void, Never>?
     @State private var errorMessage: String?
 
 
@@ -41,7 +46,13 @@ struct LoginView: View {
                         .padding(.bottom, Spacing.md)
                 }
 
-                loginButtons
+                if authState.localTrainingOnly {
+                    Text(AuthState.localTrainingMessage)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Spacing.xxl)
+                } else {
+                    loginButtons
+                }
 
                 Spacer(minLength: Spacing.lg)
 
@@ -51,11 +62,34 @@ struct LoginView: View {
                 }
                 .font(.btCallout)
                 .foregroundStyle(.btTextSecondary)
+                .disabled(activeMethod != nil)
                 .padding(.bottom, Spacing.xxl)
 
                 legalFooter
                     .padding(.bottom, Spacing.xxxl)
             }
+        }
+        .onDisappear { operation?.cancel() }
+        .confirmationDialog("你是否已满 14 周岁？", isPresented: $confirmingAge, titleVisibility: .visible) {
+            Button("已满 14 周岁") {
+                age14Confirmed = true
+                if let requestedMethod { signIn(requestedMethod) }
+            }
+            Button("不满 14 周岁，继续本机训练") {
+                authState.chooseLocalTrainingForAge()
+                dismiss()
+            }
+            Button("暂不回答，继续本机训练", role: .cancel) {
+                authState.loginAnonymously()
+                dismiss()
+            }
+        }
+        .alert(item: $newIdentity) { method in
+            let other: MobileLoginMethod = method == .apple ? .wechat : .apple
+            return Alert(title: Text("尚未关联 CuePhys 账号"),
+                         message: Text("已有账号请用原方式登录，再到设置的“账号安全”绑定\(method.title)。首次使用可以创建账号。"),
+                         primaryButton: .default(Text("创建新账号")) { signIn(method, create: true) },
+                         secondaryButton: .cancel(Text(other.available ? "返回选择登录方式" : "返回")))
         }
     }
 
@@ -66,7 +100,7 @@ struct LoginView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: Spacing.sm) {
                     BTBrandLogo(size: 34, style: .onDisc)
-                    Text("球迹 · QIUJI")
+                    Text(AppMetadata.displayName)
                         .font(.btSubheadlineSemibold)
                 }
                 Spacer()
@@ -78,7 +112,7 @@ struct LoginView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg, style: .continuous))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("球迹，球路计算、训练记录与数据复盘")
+        .accessibilityLabel("\(AppMetadata.displayName)，球路计算、训练记录与数据复盘")
     }
 
     @ViewBuilder
@@ -109,10 +143,10 @@ struct LoginView: View {
     private var loginButtons: some View {
         VStack(spacing: Spacing.md) {
             Button {
-                signInWithApple()
+                signIn(.apple)
             } label: {
                 HStack(spacing: Spacing.sm) {
-                    if isAppleSignInLoading {
+                    if activeMethod == .apple {
                         ProgressView()
                             .tint(colorScheme == .dark ? .black : .white)
                     } else {
@@ -129,35 +163,54 @@ struct LoginView: View {
             }
             // F-PF-04: keep plain tint semantics (FL-004/008); add scale via BTPressableStyle.
             .buttonStyle(BTPressableStyle.capsule)
-            .disabled(isAppleSignInLoading)
+            .disabled(activeMethod != nil)
 
-            Text("微信与手机号登录暂未开放")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            if MobileLoginMethod.wechat.available {
+                Button {
+                    signIn(.wechat)
+                } label: {
+                    HStack {
+                        if activeMethod == .wechat { ProgressView() }
+                        Text("通过微信登录")
+                    }
+                    .font(.btHeadline)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                }
+                .buttonStyle(.bordered)
+                .disabled(activeMethod != nil)
+                .accessibilityIdentifier("login.wechat")
+                if activeMethod == .wechat { Button("取消授权") { operation?.cancel() } }
+            }
         }
         .padding(.horizontal, Spacing.xxl)
     }
 
     // MARK: - Sign in with Apple
 
-    private func signInWithApple() {
-        guard !isAppleSignInLoading else { return }
-        isAppleSignInLoading = true
+    private func signIn(_ method: MobileLoginMethod, create: Bool = false) {
+        guard activeMethod == nil, !authState.localTrainingOnly else { return }
+        let confirmed = age14Confirmed || authState.hasEligibleGuestAgeAnswer
+        guard confirmed else {
+            requestedMethod = method
+            confirmingAge = true
+            return
+        }
+        activeMethod = method
         errorMessage = nil
-        Task {
-            defer { isAppleSignInLoading = false }
+        operation = Task { @MainActor in
+            defer { activeMethod = nil; operation = nil }
             do {
-                let user = try await AuthService.shared.loginWithApple()
+                let user = try await AuthService.shared.signIn(method, create: create, age14Confirmed: confirmed, state: authState)
                 if let onAuthenticated { onAuthenticated(user) }
                 else { authState.login(user: user) }
                 dismiss()
-            } catch let error as AppError {
-                if case .authFailed(let msg) = error, msg == "已取消 Apple 登录" {
-                    return
-                }
-                errorMessage = error.localizedDescription
+            } catch is CancellationError {
+                return
+            } catch AccountIdentityError.unregistered {
+                newIdentity = method
             } catch {
-                errorMessage = "Apple 登录失败，请重试"
+                errorMessage = error.localizedDescription
             }
         }
     }
@@ -175,7 +228,7 @@ struct ProfileBrandTrainingHero: View {
             switch self {
             case .route: return "球路计算"
             case .review: return "训练复盘"
-            case .identity: return "球迹 · QIUJI"
+            case .identity: return AppMetadata.displayName
             }
         }
 
@@ -191,7 +244,7 @@ struct ProfileBrandTrainingHero: View {
             switch self {
             case .route: return "球路计算示意"
             case .review: return "训练复盘示意"
-            case .identity: return "球迹，球路计算、训练记录与数据复盘"
+            case .identity: return "\(AppMetadata.displayName)，球路计算、训练记录与数据复盘"
             }
         }
     }

@@ -11,6 +11,24 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         sleep(3)
     }
 
+    func testUnder14ChoiceReturnsToGuestTraining() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-auth.deviceGuestID", UUID().uuidString, "-v50.inMemoryStore"])
+        app.switchTab(.profile)
+        app.buttons["profile.login"].tap()
+        app.buttons["通过 Apple 登录"].tap()
+        let child = app.buttons["不满 14 周岁，继续本机训练"]
+        XCTAssertTrue(child.waitForExistence(timeout: 5))
+        child.tap()
+        XCTAssertTrue(app.buttons["profile.login"].waitForExistence(timeout: 8))
+        app.buttons["profile.login"].tap()
+        XCTAssertTrue(app.buttons["暂不登录，匿名使用"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["通过 Apple 登录"].exists)
+        app.buttons["暂不登录，匿名使用"].tap()
+        app.switchTab(.training)
+        XCTAssertTrue(app.buttons["trainingHome.dailyClearance"].waitForExistence(timeout: 8))
+    }
+
     func testStartupWithoutOnboardingGoesStraightToMain() {
         app.terminate()
         app = XCUIApplication()
@@ -61,6 +79,7 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         XCTAssertTrue(login.waitForExistence(timeout: 5))
         login.tap()
         app.buttons["通过 Apple 登录"].tap()
+        app.buttons["已满 14 周岁"].tap()
         let prompt = app.alerts["开启训练数据云同步？"]
         XCTAssertTrue(prompt.waitForExistence(timeout: 8), "登录 sheet 关闭后必须呈现同步选择")
         captureSyncChoice("repair-login-choice")
@@ -77,6 +96,7 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         XCTAssertTrue(login.waitForExistence(timeout: 8))
         login.tap()
         app.buttons["通过 Apple 登录"].tap()
+        app.buttons["已满 14 周岁"].tap()
         XCTAssertTrue(app.buttons["profile.accountHeader"].waitForExistence(timeout: 8))
         XCTAssertFalse(prompt.exists, "拒绝的选择应保留，设置仍可重新开启")
         app.staticTexts["设置"].tap()
@@ -107,6 +127,7 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         app.switchTab(.profile)
         app.buttons["profile.login"].tap()
         app.buttons["通过 Apple 登录"].tap()
+        app.buttons["已满 14 周岁"].tap()
         let choice = app.alerts["开启训练数据云同步？"]
         XCTAssertTrue(choice.waitForExistence(timeout: 8))
         choice.buttons["开启云同步"].tap()
@@ -257,6 +278,21 @@ final class P8_ProfileSettingsUITests: XCTestCase {
 
     // MARK: - SettingsView
 
+    func testAccountSecurityShowsBindingAvailability() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-v53.authenticatedProfileFixture", "-v50.inMemoryStore"])
+        app.switchTab(.profile)
+        let settings = app.staticTexts["设置"]
+        for _ in 0..<6 where !settings.isHittable { app.swipeUp() }
+        settings.tap()
+        let apple = app.buttons["settings.bind.apple"]
+        for _ in 0..<10 where !apple.isHittable { app.swipeUp() }
+        XCTAssertTrue(apple.exists)
+        XCTAssertTrue(apple.label.contains("已绑定"))
+        XCTAssertFalse(apple.isEnabled)
+        XCTAssertTrue(app.buttons["settings.bind.wechat"].exists)
+    }
+
     func testSettingsOpens() {
         app.scrollDown(times: 2)
         sleep(1)
@@ -369,9 +405,10 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         XCTAssertTrue(about.waitForExistence(timeout: 5), "关于与反馈入口必须存在")
         about.tap()
         sleep(2)
-        XCTAssertTrue(app.staticTexts["球迹"].waitForExistence(timeout: 3), "App name should be visible")
+        XCTAssertTrue(app.staticTexts["CuePhys"].waitForExistence(timeout: 3), "App name should be visible")
         XCTAssertTrue(app.staticTexts["意见反馈"].waitForExistence(timeout: 3), "Feedback row should exist")
         XCTAssertTrue(app.staticTexts["给个好评"].waitForExistence(timeout: 3), "Rate app row should exist")
+        captureSyncChoice("about-contact-current")
     }
 
     func testAboutLegalLinks() {
@@ -386,6 +423,9 @@ final class P8_ProfileSettingsUITests: XCTestCase {
                 .waitForExistence(timeout: 3),
             "未发布法律页时必须明确提示，不能展示伪链接"
         )
+        XCTAssertFalse(app.links["about.terms"].exists)
+        XCTAssertFalse(app.links["about.privacy"].exists)
+        captureSyncChoice("about-legal-unpublished")
     }
 
     // MARK: - OnboardingView (fresh install)
@@ -410,38 +450,18 @@ final class P8_ProfileSettingsUITests: XCTestCase {
             "全新模拟器必须从通知权限未决定态开始"
         )
 
-        var handledSystemPrompt = false
-        let monitor = addUIInterruptionMonitor(
-            withDescription: allow ? "允许通知权限" : "拒绝通知权限"
-        ) { alert in
-            let predicate = allow
-                ? NSPredicate(format: "(label CONTAINS '允许' AND NOT label CONTAINS '不允许') OR label == '好' OR label == 'OK'")
-                : NSPredicate(format: "label CONTAINS '不允许' OR label CONTAINS \"Don't Allow\"")
-            let action = alert.buttons.matching(predicate).firstMatch
-            guard action.exists else { return false }
-            handledSystemPrompt = true
-            action.tap()
-            return true
-        }
-        defer { removeUIInterruptionMonitor(monitor) }
-
-        reminderToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        // On iPad the switch accessibility frame spans the full row.
+        let trailingEdge = reminderToggle.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
+        trailingEdge.withOffset(CGVector(dx: -25, dy: 0)).tap()
+        XCTAssertTrue(app.datePickers.firstMatch.waitForExistence(timeout: 3), "开启开关后应出现提醒时间")
         app.navigationBars.buttons["保存"].tap()
-        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let systemAlert = springboard.alerts.firstMatch
-        if systemAlert.waitForExistence(timeout: 5) {
-            let predicate = allow
-                ? NSPredicate(format: "(label CONTAINS '允许' AND NOT label CONTAINS '不允许') OR label == '好' OR label == 'OK'")
-                : NSPredicate(format: "label CONTAINS '不允许' OR label CONTAINS \"Don't Allow\"")
-            let action = systemAlert.buttons.matching(predicate).firstMatch
-            XCTAssertTrue(action.waitForExistence(timeout: 3), "系统通知权限弹框缺少预期操作")
-            action.tap()
-            handledSystemPrompt = true
-        } else {
-            app.tap()
-        }
+        let systemAlert = XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.firstMatch
+        XCTAssertTrue(systemAlert.waitForExistence(timeout: 8), "必须看到真实通知权限弹框")
+        let labels = allow ? ["允许", "好", "OK", "Allow"] : ["不允许", "Don’t Allow", "Don't Allow"]
+        let action = systemAlert.buttons.matching(NSPredicate(format: "label IN %@", labels)).firstMatch
+        XCTAssertTrue(action.exists, systemAlert.debugDescription)
+        action.tap()
 
-        XCTAssertTrue(handledSystemPrompt, "必须实际处理系统通知权限弹框，禁止用预授权冒充")
         if allow {
             XCTAssertTrue(reminderEntry.waitForExistence(timeout: 8), "保存后返回训练目标")
             reminderEntry.tap()
@@ -464,6 +484,7 @@ extension P8_ProfileSettingsUITests {
         app.switchTab(.profile)
         app.buttons["profile.login"].tap()
         app.buttons["通过 Apple 登录"].tap()
+        app.buttons["已满 14 周岁"].tap()
         let sync = app.alerts["开启训练数据云同步？"]
         XCTAssertTrue(sync.waitForExistence(timeout: 8))
         XCTAssertFalse(app.buttons["profileImport.confirm"].exists)
@@ -486,6 +507,7 @@ extension P8_ProfileSettingsUITests {
         app.switchTab(.profile)
         app.buttons["profile.login"].tap()
         app.buttons["通过 Apple 登录"].tap()
+        app.buttons["已满 14 周岁"].tap()
         let sync = app.alerts["开启训练数据云同步？"]
         XCTAssertTrue(sync.waitForExistence(timeout: 8))
         sync.buttons["仅保存在本机"].tap()

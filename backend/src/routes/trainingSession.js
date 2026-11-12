@@ -2,6 +2,9 @@ const express = require("express");
 const auth = require("../middleware/auth");
 const TrainingSession = require("../models/TrainingSession");
 
+const { withActiveAccount } = require("../services/accountWrite");
+const { recordFields, syncFields, saveSyncRecord } = require("../services/syncRecord");
+
 const router = express.Router();
 router.use(auth);
 
@@ -25,15 +28,8 @@ router.get("/", async (req, res, next) => {
 // POST /training-sessions
 router.post("/", async (req, res, next) => {
   try {
-    const data = { ...req.body, userId: req.userId };
-    const existing = await TrainingSession.findOne({ userId: req.userId, clientId: data.clientId });
-    if (existing) {
-      Object.assign(existing, data);
-      await existing.save();
-      return res.json(existing);
-    }
-    const session = await TrainingSession.create(data);
-    res.status(201).json(session);
+    const { record, status } = await saveSyncRecord(TrainingSession, req.userId, req.body);
+    res.status(status).json(record);
   } catch (err) {
     next(err);
   }
@@ -46,14 +42,15 @@ router.post("/batch", async (req, res, next) => {
     if (!Array.isArray(items)) {
       return res.status(400).json({ message: "Body must be an array" });
     }
-    const ops = items.map((item) => ({
-      updateOne: {
-        filter: { userId: req.userId, clientId: item.clientId },
-        update: { $set: { ...item, userId: req.userId } },
+    const ops = items.map(item => {
+      const data = syncFields(item);
+      return { updateOne: {
+        filter: { userId: req.userId, clientId: data.clientId },
+        update: { $set: { ...data, userId: req.userId } },
         upsert: true,
-      },
-    }));
-    const result = await TrainingSession.bulkWrite(ops);
+      } };
+    });
+    const result = await withActiveAccount(req.userId, session => TrainingSession.bulkWrite(ops, { session }));
     res.json({ upserted: result.upsertedCount, modified: result.modifiedCount });
   } catch (err) {
     next(err);
@@ -83,13 +80,17 @@ router.delete("/by-client/:clientId", async (req, res, next) => {
 // PUT /training-sessions/:id
 router.put("/:id", async (req, res, next) => {
   try {
-    const session = await TrainingSession.findOneAndUpdate(
+    if (req.body?.userId !== undefined && req.body.userId !== req.userId) {
+      return res.status(400).json({ message: "记录归属不能修改" });
+    }
+    const fields = recordFields(req.body);
+    const record = await withActiveAccount(req.userId, session => TrainingSession.findOneAndUpdate(
       { _id: req.params.id, userId: req.userId },
-      req.body,
-      { new: true }
-    );
-    if (!session) return res.status(404).json({ message: "Not found" });
-    res.json(session);
+      { $set: fields },
+      { new: true, session }
+    ));
+    if (!record) return res.status(404).json({ message: "Not found" });
+    res.json(record);
   } catch (err) {
     next(err);
   }

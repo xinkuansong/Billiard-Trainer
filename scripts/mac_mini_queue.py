@@ -23,7 +23,7 @@ import uuid
 DEFAULT_ROOT = '/Users/song/simulator-work/queue'
 DEFAULT_HOST = 'song@fengchuibuchuifengdeMac-mini.local'
 ROOTS = ['QiuJi', 'QiuJiLiveActivity', 'QiuJiTests', 'QiuJiUITests', 'QiuJi.xcodeproj',
-         'Config', 'scripts', 'project.yml', 'AGENTS.md', '.agents', '.cursor/rules', '.kiro/steering']
+         'Packages', 'Config', 'scripts', 'project.yml', 'AGENTS.md', '.agents', '.cursor/rules', '.kiro/steering']
 EXCLUDED = ['QiuJi/Resources/DrillTutorials', 'QiuJi/Resources/Previews', 'QiuJi/Resources/Videos']
 DEFAULT_TESTS = ['QiuJiTests/DrillContentServiceTests',
                  'QiuJiUITests/P2_DataLayerUITests/testS01_ColdLaunchNoCrash',
@@ -83,7 +83,7 @@ def selected(value, roots=ROOTS):
         return False
     if any(value == r or value.startswith(r + '/') for r in EXCLUDED):
         return False
-    if any(x in p.parts for x in ['.git', 'xcuserdata', '__pycache__', '.DS_Store', 'node_modules']):
+    if any(x in p.parts for x in ['.git', '.build', '.swiftpm', 'xcuserdata', '__pycache__', '.DS_Store', 'node_modules']):
         return False
     return not (p.name.startswith(('Secrets', '.env')) or p.suffix in ['.p12', '.key', '.pem', '.mobileprovision', '.cer'])
 

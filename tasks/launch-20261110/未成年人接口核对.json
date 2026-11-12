@@ -1,0 +1,43 @@
+{
+  "checkedAt": "2026-11-10T18:17:02.597Z",
+  "scope": "loopback Express and disposable MongoDB; simulated provider code exchange; synthetic account only",
+  "checkpoints": [
+    {
+      "label": "anonymous-write",
+      "method": "POST",
+      "route": "/training-sessions",
+      "status": 401
+    },
+    {
+      "label": "create-without-age-or-guardian",
+      "method": "POST",
+      "route": "/auth/login-wechat",
+      "status": 200
+    },
+    {
+      "label": "import-guest-child-birthday",
+      "method": "POST",
+      "route": "/user/profile/import-initial",
+      "status": 200
+    },
+    {
+      "label": "edit-child-birthday",
+      "method": "PUT",
+      "route": "/user/profile",
+      "status": 200
+    },
+    {
+      "label": "sync-after-child-birthday",
+      "method": "POST",
+      "route": "/training-sessions",
+      "status": 201
+    }
+  ],
+  "databaseReadback": [
+    "account created without birthday",
+    "imported under-14 birthday persisted",
+    "edited under-14 birthday persisted",
+    "one training record owned by this account"
+  ],
+  "guardianEvidenceSupplied": false
+}

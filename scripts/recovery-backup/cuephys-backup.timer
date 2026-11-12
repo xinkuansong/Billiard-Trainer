@@ -1,0 +1,10 @@
+[Unit]
+Description=Check for CuePhys deletions each minute and create the daily backup
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

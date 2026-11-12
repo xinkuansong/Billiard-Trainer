@@ -366,7 +366,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     private var restTimer: DispatchSourceTimer?
     private var restCompletionTask: Task<Void, Never>?
     private let restCountdownSound = RestTimerSound(resource: "countdown")
-    private let restCompleteSound = RestTimerSound(resource: "complete")
+    private let playRestCompletionFeedback: () -> Void
     private var pendingDrillAdvance: Int?
     private let liveActivityManager: any RestTimerLiveActivityManaging
     private let saveAction: (ModelContext) throws -> Void
@@ -375,6 +375,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     private var timerStartDate: Date?
     private var accumulatedBeforePause: Int = 0
     private var restEndDate: Date?
+    private var restAppActive = true
 
     var currentDrill: ActiveDrill? {
         guard !drills.isEmpty, currentDrillIndex >= 0, currentDrillIndex < drills.count else { return nil }
@@ -486,6 +487,7 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     init(mode: TrainingMode,
          liveActivityManager: (any RestTimerLiveActivityManaging)? = nil,
+         playRestCompletionFeedback: (() -> Void)? = nil,
          access: ProContentAccess? = nil,
          saveAction: @escaping (ModelContext) throws -> Void = { try $0.save() }) {
         self.mode = mode
@@ -503,6 +505,17 @@ final class ActiveTrainingViewModel: ObservableObject {
             trainingTitle = planID.flatMap { PlanContentService.decodePlanFromBundle(id: $0)?.nameZh } ?? "按计划训练"
         }
         self.liveActivityManager = liveActivityManager ?? RestTimerLiveActivityManager.shared
+        if let playRestCompletionFeedback {
+            self.playRestCompletionFeedback = playRestCompletionFeedback
+        } else {
+            let sound = RestTimerSound(resource: "complete")
+            self.playRestCompletionFeedback = {
+                sound.play()
+                let feedback = UINotificationFeedbackGenerator()
+                feedback.prepare()
+                feedback.notificationOccurred(.success)
+            }
+        }
         self.saveAction = saveAction
         #if DEBUG
         let restPrefix = "-v57.restDuration="
@@ -621,6 +634,15 @@ final class ActiveTrainingViewModel: ObservableObject {
     private func recalculateElapsed() {
         guard let start = timerStartDate else { return }
         elapsedSeconds = accumulatedBeforePause + Int(Date().timeIntervalSince(start))
+    }
+
+    func restAppActivityChanged(active: Bool, now: Date = Date()) {
+        if active {
+            // A deadline crossed while suspended belongs to the system reminder.
+            // Reconcile before reenabling foreground cues.
+            refreshTimers(now: now)
+        }
+        restAppActive = active
     }
 
     func refreshTimers(now: Date = Date()) {
@@ -951,24 +973,27 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     // MARK: - Rest Timer
 
-    func startRestTimer() {
+    func startRestTimer(requestNotificationPermission: Bool = false) {
         stopRestTimer()
         guard restDuration > 0 else { return }
         restTotalSeconds = restDuration
         restSecondsRemaining = restDuration
         isRestTimerActive = true
         isRestOverlayMinimized = false
-        restEndDate = Date().addingTimeInterval(Double(restDuration))
+        let end = Date().addingTimeInterval(Double(restDuration))
+        restEndDate = end
 
         let drillName = currentDrill?.nameZh ?? "训练"
-        let state = RestTimerAttributes.ContentState(endDate: restEndDate!, totalSeconds: restTotalSeconds)
+        let state = RestTimerAttributes.ContentState(endDate: end, totalSeconds: restTotalSeconds)
         liveActivityManager.startActivity(drillName: drillName, state: state)
-        liveActivityManager.activateBackgroundAudio()
+        liveActivityManager.setMusicResting(true)
+        liveActivityManager.scheduleReminder(at: end, requestPermission: requestNotificationPermission)
 
         let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now() + 1, repeating: 1)
         timer.setEventHandler { [weak self] in
-            guard let self, let end = self.restEndDate else { return }
+            guard let self, self.restAppActive, UIApplication.shared.applicationState == .active,
+                  let end = self.restEndDate else { return }
             let remaining = Int(ceil(end.timeIntervalSinceNow))
             if remaining > 0 {
                 let shouldPlayCountdown = remaining <= 3 && remaining != self.restSecondsRemaining
@@ -990,11 +1015,12 @@ final class ActiveTrainingViewModel: ObservableObject {
         restTimer?.cancel()
         restTimer = nil
         liveActivityManager.endActivity()
-        liveActivityManager.deactivateBackgroundAudio()
-        restCompleteSound.play()
-        let generator = UINotificationFeedbackGenerator()
-        generator.prepare()
-        generator.notificationOccurred(.success)
+        restEndDate = nil
+        liveActivityManager.setMusicResting(false)
+        liveActivityManager.cancelReminder()
+        if restAppActive {
+            playRestCompletionFeedback()
+        }
         // F-AT-07: chrome dismiss ≤300ms (was 800ms zombie at 0:00)
         restCompletionTask = Task { [weak self] in
             do {
@@ -1016,6 +1042,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     }
 
     func stopRestTimer() {
+        let hadRunningRest = restEndDate != nil
         restCompletionTask?.cancel()
         restCompletionTask = nil
         restTimer?.cancel()
@@ -1025,8 +1052,10 @@ final class ActiveTrainingViewModel: ObservableObject {
         restSecondsRemaining = 0
         restTotalSeconds = 0
         restEndDate = nil
+        guard hadRunningRest else { return }
         liveActivityManager.endActivity()
-        liveActivityManager.deactivateBackgroundAudio()
+        liveActivityManager.setMusicResting(false)
+        liveActivityManager.cancelReminder()
     }
 
     func minimizeRestOverlay() {
@@ -1064,6 +1093,7 @@ final class ActiveTrainingViewModel: ObservableObject {
             onRestComplete()
         } else {
             liveActivityManager.updateActivity(state: .init(endDate: updatedEnd, totalSeconds: restTotalSeconds))
+            liveActivityManager.scheduleReminder(at: updatedEnd, requestPermission: false)
         }
     }
 

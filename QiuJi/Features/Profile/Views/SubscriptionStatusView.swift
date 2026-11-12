@@ -113,7 +113,7 @@ struct SubscriptionStatusView: View {
 
     private var actionsSection: some View {
         VStack(spacing: Spacing.sm) {
-            Group {
+            if !subscriptionManager.purchasedProductIDs.isDisjoint(with: [StoreKitService.monthlyID, StoreKitService.yearlyID]) {
                 Button {
                     if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
                         UIApplication.shared.open(url)

@@ -1,13 +1,15 @@
+const { randomUUID } = require("node:crypto");
 const jwt = require("jsonwebtoken");
 const config = require("../config");
 
 function signAccessToken(userId) {
-  return jwt.sign({ sub: userId }, config.jwtSecret, { expiresIn: config.accessTokenExpiry });
+  return jwt.sign({ sub: userId, age14: true }, config.jwtSecret, { expiresIn: config.accessTokenExpiry });
 }
 
 function signRefreshToken(userId) {
-  return jwt.sign({ sub: userId, type: "refresh" }, config.jwtRefreshSecret, {
+  return jwt.sign({ sub: userId, age14: true, type: "refresh" }, config.jwtRefreshSecret, {
     expiresIn: config.refreshTokenExpiry,
+    jwtid: randomUUID(),
   });
 }
 

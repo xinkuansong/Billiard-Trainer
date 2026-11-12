@@ -142,7 +142,7 @@ struct BallExtractionView: View {
 
     private var pickStep: some View {
         VStack(spacing: Spacing.lg) {
-            stepHeader("拍摄或选择一张球桌照片")
+            stepHeader("选择一张球桌照片")
             Spacer()
             Image(systemName: "camera.viewfinder")
                 .font(.system(size: 56, weight: .light))
@@ -150,7 +150,7 @@ struct BallExtractionView: View {
             VStack(spacing: 6) {
                 Text("拍照建球形")
                     .font(.btTitle).foregroundStyle(.white)
-                Text("拍摄或选择一张球桌照片，自动提取球号与位置。\n建议从球桌一端较高处拍摄，光照均匀、球尽量分散。")
+                Text("选择照片后，依次标出台面四角、球号和球位。\n建议从球桌一端较高处拍摄，光照均匀、球尽量分散。")
                     .font(.system(size: 13))
                     .foregroundStyle(.white.opacity(0.6))
                     .multilineTextAlignment(.center)

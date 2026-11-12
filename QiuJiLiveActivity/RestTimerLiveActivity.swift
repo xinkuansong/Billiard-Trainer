@@ -19,7 +19,7 @@ struct RestTimerLiveActivity: Widget {
             DynamicIsland {
                 // Let WidgetKit place the single text row around the camera cutout.
                 DynamicIslandExpandedRegion(.leading) {
-                    Label("组间休息", systemImage: "timer")
+                    Label(context.isStale ? "休息结束" : "组间休息", systemImage: "timer")
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(Style.accent)
                         .lineLimit(1)
@@ -69,7 +69,7 @@ struct RestTimerLiveActivity: Widget {
             HStack(spacing: Style.contentSpacing) {
                 progressRing(context.state)
                 VStack(alignment: .leading, spacing: 4) {
-                    restTitle
+                    restTitle(expired: context.isStale)
                     drillName(context.attributes.drillName)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -79,7 +79,7 @@ struct RestTimerLiveActivity: Widget {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: Style.contentSpacing) {
                     progressRing(context.state)
-                    restTitle
+                    restTitle(expired: context.isStale)
                     Spacer(minLength: 0)
                     lockScreenCountdown(context.state)
                 }
@@ -93,8 +93,8 @@ struct RestTimerLiveActivity: Widget {
         .activitySystemActionForegroundColor(Style.primary)
     }
 
-    private var restTitle: some View {
-        Text("组间休息")
+    private func restTitle(expired: Bool) -> some View {
+        Text(expired ? "休息结束" : "组间休息")
             .font(.footnote.weight(.semibold))
             .foregroundStyle(Style.primary)
             .lineLimit(1)

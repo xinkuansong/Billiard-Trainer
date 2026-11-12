@@ -2,9 +2,40 @@ import Foundation
 
 enum AppConfig {
     // MARK: - 自建后端 API
-    static var apiBaseURL: URL {
-        let raw = Bundle.main.infoDictionary?["API_BASE_URL"] as? String ?? "https://api.qiuji.app"
-        return URL(string: raw) ?? URL(string: "https://api.qiuji.app")!
+    static var apiBaseURL: URL? {
+        let raw = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
+        #if DEBUG
+        return validatedAPIBaseURL(raw, release: false)
+        #else
+        return validatedAPIBaseURL(raw, release: true)
+        #endif
+    }
+
+    /// Production endpoints belong to the company's registered domain. Port and
+    /// base path may be explicitly configured without changing account ownership.
+    static func validatedAPIBaseURL(_ raw: String?, release: Bool) -> URL? {
+        guard let raw, !raw.isEmpty,
+              let url = URL(string: raw, encodingInvalidCharacters: false),
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let host = components.host?.lowercased(), !host.isEmpty,
+              components.percentEncodedHost?.lowercased() == host,
+              components.user == nil, components.password == nil,
+              components.query == nil, components.fragment == nil,
+              let scheme = components.scheme?.lowercased(),
+              scheme == "https" || (!release && scheme == "http"),
+              components.port.map({ (1...65535).contains($0) }) ?? true else { return nil }
+        if release {
+            let labels = host.split(separator: ".", omittingEmptySubsequences: false)
+            guard host == "cuephys.com" || host.hasSuffix(".cuephys.com"),
+                  host.utf8.count <= 253, labels.allSatisfy({
+                      $0.range(of: #"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"#, options: .regularExpression) != nil
+                  }) else { return nil }
+        }
+        return url
+    }
+
+    static var hasSecureAccountEndpoint: Bool {
+        apiBaseURL?.scheme?.lowercased() == "https"
     }
 
     // MARK: - WeChat
@@ -13,6 +44,10 @@ enum AppConfig {
     }
     static var wechatUniversalLink: String {
         Bundle.main.infoDictionary?["WECHAT_UNIVERSAL_LINK"] as? String ?? ""
+    }
+
+    static var wechatLinkHost: String {
+        Bundle.main.infoDictionary?["WECHAT_LINK_HOST"] as? String ?? ""
     }
 
     // MARK: - Published legal documents

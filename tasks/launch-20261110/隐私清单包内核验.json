@@ -1,0 +1,38 @@
+{
+  "verifiedAt": "2026-11-11T02:11:50+08:00",
+  "scope": "unsigned iPhoneOS Release; validation API address; manifests read from the built app",
+  "version": "1.0.0",
+  "build": "1",
+  "mainDataTypes": [
+    "EmailAddress",
+    "Fitness",
+    "Name",
+    "OtherDataTypes",
+    "OtherUserContent",
+    "PhotosorVideos",
+    "ProductInteraction",
+    "PurchaseHistory",
+    "UserID"
+  ],
+  "mainRequiredReasonAPIs": [
+    {
+      "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+      "NSPrivacyAccessedAPITypeReasons": [
+        "CA92.1"
+      ]
+    },
+    {
+      "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+      "NSPrivacyAccessedAPITypeReasons": [
+        "35F9.1"
+      ]
+    }
+  ],
+  "mainTracking": false,
+  "wechatBundleMatchesVendorManifest": true,
+  "wechatVersion": "2.0.9",
+  "manifestSHA256": {
+    "CuePhysWeChat_CuePhysWeChat.bundle/PrivacyInfo.xcprivacy": "dc8d7e1f9a7da7f3381f30746b59206ee62ce225b69fe3bcbb66234f8459be35",
+    "PrivacyInfo.xcprivacy": "0e5bbe30df619e3d6439fa7367e6825e031968cb7792e79d7128f975e441a3ce"
+  }
+}

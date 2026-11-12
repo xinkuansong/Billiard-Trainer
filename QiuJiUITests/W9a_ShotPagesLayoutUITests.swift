@@ -115,7 +115,7 @@ final class W9a_ShotPagesLayoutUITests: XCTestCase {
         goBack(app)
 
         // 7 Bank
-        XCTAssertTrue(openCard(app, homeTab: "进阶", title: "翻袋解球"), "Bank")
+        XCTAssertTrue(openCard(app, homeTab: "进阶", title: "翻袋"), "Bank")
         snap(app, "w9a-07-bank")
         // C28/D15：轨迹 chip 三档位——不只断言文案切换，还断言场景线语言实际变化
         //（同一态三档截图，台面裁剪区像素 diff 必须超阈值）。

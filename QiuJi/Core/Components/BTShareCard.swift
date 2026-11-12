@@ -221,7 +221,7 @@ struct BTShareCard: View {
             BTBrandLogo(size: 36, style: .onTile)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("QiuJi 球迹")
+                Text(AppMetadata.displayName)
                     .font(.system(size: ShareType.brandTitle, weight: .semibold, design: fontDesign))
                     .foregroundStyle(theme.primaryText)
                 Text(headerMeta)
@@ -563,7 +563,7 @@ struct BTShareCard: View {
     private var brandFooter: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("QiuJi 球迹")
+                Text(AppMetadata.displayName)
                     .font(.system(size: ShareType.footerTitle, weight: .bold, design: fontDesign))
                     .foregroundStyle(theme.primaryText)
                 Text("台球训练记录 App")

@@ -5,6 +5,9 @@ struct SettingsView: View {
     @ObservedObject private var tablePreferences = TablePreferencesStore.shared
     @State private var transparencyDraft = 0.5
     @State private var editingTransparency = false
+    @State private var bindingMethod: MobileLoginMethod?
+    @State private var bindingTask: Task<Void, Never>?
+    @State private var bindingError: String?
     @EnvironmentObject private var authState: AuthState
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @EnvironmentObject private var ownerContext: CurrentOwnerContext
@@ -76,6 +79,7 @@ struct SettingsView: View {
             }
         }
         // F-OV-02: destructive clear/delete → confirmationDialog (cancel first).
+        .onDisappear { bindingTask?.cancel() }
         .confirmationDialog(
             "清除缓存",
             isPresented: $showClearCacheConfirmation,
@@ -519,6 +523,26 @@ struct SettingsView: View {
                 .padding(.leading, Spacing.xs)
 
             VStack(spacing: 0) {
+                ForEach(MobileLoginMethod.allCases) { method in
+                    let linked = authState.currentUser?.linkedProviders.contains(method.provider) == true
+                    Button {
+                        bind(method)
+                    } label: {
+                        settingsRow(title: method.title + "登录",
+                                    detail: linked ? "已绑定" : bindingDetail(method))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(linked || !method.available || bindingMethod != nil || isDeletingAccount)
+                    .accessibilityIdentifier("settings.bind." + method.rawValue)
+                    Divider()
+                }
+                if bindingMethod == .wechat { Button("取消授权") { bindingTask?.cancel() } }
+                if let bindingError {
+                    Text(bindingError)
+                        .font(.btFootnote)
+                        .foregroundStyle(.btDestructive)
+                        .padding(Spacing.md)
+                }
                 Button {
                     guard !isDeletingAccount else { return }
                     showDeleteConfirmation = true
@@ -531,10 +555,27 @@ struct SettingsView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .disabled(isDeletingAccount)
+                .disabled(isDeletingAccount || bindingMethod != nil)
             }
             .background(Color.btBGSecondary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        }
+    }
+
+    private func bindingDetail(_ method: MobileLoginMethod) -> String {
+        if bindingMethod == method { return "授权中…" }
+        return method.available ? "绑定" : "暂未开放"
+    }
+
+    private func bind(_ method: MobileLoginMethod) {
+        guard bindingMethod == nil else { return }
+        bindingMethod = method
+        bindingError = nil
+        bindingTask = Task { @MainActor in
+            defer { bindingMethod = nil; bindingTask = nil }
+            do { try await AuthService.shared.bind(method, state: authState) }
+            catch is CancellationError { return }
+            catch { bindingError = error.localizedDescription }
         }
     }
 
@@ -595,7 +636,8 @@ struct SettingsView: View {
         showDeleteErrorAlert = false
         Task {
             do {
-                try await BackendSyncService.shared.deleteAccount()
+                let wasAppleUser = authState.currentUser?.linkedProviders.contains(.apple) == true
+                let result = try await BackendSyncService.shared.deleteAccount(userID: userId)
                 let accountOwner = OwnerKey.account(userId)
                 dataCoordinator.markAccountDeletionForLocalCleanup(userId: userId)
                 var localDataPreserved = true
@@ -609,11 +651,19 @@ struct SettingsView: View {
                 let clearedAvatarCache = avatarStore.removeCachedAccountData(userId: userId)
                 isDeletingAccount = false
                 authState.finishAccountDeletion()
-                if !localDataPreserved {
-                    authState.errorMessage = "账号已注销；本机训练数据将在下次启动时自动恢复为游客数据。"
-                } else if !clearedAvatarCache {
-                    authState.errorMessage = "账号已注销，但部分本机头像缓存清理失败，请重新打开 App 后清除缓存。"
+                var notices: [String] = []
+                if result.appleRevocation == "pending" {
+                    notices.append("云端训练数据已删除。服务器会自动重试撤销 Apple 登录授权。")
+                } else if result.appleRevocation == "manual" ||
+                            (wasAppleUser && (result.appleRevocation == nil || result.appleRevocation == "alreadyDeleted")) {
+                    notices.append("CuePhys 账号已删除。请在 iPhone 设置中点你的姓名，打开「通过 Apple 登录」，若仍列有此 App，点进去停止使用。")
                 }
+                if !localDataPreserved {
+                    notices.append("本机训练数据将在下次启动时自动恢复为游客数据。")
+                } else if !clearedAvatarCache {
+                    notices.append("部分本机头像缓存清理失败，请重新打开 App 后清除缓存。")
+                }
+                if !notices.isEmpty { authState.errorMessage = notices.joined(separator: "\n") }
             } catch {
                 deleteErrorMessage = "注销失败，请检查网络后重试。"
                 isDeletingAccount = false
@@ -653,7 +703,7 @@ struct SettingsView: View {
 
 #Preview("Settings Logged In") {
     let state = AuthState()
-    state.login(user: AppUser(id: "test123", provider: .apple, displayName: "球迹用户"))
+    state.login(user: AppUser(id: "test123", provider: .apple, displayName: AppMetadata.defaultUserName))
     return NavigationStack {
         SettingsView()
             .environmentObject(state)

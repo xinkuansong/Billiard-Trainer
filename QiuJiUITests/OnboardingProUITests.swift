@@ -85,7 +85,7 @@ final class OnboardingProUITests: XCTestCase {
     @MainActor
     func testFirstRunProfileSavePreservesExistingGuestAndReturnsToPersonalInfo() {
         let fixture = "-firstRun.fixture=\(UUID().uuidString)"
-        let app = XCUIApplication.launchClean(extraArgs: [fixture, "-v50.inMemoryStore"])
+        let app = XCUIApplication.launchClean(extraArgs: [fixture, "-auth.deviceGuestID", UUID().uuidString, "-v50.inMemoryStore", "-syncRepair.loginSheet"])
         XCTAssertTrue(app.buttons["onboarding.skip"].waitForExistence(timeout: 15))
         app.buttons["onboarding.skip"].tap()
         for id in ["chinese8", "zhuifen", "both", "other"] {
@@ -102,17 +102,71 @@ final class OnboardingProUITests: XCTestCase {
         XCTAssertTrue(app.buttons["firstRun.gender.male"].waitForExistence(timeout: 5))
         capture("r6-profile-gender")
         app.buttons["firstRun.gender.male"].tap()
-        XCTAssertTrue(app.buttons["firstRun.save"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.datePickers["firstRun.birthday"].exists)
-        capture("r6-profile-birthday")
-        app.buttons["firstRun.save"].tap()
+        let band = app.buttons["firstRun.ageBand.25-34"]
+        XCTAssertTrue(band.waitForExistence(timeout: 5))
+        band.tap()
+        XCTAssertTrue(band.isSelected)
+        let screen = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screen.name = "CuePhys-Age-Band"
+        screen.lifetime = .keepAlways
+        add(screen)
+        app.buttons["firstRun.start"].tap()
         // iPad exposes top navigation without a TabBar; verify the destination's content.
         XCTAssertTrue(app.buttons["trainingHome.dailyClearance"].waitForExistence(timeout: 15))
         capture("r6-real-home")
+        app.switchTab(.profile)
+        app.buttons["profile.login"].tap()
+        app.buttons["通过 Apple 登录"].tap()
+        XCTAssertTrue(app.alerts["开启训练数据云同步？"].waitForExistence(timeout: 8))
+        app.alerts["开启训练数据云同步？"].buttons["仅保存在本机"].tap()
         app.terminate(); app.launch()
         XCTAssertTrue(app.buttons["trainingHome.dailyClearance"].waitForExistence(timeout: 15))
         XCTAssertFalse(app.buttons["onboarding.skip"].exists)
         app.terminate()
+    }
+
+    @MainActor
+    func testAgeBandListAndLastOptionAtDefaultSize() {
+        let previousOrientation = XCUIDevice.shared.orientation
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication.launchClean(extraArgs: ["-firstRun.fixture=\(UUID().uuidString)", "-v50.inMemoryStore"])
+        defer {
+            app.terminate()
+            XCUIDevice.shared.orientation = previousOrientation
+        }
+        let skip = app.buttons["onboarding.skip"]
+        XCTAssertTrue(skip.waitForExistence(timeout: 15))
+        skip.tap()
+        for _ in 0..<3 { app.buttons["firstRun.skip"].tap() }
+        let rows = ["under14", "14-17", "18-24", "25-34", "35-44", "45-54", "55+"]
+            .map { app.buttons["firstRun.ageBand.\($0)"] }
+        XCTAssertTrue(rows[0].waitForExistence(timeout: 5))
+        func capturePage(_ name: String) {
+            let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            attachment.name = name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        capturePage("AgeList-entry")
+        let scroll = app.scrollViews.containing(.button, identifier: "firstRun.ageBand.under14").firstMatch
+        let start = app.buttons["firstRun.start"]
+        XCTAssertTrue(start.isHittable)
+        for (upper, lower) in zip(rows, rows.dropFirst()) {
+            XCTAssertEqual(upper.frame.minX, lower.frame.minX, accuracy: 1)
+            XCTAssertGreaterThanOrEqual(lower.frame.minY, upper.frame.maxY)
+        }
+        let last = rows[6]
+        for _ in 0..<4 {
+            if scroll.frame.contains(last.frame), last.isHittable { break }
+            scroll.swipeUp()
+        }
+        XCTAssertTrue(scroll.frame.contains(last.frame))
+        XCTAssertLessThanOrEqual(last.frame.maxY, start.frame.minY)
+        last.tap()
+        XCTAssertTrue(last.isSelected)
+        capturePage("AgeList-last-selected")
+        start.tap()
+        XCTAssertTrue(app.buttons["trainingHome.dailyClearance"].waitForExistence(timeout: 15))
     }
 
     @MainActor
@@ -125,10 +179,7 @@ final class OnboardingProUITests: XCTestCase {
         XCTAssertTrue(app.buttons["firstRun.sport.other"].waitForExistence(timeout: 5))
         app.terminate(); app.launch()
         XCTAssertTrue(app.buttons["firstRun.sport.other"].waitForExistence(timeout: 15))
-        for _ in 0..<3 { app.buttons["firstRun.skip"].tap() }
-        XCTAssertTrue(app.buttons["firstRun.save"].waitForExistence(timeout: 5))
-        capture("r6-large-birthday")
-        app.buttons["firstRun.skip"].tap()
+        for _ in 0..<4 { app.buttons["firstRun.skip"].tap() }
         XCTAssertTrue(app.buttons["trainingHome.dailyClearance"].waitForExistence(timeout: 15))
         app.terminate()
     }
@@ -136,6 +187,7 @@ final class OnboardingProUITests: XCTestCase {
     @MainActor
     func testTourPresentation() {
         let app = XCUIApplication.launchClean(extraArgs: ["-intro.preview", "-v54.forceLight", "-v50.inMemoryStore"])
+        XCTAssertTrue(app.staticTexts["CuePhys：台球训练"].waitForExistence(timeout: 8))
         for index in 0..<6 {
             XCTAssertTrue(app.staticTexts["onboarding.title.\(index)"].waitForExistence(timeout: 8))
             let art = app.descendants(matching: .any)["onboarding.image.\(index)"].firstMatch
@@ -152,7 +204,7 @@ final class OnboardingProUITests: XCTestCase {
     }
 
     @MainActor
-    func testButtonAndSwipePagingAndConfirmedDefaultBirthday() {
+    func testButtonAndSwipePagingThenGuestTraining() {
         let fixture = "-firstRun.fixture=\(UUID().uuidString)"
         let app = XCUIApplication.launchClean(extraArgs: [fixture, "-auth.deviceGuestID", UUID().uuidString,
             "-v50.inMemoryStore"])
@@ -180,43 +232,30 @@ final class OnboardingProUITests: XCTestCase {
         app.buttons["firstRun.sport.other"].tap()
         app.buttons["firstRun.years.oneToThree"].tap()
         app.buttons["firstRun.gender.female"].tap()
-        XCTAssertTrue(app.staticTexts["firstRun.age"].waitForExistence(timeout: 5))
-        let calendar = Calendar(identifier: .gregorian)
-        let birth = calendar.date(from: DateComponents(year: 2000, month: 1, day: 1))!
-        let age = calendar.dateComponents([.year], from: birth, to: Date.now).year!
-        XCTAssertEqual(app.staticTexts["firstRun.age"].label, "\(age) 岁")
-        let wheels = app.datePickers["firstRun.birthday"].pickerWheels
-        let values = wheels.allElementsBoundByIndex.compactMap { $0.value as? String }.joined(separator: "|")
-        XCTAssertTrue(values.contains("2000"), values)
-        capture("birthday-default-2000")
-        // Horizontal navigation never confirms a birthday or submits the final step.
-        app.swipeLeft()
-        XCTAssertTrue(app.buttons["firstRun.save"].exists)
-        app.swipeRight()
-        XCTAssertTrue(app.buttons["firstRun.gender.female"].waitForExistence(timeout: 5))
-        app.swipeLeft()
-        XCTAssertTrue(app.datePickers["firstRun.birthday"].waitForExistence(timeout: 5))
-        wheels.element(boundBy: 0).swipeUp()
-        wheels.element(boundBy: 0).adjust(toPickerWheelValue: "2001年")
-        XCTAssertTrue(app.buttons["firstRun.save"].exists, "Wheel scrolling must not turn the page")
-        wheels.element(boundBy: 0).adjust(toPickerWheelValue: "2000年")
-        app.buttons["firstRun.save"].tap()
+        app.buttons["firstRun.ageBand.under14"].tap()
+        app.buttons["firstRun.start"].tap()
         XCTAssertTrue(app.buttons["trainingHome.dailyClearance"].waitForExistence(timeout: 15))
-        app.switchTab(.profile)
-        app.staticTexts["个人信息"].tap()
-        let row = app.buttons["personalInfo.age"]
-        XCTAssertTrue(row.waitForExistence(timeout: 5))
-        XCTAssertTrue(row.label.contains("\(age) 岁"), row.label)
-        row.tap()
-        let saved = app.datePickers["personalInfo.birthDatePicker"]
-        XCTAssertTrue(saved.waitForExistence(timeout: 5))
-        let savedValues = saved.pickerWheels.allElementsBoundByIndex.compactMap { $0.value as? String }.joined(separator: "|")
-        XCTAssertTrue(savedValues.contains("2000"), savedValues)
-        capture("birthday-saved-personal-info")
+        XCTAssertFalse(app.datePickers["firstRun.birthday"].exists)
     }
 
     @MainActor
-    func testProBrandTwelvePremiumFeatures() throws {
+    func testDetailedBenefitsReachBankWithoutExpanding() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-subscription.preview", "-v50.inMemoryStore", "-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        let scroll = app.scrollViews["subscription.scroll"]
+        XCTAssertTrue(scroll.waitForExistence(timeout: 12))
+        let aiming = scroll.descendants(matching: .any).matching(identifier: "subscription.feature.aiming").firstMatch
+        revealProElement(aiming, in: app)
+        XCTAssertTrue(aiming.label.contains("15") && aiming.label.contains("PRO"))
+        capture("detailed-pro-benefits")
+        let bank = scroll.descendants(matching: .any).matching(identifier: "subscription.feature.bank").firstMatch
+        revealProElement(bank, in: app)
+        XCTAssertTrue(bank.label.hasPrefix("翻袋") && bank.label.contains("目标球"))
+    }
+
+    @MainActor
+    func testProBrandPremiumFeatures() async throws {
         let session = try storeSession()
         defer { session.clearTransactions() }
         for appearance in ["-v54.forceLight", "-v54.forceDark"] {
@@ -226,14 +265,14 @@ final class OnboardingProUITests: XCTestCase {
             let entry = app.buttons["profile.subscription"]
             reveal(entry, in: app)
             entry.tap()
-            XCTAssertTrue(app.buttons["subscription.product.com.xinkuan.qiuji.premium.yearly"].waitForExistence(timeout: 15))
-            XCTAssertTrue(app.staticTexts["解锁球迹 Pro"].exists)
+            XCTAssertTrue(app.buttons["subscription.product.com.xinkuan.qiuji.premium.lifetime"].waitForExistence(timeout: 15))
+            XCTAssertTrue(app.staticTexts["解锁 CuePhys Pro"].exists)
             capture("brand-purchase-\(appearance)-top")
             verifyBrandFeatures(in: app, scrollID: "subscription.scroll", unlocked: false,
                                 prefix: "brand-purchase-\(appearance)")
             app.terminate()
         }
-        _ = try session.buyProduct(productIdentifier: "com.xinkuan.qiuji.premium.lifetime")
+        _ = try await session.buyProduct(identifier: "com.xinkuan.qiuji.premium.lifetime", options: [.appAccountToken(profileFixturePurchaseToken)])
         XCUIApplication().terminate() // StoreKitTest may launch the app without our route/identity arguments.
         let app = XCUIApplication.launchClean(extraArgs: ["-v53.authenticatedProfileFixture", "-v50.inMemoryStore", "-v54.forceLight"])
         defer { app.terminate() }
@@ -243,7 +282,7 @@ final class OnboardingProUITests: XCTestCase {
         membership.tap()
         XCTAssertTrue(app.staticTexts["已解锁 Pro"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["永久有效"].exists)
-        XCTAssertTrue(app.buttons["管理订阅"].exists)
+        XCTAssertFalse(app.buttons["管理订阅"].exists)
         XCTAssertFalse(app.buttons["subscription.upgradeLifetime"].exists)
         capture("brand-status-top")
         verifyBrandFeatures(in: app, scrollID: "subscription.statusScroll", unlocked: true,
@@ -256,7 +295,7 @@ final class OnboardingProUITests: XCTestCase {
     @MainActor
     private func verifyBrandFeatures(in app: XCUIApplication, scrollID: String, unlocked: Bool, prefix: String) {
         let scroll = app.scrollViews[scrollID]
-        let ids = ["drills", "plans", "aiming", "atlases", "snake", "position", "three", "safety", "photo", "history", "bank", "diamond"]
+        let ids = ["drills", "plans", "aiming", "atlases", "snake", "position", "three", "photo", "history", "bank", "diamond"]
         for (index, id) in ids.enumerated() {
             // Match only the explicit identifier inside this scroll view. The string
             // subscript also asks iOS 17 AX for label/placeholder aliases across
@@ -273,7 +312,8 @@ final class OnboardingProUITests: XCTestCase {
             XCTAssertGreaterThanOrEqual(rowFrame.minX, scrollFrame.minX, id)
             XCTAssertLessThanOrEqual(rowFrame.maxX, scrollFrame.maxX, id)
             XCTAssertTrue(label.contains(unlocked ? "PRO · 已解锁" : "PRO"), label)
-            XCTAssertFalse(label.contains("免费使用"), label)
+            if id == "aiming" { XCTAssertTrue(label.contains("15") && label.contains("3"), label) }
+            if id == "history" { XCTAssertTrue(label.contains("60"), label) }
             if [1, 3, 5, 7, 9, 11].contains(index) { capture("\(prefix)-row-\(index + 1)") }
         }
     }
@@ -311,16 +351,11 @@ final class OnboardingProUITests: XCTestCase {
         defer { session.clearTransactions() }
         for appearance in ["-v54.forceLight", "-v54.forceDark"] {
             let pro = XCUIApplication.launchClean(extraArgs: ["-subscription.preview", appearance, "-v50.inMemoryStore"])
-            let yearly = pro.buttons["subscription.product.com.xinkuan.qiuji.premium.yearly"]
-            XCTAssertTrue(yearly.waitForExistence(timeout: 12))
-            capture("\(appearance)-pro-top")
-            reveal(yearly, in: pro)
-            XCTAssertTrue(yearly.isSelected)
-            let monthly = pro.buttons["subscription.product.com.xinkuan.qiuji.premium.monthly"]
-            monthly.tap()
-            XCTAssertTrue(monthly.isSelected)
-            XCTAssertFalse(yearly.isSelected)
             let lifetime = pro.buttons["subscription.product.com.xinkuan.qiuji.premium.lifetime"]
+            XCTAssertTrue(lifetime.waitForExistence(timeout: 12))
+            XCTAssertFalse(pro.buttons["subscription.product.com.xinkuan.qiuji.premium.monthly"].exists)
+            XCTAssertFalse(pro.buttons["subscription.product.com.xinkuan.qiuji.premium.yearly"].exists)
+            reveal(lifetime, in: pro)
             lifetime.tap()
             XCTAssertTrue(lifetime.isSelected)
             XCTAssertTrue(pro.buttons["subscription.purchase"].label.contains("一次性"))
@@ -360,43 +395,63 @@ final class OnboardingProUITests: XCTestCase {
     }
 
     @MainActor
-    func testStoreKitPurchaseAndRestore() throws {
-        try verifyPurchaseAndRestore(product: "monthly", cadence: "每月")
-    }
-
-    @MainActor
-    func testStoreKitYearlyPurchaseAndRestore() throws {
-        try verifyPurchaseAndRestore(product: "yearly", cadence: "每年")
+    func testCancelLocalLifetimePaymentSheetLeavesAccountFree() throws {
+        let session = try storeSession()
+        defer { session.clearTransactions(); session.resetToDefaultState() }
+        session.disableDialogs = false
+        let app = XCUIApplication.launchClean(extraArgs: ["-v53.authenticatedProfileFixture", "-v50.inMemoryStore"])
+        app.switchTab(.profile)
+        let entry = app.buttons["profile.subscription"]
+        reveal(entry, in: app)
+        entry.tap()
+        let purchase = app.buttons["subscription.purchase"]
+        let product = app.buttons["subscription.product.com.xinkuan.qiuji.premium.lifetime"]
+        XCTAssertTrue(product.waitForExistence(timeout: 12))
+        XCTAssertTrue(purchase.label.contains("一次性"))
+        purchase.tap()
+        let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        XCTAssertTrue(system.staticTexts["Xcode"].waitForExistence(timeout: 12))
+        let close = system.buttons.matching(NSPredicate(format: "label IN %@", ["关闭", "Close"])).firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 6))
+        XCTAssertTrue(close.isHittable)
+        XCTAssertTrue(system.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "CuePhys Pro")).firstMatch.exists)
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 10))
+        let ready = NSPredicate(format: "enabled == true AND hittable == true")
+        expectation(for: ready, evaluatedWith: purchase)
+        waitForExpectations(timeout: 12)
+        XCTAssertEqual(session.allTransactions().filter { $0.state == .purchased }.count, 0)
+        app.buttons["subscription.close"].tap()
+        XCTAssertTrue(entry.waitForExistence(timeout: 8))
+        XCTAssertTrue(entry.label.contains("升级 Pro"))
     }
 
     @MainActor
     func testStoreKitLifetimePurchaseAndRestore() throws {
-        try verifyPurchaseAndRestore(product: "lifetime", cadence: "一次性")
-    }
-
-    @MainActor
-    private func verifyPurchaseAndRestore(product: String, cadence: String) throws {
+        let product = "lifetime"
         let session = try storeSession()
         defer { session.clearTransactions() }
         var app = XCUIApplication.launchClean(extraArgs: ["-v53.authenticatedProfileFixture", "-v50.inMemoryStore", "-v51.followSystemAppearance"])
         app.switchTab(.profile)
-        let subscription = app.staticTexts["订阅管理"]
+        let subscription = app.buttons["profile.subscription"]
         reveal(subscription, in: app)
         subscription.tap()
         let selected = app.buttons["subscription.product.com.xinkuan.qiuji.premium.\(product)"]
         XCTAssertTrue(selected.waitForExistence(timeout: 12))
         reveal(selected, in: app)
+        XCTAssertFalse(app.buttons["subscription.product.com.xinkuan.qiuji.premium.monthly"].exists)
+        XCTAssertFalse(app.buttons["subscription.product.com.xinkuan.qiuji.premium.yearly"].exists)
         selected.tap()
         XCTAssertTrue(selected.isSelected)
-        XCTAssertTrue(app.buttons["subscription.purchase"].label.contains(cadence))
+        XCTAssertTrue(app.buttons["subscription.purchase"].label.contains("一次性"))
         app.buttons["subscription.purchase"].tap()
         let membership = app.buttons["profile.subscription"]
         XCTAssertTrue(membership.waitForExistence(timeout: 12), "Successful StoreKit purchase returns to profile")
-        XCTAssertTrue(membership.label.contains(product == "lifetime" ? "永久有效" : "有效至"))
+        XCTAssertTrue(membership.label.contains("永久有效"))
         membership.tap()
         XCTAssertTrue(app.staticTexts["已解锁 Pro"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.buttons["subscription.upgradeLifetime"].exists, product != "lifetime")
-        XCTAssertTrue(app.buttons["管理订阅"].exists)
+        XCTAssertFalse(app.buttons["subscription.upgradeLifetime"].exists)
+        XCTAssertFalse(app.buttons["管理订阅"].exists)
         XCTAssertFalse(app.buttons["subscription.purchase"].exists)
         XCTAssertEqual(session.allTransactions().filter { $0.productIdentifier == "com.xinkuan.qiuji.premium.\(product)" }.count, 1)
         app.terminate()
@@ -409,6 +464,7 @@ final class OnboardingProUITests: XCTestCase {
         restore.tap()
         XCTAssertTrue(app.alerts["恢复购买"].waitForExistence(timeout: 12))
         XCTAssertTrue(app.alerts.staticTexts["已恢复购买，Pro 功能已解锁"].exists)
+        XCTAssertEqual(session.allTransactions().filter { $0.state == .purchased }.count, 1)
         capture("storekit-\(product)-restored")
         app.alerts.buttons["确定"].tap()
         app.terminate()
@@ -477,11 +533,11 @@ final class OnboardingProUITests: XCTestCase {
     }
 
     @MainActor
-    func testAllProDestinationsOpenAfterPurchase() throws {
+    func testAllProDestinationsOpenAfterPurchase() async throws {
         let session = try storeSession()
         defer { session.clearTransactions() }
         let routes = ["separation", "cushion", "snake", "solver", "photo", "three", "bank", "diamond"]
-        _ = try session.buyProduct(productIdentifier: "com.xinkuan.qiuji.premium.monthly")
+        _ = try await session.buyProduct(identifier: "com.xinkuan.qiuji.premium.monthly", options: [.appAccountToken(profileFixturePurchaseToken)])
         XCUIApplication().terminate() // Relaunch with the explicit test route and account fixture.
         for route in routes {
             let app = XCUIApplication.launchClean(extraArgs: ["-v53.authenticatedProfileFixture", "-v50.inMemoryStore", "-pro.route=\(route)"])
@@ -493,15 +549,15 @@ final class OnboardingProUITests: XCTestCase {
     }
 
     @MainActor
-    func testBankAndDiamondRealEntriesRespectPro() throws {
+    func testBankAndDiamondRealEntriesRespectPro() async throws {
         let session = try storeSession()
         defer { session.clearTransactions(); XCUIDevice.shared.orientation = .portrait }
         for purchased in [false, true] {
             if purchased {
-                try session.buyProduct(productIdentifier: "com.xinkuan.qiuji.premium.monthly")
+                try await session.buyProduct(identifier: "com.xinkuan.qiuji.premium.monthly", options: [.appAccountToken(profileFixturePurchaseToken)])
                 XCUIApplication().terminate()
             }
-            for title in ["翻袋解球", "颗星解球"] {
+            for title in ["翻袋", "颗星解球"] {
                 XCUIDevice.shared.orientation = .portrait
                 let app = XCUIApplication.launchClean(extraArgs: ["-v53.authenticatedProfileFixture", "-v50.inMemoryStore", "-v54.forceLight"])
                 app.switchTab(.angle)
@@ -532,12 +588,12 @@ final class OnboardingProUITests: XCTestCase {
     }
 
     @MainActor
-    func testProRevocationClosesOpenDrillStatisticsAndTool() throws {
+    func testProRevocationClosesOpenDrillStatisticsAndTool() async throws {
         let session = try storeSession()
         defer { session.clearTransactions(); XCUIDevice.shared.orientation = .portrait }
         for destination in ["drill", "statistics", "tool"] {
             session.clearTransactions()
-            try session.buyProduct(productIdentifier: "com.xinkuan.qiuji.premium.lifetime")
+            try await session.buyProduct(identifier: "com.xinkuan.qiuji.premium.lifetime", options: [.appAccountToken(profileFixturePurchaseToken)])
             XCUIApplication().terminate() // StoreKitTest may launch the app without our route/identity arguments.
             let transaction = try XCTUnwrap(session.allTransactions().first)
             var args = ["-v53.authenticatedProfileFixture", "-v50.inMemoryStore", "-v54.forceLight"]
@@ -620,7 +676,7 @@ final class OnboardingProUITests: XCTestCase {
                     let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.20, dy: 0.5))
                     start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.5)
                     XCTAssertTrue(app.staticTexts["已解锁 Pro"].exists)
-                    XCTAssertTrue(app.buttons["管理订阅"].isHittable)
+                    XCTAssertTrue(app.buttons["恢复购买"].isHittable)
                     capture("return-\(appearance)-cancelled-pro")
                     app.navigationBars.buttons.element(boundBy: 0).tap()
                 } else if action == "swipe" {
@@ -653,10 +709,7 @@ final class OnboardingProUITests: XCTestCase {
             XCTAssertTrue(app.staticTexts["已解锁 Pro"].waitForExistence(timeout: 10))
             for orientation in [UIDeviceOrientation.portrait, .landscapeLeft] {
                 XCUIDevice.shared.orientation = orientation
-                let manage = app.buttons["管理订阅"]
-                revealProElement(manage, in: app, scrollID: "subscription.statusScroll")
-                XCTAssertTrue(manage.isHittable)
-                XCTAssertTrue(app.frame.insetBy(dx: -1, dy: -1).contains(manage.frame))
+                XCTAssertFalse(app.buttons["管理订阅"].exists)
                 let restore = app.buttons["恢复购买"]
                 revealProElement(restore, in: app, scrollID: "subscription.statusScroll")
                 XCTAssertTrue(restore.isHittable)

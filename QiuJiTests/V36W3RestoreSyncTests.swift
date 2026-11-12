@@ -27,13 +27,13 @@ final class V36W3RestoreSyncTests: XCTestCase {
             self.errorToThrow = errorToThrow
         }
 
-        func fetchSessions(after: Date?) async throws -> [SyncedRecord<TrainingSessionDTO>] {
+        func fetchSessions(after: Date?, accountID: String) async throws -> [SyncedRecord<TrainingSessionDTO>] {
             sessionAfterArgs.append(after)
             if let errorToThrow { throw errorToThrow }
             return sessionRecords
         }
 
-        func fetchAngleTests(after: Date?) async throws -> [SyncedRecord<AngleTestDTO>] {
+        func fetchAngleTests(after: Date?, accountID: String) async throws -> [SyncedRecord<AngleTestDTO>] {
             angleAfterArgs.append(after)
             if let errorToThrow { throw errorToThrow }
             return angleRecords
@@ -515,20 +515,20 @@ final class V36W3RestoreSyncTests: XCTestCase {
 
 /// 推送一律失败（模拟离线），用于制造「delete 项仍在队列」的竞态前提。
 private struct FailingSyncBackend: SyncBackend {
-    func uploadSession(_ dto: TrainingSessionDTO) async throws {
+    func uploadSession(_ dto: TrainingSessionDTO, accountID: String) async throws {
         throw AppError.networkError("网络连接失败")
     }
-    func uploadAngleTest(_ dto: AngleTestDTO) async throws {
+    func uploadAngleTest(_ dto: AngleTestDTO, accountID: String) async throws {
         throw AppError.networkError("网络连接失败")
     }
-    func deleteSession(clientId: String) async throws {
+    func deleteSession(clientId: String, accountID: String) async throws {
         throw AppError.networkError("网络连接失败")
     }
 }
 
 /// 推送一律成功，用于验证「先推后拉」的正常路径。
 private struct MockSuccessSyncBackend: SyncBackend {
-    func uploadSession(_ dto: TrainingSessionDTO) async throws {}
-    func uploadAngleTest(_ dto: AngleTestDTO) async throws {}
-    func deleteSession(clientId: String) async throws {}
+    func uploadSession(_ dto: TrainingSessionDTO, accountID: String) async throws {}
+    func uploadAngleTest(_ dto: AngleTestDTO, accountID: String) async throws {}
+    func deleteSession(clientId: String, accountID: String) async throws {}
 }

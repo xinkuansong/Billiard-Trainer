@@ -79,7 +79,7 @@ final class V53ProfilePreferencesTests: XCTestCase {
         _ = await first.saveDisplayName("一号游客", authState: auth)
         let second = OwnerProfileStore(ownerKey: "guest:second", defaults: defaults)
         XCTAssertEqual(first.displayName, "一号游客")
-        XCTAssertEqual(second.displayName, "球迹用户")
+        XCTAssertEqual(second.displayName, "CuePhys 用户")
     }
 
     func testLegacyGlobalProfileMigratesOnlyToDeviceGuest() {
@@ -177,7 +177,7 @@ final class V53ProfilePreferencesTests: XCTestCase {
 
         let restoredAccount = OwnerProfileStore(ownerKey: accountKey, defaults: defaults)
         let restoredGuest = OwnerProfileStore(ownerKey: owner.guestOwnerKey, defaults: defaults)
-        XCTAssertEqual(restoredAccount.displayName, "球迹用户")
+        XCTAssertEqual(restoredAccount.displayName, "CuePhys 用户")
         XCTAssertEqual(restoredAccount.preferredSport, .chinese8)
         XCTAssertEqual(restoredAccount.weeklyGoalDays, 3)
         XCTAssertEqual(restoredGuest.displayName, "保留的游客")
@@ -298,7 +298,7 @@ final class V53ProfilePreferencesTests: XCTestCase {
         session.disableDialogs = true
         session.clearTransactions()
         defer { session.clearTransactions() }
-        _ = try await session.buyProduct(identifier: StoreKitService.lifetimeID)
+        _ = try await session.buyProduct(identifier: StoreKitService.lifetimeID, options: [.appAccountToken(StoreKitService.accountToken(for: "storekit-test"))])
         _ = try await waitForEntitlement(StoreKitService.lifetimeID, present: true)
         let manager = SubscriptionManager(listenForUpdates: false, useDebugOverrides: false)
         let auth = AuthState()
@@ -319,6 +319,19 @@ final class V53ProfilePreferencesTests: XCTestCase {
         XCTAssertEqual(loadingStates, [true, false])
         XCTAssertEqual(statusLabels, ["永久有效", "永久有效"])
         XCTAssertFalse(manager.isLoading)
+    }
+
+    func testOnlyLifetimeAvailableForNewPurchase() async throws {
+        let session = try SKTestSession(configurationFileNamed: "Products")
+        session.resetToDefaultState()
+        defer { session.resetToDefaultState() }
+        let manager = SubscriptionManager(listenForUpdates: false, useDebugOverrides: false)
+        await manager.loadProducts()
+        XCTAssertEqual(manager.products.map(\.id), [StoreKitService.lifetimeID])
+        XCTAssertEqual(manager.lifetimeProduct?.type, .nonConsumable)
+        XCTAssertFalse(manager.lifetimeProduct?.displayPrice.isEmpty ?? true)
+        XCTAssertFalse(manager.canPurchase(productID: StoreKitService.monthlyID))
+        XCTAssertFalse(manager.canPurchase(productID: StoreKitService.yearlyID))
     }
 
     func testStoreKitConfigurationLoadsMonthlyYearlyAndLifetimeProducts() async throws {
@@ -983,7 +996,7 @@ extension V53ProfilePreferencesTests {
         let product = try XCTUnwrap(products.first)
         for outcome in [SubscriptionManager.PurchaseOutcome.cancelled, .pending, .confirming] {
             let manager = SubscriptionManager(entitlementLoader: { [] }, listenForUpdates: false,
-                useDebugOverrides: false, purchaseOperation: { _ in
+                useDebugOverrides: false, purchaseOperation: { _, _ in
                     if outcome == .cancelled { throw CancellationError() }
                     if outcome == .pending { throw StoreError.purchasePending }
                 })
@@ -1021,7 +1034,7 @@ extension V53ProfilePreferencesTests {
         var release: CheckedContinuation<Void, Never>?
         let entered = expectation(description: "purchase entered")
         let manager = SubscriptionManager(entitlementLoader: { [] }, listenForUpdates: false,
-            useDebugOverrides: false, purchaseOperation: { _ in
+            useDebugOverrides: false, purchaseOperation: { _, _ in
                 await withCheckedContinuation { continuation in release = continuation; entered.fulfill() }
             })
         let auth = proTestAuth()
@@ -1053,9 +1066,19 @@ extension V53ProfilePreferencesTests {
         XCTAssertFalse(manager.isPremium)
         let transaction = try XCTUnwrap(session.allTransactions().first)
         try session.approveAskToBuyTransaction(identifier: transaction.identifier)
-        _ = try await waitForEntitlement(product.id, present: true)
-        await manager.checkEntitlements()
-        XCTAssertTrue(manager.isPremium)
+        let approved = try await waitForEntitlement(product.id, present: true)
+        let receipt = try XCTUnwrap(approved.first(where: { $0.productID == product.id }))
+        await manager.checkEntitlements(coalescing: true)
+        let owner = StoreKitService.accountToken(for: "pro-purchase-tests")
+        if let token = receipt.appAccountToken {
+            XCTAssertEqual(token, owner)
+            XCTAssertTrue(manager.isPremium)
+            print("W10 pending approval: StoreKit returned the purchaser token")
+        } else {
+            XCTAssertFalse(manager.isPremium)
+            XCTAssertTrue(manager.purchaseOwnershipMessage?.contains("没有账号归属信息") == true)
+            print("W10 pending approval: StoreKit returned an untagged purchase; ownership verification required")
+        }
         XCTAssertNil(manager.awaitingProductID)
         try session.refundTransaction(identifier: transaction.identifier)
         _ = try await waitForEntitlement(product.id, present: false)
@@ -1090,11 +1113,57 @@ extension V53ProfilePreferencesTests {
         XCTAssertTrue(manager.canPurchase(productID: product.id))
     }
 
+    func testLifetimeRestoresOnlyForPurchasingCuePhysAccount() async throws {
+        let session = try SKTestSession(configurationFileNamed: "Products")
+        session.resetToDefaultState(); session.disableDialogs = true; session.clearTransactions()
+        defer { session.clearTransactions(); session.resetToDefaultState() }
+        let auth = proTestAuth()
+        let manager = SubscriptionManager(listenForUpdates: false, useDebugOverrides: false)
+        manager.bind(to: auth)
+        await manager.loadProducts()
+        let product = try XCTUnwrap(manager.lifetimeProduct)
+        let bought = await manager.purchaseResult(product)
+        XCTAssertEqual(bought, .unlocked)
+        let current = await StoreKitService.shared.currentEntitlements()
+        XCTAssertEqual(current.first?.appAccountToken, StoreKitService.accountToken(for: "pro-purchase-tests"))
+
+        auth.login(user: AppUser(id: "other-account", provider: .wechat))
+        let friend = await manager.restorePurchases()
+        XCTAssertFalse(friend)
+        XCTAssertFalse(manager.isPremium)
+        XCTAssertFalse(manager.canPurchase(productID: product.id))
+        XCTAssertTrue(manager.errorMessage?.contains("购买时") == true)
+
+        auth.login(user: AppUser(id: "pro-purchase-tests", provider: .wechat))
+        let owner = await manager.restorePurchases()
+        XCTAssertTrue(owner)
+        XCTAssertEqual(manager.entitlementStatusLabel, "永久有效")
+        XCTAssertEqual(session.allTransactions().filter { $0.state == .purchased }.count, 1)
+        let purchase = try XCTUnwrap(session.allTransactions().first(where: { $0.state == .purchased }))
+        try session.refundTransaction(identifier: purchase.identifier)
+        _ = try await waitForEntitlement(product.id, present: false)
+        await manager.checkEntitlements()
+        XCTAssertFalse(manager.isPremium)
+
+    }
+
+    func testUnattributedLifetimeCannotBeClaimedByCurrentLogin() async {
+        let manager = SubscriptionManager(entitlementLoader: { [
+            StoreEntitlementSnapshot(productID: StoreKitService.lifetimeID, expirationDate: nil, revocationDate: nil)
+        ] }, listenForUpdates: false, useDebugOverrides: false)
+        let auth = proTestAuth()
+        manager.bind(to: auth)
+        await manager.checkEntitlements()
+        XCTAssertFalse(manager.isPremium)
+        XCTAssertTrue(manager.purchaseOwnershipMessage?.contains("没有账号归属信息") == true)
+        XCTAssertFalse(manager.canPurchase(productID: StoreKitService.lifetimeID))
+    }
+
     func testProStoreKitMonthlyCanUpgradeLifetimeAndRestoreBoth() async throws {
         let session = try SKTestSession(configurationFileNamed: "Products")
         session.resetToDefaultState(); session.disableDialogs = true; session.clearTransactions()
         defer { session.clearTransactions() }
-        _ = try await session.buyProduct(identifier: StoreKitService.monthlyID)
+        _ = try await session.buyProduct(identifier: StoreKitService.monthlyID, options: [.appAccountToken(StoreKitService.accountToken(for: "pro-purchase-tests"))])
         _ = try await waitForEntitlement(StoreKitService.monthlyID, present: true)
         let manager = SubscriptionManager(listenForUpdates: false, useDebugOverrides: false)
         let auth = proTestAuth()

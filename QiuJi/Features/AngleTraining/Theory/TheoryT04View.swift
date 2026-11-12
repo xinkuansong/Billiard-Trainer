@@ -54,7 +54,7 @@ struct TheoryT04View: View {
 
     private var appFiveLevels: some View {
         LearnDocSectionCard(title: "用 App 五档比较速度变化") {
-            LearnDocText.body("球迹提供五个杆速参照，便于在同一球形中比较路线和远近。它们不与九档记法逐档对应，也不能直接换算成你在球台上的回杆长度。")
+            LearnDocText.body("\(AppMetadata.displayName) 提供五个杆速参照，便于在同一球形中比较路线和远近。它们不与九档记法逐档对应，也不能直接换算成你在球台上的回杆长度。")
 
             AppSpeedSpectrumFigure()
                 .frame(height: 220)

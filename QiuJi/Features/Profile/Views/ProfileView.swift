@@ -208,7 +208,7 @@ struct ProfileView: View {
                 ProfileAvatarView(size: 56, gender: profile.gender)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(profile.displayName == "球迹用户" ? "点击登录" : profile.displayName)
+                    Text(profile.displayName == AppMetadata.defaultUserName ? "点击登录" : profile.displayName)
                         .font(.btHeadline)
                         .foregroundStyle(.btText)
                     Text("游客模式 · 点击登录")
@@ -256,7 +256,7 @@ struct ProfileView: View {
         Button(action: { showSubscription = true }) {
             HStack {
                 VStack(alignment: .leading, spacing: Spacing.sm) {
-                    Text("解锁球迹 Pro")
+                    Text("解锁 \(AppMetadata.displayName) Pro")
                         .font(.btHeadline).fontWeight(.bold)
                         .foregroundStyle(.white)
                     Text("让你的训练更高效")
@@ -356,7 +356,7 @@ struct ProfileView: View {
                     icon: BTIcon.crown,
                     tint: .accent,
                     usesCrownArtwork: true,
-                    title: "订阅管理",
+                    title: "永久会员",
                     detail: "升级 Pro",
                     detailColor: .btPremiumForeground
                 )
@@ -386,7 +386,7 @@ struct ProfileView: View {
                     icon: "book.closed",
                     tint: .neutral,
                     foregroundColor: .btPrimary,
-                    title: "认识球迹"
+                    title: "认识 \(AppMetadata.displayName)"
                 )
                 .contentShape(Rectangle())
             }

@@ -693,6 +693,36 @@ final class V51ResponsiveLayoutUITests: XCTestCase {
         app.activate()
     }
 
+    func testAuthorizedRestReminderAppearsInBackgroundAndReturnsToTraining() throws {
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v50.inMemoryStore", "-v51.activeTraining", "-v57.restDuration=59",
+        ])
+        let rest = app.buttons["activeTraining.rest"].firstMatch
+        XCTAssertTrue(rest.waitForExistence(timeout: 15))
+        rest.tap()
+        let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let allow = system.alerts.buttons.matching(NSPredicate(format: "label IN %@", ["Allow", "允许"])).firstMatch
+        if allow.waitForExistence(timeout: 5) { allow.tap() }
+        XCTAssertTrue(app.buttons["完成休息"].waitForExistence(timeout: 5))
+        app.buttons["+30S"].tap()
+        app.buttons["完成休息"].tap()
+        XCTAssertTrue(rest.waitForExistence(timeout: 5))
+        rest.tap()
+        XCTAssertTrue(app.buttons["完成休息"].waitForExistence(timeout: 5))
+        XCUIDevice.shared.press(.home)
+        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 10))
+        let notification = system.staticTexts["组间休息结束"].firstMatch
+        XCTAssertTrue(notification.waitForExistence(timeout: 70), "Expected the OS rest notification while the app is in the background")
+        let proof = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        proof.name = "休息结束系统通知"
+        proof.lifetime = .keepAlways
+        add(proof)
+        app.activate()
+        XCTAssertTrue(rest.waitForExistence(timeout: 8))
+        XCTAssertEqual(rest.label, "休息设置")
+        XCTAssertFalse(app.buttons["完成休息"].exists)
+    }
+
     func testV57SystemRestActivityDisplay() throws {
         app = XCUIApplication.launchClean(extraArgs: [
             "-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance",

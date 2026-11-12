@@ -296,7 +296,7 @@ final class BankSolverTrajectoryUITests: XCTestCase {
         }
         app.switchTab(.angle)
         ready(app.buttons["angleHomeTab_进阶"]); app.buttons["angleHomeTab_进阶"].tap()
-        ready(app.buttons["翻袋解球"]); app.buttons["翻袋解球"].tap()
+        ready(app.buttons["翻袋"]); app.buttons["翻袋"].tap()
         let strike = app.buttons["bankshot.strike"]
         for mode in ["2D", "3D"] {
             ready(strike)

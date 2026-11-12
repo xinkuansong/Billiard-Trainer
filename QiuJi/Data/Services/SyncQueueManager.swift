@@ -5,22 +5,24 @@ import SwiftData
 /// 抽出它是为了让队列的 operation 分发与失败分类可单测而不必真打服务器；
 /// 生产实现是 `BackendSyncService.shared` 的薄包装。
 protocol SyncBackend: Sendable {
-    func uploadSession(_ dto: TrainingSessionDTO) async throws
-    func uploadAngleTest(_ dto: AngleTestDTO) async throws
-    func deleteSession(clientId: String) async throws
+    func uploadSession(_ dto: TrainingSessionDTO, accountID: String) async throws
+    func uploadAngleTest(_ dto: AngleTestDTO, accountID: String) async throws
+    func deleteSession(clientId: String, accountID: String) async throws
 }
 
 struct LiveSyncBackend: SyncBackend {
-    func uploadSession(_ dto: TrainingSessionDTO) async throws {
-        try await BackendSyncService.shared.uploadSession(dto)
+    var service: BackendSyncService = .shared
+
+    func uploadSession(_ dto: TrainingSessionDTO, accountID: String) async throws {
+        try await service.uploadSession(dto, accountID: accountID)
     }
 
-    func uploadAngleTest(_ dto: AngleTestDTO) async throws {
-        try await BackendSyncService.shared.uploadAngleTest(dto)
+    func uploadAngleTest(_ dto: AngleTestDTO, accountID: String) async throws {
+        try await service.uploadAngleTest(dto, accountID: accountID)
     }
 
-    func deleteSession(clientId: String) async throws {
-        try await BackendSyncService.shared.deleteSession(clientId: clientId)
+    func deleteSession(clientId: String, accountID: String) async throws {
+        try await service.deleteSession(clientId: clientId, accountID: accountID)
     }
 }
 
@@ -78,6 +80,7 @@ final class SyncQueueManager: ObservableObject {
         guard shouldContinue(), authState.cloudSyncEnabled else { return summary }
         guard authState.isLoggedIn, let userID = authState.currentUser?.id else { return summary }
         guard let context else { summary.failedItems += 1; return summary }
+        let choice = authState.syncChoiceRevision
         let ownerKey = OwnerKey.account(userID)
 
         let descriptor = FetchDescriptor<SyncPendingItem>(
@@ -96,9 +99,10 @@ final class SyncQueueManager: ObservableObject {
         guard !pending.isEmpty else { return summary }
 
         for item in pending {
-            guard shouldContinue(), authState.isLoggedIn, authState.currentUser?.id == userID else { break }
-            let outcome = await process(item, ownerKey: ownerKey, context: context)
-            guard shouldContinue(), authState.cloudSyncEnabled,
+            guard shouldContinue(), authState.cloudSyncEnabled, authState.syncChoiceRevision == choice,
+                  authState.isLoggedIn, authState.currentUser?.id == userID else { break }
+            let outcome = await process(item, accountID: userID, context: context)
+            guard shouldContinue(), authState.cloudSyncEnabled, authState.syncChoiceRevision == choice,
                   authState.isLoggedIn, authState.currentUser?.id == userID else { break }
             switch outcome {
             case .succeeded:
@@ -125,28 +129,29 @@ final class SyncQueueManager: ObservableObject {
         return summary
     }
 
-    private func process(_ item: SyncPendingItem, ownerKey: String,
+    private func process(_ item: SyncPendingItem, accountID: String,
                          context: ModelContext) async -> ItemOutcome {
         switch (item.entityType, item.operation) {
         case (SyncEntityType.trainingSession, SyncOperation.delete):
-            return await deleteTrainingSession(clientId: item.entityId)
+            return await deleteTrainingSession(clientId: item.entityId, accountID: accountID)
         case (SyncEntityType.trainingSession, _):
-            return await uploadTrainingSession(clientId: item.entityId, ownerKey: ownerKey,
+            return await uploadTrainingSession(clientId: item.entityId, accountID: accountID,
                                                context: context)
         case (SyncEntityType.angleTestResult, SyncOperation.delete):
             // 客户端目前没有单条角度成绩的删除入口（v36 W2 走查确认），后端也没有对应端点。
             // Unsupported work is retained and reported rather than silently discarded.
             return .permanentFailure("AngleTestResult 删除同步未实现")
         case (SyncEntityType.angleTestResult, _):
-            return await uploadAngleTest(clientId: item.entityId, ownerKey: ownerKey,
+            return await uploadAngleTest(clientId: item.entityId, accountID: accountID,
                                          context: context)
         default:
             return .permanentFailure("未知 entityType，无处理路径")
         }
     }
 
-    private func uploadTrainingSession(clientId: UUID, ownerKey: String,
+    private func uploadTrainingSession(clientId: UUID, accountID: String,
                                        context: ModelContext) async -> ItemOutcome {
+        let ownerKey = OwnerKey.account(accountID)
         var descriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate { $0.id == clientId && $0.ownerKey == ownerKey }
         )
@@ -157,15 +162,16 @@ final class SyncQueueManager: ObservableObject {
         guard let session = (try? context.fetch(descriptor))?.first else { return .succeeded }
         let dto = TrainingSessionDTO(from: session)
         do {
-            try await backend.uploadSession(dto)
+            try await backend.uploadSession(dto, accountID: accountID)
             return .succeeded
         } catch {
             return classify(error)
         }
     }
 
-    private func uploadAngleTest(clientId: UUID, ownerKey: String,
+    private func uploadAngleTest(clientId: UUID, accountID: String,
                                  context: ModelContext) async -> ItemOutcome {
+        let ownerKey = OwnerKey.account(accountID)
         var descriptor = FetchDescriptor<AngleTestResult>(
             predicate: #Predicate { $0.id == clientId && $0.ownerKey == ownerKey }
         )
@@ -174,7 +180,7 @@ final class SyncQueueManager: ObservableObject {
         guard let result = (try? context.fetch(descriptor))?.first else { return .succeeded }
         let dto = AngleTestDTO(from: result)
         do {
-            try await backend.uploadAngleTest(dto)
+            try await backend.uploadAngleTest(dto, accountID: accountID)
             return .succeeded
         } catch {
             return classify(error)
@@ -182,9 +188,9 @@ final class SyncQueueManager: ObservableObject {
     }
 
     /// delete 项不回查实体：实体已被删除，回查必然落空。payload 只需 clientId。
-    private func deleteTrainingSession(clientId: UUID) async -> ItemOutcome {
+    private func deleteTrainingSession(clientId: UUID, accountID: String) async -> ItemOutcome {
         do {
-            try await backend.deleteSession(clientId: clientId.uuidString)
+            try await backend.deleteSession(clientId: clientId.uuidString, accountID: accountID)
             return .succeeded
         } catch {
             return classify(error)

@@ -20,17 +20,17 @@ final class V36W2DeleteSyncTests: XCTestCase {
             self.errorToThrow = errorToThrow
         }
 
-        func uploadSession(_ dto: TrainingSessionDTO) async throws {
+        func uploadSession(_ dto: TrainingSessionDTO, accountID: String) async throws {
             uploadedSessionClientIds.append(dto.clientId)
             if let errorToThrow { throw errorToThrow }
         }
 
-        func uploadAngleTest(_ dto: AngleTestDTO) async throws {
+        func uploadAngleTest(_ dto: AngleTestDTO, accountID: String) async throws {
             uploadedAngleTestClientIds.append(dto.clientId)
             if let errorToThrow { throw errorToThrow }
         }
 
-        func deleteSession(clientId: String) async throws {
+        func deleteSession(clientId: String, accountID: String) async throws {
             deletedClientIds.append(clientId)
             if let errorToThrow { throw errorToThrow }
         }

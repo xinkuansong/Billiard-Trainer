@@ -1,5 +1,5 @@
 import ActivityKit
-import AVFoundation
+import UserNotifications
 import Foundation
 
 @MainActor
@@ -7,15 +7,16 @@ protocol RestTimerLiveActivityManaging: AnyObject {
     func startActivity(drillName: String, state: RestTimerAttributes.ContentState)
     func updateActivity(state: RestTimerAttributes.ContentState)
     func endActivity()
-    func activateBackgroundAudio()
-    func deactivateBackgroundAudio()
+    func setMusicResting(_ resting: Bool)
+    func scheduleReminder(at end: Date, requestPermission: Bool)
+    func cancelReminder()
 }
 
 @MainActor
 final class RestTimerLiveActivityManager: RestTimerLiveActivityManaging {
     static let shared = RestTimerLiveActivityManager()
     private var currentActivity: Activity<RestTimerAttributes>?
-    private var silentPlayer: AVAudioPlayer?
+    private let reminder = RestCompletionReminder()
 
     private init() {}
 
@@ -31,7 +32,7 @@ final class RestTimerLiveActivityManager: RestTimerLiveActivityManaging {
         do {
             let activity = try Activity<RestTimerAttributes>.request(
                 attributes: attributes,
-                content: .init(state: state, staleDate: state.endDate.addingTimeInterval(5)),
+                content: .init(state: state, staleDate: state.endDate),
                 pushType: nil
             )
             currentActivity = activity
@@ -46,7 +47,7 @@ final class RestTimerLiveActivityManager: RestTimerLiveActivityManaging {
     func updateActivity(state: RestTimerAttributes.ContentState) {
         guard let activity = currentActivity else { return }
         Task {
-            await activity.update(.init(state: state, staleDate: state.endDate.addingTimeInterval(5)))
+            await activity.update(.init(state: state, staleDate: state.endDate))
             #if DEBUG
             print("[RestTrace] event=update-completed id=\(activity.id) now=\(Date().timeIntervalSince1970) end=\(state.endDate.timeIntervalSince1970) total=\(state.totalSeconds)")
             #endif
@@ -71,56 +72,16 @@ final class RestTimerLiveActivityManager: RestTimerLiveActivityManaging {
         currentActivity = nil
     }
 
-    // MARK: - Background Audio Keep-Alive
-
-    func activateBackgroundAudio() {
-        TrainingMusicPlayer.shared.setResting(true)
-        do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, options: .mixWithOthers)
-            try session.setActive(true)
-        } catch {
-            print("[BackgroundAudio] Session error: \(error.localizedDescription)")
-        }
-
-        guard silentPlayer == nil else { return }
-        let url = silentAudioURL()
-        do {
-            silentPlayer = try AVAudioPlayer(contentsOf: url)
-            silentPlayer?.numberOfLoops = -1
-            silentPlayer?.volume = 0.01
-            silentPlayer?.play()
-        } catch {
-            print("[BackgroundAudio] Player error: \(error.localizedDescription)")
-        }
+    func setMusicResting(_ resting: Bool) {
+        TrainingMusicPlayer.shared.setResting(resting)
     }
 
-    func deactivateBackgroundAudio() {
-        silentPlayer?.stop()
-        silentPlayer = nil
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        TrainingMusicPlayer.shared.setResting(false)
+    func scheduleReminder(at end: Date, requestPermission: Bool) {
+        reminder.schedule(at: end, requestPermission: requestPermission)
     }
 
-    // MARK: - Private
-
-    private func silentAudioURL() -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("rest_silence.caf")
-        guard !FileManager.default.fileExists(atPath: url.path) else { return url }
-
-        let sampleRate: Double = 44100
-        let frameCount = AVAudioFrameCount(sampleRate) // 1 second
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1),
-              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return url }
-        buffer.frameLength = frameCount
-
-        do {
-            let file = try AVAudioFile(forWriting: url, settings: format.settings)
-            try file.write(from: buffer)
-        } catch {
-            print("[BackgroundAudio] Failed to create silence: \(error.localizedDescription)")
-        }
-        return url
+    func cancelReminder() {
+        reminder.cancel()
     }
 
     private func endAllStaleActivities() {

@@ -291,7 +291,7 @@ struct TrainingShareView: View {
 
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
         guard status == .authorized || status == .limited else {
-            saveErrorMessage = "未获得相册权限，请在系统设置中允许球迹写入照片"
+            saveErrorMessage = "未获得相册权限，请在系统设置中允许 \(AppMetadata.displayName) 写入照片"
             showSaveErrorAlert = true
             return
         }

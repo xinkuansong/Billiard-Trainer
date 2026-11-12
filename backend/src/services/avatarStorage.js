@@ -1,6 +1,8 @@
 const fs = require("fs/promises");
 const path = require("path");
 
+const { randomUUID } = require("node:crypto");
+
 const MAX_AVATAR_BYTES = 1024 * 1024;
 
 class AvatarValidationError extends Error {
@@ -41,7 +43,7 @@ async function writeAvatar(storageDir, userId, revision, data) {
   validateJpeg(data);
   await fs.mkdir(storageDir, { recursive: true });
   const target = avatarPath(storageDir, userId, revision);
-  const temporary = `${target}.${process.pid}.${Date.now()}.tmp`;
+  const temporary = `${target}.${randomUUID()}.tmp`;
   try {
     await fs.writeFile(temporary, data, { flag: "wx", mode: 0o600 });
     await fs.rename(temporary, target);
@@ -61,7 +63,25 @@ async function deleteAvatar(storageDir, userId, revision) {
   await fs.rm(avatarPath(storageDir, userId, revision), { force: true });
 }
 
+// Also purge obsolete revisions and interrupted writes for this exact owner.
+async function deleteAccountAvatars(storageDir, userId) {
+  const prefix = safeUserId(userId) + "-";
+  let names;
+  try {
+    names = await fs.readdir(storageDir);
+  } catch (error) {
+    if (error.code === "ENOENT") return;
+    throw error;
+  }
+  for (const name of names) {
+    if (name.startsWith(prefix) && /^\d+\.jpg(?:\.[\w.-]+\.tmp)?$/.test(name.slice(prefix.length))) {
+      await fs.rm(path.join(storageDir, name), { force: true });
+    }
+  }
+}
+
 module.exports = {
+  deleteAccountAvatars,
   AvatarValidationError,
   MAX_AVATAR_BYTES,
   avatarPath,

@@ -71,6 +71,7 @@ QiuJiTests/TrainingQuestionBankRefinementTests.swift
 QiuJiTests/TrainingQuestionBankTests.swift
 QiuJiTests/TrainingQuotaLedgerTests.swift
 QiuJiTests/TrainingSpeedScreeningTests.swift
+QiuJiTests/TrainingSyncPrivacyIntegrationTests.swift
 QiuJiTests/TrajectoryRendererTests.swift
 QiuJiTests/TwoBallPracticeTests.swift
 QiuJiTests/V21W1EvidenceTests.swift

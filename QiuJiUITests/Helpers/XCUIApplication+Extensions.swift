@@ -195,3 +195,6 @@ extension XCUIApplication {
         XCTAssertTrue(element.waitForExistence(timeout: 3), message ?? "Element '\(identifier)' should exist")
     }
 }
+
+// Stored transaction format for AuthState’s v53-server-user UI fixture.
+let profileFixturePurchaseToken = UUID(uuidString: "df209782-2207-8a67-bee4-d61362454cbe")!

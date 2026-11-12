@@ -1,3 +1,4 @@
+import CuePhysWeChat
 import SwiftUI
 import SwiftData
 import UserNotifications
@@ -77,6 +78,8 @@ struct QiuJiApp: App {
                 .environmentObject(subscriptionManager)
                 .environmentObject(avatarStore)
                 .tint(.btPrimary)
+                .onOpenURL { WeChatAuthorization.shared.handle(url: $0) }
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { WeChatAuthorization.shared.handle(activity: $0) }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
                     Task { await TrainingReminderScheduler.shared.reconcile() }
                 }
@@ -128,6 +131,7 @@ struct QiuJiApp: App {
                     if !enabled { ShotAudioScheduler.shared.cancel() }
                 }
                 .onChange(of: scenePhase) { _, newPhase in
+                    appRouter.minimizedTrainingVM?.restAppActivityChanged(active: newPhase == .active)
                     if newPhase != .active { ShotAudioScheduler.shared.cancel() }
                     if newPhase == .active {
                         AngleUsageLimiter.shared.refreshDay()

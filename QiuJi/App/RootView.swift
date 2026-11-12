@@ -436,7 +436,7 @@ private struct V34W5ActiveTrainingHost: View {
             isCompleted: false
         )
         _viewModel = StateObject(
-            wrappedValue: ActiveTrainingViewModel(mode: .plan(drills: [item], planId: "uitest_w5"))
+            wrappedValue: ActiveTrainingViewModel(mode: .plan(drills: [item], planId: nil))
         )
     }
 

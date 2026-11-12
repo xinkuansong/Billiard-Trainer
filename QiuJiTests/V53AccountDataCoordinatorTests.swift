@@ -348,21 +348,21 @@ private actor CoordinatorSyncBackend: SyncBackend {
     private(set) var uploadCount = 0
     private var failure: AppError?
     func setFailure(_ error: AppError?) { failure = error }
-    func uploadSession(_ dto: TrainingSessionDTO) async throws {
+    func uploadSession(_ dto: TrainingSessionDTO, accountID: String) async throws {
         uploadCount += 1
         if let failure { throw failure }
     }
-    func uploadAngleTest(_ dto: AngleTestDTO) async throws { uploadCount += 1 }
-    func deleteSession(clientId: String) async throws { uploadCount += 1 }
+    func uploadAngleTest(_ dto: AngleTestDTO, accountID: String) async throws { uploadCount += 1 }
+    func deleteSession(clientId: String, accountID: String) async throws { uploadCount += 1 }
 }
 
 private actor CoordinatorRestoreBackend: SyncRestoreBackend {
     private(set) var fetchCount = 0
-    func fetchSessions(after: Date?) async throws -> [SyncedRecord<TrainingSessionDTO>] {
+    func fetchSessions(after: Date?, accountID: String) async throws -> [SyncedRecord<TrainingSessionDTO>] {
         fetchCount += 1
         return []
     }
-    func fetchAngleTests(after: Date?) async throws -> [SyncedRecord<AngleTestDTO>] {
+    func fetchAngleTests(after: Date?, accountID: String) async throws -> [SyncedRecord<AngleTestDTO>] {
         fetchCount += 1
         return []
     }
@@ -377,7 +377,7 @@ private actor DelayedCoordinatorRestoreBackend: SyncRestoreBackend {
 
     init(dto: TrainingSessionDTO) { self.dto = dto }
 
-    func fetchSessions(after: Date?) async throws -> [SyncedRecord<TrainingSessionDTO>] {
+    func fetchSessions(after: Date?, accountID: String) async throws -> [SyncedRecord<TrainingSessionDTO>] {
         requested = true
         requestWaiters.forEach { $0.resume() }
         requestWaiters.removeAll()
@@ -385,7 +385,7 @@ private actor DelayedCoordinatorRestoreBackend: SyncRestoreBackend {
         return try Self.records(dto)
     }
 
-    func fetchAngleTests(after: Date?) async throws -> [SyncedRecord<AngleTestDTO>] { angleFetchCount += 1; return [] }
+    func fetchAngleTests(after: Date?, accountID: String) async throws -> [SyncedRecord<AngleTestDTO>] { angleFetchCount += 1; return [] }
 
     func waitUntilRequested() async {
         if requested { return }
@@ -412,10 +412,10 @@ private actor DelayedCoordinatorRestoreBackend: SyncRestoreBackend {
 }
 
 private struct FailingCoordinatorRestoreBackend: SyncRestoreBackend {
-    func fetchSessions(after: Date?) async throws -> [SyncedRecord<TrainingSessionDTO>] {
+    func fetchSessions(after: Date?, accountID: String) async throws -> [SyncedRecord<TrainingSessionDTO>] {
         throw AppError.networkError("offline")
     }
-    func fetchAngleTests(after: Date?) async throws -> [SyncedRecord<AngleTestDTO>] {
+    func fetchAngleTests(after: Date?, accountID: String) async throws -> [SyncedRecord<AngleTestDTO>] {
         throw AppError.networkError("offline")
     }
 }

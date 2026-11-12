@@ -1,3 +1,4 @@
+const { latestEligibleBirthday, ageMessage, surveyAgeBands } = require("./accountAge");
 const PROFILE_FIELDS = [
   "displayName",
   "preferredSport",
@@ -6,9 +7,11 @@ const PROFILE_FIELDS = [
   "weeklyGoalDays",
   "gender",
   "birthDate",
+  "ageBand",
 ];
 
 const ENUMS = {
+  ageBand: new Set(surveyAgeBands),
   preferredSport: new Set(["chinese8", "nineBall", "both", "zhuifen", "other"]),
   skillLevel: new Set(["beginner", "elementary", "intermediate", "advanced"]),
   yearsPlaying: new Set(["lessThan1", "oneToThree", "threeToFive", "fivePlus"]),
@@ -78,6 +81,7 @@ function validateProfileUpdate(input) {
             value < "1900-01-01" || value > new Date(Date.now() + 14 * 60 * 60 * 1000).toISOString().slice(0, 10)) {
           throw new ProfileValidationError("请选择有效生日");
         }
+        if (value > latestEligibleBirthday()) throw Object.assign(new ProfileValidationError(ageMessage), { status: 403 });
       }
       update.birthDate = value;
       continue;
@@ -109,10 +113,10 @@ function initialProfileImportPipeline(input, authenticatedID) {
     error.status = 409;
     throw error;
   }
-  const allowed = ["preferredSport", "yearsPlaying", "gender", "birthDate"];
+  const allowed = ["preferredSport", "yearsPlaying", "gender", "birthDate", "ageBand"];
   const fields = validateProfileUpdate(input.fields);
   if (Object.entries(fields).some(([key, value]) => !allowed.includes(key) || value === null)) {
-    throw new ProfileValidationError("只能带入已填写的球种、球龄、性别和生日");
+    throw new ProfileValidationError("只能带入已填写的球种、球龄、性别、生日或年龄段");
   }
   return [{ $set: Object.fromEntries(Object.entries(fields).map(([key, value]) =>
     [key, { $ifNull: [`$${key}`, { $literal: value }] }])) }];
@@ -126,6 +130,7 @@ function serializeUser(user) {
     displayName: source.displayName ?? null,
     email: source.email ?? null,
     provider: source.provider,
+    linkedProviders: [source.appleUserId && "apple", source.wechatIdentity && "wechat"].filter(Boolean),
     avatarRevision: source.avatarRevision ?? null,
     preferredSport: source.preferredSport ?? null,
     skillLevel: source.skillLevel ?? null,

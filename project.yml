@@ -46,6 +46,16 @@ targets:
     platform: iOS
     deploymentTarget: "17.0"
     preBuildScripts:
+      - name: Prepare API transport configuration
+        basedOnDependencyAnalysis: false
+        inputFiles:
+          - "$(SRCROOT)/QiuJi/Resources/Info.plist"
+          - "$(SRCROOT)/QiuJi/Core/Extensions/AppConfig.swift"
+          - "$(SRCROOT)/scripts/prepare-api-plist.sh"
+        outputFiles:
+          - "$(DERIVED_FILE_DIR)/CuePhys-Info.plist"
+        script: |
+          /bin/sh "$SRCROOT/scripts/prepare-api-plist.sh"
       - name: Verify training question bank
         basedOnDependencyAnalysis: false
         script: |
@@ -55,6 +65,7 @@ targets:
     sources:
       - path: QiuJi
         excludes:
+          - "Resources/Info.plist"
           - "**/.DS_Store"
           - "Resources/Drills/**"
           - "Resources/defense-trajectories.bank"
@@ -106,6 +117,9 @@ targets:
         type: folder
         buildPhase: resources
       # 击球音效（drop-in：放入 caf/wav 后重新构建即生效，缺文件时 App 静音）。
+      # iOS looks up custom local-notification sounds in the bundle root.
+      - path: QiuJi/Resources/Audio/RestTimer/complete.wav
+        buildPhase: resources
       - path: QiuJi/Resources/Audio
         type: folder
         buildPhase: resources
@@ -158,46 +172,45 @@ targets:
         # Sign in with Apple 的 entitlement 入口。⛔ 必须写在这里（project.yml 是
         # pbxproj 的生成真源）：2026-04-10 曾直接改 pbxproj 加上，2026-04-17 一次
         # xcodegen 重新生成即把它冲掉，此后 ASAuthorization 无 entitlement 直接失败。
-        CODE_SIGN_ENTITLEMENTS: QiuJi/QiuJi.entitlements
+        CODE_SIGN_ENTITLEMENTS: "$(CUEPHYS_ENTITLEMENTS)"
         PRODUCT_NAME: 球迹
         # 产物名为「球迹」，但 Swift 模块名固定为 QiuJi，
         # 否则 @testable import QiuJi 无法解析（CJK 产物名会被 sanitize）。
         PRODUCT_MODULE_NAME: QiuJi
+        OTHER_LDFLAGS: "$(inherited) -ObjC"
         INFOPLIST_FILE: QiuJi/Resources/Info.plist
         # ⚠️ 勿在此用 INFOPLIST_KEY_*：主 target 显式 INFOPLIST_FILE（GENERATE_INFOPLIST_FILE=NO），
         # INFOPLIST_KEY_* 会被 Xcode 全部忽略（W1 返工根因：权限文案未进包 → 真机 TCC 强杀闪退）。
         # 权限文案等 Info.plist 键一律写在下方 info.properties（xcodegen 会重写 Info.plist）。
+      configs:
+        Debug:
+          INFOPLIST_FILE: "$(DERIVED_FILE_DIR)/CuePhys-Info.plist"
+        Release:
+          INFOPLIST_FILE: "$(DERIVED_FILE_DIR)/CuePhys-Info.plist"
     info:
       path: QiuJi/Resources/Info.plist
       properties:
-        CFBundleName: 球迹
-        CFBundleDisplayName: 球迹
+        CFBundleName: CuePhys
+        CFBundleDisplayName: CuePhys
         CADisableMinimumFrameDurationOnPhone: true
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         # 隐私权限文案（唯一生效真源；见上方 INFOPLIST_KEY_* 警告）
         NSPhotoLibraryAddUsageDescription: 将训练分享卡保存到相册
-        NSPhotoLibraryUsageDescription: 选择头像、训练视频或图片
-        NSCameraUsageDescription: 拍摄训练视频
         NSSupportsLiveActivities: true
-        UIBackgroundModes:
-          - audio
-        NSAppTransportSecurity:
-          NSExceptionDomains:
-            106.54.3.210:
-              NSExceptionAllowsInsecureHTTPLoads: true
-              NSIncludesSubdomains: true
         LSApplicationQueriesSchemes:
           - weixin
           - weixinULAPI
+          - weixinURLParamsAPI
         CFBundleURLTypes:
           - CFBundleTypeRole: Editor
             CFBundleURLSchemes:
-              - "wx$(WECHAT_APP_ID)"
+              - "$(WECHAT_APP_ID)"
         API_BASE_URL: "$(API_BASE_URL)"
         LEGAL_TERMS_URL: "$(LEGAL_TERMS_URL)"
         LEGAL_PRIVACY_URL: "$(LEGAL_PRIVACY_URL)"
         WECHAT_APP_ID: "$(WECHAT_APP_ID)"
+        WECHAT_LINK_HOST: "$(WECHAT_LINK_HOST)"
         WECHAT_UNIVERSAL_LINK: "$(WECHAT_UNIVERSAL_LINK)"
         UILaunchScreen:
           UIColorName: ""
@@ -212,6 +225,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
     dependencies:
       - target: QiuJiLiveActivityExtension
+      - package: CuePhysWeChat
 
   QiuJiLiveActivityExtension:
     type: app-extension
@@ -300,4 +314,6 @@ schemes:
     archive:
       config: Release
 
-packages: {}
+packages:
+  CuePhysWeChat:
+    path: Packages/CuePhysWeChat

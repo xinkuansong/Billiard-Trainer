@@ -24,6 +24,12 @@ struct ScreenAnchoredCarpet: UIViewControllerRepresentable {
         private weak var scene: AngleTrainingScene?
 
         private var initialPointsPerMetre: CGFloat?
+        private var hasPresentedTable = false
+
+        /// GeometryReader can initially propose zero size. Keep following its
+        /// scale until SceneKit confirms the first stable table frame; then the
+        /// floor stays fixed while the table and controls rotate.
+        func noteTablePresented() { hasPresentedTable = true }
         private var portraitTableLength: CGFloat?
         private static let owners = NSMapTable<UIWindow, Controller>.weakToWeakObjects()
         private weak var registeredWindow: UIWindow?
@@ -190,10 +196,10 @@ struct ScreenAnchoredCarpet: UIViewControllerRepresentable {
 
         func setStyle(_ style: RoomStyle, pointsPerMetre: CGFloat) {
             loadViewIfNeeded()
-            if initialPointsPerMetre == nil, pointsPerMetre > 0 {
-                initialPointsPerMetre = pointsPerMetre
-            }
-            guard style != lastStyle || carpet.image == nil else { return }
+            let scaleChanged = !hasPresentedTable && pointsPerMetre.isFinite
+                && pointsPerMetre > 0 && initialPointsPerMetre != pointsPerMetre
+            if scaleChanged { initialPointsPerMetre = pointsPerMetre }
+            guard scaleChanged || style != lastStyle || carpet.image == nil else { return }
             lastStyle = style
             renderCarpetIfPossible()
         }
@@ -206,6 +212,7 @@ struct ScreenAnchoredCarpet: UIViewControllerRepresentable {
             let floor = DailyCarpetBackground(style: lastStyle, pointsPerMetre: initialPointsPerMetre)
                 .frame(width: side, height: side)
             carpet.image = ImageRenderer(content: floor).uiImage
+
         }
 
         override func viewDidAppear(_ animated: Bool) {

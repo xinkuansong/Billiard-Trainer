@@ -32,7 +32,7 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
         if deep[page] == nil {
             app.switchTab(.angle)
             ready(app.buttons["angleHomeTab_进阶"]); app.buttons["angleHomeTab_进阶"].tap()
-            let card = app.buttons[page == "bankshot" ? "翻袋解球" : "颗星解球"]
+            let card = app.buttons[page == "bankshot" ? "翻袋" : "颗星解球"]
             ready(card); card.tap()
         }
         XCTAssertTrue(element(page + ".template").waitForExistence(timeout: 30))
@@ -1110,7 +1110,7 @@ final class InformationConsistencyUITests: XCTestCase {
         app = XCUIApplication.launchClean(extraArgs: args)
         if ["bankshot", "reflection"].contains(page) {
             app.switchTab(.angle); ready(app.buttons["angleHomeTab_进阶"]); app.buttons["angleHomeTab_进阶"].tap()
-            let card = app.buttons[page == "bankshot" ? "翻袋解球" : "颗星解球"]; ready(card); card.tap()
+            let card = app.buttons[page == "bankshot" ? "翻袋" : "颗星解球"]; ready(card); card.tap()
         }
         let anchor = ["composer", "freeplay"].contains(page) ? page + ".landscape" : page + ".template"
         XCTAssertTrue(item(anchor).waitForExistence(timeout: 45))

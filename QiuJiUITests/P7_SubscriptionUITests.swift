@@ -14,7 +14,7 @@ final class P7_SubscriptionUITests: XCTestCase {
     func testSubscriptionFromProfile() {
         app.switchTab(.profile)
         sleep(2)
-        let subscriptionText = app.staticTexts["订阅管理"]
+        let subscriptionText = app.buttons["profile.subscription"]
         let upgradeText = app.staticTexts["升级 Pro"]
         if subscriptionText.waitForExistence(timeout: 3) {
             subscriptionText.tap()
@@ -31,7 +31,7 @@ final class P7_SubscriptionUITests: XCTestCase {
     func testSubscriptionFromProCard() {
         app.switchTab(.profile)
         sleep(1)
-        let proCard = app.staticTexts["解锁球迹 Pro"]
+        let proCard = app.staticTexts["解锁 CuePhys Pro"]
         if proCard.waitForExistence(timeout: 3) {
             proCard.tap()
             sleep(2)
@@ -66,7 +66,7 @@ final class P7_SubscriptionUITests: XCTestCase {
     func testSubscriptionPageElements() {
         app.switchTab(.profile)
         sleep(2)
-        let subscriptionItem = app.staticTexts["订阅管理"]
+        let subscriptionItem = app.buttons["profile.subscription"]
         guard subscriptionItem.waitForExistence(timeout: 3) else { return }
         subscriptionItem.tap()
         sleep(3)
@@ -82,7 +82,7 @@ final class P7_SubscriptionUITests: XCTestCase {
     func testRestorePurchaseNoCrash() {
         app.switchTab(.profile)
         sleep(2)
-        let subscriptionItem = app.staticTexts["订阅管理"]
+        let subscriptionItem = app.buttons["profile.subscription"]
         guard subscriptionItem.waitForExistence(timeout: 3) else { return }
         subscriptionItem.tap()
         sleep(3)
@@ -100,7 +100,7 @@ final class P7_SubscriptionUITests: XCTestCase {
     func testSubscriptionSheetDismiss() {
         app.switchTab(.profile)
         sleep(1)
-        let proCard = app.staticTexts["解锁球迹 Pro"]
+        let proCard = app.staticTexts["解锁 CuePhys Pro"]
         if proCard.waitForExistence(timeout: 3) {
             proCard.tap()
             sleep(2)

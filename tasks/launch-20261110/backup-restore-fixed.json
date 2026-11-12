@@ -1,0 +1,51 @@
+{
+  "startedAt": "2026-11-10T03:43:00.726Z",
+  "databaseTools": "mongorestore version: 100.13.0",
+  "afterDeletion": {
+    "users": 0,
+    "trainingsessions": 0,
+    "angletests": 0,
+    "customformations": 0,
+    "formationchanges": 0,
+    "avatars": 0
+  },
+  "beforeRestoreAccess": {
+    "/user/profile": 401,
+    "/training-sessions": 401,
+    "/user/avatar": 401,
+    "/custom-formations": 401,
+    "write": 401,
+    "refresh": 401
+  },
+  "archiveRestoreMs": 852,
+  "preLedgerBackupBlocked": true,
+  "failedStartupBeforeListen": true,
+  "missingWitnessBlocked": true,
+  "duplicateRequestsDeduplicated": true,
+  "missingEventBlocked": true,
+  "staleLedgerBlocked": true,
+  "interruptedReplayBlocked": true,
+  "replayMs": 91,
+  "unfinishedDeletionReplayed": true,
+  "afterRestore": {
+    "users": 0,
+    "trainingsessions": 0,
+    "angletests": 0,
+    "customformations": 0,
+    "formationchanges": 0,
+    "avatars": 0
+  },
+  "deletedAccountMatchesSnapshot": false,
+  "controlMatchesSnapshot": true,
+  "controlRead": 200,
+  "afterRestoreAccess": {
+    "/user/profile": 401,
+    "/training-sessions": 401,
+    "/user/avatar": 401,
+    "/custom-formations": 401,
+    "write": 401,
+    "refresh": 401
+  },
+  "safeToReopen": true,
+  "repeatReplaySafe": true
+}

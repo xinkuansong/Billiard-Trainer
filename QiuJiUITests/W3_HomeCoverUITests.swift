@@ -83,12 +83,12 @@ final class W3_HomeCoverUITests: XCTestCase {
         let solve = app.buttons["angleHomeTab_进阶"]
         XCTAssertTrue(solve.waitForExistence(timeout: 15))
         solve.tap()
-        XCTAssertTrue(app.buttons["翻袋解球"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["翻袋"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["防守求解"].exists)
         XCTAssertFalse(app.buttons["防守"].exists)
         let solveShot = XCTAttachment(screenshot: app.screenshot())
         solveShot.name = "deferred-solve"; solveShot.lifetime = .keepAlways; add(solveShot)
-        let bank = app.buttons["翻袋解球"]
+        let bank = app.buttons["翻袋"]
         bank.tap()
         XCTAssertTrue(app.descendants(matching: .any)["bankshot.template"].waitForExistence(timeout: 30))
         let landscape = XCTNSPredicateExpectation(

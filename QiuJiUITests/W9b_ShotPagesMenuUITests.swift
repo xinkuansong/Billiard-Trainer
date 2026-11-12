@@ -84,7 +84,7 @@ final class W9b_ShotPagesMenuUITests: XCTestCase {
             ("走位", "自由击球", "w9b-menu-03-freeplay"),
             ("走位", "思路训练", "w9b-menu-04-silu"),
             ("走位", "打一走二想三", "w9b-menu-05-planthree"),
-            ("进阶", "翻袋解球", "w9b-menu-07-bank"),
+            ("进阶", "翻袋", "w9b-menu-07-bank"),
             ("进阶", "颗星解球", "w9b-menu-08-diamond"),
         ]
         for item in sandboxes {

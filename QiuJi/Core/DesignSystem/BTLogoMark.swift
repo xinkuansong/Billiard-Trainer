@@ -24,7 +24,7 @@ struct BTLogoMark: View {
                 .padding(size * Geometry.markInset)
         }
         .frame(width: size, height: size)
-        .accessibilityLabel("球迹")
+        .accessibilityLabel(AppMetadata.displayName)
     }
 
     // MARK: - Backdrop
@@ -204,15 +204,15 @@ struct BTLogoMark: View {
 
 // MARK: - Wordmark
 
-/// 球迹中文字标，搭配 Logo Mark 使用。SF Pro Rounded 同 `btLargeTitle` 字号体系。
+/// CuePhys 品牌字标，搭配 Logo Mark 使用。SF Pro Rounded 同 `btLargeTitle` 字号体系。
 struct BTWordmark: View {
     enum Layout {
         case horizontal
         case stacked
     }
 
-    var primary: String = "球迹"
-    var secondary: String? = "QiuJi"
+    var primary: String = AppMetadata.displayName
+    var secondary: String? = nil
     var layout: Layout = .stacked
     var primaryFont: Font = .system(size: 28, weight: .bold, design: .rounded)
     var secondaryFont: Font = .system(size: 13, weight: .medium, design: .rounded).monospacedDigit()
@@ -259,7 +259,6 @@ struct BTLogoLockup: View {
     var size: CGFloat = 80
     var orientation: Orientation = .vertical
     var markStyle: BTLogoMark.Style = .onDisc
-    var showSecondaryLabel: Bool = true
 
     var body: some View {
         switch orientation {
@@ -267,7 +266,6 @@ struct BTLogoLockup: View {
             VStack(spacing: 14) {
                 BTLogoMark(size: size, style: markStyle)
                 BTWordmark(
-                    secondary: showSecondaryLabel ? "QiuJi" : nil,
                     layout: .stacked
                 )
             }
@@ -275,7 +273,6 @@ struct BTLogoLockup: View {
             HStack(spacing: 12) {
                 BTLogoMark(size: size, style: markStyle)
                 BTWordmark(
-                    secondary: showSecondaryLabel ? "QiuJi" : nil,
                     layout: .stacked,
                     primaryFont: .system(size: size * 0.32, weight: .bold, design: .rounded),
                     secondaryFont: .system(size: size * 0.14, weight: .medium, design: .rounded)

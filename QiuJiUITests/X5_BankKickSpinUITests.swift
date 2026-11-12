@@ -68,7 +68,7 @@ final class X5_BankKickSpinUITests: XCTestCase {
 
     func testX5_bank_solveMode_spinPad_adjust() {
         let app = XCUIApplication.launchClean()
-        XCTAssertTrue(openSolver(app, title: "翻袋解球"), "打开翻袋解球")
+        XCTAssertTrue(openSolver(app, title: "翻袋"), "打开翻袋")
         // Wait for solve debounce + engine.
         sleep(4)
         snap(app, "x5-bank-solve-before-spin")

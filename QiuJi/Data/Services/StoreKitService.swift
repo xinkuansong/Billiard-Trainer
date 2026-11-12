@@ -1,9 +1,11 @@
 import StoreKit
+import CryptoKit
 
 struct StoreEntitlementSnapshot: Equatable, Sendable {
     let productID: String
     let expirationDate: Date?
     let revocationDate: Date?
+    var appAccountToken: UUID? = nil
 }
 
 /// Shared authorization rules. Snapshots must come from verified current entitlements,
@@ -58,16 +60,27 @@ actor StoreKitService {
 
     static let allProductIDs: Set<String> = [monthlyID, yearlyID, lifetimeID]
 
+    // Stable for the lifetime of a CuePhys user, across providers and devices.
+    // This namespace and byte layout are part of the persisted transaction format.
+    static func accountToken(for userID: String) -> UUID {
+        let digest = SHA256.hash(data: Data(("CuePhys/StoreKit/account/v1/" + userID).utf8))
+        var bytes = Array(digest.prefix(16))
+        bytes[6] = (bytes[6] & 0x0f) | 0x80
+        bytes[8] = (bytes[8] & 0x3f) | 0x80
+        return bytes.withUnsafeBytes { UUID(uuid: $0.loadUnaligned(as: uuid_t.self)) }
+    }
+
     // MARK: - Product Loading
 
     func loadProducts() async throws -> [Product] {
-        try await Product.products(for: Self.allProductIDs)
+        try await Product.products(for: [Self.lifetimeID])
     }
 
     // MARK: - Purchase
 
-    func purchase(_ product: Product) async throws -> Transaction {
-        let result = try await product.purchase()
+    func purchase(_ product: Product, accountToken: UUID) async throws -> Transaction {
+        guard product.id == Self.lifetimeID, product.type == .nonConsumable else { throw StoreError.unknown }
+        let result = try await product.purchase(options: [.appAccountToken(accountToken)])
         switch result {
         case .success(let verification):
             let transaction = try checkVerified(verification)
@@ -102,7 +115,8 @@ actor StoreKitService {
                     snapshots.append(StoreEntitlementSnapshot(
                         productID: tx.productID,
                         expirationDate: tx.expirationDate,
-                        revocationDate: tx.revocationDate
+                        revocationDate: tx.revocationDate,
+                        appAccountToken: tx.appAccountToken
                     ))
                 }
             }

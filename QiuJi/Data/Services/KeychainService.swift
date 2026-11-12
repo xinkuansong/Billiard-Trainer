@@ -15,12 +15,15 @@ enum KeychainService {
         let data = Data(value.utf8)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key.rawValue,
+            kSecAttrAccount as String: key.rawValue
+        ]
+        let attributes: [String: Any] = [
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
-        SecItemDelete(query as CFDictionary)
-        let status = SecItemAdd(query as CFDictionary, nil)
+        let update = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        if update != errSecItemNotFound { return update == errSecSuccess }
+        let status = SecItemAdd(query.merging(attributes) { _, new in new } as CFDictionary, nil)
         return status == errSecSuccess
     }
 

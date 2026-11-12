@@ -419,7 +419,7 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
         assertSceneBoardEqual(ctx2.board, boardBefore, "反射球形")
     }
 
-    /// 翻袋解球器：真实反解 → 捕获求解快照（含袋口）→ 抹除 → 恢复，逐字段一致且不重解。
+    /// 翻袋器：真实反解 → 捕获求解快照（含袋口）→ 抹除 → 恢复，逐字段一致且不重解。
     func test_bankShot_solveUndo_restoresEveryField() {
         let vm = BankShotViewModel()
         vm.setupScene()

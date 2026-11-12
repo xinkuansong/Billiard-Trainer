@@ -29,17 +29,19 @@ extension SyncedRecord: Sendable where Payload: Sendable {}
 /// 下行恢复需要的窄接口（v36 W3）。与 W2 的 `SyncBackend` 同构：抽出它是为了让
 /// 合并/幂等/删除竞态逻辑可单测而不必真打服务器。
 protocol SyncRestoreBackend: Sendable {
-    func fetchSessions(after: Date?) async throws -> [SyncedRecord<TrainingSessionDTO>]
-    func fetchAngleTests(after: Date?) async throws -> [SyncedRecord<AngleTestDTO>]
+    func fetchSessions(after: Date?, accountID: String) async throws -> [SyncedRecord<TrainingSessionDTO>]
+    func fetchAngleTests(after: Date?, accountID: String) async throws -> [SyncedRecord<AngleTestDTO>]
 }
 
 struct LiveSyncRestoreBackend: SyncRestoreBackend {
-    func fetchSessions(after: Date?) async throws -> [SyncedRecord<TrainingSessionDTO>] {
-        try await BackendSyncService.shared.fetchSessionsAfter(after)
+    var service: BackendSyncService = .shared
+
+    func fetchSessions(after: Date?, accountID: String) async throws -> [SyncedRecord<TrainingSessionDTO>] {
+        try await service.fetchSessionsAfter(after, accountID: accountID)
     }
 
-    func fetchAngleTests(after: Date?) async throws -> [SyncedRecord<AngleTestDTO>] {
-        try await BackendSyncService.shared.fetchAngleTestsAfter(after)
+    func fetchAngleTests(after: Date?, accountID: String) async throws -> [SyncedRecord<AngleTestDTO>] {
+        try await service.fetchAngleTestsAfter(after, accountID: accountID)
     }
 }
 
@@ -161,7 +163,7 @@ final class SyncRestoreService: ObservableObject {
         let after = (mode == .full) ? nil : anchor(.sessions, userId: userId)
         let records: [SyncedRecord<TrainingSessionDTO>]
         do {
-            records = try await backend.fetchSessions(after: after)
+            records = try await backend.fetchSessions(after: after, accountID: userId)
         } catch {
             // 静默吞下等于「恢复功能看起来跑过了其实什么都没拉」（FL-029）。
             print("[SyncRestore] 拉取训练记录失败 after=\(String(describing: after)) " +
@@ -220,7 +222,7 @@ final class SyncRestoreService: ObservableObject {
         let after = (mode == .full) ? nil : anchor(.angleTests, userId: userId)
         let records: [SyncedRecord<AngleTestDTO>]
         do {
-            records = try await backend.fetchAngleTests(after: after)
+            records = try await backend.fetchAngleTests(after: after, accountID: userId)
         } catch {
             print("[SyncRestore] 拉取角度成绩失败 after=\(String(describing: after)) " +
                   "error=\(describe(error))")

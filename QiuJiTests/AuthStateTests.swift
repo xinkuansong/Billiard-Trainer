@@ -43,6 +43,7 @@ final class AuthStateTests: XCTestCase {
 
     private final class MockCredentials: AuthCredentialStore, @unchecked Sendable {
         private let lock = NSLock()
+        var hasAgeDeclaration = true
         private var refreshTokenPresent: Bool
         private(set) var clearCount = 0
         var trustedLocalAccount: LocalAccountIdentity?
@@ -94,7 +95,7 @@ final class AuthStateTests: XCTestCase {
 
     private var purchasedEntitlements: [StoreEntitlementSnapshot] {
         [StoreEntitlementSnapshot(productID: StoreKitService.lifetimeID,
-                                  expirationDate: nil, revocationDate: nil)]
+                                  expirationDate: nil, revocationDate: nil, appAccountToken: StoreKitService.accountToken(for: "pro-user"))]
     }
 
     func testOfflineColdLaunchUsesTrustedOwnerButDoesNotAuthorizeSync() async {
@@ -103,7 +104,8 @@ final class AuthStateTests: XCTestCase {
         let owner = CurrentOwnerContext(defaults: defaults)
         let state = AuthState(backend: MockBackend(behavior: .networkFailure), credentials: credentials,
                               defaults: defaults, ownerContext: owner)
-        let snapshots = purchasedEntitlements
+        let snapshots = [StoreEntitlementSnapshot(productID: StoreKitService.lifetimeID,
+            expirationDate: nil, revocationDate: nil, appAccountToken: StoreKitService.accountToken(for: "offline-A"))]
         let manager = SubscriptionManager(entitlementLoader: { snapshots }, listenForUpdates: false, useDebugOverrides: false)
         manager.bind(to: state)
         await state.bootstrap()
@@ -282,7 +284,7 @@ final class AuthStateTests: XCTestCase {
         let ready = expectation(description: "initial real auth binding resolved")
         let observation = manager.$hasResolvedEntitlements.filter { $0 }.prefix(1).sink { _ in ready.fulfill() }
         manager.bind(to: state)
-        state.login(user: AppUser(id: "pro-a", provider: .apple))
+        state.login(user: AppUser(id: "pro-user", provider: .apple))
         await fulfillment(of: [ready], timeout: 2)
         observation.cancel()
         loader.suspends = true
@@ -408,7 +410,7 @@ final class AuthStateTests: XCTestCase {
         XCTAssertFalse(manager.isPremium)
         XCTAssertTrue(manager.purchasedProductIDs.isEmpty)
         for id in StoreKitService.allProductIDs {
-            let valid = StoreEntitlementSnapshot(productID: id, expirationDate: nil, revocationDate: nil)
+            let valid = StoreEntitlementSnapshot(productID: id, expirationDate: nil, revocationDate: nil, appAccountToken: StoreKitService.accountToken(for: "pro-user"))
             snapshots = [unknown, revoked, valid]
             await manager.checkEntitlements()
             XCTAssertTrue(manager.isPremium)
@@ -420,7 +422,7 @@ final class AuthStateTests: XCTestCase {
     func testProCurrentEntitlementGracePeriodIsNotFilteredByPastExpiration() async {
         // Models a verified currentEntitlements result during billing grace, not history.
         let grace = StoreEntitlementSnapshot(productID: StoreKitService.monthlyID,
-                                            expirationDate: .distantPast, revocationDate: nil)
+                                            expirationDate: .distantPast, revocationDate: nil, appAccountToken: StoreKitService.accountToken(for: "pro-user"))
         let (state, manager, loader) = await readyEntitlementManager(initial: [grace])
         defer { loader.finishAll(); withExtendedLifetime(state) {} }
         XCTAssertTrue(manager.isPremium)
@@ -437,6 +439,36 @@ final class AuthStateTests: XCTestCase {
                                                isPremium: false, hasResolvedEntitlements: false), .checkingEntitlements)
         XCTAssertEqual(ProAccessPolicy.decision(requiresPremium: true, hasSession: true,
                                                isPremium: false, hasResolvedEntitlements: true), .requiresPro)
+    }
+
+    func testAgeCutoffChangesOnFourteenthBirthdayInBeijing() throws {
+        let instant = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-11-10T16:00:00Z"))
+        XCTAssertTrue(AuthState.requiresLocalTraining(birthday: "2012-11-11", now: instant.addingTimeInterval(-1)))
+        XCTAssertFalse(AuthState.requiresLocalTraining(birthday: "2012-11-11", now: instant))
+        XCTAssertTrue(AuthState.requiresLocalTraining(birthday: "2012-11-12", now: instant))
+    }
+
+    func testChildOrLegacySessionStaysGuestBeforeProfileRequest() async {
+        for legacy in [false, true] {
+            let backend = MockBackend(behavior: .success(fixtureUser()))
+            let credentials = MockCredentials(hasRefreshToken: true)
+            credentials.hasAgeDeclaration = !legacy
+            let guest = DeviceGuestIdentity.ownerKey(in: defaults)
+            defaults.set(legacy ? nil : AuthState.beijingDay(), forKey: "ownerProfile.\(guest).birthDate")
+            defaults.removeObject(forKey: AuthState.localOnlyDayKey(in: defaults))
+            let state = AuthState(backend: backend, credentials: credentials, defaults: defaults)
+            let manager = SubscriptionManager(entitlementLoader: { [] }, listenForUpdates: false, useDebugOverrides: false)
+            manager.bind(to: state)
+            await state.bootstrap()
+            state.setCloudSyncEnabled(true)
+            let fetches = await backend.fetchCount
+            XCTAssertEqual(fetches, 0)
+            XCTAssertTrue(state.isAnonymous)
+            XCTAssertFalse(state.cloudSyncEnabled)
+            XCTAssertFalse(credentials.hasRefreshToken)
+            let restored = await manager.restorePurchases()
+            XCTAssertFalse(restored)
+        }
     }
 
     func testBootstrapWithoutTokenReturnsStableGuestAfterOnboarding() async {

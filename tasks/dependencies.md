@@ -13,142 +13,20 @@
 
 > ~~LeanCloud Swift SDK~~（已于 ADR-001 移除，2026-03-29）：LeanCloud 停止国内新用户注册，改用自建 REST API 替代。
 
-> **当前 SPM 第三方依赖为 0 个**，全部使用系统能力 + 自建后端 REST API（URLSession）。
+微信登录依赖本地 Swift 包 [CuePhysWeChat](../Packages/CuePhysWeChat/Package.swift)。App 用 SwiftPM 链接腾讯提供的 XCFramework 2.0.9，系统依赖及 SDK 的 PrivacyInfo.xcprivacy 由包声明。已将官方压缩包原样固定在仓库，供没有外网的构建使用。[官方二进制](https://dldir1.qq.com/WechatWebDev/opensdk/XCFramework/OpenSDK2.0.9.zip) · [发布规格](https://trunk.cocoapods.org/api/v1/pods/WechatOpenSDK-XCFramework/specs/2.0.9)
 
----
+## 二、微信登录配置（W6b）
 
-## 二、微信 SDK（非 SPM，需手动集成）
+- 上述 ZIP 的 SHA-256 为 `ebbdd935f840bedabe1c39ad6149356b37764645ff939ce0160a438520545697`。升级时从腾讯源取包、核对 SDK 模块、真机和模拟器架构、附带的隐私清单及授权接口，再分别构建与回归。主 App 通过 project.yml 引用包，链接参数包含 `-ObjC`。
+- 已获移动应用资质后，把**完整**微信 AppID（含 wx 前缀）写入 `WECHAT_APP_ID`，客户端回调 Scheme 使用该值一次。AppSecret 仅在后端配置。后端要求 HTTPS；绑定还需本次账号的会话。
+- 打开公司正式 App ID 的 Associated Domains 能力并更新签名配置。将 `WECHAT_LINK_HOST` 设为实际 HTTPS 域名（计划 cuephys.com），`WECHAT_UNIVERSAL_LINK` 设为平台注册的同域目录（计划 `https://cuephys.com/wechat/`，xcconfig 中用 `https:/$()/cuephys.com/wechat/`）。在目标配置中设 `CUEPHYS_ENTITLEMENTS = Config/WeChat.entitlements`。普通个人开发配置沿用原 Apple entitlement。
+- 域名启用后，在 `/.well-known/apple-app-site-association` 提供 JSON，使用真实已签名 App 的 application-identifier。以下是准备模板，发布前以公司签名包回读的值替换占位。核对无重定向的 HTTPS 响应、签名权限及设备上实际 Universal Link 回调。
 
-> ⚠️ 微信 SDK **不支持 SPM**，需手动集成。人工前置：H-05 完成后执行。
->
-> **与原方案的区别（ADR-001）**：微信 OAuth 的 AppSecret 不再放客户端，客户端只传 `code`，由自建后端完成 code-to-token 换取，保证 AppSecret 安全。
-
-### 2.1 集成步骤
-
-**Step 1：下载 SDK**
-- 前往 [微信开放平台 SDK 下载](https://developers.weixin.qq.com/doc/oplatform/Mobile_App/Resource_Center_and_FAQ/iOS_Resource.html)
-- 下载最新版 iOS SDK（`WeChatSDK_xxx.zip`）
-
-**Step 2：添加到 Xcode 项目**
-```
-将以下文件拖入 Xcode 项目（Target: QiuJi）：
-├── libWeChatSDK.a          （静态库，或 .xcframework）
-├── WXApi.h
-├── WXApiObject.h
-└── WechatAuthSDK.h
-```
-- 在 Xcode → Build Settings → Other Linker Flags 添加：`-ObjC`
-
-**Step 3：系统 Framework 依赖**
-
-在 Xcode → Target → General → Frameworks, Libraries 添加：
-- `CoreTelephony.framework`
-- `SystemConfiguration.framework`
-- `libz.tbd`
-- `libc++.tbd`
-
-**Step 4：Bridging Header（Swift 项目）**
-
-创建 `QiuJi-Bridging-Header.h`：
-```objc
-#import "WXApi.h"
-#import "WXApiObject.h"
-```
-
-在 Xcode → Build Settings → Objective-C Bridging Header 填写路径。
-
-**Step 5：AppDelegate 注册**
-```swift
-// AppDelegate.swift
-import UIKit
-
-@objc class AppDelegate: NSObject, UIApplicationDelegate, WXApiDelegate {
-    func application(_ application: UIApplication,
-                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        WXApi.registerApp(AppConfig.wechatAppId, universalLink: AppConfig.wechatUniversalLink)
-        return true
-    }
-
-    func application(_ app: UIApplication, open url: URL,
-                     options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        return WXApi.handleOpen(url, delegate: self)
-    }
-
-    func application(_ application: UIApplication,
-                     continue userActivity: NSUserActivity,
-                     restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-        return WXApi.handleOpenUniversalLink(userActivity, delegate: self)
-    }
-
-    // WXApiDelegate 回调
-    func onReq(_ req: BaseReq) {}
-    func onResp(_ resp: BaseResp) {
-        NotificationCenter.default.post(name: .wechatAuthResponse, object: resp)
-    }
-}
-
-extension Notification.Name {
-    static let wechatAuthResponse = Notification.Name("WechatAuthResponse")
-}
-```
-
-**Step 6：SwiftUI App Entry 接入 AppDelegate**
-```swift
-@main struct QiuJiApp: App {
-    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    // ...
-}
-```
-
-### 2.2 Info.plist 配置（完整）
-
-```xml
-<key>LSApplicationQueriesSchemes</key>
-<array>
-    <string>weixin</string>
-    <string>weixinULAPI</string>
-</array>
-
-<key>CFBundleURLTypes</key>
-<array>
-    <dict>
-        <key>CFBundleTypeRole</key>
-        <string>Editor</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-            <string>wx$(WECHAT_APP_ID)</string>
-        </array>
-    </dict>
-</array>
-```
-
-> `$(WECHAT_APP_ID)` 从 `xcconfig` 注入，不硬编码。
-
-### 2.3 Universal Links 配置（H-13）
-
-在你的域名根目录部署（必须 HTTPS）：
-```
-https://yourdomain.com/apple-app-site-association
-```
-
-文件内容：
 ```json
-{
-  "applinks": {
-    "apps": [],
-    "details": [
-      {
-        "appIDs": ["TEAMID.com.yourname.billiardtrainer"],
-        "paths": ["/wechat/*"]
-      }
-    ]
-  }
-}
+{"applinks":{"apps":[],"details":[{"appID":"<已签名 App 的 application-identifier>","paths":["/wechat/*"]}]}}
 ```
 
-在微信开放平台填写 Universal Link：`https://yourdomain.com/wechat/`
-
-> **临时方案（无域名时）**：使用 URL Scheme（`wx{AppID}://`）替代 Universal Links。在微信开放平台勾选「不使用 Universal Links」。需在 ADR 中记录，App Store 发布前补全。
+- SwiftUI 入口接收 URL Scheme 和 Universal Link；授权后由 SDK 验证响应，App 只接收与当前随机 state 匹配的 code。新登录方式先查询已有身份，用户选择创建账号才发创建请求；已有账号从设置中绑定。正式 AppID、微信授权成功／拒绝／中断、Apple 真机授权及线上回执待验。
 
 ---
 
@@ -239,11 +117,11 @@ enum KeychainService {
 
 ## 五、版本锁定策略
 
-- SPM 依赖：当前无第三方依赖
+- SPM 依赖：微信 SDK 版本及压缩包摘要见第二节。
 - 微信 SDK 手动更新：每季度检查一次，大版本升级前在测试分支验证
 - 依赖版本变更必须在本文件更新记录：
 
 | 依赖 | 当前版本 | 上次更新 |
 |------|---------|---------|
 | ~~LeanCloud Swift SDK~~ | ~~TBD~~ | 已移除（ADR-001） |
-| 微信 iOS SDK | TBD（集成时填写） | — |
+| 微信 iOS SDK | 2.0.9（腾讯 XCFramework） | 2026-11-10 |

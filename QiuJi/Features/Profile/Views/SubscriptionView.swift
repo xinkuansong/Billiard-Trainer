@@ -12,14 +12,14 @@ enum ProBenefits {
     static let premium: [Item] = [
         .init(id: "drills", number: "01", title: "进阶动作与精讲", subtitle: "解锁 Pro 动作与配套精讲，理解练习要点与走位思路。"),
         .init(id: "plans", number: "02", title: "官方进阶计划", subtitle: "围绕准度、杆法与走位，按计划安排专项练习。"),
-        .init(id: "aiming", number: "03", title: "专项练习不限题数", subtitle: "解锁持续练习；角度、瞄准点、准度、分离角、两球、三球和多球走位不限每日题数。2D与3D均可免费体验。"),
-        .init(id: "atlases", number: "04", title: "分离角图谱与加塞吃库图谱", subtitle: "对比不同打点下的球路变化，帮助理解母球路线。"),
-        .init(id: "snake", number: "05", title: "每日清台与蛇彩练习", subtitle: "每日清台不限局数，蛇彩练习解锁连续击球与走位衔接。"),
-        .init(id: "position", number: "06", title: TablePreferencePage.silu.layoutTitle, subtitle: "指定母球落区、落点或途经点，求解击球方案。"),
+        .init(id: "aiming", number: "03", title: "专项练习不限题数", subtitle: "角度、瞄准点、准度、分离角、两球与三球走位，以及翻袋、解球、K 球和防守，免费版每项每天 \(TrainingProject.ordinaryRoundCount) 题，多球走位每天 \(TrainingProject.multiBall.roundCount) 题。Pro 可不限题数，也可选择持续练习。支持 2D 和 3D 的项目，两种视角均可免费体验。"),
+        .init(id: "atlases", number: "04", title: "分离角图谱与加塞吃库图谱", subtitle: "调整母球打点，对比分离角和加塞吃库后的出射方向，观察母球路线怎样变化。"),
+        .init(id: "snake", number: "05", title: "每日清台与蛇彩练习", subtitle: "每日清台从每天免费 1 局变为不限局数。还可解锁蛇彩练习，在连续进球中练习衔接下一杆。"),
+        .init(id: "position", number: "06", title: TablePreferencePage.silu.layoutTitle, subtitle: "指定母球的落区、落点或途经点，查看满足条件的击球方案。"),
         .init(id: "three", number: "07", title: "打一走二想三", subtitle: "把当前进球与后续走位连起来，练习多杆规划。"),
         .init(id: "photo", number: "08", title: "拍照建球形", subtitle: "将球桌照片转成可继续编辑和推演的球形。"),
-        .init(id: "history", number: "09", title: "训练统计与长期回顾", subtitle: "查看训练趋势，回看超过最近 60 天的训练记录详情。"),
-        .init(id: "bank", number: "10", title: "翻袋解球", subtitle: "选择目标袋口，推演一至三库线路，练习翻袋与吃库判断。"),
+        .init(id: "history", number: "09", title: "训练统计与长期回顾", subtitle: "免费版可回看最近 \(HistoryAccessController.freeDaysLimit) 天的训练详情。Pro 可查看训练趋势，也可回看更早的记录与心得。"),
+        .init(id: "bank", number: "10", title: TablePreferencePage.bankShot.layoutTitle, subtitle: "摆好母球和目标球，选定袋口，查看目标球碰一至三库后入袋的路线和对应瞄准点。"),
         .init(id: "diamond", number: "11", title: TablePreferencePage.diamondSystem.layoutTitle, subtitle: "结合颗星刻度与公式，理解瞄准点和吃库线路的关系。")
     ]
 }
@@ -110,7 +110,6 @@ struct SubscriptionView: View {
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @EnvironmentObject private var authState: AuthState
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedProductID: String?
     @State private var showRestoreAlert = false
     @State private var restoreMessage = ""
@@ -206,7 +205,7 @@ struct SubscriptionView: View {
     }
 
     private var heroSection: some View {
-        ProBrandHero(title: "解锁球迹 Pro", detail: "从看懂球路，到有方向地练习。\n进阶内容与工具，陪你把思路练成手感。")
+        ProBrandHero(title: "解锁 \(AppMetadata.displayName) Pro", detail: "从看懂球路，到有方向地练习。\n进阶内容与工具，陪你把思路练成手感。")
     }
 
     private var featuresList: some View {
@@ -215,13 +214,13 @@ struct SubscriptionView: View {
 
     private var pricingSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("选择 Pro 方案")
+            Text("永久会员")
                 .font(.btProBody)
                 .foregroundStyle(.btTextSecondary)
             if subscriptionManager.products.isEmpty {
                 VStack(spacing: Spacing.sm) {
                     if subscriptionManager.isLoading {
-                        ProgressView("正在加载订阅方案…")
+                        ProgressView("正在加载会员商品…")
                             .tint(.btPrimary)
                     } else {
                         Text(productLoadingMessage)
@@ -241,23 +240,15 @@ struct SubscriptionView: View {
                 .padding(Spacing.lg)
                 .background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.md))
             } else {
-                let layout = dynamicTypeSize.isAccessibilitySize
-                    ? AnyLayout(VStackLayout(spacing: Spacing.sm))
-                    : AnyLayout(HStackLayout(alignment: .top, spacing: Spacing.sm))
-                layout {
-                    if let product = subscriptionManager.monthlyProduct {
-                        pricingCard(product, title: "月度", period: "每月续订")
-                    }
-                    if let product = subscriptionManager.yearlyProduct {
-                        pricingCard(product, title: "年度", period: "每年续订")
-                    }
-                    if let product = subscriptionManager.lifetimeProduct {
-                        pricingCard(product, title: "终身", period: "一次性购买")
-                    }
+                if let product = subscriptionManager.lifetimeProduct {
+                    pricingCard(product, title: "永久会员", period: "一次性购买")
                 }
             }
+            if let message = subscriptionManager.purchaseOwnershipMessage {
+                Text(message).font(.btProCaption).foregroundStyle(.btTextSecondary)
+            }
             if !authState.hasLocalAccount {
-                Text("购买或恢复前需登录，已选方案会保留。")
+                Text("请先登录 CuePhys，再购买或恢复永久会员。")
                     .font(.btProCaption)
                     .foregroundStyle(.btTextSecondary)
             }
@@ -337,24 +328,23 @@ struct SubscriptionView: View {
     }
 
     private var subscribeButtonText: String {
+        if subscriptionManager.purchaseOwnershipMessage != nil { return "请核对购买账号" }
         if subscriptionManager.awaitingProductID != nil { return "等待 Apple 确认，可恢复购买刷新" }
         if let id = selectedProductID, subscriptionManager.isPremium, !subscriptionManager.canPurchase(productID: id) { return "已拥有 Pro 权益" }
         if subscriptionManager.isLoading {
-            return selectedProduct == nil ? "正在加载订阅方案…" : "正在处理…"
+            return selectedProduct == nil ? "正在加载会员商品…" : "正在处理…"
         }
         guard let product = selectedProduct else {
-            return "重新加载订阅方案"
+            return "重新加载会员商品"
         }
-        let period = product.id == StoreKitService.lifetimeID ? "一次性"
-            : product.id == StoreKitService.yearlyID ? "每年" : "每月"
-        return "解锁 Pro · \(product.displayPrice) / \(period)"
+        return "解锁 Pro · \(product.displayPrice) / 一次性"
     }
 
     private var productLoadingMessage: String {
-        let message = subscriptionManager.errorMessage ?? "暂时无法加载订阅方案"
+        let message = subscriptionManager.errorMessage ?? "暂时无法加载会员商品"
         #if DEBUG && targetEnvironment(simulator)
         if message == "模拟器未注入商店配置，无法购买。请点下方「模拟器解锁 Pro」。" {
-            return "模拟器未注入商店配置，当前无法购买。请配置商店后重新加载订阅方案。"
+            return "模拟器未注入商店配置，当前无法购买。请配置商店后重新加载会员商品。"
         }
         #endif
         return message
@@ -362,9 +352,7 @@ struct SubscriptionView: View {
 
     private var legalSection: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text(selectedProductID == StoreKitService.lifetimeID
-                 ? "终身方案为一次性购买。已有月度或年度订阅不会自动取消，请在系统订阅设置中管理。确认后将通过 Apple 账户付款。"
-                 : "月度与年度方案自动续订。确认后将通过 Apple 账户付款，可在系统订阅设置中管理或取消。")
+            Text("永久会员为一次性购买，确认后通过 Apple 账户付款。")
                 .font(.btProCaption)
                 .foregroundStyle(.btTextSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -377,7 +365,7 @@ struct SubscriptionView: View {
                     }.font(.btProCaption)
                 }
             }
-            Text("Pro 权益以当前 Apple 购买为依据；球迹账号分别保存各自的训练数据。")
+            Text("Pro 权益以当前 Apple 购买为依据；\(AppMetadata.displayName) 账号分别保存各自的训练数据。")
                 .font(.btProCaption).foregroundStyle(.btTextSecondary)
             HStack(spacing: Spacing.lg) {
                 if let termsURL = AppConfig.termsURL, let privacyURL = AppConfig.privacyURL {
@@ -433,9 +421,7 @@ struct SubscriptionView: View {
 
     private func selectAvailableProduct() {
         guard !subscriptionManager.products.contains(where: { $0.id == selectedProductID }) else { return }
-        selectedProductID = (subscriptionManager.isPremium ? subscriptionManager.lifetimeProduct?.id : nil)
-            ?? subscriptionManager.yearlyProduct?.id
-            ?? subscriptionManager.monthlyProduct?.id ?? subscriptionManager.lifetimeProduct?.id
+        selectedProductID = subscriptionManager.lifetimeProduct?.id
     }
 
     private func handlePurchase() async {
@@ -445,7 +431,7 @@ struct SubscriptionView: View {
         case .cancelled, .busy: return
         case .pending: purchaseMessage = "购买待批准。批准后会自动刷新权益，无需重复购买。"
         case .confirming: purchaseMessage = "购买已完成，权益正在确认。请稍后刷新或恢复购买，无需重复付款。"
-        case .sessionChanged: purchaseMessage = "球迹账号已切换，请在当前账号刷新权益或恢复购买。"
+        case .sessionChanged: purchaseMessage = "\(AppMetadata.displayName) 账号已切换，请在当前账号刷新权益或恢复购买。"
         case .failed: purchaseMessage = subscriptionManager.errorMessage ?? "购买未完成，请稍后重试"
         }
         showPurchaseErrorAlert = true

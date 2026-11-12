@@ -298,7 +298,7 @@ struct AngleHomeView: View {
     }
 
     private let advancedEntries: [AngleEntry] = [
-        .init(route: .bankShot, title: "翻袋解球", subtitle: "摆球求解目标球翻库入袋", contentKind: .striking, difficulty: .applied, topics: [.cushion, .accuracy]),
+        .init(route: .bankShot, title: "翻袋", subtitle: "摆球求解目标球翻库入袋", contentKind: .striking, difficulty: .applied, topics: [.cushion, .accuracy]),
         .init(route: .diamondSystem, title: "颗星解球", subtitle: "摆球求解母球绕库碰球", contentKind: .striking, difficulty: .applied, topics: [.cushion]),
         .init(route: .bankPractice2D, title: "翻袋练习", subtitle: "按指定库序将目标球翻进袋", contentKind: .quiz, difficulty: .integrated, topics: [.accuracy, .english, .cushion]),
         .init(route: .kickPractice2D, title: "解球练习", subtitle: "按指定库序让母球解到目标球", contentKind: .quiz, difficulty: .integrated, topics: [.position, .english, .cushion]),

@@ -1,0 +1,57 @@
+{
+  "startedAt": "2026-11-10T03:31:41.393Z",
+  "databaseTools": "mongorestore version: 100.13.0",
+  "afterDeletion": {
+    "users": 0,
+    "trainingsessions": 0,
+    "angletests": 0,
+    "customformations": 0,
+    "formationchanges": 0,
+    "avatars": 0
+  },
+  "beforeRestoreAccess": {
+    "/user/profile": 401,
+    "/training-sessions": 401,
+    "/user/avatar": 401,
+    "/custom-formations": 401,
+    "write": 401,
+    "refresh": 401
+  },
+  "fixtureRestoreMs": 822,
+  "afterRestore": {
+    "users": 1,
+    "trainingsessions": 1,
+    "angletests": 1,
+    "customformations": 1,
+    "formationchanges": 1,
+    "avatars": 1
+  },
+  "deletedAccountMatchesSnapshot": true,
+  "controlMatchesSnapshot": true,
+  "controlRead": 200,
+  "afterRestoreAccess": {
+    "/user/profile": 200,
+    "/training-sessions": 200,
+    "/user/avatar": 200,
+    "/custom-formations": 200,
+    "write": 201,
+    "refresh": 200
+  },
+  "safeToReopen": false,
+  "afterKnownIdReplay": {
+    "users": 0,
+    "trainingsessions": 0,
+    "angletests": 0,
+    "customformations": 0,
+    "formationchanges": 0,
+    "avatars": 0
+  },
+  "afterReplayAccess": {
+    "/user/profile": 401,
+    "/training-sessions": 401,
+    "/user/avatar": 401,
+    "/custom-formations": 401,
+    "write": 401,
+    "refresh": 401
+  }
+}

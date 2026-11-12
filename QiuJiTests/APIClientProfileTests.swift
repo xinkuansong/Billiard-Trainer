@@ -108,11 +108,184 @@ final class APIClientProfileTests: XCTestCase {
         super.tearDown()
     }
 
+    func testReleaseAPIConfigurationOnlyAllowsCompanyHTTPS() {
+        let rejected: [String?] = [nil, "", "relative/path", "$(API_BASE_URL)", "http://api.cuephys.com",
+            "https://api.qiuji.app", "https://badcuephys.com", "https://cuephys.com.invalid",
+            "https://user:pass@api.cuephys.com", "https://.cuephys.com", "https://bad-.cuephys.com",
+            "https://api.cuephys.com?token=value", "https://cuephys.com/#fragment", "https://cuephys.com:99999"]
+        for raw in rejected { XCTAssertNil(AppConfig.validatedAPIBaseURL(raw, release: true), raw ?? "nil") }
+        for raw in ["https://cuephys.com", "https://api.cuephys.com:443/v1"] {
+            XCTAssertEqual(AppConfig.validatedAPIBaseURL(raw, release: true)?.absoluteString, raw)
+        }
+        XCTAssertNotNil(AppConfig.validatedAPIBaseURL("http://127.0.0.1:3000", release: false))
+    }
+
+    func testMisconfiguredAPIRejectsSyncLoginAndRefreshWithoutSendingRequests() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubURLProtocol.self]
+        let unavailable = APIClient(baseURL: nil, session: URLSession(configuration: configuration), tokenStore: tokenStore)
+        for endpoint in [Endpoint(.get, "/user/profile"), Endpoint(.post, "/auth/refresh"),
+                         Endpoint(.post, "/auth/login-wechat"), Endpoint(.post, "/auth/bind-apple")] {
+            StubURLProtocol.configure([])
+            do {
+                _ = try await unavailable.requestData(endpoint)
+                XCTFail("Unconfigured endpoint must fail")
+            } catch AppError.networkError {
+                XCTAssertNil(StubURLProtocol.requestSnapshot())
+            }
+        }
+    }
+
     private func accountToken(_ id: String) -> String {
         let payload = Data(("{\"sub\":\"" + id + "\"}").utf8).base64EncodedString()
             .replacingOccurrences(of: "=", with: "").replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
         return "header." + payload + ".signature"
     }
+
+    func testAppleAccountBindsWeChatAndSignsInWithWeChat() async throws {
+        try await verifyBinding(from: .apple, to: .wechat)
+    }
+
+    func testWeChatAccountBindsAppleAndSignsInWithApple() async throws {
+        try await verifyBinding(from: .wechat, to: .apple)
+    }
+
+    private func verifyBinding(from first: MobileLoginMethod, to second: MobileLoginMethod) async throws {
+        let service = BackendSyncService(api: client)
+        let id = "fixture-account"
+        let user = ["id": id, "provider": first.rawValue]
+        let linked: [String: Any] = ["id": id, "provider": first.rawValue, "linkedProviders": [first.rawValue, second.rawValue]]
+        func respond(_ payload: [String: Any]) throws {
+            StubURLProtocol.configure(.init(statusCode: 200, headers: [:], data: try JSONSerialization.data(withJSONObject: payload)))
+        }
+        func grant(_ method: MobileLoginMethod) -> MobileAuthRequest {
+            method == .apple ? MobileAuthRequest(identityToken: "apple-token", authorizationCode: "apple-code")
+                             : MobileAuthRequest(code: "wechat-code")
+        }
+        func loginResponse(_ profile: [String: Any]) -> [String: Any] {
+            ["user": profile, "accessToken": accountToken(id), "refreshToken": accountToken(id)]
+        }
+
+        try respond(loginResponse(user))
+        let original = try await service.login(first, body: grant(first))
+        XCTAssertEqual(AppUser(dto: original.user).linkedProviders, [first.provider])
+        XCTAssertEqual(StubURLProtocol.requestSnapshot()?.url?.path, "/auth/login-" + first.rawValue)
+        tokenStore.save(original.accessToken, for: .accessToken)
+
+        try respond(["user": linked])
+        var binding = grant(second)
+        binding.refreshToken = original.refreshToken
+        let result = try await service.bind(second, body: binding, accountID: original.user.id)
+        XCTAssertEqual(result.id, original.user.id)
+        XCTAssertEqual(AppUser(dto: result).linkedProviders, [first.provider, second.provider])
+        XCTAssertEqual(StubURLProtocol.requestSnapshot()?.url?.path, "/auth/bind-" + second.rawValue)
+        let data = try XCTUnwrap(StubURLProtocol.bodySnapshot())
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: String])
+        XCTAssertEqual(body["refreshToken"], original.refreshToken)
+        XCTAssertEqual(body["code"], binding.code)
+        XCTAssertEqual(body["authorizationCode"], binding.authorizationCode)
+        XCTAssertEqual(body["identityToken"], binding.identityToken)
+
+        try respond(loginResponse(linked))
+        let nextLogin = try await service.login(second, body: grant(second))
+        XCTAssertEqual(nextLogin.user.id, original.user.id)
+        XCTAssertEqual(StubURLProtocol.requestSnapshot()?.url?.path, "/auth/login-" + second.rawValue)
+        XCTAssertNil(StubURLProtocol.requestSnapshot()?.value(forHTTPHeaderField: "Authorization"))
+    }
+
+    func testTrainingSyncDoesNotSendAfterCredentialSwitch() async throws {
+        let service = BackendSyncService(api: client)
+        tokenStore.save(accountToken("new-account"), for: .accessToken)
+        StubURLProtocol.configure(.init(statusCode: 200, headers: [:], data: Data()))
+        do {
+            try await service.deleteSession(clientId: UUID().uuidString, accountID: "old-account")
+            XCTFail("A queued deletion belonging to the old account was sent")
+        } catch is CancellationError {}
+        XCTAssertNil(StubURLProtocol.requestSnapshot())
+    }
+
+    func testSyncDisabledWhileRefreshingPreventsRetry() async throws {
+        // Revoke sync after the original request returned 401, while refresh is in flight.
+        let choice = TestTokenStore()
+        choice.save("on", for: .accessToken)
+        let token = accountToken("account")
+        tokenStore.save(token, for: .accessToken)
+        tokenStore.save("original-refresh", for: .refreshToken)
+        let refreshed = try JSONEncoder().encode(["accessToken": token, "refreshToken": "renewed"])
+        StubURLProtocol.configure([
+            .init(statusCode: 401, headers: [:], data: Data()),
+            .init(statusCode: 200, headers: [:], data: refreshed, beforeResponse: {
+                choice.save("off", for: .accessToken)
+            }),
+            .init(statusCode: 200, headers: [:], data: Data()),
+        ])
+        do {
+            try await APIClient.$syncIsCurrent.withValue({ choice.load(.accessToken) == "on" }) {
+                try await BackendSyncService(api: client).deleteSession(clientId: "fixture", accountID: "account")
+            }
+            XCTFail("A disabled sync request was replayed")
+        } catch is CancellationError {
+            XCTAssertEqual(StubURLProtocol.requestSnapshot()?.url?.path, "/auth/refresh")
+        }
+    }
+
+    func testBindingRejectsAccountSwitchBeforeSendingCode() async throws {
+        tokenStore.save(accountToken("new"), for: .accessToken)
+        StubURLProtocol.configure([])
+        do {
+            let _: EmptyResponse = try await client.request(Endpoint(.post, "/auth/bind-wechat",
+                body: MobileAuthRequest(code: "fixture"), expectedAccountID: "old"))
+            XCTFail("Account changed during authorization")
+        } catch is CancellationError { XCTAssertNil(StubURLProtocol.requestSnapshot()) }
+    }
+
+    func testBindingConflictLeavesSessionIntact() async throws {
+        tokenStore.save(accountToken("original"), for: .accessToken)
+        tokenStore.save("original-refresh", for: .refreshToken)
+        StubURLProtocol.configure(.init(statusCode: 409, headers: [:],
+            data: Data(#"{"code":"IDENTITY_CONFLICT","message":"已绑定"}"#.utf8)))
+        do {
+            let _: EmptyResponse = try await client.request(Endpoint(.post, "/auth/bind-apple",
+                body: MobileAuthRequest(authorizationCode: "fixture", refreshToken: "original-refresh"),
+                expectedAccountID: "original"))
+            XCTFail("Expected conflict")
+        } catch AccountIdentityError.conflict {
+            XCTAssertEqual(tokenStore.load(.refreshToken), "original-refresh")
+            XCTAssertEqual(StubURLProtocol.requestSnapshot()?.value(forHTTPHeaderField: "Authorization"),
+                           "Bearer " + accountToken("original"))
+        }
+    }
+
+    func testUnknownWeChatLoginOffersChoiceAndSendsNoExistingBearer() async throws {
+        tokenStore.save(accountToken("existing"), for: .accessToken)
+        StubURLProtocol.configure(.init(statusCode: 409, headers: [:],
+            data: Data(#"{"code":"IDENTITY_NOT_REGISTERED","message":"请选择"}"#.utf8)))
+        do {
+            let _: AuthResponse = try await client.request(Endpoint(.post, "/auth/login-wechat",
+                body: MobileAuthRequest(code: "fixture", createIfMissing: false)))
+            XCTFail("Expected registration choice")
+        } catch AccountIdentityError.unregistered {
+            XCTAssertNil(StubURLProtocol.requestSnapshot()?.value(forHTTPHeaderField: "Authorization"))
+            let body = try XCTUnwrap(StubURLProtocol.bodySnapshot())
+            let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+            XCTAssertEqual(json["createIfMissing"] as? Bool, false)
+        }
+    }
+
+    func testBinding401DoesNotReplaySingleUseCode() async throws {
+        tokenStore.save(accountToken("a"), for: .accessToken)
+        tokenStore.save("still-current", for: .refreshToken)
+        StubURLProtocol.configure(.init(statusCode: 401, headers: [:], data: Data()))
+        do {
+            let _: EmptyResponse = try await client.request(Endpoint(.post, "/auth/bind-wechat", expectedAccountID: "a"))
+            XCTFail("Expected denial")
+        } catch AppError.serverError(let status, _) {
+            XCTAssertEqual(status, 401)
+            XCTAssertEqual(StubURLProtocol.requestSnapshot()?.url?.path, "/auth/bind-wechat")
+            XCTAssertEqual(tokenStore.load(.refreshToken), "still-current")
+        }
+    }
+
     func testFormationRequestRejectsAnotherAccountBeforeSending() async {
         tokenStore.save(accountToken("b"), for: .accessToken)
         StubURLProtocol.configure([])
