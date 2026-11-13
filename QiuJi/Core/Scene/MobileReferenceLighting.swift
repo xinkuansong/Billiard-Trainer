@@ -375,6 +375,21 @@ enum MobileReferenceLighting {
         let shader = program.source
         let extraDeclaration = program.declaration
         let declarationSuffix = program.declarationSuffix
+        #if DEBUG
+        let useStaticField = StaticClothIrradiance.requested() && program.state.effective
+            && program.state.request == .guardCombo && !clothPrototype
+        if useStaticField, let device = MTLCreateSystemDefaultDevice() {
+            do {
+                scene.staticClothIrradiance = try StaticClothIrradiance.acquire(
+                    emitter: emitterGeometry, radiance: rig.radiance, device: device)
+            } catch {
+                scene.staticClothIrradiance = nil
+                print("[StaticClothIrradiance] reference fallback: \(error)")
+            }
+        } else {
+            scene.staticClothIrradiance = nil
+        }
+        #endif
         var installedCloth = false
         scene.tableNode?.enumerateChildNodes { node,_ in
             for m in node.geometry?.materials ?? [] where m.name == "TaiNi" {
@@ -391,6 +406,16 @@ enum MobileReferenceLighting {
                 contactSource = contactSource.replacingOccurrences(of: "#pragma body",
                     with: "#pragma declaration\n" + extraDeclaration + analyticPanelDiffuse + declarationSuffix + (scene.renderingProfile.usesShadow ? "\n" + analyticShadowFunctions : "") + "\n#pragma body")
                 mods[.surface]=trialShader(contactSource+"\n"+shader)
+                #if DEBUG
+                if let field = scene.staticClothIrradiance,
+                   let source = mods[.surface], let candidate = StaticClothIrradiance.replacingDiffuse(in: source) {
+                    field.install(on: m)
+                    mods[.surface] = candidate
+                } else {
+                    m.setValue(nil, forKey: "temporalField0")
+                    m.setValue(nil, forKey: "temporalField1")
+                }
+                #endif
                 m.lightingModel = .physicallyBased;m.shaderModifiers=mods
                 installedCloth = true
                 #if DEBUG

@@ -1,0 +1,26 @@
+{
+  "Panel_Rig": {
+    "sha256": "96ee8b48729a13034ab57a9826f53dfad72c23ada04d5001a929cee8304f86a5",
+    "baselineUnchanged": true
+  },
+  "sampling": {
+    "sha256": "dcfea7c503e8df71cc311a74fd9dec606be28caa6d29e1b3f23cd7effcc2d784",
+    "baselineUnchanged": true
+  },
+  "profile": {
+    "sha256": "c937d8e7c10b0c90a62cdcfd3718bd62091800ada9e3df21c5ea89f7f6e480d3",
+    "baselineUnchanged": true
+  },
+  "directShadowShader": {
+    "sha256": "c7c2495e4e9d66e3ee992049e07abe7fab34b7df5dca31a974c2cdcac26d02d9",
+    "baselineUnchanged": true
+  },
+  "analytic": {
+    "sha256": "b1febbfcc8ec195f3ee88e34c2a1452344b57e8af27b5efa000141b66ce1ea32",
+    "baselineUnchanged": true
+  },
+  "cloth": {
+    "sha256": "3406e8238f8c4a8217221a9b5fb5fc385ca518eb642ecad2b3d2be96bb8cac6d",
+    "baselineUnchanged": true
+  }
+}

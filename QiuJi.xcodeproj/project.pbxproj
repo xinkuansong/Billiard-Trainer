@@ -259,6 +259,7 @@
 		44B1C2BCA0AF097F8AD6E6D3 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CC3ED3C2AA5FE88FB2F39C6 /* KeychainService.swift */; };
 		44C7A5AD7B1E1ECD171F613C /* ShotPredictor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3911FCDF734395A7DC8702C7 /* ShotPredictor.swift */; };
 		44FD5595748C7C503E4350B6 /* DailyClothSupportExperiment.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEED8CFBB16A7A63A934133F /* DailyClothSupportExperiment.swift */; };
+		C1F131120260000000000001 /* StaticClothIrradiance.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1F131120260000000000002 /* StaticClothIrradiance.swift */; };
 		453118CE3C12697554AB5372 /* AimCloseupPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758755E6E8AB6BAF37881F32 /* AimCloseupPlacement.swift */; };
 		4609FA1C48E77FAD2E63626E /* W8_TrajectoryScreenshotUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA395C40194328084F80DA66 /* W8_TrajectoryScreenshotUITests.swift */; };
 		465568B9636ECFF4C5BA2DAB /* AimingMethodsGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F2BF9032568052FEED576D /* AimingMethodsGeometry.swift */; };
@@ -982,6 +983,7 @@
 		FEFAC3E4F208448BD3928862 /* V49W13CopyEvidenceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFCB568B3A5A12AFA747A5FB /* V49W13CopyEvidenceUITests.swift */; };
 		FF1C920BD9CE324A8E6C0774 /* W2_DarkQuizNavChromeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA763A6DA262DFEB216AE89C /* W2_DarkQuizNavChromeUITests.swift */; };
 		FF9C61E93BCA031AC9AD6FEE /* TrainingHomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A890064762699007A150D72 /* TrainingHomeViewModel.swift */; };
+		C1F131120260000000000003 /* StaticClothIrradiance-v1.bin in Resources */ = {isa = PBXBuildFile; fileRef = C1F131120260000000000004 /* StaticClothIrradiance-v1.bin */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1771,6 +1773,7 @@
 		BD80DBEB4366E129C065ABEE /* KBallPracticeRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KBallPracticeRecord.swift; sourceTree = "<group>"; };
 		BE7B7488F2F622CB0FF2D600 /* grid-calibrated-probabilities.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "grid-calibrated-probabilities.json"; sourceTree = "<group>"; };
 		BEED8CFBB16A7A63A934133F /* DailyClothSupportExperiment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyClothSupportExperiment.swift; sourceTree = "<group>"; };
+		C1F131120260000000000002 /* StaticClothIrradiance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaticClothIrradiance.swift; sourceTree = "<group>"; };
 		BF02200E72733E1B625B308D /* CustomFormationSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomFormationSyncService.swift; sourceTree = "<group>"; };
 		BF0A4198EFFC019A6857F78E /* QiuJiSchemaV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QiuJiSchemaV3.swift; sourceTree = "<group>"; };
 		BF0DF32C3FF8E4E0A6639F0E /* TrainingShareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingShareView.swift; sourceTree = "<group>"; };
@@ -2004,6 +2007,7 @@
 		FF49DC95958009673060AAE6 /* BreakRackPhysicsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreakRackPhysicsTests.swift; sourceTree = "<group>"; };
 		FFCB568B3A5A12AFA747A5FB /* V49W13CopyEvidenceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V49W13CopyEvidenceUITests.swift; sourceTree = "<group>"; };
 		FFF65AB831748C562A45E5BA /* BTDailyLimitGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTDailyLimitGate.swift; sourceTree = "<group>"; };
+		C1F131120260000000000004 /* StaticClothIrradiance-v1.bin */ = {isa = PBXFileReference; lastKnownFileType = file; path = "StaticClothIrradiance-v1.bin"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -2472,6 +2476,7 @@
 				8296A7E00CDAF185C3AC6205 /* CueStyleModel.swift */,
 				239CAAF7516563FB0FEEF144 /* Daily3DRenderDiagnostics.swift */,
 				BEED8CFBB16A7A63A934133F /* DailyClothSupportExperiment.swift */,
+				C1F131120260000000000002 /* StaticClothIrradiance.swift */,
 				F0656D00F480EAF79EC062E0 /* DefensePipeTable.swift */,
 				6B6B6C078563776886ECE2D6 /* DrillSceneView.swift */,
 				5FD5785A21174FEA7516020B /* DrillStaticPreview.swift */,
@@ -3463,6 +3468,7 @@
 		D53656F6F0142463DDB8B38B /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				C1F131120260000000000004 /* StaticClothIrradiance-v1.bin */,
 				338C2443234B3454DFAF0591 /* Audio */,
 				33CFE3A720D246BF884BD310 /* ClothColors */,
 				E0A09EFC9D3AC59A66F0D50E /* TableMaterials */,
@@ -3809,6 +3815,7 @@
 				D2C257427D1836443770FECE /* MobilePocketOcclusionBounds.json in Resources */,
 				B5A6562E8D30C043FEE63AFE /* MobileRailOcclusion.png in Resources */,
 				5395605F58CB8052AD9E3946 /* MobileTableSoftbox.hdr in Resources */,
+				C1F131120260000000000003 /* StaticClothIrradiance-v1.bin in Resources */,
 				A93C1C9C94D0A0CD23E5E728 /* ModelTrial20261010_CueUV.usdz in Resources */,
 				E56C0E20BB97A195630ACB12 /* ModelTrial20261010_TaiQiuZhuo.usdz in Resources */,
 				D5ABB447F9AFB0393C3887D5 /* MultiBallBank in Resources */,
@@ -4118,6 +4125,7 @@
 				20317EEDA936520AE6D8CABB /* DailyClearanceRulesEngine.swift in Sources */,
 				4C431E2031D17499457171CD /* DailyClearanceStore.swift in Sources */,
 				44FD5595748C7C503E4350B6 /* DailyClothSupportExperiment.swift in Sources */,
+				C1F131120260000000000001 /* StaticClothIrradiance.swift in Sources */,
 				104A7276AC06BA074F1418B2 /* DailyHUDPanel.swift in Sources */,
 				7DB3F4D921EF8251C28C3A8C /* DailyLayoutMetrics.swift in Sources */,
 				B28F2C635CF3E282CDA5C9DB /* DailyPositionScoring.swift in Sources */,

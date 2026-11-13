@@ -1,0 +1,25 @@
+{
+  "buildSucceeded": true,
+  "codesignVerified": true,
+  "bundleAssetExact": true,
+  "assetBytes": 1048576,
+  "binarySHA256": "b46c7fc103704d984def89a471e854b07d01f891ed85df77185bcdcacfaa686a",
+  "sourceSHA256": {
+    "QiuJi/Core/Scene/StaticClothIrradiance.swift": "0adb040bee61abf376f924c5f20f3d955718fca3d7c65276063d133641b3ae46",
+    "QiuJi/Core/Scene/MobileReferenceLighting.swift": "b3be4927551a1a1b8f0d122e7f212b681c906ed8b9316ff3f670fd97ab17c59e",
+    "QiuJi/Core/Scene/AngleTrainingScene.swift": "1f06a808686231660f5c43fe23aac9297af01e99f804b22b7c08ea05eae8af2b",
+    "QiuJi.xcodeproj/project.pbxproj": "32a556abe3f3455cd856f88248b3606eb490070509bc501a67b2e5269d069ca1",
+    "QiuJi/Resources/StaticClothIrradiance-v1.bin": "bc7509c3ebe99b0f823fd9722264f67503e006f976abc32ac54fdf050ad0b096"
+  },
+  "phoneInstalled": false,
+  "scope": "Debug iOS build; not runtime/phone rendering validation",
+  "lifecycleRun": "output/local-test-runs/a7a762df2ef041fe8ff2a2b4652e58c7",
+  "lifecycleState": "reclaimed",
+  "checks": {
+    "verifyGate": true,
+    "verifyDocSize": true,
+    "diffCheck": true,
+    "nonDebugSyntaxParse": true,
+    "pythonSyntax": true
+  }
+}

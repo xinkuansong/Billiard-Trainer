@@ -1,0 +1,36 @@
+{
+  "asset": "QiuJi/Resources/StaticClothIrradiance-v1.bin",
+  "sha256": "bc7509c3ebe99b0f823fd9722264f67503e006f976abc32ac54fdf050ad0b096",
+  "bytes": 1048576,
+  "dimensions": [
+    64,
+    32,
+    16
+  ],
+  "format": "two consecutive RGBA32Float 3D textures, x fastest then z then y; little endian",
+  "domain": {
+    "x": [
+      -1.6,
+      1.6
+    ],
+    "z": [
+      -0.95,
+      0.95
+    ],
+    "y": [
+      0.65,
+      0.9
+    ]
+  },
+  "sourceFiles": [
+    {
+      "path": "output/render-activity-20261113/c1-static-field-compact/scene-1400/field-0.bin",
+      "sha256": "a04591386f6345b868149d978ceb6385790326d942a890a5e5a0e36710117d6b"
+    },
+    {
+      "path": "output/render-activity-20261113/c1-static-field-compact/scene-1400/field-1.bin",
+      "sha256": "80e109c8af24bc2ff801e1bcc1c22cabac0f2d701743ebe3d64e918d57d4bc99"
+    }
+  ],
+  "generatorSHA256": "edc6b34bc65a15eb583812c3f255db5f2ff2158a5da484c832e9c49263a21df4"
+}

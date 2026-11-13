@@ -1,0 +1,139 @@
+{
+  "baselineCommit": "354480b97",
+  "device": "Apple M5 Pro",
+  "productionDefaultEnabled": false,
+  "dimensions": [
+    1400,
+    800
+  ],
+  "resource": {
+    "allocatedBytes": 1081344,
+    "lastOwnerReleased": true,
+    "mode": "valid",
+    "prepareMS": 1.4396249316632748,
+    "runtimeGenerationMS": 0,
+    "shaderExact": true,
+    "shared": true,
+    "textureBytesExact": true
+  },
+  "scenes": [
+    {
+      "pose": "single-low",
+      "maximum8BitChannelDifference": 1,
+      "changedPixelsMin": 1000,
+      "changedPixelsMax": 1059,
+      "AAMedianGPUChangePercent": -2.7265839454768566,
+      "AACycleGPUChangePercent": [
+        -27.866878276525874,
+        9.493749831078135,
+        -0.480536828274547,
+        1.8173290605639103,
+        -4.9726310626791665,
+        -5.198051308137586
+      ],
+      "ABMedianGPUChangePercent": -4.837384014192175,
+      "ABCycleGPUChangePercent": [
+        -9.295164969596737,
+        -3.4589424068827035,
+        -4.412097862896358,
+        -5.829509672658761,
+        -4.460469241998877,
+        -5.2142987863854735
+      ]
+    },
+    {
+      "pose": "single-near",
+      "maximum8BitChannelDifference": 1,
+      "changedPixelsMin": 12365,
+      "changedPixelsMax": 12511,
+      "AAMedianGPUChangePercent": -3.686098709681868,
+      "AACycleGPUChangePercent": [
+        -9.053810305228394,
+        -4.931754583894444,
+        3.878562444121214,
+        -5.331939410159503,
+        3.843680981842068,
+        -2.440442835469292
+      ],
+      "ABMedianGPUChangePercent": -19.692447888403038,
+      "ABCycleGPUChangePercent": [
+        -15.754983621912743,
+        -19.867314580386463,
+        -22.23331308423805,
+        -18.149320493431244,
+        -20.857355881678284,
+        -19.51758119641961
+      ]
+    },
+    {
+      "pose": "scatter-overview",
+      "maximum8BitChannelDifference": 1,
+      "changedPixelsMin": 1593,
+      "changedPixelsMax": 1749,
+      "AAMedianGPUChangePercent": 0.23562334040774235,
+      "AACycleGPUChangePercent": [
+        0.2984072837040941,
+        -1.1210741396114443,
+        -0.23628445525138986,
+        5.516347758472451,
+        0.17283939711139062,
+        1.9734724118420477
+      ],
+      "ABMedianGPUChangePercent": -5.470028300231111,
+      "ABCycleGPUChangePercent": [
+        -3.4481646997130855,
+        -12.41038510264153,
+        -1.4072289836560725,
+        -5.674038245216728,
+        -5.266018355245494,
+        -8.726918486070067
+      ]
+    }
+  ],
+  "numeric": {
+    "modeFixturePairs": 12,
+    "uniqueInputs": 549367,
+    "maxRelativeAbove001": 0.0002964524063431581,
+    "fallbackChangedChannels": 0,
+    "nonfinite": 0
+  },
+  "actualCodeMaterials": {
+    "cases": 44,
+    "maxDifference": 1,
+    "aaChangedPixels": 0
+  },
+  "assetRejections": {
+    "missing": {
+      "error": "resource(\"missing field asset\")",
+      "mode": "missing",
+      "rejected": true
+    },
+    "corrupt": {
+      "error": "resource(\"field asset identity\")",
+      "mode": "corrupt",
+      "rejected": true
+    },
+    "truncated": {
+      "error": "resource(\"field asset identity\")",
+      "mode": "truncated",
+      "rejected": true
+    }
+  },
+  "limits": [
+    "isolated native USDZ/TaiNi, not full App",
+    "synthetic ball uniforms, no actual ball geometry",
+    "spatial approximation",
+    "no phone/thermal/minimum iOS render verification"
+  ],
+  "finalResource": {
+    "allocatedBytes": 1081344,
+    "lastOwnerReleased": true,
+    "mode": "valid",
+    "prepareMS": 2.4014583323150873,
+    "runtimeGenerationMS": 0,
+    "shaderExact": true,
+    "shared": true,
+    "supports32BitFloatFiltering": true,
+    "textureBytesExact": true
+  }
+}
