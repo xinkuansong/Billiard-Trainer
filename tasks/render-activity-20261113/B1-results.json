@@ -1,0 +1,238 @@
+{
+  "baselineCommit": "f516e36b4",
+  "build": "build-r4.log",
+  "sourceIdentity": {
+    "baseline": "f516e36b442292afd1a5bf3e57cd2f22d1f6b54e",
+    "files": {
+      "QiuJi/Core/Components/BTAimCloseupHUD.swift": "239a03bcdf1fa654d472a72e19fb5f829069111daa4e7fa99565e1eec729cb4f",
+      "QiuJi/Core/Geometry/AimCloseupCoords.swift": "aa30a3976b539413cf080c8b77608aa703d0618bf3cfe624ca9ae5118da06348",
+      "QiuJi/Core/Scene/AngleSceneView.swift": "9589de7ec23b87f5ff7a5169b86122974deb6df1aa59825f25754aca3140a033",
+      "QiuJi/Core/Scene/AngleTrainingScene.swift": "005ae4921fd88790a9ee486f7195fc151838a2152f098184d3305c31b0f21599",
+      "QiuJiTests/AimCloseupBuilderTests.swift": "1492adbf1feca70432693c12d57558880f23c785a6c500d22948dc5b7a975bdf",
+      "QiuJiTests/AimCloseupPlacementTests.swift": "4b20a5bc2221db1b0ad13b7d1d9ce943bc997f068917c14969972e51d722befb",
+      "QiuJiUITests/V52DailyClearanceUITests.swift": "b12c81c7c65642d38a3aaaed277fe532ca2dc1864a586287700879e1927f28f5"
+    },
+    "contract": "r4 same binary A/B; shared visibility lifecycle outside scheduling subtree; reference restores old TimelineView scheduler only. One reverse-order exploratory pair; no formal percentage-gain claim."
+  },
+  "unitSummary": {
+    "failedTests": 0,
+    "passedTests": 66,
+    "skippedTests": 0,
+    "totalTestCount": 66
+  },
+  "note": "Unit r2 covers unchanged observer/projection logic. Final r4 changes only overlay visibility lifecycle; validated by final UI A/B. CPU is exploratory ps process CPU, not energy; no A/A-normalized gain claim.",
+  "arms": {
+    "timeline-control-r3": {
+      "productSHA256": "a78755b6183656b6311598f2423c777b317c732162fd1850350fe71bccabfa72",
+      "installedSHA256": "a78755b6183656b6311598f2423c777b317c732162fd1850350fe71bccabfa72",
+      "uiSummary": {
+        "totalTestCount": 1,
+        "passedTests": 1,
+        "failedTests": 0,
+        "skippedTests": 0
+      },
+      "workCounts": [
+        {
+          "endedEpoch": 1794565154.798284,
+          "inputChecks": 0,
+          "mode": "2d",
+          "placements": 553,
+          "projections": 553,
+          "publications": 0,
+          "reference": true,
+          "seconds": 9.269327458227053
+        },
+        {
+          "endedEpoch": 1794565173.397712,
+          "inputChecks": 0,
+          "mode": "3d",
+          "placements": 745,
+          "projections": 745,
+          "publications": 0,
+          "reference": true,
+          "seconds": 12.474492541747168
+        },
+        {
+          "endedEpoch": 1794565205.394143,
+          "inputChecks": 0,
+          "mode": "2d",
+          "placements": 555,
+          "projections": 555,
+          "publications": 0,
+          "reference": true,
+          "seconds": 9.27802141662687
+        },
+        {
+          "endedEpoch": 1794565223.992379,
+          "inputChecks": 0,
+          "mode": "3d",
+          "placements": 742,
+          "projections": 742,
+          "publications": 0,
+          "reference": true,
+          "seconds": 12.47823404171504
+        }
+      ],
+      "samples": {
+        "cloth-green-2d": {
+          "markerEpoch": 1794565142.242341,
+          "pid": 54653,
+          "sampleStartEpoch": 1794565144.503168,
+          "cpuStart": 6.74,
+          "cpuEnd": 7.65,
+          "sampleEndEpoch": 1794565149.292763,
+          "cpuSeconds": 0.9100000000000001,
+          "wallSeconds": 4.789594888687134,
+          "oneCorePercent": 18.99951919001313,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b1/timeline-control-r3/cloth-green-2d.png",
+          "screenshotExit": 0
+        },
+        "cloth-green-3d": {
+          "markerEpoch": 1794565160.8090885,
+          "pid": 54653,
+          "sampleStartEpoch": 1794565163.033463,
+          "cpuStart": 9.79,
+          "cpuEnd": 10.65,
+          "sampleEndEpoch": 1794565167.835018,
+          "cpuSeconds": 0.8600000000000012,
+          "wallSeconds": 4.801554918289185,
+          "oneCorePercent": 17.91086459772125,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b1/timeline-control-r3/cloth-green-3d.png",
+          "screenshotExit": 0
+        },
+        "cloth-tournamentBlue-2d": {
+          "markerEpoch": 1794565192.8163357,
+          "pid": 54968,
+          "sampleStartEpoch": 1794565195.037434,
+          "cpuStart": 6.88,
+          "cpuEnd": 7.85,
+          "sampleEndEpoch": 1794565200.011403,
+          "cpuSeconds": 0.9699999999999998,
+          "wallSeconds": 4.973968982696533,
+          "oneCorePercent": 19.501528927390588,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b1/timeline-control-r3/cloth-tournamentBlue-2d.png",
+          "screenshotExit": 0
+        },
+        "cloth-tournamentBlue-3d": {
+          "markerEpoch": 1794565211.398276,
+          "pid": 54968,
+          "sampleStartEpoch": 1794565213.6748228,
+          "cpuStart": 10.01,
+          "cpuEnd": 10.88,
+          "sampleEndEpoch": 1794565218.4584692,
+          "cpuSeconds": 0.870000000000001,
+          "wallSeconds": 4.78364634513855,
+          "oneCorePercent": 18.186963191460656,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b1/timeline-control-r3/cloth-tournamentBlue-3d.png",
+          "screenshotExit": 0
+        }
+      }
+    },
+    "demand-candidate-r3": {
+      "productSHA256": "a78755b6183656b6311598f2423c777b317c732162fd1850350fe71bccabfa72",
+      "installedSHA256": "a78755b6183656b6311598f2423c777b317c732162fd1850350fe71bccabfa72",
+      "uiSummary": {
+        "totalTestCount": 1,
+        "passedTests": 1,
+        "failedTests": 0,
+        "skippedTests": 0
+      },
+      "workCounts": [
+        {
+          "endedEpoch": 1794565049.675191,
+          "inputChecks": 555,
+          "mode": "2d",
+          "placements": 4,
+          "projections": 4,
+          "publications": 2,
+          "reference": false,
+          "seconds": 9.291570000117645
+        },
+        {
+          "endedEpoch": 1794565068.244303,
+          "inputChecks": 747,
+          "mode": "3d",
+          "placements": 6,
+          "projections": 6,
+          "publications": 4,
+          "reference": false,
+          "seconds": 12.46132883336395
+        },
+        {
+          "endedEpoch": 1794565100.133628,
+          "inputChecks": 555,
+          "mode": "2d",
+          "placements": 4,
+          "projections": 4,
+          "publications": 2,
+          "reference": false,
+          "seconds": 9.286990624852479
+        },
+        {
+          "endedEpoch": 1794565118.733995,
+          "inputChecks": 746,
+          "mode": "3d",
+          "placements": 6,
+          "projections": 6,
+          "publications": 4,
+          "reference": false,
+          "seconds": 12.468965416774154
+        }
+      ],
+      "samples": {
+        "cloth-green-2d": {
+          "markerEpoch": 1794565037.090159,
+          "pid": 54161,
+          "sampleStartEpoch": 1794565039.220375,
+          "cpuStart": 6.55,
+          "cpuEnd": 7.18,
+          "sampleEndEpoch": 1794565044.2322,
+          "cpuSeconds": 0.6299999999999999,
+          "wallSeconds": 5.0118248462677,
+          "oneCorePercent": 12.570271693935196,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b1/demand-candidate-r3/cloth-green-2d.png",
+          "screenshotExit": 0
+        },
+        "cloth-green-3d": {
+          "markerEpoch": 1794565055.6678257,
+          "pid": 54161,
+          "sampleStartEpoch": 1794565057.931396,
+          "cpuStart": 8.99,
+          "cpuEnd": 9.64,
+          "sampleEndEpoch": 1794565062.7039502,
+          "cpuSeconds": 0.6500000000000004,
+          "wallSeconds": 4.772554159164429,
+          "oneCorePercent": 13.61954161906884,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b1/demand-candidate-r3/cloth-green-3d.png",
+          "screenshotExit": 0
+        },
+        "cloth-tournamentBlue-2d": {
+          "markerEpoch": 1794565087.5490224,
+          "pid": 54406,
+          "sampleStartEpoch": 1794565089.6419368,
+          "cpuStart": 6.88,
+          "cpuEnd": 7.57,
+          "sampleEndEpoch": 1794565094.635369,
+          "cpuSeconds": 0.6900000000000004,
+          "wallSeconds": 4.993432283401489,
+          "oneCorePercent": 13.81815073959464,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b1/demand-candidate-r3/cloth-tournamentBlue-2d.png",
+          "screenshotExit": 0
+        },
+        "cloth-tournamentBlue-3d": {
+          "markerEpoch": 1794565106.151071,
+          "pid": 54406,
+          "sampleStartEpoch": 1794565108.311027,
+          "cpuStart": 9.42,
+          "cpuEnd": 10.1,
+          "sampleEndEpoch": 1794565113.297046,
+          "cpuSeconds": 0.6799999999999997,
+          "wallSeconds": 4.986018896102905,
+          "oneCorePercent": 13.638135237142619,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b1/demand-candidate-r3/cloth-tournamentBlue-3d.png",
+          "screenshotExit": 0
+        }
+      }
+    }
+  }
+}

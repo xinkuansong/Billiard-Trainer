@@ -32,9 +32,17 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
 
 
     /// Weak bridge to the live viewport; used only while a closeup is visible.
-    weak var closeupViewport: SCNView?
-    var closeupCuePath: [SCNVector3] = []
-    var closeupObjectPaths: [String: [SCNVector3]] = [:]
+    let closeupRenderUpdates = AimCloseupRenderUpdates()
+    weak var closeupViewport: SCNView? {
+        didSet { closeupRenderUpdates.requestUpdate() }
+    }
+    private(set) var closeupPathsRevision: UInt64 = 0
+    var closeupCuePath: [SCNVector3] = [] {
+        didSet { closeupPathsRevision &+= 1; closeupRenderUpdates.requestUpdate() }
+    }
+    var closeupObjectPaths: [String: [SCNVector3]] = [:] {
+        didSet { closeupPathsRevision &+= 1; closeupRenderUpdates.requestUpdate() }
+    }
     var closeupPocketNodes: [SCNNode] { leatherMarkers }
 
 
@@ -2674,7 +2682,9 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     private var idealObjectGeometryLine: AimCloseupSegment?
     private var freeAimPreviewNode: SCNNode?
     private var freeAimPreviewGeometryLine: AimCloseupSegment?
-    private(set) var idealObjectLine: AimCloseupSegment?
+    private(set) var idealObjectLine: AimCloseupSegment? {
+        didSet { if oldValue != idealObjectLine { closeupRenderUpdates.requestUpdate() } }
+    }
 
     /// One retained preview node; unchanged inputs do not allocate geometry/materials.
     @discardableResult

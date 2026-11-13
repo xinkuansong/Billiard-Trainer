@@ -392,14 +392,22 @@ final class AimDragCoordinatorTests: XCTestCase {
             get { simulatedState }
             set { simulatedState = newValue }
         }
+        override func location(in view: UIView?) -> CGPoint { CGPoint(x: 195, y: 350) }
+        override func translation(in view: UIView?) -> CGPoint { .zero }
     }
 
     func test_endCancelAndFailure_reportReleaseEvenWhenInteractionDisabled() {
         for end in [UIGestureRecognizer.State.ended, .cancelled, .failed] {
             let scene = AngleTrainingScene()
+            // Production now validates that an aim drag begins inside the table.
+            // Supply the real camera/viewport contract rather than an empty scene.
+            scene.setupScene(enhancedRendering: false)
+            scene.setCameraMode(.topDown2DRotated, animated: false)
             let coordinator = AngleSceneView.Coordinator(scene: scene, cameraMode: .topDown2DRotated, interactionMode: .tapsOnly)
             let view = SCNView(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
             view.scene = scene
+            view.pointOfView = scene.cameraNode
+            view.layoutIfNeeded(); SCNTransaction.flush(); _ = view.snapshot()
             coordinator.scnView = view
             var events: [Bool] = []
             coordinator.onAimNudged = { _ in }

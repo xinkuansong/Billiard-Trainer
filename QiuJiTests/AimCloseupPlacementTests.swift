@@ -1,4 +1,5 @@
 import SceneKit
+import Combine
 import XCTest
 import simd
 @testable import QiuJi
@@ -598,5 +599,185 @@ final class DailyCloseupProtectionTests: XCTestCase {
         let zoomed = DailyCloseupProjection.topDownPlayingRect(scene:scene,view:view,destination:destination)
         XCTAssertEqual(zoomed.width,table.width/1.5,accuracy:0.001)
         XCTAssertEqual(zoomed.height,table.height/1.5,accuracy:0.001)
+    }
+}
+
+@MainActor
+final class AimCloseupUpdateTests: XCTestCase {
+    private func fixture(fullScene: Bool = false) -> (AngleTrainingScene, SCNView) {
+        let scene = AngleTrainingScene()
+        let camera: SCNNode
+        if fullScene {
+            scene.setupScene(enhancedRendering: false)
+            scene.setCameraMode(.topDown2DRotated, animated: false)
+            camera = scene.cameraNode
+        } else {
+            camera = SCNNode()
+            camera.camera = SCNCamera()
+            camera.camera?.usesOrthographicProjection = true
+            camera.camera?.orthographicScale = 1.7
+            camera.position = SCNVector3(0, 4, 0)
+            camera.look(at: SCNVector3(0, scene.surfaceY, 0), up: SCNVector3(1, 0, 0), localFront: SCNVector3(0, 0, -1))
+            scene.rootNode.addChildNode(camera)
+        }
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 700, height: 350))
+        view.scene = scene
+        view.pointOfView = camera
+        scene.closeupViewport = view
+        SCNTransaction.flush()
+        return (scene, view)
+    }
+
+    func testUnchangedRenderedInputsDoNotPublishAndHidingUnsubscribes() {
+        let (scene, view) = fixture()
+        let observer = AimCloseupProjectionObserver()
+        observer.connect(scene: scene, active: true, protectsSight: false)
+        XCTAssertEqual(scene.closeupRenderUpdates.observerCount, 1)
+        for _ in 0..<600 { observer.refresh() }
+        XCTAssertEqual(observer.revision, 0, "Ten seconds of unchanged 60 Hz callbacks must not invalidate SwiftUI")
+        observer.connect(scene: scene, active: false, protectsSight: false)
+        XCTAssertEqual(scene.closeupRenderUpdates.observerCount, 0)
+        view.bounds.size.width += 20
+        observer.refresh()
+        XCTAssertEqual(observer.revision, 0)
+    }
+
+    func testCameraViewportAndLateRendererProjectionInvalidate() {
+        let (scene, view) = fixture()
+        let observer = AimCloseupProjectionObserver()
+        observer.connect(scene: scene, active: true, protectsSight: false)
+        defer { observer.disconnect() }
+        view.bounds.size = CGSize(width: 640, height: 420)
+        observer.refresh()
+        XCTAssertEqual(observer.revision, 1)
+        view.pointOfView?.position.x += 0.2
+        SCNTransaction.flush()
+        observer.refresh()
+        XCTAssertEqual(observer.revision, 2)
+        view.pointOfView?.camera?.orthographicScale = 2.3
+        SCNTransaction.flush()
+        observer.refresh()
+        XCTAssertEqual(observer.revision, 3)
+        observer.refresh()
+        XCTAssertEqual(observer.revision, 3, "The final camera state must settle without repeated publications")
+        let replacement = SCNView(frame: view.frame)
+        replacement.scene = scene; replacement.pointOfView = view.pointOfView
+        scene.closeupViewport = replacement
+        observer.refresh()
+        XCTAssertEqual(observer.revision, 4, "Equal-sized replacement renderers must not reuse the old projection identity")
+    }
+
+    func testIdealLineAndInPlacePathMutationsInvalidateWithoutATimer() async {
+        let (scene, view) = fixture()
+        let observer = AimCloseupProjectionObserver()
+        observer.connect(scene: scene, active: true, protectsSight: true)
+        defer { observer.disconnect(); _ = view }
+        let delivered = expectation(description: "Scene-only data changes reach the visible loupe")
+        let token = observer.$revision.dropFirst().sink { _ in delivered.fulfill() }
+        scene.closeupCuePath.append(SCNVector3(0.1, scene.surfaceY, 0.2))
+        scene.closeupObjectPaths["_3"] = [SCNVector3(0.3, scene.surfaceY, 0.4)]
+        scene.setIdealObjectLine(.init(start: .zero, end: CGPoint(x: 0.2, y: 0.1)))
+        await fulfillment(of: [delivered], timeout: 2)
+        XCTAssertEqual(observer.revision, 1, "Related writes in one main-loop turn are coalesced")
+        token.cancel()
+    }
+
+    func testProtectedPlacementTracksRealObstacleVisibilityAndGeometry() throws {
+        let (scene, view) = fixture(fullScene: true)
+        let observer = AimCloseupProjectionObserver()
+        observer.connect(scene: scene, active: true, protectsSight: true)
+        defer { observer.disconnect(); _ = view }
+        let cue = try XCTUnwrap(scene.cueBallNode)
+        cue.isHidden.toggle()
+        observer.refresh()
+        XCTAssertEqual(observer.revision, 1)
+        cue.scale = SCNVector3(1.2, 1.2, 1.2)
+        SCNTransaction.flush()
+        observer.refresh()
+        XCTAssertEqual(observer.revision, 2)
+        observer.refresh()
+        XCTAssertEqual(observer.revision, 2)
+    }
+
+    func testBothRenderDelegatesForwardFinalFrameAndDisconnectReleasesObserver() async {
+        for delegate in [FrameDelegate(), Daily3DFrameDelegate()] {
+            let (scene, view) = fixture()
+            var observer: AimCloseupProjectionObserver? = AimCloseupProjectionObserver()
+            weak let released = observer
+            observer?.connect(scene: scene, active: true, protectsSight: false)
+            let delivered = expectation(description: "Completed frame updates projection")
+            let token = observer!.$revision.dropFirst().sink { _ in delivered.fulfill() }
+            view.bounds.size.height += 10
+            delegate.renderer(view, didRenderScene: scene, atTime: 1)
+            await fulfillment(of: [delivered], timeout: 2)
+            XCTAssertEqual(observer?.revision, 1)
+            XCTAssertEqual(delegate.completedFrameNumber, 1)
+            token.cancel()
+            observer = nil
+            XCTAssertNil(released)
+            XCTAssertEqual(scene.closeupRenderUpdates.observerCount, 0)
+        }
+    }
+
+    func testSceneSwitchDisconnectsOldSourceAndStandaloneNeedsNoObserver() {
+        let (first, view1) = fixture()
+        let (second, view2) = fixture()
+        let observer = AimCloseupProjectionObserver()
+        observer.connect(scene: first, active: true, protectsSight: false)
+        observer.connect(scene: second, active: true, protectsSight: false)
+        XCTAssertEqual(first.closeupRenderUpdates.observerCount, 0)
+        XCTAssertEqual(second.closeupRenderUpdates.observerCount, 1)
+        observer.connect(scene: nil, active: true, protectsSight: false)
+        XCTAssertEqual(second.closeupRenderUpdates.observerCount, 0)
+        _ = (view1, view2)
+    }
+
+    func testStaticProjectionAndPlacementWorkComparison() throws {
+        let (scene, view) = fixture(fullScene: true)
+        let observer = AimCloseupProjectionObserver()
+        observer.connect(scene: scene, active: true, protectsSight: true)
+        defer { observer.disconnect() }
+        let snapshot = AimCloseupSnapshot(band: .contact, focus: CGPoint(x: 0.3, y: 0.1),
+            ballRadius: CGFloat(AngleSceneCalculator.ballRadius), halfWorld: 0.09144,
+            targetBallNumber: 3, cue: CGPoint(x: 0, y: 0),
+            aimLine: .init(start: .zero, end: CGPoint(x: 0.3, y: 0.1)))
+        var last: AimCloseupSnapshot?
+        func oldWork() {
+            last = snapshot.projected(in: view, surfaceY: scene.surfaceY, preservesPlanarTangency: true)
+            let obstacles = DailyCloseupProjection.obstacles(snapshot: snapshot, scene: scene,
+                view: view, destination: view.bounds)
+            if let norm = last?.focusNorm {
+                _ = AimCloseupPlacement.protectedPlacement(
+                    focus: CGPoint(x: norm.x * view.bounds.width, y: norm.y * view.bounds.height),
+                    size: view.bounds.size, obstacles: obstacles, previous: nil,
+                    diameter: BTAimCloseupHUD.defaultDiameter, placementBounds: nil)
+            }
+        }
+        oldWork()
+        let expected = try XCTUnwrap(last)
+        var times: [[String: Double]] = []
+        for round in 0..<4 {
+            var row: [String: Double] = [:]
+            for reference in (round.isMultiple(of: 2) ? [true, false] : [false, true]) {
+                let start = ProcessInfo.processInfo.systemUptime
+                for _ in 0..<300 {
+                    if reference { oldWork() }
+                    else { observer.refresh() }
+                }
+                row[reference ? "referenceWallMS" : "candidateWallMS"] =
+                    (ProcessInfo.processInfo.systemUptime - start) * 1_000
+            }
+            times.append(row)
+        }
+        XCTAssertEqual(observer.revision, 0)
+        XCTAssertEqual(last, expected)
+        let result: [String: Any] = ["scope": "Local static CPU-side work only; excludes SwiftUI and whole-page/GPU/thermal costs",
+            "callbacksPerArm": 300, "referenceProjectionAndPlacementCallsPerArm": 300,
+            "candidateProjectionAndPlacementCallsPerArm": 0, "candidateInputChecksPerArm": 300,
+            "pairs": times]
+        let attachment = XCTAttachment(data: try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]),
+            uniformTypeIdentifier: "public.json")
+        attachment.name = "B1-static-work-comparison"; attachment.lifetime = .keepAlways
+        add(attachment)
     }
 }

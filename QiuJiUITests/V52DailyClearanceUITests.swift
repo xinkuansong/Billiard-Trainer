@@ -221,10 +221,12 @@ extension V52DailyClearanceUITests {
 
     func testAimCloseupClothAppearance() throws {
         XCUIDevice.shared.orientation = .landscapeRight
+        let reference = ProcessInfo.processInfo.environment["AIM_CLOSEUP_REFERENCE"] == "1"
+        let referenceArguments = reference ? ["-aimCloseup.referenceTimeline"] : []
         for cloth in ["green", "tournamentBlue"] {
             let app = launch(["-dailyClearance.fixture=closeup0", "-dailyClearance.fixtureSettled",
                               "-showAimCloseup", "YES", "-clothColor.v1", cloth,
-                              "-roomStyle.v1", "tournament"])
+                              "-roomStyle.v1", "tournament", "-aimCloseup.workCounts"] + referenceArguments)
             let wheel = app.descendants(matching: .any)["shotStage.aimWheel"].firstMatch
             XCTAssertTrue(wheel.waitForExistence(timeout: 30))
             settleDailyCamera(app)

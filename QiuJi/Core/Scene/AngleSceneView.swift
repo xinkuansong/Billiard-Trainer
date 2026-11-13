@@ -2412,6 +2412,7 @@ class FrameDelegate: NSObject, SCNSceneRendererDelegate {
     }
     func renderer(_ renderer: SCNSceneRenderer, didRenderScene scene: SCNScene, atTime time: TimeInterval) {
         (scene as? AngleTrainingScene)?.frameReceipt.didRender()
+        (scene as? AngleTrainingScene)?.closeupRenderUpdates.requestUpdate()
         // This callback runs after this renderer has applied/completed actions.
         // Keep SceneKit action inspection on that queue; publish only a Bool to
         // the main display link. Idle invalidation still wakes newly added actions.

@@ -1,6 +1,46 @@
 import SwiftUI
 import SceneKit
 
+#if DEBUG
+/// Opt-in counters for the real overlay path. Flush only when a gesture closes;
+/// no polling, publishing, or per-frame logging is added to normal app execution.
+@MainActor
+enum AimCloseupWorkCounts {
+    static let enabled = ProcessInfo.processInfo.arguments.contains("-aimCloseup.workCounts")
+    static var inputChecks = 0
+    static var publications = 0
+    static var projections = 0
+    static var placements = 0
+    private static var started: TimeInterval?
+    private static var mode = "unknown"
+
+    static func visibilityChanged(_ visible: Bool, mode: String = "unknown") {
+        guard enabled else { return }
+        if visible {
+            guard started == nil else { return }
+            self.mode = mode
+            inputChecks = 0; publications = 0; projections = 0; placements = 0
+            started = ProcessInfo.processInfo.systemUptime
+        } else if let start = started {
+            started = nil
+            let record: [String: Any] = ["seconds": ProcessInfo.processInfo.systemUptime - start,
+                "inputChecks": inputChecks, "publications": publications,
+                "projections": projections, "placements": placements,
+                "reference": ProcessInfo.processInfo.arguments.contains("-aimCloseup.referenceTimeline"),
+                "mode": mode, "endedEpoch": Date().timeIntervalSince1970]
+            guard var data = try? JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]) else { return }
+            data.append(0x0A)
+            let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("AimCloseupWorkCounts.jsonl")
+            if let handle = try? FileHandle(forWritingTo: url) {
+                defer { try? handle.close() }
+                try? handle.seekToEnd(); try? handle.write(contentsOf: data)
+            } else { try? data.write(to: url) }
+        }
+    }
+}
+#endif
+
 /// Aim closeup loupe: **same user geometry as the scene**, tighter framing
 /// (问题集合 v23 / D-v23-2′ / D-v23-8).
 ///
@@ -188,6 +228,8 @@ struct BTAimCloseupOverlay: View {
     var ignoresPreference = false
     @State private var protectedPlacement: AimCloseupPlacement.ProtectedPlacement?
     @State private var feltFrame: AimCloseupFeltFrame?
+    @StateObject private var projectionObserver = AimCloseupProjectionObserver()
+    @Environment(\.scenePhase) private var scenePhase
 
     @ObservedObject private var prefs = UserPreferences.shared
     /// Placement hysteresis (scene pts); cleared when the loupe hides.
@@ -196,13 +238,59 @@ struct BTAimCloseupOverlay: View {
     @ObservedObject private var tablePreferences = TablePreferencesStore.shared
     private var closeupEnabled: Bool { ignoresPreference || (scene?.tablePreferences?.enabled(.closeup) ?? prefs.showAimCloseup) }
     private var isVisible: Bool { closeupEnabled && snapshot != nil }
+    // Same-binary performance control; absent from release builds and off by default.
+    private static let usesReferenceTimeline: Bool = {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-aimCloseup.referenceTimeline")
+        #else
+        false
+        #endif
+    }()
+
+    private struct ProjectionObservation: Equatable {
+        let scene: ObjectIdentifier?
+        let active: Bool
+        let protectsSight: Bool
+    }
+
+    private var projectionObservation: ProjectionObservation {
+        .init(scene: scene.map(ObjectIdentifier.init),
+              active: isVisible && scenePhase == .active && !Self.usesReferenceTimeline,
+              protectsSight: protectsDailySight)
+    }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !isVisible)) { _ in
-            content
+        let _ = projectionObserver.revision
+        updatedContent
+        .onAppear {
+            projectionObserver.connect(scene: scene, active: projectionObservation.active,
+                                       protectsSight: protectsDailySight)
+            #if DEBUG
+            AimCloseupWorkCounts.visibilityChanged(isVisible,
+                mode: scene?.currentCameraMode == .perspective3D ? "3d" : "2d")
+            #endif
         }
-        // Prepare on preference changes, outside the 60 Hz placement loop and
-        // before the first aiming gesture. No extra live SCNView is retained.
+        // Keep visibility/placement lifetime outside the scheduling subtree.
+        // Timeline pause/resume must not recreate the observer of this transition.
+        .onChange(of: isVisible) { _, visible in
+            if !visible { center = nil; protectedPlacement = nil }
+            #if DEBUG
+            AimCloseupWorkCounts.visibilityChanged(visible,
+                mode: scene?.currentCameraMode == .perspective3D ? "3d" : "2d")
+            #endif
+        }
+        .onChange(of: projectionObservation, initial: true) { _, observation in
+            projectionObserver.connect(scene: scene, active: observation.active,
+                                       protectsSight: observation.protectsSight)
+        }
+        .onDisappear {
+            projectionObserver.disconnect()
+            #if DEBUG
+            AimCloseupWorkCounts.visibilityChanged(false)
+            #endif
+        }
+        // Prepare on preference changes, before the first aiming gesture.
+        // No extra live SCNView or independent display loop is retained.
         .task(id: "\(closeupEnabled)-\(prefs.clothColor.rawValue)-\(prefs.roomStyle.rawValue)") {
             guard closeupEnabled, !Task.isCancelled else { return }
             let cloth = prefs.clothColor, room = prefs.roomStyle
@@ -212,10 +300,24 @@ struct BTAimCloseupOverlay: View {
         }
     }
 
+    @ViewBuilder
+    private var updatedContent: some View {
+        if Self.usesReferenceTimeline {
+            TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !isVisible)) { _ in
+                content
+            }
+        } else {
+            content
+        }
+    }
+
     private var displaySnapshot: AimCloseupSnapshot? {
         guard let snapshot else { return nil }
         guard let scene else { return snapshot } // Standalone 2D figures/tests.
         guard let view = scene.closeupViewport else { return nil }
+        #if DEBUG
+        if AimCloseupWorkCounts.enabled { AimCloseupWorkCounts.projections += 1 }
+        #endif
         var current = snapshot
         current.idealLine = includesSceneIdealLine ? scene.idealObjectLine : nil
         return current.projected(in: view, surfaceY: scene.surfaceY, destinationRect: protectsDailySight
@@ -257,13 +359,12 @@ struct BTAimCloseupOverlay: View {
         .frame(width: sceneSize.width, height: sceneSize.height, alignment: .topLeading)
         .allowsHitTesting(false)
         .animation(BTMotion.easeInOutFast, value: isVisible)
-        // Camera motion must not lag behind the main scene through implicit animation.
-        .onChange(of: isVisible) { _, visible in
-            if !visible { center = nil; protectedPlacement = nil }
-        }
     }
     private func dailyPlacement(_ projected: AimCloseupSnapshot) -> AimCloseupPlacement.ProtectedPlacement? {
         guard let snapshot, let scene, let view = scene.closeupViewport else { return nil }
+        #if DEBUG
+        if AimCloseupWorkCounts.enabled { AimCloseupWorkCounts.placements += 1 }
+        #endif
         let rect = DailyCloseupProjection.destinationRect(in: view, frameInWindow: frameInWindow)
         var obstacles = DailyCloseupProjection.obstacles(snapshot: snapshot, scene: scene, view: view, destination: rect)
         if let frameInWindow {

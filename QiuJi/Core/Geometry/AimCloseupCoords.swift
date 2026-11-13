@@ -1,6 +1,170 @@
 import CoreGraphics
 import Foundation
 import SceneKit
+import Combine
+
+/// A scene-owned bridge, driven by frames already rendered by SceneKit. It has
+/// no timer and does not publish to the scene's ObservableObject subscribers.
+final class AimCloseupRenderUpdates {
+    private let lock = NSLock()
+    private var observers: [UUID: @MainActor () -> Void] = [:]
+    private var pending = false
+
+    func observe(_ action: @escaping @MainActor () -> Void) -> UUID {
+        let id = UUID()
+        lock.lock(); observers[id] = action; lock.unlock()
+        return id
+    }
+
+    func remove(_ id: UUID) {
+        lock.lock(); observers.removeValue(forKey: id); lock.unlock()
+    }
+
+    var observerCount: Int {
+        lock.lock(); defer { lock.unlock() }; return observers.count
+    }
+
+    /// Called from a renderer queue or a scene mutation. Coalesce before
+    /// touching UIKit; a hidden/disconnected loupe schedules no main-thread work.
+    func requestUpdate() {
+        lock.lock()
+        guard !observers.isEmpty, !pending else { lock.unlock(); return }
+        pending = true
+        lock.unlock()
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            self.pending = false
+            let callbacks = Array(self.observers.values)
+            self.lock.unlock()
+            for callback in callbacks { callback() }
+        }
+    }
+}
+
+/// Observe only a visible loupe. Rendering a frame is not itself a SwiftUI
+/// invalidation: publish only when projection or scene-side placement inputs change.
+@MainActor
+final class AimCloseupProjectionObserver: ObservableObject {
+    @Published private(set) var revision: UInt64 = 0
+    private weak var scene: AngleTrainingScene?
+    private var registration: (source: AimCloseupRenderUpdates, id: UUID)?
+    private var protectsSight = false
+    private var lastInputs: Inputs?
+
+    func connect(scene: AngleTrainingScene?, active: Bool, protectsSight: Bool) {
+        let nextScene = active ? scene : nil
+        guard self.scene !== nextScene || self.protectsSight != protectsSight else { return }
+        disconnect()
+        self.protectsSight = protectsSight
+        guard let nextScene else { return }
+        self.scene = nextScene
+        let source = nextScene.closeupRenderUpdates
+        registration = (source, source.observe { [weak self] in self?.refresh() })
+        // Initial content is computed by SwiftUI. Record the current state, then
+        // sample after the next completed frame to catch deferred renderer projection.
+        lastInputs = Inputs(scene: nextScene, protectsSight: protectsSight)
+        source.requestUpdate()
+    }
+
+    func disconnect() {
+        if let registration { registration.source.remove(registration.id) }
+        registration = nil
+        scene = nil
+        lastInputs = nil
+    }
+
+    deinit {
+        if let registration { registration.source.remove(registration.id) }
+    }
+
+    func refresh() {
+        guard let scene else { return }
+        #if DEBUG
+        if AimCloseupWorkCounts.enabled { AimCloseupWorkCounts.inputChecks += 1 }
+        #endif
+        let inputs = Inputs(scene: scene, protectsSight: protectsSight)
+        guard inputs != lastInputs else { return }
+        lastInputs = inputs
+        #if DEBUG
+        if AimCloseupWorkCounts.enabled { AimCloseupWorkCounts.publications += 1 }
+        #endif
+        revision &+= 1
+    }
+
+    private struct NodeInput: Equatable {
+        let id: ObjectIdentifier
+        let hidden: Bool
+        let opacity: CGFloat
+        let transform: [SIMD4<Float>]
+        let position: SIMD3<Float>
+        let low: SIMD3<Float>
+        let high: SIMD3<Float>
+
+        init(_ node: SCNNode) {
+            id = ObjectIdentifier(node)
+            hidden = node.isHidden
+            opacity = node.presentation.opacity
+            let m = node.presentation.simdWorldTransform.columns
+            transform = [m.0, m.1, m.2, m.3]
+            position = node.simdPosition
+            let bounds = node.boundingBox
+            low = SIMD3(bounds.min.x, bounds.min.y, bounds.min.z)
+            high = SIMD3(bounds.max.x, bounds.max.y, bounds.max.z)
+        }
+    }
+
+    private struct Inputs: Equatable {
+        let viewport: ObjectIdentifier
+        let bounds: CGRect
+        let window: ObjectIdentifier?
+        let frameInWindow: CGRect
+        let camera: ObjectIdentifier?
+        let cameraTransform: [SIMD4<Float>]
+        let projection: [SIMD3<Float>]
+        let surfaceY: Float
+        let landscapeTopDown: Bool
+        let idealLine: AimCloseupSegment?
+        let pathsRevision: UInt64
+        let nodes: [NodeInput]
+
+        init?(scene: AngleTrainingScene, protectsSight: Bool) {
+            guard let view = scene.closeupViewport else { return nil }
+            viewport = ObjectIdentifier(view)
+            bounds = view.bounds
+            window = view.window.map(ObjectIdentifier.init)
+            frameInWindow = view.convert(view.bounds, to: view.window)
+            surfaceY = scene.surfaceY
+            landscapeTopDown = scene.currentCameraMode == .topDown2D
+            idealLine = scene.idealObjectLine
+            pathsRevision = protectsSight ? scene.closeupPathsRevision : 0
+            // Read the presentation inputs used by the existing projection and
+            // obstacle code. The actual projectPoint results also cover a camera
+            // matrix that becomes visible to SCNView one frame after its model changes.
+            SCNTransaction.lock()
+            defer { SCNTransaction.unlock() }
+            camera = view.pointOfView.map(ObjectIdentifier.init)
+            if let m = view.pointOfView?.presentation.simdWorldTransform.columns {
+                cameraTransform = [m.0, m.1, m.2, m.3]
+            } else { cameraTransform = [] }
+            let x = AngleSceneCalculator.innerLength / 2
+            let z = AngleSceneCalculator.innerWidth / 2
+            projection = [SCNVector3(-x, surfaceY, -z), SCNVector3(x, surfaceY, -z),
+                          SCNVector3(-x, surfaceY, z), SCNVector3(x, surfaceY, z),
+                          SCNVector3(0, surfaceY + AngleSceneCalculator.ballRadius, 0)].map {
+                let p = view.projectPoint($0)
+                return SIMD3(p.x, p.y, p.z)
+            }
+            if protectsSight {
+                var watched = scene.closeupPocketNodes
+                watched += scene.allBallNodes.sorted { $0.key < $1.key }.map(\.value)
+                if let cue = scene.cueStick?.rootNode { watched.append(cue) }
+                if let ghost = scene.ghostBallNode { watched.append(ghost) }
+                nodes = watched.map(NodeInput.init)
+            } else { nodes = [] }
+        }
+    }
+}
 
 /// Shared world↔loupe mapping for `topDown2DRotated` aim closeup (问题集合 v23).
 ///
