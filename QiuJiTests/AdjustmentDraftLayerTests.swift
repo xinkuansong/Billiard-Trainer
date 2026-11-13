@@ -348,6 +348,7 @@ final class RemainingPredictionLifecycleTests: XCTestCase {
     }
 
     func testBatchArchiveRoundTripRestoresEditingIntentInIsolatedDirectory() throws {
+        #if targetEnvironment(simulator)
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let source = root.appendingPathComponent("content/position_play/sequences/drill_c001__manual01-半台直线球 · 球形1-5杆.json")
         let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
@@ -378,9 +379,13 @@ final class RemainingPredictionLifecycleTests: XCTestCase {
         XCTAssertEqual(vm.sequence.name, fixture.name)
         XCTAssertEqual(try encoder.encode(vm.sequence.steps[0].shot), try encoder.encode(fixture.steps[0].shot))
         XCTAssertTrue(vm.canReplay, "Restored final step must remain available for re-editing")
+        #else
+        throw XCTSkip("BatchSequenceArchive is a simulator-only content-authoring tool")
+        #endif
     }
 
     func testBatchSolverSuspensionPreservesConstraintAndClearsBusyMessage() async throws {
+        #if targetEnvironment(simulator)
         let vm = PositionPlayViewModel(); vm.setupScene()
         let solver = BatchShotSolver()
         solver.toolDrag(start: CanvasPoint(x: 0.3, y: 0.3), current: CanvasPoint(x: 0.6, y: 0.6),
@@ -394,6 +399,9 @@ final class RemainingPredictionLifecycleTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(300))
         XCTAssertTrue(solver.statusText.contains("已暂停"))
         vm.clearTable()
+        #else
+        throw XCTSkip("BatchShotSolver is a simulator-only content-authoring tool")
+        #endif
     }
 
     func testOrdinaryFreePlayRankingComparisonUsesSameBoards() throws {

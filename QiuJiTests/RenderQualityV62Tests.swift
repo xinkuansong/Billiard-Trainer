@@ -10782,9 +10782,7 @@ extension RenderQualityV62Tests {
     func testTableReuseRestoresRenderedAppearanceAfterThemeChanges() async throws {
         let cache = TableResourceCache.shared
         cache.purge()
-        let folder = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("output/table-runtime-20261013/visual")
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { cache.purge() }
         func snapshot(_ scene: AngleTrainingScene) throws -> UIImage {
             let rig = try XCTUnwrap(scene.cameraRig)
             rig.viewportSize = CGSize(width: 640, height: 360)
@@ -10816,8 +10814,13 @@ extension RenderQualityV62Tests {
         _ = second.addPocketMarkers()
         XCTAssertEqual(ObjectIdentifier(try XCTUnwrap(second.tableNode)), firstID)
         let reused = try snapshot(second)
-        try XCTUnwrap(reference.pngData()).write(to: folder.appendingPathComponent("fresh.png"))
-        try XCTUnwrap(reused.pngData()).write(to: folder.appendingPathComponent("reused.png"))
+        let referenceImage = try XCTUnwrap(reference)
+        for (name, image) in [("table-reuse-fresh", referenceImage), ("table-reuse-restored", reused)] {
+            let attachment = XCTAttachment(data: try XCTUnwrap(image.pngData()), uniformTypeIdentifier: "public.png")
+            attachment.name = name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
         func pixels(_ image: UIImage) throws -> [UInt8] {
             let cg = try XCTUnwrap(image.cgImage)
             var bytes = [UInt8](repeating: 0, count: cg.width * cg.height * 4)

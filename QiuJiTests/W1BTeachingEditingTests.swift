@@ -169,6 +169,74 @@ final class W1BTeachingEditingTests: XCTestCase {
         }
     }
 
+    func testPaletteProjectionUsesVisibleTemporaryRendererInBothLayouts() throws {
+        let window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow))
+        for size in [CGSize(width: 874, height: 402), CGSize(width: 820, height: 1180)] {
+            for standard in [false, true] {
+                let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: false)
+                let rig = try XCTUnwrap(scene.cameraRig)
+                rig.usesTwoViewCameraControls = true; rig.usesMergedCamera = true; rig.viewportSize = size
+                scene.setCameraMode(.perspective3D, animated: false)
+                let view = SCNView(frame: CGRect(origin: CGPoint(x: 13, y: 17), size: size))
+                view.scene = scene; view.pointOfView = scene.cameraNode; window.addSubview(view)
+                let coordinator = AngleSceneView.Coordinator(scene: scene, cameraMode: .perspective3D, interactionMode: .cameraControl)
+                coordinator.scnView = view; coordinator.usesStandardTemporaryTable = standard
+                defer { AngleSceneView.dismantleUIView(view, coordinator: coordinator); view.removeFromSuperview() }
+                XCTAssertTrue(rig.beginTemporaryTopDown(aim: SCNVector3(-1, 0, 0)))
+                coordinator.updateTemporaryTopDownOverlay()
+                let overlay = try XCTUnwrap(view.subviews.compactMap { $0 as? SCNView }.first)
+                let projector = TableProjector()
+                projector.unproject = { coordinator.editingWorld(at: $0) }
+                projector.projectVisible = { coordinator.editingPoint($0) }
+                projector.ballDiameter = { coordinator.projectedBallDiameter(at: $0) }
+                for world in [SCNVector3(-0.6, scene.surfaceY + BallPhysics.radius, -0.2),
+                              SCNVector3(0.5, scene.surfaceY + BallPhysics.radius, 0.3)] {
+                    // UIKit points: x right/y down; convert the visible overlay into main-view space.
+                    // Unprojection must land on the SceneKit XZ plane at surfaceY + radius.
+                    let projected = overlay.projectPoint(world)
+                    let point = view.convert(CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y)), from: overlay)
+                    let restored = try XCTUnwrap(coordinator.editingWorld(at: point))
+                    XCTAssertEqual(restored.x, world.x, accuracy: 0.0001)
+                    XCTAssertEqual(restored.y, world.y, accuracy: 0.0001)
+                    XCTAssertEqual(restored.z, world.z, accuracy: 0.0001)
+                    let frame = CGRect(origin: CGPoint(x: 9, y: 11), size: size)
+                    let finger = CGPoint(x: point.x + frame.minX, y: point.y + frame.minY + BTBallDragMetrics.fingerClearance)
+                    let sample = BTPalettePlacement.sample(key: "_12", finger: finger, sourceDiameter: 20,
+                        sceneFrame: frame, projector: projector, constrain: { _, position in position })
+                    let resolved = try XCTUnwrap(sample.resolvedWorld)
+                    XCTAssertEqual(resolved.x, world.x, accuracy: 0.0001)
+                    XCTAssertEqual(resolved.z, world.z, accuracy: 0.0001)
+                    XCTAssertEqual(sample.location.x, point.x + frame.minX, accuracy: 0.2)
+                    XCTAssertEqual(sample.location.y, point.y + frame.minY, accuracy: 0.2)
+                    let cancelled = BTPalettePlacement.sample(key: "_12", finger: CGPoint(x: -100, y: -100),
+                        sourceDiameter: 20, sceneFrame: frame, projector: projector, constrain: { _, position in position })
+                    XCTAssertNil(cancelled.requestedWorld, "Releasing outside must not reuse a previous valid drop")
+                }
+            }
+        }
+    }
+
+    func testPaletteRetainsTargetCapAcrossCameraModes() {
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        defer { vm.cancelDailyAttempt() }
+        // A synchronous placement test must not depend on the asynchronous pocket solver supplying aim.
+        vm.aimMode = .free
+        vm.maxTargetBalls = vm.onTableKeys.filter { !PositionPlayBall.isCue($0) }.count
+        vm.scene.cameraRig?.viewportSize = CGSize(width: 874, height: 402)
+        vm.scene.cameraRig?.usesTwoViewCameraControls = true
+        vm.scene.cameraRig?.usesMergedCamera = true
+        for temporary in [false, true] {
+            vm.cameraMode = .perspective3D
+            vm.scene.setCameraMode(.perspective3D, animated: false)
+            if temporary { vm.beginTemporaryTopDown(); XCTAssertTrue(vm.temporaryTopDownActive) }
+            let before = vm.onTableKeys
+            vm.placeFromPalette("_12")
+            vm.placeFromPalette("_13", atWorld: SCNVector3(0, vm.scene.surfaceY + BallPhysics.radius, 0))
+            XCTAssertEqual(vm.onTableKeys, before, "Both input methods must retain the configured target cap")
+            if temporary { vm.endTemporaryTopDown() }
+        }
+    }
+
     func testBankAndDiamondCatalogSelectionIsRealAndInvalidSelectionIsIgnored() {
         let savedPower = CushionReflectionSettings.power
         defer { CushionReflectionSettings.power = savedPower }

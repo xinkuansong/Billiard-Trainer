@@ -2662,7 +2662,7 @@ extension V52DailyClearanceUITests {
         XCUIDevice.shared.orientation = .portrait
         let app = launch(["-dailyClearance.fixture=selection", "-dailyClearance.fixtureSettled", "-trajectoryDetail", "0", "-v63.cameraDiagnostics", "-dailyClearance.3DTrajectoryHidden", "NO"])
         let mode = app.buttons["freeplay.cameraMode"]
-        XCTAssertTrue(mode.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["freeplay.moreMenu"].waitForExistence(timeout: 30))
         let hud = app.descendants(matching: .any)["v63.cameraDiagnostics"].firstMatch
         let strike = app.buttons["dailyClearance.strike"]
         func count() -> Int {
@@ -2675,7 +2675,11 @@ extension V52DailyClearanceUITests {
         }
         ready()
         for dimension in ["2D", "3D"] {
-            if mode.value as? String != dimension { mode.tap(); ready() }
+            app.buttons["freeplay.moreMenu"].tap()
+            XCTAssertTrue(mode.waitForExistence(timeout: 5))
+            if mode.value as? String != dimension { mode.tap() }
+            app.buttons["关闭菜单"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
+            ready()
             snap(app, "live-trajectory-\(dimension)-before")
             for control in ["shotStage.powerBar", "shotStage.aimWheel"] {
                 let element = app.descendants(matching: .any)[control].firstMatch
@@ -2783,5 +2787,49 @@ extension V52DailyClearanceUITests {
         XCTAssertTrue(app.buttons["paletteBall__1"].exists)
         snap(app, "corrected-sights-app-return-2d")
         app.terminate()
+    }
+}
+
+
+extension V52DailyClearanceUITests {
+    /// Same composer host as the reported recording; slow drags include many
+    /// completed previews and a stationary finger-down interval before release.
+    func testComposerPowerAndDirectionContinuousDragInBothModes() throws {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore",
+            "-dailyInteraction.sharedPage=composer", "-freeLayout.ephemeral", "-v63.cameraDiagnostics"])
+        let mode = app.buttons["freeplay.cameraMode"]
+        XCTAssertTrue(app.buttons["freeplay.moreMenu"].waitForExistence(timeout: 30))
+        let strike = app.buttons["dailyClearance.strike"]
+        func ready() {
+            XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == true"),
+                evaluatedWith: strike)], timeout: 30), .completed)
+        }
+        ready()
+        for dimension in ["2D", "3D"] {
+            app.buttons["freeplay.moreMenu"].tap()
+            XCTAssertTrue(mode.waitForExistence(timeout: 5))
+            if mode.value as? String != dimension { mode.tap() }
+            app.buttons["关闭菜单"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
+            ready()
+            snap(app, "stable-composer-\(dimension)-before")
+            for control in ["shotStage.powerBar", "shotStage.aimWheel"] {
+                let element = app.descendants(matching: .any)[control].firstMatch
+                XCTAssertTrue(element.isHittable)
+                print("STABLE_CONTROLS_BEGIN \(dimension) \(control) \(Date().timeIntervalSince1970)")
+                let start = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
+                start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -36)),
+                    withVelocity: XCUIGestureVelocity(rawValue: 12), thenHoldForDuration: 1)
+                print("STABLE_CONTROLS_END \(dimension) \(control) \(Date().timeIntervalSince1970)")
+                ready()
+                XCTAssertEqual(strike.label, "击球")
+                snap(app, "stable-composer-\(dimension)-\(control)")
+            }
+        }
+        XCTAssertTrue(strike.isEnabled, "Release only previews; it must not shoot automatically")
+        strike.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: NSPredicate(format: "enabled == false"),
+            evaluatedWith: strike)], timeout: 5), .completed)
+        snap(app, "stable-composer-explicit-strike")
     }
 }

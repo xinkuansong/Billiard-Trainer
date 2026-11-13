@@ -1870,3 +1870,13 @@ BTTablePlanningControls.breakGameSelection可选Binding<Int>、默认nil；显�
 ### DR-462 · 无母球教学的显式能力配置
 
 Changelog：2026-11-05。BTTeachingTablePage的objectObservationOnly=false、allows3DPaletteEditing=false、onPaletteTap=nil均保留旧页默认；进球容错角显式开启前两项并提供选球闭包。ShotPlayerCameraButtons.observationOnly=false / observationTargetAvailable=true，开启只提供全局/目标观察。无母球场景不伪造沿杆或第一人称；本页固定控件/两项菜单为用户指定差异，不推广其它教学页。验证见POCKET-TOLERANCE-20261105页面卡。
+
+
+### DR-464 · 可编辑球库跨相机模式
+
+Changelog：2026-11-12。覆盖DR-462的球库模式开关：移除`allows3DPaletteEditing`，共享教学壳按宿主`paletteEnabled`与实际添球回调授权；FreePlay的可编辑球库独立于普通仪表临时俯视禁用。2D/3D/已有临时俯视均能点按或拖入，投影取可见renderer，松手重采样并清预览。固定题、球数/实例/目标及忙态限制保留，无相应相机的页面不增入口。现行TP06，证据见PALETTE-CAMERA-20261112。
+
+
+### DR-465 · 连续调参期间动作状态稳定
+
+Changelog：2026-11-12。FreePlay共享宿主以整段力度／方向手势＋末次计算驱动依赖预览的动作禁用，不直接随单次`isComputing`翻转。输入尺保持原可操作权限；拖动期间击球文字稳定，松手仍等待才显示计算中。保留完整物理预览和最新意图击球守卫，后台撤销手势。现行TP15，实施／验证范围见`tasks/table-page-adaptation/SHOT-CONTROL-STABILITY-20261112.md`。

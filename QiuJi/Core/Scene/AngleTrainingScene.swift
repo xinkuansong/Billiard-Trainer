@@ -49,9 +49,31 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
     var usesDailyPerspective = false
     /// Scene-local controls keep other training and export consumers unchanged.
     private(set) var avoidsDailyRedundantCameraWrites = false
-    /// Cloth variants remain diagnostic until matched phone profiling is complete.
+    /// Older diagnostic variants remain opt-in; the audited support optimization is shared.
     private(set) var mergesDailyClothSupport = false
     private(set) var factorsDailyClothBRDF = false
+    private(set) var clothSupportRequest: DailyClothSupportExperiment.Request = .configuredDefault
+    var safeClothSupportRequested: Bool { clothSupportRequest != .off }
+    private(set) var safeClothSupportState = DailyClothSupportExperiment.pending(
+        request: .configuredDefault, profile: MobileReferenceLighting.specializedProfile)
+
+    /// Configuration only: call before setup, never switch shader on camera/frame updates.
+    func configureSafeClothSupportExperiment(requested: Bool) {
+        configureClothSupportExperiment(request: requested ? .plainSafe : .off)
+    }
+
+    func configureClothSupportExperiment(request: DailyClothSupportExperiment.Request) {
+        clothSupportRequest = request
+        safeClothSupportState = DailyClothSupportExperiment.pending(request: request, profile: renderingProfile)
+    }
+
+    /// Material/probe attribution is updated only after installation or uniform expansion.
+    func recordSafeClothSupportState(_ state: DailyClothSupportExperiment.State) {
+        guard state != safeClothSupportState else { return }
+        let previousProbeIdentity = safeClothSupportState.probeCacheIdentity
+        safeClothSupportState = state
+        if previousProbeIdentity != state.probeCacheIdentity { refreshRoomReflectionProbe() }
+    }
 
     /// Opt in to the current reference materials without selecting a camera policy.
     /// Configure before setup; this does not attach any page's rules controller.
@@ -59,12 +81,16 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         declaredRenderRecipe = .liveReference
         renderingProfile = .reflection
         sceneExposureOffset = -0.1
+        configureClothSupportExperiment(request: .configuredDefault)
     }
 
     func setupScene(recipe: TableRenderRecipe, roomStyle: RoomStyle = .selected) {
         declaredRenderRecipe = recipe
         if recipe == .liveReference { configureReferenceTableRendering() }
-        else { renderingProfile = .reference; sceneExposureOffset = nil }
+        else {
+            renderingProfile = .reference; sceneExposureOffset = nil
+            configureSafeClothSupportExperiment(requested: false)
+        }
         setupScene(enhancedRendering: recipe == .studioLegacy,
                    mobileRendering: recipe == .liveReference || recipe == .legacyMobile,
                    roomStyle: roomStyle)
@@ -309,6 +335,9 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         #if DEBUG
         key += "|prototype=\(usesClothLightingPrototype)"
         #endif
+        if safeClothSupportRequested {
+            key += "|safeClothSupport=\(DailyClothSupportExperiment.cacheIdentity(request: clothSupportRequest))"
+        }
         return key
     }
     private var reusableTable: ReusableTable?
@@ -370,6 +399,11 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
         self.enhancedRendering = enhancedRendering
         self.mobileRendering = mobileRendering && !enhancedRendering && MobileTableRendering.environmentURL != nil
         contactOcclusion = nil
+        safeClothSupportState = DailyClothSupportExperiment.pending(request: clothSupportRequest,
+                                                                 profile: renderingProfile)
+        if safeClothSupportRequested && (!self.mobileRendering || !MobileReferenceLighting.requested) {
+            safeClothSupportState = safeClothSupportState.fallingBack("reference-rendering-unavailable")
+        }
         if resourceGeneration == nil { resourceGeneration = TableResourceCache.acquireScene() }
         if Thread.isMainThread {
             MainActor.assumeIsolated {

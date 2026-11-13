@@ -224,9 +224,43 @@ final class Daily3DRenderDiagnosticsTests: XCTestCase {
         assertBalancedExclusiveStages(events)
     }
 
-    func testDisabledDiagnosticsStaySilentAndNormalDelegateHasNoExtraCallback() {
+    func testInstalledClothRecipeReportsFallbackAndDeduplicatesUnchangedState() {
+        var events: [Event] = []
+        let diagnostics = Diagnostics(enabled: true) { events.append($0) }
+        var configuration = Diagnostics.RenderConfiguration(selectedFPS: 60, scheduledFPS: 60,
+            antialiasingSamples: 4, contentScale: 3)
+        configuration.clothSupport = .init(requested: true, effective: true,
+            variant: "height-safe-test", fallbackReason: nil, capacity: 16,
+            profile: "R", sampling: "reference", requestedVariant: "guard-combo")
+        diagnostics.setRenderConfiguration(configuration)
+        diagnostics.setPage(visible: true, foreground: true, perspective: true)
+        XCTAssertTrue(events.first?.configuration.contains("safeClothSupportEffective=true") == true)
+        XCTAssertTrue(events.first?.configuration.contains("safeClothSupportVariant=height-safe-test") == true)
+        XCTAssertTrue(events.first?.configuration.contains("clothSupportRequest=guard-combo") == true)
+        for _ in 0..<120 { diagnostics.setRenderConfiguration(configuration) }
+        XCTAssertFalse(events.contains { $0.name == .configuration })
+
+        configuration.clothSupport = .init(requested: true, effective: false,
+            variant: "off", fallbackReason: "unsupported-capacity", capacity: 32,
+            profile: "R", sampling: "reference", requestedVariant: "guard-combo")
+        diagnostics.setRenderConfiguration(configuration)
+        let changed = events.filter { $0.name == .configuration }
+        XCTAssertEqual(changed.count, 1)
+        XCTAssertTrue(changed.first?.configuration.contains("safeClothSupportRequested=true") == true)
+        XCTAssertTrue(changed.first?.configuration.contains("safeClothSupportEffective=false") == true)
+        XCTAssertTrue(changed.first?.configuration.contains("safeClothSupportFallback=unsupported-capacity") == true)
+        XCTAssertTrue(changed.first?.configuration.contains("clothCapacity=32") == true)
+        diagnostics.setPage(visible: false)
+        assertBalancedExclusiveStages(events)
+    }
+
+    func testDisabledDiagnosticsStaySilentAndDelegatesPreserveFrameReceipt() async {
         var events: [Event] = []
         let diagnostics = Diagnostics(enabled: false) { events.append($0) }
+        diagnostics.setRenderConfiguration(.init(selectedFPS: 60, scheduledFPS: 60,
+            antialiasingSamples: 4, contentScale: 3,
+            clothSupport: .init(requested: true, effective: true, variant: "test",
+                fallbackReason: nil, capacity: 16, profile: "R", sampling: "reference")))
         diagnostics.setPage(visible: true, foreground: true, perspective: true)
         diagnostics.input(.tablePan)
         diagnostics.setInteraction(.tablePan, stage: .orbit, active: true)
@@ -235,8 +269,18 @@ final class Daily3DRenderDiagnosticsTests: XCTestCase {
         diagnostics.displayLinkCallback()
         diagnostics.setPage(visible: false)
         XCTAssertTrue(events.isEmpty)
-        let selector = #selector(SCNSceneRendererDelegate.renderer(_:willRenderScene:atTime:))
-        XCTAssertFalse(FrameDelegate().responds(to: selector))
-        XCTAssertTrue(Daily3DFrameDelegate().responds(to: selector))
+        let scene = AngleTrainingScene()
+        let renderer = SCNRenderer(device: nil, options: nil)
+        let sampled = Daily3DFrameDelegate()
+        sampled.setDiagnostics(diagnostics)
+        for delegate in [FrameDelegate(), sampled] {
+            let receipt = expectation(description: "Frame receipt survives disabled diagnostics")
+            scene.frameReceipt.arm { receipt.fulfill() }
+            delegate.renderer(renderer, willRenderScene: scene, atTime: 0)
+            delegate.renderer(renderer, didRenderScene: scene, atTime: 0)
+            await fulfillment(of: [receipt], timeout: 1)
+            XCTAssertEqual(delegate.completedFrameNumber, 1)
+        }
+        XCTAssertTrue(events.isEmpty, "Disabled diagnostics must remain silent through actual delegate forwarding")
     }
 }

@@ -273,7 +273,6 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     var fitsLongTitle = false
     var showsPalette = true
     var objectObservationOnly = false
-    var allows3DPaletteEditing = false
     var onPaletteTap: ((String) -> Void)? = nil
     var onPocketOrientationChange: (PocketDisplay.Orientation) -> Void = { _ in }
     /// Paired instrument hosts receive the same dimensions and top anchor as the power column.
@@ -306,7 +305,7 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
     var onPalettePlace: ((String, SCNVector3) -> Void)? = nil
     private var allowsPaletteDrag: Bool { onPalettePlace != nil }
     private var paletteTokensEnabled: Bool {
-        (!is3D || planning != nil || allows3DPaletteEditing) && planning?.paletteEnabled != false
+        planning?.paletteEnabled != false
     }
     @State private var showsPlacementHint = false
     private var canPresentPlacementHint: Bool {
@@ -966,11 +965,14 @@ struct BTTeachingTablePage<Host: TeachingTableHost, Title: View, Left: View, Sta
                     sceneFrame: sceneFrame, projector: projector, constrain: vm.palettePlacement)
                 dragLocation = preview.location; dragOverTable = preview.isValid
             }.onEnded { value in
-                defer { draggingKey = nil; dragOverTable = false }
-                guard allowsPaletteDrag, paletteTokensEnabled, !onTable,
-                      let world = projector.palettePreview?.requestedWorld else { return }
+                defer { draggingKey = nil; dragOverTable = false; projector.palettePreview = nil }
+                guard draggingKey == key, allowsPaletteDrag, paletteTokensEnabled, !onTable else { return }
+                // The final event may differ from the last preview, especially near the table edge.
+                let final = BTPalettePlacement.sample(key: key, finger: value.location, sourceDiameter: diameter,
+                    sceneFrame: sceneFrame, projector: projector, constrain: vm.palettePlacement)
+                guard let world = final.requestedWorld else { return }
                 onPalettePlace?(key, world)
-            }, including: allowsPaletteDrag && (!is3D || planning != nil || allows3DPaletteEditing) && !onTable ? .all : .subviews)
+            }, including: allowsPaletteDrag && !onTable ? .all : .subviews)
         .accessibilityLabel("\(PositionPlayBall.shortLabel(for: key))号球")
         .contextMenu {
             if let clear = planning?.onPaletteClearRole, role != nil {

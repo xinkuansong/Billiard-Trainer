@@ -2344,3 +2344,89 @@ FL-248反馈验收闭合：15逻辑通过；r7四项SE UI与r8按原自由→筛
 - **根因**：工程已引用仓库内Swift Package，但mac_mini_queue.py快照白名单仍只有旧源码根，未包含Packages。
 - **处理**：把Packages纳入冻结快照，同时排除.build/.swiftpm本地缓存与配置，原有凭据过滤保持。新增真实快照往返测试，验证包清单/源码/本地二进制制品存在且缓存/.env不入包；队列41项通过。r1证据已回传校验，远端本任务源码/构建及无引用快照已收尾；r2实机队列结果见tasks/company-website/App入口核验-20261112.md。
 - **规则回写**：60-devops-release.mdc与scripts/mac-mini-queue/README.md；新增本地包必须核项目引用和快照范围一致。
+
+
+## FL-258 — 球库跨模式测试夹具遗漏宿主前置（2026-11-12）
+
+- 任务：PALETTE-CAMERA-20261112；生产故障与测试夹具分别留证。
+- 基线：Composer 3D点球只提示切2D，原生UI预期失败，证明原故障。
+- 夹具问题：自定义球形是`_号@UUID`实例，不能按`_号`查实体身份；容错角只有全局/目标观察，无临时俯视；自定义模板编辑仅2D、练习才有换维；旧ShotSimulation有两颗目标球上限，不能连续加入四颗；数量上限单测同步setup后尚无异步求解结果，currentPlayerAim为空，临时俯视未进入。
+- 修正：按球号找新增实例并保存真实ID验证跨视图；容错角沿现有2D/3D合同；只测摆球上限时显式切自由瞄准，避免依赖无关求解。保留原上限／位置精度断言，不修改生产前置来迁就测试。
+- 追加选点诊断：r3容错角落点距已有球仅0.136pt，触发重叠拒绝；r6自定义球形从远端角袋球偏移选点，重建世界z=-0.696555m越过台内边界。测试需选择台内空位，不能只判断屏幕内／不重叠。原业务校验保持。
+- 测试编译：r7的嵌套tuple/map/first表达式触发Swift类型推断超时，未执行UI；拆成显式循环，补真实Simulator SDK/XCTest overlay的typecheck，再冻结复验。
+- 状态：定向复验完成。r2/r6/r9/r10共19个去重用例最终通过（11UI+8逻辑），含手机11宿主和iPad4代表；最终两批3/3、1/1通过。原失败/取消记录保留，未改生产约束，详tasks/table-page-adaptation/PALETTE-CAMERA-20261112.md。
+- 已应用：55-test-engineer.mdc（本条）。
+
+## FL-259 — 连续调参UI回归沿用了旧视图入口（2026-11-12）
+
+- **任务**：力度／方向拖动时HUD闪烁优化。
+- **现象**：r1生产构建与9项逻辑测试通过，2项UI在查找`freeplay.cameraMode`时失败，尚未执行拖动；该项已位于更多菜单。
+- **根因**：复用旧连续轨迹用例及新增Composer用例时，没有先核对当前入口是否在展开菜单内。
+- **解决**：两用例通过更多→视图设置模式并关闭菜单，再等待击球可用、执行慢拖与持按。保留失败证据，生产代码不变；复验状态见[任务卡](table-page-adaptation/SHOT-CONTROL-STABILITY-20261112.md)。
+- **规则改进**：复用历史交互测试先追当前body分支、菜单展开和AX位置；“方法仍能编译”不等于导航夹具仍有效。动态缺陷要保留手势过程录像，不用松手后的静态图替代。
+- **录屏收尾**：测试外附加录制须在UI套件完成时停止并等写盘，不能等整个设备命令结束后才停止，使生命周期误判有外部进程。r1已按精确设备恢复租约并退役，原失败不改为通过。
+
+## FL-260 — SceneKit 完整场景计时宿主延迟提交导致等待（2026-11-13）
+
+- **任务**：3D持续研究，`cloth-support-ios-r1-20261113`，非生产App故障。
+- **现象**：构建通过，首次 `render(8)` 预热无返回；尚无性能数据，不能将等待计入算法耗时或报告候选失败。
+- **证据**：本作业测试宿主1410个采样栈均停在 `SCNRenderer.render` → `SCNMTLRenderContext beginFrame` → `dispatch_semaphore_wait`；本轮代码把8次render全部编码后才commit。证据保存于该作业`harness-stall.sample.txt`。
+- **根因判断**：未提交的前帧持有SceneKit内部帧资源，后续render等待其归还；不能把裸Metal compute可批量编码的组织直接套到SCNRenderer。
+- **处理**：仅向核实身份的本作业xcodebuild发送SIGINT并保留原快照/日志；修订为每render独立提交完成，分别保存原始GPU span与CPU编码/墙钟，再汇总六帧统计。末次同目标读回、红控和恢复合同保留；新快照 a88cbd21 已在本地 iOS 26.3.1 与 Mac mini iOS 26.2 各 1/1 通过、0 跳过，四配置逐像素相同，原阻塞未复现。原生 Mac 六配置也正常完成；Simulator GPU 时间不作为排名，详本工作包评价口径。
+- **规则回写**：`55-test-engineer.mdc` FL-260。需要先做多帧有界烟测，计时合同与实际提交组织一致；多个GPU span之和不是一次command跨度，也不是呈现帧率。
+
+## FL-261 — 根页深链不能验返回上级（2026-11-13）
+
+- **任务**：3D研究页面回归，`cloth-support-page-ios26-r1-20261113`，快照`b1affea5...`。
+- **现象**：原版完成2D/3D、临时俯视、后台恢复后，返回上级断言失败。balanced回退和safe真实击球两项通过，矩阵其余风格尚未执行。
+- **根因**：`-deeplink.dailyClearance`把页面直接作为NavigationStack根页，没有供dismiss返回的上级；不是渲染候选造成的导航回归。
+- **修正**：矩阵改为训练首页真实入口，返回后核每日页面消失与首页入口可见可点。保留失败，不改产品导航；r6本地三风格×三配方实际进入/返回均通过，同轮receipt与桌复用两项修正也通过，见3D研究页面检查表。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` FL-261、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+同轮完整结果为30项中27过/3失败/0跳过；另两项为既有测试合同漂移：默认FrameDelegate已在HEAD实现首帧receipt回调，旧“没有willRender”断言过时，修为验证默认/诊断delegate均保留receipt且关闭诊断无事件；桌复用图像测试试图写`#filePath`推导的仓库目录，被沙盒拒绝，按既有FL-240改为XCTAttachment，像素断言不变。均不修改生产渲染行为。原件在`output/render-lowdim-20261113/page-ios26-r1-failed`；已clone导出附件，精确临时设备与queue工作目录关闭回收。
+
+## FL-262 — Shader注释命中不能证明安装了另一配方（2026-11-13）
+
+- **任务**：3D研究r6，本地受管运行`12ff42b4bcb4407bba1f485eed441b92`。
+- **现象**：guard桌缓存用例第301行三次true/false不符；节点复用身份、请求/生效状态及完整场景图像测试没有同类失败。
+- **根因**：测试以全文`contains("height_safe_below_mask")`判断plain函数是否存在，但guard冻结源码的历史说明注释也含该词。五种缓存序列中后臂guard恰有三次，和三条失败吻合；实际guard无plain函数定义。
+- **修正**：只收紧测试为函数定义锚点，并补完整surface黄金SHA；保持节点、并发实例及缓存隔离断言，不修改生产shader、黄金注释或画面容差。原r6失败保留；r7新快照完整构建后该方法1/1通过、0跳过（8.908秒），运行`247fbbe3fb1f4a2797b9c2acee7c5511`，返工闭合。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` FL-262、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+
+## FL-263 — 原生测试目标误引用仅模拟器的内容制作工具（2026-11-13）
+
+- **任务**：3D研究原生iPad-on-Mac完整场景计量，r8快照355efdd5...，run `f4e78df318df49069f0991ce4ca734af`。
+- **现象**：签名阶段已通过；unit target在AdjustmentDraftLayerTests中找不到BatchSequenceArchive/BatchShotSolver，构建失败，未执行性能测试。
+- **根因**：两种生产工具所在文件明确仅`targetEnvironment(simulator)`编译，4个相关测试方法（AdjustmentDraftLayerTests两项、PositionPlayFreeAimTests两项）遗漏同等平台边界。后两项为只读同类扫描发现，不能写为本次编译日志已报错。
+- **修正范围**：仅4方法内部匹配工具的编译条件；模拟器原body与断言保留，非模拟器明确XCTSkip说明不适用。不把内容制作工具移入实体设备App，不删除整个测试类，保留PositionPlayFreeAimTests原有dirty。渲染研究精确selector仍要求1/1、0跳过。r9完整原生构建已通过，精确渲染研究selector 1/1通过、0跳过；平台编译返工闭合，4项内容制作方法在本轮未运行，不能称其逻辑回归通过。不把此环境编译故障归因于候选shader。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` FL-263、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+## FL-264 — Designed for iPad目的地在开始前拒绝UI测试（2026-11-13）
+
+- **任务**：3D研究原生完整页面采集能力烟测，run `aab7c302ec2149a9ae569debe7e9738d`；复用r9快照`82f6dc2d...`的签名产物，仅请求reference单臂`testNativeMacReferenceFullPageTrace`。
+- **现象与证据**：`evidence/tests.log`中xcodebuild在`test-without-building`阶段明确拒绝`QiuJiUITests`：`UI tests are not supported on My Mac (Designed for iPad)`。已导出的`test-summary.json`实际总数/通过/失败/跳过均为0，`test-details.json`无testNodes；`result.json`为failed且markers=0，`record-start-state.json`的spawned=false，`recorder-events.json`为空。原件保留于`output/local-test-runs/aab7c302ec2149a9ae569debe7e9738d/evidence`，本次复核只读导出文件，未打开封存xcresult。
+- **根因与预飞缺口**：本机当前Xcode/Designed for iPad目的地不支持该UI测试target；可用目的地、完整构建及原生unit selector通过不证明XCUITest可运行。此前准备未在组织页面marker/录制流程前独立确认该测试类型的执行能力，首次实际烟测才暴露限制；测试体与App页面步骤均未开始。
+- **处理与边界**：保留失败，不修改App或移除测试gate迎合平台。不计页面功能、画质、完整页成本或FPS结果；0失败不是通过。直接原生App启动、CUA与xctrace作为待单独验证的替代入口，不能据此标为已通过。本条完成事实/规则回写，整页采集能力仍待替代路径实证。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` FL-264、`tasks/IMPLEMENTATION-LOG.md`、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；独立复核目录`output/render-lowdim-20261113/native-page-ui-support-r1`。
+
+## FL-266 — 综合采集临时缓存耗尽磁盘（2026-11-13）
+
+- **任务/证据**：整页r2 `cf10c0216571482dae4500991aeea227`。真实started通知已收到，六次CUA切镜头已执行；保存阶段日志明确 `Could not trim file: No space left on device`。无完成TOC/summary，不能验证实际动作窗口或App性能。owner/recorder已退出，run.json因收尾写盘失败仍为running；保留该原始状态并加hold，不补造退出码。
+- **根因边界**：未预算Game Performance原始系统缓存和封存峰值；r1、r2各产生约12GiB独立ktrace，远大于r1最终661MiB。未证明具体Apple内部缓存算法；不是候选shader失败。
+- **处理**：只回收已结束r1的单个冗余缓存，记录SHA/inode/无句柄和归属的强时间关联限制；最终trace与导出保留。r2凭辅助进程cwd/fd证实归属，完整ktrace移入该run/work，精确结束孤立DTServiceHub；partial与原始错误日志完整保留。物理可用空间6.43→19.36GB，详`output/render-lowdim-20261113/native-trace-storage-recovery-r1`。
+- **修订/状态**：下一轮先Time Profiler＋Activity Monitor＋App signpost轻采集，私有TMPDIR、空间门禁及前后量测；GPU单独验证。此处尚未新实跑，不宣称采集返工闭合或整页收益通过。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` FL-266、`tasks/IMPLEMENTATION-LOG.md`、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；App/UI API不变。
+
+## FL-265 — trace封存超出启动器总等待且仍写入evidence（2026-11-13）
+
+- **任务**：原生完整页采集结构烟测，run `9625f2e275fd43e98ed17714bde21ab2`，r1启动器SHA`aa1406d6...`；attach真实r9 App PID2918，Game Performance + Activity Monitor，录制上限20秒、窗口30秒。
+- **现象与原始证据**：`evidence/record-stdout-stderr.log`已输出`Reached specified time limit, ending recording...`。冻结的`evidence/run_direct_trace.py`把启动后120秒作为capture+sealing总限；超时向owned recorder PID4602发送SIGINT，再等60秒仍未返回，`summary.json`记failed/retainedRecorderPID=4602/performanceAccepted=false，未取得recorder正常退出码。`record-command.json`显示仍可写的capture.trace直接位于evidence，生命周期当时已结束并对其记录指纹。
+- **后续观察**：主控随后核PID4602已不在，观察trace临时体积约12GB后收敛到约661MB并迟到落盘；这是后续观察，不补造退出码，也不证明完整表/时间归属通过。原failed保留；恢复由另一受管作业clone后只读分析，不回写原结果。本次未据此报告App成本、FPS或候选收益。
+- **根因边界**：启动器未充分区分录制时限、封存等待与不可变证据冻结；工具已进入结束录制阶段仍被统一总限判为失败，而且尚有写入者的trace进入evidence。Apple内部封存耗时原因未知，不猜测死锁、压缩或符号处理根因；不是App或shader失败证据。
+- **修订方向／状态**：r2正准备独立600秒封存预算、非阻塞状态等待、真实started通知、mutable产物先放work，退出及稳定后再转evidence；此记录时尚未完成新实跑，不能称返工已验证通过。旧失败与迟到恢复证据分别保存。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` FL-265、`tasks/IMPLEMENTATION-LOG.md`、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。r1只读分析见`output/render-lowdim-20261113/native-direct-smoke-r1-analysis`。
+
+
+### FL-266复发 — 真机三分钟联合采集封存空间不足（2026-11-13）
+短烟测成功后延长至180秒操作并增加独立GPU，开始约9.35GiB未覆盖临时缓存与封存峰值。16:46:14出现ENOSPC，Instruments退出，Run5 CPU/GPU完整结果不可用。用户完成13杆且明显发热，不能要求其为工具失败立即重测。原始文件与失败日志保全；按用户要求停止扩展恢复，使用Run3约47秒有效操作段分析。规则回写55-test-engineer v1.18；未验证新的长录制，失败不改成功。详PHONE-HEAT-20261113.md。

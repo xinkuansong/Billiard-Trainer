@@ -1,4 +1,32 @@
+## FL-266复发 — 三分钟真机采集封存ENOSPC（2026-11-13）
+- 原始文件保全，Run5不可用，按用户要求分析既有短轮；不修改App、不追加手机负载。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` § FL-266 / v1.18；延长时长或添加GPU重算峰值与停止余量。新长轮未验证。详`render-lowdim-20261113/PHONE-HEAT-20261113.md`。
+
 # 实施日志（IMPLEMENTATION LOG）
+
+## FL-266 — 综合采集遗漏原始缓存空间预算（2026-11-13）
+- r2在真实开始及UI动作后因封存ENOSPC失败，TOC/summary缺失；不将工具失败归因App或给整页性能结论。r1冗余缓存已精确回收，r2原始缓存/partial/日志保留，原stale状态不补造成功。
+- 已应用至`.cursor/rules/55-test-engineer.mdc` FL-266（2026-11-13）：预算TMPDIR和封存峰值、轻采集烟测、按需拆分CPU/GPU；新实跑仍待。详`tasks/FAILURE-LOG.md`与storage recovery证据。
+
+## FL-265 — 录制结束与trace封存生命周期混合（2026-11-13）
+- r1原生整页结构smoke已收到20秒time-limit结束文本，启动器120秒总等待后SIGINT、再等60秒仍未退出，保存failed并保留owned recorder；可变trace当时位于evidence。随后PID消失与迟到落盘不提供正常退出码，也不改写旧失败。
+- 回写独立封存预算、work内可变输出、退出及稳定后冻结、受管clone恢复规则。r2修订待实跑；没有App/UI API或候选shader变更，不记为页面性能通过。详见`tasks/FAILURE-LOG.md` FL-265。
+
+## FL-264 — 原生目的地不支持UI测试的预飞缺口（2026-11-13）
+- r9签名产物的reference页面烟测被xcodebuild在测试开始前拒绝：本机My Mac (Designed for iPad)不支持QiuJiUITests。实际0项执行、0 markers，recorder未启动；原生unit通过不证明UI测试可运行。
+- 保留失败证据，补测试类型独立能力烟测规则；没有App/UI API或测试实现修改，不把直接启动/CUA/xctrace替代路径记为已通过。详见`tasks/FAILURE-LOG.md` FL-264及`output/render-lowdim-20261113/native-page-ui-support-r1`。
+
+## FL-263 — 原生测试与模拟器专属工具的平台边界（2026-11-13）
+- 原生r8构建发现旧测试引用仅模拟器工具；4个相关方法限定相同编译平台，原模拟器断言保留，实体/原生Mac显式skip。r9完整原生构建及目标渲染selector 1/1、0跳过已通过，平台编译返工闭合；4项内容制作逻辑未在本轮运行。原始失败日志保留。
+- 详情见`tasks/FAILURE-LOG.md` FL-263；已应用至`.cursor/rules/55-test-engineer.mdc`与`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+## FL-262 — Shader注释导致配方存在性误判（2026-11-13）
+- r6缓存测试泛词命中guard黄金注释，三条断言失败。修为函数定义锚点及完整surface黄金SHA；生产程序不改，原失败保留，r7新快照定向1/1通过、0跳过，返工闭合。
+- 详情见`tasks/FAILURE-LOG.md` FL-262；已应用至`.cursor/rules/55-test-engineer.mdc`与`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+## FL-261 — 根页深链不能验返回上级（2026-11-13）
+- 3D页面研究矩阵将根页深链用于退出断言，真实运行暴露夹具没有导航祖先；改从训练首页进入并核返回。产品导航未改，原失败保留，r6三风格×三配方实际往返及同轮receipt/桌复用修正通过。
+- 详情见`tasks/FAILURE-LOG.md` FL-261；已应用至`.cursor/rules/55-test-engineer.mdc`与`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
 
 ## 六入口可行打点接线（2026-10-25）
 

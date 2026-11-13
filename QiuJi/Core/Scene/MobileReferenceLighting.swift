@@ -361,9 +361,21 @@ enum MobileReferenceLighting {
     /// Reapply only the cloth program after custom-ball uniform storage grows.
     /// The contact program must have just been rebuilt, so lighting is appended once.
     static func refreshClothLighting(in scene: AngleTrainingScene, ballCount: Int) {
-        let shader = directShadowShader(ballCount: ballCount, profile: scene.renderingProfile,
-                                        mergesSupport: scene.mergesDailyClothSupport,
-                                        factorsBRDF: scene.factorsDailyClothBRDF)
+        #if DEBUG
+        let clothPrototype = scene.usesClothLightingPrototype
+        #else
+        let clothPrototype = false
+        #endif
+        let program = directShadowProgram(ballCount: ballCount, profile: scene.renderingProfile,
+                                          mergesSupport: scene.mergesDailyClothSupport,
+                                          factorsBRDF: scene.factorsDailyClothBRDF,
+                                          safeSupportRequested: scene.safeClothSupportRequested,
+                                          clothPrototype: clothPrototype,
+                                          supportRequest: scene.clothSupportRequest)
+        let shader = program.source
+        let extraDeclaration = program.declaration
+        let declarationSuffix = program.declarationSuffix
+        var installedCloth = false
         scene.tableNode?.enumerateChildNodes { node,_ in
             for m in node.geometry?.materials ?? [] where m.name == "TaiNi" {
                 var mods=m.shaderModifiers ?? [:]
@@ -377,9 +389,10 @@ enum MobileReferenceLighting {
                         with: "contactVisibility *= 1.0 - (contactBall\(i).w / \(MobileContactOcclusion.encodedOpacityScale)) *")
                 }
                 contactSource = contactSource.replacingOccurrences(of: "#pragma body",
-                    with: "#pragma declaration\n" + analyticPanelDiffuse + (scene.renderingProfile.usesShadow ? "\n" + analyticShadowFunctions : "") + "\n#pragma body")
+                    with: "#pragma declaration\n" + extraDeclaration + analyticPanelDiffuse + declarationSuffix + (scene.renderingProfile.usesShadow ? "\n" + analyticShadowFunctions : "") + "\n#pragma body")
                 mods[.surface]=trialShader(contactSource+"\n"+shader)
                 m.lightingModel = .physicallyBased;m.shaderModifiers=mods
+                installedCloth = true
                 #if DEBUG
                 if scene.usesClothLightingPrototype {
                     do {
@@ -392,6 +405,26 @@ enum MobileReferenceLighting {
                 #endif
             }
         }
+        scene.recordSafeClothSupportState(installedCloth || !program.state.requested
+            ? program.state : program.state.fallingBack("cloth-material-missing"))
+    }
+
+    /// The original generator below remains byte-for-byte unchanged. This
+    /// wrapper installs the shared optimization with an exact reference fallback.
+    static func directShadowProgram(ballCount: Int, usesMask: Bool = true, specialized: Bool = true,
+                                    profile: SpecializedProfile? = nil,
+                                    mergesSupport: Bool = false, factorsBRDF: Bool = false,
+                                    safeSupportRequested: Bool = false,
+                                    clothPrototype: Bool = false,
+                                    supportRequest: DailyClothSupportExperiment.Request? = nil) -> DailyClothSupportExperiment.Program {
+        let selectedProfile = profile ?? specializedProfile
+        let reference = directShadowShader(ballCount: ballCount, usesMask: usesMask, specialized: specialized,
+                                           profile: profile, mergesSupport: mergesSupport, factorsBRDF: factorsBRDF)
+        return DailyClothSupportExperiment.resolve(reference: reference, emitter: emitterGeometry,
+            requested: safeSupportRequested, capacity: ballCount, profile: selectedProfile,
+            sampling: previewSamplingProfile, usesMask: usesMask, specialized: specialized,
+            mergesSupport: mergesSupport, factorsBRDF: factorsBRDF, prototype: clothPrototype,
+            balanceTrial: balanceTrialRequested, supportRequest: supportRequest)
     }
 
     /// Cull provably irrelevant blockers once per receiver, retaining the exact

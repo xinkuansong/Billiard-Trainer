@@ -2859,6 +2859,67 @@ final class ContinuousTrajectoryPreviewTests: XCTestCase {
         return vm
     }
 
+    /// Pause between input samples long enough for real physics to finish while
+    /// the finger remains down. This is the gap that used to re-enable the HUD.
+    private func checkStableControlsDuringAdjustment(power: Bool) async throws {
+        let vm = try await makeVM()
+        defer { vm.suspendAuthoringActivity(); vm.clearTable() }
+        XCTAssertFalse(vm.shotControlsBusy)
+        if power { vm.beginPowerDrag() } else { vm.setAimWheelDragging(true) }
+        XCTAssertTrue(vm.shotControlsBusy, "Finger-down must publish before the first value change")
+        for sample in 1...3 {
+            if power { vm.velocity = 1.5 + Double(sample) * 0.1 }
+            else { vm.nudgeFreeAim(byDegrees: 0.1) }
+            XCTAssertTrue(vm.isComputing)
+            XCTAssertTrue(vm.shotControlsBusy)
+            XCTAssertFalse(vm.showsShotComputationStatus, "Keep the action title stable during adjustment")
+            try await ready { !vm.isComputing }
+            XCTAssertNotNil(vm.solvedShot)
+            XCTAssertTrue(vm.shotControlsBusy, "A completed preview must not unlock controls under the finger")
+            XCTAssertFalse(vm.showsShotComputationStatus)
+            vm.play()
+            XCTAssertFalse(vm.isPlaying, "Even a current result cannot shoot before finger-up")
+        }
+        if power { vm.endPowerDrag(commit: false) } else { vm.setAimWheelDragging(false) }
+        XCTAssertFalse(vm.isAdjustingShot)
+        XCTAssertTrue(vm.shotControlsBusy, "The final requested result must still gate actions")
+        XCTAssertTrue(vm.showsShotComputationStatus)
+        vm.play()
+        XCTAssertFalse(vm.isPlaying)
+        try await ready { !vm.shotControlsBusy }
+        XCTAssertNotNil(vm.solvedShot)
+        vm.play()
+        try await ready { vm.isPlaying }
+    }
+
+    func testPowerControlsStayBusyAcrossCompletedPreviews() async throws {
+        try await checkStableControlsDuringAdjustment(power: true)
+    }
+
+    func testDirectionControlsStayBusyAcrossCompletedPreviews() async throws {
+        try await checkStableControlsDuringAdjustment(power: false)
+    }
+
+    func testBackgroundCancelsAdjustmentWithoutLeavingControlsBusy() async throws {
+        let vm = try await makeVM()
+        defer { vm.suspendAuthoringActivity(); vm.clearTable() }
+        for power in [true, false] {
+            if power { vm.beginPowerDrag(); vm.velocity += 0.1 }
+            else { vm.setAimWheelDragging(true); vm.nudgeFreeAim(byDegrees: 0.1) }
+            XCTAssertTrue(vm.shotControlsBusy)
+            vm.suspendAuthoringActivity()
+            XCTAssertFalse(vm.isAdjustingShot)
+            XCTAssertFalse(vm.shotControlsBusy)
+            vm.play()
+            XCTAssertFalse(vm.isPlaying)
+            try await Task.sleep(for: .milliseconds(250))
+            XCTAssertFalse(vm.shotControlsBusy, "Cancelled callbacks must not revive busy state")
+            vm.resumeAuthoringActivity()
+            try await ready { !vm.shotControlsBusy }
+            XCTAssertNotNil(vm.solvedShot)
+        }
+    }
+
     func testSpinSamplePreservesTrajectoryAndCommitsBothAxesOnce() async throws {
         let vm = try await makeVM()
         defer { vm.clearTable() }
@@ -3670,6 +3731,7 @@ final class BatchSelectiveRerecordingTests: XCTestCase {
     }
 
     func testArchiveBackupPreservesExactBytesForRenameAndSameFilename() throws {
+        #if targetEnvironment(simulator)
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let original = archive()
@@ -3687,9 +3749,13 @@ final class BatchSelectiveRerecordingTests: XCTestCase {
         XCTAssertEqual(bytes.count, 2)
         XCTAssertTrue(bytes.contains(oldBytes)); XCTAssertTrue(bytes.contains(secondBytes))
         XCTAssertNotEqual(try Data(contentsOf: second), secondBytes)
+        #else
+        throw XCTSkip("BatchSequenceArchive is a simulator-only content-authoring tool")
+        #endif
     }
 
     func testBackupFailureDoesNotOverwriteOriginal() throws {
+        #if targetEnvironment(simulator)
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         var original = archive()
@@ -3699,6 +3765,9 @@ final class BatchSelectiveRerecordingTests: XCTestCase {
         original.steps.removeLast()
         XCTAssertThrowsError(try BatchSequenceArchive.archive(original, drillId: "drill_c999", imageStem: "manual01", directory: root.path))
         XCTAssertEqual(try Data(contentsOf: file), before)
+        #else
+        throw XCTSkip("BatchSequenceArchive is a simulator-only content-authoring tool")
+        #endif
     }
 
     func testMiddleShotCommitsOnlyPrefixThenContinuesRecording() async throws {

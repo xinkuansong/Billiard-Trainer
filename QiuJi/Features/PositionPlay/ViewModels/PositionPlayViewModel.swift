@@ -278,7 +278,7 @@ final class PositionPlayViewModel: ObservableObject {
     var usesShotComfortRanking = false
     /// Daily-clearance trial: continuous full-physics previews for power/aim input.
     var usesContinuousTrajectoryPreview = false
-    private var isAimWheelDragging = false
+    @Published private(set) var isAimWheelDragging = false
     private var livePreviewActive = false
     private var livePreviewEpoch = 0
     private var livePreviewWork: DispatchWorkItem?
@@ -407,7 +407,7 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     static let powerPreviewIdleInterval: TimeInterval = 0.18
-    private(set) var isPowerDragging = false
+    @Published private(set) var isPowerDragging = false
     /// Kept for callers displaying legacy pending state; adjustment never queues a shot.
     let powerReleasePending = false
 
@@ -477,6 +477,12 @@ final class PositionPlayViewModel: ObservableObject {
         return solved
     }
     @Published private(set) var isPlaying = false
+    /// Solver work can finish between gesture samples. Action controls stay busy
+    /// for the whole adjustment, while the rulers and live previews remain active.
+    var isAdjustingShot: Bool { isPowerDragging || isAimWheelDragging }
+    var shotControlsBusy: Bool { isAdjustingShot || isComputing }
+    var showsShotComputationStatus: Bool { isComputing && !isAdjustingShot }
+
     @Published private(set) var isComputing = false
     @Published private(set) var isFeasible = false
     @Published private(set) var objectPocketed = false

@@ -52,6 +52,20 @@ final class Daily3DRenderDiagnostics: @unchecked Sendable {
         let scheduledFPS: Int
         let antialiasingSamples: Int
         let contentScale: Double
+        var clothSupport: ClothSupportConfiguration? = nil
+    }
+
+    /// The installed scene recipe, separate from the requested launch flag.
+    /// Filled from cached installation state; never regenerate a shader while sampling.
+    struct ClothSupportConfiguration: Equatable {
+        let requested: Bool
+        let effective: Bool
+        let variant: String
+        let fallbackReason: String?
+        let capacity: Int
+        let profile: String
+        let sampling: String
+        var requestedVariant: String = "unspecified"
     }
 
     static func sampleCount(for mode: SCNAntialiasingMode) -> Int {
@@ -89,7 +103,7 @@ final class Daily3DRenderDiagnostics: @unchecked Sendable {
         self.eventSink = eventSink
         let arguments = enabled ? ProcessInfo.processInfo.arguments : []
         #if DEBUG
-        launchFlags = "cameraReference=\(arguments.contains("-daily3D.cameraReference")) mergeClothSupport=\(arguments.contains("-daily3D.mergeClothSupport")) factorClothBRDF=\(arguments.contains("-daily3D.factorClothBRDF"))"
+        launchFlags = "cameraReference=\(arguments.contains("-daily3D.cameraReference")) mergeClothSupport=\(arguments.contains("-daily3D.mergeClothSupport")) factorClothBRDF=\(arguments.contains("-daily3D.factorClothBRDF")) safeClothSupportLaunch=\(arguments.contains("-daily3D.safeClothSupport")) guardClothSupportLaunch=\(arguments.contains("-daily3D.guardClothSupport"))"
         #else
         launchFlags = "cameraReference=false mergeClothSupport=false factorClothBRDF=false"
         #endif
@@ -255,7 +269,9 @@ final class Daily3DRenderDiagnostics: @unchecked Sendable {
 
     private var configurationDescription: String {
         guard let configuration = renderConfiguration else { return launchFlags }
-        return "\(launchFlags) selectedFPS=\(configuration.selectedFPS) scheduledFPS=\(configuration.scheduledFPS) antialiasingSamples=\(configuration.antialiasingSamples) contentScale=\(configuration.contentScale)"
+        let base = "\(launchFlags) selectedFPS=\(configuration.selectedFPS) scheduledFPS=\(configuration.scheduledFPS) antialiasingSamples=\(configuration.antialiasingSamples) contentScale=\(configuration.contentScale)"
+        guard let cloth = configuration.clothSupport else { return base }
+        return "\(base) safeClothSupportRequested=\(cloth.requested) safeClothSupportEffective=\(cloth.effective) safeClothSupportVariant=\(cloth.variant) safeClothSupportFallback=\(cloth.fallbackReason ?? "none") clothCapacity=\(cloth.capacity) clothProfile=\(cloth.profile) clothSampling=\(cloth.sampling) clothSupportRequest=\(cloth.requestedVariant)"
     }
 
     private func emit(_ event: Event) {
@@ -273,7 +289,8 @@ final class Daily3DRenderDiagnostics: @unchecked Sendable {
     }
 }
 
-/// Normal launches retain FrameDelegate and do not install a willRenderScene callback.
+/// Normal launches retain FrameDelegate's frame receipt; only this opt-in
+/// subclass forwards willRenderScene to the diagnostic sampler.
 final class Daily3DFrameDelegate: FrameDelegate {
     private let diagnosticsLock = NSLock()
     private var targetDiagnostics: Daily3DRenderDiagnostics?

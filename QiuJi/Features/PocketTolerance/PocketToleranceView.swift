@@ -9,7 +9,7 @@ struct PocketToleranceView: View {
             leftControlGroup: .information,
             information: vm.message.isEmpty ? [] : [.init(text: vm.message, identifier: "pocketTolerance.status")],
             usesStandardTitle: true,
-            objectObservationOnly: true, allows3DPaletteEditing: true, onPaletteTap: vm.paletteTapped,
+            objectObservationOnly: true, onPaletteTap: vm.paletteTapped,
             onPocketOrientationChange: { orientation = $0 },
             title: { EmptyView() }, leftContent: { _ in metrics }, status: { EmptyView() },
             onPalettePlace: { vm.placeFromPalette($0, atWorld: $1) })

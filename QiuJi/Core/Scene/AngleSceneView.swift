@@ -494,10 +494,9 @@ struct AngleSceneView: UIViewRepresentable {
             mergedOverlay = overlay
         }
 
-        /// All standard editable overlays use the renderer actually seen by the user.
-        /// Legacy temporary-image hosts retain their existing frame protocol below.
+        /// Palette projection follows the visible renderer for both inset and full-frame temporary tables.
         private var editingRenderer: SCNView? {
-            if usesStandardTemporaryTable, scene.cameraRig?.temporaryTopDownActive == true {
+            if scene.cameraRig?.temporaryTopDownActive == true {
                 return mergedOverlay
             }
             return scnView
@@ -1229,11 +1228,19 @@ struct AngleSceneView: UIViewRepresentable {
             if displayLink.preferredFrameRateRange.preferred != Float(fps) {
                 displayLink.preferredFrameRateRange = CAFrameRateRange(minimum: Float(fps), maximum: Float(fps), preferred: Float(fps))
             }
-            daily3DDiagnostics?.setRenderConfiguration(.init(
-                selectedFPS: UserPreferences.shared.renderFrameRate.rawValue,
-                scheduledFPS: fps,
-                antialiasingSamples: Daily3DRenderDiagnostics.sampleCount(for: scnView.antialiasingMode),
-                contentScale: Double(scnView.contentScaleFactor)))
+            if let daily3DDiagnostics {
+                var configuration = Daily3DRenderDiagnostics.RenderConfiguration(
+                    selectedFPS: UserPreferences.shared.renderFrameRate.rawValue,
+                    scheduledFPS: fps,
+                    antialiasingSamples: Daily3DRenderDiagnostics.sampleCount(for: scnView.antialiasingMode),
+                    contentScale: Double(scnView.contentScaleFactor))
+                let cloth = scene.safeClothSupportState
+                configuration.clothSupport = .init(requested: cloth.requested,
+                    effective: cloth.effective, variant: cloth.variant,
+                    fallbackReason: cloth.fallbackReason, capacity: cloth.capacity,
+                    profile: cloth.profile, sampling: cloth.sampling, requestedVariant: cloth.requestedVariant)
+                daily3DDiagnostics.setRenderConfiguration(configuration)
+            }
         }
         var gesturesEnabled = true
 
@@ -2085,6 +2092,14 @@ struct AngleSceneView: UIViewRepresentable {
                     "draggable": draggableBallNodes.contains(handle)]
             }
             data["selectionFeedback"] = ["balls": scene.manualBallFeedbackCount, "rolePockets": scene.rolePocketFeedbackCount]
+            let cloth = scene.safeClothSupportState
+            data["clothSupport"] = ["requested": cloth.requested, "effective": cloth.effective,
+                "requestedVariant": cloth.requestedVariant,
+                "variant": cloth.variant, "fallbackReason": cloth.fallbackReason ?? "none",
+                "capacity": cloth.capacity, "profile": cloth.profile, "sampling": cloth.sampling]
+            data["rendererActive"] = needsContinuousUpdates
+            data["cameraMode"] = cameraMode == .perspective3D ? "3D" : "2D"
+            data["temporaryTopDownActive"] = scene.cameraRig?.temporaryTopDownActive == true
             data["ordinary2DAimSamples"] = ordinary2DAimSamples
             data["overlayDrag"] = overlayDragProbe
             data["formationHandles"] = scene.rootNode.childNodes.filter { $0.name?.hasPrefix("formation.vertex.") == true || $0.name?.hasPrefix("formation.measure.") == true }.map { node -> [String:Any] in

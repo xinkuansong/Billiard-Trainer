@@ -60,7 +60,7 @@ struct FreePlayView: View {
         applyPagePreferences()
     }
     private func applyPagePreferences() {
-        guard hasAppeared, !editingControlLayout, !vm.isPlaying, !vm.isSequencePlaying, vm.breakRunner?.isBusy != true, !isTemporaryTopDown, !vm.isComputing else { return }
+        guard hasAppeared, !editingControlLayout, !vm.isPlaying, !vm.isSequencePlaying, vm.breakRunner?.isBusy != true, !isTemporaryTopDown, !vm.shotControlsBusy else { return }
         let next = pagePreferences
         let previous = vm.scene.tablePreferences
         if isMultiBall, let previous, previous.enabled(.view3D) != next.enabled(.view3D),
@@ -96,7 +96,7 @@ struct FreePlayView: View {
     @State private var layoutAimDragging = false
     private var controlLayoutBusy: Bool {
         (vm.isPlaying && !(sequenceReadOnly && vm.isSequencePaused))
-        || vm.isSequencePlaying || vm.isComputing || vm.cameraTransitionBusy
+        || vm.isSequencePlaying || vm.shotControlsBusy || vm.cameraTransitionBusy
         || vm.isPowerDragging || dailyAimWheelIsDragging || isTemporaryTopDown
         || draggingKey != nil || layoutBallDragging || layoutAimDragging || dailyDecisionActive
         || dailyController.isAutomaticallyBreaking || vm.breakRunner?.isBusy == true
@@ -284,10 +284,9 @@ struct FreePlayView: View {
     }
 
     private func placeSimulationBall(_ key: String, world: SCNVector3?) {
-        guard editablePalette, !dailyControlsDisabled else { return }
+        guard editablePalette, !paletteControlsDisabled else { return }
         editor?.onInteraction()
         if let formation { formation.place(key, world: world); return }
-        guard !is3D else { return }
         if let world { vm.placeFromPalette(key, atWorld: world) }
         else { vm.placeFromPalette(key) }
         if !vm.onTableKeys.contains(key) { flash(vm.statusText, tone: .warning) }
@@ -296,7 +295,7 @@ struct FreePlayView: View {
     private func simulationPaletteDrag(_ key: String, diameter: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: BTBallPaletteMetrics.dragMinimumDistance, coordinateSpace: .named("freeplay"))
             .onChanged { value in
-                guard editablePalette, !is3D, !dailyControlsDisabled else { return }
+                guard editablePalette, !paletteControlsDisabled else { return }
                 draggingKey = key
                 let preview = BTPalettePlacement.sample(key: key, finger: value.location,
                     sourceDiameter: diameter, sceneFrame: sceneFrame,
@@ -305,7 +304,7 @@ struct FreePlayView: View {
             }
             .onEnded { value in
                 defer { cancelPaletteDrag() }
-                guard draggingKey == key, editablePalette, !is3D, !dailyControlsDisabled else { return }
+                guard draggingKey == key, editablePalette, !paletteControlsDisabled else { return }
                 // A release can carry a newer touch than the last changed event.
                 let final = BTPalettePlacement.sample(key: key, finger: value.location,
                     sourceDiameter: diameter, sceneFrame: sceneFrame,
@@ -318,7 +317,7 @@ struct FreePlayView: View {
     var body: some View {
         Group {
             if isMultiBall {
-                ProAccessGate(requiresPremium: !vm.isPlaying && !vm.isComputing && multiBallController.configuration.freePractice) { coreBody }
+                ProAccessGate(requiresPremium: !vm.isPlaying && !vm.shotControlsBusy && multiBallController.configuration.freePractice) { coreBody }
             }
             else if isShotSimulation || isEditor || isRackPractice { coreBody }
             else { coreBody.toolUsageSession(isDailyClearance ? .dailyClearance : .freePlay) }
@@ -377,7 +376,7 @@ struct FreePlayView: View {
         .onChange(of: tablePreferences.revision) { _, _ in applyPagePreferences() }
         .onChange(of: vm.isSequencePlaying) { _, active in if !active { applyPagePreferences() } }
         .onChange(of: vm.breakRunner?.isBusy) { _, busy in if busy != true { applyPagePreferences() } }
-        .onChange(of: vm.isComputing) { _, busy in if !busy { applyPagePreferences() } }
+        .onChange(of: vm.shotControlsBusy) { _, busy in if !busy { applyPagePreferences() } }
         .onChange(of: isTemporaryTopDown) { _, active in if !active { applyPagePreferences() } }
         .onChange(of: vm.selectedTargetKey) { _, _ in
             if isMultiBall { multiBallController.currentTargetChanged(); vm.prepareGeometryReference() }
@@ -476,7 +475,7 @@ struct FreePlayView: View {
             ToolbarItem(placement: .principal) {
                 BTSolverNavStatus(
                     title: pageTitle,
-                    isBusy: vm.isComputing,
+                    isBusy: vm.showsShotComputationStatus,
                     statusText: navigationStatusText
                 )
             }
@@ -787,7 +786,7 @@ struct FreePlayView: View {
 
                 if is3D, !showSpinPad, let rig = vm.scene.cameraRig {
                     ShotPlayerCameraButtons(rig: rig,
-                        isEnabled: !vm.isPlaying && !vm.isComputing && vm.currentPlayerAim != nil) { view in
+                        isEnabled: !vm.isPlaying && !vm.shotControlsBusy && vm.currentPlayerAim != nil) { view in
                         showSpinPad = false
                         vm.requestPlayerView(view)
                     }
@@ -1349,7 +1348,7 @@ struct FreePlayView: View {
     }
 
     private var strikeEnabled: Bool {
-        !isTemporaryTopDown && (!isRackPractice || rackController.canStrike) && !dailyDecisionActive && !isDailyResult && (!isDailyClearance || dailyController.breakChoices.isEmpty) && !vm.isPlaying && !vm.isComputing && !vm.cameraTransitionBusy && (vm.isFeasible || (isDailyClearance && dailyController.missingStep != nil))
+        !isTemporaryTopDown && (!isRackPractice || rackController.canStrike) && !dailyDecisionActive && !isDailyResult && (!isDailyClearance || dailyController.breakChoices.isEmpty) && !vm.isPlaying && !vm.shotControlsBusy && !vm.cameraTransitionBusy && (vm.isFeasible || (isDailyClearance && dailyController.missingStep != nil))
     }
 
     private var dailyResultLayout: AnyLayout {
@@ -1499,7 +1498,7 @@ struct FreePlayView: View {
                     breakGameBallCount = count
                     vm.selectBreakGame(BreakFlowRunner.game(forBallCount: count))
                 }),
-                    disabled: vm.isPlaying || vm.isComputing || vm.breakRunner?.isBusy == true)
+                    disabled: vm.isPlaying || vm.shotControlsBusy || vm.breakRunner?.isBusy == true)
             }
             return DailyClearanceGame.allCases.map { game in
                 DailyHUDMenuItem(id: "dailyClearance.game.\(game.rawValue)", title: game.displayName,
@@ -1533,7 +1532,7 @@ struct FreePlayView: View {
                 let enabled = dailyController.scoringEnabled
                 items.insert(.init(id: "dailyClearance.scoringMode", title: "评分模式",
                     detail: enabled ? "是" : "否", segments: ["是", "否"],
-                    disabled: vm.isPlaying || vm.isComputing || isTemporaryTopDown || isDailyResult || vm.breakRunner?.isBusy == true,
+                    disabled: vm.isPlaying || vm.shotControlsBusy || isTemporaryTopDown || isDailyResult || vm.breakRunner?.isBusy == true,
                     action: { dailyController.toggleScoring() }), at: 2)
                 if let last = dailyController.scoreSummary?.last {
                     items.append(.init(id: "dailyClearance.scoreDetails", title: "上杆走位评分",
@@ -1597,7 +1596,7 @@ struct FreePlayView: View {
             if usesUnifiedBreakControls {
                 items.append(.init(id: "break.settings", title: "开球玩法",
                     detail: BreakFlowRunner.title(for: BreakFlowRunner.game(forBallCount: breakGameBallCount)),
-                    disclosure: true, disabled: vm.isPlaying || vm.isComputing || vm.breakRunner?.isBusy == true,
+                    disclosure: true, disabled: vm.isPlaying || vm.shotControlsBusy || vm.breakRunner?.isBusy == true,
                     action: { dailyPresentation = .games }))
             }
             items += closingEditorMenuItems(editor?.menuItems ?? [])
@@ -1636,7 +1635,7 @@ struct FreePlayView: View {
         }
         if !vm.isPlaying, vm.breakRunner == nil, rulingText.isEmpty { return nil }
         return vm.breakRunner?.statusText(isPerspective: is3D)
-            ?? (vm.isComputing ? "求解中…"
+            ?? (vm.showsShotComputationStatus ? "求解中…"
                 : (!vm.isPlaying && !rulingText.isEmpty ? rulingText : vm.statusText))
     }
 
@@ -1701,7 +1700,7 @@ private extension FreePlayView {
                     Button("回到沿杆") { vm.requestPlayerView(.thirdPerson, focusTarget: true) }
                         .accessibilityIdentifier("cameraPreview.reset")
                 }
-                .disabled(vm.isPlaying || vm.isComputing || vm.cameraTransitionBusy)
+                .disabled(vm.isPlaying || vm.shotControlsBusy || vm.cameraTransitionBusy)
                 Text("仅观察效果对照 · B：眼高84cm / 库外38cm · C：眼高80cm / 库外50cm · 均48°")
                     .font(.btCaption)
                     .foregroundStyle(HUDStyle.labelColor)
@@ -2227,7 +2226,7 @@ private extension FreePlayView {
                     dailyInformation(isMultiBall ? "\(multiBallController.progressTitle)母球自由球上手 · \(multiBallController.groupTitle)" : "母球自由球上手").accessibilityIdentifier("\(rackPrefix).ballInHand")
                 } else if !rackController.notice.isEmpty && !dailyDecisionActive {
                     dailyInformation(rackController.notice).accessibilityIdentifier("\(rackPrefix).notice")
-                } else if !dailyDecisionActive && !vm.isPlaying && !vm.isComputing && !vm.isFeasible && !rackController.isComplete {
+                } else if !dailyDecisionActive && !vm.isPlaying && !vm.shotControlsBusy && !vm.isFeasible && !rackController.isComplete {
                     dailyInformation(vm.statusText).accessibilityIdentifier("\(rackPrefix).unavailable")
                 }
             }
@@ -2261,7 +2260,7 @@ private extension FreePlayView {
                         .allowsHitTesting(false)
                 }
             } else if isShotSimulation, !showSpinPad, !isTemporaryTopDown,
-                      !vm.isPlaying, !vm.isComputing, !vm.cameraTransitionBusy, !vm.isFeasible {
+                      !vm.isPlaying, !vm.shotControlsBusy, !vm.cameraTransitionBusy, !vm.isFeasible {
                 dailyInformation(vm.statusText)
                     .accessibilityIdentifier("shotSimulation.unavailable")
             } else if !showSpinPad, let message = ruleNotices.message {
@@ -2335,7 +2334,7 @@ private extension FreePlayView {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("\(rackPrefix).restart")
-                    .disabled(vm.isPlaying || vm.isComputing || isTemporaryTopDown || dailyDecisionActive)
+                    .disabled(vm.isPlaying || vm.shotControlsBusy || isTemporaryTopDown || dailyDecisionActive)
                     .freeControlItem("\(rackPrefix).restart", name: "重新开始")
                 } else if manualBreakNeedsConfirmation {
                     // Preserve the control lane height without an invisible actionable button.
@@ -2421,7 +2420,7 @@ private extension FreePlayView {
                             else if isMultiBall && multiBallController.canGoToPreviousStep { multiBallController.goToPreviousStep() }
                             else if isRackPractice { rackController.undo() } else { vm.replayCurrent() }
                         }
-                        .disabled(vm.isBreakMode || vm.isPlaying || !(isTryoutPage ? vm.canGoToPreviousTryoutStep : (sequenceReadOnly ? vm.canReplayPreviousStep : (isDailyClearance ? (dailyController.canGoBack && !vm.isComputing) : (vm.canReplay || isMultiBall && multiBallController.canGoToPreviousStep)))) || isDailyResult || isTemporaryTopDown)
+                        .disabled(vm.isBreakMode || vm.isPlaying || !(isTryoutPage ? vm.canGoToPreviousTryoutStep : (sequenceReadOnly ? vm.canReplayPreviousStep : (isDailyClearance ? (dailyController.canGoBack && !vm.shotControlsBusy) : (vm.canReplay || isMultiBall && multiBallController.canGoToPreviousStep)))) || isDailyResult || isTemporaryTopDown)
                         .freeControlItem(isTryoutPage ? "tryout.previous" : (sequenceReadOnly ? "sequence.previous" : "shot.undo"),
                                          name: isTryoutPage || sequenceReadOnly ? "上一杆" : planningBackTitle)
                     } else {
@@ -2431,7 +2430,7 @@ private extension FreePlayView {
                     }
                     if isMultiBall {
                         BTGeometricReferenceButton(tool: vm.geometryReference,
-                            enabled: !vm.isPlaying && !vm.isComputing && !isTemporaryTopDown && multiBallController.canStrike,
+                            enabled: !vm.isPlaying && !vm.shotControlsBusy && !isTemporaryTopDown && multiBallController.canStrike,
                             size: auxiliary, identifier: "multiBall.geometry", prepare: { vm.prepareGeometryReference() })
                             .freeControlItem("shot.replay", name: "测量")
                     } else {
@@ -2490,7 +2489,7 @@ private extension FreePlayView {
             return runner.showsConfirm ? "完成" : (runner.isBusy && !usesUnifiedBreakControls ? "开球中" : "开球")
         }
         if isTryoutPage, vm.canReplay { return "重打" }
-        return dailyController.isAutomaticallyBreaking ? "开球中" : (vm.isComputing ? "计算中" : "击球")
+        return dailyController.isAutomaticallyBreaking ? "开球中" : (vm.showsShotComputationStatus ? "计算中" : "击球")
     }
 
     private var templateStrikeLayoutID: String {
@@ -2606,7 +2605,7 @@ private extension FreePlayView {
             GeometryReader { overlay in
             if let bounds, is3D, let rig = vm.scene.cameraRig, !showSpinPad || rig.usesTwoViewCameraControls {
                 ShotPlayerCameraButtons(controlSpacing: 4, rig: rig,
-                    isEnabled: vm.temporaryTopDownActive || (!vm.isPlaying && !vm.isComputing && vm.currentPlayerAim != nil),
+                    isEnabled: vm.temporaryTopDownActive || (!vm.isPlaying && !vm.shotControlsBusy && vm.currentPlayerAim != nil),
                     onWholeTable: {
                         daily3DDiagnostics?.input(.cameraButton, intent: .orbit)
                         // A user overview request is independent of break/rerack framing.
@@ -2662,7 +2661,7 @@ private extension FreePlayView {
 
     private var templateRerackDisabled: Bool {
         isDailyResult || isTemporaryTopDown || (isManualBreakPage &&
-            (vm.isPlaying || vm.isComputing || vm.cameraTransitionBusy || vm.isSequencePlaying || vm.isRecording || vm.breakRunner?.isBusy == true))
+            (vm.isPlaying || vm.shotControlsBusy || vm.cameraTransitionBusy || vm.isSequencePlaying || vm.isRecording || vm.breakRunner?.isBusy == true))
     }
 
     private var manualBreakNeedsConfirmation: Bool {
@@ -2755,7 +2754,7 @@ private extension FreePlayView {
             guard !controlLayoutBusy, !editingControlLayout, multiBallController.switchTrainingView(to: !is3D) else { return }
         }
         tablePreferences.apply(.view3D, value: is3D ? 0 : 1, to: preferencePage)
-        guard !vm.isPlaying, !vm.isSequencePlaying, vm.breakRunner?.isBusy != true, !vm.isComputing else { return }
+        guard !vm.isPlaying, !vm.isSequencePlaying, vm.breakRunner?.isBusy != true, !vm.shotControlsBusy else { return }
         // Consume only this camera intent; other pending fields still apply through the safe update path.
         var applied = vm.scene.tablePreferences ?? pagePreferences
         applied.values[.view3D] = pagePreferences[.view3D]
@@ -3189,7 +3188,6 @@ private extension FreePlayView {
             }
             else if editablePalette {
                 if onTable { vm.pulseTableBall(actionKey) }
-                else if is3D && formation == nil { flash("切到2D摆球", tone: .info) }
                 else { placeSimulationBall(actionKey, world: nil) }
             } else if onTable {
                 if PositionPlayBall.isCue(key) { vm.pulseTableBall(actionKey) }
@@ -3225,12 +3223,12 @@ private extension FreePlayView {
                 .contentShape(Rectangle())
         }
         .buttonStyle(BTHUDPressStyle())
-        .disabled(sequenceReadOnly || vm.isPlaying || vm.isBreakMode || dailyDecisionActive || !dailyController.breakChoices.isEmpty || isTemporaryTopDown)
+        .disabled(paletteControlsDisabled)
         .accessibilityLabel(PositionPlayBall.isCue(key) ? "母球" : "\(PositionPlayBall.shortLabel(for: key))号球")
         .accessibilityValue(planningRole.flatMap { BallRoleStyle(rawValue: $0)?.label } ?? (isMultiBall && onTable ? multiBallController.paletteDescription(actionKey) : nil) ?? (quantity > 0 ? "\(quantity)颗" : vm.isBreakMode ? "开球准备，不可选" : (onTable ? (dailyPaletteActive(actionKey) ? "本轮可击打" : "在桌上") : (editablePalette ? "未在桌上" : "已进袋"))))
         .accessibilityIdentifier("paletteBall_\(key)")
-        .accessibilityHint(editablePalette ? (is3D ? (formation == nil ? "切到2D摆球" : "点按放到台面，切到2D可拖动摆球") : "点按或拖到台面摆球，拖回球库移除") : "")
-        .simultaneousGesture(simulationPaletteDrag(actionKey, diameter: diameter), including: editablePalette && !is3D && !onTable ? .all : .subviews)
+        .accessibilityHint(editablePalette ? "点按或拖到台面摆球" : "")
+        .simultaneousGesture(simulationPaletteDrag(actionKey, diameter: diameter), including: editablePalette && !onTable ? .all : .subviews)
     }
 
     func dailySpinPadRect(in size: CGSize) -> CGRect {
@@ -3247,6 +3245,13 @@ private extension FreePlayView {
 
     var dailyControlsDisabled: Bool {
         sequenceReadOnly || isTemporaryTopDown || dailyDecisionActive || vm.isPlaying || isDailyResult || !dailyController.breakChoices.isEmpty || (vm.breakRunner.map { $0.phase != .racked } ?? false)
+    }
+
+    /// Manual placement remains available in the temporary view; gameplay and read-only gates still apply.
+    private var paletteControlsDisabled: Bool {
+        sequenceReadOnly || vm.isPlaying || vm.isBreakMode || dailyDecisionActive
+        || !dailyController.breakChoices.isEmpty || (isTemporaryTopDown && !editablePalette)
+        || (editablePalette && (isDailyResult || (vm.breakRunner.map { $0.phase != .racked } ?? false)))
     }
 
     private var usesMergedCamera: Bool { vm.scene.cameraRig?.usesMergedCamera == true }

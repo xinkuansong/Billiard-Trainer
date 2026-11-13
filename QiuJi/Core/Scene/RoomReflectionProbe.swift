@@ -297,6 +297,7 @@ final class RoomReflectionProbe {
         let mergesClothSupport: Bool
         let factorsClothBRDF: Bool
         let clothPrototype: Bool
+        let safeClothSupport: String
 
         init(style: RoomStyle, scene: AngleTrainingScene) {
             room = style
@@ -306,6 +307,7 @@ final class RoomReflectionProbe {
             profile = scene.renderingProfile.rawValue
             mergesClothSupport = scene.mergesDailyClothSupport
             factorsClothBRDF = scene.factorsDailyClothBRDF
+            safeClothSupport = scene.safeClothSupportState.probeCacheIdentity
             #if DEBUG
             clothPrototype = scene.usesClothLightingPrototype
             #else
