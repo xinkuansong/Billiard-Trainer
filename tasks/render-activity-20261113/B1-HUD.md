@@ -97,3 +97,5 @@
 复用现有 `build/DerivedData`，未接管删除历史构建缓存。模拟器由 `simulator_fleet.py run --role large-pad --task render-activity-b1` 独占租约管理，最终已关闭本次启动的设备并保留核心设备及数据；退出包装器时误把 evidence 目录作为文件传入，导致自动结束报错，已按 recover 流程核进程退出和 Shutdown 后释放租约，最终 inventory 无 leased 标记。原始证据位于 `output/render-activity-20261113/b1/`。
 
 最终 `verify-gate` 通过，`git diff --check` 通过；根 PROGRESS 为 102,168 字节，未提高体积上限。本批临时 reference-products 克隆已核无打开文件并删除，保留可执行文件指纹；所有测试日志、失败原件和有效截图/数据保留。
+
+后续状态：B4 已完成本地共享集成，实际覆盖与环境缺口见 [B4-COVERAGE.md](B4-COVERAGE.md)；阶段交付与最终成本口径见 [B5-DELIVERY.md](B5-DELIVERY.md)。本文早期“下一批”段落保留为该轮时点记录。

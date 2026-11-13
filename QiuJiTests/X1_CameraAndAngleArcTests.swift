@@ -258,6 +258,58 @@ final class X1_CameraAndAngleArcTests: XCTestCase {
 
 @MainActor
 final class AngleDiagramAnnotationTests: XCTestCase {
+    func testStableDiagramReusesBallOrderAndLayoutAcross600Frames() throws {
+        let vm = SeparationAngleAtlasViewModel(); vm.setupScene()
+        let scene = vm.scene
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 874, height: 402))
+        view.scene = scene; view.pointOfView = scene.cameraNode
+        let rig = try XCTUnwrap(scene.cameraRig)
+        rig.viewportSize = view.bounds.size
+        scene.setCameraMode(.topDown2D, animated: false)
+        rig.snapToTarget(); SCNTransaction.flush()
+        let overlay = DiagramLabelOverlay()
+        overlay.recordsWorkForTesting = true
+        overlay.update(scene: scene, in: view)
+        let initialLayouts = overlay.layoutBuilds
+        XCTAssertEqual(initialLayouts, 1)
+        for _ in 0..<600 { overlay.update(scene: scene, in: view) }
+        XCTAssertEqual(overlay.ballOrderBuilds, 1)
+        XCTAssertEqual(overlay.layoutBuilds, initialLayouts)
+        let cue = try XCTUnwrap(scene.cueBallNode)
+        cue.position.y += 0.01
+        overlay.update(scene: scene, in: view)
+        XCTAssertEqual(overlay.layoutBuilds, initialLayouts + 1)
+        cue.isHidden = true
+        overlay.update(scene: scene, in: view)
+        XCTAssertEqual(overlay.layoutBuilds, initialLayouts + 2)
+        XCTAssertEqual(overlay.ballOrderBuilds, 1)
+        overlay.hide()
+        overlay.update(scene: scene, in: view)
+        XCTAssertEqual(overlay.layoutBuilds, initialLayouts + 3)
+        XCTAssertEqual(overlay.ballOrderBuilds, 1)
+    }
+
+    func testDiagramBallMembershipInvalidatesOrderWithoutChangingCamera() throws {
+        let vm = SeparationAngleAtlasViewModel(); vm.setupScene()
+        let scene = vm.scene
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 874, height: 402))
+        view.scene = scene; view.pointOfView = scene.cameraNode
+        scene.cameraRig?.viewportSize = view.bounds.size
+        scene.setCameraMode(.topDown2D, animated: false)
+        scene.cameraRig?.snapToTarget(); SCNTransaction.flush()
+        let overlay = DiagramLabelOverlay(); overlay.recordsWorkForTesting = true
+        overlay.update(scene: scene, in: view)
+        let instance = PositionPlayBall.instanceKey(number: 1)
+        scene.configureBallInstances([instance])
+        XCTAssertNotNil(scene.allBallNodes[instance])
+        overlay.update(scene: scene, in: view)
+        XCTAssertEqual(overlay.ballOrderBuilds, 2)
+        scene.configureBallInstances([])
+        overlay.update(scene: scene, in: view)
+        XCTAssertEqual(overlay.ballOrderBuilds, 3)
+        XCTAssertEqual(overlay.layoutBuilds, 3)
+    }
+
     func testAtlasAngleUsesSharedOverlayWithoutLineNames() throws {
         let vm = SeparationAngleAtlasViewModel(); vm.setupScene()
         let scene = vm.scene

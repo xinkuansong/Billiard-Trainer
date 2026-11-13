@@ -1,0 +1,48 @@
+{
+  "epoch": 1794570165.552842,
+  "freeBefore": 15338704896,
+  "freeAfter": 17828474880,
+  "paths": [
+    {
+      "path": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b4/frozen-products",
+      "removed": true,
+      "openHandles": 0
+    },
+    {
+      "path": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b4/final-products",
+      "removed": true,
+      "openHandles": 0
+    },
+    {
+      "path": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b4/quiz-products",
+      "removed": true,
+      "openHandles": 0
+    },
+    {
+      "path": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b4/quiz2-products",
+      "removed": true,
+      "openHandles": 0
+    },
+    {
+      "path": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b4/nondebug-products",
+      "removed": true,
+      "openHandles": 0
+    },
+    {
+      "path": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/baseline-app",
+      "removed": true,
+      "openHandles": 0
+    }
+  ],
+  "preserved": "Signed phone delivery, all logs/results/screenshots/failure originals, source identities and scripts; core simulator restored to final candidate and shut down through managed lease.",
+  "baselineBuildCleanup": {
+    "removed": [
+      "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/baseline-source",
+      "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/baseline-derived-data"
+    ],
+    "reason": "Successful baseline build frozen with SHA, source checkpoint reachable, logs retained, owned temporary resources only",
+    "freeBefore": 8660430848,
+    "freeAfter": 18564915200,
+    "epoch": 1794568551.535104
+  }
+}

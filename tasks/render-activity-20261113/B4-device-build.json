@@ -1,0 +1,9 @@
+{
+  "app": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/delivery/球迹.app",
+  "sha256": "4119bd9599605d629fc7ebd439373102d19af41bd19c5b38752e8ad7ce76f717",
+  "codesignVerifyExit": 0,
+  "codesignOutput": "",
+  "scope": "Signed Debug device app from current B1/B2 source; not installed to physical phone this turn.",
+  "buildApp": "/Users/song/projects/13.billiard_trainer/build/DerivedData/Build/Products/Debug-iphoneos/球迹.app",
+  "retentionReason": "Frozen signed candidate retained for deferred user device installation; user requested local delivery first."
+}

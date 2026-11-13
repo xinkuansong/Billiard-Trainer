@@ -1,0 +1,22 @@
+{
+  "passedSelectors": [
+    {
+      "run": "ui-final",
+      "selector": "ClothSupportPageResearchUITests testDefaultRecipeOnDailyAndOrdinaryFreePlay",
+      "seconds": 54.819
+    },
+    {
+      "run": "ui-final",
+      "selector": "RemainingTeachingAdoptionUITests testFreeCloseupOnlyWhileDirectionRulerIsHeld",
+      "seconds": 130.785
+    },
+    {
+      "run": "ui-quiz2",
+      "selector": "V52DailyClearanceUITests testQuizAndBatchSharedControlsPreserveEditingSemantics",
+      "seconds": 63.036
+    }
+  ],
+  "appSHA256": "8e6dcf74bb807aefc9b76d0a346a24fa517ab38b46eaf77838b0ff5deb7ebecb",
+  "limitation": "ui-final retained quiz failure; replacement ui-quiz2 passed. Earlier runs remain failed, not rewritten.",
+  "quizRunnerSHA256": "d33dd54c8c6cf25c695a654dbacc3e865a2bc5855af195785181f87013380a33"
+}

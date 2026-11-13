@@ -1,0 +1,106 @@
+{
+  "decision": "reject-no-reliable-gpu-benefit",
+  "algorithm": "far-irradiance-alias-v1",
+  "productionChanged": false,
+  "numeric": {
+    "fixtureLabelsPerMode": 41,
+    "samplesPerMode": 49784,
+    "modes": [
+      "fastMath=false",
+      "fastMath=true"
+    ],
+    "passed": true,
+    "note": "Some inherited labels reuse identical datasets; not 41 independent workloads."
+  },
+  "timingScope": "Native Mac lighting compute, actual captured production inputs; not complete SceneKit material/presentation or phone energy",
+  "results": [
+    {
+      "pose": "single-low",
+      "arm": "aa",
+      "device": "Apple M5 Pro",
+      "referenceMedianMS": 0.38310156378429383,
+      "candidateMedianMS": 0.3898359282175079,
+      "pairedChangeMedianPercent": 1.7752630183007767
+    },
+    {
+      "pose": "single-low",
+      "arm": "candidate",
+      "device": "Apple M5 Pro",
+      "referenceMedianMS": 0.3808906185440719,
+      "candidateMedianMS": 0.38393749855458736,
+      "pairedChangeMedianPercent": 0.9649189170924277
+    },
+    {
+      "pose": "single-near",
+      "arm": "aa",
+      "device": "Apple M5 Pro",
+      "referenceMedianMS": 0.7610234606545419,
+      "candidateMedianMS": 0.7697708351770416,
+      "pairedChangeMedianPercent": 2.71597730963975
+    },
+    {
+      "pose": "single-near",
+      "arm": "candidate",
+      "device": "Apple M5 Pro",
+      "referenceMedianMS": 0.7688828191021457,
+      "candidateMedianMS": 0.7708906196057796,
+      "pairedChangeMedianPercent": -0.013895976927946752
+    },
+    {
+      "pose": "edge-low",
+      "arm": "aa",
+      "device": "Apple M5 Pro",
+      "referenceMedianMS": 0.23089323076419532,
+      "candidateMedianMS": 0.23076041543390602,
+      "pairedChangeMedianPercent": -0.716024956474004
+    },
+    {
+      "pose": "edge-low",
+      "arm": "candidate",
+      "device": "Apple M5 Pro",
+      "referenceMedianMS": 0.23106770822778344,
+      "candidateMedianMS": 0.23266665812116116,
+      "pairedChangeMedianPercent": 0.6299572435174428
+    },
+    {
+      "pose": "rack-overview",
+      "arm": "aa",
+      "device": "Apple M5 Pro",
+      "referenceMedianMS": 0.22971094585955143,
+      "candidateMedianMS": 0.2323437511222437,
+      "pairedChangeMedianPercent": 0.5381456503215309
+    },
+    {
+      "pose": "rack-overview",
+      "arm": "candidate",
+      "device": "Apple M5 Pro",
+      "referenceMedianMS": 0.22807030472904444,
+      "candidateMedianMS": 0.23138280084822327,
+      "pairedChangeMedianPercent": 1.3682049055496082
+    },
+    {
+      "pose": "scatter-overview",
+      "arm": "aa",
+      "device": "Apple M5 Pro",
+      "referenceMedianMS": 0.31394531833939254,
+      "candidateMedianMS": 0.3152083227178082,
+      "pairedChangeMedianPercent": 0.18590741471267158
+    },
+    {
+      "pose": "scatter-overview",
+      "arm": "candidate",
+      "device": "Apple M5 Pro",
+      "referenceMedianMS": 0.3135755250696093,
+      "candidateMedianMS": 0.31255728390533477,
+      "pairedChangeMedianPercent": -0.31755471073939834
+    }
+  ],
+  "sources": {
+    "output/render-activity-20261113/b3/candidate.metal": "e3403e5ac6e1dab4c36e599c66969b68d44ba17917a3a3f64c45d8549dae480f",
+    "output/render-activity-20261113/b3/aa.metal": "5d7b85860033d41d6fd6f3f6b3ef3c22bd8faf6926349a035c41e56bab7a45f8",
+    "output/render-activity-20261113/b3/prepare_candidate.py": "c6db0390e02a6b33bad4d0baae40414a7904e81c18d612351eb543f07c4101d4",
+    "output/render-activity-20261113/b3/prepare_validation.py": "c29cdb754def185fafa232fd764eab8929ab6d86d8bea9db8c2e1ca070db26cf",
+    "output/render-activity-20261113/b3/run_validation.py": "ac61cea967e857c073929e47c2e3fc490ef3b85429ea373dd94f374b637dd1a4",
+    "output/render-activity-20261113/b3/run_benchmark.py": "045c99d9cd088ef62cd5cdf8ac94e493d4dcc9c27fd52a9b52a98dbe27bf2127"
+  }
+}

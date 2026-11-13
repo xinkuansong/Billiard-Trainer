@@ -255,6 +255,15 @@ final class RemainingTeachingAdoptionUITests: XCTestCase {
                 openMore(page)
                 let camera = app.buttons[page + ".cameraMode"]; ready(camera)
                 if camera.value as? String != mode { camera.tap() }
+                if page == "reflection" {
+                    // Kick solving deliberately has no direct-contact closeup.
+                    // Preserve that page contract instead of demanding a removed setting.
+                    XCTAssertFalse(app.buttons["menu.aimCloseup"].exists)
+                    app.buttons[page + ".dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()
+                    holdAimRulerForNativeCapture(page + "-no-closeup")
+                    XCTAssertFalse(element("aimCloseup.hud").exists)
+                    continue
+                }
                 let toggle = revealMenuItem("menu.aimCloseup")
                 if toggle.value as? String == "已选" { toggle.tap() }
                 app.buttons[page + ".dismissMenu"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)).tap()

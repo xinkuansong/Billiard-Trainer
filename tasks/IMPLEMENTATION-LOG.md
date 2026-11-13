@@ -1,3 +1,11 @@
+## FL-269 — B4 验证输入与旧控件合同（2026-11-13）
+- 冻结独立 App/runner/xctestrun；保留原路径消失与不完整结果。修正旧测试中颗星无特写的明确例外、瞄准点方向尺 ID，生产行为不改。B5 真基线用隔离构建与同源资源。
+- 已应用至 `.cursor/rules/55-test-engineer.mdc` v1.20；详情见 `tasks/render-activity-20261113/B4-COVERAGE.md`。
+
+## FL-268 — B2 历史 UI 宿主合同漂移（2026-11-13）
+- 修正只读属性夹具与当前 composer 入口身份；旧取消首杆测试仍保留失败，新增当前宿主的 2 杆、停稳后台、撤销与重进验证通过，不改 App 生命周期行为。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` § FL-268 / v1.19；详情和原件见 `tasks/render-activity-20261113/B2-MAINTENANCE.md`。
+
 ## FL-266复发 — 三分钟真机采集封存ENOSPC（2026-11-13）
 - 原始文件保全，Run5不可用，按用户要求分析既有短轮；不修改App、不追加手机负载。
 - 已应用至：`.cursor/rules/55-test-engineer.mdc` § FL-266 / v1.18；延长时长或添加GPU重算峰值与停止余量。新长轮未验证。详`render-lowdim-20261113/PHONE-HEAT-20261113.md`。

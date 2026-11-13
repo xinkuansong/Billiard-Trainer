@@ -218,7 +218,10 @@ final class AngleTrainingScene: SCNScene, ObservableObject {
 
     private(set) var cueBallNode: SCNNode?
     private(set) var targetBallNodes: [SCNNode] = []
-    private(set) var allBallNodes: [String: SCNNode] = [:]
+    private(set) var ballMembershipRevision: UInt64 = 0
+    private(set) var allBallNodes: [String: SCNNode] = [:] {
+        didSet { ballMembershipRevision &+= 1 }
+    }
     private(set) var ballStickerStyle: BallStickerStyle?
     private(set) var initialBallPositions: [String: SCNVector3] = [:]
     /// W17-D (DR-299): potted balls resting on the pocket rails, persisted across shots.

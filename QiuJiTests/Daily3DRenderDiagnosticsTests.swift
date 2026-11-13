@@ -7,6 +7,37 @@ final class Daily3DRenderDiagnosticsTests: XCTestCase {
     private typealias Diagnostics = Daily3DRenderDiagnostics
     private typealias Event = Diagnostics.Event
 
+    func testViewportTracksAncestorMovementReadableFrameAndFullWindowToggle() throws {
+        let vm = SeparationAngleAtlasViewModel(); vm.setupScene()
+        let scene = vm.scene
+        scene.tablePreferencePage = TrainingProject.accuracy.page2D
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 874, height: 402))
+        let parent = UIView(frame: window.bounds)
+        let view = SCNView(frame: parent.bounds)
+        window.addSubview(parent); parent.addSubview(view)
+        let coordinator = AngleSceneView.Coordinator(scene: scene, cameraMode: .topDown2D,
+                                                     interactionMode: .cameraControl)
+        coordinator.scnView = view
+        coordinator.twoViewReadableFrameInWindow = CGRect(x: 24, y: 30, width: 800, height: 340)
+        let rig = try XCTUnwrap(scene.cameraRig)
+        coordinator.updateViewport(view.bounds.size)
+        XCTAssertEqual(rig.topDownPresentationRect, CGRect(x: 24, y: 30, width: 800, height: 340))
+        for _ in 0..<60 { coordinator.updateViewport(view.bounds.size) }
+        parent.frame.origin.x = 10
+        coordinator.updateViewport(view.bounds.size)
+        XCTAssertEqual(rig.topDownPresentationRect, CGRect(x: 14, y: 30, width: 800, height: 340))
+        coordinator.twoViewReadableFrameInWindow = CGRect(x: 30, y: 40, width: 780, height: 320)
+        coordinator.updateViewport(view.bounds.size)
+        XCTAssertEqual(rig.topDownPresentationRect, CGRect(x: 20, y: 40, width: 780, height: 320))
+        scene.tablePreferencePage = nil
+        coordinator.updateViewport(view.bounds.size)
+        XCTAssertNil(rig.topDownPresentationRect)
+        scene.tablePreferencePage = TrainingProject.accuracy.page2D
+        view.removeFromSuperview()
+        coordinator.updateViewport(view.bounds.size)
+        XCTAssertNil(rig.topDownPresentationRect)
+    }
+
     private func assertBalancedExclusiveStages(_ events: [Event],
                                                file: StaticString = #filePath, line: UInt = #line) {
         var page: UInt64?

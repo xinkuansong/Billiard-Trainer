@@ -1125,26 +1125,30 @@ struct AngleSceneView: UIViewRepresentable {
                 fields["effectiveViewport"] = size.width > 0 && size.height > 0 && view.window != nil && scene.cameraRig != nil
                 DailyLayoutProbe.record("viewport.update", fields)
             }
-            // The rig can be installed after makeUIView/first layout.
-            scene.cameraRig?.viewportSize = size
+            // Read the actual window conversion each time: an ancestor can move without
+            // changing this view's bounds. Both camera modes consume the same result.
+            let readable: CGRect? = {
+                guard let rig = scene.cameraRig,
+                      scene.usesFullWindowTableViewport || rig.usesTwoViewCameraControls,
+                      let view = scnView, view.window != nil,
+                      let frame = twoViewReadableFrameInWindow else { return nil }
+                let rect = view.convert(frame, from: nil).intersection(view.bounds)
+                return rect.isNull || rect.isEmpty ? nil : rect
+            }()
+            // The rig can be installed after makeUIView/first layout. Compare its state,
+            // not just lastViewportSize, so a replacement rig still receives the layout.
             if let rig = scene.cameraRig {
-                rig.topDownPresentationRect = nil
-                if scene.usesFullWindowTableViewport, let view = scnView, view.window != nil,
-                   let frame = twoViewReadableFrameInWindow {
-                    let rect = view.convert(frame, from: nil).intersection(view.bounds)
-                    if !rect.isNull, !rect.isEmpty { rig.topDownPresentationRect = rect }
-                }
+                if rig.viewportSize != size { rig.viewportSize = size }
+                let presentation = scene.usesFullWindowTableViewport ? readable : nil
+                if rig.topDownPresentationRect != presentation { rig.topDownPresentationRect = presentation }
             }
             if let rig = scene.cameraRig, rig.usesTwoViewCameraControls,
-               let scnView, scnView.window != nil, let frame = twoViewReadableFrameInWindow {
-                let readable = scnView.convert(frame, from: nil).intersection(scnView.bounds)
-                if !readable.isNull, !readable.isEmpty {
+               let scnView, let readable {
                     rig.setTwoViewReadableInsets(UIEdgeInsets(
                         top: readable.minY - scnView.bounds.minY,
                         left: readable.minX - scnView.bounds.minX,
                         bottom: scnView.bounds.maxY - readable.maxY,
                         right: scnView.bounds.maxX - readable.maxX))
-                }
             }
             if DailyLayoutProbe.enabled, !dailyProbeDeliveredFirstViewport,
                size.width > 0, size.height > 0, let view = scnView,
@@ -2460,12 +2464,21 @@ final class DiagramLabelOverlay {
     private let angleMark = CAShapeLayer()
     private var choices: [Int: Int] = [:]
     private var geometryKey: [Float] = []
+    private var pendingGeometryKey: [Float] = []
+    private var orderedBalls: [SCNNode] = []
+    private var ballMembershipRevision: UInt64?
+    private weak var cachedScene: AngleTrainingScene?
+    #if DEBUG
+    var recordsWorkForTesting = false
+    private(set) var ballOrderBuilds = 0
+    private(set) var layoutBuilds = 0
+    #endif
     private var previousAngleOffset: CGPoint?
 
     func hide() {
         labels.forEach { $0.isHidden = true }
         angleMark.isHidden = true
-        geometryKey = []
+        geometryKey.removeAll(keepingCapacity: true)
         previousAngleOffset = nil
     }
 
@@ -2485,9 +2498,22 @@ final class DiagramLabelOverlay {
         // Camera projection and ball positions are the complete layout input. Avoid per-frame
         // text measurement/candidate searches while the table and camera are stationary.
         let matrix = scene.cameraNode?.presentation.worldTransform ?? SCNMatrix4Identity
-        let visible = scene.allBallNodes.values.filter { !$0.isHidden }
+        // Ball membership changes much less often than the camera. Dictionary key
+        // order is irrelevant to obstacle intersections; sort once per membership.
+        if cachedScene !== scene || ballMembershipRevision != scene.ballMembershipRevision {
+            cachedScene = scene
+            ballMembershipRevision = scene.ballMembershipRevision
+            orderedBalls = scene.allBallNodes.values.sorted { ($0.name ?? "") < ($1.name ?? "") }
+            geometryKey.removeAll(keepingCapacity: true)
+            #if DEBUG
+            if recordsWorkForTesting { ballOrderBuilds += 1 }
+            #endif
+        }
         let labelIndices = scene.diagramVisibleLabelIndices
-        let key: [Float] = [matrix.m11, matrix.m12, matrix.m13, matrix.m21, matrix.m22, matrix.m23,
+        // Reuse two unique buffers. Cache hits allocate neither a sorted ball list
+        // nor the concatenated geometry/projection arrays used by the old path.
+        pendingGeometryKey.removeAll(keepingCapacity: true)
+        pendingGeometryKey.append(contentsOf: [matrix.m11, matrix.m12, matrix.m13, matrix.m21, matrix.m22, matrix.m23,
             matrix.m31, matrix.m32, matrix.m33, matrix.m41, matrix.m42, matrix.m43,
             Float(view.bounds.width), Float(view.bounds.height), scene.diagramShowsLineLabels ? 1 : 0,
             labelIndices.contains(0) ? 1 : 0,
@@ -2495,18 +2521,28 @@ final class DiagramLabelOverlay {
             displayMode == .perspective3D ? 1 : 0,
             Float(scene.cameraNode?.camera?.orthographicScale ?? 0),
             g.cue.x, g.cue.z, g.target.x, g.target.z, g.pocket.x, g.pocket.z,
-            Float(scene.currentTargetNumber ?? 0), Float(scene.cameraNode?.camera?.fieldOfView ?? 0)]
-            + visible.sorted { ($0.name ?? "") < ($1.name ?? "") }.flatMap { [$0.position.x, $0.position.z] }
+            Float(scene.currentTargetNumber ?? 0), Float(scene.cameraNode?.camera?.fieldOfView ?? 0),
+            g.cue.y, g.target.y, g.ghost.x, g.ghost.y, g.ghost.z, g.pocket.y,
+            g.rail.x, g.rail.y, g.rail.z, Float(g.angle), scene.surfaceY])
+        for ball in orderedBalls {
+            pendingGeometryKey.append(ball.isHidden ? 1 : 0)
+            if !ball.isHidden {
+                pendingGeometryKey.append(contentsOf: [ball.position.x, ball.position.y, ball.position.z])
+            }
+        }
         // SceneKit can commit its viewport/projection after the camera model has settled.
         // Cache the actual projected anchors too: an unchanged model matrix does not prove
         // that projectPoint is still mapping the cloth to the same screen coordinates.
-        let projectedKey = [g.cue, g.target, g.ghost, g.pocket, g.rail].flatMap { point -> [Float] in
+        for point in [g.cue, g.target, g.ghost, g.pocket, g.rail] {
             let projected = view.projectPoint(point)
-            return [projected.x, projected.y, projected.z]
+            pendingGeometryKey.append(contentsOf: [projected.x, projected.y, projected.z])
         }
-        let completeKey = key + projectedKey
-        guard completeKey != geometryKey else { return }
-        geometryKey = completeKey
+        guard pendingGeometryKey != geometryKey else { return }
+        swap(&geometryKey, &pendingGeometryKey)
+        let visible = orderedBalls.filter { !$0.isHidden }
+        #if DEBUG
+        if recordsWorkForTesting { layoutBuilds += 1 }
+        #endif
         angleMark.isHidden = true
         if labels.isEmpty {
             angleMark.name = "angleDiagram.arc"

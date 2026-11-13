@@ -1,0 +1,28 @@
+{
+  "sequence": [
+    "A",
+    "A",
+    "A",
+    "B",
+    "B",
+    "A"
+  ],
+  "pairs": {
+    "AA": [
+      1,
+      2
+    ],
+    "AB": [
+      3,
+      4
+    ],
+    "BA": [
+      6,
+      5
+    ]
+  },
+  "scope": "iPad simulator full App process CPU, fixed daily closeup fixture, held direction ruler; no ball motion, no phone energy/GPU/frame-tail claim.",
+  "CPUWindow": "marker +2 to +7 seconds; screenshot after +8; 12-second hold",
+  "diagnostics": "work counts disabled; no reference flag; real pre-B1 checkpoint A vs final B1+B2 B",
+  "threshold": "for each state, both paired reductions must exceed max(5%, abs(AA relative change)); no resampling"
+}

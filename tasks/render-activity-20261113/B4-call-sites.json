@@ -1,0 +1,302 @@
+[
+  {
+    "file": "QiuJi/Features/AccuracyPractice/AccuracyPracticeViewModel.swift",
+    "line": 270,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "cb81a6cecb719705492622d77287c5ff096154731de8410fd39d5e817dfa006d"
+  },
+  {
+    "file": "QiuJi/Features/KBallPractice/KBallPracticeViewModel.swift",
+    "line": 252,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "60782db393a90ab7c68be3de1e302af95629b79fd9a336861fa17dea2e6985cc"
+  },
+  {
+    "file": "QiuJi/Features/BankPractice/BankPracticeViewModel.swift",
+    "line": 270,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "31ca7c2b89c4b13b8a2c8e26ea0420dd7f185ab901f93ad6db27bad5822b6c3a"
+  },
+  {
+    "file": "QiuJi/Features/KickPractice/KickPracticeViewModel.swift",
+    "line": 260,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "e94b44b37d97cb1e38c730d0d052af93ba4bd7bf87ed35813072e61c205324ff"
+  },
+  {
+    "file": "QiuJi/Features/ThreeBallPractice/ThreeBallPracticeViewModel.swift",
+    "line": 284,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "b1d118f137565131deace93ff199ea9a4d758bc1071b08bdcf502fd2dedbe384"
+  },
+  {
+    "file": "QiuJi/Features/PocketTolerance/PocketToleranceViewModel.swift",
+    "line": 40,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "d40e5f900058ce131324a8f4268e8102c2ef1be001a19d07ac70a59fc7905fa7"
+  },
+  {
+    "file": "QiuJi/Features/SeparationPractice/SeparationPracticeViewModel.swift",
+    "line": 285,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "f3857d612ce18fb2489b5ede6c47a497a40dea8293a3b7f61d2a2472873048cc"
+  },
+  {
+    "file": "QiuJi/Features/DefensePractice/DefensePracticeViewModel.swift",
+    "line": 280,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "330f576c47552a4f82700d4ff1d435cc74fd1699f52af403423f4550fc51749e"
+  },
+  {
+    "file": "QiuJi/Features/TwoBallPractice/TwoBallPracticeViewModel.swift",
+    "line": 320,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "1722ec1163199868983829339414b770c0a468b99f1f6bd3f82965f90590cc79"
+  },
+  {
+    "file": "QiuJi/Features/BatchDrillStudio/BatchBallExtractionView.swift",
+    "line": 616,
+    "anchor": "AngleSceneView(",
+    "fileSHA256": "2324c0ea5fcf381cc02b17bfa94c11f768ee42cd39930f50c8323d280247fb23"
+  },
+  {
+    "file": "QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift",
+    "line": 924,
+    "anchor": "AngleSceneView(",
+    "fileSHA256": "78aa8656abb0403b414521b2f754cf6010c9cfd4f32c8fe25f1f47d987c3c6af"
+  },
+  {
+    "file": "QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift",
+    "line": 556,
+    "anchor": "BTAimCloseupOverlay(",
+    "fileSHA256": "78aa8656abb0403b414521b2f754cf6010c9cfd4f32c8fe25f1f47d987c3c6af"
+  },
+  {
+    "file": "QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift",
+    "line": 369,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "78aa8656abb0403b414521b2f754cf6010c9cfd4f32c8fe25f1f47d987c3c6af"
+  },
+  {
+    "file": "QiuJi/Features/PositionPlay/ViewModels/PlanThreeViewModel.swift",
+    "line": 481,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "193aea3445528ed241058f8600e85e7d5bdde9f476c93c66f46d59fa6f538c51"
+  },
+  {
+    "file": "QiuJi/Features/PositionPlay/ViewModels/SiluTrainerViewModel.swift",
+    "line": 258,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "d225b9b99bc42aabd9299731783a28d86950ab2916c2bb7304d0b47c1ca42b94"
+  },
+  {
+    "file": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift",
+    "line": 868,
+    "anchor": "AngleSceneView(",
+    "fileSHA256": "33bddd4ecd7b24a1f9c62efe7975697100b6fef31c3013c8ae3a0a0fc767b563"
+  },
+  {
+    "file": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift",
+    "line": 813,
+    "anchor": "BTAimCloseupOverlay(",
+    "fileSHA256": "33bddd4ecd7b24a1f9c62efe7975697100b6fef31c3013c8ae3a0a0fc767b563"
+  },
+  {
+    "file": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift",
+    "line": 1915,
+    "anchor": "BTAimCloseupOverlay(",
+    "fileSHA256": "33bddd4ecd7b24a1f9c62efe7975697100b6fef31c3013c8ae3a0a0fc767b563"
+  },
+  {
+    "file": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift",
+    "line": 576,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "33bddd4ecd7b24a1f9c62efe7975697100b6fef31c3013c8ae3a0a0fc767b563"
+  },
+  {
+    "file": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift",
+    "line": 573,
+    "anchor": "configureDailyClearanceRendering(",
+    "fileSHA256": "33bddd4ecd7b24a1f9c62efe7975697100b6fef31c3013c8ae3a0a0fc767b563"
+  },
+  {
+    "file": "QiuJi/Features/Profile/Views/OnboardingStyleLab.swift",
+    "line": 214,
+    "anchor": ".liveReference",
+    "fileSHA256": "579b2e6dfed765f71cea34ebbbcffc7d3cf3a919a0094760be6d0aab06eb3c15"
+  },
+  {
+    "file": "QiuJi/Features/Profile/Views/AppearanceCombinationPreview.swift",
+    "line": 16,
+    "anchor": ".liveReference",
+    "fileSHA256": "ccb7cc2cecd7b65a3054a918e41af9df7a5951d4428e00e46d50b3f39c1b3f4c"
+  },
+  {
+    "file": "QiuJi/Features/AngleTraining/ViewModels/CushionEnglishAtlasViewModel.swift",
+    "line": 94,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "a1859fc2978fb68503c288d24fd2e965b16f0b639620113173afd781f535432f"
+  },
+  {
+    "file": "QiuJi/Features/AngleTraining/ViewModels/AngleDynamicViewModel.swift",
+    "line": 152,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "74c0e0249e70aa3b969268a66b2476033763a0758b4397da6cfb50a8573fdf80"
+  },
+  {
+    "file": "QiuJi/Features/AngleTraining/ViewModels/SeparationAngleAtlasViewModel.swift",
+    "line": 85,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "e457612ff75efa1b7af48a5e474e6ea0c7a426e0d68690c25d3b3245939ade95"
+  },
+  {
+    "file": "QiuJi/Features/AngleTraining/ViewModels/DiamondSystemViewModel.swift",
+    "line": 266,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "8b96056ed8856d07805c615c5dfae2dc725f31a496765b41a3f898fb07cef2cf"
+  },
+  {
+    "file": "QiuJi/Features/AngleTraining/ViewModels/BankShotViewModel.swift",
+    "line": 289,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "90118f6b1815e2b3a3c8c41df48333537a2bcbd170fd4287efb03a9649f660d1"
+  },
+  {
+    "file": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift",
+    "line": 384,
+    "anchor": "AngleSceneView(",
+    "fileSHA256": "f73254c9ccfcffdc14140ffff1da65638d2c2db5b44cc57f4d2a6390092f9076"
+  },
+  {
+    "file": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift",
+    "line": 154,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "f73254c9ccfcffdc14140ffff1da65638d2c2db5b44cc57f4d2a6390092f9076"
+  },
+  {
+    "file": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift",
+    "line": 968,
+    "anchor": "AngleSceneView(",
+    "fileSHA256": "cb2ef483c863dd62036fce40d1f2c1efd81ea3bf37dcb23fe99d6ccf45060d96"
+  },
+  {
+    "file": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift",
+    "line": 876,
+    "anchor": "BTAimCloseupOverlay(",
+    "fileSHA256": "cb2ef483c863dd62036fce40d1f2c1efd81ea3bf37dcb23fe99d6ccf45060d96"
+  },
+  {
+    "file": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift",
+    "line": 106,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "cb2ef483c863dd62036fce40d1f2c1efd81ea3bf37dcb23fe99d6ccf45060d96"
+  },
+  {
+    "file": "QiuJi/Features/BallExtraction/ViewModels/BallExtractionViewModel.swift",
+    "line": 298,
+    "anchor": ".liveReference",
+    "fileSHA256": "68bd0128cd480a84c5bcef532b05e92b4562e9df63d96b7733f15dfd95351d5c"
+  },
+  {
+    "file": "QiuJi/Features/BallExtraction/Views/BallExtractionView.swift",
+    "line": 401,
+    "anchor": "AngleSceneView(",
+    "fileSHA256": "0570246fe8f3e77ce8c1867ee65750411ca568a256cb090fddd5e867afb86de8"
+  },
+  {
+    "file": "QiuJi/Core/Components/BTTeachingTablePage.swift",
+    "line": 805,
+    "anchor": "AngleSceneView(",
+    "fileSHA256": "feb62df5c33d87a91a3a265c9ae80a768631c89003c0161b5a62648ad4ba9c1f"
+  },
+  {
+    "file": "QiuJi/Core/Components/BTTeachingTablePage.swift",
+    "line": 589,
+    "anchor": "BTAimCloseupOverlay(",
+    "fileSHA256": "feb62df5c33d87a91a3a265c9ae80a768631c89003c0161b5a62648ad4ba9c1f"
+  },
+  {
+    "file": "QiuJi/Core/Scene/AngleTrainingScene.swift",
+    "line": 88,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "19187114ceeb827740969b316d0f1a76754ffeee594b987e162313dfa66f2a25"
+  },
+  {
+    "file": "QiuJi/Core/Scene/AngleTrainingScene.swift",
+    "line": 97,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "19187114ceeb827740969b316d0f1a76754ffeee594b987e162313dfa66f2a25"
+  },
+  {
+    "file": "QiuJi/Core/Scene/AngleTrainingScene.swift",
+    "line": 116,
+    "anchor": "configureReferenceTableRendering(",
+    "fileSHA256": "19187114ceeb827740969b316d0f1a76754ffeee594b987e162313dfa66f2a25"
+  },
+  {
+    "file": "QiuJi/Core/Scene/AngleTrainingScene.swift",
+    "line": 114,
+    "anchor": "configureDailyClearanceRendering(",
+    "fileSHA256": "19187114ceeb827740969b316d0f1a76754ffeee594b987e162313dfa66f2a25"
+  },
+  {
+    "file": "QiuJi/Core/Scene/AngleTrainingScene.swift",
+    "line": 89,
+    "anchor": ".liveReference",
+    "fileSHA256": "19187114ceeb827740969b316d0f1a76754ffeee594b987e162313dfa66f2a25"
+  },
+  {
+    "file": "QiuJi/Core/Scene/AngleTrainingScene.swift",
+    "line": 97,
+    "anchor": ".liveReference",
+    "fileSHA256": "19187114ceeb827740969b316d0f1a76754ffeee594b987e162313dfa66f2a25"
+  },
+  {
+    "file": "QiuJi/Core/Scene/AngleTrainingScene.swift",
+    "line": 103,
+    "anchor": ".liveReference",
+    "fileSHA256": "19187114ceeb827740969b316d0f1a76754ffeee594b987e162313dfa66f2a25"
+  },
+  {
+    "file": "QiuJi/Core/Scene/TableFigureRenderer.swift",
+    "line": 74,
+    "anchor": ".liveReference",
+    "fileSHA256": "61c9e46564b102fa50784fccd2ecf4651ec594087a3cae73a4fa7b4a1815f7d7"
+  },
+  {
+    "file": "QiuJi/Core/Scene/DrillSceneView.swift",
+    "line": 925,
+    "anchor": "AngleSceneView(",
+    "fileSHA256": "49ef0561070da513a7df63dafb6569ceee811182b995d033fe7e542960fc6d09"
+  },
+  {
+    "file": "QiuJi/Core/Scene/DrillSceneView.swift",
+    "line": 117,
+    "anchor": ".liveReference",
+    "fileSHA256": "49ef0561070da513a7df63dafb6569ceee811182b995d033fe7e542960fc6d09"
+  },
+  {
+    "file": "QiuJi/Core/Media/SequenceVideoExporter.swift",
+    "line": 117,
+    "anchor": ".liveReference",
+    "fileSHA256": "6bce5be1ecc1fc125da36041efcb0bd715864b6abb130a4d868b9d866c64b921"
+  },
+  {
+    "file": "QiuJi/Core/Media/SequenceVideoExporter.swift",
+    "line": 215,
+    "anchor": ".liveReference",
+    "fileSHA256": "6bce5be1ecc1fc125da36041efcb0bd715864b6abb130a4d868b9d866c64b921"
+  },
+  {
+    "file": "QiuJi/Core/Media/SequenceVideoExporter.swift",
+    "line": 1064,
+    "anchor": ".liveReference",
+    "fileSHA256": "6bce5be1ecc1fc125da36041efcb0bd715864b6abb130a4d868b9d866c64b921"
+  },
+  {
+    "file": "QiuJi/Core/Media/SequenceVideoExporter.swift",
+    "line": 1068,
+    "anchor": ".liveReference",
+    "fileSHA256": "6bce5be1ecc1fc125da36041efcb0bd715864b6abb130a4d868b9d866c64b921"
+  }
+]

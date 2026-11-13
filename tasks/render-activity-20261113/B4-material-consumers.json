@@ -1,0 +1,164 @@
+[
+  {
+    "group": "每日清台",
+    "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "33bddd4ecd7b24a1f9c62efe7975697100b6fef31c3013c8ae3a0a0fc767b563"
+  },
+  {
+    "group": "分离角与走位、试打、蛇彩、多球、自定义球形、编排台",
+    "source": "QiuJi/Features/PositionPlay/Views/FreePlayView.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "33bddd4ecd7b24a1f9c62efe7975697100b6fef31c3013c8ae3a0a0fc767b563"
+  },
+  {
+    "group": "批量动作工作台",
+    "source": "QiuJi/Features/BatchDrillStudio/BatchAuthoringView.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "78aa8656abb0403b414521b2f754cf6010c9cfd4f32c8fe25f1f47d987c3c6af"
+  },
+  {
+    "group": "角度动态教学",
+    "source": "QiuJi/Features/AngleTraining/ViewModels/AngleDynamicViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "74c0e0249e70aa3b969268a66b2476033763a0758b4397da6cfb50a8573fdf80"
+  },
+  {
+    "group": "角度练习/场景瞄准",
+    "source": "QiuJi/Features/AngleTraining/Views/SceneAimingView.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "f73254c9ccfcffdc14140ffff1da65638d2c2db5b44cc57f4d2a6390092f9076"
+  },
+  {
+    "group": "瞄准点练习",
+    "source": "QiuJi/Features/AngleTraining/Views/AimPointSceneTrainingView.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "cb2ef483c863dd62036fce40d1f2c1efd81ea3bf37dcb23fe99d6ccf45060d96"
+  },
+  {
+    "group": "准度练习",
+    "source": "QiuJi/Features/AccuracyPractice/AccuracyPracticeViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "cb81a6cecb719705492622d77287c5ff096154731de8410fd39d5e817dfa006d"
+  },
+  {
+    "group": "分离角练习",
+    "source": "QiuJi/Features/SeparationPractice/SeparationPracticeViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "f3857d612ce18fb2489b5ede6c47a497a40dea8293a3b7f61d2a2472873048cc"
+  },
+  {
+    "group": "两球练习",
+    "source": "QiuJi/Features/TwoBallPractice/TwoBallPracticeViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "1722ec1163199868983829339414b770c0a468b99f1f6bd3f82965f90590cc79"
+  },
+  {
+    "group": "三球练习",
+    "source": "QiuJi/Features/ThreeBallPractice/ThreeBallPracticeViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "b1d118f137565131deace93ff199ea9a4d758bc1071b08bdcf502fd2dedbe384"
+  },
+  {
+    "group": "K球练习",
+    "source": "QiuJi/Features/KBallPractice/KBallPracticeViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "60782db393a90ab7c68be3de1e302af95629b79fd9a336861fa17dea2e6985cc"
+  },
+  {
+    "group": "解球练习",
+    "source": "QiuJi/Features/KickPractice/KickPracticeViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "e94b44b37d97cb1e38c730d0d052af93ba4bd7bf87ed35813072e61c205324ff"
+  },
+  {
+    "group": "翻袋练习",
+    "source": "QiuJi/Features/BankPractice/BankPracticeViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "31ca7c2b89c4b13b8a2c8e26ea0420dd7f185ab901f93ad6db27bad5822b6c3a"
+  },
+  {
+    "group": "防守练习",
+    "source": "QiuJi/Features/DefensePractice/DefensePracticeViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "330f576c47552a4f82700d4ff1d435cc74fd1699f52af403423f4550fc51749e"
+  },
+  {
+    "group": "翻袋求解",
+    "source": "QiuJi/Features/AngleTraining/ViewModels/BankShotViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "90118f6b1815e2b3a3c8c41df48333537a2bcbd170fd4287efb03a9649f660d1"
+  },
+  {
+    "group": "颗星体系/解球工具",
+    "source": "QiuJi/Features/AngleTraining/ViewModels/DiamondSystemViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "8b96056ed8856d07805c615c5dfae2dc725f31a496765b41a3f898fb07cef2cf"
+  },
+  {
+    "group": "思路训练",
+    "source": "QiuJi/Features/PositionPlay/ViewModels/SiluTrainerViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "d225b9b99bc42aabd9299731783a28d86950ab2916c2bb7304d0b47c1ca42b94"
+  },
+  {
+    "group": "打一走二想三",
+    "source": "QiuJi/Features/PositionPlay/ViewModels/PlanThreeViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "193aea3445528ed241058f8600e85e7d5bdde9f476c93c66f46d59fa6f538c51"
+  },
+  {
+    "group": "分离角图谱",
+    "source": "QiuJi/Features/AngleTraining/ViewModels/SeparationAngleAtlasViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "e457612ff75efa1b7af48a5e474e6ea0c7a426e0d68690c25d3b3245939ade95"
+  },
+  {
+    "group": "加塞吃库图谱",
+    "source": "QiuJi/Features/AngleTraining/ViewModels/CushionEnglishAtlasViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "a1859fc2978fb68503c288d24fd2e965b16f0b639620113173afd781f535432f"
+  },
+  {
+    "group": "袋口容差",
+    "source": "QiuJi/Features/PocketTolerance/PocketToleranceViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "d40e5f900058ce131324a8f4268e8102c2ef1be001a19d07ac70a59fc7905fa7"
+  },
+  {
+    "group": "球形提取预览",
+    "source": "QiuJi/Features/BallExtraction/ViewModels/BallExtractionViewModel.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "68bd0128cd480a84c5bcef532b05e92b4562e9df63d96b7733f15dfd95351d5c"
+  },
+  {
+    "group": "动作详情/训练记录嵌入预览",
+    "source": "QiuJi/Core/Scene/DrillSceneView.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "49ef0561070da513a7df63dafb6569ceee811182b995d033fe7e542960fc6d09"
+  },
+  {
+    "group": "设置外观组合预览",
+    "source": "QiuJi/Features/Profile/Views/AppearanceCombinationPreview.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "ccb7cc2cecd7b65a3054a918e41af9df7a5951d4428e00e46d50b3f39c1b3f4c"
+  },
+  {
+    "group": "引导外观选择预览",
+    "source": "QiuJi/Features/Profile/Views/OnboardingStyleLab.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "579b2e6dfed765f71cea34ebbbcffc7d3cf3a919a0094760be6d0aab06eb3c15"
+  },
+  {
+    "group": "瞄准特写台呢底图",
+    "source": "QiuJi/Core/Scene/TableFigureRenderer.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "61c9e46564b102fa50784fccd2ecf4651ec594087a3cae73a4fa7b4a1815f7d7"
+  },
+  {
+    "group": "明确匹配App的视频/静帧导出",
+    "source": "QiuJi/Core/Media/SequenceVideoExporter.swift",
+    "sameAsPreB1Checkpoint": true,
+    "sha256": "6bce5be1ecc1fc125da36041efcb0bd715864b6abb130a4d868b9d866c64b921"
+  }
+]

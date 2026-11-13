@@ -1197,6 +1197,45 @@ final class DailyAdaptivePanelUITests: XCTestCase {
 }
 
 extension DailyAdaptivePanelUITests {
+    /// Current home route is the composer-backed separation page. Its completed
+    /// shots survive backgrounding; the old shotSimulation cancellation test
+    /// below covers a different owner and must not stand in for this contract.
+    func testActivityMaintenanceAcrossShotAndPageLifecycle() throws {
+        let app = try launchP01(requiresLandscape: false); defer { app.terminate() }
+        let strike = app.buttons["dailyClearance.strike"]
+        func waitEnabled(_ button: XCUIElement, _ enabled: Bool) {
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "enabled == %@", NSNumber(value: enabled)),
+                object: button)], timeout: 45), .completed)
+        }
+        p01More(app); app.buttons["freeplay.cameraMode"].tap(); p01CloseMenu(app)
+        let original = try p01Balls(app)
+        for shot in 0..<2 {
+            waitEnabled(strike, true)
+            strike.tap()
+            waitEnabled(strike, false)
+            waitEnabled(strike, true)
+            let after = try p01Balls(app)
+            XCTAssertNotEqual(after, original, "A real shot must move at least one ball")
+            try capture(app, "activity-shot-\(shot)-settled")
+            XCUIDevice.shared.press(.home); app.activate()
+            waitEnabled(strike, true)
+            assertP01BallsEqual(try p01Balls(app), after)
+            if shot == 0 {
+                app.buttons["dailyClearance.undo"].tap()
+                waitEnabled(strike, true)
+                assertP01BallsEqual(try p01Balls(app), original)
+            }
+        }
+        app.buttons["dailyClearance.back"].tap()
+        XCTAssertTrue(app.buttons["angleHomeTab_走位"].waitForExistence(timeout: 5))
+        app.buttons["分离角与走位"].tap()
+        XCTAssertTrue(element(app, "composer.landscape").waitForExistence(timeout: 15))
+        waitEnabled(strike, true)
+        XCTAssertTrue(element(app, "table.scene").exists)
+        try capture(app, "activity-reentered")
+    }
+
     private func launchP01(requiresLandscape: Bool = true, extraArgs: [String] = [], normalizeView: Bool = true) throws -> XCUIApplication {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-dailyLayout.probe", "-3dDrag.probe", "-v63.cameraDiagnostics"] + extraArgs)
@@ -1207,7 +1246,8 @@ extension DailyAdaptivePanelUITests {
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         if UIDevice.current.userInterfaceIdiom == .phone { XCUIDevice.shared.orientation = .landscapeLeft }
         card.tap()
-        XCTAssertTrue(element(app, "shotSimulation.landscape").waitForExistence(timeout: 15))
+        XCTAssertTrue(element(app, "composer.landscape").waitForExistence(timeout: 15))
+        XCTAssertTrue(element(app, "composer.landscape").label.contains("分离角与走位"))
         if requiresLandscape {
             let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
                 app.windows.firstMatch.frame.width > app.windows.firstMatch.frame.height
@@ -1378,7 +1418,8 @@ extension DailyAdaptivePanelUITests {
     }
 
     func testP01BackgroundReplayAndExit() throws {
-        let app = try launchP01(); defer { app.terminate() }
+        let app = try launchP01(requiresLandscape: UIDevice.current.userInterfaceIdiom == .phone)
+        defer { app.terminate() }
         func ready(_ id: String) -> XCUIElement {
             let button = app.buttons[id]
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: button)], timeout: 40), .completed)
@@ -1412,7 +1453,7 @@ extension DailyAdaptivePanelUITests {
         app.buttons["dailyClearance.back"].tap()
         XCTAssertTrue(app.buttons["angleHomeTab_走位"].waitForExistence(timeout: 5))
         app.buttons["分离角与走位"].tap()
-        XCTAssertTrue(element(app, "shotSimulation.landscape").waitForExistence(timeout: 15))
+        XCTAssertTrue(element(app, "composer.landscape").waitForExistence(timeout: 15))
         _ = ready("dailyClearance.strike")
         assertP01BallsEqual(try p01Balls(app), original)
         XCTAssertFalse(app.buttons["dailyClearance.playback"].isEnabled)

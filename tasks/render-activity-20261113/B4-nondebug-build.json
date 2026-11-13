@@ -1,0 +1,8 @@
+{
+  "configuration": "Debug, SWIFT_ACTIVE_COMPILATION_CONDITIONS empty",
+  "swiftDefinitions": [],
+  "buildSucceeded": true,
+  "binarySHA256": "2a43ed2a3dafee10488aa7c7ca5eaf4d67640c2752f38c3429170e0eef003001",
+  "log": "output/render-activity-20261113/b4/nondebug-build.log",
+  "limitation": "Tests not run in this build. Not formal Release transport validation. Clang -DDEBUG=1 does not enable Swift #if DEBUG."
+}

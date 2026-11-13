@@ -1,0 +1,11 @@
+{
+  "baseCommit": "4b222f35cbf9140f19b87a031909a37c7378be18",
+  "files": {
+    "QiuJi/Core/Scene/AngleSceneView.swift": "6586998b99e7e08e5212c6f88479bd7eb41c11e2327e546fcd0298f0924932ae",
+    "QiuJi/Core/Scene/AngleTrainingScene.swift": "19187114ceeb827740969b316d0f1a76754ffeee594b987e162313dfa66f2a25",
+    "QiuJi/Core/Components/BTAimCloseupHUD.swift": "239a03bcdf1fa654d472a72e19fb5f829069111daa4e7fa99565e1eec729cb4f",
+    "QiuJi/Core/Geometry/AimCloseupCoords.swift": "aa30a3976b539413cf080c8b77608aa703d0618bf3cfe624ca9ae5118da06348"
+  },
+  "runtimeAppSHA256": "8e6dcf74bb807aefc9b76d0a346a24fa517ab38b46eaf77838b0ff5deb7ebecb",
+  "scope": "B1 committed plus B2 working source; UI runner changes are separate; shader B3 rejected"
+}

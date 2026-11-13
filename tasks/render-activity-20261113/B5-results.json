@@ -1,0 +1,575 @@
+{
+  "scope": "Single local iPad simulator full process CPU, fixed held-aim fixture. No moving balls, phone/GPU/frame-tail/thermal/energy claim.",
+  "protocol": {
+    "sequence": [
+      "A",
+      "A",
+      "A",
+      "B",
+      "B",
+      "A"
+    ],
+    "pairs": {
+      "AA": [
+        1,
+        2
+      ],
+      "AB": [
+        3,
+        4
+      ],
+      "BA": [
+        6,
+        5
+      ]
+    },
+    "scope": "iPad simulator full App process CPU, fixed daily closeup fixture, held direction ruler; no ball motion, no phone energy/GPU/frame-tail claim.",
+    "CPUWindow": "marker +2 to +7 seconds; screenshot after +8; 12-second hold",
+    "diagnostics": "work counts disabled; no reference flag; real pre-B1 checkpoint A vs final B1+B2 B",
+    "threshold": "for each state, both paired reductions must exceed max(5%, abs(AA relative change)); no resampling"
+  },
+  "rows": [
+    {
+      "state": "cloth-green-2d",
+      "sixCPUPercent": [
+        16.549265195328047,
+        18.364078018469584,
+        17.660418224870646,
+        15.244612080768958,
+        15.272535660119347,
+        18.267634991817523
+      ],
+      "aaAbsoluteRelativePercent": 10.966123279321604,
+      "abReductionPercent": 13.679212538124263,
+      "baReductionPercent": 16.3956600459761,
+      "thresholdPercent": 10.966123279321604,
+      "bothPairsPass": true,
+      "baselinePairMean": 17.964026608344085,
+      "candidatePairMean": 15.258573870444152
+    },
+    {
+      "state": "cloth-green-3d",
+      "sixCPUPercent": [
+        18.339774575003403,
+        16.350204255539783,
+        18.01128663883604,
+        14.441403173549086,
+        14.651458031717603,
+        20.21515860996451
+      ],
+      "aaAbsoluteRelativePercent": 10.848390264160324,
+      "abReductionPercent": 19.82025791311073,
+      "baReductionPercent": 27.5224186245288,
+      "thresholdPercent": 10.848390264160324,
+      "bothPairsPass": true,
+      "baselinePairMean": 19.113222624400276,
+      "candidatePairMean": 14.546430602633343
+    },
+    {
+      "state": "cloth-tournamentBlue-2d",
+      "sixCPUPercent": [
+        17.14160739234436,
+        17.91987347390472,
+        17.76574290070847,
+        14.796448382361001,
+        15.473231703735465,
+        18.043177923687725
+      ],
+      "aaAbsoluteRelativePercent": 4.5402164671438205,
+      "abReductionPercent": 16.713596132414242,
+      "baReductionPercent": 14.243312518568828,
+      "thresholdPercent": 5,
+      "bothPairsPass": true,
+      "baselinePairMean": 17.904460412198098,
+      "candidatePairMean": 15.134840043048232
+    },
+    {
+      "state": "cloth-tournamentBlue-3d",
+      "sixCPUPercent": [
+        18.765886793950326,
+        17.34316974107919,
+        18.963784536414803,
+        14.983776254300766,
+        15.03775371412288,
+        19.576379730047936
+      ],
+      "aaAbsoluteRelativePercent": 7.5814005940278095,
+      "abReductionPercent": 20.987415642017602,
+      "baReductionPercent": 23.18419482310452,
+      "thresholdPercent": 7.5814005940278095,
+      "bothPairsPass": true,
+      "baselinePairMean": 19.27008213323137,
+      "candidatePairMean": 15.010764984211823
+    }
+  ],
+  "arms": [
+    {
+      "storedPreferencesBeforeLaunch": {
+        "renderFrameRate": null,
+        "clothColor.v1": null,
+        "roomStyle.v1": null
+      },
+      "environment": {
+        "loadAtStart": "{ 20.98 19.43 15.97 }",
+        "machine": "Mac17,8"
+      },
+      "arm": "A",
+      "index": 1,
+      "productSHA256": "96b84043abac10e9138e071e595649afb5d9a5ae6ea91597a3220c96a0915a2a",
+      "exitCode": 0,
+      "records": {
+        "cloth-green-2d": {
+          "markerEpoch": 1794569342.7033477,
+          "pid": 85143,
+          "sampleStart": 1794569344.892011,
+          "cpuStart": 7.39,
+          "cpuEnd": 8.2,
+          "sampleEnd": 1794569349.786488,
+          "cpuSeconds": 0.8099999999999996,
+          "wallSeconds": 4.894477128982544,
+          "oneCorePercent": 16.549265195328047,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm1-A/cloth-green-2d.png"
+        },
+        "cloth-green-3d": {
+          "markerEpoch": 1794569361.3245897,
+          "pid": 85143,
+          "sampleStart": 1794569363.517812,
+          "cpuStart": 10.44,
+          "cpuEnd": 11.34,
+          "sampleEnd": 1794569368.4251788,
+          "cpuSeconds": 0.9000000000000004,
+          "wallSeconds": 4.907366752624512,
+          "oneCorePercent": 18.339774575003403,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm1-A/cloth-green-3d.png"
+        },
+        "cloth-tournamentBlue-2d": {
+          "markerEpoch": 1794569392.944398,
+          "pid": 85391,
+          "sampleStart": 1794569395.06646,
+          "cpuStart": 7.29,
+          "cpuEnd": 8.13,
+          "sampleEnd": 1794569399.9668171,
+          "cpuSeconds": 0.8400000000000007,
+          "wallSeconds": 4.900357246398926,
+          "oneCorePercent": 17.14160739234436,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm1-A/cloth-tournamentBlue-2d.png"
+        },
+        "cloth-tournamentBlue-3d": {
+          "markerEpoch": 1794569411.5663707,
+          "pid": 85391,
+          "sampleStart": 1794569413.72335,
+          "cpuStart": 10.32,
+          "cpuEnd": 11.24,
+          "sampleEnd": 1794569418.6258628,
+          "cpuSeconds": 0.9199999999999999,
+          "wallSeconds": 4.902512788772583,
+          "oneCorePercent": 18.765886793950326,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm1-A/cloth-tournamentBlue-3d.png"
+        }
+      },
+      "command": [
+        "xcodebuild",
+        "test-without-building",
+        "-xctestrun",
+        "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm1-A/test.xctestrun",
+        "-destination",
+        "platform=iOS Simulator,id=4F00E012-1FA4-4F08-97E0-1B41160A63CC",
+        "-parallel-testing-enabled",
+        "NO",
+        "-only-testing:QiuJiUITests/V52DailyClearanceUITests/testAimCloseupClothAppearance",
+        "-resultBundlePath",
+        "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm1-A/result.xcresult"
+      ]
+    },
+    {
+      "storedPreferencesBeforeLaunch": {
+        "renderFrameRate": null,
+        "clothColor.v1": null,
+        "roomStyle.v1": null
+      },
+      "environment": {
+        "loadAtStart": "{ 14.61 20.10 16.87 }",
+        "machine": "Mac17,8"
+      },
+      "arm": "A",
+      "index": 2,
+      "productSHA256": "96b84043abac10e9138e071e595649afb5d9a5ae6ea91597a3220c96a0915a2a",
+      "exitCode": 0,
+      "records": {
+        "cloth-green-2d": {
+          "markerEpoch": 1794569449.8518279,
+          "pid": 85703,
+          "sampleStart": 1794569452.0241349,
+          "cpuStart": 7.32,
+          "cpuEnd": 8.22,
+          "sampleEnd": 1794569456.925007,
+          "cpuSeconds": 0.9000000000000004,
+          "wallSeconds": 4.900872230529785,
+          "oneCorePercent": 18.364078018469584,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm2-A/cloth-green-2d.png"
+        },
+        "cloth-green-3d": {
+          "markerEpoch": 1794569468.5152135,
+          "pid": 85703,
+          "sampleStart": 1794569470.6852329,
+          "cpuStart": 10.35,
+          "cpuEnd": 11.15,
+          "sampleEnd": 1794569475.578138,
+          "cpuSeconds": 0.8000000000000007,
+          "wallSeconds": 4.892905235290527,
+          "oneCorePercent": 16.350204255539783,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm2-A/cloth-green-3d.png"
+        },
+        "cloth-tournamentBlue-2d": {
+          "markerEpoch": 1794569500.0980873,
+          "pid": 85934,
+          "sampleStart": 1794569502.268833,
+          "cpuStart": 7.29,
+          "cpuEnd": 8.17,
+          "sampleEnd": 1794569507.1795819,
+          "cpuSeconds": 0.8799999999999999,
+          "wallSeconds": 4.9107489585876465,
+          "oneCorePercent": 17.91987347390472,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm2-A/cloth-tournamentBlue-2d.png"
+        },
+        "cloth-tournamentBlue-3d": {
+          "markerEpoch": 1794569518.7147005,
+          "pid": 85934,
+          "sampleStart": 1794569520.916373,
+          "cpuStart": 10.38,
+          "cpuEnd": 11.23,
+          "sampleEnd": 1794569525.817438,
+          "cpuSeconds": 0.8499999999999996,
+          "wallSeconds": 4.901064872741699,
+          "oneCorePercent": 17.34316974107919,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm2-A/cloth-tournamentBlue-3d.png"
+        }
+      },
+      "command": [
+        "xcodebuild",
+        "test-without-building",
+        "-xctestrun",
+        "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm2-A/test.xctestrun",
+        "-destination",
+        "platform=iOS Simulator,id=4F00E012-1FA4-4F08-97E0-1B41160A63CC",
+        "-parallel-testing-enabled",
+        "NO",
+        "-only-testing:QiuJiUITests/V52DailyClearanceUITests/testAimCloseupClothAppearance",
+        "-resultBundlePath",
+        "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm2-A/result.xcresult"
+      ]
+    },
+    {
+      "storedPreferencesBeforeLaunch": {
+        "renderFrameRate": null,
+        "clothColor.v1": null,
+        "roomStyle.v1": null
+      },
+      "environment": {
+        "loadAtStart": "{ 11.12 16.69 15.89 }",
+        "machine": "Mac17,8"
+      },
+      "arm": "A",
+      "index": 3,
+      "productSHA256": "96b84043abac10e9138e071e595649afb5d9a5ae6ea91597a3220c96a0915a2a",
+      "exitCode": 0,
+      "records": {
+        "cloth-green-2d": {
+          "markerEpoch": 1794569557.0938947,
+          "pid": 86256,
+          "sampleStart": 1794569559.2027001,
+          "cpuStart": 7.23,
+          "cpuEnd": 8.13,
+          "sampleEnd": 1794569564.2988422,
+          "cpuSeconds": 0.9000000000000004,
+          "wallSeconds": 5.096142053604126,
+          "oneCorePercent": 17.660418224870646,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm3-A/cloth-green-2d.png"
+        },
+        "cloth-green-3d": {
+          "markerEpoch": 1794569575.7273176,
+          "pid": 86256,
+          "sampleStart": 1794569578.018053,
+          "cpuStart": 10.4,
+          "cpuEnd": 11.25,
+          "sampleEnd": 1794569582.7373161,
+          "cpuSeconds": 0.8499999999999996,
+          "wallSeconds": 4.719263076782227,
+          "oneCorePercent": 18.01128663883604,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm3-A/cloth-green-3d.png"
+        },
+        "cloth-tournamentBlue-2d": {
+          "markerEpoch": 1794569607.4549725,
+          "pid": 86469,
+          "sampleStart": 1794569609.746922,
+          "cpuStart": 7.31,
+          "cpuEnd": 8.16,
+          "sampleEnd": 1794569614.531411,
+          "cpuSeconds": 0.8500000000000005,
+          "wallSeconds": 4.784488916397095,
+          "oneCorePercent": 17.76574290070847,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm3-A/cloth-tournamentBlue-2d.png"
+        },
+        "cloth-tournamentBlue-3d": {
+          "markerEpoch": 1794569626.2039049,
+          "pid": 86469,
+          "sampleStart": 1794569628.501438,
+          "cpuStart": 10.52,
+          "cpuEnd": 11.43,
+          "sampleEnd": 1794569633.3000581,
+          "cpuSeconds": 0.9100000000000001,
+          "wallSeconds": 4.798620223999023,
+          "oneCorePercent": 18.963784536414803,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm3-A/cloth-tournamentBlue-3d.png"
+        }
+      },
+      "command": [
+        "xcodebuild",
+        "test-without-building",
+        "-xctestrun",
+        "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm3-A/test.xctestrun",
+        "-destination",
+        "platform=iOS Simulator,id=4F00E012-1FA4-4F08-97E0-1B41160A63CC",
+        "-parallel-testing-enabled",
+        "NO",
+        "-only-testing:QiuJiUITests/V52DailyClearanceUITests/testAimCloseupClothAppearance",
+        "-resultBundlePath",
+        "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm3-A/result.xcresult"
+      ]
+    },
+    {
+      "storedPreferencesBeforeLaunch": {
+        "renderFrameRate": null,
+        "clothColor.v1": null,
+        "roomStyle.v1": null
+      },
+      "environment": {
+        "loadAtStart": "{ 7.89 13.83 14.86 }",
+        "machine": "Mac17,8"
+      },
+      "arm": "B",
+      "index": 4,
+      "productSHA256": "8e6dcf74bb807aefc9b76d0a346a24fa517ab38b46eaf77838b0ff5deb7ebecb",
+      "exitCode": 0,
+      "records": {
+        "cloth-green-2d": {
+          "markerEpoch": 1794569666.4722185,
+          "pid": 86780,
+          "sampleStart": 1794569668.724195,
+          "cpuStart": 7.42,
+          "cpuEnd": 8.15,
+          "sampleEnd": 1794569673.512772,
+          "cpuSeconds": 0.7300000000000004,
+          "wallSeconds": 4.788577079772949,
+          "oneCorePercent": 15.244612080768958,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm4-B/cloth-green-2d.png"
+        },
+        "cloth-green-3d": {
+          "markerEpoch": 1794569685.2167444,
+          "pid": 86780,
+          "sampleStart": 1794569687.476126,
+          "cpuStart": 10.05,
+          "cpuEnd": 10.74,
+          "sampleEnd": 1794569692.254055,
+          "cpuSeconds": 0.6899999999999995,
+          "wallSeconds": 4.777929067611694,
+          "oneCorePercent": 14.441403173549086,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm4-B/cloth-green-3d.png"
+        },
+        "cloth-tournamentBlue-2d": {
+          "markerEpoch": 1794569718.3535733,
+          "pid": 87003,
+          "sampleStart": 1794569720.6182,
+          "cpuStart": 7.36,
+          "cpuEnd": 8.07,
+          "sampleEnd": 1794569725.4166489,
+          "cpuSeconds": 0.71,
+          "wallSeconds": 4.798448801040649,
+          "oneCorePercent": 14.796448382361001,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm4-B/cloth-tournamentBlue-2d.png"
+        },
+        "cloth-tournamentBlue-3d": {
+          "markerEpoch": 1794569737.0771606,
+          "pid": 87003,
+          "sampleStart": 1794569739.2012842,
+          "cpuStart": 10.04,
+          "cpuEnd": 10.79,
+          "sampleEnd": 1794569744.206698,
+          "cpuSeconds": 0.75,
+          "wallSeconds": 5.005413770675659,
+          "oneCorePercent": 14.983776254300766,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm4-B/cloth-tournamentBlue-3d.png"
+        }
+      },
+      "command": [
+        "xcodebuild",
+        "test-without-building",
+        "-xctestrun",
+        "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm4-B/test.xctestrun",
+        "-destination",
+        "platform=iOS Simulator,id=4F00E012-1FA4-4F08-97E0-1B41160A63CC",
+        "-parallel-testing-enabled",
+        "NO",
+        "-only-testing:QiuJiUITests/V52DailyClearanceUITests/testAimCloseupClothAppearance",
+        "-resultBundlePath",
+        "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm4-B/result.xcresult"
+      ]
+    },
+    {
+      "storedPreferencesBeforeLaunch": {
+        "renderFrameRate": null,
+        "clothColor.v1": null,
+        "roomStyle.v1": null
+      },
+      "environment": {
+        "loadAtStart": "{ 8.23 12.65 14.31 }",
+        "machine": "Mac17,8"
+      },
+      "arm": "B",
+      "index": 5,
+      "productSHA256": "8e6dcf74bb807aefc9b76d0a346a24fa517ab38b46eaf77838b0ff5deb7ebecb",
+      "exitCode": 0,
+      "records": {
+        "cloth-green-2d": {
+          "markerEpoch": 1794569777.9195743,
+          "pid": 87311,
+          "sampleStart": 1794569780.229198,
+          "cpuStart": 7.24,
+          "cpuEnd": 7.97,
+          "sampleEnd": 1794569785.0090199,
+          "cpuSeconds": 0.7299999999999995,
+          "wallSeconds": 4.779821872711182,
+          "oneCorePercent": 15.272535660119347,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm5-B/cloth-green-2d.png"
+        },
+        "cloth-green-3d": {
+          "markerEpoch": 1794569796.706404,
+          "pid": 87311,
+          "sampleStart": 1794569798.8085928,
+          "cpuStart": 9.87,
+          "cpuEnd": 10.6,
+          "sampleEnd": 1794569803.791032,
+          "cpuSeconds": 0.7300000000000004,
+          "wallSeconds": 4.982439279556274,
+          "oneCorePercent": 14.651458031717603,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm5-B/cloth-green-3d.png"
+        },
+        "cloth-tournamentBlue-2d": {
+          "markerEpoch": 1794569828.5704324,
+          "pid": 87524,
+          "sampleStart": 1794569830.720654,
+          "cpuStart": 7.32,
+          "cpuEnd": 8.09,
+          "sampleEnd": 1794569835.69699,
+          "cpuSeconds": 0.7699999999999996,
+          "wallSeconds": 4.9763360023498535,
+          "oneCorePercent": 15.473231703735465,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm5-B/cloth-tournamentBlue-2d.png"
+        },
+        "cloth-tournamentBlue-3d": {
+          "markerEpoch": 1794569847.2892003,
+          "pid": 87524,
+          "sampleStart": 1794569849.497791,
+          "cpuStart": 10.05,
+          "cpuEnd": 10.8,
+          "sampleEnd": 1794569854.485238,
+          "cpuSeconds": 0.75,
+          "wallSeconds": 4.987447023391724,
+          "oneCorePercent": 15.03775371412288,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm5-B/cloth-tournamentBlue-3d.png"
+        }
+      },
+      "command": [
+        "xcodebuild",
+        "test-without-building",
+        "-xctestrun",
+        "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm5-B/test.xctestrun",
+        "-destination",
+        "platform=iOS Simulator,id=4F00E012-1FA4-4F08-97E0-1B41160A63CC",
+        "-parallel-testing-enabled",
+        "NO",
+        "-only-testing:QiuJiUITests/V52DailyClearanceUITests/testAimCloseupClothAppearance",
+        "-resultBundlePath",
+        "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm5-B/result.xcresult"
+      ]
+    },
+    {
+      "storedPreferencesBeforeLaunch": {
+        "renderFrameRate": null,
+        "clothColor.v1": null,
+        "roomStyle.v1": null
+      },
+      "environment": {
+        "loadAtStart": "{ 13.43 12.39 13.95 }",
+        "machine": "Mac17,8"
+      },
+      "arm": "A",
+      "index": 6,
+      "productSHA256": "96b84043abac10e9138e071e595649afb5d9a5ae6ea91597a3220c96a0915a2a",
+      "exitCode": 0,
+      "records": {
+        "cloth-green-2d": {
+          "markerEpoch": 1794569889.3997574,
+          "pid": 87826,
+          "sampleStart": 1794569891.609803,
+          "cpuStart": 7.23,
+          "cpuEnd": 8.13,
+          "sampleEnd": 1794569896.536549,
+          "cpuSeconds": 0.9000000000000004,
+          "wallSeconds": 4.926746129989624,
+          "oneCorePercent": 18.267634991817523,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm6-A/cloth-green-2d.png"
+        },
+        "cloth-green-3d": {
+          "markerEpoch": 1794569908.0349689,
+          "pid": 87826,
+          "sampleStart": 1794569910.31633,
+          "cpuStart": 10.39,
+          "cpuEnd": 11.38,
+          "sampleEnd": 1794569915.213645,
+          "cpuSeconds": 0.9900000000000002,
+          "wallSeconds": 4.89731502532959,
+          "oneCorePercent": 20.21515860996451,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm6-A/cloth-green-3d.png"
+        },
+        "cloth-tournamentBlue-2d": {
+          "markerEpoch": 1794569939.7860637,
+          "pid": 88066,
+          "sampleStart": 1794569941.886729,
+          "cpuStart": 7.29,
+          "cpuEnd": 8.21,
+          "sampleEnd": 1794569946.985609,
+          "cpuSeconds": 0.9200000000000008,
+          "wallSeconds": 5.098880052566528,
+          "oneCorePercent": 18.043177923687725,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm6-A/cloth-tournamentBlue-2d.png"
+        },
+        "cloth-tournamentBlue-3d": {
+          "markerEpoch": 1794569958.38028,
+          "pid": 88066,
+          "sampleStart": 1794569960.501282,
+          "cpuStart": 10.42,
+          "cpuEnd": 11.38,
+          "sampleEnd": 1794569965.405151,
+          "cpuSeconds": 0.9600000000000009,
+          "wallSeconds": 4.903868913650513,
+          "oneCorePercent": 19.576379730047936,
+          "screenshot": "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm6-A/cloth-tournamentBlue-3d.png"
+        }
+      },
+      "command": [
+        "xcodebuild",
+        "test-without-building",
+        "-xctestrun",
+        "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm6-A/test.xctestrun",
+        "-destination",
+        "platform=iOS Simulator,id=4F00E012-1FA4-4F08-97E0-1B41160A63CC",
+        "-parallel-testing-enabled",
+        "NO",
+        "-only-testing:QiuJiUITests/V52DailyClearanceUITests/testAimCloseupClothAppearance",
+        "-resultBundlePath",
+        "/Users/song/projects/13.billiard_trainer/output/render-activity-20261113/b5/arm6-A/result.xcresult"
+      ]
+    }
+  ]
+}

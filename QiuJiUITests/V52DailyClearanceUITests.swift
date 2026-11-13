@@ -223,10 +223,12 @@ extension V52DailyClearanceUITests {
         XCUIDevice.shared.orientation = .landscapeRight
         let reference = ProcessInfo.processInfo.environment["AIM_CLOSEUP_REFERENCE"] == "1"
         let referenceArguments = reference ? ["-aimCloseup.referenceTimeline"] : []
+        let countArguments = ProcessInfo.processInfo.environment["AIM_CLOSEUP_WORK_COUNTS"] == "0"
+            ? [] : ["-aimCloseup.workCounts"]
         for cloth in ["green", "tournamentBlue"] {
             let app = launch(["-dailyClearance.fixture=closeup0", "-dailyClearance.fixtureSettled",
                               "-showAimCloseup", "YES", "-clothColor.v1", cloth,
-                              "-roomStyle.v1", "tournament", "-aimCloseup.workCounts"] + referenceArguments)
+                              "-roomStyle.v1", "tournament"] + referenceArguments + countArguments)
             let wheel = app.descendants(matching: .any)["shotStage.aimWheel"].firstMatch
             XCTAssertTrue(wheel.waitForExistence(timeout: 30))
             settleDailyCamera(app)
@@ -1940,14 +1942,24 @@ extension V52DailyClearanceUITests {
     func testQuizAndBatchSharedControlsPreserveEditingSemantics() {
         XCUIDevice.shared.orientation = .portrait
         for page in ["aimpoint2d", "aimpoint3d"] {
-            let app = XCUIApplication.launchClean(extraArgs: ["-dailyInteraction.sharedPage=\(page)"])
-            let wheel = app.descendants(matching: .any)["shotStage.aimWheel"].firstMatch
+            let app = XCUIApplication.launchClean(extraArgs: ["-dailyInteraction.sharedPage=\(page)",
+                                                            "-v50.inMemoryStore", "-forcePremium"])
+            let start = app.buttons["aimPointTraining.start"]
+            XCTAssertTrue(start.waitForExistence(timeout: 10))
+            start.tap()
+            app.selectTrainingView(page == "aimpoint3d" ? "3D瞄准点" : "2D瞄准点")
+            let wheel = app.descendants(matching: .any)["aimPointTraining.aimWheel"].firstMatch
             XCTAssertTrue(wheel.waitForExistence(timeout: 20))
             XCTAssertTrue(app.buttons["提交"].exists)
             wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
                 .press(forDuration: 0.1, thenDragTo: wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)))
             XCTAssertTrue(app.buttons["提交"].exists, "调方向不能替用户提交答案")
             snap(app, "shared-\(page)-direction")
+            app.buttons["aimPointTraining.submit"].tap()
+            XCTAssertTrue(app.buttons["aimPointTraining.next"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.descendants(matching: .any)["aimCloseup.hud"].firstMatch.waitForExistence(timeout: 5),
+                          "Submitted answers retain their persistent comparison closeup")
+            snap(app, "shared-\(page)-answer-closeup")
             app.terminate()
         }
         let app = XCUIApplication.launchClean(extraArgs: ["-dailyInteraction.sharedPage=batch"])
@@ -1959,7 +1971,8 @@ extension V52DailyClearanceUITests {
         up.tap()
         snap(app, "shared-batch-pad")
         XCTAssertTrue(app.buttons["回中"].exists)
-        app.buttons["关闭打点"].firstMatch.tap()
+        // This is the full-table dismissal backdrop; its center is covered by the pad.
+        app.buttons["关闭打点"].firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.1)).tap()
         XCTAssertTrue(up.waitForNonExistence(timeout: 3))
         snap(app, "shared-batch-editor")
     }

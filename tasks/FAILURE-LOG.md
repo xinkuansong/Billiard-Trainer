@@ -5,6 +5,22 @@
 
 ---
 
+## FL-269 — 集成验证的构建产物隔离与历史控件合同（2026-11-13）
+
+- **任务**：活动期性能 B4/B5。
+- **现象**：首轮 UI 中原 App 路径消失，后续 launch 失败，结果包不完整；此前同一 DerivedData 正在并行构建另一配置，未查明确切删除者。冻结已安装相同 SHA 的 App 后，第二轮暴露旧用例仍要求颗星解球的特写设置、以及旧瞄准点方向尺 ID。
+- **处理**：保存失败日志/原图；只终止核实身份的测试与孤立 diagnose 进程；App/runner/xctestrun 冻结到独立目录，后续构建与测试串行。源码证实颗星解球刻意无直接碰球特写、当前瞄准尺为 aimPointTraining.aimWheel；测试改为当前明确合同，不改 App 去迎合旧断言。瞄准点首次修标识后仍停在训练设置，原失败 AX 显示 aimPointTraining.start；补真实开始训练和明确模式选择，只重跑该 selector。随后批量页旧 `.tap()` 点中被打点盘遮挡的全桌关闭背景中心；根据原图/AX 改点其空白处，原关闭断言保留。B5 基线构建另用独立 worktree/DerivedData，补同一来源的本机未跟踪资源并记录清单；无效 build-only coverage 参数的失败日志保留。
+- **防复发**：测试期间不重配置同一构建目录；历史通用测试应先核明确禁用的页面能力及 AX ID，不能把“无此功能”误作接入遗漏。构建 worktree 前核本机忽略资源依赖。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` § FL-269。
+
+## FL-268 — 旧测试路由与当前页面所有者不一致（2026-11-13）
+
+- **任务**：活动期性能方案 B2。
+- **现象**：新 viewport 夹具直接写只读派生属性导致编译失败；旧 P01 UI 寻找 shotSimulation.landscape，而首页真实路由已是 composer.landscape。修正入口后，旧中断测试的立即禁用断言仍失败。
+- **根因与处理**：夹具通过 tablePreferencePage 配置真实入口；核实际 AX、标题及源码分支后修正入口标识。旧中断取消合同只适用于 isShotSimulation，不能移作当前 composer 宿主。保留旧失败和断言，新增当前宿主的真实击球、停稳、后台、撤销与重进验证；40 项逻辑及 3 个有效 UI selector 通过，旧 selector 不冒充通过。详见 [B2 记录](render-activity-20261113/B2-MAINTENANCE.md)。
+- **防复发**：复用历史 UI 测试前核实际 route、owner、AX 身份和生命周期合同；异步准备与播放启动分开断言。测试属性通过真实生产配置，不能放宽访问控制。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` § FL-268。
+
 ## FL-267 — 近景 HUD 的验收夹具与生命周期边界（2026-11-13）
 
 - **任务**：活动期性能方案 B1。
